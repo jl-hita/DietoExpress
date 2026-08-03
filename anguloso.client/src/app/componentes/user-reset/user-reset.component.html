@@ -1,0 +1,15 @@
+<form [formGroup]="form" (ngSubmit)="resetPassword()" class="login-form">
+  <mat-form-field appearance="outline" class="full-width">
+    <mat-label>Usuario</mat-label>
+    <input matInput formControlName="username" required />
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" class="full-width">
+    <mat-label>Email</mat-label>
+    <input matInput formControlName="email" required />
+  </mat-form-field>
+
+  <button mat-raised-button color="primary" type="submit" [disabled]="loading">
+    {{ loading ? 'Enviando email...' : 'Reset pwd' }}
+  </button>
+</form>

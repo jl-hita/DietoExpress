@@ -1,0 +1,6 @@
+@Anguloso.Server_HostAddress = http://localhost:5125
+
+GET {{Anguloso.Server_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

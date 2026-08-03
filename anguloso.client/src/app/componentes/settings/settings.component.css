@@ -1,0 +1,250 @@
+:host {
+  display: block;
+  padding: 1.5rem;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* ── Spinner de carga ── */
+.loading-overlay {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px;
+}
+
+/* ── Encabezado de página ── */
+.page-header {
+  margin-bottom: 2rem;
+}
+
+.page-title-group {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.page-icon {
+  font-size: 2.5rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  color: #3f51b5;
+  margin-top: 0.2rem;
+}
+
+.page-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 0 0 0.3rem 0;
+}
+
+.page-subtitle {
+  font-size: 0.9rem;
+  color: #666;
+  margin: 0;
+}
+
+/* ── Formulario ── */
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ── Tarjetas ── */
+.settings-card {
+  border-radius: 16px !important;
+  box-shadow: 0 4px 20px rgba(63, 81, 181, 0.08) !important;
+  border: 1px solid rgba(63, 81, 181, 0.1);
+  overflow: hidden;
+  transition: box-shadow 0.25s ease;
+}
+
+.settings-card:hover {
+  box-shadow: 0 8px 32px rgba(63, 81, 181, 0.14) !important;
+}
+
+.settings-card mat-card-header {
+  padding: 1.2rem 1.5rem 1rem;
+  background: linear-gradient(135deg, #f5f7ff 0%, #eef0fb 100%);
+}
+
+.settings-card mat-card-title {
+  font-size: 1rem !important;
+  font-weight: 600 !important;
+  color: #3f51b5 !important;
+}
+
+.settings-card mat-card-subtitle {
+  font-size: 0.8rem !important;
+  color: #888 !important;
+}
+
+.section-icon {
+  background: #3f51b5 !important;
+  color: white !important;
+  border-radius: 8px !important;
+  padding: 6px;
+}
+
+.card-content {
+  padding: 1.5rem !important;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.full-width {
+  width: 100%;
+}
+
+/* ── Fila info de lectura (usuario, email) ── */
+.info-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: #f8f9ff;
+  border-radius: 8px;
+  border: 1px solid #e8eaf6;
+  margin-bottom: 0.25rem;
+}
+
+.info-label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: #888;
+  min-width: 90px;
+}
+
+.info-label mat-icon {
+  font-size: 1rem;
+  width: 1rem;
+  height: 1rem;
+  color: #9c9c9c;
+}
+
+.info-value {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #333;
+}
+
+/* ── Zona de logo ── */
+.logo-zone {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.logo-preview {
+  width: 120px;
+  height: 120px;
+  border-radius: 12px;
+  border: 2px dashed #c5cae9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f7ff;
+  overflow: hidden;
+  flex-shrink: 0;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.logo-preview.has-logo {
+  border: 2px solid #3f51b5;
+  background: white;
+}
+
+.logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 8px;
+}
+
+.logo-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  color: #bbb;
+  font-size: 0.75rem;
+}
+
+.logo-placeholder mat-icon {
+  font-size: 2rem;
+  width: 2rem;
+  height: 2rem;
+  color: #c5cae9;
+}
+
+.logo-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.25rem;
+  background: linear-gradient(135deg, #3f51b5 0%, #5c6bc0 100%);
+  color: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: opacity 0.2s, transform 0.15s;
+  box-shadow: 0 3px 8px rgba(63, 81, 181, 0.3);
+  user-select: none;
+}
+
+.upload-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.upload-btn mat-icon {
+  font-size: 1.1rem;
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.remove-btn {
+  border-radius: 8px !important;
+  font-size: 0.875rem !important;
+}
+
+/* ── Barra de guardar ── */
+.save-bar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.5rem 0;
+}
+
+.save-btn {
+  display: flex !important;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 2rem !important;
+  font-size: 1rem !important;
+  border-radius: 10px !important;
+  background: linear-gradient(135deg, #3f51b5 0%, #5c6bc0 100%) !important;
+  box-shadow: 0 4px 14px rgba(63, 81, 181, 0.4) !important;
+  transition: transform 0.15s, box-shadow 0.15s !important;
+}
+
+.save-btn:not([disabled]):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(63, 81, 181, 0.5) !important;
+}
+
+.btn-spinner {
+  display: inline-block;
+}

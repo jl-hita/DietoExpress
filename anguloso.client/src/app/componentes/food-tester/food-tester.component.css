@@ -1,0 +1,62 @@
+.food-search-card {
+  max-width: 900px;
+  margin: 1.5rem auto;
+  background: #fff;
+  padding: 1rem 1.2rem;
+  border-radius: 0.6rem;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+}
+
+.search-row {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  margin-bottom: 0.6rem;
+}
+
+  .search-row .full {
+    flex: 1;
+  }
+
+.results {
+  margin-top: 1rem;
+  display: flex;
+  gap: 1rem;
+}
+
+mat-list {
+  width: 320px;
+  max-height: 400px;
+  overflow: auto;
+}
+
+.list-item {
+  cursor: pointer;
+}
+
+.detail-card {
+  flex: 1;
+  padding: 0.8rem;
+  border-left: 1px solid #eee;
+}
+
+  .detail-card img {
+    max-width: 200px;
+    border-radius: 6px;
+    margin-bottom: 0.6rem;
+  }
+
+.nutri-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+  .nutri-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+.error {
+  color: #d32f2f;
+  margin: 0.6rem 0;
+}

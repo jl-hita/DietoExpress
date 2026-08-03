@@ -1,0 +1,54 @@
+<!--
+<div class="food-search-card">
+  <h3>Buscar alimentos</h3>
+
+  <div class="search-row">
+    <mat-form-field appearance="outline" class="full">
+      <mat-label>Buscar por nombre</mat-label>
+      <input matInput [(ngModel)]="term" (keyup.enter)="buscar()" />
+    </mat-form-field>
+    <button mat-raised-button color="primary" (click)="buscar()" [disabled]="loading">Buscar</button>
+  </div>
+
+  <div class="search-row">
+    <mat-form-field appearance="outline">
+      <mat-label>Código de barras</mat-label>
+      <input matInput [(ngModel)]="barcode" (keyup.enter)="buscarBarcode()" />
+    </mat-form-field>
+    <button mat-stroked-button color="accent" (click)="buscarBarcode()" [disabled]="loading">Buscar por código</button>
+  </div>
+
+  <mat-progress-bar *ngIf="loading" mode="indeterminate"></mat-progress-bar>
+  <p class="error" *ngIf="error">{{ error }}</p>
+
+  <div class="results">
+    <mat-list *ngIf="resultados?.length">
+      <mat-list-item *ngFor="let r of resultados" (click)="seleccionado = r" class="list-item">
+        <img matListAvatar *ngIf="r.product?.image_url" [src]="r.product?.image_url" alt="img" />
+        <h4 matLine>{{ r.product?.product_name || '[Sin nombre]' }}</h4>
+        <p matLine>{{ r.product?.brands }} • {{ getKcalDisplay(r) }}</p>
+      </mat-list-item>
+    </mat-list>
+
+    <div *ngIf="seleccionado" class="detail-card">
+      <img *ngIf="seleccionado.product?.image_url" [src]="seleccionado.product?.image_url" alt="imagen" />
+      <h4>{{ seleccionado?.product?.product_name? }}</h4>
+      <p><strong>Marca:</strong> {{ seleccionado?.product?.brands }}</p>
+      <p><strong>Cantidad:</strong> {{ seleccionado?.product?.quantity }}</p>
+      <p><strong>Categorías:</strong> {{ seleccionado?.product?.categories }}</p>
+      <p><strong>Ingredientes:</strong> {{ seleccionado?.product?.ingredients_text }}</p>
+      <p><strong>Kcal/100g:</strong> {{ getKcalDisplay(seleccionado) }}</p>
+
+      <div *ngIf="seleccionado.product?.nutriments">
+        <h5>Nutrientes (por 100g)</h5>
+        <table class="nutri-table">
+          <tr *ngFor="let key of objectKeys(seleccionado.product.nutriments)">
+            <td>{{ key }}</td>
+            <td>{{ seleccionado?.product?.nutriments[key] }}</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+-->

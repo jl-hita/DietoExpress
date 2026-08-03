@@ -1,0 +1,45 @@
+<div class="sidebar-container">
+  <div class="profile">
+    <img src="/assets/profile.png" class="avatar" />
+    <div class="name">{{ userName }}</div>
+  </div>
+
+  <mat-nav-list>
+
+    <div class="menu-item">
+      <a mat-list-item routerLink="/clients">
+        <mat-icon>group</mat-icon>
+        <span>Clientes</span>
+      </a>
+    </div>
+
+    <div class="menu-item">
+      <a mat-list-item routerLink="/diets">
+        <mat-icon>restaurant</mat-icon>
+        <span>Dietas</span>
+      </a>
+    </div>
+
+    <div class="menu-item">
+      <a mat-list-item routerLink="/reports">
+        <mat-icon>analytics</mat-icon>
+        <span>Informes</span>
+      </a>
+    </div>
+
+    <div class="menu-item">
+      <a mat-list-item routerLink="/settings">
+        <mat-icon>settings</mat-icon>
+        <span>Ajustes</span>
+      </a>
+    </div>
+
+    <!-- Enlace de logout -->
+    <div class="menu-item">
+      <a mat-list-item (click)="logout()" style="cursor: pointer;">
+        <mat-icon>logout</mat-icon>
+        <span>Salir</span>
+      </a>
+    </div>
+  </mat-nav-list>
+</div>

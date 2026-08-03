@@ -1,0 +1,45 @@
+.receta-card {
+  max-width: 90%;
+  margin: 20px auto;
+  padding: 20px;
+  border-radius: 16px;
+}
+
+.form-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ingredientes-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.ingrediente-item {
+  display: grid;
+  grid-template-columns: 1.5fr 0.8fr 1fr 1.5fr auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.desc-field {
+  min-width: 120px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.acciones {
+  margin-top: 20px;
+  text-align: right;
+}
+
+.mensaje {
+  margin-top: 10px;
+  color: #2c3e50;
+  font-weight: 500;
+}

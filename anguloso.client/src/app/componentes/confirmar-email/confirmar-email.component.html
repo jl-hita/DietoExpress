@@ -1,0 +1,20 @@
+<div class="confirm-email-wrapper">
+  <form *ngIf="estado === 'cargando'" class="loading-box">
+    <p>Verificando email...</p>
+  </form>
+
+  <form *ngIf="estado === 'error'" class="error-box">
+    <h2>❌ Error al confirmar</h2>
+    <p>{{ mensaje }}</p>
+    <!--<button mat-raised-button color="primary" (click)="reintentar()">Reintentar</button>-->
+  </form>
+
+  <form *ngIf="estado === 'ok'" class="success-box">
+    <h2>✔ ¡Email confirmado!</h2>
+    <p>Tu cuenta está lista para usar.</p>
+    <p>Entrando...</p>
+
+    <!-- Aquí se puede mostrar un spinner -->
+    <mat-progress-spinner mode="indeterminate" diameter="40"></mat-progress-spinner>
+  </form>
+</div>

@@ -1,0 +1,243 @@
+/*
+:host {
+  display: block;
+}
+
+.wrapper {
+  display: flex;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.card {
+  width: 100%;
+  max-width: 900px;
+  border-radius: 12px;
+  padding: 1rem;
+  background: linear-gradient(135deg, #ffffff, #f7fbff);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+  .toolbar h2 {
+    margin: 0;
+    font-size: 1.25rem;
+  }
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.search {
+  width: 380px;
+}
+
+mat-list-item {
+  border-radius: 8px;
+  margin: 6px 0;
+  transition: all .15s ease;
+  cursor: pointer;
+}
+
+  mat-list-item:hover {
+    box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+    transform: translateY(-2px);
+  }
+
+  mat-list-item.selected {
+    background: linear-gradient(90deg, rgba(25,118,210,0.06), rgba(25,118,210,0.03));
+  }
+
+.name {
+  font-weight: 600;
+}
+
+.sub {
+  font-size: 0.9rem;
+  color: rgba(0,0,0,0.6);
+}
+
+.item-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 0.25rem;
+}
+
+.empty {
+  text-align: center;
+  padding: 1.2rem;
+  color: rgba(0,0,0,0.6);
+}
+
+.center {
+  display: flex;
+  justify-content: center;
+  padding: 1rem;
+}
+
+@media(max-width:720px) {
+  .search {
+    width: 160px;
+  }
+}
+*/
+/* contenedor general */
+.page-container {
+  padding: 18px 28px;
+}
+
+/* header superior */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+  .page-header h1 {
+    margin: 0;
+    font-size: 22px;
+    color: #1e2c35;
+  }
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.search-box {
+  width: 320px;
+}
+
+/* tarjeta que contiene topbar + tabla */
+.table-card {
+  width: 100%;
+  background: #fff;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #e6e6e6;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.03);
+}
+
+/* topbar teal con bordes redondeados en la parte superior */
+.table-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(90deg,#003d52,#005b6b); /* degradado teal/azul */
+  color: white;
+  padding: 14px 18px;
+}
+
+  .table-topbar .top-title {
+    font-weight: 600;
+    font-size: 16px;
+  }
+
+  .table-topbar .top-sub {
+    font-size: 13px;
+    opacity: 0.9;
+    margin-top: 4px;
+    color: rgba(255,255,255,0.9);
+  }
+
+  .table-topbar button {
+    color: rgba(255,255,255,0.95);
+  }
+
+/* tabla */
+.table-wrapper {
+  padding: 0;
+}
+
+.styled-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+  .styled-table thead tr {
+    /* mantenemos el thead vacío porque usamos topbar; aun así estilizamos */
+    background: #004b5a;
+    color: white;
+    display: table-header-group; /* reserva semántica */
+  }
+
+  .styled-table th {
+    text-align: left;
+    padding: 12px 16px;
+    font-weight: 600;
+    font-size: 14px;
+  }
+
+  .styled-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 14px;
+  }
+
+  .styled-table tbody tr:hover {
+    background: #f4fbfd;
+  }
+
+.selected {
+  background: #e6f7fb !important;
+}
+
+.actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+/* empty & loading */
+.empty-message {
+  padding: 20px;
+  text-align: center;
+  color: #6f6f6f;
+}
+
+.loading-box {
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+}
+
+/* paginador personalizado (estilo como la imagen) */
+.custom-paginator {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 12px 16px;
+  align-items: center;
+}
+
+.page-btn {
+  min-width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  border: none;
+  background: #033a45;
+  color: white;
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0 10px;
+}
+
+  .page-btn[disabled] {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  .page-btn.active {
+    background: #1cb5a7; /* color turquesa para el activo */
+    color: #003a3f;
+  }

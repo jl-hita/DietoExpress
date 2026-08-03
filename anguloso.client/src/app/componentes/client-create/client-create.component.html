@@ -1,0 +1,72 @@
+<div class="card">
+
+  <div class="header">
+    <h2>Nuevo Cliente</h2>
+  </div>
+
+  <form [formGroup]="form" (ngSubmit)="submit()">
+
+    <div class="form-grid">
+
+      <!-- Nombre -->
+      <mat-form-field appearance="outline">
+        <mat-label>Nombre completo</mat-label>
+        <input matInput formControlName="fullName" />
+        <mat-error *ngIf="form.get('fullName')?.hasError('required')">
+          El nombre es obligatorio
+        </mat-error>
+      </mat-form-field>
+
+      <!-- Email -->
+      <mat-form-field appearance="outline">
+        <mat-label>Email</mat-label>
+        <input matInput formControlName="email" />
+        <mat-error *ngIf="form.get('email')?.hasError('email')">
+          Email no válido
+        </mat-error>
+      </mat-form-field>
+
+      <!-- Teléfono -->
+      <mat-form-field appearance="outline">
+        <mat-label>Teléfono</mat-label>
+        <input matInput formControlName="phone" />
+      </mat-form-field>
+
+      <!-- Fecha nacimiento -->
+      <mat-form-field appearance="outline">
+        <mat-label>Fecha de nacimiento</mat-label>
+        <input matInput type="date" formControlName="birthDate" />
+      </mat-form-field>
+
+      <!-- Género -->
+      <mat-form-field appearance="outline">
+        <mat-label>Género</mat-label>
+        <mat-select formControlName="gender">
+          <mat-option value="">Sin especificar</mat-option>
+          <mat-option value="male">Hombre</mat-option>
+          <mat-option value="female">Mujer</mat-option>
+          <mat-option value="other">Otro</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+    </div>
+
+    <!-- Notas -->
+    <mat-form-field appearance="outline" class="notes">
+      <mat-label>Notas</mat-label>
+      <textarea matInput rows="4" formControlName="notes"></textarea>
+    </mat-form-field>
+
+    <!-- Botones -->
+    <div class="actions">
+      <button mat-flat-button color="primary" class="btn-save" type="submit">
+        Crear cliente
+      </button>
+
+      <button mat-stroked-button color="warn" type="button" (click)="cancel.emit()">
+        Cancelar
+      </button>
+    </div>
+
+  </form>
+</div>

@@ -1,0 +1,171 @@
+-- ============================================================================= -- ANGULOSO / DIETEXPRESS — Script de creación de BBDD -- Base de datos: dietexpressdb (PostgreSQL) -- Generado: 2026-07-19 -- =============================================================================
+-- ============================================================================= -- 1. USERS — Dueños de la licencia / nutricionistas -- =============================================================================
+CREATE TABLE users ( id SERIAL PRIMARY KEY, username VARCHAR(50),
+  full_name VARCHAR(100),
+  password_hash VARCHAR,
+  created_at TIMESTAMPTZ DEFAULT NOW(), 
+  last_login TIMESTAMPTZ, 
+  role VARCHAR(20), 
+  email VARCHAR, 
+  email_confirmed BOOLEAN DEFAULT FALSE, 
+  email_confirmation_token TEXT, reset_password_token TEXT, reset_token_expiration TIMESTAMPTZ, google_id TEXT, provider TEXT, -- 'google' | 'local' country VARCHAR(100), lang VARCHAR(20), -- 'es', 'en', etc.
+-- Personalización de PDFs y branding de consulta
+  clinic_name              VARCHAR(150),
+  clinic_address           VARCHAR(250),
+  clinic_phone             VARCHAR(50),
+  clinic_logo              TEXT              -- Base64 o URL
+);
+
+-- ============================================================================= -- 2. FOOD_EXCHANGE_GROUPS — Grupos de intercambio (ej: método USDA) -- Cada grupo define los macros estándar por una "unidad de intercambio" -- =============================================================================
+CREATE TABLE food_exchange_groups ( id SERIAL PRIMARY KEY, name VARCHAR(100) NOT NULL, -- ej: 'Lácteos enteros', 'Cereales' kcal NUMERIC(6,2), protein NUMERIC(6,2), carbs NUMERIC(6,2), fat NUMERIC(6,2) );
+
+-- ============================================================================= -- 3. FOODS — Alimentos con información nutricional por 100 g o unidad -- =============================================================================
+CREATE TABLE foods ( id SERIAL PRIMARY KEY,
+-- Identificación
+  name      VARCHAR(200) NOT NULL,
+  brands    VARCHAR(200),
+  category  VARCHAR(200),
+  
+  -- NutriScore / clasificación
+  nutriscore VARCHAR(5),
+  
+  -- MACROS (por 100 g)
+  kcal          DOUBLE PRECISION,
+  protein       DOUBLE PRECISION,
+  carbs         DOUBLE PRECISION,
+  fat           DOUBLE PRECISION,
+  saturated_fat DOUBLE PRECISION,
+  fiber         DOUBLE PRECISION,
+  sugar         DOUBLE PRECISION,
+  salt          DOUBLE PRECISION,
+  
+  -- MICROS (por 100 g)
+  vitamin_a_ug   DOUBLE PRECISION,
+  vitamin_c_mg   DOUBLE PRECISION,
+  vitamin_d_ug   DOUBLE PRECISION,
+  vitamin_e_mg   DOUBLE PRECISION,
+  vitamin_b12_ug DOUBLE PRECISION,
+  folate_ug      DOUBLE PRECISION,
+  calcium_mg     DOUBLE PRECISION,
+  iron_mg        DOUBLE PRECISION,
+  magnesium_mg   DOUBLE PRECISION,
+  potassium_mg   DOUBLE PRECISION,
+  zinc_mg        DOUBLE PRECISION,
+  
+  -- TAMAÑO DE PORCIÓN
+  serving_size      DOUBLE PRECISION,        -- ej: 30
+  serving_size_unit VARCHAR(10),             -- 'g' | 'ml'
+  serving_size_text VARCHAR(50),             -- "1 slice (30 g)"
+  default_grams     NUMERIC(6,2) DEFAULT 100,
+  
+  -- GRUPOS DE INTERCAMBIO (método de listas de intercambio)
+  exchange_group_id  INTEGER REFERENCES food_exchange_groups(id) ON DELETE SET NULL,
+  grams_per_exchange NUMERIC(6,2),           -- gramos que equivalen a 1 intercambio
+  
+  -- ORIGEN / SINCRONIZACIÓN
+  source        VARCHAR(50) DEFAULT 'local', -- 'local' | 'openfoodfacts' | 'usda' | 'bedca' | 'user'
+  external_id   VARCHAR(200),                -- barcode OFF, fdcId USDA, etc.
+  last_synced_at TIMESTAMPTZ,
+  
+  -- AUDITORÍA
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Índice único parcial: evita duplicados de alimentos externos
+CREATE UNIQUE INDEX idx_foods_external ON foods (external_id) WHERE external_id IS NOT NULL;
+
+-- ============================================================================= -- 4. CLIENTS — Pacientes/clientes de los nutricionistas -- ============================================================================= CREATE TABLE clients ( id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, full_name VARCHAR(100) NOT NULL, email VARCHAR(150), phone VARCHAR(50), birth_date DATE, gender VARCHAR(20), -- 'male' | 'female' | 'other' notes TEXT, created_at TIMESTAMPTZ DEFAULT NOW() );
+
+-- ============================================================================= -- 5. BIOMETRICS — Datos antropométricos de los clientes -- ============================================================================= CREATE TABLE biometrics ( id SERIAL PRIMARY KEY, client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE, measurement_date DATE NOT NULL,
+
+
+-- Básicos
+  weight DOUBLE PRECISION,    -- kg
+  height DOUBLE PRECISION,    -- cm
+  
+  -- Composición corporal
+  body_fat     DOUBLE PRECISION,  -- %
+  muscle_mass  DOUBLE PRECISION,  -- kg
+  visceral_fat DOUBLE PRECISION,  -- nivel
+  
+  -- Perímetros (cm)
+  waist DOUBLE PRECISION,
+  hip   DOUBLE PRECISION,
+  neck  DOUBLE PRECISION,
+  arm_perimeter  DOUBLE PRECISION, -- cm
+  calf_perimeter DOUBLE PRECISION, -- cm
+  
+  -- Pliegues cutáneos (mm) — método ISAK / Jackson-Pollock
+  triceps       DOUBLE PRECISION,
+  abdomen       DOUBLE PRECISION,
+  thigh         DOUBLE PRECISION,
+  subscapular   DOUBLE PRECISION,
+  suprailiac    DOUBLE PRECISION,
+  biceps        DOUBLE PRECISION,
+  chest         DOUBLE PRECISION,
+  axilla        DOUBLE PRECISION,
+  calf_skinfold DOUBLE PRECISION,
+  
+  -- Diámetros óseos (cm)
+  wrist_diameter   DOUBLE PRECISION, -- cm (biestiloideo)
+  femur_diameter   DOUBLE PRECISION, -- cm (bicondíleo)
+  humerus_diameter DOUBLE PRECISION, -- cm (epicóndilo)
+  
+  notes TEXT
+);
+
+-- ============================================================================= -- 6. DIETS — Plantilla de dieta completa -- ============================================================================= CREATE TABLE diets ( id SERIAL PRIMARY KEY, name VARCHAR(200) NOT NULL,
+
+
+-- Objetivos nutricionales diarios
+  target_kcal    NUMERIC(6,2),
+  target_protein NUMERIC(6,2),
+  target_carbs   NUMERIC(6,2),
+  target_fat     NUMERIC(6,2),
+  
+  notes      TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================================= -- 7. DIET_DAYS — Cada dieta tiene N días (normalmente 7) -- ============================================================================= CREATE TABLE diet_days ( id SERIAL PRIMARY KEY, diet_id INTEGER NOT NULL REFERENCES diets(id) ON DELETE CASCADE, day_index INTEGER NOT NULL, -- 0=Lunes … 6=Domingo UNIQUE (diet_id, day_index) );
+
+-- ============================================================================= -- 8. MEALS — Comidas dentro de un día de dieta -- ============================================================================= CREATE TABLE meals ( id SERIAL PRIMARY KEY, diet_day_id INTEGER NOT NULL REFERENCES diet_days(id) ON DELETE CASCADE, name VARCHAR(100) NOT NULL, -- 'Desayuno', 'Comida', 'Cena'… meal_index INTEGER NOT NULL, -- orden dentro del día UNIQUE (diet_day_id, meal_index) );
+
+-- ============================================================================= -- 9. MEAL_ITEMS — Alimentos dentro de una comida -- Admite dos modos: por gramos (food_id + grams) o por intercambios -- (exchange_group_id + exchange_count). Ambos campos son opcionales. -- ============================================================================= CREATE TABLE meal_items ( id SERIAL PRIMARY KEY, meal_id INTEGER NOT NULL REFERENCES meals(id) ON DELETE CASCADE,
+
+
+-- Modo gramos (alimento concreto)
+  food_id INTEGER REFERENCES foods(id) ON DELETE SET NULL,
+  grams   NUMERIC(6,2),
+  
+  -- Modo intercambios (grupo genérico)
+  exchange_group_id INTEGER REFERENCES food_exchange_groups(id) ON DELETE SET NULL,
+  exchange_count    NUMERIC(6,2),
+  
+  -- Valores nutricionales calculados (caché para rendimiento)
+  kcal    NUMERIC(6,2),
+  protein NUMERIC(6,2),
+  carbs   NUMERIC(6,2),
+  fat     NUMERIC(6,2)
+);
+
+-- ============================================================================= -- 10. CLIENT_DIETS — Asignación de dietas a clientes -- Un cliente puede tener varias dietas a lo largo del tiempo, -- pero solo una activa simultáneamente. -- ============================================================================= CREATE TABLE client_diets ( id SERIAL PRIMARY KEY, client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE, diet_id INTEGER NOT NULL REFERENCES diets(id) ON DELETE CASCADE,
+
+
+assigned_at TIMESTAMPTZ DEFAULT NOW(),
+  start_date  DATE NOT NULL,
+  end_date    DATE,               -- NULL = activa indefinidamente
+  
+  is_active BOOLEAN DEFAULT TRUE,
+  notes     TEXT
+);
+
+-- Garantiza que un cliente solo tenga UNA dieta activa en cada momento CREATE UNIQUE INDEX idx_unique_active_client_diet ON client_diets (client_id) WHERE (is_active = TRUE);
+
+-- ============================================================================= -- 11. RECIPES — Plantillas de recetas creadas por el nutricionista -- ============================================================================= CREATE TABLE recipes ( id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, name VARCHAR(200) NOT NULL, instructions TEXT, -- Pasos de preparación created_at TIMESTAMPTZ DEFAULT NOW() );
+
+-- ============================================================================= -- 12. RECIPE_ITEMS — Ingredientes de una receta -- ============================================================================= CREATE TABLE recipe_items ( id SERIAL PRIMARY KEY, recipe_id INTEGER NOT NULL REFERENCES recipes(id) ON DELETE CASCADE, food_id INTEGER NOT NULL REFERENCES foods(id), grams NUMERIC(6,2) NOT NULL );
+
+-- ============================================================================= -- 13. FOOD_SOURCES — Registro de APIs externas de alimentos (opcional) -- ============================================================================= CREATE TABLE food_sources ( id SERIAL PRIMARY KEY, source_name VARCHAR(100) NOT NULL, -- ej: 'openfoodfacts', 'usda', 'bedca' url VARCHAR(200) );
+
+-- ============================================================================= -- 14. CONFIG — Parámetros de configuración de la aplicación -- Pares clave-valor; ConfigService los parsea al tipo apropiado. -- Ejemplos de claves: SmtpServer, Port, EnableSsl, User, Password, -- FromName, FromEmail -- ============================================================================= CREATE TABLE config ( id SERIAL PRIMARY KEY, nombre_config VARCHAR, valor_config VARCHAR );

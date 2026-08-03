@@ -1,0 +1,795 @@
+[33m❯[39m Building...
+[32m✔[39m Building...
+Application bundle generation failed. [1.462 seconds]
+
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mCould not resolve "./componentes/calorie-calculator-component/calorie-calculator-component.component"[0m
+
+    src/app/app-routing.module.ts:13:43:
+[37m      13 │ ...nt } from [32m'./componentes/calorie-calculator-component/calorie-c[37m...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2307: Cannot find module './componentes/calorie-calculator-component/calorie-calculator-component.component' or its corresponding type declarations.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/app-routing.module.ts:13:43:
+[37m      13 │ ...nt } from [32m'./componentes/calorie-calculator-component/calorie-c[37m...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'router-outlet' is not a known element:
+1. If 'router-outlet' is an Angular component, then verify that it is part of this module.
+2. If 'router-outlet' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/app.component.html:3:0:
+[37m      3 │ [32m<router-outlet>[37m</router-outlet>
+        ╵ [32m~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component AppComponent.
+
+    src/app/app.component.ts:13:15:
+[37m      13 │   templateUrl: [32m'./app.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2724: '"./auth.interceptor"' has no exported member named 'authInterceptor'. Did you mean 'AuthInterceptor'?[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/app.module.ts:18:9:
+[37m      18 │ import { [32mauthInterceptor[37m } from './auth.interceptor';
+         ╵          [32m~~~~~~~~~~~~~~~[0m
+
+  'AuthInterceptor' is declared here.
+
+    src/app/auth.interceptor.ts:6:13:
+[37m      6 │ export class [32mAuthInterceptor[37m implements HttpInterceptor {
+        ╵              [32m~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mCould not resolve "./componentes/calorie-calculator-component/calorie-calculator-component.component"[0m
+
+    src/app/app.module.ts:35:43:
+[37m      35 │ ...nt } from [32m'./componentes/calorie-calculator-component/calorie-c[37m...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2307: Cannot find module './componentes/calorie-calculator-component/calorie-calculator-component.component' or its corresponding type declarations.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/app.module.ts:35:43:
+[37m      35 │ ...nt } from [32m'./componentes/calorie-calculator-component/calorie-c[37m...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS-991010: Value at position 35 in the NgModule.imports of AppModule is not a reference
+  Value could not be determined statically.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/app.module.ts:43:11:
+[37m      43 │   imports: [32m[[37m
+         ╵            [32m^[0m
+
+  Unknown reference.
+
+    src/app/app.module.ts:82:4:
+[37m      82 │     [32mCalorieCalculatorComponent[37m,
+         ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8002: Can't bind to 'formGroup' since it isn't a known property of 'form'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/client-create/client-create.component.html:7:8:
+[37m      7 │   <form [32m[formGroup]="form"[37m (ngSubmit)="submit()">
+        ╵         [32m~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ClientCreateComponent.
+
+    src/app/componentes/client-create/client-create.component.ts:8:15:
+[37m      8 │   templateUrl: [32m'./client-create.component.html'[37m,
+        ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-form-field' is not a known element:
+1. If 'mat-form-field' is an Angular component, then verify that it is part of this module.
+2. If 'mat-form-field' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/client-create/client-create.component.html:12:6:
+[37m      12 │       [32m<mat-form-field appearance="outline">[37m
+         ╵       [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ClientCreateComponent.
+
+    src/app/componentes/client-create/client-create.component.ts:8:15:
+[37m      8 │   templateUrl: [32m'./client-create.component.html'[37m,
+        ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-label' is not a known element:
+1. If 'mat-label' is an Angular component, then verify that it is part of this module.
+2. If 'mat-label' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/client-create/client-create.component.html:13:8:
+[37m      13 │         [32m<mat-label>[37mNombre completo</mat-label>
+         ╵         [32m~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ClientCreateComponent.
+
+    src/app/componentes/client-create/client-create.component.ts:8:15:
+[37m      8 │   templateUrl: [32m'./client-create.component.html'[37m,
+        ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-error' is not a known element:
+1. If 'mat-error' is an Angular component, then verify that it is part of this module.
+2. If 'mat-error' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/client-create/client-create.component.html:15:8:
+[37m      15 │         [32m<mat-error *ngIf="form.get('fullName')?.hasError('required[37m...
+         ╵         [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ClientCreateComponent.
+
+    src/app/componentes/client-create/client-create.component.ts:8:15:
+[37m      8 │   templateUrl: [32m'./client-create.component.html'[37m,
+        ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-form-field' is not a known element:
+1. If 'mat-form-field' is an Angular component, then verify that it is part of this module.
+2. If 'mat-form-field' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/client-create/client-create.component.html:21:6:
+[37m      21 │       [32m<mat-form-field appearance="outline">[37m
+         ╵       [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ClientCreateComponent.
+
+    src/app/componentes/client-create/client-create.component.ts:8:15:
+[37m      8 │   templateUrl: [32m'./client-create.component.html'[37m,
+        ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-label' is not a known element:
+1. If 'mat-label' is an Angular component, then verify that it is part of this module.
+2. If 'mat-label' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/client-create/client-create.component.html:22:8:
+[37m      22 │         [32m<mat-label>[37mEmail</mat-label>
+         ╵         [32m~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ClientCreateComponent.
+
+    src/app/componentes/client-create/client-create.component.ts:8:15:
+[37m      8 │   templateUrl: [32m'./client-create.component.html'[37m,
+        ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-error' is not a known element:
+1. If 'mat-error' is an Angular component, then verify that it is part of this module.
+2. If 'mat-error' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/client-create/client-create.component.html:24:8:
+[37m      24 │         [32m<mat-error *ngIf="form.get('email')?.hasError('email')">[37m
+         ╵         [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ClientCreateComponent.
+
+    src/app/componentes/client-create/client-create.component.ts:8:15:
+[37m      8 │   templateUrl: [32m'./client-create.component.html'[37m,
+        ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-form-field' is not a known element:
+1. If 'mat-form-field' is an Angular component, then verify that it is part of this module.
+2. If 'mat-form-field' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/client-create/client-create.component.html:30:6:
+[37m      30 │       [32m<mat-form-field appearance="outline">[37m
+         ╵       [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ClientCreateComponent.
+
+    src/app/componentes/client-create/client-create.component.ts:8:15:
+[37m      8 │   templateUrl: [32m'./client-create.component.html'[37m,
+        ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-label' is not a known element:
+1. If 'mat-label' is an Angular component, then verify that it is part of this module.
+2. If 'mat-label' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/client-create/client-create.component.html:31:8:
+[37m      31 │         [32m<mat-label>[37mTeléfono</mat-label>
+         ╵         [32m~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ClientCreateComponent.
+
+    src/app/componentes/client-create/client-create.component.ts:8:15:
+[37m      8 │   templateUrl: [32m'./client-create.component.html'[37m,
+        ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-form-field' is not a known element:
+1. If 'mat-form-field' is an Angular component, then verify that it is part of this module.
+2. If 'mat-form-field' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/client-create/client-create.component.html:36:6:
+[37m      36 │       [32m<mat-form-field appearance="outline">[37m
+         ╵       [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ClientCreateComponent.
+
+    src/app/componentes/client-create/client-create.component.ts:8:15:
+[37m      8 │   templateUrl: [32m'./client-create.component.html'[37m,
+        ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-label' is not a known element:
+1. If 'mat-label' is an Angular component, then verify that it is part of this module.
+2. If 'mat-label' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/client-create/client-create.component.html:37:8:
+[37m      37 │         [32m<mat-label>[37mFecha de nacimiento</mat-label>
+         ╵         [32m~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ClientCreateComponent.
+
+    src/app/componentes/client-create/client-create.component.ts:8:15:
+[37m      8 │   templateUrl: [32m'./client-create.component.html'[37m,
+        ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-form-field' is not a known element:
+1. If 'mat-form-field' is an Angular component, then verify that it is part of this module.
+2. If 'mat-form-field' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/client-create/client-create.component.html:42:6:
+[37m      42 │       [32m<mat-form-field appearance="outline">[37m
+         ╵       [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ClientCreateComponent.
+
+    src/app/componentes/client-create/client-create.component.ts:8:15:
+[37m      8 │   templateUrl: [32m'./client-create.component.html'[37m,
+        ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-label' is not a known element:
+1. If 'mat-label' is an Angular component, then verify that it is part of this module.
+2. If 'mat-label' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/client-create/client-create.component.html:43:8:
+[37m      43 │         [32m<mat-label>[37mGénero</mat-label>
+         ╵         [32m~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ClientCreateComponent.
+
+    src/app/componentes/client-create/client-create.component.ts:8:15:
+[37m      8 │   templateUrl: [32m'./client-create.component.html'[37m,
+        ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-select' is not a known element:
+1. If 'mat-select' is an Angular component, then verify that it is part of this module.
+2. If 'mat-select' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/client-create/client-create.component.html:44:8:
+[37m      44 │         [32m<mat-select formControlName="gender">[37m
+         ╵         [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ClientCreateComponent.
+
+    src/app/componentes/client-create/client-create.component.ts:8:15:
+[37m      8 │   templateUrl: [32m'./client-create.component.html'[37m,
+        ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-option' is not a known element:
+1. If 'mat-option' is an Angular component, then verify that it is part of this module.
+2. If 'mat-option' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/client-create/client-create.component.html:45:10:
+[37m      45 │           [32m<mat-option value="">[37mSin especificar</mat-option>
+         ╵           [32m~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ClientCreateComponent.
+
+    src/app/componentes/client-create/client-create.component.ts:8:15:
+[37m      8 │   templateUrl: [32m'./client-create.component.html'[37m,
+        ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-option' is not a known element:
+1. If 'mat-option' is an Angular component, then verify that it is part of this module.
+2. If 'mat-option' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/client-create/client-create.component.html:46:10:
+[37m      46 │           [32m<mat-option value="male">[37mHombre</mat-option>
+         ╵           [32m~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ClientCreateComponent.
+
+    src/app/componentes/client-create/client-create.component.ts:8:15:
+[37m      8 │   templateUrl: [32m'./client-create.component.html'[37m,
+        ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-option' is not a known element:
+1. If 'mat-option' is an Angular component, then verify that it is part of this module.
+2. If 'mat-option' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/client-create/client-create.component.html:47:10:
+[37m      47 │           [32m<mat-option value="female">[37mMujer</mat-option>
+         ╵           [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ClientCreateComponent.
+
+    src/app/componentes/client-create/client-create.component.ts:8:15:
+[37m      8 │   templateUrl: [32m'./client-create.component.html'[37m,
+        ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-option' is not a known element:
+1. If 'mat-option' is an Angular component, then verify that it is part of this module.
+2. If 'mat-option' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/client-create/client-create.component.html:48:10:
+[37m      48 │           [32m<mat-option value="other">[37mOtro</mat-option>
+         ╵           [32m~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ClientCreateComponent.
+
+    src/app/componentes/client-create/client-create.component.ts:8:15:
+[37m      8 │   templateUrl: [32m'./client-create.component.html'[37m,
+        ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-form-field' is not a known element:
+1. If 'mat-form-field' is an Angular component, then verify that it is part of this module.
+2. If 'mat-form-field' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/client-create/client-create.component.html:55:4:
+[37m      55 │     [32m<mat-form-field appearance="outline" class="notes">[37m
+         ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ClientCreateComponent.
+
+    src/app/componentes/client-create/client-create.component.ts:8:15:
+[37m      8 │   templateUrl: [32m'./client-create.component.html'[37m,
+        ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-label' is not a known element:
+1. If 'mat-label' is an Angular component, then verify that it is part of this module.
+2. If 'mat-label' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/client-create/client-create.component.html:56:6:
+[37m      56 │       [32m<mat-label>[37mNotas</mat-label>
+         ╵       [32m~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ClientCreateComponent.
+
+    src/app/componentes/client-create/client-create.component.ts:8:15:
+[37m      8 │   templateUrl: [32m'./client-create.component.html'[37m,
+        ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-progress-spinner' is not a known element:
+1. If 'mat-progress-spinner' is an Angular component, then verify that it is part of this module.
+2. If 'mat-progress-spinner' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/confirmar-email/confirmar-email.component.html:18:4:
+[37m      18 │     [32m<mat-progress-spinner mode="indeterminate" diameter="40">[37m</mat...
+         ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ConfirmarEmailComponent.
+
+    src/app/componentes/confirmar-email/confirmar-email.component.ts:16:15:
+[37m      16 │   templateUrl: [32m'./confirmar-email.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mCould not resolve "../../shared/material.imports"[0m
+
+    src/app/componentes/diet-create/diet-create.component.ts:4:33:
+[37m      4 │ import { MATERIAL_IMPORTS } from [32m'../../shared/material.imports'[37m;
+        ╵                                  [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2307: Cannot find module '../../shared/material.imports' or its corresponding type declarations.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/diet-create/diet-create.component.ts:4:33:
+[37m      4 │ import { MATERIAL_IMPORTS } from [32m'../../shared/material.imports'[37m;
+        ╵                                  [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS-991010: 'imports' must be an array of components, directives, pipes, or NgModules.
+  Value could not be determined statically.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/diet-create/diet-create.component.ts:12:12:
+[37m      12 │   imports: [[32mMATERIAL_IMPORTS[37m],
+         ╵             [32m~~~~~~~~~~~~~~~~[0m
+
+  Unknown reference.
+
+    src/app/componentes/diet-create/diet-create.component.ts:12:12:
+[37m      12 │   imports: [[32mMATERIAL_IMPORTS[37m],
+         ╵             [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mCould not resolve "../../shared/material.imports"[0m
+
+    src/app/componentes/diets-list/diets-list.component.ts:3:33:
+[37m      3 │ import { MATERIAL_IMPORTS } from [32m'../../shared/material.imports'[37m;
+        ╵                                  [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2307: Cannot find module '../../shared/material.imports' or its corresponding type declarations.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/diets-list/diets-list.component.ts:3:33:
+[37m      3 │ import { MATERIAL_IMPORTS } from [32m'../../shared/material.imports'[37m;
+        ╵                                  [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS-991010: 'imports' must be an array of components, directives, pipes, or NgModules.
+  Value could not be determined statically.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/diets-list/diets-list.component.ts:11:12:
+[37m      11 │   imports: [[32mMATERIAL_IMPORTS[37m],
+         ╵             [32m~~~~~~~~~~~~~~~~[0m
+
+  Unknown reference.
+
+    src/app/componentes/diets-list/diets-list.component.ts:11:12:
+[37m      11 │   imports: [[32mMATERIAL_IMPORTS[37m],
+         ╵             [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8002: Can't bind to 'formGroup' since it isn't a known property of 'form'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/login/login.component.html:2:6:
+[37m      2 │ <form [32m[formGroup]="form"[37m (ngSubmit)="login()" class="login-form">
+        ╵       [32m~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component LoginComponent.
+
+    src/app/componentes/login/login.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./login.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-form-field' is not a known element:
+1. If 'mat-form-field' is an Angular component, then verify that it is part of this module.
+2. If 'mat-form-field' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/login/login.component.html:3:2:
+[37m      3 │   [32m<mat-form-field appearance="outline" class="full-width">[37m
+        ╵   [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component LoginComponent.
+
+    src/app/componentes/login/login.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./login.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-label' is not a known element:
+1. If 'mat-label' is an Angular component, then verify that it is part of this module.
+2. If 'mat-label' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/login/login.component.html:4:4:
+[37m      4 │     [32m<mat-label>[37mUsuario</mat-label>
+        ╵     [32m~~~~~~~~~~~[0m
+
+  Error occurs in the template of component LoginComponent.
+
+    src/app/componentes/login/login.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./login.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-form-field' is not a known element:
+1. If 'mat-form-field' is an Angular component, then verify that it is part of this module.
+2. If 'mat-form-field' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/login/login.component.html:8:2:
+[37m      8 │   [32m<mat-form-field appearance="outline" class="full-width">[37m
+        ╵   [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component LoginComponent.
+
+    src/app/componentes/login/login.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./login.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-label' is not a known element:
+1. If 'mat-label' is an Angular component, then verify that it is part of this module.
+2. If 'mat-label' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/login/login.component.html:9:4:
+[37m      9 │     [32m<mat-label>[37mContraseña</mat-label>
+        ╵     [32m~~~~~~~~~~~[0m
+
+  Error occurs in the template of component LoginComponent.
+
+    src/app/componentes/login/login.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./login.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-toolbar' is not a known element:
+1. If 'mat-toolbar' is an Angular component, then verify that it is part of this module.
+2. If 'mat-toolbar' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/navbar/navbar.component.html:10:0:
+[37m      10 │ [32m<mat-toolbar color="primary" class="navbar">[37m
+         ╵ [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component NavbarComponent.
+
+    src/app/componentes/navbar/navbar.component.ts:9:15:
+[37m      9 │   templateUrl: [32m'./navbar.component.html'[37m,
+        ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8002: Can't bind to 'routerLink' since it isn't a known property of 'button'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/navbar/navbar.component.html:17:14:
+[37m      17 │               [32m[routerLink]="route.path"[37m
+         ╵               [32m~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component NavbarComponent.
+
+    src/app/componentes/navbar/navbar.component.ts:9:15:
+[37m      9 │   templateUrl: [32m'./navbar.component.html'[37m,
+        ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8002: Can't bind to 'formGroup' since it isn't a known property of 'form'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/user-create/user-create.component.html:1:6:
+[37m      1 │ <form [32m[formGroup]="form"[37m (ngSubmit)="crearUsuario()">
+        ╵       [32m~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component UserCreateComponent.
+
+    src/app/componentes/user-create/user-create.component.ts:31:15:
+[37m      31 │   templateUrl: [32m'./user-create.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-form-field' is not a known element:
+1. If 'mat-form-field' is an Angular component, then verify that it is part of this module.
+2. If 'mat-form-field' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/user-create/user-create.component.html:3:4:
+[37m      3 │     [32m<mat-form-field appearance="outline" class="full-width">[37m
+        ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component UserCreateComponent.
+
+    src/app/componentes/user-create/user-create.component.ts:31:15:
+[37m      31 │   templateUrl: [32m'./user-create.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-label' is not a known element:
+1. If 'mat-label' is an Angular component, then verify that it is part of this module.
+2. If 'mat-label' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/user-create/user-create.component.html:4:6:
+[37m      4 │       [32m<mat-label>[37mUsuario</mat-label>
+        ╵       [32m~~~~~~~~~~~[0m
+
+  Error occurs in the template of component UserCreateComponent.
+
+    src/app/componentes/user-create/user-create.component.ts:31:15:
+[37m      31 │   templateUrl: [32m'./user-create.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-error' is not a known element:
+1. If 'mat-error' is an Angular component, then verify that it is part of this module.
+2. If 'mat-error' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/user-create/user-create.component.html:6:6:
+[37m      6 │       [32m<mat-error *ngIf="form.controls['username'].hasError('require[37m...
+        ╵       [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component UserCreateComponent.
+
+    src/app/componentes/user-create/user-create.component.ts:31:15:
+[37m      31 │   templateUrl: [32m'./user-create.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-form-field' is not a known element:
+1. If 'mat-form-field' is an Angular component, then verify that it is part of this module.
+2. If 'mat-form-field' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/user-create/user-create.component.html:11:4:
+[37m      11 │     [32m<mat-form-field appearance="outline" class="full-width">[37m
+         ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component UserCreateComponent.
+
+    src/app/componentes/user-create/user-create.component.ts:31:15:
+[37m      31 │   templateUrl: [32m'./user-create.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-label' is not a known element:
+1. If 'mat-label' is an Angular component, then verify that it is part of this module.
+2. If 'mat-label' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/user-create/user-create.component.html:12:6:
+[37m      12 │       [32m<mat-label>[37mEmail</mat-label>
+         ╵       [32m~~~~~~~~~~~[0m
+
+  Error occurs in the template of component UserCreateComponent.
+
+    src/app/componentes/user-create/user-create.component.ts:31:15:
+[37m      31 │   templateUrl: [32m'./user-create.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-form-field' is not a known element:
+1. If 'mat-form-field' is an Angular component, then verify that it is part of this module.
+2. If 'mat-form-field' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/user-create/user-create.component.html:16:4:
+[37m      16 │     [32m<mat-form-field appearance="outline" class="full-width">[37m
+         ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component UserCreateComponent.
+
+    src/app/componentes/user-create/user-create.component.ts:31:15:
+[37m      31 │   templateUrl: [32m'./user-create.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-label' is not a known element:
+1. If 'mat-label' is an Angular component, then verify that it is part of this module.
+2. If 'mat-label' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/user-create/user-create.component.html:17:6:
+[37m      17 │       [32m<mat-label>[37mNombre completo</mat-label>
+         ╵       [32m~~~~~~~~~~~[0m
+
+  Error occurs in the template of component UserCreateComponent.
+
+    src/app/componentes/user-create/user-create.component.ts:31:15:
+[37m      31 │   templateUrl: [32m'./user-create.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-form-field' is not a known element:
+1. If 'mat-form-field' is an Angular component, then verify that it is part of this module.
+2. If 'mat-form-field' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/user-create/user-create.component.html:21:4:
+[37m      21 │     [32m<mat-form-field appearance="outline" class="full-width">[37m
+         ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component UserCreateComponent.
+
+    src/app/componentes/user-create/user-create.component.ts:31:15:
+[37m      31 │   templateUrl: [32m'./user-create.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-label' is not a known element:
+1. If 'mat-label' is an Angular component, then verify that it is part of this module.
+2. If 'mat-label' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/user-create/user-create.component.html:22:6:
+[37m      22 │       [32m<mat-label>[37mContraseña</mat-label>
+         ╵       [32m~~~~~~~~~~~[0m
+
+  Error occurs in the template of component UserCreateComponent.
+
+    src/app/componentes/user-create/user-create.component.ts:31:15:
+[37m      31 │   templateUrl: [32m'./user-create.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-error' is not a known element:
+1. If 'mat-error' is an Angular component, then verify that it is part of this module.
+2. If 'mat-error' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/user-create/user-create.component.html:24:6:
+[37m      24 │       [32m<mat-error *ngIf="form.controls['password'].hasError('requir[37m...
+         ╵       [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component UserCreateComponent.
+
+    src/app/componentes/user-create/user-create.component.ts:31:15:
+[37m      31 │   templateUrl: [32m'./user-create.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-error' is not a known element:
+1. If 'mat-error' is an Angular component, then verify that it is part of this module.
+2. If 'mat-error' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/user-create/user-create.component.html:27:6:
+[37m      27 │       [32m<mat-error *ngIf="form.controls['password'].hasError('minlen[37m...
+         ╵       [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component UserCreateComponent.
+
+    src/app/componentes/user-create/user-create.component.ts:31:15:
+[37m      31 │   templateUrl: [32m'./user-create.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8002: Can't bind to 'formGroup' since it isn't a known property of 'form'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/user-reset/user-reset.component.html:1:6:
+[37m      1 │ <form [32m[formGroup]="form"[37m (ngSubmit)="resetPassword()" class="login-...
+        ╵       [32m~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component UserResetComponent.
+
+    src/app/componentes/user-reset/user-reset.component.ts:17:15:
+[37m      17 │   templateUrl: [32m'./user-reset.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-form-field' is not a known element:
+1. If 'mat-form-field' is an Angular component, then verify that it is part of this module.
+2. If 'mat-form-field' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/user-reset/user-reset.component.html:2:2:
+[37m      2 │   [32m<mat-form-field appearance="outline" class="full-width">[37m
+        ╵   [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component UserResetComponent.
+
+    src/app/componentes/user-reset/user-reset.component.ts:17:15:
+[37m      17 │   templateUrl: [32m'./user-reset.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-label' is not a known element:
+1. If 'mat-label' is an Angular component, then verify that it is part of this module.
+2. If 'mat-label' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/user-reset/user-reset.component.html:3:4:
+[37m      3 │     [32m<mat-label>[37mUsuario</mat-label>
+        ╵     [32m~~~~~~~~~~~[0m
+
+  Error occurs in the template of component UserResetComponent.
+
+    src/app/componentes/user-reset/user-reset.component.ts:17:15:
+[37m      17 │   templateUrl: [32m'./user-reset.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-form-field' is not a known element:
+1. If 'mat-form-field' is an Angular component, then verify that it is part of this module.
+2. If 'mat-form-field' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/user-reset/user-reset.component.html:7:2:
+[37m      7 │   [32m<mat-form-field appearance="outline" class="full-width">[37m
+        ╵   [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component UserResetComponent.
+
+    src/app/componentes/user-reset/user-reset.component.ts:17:15:
+[37m      17 │   templateUrl: [32m'./user-reset.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-label' is not a known element:
+1. If 'mat-label' is an Angular component, then verify that it is part of this module.
+2. If 'mat-label' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/user-reset/user-reset.component.html:8:4:
+[37m      8 │     [32m<mat-label>[37mEmail</mat-label>
+        ╵     [32m~~~~~~~~~~~[0m
+
+  Error occurs in the template of component UserResetComponent.
+
+    src/app/componentes/user-reset/user-reset.component.ts:17:15:
+[37m      17 │   templateUrl: [32m'./user-reset.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+[39m[22m

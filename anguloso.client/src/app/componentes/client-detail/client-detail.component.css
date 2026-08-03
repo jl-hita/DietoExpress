@@ -1,0 +1,711 @@
+:host {
+  display: block;
+  padding: 1rem;
+}
+
+/* ─── Layout base ────────────────────────────────────────────── */
+.card {
+  background: #fff;
+  padding: 1.2rem;
+  border-radius: 1rem;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+  margin-bottom: 1rem;
+}
+
+.full-width { width: 100%; }
+
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.three-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.8rem;
+}
+
+.actions {
+  margin-top: 1rem;
+  display: flex;
+  gap: .6rem;
+  justify-content: flex-end;
+}
+
+/* ─── Biométricas ────────────────────────────────────────────── */
+.biometrics-toolbar {
+  padding: 12px 0 4px;
+  display: flex;
+  gap: 8px;
+}
+
+.biometric-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 4px 0;
+}
+
+.biometric-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.bio-date {
+  font-weight: 500;
+  font-size: 14px;
+  color: #333;
+  min-width: 90px;
+}
+
+.bio-chip {
+  background: #f0f4ff;
+  color: #3f51b5;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.bio-chip.accent { background: #fff3e0; color: #e65100; }
+.bio-chip.green { background: #e8f5e9; color: #2e7d32; }
+
+.biometric-actions button { margin-left: .3rem; }
+
+.tabs { margin-top: 0.6rem; }
+
+.biometric-form { margin-top: 1rem; }
+
+/* ─── Sección de formulario ──────────────────────────────────── */
+.form-section-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: #7986cb;
+  margin: 16px 0 6px;
+  padding-left: 2px;
+  border-left: 3px solid #7986cb;
+  padding-left: 8px;
+}
+
+/* ─── Sección colapsable de campos avanzados ─────────────────── */
+.collapsible-section {
+  margin: 16px 0;
+  border: 1px solid #e3e8f5;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.collapse-toggle {
+  width: 100%;
+  background: #f5f7ff;
+  border: none;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #3f51b5;
+  text-align: left;
+  transition: background 0.2s;
+}
+
+.collapse-toggle:hover { background: #eef1ff; }
+.collapse-toggle mat-icon { font-size: 20px; width: 20px; height: 20px; }
+
+.collapse-hint {
+  font-size: 12px;
+  color: #8590b5;
+  font-weight: 400;
+  margin-left: 4px;
+}
+
+.collapsible-content {
+  padding: 16px;
+  background: #fafbff;
+  border-top: 1px solid #e3e8f5;
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Análisis Antropométrico ────────────────────────────────── */
+.analysis-container {
+  padding: 20px;
+}
+
+.analysis-selector-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background: #f5f7ff;
+  border-radius: 10px;
+  margin-bottom: 24px;
+}
+
+.selector-icon { color: #7986cb; font-size: 20px; }
+.selector-label { font-weight: 600; font-size: 14px; color: #444; white-space: nowrap; }
+
+.bio-selector-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.bio-chip-btn {
+  border: 1px solid #c5cae9;
+  background: white;
+  color: #3f51b5;
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+
+.bio-chip-btn:hover { background: #e8eaf6; }
+.bio-chip-btn.active {
+  background: #3f51b5;
+  color: white;
+  border-color: #3f51b5;
+  box-shadow: 0 2px 8px rgba(63,81,181,0.35);
+}
+
+/* ─── Sección de análisis ────────────────────────────────────── */
+.analysis-section {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #2d2d2d;
+  margin: 0 0 18px 0;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.section-title mat-icon {
+  color: #5c6bc0;
+  font-size: 22px;
+  width: 22px;
+  height: 22px;
+}
+
+/* ─── Tarjetas de protocolo de grasa ─────────────────────────── */
+.protocol-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.protocol-card {
+  border-radius: 10px;
+  padding: 14px;
+  border: 1px solid #e3e8f5;
+  background: white;
+  transition: transform 0.15s, box-shadow 0.15s;
+  position: relative;
+  overflow: hidden;
+}
+
+.protocol-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: #9fa8da;
+}
+
+.protocol-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.1); }
+
+/* Colores por categoría */
+.cat-essential::before { background: #ab47bc; }
+.cat-athlete::before   { background: #26a69a; }
+.cat-fitness::before   { background: #42a5f5; }
+.cat-acceptable::before{ background: #66bb6a; }
+.cat-obese::before     { background: #ef5350; }
+
+.protocol-name {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #666;
+  margin-bottom: 6px;
+}
+
+.protocol-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: #1a237e;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.protocol-value .unit {
+  font-size: 14px;
+  font-weight: 400;
+  color: #888;
+}
+
+.protocol-category {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  display: inline-block;
+  margin-bottom: 6px;
+  background: #f0f4ff;
+  color: #3f51b5;
+}
+
+.cat-athlete .protocol-category   { background: #e0f2f1; color: #00796b; }
+.cat-fitness .protocol-category   { background: #e3f2fd; color: #1565c0; }
+.cat-acceptable .protocol-category{ background: #e8f5e9; color: #2e7d32; }
+.cat-obese .protocol-category     { background: #fce4ec; color: #c62828; }
+.cat-essential .protocol-category { background: #f3e5f5; color: #7b1fa2; }
+
+.protocol-desc {
+  font-size: 11px;
+  color: #999;
+  line-height: 1.3;
+  margin-top: 4px;
+}
+
+/* ─── 4 Componentes corporales ───────────────────────────────── */
+.composition-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.comp-card {
+  border-radius: 12px;
+  padding: 16px;
+  background: white;
+  border: 1px solid #e8ecf5;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+.comp-icon { font-size: 20px; margin-bottom: 6px; }
+.comp-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.comp-label small { font-size: 10px; font-weight: 400; }
+
+.comp-kg {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a237e;
+  line-height: 1.1;
+}
+
+.comp-kg .unit { font-size: 13px; font-weight: 400; color: #888; }
+
+.comp-pct {
+  font-size: 14px;
+  color: #666;
+  margin: 2px 0 8px;
+}
+
+.comp-bar-wrap {
+  height: 6px;
+  background: #f0f0f0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.comp-bar {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.6s ease;
+}
+
+.comp-card.fat .comp-bar    { background: linear-gradient(90deg, #ff9800, #f44336); }
+.comp-card.muscle .comp-bar { background: linear-gradient(90deg, #e53935, #b71c1c); }
+.comp-card.bone .comp-bar   { background: linear-gradient(90deg, #ffd600, #f9a825); }
+.comp-card.residual .comp-bar { background: linear-gradient(90deg, #42a5f5, #1565c0); }
+
+.comp-no-data {
+  font-size: 11px;
+  color: #aaa;
+  margin-top: 4px;
+}
+
+/* ─── Somatotipo Heath-Carter ────────────────────────────────── */
+.somatotype-layout {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.somatotype-values {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 220px;
+  flex: 1;
+}
+
+.soma-card {
+  border-radius: 10px;
+  padding: 14px 18px;
+  border-left: 4px solid #ccc;
+}
+
+.soma-card.endo { border-left-color: #ef5350; background: #fff3f3; }
+.soma-card.meso { border-left-color: #42a5f5; background: #f0f8ff; }
+.soma-card.ecto { border-left-color: #26a69a; background: #f0faf9; }
+
+.soma-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #666;
+  margin-bottom: 2px;
+}
+
+.soma-val {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1a237e;
+  line-height: 1;
+}
+
+.soma-desc {
+  font-size: 12px;
+  color: #888;
+  margin-top: 2px;
+}
+
+.soma-coords {
+  background: #f8faff;
+  border: 1px solid #e3e8f5;
+  border-radius: 10px;
+  padding: 14px;
+  margin-top: 4px;
+}
+
+.coord-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  padding: 3px 0;
+  color: #555;
+}
+
+.coord-row strong { color: #1a237e; font-size: 15px; }
+
+.coord-row.classification {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e3e8f5;
+  font-size: 13px;
+}
+
+.coord-row.classification strong {
+  color: #3f51b5;
+  font-size: 13px;
+}
+
+/* ─── Somatocarta SVG ────────────────────────────────────────── */
+.somatochart-wrap {
+  flex: 1.5;
+  min-width: 320px;
+}
+
+.somatochart-title {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #6678a0;
+  margin-bottom: 8px;
+}
+
+.somatochart-svg {
+  width: 100%;
+  max-width: 420px;
+  height: auto;
+  border-radius: 10px;
+  border: 1px solid #dde3f0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+  display: block;
+  margin: 0 auto;
+}
+
+/* ─── Mensajes vacíos / inline ───────────────────────────────── */
+.no-data-msg {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #666;
+}
+
+.no-data-msg mat-icon {
+  font-size: 48px;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.no-data-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #888;
+  background: #f8f9ff;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-top: 8px;
+}
+
+.no-data-inline mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  color: #aab;
+}
+
+/* ─── Gráfico Evolución ──────────────────────────────────────── */
+.evolution-container { padding: 20px; }
+
+.chart-controls { margin-bottom: 20px; }
+
+.chart-wrapper {
+  position: relative;
+  height: 400px;
+  width: 100%;
+}
+
+.chart-wrapper.hidden { display: none; }
+
+/* ─── Dietas ─────────────────────────────────────────────────── */
+.diets-container { padding: 20px; }
+
+.diets-container h3 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #3f51b5;
+  font-weight: 500;
+}
+
+.diet-history-card {
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  margin-bottom: 14px;
+  overflow: hidden;
+  transition: box-shadow 0.2s;
+}
+.diet-history-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+.diet-history-card.diet-active { border-color: #4caf50; border-left: 4px solid #4caf50; }
+
+.diet-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 10px 14px;
+  background: #fafafa;
+}
+
+.diet-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.diet-name { font-weight: 500; font-size: 15px; }
+
+.diet-dates { font-size: 13px; color: #666; }
+
+.active-badge {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+/* ─── Calorías ───────────────────────────────────────────────── */
+.energy-container { padding: 20px; }
+
+.energy-inputs {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  background: #f5f7ff;
+  border-radius: 8px;
+}
+
+.input-badge {
+  font-size: 14px;
+  background: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid #e0e4f5;
+  color: #3f51b5;
+}
+
+.activity-selector { margin-bottom: 24px; }
+
+.formula-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.formula-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  border-top: 5px solid #ccc;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.formula-card.mifflin { border-top-color: #2e7d32; }
+.formula-card.harris  { border-top-color: #7b1fa2; }
+.formula-card.katch   { border-top-color: #1565c0; }
+.formula-card.disabled { opacity: 0.65; border-top-color: #757575; }
+
+.formula-header {
+  font-weight: 500;
+  font-size: 16px;
+  padding: 12px 16px;
+  background: #fafafa;
+  border-bottom: 1px solid #eee;
+}
+
+.formula-body {
+  padding: 16px;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.val-group { display: flex; flex-direction: column; }
+
+.val-label {
+  font-size: 12px;
+  color: #777;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.val-num {
+  font-size: 22px;
+  font-weight: 600;
+  color: #2d2d2d;
+}
+
+.val-num small { font-size: 12px; font-weight: 400; color: #777; }
+.val-group.highlight .val-num { font-size: 28px; }
+
+.mifflin .val-group.highlight .val-num { color: #2e7d32; }
+.harris  .val-group.highlight .val-num { color: #7b1fa2; }
+.katch   .val-group.highlight .val-num { color: #1565c0; }
+
+.formula-footer {
+  padding: 10px 16px;
+  background: #fdfdfd;
+  font-size: 11px;
+  color: #888;
+  border-top: 1px solid #f5f5f5;
+}
+
+.no-bodyfat-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 120px;
+  color: #888;
+  padding: 10px;
+  text-align: center;
+}
+
+.no-bodyfat-placeholder mat-icon {
+  font-size: 28px; width: 28px; height: 28px; margin-bottom: 6px; opacity: 0.5;
+}
+
+.no-bodyfat-placeholder p { font-size: 12px; margin: 0; }
+
+.tdee-table-card h4 { margin-top: 0; margin-bottom: 16px; color: #3f51b5; }
+
+.styled-table tbody tr { cursor: pointer; }
+
+.styled-table tbody tr.active-row {
+  background-color: #e8f0fe !important;
+  font-weight: 500;
+}
+
+/* Active diet viewer */
+.active-diet-viewer { padding: 0 14px 14px; }
+.diet-day-block { margin-bottom: 14px; }
+.day-label {
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.5px; color: #1a819c;
+  margin-bottom: 6px; border-bottom: 1px solid #e0f4f8; padding-bottom: 3px;
+}
+.diet-meal-block { margin-bottom: 8px; }
+.meal-name { font-size: 13px; font-weight: 600; color: #444; margin-bottom: 4px; }
+.diet-items-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.diet-items-table td { padding: 4px 8px; border-bottom: 1px solid #f5f5f5; vertical-align: middle; }
+.item-name { min-width: 150px; }
+.item-amount { min-width: 80px; color: #555; }
+.item-macros { color: #888; min-width: 80px; text-align: right; }
+.exchange-name { color: #5c35a8; font-weight: 600; display: flex; align-items: center; gap: 4px; }
+.exchange-icon-sm { font-size: 15px; height: 15px; width: 15px; vertical-align: middle; color: #7c4dff; }
+.exchange-selector { display: flex; align-items: center; gap: 8px; }
+.grams-result { font-size: 13px; color: #2e7d32; white-space: nowrap; }
+
+/* ─── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .two-col, .three-col { grid-template-columns: 1fr; }
+  .somatotype-layout { flex-direction: column; }
+  .protocol-grid { grid-template-columns: 1fr 1fr; }
+  .composition-grid { grid-template-columns: 1fr 1fr; }
+}

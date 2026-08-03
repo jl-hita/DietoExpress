@@ -1,0 +1,21 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.vs
+.vscode/
+Logs/
+
+# Node/Angular
+node_modules/
+dist/
+npm-debug.log
+package-lock.json
+.angular/
+
+# Visual Studio
+.vs/
+
+# Secrets
+Anguloso.Server/appsettings.json

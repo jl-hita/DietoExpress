@@ -1,0 +1,41 @@
+.layout-container {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.sidebar {
+  width: 240px;
+  /* background-color: #0d394a; */
+  background-color: #003e56;
+  /* azul oscuro estilo Avire color: white; */
+}
+
+.content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  height: 56px;
+  background: #1a819c !important;
+  /* azul más claro estilo Avire */
+}
+
+.page {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  /* background: #f4f6f8; */
+  background: #f7f7f7
+  /*
+      Otros colores:
+      - menú, seleccionado: #304456
+      - boton ok: #00b2c0
+      - boton noOk: #d9534f
+      - fondo página principal: #f7f7f7
+      - fondo componentes standalone: #ffffff
+  */
+}
+

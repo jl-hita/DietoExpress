@@ -1,0 +1,86 @@
+/* Fondo general */
+:host {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background: linear-gradient(135deg, #1976d2 0%, #42a5f5 100%);
+}
+
+/* Contenedor del formulario */
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background: #fff;
+  padding: 2.5rem;
+  border-radius: 1.2rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  width: 100%;
+  max-width: 360px;
+  animation: fadeIn 0.6s ease;
+}
+
+/* Campos */
+.full-width {
+  width: 100%;
+}
+
+/* Botón */
+button[mat-raised-button] {
+  margin-top: 0.5rem;
+  font-weight: 600;
+  border-radius: 0.8rem;
+  height: 45px;
+  transition: all 0.3s ease;
+}
+
+  button[mat-raised-button]:hover:not(:disabled) {
+    background-color: #1565c0;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(21, 101, 192, 0.4);
+  }
+
+/* Animación de entrada */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsivo */
+@media (max-width: 480px) {
+  .login-form {
+    margin: 1rem;
+    padding: 1.5rem;
+  }
+}
+
+.crear-cuenta {
+  margin-top: 1rem;
+  text-align: center;
+  font-size: 0.9rem;
+  color: #2159f3;
+}
+
+  .crear-cuenta a {
+    color: #64b5f6;
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+.crear-cuenta a:hover {
+  text-decoration: underline;
+}
+
+.boton-centrado {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}

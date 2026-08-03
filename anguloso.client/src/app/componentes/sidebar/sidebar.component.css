@@ -1,0 +1,52 @@
+.sidebar-container {
+  height: 100%;
+  padding-top: 20px;
+  align-content: start;
+}
+
+  .sidebar-container mat-icon {
+    color: white;
+  }
+
+  .sidebar-container span {
+    color: white;
+  }
+
+  .profile {
+    color: white;
+  }
+
+  .sidebar-container .menu-item {
+    /* display: flex; NO HACE NADA */
+    /* color: white; NO HACE NADA */
+  }
+
+.profile {
+  text-align: center;
+  padding: 10px 0;
+}
+
+  .profile .avatar {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    border: 2px solid white;
+    margin-bottom: 10px;
+  }
+
+  .profile .name {
+    font-weight: bold;
+  }
+
+mat-nav-list a {
+  color: white !important;
+  font-size: 15px;
+}
+
+  mat-nav-list a mat-icon {
+    margin-right: 10px;
+  }
+
+  mat-nav-list a:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+  }

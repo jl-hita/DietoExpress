@@ -1,0 +1,83 @@
+<div class="page-container">
+  <div class="page-header">
+    <h1>Dietas</h1>
+    <div class="header-actions">
+      <button mat-raised-button color="primary" (click)="createNew()">
+        <mat-icon>add</mat-icon> Nueva dieta
+      </button>
+      <mat-form-field appearance="outline" class="search-box">
+        <mat-icon matPrefix>search</mat-icon>
+        <input matInput placeholder="Buscar por nombre" [(ngModel)]="searchTerm" (ngModelChange)="refresh()" />
+      </mat-form-field>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <div class="table-topbar">
+      <div class="topbar-left">
+        <div class="top-title">Listado de dietas</div>
+        <div class="top-sub">Total: {{ filtered.length }}</div>
+      </div>
+      <div class="topbar-right">
+        <mat-form-field appearance="outline" class="search">
+          <mat-icon matPrefix>search</mat-icon>
+          <input matInput placeholder="Buscar" [(ngModel)]="searchTerm" (ngModelChange)="refresh()" />
+        </mat-form-field>
+      </div>
+    </div>
+
+    <div class="table-wrapper">
+      <div *ngIf="error" class="error-message">
+        {{ error }}
+      </div>
+
+      <table class="styled-table" *ngIf="!loading && !error && pagedDiets.length > 0">
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Cal/día</th>
+            <th>Proteína</th>
+            <th>H. carbono</th>
+            <th>Grasas</th>
+            <th>Creada</th>
+            <th style="width: 90px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let d of pagedDiets">
+            <td>{{ d.name }}</td>
+            <td>{{ d.targetKcal ?? '—' }}</td>
+            <td>{{ d.targetProtein ?? '—' }}g</td>
+            <td>{{ d.targetCarbs ?? '—' }}g</td>
+            <td>{{ d.targetFat ?? '—' }}g</td>
+            <td>{{ d.createdAt ? (d.createdAt | date:'short') : '—' }}</td>
+            <td class="actions">
+              <button mat-icon-button color="primary" (click)="editDiet(d)" matTooltip="Editar">
+                <mat-icon>edit</mat-icon>
+              </button>
+              <button mat-icon-button color="warn" (click)="deleteDiet(d)" matTooltip="Eliminar">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div *ngIf="loading" class="loading-box">
+        <mat-progress-spinner mode="indeterminate"></mat-progress-spinner>
+      </div>
+
+      <div *ngIf="!loading && !error && pagedDiets.length === 0" class="empty-message">
+        No hay dietas. Crea una con "Nueva dieta".
+      </div>
+    </div>
+
+    <div class="custom-paginator" *ngIf="!error && filtered.length > pageSize">
+      <button class="page-btn" [disabled]="currentPage === 1" (click)="prevPage()">‹</button>
+      <button *ngFor="let p of pagesToShow()" class="page-btn"
+              [class.active]="p === currentPage"
+              (click)="goToPage(p)">{{ p }}</button>
+      <button class="page-btn" [disabled]="currentPage === totalPages" (click)="nextPage()">›</button>
+    </div>
+  </div>
+</div>

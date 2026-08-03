@@ -1,0 +1,56 @@
+.card {
+  background: white;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  border-radius: 12px;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+  overflow: hidden;
+}
+
+.header {
+  background: #1a819c; /* topbar */
+  color: white;
+  padding: 16px 24px;
+}
+
+  .header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+  }
+
+form {
+  padding: 24px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill,minmax(250px,1fr));
+  gap: 16px;
+}
+
+.notes {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.actions {
+  margin-top: 24px;
+  display: flex;
+  gap: 12px;
+}
+
+.btn-save {
+  background-color: #00b2c0 !important; /* botón OK */
+  color: white !important;
+}
+
+button[color='warn'] {
+  border-color: #d9534f;
+  color: #d9534f;
+}
+
+  button[color='warn']:hover {
+    background: #d9534f;
+    color: white;
+  }

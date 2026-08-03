@@ -1,0 +1,127 @@
+<div class="settings-page">
+
+  <!-- ─── SPINNER carga inicial ─────────────────────────────────── -->
+  <div *ngIf="loading" class="loading-overlay">
+    <mat-spinner diameter="48"></mat-spinner>
+  </div>
+
+  <ng-container *ngIf="!loading">
+
+    <!-- ─── Encabezado de página ───────────────────────────────── -->
+    <div class="page-header">
+      <div class="page-title-group">
+        <mat-icon class="page-icon">tune</mat-icon>
+        <div>
+          <h1 class="page-title">Ajustes de la Clínica</h1>
+          <p class="page-subtitle">La información aquí configurada aparecerá en los PDF de dietas generados para tus pacientes.</p>
+        </div>
+      </div>
+    </div>
+
+    <form [formGroup]="form" (ngSubmit)="save()" class="settings-form">
+
+      <!-- ─── TARJETA: Datos personales ───────────────────────── -->
+      <mat-card class="settings-card">
+        <mat-card-header>
+          <mat-icon mat-card-avatar class="section-icon">person</mat-icon>
+          <mat-card-title>Datos del Nutricionista</mat-card-title>
+          <mat-card-subtitle>Información personal del profesional</mat-card-subtitle>
+        </mat-card-header>
+        <mat-divider></mat-divider>
+        <mat-card-content class="card-content">
+          <div class="info-row" *ngIf="profile">
+            <span class="info-label"><mat-icon>alternate_email</mat-icon> Usuario</span>
+            <span class="info-value">{{ profile.username }}</span>
+          </div>
+          <div class="info-row" *ngIf="profile">
+            <span class="info-label"><mat-icon>mail</mat-icon> Email</span>
+            <span class="info-value">{{ profile.email }}</span>
+          </div>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Nombre completo del profesional</mat-label>
+            <mat-icon matPrefix>badge</mat-icon>
+            <input matInput formControlName="fullName" placeholder="Ej: Dra. María García López" />
+          </mat-form-field>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- ─── TARJETA: Datos de la clínica ────────────────────── -->
+      <mat-card class="settings-card">
+        <mat-card-header>
+          <mat-icon mat-card-avatar class="section-icon">local_hospital</mat-icon>
+          <mat-card-title>Datos de la Clínica</mat-card-title>
+          <mat-card-subtitle>Esta información aparecerá en el encabezado de los PDFs generados</mat-card-subtitle>
+        </mat-card-header>
+        <mat-divider></mat-divider>
+        <mat-card-content class="card-content">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Nombre de la clínica</mat-label>
+            <mat-icon matPrefix>business</mat-icon>
+            <input matInput formControlName="clinicName" placeholder="Ej: Centro de Nutrición Saludable" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Dirección</mat-label>
+            <mat-icon matPrefix>location_on</mat-icon>
+            <input matInput formControlName="clinicAddress" placeholder="Ej: Calle Gran Vía 45, 2º, Madrid" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Teléfono de contacto</mat-label>
+            <mat-icon matPrefix>phone</mat-icon>
+            <input matInput formControlName="clinicPhone" placeholder="Ej: 91 123 45 67" />
+          </mat-form-field>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- ─── TARJETA: Logotipo ────────────────────────────────── -->
+      <mat-card class="settings-card">
+        <mat-card-header>
+          <mat-icon mat-card-avatar class="section-icon">image</mat-icon>
+          <mat-card-title>Logotipo de la Clínica</mat-card-title>
+          <mat-card-subtitle>Se mostrará en la esquina superior izquierda del PDF. Recomendado: PNG con fondo transparente, máx. 300×300px</mat-card-subtitle>
+        </mat-card-header>
+        <mat-divider></mat-divider>
+        <mat-card-content class="card-content">
+
+          <!-- Vista previa del logo -->
+          <div class="logo-zone">
+            <div class="logo-preview" [class.has-logo]="logoPreview">
+              <img *ngIf="logoPreview" [src]="logoPreview" alt="Vista previa del logotipo" class="logo-img" />
+              <div *ngIf="!logoPreview" class="logo-placeholder">
+                <mat-icon>add_photo_alternate</mat-icon>
+                <span>Sin logotipo</span>
+              </div>
+            </div>
+
+            <div class="logo-actions">
+              <label class="upload-btn" for="logoInput">
+                <mat-icon>upload</mat-icon>
+                {{ logoPreview ? 'Cambiar logotipo' : 'Subir logotipo' }}
+              </label>
+              <input id="logoInput" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                     (change)="onLogoSelected($event)" style="display:none" />
+
+              <button type="button" mat-stroked-button color="warn"
+                      *ngIf="logoPreview" (click)="removeLogo()" class="remove-btn">
+                <mat-icon>delete</mat-icon>
+                Eliminar logotipo
+              </button>
+            </div>
+          </div>
+
+        </mat-card-content>
+      </mat-card>
+
+      <!-- ─── Botón guardar ────────────────────────────────────── -->
+      <div class="save-bar">
+        <button mat-raised-button color="primary" type="submit" [disabled]="saving" class="save-btn">
+          <mat-spinner *ngIf="saving" diameter="20" class="btn-spinner"></mat-spinner>
+          <mat-icon *ngIf="!saving">save</mat-icon>
+          {{ saving ? 'Guardando...' : 'Guardar cambios' }}
+        </button>
+      </div>
+
+    </form>
+  </ng-container>
+</div>

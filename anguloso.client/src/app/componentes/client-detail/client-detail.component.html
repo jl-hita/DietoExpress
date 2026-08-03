@@ -1,0 +1,685 @@
+<div class="page-wrapper">
+  <form [formGroup]="clientForm" (ngSubmit)="saveClient()" class="card">
+    <h2>Datos del cliente</h2>
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Nombre completo</mat-label>
+      <input matInput formControlName="fullName" required />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Email</mat-label>
+      <input matInput formControlName="email" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Teléfono</mat-label>
+      <input matInput formControlName="phone" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Fecha de nacimiento</mat-label>
+      <input matInput type="date" formControlName="birthDate" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Género</mat-label>
+      <input matInput formControlName="gender" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Notas</mat-label>
+      <textarea matInput rows="3" formControlName="notes"></textarea>
+    </mat-form-field>
+
+    <div class="actions">
+      <button mat-raised-button color="primary" type="submit" [disabled]="clientForm.invalid">Guardar cliente</button>
+    </div>
+  </form>
+
+  <mat-tab-group class="card tabs" (selectedTabChange)="onTabChange($event)">
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!--  TAB: BIOMÉTRICAS                                          -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <mat-tab label="Biométricas">
+      <div class="biometrics-toolbar">
+        <button mat-flat-button color="primary" (click)="openNewBiometric()">
+          <mat-icon>add</mat-icon> Nueva biometría
+        </button>
+      </div>
+
+      <mat-list *ngIf="biometrics?.length">
+        <mat-list-item *ngFor="let b of biometrics">
+          <div class="biometric-item">
+            <div class="biometric-summary">
+              <span class="bio-date">{{ b.measurementDate }}</span>
+              <span class="bio-chip" *ngIf="b.weight">{{ b.weight }} kg</span>
+              <span class="bio-chip accent" *ngIf="b.bmi">IMC: {{ b.bmi }}</span>
+              <span class="bio-chip green" *ngIf="b.analysis?.fatMassPercentage">
+                {{ b.analysis?.fatMassPercentage }}% grasa
+              </span>
+            </div>
+            <div class="biometric-actions">
+              <button mat-icon-button (click)="editBiometric(b)" title="Editar"><mat-icon>edit</mat-icon></button>
+              <button mat-icon-button color="warn" (click)="deleteBiometric(b.id)" title="Eliminar"><mat-icon>delete</mat-icon></button>
+            </div>
+          </div>
+        </mat-list-item>
+      </mat-list>
+
+      <div *ngIf="!biometrics?.length" class="no-data-msg">
+        <mat-icon>monitor_weight</mat-icon>
+        <p>No hay registros biométricos aún. Añade el primero.</p>
+      </div>
+
+      <!-- FORMULARIO BIOMETRÍA -->
+      <div *ngIf="showBiometricForm" class="biometric-form card">
+        <h3>{{ editingBiometricId ? 'Editar' : 'Nueva' }} biometría</h3>
+        <form [formGroup]="biometricForm" (ngSubmit)="saveBiometric()">
+
+          <!-- Datos básicos -->
+          <div class="form-section-label">Datos generales</div>
+          <div class="two-col">
+            <mat-form-field appearance="outline"><mat-label>Fecha</mat-label><input matInput type="date" formControlName="measurementDate" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Peso (kg)</mat-label><input matInput type="number" step="0.1" formControlName="weight" /></mat-form-field>
+          </div>
+          <div class="two-col">
+            <mat-form-field appearance="outline"><mat-label>Altura (cm)</mat-label><input matInput type="number" formControlName="height" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>% Grasa (manual)</mat-label><input matInput type="number" step="0.1" formControlName="bodyFat" /></mat-form-field>
+          </div>
+          <div class="two-col">
+            <mat-form-field appearance="outline"><mat-label>Masa Muscular (kg)</mat-label><input matInput type="number" step="0.1" formControlName="muscleMass" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Grasa Visceral</mat-label><input matInput type="number" formControlName="visceralFat" /></mat-form-field>
+          </div>
+
+          <!-- Perímetros básicos -->
+          <div class="form-section-label">Perímetros (cm)</div>
+          <div class="three-col">
+            <mat-form-field appearance="outline"><mat-label>Cintura</mat-label><input matInput type="number" step="0.1" formControlName="waist" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Cadera</mat-label><input matInput type="number" step="0.1" formControlName="hip" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Cuello</mat-label><input matInput type="number" step="0.1" formControlName="neck" /></mat-form-field>
+          </div>
+
+          <!-- Pliegues básicos -->
+          <div class="form-section-label">Pliegues cutáneos básicos (mm)</div>
+          <div class="three-col">
+            <mat-form-field appearance="outline"><mat-label>Tríceps</mat-label><input matInput type="number" step="0.1" formControlName="triceps" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Abdomen</mat-label><input matInput type="number" step="0.1" formControlName="abdomen" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Muslo</mat-label><input matInput type="number" step="0.1" formControlName="thigh" /></mat-form-field>
+          </div>
+          <div class="three-col">
+            <mat-form-field appearance="outline"><mat-label>Subescapular</mat-label><input matInput type="number" step="0.1" formControlName="subscapular" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Suprailíaco</mat-label><input matInput type="number" step="0.1" formControlName="suprailiac" /></mat-form-field>
+          </div>
+
+          <!-- Pliegues avanzados (colapsable) -->
+          <div class="collapsible-section">
+            <button type="button" class="collapse-toggle" (click)="showAdvancedSkinfolds = !showAdvancedSkinfolds">
+              <mat-icon>{{ showAdvancedSkinfolds ? 'expand_less' : 'expand_more' }}</mat-icon>
+              Medidas avanzadas (pliegues, perímetros, diámetros)
+              <span class="collapse-hint">— Para somatotipo Heath-Carter y JP de 7 pliegues</span>
+            </button>
+
+            <div *ngIf="showAdvancedSkinfolds" class="collapsible-content">
+              <div class="form-section-label">Pliegues avanzados (mm)</div>
+              <div class="three-col">
+                <mat-form-field appearance="outline"><mat-label>Bíceps</mat-label><input matInput type="number" step="0.1" formControlName="biceps" /></mat-form-field>
+                <mat-form-field appearance="outline"><mat-label>Pecho</mat-label><input matInput type="number" step="0.1" formControlName="chest" /></mat-form-field>
+                <mat-form-field appearance="outline"><mat-label>Axila</mat-label><input matInput type="number" step="0.1" formControlName="axilla" /></mat-form-field>
+              </div>
+              <div class="two-col">
+                <mat-form-field appearance="outline"><mat-label>Pliegue Pantorrilla</mat-label><input matInput type="number" step="0.1" formControlName="calfSkinfold" /></mat-form-field>
+              </div>
+
+              <div class="form-section-label">Perímetros segmentales (cm)</div>
+              <div class="two-col">
+                <mat-form-field appearance="outline"><mat-label>Perímetro Brazo</mat-label><input matInput type="number" step="0.1" formControlName="armPerimeter" /></mat-form-field>
+                <mat-form-field appearance="outline"><mat-label>Perímetro Pantorrilla</mat-label><input matInput type="number" step="0.1" formControlName="calfPerimeter" /></mat-form-field>
+              </div>
+
+              <div class="form-section-label">Diámetros óseos (cm)</div>
+              <div class="three-col">
+                <mat-form-field appearance="outline"><mat-label>Diámetro Muñeca</mat-label><input matInput type="number" step="0.1" formControlName="wristDiameter" /></mat-form-field>
+                <mat-form-field appearance="outline"><mat-label>Diámetro Fémur</mat-label><input matInput type="number" step="0.1" formControlName="femurDiameter" /></mat-form-field>
+                <mat-form-field appearance="outline"><mat-label>Diámetro Húmero</mat-label><input matInput type="number" step="0.1" formControlName="humerusDiameter" /></mat-form-field>
+              </div>
+            </div>
+          </div>
+
+          <mat-form-field appearance="outline" class="full-width"><mat-label>Notas</mat-label><textarea matInput formControlName="notes"></textarea></mat-form-field>
+
+          <div class="actions">
+            <button mat-raised-button color="primary" type="submit">{{ editingBiometricId ? 'Guardar' : 'Crear' }}</button>
+            <button mat-button type="button" (click)="showBiometricForm=false">Cancelar</button>
+          </div>
+        </form>
+      </div>
+
+    </mat-tab>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!--  TAB: ANÁLISIS ANTROPOMÉTRICO                              -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <mat-tab label="Análisis Antropométrico">
+      <div class="analysis-container">
+
+        <div *ngIf="!biometrics?.length" class="no-data-msg">
+          <mat-icon>biotech</mat-icon>
+          <p>No hay registros biométricos. Añade uno en la pestaña "Biométricas".</p>
+        </div>
+
+        <ng-container *ngIf="biometrics?.length">
+          <!-- Selector de registro -->
+          <div class="analysis-selector-bar">
+            <mat-icon class="selector-icon">event_note</mat-icon>
+            <span class="selector-label">Registro analizado:</span>
+            <div class="bio-selector-chips">
+              <button *ngFor="let b of biometrics"
+                class="bio-chip-btn"
+                [class.active]="selectedAnalysisBiometricId === b.id"
+                (click)="selectBiometricForAnalysis(b.id!)">
+                {{ b.measurementDate }}
+              </button>
+            </div>
+          </div>
+
+          <ng-container *ngIf="selectedBiometricForAnalysis as bio">
+
+            <!-- Sin datos suficientes -->
+            <div *ngIf="!bio.analysis" class="no-data-msg">
+              <mat-icon>science</mat-icon>
+              <p>Este registro no tiene suficientes datos para calcular el análisis. Añade pliegues cutáneos.</p>
+            </div>
+
+            <ng-container *ngIf="bio.analysis as an">
+
+              <!-- ── Sección 1: % Grasa por protocolo ── -->
+              <div class="analysis-section">
+                <h3 class="section-title">
+                  <mat-icon>water_drop</mat-icon>
+                  % Grasa Corporal por Protocolo
+                </h3>
+                <div class="protocol-grid">
+
+                  <div class="protocol-card" [class]="getFatCategoryClass(an.bodyFatPercentageJacksonPollock3)"
+                       *ngIf="an.bodyFatPercentageJacksonPollock3 !== undefined && an.bodyFatPercentageJacksonPollock3 !== null">
+                    <div class="protocol-name">Jackson-Pollock 3</div>
+                    <div class="protocol-value">{{ an.bodyFatPercentageJacksonPollock3 | number:'1.1-1' }}<span class="unit">%</span></div>
+                    <div class="protocol-category">{{ getFatCategory(an.bodyFatPercentageJacksonPollock3) }}</div>
+                    <div class="protocol-desc">Pecho + Abdomen + Muslo (♂) / Tríceps + Suprailíaco + Muslo (♀)</div>
+                  </div>
+
+                  <div class="protocol-card" [class]="getFatCategoryClass(an.bodyFatPercentageJacksonPollock4)"
+                       *ngIf="an.bodyFatPercentageJacksonPollock4 !== undefined && an.bodyFatPercentageJacksonPollock4 !== null">
+                    <div class="protocol-name">Jackson-Pollock 4</div>
+                    <div class="protocol-value">{{ an.bodyFatPercentageJacksonPollock4 | number:'1.1-1' }}<span class="unit">%</span></div>
+                    <div class="protocol-category">{{ getFatCategory(an.bodyFatPercentageJacksonPollock4) }}</div>
+                    <div class="protocol-desc">Tríceps + Abdomen + Suprailíaco + Muslo</div>
+                  </div>
+
+                  <div class="protocol-card" [class]="getFatCategoryClass(an.bodyFatPercentageJacksonPollock7)"
+                       *ngIf="an.bodyFatPercentageJacksonPollock7 !== undefined && an.bodyFatPercentageJacksonPollock7 !== null">
+                    <div class="protocol-name">Jackson-Pollock 7</div>
+                    <div class="protocol-value">{{ an.bodyFatPercentageJacksonPollock7 | number:'1.1-1' }}<span class="unit">%</span></div>
+                    <div class="protocol-category">{{ getFatCategory(an.bodyFatPercentageJacksonPollock7) }}</div>
+                    <div class="protocol-desc">7 pliegues — Mayor precisión clínica</div>
+                  </div>
+
+                  <div class="protocol-card" [class]="getFatCategoryClass(an.bodyFatPercentageFaulkner)"
+                       *ngIf="an.bodyFatPercentageFaulkner !== undefined && an.bodyFatPercentageFaulkner !== null">
+                    <div class="protocol-name">Faulkner</div>
+                    <div class="protocol-value">{{ an.bodyFatPercentageFaulkner | number:'1.1-1' }}<span class="unit">%</span></div>
+                    <div class="protocol-category">{{ getFatCategory(an.bodyFatPercentageFaulkner) }}</div>
+                    <div class="protocol-desc">Para deportistas — Tríceps + Subescapular + Suprailíaco + Abdomen</div>
+                  </div>
+
+                  <div class="protocol-card" [class]="getFatCategoryClass(an.bodyFatPercentageDurninWomersley)"
+                       *ngIf="an.bodyFatPercentageDurninWomersley !== undefined && an.bodyFatPercentageDurninWomersley !== null">
+                    <div class="protocol-name">Durnin-Womersley</div>
+                    <div class="protocol-value">{{ an.bodyFatPercentageDurninWomersley | number:'1.1-1' }}<span class="unit">%</span></div>
+                    <div class="protocol-category">{{ getFatCategory(an.bodyFatPercentageDurninWomersley) }}</div>
+                    <div class="protocol-desc">Población general y adultos mayores — 4 pliegues con constantes por edad</div>
+                  </div>
+
+                  <div class="protocol-card" [class]="getFatCategoryClass(an.bodyFatPercentageCarter)"
+                       *ngIf="an.bodyFatPercentageCarter !== undefined && an.bodyFatPercentageCarter !== null">
+                    <div class="protocol-name">Carter</div>
+                    <div class="protocol-value">{{ an.bodyFatPercentageCarter | number:'1.1-1' }}<span class="unit">%</span></div>
+                    <div class="protocol-category">{{ getFatCategory(an.bodyFatPercentageCarter) }}</div>
+                    <div class="protocol-desc">Para niños/adolescentes — 6 pliegues</div>
+                  </div>
+
+                </div>
+
+                <!-- Sin ningún protocolo calculable -->
+                <div *ngIf="an.bodyFatPercentageJacksonPollock3 === undefined
+                         && an.bodyFatPercentageJacksonPollock4 === undefined
+                         && an.bodyFatPercentageFaulkner === undefined
+                         && an.bodyFatPercentageDurninWomersley === undefined"
+                     class="no-data-inline">
+                  <mat-icon>info_outline</mat-icon>
+                  Introduce pliegues cutáneos en la biometría para calcular el % de grasa por protocolo.
+                </div>
+              </div>
+
+              <!-- ── Sección 2: Composición 4 componentes ── -->
+              <div class="analysis-section" *ngIf="an.fatMassKg !== undefined && an.fatMassKg !== null">
+                <h3 class="section-title">
+                  <mat-icon>accessibility_new</mat-icon>
+                  Composición Corporal — 4 Componentes
+                </h3>
+                <div class="composition-grid">
+
+                  <div class="comp-card fat">
+                    <div class="comp-icon">🟠</div>
+                    <div class="comp-label">Masa Grasa</div>
+                    <div class="comp-kg">{{ an.fatMassKg | number:'1.1-1' }} <span class="unit">kg</span></div>
+                    <div class="comp-pct">{{ an.fatMassPercentage | number:'1.1-1' }}%</div>
+                    <div class="comp-bar-wrap"><div class="comp-bar" [style.width.%]="an.fatMassPercentage"></div></div>
+                  </div>
+
+                  <div class="comp-card muscle">
+                    <div class="comp-icon">🔴</div>
+                    <div class="comp-label">Masa Muscular</div>
+                    <div class="comp-kg">{{ an.muscleMassKg | number:'1.1-1' }} <span class="unit">kg</span></div>
+                    <div class="comp-pct">{{ an.muscleMassPercentage | number:'1.1-1' }}%</div>
+                    <div class="comp-bar-wrap"><div class="comp-bar" [style.width.%]="an.muscleMassPercentage"></div></div>
+                  </div>
+
+                  <div class="comp-card bone">
+                    <div class="comp-icon">🟡</div>
+                    <div class="comp-label">Masa Ósea <small>(Rocha)</small></div>
+                    <div class="comp-kg">{{ (an.boneMassKg | number:'1.1-1') ?? '—' }} <span class="unit">kg</span></div>
+                    <div class="comp-pct">{{ (an.boneMassPercentage | number:'1.1-1') ?? '—' }}%</div>
+                    <div class="comp-bar-wrap" *ngIf="an.boneMassPercentage"><div class="comp-bar" [style.width.%]="an.boneMassPercentage"></div></div>
+                    <div class="comp-no-data" *ngIf="!an.boneMassKg">Requiere diámetros muñeca y fémur</div>
+                  </div>
+
+                  <div class="comp-card residual">
+                    <div class="comp-icon">🔵</div>
+                    <div class="comp-label">Masa Residual <small>(Würch)</small></div>
+                    <div class="comp-kg">{{ an.residualMassKg | number:'1.1-1' }} <span class="unit">kg</span></div>
+                    <div class="comp-pct">{{ an.residualMassPercentage | number:'1.1-1' }}%</div>
+                    <div class="comp-bar-wrap"><div class="comp-bar" [style.width.%]="an.residualMassPercentage"></div></div>
+                  </div>
+
+                </div>
+              </div>
+
+              <!-- ── Sección 3: Somatotipo Heath-Carter ── -->
+              <div class="analysis-section" *ngIf="an.somatotype as soma">
+                <h3 class="section-title">
+                  <mat-icon>scatter_plot</mat-icon>
+                  Somatotipo Heath-Carter
+                </h3>
+
+                <div class="somatotype-layout">
+                  <!-- Valores numéricos -->
+                  <div class="somatotype-values">
+                    <div class="soma-card endo">
+                      <div class="soma-label">Endomorfia</div>
+                      <div class="soma-val">{{ soma.endomorphy | number:'1.1-1' }}</div>
+                      <div class="soma-desc">Adiposidad relativa</div>
+                    </div>
+                    <div class="soma-card meso">
+                      <div class="soma-label">Mesomorfia</div>
+                      <div class="soma-val">{{ soma.mesomorphy | number:'1.1-1' }}</div>
+                      <div class="soma-desc">Desarrollo músculo-esquelético</div>
+                    </div>
+                    <div class="soma-card ecto">
+                      <div class="soma-label">Ectomorfia</div>
+                      <div class="soma-val">{{ soma.ectomorphy | number:'1.1-1' }}</div>
+                      <div class="soma-desc">Linealidad relativa</div>
+                    </div>
+
+                    <div class="soma-coords" *ngIf="soma.coordinatesAvailable">
+                      <div class="coord-row"><span>X (somatocarta):</span><strong>{{ soma.x | number:'1.2-2' }}</strong></div>
+                      <div class="coord-row"><span>Y (somatocarta):</span><strong>{{ soma.y | number:'1.2-2' }}</strong></div>
+                      <div class="coord-row classification">
+                        <span>Clasificación:</span>
+                        <strong>
+                          <ng-container *ngIf="soma.mesomorphy >= soma.endomorphy && soma.mesomorphy >= soma.ectomorphy && (soma.mesomorphy - soma.endomorphy) > 1 && (soma.mesomorphy - soma.ectomorphy) > 1">Mesomorfo puro</ng-container>
+                          <ng-container *ngIf="soma.endomorphy > soma.mesomorphy && soma.endomorphy > soma.ectomorphy && (soma.endomorphy - soma.mesomorphy) > 1 && (soma.endomorphy - soma.ectomorphy) > 1">Endomorfo puro</ng-container>
+                          <ng-container *ngIf="soma.ectomorphy > soma.mesomorphy && soma.ectomorphy > soma.endomorphy && (soma.ectomorphy - soma.mesomorphy) > 1 && (soma.ectomorphy - soma.endomorphy) > 1">Ectomorfo puro</ng-container>
+                          <ng-container *ngIf="soma.mesomorphy >= soma.endomorphy && soma.mesomorphy >= soma.ectomorphy && !((soma.mesomorphy - soma.endomorphy) > 1 && (soma.mesomorphy - soma.ectomorphy) > 1)">Mesomorfo balanceado</ng-container>
+                          <ng-container *ngIf="soma.endomorphy >= soma.mesomorphy && soma.ectomorphy < soma.endomorphy && soma.endomorphy > soma.mesomorphy">Endo-mesomorfo</ng-container>
+                        </strong>
+                      </div>
+                    </div>
+                    <div *ngIf="!soma.coordinatesAvailable" class="no-data-inline">
+                      <mat-icon>info_outline</mat-icon>
+                      Introduce diámetros óseos y perímetros para calcular la Mesomorfia y obtener la somatocarta completa.
+                    </div>
+                  </div>
+
+                  <!-- Somatocarta SVG -->
+                  <div class="somatochart-wrap" *ngIf="soma.coordinatesAvailable">
+                    <div class="somatochart-title">Somatocarta</div>
+                    <svg class="somatochart-svg" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+                      <!-- Fondo -->
+                      <rect width="400" height="400" fill="#f8faff" rx="8"/>
+
+                      <!-- Líneas de cuadrícula -->
+                      <g stroke="#dde3f0" stroke-width="0.5">
+                        <line *ngFor="let i of [-5,-4,-3,-2,-1,0,1,2,3,4,5]"
+                          [attr.x1]="200 + i*30" y1="20"
+                          [attr.x2]="200 + i*30" y2="380"/>
+                        <line *ngFor="let i of [-5,-4,-3,-2,-1,0,1,2,3,4,5]"
+                          x1="20" [attr.y1]="200 - i*30"
+                          x2="380" [attr.y2]="200 - i*30"/>
+                      </g>
+
+                      <!-- Ejes principales -->
+                      <line x1="20" y1="200" x2="380" y2="200" stroke="#94a3c4" stroke-width="1.5"/>
+                      <line x1="200" y1="20" x2="200" y2="380" stroke="#94a3c4" stroke-width="1.5"/>
+
+                      <!-- Etiquetas de ejes -->
+                      <text x="385" y="204" fill="#6678a0" font-size="10" text-anchor="start">X</text>
+                      <text x="202" y="16" fill="#6678a0" font-size="10">Y</text>
+                      <text x="10" y="204" fill="#6678a0" font-size="9" text-anchor="end">Endo →</text>
+                      <text x="382" y="204" fill="#6678a0" font-size="9" text-anchor="end">← Ecto</text>
+                      <text x="202" y="16" fill="#6678a0" font-size="9">Meso ↑</text>
+
+                      <!-- Zona sombreada Ecto (derecha) -->
+                      <rect x="230" y="20" width="150" height="360" fill="#e8f5e9" opacity="0.3" rx="4"/>
+                      <!-- Zona sombreada Endo (izquierda) -->
+                      <rect x="20" y="20" width="150" height="360" fill="#fff3e0" opacity="0.3" rx="4"/>
+                      <!-- Zona sombreada Meso (arriba) -->
+                      <rect x="20" y="20" width="360" height="150" fill="#e3f2fd" opacity="0.3" rx="4"/>
+
+                      <!-- Etiquetas zonas -->
+                      <text x="95" y="380" fill="#e65100" font-size="11" text-anchor="middle" font-weight="500">ENDOMORFIA</text>
+                      <text x="305" y="380" fill="#2e7d32" font-size="11" text-anchor="middle" font-weight="500">ECTOMORFIA</text>
+                      <text x="200" y="36" fill="#1565c0" font-size="11" text-anchor="middle" font-weight="500">MESOMORFIA</text>
+
+                      <!-- Punto del paciente -->
+                      <circle
+                        [attr.cx]="getSomatochartX(soma.endomorphy, soma.ectomorphy)"
+                        [attr.cy]="getSomatochartY(soma.endomorphy, soma.mesomorphy, soma.ectomorphy)"
+                        r="9"
+                        fill="#3f51b5"
+                        stroke="white"
+                        stroke-width="2.5"
+                        opacity="0.95"/>
+
+                      <!-- Etiqueta del punto -->
+                      <text
+                        [attr.x]="getSomatochartX(soma.endomorphy, soma.ectomorphy)"
+                        [attr.y]="getSomatochartY(soma.endomorphy, soma.mesomorphy, soma.ectomorphy) - 14"
+                        fill="#3f51b5"
+                        font-size="10"
+                        text-anchor="middle"
+                        font-weight="600">
+                        {{ soma.endomorphy | number:'1.1-1' }}-{{ soma.mesomorphy | number:'1.1-1' }}-{{ soma.ectomorphy | number:'1.1-1' }}
+                      </text>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+            </ng-container><!-- /an -->
+          </ng-container><!-- /bio -->
+        </ng-container><!-- /biometrics.length -->
+      </div>
+    </mat-tab>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!--  TAB: EVOLUCIÓN                                            -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <mat-tab label="Evolución">
+      <div class="evolution-container">
+        <div class="chart-controls" *ngIf="evolutionData.length >= 2">
+          <mat-form-field appearance="outline">
+            <mat-label>Métrica a graficar</mat-label>
+            <mat-select [value]="selectedMetric" (selectionChange)="onMetricChange($event.value)">
+              <mat-option value="weight">Peso (kg)</mat-option>
+              <mat-option value="bodyFat">% Grasa Corporal (manual)</mat-option>
+              <mat-option value="muscleMass">Masa Muscular (kg)</mat-option>
+              <mat-option value="bmi">Índice de Masa Corporal (IMC)</mat-option>
+              <mat-option value="waist">Cintura (cm)</mat-option>
+              <mat-option value="hip">Cadera (cm)</mat-option>
+              <mat-optgroup label="Grasa calculada (pliegues)">
+                <mat-option value="jp3">% Grasa Jackson-Pollock 3</mat-option>
+                <mat-option value="jp4">% Grasa Jackson-Pollock 4</mat-option>
+                <mat-option value="faulkner">% Grasa Faulkner</mat-option>
+              </mat-optgroup>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <div class="chart-wrapper" [class.hidden]="evolutionData.length < 2">
+          <canvas id="evolutionChart"></canvas>
+        </div>
+
+        <div *ngIf="evolutionData.length < 2" class="no-data-msg">
+          <mat-icon>trending_up</mat-icon>
+          <p>Se necesitan al menos 2 registros biométricos para visualizar la evolución del paciente.</p>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!--  TAB: DIETAS                                               -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <mat-tab label="Dietas">
+      <div class="diets-container">
+        <h3>Historial de planes alimentarios</h3>
+
+        <ng-container *ngFor="let d of dietsHistory">
+          <div class="diet-history-card" [class.diet-active]="d.isActive">
+            <div class="diet-header">
+              <div class="diet-info">
+                <span class="diet-name">{{ d.dietName }}</span>
+                <span class="diet-dates">
+                  ({{ d.startDate | date:'dd/MM/yyyy' }}
+                  <span *ngIf="d.endDate"> - {{ d.endDate | date:'dd/MM/yyyy' }}</span>
+                  <span *ngIf="!d.endDate"> - Presente</span>)
+                </span>
+                <span *ngIf="d.isActive" class="active-badge">Activa</span>
+              </div>
+              <div class="diet-actions">
+                <button mat-icon-button color="primary" (click)="downloadPdf(d.id)" title="Descargar PDF">
+                  <mat-icon>picture_as_pdf</mat-icon>
+                </button>
+              </div>
+            </div>
+
+            <!-- Vista interactiva de la dieta activa -->
+            <ng-container *ngIf="d.isActive && d.diet">
+              <div class="active-diet-viewer">
+                <div *ngFor="let day of d.diet.days; let dIndex = index" class="diet-day-block">
+                  <div class="day-label">Día {{ day.dayIndex + 1 }}</div>
+                  <div *ngFor="let meal of day.meals; let mIndex = index" class="diet-meal-block">
+                    <div class="meal-name">{{ meal.name }}</div>
+                    <table class="diet-items-table">
+                      <tbody>
+                        <tr *ngFor="let item of meal.items; let iIndex = index">
+                          <ng-container *ngIf="!item.exchangeGroupId">
+                            <!-- Alimento fijo -->
+                            <td class="item-name">{{ item.foodName }}</td>
+                            <td class="item-amount">{{ item.grams }}g</td>
+                            <td class="item-macros">{{ item.kcal | number:'1.0-0' }} kcal</td>
+                          </ng-container>
+                          <ng-container *ngIf="item.exchangeGroupId">
+                            <!-- Intercambio: selector de alimento equivalente -->
+                            <td class="item-name exchange-name">
+                              <mat-icon class="exchange-icon-sm">swap_horiz</mat-icon>
+                              {{ item.exchangeGroupName }} ({{ item.exchangeCount }} int.)
+                            </td>
+                            <td class="item-amount exchange-selector">
+                              <ng-container *ngIf="!exchangeFoodsCache[getExchangeItemKey(dIndex, mIndex, iIndex)]">
+                                <button mat-stroked-button style="font-size:11px; height:28px;"
+                                  (click)="loadExchangeFoods(item.exchangeGroupId!, getExchangeItemKey(dIndex, mIndex, iIndex))">
+                                  Ver opciones
+                                </button>
+                              </ng-container>
+                              <ng-container *ngIf="exchangeFoodsCache[getExchangeItemKey(dIndex, mIndex, iIndex)]">
+                                <mat-select [(ngModel)]="exchangeSelectedFood[getExchangeItemKey(dIndex, mIndex, iIndex)]"
+                                  style="font-size: 12px; min-width: 140px;">
+                                  <mat-option *ngFor="let f of exchangeFoodsCache[getExchangeItemKey(dIndex, mIndex, iIndex)]" [value]="f.id">
+                                    {{ f.name }}
+                                  </mat-option>
+                                </mat-select>
+                                <span class="grams-result" *ngIf="getSelectedFoodGrams(getExchangeItemKey(dIndex, mIndex, iIndex), item.exchangeCount!) as g">
+                                  → <strong>{{ g }}g</strong>
+                                </span>
+                              </ng-container>
+                            </td>
+                            <td class="item-macros">{{ item.kcal | number:'1.0-0' }} kcal</td>
+                          </ng-container>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </ng-container>
+          </div>
+        </ng-container>
+
+        <div *ngIf="!dietsHistory?.length" class="no-data-msg">
+          <mat-icon>assignment</mat-icon>
+          <p>No hay planes alimentarios asignados a este cliente.</p>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!--  TAB: CÁLCULO DE CALORÍAS                                  -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <mat-tab label="Cálculo de Calorías">
+      <div class="energy-container" *ngIf="energyReq; else noEnergyData">
+        <div class="energy-inputs">
+          <div class="input-badge">Peso: <strong>{{ energyReq.weight }} kg</strong></div>
+          <div class="input-badge">Altura: <strong>{{ energyReq.height }} cm</strong></div>
+          <div class="input-badge">Edad: <strong>{{ energyReq.age }} años</strong></div>
+          <div class="input-badge">Sexo: <strong>{{ energyReq.gender }}</strong></div>
+        </div>
+
+        <div class="activity-selector">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Nivel de Actividad Física</mat-label>
+            <mat-select [(value)]="selectedActivity">
+              <mat-option value="Sedentario">Sedentario (Poco o ningún ejercicio)</mat-option>
+              <mat-option value="Ligero">Ligero (Ejercicio 1-3 días/semana)</mat-option>
+              <mat-option value="Moderado">Moderado (Ejercicio 3-5 días/semana)</mat-option>
+              <mat-option value="Activo">Activo (Ejercicio 6-7 días/semana)</mat-option>
+              <mat-option value="Muy Activo">Muy Activo (Ejercicio intenso o trabajo físico)</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <div class="formula-grid">
+          <!-- Mifflin-St Jeor -->
+          <div class="formula-card mifflin">
+            <div class="formula-header">Mifflin-St Jeor</div>
+            <div class="formula-body">
+              <div class="val-group">
+                <span class="val-label">BMR (Metabolismo Basal)</span>
+                <span class="val-num">{{ energyReq.mifflinStJeor.bmr }} <small>kcal</small></span>
+              </div>
+              <div class="val-group highlight">
+                <span class="val-label">TDEE (Gasto Diario Estimado)</span>
+                <span class="val-num">{{ energyReq.mifflinStJeor.tdee[selectedActivity] }} <small>kcal</small></span>
+              </div>
+            </div>
+            <div class="formula-footer">Fórmula recomendada en la práctica clínica actual.</div>
+          </div>
+
+          <!-- Harris-Benedict -->
+          <div class="formula-card harris">
+            <div class="formula-header">Harris-Benedict (Revisada)</div>
+            <div class="formula-body">
+              <div class="val-group">
+                <span class="val-label">BMR (Metabolismo Basal)</span>
+                <span class="val-num">{{ energyReq.harrisBenedict.bmr }} <small>kcal</small></span>
+              </div>
+              <div class="val-group highlight">
+                <span class="val-label">TDEE (Gasto Diario Estimado)</span>
+                <span class="val-num">{{ energyReq.harrisBenedict.tdee[selectedActivity] }} <small>kcal</small></span>
+              </div>
+            </div>
+            <div class="formula-footer">Fórmula clásica histórica para fines comparativos.</div>
+          </div>
+
+          <!-- Katch-McArdle -->
+          <div class="formula-card katch" [class.disabled]="!energyReq.hasBodyFat">
+            <div class="formula-header">Katch-McArdle</div>
+            <div class="formula-body" *ngIf="energyReq.hasBodyFat; else noBodyFatMsg">
+              <div class="val-group">
+                <span class="val-label">BMR (Metabolismo Basal)</span>
+                <span class="val-num">{{ energyReq.katchMcArdle.bmr }} <small>kcal</small></span>
+              </div>
+              <div class="val-group highlight">
+                <span class="val-label">TDEE (Gasto Diario Estimado)</span>
+                <span class="val-num">{{ energyReq.katchMcArdle.tdee[selectedActivity] }} <small>kcal</small></span>
+              </div>
+            </div>
+            <ng-template #noBodyFatMsg>
+              <div class="no-bodyfat-placeholder">
+                <mat-icon>lock</mat-icon>
+                <p>Requiere registro de grasa corporal (%) en biometría para calcular.</p>
+              </div>
+            </ng-template>
+            <div class="formula-footer">Basada en masa magra. La más precisa si se conoce el % de grasa.</div>
+          </div>
+        </div>
+
+        <div class="tdee-table-card card">
+          <h4>Gasto Calórico Diario por Nivel de Actividad</h4>
+          <table class="styled-table">
+            <thead>
+              <tr>
+                <th>Nivel de Actividad</th>
+                <th>Factor</th>
+                <th>Mifflin-St Jeor</th>
+                <th>Harris-Benedict</th>
+                <th>Katch-McArdle</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr [class.active-row]="selectedActivity === 'Sedentario'" (click)="selectedActivity = 'Sedentario'">
+                <td>Sedentario</td><td>1.200</td>
+                <td>{{ energyReq.mifflinStJeor.tdee['Sedentario'] }} kcal</td>
+                <td>{{ energyReq.harrisBenedict.tdee['Sedentario'] }} kcal</td>
+                <td>{{ energyReq.katchMcArdle ? energyReq.katchMcArdle.tdee['Sedentario'] + ' kcal' : '—' }}</td>
+              </tr>
+              <tr [class.active-row]="selectedActivity === 'Ligero'" (click)="selectedActivity = 'Ligero'">
+                <td>Ligero (1-3 días/sem)</td><td>1.375</td>
+                <td>{{ energyReq.mifflinStJeor.tdee['Ligero'] }} kcal</td>
+                <td>{{ energyReq.harrisBenedict.tdee['Ligero'] }} kcal</td>
+                <td>{{ energyReq.katchMcArdle ? energyReq.katchMcArdle.tdee['Ligero'] + ' kcal' : '—' }}</td>
+              </tr>
+              <tr [class.active-row]="selectedActivity === 'Moderado'" (click)="selectedActivity = 'Moderado'">
+                <td>Moderado (3-5 días/sem)</td><td>1.550</td>
+                <td>{{ energyReq.mifflinStJeor.tdee['Moderado'] }} kcal</td>
+                <td>{{ energyReq.harrisBenedict.tdee['Moderado'] }} kcal</td>
+                <td>{{ energyReq.katchMcArdle ? energyReq.katchMcArdle.tdee['Moderado'] + ' kcal' : '—' }}</td>
+              </tr>
+              <tr [class.active-row]="selectedActivity === 'Activo'" (click)="selectedActivity = 'Activo'">
+                <td>Activo (6-7 días/sem)</td><td>1.725</td>
+                <td>{{ energyReq.mifflinStJeor.tdee['Activo'] }} kcal</td>
+                <td>{{ energyReq.harrisBenedict.tdee['Activo'] }} kcal</td>
+                <td>{{ energyReq.katchMcArdle ? energyReq.katchMcArdle.tdee['Activo'] + ' kcal' : '—' }}</td>
+              </tr>
+              <tr [class.active-row]="selectedActivity === 'Muy Activo'" (click)="selectedActivity = 'Muy Activo'">
+                <td>Muy Activo (ejercicio intenso)</td><td>1.900</td>
+                <td>{{ energyReq.mifflinStJeor.tdee['Muy Activo'] }} kcal</td>
+                <td>{{ energyReq.harrisBenedict.tdee['Muy Activo'] }} kcal</td>
+                <td>{{ energyReq.katchMcArdle ? energyReq.katchMcArdle.tdee['Muy Activo'] + ' kcal' : '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <ng-template #noEnergyData>
+        <div class="no-data-msg">
+          <mat-icon>calculate</mat-icon>
+          <p>{{ energyErrorMessage || 'Cargando cálculos de necesidades energéticas...' }}</p>
+        </div>
+      </ng-template>
+    </mat-tab>
+
+  </mat-tab-group>
+</div>

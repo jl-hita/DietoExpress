@@ -1,0 +1,151 @@
+<!--
+<div class="wrapper">
+  <mat-card class="card">
+    <div class="toolbar">
+      <h2>Clientes</h2>
+
+      <div class="actions">
+        <mat-form-field appearance="outline" class="search">
+          <mat-icon matPrefix>search</mat-icon>
+          <input matInput placeholder="Buscar por nombre, email o teléfono" [(ngModel)]="searchTerm" (ngModelChange)="refresh()" />
+        </mat-form-field>
+
+        <button mat-raised-button color="primary" (click)="createNew()">
+          <mat-icon>person_add</mat-icon>
+          Nuevo
+        </button>
+      </div>
+    </div>
+
+    <div *ngIf="loading" class="center">
+      <mat-progress-spinner mode="indeterminate"></mat-progress-spinner>
+    </div>
+
+    <mat-list *ngIf="!loading && pagedClients.length > 0">
+      <mat-list-item *ngFor="let c of pagedClients; let i = index"
+                     (click)="selectClient(c)"
+                     [class.selected]="selected?.id === c.id">
+        <div matLine class="name">{{ c.name }}</div>
+        <div matLine class="sub">{{ c.email || '—' }} · {{ c.phone || '—' }}</div>
+
+        <div class="item-actions">
+          <button mat-icon-button matTooltip="Editar" (click)="editClient(c); $event.stopPropagation();">
+            <mat-icon>edit</mat-icon>
+          </button>
+          <button mat-icon-button color="warn" matTooltip="Eliminar" (click)="deleteClient(c); $event.stopPropagation();">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </div>
+      </mat-list-item>
+    </mat-list>
+
+    <div *ngIf="!loading && pagedClients.length === 0" class="empty">
+      <p>No hay clientes que coincidan. Prueba otro término.</p>
+    </div>
+
+    <mat-paginator [length]="filtered.length"
+                   [pageSize]="pageSize"
+                   [pageSizeOptions]="[5,10,20]"
+                   (page)="pageChanged($event)">
+    </mat-paginator>
+  </mat-card>
+</div>
+-->
+<div class="page-container">
+
+  <!-- HEADER principal (título y acciones) -->
+  <div class="page-header">
+    <h1>Clientes</h1>
+    <div class="header-actions">
+      <!-- TODO
+      <button mat-stroked-button color="primary" (click)="exportCsv()">
+        <mat-icon>file_download</mat-icon> CSV
+      </button>-->
+
+      <button mat-raised-button color="primary" (click)="createNew()">
+        <mat-icon>person_add</mat-icon> Nuevo
+      </button>
+
+      <mat-form-field appearance="outline" class="search-box">
+        <mat-icon matPrefix>search</mat-icon>
+        <input matInput placeholder="Buscar por nombre, email o teléfono" [(ngModel)]="searchTerm" (ngModelChange)="refresh()" />
+      </mat-form-field>
+    </div>
+  </div>
+
+  <!-- Caja que contiene el header teal + tabla -->
+  <div class="table-card">
+    <!-- HEADER estilo tarjeta con color y forma -->
+    <div class="table-topbar">
+      <div class="topbar-left">
+        <div class="top-title">Listado de clientes</div>
+        <div class="top-sub">Total: {{ filtered.length || 0 }}</div>
+      </div>
+
+      <div class="topbar-right">
+        <!-- aquí podrías poner filtros rápidos o botones -->
+        <!--<button mat-button (click)="openFilters()">Filtros</button>-->
+        <mat-form-field appearance="outline" class="search">
+          <mat-icon matPrefix>search</mat-icon>
+          <input matInput placeholder="Buscar por nombre, email o teléfono" [(ngModel)]="searchTerm" (ngModelChange)="refresh()" />
+        </mat-form-field>
+      </div>
+    </div>
+
+    <!-- Tabla -->
+    <div class="table-wrapper">
+      <table class="styled-table" *ngIf="!loading && pagedClients.length > 0">
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Email</th>
+            <th>Teléfono</th>
+            <th>Creado</th>
+            <th style="width: 90px;"></th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr *ngFor="let c of pagedClients" (click)="selectClient(c)" [class.selected]="selected?.id === c.id">
+            <td>{{ c.name }}</td>
+            <td>{{ c.email || '—' }}</td>
+            <td>{{ c.phone || '—' }}</td>
+            <td>{{ c.created_at ? (c.created_at | date:'short') : '—' }}</td>
+
+            <td class="actions">
+              <button mat-icon-button color="primary" (click)="editClient(c); $event.stopPropagation();">
+                <mat-icon>edit</mat-icon>
+              </button>
+              <button mat-icon-button color="warn" (click)="deleteClient(c); $event.stopPropagation();">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div *ngIf="loading" class="loading-box">
+        <mat-progress-spinner mode="indeterminate"></mat-progress-spinner>
+      </div>
+
+      <div *ngIf="!loading && pagedClients.length === 0" class="empty-message">
+        No hay clientes que coincidan. Prueba otro término.
+      </div>
+    </div>
+
+    <!-- PAGINADOR PERSONALIZADO -->
+    <div class="custom-paginator" *ngIf="filtered.length > pageSize">
+      <button class="page-btn" [disabled]="currentPage === 1" (click)="prevPage()">‹</button>
+
+      <button *ngFor="let p of pagesToShow()" class="page-btn"
+              [class.active]="p === currentPage"
+              (click)="goToPage(p)">
+        {{ p }}
+      </button>
+
+      <button class="page-btn" [disabled]="currentPage === totalPages" (click)="nextPage()">›</button>
+    </div>
+
+  </div>
+
+</div>

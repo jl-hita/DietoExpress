@@ -1,0 +1,32 @@
+<!--
+<nav class="menu">
+  <a *ngFor="let route of menuRoutes"
+     [routerLink]="route.path"
+     routerLinkActive="active">
+    {{ route.title }}
+  </a>
+</nav>
+-->
+<mat-toolbar color="primary" class="navbar">
+  <span class="logo">Anguloso</span>
+  <span class="spacer"></span>
+
+  <div class="menu-botones">
+    <ng-container *ngFor="let route of menuRoutes">
+      <button mat-button
+              [routerLink]="route.path"
+              routerLinkActive="active"
+              (click)="navigateTo(route.path!)">
+        {{ route.title }}
+      </button>
+    </ng-container>
+
+    <span class="spacer"></span>
+
+    <!-- Botón Logout -->
+    <button mat-stroked-button color="accent" (click)="logout()">
+      Logout
+    </button>
+  </div>
+  
+</mat-toolbar>

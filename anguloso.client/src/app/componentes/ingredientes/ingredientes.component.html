@@ -1,0 +1,44 @@
+<div class="ingredientes-container">
+  <h2>Lista de ingredientes</h2>
+
+  <form [formGroup]="formIngrediente" (ngSubmit)="agregarIngrediente()" class="formulario">
+    <input type="text" formControlName="nombre" placeholder="Nombre" required>
+    <input type="number" formControlName="cantidad" placeholder="Cantidad" required min="1" step="1">
+    <!--<input type="text" formControlName="unidad" placeholder="Unidad" required>-->
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Unidad</mat-label>
+      <mat-select formControlName="unidad" required>
+        <mat-option *ngFor="let u of unidades" [value]="u.value">
+          {{ u.label }}
+        </mat-option>
+      </mat-select>
+      <mat-error *ngIf="formIngrediente.controls['unidad'].hasError('required')">
+        La unidad es obligatoria
+      </mat-error>
+    </mat-form-field>
+    <input type="text" formControlName="descripcion" placeholder="Descripción opcional">
+
+    <button type="submit" [disabled]="formIngrediente.invalid">Agregar</button>
+  </form>
+
+  <p *ngIf="mensaje" class="mensaje">{{ mensaje }}</p>
+
+  <div *ngIf="cargando">Cargando ingredientes...</div>
+
+  <ul *ngIf="!cargando && ingredientes.length > 0" class="lista">
+    <li *ngFor="let ing of ingredientes" [class.comprado]="ing.comprado">
+      <div>
+        <strong>{{ ing.nombre }}</strong> ({{ ing.cantidad }} {{ ing.unidad }})
+        <span *ngIf="ing.descripcion"> - {{ ing.descripcion }}</span>
+      </div>
+      <div class="acciones">
+        <button (click)="marcarComprado(ing)">
+          {{ ing.comprado ? 'Desmarcar' : 'Comprado' }}
+        </button>
+        <button class="borrar" (click)="borrarIngrediente(ing)">🗑️</button>
+      </div>
+    </li>
+  </ul>
+
+  <p *ngIf="!cargando && ingredientes.length === 0">No hay ingredientes todavía.</p>
+</div>

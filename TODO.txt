@@ -1,0 +1,439 @@
+Para el scaffold con GUI: instalar la extension: EF Core Power Tools en menú Extensiones
+
+Chuletas
+
+ng generate component[name][options]
+ng generate service[name][options]
+ng generate class[name][options]
+
+v - Botón de logout en el menu
+v - Botón de "He olvidado mi contraseña" en la pantalla de login
+v - Componente para cambiar password de usuario
+v - Capacidad de enviar emails (ej: para cuentas nuevas, para resetear passwords)
+v - Login con google
+v - Acceso API open food facts + USDA
+v - Recuperar campo Categories de OFF
+ - Recuperar de algún modo micronutrientes que no estén en OFF ni USDA (quizás en un servicio o con web scraping de alguna fuente fiable)
+ - CRUD completo para gestionar alimentos (con opción de añadir alimentos personalizados)
+ - Capacidad de crear dietas personalizadas (con drag & drop idealmente)
+
+
+https://localhost:4200/ 
+https://app.brevo.com/ para enviar emails
+http://localhost:5050/ postgresql
+https://console.cloud.google.com/ para OAuth
+
+Backend .NET Core: Render (Free)
+Frontend Angular: Vercel / Netlify / Cloudflare Pages (Free)
+Base de datos PostgreSQL: Neon.tech
+
+- Configurado en Google Cloud Console.
+- Client ID en appsettings.json.
+- Client Secret no utilizado (login mediante Google Identity Services).
+
+PROYECTO DIETOWIN DE ALIEXPRESS: DietoExpress
+
+     diets
+       |
+   diet_days (7 por dieta)
+       |
+     meals (4–6 por día)
+       |
+   meal_items (n por comida)
+       |
+     foods
+
+--Tabla para usuarios (los dueños de la licencia)
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50),
+    full_name VARCHAR(100),
+    password_hash VARCHAR,
+    created_at timestamptz,
+    last_login timestamptz,
+    role VARCHAR(20),
+    email VARCHAR,
+    email_confirmed BOOLEAN DEFAULT FALSE,
+    email_confirmation_token TEXT,
+    reset_password_token TEXT,
+    reset_token_expiration TIMESTAMPTZ,
+    google_id TEXT NULL,
+    country VARCHAR(100) NULL,
+    lang VARCHAR(20) NULL, -- 'es', 'en', etc
+    provider TEXT NULL -- 'google', 'local', evita que alguien con el mismo email pueda logear con contraseña si lo creó vía Google.
+);
+
+--Datos de los clientes de los nutricionistas
+CREATE TABLE clients (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    full_name VARCHAR(100) NOT NULL,
+    email VARCHAR(150),
+    phone VARCHAR(50),
+    birth_date DATE,
+    gender VARCHAR(20), -- 'male', 'female', 'other'
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+--Contiene información nutricional por 100 g o unidad
+CREATE TABLE foods (
+    id SERIAL PRIMARY KEY,
+
+    -- Identificación
+    name VARCHAR(200) NOT NULL,
+    brands VARCHAR(200),
+    category VARCHAR(200),
+
+    -- NutriScore / clasificación
+    nutriscore VARCHAR(5),
+
+    -- MACROS (por 100g)
+    kcal DOUBLE PRECISION,
+    protein DOUBLE PRECISION,
+    carbs DOUBLE PRECISION,
+    fat DOUBLE PRECISION,
+    saturated_fat DOUBLE PRECISION,
+    fiber DOUBLE PRECISION,
+    sugar DOUBLE PRECISION,
+    salt DOUBLE PRECISION,
+
+    -- MICROS (por 100g)
+    vitamin_a_ug DOUBLE PRECISION,
+    vitamin_c_mg DOUBLE PRECISION,
+    vitamin_d_ug DOUBLE PRECISION,
+    vitamin_e_mg DOUBLE PRECISION,
+    vitamin_b12_ug DOUBLE PRECISION,
+    folate_ug DOUBLE PRECISION,
+
+    calcium_mg DOUBLE PRECISION,
+    iron_mg DOUBLE PRECISION,
+    magnesium_mg DOUBLE PRECISION,
+    potassium_mg DOUBLE PRECISION,
+    zinc_mg DOUBLE PRECISION,
+
+    -- SERVING SIZE
+    serving_size DOUBLE PRECISION,            -- ej: 30
+    serving_size_unit VARCHAR(10),             -- g / ml
+    serving_size_text VARCHAR(50),             -- "1 slice (30 g)"
+    default_grams NUMERIC(6,2) DEFAULT 100,    -- fallback seguro
+
+    -- ORIGEN / SINCRONIZACIÓN
+    source VARCHAR(50) DEFAULT 'local',         -- local | openfoodfacts | usda | user
+    external_id VARCHAR(200),                   -- barcode OFF, fdcId USDA, etc
+    last_synced_at TIMESTAMPTZ,
+
+    -- AUDITORÍA
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+--Representa la dieta completa
+CREATE TABLE diets (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(200) NOT NULL,
+    -- objetivos diarios
+    target_kcal NUMERIC(6,2),
+    target_protein NUMERIC(6,2),
+    target_carbs NUMERIC(6,2),
+    target_fat NUMERIC(6,2),
+    notes TEXT,
+    created_at timestamptz DEFAULT NOW()
+);
+
+--Cada dieta tiene 7 días
+CREATE TABLE diet_days (
+    id SERIAL PRIMARY KEY,
+    diet_id INT NOT NULL REFERENCES diets(id) ON DELETE CASCADE,
+    day_index INT NOT NULL,  -- 0=Lunes, 1=Martes...
+    UNIQUE(diet_id, day_index)
+);
+
+--Cada día tiene varias comidas
+CREATE TABLE meals (
+    id SERIAL PRIMARY KEY,
+    diet_day_id INT NOT NULL REFERENCES diet_days(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,  -- desayuno, comida, cena, merienda...
+    meal_index INT NOT NULL,     -- orden de la comida en el día
+    UNIQUE(diet_day_id, meal_index)
+);
+
+--Tabla intermedia para asignar dietas a clientes (un cliente puede tener varias dietas a lo largo del tiempo, pero solo una activa a la vez)
+CREATE TABLE client_diets (
+    id SERIAL PRIMARY KEY,
+    client_id INT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    diet_id INT NOT NULL REFERENCES diets(id) ON DELETE CASCADE,
+    
+    -- Metadatos de la asignación
+    assigned_at TIMESTAMPTZ DEFAULT NOW(),
+    start_date DATE NOT NULL,
+    end_date DATE, -- NULL significa que sigue activa
+    
+    -- Estado
+    is_active BOOLEAN DEFAULT TRUE,
+    notes TEXT
+);
+-- Índice para asegurar que un cliente solo tenga una dieta activa a la vez
+CREATE UNIQUE INDEX idx_unique_active_client_diet 
+ON client_diets (client_id) 
+WHERE (is_active = TRUE);
+
+--Los alimentos dentro de una comida
+CREATE TABLE meal_items (
+    id SERIAL PRIMARY KEY,
+    meal_id INT NOT NULL REFERENCES meals(id) ON DELETE CASCADE,
+    food_id INT NOT NULL REFERENCES foods(id),
+
+    grams NUMERIC(6,2) NOT NULL,  -- cantidad específica que eligió el usuario
+
+    -- valores calculados opcionales (para rendimiento)
+    kcal NUMERIC(6,2),
+    protein NUMERIC(6,2),
+    carbs NUMERIC(6,2),
+    fat NUMERIC(6,2)
+);
+
+-- Tabla principal de recetas
+CREATE TABLE recipes (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE, -- Nutricionista creador de la plantilla
+    name VARCHAR(200) NOT NULL,
+    instructions TEXT, -- Pasos de preparación
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+-- Los ingredientes de la plantilla de receta
+CREATE TABLE recipe_items (
+    id SERIAL PRIMARY KEY,
+    recipe_id INT NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+    food_id INT NOT NULL REFERENCES foods(id),
+    grams NUMERIC(6,2) NOT NULL
+);
+
+--Si más adelante quieres gestionar APIs externas, puedes añadir esta:
+CREATE TABLE food_sources (
+    id SERIAL PRIMARY KEY,
+    source_name VARCHAR(100) NOT NULL,  -- ej: openfoodfacts
+    url VARCHAR(200)
+);
+
+CREATE UNIQUE INDEX idx_foods_external
+    ON foods(external_id)
+    WHERE external_id IS NOT NULL;
+
+--Datos antoprométricos de los clientes
+CREATE TABLE biometrics (
+    id SERIAL PRIMARY KEY,
+    client_id INT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    measurement_date DATE NOT NULL,
+
+    weight double precision,        -- kg
+    height double precision,        -- cm
+
+    body_fat double precision,      -- %
+    muscle_mass double precision,   -- kg
+    visceral_fat double precision,  -- kg
+    waist double precision,         -- cm
+    hip double precision,           -- cm
+    neck double precision,          -- cm
+
+    -- Pliegues (si el nutricionista usa método ISAK o Jackson-Pollock)
+    triceps double precision,       -- mm
+    abdomen double precision,       -- mm
+    thigh double precision,         -- mm
+    subscapular double precision,   -- mm
+    suprailiac double precision,    -- mm
+
+    notes TEXT
+);
+
+--Pares nombre de parámetro - valor guardado como string (ConfigServ los trata y parsea)
+CREATE TABLE config (
+    id SERIAL PRIMARY KEY,
+    nombre_config VARCHAR,
+    valor_config VARCHAR
+)
+ADD CONSTRAINT uq_config_nombre_config UNIQUE (nombre_config);
+
+--Ejemplos de campos de config
+public string SmtpServer { get; set; } = string.Empty;
+public int Port { get; set; }
+public bool EnableSsl { get; set; }
+public string User { get; set; } = string.Empty;
+public string Password { get; set; } = string.Empty;
+public string FromName { get; set; } = string.Empty;
+public string FromEmail { get; set; } = string.Empty;
+
+-- Para personalización de PDFs
+ALTER TABLE users ADD COLUMN IF NOT EXISTS clinic_name VARCHAR(150);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS clinic_address VARCHAR(250);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS clinic_phone VARCHAR(50);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS clinic_logo TEXT;
+
+====================================
+== Revisión de la situación actua ==
+====================================
+Cosas que faltan para que Antigravity sea realmente competitivo
+Prioridad alta (imprescindible)
+Editor de dietas
+
+Ahora mismo el backend está, pero crear una dieta sigue siendo incómodo. Hace falta una pantalla donde el nutricionista pueda montar la semana de forma visual.
+
+Idealmente debería tener:
+
+Vista semanal (7 días × comidas)
+Arrastrar alimentos entre comidas
+Añadir o quitar comidas fácilmente
+
+Es, al final, la pantalla principal de cualquier software de nutrición.
+
+Totales nutricionales en tiempo real
+
+Mientras se crea la dieta deberían actualizarse automáticamente:
+
+kcal
+proteínas
+grasas
+hidratos
+
+Tanto por comida como por día y en el total de la semana.
+
+También estaría bien comparar esos valores con los objetivos del paciente y marcar visualmente cuándo se pasa o se queda corto.
+
+Alimentos personalizados
+
+No todo está en OpenFoodFacts o USDA.
+
+Hace falta poder:
+
+Crear alimentos propios.
+Modificar alguno importado cuando sea necesario.
+Marcar favoritos para tenerlos siempre a mano.
+Portal del paciente
+
+Probablemente sea una de las funcionalidades más valoradas actualmente.
+
+El paciente debería poder:
+
+Consultar su dieta.
+Ver su evolución.
+Más adelante incluso registrar peso, medidas o seguimiento.
+Prioridad media
+Cálculo automático del gasto energético
+
+Ya está apuntado como pendiente.
+
+Implementar fórmulas como:
+
+Mifflin-St Jeor
+Harris-Benedict
+Katch-McArdle
+
+Con los datos del paciente se calcularían automáticamente las calorías objetivo.
+
+Integrar recetas
+
+En lugar de añadir ingredientes uno por uno, poder seleccionar una receta completa.
+
+Los valores nutricionales se calcularían automáticamente a partir de sus ingredientes.
+
+Además de ahorrar mucho tiempo, evita repetir siempre el mismo trabajo.
+
+Historial clínico
+
+La ficha del paciente debería contener algo más que biometrías.
+
+Por ejemplo:
+
+notas de consulta
+patologías
+alergias
+intolerancias
+medicación
+
+Habría que añadir tablas específicas para ello.
+
+Mejorar el PDF
+
+El PDF actual cumple, pero puede crecer bastante.
+
+Ideas:
+
+tabla semanal con formato de calendario
+resumen nutricional diario
+gráficos sencillos
+lista de la compra generada automáticamente
+recetas incluidas
+
+Búsqueda de alimentos
+
+Buscar en APIs externas continuamente termina siendo lento.
+
+Lo ideal sería:
+
+caché local
+autocompletado inmediato
+indicar claramente de dónde viene cada alimento (local, BEDCA, USDA, OFF...)
+Funcionalidades para diferenciarse
+Generación automática de dietas
+
+Es una de las funciones más interesantes de Dietowin.
+
+El usuario definiría:
+
+calorías
+macros
+alergias
+preferencias
+
+y el sistema generaría una propuesta completa.
+
+Con modelos de IA actuales esto es bastante más viable que hace unos años.
+
+Multiidioma
+
+La base ya está preparada.
+
+Al menos:
+
+español
+inglés
+
+Sería útil desde el principio si la idea es crecer fuera de España.
+
+Modelo SaaS
+
+En lugar de vender licencias, plantearlo por suscripción.
+
+Algo tipo:
+
+Free: pocos pacientes y funciones limitadas.
+Pro: pacientes ilimitados, PDFs personalizados y portal del paciente.
+Clínicas: varios nutricionistas trabajando sobre la misma cuenta.
+Integración con dispositivos de salud
+
+Más adelante estaría bien conectar con:
+
+Garmin
+Fitbit
+Apple Health
+Google Fit
+
+Así el gasto energético podría ajustarse automáticamente según la actividad real.
+
+Posible hoja de ruta
+Fase 1 (Completado)
+Editor visual de dietas. 
+Totales nutricionales en tiempo real.
+Alimentos personalizados.
+Fase 2
+Cálculo automático del gasto energético.
+Recetas dentro de las dietas.
+Historial clínico.
+PDF mucho más completo.
+Fase 3
+Portal del paciente.
+Generación automática de dietas.
+SaaS.
+Multiidioma.
+Fase 4
+Integración con wearables.
+Aplicación móvil.
+Soporte para varios nutricionistas por cuenta.

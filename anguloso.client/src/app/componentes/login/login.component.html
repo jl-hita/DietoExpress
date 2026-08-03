@@ -1,0 +1,30 @@
+<!-- login.component.html -->
+<form [formGroup]="form" (ngSubmit)="login()" class="login-form">
+  <mat-form-field appearance="outline" class="full-width">
+    <mat-label>Usuario</mat-label>
+    <input matInput formControlName="username" required />
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" class="full-width">
+    <mat-label>Contraseña</mat-label>
+    <input matInput type="password" formControlName="password" required />
+  </mat-form-field>
+
+  <button mat-raised-button color="primary" type="submit" [disabled]="loading">
+    {{ loading ? 'Entrando...' : 'Login' }}
+  </button>
+
+  <div class="boton-centrado">
+    <div id="googleBtn"></div>
+  </div>
+  
+
+  <p class="crear-cuenta">
+    ¿No tienes cuenta?
+    <a href="#" (click)="navegarCrearUser(); $event.preventDefault()">Crear usuario</a>
+  </p>
+  <p class="crear-cuenta">
+    ¿Has olvidado tu contraseña?
+    <a href="#" (click)="navegarPwdReset(); $event.preventDefault()">Haz clic aquí</a>
+  </p>
+</form>

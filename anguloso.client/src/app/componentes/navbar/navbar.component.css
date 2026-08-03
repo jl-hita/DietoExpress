@@ -1,0 +1,62 @@
+/*
+.menu {
+  display: flex;
+  gap: 1rem;
+  background: #1976d2;
+  padding: 0.5rem 1rem;
+}
+
+a {
+  color: white;
+  text-decoration: none;
+  &.active
+
+{
+  text-decoration: underline;
+}
+*/
+
+.navbar {
+  position: sticky; /* se queda arriba al hacer scroll */
+  top: 0;
+  z-index: 1000;
+  height: 46px;
+  padding: 0px 5%;
+  margin-bottom: 10px;
+  /*background-color: #1976d2;*/ /* azul principal, override del color="primary" si quieres */
+  background-color: rgba(255, 255, 255, 0.6); /* blanco con transparencia */
+  backdrop-filter: blur(5px); /* opcional: efecto difuminado */
+}
+
+.logo {
+  font-weight: bold;
+  margin-left: 8px;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+.menu-botones {
+  display: flex;
+  align-items: center;
+  gap: 1rem; /* separación uniforme entre botones */
+}
+
+button {
+    height: 30px;
+}
+
+button.active {
+  background-color: rgba(255, 255, 255, 0.95);
+  font-weight: bold;
+  /*border-bottom: 2px solid #fff; */ /* indica la ruta activa */
+}
+
+  button[mat-button].active {
+    border-bottom: 2px solid white;
+  }
+
+  button[mat-stroked-button] {
+    margin-left: 1rem;
+  }

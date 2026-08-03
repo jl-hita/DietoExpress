@@ -1,0 +1,43 @@
+<form [formGroup]="form" (ngSubmit)="crearUsuario()">
+  <div *ngIf="usuarioCreado == false">
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Usuario</mat-label>
+      <input matInput formControlName="username" required>
+      <mat-error *ngIf="form.controls['username'].hasError('required')">
+        El usuario es obligatorio
+      </mat-error>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Email</mat-label>
+      <input matInput formControlName="email">
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Nombre completo</mat-label>
+      <input matInput formControlName="fullName">
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Contraseña</mat-label>
+      <input matInput type="password" formControlName="password" required>
+      <mat-error *ngIf="form.controls['password'].hasError('required')">
+        La contraseña es obligatoria
+      </mat-error>
+      <mat-error *ngIf="form.controls['password'].hasError('minlength')">
+        La contraseña debe tener al menos 6 caracteres
+      </mat-error>
+    </mat-form-field>
+
+    <button mat-raised-button color="primary" type="submit" [disabled]="form.invalid || loading">
+      {{ loading ? 'Creando...' : 'Crear Usuario' }}
+    </button>
+  </div>
+
+  <div *ngIf="usuarioCreado == true">
+    <p>¡USUARIO CREADO!</p>
+    <p>Revisa tu email</p>
+
+  </div>
+  
+</form>

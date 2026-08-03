@@ -1,0 +1,101 @@
+﻿{
+   "CodeGenerationMode": 4,
+   "ContextClassName": "angulosodbContext",
+   "ContextNamespace": null,
+   "FilterSchemas": false,
+   "IncludeConnectionString": true,
+   "IrregularWords": null,
+   "MinimumProductVersion": "2.6.1301",
+   "ModelNamespace": null,
+   "OutputContextPath": null,
+   "OutputPath": "Models",
+   "PluralRules": null,
+   "PreserveCasingWithRegex": true,
+   "ProjectRootNamespace": "Anguloso.Server",
+   "Schemas": null,
+   "SelectedHandlebarsLanguage": 2,
+   "SelectedToBeGenerated": 0,
+   "SingularRules": null,
+   "T4TemplatePath": null,
+   "Tables": [
+      {
+         "Name": "public.biometrics",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.client_diets",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.clients",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.config",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.diet_days",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.diets",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.food_sources",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.foods",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.meal_items",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.meals",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.recipe_items",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.recipes",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.users",
+         "ObjectType": 0
+      }
+   ],
+   "UiHint": null,
+   "UncountableWords": null,
+   "UseAsyncStoredProcedureCalls": true,
+   "UseBoolPropertiesWithoutDefaultSql": false,
+   "UseDatabaseNames": true,
+   "UseDatabaseNamesForRoutines": true,
+   "UseDateOnlyTimeOnly": true,
+   "UseDbContextSplitting": false,
+   "UseDecimalDataAnnotationForSprocResult": true,
+   "UseFluentApiOnly": true,
+   "UseHandleBars": false,
+   "UseHierarchyId": false,
+   "UseInflector": false,
+   "UseInternalAccessModifiersForSprocsAndFunctions": false,
+   "UseLegacyPluralizer": false,
+   "UseManyToManyEntity": false,
+   "UseNoDefaultConstructor": false,
+   "UseNoNavigations": false,
+   "UseNoObjectFilter": false,
+   "UseNodaTime": false,
+   "UseNullableReferences": false,
+   "UsePrefixNavigationNaming": false,
+   "UseSchemaFolders": false,
+   "UseSchemaNamespaces": false,
+   "UseSpatial": false,
+   "UseT4": false,
+   "UseT4Split": false
+}

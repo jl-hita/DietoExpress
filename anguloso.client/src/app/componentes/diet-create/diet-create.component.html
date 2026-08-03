@@ -1,0 +1,387 @@
+<div class="editor-container">
+  <!-- Sticky Header Superior -->
+  <header class="editor-header">
+    <div class="header-left">
+      <button type="button" class="back-btn" (click)="cancel()" matTooltip="Volver al listado">
+        <mat-icon>arrow_back</mat-icon>
+      </button>
+      <div class="header-title-area">
+        <h1>{{ isEdit ? 'Editar Dieta' : 'Nueva Dieta' }}</h1>
+        <form [formGroup]="form" class="inline-name-form">
+          <input type="text" formControlName="name" class="diet-name-input" placeholder="Escribe el nombre de la dieta..." />
+          <span class="input-error" *ngIf="form.get('name')?.touched && form.get('name')?.hasError('required')">
+            El nombre es obligatorio
+          </span>
+        </form>
+      </div>
+    </div>
+    
+    <div class="header-actions">
+      <button type="button" class="btn btn-secondary" (click)="cancel()">Cancelar</button>
+      <button type="button" class="btn btn-primary" (click)="submit()" [disabled]="form.invalid">
+        <mat-icon>save</mat-icon> {{ isEdit ? 'Guardar Cambios' : 'Crear Dieta' }}
+      </button>
+    </div>
+  </header>
+
+  <div *ngIf="loading" class="loading-wrapper">
+    <mat-spinner diameter="60"></mat-spinner>
+    <p>Cargando datos de la dieta...</p>
+  </div>
+
+  <div class="editor-workspace" *ngIf="!loading">
+    <form [formGroup]="form" class="workspace-grid">
+      
+      <!-- COLUMNA IZQUIERDA: Editor de Estructura y Comidas -->
+      <main class="editor-main-panel">
+        
+        <!-- Objetivos Diarios (Inputs Rápidos) -->
+        <section class="targets-setup-card">
+          <div class="section-title">
+            <mat-icon>adjust</mat-icon>
+            <h3>Objetivos Nutricionales Diarios</h3>
+          </div>
+          <div class="targets-grid">
+            <div class="target-input-box">
+              <label>Calorías (kcal)</label>
+              <input type="number" formControlName="targetKcal" placeholder="Ej: 2000" min="0" />
+            </div>
+            <div class="target-input-box">
+              <label>Proteínas (g)</label>
+              <input type="number" formControlName="targetProtein" placeholder="Ej: 140" min="0" />
+            </div>
+            <div class="target-input-box">
+              <label>Carbohidratos (g)</label>
+              <input type="number" formControlName="targetCarbs" placeholder="Ej: 220" min="0" />
+            </div>
+            <div class="target-input-box">
+              <label>Grasas (g)</label>
+              <input type="number" formControlName="targetFat" placeholder="Ej: 70" min="0" />
+            </div>
+          </div>
+        </section>
+
+        <!-- Navegación y Selector de Días -->
+        <section class="days-selector-bar">
+          <div class="bar-left">
+            <h3>Días de la Dieta</h3>
+            <span class="days-count">({{ days.controls.length }} en total)</span>
+          </div>
+          <div class="days-nav-wrapper">
+            <div class="days-pills">
+              <button 
+                type="button" 
+                *ngFor="let dayCtrl of days.controls; let dIndex = index"
+                class="day-pill"
+                [class.active]="dIndex === activeDayIndex"
+                (click)="selectDay(dIndex)">
+                Día {{ dIndex + 1 }}
+              </button>
+            </div>
+            <button type="button" class="btn-add-day" (click)="addDay()" matTooltip="Añadir nuevo día">
+              <mat-icon>add</mat-icon> Añadir Día
+            </button>
+          </div>
+        </section>
+
+        <!-- EDITOR DEL DÍA ACTIVO -->
+        <div formArrayName="days" *ngIf="days.controls.length > 0">
+          <div 
+            *ngFor="let dayCtrl of days.controls; let dIndex = index" 
+            [formGroupName]="dIndex"
+            [class.hidden]="dIndex !== activeDayIndex">
+            
+            <!-- Resumen Nutricional del Día Activo (Barras de Progreso Visuales) -->
+            <section class="day-progress-panel">
+              <div class="panel-header">
+                <h4>Balance Nutricional del Día {{ dIndex + 1 }}</h4>
+                <button type="button" class="btn-delete-day" (click)="removeDay(dIndex)" matTooltip="Eliminar este día de la dieta">
+                  <mat-icon>delete_forever</mat-icon> Eliminar Día
+                </button>
+              </div>
+
+              <div class="progress-bars-grid">
+                <!-- Kcal Bar -->
+                <div class="progress-bar-card">
+                  <div class="bar-info">
+                    <span class="label">Calorías</span>
+                    <span class="values"><strong>{{ getDayKcal(dIndex) | number:'1.0-0' }}</strong> / {{ targetKcal || '—' }} kcal</span>
+                  </div>
+                  <div class="bar-track">
+                    <div class="bar-fill kcal-fill" [style.width.%]="getPercent(getDayKcal(dIndex), targetKcal)"></div>
+                  </div>
+                  <span class="percent">{{ getPercent(getDayKcal(dIndex), targetKcal) }}% completado</span>
+                </div>
+
+                <!-- Proteína Bar -->
+                <div class="progress-bar-card">
+                  <div class="bar-info">
+                    <span class="label">Proteína</span>
+                    <span class="values"><strong>{{ getDayProtein(dIndex) | number:'1.0-1' }}</strong> / {{ targetProtein || '—' }} g</span>
+                  </div>
+                  <div class="bar-track">
+                    <div class="bar-fill protein-fill" [style.width.%]="getPercent(getDayProtein(dIndex), targetProtein)"></div>
+                  </div>
+                  <span class="percent">{{ getPercent(getDayProtein(dIndex), targetProtein) }}% completado</span>
+                </div>
+
+                <!-- Carbohidratos Bar -->
+                <div class="progress-bar-card">
+                  <div class="bar-info">
+                    <span class="label">Carbohidratos</span>
+                    <span class="values"><strong>{{ getDayCarbs(dIndex) | number:'1.0-1' }}</strong> / {{ targetCarbs || '—' }} g</span>
+                  </div>
+                  <div class="bar-track">
+                    <div class="bar-fill carbs-fill" [style.width.%]="getPercent(getDayCarbs(dIndex), targetCarbs)"></div>
+                  </div>
+                  <span class="percent">{{ getPercent(getDayCarbs(dIndex), targetCarbs) }}% completado</span>
+                </div>
+
+                <!-- Grasa Bar -->
+                <div class="progress-bar-card">
+                  <div class="bar-info">
+                    <span class="label">Grasa</span>
+                    <span class="values"><strong>{{ getDayFat(dIndex) | number:'1.0-1' }}</strong> / {{ targetFat || '—' }} g</span>
+                  </div>
+                  <div class="bar-track">
+                    <div class="bar-fill fat-fill" [style.width.%]="getPercent(getDayFat(dIndex), targetFat)"></div>
+                  </div>
+                  <span class="percent">{{ getPercent(getDayFat(dIndex), targetFat) }}% completado</span>
+                </div>
+              </div>
+            </section>
+
+            <!-- Comidas del Día -->
+            <div class="meals-list" formArrayName="meals">
+              <div class="meals-list-header">
+                <h3>Comidas planificadas</h3>
+                <button type="button" class="btn btn-secondary btn-sm" (click)="addMeal(dIndex)">
+                  <mat-icon>add</mat-icon> Añadir Comida
+                </button>
+              </div>
+
+              <div 
+                *ngFor="let mealCtrl of getMeals(dIndex).controls; let mIndex = index"
+                [formGroupName]="mIndex"
+                class="meal-card"
+                [class.target-active]="targetMealForAdd?.dIndex === dIndex && targetMealForAdd?.mIndex === mIndex">
+                
+                <!-- Cabecera de la comida -->
+                <div class="meal-card-header">
+                  <div class="meal-title-group">
+                    <mat-icon class="drag-handle">drag_indicator</mat-icon>
+                    <input type="text" formControlName="name" class="meal-name-input" placeholder="Ej: Desayuno" />
+                  </div>
+                  
+                  <div class="meal-summary-nutrients">
+                    <span class="badge badge-kcal">{{ getMealKcal(dIndex, mIndex) | number:'1.0-0' }} kcal</span>
+                    <span class="badge badge-macro">P: {{ getMealProtein(dIndex, mIndex) | number:'1.0-1' }}g</span>
+                    <span class="badge badge-macro">C: {{ getMealCarbs(dIndex, mIndex) | number:'1.0-1' }}g</span>
+                    <span class="badge badge-macro">G: {{ getMealFat(dIndex, mIndex) | number:'1.0-1' }}g</span>
+                    
+                    <button type="button" class="btn-delete-meal" (click)="removeMeal(dIndex, mIndex)" matTooltip="Eliminar comida">
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Listado de alimentos añadidos -->
+                <div formArrayName="items" class="meal-items-list">
+                  <div *ngIf="getItems(dIndex, mIndex).controls.length === 0" class="empty-meal-placeholder">
+                    <p>No hay alimentos en esta comida. Usa el buscador de la derecha para añadir alimentos.</p>
+                  </div>
+
+                  <table class="items-table" *ngIf="getItems(dIndex, mIndex).controls.length > 0">
+                    <thead>
+                      <tr>
+                        <th>Alimento / Intercambio</th>
+                        <th width="140">Cantidad</th>
+                        <th>Kcal</th>
+                        <th>Proteínas</th>
+                        <th>Carbohidratos</th>
+                        <th>Grasas</th>
+                        <th width="40"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr 
+                        *ngFor="let itemCtrl of getItems(dIndex, mIndex).controls; let iIndex = index"
+                        [formGroupName]="iIndex"
+                        [class.exchange-row]="isExchangeItem(itemCtrl)">
+                        
+                        <!-- Nombre Alimento / Grupo Intercambio -->
+                        <td class="food-name">
+                          <span *ngIf="!isExchangeItem(itemCtrl)">
+                            {{ itemCtrl.get('foodName')?.value }}
+                          </span>
+                          <span *ngIf="isExchangeItem(itemCtrl)" class="exchange-badge">
+                            <mat-icon>swap_horiz</mat-icon>
+                            {{ itemCtrl.get('exchangeGroupName')?.value }}
+                          </span>
+                        </td>
+                        
+                        <!-- Input de Cantidad -->
+                        <td>
+                          <div class="quantity-input-wrapper">
+                            <!-- Alimento normal: gramos/ml -->
+                            <ng-container *ngIf="!isExchangeItem(itemCtrl)">
+                              <input type="number" formControlName="grams" min="1" (input)="recalcItem(itemCtrl)" class="qty-input">
+                              <span class="qty-unit">g</span>
+                            </ng-container>
+                            <!-- Intercambio: nº intercambios -->
+                            <ng-container *ngIf="isExchangeItem(itemCtrl)">
+                              <input type="number" formControlName="exchangeCount" min="0.5" step="0.5" (input)="recalcExchangeItem(itemCtrl)" class="qty-input">
+                              <span class="qty-unit">int.</span>
+                            </ng-container>
+                          </div>
+                        </td>
+                        
+                        <!-- Valores nutricionales calculados -->
+                        <td class="nutrient-value">{{ itemCtrl.get('kcal')?.value | number:'1.0-0' }}</td>
+                        <td class="nutrient-value">{{ itemCtrl.get('protein')?.value | number:'1.0-1' }}g</td>
+                        <td class="nutrient-value">{{ itemCtrl.get('carbs')?.value | number:'1.0-1' }}g</td>
+                        <td class="nutrient-value">{{ itemCtrl.get('fat')?.value | number:'1.0-1' }}g</td>
+                        
+                        <!-- Botón borrar ingrediente -->
+                        <td>
+                          <button type="button" class="btn-remove-item" (click)="removeItem(dIndex, mIndex, iIndex)" matTooltip="Quitar alimento">
+                            <mat-icon>close</mat-icon>
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- Barra de acciones rápidas de la tarjeta de comida -->
+                <div class="meal-card-footer">
+                  <button 
+                    type="button" 
+                    class="btn btn-outline-primary btn-sm btn-icon" 
+                    [class.active-search-target]="targetMealForAdd?.dIndex === dIndex && targetMealForAdd?.mIndex === mIndex"
+                    (click)="selectSearchMeal(dIndex, mIndex)">
+                    <mat-icon>search</mat-icon> Buscar y añadir alimentos
+                  </button>
+                  <button type="button" class="btn btn-outline-secondary btn-sm btn-icon" (click)="openExchangeSearch(dIndex, mIndex)">
+                    <mat-icon>swap_horiz</mat-icon> Añadir Intercambio
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Si no hay días -->
+        <div *ngIf="days.controls.length === 0" class="no-days-fallback">
+          <mat-icon class="fallback-icon">calendar_today</mat-icon>
+          <h3>La dieta no tiene días</h3>
+          <p>Para empezar a estructurar el menú semanal, debes añadir al menos un día.</p>
+          <button type="button" class="btn btn-primary" (click)="addDay()">
+            <mat-icon>add</mat-icon> Crear Día 1
+          </button>
+        </div>
+
+        <!-- Notas adicionales -->
+        <section class="notes-card" *ngIf="days.controls.length > 0">
+          <div class="section-title">
+            <mat-icon>description</mat-icon>
+            <h3>Notas y recomendaciones de la dieta</h3>
+          </div>
+          <textarea formControlName="notes" rows="4" placeholder="Escribe aquí indicaciones sobre hidratación, suplementación, pautas de cocinado..."></textarea>
+        </section>
+      </main>
+
+      <!-- COLUMNA DERECHA: Buscador Lateral de Alimentos -->
+      <aside class="editor-side-panel">
+        <div class="sidebar-sticky-content">
+          <div class="sidebar-header">
+            <h3>Buscador de Alimentos</h3>
+            <p *ngIf="targetMealForAdd" class="target-indicator">
+              Añadiendo a: <strong>{{ getTargetMealName() }}</strong>
+            </p>
+            <p *ngIf="!targetMealForAdd" class="target-indicator error">
+              Selecciona una comida para añadir alimentos
+            </p>
+          </div>
+
+          <!-- Input de búsqueda -->
+          <div class="search-input-wrapper">
+            <mat-icon class="search-icon">search</mat-icon>
+            <input 
+              id="food-search-input"
+              type="text" 
+              [formControl]="searchCtrl" 
+              placeholder="Buscar por pollo, arroz, marca..."
+              [disabled]="!targetMealForAdd" />
+            <mat-spinner *ngIf="searchLoading" diameter="20" class="search-spinner"></mat-spinner>
+          </div>
+
+          <!-- Estado inicial / Resultados vacíos -->
+          <div *ngIf="searchResults.length === 0 && !selectedFoodForAdd && !searchLoading" class="search-fallback">
+            <mat-icon>find_in_page</mat-icon>
+            <p *ngIf="searchCtrl.value?.length >= 2">No se encontraron alimentos</p>
+            <p *ngIf="!searchCtrl.value || searchCtrl.value.length < 2">Escribe al menos 2 letras para iniciar la búsqueda en las bases de datos (Local, OFF, USDA)</p>
+          </div>
+
+          <!-- Listado de resultados -->
+          <ul class="search-results-list" *ngIf="searchResults.length > 0 && !selectedFoodForAdd">
+            <li 
+              *ngFor="let f of searchResults" 
+              class="result-item-card"
+              (click)="selectFoodForAdd(f)">
+              <div class="item-main">
+                <span class="food-name-label">{{ getFoodName(f) }}</span>
+                <span class="food-brand-label" *ngIf="f.brands">{{ f.brands }}</span>
+              </div>
+              <div class="item-nutrients">
+                <span class="kcal-badge">{{ getFoodKcal(f) | number:'1.0-0' }} kcal</span>
+                <span class="macro-badge protein">P: {{ getFoodProtein(f) | number:'1.0-1' }}g</span>
+                <span class="macro-badge carbs">HC: {{ getFoodCarbs(f) | number:'1.0-1' }}g</span>
+                <span class="macro-badge fat">G: {{ getFoodFat(f) | number:'1.0-1' }}g</span>
+              </div>
+            </li>
+          </ul>
+
+          <!-- Formulario rápido de añadir ingrediente (cuando se selecciona un resultado) -->
+          <div class="add-confirm-card" *ngIf="selectedFoodForAdd">
+            <div class="confirm-header">
+              <h4>Añadir alimento</h4>
+              <button type="button" class="btn-close-confirm" (click)="selectedFoodForAdd = null" matTooltip="Volver a los resultados">
+                <mat-icon>arrow_back</mat-icon>
+              </button>
+            </div>
+            
+            <div class="selected-food-info">
+              <span class="food-name">{{ getFoodName(selectedFoodForAdd) }}</span>
+              <span class="food-brand" *ngIf="selectedFoodForAdd.brands">{{ selectedFoodForAdd.brands }}</span>
+              <div class="nutrient-tags">
+                <span>{{ getFoodKcal(selectedFoodForAdd) | number:'1.0-0' }} kcal / 100g</span>
+                <span>P: {{ getFoodProtein(selectedFoodForAdd) | number:'1.0-1' }}g</span>
+                <span>HC: {{ getFoodCarbs(selectedFoodForAdd) | number:'1.0-1' }}g</span>
+                <span>G: {{ getFoodFat(selectedFoodForAdd) | number:'1.0-1' }}g</span>
+              </div>
+            </div>
+
+            <div class="confirm-form-row">
+              <div class="qty-input-box">
+                <label>Cantidad</label>
+                <div class="input-unit-wrapper">
+                  <input type="number" [(ngModel)]="gramsToAdd" [ngModelOptions]="{standalone: true}" min="1" />
+                  <span>g / ml</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="confirm-actions">
+              <button type="button" class="btn btn-secondary" (click)="selectedFoodForAdd = null">Cancelar</button>
+              <button type="button" class="btn btn-primary" [disabled]="gramsToAdd <= 0 || !targetMealForAdd" (click)="confirmAddFood()">
+                Añadir
+              </button>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+    </form>
+  </div>
+</div>

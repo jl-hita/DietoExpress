@@ -1,0 +1,19 @@
+[33m❯[39m Building...
+[32m✔[39m Building...
+Application bundle generation failed. [2.593 seconds]
+
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG8001: 'mat-progress-spinner' is not a known element:
+1. If 'mat-progress-spinner' is an Angular component, then verify that it is part of this module.
+2. If 'mat-progress-spinner' is a Web Component then add 'CUSTOM_ELEMENTS_SCHEMA' to the '@NgModule.schemas' of this component to suppress this message.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/componentes/confirmar-email/confirmar-email.component.html:18:4:
+[37m      18 │     [32m<mat-progress-spinner mode="indeterminate" diameter="40">[37m</mat...
+         ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ConfirmarEmailComponent.
+
+    src/app/componentes/confirmar-email/confirmar-email.component.ts:16:15:
+[37m      16 │   templateUrl: [32m'./confirmar-email.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+[39m[22m
