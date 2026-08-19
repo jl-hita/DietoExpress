@@ -681,5 +681,150 @@
       </ng-template>
     </mat-tab>
 
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!--  TAB: ANAMNESIS                                            -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <mat-tab label="Anamnesis">
+      <div [formGroup]="clientForm" class="anamnesis-container">
+        
+        <!-- Sección 1: Historial Médico -->
+        <div formGroupName="medicalHistory" class="anamnesis-section-card">
+          <div class="form-section-label">Historial Médico</div>
+          <p class="section-subtitle">Patologías registradas, cirugías previas y medicación habitual.</p>
+          
+          <div class="checkbox-row">
+            <mat-checkbox formControlName="diabetes" color="primary">Diabetes</mat-checkbox>
+            <mat-checkbox formControlName="hypertension" color="primary">Hipertensión</mat-checkbox>
+            <mat-checkbox formControlName="hypothyroidism" color="primary">Hipotiroidismo</mat-checkbox>
+          </div>
+
+          <div class="full-width-field">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Otras Patologías / Diagnósticos</mat-label>
+              <textarea matInput rows="2" formControlName="otherPathologies" placeholder="Describa otras patologías o detalles adicionales..."></textarea>
+            </mat-form-field>
+          </div>
+
+          <div class="two-col">
+            <mat-form-field appearance="outline">
+              <mat-label>Cirugías</mat-label>
+              <textarea matInput rows="3" formControlName="surgeries" placeholder="Detalle cirugías previas y fechas aproximadas..."></textarea>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Medicación Habitual</mat-label>
+              <textarea matInput rows="3" formControlName="routineMedication" placeholder="Fármacos, dosis y frecuencia..."></textarea>
+            </mat-form-field>
+          </div>
+        </div>
+
+        <!-- Sección 2: Salud Digestiva -->
+        <div formGroupName="digestiveHealth" class="anamnesis-section-card">
+          <div class="form-section-label">Salud Digestiva e Intolerancias</div>
+          <p class="section-subtitle">Hábitos intestinales, síntomas gastrointestinales e intolerancias alimentarias.</p>
+
+          <div class="two-col">
+            <mat-form-field appearance="outline">
+              <mat-label>Hábitos Intestinales</mat-label>
+              <textarea matInput rows="3" formControlName="intestinalHabits" placeholder="Frecuencia, consistencia (Escala de Bristol), etc..."></textarea>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Notas Digestivas Adicionales</mat-label>
+              <textarea matInput rows="3" formControlName="notes" placeholder="Otros síntomas, flatulencias, reflujo..."></textarea>
+            </mat-form-field>
+          </div>
+
+          <div class="checkbox-row-multiline">
+            <div class="checkbox-group-title">Síntomas habituales:</div>
+            <div class="checkbox-grid">
+              <mat-checkbox formControlName="bloating" color="primary">Hinchazón / Distensión abdominal</mat-checkbox>
+              <mat-checkbox formControlName="heartburn" color="primary">Acidez / Ardor</mat-checkbox>
+            </div>
+            
+            <div class="checkbox-group-title">Intolerancias o pautas especiales:</div>
+            <div class="checkbox-grid">
+              <mat-checkbox formControlName="glutenIntolerance" color="primary">Sensibilidad/Intolerancia al Gluten</mat-checkbox>
+              <mat-checkbox formControlName="lactoseIntolerance" color="primary">Intolerancia a la Lactosa</mat-checkbox>
+              <mat-checkbox formControlName="fodmapsIntolerance" color="primary">Sensibilidad a FODMAPs</mat-checkbox>
+            </div>
+          </div>
+
+          <div class="full-width-field">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Otras Intolerancias o Alergias Alimentarias Leves</mat-label>
+              <textarea matInput rows="2" formControlName="otherIntolerances" placeholder="Detalle cualquier otro alimento o componente que le siente mal..."></textarea>
+            </mat-form-field>
+          </div>
+        </div>
+
+        <!-- Sección 3: Preferencias Alimentarias -->
+        <div formGroupName="foodPreferences" class="anamnesis-section-card">
+          <div class="form-section-label">Preferencias Alimentarias y Alergias</div>
+          <p class="section-subtitle">Gustos personales, aversiones y reacciones alérgicas diagnosticadas.</p>
+
+          <div class="three-col">
+            <mat-form-field appearance="outline">
+              <mat-label>Alimentos Preferidos</mat-label>
+              <textarea matInput rows="4" formControlName="preferredFoods" placeholder="Alimentos que le encantan, desayunos habituales, antojos..."></textarea>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Alimentos Rechazados / Aversiones</mat-label>
+              <textarea matInput rows="4" formControlName="dislikedFoods" placeholder="Alimentos que no le gustan o que rechaza comer..."></textarea>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="allergy-field">
+              <mat-label>Alergias Registradas (Graves)</mat-label>
+              <textarea matInput rows="4" formControlName="allergies" placeholder="Alergias alimentarias con riesgo de shock anafiláctico u otros..."></textarea>
+            </mat-form-field>
+          </div>
+        </div>
+
+        <!-- Sección 4: Estilo de Vida -->
+        <div formGroupName="lifestyleHistory" class="anamnesis-section-card">
+          <div class="form-section-label">Estilo de Vida e Historial de Hábitos</div>
+          <p class="section-subtitle">Rutina diaria, descanso e ingesta de sustancias de uso social.</p>
+
+          <div class="two-col">
+            <mat-form-field appearance="outline">
+              <mat-label>Horarios de Trabajo / Rutina</mat-label>
+              <textarea matInput rows="3" formControlName="workSchedule" placeholder="Turnos de trabajo, horarios de comidas, nivel de estrés..."></textarea>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Hábitos de Sueño</mat-label>
+              <textarea matInput rows="3" formControlName="sleepHabits" placeholder="Horas de sueño, calidad del descanso, insomnio..."></textarea>
+            </mat-form-field>
+          </div>
+
+          <div class="three-col">
+            <mat-form-field appearance="outline">
+              <mat-label>Consumo de Agua</mat-label>
+              <input matInput formControlName="waterConsumption" placeholder="Ej: 1.5L al día, 6 vasos..." />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Consumo de Alcohol</mat-label>
+              <input matInput formControlName="alcoholConsumption" placeholder="Ej: social, 2 copas/semana..." />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Consumo de Tabaco</mat-label>
+              <input matInput formControlName="tobaccoConsumption" placeholder="Ej: no fuma, 5 cigarros/día..." />
+            </mat-form-field>
+          </div>
+        </div>
+
+        <!-- Botón de guardar específico para la Anamnesis -->
+        <div class="anamnesis-actions">
+          <button mat-raised-button color="primary" type="button" class="btn-save-anamnesis" (click)="saveClient()" [disabled]="clientForm.invalid">
+            <mat-icon>save</mat-icon> Guardar Ficha de Anamnesis
+          </button>
+        </div>
+
+      </div>
+    </mat-tab>
+
   </mat-tab-group>
 </div>

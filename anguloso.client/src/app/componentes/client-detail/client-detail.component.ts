@@ -20,6 +20,7 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 
 @Component({
   selector: 'app-client-detail',
@@ -38,7 +39,8 @@ import { MatButtonModule } from '@angular/material/button';
     MatTabsModule,
     MatListModule,
     MatIconModule,
-    MatButtonModule
+    MatButtonModule,
+    MatCheckboxModule
   ],
   standalone: true
 })
@@ -97,7 +99,37 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
       phone: [''],
       birthDate: [''],
       gender: [''],
-      notes: ['']
+      notes: [''],
+      medicalHistory: this.fb.group({
+        diabetes: [false],
+        hypertension: [false],
+        hypothyroidism: [false],
+        surgeries: [''],
+        routineMedication: [''],
+        otherPathologies: ['']
+      }),
+      digestiveHealth: this.fb.group({
+        intestinalHabits: [''],
+        bloating: [false],
+        heartburn: [false],
+        glutenIntolerance: [false],
+        lactoseIntolerance: [false],
+        fodmapsIntolerance: [false],
+        otherIntolerances: [''],
+        notes: ['']
+      }),
+      foodPreferences: this.fb.group({
+        preferredFoods: [''],
+        dislikedFoods: [''],
+        allergies: ['']
+      }),
+      lifestyleHistory: this.fb.group({
+        workSchedule: [''],
+        sleepHabits: [''],
+        waterConsumption: [''],
+        alcoholConsumption: [''],
+        tobaccoConsumption: ['']
+      })
     });
 
     this.biometricForm = this.fb.group({
@@ -142,7 +174,11 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
           phone: c.phone,
           birthDate: c.birthDate,
           gender: c.gender,
-          notes: c.notes
+          notes: c.notes,
+          medicalHistory: c.medicalHistory || {},
+          digestiveHealth: c.digestiveHealth || {},
+          foodPreferences: c.foodPreferences || {},
+          lifestyleHistory: c.lifestyleHistory || {}
         });
         this.biometrics = c.biometrics || [];
       },
@@ -171,7 +207,11 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
       phone: this.clientForm.value.phone,
       birthDate: this.clientForm.value.birthDate,
       gender: this.clientForm.value.gender,
-      notes: this.clientForm.value.notes
+      notes: this.clientForm.value.notes,
+      medicalHistory: this.clientForm.value.medicalHistory,
+      digestiveHealth: this.clientForm.value.digestiveHealth,
+      foodPreferences: this.clientForm.value.foodPreferences,
+      lifestyleHistory: this.clientForm.value.lifestyleHistory
     };
 
     if (this.clientId) {

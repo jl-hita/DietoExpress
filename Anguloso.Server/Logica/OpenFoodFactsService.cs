@@ -14,16 +14,17 @@ public class OpenFoodFactsService
 {
     private readonly HttpClient _http;
     private readonly string _connectionString;
-    //private readonly string _usdaKey = "XTEiW9kX6yvzQ3anyP8e16YQaMVIIhUCn6k66dB2";
-    private readonly string _usdaKey;
+    //private readonly string _usdaKey;
     private readonly LogServ _logServ;
+    private readonly ConfigServ _configServ;
 
-    public OpenFoodFactsService(HttpClient http, string connectionString, string usdaKey, LogServ logServ)
+    public OpenFoodFactsService(HttpClient http, string connectionString, /*string usdaKey,*/ LogServ logServ, ConfigServ configServ)
     {
         _http = http;
         _connectionString = connectionString;
-        _usdaKey = usdaKey;
+        //_usdaKey = usdaKey;
         _logServ = logServ;
+        _configServ = configServ;
         _http.BaseAddress = new Uri("https://world.openfoodfacts.org/");
     }
 
@@ -68,8 +69,17 @@ public class OpenFoodFactsService
                 }
                 catch (Exception) { }
 
-                pais = user != null ? user.country : "spain";
-                lang = user != null ? user.lang : "es";
+                //pais = user != null ? user.country : "spain";
+                //lang = user != null ? user.lang : "es";
+
+                //TODO Pensar si, en lugar de dar valor por defecto, no sería mejor mostrar una advertencia en pantalla al usuario para que configure sus locales
+                pais = string.IsNullOrWhiteSpace(user?.country)
+                    ? "spain"
+                    : user.country;
+
+                lang = string.IsNullOrWhiteSpace(user?.lang)
+                    ? "es"
+                    : user.lang;
             }
 
             // 1. Buscar en la base de datos
@@ -104,6 +114,7 @@ public class OpenFoodFactsService
     public async Task<List<OffProduct>> SearchProductsAsync(string query, string pais = "spain", string lang = "es")
     {
         var products = new List<OffProduct>();
+        //_logServ.LogInfo($"query='{query}', pais='{pais}', lang='{lang}'");
 
         try
         {
@@ -196,10 +207,19 @@ public class OpenFoodFactsService
      */
     private async Task<(OffNutriments? Nutriments, OffMicronutrients? Micronutrients, ServingSizeObject? ServingSize, string? ServingText, string? Category)> GetNutrientsFromUsdaAsync(string query)
     {
-        if (string.IsNullOrWhiteSpace(_usdaKey) || string.IsNullOrWhiteSpace(query))
+        if (string.IsNullOrWhiteSpace(query))
             return (null, null, null, null, null);
 
-        var requestUrl = $"https://api.nal.usda.gov/fdc/v1/foods/search?api_key={Uri.EscapeDataString(_usdaKey)}";
+        //var requestUrl = $"https://api.nal.usda.gov/fdc/v1/foods/search?api_key={Uri.EscapeDataString(_usdaKey)}";
+
+        string? usdKey = _configServ.GetConfigString("usdaKey");
+        if (string.IsNullOrWhiteSpace(usdKey))
+        {
+            _logServ.LogError("USDA API key is not configured.");
+            return (null, null, null, null, null);
+        }
+
+        var requestUrl = $"https://api.nal.usda.gov/fdc/v1/foods/search?api_key={Uri.EscapeDataString(usdKey)}";
         var bodyObj = new { generalSearchInput = query, pageSize = 5 }; // varios resultados para fallback
 
         var content = new StringContent(JsonSerializer.Serialize(bodyObj));

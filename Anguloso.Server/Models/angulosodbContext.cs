@@ -23,6 +23,14 @@ public partial class angulosodbContext : DbContext
 
     public virtual DbSet<clients> clients { get; set; }
 
+    public virtual DbSet<medical_history> medical_history { get; set; }
+
+    public virtual DbSet<digestive_health> digestive_health { get; set; }
+
+    public virtual DbSet<food_preferences> food_preferences { get; set; }
+
+    public virtual DbSet<lifestyle_history> lifestyle_history { get; set; }
+
     public virtual DbSet<config> config { get; set; }
 
     public virtual DbSet<diet_days> diet_days { get; set; }
@@ -95,6 +103,42 @@ public partial class angulosodbContext : DbContext
             entity.HasOne(d => d.user).WithMany(p => p.clients)
                 .HasForeignKey(d => d.user_id)
                 .HasConstraintName("clients_user_id_fkey");
+        });
+
+        modelBuilder.Entity<medical_history>(entity =>
+        {
+            entity.HasKey(e => e.id).HasName("medical_history_pkey");
+
+            entity.HasOne(d => d.client).WithOne(p => p.medical_history)
+                .HasForeignKey<medical_history>(d => d.client_id)
+                .HasConstraintName("medical_history_client_id_fkey");
+        });
+
+        modelBuilder.Entity<digestive_health>(entity =>
+        {
+            entity.HasKey(e => e.id).HasName("digestive_health_pkey");
+
+            entity.HasOne(d => d.client).WithOne(p => p.digestive_health)
+                .HasForeignKey<digestive_health>(d => d.client_id)
+                .HasConstraintName("digestive_health_client_id_fkey");
+        });
+
+        modelBuilder.Entity<food_preferences>(entity =>
+        {
+            entity.HasKey(e => e.id).HasName("food_preferences_pkey");
+
+            entity.HasOne(d => d.client).WithOne(p => p.food_preferences)
+                .HasForeignKey<food_preferences>(d => d.client_id)
+                .HasConstraintName("food_preferences_client_id_fkey");
+        });
+
+        modelBuilder.Entity<lifestyle_history>(entity =>
+        {
+            entity.HasKey(e => e.id).HasName("lifestyle_history_pkey");
+
+            entity.HasOne(d => d.client).WithOne(p => p.lifestyle_history)
+                .HasForeignKey<lifestyle_history>(d => d.client_id)
+                .HasConstraintName("lifestyle_history_client_id_fkey");
         });
 
         modelBuilder.Entity<config>(entity =>

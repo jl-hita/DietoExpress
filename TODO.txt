@@ -31,6 +31,39 @@ Base de datos PostgreSQL: Neon.tech
 - Client ID en appsettings.json.
 - Client Secret no utilizado (login mediante Google Identity Services).
 
+*****************
+** INSTALACIÓN **
+*****************
+
+1) Crear base de datos PostgreSQL
+2) Crear tablas con el script SQL proporcionado
+3) Crear cuenta en https://app.brevo.com/ o similar para enviar emails
+4) Crear API key en USDA para acceder a su base de datos de alimentos
+5) Crear proyecto en Google Cloud Console para login con Google
+6) Introducir variables de config en la tabla config de la base de datos (ej: SMTP, Google Client ID, USDA API Key)
+    dominio -> www.tusitio.com
+    smtpServer -> smtp-relay.brevo.com
+    smtpPort -> 587
+    smtpEnableSsl -> true
+    smtpFromName -> Dietexpress - No responder
+    smtpFromEmail -> dietexpress.noresponder@gmail.com
+    smtpUser -> usuario de brevo
+    smtpPwd -> contraseña de brevo
+    usdaKey -> clave de la API de USDA
+7) Introducir variables en appsettings.json (ej: connection string de PostgreSQL, puerto del backend, etc)
+8) Correr el endpoint de inicialización para crear el primer usuario administrador (nutricionista) y su contraseña.
+9) Correr el endpoint de inicialización para rellenar los alimentos de BEDCA en la base de datos local.
+
+TODO:
+* Pasar claves de API de appsettings.json a la tabla config de la BBDD y leerlas desde ahí.
+* Hacer que en la primera ejecución:
+ - se cree automáticamente el primer usuario administrador (nutricionista) y su contraseña.
+ - se rellenen automáticamente los alimentos de BEDCA en la base de datos local.
+ - se muestre una pantalla donde rellenar los datos de configuración (SMTP, Google Client ID, USDA API Key) y guardarlos en la tabla config.
+ - Mejor todavía: que se cree un asistente de instalación que haga todo lo anterior paso a paso.
+* Crear script completo de creación de tablas de BBDD
+* Comentar todos los endpoints del backend con Swagger y ejemplos de uso.
+
 PROYECTO DIETOWIN DE ALIEXPRESS: DietoExpress
 
      diets
@@ -42,6 +75,10 @@ PROYECTO DIETOWIN DE ALIEXPRESS: DietoExpress
    meal_items (n por comida)
        |
      foods
+
+*****************
+** SCRIPT BBDD **
+*****************
 
 --Tabla para usuarios (los dueños de la licencia)
 CREATE TABLE users (

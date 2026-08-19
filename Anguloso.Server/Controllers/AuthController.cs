@@ -21,6 +21,9 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+
+using System.Reflection;
+
 namespace Anguloso.Server.Controllers;
 
 [Route("api/[controller]")]
@@ -43,6 +46,22 @@ public class AuthController : ControllerBase
         _configServ = configServ;
     }
 
+    /// <summary>
+    /// Inicia sesión con usuario y contraseña.
+    /// </summary>
+    /// <remarks>
+    /// Ejemplo:
+    ///
+    ///     POST /api/auth/login
+    ///     {
+    ///         "username":"admin",
+    ///         "password":"1234"
+    ///     }
+    ///
+    /// </remarks>
+    /// <response code="200">Login correcto.</response>
+    /// <response code="400">Datos incorrectos.</response>
+    /// <response code="401">Usuario o contraseña inválidos.</response>
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest login)
     {

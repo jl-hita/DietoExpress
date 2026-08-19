@@ -56,6 +56,10 @@ public class ClientsController : ControllerBase
 
         var client = await _context.clients
             .Include(c => c.biometrics)
+            .Include(c => c.medical_history)
+            .Include(c => c.digestive_health)
+            .Include(c => c.food_preferences)
+            .Include(c => c.lifestyle_history)
             .FirstOrDefaultAsync(c => c.id == id && c.user_id == userId.Value);
 
         if (client == null) return NotFound();
@@ -71,6 +75,60 @@ public class ClientsController : ControllerBase
             CreatedAt = client.created_at,
             Notes = client.notes
         };
+
+        if (client.medical_history != null)
+        {
+            dto.MedicalHistory = new MedicalHistoryDto
+            {
+                Id = client.medical_history.id,
+                Diabetes = client.medical_history.diabetes,
+                Hypertension = client.medical_history.hypertension,
+                Hypothyroidism = client.medical_history.hypothyroidism,
+                Surgeries = client.medical_history.surgeries,
+                RoutineMedication = client.medical_history.routine_medication,
+                OtherPathologies = client.medical_history.other_pathologies
+            };
+        }
+
+        if (client.digestive_health != null)
+        {
+            dto.DigestiveHealth = new DigestiveHealthDto
+            {
+                Id = client.digestive_health.id,
+                IntestinalHabits = client.digestive_health.intestinal_habits,
+                Bloating = client.digestive_health.bloating,
+                Heartburn = client.digestive_health.heartburn,
+                GlutenIntolerance = client.digestive_health.gluten_intolerance,
+                LactoseIntolerance = client.digestive_health.lactose_intolerance,
+                FodmapsIntolerance = client.digestive_health.fodmaps_intolerance,
+                OtherIntolerances = client.digestive_health.other_intolerances,
+                Notes = client.digestive_health.notes
+            };
+        }
+
+        if (client.food_preferences != null)
+        {
+            dto.FoodPreferences = new FoodPreferencesDto
+            {
+                Id = client.food_preferences.id,
+                PreferredFoods = client.food_preferences.preferred_foods,
+                DislikedFoods = client.food_preferences.disliked_foods,
+                Allergies = client.food_preferences.allergies
+            };
+        }
+
+        if (client.lifestyle_history != null)
+        {
+            dto.LifestyleHistory = new LifestyleHistoryDto
+            {
+                Id = client.lifestyle_history.id,
+                WorkSchedule = client.lifestyle_history.work_schedule,
+                SleepHabits = client.lifestyle_history.sleep_habits,
+                WaterConsumption = client.lifestyle_history.water_consumption,
+                AlcoholConsumption = client.lifestyle_history.alcohol_consumption,
+                TobaccoConsumption = client.lifestyle_history.tobacco_consumption
+            };
+        }
 
         dto.Biometrics = client.biometrics
             .OrderByDescending(b => b.measurement_date)
@@ -118,6 +176,45 @@ public class ClientsController : ControllerBase
         if (dto.BirthDate.HasValue)
             client.birth_date = DateOnly.FromDateTime(dto.BirthDate.Value);
 
+        // Initialize anamnesis tables
+        client.medical_history = new medical_history
+        {
+            diabetes = dto.MedicalHistory?.Diabetes ?? false,
+            hypertension = dto.MedicalHistory?.Hypertension ?? false,
+            hypothyroidism = dto.MedicalHistory?.Hypothyroidism ?? false,
+            surgeries = dto.MedicalHistory?.Surgeries ?? "",
+            routine_medication = dto.MedicalHistory?.RoutineMedication ?? "",
+            other_pathologies = dto.MedicalHistory?.OtherPathologies ?? ""
+        };
+
+        client.digestive_health = new digestive_health
+        {
+            intestinal_habits = dto.DigestiveHealth?.IntestinalHabits ?? "",
+            bloating = dto.DigestiveHealth?.Bloating ?? false,
+            heartburn = dto.DigestiveHealth?.Heartburn ?? false,
+            gluten_intolerance = dto.DigestiveHealth?.GlutenIntolerance ?? false,
+            lactose_intolerance = dto.DigestiveHealth?.LactoseIntolerance ?? false,
+            fodmaps_intolerance = dto.DigestiveHealth?.FodmapsIntolerance ?? false,
+            other_intolerances = dto.DigestiveHealth?.OtherIntolerances ?? "",
+            notes = dto.DigestiveHealth?.Notes ?? ""
+        };
+
+        client.food_preferences = new food_preferences
+        {
+            preferred_foods = dto.FoodPreferences?.PreferredFoods ?? "",
+            disliked_foods = dto.FoodPreferences?.DislikedFoods ?? "",
+            allergies = dto.FoodPreferences?.Allergies ?? ""
+        };
+
+        client.lifestyle_history = new lifestyle_history
+        {
+            work_schedule = dto.LifestyleHistory?.WorkSchedule ?? "",
+            sleep_habits = dto.LifestyleHistory?.SleepHabits ?? "",
+            water_consumption = dto.LifestyleHistory?.WaterConsumption ?? "",
+            alcohol_consumption = dto.LifestyleHistory?.AlcoholConsumption ?? "",
+            tobacco_consumption = dto.LifestyleHistory?.TobaccoConsumption ?? ""
+        };
+
         _context.clients.Add(client);
         await _context.SaveChangesAsync();
 
@@ -131,7 +228,13 @@ public class ClientsController : ControllerBase
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
 
-        var client = await _context.clients.FirstOrDefaultAsync(c => c.id == id && c.user_id == userId.Value);
+        var client = await _context.clients
+            .Include(c => c.medical_history)
+            .Include(c => c.digestive_health)
+            .Include(c => c.food_preferences)
+            .Include(c => c.lifestyle_history)
+            .FirstOrDefaultAsync(c => c.id == id && c.user_id == userId.Value);
+
         if (client == null) return NotFound();
 
         client.full_name = dto.FullName;
@@ -140,6 +243,52 @@ public class ClientsController : ControllerBase
         client.gender = dto.Gender ?? client.gender;
         client.notes = dto.Notes ?? client.notes;
         if (dto.BirthDate.HasValue) client.birth_date = DateOnly.FromDateTime(dto.BirthDate.Value);
+
+        // Update medical history
+        if (dto.MedicalHistory != null)
+        {
+            if (client.medical_history == null) client.medical_history = new medical_history();
+            client.medical_history.diabetes = dto.MedicalHistory.Diabetes;
+            client.medical_history.hypertension = dto.MedicalHistory.Hypertension;
+            client.medical_history.hypothyroidism = dto.MedicalHistory.Hypothyroidism;
+            client.medical_history.surgeries = dto.MedicalHistory.Surgeries ?? "";
+            client.medical_history.routine_medication = dto.MedicalHistory.RoutineMedication ?? "";
+            client.medical_history.other_pathologies = dto.MedicalHistory.OtherPathologies ?? "";
+        }
+
+        // Update digestive health
+        if (dto.DigestiveHealth != null)
+        {
+            if (client.digestive_health == null) client.digestive_health = new digestive_health();
+            client.digestive_health.intestinal_habits = dto.DigestiveHealth.IntestinalHabits ?? "";
+            client.digestive_health.bloating = dto.DigestiveHealth.Bloating;
+            client.digestive_health.heartburn = dto.DigestiveHealth.Heartburn;
+            client.digestive_health.gluten_intolerance = dto.DigestiveHealth.GlutenIntolerance;
+            client.digestive_health.lactose_intolerance = dto.DigestiveHealth.LactoseIntolerance;
+            client.digestive_health.fodmaps_intolerance = dto.DigestiveHealth.FodmapsIntolerance;
+            client.digestive_health.other_intolerances = dto.DigestiveHealth.OtherIntolerances ?? "";
+            client.digestive_health.notes = dto.DigestiveHealth.Notes ?? "";
+        }
+
+        // Update food preferences
+        if (dto.FoodPreferences != null)
+        {
+            if (client.food_preferences == null) client.food_preferences = new food_preferences();
+            client.food_preferences.preferred_foods = dto.FoodPreferences.PreferredFoods ?? "";
+            client.food_preferences.disliked_foods = dto.FoodPreferences.DislikedFoods ?? "";
+            client.food_preferences.allergies = dto.FoodPreferences.Allergies ?? "";
+        }
+
+        // Update lifestyle history
+        if (dto.LifestyleHistory != null)
+        {
+            if (client.lifestyle_history == null) client.lifestyle_history = new lifestyle_history();
+            client.lifestyle_history.work_schedule = dto.LifestyleHistory.WorkSchedule ?? "";
+            client.lifestyle_history.sleep_habits = dto.LifestyleHistory.SleepHabits ?? "";
+            client.lifestyle_history.water_consumption = dto.LifestyleHistory.WaterConsumption ?? "";
+            client.lifestyle_history.alcohol_consumption = dto.LifestyleHistory.AlcoholConsumption ?? "";
+            client.lifestyle_history.tobacco_consumption = dto.LifestyleHistory.TobaccoConsumption ?? "";
+        }
 
         await _context.SaveChangesAsync();
         return NoContent();

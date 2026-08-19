@@ -17,6 +17,10 @@ export interface ClientListItem {
 export interface ClientDetail extends ClientListItem {
   notes?: string;
   biometrics: Biometric[];
+  medicalHistory?: MedicalHistory;
+  digestiveHealth?: DigestiveHealth;
+  foodPreferences?: FoodPreferences;
+  lifestyleHistory?: LifestyleHistory;
 }
 
 /** POST /api/clients  (equivale a CreateClientDto) */
@@ -27,6 +31,10 @@ export interface CreateClientRequest {
   gender?: string;
   birthDate?: string; // yyyy-MM-dd
   notes?: string;
+  medicalHistory?: MedicalHistory;
+  digestiveHealth?: DigestiveHealth;
+  foodPreferences?: FoodPreferences;
+  lifestyleHistory?: LifestyleHistory;
 }
 
 /** PUT /api/clients/{id}  (equivale a UpdateClientDto) */
@@ -37,6 +45,48 @@ export interface UpdateClientRequest {
   gender?: string;
   birthDate?: string; // yyyy-MM-dd
   notes?: string;
+  medicalHistory?: MedicalHistory;
+  digestiveHealth?: DigestiveHealth;
+  foodPreferences?: FoodPreferences;
+  lifestyleHistory?: LifestyleHistory;
+}
+
+export interface MedicalHistory {
+  id?: number;
+  diabetes: boolean;
+  hypertension: boolean;
+  hypothyroidism: boolean;
+  surgeries?: string;
+  routineMedication?: string;
+  otherPathologies?: string;
+}
+
+export interface DigestiveHealth {
+  id?: number;
+  intestinalHabits?: string;
+  bloating: boolean;
+  heartburn: boolean;
+  glutenIntolerance: boolean;
+  lactoseIntolerance: boolean;
+  fodmapsIntolerance: boolean;
+  otherIntolerances?: string;
+  notes?: string;
+}
+
+export interface FoodPreferences {
+  id?: number;
+  preferredFoods?: string;
+  dislikedFoods?: string;
+  allergies?: string;
+}
+
+export interface LifestyleHistory {
+  id?: number;
+  workSchedule?: string;
+  sleepHabits?: string;
+  waterConsumption?: string;
+  alcoholConsumption?: string;
+  tobaccoConsumption?: string;
 }
 
 // ─── Alias de compatibilidad (usado en componentes anteriores) ───────────────
