@@ -1,9 +1,11 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
+import { MatDialog } from '@angular/material/dialog';
 import { MATERIAL_IMPORTS } from '../../shared/material.imports';
 import { DietService } from '../../servicios/diet.service';
 import { Diet } from '../../modelos/diet';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { DietShoppingListDialogComponent } from './diet-shopping-list-dialog.component';
 
 @Component({
   selector: 'app-diets-list',
@@ -27,8 +29,10 @@ export class DietsListComponent implements OnInit {
   constructor(
     private dietService: DietService,
     private router: Router,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private dialog: MatDialog
   ) {}
+
 
   ngOnInit(): void {
     this.loadDiets();
@@ -115,6 +119,17 @@ export class DietsListComponent implements OnInit {
     if (d.id != null) this.router.navigate(['/diets', d.id]);
   }
 
+  viewShoppingList(d: Diet): void {
+    if (d.id == null) return;
+    this.dialog.open(DietShoppingListDialogComponent, {
+      width: '600px',
+      data: {
+        dietId: d.id,
+        dietName: d.name
+      }
+    });
+  }
+
   deleteDiet(d: Diet): void {
     if (d.id == null) return;
     if (!confirm(`¿Eliminar la dieta "${d.name}"?`)) return;
@@ -129,3 +144,4 @@ export class DietsListComponent implements OnInit {
     });
   }
 }
+

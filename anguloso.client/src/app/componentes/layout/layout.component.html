@@ -2,18 +2,21 @@
   <div class="sidebar">
     <app-sidebar></app-sidebar>
   </div>
-  
 
   <div class="content">
+    <header class="topbar">
+      <div class="topbar-brand">
+        <mat-icon class="brand-icon">spa</mat-icon>
+        <span class="brand-title">DietoExpress</span>
+        <span class="brand-badge">PRO</span>
+      </div>
+      <div class="topbar-actions">
+        <!-- Espacio para notificaciones o perfil si se requiere -->
+      </div>
+    </header>
 
-    <div class="topbar">
-      <mat-toolbar color="primary">
-        <span>Mi Aplicación</span>
-      </mat-toolbar>
-    </div>
-
-    <div class="page">
+    <main class="page">
       <router-outlet></router-outlet>
-    </div>
+    </main>
   </div>
 </div>

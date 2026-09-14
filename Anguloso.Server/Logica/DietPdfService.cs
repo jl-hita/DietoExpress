@@ -70,6 +70,10 @@ public class DietPdfService
                             col.Item().PageBreak();
                             col.Item().Element(c => ComposeEquivalenceTable(c, exchangeFoods));
                         }
+
+                        // Lista de la compra consolidada (nueva pÃ¡gina)
+                        col.Item().PageBreak();
+                        col.Item().Element(c => ComposeShoppingList(c, diet));
                     });
                 });
 
@@ -377,5 +381,127 @@ public class DietPdfService
                 }
             });
         });
+    }
+
+    private void ComposeShoppingList(IContainer container, diets diet)
+    {
+        var shoppingItems = new List<ShoppingListItem>();
+
+        if (diet.diet_days != null)
+        {
+            foreach (var day in diet.diet_days)
+            {
+                if (day.meals != null)
+                {
+                    foreach (var meal in day.meals)
+                    {
+                        if (meal.meal_items != null)
+                        {
+                            foreach (var item in meal.meal_items)
+                            {
+                                if (item.food != null)
+                                {
+                                    var existing = shoppingItems.FirstOrDefault(si => si.FoodId == item.food.id && !si.IsExchange);
+                                    if (existing != null)
+                                    {
+                                        existing.Grams += (double)(item.grams ?? 0);
+                                    }
+                                    else
+                                    {
+                                        shoppingItems.Add(new ShoppingListItem
+                                        {
+                                            FoodId = item.food.id,
+                                            Name = item.food.name,
+                                            Category = !string.IsNullOrWhiteSpace(item.food.category) ? item.food.category : "Otros",
+                                            Grams = (double)(item.grams ?? 0),
+                                            IsExchange = false
+                                        });
+                                    }
+                                }
+                                else if (item.exchange_group != null)
+                                {
+                                    var groupKey = $"eg-{item.exchange_group.id}";
+                                    var existing = shoppingItems.FirstOrDefault(si => si.Key == groupKey && si.IsExchange);
+                                    if (existing != null)
+                                    {
+                                        existing.ExchangeCount += (double)(item.exchange_count ?? 0);
+                                    }
+                                    else
+                                    {
+                                        shoppingItems.Add(new ShoppingListItem
+                                        {
+                                            Key = groupKey,
+                                            Name = item.exchange_group.name,
+                                            Category = "Intercambios (Opciones equivalentes)",
+                                            ExchangeCount = (double)(item.exchange_count ?? 0),
+                                            IsExchange = true
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        container.Column(col =>
+        {
+            col.Spacing(12);
+
+            col.Item().Text("LISTA DE LA COMPRA SEMANAL").Bold().FontSize(14).FontColor("#3f51b5");
+            col.Item().Text("A continuación se muestra un resumen consolidado de todos los alimentos e intercambios planificados para la semana, agrupados por categorías.").FontSize(9).Italic().FontColor("#555555");
+
+            if (!shoppingItems.Any())
+            {
+                col.Item().Text("No hay alimentos en la dieta.").Italic().FontSize(10).FontColor("#888888");
+                return;
+            }
+
+            var grouped = shoppingItems
+                .GroupBy(i => i.Category)
+                .OrderBy(g => g.Key == "Otros" ? 1 : 0)
+                .ThenBy(g => g.Key)
+                .ToList();
+
+            foreach (var group in grouped)
+            {
+                col.Item().Column(catCol =>
+                {
+                    catCol.Spacing(4);
+                    catCol.Item().Background("#f5f7ff").Padding(4).BorderBottom(1).BorderColor("#3f51b5")
+                        .Text(group.Key.ToUpper()).Bold().FontSize(9).FontColor("#3f51b5");
+
+                    foreach (var item in group.OrderBy(i => i.Name))
+                    {
+                        catCol.Item().Row(row =>
+                        {
+                            row.Spacing(8);
+                            // Fake checkbox box in PDF
+                            row.ConstantItem(10).Height(10).Border(1).BorderColor("#999999").Background(Colors.White);
+
+                            row.RelativeItem().Text(item.Name).FontSize(9);
+
+                            string qtyText = item.IsExchange 
+                                ? $"{item.ExchangeCount:F1} raciones" 
+                                : (item.Grams > 0 ? $"{item.Grams:F0} g" : "-");
+
+                            row.ConstantItem(100).AlignRight().Text(qtyText).FontSize(9).FontColor("#555555");
+                        });
+                    }
+                });
+            }
+        });
+    }
+
+    private class ShoppingListItem
+    {
+        public string Key { get; set; } = string.Empty;
+        public int FoodId { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Category { get; set; } = "Otros";
+        public double Grams { get; set; }
+        public double ExchangeCount { get; set; }
+        public bool IsExchange { get; set; }
     }
 }

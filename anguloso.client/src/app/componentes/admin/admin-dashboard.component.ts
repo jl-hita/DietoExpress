@@ -1,0 +1,460 @@
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { MatCardModule } from '@angular/material/card';
+import { MatTableModule } from '@angular/material/table';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { AdminService, AdminStats, AdminUser } from '../../servicios/admin.service';
+import { EditLicenseDialogComponent } from './edit-license-dialog.component';
+import { ResetPasswordDialogComponent } from './reset-password-dialog.component';
+
+@Component({
+  selector: 'app-admin-dashboard',
+  standalone: true,
+  imports: [
+    CommonModule,
+    FormsModule,
+    MatCardModule,
+    MatTableModule,
+    MatButtonModule,
+    MatIconModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatChipsModule,
+    MatTooltipModule,
+    MatDialogModule,
+    MatSnackBarModule
+  ],
+  template: `
+    <div class="admin-container">
+      <div class="admin-header">
+        <div>
+          <h1>Panel de Control de SuperAdministrador</h1>
+          <p class="subtitle">Supervisa nutricionistas registrados, licencias activas y métricas de uso de la plataforma.</p>
+        </div>
+        <button mat-stroked-button color="primary" (click)="loadData()">
+          <mat-icon>refresh</mat-icon> Actualizar
+        </button>
+      </div>
+
+      <!-- KPI Metrics Cards -->
+      <div class="kpi-grid">
+        <mat-card class="kpi-card card-blue">
+          <div class="kpi-icon"><mat-icon>group</mat-icon></div>
+          <div class="kpi-content">
+            <span class="kpi-title">Nutricionistas</span>
+            <span class="kpi-value">{{ stats?.totalUsers ?? 0 }}</span>
+            <span class="kpi-sub">{{ stats?.activeSubscriptions ?? 0 }} con suscripción activa</span>
+          </div>
+        </mat-card>
+
+        <mat-card class="kpi-card card-teal">
+          <div class="kpi-icon"><mat-icon>person_pin</mat-icon></div>
+          <div class="kpi-content">
+            <span class="kpi-title">Pacientes Totales</span>
+            <span class="kpi-value">{{ stats?.totalClients ?? 0 }}</span>
+            <span class="kpi-sub">Registrados en la plataforma</span>
+          </div>
+        </mat-card>
+
+        <mat-card class="kpi-card card-purple">
+          <div class="kpi-icon"><mat-icon>restaurant_menu</mat-icon></div>
+          <div class="kpi-content">
+            <span class="kpi-title">Dietas Elaboradas</span>
+            <span class="kpi-value">{{ stats?.totalDiets ?? 0 }}</span>
+            <span class="kpi-sub">En base de datos</span>
+          </div>
+        </mat-card>
+
+        <mat-card class="kpi-card" [ngClass]="(stats?.licensesExpiringSoon ?? 0) > 0 ? 'card-amber' : 'card-slate'">
+          <div class="kpi-icon"><mat-icon>warning_amber</mat-icon></div>
+          <div class="kpi-content">
+            <span class="kpi-title">Expiran en 7 Días</span>
+            <span class="kpi-value">{{ stats?.licensesExpiringSoon ?? 0 }}</span>
+            <span class="kpi-sub">Requieren renovación o contacto</span>
+          </div>
+        </mat-card>
+      </div>
+
+      <!-- Filters & Search Toolbar -->
+      <mat-card class="table-card">
+        <div class="filter-toolbar">
+          <mat-form-field appearance="outline" class="search-field">
+            <mat-label>Buscar nutricionista o clínica</mat-label>
+            <input matInput [(ngModel)]="searchTerm" (keyup.enter)="loadUsers()" placeholder="Nombre, email, usuario..." />
+            <mat-icon matSuffix>search</mat-icon>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="select-field">
+            <mat-label>Filtrar por Estado</mat-label>
+            <mat-select [(ngModel)]="statusFilter" (selectionChange)="loadUsers()">
+              <mat-option value="">Todos los estados</mat-option>
+              <mat-option value="active">Activa</mat-option>
+              <mat-option value="suspended">Suspendida</mat-option>
+              <mat-option value="past_due">Pago Pendiente</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="select-field">
+            <mat-label>Filtrar por Plan</mat-label>
+            <mat-select [(ngModel)]="planFilter" (selectionChange)="loadUsers()">
+              <mat-option value="">Todos los planes</mat-option>
+              <mat-option value="free">Free / Prueba</mat-option>
+              <mat-option value="starter">Starter</mat-option>
+              <mat-option value="professional">Profesional</mat-option>
+              <mat-option value="enterprise">Enterprise</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <!-- Table of Users -->
+        <div class="table-container">
+          <table mat-table [dataSource]="users" class="users-table">
+            <!-- User Info Column -->
+            <ng-container matColumnDef="user">
+              <th mat-header-cell *matHeaderCellDef>Nutricionista / Clínica</th>
+              <td mat-cell *matCellDef="let u">
+                <div class="user-cell">
+                  <strong>{{ u.fullName || u.username }}</strong>
+                  <span class="user-sub">{{ u.email }}</span>
+                  <span class="clinic-sub" *ngIf="u.clinicName">Clínica: {{ u.clinicName }}</span>
+                </div>
+              </td>
+            </ng-container>
+
+            <!-- Plan Column -->
+            <ng-container matColumnDef="plan">
+              <th mat-header-cell *matHeaderCellDef>Plan</th>
+              <td mat-cell *matCellDef="let u">
+                <span class="plan-badge plan-{{ u.subscriptionPlan }}">{{ u.subscriptionPlan | uppercase }}</span>
+              </td>
+            </ng-container>
+
+            <!-- Status Column -->
+            <ng-container matColumnDef="status">
+              <th mat-header-cell *matHeaderCellDef>Estado</th>
+              <td mat-cell *matCellDef="let u">
+                <span class="status-badge status-{{ u.subscriptionStatus }}">
+                  {{ u.subscriptionStatus === 'active' ? 'Activo' : (u.subscriptionStatus === 'suspended' ? 'Suspendido' : u.subscriptionStatus) }}
+                </span>
+              </td>
+            </ng-container>
+
+            <!-- Expiration Column -->
+            <ng-container matColumnDef="expires">
+              <th mat-header-cell *matHeaderCellDef>Vencimiento Licencia</th>
+              <td mat-cell *matCellDef="let u">
+                <div *ngIf="u.licenseExpiresAt">
+                  <span [ngClass]="{'text-danger': isExpiredOrNear(u.licenseExpiresAt)}">
+                    {{ u.licenseExpiresAt | date:'dd/MM/yyyy' }}
+                  </span>
+                </div>
+                <span *ngIf="!u.licenseExpiresAt" class="text-muted">Sin límite</span>
+              </td>
+            </ng-container>
+
+            <!-- Usage Limits Column -->
+            <ng-container matColumnDef="usage">
+              <th mat-header-cell *matHeaderCellDef>Pacientes</th>
+              <td mat-cell *matCellDef="let u">
+                <span>{{ u.clientCount }} / {{ u.maxClientsAllowed }}</span>
+              </td>
+            </ng-container>
+
+            <!-- Last Login Column -->
+            <ng-container matColumnDef="lastLogin">
+              <th mat-header-cell *matHeaderCellDef>Último Acceso</th>
+              <td mat-cell *matCellDef="let u">
+                <span *ngIf="u.lastLogin">{{ u.lastLogin | date:'dd/MM/yy HH:mm' }}</span>
+                <span *ngIf="!u.lastLogin" class="text-muted">Nunca</span>
+              </td>
+            </ng-container>
+
+            <!-- Actions Column -->
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef class="text-right">Acciones</th>
+              <td mat-cell *matCellDef="let u" class="text-right">
+                <button mat-icon-button color="primary" matTooltip="Gestionar Licencia" (click)="openEditLicense(u)">
+                  <mat-icon>card_membership</mat-icon>
+                </button>
+
+                <button mat-icon-button color="accent" matTooltip="Restablecer Contraseña" (click)="openResetPassword(u)">
+                  <mat-icon>lock_reset</mat-icon>
+                </button>
+
+                <button *ngIf="u.subscriptionStatus === 'active'" mat-icon-button color="warn" matTooltip="Suspender Cuenta" (click)="suspendUser(u)">
+                  <mat-icon>block</mat-icon>
+                </button>
+
+                <button *ngIf="u.subscriptionStatus !== 'active'" mat-icon-button style="color: #10b981;" matTooltip="Reactivar Cuenta" (click)="activateUser(u)">
+                  <mat-icon>check_circle</mat-icon>
+                </button>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+          </table>
+
+          <div *ngIf="users.length === 0" class="empty-state">
+            <mat-icon>search_off</mat-icon>
+            <p>No se encontraron nutricionistas con los filtros seleccionados.</p>
+          </div>
+        </div>
+      </mat-card>
+    </div>
+  `,
+  styles: [`
+    .admin-container {
+      padding: 24px;
+      max-width: 1300px;
+      margin: 0 auto;
+      font-family: 'Roboto', sans-serif;
+    }
+    .admin-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    .admin-header h1 {
+      margin: 0;
+      font-size: 26px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .subtitle {
+      margin-top: 4px;
+      color: #64748b;
+      font-size: 14px;
+    }
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .kpi-card {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      padding: 20px;
+      border-radius: 12px;
+      color: white;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    .kpi-icon {
+      margin-right: 16px;
+    }
+    .kpi-icon mat-icon {
+      font-size: 40px;
+      width: 40px;
+      height: 40px;
+    }
+    .kpi-content {
+      display: flex;
+      flex-direction: column;
+    }
+    .kpi-title {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      opacity: 0.9;
+    }
+    .kpi-value {
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    .kpi-sub {
+      font-size: 12px;
+      opacity: 0.85;
+      margin-top: 2px;
+    }
+    .card-blue { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
+    .card-teal { background: linear-gradient(135deg, #0d9488, #0f766e); }
+    .card-purple { background: linear-gradient(135deg, #7c3aed, #6d28d9); }
+    .card-amber { background: linear-gradient(135deg, #d97706, #b45309); }
+    .card-slate { background: linear-gradient(135deg, #475569, #334155); }
+
+    .table-card {
+      padding: 20px;
+      border-radius: 12px;
+    }
+    .filter-toolbar {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .search-field {
+      flex: 1;
+      min-width: 250px;
+    }
+    .select-field {
+      width: 200px;
+    }
+    .users-table {
+      width: 100%;
+    }
+    .user-cell {
+      display: flex;
+      flex-direction: column;
+      padding: 6px 0;
+    }
+    .user-sub {
+      font-size: 12px;
+      color: #64748b;
+    }
+    .clinic-sub {
+      font-size: 11px;
+      color: #0d9488;
+      font-weight: 500;
+    }
+    .plan-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      display: inline-block;
+    }
+    .plan-free { background: #e2e8f0; color: #475569; }
+    .plan-starter { background: #dbeafe; color: #1e40af; }
+    .plan-professional { background: #ede9fe; color: #5b21b6; }
+    .plan-enterprise { background: #ccfbf1; color: #0f766e; }
+
+    .status-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 12px;
+    }
+    .status-active { background: #dcfce7; color: #166534; }
+    .status-suspended { background: #fee2e2; color: #991b1b; }
+    .status-past_due { background: #fef3c7; color: #92400e; }
+
+    .text-danger { color: #dc2626; font-weight: 600; }
+    .text-muted { color: #94a3b8; font-size: 12px; }
+    .text-right { text-align: right; }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: #94a3b8;
+    }
+    .empty-state mat-icon {
+      font-size: 48px;
+      width: 48px;
+      height: 48px;
+    }
+  `]
+})
+export class AdminDashboardComponent implements OnInit {
+  stats?: AdminStats;
+  users: AdminUser[] = [];
+  displayedColumns = ['user', 'plan', 'status', 'expires', 'usage', 'lastLogin', 'actions'];
+
+  searchTerm = '';
+  statusFilter = '';
+  planFilter = '';
+
+  constructor(
+    private adminService: AdminService,
+    private dialog: MatDialog,
+    private snackBar: MatSnackBar
+  ) {}
+
+  ngOnInit(): void {
+    this.loadData();
+  }
+
+  loadData(): void {
+    this.adminService.getStats().subscribe({
+      next: (stats) => this.stats = stats,
+      error: (err) => console.error('Error fetching admin stats', err)
+    });
+    this.loadUsers();
+  }
+
+  loadUsers(): void {
+    this.adminService.getUsers(this.searchTerm, this.statusFilter, this.planFilter).subscribe({
+      next: (users) => this.users = users,
+      error: (err) => {
+        this.snackBar.open('Error al cargar la lista de usuarios.', 'Cerrar', { duration: 4000 });
+      }
+    });
+  }
+
+  isExpiredOrNear(dateStr: string): boolean {
+    const d = new Date(dateStr).getTime();
+    const now = new Date().getTime();
+    const in7Days = now + (7 * 24 * 60 * 60 * 1000);
+    return d <= in7Days;
+  }
+
+  openEditLicense(user: AdminUser): void {
+    const ref = this.dialog.open(EditLicenseDialogComponent, {
+      width: '450px',
+      data: user
+    });
+
+    ref.afterClosed().subscribe(res => {
+      if (res) {
+        this.adminService.updateLicense(user.id, res).subscribe({
+          next: () => {
+            this.snackBar.open('Licencia actualizada con éxito.', 'OK', { duration: 3000 });
+            this.loadData();
+          },
+          error: () => this.snackBar.open('Error al actualizar licencia.', 'Cerrar', { duration: 4000 })
+        });
+      }
+    });
+  }
+
+  openResetPassword(user: AdminUser): void {
+    const ref = this.dialog.open(ResetPasswordDialogComponent, {
+      width: '400px',
+      data: user
+    });
+
+    ref.afterClosed().subscribe(newPassword => {
+      if (newPassword) {
+        this.adminService.resetUserPassword(user.id, newPassword).subscribe({
+          next: () => this.snackBar.open('Contraseña restablecida exitosamente.', 'OK', { duration: 3000 }),
+          error: () => this.snackBar.open('Error al restablecer contraseña.', 'Cerrar', { duration: 4000 })
+        });
+      }
+    });
+  }
+
+  suspendUser(user: AdminUser): void {
+    if (!confirm(`¿Estás seguro de suspender la cuenta de ${user.username}?`)) return;
+
+    this.adminService.suspendUser(user.id).subscribe({
+      next: () => {
+        this.snackBar.open('Usuario suspendido.', 'OK', { duration: 3000 });
+        this.loadData();
+      },
+      error: () => this.snackBar.open('Error al suspender usuario.', 'Cerrar', { duration: 4000 })
+    });
+  }
+
+  activateUser(user: AdminUser): void {
+    this.adminService.activateUser(user.id).subscribe({
+      next: () => {
+        this.snackBar.open('Usuario activado.', 'OK', { duration: 3000 });
+        this.loadData();
+      },
+      error: () => this.snackBar.open('Error al activar usuario.', 'Cerrar', { duration: 4000 })
+    });
+  }
+}

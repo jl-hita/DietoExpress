@@ -19,11 +19,13 @@ public class ClientDietsController : ControllerBase
 {
     private readonly angulosodbContext _context;
     private readonly DietPdfService _pdfService;
+    private readonly DietValidationService _validationService;
 
-    public ClientDietsController(angulosodbContext context, DietPdfService pdfService)
+    public ClientDietsController(angulosodbContext context, DietPdfService pdfService, DietValidationService validationService)
     {
         _context = context;
         _pdfService = pdfService;
+        _validationService = validationService;
     }
 
     private async Task<bool> UserOwnsClientAsync(int clientId, int userId)
@@ -335,5 +337,93 @@ public class ClientDietsController : ControllerBase
         
         var fileName = $"Dieta_Activa_{assignment.client.full_name.Replace(" ", "_")}_{assignment.diet.name.Replace(" ", "_")}.pdf";
         return File(pdfBytes, "application/pdf", fileName);
+    }
+
+    // POST: api/clients/{clientId}/diets/validate-draft
+    [HttpPost("validate-draft")]
+    public async Task<ActionResult<List<DietValidationResultDto>>> ValidateDraft(int clientId, [FromBody] DietDetailDto dto)
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId == null) return Unauthorized();
+
+        if (!await UserOwnsClientAsync(clientId, userId.Value))
+            return NotFound("Client not found or does not belong to the user.");
+
+        var warnings = await _validationService.ValidateDietDraftCompatibilityAsync(clientId, dto, _context);
+        return Ok(warnings);
+    }
+
+    // GET: api/clients/{clientId}/diets/{dietId}/validate
+    [HttpGet("{dietId:int}/validate")]
+    public async Task<ActionResult<List<DietValidationResultDto>>> ValidateSavedDiet(int clientId, int dietId)
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId == null) return Unauthorized();
+
+        if (!await UserOwnsClientAsync(clientId, userId.Value))
+            return NotFound("Client not found or does not belong to the user.");
+
+        var diet = await _context.diets
+            .Include(d => d.diet_days)
+                .ThenInclude(dd => dd.meals)
+                    .ThenInclude(m => m.meal_items)
+            .FirstOrDefaultAsync(d => d.id == dietId);
+
+        if (diet == null) return NotFound("Diet not found.");
+
+        var warnings = await _validationService.ValidateDietCompatibilityAsync(clientId, diet, _context);
+        return Ok(warnings);
+    }
+
+    // GET: api/clients/{clientId}/diets/active/shopping-list
+    // Devuelve la lista de la compra de la dieta activa como JSON (por categorías)
+    [HttpGet("active/shopping-list")]
+    public async Task<ActionResult<List<ShoppingCategoryDto>>> GetActiveShoppingList(int clientId)
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId == null) return Unauthorized();
+
+        if (!await UserOwnsClientAsync(clientId, userId.Value))
+            return NotFound("Client not found or does not belong to the user.");
+
+        var activeAssignment = await _context.client_diets
+            .Where(cd => cd.client_id == clientId && cd.is_active == true)
+            .FirstOrDefaultAsync();
+
+        if (activeAssignment == null)
+            return NotFound("No active diet assignment found.");
+
+        var diet = await _context.diets
+            .Include(d => d.diet_days)
+                .ThenInclude(dd => dd.meals)
+                    .ThenInclude(m => m.meal_items)
+                        .ThenInclude(i => i.food)
+            .FirstOrDefaultAsync(d => d.id == activeAssignment.diet_id);
+
+        if (diet == null) return NotFound("Diet definition not found.");
+
+        // Consolidar todos los meal_items con alimento concreto
+        var grouped = diet.diet_days
+            .SelectMany(dd => dd.meals)
+            .SelectMany(m => m.meal_items)
+            .Where(i => i.food != null && i.grams.HasValue)
+            .GroupBy(i => new { FoodId = i.food!.id, FoodName = i.food!.name ?? "Desconocido", Category = i.food!.category ?? "Otros" })
+            .Select(g => new ShoppingItemDto
+            {
+                FoodId = g.Key.FoodId,
+                FoodName = g.Key.FoodName,
+                Category = g.Key.Category,
+                TotalGrams = Math.Round((double)g.Sum(i => i.grams!.Value), 0)
+            })
+            .GroupBy(s => s.Category)
+            .Select(catGroup => new ShoppingCategoryDto
+            {
+                Category = catGroup.Key,
+                Items = catGroup.OrderBy(i => i.FoodName).ToList()
+            })
+            .OrderBy(c => c.Category)
+            .ToList();
+
+        return Ok(grouped);
     }
 }

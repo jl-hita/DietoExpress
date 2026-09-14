@@ -84,3 +84,13 @@ public class MealItemDto
     public string? ExchangeGroupName { get; set; }
     public decimal? ExchangeCount { get; set; }
 }
+
+public class ValidateDietRequestDto
+{
+    [Required]
+    public int ClientId { get; set; }
+
+    [Required]
+    public DietDetailDto Diet { get; set; } = new DietDetailDto();
+}
+

@@ -1,83 +1,117 @@
 <div class="page-container">
+  <!-- Header Principal -->
   <div class="page-header">
-    <h1>Dietas</h1>
+    <div class="header-titles">
+      <h1>Planes Nutricionales y Dietas</h1>
+      <p class="subtitle">Diseña menús personalizados, calcula macronutrientes y consulta listas de compra.</p>
+    </div>
     <div class="header-actions">
-      <button mat-raised-button color="primary" (click)="createNew()">
-        <mat-icon>add</mat-icon> Nueva dieta
+      <button mat-flat-button color="primary" class="action-btn" (click)="createNew()">
+        <mat-icon>add</mat-icon> Nueva Dieta
       </button>
-      <mat-form-field appearance="outline" class="search-box">
-        <mat-icon matPrefix>search</mat-icon>
-        <input matInput placeholder="Buscar por nombre" [(ngModel)]="searchTerm" (ngModelChange)="refresh()" />
-      </mat-form-field>
     </div>
   </div>
 
+  <!-- Tarjeta de Contenido / Tabla -->
   <div class="table-card">
-    <div class="table-topbar">
-      <div class="topbar-left">
-        <div class="top-title">Listado de dietas</div>
-        <div class="top-sub">Total: {{ filtered.length }}</div>
+    <!-- Toolbar de Búsqueda y Contador -->
+    <div class="table-toolbar">
+      <div class="search-box">
+        <mat-icon class="search-icon">search</mat-icon>
+        <input type="text" placeholder="Buscar por nombre de dieta..." [(ngModel)]="searchTerm" (ngModelChange)="refresh()" />
       </div>
-      <div class="topbar-right">
-        <mat-form-field appearance="outline" class="search">
-          <mat-icon matPrefix>search</mat-icon>
-          <input matInput placeholder="Buscar" [(ngModel)]="searchTerm" (ngModelChange)="refresh()" />
-        </mat-form-field>
+      <div class="table-counter">
+        <span class="count-badge">{{ filtered.length || 0 }} dietas</span>
       </div>
     </div>
 
+    <!-- Tabla de Dietas -->
     <div class="table-wrapper">
-      <div *ngIf="error" class="error-message">
-        {{ error }}
+      <div *ngIf="error" class="error-box">
+        <mat-icon>error_outline</mat-icon>
+        <span>{{ error }}</span>
       </div>
 
       <table class="styled-table" *ngIf="!loading && !error && pagedDiets.length > 0">
         <thead>
           <tr>
-            <th>Nombre</th>
-            <th>Cal/día</th>
-            <th>Proteína</th>
-            <th>H. carbono</th>
+            <th>Nombre del Plan</th>
+            <th>Calorías</th>
+            <th>Proteínas</th>
+            <th>Carbohidratos</th>
             <th>Grasas</th>
-            <th>Creada</th>
-            <th style="width: 90px;"></th>
+            <th>Fecha Creación</th>
+            <th class="text-right">Acciones</th>
           </tr>
         </thead>
         <tbody>
           <tr *ngFor="let d of pagedDiets">
-            <td>{{ d.name }}</td>
-            <td>{{ d.targetKcal ?? '—' }}</td>
-            <td>{{ d.targetProtein ?? '—' }}g</td>
-            <td>{{ d.targetCarbs ?? '—' }}g</td>
-            <td>{{ d.targetFat ?? '—' }}g</td>
-            <td>{{ d.createdAt ? (d.createdAt | date:'short') : '—' }}</td>
-            <td class="actions">
-              <button mat-icon-button color="primary" (click)="editDiet(d)" matTooltip="Editar">
+            <td class="diet-name-cell">
+              <div class="diet-icon-box"><mat-icon>restaurant_menu</mat-icon></div>
+              <strong>{{ d.name }}</strong>
+            </td>
+            <td>
+              <span class="macro-badge kcal" *ngIf="d.targetKcal != null">{{ d.targetKcal }} kcal</span>
+              <span class="text-muted" *ngIf="d.targetKcal == null">—</span>
+            </td>
+            <td>
+              <span class="macro-badge protein" *ngIf="d.targetProtein != null">{{ d.targetProtein }}g P</span>
+              <span class="text-muted" *ngIf="d.targetProtein == null">—</span>
+            </td>
+            <td>
+              <span class="macro-badge carbs" *ngIf="d.targetCarbs != null">{{ d.targetCarbs }}g C</span>
+              <span class="text-muted" *ngIf="d.targetCarbs == null">—</span>
+            </td>
+            <td>
+              <span class="macro-badge fat" *ngIf="d.targetFat != null">{{ d.targetFat }}g G</span>
+              <span class="text-muted" *ngIf="d.targetFat == null">—</span>
+            </td>
+            <td class="text-muted">{{ d.createdAt ? (d.createdAt | date:'dd/MM/yyyy') : '—' }}</td>
+            <td class="actions-cell text-right">
+              <button mat-icon-button class="icon-btn cart-btn" (click)="viewShoppingList(d)" matTooltip="Lista de la Compra">
+                <mat-icon>shopping_cart</mat-icon>
+              </button>
+              <button mat-icon-button class="icon-btn edit-btn" (click)="editDiet(d)" matTooltip="Editar Dieta">
                 <mat-icon>edit</mat-icon>
               </button>
-              <button mat-icon-button color="warn" (click)="deleteDiet(d)" matTooltip="Eliminar">
-                <mat-icon>delete</mat-icon>
+              <button mat-icon-button class="icon-btn delete-btn" (click)="deleteDiet(d)" matTooltip="Eliminar">
+                <mat-icon>delete_outline</mat-icon>
               </button>
             </td>
           </tr>
         </tbody>
       </table>
 
+      <!-- Estado de Carga -->
       <div *ngIf="loading" class="loading-box">
-        <mat-progress-spinner mode="indeterminate"></mat-progress-spinner>
+        <mat-progress-spinner mode="indeterminate" diameter="40"></mat-progress-spinner>
       </div>
 
-      <div *ngIf="!loading && !error && pagedDiets.length === 0" class="empty-message">
-        No hay dietas. Crea una con "Nueva dieta".
+      <!-- Estado Vacío -->
+      <div *ngIf="!loading && !error && pagedDiets.length === 0" class="empty-box">
+        <mat-icon class="empty-icon">menu_book</mat-icon>
+        <p class="empty-title">No hay dietas registradas</p>
+        <p class="empty-sub">Crea una nueva dieta haciendo clic en "Nueva Dieta" para empezar.</p>
       </div>
     </div>
 
+    <!-- Paginador Moderno -->
     <div class="custom-paginator" *ngIf="!error && filtered.length > pageSize">
-      <button class="page-btn" [disabled]="currentPage === 1" (click)="prevPage()">‹</button>
-      <button *ngFor="let p of pagesToShow()" class="page-btn"
-              [class.active]="p === currentPage"
-              (click)="goToPage(p)">{{ p }}</button>
-      <button class="page-btn" [disabled]="currentPage === totalPages" (click)="nextPage()">›</button>
+      <button class="page-nav-btn" [disabled]="currentPage === 1" (click)="prevPage()">
+        <mat-icon>chevron_left</mat-icon>
+      </button>
+
+      <div class="page-numbers">
+        <button *ngFor="let p of pagesToShow()" class="page-num-btn"
+                [class.active]="p === currentPage"
+                (click)="goToPage(p)">
+          {{ p }}
+        </button>
+      </div>
+
+      <button class="page-nav-btn" [disabled]="currentPage === totalPages" (click)="nextPage()">
+        <mat-icon>chevron_right</mat-icon>
+      </button>
     </div>
   </div>
 </div>

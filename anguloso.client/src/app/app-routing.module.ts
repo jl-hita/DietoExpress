@@ -13,6 +13,11 @@ import { ClientCreateComponent } from './componentes/client-create/client-create
 import { DietsListComponent } from './componentes/diets-list/diets-list.component';
 import { DietCreateComponent } from './componentes/diet-create/diet-create.component';
 import { SettingsComponent } from './componentes/settings/settings.component';
+import { PatientPortalComponent } from './componentes/patient-portal/patient-portal.component';
+import { SetupWizardComponent } from './componentes/setup/setup-wizard.component';
+import { AdminDashboardComponent } from './componentes/admin/admin-dashboard.component';
+import { SetupGuard } from './guards/setup.guard';
+import { SuperAdminGuard } from './guards/super-admin.guard';
 
 export interface AppRoute extends Route {
   showInMenu?: boolean;
@@ -20,12 +25,14 @@ export interface AppRoute extends Route {
 }
 
 const routes: AppRoute[] = [
+  { path: 'setup', component: SetupWizardComponent, canActivate: [SetupGuard], title: 'Inicialización del Sistema' },
   { path: 'login', component: LoginComponent },
   { path: 'crear-usuario', component: UserCreateComponent, title: 'Crear usuario', showInMenu: false },
   { path: 'reset-pwd', component: UserResetComponent, title: 'Crear usuario', showInMenu: false },
   { path: 'confirmar-email', component: ConfirmarEmailComponent, title: 'Confirmar email', showInMenu: false },
+  { path: 'patient/:clientId', component: PatientPortalComponent, title: 'Portal del Paciente' },
 
-  { path: '', component: LayoutComponent,
+  { path: '', component: LayoutComponent, canActivate: [AuthGuard],
     children: [
       { path: 'clients', component: ClientsListComponent },
       { path: 'clients/:id', component: ClientDetailComponent },
@@ -33,15 +40,10 @@ const routes: AppRoute[] = [
       { path: 'diets', component: DietsListComponent, title: 'Dietas' },
       { path: 'diets/nuevo', component: DietCreateComponent, title: 'Nueva dieta' },
       { path: 'diets/:id', component: DietCreateComponent, title: 'Editar dieta' },
-      { path: 'settings', component: SettingsComponent, title: 'Ajustes' }
-          // aquí meterás también el resto de páginas:
-          // { path: 'reports', component: ReportsComponent },
+      { path: 'settings', component: SettingsComponent, title: 'Ajustes' },
+      { path: 'admin', component: AdminDashboardComponent, canActivate: [SuperAdminGuard], title: 'Panel SuperAdmin' }
     ]
   },
-  //{ path: 'login', component: LoginComponent },
-  //{ path: 'crear-usuario', component: UserCreateComponent, title: 'Crear usuario', showInMenu: false },
-  //{ path: 'reset-pwd', component: UserResetComponent, title: 'Crear usuario', showInMenu: false },
-  //{ path: 'confirmar-email', component: ConfirmarEmailComponent, title: 'Confirmar email', showInMenu: false },
   { path: '**', redirectTo: '' } // fallback SPA → LayoutComponent
 ];
 

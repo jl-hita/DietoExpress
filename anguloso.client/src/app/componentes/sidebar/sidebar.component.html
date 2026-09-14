@@ -5,40 +5,40 @@
   </div>
 
   <mat-nav-list>
-
     <div class="menu-item">
-      <a mat-list-item routerLink="/clients">
+      <a mat-list-item routerLink="/clients" routerLinkActive="active-link">
         <mat-icon>group</mat-icon>
         <span>Clientes</span>
       </a>
     </div>
 
     <div class="menu-item">
-      <a mat-list-item routerLink="/diets">
+      <a mat-list-item routerLink="/diets" routerLinkActive="active-link">
         <mat-icon>restaurant</mat-icon>
         <span>Dietas</span>
       </a>
     </div>
 
     <div class="menu-item">
-      <a mat-list-item routerLink="/reports">
-        <mat-icon>analytics</mat-icon>
-        <span>Informes</span>
-      </a>
-    </div>
-
-    <div class="menu-item">
-      <a mat-list-item routerLink="/settings">
+      <a mat-list-item routerLink="/settings" routerLinkActive="active-link">
         <mat-icon>settings</mat-icon>
         <span>Ajustes</span>
       </a>
     </div>
 
+    <!-- Acceso SuperAdmin exclusivo -->
+    <div class="menu-item" *ngIf="isSuperAdmin">
+      <a mat-list-item routerLink="/admin" routerLinkActive="active-link" style="color: #2dd4bf !important; font-weight: 600;">
+        <mat-icon style="color: #2dd4bf !important;">admin_panel_settings</mat-icon>
+        <span>Panel SuperAdmin</span>
+      </a>
+    </div>
+
     <!-- Enlace de logout -->
-    <div class="menu-item">
+    <div class="menu-item logout-link">
       <a mat-list-item (click)="logout()" style="cursor: pointer;">
         <mat-icon>logout</mat-icon>
-        <span>Salir</span>
+        <span>Cerrar Sesión</span>
       </a>
     </div>
   </mat-nav-list>

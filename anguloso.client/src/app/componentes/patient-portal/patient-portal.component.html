@@ -1,0 +1,242 @@
+<div class="patient-app">
+
+  <!-- LOADING -->
+  <div *ngIf="loading" class="loading-screen">
+    <mat-spinner diameter="50"></mat-spinner>
+    <p>Cargando tu plan...</p>
+  </div>
+
+  <ng-container *ngIf="!loading && profile">
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- HEADER                                     -->
+    <!-- ══════════════════════════════════════════ -->
+    <header class="portal-header">
+      <div class="header-avatar">
+        {{ profile.fullName?.charAt(0)?.toUpperCase() }}
+      </div>
+      <div class="header-info">
+        <h1 class="header-name">{{ profile.fullName }}</h1>
+        <span class="header-meta">
+          <ng-container *ngIf="profile.age">{{ profile.age }} años &nbsp;·&nbsp;</ng-container>
+          <ng-container *ngIf="profile.currentWeight">{{ profile.currentWeight }} kg</ng-container>
+        </span>
+      </div>
+      <div class="header-diet-badge" *ngIf="profile.hasActiveDiet">
+        <mat-icon>check_circle</mat-icon>
+        <span>Dieta activa</span>
+      </div>
+      <div class="header-diet-badge badge-inactive" *ngIf="!profile.hasActiveDiet">
+        <mat-icon>info</mat-icon>
+        <span>Sin dieta activa</span>
+      </div>
+    </header>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- TAB: HOY (Comidas del día)                 -->
+    <!-- ══════════════════════════════════════════ -->
+    <main class="portal-content" *ngIf="activeTab === 'today'">
+
+      <div class="day-hero">
+        <div class="day-title">
+          <mat-icon>today</mat-icon>
+          <div>
+            <h2>{{ dayName }}</h2>
+            <span>{{ today | date:'d MMMM yyyy' }}</span>
+          </div>
+        </div>
+        <div class="diet-name-chip" *ngIf="activeDiet">{{ activeDiet.name }}</div>
+      </div>
+
+      <!-- Sin dieta activa -->
+      <div class="empty-state" *ngIf="!activeDiet">
+        <mat-icon>restaurant_menu</mat-icon>
+        <h3>Sin plan activo</h3>
+        <p>Tu nutricionista aún no ha asignado un plan alimentario. ¡Contacta con tu consulta!</p>
+      </div>
+
+      <!-- Comidas del día -->
+      <ng-container *ngIf="todayDayData">
+        <div class="meals-grid">
+          <div class="meal-card" *ngFor="let meal of todayDayData.meals">
+            <div class="meal-header">
+              <div class="meal-icon-wrap">
+                <mat-icon>{{ getMealIcon(meal.name) }}</mat-icon>
+              </div>
+              <div class="meal-title-info">
+                <h3>{{ meal.name }}</h3>
+                <span class="meal-kcal" *ngIf="meal.items?.length">
+                  {{ meal.items | sum:'kcal' | number:'1.0-0' }} kcal
+                </span>
+              </div>
+            </div>
+
+            <ul class="food-list">
+              <li *ngFor="let item of meal.items" class="food-item">
+                <ng-container *ngIf="item.foodName">
+                  <span class="food-name">{{ item.foodName }}</span>
+                  <span class="food-grams">{{ item.grams }}g</span>
+                  <span class="food-kcal-inline">{{ item.kcal | number:'1.0-0' }} kcal</span>
+                </ng-container>
+                <ng-container *ngIf="!item.foodName && item.exchangeGroupName">
+                  <div style="display: flex; flex-direction: column; width: 100%; gap: 6px;">
+                    <div class="exchange-item" (click)="toggleExchangeEquivalencies('ex_' + meal.mealIndex + '_' + item.exchangeGroupId, item.exchangeGroupId)" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; background: rgba(99,102,241,0.15); border-radius: 8px; border: 1px dashed rgba(99,102,241,0.4);">
+                      <span style="display: flex; align-items: center; gap: 6px;">
+                        <mat-icon class="exchange-icon">swap_horiz</mat-icon>
+                        {{ item.exchangeCount }} intercambio(s) de <strong>{{ item.exchangeGroupName }}</strong>
+                      </span>
+                      <span style="font-size: 11px; color: #818cf8; font-weight: 600; display: flex; align-items: center; gap: 2px;">
+                        {{ expandedExchangeId === ('ex_' + meal.mealIndex + '_' + item.exchangeGroupId) ? 'Ocultar opciones ▲' : 'Ver equivalentes ▼' }}
+                      </span>
+                    </div>
+
+                    <!-- Dropdown de alimentos equivalentes -->
+                    <div *ngIf="expandedExchangeId === ('ex_' + meal.mealIndex + '_' + item.exchangeGroupId)" style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 10px; margin-top: 4px;">
+                      <div style="font-size: 12px; font-weight: 600; color: #94a3b8; margin-bottom: 6px;">
+                        Alimentos equivalentes (por cada intercambio):
+                      </div>
+
+                      <div *ngIf="exchangeLoading" style="display: flex; justify-content: center; padding: 8px;">
+                        <mat-spinner diameter="24"></mat-spinner>
+                      </div>
+
+                      <div *ngIf="!exchangeLoading && getExchangeFoods(item.exchangeGroupId).length === 0" style="font-size: 12px; color: #64748b;">
+                        No hay alimentos registrados en este grupo de intercambio.
+                      </div>
+
+                      <ul *ngIf="!exchangeLoading && getExchangeFoods(item.exchangeGroupId).length > 0" style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px;">
+                        <li *ngFor="let eq of getExchangeFoods(item.exchangeGroupId)" style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 6px; background: rgba(15,23,42,0.6); border-radius: 4px;">
+                          <span style="color: #cbd5e1;">{{ eq.foodName }}</span>
+                          <span style="color: #6366f1; font-weight: 600;">
+                            {{ (eq.gramsPerExchange * (item.exchangeCount || 1)) | number:'1.0-0' }}g
+                          </span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                </ng-container>
+              </li>
+            </ul>
+
+            <div class="meal-macros" *ngIf="meal.items?.length">
+              <span><strong>P:</strong> {{ meal.items | sum:'protein' | number:'1.0-1' }}g</span>
+              <span><strong>HC:</strong> {{ meal.items | sum:'carbs' | number:'1.0-1' }}g</span>
+              <span><strong>G:</strong> {{ meal.items | sum:'fat' | number:'1.0-1' }}g</span>
+            </div>
+          </div>
+        </div>
+      </ng-container>
+    </main>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- TAB: LISTA DE LA COMPRA                   -->
+    <!-- ══════════════════════════════════════════ -->
+    <main class="portal-content" *ngIf="activeTab === 'shopping'">
+      <div class="section-hero">
+        <mat-icon>shopping_cart</mat-icon>
+        <div>
+          <h2>Lista de la Compra</h2>
+          <span>Ingredientes de tu plan semanal</span>
+        </div>
+      </div>
+
+      <div class="empty-state" *ngIf="!shoppingList?.length">
+        <mat-icon>shopping_cart_checkout</mat-icon>
+        <h3>Sin datos</h3>
+        <p>No hay ingredientes registrados en el plan activo.</p>
+      </div>
+
+      <div class="shopping-category" *ngFor="let cat of shoppingList">
+        <div class="category-header">
+          <mat-icon>{{ getShoppingIcon(cat.category) }}</mat-icon>
+          <h3>{{ cat.category }}</h3>
+        </div>
+        <ul class="shopping-items">
+          <li class="shopping-item" *ngFor="let item of cat.items"
+              [class.checked]="isChecked(cat.category + '_' + item.foodId)"
+              (click)="toggleItem(cat.category + '_' + item.foodId)">
+            <div class="check-box">
+              <mat-icon *ngIf="isChecked(cat.category + '_' + item.foodId)">check_box</mat-icon>
+              <mat-icon *ngIf="!isChecked(cat.category + '_' + item.foodId)">check_box_outline_blank</mat-icon>
+            </div>
+            <span class="item-name">{{ item.foodName }}</span>
+            <span class="item-grams">~{{ item.totalGrams | number:'1.0-0' }}g</span>
+          </li>
+        </ul>
+      </div>
+    </main>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- TAB: PROGRESO                             -->
+    <!-- ══════════════════════════════════════════ -->
+    <main class="portal-content" *ngIf="activeTab === 'progress'">
+      <div class="section-hero">
+        <mat-icon>trending_up</mat-icon>
+        <div>
+          <h2>Mi Progreso</h2>
+          <span>Evolución de tu peso</span>
+        </div>
+      </div>
+
+      <!-- BMI Card -->
+      <div class="bmi-card" *ngIf="bmi">
+        <div class="bmi-value" [style.color]="bmiColor">{{ bmi }}</div>
+        <div class="bmi-label">IMC</div>
+        <div class="bmi-category" [style.color]="bmiColor">{{ bmiCategory }}</div>
+      </div>
+
+      <!-- Estadísticas -->
+      <div class="stats-grid" *ngIf="profile">
+        <div class="stat-card">
+          <mat-icon>monitor_weight</mat-icon>
+          <div class="stat-value">{{ profile.currentWeight ?? '—' }} kg</div>
+          <div class="stat-label">Peso Actual</div>
+        </div>
+        <div class="stat-card">
+          <mat-icon>height</mat-icon>
+          <div class="stat-value">{{ profile.currentHeight ?? '—' }} cm</div>
+          <div class="stat-label">Altura</div>
+        </div>
+      </div>
+
+      <!-- Historial de peso mini chart (barras CSS) -->
+      <div class="weight-history" *ngIf="profile.weightHistory?.length > 1">
+        <h3>Historial de peso</h3>
+        <div class="weight-chart">
+          <div *ngFor="let entry of profile.weightHistory" class="weight-bar-wrapper">
+            <div class="weight-bar"
+                 [style.height.%]="getWeightBarHeight(entry.weight, profile.weightHistory)"
+                 [title]="entry.weight + ' kg'">
+            </div>
+            <span class="weight-bar-label">{{ entry.weight }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="empty-state" *ngIf="!profile.weightHistory?.length || profile.weightHistory.length < 2">
+        <mat-icon>show_chart</mat-icon>
+        <h3>Pocos registros</h3>
+        <p>Se necesitan al menos 2 mediciones de peso para mostrar tu evolución.</p>
+      </div>
+    </main>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- BARRA DE NAVEGACIÓN INFERIOR              -->
+    <!-- ══════════════════════════════════════════ -->
+    <nav class="bottom-nav">
+      <button class="nav-tab" [class.active]="activeTab === 'today'" (click)="setTab('today')">
+        <mat-icon>restaurant_menu</mat-icon>
+        <span>Hoy</span>
+      </button>
+      <button class="nav-tab" [class.active]="activeTab === 'shopping'" (click)="setTab('shopping')">
+        <mat-icon>shopping_cart</mat-icon>
+        <span>Compra</span>
+      </button>
+      <button class="nav-tab" [class.active]="activeTab === 'progress'" (click)="setTab('progress')">
+        <mat-icon>trending_up</mat-icon>
+        <span>Progreso</span>
+      </button>
+    </nav>
+
+  </ng-container>
+</div>

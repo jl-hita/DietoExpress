@@ -153,6 +153,9 @@ public class Program
         builder.Services.AddSingleton<DietPdfService>();
         builder.Services.AddSingleton<EnergyCalculatorService>();
         builder.Services.AddSingleton<AnthropometryCalculatorService>();
+        builder.Services.AddSingleton<DietValidationService>();
+        builder.Services.AddSingleton<BioimpedanceParserService>();
+        builder.Services.AddScoped<DietGeneratorService>();
 
         builder.Services.AddControllers();
         // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -229,6 +232,15 @@ public class Program
                         alcohol_consumption TEXT,
                         tobacco_consumption TEXT
                     );
+
+                    ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_plan VARCHAR(50) DEFAULT 'free';
+                    ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(50) DEFAULT 'active';
+                    ALTER TABLE users ADD COLUMN IF NOT EXISTS license_expires_at TIMESTAMPTZ;
+                    ALTER TABLE users ADD COLUMN IF NOT EXISTS max_clients_allowed INTEGER DEFAULT 10;
+
+                    ALTER TABLE clients ADD COLUMN IF NOT EXISTS access_token VARCHAR(64);
+                    ALTER TABLE clients ADD COLUMN IF NOT EXISTS passcode_hash VARCHAR(100);
+                    ALTER TABLE clients ADD COLUMN IF NOT EXISTS last_portal_access TIMESTAMPTZ;
                 ");
 
                 Console.WriteLine($"Cambiadas {nLineas} rows");

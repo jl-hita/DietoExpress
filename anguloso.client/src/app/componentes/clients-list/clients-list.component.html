@@ -52,100 +52,95 @@
 </div>
 -->
 <div class="page-container">
-
-  <!-- HEADER principal (título y acciones) -->
+  <!-- Header Principal -->
   <div class="page-header">
-    <h1>Clientes</h1>
+    <div class="header-titles">
+      <h1>Pacientes y Clientes</h1>
+      <p class="subtitle">Gestiona expedientes clínicos, anamnesis, biometrías y dietas asignadas.</p>
+    </div>
     <div class="header-actions">
-      <!-- TODO
-      <button mat-stroked-button color="primary" (click)="exportCsv()">
-        <mat-icon>file_download</mat-icon> CSV
-      </button>-->
-
-      <button mat-raised-button color="primary" (click)="createNew()">
-        <mat-icon>person_add</mat-icon> Nuevo
+      <button mat-flat-button color="primary" class="action-btn" (click)="createNew()">
+        <mat-icon>person_add</mat-icon> Nuevo Paciente
       </button>
-
-      <mat-form-field appearance="outline" class="search-box">
-        <mat-icon matPrefix>search</mat-icon>
-        <input matInput placeholder="Buscar por nombre, email o teléfono" [(ngModel)]="searchTerm" (ngModelChange)="refresh()" />
-      </mat-form-field>
     </div>
   </div>
 
-  <!-- Caja que contiene el header teal + tabla -->
+  <!-- Tarjeta de Contenido / Tabla -->
   <div class="table-card">
-    <!-- HEADER estilo tarjeta con color y forma -->
-    <div class="table-topbar">
-      <div class="topbar-left">
-        <div class="top-title">Listado de clientes</div>
-        <div class="top-sub">Total: {{ filtered.length || 0 }}</div>
+    <!-- Toolbar de Búsqueda y Filtro -->
+    <div class="table-toolbar">
+      <div class="search-box">
+        <mat-icon class="search-icon">search</mat-icon>
+        <input type="text" placeholder="Buscar por nombre, email o teléfono..." [(ngModel)]="searchTerm" (ngModelChange)="refresh()" />
       </div>
-
-      <div class="topbar-right">
-        <!-- aquí podrías poner filtros rápidos o botones -->
-        <!--<button mat-button (click)="openFilters()">Filtros</button>-->
-        <mat-form-field appearance="outline" class="search">
-          <mat-icon matPrefix>search</mat-icon>
-          <input matInput placeholder="Buscar por nombre, email o teléfono" [(ngModel)]="searchTerm" (ngModelChange)="refresh()" />
-        </mat-form-field>
+      <div class="table-counter">
+        <span class="count-badge">{{ filtered.length || 0 }} pacientes</span>
       </div>
     </div>
 
-    <!-- Tabla -->
+    <!-- Tabla de Clientes -->
     <div class="table-wrapper">
       <table class="styled-table" *ngIf="!loading && pagedClients.length > 0">
         <thead>
           <tr>
-            <th>Nombre</th>
+            <th>Paciente</th>
             <th>Email</th>
             <th>Teléfono</th>
-            <th>Creado</th>
-            <th style="width: 90px;"></th>
+            <th>Fecha Registro</th>
+            <th class="text-right">Acciones</th>
           </tr>
         </thead>
-
         <tbody>
           <tr *ngFor="let c of pagedClients" (click)="selectClient(c)" [class.selected]="selected?.id === c.id">
-            <td>{{ c.name }}</td>
-            <td>{{ c.email || '—' }}</td>
-            <td>{{ c.phone || '—' }}</td>
-            <td>{{ c.created_at ? (c.created_at | date:'short') : '—' }}</td>
-
-            <td class="actions">
-              <button mat-icon-button color="primary" (click)="editClient(c); $event.stopPropagation();">
-                <mat-icon>edit</mat-icon>
+            <td class="client-name-cell">
+              <div class="client-avatar">{{ (c.name || '?')[0].toUpperCase() }}</div>
+              <span class="client-name">{{ c.name }}</span>
+            </td>
+            <td class="text-muted">{{ c.email || '—' }}</td>
+            <td class="text-muted">{{ c.phone || '—' }}</td>
+            <td class="text-muted">{{ c.created_at ? (c.created_at | date:'dd/MM/yyyy') : '—' }}</td>
+            <td class="actions-cell text-right" (click)="$event.stopPropagation()">
+              <button mat-icon-button class="icon-btn edit-btn" (click)="editClient(c)" matTooltip="Ver Ficha y Biometrías">
+                <mat-icon>visibility</mat-icon>
               </button>
-              <button mat-icon-button color="warn" (click)="deleteClient(c); $event.stopPropagation();">
-                <mat-icon>delete</mat-icon>
+              <button mat-icon-button class="icon-btn delete-btn" (click)="deleteClient(c)" matTooltip="Eliminar Paciente">
+                <mat-icon>delete_outline</mat-icon>
               </button>
             </td>
           </tr>
         </tbody>
       </table>
 
+      <!-- Estado de Carga -->
       <div *ngIf="loading" class="loading-box">
-        <mat-progress-spinner mode="indeterminate"></mat-progress-spinner>
+        <mat-progress-spinner mode="indeterminate" diameter="40"></mat-progress-spinner>
       </div>
 
-      <div *ngIf="!loading && pagedClients.length === 0" class="empty-message">
-        No hay clientes que coincidan. Prueba otro término.
+      <!-- Estado Vacío -->
+      <div *ngIf="!loading && pagedClients.length === 0" class="empty-box">
+        <mat-icon class="empty-icon">person_search</mat-icon>
+        <p class="empty-title">No se encontraron pacientes</p>
+        <p class="empty-sub">Prueba con otro término de búsqueda o crea un nuevo paciente.</p>
       </div>
     </div>
 
-    <!-- PAGINADOR PERSONALIZADO -->
+    <!-- Paginador Moderno -->
     <div class="custom-paginator" *ngIf="filtered.length > pageSize">
-      <button class="page-btn" [disabled]="currentPage === 1" (click)="prevPage()">‹</button>
-
-      <button *ngFor="let p of pagesToShow()" class="page-btn"
-              [class.active]="p === currentPage"
-              (click)="goToPage(p)">
-        {{ p }}
+      <button class="page-nav-btn" [disabled]="currentPage === 1" (click)="prevPage()">
+        <mat-icon>chevron_left</mat-icon>
       </button>
 
-      <button class="page-btn" [disabled]="currentPage === totalPages" (click)="nextPage()">›</button>
+      <div class="page-numbers">
+        <button *ngFor="let p of pagesToShow()" class="page-num-btn"
+                [class.active]="p === currentPage"
+                (click)="goToPage(p)">
+          {{ p }}
+        </button>
+      </div>
+
+      <button class="page-nav-btn" [disabled]="currentPage === totalPages" (click)="nextPage()">
+        <mat-icon>chevron_right</mat-icon>
+      </button>
     </div>
-
   </div>
-
 </div>

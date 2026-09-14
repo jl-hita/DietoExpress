@@ -51,6 +51,18 @@ export class ClientService {
     return this.http.delete(`${this.base}/clients/${clientId}/biometrics/${id}`);
   }
 
+  // bioimpedance import (Tanita / InBody)
+  previewBioimpedanceImport(clientId: number, file: File, device?: string): Observable<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (device) formData.append('device', device);
+    return this.http.post<any>(`${this.base}/clients/${clientId}/biometrics/import/preview`, formData);
+  }
+
+  confirmBioimpedanceImport(clientId: number, rows: any[]): Observable<any> {
+    return this.http.post<any>(`${this.base}/clients/${clientId}/biometrics/import/confirm`, { rows });
+  }
+
   // client_diets (asignación de dietas)
   getClientDiets(clientId: number): Observable<ClientDiet[]> {
     return this.http.get<ClientDiet[]>(`${this.base}/clients/${clientId}/diets`);
@@ -91,5 +103,20 @@ export class ClientService {
   getEnergyRequirements(clientId: number): Observable<any> {
     return this.http.get<any>(`${this.base}/clients/${clientId}/energy-requirements`);
   }
-}
 
+  validateSavedDiet(clientId: number, dietId: number): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/clients/${clientId}/diets/${dietId}/validate`);
+  }
+
+  validateDietDraft(clientId: number, draft: any): Observable<any[]> {
+    return this.http.post<any[]>(`${this.base}/clients/${clientId}/diets/validate-draft`, draft);
+  }
+
+  getPatientProfile(clientId: number): Observable<any> {
+    return this.http.get<any>(`${this.base}/clients/${clientId}/patient-profile`);
+  }
+
+  getActiveShoppingList(clientId: number): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/clients/${clientId}/diets/active/shopping-list`);
+  }
+}

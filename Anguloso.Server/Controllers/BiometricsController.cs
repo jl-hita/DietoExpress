@@ -19,11 +19,16 @@ public class BiometricsController : ControllerBase
 {
     private readonly angulosodbContext _context;
     private readonly AnthropometryCalculatorService _calculatorService;
+    private readonly BioimpedanceParserService _parserService;
 
-    public BiometricsController(angulosodbContext context, AnthropometryCalculatorService calculatorService)
+    public BiometricsController(
+        angulosodbContext context,
+        AnthropometryCalculatorService calculatorService,
+        BioimpedanceParserService parserService)
     {
         _context = context;
         _calculatorService = calculatorService;
+        _parserService = parserService;
     }
 
     // GET: api/clients/{clientId}/biometrics
@@ -207,6 +212,111 @@ public class BiometricsController : ControllerBase
         var evolution = biometricsList.Select(b => MapToDto(b, client.gender, age)).ToList();
 
         return Ok(evolution);
+    }
+
+    // POST: api/clients/{clientId}/biometrics/import/preview
+    [HttpPost("import/preview")]
+    public async Task<ActionResult<BioimpedancePreviewResponseDto>> PreviewImport(
+        int clientId,
+        [FromForm] IFormFile file,
+        [FromForm] string? device = null)
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId == null) return Unauthorized();
+
+        var client = await _context.clients.AsNoTracking().FirstOrDefaultAsync(c => c.id == clientId && c.user_id == userId.Value);
+        if (client == null) return NotFound("Cliente no encontrado.");
+
+        if (file == null || file.Length == 0)
+            return BadRequest("Por favor, selecciona un archivo CSV o de texto de la báscula.");
+
+        using var stream = file.OpenReadStream();
+        var preview = _parserService.Parse(stream, device);
+
+        // Identificar si alguna fecha ya existe en la ficha del paciente
+        var existingDates = await _context.biometrics
+            .Where(b => b.client_id == clientId)
+            .Select(b => b.measurement_date)
+            .ToListAsync();
+
+        var existingDateSet = new HashSet<DateOnly>(existingDates);
+
+        foreach (var row in preview.Rows)
+        {
+            var d = DateOnly.FromDateTime(row.MeasurementDate);
+            if (existingDateSet.Contains(d))
+            {
+                row.AlreadyExists = true;
+            }
+        }
+
+        return Ok(preview);
+    }
+
+    // POST: api/clients/{clientId}/biometrics/import/confirm
+    [HttpPost("import/confirm")]
+    public async Task<ActionResult> ConfirmImport(int clientId, [FromBody] ConfirmImportBiometricsDto dto)
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId == null) return Unauthorized();
+
+        var client = await _context.clients.FirstOrDefaultAsync(c => c.id == clientId && c.user_id == userId.Value);
+        if (client == null) return NotFound("Cliente no encontrado.");
+
+        if (dto?.Rows == null || dto.Rows.Count == 0)
+            return BadRequest("No se proporcionaron mediciones para importar.");
+
+        int createdCount = 0;
+        int updatedCount = 0;
+
+        foreach (var row in dto.Rows)
+        {
+            var dateOnly = DateOnly.FromDateTime(row.MeasurementDate);
+
+            // Buscar si ya existe para esa fecha
+            var existing = await _context.biometrics
+                .FirstOrDefaultAsync(b => b.client_id == clientId && b.measurement_date == dateOnly);
+
+            if (existing != null)
+            {
+                if (row.Weight.HasValue) existing.weight = row.Weight;
+                if (row.Height.HasValue) existing.height = row.Height;
+                if (row.BodyFat.HasValue) existing.body_fat = row.BodyFat;
+                if (row.MuscleMass.HasValue) existing.muscle_mass = row.MuscleMass;
+                if (row.VisceralFat.HasValue) existing.visceral_fat = row.VisceralFat;
+                if (row.Waist.HasValue) existing.waist = row.Waist;
+                if (row.Hip.HasValue) existing.hip = row.Hip;
+                if (!string.IsNullOrWhiteSpace(row.Notes)) existing.notes = row.Notes;
+                updatedCount++;
+            }
+            else
+            {
+                var newBio = new biometrics
+                {
+                    client_id = clientId,
+                    measurement_date = dateOnly,
+                    weight = row.Weight,
+                    height = row.Height,
+                    body_fat = row.BodyFat,
+                    muscle_mass = row.MuscleMass,
+                    visceral_fat = row.VisceralFat,
+                    waist = row.Waist,
+                    hip = row.Hip,
+                    notes = row.Notes ?? $"Importado de {row.SourceDevice ?? "Báscula"}"
+                };
+                _context.biometrics.Add(newBio);
+                createdCount++;
+            }
+        }
+
+        await _context.SaveChangesAsync();
+
+        return Ok(new
+        {
+            message = $"Importación completada: {createdCount} nuevas mediciones añadidas, {updatedCount} actualizadas.",
+            createdCount,
+            updatedCount
+        });
     }
 
     private BiometricsDto MapToDto(biometrics b, string gender, int? age)

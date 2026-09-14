@@ -5,12 +5,17 @@ import { MatDialog } from '@angular/material/dialog';
 import { MATERIAL_IMPORTS } from '../../shared/material.imports';
 import { DietService } from '../../servicios/diet.service';
 import { FoodService } from '../../servicios/food.service';
+import { ClientService } from '../../servicios/client.service';
 import { Diet, DietDay, Meal, MealItem } from '../../modelos/diet';
 import { FoodExchangeGroup } from '../../modelos/food-exchange-group';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ExchangeSearchDialogComponent } from './exchange-search-dialog.component';
+import { DietGeneratorDialogComponent } from './diet-generator-dialog.component';
+import { RecipePickerDialogComponent } from './recipe-picker-dialog.component';
+import { DietShoppingListDialogComponent } from '../diets-list/diet-shopping-list-dialog.component';
 import { debounceTime, distinctUntilChanged, switchMap, finalize } from 'rxjs/operators';
 import { of } from 'rxjs';
+
 
 @Component({
   selector: 'app-diet-create',
@@ -26,6 +31,11 @@ export class DietCreateComponent implements OnInit {
   loading = false;
   exchangeGroups: FoodExchangeGroup[] = [];
 
+  // Client context for live clinical validation
+  clientId: number | null = null;
+  clientName: string | null = null;
+  validationWarnings: any[] = [];
+
   // Visual Editor Properties
   activeDayIndex = 0;
   searchCtrl: FormControl;
@@ -39,6 +49,7 @@ export class DietCreateComponent implements OnInit {
     private fb: FormBuilder,
     private dietService: DietService,
     private foodService: FoodService,
+    private clientService: ClientService,
     private route: ActivatedRoute,
     private router: Router,
     private snackBar: MatSnackBar,
@@ -149,6 +160,22 @@ export class DietCreateComponent implements OnInit {
       this.addDay();
       this.selectDay(0);
     }
+
+    // Suscribirse a queryParams para detectar el cliente en contexto
+    this.route.queryParams.subscribe(params => {
+      if (params['clientId']) {
+        this.clientId = +params['clientId'];
+        this.loadClientName();
+      }
+    });
+
+    // Suscribirse a los cambios del formulario para validación clínica en tiempo real
+    this.form.valueChanges.pipe(
+      debounceTime(500),
+      distinctUntilChanged()
+    ).subscribe(() => {
+      this.validateDraftDiet();
+    });
   }
 
   createDayGroup(index: number = 0): FormGroup {
@@ -473,6 +500,17 @@ export class DietCreateComponent implements OnInit {
       }))
     };
 
+    if (this.validationWarnings && this.validationWarnings.length > 0) {
+      const hasHighSeverity = this.validationWarnings.some(w => w.severity === 'High');
+      const confirmMsg = hasHighSeverity
+        ? `¡ADVERTENCIA CLÍNICA CRÍTICA! Se han detectado ${this.validationWarnings.length} alertas graves de seguridad (alérgenos/IFAF) con el perfil del paciente ${this.clientName || ''}. ¿Deseas guardar la dieta a pesar de las alertas?`
+        : `Se han detectado ${this.validationWarnings.length} posibles incompatibilidades clínicas con el paciente. ¿Deseas continuar y guardar?`;
+
+      if (!confirm(confirmMsg)) {
+        return;
+      }
+    }
+
     if (this.isEdit && this.dietId != null) {
       this.dietService.updateDiet(this.dietId, dto).subscribe({
         next: () => {
@@ -495,4 +533,156 @@ export class DietCreateComponent implements OnInit {
   cancel(): void {
     this.router.navigate(['/diets']);
   }
+
+  loadClientName(): void {
+    if (!this.clientId) return;
+    this.clientService.getClient(this.clientId).subscribe({
+      next: (c) => {
+        this.clientName = c.fullName;
+        this.validateDraftDiet();
+      },
+      error: () => console.warn('No se pudo cargar el cliente para validación clínica.')
+    });
+  }
+
+  validateDraftDiet(): void {
+    if (!this.clientId) return;
+    const raw = this.form.getRawValue();
+    const dto: any = {
+      name: raw.name,
+      targetKcal: raw.targetKcal ?? null,
+      targetProtein: raw.targetProtein ?? null,
+      targetCarbs: raw.targetCarbs ?? null,
+      targetFat: raw.targetFat ?? null,
+      notes: raw.notes || null,
+      days: raw.days.map((d: any) => ({
+        dayIndex: d.dayIndex,
+        meals: d.meals.map((m: any) => ({
+          name: m.name,
+          mealIndex: m.mealIndex,
+          items: m.items.map((i: any) => ({
+             foodId: i.foodId ?? null,
+             grams: i.grams ?? null,
+             kcal: i.kcal,
+             protein: i.protein,
+             carbs: i.carbs,
+             fat: i.fat,
+             exchangeGroupId: i.exchangeGroupId ?? null,
+             exchangeCount: i.exchangeCount ?? null
+          }))
+        }))
+      }))
+    };
+
+    this.clientService.validateDietDraft(this.clientId, dto).subscribe({
+      next: (res) => {
+        this.validationWarnings = res || [];
+      },
+      error: (err) => {
+        console.error('Error al validar borrador', err);
+      }
+    });
+  }
+
+  openGeneratorDialog(): void {
+    const currentKcal = this.form.get('targetKcal')?.value;
+    const dialogRef = this.dialog.open(DietGeneratorDialogComponent, {
+      width: '520px',
+      data: {
+        clientId: this.clientId,
+        clientName: this.clientName,
+        defaultKcal: currentKcal || 2000
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((generatedDiet) => {
+      if (generatedDiet) {
+        this.applyGeneratedDiet(generatedDiet);
+      }
+    });
+  }
+
+  applyGeneratedDiet(d: any): void {
+    this.form.patchValue({
+      name: d.name,
+      targetKcal: d.targetKcal ?? null,
+      targetProtein: d.targetProtein ?? null,
+      targetCarbs: d.targetCarbs ?? null,
+      targetFat: d.targetFat ?? null,
+      notes: d.notes || ''
+    });
+
+    // Limpiar días existentes
+    while (this.days.length !== 0) {
+      this.days.removeAt(0);
+    }
+
+    // Reconstruir árbol con la dieta generada
+    if (d.days) {
+      d.days.forEach((day: any) => {
+        const dayGroup = this.createDayGroup(day.dayIndex);
+        const mealsArray = dayGroup.get('meals') as FormArray;
+        day.meals.forEach((meal: any) => {
+          const mealGroup = this.createMealGroup(meal.name, meal.mealIndex);
+          const itemsArray = mealGroup.get('items') as FormArray;
+          meal.items.forEach((item: any) => {
+            itemsArray.push(this.createItemGroup(item));
+          });
+          mealsArray.push(mealGroup);
+        });
+        this.days.push(dayGroup);
+      });
+    }
+
+    if (this.days.length > 0) {
+      this.selectDay(0);
+    }
+
+    this.snackBar.open('¡Plan generado automáticamente con éxito!', 'Cerrar', { duration: 4000 });
+  }
+
+  openRecipePicker(dIndex: number, mIndex: number): void {
+    const dialogRef = this.dialog.open(RecipePickerDialogComponent, {
+      width: '520px'
+    });
+
+    dialogRef.afterClosed().subscribe((recipe) => {
+      if (recipe && recipe.items && recipe.items.length > 0) {
+        const itemsArray = this.getItems(dIndex, mIndex);
+        recipe.items.forEach((ri: any) => {
+          const grams = ri.grams || 100;
+          const ratio = grams / 100.0;
+          const food = ri.food || {};
+          const foodItem: any = {
+            foodId: ri.foodId || food.id,
+            foodName: food.name || ri.foodName,
+            grams: grams,
+            baseKcal: food.kcal || 0,
+            baseProtein: food.protein || 0,
+            baseCarbs: food.carbs || 0,
+            baseFat: food.fat || 0,
+            kcal: +( (food.kcal || 0) * ratio ).toFixed(1),
+            protein: +( (food.protein || 0) * ratio ).toFixed(1),
+            carbs: +( (food.carbs || 0) * ratio ).toFixed(1),
+            fat: +( (food.fat || 0) * ratio ).toFixed(1)
+          };
+          itemsArray.push(this.createItemGroup(foodItem));
+        });
+
+        this.snackBar.open(`¡Receta "${recipe.name}" insertada!`, 'Cerrar', { duration: 3000 });
+      }
+    });
+  }
+
+  openShoppingList(): void {
+    if (!this.dietId) return;
+    this.dialog.open(DietShoppingListDialogComponent, {
+      width: '600px',
+      data: {
+        dietId: this.dietId,
+        dietName: this.form.get('name')?.value || 'Plan'
+      }
+    });
+  }
 }
+

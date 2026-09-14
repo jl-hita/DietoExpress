@@ -29,4 +29,22 @@ export class DietService {
   deleteDiet(id: number): Observable<any> {
     return this.http.delete<any>(`${this.base}/${id}`);
   }
+
+  getActiveDiet(clientId: number): Observable<any> {
+    return this.http.get<any>(`${environment.apiUrl}/clients/${clientId}/diets/active`);
+  }
+
+  generateDiet(request: any): Observable<DietDetail> {
+    return this.http.post<DietDetail>(`${this.base}/generate`, request);
+  }
+
+  validateDiet(clientId: number, diet: any): Observable<any[]> {
+    return this.http.post<any[]>(`${this.base}/validate`, { clientId, diet });
+  }
+
+  getDietShoppingList(dietId: number): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/${dietId}/shopping-list`);
+  }
 }
+
+

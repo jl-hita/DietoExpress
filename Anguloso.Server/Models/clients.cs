@@ -25,6 +25,12 @@ public partial class clients
 
     public DateTime? created_at { get; set; }
 
+    public string access_token { get; set; }
+
+    public string passcode_hash { get; set; }
+
+    public DateTime? last_portal_access { get; set; }
+
     public virtual ICollection<biometrics> biometrics { get; set; } = new List<biometrics>();
 
     public virtual client_diets client_diets { get; set; }

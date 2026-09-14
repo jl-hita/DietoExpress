@@ -10,6 +10,9 @@ import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatTabChangeEvent } from '@angular/material/tabs';
 import Chart from 'chart.js/auto';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { DietSelectDialogComponent } from './diet-select-dialog.component';
+import { BioimpedanceImportDialogComponent } from './bioimpedance-import-dialog.component';
 
 // Angular Material
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -40,7 +43,8 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
     MatListModule,
     MatIconModule,
     MatButtonModule,
-    MatCheckboxModule
+    MatCheckboxModule,
+    MatDialogModule
   ],
   standalone: true
 })
@@ -77,7 +81,8 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     private foodService: FoodService,
     private route: ActivatedRoute,
     private router: Router,
-    private snack: MatSnackBar
+    private snack: MatSnackBar,
+    private dialog: MatDialog
   ) { }
 
   ngOnInit(): void {
@@ -236,6 +241,25 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     this.showBiometricForm = true;
     this.editingBiometricId = null;
     this.biometricForm.reset({ measurementDate: new Date().toISOString().slice(0, 10) });
+  }
+
+  openBioimpedanceImport() {
+    if (!this.clientId) return;
+    const ref = this.dialog.open(BioimpedanceImportDialogComponent, {
+      width: '720px',
+      data: {
+        clientId: this.clientId,
+        clientName: this.client?.fullName || 'Paciente'
+      }
+    });
+
+    ref.afterClosed().subscribe(success => {
+      if (success) {
+        this.loadBiometrics();
+        this.loadEvolution();
+        this.loadEnergyRequirements();
+      }
+    });
   }
 
   editBiometric(b: Biometric) {
@@ -547,6 +571,53 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
       case 'faulkner': return '% Grasa Faulkner';
       default: return '';
     }
+  }
+
+  openAssignDietDialog() {
+    if (!this.clientId) return;
+    const dialogRef = this.dialog.open(DietSelectDialogComponent, {
+      width: '500px',
+      data: { clientId: this.clientId }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.svc.assignDiet(this.clientId!, result).subscribe({
+          next: () => {
+            this.snack.open('Dieta asignada con éxito', 'Cerrar', { duration: 3000 });
+            this.loadDietsHistory();
+          },
+          error: (err) => {
+            console.error('Error al asignar dieta', err);
+            this.snack.open('Error al asignar la dieta', 'Cerrar', { duration: 3000 });
+          }
+        });
+      }
+    });
+  }
+
+  deactivateDiet(assignmentId?: number) {
+    if (!this.clientId || !assignmentId) return;
+    if (!confirm('¿Estás seguro de que deseas desactivar esta dieta activa?')) return;
+    this.svc.deactivateClientDiet(this.clientId, assignmentId).subscribe({
+      next: () => {
+        this.snack.open('Dieta desactivada', 'Cerrar', { duration: 3000 });
+        this.loadDietsHistory();
+      },
+      error: () => this.snack.open('Error al desactivar la dieta', 'Cerrar', { duration: 3000 })
+    });
+  }
+
+  deleteDietAssignment(assignmentId?: number) {
+    if (!this.clientId || !assignmentId) return;
+    if (!confirm('¿Estás seguro de que deseas eliminar este registro de asignación? (No eliminará la plantilla de dieta, solo la asignación a este paciente)')) return;
+    this.svc.deleteClientDiet(this.clientId, assignmentId).subscribe({
+      next: () => {
+        this.snack.open('Asignación eliminada', 'Cerrar', { duration: 3000 });
+        this.loadDietsHistory();
+      },
+      error: () => this.snack.open('Error al eliminar la asignación', 'Cerrar', { duration: 3000 })
+    });
   }
 }
 

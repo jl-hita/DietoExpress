@@ -35,4 +35,14 @@ export class AuthService {
       return null;
     }
   }
+
+  getRole(): string | null {
+    const user = this.getUser();
+    if (!user) return null;
+    return user['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || user.role || null;
+  }
+
+  isSuperAdmin(): boolean {
+    return this.getRole() === 'superadmin';
+  }
 }

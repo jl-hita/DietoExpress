@@ -350,4 +350,62 @@ public class ClientsController : ControllerBase
         var result = _calculatorService.CalculateEnergyRequirements(weight, height, age, client.gender, bodyFat);
         return Ok(result);
     }
+
+    // GET: api/clients/{id}/patient-profile
+    // Devuelve el perfil público del paciente para el portal
+    [HttpGet("{id:int}/patient-profile")]
+    public async Task<ActionResult<PatientProfileDto>> GetPatientProfile(int id)
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId == null) return Unauthorized();
+
+        var client = await _context.clients
+            .Include(c => c.biometrics.OrderByDescending(b => b.measurement_date))
+            .Include(c => c.client_diets)
+            .FirstOrDefaultAsync(c => c.id == id && c.user_id == userId.Value);
+
+        if (client == null) return NotFound();
+
+        var latestBio = client.biometrics
+            .OrderByDescending(b => b.measurement_date)
+            .FirstOrDefault();
+
+        var activeDietAssignment = await _context.client_diets
+            .Where(cd => cd.client_id == id && cd.is_active == true)
+            .FirstOrDefaultAsync();
+
+        int? age = null;
+        if (client.birth_date.HasValue)
+        {
+            age = DateTime.Today.Year - client.birth_date.Value.Year;
+            if (client.birth_date.Value > DateOnly.FromDateTime(DateTime.Today.AddYears(-age.Value))) age--;
+        }
+
+        // Obtener últimos 8 pesos para mini gráfico de progreso
+        var weightHistory = client.biometrics
+            .Where(b => b.weight.HasValue)
+            .OrderByDescending(b => b.measurement_date)
+            .Take(8)
+            .OrderBy(b => b.measurement_date)
+            .Select(b => new WeightEntryDto
+            {
+                Date = b.measurement_date.ToDateTime(TimeOnly.MinValue),
+                Weight = (double)(b.weight ?? 0)
+            })
+            .ToList();
+
+        return Ok(new PatientProfileDto
+        {
+            ClientId = client.id,
+            FullName = client.full_name ?? string.Empty,
+            Age = age,
+            Gender = client.gender,
+            CurrentWeight = latestBio?.weight.HasValue == true ? (double?)latestBio.weight.Value : null,
+            CurrentHeight = latestBio?.height.HasValue == true ? (double?)latestBio.height.Value : null,
+            HasActiveDiet = activeDietAssignment != null,
+            ActiveDietAssignmentId = activeDietAssignment?.id,
+            ActiveDietStartDate = activeDietAssignment?.start_date.ToDateTime(TimeOnly.MinValue),
+            WeightHistory = weightHistory
+        });
+    }
 }

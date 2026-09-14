@@ -1,3 +1,4 @@
+import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { MatListModule } from '@angular/material/list';
@@ -7,7 +8,7 @@ import { AuthService } from '../../servicios/auth.service';
 @Component({
   selector: 'app-sidebar',
   standalone: true,
-  imports: [RouterLink, MatListModule, MatIconModule],
+  imports: [CommonModule, RouterLink, MatListModule, MatIconModule],
   templateUrl: './sidebar.component.html',
   styleUrls: ['./sidebar.component.css']
 })
@@ -17,6 +18,10 @@ export class SidebarComponent {
   get userName(): string {
     const user = this.authService.getUser();
     return user?.unique_name ?? user?.name ?? 'Usuario';
+  }
+
+  get isSuperAdmin(): boolean {
+    return this.authService.isSuperAdmin();
   }
 
   logout() {

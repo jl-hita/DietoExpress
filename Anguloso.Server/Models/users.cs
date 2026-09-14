@@ -47,6 +47,14 @@ public partial class users
 
     public string clinic_logo { get; set; }
 
+    public string subscription_plan { get; set; }
+
+    public string subscription_status { get; set; }
+
+    public DateTime? license_expires_at { get; set; }
+
+    public int? max_clients_allowed { get; set; }
+
     public virtual ICollection<clients> clients { get; set; } = new List<clients>();
 
     public virtual ICollection<recipes> recipes { get; set; } = new List<recipes>();
