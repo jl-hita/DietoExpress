@@ -253,14 +253,24 @@ public class AdminUsersController : ControllerBase
         if (plan == null) return BadRequest("Plan SaaS no encontrado.");
 
         var subscription = await _context.subscriptions.FirstOrDefaultAsync(s => s.tenant_id == user.tenant_id);
+        var oldPlanId = subscription?.plan_id;
         if (subscription == null)
         {
             subscription = new subscriptions { tenant_id = user.tenant_id.Value, plan_id = plan.id };
             _context.subscriptions.Add(subscription);
+            await _context.SaveChangesAsync();
         }
         subscription.plan_id = plan.id;
         subscription.status = request.SubscriptionStatus;
         subscription.expires_at = request.LicenseExpiresAt;
+        _context.subscription_events.Add(new subscription_events
+        {
+            subscription_id = subscription.id,
+            event_type = oldPlanId == plan.id ? "LICENSE_UPDATED" : "PLAN_CHANGED",
+            old_plan_id = oldPlanId,
+            new_plan_id = plan.id,
+            details = $"SuperAdmin actualizó licencia del usuario {user.username}"
+        });
 
         if (request.SubscriptionPlan == "clinic_full")
         {
