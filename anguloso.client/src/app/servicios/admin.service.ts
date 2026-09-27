@@ -124,4 +124,13 @@ export class AdminService {
   resetUserPassword(id: number, newPassword: string): Observable<{ message: string }> {
     return this.http.put<{ message: string }>(`${this.adminUrl}/users/${id}/reset-password`, { newPassword });
   }
+
+  getPlans(): Observable<AdminPlan[]> { return this.http.get<AdminPlan[]>(`${this.adminUrl}/plans`); }
+  createPlan(plan: any): Observable<AdminPlan> { return this.http.post<AdminPlan>(`${this.adminUrl}/plans`, plan); }
+  updatePlan(id: number, plan: any): Observable<AdminPlan> { return this.http.put<AdminPlan>(`${this.adminUrl}/plans/${id}`, plan); }
+  updatePlanFeatures(id: number, features: AdminPlanFeature[]): Observable<any> { return this.http.put(`${this.adminUrl}/plans/${id}/features`, features); }
 }
+
+
+export interface AdminPlanFeature { id?:number; feature_code:string; enabled:boolean; }
+export interface AdminPlan { id:number; code:string; name:string; description?:string; monthly_price:number; yearly_price:number; max_nutritionists?:number; max_clients_per_nutritionist?:number; max_total_clients?:number; trial_days?:number; active:boolean; features:AdminPlanFeature[]; }
