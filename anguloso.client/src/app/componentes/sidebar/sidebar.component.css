@@ -43,7 +43,7 @@ mat-nav-list {
 
 .menu-item a {
   border-radius: 10px !important;
-  color: #94a3b8 !important;
+  color: #f8fafc !important;
   font-family: 'Outfit', sans-serif !important;
   font-size: 14px !important;
   font-weight: 500 !important;
@@ -54,8 +54,12 @@ mat-nav-list {
   gap: 12px;
 }
 
+.menu-item a span {
+  color: #f8fafc !important;
+}
+
 .menu-item a mat-icon {
-  color: #64748b !important;
+  color: #cbd5e1 !important;
   font-size: 20px !important;
   width: 20px !important;
   height: 20px !important;
@@ -63,54 +67,59 @@ mat-nav-list {
 }
 
 .menu-item a:hover {
-  background-color: rgba(255, 255, 255, 0.06) !important;
-  color: #f8fafc !important;
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
   transform: translateX(3px);
 }
 
+.menu-item a:hover span,
 .menu-item a:hover mat-icon {
-  color: #14b8a6 !important;
+  color: #ffffff !important;
 }
 
 .menu-item a.active-link {
-  background: rgba(13, 148, 136, 0.15) !important;
-  color: #2dd4bf !important;
+  background: rgba(13, 148, 136, 0.28) !important;
+  color: #ffffff !important;
   font-weight: 600 !important;
 }
 
+.menu-item a.active-link span,
 .menu-item a.active-link mat-icon {
-  color: #2dd4bf !important;
+  color: #ffffff !important;
 }
 
 /* Accesos exclusivos de SuperAdmin */
 .superadmin-item a {
   background-color: #0d9488 !important;
-  color: white !important;
+  color: #ffffff !important;
   font-weight: 600 !important;
   box-shadow: 0 2px 4px rgba(13, 148, 136, 0.2) !important;
 }
 
+.superadmin-item a span,
 .superadmin-item a mat-icon {
-  color: white !important;
+  color: #ffffff !important;
 }
 
 .superadmin-item a:hover {
   background-color: #0f766e !important;
-  color: white !important;
+  color: #ffffff !important;
   transform: translateX(3px);
 }
 
+.superadmin-item a:hover span,
 .superadmin-item a:hover mat-icon {
-  color: white !important;
+  color: #ffffff !important;
 }
 
 .superadmin-item a.active-link {
   background-color: #0f766e !important;
-  color: white !important;
+  color: #ffffff !important;
 }
 
+.superadmin-item a.active-link span,
 .superadmin-item a.active-link mat-icon {
-  color: white !important;
+  color: #ffffff !important;
 }
 
 .logout-link {
@@ -124,6 +133,7 @@ mat-nav-list {
   color: #f87171 !important;
 }
 
+.logout-link a:hover span,
 .logout-link a:hover mat-icon {
   color: #f87171 !important;
 }
