@@ -365,10 +365,6 @@ public static class DatabaseBootstrap
                 WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'googleClientId');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'usdaKey', 'TU_USDA_API_KEY'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'usdaKey');
-
-                INSERT INTO config (nombre_config, valor_config)
                 SELECT 'dominio', 'www.tusitio.com'
                 WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'dominio');
 
