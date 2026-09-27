@@ -112,6 +112,8 @@ public class Program
         });
 
 
+        builder.Services.AddHttpClient<IStripeBillingService, StripeBillingService>();
+
         builder.Services.AddHttpClient<OpenFoodFactsService>();
 
         builder.Services.AddHttpClient<OpenFoodFactsService>().AddTypedClient((httpClient, sp) =>
