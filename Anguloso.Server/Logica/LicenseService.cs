@@ -31,7 +31,7 @@ public class LicenseService : ILicenseService
     {
         if (!tenantId.HasValue) return null;
         var sub = await _context.subscriptions.AsNoTracking().Include(s => s.plan).Include(s => s.plan.features)
-            .Where(s => s.tenant_id == tenantId.Value && s.status != "cancelled")
+            .Where(s => s.tenant_id == tenantId.Value && s.status != "cancelled" && s.status != "canceled")
             .OrderByDescending(s => s.created_at).FirstOrDefaultAsync();
         if (sub == null) return null;
         var nutritionists = await _context.users.CountAsync(u => u.tenant_id == tenantId && (u.role == "nutritionist" || u.role == "user"));
