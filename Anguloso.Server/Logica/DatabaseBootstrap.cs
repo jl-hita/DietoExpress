@@ -496,7 +496,7 @@ public static class DatabaseBootstrap
             CREATE UNIQUE INDEX IF NOT EXISTS idx_assignments_active_client ON client_nutritionist_assignments(client_id) WHERE is_active = TRUE;
 
             -- Convertimos usuarios existentes sin tenant en tenants individuales.
-            DO $
+            DO $$
             DECLARE u RECORD; new_tenant_id INTEGER; base_slug TEXT; candidate_slug TEXT; suffix INTEGER;
             BEGIN
                 FOR u IN SELECT id, username, full_name, email, clinic_name FROM users WHERE role <> 'superadmin' AND tenant_id IS NULL LOOP
@@ -512,8 +512,7 @@ public static class DatabaseBootstrap
                     RETURNING id INTO new_tenant_id;
                     UPDATE users SET tenant_id = new_tenant_id WHERE id = u.id;
                 END LOOP;
-            END $;
-
+            END $$;
             UPDATE clients c SET tenant_id = u.tenant_id
             FROM users u WHERE c.user_id = u.id AND c.tenant_id IS NULL;
 
