@@ -34,7 +34,7 @@ import { AdminService } from '../../servicios/admin.service';
     .date-navigation { display: flex; align-items: center; gap: 12px; white-space: nowrap; }
     .log-card { padding: 16px; border-radius: 12px; }
     .log-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; color: #64748b; font-size: 13px; }
-    .log-content { margin: 0; padding: 16px; max-height: calc(100vh - 230px); min-height: 300px; overflow: auto; background: #0f172a; color: #e2e8f0; border-radius: 8px; font: 12px/1.5 'Cascadia Mono', 'Consolas', monospace; white-space: pre; }
+    .log-content { margin: 0; padding: 16px; max-height: calc(100vh - 230px); min-height: 300px; overflow: auto; background: #0f172a; color: #e2e8f0; border-radius: 8px; font: 12px/1.5 'Cascadia Mono', 'Consolas', monospace; white-space: pre; text-align: left; }
     .empty-state { min-height: 300px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #94a3b8; }
     .empty-state mat-icon { font-size: 48px; width: 48px; height: 48px; }
     @media (max-width: 700px) { .log-header { flex-direction: column; align-items: flex-start; } .date-navigation { align-self: center; } }
