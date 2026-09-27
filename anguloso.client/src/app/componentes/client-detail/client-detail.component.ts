@@ -4,7 +4,7 @@ import { ClientService } from '../../servicios/client.service';
 import { FoodService } from '../../servicios/food.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Client, Biometric, ClientDiet } from '../../modelos/client';
+import { ClientDetail, Biometric, ClientDiet } from '../../modelos/client';
 import { FoodInExchangeGroup } from '../../modelos/food-exchange-group';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
@@ -51,7 +51,7 @@ import { PatientPortalService, ClientPortalAccess } from '../../servicios/patien
 })
 export class ClientDetailComponent implements OnInit, OnDestroy {
   clientId?: number;
-  client?: Client;
+  client?: ClientDetail;
   loading = false;
 
   clientForm!: FormGroup;
