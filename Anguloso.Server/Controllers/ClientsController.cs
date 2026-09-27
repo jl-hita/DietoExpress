@@ -36,9 +36,11 @@ public class ClientsController : ControllerBase
     {
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
+        var tenantId = AuthHelpers.GetTenantId(User);
+        var isClinicAdmin = User.IsInRole("clinic_admin");
 
         var list = await _context.clients
-            .Where(c => c.user_id == userId.Value)
+            .Where(c => c.user_id == userId.Value || (isClinicAdmin && tenantId.HasValue && c.tenant_id == tenantId.Value))
             .OrderByDescending(c => c.created_at)
             .Select(c => new ClientListDto
             {
@@ -68,7 +70,7 @@ public class ClientsController : ControllerBase
             .Include(c => c.digestive_health)
             .Include(c => c.food_preferences)
             .Include(c => c.lifestyle_history)
-            .FirstOrDefaultAsync(c => c.id == id && c.user_id == userId.Value);
+            .FirstOrDefaultAsync(c => c.id == id && (c.user_id == userId.Value || (isClinicAdmin && tenantId.HasValue && c.tenant_id == tenantId.Value)));
 
         if (client == null) return NotFound();
 
@@ -341,7 +343,7 @@ public class ClientsController : ControllerBase
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
 
-        var client = await _context.clients.Include(c => c.biometrics).FirstOrDefaultAsync(c => c.id == id && c.user_id == userId.Value);
+        var client = await _context.clients.Include(c => c.biometrics).FirstOrDefaultAsync(c => c.id == id && (c.user_id == userId.Value || (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User).Value)));
         if (client == null) return NotFound();
 
         // Optionally: delete biometrics cascade if not configured
@@ -361,7 +363,7 @@ public class ClientsController : ControllerBase
 
         var client = await _context.clients
             .Include(c => c.biometrics)
-            .FirstOrDefaultAsync(c => c.id == id && c.user_id == userId.Value);
+            .FirstOrDefaultAsync(c => c.id == id && (c.user_id == userId.Value || (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User).Value)));
 
         if (client == null) return NotFound("Client not found.");
 
