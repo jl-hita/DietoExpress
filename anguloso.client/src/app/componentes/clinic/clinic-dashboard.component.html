@@ -19,7 +19,8 @@
       <ng-container matColumnDef="name"><th mat-header-cell *matHeaderCellDef>Nutricionista</th><td mat-cell *matCellDef="let n"><b>{{n.full_name}}</b><small>{{n.email}}</small></td></ng-container>
       <ng-container matColumnDef="clients"><th mat-header-cell *matHeaderCellDef>Clientes</th><td mat-cell *matCellDef="let n">{{n.clientCount}}</td></ng-container>
       <ng-container matColumnDef="last"><th mat-header-cell *matHeaderCellDef>Último acceso</th><td mat-cell *matCellDef="let n">{{n.last_login ? (n.last_login | date:'dd/MM/yyyy HH:mm') : 'Nunca'}}</td></ng-container>
-      <tr mat-header-row *matHeaderRowDef="['name','clients','last']"></tr><tr mat-row *matRowDef="let row; columns:['name','clients','last']"></tr>
+      <ng-container matColumnDef="actions"><th mat-header-cell *matHeaderCellDef></th><td mat-cell *matCellDef="let n"><button mat-icon-button color="warn" *ngIf="n.role !== 'clinic_admin'" (click)="disableNutri(n)"><mat-icon>person_off</mat-icon></button></td></ng-container>
+      <tr mat-header-row *matHeaderRowDef="['name','clients','last','actions']"></tr><tr mat-row *matRowDef="let row; columns:['name','clients','last','actions']"></tr>
     </table>
   </mat-card>
   <mat-card class="card">
