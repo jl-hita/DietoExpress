@@ -10,6 +10,7 @@ import { MatPaginator, MatPaginatorModule, PageEvent } from '@angular/material/p
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
+import { ClientService } from '../../servicios/client.service';
 
 export interface ClientItem {
   id: number;
@@ -55,11 +56,31 @@ export class ClientsListComponent implements OnInit {
   currentPage = 1;            // página actual (1-based)
   totalPages = 1;
   selected: ClientItem | null = null;
+  canCreateClient = true;
+  createClientReason = '';
+  checkingCreatePermission = true;
 
-  constructor(private router: Router) { }
+  constructor(private router: Router, private clientService: ClientService) { }
 
   ngOnInit(): void {
     this.refresh();
+    this.checkCreatePermission();
+  }
+
+  checkCreatePermission(): void {
+    this.checkingCreatePermission = true;
+    this.clientService.canCreateClient().subscribe({
+      next: result => {
+        this.canCreateClient = result.allowed;
+        this.createClientReason = result.reason || '';
+        this.checkingCreatePermission = false;
+      },
+      error: () => {
+        this.canCreateClient = true;
+        this.createClientReason = '';
+        this.checkingCreatePermission = false;
+      }
+    });
   }
 
   ngOnChanges(): void {
@@ -150,6 +171,7 @@ export class ClientsListComponent implements OnInit {
   }
 
   createNew() {
+    if (!this.canCreateClient || this.checkingCreatePermission) return;
     this.router.navigate(['/clients/nuevo']);
   }
 
