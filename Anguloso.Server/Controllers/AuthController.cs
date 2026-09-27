@@ -471,6 +471,18 @@ public class AuthController : ControllerBase
     }
 
     //Login con google
+    [HttpGet("google-client-id")]
+    [AllowAnonymous]
+    public IActionResult GetGoogleClientId()
+    {
+        var clientId = _configServ.GetConfigString("googleClientId");
+
+        if (string.IsNullOrWhiteSpace(clientId))
+            return StatusCode(500, "Google Client ID no configurado.");
+
+        return Ok(new { clientId });
+    }
+
     [HttpPost("google")]
     public async Task<IActionResult> LoginGoogle([FromBody] GoogleLoginDto dto)
     {
@@ -483,7 +495,7 @@ public class AuthController : ControllerBase
             var settings = new GoogleJsonWebSignature.ValidationSettings()
             {
                 // Comprueba que el token fue emitido para nuestro client id
-                Audience = new[] { _config["Authentication:Google:ClientId"] } // añade esto en appsettings
+                Audience = new[] { _configServ.GetConfigString("googleClientId") }
             };
 
             payload = await GoogleJsonWebSignature.ValidateAsync(dto.IdToken, settings);
