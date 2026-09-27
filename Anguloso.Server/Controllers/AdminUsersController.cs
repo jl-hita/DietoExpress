@@ -319,6 +319,18 @@ public class AdminUsersController : ControllerBase
         if (plan == null)
             return BadRequest("El plan seleccionado no existe o no está activo.");
 
+        if (accountType == "clinic" && plan.code != "clinic_full")
+            return BadRequest("Una cuenta de clínica debe utilizar el plan Clínica Full.");
+        if (accountType == "nutritionist" && plan.code == "clinic_full")
+            return BadRequest("Una cuenta de nutricionista no puede utilizar el plan Clínica Full.");
+
+        var subscriptionStatus = (request.SubscriptionStatus ?? "active").Trim().ToLowerInvariant();
+        if (subscriptionStatus != "active" && subscriptionStatus != "past_due" && subscriptionStatus != "suspended")
+            return BadRequest("Estado de suscripción no válido.");
+
+        if (request.MaxClientsAllowed.HasValue && request.MaxClientsAllowed.Value < 1)
+            return BadRequest("El máximo de pacientes debe ser al menos 1.");
+
         var now = DateTime.UtcNow;
         DateTime? expiresAt = request.LicenseExpiresAt;
         if (!expiresAt.HasValue && plan.trial_days.HasValue)
@@ -366,7 +378,7 @@ public class AdminUsersController : ControllerBase
                 clinic_address = request.ClinicAddress?.Trim(),
                 clinic_phone = request.ClinicPhone?.Trim(),
                 subscription_plan = plan.code,
-                subscription_status = request.SubscriptionStatus ?? "active",
+                subscription_status = subscriptionStatus,
                 license_expires_at = expiresAt,
                 max_clients_allowed = request.MaxClientsAllowed ?? plan.max_clients_per_nutritionist ?? 10
             };
