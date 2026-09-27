@@ -2,6 +2,7 @@ using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json.Serialization;
 
 namespace Anguloso.Server.Controllers;
 
@@ -149,22 +150,22 @@ public record PlanRequest(
 public record FeatureRequest(string FeatureCode, bool Enabled);
 
 public record FeatureResponse(
-    int Id,
-    int PlanId,
-    string FeatureCode,
-    bool Enabled);
+    [property: JsonPropertyName("id")] int Id,
+    [property: JsonPropertyName("plan_id")] int PlanId,
+    [property: JsonPropertyName("feature_code")] string FeatureCode,
+    [property: JsonPropertyName("enabled")] bool Enabled);
 
 public record PlanResponse(
-    int Id,
-    string Code,
-    string Name,
-    string? Description,
-    decimal MonthlyPrice,
-    decimal YearlyPrice,
-    int? MaxNutritionists,
-    int? MaxClientsPerNutritionist,
-    int? MaxTotalClients,
-    int? TrialDays,
-    bool Active,
-    DateTime CreatedAt,
-    List<FeatureResponse> Features);
+    [property: JsonPropertyName("id")] int Id,
+    [property: JsonPropertyName("code")] string Code,
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("description")] string? Description,
+    [property: JsonPropertyName("monthly_price")] decimal MonthlyPrice,
+    [property: JsonPropertyName("yearly_price")] decimal YearlyPrice,
+    [property: JsonPropertyName("max_nutritionists")] int? MaxNutritionists,
+    [property: JsonPropertyName("max_clients_per_nutritionist")] int? MaxClientsPerNutritionist,
+    [property: JsonPropertyName("max_total_clients")] int? MaxTotalClients,
+    [property: JsonPropertyName("trial_days")] int? TrialDays,
+    [property: JsonPropertyName("active")] bool Active,
+    [property: JsonPropertyName("created_at")] DateTime CreatedAt,
+    [property: JsonPropertyName("features")] List<FeatureResponse> Features);
