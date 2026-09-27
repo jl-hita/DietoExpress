@@ -417,6 +417,23 @@ public static class DatabaseBootstrap
     public static void UpgradeSaaSSchema(angulosodbContext context, ILogger logger)
     {
         context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS schema_migrations (
+                id VARCHAR(100) PRIMARY KEY,
+                applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+        ");
+
+        var alreadyApplied = context.Database
+            .SqlQueryRaw<int>("SELECT 1 AS \"Value\" FROM schema_migrations WHERE id = 'saas-v1' LIMIT 1")
+            .FirstOrDefault() == 1;
+
+        if (alreadyApplied)
+        {
+            logger.LogDebug("Migración SaaS saas-v1 ya aplicada.");
+            return;
+        }
+
+        context.Database.ExecuteSqlRaw(@"
             CREATE TABLE IF NOT EXISTS subscription_plans (
                 id SERIAL PRIMARY KEY,
                 code VARCHAR(50) NOT NULL UNIQUE,
@@ -567,7 +584,8 @@ public static class DatabaseBootstrap
             FROM subscriptions s JOIN subscription_plans p ON p.id=s.plan_id
             WHERE s.tenant_id=u.tenant_id;
         ");
-        logger.LogInformation("Esquema SaaS comprobado/actualizado correctamente.");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('saas-v1') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración SaaS saas-v1 aplicada correctamente.");
     }
 
 }
