@@ -48,6 +48,13 @@
       </a>
     </div>
 
+    <div class="menu-item superadmin-item" *ngIf="isSuperAdmin">
+      <a mat-list-item routerLink="/admin/plans" routerLinkActive="active-link">
+        <mat-icon>sell</mat-icon>
+        <span>Planes SaaS</span>
+      </a>
+    </div>
+
     <!-- Enlace de logout -->
     <div class="menu-item logout-link">
       <a mat-list-item (click)="logout()" style="cursor: pointer;">
