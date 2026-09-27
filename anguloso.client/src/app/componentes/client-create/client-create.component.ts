@@ -1,6 +1,6 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { Client } from '../../modelos/client';
+import { ClientDetail } from '../../modelos/client';
 
 @Component({
   selector: 'app-client-create',
@@ -9,7 +9,7 @@ import { Client } from '../../modelos/client';
   styleUrl: './client-create.component.css'
 })
 export class ClientCreateComponent {
-  @Output() save = new EventEmitter<Client>();
+  @Output() save = new EventEmitter<ClientDetail>();
   @Output() cancel = new EventEmitter<void>();
 
   form: FormGroup;
@@ -28,7 +28,7 @@ export class ClientCreateComponent {
   submit() {
     if (this.form.invalid) return;
 
-    const client: Client = {
+    const client: ClientDetail = {
       ...this.form.value,
       biometrics: [] // siempre vacío al crear
     };
