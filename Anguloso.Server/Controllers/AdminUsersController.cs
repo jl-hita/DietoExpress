@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -512,4 +513,22 @@ public class UpdateLicenseRequest
 public class ResetPasswordAdminRequest
 {
     public string NewPassword { get; set; } = string.Empty;
+}
+
+public class CreateAdminAccountRequest
+{
+    public string AccountType { get; set; } = "nutritionist";
+    public string Username { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+    public string? ClinicName { get; set; }
+    public string? LegalName { get; set; }
+    public string? CifNif { get; set; }
+    public string? ClinicAddress { get; set; }
+    public string? ClinicPhone { get; set; }
+    public string SubscriptionPlan { get; set; } = "trial_nutri";
+    public string SubscriptionStatus { get; set; } = "active";
+    public DateTime? LicenseExpiresAt { get; set; }
+    public int? MaxClientsAllowed { get; set; }
 }
