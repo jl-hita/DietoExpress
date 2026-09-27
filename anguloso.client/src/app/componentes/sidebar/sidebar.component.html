@@ -26,6 +26,13 @@
       </a>
     </div>
 
+    <div class="menu-item superadmin-item" *ngIf="isClinic">
+      <a mat-list-item routerLink="/clinic" routerLinkActive="active-link">
+        <mat-icon>business</mat-icon>
+        <span>Panel de clínica</span>
+      </a>
+    </div>
+
     <!-- Acceso SuperAdmin exclusivo -->
     <div class="menu-item superadmin-item" *ngIf="isSuperAdmin">
       <a mat-list-item routerLink="/admin" routerLinkActive="active-link">
