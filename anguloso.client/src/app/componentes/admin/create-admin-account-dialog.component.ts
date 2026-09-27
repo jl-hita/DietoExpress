@@ -19,7 +19,7 @@ import { AdminPlan, CreateAdminAccountDto } from '../../servicios/admin.service'
 
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>Tipo de cuenta</mat-label>
-        <mat-select [(ngModel)]="model.accountType">
+        <mat-select [(ngModel)]="model.accountType" (selectionChange)="onAccountTypeChange()">
           <mat-option value="nutritionist">Nutricionista</mat-option>
           <mat-option value="clinic">Clínica</mat-option>
         </mat-select>
@@ -154,21 +154,32 @@ export class CreateAdminAccountDialogComponent {
     }
   }
 
+  onAccountTypeChange(): void {
+    if (this.model.accountType === 'clinic') {
+      const clinicPlan = this.data.plans.find(p => p.code === 'clinic_full');
+      if (clinicPlan) {
+        this.model.subscriptionPlan = clinicPlan.code;
+        this.applyPlanDefaults();
+      }
+    } else if (this.model.subscriptionPlan === 'clinic_full') {
+      const nutriPlan = this.data.plans.find(p => p.code !== 'clinic_full');
+      if (nutriPlan) {
+        this.model.subscriptionPlan = nutriPlan.code;
+        this.applyPlanDefaults();
+      }
+    }
+  }
+
   isValid(): boolean {
-    return !!this.model.username.trim() &&
+    const commonValid = !!this.model.username.trim() &&
       !!this.model.fullName.trim() &&
       !!this.model.email.trim() &&
       !!this.model.password &&
-      this.model.password.length >= 6 &&
-      this.model.accountType === 'nutritionist' || (
-        !!this.model.username.trim() &&
-        !!this.model.fullName.trim() &&
-        !!this.model.email.trim() &&
-        !!this.model.password &&
-        this.model.password.length >= 6 &&
-        this.model.accountType === 'clinic' &&
-        !!this.model.clinicName?.trim()
-      );
+      this.model.password.length >= 6;
+
+    return commonValid &&
+      (this.model.accountType === 'nutritionist' ||
+       (!!this.model.clinicName?.trim() && this.model.subscriptionPlan === 'clinic_full'));
   }
 
   save(): void {
