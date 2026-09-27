@@ -341,7 +341,50 @@ public static class DatabaseBootstrap
                 CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant_id ON audit_logs(tenant_id);
             ");
 
-            logger.LogInformation("Estructura de tablas y esquemas verificada y lista en PostgreSQL.");
+            // Configuración inicial idempotente. No se sobrescriben valores existentes.
+            context.Database.ExecuteSqlRaw(@"
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'googleClientId', 'TU_CLIENT_ID.apps.googleusercontent.com'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'googleClientId');
+
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'usdaKey', 'TU_USDA_API_KEY'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'usdaKey');
+
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'dominio', 'www.tusitio.com'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'dominio');
+
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'smtpServer', 'smtp.example.com'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'smtpServer');
+
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'smtpPort', '587'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'smtpPort');
+
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'smtpEnableSsl', '1'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'smtpEnableSsl');
+
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'smtpFromEmail', 'noreply@example.com'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'smtpFromEmail');
+
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'smtpFromName', 'dietexpress'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'smtpFromName');
+
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'smtpUser', 'TU_SMTP_USER'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'smtpUser');
+
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'smtpPwd', 'TU_SMTP_PASSWORD'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'smtpPwd');
+            ");
+
+            logger.LogInformation("Estructura de tablas y configuración inicial verificadas y listas en PostgreSQL.");
         }
         catch (Exception ex)
         {
