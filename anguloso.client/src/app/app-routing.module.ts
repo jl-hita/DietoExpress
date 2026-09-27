@@ -16,6 +16,7 @@ import { SettingsComponent } from './componentes/settings/settings.component';
 import { PatientPortalComponent } from './componentes/patient-portal/patient-portal.component';
 import { SetupWizardComponent } from './componentes/setup/setup-wizard.component';
 import { AdminDashboardComponent } from './componentes/admin/admin-dashboard.component';
+import { AdminLogComponent } from './componentes/admin/admin-log.component';
 import { SetupGuard } from './guards/setup.guard';
 import { SuperAdminGuard } from './guards/super-admin.guard';
 
@@ -41,7 +42,8 @@ const routes: AppRoute[] = [
       { path: 'diets/nuevo', component: DietCreateComponent, title: 'Nueva dieta' },
       { path: 'diets/:id', component: DietCreateComponent, title: 'Editar dieta' },
       { path: 'settings', component: SettingsComponent, title: 'Ajustes' },
-      { path: 'admin', component: AdminDashboardComponent, canActivate: [SuperAdminGuard], title: 'Panel SuperAdmin' }
+      { path: 'admin', component: AdminDashboardComponent, canActivate: [SuperAdminGuard], title: 'Panel SuperAdmin' },
+      { path: 'admin/logs', component: AdminLogComponent, canActivate: [SuperAdminGuard], title: 'Logs del sistema' }
     ]
   },
   { path: '**', redirectTo: '' } // fallback SPA → LayoutComponent
