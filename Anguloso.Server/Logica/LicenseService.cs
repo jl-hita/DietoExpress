@@ -34,7 +34,7 @@ public class LicenseService : ILicenseService
             .Where(s => s.tenant_id == tenantId.Value && s.status != "cancelled")
             .OrderByDescending(s => s.created_at).FirstOrDefaultAsync();
         if (sub == null) return null;
-        var nutritionists = await _context.users.CountAsync(u => u.tenant_id == tenantId && (u.role == "nutritionist" || u.role == "clinic_admin" || u.role == "user"));
+        var nutritionists = await _context.users.CountAsync(u => u.tenant_id == tenantId && (u.role == "nutritionist" || u.role == "user"));
         var clients = await _context.clients.CountAsync(c => c.tenant_id == tenantId);
         return new LicenseInfo { TenantId = tenantId.Value, PlanCode = sub.plan.code, PlanName = sub.plan.name, Status = sub.status, ExpiresAt = sub.expires_at,
             Nutritionists = nutritionists, Clients = clients, MaxNutritionists = sub.plan.max_nutritionists,
