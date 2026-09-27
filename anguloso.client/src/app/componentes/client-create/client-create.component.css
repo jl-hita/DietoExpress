@@ -60,3 +60,43 @@ form {
 .btn-save:hover {
   background-color: #0f766e !important;
 }
+
+
+.license-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0 0 20px;
+  padding: 14px 16px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.license-warning mat-icon {
+  flex-shrink: 0;
+}
+
+.license-warning div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.license-warning strong {
+  font-size: 14px;
+}
+
+.license-warning span {
+  font-size: 13px;
+}
+
+.license-checking {
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 14px;
+}
