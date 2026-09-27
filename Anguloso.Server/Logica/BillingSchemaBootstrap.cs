@@ -9,6 +9,27 @@ public static class BillingSchemaBootstrap
     public static void Initialize(Models.angulosodbContext context, ILogger logger)
     {
         context.Database.ExecuteSqlRaw(@"
+            ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS stripe_product_id VARCHAR(255);
+            ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS stripe_monthly_price_id VARCHAR(255);
+            ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS stripe_yearly_price_id VARCHAR(255);
+
+            ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS billing_interval VARCHAR(20);
+            ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS amount NUMERIC(12,2);
+            ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS currency VARCHAR(10) NOT NULL DEFAULT 'eur';
+            ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS payment_provider VARCHAR(50);
+            ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS provider_customer_id VARCHAR(255);
+            ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS provider_subscription_id VARCHAR(255);
+            ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS current_period_start TIMESTAMPTZ;
+            ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS current_period_end TIMESTAMPTZ;
+            ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS cancel_at_period_end BOOLEAN NOT NULL DEFAULT FALSE;
+            ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_provider_subscription
+                ON subscriptions(payment_provider, provider_subscription_id)
+                WHERE provider_subscription_id IS NOT NULL;
+        ");
+
+        context.Database.ExecuteSqlRaw(@"
             CREATE TABLE IF NOT EXISTS subscription_payments (
                 id BIGSERIAL PRIMARY KEY,
                 subscription_id INTEGER NOT NULL REFERENCES subscriptions(id) ON DELETE CASCADE,
