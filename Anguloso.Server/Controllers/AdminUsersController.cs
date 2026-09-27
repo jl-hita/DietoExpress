@@ -49,6 +49,26 @@ public class AdminUsersController : ControllerBase
     }
 
     /// <summary>
+    /// Devuelve todas las líneas de la tabla de configuración para el panel del superadministrador.
+    /// </summary>
+    [HttpGet("config")]
+    public async Task<IActionResult> GetConfig()
+    {
+        var config = await _context.config
+            .AsNoTracking()
+            .OrderBy(c => c.id)
+            .Select(c => new AdminConfigDto
+            {
+                Id = c.id,
+                Nombre = c.nombre_config,
+                Valor = c.valor_config
+            })
+            .ToListAsync();
+
+        return Ok(config);
+    }
+
+    /// <summary>
     /// Lista paginada y filtrable de todos los usuarios/nutricionistas con sus licencias.
     /// </summary>
     [HttpGet("users")]
