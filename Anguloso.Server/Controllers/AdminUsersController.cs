@@ -96,8 +96,16 @@ public class AdminUsersController : ControllerBase
     /// Lista paginada y filtrable de todos los usuarios/nutricionistas con sus licencias.
     /// </summary>
     [HttpGet("users")]
-    public async Task<IActionResult> GetUsers([FromQuery] string? search = null, [FromQuery] string? status = null, [FromQuery] string? plan = null)
+    public async Task<IActionResult> GetUsers(
+        [FromQuery] string? search = null,
+        [FromQuery] string? status = null,
+        [FromQuery] string? plan = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 25)
     {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
         var query = _context.users.AsNoTracking().Where(u => u.role != "superadmin");
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -119,8 +127,13 @@ public class AdminUsersController : ControllerBase
             query = query.Where(u => u.subscription_plan == plan);
         }
 
+        var totalCount = await query.CountAsync();
+
         var usersList = await query
             .OrderByDescending(u => u.created_at)
+            .ThenByDescending(u => u.id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(u => new AdminUserDto
             {
                 Id = u.id,
@@ -140,7 +153,13 @@ public class AdminUsersController : ControllerBase
             })
             .ToListAsync();
 
-        return Ok(usersList);
+        return Ok(new AdminUsersPageDto
+        {
+            Items = usersList,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        });
     }
 
     /// <summary>
@@ -224,6 +243,14 @@ public class AdminConfigDto
 public class UpdateConfigRequest
 {
     public string? Valor { get; set; }
+}
+
+public class AdminUsersPageDto
+{
+    public List<AdminUserDto> Items { get; set; } = new();
+    public int TotalCount { get; set; }
+    public int Page { get; set; }
+    public int PageSize { get; set; }
 }
 
 public class AdminUserDto
