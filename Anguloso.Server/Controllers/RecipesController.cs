@@ -100,6 +100,7 @@ public class RecipesController : ControllerBase
         var recipe = new recipes
         {
             user_id = userId.Value,
+            tenant_id = AuthHelpers.GetTenantId(User),
             name = dto.Name,
             instructions = dto.Instructions ?? "",
             created_at = DateTime.UtcNow
