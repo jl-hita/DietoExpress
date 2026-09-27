@@ -12,7 +12,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { AdminService, AdminStats, AdminUser } from '../../servicios/admin.service';
+import { AdminService, AdminConfig, AdminStats, AdminUser } from '../../servicios/admin.service';
 import { EditLicenseDialogComponent } from './edit-license-dialog.component';
 import { ResetPasswordDialogComponent } from './reset-password-dialog.component';
 
@@ -211,6 +211,43 @@ import { ResetPasswordDialogComponent } from './reset-password-dialog.component'
           </div>
         </div>
       </mat-card>
+
+      <!-- Application Configuration -->
+      <mat-card class="table-card config-card">
+        <div class="section-header">
+          <div>
+            <h2>Configuración de la aplicación</h2>
+            <p class="section-subtitle">Todas las líneas de la tabla config.</p>
+          </div>
+        </div>
+
+        <div class="table-container config-table-container">
+          <table mat-table [dataSource]="configs" class="config-table">
+            <ng-container matColumnDef="id">
+              <th mat-header-cell *matHeaderCellDef>ID</th>
+              <td mat-cell *matCellDef="let config">{{ config.id }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="nombre">
+              <th mat-header-cell *matHeaderCellDef>Nombre</th>
+              <td mat-cell *matCellDef="let config"><strong>{{ config.nombre }}</strong></td>
+            </ng-container>
+
+            <ng-container matColumnDef="valor">
+              <th mat-header-cell *matHeaderCellDef>Valor</th>
+              <td mat-cell *matCellDef="let config" class="config-value">{{ config.valor }}</td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="configDisplayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: configDisplayedColumns;"></tr>
+          </table>
+
+          <div *ngIf="configs.length === 0" class="empty-state">
+            <mat-icon>settings_off</mat-icon>
+            <p>No hay líneas en la tabla de configuración.</p>
+          </div>
+        </div>
+      </mat-card>
     </div>
   `,
   styles: [`
@@ -290,6 +327,31 @@ import { ResetPasswordDialogComponent } from './reset-password-dialog.component'
       padding: 20px;
       border-radius: 12px;
     }
+    .config-card {
+      margin-top: 24px;
+    }
+    .section-header {
+      margin-bottom: 16px;
+    }
+    .section-header h2 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 600;
+      color: #0f172a;
+    }
+    .section-subtitle {
+      margin: 4px 0 0;
+      color: #64748b;
+      font-size: 13px;
+    }
+    .config-table {
+      width: 100%;
+    }
+    .config-value {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      font-family: monospace;
+    }
     .filter-toolbar {
       display: flex;
       gap: 16px;
@@ -361,7 +423,9 @@ import { ResetPasswordDialogComponent } from './reset-password-dialog.component'
 export class AdminDashboardComponent implements OnInit {
   stats?: AdminStats;
   users: AdminUser[] = [];
+  configs: AdminConfig[] = [];
   displayedColumns = ['user', 'plan', 'status', 'expires', 'usage', 'lastLogin', 'actions'];
+  configDisplayedColumns = ['id', 'nombre', 'valor'];
 
   searchTerm = '';
   statusFilter = '';
@@ -383,6 +447,14 @@ export class AdminDashboardComponent implements OnInit {
       error: (err) => console.error('Error fetching admin stats', err)
     });
     this.loadUsers();
+    this.loadConfig();
+  }
+
+  loadConfig(): void {
+    this.adminService.getConfig().subscribe({
+      next: (configs) => this.configs = configs,
+      error: () => this.snackBar.open('Error al cargar la configuración.', 'Cerrar', { duration: 4000 })
+    });
   }
 
   loadUsers(): void {
