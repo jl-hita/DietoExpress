@@ -17,6 +17,7 @@ public class DietController : ControllerBase
     private readonly DietGeneratorService _generatorService;
     private readonly DietValidationService _validationService;
     private readonly LogServ _logServ;
+    private readonly ILicenseService _licenseService;
 
     public DietController(
         angulosodbContext context, 
@@ -38,6 +39,7 @@ public class DietController : ControllerBase
         if (userId == null) return Unauthorized();
 
         var tenantId = AuthHelpers.GetTenantId(User);
+        if (onlyShared == true && !await _licenseService.CanUseFeatureAsync(tenantId, "SHARED_DIETS")) return Forbid();
 
         // Una dieta es visible si:
         // 1. Es del propio nutricionista (user_id == userId)
@@ -80,6 +82,10 @@ public class DietController : ControllerBase
         if (userId == null) return Unauthorized();
 
         var tenantId = AuthHelpers.GetTenantId(User);
+        if (!await _licenseService.CanUseFeatureAsync(tenantId, "SHARED_DIETS"))
+        {
+            // La propia dieta sigue siendo accesible; las compartidas no.
+        }
 
         // Visible si es propia O si es compartida dentro de la misma clínica
         var d = await _context.diets
@@ -154,7 +160,7 @@ public class DietController : ControllerBase
             target_carbs = dto.TargetCarbs,
             target_fat = dto.TargetFat,
             notes = dto.Notes ?? "",
-            is_shared = dto.IsShared,
+            is_shared = dto.IsShared && await _licenseService.CanUseFeatureAsync(AuthHelpers.GetTenantId(User), "SHARED_DIETS"),
             is_template = dto.IsTemplate,
             created_at = DateTime.UtcNow
         };
