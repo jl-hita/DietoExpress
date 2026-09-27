@@ -23,20 +23,17 @@ public class AdminUsersController : ControllerBase
     [HttpGet("stats")]
     public async Task<IActionResult> GetStats()
     {
-        var totalUsers = await _context.users.CountAsync(u => u.role != "superadmin");
+        var totalUsers = await _context.users.CountAsync(u => u.role == "nutritionist" || u.role == "user");
         var totalClients = await _context.clients.CountAsync();
         var totalDiets = await _context.diets.CountAsync();
         
         var now = DateTime.UtcNow;
         var in7Days = now.AddDays(7);
-        var licensesExpiringSoon = await _context.users
-            .CountAsync(u => u.role != "superadmin" && 
-                             u.license_expires_at != null && 
-                             u.license_expires_at <= in7Days && 
-                             u.license_expires_at >= now);
+        var licensesExpiringSoon = await _context.subscriptions
+            .CountAsync(s => s.expires_at != null && s.expires_at <= in7Days && s.expires_at >= now && s.status == "active");
 
-        var activeSubscriptions = await _context.users
-            .CountAsync(u => u.role != "superadmin" && u.subscription_status == "active");
+        var activeSubscriptions = await _context.subscriptions
+            .CountAsync(s => s.status == "active" && (s.expires_at == null || s.expires_at > now));
 
         return Ok(new
         {
