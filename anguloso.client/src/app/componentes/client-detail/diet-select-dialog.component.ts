@@ -3,7 +3,7 @@ import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { DietService } from '../../servicios/diet.service';
 import { ClientService } from '../../servicios/client.service';
-import { Diet } from '../../modelos/diet';
+import { DietListItem } from '../../modelos/diet';
 import { MATERIAL_IMPORTS } from '../../shared/material.imports';
 import { MatNativeDateModule } from '@angular/material/core';
 
@@ -236,7 +236,7 @@ export interface DietValidationResult {
 })
 export class DietSelectDialogComponent implements OnInit {
   form: FormGroup;
-  diets: Diet[] = [];
+  diets: DietListItem[] = [];
   warnings: DietValidationResult[] = [];
   loadingDiets = true;
   isValidating = false;
