@@ -44,6 +44,7 @@ export interface UpdateLicenseDto {
   licenseExpiresAt?: string | null;
   maxClientsAllowed: number;
 }
+
 export interface AdminConfig {
   id: number;
   nombre: string;
@@ -73,6 +74,10 @@ export class AdminService {
 
   getConfig(): Observable<AdminConfig[]> {
     return this.http.get<AdminConfig[]>(`${this.adminUrl}/config`);
+  }
+
+  updateConfig(id: number, valor: string): Observable<AdminConfig> {
+    return this.http.put<AdminConfig>(`${this.adminUrl}/config/${id}`, { valor });
   }
 
   getUsers(search?: string, status?: string, plan?: string): Observable<AdminUser[]> {
