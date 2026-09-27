@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environments';
-import { Biometric, Client, ClientDiet, AssignDietPayload, UpdateClientDietPayload } from '../modelos/client';
+import { Biometric, ClientListItem, ClientDetail, ClientDiet, AssignDietPayload, UpdateClientDietPayload } from '../modelos/client';
 
 @Injectable({ providedIn: 'root' })
 export class ClientService {
@@ -10,12 +10,12 @@ export class ClientService {
 
   constructor(private http: HttpClient) { }
 
-  getClients(): Observable<Client[]> {
-    return this.http.get<Client[]>(`${this.base}/clients`);
+  getClients(): Observable<ClientListItem[]> {
+    return this.http.get<ClientListItem[]>(`${this.base}/clients`);
   }
 
-  getClient(id: number): Observable<Client> {
-    return this.http.get<Client>(`${this.base}/clients/${id}`);
+  getClient(id: number): Observable<ClientDetail> {
+    return this.http.get<ClientDetail>(`${this.base}/clients/${id}`);
   }
 
   createClient(dto: any) {
