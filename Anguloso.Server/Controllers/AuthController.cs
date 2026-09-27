@@ -221,15 +221,43 @@ public class AuthController : ControllerBase
                 full_name = nombreCompleto,
                 password_hash = passwordHash,
                 email = usuario.Email,
-                role = "user",
+                role = "nutritionist",
                 created_at = DateTime.UtcNow,
                 email_confirmed = false,
-                email_confirmation_token = token
+                email_confirmation_token = token,
+                subscription_plan = "trial_nutri",
+                subscription_status = "active",
+                max_clients_allowed = 5
             };
 
-            //Guardamos el usuario en la base de datos
+            // Cada nutricionista individual tiene su propio tenant desde el alta.
+            var tenant = new tenants
+            {
+                legal_name = string.IsNullOrWhiteSpace(nombreCompleto) ? usuario.Username : nombreCompleto,
+                trade_name = string.IsNullOrWhiteSpace(nombreCompleto) ? usuario.Username : nombreCompleto,
+                slug = $"{Regex.Replace(usuario.Username.ToLowerInvariant(), @"[^a-z0-9]+", "-").Trim('-')}-{Guid.NewGuid():N}".Substring(0, Math.Min(95, $"{Regex.Replace(usuario.Username.ToLowerInvariant(), @"[^a-z0-9]+", "-").Trim('-')}-{Guid.NewGuid():N}".Length)),
+                contact_email = usuario.Email,
+                status = "active"
+            };
+            _context.tenants.Add(tenant);
+            await _context.SaveChangesAsync();
+            user.tenant_id = tenant.id;
+
             _context.users.Add(user);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
+            var trialPlan = await _context.subscription_plans.FirstOrDefaultAsync(p => p.code == "trial_nutri");
+            if (trialPlan != null)
+            {
+                _context.subscriptions.Add(new subscriptions
+                {
+                    tenant_id = tenant.id,
+                    plan_id = trialPlan.id,
+                    status = "active",
+                    started_at = DateTime.UtcNow,
+                    expires_at = DateTime.UtcNow.AddDays(trialPlan.trial_days ?? 14)
+                });
+                await _context.SaveChangesAsync();
+            }
 
             //obtenemos el dominio de la url
             string dominio = _configServ.GetConfigString("dominio", "www.tusitio.com") ?? "www.tusitio.com";
@@ -538,14 +566,41 @@ public class AuthController : ControllerBase
                     email = email,
                     google_id = googleId,
                     provider = "google",
-                    role = "user",
+                    role = "nutritionist",
                     email_confirmed = true,
                     created_at = DateTime.UtcNow,
-                    last_login = DateTime.UtcNow
+                    last_login = DateTime.UtcNow,
+                    subscription_plan = "trial_nutri",
+                    subscription_status = "active",
+                    max_clients_allowed = 5
                 };
 
+                var tenantGoogle = new tenants
+                {
+                    legal_name = name,
+                    trade_name = name,
+                    slug = $"{GenerateUniqueUsername(name)}-{Guid.NewGuid():N}".Substring(0, 95),
+                    contact_email = email,
+                    status = "active"
+                };
+                _context.tenants.Add(tenantGoogle);
+                await _context.SaveChangesAsync();
+                user.tenant_id = tenantGoogle.id;
                 _context.users.Add(user);
                 await _context.SaveChangesAsync();
+                var trialPlanGoogle = await _context.subscription_plans.FirstOrDefaultAsync(p => p.code == "trial_nutri");
+                if (trialPlanGoogle != null)
+                {
+                    _context.subscriptions.Add(new subscriptions
+                    {
+                        tenant_id = tenantGoogle.id,
+                        plan_id = trialPlanGoogle.id,
+                        status = "active",
+                        started_at = DateTime.UtcNow,
+                        expires_at = DateTime.UtcNow.AddDays(trialPlanGoogle.trial_days ?? 14)
+                    });
+                    await _context.SaveChangesAsync();
+                }
             }
         }
         else
