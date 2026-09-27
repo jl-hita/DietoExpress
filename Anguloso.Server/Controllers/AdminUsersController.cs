@@ -190,8 +190,16 @@ public class AdminUsersController : ControllerBase
     }
 }
 
+public class AdminConfigDto
+{
+    public int Id { get; set; }
+    public string Nombre { get; set; } = string.Empty;
+    public string Valor { get; set; } = string.Empty;
+}
+
 public class AdminUserDto
 {
+
     public int Id { get; set; }
     public string Username { get; set; } = string.Empty;
     public string? FullName { get; set; }
