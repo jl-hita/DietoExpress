@@ -92,6 +92,63 @@ public class AdminUsersController : ControllerBase
         });
     }
 
+    [HttpGet("logs")]
+    public async Task<IActionResult> GetLog([FromQuery] string? date = null)
+    {
+        DateTime requestedDate;
+
+        if (string.IsNullOrWhiteSpace(date))
+            requestedDate = DateTime.Today;
+        else if (!DateTime.TryParseExact(date, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out requestedDate))
+            return BadRequest("La fecha debe tener el formato yyyy-MM-dd.");
+
+        requestedDate = requestedDate.Date;
+
+        var logsPath = Path.Combine(Directory.GetCurrentDirectory(), "Logs");
+        Directory.CreateDirectory(logsPath);
+
+        var logFiles = Directory.GetFiles(logsPath, "log-*.txt")
+            .Select(path => new { Path = path, Date = TryGetLogFileDate(path) })
+            .Where(x => x.Date.HasValue)
+            .Select(x => new { x.Path, Date = x.Date!.Value })
+            .OrderBy(x => x.Date)
+            .ToList();
+
+        var selected = logFiles.FirstOrDefault(x => x.Date == requestedDate);
+        var content = string.Empty;
+
+        if (selected != null)
+        {
+            await using var stream = new FileStream(selected.Path, FileMode.Open, FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete, 4096, useAsync: true);
+            using var reader = new StreamReader(stream);
+            content = await reader.ReadToEndAsync();
+        }
+
+        var previousDate = logFiles.Where(x => x.Date < requestedDate).Select(x => (DateTime?)x.Date).LastOrDefault();
+        var nextDate = logFiles.Where(x => x.Date > requestedDate).Select(x => (DateTime?)x.Date).FirstOrDefault();
+
+        return Ok(new
+        {
+            date = requestedDate.ToString("yyyy-MM-dd"),
+            exists = selected != null,
+            content,
+            previousDate = previousDate?.ToString("yyyy-MM-dd"),
+            nextDate = nextDate?.ToString("yyyy-MM-dd")
+        });
+    }
+
+    private static DateTime? TryGetLogFileDate(string path)
+    {
+        var fileName = Path.GetFileNameWithoutExtension(path);
+        if (!fileName.StartsWith("log-", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        var datePart = fileName["log-".Length..];
+        return DateTime.TryParseExact(datePart, "yyyyMMdd", System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out var date) ? date.Date : null;
+    }
+
     /// <summary>
     /// Lista paginada y filtrable de todos los usuarios/nutricionistas con sus licencias.
     /// </summary>
