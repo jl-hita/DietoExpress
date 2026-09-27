@@ -58,6 +58,14 @@ export interface AdminConfig {
   valor: string;
 }
 
+export interface AdminLog {
+  date: string;
+  exists: boolean;
+  content: string;
+  previousDate?: string;
+  nextDate?: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -85,6 +93,12 @@ export class AdminService {
 
   updateConfig(id: number, valor: string): Observable<AdminConfig> {
     return this.http.put<AdminConfig>(`${this.adminUrl}/config/${id}`, { valor });
+  }
+
+  getLog(date?: string): Observable<AdminLog> {
+    let params: any = {};
+    if (date) params.date = date;
+    return this.http.get<AdminLog>(`${this.adminUrl}/logs`, { params });
   }
 
   getUsers(search?: string, status?: string, plan?: string, page = 1, pageSize = 25): Observable<AdminUsersPage> {
