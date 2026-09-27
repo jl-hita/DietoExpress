@@ -212,7 +212,7 @@ public class OpenFoodFactsService
 
         //var requestUrl = $"https://api.nal.usda.gov/fdc/v1/foods/search?api_key={Uri.EscapeDataString(_usdaKey)}";
 
-        string? usdKey = _configServ.GetConfigString("usdaKey");
+        string? usdKey = _configServ.GetConfigString("usdaApiKey");
         //string? usdKey = _configServ.GetConfigString("Authentication:USDA:ApiKey");
 
         if (string.IsNullOrWhiteSpace(usdKey))
