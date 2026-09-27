@@ -376,3 +376,39 @@ mat-list-item {
   color: white;
   border-color: #0d9488;
 }
+
+
+.license-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: -8px 0 20px;
+  padding: 14px 16px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.license-warning mat-icon {
+  flex-shrink: 0;
+}
+
+.license-warning div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.license-warning strong {
+  font-size: 14px;
+}
+
+.license-warning span {
+  font-size: 13px;
+}
+
+.action-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
