@@ -60,6 +60,7 @@ public partial class angulosodbContext : DbContext
     public virtual DbSet<subscription_plan_features> subscription_plan_features { get; set; }
     public virtual DbSet<subscriptions> subscriptions { get; set; }
     public virtual DbSet<client_nutritionist_assignments> client_nutritionist_assignments { get; set; }
+    public virtual DbSet<subscription_events> subscription_events { get; set; }
     /*
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
@@ -362,6 +363,14 @@ public partial class angulosodbContext : DbContext
             entity.Property(e => e.contact_phone).HasMaxLength(50);
             entity.Property(e => e.address).HasMaxLength(300);
             entity.Property(e => e.logo_url).HasColumnType("text");
+        });
+
+        modelBuilder.Entity<subscription_events>(entity =>
+        {
+            entity.HasKey(e => e.id);
+            entity.Property(e => e.event_type).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.details).HasColumnType("text");
+            entity.HasOne<subscriptions>().WithMany().HasForeignKey(e => e.subscription_id).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<subscription_plans>(entity =>
