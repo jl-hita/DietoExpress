@@ -234,6 +234,43 @@ public class AdminUsersController : ControllerBase
         user.license_expires_at = request.LicenseExpiresAt;
         user.max_clients_allowed = request.MaxClientsAllowed;
 
+        if (!user.tenant_id.HasValue)
+        {
+            var tenant = new tenants
+            {
+                legal_name = string.IsNullOrWhiteSpace(user.full_name) ? user.username : user.full_name,
+                trade_name = string.IsNullOrWhiteSpace(user.clinic_name) ? user.full_name : user.clinic_name,
+                slug = $"tenant-{user.id}-{Guid.NewGuid():N}",
+                contact_email = user.email,
+                status = "active"
+            };
+            _context.tenants.Add(tenant);
+            await _context.SaveChangesAsync();
+            user.tenant_id = tenant.id;
+        }
+
+        var plan = await _context.subscription_plans.FirstOrDefaultAsync(p => p.code == request.SubscriptionPlan);
+        if (plan == null) return BadRequest("Plan SaaS no encontrado.");
+
+        var subscription = await _context.subscriptions.FirstOrDefaultAsync(s => s.tenant_id == user.tenant_id);
+        if (subscription == null)
+        {
+            subscription = new subscriptions { tenant_id = user.tenant_id.Value, plan_id = plan.id };
+            _context.subscriptions.Add(subscription);
+        }
+        subscription.plan_id = plan.id;
+        subscription.status = request.SubscriptionStatus;
+        subscription.expires_at = request.LicenseExpiresAt;
+
+        if (request.SubscriptionPlan == "clinic_full")
+        {
+            user.role = "clinic_admin";
+        }
+        else if (user.role == "clinic_admin")
+        {
+            user.role = "nutritionist";
+        }
+
         await _context.SaveChangesAsync();
         return Ok(new { message = "Licencia actualizada con éxito." });
     }
