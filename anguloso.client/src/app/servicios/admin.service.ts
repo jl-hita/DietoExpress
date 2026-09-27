@@ -126,11 +126,32 @@ export class AdminService {
   }
 
   getPlans(): Observable<AdminPlan[]> { return this.http.get<AdminPlan[]>(`${this.adminUrl}/plans`); }
+
+  createAccount(data: CreateAdminAccountDto): Observable<any> {
+    return this.http.post(`${this.adminUrl}/users/create-account`, data);
+  }
   createPlan(plan: any): Observable<AdminPlan> { return this.http.post<AdminPlan>(`${this.adminUrl}/plans`, plan); }
   updatePlan(id: number, plan: any): Observable<AdminPlan> { return this.http.put<AdminPlan>(`${this.adminUrl}/plans/${id}`, plan); }
   updatePlanFeatures(id: number, features: AdminPlanFeature[]): Observable<any> { return this.http.put(`${this.adminUrl}/plans/${id}/features`, features); }
 }
 
+
+export interface CreateAdminAccountDto {
+  accountType: 'nutritionist' | 'clinic';
+  username: string;
+  fullName: string;
+  email: string;
+  password: string;
+  clinicName?: string;
+  legalName?: string;
+  cifNif?: string;
+  clinicAddress?: string;
+  clinicPhone?: string;
+  subscriptionPlan: string;
+  subscriptionStatus: string;
+  licenseExpiresAt?: string | null;
+  maxClientsAllowed?: number | null;
+}
 
 export interface AdminPlanFeature { id?:number; feature_code:string; enabled:boolean; }
 export interface AdminPlan { id:number; code:string; name:string; description?:string; monthly_price:number; yearly_price:number; max_nutritionists?:number; max_clients_per_nutritionist?:number; max_total_clients?:number; trial_days?:number; active:boolean; features:AdminPlanFeature[]; }
