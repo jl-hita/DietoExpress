@@ -10,6 +10,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { AdminService, AdminConfig, AdminStats, AdminUser } from '../../servicios/admin.service';
@@ -31,6 +32,7 @@ import { ResetPasswordDialogComponent } from './reset-password-dialog.component'
     MatSelectModule,
     MatChipsModule,
     MatTooltipModule,
+    MatPaginatorModule,
     MatDialogModule,
     MatSnackBarModule
   ],
@@ -204,6 +206,15 @@ import { ResetPasswordDialogComponent } from './reset-password-dialog.component'
             <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
             <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
           </table>
+
+          <mat-paginator
+            [length]="totalUsers"
+            [pageIndex]="userPage - 1"
+            [pageSize]="userPageSize"
+            [pageSizeOptions]="[10, 25, 50, 100]"
+            (page)="onUsersPageChange($event)"
+            showFirstLastButtons>
+          </mat-paginator>
 
           <div *ngIf="users.length === 0" class="empty-state">
             <mat-icon>search_off</mat-icon>
@@ -444,6 +455,9 @@ import { ResetPasswordDialogComponent } from './reset-password-dialog.component'
 export class AdminDashboardComponent implements OnInit {
   stats?: AdminStats;
   users: AdminUser[] = [];
+  totalUsers = 0;
+  userPage = 1;
+  userPageSize = 25;
   configs: AdminConfig[] = [];
   displayedColumns = ['user', 'plan', 'status', 'expires', 'usage', 'lastLogin', 'actions'];
   configDisplayedColumns = ['id', 'nombre', 'valor', 'actions'];
@@ -494,13 +508,23 @@ export class AdminDashboardComponent implements OnInit {
     });
   }
 
-  loadUsers(): void {
-    this.adminService.getUsers(this.searchTerm, this.statusFilter, this.planFilter).subscribe({
-      next: (users) => this.users = users,
+  loadUsers(resetPage = true): void {
+    if (resetPage) this.userPage = 1;
+    this.adminService.getUsers(this.searchTerm, this.statusFilter, this.planFilter, this.userPage, this.userPageSize).subscribe({
+      next: (result) => {
+        this.users = result.items;
+        this.totalUsers = result.totalCount;
+      },
       error: (err) => {
         this.snackBar.open('Error al cargar la lista de usuarios.', 'Cerrar', { duration: 4000 });
       }
     });
+  }
+
+  onUsersPageChange(event: PageEvent): void {
+    this.userPage = event.pageIndex + 1;
+    this.userPageSize = event.pageSize;
+    this.loadUsers(false);
   }
 
   isExpiredOrNear(dateStr: string): boolean {
