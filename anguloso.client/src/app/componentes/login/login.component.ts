@@ -18,6 +18,7 @@ export class LoginComponent {
   private baseUrl = environment.apiUrl;
   form: FormGroup;
   loading = false;
+  private googleClientId: string | null = null;
 
   constructor(
     private fb: FormBuilder,
@@ -34,19 +35,24 @@ export class LoginComponent {
   }
 
   ngAfterViewInit(): void {
-    // Asegúrate de que window.google esté disponible
-    const clientId = (window as any).__env?.GOOGLE_CLIENT_ID || 'TU_CLIENT_ID.apps.googleusercontent.com';
-    //console.log("Client ID google: " + clientId);
+    this.http.get<{ clientId: string }>(`${this.baseUrl}/auth/google-client-id`).subscribe({
+      next: (res) => {
+        this.googleClientId = res.clientId;
+        google.accounts.id.initialize({
+          client_id: res.clientId,
+          callback: (response: any) => this.handleCredentialResponse(response)
+        });
 
-    google.accounts.id.initialize({
-      client_id: clientId,
-      callback: (response: any) => this.handleCredentialResponse(response)
+        google.accounts.id.renderButton(
+          document.getElementById("googleBtn"),
+          { theme: "outline", size: "large" }
+        );
+      },
+      error: (err) => {
+        console.error('No se pudo cargar la configuración de Google', err);
+        this.snackBar.open('No se pudo cargar la configuración de Google', 'Cerrar', { duration: 4000 });
+      }
     });
-
-    google.accounts.id.renderButton(
-      document.getElementById("googleBtn"),
-      { theme: "outline", size: "large" }
-    );
   }
 
   handleCredentialResponse(response: any) {
