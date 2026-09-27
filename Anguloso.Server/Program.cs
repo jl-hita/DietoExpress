@@ -160,6 +160,7 @@ public class Program
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddScoped<ITenantContextService, TenantContextService>();
         builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+        builder.Services.AddScoped<ILicenseService, LicenseService>();
 
         builder.Services.AddControllers();
         // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -186,6 +187,7 @@ public class Program
             {
                 var context = scope.ServiceProvider.GetRequiredService<angulosodbContext>();
                 DatabaseBootstrap.InitializeDatabaseAsync(context, logger);
+                DatabaseBootstrap.UpgradeSaaSSchema(context, logger);
             }
             catch (Exception ex)
             {
