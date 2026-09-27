@@ -110,10 +110,9 @@ import { ResetPasswordDialogComponent } from './reset-password-dialog.component'
             <mat-label>Filtrar por Plan</mat-label>
             <mat-select [(ngModel)]="planFilter" (selectionChange)="loadUsers()">
               <mat-option value="">Todos los planes</mat-option>
-              <mat-option value="free">Free / Prueba</mat-option>
-              <mat-option value="starter">Starter</mat-option>
-              <mat-option value="professional">Profesional</mat-option>
-              <mat-option value="enterprise">Enterprise</mat-option>
+              <mat-option value="trial_nutri">Nutri Prueba</mat-option>
+              <mat-option value="nutri_full">Nutri Full</mat-option>
+              <mat-option value="clinic_full">Clínica Full</mat-option>
             </mat-select>
           </mat-form-field>
         </div>
@@ -421,10 +420,10 @@ import { ResetPasswordDialogComponent } from './reset-password-dialog.component'
       border-radius: 6px;
       display: inline-block;
     }
-    .plan-free { background: #e2e8f0; color: #475569; }
-    .plan-starter { background: #dbeafe; color: #1e40af; }
+    .plan-free, .plan-trial_nutri { background: #e2e8f0; color: #475569; }
+    .plan-starter, .plan-nutri_full { background: #dbeafe; color: #1e40af; }
     .plan-professional { background: #ede9fe; color: #5b21b6; }
-    .plan-enterprise { background: #ccfbf1; color: #0f766e; }
+    .plan-enterprise, .plan-clinic_full { background: #ccfbf1; color: #0f766e; }
 
     .status-badge {
       font-size: 11px;
