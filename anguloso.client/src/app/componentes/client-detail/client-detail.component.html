@@ -33,8 +33,13 @@
 
     <div class="actions" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
       <button mat-raised-button color="primary" type="submit" [disabled]="clientForm.invalid">Guardar cliente</button>
-      <a mat-stroked-button color="accent" [href]="'/patient/' + clientId" target="_blank" style="display: flex; align-items: center; gap: 6px;">
-        <mat-icon>open_in_new</mat-icon> Ver Portal del Paciente
+      <ng-container *ngIf="portalAccess as access">
+        <a *ngIf="access.magicLink" mat-stroked-button color="accent" [href]="access.magicLink" target="_blank" style="display: flex; align-items: center; gap: 6px;">
+          <mat-icon>open_in_new</mat-icon> Abrir Portal del Paciente
+        </a>
+      </ng-container>
+      <a *ngIf="!portalAccess?.magicLink && clientId" mat-stroked-button color="accent" [href]="'/patient?clientId=' + clientId" target="_blank" style="display: flex; align-items: center; gap: 6px;">
+        <mat-icon>open_in_new</mat-icon> Vista Previa Portal
       </a>
     </div>
   </form>
@@ -838,6 +843,69 @@
           <button mat-raised-button color="primary" type="button" class="btn-save-anamnesis" (click)="saveClient()" [disabled]="clientForm.invalid">
             <mat-icon>save</mat-icon> Guardar Ficha de Anamnesis
           </button>
+        </div>
+
+      </div>
+    </mat-tab>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!--  TAB: PORTAL DEL PACIENTE                                  -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <mat-tab label="Portal del Paciente">
+      <div style="padding: 24px 16px; display: flex; flex-direction: column; gap: 24px;">
+
+        <!-- Tarjeta de enlace mágico -->
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px;">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+            <mat-icon style="color: #0d9488;">link</mat-icon>
+            <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a;">Enlace Mágico de Acceso Directo</h3>
+          </div>
+          <p style="margin: 0 0 16px; font-size: 13px; color: #64748b; line-height: 1.5;">
+            Comparte este enlace con el paciente. Permite acceso directo e instantáneo a su menú diario, lista de la compra y progreso sin necesidad de recordar contraseñas.
+          </p>
+
+          <ng-container *ngIf="portalAccess as access">
+            <div *ngIf="access.magicLink" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+              <input type="text" [value]="access.magicLink" readonly style="flex: 1; min-width: 260px; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; background: white; font-family: monospace; font-size: 13px; color: #1e293b;" />
+              <button mat-flat-button color="primary" type="button" (click)="copyPortalLink()">
+                <mat-icon>content_copy</mat-icon> Copiar Enlace
+              </button>
+              <a mat-stroked-button color="primary" [href]="access.magicLink" target="_blank">
+                <mat-icon>open_in_new</mat-icon> Probar Acceso
+              </a>
+              <button mat-button color="warn" type="button" (click)="regeneratePortalToken()" [disabled]="regeneratingToken">
+                <mat-icon>refresh</mat-icon> Regenerar Enlace
+              </button>
+            </div>
+
+            <div *ngIf="access.lastPortalAccess" style="margin-top: 12px; font-size: 12px; color: #64748b;">
+              Último acceso registrado del paciente: <strong>{{ access.lastPortalAccess | date:'dd/MM/yyyy HH:mm' }}</strong>
+            </div>
+          </ng-container>
+        </div>
+
+        <!-- Tarjeta de PIN opcional -->
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px;">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+            <mat-icon style="color: #0d9488;">pin</mat-icon>
+            <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a;">PIN / Contraseña Opcional</h3>
+          </div>
+          <p style="margin: 0 0 16px; font-size: 13px; color: #64748b; line-height: 1.5;">
+            Si el paciente accede desde otro dispositivo o prefiere usar su email o teléfono con un PIN numérico, puedes asignárselo aquí.
+            <span *ngIf="portalAccess?.hasPasscode" style="color: #059669; font-weight: 600; display: inline-block; margin-left: 6px;">
+              ✓ Paciente tiene PIN configurado
+            </span>
+          </p>
+
+          <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+            <mat-form-field appearance="outline" style="max-width: 220px; margin-bottom: -1.25em;">
+              <mat-label>Nuevo PIN (ej. 1234)</mat-label>
+              <input matInput [(ngModel)]="newPasscode" [ngModelOptions]="{standalone: true}" maxlength="8" type="password" />
+            </mat-form-field>
+            <button mat-flat-button color="primary" type="button" (click)="setPatientPasscode()" [disabled]="settingPasscode || !newPasscode.trim()">
+              <mat-icon>save</mat-icon> Guardar PIN
+            </button>
+          </div>
         </div>
 
       </div>

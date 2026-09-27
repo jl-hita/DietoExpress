@@ -13,6 +13,10 @@ public class DietListDto
     public decimal? TargetFat { get; set; }
     public string? Notes { get; set; }
     public DateTime? CreatedAt { get; set; }
+    public bool IsShared { get; set; }
+    public bool IsTemplate { get; set; }
+    public bool IsMine { get; set; }
+    public string? AuthorName { get; set; }
 }
 
 public class DietDetailDto : DietListDto 
@@ -30,6 +34,8 @@ public class CreateDietDto
     public decimal? TargetCarbs { get; set; }
     public decimal? TargetFat { get; set; }
     public string? Notes { get; set; }
+    public bool IsShared { get; set; } = false;
+    public bool IsTemplate { get; set; } = false;
 
     public ICollection<DietDayDto> Days { get; set; } = new List<DietDayDto>();
 }
@@ -44,6 +50,8 @@ public class UpdateDietDto
     public decimal? TargetCarbs { get; set; }
     public decimal? TargetFat { get; set; }
     public string? Notes { get; set; }
+    public bool IsShared { get; set; } = false;
+    public bool IsTemplate { get; set; } = false;
 
     public ICollection<DietDayDto> Days { get; set; } = new List<DietDayDto>();
 }

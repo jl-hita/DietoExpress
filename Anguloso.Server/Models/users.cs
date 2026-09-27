@@ -55,7 +55,13 @@ public partial class users
 
     public int? max_clients_allowed { get; set; }
 
+    public int? tenant_id { get; set; }
+
+    public virtual tenants? tenant { get; set; }
+
     public virtual ICollection<clients> clients { get; set; } = new List<clients>();
 
     public virtual ICollection<recipes> recipes { get; set; } = new List<recipes>();
+
+    public virtual ICollection<diets> diets { get; set; } = new List<diets>();
 }

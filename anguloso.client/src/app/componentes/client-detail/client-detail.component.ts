@@ -24,6 +24,7 @@ import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { PatientPortalService, ClientPortalAccess } from '../../servicios/patient-portal.service';
 
 @Component({
   selector: 'app-client-detail',
@@ -75,10 +76,18 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
   exchangeFoodsCache: { [key: string]: FoodInExchangeGroup[] } = {};
   exchangeSelectedFood: { [key: string]: number | null } = {};
 
+  // Portal del Paciente
+  portalAccess: ClientPortalAccess | null = null;
+  loadingPortalAccess = false;
+  regeneratingToken = false;
+  settingPasscode = false;
+  newPasscode = '';
+
   constructor(
     private fb: FormBuilder,
     private svc: ClientService,
     private foodService: FoodService,
+    private portalService: PatientPortalService,
     private route: ActivatedRoute,
     private router: Router,
     private snack: MatSnackBar,
@@ -94,6 +103,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
       this.loadBiometrics();
       this.loadDietsHistory();
       this.loadEnergyRequirements();
+      this.loadPortalAccess();
     }
   }
 
@@ -617,6 +627,63 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
         this.loadDietsHistory();
       },
       error: () => this.snack.open('Error al eliminar la asignación', 'Cerrar', { duration: 3000 })
+    });
+  }
+
+  loadPortalAccess(): void {
+    if (!this.clientId) return;
+    this.loadingPortalAccess = true;
+    this.portalService.getClientPortalAccess(this.clientId).subscribe({
+      next: (access) => {
+        this.portalAccess = access;
+        this.loadingPortalAccess = false;
+      },
+      error: () => {
+        this.loadingPortalAccess = false;
+      }
+    });
+  }
+
+  regeneratePortalToken(): void {
+    if (!this.clientId) return;
+    if (!confirm('¿Deseas regenerar el enlace mágico? El enlace anterior dejará de funcionar de inmediato.')) return;
+    this.regeneratingToken = true;
+    this.portalService.regenerateClientToken(this.clientId).subscribe({
+      next: (access) => {
+        this.portalAccess = access;
+        this.regeneratingToken = false;
+        this.snack.open('Enlace mágico regenerado con éxito', 'Cerrar', { duration: 3000 });
+      },
+      error: () => {
+        this.regeneratingToken = false;
+        this.snack.open('Error al regenerar el enlace', 'Cerrar', { duration: 3000 });
+      }
+    });
+  }
+
+  copyPortalLink(): void {
+    if (!this.portalAccess?.magicLink) return;
+    navigator.clipboard.writeText(this.portalAccess.magicLink).then(() => {
+      this.snack.open('Enlace copiado al portapapeles', 'Cerrar', { duration: 2500 });
+    }).catch(() => {
+      this.snack.open('No se pudo copiar automáticamente', 'Cerrar', { duration: 2500 });
+    });
+  }
+
+  setPatientPasscode(): void {
+    if (!this.clientId || !this.newPasscode.trim()) return;
+    this.settingPasscode = true;
+    this.portalService.setClientPasscode(this.clientId, this.newPasscode.trim()).subscribe({
+      next: () => {
+        this.settingPasscode = false;
+        if (this.portalAccess) this.portalAccess.hasPasscode = true;
+        this.newPasscode = '';
+        this.snack.open('PIN de acceso actualizado correctamente', 'Cerrar', { duration: 3000 });
+      },
+      error: () => {
+        this.settingPasscode = false;
+        this.snack.open('Error al guardar el PIN', 'Cerrar', { duration: 3000 });
+      }
     });
   }
 }

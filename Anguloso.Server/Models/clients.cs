@@ -31,6 +31,10 @@ public partial class clients
 
     public DateTime? last_portal_access { get; set; }
 
+    public int? tenant_id { get; set; }
+
+    public virtual tenants? tenant { get; set; }
+
     public virtual ICollection<biometrics> biometrics { get; set; } = new List<biometrics>();
 
     public virtual client_diets client_diets { get; set; }

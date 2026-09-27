@@ -6,29 +6,87 @@
     <p>Cargando tu plan...</p>
   </div>
 
-  <ng-container *ngIf="!loading && profile">
+  <!-- PANTALLA DE ACCESO / LOGIN PIN -->
+  <div *ngIf="!loading && showLogin" class="patient-login-screen">
+    <div class="login-card">
+      <div class="clinic-welcome-icon">
+        <mat-icon>lock</mat-icon>
+      </div>
+      <h2>Portal del Paciente</h2>
+      <p class="login-subtitle">Introduce tus datos para acceder a tu plan nutricional</p>
+
+      <div *ngIf="authError" class="auth-error-banner">
+        <mat-icon>error_outline</mat-icon>
+        <span>{{ authError }}</span>
+      </div>
+
+      <form (ngSubmit)="submitPinLogin()" class="login-form">
+        <div class="form-group">
+          <label>Email o Teléfono</label>
+          <input type="text" [(ngModel)]="emailOrPhone" name="emailOrPhone" placeholder="tu@email.com o teléfono" required />
+        </div>
+
+        <div class="form-group">
+          <label>PIN de Acceso</label>
+          <input type="password" [(ngModel)]="passcode" name="passcode" placeholder="PIN de 4-6 dígitos" maxlength="10" required />
+        </div>
+
+        <button type="submit" class="btn-portal-primary" [disabled]="submittingLogin">
+          <span *ngIf="!submittingLogin">Acceder al Portal</span>
+          <span *ngIf="submittingLogin">Verificando...</span>
+        </button>
+      </form>
+
+      <p class="login-hint">
+        ¿No tienes un PIN? Solicita a tu nutricionista tu <strong>enlace mágico directo</strong>.
+      </p>
+    </div>
+  </div>
+
+  <ng-container *ngIf="!loading && profile && !showLogin">
 
     <!-- ══════════════════════════════════════════ -->
-    <!-- HEADER                                     -->
+    <!-- HEADER CON BRANDING DE CLÍNICA             -->
     <!-- ══════════════════════════════════════════ -->
     <header class="portal-header">
-      <div class="header-avatar">
-        {{ profile.fullName?.charAt(0)?.toUpperCase() }}
+      <div class="clinic-brand-bar" *ngIf="profile.clinicName || profile.nutritionistName">
+        <div class="clinic-brand-left">
+          <img *ngIf="profile.clinicLogo" [src]="profile.clinicLogo" alt="Logo Clínica" class="clinic-logo-mini" />
+          <mat-icon *ngIf="!profile.clinicLogo" class="clinic-icon">local_hospital</mat-icon>
+          <div class="clinic-texts">
+            <span class="clinic-name">{{ profile.clinicName || 'Consulta Nutricional' }}</span>
+            <span class="nutritionist-name" *ngIf="profile.nutritionistName">{{ profile.nutritionistName }}</span>
+          </div>
+        </div>
+        <div class="clinic-actions">
+          <a *ngIf="profile.clinicPhone" [href]="'tel:' + profile.clinicPhone" class="clinic-call-btn" title="Llamar a la clínica">
+            <mat-icon>phone</mat-icon>
+          </a>
+          <button (click)="logoutPatient()" class="portal-logout-btn" title="Cerrar sesión">
+            <mat-icon>logout</mat-icon>
+          </button>
+        </div>
       </div>
-      <div class="header-info">
-        <h1 class="header-name">{{ profile.fullName }}</h1>
-        <span class="header-meta">
-          <ng-container *ngIf="profile.age">{{ profile.age }} años &nbsp;·&nbsp;</ng-container>
-          <ng-container *ngIf="profile.currentWeight">{{ profile.currentWeight }} kg</ng-container>
-        </span>
-      </div>
-      <div class="header-diet-badge" *ngIf="profile.hasActiveDiet">
-        <mat-icon>check_circle</mat-icon>
-        <span>Dieta activa</span>
-      </div>
-      <div class="header-diet-badge badge-inactive" *ngIf="!profile.hasActiveDiet">
-        <mat-icon>info</mat-icon>
-        <span>Sin dieta activa</span>
+
+      <div class="patient-user-row">
+        <div class="header-avatar">
+          {{ profile.fullName?.charAt(0)?.toUpperCase() }}
+        </div>
+        <div class="header-info">
+          <h1 class="header-name">{{ profile.fullName }}</h1>
+          <span class="header-meta">
+            <ng-container *ngIf="profile.age">{{ profile.age }} años &nbsp;·&nbsp;</ng-container>
+            <ng-container *ngIf="profile.currentWeight">{{ profile.currentWeight }} kg</ng-container>
+          </span>
+        </div>
+        <div class="header-diet-badge" *ngIf="profile.hasActiveDiet">
+          <mat-icon>check_circle</mat-icon>
+          <span>Dieta activa</span>
+        </div>
+        <div class="header-diet-badge badge-inactive" *ngIf="!profile.hasActiveDiet">
+          <mat-icon>info</mat-icon>
+          <span>Sin dieta activa</span>
+        </div>
       </div>
     </header>
 

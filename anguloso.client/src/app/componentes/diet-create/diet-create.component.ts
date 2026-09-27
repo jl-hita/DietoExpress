@@ -63,6 +63,8 @@ export class DietCreateComponent implements OnInit {
       targetCarbs: [null],
       targetFat: [null],
       notes: [''],
+      isShared: [false],
+      isTemplate: [false],
       days: this.fb.array([])
     });
   }
@@ -123,7 +125,9 @@ export class DietCreateComponent implements OnInit {
             targetProtein: d.targetProtein ?? null,
             targetCarbs: d.targetCarbs ?? null,
             targetFat: d.targetFat ?? null,
-            notes: d.notes || ''
+            notes: d.notes || '',
+            isShared: d.isShared ?? false,
+            isTemplate: d.isTemplate ?? false
           });
 
           // Reconstruir árbol temporal en FormArray
@@ -481,6 +485,8 @@ export class DietCreateComponent implements OnInit {
       targetCarbs: raw.targetCarbs ?? undefined,
       targetFat: raw.targetFat ?? undefined,
       notes: raw.notes || undefined,
+      isShared: !!raw.isShared,
+      isTemplate: !!raw.isTemplate,
       days: raw.days.map((d: any) => ({
         dayIndex: d.dayIndex,
         meals: d.meals.map((m: any, mIdx: number) => ({

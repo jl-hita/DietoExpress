@@ -1,10 +1,10 @@
 import { Component, OnInit } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { ClientService } from '../../servicios/client.service';
-import { DietService } from '../../servicios/diet.service';
+import { PatientPortalService } from '../../servicios/patient-portal.service';
 import { FoodService } from '../../servicios/food.service';
 import { SumPipe } from '../../shared/pipes/sum.pipe';
 
@@ -13,16 +13,24 @@ type ActiveTab = 'today' | 'shopping' | 'progress';
 @Component({
   selector: 'app-patient-portal',
   standalone: true,
-  imports: [CommonModule, DatePipe, DecimalPipe, MatIconModule, MatProgressSpinnerModule, SumPipe],
+  imports: [CommonModule, FormsModule, DatePipe, DecimalPipe, MatIconModule, MatProgressSpinnerModule, SumPipe],
   templateUrl: './patient-portal.component.html',
   styleUrls: ['./patient-portal.component.css']
 })
 export class PatientPortalComponent implements OnInit {
-  clientId!: number;
+  clientId?: number;
   profile: any = null;
   activeDiet: any = null;
   shoppingList: any[] = [];
   loading = true;
+  authError: string | null = null;
+  showLogin = false;
+
+  // Login form model (PIN/phone)
+  emailOrPhone = '';
+  passcode = '';
+  submittingLogin = false;
+
   activeTab: ActiveTab = 'today';
   today = new Date();
 
@@ -36,35 +44,107 @@ export class PatientPortalComponent implements OnInit {
 
   constructor(
     private route: ActivatedRoute,
-    private clientService: ClientService,
-    private dietService: DietService,
+    private router: Router,
+    private portalService: PatientPortalService,
     private foodService: FoodService
   ) {}
 
   ngOnInit(): void {
-    this.clientId = +this.route.snapshot.paramMap.get('clientId')!;
-    this.loadData();
+    this.route.queryParams.subscribe(params => {
+      const token = params['token'];
+      const clientIdParam = params['clientId'] ? +params['clientId'] : undefined;
+
+      if (token) {
+        this.authenticateWithToken(token);
+      } else if (this.portalService.getPatientToken()) {
+        this.loadData();
+      } else if (clientIdParam) {
+        // Modo vista previa nutricionista si hay sesión iniciada
+        this.clientId = clientIdParam;
+        this.loadData(clientIdParam);
+      } else {
+        this.loading = false;
+        this.showLogin = true;
+      }
+    });
+
     this.loadCheckedItems();
   }
 
-  loadData(): void {
+  authenticateWithToken(token: string): void {
     this.loading = true;
-    this.clientService.getPatientProfile(this.clientId).subscribe({
+    this.authError = null;
+    this.portalService.authenticate({ token }).subscribe({
+      next: (res) => {
+        this.portalService.savePatientToken(res.token);
+        this.clientId = res.clientId;
+        this.showLogin = false;
+        this.loadData();
+      },
+      error: (err) => {
+        this.loading = false;
+        this.authError = err?.error?.message || 'El enlace de acceso ha expirado o no es válido.';
+        this.showLogin = true;
+      }
+    });
+  }
+
+  submitPinLogin(): void {
+    if (!this.emailOrPhone || !this.passcode) {
+      this.authError = 'Por favor, introduce tu email/teléfono y tu PIN.';
+      return;
+    }
+
+    this.submittingLogin = true;
+    this.authError = null;
+    this.portalService.authenticate({
+      emailOrPhone: this.emailOrPhone,
+      passcode: this.passcode
+    }).subscribe({
+      next: (res) => {
+        this.portalService.savePatientToken(res.token);
+        this.clientId = res.clientId;
+        this.submittingLogin = false;
+        this.showLogin = false;
+        this.loadData();
+      },
+      error: (err) => {
+        this.submittingLogin = false;
+        this.authError = err?.error?.message || 'Credenciales incorrectas.';
+      }
+    });
+  }
+
+  logoutPatient(): void {
+    this.portalService.clearPatientToken();
+    this.profile = null;
+    this.activeDiet = null;
+    this.shoppingList = [];
+    this.showLogin = true;
+  }
+
+  loadData(clientIdParam?: number): void {
+    this.loading = true;
+    this.portalService.getMyProfile(clientIdParam).subscribe({
       next: (p) => {
         this.profile = p;
+        if (p.id) this.clientId = p.id;
         if (p.hasActiveDiet) {
-          this.loadActiveDiet();
-          this.loadShoppingList();
+          this.loadActiveDiet(clientIdParam);
+          this.loadShoppingList(clientIdParam);
         } else {
           this.loading = false;
         }
       },
-      error: () => { this.loading = false; }
+      error: () => {
+        this.loading = false;
+        this.showLogin = true;
+      }
     });
   }
 
-  loadActiveDiet(): void {
-    this.dietService.getActiveDiet(this.clientId).subscribe({
+  loadActiveDiet(clientIdParam?: number): void {
+    this.portalService.getMyActiveDiet(clientIdParam).subscribe({
       next: (d) => {
         this.activeDiet = d;
         this.loading = false;
@@ -73,9 +153,9 @@ export class PatientPortalComponent implements OnInit {
     });
   }
 
-  loadShoppingList(): void {
-    this.clientService.getActiveShoppingList(this.clientId).subscribe({
-      next: (s) => { this.shoppingList = s; },
+  loadShoppingList(clientIdParam?: number): void {
+    this.portalService.getMyShoppingList(clientIdParam).subscribe({
+      next: (s) => { this.shoppingList = s || []; },
       error: () => {}
     });
   }

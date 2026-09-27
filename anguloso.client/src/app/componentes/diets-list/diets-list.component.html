@@ -48,7 +48,17 @@
           <tr *ngFor="let d of pagedDiets">
             <td class="diet-name-cell">
               <div class="diet-icon-box"><mat-icon>restaurant_menu</mat-icon></div>
-              <strong>{{ d.name }}</strong>
+              <div>
+                <strong>{{ d.name }}</strong>
+                <div style="font-size: 0.78rem; margin-top: 2px;">
+                  <span *ngIf="d.isMine" style="color: #2e7d32; font-weight: 500;">
+                    <mat-icon style="font-size: 14px; height: 14px; width: 14px; vertical-align: middle;">lock</mat-icon> Mi Dieta {{ d.isShared ? '(Compartida)' : '(Privada)' }}
+                  </span>
+                  <span *ngIf="!d.isMine && d.isShared" style="color: #1976d2; font-weight: 500;">
+                    <mat-icon style="font-size: 14px; height: 14px; width: 14px; vertical-align: middle;">group</mat-icon> Clínica: {{ d.authorName || 'Compañero' }}
+                  </span>
+                </div>
+              </div>
             </td>
             <td>
               <span class="macro-badge kcal" *ngIf="d.targetKcal != null">{{ d.targetKcal }} kcal</span>
@@ -71,10 +81,13 @@
               <button mat-icon-button class="icon-btn cart-btn" (click)="viewShoppingList(d)" matTooltip="Lista de la Compra">
                 <mat-icon>shopping_cart</mat-icon>
               </button>
-              <button mat-icon-button class="icon-btn edit-btn" (click)="editDiet(d)" matTooltip="Editar Dieta">
+              <button *ngIf="d.isMine" mat-icon-button class="icon-btn edit-btn" (click)="editDiet(d)" matTooltip="Editar Dieta">
                 <mat-icon>edit</mat-icon>
               </button>
-              <button mat-icon-button class="icon-btn delete-btn" (click)="deleteDiet(d)" matTooltip="Eliminar">
+              <button *ngIf="!d.isMine" mat-icon-button class="icon-btn edit-btn" (click)="editDiet(d)" matTooltip="Ver Plantilla Compartida">
+                <mat-icon>visibility</mat-icon>
+              </button>
+              <button *ngIf="d.isMine" mat-icon-button class="icon-btn delete-btn" (click)="deleteDiet(d)" matTooltip="Eliminar">
                 <mat-icon>delete_outline</mat-icon>
               </button>
             </td>

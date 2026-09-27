@@ -13,6 +13,10 @@ export interface DietListItem {
   targetFat?: number;
   notes?: string;
   createdAt?: string; // ISO date
+  isShared?: boolean;
+  isTemplate?: boolean;
+  isMine?: boolean;
+  authorName?: string;
 }
 
 /** GET /api/dietas/{id}  → incluye árbol de días/comidas (equivale a DietDetailDto) */
@@ -28,6 +32,8 @@ export interface CreateDietRequest {
   targetCarbs?: number;
   targetFat?: number;
   notes?: string;
+  isShared?: boolean;
+  isTemplate?: boolean;
   days?: DietDay[];
 }
 
@@ -39,6 +45,8 @@ export interface UpdateDietRequest {
   targetCarbs?: number;
   targetFat?: number;
   notes?: string;
+  isShared?: boolean;
+  isTemplate?: boolean;
   days?: DietDay[];
 }
 

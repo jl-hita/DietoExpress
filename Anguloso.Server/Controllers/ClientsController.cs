@@ -15,11 +15,16 @@ public class ClientsController : ControllerBase
 {
     private readonly angulosodbContext _context;
     private readonly EnergyCalculatorService _calculatorService;
+    private readonly IAuditLogService _auditLogService;
 
-    public ClientsController(angulosodbContext context, EnergyCalculatorService calculatorService)
+    public ClientsController(
+        angulosodbContext context, 
+        EnergyCalculatorService calculatorService,
+        IAuditLogService auditLogService)
     {
         _context = context;
         _calculatorService = calculatorService;
+        _auditLogService = auditLogService;
     }
 
     // GET: api/clients
@@ -63,6 +68,15 @@ public class ClientsController : ControllerBase
             .FirstOrDefaultAsync(c => c.id == id && c.user_id == userId.Value);
 
         if (client == null) return NotFound();
+
+        // Trazabilidad de acceso a datos clínicos (Art. 32 RGPD y Ley 41/2002)
+        await _auditLogService.LogAccessAsync(
+            action: "READ_MEDICAL_CHART",
+            entityName: "clients",
+            entityId: id.ToString(),
+            clientId: client.id,
+            details: $"Acceso a la historia clínica y anamnesis del paciente {client.full_name}"
+        );
 
         var dto = new ClientDetailDto
         {
@@ -165,6 +179,7 @@ public class ClientsController : ControllerBase
         var client = new clients
         {
             user_id = userId.Value,
+            tenant_id = AuthHelpers.GetTenantId(User),
             full_name = dto.FullName,
             email = dto.Email ?? "",
             phone = dto.Phone ?? "",
@@ -217,6 +232,14 @@ public class ClientsController : ControllerBase
 
         _context.clients.Add(client);
         await _context.SaveChangesAsync();
+
+        await _auditLogService.LogAccessAsync(
+            action: "CREATE_PATIENT",
+            entityName: "clients",
+            entityId: client.id.ToString(),
+            clientId: client.id,
+            details: $"Alta inicial de expediente clínico para el paciente {client.full_name}"
+        );
 
         return CreatedAtAction(nameof(GetClient), new { id = client.id }, new { id = client.id });
     }

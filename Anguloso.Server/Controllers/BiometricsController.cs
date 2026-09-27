@@ -230,6 +230,15 @@ public class BiometricsController : ControllerBase
         if (file == null || file.Length == 0)
             return BadRequest("Por favor, selecciona un archivo CSV o de texto de la báscula.");
 
+        const long maxFileSize = 5 * 1024 * 1024; // 5 MB
+        if (file.Length > maxFileSize)
+            return BadRequest("El archivo no puede superar los 5 MB.");
+
+        var allowedExtensions = new[] { ".csv", ".txt", ".dat", ".xls", ".xlsx" };
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (!allowedExtensions.Contains(ext))
+            return BadRequest("Tipo de archivo no permitido. Formatos admitidos: CSV, TXT, DAT, XLS, XLSX.");
+
         using var stream = file.OpenReadStream();
         var preview = _parserService.Parse(stream, device);
 

@@ -52,6 +52,10 @@ public partial class angulosodbContext : DbContext
     public virtual DbSet<recipes> recipes { get; set; }
 
     public virtual DbSet<users> users { get; set; }
+
+    public virtual DbSet<tenants> tenants { get; set; }
+
+    public virtual DbSet<audit_logs> audit_logs { get; set; }
     /*
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
@@ -103,6 +107,10 @@ public partial class angulosodbContext : DbContext
             entity.HasOne(d => d.user).WithMany(p => p.clients)
                 .HasForeignKey(d => d.user_id)
                 .HasConstraintName("clients_user_id_fkey");
+
+            entity.HasOne(d => d.tenant).WithMany(p => p.clients)
+                .HasForeignKey(d => d.tenant_id)
+                .HasConstraintName("clients_tenant_id_fkey");
         });
 
         modelBuilder.Entity<medical_history>(entity =>
@@ -172,6 +180,14 @@ public partial class angulosodbContext : DbContext
             entity.Property(e => e.target_fat).HasPrecision(6, 2);
             entity.Property(e => e.target_kcal).HasPrecision(6, 2);
             entity.Property(e => e.target_protein).HasPrecision(6, 2);
+
+            entity.HasOne(d => d.user).WithMany(p => p.diets)
+                .HasForeignKey(d => d.user_id)
+                .HasConstraintName("diets_user_id_fkey");
+
+            entity.HasOne(d => d.tenant).WithMany(p => p.diets)
+                .HasForeignKey(d => d.tenant_id)
+                .HasConstraintName("diets_tenant_id_fkey");
         });
 
         modelBuilder.Entity<food_sources>(entity =>
@@ -317,6 +333,53 @@ public partial class angulosodbContext : DbContext
             entity.Property(e => e.clinic_address).HasMaxLength(250);
             entity.Property(e => e.clinic_phone).HasMaxLength(50);
             entity.Property(e => e.clinic_logo).HasColumnType("text");
+
+            entity.HasOne(d => d.tenant).WithMany(p => p.users)
+                .HasForeignKey(d => d.tenant_id)
+                .HasConstraintName("users_tenant_id_fkey");
+        });
+
+        modelBuilder.Entity<tenants>(entity =>
+        {
+            entity.HasKey(e => e.id).HasName("tenants_pkey");
+
+            entity.Property(e => e.created_at).HasDefaultValueSql("now()");
+            entity.Property(e => e.legal_name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.trade_name).HasMaxLength(200);
+            entity.Property(e => e.cif_nif).HasMaxLength(50);
+            entity.Property(e => e.slug).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.status).HasMaxLength(50).HasDefaultValue("active");
+            entity.Property(e => e.dpo_email).HasMaxLength(150);
+            entity.Property(e => e.contact_email).HasMaxLength(150);
+            entity.Property(e => e.contact_phone).HasMaxLength(50);
+            entity.Property(e => e.address).HasMaxLength(300);
+            entity.Property(e => e.logo_url).HasColumnType("text");
+        });
+
+        modelBuilder.Entity<audit_logs>(entity =>
+        {
+            entity.HasKey(e => e.id).HasName("audit_logs_pkey");
+
+            entity.Property(e => e.created_at).HasDefaultValueSql("now()");
+            entity.Property(e => e.action).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.entity_name).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.entity_id).HasMaxLength(100);
+            entity.Property(e => e.user_role).HasMaxLength(50);
+            entity.Property(e => e.ip_address).HasMaxLength(50);
+            entity.Property(e => e.user_agent).HasMaxLength(300);
+            entity.Property(e => e.details).HasColumnType("text");
+
+            entity.HasOne(d => d.tenant).WithMany()
+                .HasForeignKey(d => d.tenant_id)
+                .HasConstraintName("audit_logs_tenant_id_fkey");
+
+            entity.HasOne(d => d.user).WithMany()
+                .HasForeignKey(d => d.user_id)
+                .HasConstraintName("audit_logs_user_id_fkey");
+
+            entity.HasOne(d => d.client).WithMany()
+                .HasForeignKey(d => d.client_id)
+                .HasConstraintName("audit_logs_client_id_fkey");
         });
 
         OnModelCreatingPartial(modelBuilder);

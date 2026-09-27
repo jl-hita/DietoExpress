@@ -1,4 +1,5 @@
-﻿using Anguloso.Server.Logica;
+using Anguloso.Server.Logica;
+using Anguloso.Server.Logica.Utils;
 using Anguloso.Server.Model;
 using Anguloso.Server.Models;
 using Google.Apis.Auth;
@@ -23,6 +24,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 
 using System.Reflection;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Anguloso.Server.Controllers;
 
@@ -35,15 +37,17 @@ public class AuthController : ControllerBase
     //private readonly IEmailService _emailService;
     private readonly EmailServ _emailServ;
     private readonly ConfigServ _configServ;
+    private readonly LogServ _logServ;
 
     //public AuthController(angulosodbContext context, IConfiguration config, IEmailService emailService, ConfigServ configServ)
-    public AuthController(angulosodbContext context, IConfiguration config, EmailServ emailServ, ConfigServ configServ)
+    public AuthController(angulosodbContext context, IConfiguration config, EmailServ emailServ, ConfigServ configServ, LogServ logServ)
     {
         _context = context;
         _config = config;
         //_emailService = emailService;
         _emailServ = emailServ;
         _configServ = configServ;
+        _logServ = logServ;
     }
 
     /// <summary>
@@ -124,7 +128,8 @@ public class AuthController : ControllerBase
         }
         catch(Exception e) 
         {
-            return BadRequest(e.Message);
+            _logServ.LogError($"Error en Login: {e.Message}");
+            return BadRequest("Error al iniciar sesión o credenciales inválidas.");
         }
     }
 
@@ -387,60 +392,80 @@ public class AuthController : ControllerBase
     }
 
     //Para usar en un componente de settings de usuario
+    [Authorize]
     [HttpPut("cambiarPassword")]
-    public BoolMensaje CambiarPassword([FromBody] PasswordResetRequest passwordResetRequest)
+    public async Task<BoolMensaje> CambiarPassword([FromBody] PasswordResetRequest passwordResetRequest)
     {
         try
         {
-            if(passwordResetRequest.NewPassword != passwordResetRequest.NewPasswordRep)
+            if (passwordResetRequest == null)
+            {
+                return new BoolMensaje { Exito = false, Mensaje = "Datos de solicitud no válidos." };
+            }
+
+            if (string.IsNullOrWhiteSpace(passwordResetRequest.NewPassword) || passwordResetRequest.NewPassword.Length < 6)
+            {
+                return new BoolMensaje { Exito = false, Mensaje = "La nueva contraseña debe tener al menos 6 caracteres." };
+            }
+
+            if (passwordResetRequest.NewPassword != passwordResetRequest.NewPasswordRep)
             {
                 return new BoolMensaje
                 {
                     Exito = false,
-                    Mensaje = "Las nuevas contraseñas no coinciden"
+                    Mensaje = "Las nuevas contraseñas no coinciden."
                 };
             }
 
-            // Buscar el usuario
-            users? user = _context.users.FirstOrDefault(u => u.username == passwordResetRequest.Username);
-
-            if(user == null)
+            var userId = AuthHelpers.GetUserId(User);
+            if (userId == null)
             {
                 return new BoolMensaje
                 {
                     Exito = false,
-                    Mensaje = $"Usuario {passwordResetRequest.Username} no encontrado"
+                    Mensaje = "No autorizado."
                 };
             }
 
-            //Comprobamos el password antiguo
-            string passwordHash = BCrypt.Net.BCrypt.HashPassword(passwordResetRequest.OldPassword);
-            if (user.password_hash != passwordHash)
+            // Buscar el usuario autenticado
+            var user = await _context.users.FirstOrDefaultAsync(u => u.id == userId.Value);
+
+            if (user == null)
             {
                 return new BoolMensaje
                 {
                     Exito = false,
-                    Mensaje = "Contraseña incorrecta."
+                    Mensaje = "Usuario no encontrado."
                 };
             }
-                
-            //Cambiamos la contraseña
-            user.password_hash = passwordHash;
-            _context.SaveChanges();
+
+            // Comprobamos el password antiguo con BCrypt.Verify
+            if (!BCrypt.Net.BCrypt.Verify(passwordResetRequest.OldPassword, user.password_hash))
+            {
+                return new BoolMensaje
+                {
+                    Exito = false,
+                    Mensaje = "La contraseña actual es incorrecta."
+                };
+            }
+
+            // Cambiamos la contraseña hasheando la nueva
+            user.password_hash = BCrypt.Net.BCrypt.HashPassword(passwordResetRequest.NewPassword);
+            await _context.SaveChangesAsync();
 
             return new BoolMensaje
             {
                 Exito = true,
-                Mensaje = $"Password del usuario {passwordResetRequest.Username} cambiado correctamente"
+                Mensaje = "Contraseña cambiada correctamente."
             };
         }
         catch (Exception ex)
         {
-            //return BadRequest(ex.Message);
+            _logServ.LogError($"Error cambiando password: {ex.Message}");
             return new BoolMensaje
             {
                 Exito = false,
-                Mensaje = $"Error cambiando password -> {ex.Message}"
+                Mensaje = "Se produjo un error al cambiar la contraseña."
             };
         }
     }
@@ -541,6 +566,11 @@ public class AuthController : ControllerBase
             new Claim(ClaimTypes.Name, user.username),
             new Claim(ClaimTypes.Role, user.role ?? "user")
         };
+
+        if (user.tenant_id.HasValue)
+        {
+            claims.Add(new Claim("tenantId", user.tenant_id.Value.ToString()));
+        }
 
         var tokenDescriptor = new SecurityTokenDescriptor
         {

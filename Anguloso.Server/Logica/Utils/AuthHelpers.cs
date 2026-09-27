@@ -20,6 +20,14 @@ public static class AuthHelpers
         return null;
     }
 
+    public static int? GetTenantId(ClaimsPrincipal user)
+    {
+        if (user?.FindFirst("tenantId")?.Value is string idStr
+            && int.TryParse(idStr, out var id))
+            return id;
+        return null;
+    }
+
     public static bool IsPatient(ClaimsPrincipal user)
     {
         return user?.IsInRole("patient") ?? false;

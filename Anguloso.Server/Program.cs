@@ -157,6 +157,10 @@ public class Program
         builder.Services.AddSingleton<BioimpedanceParserService>();
         builder.Services.AddScoped<DietGeneratorService>();
 
+        builder.Services.AddHttpContextAccessor();
+        builder.Services.AddScoped<ITenantContextService, TenantContextService>();
+        builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+
         builder.Services.AddControllers();
         // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
         builder.Services.AddEndpointsApiExplorer();
@@ -169,86 +173,23 @@ public class Program
 
         builder.WebHost.ConfigureKestrel(options =>
         {
-            options.Limits.MaxRequestBodySize = null; // sin límite
+            options.Limits.MaxRequestBodySize = 50 * 1024 * 1024; // 50 MB
         });
 
         var app = builder.Build();
 
-        // Database schema updates for biometrics and anamnesis
+        // Verificación de conexión a BBDD y creación completa de tablas
         using (var scope = app.Services.CreateScope())
         {
+            var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
             try
             {
                 var context = scope.ServiceProvider.GetRequiredService<angulosodbContext>();
-                var nLineas = context.Database.ExecuteSqlRaw(@"
-                    ALTER TABLE biometrics ADD COLUMN IF NOT EXISTS biceps double precision;
-                    ALTER TABLE biometrics ADD COLUMN IF NOT EXISTS chest double precision;
-                    ALTER TABLE biometrics ADD COLUMN IF NOT EXISTS axilla double precision;
-                    ALTER TABLE biometrics ADD COLUMN IF NOT EXISTS calf_skinfold double precision;
-                    ALTER TABLE biometrics ADD COLUMN IF NOT EXISTS arm_perimeter double precision;
-                    ALTER TABLE biometrics ADD COLUMN IF NOT EXISTS calf_perimeter double precision;
-                    ALTER TABLE biometrics ADD COLUMN IF NOT EXISTS wrist_diameter double precision;
-                    ALTER TABLE biometrics ADD COLUMN IF NOT EXISTS femur_diameter double precision;
-                    ALTER TABLE biometrics ADD COLUMN IF NOT EXISTS humerus_diameter double precision;
-
-                    CREATE TABLE IF NOT EXISTS medical_history (
-                        id SERIAL PRIMARY KEY,
-                        client_id INTEGER NOT NULL UNIQUE REFERENCES clients(id) ON DELETE CASCADE,
-                        diabetes BOOLEAN DEFAULT FALSE,
-                        hypertension BOOLEAN DEFAULT FALSE,
-                        hypothyroidism BOOLEAN DEFAULT FALSE,
-                        surgeries TEXT,
-                        routine_medication TEXT,
-                        other_pathologies TEXT
-                    );
-
-                    CREATE TABLE IF NOT EXISTS digestive_health (
-                        id SERIAL PRIMARY KEY,
-                        client_id INTEGER NOT NULL UNIQUE REFERENCES clients(id) ON DELETE CASCADE,
-                        intestinal_habits TEXT,
-                        bloating BOOLEAN DEFAULT FALSE,
-                        heartburn BOOLEAN DEFAULT FALSE,
-                        gluten_intolerance BOOLEAN DEFAULT FALSE,
-                        lactose_intolerance BOOLEAN DEFAULT FALSE,
-                        fodmaps_intolerance BOOLEAN DEFAULT FALSE,
-                        other_intolerances TEXT,
-                        notes TEXT
-                    );
-
-                    CREATE TABLE IF NOT EXISTS food_preferences (
-                        id SERIAL PRIMARY KEY,
-                        client_id INTEGER NOT NULL UNIQUE REFERENCES clients(id) ON DELETE CASCADE,
-                        preferred_foods TEXT,
-                        disliked_foods TEXT,
-                        allergies TEXT
-                    );
-
-                    CREATE TABLE IF NOT EXISTS lifestyle_history (
-                        id SERIAL PRIMARY KEY,
-                        client_id INTEGER NOT NULL UNIQUE REFERENCES clients(id) ON DELETE CASCADE,
-                        work_schedule TEXT,
-                        sleep_habits TEXT,
-                        water_consumption TEXT,
-                        alcohol_consumption TEXT,
-                        tobacco_consumption TEXT
-                    );
-
-                    ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_plan VARCHAR(50) DEFAULT 'free';
-                    ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(50) DEFAULT 'active';
-                    ALTER TABLE users ADD COLUMN IF NOT EXISTS license_expires_at TIMESTAMPTZ;
-                    ALTER TABLE users ADD COLUMN IF NOT EXISTS max_clients_allowed INTEGER DEFAULT 10;
-
-                    ALTER TABLE clients ADD COLUMN IF NOT EXISTS access_token VARCHAR(64);
-                    ALTER TABLE clients ADD COLUMN IF NOT EXISTS passcode_hash VARCHAR(100);
-                    ALTER TABLE clients ADD COLUMN IF NOT EXISTS last_portal_access TIMESTAMPTZ;
-                ");
-
-                Console.WriteLine($"Cambiadas {nLineas} rows");
+                DatabaseBootstrap.InitializeDatabaseAsync(context, logger);
             }
             catch (Exception ex)
             {
-                var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-                logger.LogError(ex, "Error al ejecutar la migración de base de datos para biometría y anamnesis.");
+                logger.LogCritical(ex, "ERROR CRÍTICO: La aplicación no pudo verificar o inicializar la base de datos.");
             }
         }
 

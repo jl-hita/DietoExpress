@@ -30,7 +30,7 @@ const routes: AppRoute[] = [
   { path: 'crear-usuario', component: UserCreateComponent, title: 'Crear usuario', showInMenu: false },
   { path: 'reset-pwd', component: UserResetComponent, title: 'Crear usuario', showInMenu: false },
   { path: 'confirmar-email', component: ConfirmarEmailComponent, title: 'Confirmar email', showInMenu: false },
-  { path: 'patient/:clientId', component: PatientPortalComponent, title: 'Portal del Paciente' },
+  { path: 'patient', component: PatientPortalComponent, title: 'Portal del Paciente' },
 
   { path: '', component: LayoutComponent, canActivate: [AuthGuard],
     children: [

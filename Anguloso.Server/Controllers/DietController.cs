@@ -1,4 +1,5 @@
 using Anguloso.Server.Logica;
+using Anguloso.Server.Logica.Utils;
 using Anguloso.Server.Model;
 using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -31,9 +32,26 @@ public class DietController : ControllerBase
 
 
     [HttpGet]
-    public async Task<ActionResult<List<DietListDto>>> GetDiets()
+    public async Task<ActionResult<List<DietListDto>>> GetDiets([FromQuery] bool? onlyShared = null)
     {
-        var list = await _context.diets
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId == null) return Unauthorized();
+
+        var tenantId = AuthHelpers.GetTenantId(User);
+
+        // Una dieta es visible si:
+        // 1. Es del propio nutricionista (user_id == userId)
+        // 2. O pertenece a la misma clínica (tenant_id == tenantId) Y ha sido marcada explícitamente como compartida (is_shared == true)
+        var query = _context.diets
+            .Include(d => d.user)
+            .Where(d => d.user_id == userId.Value || (tenantId.HasValue && d.tenant_id == tenantId.Value && d.is_shared));
+
+        if (onlyShared == true)
+        {
+            query = query.Where(d => d.is_shared && d.user_id != userId.Value);
+        }
+
+        var list = await query
             .OrderByDescending(d => d.created_at)
             .Select(d => new DietListDto
             {
@@ -44,7 +62,11 @@ public class DietController : ControllerBase
                 TargetCarbs = d.target_carbs,
                 TargetFat = d.target_fat,
                 Notes = d.notes,
-                CreatedAt = d.created_at
+                CreatedAt = d.created_at,
+                IsShared = d.is_shared,
+                IsTemplate = d.is_template,
+                IsMine = d.user_id == userId.Value,
+                AuthorName = d.user != null ? (d.user.full_name ?? d.user.username) : null
             })
             .ToListAsync();
 
@@ -54,7 +76,14 @@ public class DietController : ControllerBase
     [HttpGet("{id:int}")]
     public async Task<ActionResult<DietDetailDto>> GetDiet(int id)
     {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId == null) return Unauthorized();
+
+        var tenantId = AuthHelpers.GetTenantId(User);
+
+        // Visible si es propia O si es compartida dentro de la misma clínica
         var d = await _context.diets
+            .Include(d => d.user)
             .Include(d => d.diet_days)
                 .ThenInclude(dd => dd.meals)
                     .ThenInclude(m => m.meal_items)
@@ -63,7 +92,7 @@ public class DietController : ControllerBase
                 .ThenInclude(dd => dd.meals)
                     .ThenInclude(m => m.meal_items)
                         .ThenInclude(i => i.exchange_group)
-            .FirstOrDefaultAsync(d => d.id == id);
+            .FirstOrDefaultAsync(d => d.id == id && (d.user_id == userId.Value || (tenantId.HasValue && d.tenant_id == tenantId.Value && d.is_shared)));
 
         if (d == null) return NotFound();
 
@@ -77,6 +106,10 @@ public class DietController : ControllerBase
             TargetFat = d.target_fat,
             Notes = d.notes,
             CreatedAt = d.created_at,
+            IsShared = d.is_shared,
+            IsTemplate = d.is_template,
+            IsMine = d.user_id == userId.Value,
+            AuthorName = d.user != null ? (d.user.full_name ?? d.user.username) : null,
             Days = d.diet_days.OrderBy(dd => dd.day_index).Select(dd => new DietDayDto
             {
                 Id = dd.id,
@@ -108,14 +141,21 @@ public class DietController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<DietListDto>> CreateDiet([FromBody] CreateDietDto dto)
     {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId == null) return Unauthorized();
+
         var diet = new diets
         {
+            user_id = userId.Value,
+            tenant_id = AuthHelpers.GetTenantId(User),
             name = dto.Name,
             target_kcal = dto.TargetKcal,
             target_protein = dto.TargetProtein,
             target_carbs = dto.TargetCarbs,
             target_fat = dto.TargetFat,
             notes = dto.Notes ?? "",
+            is_shared = dto.IsShared,
+            is_template = dto.IsTemplate,
             created_at = DateTime.UtcNow
         };
 
@@ -154,18 +194,25 @@ public class DietController : ControllerBase
         {
             Id = diet.id,
             Name = diet.name,
-            CreatedAt = diet.created_at
+            CreatedAt = diet.created_at,
+            IsShared = diet.is_shared,
+            IsTemplate = diet.is_template,
+            IsMine = true
         });
     }
 
     [HttpPut("{id:int}")]
     public async Task<IActionResult> UpdateDiet(int id, [FromBody] UpdateDietDto dto)
     {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId == null) return Unauthorized();
+
+        // Solo el autor original puede editar su dieta
         var diet = await _context.diets
             .Include(d => d.diet_days)
                 .ThenInclude(dd => dd.meals)
                     .ThenInclude(m => m.meal_items)
-            .FirstOrDefaultAsync(d => d.id == id);
+            .FirstOrDefaultAsync(d => d.id == id && d.user_id == userId.Value);
 
         if (diet == null) return NotFound();
 
@@ -175,6 +222,8 @@ public class DietController : ControllerBase
         diet.target_carbs = dto.TargetCarbs;
         diet.target_fat = dto.TargetFat;
         diet.notes = dto.Notes ?? diet.notes ?? "";
+        diet.is_shared = dto.IsShared;
+        diet.is_template = dto.IsTemplate;
 
         // Remover todo el árbol anterior
         _context.diet_days.RemoveRange(diet.diet_days);
@@ -216,9 +265,12 @@ public class DietController : ControllerBase
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> DeleteDiet(int id)
     {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId == null) return Unauthorized();
+
         var diet = await _context.diets
             .Include(d => d.diet_days)
-            .FirstOrDefaultAsync(d => d.id == id);
+            .FirstOrDefaultAsync(d => d.id == id && d.user_id == userId.Value);
         if (diet == null) return NotFound();
 
         _context.diet_days.RemoveRange(diet.diet_days);
@@ -236,12 +288,12 @@ public class DietController : ControllerBase
         try
         {
             var diet = await _generatorService.GenerateDietAsync(request);
-            //_logServ.LogInfo($"Dieta: {diet.Name}, cals: {diet.TargetKcal}");
             return Ok(diet);
         }
         catch (Exception ex)
         {
-            return BadRequest($"Error al generar el plan de dieta: {ex.Message}");
+            _logServ.LogError($"Error al generar el plan de dieta: {ex.Message}");
+            return BadRequest("Error al generar el plan de dieta estructurado.");
         }
     }
 
@@ -252,10 +304,16 @@ public class DietController : ControllerBase
     [HttpPost("/api/diets/validate")]
     public async Task<ActionResult<List<DietValidationResultDto>>> ValidateDiet([FromBody] ValidateDietRequestDto request)
     {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId == null) return Unauthorized();
+
         if (request.ClientId <= 0)
         {
             return BadRequest("El identificador del cliente es obligatorio y debe ser válido.");
         }
+
+        var clientExists = await _context.clients.AnyAsync(c => c.id == request.ClientId && c.user_id == userId.Value);
+        if (!clientExists) return NotFound("Cliente no encontrado.");
 
         var warnings = await _validationService.ValidateDietDraftCompatibilityAsync(request.ClientId, request.Diet, _context);
         return Ok(warnings);
@@ -268,6 +326,11 @@ public class DietController : ControllerBase
     [HttpGet("/api/diets/{id:int}/shopping-list")]
     public async Task<ActionResult<List<ShoppingCategoryDto>>> GetDietShoppingList(int id)
     {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId == null) return Unauthorized();
+
+        var tenantId = AuthHelpers.GetTenantId(User);
+
         var diet = await _context.diets
             .Include(d => d.diet_days)
                 .ThenInclude(dd => dd.meals)
@@ -277,7 +340,7 @@ public class DietController : ControllerBase
                 .ThenInclude(dd => dd.meals)
                     .ThenInclude(m => m.meal_items)
                         .ThenInclude(i => i.exchange_group)
-            .FirstOrDefaultAsync(d => d.id == id);
+            .FirstOrDefaultAsync(d => d.id == id && (d.user_id == userId.Value || (tenantId.HasValue && d.tenant_id == tenantId.Value && d.is_shared)));
 
         if (diet == null) return NotFound("Dieta no encontrada.");
 

@@ -1,12 +1,14 @@
 using Anguloso.Server.Logica;
 using Anguloso.Server.Model;
 using Anguloso.Server.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace Anguloso.Server.Controllers;
 
 [ApiController]
+[Authorize(Roles = "admin,superadmin")]
 [Route("[controller]")]
 public class TestController : ControllerBase
 {
@@ -31,16 +33,16 @@ public class TestController : ControllerBase
             return new BoolMensaje
             {
                 Exito = true,
-                Mensaje = "Oh yeah"
+                Mensaje = "Test de log ejecutado correctamente."
             };
         }
         catch (Exception e)
         {
-            _logServ.LogError($"Excepción en TestController.LogTest -> {e}");
+            _logServ.LogError($"Excepción en TestController.LogTest -> {e.Message}");
             return new BoolMensaje
             {
                 Exito = false,
-                Mensaje = $"Excepción en TestController.LogTest -> {e}"
+                Mensaje = "Error ejecutando el test de log."
             };
         }
     }
@@ -55,8 +57,8 @@ public class TestController : ControllerBase
         }
         catch (Exception e)
         {
-            _logServ.LogError($"Excepción en TestController.BEDCATest -> {e}");
-            return NotFound($"Excepción en TestController.BEDCATest -> {e}");
+            _logServ.LogError($"Excepción en TestController.BEDCATest -> {e.Message}");
+            return BadRequest("Error ejecutando el importador BEDCA.");
         }
     }
 }
