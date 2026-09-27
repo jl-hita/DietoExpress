@@ -21,6 +21,13 @@ export interface AdminStats {
   activeSubscriptions: number;
 }
 
+export interface AdminUsersPage {
+  items: AdminUser[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
+
 export interface AdminUser {
   id: number;
   username: string;
@@ -80,12 +87,12 @@ export class AdminService {
     return this.http.put<AdminConfig>(`${this.adminUrl}/config/${id}`, { valor });
   }
 
-  getUsers(search?: string, status?: string, plan?: string): Observable<AdminUser[]> {
-    let params: any = {};
+  getUsers(search?: string, status?: string, plan?: string, page = 1, pageSize = 25): Observable<AdminUsersPage> {
+    let params: any = { page, pageSize };
     if (search) params.search = search;
     if (status) params.status = status;
     if (plan) params.plan = plan;
-    return this.http.get<AdminUser[]>(`${this.adminUrl}/users`, { params });
+    return this.http.get<AdminUsersPage>(`${this.adminUrl}/users`, { params });
   }
 
   updateLicense(id: number, data: UpdateLicenseDto): Observable<{ message: string }> {
