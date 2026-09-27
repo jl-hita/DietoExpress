@@ -409,4 +409,154 @@ public static class DatabaseBootstrap
             throw;
         }
     }
+
+    /// <summary>
+    /// Evoluciones incrementales de la BBDD SaaS. Es idempotente y se ejecuta al arrancar,
+    /// por lo que una instalación existente no necesita recrearse.
+    /// </summary>
+    public static void UpgradeSaaSSchema(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS subscription_plans (
+                id SERIAL PRIMARY KEY,
+                code VARCHAR(50) NOT NULL UNIQUE,
+                name VARCHAR(150) NOT NULL,
+                description TEXT,
+                monthly_price NUMERIC(10,2) NOT NULL DEFAULT 0,
+                yearly_price NUMERIC(10,2) NOT NULL DEFAULT 0,
+                max_nutritionists INTEGER,
+                max_clients_per_nutritionist INTEGER,
+                max_total_clients INTEGER,
+                trial_days INTEGER,
+                active BOOLEAN NOT NULL DEFAULT TRUE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+
+            CREATE TABLE IF NOT EXISTS subscription_plan_features (
+                id SERIAL PRIMARY KEY,
+                plan_id INTEGER NOT NULL REFERENCES subscription_plans(id) ON DELETE CASCADE,
+                feature_code VARCHAR(100) NOT NULL,
+                enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                CONSTRAINT subscription_plan_features_unique UNIQUE(plan_id, feature_code)
+            );
+
+            CREATE TABLE IF NOT EXISTS subscriptions (
+                id SERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                plan_id INTEGER NOT NULL REFERENCES subscription_plans(id) ON DELETE RESTRICT,
+                status VARCHAR(50) NOT NULL DEFAULT 'active',
+                started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                expires_at TIMESTAMPTZ,
+                cancelled_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+
+            CREATE TABLE IF NOT EXISTS client_nutritionist_assignments (
+                id SERIAL PRIMARY KEY,
+                client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                nutritionist_id INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+                assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                assigned_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                unassigned_at TIMESTAMPTZ,
+                is_active BOOLEAN NOT NULL DEFAULT TRUE
+            );
+
+            ALTER TABLE recipes ADD COLUMN IF NOT EXISTS tenant_id INTEGER REFERENCES tenants(id);
+            CREATE INDEX IF NOT EXISTS idx_recipes_tenant_id ON recipes(tenant_id);
+            CREATE INDEX IF NOT EXISTS idx_subscriptions_tenant_id ON subscriptions(tenant_id);
+            CREATE INDEX IF NOT EXISTS idx_assignments_nutritionist_id ON client_nutritionist_assignments(nutritionist_id);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_assignments_active_client ON client_nutritionist_assignments(client_id) WHERE is_active = TRUE;
+
+            -- Convertimos usuarios existentes sin tenant en tenants individuales.
+            DO $
+            DECLARE u RECORD; new_tenant_id INTEGER; base_slug TEXT; candidate_slug TEXT; suffix INTEGER;
+            BEGIN
+                FOR u IN SELECT id, username, full_name, email, clinic_name FROM users WHERE role <> 'superadmin' AND tenant_id IS NULL LOOP
+                    base_slug := regexp_replace(lower(coalesce(nullif(u.username,''), 'tenant-' || u.id::text)), '[^a-z0-9]+', '-', 'g');
+                    base_slug := trim(both '-' from base_slug);
+                    IF base_slug = '' THEN base_slug := 'tenant-' || u.id::text; END IF;
+                    candidate_slug := base_slug; suffix := 0;
+                    WHILE EXISTS (SELECT 1 FROM tenants WHERE slug = candidate_slug) LOOP
+                        suffix := suffix + 1; candidate_slug := base_slug || '-' || suffix::text;
+                    END LOOP;
+                    INSERT INTO tenants(legal_name, trade_name, slug, contact_email, status)
+                    VALUES (coalesce(nullif(u.clinic_name,''), nullif(u.full_name,''), u.username), coalesce(nullif(u.clinic_name,''), u.full_name), candidate_slug, u.email, 'active')
+                    RETURNING id INTO new_tenant_id;
+                    UPDATE users SET tenant_id = new_tenant_id WHERE id = u.id;
+                END LOOP;
+            END $;
+
+            UPDATE clients c SET tenant_id = u.tenant_id
+            FROM users u WHERE c.user_id = u.id AND c.tenant_id IS NULL;
+
+            UPDATE diets d SET tenant_id = u.tenant_id
+            FROM users u WHERE d.user_id = u.id AND d.tenant_id IS NULL;
+
+            UPDATE recipes r SET tenant_id = u.tenant_id
+            FROM users u WHERE r.user_id = u.id AND r.tenant_id IS NULL;
+
+            -- Seed de planes comerciales. Son editables desde el SuperAdmin.
+            INSERT INTO subscription_plans(code,name,description,monthly_price,yearly_price,max_nutritionists,max_clients_per_nutritionist,max_total_clients,trial_days,active)
+            VALUES
+                ('trial_nutri','Nutri Prueba','Prueba para un nutricionista',0,0,1,5,5,14,TRUE),
+                ('nutri_full','Nutri Full','Licencia profesional individual',29.90,299,1,100,100,NULL,TRUE),
+                ('clinic_full','Clínica Full','Licencia para clínicas con varios nutricionistas',79.90,799,5,100,500,NULL,TRUE)
+            ON CONFLICT(code) DO NOTHING;
+
+            INSERT INTO subscription_plan_features(plan_id,feature_code,enabled)
+            SELECT p.id, f.feature_code, TRUE
+            FROM subscription_plans p
+            CROSS JOIN (VALUES
+                ('CLIENT_PORTAL'),('PDF_EXPORT'),('PDF_BRANDING'),('GOOGLE_LOGIN'),
+                ('RECIPES'),('DIET_TEMPLATES'),('SHARED_DIETS'),('MULTI_NUTRITIONIST'),
+                ('CLINIC_DASHBOARD'),('CLIENT_ASSIGNMENT'),('AUDIT_LOGS')
+            ) f(feature_code)
+            WHERE p.code IN ('trial_nutri','nutri_full','clinic_full')
+            ON CONFLICT(plan_id,feature_code) DO NOTHING;
+
+            -- La prueba es deliberadamente limitada; los planes profesionales tienen las funciones completas.
+            UPDATE subscription_plan_features SET enabled = FALSE
+            WHERE plan_id = (SELECT id FROM subscription_plans WHERE code='trial_nutri')
+              AND feature_code IN ('PDF_BRANDING','MULTI_NUTRITIONIST','CLINIC_DASHBOARD','CLIENT_ASSIGNMENT','SHARED_DIETS');
+
+            -- Asignamos una suscripción a cada tenant existente si todavía no tiene ninguna.
+            INSERT INTO subscriptions(tenant_id,plan_id,status,started_at,expires_at)
+            SELECT t.id,
+                   CASE
+                     WHEN u.subscription_plan IN ('enterprise','clinic_full') THEN (SELECT id FROM subscription_plans WHERE code='clinic_full')
+                     WHEN u.subscription_plan IN ('professional','nutri_full') THEN (SELECT id FROM subscription_plans WHERE code='nutri_full')
+                     ELSE (SELECT id FROM subscription_plans WHERE code='trial_nutri')
+                   END,
+                   CASE WHEN coalesce(u.subscription_status,'active') IN ('suspended','cancelled','past_due') THEN coalesce(u.subscription_status,'active') ELSE 'active' END,
+                   coalesce(u.created_at,NOW()),
+                   CASE
+                     WHEN u.license_expires_at IS NOT NULL THEN u.license_expires_at
+                     WHEN coalesce(u.subscription_plan,'free') IN ('free','trial_nutri') THEN coalesce(u.created_at,NOW()) + INTERVAL '14 days'
+                     ELSE NULL
+                   END
+            FROM tenants t
+            JOIN LATERAL (SELECT * FROM users ux WHERE ux.tenant_id=t.id ORDER BY CASE WHEN ux.role='clinic_admin' THEN 0 ELSE 1 END, ux.id LIMIT 1) u ON TRUE
+            WHERE NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.tenant_id=t.id);
+
+            -- El usuario propietario de una clínica existente pasa a ser clinic_admin.
+            UPDATE users u SET role='clinic_admin'
+            WHERE u.tenant_id IS NOT NULL
+              AND u.role IN ('user','nutritionist')
+              AND EXISTS (SELECT 1 FROM subscriptions s JOIN subscription_plans p ON p.id=s.plan_id WHERE s.tenant_id=u.tenant_id AND p.code='clinic_full')
+              AND u.id = (SELECT min(u2.id) FROM users u2 WHERE u2.tenant_id=u.tenant_id AND u2.role IN ('user','nutritionist'));
+
+            -- La asignación actual se conserva en el historial nuevo.
+            INSERT INTO client_nutritionist_assignments(client_id,nutritionist_id,assigned_at,is_active)
+            SELECT c.id,c.user_id,coalesce(c.created_at,NOW()),TRUE
+            FROM clients c
+            WHERE NOT EXISTS (SELECT 1 FROM client_nutritionist_assignments a WHERE a.client_id=c.id AND a.is_active);
+
+            -- Mantener el plan antiguo por compatibilidad temporal con el código existente.
+            UPDATE users u SET subscription_plan=p.code
+            FROM subscriptions s JOIN subscription_plans p ON p.id=s.plan_id
+            WHERE s.tenant_id=u.tenant_id;
+        ");
+        logger.LogInformation("Esquema SaaS comprobado/actualizado correctamente.");
+    }
+
 }
