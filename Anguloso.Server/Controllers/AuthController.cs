@@ -235,7 +235,7 @@ public class AuthController : ControllerBase
             {
                 legal_name = string.IsNullOrWhiteSpace(nombreCompleto) ? usuario.Username : nombreCompleto,
                 trade_name = string.IsNullOrWhiteSpace(nombreCompleto) ? usuario.Username : nombreCompleto,
-                slug = $"{Regex.Replace(usuario.Username.ToLowerInvariant(), @"[^a-z0-9]+", "-").Trim('-')}-{Guid.NewGuid():N}".Substring(0, Math.Min(95, $"{Regex.Replace(usuario.Username.ToLowerInvariant(), @"[^a-z0-9]+", "-").Trim('-')}-{Guid.NewGuid():N}".Length)),
+                slug = $"{Regex.Replace(usuario.Username.ToLowerInvariant(), @"[^a-z0-9]+", "-").Trim('-')}-{Guid.NewGuid():N}",
                 contact_email = usuario.Email,
                 status = "active"
             };
@@ -579,7 +579,7 @@ public class AuthController : ControllerBase
                 {
                     legal_name = name,
                     trade_name = name,
-                    slug = $"{GenerateUniqueUsername(name)}-{Guid.NewGuid():N}".Substring(0, 95),
+                    slug = $"{GenerateUniqueUsername(name)}-{Guid.NewGuid():N}",
                     contact_email = email,
                     status = "active"
                 };
