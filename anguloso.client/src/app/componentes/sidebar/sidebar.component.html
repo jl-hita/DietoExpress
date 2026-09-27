@@ -34,6 +34,13 @@
       </a>
     </div>
 
+    <div class="menu-item" *ngIf="isSuperAdmin">
+      <a mat-list-item routerLink="/admin/logs" routerLinkActive="active-link" style="color: #2dd4bf !important; font-weight: 600;">
+        <mat-icon style="color: #2dd4bf !important;">description</mat-icon>
+        <span>Logs del sistema</span>
+      </a>
+    </div>
+
     <!-- Enlace de logout -->
     <div class="menu-item logout-link">
       <a mat-list-item (click)="logout()" style="cursor: pointer;">
