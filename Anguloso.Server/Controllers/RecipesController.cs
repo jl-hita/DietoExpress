@@ -18,10 +18,12 @@ namespace Anguloso.Server.Controllers;
 public class RecipesController : ControllerBase
 {
     private readonly angulosodbContext _context;
+    private readonly ILicenseService _licenseService;
 
-    public RecipesController(angulosodbContext context)
+    public RecipesController(angulosodbContext context, ILicenseService licenseService)
     {
         _context = context;
+        _licenseService = licenseService;
     }
 
     // GET: api/recipes
@@ -30,6 +32,7 @@ public class RecipesController : ControllerBase
     {
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
+        if (!await _licenseService.CanUseFeatureAsync(AuthHelpers.GetTenantId(User), "RECIPES")) return Forbid();
 
         var list = await _context.recipes
             .Where(r => r.user_id == userId.Value)
@@ -52,6 +55,7 @@ public class RecipesController : ControllerBase
     {
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
+        if (!await _licenseService.CanUseFeatureAsync(AuthHelpers.GetTenantId(User), "RECIPES")) return Forbid();
 
         var recipe = await _context.recipes
             .Include(r => r.recipe_items)
@@ -92,6 +96,7 @@ public class RecipesController : ControllerBase
     {
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
+        if (!await _licenseService.CanUseFeatureAsync(AuthHelpers.GetTenantId(User), "RECIPES")) return Forbid();
 
         if (dto == null) return BadRequest("Los datos de la receta son requeridos.");
         if (string.IsNullOrWhiteSpace(dto.Name)) return BadRequest("El nombre de la receta es requerido.");
@@ -140,6 +145,7 @@ public class RecipesController : ControllerBase
     {
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
+        if (!await _licenseService.CanUseFeatureAsync(AuthHelpers.GetTenantId(User), "RECIPES")) return Forbid();
 
         if (dto == null) return BadRequest("Los datos de la receta son requeridos.");
         if (string.IsNullOrWhiteSpace(dto.Name)) return BadRequest("El nombre de la receta es requerido.");
@@ -185,6 +191,7 @@ public class RecipesController : ControllerBase
     {
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
+        if (!await _licenseService.CanUseFeatureAsync(AuthHelpers.GetTenantId(User), "RECIPES")) return Forbid();
 
         var recipe = await _context.recipes
             .Include(r => r.recipe_items)
