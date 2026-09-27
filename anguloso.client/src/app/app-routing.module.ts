@@ -19,6 +19,7 @@ import { AdminDashboardComponent } from './componentes/admin/admin-dashboard.com
 import { AdminLogComponent } from './componentes/admin/admin-log.component';
 import { SetupGuard } from './guards/setup.guard';
 import { SuperAdminGuard } from './guards/super-admin.guard';
+import { ClinicDashboardComponent } from './componentes/clinic/clinic-dashboard.component';
 
 export interface AppRoute extends Route {
   showInMenu?: boolean;
@@ -43,7 +44,8 @@ const routes: AppRoute[] = [
       { path: 'diets/:id', component: DietCreateComponent, title: 'Editar dieta' },
       { path: 'settings', component: SettingsComponent, title: 'Ajustes' },
       { path: 'admin', component: AdminDashboardComponent, canActivate: [SuperAdminGuard], title: 'Panel SuperAdmin' },
-      { path: 'admin/logs', component: AdminLogComponent, canActivate: [SuperAdminGuard], title: 'Logs del sistema' }
+      { path: 'admin/logs', component: AdminLogComponent, canActivate: [SuperAdminGuard], title: 'Logs del sistema' },
+      { path: 'clinic', component: ClinicDashboardComponent, title: 'Panel de clínica' }
     ]
   },
   { path: '**', redirectTo: '' } // fallback SPA → LayoutComponent
