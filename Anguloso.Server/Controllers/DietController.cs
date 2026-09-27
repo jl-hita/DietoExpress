@@ -46,7 +46,7 @@ public class DietController : ControllerBase
         // 2. O pertenece a la misma clínica (tenant_id == tenantId) Y ha sido marcada explícitamente como compartida (is_shared == true)
         var query = _context.diets
             .Include(d => d.user)
-            .Where(d => d.user_id == userId.Value || (tenantId.HasValue && d.tenant_id == tenantId.Value && d.is_shared));
+            .Where(d => d.user_id == userId.Value || (sharedAllowed && tenantId.HasValue && d.tenant_id == tenantId.Value && d.is_shared));
 
         if (onlyShared == true)
         {
@@ -82,10 +82,7 @@ public class DietController : ControllerBase
         if (userId == null) return Unauthorized();
 
         var tenantId = AuthHelpers.GetTenantId(User);
-        if (!await _licenseService.CanUseFeatureAsync(tenantId, "SHARED_DIETS"))
-        {
-            // La propia dieta sigue siendo accesible; las compartidas no.
-        }
+        var sharedAllowed = await _licenseService.CanUseFeatureAsync(tenantId, "SHARED_DIETS");
 
         // Visible si es propia O si es compartida dentro de la misma clínica
         var d = await _context.diets
