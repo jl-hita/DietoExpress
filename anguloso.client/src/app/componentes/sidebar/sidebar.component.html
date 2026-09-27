@@ -27,16 +27,16 @@
     </div>
 
     <!-- Acceso SuperAdmin exclusivo -->
-    <div class="menu-item" *ngIf="isSuperAdmin">
-      <a mat-list-item routerLink="/admin" routerLinkActive="active-link" style="color: #2dd4bf !important; font-weight: 600;">
-        <mat-icon style="color: #2dd4bf !important;">admin_panel_settings</mat-icon>
+    <div class="menu-item superadmin-item" *ngIf="isSuperAdmin">
+      <a mat-list-item routerLink="/admin" routerLinkActive="active-link">
+        <mat-icon>admin_panel_settings</mat-icon>
         <span>Panel SuperAdmin</span>
       </a>
     </div>
 
-    <div class="menu-item" *ngIf="isSuperAdmin">
-      <a mat-list-item routerLink="/admin/logs" routerLinkActive="active-link" style="color: #2dd4bf !important; font-weight: 600;">
-        <mat-icon style="color: #2dd4bf !important;">description</mat-icon>
+    <div class="menu-item superadmin-item" *ngIf="isSuperAdmin">
+      <a mat-list-item routerLink="/admin/logs" routerLinkActive="active-link">
+        <mat-icon>description</mat-icon>
         <span>Logs del sistema</span>
       </a>
     </div>
