@@ -283,6 +283,135 @@ public class AdminUsersController : ControllerBase
     }
 
     /// <summary>
+    /// Crea una cuenta completa desde el panel de SuperAdmin, incluyendo tenant y licencia.
+    /// </summary>
+    [HttpPost("users/create-account")]
+    public async Task<IActionResult> CreateAccount([FromBody] CreateAdminAccountRequest request)
+    {
+        if (request == null)
+            return BadRequest("Datos de cuenta no válidos.");
+
+        if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.FullName) ||
+            string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+            return BadRequest("Usuario, nombre, email y contraseña son obligatorios.");
+
+        if (request.Password.Length < 6)
+            return BadRequest("La contraseña debe tener al menos 6 caracteres.");
+
+        var accountType = (request.AccountType ?? "nutritionist").Trim().ToLowerInvariant();
+        if (accountType != "nutritionist" && accountType != "clinic")
+            return BadRequest("Tipo de cuenta no válido.");
+
+        if (accountType == "clinic" && string.IsNullOrWhiteSpace(request.ClinicName))
+            return BadRequest("El nombre de la clínica es obligatorio para una cuenta de clínica.");
+
+        var username = request.Username.Trim();
+        var email = request.Email.Trim();
+
+        if (await _context.users.AnyAsync(u => u.username == username))
+            return Conflict("El nombre de usuario ya existe.");
+        if (await _context.users.AnyAsync(u => u.email == email))
+            return Conflict("El email ya está registrado.");
+
+        var planCode = string.IsNullOrWhiteSpace(request.SubscriptionPlan) ? "trial_nutri" : request.SubscriptionPlan.Trim();
+        var plan = await _context.subscription_plans.FirstOrDefaultAsync(p => p.code == planCode && p.active);
+        if (plan == null)
+            return BadRequest("El plan seleccionado no existe o no está activo.");
+
+        var now = DateTime.UtcNow;
+        DateTime? expiresAt = request.LicenseExpiresAt;
+        if (!expiresAt.HasValue && plan.trial_days.HasValue)
+            expiresAt = now.AddDays(plan.trial_days.Value);
+
+        var legalName = accountType == "clinic"
+            ? (string.IsNullOrWhiteSpace(request.LegalName) ? request.ClinicName! : request.LegalName)
+            : request.FullName;
+        var tradeName = accountType == "clinic"
+            ? (request.ClinicName ?? legalName)
+            : request.FullName;
+
+        var slugBase = Regex.Replace((accountType == "clinic" ? tradeName : username).ToLowerInvariant(), @"[^a-z0-9]+", "-").Trim('-');
+        if (string.IsNullOrWhiteSpace(slugBase)) slugBase = "tenant";
+        var slug = $"{slugBase}-{Guid.NewGuid():N}";
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            var tenant = new tenants
+            {
+                legal_name = legalName,
+                trade_name = tradeName,
+                cif_nif = request.CifNif?.Trim() ?? string.Empty,
+                slug = slug,
+                status = "active",
+                contact_email = email,
+                contact_phone = request.ClinicPhone?.Trim(),
+                address = request.ClinicAddress?.Trim()
+            };
+            _context.tenants.Add(tenant);
+            await _context.SaveChangesAsync();
+
+            var user = new users
+            {
+                username = username,
+                full_name = request.FullName.Trim(),
+                password_hash = BCrypt.Net.BCrypt.HashPassword(request.Password),
+                email = email,
+                email_confirmed = true,
+                role = accountType == "clinic" ? "clinic_admin" : "nutritionist",
+                created_at = now,
+                tenant_id = tenant.id,
+                clinic_name = request.ClinicName?.Trim(),
+                clinic_address = request.ClinicAddress?.Trim(),
+                clinic_phone = request.ClinicPhone?.Trim(),
+                subscription_plan = plan.code,
+                subscription_status = request.SubscriptionStatus ?? "active",
+                license_expires_at = expiresAt,
+                max_clients_allowed = request.MaxClientsAllowed ?? plan.max_clients_per_nutritionist ?? 10
+            };
+            _context.users.Add(user);
+            await _context.SaveChangesAsync();
+
+            var subscription = new subscriptions
+            {
+                tenant_id = tenant.id,
+                plan_id = plan.id,
+                status = user.subscription_status,
+                started_at = now,
+                expires_at = expiresAt
+            };
+            _context.subscriptions.Add(subscription);
+            await _context.SaveChangesAsync();
+
+            _context.subscription_events.Add(new subscription_events
+            {
+                subscription_id = subscription.id,
+                event_type = "ACCOUNT_CREATED_BY_SUPERADMIN",
+                new_plan_id = plan.id,
+                details = $"Cuenta creada por SuperAdmin: {user.username}"
+            });
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return Ok(new
+            {
+                message = "Cuenta creada correctamente.",
+                userId = user.id,
+                tenantId = tenant.id,
+                username = user.username,
+                role = user.role,
+                subscriptionPlan = plan.code,
+                licenseExpiresAt = expiresAt
+            });
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
+    /// <summary>
     /// Suspende la cuenta o suscripción de un usuario.
     /// </summary>
     [HttpPut("users/{id}/suspend")]
