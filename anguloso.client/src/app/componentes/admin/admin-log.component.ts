@@ -76,4 +76,3 @@ export class AdminLogComponent implements OnInit {
 
   private toDateString(date: Date): string { return date.toISOString().slice(0, 10); }
 }
-`
