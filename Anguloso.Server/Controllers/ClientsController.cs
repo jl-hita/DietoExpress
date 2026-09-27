@@ -277,7 +277,7 @@ public class ClientsController : ControllerBase
             .Include(c => c.digestive_health)
             .Include(c => c.food_preferences)
             .Include(c => c.lifestyle_history)
-            .FirstOrDefaultAsync(c => c.id == id && c.user_id == userId.Value);
+            .FirstOrDefaultAsync(c => c.id == id && (c.user_id == userId.Value || (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User).Value)));
 
         if (client == null) return NotFound();
 
