@@ -56,6 +56,10 @@ public partial class angulosodbContext : DbContext
     public virtual DbSet<tenants> tenants { get; set; }
 
     public virtual DbSet<audit_logs> audit_logs { get; set; }
+    public virtual DbSet<subscription_plans> subscription_plans { get; set; }
+    public virtual DbSet<subscription_plan_features> subscription_plan_features { get; set; }
+    public virtual DbSet<subscriptions> subscriptions { get; set; }
+    public virtual DbSet<client_nutritionist_assignments> client_nutritionist_assignments { get; set; }
     /*
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
@@ -354,6 +358,41 @@ public partial class angulosodbContext : DbContext
             entity.Property(e => e.contact_phone).HasMaxLength(50);
             entity.Property(e => e.address).HasMaxLength(300);
             entity.Property(e => e.logo_url).HasColumnType("text");
+        });
+
+        modelBuilder.Entity<subscription_plans>(entity =>
+        {
+            entity.HasKey(e => e.id);
+            entity.HasIndex(e => e.code).IsUnique();
+            entity.Property(e => e.code).HasMaxLength(50).IsRequired();
+            entity.Property(e => e.name).HasMaxLength(150).IsRequired();
+            entity.Property(e => e.monthly_price).HasPrecision(10, 2);
+            entity.Property(e => e.yearly_price).HasPrecision(10, 2);
+        });
+
+        modelBuilder.Entity<subscription_plan_features>(entity =>
+        {
+            entity.HasKey(e => e.id);
+            entity.HasIndex(e => new { e.plan_id, e.feature_code }).IsUnique();
+            entity.Property(e => e.feature_code).HasMaxLength(100).IsRequired();
+            entity.HasOne(e => e.plan).WithMany(p => p.features).HasForeignKey(e => e.plan_id).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<subscriptions>(entity =>
+        {
+            entity.HasKey(e => e.id);
+            entity.HasOne(e => e.tenant).WithMany().HasForeignKey(e => e.tenant_id).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.plan).WithMany(p => p.subscriptions).HasForeignKey(e => e.plan_id).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<client_nutritionist_assignments>(entity =>
+        {
+            entity.HasKey(e => e.id);
+            entity.HasIndex(e => e.client_id);
+            entity.HasIndex(e => new { e.client_id, e.is_active }).IsUnique().HasFilter("is_active = true");
+            entity.HasOne(e => e.client).WithMany().HasForeignKey(e => e.client_id).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.nutritionist).WithMany().HasForeignKey(e => e.nutritionist_id).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.assigned_by_user).WithMany().HasForeignKey(e => e.assigned_by_user_id).OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<audit_logs>(entity =>
