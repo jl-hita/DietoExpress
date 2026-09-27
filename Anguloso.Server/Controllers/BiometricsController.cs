@@ -38,7 +38,7 @@ public class BiometricsController : ControllerBase
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
 
-        var client = await _context.clients.AsNoTracking().FirstOrDefaultAsync(c => c.id == clientId && c.user_id == userId.Value);
+        var client = await _context.clients.AsNoTracking().FirstOrDefaultAsync(c => c.id == clientId && (c.user_id == userId.Value || (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User).Value)));
         if (client == null) return NotFound();
 
         int? age = null;
@@ -67,7 +67,7 @@ public class BiometricsController : ControllerBase
 
         var b = await _context.biometrics
             .Include(x => x.client)
-            .FirstOrDefaultAsync(x => x.id == id && x.client_id == clientId && x.client.user_id == userId.Value);
+            .FirstOrDefaultAsync(x => x.id == id && x.client_id == clientId && x.(client.user_id == userId.Value || (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue && client.tenant_id == AuthHelpers.GetTenantId(User).Value)));
 
         if (b == null) return NotFound();
 
@@ -90,7 +90,7 @@ public class BiometricsController : ControllerBase
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
 
-        var client = await _context.clients.FirstOrDefaultAsync(c => c.id == clientId && c.user_id == userId.Value);
+        var client = await _context.clients.FirstOrDefaultAsync(c => c.id == clientId && (c.user_id == userId.Value || (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User).Value)));
         if (client == null) return NotFound();
 
         var b = new biometrics
@@ -136,7 +136,7 @@ public class BiometricsController : ControllerBase
         if (userId == null) return Unauthorized();
 
         var b = await _context.biometrics.Include(x => x.client)
-            .FirstOrDefaultAsync(x => x.id == id && x.client_id == clientId && x.client.user_id == userId.Value);
+            .FirstOrDefaultAsync(x => x.id == id && x.client_id == clientId && x.(client.user_id == userId.Value || (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue && client.tenant_id == AuthHelpers.GetTenantId(User).Value)));
 
         if (b == null) return NotFound();
 
@@ -177,7 +177,7 @@ public class BiometricsController : ControllerBase
         if (userId == null) return Unauthorized();
 
         var b = await _context.biometrics.Include(x => x.client)
-            .FirstOrDefaultAsync(x => x.id == id && x.client_id == clientId && x.client.user_id == userId.Value);
+            .FirstOrDefaultAsync(x => x.id == id && x.client_id == clientId && x.(client.user_id == userId.Value || (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue && client.tenant_id == AuthHelpers.GetTenantId(User).Value)));
 
         if (b == null) return NotFound();
 
@@ -194,7 +194,7 @@ public class BiometricsController : ControllerBase
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
 
-        var client = await _context.clients.AsNoTracking().FirstOrDefaultAsync(c => c.id == clientId && c.user_id == userId.Value);
+        var client = await _context.clients.AsNoTracking().FirstOrDefaultAsync(c => c.id == clientId && (c.user_id == userId.Value || (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User).Value)));
         if (client == null) return NotFound();
 
         int? age = null;
@@ -224,7 +224,7 @@ public class BiometricsController : ControllerBase
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
 
-        var client = await _context.clients.AsNoTracking().FirstOrDefaultAsync(c => c.id == clientId && c.user_id == userId.Value);
+        var client = await _context.clients.AsNoTracking().FirstOrDefaultAsync(c => c.id == clientId && (c.user_id == userId.Value || (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User).Value)));
         if (client == null) return NotFound("Cliente no encontrado.");
 
         if (file == null || file.Length == 0)
@@ -269,7 +269,7 @@ public class BiometricsController : ControllerBase
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
 
-        var client = await _context.clients.FirstOrDefaultAsync(c => c.id == clientId && c.user_id == userId.Value);
+        var client = await _context.clients.FirstOrDefaultAsync(c => c.id == clientId && (c.user_id == userId.Value || (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User).Value)));
         if (client == null) return NotFound("Cliente no encontrado.");
 
         if (dto?.Rows == null || dto.Rows.Count == 0)
