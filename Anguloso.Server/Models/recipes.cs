@@ -17,6 +17,10 @@ public partial class recipes
 
     public DateTime? created_at { get; set; }
 
+    public int? tenant_id { get; set; }
+
+    public virtual tenants? tenant { get; set; }
+
     public virtual ICollection<recipe_items> recipe_items { get; set; } = new List<recipe_items>();
 
     public virtual users user { get; set; }
