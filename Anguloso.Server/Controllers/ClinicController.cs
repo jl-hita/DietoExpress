@@ -28,6 +28,7 @@ public class ClinicController : ControllerBase
     public async Task<IActionResult> CreateNutritionist([FromBody] CreateNutritionistRequest req)
     {
         var tenantId=AuthHelpers.GetTenantId(User); if(!tenantId.HasValue)return BadRequest("Sin clínica.");
+        if(!await _license.CanUseFeatureAsync(tenantId,"MULTI_NUTRITIONIST")) return Forbid();
         var allowed=await _license.CanCreateNutritionistAsync(tenantId); if(!allowed.Allowed)return BadRequest(allowed.Reason);
         if(string.IsNullOrWhiteSpace(req.Username)||string.IsNullOrWhiteSpace(req.Email)||string.IsNullOrWhiteSpace(req.Password))return BadRequest("Usuario, email y contraseña son obligatorios.");
         if(await _context.users.AnyAsync(u=>u.username==req.Username||u.email==req.Email))return Conflict("El usuario o email ya existe.");
