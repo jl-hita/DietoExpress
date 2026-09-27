@@ -88,7 +88,10 @@ public class OpenFoodFactsService
             // 2. Si hay más de 5 resultados, devuelve la lista
             //if (localResults.Any())
             if (localResults.Count > 5)
+            {
+                await RefreshIncompleteMicrosAsync(localResults);
                 return ListaProductos(localResults);
+            }
 
             // 3. Buscar fuera si no hay resultados
             var offResults = await SearchProductsAsync(term, pais, lang);
@@ -111,6 +114,54 @@ public class OpenFoodFactsService
      * Busca productos en OpenFoodFacts
      * Si los productos no tienen información de macros se buscan en la USDA (US Department of Agriculture)
      */
+    private async Task RefreshIncompleteMicrosAsync(List<foods> foodsList)
+    {
+        var now = DateTime.UtcNow;
+        var candidates = foodsList.Where(f => HasMissingMicronutrients(f) &&
+            (!f.last_synced_at.HasValue || now - f.last_synced_at.Value >= TimeSpan.FromDays(15))).ToList();
+
+        foreach (var food in candidates)
+        {
+            try
+            {
+                _logServ.LogInfo($"USDA periodic refresh for '{food.name}' | lastSync:{food.last_synced_at:O}");
+                var (_, fallbackMicros, _, _, _) = await GetNutrientsFromUsdaAsync(food.name);
+                using var updateContext = CrearDbContext();
+                var trackedFood = await updateContext.foods.FirstOrDefaultAsync(f => f.id == food.id);
+                if (trackedFood == null) continue;
+                if (fallbackMicros != null) MergeMissingMicronutrientsIntoFood(trackedFood, fallbackMicros);
+                trackedFood.last_synced_at = now;
+                await updateContext.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logServ.LogError($"Excepción refrescando USDA para '{food.name}' => {ex.Message}");
+            }
+        }
+    }
+
+    private static bool HasMissingMicronutrients(foods food)
+    {
+        return food.vitamin_a_ug == null || food.vitamin_c_mg == null || food.vitamin_d_ug == null ||
+               food.vitamin_e_mg == null || food.vitamin_b12_ug == null || food.folate_ug == null ||
+               food.calcium_mg == null || food.iron_mg == null || food.magnesium_mg == null ||
+               food.potassium_mg == null || food.zinc_mg == null;
+    }
+
+    private static void MergeMissingMicronutrientsIntoFood(foods food, OffMicronutrients source)
+    {
+        if (food.vitamin_a_ug == null && source.VitaminA_ug.HasValue) food.vitamin_a_ug = source.VitaminA_ug;
+        if (food.vitamin_c_mg == null && source.VitaminC_mg.HasValue) food.vitamin_c_mg = source.VitaminC_mg;
+        if (food.vitamin_d_ug == null && source.VitaminD_ug.HasValue) food.vitamin_d_ug = source.VitaminD_ug;
+        if (food.vitamin_e_mg == null && source.VitaminE_mg.HasValue) food.vitamin_e_mg = source.VitaminE_mg;
+        if (food.vitamin_b12_ug == null && source.VitaminB12_ug.HasValue) food.vitamin_b12_ug = source.VitaminB12_ug;
+        if (food.folate_ug == null && source.Folate_ug.HasValue) food.folate_ug = source.Folate_ug;
+        if (food.calcium_mg == null && source.Calcium_mg.HasValue) food.calcium_mg = source.Calcium_mg;
+        if (food.iron_mg == null && source.Iron_mg.HasValue) food.iron_mg = source.Iron_mg;
+        if (food.magnesium_mg == null && source.Magnesium_mg.HasValue) food.magnesium_mg = source.Magnesium_mg;
+        if (food.potassium_mg == null && source.Potassium_mg.HasValue) food.potassium_mg = source.Potassium_mg;
+        if (food.zinc_mg == null && source.Zinc_mg.HasValue) food.zinc_mg = source.Zinc_mg;
+    }
     public async Task<List<OffProduct>> SearchProductsAsync(string query, string pais = "spain", string lang = "es")
     {
         var products = new List<OffProduct>();
