@@ -531,7 +531,7 @@ public static class DatabaseBootstrap
                    coalesce(u.created_at,NOW()),
                    CASE
                      WHEN u.license_expires_at IS NOT NULL THEN u.license_expires_at
-                     WHEN coalesce(u.subscription_plan,'free') IN ('free','trial_nutri') THEN coalesce(u.created_at,NOW()) + INTERVAL '14 days'
+                     WHEN coalesce(u.subscription_plan,'free') IN ('free','trial_nutri') THEN NOW() + INTERVAL '14 days'
                      ELSE NULL
                    END
             FROM tenants t
