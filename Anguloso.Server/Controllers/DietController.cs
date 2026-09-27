@@ -316,7 +316,7 @@ public class DietController : ControllerBase
             return BadRequest("El identificador del cliente es obligatorio y debe ser válido.");
         }
 
-        var clientExists = await _context.clients.AnyAsync(c => c.id == request.ClientId && c.user_id == userId.Value);
+        var clientExists = await _context.clients.AnyAsync(c => c.id == request.ClientId && (c.user_id == userId.Value || (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User).Value)));
         if (!clientExists) return NotFound("Cliente no encontrado.");
 
         var warnings = await _validationService.ValidateDietDraftCompatibilityAsync(request.ClientId, request.Diet, _context);
