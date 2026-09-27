@@ -319,6 +319,10 @@ public partial class angulosodbContext : DbContext
             entity.HasOne(d => d.user).WithMany(p => p.recipes)
                 .HasForeignKey(d => d.user_id)
                 .HasConstraintName("recipes_user_id_fkey");
+            
+            entity.HasOne(d => d.tenant).WithMany()
+                .HasForeignKey(d => d.tenant_id)
+                .HasConstraintName("recipes_tenant_id_fkey");
         });
 
         modelBuilder.Entity<users>(entity =>
