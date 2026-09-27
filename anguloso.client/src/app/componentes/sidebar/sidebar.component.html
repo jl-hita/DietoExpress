@@ -1,6 +1,6 @@
 <div class="sidebar-container">
   <div class="profile">
-    <img src="/assets/profile.png" class="avatar" />
+    <img [src]="profileImage" (error)="onProfileImageError()" alt="Imagen de perfil" class="avatar" />
     <div class="name">{{ userName }}</div>
   </div>
 
