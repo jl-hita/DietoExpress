@@ -16,5 +16,6 @@ export class ClinicDashboardComponent implements OnInit {
  ngOnInit(){this.load();}
  load(){this.clinic.getDashboard().subscribe({next:d=>this.data=d,error:e=>this.snack.open(e?.error||'No se puede cargar el panel de clínica','Cerrar',{duration:4000})});}
  createNutri(){this.clinic.createNutritionist(this.newNutri).subscribe({next:()=>{this.snack.open('Nutricionista creado','OK',{duration:2500});this.newNutri={username:'',fullName:'',email:'',password:''};this.showCreate=false;this.load()},error:e=>this.snack.open(e?.error||'No se pudo crear','Cerrar',{duration:4000})});}
+ disableNutri(n:any){if(!confirm('¿Desactivar a '+n.full_name+'? Debe no tener clientes asignados.')) return; this.clinic.disableNutritionist(n.id).subscribe({next:()=>{this.snack.open('Nutricionista desactivado','OK',{duration:2500});this.load()},error:e=>this.snack.open(e?.error||'No se pudo desactivar','Cerrar',{duration:4000})});}
  assign(client:any,id:number){this.clinic.assignClient(client.id,id).subscribe({next:()=>this.load(),error:e=>{this.snack.open(e?.error||'No se pudo reasignar','Cerrar',{duration:4000});this.load()}});}
 }
