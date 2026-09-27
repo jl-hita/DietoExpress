@@ -6,7 +6,7 @@ import { MATERIAL_IMPORTS } from '../../shared/material.imports';
 import { DietService } from '../../servicios/diet.service';
 import { FoodService } from '../../servicios/food.service';
 import { ClientService } from '../../servicios/client.service';
-import { Diet, DietDay, Meal, MealItem } from '../../modelos/diet';
+import { DietDetail, DietDay, Meal, MealItem } from '../../modelos/diet';
 import { FoodExchangeGroup } from '../../modelos/food-exchange-group';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ExchangeSearchDialogComponent } from './exchange-search-dialog.component';
@@ -478,7 +478,7 @@ export class DietCreateComponent implements OnInit {
   submit(): void {
     if (this.form.invalid) return;
     const raw = this.form.getRawValue();
-    const dto: Diet = {
+    const dto: DietDetail = {
       name: raw.name,
       targetKcal: raw.targetKcal ?? undefined,
       targetProtein: raw.targetProtein ?? undefined,
