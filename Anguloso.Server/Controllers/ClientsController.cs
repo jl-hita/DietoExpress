@@ -21,11 +21,13 @@ public class ClientsController : ControllerBase
     public ClientsController(
         angulosodbContext context, 
         EnergyCalculatorService calculatorService,
-        IAuditLogService auditLogService)
+        IAuditLogService auditLogService,
+        ILicenseService licenseService)
     {
         _context = context;
         _calculatorService = calculatorService;
         _auditLogService = auditLogService;
+        _licenseService = licenseService;
     }
 
     // GET: api/clients
