@@ -28,10 +28,9 @@ import { AdminUser, UpdateLicenseDto } from '../../servicios/admin.service';
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>Plan de Suscripción</mat-label>
         <mat-select [(ngModel)]="model.subscriptionPlan">
-          <mat-option value="free">Free / Prueba</mat-option>
-          <mat-option value="starter">Starter (Básico)</mat-option>
-          <mat-option value="professional">Profesional</mat-option>
-          <mat-option value="enterprise">Clínica / Enterprise</mat-option>
+          <mat-option value="trial_nutri">Nutri Prueba</mat-option>
+          <mat-option value="nutri_full">Nutri Full</mat-option>
+          <mat-option value="clinic_full">Clínica Full</mat-option>
         </mat-select>
       </mat-form-field>
 
@@ -89,7 +88,7 @@ export class EditLicenseDialogComponent {
     @Inject(MAT_DIALOG_DATA) public data: AdminUser
   ) {
     this.model = {
-      subscriptionPlan: data.subscriptionPlan || 'free',
+      subscriptionPlan: data.subscriptionPlan || 'trial_nutri',
       subscriptionStatus: data.subscriptionStatus || 'active',
       licenseExpiresAt: data.licenseExpiresAt,
       maxClientsAllowed: data.maxClientsAllowed || 10
