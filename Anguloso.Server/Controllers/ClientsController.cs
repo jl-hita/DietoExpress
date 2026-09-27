@@ -63,6 +63,8 @@ public class ClientsController : ControllerBase
     {
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
+        var tenantId = AuthHelpers.GetTenantId(User);
+        var isClinicAdmin = User.IsInRole("clinic_admin");
 
         var client = await _context.clients
             .Include(c => c.biometrics)
