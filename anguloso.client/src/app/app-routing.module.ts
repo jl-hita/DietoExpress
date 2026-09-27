@@ -20,6 +20,7 @@ import { AdminLogComponent } from './componentes/admin/admin-log.component';
 import { SetupGuard } from './guards/setup.guard';
 import { SuperAdminGuard } from './guards/super-admin.guard';
 import { ClinicDashboardComponent } from './componentes/clinic/clinic-dashboard.component';
+import { AdminPlansComponent } from './componentes/admin/admin-plans.component';
 
 export interface AppRoute extends Route {
   showInMenu?: boolean;
@@ -45,6 +46,7 @@ const routes: AppRoute[] = [
       { path: 'settings', component: SettingsComponent, title: 'Ajustes' },
       { path: 'admin', component: AdminDashboardComponent, canActivate: [SuperAdminGuard], title: 'Panel SuperAdmin' },
       { path: 'admin/logs', component: AdminLogComponent, canActivate: [SuperAdminGuard], title: 'Logs del sistema' },
+      { path: 'admin/plans', component: AdminPlansComponent, canActivate: [SuperAdminGuard], title: 'Planes SaaS' },
       { path: 'clinic', component: ClinicDashboardComponent, title: 'Panel de clínica' }
     ]
   },
