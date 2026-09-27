@@ -16,6 +16,7 @@ public class ClientsController : ControllerBase
     private readonly angulosodbContext _context;
     private readonly EnergyCalculatorService _calculatorService;
     private readonly IAuditLogService _auditLogService;
+    private readonly ILicenseService _licenseService;
 
     public ClientsController(
         angulosodbContext context, 
@@ -176,6 +177,10 @@ public class ClientsController : ControllerBase
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
 
+        var tenantId = AuthHelpers.GetTenantId(User);
+        var licenseCheck = await _licenseService.CanCreateClientAsync(tenantId, userId.Value);
+        if (!licenseCheck.Allowed) return BadRequest(licenseCheck.Reason);
+
         var client = new clients
         {
             user_id = userId.Value,
@@ -231,6 +236,16 @@ public class ClientsController : ControllerBase
         };
 
         _context.clients.Add(client);
+        await _context.SaveChangesAsync();
+
+        _context.client_nutritionist_assignments.Add(new client_nutritionist_assignments
+        {
+            client_id = client.id,
+            nutritionist_id = userId.Value,
+            assigned_by_user_id = userId.Value,
+            assigned_at = DateTime.UtcNow,
+            is_active = true
+        });
         await _context.SaveChangesAsync();
 
         await _auditLogService.LogAccessAsync(
