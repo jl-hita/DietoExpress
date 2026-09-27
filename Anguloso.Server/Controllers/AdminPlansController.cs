@@ -147,7 +147,9 @@ public record PlanRequest(
     int? TrialDays,
     bool Active);
 
-public record FeatureRequest(string FeatureCode, bool Enabled);
+public record FeatureRequest(
+    [property: JsonPropertyName("feature_code")] string FeatureCode,
+    [property: JsonPropertyName("enabled")] bool Enabled);
 
 public record FeatureResponse(
     [property: JsonPropertyName("id")] int Id,
