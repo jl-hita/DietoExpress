@@ -21,7 +21,7 @@ export class DietsListComponent implements OnInit {
 
   searchTerm = '';
   filtered: DietListItem[] = [];
-  pagedDiets: Diet[] = [];
+  pagedDiets: DietListItem[] = [];
   pageSize = 10;
   currentPage = 1;
   totalPages = 1;
@@ -115,11 +115,11 @@ export class DietsListComponent implements OnInit {
     this.router.navigate(['/diets/nuevo']);
   }
 
-  editDiet(d: Diet): void {
+  editDiet(d: DietListItem): void {
     if (d.id != null) this.router.navigate(['/diets', d.id]);
   }
 
-  viewShoppingList(d: Diet): void {
+  viewShoppingList(d: DietListItem): void {
     if (d.id == null) return;
     this.dialog.open(DietShoppingListDialogComponent, {
       width: '600px',
@@ -130,7 +130,7 @@ export class DietsListComponent implements OnInit {
     });
   }
 
-  deleteDiet(d: Diet): void {
+  deleteDiet(d: DietListItem): void {
     if (d.id == null) return;
     if (!confirm(`¿Eliminar la dieta "${d.name}"?`)) return;
     this.dietService.deleteDiet(d.id).subscribe({
