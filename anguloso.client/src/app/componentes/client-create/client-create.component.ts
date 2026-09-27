@@ -1,6 +1,7 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ClientDetail } from '../../modelos/client';
+import { ClientService } from '../../servicios/client.service';
 
 @Component({
   selector: 'app-client-create',
@@ -13,8 +14,11 @@ export class ClientCreateComponent {
   @Output() cancel = new EventEmitter<void>();
 
   form: FormGroup;
+  canCreateClient = true;
+  createClientReason = '';
+  checkingCreatePermission = true;
 
-  constructor(private fb: FormBuilder) {
+  constructor(private fb: FormBuilder, private clientService: ClientService) {
     this.form = this.fb.group({
       fullName: ['', Validators.required],
       email: ['', [Validators.email]],
@@ -23,10 +27,27 @@ export class ClientCreateComponent {
       gender: [''],
       notes: ['']
     });
+
+    this.checkCreatePermission();
+  }
+
+  checkCreatePermission(): void {
+    this.clientService.canCreateClient().subscribe({
+      next: result => {
+        this.canCreateClient = result.allowed;
+        this.createClientReason = result.reason || '';
+        this.checkingCreatePermission = false;
+      },
+      error: () => {
+        this.canCreateClient = true;
+        this.createClientReason = '';
+        this.checkingCreatePermission = false;
+      }
+    });
   }
 
   submit() {
-    if (this.form.invalid) return;
+    if (!this.canCreateClient || this.checkingCreatePermission || this.form.invalid) return;
 
     const client: ClientDetail = {
       ...this.form.value,
