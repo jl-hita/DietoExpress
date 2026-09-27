@@ -4,7 +4,19 @@
     <h2>Nuevo Cliente</h2>
   </div>
 
-  <form [formGroup]="form" (ngSubmit)="submit()">
+  <div class="license-warning" *ngIf="!checkingCreatePermission && !canCreateClient">
+    <mat-icon>block</mat-icon>
+    <div>
+      <strong>No puedes crear nuevos pacientes</strong>
+      <span>{{ createClientReason }}</span>
+    </div>
+  </div>
+
+  <div *ngIf="checkingCreatePermission" class="license-checking">
+    Comprobando disponibilidad de la licencia...
+  </div>
+
+  <form [formGroup]="form" (ngSubmit)="submit()" *ngIf="canCreateClient && !checkingCreatePermission">
 
     <div class="form-grid">
 
