@@ -50,7 +50,7 @@ public class EnergyCalculatorService
             Tdee = CalculateTdeeForBmr(harrisBmr)
         };
 
-        // 3. Katch-McArdle (needs body fat %)
+        // 3. Katch-McArdle (necesita % de grasa corporal)
         if (bodyFat.HasValue && bodyFat.Value > 0 && bodyFat.Value < 100)
         {
             double lbm = weight * (1.0 - (bodyFat.Value / 100.0));

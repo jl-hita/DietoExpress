@@ -213,6 +213,8 @@ public class OpenFoodFactsService
         //var requestUrl = $"https://api.nal.usda.gov/fdc/v1/foods/search?api_key={Uri.EscapeDataString(_usdaKey)}";
 
         string? usdKey = _configServ.GetConfigString("usdaKey");
+        //string? usdKey = _configServ.GetConfigString("Authentication:USDA:ApiKey");
+
         if (string.IsNullOrWhiteSpace(usdKey))
         {
             _logServ.LogError("USDA API key is not configured.");
@@ -577,7 +579,7 @@ public class OpenFoodFactsService
         catch (Exception ex)
         {
             _logServ.LogError(
-                $"Excepción en OpenFoodFactsService.SaveFoodToDb() => {ex.Message}"
+                $"Excepción en OpenFoodFactsService.SaveFoodToDb() => {ex.Message} => {ex.InnerException?.Message}"
             );
         }
     }

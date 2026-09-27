@@ -193,6 +193,21 @@ public class Program
             }
         }
 
+        //Población de datos iniciales en la base de datos
+        //try
+        //{
+        //    using (var scope = app.Services.CreateScope())
+        //    {
+        //        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        //        var bedcaClient = new BEDCAClient(new HttpClient(), logger, context);
+        //    }   
+        //}
+        //catch (Exception e)
+        //{
+        //    _logServ.LogError($"Excepción en TestController.BEDCATest -> {e.Message}");
+        //    return BadRequest("Error ejecutando el importador BEDCA.");
+        //}
+
         // Usamos CORS
         app.UseCors("AllowAngularApp");
 
