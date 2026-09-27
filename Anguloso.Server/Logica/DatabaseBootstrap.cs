@@ -451,6 +451,16 @@ public static class DatabaseBootstrap
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
 
+            CREATE TABLE IF NOT EXISTS subscription_events (
+                id BIGSERIAL PRIMARY KEY,
+                subscription_id INTEGER NOT NULL REFERENCES subscriptions(id) ON DELETE CASCADE,
+                event_type VARCHAR(100) NOT NULL,
+                old_plan_id INTEGER REFERENCES subscription_plans(id) ON DELETE SET NULL,
+                new_plan_id INTEGER REFERENCES subscription_plans(id) ON DELETE SET NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                details TEXT
+            );
+
             CREATE TABLE IF NOT EXISTS client_nutritionist_assignments (
                 id SERIAL PRIMARY KEY,
                 client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
@@ -464,6 +474,7 @@ public static class DatabaseBootstrap
             ALTER TABLE recipes ADD COLUMN IF NOT EXISTS tenant_id INTEGER REFERENCES tenants(id);
             CREATE INDEX IF NOT EXISTS idx_recipes_tenant_id ON recipes(tenant_id);
             CREATE INDEX IF NOT EXISTS idx_subscriptions_tenant_id ON subscriptions(tenant_id);
+            CREATE INDEX IF NOT EXISTS idx_subscription_events_subscription_id ON subscription_events(subscription_id);
             CREATE INDEX IF NOT EXISTS idx_assignments_nutritionist_id ON client_nutritionist_assignments(nutritionist_id);
             CREATE UNIQUE INDEX IF NOT EXISTS idx_assignments_active_client ON client_nutritionist_assignments(client_id) WHERE is_active = TRUE;
 
