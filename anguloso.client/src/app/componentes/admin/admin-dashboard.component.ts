@@ -13,9 +13,10 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { AdminService, AdminConfig, AdminStats, AdminUser } from '../../servicios/admin.service';
+import { AdminService, AdminConfig, AdminStats, AdminUser, AdminPlan, CreateAdminAccountDto } from '../../servicios/admin.service';
 import { EditLicenseDialogComponent } from './edit-license-dialog.component';
 import { ResetPasswordDialogComponent } from './reset-password-dialog.component';
+import { CreateAdminAccountDialogComponent } from './create-admin-account-dialog.component';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -43,6 +44,9 @@ import { ResetPasswordDialogComponent } from './reset-password-dialog.component'
           <h1>Panel de Control de SuperAdministrador</h1>
           <p class="subtitle">Supervisa nutricionistas registrados, licencias activas y métricas de uso de la plataforma.</p>
         </div>
+        <button mat-flat-button color="primary" (click)="openCreateAccount()">
+          <mat-icon>person_add</mat-icon> Crear cuenta
+        </button>
         <button mat-stroked-button color="primary" (click)="loadData()">
           <mat-icon>refresh</mat-icon> Actualizar
         </button>
@@ -453,6 +457,7 @@ import { ResetPasswordDialogComponent } from './reset-password-dialog.component'
 })
 export class AdminDashboardComponent implements OnInit {
   stats?: AdminStats;
+  plans: AdminPlan[] = [];
   users: AdminUser[] = [];
   totalUsers = 0;
   userPage = 1;
@@ -482,6 +487,10 @@ export class AdminDashboardComponent implements OnInit {
     });
     this.loadUsers();
     this.loadConfig();
+    this.adminService.getPlans().subscribe({
+      next: plans => this.plans = plans.filter(p => p.active),
+      error: () => this.snackBar.open('Error al cargar los planes.', 'Cerrar', { duration: 4000 })
+    });
   }
 
   loadConfig(): void {
@@ -531,6 +540,34 @@ export class AdminDashboardComponent implements OnInit {
     const now = new Date().getTime();
     const in7Days = now + (7 * 24 * 60 * 60 * 1000);
     return d <= in7Days;
+  }
+
+
+  openCreateAccount(): void {
+    if (!this.plans.length) {
+      this.snackBar.open('No hay planes activos disponibles.', 'Cerrar', { duration: 4000 });
+      return;
+    }
+
+    const ref = this.dialog.open(CreateAdminAccountDialogComponent, {
+      width: '720px',
+      maxWidth: '95vw',
+      data: { plans: this.plans }
+    });
+
+    ref.afterClosed().subscribe((account: CreateAdminAccountDto | undefined) => {
+      if (!account) return;
+      this.adminService.createAccount(account).subscribe({
+        next: result => {
+          this.snackBar.open('Cuenta ' + result.username + ' creada correctamente.', 'OK', { duration: 5000 });
+          this.loadData();
+        },
+        error: err => {
+          const message = err?.error?.message || err?.error || 'Error al crear la cuenta.';
+          this.snackBar.open(message, 'Cerrar', { duration: 5000 });
+        }
+      });
+    });
   }
 
   openEditLicense(user: AdminUser): void {
