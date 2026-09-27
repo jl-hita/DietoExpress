@@ -59,9 +59,20 @@
       <p class="subtitle">Gestiona expedientes clínicos, anamnesis, biometrías y dietas asignadas.</p>
     </div>
     <div class="header-actions">
-      <button mat-flat-button color="primary" class="action-btn" (click)="createNew()">
+      <button mat-flat-button color="primary" class="action-btn"
+              [disabled]="checkingCreatePermission || !canCreateClient"
+              [matTooltip]="!canCreateClient ? createClientReason : 'Crear un nuevo paciente'"
+              (click)="createNew()">
         <mat-icon>person_add</mat-icon> Nuevo Paciente
       </button>
+    </div>
+  </div>
+
+  <div class="license-warning" *ngIf="!checkingCreatePermission && !canCreateClient">
+    <mat-icon>block</mat-icon>
+    <div>
+      <strong>No puedes crear nuevos pacientes</strong>
+      <span>{{ createClientReason }}</span>
     </div>
   </div>
 
