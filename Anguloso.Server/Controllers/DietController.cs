@@ -334,6 +334,7 @@ public class DietController : ControllerBase
         if (userId == null) return Unauthorized();
 
         var tenantId = AuthHelpers.GetTenantId(User);
+        var sharedAllowed = await _licenseService.CanUseFeatureAsync(tenantId, "SHARED_DIETS");
 
         var diet = await _context.diets
             .Include(d => d.diet_days)
@@ -344,7 +345,7 @@ public class DietController : ControllerBase
                 .ThenInclude(dd => dd.meals)
                     .ThenInclude(m => m.meal_items)
                         .ThenInclude(i => i.exchange_group)
-            .FirstOrDefaultAsync(d => d.id == id && (d.user_id == userId.Value || (tenantId.HasValue && d.tenant_id == tenantId.Value && d.is_shared)));
+            .FirstOrDefaultAsync(d => d.id == id && (d.user_id == userId.Value || (sharedAllowed && tenantId.HasValue && d.tenant_id == tenantId.Value && d.is_shared)));
 
         if (diet == null) return NotFound("Dieta no encontrada.");
 
