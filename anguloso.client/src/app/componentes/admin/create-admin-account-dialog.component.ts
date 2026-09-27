@@ -127,13 +127,15 @@ import { AdminPlan, CreateAdminAccountDto } from '../../servicios/admin.service'
 })
 export class CreateAdminAccountDialogComponent {
   model: CreateAdminAccountDto;
+  plans: AdminPlan[];
   expiryDate = '';
 
   constructor(
     public dialogRef: MatDialogRef<CreateAdminAccountDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: { plans: AdminPlan[] }
   ) {
-    const first = data.plans?.[0];
+    this.plans = data.plans ?? [];
+    const first = this.plans[0];
     this.model = {
       accountType: 'nutritionist',
       username: '',
@@ -148,7 +150,7 @@ export class CreateAdminAccountDialogComponent {
   }
 
   applyPlanDefaults(): void {
-    const plan = this.data.plans.find(p => p.code === this.model.subscriptionPlan);
+    const plan = this.plans.find(p => p.code === this.model.subscriptionPlan);
     if (plan?.max_clients_per_nutritionist) {
       this.model.maxClientsAllowed = plan.max_clients_per_nutritionist;
     }
@@ -156,13 +158,13 @@ export class CreateAdminAccountDialogComponent {
 
   onAccountTypeChange(): void {
     if (this.model.accountType === 'clinic') {
-      const clinicPlan = this.data.plans.find(p => p.code === 'clinic_full');
+      const clinicPlan = this.plans.find(p => p.code === 'clinic_full');
       if (clinicPlan) {
         this.model.subscriptionPlan = clinicPlan.code;
         this.applyPlanDefaults();
       }
     } else if (this.model.subscriptionPlan === 'clinic_full') {
-      const nutriPlan = this.data.plans.find(p => p.code !== 'clinic_full');
+      const nutriPlan = this.plans.find(p => p.code !== 'clinic_full');
       if (nutriPlan) {
         this.model.subscriptionPlan = nutriPlan.code;
         this.applyPlanDefaults();
