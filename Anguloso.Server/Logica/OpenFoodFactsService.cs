@@ -83,7 +83,7 @@ public class OpenFoodFactsService
             }
 
             // 1. Buscar en la base de datos
-            var localResults = await dbContext.foods.Where(f => EF.Functions.ILike(f.name, $"%{term}%")).ToListAsync();
+            var localResults = await dbContext.foods.AsNoTracking().Where(f => EF.Functions.ILike(f.name, $"%{term}%")).ToListAsync();
 
             // 2. Si hay más de 5 resultados, devuelve la lista
             //if (localResults.Any())
