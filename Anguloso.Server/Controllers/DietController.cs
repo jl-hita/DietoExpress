@@ -39,7 +39,8 @@ public class DietController : ControllerBase
         if (userId == null) return Unauthorized();
 
         var tenantId = AuthHelpers.GetTenantId(User);
-        if (onlyShared == true && !await _licenseService.CanUseFeatureAsync(tenantId, "SHARED_DIETS")) return Forbid();
+        var sharedAllowed = await _licenseService.CanUseFeatureAsync(tenantId, "SHARED_DIETS");
+        if (onlyShared == true && !sharedAllowed) return Forbid();
 
         // Una dieta es visible si:
         // 1. Es del propio nutricionista (user_id == userId)
@@ -95,7 +96,7 @@ public class DietController : ControllerBase
                 .ThenInclude(dd => dd.meals)
                     .ThenInclude(m => m.meal_items)
                         .ThenInclude(i => i.exchange_group)
-            .FirstOrDefaultAsync(d => d.id == id && (d.user_id == userId.Value || (tenantId.HasValue && d.tenant_id == tenantId.Value && d.is_shared)));
+            .FirstOrDefaultAsync(d => d.id == id && (d.user_id == userId.Value || (sharedAllowed && tenantId.HasValue && d.tenant_id == tenantId.Value && d.is_shared)));
 
         if (d == null) return NotFound();
 
