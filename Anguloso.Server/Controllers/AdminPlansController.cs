@@ -136,7 +136,7 @@ public class AdminPlansController : ControllerBase
 }
 
 public record PlanRequest(
-    string Code,
+    string? Code,
     string Name,
     string? Description,
     decimal MonthlyPrice,
