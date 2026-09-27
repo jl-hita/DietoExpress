@@ -1,0 +1,15 @@
+<div class="plans-container"><div class="header"><div><h1>Planes SaaS</h1><p>Precios, límites y funcionalidades que puede usar cada licencia.</p></div><button mat-stroked-button (click)="load()"><mat-icon>refresh</mat-icon> Actualizar</button></div>
+<mat-card *ngFor="let p of plans" class="plan-card">
+  <div class="plan-header"><div><h2>{{p.name}}</h2><span>{{p.code}}</span></div><mat-slide-toggle [(ngModel)]="p.active">Activo</mat-slide-toggle></div>
+  <div class="grid">
+    <mat-form-field appearance="outline"><mat-label>Nombre</mat-label><input matInput [(ngModel)]="p.name"></mat-form-field>
+    <mat-form-field appearance="outline"><mat-label>Precio mensual</mat-label><input matInput type="number" [(ngModel)]="p.monthly_price"></mat-form-field>
+    <mat-form-field appearance="outline"><mat-label>Precio anual</mat-label><input matInput type="number" [(ngModel)]="p.yearly_price"></mat-form-field>
+    <mat-form-field appearance="outline"><mat-label>Máx. nutricionistas</mat-label><input matInput type="number" [(ngModel)]="p.max_nutritionists"></mat-form-field>
+    <mat-form-field appearance="outline"><mat-label>Máx. clientes / nutri</mat-label><input matInput type="number" [(ngModel)]="p.max_clients_per_nutritionist"></mat-form-field>
+    <mat-form-field appearance="outline"><mat-label>Máx. clientes totales</mat-label><input matInput type="number" [(ngModel)]="p.max_total_clients"></mat-form-field>
+    <mat-form-field appearance="outline"><mat-label>Días de prueba</mat-label><input matInput type="number" [(ngModel)]="p.trial_days"></mat-form-field>
+  </div>
+  <h3>Funcionalidades</h3><div class="features"><mat-checkbox *ngFor="let f of p.features" [(ngModel)]="f.enabled">{{featureName(f.feature_code)}}</mat-checkbox></div>
+  <button mat-flat-button color="primary" (click)="save(p)">Guardar cambios</button>
+</mat-card></div>
