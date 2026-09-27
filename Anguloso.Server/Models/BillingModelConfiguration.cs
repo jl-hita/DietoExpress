@@ -6,6 +6,23 @@ public partial class angulosodbContext
 {
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<subscription_plans>(entity =>
+        {
+            entity.Property(e => e.stripe_product_id).HasMaxLength(255);
+            entity.Property(e => e.stripe_monthly_price_id).HasMaxLength(255);
+            entity.Property(e => e.stripe_yearly_price_id).HasMaxLength(255);
+        });
+
+        modelBuilder.Entity<subscriptions>(entity =>
+        {
+            entity.Property(e => e.amount).HasPrecision(12, 2);
+            entity.Property(e => e.currency).HasMaxLength(10).IsRequired();
+            entity.Property(e => e.billing_interval).HasMaxLength(20);
+            entity.Property(e => e.payment_provider).HasMaxLength(50);
+            entity.Property(e => e.provider_customer_id).HasMaxLength(255);
+            entity.Property(e => e.provider_subscription_id).HasMaxLength(255);
+        });
+
         modelBuilder.Entity<subscription_payments>(entity =>
         {
             entity.HasKey(e => e.id);
