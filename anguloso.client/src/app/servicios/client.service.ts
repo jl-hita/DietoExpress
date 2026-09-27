@@ -5,6 +5,11 @@ import { environment } from '../../environments/environments';
 import { Biometric, ClientListItem, ClientDetail, ClientDiet, AssignDietPayload, UpdateClientDietPayload } from '../modelos/client';
 
 @Injectable({ providedIn: 'root' })
+export interface ClientCreationAvailability {
+  allowed: boolean;
+  reason?: string | null;
+}
+
 export class ClientService {
   private base = environment.apiUrl;
 
@@ -12,6 +17,10 @@ export class ClientService {
 
   getClients(): Observable<ClientListItem[]> {
     return this.http.get<ClientListItem[]>(`${this.base}/clients`);
+  }
+
+  canCreateClient(): Observable<ClientCreationAvailability> {
+    return this.http.get<ClientCreationAvailability>(this.base + '/clients/can-create');
   }
 
   getClient(id: number): Observable<ClientDetail> {
