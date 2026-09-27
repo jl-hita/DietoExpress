@@ -57,6 +57,17 @@ public class ClientsController : ControllerBase
         return Ok(list);
     }
 
+    // GET: api/clients/can-create
+    [HttpGet("can-create")]
+    public async Task<IActionResult> CanCreateClient()
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId == null) return Unauthorized();
+        var tenantId = AuthHelpers.GetTenantId(User);
+        var licenseCheck = await _licenseService.CanCreateClientAsync(tenantId, userId.Value);
+        return Ok(new { allowed = licenseCheck.Allowed, reason = licenseCheck.Reason });
+    }
+
     // GET: api/clients/5
     [HttpGet("{id:int}")]
     public async Task<ActionResult<ClientDetailDto>> GetClient(int id)
