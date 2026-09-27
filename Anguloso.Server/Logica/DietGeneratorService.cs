@@ -17,7 +17,7 @@ public class DietGeneratorService
         _context = context;
     }
 
-    public async Task<DietDetailDto> GenerateDietAsync(GenerateDietRequestDto request)
+    public async Task<DietDetailDto> GenerateDietAsync(GenerateDietRequestDto request, CancellationToken cancellationToken = default)
     {
         // 1. Resolver Kcal y Macros objetivo diarios
         double targetKcal = request.TargetKcal > 0 ? request.TargetKcal : 2000;
@@ -33,7 +33,7 @@ public class DietGeneratorService
                 .Include(c => c.digestive_health)
                 .Include(c => c.food_preferences)
                 .AsNoTracking()
-                .FirstOrDefaultAsync(c => c.id == request.ClientId.Value);
+                .FirstOrDefaultAsync(c => c.id == request.ClientId.Value, cancellationToken);
 
             if (client != null)
             {
@@ -54,11 +54,16 @@ public class DietGeneratorService
             }
         }
 
-        // 3. Cargar catálogo de alimentos activos y comunes de la BD
+        // 3. Cargar un catálogo acotado de alimentos desde la BD.
+        // No debemos traer toda la tabla a memoria: el catálogo puede crecer mucho
+        // con las sincronizaciones de USDA/OpenFoodFacts y bloquear la generación.
+        const int maxFoodsToLoad = 5000;
         var allFoods = await _context.foods
             .AsNoTracking()
-            .Where(f => f.kcal.HasValue && f.kcal > 0)
-            .ToListAsync();
+            .Where(f => f.kcal.HasValue && f.kcal > 0 && f.name != null)
+            .OrderBy(f => f.id)
+            .Take(maxFoodsToLoad)
+            .ToListAsync(cancellationToken);
 
         // Filtrar alimentos válidos (comunes y no excluidos)
         var allowedFoods = allFoods.Where(f => IsCommonFood(f) && !IsExcluded(f, exclusions)).ToList();
@@ -67,6 +72,8 @@ public class DietGeneratorService
             // Fallback si la lista común es muy restrictiva
             allowedFoods = allFoods.Where(f => !IsExcluded(f, exclusions)).ToList();
         }
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         var foodPools = CategorizeFoods(allowedFoods, request.DietType);
         var mealSplits = GetMealSplits(request.MealsPerDay);
@@ -77,6 +84,7 @@ public class DietGeneratorService
 
         for (int dayIndex = 0; dayIndex < request.NumberOfDays; dayIndex++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var todayMeals = new List<MealDto>();
             var dayUsedFoodIds = new HashSet<int>();
 
