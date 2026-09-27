@@ -22,7 +22,7 @@ public class ClinicController : ControllerBase
         return Ok(new { license, nutritionists=users, clients });
     }
     [HttpGet("nutritionists")]
-    public async Task<IActionResult> Nutritionists(){ var tenantId=AuthHelpers.GetTenantId(User); if(!tenantId.HasValue)return BadRequest(); return Ok(await _context.users.AsNoTracking().Where(u=>u.tenant_id==tenantId&&(u.role=="nutritionist"||u.role=="clinic_admin"||u.role=="user")).OrderBy(u=>u.full_name).Select(u=>new {u.id,u.full_name,u.username,u.email,u.role,u.last_login,clientCount=_context.clients.Count(c=>c.tenant_id==tenantId&&c.user_id==u.id)}).ToListAsync()); }
+    public async Task<IActionResult> Nutritionists(){ var tenantId=AuthHelpers.GetTenantId(User); if(!tenantId.HasValue)return BadRequest(); return Ok(await _context.users.AsNoTracking().Where(u=>u.tenant_id==tenantId&&(u.role=="nutritionist"||u.role=="user")).OrderBy(u=>u.full_name).Select(u=>new {u.id,u.full_name,u.username,u.email,u.role,u.last_login,clientCount=_context.clients.Count(c=>c.tenant_id==tenantId&&c.user_id==u.id)}).ToListAsync()); }
     [HttpPost("nutritionists")]
     [Authorize(Roles="clinic_admin")]
     public async Task<IActionResult> CreateNutritionist([FromBody] CreateNutritionistRequest req)
