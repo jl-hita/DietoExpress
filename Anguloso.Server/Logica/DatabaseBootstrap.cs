@@ -395,6 +395,10 @@ public static class DatabaseBootstrap
                 INSERT INTO config (nombre_config, valor_config)
                 SELECT 'smtpPwd', 'TU_SMTP_PASSWORD'
                 WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'smtpPwd');
+
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'usdaApiKey', 'TU_USDA_API_KEY'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'usdaApiKey');
             ");
 
             logger.LogInformation("Estructura de tablas y configuración inicial verificadas y listas en PostgreSQL.");
