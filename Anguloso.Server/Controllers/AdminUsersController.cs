@@ -69,6 +69,30 @@ public class AdminUsersController : ControllerBase
     }
 
     /// <summary>
+    /// Actualiza el valor de una línea de configuración.
+    /// </summary>
+    [HttpPut("config/{id}")]
+    public async Task<IActionResult> UpdateConfig(int id, [FromBody] UpdateConfigRequest request)
+    {
+        if (request == null)
+            return BadRequest("Datos de configuración no válidos.");
+
+        var config = await _context.config.FindAsync(id);
+        if (config == null)
+            return NotFound("Configuración no encontrada.");
+
+        config.valor_config = request.Valor ?? string.Empty;
+        await _context.SaveChangesAsync();
+
+        return Ok(new AdminConfigDto
+        {
+            Id = config.id,
+            Nombre = config.nombre_config,
+            Valor = config.valor_config
+        });
+    }
+
+    /// <summary>
     /// Lista paginada y filtrable de todos los usuarios/nutricionistas con sus licencias.
     /// </summary>
     [HttpGet("users")]
@@ -197,9 +221,13 @@ public class AdminConfigDto
     public string Valor { get; set; } = string.Empty;
 }
 
+public class UpdateConfigRequest
+{
+    public string? Valor { get; set; }
+}
+
 public class AdminUserDto
 {
-
     public int Id { get; set; }
     public string Username { get; set; } = string.Empty;
     public string? FullName { get; set; }
