@@ -24,6 +24,11 @@ export class SidebarComponent {
     return this.authService.isSuperAdmin();
   }
 
+  get isClinic(): boolean {
+    const role = this.authService.getRole();
+    return role === 'clinic_admin';
+  }
+
   logout() {
     this.authService.logout();
     this.router.navigate(['/login']);
