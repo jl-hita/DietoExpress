@@ -23,12 +23,14 @@ public class DietController : ControllerBase
         angulosodbContext context, 
         DietGeneratorService generatorService, 
         DietValidationService validationService,
-        LogServ logServ)
+        LogServ logServ,
+        ILicenseService licenseService)
     {
         _context = context;
         _generatorService = generatorService;
         _validationService = validationService;
         _logServ = logServ;
+        _licenseService = licenseService;
     }
 
 
@@ -291,7 +293,7 @@ public class DietController : ControllerBase
     {
         try
         {
-            var diet = await _generatorService.GenerateDietAsync(request);
+            var diet = await _generatorService.GenerateDietAsync(request, HttpContext.RequestAborted);
             return Ok(diet);
         }
         catch (Exception ex)
