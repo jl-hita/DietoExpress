@@ -40,7 +40,7 @@ import { AdminUser, UpdateLicenseDto } from '../../servicios/admin.service';
           <mat-option value="active">Activa</mat-option>
           <mat-option value="past_due">Pago Pendiente</mat-option>
           <mat-option value="suspended">Suspendida</mat-option>
-          <mat-option value="canceled">Cancelada</mat-option>
+          <mat-option value="cancelled">Cancelada</mat-option>
         </mat-select>
       </mat-form-field>
 
