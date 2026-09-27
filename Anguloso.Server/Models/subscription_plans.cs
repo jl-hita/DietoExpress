@@ -9,6 +9,9 @@ public partial class subscription_plans
     public string? description { get; set; }
     public decimal monthly_price { get; set; }
     public decimal yearly_price { get; set; }
+    public string? stripe_product_id { get; set; }
+    public string? stripe_monthly_price_id { get; set; }
+    public string? stripe_yearly_price_id { get; set; }
     public int? max_nutritionists { get; set; }
     public int? max_clients_per_nutritionist { get; set; }
     public int? max_total_clients { get; set; }
