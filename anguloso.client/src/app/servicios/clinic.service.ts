@@ -10,5 +10,6 @@ export class ClinicService {
  constructor(private http:HttpClient){}
  getDashboard():Observable<ClinicDashboard>{return this.http.get<ClinicDashboard>('/api/clinic/dashboard');}
  createNutritionist(data:any):Observable<any>{return this.http.post('/api/clinic/nutritionists',data);}
+ disableNutritionist(id:number):Observable<any>{return this.http.put('/api/clinic/nutritionists/'+id+'/disable',{});}
  assignClient(clientId:number,nutritionistId:number):Observable<any>{return this.http.put('/api/clinic/clients/'+clientId+'/assign',{nutritionistId});}
 }
