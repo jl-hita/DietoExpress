@@ -339,6 +339,23 @@ public static class DatabaseBootstrap
                 CREATE INDEX IF NOT EXISTS idx_biometrics_client_id ON biometrics(client_id);
                 CREATE INDEX IF NOT EXISTS idx_audit_logs_client_id ON audit_logs(client_id);
                 CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant_id ON audit_logs(tenant_id);
+
+                -- Índices de users para el dashboard de administración y consultas frecuentes
+                CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at DESC, id DESC);
+                CREATE INDEX IF NOT EXISTS idx_users_license_expires_at ON users(license_expires_at);
+                CREATE INDEX IF NOT EXISTS idx_users_subscription_status ON users(subscription_status);
+                CREATE INDEX IF NOT EXISTS idx_users_tenant_id ON users(tenant_id);
+
+                -- Búsquedas de texto del dashboard (ILIKE/Contains sobre nombre y clínica)
+                CREATE EXTENSION IF NOT EXISTS pg_trgm;
+                CREATE INDEX IF NOT EXISTS idx_users_full_name_trgm
+                    ON users USING gin (LOWER(full_name) gin_trgm_ops);
+                CREATE INDEX IF NOT EXISTS idx_users_clinic_name_trgm
+                    ON users USING gin (LOWER(clinic_name) gin_trgm_ops);
+                CREATE INDEX IF NOT EXISTS idx_users_username_trgm
+                    ON users USING gin (LOWER(username) gin_trgm_ops);
+                CREATE INDEX IF NOT EXISTS idx_users_email_trgm
+                    ON users USING gin (LOWER(email) gin_trgm_ops);
             ");
 
             // Configuración inicial idempotente. No se sobrescriben valores existentes.
