@@ -21,7 +21,9 @@ import { AdminService } from '../../servicios/admin.service';
       </div>
       <mat-card class="log-card">
         <div class="log-toolbar"><span>{{ exists ? 'Log disponible' : 'No hay log para este día' }}</span><button mat-stroked-button (click)="loadLog(selectedDate)" [disabled]="loading"><mat-icon>refresh</mat-icon> Actualizar</button></div>
-        <pre *ngIf="exists" class="log-content">{{ content }}</pre>
+        <div *ngIf="exists" class="log-content">
+          <div *ngFor="let line of logLines" class="log-line" [class.error-line]="line.includes('[ERR]')">{{ line }}</div>
+        </div>
         <div *ngIf="!exists" class="empty-state"><mat-icon>event_busy</mat-icon><p>No existe ningún archivo de log para {{ selectedDate | date:'dd/MM/yyyy' }}.</p></div>
       </mat-card>
     </div>
@@ -34,7 +36,9 @@ import { AdminService } from '../../servicios/admin.service';
     .date-navigation { display: flex; align-items: center; gap: 12px; white-space: nowrap; }
     .log-card { padding: 16px; border-radius: 12px; }
     .log-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; color: #64748b; font-size: 13px; }
-    .log-content { margin: 0; padding: 16px; max-height: calc(100vh - 230px); min-height: 300px; overflow: auto; background: #0f172a; color: #e2e8f0; border-radius: 8px; font: 12px/1.5 'Cascadia Mono', 'Consolas', monospace; white-space: pre; text-align: left; }
+    .log-content { margin: 0; padding: 16px; max-height: calc(100vh - 230px); min-height: 300px; overflow: auto; background: #0f172a; color: #e2e8f0; border-radius: 8px; font: 12px/1.5 'Cascadia Mono', 'Consolas', monospace; text-align: left; }
+    .log-line { white-space: pre; min-height: 1.5em; }
+    .error-line { background: #7f1d1d; color: #fff; }
     .empty-state { min-height: 300px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #94a3b8; }
     .empty-state mat-icon { font-size: 48px; width: 48px; height: 48px; }
     @media (max-width: 700px) { .log-header { flex-direction: column; align-items: flex-start; } .date-navigation { align-self: center; } }
@@ -47,6 +51,10 @@ export class AdminLogComponent implements OnInit {
   content = '';
   exists = false;
   loading = false;
+
+  get logLines(): string[] {
+    return this.content ? this.content.split(/\r?\n/) : [];
+  }
 
   constructor(private adminService: AdminService) {}
 
