@@ -235,7 +235,23 @@ import { ResetPasswordDialogComponent } from './reset-password-dialog.component'
 
             <ng-container matColumnDef="valor">
               <th mat-header-cell *matHeaderCellDef>Valor</th>
-              <td mat-cell *matCellDef="let config" class="config-value">{{ config.valor }}</td>
+              <td mat-cell *matCellDef="let config" class="config-value">
+                <mat-form-field appearance="outline" class="config-value-field">
+                  <input matInput [(ngModel)]="config.valor" />
+                </mat-form-field>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef class="text-right">Acciones</th>
+              <td mat-cell *matCellDef="let config" class="text-right">
+                <button mat-flat-button color="primary"
+                        [disabled]="config.valor === config.originalValor || config.saving"
+                        (click)="saveConfig(config)">
+                  <mat-icon>save</mat-icon>
+                  Guardar
+                </button>
+              </td>
             </ng-container>
 
             <tr mat-header-row *matHeaderRowDef="configDisplayedColumns"></tr>
@@ -352,6 +368,11 @@ import { ResetPasswordDialogComponent } from './reset-password-dialog.component'
       overflow-wrap: anywhere;
       font-family: monospace;
     }
+    .config-value-field {
+      width: 100%;
+      min-width: 300px;
+      margin-top: 8px;
+    }
     .filter-toolbar {
       display: flex;
       gap: 16px;
@@ -425,7 +446,7 @@ export class AdminDashboardComponent implements OnInit {
   users: AdminUser[] = [];
   configs: AdminConfig[] = [];
   displayedColumns = ['user', 'plan', 'status', 'expires', 'usage', 'lastLogin', 'actions'];
-  configDisplayedColumns = ['id', 'nombre', 'valor'];
+  configDisplayedColumns = ['id', 'nombre', 'valor', 'actions'];
 
   searchTerm = '';
   statusFilter = '';
@@ -452,8 +473,24 @@ export class AdminDashboardComponent implements OnInit {
 
   loadConfig(): void {
     this.adminService.getConfig().subscribe({
-      next: (configs) => this.configs = configs,
+      next: (configs) => this.configs = configs.map(config => ({ ...config, originalValor: config.valor, saving: false })),
       error: () => this.snackBar.open('Error al cargar la configuración.', 'Cerrar', { duration: 4000 })
+    });
+  }
+
+  saveConfig(config: AdminConfig & { originalValor?: string; saving?: boolean }): void {
+    config.saving = true;
+    this.adminService.updateConfig(config.id, config.valor).subscribe({
+      next: (updated) => {
+        config.valor = updated.valor;
+        config.originalValor = updated.valor;
+        config.saving = false;
+        this.snackBar.open('Configuración guardada.', 'OK', { duration: 3000 });
+      },
+      error: () => {
+        config.saving = false;
+        this.snackBar.open('Error al guardar la configuración.', 'Cerrar', { duration: 4000 });
+      }
     });
   }
 
