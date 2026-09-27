@@ -20,12 +20,14 @@ public class ClientDietsController : ControllerBase
     private readonly angulosodbContext _context;
     private readonly DietPdfService _pdfService;
     private readonly DietValidationService _validationService;
+    private readonly ILicenseService _licenseService;
 
-    public ClientDietsController(angulosodbContext context, DietPdfService pdfService, DietValidationService validationService)
+    public ClientDietsController(angulosodbContext context, DietPdfService pdfService, DietValidationService validationService, ILicenseService licenseService)
     {
         _context = context;
         _pdfService = pdfService;
         _validationService = validationService;
+        _licenseService = licenseService;
     }
 
     private async Task<bool> UserOwnsClientAsync(int clientId, int userId)
@@ -271,6 +273,7 @@ public class ClientDietsController : ControllerBase
     [HttpGet("{id:int}/pdf")]
     public async Task<IActionResult> GetDietPdf(int clientId, int id)
     {
+        if (!await _licenseService.CanUseFeatureAsync(AuthHelpers.GetTenantId(User), "PDF_EXPORT")) return Forbid();
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
 
@@ -307,6 +310,7 @@ public class ClientDietsController : ControllerBase
     [HttpGet("active/pdf")]
     public async Task<IActionResult> GetActiveDietPdf(int clientId)
     {
+        if (!await _licenseService.CanUseFeatureAsync(AuthHelpers.GetTenantId(User), "PDF_EXPORT")) return Forbid();
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
 
