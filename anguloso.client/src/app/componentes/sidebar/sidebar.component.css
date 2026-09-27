@@ -72,7 +72,6 @@ mat-nav-list {
   color: #14b8a6 !important;
 }
 
-/* Enlace activo de router */
 .menu-item a.active-link {
   background: rgba(13, 148, 136, 0.15) !important;
   color: #2dd4bf !important;
@@ -81,6 +80,37 @@ mat-nav-list {
 
 .menu-item a.active-link mat-icon {
   color: #2dd4bf !important;
+}
+
+/* Accesos exclusivos de SuperAdmin */
+.superadmin-item a {
+  background-color: #0d9488 !important;
+  color: white !important;
+  font-weight: 600 !important;
+  box-shadow: 0 2px 4px rgba(13, 148, 136, 0.2) !important;
+}
+
+.superadmin-item a mat-icon {
+  color: white !important;
+}
+
+.superadmin-item a:hover {
+  background-color: #0f766e !important;
+  color: white !important;
+  transform: translateX(3px);
+}
+
+.superadmin-item a:hover mat-icon {
+  color: white !important;
+}
+
+.superadmin-item a.active-link {
+  background-color: #0f766e !important;
+  color: white !important;
+}
+
+.superadmin-item a.active-link mat-icon {
+  color: white !important;
 }
 
 .logout-link {
