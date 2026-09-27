@@ -3,7 +3,7 @@ import { Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { MATERIAL_IMPORTS } from '../../shared/material.imports';
 import { DietService } from '../../servicios/diet.service';
-import { Diet } from '../../modelos/diet';
+import { DietListItem } from '../../modelos/diet';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { DietShoppingListDialogComponent } from './diet-shopping-list-dialog.component';
 
@@ -15,12 +15,12 @@ import { DietShoppingListDialogComponent } from './diet-shopping-list-dialog.com
   styleUrls: ['./diets-list.component.css']
 })
 export class DietsListComponent implements OnInit {
-  diets: Diet[] = [];
+  diets: DietListItem[] = [];
   loading = false;
   error: string | null = null;
 
   searchTerm = '';
-  filtered: Diet[] = [];
+  filtered: DietListItem[] = [];
   pagedDiets: Diet[] = [];
   pageSize = 10;
   currentPage = 1;
