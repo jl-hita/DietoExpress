@@ -227,7 +227,7 @@ public class AuthController : ControllerBase
                 email_confirmation_token = token,
                 subscription_plan = "free",
                 subscription_status = "active",
-                max_clients_allowed = 0
+                max_clients_allowed = 1
             };
 
             var tenant = new tenants
@@ -571,7 +571,7 @@ public class AuthController : ControllerBase
                     last_login = DateTime.UtcNow,
                     subscription_plan = "free",
                     subscription_status = "active",
-                    max_clients_allowed = 0
+                    max_clients_allowed = 1
                 };
 
                 var tenantGoogle = new tenants
