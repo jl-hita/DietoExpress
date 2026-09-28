@@ -338,14 +338,6 @@ export class BillingComponent implements OnInit {
     return this.plans.filter(p => p.code !== this.license!.planCode);
   }
 
-  get currentStatusCanChange(): boolean {
-    return this.currentPaidPlan && !this.license?.cancelAtPeriodEnd;
-  }
-
-  get currentPlan(): BillingPlan | undefined {
-    return this.plans.find(p => p.code === this.license?.planCode);
-  }
-
   priceFor(plan: BillingPlan): number {
     return this.billingInterval === 'yearly' ? plan.yearlyPrice : plan.monthlyPrice;
   }
