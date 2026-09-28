@@ -530,6 +530,18 @@ public static class DatabaseBootstrap
                 ('clinic_full','Clínica Full','Licencia para clínicas con varios nutricionistas',79.90,799,5,100,500,NULL,TRUE)
             ON CONFLICT(code) DO NOTHING;
 
+            -- Price IDs de Stripe Test Mode para los planes comerciales.
+            -- Se mantienen en BBDD para que Checkout no dependa de valores hardcodeados en el código.
+            UPDATE subscription_plans
+            SET stripe_monthly_price_id = 'price_1UKdhz0RD4LdDkcUqFaqkFL2',
+                stripe_yearly_price_id = 'price_1UKdko0RD4LdDkcUceVNvurx'
+            WHERE code = 'nutri_full';
+
+            UPDATE subscription_plans
+            SET stripe_monthly_price_id = 'price_1UKdmV0RD4LdDkcU7ueOlu1B',
+                stripe_yearly_price_id = 'price_1UKdn20RD4LdDkcUpJchaR8Y'
+            WHERE code = 'clinic_full';
+
             INSERT INTO subscription_plan_features(plan_id,feature_code,enabled)
             SELECT p.id, f.feature_code, TRUE
             FROM subscription_plans p
