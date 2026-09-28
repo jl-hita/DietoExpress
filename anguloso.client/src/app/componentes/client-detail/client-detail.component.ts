@@ -499,6 +499,13 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     return this.evolutionData.length > 1 ? this.evolutionData[this.evolutionData.length - 2] : undefined;
   }
 
+  getPreviousBiometricFor(b: Biometric): Biometric | undefined {
+    const currentTime = new Date(b.measurementDate).getTime();
+    return this.evolutionData
+      .filter(item => item !== b && new Date(item.measurementDate).getTime() < currentTime)
+      .sort((a, z) => new Date(z.measurementDate).getTime() - new Date(a.measurementDate).getTime())[0];
+  }
+
   getBodyFatValue(b: Biometric | undefined): number | null {
     if (!b) return null;
     return b.bodyFat ??
@@ -517,6 +524,54 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     if (b.analysis?.bodyFatPercentageJacksonPollock7 != null) return 'Jackson-Pollock 7';
     if (b.analysis?.bodyFatPercentageFaulkner != null) return 'Faulkner';
     return '';
+  }
+
+  getFatMassValue(b: Biometric | undefined): number | null {
+    if (!b) return null;
+    if (b.analysis?.fatMassKg != null) return b.analysis.fatMassKg;
+    const fatPct = this.getBodyFatValue(b);
+    if (b.weight != null && fatPct != null) return b.weight * fatPct / 100;
+    return null;
+  }
+
+  getMuscleMassValue(b: Biometric | undefined): number | null {
+    if (!b) return null;
+    return b.muscleMass ?? b.analysis?.muscleMassKg ?? null;
+  }
+
+  getMetricDelta(b: Biometric, metric: 'weight' | 'waist' | 'bodyFat' | 'fatMass' | 'muscleMass'): number | null {
+    const previous = this.getPreviousBiometricFor(b);
+    if (!previous) return null;
+
+    const currentValue = metric === 'weight' ? b.weight :
+      metric === 'waist' ? b.waist :
+      metric === 'bodyFat' ? this.getBodyFatValue(b) :
+      metric === 'fatMass' ? this.getFatMassValue(b) :
+      this.getMuscleMassValue(b);
+
+    const previousValue = metric === 'weight' ? previous.weight :
+      metric === 'waist' ? previous.waist :
+      metric === 'bodyFat' ? this.getBodyFatValue(previous) :
+      metric === 'fatMass' ? this.getFatMassValue(previous) :
+      this.getMuscleMassValue(previous);
+
+    return this.getDelta(currentValue, previousValue);
+  }
+
+  formatDelta(delta: number | null): string {
+    if (delta == null) return '';
+    const sign = delta > 0 ? '+' : '';
+    return sign + delta.toFixed(1);
+  }
+
+  getDeltaClass(delta: number | null): string {
+    if (delta == null || delta === 0) return 'delta-neutral';
+    return delta > 0 ? 'delta-positive' : 'delta-negative';
+  }
+
+  getDeltaDirectionIcon(delta: number | null): string {
+    if (delta == null || delta === 0) return 'remove';
+    return delta > 0 ? 'arrow_upward' : 'arrow_downward';
   }
 
   getDelta(current?: number | null, previous?: number | null): number | null {
