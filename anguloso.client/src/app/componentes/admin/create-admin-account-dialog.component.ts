@@ -29,7 +29,7 @@ import { AdminPlan, CreateAdminAccountDto } from '../../servicios/admin.service'
         <mat-label>Plan</mat-label>
         <mat-select [(ngModel)]="model.subscriptionPlan" (selectionChange)="applyPlanDefaults()">
           <mat-option *ngFor="let plan of plans" [value]="plan.code">
-            {{ plan.name }} — {{ plan.monthly_price | number:'1.2-2' }} €/mes
+            {{ plan.name }}{{ plan.code === 'demo_nutri' ? ' · Solo SuperAdmin' : '' }} — {{ plan.monthly_price | number:'1.2-2' }} €/mes
           </mat-option>
         </mat-select>
       </mat-form-field>
@@ -135,14 +135,14 @@ export class CreateAdminAccountDialogComponent {
     @Inject(MAT_DIALOG_DATA) public data: { plans: AdminPlan[] }
   ) {
     this.plans = data.plans ?? [];
-    const first = this.plans[0];
+    const first = this.plans.find(p => p.code === 'free') ?? this.plans[0];
     this.model = {
       accountType: 'nutritionist',
       username: '',
       fullName: '',
       email: '',
       password: '',
-      subscriptionPlan: first?.code || 'trial_nutri',
+      subscriptionPlan: first?.code || 'free',
       subscriptionStatus: 'active',
       maxClientsAllowed: first?.max_clients_per_nutritionist ?? 10
     };
