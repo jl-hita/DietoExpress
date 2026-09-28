@@ -666,12 +666,12 @@ public static class DatabaseBootstrap
             SET plan_id=(SELECT id FROM subscription_plans WHERE code='free'),
                 status='active',
                 expires_at=NULL
-            WHERE s.plan_id=(SELECT id FROM subscription_plans WHERE code='demo_nutri')
-              AND EXISTS (
-                  SELECT 1 FROM users u
-                  WHERE u.tenant_id=s.tenant_id
-                    AND u.subscription_plan='free'
-              );
+            WHERE EXISTS (
+                SELECT 1 FROM users u
+                WHERE u.tenant_id=s.tenant_id
+                  AND u.subscription_plan='free'
+                  AND u.role <> 'superadmin'
+            );
 
             INSERT INTO subscriptions(tenant_id,plan_id,status,started_at,expires_at)
             SELECT t.id,(SELECT id FROM subscription_plans WHERE code='free'),'active',NOW(),NULL
