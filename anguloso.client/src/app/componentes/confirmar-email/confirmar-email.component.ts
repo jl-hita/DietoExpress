@@ -54,7 +54,7 @@ export class ConfirmarEmailComponent {
         console.log("Role -> " + res.role);
         this.authService.login(res.token); // guardamos el token
         this.snackBar.open("Bienvenido " + res.username, 'Cerrar', { duration: 3000 });
-        this.router.navigate(['']); // ruta principal tras login
+        this.router.navigate(['/onboarding']);
       },
       error: (r) => {
         this.estado = 'error';
