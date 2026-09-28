@@ -75,31 +75,31 @@
               <span class="delta-label">vs. control anterior</span>
 
               <span class="delta-chip" *ngIf="getMetricDelta(b, 'weight') !== null"
-                    [class]="getDeltaClass(getMetricDelta(b, 'weight'))">
+                    [class]="getDeltaClass(getMetricDelta(b, 'weight'), 'weight')">
                 <mat-icon>{{ getDeltaDirectionIcon(getMetricDelta(b, 'weight')) }}</mat-icon>
                 <strong>Peso</strong> {{ formatDelta(getMetricDelta(b, 'weight')) }} kg
               </span>
 
               <span class="delta-chip" *ngIf="getMetricDelta(b, 'waist') !== null"
-                    [class]="getDeltaClass(getMetricDelta(b, 'waist'))">
+                    [class]="getDeltaClass(getMetricDelta(b, 'waist'), 'waist')">
                 <mat-icon>{{ getDeltaDirectionIcon(getMetricDelta(b, 'waist')) }}</mat-icon>
                 <strong>Cintura</strong> {{ formatDelta(getMetricDelta(b, 'waist')) }} cm
               </span>
 
               <span class="delta-chip" *ngIf="getMetricDelta(b, 'bodyFat') !== null"
-                    [class]="getDeltaClass(getMetricDelta(b, 'bodyFat'))">
+                    [class]="getDeltaClass(getMetricDelta(b, 'bodyFat'), 'bodyFat')">
                 <mat-icon>{{ getDeltaDirectionIcon(getMetricDelta(b, 'bodyFat')) }}</mat-icon>
                 <strong>% grasa</strong> {{ formatDelta(getMetricDelta(b, 'bodyFat')) }} pp
               </span>
 
               <span class="delta-chip" *ngIf="getMetricDelta(b, 'fatMass') !== null"
-                    [class]="getDeltaClass(getMetricDelta(b, 'fatMass'))">
+                    [class]="getDeltaClass(getMetricDelta(b, 'fatMass'), 'fatMass')">
                 <mat-icon>{{ getDeltaDirectionIcon(getMetricDelta(b, 'fatMass')) }}</mat-icon>
                 <strong>Masa grasa</strong> {{ formatDelta(getMetricDelta(b, 'fatMass')) }} kg
               </span>
 
               <span class="delta-chip" *ngIf="getMetricDelta(b, 'muscleMass') !== null"
-                    [class]="getDeltaClass(getMetricDelta(b, 'muscleMass'))">
+                    [class]="getDeltaClass(getMetricDelta(b, 'muscleMass'), 'muscleMass')">
                 <mat-icon>{{ getDeltaDirectionIcon(getMetricDelta(b, 'muscleMass')) }}</mat-icon>
                 <strong>Masa muscular</strong> {{ formatDelta(getMetricDelta(b, 'muscleMass')) }} kg
               </span>
