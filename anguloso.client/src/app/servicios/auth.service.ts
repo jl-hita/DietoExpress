@@ -45,4 +45,14 @@ export class AuthService {
   isSuperAdmin(): boolean {
     return this.getRole() === 'superadmin';
   }
+
+  getSubscriptionPlan(): string {
+    const user = this.getUser();
+    return user?.subscriptionPlan ?? 'free';
+  }
+
+  getSubscriptionStatus(): string {
+    const user = this.getUser();
+    return user?.subscriptionStatus ?? 'active';
+  }
 }
