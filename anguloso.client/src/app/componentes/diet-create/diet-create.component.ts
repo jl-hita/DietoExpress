@@ -416,9 +416,9 @@ export class DietCreateComponent implements OnInit {
    * Mueve un alimento dentro de la misma comida o entre dos comidas.
    * Se mueve el FormControl completo para conservar gramos, macros e intercambios.
    */
-  dropFood(event: CdkDragDrop<AbstractControl[]>): void {
-    const source = event.previousContainer.data as FormArray;
-    const target = event.container.data as FormArray;
+  dropFood(event: CdkDragDrop<FormArray>): void {
+    const source = event.previousContainer.data;
+    const target = event.container.data;
 
     if (!source || !target || event.previousIndex < 0 || event.currentIndex < 0) return;
 
