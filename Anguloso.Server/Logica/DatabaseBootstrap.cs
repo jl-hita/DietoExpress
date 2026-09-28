@@ -369,6 +369,10 @@ public static class DatabaseBootstrap
                 WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'dominio');
 
                 INSERT INTO config (nombre_config, valor_config)
+                SELECT 'frontendUrl', 'https://localhost:4200'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'frontendUrl');
+
+                INSERT INTO config (nombre_config, valor_config)
                 SELECT 'smtpServer', 'smtp.example.com'
                 WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'smtpServer');
 
