@@ -61,6 +61,14 @@ import { BillingPlan, BillingService } from '../../servicios/billing.service';
         </div>
       </div>
 
+      <div *ngIf="expiredNotice" class="result cancelled">
+        <mat-icon>schedule</mat-icon>
+        <div>
+          <strong>Tu periodo gratuito ha terminado</strong>
+          <span>Elige un plan para continuar utilizando DietoExpress.</span>
+        </div>
+      </div>
+
       <div *ngIf="loading" class="loading">
         <mat-spinner diameter="42"></mat-spinner>
         <span>Cargando planes...</span>
@@ -384,6 +392,7 @@ export class BillingComponent implements OnInit {
   loadingCheckout = false;
   selectedPlanCode: string | null = null;
   checkoutResult: 'success' | 'cancelled' | null = null;
+  expiredNotice = false;
 
   constructor(
     private billingService: BillingService,
