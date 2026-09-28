@@ -23,8 +23,8 @@ export class OnboardingComponent {
     this.router.navigate(['/billing']);
   }
 
-  continuar(): void {
-    this.router.navigate(['/billing']);
+  configurarPerfil(): void {
+    this.router.navigate(['/settings']);
   }
 
   cerrarSesion(): void {
