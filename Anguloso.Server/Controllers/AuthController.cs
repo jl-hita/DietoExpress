@@ -635,7 +635,9 @@ public class AuthController : ControllerBase
         {
             new Claim(ClaimTypes.NameIdentifier, user.id.ToString()),
             new Claim(ClaimTypes.Name, user.username),
-            new Claim(ClaimTypes.Role, user.role ?? "user")
+            new Claim(ClaimTypes.Role, user.role ?? "user"),
+            new Claim("subscriptionPlan", user.subscription_plan ?? "free"),
+            new Claim("subscriptionStatus", user.subscription_status ?? "active")
         };
 
         if (user.tenant_id.HasValue)
