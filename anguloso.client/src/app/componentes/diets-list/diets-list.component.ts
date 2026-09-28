@@ -6,6 +6,7 @@ import { DietService } from '../../servicios/diet.service';
 import { DietListItem } from '../../modelos/diet';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { DietShoppingListDialogComponent } from './diet-shopping-list-dialog.component';
+import { AuthService } from '../../servicios/auth.service';
 
 @Component({
   selector: 'app-diets-list',
@@ -25,23 +26,27 @@ export class DietsListComponent implements OnInit {
   pageSize = 10;
   currentPage = 1;
   totalPages = 1;
+  showAllDiets = false;
+  isSuperAdmin = false;
 
   constructor(
     private dietService: DietService,
     private router: Router,
     private snackBar: MatSnackBar,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    private authService: AuthService
   ) {}
 
 
   ngOnInit(): void {
+    this.isSuperAdmin = this.authService.isSuperAdmin();
     this.loadDiets();
   }
 
   loadDiets(): void {
     this.loading = true;
     this.error = null;
-    this.dietService.getDiets().subscribe({
+    this.dietService.getDiets(this.showAllDiets && this.isSuperAdmin).subscribe({
       next: (list) => {
         this.diets = list || [];
         this.refresh();
@@ -57,6 +62,12 @@ export class DietsListComponent implements OnInit {
           : 'Error al cargar las dietas.';
       }
     });
+  }
+
+  toggleShowAllDiets(): void {
+    if (!this.isSuperAdmin) return;
+    this.showAllDiets = !this.showAllDiets;
+    this.loadDiets();
   }
 
   refresh(): void {
