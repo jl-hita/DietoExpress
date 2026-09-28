@@ -645,6 +645,17 @@ public static class DatabaseBootstrap
                 active=TRUE
             WHERE code='free';
 
+            INSERT INTO subscription_plan_features(plan_id,feature_code,enabled)
+            SELECT p.id, f.feature_code, TRUE
+            FROM subscription_plans p
+            CROSS JOIN (VALUES
+                ('CLIENT_PORTAL'),('PDF_EXPORT'),('PDF_BRANDING'),('GOOGLE_LOGIN'),
+                ('RECIPES'),('DIET_TEMPLATES'),('SHARED_DIETS'),('MULTI_NUTRITIONIST'),
+                ('CLINIC_DASHBOARD'),('CLIENT_ASSIGNMENT'),('AUDIT_LOGS')
+            ) f(feature_code)
+            WHERE p.code='demo_nutri'
+            ON CONFLICT(plan_id,feature_code) DO UPDATE SET enabled=EXCLUDED.enabled;
+
             UPDATE users u
             SET subscription_plan='free',
                 subscription_status='active',
