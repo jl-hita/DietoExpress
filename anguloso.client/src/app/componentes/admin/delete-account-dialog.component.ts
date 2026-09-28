@@ -17,8 +17,8 @@ import { AdminUser } from '../../servicios/admin.service';
         <div>
           <strong>Esta acción es permanente.</strong>
           <p>
-            Se eliminará la cuenta de <strong>{{ data.fullName || data.username }}</strong>
-            ({{ data.email || data.username }}) junto con sus datos asociados.
+            Se eliminará permanentemente la cuenta de <strong>{{ data.fullName || data.username }}</strong>
+            ({{ data.email || data.username }}) y sus datos operativos asociados.
             Esta acción no se puede deshacer.
           </p>
         </div>
