@@ -276,6 +276,20 @@ public sealed class BillingController : ControllerBase
                 var metadataInterval = ReadMetadata(data, "billing_interval");
                 if (!string.IsNullOrWhiteSpace(metadataInterval))
                     subscription.billing_interval = metadataInterval;
+
+                var customerId = ReadString(data, "customer");
+                if (!string.IsNullOrWhiteSpace(customerId))
+                    subscription.provider_customer_id = customerId;
+
+                var updatedPlan = await _context.subscription_plans.FindAsync(subscription.plan_id);
+                if (updatedPlan != null && !string.IsNullOrWhiteSpace(subscription.billing_interval))
+                {
+                    subscription.amount = subscription.billing_interval == "yearly"
+                        ? updatedPlan.yearly_price
+                        : updatedPlan.monthly_price;
+                    subscription.currency = "eur";
+                }
+
                 subscription.updated_at = DateTime.UtcNow;
 
                 if (data.TryGetProperty("current_period_start", out var start) && start.ValueKind == JsonValueKind.Number)
