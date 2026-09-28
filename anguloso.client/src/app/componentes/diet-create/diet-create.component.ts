@@ -15,12 +15,13 @@ import { RecipePickerDialogComponent } from './recipe-picker-dialog.component';
 import { DietShoppingListDialogComponent } from '../diets-list/diet-shopping-list-dialog.component';
 import { debounceTime, distinctUntilChanged, switchMap, finalize } from 'rxjs/operators';
 import { of } from 'rxjs';
+import { CdkDragDrop, CdkDropList, CdkDrag, moveItemInArray } from '@angular/cdk/drag-drop';
 
 
 @Component({
   selector: 'app-diet-create',
   standalone: true,
-  imports: [MATERIAL_IMPORTS],
+  imports: [MATERIAL_IMPORTS, CdkDropList, CdkDrag],
   templateUrl: './diet-create.component.html',
   styleUrls: ['./diet-create.component.css']
 })
@@ -409,6 +410,35 @@ export class DietCreateComponent implements OnInit {
 
   removeItem(dIndex: number, mIndex: number, iIndex: number): void {
     this.getItems(dIndex, mIndex).removeAt(iIndex);
+  }
+
+  /**
+   * Mueve un alimento dentro de la misma comida o entre dos comidas.
+   * Se mueve el FormControl completo para conservar gramos, macros e intercambios.
+   */
+  dropFood(event: CdkDragDrop<AbstractControl[]>): void {
+    const source = event.previousContainer.data as AbstractControl[];
+    const target = event.container.data as AbstractControl[];
+
+    if (!source || !target || event.previousIndex < 0 || event.currentIndex < 0) return;
+
+    if (source === target) {
+      moveItemInArray(source, event.previousIndex, event.currentIndex);
+      return;
+    }
+
+    const control = source[event.previousIndex];
+    if (!control) return;
+
+    source.splice(event.previousIndex, 1);
+    target.splice(event.currentIndex, 0, control);
+
+    // FormArray necesita conocer los cambios para mantener correctamente
+    // el estado de los controles y recalcular el formulario.
+    const sourceFormArray = event.previousContainer.data as any;
+    const targetFormArray = event.container.data as any;
+    sourceFormArray.updateValueAndValidity();
+    targetFormArray.updateValueAndValidity();
   }
 
   recalcItem(itemCtrl: AbstractControl): void {
