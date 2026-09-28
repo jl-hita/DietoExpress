@@ -31,6 +31,31 @@ public sealed class BillingController : ControllerBase
     }
 
     [Authorize]
+    [HttpGet("plans")]
+    public async Task<IActionResult> GetPlans()
+    {
+        var plans = await _context.subscription_plans
+            .AsNoTracking()
+            .Where(p => p.active && p.code != "trial_nutri")
+            .OrderBy(p => p.id)
+            .Select(p => new BillingPlanResponse(
+                p.id,
+                p.code,
+                p.name,
+                p.description,
+                p.monthly_price,
+                p.yearly_price,
+                p.max_nutritionists,
+                p.max_clients_per_nutritionist,
+                p.max_total_clients,
+                p.stripe_monthly_price_id != null && p.stripe_monthly_price_id != "",
+                p.stripe_yearly_price_id != null && p.stripe_yearly_price_id != ""))
+            .ToListAsync();
+
+        return Ok(plans);
+    }
+
+    [Authorize]
     [HttpPost("checkout")]
     public async Task<IActionResult> CreateCheckout([FromBody] CheckoutRequest request)
     {
@@ -106,7 +131,6 @@ public sealed class BillingController : ControllerBase
         }
         catch (DbUpdateException)
         {
-            // El índice único de (provider,event_id) hace idempotente la recepción de reintentos.
             _context.Entry(paymentEvent).State = EntityState.Detached;
             return Ok();
         }
@@ -340,3 +364,16 @@ public sealed record CheckoutRequest(
     string BillingInterval,
     string SuccessUrl,
     string CancelUrl);
+
+public sealed record BillingPlanResponse(
+    int Id,
+    string Code,
+    string Name,
+    string? Description,
+    decimal MonthlyPrice,
+    decimal YearlyPrice,
+    int? MaxNutritionists,
+    int? MaxClientsPerNutritionist,
+    int? MaxTotalClients,
+    bool HasMonthlyStripePrice,
+    bool HasYearlyStripePrice);
