@@ -15,13 +15,13 @@ import { RecipePickerDialogComponent } from './recipe-picker-dialog.component';
 import { DietShoppingListDialogComponent } from '../diets-list/diet-shopping-list-dialog.component';
 import { debounceTime, distinctUntilChanged, switchMap, finalize } from 'rxjs/operators';
 import { of } from 'rxjs';
-import { CdkDragDrop, CdkDropList, CdkDrag, moveItemInArray } from '@angular/cdk/drag-drop';
+import { CdkDragDrop, CdkDropList, CdkDrag, CdkDragHandle, CdkDropListGroup } from '@angular/cdk/drag-drop';
 
 
 @Component({
   selector: 'app-diet-create',
   standalone: true,
-  imports: [MATERIAL_IMPORTS, CdkDropList, CdkDrag],
+  imports: [MATERIAL_IMPORTS, CdkDropList, CdkDrag, CdkDragHandle, CdkDropListGroup],
   templateUrl: './diet-create.component.html',
   styleUrls: ['./diet-create.component.css']
 })
