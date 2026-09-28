@@ -17,7 +17,7 @@ namespace Anguloso.Server;
 
 public class Program
 {
-    public static void Main(string[] args)
+    public static async Task Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
         string entorno = builder.Environment.ContentRootPath;
@@ -181,7 +181,10 @@ public class Program
 
         var app = builder.Build();
 
-        // Verificación de conexión a BBDD y creación completa de tablas
+        // Verificación de conexión a BBDD y creación completa de tablas.
+        // La importación BEDCA solo se ejecuta si toda la inicialización del esquema
+        // ha terminado correctamente.
+        bool databaseReady = false;
         using (var scope = app.Services.CreateScope())
         {
             var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
@@ -193,6 +196,7 @@ public class Program
                 DatabaseBootstrap.UpgradeSaaSSchemaV2(context, logger);
                 DatabaseBootstrap.UpgradeSaaSSchemaV3(context, logger);
                 BillingSchemaBootstrap.Initialize(context, logger);
+                databaseReady = true;
             }
             catch (Exception ex)
             {
@@ -200,20 +204,45 @@ public class Program
             }
         }
 
-        //Población de datos iniciales en la base de datos
-        //try
-        //{
-        //    using (var scope = app.Services.CreateScope())
-        //    {
-        //        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-        //        var bedcaClient = new BEDCAClient(new HttpClient(), logger, context);
-        //    }   
-        //}
-        //catch (Exception e)
-        //{
-        //    _logServ.LogError($"Excepción en TestController.BEDCATest -> {e.Message}");
-        //    return BadRequest("Error ejecutando el importador BEDCA.");
-        //}
+        // Carga inicial del catálogo BEDCA. Solo se ejecuta una vez, cuando todavía
+        // no existen alimentos procedentes de BEDCA. Si la importación falla, no se
+        // considera completada y se volverá a intentar en el siguiente arranque.
+        if (databaseReady)
+        {
+            using (var scope = app.Services.CreateScope())
+            {
+                var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+                try
+                {
+                    var context = scope.ServiceProvider.GetRequiredService<angulosodbContext>();
+                    var bedcaCount = context.foods.Count(f => f.source == "bedca");
+
+                    if (bedcaCount == 0)
+                    {
+                        logger.LogInformation("No se han encontrado alimentos BEDCA. Iniciando importación inicial...");
+                        var logServ = scope.ServiceProvider.GetRequiredService<LogServ>();
+                        var bedcaClient = new BEDCAClient(new HttpClient(), logServ, context);
+                        var resultado = await bedcaClient.Importador();
+
+                        var importedCount = context.foods.Count(f => f.source == "bedca");
+                        if (importedCount == 0)
+                        {
+                            throw new InvalidOperationException("La importación BEDCA terminó sin insertar ningún alimento.");
+                        }
+
+                        logger.LogInformation("Importación inicial BEDCA completada correctamente: {Resultado}", resultado);
+                    }
+                    else
+                    {
+                        logger.LogInformation("Catálogo BEDCA ya inicializado ({Count} alimentos). Se omite la importación.", bedcaCount);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "La importación inicial BEDCA no se pudo completar. Se reintentará en el siguiente arranque.");
+                }
+            }
+        }
 
         // Usamos CORS
         app.UseCors("AllowAngularApp");
