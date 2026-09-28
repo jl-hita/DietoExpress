@@ -1055,3 +1055,34 @@
     display: none; /* In small screens, side panel could colapse */
   }
 }
+
+
+/* Drag & drop de alimentos */
+.food-drag-handle {
+  cursor: grab;
+  color: #94a3b8;
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+.food-drag-handle:active {
+  cursor: grabbing;
+}
+
+.cdk-drag-preview {
+  box-sizing: border-box;
+  display: table;
+  background: white;
+  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.18);
+}
+
+.cdk-drag-placeholder {
+  opacity: 0.25;
+}
+
+.cdk-drop-list-dragging .cdk-drag {
+  transition: transform 180ms ease;
+}
