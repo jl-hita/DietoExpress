@@ -10,8 +10,9 @@ export class DietService {
 
   constructor(private http: HttpClient) {}
 
-  getDiets(): Observable<DietListItem[]> {
-    return this.http.get<DietListItem[]>(this.base);
+  getDiets(includeAll = false): Observable<DietListItem[]> {
+    const suffix = includeAll ? '?includeAll=true' : '';
+    return this.http.get<DietListItem[]>(`${this.base}${suffix}`);
   }
 
   getDiet(id: number): Observable<DietDetail> {
