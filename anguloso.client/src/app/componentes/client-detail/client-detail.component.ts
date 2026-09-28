@@ -271,7 +271,8 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
   openBioimpedanceImport() {
     if (!this.clientId) return;
     const ref = this.dialog.open(BioimpedanceImportDialogComponent, {
-      width: '720px',
+      width: '900px',
+      maxWidth: '95vw',
       data: {
         clientId: this.clientId,
         clientName: this.client?.fullName || 'Paciente'
