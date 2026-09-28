@@ -35,7 +35,7 @@ const routes: AppRoute[] = [
   { path: '', component: LandingComponent, pathMatch: 'full', title: 'DietoExpress' },
   { path: 'setup', component: SetupWizardComponent, canActivate: [SetupGuard], title: 'Inicialización del Sistema' },
   { path: 'login', component: LoginComponent },
-  { path: 'crear-usuario', component: UserCreateComponent, title: 'Crear usuario', showInMenu: false },
+  { path: 'crear-usuario', component: UserCreateComponent, title: 'Crear cuenta', showInMenu: false },
   { path: 'reset-pwd', component: UserResetComponent, title: 'Crear usuario', showInMenu: false },
   { path: 'confirmar-email', component: ConfirmarEmailComponent, title: 'Confirmar email', showInMenu: false },
   { path: 'patient', component: PatientPortalComponent, title: 'Portal del Paciente' },
