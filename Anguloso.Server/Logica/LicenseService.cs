@@ -18,6 +18,10 @@ public sealed class LicenseInfo
     public string PlanName { get; init; } = string.Empty;
     public string Status { get; init; } = string.Empty;
     public DateTime? ExpiresAt { get; init; }
+    public DateTime? CurrentPeriodStart { get; init; }
+    public DateTime? CurrentPeriodEnd { get; init; }
+    public string? BillingInterval { get; init; }
+    public bool CancelAtPeriodEnd { get; init; }
     public int Nutritionists { get; init; }
     public int Clients { get; init; }
     public int? MaxNutritionists { get; init; }
@@ -39,6 +43,8 @@ public class LicenseService : ILicenseService
         var nutritionists = await _context.users.CountAsync(u => u.tenant_id == tenantId && (u.role == "nutritionist" || u.role == "user"));
         var clients = await _context.clients.CountAsync(c => c.tenant_id == tenantId);
         return new LicenseInfo { TenantId = tenantId.Value, PlanCode = sub.plan.code, PlanName = sub.plan.name, Status = sub.status, ExpiresAt = sub.expires_at,
+            CurrentPeriodStart = sub.current_period_start, CurrentPeriodEnd = sub.current_period_end,
+            BillingInterval = sub.billing_interval, CancelAtPeriodEnd = sub.cancel_at_period_end,
             Nutritionists = nutritionists, Clients = clients, MaxNutritionists = sub.plan.max_nutritionists,
             MaxClientsPerNutritionist = sub.plan.max_clients_per_nutritionist, MaxTotalClients = sub.plan.max_total_clients,
             Features = sub.plan.features.Where(f => f.enabled).Select(f => f.feature_code).ToList() };
