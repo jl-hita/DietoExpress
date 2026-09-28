@@ -225,9 +225,9 @@ public class AuthController : ControllerBase
                 created_at = DateTime.UtcNow,
                 email_confirmed = false,
                 email_confirmation_token = token,
-                subscription_plan = "trial_nutri",
+                subscription_plan = "free",
                 subscription_status = "active",
-                max_clients_allowed = 5
+                max_clients_allowed = 0
             };
 
             // Cada nutricionista individual tiene su propio tenant desde el alta.
@@ -245,17 +245,18 @@ public class AuthController : ControllerBase
 
             _context.users.Add(user);
             await _context.SaveChangesAsync();
-            var trialPlan = await _context.subscription_plans.FirstOrDefaultAsync(p => p.code == "trial_nutri");
-            if (trialPlan != null)
+            var freePlan = await _context.subscription_plans.FirstOrDefaultAsync(p => p.code == "free");
+            if (freePlan == null)
+                throw new InvalidOperationException("El plan gratuito no está configurado.");
+
+            _context.subscriptions.Add(new subscriptions
             {
-                _context.subscriptions.Add(new subscriptions
-                {
-                    tenant_id = tenant.id,
-                    plan_id = trialPlan.id,
-                    status = "active",
-                    started_at = DateTime.UtcNow,
-                    expires_at = DateTime.UtcNow.AddDays(trialPlan.trial_days ?? 14)
-                });
+                tenant_id = tenant.id,
+                plan_id = freePlan.id,
+                status = "active",
+                started_at = DateTime.UtcNow,
+                expires_at = null
+            });
                 await _context.SaveChangesAsync();
             }
 
@@ -331,7 +332,9 @@ public class AuthController : ControllerBase
         {
             new Claim(ClaimTypes.NameIdentifier, user.id.ToString()),
             new Claim(ClaimTypes.Name, user.username),
-            new Claim(ClaimTypes.Role, user.role ?? "user")
+            new Claim(ClaimTypes.Role, user.role ?? "user"),
+            new Claim("subscriptionPlan", user.subscription_plan ?? "free"),
+            new Claim("subscriptionStatus", user.subscription_status ?? "active")
         };
 
         var tokenDescriptor = new SecurityTokenDescriptor
@@ -570,9 +573,9 @@ public class AuthController : ControllerBase
                     email_confirmed = true,
                     created_at = DateTime.UtcNow,
                     last_login = DateTime.UtcNow,
-                    subscription_plan = "trial_nutri",
+                    subscription_plan = "free",
                     subscription_status = "active",
-                    max_clients_allowed = 5
+                    max_clients_allowed = 0
                 };
 
                 var tenantGoogle = new tenants
@@ -588,17 +591,18 @@ public class AuthController : ControllerBase
                 user.tenant_id = tenantGoogle.id;
                 _context.users.Add(user);
                 await _context.SaveChangesAsync();
-                var trialPlanGoogle = await _context.subscription_plans.FirstOrDefaultAsync(p => p.code == "trial_nutri");
-                if (trialPlanGoogle != null)
+                var freePlanGoogle = await _context.subscription_plans.FirstOrDefaultAsync(p => p.code == "free");
+                if (freePlanGoogle == null)
+                    throw new InvalidOperationException("El plan gratuito no está configurado.");
+
+                _context.subscriptions.Add(new subscriptions
                 {
-                    _context.subscriptions.Add(new subscriptions
-                    {
-                        tenant_id = tenantGoogle.id,
-                        plan_id = trialPlanGoogle.id,
-                        status = "active",
-                        started_at = DateTime.UtcNow,
-                        expires_at = DateTime.UtcNow.AddDays(trialPlanGoogle.trial_days ?? 14)
-                    });
+                    tenant_id = tenantGoogle.id,
+                    plan_id = freePlanGoogle.id,
+                    status = "active",
+                    started_at = DateTime.UtcNow,
+                    expires_at = null
+                });
                     await _context.SaveChangesAsync();
                 }
             }
