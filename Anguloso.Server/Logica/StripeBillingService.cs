@@ -49,7 +49,7 @@ public sealed class StripeBillingService : IStripeBillingService
             .FirstOrDefaultAsync(s => s.tenant_id == tenantId && s.status != "cancelled" && s.status != "canceled");
 
         if (existingSubscription?.provider_subscription_id is not null &&
-            existingSubscription.status is "active" or "past_due")
+            (existingSubscription.status is "active" or "past_due"))
         {
             throw new InvalidOperationException("La cuenta ya tiene una suscripción de pago activa. Usa la opción de cambiar de plan.");
         }
