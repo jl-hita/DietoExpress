@@ -7,6 +7,7 @@ public interface ILicenseService
     Task<LicenseInfo?> GetLicenseAsync(int? tenantId);
     Task<bool> CanUseFeatureAsync(int? tenantId, string featureCode);
     Task<(bool Allowed, string? Reason)> CanCreateClientAsync(int? tenantId, int nutritionistId);
+    Task<(bool Allowed, string? Reason)> CanCreateDietAsync(int? tenantId, int userId);
     Task<(bool Allowed, string? Reason)> CanCreateNutritionistAsync(int? tenantId);
 
 }
