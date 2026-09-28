@@ -177,6 +177,9 @@ public sealed class BillingController : ControllerBase
                 subscription.provider_customer_id = customerId;
                 subscription.provider_subscription_id = subscriptionId;
                 subscription.status = paymentStatus == "paid" ? "active" : "past_due";
+                subscription.started_at = DateTime.UtcNow;
+                subscription.expires_at = null;
+                subscription.cancelled_at = null;
                 subscription.cancel_at_period_end = false;
                 subscription.updated_at = DateTime.UtcNow;
 
