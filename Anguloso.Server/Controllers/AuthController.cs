@@ -190,6 +190,8 @@ public class AuthController : ControllerBase
             if (password.Length < 6)
                 return new BoolMensaje { Exito = false, Mensaje = "La contraseña debe tener al menos 6 caracteres." };
 
+            string passwordHash = BCrypt.Net.BCrypt.HashPassword(password);
+
             // Comprobamos si el usuario existe ya
             users? user = await _context.users.FirstOrDefaultAsync(u => u.username == username || u.email == email);
             if (user != null)
@@ -230,7 +232,7 @@ public class AuthController : ControllerBase
 
             var tenant = new tenants
             {
-                legal_name = string.IsNullOrWhiteSpace(nombreCompleto) ? usuario.Username : nombreCompleto,
+                legal_name = string.IsNullOrWhiteSpace(nombreCompleto) ? username : nombreCompleto,
                 trade_name = string.IsNullOrWhiteSpace(nombreCompleto) ? usuario.Username : nombreCompleto,
                 slug = $"{Regex.Replace(username.ToLowerInvariant(), @"[^a-z0-9]+", "-").Trim('-')}-{Guid.NewGuid():N}",
                 contact_email = email,
