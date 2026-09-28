@@ -15,8 +15,9 @@ export class ClientService {
 
   constructor(private http: HttpClient) { }
 
-  getClients(): Observable<ClientListItem[]> {
-    return this.http.get<ClientListItem[]>(`${this.base}/clients`);
+  getClients(includeAll = false): Observable<ClientListItem[]> {
+    const suffix = includeAll ? '?includeAll=true' : '';
+    return this.http.get<ClientListItem[]>(`${this.base}/clients${suffix}`);
   }
 
   canCreateClient(): Observable<ClientCreationAvailability> {
