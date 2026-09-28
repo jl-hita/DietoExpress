@@ -88,6 +88,62 @@
 
 .biometric-actions button { margin-left: 4px; }
 
+.biometric-deltas {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.delta-label {
+  font-size: 10px;
+  color: #94a3b8;
+  font-weight: 500;
+  margin-right: 2px;
+}
+
+.delta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 1.2;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.delta-chip strong {
+  font-weight: 700;
+}
+
+.delta-chip mat-icon {
+  width: 13px;
+  height: 13px;
+  font-size: 13px;
+}
+
+.delta-positive {
+  color: #b45309;
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.delta-negative {
+  color: #15803d;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.delta-neutral {
+  color: #64748b;
+  background: #f8fafc;
+}
+
 .tabs {
   margin-top: 12px;
   border-radius: 16px;
