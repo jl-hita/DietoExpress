@@ -177,6 +177,7 @@ public sealed class BillingController : ControllerBase
                 subscription.provider_customer_id = customerId;
                 subscription.provider_subscription_id = subscriptionId;
                 subscription.status = paymentStatus == "paid" ? "active" : "past_due";
+                subscription.cancel_at_period_end = false;
                 subscription.updated_at = DateTime.UtcNow;
 
                 var plan = await _context.subscription_plans.FindAsync(planId.Value);
@@ -264,6 +265,14 @@ public sealed class BillingController : ControllerBase
                     : MapStripeSubscriptionStatus(ReadString(data, "status"));
 
                 subscription.cancel_at_period_end = ReadBool(data, "cancel_at_period_end");
+
+                var metadataPlanId = ReadIntMetadata(data, "plan_id");
+                if (metadataPlanId.HasValue)
+                    subscription.plan_id = metadataPlanId.Value;
+
+                var metadataInterval = ReadMetadata(data, "billing_interval");
+                if (!string.IsNullOrWhiteSpace(metadataInterval))
+                    subscription.billing_interval = metadataInterval;
                 subscription.updated_at = DateTime.UtcNow;
 
                 if (data.TryGetProperty("current_period_start", out var start) && start.ValueKind == JsonValueKind.Number)
@@ -364,6 +373,10 @@ public sealed record CheckoutRequest(
     string BillingInterval,
     string SuccessUrl,
     string CancelUrl);
+
+public sealed record ChangeSubscriptionRequest(
+    string PlanCode,
+    string BillingInterval);
 
 public sealed record BillingPlanResponse(
     int Id,
