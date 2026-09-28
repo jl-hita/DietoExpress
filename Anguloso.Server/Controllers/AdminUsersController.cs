@@ -314,7 +314,7 @@ public class AdminUsersController : ControllerBase
         if (await _context.users.AnyAsync(u => u.email == email))
             return Conflict("El email ya está registrado.");
 
-        var planCode = string.IsNullOrWhiteSpace(request.SubscriptionPlan) ? "trial_nutri" : request.SubscriptionPlan.Trim();
+        var planCode = string.IsNullOrWhiteSpace(request.SubscriptionPlan) ? "free" : request.SubscriptionPlan.Trim();
         var plan = await _context.subscription_plans.FirstOrDefaultAsync(p => p.code == planCode && p.active);
         if (plan == null)
             return BadRequest("El plan seleccionado no existe o no está activo.");
@@ -539,7 +539,7 @@ public class CreateAdminAccountRequest
     public string? CifNif { get; set; }
     public string? ClinicAddress { get; set; }
     public string? ClinicPhone { get; set; }
-    public string SubscriptionPlan { get; set; } = "trial_nutri";
+    public string SubscriptionPlan { get; set; } = "free";
     public string SubscriptionStatus { get; set; } = "active";
     public DateTime? LicenseExpiresAt { get; set; }
     public int? MaxClientsAllowed { get; set; }
