@@ -1,30 +1,46 @@
-<!-- login.component.html -->
-<form [formGroup]="form" (ngSubmit)="login()" class="login-form">
-  <mat-form-field appearance="outline" class="full-width">
-    <mat-label>Usuario</mat-label>
-    <input matInput formControlName="username" required />
-  </mat-form-field>
-
-  <mat-form-field appearance="outline" class="full-width">
-    <mat-label>Contraseña</mat-label>
-    <input matInput type="password" formControlName="password" required />
-  </mat-form-field>
-
-  <button mat-raised-button color="primary" type="submit" [disabled]="loading">
-    {{ loading ? 'Entrando...' : 'Login' }}
-  </button>
-
-  <div class="boton-centrado">
-    <div id="googleBtn"></div>
+<div class="auth-shell">
+  <div class="auth-brand" (click)="router.navigate(['/'])">
+    <span class="brand-mark"><mat-icon>spa</mat-icon></span>
+    <span>DietoExpress</span>
   </div>
-  
 
-  <p class="crear-cuenta">
-    ¿No tienes cuenta?
-    <a href="#" (click)="navegarCrearUser(); $event.preventDefault()">Crear usuario</a>
-  </p>
-  <p class="crear-cuenta">
-    ¿Has olvidado tu contraseña?
-    <a href="#" (click)="navegarPwdReset(); $event.preventDefault()">Haz clic aquí</a>
-  </p>
-</form>
+  <div class="auth-card">
+    <div class="auth-heading">
+      <span class="eyebrow">BIENVENIDO DE NUEVO</span>
+      <h1>Inicia sesión</h1>
+      <p>Accede a tu espacio profesional de DietoExpress.</p>
+    </div>
+
+    <form [formGroup]="form" (ngSubmit)="login()" class="login-form">
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Usuario</mat-label>
+        <mat-icon matPrefix>person_outline</mat-icon>
+        <input matInput formControlName="username" autocomplete="username" required />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Contraseña</mat-label>
+        <mat-icon matPrefix>lock_outline</mat-icon>
+        <input matInput type="password" formControlName="password" autocomplete="current-password" required />
+      </mat-form-field>
+
+      <button mat-flat-button color="primary" type="submit" [disabled]="loading">
+        {{ loading ? 'Entrando...' : 'Iniciar sesión' }}
+      </button>
+
+      <div class="divider"><span>o continúa con</span></div>
+      <div class="boton-centrado"><div id="googleBtn"></div></div>
+
+      <p class="forgot">
+        <a href="#" (click)="navegarPwdReset(); $event.preventDefault()">¿Has olvidado tu contraseña?</a>
+      </p>
+    </form>
+
+    <div class="register-prompt">
+      <span>¿Todavía no tienes cuenta?</span>
+      <button mat-button color="primary" (click)="navegarCrearUser()">Crear cuenta gratis</button>
+    </div>
+  </div>
+
+  <p class="back-link"><a routerLink="/">← Volver a DietoExpress</a></p>
+</div>
