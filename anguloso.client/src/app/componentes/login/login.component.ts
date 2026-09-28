@@ -102,6 +102,11 @@ export class LoginComponent {
     return this.http.post<any>(`${this.baseUrl}/auth/google`, { idToken });
   }
 
+
+  volverInicio() {
+    this.router.navigate(['/']);
+  }
+
   navegarCrearUser() {
     this.router.navigate(['crear-usuario']);
   }
