@@ -17,11 +17,12 @@ export class SubscriptionGuard implements CanActivate {
     }
 
     const plan = this.authService.getSubscriptionPlan();
-    if (plan === 'free') {
-      this.router.navigate(['/onboarding']);
-      return false;
-    }
 
-    return plan === 'demo_nutri' || plan === 'nutri_full' || plan === 'clinic_full';
+    // FREE es una cuenta sandbox: puede entrar en clientes y dietas
+    // y probar el producto dentro de sus límites.
+    return plan === 'free'
+      || plan === 'demo_nutri'
+      || plan === 'nutri_full'
+      || plan === 'clinic_full';
   }
 }
