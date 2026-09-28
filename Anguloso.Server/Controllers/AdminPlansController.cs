@@ -50,7 +50,6 @@ public class AdminPlansController : ControllerBase
             max_nutritionists = r.MaxNutritionists,
             max_clients_per_nutritionist = r.MaxClientsPerNutritionist,
             max_total_clients = r.MaxTotalClients,
-            max_diets = r.MaxDiets,
             trial_days = r.TrialDays,
             active = r.Active
         };
@@ -76,7 +75,6 @@ public class AdminPlansController : ControllerBase
         p.max_nutritionists = r.MaxNutritionists;
         p.max_clients_per_nutritionist = r.MaxClientsPerNutritionist;
         p.max_total_clients = r.MaxTotalClients;
-        p.max_diets = r.MaxDiets;
         p.trial_days = r.TrialDays;
         p.active = r.Active;
 
@@ -124,7 +122,6 @@ public class AdminPlansController : ControllerBase
             p.max_nutritionists,
             p.max_clients_per_nutritionist,
             p.max_total_clients,
-            p.max_diets,
             p.trial_days,
             p.active,
             p.created_at,
@@ -147,7 +144,6 @@ public record PlanRequest(
     int? MaxNutritionists,
     int? MaxClientsPerNutritionist,
     int? MaxTotalClients,
-    int? MaxDiets,
     int? TrialDays,
     bool Active);
 
@@ -171,7 +167,6 @@ public record PlanResponse(
     [property: JsonPropertyName("max_nutritionists")] int? MaxNutritionists,
     [property: JsonPropertyName("max_clients_per_nutritionist")] int? MaxClientsPerNutritionist,
     [property: JsonPropertyName("max_total_clients")] int? MaxTotalClients,
-    [property: JsonPropertyName("max_diets")] int? MaxDiets,
     [property: JsonPropertyName("trial_days")] int? TrialDays,
     [property: JsonPropertyName("active")] bool Active,
     [property: JsonPropertyName("created_at")] DateTime CreatedAt,
