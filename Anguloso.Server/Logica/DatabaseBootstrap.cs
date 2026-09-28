@@ -695,34 +695,6 @@ public static class DatabaseBootstrap
     }
 
     /// <summary>
-    /// Evolución de la cuenta FREE: pasa a ser gratuita permanente,
-    /// manteniendo el límite de un único cliente.
-    /// </summary>
-    public static void UpgradeSaaSSchemaV4(angulosodbContext context, ILogger logger)
-    {
-        context.Database.ExecuteSqlRaw(@"
-            UPDATE subscription_plans
-            SET max_clients_per_nutritionist = 1,
-                max_total_clients = 1,
-                trial_days = NULL,
-                description = 'Cuenta gratuita con un cliente'
-            WHERE code = 'free';
-
-            -- FREE no caduca. Las cuentas FREE existentes recuperan el acceso
-            -- aunque la migración V3 les hubiera asignado una fecha de expiración.
-            UPDATE subscriptions s
-            SET expires_at = NULL,
-                status = 'active'
-            FROM subscription_plans p
-            WHERE s.plan_id = p.id
-              AND p.code = 'free';
-        ");
-
-        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('saas-v4-free-permanent') ON CONFLICT (id) DO NOTHING;");
-        logger.LogInformation("Migración SaaS saas-v4-free-permanent aplicada correctamente.");
-    }
-
-    /// <summary>
     /// Evolución de la cuenta FREE: prueba funcional de 7 días,
     /// con un cliente y una dieta como límite.
     /// </summary>
@@ -736,11 +708,13 @@ public static class DatabaseBootstrap
                 description = 'Cuenta gratuita para probar DietoExpress durante 7 días'
             WHERE code = 'free';
 
+            -- PostgreSQL no permite referenciar el alias de la tabla objetivo
+            -- dentro del JOIN del FROM. La relación con el plan se expresa en WHERE.
             UPDATE subscriptions s
             SET expires_at = u.created_at + INTERVAL '7 days'
-            FROM users u
-            JOIN subscription_plans p ON p.id = s.plan_id
+            FROM users u, subscription_plans p
             WHERE s.tenant_id = u.tenant_id
+              AND p.id = s.plan_id
               AND p.code = 'free'
               AND u.role <> 'superadmin'
               AND s.expires_at IS NULL;
@@ -749,10 +723,11 @@ public static class DatabaseBootstrap
             SET subscription_status = CASE
                     WHEN s.expires_at IS NOT NULL AND s.expires_at <= NOW() THEN 'expired'
                     ELSE 'active'
-                END
-            FROM subscriptions s
-            JOIN subscription_plans p ON p.id = s.plan_id
+                END,
+                max_clients_allowed = 1
+            FROM subscriptions s, subscription_plans p
             WHERE s.tenant_id = u.tenant_id
+              AND p.id = s.plan_id
               AND p.code = 'free'
               AND u.role <> 'superadmin';
         ");
