@@ -32,15 +32,18 @@ public class ClientsController : ControllerBase
 
     // GET: api/clients
     [HttpGet]
-    public async Task<ActionResult<List<ClientListDto>>> GetClients()
+    public async Task<ActionResult<List<ClientListDto>>> GetClients([FromQuery] bool includeAll = false)
     {
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
         var tenantId = AuthHelpers.GetTenantId(User);
         var isClinicAdmin = User.IsInRole("clinic_admin");
+        var isSuperAdmin = User.IsInRole("superadmin");
 
         var list = await _context.clients
-            .Where(c => c.user_id == userId.Value || (isClinicAdmin && tenantId.HasValue && c.tenant_id == tenantId.Value))
+            .Where(c => includeAll && isSuperAdmin
+                ? true
+                : c.user_id == userId.Value || (isClinicAdmin && tenantId.HasValue && c.tenant_id == tenantId.Value))
             .OrderByDescending(c => c.created_at)
             .Select(c => new ClientListDto
             {
