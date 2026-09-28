@@ -8,6 +8,10 @@ export interface LicenseStatus {
   planName: string;
   status: string;
   expiresAt?: string | null;
+  currentPeriodStart?: string | null;
+  currentPeriodEnd?: string | null;
+  billingInterval?: 'monthly' | 'yearly' | null;
+  cancelAtPeriodEnd: boolean;
   nutritionists: number;
   clients: number;
   maxNutritionists?: number | null;
