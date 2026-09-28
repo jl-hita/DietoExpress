@@ -12,24 +12,25 @@
     <div class="steps">
       <div class="step">
         <span>1</span>
-        <div><strong>Tu cuenta</strong><p>Datos y configuración básica.</p></div>
+        <div><strong>Empieza por un cliente</strong><p>Crea tu primer cliente y prueba la gestión.</p></div>
       </div>
       <div class="step">
         <span>2</span>
-        <div><strong>Elige tu plan</strong><p>Activa las funciones profesionales cuando las necesites.</p></div>
+        <div><strong>Crea una dieta</strong><p>Prepara una dieta y descubre el flujo de trabajo.</p></div>
       </div>
       <div class="step">
         <span>3</span>
-        <div><strong>Empieza a trabajar</strong><p>Gestiona clientes y dietas desde un único lugar.</p></div>
+        <div><strong>Cuando necesites más</strong><p>Pasa a un plan profesional para ampliar los límites.</p></div>
       </div>
     </div>
 
     <div class="actions">
-      <button mat-flat-button color="primary" (click)="irABilling()">
-        Ver planes y precios
+      <button mat-flat-button color="primary" routerLink="/clients">
+        Empezar a probar
         <mat-icon>arrow_forward</mat-icon>
       </button>
       <button mat-button (click)="configurarPerfil()">Configurar mi perfil</button>
+      <button mat-button (click)="irABilling()">Ver planes y precios</button>
     </div>
 
     <button mat-button class="logout" (click)="cerrarSesion()">Cerrar sesión</button>
