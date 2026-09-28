@@ -17,6 +17,7 @@ import { AdminService, AdminConfig, AdminStats, AdminUser, AdminPlan, CreateAdmi
 import { EditLicenseDialogComponent } from './edit-license-dialog.component';
 import { ResetPasswordDialogComponent } from './reset-password-dialog.component';
 import { CreateAdminAccountDialogComponent } from './create-admin-account-dialog.component';
+import { DeleteAccountDialogComponent } from './delete-account-dialog.component';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -195,6 +196,10 @@ import { CreateAdminAccountDialogComponent } from './create-admin-account-dialog
 
                 <button mat-icon-button color="accent" matTooltip="Restablecer Contraseña" (click)="openResetPassword(u)">
                   <mat-icon>lock_reset</mat-icon>
+                </button>
+
+                <button mat-icon-button color="warn" matTooltip="Eliminar Cuenta" (click)="deleteUser(u)">
+                  <mat-icon>delete_forever</mat-icon>
                 </button>
 
                 <button *ngIf="u.subscriptionStatus === 'active'" mat-icon-button color="warn" matTooltip="Suspender Cuenta" (click)="suspendUser(u)">
@@ -615,6 +620,29 @@ export class AdminDashboardComponent implements OnInit {
         this.loadData();
       },
       error: () => this.snackBar.open('Error al suspender usuario.', 'Cerrar', { duration: 4000 })
+    });
+  }
+
+  deleteUser(user: AdminUser): void {
+    const ref = this.dialog.open(DeleteAccountDialogComponent, {
+      width: '560px',
+      maxWidth: '95vw',
+      data: user
+    });
+
+    ref.afterClosed().subscribe(confirmed => {
+      if (!confirmed) return;
+
+      this.adminService.deleteUser(user.id).subscribe({
+        next: () => {
+          this.snackBar.open('Cuenta eliminada correctamente.', 'OK', { duration: 4000 });
+          this.loadData();
+        },
+        error: err => {
+          const message = err?.error?.message || err?.error || 'Error al eliminar la cuenta.';
+          this.snackBar.open(message, 'Cerrar', { duration: 5000 });
+        }
+      });
     });
   }
 
