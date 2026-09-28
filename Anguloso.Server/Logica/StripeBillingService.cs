@@ -102,6 +102,13 @@ public sealed class StripeBillingService : IStripeBillingService
         if (subscription.cancel_at_period_end)
             throw new InvalidOperationException("La renovación está cancelada para el final del periodo. Reactiva primero la renovación y después cambia de plan.");
 
+        var currentPlan = await _context.subscription_plans
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.id == subscription.plan_id);
+
+        if (currentPlan?.code == "clinic_full" && plan.code == "nutri_full")
+            throw new InvalidOperationException("No se puede cambiar de Enterprise a Professional mientras la suscripción Enterprise siga activa. Cancela la renovación y, cuando termine el periodo actual, podrás contratar Professional.");
+
         if (subscription.plan_id == plan.id &&
             string.Equals(subscription.billing_interval, billingInterval, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("La cuenta ya tiene ese plan y periodo de facturación.");
