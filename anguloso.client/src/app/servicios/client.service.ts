@@ -9,6 +9,7 @@ export interface ClientCreationAvailability {
   reason?: string | null;
 }
 
+@Injectable({ providedIn: 'root' })
 export class ClientService {
   private base = environment.apiUrl;
 
