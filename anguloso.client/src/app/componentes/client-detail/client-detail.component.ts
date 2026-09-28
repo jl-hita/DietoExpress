@@ -564,9 +564,18 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     return sign + delta.toFixed(1);
   }
 
-  getDeltaClass(delta: number | null): string {
+  getDeltaClass(delta: number | null, metric?: 'weight' | 'waist' | 'bodyFat' | 'fatMass' | 'muscleMass'): string {
     if (delta == null || delta === 0) return 'delta-neutral';
-    return delta > 0 ? 'delta-positive' : 'delta-negative';
+
+    // En masa muscular, aumentar es favorable; en cintura/grasa, reducir suele
+    // ser el cambio esperado. El peso se mantiene neutro porque su interpretación
+    // depende del objetivo del paciente.
+    if (metric === 'muscleMass') return delta > 0 ? 'delta-negative' : 'delta-positive';
+    if (metric === 'waist' || metric === 'bodyFat' || metric === 'fatMass') {
+      return delta < 0 ? 'delta-negative' : 'delta-positive';
+    }
+
+    return 'delta-neutral';
   }
 
   getDeltaDirectionIcon(delta: number | null): string {
