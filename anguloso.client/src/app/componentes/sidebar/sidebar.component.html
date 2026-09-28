@@ -5,7 +5,7 @@
   </div>
 
   <mat-nav-list>
-    <div class="menu-item" *ngIf="isProfessionalAccount">
+    <div class="menu-item" *ngIf="isProfessionalAccount || authService.getSubscriptionPlan() === 'free'">
       <a mat-list-item routerLink="/clients" routerLinkActive="active-link">
         <mat-icon>group</mat-icon>
         <span>Clientes</span>
