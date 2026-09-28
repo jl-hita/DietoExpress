@@ -66,7 +66,7 @@ export class LoginComponent {
       next: (res) => {
         this.authService.login(res.token);
         this.snackBar.open(`Bienvenido ${res.username}`, 'Cerrar', { duration: 3000 });
-        this.ngZone.run(() => this.router.navigate(['/'])); // navegar en Angular zone
+        this.ngZone.run(() => this.router.navigate(['/clients'])); // navegar en Angular zone
       },
       error: (err) => {
         console.error(err);
@@ -88,7 +88,7 @@ export class LoginComponent {
         console.log("User -> " + res.username);
         console.log("Role -> " + res.role);
         this.snackBar.open("Bienvenido " + res.username, 'Cerrar', { duration: 3000 });
-        this.router.navigate(['']); // ruta principal tras login
+        this.router.navigate(['/clients']); // los usuarios FREE serán enviados al onboarding por el guard
       },
       error: (err) => {
         console.error(err);
