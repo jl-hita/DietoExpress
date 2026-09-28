@@ -121,6 +121,10 @@ export class AdminService {
     return this.http.put<{ message: string }>(`${this.adminUrl}/users/${id}/activate`, {});
   }
 
+  deleteUser(id: number): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>(`${this.adminUrl}/users/${id}`);
+  }
+
   resetUserPassword(id: number, newPassword: string): Observable<{ message: string }> {
     return this.http.put<{ message: string }>(`${this.adminUrl}/users/${id}/reset-password`, { newPassword });
   }
