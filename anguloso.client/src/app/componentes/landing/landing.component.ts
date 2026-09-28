@@ -1,9 +1,12 @@
 import { Component } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 
 @Component({
   selector: 'app-landing',
   standalone: true,
+  imports: [RouterLink, MatButtonModule, MatIconModule],
   templateUrl: './landing.component.html',
   styleUrls: ['./landing.component.css']
 })
