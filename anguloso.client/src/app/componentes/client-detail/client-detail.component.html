@@ -439,32 +439,75 @@
     <!-- ═══════════════════════════════════════════════════════════ -->
     <mat-tab label="Evolución">
       <div class="evolution-container">
-        <div class="chart-controls" *ngIf="evolutionData.length >= 2">
-          <mat-form-field appearance="outline">
-            <mat-label>Métrica a graficar</mat-label>
-            <mat-select [value]="selectedMetric" (selectionChange)="onMetricChange($event.value)">
-              <mat-option value="weight">Peso (kg)</mat-option>
-              <mat-option value="bodyFat">% Grasa Corporal (manual)</mat-option>
-              <mat-option value="muscleMass">Masa Muscular (kg)</mat-option>
-              <mat-option value="bmi">Índice de Masa Corporal (IMC)</mat-option>
-              <mat-option value="waist">Cintura (cm)</mat-option>
-              <mat-option value="hip">Cadera (cm)</mat-option>
-              <mat-optgroup label="Grasa calculada (pliegues)">
-                <mat-option value="jp3">% Grasa Jackson-Pollock 3</mat-option>
-                <mat-option value="jp4">% Grasa Jackson-Pollock 4</mat-option>
-                <mat-option value="faulkner">% Grasa Faulkner</mat-option>
-              </mat-optgroup>
-            </mat-select>
-          </mat-form-field>
+        <div class="evolution-header">
+          <div>
+            <h3>Progreso del paciente</h3>
+            <p>Comparativa de los controles registrados en consulta.</p>
+          </div>
+          <span class="evolution-count" *ngIf="evolutionData.length">{{ evolutionData.length }} controles</span>
         </div>
 
-        <div class="chart-wrapper" [class.hidden]="evolutionData.length < 2">
-          <canvas id="evolutionChart"></canvas>
+        <ng-container *ngIf="getLatestBiometric() as latest">
+          <div class="evolution-summary">
+            <div class="progress-card">
+              <span class="progress-label">Peso actual</span>
+              <strong>{{ latest.weight != null ? (latest.weight | number:'1.1-1') + ' kg' : '—' }}</strong>
+              <small *ngIf="getWeightDelta() as delta" [class.positive-change]="delta < 0" [class.negative-change]="delta > 0">
+                {{ delta > 0 ? '+' : '' }}{{ delta | number:'1.1-1' }} kg vs. control anterior
+              </small>
+            </div>
+            <div class="progress-card">
+              <span class="progress-label">% grasa corporal</span>
+              <strong>{{ getBodyFatValue(latest) != null ? (getBodyFatValue(latest) | number:'1.1-1') + '%' : '—' }}</strong>
+              <small *ngIf="getBodyFatSource(latest)">Fuente: {{ getBodyFatSource(latest) }}<span *ngIf="getBodyFatDelta() as delta"> · {{ delta > 0 ? '+' : '' }}{{ delta | number:'1.1-1' }} pp</span></small>
+            </div>
+            <div class="progress-card">
+              <span class="progress-label">IMC</span>
+              <strong>{{ latest.bmi != null ? (latest.bmi | number:'1.1-1') : '—' }}</strong>
+              <small>Último control</small>
+            </div>
+            <div class="progress-card">
+              <span class="progress-label">Último control</span>
+              <strong>{{ latest.measurementDate | date:'dd/MM/yyyy' }}</strong>
+              <small>{{ getBodyFatSource(latest) || 'Sin % grasa disponible' }}</small>
+            </div>
+          </div>
+        </ng-container>
+
+        <div *ngIf="evolutionData.length >= 2" class="primary-evolution-grid">
+          <div class="evolution-chart-card">
+            <div class="chart-card-header"><div><strong>Peso</strong><span>Evolución por control</span></div></div>
+            <div class="chart-wrapper"><canvas id="weightEvolutionChart"></canvas></div>
+          </div>
+          <div class="evolution-chart-card">
+            <div class="chart-card-header"><div><strong>% grasa corporal</strong><span>Medido o estimado por antropometría</span></div></div>
+            <div class="chart-wrapper"><canvas id="bodyFatEvolutionChart"></canvas></div>
+          </div>
+        </div>
+
+        <div class="secondary-evolution" *ngIf="evolutionData.length >= 2">
+          <div class="chart-controls">
+            <mat-form-field appearance="outline">
+              <mat-label>Otra métrica</mat-label>
+              <mat-select [value]="selectedMetric" (selectionChange)="onMetricChange($event.value)">
+                <mat-option value="muscleMass">Masa muscular (kg)</mat-option>
+                <mat-option value="bmi">Índice de Masa Corporal (IMC)</mat-option>
+                <mat-option value="waist">Cintura (cm)</mat-option>
+                <mat-option value="hip">Cadera (cm)</mat-option>
+                <mat-optgroup label="% grasa calculado">
+                  <mat-option value="jp3">Jackson-Pollock 3</mat-option>
+                  <mat-option value="jp4">Jackson-Pollock 4</mat-option>
+                  <mat-option value="faulkner">Faulkner</mat-option>
+                </mat-optgroup>
+              </mat-select>
+            </mat-form-field>
+          </div>
+          <div class="chart-wrapper secondary-chart"><canvas id="evolutionChart"></canvas></div>
         </div>
 
         <div *ngIf="evolutionData.length < 2" class="no-data-msg">
           <mat-icon>trending_up</mat-icon>
-          <p>Se necesitan al menos 2 registros biométricos para visualizar la evolución del paciente.</p>
+          <p>Registra al menos dos controles para visualizar la evolución. Cada control puede incluir peso, altura, pliegues y % graso medido.</p>
         </div>
       </div>
     </mat-tab>
