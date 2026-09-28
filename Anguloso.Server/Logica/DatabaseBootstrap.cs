@@ -568,7 +568,7 @@ public static class DatabaseBootstrap
                    CASE
                      WHEN u.subscription_plan IN ('enterprise','clinic_full') THEN (SELECT id FROM subscription_plans WHERE code='clinic_full')
                      WHEN u.subscription_plan IN ('professional','nutri_full') THEN (SELECT id FROM subscription_plans WHERE code='nutri_full')
-                     ELSE (SELECT id FROM subscription_plans WHERE code='trial_nutri')
+                     ELSE (SELECT id FROM subscription_plans WHERE code='free')
                    END,
                    CASE WHEN coalesce(u.subscription_status,'active') IN ('suspended','cancelled','past_due') THEN coalesce(u.subscription_status,'active') ELSE 'active' END,
                    coalesce(u.created_at,NOW()),
