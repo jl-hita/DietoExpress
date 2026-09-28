@@ -695,6 +695,34 @@ public static class DatabaseBootstrap
     }
 
     /// <summary>
+    /// Evolución de la cuenta FREE: pasa a ser gratuita permanente,
+    /// manteniendo el límite de un único cliente.
+    /// </summary>
+    public static void UpgradeSaaSSchemaV4(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            UPDATE subscription_plans
+            SET max_clients_per_nutritionist = 1,
+                max_total_clients = 1,
+                trial_days = NULL,
+                description = 'Cuenta gratuita con un cliente'
+            WHERE code = 'free';
+
+            -- FREE no caduca. Las cuentas FREE existentes recuperan el acceso
+            -- aunque la migración V3 les hubiera asignado una fecha de expiración.
+            UPDATE subscriptions s
+            SET expires_at = NULL,
+                status = 'active'
+            FROM subscription_plans p
+            WHERE s.plan_id = p.id
+              AND p.code = 'free';
+        ");
+
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('saas-v4-free-permanent') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración SaaS saas-v4-free-permanent aplicada correctamente.");
+    }
+
+    /// <summary>
     /// Evolución de la cuenta FREE: prueba funcional de 7 días,
     /// con un cliente y una dieta como límite.
     /// </summary>
