@@ -251,7 +251,7 @@ public class AuthController : ControllerBase
                 plan_id = freePlan.id,
                 status = "active",
                 started_at = DateTime.UtcNow,
-                expires_at = null
+                expires_at = DateTime.UtcNow.AddDays(7)
             });
             await _context.SaveChangesAsync();
 
