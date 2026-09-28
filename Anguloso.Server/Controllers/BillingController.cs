@@ -36,7 +36,7 @@ public sealed class BillingController : ControllerBase
     {
         var plans = await _context.subscription_plans
             .AsNoTracking()
-            .Where(p => p.active && p.code != "trial_nutri")
+            .Where(p => p.active && p.code != "free" && p.code != "demo_nutri" && p.code != "trial_nutri")
             .OrderBy(p => p.id)
             .Select(p => new BillingPlanResponse(
                 p.id,
