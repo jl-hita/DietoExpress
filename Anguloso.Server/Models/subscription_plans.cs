@@ -15,6 +15,7 @@ public partial class subscription_plans
     public int? max_nutritionists { get; set; }
     public int? max_clients_per_nutritionist { get; set; }
     public int? max_total_clients { get; set; }
+    public int? max_diets { get; set; }
     public int? trial_days { get; set; }
     public bool active { get; set; } = true;
     public DateTime created_at { get; set; } = DateTime.UtcNow;
