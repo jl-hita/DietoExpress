@@ -71,7 +71,7 @@
 
     <!-- Botones -->
     <div class="actions">
-      <button mat-flat-button color="primary" class="btn-save" type="submit">
+      <button mat-flat-button color="primary" class="btn-save" type="submit" [disabled]="form.invalid || checkingCreatePermission || !canCreateClient">
         Crear cliente
       </button>
 
