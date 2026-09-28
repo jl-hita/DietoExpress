@@ -456,6 +456,10 @@ public class AdminUsersController : ControllerBase
             .Select(c => c.id)
             .ToListAsync();
 
+        var tenantId = user.tenant_id;
+        var hasOtherTenantUsers = tenantId.HasValue && await _context.users
+            .AnyAsync(u => u.tenant_id == tenantId && u.id != id && u.role != "superadmin");
+
         await using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
@@ -475,6 +479,17 @@ public class AdminUsersController : ControllerBase
                 await _context.audit_logs
                     .Where(a => a.client_id.HasValue && clientIds.Contains(a.client_id.Value))
                     .ExecuteUpdateAsync(s => s.SetProperty(a => a.client_id, (int?)null));
+            }
+
+            // Si era el último usuario del tenant, cancelamos su suscripción activa
+            // sin borrar el historial de facturación asociado al tenant.
+            if (tenantId.HasValue && !hasOtherTenantUsers)
+            {
+                var subscription = await _context.subscriptions
+                    .FirstOrDefaultAsync(s => s.tenant_id == tenantId.Value);
+
+                if (subscription != null && subscription.status != "cancelled")
+                    subscription.status = "cancelled";
             }
 
             // La BBDD elimina en cascada los datos dependientes del usuario (pacientes,
