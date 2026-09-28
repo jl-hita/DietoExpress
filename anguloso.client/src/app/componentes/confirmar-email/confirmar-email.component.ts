@@ -59,7 +59,7 @@ export class ConfirmarEmailComponent {
       error: (r) => {
         this.estado = 'error';
         //this.mensaje = 'Error de red al confirmar el email.';
-        this.mensaje = 'Error en login: ' + r;
+        this.mensaje = r?.error || 'No se ha podido confirmar el email. El enlace puede haber caducado o no ser válido.';
       }
     });
   }
