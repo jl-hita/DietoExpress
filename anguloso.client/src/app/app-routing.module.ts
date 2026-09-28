@@ -22,6 +22,9 @@ import { SuperAdminGuard } from './guards/super-admin.guard';
 import { ClinicDashboardComponent } from './componentes/clinic/clinic-dashboard.component';
 import { AdminPlansComponent } from './componentes/admin/admin-plans.component';
 import { BillingComponent } from './componentes/billing/billing.component';
+import { LandingComponent } from './componentes/landing/landing.component';
+import { OnboardingComponent } from './componentes/onboarding/onboarding.component';
+import { SubscriptionGuard } from './guards/subscription.guard';
 
 export interface AppRoute extends Route {
   showInMenu?: boolean;
@@ -29,6 +32,7 @@ export interface AppRoute extends Route {
 }
 
 const routes: AppRoute[] = [
+  { path: '', component: LandingComponent, pathMatch: 'full', title: 'DietoExpress' },
   { path: 'setup', component: SetupWizardComponent, canActivate: [SetupGuard], title: 'Inicialización del Sistema' },
   { path: 'login', component: LoginComponent },
   { path: 'crear-usuario', component: UserCreateComponent, title: 'Crear usuario', showInMenu: false },
@@ -41,9 +45,9 @@ const routes: AppRoute[] = [
       { path: 'clients', component: ClientsListComponent },
       { path: 'clients/:id', component: ClientDetailComponent },
       { path: 'clients/nuevo', component: ClientCreateComponent, title: 'Nuevo cliente' },
-      { path: 'diets', component: DietsListComponent, title: 'Dietas' },
-      { path: 'diets/nuevo', component: DietCreateComponent, title: 'Nueva dieta' },
-      { path: 'diets/:id', component: DietCreateComponent, title: 'Editar dieta' },
+      { path: 'diets', component: DietsListComponent, canActivate: [SubscriptionGuard], title: 'Dietas' },
+      { path: 'diets/nuevo', component: DietCreateComponent, canActivate: [SubscriptionGuard], title: 'Nueva dieta' },
+      { path: 'diets/:id', component: DietCreateComponent, canActivate: [SubscriptionGuard], title: 'Editar dieta' },
       { path: 'settings', component: SettingsComponent, title: 'Ajustes' },
       { path: 'billing', component: BillingComponent, title: 'Suscripción' },
       { path: 'admin', component: AdminDashboardComponent, canActivate: [SuperAdminGuard], title: 'Panel SuperAdmin' },
