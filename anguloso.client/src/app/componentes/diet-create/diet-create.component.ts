@@ -417,28 +417,28 @@ export class DietCreateComponent implements OnInit {
    * Se mueve el FormControl completo para conservar gramos, macros e intercambios.
    */
   dropFood(event: CdkDragDrop<AbstractControl[]>): void {
-    const source = event.previousContainer.data as AbstractControl[];
-    const target = event.container.data as AbstractControl[];
+    const source = event.previousContainer.data as FormArray;
+    const target = event.container.data as FormArray;
 
     if (!source || !target || event.previousIndex < 0 || event.currentIndex < 0) return;
 
     if (source === target) {
-      moveItemInArray(source, event.previousIndex, event.currentIndex);
+      const control = source.at(event.previousIndex);
+      if (!control) return;
+
+      source.removeAt(event.previousIndex, { emitEvent: false });
+      source.insert(event.currentIndex, control, { emitEvent: true });
       return;
     }
 
-    const control = source[event.previousIndex];
+    const control = source.at(event.previousIndex);
     if (!control) return;
 
-    source.splice(event.previousIndex, 1);
-    target.splice(event.currentIndex, 0, control);
+    source.removeAt(event.previousIndex, { emitEvent: false });
+    target.insert(event.currentIndex, control, { emitEvent: true });
 
-    // FormArray necesita conocer los cambios para mantener correctamente
-    // el estado de los controles y recalcular el formulario.
-    const sourceFormArray = event.previousContainer.data as any;
-    const targetFormArray = event.container.data as any;
-    sourceFormArray.updateValueAndValidity();
-    targetFormArray.updateValueAndValidity();
+    source.updateValueAndValidity();
+    target.updateValueAndValidity();
   }
 
   recalcItem(itemCtrl: AbstractControl): void {
