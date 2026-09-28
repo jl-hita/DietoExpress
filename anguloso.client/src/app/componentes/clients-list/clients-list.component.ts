@@ -77,7 +77,13 @@ export class ClientsListComponent implements OnInit {
     this.loading = true;
     this.clientService.getClients(this.showAllClients && this.isSuperAdmin).subscribe({
       next: clients => {
-        this.clients = clients || [];
+        this.clients = (clients || []).map(client => ({
+          id: client.id,
+          name: client.fullName,
+          email: client.email,
+          phone: client.phone,
+          created_at: client.createdAt
+        }));
         this.currentPage = 1;
         this.refresh();
         this.loading = false;
