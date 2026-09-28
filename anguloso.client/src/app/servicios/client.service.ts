@@ -4,7 +4,6 @@ import { Observable } from 'rxjs';
 import { environment } from '../../environments/environments';
 import { Biometric, ClientListItem, ClientDetail, ClientDiet, AssignDietPayload, UpdateClientDietPayload } from '../modelos/client';
 
-@Injectable({ providedIn: 'root' })
 export interface ClientCreationAvailability {
   allowed: boolean;
   reason?: string | null;
