@@ -42,9 +42,9 @@ const routes: AppRoute[] = [
 
   { path: '', component: LayoutComponent, canActivate: [AuthGuard],
     children: [
-      { path: 'clients', component: ClientsListComponent },
-      { path: 'clients/:id', component: ClientDetailComponent },
-      { path: 'clients/nuevo', component: ClientCreateComponent, title: 'Nuevo cliente' },
+      { path: 'clients', component: ClientsListComponent, canActivate: [SubscriptionGuard] },
+      { path: 'clients/nuevo', component: ClientCreateComponent, canActivate: [SubscriptionGuard], title: 'Nuevo cliente' },
+      { path: 'clients/:id', component: ClientDetailComponent, canActivate: [SubscriptionGuard] },
       { path: 'diets', component: DietsListComponent, canActivate: [SubscriptionGuard], title: 'Dietas' },
       { path: 'diets/nuevo', component: DietCreateComponent, canActivate: [SubscriptionGuard], title: 'Nueva dieta' },
       { path: 'diets/:id', component: DietCreateComponent, canActivate: [SubscriptionGuard], title: 'Editar dieta' },
