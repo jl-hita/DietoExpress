@@ -599,4 +599,83 @@ public static class DatabaseBootstrap
         logger.LogInformation("Migración SaaS saas-v1 aplicada correctamente.");
     }
 
+    /// <summary>
+    /// Evolución del modelo de acceso público: cuenta gratuita y demos concedidas
+    /// exclusivamente desde SuperAdmin.
+    /// </summary>
+    public static void UpgradeSaaSSchemaV2(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            INSERT INTO subscription_plans
+                (code,name,description,monthly_price,yearly_price,max_nutritionists,max_clients_per_nutritionist,max_total_clients,trial_days,active)
+            VALUES
+                ('free','Cuenta gratuita','Cuenta de acceso sin capacidad profesional',0,0,1,0,0,NULL,TRUE),
+                ('demo_nutri','Demo nutricionista','Acceso profesional temporal concedido por SuperAdmin',0,0,1,100,100,14,TRUE)
+            ON CONFLICT(code) DO NOTHING;
+
+            UPDATE subscription_plans
+            SET name='Demo nutricionista',
+                description='Acceso profesional temporal concedido por SuperAdmin',
+                monthly_price=0,
+                yearly_price=0,
+                max_nutritionists=1,
+                max_clients_per_nutritionist=100,
+                max_total_clients=100,
+                trial_days=14,
+                active=TRUE
+            WHERE code='trial_nutri';
+
+            UPDATE subscription_plans
+            SET code='demo_nutri'
+            WHERE code='trial_nutri'
+              AND NOT EXISTS (SELECT 1 FROM subscription_plans WHERE code='demo_nutri');
+
+            UPDATE subscription_plans
+            SET name='Cuenta gratuita',
+                description='Cuenta de acceso sin capacidad profesional',
+                monthly_price=0,
+                yearly_price=0,
+                max_nutritionists=1,
+                max_clients_per_nutritionist=0,
+                max_total_clients=0,
+                trial_days=NULL,
+                active=TRUE
+            WHERE code='free';
+
+            UPDATE users u
+            SET subscription_plan='free',
+                subscription_status='active',
+                max_clients_allowed=0
+            WHERE u.subscription_plan IN ('trial_nutri');
+
+            UPDATE subscriptions s
+            SET plan_id=(SELECT id FROM subscription_plans WHERE code='free'),
+                status='active',
+                expires_at=NULL
+            WHERE s.plan_id=(SELECT id FROM subscription_plans WHERE code='demo_nutri')
+              AND EXISTS (
+                  SELECT 1 FROM users u
+                  WHERE u.tenant_id=s.tenant_id
+                    AND u.subscription_plan='free'
+              );
+
+            INSERT INTO subscriptions(tenant_id,plan_id,status,started_at,expires_at)
+            SELECT t.id,(SELECT id FROM subscription_plans WHERE code='free'),'active',NOW(),NULL
+            FROM tenants t
+            JOIN users u ON u.tenant_id=t.id AND u.role <> 'superadmin'
+            WHERE u.subscription_plan='free'
+              AND NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.tenant_id=t.id);
+
+            UPDATE users u
+            SET max_clients_allowed=COALESCE(p.max_clients_per_nutritionist,0)
+            FROM subscriptions s
+            JOIN subscription_plans p ON p.id=s.plan_id
+            WHERE s.tenant_id=u.tenant_id
+              AND u.role <> 'superadmin'
+              AND u.subscription_plan=p.code;
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('saas-v2-access-model') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración SaaS saas-v2-access-model aplicada correctamente.");
+    }
+
 }
