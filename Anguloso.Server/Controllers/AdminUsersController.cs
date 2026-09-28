@@ -441,6 +441,58 @@ public class AdminUsersController : ControllerBase
     }
 
     /// <summary>
+    /// Elimina permanentemente una cuenta de usuario y sus datos asociados.
+    /// Solo puede ejecutarlo un SuperAdmin y nunca se permite eliminar otro SuperAdmin.
+    /// </summary>
+    [HttpDelete("users/{id}")]
+    public async Task<IActionResult> DeleteUser(int id)
+    {
+        var user = await _context.users.FirstOrDefaultAsync(u => u.id == id);
+        if (user == null || user.role == "superadmin")
+            return NotFound("Usuario no encontrado o no eliminable.");
+
+        var clientIds = await _context.clients
+            .Where(c => c.user_id == id)
+            .Select(c => c.id)
+            .ToListAsync();
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            // Las asignaciones tienen FK restrictiva hacia el nutricionista.
+            await _context.client_nutritionist_assignments
+                .Where(a => a.nutritionist_id == id)
+                .ExecuteDeleteAsync();
+
+            // Conservamos la trazabilidad de auditoría sin referencias al usuario eliminado.
+            await _context.audit_logs
+                .Where(a => a.user_id == id)
+                .ExecuteUpdateAsync(s => s.SetProperty(a => a.user_id, (int?)null));
+
+            if (clientIds.Count > 0)
+            {
+                // Los pacientes se eliminan junto con la cuenta, pero sus registros de auditoría se conservan.
+                await _context.audit_logs
+                    .Where(a => a.client_id.HasValue && clientIds.Contains(a.client_id.Value))
+                    .ExecuteUpdateAsync(s => s.SetProperty(a => a.client_id, (int?)null));
+            }
+
+            // La BBDD elimina en cascada los datos dependientes del usuario (pacientes,
+            // dietas, recetas y sus elementos relacionados).
+            _context.users.Remove(user);
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return Ok(new { message = "Cuenta eliminada permanentemente." });
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
+    /// <summary>
     /// Activa la cuenta o suscripción de un usuario.
     /// </summary>
     [HttpPut("users/{id}/activate")]
