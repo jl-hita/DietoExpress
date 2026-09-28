@@ -88,7 +88,7 @@ export class EditLicenseDialogComponent {
     @Inject(MAT_DIALOG_DATA) public data: AdminUser
   ) {
     this.model = {
-      subscriptionPlan: data.subscriptionPlan || 'trial_nutri',
+      subscriptionPlan: data.subscriptionPlan || 'free',
       subscriptionStatus: data.subscriptionStatus || 'active',
       licenseExpiresAt: data.licenseExpiresAt,
       maxClientsAllowed: data.maxClientsAllowed || 10
