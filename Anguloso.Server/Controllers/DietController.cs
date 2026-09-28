@@ -150,10 +150,15 @@ public class DietController : ControllerBase
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
 
+        var tenantId = AuthHelpers.GetTenantId(User);
+        var dietPermission = await _licenseService.CanCreateDietAsync(tenantId, userId.Value);
+        if (!dietPermission.Allowed)
+            return BadRequest(dietPermission.Reason);
+
         var diet = new diets
         {
             user_id = userId.Value,
-            tenant_id = AuthHelpers.GetTenantId(User),
+            tenant_id = tenantId,
             name = dto.Name,
             target_kcal = dto.TargetKcal,
             target_protein = dto.TargetProtein,
