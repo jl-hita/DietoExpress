@@ -626,9 +626,8 @@ public static class DatabaseBootstrap
             WHERE code='trial_nutri';
 
             UPDATE subscription_plans
-            SET code='demo_nutri'
-            WHERE code='trial_nutri'
-              AND NOT EXISTS (SELECT 1 FROM subscription_plans WHERE code='demo_nutri');
+            SET active=FALSE
+            WHERE code='trial_nutri';
 
             UPDATE subscription_plans
             SET name='Cuenta gratuita',
