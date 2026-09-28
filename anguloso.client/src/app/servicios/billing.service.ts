@@ -38,4 +38,19 @@ export class BillingService {
   createCheckout(request: CheckoutRequest): Observable<{ url: string }> {
     return this.http.post<{ url: string }>(`${this.baseUrl}/checkout`, request);
   }
+
+  cancelRenewal(): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.baseUrl}/subscription/cancel-renewal`, {});
+  }
+
+  reactivateRenewal(): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.baseUrl}/subscription/reactivate-renewal`, {});
+  }
+
+  changeSubscription(planCode: string, billingInterval: 'monthly' | 'yearly'): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.baseUrl}/subscription/change`, {
+      planCode,
+      billingInterval
+    });
+  }
 }
