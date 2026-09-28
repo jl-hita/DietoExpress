@@ -599,8 +599,7 @@ public class AuthController : ControllerBase
                     started_at = DateTime.UtcNow,
                     expires_at = null
                 });
-                    await _context.SaveChangesAsync();
-                }
+                await _context.SaveChangesAsync();
             }
         }
         else
