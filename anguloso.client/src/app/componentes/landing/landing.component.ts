@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { AuthService } from '../../servicios/auth.service';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
@@ -11,7 +12,13 @@ import { MatIconModule } from '@angular/material/icon';
   styleUrls: ['./landing.component.css']
 })
 export class LandingComponent {
-  constructor(private router: Router) {}
+  constructor(private router: Router, private authService: AuthService) {}
+
+  ngOnInit(): void {
+    if (this.authService.isLoggedIn()) {
+      this.router.navigate(['/clients']);
+    }
+  }
 
   crearCuenta(): void {
     this.router.navigate(['/crear-usuario']);
