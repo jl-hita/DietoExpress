@@ -48,6 +48,7 @@ const routes: AppRoute[] = [
       { path: 'diets', component: DietsListComponent, canActivate: [SubscriptionGuard], title: 'Dietas' },
       { path: 'diets/nuevo', component: DietCreateComponent, canActivate: [SubscriptionGuard], title: 'Nueva dieta' },
       { path: 'diets/:id', component: DietCreateComponent, canActivate: [SubscriptionGuard], title: 'Editar dieta' },
+      { path: 'onboarding', component: OnboardingComponent, title: 'Bienvenido a DietoExpress' },
       { path: 'settings', component: SettingsComponent, title: 'Ajustes' },
       { path: 'billing', component: BillingComponent, title: 'Suscripción' },
       { path: 'admin', component: AdminDashboardComponent, canActivate: [SuperAdminGuard], title: 'Panel SuperAdmin' },
