@@ -9,8 +9,10 @@ import { MatListModule } from '@angular/material/list';
 import { MatPaginator, MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { Router } from '@angular/router';
 import { ClientService } from '../../servicios/client.service';
+import { AuthService } from '../../servicios/auth.service';
 
 export interface ClientItem {
   id: number;
@@ -34,6 +36,7 @@ export interface ClientItem {
     MatPaginatorModule,
     MatProgressSpinnerModule,
     MatTooltipModule,
+    MatCheckboxModule,
   ],
   templateUrl: './clients-list.component.html',
   styleUrls: ['./clients-list.component.css']
@@ -59,12 +62,38 @@ export class ClientsListComponent implements OnInit {
   canCreateClient = true;
   createClientReason = '';
   checkingCreatePermission = true;
+  showAllClients = false;
+  isSuperAdmin = false;
 
-  constructor(private router: Router, private clientService: ClientService) { }
+  constructor(private router: Router, private clientService: ClientService, private authService: AuthService) { }
 
   ngOnInit(): void {
-    this.refresh();
+    this.isSuperAdmin = this.authService.isSuperAdmin();
+    this.loadClients();
     this.checkCreatePermission();
+  }
+
+  loadClients(): void {
+    this.loading = true;
+    this.clientService.getClients(this.showAllClients && this.isSuperAdmin).subscribe({
+      next: clients => {
+        this.clients = clients || [];
+        this.currentPage = 1;
+        this.refresh();
+        this.loading = false;
+      },
+      error: () => {
+        this.clients = [];
+        this.refresh();
+        this.loading = false;
+      }
+    });
+  }
+
+  toggleShowAllClients(): void {
+    if (!this.isSuperAdmin) return;
+    this.showAllClients = !this.showAllClients;
+    this.loadClients();
   }
 
   checkCreatePermission(): void {
