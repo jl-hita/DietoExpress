@@ -218,7 +218,7 @@ public class BiometricsController : ControllerBase
     [HttpPost("import/preview")]
     public async Task<ActionResult<BioimpedancePreviewResponseDto>> PreviewImport(
         int clientId,
-        [FromForm] IFormFile file,
+        IFormFile file,
         [FromForm] string? device = null)
     {
         var userId = AuthHelpers.GetUserId(User);
