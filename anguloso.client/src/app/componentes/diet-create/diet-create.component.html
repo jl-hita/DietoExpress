@@ -259,14 +259,16 @@
                         <th width="40"></th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody cdkDropList [cdkDropListData]="getItems(dIndex, mIndex)" (cdkDropListDropped)="dropFood($event)">
                       <tr 
                         *ngFor="let itemCtrl of getItems(dIndex, mIndex).controls; let iIndex = index"
                         [formGroupName]="iIndex"
+                        cdkDrag
                         [class.exchange-row]="isExchangeItem(itemCtrl)">
                         
                         <!-- Nombre Alimento / Grupo Intercambio -->
                         <td class="food-name">
+                          <mat-icon cdkDragHandle class="food-drag-handle" matTooltip="Arrastrar a otra comida">drag_indicator</mat-icon>
                           <span *ngIf="!isExchangeItem(itemCtrl)">
                             {{ itemCtrl.get('foodName')?.value }}
                           </span>
