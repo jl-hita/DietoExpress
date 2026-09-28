@@ -63,6 +63,8 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
   evolutionData: Biometric[] = [];
   selectedMetric = 'weight';
   chart: Chart | null = null;
+  weightChart: Chart | null = null;
+  bodyFatChart: Chart | null = null;
   dietsHistory: ClientDiet[] = [];
   energyReq: any = null;
   selectedActivity = 'Moderado';
@@ -347,9 +349,9 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
-    if (this.chart) {
-      this.chart.destroy();
-    }
+    if (this.chart) this.chart.destroy();
+    if (this.weightChart) this.weightChart.destroy();
+    if (this.bodyFatChart) this.bodyFatChart.destroy();
   }
 
   onTabChange(event: MatTabChangeEvent) {
@@ -478,7 +480,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     this.svc.getEvolution(this.clientId).subscribe({
       next: (data) => {
         this.evolutionData = data;
-        setTimeout(() => this.renderChart(), 0);
+        setTimeout(() => this.renderEvolutionCharts(), 0);
       },
       error: () => this.snack.open('Error cargando histórico de evolución', 'Cerrar', { duration: 3000 })
     });
@@ -489,25 +491,106 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     this.renderChart();
   }
 
+  getLatestBiometric(): Biometric | undefined {
+    return this.evolutionData.length ? this.evolutionData[this.evolutionData.length - 1] : undefined;
+  }
+
+  getPreviousBiometric(): Biometric | undefined {
+    return this.evolutionData.length > 1 ? this.evolutionData[this.evolutionData.length - 2] : undefined;
+  }
+
+  getBodyFatValue(b: Biometric | undefined): number | null {
+    if (!b) return null;
+    return b.bodyFat ??
+      b.analysis?.bodyFatPercentageJacksonPollock4 ??
+      b.analysis?.bodyFatPercentageJacksonPollock3 ??
+      b.analysis?.bodyFatPercentageJacksonPollock7 ??
+      b.analysis?.bodyFatPercentageFaulkner ??
+      null;
+  }
+
+  getBodyFatSource(b: Biometric | undefined): string {
+    if (!b) return '';
+    if (b.bodyFat != null) return 'Medido';
+    if (b.analysis?.bodyFatPercentageJacksonPollock4 != null) return 'Jackson-Pollock 4';
+    if (b.analysis?.bodyFatPercentageJacksonPollock3 != null) return 'Jackson-Pollock 3';
+    if (b.analysis?.bodyFatPercentageJacksonPollock7 != null) return 'Jackson-Pollock 7';
+    if (b.analysis?.bodyFatPercentageFaulkner != null) return 'Faulkner';
+    return '';
+  }
+
+  getDelta(current?: number | null, previous?: number | null): number | null {
+    if (current == null || previous == null) return null;
+    return Math.round((current - previous) * 10) / 10;
+  }
+
+  getWeightDelta(): number | null {
+    return this.getDelta(this.getLatestBiometric()?.weight, this.getPreviousBiometric()?.weight);
+  }
+
+  getBodyFatDelta(): number | null {
+    return this.getDelta(this.getBodyFatValue(this.getLatestBiometric()), this.getBodyFatValue(this.getPreviousBiometric()));
+  }
+
+  renderEvolutionCharts() {
+    this.renderWeightChart();
+    this.renderBodyFatChart();
+    if (this.evolutionData.length >= 2) this.renderChart();
+  }
+
+  private getChartLabels(): string[] {
+    return this.evolutionData.map(b => {
+      if (!b.measurementDate) return '';
+      const d = new Date(b.measurementDate);
+      return Number.isNaN(d.getTime()) ? b.measurementDate : d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    });
+  }
+
+  private renderWeightChart() {
+    const canvas = document.getElementById('weightEvolutionChart') as HTMLCanvasElement | null;
+    if (!canvas) return;
+    if (this.weightChart) this.weightChart.destroy();
+    this.weightChart = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: this.getChartLabels(),
+        datasets: [{
+          label: 'Peso (kg)',
+          data: this.evolutionData.map(b => b.weight ?? null),
+          borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.10)',
+          borderWidth: 3, tension: 0.3, fill: true, spanGaps: true,
+          pointRadius: 4, pointHoverRadius: 6
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: false }, x: { grid: { display: false } } } }
+    });
+  }
+
+  private renderBodyFatChart() {
+    const canvas = document.getElementById('bodyFatEvolutionChart') as HTMLCanvasElement | null;
+    if (!canvas) return;
+    if (this.bodyFatChart) this.bodyFatChart.destroy();
+    this.bodyFatChart = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: this.getChartLabels(),
+        datasets: [{
+          label: '% grasa corporal',
+          data: this.evolutionData.map(b => this.getBodyFatValue(b)),
+          borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,0.10)',
+          borderWidth: 3, tension: 0.3, fill: true, spanGaps: true,
+          pointRadius: 4, pointHoverRadius: 6
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: false, ticks: { callback: (value) => value + '%' } }, x: { grid: { display: false } } } }
+    });
+  }
+
   renderChart() {
     const ctx = document.getElementById('evolutionChart') as HTMLCanvasElement;
     if (!ctx) return;
-
-    if (this.chart) {
-      this.chart.destroy();
-    }
-
-    const labels = this.evolutionData.map(b => {
-      if (!b.measurementDate) return '';
-      // Intentamos formatear la fecha a dd/mm/aaaa
-      try {
-        const d = new Date(b.measurementDate);
-        return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
-      } catch {
-        return b.measurementDate;
-      }
-    });
-
+    if (this.chart) this.chart.destroy();
+    const labels = this.getChartLabels();
     const dataPoints = this.evolutionData.map(b => {
       switch (this.selectedMetric) {
         case 'weight': return b.weight ?? null;
@@ -522,49 +605,10 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
         default: return null;
       }
     });
-
-    const metricLabel = this.getMetricLabel(this.selectedMetric);
-
     this.chart = new Chart(ctx, {
       type: 'line',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: metricLabel,
-          data: dataPoints,
-          borderColor: '#3f51b5',
-          backgroundColor: 'rgba(63, 81, 181, 0.1)',
-          borderWidth: 3,
-          tension: 0.3,
-          fill: true,
-          pointBackgroundColor: '#3f51b5',
-          pointRadius: 5,
-          pointHoverRadius: 7
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            display: true,
-            position: 'top'
-          }
-        },
-        scales: {
-          y: {
-            beginAtZero: false,
-            grid: {
-              color: 'rgba(0,0,0,0.05)'
-            }
-          },
-          x: {
-            grid: {
-              display: false
-            }
-          }
-        }
-      }
+      data: { labels, datasets: [{ label: this.getMetricLabel(this.selectedMetric), data: dataPoints, borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.08)', borderWidth: 3, tension: 0.3, fill: true, spanGaps: true, pointRadius: 4, pointHoverRadius: 6 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top' } }, scales: { y: { beginAtZero: false }, x: { grid: { display: false } } } }
     });
   }
 
