@@ -190,6 +190,7 @@ public class Program
                 var context = scope.ServiceProvider.GetRequiredService<angulosodbContext>();
                 DatabaseBootstrap.InitializeDatabaseAsync(context, logger);
                 DatabaseBootstrap.UpgradeSaaSSchema(context, logger);
+                DatabaseBootstrap.UpgradeSaaSSchemaV2(context, logger);
                 BillingSchemaBootstrap.Initialize(context, logger);
             }
             catch (Exception ex)
