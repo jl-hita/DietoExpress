@@ -63,7 +63,7 @@
         <mat-list-item *ngFor="let b of biometrics">
           <div class="biometric-item">
             <div class="biometric-summary">
-              <span class="bio-date">{{ b.measurementDate }}</span>
+              <span class="bio-date">{{ formatDateOnly(b.measurementDate) }}</span>
               <span class="bio-chip" *ngIf="b.weight">{{ b.weight }} kg</span>
               <span class="bio-chip accent" *ngIf="b.bmi">IMC: {{ b.bmi }}</span>
               <span class="bio-chip green" *ngIf="b.analysis?.fatMassPercentage">
@@ -223,7 +223,7 @@
                 class="bio-chip-btn"
                 [class.active]="selectedAnalysisBiometricId === b.id"
                 (click)="selectBiometricForAnalysis(b.id!)">
-                {{ b.measurementDate }}
+                {{ formatDateOnly(b.measurementDate) }}
               </button>
             </div>
           </div>
