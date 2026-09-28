@@ -1,0 +1,46 @@
+using Anguloso.Server.Logica;
+using Anguloso.Server.Logica.Utils;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Anguloso.Server.Controllers;
+
+[ApiController]
+[Authorize]
+[Route("api/license")]
+public class LicenseController : ControllerBase
+{
+    private readonly ILicenseService _licenseService;
+
+    public LicenseController(ILicenseService licenseService)
+    {
+        _licenseService = licenseService;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Get()
+    {
+        var tenantId = AuthHelpers.GetTenantId(User);
+        if (!tenantId.HasValue)
+            return Unauthorized();
+
+        var license = await _licenseService.GetLicenseAsync(tenantId);
+        if (license == null)
+            return NotFound();
+
+        return Ok(new
+        {
+            license.TenantId,
+            license.PlanCode,
+            license.PlanName,
+            license.Status,
+            license.ExpiresAt,
+            license.Nutritionists,
+            license.Clients,
+            license.MaxNutritionists,
+            license.MaxClientsPerNutritionist,
+            license.MaxTotalClients,
+            license.Features
+        });
+    }
+}
