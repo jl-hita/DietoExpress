@@ -1,0 +1,37 @@
+<div class="onboarding">
+  <div class="onboarding-card">
+    <div class="icon"><mat-icon>spa</mat-icon></div>
+    <span class="eyebrow">BIENVENIDO A DIETOEXPRESS</span>
+    <h1>Hola, {{ userName }}</h1>
+    <p class="intro">
+      Tu cuenta está creada y lista. Ahora mismo tienes una cuenta gratuita:
+      puedes explorar DietoExpress, completar tu perfil y consultar los planes
+      disponibles cuando quieras.
+    </p>
+
+    <div class="steps">
+      <div class="step">
+        <span>1</span>
+        <div><strong>Tu cuenta</strong><p>Datos y configuración básica.</p></div>
+      </div>
+      <div class="step">
+        <span>2</span>
+        <div><strong>Elige tu plan</strong><p>Activa las funciones profesionales cuando las necesites.</p></div>
+      </div>
+      <div class="step">
+        <span>3</span>
+        <div><strong>Empieza a trabajar</strong><p>Gestiona clientes y dietas desde un único lugar.</p></div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button mat-flat-button color="primary" (click)="irABilling()">
+        Ver planes y precios
+        <mat-icon>arrow_forward</mat-icon>
+      </button>
+      <button mat-button (click)="continuar()">Continuar</button>
+    </div>
+
+    <button mat-button class="logout" (click)="cerrarSesion()">Cerrar sesión</button>
+  </div>
+</div>
