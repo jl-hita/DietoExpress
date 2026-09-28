@@ -181,6 +181,19 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     });
   }
 
+  /** Normaliza una fecha ISO/DateTime a yyyy-MM-dd para inputs type="date". */
+  toDateInputValue(value?: string | null): string {
+    if (!value) return '';
+    return value.slice(0, 10);
+  }
+
+  /** Muestra fechas que conceptualmente son solo fecha, sin hora. */
+  formatDateOnly(value?: string | null): string {
+    const date = this.toDateInputValue(value);
+    if (!date) return '';
+    const parts = date.split('-');
+    return parts[2] + '/' + parts[1] + '/' + parts[0];
+  }
   loadClient() {
     this.svc.getClient(this.clientId!).subscribe({
       next: (c) => {
@@ -189,7 +202,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
           fullName: c.fullName,
           email: c.email,
           phone: c.phone,
-          birthDate: c.birthDate,
+          birthDate: this.toDateInputValue(c.birthDate),
           gender: c.gender,
           notes: c.notes,
           medicalHistory: c.medicalHistory || {},
