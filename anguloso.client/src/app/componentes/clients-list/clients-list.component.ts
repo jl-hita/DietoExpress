@@ -210,6 +210,9 @@ export class ClientsListComponent implements OnInit {
     this.router.navigate(['/clients/nuevo']);
   }
 
-  editClient(c: ClientItem) { this.edit.emit(c); }
+  editClient(c: ClientItem) {
+    this.edit.emit(c);
+    this.router.navigate(['/clients', c.id]);
+  }
   deleteClient(c: ClientItem) { this.remove.emit(c); }
 }
