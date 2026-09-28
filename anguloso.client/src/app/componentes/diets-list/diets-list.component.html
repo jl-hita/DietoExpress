@@ -21,6 +21,11 @@
         <input type="text" placeholder="Buscar por nombre de dieta..." [(ngModel)]="searchTerm" (ngModelChange)="refresh()" />
       </div>
       <div class="table-counter">
+        <mat-checkbox *ngIf="isSuperAdmin"
+                      [checked]="showAllDiets"
+                      (change)="toggleShowAllDiets()">
+          Mostrar todas las dietas
+        </mat-checkbox>
         <span class="count-badge">{{ filtered.length || 0 }} dietas</span>
       </div>
     </div>
