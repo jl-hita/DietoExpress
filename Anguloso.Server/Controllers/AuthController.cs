@@ -213,14 +213,22 @@ public class AuthController : ControllerBase
 
             // Generar token de confirmación
             string token = Guid.NewGuid().ToString();
+            await using var transaction = await _context.Database.BeginTransactionAsync();
 
-            //Creamos el usuario
+            var freePlan = await _context.subscription_plans
+                .FirstOrDefaultAsync(p => p.code == "free" && p.active);
+
+            if (freePlan == null)
+                return new BoolMensaje { Exito = false, Mensaje = "El plan gratuito no está configurado." };
+
+            // El registro público siempre crea una cuenta FREE. Las demos se conceden
+            // exclusivamente desde el panel de SuperAdmin.
             user = new users
             {
-                username = usuario.Username,
+                username = usuario.Username.Trim(),
                 full_name = nombreCompleto,
                 password_hash = passwordHash,
-                email = usuario.Email,
+                email = usuario.Email.Trim(),
                 role = "nutritionist",
                 created_at = DateTime.UtcNow,
                 email_confirmed = false,
@@ -230,13 +238,12 @@ public class AuthController : ControllerBase
                 max_clients_allowed = 0
             };
 
-            // Cada nutricionista individual tiene su propio tenant desde el alta.
             var tenant = new tenants
             {
                 legal_name = string.IsNullOrWhiteSpace(nombreCompleto) ? usuario.Username : nombreCompleto,
                 trade_name = string.IsNullOrWhiteSpace(nombreCompleto) ? usuario.Username : nombreCompleto,
                 slug = $"{Regex.Replace(usuario.Username.ToLowerInvariant(), @"[^a-z0-9]+", "-").Trim('-')}-{Guid.NewGuid():N}",
-                contact_email = usuario.Email,
+                contact_email = usuario.Email.Trim(),
                 status = "active"
             };
             _context.tenants.Add(tenant);
@@ -245,9 +252,6 @@ public class AuthController : ControllerBase
 
             _context.users.Add(user);
             await _context.SaveChangesAsync();
-            var freePlan = await _context.subscription_plans.FirstOrDefaultAsync(p => p.code == "free");
-            if (freePlan == null)
-                throw new InvalidOperationException("El plan gratuito no está configurado.");
 
             _context.subscriptions.Add(new subscriptions
             {
@@ -257,15 +261,15 @@ public class AuthController : ControllerBase
                 started_at = DateTime.UtcNow,
                 expires_at = null
             });
-                await _context.SaveChangesAsync();
-            }
+            await _context.SaveChangesAsync();
+
+            await transaction.CommitAsync();
 
             //obtenemos el dominio de la url
-            string dominio = _configServ.GetConfigString("dominio", "www.tusitio.com") ?? "www.tusitio.com";
+            string frontendUrl = _configServ.GetConfigString("frontendUrl", "https://localhost:4200") ?? "https://localhost:4200";
 
             //Enviar email de confirmación
-            //string urlConfirm = $"https://{dominio}/confirmar-email?token={token}";
-            string urlConfirm = $"https://localhost:4200/confirmar-email?token={token}";
+            string urlConfirm = $"{frontendUrl.TrimEnd('/')}/confirmar-email?token={Uri.EscapeDataString(token)}";
             BoolMensaje? bmEmail = await _emailServ.SendEmailAsync(
                 usuario.Email,
                 "Confirma tu email",
