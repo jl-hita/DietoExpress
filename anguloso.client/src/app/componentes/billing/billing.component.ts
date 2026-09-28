@@ -402,6 +402,7 @@ export class BillingComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.expiredNotice = this.route.snapshot.queryParamMap.get('reason') === 'expired';
     const result = this.route.snapshot.queryParamMap.get('checkout');
     if (result === 'success' || result === 'cancelled') {
       this.checkoutResult = result;
