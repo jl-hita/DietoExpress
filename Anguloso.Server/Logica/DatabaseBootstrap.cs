@@ -529,7 +529,8 @@ public static class DatabaseBootstrap
             -- Seed de planes comerciales. Son editables desde el SuperAdmin.
             INSERT INTO subscription_plans(code,name,description,monthly_price,yearly_price,max_nutritionists,max_clients_per_nutritionist,max_total_clients,trial_days,active)
             VALUES
-                ('trial_nutri','Nutri Prueba','Prueba para un nutricionista',0,0,1,5,5,14,TRUE),
+                ('free','Cuenta gratuita','Cuenta de acceso sin capacidad profesional',0,0,1,0,0,NULL,TRUE),
+                ('demo_nutri','Demo nutricionista','Acceso profesional temporal concedido por SuperAdmin',0,0,1,100,100,14,TRUE),
                 ('nutri_full','Nutri Full','Licencia profesional individual',29.90,299,1,100,100,NULL,TRUE),
                 ('clinic_full','Clínica Full','Licencia para clínicas con varios nutricionistas',79.90,799,5,100,500,NULL,TRUE)
             ON CONFLICT(code) DO NOTHING;
@@ -554,13 +555,12 @@ public static class DatabaseBootstrap
                 ('RECIPES'),('DIET_TEMPLATES'),('SHARED_DIETS'),('MULTI_NUTRITIONIST'),
                 ('CLINIC_DASHBOARD'),('CLIENT_ASSIGNMENT'),('AUDIT_LOGS')
             ) f(feature_code)
-            WHERE p.code IN ('trial_nutri','nutri_full','clinic_full')
+            WHERE p.code IN ('demo_nutri','nutri_full','clinic_full')
             ON CONFLICT(plan_id,feature_code) DO NOTHING;
 
-            -- La prueba es deliberadamente limitada; los planes profesionales tienen las funciones completas.
+            -- La cuenta FREE no tiene funciones profesionales; la DEMO sí las tiene.
             UPDATE subscription_plan_features SET enabled = FALSE
-            WHERE plan_id = (SELECT id FROM subscription_plans WHERE code='trial_nutri')
-              AND feature_code IN ('PDF_BRANDING','MULTI_NUTRITIONIST','CLINIC_DASHBOARD','CLIENT_ASSIGNMENT','SHARED_DIETS');
+            WHERE plan_id = (SELECT id FROM subscription_plans WHERE code='free');
 
             -- Asignamos una suscripción a cada tenant existente si todavía no tiene ninguna.
             INSERT INTO subscriptions(tenant_id,plan_id,status,started_at,expires_at)
@@ -574,7 +574,7 @@ public static class DatabaseBootstrap
                    coalesce(u.created_at,NOW()),
                    CASE
                      WHEN u.license_expires_at IS NOT NULL THEN u.license_expires_at
-                     WHEN coalesce(u.subscription_plan,'free') IN ('free','trial_nutri') THEN NOW() + INTERVAL '14 days'
+                     WHEN coalesce(u.subscription_plan,'free') = 'demo_nutri' THEN NOW() + INTERVAL '14 days'
                      ELSE NULL
                    END
             FROM tenants t
@@ -595,7 +595,9 @@ public static class DatabaseBootstrap
             WHERE NOT EXISTS (SELECT 1 FROM client_nutritionist_assignments a WHERE a.client_id=c.id AND a.is_active);
 
             -- Mantener el plan antiguo por compatibilidad temporal con el código existente.
-            UPDATE users u SET subscription_plan=p.code
+            UPDATE users u SET subscription_plan=p.code,
+                                subscription_status=s.status,
+                                max_clients_allowed=COALESCE(p.max_clients_per_nutritionist,0)
             FROM subscriptions s JOIN subscription_plans p ON p.id=s.plan_id
             WHERE s.tenant_id=u.tenant_id;
         ");
