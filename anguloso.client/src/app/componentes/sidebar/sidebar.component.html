@@ -12,7 +12,7 @@
       </a>
     </div>
 
-    <div class="menu-item" *ngIf="isProfessionalAccount">
+    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount">
       <a mat-list-item routerLink="/diets" routerLinkActive="active-link">
         <mat-icon>restaurant</mat-icon>
         <span>Dietas</span>
