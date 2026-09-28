@@ -85,6 +85,11 @@
         <input type="text" placeholder="Buscar por nombre, email o teléfono..." [(ngModel)]="searchTerm" (ngModelChange)="refresh()" />
       </div>
       <div class="table-counter">
+        <mat-checkbox *ngIf="isSuperAdmin"
+                      [checked]="showAllClients"
+                      (change)="toggleShowAllClients()">
+          Mostrar todos los clientes
+        </mat-checkbox>
         <span class="count-badge">{{ filtered.length || 0 }} pacientes</span>
       </div>
     </div>
