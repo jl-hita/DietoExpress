@@ -59,6 +59,10 @@ export class SidebarComponent implements OnInit {
     return role === 'clinic_admin';
   }
 
+  get isFreeAccount(): boolean {
+    return this.authService.getSubscriptionPlan() === 'free';
+  }
+
   get isProfessionalAccount(): boolean {
     const plan = this.authService.getSubscriptionPlan();
     return this.isSuperAdmin || plan === 'demo_nutri' || plan === 'nutri_full' || plan === 'clinic_full';
