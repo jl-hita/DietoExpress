@@ -176,38 +176,28 @@ public class AuthController : ControllerBase
     {
         try
         {
-            if (usuario == null || string.IsNullOrEmpty(usuario.Username) || string.IsNullOrEmpty(usuario.PasswordPlain) || string.IsNullOrEmpty(usuario.Email))
-            {
-                //return BadRequest("Usuario o contraseña no válidos.");
-                return new BoolMensaje
-                {
-                    Exito = false,
-                    Mensaje = $"Usuario, contraseña o email no válidos"
-                };
-            }
+            if (usuario == null)
+                return new BoolMensaje { Exito = false, Mensaje = "Datos de registro no válidos." };
 
-            string nombreCompleto = string.IsNullOrEmpty(usuario.FullName) ? "" : usuario.FullName;
-            string passwordHash = BCrypt.Net.BCrypt.HashPassword(usuario.PasswordPlain);
+            var username = usuario.Username?.Trim() ?? string.Empty;
+            var email = usuario.Email?.Trim() ?? string.Empty;
+            var password = usuario.PasswordPlain ?? string.Empty;
+            var nombreCompleto = usuario.FullName?.Trim() ?? string.Empty;
 
-            //Comprobamos si el usuario existe ya
-            users? user = _context.users.FirstOrDefault(u => u.email == usuario.Username || u.username == usuario.Username);
+            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+                return new BoolMensaje { Exito = false, Mensaje = "Usuario, contraseña y email son obligatorios." };
+
+            if (password.Length < 6)
+                return new BoolMensaje { Exito = false, Mensaje = "La contraseña debe tener al menos 6 caracteres." };
+
+            // Comprobamos si el usuario existe ya
+            users? user = await _context.users.FirstOrDefaultAsync(u => u.username == username || u.email == email);
             if (user != null)
             {
                 return new BoolMensaje
                 {
                     Exito = false,
-                    Mensaje = $"El usuario {usuario.Username} ya existe"
-                };
-            }
-
-            //Comprobamos si el email existe
-            user = _context.users.FirstOrDefault(u => u.email == usuario.Email);
-            if (user != null)
-            {
-                return new BoolMensaje
-                {
-                    Exito = false,
-                    Mensaje = $"El email {usuario.Email} ya existe"
+                    Mensaje = user.username == username ? $"El usuario {username} ya existe" : $"El email {email} ya está registrado"
                 };
             }
 
@@ -225,10 +215,10 @@ public class AuthController : ControllerBase
             // exclusivamente desde el panel de SuperAdmin.
             user = new users
             {
-                username = usuario.Username.Trim(),
+                username = username,
                 full_name = nombreCompleto,
                 password_hash = passwordHash,
-                email = usuario.Email.Trim(),
+                email = email,
                 role = "nutritionist",
                 created_at = DateTime.UtcNow,
                 email_confirmed = false,
@@ -242,8 +232,8 @@ public class AuthController : ControllerBase
             {
                 legal_name = string.IsNullOrWhiteSpace(nombreCompleto) ? usuario.Username : nombreCompleto,
                 trade_name = string.IsNullOrWhiteSpace(nombreCompleto) ? usuario.Username : nombreCompleto,
-                slug = $"{Regex.Replace(usuario.Username.ToLowerInvariant(), @"[^a-z0-9]+", "-").Trim('-')}-{Guid.NewGuid():N}",
-                contact_email = usuario.Email.Trim(),
+                slug = $"{Regex.Replace(username.ToLowerInvariant(), @"[^a-z0-9]+", "-").Trim('-')}-{Guid.NewGuid():N}",
+                contact_email = email,
                 status = "active"
             };
             _context.tenants.Add(tenant);
@@ -271,7 +261,7 @@ public class AuthController : ControllerBase
             //Enviar email de confirmación
             string urlConfirm = $"{frontendUrl.TrimEnd('/')}/confirmar-email?token={Uri.EscapeDataString(token)}";
             BoolMensaje? bmEmail = await _emailServ.SendEmailAsync(
-                usuario.Email,
+                email,
                 "Confirma tu email",
                 $"<h2>Bienvenido, {usuario.Username}</h2><p>Haz clic en el siguiente enlace para confirmar tu email:</p><a href = '{urlConfirm}' > Confirmar email </a>"
             );
