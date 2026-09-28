@@ -114,7 +114,8 @@ import { CreateAdminAccountDialogComponent } from './create-admin-account-dialog
             <mat-label>Filtrar por Plan</mat-label>
             <mat-select [(ngModel)]="planFilter" (selectionChange)="loadUsers()">
               <mat-option value="">Todos los planes</mat-option>
-              <mat-option value="trial_nutri">Nutri Prueba</mat-option>
+              <mat-option value="free">Cuenta gratuita</mat-option>
+              <mat-option value="demo_nutri">Demo nutricionista</mat-option>
               <mat-option value="nutri_full">Nutri Full</mat-option>
               <mat-option value="clinic_full">Clínica Full</mat-option>
             </mat-select>
@@ -424,7 +425,7 @@ import { CreateAdminAccountDialogComponent } from './create-admin-account-dialog
       border-radius: 6px;
       display: inline-block;
     }
-    .plan-free, .plan-trial_nutri { background: #e2e8f0; color: #475569; }
+    .plan-free, .plan-demo_nutri { background: #e2e8f0; color: #475569; }
     .plan-starter, .plan-nutri_full { background: #dbeafe; color: #1e40af; }
     .plan-professional { background: #ede9fe; color: #5b21b6; }
     .plan-enterprise, .plan-clinic_full { background: #ccfbf1; color: #0f766e; }
