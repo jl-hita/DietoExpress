@@ -53,6 +53,10 @@ export class UserCreateComponent {
     });
   }
 
+  irALogin(): void {
+    this.router.navigate(['/login']);
+  }
+
   crearUsuario() {
     if (this.form.invalid) return;
 
