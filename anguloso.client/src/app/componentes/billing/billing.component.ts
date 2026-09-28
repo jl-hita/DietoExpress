@@ -335,7 +335,21 @@ export class BillingComponent implements OnInit {
   get availablePlans(): BillingPlan[] {
     if (!this.license) return [];
     if (this.isTrial || this.isTrialExpired) return this.plans;
-    return this.plans.filter(p => p.code !== this.license!.planCode);
+
+    // Solo se permiten cambios hacia un plan de nivel superior.
+    // Enterprise es el nivel máximo, por lo que no se ofrece Professional
+    // mientras la suscripción Enterprise siga activa.
+    const planRank: Record<string, number> = {
+      free: 0,
+      nutri_full: 1,
+      clinic_full: 2
+    };
+    const currentRank = planRank[this.license.planCode] ?? 0;
+
+    return this.plans.filter(p => {
+      const targetRank = planRank[p.code] ?? 0;
+      return targetRank > currentRank;
+    });
   }
 
   priceFor(plan: BillingPlan): number {
