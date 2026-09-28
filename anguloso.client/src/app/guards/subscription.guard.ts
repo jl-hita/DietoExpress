@@ -1,28 +1,49 @@
 import { Injectable } from '@angular/core';
 import { CanActivate, Router } from '@angular/router';
+import { Observable, of } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import { AuthService } from '../servicios/auth.service';
+import { LicenseService } from '../servicios/license.service';
 
 @Injectable({ providedIn: 'root' })
 export class SubscriptionGuard implements CanActivate {
-  constructor(private authService: AuthService, private router: Router) {}
+  constructor(
+    private authService: AuthService,
+    private licenseService: LicenseService,
+    private router: Router
+  ) {}
 
-  canActivate(): boolean {
+  canActivate(): Observable<boolean> {
     if (!this.authService.isLoggedIn()) {
       this.router.navigate(['/login']);
-      return false;
+      return of(false);
     }
 
     if (this.authService.isSuperAdmin()) {
-      return true;
+      return of(true);
     }
 
-    const plan = this.authService.getSubscriptionPlan();
+    return this.licenseService.getLicense().pipe(
+      map(license => {
+        const active = license.status === 'active'
+          && (!license.expiresAt || new Date(license.expiresAt).getTime() > Date.now());
 
-    // FREE es una cuenta sandbox: puede entrar en clientes y dietas
-    // y probar el producto dentro de sus límites.
-    return plan === 'free'
-      || plan === 'demo_nutri'
-      || plan === 'nutri_full'
-      || plan === 'clinic_full';
+        if (!active) {
+          this.router.navigate(['/billing'], {
+            queryParams: { reason: 'expired' }
+          });
+          return false;
+        }
+
+        return license.planCode === 'free'
+          || license.planCode === 'demo_nutri'
+          || license.planCode === 'nutri_full'
+          || license.planCode === 'clinic_full';
+      }),
+      catchError(() => {
+        this.router.navigate(['/billing']);
+        return of(false);
+      })
+    );
   }
 }
