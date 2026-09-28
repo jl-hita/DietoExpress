@@ -191,6 +191,7 @@ public class Program
                 DatabaseBootstrap.InitializeDatabaseAsync(context, logger);
                 DatabaseBootstrap.UpgradeSaaSSchema(context, logger);
                 DatabaseBootstrap.UpgradeSaaSSchemaV2(context, logger);
+                DatabaseBootstrap.UpgradeSaaSSchemaV3(context, logger);
                 BillingSchemaBootstrap.Initialize(context, logger);
             }
             catch (Exception ex)
