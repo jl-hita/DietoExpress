@@ -21,6 +21,7 @@ import { SetupGuard } from './guards/setup.guard';
 import { SuperAdminGuard } from './guards/super-admin.guard';
 import { ClinicDashboardComponent } from './componentes/clinic/clinic-dashboard.component';
 import { AdminPlansComponent } from './componentes/admin/admin-plans.component';
+import { BillingComponent } from './componentes/billing/billing.component';
 
 export interface AppRoute extends Route {
   showInMenu?: boolean;
@@ -44,13 +45,14 @@ const routes: AppRoute[] = [
       { path: 'diets/nuevo', component: DietCreateComponent, title: 'Nueva dieta' },
       { path: 'diets/:id', component: DietCreateComponent, title: 'Editar dieta' },
       { path: 'settings', component: SettingsComponent, title: 'Ajustes' },
+      { path: 'billing', component: BillingComponent, title: 'Suscripción' },
       { path: 'admin', component: AdminDashboardComponent, canActivate: [SuperAdminGuard], title: 'Panel SuperAdmin' },
       { path: 'admin/logs', component: AdminLogComponent, canActivate: [SuperAdminGuard], title: 'Logs del sistema' },
       { path: 'admin/plans', component: AdminPlansComponent, canActivate: [SuperAdminGuard], title: 'Planes SaaS' },
       { path: 'clinic', component: ClinicDashboardComponent, title: 'Panel de clínica' }
     ]
   },
-  { path: '**', redirectTo: '' } // fallback SPA → LayoutComponent
+  { path: '**', redirectTo: '' }
 ];
 
 @NgModule({
