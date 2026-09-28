@@ -5,14 +5,14 @@
   </div>
 
   <mat-nav-list>
-    <div class="menu-item">
+    <div class="menu-item" *ngIf="isProfessionalAccount">
       <a mat-list-item routerLink="/clients" routerLinkActive="active-link">
         <mat-icon>group</mat-icon>
         <span>Clientes</span>
       </a>
     </div>
 
-    <div class="menu-item">
+    <div class="menu-item" *ngIf="isProfessionalAccount">
       <a mat-list-item routerLink="/diets" routerLinkActive="active-link">
         <mat-icon>restaurant</mat-icon>
         <span>Dietas</span>
