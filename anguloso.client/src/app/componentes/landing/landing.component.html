@@ -1,0 +1,103 @@
+<div class="landing">
+  <header class="nav">
+    <a class="brand" routerLink="/">
+      <span class="brand-mark"><mat-icon>spa</mat-icon></span>
+      <span>DietoExpress</span>
+    </a>
+    <div class="nav-actions">
+      <button mat-button (click)="iniciarSesion()">Iniciar sesión</button>
+      <button mat-flat-button color="primary" (click)="crearCuenta()">Crear cuenta gratis</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-copy">
+        <span class="eyebrow">GESTIÓN PROFESIONAL DE NUTRICIÓN</span>
+        <h1>Más tiempo para tus pacientes. Menos tiempo gestionando.</h1>
+        <p class="lead">
+          DietoExpress reúne clientes, dietas y seguimiento en un único espacio
+          diseñado para profesionales de la nutrición.
+        </p>
+        <div class="hero-actions">
+          <button mat-flat-button color="primary" class="primary-cta" (click)="crearCuenta()">
+            Crear mi cuenta gratis
+            <mat-icon>arrow_forward</mat-icon>
+          </button>
+          <button mat-stroked-button (click)="iniciarSesion()">Ya tengo una cuenta</button>
+        </div>
+        <div class="trust">
+          <mat-icon>check_circle</mat-icon>
+          <span>Sin tarjeta para empezar · Cuenta gratuita</span>
+        </div>
+      </div>
+
+      <div class="hero-visual">
+        <div class="app-window">
+          <div class="window-bar">
+            <span></span><span></span><span></span>
+          </div>
+          <div class="mock-layout">
+            <div class="mock-sidebar">
+              <div class="mock-logo"><mat-icon>spa</mat-icon></div>
+              <div class="mock-line active"></div>
+              <div class="mock-line"></div>
+              <div class="mock-line"></div>
+              <div class="mock-line"></div>
+            </div>
+            <div class="mock-content">
+              <div class="mock-title"></div>
+              <div class="mock-cards">
+                <div></div><div></div><div></div>
+              </div>
+              <div class="mock-table">
+                <div></div><div></div><div></div><div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="features">
+      <div class="section-heading">
+        <span class="eyebrow">TODO EN UN SOLO LUGAR</span>
+        <h2>Una herramienta pensada para tu día a día</h2>
+      </div>
+      <div class="feature-grid">
+        <article>
+          <div class="feature-icon"><mat-icon>groups</mat-icon></div>
+          <h3>Tus clientes, organizados</h3>
+          <p>Centraliza fichas, seguimiento y toda la información que necesitas para trabajar con cada cliente.</p>
+        </article>
+        <article>
+          <div class="feature-icon"><mat-icon>restaurant_menu</mat-icon></div>
+          <h3>Dietas sin complicaciones</h3>
+          <p>Crea y reutiliza dietas con una experiencia pensada para que preparar planes sea rápido.</p>
+        </article>
+        <article>
+          <div class="feature-icon"><mat-icon>insights</mat-icon></div>
+          <h3>Crece cuando lo necesites</h3>
+          <p>Empieza con una cuenta gratuita y activa las capacidades profesionales cuando estés preparado.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="pricing">
+      <div>
+        <span class="eyebrow">EMPIEZA SIN COMPROMISO</span>
+        <h2>Una cuenta gratuita. Tus datos preparados para crecer contigo.</h2>
+        <p>
+          Puedes crear tu cuenta sin tarjeta. Cuando necesites trabajar con clientes
+          y todas las funciones profesionales, podrás elegir el plan que encaje contigo.
+        </p>
+      </div>
+      <button mat-flat-button color="primary" (click)="verPlanes()">Crear cuenta gratis</button>
+    </section>
+  </main>
+
+  <footer>
+    <span>© DietoExpress</span>
+    <span>Gestión profesional de nutrición</span>
+  </footer>
+</div>
