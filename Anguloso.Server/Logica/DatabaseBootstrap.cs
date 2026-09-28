@@ -694,4 +694,42 @@ public static class DatabaseBootstrap
         logger.LogInformation("Migración SaaS saas-v2-access-model aplicada correctamente.");
     }
 
+    /// <summary>
+    /// Evolución de la cuenta FREE: prueba funcional de 7 días,
+    /// con un cliente y una dieta como límite.
+    /// </summary>
+    public static void UpgradeSaaSSchemaV3(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            UPDATE subscription_plans
+            SET max_clients_per_nutritionist = 1,
+                max_total_clients = 1,
+                trial_days = 7,
+                description = 'Cuenta gratuita para probar DietoExpress durante 7 días'
+            WHERE code = 'free';
+
+            UPDATE subscriptions s
+            SET expires_at = u.created_at + INTERVAL '7 days'
+            FROM users u
+            JOIN subscription_plans p ON p.id = s.plan_id
+            WHERE s.tenant_id = u.tenant_id
+              AND p.code = 'free'
+              AND u.role <> 'superadmin'
+              AND s.expires_at IS NULL;
+
+            UPDATE users u
+            SET subscription_status = CASE
+                    WHEN s.expires_at IS NOT NULL AND s.expires_at <= NOW() THEN 'expired'
+                    ELSE 'active'
+                END
+            FROM subscriptions s
+            JOIN subscription_plans p ON p.id = s.plan_id
+            WHERE s.tenant_id = u.tenant_id
+              AND p.code = 'free'
+              AND u.role <> 'superadmin';
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('saas-v3-free-trial') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración SaaS saas-v3-free-trial aplicada correctamente.");
+    }
+
 }
