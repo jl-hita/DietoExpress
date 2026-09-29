@@ -382,7 +382,7 @@ public class AuthController : ControllerBase
         var user = await _context.users.FirstOrDefaultAsync(u => u.email == req.Email);
 
         if (user == null)
-            return new BoolMensaje { Exito = false, Mensaje = "No existe un usuario con ese email" };
+            return new BoolMensaje { Exito = true, Mensaje = "Si el email corresponde a una cuenta, recibirás instrucciones." };
 
         //if (req.Username != user.username)
         //    return new BoolMensaje { Exito = false, Mensaje = "Usuario incorrecto" };
