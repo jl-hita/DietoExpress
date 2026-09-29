@@ -146,6 +146,19 @@ public class Program
                 //NameClaimType = "unique_name"
                 NameClaimType = ClaimTypes.Name, // en lugar de "unique_name"
             };
+            options.Events = new JwtBearerEvents
+            {
+                OnTokenValidated = async context =>
+                {
+                    var userIdClaim = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+                    if (!int.TryParse(userIdClaim, out var userId)) return;
+
+                    var db = context.HttpContext.RequestServices.GetRequiredService<angulosodbContext>();
+                    var archived = await db.users.AsNoTracking().AnyAsync(u => u.id == userId && u.archived_at != null);
+                    if (archived)
+                        context.Fail("Cuenta archivada.");
+                }
+            };
         });
 
         // Configuración Email
