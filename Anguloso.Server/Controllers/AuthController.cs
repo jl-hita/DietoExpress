@@ -417,6 +417,9 @@ public class AuthController : ControllerBase
     [HttpPut("resetPassword")]
     public async Task<BoolMensaje> ResetPassword([FromBody] PasswordResetByTokenRequest req)
     {
+        if (req == null || string.IsNullOrWhiteSpace(req.NewPassword) || req.NewPassword.Length < 12)
+            return new BoolMensaje { Exito = false, Mensaje = "La nueva contraseña debe tener al menos 12 caracteres." };
+
         var user = await _context.users
             .FirstOrDefaultAsync(u => u.reset_password_token == req.Token);
 
