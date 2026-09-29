@@ -81,7 +81,7 @@ public class FoodController : ControllerBase
 
     // POST: api/foods
     [HttpPost]
-    [Authorize] // Solo nutricionistas logueados pueden crear alimentos
+    [Authorize(Policy = "Professional")] // Solo profesionales logueados pueden crear alimentos
     public async Task<IActionResult> CreateCustomFood([FromBody] CustomFoodDto dto)
     {
         if (dto == null) return BadRequest("Los datos del alimento son requeridos.");
