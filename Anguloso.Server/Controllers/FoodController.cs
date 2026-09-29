@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Anguloso.Server.Controllers;
 
-//[Authorize] //TODO RECORDAR DESCOMENTAR EN PRODUCCIÓN
+[Authorize(Policy = "Professional")]
 [ApiController]
 [Route("api/[controller]")]
 [Route("api/foods")]
