@@ -614,6 +614,9 @@ public class AuthController : ControllerBase
             await _context.SaveChangesAsync();
         }
 
+        if (user.archived_at.HasValue)
+            return Unauthorized("Esta cuenta está archivada y no puede iniciar sesión.");
+
         // Generar tu JWT (reutiliza el código que ya tienes en Login)
         var jwt = CrearJwtParaUsuario(user);
 
