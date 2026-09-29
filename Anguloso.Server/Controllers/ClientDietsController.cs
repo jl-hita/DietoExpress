@@ -281,7 +281,7 @@ public class ClientDietsController : ControllerBase
     [HttpGet("{id:int}/pdf")]
     public async Task<IActionResult> GetDietPdf(int clientId, int id)
     {
-        if (!await _licenseService.CanUseFeatureAsync(AuthHelpers.GetTenantId(User), "PDF_EXPORT")) return Forbid();
+        if (!User.IsInRole("superadmin") && !await _licenseService.CanUseFeatureAsync(AuthHelpers.GetTenantId(User), "PDF_EXPORT")) return Forbid();
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
 
@@ -308,17 +308,27 @@ public class ClientDietsController : ControllerBase
         if (assignment.diet == null)
             return NotFound("Diet definition not found.");
 
-        var pdfBytes = _pdfService.GenerateDietPdf(assignment.client, assignment.diet, assignment, _context);
-        
-        var fileName = $"Dieta_{assignment.client.full_name.Replace(" ", "_")}_{assignment.diet.name.Replace(" ", "_")}.pdf";
-        return File(pdfBytes, "application/pdf", fileName);
+        try
+        {
+            var pdfBytes = _pdfService.GenerateDietPdf(assignment.client, assignment.diet, assignment, _context);
+
+            var clientName = string.IsNullOrWhiteSpace(assignment.client.full_name) ? $"Cliente_{clientId}" : assignment.client.full_name;
+            var dietName = string.IsNullOrWhiteSpace(assignment.diet.name) ? $"Dieta_{id}" : assignment.diet.name;
+            var fileName = $"Dieta_{SanitizeFileName(clientName)}_{SanitizeFileName(dietName)}.pdf";
+            return File(pdfBytes, "application/pdf", fileName);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error generando PDF de dieta {id} para cliente {clientId}: {ex}");
+            return Problem(title: "Error al generar el PDF", detail: "No se ha podido generar el PDF de la dieta.", statusCode: StatusCodes.Status500InternalServerError);
+        }
     }
 
     // GET: api/clients/{clientId}/diets/active/pdf
     [HttpGet("active/pdf")]
     public async Task<IActionResult> GetActiveDietPdf(int clientId)
     {
-        if (!await _licenseService.CanUseFeatureAsync(AuthHelpers.GetTenantId(User), "PDF_EXPORT")) return Forbid();
+        if (!User.IsInRole("superadmin") && !await _licenseService.CanUseFeatureAsync(AuthHelpers.GetTenantId(User), "PDF_EXPORT")) return Forbid();
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
 
@@ -345,10 +355,26 @@ public class ClientDietsController : ControllerBase
         if (assignment.diet == null)
             return NotFound("Diet definition not found.");
 
-        var pdfBytes = _pdfService.GenerateDietPdf(assignment.client, assignment.diet, assignment, _context);
-        
-        var fileName = $"Dieta_Activa_{assignment.client.full_name.Replace(" ", "_")}_{assignment.diet.name.Replace(" ", "_")}.pdf";
-        return File(pdfBytes, "application/pdf", fileName);
+        try
+        {
+            var pdfBytes = _pdfService.GenerateDietPdf(assignment.client, assignment.diet, assignment, _context);
+
+            var clientName = string.IsNullOrWhiteSpace(assignment.client.full_name) ? $"Cliente_{clientId}" : assignment.client.full_name;
+            var dietName = string.IsNullOrWhiteSpace(assignment.diet.name) ? $"Dieta_{assignment.diet.id}" : assignment.diet.name;
+            var fileName = $"Dieta_Activa_{SanitizeFileName(clientName)}_{SanitizeFileName(dietName)}.pdf";
+            return File(pdfBytes, "application/pdf", fileName);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error generando PDF de dieta activa para cliente {clientId}: {ex}");
+            return Problem(title: "Error al generar el PDF", detail: "No se ha podido generar el PDF de la dieta activa.", statusCode: StatusCodes.Status500InternalServerError);
+        }
+    }
+
+    private static string SanitizeFileName(string value)
+    {
+        var invalid = System.IO.Path.GetInvalidFileNameChars();
+        return new string(value.Select(ch => invalid.Contains(ch) ? '_' : ch).ToArray()).Replace(' ', '_');
     }
 
     // POST: api/clients/{clientId}/diets/validate-draft
