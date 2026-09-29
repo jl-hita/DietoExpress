@@ -102,6 +102,7 @@ public class ClientsController : ControllerBase
         if (userId == null) return Unauthorized();
         var tenantId = AuthHelpers.GetTenantId(User);
         var isClinicAdmin = User.IsInRole("clinic_admin");
+        var isSuperAdmin = User.IsInRole("superadmin");
 
         var client = await _context.clients
             .Include(c => c.biometrics)
@@ -110,10 +111,10 @@ public class ClientsController : ControllerBase
             .Include(c => c.food_preferences)
             .Include(c => c.lifestyle_history)
             .FirstOrDefaultAsync(c => c.id == id && c.archived_at == null &&
-                tenantId.HasValue && c.tenant_id == tenantId.Value &&
+                (isSuperAdmin || (tenantId.HasValue && c.tenant_id == tenantId.Value &&
                 (c.user_id == userId.Value ||
                  _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active) ||
-                 isClinicAdmin));
+                 isClinicAdmin))));
 
         if (client == null) return NotFound();
 
@@ -419,8 +420,10 @@ public class ClientsController : ControllerBase
         var client = await _context.clients
             .Include(c => c.biometrics)
             .FirstOrDefaultAsync(c => c.id == id && c.archived_at == null &&
-                tenantId.HasValue && c.tenant_id == tenantId.Value &&
-                (c.user_id == userId.Value || User.IsInRole("clinic_admin")));
+                (User.IsInRole("superadmin") || (tenantId.HasValue && c.tenant_id == tenantId.Value &&
+                (c.user_id == userId.Value ||
+                 _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active) ||
+                 User.IsInRole("clinic_admin")))));
 
         if (client == null) return NotFound("Client not found.");
 
