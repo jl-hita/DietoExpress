@@ -89,6 +89,7 @@ public sealed class BillingController : ControllerBase
         }
     }
 
+    [Authorize(Policy = "Professional")]
     [HttpPost("subscription/change")]
     public async Task<IActionResult> ChangeSubscription([FromBody] ChangeSubscriptionRequest request)
     {
@@ -108,6 +109,7 @@ public sealed class BillingController : ControllerBase
         catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
     }
 
+    [Authorize(Policy = "Professional")]
     [HttpPost("subscription/cancel-renewal")]
     public async Task<IActionResult> CancelRenewal()
     {
@@ -122,6 +124,7 @@ public sealed class BillingController : ControllerBase
         catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
     }
 
+    [Authorize(Policy = "Professional")]
     [HttpPost("subscription/reactivate-renewal")]
     public async Task<IActionResult> ReactivateRenewal()
     {
