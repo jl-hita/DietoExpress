@@ -783,5 +783,23 @@ public static class DatabaseBootstrap
         context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('saas-v6-soft-delete') ON CONFLICT (id) DO NOTHING;");
         logger.LogInformation("Migración SaaS saas-v6-soft-delete aplicada correctamente.");
     }
+    /// <summary>Tabla de favoritos de alimentos por usuario.</summary>
+    public static void UpgradeSaaSSchemaV7(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS food_favorites (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                food_id INTEGER NOT NULL REFERENCES foods(id) ON DELETE CASCADE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                CONSTRAINT uq_food_favorites_user_food UNIQUE(user_id, food_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_food_favorites_user_id ON food_favorites(user_id);
+            CREATE INDEX IF NOT EXISTS idx_food_favorites_food_id ON food_favorites(food_id);
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('saas-v7-food-favorites') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración SaaS saas-v7-food-favorites aplicada correctamente.");
+    }
+
 
 }
