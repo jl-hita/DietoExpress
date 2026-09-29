@@ -14,7 +14,7 @@ namespace Anguloso.Server.Controllers;
 
 [Route("api/clients/{clientId:int}/[controller]")]
 [ApiController]
-[Authorize]
+[Authorize(Policy = "Professional")]
 public class BiometricsController : ControllerBase
 {
     private readonly angulosodbContext _context;
