@@ -277,6 +277,52 @@ public class ClientDietsController : ControllerBase
         return NoContent();
     }
 
+    // GET: api/clients/{clientId}/diets/consultation-pdf?date=yyyy-MM-dd
+    [HttpGet("consultation-pdf")]
+    public async Task<IActionResult> GetConsultationPdf(int clientId, [FromQuery] DateOnly? date = null)
+    {
+        if (!User.IsInRole("superadmin") && !await _licenseService.CanUseFeatureAsync(AuthHelpers.GetTenantId(User), "PDF_EXPORT"))
+            return Forbid();
+
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId == null) return Unauthorized();
+
+        if (!await UserOwnsClientAsync(clientId, userId.Value))
+            return NotFound("Client not found or does not belong to the user.");
+
+        var consultationDate = date ?? DateOnly.FromDateTime(DateTime.Today);
+
+        var client = await _context.clients
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.id == clientId && c.archived_at == null);
+
+        if (client == null)
+            return NotFound("Client not found.");
+
+        try
+        {
+            var pdfBytes = new ConsultationPdfService().GenerateConsultationPdf(
+                client,
+                consultationDate,
+                _context);
+
+            var clientName = string.IsNullOrWhiteSpace(client.full_name)
+                ? $"Cliente_{clientId}"
+                : client.full_name;
+
+            var fileName = $"Informe_Consulta_{SanitizeFileName(clientName)}_{consultationDate:yyyy-MM-dd}.pdf";
+            return File(pdfBytes, "application/pdf", fileName);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error generando informe de consulta para cliente {clientId} ({consultationDate}): {ex}");
+            return Problem(
+                title: "Error al generar el informe",
+                detail: "No se ha podido generar el informe de consulta.",
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
+    }
+
     // GET: api/clients/{clientId}/diets/{id}/pdf
     [HttpGet("{id:int}/pdf")]
     public async Task<IActionResult> GetDietPdf(int clientId, int id)
