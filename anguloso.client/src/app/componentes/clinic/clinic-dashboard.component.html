@@ -17,7 +17,7 @@
       <input placeholder="Email de acceso" type="email" [(ngModel)]="newNutri.email">
       <button mat-flat-button color="primary" [disabled]="!newNutri.email" (click)="createNutri()">Crear e invitar</button>
     </div>
-    <p *ngIf="data?.license?.nutritionistReplacementAvailableAt && data?.license?.nutritionists < (data?.license?.maxNutritionists || 0)"
+    <p *ngIf="data?.license?.nutritionistReplacementAvailableAt && (data?.license?.nutritionists ?? 0) < (data?.license?.maxNutritionists ?? 0)"
        style="margin:10px 0;color:#92400e">
       No puedes sustituir una baja todavía. La próxima plaza para una nueva alta estará disponible el
       {{data?.license?.nutritionistReplacementAvailableAt | date:'dd/MM/yyyy HH:mm'}}.
