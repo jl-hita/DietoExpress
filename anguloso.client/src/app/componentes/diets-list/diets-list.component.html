@@ -26,7 +26,7 @@
                       (change)="toggleShowAllDiets()">
           Mostrar todas las dietas
         </mat-checkbox>
-        <span class="count-badge">{{ filtered.length || 0 }} dietas</span>
+        <span class="count-badge">{{ totalCount }} dietas</span>
       </div>
     </div>
 
@@ -114,7 +114,7 @@
     </div>
 
     <!-- Paginador Moderno -->
-    <div class="custom-paginator" *ngIf="!error && filtered.length > pageSize">
+    <div class="custom-paginator" *ngIf="!error && totalCount > pageSize">
       <button class="page-nav-btn" [disabled]="currentPage === 1" (click)="prevPage()">
         <mat-icon>chevron_left</mat-icon>
       </button>
