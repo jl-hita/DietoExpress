@@ -152,7 +152,7 @@ public class Program
                     var db = context.HttpContext.RequestServices.GetRequiredService<angulosodbContext>();
                     var user = await db.users.AsNoTracking()
                         .Where(u => u.id == userId)
-                        .Select(u => new { u.archived_at, u.token_version })
+                        .Select(u => new { u.archived_at, u.token_version, u.role, u.subscription_plan, u.subscription_status })
                         .FirstOrDefaultAsync();
 
                     if (user == null || user.archived_at != null)
@@ -162,7 +162,28 @@ public class Program
                     }
 
                     if (user.token_version != tokenVersion)
+                    {
                         context.Fail("Sesión revocada.");
+                        return;
+                    }
+
+                    // Los cambios de rol/licencia deben reflejarse inmediatamente aunque
+                    // el JWT anterior siga dentro de sus 3 horas de vida.
+                    if (context.Principal?.Identity is ClaimsIdentity identity)
+                    {
+                        foreach (var claim in identity.FindAll(ClaimTypes.Role).ToList())
+                            identity.RemoveClaim(claim);
+
+                        identity.AddClaim(new Claim(ClaimTypes.Role, user.role ?? "user"));
+
+                        foreach (var claim in identity.FindAll("subscriptionPlan").ToList())
+                            identity.RemoveClaim(claim);
+                        identity.AddClaim(new Claim("subscriptionPlan", user.subscription_plan ?? "free"));
+
+                        foreach (var claim in identity.FindAll("subscriptionStatus").ToList())
+                            identity.RemoveClaim(claim);
+                        identity.AddClaim(new Claim("subscriptionStatus", user.subscription_status ?? "active"));
+                    }
                 }
             };
         });
