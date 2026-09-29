@@ -16,7 +16,7 @@ import { ProfileService } from '../../servicios/profile.service';
 })
 export class SidebarComponent implements OnInit {
   profile: Profile | null = null;
-  readonly defaultProfileImage = '/assets/profile.png';
+  readonly defaultProfileImage = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"%3E%3Ccircle cx="24" cy="24" r="24" fill="%23e0e0e0"/%3E%3Ccircle cx="24" cy="18" r="8" fill="%23909090"/%3E%3Cpath d="M10 40c2-8 9-12 14-12s12 4 14 12" fill="%23909090"/%3E%3C/svg%3E';
 
   constructor(
     private router: Router,
