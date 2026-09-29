@@ -1,4 +1,4 @@
-import { /*HTTP_INTERCEPTORS,*/ HttpClientModule, HTTP_INTERCEPTORS } from '@angular/common/http';
+import { HTTP_INTERCEPTORS, provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 
@@ -55,7 +55,6 @@ import { DietCreateComponent } from './componentes/diet-create/diet-create.compo
     MatToolbarModule,
     MatSelectModule,
     MatOptionModule,
-    HttpClientModule,
     MatIconModule,
     MatCardModule,
     MatProgressBarModule,
@@ -71,6 +70,7 @@ import { DietCreateComponent } from './componentes/diet-create/diet-create.compo
     DietCreateComponent
   ],
   providers: [
+    provideHttpClient(withInterceptorsFromDi()),
     { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true }
   ],
   bootstrap: [AppComponent]
