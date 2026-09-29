@@ -299,6 +299,14 @@ public sealed class BillingController : ControllerBase
 
                     if (owner != null)
                         owner.role = plan.code == "clinic_full" ? "clinic_admin" : "nutritionist";
+
+                    // Compatibilidad: estos campos de users son una copia derivada.
+                    // La fuente de verdad de facturación sigue siendo subscriptions + tenant.
+                    await _context.users
+                        .Where(u => u.tenant_id == tenantId.Value && u.role != "superadmin")
+                        .ExecuteUpdateAsync(setters => setters
+                            .SetProperty(u => u.subscription_plan, plan.code)
+                            .SetProperty(u => u.subscription_status, subscription.status));
                 }
 
                 _context.subscription_events.Add(new subscription_events
@@ -407,6 +415,12 @@ public sealed class BillingController : ControllerBase
 
                     if (owner != null)
                         owner.role = updatedPlan.code == "clinic_full" ? "clinic_admin" : "nutritionist";
+
+                    await _context.users
+                        .Where(u => u.tenant_id == subscription.tenant_id && u.role != "superadmin")
+                        .ExecuteUpdateAsync(setters => setters
+                            .SetProperty(u => u.subscription_plan, updatedPlan.code)
+                            .SetProperty(u => u.subscription_status, subscription.status));
                 }
 
                 subscription.updated_at = DateTime.UtcNow;
