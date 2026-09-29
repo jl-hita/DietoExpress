@@ -754,4 +754,19 @@ public static class DatabaseBootstrap
     }
 
 
+    /// <summary>
+    /// Añade expiración a los enlaces mágicos del portal de pacientes.
+    /// Los tokens existentes quedan sin expiración hasta que el nutricionista los regenere.
+    /// </summary>
+    public static void UpgradeSaaSSchemaV5(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            ALTER TABLE clients ADD COLUMN IF NOT EXISTS access_token_expires_at TIMESTAMPTZ;
+        ");
+
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('saas-v5-portal-token-expiration') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración SaaS saas-v5-portal-token-expiration aplicada correctamente.");
+    }
+
+
 }
