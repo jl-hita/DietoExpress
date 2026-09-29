@@ -15,6 +15,13 @@ import { ClinicService, ClinicDashboard } from '../../servicios/clinic.service';
 export class ClinicDashboardComponent implements OnInit {
  data?:ClinicDashboard; showCreate=false; newNutri:any={fullName:'',email:''};
  constructor(private clinic:ClinicService,private snack:MatSnackBar,private dialog:MatDialog){}
+ get canCreateNutri():boolean{
+   const l=this.data?.license;
+   if(!l || l.status!=='active') return false;
+   if(l.maxNutritionists != null && l.nutritionists >= l.maxNutritionists) return false;
+   if(l.nutritionistReplacementAvailableAt && new Date(l.nutritionistReplacementAvailableAt).getTime() > Date.now()) return false;
+   return l.features?.includes('MULTI_NUTRITIONIST') ?? false;
+ }
  ngOnInit(){this.load();}
  load(){this.clinic.getDashboard().subscribe({next:d=>this.data=d,error:e=>this.snack.open(e?.error||'No se puede cargar el panel de clínica','Cerrar',{duration:4000})});}
  createNutri(){this.clinic.createNutritionist(this.newNutri).subscribe({next:()=>{this.snack.open('Nutricionista creado y se ha enviado la invitación por email','OK',{duration:3500});this.newNutri={fullName:'',email:''};this.showCreate=false;this.load()},error:e=>this.snack.open(e?.error?.message||e?.error||'No se pudo crear','Cerrar',{duration:5000})});}
