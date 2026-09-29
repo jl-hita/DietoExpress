@@ -23,7 +23,9 @@ export class SetupGuard implements CanActivate {
         }
       }),
       catchError(() => {
-        return of(true);
+        // Si no podemos verificar el estado, no debemos abrir el asistente de inicialización.
+        this.router.navigate(['/login']);
+        return of(false);
       })
     );
   }
