@@ -67,6 +67,7 @@ public class BiometricsController : ControllerBase
     {
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
+        var isSuperAdmin = User.IsInRole("superadmin");
 
         var b = await _context.biometrics
             .Include(x => x.client)
