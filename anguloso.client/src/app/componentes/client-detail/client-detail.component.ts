@@ -462,6 +462,24 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     });
   }
 
+  downloadConsultationPdf(): void {
+    if (!this.clientId) return;
+
+    const date = new Date().toISOString().slice(0, 10);
+    this.svc.downloadConsultationPdf(this.clientId, date).subscribe({
+      next: (blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const sanitizedClientName = (this.client?.fullName || 'Paciente').replace(/\\s+/g, '_');
+        a.download = `Informe_Consulta_${sanitizedClientName}_${date}.pdf`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      },
+      error: () => this.snack.open('Error al generar el informe de consulta', 'Cerrar', { duration: 3000 })
+    });
+  }
+
   // Exchange viewer helpers
   getExchangeItemKey(dayIndex: number, mealIndex: number, itemIndex: number): string {
     return `${dayIndex}-${mealIndex}-${itemIndex}`;
