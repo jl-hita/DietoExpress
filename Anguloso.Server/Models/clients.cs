@@ -9,7 +9,7 @@ public partial class clients
 {
     public int id { get; set; }
 
-    public int user_id { get; set; }
+    public int? user_id { get; set; }
 
     public string full_name { get; set; }
 
@@ -43,7 +43,7 @@ public partial class clients
 
     public virtual client_diets client_diets { get; set; }
 
-    public virtual users user { get; set; }
+    public virtual users? user { get; set; }
 
     public virtual medical_history medical_history { get; set; }
 
