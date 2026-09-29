@@ -158,6 +158,9 @@ public class DietController : ControllerBase
         if (!dietPermission.Allowed)
             return BadRequest(dietPermission.Reason);
 
+        if (dto.IsTemplate && !await _licenseService.CanUseFeatureAsync(tenantId, "DIET_TEMPLATES"))
+            return Forbid();
+
         var diet = new diets
         {
             user_id = userId.Value,
@@ -236,6 +239,12 @@ public class DietController : ControllerBase
         diet.target_carbs = dto.TargetCarbs;
         diet.target_fat = dto.TargetFat;
         diet.notes = dto.Notes ?? diet.notes ?? "";
+        var tenantId = AuthHelpers.GetTenantId(User);
+        if (dto.IsShared && !await _licenseService.CanUseFeatureAsync(tenantId, "SHARED_DIETS"))
+            return Forbid();
+        if (dto.IsTemplate && !await _licenseService.CanUseFeatureAsync(tenantId, "DIET_TEMPLATES"))
+            return Forbid();
+
         diet.is_shared = dto.IsShared;
         diet.is_template = dto.IsTemplate;
 
