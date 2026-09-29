@@ -38,7 +38,9 @@ public class BiometricsController : ControllerBase
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
 
-        var client = await _context.clients.AsNoTracking().FirstOrDefaultAsync(c => c.id == clientId && (c.user_id == userId.Value || (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User).Value)));
+        var client = await _context.clients.AsNoTracking().FirstOrDefaultAsync(c => c.id == clientId && (c.user_id == userId.Value ||
+                 _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active) ||
+                 (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User).Value)));
         if (client == null) return NotFound();
 
         int? age = null;
@@ -69,6 +71,7 @@ public class BiometricsController : ControllerBase
             .Include(x => x.client)
             .FirstOrDefaultAsync(x => x.id == id && x.client_id == clientId &&
                 (x.client.user_id == userId.Value ||
+                 _context.client_nutritionist_assignments.Any(a => a.client_id == x.client_id && a.nutritionist_id == userId.Value && a.is_active) ||
                  (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue &&
                   x.client.tenant_id == AuthHelpers.GetTenantId(User).Value)));
 
@@ -93,7 +96,9 @@ public class BiometricsController : ControllerBase
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
 
-        var client = await _context.clients.FirstOrDefaultAsync(c => c.id == clientId && (c.user_id == userId.Value || (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User).Value)));
+        var client = await _context.clients.FirstOrDefaultAsync(c => c.id == clientId && (c.user_id == userId.Value ||
+                 _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active) ||
+                 (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User).Value)));
         if (client == null) return NotFound();
 
         var b = new biometrics
@@ -142,6 +147,7 @@ public class BiometricsController : ControllerBase
             .Include(x => x.client)
             .FirstOrDefaultAsync(x => x.id == id && x.client_id == clientId &&
                 (x.client.user_id == userId.Value ||
+                 _context.client_nutritionist_assignments.Any(a => a.client_id == x.client_id && a.nutritionist_id == userId.Value && a.is_active) ||
                  (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue &&
                   x.client.tenant_id == AuthHelpers.GetTenantId(User).Value)));
 
@@ -187,6 +193,7 @@ public class BiometricsController : ControllerBase
             .Include(x => x.client)
             .FirstOrDefaultAsync(x => x.id == id && x.client_id == clientId &&
                 (x.client.user_id == userId.Value ||
+                 _context.client_nutritionist_assignments.Any(a => a.client_id == x.client_id && a.nutritionist_id == userId.Value && a.is_active) ||
                  (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue &&
                   x.client.tenant_id == AuthHelpers.GetTenantId(User).Value)));
 
@@ -205,7 +212,9 @@ public class BiometricsController : ControllerBase
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
 
-        var client = await _context.clients.AsNoTracking().FirstOrDefaultAsync(c => c.id == clientId && (c.user_id == userId.Value || (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User).Value)));
+        var client = await _context.clients.AsNoTracking().FirstOrDefaultAsync(c => c.id == clientId && (c.user_id == userId.Value ||
+                 _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active) ||
+                 (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User).Value)));
         if (client == null) return NotFound();
 
         int? age = null;
@@ -235,7 +244,9 @@ public class BiometricsController : ControllerBase
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
 
-        var client = await _context.clients.AsNoTracking().FirstOrDefaultAsync(c => c.id == clientId && (c.user_id == userId.Value || (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User).Value)));
+        var client = await _context.clients.AsNoTracking().FirstOrDefaultAsync(c => c.id == clientId && (c.user_id == userId.Value ||
+                 _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active) ||
+                 (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User).Value)));
         if (client == null) return NotFound("Cliente no encontrado.");
 
         if (file == null || file.Length == 0)
@@ -280,7 +291,9 @@ public class BiometricsController : ControllerBase
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
 
-        var client = await _context.clients.FirstOrDefaultAsync(c => c.id == clientId && (c.user_id == userId.Value || (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User).Value)));
+        var client = await _context.clients.FirstOrDefaultAsync(c => c.id == clientId && (c.user_id == userId.Value ||
+                 _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active) ||
+                 (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User).Value)));
         if (client == null) return NotFound("Cliente no encontrado.");
 
         if (dto?.Rows == null || dto.Rows.Count == 0)
