@@ -18,6 +18,7 @@ import { EditLicenseDialogComponent } from './edit-license-dialog.component';
 import { ResetPasswordDialogComponent } from './reset-password-dialog.component';
 import { CreateAdminAccountDialogComponent } from './create-admin-account-dialog.component';
 import { DeleteAccountDialogComponent } from './delete-account-dialog.component';
+import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.component';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -624,25 +625,34 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   deleteUser(user: AdminUser): void {
-    const ref = this.dialog.open(DeleteAccountDialogComponent, {
-      width: '560px',
-      maxWidth: '95vw',
-      data: user
-    });
-
-    ref.afterClosed().subscribe(confirmed => {
-      if (!confirmed) return;
-
-      this.adminService.deleteUser(user.id).subscribe({
-        next: () => {
-          this.snackBar.open('Cuenta eliminada correctamente.', 'OK', { duration: 4000 });
-          this.loadData();
-        },
-        error: err => {
-          const message = err?.error?.message || err?.error || 'Error al eliminar la cuenta.';
-          this.snackBar.open(message, 'Cerrar', { duration: 5000 });
+    this.adminService.getDeactivationPreview(user.id).subscribe({
+      next: preview => {
+        if (!preview.clients.length) {
+          const confirmRef = this.dialog.open(DeleteAccountDialogComponent, { width:'560px', maxWidth:'95vw', data:user });
+          confirmRef.afterClosed().subscribe(confirmed => {
+            if (!confirmed) return;
+            this.adminService.deleteUser(user.id,{assignments:[]}).subscribe({
+              next:()=>{this.snackBar.open('Cuenta archivada correctamente.','OK',{duration:4000});this.loadData();},
+              error:err=>this.snackBar.open(err?.error?.message||err?.error||'Error al archivar la cuenta.','Cerrar',{duration:5000})
+            });
+          });
+          return;
         }
-      });
+
+        const ref=this.dialog.open(DeactivateAccountDialogComponent,{
+          width:'760px',
+          maxWidth:'95vw',
+          data:preview
+        });
+        ref.afterClosed().subscribe(result=>{
+          if(!result)return;
+          this.adminService.deleteUser(user.id,result).subscribe({
+            next:()=>{this.snackBar.open('Cuenta archivada y pacientes gestionados correctamente.','OK',{duration:4000});this.loadData();},
+            error:err=>this.snackBar.open(err?.error?.message||err?.error||'Error al archivar la cuenta.','Cerrar',{duration:5000})
+          });
+        });
+      },
+      error:err=>this.snackBar.open(err?.error?.message||err?.error||'No se pudo preparar el archivado.','Cerrar',{duration:5000})
     });
   }
 
