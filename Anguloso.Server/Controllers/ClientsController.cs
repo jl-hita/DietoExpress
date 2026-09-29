@@ -48,7 +48,8 @@ public class ClientsController : ControllerBase
             .Where(c => c.archived_at == null)
             .Where(c => includeAll && isSuperAdmin
                 ? true
-                : c.user_id == userId.Value || (isClinicAdmin && tenantId.HasValue && c.tenant_id == tenantId.Value));
+                : (tenantId.HasValue && c.tenant_id == tenantId.Value &&
+                   (c.user_id == userId.Value || isClinicAdmin)));
 
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {
@@ -106,7 +107,9 @@ public class ClientsController : ControllerBase
             .Include(c => c.digestive_health)
             .Include(c => c.food_preferences)
             .Include(c => c.lifestyle_history)
-            .FirstOrDefaultAsync(c => c.id == id && (c.user_id == userId.Value || (isClinicAdmin && tenantId.HasValue && c.tenant_id == tenantId.Value)));
+            .FirstOrDefaultAsync(c => c.id == id && c.archived_at == null &&
+                tenantId.HasValue && c.tenant_id == tenantId.Value &&
+                (c.user_id == userId.Value || isClinicAdmin));
 
         if (client == null) return NotFound();
 
@@ -311,7 +314,9 @@ public class ClientsController : ControllerBase
             .Include(c => c.digestive_health)
             .Include(c => c.food_preferences)
             .Include(c => c.lifestyle_history)
-            .FirstOrDefaultAsync(c => c.id == id && (c.user_id == userId.Value || (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User).Value)));
+            .FirstOrDefaultAsync(c => c.id == id && c.archived_at == null &&
+                tenantId.HasValue && c.tenant_id == tenantId.Value &&
+                (c.user_id == userId.Value || User.IsInRole("clinic_admin")));
 
         if (client == null) return NotFound();
 
@@ -401,7 +406,9 @@ public class ClientsController : ControllerBase
 
         var client = await _context.clients
             .Include(c => c.biometrics)
-            .FirstOrDefaultAsync(c => c.id == id && (c.user_id == userId.Value || (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User).Value)));
+            .FirstOrDefaultAsync(c => c.id == id && c.archived_at == null &&
+                tenantId.HasValue && c.tenant_id == tenantId.Value &&
+                (c.user_id == userId.Value || User.IsInRole("clinic_admin")));
 
         if (client == null) return NotFound("Client not found.");
 
@@ -442,7 +449,8 @@ public class ClientsController : ControllerBase
         var client = await _context.clients
             .Include(c => c.biometrics.OrderByDescending(b => b.measurement_date))
             .Include(c => c.client_diets)
-            .FirstOrDefaultAsync(c => c.id == id && c.user_id == userId.Value);
+            .FirstOrDefaultAsync(c => c.id == id && c.archived_at == null &&
+                tenantId.HasValue && c.tenant_id == tenantId.Value && c.user_id == userId.Value);
 
         if (client == null) return NotFound();
 
