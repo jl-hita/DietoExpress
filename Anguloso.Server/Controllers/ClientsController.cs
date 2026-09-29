@@ -45,6 +45,7 @@ public class ClientsController : ControllerBase
         var searchTerm = search?.Trim();
 
         var query = _context.clients
+            .Where(c => c.archived_at == null)
             .Where(c => includeAll && isSuperAdmin
                 ? true
                 : c.user_id == userId.Value || (isClinicAdmin && tenantId.HasValue && c.tenant_id == tenantId.Value));
@@ -378,13 +379,15 @@ public class ClientsController : ControllerBase
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
 
-        var client = await _context.clients.Include(c => c.biometrics).FirstOrDefaultAsync(c => c.id == id && (c.user_id == userId.Value || (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User).Value)));
+        var client = await _context.clients.Include(c => c.biometrics).FirstOrDefaultAsync(c => c.id == id && c.archived_at == null && (c.user_id == userId.Value || (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User).Value)));
         if (client == null) return NotFound();
 
         // Optionally: delete biometrics cascade if not configured
-        _context.biometrics.RemoveRange(client.biometrics);
-        _context.clients.Remove(client);
+        client.archived_at = DateTime.UtcNow;
+        client.access_token = null;
+        client.access_token_expires_at = null;
         await _context.SaveChangesAsync();
+        await _auditLogService.LogAccessAsync("ARCHIVE_PATIENT", "clients", client.id.ToString(), client.id, $"Archivado del expediente clínico {client.full_name}");
 
         return NoContent();
     }
