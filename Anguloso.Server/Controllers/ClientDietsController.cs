@@ -37,7 +37,8 @@ public class ClientDietsController : ControllerBase
         return await _context.clients.AnyAsync(c =>
             c.id == clientId &&
             c.archived_at == null &&
-            (c.user_id == userId ||
+            (User.IsInRole("superadmin") ||
+             c.user_id == userId ||
              _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId && a.is_active) ||
              (User.IsInRole("clinic_admin") && tenantId.HasValue && c.tenant_id == tenantId.Value)));
     }
