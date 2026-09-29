@@ -783,6 +783,19 @@ public static class DatabaseBootstrap
         context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('saas-v6-soft-delete') ON CONFLICT (id) DO NOTHING;");
         logger.LogInformation("Migración SaaS saas-v6-soft-delete aplicada correctamente.");
     }
+    /// <summary>Permite conservar pacientes sin asignar y archivar nutricionistas sin perder trazabilidad.</summary>
+    public static void UpgradeSaaSSchemaV8(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+            ALTER TABLE clients ALTER COLUMN user_id DROP NOT NULL;
+            CREATE INDEX IF NOT EXISTS idx_users_archived_at ON users(archived_at);
+            CREATE INDEX IF NOT EXISTS idx_clients_tenant_user_id ON clients(tenant_id, user_id);
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('saas-v8-nutritionist-archive-unassigned') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración SaaS saas-v8-nutritionist-archive-unassigned aplicada correctamente.");
+    }
+
     /// <summary>Tabla de favoritos de alimentos por usuario.</summary>
     public static void UpgradeSaaSSchemaV7(angulosodbContext context, ILogger logger)
     {
