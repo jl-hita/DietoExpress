@@ -315,6 +315,8 @@ public static class DatabaseBootstrap
                     valor_config VARCHAR(255) NOT NULL
                 );
 
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_config_nombre_config ON config(nombre_config);
+
                 -- 20. Audit Logs (Trazabilidad clínica y RGPD)
                 CREATE TABLE IF NOT EXISTS audit_logs (
                     id BIGSERIAL PRIMARY KEY,
