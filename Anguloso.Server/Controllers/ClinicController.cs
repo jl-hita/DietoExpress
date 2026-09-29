@@ -45,7 +45,7 @@ public class ClinicController : ControllerBase
         var users = await _context.users.AsNoTracking()
             .Where(u => u.tenant_id == tenantId &&
                         (u.role == "nutritionist" || u.role == "user") &&
-                        (u.archived_at == null || u.archived_at >= DateTime.UtcNow.AddDays(-30)))
+                        true)
             .OrderByDescending(u => u.archived_at == null)
             .ThenBy(u => u.full_name)
             .Select(u => new
