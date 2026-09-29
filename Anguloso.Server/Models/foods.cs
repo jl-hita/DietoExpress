@@ -79,6 +79,10 @@ public partial class foods
 
     public decimal? grams_per_exchange { get; set; }
 
+    public virtual tenants tenant { get; set; }
+
+    public virtual users created_by_user { get; set; }
+
     public virtual food_exchange_groups exchange_group { get; set; }
 
     public virtual ICollection<meal_items> meal_items { get; set; } = new List<meal_items>();
