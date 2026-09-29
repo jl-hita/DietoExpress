@@ -25,7 +25,6 @@ public class Program
         string entorno = builder.Environment.ContentRootPath;
         // Obtener la cadena de conexión desde appsettings.json
         var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-        var usdaKey = builder.Configuration["Authentication:USDA:ApiKey"];
         //Console.WriteLine($"API key USDA: {usdaKey}");
 
         // Registrar el DbContext
@@ -115,8 +114,6 @@ public class Program
 
 
         builder.Services.AddHttpClient<IStripeBillingService, StripeBillingService>();
-
-        builder.Services.AddHttpClient<OpenFoodFactsService>();
 
         builder.Services.AddHttpClient<OpenFoodFactsService>().AddTypedClient((httpClient, sp) =>
         {
