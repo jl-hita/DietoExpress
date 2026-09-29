@@ -13,11 +13,12 @@ import { NutritionistDeactivationDialogComponent } from './nutritionist-deactiva
 import { ClinicService, ClinicDashboard } from '../../servicios/clinic.service';
 @Component({selector:'app-clinic-dashboard',standalone:true,imports:[CommonModule,FormsModule,MatCardModule,MatButtonModule,MatIconModule,MatTableModule,MatFormFieldModule,MatSelectModule,MatSnackBarModule,MatDialogModule],templateUrl:'./clinic-dashboard.component.html',styleUrls:['./clinic-dashboard.component.css']})
 export class ClinicDashboardComponent implements OnInit {
- data?:ClinicDashboard; showCreate=false; newNutri:any={username:'',fullName:'',email:'',password:''};
+ data?:ClinicDashboard; showCreate=false; newNutri:any={fullName:'',email:''};
  constructor(private clinic:ClinicService,private snack:MatSnackBar,private dialog:MatDialog){}
  ngOnInit(){this.load();}
  load(){this.clinic.getDashboard().subscribe({next:d=>this.data=d,error:e=>this.snack.open(e?.error||'No se puede cargar el panel de clínica','Cerrar',{duration:4000})});}
- createNutri(){this.clinic.createNutritionist(this.newNutri).subscribe({next:()=>{this.snack.open('Nutricionista creado','OK',{duration:2500});this.newNutri={username:'',fullName:'',email:'',password:''};this.showCreate=false;this.load()},error:e=>this.snack.open(e?.error||'No se pudo crear','Cerrar',{duration:4000})});}
+ createNutri(){this.clinic.createNutritionist(this.newNutri).subscribe({next:()=>{this.snack.open('Nutricionista creado y se ha enviado la invitación por email','OK',{duration:3500});this.newNutri={fullName:'',email:''};this.showCreate=false;this.load()},error:e=>this.snack.open(e?.error?.message||e?.error||'No se pudo crear','Cerrar',{duration:5000})});}
+ activateNutri(n:any){this.clinic.activateNutritionist(n.id).subscribe({next:()=>{this.snack.open('Nutricionista activado','OK',{duration:2500});this.load()},error:e=>this.snack.open(e?.error?.message||e?.error||'No se pudo activar','Cerrar',{duration:5000})});}
  disableNutri(n:any){
    this.clinic.getDeactivationPreview(n.id).subscribe({
      next:preview=>{
