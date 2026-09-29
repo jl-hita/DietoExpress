@@ -779,6 +779,21 @@ public class AuthController : ControllerBase
     }
     */
 
+    [Authorize]
+    [HttpPost("refreshSession")]
+    public async Task<IActionResult> RefreshSession()
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId == null) return Unauthorized();
+
+        var user = await _context.users.FirstOrDefaultAsync(u => u.id == userId.Value);
+        if (user == null || user.archived_at.HasValue)
+            return Unauthorized("La cuenta no está disponible.");
+
+        var jwt = CrearJwtParaUsuario(user);
+        return Ok(new { token = jwt, username = user.username, email = user.email, role = user.role });
+    }
+
     [HttpGet("whoami")]
     public IActionResult WhoAmI()
     {
