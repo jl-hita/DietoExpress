@@ -579,7 +579,7 @@ public class AdminUsersController : ControllerBase
     [HttpPut("users/{id}/reset-password")]
     public async Task<IActionResult> ResetUserPassword(int id, [FromBody] ResetPasswordAdminRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.NewPassword) || request.NewPassword.Length < 6)
+        if (string.IsNullOrWhiteSpace(request.NewPassword) || request.NewPassword.Length < 12)
             return BadRequest("La contraseña debe tener al menos 12 caracteres.");
 
         var user = await _context.users.FindAsync(id);
