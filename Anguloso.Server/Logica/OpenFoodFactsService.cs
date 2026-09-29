@@ -59,10 +59,10 @@ public class OpenFoodFactsService
             using var dbContext = CrearDbContext();
             string pais = "spain";
             string lang = "es";
+            users? user = null;
 
             if (userName != null)
-            {
-                users? user = null;
+            {   
                 try
                 {
                     user = dbContext.users.AsNoTracking().Where(u => u.username == userName).FirstOrDefault();
