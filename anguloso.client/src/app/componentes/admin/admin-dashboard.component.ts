@@ -323,11 +323,13 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
       align-items: center;
       padding: 20px;
       border-radius: 12px;
-      color: white;
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      color: #0f172a;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
     }
     .kpi-icon {
       margin-right: 16px;
+      flex: 0 0 auto;
     }
     .kpi-icon mat-icon {
       font-size: 40px;
@@ -337,28 +339,36 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
     .kpi-content {
       display: flex;
       flex-direction: column;
+      min-width: 0;
     }
     .kpi-title {
       font-size: 13px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      opacity: 0.9;
+      font-weight: 700;
+      color: #334155;
     }
     .kpi-value {
       font-size: 28px;
       font-weight: 700;
       line-height: 1.2;
+      color: #0f172a;
     }
     .kpi-sub {
       font-size: 12px;
-      opacity: 0.85;
+      color: #475569;
       margin-top: 2px;
     }
-    .card-blue { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
-    .card-teal { background: linear-gradient(135deg, #0d9488, #0f766e); }
-    .card-purple { background: linear-gradient(135deg, #7c3aed, #6d28d9); }
-    .card-amber { background: linear-gradient(135deg, #d97706, #b45309); }
-    .card-slate { background: linear-gradient(135deg, #475569, #334155); }
+    .card-blue { background: linear-gradient(135deg, #eff6ff, #dbeafe); }
+    .card-blue .kpi-icon mat-icon { color: #2563eb; }
+    .card-teal { background: linear-gradient(135deg, #f0fdfa, #ccfbf1); }
+    .card-teal .kpi-icon mat-icon { color: #0d9488; }
+    .card-purple { background: linear-gradient(135deg, #f5f3ff, #ede9fe); }
+    .card-purple .kpi-icon mat-icon { color: #7c3aed; }
+    .card-amber { background: linear-gradient(135deg, #fffbeb, #fef3c7); }
+    .card-amber .kpi-icon mat-icon { color: #d97706; }
+    .card-slate { background: linear-gradient(135deg, #f8fafc, #e2e8f0); }
+    .card-slate .kpi-icon mat-icon { color: #475569; }
 
     .table-card {
       padding: 20px;
