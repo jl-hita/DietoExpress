@@ -114,3 +114,5 @@ public class ClinicController : ControllerBase
 }
 public record CreateNutritionistRequest(string Username,string Email,string Password,string? FullName);
 public record AssignClientRequest(int NutritionistId);
+public record ClientReassignment(int ClientId,int? NutritionistId);
+public record DeactivateNutritionistRequest(List<ClientReassignment> Assignments);
