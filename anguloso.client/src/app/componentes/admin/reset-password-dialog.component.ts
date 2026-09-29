@@ -25,13 +25,13 @@ import { AdminUser } from '../../servicios/admin.service';
 
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>Nueva Contraseña</mat-label>
-        <input matInput type="password" [(ngModel)]="newPassword" placeholder="Mínimo 6 caracteres" />
+        <input matInput type="password" [(ngModel)]="newPassword" placeholder="Mínimo 12 caracteres" />
       </mat-form-field>
     </mat-dialog-content>
 
     <mat-dialog-actions align="end">
       <button mat-button (click)="dialogRef.close()">Cancelar</button>
-      <button mat-flat-button color="warn" [disabled]="!newPassword || newPassword.length < 6" (click)="save()">
+      <button mat-flat-button color="warn" [disabled]="!newPassword || newPassword.length < 12" (click)="save()">
         Restablecer
       </button>
     </mat-dialog-actions>
