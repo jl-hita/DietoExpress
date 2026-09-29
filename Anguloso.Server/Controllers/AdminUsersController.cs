@@ -1,4 +1,6 @@
 using System.Text.RegularExpressions;
+using Anguloso.Server.Logica;
+using Anguloso.Server.Logica.Utils;
 using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,10 +14,12 @@ namespace Anguloso.Server.Controllers;
 public class AdminUsersController : ControllerBase
 {
     private readonly angulosodbContext _context;
+    private readonly IAuditLogService _audit;
 
-    public AdminUsersController(angulosodbContext context)
+    public AdminUsersController(angulosodbContext context, IAuditLogService audit)
     {
         _context = context;
+        _audit = audit;
     }
 
     /// <summary>
