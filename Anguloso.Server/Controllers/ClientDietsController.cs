@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 namespace Anguloso.Server.Controllers;
 
 [ApiController]
-[Authorize]
+[Authorize(Policy = "Professional")]
 [Route("api/clients/{clientId:int}/diets")]
 public class ClientDietsController : ControllerBase
 {
