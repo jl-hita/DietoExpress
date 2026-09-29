@@ -17,6 +17,8 @@ public partial class users
 
     public DateTime? created_at { get; set; }
 
+    public DateTime? archived_at { get; set; }
+
     public DateTime? last_login { get; set; }
 
     public string role { get; set; }
