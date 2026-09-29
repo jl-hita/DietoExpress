@@ -152,7 +152,7 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
               <th mat-header-cell *matHeaderCellDef>Estado</th>
               <td mat-cell *matCellDef="let u">
                 <span class="status-badge status-{{ u.subscriptionStatus }}">
-                  {{ u.subscriptionStatus === 'active' ? 'Activo' : (u.subscriptionStatus === 'suspended' ? 'Suspendido' : u.subscriptionStatus) }}
+                  {{ u.archivedAt ? 'Archivado' : (u.subscriptionStatus === 'active' ? 'Activo' : (u.subscriptionStatus === 'suspended' ? 'Suspendido' : u.subscriptionStatus)) }}
                 </span>
               </td>
             </ng-container>
@@ -207,7 +207,7 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
                   <mat-icon>block</mat-icon>
                 </button>
 
-                <button *ngIf="u.subscriptionStatus !== 'active'" mat-icon-button style="color: #10b981;" matTooltip="Reactivar Cuenta" (click)="activateUser(u)">
+                <button *ngIf="u.archivedAt || u.subscriptionStatus !== 'active'" mat-icon-button style="color: #10b981;" matTooltip="Reactivar Cuenta" (click)="activateUser(u)">
                   <mat-icon>check_circle</mat-icon>
                 </button>
               </td>
