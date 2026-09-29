@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Anguloso.Server.Controllers;
 
 [ApiController]
-[Authorize]
+[Authorize(Policy = "Professional")]
 [Route("api/dietas")]
 public class DietController : ControllerBase
 {
