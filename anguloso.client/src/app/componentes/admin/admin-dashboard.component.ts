@@ -258,7 +258,7 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
               <th mat-header-cell *matHeaderCellDef>Valor</th>
               <td mat-cell *matCellDef="let config" class="config-value">
                 <mat-form-field appearance="outline" class="config-value-field">
-                  <input matInput [(ngModel)]="config.valor" />
+                  <input matInput [type]="config.esSecreta ? 'password' : 'text'" [(ngModel)]="config.valor" [placeholder]="config.esSecreta && config.tieneValor ? '•••••••• (configurado)' : ''" autocomplete="new-password" />
                 </mat-form-field>
               </td>
             </ng-container>
@@ -267,7 +267,7 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
               <th mat-header-cell *matHeaderCellDef class="text-right">Acciones</th>
               <td mat-cell *matCellDef="let config" class="text-right">
                 <button mat-flat-button color="primary"
-                        [disabled]="config.valor === config.originalValor || config.saving"
+                        [disabled]="config.saving || (config.esSecreta ? !config.valor : config.valor === config.originalValor)"
                         (click)="saveConfig(config)">
                   <mat-icon>save</mat-icon>
                   Guardar
@@ -502,7 +502,7 @@ export class AdminDashboardComponent implements OnInit {
 
   loadConfig(): void {
     this.adminService.getConfig().subscribe({
-      next: (configs) => this.configs = configs.map(config => ({ ...config, originalValor: config.valor, saving: false })),
+      next: (configs) => this.configs = configs.map(config => ({ ...config, originalValor: config.esSecreta ? '' : config.valor, saving: false })),
       error: () => this.snackBar.open('Error al cargar la configuración.', 'Cerrar', { duration: 4000 })
     });
   }
@@ -512,7 +512,7 @@ export class AdminDashboardComponent implements OnInit {
     this.adminService.updateConfig(config.id, config.valor).subscribe({
       next: (updated) => {
         config.valor = updated.valor;
-        config.originalValor = updated.valor;
+        config.originalValor = updated.esSecreta ? '' : updated.valor;
         config.saving = false;
         this.snackBar.open('Configuración guardada.', 'OK', { duration: 3000 });
       },
