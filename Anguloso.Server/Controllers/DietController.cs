@@ -35,7 +35,7 @@ public class DietController : ControllerBase
 
 
     [HttpGet]
-    public async Task<ActionResult<List<DietListDto>>> GetDiets([FromQuery] bool? onlyShared = null, [FromQuery] bool includeAll = false)
+    public async Task<ActionResult<object>> GetDiets([FromQuery] bool? onlyShared = null, [FromQuery] bool includeAll = false, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null)
     {
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
@@ -60,8 +60,20 @@ public class DietController : ControllerBase
             query = query.Where(d => d.is_shared && d.user_id != userId.Value);
         }
 
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 5, 100);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var pattern = $"%{search.Trim()}%";
+            query = query.Where(d => EF.Functions.ILike(d.name, pattern));
+        }
+
+        var totalCount = await query.CountAsync();
         var list = await query
             .OrderByDescending(d => d.created_at)
+            .ThenByDescending(d => d.id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(d => new DietListDto
             {
                 Id = d.id,
@@ -79,7 +91,7 @@ public class DietController : ControllerBase
             })
             .ToListAsync();
 
-        return Ok(list);
+        return Ok(new { items = list, totalCount, page, pageSize });
     }
 
     [HttpGet("{id:int}")]
