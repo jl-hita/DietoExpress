@@ -6,7 +6,7 @@ import { MATERIAL_IMPORTS } from '../../shared/material.imports';
 import { DietService } from '../../servicios/diet.service';
 import { FoodService } from '../../servicios/food.service';
 import { ClientService } from '../../servicios/client.service';
-import { DietDetail, DietDay, Meal, MealItem } from '../../modelos/diet';
+import { DietDetail, DietDay, Meal, MealItem, CreateDietRequest } from '../../modelos/diet';
 import { FoodExchangeGroup } from '../../modelos/food-exchange-group';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ExchangeSearchDialogComponent } from './exchange-search-dialog.component';
@@ -508,7 +508,7 @@ export class DietCreateComponent implements OnInit {
   submit(): void {
     if (this.form.invalid) return;
     const raw = this.form.getRawValue();
-    const dto: DietDetail = {
+    const dto: CreateDietRequest = {
       name: raw.name,
       targetKcal: raw.targetKcal ?? undefined,
       targetProtein: raw.targetProtein ?? undefined,
@@ -517,6 +517,7 @@ export class DietCreateComponent implements OnInit {
       notes: raw.notes || undefined,
       isShared: !!raw.isShared,
       isTemplate: !!raw.isTemplate,
+      ...(this.clientId && !this.isEdit ? { clientId: this.clientId } : {}),
       days: raw.days.map((d: any) => ({
         dayIndex: d.dayIndex,
         meals: d.meals.map((m: any, mIdx: number) => ({
@@ -558,8 +559,12 @@ export class DietCreateComponent implements OnInit {
     } else {
       this.dietService.createDiet(dto).subscribe({
         next: () => {
-          this.snackBar.open('Dieta creada', 'Cerrar', { duration: 3000 });
-          this.router.navigate(['/diets']);
+          this.snackBar.open(
+            this.clientId ? 'Dieta creada y asignada al paciente' : 'Dieta creada',
+            'Cerrar',
+            { duration: 3000 }
+          );
+          this.router.navigate(this.clientId ? ['/clients', this.clientId] : ['/diets']);
         },
         error: () => this.snackBar.open('Error al crear la dieta', 'Cerrar', { duration: 4000 })
       });
@@ -567,7 +572,7 @@ export class DietCreateComponent implements OnInit {
   }
 
   cancel(): void {
-    this.router.navigate(['/diets']);
+    this.router.navigate(this.clientId ? ['/clients', this.clientId] : ['/diets']);
   }
 
   loadClientName(): void {
