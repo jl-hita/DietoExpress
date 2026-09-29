@@ -37,6 +37,9 @@ public class CreateDietDto
     public bool IsShared { get; set; } = false;
     public bool IsTemplate { get; set; } = false;
 
+    // Si se informa, la dieta se crea y se asigna al paciente en la misma transacción.
+    public int? ClientId { get; set; }
+
     public ICollection<DietDayDto> Days { get; set; } = new List<DietDayDto>();
 }
 
