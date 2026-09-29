@@ -19,11 +19,13 @@ public class PatientPortalController : ControllerBase
 {
     private readonly angulosodbContext _context;
     private readonly IConfiguration _config;
+    private readonly ILicenseService _licenseService;
 
-    public PatientPortalController(angulosodbContext context, IConfiguration config)
+    public PatientPortalController(angulosodbContext context, IConfiguration config, ILicenseService licenseService)
     {
         _context = context;
         _config = config;
+        _licenseService = licenseService;
     }
 
     /// <summary>
@@ -79,6 +81,10 @@ public class PatientPortalController : ControllerBase
             return BadRequest("Debes proporcionar un enlace de acceso o tus credenciales.");
         }
 
+        var portalTenantId = client.tenant_id ?? client.user?.tenant_id;
+        if (!await _licenseService.CanUseFeatureAsync(portalTenantId, "CLIENT_PORTAL"))
+            return Forbid();
+
         // Registrar último acceso del paciente
         client.last_portal_access = DateTime.UtcNow;
         await _context.SaveChangesAsync();
@@ -104,6 +110,8 @@ public class PatientPortalController : ControllerBase
     {
         var clientId = ResolveAuthorizedClientId();
         if (clientId == null) return Unauthorized();
+
+        if (!await PortalFeatureAllowedAsync(clientId.Value)) return Forbid();
 
         var client = await _context.clients
             .Include(c => c.user)
@@ -167,6 +175,8 @@ public class PatientPortalController : ControllerBase
     {
         var clientId = ResolveAuthorizedClientId();
         if (clientId == null) return Unauthorized();
+
+        if (!await PortalFeatureAllowedAsync(clientId.Value)) return Forbid();
 
         var activeAssignment = await _context.client_diets
             .FirstOrDefaultAsync(cd => cd.client_id == clientId.Value && cd.is_active == true);
@@ -232,6 +242,8 @@ public class PatientPortalController : ControllerBase
     {
         var clientId = ResolveAuthorizedClientId();
         if (clientId == null) return Unauthorized();
+
+        if (!await PortalFeatureAllowedAsync(clientId.Value)) return Forbid();
 
         var activeAssignment = await _context.client_diets
             .FirstOrDefaultAsync(cd => cd.client_id == clientId.Value && cd.is_active == true);
@@ -357,6 +369,15 @@ public class PatientPortalController : ControllerBase
     }
 
     // ─── MÉTODOS AUXILIARES ───
+
+    private async Task<bool> PortalFeatureAllowedAsync(int clientId)
+    {
+        var tenantId = await _context.clients.AsNoTracking()
+            .Where(c => c.id == clientId)
+            .Select(c => c.tenant_id ?? c.user!.tenant_id)
+            .FirstOrDefaultAsync();
+        return await _licenseService.CanUseFeatureAsync(tenantId, "CLIENT_PORTAL");
+    }
 
     private int? ResolveAuthorizedClientId()
     {
