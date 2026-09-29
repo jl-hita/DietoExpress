@@ -23,6 +23,11 @@
       <tr mat-header-row *matHeaderRowDef="['name','clients','last','actions']"></tr><tr mat-row *matRowDef="let row; columns:['name','clients','last','actions']"></tr>
     </table>
   </mat-card>
+  <mat-card class="card" *ngIf="data?.unassignedClientCount">
+    <div style="display:flex;align-items:center;gap:10px;color:#92400e;background:#fef3c7;padding:12px;border-radius:8px">
+      <mat-icon>warning</mat-icon><strong>{{data?.unassignedClientCount}} paciente(s) están sin nutricionista asignado.</strong>
+    </div>
+  </mat-card>
   <mat-card class="card">
     <div class="section-title"><h2>Clientes</h2><span>{{data?.clients?.length || 0}} clientes</span></div>
     <table mat-table [dataSource]="data?.clients || []">
