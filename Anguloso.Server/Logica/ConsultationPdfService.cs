@@ -36,8 +36,8 @@ public class ConsultationPdfService
             .AsNoTracking()
             .Where(d => d.archived_at == null &&
                         d.created_at.HasValue &&
-                        d.created_at.Value >= consultationDate.ToDateTime(TimeOnly.MinValue) &&
-                        d.created_at.Value < consultationDate.AddDays(1).ToDateTime(TimeOnly.MinValue) &&
+                        d.created_at.Value >= DateTime.SpecifyKind(consultationDate.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc) &&
+                        d.created_at.Value < DateTime.SpecifyKind(consultationDate.AddDays(1).ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc) &&
                         (d.user_id == client.user_id || d.client_diets.Any(cd => cd.client_id == client.id)))
             .OrderBy(d => d.created_at)
             .ToList();
