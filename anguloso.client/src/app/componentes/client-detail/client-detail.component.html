@@ -553,9 +553,14 @@
       <div class="diets-container">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
           <h3 style="margin: 0;">Historial de planes alimentarios</h3>
-          <button mat-raised-button color="primary" (click)="openAssignDietDialog()">
-            <mat-icon>add</mat-icon> Asignar nueva dieta
-          </button>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button mat-raised-button color="primary" (click)="openAssignDietDialog()">
+              <mat-icon>playlist_add</mat-icon> Asignar dieta existente
+            </button>
+            <button mat-stroked-button color="primary" (click)="createDietForClient()">
+              <mat-icon>add</mat-icon> Crear nueva dieta
+            </button>
+          </div>
         </div>
 
         <ng-container *ngFor="let d of dietsHistory">
