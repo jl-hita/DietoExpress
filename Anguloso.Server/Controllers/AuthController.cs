@@ -454,7 +454,7 @@ public class AuthController : ControllerBase
                 return new BoolMensaje { Exito = false, Mensaje = "Datos de solicitud no válidos." };
             }
 
-            if (string.IsNullOrWhiteSpace(passwordResetRequest.NewPassword) || passwordResetRequest.NewPassword.Length < 6)
+            if (string.IsNullOrWhiteSpace(passwordResetRequest.NewPassword) || passwordResetRequest.NewPassword.Length < 12)
             {
                 return new BoolMensaje { Exito = false, Mensaje = "La contraseña debe tener al menos 12 caracteres." };
             }
