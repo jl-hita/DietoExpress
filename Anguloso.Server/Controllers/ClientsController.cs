@@ -10,7 +10,7 @@ namespace Anguloso.Server.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
-[Authorize] // opcional: añade si usas auth
+[Authorize(Policy = "Professional")]
 public class ClientsController : ControllerBase
 {
     private readonly angulosodbContext _context;
