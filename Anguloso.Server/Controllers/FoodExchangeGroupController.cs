@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 namespace Anguloso.Server.Controllers;
 
 [ApiController]
-[Authorize]
+[Authorize(Policy = "Professional")]
 [Route("api/food-exchange-groups")]
 public class FoodExchangeGroupController : ControllerBase
 {
