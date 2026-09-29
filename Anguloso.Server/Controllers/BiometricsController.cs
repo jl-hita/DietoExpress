@@ -67,7 +67,10 @@ public class BiometricsController : ControllerBase
 
         var b = await _context.biometrics
             .Include(x => x.client)
-            .FirstOrDefaultAsync(x => x.id == id && x.client_id == clientId);
+            .FirstOrDefaultAsync(x => x.id == id && x.client_id == clientId &&
+                (x.client.user_id == userId.Value ||
+                 (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue &&
+                  x.client.tenant_id == AuthHelpers.GetTenantId(User).Value)));
 
         if (b == null) return NotFound();
 
@@ -135,8 +138,12 @@ public class BiometricsController : ControllerBase
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
 
-        var b = await _context.biometrics.Include(x => x.client)
-            .FirstOrDefaultAsync(x => x.id == id && x.client_id == clientId);
+        var b = await _context.biometrics
+            .Include(x => x.client)
+            .FirstOrDefaultAsync(x => x.id == id && x.client_id == clientId &&
+                (x.client.user_id == userId.Value ||
+                 (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue &&
+                  x.client.tenant_id == AuthHelpers.GetTenantId(User).Value)));
 
         if (b == null) return NotFound();
 
@@ -176,8 +183,12 @@ public class BiometricsController : ControllerBase
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
 
-        var b = await _context.biometrics.Include(x => x.client)
-            .FirstOrDefaultAsync(x => x.id == id && x.client_id == clientId);
+        var b = await _context.biometrics
+            .Include(x => x.client)
+            .FirstOrDefaultAsync(x => x.id == id && x.client_id == clientId &&
+                (x.client.user_id == userId.Value ||
+                 (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue &&
+                  x.client.tenant_id == AuthHelpers.GetTenantId(User).Value)));
 
         if (b == null) return NotFound();
 
