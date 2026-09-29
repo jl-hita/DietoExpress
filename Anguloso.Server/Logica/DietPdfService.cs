@@ -95,8 +95,10 @@ public class DietPdfService
 
     private void ComposeHeader(IContainer container, users nutritionist)
     {
-        container.Row(row =>
+        container.Column(header =>
         {
+            header.Item().Row(row =>
+            {
             // Left part: Logo + Clinic Details
             row.RelativeItem().Row(leftRow =>
             {
@@ -157,10 +159,11 @@ public class DietPdfService
                 col.Item().Background("#3f51b5").Padding(8).AlignCenter().Text("PLAN NUTRICIONAL")
                     .Bold().FontSize(12).FontColor(Colors.White);
             });
-        });
+            });
 
-        // Línea divisoria
-        container.BorderBottom(2).BorderColor("#3f51b5");
+            // Línea divisoria
+            header.Item().BorderBottom(2).BorderColor("#3f51b5");
+        });
     }
 
     private void ComposePatientInfo(IContainer container, clients client, diets diet, client_diets assignment)
