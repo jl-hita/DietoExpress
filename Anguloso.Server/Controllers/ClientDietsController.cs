@@ -3,6 +3,7 @@ using Anguloso.Server.Logica.Utils;
 using Anguloso.Server.Model;
 using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -279,6 +280,7 @@ public class ClientDietsController : ControllerBase
 
     // GET: api/clients/{clientId}/diets/consultation-pdf?date=yyyy-MM-dd
     [HttpGet("consultation-pdf")]
+    [EnableRateLimiting("expensive")]
     public async Task<IActionResult> GetConsultationPdf(int clientId, [FromQuery] DateOnly? date = null)
     {
         if (!User.IsInRole("superadmin") && !await _licenseService.CanUseFeatureAsync(AuthHelpers.GetTenantId(User), "PDF_EXPORT"))
