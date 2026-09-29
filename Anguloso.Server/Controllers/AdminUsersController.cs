@@ -56,18 +56,19 @@ public class AdminUsersController : ControllerBase
     [HttpGet("config")]
     public async Task<IActionResult> GetConfig()
     {
-        var config = await _context.config
+        var configRows = await _context.config
             .AsNoTracking()
             .OrderBy(c => c.id)
-            .Select(c => new AdminConfigDto
-            {
-                Id = c.id,
-                Nombre = c.nombre_config,
-                Valor = AdminConfigSecurity.IsSecretConfig(c.nombre_config) ? string.Empty : c.valor_config,
-                EsSecreta = AdminConfigSecurity.IsSecretConfig(c.nombre_config),
-                TieneValor = !string.IsNullOrWhiteSpace(c.valor_config)
-            })
             .ToListAsync();
+
+        var config = configRows.Select(c => new AdminConfigDto
+        {
+            Id = c.id,
+            Nombre = c.nombre_config,
+            Valor = AdminConfigSecurity.IsSecretConfig(c.nombre_config) ? string.Empty : c.valor_config,
+            EsSecreta = AdminConfigSecurity.IsSecretConfig(c.nombre_config),
+            TieneValor = !string.IsNullOrWhiteSpace(c.valor_config)
+        }).ToList();
 
         return Ok(config);
     }
