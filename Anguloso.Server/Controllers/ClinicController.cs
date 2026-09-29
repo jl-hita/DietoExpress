@@ -10,8 +10,20 @@ namespace Anguloso.Server.Controllers;
 [Authorize(Roles = "clinic_admin,nutritionist,user")]
 public class ClinicController : ControllerBase
 {
-    private readonly angulosodbContext _context; private readonly ILicenseService _license; private readonly IAuditLogService _audit;
-    public ClinicController(angulosodbContext context, ILicenseService license, IAuditLogService audit) { _context=context; _license=license; _audit=audit; }
+    private readonly angulosodbContext _context;
+    private readonly ILicenseService _license;
+    private readonly IAuditLogService _audit;
+    private readonly EmailServ _emailServ;
+    private readonly ConfigServ _configServ;
+
+    public ClinicController(angulosodbContext context, ILicenseService license, IAuditLogService audit, EmailServ emailServ, ConfigServ configServ)
+    {
+        _context = context;
+        _license = license;
+        _audit = audit;
+        _emailServ = emailServ;
+        _configServ = configServ;
+    }
     [HttpGet("dashboard")]
     [Authorize(Roles="clinic_admin")]
     public async Task<IActionResult> Dashboard()
@@ -24,20 +36,159 @@ public class ClinicController : ControllerBase
         return Ok(new { license, nutritionists=users, clients, unassignedClientCount });
     }
     [HttpGet("nutritionists")]
-    public async Task<IActionResult> Nutritionists(){ var tenantId=AuthHelpers.GetTenantId(User); if(!tenantId.HasValue)return BadRequest(); return Ok(await _context.users.AsNoTracking().Where(u=>u.tenant_id==tenantId&&u.archived_at==null&&(u.role=="nutritionist"||u.role=="user")).OrderBy(u=>u.full_name).Select(u=>new {u.id,u.full_name,u.username,u.email,u.role,u.last_login,clientCount=_context.clients.Count(c=>c.tenant_id==tenantId&&c.user_id==u.id)}).ToListAsync()); }
+    [Authorize(Roles="clinic_admin")]
+    public async Task<IActionResult> Nutritionists()
+    {
+        var tenantId = AuthHelpers.GetTenantId(User);
+        if (!tenantId.HasValue) return BadRequest("Sin clínica.");
+
+        var users = await _context.users.AsNoTracking()
+            .Where(u => u.tenant_id == tenantId &&
+                        (u.role == "nutritionist" || u.role == "user") &&
+                        (u.archived_at == null || u.archived_at >= DateTime.UtcNow.AddDays(-30)))
+            .OrderByDescending(u => u.archived_at == null)
+            .ThenBy(u => u.full_name)
+            .Select(u => new
+            {
+                u.id, u.full_name, u.username, u.email, u.role, u.last_login,
+                u.archived_at,
+                active = u.archived_at == null,
+                clientCount = _context.clients.Count(c => c.tenant_id == tenantId && c.archived_at == null && c.user_id == u.id)
+            })
+            .ToListAsync();
+
+        return Ok(users);
+    }
+
     [HttpPost("nutritionists")]
     [Authorize(Roles="clinic_admin")]
     public async Task<IActionResult> CreateNutritionist([FromBody] CreateNutritionistRequest req)
     {
-        var tenantId=AuthHelpers.GetTenantId(User); if(!tenantId.HasValue)return BadRequest("Sin clínica.");
-        if(!await _license.CanUseFeatureAsync(tenantId,"MULTI_NUTRITIONIST")) return Forbid();
-        var allowed=await _license.CanCreateNutritionistAsync(tenantId); if(!allowed.Allowed)return BadRequest(allowed.Reason);
-        if(string.IsNullOrWhiteSpace(req.Username)||string.IsNullOrWhiteSpace(req.Email)||string.IsNullOrWhiteSpace(req.Password))return BadRequest("Usuario, email y contraseña son obligatorios.");
-        if(await _context.users.AnyAsync(u=>u.username==req.Username||u.email==req.Email))return Conflict("El usuario o email ya existe.");
-        var user=new users{username=req.Username,full_name=req.FullName??req.Username,email=req.Email,password_hash=BCrypt.Net.BCrypt.HashPassword(req.Password),role="nutritionist",tenant_id=tenantId,created_at=DateTime.UtcNow,email_confirmed=true,subscription_plan="clinic_full",subscription_status="active"};
-        _context.users.Add(user); await _context.SaveChangesAsync(); await _audit.LogAccessAsync("CREATE_NUTRITIONIST","users",user.id.ToString(),null,$"Alta de nutricionista {user.username}");
-        return Ok(new {id=user.id,message="Nutricionista creado correctamente."});
+        var tenantId = AuthHelpers.GetTenantId(User);
+        if (!tenantId.HasValue) return BadRequest("Sin clínica.");
+        if (!await _license.CanUseFeatureAsync(tenantId, "MULTI_NUTRITIONIST")) return Forbid();
+        if (string.IsNullOrWhiteSpace(req.Email)) return BadRequest("El email es obligatorio.");
+
+        var email = req.Email.Trim();
+        var fullName = string.IsNullOrWhiteSpace(req.FullName) ? email : req.FullName.Trim();
+
+        if (await _context.users.AnyAsync(u => u.email == email))
+            return Conflict("El email ya está registrado.");
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", tenantId.Value);
+
+            var allowed = await _license.CanCreateNutritionistAsync(tenantId);
+            if (!allowed.Allowed) return BadRequest(allowed.Reason);
+
+            var localPart = email.Split('@')[0].ToLowerInvariant();
+            localPart = System.Text.RegularExpressions.Regex.Replace(localPart, @"[^a-z0-9._-]", "");
+            if (string.IsNullOrWhiteSpace(localPart)) localPart = "nutricionista";
+            var username = localPart.Length > 40 ? localPart[..40] : localPart;
+            var baseUsername = username;
+            var suffix = 1;
+            while (await _context.users.AnyAsync(u => u.username == username))
+            {
+                var suffixText = suffix.ToString();
+                username = baseUsername[..Math.Min(baseUsername.Length, 50 - suffixText.Length - 1)] + "-" + suffixText;
+                suffix++;
+            }
+
+            var randomPassword = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
+            var resetToken = Guid.NewGuid().ToString("N");
+            var now = DateTime.UtcNow;
+
+            var user = new users
+            {
+                username = username,
+                full_name = fullName,
+                email = email,
+                password_hash = BCrypt.Net.BCrypt.HashPassword(randomPassword),
+                role = "nutritionist",
+                tenant_id = tenantId,
+                created_at = now,
+                email_confirmed = true,
+                reset_password_token = resetToken,
+                reset_token_expiration = now.AddHours(24),
+                token_version = 1,
+                subscription_plan = "clinic_full",
+                subscription_status = "active"
+            };
+
+            _context.users.Add(user);
+            await _context.SaveChangesAsync();
+
+            var frontendUrl = _configServ.GetConfigString("frontendUrl", "https://localhost:4200") ?? "https://localhost:4200";
+            var resetUrl = $"{frontendUrl.TrimEnd('/')}/reset-password?token={Uri.EscapeDataString(resetToken)}";
+
+            var emailResult = await _emailServ.SendEmailAsync(
+                email,
+                "Invitación a DietoExpress",
+                $@"<h2>Has sido invitado a DietoExpress</h2>
+                   <p>La clínica te ha creado una cuenta de nutricionista.</p>
+                   <p><strong>Usuario de acceso:</strong> {System.Net.WebUtility.HtmlEncode(email)}</p>
+                   <p>Para establecer tu contraseña y activar tu acceso, utiliza este enlace:</p>
+                   <p><a href='{System.Net.WebUtility.HtmlEncode(resetUrl)}'>Establecer mi contraseña</a></p>
+                   <p>El enlace caduca en 24 horas y solo puede utilizarse una vez.</p>");
+
+            if (!emailResult.Exito)
+                return StatusCode(StatusCodes.Status502BadGateway, new { message = "No se pudo enviar la invitación por email. La cuenta no se ha creado.", detail = emailResult.Mensaje });
+
+            await transaction.CommitAsync();
+
+            await _audit.LogAccessAsync("CREATE_NUTRITIONIST", "users", user.id.ToString(), null, $"Alta de nutricionista {user.username} para {email}");
+            return Ok(new { id = user.id, username = user.username, email = user.email, message = "Nutricionista creado y email de invitación enviado." });
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
+
+    [HttpPut("nutritionists/{id:int}/activate")]
+    [Authorize(Roles="clinic_admin")]
+    public async Task<IActionResult> ActivateNutritionist(int id)
+    {
+        var tenantId = AuthHelpers.GetTenantId(User);
+        if (!tenantId.HasValue) return BadRequest("Sin clínica.");
+        if (!await _license.CanUseFeatureAsync(tenantId, "MULTI_NUTRITIONIST")) return Forbid();
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", tenantId.Value);
+
+            var user = await _context.users.FirstOrDefaultAsync(u =>
+                u.id == id && u.tenant_id == tenantId && u.archived_at != null &&
+                (u.role == "nutritionist" || u.role == "user"));
+
+            if (user == null) return NotFound("Nutricionista desactivado no encontrado.");
+
+            // La reactivación de la misma cuenta no consume una nueva sustitución:
+            // simplemente vuelve a ocupar la plaza que ya tenía.
+            var allowed = await _license.CanCreateNutritionistAsync(tenantId);
+            if (!allowed.Allowed) return BadRequest(allowed.Reason);
+
+            user.archived_at = null;
+            user.subscription_status = "active";
+            user.token_version++;
+
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            await _audit.LogAccessAsync("ACTIVATE_NUTRITIONIST", "users", user.id.ToString(), null, $"Nutricionista {user.username} reactivado por la clínica");
+            return Ok(new { message = "Nutricionista activado correctamente." });
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
     [HttpGet("nutritionists/{id:int}/deactivation-preview")]
     [Authorize(Roles="clinic_admin")]
     public async Task<IActionResult> DeactivationPreview(int id)
@@ -95,6 +246,7 @@ public class ClinicController : ControllerBase
 
             user.archived_at=DateTime.UtcNow;
             user.subscription_status="suspended";
+            user.token_version++;
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
         }
@@ -105,7 +257,7 @@ public class ClinicController : ControllerBase
         }
 
         await _audit.LogAccessAsync("ARCHIVE_NUTRITIONIST","users",user.id.ToString(),null,$"Nutricionista {user.username} archivado por clínica; pacientes reasignados: {assignments.Count}");
-        return Ok(new {message="Nutricionista archivado correctamente."});
+        return Ok(new {message="Nutricionista desactivado correctamente. La plaza queda bloqueada para nuevas altas durante el periodo de sustitución."});
     }
 
     [HttpPut("clients/{clientId:int}/assign")]
@@ -151,7 +303,7 @@ public class ClinicController : ControllerBase
     [HttpGet("license")]
     public async Task<IActionResult> License(){var tenantId=AuthHelpers.GetTenantId(User);return Ok(await _license.GetLicenseAsync(tenantId));}
 }
-public record CreateNutritionistRequest(string Username,string Email,string Password,string? FullName);
+public record CreateNutritionistRequest(string Email, string? FullName);
 public record AssignClientRequest(int? NutritionistId);
 public record ClientReassignment(int ClientId,int? NutritionistId);
 public record DeactivateNutritionistRequest(List<ClientReassignment> Assignments);
