@@ -63,7 +63,9 @@ public class AdminUsersController : ControllerBase
             {
                 Id = c.id,
                 Nombre = c.nombre_config,
-                Valor = c.valor_config
+                Valor = IsSecretConfig(c.nombre_config) ? string.Empty : c.valor_config,
+                EsSecreta = IsSecretConfig(c.nombre_config),
+                TieneValor = !string.IsNullOrWhiteSpace(c.valor_config)
             })
             .ToListAsync();
 
@@ -83,6 +85,9 @@ public class AdminUsersController : ControllerBase
         if (config == null)
             return NotFound("Configuración no encontrada.");
 
+        if (IsSecretConfig(config.nombre_config) && string.IsNullOrWhiteSpace(request.Valor))
+            return BadRequest("Para cambiar un secreto debes introducir un valor nuevo.");
+
         config.valor_config = request.Valor ?? string.Empty;
         await _context.SaveChangesAsync();
 
@@ -90,7 +95,9 @@ public class AdminUsersController : ControllerBase
         {
             Id = config.id,
             Nombre = config.nombre_config,
-            Valor = config.valor_config
+            Valor = IsSecretConfig(config.nombre_config) ? string.Empty : config.valor_config,
+            EsSecreta = IsSecretConfig(config.nombre_config),
+            TieneValor = !string.IsNullOrWhiteSpace(config.valor_config)
         });
     }
 
@@ -440,6 +447,11 @@ public class AdminUsersController : ControllerBase
             return NotFound("Usuario no encontrado.");
 
         user.subscription_status = "suspended";
+        user.token_version++;
+        var subscription = user.tenant_id.HasValue
+            ? await _context.subscriptions.FirstOrDefaultAsync(s => s.tenant_id == user.tenant_id.Value)
+            : null;
+        if (subscription != null) subscription.status = "suspended";
         await _context.SaveChangesAsync();
 
         return Ok(new { message = "Usuario suspendido correctamente." });
@@ -551,6 +563,11 @@ public class AdminUsersController : ControllerBase
 
         user.subscription_status = "active";
         user.archived_at = null;
+        user.token_version++;
+        var subscription = user.tenant_id.HasValue
+            ? await _context.subscriptions.FirstOrDefaultAsync(s => s.tenant_id == user.tenant_id.Value)
+            : null;
+        if (subscription != null) subscription.status = "active";
         await _context.SaveChangesAsync();
 
         return Ok(new { message = "Usuario activado correctamente." });
@@ -570,17 +587,31 @@ public class AdminUsersController : ControllerBase
             return NotFound("Usuario no encontrado.");
 
         user.password_hash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+        user.token_version++;
         await _context.SaveChangesAsync();
 
         return Ok(new { message = "Contraseña restablecida con éxito." });
     }
 }
 
+    private static bool IsSecretConfig(string name)
+    {
+        var normalized = name.Replace("_", string.Empty).ToLowerInvariant();
+        return normalized.Contains("password")
+            || normalized.Contains("apikey")
+            || normalized.Contains("secret")
+            || normalized.Contains("token")
+            || name.Equals("smtpUser", StringComparison.OrdinalIgnoreCase)
+            || name.Equals("smtpPwd", StringComparison.OrdinalIgnoreCase);
+    }
+
 public class AdminConfigDto
 {
     public int Id { get; set; }
     public string Nombre { get; set; } = string.Empty;
     public string Valor { get; set; } = string.Empty;
+    public bool EsSecreta { get; set; }
+    public bool TieneValor { get; set; }
 }
 
 public class UpdateConfigRequest
