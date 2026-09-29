@@ -258,8 +258,8 @@ export class DietSelectDialogComponent implements OnInit {
 
   ngOnInit(): void {
     this.dietService.getDiets().subscribe({
-      next: (list) => {
-        this.diets = list || [];
+      next: (result) => {
+        this.diets = result.items || [];
         this.loadingDiets = false;
       },
       error: () => {
