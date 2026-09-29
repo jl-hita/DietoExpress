@@ -174,63 +174,129 @@ public class DietController : ControllerBase
         if (dto.IsTemplate && !await _licenseService.CanUseFeatureAsync(tenantId, "DIET_TEMPLATES"))
             return Forbid();
 
-        var diet = new diets
+        // Si la dieta se crea desde la ficha de un paciente, validamos el acceso
+        // antes de modificar nada. La asignación se hará en la misma transacción.
+        if (dto.ClientId.HasValue)
         {
-            user_id = userId.Value,
-            tenant_id = tenantId,
-            name = dto.Name,
-            target_kcal = dto.TargetKcal,
-            target_protein = dto.TargetProtein,
-            target_carbs = dto.TargetCarbs,
-            target_fat = dto.TargetFat,
-            notes = dto.Notes ?? "",
-            is_shared = dto.IsShared && await _licenseService.CanUseFeatureAsync(AuthHelpers.GetTenantId(User), "SHARED_DIETS"),
-            is_template = dto.IsTemplate,
-            created_at = DateTime.UtcNow
-        };
+            var clientAllowed = await _context.clients.AnyAsync(c =>
+                c.id == dto.ClientId.Value &&
+                c.archived_at == null &&
+                (User.IsInRole("superadmin") ||
+                 c.user_id == userId.Value ||
+                 _context.client_nutritionist_assignments.Any(a =>
+                     a.client_id == c.id &&
+                     a.nutritionist_id == userId.Value &&
+                     a.is_active) ||
+                 (User.IsInRole("clinic_admin") &&
+                  tenantId.HasValue &&
+                  c.tenant_id == tenantId.Value)));
 
-        if (dto.Days != null)
-        {
-            foreach (var dayDto in dto.Days)
-            {
-                var day = new diet_days { day_index = dayDto.DayIndex };
-                foreach (var mealDto in dayDto.Meals)
-                {
-                    var meal = new meals { name = mealDto.Name, meal_index = mealDto.MealIndex };
-                    foreach (var itemDto in mealDto.Items)
-                    {
-                        meal.meal_items.Add(new meal_items
-                        {
-                            food_id = itemDto.FoodId,
-                            grams = itemDto.Grams,
-                            kcal = itemDto.Kcal,
-                            protein = itemDto.Protein,
-                            carbs = itemDto.Carbs,
-                            fat = itemDto.Fat,
-                            exchange_group_id = itemDto.ExchangeGroupId,
-                            exchange_count = itemDto.ExchangeCount
-                        });
-                    }
-                    day.meals.Add(meal);
-                }
-                diet.diet_days.Add(day);
-            }
+            if (!clientAllowed)
+                return NotFound("Cliente no encontrado o no pertenece al usuario.");
         }
 
-        _context.diets.Add(diet);
-        await _context.SaveChangesAsync();
+        await using var transaction = await _context.Database.BeginTransactionAsync();
 
-        return CreatedAtAction(nameof(GetDiet), new { id = diet.id }, new DietListDto
+        try
         {
-            Id = diet.id,
-            Name = diet.name,
-            CreatedAt = diet.created_at,
-            IsShared = diet.is_shared,
-            IsTemplate = diet.is_template,
-            IsMine = true
-        });
-    }
+            var diet = new diets
+            {
+                user_id = userId.Value,
+                tenant_id = tenantId,
+                name = dto.Name,
+                target_kcal = dto.TargetKcal,
+                target_protein = dto.TargetProtein,
+                target_carbs = dto.TargetCarbs,
+                target_fat = dto.TargetFat,
+                notes = dto.Notes ?? "",
+                is_shared = dto.IsShared && await _licenseService.CanUseFeatureAsync(AuthHelpers.GetTenantId(User), "SHARED_DIETS"),
+                is_template = dto.IsTemplate,
+                created_at = DateTime.UtcNow
+            };
 
+            if (dto.Days != null)
+            {
+                foreach (var dayDto in dto.Days)
+                {
+                    var day = new diet_days { day_index = dayDto.DayIndex };
+                    foreach (var mealDto in dayDto.Meals)
+                    {
+                        var meal = new meals { name = mealDto.Name, meal_index = mealDto.MealIndex };
+                        foreach (var itemDto in mealDto.Items)
+                        {
+                            meal.meal_items.Add(new meal_items
+                            {
+                                food_id = itemDto.FoodId,
+                                grams = itemDto.Grams,
+                                kcal = itemDto.Kcal,
+                                protein = itemDto.Protein,
+                                carbs = itemDto.Carbs,
+                                fat = itemDto.Fat,
+                                exchange_group_id = itemDto.ExchangeGroupId,
+                                exchange_count = itemDto.ExchangeCount
+                            });
+                        }
+                        day.meals.Add(meal);
+                    }
+                    diet.diet_days.Add(day);
+                }
+            }
+
+            _context.diets.Add(diet);
+            await _context.SaveChangesAsync();
+
+            if (dto.ClientId.HasValue)
+            {
+                // Mantener exactamente las mismas reglas que la asignación existente:
+                // una sola dieta activa y conservar el historial.
+                var activeDiets = await _context.client_diets
+                    .Where(cd => cd.client_id == dto.ClientId.Value && cd.is_active == true)
+                    .ToListAsync();
+
+                var startDate = DateOnly.FromDateTime(DateTime.Today);
+
+                foreach (var activeDiet in activeDiets)
+                {
+                    activeDiet.is_active = false;
+                    activeDiet.end_date = startDate;
+                }
+
+                _context.client_diets.Add(new client_diets
+                {
+                    client_id = dto.ClientId.Value,
+                    diet_id = diet.id,
+                    start_date = startDate,
+                    is_active = true,
+                    notes = string.Empty,
+                    assigned_at = DateTime.UtcNow
+                });
+
+                await _context.SaveChangesAsync();
+            }
+
+            await transaction.CommitAsync();
+
+            return CreatedAtAction(nameof(GetDiet), new { id = diet.id }, new DietListDto
+            {
+                Id = diet.id,
+                Name = diet.name,
+                TargetKcal = diet.target_kcal,
+                TargetProtein = diet.target_protein,
+                TargetCarbs = diet.target_carbs,
+                TargetFat = diet.target_fat,
+                Notes = diet.notes,
+                CreatedAt = diet.created_at,
+                IsShared = diet.is_shared,
+                IsTemplate = diet.is_template,
+                IsMine = true
+            });
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
     [HttpPut("{id:int}")]
     public async Task<IActionResult> UpdateDiet(int id, [FromBody] UpdateDietDto dto)
     {
