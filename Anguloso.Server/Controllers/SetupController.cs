@@ -42,8 +42,8 @@ public class SetupController : ControllerBase
             string.IsNullOrWhiteSpace(request.FullName))
             return BadRequest("Todos los campos son obligatorios.");
 
-        if (request.Password.Length < 8)
-            return BadRequest("La contraseña debe tener al menos 8 caracteres.");
+        if (request.Password.Length < 12)
+            return BadRequest("La contraseña debe tener al menos 12 caracteres.");
 
         // Verificar que el username o email no estén en uso
         var exists = await _context.users.AnyAsync(u =>
