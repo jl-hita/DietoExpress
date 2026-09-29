@@ -312,6 +312,9 @@ public class AuthController : ControllerBase
         if (user == null)
             return BadRequest("Token inválido");
 
+        if (user.archived_at.HasValue)
+            return Unauthorized("Esta cuenta está archivada y no puede iniciar sesión.");
+
         user.email_confirmed = true;
         user.email_confirmation_token = null;
         //await _context.SaveChangesAsync();
@@ -410,6 +413,9 @@ public class AuthController : ControllerBase
 
         if (user == null)
             return new BoolMensaje { Exito = false, Mensaje = "Token inválido" };
+
+        if (user.archived_at.HasValue)
+            return new BoolMensaje { Exito = false, Mensaje = "Esta cuenta está archivada y no puede restablecer la contraseña." };
 
         if (user.reset_token_expiration < DateTime.UtcNow)
             return new BoolMensaje { Exito = false, Mensaje = "El token ha expirado" };
