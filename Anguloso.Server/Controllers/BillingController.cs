@@ -65,6 +65,9 @@ public sealed class BillingController : ControllerBase
         if (!_tenantContext.TenantId.HasValue)
             return BadRequest("La cuenta no tiene una organización asociada.");
 
+        if (await IsClinicSubscriptionManagedByAdminAsync())
+            return Forbid();
+
         if (string.IsNullOrWhiteSpace(request.PlanCode))
             return BadRequest("El plan es obligatorio.");
 
@@ -95,6 +98,9 @@ public sealed class BillingController : ControllerBase
     {
         if (!_tenantContext.TenantId.HasValue)
             return BadRequest("La cuenta no tiene una organización asociada.");
+
+        if (await IsClinicSubscriptionManagedByAdminAsync())
+            return Forbid();
 
         try
         {
@@ -133,6 +139,9 @@ public sealed class BillingController : ControllerBase
         if (!_tenantContext.TenantId.HasValue)
             return BadRequest("La cuenta no tiene una organización asociada.");
 
+        if (await IsClinicSubscriptionManagedByAdminAsync())
+            return Forbid();
+
         try
         {
             await _stripe.CancelRenewalAsync(_tenantContext.TenantId.Value);
@@ -148,12 +157,30 @@ public sealed class BillingController : ControllerBase
         if (!_tenantContext.TenantId.HasValue)
             return BadRequest("La cuenta no tiene una organización asociada.");
 
+        if (await IsClinicSubscriptionManagedByAdminAsync())
+            return Forbid();
+
         try
         {
             await _stripe.ReactivateRenewalAsync(_tenantContext.TenantId.Value);
             return Ok(new { message = "La renovación ha sido reactivada." });
         }
         catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+    }
+
+    private async Task<bool> IsClinicSubscriptionManagedByAdminAsync()
+    {
+        if (User.IsInRole("clinic_admin")) return false;
+        if (!_tenantContext.TenantId.HasValue) return false;
+
+        var planCode = await _context.subscriptions
+            .Where(s => s.tenant_id == _tenantContext.TenantId.Value &&
+                        s.status != "cancelled" && s.status != "canceled")
+            .OrderByDescending(s => s.created_at)
+            .Select(s => s.plan.code)
+            .FirstOrDefaultAsync();
+
+        return string.Equals(planCode, "clinic_full", StringComparison.OrdinalIgnoreCase);
     }
 
     private string BuildFrontendUrl(string path)
