@@ -240,6 +240,8 @@ public class PatientPortalController : ControllerBase
         };
         var tokenDescriptor = new SecurityTokenDescriptor
         {
+            Issuer = _config["Jwt:Issuer"],
+            Audience = _config["Jwt:Audience"],
             Subject = new ClaimsIdentity(claims),
             Expires = DateTime.UtcNow.AddDays(30),
             SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
