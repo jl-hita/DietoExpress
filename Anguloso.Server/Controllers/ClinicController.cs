@@ -13,6 +13,7 @@ public class ClinicController : ControllerBase
     private readonly angulosodbContext _context; private readonly ILicenseService _license; private readonly IAuditLogService _audit;
     public ClinicController(angulosodbContext context, ILicenseService license, IAuditLogService audit) { _context=context; _license=license; _audit=audit; }
     [HttpGet("dashboard")]
+    [Authorize(Roles="clinic_admin")]
     public async Task<IActionResult> Dashboard()
     {
         var tenantId=AuthHelpers.GetTenantId(User); if(!tenantId.HasValue) return BadRequest("El usuario no pertenece a una clínica.");
