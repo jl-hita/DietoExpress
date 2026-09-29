@@ -189,4 +189,63 @@ public class FoodController : ControllerBase
 
         return NoContent();
     }
+    [HttpGet("favorites")]
+    [Authorize]
+    public async Task<IActionResult> GetFavorites()
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId == null) return Unauthorized();
+
+        var favorites = await _dbContext.food_favorites
+            .Where(f => f.user_id == userId.Value)
+            .OrderByDescending(f => f.created_at)
+            .Select(f => f.food)
+            .AsNoTracking()
+            .ToListAsync();
+
+        return Ok(favorites);
+    }
+
+    [HttpPost("{id:int}/favorite")]
+    [Authorize]
+    public async Task<IActionResult> AddFavorite(int id)
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId == null) return Unauthorized();
+
+        var food = await _dbContext.foods
+            .AsNoTracking()
+            .FirstOrDefaultAsync(f => f.id == id &&
+                (f.source != "local" || f.created_by_user_id == userId.Value ||
+                 (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue && f.tenant_id == AuthHelpers.GetTenantId(User).Value) ||
+                 User.IsInRole("superadmin")));
+        if (food == null) return NotFound();
+
+        var exists = await _dbContext.food_favorites.AnyAsync(f => f.user_id == userId.Value && f.food_id == id);
+        if (!exists)
+        {
+            _dbContext.food_favorites.Add(new food_favorites { user_id = userId.Value, food_id = id });
+            await _dbContext.SaveChangesAsync();
+        }
+
+        return NoContent();
+    }
+
+    [HttpDelete("{id:int}/favorite")]
+    [Authorize]
+    public async Task<IActionResult> RemoveFavorite(int id)
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId == null) return Unauthorized();
+
+        var favorite = await _dbContext.food_favorites
+            .FirstOrDefaultAsync(f => f.user_id == userId.Value && f.food_id == id);
+        if (favorite == null) return NoContent();
+
+        _dbContext.food_favorites.Remove(favorite);
+        await _dbContext.SaveChangesAsync();
+        return NoContent();
+    }
+
+
 }
