@@ -442,7 +442,7 @@ public class AdminUsersController : ControllerBase
     }
 
     /// <summary>
-    /// Elimina permanentemente una cuenta de usuario y sus datos asociados.
+    /// Archiva una cuenta de usuario conservando sus datos e historial.
     /// Solo puede ejecutarlo un SuperAdmin y nunca se permite eliminar otro SuperAdmin.
     /// </summary>
     [HttpGet("users/{id}/deactivation-preview")]
@@ -480,7 +480,7 @@ public class AdminUsersController : ControllerBase
         var assignments=request?.Assignments??new List<ClientReassignment>();
         var expected=clientIds.ToHashSet();
 
-        if(!expected.SetEquals(assignments.Select(a=>a.ClientId)))
+        if(assignments.Count!=expected.Count||!expected.SetEquals(assignments.Select(a=>a.ClientId)))
             return Conflict(new {message="Debes decidir qué hacer con todos los pacientes activos antes de archivar la cuenta.",clientIds});
 
         foreach(var item in assignments)
