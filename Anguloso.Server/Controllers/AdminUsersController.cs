@@ -457,6 +457,18 @@ public class AdminUsersController : ControllerBase
             .ToListAsync();
 
         var tenantId = user.tenant_id;
+        var assignedClientCount = await _context.clients
+            .CountAsync(c => c.user_id == id && c.archived_at == null);
+
+        if (assignedClientCount > 0)
+        {
+            return Conflict(new
+            {
+                message = "No se puede eliminar el nutricionista mientras tenga pacientes activos asignados. Reasigna primero los pacientes a otro nutricionista.",
+                assignedClientCount
+            });
+        }
+
         var hasOtherTenantUsers = tenantId.HasValue && await _context.users
             .AnyAsync(u => u.tenant_id == tenantId && u.id != id && u.role != "superadmin");
 
