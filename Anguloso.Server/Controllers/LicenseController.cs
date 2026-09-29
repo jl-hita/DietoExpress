@@ -20,6 +20,11 @@ public class LicenseController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> Get()
     {
+        // Un SuperAdmin es una cuenta de plataforma, no una organización facturable.
+        // No debe intentar resolver una licencia de tenant.
+        if (User.IsInRole("superadmin"))
+            return Forbid();
+
         var tenantId = AuthHelpers.GetTenantId(User);
         if (!tenantId.HasValue)
             return Unauthorized();
