@@ -31,6 +31,8 @@ public partial class diets
 
     public bool is_template { get; set; } = false;
 
+    public DateTime? archived_at { get; set; }
+
     public virtual users user { get; set; }
 
     public virtual tenants? tenant { get; set; }
