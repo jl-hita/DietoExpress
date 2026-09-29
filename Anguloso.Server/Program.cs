@@ -228,8 +228,8 @@ public class Program
                 DatabaseBootstrap.UpgradeSaaSSchemaV3(context, logger);
                 DatabaseBootstrap.UpgradeSaaSSchemaV4(context, logger);
                 DatabaseBootstrap.UpgradeSaaSSchemaV5(context, logger);
-        UpgradeSaaSSchemaV6(context, logger);
-        UpgradeSaaSSchemaV7(context, logger);
+                DatabaseBootstrap.UpgradeSaaSSchemaV6(context, logger);
+                DatabaseBootstrap.UpgradeSaaSSchemaV7(context, logger);
                 DatabaseBootstrap.UpgradeSaaSSchemaV8(context, logger);
                 BillingSchemaBootstrap.Initialize(context, logger);
                 databaseReady = true;
