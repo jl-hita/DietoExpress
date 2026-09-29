@@ -43,7 +43,7 @@ public class PatientPortalController : ControllerBase
         {
             client = await _context.clients
                 .Include(c => c.user)
-                .FirstOrDefaultAsync(c => c.access_token == request.Token &&
+                .FirstOrDefaultAsync(c => c.archived_at == null && c.access_token == request.Token &&
                     c.access_token_expires_at.HasValue && c.access_token_expires_at > DateTime.UtcNow);
 
             if (client == null)
@@ -55,7 +55,7 @@ public class PatientPortalController : ControllerBase
             var clean = request.EmailOrPhone.Trim().ToLower();
             var candidates = await _context.clients
                 .Include(c => c.user)
-                .Where(c =>
+                .Where(c => c.archived_at == null &&
                     (c.email != null && c.email.ToLower() == clean) ||
                     (c.phone != null && c.phone == clean))
                 .Take(2)
@@ -117,7 +117,7 @@ public class PatientPortalController : ControllerBase
             .Include(c => c.user)
             .Include(c => c.biometrics)
             .Include(c => c.client_diets)
-            .FirstOrDefaultAsync(c => c.id == clientId.Value);
+            .FirstOrDefaultAsync(c => c.id == clientId.Value && c.archived_at == null);
 
         if (client == null) return NotFound();
 
@@ -296,7 +296,7 @@ public class PatientPortalController : ControllerBase
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
 
-        var client = await _context.clients.FirstOrDefaultAsync(c => c.id == clientId && c.user_id == userId.Value);
+        var client = await _context.clients.FirstOrDefaultAsync(c => c.id == clientId && c.archived_at == null && c.user_id == userId.Value);
         if (client == null) return NotFound("Cliente no encontrado.");
 
         // Si aún no tiene token de acceso único, generar uno
@@ -373,7 +373,7 @@ public class PatientPortalController : ControllerBase
     private async Task<bool> PortalFeatureAllowedAsync(int clientId)
     {
         var tenantId = await _context.clients.AsNoTracking()
-            .Where(c => c.id == clientId)
+            .Where(c => c.id == clientId && c.archived_at == null)
             .Select(c => c.tenant_id ?? c.user!.tenant_id)
             .FirstOrDefaultAsync();
         return await _licenseService.CanUseFeatureAsync(tenantId, "CLIENT_PORTAL");
@@ -391,7 +391,7 @@ public class PatientPortalController : ControllerBase
         if (Request.Query.TryGetValue("clientId", out var cidStr) && int.TryParse(cidStr, out var cid))
         {
             var userId = AuthHelpers.GetUserId(User);
-            if (userId.HasValue && _context.clients.Any(c => c.id == cid && c.user_id == userId.Value))
+            if (userId.HasValue && _context.clients.Any(c => c.id == cid && c.archived_at == null && c.user_id == userId.Value))
             {
                 return cid;
             }
