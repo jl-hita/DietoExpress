@@ -192,8 +192,8 @@ public class AuthController : ControllerBase
             if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
                 return new BoolMensaje { Exito = false, Mensaje = "Usuario, contraseña y email son obligatorios." };
 
-            if (password.Length < 6)
-                return new BoolMensaje { Exito = false, Mensaje = "La contraseña debe tener al menos 6 caracteres." };
+            if (password.Length < 12)
+                return new BoolMensaje { Exito = false, Mensaje = "La contraseña debe tener al menos 12 caracteres." };
 
             string passwordHash = BCrypt.Net.BCrypt.HashPassword(password);
 
@@ -453,7 +453,7 @@ public class AuthController : ControllerBase
 
             if (string.IsNullOrWhiteSpace(passwordResetRequest.NewPassword) || passwordResetRequest.NewPassword.Length < 6)
             {
-                return new BoolMensaje { Exito = false, Mensaje = "La nueva contraseña debe tener al menos 6 caracteres." };
+                return new BoolMensaje { Exito = false, Mensaje = "La contraseña debe tener al menos 12 caracteres." };
             }
 
             if (passwordResetRequest.NewPassword != passwordResetRequest.NewPasswordRep)
