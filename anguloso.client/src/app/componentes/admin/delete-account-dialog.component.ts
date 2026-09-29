@@ -9,31 +9,30 @@ import { AdminUser } from '../../servicios/admin.service';
   standalone: true,
   imports: [MatDialogModule, MatButtonModule, MatIconModule],
   template: `
-    <h2 mat-dialog-title>Eliminar cuenta</h2>
+    <h2 mat-dialog-title>Archivar cuenta</h2>
 
     <mat-dialog-content>
       <div class="warning-box">
         <mat-icon>warning</mat-icon>
         <div>
-          <strong>Esta acción es permanente.</strong>
+          <strong>La cuenta se archivará.</strong>
           <p>
-            Se eliminará permanentemente la cuenta de <strong>{{ data.fullName || data.username }}</strong>
-            ({{ data.email || data.username }}) y sus datos operativos asociados.
-            Esta acción no se puede deshacer.
+            La cuenta de <strong>{{ data.fullName || data.username }}</strong>
+            ({{ data.email || data.username }}) y sus datos operativos asociados se conservarán para mantener la trazabilidad. La cuenta dejará de estar activa.
           </p>
         </div>
       </div>
 
       <p class="confirmation-text">
-        ¿Estás seguro de que quieres eliminar esta cuenta?
+        ¿Quieres archivar esta cuenta?
       </p>
     </mat-dialog-content>
 
     <mat-dialog-actions align="end">
       <button mat-button (click)="cancel()">Cancelar</button>
       <button mat-flat-button color="warn" (click)="confirm()">
-        <mat-icon>delete_forever</mat-icon>
-        Eliminar cuenta
+        <mat-icon>archive</mat-icon>
+        Archivar cuenta
       </button>
     </mat-dialog-actions>
   `,
