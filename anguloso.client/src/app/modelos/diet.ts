@@ -34,6 +34,8 @@ export interface CreateDietRequest {
   notes?: string;
   isShared?: boolean;
   isTemplate?: boolean;
+  /** Contexto opcional: crea la dieta y la asigna al cliente en el backend. */
+  clientId?: number;
   days?: DietDay[];
 }
 
