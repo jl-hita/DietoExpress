@@ -50,6 +50,7 @@ public class DietController : ControllerBase
         // 2. O pertenece a la misma clínica (tenant_id == tenantId) Y ha sido marcada explícitamente como compartida (is_shared == true)
         var query = _context.diets
             .Include(d => d.user)
+            .Where(d => d.archived_at == null)
             .Where(d => includeAll && isSuperAdmin
                 ? true
                 : d.user_id == userId.Value || (sharedAllowed && tenantId.HasValue && d.tenant_id == tenantId.Value && d.is_shared));
@@ -101,7 +102,7 @@ public class DietController : ControllerBase
                 .ThenInclude(dd => dd.meals)
                     .ThenInclude(m => m.meal_items)
                         .ThenInclude(i => i.exchange_group)
-            .FirstOrDefaultAsync(d => d.id == id && (d.user_id == userId.Value || (sharedAllowed && tenantId.HasValue && d.tenant_id == tenantId.Value && d.is_shared)));
+            .FirstOrDefaultAsync(d => d.id == id && d.archived_at == null && (d.user_id == userId.Value || (sharedAllowed && tenantId.HasValue && d.tenant_id == tenantId.Value && d.is_shared)));
 
         if (d == null) return NotFound();
 
@@ -229,7 +230,7 @@ public class DietController : ControllerBase
             .Include(d => d.diet_days)
                 .ThenInclude(dd => dd.meals)
                     .ThenInclude(m => m.meal_items)
-            .FirstOrDefaultAsync(d => d.id == id && d.user_id == userId.Value);
+            .FirstOrDefaultAsync(d => d.id == id && d.archived_at == null && d.user_id == userId.Value);
 
         if (diet == null) return NotFound();
 
@@ -296,8 +297,8 @@ public class DietController : ControllerBase
             .FirstOrDefaultAsync(d => d.id == id && d.user_id == userId.Value);
         if (diet == null) return NotFound();
 
-        _context.diet_days.RemoveRange(diet.diet_days);
-        _context.diets.Remove(diet);
+        diet.archived_at = DateTime.UtcNow;
+        diet.is_shared = false;
         await _context.SaveChangesAsync();
 
         return NoContent();
