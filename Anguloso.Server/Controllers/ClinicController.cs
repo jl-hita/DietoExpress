@@ -17,12 +17,12 @@ public class ClinicController : ControllerBase
     {
         var tenantId=AuthHelpers.GetTenantId(User); if(!tenantId.HasValue) return BadRequest("El usuario no pertenece a una clínica.");
         if(!await _license.CanUseFeatureAsync(tenantId,"CLINIC_DASHBOARD")) return Forbid();
-        var license=await _license.GetLicenseAsync(tenantId); var users=await _context.users.AsNoTracking().Where(u=>u.tenant_id==tenantId && (u.role=="nutritionist"||u.role=="user")).Select(u=>new { u.id,u.full_name,u.username,u.email,u.role,u.last_login,clientCount=_context.clients.Count(c=>c.tenant_id==tenantId&&c.user_id==u.id)}).ToListAsync();
-        var clients=await _context.clients.AsNoTracking().Where(c=>c.tenant_id==tenantId).OrderBy(c=>c.full_name).Select(c=>new {c.id,c.full_name,c.email,c.phone,nutritionistId=c.user_id,nutritionistName=_context.users.Where(u=>u.id==c.user_id).Select(u=>u.full_name).FirstOrDefault()}).ToListAsync();
+        var license=await _license.GetLicenseAsync(tenantId); var users=await _context.users.AsNoTracking().Where(u=>u.tenant_id==tenantId && u.archived_at==null && (u.role=="nutritionist"||u.role=="user")).Select(u=>new { u.id,u.full_name,u.username,u.email,u.role,u.last_login,clientCount=_context.clients.Count(c=>c.tenant_id==tenantId&&c.archived_at==null&&c.user_id==u.id)}).ToListAsync();
+        var clients=await _context.clients.AsNoTracking().Where(c=>c.tenant_id==tenantId&&c.archived_at==null).OrderBy(c=>c.full_name).Select(c=>new {c.id,c.full_name,c.email,c.phone,nutritionistId=c.user_id,nutritionistName=_context.users.Where(u=>u.id==c.user_id).Select(u=>u.full_name).FirstOrDefault()}).ToListAsync();
         return Ok(new { license, nutritionists=users, clients });
     }
     [HttpGet("nutritionists")]
-    public async Task<IActionResult> Nutritionists(){ var tenantId=AuthHelpers.GetTenantId(User); if(!tenantId.HasValue)return BadRequest(); return Ok(await _context.users.AsNoTracking().Where(u=>u.tenant_id==tenantId&&(u.role=="nutritionist"||u.role=="user")).OrderBy(u=>u.full_name).Select(u=>new {u.id,u.full_name,u.username,u.email,u.role,u.last_login,clientCount=_context.clients.Count(c=>c.tenant_id==tenantId&&c.user_id==u.id)}).ToListAsync()); }
+    public async Task<IActionResult> Nutritionists(){ var tenantId=AuthHelpers.GetTenantId(User); if(!tenantId.HasValue)return BadRequest(); return Ok(await _context.users.AsNoTracking().Where(u=>u.tenant_id==tenantId&&u.archived_at==null&&(u.role=="nutritionist"||u.role=="user")).OrderBy(u=>u.full_name).Select(u=>new {u.id,u.full_name,u.username,u.email,u.role,u.last_login,clientCount=_context.clients.Count(c=>c.tenant_id==tenantId&&c.user_id==u.id)}).ToListAsync()); }
     [HttpPost("nutritionists")]
     [Authorize(Roles="clinic_admin")]
     public async Task<IActionResult> CreateNutritionist([FromBody] CreateNutritionistRequest req)
@@ -51,8 +51,8 @@ public class ClinicController : ControllerBase
     {
         var tenantId=AuthHelpers.GetTenantId(User); if(!tenantId.HasValue)return BadRequest();
         if(!await _license.CanUseFeatureAsync(tenantId,"CLIENT_ASSIGNMENT"))return Forbid();
-        var client=await _context.clients.FirstOrDefaultAsync(c=>c.id==clientId&&c.tenant_id==tenantId); if(client==null)return NotFound("Cliente no encontrado.");
-        var nutritionist=await _context.users.FirstOrDefaultAsync(u=>u.id==req.NutritionistId&&u.tenant_id==tenantId&&(u.role=="nutritionist"||u.role=="clinic_admin"||u.role=="user")); if(nutritionist==null)return BadRequest("Nutricionista no válido.");
+        var client=await _context.clients.FirstOrDefaultAsync(c=>c.id==clientId&&c.tenant_id==tenantId&&c.archived_at==null); if(client==null)return NotFound("Cliente no encontrado.");
+        var nutritionist=await _context.users.FirstOrDefaultAsync(u=>u.id==req.NutritionistId&&u.tenant_id==tenantId&&u.archived_at==null&&(u.role=="nutritionist"||u.role=="user")); if(nutritionist==null)return BadRequest("Nutricionista no válido.");
         var old=client.user_id; if(old==req.NutritionistId)return Ok();
         var active=await _context.client_nutritionist_assignments.FirstOrDefaultAsync(a=>a.client_id==clientId&&a.is_active); if(active!=null){active.is_active=false;active.unassigned_at=DateTime.UtcNow;}
         _context.client_nutritionist_assignments.Add(new client_nutritionist_assignments{client_id=clientId,nutritionist_id=req.NutritionistId,assigned_by_user_id=AuthHelpers.GetUserId(User),assigned_at=DateTime.UtcNow,is_active=true});
