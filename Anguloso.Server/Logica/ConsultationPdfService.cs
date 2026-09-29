@@ -66,6 +66,18 @@ public class ConsultationPdfService
             .ThenByDescending(b => b.id)
             .FirstOrDefault();
 
+        if (nutritionist == null)
+        {
+            nutritionist = new users
+            {
+                full_name = "Nutricionista Desconocido",
+                clinic_name = "DietoExpress",
+                clinic_logo = null,
+                clinic_address = null,
+                clinic_phone = null
+            };
+        }
+
         var document = Document.Create(container =>
         {
             container.Page(page =>

@@ -3,7 +3,9 @@ using System.Collections.Generic;
 
 namespace Anguloso.Server.Models;
 
+#pragma warning disable CS8981 // El nombre de tipo solo contiene caracteres ASCII en minúsculas. Estos nombres pueden reservarse para el idioma.
 public partial class invoices
+#pragma warning restore CS8981 // El nombre de tipo solo contiene caracteres ASCII en minúsculas. Estos nombres pueden reservarse para el idioma.
 {
     public long id { get; set; }
     public int tenant_id { get; set; }
