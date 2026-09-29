@@ -311,6 +311,10 @@ export class BillingComponent implements OnInit {
     this.isSuperAdmin = this.authService.isSuperAdmin();
     if (!this.isSuperAdmin) this.loadData();
     else this.loading = false;
+
+    if (this.checkoutResult === 'success') {
+      this.waitForCheckoutActivation(0);
+    }
   }
 
   get currentPaidPlan(): boolean {
@@ -481,6 +485,28 @@ export class BillingComponent implements OnInit {
         this.showError(err, 'No se ha podido iniciar el pago.');
       }
     });
+  }
+
+  private waitForCheckoutActivation(attempt: number): void {
+    if (attempt >= 10) return;
+
+    setTimeout(() => {
+      this.licenseService.getLicense().subscribe({
+        next: license => {
+          if (license.planCode === 'clinic_full') {
+            this.authService.refreshSession().subscribe({
+              next: session => {
+                this.authService.login(session.token);
+                window.location.reload();
+              }
+            });
+          } else {
+            this.waitForCheckoutActivation(attempt + 1);
+          }
+        },
+        error: () => this.waitForCheckoutActivation(attempt + 1)
+      });
+    }, attempt === 0 ? 1500 : 2000);
   }
 
   private loadData(): void {
