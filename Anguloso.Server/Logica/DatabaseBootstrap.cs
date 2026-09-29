@@ -361,47 +361,47 @@ public static class DatabaseBootstrap
             // Configuración inicial idempotente. No se sobrescriben valores existentes.
             context.Database.ExecuteSqlRaw(@"
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'googleClientId', 'TU_CLIENT_ID.apps.googleusercontent.com'
+                SELECT 'googleClientId', '__CONFIGURE_GOOGLE_CLIENT_ID__'
                 WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'googleClientId');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'dominio', 'www.tusitio.com'
+                SELECT 'dominio', '__CONFIGURE_DOMAIN__'
                 WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'dominio');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'frontendUrl', 'https://localhost:4200'
+                SELECT 'frontendUrl', '__CONFIGURE_FRONTEND_URL__'
                 WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'frontendUrl');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'smtpServer', 'smtp.example.com'
+                SELECT 'smtpServer', '__CONFIGURE_SMTP_SERVER__'
                 WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'smtpServer');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'smtpPort', '587'
+                SELECT 'smtpPort', '__CONFIGURE_SMTP_PORT__'
                 WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'smtpPort');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'smtpEnableSsl', '1'
+                SELECT 'smtpEnableSsl', '__CONFIGURE_SMTP_ENABLE_SSL__'
                 WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'smtpEnableSsl');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'smtpFromEmail', 'noreply@example.com'
+                SELECT 'smtpFromEmail', '__CONFIGURE_SMTP_FROM_EMAIL__'
                 WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'smtpFromEmail');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'smtpFromName', 'dietexpress'
+                SELECT 'smtpFromName', '__CONFIGURE_SMTP_FROM_NAME__'
                 WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'smtpFromName');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'smtpUser', 'TU_SMTP_USER'
+                SELECT 'smtpUser', '__CONFIGURE_SMTP_USER__'
                 WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'smtpUser');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'smtpPwd', 'TU_SMTP_PASSWORD'
+                SELECT 'smtpPwd', '__CONFIGURE_SMTP_PASSWORD__'
                 WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'smtpPwd');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'usdaApiKey', 'TU_USDA_API_KEY'
+                SELECT 'usdaApiKey', '__CONFIGURE_USDA_API_KEY__'
                 WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'usdaApiKey');
             ");
 
