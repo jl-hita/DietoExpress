@@ -231,6 +231,8 @@ public class ClinicController : ControllerBase
         await using var transaction=await _context.Database.BeginTransactionAsync();
         try
         {
+            await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", tenantId.Value);
+
             foreach(var item in assignments)
             {
                 var client=await _context.clients.FirstAsync(c=>c.id==item.ClientId&&c.tenant_id==tenantId&&c.archived_at==null&&c.user_id==id);
