@@ -72,7 +72,7 @@ import { AdminService } from '../../servicios/admin.service';
                   <mat-icon>{{ hidePassword ? 'visibility_off' : 'visibility' }}</mat-icon>
                 </button>
                 <mat-error *ngIf="form.get('password')?.hasError('required')">La contraseña es requerida</mat-error>
-                <mat-error *ngIf="form.get('password')?.hasError('minlength')">Mínimo 8 caracteres</mat-error>
+                <mat-error *ngIf="form.get('password')?.hasError('minlength')">Mínimo 12 caracteres</mat-error>
               </mat-form-field>
 
               <div class="alert-info-box">
@@ -200,7 +200,7 @@ export class SetupWizardComponent implements OnInit {
       fullName: ['', Validators.required],
       username: ['', Validators.required],
       email: ['', [Validators.required, Validators.email]],
-      password: ['', [Validators.required, Validators.minLength(8)]]
+      password: ['', [Validators.required, Validators.minLength(12)]]
     });
   }
 
