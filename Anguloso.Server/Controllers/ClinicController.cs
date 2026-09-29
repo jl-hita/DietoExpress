@@ -121,7 +121,7 @@ public class ClinicController : ControllerBase
             await _context.SaveChangesAsync();
 
             var frontendUrl = _configServ.GetConfigString("frontendUrl", "https://localhost:4200") ?? "https://localhost:4200";
-            var resetUrl = $"{frontendUrl.TrimEnd('/')}/reset-password?token={Uri.EscapeDataString(resetToken)}";
+            var resetUrl = $"{frontendUrl.TrimEnd('/')}/reset-pwd?token={Uri.EscapeDataString(resetToken)}";
 
             var emailResult = await _emailServ.SendEmailAsync(
                 email,
