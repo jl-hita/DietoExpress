@@ -705,6 +705,11 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     }
   }
 
+  createDietForClient(): void {
+    if (!this.clientId) return;
+    this.router.navigate(['/diets/create'], { queryParams: { clientId: this.clientId } });
+  }
+
   openAssignDietDialog() {
     if (!this.clientId) return;
     const dialogRef = this.dialog.open(DietSelectDialogComponent, {
