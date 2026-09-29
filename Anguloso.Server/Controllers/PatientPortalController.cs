@@ -6,6 +6,7 @@ using Anguloso.Server.Logica.Utils;
 using Anguloso.Server.Model;
 using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -30,6 +31,7 @@ public class PatientPortalController : ControllerBase
     /// Genera y retorna un JWT exclusivo con rol "patient".
     /// </summary>
     [HttpPost("auth")]
+    [EnableRateLimiting("auth")]
     public async Task<ActionResult<PatientAuthResponseDto>> Authenticate([FromBody] PatientAuthRequestDto request)
     {
         clients? client = null;
