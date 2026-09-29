@@ -67,7 +67,14 @@ public class FoodController : ControllerBase
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetFoodById(int id)
     {
-        var food = await _dbContext.foods.FindAsync(id);
+        var userId = AuthHelpers.GetUserId(User);
+        var tenantId = AuthHelpers.GetTenantId(User);
+        var food = await _dbContext.foods.FirstOrDefaultAsync(f =>
+            f.id == id &&
+            (f.source != "local" ||
+             User.IsInRole("superadmin") ||
+             (userId.HasValue && f.created_by_user_id == userId.Value) ||
+             (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value)));
         if (food == null) return NotFound();
         return Ok(food);
     }
