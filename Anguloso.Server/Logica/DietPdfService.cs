@@ -180,8 +180,8 @@ public class DietPdfService
                     c.Item().Text($"Nombre: {client.full_name}").SemiBold();
                     if (client.birth_date.HasValue)
                         c.Item().Text($"Fecha de nacimiento: {client.birth_date.Value:dd/MM/yyyy}");
-                    if (!string.IsNullOrWhiteSpace(client.gender))
-                        c.Item().Text($"Sexo: {client.gender}");
+                    //if (!string.IsNullOrWhiteSpace(client.gender))
+                    //    c.Item().Text($"Sexo: {client.gender}");
                 });
 
                 row.RelativeItem().Column(c =>
