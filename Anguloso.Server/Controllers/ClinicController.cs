@@ -19,7 +19,8 @@ public class ClinicController : ControllerBase
         if(!await _license.CanUseFeatureAsync(tenantId,"CLINIC_DASHBOARD")) return Forbid();
         var license=await _license.GetLicenseAsync(tenantId); var users=await _context.users.AsNoTracking().Where(u=>u.tenant_id==tenantId && u.archived_at==null && (u.role=="nutritionist"||u.role=="user")).Select(u=>new { u.id,u.full_name,u.username,u.email,u.role,u.last_login,clientCount=_context.clients.Count(c=>c.tenant_id==tenantId&&c.archived_at==null&&c.user_id==u.id)}).ToListAsync();
         var clients=await _context.clients.AsNoTracking().Where(c=>c.tenant_id==tenantId&&c.archived_at==null).OrderBy(c=>c.full_name).Select(c=>new {c.id,c.full_name,c.email,c.phone,nutritionistId=c.user_id,nutritionistName=_context.users.Where(u=>u.id==c.user_id).Select(u=>u.full_name).FirstOrDefault()}).ToListAsync();
-        return Ok(new { license, nutritionists=users, clients });
+        var unassignedClientCount=clients.Count(c=>c.nutritionistId==null);
+        return Ok(new { license, nutritionists=users, clients, unassignedClientCount });
     }
     [HttpGet("nutritionists")]
     public async Task<IActionResult> Nutritionists(){ var tenantId=AuthHelpers.GetTenantId(User); if(!tenantId.HasValue)return BadRequest(); return Ok(await _context.users.AsNoTracking().Where(u=>u.tenant_id==tenantId&&u.archived_at==null&&(u.role=="nutritionist"||u.role=="user")).OrderBy(u=>u.full_name).Select(u=>new {u.id,u.full_name,u.username,u.email,u.role,u.last_login,clientCount=_context.clients.Count(c=>c.tenant_id==tenantId&&c.user_id==u.id)}).ToListAsync()); }
@@ -41,7 +42,7 @@ public class ClinicController : ControllerBase
     public async Task<IActionResult> DeactivationPreview(int id)
     {
         var tenantId=AuthHelpers.GetTenantId(User);
-        var user=await _context.users.AsNoTracking().FirstOrDefaultAsync(u=>u.id==id&&u.tenant_id==tenantId&&u.archived_at==null&&u.role=="nutritionist");
+        var user=await _context.users.AsNoTracking().FirstOrDefaultAsync(u=>u.id==id&&u.tenant_id==tenantId&&u.archived_at==null&&(u.role=="nutritionist"||u.role=="user"));
         if(user==null)return NotFound("Nutricionista no encontrado.");
 
         var clients=await _context.clients.AsNoTracking()
@@ -64,13 +65,13 @@ public class ClinicController : ControllerBase
     public async Task<IActionResult> DisableNutritionist(int id,[FromBody] DeactivateNutritionistRequest? req)
     {
         var tenantId=AuthHelpers.GetTenantId(User);
-        var user=await _context.users.FirstOrDefaultAsync(u=>u.id==id&&u.tenant_id==tenantId&&u.archived_at==null&&u.role=="nutritionist");
+        var user=await _context.users.FirstOrDefaultAsync(u=>u.id==id&&u.tenant_id==tenantId&&u.archived_at==null&&(u.role=="nutritionist"||u.role=="user"));
         if(user==null)return NotFound("Nutricionista no encontrado.");
 
         var clients=await _context.clients.Where(c=>c.tenant_id==tenantId&&c.archived_at==null&&c.user_id==id).Select(c=>c.id).ToListAsync();
         var assignments=req?.Assignments??new List<ClientReassignment>();
         var expected=clients.ToHashSet();
-        if(!expected.SetEquals(assignments.Select(a=>a.ClientId)))
+        if(assignments.Count!=expected.Count||!expected.SetEquals(assignments.Select(a=>a.ClientId)) )
             return Conflict(new {message="Debes decidir qué hacer con todos los pacientes activos del nutricionista.",clientIds=clients});
 
         if(assignments.Any(a=>!a.NutritionistId.HasValue))
