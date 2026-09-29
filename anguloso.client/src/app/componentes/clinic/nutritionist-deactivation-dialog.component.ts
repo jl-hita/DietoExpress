@@ -15,7 +15,7 @@ import { MatIconModule } from '@angular/material/icon';
     <h2 mat-dialog-title>Archivar nutricionista</h2>
     <mat-dialog-content>
       <p><strong>{{data.nutritionist.fullName}}</strong> tiene {{data.clients.length}} pacientes activos.</p>
-      <p class="hint">Antes de archivarlo debes asignar cada paciente a otro nutricionista de esta clínica.</p>
+      <p class="hint">Antes de desactivarlo debes decidir qué hacer con cada paciente. Puedes reasignarlo a otro nutricionista o dejarlo sin asignar.</p>
 
       <div class="client-row" *ngFor="let client of data.clients">
         <div class="client-info">
@@ -25,6 +25,7 @@ import { MatIconModule } from '@angular/material/icon';
         <mat-form-field appearance="outline">
           <mat-label>Nuevo nutricionista</mat-label>
           <mat-select [(ngModel)]="selection[client.clientId]">
+            <mat-option [value]="null">Sin asignar</mat-option>
             <mat-option *ngFor="let n of data.candidates" [value]="n.id">{{n.fullName}}</mat-option>
           </mat-select>
         </mat-form-field>
@@ -58,7 +59,7 @@ export class NutritionistDeactivationDialogComponent {
   }
 
   get complete(): boolean {
-    return this.data.clients.every((c: any) => !!this.selection[c.clientId]);
+    return this.data.clients.every((c: any) => Object.prototype.hasOwnProperty.call(this.selection, c.clientId));
   }
 
   cancel(): void { this.dialogRef.close(); }
