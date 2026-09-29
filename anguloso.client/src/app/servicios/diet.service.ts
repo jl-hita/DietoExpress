@@ -10,9 +10,14 @@ export class DietService {
 
   constructor(private http: HttpClient) {}
 
-  getDiets(includeAll = false): Observable<DietListItem[]> {
-    const suffix = includeAll ? '?includeAll=true' : '';
-    return this.http.get<DietListItem[]>(`${this.base}${suffix}`);
+  getDiets(page = 1, pageSize = 20, search = '', includeAll = false): Observable<{ items: DietListItem[]; totalCount: number; page: number; pageSize: number }> {
+    const params = new URLSearchParams({
+      page: String(page),
+      pageSize: String(pageSize),
+      ...(search.trim() ? { search: search.trim() } : {}),
+      ...(includeAll ? { includeAll: 'true' } : {})
+    });
+    return this.http.get<{ items: DietListItem[]; totalCount: number; page: number; pageSize: number }>(`${this.base}?${params.toString()}`);
   }
 
   getDiet(id: number): Observable<DietDetail> {
