@@ -57,6 +57,8 @@ export interface AdminConfig {
   id: number;
   nombre: string;
   valor: string;
+  esSecreta: boolean;
+  tieneValor: boolean;
 }
 
 export interface AdminLog {
