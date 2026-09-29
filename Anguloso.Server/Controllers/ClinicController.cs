@@ -110,20 +110,46 @@ public class ClinicController : ControllerBase
     [Authorize(Roles="clinic_admin")]
     public async Task<IActionResult> AssignClient(int clientId,[FromBody] AssignClientRequest req)
     {
-        var tenantId=AuthHelpers.GetTenantId(User); if(!tenantId.HasValue)return BadRequest();
+        var tenantId=AuthHelpers.GetTenantId(User);
+        if(!tenantId.HasValue)return BadRequest();
         if(!await _license.CanUseFeatureAsync(tenantId,"CLIENT_ASSIGNMENT"))return Forbid();
-        var client=await _context.clients.FirstOrDefaultAsync(c=>c.id==clientId&&c.tenant_id==tenantId&&c.archived_at==null); if(client==null)return NotFound("Cliente no encontrado.");
-        var nutritionist=await _context.users.FirstOrDefaultAsync(u=>u.id==req.NutritionistId&&u.tenant_id==tenantId&&u.archived_at==null&&(u.role=="nutritionist"||u.role=="user")); if(nutritionist==null)return BadRequest("Nutricionista no válido.");
-        var old=client.user_id; if(old==req.NutritionistId)return Ok();
-        var active=await _context.client_nutritionist_assignments.FirstOrDefaultAsync(a=>a.client_id==clientId&&a.is_active); if(active!=null){active.is_active=false;active.unassigned_at=DateTime.UtcNow;}
-        _context.client_nutritionist_assignments.Add(new client_nutritionist_assignments{client_id=clientId,nutritionist_id=req.NutritionistId,assigned_by_user_id=AuthHelpers.GetUserId(User),assigned_at=DateTime.UtcNow,is_active=true});
-        client.user_id=req.NutritionistId; await _context.SaveChangesAsync();
-        await _audit.LogAccessAsync("ASSIGN_CLIENT","clients",clientId.ToString(),clientId,$"Cambio de nutricionista {old} -> {req.NutritionistId}"); return Ok();
+
+        var client=await _context.clients.FirstOrDefaultAsync(c=>c.id==clientId&&c.tenant_id==tenantId&&c.archived_at==null);
+        if(client==null)return NotFound("Cliente no encontrado.");
+
+        var old=client.user_id;
+        if(old==req.NutritionistId)return Ok();
+
+        if(req.NutritionistId.HasValue)
+        {
+            var nutritionist=await _context.users.FirstOrDefaultAsync(u=>u.id==req.NutritionistId.Value&&u.tenant_id==tenantId&&u.archived_at==null&&(u.role=="nutritionist"||u.role=="user"));
+            if(nutritionist==null)return BadRequest("Nutricionista no válido.");
+        }
+
+        var active=await _context.client_nutritionist_assignments.FirstOrDefaultAsync(a=>a.client_id==clientId&&a.is_active);
+        if(active!=null){active.is_active=false;active.unassigned_at=DateTime.UtcNow;}
+
+        if(req.NutritionistId.HasValue)
+        {
+            _context.client_nutritionist_assignments.Add(new client_nutritionist_assignments
+            {
+                client_id=clientId,
+                nutritionist_id=req.NutritionistId.Value,
+                assigned_by_user_id=AuthHelpers.GetUserId(User),
+                assigned_at=DateTime.UtcNow,
+                is_active=true
+            });
+        }
+
+        client.user_id=req.NutritionistId;
+        await _context.SaveChangesAsync();
+        await _audit.LogAccessAsync("ASSIGN_CLIENT","clients",clientId.ToString(),clientId,$"Cambio de nutricionista {old?.ToString() ?? "sin asignar"} -> {req.NutritionistId?.ToString() ?? "sin asignar"}");
+        return Ok();
     }
     [HttpGet("license")]
     public async Task<IActionResult> License(){var tenantId=AuthHelpers.GetTenantId(User);return Ok(await _license.GetLicenseAsync(tenantId));}
 }
 public record CreateNutritionistRequest(string Username,string Email,string Password,string? FullName);
-public record AssignClientRequest(int NutritionistId);
+public record AssignClientRequest(int? NutritionistId);
 public record ClientReassignment(int ClientId,int? NutritionistId);
 public record DeactivateNutritionistRequest(List<ClientReassignment> Assignments);
