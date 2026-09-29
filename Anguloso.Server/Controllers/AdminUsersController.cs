@@ -64,7 +64,7 @@ public class AdminUsersController : ControllerBase
                 Id = c.id,
                 Nombre = c.nombre_config,
                 Valor = AdminConfigSecurity.IsSecretConfig(c.nombre_config) ? string.Empty : c.valor_config,
-                EsSecreta = IsSecretConfig(c.nombre_config),
+                EsSecreta = AdminConfigSecurity.IsSecretConfig(c.nombre_config),
                 TieneValor = !string.IsNullOrWhiteSpace(c.valor_config)
             })
             .ToListAsync();
@@ -95,8 +95,8 @@ public class AdminUsersController : ControllerBase
         {
             Id = config.id,
             Nombre = config.nombre_config,
-            Valor = IsSecretConfig(config.nombre_config) ? string.Empty : config.valor_config,
-            EsSecreta = IsSecretConfig(config.nombre_config),
+            Valor = AdminConfigSecurity.IsSecretConfig(config.nombre_config) ? string.Empty : config.valor_config,
+            EsSecreta = AdminConfigSecurity.IsSecretConfig(config.nombre_config),
             TieneValor = !string.IsNullOrWhiteSpace(config.valor_config)
         });
     }
