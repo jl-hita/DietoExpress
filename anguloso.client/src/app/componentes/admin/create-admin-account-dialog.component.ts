@@ -177,7 +177,7 @@ export class CreateAdminAccountDialogComponent {
       !!this.model.fullName.trim() &&
       !!this.model.email.trim() &&
       !!this.model.password &&
-      this.model.password.length >= 6;
+      this.model.password.length >= 12;
 
     return commonValid &&
       (this.model.accountType === 'nutritionist' ||
