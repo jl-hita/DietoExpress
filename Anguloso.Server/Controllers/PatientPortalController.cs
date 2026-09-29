@@ -39,7 +39,8 @@ public class PatientPortalController : ControllerBase
         {
             client = await _context.clients
                 .Include(c => c.user)
-                .FirstOrDefaultAsync(c => c.access_token == request.Token);
+                .FirstOrDefaultAsync(c => c.access_token == request.Token &&
+                    c.access_token_expires_at.HasValue && c.access_token_expires_at > DateTime.UtcNow);
 
             if (client == null)
                 return Unauthorized("Enlace de acceso no válido o caducado.");
@@ -50,7 +51,9 @@ public class PatientPortalController : ControllerBase
             var clean = request.EmailOrPhone.Trim().ToLower();
             client = await _context.clients
                 .Include(c => c.user)
-                .FirstOrDefaultAsync(c => (c.email != null && c.email.ToLower() == clean) || (c.phone != null && c.phone == clean));
+                .FirstOrDefaultAsync(c =>
+                    (c.email != null && c.email.ToLower() == clean) ||
+                    (c.phone != null && c.phone == clean));
 
             if (client == null)
                 return Unauthorized("No se encontró ningún expediente con esos datos.");
@@ -277,6 +280,7 @@ public class PatientPortalController : ControllerBase
         if (string.IsNullOrWhiteSpace(client.access_token))
         {
             client.access_token = GenerateUrlSafeToken();
+            client.access_token_expires_at = DateTime.UtcNow.AddHours(24);
             await _context.SaveChangesAsync();
         }
 
@@ -306,6 +310,7 @@ public class PatientPortalController : ControllerBase
         if (client == null) return NotFound("Cliente no encontrado.");
 
         client.access_token = GenerateUrlSafeToken();
+        client.access_token_expires_at = DateTime.UtcNow.AddHours(24);
         await _context.SaveChangesAsync();
 
         return Ok(new ClientPortalAccessDto
