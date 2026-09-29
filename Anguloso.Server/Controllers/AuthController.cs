@@ -230,6 +230,8 @@ public class AuthController : ControllerBase
                 created_at = DateTime.UtcNow,
                 email_confirmed = false,
                 email_confirmation_token = token,
+                email_confirmation_expires_at = DateTime.UtcNow.AddHours(24),
+                token_version = 1,
                 subscription_plan = "free",
                 subscription_status = "active",
                 max_clients_allowed = 1
@@ -312,11 +314,15 @@ public class AuthController : ControllerBase
         if (user == null)
             return BadRequest("Token inválido");
 
+        if (!user.email_confirmation_expires_at.HasValue || user.email_confirmation_expires_at.Value <= DateTime.UtcNow)
+            return BadRequest("El enlace de confirmación ha expirado.");
+
         if (user.archived_at.HasValue)
             return Unauthorized("Esta cuenta está archivada y no puede iniciar sesión.");
 
         user.email_confirmed = true;
         user.email_confirmation_token = null;
+        user.email_confirmation_expires_at = null;
         //await _context.SaveChangesAsync();
         //return Ok("Email confirmado correctamente");
 
@@ -338,7 +344,8 @@ public class AuthController : ControllerBase
             new Claim(ClaimTypes.Name, user.username),
             new Claim(ClaimTypes.Role, user.role ?? "user"),
             new Claim("subscriptionPlan", user.subscription_plan ?? "free"),
-            new Claim("subscriptionStatus", user.subscription_status ?? "active")
+            new Claim("subscriptionStatus", user.subscription_status ?? "active"),
+            new Claim("tokenVersion", user.token_version.ToString())
         };
 
         var tokenDescriptor = new SecurityTokenDescriptor
@@ -421,6 +428,7 @@ public class AuthController : ControllerBase
             return new BoolMensaje { Exito = false, Mensaje = "El token ha expirado" };
 
         user.password_hash = BCrypt.Net.BCrypt.HashPassword(req.NewPassword);
+        user.token_version++;
         user.reset_password_token = null;
         user.reset_token_expiration = null;
 
@@ -430,7 +438,7 @@ public class AuthController : ControllerBase
     }
 
     //Para usar en un componente de settings de usuario
-    [Authorize]
+    [Authorize(Policy = "Professional")]
     [HttpPut("cambiarPassword")]
     public async Task<BoolMensaje> CambiarPassword([FromBody] PasswordResetRequest passwordResetRequest)
     {
@@ -489,6 +497,7 @@ public class AuthController : ControllerBase
 
             // Cambiamos la contraseña hasheando la nueva
             user.password_hash = BCrypt.Net.BCrypt.HashPassword(passwordResetRequest.NewPassword);
+            user.token_version++;
             await _context.SaveChangesAsync();
 
             return new BoolMensaje
