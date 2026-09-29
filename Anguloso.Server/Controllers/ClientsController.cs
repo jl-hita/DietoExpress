@@ -49,7 +49,9 @@ public class ClientsController : ControllerBase
             .Where(c => includeAll && isSuperAdmin
                 ? true
                 : (tenantId.HasValue && c.tenant_id == tenantId.Value &&
-                   (c.user_id == userId.Value || isClinicAdmin)));
+                   (c.user_id == userId.Value ||
+                    _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active) ||
+                    isClinicAdmin)));
 
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {
@@ -109,7 +111,9 @@ public class ClientsController : ControllerBase
             .Include(c => c.lifestyle_history)
             .FirstOrDefaultAsync(c => c.id == id && c.archived_at == null &&
                 tenantId.HasValue && c.tenant_id == tenantId.Value &&
-                (c.user_id == userId.Value || isClinicAdmin));
+                (c.user_id == userId.Value ||
+                 _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active) ||
+                 isClinicAdmin));
 
         if (client == null) return NotFound();
 
@@ -457,7 +461,9 @@ public class ClientsController : ControllerBase
             .Include(c => c.biometrics.OrderByDescending(b => b.measurement_date))
             .Include(c => c.client_diets)
             .FirstOrDefaultAsync(c => c.id == id && c.archived_at == null &&
-                tenantId.HasValue && c.tenant_id == tenantId.Value && c.user_id == userId.Value);
+                tenantId.HasValue && c.tenant_id == tenantId.Value &&
+                (c.user_id == userId.Value ||
+                 _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active)));
 
         if (client == null) return NotFound();
 
