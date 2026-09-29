@@ -33,6 +33,9 @@
 
     <div class="actions" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
       <button mat-raised-button color="primary" type="submit" [disabled]="clientForm.invalid">Guardar cliente</button>
+      <button mat-stroked-button color="primary" type="button" (click)="downloadConsultationPdf()" [disabled]="!clientId" title="Generar informe de consulta de hoy">
+        <mat-icon>description</mat-icon> Informe de consulta
+      </button>
       <ng-container *ngIf="portalAccess as access">
         <a *ngIf="access.magicLink" mat-stroked-button color="accent" [href]="access.magicLink" target="_blank" style="display: flex; align-items: center; gap: 6px;">
           <mat-icon>open_in_new</mat-icon> Abrir Portal del Paciente
@@ -560,10 +563,7 @@
             <button mat-stroked-button color="primary" (click)="createDietForClient()">
               <mat-icon>add</mat-icon> Crear nueva dieta
             </button>
-            <button mat-stroked-button color="accent" (click)="downloadConsultationPdf()" title="Generar informe de la consulta de hoy">
-              <mat-icon>description</mat-icon> Informe de consulta
-            </button>
-          </div>
+</div>
         </div>
 
         <ng-container *ngFor="let d of dietsHistory">
