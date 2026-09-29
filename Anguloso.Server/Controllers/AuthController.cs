@@ -85,6 +85,9 @@ public class AuthController : ControllerBase
             if (!BCrypt.Net.BCrypt.Verify(login.Password, user.password_hash))
                 return Unauthorized("Contraseña incorrecta.");
 
+            if (user.archived_at.HasValue)
+                return Unauthorized("Esta cuenta está archivada y no puede iniciar sesión.");
+
             if (user.email_confirmed == null || user.email_confirmed == false)
                 return Unauthorized("Debes confirmar tu email antes de iniciar sesión.");
 
@@ -309,6 +312,9 @@ public class AuthController : ControllerBase
         if (user == null)
             return BadRequest("Token inválido");
 
+        if (user.archived_at.HasValue)
+            return Unauthorized("Esta cuenta está archivada y no puede iniciar sesión.");
+
         user.email_confirmed = true;
         user.email_confirmation_token = null;
         //await _context.SaveChangesAsync();
@@ -407,6 +413,9 @@ public class AuthController : ControllerBase
 
         if (user == null)
             return new BoolMensaje { Exito = false, Mensaje = "Token inválido" };
+
+        if (user.archived_at.HasValue)
+            return new BoolMensaje { Exito = false, Mensaje = "Esta cuenta está archivada y no puede restablecer la contraseña." };
 
         if (user.reset_token_expiration < DateTime.UtcNow)
             return new BoolMensaje { Exito = false, Mensaje = "El token ha expirado" };
@@ -610,6 +619,9 @@ public class AuthController : ControllerBase
             user.last_login = DateTime.UtcNow;
             await _context.SaveChangesAsync();
         }
+
+        if (user.archived_at.HasValue)
+            return Unauthorized("Esta cuenta está archivada y no puede iniciar sesión.");
 
         // Generar tu JWT (reutiliza el código que ya tienes en Login)
         var jwt = CrearJwtParaUsuario(user);

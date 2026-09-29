@@ -40,8 +40,8 @@ public class LicenseService : ILicenseService
             .Where(s => s.tenant_id == tenantId.Value && s.status != "cancelled" && s.status != "canceled")
             .OrderByDescending(s => s.created_at).FirstOrDefaultAsync();
         if (sub == null) return null;
-        var nutritionists = await _context.users.CountAsync(u => u.tenant_id == tenantId && (u.role == "nutritionist" || u.role == "user"));
-        var clients = await _context.clients.CountAsync(c => c.tenant_id == tenantId);
+        var nutritionists = await _context.users.CountAsync(u => u.tenant_id == tenantId && u.archived_at == null && (u.role == "nutritionist" || u.role == "user"));
+        var clients = await _context.clients.CountAsync(c => c.tenant_id == tenantId && c.archived_at == null);
         return new LicenseInfo { TenantId = tenantId.Value, PlanCode = sub.plan.code, PlanName = sub.plan.name, Status = sub.status, ExpiresAt = sub.expires_at,
             CurrentPeriodStart = sub.current_period_start, CurrentPeriodEnd = sub.current_period_end,
             BillingInterval = sub.billing_interval, CancelAtPeriodEnd = sub.cancel_at_period_end,
@@ -62,7 +62,7 @@ public class LicenseService : ILicenseService
         if (license.MaxTotalClients.HasValue && license.Clients >= license.MaxTotalClients.Value) return (false, "Se ha alcanzado el límite total de clientes de la licencia.");
         if (license.MaxClientsPerNutritionist.HasValue)
         {
-            var count = await _context.clients.CountAsync(c => c.tenant_id == tenantId && c.user_id == nutritionistId);
+            var count = await _context.clients.CountAsync(c => c.tenant_id == tenantId && c.archived_at == null && c.user_id == nutritionistId);
             if (count >= license.MaxClientsPerNutritionist.Value) return (false, "Este nutricionista ha alcanzado su límite de clientes.");
         }
         return (true, null);

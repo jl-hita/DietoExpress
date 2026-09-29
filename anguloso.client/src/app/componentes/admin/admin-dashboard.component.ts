@@ -18,6 +18,7 @@ import { EditLicenseDialogComponent } from './edit-license-dialog.component';
 import { ResetPasswordDialogComponent } from './reset-password-dialog.component';
 import { CreateAdminAccountDialogComponent } from './create-admin-account-dialog.component';
 import { DeleteAccountDialogComponent } from './delete-account-dialog.component';
+import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.component';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -151,7 +152,7 @@ import { DeleteAccountDialogComponent } from './delete-account-dialog.component'
               <th mat-header-cell *matHeaderCellDef>Estado</th>
               <td mat-cell *matCellDef="let u">
                 <span class="status-badge status-{{ u.subscriptionStatus }}">
-                  {{ u.subscriptionStatus === 'active' ? 'Activo' : (u.subscriptionStatus === 'suspended' ? 'Suspendido' : u.subscriptionStatus) }}
+                  {{ u.archivedAt ? 'Archivado' : (u.subscriptionStatus === 'active' ? 'Activo' : (u.subscriptionStatus === 'suspended' ? 'Suspendido' : u.subscriptionStatus)) }}
                 </span>
               </td>
             </ng-container>
@@ -198,7 +199,7 @@ import { DeleteAccountDialogComponent } from './delete-account-dialog.component'
                   <mat-icon>lock_reset</mat-icon>
                 </button>
 
-                <button mat-icon-button color="warn" matTooltip="Eliminar Cuenta" (click)="deleteUser(u)">
+                <button *ngIf="!u.archivedAt && (u.role === 'nutritionist' || u.role === 'user')" mat-icon-button color="warn" matTooltip="Archivar Cuenta" (click)="deleteUser(u)">
                   <mat-icon>delete_forever</mat-icon>
                 </button>
 
@@ -206,7 +207,7 @@ import { DeleteAccountDialogComponent } from './delete-account-dialog.component'
                   <mat-icon>block</mat-icon>
                 </button>
 
-                <button *ngIf="u.subscriptionStatus !== 'active'" mat-icon-button style="color: #10b981;" matTooltip="Reactivar Cuenta" (click)="activateUser(u)">
+                <button *ngIf="u.archivedAt || u.subscriptionStatus !== 'active'" mat-icon-button style="color: #10b981;" matTooltip="Reactivar Cuenta" (click)="activateUser(u)">
                   <mat-icon>check_circle</mat-icon>
                 </button>
               </td>
@@ -624,25 +625,34 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   deleteUser(user: AdminUser): void {
-    const ref = this.dialog.open(DeleteAccountDialogComponent, {
-      width: '560px',
-      maxWidth: '95vw',
-      data: user
-    });
-
-    ref.afterClosed().subscribe(confirmed => {
-      if (!confirmed) return;
-
-      this.adminService.deleteUser(user.id).subscribe({
-        next: () => {
-          this.snackBar.open('Cuenta eliminada correctamente.', 'OK', { duration: 4000 });
-          this.loadData();
-        },
-        error: err => {
-          const message = err?.error?.message || err?.error || 'Error al eliminar la cuenta.';
-          this.snackBar.open(message, 'Cerrar', { duration: 5000 });
+    this.adminService.getDeactivationPreview(user.id).subscribe({
+      next: preview => {
+        if (!preview.clients.length) {
+          const confirmRef = this.dialog.open(DeleteAccountDialogComponent, { width:'560px', maxWidth:'95vw', data:user });
+          confirmRef.afterClosed().subscribe(confirmed => {
+            if (!confirmed) return;
+            this.adminService.deleteUser(user.id,{assignments:[]}).subscribe({
+              next:()=>{this.snackBar.open('Cuenta archivada correctamente.','OK',{duration:4000});this.loadData();},
+              error:err=>this.snackBar.open(err?.error?.message||err?.error||'Error al archivar la cuenta.','Cerrar',{duration:5000})
+            });
+          });
+          return;
         }
-      });
+
+        const ref=this.dialog.open(DeactivateAccountDialogComponent,{
+          width:'760px',
+          maxWidth:'95vw',
+          data:preview
+        });
+        ref.afterClosed().subscribe(result=>{
+          if(!result)return;
+          this.adminService.deleteUser(user.id,result).subscribe({
+            next:()=>{this.snackBar.open('Cuenta archivada y pacientes gestionados correctamente.','OK',{duration:4000});this.loadData();},
+            error:err=>this.snackBar.open(err?.error?.message||err?.error||'Error al archivar la cuenta.','Cerrar',{duration:5000})
+          });
+        });
+      },
+      error:err=>this.snackBar.open(err?.error?.message||err?.error||'No se pudo preparar el archivado.','Cerrar',{duration:5000})
     });
   }
 

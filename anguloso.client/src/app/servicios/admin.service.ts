@@ -43,6 +43,7 @@ export interface AdminUser {
   licenseExpiresAt?: string;
   maxClientsAllowed: number;
   clientCount: number;
+  archivedAt?: string;
 }
 
 export interface UpdateLicenseDto {
@@ -121,8 +122,12 @@ export class AdminService {
     return this.http.put<{ message: string }>(`${this.adminUrl}/users/${id}/activate`, {});
   }
 
-  deleteUser(id: number): Observable<{ message: string }> {
-    return this.http.delete<{ message: string }>(`${this.adminUrl}/users/${id}`);
+  getDeactivationPreview(id:number): Observable<any> {
+    return this.http.get<any>(`${this.adminUrl}/users/${id}/deactivation-preview`);
+  }
+
+  deleteUser(id: number, data:any): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>(`${this.adminUrl}/users/${id}`, { body: data });
   }
 
   resetUserPassword(id: number, newPassword: string): Observable<{ message: string }> {

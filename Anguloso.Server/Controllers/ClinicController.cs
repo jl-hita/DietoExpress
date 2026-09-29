@@ -13,16 +13,18 @@ public class ClinicController : ControllerBase
     private readonly angulosodbContext _context; private readonly ILicenseService _license; private readonly IAuditLogService _audit;
     public ClinicController(angulosodbContext context, ILicenseService license, IAuditLogService audit) { _context=context; _license=license; _audit=audit; }
     [HttpGet("dashboard")]
+    [Authorize(Roles="clinic_admin")]
     public async Task<IActionResult> Dashboard()
     {
         var tenantId=AuthHelpers.GetTenantId(User); if(!tenantId.HasValue) return BadRequest("El usuario no pertenece a una clínica.");
         if(!await _license.CanUseFeatureAsync(tenantId,"CLINIC_DASHBOARD")) return Forbid();
-        var license=await _license.GetLicenseAsync(tenantId); var users=await _context.users.AsNoTracking().Where(u=>u.tenant_id==tenantId && (u.role=="nutritionist"||u.role=="user")).Select(u=>new { u.id,u.full_name,u.username,u.email,u.role,u.last_login,clientCount=_context.clients.Count(c=>c.tenant_id==tenantId&&c.user_id==u.id)}).ToListAsync();
-        var clients=await _context.clients.AsNoTracking().Where(c=>c.tenant_id==tenantId).OrderBy(c=>c.full_name).Select(c=>new {c.id,c.full_name,c.email,c.phone,nutritionistId=c.user_id,nutritionistName=_context.users.Where(u=>u.id==c.user_id).Select(u=>u.full_name).FirstOrDefault()}).ToListAsync();
-        return Ok(new { license, nutritionists=users, clients });
+        var license=await _license.GetLicenseAsync(tenantId); var users=await _context.users.AsNoTracking().Where(u=>u.tenant_id==tenantId && u.archived_at==null && (u.role=="nutritionist"||u.role=="user")).Select(u=>new { u.id,u.full_name,u.username,u.email,u.role,u.last_login,clientCount=_context.clients.Count(c=>c.tenant_id==tenantId&&c.archived_at==null&&c.user_id==u.id)}).ToListAsync();
+        var clients=await _context.clients.AsNoTracking().Where(c=>c.tenant_id==tenantId&&c.archived_at==null).OrderBy(c=>c.full_name).Select(c=>new {c.id,c.full_name,c.email,c.phone,nutritionistId=c.user_id,nutritionistName=_context.users.Where(u=>u.id==c.user_id).Select(u=>u.full_name).FirstOrDefault()}).ToListAsync();
+        var unassignedClientCount=clients.Count(c=>c.nutritionistId==null);
+        return Ok(new { license, nutritionists=users, clients, unassignedClientCount });
     }
     [HttpGet("nutritionists")]
-    public async Task<IActionResult> Nutritionists(){ var tenantId=AuthHelpers.GetTenantId(User); if(!tenantId.HasValue)return BadRequest(); return Ok(await _context.users.AsNoTracking().Where(u=>u.tenant_id==tenantId&&(u.role=="nutritionist"||u.role=="user")).OrderBy(u=>u.full_name).Select(u=>new {u.id,u.full_name,u.username,u.email,u.role,u.last_login,clientCount=_context.clients.Count(c=>c.tenant_id==tenantId&&c.user_id==u.id)}).ToListAsync()); }
+    public async Task<IActionResult> Nutritionists(){ var tenantId=AuthHelpers.GetTenantId(User); if(!tenantId.HasValue)return BadRequest(); return Ok(await _context.users.AsNoTracking().Where(u=>u.tenant_id==tenantId&&u.archived_at==null&&(u.role=="nutritionist"||u.role=="user")).OrderBy(u=>u.full_name).Select(u=>new {u.id,u.full_name,u.username,u.email,u.role,u.last_login,clientCount=_context.clients.Count(c=>c.tenant_id==tenantId&&c.user_id==u.id)}).ToListAsync()); }
     [HttpPost("nutritionists")]
     [Authorize(Roles="clinic_admin")]
     public async Task<IActionResult> CreateNutritionist([FromBody] CreateNutritionistRequest req)
@@ -36,31 +38,120 @@ public class ClinicController : ControllerBase
         _context.users.Add(user); await _context.SaveChangesAsync(); await _audit.LogAccessAsync("CREATE_NUTRITIONIST","users",user.id.ToString(),null,$"Alta de nutricionista {user.username}");
         return Ok(new {id=user.id,message="Nutricionista creado correctamente."});
     }
+    [HttpGet("nutritionists/{id:int}/deactivation-preview")]
+    [Authorize(Roles="clinic_admin")]
+    public async Task<IActionResult> DeactivationPreview(int id)
+    {
+        var tenantId=AuthHelpers.GetTenantId(User);
+        var user=await _context.users.AsNoTracking().FirstOrDefaultAsync(u=>u.id==id&&u.tenant_id==tenantId&&u.archived_at==null&&(u.role=="nutritionist"||u.role=="user"));
+        if(user==null)return NotFound("Nutricionista no encontrado.");
+
+        var clients=await _context.clients.AsNoTracking()
+            .Where(c=>c.tenant_id==tenantId&&c.archived_at==null&&c.user_id==id)
+            .OrderBy(c=>c.full_name)
+            .Select(c=>new {clientId=c.id,fullName=c.full_name,email=c.email})
+            .ToListAsync();
+
+        var candidates=await _context.users.AsNoTracking()
+            .Where(u=>u.tenant_id==tenantId&&u.id!=id&&u.archived_at==null&&(u.role=="nutritionist"||u.role=="user"))
+            .OrderBy(u=>u.full_name)
+            .Select(u=>new {id=u.id,fullName=u.full_name,username=u.username})
+            .ToListAsync();
+
+        return Ok(new {nutritionist=new {id=user.id,fullName=user.full_name,username=user.username},clients,candidates,requiresReassignment=clients.Count>0});
+    }
+
     [HttpPut("nutritionists/{id:int}/disable")]
     [Authorize(Roles="clinic_admin")]
-    public async Task<IActionResult> DisableNutritionist(int id)
+    public async Task<IActionResult> DisableNutritionist(int id,[FromBody] DeactivateNutritionistRequest? req)
     {
-        var tenantId=AuthHelpers.GetTenantId(User); var user=await _context.users.FirstOrDefaultAsync(u=>u.id==id&&u.tenant_id==tenantId);
-        if(user==null||user.role=="clinic_admin")return NotFound();
-        if(await _context.clients.AnyAsync(c=>c.tenant_id==tenantId&&c.user_id==id))return BadRequest("Reasigna todos sus clientes antes de desactivar al nutricionista.");
-        user.role="disabled_nutritionist"; user.subscription_status="suspended"; await _context.SaveChangesAsync(); return Ok();
+        var tenantId=AuthHelpers.GetTenantId(User);
+        var user=await _context.users.FirstOrDefaultAsync(u=>u.id==id&&u.tenant_id==tenantId&&u.archived_at==null&&(u.role=="nutritionist"||u.role=="user"));
+        if(user==null)return NotFound("Nutricionista no encontrado.");
+
+        var clients=await _context.clients.Where(c=>c.tenant_id==tenantId&&c.archived_at==null&&c.user_id==id).Select(c=>c.id).ToListAsync();
+        var assignments=req?.Assignments??new List<ClientReassignment>();
+        var expected=clients.ToHashSet();
+        if(assignments.Count!=expected.Count||!expected.SetEquals(assignments.Select(a=>a.ClientId)) )
+            return Conflict(new {message="Debes decidir qué hacer con todos los pacientes activos del nutricionista.",clientIds=clients});
+
+        if(assignments.Any(a=>!a.NutritionistId.HasValue))
+            return Conflict(new {message="La clínica debe reasignar todos los pacientes antes de archivar al nutricionista."});
+
+        await using var transaction=await _context.Database.BeginTransactionAsync();
+        try
+        {
+            foreach(var item in assignments)
+            {
+                var client=await _context.clients.FirstAsync(c=>c.id==item.ClientId&&c.tenant_id==tenantId&&c.archived_at==null&&c.user_id==id);
+                var nutritionist=await _context.users.FirstOrDefaultAsync(u=>u.id==item.NutritionistId&&u.tenant_id==tenantId&&u.archived_at==null&&(u.role=="nutritionist"||u.role=="user"));
+                if(nutritionist==null)return BadRequest("Uno de los nutricionistas seleccionados no pertenece a la clínica o está archivado.");
+
+                var active=await _context.client_nutritionist_assignments.FirstOrDefaultAsync(a=>a.client_id==item.ClientId&&a.is_active);
+                if(active!=null){active.is_active=false;active.unassigned_at=DateTime.UtcNow;}
+                _context.client_nutritionist_assignments.Add(new client_nutritionist_assignments{client_id=client.id,nutritionist_id=nutritionist.id,assigned_by_user_id=AuthHelpers.GetUserId(User),assigned_at=DateTime.UtcNow,is_active=true});
+                client.user_id=nutritionist.id;
+            }
+
+            user.archived_at=DateTime.UtcNow;
+            user.subscription_status="suspended";
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+
+        await _audit.LogAccessAsync("ARCHIVE_NUTRITIONIST","users",user.id.ToString(),null,$"Nutricionista {user.username} archivado por clínica; pacientes reasignados: {assignments.Count}");
+        return Ok(new {message="Nutricionista archivado correctamente."});
     }
+
     [HttpPut("clients/{clientId:int}/assign")]
     [Authorize(Roles="clinic_admin")]
     public async Task<IActionResult> AssignClient(int clientId,[FromBody] AssignClientRequest req)
     {
-        var tenantId=AuthHelpers.GetTenantId(User); if(!tenantId.HasValue)return BadRequest();
+        var tenantId=AuthHelpers.GetTenantId(User);
+        if(!tenantId.HasValue)return BadRequest();
         if(!await _license.CanUseFeatureAsync(tenantId,"CLIENT_ASSIGNMENT"))return Forbid();
-        var client=await _context.clients.FirstOrDefaultAsync(c=>c.id==clientId&&c.tenant_id==tenantId); if(client==null)return NotFound("Cliente no encontrado.");
-        var nutritionist=await _context.users.FirstOrDefaultAsync(u=>u.id==req.NutritionistId&&u.tenant_id==tenantId&&(u.role=="nutritionist"||u.role=="clinic_admin"||u.role=="user")); if(nutritionist==null)return BadRequest("Nutricionista no válido.");
-        var old=client.user_id; if(old==req.NutritionistId)return Ok();
-        var active=await _context.client_nutritionist_assignments.FirstOrDefaultAsync(a=>a.client_id==clientId&&a.is_active); if(active!=null){active.is_active=false;active.unassigned_at=DateTime.UtcNow;}
-        _context.client_nutritionist_assignments.Add(new client_nutritionist_assignments{client_id=clientId,nutritionist_id=req.NutritionistId,assigned_by_user_id=AuthHelpers.GetUserId(User),assigned_at=DateTime.UtcNow,is_active=true});
-        client.user_id=req.NutritionistId; await _context.SaveChangesAsync();
-        await _audit.LogAccessAsync("ASSIGN_CLIENT","clients",clientId.ToString(),clientId,$"Cambio de nutricionista {old} -> {req.NutritionistId}"); return Ok();
+
+        var client=await _context.clients.FirstOrDefaultAsync(c=>c.id==clientId&&c.tenant_id==tenantId&&c.archived_at==null);
+        if(client==null)return NotFound("Cliente no encontrado.");
+
+        var old=client.user_id;
+        if(old==req.NutritionistId)return Ok();
+
+        if(req.NutritionistId.HasValue)
+        {
+            var nutritionist=await _context.users.FirstOrDefaultAsync(u=>u.id==req.NutritionistId.Value&&u.tenant_id==tenantId&&u.archived_at==null&&(u.role=="nutritionist"||u.role=="user"));
+            if(nutritionist==null)return BadRequest("Nutricionista no válido.");
+        }
+
+        var active=await _context.client_nutritionist_assignments.FirstOrDefaultAsync(a=>a.client_id==clientId&&a.is_active);
+        if(active!=null){active.is_active=false;active.unassigned_at=DateTime.UtcNow;}
+
+        if(req.NutritionistId.HasValue)
+        {
+            _context.client_nutritionist_assignments.Add(new client_nutritionist_assignments
+            {
+                client_id=clientId,
+                nutritionist_id=req.NutritionistId.Value,
+                assigned_by_user_id=AuthHelpers.GetUserId(User),
+                assigned_at=DateTime.UtcNow,
+                is_active=true
+            });
+        }
+
+        client.user_id=req.NutritionistId;
+        await _context.SaveChangesAsync();
+        await _audit.LogAccessAsync("ASSIGN_CLIENT","clients",clientId.ToString(),clientId,$"Cambio de nutricionista {old?.ToString() ?? "sin asignar"} -> {req.NutritionistId?.ToString() ?? "sin asignar"}");
+        return Ok();
     }
     [HttpGet("license")]
     public async Task<IActionResult> License(){var tenantId=AuthHelpers.GetTenantId(User);return Ok(await _license.GetLicenseAsync(tenantId));}
 }
 public record CreateNutritionistRequest(string Username,string Email,string Password,string? FullName);
-public record AssignClientRequest(int NutritionistId);
+public record AssignClientRequest(int? NutritionistId);
+public record ClientReassignment(int ClientId,int? NutritionistId);
+public record DeactivateNutritionistRequest(List<ClientReassignment> Assignments);

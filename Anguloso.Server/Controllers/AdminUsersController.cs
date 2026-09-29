@@ -24,8 +24,8 @@ public class AdminUsersController : ControllerBase
     [HttpGet("stats")]
     public async Task<IActionResult> GetStats()
     {
-        var totalUsers = await _context.users.CountAsync(u => u.role == "nutritionist" || u.role == "user");
-        var totalClients = await _context.clients.CountAsync();
+        var totalUsers = await _context.users.CountAsync(u => u.archived_at == null && (u.role == "nutritionist" || u.role == "user"));
+        var totalClients = await _context.clients.CountAsync(c => c.archived_at == null);
         var totalDiets = await _context.diets.CountAsync();
         
         var now = DateTime.UtcNow;
@@ -204,7 +204,8 @@ public class AdminUsersController : ControllerBase
                 SubscriptionStatus = u.subscription_status ?? "active",
                 LicenseExpiresAt = u.license_expires_at,
                 MaxClientsAllowed = u.max_clients_allowed ?? 10,
-                ClientCount = u.clients.Count()
+                ClientCount = u.clients.Count(c => c.archived_at == null),
+                ArchivedAt = u.archived_at
             })
             .ToListAsync();
 
@@ -441,82 +442,97 @@ public class AdminUsersController : ControllerBase
     }
 
     /// <summary>
-    /// Elimina permanentemente una cuenta de usuario y sus datos asociados.
+    /// Archiva una cuenta de usuario conservando sus datos e historial.
     /// Solo puede ejecutarlo un SuperAdmin y nunca se permite eliminar otro SuperAdmin.
     /// </summary>
-    [HttpDelete("users/{id}")]
-    public async Task<IActionResult> DeleteUser(int id)
+    [HttpGet("users/{id}/deactivation-preview")]
+    public async Task<IActionResult> DeactivationPreview(int id)
     {
-        var user = await _context.users.FirstOrDefaultAsync(u => u.id == id);
-        if (user == null || user.role == "superadmin")
-            return NotFound("Usuario no encontrado o no eliminable.");
+        var user=await _context.users.AsNoTracking().FirstOrDefaultAsync(u=>u.id==id&&(u.role=="nutritionist"||u.role=="user")&&u.archived_at==null);
+        if(user==null)return NotFound("Usuario no encontrado o no modificable.");
 
-        var clientIds = await _context.clients
-            .Where(c => c.user_id == id)
-            .Select(c => c.id)
+        var clients=await _context.clients.AsNoTracking()
+            .Where(c=>c.tenant_id==user.tenant_id&&c.archived_at==null&&c.user_id==id)
+            .OrderBy(c=>c.full_name)
+            .Select(c=>new {clientId=c.id,fullName=c.full_name,email=c.email})
             .ToListAsync();
 
-        var tenantId = user.tenant_id;
-        var assignedClientCount = await _context.clients
-            .CountAsync(c => c.user_id == id && c.archived_at == null);
+        var candidates=await _context.users.AsNoTracking()
+            .Where(u=>u.tenant_id==user.tenant_id&&u.id!=id&&u.archived_at==null&&(u.role=="nutritionist"||u.role=="user"))
+            .OrderBy(u=>u.full_name)
+            .Select(u=>new {id=u.id,fullName=u.full_name,username=u.username})
+            .ToListAsync();
 
-        if (assignedClientCount > 0)
-        {
-            return Conflict(new
-            {
-                message = "No se puede eliminar el nutricionista mientras tenga pacientes activos asignados. Reasigna primero los pacientes a otro nutricionista.",
-                assignedClientCount
-            });
-        }
+        return Ok(new {user=new {id=user.id,fullName=user.full_name,username=user.username,role=user.role},clients,candidates,requiresReassignment=clients.Count>0});
+    }
 
-        var hasOtherTenantUsers = tenantId.HasValue && await _context.users
-            .AnyAsync(u => u.tenant_id == tenantId && u.id != id && u.role != "superadmin");
+    [HttpDelete("users/{id}")]
+    public async Task<IActionResult> DeleteUser(int id,[FromBody] DeactivateUserRequest? request)
+    {
+        var user=await _context.users.FirstOrDefaultAsync(u=>u.id==id&&(u.role=="nutritionist"||u.role=="user"));
+        if(user==null)return NotFound("Usuario no encontrado o no modificable.");
+        if(user.archived_at!=null)return BadRequest("La cuenta ya está archivada.");
 
-        await using var transaction = await _context.Database.BeginTransactionAsync();
+        var clientIds=await _context.clients
+            .Where(c=>c.tenant_id==user.tenant_id&&c.archived_at==null&&c.user_id==id)
+            .Select(c=>c.id).ToListAsync();
+
+        var assignments=request?.Assignments??new List<ClientReassignment>();
+        var expected=clientIds.ToHashSet();
+
+        if(assignments.Count!=expected.Count||!expected.SetEquals(assignments.Select(a=>a.ClientId)))
+            return Conflict(new {message="Debes decidir qué hacer con todos los pacientes activos antes de archivar la cuenta.",clientIds});
+
+        var tenantId=user.tenant_id;
+        var hasOtherActiveUsers=tenantId.HasValue&&await _context.users.AnyAsync(u=>u.tenant_id==tenantId&&u.id!=id&&u.archived_at==null&&u.role!="superadmin");
+
+        await using var transaction=await _context.Database.BeginTransactionAsync();
         try
         {
-            // Las asignaciones tienen FK restrictiva hacia el nutricionista.
-            await _context.client_nutritionist_assignments
-                .Where(a => a.nutritionist_id == id)
-                .ExecuteDeleteAsync();
-
-            // Conservamos la trazabilidad de auditoría sin referencias al usuario eliminado.
-            await _context.audit_logs
-                .Where(a => a.user_id == id)
-                .ExecuteUpdateAsync(s => s.SetProperty(a => a.user_id, (int?)null));
-
-            if (clientIds.Count > 0)
+            foreach(var item in assignments)
             {
-                // Los pacientes se eliminan junto con la cuenta, pero sus registros de auditoría se conservan.
-                await _context.audit_logs
-                    .Where(a => a.client_id.HasValue && clientIds.Contains(a.client_id.Value))
-                    .ExecuteUpdateAsync(s => s.SetProperty(a => a.client_id, (int?)null));
+            var client=await _context.clients.FirstAsync(c=>c.id==item.ClientId&&c.tenant_id==user.tenant_id&&c.archived_at==null&&c.user_id==id);
+
+            if(item.NutritionistId.HasValue)
+            {
+                var target=await _context.users.FirstOrDefaultAsync(u=>u.id==item.NutritionistId.Value&&u.tenant_id==user.tenant_id&&u.archived_at==null&&(u.role=="nutritionist"||u.role=="user"));
+                if(target==null)return BadRequest("Uno de los nutricionistas seleccionados no pertenece al tenant o está archivado.");
             }
 
-            // Si era el último usuario del tenant, cancelamos su suscripción activa
-            // sin borrar el historial de facturación asociado al tenant.
-            if (tenantId.HasValue && !hasOtherTenantUsers)
-            {
-                var subscription = await _context.subscriptions
-                    .FirstOrDefaultAsync(s => s.tenant_id == tenantId.Value);
+            var active=await _context.client_nutritionist_assignments.FirstOrDefaultAsync(a=>a.client_id==item.ClientId&&a.is_active);
+            if(active!=null){active.is_active=false;active.unassigned_at=DateTime.UtcNow;}
 
-                if (subscription != null && subscription.status != "cancelled")
-                    subscription.status = "cancelled";
+            if(item.NutritionistId.HasValue)
+            {
+                client.user_id=item.NutritionistId.Value;
+                _context.client_nutritionist_assignments.Add(new client_nutritionist_assignments{client_id=client.id,nutritionist_id=item.NutritionistId.Value,assigned_by_user_id=AuthHelpers.GetUserId(User),assigned_at=DateTime.UtcNow,is_active=true});
+            }
+            else
+            {
+                client.user_id=null;
+            }
+        }
+
+            user.archived_at=DateTime.UtcNow;
+            user.subscription_status="suspended";
+
+            if(tenantId.HasValue&&!hasOtherActiveUsers)
+            {
+                var subscription=await _context.subscriptions.FirstOrDefaultAsync(s=>s.tenant_id==tenantId.Value);
+                if(subscription!=null&&subscription.status!="cancelled")subscription.status="cancelled";
             }
 
-            // La BBDD elimina en cascada los datos dependientes del usuario (pacientes,
-            // dietas, recetas y sus elementos relacionados).
-            _context.users.Remove(user);
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
-
-            return Ok(new { message = "Cuenta eliminada permanentemente." });
         }
         catch
         {
             await transaction.RollbackAsync();
             throw;
         }
+
+        await _audit.LogAccessAsync("ARCHIVE_USER","users",user.id.ToString(),null,$"Cuenta archivada por SuperAdmin; pacientes reasignados: {assignments.Count(a=>a.NutritionistId.HasValue)}, sin asignar: {assignments.Count(a=>!a.NutritionistId.HasValue)}");
+        return Ok(new {message="Cuenta archivada correctamente."});
     }
 
     /// <summary>
@@ -530,6 +546,7 @@ public class AdminUsersController : ControllerBase
             return NotFound("Usuario no encontrado.");
 
         user.subscription_status = "active";
+        user.archived_at = null;
         await _context.SaveChangesAsync();
 
         return Ok(new { message = "Usuario activado correctamente." });
@@ -591,6 +608,12 @@ public class AdminUserDto
     public DateTime? LicenseExpiresAt { get; set; }
     public int MaxClientsAllowed { get; set; } = 10;
     public int ClientCount { get; set; }
+    public DateTime? ArchivedAt { get; set; }
+}
+
+public class DeactivateUserRequest
+{
+    public List<ClientReassignment> Assignments { get; set; } = new();
 }
 
 public class UpdateLicenseRequest
