@@ -299,6 +299,21 @@ public class DietController : ControllerBase
     [HttpPost("generate")]
     public async Task<ActionResult<DietDetailDto>> GenerateAutomatedDiet([FromBody] GenerateDietRequestDto request)
     {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId == null) return Unauthorized();
+
+        if (request.ClientId.HasValue)
+        {
+            var tenantId = AuthHelpers.GetTenantId(User);
+            var clientExists = await _context.clients.AnyAsync(c =>
+                c.id == request.ClientId.Value &&
+                (c.user_id == userId.Value ||
+                 (User.IsInRole("clinic_admin") && tenantId.HasValue && c.tenant_id == tenantId.Value)));
+
+            if (!clientExists)
+                return NotFound("Cliente no encontrado.");
+        }
+
         try
         {
             var diet = await _generatorService.GenerateDietAsync(request, HttpContext.RequestAborted);
