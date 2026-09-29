@@ -165,7 +165,9 @@ public class PatientPortalController : ControllerBase
     {
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
-        var client = await _context.clients.FirstOrDefaultAsync(c => c.id == clientId && c.archived_at == null && c.user_id == userId.Value);
+        var client = await _context.clients.FirstOrDefaultAsync(c => c.id == clientId && c.archived_at == null &&
+            (c.user_id == userId.Value ||
+             _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active))));
         if (client == null) return NotFound("Cliente no encontrado.");
         if (string.IsNullOrWhiteSpace(client.access_token))
         {
@@ -217,7 +219,9 @@ public class PatientPortalController : ControllerBase
         if (Request.Query.TryGetValue("clientId", out var cidStr) && int.TryParse(cidStr, out var cid))
         {
             var userId = AuthHelpers.GetUserId(User);
-            if (userId.HasValue && _context.clients.Any(c => c.id == cid && c.archived_at == null && c.user_id == userId.Value)) return cid;
+            if (userId.HasValue && _context.clients.Any(c => c.id == cid && c.archived_at == null &&
+                (c.user_id == userId.Value ||
+                 _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active)))) return cid;
         }
         return null;
     }
