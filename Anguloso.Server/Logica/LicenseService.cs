@@ -86,6 +86,7 @@ public class LicenseService : ILicenseService
     {
         var license = await GetLicenseAsync(tenantId);
         if (license == null || license.Status != "active") return (false, "La licencia no está activa.");
+        if (license.ExpiresAt.HasValue && license.ExpiresAt.Value <= DateTime.UtcNow) return (false, "La licencia ha caducado.");
         if (license.MaxNutritionists.HasValue && license.Nutritionists >= license.MaxNutritionists.Value) return (false, "Se ha alcanzado el límite de nutricionistas de la licencia.");
         return (true, null);
     }
