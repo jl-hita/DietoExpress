@@ -33,6 +33,8 @@ public partial class clients
 
     public DateTime? access_token_expires_at { get; set; }
 
+    public DateTime? archived_at { get; set; }
+
     public int? tenant_id { get; set; }
 
     public virtual tenants? tenant { get; set; }
