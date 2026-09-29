@@ -321,7 +321,9 @@ public class ClientsController : ControllerBase
             .Include(c => c.lifestyle_history)
             .FirstOrDefaultAsync(c => c.id == id && c.archived_at == null &&
                 tenantId.HasValue && c.tenant_id == tenantId.Value &&
-                (c.user_id == userId.Value || User.IsInRole("clinic_admin")));
+                (c.user_id == userId.Value ||
+                 _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active) ||
+                 User.IsInRole("clinic_admin")));
 
         if (client == null) return NotFound();
 
