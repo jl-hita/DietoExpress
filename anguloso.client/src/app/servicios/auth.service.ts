@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { jwtDecode } from 'jwt-decode';
+import { Observable } from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
@@ -16,6 +17,10 @@ export class AuthService {
 
   login(token: string): void {
     localStorage.setItem(this.TOKEN_KEY, token);
+  }
+
+  refreshSession(): Observable<{ token: string; username: string; email: string; role: string }> {
+    return this.http.post<{ token: string; username: string; email: string; role: string }>('/api/auth/refreshSession', {});
   }
 
   logout(): void {
