@@ -8,7 +8,7 @@ public interface ILicenseService
     Task<bool> CanUseFeatureAsync(int? tenantId, string featureCode);
     Task<(bool Allowed, string? Reason)> CanCreateClientAsync(int? tenantId, int nutritionistId);
     Task<(bool Allowed, string? Reason)> CanCreateDietAsync(int? tenantId, int userId);
-    Task<(bool Allowed, string? Reason)> CanCreateNutritionistAsync(int? tenantId);
+    Task<(bool Allowed, string? Reason)> CanCreateNutritionistAsync(int? tenantId, bool allowReactivation = false);
 
 }
 public sealed class LicenseInfo
@@ -88,7 +88,7 @@ public class LicenseService : ILicenseService
         return (true, null);
     }
 
-    public async Task<(bool Allowed, string? Reason)> CanCreateNutritionistAsync(int? tenantId)
+    public async Task<(bool Allowed, string? Reason)> CanCreateNutritionistAsync(int? tenantId, bool allowReactivation = false)
     {
         var license = await GetLicenseAsync(tenantId);
         if (license == null || license.Status != "active") return (false, "La licencia no está activa.");
@@ -97,7 +97,7 @@ public class LicenseService : ILicenseService
             return (false, "Se ha alcanzado el límite de nutricionistas activos de la licencia.");
 
         var replacementAvailableAt = await GetNutritionistReplacementAvailableAtAsync(tenantId.Value);
-        if (replacementAvailableAt.HasValue && replacementAvailableAt.Value > DateTime.UtcNow)
+        if (!allowReactivation && replacementAvailableAt.HasValue && replacementAvailableAt.Value > DateTime.UtcNow)
             return (false, $"Una plaza liberada recientemente está en periodo de sustitución hasta {replacementAvailableAt.Value:dd/MM/yyyy HH:mm} UTC.");
 
         return (true, null);
