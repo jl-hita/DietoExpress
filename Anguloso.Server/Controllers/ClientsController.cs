@@ -32,7 +32,7 @@ public class ClientsController : ControllerBase
 
     // GET: api/clients
     [HttpGet]
-    public async Task<ActionResult<List<ClientListDto>>> GetClients([FromQuery] bool includeAll = false)
+    public async Task<ActionResult<object>> GetClients([FromQuery] bool includeAll = false, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null)
     {
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
@@ -40,11 +40,30 @@ public class ClientsController : ControllerBase
         var isClinicAdmin = User.IsInRole("clinic_admin");
         var isSuperAdmin = User.IsInRole("superadmin");
 
-        var list = await _context.clients
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 5, 100);
+        var searchTerm = search?.Trim();
+
+        var query = _context.clients
             .Where(c => includeAll && isSuperAdmin
                 ? true
-                : c.user_id == userId.Value || (isClinicAdmin && tenantId.HasValue && c.tenant_id == tenantId.Value))
+                : c.user_id == userId.Value || (isClinicAdmin && tenantId.HasValue && c.tenant_id == tenantId.Value));
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var pattern = $"%{searchTerm}%";
+            query = query.Where(c =>
+                EF.Functions.ILike(c.full_name, pattern) ||
+                EF.Functions.ILike(c.email, pattern) ||
+                EF.Functions.ILike(c.phone, pattern));
+        }
+
+        var totalCount = await query.CountAsync();
+        var list = await query
             .OrderByDescending(c => c.created_at)
+            .ThenByDescending(c => c.id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(c => new ClientListDto
             {
                 Id = c.id,
@@ -57,7 +76,7 @@ public class ClientsController : ControllerBase
             })
             .ToListAsync();
 
-        return Ok(list);
+        return Ok(new { items = list, totalCount, page, pageSize });
     }
 
     // GET: api/clients/can-create
