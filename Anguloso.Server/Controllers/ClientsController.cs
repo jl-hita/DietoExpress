@@ -308,6 +308,7 @@ public class ClientsController : ControllerBase
     {
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
+        var tenantId = AuthHelpers.GetTenantId(User);
 
         var client = await _context.clients
             .Include(c => c.medical_history)
@@ -383,8 +384,12 @@ public class ClientsController : ControllerBase
     {
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
+        var tenantId = AuthHelpers.GetTenantId(User);
 
-        var client = await _context.clients.Include(c => c.biometrics).FirstOrDefaultAsync(c => c.id == id && c.archived_at == null && (c.user_id == userId.Value || (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User).Value)));
+        var client = await _context.clients.Include(c => c.biometrics).FirstOrDefaultAsync(c =>
+            c.id == id && c.archived_at == null &&
+            tenantId.HasValue && c.tenant_id == tenantId.Value &&
+            (c.user_id == userId.Value || User.IsInRole("clinic_admin")));
         if (client == null) return NotFound();
 
         // Optionally: delete biometrics cascade if not configured
@@ -403,6 +408,7 @@ public class ClientsController : ControllerBase
     {
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
+        var tenantId = AuthHelpers.GetTenantId(User);
 
         var client = await _context.clients
             .Include(c => c.biometrics)
@@ -445,6 +451,7 @@ public class ClientsController : ControllerBase
     {
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
+        var tenantId = AuthHelpers.GetTenantId(User);
 
         var client = await _context.clients
             .Include(c => c.biometrics.OrderByDescending(b => b.measurement_date))
