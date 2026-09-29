@@ -40,7 +40,7 @@ public class EmailServ
             string smtpUser = _configServ.GetConfigString("smtpUser") ?? throw new Exception("smtpUser no configurado");
             string smtpPwd = _configServ.GetConfigString("smtpPwd") ?? throw new Exception("smtpPwd no configurado");
 
-            Console.WriteLine($"smtpSever: {smtpSever}, smtpPort: {smtpPort}, smtpEnableSsl {smtpEnableSsl}, smtpFromEmail: {smtpFromEmail}, smtpFromName: {smtpFromName}, smtpUser: {smtpUser}, smtpPwd: {smtpPwd}");
+            _logServ.LogInfo($"Preparando envío SMTP a {to} usando {smtpSever}:{smtpPort}.");
 
             using (var client = new SmtpClient(smtpSever, smtpPort))
             {
