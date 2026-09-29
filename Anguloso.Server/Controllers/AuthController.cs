@@ -85,6 +85,9 @@ public class AuthController : ControllerBase
             if (!BCrypt.Net.BCrypt.Verify(login.Password, user.password_hash))
                 return Unauthorized("Contraseña incorrecta.");
 
+            if (user.archived_at.HasValue)
+                return Unauthorized("Esta cuenta está archivada y no puede iniciar sesión.");
+
             if (user.email_confirmed == null || user.email_confirmed == false)
                 return Unauthorized("Debes confirmar tu email antes de iniciar sesión.");
 
