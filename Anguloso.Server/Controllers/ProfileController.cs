@@ -9,7 +9,7 @@ namespace Anguloso.Server.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
-[Authorize]
+[Authorize(Policy = "Professional")]
 public class ProfileController : ControllerBase
 {
     private readonly angulosodbContext _context;
