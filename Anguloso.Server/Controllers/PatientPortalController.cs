@@ -49,14 +49,23 @@ public class PatientPortalController : ControllerBase
         else if (!string.IsNullOrWhiteSpace(request.EmailOrPhone) && !string.IsNullOrWhiteSpace(request.Passcode))
         {
             var clean = request.EmailOrPhone.Trim().ToLower();
-            client = await _context.clients
+            var candidates = await _context.clients
                 .Include(c => c.user)
-                .FirstOrDefaultAsync(c =>
+                .Where(c =>
                     (c.email != null && c.email.ToLower() == clean) ||
-                    (c.phone != null && c.phone == clean));
+                    (c.phone != null && c.phone == clean))
+                .Take(2)
+                .ToListAsync();
 
-            if (client == null)
+            if (candidates.Count == 0)
                 return Unauthorized("No se encontró ningún expediente con esos datos.");
+
+            // No elegimos arbitrariamente un paciente cuando el mismo email/teléfono
+            // existe en más de una clínica.
+            if (candidates.Count > 1)
+                return Unauthorized("Los datos de acceso no identifican un único expediente.");
+
+            client = candidates[0];
 
             if (string.IsNullOrWhiteSpace(client.passcode_hash) || !BCrypt.Net.BCrypt.Verify(request.Passcode, client.passcode_hash))
             {
