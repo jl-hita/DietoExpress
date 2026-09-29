@@ -44,44 +44,30 @@ public class Program
                 .WriteTo.File(Path.Combine(pathLogs, "log-.txt"), rollingInterval: RollingInterval.Day, shared: true);
         });
 
-        // Añadimos CORS
-        /*
+        // CORS: permitir únicamente los orígenes conocidos.
+        // En desarrollo se mantiene el frontend Angular local (puerto 4200).
+        // En producción los orígenes deben declararse explícitamente mediante
+        // Cors:AllowedOrigins en configuración/variables de entorno.
         builder.Services.AddCors(options =>
         {
             options.AddPolicy("AllowAngularApp", policy =>
             {
-                policy.WithOrigins(
-                    "https://localhost:65290",
-                    "https://127.0.0.1:65290",
-                    "https://192.168.1.100:65290" // otra IP de prueba
-                )
-                .AllowAnyHeader()
-                .AllowAnyMethod();
-            });
-        });
-        */
+                var allowedOrigins = builder.Environment.IsDevelopment()
+                    ? new[]
+                    {
+                        "http://localhost:4200",
+                        "https://localhost:4200",
+                        "http://127.0.0.1:4200",
+                        "https://127.0.0.1:4200"
+                    }
+                    : builder.Configuration
+                        .GetSection("Cors:AllowedOrigins")
+                        .Get<string[]>() ?? Array.Empty<string>();
 
-        builder.Services.AddCors(options =>
-        {
-            options.AddPolicy("AllowAngularApp", policy =>
-            {
-                policy.SetIsOriginAllowed(origin =>
-                {
-                    if (string.IsNullOrEmpty(origin)) return false;
-
-                    // Convertimos a minusculas para no tener problemas
-                    origin = origin.ToLower();
-
-                    // Permitimos localhost, 127.0.0.1 y 192.168.*.*
-                    return origin.StartsWith("http://localhost")
-                        || origin.StartsWith("https://localhost")
-                        || origin.StartsWith("http://127.0.0.1")
-                        || origin.StartsWith("https://127.0.0.1")
-                        || origin.StartsWith("http://192.168.")
-                        || origin.StartsWith("https://192.168.");
-                })
-                .AllowAnyHeader()
-                .AllowAnyMethod();
+                policy
+                    .WithOrigins(allowedOrigins)
+                    .WithHeaders("Authorization", "Content-Type", "Accept")
+                    .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE");
             });
         });
 
