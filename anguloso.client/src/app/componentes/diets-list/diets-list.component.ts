@@ -26,6 +26,7 @@ export class DietsListComponent implements OnInit {
   pageSize = 10;
   currentPage = 1;
   totalPages = 1;
+  totalCount = 0;
   showAllDiets = false;
   isSuperAdmin = false;
 
@@ -46,10 +47,14 @@ export class DietsListComponent implements OnInit {
   loadDiets(): void {
     this.loading = true;
     this.error = null;
-    this.dietService.getDiets(this.showAllDiets && this.isSuperAdmin).subscribe({
-      next: (list) => {
-        this.diets = list || [];
-        this.refresh();
+    this.dietService.getDiets(this.currentPage, this.pageSize, this.searchTerm, this.showAllDiets && this.isSuperAdmin).subscribe({
+      next: (result) => {
+        this.diets = result.items || [];
+        this.totalCount = result.totalCount;
+        this.currentPage = result.page;
+        this.totalPages = Math.max(1, Math.ceil(this.totalCount / this.pageSize));
+        this.filtered = this.diets;
+        this.pagedDiets = this.diets;
         this.loading = false;
       },
       error: (err) => {
@@ -57,6 +62,7 @@ export class DietsListComponent implements OnInit {
         this.diets = [];
         this.filtered = [];
         this.pagedDiets = [];
+        this.totalCount = 0;
         this.error = err?.status === 404
           ? 'El API de dietas no está disponible aún. Configure el backend.'
           : 'Error al cargar las dietas.';
@@ -71,41 +77,34 @@ export class DietsListComponent implements OnInit {
   }
 
   refresh(): void {
-    const term = (this.searchTerm || '').toLowerCase().trim();
-    this.filtered = term
-      ? this.diets.filter(d => (d.name || '').toLowerCase().includes(term))
-      : [...this.diets];
-    this.recalculate();
+    this.loadDiets();
   }
 
   recalculate(): void {
-    const len = this.filtered.length || 0;
-    this.totalPages = Math.max(1, Math.ceil(len / this.pageSize));
-    this.updatePaged();
+    this.totalPages = Math.max(1, Math.ceil(this.totalCount / this.pageSize));
   }
 
   updatePaged(): void {
-    const start = (this.currentPage - 1) * this.pageSize;
-    this.pagedDiets = (this.filtered || []).slice(start, start + this.pageSize);
+    this.pagedDiets = this.diets;
   }
 
   goToPage(p: number): void {
     if (p < 1 || p > this.totalPages) return;
     this.currentPage = p;
-    this.updatePaged();
+    this.loadDiets();
   }
 
   prevPage(): void {
     if (this.currentPage > 1) {
       this.currentPage--;
-      this.updatePaged();
+      this.loadDiets();
     }
   }
 
   nextPage(): void {
     if (this.currentPage < this.totalPages) {
       this.currentPage++;
-      this.updatePaged();
+      this.loadDiets();
     }
   }
 
@@ -121,6 +120,7 @@ export class DietsListComponent implements OnInit {
     for (let i = start; i <= end; i++) pages.push(i);
     return pages;
   }
+
 
   createNew(): void {
     this.router.navigate(['/diets/nuevo']);
