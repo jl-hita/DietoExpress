@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 /*
 namespace Anguloso.Server.Controllers;
 
-//[Authorize]
+//[Authorize(Policy = "Professional")]
 [Route("api/[controller]")]
 [ApiController]
 public class RecetaController : Controller
