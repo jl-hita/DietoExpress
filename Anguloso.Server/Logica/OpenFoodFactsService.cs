@@ -82,8 +82,32 @@ public class OpenFoodFactsService
                     : user.lang;
             }
 
-            // 1. Buscar en la base de datos
-            var localResults = await dbContext.foods.AsNoTracking().Where(f => EF.Functions.ILike(f.name, $"%{term}%")).ToListAsync();
+            // 1. Buscar en la BBDD local, aislando los alimentos personalizados por tenant.
+            // Los alimentos locales antiguos sin propietario se excluyen para usuarios normales.
+            IQueryable<foods> localQuery = dbContext.foods.AsNoTracking();
+
+            if (user == null)
+            {
+                // Las búsquedas públicas no deben exponer alimentos personalizados.
+                localQuery = localQuery.Where(f => f.tenant_id == null && f.source != "local");
+            }
+            else if (user.role == "superadmin")
+            {
+                // SuperAdmin puede consultar el catálogo completo.
+            }
+            else if (user.tenant_id.HasValue)
+            {
+                localQuery = localQuery.Where(f =>
+                    f.tenant_id == user.tenant_id.Value ||
+                    (f.tenant_id == null && f.source != "local"));
+            }
+            else
+            {
+                localQuery = localQuery.Where(f => f.tenant_id == null && f.source != "local");
+            }
+
+            localQuery = localQuery.Where(f => EF.Functions.ILike(f.name, $"%{term}%"));
+            var localResults = await localQuery.ToListAsync();
 
             // 2. Si hay más de 5 resultados, devuelve la lista
             //if (localResults.Any())
@@ -97,7 +121,7 @@ public class OpenFoodFactsService
             var offResults = await SearchProductsAsync(term, pais, lang);
 
             //Si queremos devolver la consulta más los pocos guardados debemos usar estas lineas
-            localResults = await dbContext.foods.Where(f => EF.Functions.ILike(f.name, $"%{term}%")).ToListAsync();
+            localResults = await localQuery.ToListAsync();
             return ListaProductos(localResults);
 
             //Si solo queremos devolver la consulta debemos usar esta línea

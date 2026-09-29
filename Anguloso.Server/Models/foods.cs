@@ -73,7 +73,15 @@ public partial class foods
 
     public int? exchange_group_id { get; set; }
 
+    public int? tenant_id { get; set; }
+
+    public int? created_by_user_id { get; set; }
+
     public decimal? grams_per_exchange { get; set; }
+
+    public virtual tenants tenant { get; set; }
+
+    public virtual users created_by_user { get; set; }
 
     public virtual food_exchange_groups exchange_group { get; set; }
 
