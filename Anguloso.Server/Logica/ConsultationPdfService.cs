@@ -317,8 +317,7 @@ public class ConsultationPdfService
     {
         table.Cell().Border(1).BorderColor("#e2e5ea").Padding(5).Text(text =>
         {
-            text.Span(label + "
-").Bold();
+            text.Span(label + "").Bold();
             text.Span(Format(value, unit));
         });
     }
