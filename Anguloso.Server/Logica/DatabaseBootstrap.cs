@@ -815,4 +815,26 @@ public static class DatabaseBootstrap
     }
 
 
+
+    /// <summary>Expiración de confirmación de email y revocación de sesiones mediante versión de seguridad.</summary>
+    public static void UpgradeSaaSSchemaV9(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS email_confirmation_expires_at TIMESTAMPTZ;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 1;
+
+            UPDATE users
+            SET email_confirmation_expires_at = COALESCE(created_at, NOW()) + INTERVAL '24 hours'
+            WHERE email_confirmation_token IS NOT NULL
+              AND email_confirmation_expires_at IS NULL;
+
+            UPDATE users
+            SET token_version = 1
+            WHERE token_version IS NULL;
+        ");
+
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('saas-v9-security-tokens') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración SaaS saas-v9-security-tokens aplicada correctamente.");
+    }
+
 }
