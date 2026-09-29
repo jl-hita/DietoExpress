@@ -735,4 +735,23 @@ public static class DatabaseBootstrap
         logger.LogInformation("Migración SaaS saas-v3-free-trial aplicada correctamente.");
     }
 
+    /// <summary>
+    /// Añade el aislamiento de alimentos personalizados por tenant/usuario.
+    /// Los alimentos existentes no atribuibles quedan editables únicamente por SuperAdmin.
+    /// </summary>
+    public static void UpgradeSaaSSchemaV4(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            ALTER TABLE foods ADD COLUMN IF NOT EXISTS tenant_id INTEGER REFERENCES tenants(id) ON DELETE SET NULL;
+            ALTER TABLE foods ADD COLUMN IF NOT EXISTS created_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+
+            CREATE INDEX IF NOT EXISTS idx_foods_tenant_id ON foods(tenant_id);
+            CREATE INDEX IF NOT EXISTS idx_foods_created_by_user_id ON foods(created_by_user_id);
+        ");
+
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('saas-v4-food-ownership') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración SaaS saas-v4-food-ownership aplicada correctamente.");
+    }
+
+
 }
