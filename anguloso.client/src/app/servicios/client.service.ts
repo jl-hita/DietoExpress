@@ -15,9 +15,14 @@ export class ClientService {
 
   constructor(private http: HttpClient) { }
 
-  getClients(includeAll = false): Observable<ClientListItem[]> {
-    const suffix = includeAll ? '?includeAll=true' : '';
-    return this.http.get<ClientListItem[]>(`${this.base}/clients${suffix}`);
+  getClients(page = 1, pageSize = 20, search = '', includeAll = false): Observable<{ items: ClientListItem[]; totalCount: number; page: number; pageSize: number }> {
+    const params = new URLSearchParams({
+      page: String(page),
+      pageSize: String(pageSize),
+      ...(search.trim() ? { search: search.trim() } : {}),
+      ...(includeAll ? { includeAll: 'true' } : {})
+    });
+    return this.http.get<{ items: ClientListItem[]; totalCount: number; page: number; pageSize: number }>(`${this.base}/clients?${params.toString()}`);
   }
 
   canCreateClient(): Observable<ClientCreationAvailability> {
