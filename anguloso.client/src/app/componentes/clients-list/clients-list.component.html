@@ -90,7 +90,7 @@
                       (change)="toggleShowAllClients()">
           Mostrar todos los clientes
         </mat-checkbox>
-        <span class="count-badge">{{ filtered.length || 0 }} pacientes</span>
+        <span class="count-badge">{{ totalCount }} pacientes</span>
       </div>
     </div>
 
@@ -141,7 +141,7 @@
     </div>
 
     <!-- Paginador Moderno -->
-    <div class="custom-paginator" *ngIf="filtered.length > pageSize">
+    <div class="custom-paginator" *ngIf="totalCount > pageSize">
       <button class="page-nav-btn" [disabled]="currentPage === 1" (click)="prevPage()">
         <mat-icon>chevron_left</mat-icon>
       </button>
