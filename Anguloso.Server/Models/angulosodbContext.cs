@@ -250,6 +250,19 @@ public partial class angulosodbContext : DbContext
                 .HasDefaultValueSql("'local'::character varying");
             entity.Property(e => e.grams_per_exchange).HasPrecision(6, 2);
 
+            entity.HasIndex(e => e.tenant_id, "idx_foods_tenant_id");
+            entity.HasIndex(e => e.created_by_user_id, "idx_foods_created_by_user_id");
+
+            entity.HasOne(d => d.tenant).WithMany()
+                .HasForeignKey(d => d.tenant_id)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("foods_tenant_id_fkey");
+
+            entity.HasOne(d => d.created_by_user).WithMany()
+                .HasForeignKey(d => d.created_by_user_id)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("foods_created_by_user_id_fkey");
+
             entity.HasOne(d => d.exchange_group).WithMany(p => p.foods)
                 .HasForeignKey(d => d.exchange_group_id)
                 .OnDelete(DeleteBehavior.SetNull)
