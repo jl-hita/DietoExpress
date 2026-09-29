@@ -155,37 +155,35 @@ export class ClientsListComponent implements OnInit {
   goToPage(p: number) {
     if (p < 1 || p > this.totalPages) return;
     this.currentPage = p;
-    this.updatePaged();
+    this.loadClients();
   }
 
   prevPage() {
     if (this.currentPage > 1) {
       this.currentPage--;
-      this.updatePaged();
+      this.loadClients();
     }
   }
 
   nextPage() {
     if (this.currentPage < this.totalPages) {
       this.currentPage++;
-      this.updatePaged();
+      this.loadClients();
     }
   }
 
   // recalcula páginas y slice visible
   recalculate() {
-    const len = this.filtered.length || 0;
-    this.totalPages = Math.max(1, Math.ceil(len / this.pageSize));
-    this.updatePaged();
+    this.totalPages = Math.max(1, Math.ceil(this.totalCount / this.pageSize));
   }
 
-  // actualiza el slice mostrado en la tabla
+
+  // El servidor ya devuelve únicamente la página solicitada.
   updatePaged() {
-    const start = (this.currentPage - 1) * this.pageSize;
-    this.pagedClients = (this.filtered || []).slice(start, start + this.pageSize);
-    // opcional: si quieres mantener compatibilidad con pageChanged($event) existente:
-    // this.pageChanged({ pageIndex: this.currentPage - 1, pageSize: this.pageSize, length: this.filtered.length });
+    this.pagedClients = this.clients;
+    this.totalPages = Math.max(1, Math.ceil(this.totalCount / this.pageSize));
   }
+
 
   // función que devuelve los números de página que queremos mostrar (ajustable)
   pagesToShow() {
