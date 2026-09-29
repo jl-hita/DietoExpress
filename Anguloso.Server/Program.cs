@@ -216,6 +216,17 @@ public class Program
                         QueueLimit = 0,
                         AutoReplenishment = true
                     }));
+
+            options.AddPolicy("expensive", httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    $"{httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"}:expensive",
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 30,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0,
+                        AutoReplenishment = true
+                    }));
         });
 
         builder.Services.AddAuthorization(options =>
