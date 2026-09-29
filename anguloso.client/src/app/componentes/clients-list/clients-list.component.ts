@@ -55,6 +55,7 @@ export class ClientsListComponent implements OnInit {
   searchTerm: string = '';
   filtered: ClientItem[] = [];
   pagedClients: ClientItem[] = [];
+  totalCount = 0;
   pageSize = 10;              // tamaño de página por defecto
   currentPage = 1;            // página actual (1-based)
   totalPages = 1;
@@ -75,22 +76,27 @@ export class ClientsListComponent implements OnInit {
 
   loadClients(): void {
     this.loading = true;
-    this.clientService.getClients(this.showAllClients && this.isSuperAdmin).subscribe({
-      next: clients => {
-        this.clients = (clients || []).map(client => ({
+    const page = this.paginator ? this.paginator.pageIndex + 1 : this.currentPage;
+    this.clientService.getClients(page, this.pageSize, this.searchTerm, this.showAllClients && this.isSuperAdmin).subscribe({
+      next: result => {
+        this.clients = (result.items || []).map(client => ({
           id: client.id,
           name: client.fullName,
           email: client.email,
           phone: client.phone,
           created_at: client.createdAt
         }));
-        this.currentPage = 1;
-        this.refresh();
+        this.totalCount = result.totalCount;
+        this.currentPage = result.page;
+        this.filtered = this.clients;
+        this.pagedClients = this.clients;
         this.loading = false;
       },
       error: () => {
         this.clients = [];
-        this.refresh();
+        this.filtered = [];
+        this.pagedClients = [];
+        this.totalCount = 0;
         this.loading = false;
       }
     });
@@ -123,32 +129,22 @@ export class ClientsListComponent implements OnInit {
   }
 
   refresh() {
-    const term = this.searchTerm?.toLowerCase()?.trim() || '';
-    this.filtered = this.clients.filter(c => {
-      return (
-        c.name.toLowerCase().includes(term) ||
-        (c.email || '').toLowerCase().includes(term) ||
-        (c.phone || '').toLowerCase().includes(term)
-      );
-    });
-    // reset paginator
-    if (this.paginator) {
-      this.paginator.pageIndex = 0; // <-- mejor que firstPage()
-    }
-    this.applyPaging();
+    this.loadClients();
   }
 
+
   applyPaging() {
-    const pageIndex = this.paginator ? this.paginator.pageIndex : 0;
-    const start = pageIndex * this.pageSize;
-    this.pagedClients = this.filtered.slice(start, start + this.pageSize);
+    this.pagedClients = this.clients;
   }
+
 
   pageChanged(event: PageEvent) {
     this.pageSize = event.pageSize;
-    this.applyPaging();
-    window.scrollTo({ top: 0 }); // opcional: para evitar que quede abajo al cambiar página
+    this.currentPage = event.pageIndex + 1;
+    this.loadClients();
+    window.scrollTo({ top: 0 });
   }
+
 
   selectClient(c: ClientItem) {
     this.selected = c;
