@@ -13,5 +13,5 @@ export class ClinicService {
  createNutritionist(data:any):Observable<any>{return this.http.post('/api/clinic/nutritionists',data);}
  disableNutritionist(id:number,data:any):Observable<any>{return this.http.put('/api/clinic/nutritionists/'+id+'/disable',data);}
  getDeactivationPreview(id:number):Observable<NutritionistDeactivationPreview>{return this.http.get<NutritionistDeactivationPreview>('/api/clinic/nutritionists/'+id+'/deactivation-preview');}
- assignClient(clientId:number,nutritionistId:number):Observable<any>{return this.http.put('/api/clinic/clients/'+clientId+'/assign',{nutritionistId});}
+ assignClient(clientId:number,nutritionistId:number|null):Observable<any>{return this.http.put('/api/clinic/clients/'+clientId+'/assign',{nutritionistId});}
 }
