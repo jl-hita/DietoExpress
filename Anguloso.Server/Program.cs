@@ -5,6 +5,8 @@ using Google.Apis.Http;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using QuestPDF.Infrastructure;
 using Serilog;
@@ -164,6 +166,22 @@ public class Program
         builder.Services.AddScoped<IAuditLogService, AuditLogService>();
         builder.Services.AddScoped<ILicenseService, LicenseService>();
 
+        builder.Services.AddRateLimiter(options =>
+        {
+            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+            options.AddPolicy("auth", httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 10,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0,
+                        AutoReplenishment = true
+                    }));
+        });
+
         builder.Services.AddControllers();
         // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
         builder.Services.AddEndpointsApiExplorer();
@@ -261,6 +279,7 @@ public class Program
             app.UseSwaggerUI();
         }
 
+        app.UseRateLimiter();
         app.UseAuthentication();
         app.UseAuthorization();
 
