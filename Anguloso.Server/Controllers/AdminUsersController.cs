@@ -545,6 +545,7 @@ public class AdminUsersController : ControllerBase
             return NotFound("Usuario no encontrado.");
 
         user.subscription_status = "active";
+        user.archived_at = null;
         await _context.SaveChangesAsync();
 
         return Ok(new { message = "Usuario activado correctamente." });
