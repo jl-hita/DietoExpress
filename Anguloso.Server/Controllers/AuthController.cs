@@ -350,6 +350,8 @@ public class AuthController : ControllerBase
 
         var tokenDescriptor = new SecurityTokenDescriptor
         {
+            Issuer = _config["Jwt:Issuer"],
+            Audience = _config["Jwt:Audience"],
             Subject = new ClaimsIdentity(claims),
             Expires = DateTime.UtcNow.AddHours(3),
             SigningCredentials = new SigningCredentials(
