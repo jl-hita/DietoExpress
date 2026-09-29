@@ -24,8 +24,8 @@ public class AdminUsersController : ControllerBase
     [HttpGet("stats")]
     public async Task<IActionResult> GetStats()
     {
-        var totalUsers = await _context.users.CountAsync(u => u.role == "nutritionist" || u.role == "user");
-        var totalClients = await _context.clients.CountAsync();
+        var totalUsers = await _context.users.CountAsync(u => u.archived_at == null && (u.role == "nutritionist" || u.role == "user"));
+        var totalClients = await _context.clients.CountAsync(c => c.archived_at == null);
         var totalDiets = await _context.diets.CountAsync();
         
         var now = DateTime.UtcNow;
