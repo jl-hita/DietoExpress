@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Anguloso.Server.Controllers;
 
 [ApiController]
-[Authorize]
+[Authorize(Policy = "Professional")]
 [Route("api/license")]
 public class LicenseController : ControllerBase
 {
