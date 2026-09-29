@@ -32,7 +32,14 @@ public class ClientDietsController : ControllerBase
 
     private async Task<bool> UserOwnsClientAsync(int clientId, int userId)
     {
-        return await _context.clients.AnyAsync(c => c.id == clientId && c.user_id == userId);
+        var tenantId = AuthHelpers.GetTenantId(User);
+
+        return await _context.clients.AnyAsync(c =>
+            c.id == clientId &&
+            c.archived_at == null &&
+            (c.user_id == userId ||
+             _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId && a.is_active) ||
+             (User.IsInRole("clinic_admin") && tenantId.HasValue && c.tenant_id == tenantId.Value)));
     }
 
     // GET: api/clients/{clientId}/diets
