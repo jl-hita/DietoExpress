@@ -1,6 +1,7 @@
 using Anguloso.Server.Logica;
 using Anguloso.Server.Model;
 using Anguloso.Server.Models;
+using Anguloso.Server.Logica.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -97,7 +98,9 @@ public class FoodController : ControllerBase
             serving_size_unit = dto.ServingSizeUnit,
             serving_size_text = dto.ServingSizeText,
             default_grams = dto.DefaultGrams ?? 100,
-            source = dto.Source ?? "local",
+            source = "local",
+            tenant_id = AuthHelpers.GetTenantId(User),
+            created_by_user_id = AuthHelpers.GetUserId(User),
             exchange_group_id = dto.ExchangeGroupId,
             grams_per_exchange = dto.GramsPerExchange,
             created_at = DateTime.UtcNow,
@@ -118,7 +121,16 @@ public class FoodController : ControllerBase
         if (dto == null) return BadRequest("Los datos del alimento son requeridos.");
         if (string.IsNullOrWhiteSpace(dto.Name)) return BadRequest("El nombre del alimento es requerido.");
 
-        var food = await _dbContext.foods.FindAsync(id);
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId == null) return Unauthorized();
+
+        var tenantId = AuthHelpers.GetTenantId(User);
+        var food = await _dbContext.foods.FirstOrDefaultAsync(f =>
+            f.id == id &&
+            f.source == "local" &&
+            (User.IsInRole("superadmin") ||
+             f.created_by_user_id == userId.Value ||
+             (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value)));
         if (food == null) return NotFound();
 
         // Actualizar campos
@@ -138,7 +150,8 @@ public class FoodController : ControllerBase
         food.serving_size_unit = dto.ServingSizeUnit;
         food.serving_size_text = dto.ServingSizeText;
         food.default_grams = dto.DefaultGrams ?? food.default_grams;
-        food.source = dto.Source ?? food.source ?? "local";
+        // El origen de un alimento personalizado no puede ser falsificado por el cliente.
+        food.source = "local";
         food.exchange_group_id = dto.ExchangeGroupId;
         food.grams_per_exchange = dto.GramsPerExchange;
         food.last_synced_at = DateTime.UtcNow;
@@ -152,7 +165,16 @@ public class FoodController : ControllerBase
     [Authorize]
     public async Task<IActionResult> DeleteCustomFood(int id)
     {
-        var food = await _dbContext.foods.FindAsync(id);
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId == null) return Unauthorized();
+
+        var tenantId = AuthHelpers.GetTenantId(User);
+        var food = await _dbContext.foods.FirstOrDefaultAsync(f =>
+            f.id == id &&
+            f.source == "local" &&
+            (User.IsInRole("superadmin") ||
+             f.created_by_user_id == userId.Value ||
+             (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value)));
         if (food == null) return NotFound();
 
         // Evitar eliminar alimentos usados en dietas
