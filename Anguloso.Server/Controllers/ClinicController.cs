@@ -76,21 +76,32 @@ public class ClinicController : ControllerBase
         if(assignments.Any(a=>!a.NutritionistId.HasValue))
             return Conflict(new {message="La clínica debe reasignar todos los pacientes antes de archivar al nutricionista."});
 
-        foreach(var item in assignments)
+        await using var transaction=await _context.Database.BeginTransactionAsync();
+        try
         {
-            var client=await _context.clients.FirstAsync(c=>c.id==item.ClientId&&c.tenant_id==tenantId&&c.archived_at==null&&c.user_id==id);
-            var nutritionist=await _context.users.FirstOrDefaultAsync(u=>u.id==item.NutritionistId&&u.tenant_id==tenantId&&u.archived_at==null&&(u.role=="nutritionist"||u.role=="user"));
-            if(nutritionist==null)return BadRequest("Uno de los nutricionistas seleccionados no pertenece a la clínica o está archivado.");
+            foreach(var item in assignments)
+            {
+                var client=await _context.clients.FirstAsync(c=>c.id==item.ClientId&&c.tenant_id==tenantId&&c.archived_at==null&&c.user_id==id);
+                var nutritionist=await _context.users.FirstOrDefaultAsync(u=>u.id==item.NutritionistId&&u.tenant_id==tenantId&&u.archived_at==null&&(u.role=="nutritionist"||u.role=="user"));
+                if(nutritionist==null)return BadRequest("Uno de los nutricionistas seleccionados no pertenece a la clínica o está archivado.");
 
-            var active=await _context.client_nutritionist_assignments.FirstOrDefaultAsync(a=>a.client_id==item.ClientId&&a.is_active);
-            if(active!=null){active.is_active=false;active.unassigned_at=DateTime.UtcNow;}
-            _context.client_nutritionist_assignments.Add(new client_nutritionist_assignments{client_id=client.id,nutritionist_id=nutritionist.id,assigned_by_user_id=AuthHelpers.GetUserId(User),assigned_at=DateTime.UtcNow,is_active=true});
-            client.user_id=nutritionist.id;
+                var active=await _context.client_nutritionist_assignments.FirstOrDefaultAsync(a=>a.client_id==item.ClientId&&a.is_active);
+                if(active!=null){active.is_active=false;active.unassigned_at=DateTime.UtcNow;}
+                _context.client_nutritionist_assignments.Add(new client_nutritionist_assignments{client_id=client.id,nutritionist_id=nutritionist.id,assigned_by_user_id=AuthHelpers.GetUserId(User),assigned_at=DateTime.UtcNow,is_active=true});
+                client.user_id=nutritionist.id;
+            }
+
+            user.archived_at=DateTime.UtcNow;
+            user.subscription_status="suspended";
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
         }
 
-        user.archived_at=DateTime.UtcNow;
-        user.subscription_status="suspended";
-        await _context.SaveChangesAsync();
         await _audit.LogAccessAsync("ARCHIVE_NUTRITIONIST","users",user.id.ToString(),null,$"Nutricionista {user.username} archivado por clínica; pacientes reasignados: {assignments.Count}");
         return Ok(new {message="Nutricionista archivado correctamente."});
     }
