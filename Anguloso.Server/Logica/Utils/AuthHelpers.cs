@@ -6,6 +6,7 @@ public static class AuthHelpers
 {
     public static int? GetUserId(ClaimsPrincipal user)
     {
+        if (IsPatient(user)) return null;
         if (user?.FindFirst(ClaimTypes.NameIdentifier)?.Value is string idStr
             && int.TryParse(idStr, out var id))
             return id;
