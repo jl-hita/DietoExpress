@@ -41,6 +41,8 @@ public partial class angulosodbContext : DbContext
 
     public virtual DbSet<foods> foods { get; set; }
 
+    public virtual DbSet<food_favorites> food_favorites { get; set; }
+
     public virtual DbSet<food_exchange_groups> food_exchange_groups { get; set; }
 
     public virtual DbSet<meal_items> meal_items { get; set; }
@@ -201,6 +203,15 @@ public partial class angulosodbContext : DbContext
             entity.HasOne(d => d.tenant).WithMany(p => p.diets)
                 .HasForeignKey(d => d.tenant_id)
                 .HasConstraintName("diets_tenant_id_fkey");
+        });
+
+        modelBuilder.Entity<food_favorites>(entity =>
+        {
+            entity.HasKey(e => e.id);
+            entity.HasIndex(e => new { e.user_id, e.food_id }).IsUnique();
+            entity.HasOne(e => e.user).WithMany().HasForeignKey(e => e.user_id).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.food).WithMany().HasForeignKey(e => e.food_id).OnDelete(DeleteBehavior.Cascade);
+            entity.Property(e => e.created_at).HasDefaultValueSql("now()");
         });
 
         modelBuilder.Entity<food_sources>(entity =>
