@@ -49,6 +49,7 @@ public class LicenseController : ControllerBase
             license.MaxNutritionists,
             license.MaxClientsPerNutritionist,
             license.MaxTotalClients,
+            license.NutritionistReplacementAvailableAt,
             license.Features
         });
     }
