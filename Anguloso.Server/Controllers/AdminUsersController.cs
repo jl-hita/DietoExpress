@@ -308,8 +308,8 @@ public class AdminUsersController : ControllerBase
             string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
             return BadRequest("Usuario, nombre, email y contraseña son obligatorios.");
 
-        if (request.Password.Length < 6)
-            return BadRequest("La contraseña debe tener al menos 6 caracteres.");
+        if (request.Password.Length < 12)
+            return BadRequest("La contraseña debe tener al menos 12 caracteres.");
 
         var accountType = (request.AccountType ?? "nutritionist").Trim().ToLowerInvariant();
         if (accountType != "nutritionist" && accountType != "clinic")
@@ -580,7 +580,7 @@ public class AdminUsersController : ControllerBase
     public async Task<IActionResult> ResetUserPassword(int id, [FromBody] ResetPasswordAdminRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.NewPassword) || request.NewPassword.Length < 6)
-            return BadRequest("La nueva contraseña debe tener al menos 6 caracteres.");
+            return BadRequest("La contraseña debe tener al menos 12 caracteres.");
 
         var user = await _context.users.FindAsync(id);
         if (user == null || user.role == "superadmin")
