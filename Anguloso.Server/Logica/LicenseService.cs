@@ -27,10 +27,15 @@ public sealed class LicenseInfo
     public int? MaxNutritionists { get; init; }
     public int? MaxClientsPerNutritionist { get; init; }
     public int? MaxTotalClients { get; init; }
+    public DateTime? NutritionistReplacementAvailableAt { get; init; }
     public List<string> Features { get; init; } = new();
 }
 public class LicenseService : ILicenseService
 {
+    // Una baja no libera inmediatamente una plaza para crear otra cuenta.
+    // La misma cuenta desactivada sí puede reactivarse en cualquier momento.
+    public static readonly TimeSpan NutritionistReplacementCooldown = TimeSpan.FromDays(30);
+
     private readonly angulosodbContext _context;
     public LicenseService(angulosodbContext context) => _context = context;
     public async Task<LicenseInfo?> GetLicenseAsync(int? tenantId)
@@ -47,7 +52,8 @@ public class LicenseService : ILicenseService
             BillingInterval = sub.billing_interval, CancelAtPeriodEnd = sub.cancel_at_period_end,
             Nutritionists = nutritionists, Clients = clients, MaxNutritionists = sub.plan.max_nutritionists,
             MaxClientsPerNutritionist = sub.plan.max_clients_per_nutritionist, MaxTotalClients = sub.plan.max_total_clients,
-            Features = sub.plan.features.Where(f => f.enabled).Select(f => f.feature_code).ToList() };
+            Features = sub.plan.features.Where(f => f.enabled).Select(f => f.feature_code).ToList(),
+            NutritionistReplacementAvailableAt = await GetNutritionistReplacementAvailableAtAsync(tenantId.Value) };
     }
     public async Task<bool> CanUseFeatureAsync(int? tenantId, string featureCode)
     {
@@ -87,7 +93,27 @@ public class LicenseService : ILicenseService
         var license = await GetLicenseAsync(tenantId);
         if (license == null || license.Status != "active") return (false, "La licencia no está activa.");
         if (license.ExpiresAt.HasValue && license.ExpiresAt.Value <= DateTime.UtcNow) return (false, "La licencia ha caducado.");
-        if (license.MaxNutritionists.HasValue && license.Nutritionists >= license.MaxNutritionists.Value) return (false, "Se ha alcanzado el límite de nutricionistas de la licencia.");
+        if (license.MaxNutritionists.HasValue && license.Nutritionists >= license.MaxNutritionists.Value)
+            return (false, "Se ha alcanzado el límite de nutricionistas activos de la licencia.");
+
+        var replacementAvailableAt = await GetNutritionistReplacementAvailableAtAsync(tenantId.Value);
+        if (replacementAvailableAt.HasValue && replacementAvailableAt.Value > DateTime.UtcNow)
+            return (false, $"Una plaza liberada recientemente está en periodo de sustitución hasta {replacementAvailableAt.Value:dd/MM/yyyy HH:mm} UTC.");
+
         return (true, null);
     }
+
+    private async Task<DateTime?> GetNutritionistReplacementAvailableAtAsync(int tenantId)
+    {
+        var cutoff = DateTime.UtcNow.Subtract(NutritionistReplacementCooldown);
+        var latestDeactivation = await _context.users
+            .Where(u => u.tenant_id == tenantId
+                        && u.archived_at != null
+                        && u.archived_at > cutoff
+                        && (u.role == "nutritionist" || u.role == "user"))
+            .MaxAsync(u => (DateTime?)u.archived_at);
+
+        return latestDeactivation?.Add(NutritionistReplacementCooldown);
+    }
+
 }
