@@ -72,7 +72,7 @@ public class ClinicController : ControllerBase
         var email = req.Email.Trim();
         var fullName = string.IsNullOrWhiteSpace(req.FullName) ? email : req.FullName.Trim();
 
-        if (await _context.users.AnyAsync(u => u.email == email))
+        if (await _context.users.AnyAsync(u => u.email != null && u.email.ToLower() == email.ToLower()))
             return Conflict("El email ya está registrado.");
 
         await using var transaction = await _context.Database.BeginTransactionAsync();
@@ -226,8 +226,7 @@ public class ClinicController : ControllerBase
         if(assignments.Count!=expected.Count||!expected.SetEquals(assignments.Select(a=>a.ClientId)) )
             return Conflict(new {message="Debes decidir qué hacer con todos los pacientes activos del nutricionista.",clientIds=clients});
 
-        if(assignments.Any(a=>!a.NutritionistId.HasValue))
-            return Conflict(new {message="La clínica debe reasignar todos los pacientes antes de archivar al nutricionista."});
+        
 
         await using var transaction=await _context.Database.BeginTransactionAsync();
         try
@@ -235,13 +234,30 @@ public class ClinicController : ControllerBase
             foreach(var item in assignments)
             {
                 var client=await _context.clients.FirstAsync(c=>c.id==item.ClientId&&c.tenant_id==tenantId&&c.archived_at==null&&c.user_id==id);
-                var nutritionist=await _context.users.FirstOrDefaultAsync(u=>u.id==item.NutritionistId&&u.tenant_id==tenantId&&u.archived_at==null&&(u.role=="nutritionist"||u.role=="user"));
-                if(nutritionist==null)return BadRequest("Uno de los nutricionistas seleccionados no pertenece a la clínica o está archivado.");
+                var nutritionist = item.NutritionistId.HasValue
+                    ? await _context.users.FirstOrDefaultAsync(u => u.id == item.NutritionistId.Value && u.tenant_id == tenantId && u.archived_at == null && (u.role == "nutritionist" || u.role == "user"))
+                    : null;
+                if(item.NutritionistId.HasValue && nutritionist == null)
+                    return BadRequest("Uno de los nutricionistas seleccionados no pertenece a la clínica o está archivado.");
 
                 var active=await _context.client_nutritionist_assignments.FirstOrDefaultAsync(a=>a.client_id==item.ClientId&&a.is_active);
                 if(active!=null){active.is_active=false;active.unassigned_at=DateTime.UtcNow;}
-                _context.client_nutritionist_assignments.Add(new client_nutritionist_assignments{client_id=client.id,nutritionist_id=nutritionist.id,assigned_by_user_id=AuthHelpers.GetUserId(User),assigned_at=DateTime.UtcNow,is_active=true});
-                client.user_id=nutritionist.id;
+                if (nutritionist != null)
+                {
+                    _context.client_nutritionist_assignments.Add(new client_nutritionist_assignments
+                    {
+                        client_id = client.id,
+                        nutritionist_id = nutritionist.id,
+                        assigned_by_user_id = AuthHelpers.GetUserId(User),
+                        assigned_at = DateTime.UtcNow,
+                        is_active = true
+                    });
+                    client.user_id = nutritionist.id;
+                }
+                else
+                {
+                    client.user_id = null;
+                }
             }
 
             user.archived_at=DateTime.UtcNow;
