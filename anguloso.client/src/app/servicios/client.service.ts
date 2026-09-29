@@ -124,6 +124,11 @@ export class ClientService {
     return this.http.get(`${this.base}/clients/${clientId}/diets/active/pdf`, { responseType: 'blob' });
   }
 
+  downloadConsultationPdf(clientId: number, date?: string): Observable<Blob> {
+    const query = date ? `?date=${encodeURIComponent(date)}` : '';
+    return this.http.get(`${this.base}/clients/${clientId}/diets/consultation-pdf${query}`, { responseType: 'blob' });
+  }
+
   getEnergyRequirements(clientId: number): Observable<any> {
     return this.http.get<any>(`${this.base}/clients/${clientId}/energy-requirements`);
   }
