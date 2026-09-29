@@ -107,6 +107,7 @@ public partial class angulosodbContext : DbContext
             entity.HasKey(e => e.id).HasName("clients_pkey");
 
             entity.Property(e => e.created_at).HasDefaultValueSql("now()");
+            entity.HasIndex(e => e.archived_at, "idx_clients_archived_at");
             entity.Property(e => e.email).HasMaxLength(150);
             entity.Property(e => e.full_name)
                 .IsRequired()
@@ -181,6 +182,8 @@ public partial class angulosodbContext : DbContext
         modelBuilder.Entity<diets>(entity =>
         {
             entity.HasKey(e => e.id).HasName("diets_pkey");
+
+            entity.HasIndex(e => e.archived_at, "idx_diets_archived_at");
 
             entity.Property(e => e.created_at).HasDefaultValueSql("now()");
             entity.Property(e => e.name)
