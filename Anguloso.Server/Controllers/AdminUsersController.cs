@@ -63,7 +63,7 @@ public class AdminUsersController : ControllerBase
             {
                 Id = c.id,
                 Nombre = c.nombre_config,
-                Valor = IsSecretConfig(c.nombre_config) ? string.Empty : c.valor_config,
+                Valor = AdminConfigSecurity.IsSecretConfig(c.nombre_config) ? string.Empty : c.valor_config,
                 EsSecreta = IsSecretConfig(c.nombre_config),
                 TieneValor = !string.IsNullOrWhiteSpace(c.valor_config)
             })
@@ -85,7 +85,7 @@ public class AdminUsersController : ControllerBase
         if (config == null)
             return NotFound("Configuración no encontrada.");
 
-        if (IsSecretConfig(config.nombre_config) && string.IsNullOrWhiteSpace(request.Valor))
+        if (AdminConfigSecurity.IsSecretConfig(config.nombre_config) && string.IsNullOrWhiteSpace(request.Valor))
             return BadRequest("Para cambiar un secreto debes introducir un valor nuevo.");
 
         config.valor_config = request.Valor ?? string.Empty;
@@ -594,7 +594,9 @@ public class AdminUsersController : ControllerBase
     }
 }
 
-    private static bool IsSecretConfig(string name)
+internal static class AdminConfigSecurity
+{
+    public static bool IsSecretConfig(string name)
     {
         var normalized = name.Replace("_", string.Empty).ToLowerInvariant();
         return normalized.Contains("password")
