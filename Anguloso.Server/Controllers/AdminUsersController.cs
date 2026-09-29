@@ -204,7 +204,8 @@ public class AdminUsersController : ControllerBase
                 SubscriptionStatus = u.subscription_status ?? "active",
                 LicenseExpiresAt = u.license_expires_at,
                 MaxClientsAllowed = u.max_clients_allowed ?? 10,
-                ClientCount = u.clients.Count()
+                ClientCount = u.clients.Count(c => c.archived_at == null),
+                ArchivedAt = u.archived_at
             })
             .ToListAsync();
 
@@ -591,6 +592,12 @@ public class AdminUserDto
     public DateTime? LicenseExpiresAt { get; set; }
     public int MaxClientsAllowed { get; set; } = 10;
     public int ClientCount { get; set; }
+    public DateTime? ArchivedAt { get; set; }
+}
+
+public class DeactivateUserRequest
+{
+    public List<ClientReassignment> Assignments { get; set; } = new();
 }
 
 public class UpdateLicenseRequest
