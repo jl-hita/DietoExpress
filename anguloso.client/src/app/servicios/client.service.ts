@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { environment } from '../../environments/environments';
 import { Biometric, ClientListItem, ClientDetail, ClientDiet, AssignDietPayload, UpdateClientDietPayload } from '../modelos/client';
 
@@ -22,7 +22,16 @@ export class ClientService {
       ...(search.trim() ? { search: search.trim() } : {}),
       ...(includeAll ? { includeAll: 'true' } : {})
     });
-    return this.http.get<{ items: ClientListItem[]; totalCount: number; page: number; pageSize: number }>(`${this.base}/clients?${params.toString()}`);
+    return this.http.get<{ items: ClientListItem[]; totalCount: number; page: number; pageSize: number } | ClientListItem[]>(`${this.base}/clients?${params.toString()}`).pipe(
+      map(response => Array.isArray(response)
+        ? { items: response, totalCount: response.length, page, pageSize }
+        : {
+            items: Array.isArray(response?.items) ? response.items : [],
+            totalCount: Number(response?.totalCount ?? 0),
+            page: Number(response?.page ?? page),
+            pageSize: Number(response?.pageSize ?? pageSize)
+          })
+    );
   }
 
   canCreateClient(): Observable<ClientCreationAvailability> {
