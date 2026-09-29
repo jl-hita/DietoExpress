@@ -77,7 +77,11 @@ public class AuthController : ControllerBase
                 return BadRequest("Usuario o contraseña no válidos.");
 
             // Buscar el usuario
-            var user = await _context.users.FirstOrDefaultAsync(u => u.username == login.Username);
+            var identifier = login.Username.Trim();
+            var user = await _context.users.FirstOrDefaultAsync(u =>
+                u.username == identifier ||
+                u.email == identifier ||
+                u.email.ToLower() == identifier.ToLower());
 
             if (user == null)
                 return Unauthorized("Usuario no encontrado.");
@@ -369,6 +373,7 @@ public class AuthController : ControllerBase
         {
             token = tokenString,
             username = user.username,
+            email = user.email,
             role = user.role
         });
     }
