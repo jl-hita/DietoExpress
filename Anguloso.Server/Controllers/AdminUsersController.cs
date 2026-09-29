@@ -469,7 +469,7 @@ public class AdminUsersController : ControllerBase
     [HttpDelete("users/{id}")]
     public async Task<IActionResult> DeleteUser(int id,[FromBody] DeactivateUserRequest? request)
     {
-        var user=await _context.users.FirstOrDefaultAsync(u=>u.id==id&&u.role!="superadmin");
+        var user=await _context.users.FirstOrDefaultAsync(u=>u.id==id&&(u.role=="nutritionist"||u.role=="user"));
         if(user==null)return NotFound("Usuario no encontrado o no modificable.");
         if(user.archived_at!=null)return BadRequest("La cuenta ya está archivada.");
 
