@@ -169,7 +169,7 @@ public class ClinicController : ControllerBase
 
             // La reactivación de la misma cuenta no consume una nueva sustitución:
             // simplemente vuelve a ocupar la plaza que ya tenía.
-            var allowed = await _license.CanCreateNutritionistAsync(tenantId);
+            var allowed = await _license.CanCreateNutritionistAsync(tenantId, allowReactivation: true);
             if (!allowed.Allowed) return BadRequest(allowed.Reason);
 
             user.archived_at = null;
