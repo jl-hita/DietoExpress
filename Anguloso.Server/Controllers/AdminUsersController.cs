@@ -483,8 +483,14 @@ public class AdminUsersController : ControllerBase
         if(assignments.Count!=expected.Count||!expected.SetEquals(assignments.Select(a=>a.ClientId)))
             return Conflict(new {message="Debes decidir qué hacer con todos los pacientes activos antes de archivar la cuenta.",clientIds});
 
-        foreach(var item in assignments)
+        var tenantId=user.tenant_id;
+        var hasOtherActiveUsers=tenantId.HasValue&&await _context.users.AnyAsync(u=>u.tenant_id==tenantId&&u.id!=id&&u.archived_at==null&&u.role!="superadmin");
+
+        await using var transaction=await _context.Database.BeginTransactionAsync();
+        try
         {
+            foreach(var item in assignments)
+            {
             var client=await _context.clients.FirstAsync(c=>c.id==item.ClientId&&c.tenant_id==user.tenant_id&&c.archived_at==null&&c.user_id==id);
 
             if(item.NutritionistId.HasValue)
@@ -507,12 +513,6 @@ public class AdminUsersController : ControllerBase
             }
         }
 
-        var tenantId=user.tenant_id;
-        var hasOtherActiveUsers=tenantId.HasValue&&await _context.users.AnyAsync(u=>u.tenant_id==tenantId&&u.id!=id&&u.archived_at==null&&u.role!="superadmin");
-
-        await using var transaction=await _context.Database.BeginTransactionAsync();
-        try
-        {
             user.archived_at=DateTime.UtcNow;
             user.subscription_status="suspended";
 
@@ -524,14 +524,15 @@ public class AdminUsersController : ControllerBase
 
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
-            await _audit.LogAccessAsync("ARCHIVE_USER","users",user.id.ToString(),null,$"Cuenta archivada por SuperAdmin; pacientes reasignados: {assignments.Count(a=>a.NutritionistId.HasValue)}, sin asignar: {assignments.Count(a=>!a.NutritionistId.HasValue)}");
-            return Ok(new {message="Cuenta archivada correctamente."});
         }
         catch
         {
             await transaction.RollbackAsync();
             throw;
         }
+
+        await _audit.LogAccessAsync("ARCHIVE_USER","users",user.id.ToString(),null,$"Cuenta archivada por SuperAdmin; pacientes reasignados: {assignments.Count(a=>a.NutritionistId.HasValue)}, sin asignar: {assignments.Count(a=>!a.NutritionistId.HasValue)}");
+        return Ok(new {message="Cuenta archivada correctamente."});
     }
 
     /// <summary>
