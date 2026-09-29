@@ -17,17 +17,20 @@ public sealed class BillingController : ControllerBase
     private readonly angulosodbContext _context;
     private readonly ITenantContextService _tenantContext;
     private readonly IConfiguration _configuration;
+    private readonly ConfigServ _configServ;
 
     public BillingController(
         IStripeBillingService stripe,
         angulosodbContext context,
         ITenantContextService tenantContext,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        ConfigServ configServ)
     {
         _stripe = stripe;
         _context = context;
         _tenantContext = tenantContext;
         _configuration = configuration;
+        _configServ = configServ;
     }
 
     [Authorize(Policy = "Professional")]
@@ -71,8 +74,8 @@ public sealed class BillingController : ControllerBase
                 _tenantContext.TenantId.Value,
                 request.PlanCode.Trim().ToLowerInvariant(),
                 request.BillingInterval.Trim().ToLowerInvariant(),
-                request.SuccessUrl,
-                request.CancelUrl);
+                BuildFrontendUrl("/billing?checkout=success"),
+                BuildFrontendUrl("/billing?checkout=cancelled"));
 
             return Ok(new { url });
         }
@@ -84,6 +87,59 @@ public sealed class BillingController : ControllerBase
         {
             return BadRequest(ex.Message);
         }
+    }
+
+    [HttpPost("subscription/change")]
+    public async Task<IActionResult> ChangeSubscription([FromBody] ChangeSubscriptionRequest request)
+    {
+        if (!_tenantContext.TenantId.HasValue)
+            return BadRequest("La cuenta no tiene una organización asociada.");
+
+        try
+        {
+            await _stripe.ChangeSubscriptionAsync(
+                _tenantContext.TenantId.Value,
+                request.PlanCode.Trim().ToLowerInvariant(),
+                request.BillingInterval.Trim().ToLowerInvariant());
+
+            return Ok(new { message = "Cambio de suscripción solicitado correctamente." });
+        }
+        catch (ArgumentException ex) { return BadRequest(ex.Message); }
+        catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+    }
+
+    [HttpPost("subscription/cancel-renewal")]
+    public async Task<IActionResult> CancelRenewal()
+    {
+        if (!_tenantContext.TenantId.HasValue)
+            return BadRequest("La cuenta no tiene una organización asociada.");
+
+        try
+        {
+            await _stripe.CancelRenewalAsync(_tenantContext.TenantId.Value);
+            return Ok(new { message = "La renovación se cancelará al finalizar el periodo actual." });
+        }
+        catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+    }
+
+    [HttpPost("subscription/reactivate-renewal")]
+    public async Task<IActionResult> ReactivateRenewal()
+    {
+        if (!_tenantContext.TenantId.HasValue)
+            return BadRequest("La cuenta no tiene una organización asociada.");
+
+        try
+        {
+            await _stripe.ReactivateRenewalAsync(_tenantContext.TenantId.Value);
+            return Ok(new { message = "La renovación ha sido reactivada." });
+        }
+        catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+    }
+
+    private string BuildFrontendUrl(string path)
+    {
+        var baseUrl = _configServ.GetConfigString("frontendUrl", "https://localhost:4200") ?? "https://localhost:4200";
+        return $"{baseUrl.TrimEnd('/')}{path}";
     }
 
     [AllowAnonymous]
