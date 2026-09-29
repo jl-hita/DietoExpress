@@ -606,6 +606,7 @@ internal static class AdminConfigSecurity
             || name.Equals("smtpUser", StringComparison.OrdinalIgnoreCase)
             || name.Equals("smtpPwd", StringComparison.OrdinalIgnoreCase);
     }
+}
 
 public class AdminConfigDto
 {
