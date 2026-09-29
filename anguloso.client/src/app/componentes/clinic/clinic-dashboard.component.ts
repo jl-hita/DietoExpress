@@ -34,5 +34,5 @@ export class ClinicDashboardComponent implements OnInit {
      error:e=>this.snack.open(e?.error?.message||e?.error||'No se pudo preparar el archivado','Cerrar',{duration:4000})
    });
  }
- assign(client:any,id:number){this.clinic.assignClient(client.id,id).subscribe({next:()=>this.load(),error:e=>{this.snack.open(e?.error||'No se pudo reasignar','Cerrar',{duration:4000});this.load()}});}
+ assign(client:any,id:number|null){this.clinic.assignClient(client.id,id).subscribe({next:()=>this.load(),error:e=>{this.snack.open(e?.error||'No se pudo reasignar','Cerrar',{duration:4000});this.load()}});}
 }
