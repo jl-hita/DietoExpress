@@ -33,6 +33,10 @@ public partial class users
 
     public DateTime? reset_token_expiration { get; set; }
 
+    public DateTime? email_confirmation_expires_at { get; set; }
+
+    public int token_version { get; set; }
+
     public string google_id { get; set; }
 
     public string provider { get; set; }
