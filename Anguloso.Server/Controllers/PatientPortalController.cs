@@ -167,7 +167,7 @@ public class PatientPortalController : ControllerBase
         if (userId == null) return Unauthorized();
         var client = await _context.clients.FirstOrDefaultAsync(c => c.id == clientId && c.archived_at == null &&
             (c.user_id == userId.Value ||
-             _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active))));
+             _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active)));
         if (client == null) return NotFound("Cliente no encontrado.");
         if (string.IsNullOrWhiteSpace(client.access_token))
         {
