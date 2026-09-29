@@ -35,8 +35,10 @@ public class RecipesController : ControllerBase
         if (userId == null) return Unauthorized();
         if (!await _licenseService.CanUseFeatureAsync(AuthHelpers.GetTenantId(User), "RECIPES")) return Forbid();
 
+        var tenantId = AuthHelpers.GetTenantId(User);
         var list = await _context.recipes
-            .Where(r => r.user_id == userId.Value)
+            .Where(r => r.user_id == userId.Value ||
+                        (tenantId.HasValue && r.tenant_id == tenantId.Value))
             .OrderByDescending(r => r.created_at)
             .Select(r => new RecipeListDto
             {
@@ -58,10 +60,12 @@ public class RecipesController : ControllerBase
         if (userId == null) return Unauthorized();
         if (!await _licenseService.CanUseFeatureAsync(AuthHelpers.GetTenantId(User), "RECIPES")) return Forbid();
 
+        var tenantId = AuthHelpers.GetTenantId(User);
         var recipe = await _context.recipes
             .Include(r => r.recipe_items)
                 .ThenInclude(ri => ri.food)
-            .FirstOrDefaultAsync(r => r.id == id && r.user_id == userId.Value);
+            .FirstOrDefaultAsync(r => r.id == id &&
+                (r.user_id == userId.Value || (tenantId.HasValue && r.tenant_id == tenantId.Value)));
 
         if (recipe == null) return NotFound();
 
