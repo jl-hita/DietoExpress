@@ -3,6 +3,7 @@ using Anguloso.Server.Logica.Utils;
 using Anguloso.Server.Model;
 using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -385,6 +386,7 @@ public class DietController : ControllerBase
     // POST: api/dietas/generate
     // Genera un plan de dieta estructurado de forma determinista
     [HttpPost("generate")]
+    [EnableRateLimiting("expensive")]
     public async Task<ActionResult<DietDetailDto>> GenerateAutomatedDiet([FromBody] GenerateDietRequestDto request)
     {
         var userId = AuthHelpers.GetUserId(User);
