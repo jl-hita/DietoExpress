@@ -98,9 +98,26 @@ public sealed class BillingController : ControllerBase
 
         try
         {
+            var targetPlanCode = request.PlanCode.Trim().ToLowerInvariant();
+            var targetPlan = await _context.subscription_plans.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.code == targetPlanCode && p.active);
+
+            if (targetPlan == null) return BadRequest("El plan solicitado no existe o no está activo.");
+
+            if (targetPlan.max_nutritionists.HasValue)
+            {
+                var activeNutritionists = await _context.users.CountAsync(u =>
+                    u.tenant_id == _tenantContext.TenantId.Value &&
+                    u.archived_at == null &&
+                    (u.role == "nutritionist" || u.role == "user"));
+
+                if (activeNutritionists > targetPlan.max_nutritionists.Value)
+                    return BadRequest($"No puedes cambiar a {targetPlan.name}: tienes {activeNutritionists} nutricionistas activos y el plan permite {targetPlan.max_nutritionists.Value}.");
+            }
+
             await _stripe.ChangeSubscriptionAsync(
                 _tenantContext.TenantId.Value,
-                request.PlanCode.Trim().ToLowerInvariant(),
+                targetPlanCode,
                 request.BillingInterval.Trim().ToLowerInvariant());
 
             return Ok(new { message = "Cambio de suscripción solicitado correctamente." });
@@ -247,6 +264,14 @@ public sealed class BillingController : ControllerBase
                 {
                     subscription.amount = interval == "yearly" ? plan.yearly_price : plan.monthly_price;
                     subscription.currency = "eur";
+
+                    var owner = await _context.users
+                        .Where(u => u.tenant_id == tenantId.Value && u.role != "superadmin")
+                        .OrderBy(u => u.created_at).ThenBy(u => u.id)
+                        .FirstOrDefaultAsync();
+
+                    if (owner != null)
+                        owner.role = plan.code == "clinic_full" ? "clinic_admin" : "nutritionist";
                 }
 
                 _context.subscription_events.Add(new subscription_events
@@ -347,6 +372,14 @@ public sealed class BillingController : ControllerBase
                         ? updatedPlan.yearly_price
                         : updatedPlan.monthly_price;
                     subscription.currency = "eur";
+
+                    var owner = await _context.users
+                        .Where(u => u.tenant_id == subscription.tenant_id && u.role != "superadmin")
+                        .OrderBy(u => u.created_at).ThenBy(u => u.id)
+                        .FirstOrDefaultAsync();
+
+                    if (owner != null)
+                        owner.role = updatedPlan.code == "clinic_full" ? "clinic_admin" : "nutritionist";
                 }
 
                 subscription.updated_at = DateTime.UtcNow;
