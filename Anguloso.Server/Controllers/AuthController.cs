@@ -253,7 +253,7 @@ public class AuthController : ControllerBase
                 plan_id = freePlan.id,
                 status = "active",
                 started_at = DateTime.UtcNow,
-                expires_at = DateTime.UtcNow.AddDays(7)
+                expires_at = null
             });
             await _context.SaveChangesAsync();
 
@@ -599,7 +599,7 @@ public class AuthController : ControllerBase
                     plan_id = freePlanGoogle.id,
                     status = "active",
                     started_at = DateTime.UtcNow,
-                    expires_at = DateTime.UtcNow.AddDays(7)
+                    expires_at = null
                 });
                 await _context.SaveChangesAsync();
             }
