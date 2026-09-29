@@ -8,6 +8,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { BillingPlan, BillingService } from '../../servicios/billing.service';
 import { LicenseService, LicenseStatus } from '../../servicios/license.service';
+import { AuthService } from '../../servicios/auth.service';
 
 @Component({
   selector: 'app-billing',
@@ -54,7 +55,15 @@ import { LicenseService, LicenseStatus } from '../../servicios/license.service';
         </div>
       </div>
 
-      <div *ngIf="loading" class="loading">
+      <div *ngIf="isSuperAdmin" class="result cancelled">
+        <mat-icon>admin_panel_settings</mat-icon>
+        <div>
+          <strong>La cuenta SuperAdmin no tiene una suscripción de organización</strong>
+          <span>La facturación de las organizaciones se gestiona desde el panel de administración.</span>
+        </div>
+      </div>
+
+      <div *ngIf="loading && !isSuperAdmin" class="loading">
         <mat-spinner diameter="42"></mat-spinner>
         <span>Cargando suscripción...</span>
       </div>
@@ -285,9 +294,11 @@ export class BillingComponent implements OnInit {
   selectedPlanCode: string | null = null;
   checkoutResult: 'success' | 'cancelled' | null = null;
   expiredNotice = false;
+  isSuperAdmin = false;
 
   constructor(
     private billingService: BillingService,
+    private authService: AuthService,
     private licenseService: LicenseService,
     private route: ActivatedRoute,
     private snackBar: MatSnackBar
@@ -297,7 +308,9 @@ export class BillingComponent implements OnInit {
     this.expiredNotice = this.route.snapshot.queryParamMap.get('reason') === 'expired';
     const result = this.route.snapshot.queryParamMap.get('checkout');
     if (result === 'success' || result === 'cancelled') this.checkoutResult = result;
-    this.loadData();
+    this.isSuperAdmin = this.authService.isSuperAdmin();
+    if (!this.isSuperAdmin) this.loadData();
+    else this.loading = false;
   }
 
   get currentPaidPlan(): boolean {
