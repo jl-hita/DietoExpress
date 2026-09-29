@@ -30,7 +30,7 @@ public sealed class BillingController : ControllerBase
         _configuration = configuration;
     }
 
-    [Authorize]
+    [Authorize(Policy = "Professional")]
     [HttpGet("plans")]
     public async Task<IActionResult> GetPlans()
     {
