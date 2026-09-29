@@ -771,4 +771,17 @@ public static class DatabaseBootstrap
     }
 
 
+    /// <summary>Introduce archivado lógico para expedientes y dietas.</summary>
+    public static void UpgradeSaaSSchemaV6(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            ALTER TABLE clients ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+            ALTER TABLE diets ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+            CREATE INDEX IF NOT EXISTS idx_clients_archived_at ON clients(archived_at);
+            CREATE INDEX IF NOT EXISTS idx_diets_archived_at ON diets(archived_at);
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('saas-v6-soft-delete') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración SaaS saas-v6-soft-delete aplicada correctamente.");
+    }
+
 }
