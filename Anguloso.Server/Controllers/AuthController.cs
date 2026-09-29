@@ -559,6 +559,9 @@ public class AuthController : ControllerBase
         }
 
         // payload contiene: Email, EmailVerified, Name, GivenName, FamilyName, Picture, Subject (sub = google id)
+        if (string.IsNullOrWhiteSpace(payload.Email) || payload.EmailVerified != true)
+            return Unauthorized("La cuenta de Google no tiene el email verificado.");
+
         var googleId = payload.Subject;
         var email = payload.Email;
         var name = payload.Name ?? payload.Email;
