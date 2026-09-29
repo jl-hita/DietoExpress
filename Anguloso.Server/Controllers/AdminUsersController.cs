@@ -448,7 +448,7 @@ public class AdminUsersController : ControllerBase
     [HttpGet("users/{id}/deactivation-preview")]
     public async Task<IActionResult> DeactivationPreview(int id)
     {
-        var user=await _context.users.AsNoTracking().FirstOrDefaultAsync(u=>u.id==id&&u.role!="superadmin");
+        var user=await _context.users.AsNoTracking().FirstOrDefaultAsync(u=>u.id==id&&(u.role=="nutritionist"||u.role=="user")&&u.archived_at==null);
         if(user==null)return NotFound("Usuario no encontrado o no modificable.");
 
         var clients=await _context.clients.AsNoTracking()
