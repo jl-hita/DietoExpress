@@ -135,8 +135,8 @@ public class Program
         {
             options.TokenValidationParameters = new TokenValidationParameters
             {
-                ValidateIssuer = false,
-                ValidateAudience = false,
+                ValidateIssuer = true,
+                ValidateAudience = true,
                 ValidateLifetime = true,
                 ValidateIssuerSigningKey = true,
                 ValidIssuer = builder.Configuration["Jwt:Issuer"],
@@ -150,13 +150,36 @@ public class Program
             {
                 OnTokenValidated = async context =>
                 {
+                    if (context.Principal?.IsInRole("patient") == true) return;
+
                     var userIdClaim = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
-                    if (!int.TryParse(userIdClaim, out var userId)) return;
+                    if (!int.TryParse(userIdClaim, out var userId))
+                    {
+                        context.Fail("Identidad de usuario no válida.");
+                        return;
+                    }
+
+                    var tokenVersionClaim = context.Principal?.FindFirstValue("tokenVersion");
+                    if (!int.TryParse(tokenVersionClaim, out var tokenVersion))
+                    {
+                        context.Fail("Token sin versión de seguridad.");
+                        return;
+                    }
 
                     var db = context.HttpContext.RequestServices.GetRequiredService<angulosodbContext>();
-                    var archived = await db.users.AsNoTracking().AnyAsync(u => u.id == userId && u.archived_at != null);
-                    if (archived)
-                        context.Fail("Cuenta archivada.");
+                    var user = await db.users.AsNoTracking()
+                        .Where(u => u.id == userId)
+                        .Select(u => new { u.archived_at, u.token_version })
+                        .FirstOrDefaultAsync();
+
+                    if (user == null || user.archived_at != null)
+                    {
+                        context.Fail("Cuenta no disponible.");
+                        return;
+                    }
+
+                    if (user.token_version != tokenVersion)
+                        context.Fail("Sesión revocada.");
                 }
             };
         });
@@ -195,6 +218,13 @@ public class Program
                     }));
         });
 
+        builder.Services.AddAuthorization(options =>
+        {
+            options.AddPolicy("Professional", policy =>
+                policy.RequireAuthenticatedUser()
+                      .RequireAssertion(ctx => !ctx.User.IsInRole("patient")));
+        });
+
         builder.Services.AddControllers();
         // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
         builder.Services.AddEndpointsApiExplorer();
@@ -231,6 +261,7 @@ public class Program
                 DatabaseBootstrap.UpgradeSaaSSchemaV6(context, logger);
                 DatabaseBootstrap.UpgradeSaaSSchemaV7(context, logger);
                 DatabaseBootstrap.UpgradeSaaSSchemaV8(context, logger);
+                DatabaseBootstrap.UpgradeSaaSSchemaV9(context, logger);
                 BillingSchemaBootstrap.Initialize(context, logger);
                 databaseReady = true;
             }
