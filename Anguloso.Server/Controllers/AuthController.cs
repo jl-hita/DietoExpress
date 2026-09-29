@@ -660,7 +660,8 @@ public class AuthController : ControllerBase
             new Claim(ClaimTypes.Name, user.username),
             new Claim(ClaimTypes.Role, user.role ?? "user"),
             new Claim("subscriptionPlan", user.subscription_plan ?? "free"),
-            new Claim("subscriptionStatus", user.subscription_status ?? "active")
+            new Claim("subscriptionStatus", user.subscription_status ?? "active"),
+            new Claim("tokenVersion", user.token_version.ToString())
         };
 
         if (user.tenant_id.HasValue)
@@ -670,6 +671,8 @@ public class AuthController : ControllerBase
 
         var tokenDescriptor = new SecurityTokenDescriptor
         {
+            Issuer = _config["Jwt:Issuer"],
+            Audience = _config["Jwt:Audience"],
             Subject = new ClaimsIdentity(claims),
             Expires = DateTime.UtcNow.AddHours(3),
             SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
