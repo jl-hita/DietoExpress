@@ -17,7 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="....Anguloso.ServerAnguloso.Server.csproj" />
+    <ProjectReference Include="..\\..\\Anguloso.Server\\Anguloso.Server.csproj" />
   </ItemGroup>
 
 </Project>
