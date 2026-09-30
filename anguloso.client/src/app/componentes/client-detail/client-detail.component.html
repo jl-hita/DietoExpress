@@ -1,6 +1,6 @@
 <div class="page-wrapper">
-  <form [formGroup]="clientForm" (ngSubmit)="saveClient()" class="card">
-    <h2>Datos del cliente</h2>
+  <form [formGroup]="clientForm" class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;"><h2>Datos del cliente</h2><span class="autosave-status" [class.error]="clientSaveState === 'error'"><mat-icon *ngIf="clientSaveState === 'saved'">check_circle</mat-icon><mat-icon *ngIf="clientSaveState === 'saving'">sync</mat-icon><mat-icon *ngIf="clientSaveState === 'error'">error</mat-icon>{{ clientSaveState === 'saving' ? 'Guardando...' : clientSaveState === 'error' ? 'Error al guardar' : 'Todos los cambios guardados' }}</span></div>
     <mat-form-field appearance="outline" class="full-width">
       <mat-label>Nombre completo</mat-label>
       <input matInput formControlName="fullName" required />
@@ -37,7 +37,6 @@
     </mat-form-field>
 
     <div class="actions" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-      <button mat-raised-button color="primary" type="submit" [disabled]="clientForm.invalid">Guardar cliente</button>
       <button mat-stroked-button color="primary" type="button" (click)="downloadConsultationPdf()" [disabled]="!clientId" title="Generar informe de consulta de hoy">
         <mat-icon>description</mat-icon> Informe de consulta
       </button>
@@ -928,11 +927,13 @@
           </div>
         </div>
 
-        <!-- Botón de guardar específico para la Anamnesis -->
         <div class="anamnesis-actions">
-          <button mat-raised-button color="primary" type="button" class="btn-save-anamnesis" (click)="saveClient()" [disabled]="clientForm.invalid">
-            <mat-icon>save</mat-icon> Guardar Ficha de Anamnesis
-          </button>
+          <span class="autosave-status" [class.error]="clientSaveState === 'error'">
+            <mat-icon *ngIf="clientSaveState === 'saved'">check_circle</mat-icon>
+            <mat-icon *ngIf="clientSaveState === 'saving'">sync</mat-icon>
+            <mat-icon *ngIf="clientSaveState === 'error'">error</mat-icon>
+            {{ clientSaveState === 'saving' ? 'Guardando...' : clientSaveState === 'error' ? 'Error al guardar' : 'Todos los cambios guardados' }}
+          </span>
         </div>
 
       </div>
