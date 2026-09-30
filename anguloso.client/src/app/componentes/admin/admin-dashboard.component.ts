@@ -523,7 +523,12 @@ export class AdminDashboardComponent implements OnInit {
     this.configTimers.set(config.id, timer);
   }
 
-  saveConfig(config: AdminConfig & { originalValor?: string; saving?: boolean; saveState?: 'idle' | 'pending' | 'saving' | 'saved' | 'error' }): void {
+  saveConfig(config: AdminConfig & { originalValor?: string; saving?: boolean; saveState?: 'idle' | 'pending' | 'saving' | 'saved' | 'error'; pendingSave?: boolean }): void {
+    if (config.saving) {
+      config.pendingSave = true;
+      return;
+    }
+
     if (config.esSecreta ? !config.valor : config.valor === config.originalValor) {
       config.saveState = 'saved';
       return;
@@ -550,10 +555,18 @@ export class AdminDashboardComponent implements OnInit {
         config.originalValor = updated.esSecreta ? '' : updated.valor;
         config.saving = false;
         config.saveState = 'saved';
+        if (config.pendingSave) {
+          config.pendingSave = false;
+          this.onConfigValueChange(config);
+        }
       },
       error: () => {
         config.saving = false;
         config.saveState = 'error';
+        if (config.pendingSave) {
+          config.pendingSave = false;
+          this.onConfigValueChange(config);
+        }
       }
     });
   }
