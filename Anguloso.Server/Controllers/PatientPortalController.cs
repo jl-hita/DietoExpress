@@ -66,11 +66,22 @@ public class PatientPortalController : ControllerBase
         var portalTenantId = client.tenant_id ?? client.user?.tenant_id;
         if (!await _licenseService.CanUseFeatureAsync(portalTenantId, "CLIENT_PORTAL")) return Forbid();
         client.last_portal_access = DateTime.UtcNow;
+
+        // Los enlaces mágicos son de un solo uso. Una vez consumidos no pueden
+        // reutilizarse para crear otra sesión del paciente.
+        if (!string.IsNullOrWhiteSpace(request.Token))
+        {
+            client.access_token = null;
+            client.access_token_expires_at = null;
+        }
+
         await _context.SaveChangesAsync();
         var jwt = GeneratePatientJwt(client);
+        SetPatientSessionCookie(jwt);
+
         return Ok(new PatientAuthResponseDto
         {
-            Token = jwt, ClientId = client.id, FullName = client.full_name,
+            Token = null, ClientId = client.id, FullName = client.full_name,
             ClinicName = client.user?.clinic_name, ClinicLogo = client.user?.clinic_logo
         });
     }
@@ -200,7 +211,7 @@ public class PatientPortalController : ControllerBase
     {
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
-        if (string.IsNullOrWhiteSpace(dto.Passcode) || dto.Passcode.Length < 4) return BadRequest("El código de acceso debe tener al menos 4 caracteres.");
+        if (string.IsNullOrWhiteSpace(dto.Passcode) || !System.Text.RegularExpressions.Regex.IsMatch(dto.Passcode, @"^\\d{6}$")) return BadRequest("El PIN debe tener exactamente 6 dígitos.");
         var client = await _context.clients.FirstOrDefaultAsync(c => c.id == clientId && c.user_id == userId.Value);
         if (client == null) return NotFound("Cliente no encontrado.");
         client.passcode_hash = BCrypt.Net.BCrypt.HashPassword(dto.Passcode);
@@ -243,11 +254,38 @@ public class PatientPortalController : ControllerBase
             Issuer = _config["Jwt:Issuer"],
             Audience = _config["Jwt:Audience"],
             Subject = new ClaimsIdentity(claims),
-            Expires = DateTime.UtcNow.AddDays(30),
+            Expires = DateTime.UtcNow.AddHours(8),
             SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
         };
         var token = tokenHandler.CreateToken(tokenDescriptor);
         return tokenHandler.WriteToken(token);
+    }
+
+    [HttpPost("logout")]
+    [Authorize(Roles = "patient")]
+    public IActionResult Logout()
+    {
+        Response.Cookies.Delete("dietoexpress_patient_session", new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Strict,
+            Path = "/"
+        });
+        return NoContent();
+    }
+
+    private void SetPatientSessionCookie(string jwt)
+    {
+        Response.Cookies.Append("dietoexpress_patient_session", jwt, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Strict,
+            Expires = DateTimeOffset.UtcNow.AddHours(8),
+            MaxAge = TimeSpan.FromHours(8),
+            Path = "/"
+        });
     }
 
     private static string GenerateUrlSafeToken()
