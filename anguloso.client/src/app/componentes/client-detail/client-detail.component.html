@@ -1001,7 +1001,7 @@
           <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
             <mat-form-field appearance="outline" style="max-width: 220px; margin-bottom: -1.25em;">
               <mat-label>Nuevo PIN (ej. 1234)</mat-label>
-              <input matInput [(ngModel)]="newPasscode" [ngModelOptions]="{standalone: true}" maxlength="8" type="password" />
+              <input matInput [(ngModel)]="newPasscode" [ngModelOptions]="{standalone: true}" maxlength="6" pattern="[0-9]{6}" inputmode="numeric" type="password" />
             </mat-form-field>
             <button mat-flat-button color="primary" type="button" (click)="setPatientPasscode()" [disabled]="settingPasscode || !newPasscode.trim()">
               <mat-icon>save</mat-icon> Guardar PIN
