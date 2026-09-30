@@ -534,8 +534,13 @@
   border-bottom: none;
 }
 
-.food-name {
+.items-table td.food-name {
+  text-align: left;
   font-weight: 600;
+}
+
+.items-table td.food-name .exchange-badge {
+  text-align: left;
 }
 
 /* Exchange Row Styles */
