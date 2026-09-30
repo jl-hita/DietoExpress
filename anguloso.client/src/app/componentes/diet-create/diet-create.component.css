@@ -1086,3 +1086,40 @@
 .cdk-drop-list-dragging .cdk-drag {
   transition: transform 180ms ease;
 }
+
+
+
+@media (max-width: 1024px) {
+  .workspace-grid { grid-template-columns: 1fr; padding: 16px; }
+  .editor-side-panel { display: block; }
+  .sidebar-sticky-content { position: static; height: 420px; margin-top: 0; }
+}
+@media (max-width: 768px) {
+  .editor-header { padding: 10px 12px; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+  .header-left { gap: 8px; min-width: 0; flex: 1; }
+  .header-title-area { min-width: 0; }
+  .diet-name-input { width: min(100%, 220px); font-size: 17px; }
+  .header-actions { width: 100%; justify-content: stretch; }
+  .header-actions button { flex: 1; min-height: 44px; }
+  .workspace-grid { padding: 10px; gap: 12px; }
+  .targets-setup-card, .day-progress-panel, .notes-card, .meal-card { padding: 14px; border-radius: 12px; }
+  .targets-grid, .progress-bars-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .days-selector-bar { align-items: flex-start; flex-direction: column; gap: 10px; }
+  .days-nav-wrapper { width: 100%; }
+  .days-pills { flex: 1; min-width: 0; }
+  .btn-add-day { flex-shrink: 0; }
+  .meal-card-header { align-items: flex-start; flex-wrap: wrap; gap: 8px; }
+  .meal-summary-nutrients { width: 100%; flex-wrap: wrap; }
+  .meal-name-input { width: min(100%, 160px); }
+  .sidebar-sticky-content { height: 360px; padding: 14px; }
+  .confirm-actions { flex-direction: column; }
+  .confirm-actions .btn { width: 100%; min-height: 44px; }
+}
+@media (max-width: 420px) {
+  .targets-grid, .progress-bars-grid { grid-template-columns: 1fr; }
+  .header-actions { flex-direction: column; }
+  .header-actions button { width: 100%; }
+  .editor-header { position: static; }
+  .workspace-grid { padding: 8px; }
+  .sidebar-sticky-content { height: 320px; }
+}
