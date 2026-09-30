@@ -43,3 +43,17 @@
   color: #2c3e50;
   font-weight: 500;
 }
+
+
+@media (max-width: 768px) {
+  .receta-card { max-width: 100%; margin: 8px auto; padding: 14px; }
+  .ingrediente-item { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .ingrediente-item > :first-child { grid-column: 1 / -1; }
+  .desc-field { min-width: 0; }
+  .acciones { display: flex; flex-direction: column; gap: 8px; }
+  .acciones button { width: 100%; min-height: 44px; }
+}
+@media (max-width: 420px) {
+  .ingrediente-item { grid-template-columns: 1fr; }
+  .ingrediente-item > :first-child { grid-column: auto; }
+}
