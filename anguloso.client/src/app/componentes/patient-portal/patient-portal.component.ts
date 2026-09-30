@@ -76,6 +76,8 @@ export class PatientPortalComponent implements OnInit {
       next: (res) => {
         this.clientId = res.clientId;
         this.showLogin = false;
+        // El token mágico no debe permanecer en el historial del navegador.
+        this.router.navigate([], { queryParams: {}, replaceUrl: true });
         this.loadData();
       },
       error: (err) => {
