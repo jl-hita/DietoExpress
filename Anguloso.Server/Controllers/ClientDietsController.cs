@@ -280,6 +280,9 @@ public class ClientDietsController : ControllerBase
         var assignment = await _context.client_diets.FirstOrDefaultAsync(cd => cd.id == id && cd.client_id == clientId);
         if (assignment == null) return NotFound("Diet assignment not found.");
 
+        if (!await UserCanAccessDietAsync(assignment.diet_id, userId.Value))
+            return NotFound("Diet assignment not found.");
+
         assignment.is_active = false;
         assignment.end_date = DateOnly.FromDateTime(DateTime.Today);
 
@@ -299,6 +302,9 @@ public class ClientDietsController : ControllerBase
 
         var assignment = await _context.client_diets.FirstOrDefaultAsync(cd => cd.id == id && cd.client_id == clientId);
         if (assignment == null) return NotFound("Diet assignment not found.");
+
+        if (!await UserCanAccessDietAsync(assignment.diet_id, userId.Value))
+            return NotFound("Diet assignment not found.");
 
         _context.client_diets.Remove(assignment);
         await _context.SaveChangesAsync();
