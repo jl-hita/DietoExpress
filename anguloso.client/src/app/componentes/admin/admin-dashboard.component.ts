@@ -481,7 +481,9 @@ export class AdminDashboardComponent implements OnInit {
   userPageSize = 25;
   configs: AdminConfig[] = [];
   displayedColumns = ['user', 'plan', 'status', 'expires', 'usage', 'lastLogin', 'actions'];
-  configDisplayedColumns = ['id', 'nombre', 'valor', 'actions'];
+  configDisplayedColumns = ['id', 'nombre', 'valor'];
+  private configTimers = new Map<number, ReturnType<typeof setTimeout>>();
+  private searchTimer?: ReturnType<typeof setTimeout>;
 
   searchTerm = '';
   statusFilter = '';
@@ -517,20 +519,57 @@ export class AdminDashboardComponent implements OnInit {
     });
   }
 
-  saveConfig(config: AdminConfig & { originalValor?: string; saving?: boolean }): void {
+  onConfigValueChange(config: AdminConfig & { originalValor?: string; saving?: boolean; saveState?: 'idle' | 'pending' | 'saving' | 'saved' | 'error' }): void {
+    config.saveState = 'pending';
+    const previous = this.configTimers.get(config.id);
+    if (previous) clearTimeout(previous);
+
+    const timer = setTimeout(() => {
+      this.configTimers.delete(config.id);
+      this.saveConfig(config);
+    }, 700);
+
+    this.configTimers.set(config.id, timer);
+  }
+
+  saveConfig(config: AdminConfig & { originalValor?: string; saving?: boolean; saveState?: 'idle' | 'pending' | 'saving' | 'saved' | 'error' }): void {
+    if (config.esSecreta ? !config.valor : config.valor === config.originalValor) {
+      config.saveState = 'saved';
+      return;
+    }
+
+    if (config.nombre === 'frontendUrl') {
+      try {
+        const url = new URL(config.valor.trim());
+        if (url.protocol !== 'https:') {
+          config.saveState = 'error';
+          return;
+        }
+      } catch {
+        config.saveState = 'error';
+        return;
+      }
+    }
+
     config.saving = true;
+    config.saveState = 'saving';
     this.adminService.updateConfig(config.id, config.valor).subscribe({
       next: (updated) => {
         config.valor = updated.valor;
         config.originalValor = updated.esSecreta ? '' : updated.valor;
         config.saving = false;
-        this.snackBar.open('Configuración guardada.', 'OK', { duration: 3000 });
+        config.saveState = 'saved';
       },
       error: () => {
         config.saving = false;
-        this.snackBar.open('Error al guardar la configuración.', 'Cerrar', { duration: 4000 });
+        config.saveState = 'error';
       }
     });
+  }
+
+  onSearchChange(): void {
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => this.loadUsers(), 350);
   }
 
   loadUsers(resetPage = true): void {
