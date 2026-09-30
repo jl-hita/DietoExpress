@@ -98,6 +98,99 @@ public class TenantIsolationTests
     }
 
     [Fact]
+    public async Task DeactivateAssignment_DoesNotModifyAssignmentToCrossTenantDiet()
+    {
+        await using var db = CreateDb();
+
+        db.users.AddRange(
+            new users { id = 1, tenant_id = 10, role = "user" },
+            new users { id = 2, tenant_id = 20, role = "user" });
+
+        db.clients.Add(new clients
+        {
+            id = 100,
+            user_id = 1,
+            tenant_id = 10,
+            full_name = "Cliente A",
+            archived_at = null
+        });
+
+        db.diets.Add(new diets
+        {
+            id = 300,
+            user_id = 2,
+            tenant_id = 20,
+            name = "Dieta B",
+            archived_at = null
+        });
+
+        db.client_diets.Add(new client_diets
+        {
+            id = 400,
+            client_id = 100,
+            diet_id = 300,
+            start_date = new DateOnly(2026, 10, 1),
+            is_active = true
+        });
+
+        await db.SaveChangesAsync();
+
+        var controller = CreateController(db, userId: 1, tenantId: 10, sharedDiets: false);
+
+        var result = await controller.DeactivateAssignment(100, 400);
+
+        Assert.IsType<NotFoundObjectResult>(result);
+        var assignment = await db.client_diets.SingleAsync();
+        Assert.True(assignment.is_active);
+    }
+
+    [Fact]
+    public async Task DeleteAssignment_DoesNotDeleteAssignmentToCrossTenantDiet()
+    {
+        await using var db = CreateDb();
+
+        db.users.AddRange(
+            new users { id = 1, tenant_id = 10, role = "user" },
+            new users { id = 2, tenant_id = 20, role = "user" });
+
+        db.clients.Add(new clients
+        {
+            id = 100,
+            user_id = 1,
+            tenant_id = 10,
+            full_name = "Cliente A",
+            archived_at = null
+        });
+
+        db.diets.Add(new diets
+        {
+            id = 300,
+            user_id = 2,
+            tenant_id = 20,
+            name = "Dieta B",
+            archived_at = null
+        });
+
+        db.client_diets.Add(new client_diets
+        {
+            id = 400,
+            client_id = 100,
+            diet_id = 300,
+            start_date = new DateOnly(2026, 10, 1),
+            is_active = true
+        });
+
+        await db.SaveChangesAsync();
+
+        var controller = CreateController(db, userId: 1, tenantId: 10, sharedDiets: false);
+
+        var result = await controller.DeleteAssignment(100, 400);
+
+        Assert.IsType<NotFoundObjectResult>(result);
+        Assert.Single(await db.client_diets.ToListAsync());
+    }
+
+    [Fact]
     public async Task AssignDiet_AllowsOwnDietForOwnedClient()
     {
         await using var db = CreateDb();
