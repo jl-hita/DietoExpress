@@ -425,17 +425,16 @@ export class BillingComponent implements OnInit {
   }
 
   cancelRenewal(): void {
-    if (!this.license?.currentPeriodEnd) return;
-
-    const endDate = new Date(this.license.currentPeriodEnd).toLocaleDateString('es-ES');
+    const endDate = this.license?.currentPeriodEnd
+      ? new Date(this.license.currentPeriodEnd).toLocaleDateString('es-ES')
+      : 'el final del periodo actual';
     if (!window.confirm(`La suscripción seguirá activa hasta el ${endDate}. Después no se realizará ningún cargo nuevo. ¿Quieres cancelar la renovación automática?`)) return;
 
     this.actionLoading = true;
     this.billingService.cancelRenewal().subscribe({
       next: response => {
-        this.actionLoading = false;
-        if (this.license) this.license = { ...this.license, cancelAtPeriodEnd: true };
         this.snackBar.open(response.message || 'Renovación automática cancelada.', 'Cerrar', { duration: 5000 });
+        this.refreshSubscriptionAfterStripeChange(true);
       },
       error: err => {
         this.actionLoading = false;
@@ -448,9 +447,8 @@ export class BillingComponent implements OnInit {
     this.actionLoading = true;
     this.billingService.reactivateRenewal().subscribe({
       next: response => {
-        this.actionLoading = false;
-        if (this.license) this.license = { ...this.license, cancelAtPeriodEnd: false };
         this.snackBar.open(response.message || 'Renovación automática reactivada.', 'Cerrar', { duration: 5000 });
+        this.refreshSubscriptionAfterStripeChange(false);
       },
       error: err => {
         this.actionLoading = false;
@@ -507,6 +505,36 @@ export class BillingComponent implements OnInit {
         error: () => this.waitForCheckoutActivation(attempt + 1)
       });
     }, attempt === 0 ? 1500 : 2000);
+  }
+
+  private refreshSubscriptionAfterStripeChange(expectedCancelAtPeriodEnd: boolean): void {
+    let attempts = 0;
+
+    const poll = () => {
+      attempts++;
+      this.licenseService.getLicense().subscribe({
+        next: license => {
+          this.license = license;
+          if (license.billingInterval) this.billingInterval = license.billingInterval;
+
+          if (license.cancelAtPeriodEnd === expectedCancelAtPeriodEnd || attempts >= 5) {
+            this.actionLoading = false;
+            return;
+          }
+
+          setTimeout(poll, 1000);
+        },
+        error: () => {
+          if (attempts >= 5) {
+            this.actionLoading = false;
+            return;
+          }
+          setTimeout(poll, 1000);
+        }
+      });
+    };
+
+    poll();
   }
 
   private loadData(): void {
