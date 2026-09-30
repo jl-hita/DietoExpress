@@ -1,0 +1,51 @@
+name: Deploy DietoExpress
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, Linux, X64]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Preparar Angular
+        working-directory: anguloso.client
+        run: |
+          mkdir -p obj/Debug
+          npm install
+          npm run build
+
+      - name: Restaurar .NET
+        run: dotnet restore Anguloso.Server/Anguloso.Server.csproj
+
+      - name: Compilar .NET
+        run: dotnet build Anguloso.Server/Anguloso.Server.csproj -c Release --no-restore
+
+      - name: Publicar .NET
+        run: |
+          rm -rf /tmp/dietoexpress-publish
+          dotnet publish Anguloso.Server/Anguloso.Server.csproj \
+            -c Release \
+            --no-restore \
+            --no-build \
+            -o /tmp/dietoexpress-publish
+
+      - name: Desplegar backend
+        run: |
+          rm -rf /opt/dietoexpress/*
+          cp -a /tmp/dietoexpress-publish/. /opt/dietoexpress/
+
+      - name: Desplegar frontend
+        run: |
+          rm -rf /var/www/dietoexpress/*
+          cp -a anguloso.client/dist/anguloso.client/. /var/www/dietoexpress/
+
+      - name: Reiniciar DietoExpress
+        run: |
+          sudo systemctl enable dietoexpress.service
+          sudo systemctl restart dietoexpress.service
