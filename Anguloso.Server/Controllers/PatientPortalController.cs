@@ -185,7 +185,7 @@ public class PatientPortalController : ControllerBase
     }
 
     [HttpGet("~/api/clients/{clientId:int}/portal-access")]
-    [Authorize]
+    [Authorize(Policy = "Professional")]
     public async Task<ActionResult<ClientPortalAccessDto>> GetClientPortalAccess(int clientId)
     {
         var userId = AuthHelpers.GetUserId(User);
@@ -205,7 +205,7 @@ public class PatientPortalController : ControllerBase
     }
 
     [HttpPost("~/api/clients/{clientId:int}/portal-access/regenerate-token")]
-    [Authorize]
+    [Authorize(Policy = "Professional")]
     public async Task<ActionResult<ClientPortalAccessDto>> RegenerateToken(int clientId)
     {
         var userId = AuthHelpers.GetUserId(User);
@@ -220,7 +220,7 @@ public class PatientPortalController : ControllerBase
     }
 
     [HttpPost("~/api/clients/{clientId:int}/portal-access/passcode")]
-    [Authorize]
+    [Authorize(Policy = "Professional")]
     public async Task<IActionResult> SetPasscode(int clientId, [FromBody] SetClientPasscodeDto dto)
     {
         var userId = AuthHelpers.GetUserId(User);
