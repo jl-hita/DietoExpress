@@ -779,7 +779,7 @@ public class AuthController : ControllerBase
     }
     */
 
-    [Authorize]
+    [Authorize(Policy = "Professional")]
     [HttpPost("refreshSession")]
     public async Task<IActionResult> RefreshSession()
     {
