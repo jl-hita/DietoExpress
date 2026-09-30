@@ -4,6 +4,7 @@ import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatOptionModule } from '@angular/material/core';
+import { environment } from '../../environments/environments';
 
 interface Ingrediente {
   id?: number;           // Opcional, porque al crear uno nuevo todavía no tiene ID
@@ -37,7 +38,7 @@ export class IngredientesComponent {
     { value: 'l', label: 'Litros' }
   ];
 
-  private apiUrl = 'http://localhost:5125/api/ingrediente';
+  private apiUrl = `${environment.apiUrl}/ingrediente`;
 
   constructor(
     private fb: FormBuilder,
