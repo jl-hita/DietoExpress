@@ -25,7 +25,7 @@ public class Program
         string entorno = builder.Environment.ContentRootPath;
         // Obtener la cadena de conexión desde appsettings.json
         var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-        //Console.WriteLine($"API key USDA: {usdaKey}");
+        //Console.WriteLine($“API key USDA: {usdaKey}”);
 
         // Registrar el DbContext
         builder.Services.AddDbContext<angulosodbContext>(options => options.UseNpgsql(connectionString));
@@ -44,10 +44,24 @@ public class Program
                 .WriteTo.File(Path.Combine(pathLogs, "log-.txt"), rollingInterval: RollingInterval.Day, shared: true);
         });
 
-        // CORS: permitir únicamente los orígenes conocidos.
-        // En desarrollo se mantiene el frontend Angular local (puerto 4200).
-        // En producción los orígenes deben declararse explícitamente mediante
-        // Cors:AllowedOrigins en configuración/variables de entorno.
+        // ============================================================
+        // CORS - CONFIGURACIÓN ABIERTA PARA DESARROLLO / PRUEBAS
+        // ============================================================
+        builder.Services.AddCors(options =>
+        {
+            options.AddPolicy("AllowAngularApp", policy =>
+            {
+                policy
+                    .AllowAnyOrigin()
+                    .AllowAnyHeader()
+                    .AllowAnyMethod();
+            });
+        });
+
+        /*
+        // CORS - CONFIGURACIÓN RESTRINGIDA ORIGINAL
+        // Para volver a la configuración segura anterior, comenta la
+        // configuración de arriba y descomenta este bloque.
         builder.Services.AddCors(options =>
         {
             options.AddPolicy("AllowAngularApp", policy =>
@@ -70,7 +84,7 @@ public class Program
                     .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE");
             });
         });
-
+        */
 
         // Add services to the container.
 
@@ -103,7 +117,7 @@ public class Program
 
         builder.Services.AddHttpClient<OpenFoodFactsService>().AddTypedClient((httpClient, sp) =>
         {
-            //var usdaKey = config["UsdaApiKey"];
+            //var usdaKey = config[“UsdaApiKey”];
             var logServ = sp.GetRequiredService<LogServ>();
             //return new OpenFoodFactsService(httpClient, connectionString!, usdaKey!, logServ);
             var configServ = sp.GetRequiredService<ConfigServ>();
