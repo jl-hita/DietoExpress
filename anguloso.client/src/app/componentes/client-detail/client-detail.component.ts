@@ -194,6 +194,11 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     const parts = date.split('-');
     return parts[2] + '/' + parts[1] + '/' + parts[0];
   }
+  private normalizeGender(value?: string | null): string {
+    const normalized = (value || '').trim().toLowerCase();
+    return ['male', 'female', 'other'].includes(normalized) ? normalized : '';
+  }
+
   loadClient() {
     this.svc.getClient(this.clientId!).subscribe({
       next: (c) => {
@@ -203,7 +208,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
           email: c.email,
           phone: c.phone,
           birthDate: this.toDateInputValue(c.birthDate),
-          gender: c.gender,
+          gender: this.normalizeGender(c.gender),
           notes: c.notes,
           medicalHistory: c.medicalHistory || {},
           digestiveHealth: c.digestiveHealth || {},
