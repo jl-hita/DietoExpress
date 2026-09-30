@@ -168,8 +168,8 @@ public class Program
                             return;
                         }
 
-                        var db = context.HttpContext.RequestServices.GetRequiredService<angulosodbContext>();
-                        var client = await db.clients.AsNoTracking()
+                        var patientDb = context.HttpContext.RequestServices.GetRequiredService<angulosodbContext>();
+                        var client = await patientDb.clients.AsNoTracking()
                             .Where(c => c.id == clientId && c.archived_at == null)
                             .Select(c => new { c.id, c.tenant_id, UserTenantId = c.user != null ? c.user.tenant_id : null })
                             .FirstOrDefaultAsync();
