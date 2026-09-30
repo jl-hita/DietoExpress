@@ -201,7 +201,17 @@
           <mat-form-field appearance="outline" class="full-width"><mat-label>Notas</mat-label><textarea matInput formControlName="notes"></textarea></mat-form-field>
 
           <div class="actions">
-            <button mat-raised-button color="primary" type="submit">{{ editingBiometricId ? 'Guardar' : 'Crear' }}</button>
+            <ng-container *ngIf="editingBiometricId; else createBiometricAction">
+            <span class="autosave-status" [class.error]="biometricSaveState === 'error'">
+              <mat-icon *ngIf="biometricSaveState === 'saved'">check_circle</mat-icon>
+              <mat-icon *ngIf="biometricSaveState === 'saving'">sync</mat-icon>
+              <mat-icon *ngIf="biometricSaveState === 'error'">error</mat-icon>
+              {{ biometricSaveState === 'saving' ? 'Guardando...' : biometricSaveState === 'error' ? 'Error al guardar' : 'Todos los cambios guardados' }}
+            </span>
+          </ng-container>
+          <ng-template #createBiometricAction>
+            <button mat-raised-button color="primary" type="submit">Crear</button>
+          </ng-template>
             <button mat-button type="button" (click)="showBiometricForm=false">Cancelar</button>
           </div>
         </form>
