@@ -60,3 +60,14 @@ mat-list {
   color: #d32f2f;
   margin: 0.6rem 0;
 }
+
+
+@media (max-width: 768px) {
+  .food-search-card { margin: 10px 0; padding: 12px; }
+  .search-row { flex-direction: column; align-items: stretch; }
+  .search-row button { width: 100%; min-height: 44px; }
+  .results { flex-direction: column; gap: 12px; }
+  mat-list { width: 100%; max-height: 280px; }
+  .detail-card { border-left: 0; border-top: 1px solid #eee; padding: 12px 0 0; }
+  .nutri-table { font-size: 13px; }
+}
