@@ -27,7 +27,9 @@ jobs:
           npm run build
 
       - name: Restaurar .NET
-        run: dotnet restore Anguloso.Server/Anguloso.Server.csproj
+        run: |
+          dotnet restore Anguloso.Server/Anguloso.Server.csproj
+          dotnet restore Tests/DietoExpress.Security.Tests/DietoExpress.Security.Tests.csproj
 
       - name: Compilar .NET
         run: dotnet build Anguloso.Server/Anguloso.Server.csproj -c Release --no-restore
