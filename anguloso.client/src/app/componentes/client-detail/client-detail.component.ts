@@ -57,6 +57,8 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
   loading = false;
   clientSaveState: 'idle' | 'saving' | 'saved' | 'error' = 'idle';
   private clientAutosaveSubscription?: Subscription;
+  private biometricAutosaveSubscription?: Subscription;
+  biometricSaveState: 'idle' | 'saving' | 'saved' | 'error' = 'idle';
 
   clientForm!: FormGroup;
   biometrics: Biometric[] = [];
@@ -193,6 +195,23 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
       femurDiameter: [null],
       humerusDiameter: [null],
       notes: ['']
+    });
+
+    this.biometricAutosaveSubscription = this.biometricForm.valueChanges.pipe(
+      debounceTime(800),
+      filter(() => !!this.clientId && !!this.editingBiometricId && this.biometricForm.valid),
+      switchMap(() => {
+        this.biometricSaveState = 'saving';
+        return this.svc.updateBiometric(this.clientId!, this.editingBiometricId!, { ...this.biometricForm.value });
+      })
+    ).subscribe({
+      next: () => {
+        this.biometricSaveState = 'saved';
+        this.loadBiometrics();
+        this.loadEvolution();
+        this.loadEnergyRequirements();
+      },
+      error: () => this.biometricSaveState = 'error'
     });
   }
 
@@ -342,7 +361,8 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
       femurDiameter: b.femurDiameter,
       humerusDiameter: b.humerusDiameter,
       notes: b.notes
-    });
+    }, { emitEvent: false });
+    this.biometricSaveState = 'saved';
   }
 
   saveBiometric() {
@@ -350,6 +370,10 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     const payload = { ...this.biometricForm.value };
 
     if (this.editingBiometricId) {
+      // Las ediciones existentes se guardan automáticamente con debounce.
+      this.biometricSaveState = 'saved';
+      return;
+      /*
       this.svc.updateBiometric(this.clientId, this.editingBiometricId, payload).subscribe({
         next: () => {
           this.snack.open('Biometría actualizada', 'Cerrar', { duration: 2000 });
@@ -360,6 +384,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
         },
         error: () => this.snack.open('Error actualizando biometría', 'Cerrar', { duration: 3000 })
       });
+      */
     } else {
       this.svc.createBiometric(this.clientId, payload).subscribe({
         next: () => {
@@ -390,6 +415,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.clientAutosaveSubscription?.unsubscribe();
+    this.biometricAutosaveSubscription?.unsubscribe();
     if (this.chart) this.chart.destroy();
     if (this.weightChart) this.weightChart.destroy();
     if (this.bodyFatChart) this.bodyFatChart.destroy();
