@@ -35,6 +35,16 @@ public class DietController : ControllerBase
     }
 
 
+    private async Task<bool> CanUseFoodAsync(int foodId, int userId, int? tenantId)
+    {
+        return await _context.foods.AnyAsync(f =>
+            f.id == foodId &&
+            (f.source != "local" ||
+             User.IsInRole("superadmin") ||
+             f.created_by_user_id == userId ||
+             (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value)));
+    }
+
     [HttpGet]
     public async Task<ActionResult<object>> GetDiets([FromQuery] bool? onlyShared = null, [FromQuery] bool includeAll = false, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null)
     {
@@ -225,6 +235,9 @@ public class DietController : ControllerBase
                         var meal = new meals { name = mealDto.Name, meal_index = mealDto.MealIndex };
                         foreach (var itemDto in mealDto.Items)
                         {
+                            if (itemDto.FoodId.HasValue && !await CanUseFoodAsync(itemDto.FoodId.Value, userId.Value, tenantId))
+                                return BadRequest($"El alimento con ID {itemDto.FoodId.Value} no está disponible para esta cuenta.");
+
                             meal.meal_items.Add(new meal_items
                             {
                                 food_id = itemDto.FoodId,
