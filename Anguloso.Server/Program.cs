@@ -47,6 +47,7 @@ public class Program
         // ============================================================
         // CORS - CONFIGURACIÓN ABIERTA PARA DESARROLLO / PRUEBAS
         // ============================================================
+        /*
         builder.Services.AddCors(options =>
         {
             options.AddPolicy("AllowAngularApp", policy =>
@@ -57,8 +58,8 @@ public class Program
                     .AllowAnyMethod();
             });
         });
-
-        /*
+        */
+        
         // CORS - CONFIGURACIÓN RESTRINGIDA ORIGINAL
         // Para volver a la configuración segura anterior, comenta la
         // configuración de arriba y descomenta este bloque.
@@ -84,7 +85,7 @@ public class Program
                     .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE");
             });
         });
-        */
+        
 
         // Add services to the container.
 
