@@ -344,10 +344,18 @@ public class Program
         // Usamos CORS
         app.UseCors("AllowAngularApp");
 
-        //Comentado desarrollo, se debe descomentar para producción
-        //app.UseDefaultFiles();
-        //app.UseStaticFiles();
-        app.UseHttpsRedirection();
+        // El frontend compilado se copia a wwwroot durante el deploy.
+        // En desarrollo Angular se ejecuta con ng serve y usa el proxy /api.
+        app.UseDefaultFiles();
+        app.UseStaticFiles();
+
+        // HTTPS es responsabilidad del entorno de producción (Kestrel directo o reverse proxy).
+        // No forzamos HTTPS durante el desarrollo local para permitir pruebas desde otros
+        // dispositivos de la red sin depender de certificados locales.
+        if (!app.Environment.IsDevelopment())
+        {
+            app.UseHttpsRedirection();
+        }
 
         // Configure the HTTP request pipeline.
         if (app.Environment.IsDevelopment())
@@ -363,8 +371,11 @@ public class Program
 
         app.MapControllers();
 
-        //Comentado desarrollo, se debe descomentar para producción
-        //app.MapFallbackToFile("/index.html");
+        // SPA fallback: permite recargar directamente rutas de Angular en producción.
+        if (!app.Environment.IsDevelopment())
+        {
+            app.MapFallbackToFile("/index.html");
+        }
 
         try
         {
