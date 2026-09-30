@@ -1,6 +1,7 @@
 using Xunit;
 using System.Security.Claims;
 using Anguloso.Server.Controllers;
+using Anguloso.Server.Model;
 using Anguloso.Server.Logica;
 using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Http;
