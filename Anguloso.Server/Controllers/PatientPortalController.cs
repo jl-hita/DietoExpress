@@ -65,16 +65,25 @@ public class PatientPortalController : ControllerBase
 
         var portalTenantId = client.tenant_id ?? client.user?.tenant_id;
         if (!await _licenseService.CanUseFeatureAsync(portalTenantId, "CLIENT_PORTAL")) return Forbid();
-        client.last_portal_access = DateTime.UtcNow;
 
-        // Los enlaces mágicos son de un solo uso. Una vez consumidos no pueden
-        // reutilizarse para crear otra sesión del paciente.
+        // Consumo atómico del enlace mágico: dos peticiones concurrentes no pueden
+        // reutilizar el mismo token para crear dos sesiones.
         if (!string.IsNullOrWhiteSpace(request.Token))
         {
-            client.access_token = null;
-            client.access_token_expires_at = null;
+            var consumed = await _context.clients
+                .Where(c => c.id == client.id &&
+                            c.access_token == request.Token &&
+                            c.access_token_expires_at.HasValue &&
+                            c.access_token_expires_at > DateTime.UtcNow)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(c => c.access_token, (string?)null)
+                    .SetProperty(c => c.access_token_expires_at, (DateTime?)null));
+
+            if (consumed != 1)
+                return Unauthorized("Enlace de acceso no válido o ya utilizado.");
         }
 
+        client.last_portal_access = DateTime.UtcNow;
         await _context.SaveChangesAsync();
         var jwt = GeneratePatientJwt(client);
         SetPatientSessionCookie(jwt);
