@@ -118,3 +118,32 @@ button, a, input, select, textarea { touch-action: manipulation; }
   .mat-mdc-dialog-container .mdc-dialog__surface { border-radius: 12px !important; }
   .mat-mdc-card { border-radius: 12px !important; }
 }
+
+
+/* ─── Botones táctiles en móvil ─────────────────────────────── */
+@media (max-width: 768px) {
+  .mat-mdc-button-base {
+    min-height: 44px;
+    max-width: 100%;
+    white-space: normal;
+  }
+
+  .mat-mdc-button-base .mdc-button__label {
+    white-space: normal;
+    line-height: 1.25;
+    text-align: center;
+  }
+
+  .mat-mdc-icon-button {
+    width: 44px;
+    height: 44px;
+    padding: 10px;
+  }
+
+  .actions,
+  .header-actions,
+  .section-title,
+  .topbar-actions {
+    max-width: 100%;
+  }
+}
