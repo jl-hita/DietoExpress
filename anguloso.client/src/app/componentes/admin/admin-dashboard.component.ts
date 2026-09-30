@@ -98,7 +98,7 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
         <div class="filter-toolbar">
           <mat-form-field appearance="outline" class="search-field">
             <mat-label>Buscar nutricionista o clínica</mat-label>
-            <input matInput [(ngModel)]="searchTerm" (keyup.enter)="loadUsers()" placeholder="Nombre, email, usuario..." />
+            <input matInput [(ngModel)]="searchTerm" (ngModelChange)="onSearchChange()" placeholder="Nombre, email, usuario..." />
             <mat-icon matSuffix>search</mat-icon>
           </mat-form-field>
 
@@ -258,20 +258,11 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
               <th mat-header-cell *matHeaderCellDef>Valor</th>
               <td mat-cell *matCellDef="let config" class="config-value">
                 <mat-form-field appearance="outline" class="config-value-field">
-                  <input matInput [type]="config.esSecreta ? 'password' : 'text'" [(ngModel)]="config.valor" [placeholder]="config.esSecreta && config.tieneValor ? '•••••••• (configurado)' : ''" autocomplete="new-password" />
+                  <input matInput [type]="config.esSecreta ? 'password' : 'text'" [(ngModel)]="config.valor" (ngModelChange)="onConfigValueChange(config)" [placeholder]="config.esSecreta && config.tieneValor ? '•••••••• (configurado)' : ''" autocomplete="new-password" />
+                  <mat-hint *ngIf="config.saveState === 'pending' || config.saveState === 'saving'">Guardando...</mat-hint>
+                  <mat-hint *ngIf="config.saveState === 'saved'">✓ Guardado</mat-hint>
+                  <mat-hint *ngIf="config.saveState === 'error'" class="config-error">⚠ No se ha podido guardar. Revisa el valor.</mat-hint>
                 </mat-form-field>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="actions">
-              <th mat-header-cell *matHeaderCellDef class="text-right">Acciones</th>
-              <td mat-cell *matCellDef="let config" class="text-right">
-                <button mat-flat-button color="primary"
-                        [disabled]="config.saving || (config.esSecreta ? !config.valor : config.valor === config.originalValor)"
-                        (click)="saveConfig(config)">
-                  <mat-icon>save</mat-icon>
-                  Guardar
-                </button>
               </td>
             </ng-container>
 
