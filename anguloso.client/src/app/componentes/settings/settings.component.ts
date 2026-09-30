@@ -40,6 +40,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
   saveState: 'idle' | 'saving' | 'saved' | 'error' = 'idle';
   private saveChanges$ = new Subject<void>();
   private saveSubscription?: Subscription;
+  private formChangesSubscription?: Subscription;
   logoPreview: string | null = null;
   profile: Profile | null = null;
 
@@ -92,7 +93,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
         if (data.clinicLogo) {
           this.logoPreview = data.clinicLogo;
         }
-        this.form.valueChanges.subscribe(() => this.saveChanges$.next());
+        this.formChangesSubscription = this.form.valueChanges.subscribe(() => this.saveChanges$.next());
         this.loading = false;
         this.saveState = 'saved';
       },
@@ -127,5 +128,6 @@ export class SettingsComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.saveSubscription?.unsubscribe();
+    this.formChangesSubscription?.unsubscribe();
   }
 }
