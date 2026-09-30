@@ -47,7 +47,15 @@
       <!-- Fecha nacimiento -->
       <mat-form-field appearance="outline">
         <mat-label>Fecha de nacimiento</mat-label>
-        <input matInput type="date" formControlName="birthDate" />
+        <input
+          matInput
+          [matDatepicker]="birthDatePicker"
+          formControlName="birthDate"
+          autocomplete="bday"
+          inputmode="numeric"
+        />
+        <mat-datepicker-toggle matIconSuffix [for]="birthDatePicker"></mat-datepicker-toggle>
+        <mat-datepicker #birthDatePicker></mat-datepicker>
       </mat-form-field>
 
       <!-- Género -->
