@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../servicios/auth.service';
+import { AdminService } from '../../servicios/admin.service';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
@@ -12,12 +13,29 @@ import { MatIconModule } from '@angular/material/icon';
   styleUrls: ['./landing.component.css']
 })
 export class LandingComponent {
-  constructor(private router: Router, private authService: AuthService) {}
+  constructor(
+    private router: Router,
+    private authService: AuthService,
+    private adminService: AdminService
+  ) {}
 
   ngOnInit(): void {
     if (this.authService.isLoggedIn()) {
       this.router.navigate(['/clients']);
+      return;
     }
+
+    // En una instalación nueva, llevar directamente al asistente inicial.
+    this.adminService.getSetupStatus().subscribe({
+      next: (res) => {
+        if (!res.isConfigured) {
+          this.router.navigate(['/setup']);
+        }
+      },
+      error: (err) => {
+        console.error('No se pudo comprobar el estado de configuración', err);
+      }
+    });
   }
 
   crearCuenta(): void {
