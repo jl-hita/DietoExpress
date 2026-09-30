@@ -5,6 +5,12 @@ on:
     branches:
       - main
 
+# Solo un despliegue de producción a la vez.
+# Si llegan varios commits mientras se espera, se conserva el más reciente.
+concurrency:
+  group: dietoexpress-production
+  cancel-in-progress: true
+
 jobs:
   deploy:
     runs-on: [self-hosted, Linux, X64]
@@ -29,21 +35,32 @@ jobs:
       - name: Publicar .NET
         run: |
           rm -rf /tmp/dietoexpress-publish
-          dotnet publish Anguloso.Server/Anguloso.Server.csproj \
-            -c Release \
-            --no-restore \
-            --no-build \
-            -o /tmp/dietoexpress-publish
+          dotnet publish Anguloso.Server/Anguloso.Server.csproj             -c Release             --no-restore             --no-build             -o /tmp/dietoexpress-publish
 
+      # Preparamos todo antes de tocar la versión actualmente desplegada.
+      - name: Preparar versión de backend
+        run: |
+          rm -rf /tmp/dietoexpress-backend
+          mkdir -p /tmp/dietoexpress-backend
+          cp -a /tmp/dietoexpress-publish/. /tmp/dietoexpress-backend/
+
+      - name: Preparar versión de frontend
+        run: |
+          rm -rf /tmp/dietoexpress-frontend
+          mkdir -p /tmp/dietoexpress-frontend
+          cp -a anguloso.client/dist/anguloso.client/. /tmp/dietoexpress-frontend/
+
+      # El cambio de versión se hace al final, después de que build y publish
+      # hayan terminado correctamente.
       - name: Desplegar backend
         run: |
           rm -rf /opt/dietoexpress/*
-          cp -a /tmp/dietoexpress-publish/. /opt/dietoexpress/
+          cp -a /tmp/dietoexpress-backend/. /opt/dietoexpress/
 
       - name: Desplegar frontend
         run: |
           rm -rf /var/www/dietoexpress/*
-          cp -a anguloso.client/dist/anguloso.client/. /var/www/dietoexpress/
+          cp -a /tmp/dietoexpress-frontend/. /var/www/dietoexpress/
 
       - name: Reiniciar DietoExpress
         run: |
