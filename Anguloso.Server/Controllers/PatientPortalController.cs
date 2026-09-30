@@ -81,6 +81,11 @@ public class PatientPortalController : ControllerBase
 
             if (consumed != 1)
                 return Unauthorized("Enlace de acceso no válido o ya utilizado.");
+
+            // Sincronizamos la entidad EF rastreada para que SaveChanges no
+            // vuelva a escribir el token consumido en la base de datos.
+            client.access_token = null;
+            client.access_token_expires_at = null;
         }
 
         client.last_portal_access = DateTime.UtcNow;
