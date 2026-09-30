@@ -1,3 +1,4 @@
+using Xunit;
 using System.Security.Claims;
 
 namespace DietoExpress.Security.Tests;
