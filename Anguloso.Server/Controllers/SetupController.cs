@@ -31,11 +31,6 @@ public class SetupController : ControllerBase
     [HttpPost("init")]
     public async Task<IActionResult> Init([FromBody] SetupInitRequest request)
     {
-        // Bloquear si ya existe un superadmin
-        var alreadyConfigured = await _context.users.AnyAsync(u => u.role == "superadmin");
-        if (alreadyConfigured)
-            return StatusCode(403, "La aplicación ya ha sido configurada.");
-
         if (string.IsNullOrWhiteSpace(request.Username) ||
             string.IsNullOrWhiteSpace(request.Email) ||
             string.IsNullOrWhiteSpace(request.Password) ||
@@ -44,6 +39,17 @@ public class SetupController : ControllerBase
 
         if (request.Password.Length < 12)
             return BadRequest("La contraseña debe tener al menos 12 caracteres.");
+
+        // Serializar las inicializaciones mediante un bloqueo transaccional de PostgreSQL.
+        // Así dos peticiones simultáneas no pueden pasar ambas la comprobación de
+        // "no existe superadmin" y crear dos cuentas de administración.
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(748392615)");
+
+        // Volver a comprobar dentro de la transacción, después de adquirir el bloqueo.
+        var alreadyConfigured = await _context.users.AnyAsync(u => u.role == "superadmin");
+        if (alreadyConfigured)
+            return StatusCode(403, "La aplicación ya ha sido configurada.");
 
         // Verificar que el username o email no estén en uso
         var exists = await _context.users.AnyAsync(u =>
@@ -66,6 +72,7 @@ public class SetupController : ControllerBase
 
         _context.users.Add(superAdmin);
         await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
 
         return Ok(new { message = "SuperAdmin creado correctamente. Ya puedes iniciar sesión." });
     }
