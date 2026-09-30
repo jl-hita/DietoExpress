@@ -44,6 +44,19 @@ public class ClientDietsController : ControllerBase
              (User.IsInRole("clinic_admin") && tenantId.HasValue && c.tenant_id == tenantId.Value)));
     }
 
+    private async Task<bool> UserCanAccessDietAsync(int dietId, int userId)
+    {
+        var tenantId = AuthHelpers.GetTenantId(User);
+        var sharedAllowed = await _licenseService.CanUseFeatureAsync(tenantId, "SHARED_DIETS");
+
+        return await _context.diets.AnyAsync(d =>
+            d.id == dietId &&
+            d.archived_at == null &&
+            (User.IsInRole("superadmin") ||
+             d.user_id == userId ||
+             (sharedAllowed && tenantId.HasValue && d.tenant_id == tenantId.Value && d.is_shared)));
+    }
+
     // GET: api/clients/{clientId}/diets
     [HttpGet]
     public async Task<ActionResult<List<ClientDietListDto>>> GetHistory(int clientId)
@@ -154,7 +167,7 @@ public class ClientDietsController : ControllerBase
         if (!await UserOwnsClientAsync(clientId, userId.Value))
             return NotFound("Client not found or does not belong to the user.");
 
-        var dietExists = await _context.diets.AnyAsync(d => d.id == dto.DietId);
+        var dietExists = await UserCanAccessDietAsync(dto.DietId, userId.Value);
         if (!dietExists) return BadRequest("The selected diet does not exist.");
 
         // Desactivar dietas activas previas
