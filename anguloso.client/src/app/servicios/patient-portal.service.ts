@@ -30,7 +30,6 @@ export interface ClientPortalAccess {
 })
 export class PatientPortalService {
   private base = environment.apiUrl;
-  private readonly PATIENT_TOKEN_KEY = 'patient_auth_token';
 
   constructor(private http: HttpClient) {}
 
@@ -40,16 +39,8 @@ export class PatientPortalService {
     return this.http.post<PatientAuthResponse>(`${this.base}/portal/auth`, req);
   }
 
-  savePatientToken(token: string): void {
-    localStorage.setItem(this.PATIENT_TOKEN_KEY, token);
-  }
-
-  getPatientToken(): string | null {
-    return localStorage.getItem(this.PATIENT_TOKEN_KEY);
-  }
-
-  clearPatientToken(): void {
-    localStorage.removeItem(this.PATIENT_TOKEN_KEY);
+  clearPatientSession(): Observable<void> {
+    return this.http.post<void>(`${this.base}/portal/logout`, {});
   }
 
   getMyProfile(clientIdParam?: number): Observable<any> {
