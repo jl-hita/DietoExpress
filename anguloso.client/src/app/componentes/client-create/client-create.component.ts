@@ -16,6 +16,15 @@ export class ClientCreateComponent {
   @Output() cancel = new EventEmitter<void>();
 
   form: FormGroup;
+
+  private toIsoDate(value: Date | string | null | undefined): string | null {
+    if (!value) return null;
+    if (typeof value === 'string') return value.slice(0, 10);
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    const day = String(value.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
   canCreateClient = true;
   createClientReason = '';
   checkingCreatePermission = true;
@@ -51,8 +60,10 @@ export class ClientCreateComponent {
   submit() {
     if (!this.canCreateClient || this.checkingCreatePermission || this.form.invalid) return;
 
+    const formValue = this.form.value;
     const client: ClientDetail = {
-      ...this.form.value,
+      ...formValue,
+      birthDate: this.toIsoDate(formValue.birthDate) ?? undefined,
       biometrics: [] // siempre vacío al crear
     };
 
@@ -68,8 +79,9 @@ export class ClientCreateComponent {
         }
       },
       error: (error) => {
-        const message = error?.error?.message || error?.error || 'Error al crear el cliente';
-        this.snack.open(typeof message === 'string' ? message : 'Error al crear el cliente', 'Cerrar', { duration: 4000 });
+        const message = error?.error?.message || error?.error?.title || error?.error || 'Error al crear el cliente';
+        console.error('Error al crear cliente', error);
+        this.snack.open(typeof message === 'string' ? message : 'Error al crear el cliente', 'Cerrar', { duration: 5000 });
       }
     });
   }
