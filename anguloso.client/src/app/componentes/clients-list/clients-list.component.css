@@ -412,3 +412,22 @@ mat-list-item {
   opacity: 0.55;
   cursor: not-allowed;
 }
+
+
+@media (max-width: 768px) {
+  .page-container { width: 100%; }
+  .page-header { flex-direction: column; gap: 14px; margin-bottom: 16px; }
+  .header-titles h1 { font-size: 21px; }
+  .action-btn { width: 100%; }
+  .table-toolbar { flex-wrap: wrap; gap: 10px; padding: 12px; }
+  .search-box { width: 100%; }
+  .table-wrapper { -webkit-overflow-scrolling: touch; }
+  .styled-table { min-width: 680px; }
+  .styled-table th, .styled-table td { padding: 11px 12px; }
+  .custom-paginator { justify-content: center; flex-wrap: wrap; padding: 12px; }
+}
+@media (max-width: 420px) {
+  .page-header { gap: 10px; }
+  .subtitle { font-size: 13px; }
+  .page-numbers { max-width: 100%; overflow-x: auto; }
+}
