@@ -52,7 +52,7 @@ import { AdminService } from '../../servicios/admin.service';
 
               <mat-form-field appearance="outline" class="full-width">
                 <mat-label>Nombre de Usuario</mat-label>
-                <input matInput formControlName="username" placeholder="Ej: superadmin" />
+                <input matInput formControlName="username" placeholder="Elige tu nombre de usuario" />
                 <mat-icon matSuffix>person</mat-icon>
                 <mat-error *ngIf="form.get('username')?.hasError('required')">El usuario es requerido</mat-error>
               </mat-form-field>
