@@ -27,6 +27,16 @@ public class RecipesController : ControllerBase
         _licenseService = licenseService;
     }
 
+    private async Task<bool> CanUseFoodAsync(int foodId, int userId, int? tenantId)
+    {
+        return await _context.foods.AnyAsync(f =>
+            f.id == foodId &&
+            (f.source != "local" ||
+             User.IsInRole("superadmin") ||
+             f.created_by_user_id == userId ||
+             (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value)));
+    }
+
     // GET: api/recipes
     [HttpGet]
     public async Task<ActionResult<List<RecipeListDto>>> GetRecipes()
@@ -119,11 +129,8 @@ public class RecipesController : ControllerBase
         foreach (var ingDto in dto.Ingredients)
         {
             // Validar que el alimento exista
-            var foodExists = await _context.foods.AnyAsync(f => f.id == ingDto.FoodId);
-            if (!foodExists)
-            {
-                return BadRequest($"El alimento con ID {ingDto.FoodId} no existe en el catálogo.");
-            }
+            if (!await CanUseFoodAsync(ingDto.FoodId, userId.Value, AuthHelpers.GetTenantId(User)))
+                return BadRequest($"El alimento con ID {ingDto.FoodId} no está disponible para esta cuenta.");
 
             recipe.recipe_items.Add(new recipe_items
             {
@@ -173,11 +180,8 @@ public class RecipesController : ControllerBase
         // Agregar nuevos
         foreach (var ingDto in dto.Ingredients)
         {
-            var foodExists = await _context.foods.AnyAsync(f => f.id == ingDto.FoodId);
-            if (!foodExists)
-            {
-                return BadRequest($"El alimento con ID {ingDto.FoodId} no existe en el catálogo.");
-            }
+            if (!await CanUseFoodAsync(ingDto.FoodId, userId.Value, AuthHelpers.GetTenantId(User)))
+                return BadRequest($"El alimento con ID {ingDto.FoodId} no está disponible para esta cuenta.");
 
             recipe.recipe_items.Add(new recipe_items
             {
