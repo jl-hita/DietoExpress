@@ -56,8 +56,6 @@ export class PatientPortalComponent implements OnInit {
 
       if (token) {
         this.authenticateWithToken(token);
-      } else if (this.portalService.getPatientToken()) {
-        this.loadData();
       } else if (clientIdParam) {
         // Modo vista previa nutricionista si hay sesión iniciada
         this.clientId = clientIdParam;
@@ -101,7 +99,6 @@ export class PatientPortalComponent implements OnInit {
       passcode: this.passcode
     }).subscribe({
       next: (res) => {
-        this.portalService.savePatientToken(res.token);
         this.clientId = res.clientId;
         this.submittingLogin = false;
         this.showLogin = false;
@@ -114,8 +111,14 @@ export class PatientPortalComponent implements OnInit {
     });
   }
 
-  private finishPatientLogout(): void {
-    this.portalService.clearPatientSession().subscribe({ complete: () => this.finishPatientLogout(), error: () => this.finishPatientLogout() });
+  logoutPatient(): void {
+    this.portalService.clearPatientSession().subscribe({
+      next: () => this.resetPatientView(),
+      error: () => this.resetPatientView()
+    });
+  }
+
+  private resetPatientView(): void {
     this.profile = null;
     this.activeDiet = null;
     this.shoppingList = [];
