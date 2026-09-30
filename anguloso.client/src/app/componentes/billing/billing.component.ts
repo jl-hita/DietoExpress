@@ -491,12 +491,13 @@ export class BillingComponent implements OnInit {
     setTimeout(() => {
       this.licenseService.getLicense().subscribe({
         next: license => {
-          if (license.planCode === 'clinic_full') {
+          if (license.planCode !== 'free' && license.status === 'active') {
             this.authService.refreshSession().subscribe({
               next: session => {
                 this.authService.login(session.token);
                 window.location.reload();
-              }
+              },
+              error: () => this.waitForCheckoutActivation(attempt + 1)
             });
           } else {
             this.waitForCheckoutActivation(attempt + 1);
