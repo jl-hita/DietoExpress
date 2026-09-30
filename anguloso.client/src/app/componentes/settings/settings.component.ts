@@ -1,6 +1,8 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { Subject, Subscription } from 'rxjs';
+import { debounceTime, filter, switchMap } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
 import { ProfileService } from '../../servicios/profile.service';
 import { Profile } from '../../modelos/profile';
@@ -31,10 +33,13 @@ import { MatDividerModule } from '@angular/material/divider';
     MatDividerModule
   ]
 })
-export class SettingsComponent implements OnInit {
+export class SettingsComponent implements OnInit, OnDestroy {
   form!: FormGroup;
   loading = false;
   saving = false;
+  saveState: 'idle' | 'saving' | 'saved' | 'error' = 'idle';
+  private saveChanges$ = new Subject<void>();
+  private saveSubscription?: Subscription;
   logoPreview: string | null = null;
   profile: Profile | null = null;
 
@@ -54,6 +59,26 @@ export class SettingsComponent implements OnInit {
     });
 
     this.loading = true;
+
+    this.saveSubscription = this.saveChanges$.pipe(
+      debounceTime(700),
+      filter(() => !this.loading),
+      switchMap(() => {
+        this.saving = true;
+        this.saveState = 'saving';
+        return this.profileService.updateProfile(this.form.value);
+      })
+    ).subscribe({
+      next: () => {
+        this.saving = false;
+        this.saveState = 'saved';
+      },
+      error: () => {
+        this.saving = false;
+        this.saveState = 'error';
+      }
+    });
+
     this.profileService.getProfile().subscribe({
       next: (data) => {
         this.profile = data;
@@ -67,7 +92,9 @@ export class SettingsComponent implements OnInit {
         if (data.clinicLogo) {
           this.logoPreview = data.clinicLogo;
         }
+        this.form.valueChanges.subscribe(() => this.saveChanges$.next());
         this.loading = false;
+        this.saveState = 'saved';
       },
       error: () => {
         this.snack.open('Error al cargar el perfil', 'Cerrar', { duration: 3000 });
@@ -95,17 +122,10 @@ export class SettingsComponent implements OnInit {
   }
 
   save(): void {
-    if (this.saving) return;
-    this.saving = true;
-    this.profileService.updateProfile(this.form.value).subscribe({
-      next: () => {
-        this.snack.open('Perfil guardado correctamente', 'Cerrar', { duration: 3000 });
-        this.saving = false;
-      },
-      error: () => {
-        this.snack.open('Error al guardar el perfil', 'Cerrar', { duration: 3000 });
-        this.saving = false;
-      }
-    });
+    this.saveChanges$.next();
+  }
+
+  ngOnDestroy(): void {
+    this.saveSubscription?.unsubscribe();
   }
 }
