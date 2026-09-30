@@ -6,6 +6,8 @@ import { AdminService, AdminPlan } from '../../servicios/admin.service';
 export class AdminPlansComponent implements OnInit, OnDestroy {
   plans: AdminPlan[] = [];
   private timers = new Map<number, ReturnType<typeof setTimeout>>();
+  private savingIds = new Set<number>();
+  private pendingIds = new Set<number>();
   saveState = new Map<number, 'idle' | 'pending' | 'saving' | 'saved' | 'error'>();
 
   constructor(private admin: AdminService, private snack: MatSnackBar) {}
@@ -35,6 +37,13 @@ export class AdminPlansComponent implements OnInit, OnDestroy {
   }
 
   save(p: AdminPlan): void {
+    if (this.savingIds.has(p.id)) {
+      this.pendingIds.add(p.id);
+      this.saveState.set(p.id, 'pending');
+      return;
+    }
+
+    this.savingIds.add(p.id);
     this.saveState.set(p.id, 'saving');
     const dto = {
       name:p.name,
@@ -49,10 +58,23 @@ export class AdminPlansComponent implements OnInit, OnDestroy {
     };
     this.admin.updatePlan(p.id,dto).subscribe({
       next: () => this.admin.updatePlanFeatures(p.id,p.features).subscribe({
-        next: () => this.saveState.set(p.id, 'saved'),
-        error: () => this.saveState.set(p.id, 'error')
+        next: () => {
+          this.savingIds.delete(p.id);
+          if (this.pendingIds.delete(p.id)) {
+            this.scheduleSave(p, true);
+          } else {
+            this.saveState.set(p.id, 'saved');
+          }
+        },
+        error: () => {
+          this.savingIds.delete(p.id);
+          this.saveState.set(p.id, 'error');
+        }
       }),
-      error: () => this.saveState.set(p.id, 'error')
+      error: () => {
+        this.savingIds.delete(p.id);
+        this.saveState.set(p.id, 'error');
+      }
     });
   }
 
@@ -67,6 +89,8 @@ export class AdminPlansComponent implements OnInit, OnDestroy {
   ngOnDestroy() {
     this.timers.forEach(timer => clearTimeout(timer));
     this.timers.clear();
+    this.savingIds.clear();
+    this.pendingIds.clear();
   }
 
   featureName(code:string) {
