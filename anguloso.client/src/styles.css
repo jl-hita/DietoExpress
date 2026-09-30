@@ -88,3 +88,15 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+
+/* ─── Responsive safety net ─────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+img, svg, video, canvas { max-width: 100%; height: auto; }
+button, input, select, textarea { max-width: 100%; }
+.mat-mdc-dialog-container .mdc-dialog__surface { max-width: calc(100vw - 24px) !important; }
+@media (max-width: 768px) {
+  .mat-mdc-dialog-container .mdc-dialog__surface { width: calc(100vw - 24px) !important; max-height: calc(100vh - 24px) !important; }
+  .mat-mdc-form-field { max-width: 100%; }
+  .mat-mdc-table-container { overflow-x: auto; }
+}
