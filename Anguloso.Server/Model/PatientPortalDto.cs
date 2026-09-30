@@ -29,7 +29,7 @@ public class PatientAuthRequestDto
 
 public class PatientAuthResponseDto
 {
-    public string Token { get; set; } = string.Empty;
+    public string? Token { get; set; }
     public int ClientId { get; set; }
     public string FullName { get; set; } = string.Empty;
     public string? ClinicName { get; set; }
