@@ -25,6 +25,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { PatientPortalService, ClientPortalAccess } from '../../servicios/patient-portal.service';
+import { Subscription } from 'rxjs';
+import { debounceTime, filter, switchMap } from 'rxjs/operators';
 
 @Component({
   selector: 'app-client-detail',
@@ -53,6 +55,8 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
   clientId?: number;
   client?: ClientDetail;
   loading = false;
+  clientSaveState: 'idle' | 'saving' | 'saved' | 'error' = 'idle';
+  private clientAutosaveSubscription?: Subscription;
 
   clientForm!: FormGroup;
   biometrics: Biometric[] = [];
@@ -99,6 +103,17 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.clientId = Number(this.route.snapshot.paramMap.get('id'));
     this.buildForms();
+    this.clientAutosaveSubscription = this.clientForm.valueChanges.pipe(
+      debounceTime(800),
+      filter(() => !!this.clientId && this.clientForm.valid),
+      switchMap(() => {
+        this.clientSaveState = 'saving';
+        return this.svc.updateClient(this.clientId!, this.getClientPayload());
+      })
+    ).subscribe({
+      next: () => this.clientSaveState = 'saved',
+      error: () => this.clientSaveState = 'error'
+    });
 
     if (this.clientId) {
       this.loadClient();
@@ -214,7 +229,8 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
           digestiveHealth: c.digestiveHealth || {},
           foodPreferences: c.foodPreferences || {},
           lifestyleHistory: c.lifestyleHistory || {}
-        });
+        }, { emitEvent: false });
+        this.clientSaveState = 'saved';
         this.biometrics = c.biometrics || [];
       },
       error: () => this.snack.open('Error cargando cliente', 'Cerrar', { duration: 3000 })
@@ -235,8 +251,8 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     });
   }
 
-  saveClient() {
-    const payload = {
+  private getClientPayload() {
+    return {
       fullName: this.clientForm.value.fullName,
       email: this.clientForm.value.email,
       phone: this.clientForm.value.phone,
@@ -248,11 +264,16 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
       foodPreferences: this.clientForm.value.foodPreferences,
       lifestyleHistory: this.clientForm.value.lifestyleHistory
     };
+  }
+
+  saveClient() {
+    const payload = this.getClientPayload();
 
     if (this.clientId) {
+      this.clientSaveState = 'saving';
       this.svc.updateClient(this.clientId, payload).subscribe({
-        next: () => this.snack.open('Cliente actualizado', 'Cerrar', { duration: 2000 }),
-        error: () => this.snack.open('Error al actualizar', 'Cerrar', { duration: 3000 })
+        next: () => this.clientSaveState = 'saved',
+        error: () => this.clientSaveState = 'error'
       });
     } else {
       this.svc.createClient(payload).subscribe({
@@ -368,6 +389,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    this.clientAutosaveSubscription?.unsubscribe();
     if (this.chart) this.chart.destroy();
     if (this.weightChart) this.weightChart.destroy();
     if (this.bodyFatChart) this.bodyFatChart.destroy();
