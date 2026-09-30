@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Anguloso.Server.Controllers
 {
     [ApiController]
-    [Authorize]
+    [Authorize(Policy = "Professional")]
     [Route("[controller]")]
     public class WeatherForecastController : ControllerBase
     {
