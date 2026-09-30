@@ -100,3 +100,13 @@ form {
   color: #64748b;
   font-size: 14px;
 }
+
+
+@media (max-width: 600px) {
+  :host { max-width: 100%; }
+  .header { padding: 16px; }
+  form { padding: 16px; }
+  .form-grid { grid-template-columns: 1fr; gap: 10px; }
+  .actions { flex-direction: column-reverse; }
+  .actions button { width: 100%; min-height: 44px; }
+}
