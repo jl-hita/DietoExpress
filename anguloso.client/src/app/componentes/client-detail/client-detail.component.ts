@@ -869,9 +869,13 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
   }
 
   setPatientPasscode(): void {
-    if (!this.clientId || !this.newPasscode.trim()) return;
+    const passcode = this.newPasscode.trim();
+    if (!this.clientId || !/^\d{6}$/.test(passcode)) {
+      this.snack.open('El PIN debe tener exactamente 6 dígitos', 'Cerrar', { duration: 3000 });
+      return;
+    }
     this.settingPasscode = true;
-    this.portalService.setClientPasscode(this.clientId, this.newPasscode.trim()).subscribe({
+    this.portalService.setClientPasscode(this.clientId, passcode).subscribe({
       next: () => {
         this.settingPasscode = false;
         if (this.portalAccess) this.portalAccess.hasPasscode = true;
