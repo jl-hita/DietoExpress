@@ -78,3 +78,10 @@ button[mat-raised-button] {
     .crear-cuenta a:hover {
       text-decoration: underline;
     }
+
+
+
+@media (max-width: 480px) {
+  :host { min-height: 100dvh; height: auto; padding: 16px 0; box-sizing: border-box; }
+  .login-form { margin: 0 12px; padding: 22px 16px; }
+}
