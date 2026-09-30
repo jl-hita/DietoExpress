@@ -900,3 +900,22 @@
   .chart-wrapper { height: 240px; }
   .section-title { align-items: flex-start; }
 }
+
+
+/* Botones biométricos: tap targets cómodos y distribución estable en móvil */
+@media (max-width: 768px) {
+  .biometrics-toolbar {
+    width: 100%;
+  }
+
+  .biometrics-toolbar .mat-mdc-button-base {
+    flex: 1 1 100%;
+    min-height: 44px;
+  }
+}
+
+@media (min-width: 769px) {
+  .biometrics-toolbar .mat-mdc-button-base {
+    min-height: 44px;
+  }
+}
