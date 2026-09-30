@@ -147,3 +147,23 @@ button, a, input, select, textarea { touch-action: manipulation; }
     max-width: 100%;
   }
 }
+
+
+/* Estado reutilizable para formularios con guardado automático */
+.autosave-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #15803d;
+  font-size: 13px;
+  font-weight: 500;
+  min-height: 24px;
+}
+.autosave-status mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+.autosave-status.error {
+  color: #b91c1c;
+}
