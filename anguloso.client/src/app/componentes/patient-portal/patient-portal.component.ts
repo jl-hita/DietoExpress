@@ -76,7 +76,6 @@ export class PatientPortalComponent implements OnInit {
     this.authError = null;
     this.portalService.authenticate({ token }).subscribe({
       next: (res) => {
-        this.portalService.savePatientToken(res.token);
         this.clientId = res.clientId;
         this.showLogin = false;
         this.loadData();
@@ -115,8 +114,8 @@ export class PatientPortalComponent implements OnInit {
     });
   }
 
-  logoutPatient(): void {
-    this.portalService.clearPatientToken();
+  private finishPatientLogout(): void {
+    this.portalService.clearPatientSession().subscribe({ complete: () => this.finishPatientLogout(), error: () => this.finishPatientLogout() });
     this.profile = null;
     this.activeDiet = null;
     this.shoppingList = [];
