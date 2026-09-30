@@ -1,15 +1,34 @@
 <div class="layout-container">
-  <div class="sidebar">
-    <app-sidebar></app-sidebar>
+  <div class="sidebar" [class.mobile-open]="mobileMenuOpen">
+    <app-sidebar (closeMenu)="closeMobileMenu()"></app-sidebar>
+  </div>
+
+  <div
+    class="mobile-backdrop"
+    [class.visible]="mobileMenuOpen"
+    (click)="closeMobileMenu()"
+    aria-hidden="true">
   </div>
 
   <div class="content">
     <header class="topbar">
-      <div class="topbar-brand">
-        <mat-icon class="brand-icon">spa</mat-icon>
-        <span class="brand-title">DietoExpress</span>
-        <span class="brand-badge">PRO</span>
+      <div class="topbar-left">
+        <button
+          mat-icon-button
+          class="mobile-menu-button"
+          type="button"
+          aria-label="Abrir menú"
+          (click)="toggleMobileMenu()">
+          <mat-icon>{{ mobileMenuOpen ? 'close' : 'menu' }}</mat-icon>
+        </button>
+
+        <div class="topbar-brand">
+          <mat-icon class="brand-icon">spa</mat-icon>
+          <span class="brand-title">DietoExpress</span>
+          <span class="brand-badge">PRO</span>
+        </div>
       </div>
+
       <div class="topbar-actions">
         <!-- Espacio para notificaciones o perfil si se requiere -->
       </div>
