@@ -356,6 +356,9 @@ public class DietController : ControllerBase
                     var meal = new meals { name = mealDto.Name, meal_index = mealDto.MealIndex };
                     foreach (var itemDto in mealDto.Items)
                     {
+                        if (itemDto.FoodId.HasValue && !await CanUseFoodAsync(itemDto.FoodId.Value, userId.Value, tenantId))
+                            return BadRequest($"El alimento con ID {itemDto.FoodId.Value} no está disponible para esta cuenta.");
+
                         meal.meal_items.Add(new meal_items
                         {
                             food_id = itemDto.FoodId,
