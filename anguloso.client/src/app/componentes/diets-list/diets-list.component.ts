@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { MATERIAL_IMPORTS } from '../../shared/material.imports';
@@ -15,7 +15,7 @@ import { AuthService } from '../../servicios/auth.service';
   templateUrl: './diets-list.component.html',
   styleUrls: ['./diets-list.component.css']
 })
-export class DietsListComponent implements OnInit {
+export class DietsListComponent implements OnInit, OnDestroy {
   diets: DietListItem[] = [];
   loading = false;
   error: string | null = null;
@@ -29,6 +29,7 @@ export class DietsListComponent implements OnInit {
   totalCount = 0;
   showAllDiets = false;
   isSuperAdmin = false;
+  private searchTimer?: ReturnType<typeof setTimeout>;
 
   constructor(
     private dietService: DietService,
@@ -77,7 +78,12 @@ export class DietsListComponent implements OnInit {
   }
 
   refresh(): void {
-    this.loadDiets();
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => this.loadDiets(), 350);
+  }
+
+  ngOnDestroy(): void {
+    if (this.searchTimer) clearTimeout(this.searchTimer);
   }
 
   recalculate(): void {
