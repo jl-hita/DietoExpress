@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, OnInit, ViewChild } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -41,7 +41,7 @@ export interface ClientItem {
   templateUrl: './clients-list.component.html',
   styleUrls: ['./clients-list.component.css']
 })
-export class ClientsListComponent implements OnInit {
+export class ClientsListComponent implements OnInit, OnDestroy {
   @Input() clients: ClientItem[] = [];
   @Input() loading: boolean = false;
 
@@ -65,6 +65,7 @@ export class ClientsListComponent implements OnInit {
   checkingCreatePermission = true;
   showAllClients = false;
   isSuperAdmin = false;
+  private searchTimer?: ReturnType<typeof setTimeout>;
 
   constructor(private router: Router, private clientService: ClientService, private authService: AuthService) { }
 
@@ -128,8 +129,13 @@ export class ClientsListComponent implements OnInit {
     this.refresh();
   }
 
-  refresh() {
-    this.loadClients();
+  refresh(): void {
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => this.loadClients(), 350);
+  }
+
+  ngOnDestroy(): void {
+    if (this.searchTimer) clearTimeout(this.searchTimer);
   }
 
 
