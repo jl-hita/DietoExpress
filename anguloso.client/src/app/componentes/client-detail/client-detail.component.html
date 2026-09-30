@@ -59,7 +59,7 @@
     <!-- ═══════════════════════════════════════════════════════════ -->
     <mat-tab label="Biométricas">
       <div class="biometrics-toolbar" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-        <button mat-flat-button color="primary" (click)="openNewBiometric()">
+        <button mat-flat-button color="primary" type="button" (click)="openNewBiometric()" aria-label="Añadir nueva biometría">
           <mat-icon>add</mat-icon> Nueva biometría
         </button>
         <button mat-stroked-button color="accent" (click)="openBioimpedanceImport()">
