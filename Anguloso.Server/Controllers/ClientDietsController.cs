@@ -67,9 +67,18 @@ public class ClientDietsController : ControllerBase
         if (!await UserOwnsClientAsync(clientId, userId.Value))
             return NotFound("Client not found or does not belong to the user.");
 
+        var tenantId = AuthHelpers.GetTenantId(User);
+        var sharedAllowed = await _licenseService.CanUseFeatureAsync(tenantId, "SHARED_DIETS");
+
         var history = await _context.client_diets
             .Include(cd => cd.diet)
             .Where(cd => cd.client_id == clientId)
+            .Where(cd => _context.diets.Any(d =>
+                d.id == cd.diet_id &&
+                d.archived_at == null &&
+                (User.IsInRole("superadmin") ||
+                 d.user_id == userId.Value ||
+                 (sharedAllowed && tenantId.HasValue && d.tenant_id == tenantId.Value && d.is_shared))))
             .OrderByDescending(cd => cd.start_date)
             .Select(cd => new ClientDietListDto
             {
@@ -104,6 +113,9 @@ public class ClientDietsController : ControllerBase
 
         if (activeAssignment == null)
             return NotFound("No active diet assignment found for this patient.");
+
+        if (!await UserCanAccessDietAsync(activeAssignment.diet_id, userId.Value))
+            return NotFound("The active diet is not available to this user.");
 
         var d = await _context.diets
             .Include(d => d.diet_days)
@@ -225,6 +237,9 @@ public class ClientDietsController : ControllerBase
 
         var assignment = await _context.client_diets.FirstOrDefaultAsync(cd => cd.id == id && cd.client_id == clientId);
         if (assignment == null) return NotFound("Diet assignment not found.");
+
+        if (!await UserCanAccessDietAsync(assignment.diet_id, userId.Value))
+            return NotFound("Diet assignment not found.");
 
         // Si se está activando, desactivar otras dietas del mismo cliente para evitar violación de la restricción UNIQUE
         if (dto.IsActive)
@@ -366,6 +381,9 @@ public class ClientDietsController : ControllerBase
         if (assignment == null)
             return NotFound("Diet assignment not found.");
 
+        if (!await UserCanAccessDietAsync(assignment.diet_id, userId.Value))
+            return NotFound("Diet assignment not found.");
+
         if (assignment.diet == null)
             return NotFound("Diet definition not found.");
 
@@ -411,6 +429,9 @@ public class ClientDietsController : ControllerBase
             .FirstOrDefaultAsync(cd => cd.client_id == clientId && cd.is_active == true);
 
         if (assignment == null)
+            return NotFound("No active diet assignment found for this patient.");
+
+        if (!await UserCanAccessDietAsync(assignment.diet_id, userId.Value))
             return NotFound("No active diet assignment found for this patient.");
 
         if (assignment.diet == null)
@@ -470,6 +491,9 @@ public class ClientDietsController : ControllerBase
 
         if (diet == null) return NotFound("Diet not found.");
 
+        if (!await UserCanAccessDietAsync(dietId, userId.Value))
+            return NotFound("Diet not found.");
+
         var warnings = await _validationService.ValidateDietCompatibilityAsync(clientId, diet, _context);
         return Ok(warnings);
     }
@@ -500,6 +524,9 @@ public class ClientDietsController : ControllerBase
             .FirstOrDefaultAsync(d => d.id == activeAssignment.diet_id);
 
         if (diet == null) return NotFound("Diet definition not found.");
+
+        if (!await UserCanAccessDietAsync(activeAssignment.diet_id, userId.Value))
+            return NotFound("Diet definition not found.");
 
         // Consolidar todos los meal_items con alimento concreto
         var grouped = diet.diet_days
