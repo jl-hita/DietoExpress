@@ -63,8 +63,16 @@ public class FoodExchangeGroupController : ControllerBase
         var groupExists = await _context.food_exchange_groups.AnyAsync(g => g.id == id);
         if (!groupExists) return NotFound("Grupo de intercambio no encontrado.");
 
+        var userId = AuthHelpers.GetUserId(User);
+        var tenantId = AuthHelpers.GetTenantId(User);
+
         var list = await _context.foods
             .Where(f => f.exchange_group_id == id && f.grams_per_exchange.HasValue)
+            .Where(f =>
+                f.source != "local" ||
+                User.IsInRole("superadmin") ||
+                (userId.HasValue && f.created_by_user_id == userId.Value) ||
+                (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value))
             .OrderBy(f => f.name)
             .Select(f => new
             {
