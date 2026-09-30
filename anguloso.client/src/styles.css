@@ -100,3 +100,21 @@ button, input, select, textarea { max-width: 100%; }
   .mat-mdc-form-field { max-width: 100%; }
   .mat-mdc-table-container { overflow-x: auto; }
 }
+
+
+/* ─── Cross-device layout hardening ───────────────────────── */
+html, body { width: 100%; min-width: 0; overflow-x: hidden; }
+app-root { display: block; min-width: 0; width: 100%; }
+button, a, input, select, textarea { touch-action: manipulation; }
+@media (max-width: 768px) {
+  .page { min-width: 0; }
+  .page > * { min-width: 0; max-width: 100%; }
+  table { max-width: 100%; }
+  .mat-mdc-dialog-content { max-width: 100%; overflow-x: auto; }
+  .mat-mdc-dialog-actions { flex-wrap: wrap; gap: 8px; }
+  .mat-mdc-dialog-actions .mat-mdc-button-base { margin-left: 0 !important; }
+}
+@media (max-width: 420px) {
+  .mat-mdc-dialog-container .mdc-dialog__surface { border-radius: 12px !important; }
+  .mat-mdc-card { border-radius: 12px !important; }
+}
