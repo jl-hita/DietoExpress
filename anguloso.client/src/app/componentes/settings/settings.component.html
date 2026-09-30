@@ -18,7 +18,7 @@
       </div>
     </div>
 
-    <form [formGroup]="form" (ngSubmit)="save()" class="settings-form">
+    <form [formGroup]="form" class="settings-form">
 
       <!-- ─── TARJETA: Datos personales ───────────────────────── -->
       <mat-card class="settings-card">
@@ -113,13 +113,14 @@
         </mat-card-content>
       </mat-card>
 
-      <!-- ─── Botón guardar ────────────────────────────────────── -->
-      <div class="save-bar">
-        <button mat-raised-button color="primary" type="submit" [disabled]="saving" class="save-btn">
-          <mat-spinner *ngIf="saving" diameter="20" class="btn-spinner"></mat-spinner>
-          <mat-icon *ngIf="!saving">save</mat-icon>
-          {{ saving ? 'Guardando...' : 'Guardar cambios' }}
-        </button>
+      <!-- ─── Estado de guardado automático ─────────────────────── -->
+      <div class="save-bar autosave-bar">
+        <span class="autosave-status" [class.error]="saveState === 'error'">
+          <mat-spinner *ngIf="saveState === 'saving'" diameter="18"></mat-spinner>
+          <mat-icon *ngIf="saveState === 'saved'">check_circle</mat-icon>
+          <mat-icon *ngIf="saveState === 'error'">error</mat-icon>
+          {{ saveState === 'saving' ? 'Guardando...' : saveState === 'error' ? 'Error al guardar' : 'Todos los cambios guardados' }}
+        </span>
       </div>
 
     </form>
