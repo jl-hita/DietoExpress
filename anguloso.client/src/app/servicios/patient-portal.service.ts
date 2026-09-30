@@ -10,7 +10,7 @@ export interface PatientAuthRequest {
 }
 
 export interface PatientAuthResponse {
-  token: string;
+  token?: string;
   clientId: number;
   fullName: string;
   clinicName?: string;
