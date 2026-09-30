@@ -248,3 +248,21 @@
 .btn-spinner {
   display: inline-block;
 }
+
+
+@media (max-width: 600px) {
+  :host { padding: 12px; }
+  .page-header { margin-bottom: 1rem; }
+  .page-title-group { gap: 10px; }
+  .page-icon { font-size: 2rem; width: 2rem; height: 2rem; }
+  .page-title { font-size: 1.4rem; }
+  .settings-card mat-card-header { padding: 1rem; }
+  .card-content { padding: 1rem !important; }
+  .info-row { align-items: flex-start; flex-direction: column; gap: 2px; }
+  .info-label { min-width: 0; }
+  .logo-zone { gap: 1rem; }
+  .logo-actions { width: 100%; }
+  .upload-btn, .remove-btn { width: 100%; justify-content: center; }
+  .save-bar { justify-content: stretch; }
+  .save-btn { width: 100%; justify-content: center; }
+}
