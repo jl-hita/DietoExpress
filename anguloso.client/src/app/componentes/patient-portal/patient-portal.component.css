@@ -749,3 +749,10 @@
   background: linear-gradient(90deg, #6366f1, #8b5cf6);
   border-radius: 0 0 2px 2px;
 }
+
+
+@media (min-width: 769px) {
+  .patient-app { max-width: 900px; }
+  .bottom-nav { max-width: 900px; }
+  .meals-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
