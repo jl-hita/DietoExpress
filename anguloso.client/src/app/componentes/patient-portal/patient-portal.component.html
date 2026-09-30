@@ -28,7 +28,7 @@
 
         <div class="form-group">
           <label>PIN de Acceso</label>
-          <input type="password" [(ngModel)]="passcode" name="passcode" placeholder="PIN de 4-6 dígitos" maxlength="10" required />
+          <input type="password" [(ngModel)]="passcode" name="passcode" placeholder="PIN de 6 dígitos" maxlength="6" pattern="[0-9]{6}" inputmode="numeric" required />
         </div>
 
         <button type="submit" class="btn-portal-primary" [disabled]="submittingLogin">
