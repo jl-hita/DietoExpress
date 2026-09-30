@@ -58,7 +58,7 @@ public sealed class BillingController : ControllerBase
         return Ok(plans);
     }
 
-    [Authorize]
+    [Authorize(Policy = "Professional")]
     [HttpPost("checkout")]
     public async Task<IActionResult> CreateCheckout([FromBody] CheckoutRequest request)
     {
