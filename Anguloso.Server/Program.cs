@@ -146,9 +146,48 @@ public class Program
             };
             options.Events = new JwtBearerEvents
             {
+                OnMessageReceived = context =>
+                {
+                    // El portal paciente usa una cookie HttpOnly para que el JWT
+                    // nunca quede accesible a JavaScript/localStorage.
+                    if (string.IsNullOrWhiteSpace(context.Token) &&
+                        context.Request.Cookies.TryGetValue("dietoexpress_patient_session", out var patientCookie))
+                    {
+                        context.Token = patientCookie;
+                    }
+                    return Task.CompletedTask;
+                },
                 OnTokenValidated = async context =>
                 {
-                    if (context.Principal?.IsInRole("patient") == true) return;
+                    if (context.Principal?.IsInRole("patient") == true)
+                    {
+                        var clientIdClaim = context.Principal.FindFirstValue("clientId");
+                        if (!int.TryParse(clientIdClaim, out var clientId))
+                        {
+                            context.Fail("Sesión de paciente no válida.");
+                            return;
+                        }
+
+                        var db = context.HttpContext.RequestServices.GetRequiredService<angulosodbContext>();
+                        var client = await db.clients.AsNoTracking()
+                            .Where(c => c.id == clientId && c.archived_at == null)
+                            .Select(c => new { c.id, c.tenant_id, UserTenantId = c.user != null ? c.user.tenant_id : null })
+                            .FirstOrDefaultAsync();
+
+                        if (client == null)
+                        {
+                            context.Fail("Expediente no disponible.");
+                            return;
+                        }
+
+                        var tenantId = client.tenant_id ?? client.UserTenantId;
+                        var licenseService = context.HttpContext.RequestServices.GetRequiredService<ILicenseService>();
+                        if (!await licenseService.CanUseFeatureAsync(tenantId, "CLIENT_PORTAL"))
+                        {
+                            context.Fail("Portal de pacientes no disponible.");
+                        }
+                        return;
+                    }
 
                     var userIdClaim = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
                     if (!int.TryParse(userIdClaim, out var userId))
