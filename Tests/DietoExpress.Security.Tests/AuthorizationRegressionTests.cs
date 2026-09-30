@@ -64,6 +64,19 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void FoodExchangeGroups_DoNotExposeOtherTenantsLocalFoods()
+    {
+        var source = ReadServerController("FoodExchangeGroupController.cs");
+
+        Assert.Contains("f.exchange_group_id == id", source);
+        Assert.Contains("f.source != \"local\"", source);
+        Assert.Contains("f.created_by_user_id == userId.Value", source);
+        Assert.Contains("f.tenant_id == tenantId.Value", source);
+        Assert.Contains("User.IsInRole(\"clinic_admin\")", source);
+        Assert.Contains("User.IsInRole(\"superadmin\")", source);
+    }
+
+    [Fact]
     public void DietAndRecipeControllers_ValidateLocalFoodOwnership()
     {
         foreach (var file in new[] { "DietController.cs", "RecipesController.cs" })
