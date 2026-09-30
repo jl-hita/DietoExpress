@@ -79,7 +79,8 @@
           "defaultConfiguration": "development",
           "options": {
             "proxyConfig": "src/proxy.conf.js",
-            "port": 4200
+            "port": 4200,
+            "host": "0.0.0.0"
           }
         },
         "extract-i18n": {
