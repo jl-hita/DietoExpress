@@ -29,6 +29,15 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void AngularNewTabLinks_UseNoopenerProtection()
+    {
+        var clientDetail = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "client-detail", "client-detail.component.html"));
+
+        Assert.Contains("target="_blank" rel="noopener noreferrer"", clientDetail);
+        Assert.DoesNotContain("target="_blank">", clientDetail);
+    }
+
+    [Fact]
     public void PatientPortal_UsesCookieAndDoesNotPersistJwtInLocalStorage()
     {
         var interceptor = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "auth.interceptor.ts"));
