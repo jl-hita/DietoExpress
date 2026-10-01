@@ -84,10 +84,10 @@ public class AuthController : ControllerBase
                 u.email.ToLower() == identifier.ToLower());
 
             if (user == null)
-                return Unauthorized("Usuario no encontrado.");
+                return Unauthorized("Credenciales inválidas.");
 
             if (!BCrypt.Net.BCrypt.Verify(login.Password, user.password_hash))
-                return Unauthorized("Contraseña incorrecta.");
+                return Unauthorized("Credenciales inválidas.");
 
             if (user.archived_at.HasValue)
                 return Unauthorized("Esta cuenta está archivada y no puede iniciar sesión.");
@@ -313,7 +313,8 @@ public class AuthController : ControllerBase
     [HttpGet("confirmarEmail")]
     public async Task<IActionResult> ConfirmarEmail([FromQuery]string token)
     {
-        var tokenHash = HashSecurityToken(token);\n        var user = await _context.users.FirstOrDefaultAsync(u => u.email_confirmation_token == tokenHash);
+        var tokenHash = HashSecurityToken(token);
+        var user = await _context.users.FirstOrDefaultAsync(u => u.email_confirmation_token == tokenHash);
 
         if (user == null)
             return BadRequest("Token inválido");
@@ -393,9 +394,8 @@ public class AuthController : ControllerBase
         //    return new BoolMensaje { Exito = false, Mensaje = "Usuario incorrecto" };
 
         // Generar token
-        string token = Guid.NewGuid().ToString();
-
-        user.reset_password_token = token;
+        string token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+        user.reset_password_token = HashSecurityToken(token);
         user.reset_token_expiration = DateTime.UtcNow.AddMinutes(30);
         await _context.SaveChangesAsync();
 
@@ -425,8 +425,9 @@ public class AuthController : ControllerBase
         if (req == null || string.IsNullOrWhiteSpace(req.NewPassword) || req.NewPassword.Length < 12)
             return new BoolMensaje { Exito = false, Mensaje = "La nueva contraseña debe tener al menos 12 caracteres." };
 
-        var user = await _context.users
-            .FirstOrDefaultAsync(u => u.reset_password_token == req.Token);
+        var tokenHash = string.IsNullOrWhiteSpace(req.Token) ? null : HashSecurityToken(req.Token);
+        var user = tokenHash == null ? null : await _context.users
+            .FirstOrDefaultAsync(u => u.reset_password_token == tokenHash);
 
         if (user == null)
             return new BoolMensaje { Exito = false, Mensaje = "Token inválido" };
