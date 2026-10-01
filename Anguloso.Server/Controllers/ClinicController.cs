@@ -97,7 +97,7 @@ public class ClinicController : ControllerBase
             }
 
             var randomPassword = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
-            var resetToken = Guid.NewGuid().ToString("N");
+            var resetToken = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
             var now = DateTime.UtcNow;
 
             var user = new users
@@ -110,7 +110,7 @@ public class ClinicController : ControllerBase
                 tenant_id = tenantId,
                 created_at = now,
                 email_confirmed = true,
-                reset_password_token = resetToken,
+                reset_password_token = HashSecurityToken(resetToken),
                 reset_token_expiration = now.AddHours(24),
                 token_version = 1,
                 subscription_plan = "clinic_full",
@@ -148,7 +148,7 @@ public class ClinicController : ControllerBase
         }
     }
 
-    [HttpPut("nutritionists/{id:int}/activate")]
+    private static string HashSecurityToken(string token) =>\n        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(token)));\n\n    [HttpPut("nutritionists/{id:int}/activate")]
     [Authorize(Roles="clinic_admin")]
     public async Task<IActionResult> ActivateNutritionist(int id)
     {
