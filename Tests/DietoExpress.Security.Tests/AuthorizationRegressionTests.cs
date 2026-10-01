@@ -523,6 +523,18 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void LocalFoodScopeChecks_AreCaseInsensitive()
+    {
+        var food = ReadServerController("FoodController.cs");
+        var diet = ReadServerController("DietController.cs");
+        var recipes = ReadServerController("RecipesController.cs");
+
+        Assert.Contains("EF.Functions.ILike(f.source ?? \"\", \"local\")", food);
+        Assert.Contains("EF.Functions.ILike(f.source ?? \"\", \"local\")", diet);
+        Assert.Contains("EF.Functions.ILike(f.source ?? \"\", \"local\")", recipes);
+    }
+
+    [Fact]
     public void FoodMutations_RequireProfessionalPolicy()
     {
         var source = ReadServerController("FoodController.cs");
