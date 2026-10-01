@@ -238,8 +238,16 @@ public class ClientDietsController : ControllerBase
         if (!await UserOwnsClientAsync(clientId, userId.Value))
             return NotFound("Client not found or does not belong to the user.");
 
-        var assignment = await _context.client_diets.FirstOrDefaultAsync(cd => cd.id == id && cd.client_id == clientId &&
-                (User.IsInRole("superadmin") || (clientTenantId.HasValue && cd.diet != null && cd.diet.tenant_id == clientTenantId.Value)));
+        var clientTenantId = await _context.clients
+            .Where(c => c.id == clientId && c.archived_at == null)
+            .Select(c => c.tenant_id)
+            .FirstOrDefaultAsync();
+
+        var assignment = await _context.client_diets
+            .Include(cd => cd.diet)
+            .FirstOrDefaultAsync(cd => cd.id == id && cd.client_id == clientId &&
+                (User.IsInRole("superadmin") ||
+                 (clientTenantId.HasValue && cd.diet != null && cd.diet.tenant_id == clientTenantId.Value)));
         if (assignment == null) return NotFound("Diet assignment not found.");
 
         if (!await UserCanAccessDietAsync(assignment.diet_id, userId.Value))
