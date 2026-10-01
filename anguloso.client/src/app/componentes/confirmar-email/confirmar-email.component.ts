@@ -49,12 +49,10 @@ export class ConfirmarEmailComponent {
     //this.http.put<any>(`${this.baseUrl}/auth/confirmarEmail`, JSON.stringify(token), { headers: { 'Content-Type': 'application/json' } }).subscribe({
     this.http.get<any>(`${this.baseUrl}/auth/confirmarEmail`, { headers: { 'Content-Type': 'application/json' }, params: { token: token } }).subscribe({
       next: (res) => {
-        console.log("ID -> " + res.id);
-        console.log("User -> " + res.username);
-        console.log("Role -> " + res.role);
-        this.authService.login(res.token); // guardamos el token
-        this.snackBar.open("Bienvenido " + res.username, 'Cerrar', { duration: 3000 });
-        this.router.navigate(['/onboarding']);
+        // La confirmación del email no autentica automáticamente.
+        // Esto evita convertir la visita automática de un escáner de correo en una sesión.
+        this.snackBar.open("Email confirmado. Ya puedes iniciar sesión.", 'Cerrar', { duration: 4000 });
+        this.router.navigate(['/login']);
       },
       error: (r) => {
         this.estado = 'error';
