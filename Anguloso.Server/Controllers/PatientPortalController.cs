@@ -248,6 +248,7 @@ public class PatientPortalController : ControllerBase
         if (client == null) return NotFound("Cliente no encontrado.");
         client.access_token = GenerateUrlSafeToken();
         client.access_token_expires_at = DateTime.UtcNow.AddHours(24);
+        client.portal_token_version++;
         await _context.SaveChangesAsync();
         return Ok(new ClientPortalAccessDto { ClientId = client.id, AccessToken = client.access_token, MagicLink = $"/patient?token={client.access_token}", HasPasscode = !string.IsNullOrWhiteSpace(client.passcode_hash), LastPortalAccess = client.last_portal_access });
     }
@@ -262,6 +263,7 @@ public class PatientPortalController : ControllerBase
         var client = await _context.clients.FirstOrDefaultAsync(c => c.id == clientId && AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User)!.Value && c.user_id == userId.Value);
         if (client == null) return NotFound("Cliente no encontrado.");
         client.passcode_hash = BCrypt.Net.BCrypt.HashPassword(dto.Passcode);
+        client.portal_token_version++;
         await _context.SaveChangesAsync();
         return Ok(new { message = "Código de acceso asignado con éxito." });
     }
@@ -295,7 +297,8 @@ public class PatientPortalController : ControllerBase
             new Claim(ClaimTypes.NameIdentifier, client.id.ToString()),
             new Claim("clientId", client.id.ToString()),
             new Claim(ClaimTypes.Name, client.full_name ?? "Paciente"),
-            new Claim(ClaimTypes.Role, "patient")
+            new Claim(ClaimTypes.Role, "patient"),
+            new Claim("portalTokenVersion", client.portal_token_version.ToString())
         };
         var tokenDescriptor = new SecurityTokenDescriptor
         {
