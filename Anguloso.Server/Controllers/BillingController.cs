@@ -308,21 +308,45 @@ public sealed class BillingController : ControllerBase
                                                s.status != "cancelled" &&
                                                s.status != "canceled");
 
+                // Si el tenant solo conserva una suscripción histórica cancelada,
+                // este checkout inicia un nuevo ciclo de suscripción. No reutilizamos
+                // silenciosamente el registro histórico: creamos uno nuevo y mantenemos
+                // el histórico inmutable para trazabilidad.
                 if (subscription == null)
-                    return;
+                {
+                    var tenantExists = await _context.tenants.AnyAsync(t => t.id == tenantId.Value);
+                    if (!tenantExists)
+                        return;
 
-                // No permitimos que un checkout pueda sustituir silenciosamente una
-                // suscripción Stripe distinta ya asociada al tenant.
-                if (!string.IsNullOrWhiteSpace(subscription.provider_subscription_id) &&
-                    !string.Equals(subscription.provider_subscription_id, subscriptionId, StringComparison.Ordinal))
-                    return;
+                    subscription = new subscriptions
+                    {
+                        tenant_id = tenantId.Value,
+                        plan_id = planId.Value,
+                        status = paymentStatus == "paid" ? "active" : "past_due",
+                        started_at = DateTime.UtcNow,
+                        billing_interval = interval,
+                        amount = interval == "yearly" ? plan.yearly_price : plan.monthly_price,
+                        currency = "eur",
+                        payment_provider = "stripe",
+                        provider_customer_id = customerId,
+                        provider_subscription_id = subscriptionId,
+                        cancel_at_period_end = false,
+                        updated_at = DateTime.UtcNow
+                    };
+                    _context.subscriptions.Add(subscription);
+                }
+                else
+                {
+                    // No permitimos que un checkout pueda sustituir silenciosamente una
+                    // suscripción Stripe distinta ya asociada al tenant.
+                    if (!string.IsNullOrWhiteSpace(subscription.provider_subscription_id) &&
+                        !string.Equals(subscription.provider_subscription_id, subscriptionId, StringComparison.Ordinal))
+                        return;
 
-                if (!string.IsNullOrWhiteSpace(subscription.provider_customer_id) &&
-                    !string.Equals(subscription.provider_customer_id, customerId, StringComparison.Ordinal))
-                    return;
-
-                if (subscription == null)
-                    return;
+                    if (!string.IsNullOrWhiteSpace(subscription.provider_customer_id) &&
+                        !string.Equals(subscription.provider_customer_id, customerId, StringComparison.Ordinal))
+                        return;
+                }
 
                 if (stripeEventCreatedAt.HasValue &&
                     subscription.last_stripe_event_created_at.HasValue &&
