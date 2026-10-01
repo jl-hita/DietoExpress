@@ -596,6 +596,18 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void PatientPortalDietReads_StayWithinDietTenant()
+    {
+        var source = ReadServerController("PatientPortalController.cs");
+
+        Assert.DoesNotContain(".ThenInclude(i => i.food)", source);
+        Assert.Contains("accessibleFoods", source);
+        Assert.Contains("shoppingFoods", source);
+        Assert.Contains("f.tenant_id == d.tenant_id", source);
+        Assert.Contains("f.tenant_id == diet.tenant_id", source);
+    }
+
+    [Fact]
     public void EmailConfirmation_DoesNotIssueJwtSession()
     {
         var source = ReadServerController("AuthController.cs");
