@@ -124,7 +124,7 @@ public class ClientsController : ControllerBase
             entityName: "clients",
             entityId: id.ToString(),
             clientId: client.id,
-            details: $"Acceso a la historia clínica y anamnesis del paciente {client.full_name}"
+            details: "Acceso a la historia clínica y anamnesis del paciente"
         );
 
         var dto = new ClientDetailDto
@@ -301,7 +301,7 @@ public class ClientsController : ControllerBase
             entityName: "clients",
             entityId: client.id.ToString(),
             clientId: client.id,
-            details: $"Alta inicial de expediente clínico para el paciente {client.full_name}"
+            details: "Alta inicial de expediente clínico"
         );
 
         return CreatedAtAction(nameof(GetClient), new { id = client.id }, new { id = client.id });
@@ -404,7 +404,7 @@ public class ClientsController : ControllerBase
         client.access_token = null;
         client.access_token_expires_at = null;
         await _context.SaveChangesAsync();
-        await _auditLogService.LogAccessAsync("ARCHIVE_PATIENT", "clients", client.id.ToString(), client.id, $"Archivado del expediente clínico {client.full_name}");
+        await _auditLogService.LogAccessAsync("ARCHIVE_PATIENT", "clients", client.id.ToString(), client.id, "Archivado del expediente clínico");
 
         return NoContent();
     }
