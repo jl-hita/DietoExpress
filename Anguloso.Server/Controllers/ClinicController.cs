@@ -224,18 +224,19 @@ public class ClinicController : ControllerBase
         var user=await _context.users.FirstOrDefaultAsync(u=>u.id==id&&u.tenant_id==tenantId&&u.archived_at==null&&(u.role=="nutritionist"||u.role=="user"));
         if(user==null)return NotFound("Nutricionista no encontrado.");
 
-        var clients=await _context.clients.Where(c=>c.tenant_id==tenantId&&c.archived_at==null&&c.user_id==id).Select(c=>c.id).ToListAsync();
         var assignments=req?.Assignments??new List<ClientReassignment>();
-        var expected=clients.ToHashSet();
-        if(assignments.Count!=expected.Count||!expected.SetEquals(assignments.Select(a=>a.ClientId)) )
-            return Conflict(new {message="Debes decidir qué hacer con todos los pacientes activos del nutricionista.",clientIds=clients});
-
-        
 
         await using var transaction=await _context.Database.BeginTransactionAsync();
         try
         {
             await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", tenantId.Value);
+
+            // Obtener y validar los pacientes después de adquirir el mismo lock que usa
+            // AssignClient/CreateClient, evitando decisiones basadas en un snapshot obsoleto.
+            var clients=await _context.clients.Where(c=>c.tenant_id==tenantId&&c.archived_at==null&&c.user_id==id).Select(c=>c.id).ToListAsync();
+            var expected=clients.ToHashSet();
+            if(assignments.Count!=expected.Count||!expected.SetEquals(assignments.Select(a=>a.ClientId)) )
+                return Conflict(new {message="Debes decidir qué hacer con todos los pacientes activos del nutricionista.",clientIds=clients});
 
             foreach(var item in assignments)
             {
