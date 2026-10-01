@@ -445,8 +445,13 @@ public class ClientsController : ControllerBase
         int age = DateTime.Today.Year - client.birth_date.Value.Year;
         if (client.birth_date.Value > DateOnly.FromDateTime(DateTime.Today.AddYears(-age))) age--;
 
-        double weight = (double)latestBiometrics.weight.Value;
-        double height = (double)latestBiometrics.height.Value;
+        var weightValue = latestBiometrics.weight;
+        var heightValue = latestBiometrics.height;
+        if (!weightValue.HasValue || !heightValue.HasValue || heightValue.Value <= 0)
+            return BadRequest("El registro biométrico no contiene peso y altura válidos.");
+
+        double weight = weightValue.Value;
+        double height = heightValue.Value;
         double? bodyFat = latestBiometrics.body_fat.HasValue ? (double?)latestBiometrics.body_fat.Value : null;
 
         var result = _calculatorService.CalculateEnergyRequirements(weight, height, age, client.gender, bodyFat);
