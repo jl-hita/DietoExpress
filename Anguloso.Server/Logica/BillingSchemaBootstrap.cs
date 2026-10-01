@@ -25,11 +25,6 @@ public static class BillingSchemaBootstrap
             ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
             ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS last_stripe_event_created_at TIMESTAMPTZ;
 
-            -- La aplicación mantiene una única suscripción vigente por tenant.
-            -- El índice protege también frente a carreras entre peticiones/webhooks.
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_tenant_id
-                ON subscriptions(tenant_id);
-
             CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_provider_subscription
                 ON subscriptions(payment_provider, provider_subscription_id)
                 WHERE provider_subscription_id IS NOT NULL;
