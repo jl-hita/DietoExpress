@@ -377,7 +377,10 @@ public sealed class BillingController : ControllerBase
                 subscription.cancelled_at = null;
                 subscription.cancel_at_period_end = false;
                 if (stripeEventCreatedAt.HasValue &&
-                    (!subscription.last_stripe_event_created_at.HasValue || stripeEventCreatedAt.Value > subscription.last_stripe_event_created_at.Value))
+                    (!subscription.last_stripe_event_created_at.HasValue ||
+                     stripeEventCreatedAt.Value > subscription.last_stripe_event_created_at.Value ||
+                     (stripeEventCreatedAt.Value == subscription.last_stripe_event_created_at.Value &&
+                      string.CompareOrdinal(eventId, subscription.last_stripe_event_id) > 0)))
                 {
                     subscription.last_stripe_event_created_at = stripeEventCreatedAt.Value;
                     subscription.last_stripe_event_id = eventId;
