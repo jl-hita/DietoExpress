@@ -498,6 +498,19 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    [Fact]
+    public void LicenseService_ValidatesNutritionistAndClientTenantScope()
+    {
+        var source = ReadServerLogica("LicenseService.cs");
+
+        Assert.Contains("u.id == nutritionistId", source);
+        Assert.Contains("u.tenant_id == tenantId.Value", source);
+        Assert.Contains("u.archived_at == null", source);
+        Assert.Contains("c.id == clientId", source);
+        Assert.Contains("c.tenant_id == tenantId.Value", source);
+        Assert.Contains("c.archived_at == null", source);
+    }
+
     public void ClinicClientAssignment_IsAtomicAndHonorsNutritionistCapacity()
     {
         var clinic = ReadServerController("ClinicController.cs");
