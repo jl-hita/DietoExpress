@@ -17,7 +17,7 @@ public class DietGeneratorService
         _context = context;
     }
 
-    public async Task<DietDetailDto> GenerateDietAsync(GenerateDietRequestDto request, int? tenantId, CancellationToken cancellationToken = default)
+    public async Task<DietDetailDto> GenerateDietAsync(GenerateDietRequestDto request, int? tenantId, int userId, bool canUseTenantLocalFoods, CancellationToken cancellationToken = default)
     {
         // 1. Resolver Kcal y Macros objetivo diarios
         double targetKcal = request.TargetKcal > 0 ? request.TargetKcal : 2000;
@@ -60,7 +60,9 @@ public class DietGeneratorService
         const int maxFoodsToLoad = 5000;
         var allFoods = await _context.foods
             .AsNoTracking()
-            .Where(f => f.kcal.HasValue && f.kcal > 0 && f.name != null && ((f.source == null || f.source.ToLower() != "local") || (tenantId.HasValue && f.tenant_id == tenantId.Value)))
+            .Where(f => f.kcal.HasValue && f.kcal > 0 && f.name != null &&
+                ((f.source == null || f.source.ToLower() != "local") ||
+                 UserCanUseTenantLocalFood(f, tenantId, userId, canUseTenantLocalFoods)))
             .OrderBy(f => f.id)
             .Take(maxFoodsToLoad)
             .ToListAsync(cancellationToken);
@@ -136,6 +138,12 @@ public class DietGeneratorService
             Notes = $"Plan generado automáticamente por el motor heurístico el {DateTime.Now:dd/MM/yyyy}. {request.MealsPerDay} comidas al día.",
             Days = daysList
         };
+    }
+
+    private static bool UserCanUseTenantLocalFood(foods food, int? tenantId, int userId, bool canUseTenantLocalFoods)
+    {
+        if (!tenantId.HasValue || food.tenant_id != tenantId.Value) return false;
+        return canUseTenantLocalFoods || food.created_by_user_id == userId;
     }
 
     #region Filtro de Alimentos Comunes y Culinarios

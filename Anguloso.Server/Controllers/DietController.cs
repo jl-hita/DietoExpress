@@ -472,7 +472,12 @@ public class DietController : ControllerBase
 
         try
         {
-            var diet = await _generatorService.GenerateDietAsync(request, AuthHelpers.GetTenantId(User), HttpContext.RequestAborted);
+            var diet = await _generatorService.GenerateDietAsync(
+                request,
+                AuthHelpers.GetTenantId(User),
+                userId.Value,
+                User.IsInRole("clinic_admin") || User.IsInRole("superadmin"),
+                HttpContext.RequestAborted);
             return Ok(diet);
         }
         catch (Exception ex)
