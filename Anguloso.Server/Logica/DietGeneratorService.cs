@@ -17,7 +17,7 @@ public class DietGeneratorService
         _context = context;
     }
 
-    public async Task<DietDetailDto> GenerateDietAsync(GenerateDietRequestDto request, CancellationToken cancellationToken = default)
+    public async Task<DietDetailDto> GenerateDietAsync(GenerateDietRequestDto request, int? tenantId, CancellationToken cancellationToken = default)
     {
         // 1. Resolver Kcal y Macros objetivo diarios
         double targetKcal = request.TargetKcal > 0 ? request.TargetKcal : 2000;
@@ -33,7 +33,7 @@ public class DietGeneratorService
                 .Include(c => c.digestive_health)
                 .Include(c => c.food_preferences)
                 .AsNoTracking()
-                .FirstOrDefaultAsync(c => c.id == request.ClientId.Value, cancellationToken);
+                .FirstOrDefaultAsync(c => c.id == request.ClientId.Value && c.archived_at == null && (!tenantId.HasValue || c.tenant_id == tenantId.Value), cancellationToken);
 
             if (client != null)
             {
@@ -60,7 +60,7 @@ public class DietGeneratorService
         const int maxFoodsToLoad = 5000;
         var allFoods = await _context.foods
             .AsNoTracking()
-            .Where(f => f.kcal.HasValue && f.kcal > 0 && f.name != null)
+            .Where(f => f.kcal.HasValue && f.kcal > 0 && f.name != null && (f.source != "local" || (tenantId.HasValue && f.tenant_id == tenantId.Value)))
             .OrderBy(f => f.id)
             .Take(maxFoodsToLoad)
             .ToListAsync(cancellationToken);
