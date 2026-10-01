@@ -25,7 +25,6 @@ public class SetupController : ControllerBase
 
     [EnableRateLimiting("auth")]
     [HttpPost("init")]
-    [EnableRateLimiting("auth")]
     public async Task<IActionResult> Init([FromBody] SetupInitRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Username) ||
