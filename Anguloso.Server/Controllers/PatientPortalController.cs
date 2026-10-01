@@ -38,7 +38,7 @@ public class PatientPortalController : ControllerBase
     public async Task<ActionResult<PatientAuthResponseDto>> Authenticate([FromBody] PatientAuthRequestDto request)
     {
         clients? client = null;
-        if (!string.IsNullOrWhiteSpace(request.Token))
+        if (!string.IsNullOrWhiteSpace(request.Token) && request.Token.Length <= 256)
         {
             client = await _context.clients
                 .Include(c => c.user)
@@ -46,7 +46,7 @@ public class PatientPortalController : ControllerBase
                     c.access_token_expires_at.HasValue && c.access_token_expires_at > DateTime.UtcNow);
             if (client == null) return Unauthorized("Enlace de acceso no válido o caducado.");
         }
-        else if (!string.IsNullOrWhiteSpace(request.EmailOrPhone) && !string.IsNullOrWhiteSpace(request.Passcode))
+        else if (!string.IsNullOrWhiteSpace(request.EmailOrPhone) && request.EmailOrPhone.Length <= 320 && !string.IsNullOrWhiteSpace(request.Passcode) && request.Passcode.Length <= 128)
         {
             var clean = request.EmailOrPhone.Trim().ToLower();
             var candidates = await _context.clients
