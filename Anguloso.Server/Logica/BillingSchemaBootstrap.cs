@@ -25,6 +25,14 @@ public static class BillingSchemaBootstrap
             ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
             ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS last_stripe_event_created_at TIMESTAMPTZ;
 
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_tenant_active_unique
+                ON subscriptions(tenant_id)
+                WHERE status NOT IN ('cancelled', 'canceled');
+
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_provider_customer
+                ON subscriptions(provider_customer_id)
+                WHERE provider_customer_id IS NOT NULL;
+
             CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_provider_subscription
                 ON subscriptions(payment_provider, provider_subscription_id)
                 WHERE provider_subscription_id IS NOT NULL;
