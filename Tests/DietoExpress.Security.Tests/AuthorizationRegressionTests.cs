@@ -78,10 +78,13 @@ public class AuthorizationRegressionTests
     {
         var source = ReadServerController("ClinicController.cs");
 
-        var lockPos = source.IndexOf("pg_advisory_xact_lock", StringComparison.Ordinal);
-        var clientQueryPos = source.IndexOf("var clients=await _context.clients", StringComparison.Ordinal);
+        var methodPos = source.IndexOf("DisableNutritionist", StringComparison.Ordinal);
+        Assert.True(methodPos >= 0);
 
-        Assert.True(lockPos >= 0);
+        var lockPos = source.IndexOf("pg_advisory_xact_lock", methodPos, StringComparison.Ordinal);
+        var clientQueryPos = source.IndexOf("var clients=await _context.clients", methodPos, StringComparison.Ordinal);
+
+        Assert.True(lockPos > methodPos);
         Assert.True(clientQueryPos > lockPos);
     }
 
