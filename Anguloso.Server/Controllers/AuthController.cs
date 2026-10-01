@@ -198,6 +198,9 @@ public class AuthController : ControllerBase
             if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
                 return new BoolMensaje { Exito = false, Mensaje = "Usuario, contraseña y email son obligatorios." };
 
+            if (username.Length > 50 || email.Length > 150 || nombreCompleto.Length > 100)
+                return new BoolMensaje { Exito = false, Mensaje = "Los datos de registro superan la longitud permitida." };
+
             if (password.Length < 12 || password.Length > 256)
                 return new BoolMensaje { Exito = false, Mensaje = "La contraseña debe tener entre 12 y 256 caracteres." };
 
