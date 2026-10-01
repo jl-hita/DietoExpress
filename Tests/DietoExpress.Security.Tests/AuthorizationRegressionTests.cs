@@ -554,8 +554,12 @@ public class AuthorizationRegressionTests
         var endpointPos = source.IndexOf(endpointMarker, StringComparison.Ordinal);
         Assert.True(endpointPos >= 0, $"No se encontró el endpoint {endpointMarker}.");
 
-        var preceding = source.Substring(Math.Max(0, endpointPos - 500), Math.Min(500, endpointPos));
-        Assert.Contains($"[EnableRateLimiting(\"{policy}\")]", preceding);
+        // Algunos endpoints declaran [EnableRateLimiting] después del atributo HTTP.
+        // Comprobamos una ventana alrededor del marcador para no depender del orden.
+        var windowStart = Math.Max(0, endpointPos - 300);
+        var windowLength = Math.Min(source.Length - windowStart, 900);
+        var window = source.Substring(windowStart, windowLength);
+        Assert.Contains($"[EnableRateLimiting(\"{policy}\")]", window);
     }
 
     private static string ReadServerController(string fileName) =>
