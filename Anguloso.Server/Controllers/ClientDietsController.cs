@@ -387,7 +387,8 @@ public class ClientDietsController : ControllerBase
                     .ThenInclude(dd => dd.meals)
                         .ThenInclude(m => m.meal_items)
                             .ThenInclude(i => i.exchange_group)
-            .FirstOrDefaultAsync(cd => cd.id == id && cd.client_id == clientId);
+            .FirstOrDefaultAsync(cd => cd.id == id && cd.client_id == clientId &&
+                (User.IsInRole("superadmin") || (clientTenantId.HasValue && cd.diet != null && cd.diet.tenant_id == clientTenantId.Value)));
 
         if (assignment == null)
             return NotFound("Diet assignment not found.");
