@@ -220,6 +220,7 @@ public class ClinicController : ControllerBase
     public async Task<IActionResult> DisableNutritionist(int id,[FromBody] DeactivateNutritionistRequest? req)
     {
         var tenantId=AuthHelpers.GetTenantId(User);
+        if (!tenantId.HasValue) return BadRequest("El usuario no pertenece a una clínica.");
         var user=await _context.users.FirstOrDefaultAsync(u=>u.id==id&&u.tenant_id==tenantId&&u.archived_at==null&&(u.role=="nutritionist"||u.role=="user"));
         if(user==null)return NotFound("Nutricionista no encontrado.");
 
