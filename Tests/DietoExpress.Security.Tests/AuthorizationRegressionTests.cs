@@ -597,6 +597,17 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void OpenFoodFactsSync_SerializesExternalFoodWrites()
+    {
+        var source = ReadServerLogica("OpenFoodFactsService.cs");
+
+        Assert.Contains("BeginTransactionAsync", source);
+        Assert.Contains("pg_advisory_xact_lock(hashtextextended", source);
+        Assert.Contains("external_id == product.Code", source);
+        Assert.Contains("transaction.CommitAsync", source);
+    }
+
+    [Fact]
     public void OpenFoodFactsSync_CannotOverwriteTenantLocalFoods()
     {
         var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "OpenFoodFactsService.cs"));
