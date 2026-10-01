@@ -218,7 +218,7 @@ public class AuthorizationRegressionTests
         Assert.Contains("googleTransaction", auth);
 
         Assert.Contains("IsolationLevel.Serializable", admin);
-        Assert.Contains("var username = request.Username.Trim();", admin);
+        Assert.Contains("var username = request.Username.Trim().ToLowerInvariant();", admin);
 
         var clinicMethod = clinic.IndexOf("CreateNutritionist", StringComparison.Ordinal);
         Assert.True(clinicMethod >= 0);
