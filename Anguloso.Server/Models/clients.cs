@@ -43,7 +43,7 @@ public partial class clients
 
     public virtual ICollection<biometrics> biometrics { get; set; } = new List<biometrics>();
 
-    public virtual client_diets client_diets { get; set; }
+    public virtual ICollection<client_diets> client_diets { get; set; } = new List<client_diets>();
 
     public virtual users? user { get; set; }
 
