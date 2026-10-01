@@ -263,7 +263,8 @@ public class DietController : ControllerBase
                 // Mantener exactamente las mismas reglas que la asignación existente:
                 // una sola dieta activa y conservar el historial.
                 var activeDiets = await _context.client_diets
-                    .Where(cd => cd.client_id == dto.ClientId.Value && cd.is_active == true)
+                    .Where(cd => cd.client_id == dto.ClientId.Value && cd.is_active == true &&
+                                cd.diet != null && tenantId.HasValue && cd.diet.tenant_id == tenantId.Value)
                     .ToListAsync();
 
                 var startDate = DateOnly.FromDateTime(DateTime.Today);
@@ -316,12 +317,14 @@ public class DietController : ControllerBase
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
 
+        var tenantId = AuthHelpers.GetTenantId(User);
+
         // Solo el autor original puede editar su dieta
         var diet = await _context.diets
             .Include(d => d.diet_days)
                 .ThenInclude(dd => dd.meals)
                     .ThenInclude(m => m.meal_items)
-            .FirstOrDefaultAsync(d => d.id == id && d.archived_at == null && d.user_id == userId.Value);
+            .FirstOrDefaultAsync(d => d.id == id && d.archived_at == null && tenantId.HasValue && d.tenant_id == tenantId.Value && d.user_id == userId.Value);
 
         if (diet == null) return NotFound();
 
@@ -331,7 +334,6 @@ public class DietController : ControllerBase
         diet.target_carbs = dto.TargetCarbs;
         diet.target_fat = dto.TargetFat;
         diet.notes = dto.Notes ?? diet.notes ?? "";
-        var tenantId = AuthHelpers.GetTenantId(User);
         if (dto.IsShared && !await _licenseService.CanUseFeatureAsync(tenantId, "SHARED_DIETS"))
             return Forbid();
         if (dto.IsTemplate && !await _licenseService.CanUseFeatureAsync(tenantId, "DIET_TEMPLATES"))
