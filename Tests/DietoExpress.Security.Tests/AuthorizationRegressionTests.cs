@@ -575,7 +575,7 @@ public class AuthorizationRegressionTests
             var source = ReadServerController(file);
 
             Assert.Contains("CanUseFoodAsync", source);
-            Assert.Contains("f.source != \"local\"", source);
+            Assert.Contains("EF.Functions.ILike(f.source ?? \"\" , \"local\")", source);
             Assert.Contains("f.created_by_user_id == userId", source);
             Assert.Contains("f.tenant_id == tenantId.Value", source);
         }
