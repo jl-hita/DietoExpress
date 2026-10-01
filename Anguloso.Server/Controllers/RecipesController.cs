@@ -49,6 +49,7 @@ public class RecipesController : ControllerBase
         var list = await _context.recipes
             .Where(r => tenantId.HasValue && r.tenant_id == tenantId.Value)
             .OrderByDescending(r => r.created_at)
+            .Take(500)
             .Select(r => new RecipeListDto
             {
                 Id = r.id,
