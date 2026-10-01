@@ -426,7 +426,7 @@ public sealed class BillingController : ControllerBase
                     return;
 
                 var subscription = await _context.subscriptions
-                    .FirstOrDefaultAsync(s => s.provider_subscription_id == providerSubscriptionId);
+                    .FirstOrDefaultAsync(s => s.payment_provider == "stripe" && s.provider_subscription_id == providerSubscriptionId);
 
                 if (subscription == null)
                     return;
