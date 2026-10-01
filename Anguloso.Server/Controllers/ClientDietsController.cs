@@ -440,6 +440,7 @@ public class ClientDietsController : ControllerBase
         if (!await UserOwnsClientAsync(clientId, userId.Value))
             return NotFound("Client not found or does not belong to the user.");
 
+        var tenantId = AuthHelpers.GetTenantId(User);
         var assignment = await _context.client_diets
             .Include(cd => cd.client)
             .Include(cd => cd.diet)
