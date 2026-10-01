@@ -71,11 +71,13 @@ public class AuthorizationRegressionTests
     public void PatientSessions_AreRevocableByPortalTokenVersion()
     {
         var portal = ReadServerController("PatientPortalController.cs");
-        var program = ReadServerProgram();
+        var program = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Program.cs"));
 
         Assert.Contains("portal_token_version++", portal);
         Assert.Contains("new Claim(\"portalTokenVersion\",", portal);
         Assert.Contains("c.portal_token_version == portalTokenVersion", program);
+        Assert.Contains("client.portal_token_version++", portal);
+        Assert.Contains("[Authorize(Roles = \"patient\")]", portal);
         Assert.Contains("portal_token_version", ReadServerLogic("DatabaseBootstrap.cs"));
     }
 
