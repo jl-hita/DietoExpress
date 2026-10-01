@@ -17,7 +17,8 @@ public class ConsultationPdfService
 
         var nutritionist = context.users
             .AsNoTracking()
-            .FirstOrDefault(u => u.id == client.user_id);
+            .FirstOrDefault(u => u.id == client.user_id &&
+                                 (!client.tenant_id.HasValue || u.tenant_id == client.tenant_id.Value));
 
         var measurements = context.biometrics
             .AsNoTracking()

@@ -482,7 +482,9 @@ public class ClientsController : ControllerBase
             .FirstOrDefault();
 
         var activeDietAssignment = await _context.client_diets
-            .Where(cd => cd.client_id == id && cd.is_active == true)
+            .Include(cd => cd.diet)
+            .Where(cd => cd.client_id == id && cd.is_active == true &&
+                         cd.diet != null && cd.diet.tenant_id == tenantId.Value)
             .FirstOrDefaultAsync();
 
         int? age = null;
