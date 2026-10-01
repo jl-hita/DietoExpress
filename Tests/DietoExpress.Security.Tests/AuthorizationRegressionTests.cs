@@ -361,8 +361,13 @@ public class AuthorizationRegressionTests
     public void DatabaseBootstrap_EnforcesOneSubscriptionPerTenant()
     {
         var source = ReadServerLogica("DatabaseBootstrap.cs");
-        Assert.Contains("CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_tenant_id_unique", source);
-        Assert.Contains("ON subscriptions(tenant_id)", source);
+        Assert.Contains("CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_tenant_active_unique", source);
+        Assert.Contains("WHERE status NOT IN ('cancelled', 'canceled')", source);
+        Assert.DoesNotContain("idx_subscriptions_tenant_id_unique", source);
+        
+        var billing = ReadServerLogica("BillingSchemaBootstrap.cs");
+        Assert.Contains("DROP INDEX IF EXISTS idx_subscriptions_tenant_id_unique", billing);
+        Assert.Contains("ON subscriptions(payment_provider, provider_customer_id)", billing);
     }
 
     [Fact]
