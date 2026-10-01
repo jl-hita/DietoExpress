@@ -470,17 +470,18 @@ public sealed class BillingController : ControllerBase
             return false;
 
         long timestamp = 0;
-        string? v1 = null;
+        var v1Signatures = new List<string>();
 
         foreach (var item in signatureHeader.Split(',', StringSplitOptions.RemoveEmptyEntries))
         {
             var parts = item.Split('=', 2);
             if (parts.Length != 2) continue;
             if (parts[0] == "t") long.TryParse(parts[1], out timestamp);
-            if (parts[0] == "v1") v1 = parts[1];
+            if (parts[0] == "v1" && !string.IsNullOrWhiteSpace(parts[1]))
+                v1Signatures.Add(parts[1]);
         }
 
-        if (timestamp == 0 || string.IsNullOrWhiteSpace(v1))
+        if (timestamp == 0 || v1Signatures.Count == 0)
             return false;
 
         var age = Math.Abs(DateTimeOffset.UtcNow.ToUnixTimeSeconds() - timestamp);
@@ -493,14 +494,26 @@ public sealed class BillingController : ControllerBase
 
         try
         {
-            return CryptographicOperations.FixedTimeEquals(
-                Convert.FromHexString(expected),
-                Convert.FromHexString(v1));
+            var expectedBytes = Convert.FromHexString(expected);
+            foreach (var signature in v1Signatures)
+            {
+                try
+                {
+                    if (CryptographicOperations.FixedTimeEquals(expectedBytes, Convert.FromHexString(signature)))
+                        return true;
+                }
+                catch (FormatException)
+                {
+                    // Ignore malformed signatures and continue checking the other v1 values.
+                }
+            }
         }
-        catch
+        catch (FormatException)
         {
             return false;
         }
+
+        return false;
     }
 
     private static string? ReadMetadata(JsonElement element, string key)
