@@ -280,7 +280,7 @@ public class PatientPortalController : ControllerBase
     {
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
-        if (string.IsNullOrWhiteSpace(dto.Passcode) || !System.Text.RegularExpressions.Regex.IsMatch(dto.Passcode, @"^\\d{6}$")) return BadRequest("El PIN debe tener exactamente 6 dígitos.");
+        if (string.IsNullOrWhiteSpace(dto.Passcode) || !System.Text.RegularExpressions.Regex.IsMatch(dto.Passcode, @"^\d{6}$")) return BadRequest("El PIN debe tener exactamente 6 dígitos.");
         var client = await _context.clients.FirstOrDefaultAsync(c => c.id == clientId && AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User)!.Value && c.user_id == userId.Value);
         if (client == null) return NotFound("Cliente no encontrado.");
         client.passcode_hash = BCrypt.Net.BCrypt.HashPassword(dto.Passcode);
