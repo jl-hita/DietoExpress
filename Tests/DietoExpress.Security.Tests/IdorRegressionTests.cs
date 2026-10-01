@@ -97,6 +97,18 @@ public class IdorRegressionTests
         Assert.Contains("c.archived_at == null", source);
     }
 
+    [Fact]
+    public void AdministrativeResourceEndpoints_AreSuperadminOnly()
+    {
+        var plans = ReadController("AdminPlansController.cs");
+        var users = ReadController("AdminUsersController.cs");
+
+        Assert.Contains("[Authorize(Roles = \"superadmin\")]", plans);
+        Assert.Contains("[Authorize(Roles = \"superadmin\")]", users);
+        Assert.Contains("[Route(\"api/admin/plans\")]", plans);
+        Assert.Contains("[Route(\"api/admin\")]", users);
+    }
+
     private static string ReadController(string fileName) =>
         File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", fileName));
 }
