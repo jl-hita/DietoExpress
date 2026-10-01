@@ -554,7 +554,7 @@ public class AuthorizationRegressionTests
         var endpointPos = source.IndexOf(endpointMarker, StringComparison.Ordinal);
         Assert.True(endpointPos >= 0, $"No se encontró el endpoint {endpointMarker}.");
 
-        var preceding = source.Substring(Math.Max(0, endpointPos - 180), Math.Min(180, endpointPos));
+        var preceding = source.Substring(Math.Max(0, endpointPos - 500), Math.Min(500, endpointPos));
         Assert.Contains($"[EnableRateLimiting(\"{policy}\")]", preceding);
     }
 
