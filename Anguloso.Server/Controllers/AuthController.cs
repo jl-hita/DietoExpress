@@ -293,7 +293,7 @@ public class AuthController : ControllerBase
             BoolMensaje? bmEmail = await _emailServ.SendEmailAsync(
                 email,
                 "Confirma tu email",
-                $"<h2>Bienvenido, {usuario.Username}</h2><p>Haz clic en el siguiente enlace para confirmar tu email:</p><a href = '{urlConfirm}' > Confirmar email </a>"
+                $"<h2>Bienvenido, {System.Net.WebUtility.HtmlEncode(usuario.Username)}</h2><p>Haz clic en el siguiente enlace para confirmar tu email:</p><a href = '{System.Net.WebUtility.HtmlEncode(urlConfirm)}' > Confirmar email </a>"
             );
 
             if(bmEmail == null || bmEmail.Exito == false)
@@ -422,7 +422,7 @@ public class AuthController : ControllerBase
         var bm = await _emailServ.SendEmailAsync(
             user.email,
             "Recuperar contraseña",
-            $@"<p>Hola {user.username},</p>
+            $@"<p>Hola {System.Net.WebUtility.HtmlEncode(user.username)},</p>
            <p>Puedes restablecer tu contraseña desde el siguiente enlace:</p>
            <a href='{url}'>Restablecer contraseña</a>
            <p>Este enlace caduca en 30 minutos.</p>"
