@@ -195,6 +195,7 @@ public sealed class BillingController : ControllerBase
     }
 
     [AllowAnonymous]
+    [RequestSizeLimit(256 * 1024)]
     [HttpPost("stripe/webhook")]
     public async Task<IActionResult> StripeWebhook()
     {
