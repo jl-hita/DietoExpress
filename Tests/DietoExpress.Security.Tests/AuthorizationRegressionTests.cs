@@ -238,6 +238,27 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void PublicRegistration_SerializesDuplicateChecks()
+    {
+        var source = ReadServerController("AuthController.cs");
+
+        Assert.Contains("IsolationLevel.Serializable", source);
+        Assert.Contains("u.username.ToLower() == username.ToLower()", source);
+        Assert.Contains("u.email.ToLower() == email.ToLower()", source);
+        Assert.Contains("BeginTransactionAsync", source);
+    }
+
+    [Fact]
+    public void AdminLicenseUpdate_SerializesSubscriptionCreation()
+    {
+        var source = ReadServerController("AdminUsersController.cs");
+
+        Assert.Contains("IsolationLevel.Serializable", source);
+        Assert.Contains("var subscription = await _context.subscriptions.FirstOrDefaultAsync(s => s.tenant_id == user.tenant_id)", source);
+        Assert.Contains("_context.subscriptions.Add(subscription)", source);
+    }
+
+    [Fact]
     public void StripeWebhook_IsIdempotentAndAtomic()
     {
         var source = ReadServerController("BillingController.cs");
