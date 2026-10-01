@@ -24,7 +24,20 @@ public class BioimpedanceParserService
             return result;
         }
 
-        var lines = text.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries)
+        // El endpoint ya limita el fichero a 5 MB, pero el parser también debe
+        // limitar la cantidad de registros y el tamaño de cada línea para evitar
+        // amplificación de memoria/CPU con entradas deliberadamente patológicas.
+        const int maxLines = 20000;
+        const int maxLineLength = 10000;
+
+        var rawLines = text.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+        if (rawLines.Length > maxLines)
+            throw new InvalidDataException("El archivo contiene demasiadas líneas.");
+
+        if (rawLines.Any(l => l.Length > maxLineLength))
+            throw new InvalidDataException("El archivo contiene una línea demasiado larga.");
+
+        var lines = rawLines
                         .Select(l => l.Trim())
                         .Where(l => !string.IsNullOrWhiteSpace(l))
                         .ToList();
