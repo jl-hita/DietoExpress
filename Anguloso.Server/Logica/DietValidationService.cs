@@ -114,7 +114,7 @@ public class DietValidationService
         public string Message { get; set; } = string.Empty;
     }
 
-    public async Task<List<DietValidationResultDto>> ValidateDietCompatibilityAsync(int clientId, diets diet, angulosodbContext context, int? tenantId)
+    public async Task<List<DietValidationResultDto>> ValidateDietCompatibilityAsync(int clientId, diets diet, angulosodbContext context, int? tenantId, int userId, bool canUseTenantLocalFoods)
     {
         var client = await context.clients
             .Include(c => c.digestive_health)
@@ -151,7 +151,9 @@ public class DietValidationService
 
         var foodsMap = await context.foods
             .AsNoTracking()
-            .Where(f => foodIds.Contains(f.id) && ((f.source == null || f.source.ToLower() != "local") || (tenantId.HasValue && f.tenant_id == tenantId.Value)))
+            .Where(f => foodIds.Contains(f.id) && ((f.source == null || f.source.ToLower() != "local") ||
+             (tenantId.HasValue && f.tenant_id == tenantId.Value &&
+              (canUseTenantLocalFoods || f.created_by_user_id == userId))))
             .ToDictionaryAsync(f => f.id);
 
         var warnings = new List<DietValidationResultDto>();
@@ -178,7 +180,7 @@ public class DietValidationService
         return warnings;
     }
 
-    public async Task<List<DietValidationResultDto>> ValidateDietDraftCompatibilityAsync(int clientId, DietDetailDto dietDto, angulosodbContext context, int? tenantId)
+    public async Task<List<DietValidationResultDto>> ValidateDietDraftCompatibilityAsync(int clientId, DietDetailDto dietDto, angulosodbContext context, int? tenantId, int userId, bool canUseTenantLocalFoods)
     {
         var client = await context.clients
             .Include(c => c.digestive_health)
@@ -215,7 +217,9 @@ public class DietValidationService
 
         var foodsMap = await context.foods
             .AsNoTracking()
-            .Where(f => foodIds.Contains(f.id) && ((f.source == null || f.source.ToLower() != "local") || (tenantId.HasValue && f.tenant_id == tenantId.Value)))
+            .Where(f => foodIds.Contains(f.id) && ((f.source == null || f.source.ToLower() != "local") ||
+             (tenantId.HasValue && f.tenant_id == tenantId.Value &&
+              (canUseTenantLocalFoods || f.created_by_user_id == userId))))
             .ToDictionaryAsync(f => f.id);
 
         var warnings = new List<DietValidationResultDto>();
