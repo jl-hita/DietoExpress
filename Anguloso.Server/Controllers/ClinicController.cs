@@ -31,7 +31,7 @@ public class ClinicController : ControllerBase
         var tenantId=AuthHelpers.GetTenantId(User); if(!tenantId.HasValue) return BadRequest("El usuario no pertenece a una clínica.");
         if(!await _license.CanUseFeatureAsync(tenantId,"CLINIC_DASHBOARD")) return Forbid();
         var license=await _license.GetLicenseAsync(tenantId); var users=await _context.users.AsNoTracking().Where(u=>u.tenant_id==tenantId && u.archived_at==null && (u.role=="nutritionist"||u.role=="user")).OrderBy(u=>u.id).Take(500).Select(u=>new { u.id,u.full_name,u.username,u.email,u.role,u.last_login,clientCount=_context.clients.Count(c=>c.tenant_id==tenantId&&c.archived_at==null&&c.user_id==u.id)}).ToListAsync();
-        var clients=await _context.clients.AsNoTracking().Where(c=>c.tenant_id==tenantId&&c.archived_at==null).OrderBy(c=>c.full_name).Select(c=>new {c.id,c.full_name,c.email,c.phone,nutritionistId=c.user_id,nutritionistName=_context.users.Where(u=>u.id==c.user_id && u.tenant_id==tenantId).Select(u=>u.full_name).FirstOrDefault()}).ToListAsync();
+        var clients=await _context.clients.AsNoTracking().Where(c=>c.tenant_id==tenantId&&c.archived_at==null).OrderBy(c=>c.full_name).Take(1000).Select(c=>new {c.id,c.full_name,c.email,c.phone,nutritionistId=c.user_id,nutritionistName=_context.users.Where(u=>u.id==c.user_id && u.tenant_id==tenantId).Select(u=>u.full_name).FirstOrDefault()}).ToListAsync();
         var unassignedClientCount=clients.Count(c=>c.nutritionistId==null);
         return Ok(new { license, nutritionists=users, clients, unassignedClientCount });
     }
