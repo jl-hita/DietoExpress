@@ -600,8 +600,11 @@ public static class DatabaseBootstrap
             -- El backfill anterior ya crea como máximo una por tenant; si una base
             -- histórica contiene duplicados, el despliegue debe detenerse en lugar
             -- de dejar una condición de carrera permanente.
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_tenant_id_unique
-                ON subscriptions(tenant_id);
+            -- A tenant may keep cancelled subscription history, but only one
+            -- non-cancelled subscription can exist at a time.
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_tenant_active_unique
+                ON subscriptions(tenant_id)
+                WHERE status NOT IN ('cancelled', 'canceled');
 
             -- El usuario propietario de una clínica existente pasa a ser clinic_admin.
             UPDATE users u SET role='clinic_admin'
