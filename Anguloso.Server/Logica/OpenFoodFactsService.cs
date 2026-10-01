@@ -89,7 +89,7 @@ public class OpenFoodFactsService
             if (user == null)
             {
                 // Las búsquedas públicas no deben exponer alimentos personalizados.
-                localQuery = localQuery.Where(f => f.tenant_id == null && f.source != "local");
+                localQuery = localQuery.Where(f => f.tenant_id == null && !EF.Functions.ILike(f.source ?? "", "local"));
             }
             else if (user.role == "superadmin")
             {
@@ -99,11 +99,11 @@ public class OpenFoodFactsService
             {
                 localQuery = localQuery.Where(f =>
                     f.tenant_id == user.tenant_id.Value ||
-                    (f.tenant_id == null && f.source != "local"));
+                    (f.tenant_id == null && !EF.Functions.ILike(f.source ?? "", "local")));
             }
             else
             {
-                localQuery = localQuery.Where(f => f.tenant_id == null && f.source != "local");
+                localQuery = localQuery.Where(f => f.tenant_id == null && !EF.Functions.ILike(f.source ?? "", "local"));
             }
 
             localQuery = localQuery
@@ -161,7 +161,7 @@ public class OpenFoodFactsService
                 // la lista obtenida antes del acceso externo/USDA.
                 var trackedFood = await updateContext.foods.FirstOrDefaultAsync(f =>
                     f.id == food.id &&
-                    f.source != "local" &&
+                    !EF.Functions.ILike(f.source ?? "", "local") &&
                     f.tenant_id == null);
                 if (trackedFood == null) continue;
                 if (fallbackMicros != null) MergeMissingMicronutrientsIntoFood(trackedFood, fallbackMicros);
@@ -595,7 +595,7 @@ public class OpenFoodFactsService
             // modificados por la sincronización global de OpenFoodFacts/USDA.
             // external_id es único globalmente, por lo que si un alimento local
             // ya usa ese código debemos dejarlo intacto en lugar de sobrescribirlo.
-            if (existing != null && (existing.source == "local" || existing.tenant_id.HasValue))
+            if (existing != null && (EF.Functions.ILike(existing.source ?? "", "local") || existing.tenant_id.HasValue))
             {
                 _logServ.LogInfo($"OpenFoodFacts: se omite la sincronización del alimento local {existing.id} para external_id '{product.Code}'.");
                 product.Id = existing.id;
