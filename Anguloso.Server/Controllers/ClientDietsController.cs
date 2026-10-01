@@ -351,7 +351,7 @@ public class ClientDietsController : ControllerBase
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error generando informe de consulta para cliente {clientId} ({consultationDate}): {ex}");
+            Console.Error.WriteLine($"Error generando informe de consulta para cliente {clientId} ({consultationDate}): {ex.GetType().Name}");
             return Problem(
                 title: "Error al generar el informe",
                 detail: "No se ha podido generar el informe de consulta.",
@@ -404,7 +404,7 @@ public class ClientDietsController : ControllerBase
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error generando PDF de dieta {id} para cliente {clientId}: {ex}");
+            Console.Error.WriteLine($"Error generando PDF de dieta {id} para cliente {clientId}: {ex.GetType().Name}");
             return Problem(title: "Error al generar el PDF", detail: "No se ha podido generar el PDF de la dieta.", statusCode: StatusCodes.Status500InternalServerError);
         }
     }
