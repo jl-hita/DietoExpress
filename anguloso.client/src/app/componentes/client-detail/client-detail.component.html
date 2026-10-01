@@ -41,7 +41,7 @@
         <mat-icon>description</mat-icon> Informe de consulta
       </button>
       <ng-container *ngIf="portalAccess as access">
-        <a *ngIf="access.magicLink" mat-stroked-button color="accent" [href]="access.magicLink" target="_blank" style="display: flex; align-items: center; gap: 6px;">
+        <a *ngIf="access.magicLink" mat-stroked-button color="accent" [href]="access.magicLink" target="_blank" rel="noopener noreferrer" style="display: flex; align-items: center; gap: 6px;">
           <mat-icon>open_in_new</mat-icon> Abrir Portal del Paciente
         </a>
       </ng-container>
@@ -971,7 +971,7 @@
               <button mat-flat-button color="primary" type="button" (click)="copyPortalLink()">
                 <mat-icon>content_copy</mat-icon> Copiar Enlace
               </button>
-              <a mat-stroked-button color="primary" [href]="access.magicLink" target="_blank">
+              <a mat-stroked-button color="primary" [href]="access.magicLink" target="_blank" rel="noopener noreferrer">
                 <mat-icon>open_in_new</mat-icon> Probar Acceso
               </a>
               <button mat-button color="warn" type="button" (click)="regeneratePortalToken()" [disabled]="regeneratingToken">
