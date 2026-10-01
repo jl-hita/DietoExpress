@@ -215,7 +215,7 @@ public class AuthorizationRegressionTests
         var source = ReadServerController("AdminUsersController.cs");
 
         Assert.Contains("value.Length > 10000", source);
-        Assert.Contains("config.nombre_config.Equals("frontendUrl", StringComparison.OrdinalIgnoreCase)", source);
+        Assert.Contains("config.nombre_config.Equals(\"frontendUrl\", StringComparison.OrdinalIgnoreCase)", source);
         Assert.Contains("frontendUri.Scheme != Uri.UriSchemeHttps", source);
         Assert.Contains("frontendUri.UserInfo.Length > 0", source);
         Assert.Contains("frontendUri.Query", source);
