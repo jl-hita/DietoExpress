@@ -75,7 +75,9 @@ public class DietController : ControllerBase
         pageSize = Math.Clamp(pageSize, 5, 100);
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var pattern = $"%{search.Trim()}%";
+            var searchTerm = search.Trim();
+            if (searchTerm.Length > 100) return BadRequest("El texto de búsqueda no puede superar los 100 caracteres.");
+            var pattern = $"%{searchTerm}%";
             query = query.Where(d => EF.Functions.ILike(d.name, pattern));
         }
 
