@@ -425,7 +425,7 @@ public partial class angulosodbContext : DbContext
         modelBuilder.Entity<subscriptions>(entity =>
         {
             entity.HasKey(e => e.id);
-            entity.HasIndex(e => e.tenant_id).IsUnique();
+            entity.HasIndex(e => e.tenant_id);\n            entity.HasIndex(e => new { e.payment_provider, e.provider_subscription_id })\n                .IsUnique()\n                .HasFilter("provider_subscription_id IS NOT NULL");
             entity.HasOne(e => e.tenant).WithMany().HasForeignKey(e => e.tenant_id).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(e => e.plan).WithMany(p => p.subscriptions).HasForeignKey(e => e.plan_id).OnDelete(DeleteBehavior.Restrict);
         });
