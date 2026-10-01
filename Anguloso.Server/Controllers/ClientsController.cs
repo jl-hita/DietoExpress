@@ -43,6 +43,7 @@ public class ClientsController : ControllerBase
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 5, 100);
         var searchTerm = search?.Trim();
+        if (searchTerm?.Length > 100) return BadRequest("El texto de búsqueda no puede superar los 100 caracteres.");
 
         var query = _context.clients
             .Where(c => c.archived_at == null)
