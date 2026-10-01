@@ -31,7 +31,7 @@ public class RecipesController : ControllerBase
     {
         return await _context.foods.AnyAsync(f =>
             f.id == foodId &&
-            (f.source != "local" ||
+            (!EF.Functions.ILike(f.source ?? "", "local") ||
              User.IsInRole("superadmin") ||
              (tenantId.HasValue && f.tenant_id == tenantId.Value && f.created_by_user_id == userId) ||
              (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value)));
