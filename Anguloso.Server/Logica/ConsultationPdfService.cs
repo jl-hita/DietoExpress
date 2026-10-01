@@ -35,6 +35,7 @@ public class ConsultationPdfService
         var dietsCreated = context.diets
             .AsNoTracking()
             .Where(d => d.archived_at == null &&
+                        (!client.tenant_id.HasValue || d.tenant_id == client.tenant_id.Value) &&
                         d.created_at.HasValue &&
                         d.created_at.Value >= DateTime.SpecifyKind(consultationDate.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc) &&
                         d.created_at.Value < DateTime.SpecifyKind(consultationDate.AddDays(1).ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc) &&
@@ -46,6 +47,7 @@ public class ConsultationPdfService
             .AsNoTracking()
             .Include(cd => cd.diet)
             .Where(cd => cd.client_id == client.id &&
+                         (!client.tenant_id.HasValue || (cd.diet != null && cd.diet.tenant_id == client.tenant_id.Value)) &&
                          cd.start_date == consultationDate)
             .OrderBy(cd => cd.assigned_at)
             .ToList();
@@ -54,6 +56,7 @@ public class ConsultationPdfService
             .AsNoTracking()
             .Include(cd => cd.diet)
             .Where(cd => cd.client_id == client.id &&
+                         (!client.tenant_id.HasValue || (cd.diet != null && cd.diet.tenant_id == client.tenant_id.Value)) &&
                          cd.is_active == true &&
                          cd.start_date <= consultationDate &&
                          (!cd.end_date.HasValue || cd.end_date.Value >= consultationDate))

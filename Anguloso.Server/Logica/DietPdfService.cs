@@ -22,7 +22,8 @@ public class DietPdfService
         // Fetch exchange foods if any
         var exchangeFoods = context.foods
             .Include(f => f.exchange_group)
-            .Where(f => f.exchange_group_id != null && f.grams_per_exchange.HasValue)
+            .Where(f => f.exchange_group_id != null && f.grams_per_exchange.HasValue &&
+                        (f.source != "local" || (client.tenant_id.HasValue && f.tenant_id == client.tenant_id.Value)))
             .OrderBy(f => f.exchange_group_id)
             .ThenBy(f => f.name)
             .ToList();
