@@ -29,7 +29,17 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
-    public void Biometrics_Create_RejectsArchivedClients()\n    {\n        var source = ReadServerController("BiometricsController.cs");\n        var start = source.IndexOf("public async Task<ActionResult> Create", StringComparison.Ordinal);\n        var end = source.IndexOf("// PUT: api/clients/{clientId}/biometrics/{id}", start, StringComparison.Ordinal);\n\n        Assert.True(start >= 0 && end > start);\n        Assert.Contains("c.archived_at == null", source[start..end]);\n    }\n\n    [Fact]
+    public void Biometrics_Create_RejectsArchivedClients()
+    {
+        var source = ReadServerController("BiometricsController.cs");
+        var start = source.IndexOf("public async Task<ActionResult> Create", StringComparison.Ordinal);
+        var end = source.IndexOf("// PUT: api/clients/{clientId}/biometrics/{id}", start, StringComparison.Ordinal);
+
+        Assert.True(start >= 0 && end > start);
+        Assert.Contains("c.archived_at == null", source[start..end]);
+    }
+
+    [Fact]
     public void Recipes_RejectOversizedIngredientCollectionsAndInstructions()
     {
         var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "RecipesController.cs"));
