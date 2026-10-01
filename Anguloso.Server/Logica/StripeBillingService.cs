@@ -19,12 +19,14 @@ public sealed class StripeBillingService : IStripeBillingService
     private readonly HttpClient _http;
     private readonly angulosodbContext _context;
     private readonly IConfiguration _configuration;
+    private readonly ILogger<StripeBillingService> _logger;
 
-    public StripeBillingService(HttpClient http, angulosodbContext context, IConfiguration configuration)
+    public StripeBillingService(HttpClient http, angulosodbContext context, IConfiguration configuration, ILogger<StripeBillingService> logger)
     {
         _http = http;
         _context = context;
         _configuration = configuration;
+        _logger = logger;
     }
 
     public async Task<string> CreateCheckoutSessionAsync(
@@ -251,8 +253,11 @@ public sealed class StripeBillingService : IStripeBillingService
 
         if (!response.IsSuccessStatusCode)
         {
-            var body = await response.Content.ReadAsStringAsync();
-            throw new InvalidOperationException($"Stripe rechazó la operación ({(int)response.StatusCode}): {body}");
+            // El cuerpo de Stripe puede contener detalles internos del proveedor.
+            // Nunca lo devolvemos al cliente autenticado: solo registramos el código HTTP.
+            _logger.LogWarning("Stripe rechazó una operación de billing. HTTP {StatusCode}, método {Method}, ruta {Path}",
+                (int)response.StatusCode, method.Method, path);
+            throw new InvalidOperationException("Stripe no ha podido completar la operación solicitada. Inténtalo de nuevo o revisa la configuración de facturación.");
         }
 
         return response;
