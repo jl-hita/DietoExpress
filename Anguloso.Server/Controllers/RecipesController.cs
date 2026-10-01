@@ -162,9 +162,12 @@ public class RecipesController : ControllerBase
         if (string.IsNullOrWhiteSpace(dto.Name)) return BadRequest("El nombre de la receta es requerido.");
         if (dto.Ingredients == null || !dto.Ingredients.Any()) return BadRequest("La receta debe contener al menos un ingrediente.");
 
+        var tenantId = AuthHelpers.GetTenantId(User);
         var recipe = await _context.recipes
             .Include(r => r.recipe_items)
-            .FirstOrDefaultAsync(r => r.id == id && tenantId.HasValue && r.tenant_id == tenantId.Value && r.user_id == userId.Value);
+            .FirstOrDefaultAsync(r => r.id == id &&
+                tenantId.HasValue && r.tenant_id == tenantId.Value &&
+                r.user_id == userId.Value);
 
         if (recipe == null) return NotFound();
 
@@ -201,9 +204,12 @@ public class RecipesController : ControllerBase
         if (userId == null) return Unauthorized();
         if (!await _licenseService.CanUseFeatureAsync(AuthHelpers.GetTenantId(User), "RECIPES")) return Forbid();
 
+        var tenantId = AuthHelpers.GetTenantId(User);
         var recipe = await _context.recipes
             .Include(r => r.recipe_items)
-            .FirstOrDefaultAsync(r => r.id == id && r.user_id == userId.Value);
+            .FirstOrDefaultAsync(r => r.id == id &&
+                tenantId.HasValue && r.tenant_id == tenantId.Value &&
+                r.user_id == userId.Value);
 
         if (recipe == null) return NotFound();
 

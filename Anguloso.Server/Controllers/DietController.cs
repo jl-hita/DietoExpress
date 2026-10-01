@@ -386,6 +386,7 @@ public class DietController : ControllerBase
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
 
+        var tenantId = AuthHelpers.GetTenantId(User);
         var diet = await _context.diets
             .Include(d => d.diet_days)
             .FirstOrDefaultAsync(d => d.id == id && d.archived_at == null && tenantId.HasValue && d.tenant_id == tenantId.Value && d.user_id == userId.Value);
