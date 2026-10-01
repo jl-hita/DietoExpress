@@ -671,7 +671,7 @@ public class OpenFoodFactsService
                 listaProductos.Add(new OffProduct(food));
             }
         }
-        catch (Exception ex)
+        catch
         {
             // No registrar la excepción completa para evitar volcar detalles internos o datos del proveedor.
         }
