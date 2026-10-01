@@ -1,6 +1,7 @@
 using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Anguloso.Server.Controllers;
 
@@ -9,17 +10,12 @@ namespace Anguloso.Server.Controllers;
 public class SetupController : ControllerBase
 {
     private readonly angulosodbContext _context;
-    private readonly IConfiguration _configuration;
 
-    public SetupController(angulosodbContext context, IConfiguration configuration)
+    public SetupController(angulosodbContext context)
     {
         _context = context;
-        _configuration = configuration;
     }
 
-    /// <summary>
-    /// Devuelve si la aplicación ya ha sido configurada (existe al menos un superadmin).
-    /// </summary>
     [HttpGet("status")]
     public async Task<IActionResult> GetStatus()
     {
@@ -27,21 +23,10 @@ public class SetupController : ControllerBase
         return Ok(new { isConfigured });
     }
 
-    /// <summary>
-    /// Crea el primer superadmin.
-    ///
-    /// Por seguridad, la inicialización anónima debe habilitarse explícitamente mediante
-    /// Setup:AllowInitialization y solo durante el despliegue inicial. Una vez creado el
-    /// primer superadmin, este endpoint queda bloqueado independientemente de la configuración.
-    /// </summary>
     [HttpPost("init")]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> Init([FromBody] SetupInitRequest request)
     {
-        // Este endpoint es una ruta de bootstrap, no una ruta pública permanente.
-        // En producción debe permanecer deshabilitada salvo durante una instalación inicial.
-        if (!_configuration.GetValue<bool>("Setup:AllowInitialization"))
-            return NotFound();
-
         if (string.IsNullOrWhiteSpace(request.Username) ||
             string.IsNullOrWhiteSpace(request.Email) ||
             string.IsNullOrWhiteSpace(request.Password) ||
@@ -51,18 +36,13 @@ public class SetupController : ControllerBase
         if (request.Password.Length < 12)
             return BadRequest("La contraseña debe tener al menos 12 caracteres.");
 
-        // Serializar las inicializaciones mediante un bloqueo transaccional de PostgreSQL.
-        // Así dos peticiones simultáneas no pueden pasar ambas la comprobación de
-        // "no existe superadmin" y crear dos cuentas de administración.
         await using var transaction = await _context.Database.BeginTransactionAsync();
         await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(748392615)");
 
-        // Volver a comprobar dentro de la transacción, después de adquirir el bloqueo.
         var alreadyConfigured = await _context.users.AnyAsync(u => u.role == "superadmin");
         if (alreadyConfigured)
             return StatusCode(403, "La aplicación ya ha sido configurada.");
 
-        // Verificar que el username o email no estén en uso
         var exists = await _context.users.AnyAsync(u =>
             u.username == request.Username || u.email == request.Email);
         if (exists)
