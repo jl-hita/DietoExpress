@@ -608,6 +608,18 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void ClientDietReadsAndPdfs_RecheckFoodTenantScope()
+    {
+        var source = ReadServerController("ClientDietsController.cs");
+
+        Assert.Contains("SanitizeDietFoodScopeAsync", source);
+        Assert.Contains("accessibleFoods", source);
+        Assert.Contains("EF.Functions.ILike(f.source ?? \"\", \"local\")", source);
+        Assert.Contains("f.tenant_id == tenantId.Value", source);
+        Assert.Contains("f.created_by_user_id == userId", source);
+    }
+
+    [Fact]
     public void EmailConfirmation_DoesNotIssueJwtSession()
     {
         var source = ReadServerController("AuthController.cs");
