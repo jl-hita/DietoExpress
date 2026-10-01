@@ -529,9 +529,9 @@ public class AuthorizationRegressionTests
         var diet = ReadServerController("DietController.cs");
         var recipes = ReadServerController("RecipesController.cs");
 
-        Assert.Contains("EF.Functions.ILike(f.source ?? \"\", \"local\")", food);
-        Assert.Contains("EF.Functions.ILike(f.source ?? \"\", \"local\")", diet);
-        Assert.Contains("EF.Functions.ILike(f.source ?? \"\", \"local\")", recipes);
+        Assert.Contains("f.source.ToLower()", food);
+        Assert.Contains("f.source.ToLower()", diet);
+        Assert.Contains("f.source.ToLower()", recipes);
     }
 
     [Fact]
@@ -560,7 +560,7 @@ public class AuthorizationRegressionTests
         var source = ReadServerController("FoodExchangeGroupController.cs");
 
         Assert.Contains("f.exchange_group_id == id", source);
-        Assert.Contains("EF.Functions.ILike(f.source ?? \"\" , \"local\")", source);
+        Assert.Contains("f.source.ToLower() != \"local\"", source);
         Assert.Contains("f.created_by_user_id == userId.Value", source);
         Assert.Contains("f.tenant_id == tenantId.Value", source);
         Assert.Contains("User.IsInRole(\"clinic_admin\")", source);
@@ -575,7 +575,7 @@ public class AuthorizationRegressionTests
             var source = ReadServerController(file);
 
             Assert.Contains("CanUseFoodAsync", source);
-            Assert.Contains("EF.Functions.ILike(f.source ?? \"\" , \"local\")", source);
+            Assert.Contains("f.source.ToLower() != \"local\"", source);
             Assert.Contains("f.created_by_user_id == userId", source);
             Assert.Contains("f.tenant_id == tenantId.Value", source);
         }
@@ -614,7 +614,7 @@ public class AuthorizationRegressionTests
 
         Assert.Contains("SanitizeDietFoodScopeAsync", source);
         Assert.Contains("accessibleFoods", source);
-        Assert.Contains("EF.Functions.ILike(f.source ?? \"\", \"local\")", source);
+        Assert.Contains("f.source.ToLower()", source);
         Assert.Contains("f.tenant_id == tenantId.Value", source);
         Assert.Contains("f.created_by_user_id == userId", source);
     }
