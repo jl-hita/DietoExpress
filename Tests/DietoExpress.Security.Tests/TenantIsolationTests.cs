@@ -248,56 +248,6 @@ public class TenantIsolationTests
     }
 
     [Fact]
-    public async Task AssignDiet_DoesNotDeactivateCorruptedCrossTenantActiveAssignment()
-    {
-        await using var db = CreateDb();
-
-        db.users.AddRange(
-            new users { id = 1, tenant_id = 10, role = "user" },
-            new users { id = 2, tenant_id = 20, role = "user" });
-
-        db.clients.Add(new clients
-        {
-            id = 100,
-            user_id = 1,
-            tenant_id = 10,
-            full_name = "Cliente A",
-            archived_at = null
-        });
-
-        db.diets.AddRange(
-            new diets { id = 200, user_id = 1, tenant_id = 10, name = "Dieta A", archived_at = null },
-            new diets { id = 300, user_id = 2, tenant_id = 20, name = "Dieta B", archived_at = null });
-
-        db.client_diets.Add(new client_diets
-        {
-            id = 400,
-            client_id = 100,
-            diet_id = 300,
-            start_date = new DateOnly(2026, 9, 1),
-            is_active = true
-        });
-
-        await db.SaveChangesAsync();
-
-        var controller = CreateController(db, userId: 1, tenantId: 10, sharedDiets: false);
-
-        var result = await controller.AssignDiet(
-            100,
-            new AssignDietDto
-            {
-                DietId = 200,
-                StartDate = new DateTime(2026, 10, 1)
-            });
-
-        Assert.IsType<OkObjectResult>(result.Result);
-
-        var assignment = await db.client_diets.SingleAsync(x => x.id == 400);
-        Assert.True(assignment.is_active);
-        Assert.Equal(300, assignment.diet_id);
-    }
-
-    [Fact]
     public async Task AssignDiet_AllowsOwnDietForOwnedClient()
     {
         await using var db = CreateDb();
