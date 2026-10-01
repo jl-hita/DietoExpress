@@ -777,4 +777,6 @@ public class AuthorizationRegressionTests
 
     private static string ReadServerLogica(string fileName) =>
         File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", fileName));
+
+    private static string ReadServerLogic(string fileName) => ReadServerLogica(fileName);
 }
