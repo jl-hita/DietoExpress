@@ -560,7 +560,7 @@ public class AuthorizationRegressionTests
         var source = ReadServerController("FoodExchangeGroupController.cs");
 
         Assert.Contains("f.exchange_group_id == id", source);
-        Assert.Contains("f.source != \"local\"", source);
+        Assert.Contains("EF.Functions.ILike(f.source ?? \"\" , \"local\")", source);
         Assert.Contains("f.created_by_user_id == userId.Value", source);
         Assert.Contains("f.tenant_id == tenantId.Value", source);
         Assert.Contains("User.IsInRole(\"clinic_admin\")", source);
@@ -579,6 +579,20 @@ public class AuthorizationRegressionTests
             Assert.Contains("f.created_by_user_id == userId", source);
             Assert.Contains("f.tenant_id == tenantId.Value", source);
         }
+    }
+
+    [Fact]
+    public void DietAndRecipeDetailReads_RecheckFoodTenantScope()
+    {
+        var diet = ReadServerController("DietController.cs");
+        var recipes = ReadServerController("RecipesController.cs");
+
+        Assert.DoesNotContain(".ThenInclude(i => i.food)", diet);
+        Assert.DoesNotContain(".ThenInclude(ri => ri.food)", recipes);
+        Assert.Contains("accessibleFoods", diet);
+        Assert.Contains("accessibleFoods", recipes);
+        Assert.Contains("f.tenant_id == tenantId.Value", diet);
+        Assert.Contains("f.tenant_id == tenantId.Value", recipes);
     }
 
     [Fact]
