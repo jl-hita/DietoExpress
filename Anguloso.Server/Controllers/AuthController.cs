@@ -68,7 +68,6 @@ public class AuthController : ControllerBase
     /// <response code="200">Login correcto.</response>
     /// <response code="400">Datos incorrectos.</response>
     /// <response code="401">Usuario o contraseña inválidos.</response>
-[EnableRateLimiting("auth")]
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest login)
     {
@@ -182,7 +181,6 @@ public class AuthController : ControllerBase
     }
 
     //Crea usuario y envía enlace de confirmación via email
-[EnableRateLimiting("auth")]
     [HttpPut("crearUser")]
     //public async Task<IActionResult> CrearUser([FromBody] Usuario usuario)
     public async Task<BoolMensaje> CrearUserAsync([FromBody] Usuario usuario)
@@ -314,7 +312,6 @@ public class AuthController : ControllerBase
     }
 
     //Confirma cuenta accediento a través de enlace en email de confirmación
-[EnableRateLimiting("auth")]
     [HttpGet("confirmarEmail")]
     public async Task<IActionResult> ConfirmarEmail([FromQuery]string token)
     {
@@ -384,7 +381,6 @@ public class AuthController : ControllerBase
         });
     }
 
-[EnableRateLimiting("auth")]
     [HttpPost("enviarReset")]
     public async Task<BoolMensaje> EnviarReset([FromBody] PasswordResetEmailRequest req)
     {
@@ -433,7 +429,6 @@ public class AuthController : ControllerBase
         };
     }
 
-[EnableRateLimiting("auth")]
     [HttpPut("resetPassword")]
     public async Task<BoolMensaje> ResetPassword([FromBody] PasswordResetByTokenRequest req)
     {
@@ -559,7 +554,6 @@ public class AuthController : ControllerBase
         return Ok(new { clientId });
     }
 
-[EnableRateLimiting("auth")]
     [HttpPost("google")]
     public async Task<IActionResult> LoginGoogle([FromBody] GoogleLoginDto dto)
     {
