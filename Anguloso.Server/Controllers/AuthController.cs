@@ -448,7 +448,10 @@ public class AuthController : ControllerBase
         return new BoolMensaje { Exito = true, Mensaje = "Contraseña cambiada correctamente" };
     }
 
-    private static string HashSecurityToken(string token) =>\n        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));\n\n    //Para usar en un componente de settings de usuario
+    private static string HashSecurityToken(string token) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
+
+    //Para usar en un componente de settings de usuario
     [Authorize(Policy = "Professional")]
     [HttpPut("cambiarPassword")]
     public async Task<BoolMensaje> CambiarPassword([FromBody] PasswordResetRequest passwordResetRequest)
