@@ -214,6 +214,16 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void BiometricHistoryEndpoints_AreBounded()
+    {
+        var controller = ReadServerController("BiometricsController.cs");
+        var clients = ReadServerController("ClientsController.cs");
+
+        Assert.Contains(".Take(500)", controller);
+        Assert.Contains(".Include(c => c.biometrics.OrderByDescending(b => b.measurement_date).Take(500))", clients);
+    }
+
+    [Fact]
     public void DietValidation_DoesNotTreatLocalFoodsAsGlobalWithoutTenant()
     {
         var source = ReadServerLogica("DietValidationService.cs");
