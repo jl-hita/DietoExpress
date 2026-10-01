@@ -79,8 +79,9 @@ public class ClientDietsController : ControllerBase
                 d.id == cd.diet_id &&
                 d.archived_at == null &&
                 (User.IsInRole("superadmin") ||
-                 d.user_id == userId.Value ||
-                 (sharedAllowed && tenantId.HasValue && d.tenant_id == tenantId.Value && d.is_shared))))
+                 (tenantId.HasValue && d.tenant_id == tenantId.Value &&
+                  (d.user_id == userId.Value ||
+                   (sharedAllowed && d.is_shared))))))
             .OrderByDescending(cd => cd.start_date)
             .Select(cd => new ClientDietListDto
             {

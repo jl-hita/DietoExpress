@@ -488,7 +488,7 @@ public class DietController : ControllerBase
                 .ThenInclude(dd => dd.meals)
                     .ThenInclude(m => m.meal_items)
                         .ThenInclude(i => i.exchange_group)
-            .FirstOrDefaultAsync(d => d.id == id && (d.user_id == userId.Value || (sharedAllowed && tenantId.HasValue && d.tenant_id == tenantId.Value && d.is_shared)));
+            .FirstOrDefaultAsync(d => d.id == id && ((tenantId.HasValue && d.tenant_id == tenantId.Value && d.user_id == userId.Value) || (sharedAllowed && tenantId.HasValue && d.tenant_id == tenantId.Value && d.is_shared)));
 
         if (diet == null) return NotFound("Dieta no encontrada.");
 
