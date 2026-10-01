@@ -43,6 +43,12 @@ public sealed class StripeBillingService : IStripeBillingService
         var plan = await GetPlanAsync(planCode);
 
         var priceId = GetPriceId(plan, billingInterval);
+
+        // Serializa el check-and-create para evitar dos Checkout simultáneos
+        // del mismo tenant cuando todavía no existe una suscripción de Stripe.
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", tenantId);
+
         var tenant = await _context.tenants.AsNoTracking().FirstOrDefaultAsync(t => t.id == tenantId);
         if (tenant == null)
             throw new InvalidOperationException("La organización no existe.");
@@ -83,6 +89,7 @@ public sealed class StripeBillingService : IStripeBillingService
         if (string.IsNullOrWhiteSpace(url))
             throw new InvalidOperationException("Stripe no devolvió una URL de Checkout válida.");
 
+        await transaction.CommitAsync();
         return url;
     }
 
