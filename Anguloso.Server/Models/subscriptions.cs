@@ -22,6 +22,7 @@ public partial class subscriptions
     public DateTime? current_period_end { get; set; }
     public bool cancel_at_period_end { get; set; }
     public DateTime updated_at { get; set; } = DateTime.UtcNow;
+    public DateTime? last_stripe_event_created_at { get; set; }
     public virtual tenants tenant { get; set; } = null!;
     public virtual subscription_plans plan { get; set; } = null!;
 }
