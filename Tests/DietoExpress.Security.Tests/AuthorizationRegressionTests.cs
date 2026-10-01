@@ -324,6 +324,24 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void Usernames_AreCanonicalizedCaseInsensitively()
+    {
+        var auth = ReadServerController("AuthController.cs");
+        var setup = ReadServerController("SetupController.cs");
+        var admin = ReadServerController("AdminUsersController.cs");
+        var clinic = ReadServerController("ClinicController.cs");
+        var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
+
+        Assert.Contains("var normalizedUsername = identifier.ToLowerInvariant();", auth);
+        Assert.Contains("var username = usuario.Username?.Trim().ToLowerInvariant()", auth);
+        Assert.Contains("request.Username.Trim().ToLowerInvariant()", setup);
+        Assert.Contains("var username = request.Username.Trim().ToLowerInvariant();", admin);
+        Assert.Contains("ToLowerInvariant()", clinic);
+        Assert.Contains("uq_users_username_ci", bootstrap);
+        Assert.Contains("LOWER(username)", bootstrap);
+    }
+
+    [Fact]
     public void PublicRegistration_SerializesDuplicateChecks()
     {
         var source = ReadServerController("AuthController.cs");
