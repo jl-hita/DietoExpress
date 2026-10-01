@@ -213,7 +213,7 @@ public class AuthController : ControllerBase
             }
 
             // Generar token de confirmación
-            string token = Guid.NewGuid().ToString();
+            string token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
             await using var transaction = await _context.Database.BeginTransactionAsync();
 
             var freePlan = await _context.subscription_plans
@@ -233,7 +233,7 @@ public class AuthController : ControllerBase
                 role = "nutritionist",
                 created_at = DateTime.UtcNow,
                 email_confirmed = false,
-                email_confirmation_token = token,
+                email_confirmation_token = HashSecurityToken(token),
                 email_confirmation_expires_at = DateTime.UtcNow.AddHours(24),
                 token_version = 1,
                 subscription_plan = "free",
@@ -313,7 +313,7 @@ public class AuthController : ControllerBase
     [HttpGet("confirmarEmail")]
     public async Task<IActionResult> ConfirmarEmail([FromQuery]string token)
     {
-        var user = await _context.users.FirstOrDefaultAsync(u => u.email_confirmation_token == token);
+        var tokenHash = HashSecurityToken(token);\n        var user = await _context.users.FirstOrDefaultAsync(u => u.email_confirmation_token == tokenHash);
 
         if (user == null)
             return BadRequest("Token inválido");
@@ -447,7 +447,7 @@ public class AuthController : ControllerBase
         return new BoolMensaje { Exito = true, Mensaje = "Contraseña cambiada correctamente" };
     }
 
-    //Para usar en un componente de settings de usuario
+    private static string HashSecurityToken(string token) =>\n        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));\n\n    //Para usar en un componente de settings de usuario
     [Authorize(Policy = "Professional")]
     [HttpPut("cambiarPassword")]
     public async Task<BoolMensaje> CambiarPassword([FromBody] PasswordResetRequest passwordResetRequest)
