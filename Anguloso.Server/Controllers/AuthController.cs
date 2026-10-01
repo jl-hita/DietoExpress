@@ -400,7 +400,7 @@ public class AuthController : ControllerBase
         await _context.SaveChangesAsync();
 
         string dominio = _configServ.GetConfigString("dominio", "www.tusitio.com") ?? "www.tusitio.com";
-        string url = $"https://{dominio}/reset-password?token={token}";
+        string url = $"https://{dominio}/reset-password?token={Uri.EscapeDataString(token)}";
 
         var bm = await _emailServ.SendEmailAsync(
             user.email,
@@ -413,10 +413,18 @@ public class AuthController : ControllerBase
 
         //return new BoolMensaje { Exito = true, Mensaje = "Email enviado con instrucciones" };
 
-        string resultado = bm.Exito
-            ? "Email enviado con instrucciones"
-            : bm.Mensaje;
-        return new BoolMensaje { Exito = bm.Exito, Mensaje = resultado };
+        if (!bm.Exito)
+        {
+            _logServ.LogError($"No se pudo enviar el email de recuperación a la cuenta solicitante: {user.email}");
+        }
+
+        // No revelamos si el correo existe ni si el servidor SMTP respondió correctamente.
+        // La misma respuesta evita la enumeración de cuentas mediante este endpoint.
+        return new BoolMensaje
+        {
+            Exito = true,
+            Mensaje = "Si el email corresponde a una cuenta, recibirás instrucciones."
+        };
     }
 
     [HttpPut("resetPassword")]
