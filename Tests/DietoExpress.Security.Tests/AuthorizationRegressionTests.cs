@@ -620,6 +620,15 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void DietPdfService_UsesCaseInsensitiveLocalFoodScope()
+    {
+        var source = ReadServerLogica("DietPdfService.cs");
+
+        Assert.Contains("EF.Functions.ILike(f.source ?? \\\"\\\", \\\"local\\\")", source);
+        Assert.DoesNotContain("f.source != \\\"local\\\"", source);
+    }
+
+    [Fact]
     public void EmailConfirmation_DoesNotIssueJwtSession()
     {
         var source = ReadServerController("AuthController.cs");
