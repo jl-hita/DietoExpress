@@ -192,7 +192,7 @@ public class AuthController : ControllerBase
                 return new BoolMensaje { Exito = false, Mensaje = "Datos de registro no válidos." };
 
             var username = usuario.Username?.Trim().ToLowerInvariant() ?? string.Empty;
-            var email = usuario.Email?.Trim() ?? string.Empty;
+            var email = usuario.Email?.Trim().ToLowerInvariant() ?? string.Empty;
             var password = usuario.PasswordPlain ?? string.Empty;
             var nombreCompleto = usuario.FullName?.Trim() ?? string.Empty;
 
@@ -365,7 +365,8 @@ public class AuthController : ControllerBase
         if (string.IsNullOrWhiteSpace(req.Email) || req.Email.Length > 320)
             return new BoolMensaje { Exito = false, Mensaje = "Email obligatorio" };
 
-        var user = await _context.users.FirstOrDefaultAsync(u => u.email == req.Email);
+        var normalizedEmail = req.Email.Trim().ToLowerInvariant();
+        var user = await _context.users.FirstOrDefaultAsync(u => u.email.ToLower() == normalizedEmail);
 
         if (user == null)
             return new BoolMensaje { Exito = true, Mensaje = "Si el email corresponde a una cuenta, recibirás instrucciones." };
@@ -414,7 +415,16 @@ public class AuthController : ControllerBase
             return new BoolMensaje { Exito = false, Mensaje = "La nueva contraseña debe tener entre 12 y 256 caracteres." };
 
         var tokenHash = string.IsNullOrWhiteSpace(req.Token) ? null : HashSecurityToken(req.Token);
-        var user = tokenHash == null ? null : await _context.users
+        if (tokenHash == null)
+            return new BoolMensaje { Exito = false, Mensaje = "Token inválido" };
+
+        // Consumimos el token bajo un lock transaccional para impedir que dos
+        // peticiones concurrentes reutilicen el mismo token de recuperación.
+        await using var resetTransaction = await _context.Database.BeginTransactionAsync(
+            System.Data.IsolationLevel.Serializable);
+        await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(748392617)");
+
+        var user = await _context.users
             .FirstOrDefaultAsync(u => u.reset_password_token == tokenHash);
 
         if (user == null)
@@ -432,6 +442,7 @@ public class AuthController : ControllerBase
         user.reset_token_expiration = null;
 
         await _context.SaveChangesAsync();
+        await resetTransaction.CommitAsync();
 
         return new BoolMensaje { Exito = true, Mensaje = "Contraseña cambiada correctamente" };
     }
@@ -560,7 +571,7 @@ public class AuthController : ControllerBase
             return Unauthorized("La cuenta de Google no tiene el email verificado.");
 
         var googleId = payload.Subject;
-        var email = payload.Email;
+        var email = payload.Email.Trim().ToLowerInvariant();
         var name = payload.Name ?? payload.Email;
 
         // Buscar por google_id primero
@@ -569,7 +580,7 @@ public class AuthController : ControllerBase
         if (user == null)
         {
             // Si no existe, buscar por email (posible usuario local ya creado)
-            user = await _context.users.FirstOrDefaultAsync(u => u.email == email);
+            user = await _context.users.FirstOrDefaultAsync(u => u.email.ToLower() == email);
 
             if (user != null)
             {
@@ -591,7 +602,7 @@ public class AuthController : ControllerBase
 
                     // Reconsultar después del lock por si otra petición creó la cuenta.
                     user = await _context.users.FirstOrDefaultAsync(u =>
-                        u.google_id == googleId || u.email == email);
+                        u.google_id == googleId || u.email.ToLower() == email);
 
                     if (user != null)
                     {
