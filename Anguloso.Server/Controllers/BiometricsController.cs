@@ -76,7 +76,8 @@ public class BiometricsController : ControllerBase
             .Include(x => x.client)
             .FirstOrDefaultAsync(x => x.id == id && x.client_id == clientId &&
                 (isSuperAdmin || (AuthHelpers.GetTenantId(User).HasValue && x.client.tenant_id == AuthHelpers.GetTenantId(User)!.Value && x.client.user_id == userId.Value) ||
-                 _context.client_nutritionist_assignments.Any(a => a.client_id == x.client_id && a.nutritionist_id == userId.Value && a.is_active) ||
+                 (AuthHelpers.GetTenantId(User).HasValue && x.client.tenant_id == AuthHelpers.GetTenantId(User)!.Value &&
+                  _context.client_nutritionist_assignments.Any(a => a.client_id == x.client_id && a.nutritionist_id == userId.Value && a.is_active)) ||
                  (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue &&
                   x.client.tenant_id == AuthHelpers.GetTenantId(User)!.Value)));
 
