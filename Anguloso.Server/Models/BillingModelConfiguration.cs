@@ -6,6 +6,14 @@ public partial class angulosodbContext
 {
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<billing_checkout_attempts>(entity =>
+        {
+            entity.Property(e => e.billing_interval).HasMaxLength(20).IsRequired();
+            entity.Property(e => e.idempotency_key).HasMaxLength(255).IsRequired();
+            entity.Property(e => e.stripe_session_id).HasMaxLength(255);
+            entity.Property(e => e.status).HasMaxLength(20).IsRequired();
+        });
+
         modelBuilder.Entity<subscription_plans>(entity =>
         {
             entity.Property(e => e.stripe_product_id).HasMaxLength(255);

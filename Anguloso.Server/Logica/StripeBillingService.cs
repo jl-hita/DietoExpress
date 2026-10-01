@@ -63,6 +63,22 @@ public sealed class StripeBillingService : IStripeBillingService
             throw new InvalidOperationException("La cuenta ya tiene una suscripción de pago activa. Usa la opción de cambiar de plan.");
         }
 
+        var pendingAttempt = await _context.billing_checkout_attempts
+            .FirstOrDefaultAsync(a => a.tenant_id == tenantId && a.status == "pending");
+
+        if (pendingAttempt != null && pendingAttempt.expires_at > DateTime.UtcNow)
+        {
+            await transaction.CommitAsync();
+            return pendingAttempt.checkout_url;
+        }
+
+        if (pendingAttempt != null)
+        {
+            pendingAttempt.status = "expired";
+            pendingAttempt.completed_at = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+        }
+
         var form = new Dictionary<string, string>
         {
             ["mode"] = "subscription",
@@ -83,14 +99,32 @@ public sealed class StripeBillingService : IStripeBillingService
         if (!string.IsNullOrWhiteSpace(existingSubscription?.provider_customer_id))
             form["customer"] = existingSubscription.provider_customer_id;
 
-        var idempotencyKey = CreateCheckoutIdempotencyKey(tenantId, plan.id, billingInterval);
+        // Cada intento persistido obtiene su propia clave. Las peticiones concurrentes
+        // reutilizan el intento pendiente y una compra posterior puede obtener una clave nueva.
+        var attemptId = Guid.NewGuid();
+        var idempotencyKey = CreateCheckoutIdempotencyKey(tenantId, plan.id, billingInterval, attemptId);
         using var response = await SendStripeAsync(HttpMethod.Post, "/v1/checkout/sessions", form, idempotencyKey);
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var url = json.RootElement.GetProperty("url").GetString();
+        var checkoutSessionId = json.RootElement.GetProperty("id").GetString();
 
-        if (string.IsNullOrWhiteSpace(url))
-            throw new InvalidOperationException("Stripe no devolvió una URL de Checkout válida.");
+        if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(checkoutSessionId))
+            throw new InvalidOperationException("Stripe no devolvió una sesión de Checkout válida.");
 
+        _context.billing_checkout_attempts.Add(new billing_checkout_attempts
+        {
+            tenant_id = tenantId,
+            plan_id = plan.id,
+            billing_interval = billingInterval,
+            idempotency_key = idempotencyKey,
+            stripe_session_id = checkoutSessionId,
+            checkout_url = url,
+            status = "pending",
+            created_at = DateTime.UtcNow,
+            expires_at = DateTime.UtcNow.AddHours(24)
+        });
+
+        await _context.SaveChangesAsync();
         await transaction.CommitAsync();
         return url;
     }
@@ -207,9 +241,9 @@ public sealed class StripeBillingService : IStripeBillingService
         await transaction.CommitAsync();
     }
 
-    private static string CreateCheckoutIdempotencyKey(int tenantId, int planId, string billingInterval)
+    private static string CreateCheckoutIdempotencyKey(int tenantId, int planId, string billingInterval, Guid attemptId)
     {
-        var input = "checkout:" + tenantId.ToString(CultureInfo.InvariantCulture) + ":" + planId.ToString(CultureInfo.InvariantCulture) + ":" + billingInterval;
+        var input = "checkout:" + tenantId.ToString(CultureInfo.InvariantCulture) + ":" + planId.ToString(CultureInfo.InvariantCulture) + ":" + billingInterval + ":" + attemptId.ToString("N");
         var hash = SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(input));
         return Convert.ToHexString(hash).ToLowerInvariant();
     }

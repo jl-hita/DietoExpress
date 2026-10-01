@@ -62,6 +62,27 @@ public static class BillingSchemaBootstrap
         ");
 
         context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS billing_checkout_attempts (
+                id BIGSERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                plan_id INTEGER NOT NULL REFERENCES subscription_plans(id) ON DELETE RESTRICT,
+                billing_interval VARCHAR(20) NOT NULL,
+                idempotency_key VARCHAR(255) NOT NULL UNIQUE,
+                stripe_session_id VARCHAR(255),
+                checkout_url TEXT NOT NULL,
+                status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                expires_at TIMESTAMPTZ NOT NULL,
+                completed_at TIMESTAMPTZ
+            );
+
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_billing_checkout_pending_tenant
+                ON billing_checkout_attempts(tenant_id)
+                WHERE status = 'pending';
+
+            CREATE INDEX IF NOT EXISTS idx_billing_checkout_expires_at
+                ON billing_checkout_attempts(expires_at);
+
             CREATE TABLE IF NOT EXISTS subscription_payments (
                 id BIGSERIAL PRIMARY KEY,
                 subscription_id INTEGER NOT NULL REFERENCES subscriptions(id) ON DELETE CASCADE,

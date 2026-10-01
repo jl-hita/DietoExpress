@@ -169,6 +169,21 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void StripeCheckout_UsesPersistedAttemptForIdempotencyLifecycle()
+    {
+        var source = ReadServerLogica("StripeBillingService.cs");
+        var schema = ReadServerLogica("BillingSchemaBootstrap.cs");
+
+        Assert.Contains("billing_checkout_attempts", source);
+        Assert.Contains("status == \"pending\"", source);
+        Assert.Contains("expires_at > DateTime.UtcNow", source);
+        Assert.Contains("CreateCheckoutIdempotencyKey(tenantId, plan.id, billingInterval, attemptId)", source);
+        Assert.Contains("checkout_url = url", source);
+        Assert.Contains("expires_at = DateTime.UtcNow.AddHours(24)", source);
+        Assert.Contains("idx_billing_checkout_pending_tenant", schema);
+    }
+
+    [Fact]
     public void StripeCheckout_SerializesConcurrentTenantSessions()
     {
         var source = ReadServerLogic("StripeBillingService.cs");

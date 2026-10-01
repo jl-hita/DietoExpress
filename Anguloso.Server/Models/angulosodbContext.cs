@@ -61,6 +61,7 @@ public partial class angulosodbContext : DbContext
     public virtual DbSet<subscription_plans> subscription_plans { get; set; }
     public virtual DbSet<subscription_plan_features> subscription_plan_features { get; set; }
     public virtual DbSet<subscriptions> subscriptions { get; set; }
+    public virtual DbSet<billing_checkout_attempts> billing_checkout_attempts { get; set; }
     public virtual DbSet<client_nutritionist_assignments> client_nutritionist_assignments { get; set; }
     public virtual DbSet<subscription_events> subscription_events { get; set; }
     public virtual DbSet<subscription_payments> subscription_payments { get; set; }
@@ -402,6 +403,19 @@ public partial class angulosodbContext : DbContext
             entity.Property(e => e.event_type).HasMaxLength(100).IsRequired();
             entity.Property(e => e.details).HasColumnType("text");
             entity.HasOne<subscriptions>().WithMany().HasForeignKey(e => e.subscription_id).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<billing_checkout_attempts>(entity =>
+        {
+            entity.HasKey(e => e.id);
+            entity.HasIndex(e => e.idempotency_key).IsUnique();
+            entity.HasIndex(e => e.tenant_id).IsUnique().HasFilter("status = 'pending'");
+            entity.Property(e => e.billing_interval).HasMaxLength(20).IsRequired();
+            entity.Property(e => e.idempotency_key).HasMaxLength(255).IsRequired();
+            entity.Property(e => e.stripe_session_id).HasMaxLength(255);
+            entity.Property(e => e.status).HasMaxLength(20).IsRequired();
+            entity.HasOne(e => e.tenant).WithMany().HasForeignKey(e => e.tenant_id).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.plan).WithMany().HasForeignKey(e => e.plan_id).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<subscription_plans>(entity =>
