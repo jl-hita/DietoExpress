@@ -24,6 +24,7 @@ public static class BillingSchemaBootstrap
             ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS cancel_at_period_end BOOLEAN NOT NULL DEFAULT FALSE;
             ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
             ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS last_stripe_event_created_at TIMESTAMPTZ;
+            ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS last_stripe_event_id VARCHAR(255);
 
             -- Migrate the old global tenant uniqueness constraint if it exists.
             -- Cancelled subscriptions are historical records and must not block a new checkout.
