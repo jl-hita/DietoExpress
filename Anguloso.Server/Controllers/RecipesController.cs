@@ -73,11 +73,23 @@ public class RecipesController : ControllerBase
         var tenantId = AuthHelpers.GetTenantId(User);
         var recipe = await _context.recipes
             .Include(r => r.recipe_items)
-                .ThenInclude(ri => ri.food)
             .FirstOrDefaultAsync(r => r.id == id &&
                 tenantId.HasValue && r.tenant_id == tenantId.Value);
 
         if (recipe == null) return NotFound();
+
+        var foodIds = recipe.recipe_items
+            .Select(ri => ri.food_id)
+            .Distinct()
+            .ToList();
+
+        var accessibleFoods = await _context.foods
+            .Where(f => foodIds.Contains(f.id) &&
+                (!EF.Functions.ILike(f.source ?? "", "local") ||
+                 User.IsInRole("superadmin") ||
+                 (tenantId.HasValue && f.tenant_id == tenantId.Value && f.created_by_user_id == userId.Value) ||
+                 (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value)))
+            .ToDictionaryAsync(f => f.id);
 
         var dto = new RecipeDetailDto
         {
@@ -91,13 +103,13 @@ public class RecipesController : ControllerBase
                 return new RecipeIngredientDto
                 {
                     FoodId = ri.food_id,
-                    FoodName = ri.food?.name ?? "Alimento desconocido",
-                    Brands = ri.food?.brands,
+                    FoodName = accessibleFoods.TryGetValue(ri.food_id, out var accessibleFood) ? accessibleFood.name : "Alimento no disponible",
+                    Brands = accessibleFood?.brands,
                     Grams = ri.grams,
-                    Kcal = ri.food?.kcal.HasValue == true ? (double?)Math.Round(ri.food.kcal.Value * factor, 2) : null,
-                    Protein = ri.food?.protein.HasValue == true ? (double?)Math.Round(ri.food.protein.Value * factor, 2) : null,
-                    Carbs = ri.food?.carbs.HasValue == true ? (double?)Math.Round(ri.food.carbs.Value * factor, 2) : null,
-                    Fat = ri.food?.fat.HasValue == true ? (double?)Math.Round(ri.food.fat.Value * factor, 2) : null
+                    Kcal = accessibleFood?.kcal.HasValue == true ? (double?)Math.Round(accessibleFood.kcal.Value * factor, 2) : null,
+                    Protein = accessibleFood?.protein.HasValue == true ? (double?)Math.Round(accessibleFood.protein.Value * factor, 2) : null,
+                    Carbs = accessibleFood?.carbs.HasValue == true ? (double?)Math.Round(accessibleFood.carbs.Value * factor, 2) : null,
+                    Fat = accessibleFood?.fat.HasValue == true ? (double?)Math.Round(accessibleFood.fat.Value * factor, 2) : null
                 };
             }).ToList()
         };
