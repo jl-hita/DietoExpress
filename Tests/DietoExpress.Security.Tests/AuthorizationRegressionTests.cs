@@ -80,6 +80,16 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void StripeWebhook_BoundsRequestPayloadSize()
+    {
+        var source = ReadServerController("BillingController.cs");
+        var webhookPos = source.IndexOf("HttpPost(\"stripe/webhook\")", StringComparison.Ordinal);
+        Assert.True(webhookPos >= 0);
+        var preceding = source.Substring(Math.Max(0, webhookPos - 220), Math.Min(220, webhookPos));
+        Assert.Contains("[RequestSizeLimit(256 * 1024)]", preceding);
+    }
+
+    [Fact]
     public void BillingMutationEndpoints_AreRateLimited()
     {
         var source = ReadServerController("BillingController.cs");
