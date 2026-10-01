@@ -1078,4 +1078,15 @@ public class AuthorizationRegressionTests
 
         Assert.Contains("uq_foods_external_id ON foods(external_id) WHERE external_id IS NOT NULL", source);
     }
+
+    [Fact]
+    public void BiometricImportParser_BoundsInputExpansion()
+    {
+        var source = ReadServerLogica("BioimpedanceParserService.cs");
+
+        Assert.Contains("const int maxLines = 20000", source);
+        Assert.Contains("const int maxLineLength = 10000", source);
+        Assert.Contains("rawLines.Length > maxLines", source);
+        Assert.Contains("rawLines.Any(l => l.Length > maxLineLength)", source);
+    }
 }
