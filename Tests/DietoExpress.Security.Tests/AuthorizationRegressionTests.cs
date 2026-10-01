@@ -53,6 +53,17 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void SetupInitialization_IsExplicitlyDisabledByDefault()
+    {
+        var setup = ReadServerController("SetupController.cs");
+        var example = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "appsettings.Example.json"));
+
+        Assert.Contains("Setup:AllowInitialization", setup);
+        Assert.Contains("\"Setup\"", example);
+        Assert.Contains("\"AllowInitialization\": false", example);
+    }
+
+    [Fact]
     public void ClientDietController_ContainsTenantSafeDietAuthorizationGuards()
     {
         var source = ReadServerController("ClientDietsController.cs");
