@@ -177,8 +177,16 @@ public class Program
                         }
 
                         var patientDb = context.HttpContext.RequestServices.GetRequiredService<angulosodbContext>();
+                        var portalTokenVersionClaim = context.Principal.FindFirstValue("portalTokenVersion");
+                        if (!int.TryParse(portalTokenVersionClaim, out var portalTokenVersion))
+                        {
+                            context.Fail("Sesión de paciente sin versión de seguridad.");
+                            return;
+                        }
+
+                        var patientDb = context.HttpContext.RequestServices.GetRequiredService<angulosodbContext>();
                         var client = await patientDb.clients.AsNoTracking()
-                            .Where(c => c.id == clientId && c.archived_at == null)
+                            .Where(c => c.id == clientId && c.archived_at == null && c.portal_token_version == portalTokenVersion)
                             .Select(c => new { c.id, c.tenant_id, UserTenantId = c.user != null ? c.user.tenant_id : null })
                             .FirstOrDefaultAsync();
 
