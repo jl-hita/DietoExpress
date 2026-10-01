@@ -118,6 +118,17 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void CreatingCustomFood_RequiresTenantForNonSuperAdmin()
+    {
+        var source = ReadServerController("FoodController.cs");
+
+        Assert.Contains("var tenantId = AuthHelpers.GetTenantId(User);", source);
+        Assert.Contains("!User.IsInRole(\"superadmin\") && !tenantId.HasValue", source);
+        Assert.Contains("tenant_id = tenantId", source);
+        Assert.Contains("created_by_user_id = userId", source);
+    }
+
+    [Fact]
     public void FoodMutations_RequireProfessionalPolicy()
     {
         var source = ReadServerController("FoodController.cs");

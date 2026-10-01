@@ -87,6 +87,12 @@ public class FoodController : ControllerBase
         if (dto == null) return BadRequest("Los datos del alimento son requeridos.");
         if (string.IsNullOrWhiteSpace(dto.Name)) return BadRequest("El nombre del alimento es requerido.");
 
+        var tenantId = AuthHelpers.GetTenantId(User);
+        var userId = AuthHelpers.GetUserId(User);
+        if (!User.IsInRole("superadmin") && !tenantId.HasValue)
+            return BadRequest("La cuenta profesional no tiene una clínica asociada.");
+        if (!userId.HasValue) return Unauthorized();
+
         var food = new foods
         {
             name = dto.Name,
@@ -106,8 +112,8 @@ public class FoodController : ControllerBase
             serving_size_text = dto.ServingSizeText,
             default_grams = dto.DefaultGrams ?? 100,
             source = "local",
-            tenant_id = AuthHelpers.GetTenantId(User),
-            created_by_user_id = AuthHelpers.GetUserId(User),
+            tenant_id = tenantId,
+            created_by_user_id = userId,
             exchange_group_id = dto.ExchangeGroupId,
             grams_per_exchange = dto.GramsPerExchange,
             created_at = DateTime.UtcNow,
