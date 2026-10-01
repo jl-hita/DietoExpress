@@ -64,6 +64,16 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void AdminDiagnostics_BoundSearchAndLogReadSize()
+    {
+        var source = ReadServerController("AdminUsersController.cs");
+
+        Assert.Contains("searchTerm.Length > 100", source);
+        Assert.Contains("maxLogBytes = 2 * 1024 * 1024", source);
+        Assert.Contains("StatusCodes.Status413PayloadTooLarge", source);
+    }
+
+    [Fact]
     public void NutritionistDeactivation_ValidatesPatientsAfterTenantLock()
     {
         var source = ReadServerController("ClinicController.cs");
