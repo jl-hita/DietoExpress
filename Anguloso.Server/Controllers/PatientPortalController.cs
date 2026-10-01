@@ -314,8 +314,19 @@ public class PatientPortalController : ControllerBase
 
     [HttpPost("logout")]
     [Authorize(Roles = "patient")]
-    public IActionResult Logout()
+    public async Task<IActionResult> Logout()
     {
+        var clientId = AuthHelpers.GetClientId(User);
+        if (clientId.HasValue)
+        {
+            var client = await _context.clients.FirstOrDefaultAsync(c => c.id == clientId.Value && c.archived_at == null);
+            if (client != null)
+            {
+                client.portal_token_version++;
+                await _context.SaveChangesAsync();
+            }
+        }
+
         Response.Cookies.Delete("dietoexpress_patient_session", new CookieOptions
         {
             HttpOnly = true,
