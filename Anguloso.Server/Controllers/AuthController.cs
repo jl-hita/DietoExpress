@@ -345,8 +345,7 @@ public class AuthController : ControllerBase
         user.email_confirmed = true;
         user.email_confirmation_token = null;
         user.email_confirmation_expires_at = null;
-        //await _context.SaveChangesAsync();
-        //return Ok("Email confirmado correctamente");
+        await _context.SaveChangesAsync();
 
         // La confirmación del email no debe crear una sesión autenticada.
         // Los escáneres de enlaces de correo pueden ejecutar automáticamente GETs;
