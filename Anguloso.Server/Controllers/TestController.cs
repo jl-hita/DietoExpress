@@ -13,7 +13,7 @@ namespace Anguloso.Server.Controllers;
 public class TestController : ControllerBase
 {
     private readonly LogServ _logServ;
-    private readonly angulosodbContext _dbContext;
+    private readonly angulosodbContext _dbContext;\n    private readonly IWebHostEnvironment _environment;
 
     public TestController(LogServ logServ, angulosodbContext dbContext)
     {
