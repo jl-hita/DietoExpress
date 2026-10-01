@@ -624,8 +624,8 @@ public class AuthorizationRegressionTests
     {
         var source = ReadServerLogica("DietGeneratorService.cs");
 
-        Assert.Contains("EF.Functions.ILike(f.source ?? \\\"\\\", \\\"local\\\")", source);
-        Assert.DoesNotContain("f.source != \\\"local\\\"", source);
+        Assert.Contains("EF.Functions.ILike(f.source ?? \"\" , \"local\")", source);
+        Assert.DoesNotContain("f.source != \"local\"", source);
     }
 
     [Fact]
@@ -633,8 +633,8 @@ public class AuthorizationRegressionTests
     {
         var source = ReadServerLogica("DietPdfService.cs");
 
-        Assert.Contains("EF.Functions.ILike(f.source ?? \\\"\\\", \\\"local\\\")", source);
-        Assert.DoesNotContain("f.source != \\\"local\\\"", source);
+        Assert.Contains("EF.Functions.ILike(f.source ?? \"\" , \"local\")", source);
+        Assert.DoesNotContain("f.source != \"local\"", source);
     }
 
     [Fact]
