@@ -64,6 +64,30 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void SuperAdminLicenseUpdate_ValidatesPlanStatusAndUsesTransaction()
+    {
+        var source = ReadServerController("AdminUsersController.cs");
+
+        Assert.Contains("p.code == subscriptionPlan && p.active", source);
+        Assert.Contains("subscriptionStatus != \"active\"", source);
+        Assert.Contains("subscriptionStatus != \"past_due\"", source);
+        Assert.Contains("subscriptionStatus != \"suspended\"", source);
+        Assert.Contains("BeginTransactionAsync()", source);
+        Assert.Contains("transaction.CommitAsync()", source);
+        Assert.Contains("transaction.RollbackAsync()", source);
+    }
+
+    [Fact]
+    public void SuperAdminPasswordReset_IsAuditedAndInvalidatesSessions()
+    {
+        var source = ReadServerController("AdminUsersController.cs");
+
+        Assert.Contains("user.token_version++", source);
+        Assert.Contains("RESET_USER_PASSWORD", source);
+        Assert.DoesNotContain("user.role == \"superadmin\";\n\n        user.password_hash", source);
+    }
+
+    [Fact]
     public void FoodMutations_RequireProfessionalPolicy()
     {
         var source = ReadServerController("FoodController.cs");
