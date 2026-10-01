@@ -94,7 +94,7 @@ public class ClinicController : ControllerBase
             var localPart = email.Split('@')[0].ToLowerInvariant();
             localPart = System.Text.RegularExpressions.Regex.Replace(localPart, @"[^a-z0-9._-]", "");
             if (string.IsNullOrWhiteSpace(localPart)) localPart = "nutricionista";
-            var username = localPart.Length > 40 ? localPart[..40] : localPart;
+            var username = (localPart.Length > 40 ? localPart[..40] : localPart).ToLowerInvariant();
             var baseUsername = username;
             var suffix = 1;
             while (await _context.users.AnyAsync(u => u.username == username))
