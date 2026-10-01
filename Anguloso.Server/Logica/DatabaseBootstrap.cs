@@ -596,6 +596,13 @@ public static class DatabaseBootstrap
             JOIN LATERAL (SELECT * FROM users ux WHERE ux.tenant_id=t.id ORDER BY CASE WHEN ux.role='clinic_admin' THEN 0 ELSE 1 END, ux.id LIMIT 1) u ON TRUE
             WHERE NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.tenant_id=t.id);
 
+            -- Integridad final: una tenant solo puede tener una suscripción.
+            -- El backfill anterior ya crea como máximo una por tenant; si una base
+            -- histórica contiene duplicados, el despliegue debe detenerse en lugar
+            -- de dejar una condición de carrera permanente.
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_tenant_id_unique
+                ON subscriptions(tenant_id);
+
             -- El usuario propietario de una clínica existente pasa a ser clinic_admin.
             UPDATE users u SET role='clinic_admin'
             WHERE u.tenant_id IS NOT NULL
