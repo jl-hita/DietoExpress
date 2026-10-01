@@ -36,6 +36,10 @@ public class SetupController : ControllerBase
         if (request.Username.Trim().Length > 50 || request.Email.Trim().Length > 150 || request.FullName.Trim().Length > 100)
             return BadRequest("Los datos de configuración superan la longitud permitida.");
 
+        var username = request.Username.Trim().ToLowerInvariant();
+        var email = request.Email.Trim();
+        var fullName = request.FullName.Trim();
+
         if (request.Password.Length < 12 || request.Password.Length > 256)
             return BadRequest("La contraseña debe tener entre 12 y 256 caracteres.");
 
@@ -50,15 +54,15 @@ public class SetupController : ControllerBase
             return StatusCode(403, "La aplicación ya ha sido configurada.");
 
         var exists = await _context.users.AnyAsync(u =>
-            u.username == request.Username || u.email == request.Email);
+            u.username == username || u.email == email);
         if (exists)
             return Conflict("El nombre de usuario o email ya está en uso.");
 
         var superAdmin = new users
         {
-            username = request.Username,
-            full_name = request.FullName,
-            email = request.Email,
+            username = username,
+            full_name = fullName,
+            email = email,
             password_hash = BCrypt.Net.BCrypt.HashPassword(request.Password),
             role = "superadmin",
             email_confirmed = true,
