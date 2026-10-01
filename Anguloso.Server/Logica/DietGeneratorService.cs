@@ -60,7 +60,7 @@ public class DietGeneratorService
         const int maxFoodsToLoad = 5000;
         var allFoods = await _context.foods
             .AsNoTracking()
-            .Where(f => f.kcal.HasValue && f.kcal > 0 && f.name != null && (f.source != "local" || (tenantId.HasValue && f.tenant_id == tenantId.Value)))
+            .Where(f => f.kcal.HasValue && f.kcal > 0 && f.name != null && (!EF.Functions.ILike(f.source ?? "", "local") || (tenantId.HasValue && f.tenant_id == tenantId.Value)))
             .OrderBy(f => f.id)
             .Take(maxFoodsToLoad)
             .ToListAsync(cancellationToken);
