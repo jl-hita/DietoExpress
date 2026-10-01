@@ -29,6 +29,15 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void PatientMagicLink_IsRemovedFromBrowserUrlAfterAuthentication()
+    {
+        var portal = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "patient-portal", "patient-portal.component.ts"));
+
+        Assert.Contains("queryParams: {}, replaceUrl: true", portal);
+        Assert.Contains("authenticateWithToken(token)", portal);
+    }
+
+    [Fact]
     public void AngularNewTabLinks_UseNoopenerProtection()
     {
         var clientDetail = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "client-detail", "client-detail.component.html"));
