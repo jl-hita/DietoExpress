@@ -343,9 +343,11 @@ public class ClientDietsController : ControllerBase
 
         var consultationDate = date ?? DateOnly.FromDateTime(DateTime.Today);
 
+        var tenantId = AuthHelpers.GetTenantId(User);
         var client = await _context.clients
             .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.id == clientId && c.archived_at == null);
+            .FirstOrDefaultAsync(c => c.id == clientId && c.archived_at == null &&
+                (User.IsInRole("superadmin") || (tenantId.HasValue && c.tenant_id == tenantId.Value)));
 
         if (client == null)
             return NotFound("Client not found.");
@@ -386,6 +388,7 @@ public class ClientDietsController : ControllerBase
             return NotFound("Client not found or does not belong to the user.");
 
         var clientTenantId = await _context.clients.Where(c => c.id == clientId).Select(c => c.tenant_id).FirstOrDefaultAsync();
+        var tenantId = AuthHelpers.GetTenantId(User);
         var assignment = await _context.client_diets
             .Include(cd => cd.client)
             .Include(cd => cd.diet)
@@ -449,7 +452,8 @@ public class ClientDietsController : ControllerBase
                     .ThenInclude(dd => dd.meals)
                         .ThenInclude(m => m.meal_items)
                             .ThenInclude(i => i.exchange_group)
-            .FirstOrDefaultAsync(cd => cd.client_id == clientId && cd.is_active == true);
+            .FirstOrDefaultAsync(cd => cd.client_id == clientId && cd.is_active == true &&
+                (User.IsInRole("superadmin") || (tenantId.HasValue && cd.diet != null && cd.diet.tenant_id == tenantId.Value)));
 
         if (assignment == null)
             return NotFound("No active diet assignment found for this patient.");
@@ -506,11 +510,13 @@ public class ClientDietsController : ControllerBase
         if (!await UserOwnsClientAsync(clientId, userId.Value))
             return NotFound("Client not found or does not belong to the user.");
 
+        var tenantId = AuthHelpers.GetTenantId(User);
         var diet = await _context.diets
             .Include(d => d.diet_days)
                 .ThenInclude(dd => dd.meals)
                     .ThenInclude(m => m.meal_items)
-            .FirstOrDefaultAsync(d => d.id == dietId);
+            .FirstOrDefaultAsync(d => d.id == dietId &&
+                (User.IsInRole("superadmin") || (tenantId.HasValue && d.tenant_id == tenantId.Value)));
 
         if (diet == null) return NotFound("Diet not found.");
 
