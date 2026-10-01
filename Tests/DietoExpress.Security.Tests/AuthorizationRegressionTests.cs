@@ -93,7 +93,7 @@ public class AuthorizationRegressionTests
     {
         var source = ReadServerController("ClientDietsController.cs");
 
-        foreach (var method in new[] { "AssignDiet", "UpdateAssignment" })
+        foreach (var method in new[] { "AssignDiet", "UpdateAssignment", "DeactivateAssignment", "DeleteAssignment" })
         {
             var methodPos = source.IndexOf(method, StringComparison.Ordinal);
             Assert.True(methodPos >= 0);
