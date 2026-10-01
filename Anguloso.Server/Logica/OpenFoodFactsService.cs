@@ -673,7 +673,7 @@ public class OpenFoodFactsService
         }
         catch (Exception ex)
         {
-            Console.WriteLine(ex.ToString());
+            // No registrar la excepción completa para evitar volcar detalles internos o datos del proveedor.
         }
 
         return listaProductos;
