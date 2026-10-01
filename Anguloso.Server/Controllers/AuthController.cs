@@ -348,51 +348,14 @@ public class AuthController : ControllerBase
         //await _context.SaveChangesAsync();
         //return Ok("Email confirmado correctamente");
 
-        //A partir de aquí logea al usuario y devuelve el token
-        // Actualizar fecha de último login
-        user.last_login = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
-
-        /*
-         * Crear token JWT
-         * Ahora lo hace su propio método - se comparte lógica con login normal y login google
-         *
-        var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.UTF8.GetBytes(_config["Jwt:Key"]!);
-
-        var claims = new List<Claim>
-        {
-            new Claim(ClaimTypes.NameIdentifier, user.id.ToString()),
-            new Claim(ClaimTypes.Name, user.username),
-            new Claim(ClaimTypes.Role, user.role ?? "user"),
-            new Claim("subscriptionPlan", user.subscription_plan ?? "free"),
-            new Claim("subscriptionStatus", user.subscription_status ?? "active"),
-            new Claim("tokenVersion", user.token_version.ToString())
-        };
-
-        var tokenDescriptor = new SecurityTokenDescriptor
-        {
-            Issuer = _config["Jwt:Issuer"],
-            Audience = _config["Jwt:Audience"],
-            Subject = new ClaimsIdentity(claims),
-            Expires = DateTime.UtcNow.AddHours(3),
-            SigningCredentials = new SigningCredentials(
-                new SymmetricSecurityKey(key),
-                SecurityAlgorithms.HmacSha256Signature)
-        };
-
-        var tokenNuevo = tokenHandler.CreateToken(tokenDescriptor);
-        var tokenString = tokenHandler.WriteToken(tokenNuevo);
-        */
-
-        var tokenString = CrearJwtParaUsuario(user);
-
+        // La confirmación del email no debe crear una sesión autenticada.
+        // Los escáneres de enlaces de correo pueden ejecutar automáticamente GETs;
+        // devolver un JWT aquí convertiría la visita del enlace en una autenticación.
         return Ok(new
         {
-            token = tokenString,
             username = user.username,
             email = user.email,
-            role = user.role
+            message = "Email confirmado correctamente."
         });
     }
 
