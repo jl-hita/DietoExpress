@@ -6,14 +6,12 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.AspNetCore.HttpOverrides;
 using System.Threading.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using QuestPDF.Infrastructure;
 using Serilog;
 using System;
 using System.Reflection;
-using System.Net;
 using System.Security.Claims;
 using System.Text;
 
@@ -44,14 +42,6 @@ public class Program
                 .Enrich.FromLogContext()
                 .WriteTo.Console()
                 .WriteTo.File(Path.Combine(pathLogs, "log-.txt"), rollingInterval: RollingInterval.Day, shared: true);
-        });
-
-        // Nginx es el proxy inverso de producción. Confiamos solo en el proxy local
-        // para recuperar la IP real del cliente (necesaria para los rate limits por IP).
-        builder.Services.AddForwardedHeaders(options =>
-        {
-            options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-            options.KnownProxies.Add(IPAddress.Loopback);
         });
 
         // ============================================================
@@ -397,8 +387,6 @@ public class Program
                 }
             }
         }
-
-        app.UseForwardedHeaders();
 
         // Usamos CORS
         app.UseCors("AllowAngularApp");
