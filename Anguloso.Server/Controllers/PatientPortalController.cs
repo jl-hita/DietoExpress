@@ -33,6 +33,7 @@ public class PatientPortalController : ControllerBase
     /// Autentica al paciente mediante enlace mágico (token) o credenciales (email/teléfono + passcode).
     /// Genera y retorna un JWT exclusivo con rol "patient".
     /// </summary>
+[EnableRateLimiting("auth")]
     [HttpPost("auth")]
     [EnableRateLimiting("auth")]
     public async Task<ActionResult<PatientAuthResponseDto>> Authenticate([FromBody] PatientAuthRequestDto request)
