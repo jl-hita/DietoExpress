@@ -143,6 +143,18 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void ProfileUpdates_BoundDatabaseBackedFields()
+    {
+        var dto = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Model", "ProfileDto.cs"));
+
+        Assert.Contains("[StringLength(100)]", dto);
+        Assert.Contains("[StringLength(150)]", dto);
+        Assert.Contains("[StringLength(250)]", dto);
+        Assert.Contains("[StringLength(50)]", dto);
+        Assert.Contains("[StringLength(1_000_000)]", dto);
+    }
+
+    [Fact]
     public void AdminPlansAndBilling_BoundAndValidateMutationInput()
     {
         var plans = ReadServerController("AdminPlansController.cs");
