@@ -965,6 +965,16 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void PatientPortal_ClientPreview_AllowsTenantClinicAdmins()
+    {
+        var source = ReadServerController("PatientPortalController.cs");
+
+        Assert.Contains("User.IsInRole(\"superadmin\")", source);
+        Assert.Contains("User.IsInRole(\"clinic_admin\")", source);
+        Assert.Contains("c.tenant_id == AuthHelpers.GetTenantId(User)!.Value", source);
+    }
+
+    [Fact]
     public void PatientPasscode_RequiresExactlySixDigits()
     {
         var source = ReadServerController("PatientPortalController.cs");
