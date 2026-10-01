@@ -641,6 +641,18 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void StripeSubscriptionSchema_AllowsNewSubscriptionAfterCancelledHistory()
+    {
+        var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "BillingSchemaBootstrap.cs"));
+
+        Assert.Contains("UPDATE subscriptions", source);
+        Assert.Contains("WHERE status IS NULL", source);
+        Assert.Contains("ALTER COLUMN status SET NOT NULL", source);
+        Assert.Contains("idx_subscriptions_provider_customer", source);
+        Assert.Contains("status NOT IN ('cancelled', 'canceled')", source);
+    }
+
+    [Fact]
     public void StripeCheckoutWebhook_RejectsStaleEventsAndInvalidPlanMetadata()
     {
         var source = ReadServerController("BillingController.cs");
