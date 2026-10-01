@@ -956,6 +956,16 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void PatientPortalAccess_DoesNotReturnStoredHashedToken()
+    {
+        var source = ReadServerController("PatientPortalController.cs");
+
+        Assert.Contains("MagicLink = string.Empty", source);
+        Assert.Contains("AccessToken = string.Empty", source);
+        Assert.DoesNotContain('var magicLink = $"/patient?token={client.access_token}"', source);
+    }
+
+    [Fact]
     public void PatientMagicLinks_StoreOnlyHashedTokens()
     {
         var source = ReadServerController("PatientPortalController.cs");
