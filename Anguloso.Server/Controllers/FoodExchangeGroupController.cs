@@ -72,7 +72,7 @@ public class FoodExchangeGroupController : ControllerBase
             .Where(f =>
                 f.source != "local" ||
                 User.IsInRole("superadmin") ||
-                (userId.HasValue && f.created_by_user_id == userId.Value) ||
+                (userId.HasValue && tenantId.HasValue && f.tenant_id == tenantId.Value && f.created_by_user_id == userId.Value) ||
                 (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value))
             .OrderBy(f => f.name)
             .Select(f => new
