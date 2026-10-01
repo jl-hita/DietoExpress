@@ -33,8 +33,8 @@ public class SetupController : ControllerBase
             string.IsNullOrWhiteSpace(request.FullName))
             return BadRequest("Todos los campos son obligatorios.");
 
-        if (request.Password.Length < 12)
-            return BadRequest("La contraseña debe tener al menos 12 caracteres.");
+        if (request.Password.Length < 12 || request.Password.Length > 256)
+            return BadRequest("La contraseña debe tener entre 12 y 256 caracteres.");
 
         await using var transaction = await _context.Database.BeginTransactionAsync();
         await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(748392615)");
