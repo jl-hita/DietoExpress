@@ -80,7 +80,7 @@ public class FoodController : ControllerBase
         var tenantId = AuthHelpers.GetTenantId(User);
         var food = await _dbContext.foods.FirstOrDefaultAsync(f =>
             f.id == id &&
-            (!EF.Functions.ILike(f.source ?? "", "local") ||
+            ((f.source == null || f.source.ToLower() != "local") ||
              User.IsInRole("superadmin") ||
              (userId.HasValue && tenantId.HasValue && f.tenant_id == tenantId.Value && f.created_by_user_id == userId.Value) ||
              (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value)));
@@ -149,7 +149,7 @@ public class FoodController : ControllerBase
         var tenantId = AuthHelpers.GetTenantId(User);
         var food = await _dbContext.foods.FirstOrDefaultAsync(f =>
             f.id == id &&
-            EF.Functions.ILike(f.source ?? "", "local") &&
+            (f.source != null && f.source.ToLower() == "local") &&
             (User.IsInRole("superadmin") ||
              (tenantId.HasValue && f.tenant_id == tenantId.Value && f.created_by_user_id == userId.Value) ||
              (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value)));
@@ -193,7 +193,7 @@ public class FoodController : ControllerBase
         var tenantId = AuthHelpers.GetTenantId(User);
         var food = await _dbContext.foods.FirstOrDefaultAsync(f =>
             f.id == id &&
-            EF.Functions.ILike(f.source ?? "", "local") &&
+            (f.source != null && f.source.ToLower() == "local") &&
             (User.IsInRole("superadmin") ||
              (tenantId.HasValue && f.tenant_id == tenantId.Value && f.created_by_user_id == userId.Value) ||
              (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value)));
@@ -244,7 +244,7 @@ public class FoodController : ControllerBase
         var food = await _dbContext.foods
             .AsNoTracking()
             .FirstOrDefaultAsync(f => f.id == id &&
-                (!EF.Functions.ILike(f.source ?? "", "local") ||
+                ((f.source == null || f.source.ToLower() != "local") ||
                  User.IsInRole("superadmin") ||
                  (tenantId.HasValue && f.tenant_id == tenantId.Value && f.created_by_user_id == userId.Value) ||
                  (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value)));
