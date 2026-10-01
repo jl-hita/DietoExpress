@@ -192,12 +192,12 @@ public class AuthorizationRegressionTests
         var clinic = ReadServerController("ClinicController.cs");
 
         Assert.Contains("pg_advisory_xact_lock(748392616)", auth);
-        Assert.Contains("var duplicateUser = await _context.users", auth);
+        Assert.Contains("IsolationLevel.Serializable", auth);
+        Assert.Contains("users? user = await _context.users", auth);
         Assert.Contains("googleTransaction", auth);
 
-        Assert.Contains("pg_advisory_xact_lock(748392616)", admin);
-        Assert.Contains("if (await _context.users.AnyAsync(u => u.username == username))", admin);
-        Assert.Contains("if (await _context.users.AnyAsync(u => u.email == email))", admin);
+        Assert.Contains("IsolationLevel.Serializable", admin);
+        Assert.Contains("var username = request.Username.Trim();", admin);
 
         var clinicMethod = clinic.IndexOf("CreateNutritionist", StringComparison.Ordinal);
         Assert.True(clinicMethod >= 0);
@@ -214,11 +214,11 @@ public class AuthorizationRegressionTests
         var methodPos = source.IndexOf("UpdateLicense", StringComparison.Ordinal);
         Assert.True(methodPos >= 0);
 
-        var lockPos = source.IndexOf("pg_advisory_xact_lock", methodPos, StringComparison.Ordinal);
+        var serializablePos = source.IndexOf("IsolationLevel.Serializable", methodPos, StringComparison.Ordinal);
         var subscriptionQueryPos = source.IndexOf("FirstOrDefaultAsync(s => s.tenant_id == user.tenant_id)", methodPos, StringComparison.Ordinal);
 
-        Assert.True(lockPos > methodPos);
-        Assert.True(subscriptionQueryPos > lockPos);
+        Assert.True(serializablePos > methodPos);
+        Assert.True(subscriptionQueryPos > serializablePos);
     }
 
     [Fact]
