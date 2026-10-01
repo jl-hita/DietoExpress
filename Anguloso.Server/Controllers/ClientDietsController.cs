@@ -67,7 +67,7 @@ public class ClientDietsController : ControllerBase
 
         var accessibleIds = await _context.foods
             .Where(f => foodIds.Contains(f.id) &&
-                (!EF.Functions.ILike(f.source ?? "", "local") ||
+                ((f.source == null || f.source.ToLower() != "local") ||
                  User.IsInRole("superadmin") ||
                  (tenantId.HasValue && f.tenant_id == tenantId.Value && f.created_by_user_id == userId) ||
                  (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value)))
@@ -163,7 +163,7 @@ public class ClientDietsController : ControllerBase
             .Where(i => i.food_id.HasValue).Select(i => i.food_id!.Value).Distinct().ToList();
         var accessibleFoods = await _context.foods
             .Where(f => foodIds.Contains(f.id) &&
-                (!EF.Functions.ILike(f.source ?? "", "local") ||
+                ((f.source == null || f.source.ToLower() != "local") ||
                  User.IsInRole("superadmin") ||
                  (tenantId.HasValue && f.tenant_id == tenantId.Value && f.created_by_user_id == userId.Value) ||
                  (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value)))
@@ -731,7 +731,7 @@ public class ClientDietsController : ControllerBase
             .Where(i => i.food_id.HasValue).Select(i => i.food_id!.Value).Distinct().ToList();
         var accessibleFoods = await _context.foods
             .Where(f => foodIds.Contains(f.id) &&
-                (!EF.Functions.ILike(f.source ?? "", "local") ||
+                ((f.source == null || f.source.ToLower() != "local") ||
                  User.IsInRole("superadmin") ||
                  (tenantId.HasValue && f.tenant_id == tenantId.Value && f.created_by_user_id == userId.Value) ||
                  (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value)))
