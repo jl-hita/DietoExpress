@@ -36,6 +36,11 @@ public class AdminPlansController : ControllerBase
             return BadRequest();
 
         var code = r.Code.Trim().ToLowerInvariant();
+        if (code.Length > 50 || r.Name.Trim().Length > 100 || r.Description?.Length > 2000)
+            return BadRequest("Los campos del plan superan los límites permitidos.");
+
+        if (!IsValidPlanLimits(r))
+            return BadRequest("Los valores económicos o límites del plan no son válidos.");
 
         if (await _context.subscription_plans.AnyAsync(p => p.code == code))
             return Conflict("El código ya existe.");
@@ -86,6 +91,19 @@ public class AdminPlansController : ControllerBase
     [HttpPut("{id:int}/features")]
     public async Task<IActionResult> Features(int id, [FromBody] List<FeatureRequest> features)
     {
+        if (features == null || features.Count > 100)
+            return BadRequest("El número de funcionalidades no es válido.");
+
+        if (features.Any(f => string.IsNullOrWhiteSpace(f.FeatureCode) || f.FeatureCode.Trim().Length > 100))
+            return BadRequest("Los códigos de funcionalidad no son válidos.");
+
+        var normalizedFeatureCodes = features
+            .Select(f => f.FeatureCode.Trim().ToLowerInvariant())
+            .ToList();
+
+        if (normalizedFeatureCodes.Distinct(StringComparer.Ordinal).Count != normalizedFeatureCodes.Count)
+            return BadRequest("No puede haber funcionalidades duplicadas.");
+
         var p = await _context.subscription_plans.FindAsync(id);
 
         if (p == null)
@@ -108,6 +126,16 @@ public class AdminPlansController : ControllerBase
         await _context.SaveChangesAsync();
 
         return Ok();
+    }
+
+    private static bool IsValidPlanLimits(PlanRequest r)
+    {
+        return r.MonthlyPrice >= 0m && r.MonthlyPrice <= 1_000_000m &&
+               r.YearlyPrice >= 0m && r.YearlyPrice <= 1_000_000m &&
+               (!r.MaxNutritionists.HasValue || r.MaxNutritionists.Value >= 0) &&
+               (!r.MaxClientsPerNutritionist.HasValue || r.MaxClientsPerNutritionist.Value >= 0) &&
+               (!r.MaxTotalClients.HasValue || r.MaxTotalClients.Value >= 0) &&
+               (!r.TrialDays.HasValue || r.TrialDays.Value is >= 0 and <= 3650);
     }
 
     private static PlanResponse ToResponse(subscription_plans p)
