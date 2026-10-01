@@ -354,6 +354,7 @@ public static class DatabaseBootstrap
                 -- Integridad de identidad: evita duplicados aunque dos peticiones
                 -- lleguen simultáneamente y el control de aplicación falle.
                 CREATE UNIQUE INDEX IF NOT EXISTS uq_users_username ON users(username);
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_users_username_ci ON users(LOWER(username));
                 CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email ON users(email) WHERE email IS NOT NULL;
                 CREATE UNIQUE INDEX IF NOT EXISTS uq_users_google_id ON users(google_id) WHERE google_id IS NOT NULL;
 
