@@ -41,7 +41,7 @@ public class BiometricsController : ControllerBase
         var isSuperAdmin = User.IsInRole("superadmin");
         if (AuthHelpers.GetTenantId(User) == null && !User.IsInRole("superadmin")) return Forbid();
 
-        var client = await _context.clients.AsNoTracking().FirstOrDefaultAsync(c => c.id == clientId && (isSuperAdmin || (AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User)!.Value && c.user_id == userId.Value) ||
+        var client = await _context.clients.AsNoTracking().FirstOrDefaultAsync(c => c.id == clientId && c.archived_at == null && (isSuperAdmin || (AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User)!.Value && c.user_id == userId.Value) ||
                  (AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User)!.Value &&
                   _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active)) ||
                  (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User)!.Value)));
@@ -76,7 +76,7 @@ public class BiometricsController : ControllerBase
 
         var b = await _context.biometrics
             .Include(x => x.client)
-            .FirstOrDefaultAsync(x => x.id == id && x.client_id == clientId &&
+            .FirstOrDefaultAsync(x => x.id == id && x.client_id == clientId && x.client.archived_at == null &&
                 (isSuperAdmin || (AuthHelpers.GetTenantId(User).HasValue && x.client.tenant_id == AuthHelpers.GetTenantId(User)!.Value && x.client.user_id == userId.Value) ||
                  (AuthHelpers.GetTenantId(User).HasValue && x.client.tenant_id == AuthHelpers.GetTenantId(User)!.Value &&
                   _context.client_nutritionist_assignments.Any(a => a.client_id == x.client_id && a.nutritionist_id == userId.Value && a.is_active)) ||
@@ -157,7 +157,7 @@ public class BiometricsController : ControllerBase
 
         var b = await _context.biometrics
             .Include(x => x.client)
-            .FirstOrDefaultAsync(x => x.id == id && x.client_id == clientId &&
+            .FirstOrDefaultAsync(x => x.id == id && x.client_id == clientId && x.client.archived_at == null &&
                 AuthHelpers.GetTenantId(User).HasValue &&
                 x.client.tenant_id == AuthHelpers.GetTenantId(User)!.Value &&
                 (x.client.user_id == userId.Value ||
@@ -205,7 +205,7 @@ public class BiometricsController : ControllerBase
 
         var b = await _context.biometrics
             .Include(x => x.client)
-            .FirstOrDefaultAsync(x => x.id == id && x.client_id == clientId &&
+            .FirstOrDefaultAsync(x => x.id == id && x.client_id == clientId && x.client.archived_at == null &&
                 AuthHelpers.GetTenantId(User).HasValue &&
                 x.client.tenant_id == AuthHelpers.GetTenantId(User)!.Value &&
                 (x.client.user_id == userId.Value ||
@@ -229,7 +229,7 @@ public class BiometricsController : ControllerBase
         var isSuperAdmin = User.IsInRole("superadmin");
         if (AuthHelpers.GetTenantId(User) == null && !User.IsInRole("superadmin")) return Forbid();
 
-        var client = await _context.clients.AsNoTracking().FirstOrDefaultAsync(c => c.id == clientId && (isSuperAdmin ||
+        var client = await _context.clients.AsNoTracking().FirstOrDefaultAsync(c => c.id == clientId && c.archived_at == null && (isSuperAdmin ||
                  (AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User)!.Value &&
                   (c.user_id == userId.Value ||
                    _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active) ||
@@ -317,7 +317,7 @@ public class BiometricsController : ControllerBase
         if (userId == null) return Unauthorized();
         if (AuthHelpers.GetTenantId(User) == null && !User.IsInRole("superadmin")) return Forbid();
 
-        var client = await _context.clients.FirstOrDefaultAsync(c => c.id == clientId && (AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User)!.Value &&
+        var client = await _context.clients.FirstOrDefaultAsync(c => c.id == clientId && c.archived_at == null && (AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User)!.Value &&
                  (c.user_id == userId.Value ||
                   _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active) ||
                   User.IsInRole("clinic_admin"))));
