@@ -356,6 +356,9 @@ public static class DatabaseBootstrap
                 CREATE UNIQUE INDEX IF NOT EXISTS uq_users_username ON users(username);
                 CREATE UNIQUE INDEX IF NOT EXISTS uq_users_username_ci ON users(LOWER(username));
                 CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email ON users(email) WHERE email IS NOT NULL;
+                -- La identidad de login por email es case-insensitive. Impedir variantes
+                -- de mayúsculas/minúsculas evita dos cuentas que Auth no podría distinguir.
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email_ci ON users(LOWER(email)) WHERE email IS NOT NULL;
                 CREATE UNIQUE INDEX IF NOT EXISTS uq_users_google_id ON users(google_id) WHERE google_id IS NOT NULL;
 
                 -- Búsquedas de texto del dashboard (ILIKE/Contains sobre nombre y clínica)
