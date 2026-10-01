@@ -6,6 +6,7 @@ using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Anguloso.Server.Controllers;
 
@@ -60,6 +61,7 @@ public sealed class BillingController : ControllerBase
 
     [Authorize(Policy = "Professional")]
     [HttpPost("checkout")]
+    [EnableRateLimiting("expensive")]
     public async Task<IActionResult> CreateCheckout([FromBody] CheckoutRequest request)
     {
         if (!_tenantContext.TenantId.HasValue)
@@ -94,6 +96,7 @@ public sealed class BillingController : ControllerBase
 
     [Authorize(Policy = "Professional")]
     [HttpPost("subscription/change")]
+    [EnableRateLimiting("expensive")]
     public async Task<IActionResult> ChangeSubscription([FromBody] ChangeSubscriptionRequest request)
     {
         if (!_tenantContext.TenantId.HasValue)
@@ -134,6 +137,7 @@ public sealed class BillingController : ControllerBase
 
     [Authorize(Policy = "Professional")]
     [HttpPost("subscription/cancel-renewal")]
+    [EnableRateLimiting("expensive")]
     public async Task<IActionResult> CancelRenewal()
     {
         if (!_tenantContext.TenantId.HasValue)
@@ -152,6 +156,7 @@ public sealed class BillingController : ControllerBase
 
     [Authorize(Policy = "Professional")]
     [HttpPost("subscription/reactivate-renewal")]
+    [EnableRateLimiting("expensive")]
     public async Task<IActionResult> ReactivateRenewal()
     {
         if (!_tenantContext.TenantId.HasValue)
