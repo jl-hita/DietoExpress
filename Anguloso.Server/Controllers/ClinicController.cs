@@ -46,6 +46,7 @@ public class ClinicController : ControllerBase
             .Where(u => u.tenant_id == tenantId &&
                         (u.role == "nutritionist" || u.role == "user") &&
                         true)
+            .Take(500)
             .OrderByDescending(u => u.archived_at == null)
             .ThenBy(u => u.full_name)
             .Select(u => new
