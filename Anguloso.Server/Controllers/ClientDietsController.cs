@@ -38,7 +38,7 @@ public class ClientDietsController : ControllerBase
         return await _context.clients.AnyAsync(c =>
             c.id == clientId &&
             c.archived_at == null &&
-            (User.IsInRole("superadmin") ||
+            (User.IsInRole("superadmin") || (tenantId.HasValue && c.tenant_id == tenantId.Value &&
              c.user_id == userId ||
              _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId && a.is_active) ||
              (User.IsInRole("clinic_admin") && tenantId.HasValue && c.tenant_id == tenantId.Value)));
@@ -52,7 +52,7 @@ public class ClientDietsController : ControllerBase
         return await _context.diets.AnyAsync(d =>
             d.id == dietId &&
             d.archived_at == null &&
-            (User.IsInRole("superadmin") ||
+            (User.IsInRole("superadmin") || (tenantId.HasValue && d.tenant_id == tenantId.Value &&
              d.user_id == userId ||
              (sharedAllowed && tenantId.HasValue && d.tenant_id == tenantId.Value && d.is_shared)));
     }
