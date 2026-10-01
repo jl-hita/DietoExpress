@@ -143,7 +143,6 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
-    [Fact]
     public void StripeSubscriptionMutations_SerializePerTenantAndCheckoutUsesIdempotency()
     {
         var source = ReadServerLogica("StripeBillingService.cs");
@@ -509,7 +508,6 @@ public class AuthorizationRegressionTests
         Assert.Contains("Returning a non-2xx response makes Stripe retry", source);
     }
 
-    [Fact]
     [Fact]
     public void LicenseService_ValidatesNutritionistAndClientTenantScope()
     {
