@@ -125,7 +125,7 @@ public class DietController : ControllerBase
                 .ThenInclude(dd => dd.meals)
                     .ThenInclude(m => m.meal_items)
                         .ThenInclude(i => i.exchange_group)
-            .FirstOrDefaultAsync(d => d.id == id && d.archived_at == null && (d.user_id == userId.Value || (sharedAllowed && tenantId.HasValue && d.tenant_id == tenantId.Value && d.is_shared)));
+            .FirstOrDefaultAsync(d => d.id == id && d.archived_at == null && ((tenantId.HasValue && d.tenant_id == tenantId.Value && d.user_id == userId.Value) || (sharedAllowed && tenantId.HasValue && d.tenant_id == tenantId.Value && d.is_shared)));
 
         if (d == null) return NotFound();
 
@@ -389,7 +389,7 @@ public class DietController : ControllerBase
 
         var diet = await _context.diets
             .Include(d => d.diet_days)
-            .FirstOrDefaultAsync(d => d.id == id && d.user_id == userId.Value);
+            .FirstOrDefaultAsync(d => d.id == id && d.archived_at == null && tenantId.HasValue && d.tenant_id == tenantId.Value && d.user_id == userId.Value);
         if (diet == null) return NotFound();
 
         diet.archived_at = DateTime.UtcNow;
@@ -416,7 +416,7 @@ public class DietController : ControllerBase
             var clientExists = await _context.clients.AnyAsync(c =>
                 c.id == request.ClientId.Value &&
                 c.archived_at == null &&
-                (isSuperAdmin ||
+                (isSuperAdmin || (tenantId.HasValue && c.tenant_id == tenantId.Value &&
                  c.user_id == userId.Value ||
                  _context.client_nutritionist_assignments.Any(a => c.id == a.client_id && a.nutritionist_id == userId.Value && a.is_active) ||
                  (User.IsInRole("clinic_admin") && tenantId.HasValue && c.tenant_id == tenantId.Value)));
@@ -427,7 +427,7 @@ public class DietController : ControllerBase
 
         try
         {
-            var diet = await _generatorService.GenerateDietAsync(request, HttpContext.RequestAborted);
+            var diet = await _generatorService.GenerateDietAsync(request, AuthHelpers.GetTenantId(User), HttpContext.RequestAborted);
             return Ok(diet);
         }
         catch (Exception ex)
@@ -453,7 +453,7 @@ public class DietController : ControllerBase
         }
 
         var tenantId = AuthHelpers.GetTenantId(User);
-        var clientExists = await _context.clients.AnyAsync(c => c.id == request.ClientId && (c.user_id == userId.Value ||
+        var clientExists = await _context.clients.AnyAsync(c => c.id == request.ClientId && c.archived_at == null && (c.user_id == userId.Value && tenantId.HasValue && c.tenant_id == tenantId.Value ||
              _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active) ||
              (User.IsInRole("clinic_admin") && tenantId.HasValue && c.tenant_id == tenantId.Value)));
         if (!clientExists) return NotFound("Cliente no encontrado.");
