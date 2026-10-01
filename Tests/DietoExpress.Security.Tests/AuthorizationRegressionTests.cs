@@ -84,10 +84,10 @@ public class AuthorizationRegressionTests
     {
         var source = ReadServerController("BillingController.cs");
 
-        AssertEndpointHasRateLimit(source, "HttpPost("checkout")", "expensive");
-        AssertEndpointHasRateLimit(source, "HttpPost("subscription/change")", "expensive");
-        AssertEndpointHasRateLimit(source, "HttpPost("subscription/cancel-renewal")", "expensive");
-        AssertEndpointHasRateLimit(source, "HttpPost("subscription/reactivate-renewal")", "expensive");
+        AssertEndpointHasRateLimit(source, "HttpPost(\"checkout\")", "expensive");
+        AssertEndpointHasRateLimit(source, "HttpPost(\"subscription/change\")", "expensive");
+        AssertEndpointHasRateLimit(source, "HttpPost(\"subscription/cancel-renewal\")", "expensive");
+        AssertEndpointHasRateLimit(source, "HttpPost(\"subscription/reactivate-renewal\")", "expensive");
     }
 
     [Fact]
@@ -521,6 +521,15 @@ public class AuthorizationRegressionTests
 
         Assert.Contains("[Authorize(Policy = \"Professional\")]", attributes);
         Assert.DoesNotContain("[Authorize]\n", attributes.Replace("\r\n", "\n"));
+    }
+
+    private static void AssertEndpointHasRateLimit(string source, string endpointMarker, string policy)
+    {
+        var endpointPos = source.IndexOf(endpointMarker, StringComparison.Ordinal);
+        Assert.True(endpointPos >= 0, $"No se encontró el endpoint {endpointMarker}.");
+
+        var preceding = source.Substring(Math.Max(0, endpointPos - 180), Math.Min(180, endpointPos));
+        Assert.Contains($"[EnableRateLimiting(\"{policy}\")]", preceding);
     }
 
     private static string ReadServerController(string fileName) =>
