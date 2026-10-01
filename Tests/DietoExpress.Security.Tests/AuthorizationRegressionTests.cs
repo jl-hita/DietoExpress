@@ -636,7 +636,7 @@ public class AuthorizationRegressionTests
     {
         var source = ReadServerLogica("DietPdfService.cs");
 
-        Assert.Contains("EF.Functions.ILike(f.source ?? \"\" , \"local\")".replace(" ,", ","), source);
+        Assert.Contains("f.source.ToLower()", source);
         Assert.DoesNotContain("f.source != \"local\"", source);
     }
 
