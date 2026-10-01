@@ -303,6 +303,15 @@ public sealed class BillingController : ControllerBase
                 if (string.IsNullOrWhiteSpace(subscriptionId) || string.IsNullOrWhiteSpace(customerId))
                     return;
 
+                var plan = await _context.subscription_plans
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.id == planId.Value && p.active);
+                if (plan == null || plan.code is "free" or "demo_nutri" or "trial_nutri")
+                    return;
+
+                if (interval is not ("monthly" or "yearly"))
+                    return;
+
                 var subscription = await _context.subscriptions
                     .SingleOrDefaultAsync(s => s.tenant_id == tenantId.Value &&
                                                s.status != "cancelled" &&
@@ -351,15 +360,6 @@ public sealed class BillingController : ControllerBase
                 if (stripeEventCreatedAt.HasValue &&
                     subscription.last_stripe_event_created_at.HasValue &&
                     stripeEventCreatedAt.Value <= subscription.last_stripe_event_created_at.Value)
-                    return;
-
-                var plan = await _context.subscription_plans
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(p => p.id == planId.Value && p.active);
-                if (plan == null || plan.code is "free" or "demo_nutri" or "trial_nutri")
-                    return;
-
-                if (interval is not ("monthly" or "yearly"))
                     return;
 
                 subscription.plan_id = planId.Value;
