@@ -89,7 +89,7 @@ public class OpenFoodFactsService
             if (user == null)
             {
                 // Las búsquedas públicas no deben exponer alimentos personalizados.
-                localQuery = localQuery.Where(f => f.tenant_id == null && !EF.Functions.ILike(f.source ?? "", "local"));
+                localQuery = localQuery.Where(f => f.tenant_id == null && (f.source == null || f.source.ToLower() != "local"));
             }
             else if (user.role == "superadmin")
             {
@@ -99,11 +99,11 @@ public class OpenFoodFactsService
             {
                 localQuery = localQuery.Where(f =>
                     f.tenant_id == user.tenant_id.Value ||
-                    (f.tenant_id == null && !EF.Functions.ILike(f.source ?? "", "local")));
+                    (f.tenant_id == null && (f.source == null || f.source.ToLower() != "local")));
             }
             else
             {
-                localQuery = localQuery.Where(f => f.tenant_id == null && !EF.Functions.ILike(f.source ?? "", "local"));
+                localQuery = localQuery.Where(f => f.tenant_id == null && (f.source == null || f.source.ToLower() != "local"));
             }
 
             localQuery = localQuery
@@ -161,7 +161,7 @@ public class OpenFoodFactsService
                 // la lista obtenida antes del acceso externo/USDA.
                 var trackedFood = await updateContext.foods.FirstOrDefaultAsync(f =>
                     f.id == food.id &&
-                    !EF.Functions.ILike(f.source ?? "", "local") &&
+                    (f.source == null || f.source.ToLower() != "local") &&
                     f.tenant_id == null);
                 if (trackedFood == null) continue;
                 if (fallbackMicros != null) MergeMissingMicronutrientsIntoFood(trackedFood, fallbackMicros);
