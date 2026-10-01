@@ -70,7 +70,7 @@ public class FoodExchangeGroupController : ControllerBase
         var list = await _context.foods
             .Where(f => f.exchange_group_id == id && f.grams_per_exchange.HasValue)
             .Where(f =>
-                !EF.Functions.ILike(f.source ?? "", "local") ||
+                (f.source == null || f.source.ToLower() != "local") ||
                 User.IsInRole("superadmin") ||
                 (userId.HasValue && tenantId.HasValue && f.tenant_id == tenantId.Value && f.created_by_user_id == userId.Value) ||
                 (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value))
