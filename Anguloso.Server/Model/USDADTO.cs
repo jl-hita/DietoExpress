@@ -14,7 +14,7 @@ public class UsdaFood
 
 public class UsdaNutrient
 {
-    public UsdaNutrientInfo nutrient { get; set; }
+    public UsdaNutrientInfo nutrient { get; set; } = new();
     public double? amount { get; set; }
 }
 
