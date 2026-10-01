@@ -28,6 +28,9 @@ public class FoodController : ControllerBase
     [EnableRateLimiting("expensive")]
     public async Task<IActionResult> GetByBarcode(string code)
     {
+        if (string.IsNullOrWhiteSpace(code) || code.Length > 32)
+            return BadRequest("El código de barras no es válido.");
+
         var p = await _openFood.GetProductByBarcodeAsync(code);
         if (p == null) return NotFound();
         return Ok(p);
@@ -37,6 +40,9 @@ public class FoodController : ControllerBase
     [EnableRateLimiting("expensive")]
     public async Task<IActionResult> Search(string query)
     {
+        if (string.IsNullOrWhiteSpace(query) || query.Length > 100)
+            return BadRequest("La búsqueda debe contener entre 1 y 100 caracteres.");
+
         string? userName = User.Identity?.Name ?? null;
         /*
          * Este pedazo de código solo busca en OFF + USDA
