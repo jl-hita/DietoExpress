@@ -281,11 +281,11 @@ public class AuthController : ControllerBase
 
             if(bmEmail == null || bmEmail.Exito == false)
             {
-                string mensaje = bmEmail == null ? "Fallo genérico" : bmEmail.Mensaje;
+                _logServ.LogError($"No se pudo enviar el email de confirmación a la cuenta recién creada: {email}");
                 return new BoolMensaje
                 {
                     Exito = false,
-                    Mensaje = $"Resultado envío email => {mensaje}"
+                    Mensaje = "La cuenta se creó, pero no se pudo enviar el email de confirmación."
                 };
             }
 
@@ -300,11 +300,11 @@ public class AuthController : ControllerBase
         }
         catch (Exception ex)
         {
-            //return BadRequest(ex.Message);
+            _logServ.LogError($"Error creando usuario: {ex.Message}");
             return new BoolMensaje
             {
                 Exito = false,
-                Mensaje = $"Error creando usuario -> {ex.Message}"
+                Mensaje = "No se pudo completar el registro."
             };
         }
     }
