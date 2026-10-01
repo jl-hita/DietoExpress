@@ -70,8 +70,9 @@ public sealed class BillingController : ControllerBase
         if (await IsClinicSubscriptionManagedByAdminAsync())
             return Forbid();
 
-        if (string.IsNullOrWhiteSpace(request.PlanCode))
-            return BadRequest("El plan es obligatorio.");
+        if (string.IsNullOrWhiteSpace(request.PlanCode) || request.PlanCode.Trim().Length > 50 ||
+            string.IsNullOrWhiteSpace(request.BillingInterval) || request.BillingInterval.Trim().Length > 20)
+            return BadRequest("Los datos de facturación no son válidos.");
 
         try
         {
@@ -104,6 +105,10 @@ public sealed class BillingController : ControllerBase
 
         if (await IsClinicSubscriptionManagedByAdminAsync())
             return Forbid();
+
+        if (string.IsNullOrWhiteSpace(request.PlanCode) || request.PlanCode.Trim().Length > 50 ||
+            string.IsNullOrWhiteSpace(request.BillingInterval) || request.BillingInterval.Trim().Length > 20)
+            return BadRequest("Los datos de facturación no son válidos.");
 
         try
         {
