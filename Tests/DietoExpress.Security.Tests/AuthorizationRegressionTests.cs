@@ -214,6 +214,19 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void UnpagedCatalogResponses_AreBounded()
+    {
+        var clinic = ReadServerController("ClinicController.cs");
+        var groups = ReadServerController("FoodExchangeGroupController.cs");
+        var recipes = ReadServerController("RecipesController.cs");
+
+        Assert.Contains(".Take(500)", clinic);
+        Assert.Contains(".Take(1000)", clinic);
+        Assert.Contains(".Take(500)", groups);
+        Assert.Contains(".Take(500)", recipes);
+    }
+
+    [Fact]
     public void BiometricHistoryEndpoints_AreBounded()
     {
         var controller = ReadServerController("BiometricsController.cs");
