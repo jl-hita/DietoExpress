@@ -292,6 +292,20 @@ public sealed class BillingController : ControllerBase
                 if (subscription == null)
                     return;
 
+                if (stripeEventCreatedAt.HasValue &&
+                    subscription.last_stripe_event_created_at.HasValue &&
+                    stripeEventCreatedAt.Value <= subscription.last_stripe_event_created_at.Value)
+                    return;
+
+                var plan = await _context.subscription_plans
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.id == planId.Value && p.active);
+                if (plan == null || plan.code is "free" or "demo_nutri" or "trial_nutri")
+                    return;
+
+                if (interval is not ("monthly" or "yearly"))
+                    return;
+
                 subscription.plan_id = planId.Value;
                 subscription.billing_interval = interval;
                 subscription.payment_provider = "stripe";
@@ -309,8 +323,6 @@ public sealed class BillingController : ControllerBase
                 }
                 subscription.updated_at = DateTime.UtcNow;
 
-                var plan = await _context.subscription_plans.FindAsync(planId.Value);
-                if (plan != null)
                 {
                     subscription.amount = interval == "yearly" ? plan.yearly_price : plan.monthly_price;
                     subscription.currency = "eur";
