@@ -267,8 +267,14 @@ public class FoodController : ControllerBase
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
 
+        var tenantId = AuthHelpers.GetTenantId(User);
         var favorite = await _dbContext.food_favorites
-            .FirstOrDefaultAsync(f => f.user_id == userId.Value && f.food_id == id);
+            .Include(f => f.food)
+            .FirstOrDefaultAsync(f => f.user_id == userId.Value && f.food_id == id &&
+                (f.food.source != "local" ||
+                 User.IsInRole("superadmin") ||
+                 (tenantId.HasValue && f.food.tenant_id == tenantId.Value && f.food.created_by_user_id == userId.Value) ||
+                 (User.IsInRole("clinic_admin") && tenantId.HasValue && f.food.tenant_id == tenantId.Value)));
         if (favorite == null) return NoContent();
 
         _dbContext.food_favorites.Remove(favorite);
