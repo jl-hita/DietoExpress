@@ -240,7 +240,7 @@ public class AuthorizationRegressionTests
     public void DietValidation_DoesNotTreatLocalFoodsAsGlobalWithoutTenant()
     {
         var source = ReadServerLogica("DietValidationService.cs");
-        Assert.Contains("(f.source != \"local\" || (tenantId.HasValue && f.tenant_id == tenantId.Value))", source);
+        Assert.Contains("(!EF.Functions.ILike(f.source ?? \"\", \"local\") || (tenantId.HasValue && f.tenant_id == tenantId.Value))", source);
         Assert.DoesNotContain("(f.source != \"local\" || !tenantId.HasValue || f.tenant_id == tenantId.Value)", source);
     }
 
@@ -456,7 +456,7 @@ public class AuthorizationRegressionTests
         var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "OpenFoodFactsService.cs"));
 
         Assert.Contains("f.external_id == product.Code", source);
-        Assert.Contains("existing.source == \"local\"", source);
+        Assert.Contains("EF.Functions.ILike(existing.source ?? \"\", \"local\")", source);
         Assert.Contains("existing.tenant_id.HasValue", source);
         Assert.Contains("se omite la sincronización del alimento local", source);
         Assert.Contains("product.Id = existing.id", source);
@@ -468,7 +468,7 @@ public class AuthorizationRegressionTests
         var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "OpenFoodFactsService.cs"));
 
         Assert.Contains("f.id == food.id", source);
-        Assert.Contains("f.source != \"local\"", source);
+        Assert.Contains("!EF.Functions.ILike(f.source ?? \"\", \"local\")", source);
         Assert.Contains("f.tenant_id == null", source);
     }
 
