@@ -18,5 +18,5 @@ public class EnergyRequirementsDto
 public class FormulaResultDto
 {
     public double Bmr { get; set; }
-    public Dictionary<string, double> Tdee { get; set; } // Key: Activity level name, Value: calories (kcal)
+    public Dictionary<string, double> Tdee { get; set; } = new(); // Key: Activity level name, Value: calories (kcal)
 }
