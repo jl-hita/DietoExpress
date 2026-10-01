@@ -397,6 +397,15 @@ public class AdminUsersController : ControllerBase
         await using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
+            // El chequeo de username/email anterior es solo una respuesta rápida.
+            // Revalidamos dentro de la transacción para cerrar la carrera entre altas.
+            await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(748392616)");
+
+            if (await _context.users.AnyAsync(u => u.username == username))
+                return Conflict("El nombre de usuario ya existe.");
+            if (await _context.users.AnyAsync(u => u.email == email))
+                return Conflict("El email ya está registrado.");
+
             var tenant = new tenants
             {
                 legal_name = legalName,
