@@ -158,7 +158,7 @@ public class PatientPortalController : ControllerBase
             .Where(i => i.food_id.HasValue).Select(i => i.food_id!.Value).Distinct().ToList();
         var accessibleFoods = await _context.foods
             .Where(f => foodIds.Contains(f.id) &&
-                (!EF.Functions.ILike(f.source ?? "", "local") || f.tenant_id == d.tenant_id))
+                ((f.source == null || f.source.ToLower() != "local") || f.tenant_id == d.tenant_id))
             .ToDictionaryAsync(f => f.id);
 
         return Ok(new DietDetailDto
@@ -203,7 +203,7 @@ public class PatientPortalController : ControllerBase
             .Where(i => i.food_id.HasValue).Select(i => i.food_id!.Value).Distinct().ToList();
         var shoppingFoods = await _context.foods
             .Where(f => shoppingFoodIds.Contains(f.id) &&
-                (!EF.Functions.ILike(f.source ?? "", "local") || f.tenant_id == diet.tenant_id))
+                ((f.source == null || f.source.ToLower() != "local") || f.tenant_id == diet.tenant_id))
             .ToDictionaryAsync(f => f.id);
 
         var grouped = diet.diet_days.SelectMany(dd => dd.meals).SelectMany(m => m.meal_items).Where(i => i.food_id.HasValue && shoppingFoods.ContainsKey(i.food_id.Value) && i.grams.HasValue)
