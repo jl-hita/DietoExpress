@@ -971,6 +971,6 @@ public class AuthorizationRegressionTests
     {
         var source = ReadServerLogica("DatabaseBootstrap.cs");
 
-        Assert.Contains("idx_foods_external ON foods(external_id) WHERE external_id IS NOT NULL", source);
+        Assert.Contains("uq_foods_external_id ON foods(external_id) WHERE external_id IS NOT NULL", source);
     }
 }
