@@ -70,13 +70,13 @@ public class ClinicController : ControllerBase
         if (!await _license.CanUseFeatureAsync(tenantId, "MULTI_NUTRITIONIST")) return Forbid();
         if (string.IsNullOrWhiteSpace(req.Email)) return BadRequest("El email es obligatorio.");
 
-        var email = req.Email.Trim();
+        var email = req.Email.Trim().ToLowerInvariant();
         var fullName = string.IsNullOrWhiteSpace(req.FullName) ? email : req.FullName.Trim();
 
         if (email.Length > 150 || fullName.Length > 100)
             return BadRequest("El email o el nombre superan la longitud permitida.");
 
-        if (await _context.users.AnyAsync(u => u.email != null && u.email.ToLower() == email.ToLower()))
+        if (await _context.users.AnyAsync(u => u.email != null && u.email.ToLower() == email))
             return Conflict("El email ya está registrado.");
 
         await using var transaction = await _context.Database.BeginTransactionAsync();
