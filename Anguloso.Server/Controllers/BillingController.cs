@@ -214,6 +214,8 @@ public sealed class BillingController : ControllerBase
         if (string.IsNullOrWhiteSpace(eventId))
             return BadRequest("Evento de Stripe sin identificador.");
 
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
         var paymentEvent = new payment_events
         {
             provider = "stripe",
@@ -228,24 +230,35 @@ public sealed class BillingController : ControllerBase
 
         try
         {
+            // Persist the unique event before applying side effects. If Stripe retries
+            // the same event concurrently, the unique constraint on (provider,event_id)
+            // makes exactly one request the owner of the event.
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException pg && pg.SqlState == "23505")
+        {
+            await transaction.RollbackAsync();
+            return Ok();
+        }
+
+        try
+        {
             await ProcessStripeEventAsync(root, eventType);
             paymentEvent.status = "processed";
             paymentEvent.processed_at = DateTime.UtcNow;
-        }
-        catch (DbUpdateException)
-        {
-            _context.Entry(paymentEvent).State = EntityState.Detached;
-            return Ok();
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
         }
         catch (Exception ex)
         {
-            paymentEvent.status = "error";
-            paymentEvent.error = ex.Message;
-            await _context.SaveChangesAsync();
+            await transaction.RollbackAsync();
+
+            // Returning a non-2xx response makes Stripe retry the event. We deliberately
+            // do not persist a half-processed billing state.
+            _ = ex;
             return StatusCode(500);
         }
 
-        await _context.SaveChangesAsync();
         return Ok();
     }
 
