@@ -283,7 +283,7 @@ public class ConsultationPdfService
         IContainer container,
         List<diets> dietsCreated,
         List<client_diets> dietsAssigned,
-        client_diets activeDiet,
+        client_diets? activeDiet,
         DateOnly date)
     {
         container.Column(col =>
