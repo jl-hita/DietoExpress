@@ -126,6 +126,23 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void Authentication_NormalizesEmailIdentityAndSerializesPasswordResetConsumption()
+    {
+        var auth = ReadServerController("AuthController.cs");
+        var setup = ReadServerController("SetupController.cs");
+
+        Assert.Contains("var email = usuario.Email?.Trim().ToLowerInvariant() ?? string.Empty;", auth);
+        Assert.Contains("var normalizedEmail = req.Email.Trim().ToLowerInvariant();", auth);
+        Assert.Contains("var email = payload.Email.Trim().ToLowerInvariant();", auth);
+        Assert.Contains("u.email.ToLower() == email", auth);
+        Assert.Contains("748392617", auth);
+        Assert.Contains("IsolationLevel.Serializable", auth);
+
+        Assert.Contains("var isConfigured = await _context.users.AnyAsync();", setup);
+        Assert.Contains("var email = request.Email.Trim().ToLowerInvariant();", setup);
+    }
+
+    [Fact]
     public void AdminDiagnostics_BoundSearchAndLogReadSize()
     {
         var source = ReadServerController("AdminUsersController.cs");
