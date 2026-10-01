@@ -28,7 +28,7 @@ public class FoodController : ControllerBase
     [EnableRateLimiting("expensive")]
     public async Task<IActionResult> GetByBarcode(string code)
     {
-        if (string.IsNullOrWhiteSpace(code) || code.Length > 32)
+        if (string.IsNullOrWhiteSpace(code) || !System.Text.RegularExpressions.Regex.IsMatch(code, @"^\d{8,14}$"))
             return BadRequest("El código de barras no es válido.");
 
         var p = await _openFood.GetProductByBarcodeAsync(code);
