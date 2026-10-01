@@ -64,6 +64,18 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void DietCreation_SerializesAgainstTenantLicenseLimit()
+    {
+        var source = ReadServerController("DietController.cs");
+
+        Assert.Contains("BeginTransactionAsync()", source);
+        Assert.Contains("pg_advisory_xact_lock", source);
+        Assert.Contains("CanCreateDietAsync(tenantId, userId.Value)", source);
+        Assert.Contains("transaction.CommitAsync()", source);
+        Assert.Contains("transaction.RollbackAsync()", source);
+    }
+
+    [Fact]
     public void ClientCreation_SerializesAgainstTenantLicenseLimit()
     {
         var source = ReadServerController("ClientsController.cs");
