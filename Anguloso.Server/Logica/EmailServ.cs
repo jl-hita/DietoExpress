@@ -72,11 +72,11 @@ public class EmailServ
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine($"Error al enviar email -> {e.Message}");
+                    _logServ.LogError("Error al enviar email.", e);
                     return new BoolMensaje
                     {
                         Exito = false,
-                        Mensaje = $"Error al enviar email -> {e.Message}"
+                        Mensaje = "No se ha podido enviar el email."
                     };
                 }
             }
@@ -86,7 +86,7 @@ public class EmailServ
             return new BoolMensaje
             {
                 Exito = false,
-                Mensaje = $"Error al enviar el email => {ex.Message}"
+                Mensaje = "No se ha podido preparar el envío del email."
             };
         }
     }
