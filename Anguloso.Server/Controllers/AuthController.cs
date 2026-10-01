@@ -75,6 +75,8 @@ public class AuthController : ControllerBase
         {
             if (string.IsNullOrWhiteSpace(login.Username) || string.IsNullOrWhiteSpace(login.Password))
                 return BadRequest("Usuario o contraseña no válidos.");
+            if (login.Username.Length > 320 || login.Password.Length > 256)
+                return BadRequest("Usuario o contraseña no válidos.");
 
             // Buscar el usuario
             var identifier = login.Username.Trim();
@@ -196,8 +198,8 @@ public class AuthController : ControllerBase
             if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
                 return new BoolMensaje { Exito = false, Mensaje = "Usuario, contraseña y email son obligatorios." };
 
-            if (password.Length < 12)
-                return new BoolMensaje { Exito = false, Mensaje = "La contraseña debe tener al menos 12 caracteres." };
+            if (password.Length < 12 || password.Length > 256)
+                return new BoolMensaje { Exito = false, Mensaje = "La contraseña debe tener entre 12 y 256 caracteres." };
 
             string passwordHash = BCrypt.Net.BCrypt.HashPassword(password);
 
@@ -382,7 +384,7 @@ public class AuthController : ControllerBase
     [HttpPost("enviarReset")]
     public async Task<BoolMensaje> EnviarReset([FromBody] PasswordResetEmailRequest req)
     {
-        if (string.IsNullOrWhiteSpace(req.Email))
+        if (string.IsNullOrWhiteSpace(req.Email) || req.Email.Length > 320)
             return new BoolMensaje { Exito = false, Mensaje = "Email obligatorio" };
 
         var user = await _context.users.FirstOrDefaultAsync(u => u.email == req.Email);
@@ -430,8 +432,8 @@ public class AuthController : ControllerBase
     [HttpPut("resetPassword")]
     public async Task<BoolMensaje> ResetPassword([FromBody] PasswordResetByTokenRequest req)
     {
-        if (req == null || string.IsNullOrWhiteSpace(req.NewPassword) || req.NewPassword.Length < 12)
-            return new BoolMensaje { Exito = false, Mensaje = "La nueva contraseña debe tener al menos 12 caracteres." };
+        if (req == null || string.IsNullOrWhiteSpace(req.NewPassword) || req.NewPassword.Length < 12 || req.NewPassword.Length > 256)
+            return new BoolMensaje { Exito = false, Mensaje = "La nueva contraseña debe tener entre 12 y 256 caracteres." };
 
         var tokenHash = string.IsNullOrWhiteSpace(req.Token) ? null : HashSecurityToken(req.Token);
         var user = tokenHash == null ? null : await _context.users
@@ -471,7 +473,7 @@ public class AuthController : ControllerBase
                 return new BoolMensaje { Exito = false, Mensaje = "Datos de solicitud no válidos." };
             }
 
-            if (string.IsNullOrWhiteSpace(passwordResetRequest.NewPassword) || passwordResetRequest.NewPassword.Length < 12)
+            if (string.IsNullOrWhiteSpace(passwordResetRequest.NewPassword) || passwordResetRequest.NewPassword.Length < 12 || passwordResetRequest.NewPassword.Length > 256)
             {
                 return new BoolMensaje { Exito = false, Mensaje = "La contraseña debe tener al menos 12 caracteres." };
             }
@@ -555,8 +557,8 @@ public class AuthController : ControllerBase
     [HttpPost("google")]
     public async Task<IActionResult> LoginGoogle([FromBody] GoogleLoginDto dto)
     {
-        if (string.IsNullOrWhiteSpace(dto?.IdToken))
-            return BadRequest("IdToken requerido");
+        if (string.IsNullOrWhiteSpace(dto?.IdToken) || dto.IdToken.Length > 20000)
+            return BadRequest("IdToken no válido.");
 
         GoogleJsonWebSignature.Payload payload;
         try
