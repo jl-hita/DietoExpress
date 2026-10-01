@@ -57,6 +57,7 @@ public class BiometricsController : ControllerBase
         var biometricsList = await _context.biometrics
             .Where(b => b.client_id == clientId)
             .OrderByDescending(b => b.measurement_date)
+            .Take(500)
             .ToListAsync();
 
         var list = biometricsList.Select(b => MapToDto(b, client.gender, age)).ToList();
@@ -245,6 +246,7 @@ public class BiometricsController : ControllerBase
         var biometricsList = await _context.biometrics
             .Where(b => b.client_id == clientId)
             .OrderBy(b => b.measurement_date) // Orden cronológico ascendente para gráficos
+            .Take(500)
             .ToListAsync();
 
         var evolution = biometricsList.Select(b => MapToDto(b, client.gender, age)).ToList();
