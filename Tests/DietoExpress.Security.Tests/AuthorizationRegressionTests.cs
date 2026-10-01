@@ -154,6 +154,7 @@ public class AuthorizationRegressionTests
         Assert.Contains("Idempotency-Key", source);
     }
 
+    [Fact]
     public void StripeCheckout_SerializesConcurrentTenantSessions()
     {
         var source = ReadServerLogic("StripeBillingService.cs");
@@ -206,6 +207,19 @@ public class AuthorizationRegressionTests
 
         Assert.Contains("request.PlanCode.Trim().Length > 50", billing);
         Assert.Contains("request.BillingInterval.Trim().Length > 20", billing);
+    }
+
+    [Fact]
+    public void AdminConfig_ValidatesFrontendUrlBeforePersisting()
+    {
+        var source = ReadServerController("AdminUsersController.cs");
+
+        Assert.Contains("value.Length > 10000", source);
+        Assert.Contains("config.nombre_config.Equals("frontendUrl", StringComparison.OrdinalIgnoreCase)", source);
+        Assert.Contains("frontendUri.Scheme != Uri.UriSchemeHttps", source);
+        Assert.Contains("frontendUri.UserInfo.Length > 0", source);
+        Assert.Contains("frontendUri.Query", source);
+        Assert.Contains("frontendUri.Fragment", source);
     }
 
     [Fact]
@@ -521,6 +535,7 @@ public class AuthorizationRegressionTests
         Assert.Contains("c.archived_at == null", source);
     }
 
+    [Fact]
     public void ClinicClientAssignment_IsAtomicAndHonorsNutritionistCapacity()
     {
         var clinic = ReadServerController("ClinicController.cs");
@@ -588,6 +603,9 @@ public class AuthorizationRegressionTests
         var source = ReadServerController("BillingController.cs");
 
         Assert.Contains("subscription.last_stripe_event_created_at.HasValue", source);
+        Assert.Contains("SingleOrDefaultAsync(s => s.tenant_id == tenantId.Value", source);
+        Assert.Contains("subscription.provider_subscription_id", source);
+        Assert.Contains("subscription.provider_customer_id", source);
         Assert.Contains("stripeEventCreatedAt.Value <= subscription.last_stripe_event_created_at.Value", source);
         Assert.Contains("FirstOrDefaultAsync(p => p.id == planId.Value && p.active)", source);
         Assert.Contains("plan.code is \"free\" or \"demo_nutri\" or \"trial_nutri\"", source);
