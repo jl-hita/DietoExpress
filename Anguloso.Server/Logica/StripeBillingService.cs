@@ -64,12 +64,64 @@ public sealed class StripeBillingService : IStripeBillingService
         }
 
         var pendingAttempt = await _context.billing_checkout_attempts
-            .FirstOrDefaultAsync(a => a.tenant_id == tenantId && a.status == "pending");
+            .FirstOrDefaultAsync(a => a.tenant_id == tenantId &&
+                                      (a.status == "creating" || a.status == "pending"));
 
         if (pendingAttempt != null && pendingAttempt.expires_at > DateTime.UtcNow)
         {
             await transaction.CommitAsync();
-            return pendingAttempt.checkout_url;
+
+            if (pendingAttempt.status == "pending" && !string.IsNullOrWhiteSpace(pendingAttempt.checkout_url))
+                return pendingAttempt.checkout_url;
+
+            // A request may arrive while another request is between persisting
+            // the attempt and receiving Stripe's response. Reusing the same
+            // idempotency key guarantees that Stripe will not create a second session.
+            var retryForm = new Dictionary<string, string>
+            {
+                ["mode"] = "subscription",
+                ["line_items[0][price]"] = priceId,
+                ["line_items[0][quantity]"] = "1",
+                ["success_url"] = successUrl,
+                ["cancel_url"] = cancelUrl,
+                ["client_reference_id"] = tenantId.ToString(CultureInfo.InvariantCulture),
+                ["metadata[tenant_id]"] = tenantId.ToString(CultureInfo.InvariantCulture),
+                ["metadata[plan_id]"] = plan.id.ToString(CultureInfo.InvariantCulture),
+                ["metadata[plan_code]"] = plan.code,
+                ["metadata[billing_interval]"] = billingInterval
+            };
+
+            if (!string.IsNullOrWhiteSpace(tenant.contact_email))
+                retryForm["customer_email"] = tenant.contact_email;
+
+            if (!string.IsNullOrWhiteSpace(existingSubscription?.provider_customer_id))
+                retryForm["customer"] = existingSubscription.provider_customer_id;
+
+            using var retryResponse = await SendStripeAsync(
+                HttpMethod.Post,
+                "/v1/checkout/sessions",
+                retryForm,
+                pendingAttempt.idempotency_key);
+            using var retryJson = JsonDocument.Parse(await retryResponse.Content.ReadAsStringAsync());
+            var retryUrl = retryJson.RootElement.GetProperty("url").GetString();
+            var retrySessionId = retryJson.RootElement.GetProperty("id").GetString();
+
+            if (string.IsNullOrWhiteSpace(retryUrl) || string.IsNullOrWhiteSpace(retrySessionId))
+                throw new InvalidOperationException("Stripe no devolvió una sesión de Checkout válida.");
+
+            await using var completeTransaction = await _context.Database.BeginTransactionAsync();
+            var persistedAttempt = await _context.billing_checkout_attempts
+                .FirstOrDefaultAsync(a => a.id == pendingAttempt.id);
+            if (persistedAttempt == null)
+                throw new InvalidOperationException("No se pudo recuperar el intento de Checkout.");
+
+            persistedAttempt.stripe_session_id = retrySessionId;
+            persistedAttempt.checkout_url = retryUrl;
+            persistedAttempt.status = "pending";
+            persistedAttempt.completed_at = null;
+            await _context.SaveChangesAsync();
+            await completeTransaction.CommitAsync();
+            return retryUrl;
         }
 
         if (pendingAttempt != null)
@@ -99,10 +151,27 @@ public sealed class StripeBillingService : IStripeBillingService
         if (!string.IsNullOrWhiteSpace(existingSubscription?.provider_customer_id))
             form["customer"] = existingSubscription.provider_customer_id;
 
-        // Cada intento persistido obtiene su propia clave. Las peticiones concurrentes
-        // reutilizan el intento pendiente y una compra posterior puede obtener una clave nueva.
+        // Persistimos la clave ANTES de llamar a Stripe. Si Stripe crea la
+        // sesión pero falla el commit posterior, un reintento reutiliza exactamente
+        // la misma clave y no puede crear una segunda sesión.
         var attemptId = Guid.NewGuid();
         var idempotencyKey = CreateCheckoutIdempotencyKey(tenantId, plan.id, billingInterval, attemptId);
+        var attempt = new billing_checkout_attempts
+        {
+            tenant_id = tenantId,
+            plan_id = plan.id,
+            billing_interval = billingInterval,
+            idempotency_key = idempotencyKey,
+            checkout_url = string.Empty,
+            status = "creating",
+            created_at = DateTime.UtcNow,
+            expires_at = DateTime.UtcNow.AddHours(24)
+        };
+
+        _context.billing_checkout_attempts.Add(attempt);
+        await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
+
         using var response = await SendStripeAsync(HttpMethod.Post, "/v1/checkout/sessions", form, idempotencyKey);
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var url = json.RootElement.GetProperty("url").GetString();
@@ -111,21 +180,19 @@ public sealed class StripeBillingService : IStripeBillingService
         if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(checkoutSessionId))
             throw new InvalidOperationException("Stripe no devolvió una sesión de Checkout válida.");
 
-        _context.billing_checkout_attempts.Add(new billing_checkout_attempts
-        {
-            tenant_id = tenantId,
-            plan_id = plan.id,
-            billing_interval = billingInterval,
-            idempotency_key = idempotencyKey,
-            stripe_session_id = checkoutSessionId,
-            checkout_url = url,
-            status = "pending",
-            created_at = DateTime.UtcNow,
-            expires_at = DateTime.UtcNow.AddHours(24)
-        });
+        await using var completionTransaction = await _context.Database.BeginTransactionAsync();
+        var persisted = await _context.billing_checkout_attempts
+            .FirstOrDefaultAsync(a => a.id == attempt.id);
+        if (persisted == null)
+            throw new InvalidOperationException("No se pudo recuperar el intento de Checkout.");
+
+        persisted.stripe_session_id = checkoutSessionId;
+        persisted.checkout_url = url;
+        persisted.status = "pending";
+        persisted.completed_at = null;
 
         await _context.SaveChangesAsync();
-        await transaction.CommitAsync();
+        await completionTransaction.CommitAsync();
         return url;
     }
 
