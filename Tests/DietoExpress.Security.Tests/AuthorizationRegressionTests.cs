@@ -143,6 +143,20 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void AdminPlansAndBilling_BoundAndValidateMutationInput()
+    {
+        var plans = ReadServerController("AdminPlansController.cs");
+        var billing = ReadServerController("BillingController.cs");
+
+        Assert.Contains("if (!IsValidPlanLimits(r)", plans);
+        Assert.Contains("r.Name.Trim().Length > 100", plans);
+        Assert.Contains("f.FeatureCode.Trim().ToLowerInvariant()", plans);
+
+        Assert.Contains("request.PlanCode.Trim().Length > 50", billing);
+        Assert.Contains("request.BillingInterval.Trim().Length > 20", billing);
+    }
+
+    [Fact]
     public void AdminDiagnostics_BoundSearchAndLogReadSize()
     {
         var source = ReadServerController("AdminUsersController.cs");
