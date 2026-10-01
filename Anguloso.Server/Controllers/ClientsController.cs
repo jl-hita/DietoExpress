@@ -502,7 +502,7 @@ public class ClientsController : ControllerBase
         var activeDietAssignment = await _context.client_diets
             .Include(cd => cd.diet)
             .Where(cd => cd.client_id == id && cd.is_active == true &&
-                         cd.diet != null && cd.diet.tenant_id == tenantId.Value)
+                         cd.diet != null && cd.diet.tenant_id == tenantId!.Value)
             .FirstOrDefaultAsync();
 
         int? age = null;
