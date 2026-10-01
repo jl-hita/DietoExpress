@@ -239,6 +239,16 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void AuthenticationEmails_EncodeUserControlledHtml()
+    {
+        var auth = ReadServerController("AuthController.cs");
+
+        Assert.Contains("HtmlEncode(user.username)", auth);
+        Assert.Contains("HtmlEncode(usuario.Username)", auth);
+        Assert.Contains("HtmlEncode(urlConfirm)", auth);
+    }
+
+    [Fact]
     public void AccountCreation_BoundsDatabaseBackedFieldLengths()
     {
         var auth = ReadServerController("AuthController.cs");
