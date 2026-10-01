@@ -1060,6 +1060,18 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void Biometrics_CreateAndUpdateRejectNonFiniteValuesAndOversizedNotes()
+    {
+        var source = ReadServerController("BiometricsController.cs");
+
+        Assert.Contains("HasInvalidMeasurementValues(dto)", source);
+        Assert.Contains("double.IsNaN(v.Value)", source);
+        Assert.Contains("double.IsInfinity(v.Value)", source);
+        Assert.Contains("dto.Notes?.Length > 5000", source);
+        Assert.Contains("dto.MeasurementDate == default", source);
+    }
+
+    [Fact]
     public void FoodExternalIds_AreDatabaseUnique()
     {
         var source = ReadServerLogica("DatabaseBootstrap.cs");

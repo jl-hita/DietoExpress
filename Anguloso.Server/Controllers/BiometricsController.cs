@@ -112,6 +112,9 @@ public class BiometricsController : ControllerBase
                   User.IsInRole("clinic_admin")));
         if (client == null) return NotFound();
 
+        if (HasInvalidMeasurementValues(dto))
+            return BadRequest("Las mediciones contienen valores no válidos.");
+
         var b = new biometrics
         {
             client_id = clientId,
@@ -165,6 +168,9 @@ public class BiometricsController : ControllerBase
                  User.IsInRole("clinic_admin")));
 
         if (b == null) return NotFound();
+
+        if (HasInvalidMeasurementValues(dto))
+            return BadRequest("Las mediciones contienen valores no válidos.");
 
         b.measurement_date = DateOnly.FromDateTime(dto.MeasurementDate);
         b.weight = dto.Weight;
@@ -394,6 +400,23 @@ public class BiometricsController : ControllerBase
             createdCount,
             updatedCount
         });
+    }
+
+    private static bool HasInvalidMeasurementValues(CreateBiometricDto dto)
+    {
+        if (dto.MeasurementDate == default || dto.Notes?.Length > 5000)
+            return true;
+
+        var values = new double?[]
+        {
+            dto.Weight, dto.Height, dto.BodyFat, dto.MuscleMass, dto.VisceralFat,
+            dto.Waist, dto.Hip, dto.Neck, dto.Triceps, dto.Abdomen, dto.Thigh,
+            dto.Subscapular, dto.Suprailiac, dto.Biceps, dto.Chest, dto.Axilla,
+            dto.CalfSkinfold, dto.ArmPerimeter, dto.CalfPerimeter, dto.WristDiameter,
+            dto.FemurDiameter, dto.HumerusDiameter
+        };
+
+        return values.Any(v => v.HasValue && (double.IsNaN(v.Value) || double.IsInfinity(v.Value)));
     }
 
     private BiometricsDto MapToDto(biometrics b, string gender, int? age)
