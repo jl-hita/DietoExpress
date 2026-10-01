@@ -185,6 +185,43 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void AccountCreation_RevalidatesUniquenessInsideRegistrationLocks()
+    {
+        var auth = ReadServerController("AuthController.cs");
+        var admin = ReadServerController("AdminUsersController.cs");
+        var clinic = ReadServerController("ClinicController.cs");
+
+        Assert.Contains("pg_advisory_xact_lock(748392616)", auth);
+        Assert.Contains("var duplicateUser = await _context.users", auth);
+        Assert.Contains("googleTransaction", auth);
+
+        Assert.Contains("pg_advisory_xact_lock(748392616)", admin);
+        Assert.Contains("if (await _context.users.AnyAsync(u => u.username == username))", admin);
+        Assert.Contains("if (await _context.users.AnyAsync(u => u.email == email))", admin);
+
+        var clinicMethod = clinic.IndexOf("CreateNutritionist", StringComparison.Ordinal);
+        Assert.True(clinicMethod >= 0);
+        var clinicLock = clinic.IndexOf("pg_advisory_xact_lock", clinicMethod, StringComparison.Ordinal);
+        var clinicEmailRecheck = clinic.IndexOf("El email ya está registrado.", clinicLock, StringComparison.Ordinal);
+        Assert.True(clinicLock > clinicMethod);
+        Assert.True(clinicEmailRecheck > clinicLock);
+    }
+
+    [Fact]
+    public void LicenseMutation_SerializesSubscriptionCreationPerTenant()
+    {
+        var source = ReadServerController("AdminUsersController.cs");
+        var methodPos = source.IndexOf("UpdateLicense", StringComparison.Ordinal);
+        Assert.True(methodPos >= 0);
+
+        var lockPos = source.IndexOf("pg_advisory_xact_lock", methodPos, StringComparison.Ordinal);
+        var subscriptionQueryPos = source.IndexOf("FirstOrDefaultAsync(s => s.tenant_id == user.tenant_id)", methodPos, StringComparison.Ordinal);
+
+        Assert.True(lockPos > methodPos);
+        Assert.True(subscriptionQueryPos > lockPos);
+    }
+
+    [Fact]
     public void AuthenticationEndpoints_BoundCredentialInputSizes()
     {
         var auth = ReadServerController("AuthController.cs");
