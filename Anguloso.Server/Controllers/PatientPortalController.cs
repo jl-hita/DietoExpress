@@ -148,11 +148,19 @@ public class PatientPortalController : ControllerBase
                          cd.diet.tenant_id == _context.clients.Where(c => c.id == clientId.Value).Select(c => c.tenant_id).FirstOrDefault())
             .FirstOrDefaultAsync();
         if (activeAssignment == null) return NotFound("No tienes ningún plan nutricional activo asignado en este momento.");
-        var d = await _context.diets.Include(d => d.diet_days).ThenInclude(dd => dd.meals).ThenInclude(m => m.meal_items).ThenInclude(i => i.food)
+        var d = await _context.diets.Include(d => d.diet_days).ThenInclude(dd => dd.meals).ThenInclude(m => m.meal_items)
             .Include(d => d.diet_days).ThenInclude(dd => dd.meals).ThenInclude(m => m.meal_items).ThenInclude(i => i.exchange_group)
             .FirstOrDefaultAsync(d => d.id == activeAssignment.diet_id &&
                              d.tenant_id == _context.clients.Where(c => c.id == clientId.Value).Select(c => c.tenant_id).FirstOrDefault());
         if (d == null) return NotFound("Plan nutricional no encontrado.");
+
+        var foodIds = d.diet_days.SelectMany(dd => dd.meals).SelectMany(m => m.meal_items)
+            .Where(i => i.food_id.HasValue).Select(i => i.food_id!.Value).Distinct().ToList();
+        var accessibleFoods = await _context.foods
+            .Where(f => foodIds.Contains(f.id) &&
+                (!EF.Functions.ILike(f.source ?? "", "local") || f.tenant_id == d.tenant_id))
+            .ToDictionaryAsync(f => f.id);
+
         return Ok(new DietDetailDto
         {
             Id = d.id, Name = d.name, TargetKcal = d.target_kcal, TargetProtein = d.target_protein, TargetCarbs = d.target_carbs, TargetFat = d.target_fat,
@@ -164,7 +172,7 @@ public class PatientPortalController : ControllerBase
                     Id = m.id, MealIndex = m.meal_index, Name = m.name,
                     Items = m.meal_items.Select(i => new MealItemDto
                     {
-                        Id = i.id, FoodId = i.food_id, FoodName = i.food != null ? i.food.name : null,
+                        Id = i.id, FoodId = i.food_id, FoodName = i.food_id.HasValue && accessibleFoods.TryGetValue(i.food_id.Value, out var accessibleFood) ? accessibleFood.name : null,
                         ExchangeGroupId = i.exchange_group_id, ExchangeGroupName = i.exchange_group != null ? i.exchange_group.name : null,
                         ExchangeCount = i.exchange_count, Grams = i.grams, Kcal = i.kcal, Protein = i.protein, Carbs = i.carbs, Fat = i.fat
                     }).ToList()
@@ -186,12 +194,20 @@ public class PatientPortalController : ControllerBase
                          cd.diet.tenant_id == _context.clients.Where(c => c.id == clientId.Value).Select(c => c.tenant_id).FirstOrDefault())
             .FirstOrDefaultAsync();
         if (activeAssignment == null) return NotFound("No hay plan activo para generar la lista de la compra.");
-        var diet = await _context.diets.Include(d => d.diet_days).ThenInclude(dd => dd.meals).ThenInclude(m => m.meal_items).ThenInclude(i => i.food)
+        var diet = await _context.diets.Include(d => d.diet_days).ThenInclude(dd => dd.meals).ThenInclude(m => m.meal_items)
             .FirstOrDefaultAsync(d => d.id == activeAssignment.diet_id &&
                              d.tenant_id == _context.clients.Where(c => c.id == clientId.Value).Select(c => c.tenant_id).FirstOrDefault());
         if (diet == null) return NotFound("Plan no encontrado.");
-        var grouped = diet.diet_days.SelectMany(dd => dd.meals).SelectMany(m => m.meal_items).Where(i => i.food != null && i.grams.HasValue)
-            .GroupBy(i => new { FoodId = i.food!.id, FoodName = i.food!.name ?? "Desconocido", Category = i.food!.category ?? "Otros" })
+
+        var shoppingFoodIds = diet.diet_days.SelectMany(dd => dd.meals).SelectMany(m => m.meal_items)
+            .Where(i => i.food_id.HasValue).Select(i => i.food_id!.Value).Distinct().ToList();
+        var shoppingFoods = await _context.foods
+            .Where(f => shoppingFoodIds.Contains(f.id) &&
+                (!EF.Functions.ILike(f.source ?? "", "local") || f.tenant_id == diet.tenant_id))
+            .ToDictionaryAsync(f => f.id);
+
+        var grouped = diet.diet_days.SelectMany(dd => dd.meals).SelectMany(m => m.meal_items).Where(i => i.food_id.HasValue && shoppingFoods.ContainsKey(i.food_id.Value) && i.grams.HasValue)
+            .GroupBy(i => new { FoodId = i.food_id!.Value, FoodName = shoppingFoods[i.food_id.Value].name ?? "Desconocido", Category = shoppingFoods[i.food_id.Value].category ?? "Otros" })
             .Select(g => new ShoppingItemDto { FoodId = g.Key.FoodId, FoodName = g.Key.FoodName, Category = g.Key.Category, TotalGrams = Math.Round((double)g.Sum(i => i.grams!.Value), 0) })
             .GroupBy(s => s.Category).Select(catGroup => new ShoppingCategoryDto { Category = catGroup.Key, Items = catGroup.OrderBy(i => i.FoodName).ToList() }).OrderBy(c => c.Category).ToList();
         return Ok(grouped);
