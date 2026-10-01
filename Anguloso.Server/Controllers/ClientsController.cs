@@ -106,7 +106,7 @@ public class ClientsController : ControllerBase
         var isSuperAdmin = User.IsInRole("superadmin");
 
         var client = await _context.clients
-            .Include(c => c.biometrics)
+            .Include(c => c.biometrics.OrderByDescending(b => b.measurement_date).Take(500))
             .Include(c => c.medical_history)
             .Include(c => c.digestive_health)
             .Include(c => c.food_preferences)
