@@ -88,6 +88,20 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void StripeWebhook_IsIdempotentAndAtomic()
+    {
+        var source = ReadServerController("BillingController.cs");
+
+        Assert.Contains("BeginTransactionAsync()", source);
+        Assert.Contains("await _context.SaveChangesAsync();", source);
+        Assert.Contains("Npgsql.PostgresException", source);
+        Assert.Contains("pg.SqlState == "23505"", source);
+        Assert.Contains("transaction.RollbackAsync()", source);
+        Assert.Contains("transaction.CommitAsync()", source);
+        Assert.Contains("Returning a non-2xx response makes Stripe retry", source);
+    }
+
+    [Fact]
     public void ClinicClientAssignment_IsAtomicAndHonorsNutritionistCapacity()
     {
         var clinic = ReadServerController("ClinicController.cs");
