@@ -176,7 +176,6 @@ public class Program
                             return;
                         }
 
-                        var patientDb = context.HttpContext.RequestServices.GetRequiredService<angulosodbContext>();
                         var portalTokenVersionClaim = context.Principal.FindFirstValue("portalTokenVersion");
                         if (!int.TryParse(portalTokenVersionClaim, out var portalTokenVersion))
                         {
