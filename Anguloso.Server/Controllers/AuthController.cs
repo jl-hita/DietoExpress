@@ -560,7 +560,7 @@ public class AuthController : ControllerBase
         catch (Exception ex)
         {
             // token inválido o expirado
-            return Unauthorized($"Token inválido: {ex.Message}");
+            return Unauthorized("Token de Google inválido o expirado.");
         }
 
         // payload contiene: Email, EmailVerified, Name, GivenName, FamilyName, Picture, Subject (sub = google id)
