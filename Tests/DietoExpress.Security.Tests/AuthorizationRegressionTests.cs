@@ -143,6 +143,20 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void StripeCheckout_SerializesConcurrentTenantSessions()
+    {
+        var source = ReadServerLogic("StripeBillingService.cs");
+        var methodPos = source.IndexOf("CreateCheckoutSessionAsync", StringComparison.Ordinal);
+        var lockPos = source.IndexOf("pg_advisory_xact_lock", methodPos, StringComparison.Ordinal);
+        var subscriptionQueryPos = source.IndexOf("existingSubscription", methodPos, StringComparison.Ordinal);
+
+        Assert.True(methodPos >= 0);
+        Assert.True(lockPos > methodPos);
+        Assert.True(subscriptionQueryPos > lockPos);
+        Assert.Contains("BeginTransactionAsync", source[methodPos..subscriptionQueryPos]);
+    }
+
+    [Fact]
     public void AutomatedDietGeneration_BoundsMacroAndDietTypeInput()
     {
         var source = ReadServerController("DietController.cs");
