@@ -229,6 +229,7 @@ public class ClientsController : ControllerBase
         var tenantId = AuthHelpers.GetTenantId(User);
         if (!tenantId.HasValue) return BadRequest("El usuario no pertenece a una clínica.");
 
+        clients client;
         await using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
@@ -239,8 +240,8 @@ public class ClientsController : ControllerBase
             var licenseCheck = await _licenseService.CanCreateClientAsync(tenantId, userId.Value);
             if (!licenseCheck.Allowed) return BadRequest(licenseCheck.Reason);
 
-            var client = new clients
-        {
+            client = new clients
+            {
             user_id = userId.Value,
             tenant_id = AuthHelpers.GetTenantId(User),
             full_name = dto.FullName,
