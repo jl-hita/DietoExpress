@@ -8,7 +8,7 @@ public class UsdaFoodResponse
 public class UsdaFood
 {
     public int fdcId { get; set; }
-    public string description { get; set; }
+    public string description { get; set; } = string.Empty;
     public List<UsdaNutrient> foodNutrients { get; set; } = new();
 }
 
