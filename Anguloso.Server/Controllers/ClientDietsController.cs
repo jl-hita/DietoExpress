@@ -188,13 +188,24 @@ public class ClientDietsController : ControllerBase
         var dietExists = await UserCanAccessDietAsync(dto.DietId, userId.Value);
         if (!dietExists) return BadRequest("The selected diet does not exist.");
 
-        // Desactivar dietas activas previas
+        // La mutación de asignaciones activas debe serializarse por tenant.
         var clientTenantId = await _context.clients
             .Where(c => c.id == clientId && c.archived_at == null)
             .Select(c => c.tenant_id)
             .FirstOrDefaultAsync();
 
-        var activeDiets = await _context.client_diets
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            if (clientTenantId.HasValue)
+                await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", clientTenantId.Value);
+
+            if (!await UserOwnsClientAsync(clientId, userId.Value))
+                return NotFound("Client not found or does not belong to the user.");
+            if (!await UserCanAccessDietAsync(dto.DietId, userId.Value))
+                return BadRequest("The selected diet does not exist.");
+
+            var activeDiets = await _context.client_diets
             .Include(cd => cd.diet)
             .Where(cd => cd.client_id == clientId && cd.is_active == true &&
                          (!clientTenantId.HasValue || (cd.diet != null && cd.diet.tenant_id == clientTenantId.Value)))
@@ -224,6 +235,8 @@ public class ClientDietsController : ControllerBase
             .Select(d => d.name)
             .FirstOrDefaultAsync() ?? string.Empty;
 
+            await transaction.CommitAsync();
+
         return Ok(new ClientDietListDto
         {
             Id = newAssignment.id,
@@ -236,6 +249,12 @@ public class ClientDietsController : ControllerBase
             IsActive = newAssignment.is_active ?? true,
             Notes = newAssignment.notes
         });
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 
     // PUT: api/clients/{clientId}/diets/{id}
@@ -253,7 +272,16 @@ public class ClientDietsController : ControllerBase
             .Select(c => c.tenant_id)
             .FirstOrDefaultAsync();
 
-        var assignment = await _context.client_diets
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            if (clientTenantId.HasValue)
+                await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", clientTenantId.Value);
+
+            if (!await UserOwnsClientAsync(clientId, userId.Value))
+                return NotFound("Client not found or does not belong to the user.");
+
+            var assignment = await _context.client_diets
             .Include(cd => cd.diet)
             .FirstOrDefaultAsync(cd => cd.id == id && cd.client_id == clientId &&
                 (User.IsInRole("superadmin") ||
@@ -287,8 +315,15 @@ public class ClientDietsController : ControllerBase
         assignment.is_active = dto.IsActive;
         assignment.notes = dto.Notes ?? string.Empty;
 
-        await _context.SaveChangesAsync();
-        return NoContent();
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+            return NoContent();
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 
     // POST: api/clients/{clientId}/diets/{id}/deactivate
