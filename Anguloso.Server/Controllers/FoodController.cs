@@ -219,6 +219,7 @@ public class FoodController : ControllerBase
     {
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
+        var tenantId = AuthHelpers.GetTenantId(User);
 
         var food = await _dbContext.foods
             .AsNoTracking()
