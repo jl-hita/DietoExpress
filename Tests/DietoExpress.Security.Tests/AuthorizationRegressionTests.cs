@@ -617,6 +617,18 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void StripeWebhook_UsesEventIdAsTieBreakerForEqualTimestamps()
+    {
+        var source = ReadServerController("BillingController.cs");
+
+        Assert.Contains("ProcessStripeEventAsync(root, eventType, eventId)", source);
+        Assert.Contains("private async Task ProcessStripeEventAsync(JsonElement root, string eventType, string eventId)", source);
+        Assert.Contains("stripeEventCreatedAt.Value == subscription.last_stripe_event_created_at.Value", source);
+        Assert.Contains("string.CompareOrdinal(eventId, subscription.last_stripe_event_id)", source);
+        Assert.Contains("last_stripe_event_id = eventId", source);
+    }
+
+    [Fact]
     public void StripeCheckoutWebhook_CreatesNewSubscriptionAfterCancelledHistory()
     {
         var source = ReadServerController("BillingController.cs");
