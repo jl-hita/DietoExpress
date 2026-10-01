@@ -274,6 +274,18 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void BiometricImport_HasDefensiveBatchAndValueLimits()
+    {
+        var source = ReadServerController("BiometricsController.cs");
+
+        Assert.Contains("const int maxImportRows = 500", source);
+        Assert.Contains("dto.Rows.Count > maxImportRows", source);
+        Assert.Contains("double.IsNaN", source);
+        Assert.Contains("double.IsInfinity", source);
+        Assert.Contains("row.MeasurementDate == default", source);
+    }
+
+    [Fact]
     public void AutomatedDietGeneration_HasDefensivePayloadLimits()
     {
         var source = ReadServerController("DietController.cs");
