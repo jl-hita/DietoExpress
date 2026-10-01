@@ -80,6 +80,11 @@ public class ClinicController : ControllerBase
         {
             await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", tenantId.Value);
 
+            // El chequeo previo al lock es solo una respuesta rápida. Revalidamos
+            // dentro del lock para cerrar la carrera entre clínicas concurrentes.
+            if (await _context.users.AnyAsync(u => u.email != null && u.email.ToLower() == email.ToLower()))
+                return Conflict("El email ya está registrado.");
+
             var allowed = await _license.CanCreateNutritionistAsync(tenantId);
             if (!allowed.Allowed) return BadRequest(allowed.Reason);
 
