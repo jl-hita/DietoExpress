@@ -76,9 +76,12 @@ public static class BillingSchemaBootstrap
                 completed_at TIMESTAMPTZ
             );
 
+            ALTER TABLE billing_checkout_attempts
+                ALTER COLUMN checkout_url DROP NOT NULL;
+
             CREATE UNIQUE INDEX IF NOT EXISTS idx_billing_checkout_pending_tenant
                 ON billing_checkout_attempts(tenant_id)
-                WHERE status = 'pending';
+                WHERE status IN ('creating', 'pending');
 
             CREATE INDEX IF NOT EXISTS idx_billing_checkout_expires_at
                 ON billing_checkout_attempts(expires_at);
