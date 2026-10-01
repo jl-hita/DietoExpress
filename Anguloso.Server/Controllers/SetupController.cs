@@ -27,7 +27,7 @@ public class SetupController : ControllerBase
     [HttpPost("init")]
     public async Task<IActionResult> Init([FromBody] SetupInitRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Username) ||
+        if (string.IsNullOrWhiteSpace(request.Username.Trim().ToLowerInvariant()) ||
             string.IsNullOrWhiteSpace(request.Email) ||
             string.IsNullOrWhiteSpace(request.Password) ||
             string.IsNullOrWhiteSpace(request.FullName))
