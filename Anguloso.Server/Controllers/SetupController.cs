@@ -27,11 +27,14 @@ public class SetupController : ControllerBase
     [HttpPost("init")]
     public async Task<IActionResult> Init([FromBody] SetupInitRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Username.Trim().ToLowerInvariant()) ||
-            string.IsNullOrWhiteSpace(request.Email) ||
+        if (string.IsNullOrWhiteSpace(request.Username?.Trim()) ||
+            string.IsNullOrWhiteSpace(request.Email?.Trim()) ||
             string.IsNullOrWhiteSpace(request.Password) ||
-            string.IsNullOrWhiteSpace(request.FullName))
+            string.IsNullOrWhiteSpace(request.FullName?.Trim()))
             return BadRequest("Todos los campos son obligatorios.");
+
+        if (request.Username.Trim().Length > 50 || request.Email.Trim().Length > 150 || request.FullName.Trim().Length > 100)
+            return BadRequest("Los datos de configuración superan la longitud permitida.");
 
         if (request.Password.Length < 12 || request.Password.Length > 256)
             return BadRequest("La contraseña debe tener entre 12 y 256 caracteres.");
@@ -39,7 +42,10 @@ public class SetupController : ControllerBase
         await using var transaction = await _context.Database.BeginTransactionAsync();
         await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(748392615)");
 
-        var alreadyConfigured = await _context.users.AnyAsync(u => u.role == "superadmin");
+        // El endpoint solo puede utilizarse en una instalación realmente vacía.
+        // Comprobar únicamente si existe un superadmin permitiría a un atacante
+        // reclamar la instalación después de que ya existan cuentas normales.
+        var alreadyConfigured = await _context.users.AnyAsync();
         if (alreadyConfigured)
             return StatusCode(403, "La aplicación ya ha sido configurada.");
 
