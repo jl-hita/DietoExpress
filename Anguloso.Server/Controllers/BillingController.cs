@@ -442,14 +442,15 @@ public sealed class BillingController : ControllerBase
                 // A payment event can arrive after a newer cancellation or status
                 // change. Do not let an older invoice.paid event reactivate the
                 // subscription.
-                if (stripeEventCreatedAt.HasValue &&
-                    subscription.last_stripe_event_created_at.HasValue &&
-                    stripeEventCreatedAt.Value <= subscription.last_stripe_event_created_at.Value)
+                if (!IsStripeEventNewer(subscription, stripeEventCreatedAt, eventId))
                     return;
 
                 subscription.status = "active";
                 if (stripeEventCreatedAt.HasValue)
+                {
                     subscription.last_stripe_event_created_at = stripeEventCreatedAt.Value;
+                    subscription.last_stripe_event_id = eventId;
+                }
                 subscription.updated_at = DateTime.UtcNow;
 
                 var amountPaid = ReadDecimalMinorUnits(data, "amount_paid");
@@ -493,9 +494,7 @@ public sealed class BillingController : ControllerBase
 
                 // Stripe may deliver different events out of order. Never let an older
                 // subscription snapshot overwrite a state already established by a newer event.
-                if (stripeEventCreatedAt.HasValue &&
-                    subscription.last_stripe_event_created_at.HasValue &&
-                    stripeEventCreatedAt.Value <= subscription.last_stripe_event_created_at.Value)
+                if (!IsStripeEventNewer(subscription, stripeEventCreatedAt, eventId))
                     return;
 
                 subscription.status = eventType == "customer.subscription.deleted"
@@ -540,7 +539,10 @@ public sealed class BillingController : ControllerBase
                 }
 
                 if (stripeEventCreatedAt.HasValue)
+                {
                     subscription.last_stripe_event_created_at = stripeEventCreatedAt.Value;
+                    subscription.last_stripe_event_id = eventId;
+                }
                 subscription.updated_at = DateTime.UtcNow;
 
                 if (data.TryGetProperty("current_period_start", out var start) && start.ValueKind == JsonValueKind.Number)
@@ -555,6 +557,17 @@ public sealed class BillingController : ControllerBase
                 break;
             }
         }
+    }
+
+    private static bool IsStripeEventNewer(subscriptions subscription, DateTime? eventCreatedAt, string eventId)
+    {
+        if (!eventCreatedAt.HasValue || !subscription.last_stripe_event_created_at.HasValue)
+            return true;
+        if (eventCreatedAt.Value > subscription.last_stripe_event_created_at.Value)
+            return true;
+        if (eventCreatedAt.Value < subscription.last_stripe_event_created_at.Value)
+            return false;
+        return string.CompareOrdinal(eventId, subscription.last_stripe_event_id) > 0;
     }
 
     private static string MapStripeSubscriptionStatus(string? status) => status switch
