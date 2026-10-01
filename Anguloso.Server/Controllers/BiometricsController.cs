@@ -227,7 +227,7 @@ public class BiometricsController : ControllerBase
                  (AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User)!.Value &&
                   (c.user_id == userId.Value ||
                    _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active) ||
-                   User.IsInRole("clinic_admin"))));
+                   User.IsInRole("clinic_admin")))));
         if (client == null) return NotFound();
 
         int? age = null;
@@ -262,7 +262,7 @@ public class BiometricsController : ControllerBase
                  AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User)!.Value &&
                  (c.user_id == userId.Value ||
                   _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active) ||
-                  User.IsInRole("clinic_admin")));
+                  User.IsInRole("clinic_admin"))));
         if (client == null) return NotFound("Cliente no encontrado.");
 
         if (file == null || file.Length == 0)
