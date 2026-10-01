@@ -358,17 +358,50 @@ public class ClientDietsController : ControllerBase
         if (!await UserOwnsClientAsync(clientId, userId.Value))
             return NotFound("Client not found or does not belong to the user.");
 
-        var assignment = await _context.client_diets.FirstOrDefaultAsync(cd => cd.id == id && cd.client_id == clientId);
-        if (assignment == null) return NotFound("Diet assignment not found.");
+        var clientTenantId = await _context.clients
+            .Where(c => c.id == clientId && c.archived_at == null)
+            .Select(c => c.tenant_id)
+            .FirstOrDefaultAsync();
 
-        if (!await UserCanAccessDietAsync(assignment.diet_id, userId.Value))
-            return NotFound("Diet assignment not found.");
+        Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? transaction = null;
+        try
+        {
+            if (_context.Database.IsRelational())
+            {
+                transaction = await _context.Database.BeginTransactionAsync();
+                if (clientTenantId.HasValue)
+                    await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", clientTenantId.Value);
+            }
 
-        assignment.is_active = false;
-        assignment.end_date = DateOnly.FromDateTime(DateTime.Today);
+            var assignment = await _context.client_diets
+                .Include(cd => cd.diet)
+                .FirstOrDefaultAsync(cd => cd.id == id && cd.client_id == clientId &&
+                    (clientTenantId.HasValue && cd.diet != null && cd.diet.tenant_id == clientTenantId.Value));
 
-        await _context.SaveChangesAsync();
-        return NoContent();
+            if (assignment == null) return NotFound("Diet assignment not found.");
+
+            if (!await UserCanAccessDietAsync(assignment.diet_id, userId.Value))
+                return NotFound("Diet assignment not found.");
+
+            assignment.is_active = false;
+            assignment.end_date = DateOnly.FromDateTime(DateTime.Today);
+
+            await _context.SaveChangesAsync();
+            if (transaction != null)
+                await transaction.CommitAsync();
+            return NoContent();
+        }
+        catch
+        {
+            if (transaction != null)
+                await transaction.RollbackAsync();
+            throw;
+        }
+        finally
+        {
+            if (transaction != null)
+                await transaction.DisposeAsync();
+        }
     }
 
     // DELETE: api/clients/{clientId}/diets/{id}
@@ -381,16 +414,49 @@ public class ClientDietsController : ControllerBase
         if (!await UserOwnsClientAsync(clientId, userId.Value))
             return NotFound("Client not found or does not belong to the user.");
 
-        var assignment = await _context.client_diets.FirstOrDefaultAsync(cd => cd.id == id && cd.client_id == clientId);
-        if (assignment == null) return NotFound("Diet assignment not found.");
+        var clientTenantId = await _context.clients
+            .Where(c => c.id == clientId && c.archived_at == null)
+            .Select(c => c.tenant_id)
+            .FirstOrDefaultAsync();
 
-        if (!await UserCanAccessDietAsync(assignment.diet_id, userId.Value))
-            return NotFound("Diet assignment not found.");
+        Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? transaction = null;
+        try
+        {
+            if (_context.Database.IsRelational())
+            {
+                transaction = await _context.Database.BeginTransactionAsync();
+                if (clientTenantId.HasValue)
+                    await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", clientTenantId.Value);
+            }
 
-        _context.client_diets.Remove(assignment);
-        await _context.SaveChangesAsync();
+            var assignment = await _context.client_diets
+                .Include(cd => cd.diet)
+                .FirstOrDefaultAsync(cd => cd.id == id && cd.client_id == clientId &&
+                    (clientTenantId.HasValue && cd.diet != null && cd.diet.tenant_id == clientTenantId.Value));
 
-        return NoContent();
+            if (assignment == null) return NotFound("Diet assignment not found.");
+
+            if (!await UserCanAccessDietAsync(assignment.diet_id, userId.Value))
+                return NotFound("Diet assignment not found.");
+
+            _context.client_diets.Remove(assignment);
+            await _context.SaveChangesAsync();
+
+            if (transaction != null)
+                await transaction.CommitAsync();
+            return NoContent();
+        }
+        catch
+        {
+            if (transaction != null)
+                await transaction.RollbackAsync();
+            throw;
+        }
+        finally
+        {
+            if (transaction != null)
+                await transaction.DisposeAsync();
+        }
     }
 
     // GET: api/clients/{clientId}/diets/consultation-pdf?date=yyyy-MM-dd
