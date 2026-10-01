@@ -977,6 +977,15 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void PatientMagicLinks_ConsumeTheStoredHashAndNeverCompareRawTokenToHash()
+    {
+        var source = ReadServerController("PatientPortalController.cs");
+
+        Assert.Contains("c.access_token == HashAccessToken(request.Token)", source);
+        Assert.DoesNotContain("c.access_token == request.Token", source);
+    }
+
+    [Fact]
     public void FoodExternalIds_AreDatabaseUnique()
     {
         var source = ReadServerLogica("DatabaseBootstrap.cs");
