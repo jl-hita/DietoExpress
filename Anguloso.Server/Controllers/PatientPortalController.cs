@@ -71,7 +71,7 @@ public class PatientPortalController : ControllerBase
         {
             var consumed = await _context.clients
                 .Where(c => c.id == client.id &&
-                            c.access_token == request.Token &&
+                            c.access_token == HashAccessToken(request.Token) &&
                             c.access_token_expires_at.HasValue &&
                             c.access_token_expires_at > DateTime.UtcNow)
                 .ExecuteUpdateAsync(setters => setters
