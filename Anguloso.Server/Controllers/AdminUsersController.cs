@@ -89,7 +89,23 @@ public class AdminUsersController : ControllerBase
         if (AdminConfigSecurity.IsSecretConfig(config.nombre_config) && string.IsNullOrWhiteSpace(request.Valor))
             return BadRequest("Para cambiar un secreto debes introducir un valor nuevo.");
 
-        config.valor_config = request.Valor ?? string.Empty;
+        var value = request.Valor ?? string.Empty;
+        if (value.Length > 10000)
+            return BadRequest("El valor de configuración no puede superar los 10000 caracteres.");
+
+        if (config.nombre_config.Equals("frontendUrl", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!Uri.TryCreate(value.Trim(), UriKind.Absolute, out var frontendUri) ||
+                frontendUri.Scheme != Uri.UriSchemeHttps ||
+                string.IsNullOrWhiteSpace(frontendUri.Host) ||
+                frontendUri.UserInfo.Length > 0 ||
+                !string.IsNullOrEmpty(frontendUri.Query) ||
+                !string.IsNullOrEmpty(frontendUri.Fragment))
+                return BadRequest("frontendUrl debe ser una URL HTTPS absoluta sin credenciales, query ni fragmento.");
+            value = frontendUri.ToString().TrimEnd('/');
+        }
+
+        config.valor_config = value;
         await _context.SaveChangesAsync();
 
         return Ok(new AdminConfigDto
