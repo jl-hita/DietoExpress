@@ -101,7 +101,7 @@ public class AdminPlansController : ControllerBase
             .Select(f => f.FeatureCode.Trim().ToLowerInvariant())
             .ToList();
 
-        if (normalizedFeatureCodes.Distinct(StringComparer.Ordinal).Count != normalizedFeatureCodes.Count)
+        if (normalizedFeatureCodes.Distinct(StringComparer.Ordinal).Count() != normalizedFeatureCodes.Count)
             return BadRequest("No puede haber funcionalidades duplicadas.");
 
         var p = await _context.subscription_plans.FindAsync(id);
