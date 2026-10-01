@@ -346,6 +346,16 @@ public class AdminUsersController : ControllerBase
         if (request.Password.Length < 12 || request.Password.Length > 256)
             return BadRequest("La contraseña debe tener entre 12 y 256 caracteres.");
 
+        if (request.Username.Trim().Length > 50 ||
+            request.Email.Trim().Length > 150 ||
+            request.FullName.Trim().Length > 100 ||
+            (request.ClinicName?.Trim().Length ?? 0) > 150 ||
+            (request.ClinicAddress?.Trim().Length ?? 0) > 250 ||
+            (request.ClinicPhone?.Trim().Length ?? 0) > 50 ||
+            (request.LegalName?.Trim().Length ?? 0) > 200 ||
+            (request.CifNif?.Trim().Length ?? 0) > 50)
+            return BadRequest("Uno o más campos superan la longitud permitida.");
+
         var accountType = (request.AccountType ?? "nutritionist").Trim().ToLowerInvariant();
         if (accountType != "nutritionist" && accountType != "clinic")
             return BadRequest("Tipo de cuenta no válido.");
