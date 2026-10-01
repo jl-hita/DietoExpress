@@ -69,7 +69,7 @@ public static class BillingSchemaBootstrap
                 billing_interval VARCHAR(20) NOT NULL,
                 idempotency_key VARCHAR(255) NOT NULL UNIQUE,
                 stripe_session_id VARCHAR(255),
-                checkout_url TEXT NOT NULL,
+                checkout_url TEXT,
                 status VARCHAR(20) NOT NULL DEFAULT 'pending',
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 expires_at TIMESTAMPTZ NOT NULL,
