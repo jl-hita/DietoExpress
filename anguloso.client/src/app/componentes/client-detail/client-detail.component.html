@@ -45,7 +45,7 @@
           <mat-icon>open_in_new</mat-icon> Abrir Portal del Paciente
         </a>
       </ng-container>
-      <a *ngIf="!portalAccess?.magicLink && clientId" mat-stroked-button color="accent" [href]="'/patient?clientId=' + clientId" target="_blank" style="display: flex; align-items: center; gap: 6px;">
+      <a *ngIf="!portalAccess?.magicLink && clientId" mat-stroked-button color="accent" [href]="'/patient?clientId=' + clientId" target="_blank" rel="noopener noreferrer" style="display: flex; align-items: center; gap: 6px;">
         <mat-icon>open_in_new</mat-icon> Vista Previa Portal
       </a>
     </div>
