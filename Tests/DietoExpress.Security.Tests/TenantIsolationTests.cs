@@ -286,6 +286,60 @@ public class TenantIsolationTests
         Assert.Single(await db.client_diets.ToListAsync());
     }
 
+    [Fact]
+    public async Task RemoveFavorite_DoesNotModifyFavoriteToAnotherTenantFood()
+    {
+        await using var db = CreateDb();
+
+        db.users.Add(new users { id = 1, tenant_id = 10, role = "user" });
+        db.foods.Add(new foods
+        {
+            id = 900,
+            name = "Alimento de otro tenant",
+            source = "local",
+            tenant_id = 20,
+            created_by_user_id = 2
+        });
+        db.food_favorites.Add(new food_favorites
+        {
+            id = 901,
+            user_id = 1,
+            food_id = 900
+        });
+        await db.SaveChangesAsync();
+
+        var controller = CreateFoodController(db, userId: 1, tenantId: 10);
+
+        var result = await controller.RemoveFavorite(900);
+
+        Assert.IsType<NoContentResult>(result);
+        Assert.Single(await db.food_favorites.ToListAsync());
+    }
+
+    private static FoodController CreateFoodController(
+        angulosodbContext db,
+        int userId,
+        int tenantId)
+    {
+        var controller = new FoodController(null!, db);
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, userId.ToString()),
+            new("tenantId", tenantId.ToString()),
+            new(ClaimTypes.Role, "user")
+        };
+
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(new ClaimsIdentity(claims, "Test"))
+            }
+        };
+
+        return controller;
+    }
+
     private static angulosodbContext CreateDb()
     {
         var options = new DbContextOptionsBuilder<angulosodbContext>()
