@@ -357,10 +357,14 @@ public sealed class BillingController : ControllerBase
                         return;
                 }
 
-                if (stripeEventCreatedAt.HasValue &&
-                    subscription.last_stripe_event_created_at.HasValue &&
-                    stripeEventCreatedAt.Value <= subscription.last_stripe_event_created_at.Value)
-                    return;
+                if (stripeEventCreatedAt.HasValue && subscription.last_stripe_event_created_at.HasValue)
+                {
+                    if (stripeEventCreatedAt.Value < subscription.last_stripe_event_created_at.Value)
+                        return;
+                    if (stripeEventCreatedAt.Value == subscription.last_stripe_event_created_at.Value &&
+                        string.CompareOrdinal(eventId, subscription.last_stripe_event_id) <= 0)
+                        return;
+                }
 
                 subscription.plan_id = planId.Value;
                 subscription.billing_interval = interval;
@@ -376,6 +380,7 @@ public sealed class BillingController : ControllerBase
                     (!subscription.last_stripe_event_created_at.HasValue || stripeEventCreatedAt.Value > subscription.last_stripe_event_created_at.Value))
                 {
                     subscription.last_stripe_event_created_at = stripeEventCreatedAt.Value;
+                    subscription.last_stripe_event_id = eventId;
                 }
                 subscription.updated_at = DateTime.UtcNow;
 
@@ -478,7 +483,7 @@ public sealed class BillingController : ControllerBase
                     return;
 
                 var subscription = await _context.subscriptions
-                    .FirstOrDefaultAsync(s => s.provider_subscription_id == providerSubscriptionId);
+                    .FirstOrDefaultAsync(s => s.payment_provider == "stripe" && s.provider_subscription_id == providerSubscriptionId);
 
                 if (subscription == null)
                     return;
