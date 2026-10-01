@@ -89,6 +89,24 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void ClientDietAssignmentMutations_SerializeAgainstTenantLock()
+    {
+        var source = ReadServerController("ClientDietsController.cs");
+
+        foreach (var method in new[] { "AssignDiet", "UpdateAssignment" })
+        {
+            var methodPos = source.IndexOf(method, StringComparison.Ordinal);
+            Assert.True(methodPos >= 0);
+
+            var lockPos = source.IndexOf("pg_advisory_xact_lock", methodPos, StringComparison.Ordinal);
+            var savePos = source.IndexOf("SaveChangesAsync", methodPos, StringComparison.Ordinal);
+
+            Assert.True(lockPos > methodPos);
+            Assert.True(savePos > lockPos);
+        }
+    }
+
+    [Fact]
     public void AdminNutritionistDeactivation_SerializesPatientSnapshotAgainstTenantLock()
     {
         var source = ReadServerController("AdminUsersController.cs");
