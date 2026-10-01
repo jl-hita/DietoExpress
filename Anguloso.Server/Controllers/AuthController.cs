@@ -203,20 +203,32 @@ public class AuthController : ControllerBase
 
             string passwordHash = BCrypt.Net.BCrypt.HashPassword(password);
 
-            // Comprobamos si el usuario existe ya
-            users? user = await _context.users.FirstOrDefaultAsync(u => u.username == username || u.email == email);
+            // Generar token de confirmación
+            string token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+
+            // La comprobación de username/email y el INSERT deben ejecutarse con
+            // aislamiento Serializable para cerrar la ventana de carrera entre dos
+            // registros concurrentes. Sin una restricción UNIQUE histórica en la BD,
+            // un simple FirstOrDefaultAsync seguido de SaveChangesAsync no basta.
+            await using var transaction = await _context.Database.BeginTransactionAsync(
+                System.Data.IsolationLevel.Serializable);
+
+            // Comprobamos si el usuario existe ya dentro de la transacción serializable.
+            // Email se compara sin distinguir mayúsculas/minúsculas porque el login
+            // aplica esa misma semántica.
+            users? user = await _context.users.FirstOrDefaultAsync(u =>
+                u.username.ToLower() == username.ToLower() ||
+                u.email.ToLower() == email.ToLower());
             if (user != null)
             {
                 return new BoolMensaje
                 {
                     Exito = false,
-                    Mensaje = user.username == username ? $"El usuario {username} ya existe" : $"El email {email} ya está registrado"
+                    Mensaje = user.username.Equals(username, StringComparison.OrdinalIgnoreCase)
+                        ? $"El usuario {username} ya existe"
+                        : $"El email {email} ya está registrado"
                 };
             }
-
-            // Generar token de confirmación
-            string token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
-            await using var transaction = await _context.Database.BeginTransactionAsync();
 
             var freePlan = await _context.subscription_plans
                 .FirstOrDefaultAsync(p => p.code == "free" && p.active);
