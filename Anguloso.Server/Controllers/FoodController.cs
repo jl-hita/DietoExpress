@@ -180,7 +180,7 @@ public class FoodController : ControllerBase
             f.id == id &&
             f.source == "local" &&
             (User.IsInRole("superadmin") ||
-             f.created_by_user_id == userId.Value ||
+             (tenantId.HasValue && f.tenant_id == tenantId.Value && f.created_by_user_id == userId.Value) ||
              (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value)));
         if (food == null) return NotFound();
 
@@ -203,8 +203,13 @@ public class FoodController : ControllerBase
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
 
+        var tenantId = AuthHelpers.GetTenantId(User);
         var favorites = await _dbContext.food_favorites
-            .Where(f => f.user_id == userId.Value)
+            .Where(f => f.user_id == userId.Value &&
+                (f.food.source != "local" ||
+                 User.IsInRole("superadmin") ||
+                 (tenantId.HasValue && f.food.tenant_id == tenantId.Value && f.food.created_by_user_id == userId.Value) ||
+                 (User.IsInRole("clinic_admin") && tenantId.HasValue && f.food.tenant_id == tenantId.Value)))
             .OrderByDescending(f => f.created_at)
             .Select(f => f.food)
             .AsNoTracking()
@@ -224,9 +229,10 @@ public class FoodController : ControllerBase
         var food = await _dbContext.foods
             .AsNoTracking()
             .FirstOrDefaultAsync(f => f.id == id &&
-                (f.source != "local" || f.created_by_user_id == userId.Value ||
-                 (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value) ||
-                 User.IsInRole("superadmin")));
+                (f.source != "local" ||
+                 User.IsInRole("superadmin") ||
+                 (tenantId.HasValue && f.tenant_id == tenantId.Value && f.created_by_user_id == userId.Value) ||
+                 (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value)));
         if (food == null) return NotFound();
 
         var exists = await _dbContext.food_favorites.AnyAsync(f => f.user_id == userId.Value && f.food_id == id);
