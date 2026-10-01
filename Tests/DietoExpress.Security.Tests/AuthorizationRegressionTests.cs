@@ -790,6 +790,16 @@ public class AuthorizationRegressionTests
         Assert.DoesNotContain("token = tokenString", endpoint);
     }
 
+    [Fact]
+    public void AdminSubscriptionLifecycle_ResolvesCurrentHistoryRecord()
+    {
+        var source = ReadServerController("AdminUsersController.cs");
+
+        Assert.Contains("s.status != \"cancelled\" && s.status != \"canceled\"", source);
+        Assert.Contains(".OrderByDescending(s => s.created_at)", source);
+        Assert.Contains(".Where(s => s.tenant_id == user.tenant_id.Value)", source);
+    }
+
     private static void AssertEndpointRequiresProfessional(string relativePath, string httpAttribute)
     {
         var source = File.ReadAllText(Path.Combine(RepoRoot, relativePath.Replace('/', Path.DirectorySeparatorChar)));
