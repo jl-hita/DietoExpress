@@ -561,7 +561,7 @@ public class AuthController : ControllerBase
 
             payload = await GoogleJsonWebSignature.ValidateAsync(dto.IdToken, settings);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             // token inválido o expirado
             return Unauthorized("Token de Google inválido o expirado.");
