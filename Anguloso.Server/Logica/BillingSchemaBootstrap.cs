@@ -26,6 +26,16 @@ public static class BillingSchemaBootstrap
             ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS last_stripe_event_created_at TIMESTAMPTZ;
             ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS last_stripe_event_id VARCHAR(255);
 
+            -- Existing/legacy rows must not be allowed to carry NULL status:
+            -- NULL would bypass the partial active-subscription uniqueness predicate.
+            UPDATE subscriptions
+            SET status = 'active'
+            WHERE status IS NULL;
+
+            ALTER TABLE subscriptions
+                ALTER COLUMN status SET DEFAULT 'active',
+                ALTER COLUMN status SET NOT NULL;
+
             -- Migrate the old global tenant uniqueness constraint if it exists.
             -- Cancelled subscriptions are historical records and must not block a new checkout.
             DROP INDEX IF EXISTS idx_subscriptions_tenant_id_unique;
@@ -37,9 +47,14 @@ public static class BillingSchemaBootstrap
             -- Provider identifiers are scoped by provider so a future second provider
             -- cannot collide with Stripe identifiers.
             DROP INDEX IF EXISTS idx_subscriptions_provider_customer;
+            -- A Stripe customer is reused when a tenant starts a new subscription
+            -- after a previous one was cancelled. Historical rows therefore must
+            -- not block the new active subscription.
             CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_provider_customer
                 ON subscriptions(payment_provider, provider_customer_id)
-                WHERE payment_provider IS NOT NULL AND provider_customer_id IS NOT NULL;
+                WHERE payment_provider IS NOT NULL
+                  AND provider_customer_id IS NOT NULL
+                  AND status NOT IN ('cancelled', 'canceled');
 
             CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_provider_subscription
                 ON subscriptions(payment_provider, provider_subscription_id)
