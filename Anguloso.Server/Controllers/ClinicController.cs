@@ -72,6 +72,9 @@ public class ClinicController : ControllerBase
         var email = req.Email.Trim();
         var fullName = string.IsNullOrWhiteSpace(req.FullName) ? email : req.FullName.Trim();
 
+        if (email.Length > 150 || fullName.Length > 100)
+            return BadRequest("El email o el nombre superan la longitud permitida.");
+
         if (await _context.users.AnyAsync(u => u.email != null && u.email.ToLower() == email.ToLower()))
             return Conflict("El email ya está registrado.");
 
