@@ -206,6 +206,14 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void DatabaseBootstrap_EnforcesOneSubscriptionPerTenant()
+    {
+        var source = ReadServerLogica("DatabaseBootstrap.cs");
+        Assert.Contains("CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_tenant_id_unique", source);
+        Assert.Contains("ON subscriptions(tenant_id)", source);
+    }
+
+    [Fact]
     public void AccountCreation_RevalidatesUniquenessInsideRegistrationLocks()
     {
         var auth = ReadServerController("AuthController.cs");
