@@ -120,6 +120,8 @@ public class AuthorizationRegressionTests
         Assert.Contains("[EnableRateLimiting(\"auth\")]", setup);
         Assert.Contains("pg_advisory_xact_lock", setup);
         Assert.Contains("alreadyConfigured", setup);
+        Assert.Contains("var alreadyConfigured = await _context.users.AnyAsync();", setup);
+        Assert.Contains("request.Username.Trim().Length > 50", setup);
         Assert.Contains("StatusCode(403", setup);
     }
 
