@@ -263,7 +263,11 @@ public class AdminUsersController : ControllerBase
         if (plan == null)
             return BadRequest("Plan SaaS no encontrado o no activo.");
 
-        await using var transaction = await _context.Database.BeginTransactionAsync();
+        // La creación/actualización de la suscripción debe ser serializable:
+        // dos operaciones de SuperAdmin concurrentes no deben poder observar
+        // simultáneamente que no existe suscripción y crear dos filas para el mismo tenant.
+        await using var transaction = await _context.Database.BeginTransactionAsync(
+            System.Data.IsolationLevel.Serializable);
         try
         {
             if (!user.tenant_id.HasValue)
