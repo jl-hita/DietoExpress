@@ -143,6 +143,21 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void AutomatedDietGeneration_BoundsMacroAndDietTypeInput()
+    {
+        var source = ReadServerController("DietController.cs");
+        var start = source.IndexOf("GenerateAutomatedDiet", StringComparison.Ordinal);
+        var end = source.IndexOf("// POST: api/dietas/validate", start, StringComparison.Ordinal);
+
+        Assert.True(start >= 0 && end > start);
+        var section = source[start..end];
+        Assert.Contains("request.TargetProtein.Value > 2000", section);
+        Assert.Contains("request.TargetCarbs.Value > 2000", section);
+        Assert.Contains("request.TargetFat.Value > 2000", section);
+        Assert.Contains("request.DietType.Length > 50", section);
+    }
+
+    [Fact]
     public void ProfileUpdates_BoundDatabaseBackedFields()
     {
         var dto = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Model", "ProfileDto.cs"));
