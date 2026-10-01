@@ -53,6 +53,32 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void AuthenticationAndPortalEntryPoints_AreRateLimited()
+    {
+        var auth = ReadServerController("AuthController.cs");
+        foreach (var endpoint in new[]
+        {
+            "HttpPost(\"login\")",
+            "HttpPut(\"crearUser\")",
+            "HttpGet(\"confirmarEmail\")",
+            "HttpPost(\"enviarReset\")",
+            "HttpPut(\"resetPassword\")",
+            "HttpPost(\"google\")"
+        })
+        {
+            var endpointPos = auth.IndexOf(endpoint, StringComparison.Ordinal);
+            Assert.True(endpointPos >= 0);
+            var ratePos = auth.LastIndexOf("[EnableRateLimiting(\"auth\")]", endpointPos, StringComparison.Ordinal);
+            Assert.True(ratePos >= 0);
+        }
+
+        var portal = ReadServerController("PatientPortalController.cs");
+        var portalAuthPos = portal.IndexOf("HttpPost(\"auth\")", StringComparison.Ordinal);
+        Assert.True(portalAuthPos >= 0);
+        Assert.True(portal.LastIndexOf("[EnableRateLimiting(\"auth\")]", portalAuthPos, StringComparison.Ordinal) >= 0);
+    }
+
+    [Fact]
     public void SetupInitialization_IsOneTimeAndRateLimited()
     {
         var setup = ReadServerController("SetupController.cs");
