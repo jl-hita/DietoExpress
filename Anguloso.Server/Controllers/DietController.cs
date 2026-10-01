@@ -122,7 +122,6 @@ public class DietController : ControllerBase
             .Include(d => d.diet_days)
                 .ThenInclude(dd => dd.meals)
                     .ThenInclude(m => m.meal_items)
-                        .ThenInclude(i => i.food)
             .Include(d => d.diet_days)
                 .ThenInclude(dd => dd.meals)
                     .ThenInclude(m => m.meal_items)
@@ -130,6 +129,24 @@ public class DietController : ControllerBase
             .FirstOrDefaultAsync(d => d.id == id && d.archived_at == null && ((tenantId.HasValue && d.tenant_id == tenantId.Value && d.user_id == userId.Value) || (sharedAllowed && tenantId.HasValue && d.tenant_id == tenantId.Value && d.is_shared)));
 
         if (d == null) return NotFound();
+
+        var foodIds = d.diet_days
+            .SelectMany(dd => dd.meals)
+            .SelectMany(m => m.meal_items)
+            .Where(i => i.food_id.HasValue)
+            .Select(i => i.food_id!.Value)
+            .Distinct()
+            .ToList();
+
+        var accessibleFoods = foodIds.Count == 0
+            ? new Dictionary<int, foods>()
+            : await _context.foods
+                .Where(f => foodIds.Contains(f.id) &&
+                    (!EF.Functions.ILike(f.source ?? "", "local") ||
+                     User.IsInRole("superadmin") ||
+                     (tenantId.HasValue && f.tenant_id == tenantId.Value && f.created_by_user_id == userId.Value) ||
+                     (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value)))
+                .ToDictionaryAsync(f => f.id);
 
         return Ok(new DietDetailDto
         {
@@ -163,7 +180,7 @@ public class DietController : ControllerBase
                         Protein = i.protein,
                         Carbs = i.carbs,
                         Fat = i.fat,
-                        FoodName = i.food != null ? i.food.name : null,
+                        FoodName = i.food_id.HasValue && accessibleFoods.TryGetValue(i.food_id.Value, out var accessibleFood) ? accessibleFood.name : null,
                         ExchangeGroupId = i.exchange_group_id,
                         ExchangeGroupName = i.exchange_group != null ? i.exchange_group.name : null,
                         ExchangeCount = i.exchange_count
