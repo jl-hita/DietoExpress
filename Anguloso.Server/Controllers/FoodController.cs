@@ -221,7 +221,7 @@ public class FoodController : ControllerBase
         var tenantId = AuthHelpers.GetTenantId(User);
         var favorites = await _dbContext.food_favorites
             .Where(f => f.user_id == userId.Value &&
-                (!EF.Functions.ILike(f.food.source ?? "", "local") ||
+                ((f.food.source == null || f.food.source.ToLower() != "local") ||
                  User.IsInRole("superadmin") ||
                  (tenantId.HasValue && f.food.tenant_id == tenantId.Value && f.food.created_by_user_id == userId.Value) ||
                  (User.IsInRole("clinic_admin") && tenantId.HasValue && f.food.tenant_id == tenantId.Value)))
@@ -271,7 +271,7 @@ public class FoodController : ControllerBase
         var favorite = await _dbContext.food_favorites
             .Include(f => f.food)
             .FirstOrDefaultAsync(f => f.user_id == userId.Value && f.food_id == id &&
-                (!EF.Functions.ILike(f.food.source ?? "", "local") ||
+                ((f.food.source == null || f.food.source.ToLower() != "local") ||
                  User.IsInRole("superadmin") ||
                  (tenantId.HasValue && f.food.tenant_id == tenantId.Value && f.food.created_by_user_id == userId.Value) ||
                  (User.IsInRole("clinic_admin") && tenantId.HasValue && f.food.tenant_id == tenantId.Value)));
