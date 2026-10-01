@@ -264,6 +264,16 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void OpenFoodFactsRefresh_RevalidatesGlobalFoodScopeBeforeUpdate()
+    {
+        var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "OpenFoodFactsService.cs"));
+
+        Assert.Contains("f.id == food.id", source);
+        Assert.Contains("f.source != \"local\"", source);
+        Assert.Contains("f.tenant_id == null", source);
+    }
+
+    [Fact]
     public void FoodMutations_RequireProfessionalPolicy()
     {
         var source = ReadServerController("FoodController.cs");
