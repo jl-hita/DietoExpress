@@ -683,7 +683,7 @@ public class UpdateLicenseRequest
     public string SubscriptionPlan { get; set; } = "free";
     public string SubscriptionStatus { get; set; } = "active";
     public DateTime? LicenseExpiresAt { get; set; }
-    public int MaxClientsAllowed { get; set; } = 10;
+    public int? MaxClientsAllowed { get; set; }
 }
 
 public class ResetPasswordAdminRequest
