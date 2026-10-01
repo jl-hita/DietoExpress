@@ -945,4 +945,13 @@ public class AuthorizationRegressionTests
         File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", fileName));
 
     private static string ReadServerLogic(string fileName) => ReadServerLogica(fileName);
+
+    [Fact]
+    public void SuperAdminAccountCreation_NormalizesEmailIdentity()
+    {
+        var source = ReadServerController("AdminUsersController.cs");
+
+        Assert.Contains("request.Email.Trim().ToLowerInvariant()", source);
+        Assert.Contains("u.email != null && u.email.ToLower() == email", source);
+    }
 }
