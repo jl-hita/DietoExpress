@@ -127,7 +127,15 @@ public class Program
 
         //Autenticación
         var jwtKey = builder.Configuration["Jwt:Key"];
-        var keyBytes = Encoding.UTF8.GetBytes(jwtKey!);
+        if (string.IsNullOrWhiteSpace(jwtKey) || Encoding.UTF8.GetByteCount(jwtKey) < 32)
+            throw new InvalidOperationException("Jwt:Key debe estar configurada y contener al menos 32 bytes.");
+
+        var jwtIssuer = builder.Configuration["Jwt:Issuer"];
+        var jwtAudience = builder.Configuration["Jwt:Audience"];
+        if (string.IsNullOrWhiteSpace(jwtIssuer) || string.IsNullOrWhiteSpace(jwtAudience))
+            throw new InvalidOperationException("Jwt:Issuer y Jwt:Audience deben estar configurados.");
+
+        var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
 
         builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
         {
@@ -137,8 +145,8 @@ public class Program
                 ValidateAudience = true,
                 ValidateLifetime = true,
                 ValidateIssuerSigningKey = true,
-                ValidIssuer = builder.Configuration["Jwt:Issuer"],
-                ValidAudience = builder.Configuration["Jwt:Audience"],
+                ValidIssuer = jwtIssuer,
+                ValidAudience = jwtAudience,
                 IssuerSigningKey = new SymmetricSecurityKey(keyBytes),
                 //IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
                 //NameClaimType = "unique_name"
