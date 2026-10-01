@@ -297,8 +297,29 @@ public sealed class BillingController : ControllerBase
                 var customerId = ReadString(data, "customer");
                 var paymentStatus = ReadString(data, "payment_status");
 
+                // La sesión de Checkout debe identificar una suscripción y un cliente
+                // de Stripe concretos. Si alguno falta, no se puede convertir el evento
+                // firmado en una suscripción local.
+                if (string.IsNullOrWhiteSpace(subscriptionId) || string.IsNullOrWhiteSpace(customerId))
+                    return;
+
                 var subscription = await _context.subscriptions
-                    .FirstOrDefaultAsync(s => s.tenant_id == tenantId.Value);
+                    .SingleOrDefaultAsync(s => s.tenant_id == tenantId.Value &&
+                                               s.status != "cancelled" &&
+                                               s.status != "canceled");
+
+                if (subscription == null)
+                    return;
+
+                // No permitimos que un checkout pueda sustituir silenciosamente una
+                // suscripción Stripe distinta ya asociada al tenant.
+                if (!string.IsNullOrWhiteSpace(subscription.provider_subscription_id) &&
+                    !string.Equals(subscription.provider_subscription_id, subscriptionId, StringComparison.Ordinal))
+                    return;
+
+                if (!string.IsNullOrWhiteSpace(subscription.provider_customer_id) &&
+                    !string.Equals(subscription.provider_customer_id, customerId, StringComparison.Ordinal))
+                    return;
 
                 if (subscription == null)
                     return;
