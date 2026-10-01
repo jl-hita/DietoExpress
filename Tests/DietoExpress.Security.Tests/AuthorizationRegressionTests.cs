@@ -206,6 +206,14 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void LocalFoodSearch_IsBoundedBeforeMaterializingResults()
+    {
+        var source = ReadServerLogica("OpenFoodFactsService.cs");
+        Assert.Contains(".Take(50)", source);
+        Assert.Contains(".OrderBy(f => f.name)", source);
+    }
+
+    [Fact]
     public void DietValidation_DoesNotTreatLocalFoodsAsGlobalWithoutTenant()
     {
         var source = ReadServerLogica("DietValidationService.cs");
