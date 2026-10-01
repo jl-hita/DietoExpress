@@ -239,6 +239,24 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void AccountCreation_BoundsDatabaseBackedFieldLengths()
+    {
+        var auth = ReadServerController("AuthController.cs");
+        var admin = ReadServerController("AdminUsersController.cs");
+        var clinic = ReadServerController("ClinicController.cs");
+
+        Assert.Contains("username.Length > 50", auth);
+        Assert.Contains("email.Length > 150", auth);
+        Assert.Contains("nombreCompleto.Length > 100", auth);
+
+        Assert.Contains("request.Username.Trim().Length > 50", admin);
+        Assert.Contains("request.Email.Trim().Length > 150", admin);
+        Assert.Contains("request.FullName.Trim().Length > 100", admin);
+
+        Assert.Contains("email.Length > 150 || fullName.Length > 100", clinic);
+    }
+
+    [Fact]
     public void SearchEndpoints_BoundPaginationAndSearchInput()
     {
         var clients = ReadServerController("ClientsController.cs");
