@@ -9,10 +9,12 @@ namespace Anguloso.Server.Controllers;
 public class SetupController : ControllerBase
 {
     private readonly angulosodbContext _context;
+    private readonly IConfiguration _configuration;
 
-    public SetupController(angulosodbContext context)
+    public SetupController(angulosodbContext context, IConfiguration configuration)
     {
         _context = context;
+        _configuration = configuration;
     }
 
     /// <summary>
@@ -26,11 +28,20 @@ public class SetupController : ControllerBase
     }
 
     /// <summary>
-    /// Crea el primer superadmin. Solo funciona si no existe ninguno aún.
+    /// Crea el primer superadmin.
+    ///
+    /// Por seguridad, la inicialización anónima debe habilitarse explícitamente mediante
+    /// Setup:AllowInitialization y solo durante el despliegue inicial. Una vez creado el
+    /// primer superadmin, este endpoint queda bloqueado independientemente de la configuración.
     /// </summary>
     [HttpPost("init")]
     public async Task<IActionResult> Init([FromBody] SetupInitRequest request)
     {
+        // Este endpoint es una ruta de bootstrap, no una ruta pública permanente.
+        // En producción debe permanecer deshabilitada salvo durante una instalación inicial.
+        if (!_configuration.GetValue<bool>("Setup:AllowInitialization"))
+            return NotFound();
+
         if (string.IsNullOrWhiteSpace(request.Username) ||
             string.IsNullOrWhiteSpace(request.Email) ||
             string.IsNullOrWhiteSpace(request.Password) ||
