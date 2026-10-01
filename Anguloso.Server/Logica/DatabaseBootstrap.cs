@@ -336,6 +336,10 @@ public static class DatabaseBootstrap
                 -- Índices de rendimiento
                 CREATE INDEX IF NOT EXISTS idx_clients_user_id ON clients(user_id);
                 CREATE INDEX IF NOT EXISTS idx_clients_tenant_id ON clients(tenant_id);
+                -- Invariant: a client can have at most one active diet assignment.
+                -- Keep this at database level as a final guard against races between requests.
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_active_client_diet
+                    ON client_diets(client_id) WHERE is_active = TRUE;
                 CREATE INDEX IF NOT EXISTS idx_diets_user_id ON diets(user_id);
                 CREATE INDEX IF NOT EXISTS idx_diets_tenant_id ON diets(tenant_id);
                 CREATE INDEX IF NOT EXISTS idx_biometrics_client_id ON biometrics(client_id);
