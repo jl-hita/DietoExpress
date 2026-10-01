@@ -363,7 +363,17 @@ public sealed class BillingController : ControllerBase
                 if (subscription == null)
                     return;
 
+                // A payment event can arrive after a newer cancellation or status
+                // change. Do not let an older invoice.paid event reactivate the
+                // subscription.
+                if (stripeEventCreatedAt.HasValue &&
+                    subscription.last_stripe_event_created_at.HasValue &&
+                    stripeEventCreatedAt.Value <= subscription.last_stripe_event_created_at.Value)
+                    return;
+
                 subscription.status = "active";
+                if (stripeEventCreatedAt.HasValue)
+                    subscription.last_stripe_event_created_at = stripeEventCreatedAt.Value;
                 subscription.updated_at = DateTime.UtcNow;
 
                 var amountPaid = ReadDecimalMinorUnits(data, "amount_paid");
