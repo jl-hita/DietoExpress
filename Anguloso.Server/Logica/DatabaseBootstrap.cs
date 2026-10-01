@@ -351,6 +351,11 @@ public static class DatabaseBootstrap
                 CREATE INDEX IF NOT EXISTS idx_users_license_expires_at ON users(license_expires_at);
                 CREATE INDEX IF NOT EXISTS idx_users_subscription_status ON users(subscription_status);
                 CREATE INDEX IF NOT EXISTS idx_users_tenant_id ON users(tenant_id);
+                -- Integridad de identidad: evita duplicados aunque dos peticiones
+                -- lleguen simultáneamente y el control de aplicación falle.
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_users_username ON users(username);
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email ON users(email) WHERE email IS NOT NULL;
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_users_google_id ON users(google_id) WHERE google_id IS NOT NULL;
 
                 -- Búsquedas de texto del dashboard (ILIKE/Contains sobre nombre y clínica)
                 CREATE EXTENSION IF NOT EXISTS pg_trgm;
