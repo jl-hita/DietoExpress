@@ -55,11 +55,10 @@ public class PatientPortalController : ControllerBase
                     ((c.email != null && c.email.ToLower() == clean) || (c.phone != null && c.phone == clean)))
                 .Take(2)
                 .ToListAsync();
-            if (candidates.Count == 0) return Unauthorized("No se encontró ningún expediente con esos datos.");
-            if (candidates.Count > 1) return Unauthorized("Los datos de acceso no identifican un único expediente.");
+            if (candidates.Count != 1) return Unauthorized("Los datos de acceso no son válidos.");
             client = candidates[0];
             if (string.IsNullOrWhiteSpace(client.passcode_hash) || !BCrypt.Net.BCrypt.Verify(request.Passcode, client.passcode_hash))
-                return Unauthorized("Código de acceso o PIN incorrecto.");
+                return Unauthorized("Los datos de acceso no son válidos.");
         }
         else return BadRequest("Debes proporcionar un enlace de acceso o tus credenciales.");
 
