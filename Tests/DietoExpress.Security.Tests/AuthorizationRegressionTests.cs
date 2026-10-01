@@ -29,6 +29,15 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void Recipes_RejectOversizedIngredientCollectionsAndInstructions()
+    {
+        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "RecipesController.cs"));
+
+        Assert.Contains("dto.Ingredients.Count > 100", controller);
+        Assert.Contains("dto.Instructions?.Length > 10000", controller);
+    }
+
+    [Fact]
     public void PatientMagicLink_IsRemovedFromBrowserUrlAfterAuthentication()
     {
         var portal = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "patient-portal", "patient-portal.component.ts"));
