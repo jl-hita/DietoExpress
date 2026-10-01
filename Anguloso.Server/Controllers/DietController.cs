@@ -443,10 +443,12 @@ public class DietController : ControllerBase
         if (double.IsNaN(request.TargetKcal) || double.IsInfinity(request.TargetKcal) ||
             request.TargetKcal < 500 || request.TargetKcal > 10000)
             return BadRequest("Las calorías objetivo deben estar entre 500 y 10000.");
-        if ((request.TargetProtein.HasValue && (double.IsNaN(request.TargetProtein.Value) || double.IsInfinity(request.TargetProtein.Value) || request.TargetProtein.Value < 0)) ||
-            (request.TargetCarbs.HasValue && (double.IsNaN(request.TargetCarbs.Value) || double.IsInfinity(request.TargetCarbs.Value) || request.TargetCarbs.Value < 0)) ||
-            (request.TargetFat.HasValue && (double.IsNaN(request.TargetFat.Value) || double.IsInfinity(request.TargetFat.Value) || request.TargetFat.Value < 0)))
-            return BadRequest("Los macronutrientes objetivo deben ser valores finitos no negativos.");
+        if ((request.TargetProtein.HasValue && (double.IsNaN(request.TargetProtein.Value) || double.IsInfinity(request.TargetProtein.Value) || request.TargetProtein.Value < 0 || request.TargetProtein.Value > 2000)) ||
+            (request.TargetCarbs.HasValue && (double.IsNaN(request.TargetCarbs.Value) || double.IsInfinity(request.TargetCarbs.Value) || request.TargetCarbs.Value < 0 || request.TargetCarbs.Value > 2000)) ||
+            (request.TargetFat.HasValue && (double.IsNaN(request.TargetFat.Value) || double.IsInfinity(request.TargetFat.Value) || request.TargetFat.Value < 0 || request.TargetFat.Value > 2000)))
+            return BadRequest("Los macronutrientes objetivo deben estar entre 0 y 2000 gramos.");
+        if (string.IsNullOrWhiteSpace(request.DietType) || request.DietType.Length > 50)
+            return BadRequest("El tipo de dieta no es válido.");
         if (request.ExcludedFoodKeywords.Count > 100 || request.ExcludedFoodKeywords.Any(k => k == null || k.Length > 100))
             return BadRequest("La lista de exclusiones no puede superar 100 términos de hasta 100 caracteres.");
 
