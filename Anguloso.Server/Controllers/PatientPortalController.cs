@@ -211,8 +211,10 @@ public class PatientPortalController : ControllerBase
     {
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
-        var client = await _context.clients.FirstOrDefaultAsync(c => c.id == clientId && (User.IsInRole("superadmin") || c.user_id == userId.Value ||
-            _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active)));
+        var client = await _context.clients.FirstOrDefaultAsync(c => c.id == clientId && c.archived_at == null && (User.IsInRole("superadmin") ||
+            (AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User)!.Value &&
+             (c.user_id == userId.Value ||
+              _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active)))));
         if (client == null) return NotFound("Cliente no encontrado.");
         client.access_token = GenerateUrlSafeToken();
         client.access_token_expires_at = DateTime.UtcNow.AddHours(24);
@@ -247,8 +249,9 @@ public class PatientPortalController : ControllerBase
         {
             var userId = AuthHelpers.GetUserId(User);
             if (userId.HasValue && _context.clients.Any(c => c.id == cid && c.archived_at == null &&
-                (c.user_id == userId.Value ||
-                 _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active)))) return cid;
+                (AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User)!.Value &&
+                 (c.user_id == userId.Value ||
+                  _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active))))) return cid;
         }
         return null;
     }

@@ -114,7 +114,7 @@ public class DietValidationService
         public string Message { get; set; } = string.Empty;
     }
 
-    public async Task<List<DietValidationResultDto>> ValidateDietCompatibilityAsync(int clientId, diets diet, angulosodbContext context, int? tenantId = null)
+    public async Task<List<DietValidationResultDto>> ValidateDietCompatibilityAsync(int clientId, diets diet, angulosodbContext context, int? tenantId)
     {
         var client = await context.clients
             .Include(c => c.digestive_health)
@@ -178,7 +178,7 @@ public class DietValidationService
         return warnings;
     }
 
-    public async Task<List<DietValidationResultDto>> ValidateDietDraftCompatibilityAsync(int clientId, DietDetailDto dietDto, angulosodbContext context, int? tenantId = null)
+    public async Task<List<DietValidationResultDto>> ValidateDietDraftCompatibilityAsync(int clientId, DietDetailDto dietDto, angulosodbContext context, int? tenantId)
     {
         var client = await context.clients
             .Include(c => c.digestive_health)

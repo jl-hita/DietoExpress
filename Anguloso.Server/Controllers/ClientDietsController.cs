@@ -477,7 +477,7 @@ public class ClientDietsController : ControllerBase
         if (!await UserOwnsClientAsync(clientId, userId.Value))
             return NotFound("Client not found or does not belong to the user.");
 
-        var warnings = await _validationService.ValidateDietDraftCompatibilityAsync(clientId, dto, _context);
+        var warnings = await _validationService.ValidateDietDraftCompatibilityAsync(clientId, dto, _context, AuthHelpers.GetTenantId(User));
         return Ok(warnings);
     }
 
@@ -502,7 +502,7 @@ public class ClientDietsController : ControllerBase
         if (!await UserCanAccessDietAsync(dietId, userId.Value))
             return NotFound("Diet not found.");
 
-        var warnings = await _validationService.ValidateDietCompatibilityAsync(clientId, diet, _context);
+        var warnings = await _validationService.ValidateDietCompatibilityAsync(clientId, diet, _context, AuthHelpers.GetTenantId(User));
         return Ok(warnings);
     }
 
