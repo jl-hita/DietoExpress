@@ -122,7 +122,7 @@ public class FoodController : ControllerBase
 
     // PUT: api/foods/{id}
     [HttpPut("{id:int}")]
-    [Authorize]
+    [Authorize(Policy = "Professional")]
     public async Task<IActionResult> UpdateCustomFood(int id, [FromBody] CustomFoodDto dto)
     {
         if (dto == null) return BadRequest("Los datos del alimento son requeridos.");
@@ -169,7 +169,7 @@ public class FoodController : ControllerBase
 
     // DELETE: api/foods/{id}
     [HttpDelete("{id:int}")]
-    [Authorize]
+    [Authorize(Policy = "Professional")]
     public async Task<IActionResult> DeleteCustomFood(int id)
     {
         var userId = AuthHelpers.GetUserId(User);
@@ -197,7 +197,7 @@ public class FoodController : ControllerBase
         return NoContent();
     }
     [HttpGet("favorites")]
-    [Authorize]
+    [Authorize(Policy = "Professional")]
     public async Task<IActionResult> GetFavorites()
     {
         var userId = AuthHelpers.GetUserId(User);
@@ -214,7 +214,7 @@ public class FoodController : ControllerBase
     }
 
     [HttpPost("{id:int}/favorite")]
-    [Authorize]
+    [Authorize(Policy = "Professional")]
     public async Task<IActionResult> AddFavorite(int id)
     {
         var userId = AuthHelpers.GetUserId(User);
@@ -239,7 +239,7 @@ public class FoodController : ControllerBase
     }
 
     [HttpDelete("{id:int}/favorite")]
-    [Authorize]
+    [Authorize(Policy = "Professional")]
     public async Task<IActionResult> RemoveFavorite(int id)
     {
         var userId = AuthHelpers.GetUserId(User);
