@@ -23,6 +23,7 @@ public class SetupController : ControllerBase
         return Ok(new { isConfigured });
     }
 
+    [EnableRateLimiting("auth")]
     [HttpPost("init")]
     [EnableRateLimiting("auth")]
     public async Task<IActionResult> Init([FromBody] SetupInitRequest request)
