@@ -617,6 +617,18 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void StripeCheckoutWebhook_CreatesNewSubscriptionAfterCancelledHistory()
+    {
+        var source = ReadServerController("BillingController.cs");
+
+        Assert.Contains("if (subscription == null)", source);
+        Assert.Contains("new subscriptions", source);
+        Assert.Contains("payment_provider = \"stripe\"", source);
+        Assert.Contains("provider_subscription_id = subscriptionId", source);
+        Assert.Contains("status = paymentStatus == \"paid\" ? \"active\" : \"past_due\"", source);
+    }
+
+    [Fact]
     public void StripeCheckoutWebhook_RejectsStaleEventsAndInvalidPlanMetadata()
     {
         var source = ReadServerController("BillingController.cs");
