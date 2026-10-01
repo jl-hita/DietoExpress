@@ -597,6 +597,18 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void UserEmailIdentity_IsCaseInsensitiveAcrossRegistrationAndClinicCreation()
+    {
+        var auth = ReadServerController("AuthController.cs");
+        var clinic = ReadServerController("ClinicController.cs");
+        var schema = ReadServerLogica("DatabaseBootstrap.cs");
+
+        Assert.Contains("var normalizedEmail = request.Email.Trim().ToLowerInvariant();", auth);
+        Assert.Contains("var email = req.Email.Trim().ToLowerInvariant();", clinic);
+        Assert.Contains("uq_users_email_ci ON users(LOWER(email))", schema);
+    }
+
+    [Fact]
     public void OpenFoodFactsSync_SerializesExternalFoodWrites()
     {
         var source = ReadServerLogica("OpenFoodFactsService.cs");
