@@ -227,10 +227,19 @@ public class ClientsController : ControllerBase
         if (userId == null) return Unauthorized();
 
         var tenantId = AuthHelpers.GetTenantId(User);
-        var licenseCheck = await _licenseService.CanCreateClientAsync(tenantId, userId.Value);
-        if (!licenseCheck.Allowed) return BadRequest(licenseCheck.Reason);
+        if (!tenantId.HasValue) return BadRequest("El usuario no pertenece a una clínica.");
 
-        var client = new clients
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            // Serializamos las altas por tenant para que el límite de pacientes de la licencia
+            // no pueda superarse mediante peticiones concurrentes.
+            await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", tenantId.Value);
+
+            var licenseCheck = await _licenseService.CanCreateClientAsync(tenantId, userId.Value);
+            if (!licenseCheck.Allowed) return BadRequest(licenseCheck.Reason);
+
+            var client = new clients
         {
             user_id = userId.Value,
             tenant_id = AuthHelpers.GetTenantId(User),
@@ -284,18 +293,25 @@ public class ClientsController : ControllerBase
             tobacco_consumption = dto.LifestyleHistory?.TobaccoConsumption ?? ""
         };
 
-        _context.clients.Add(client);
-        await _context.SaveChangesAsync();
+            _context.clients.Add(client);
+            await _context.SaveChangesAsync();
 
-        _context.client_nutritionist_assignments.Add(new client_nutritionist_assignments
+            _context.client_nutritionist_assignments.Add(new client_nutritionist_assignments
         {
             client_id = client.id,
             nutritionist_id = userId.Value,
             assigned_by_user_id = userId.Value,
             assigned_at = DateTime.UtcNow,
             is_active = true
-        });
-        await _context.SaveChangesAsync();
+            });
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
 
         await _auditLogService.LogAccessAsync(
             action: "CREATE_PATIENT",
