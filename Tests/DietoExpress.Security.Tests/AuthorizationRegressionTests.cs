@@ -74,8 +74,8 @@ public class AuthorizationRegressionTests
         var program = ReadServerProgram();
 
         Assert.Contains("portal_token_version++", portal);
-        Assert.Contains("new Claim("portalTokenVersion"", portal);
-        Assert.Contains("client.portal_token_version == portalTokenVersion", program);
+        Assert.Contains("new Claim(ClaimTypes.Role, \"patient\"),", portal);
+        Assert.Contains("c.portal_token_version == portalTokenVersion", program);
         Assert.Contains("portal_token_version", ReadServerLogic("DatabaseBootstrap.cs"));
     }
 
