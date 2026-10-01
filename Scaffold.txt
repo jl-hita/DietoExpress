@@ -1,8 +1,8 @@
-Scaffold-DbContext "Host=localhost;Database=angulosodb;Username=admin;Password=Emperado" Npgsql.EntityFrameworkCore.PostgreSQL -OutputDir Models -Tables users -ContextDir Data -Context AppDbContext -Force
+Scaffold-DbContext "Host=localhost;Database=angulosodb;Username=admin;Password=YOUR_PASSWORD" Npgsql.EntityFrameworkCore.PostgreSQL -OutputDir Models -Tables users -ContextDir Data -Context AppDbContext -Force
 
 En powershell
 cd C:\Users\Joso\source\repos\Anguloso\Anguloso.Server
-dotnet ef dbcontext scaffold "Host=localhost;Database=angulosodb;Username=admin;Password=Emperado" Npgsql.EntityFrameworkCore.PostgreSQL `
+dotnet ef dbcontext scaffold "Host=localhost;Database=angulosodb;Username=admin;Password=YOUR_PASSWORD" Npgsql.EntityFrameworkCore.PostgreSQL `
     --output-dir Models `
     --table users `
     --context-dir Data `
@@ -11,7 +11,7 @@ dotnet ef dbcontext scaffold "Host=localhost;Database=angulosodb;Username=admin;
 
 alternativa:
 
-dotnet ef dbcontext scaffold "Host=localhost;Database=angulosodb;Username=admin;Password=Emperado" Npgsql.EntityFrameworkCore.PostgreSQL `
+dotnet ef dbcontext scaffold "Host=localhost;Database=angulosodb;Username=admin;Password=YOUR_PASSWORD" Npgsql.EntityFrameworkCore.PostgreSQL `
     --output-dir Models `
     --table users `
     --context-dir Data `
