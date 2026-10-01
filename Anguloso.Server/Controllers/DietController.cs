@@ -512,7 +512,13 @@ public class DietController : ControllerBase
                 User.IsInRole("clinic_admin")))));
         if (!clientExists) return NotFound("Cliente no encontrado.");
 
-        var warnings = await _validationService.ValidateDietDraftCompatibilityAsync(request.ClientId, request.Diet, _context, tenantId);
+        var warnings = await _validationService.ValidateDietDraftCompatibilityAsync(
+            request.ClientId,
+            request.Diet,
+            _context,
+            tenantId,
+            userId.Value,
+            User.IsInRole("clinic_admin") || User.IsInRole("superadmin"));
         return Ok(warnings);
     }
 
