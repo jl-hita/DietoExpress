@@ -252,6 +252,18 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void OpenFoodFactsSync_CannotOverwriteTenantLocalFoods()
+    {
+        var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "OpenFoodFactsService.cs"));
+
+        Assert.Contains("f.external_id == product.Code", source);
+        Assert.Contains("existing.source == \"local\"", source);
+        Assert.Contains("existing.tenant_id.HasValue", source);
+        Assert.Contains("se omite la sincronización del alimento local", source);
+        Assert.Contains("product.Id = existing.id", source);
+    }
+
+    [Fact]
     public void FoodMutations_RequireProfessionalPolicy()
     {
         var source = ReadServerController("FoodController.cs");
