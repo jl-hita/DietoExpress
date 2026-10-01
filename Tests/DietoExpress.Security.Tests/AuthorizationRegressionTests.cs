@@ -355,6 +355,15 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void Biometrics_RequireActiveClient()
+    {
+        var source = ReadServerController("BiometricsController.cs");
+
+        Assert.Contains("c.id == clientId && c.archived_at == null", source);
+        Assert.Contains("x.id == id && x.client_id == clientId && x.client.archived_at == null", source);
+    }
+
+    [Fact]
     public void BiometricHistoryEndpoints_AreBounded()
     {
         var controller = ReadServerController("BiometricsController.cs");
