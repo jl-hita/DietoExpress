@@ -246,7 +246,7 @@ public class AuthController : ControllerBase
             var tenant = new tenants
             {
                 legal_name = string.IsNullOrWhiteSpace(nombreCompleto) ? username : nombreCompleto,
-                trade_name = string.IsNullOrWhiteSpace(nombreCompleto) ? usuario.Username : nombreCompleto,
+                trade_name = string.IsNullOrWhiteSpace(nombreCompleto) ? username : nombreCompleto,
                 slug = $"{Regex.Replace(username.ToLowerInvariant(), @"[^a-z0-9]+", "-").Trim('-')}-{Guid.NewGuid():N}",
                 contact_email = email,
                 status = "active"
