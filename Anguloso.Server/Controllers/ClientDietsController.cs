@@ -194,11 +194,15 @@ public class ClientDietsController : ControllerBase
             .Select(c => c.tenant_id)
             .FirstOrDefaultAsync();
 
-        await using var transaction = await _context.Database.BeginTransactionAsync();
+        Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? transaction = null;
         try
         {
-            if (clientTenantId.HasValue)
-                await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", clientTenantId.Value);
+            if (_context.Database.IsRelational())
+            {
+                transaction = await _context.Database.BeginTransactionAsync();
+                if (clientTenantId.HasValue)
+                    await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", clientTenantId.Value);
+            }
 
             if (!await UserOwnsClientAsync(clientId, userId.Value))
                 return NotFound("Client not found or does not belong to the user.");
@@ -235,7 +239,8 @@ public class ClientDietsController : ControllerBase
             .Select(d => d.name)
             .FirstOrDefaultAsync() ?? string.Empty;
 
-            await transaction.CommitAsync();
+            if (transaction != null)
+                await transaction.CommitAsync();
 
         return Ok(new ClientDietListDto
         {
@@ -252,8 +257,14 @@ public class ClientDietsController : ControllerBase
         }
         catch
         {
-            await transaction.RollbackAsync();
+            if (transaction != null)
+                await transaction.RollbackAsync();
             throw;
+        }
+        finally
+        {
+            if (transaction != null)
+                await transaction.DisposeAsync();
         }
     }
 
@@ -272,11 +283,15 @@ public class ClientDietsController : ControllerBase
             .Select(c => c.tenant_id)
             .FirstOrDefaultAsync();
 
-        await using var transaction = await _context.Database.BeginTransactionAsync();
+        Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? transaction = null;
         try
         {
-            if (clientTenantId.HasValue)
-                await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", clientTenantId.Value);
+            if (_context.Database.IsRelational())
+            {
+                transaction = await _context.Database.BeginTransactionAsync();
+                if (clientTenantId.HasValue)
+                    await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", clientTenantId.Value);
+            }
 
             if (!await UserOwnsClientAsync(clientId, userId.Value))
                 return NotFound("Client not found or does not belong to the user.");
@@ -316,13 +331,20 @@ public class ClientDietsController : ControllerBase
         assignment.notes = dto.Notes ?? string.Empty;
 
             await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
+            if (transaction != null)
+                await transaction.CommitAsync();
             return NoContent();
         }
         catch
         {
-            await transaction.RollbackAsync();
+            if (transaction != null)
+                await transaction.RollbackAsync();
             throw;
+        }
+        finally
+        {
+            if (transaction != null)
+                await transaction.DisposeAsync();
         }
     }
 
