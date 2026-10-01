@@ -652,7 +652,8 @@ public class AuthorizationRegressionTests
         Assert.Contains("stripeEventCreatedAt.Value <= subscription.last_stripe_event_created_at.Value", source);
         Assert.Contains("FirstOrDefaultAsync(p => p.id == planId.Value && p.active)", source);
         Assert.Contains("plan.code is \"free\" or \"demo_nutri\" or \"trial_nutri\"", source);
-        Assert.Contains("interval is not (\"monthly\" or \"yearly\")", source);\n        Assert.Contains("s.payment_provider == \"stripe\" && s.provider_subscription_id == providerSubscriptionId", source);
+        Assert.Contains("interval is not (\"monthly\" or \"yearly\")", source);
+        Assert.Contains("s.payment_provider == \"stripe\" && s.provider_subscription_id == providerSubscriptionId", source);
     }
 
     [Fact]
