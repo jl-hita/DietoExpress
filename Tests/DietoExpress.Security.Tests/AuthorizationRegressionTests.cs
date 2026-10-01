@@ -80,6 +80,17 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void BillingMutationEndpoints_AreRateLimited()
+    {
+        var source = ReadServerController("BillingController.cs");
+
+        AssertEndpointHasRateLimit(source, "HttpPost("checkout")", "expensive");
+        AssertEndpointHasRateLimit(source, "HttpPost("subscription/change")", "expensive");
+        AssertEndpointHasRateLimit(source, "HttpPost("subscription/cancel-renewal")", "expensive");
+        AssertEndpointHasRateLimit(source, "HttpPost("subscription/reactivate-renewal")", "expensive");
+    }
+
+    [Fact]
     public void AuthenticationAndPortalEntryPoints_AreRateLimited()
     {
         var auth = ReadServerController("AuthController.cs");
