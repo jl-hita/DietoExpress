@@ -64,6 +64,35 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void AuthenticationEndpoints_BoundCredentialInputSizes()
+    {
+        var auth = ReadServerController("AuthController.cs");
+        var setup = ReadServerController("SetupController.cs");
+        var admin = ReadServerController("AdminUsersController.cs");
+        var portal = ReadServerController("PatientPortalController.cs");
+
+        Assert.Contains("login.Password.Length > 256", auth);
+        Assert.Contains("password.Length > 256", auth);
+        Assert.Contains("req.NewPassword.Length > 256", auth);
+        Assert.Contains("dto.IdToken.Length > 20000", auth);
+        Assert.Contains("request.Password.Length > 256", setup);
+        Assert.Contains("request.NewPassword.Length > 256", admin);
+        Assert.Contains("request.Passcode.Length <= 128", portal);
+    }
+
+    [Fact]
+    public void SearchEndpoints_BoundPaginationAndSearchInput()
+    {
+        var clients = ReadServerController("ClientsController.cs");
+        var diets = ReadServerController("DietController.cs");
+
+        Assert.Contains("pageSize = Math.Clamp(pageSize, 5, 100)", clients);
+        Assert.Contains("searchTerm?.Length > 100", clients);
+        Assert.Contains("pageSize = Math.Clamp(pageSize, 5, 100)", diets);
+        Assert.Contains("searchTerm.Length > 100", diets);
+    }
+
+    [Fact]
     public void SuperAdminLicenseUpdate_ValidatesPlanStatusAndUsesTransaction()
     {
         var source = ReadServerController("AdminUsersController.cs");
