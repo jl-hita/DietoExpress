@@ -595,7 +595,7 @@ public class OpenFoodFactsService
             // modificados por la sincronización global de OpenFoodFacts/USDA.
             // external_id es único globalmente, por lo que si un alimento local
             // ya usa ese código debemos dejarlo intacto en lugar de sobrescribirlo.
-            if (existing != null && (EF.Functions.ILike(existing.source ?? "", "local") || existing.tenant_id.HasValue))
+            if (existing != null && ((existing.source != null && existing.source.ToLower() == "local") || existing.tenant_id.HasValue))
             {
                 _logServ.LogInfo($"OpenFoodFacts: se omite la sincronización del alimento local {existing.id} para external_id '{product.Code}'.");
                 product.Id = existing.id;
