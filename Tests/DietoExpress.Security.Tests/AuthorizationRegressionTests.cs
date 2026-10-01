@@ -68,6 +68,18 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void PatientSessions_AreRevocableByPortalTokenVersion()
+    {
+        var portal = ReadServerController("PatientPortalController.cs");
+        var program = ReadServerProgram();
+
+        Assert.Contains("portal_token_version++", portal);
+        Assert.Contains("new Claim("portalTokenVersion"", portal);
+        Assert.Contains("client.portal_token_version == portalTokenVersion", program);
+        Assert.Contains("portal_token_version", ReadServerLogic("DatabaseBootstrap.cs"));
+    }
+
+    [Fact]
     public void SensitiveProfessionalEndpoints_RequireProfessionalPolicy()
     {
         AssertEndpointRequiresProfessional("Anguloso.Server/Controllers/BillingController.cs", "HttpPost(\"checkout\")");
