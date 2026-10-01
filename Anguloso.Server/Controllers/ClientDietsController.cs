@@ -110,8 +110,11 @@ public class ClientDietsController : ControllerBase
         if (!await UserOwnsClientAsync(clientId, userId.Value))
             return NotFound("Client not found or does not belong to the user.");
 
+        var tenantId = AuthHelpers.GetTenantId(User);
         var activeAssignment = await _context.client_diets
-            .Where(cd => cd.client_id == clientId && cd.is_active == true)
+            .Include(cd => cd.diet)
+            .Where(cd => cd.client_id == clientId && cd.is_active == true && tenantId.HasValue &&
+                         cd.diet != null && cd.diet.tenant_id == tenantId.Value)
             .FirstOrDefaultAsync();
 
         if (activeAssignment == null)
@@ -129,7 +132,7 @@ public class ClientDietsController : ControllerBase
                 .ThenInclude(dd => dd.meals)
                     .ThenInclude(m => m.meal_items)
                         .ThenInclude(i => i.exchange_group)
-            .FirstOrDefaultAsync(d => d.id == activeAssignment.diet_id);
+            .FirstOrDefaultAsync(d => d.id == activeAssignment.diet_id && tenantId.HasValue && d.tenant_id == tenantId.Value);
 
         if (d == null)
             return NotFound("The active diet definition was not found.");
@@ -529,8 +532,11 @@ public class ClientDietsController : ControllerBase
         if (!await UserOwnsClientAsync(clientId, userId.Value))
             return NotFound("Client not found or does not belong to the user.");
 
+        var tenantId = AuthHelpers.GetTenantId(User);
         var activeAssignment = await _context.client_diets
-            .Where(cd => cd.client_id == clientId && cd.is_active == true)
+            .Include(cd => cd.diet)
+            .Where(cd => cd.client_id == clientId && cd.is_active == true && tenantId.HasValue &&
+                         cd.diet != null && cd.diet.tenant_id == tenantId.Value)
             .FirstOrDefaultAsync();
 
         if (activeAssignment == null)
@@ -541,7 +547,7 @@ public class ClientDietsController : ControllerBase
                 .ThenInclude(dd => dd.meals)
                     .ThenInclude(m => m.meal_items)
                         .ThenInclude(i => i.food)
-            .FirstOrDefaultAsync(d => d.id == activeAssignment.diet_id);
+            .FirstOrDefaultAsync(d => d.id == activeAssignment.diet_id && tenantId.HasValue && d.tenant_id == tenantId.Value);
 
         if (diet == null) return NotFound("Diet definition not found.");
 

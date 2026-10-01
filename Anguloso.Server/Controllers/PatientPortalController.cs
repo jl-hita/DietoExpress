@@ -110,7 +110,11 @@ public class PatientPortalController : ControllerBase
             .FirstOrDefaultAsync(c => c.id == clientId.Value && c.archived_at == null);
         if (client == null) return NotFound();
         var latestBio = client.biometrics.OrderByDescending(b => b.measurement_date).FirstOrDefault();
-        var activeDietAssignment = await _context.client_diets.FirstOrDefaultAsync(cd => cd.client_id == clientId.Value && cd.is_active == true);
+        var activeDietAssignment = await _context.client_diets
+            .Include(cd => cd.diet)
+            .Where(cd => cd.client_id == clientId.Value && cd.is_active == true && cd.diet != null &&
+                         cd.diet.tenant_id == _context.clients.Where(c => c.id == clientId.Value).Select(c => c.tenant_id).FirstOrDefault())
+            .FirstOrDefaultAsync();
         int? age = null;
         if (client.birth_date.HasValue)
         {
@@ -138,11 +142,16 @@ public class PatientPortalController : ControllerBase
         var clientId = ResolveAuthorizedClientId();
         if (clientId == null) return Unauthorized();
         if (!await PortalFeatureAllowedAsync(clientId.Value)) return Forbid();
-        var activeAssignment = await _context.client_diets.FirstOrDefaultAsync(cd => cd.client_id == clientId.Value && cd.is_active == true);
+        var activeAssignment = await _context.client_diets
+            .Include(cd => cd.diet)
+            .Where(cd => cd.client_id == clientId.Value && cd.is_active == true && cd.diet != null &&
+                         cd.diet.tenant_id == _context.clients.Where(c => c.id == clientId.Value).Select(c => c.tenant_id).FirstOrDefault())
+            .FirstOrDefaultAsync();
         if (activeAssignment == null) return NotFound("No tienes ningún plan nutricional activo asignado en este momento.");
         var d = await _context.diets.Include(d => d.diet_days).ThenInclude(dd => dd.meals).ThenInclude(m => m.meal_items).ThenInclude(i => i.food)
             .Include(d => d.diet_days).ThenInclude(dd => dd.meals).ThenInclude(m => m.meal_items).ThenInclude(i => i.exchange_group)
-            .FirstOrDefaultAsync(d => d.id == activeAssignment.diet_id);
+            .FirstOrDefaultAsync(d => d.id == activeAssignment.diet_id &&
+                             d.tenant_id == _context.clients.Where(c => c.id == clientId.Value).Select(c => c.tenant_id).FirstOrDefault());
         if (d == null) return NotFound("Plan nutricional no encontrado.");
         return Ok(new DietDetailDto
         {
@@ -171,10 +180,15 @@ public class PatientPortalController : ControllerBase
         var clientId = ResolveAuthorizedClientId();
         if (clientId == null) return Unauthorized();
         if (!await PortalFeatureAllowedAsync(clientId.Value)) return Forbid();
-        var activeAssignment = await _context.client_diets.FirstOrDefaultAsync(cd => cd.client_id == clientId.Value && cd.is_active == true);
+        var activeAssignment = await _context.client_diets
+            .Include(cd => cd.diet)
+            .Where(cd => cd.client_id == clientId.Value && cd.is_active == true && cd.diet != null &&
+                         cd.diet.tenant_id == _context.clients.Where(c => c.id == clientId.Value).Select(c => c.tenant_id).FirstOrDefault())
+            .FirstOrDefaultAsync();
         if (activeAssignment == null) return NotFound("No hay plan activo para generar la lista de la compra.");
         var diet = await _context.diets.Include(d => d.diet_days).ThenInclude(dd => dd.meals).ThenInclude(m => m.meal_items).ThenInclude(i => i.food)
-            .FirstOrDefaultAsync(d => d.id == activeAssignment.diet_id);
+            .FirstOrDefaultAsync(d => d.id == activeAssignment.diet_id &&
+                             d.tenant_id == _context.clients.Where(c => c.id == clientId.Value).Select(c => c.tenant_id).FirstOrDefault());
         if (diet == null) return NotFound("Plan no encontrado.");
         var grouped = diet.diet_days.SelectMany(dd => dd.meals).SelectMany(m => m.meal_items).Where(i => i.food != null && i.grams.HasValue)
             .GroupBy(i => new { FoodId = i.food!.id, FoodName = i.food!.name ?? "Desconocido", Category = i.food!.category ?? "Otros" })
