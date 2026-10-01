@@ -956,6 +956,15 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void PatientPasscode_RequiresExactlySixDigits()
+    {
+        var source = ReadServerController("PatientPortalController.cs");
+
+        Assert.Contains(@"Regex.IsMatch(dto.Passcode, @"^\d{6}$")", source);
+        Assert.DoesNotContain(@"Regex.IsMatch(dto.Passcode, @"^\\d{6}$")", source);
+    }
+
+    [Fact]
     public void PatientPortalAccess_DoesNotReturnStoredHashedToken()
     {
         var source = ReadServerController("PatientPortalController.cs");
