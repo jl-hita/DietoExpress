@@ -143,6 +143,18 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    [Fact]
+    public void StripeSubscriptionMutations_SerializePerTenantAndCheckoutUsesIdempotency()
+    {
+        var source = ReadServerLogica("StripeBillingService.cs");
+
+        Assert.Contains("pg_advisory_xact_lock", source);
+        Assert.Contains("CancelRenewalAsync", source);
+        Assert.Contains("ReactivateRenewalAsync", source);
+        Assert.Contains("CreateCheckoutIdempotencyKey", source);
+        Assert.Contains("Idempotency-Key", source);
+    }
+
     public void StripeCheckout_SerializesConcurrentTenantSessions()
     {
         var source = ReadServerLogic("StripeBillingService.cs");
