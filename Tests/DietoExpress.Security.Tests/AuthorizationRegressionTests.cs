@@ -206,6 +206,14 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void DietValidation_DoesNotTreatLocalFoodsAsGlobalWithoutTenant()
+    {
+        var source = ReadServerLogica("DietValidationService.cs");
+        Assert.Contains("(f.source != \"local\" || (tenantId.HasValue && f.tenant_id == tenantId.Value))", source);
+        Assert.DoesNotContain("(f.source != \"local\" || !tenantId.HasValue || f.tenant_id == tenantId.Value)", source);
+    }
+
+    [Fact]
     public void DatabaseBootstrap_EnforcesOneSubscriptionPerTenant()
     {
         var source = ReadServerLogica("DatabaseBootstrap.cs");
