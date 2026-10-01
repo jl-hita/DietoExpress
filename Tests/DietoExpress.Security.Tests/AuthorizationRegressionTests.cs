@@ -845,6 +845,22 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void StripeCheckout_PersistsIdempotencyBeforeExternalCall()
+    {
+        var service = ReadServerLogica("StripeBillingService.cs");
+        var schema = ReadServerLogica("BillingSchemaBootstrap.cs");
+        var model = ReadServerModel("billing_checkout_attempts.cs");
+
+        Assert.Contains("status = \"creating\"", service);
+        Assert.Contains("await _context.SaveChangesAsync();", service);
+        Assert.Contains("await transaction.CommitAsync();", service);
+        Assert.Contains("SendStripeAsync(HttpMethod.Post, \"/v1/checkout/sessions\", form, idempotencyKey)", service);
+        Assert.Contains("ALTER COLUMN checkout_url DROP NOT NULL", schema);
+        Assert.Contains("WHERE status IN ('creating', 'pending')", schema);
+        Assert.Contains("public string? checkout_url", model);
+    }
+
+    [Fact]
     public void AdminSubscriptionLifecycle_ResolvesCurrentHistoryRecord()
     {
         var source = ReadServerController("AdminUsersController.cs");
@@ -895,6 +911,9 @@ public class AuthorizationRegressionTests
         var window = source.Substring(windowStart, windowLength);
         Assert.Contains($"[EnableRateLimiting(\"{policy}\")]", window);
     }
+
+    private static string ReadServerModel(string fileName) =>
+        File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Models", fileName));
 
     private static string ReadServerController(string fileName) =>
         File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", fileName));
