@@ -151,7 +151,7 @@ public class DietValidationService
 
         var foodsMap = await context.foods
             .AsNoTracking()
-            .Where(f => foodIds.Contains(f.id) && (!EF.Functions.ILike(f.source ?? "", "local") || (tenantId.HasValue && f.tenant_id == tenantId.Value)))
+            .Where(f => foodIds.Contains(f.id) && ((f.source == null || f.source.ToLower() != "local") || (tenantId.HasValue && f.tenant_id == tenantId.Value)))
             .ToDictionaryAsync(f => f.id);
 
         var warnings = new List<DietValidationResultDto>();
@@ -215,7 +215,7 @@ public class DietValidationService
 
         var foodsMap = await context.foods
             .AsNoTracking()
-            .Where(f => foodIds.Contains(f.id) && (!EF.Functions.ILike(f.source ?? "", "local") || (tenantId.HasValue && f.tenant_id == tenantId.Value)))
+            .Where(f => foodIds.Contains(f.id) && ((f.source == null || f.source.ToLower() != "local") || (tenantId.HasValue && f.tenant_id == tenantId.Value)))
             .ToDictionaryAsync(f => f.id);
 
         var warnings = new List<DietValidationResultDto>();
