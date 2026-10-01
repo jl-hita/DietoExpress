@@ -324,6 +324,23 @@ public class BiometricsController : ControllerBase
         if (dto?.Rows == null || dto.Rows.Count == 0)
             return BadRequest("No se proporcionaron mediciones para importar.");
 
+        // El endpoint hace una consulta por fila y actualiza entidades EF.
+        // Limitar el tamaño del lote evita que un usuario autorizado convierta una
+        // importación en una petición de consumo de recursos desproporcionado.
+        const int maxImportRows = 500;
+        if (dto.Rows.Count > maxImportRows)
+            return BadRequest($"La importación no puede superar {maxImportRows} mediciones.");
+
+        if (dto.Rows.Any(row =>
+            row == null ||
+            row.MeasurementDate == default ||
+            double.IsNaN(row.Weight ?? 0) || double.IsInfinity(row.Weight ?? 0) ||
+            double.IsNaN(row.Height ?? 0) || double.IsInfinity(row.Height ?? 0) ||
+            double.IsNaN(row.BodyFat ?? 0) || double.IsInfinity(row.BodyFat ?? 0) ||
+            double.IsNaN(row.MuscleMass ?? 0) || double.IsInfinity(row.MuscleMass ?? 0) ||
+            double.IsNaN(row.VisceralFat ?? 0) || double.IsInfinity(row.VisceralFat ?? 0)))
+            return BadRequest("La importación contiene mediciones no válidas.");
+
         int createdCount = 0;
         int updatedCount = 0;
 
