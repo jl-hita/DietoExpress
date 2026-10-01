@@ -106,7 +106,11 @@ public class OpenFoodFactsService
                 localQuery = localQuery.Where(f => f.tenant_id == null && f.source != "local");
             }
 
-            localQuery = localQuery.Where(f => EF.Functions.ILike(f.name, $"%{term}%"));
+            localQuery = localQuery
+                .Where(f => EF.Functions.ILike(f.name, $"%{term}%"))
+                .OrderBy(f => f.name)
+                .ThenBy(f => f.id)
+                .Take(50);
             var localResults = await localQuery.ToListAsync();
 
             // 2. Si hay más de 5 resultados, devuelve la lista
