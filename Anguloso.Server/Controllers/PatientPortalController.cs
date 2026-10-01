@@ -34,9 +34,7 @@ public class PatientPortalController : ControllerBase
     /// Genera y retorna un JWT exclusivo con rol "patient".
     /// </summary>
 [EnableRateLimiting("auth")]
-    [EnableRateLimiting("auth")]
     [HttpPost("auth")]
-    [EnableRateLimiting("auth")]
     public async Task<ActionResult<PatientAuthResponseDto>> Authenticate([FromBody] PatientAuthRequestDto request)
     {
         clients? client = null;
