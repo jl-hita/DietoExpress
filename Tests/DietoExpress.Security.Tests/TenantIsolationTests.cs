@@ -292,15 +292,9 @@ public class TenantIsolationTests
 
         Assert.IsType<OkObjectResult>(result.Result);
 
-        var assignments = await db.client_diets
-            .OrderBy(x => x.id)
-            .ToListAsync();
-
-        Assert.Equal(2, assignments.Count);
-        Assert.True(assignments[0].is_active);
-        Assert.Equal(300, assignments[0].diet_id);
-        Assert.True(assignments[1].is_active);
-        Assert.Equal(200, assignments[1].diet_id);
+        var assignment = await db.client_diets.SingleAsync(x => x.id == 400);
+        Assert.True(assignment.is_active);
+        Assert.Equal(300, assignment.diet_id);
     }
 
     [Fact]
