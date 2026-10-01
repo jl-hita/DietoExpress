@@ -536,6 +536,35 @@ public class DietController : ControllerBase
 
         if (diet == null) return NotFound("Dieta no encontrada.");
 
+        // Revalidar el alcance de los alimentos antes de construir la lista de la compra.
+        // Una dieta compartida puede ser visible dentro del tenant, pero un alimento local
+        // sigue estando restringido a su creador/admin. No debemos filtrar el objeto food
+        // directamente desde el Include porque eso permitiría revelar nombres de alimentos
+        // locales a otros profesionales que solo tienen acceso a la dieta.
+        var foodIds = diet.diet_days
+            .SelectMany(dd => dd.meals)
+            .SelectMany(m => m.meal_items)
+            .Where(i => i.food_id.HasValue)
+            .Select(i => i.food_id!.Value)
+            .Distinct()
+            .ToList();
+
+        var accessibleFoods = await _context.foods
+            .Where(f => foodIds.Contains(f.id) &&
+                ((f.source == null || f.source.ToLower() != "local") ||
+                 User.IsInRole("superadmin") ||
+                 (tenantId.HasValue && f.tenant_id == tenantId.Value && f.created_by_user_id == userId.Value) ||
+                 (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value)))
+            .ToDictionaryAsync(f => f.id);
+
+        // Desvincular los alimentos no accesibles para que las agrupaciones de abajo
+        // tampoco puedan exponerlos accidentalmente.
+        foreach (var item in diet.diet_days.SelectMany(dd => dd.meals).SelectMany(m => m.meal_items))
+        {
+            if (item.food_id.HasValue && !accessibleFoods.ContainsKey(item.food_id.Value))
+                item.food = null;
+        }
+
         var items = new List<ShoppingItemDto>();
 
         if (diet.diet_days != null)
