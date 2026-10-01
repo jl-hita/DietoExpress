@@ -13,17 +13,22 @@ namespace Anguloso.Server.Controllers;
 public class TestController : ControllerBase
 {
     private readonly LogServ _logServ;
-    private readonly angulosodbContext _dbContext;\n    private readonly IWebHostEnvironment _environment;
+    private readonly angulosodbContext _dbContext;
+    private readonly IWebHostEnvironment _environment;
 
-    public TestController(LogServ logServ, angulosodbContext dbContext)
+    public TestController(LogServ logServ, angulosodbContext dbContext, IWebHostEnvironment environment)
     {
         _logServ = logServ;
         _dbContext = dbContext;
+        _environment = environment;
     }
 
     [HttpGet("logTest")]
     public BoolMensaje LogTest([FromQuery] string log)
     {
+        if (!_environment.IsDevelopment())
+            return new BoolMensaje { Exito = false, Mensaje = "Endpoint no disponible." };
+
         try
         {
             _logServ.LogInfo("Esto es Info");
@@ -50,6 +55,9 @@ public class TestController : ControllerBase
     [HttpGet("BEDCAImporter")]
     public async Task<IActionResult> BEDCAImporter()
     {
+        if (!_environment.IsDevelopment())
+            return NotFound();
+
         try
         {
             var bedcaClient = new BEDCAClient(new HttpClient(), _logServ, _dbContext);
