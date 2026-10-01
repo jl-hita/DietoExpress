@@ -53,14 +53,23 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
-    public void SetupInitialization_IsExplicitlyDisabledByDefault()
+    public void SetupInitialization_IsOneTimeAndRateLimited()
     {
         var setup = ReadServerController("SetupController.cs");
-        var example = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "appsettings.Example.json"));
 
-        Assert.Contains("Setup:AllowInitialization", setup);
-        Assert.Contains("\"Setup\"", example);
-        Assert.Contains("\"AllowInitialization\": false", example);
+        Assert.Contains("[EnableRateLimiting(\"auth\")]", setup);
+        Assert.Contains("pg_advisory_xact_lock", setup);
+        Assert.Contains("alreadyConfigured", setup);
+        Assert.Contains("StatusCode(403", setup);
+    }
+
+    [Fact]
+    public void FoodMutations_RequireProfessionalPolicy()
+    {
+        var source = ReadServerController("FoodController.cs");
+
+        foreach (var method in new[] { "UpdateCustomFood", "DeleteCustomFood", "GetFavorites", "AddFavorite", "RemoveFavorite" })
+            AssertEndpointMethodHasProfessionalPolicy(source, method);
     }
 
     [Fact]
