@@ -314,7 +314,7 @@ public class Program
 
         builder.WebHost.ConfigureKestrel(options =>
         {
-            options.Limits.MaxRequestBodySize = 50 * 1024 * 1024; // 50 MB
+            options.Limits.MaxRequestBodySize = 10 * 1024 * 1024; // 10 MB: evita solicitudes gigantes como vector de agotamiento de recursos
         });
 
         var app = builder.Build();
