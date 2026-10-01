@@ -5,6 +5,7 @@ using Anguloso.Server.Logica.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Anguloso.Server.Controllers;
 
@@ -24,6 +25,7 @@ public class FoodController : ControllerBase
     }
 
     [HttpGet("barcode/{code}")]
+    [EnableRateLimiting("expensive")]
     public async Task<IActionResult> GetByBarcode(string code)
     {
         var p = await _openFood.GetProductByBarcodeAsync(code);
@@ -32,6 +34,7 @@ public class FoodController : ControllerBase
     }
 
     [HttpGet("search/{query}")]
+    [EnableRateLimiting("expensive")]
     public async Task<IActionResult> Search(string query)
     {
         string? userName = User.Identity?.Name ?? null;

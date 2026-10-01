@@ -5,6 +5,7 @@ using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.RateLimiting;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -253,6 +254,7 @@ public class BiometricsController : ControllerBase
 
     // POST: api/clients/{clientId}/biometrics/import/preview
     [HttpPost("import/preview")]
+    [EnableRateLimiting("expensive")]
     public async Task<ActionResult<BioimpedancePreviewResponseDto>> PreviewImport(
         int clientId,
         IFormFile file,
@@ -305,6 +307,7 @@ public class BiometricsController : ControllerBase
     }
 
     // POST: api/clients/{clientId}/biometrics/import/confirm
+    [EnableRateLimiting("expensive")]
     [HttpPost("import/confirm")]
     public async Task<ActionResult> ConfirmImport(int clientId, [FromBody] ConfirmImportBiometricsDto dto)
     {
