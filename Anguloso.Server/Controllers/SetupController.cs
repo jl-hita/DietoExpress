@@ -19,7 +19,7 @@ public class SetupController : ControllerBase
     [HttpGet("status")]
     public async Task<IActionResult> GetStatus()
     {
-        var isConfigured = await _context.users.AnyAsync(u => u.role == "superadmin");
+        var isConfigured = await _context.users.AnyAsync();
         return Ok(new { isConfigured });
     }
 
@@ -37,7 +37,7 @@ public class SetupController : ControllerBase
             return BadRequest("Los datos de configuración superan la longitud permitida.");
 
         var username = request.Username.Trim().ToLowerInvariant();
-        var email = request.Email.Trim();
+        var email = request.Email.Trim().ToLowerInvariant();
         var fullName = request.FullName.Trim();
 
         if (request.Password.Length < 12 || request.Password.Length > 256)
