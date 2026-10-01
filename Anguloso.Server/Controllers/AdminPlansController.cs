@@ -68,6 +68,9 @@ public class AdminPlansController : ControllerBase
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, [FromBody] PlanRequest r)
     {
+        if (!IsValidPlanLimits(r) || string.IsNullOrWhiteSpace(r.Name) || r.Name.Trim().Length > 100 || r.Description?.Length > 2000)
+            return BadRequest("Los valores del plan no son válidos.");
+
         var p = await _context.subscription_plans.FindAsync(id);
 
         if (p == null)
@@ -119,7 +122,7 @@ public class AdminPlansController : ControllerBase
             features.Select(f => new subscription_plan_features
             {
                 plan_id = id,
-                feature_code = f.FeatureCode,
+                feature_code = f.FeatureCode.Trim().ToLowerInvariant(),
                 enabled = f.Enabled
             }));
 
