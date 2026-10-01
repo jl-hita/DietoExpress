@@ -142,7 +142,9 @@ public class OpenFoodFactsService
     {
         var now = DateTime.UtcNow;
         var candidates = foodsList.Where(f => HasMissingMicronutrients(f) &&
-            (!f.last_synced_at.HasValue || now - f.last_synced_at.Value >= TimeSpan.FromDays(15))).ToList();
+            (!f.last_synced_at.HasValue || now - f.last_synced_at.Value >= TimeSpan.FromDays(15)))
+            .Take(5)
+            .ToList();
 
         foreach (var food in candidates)
         {
@@ -194,7 +196,7 @@ public class OpenFoodFactsService
         try
         {
             string fields = "product_name,brands,nutriscore_grade,nutriments,code,categories,serving_size";
-            int nResultados = 50;
+            int nResultados = 20;
             // Construir URL (cgi/search.pl es la recomendada para json)
             var url = $"cgi/search.pl?search_terms={Uri.EscapeDataString(query)}&tagtype_0=countries&tag_contains_0=contains&tag_0={Uri.EscapeDataString(pais)}&tagtype_1=languages&tag_contains_1=contains&tag_1={Uri.EscapeDataString(lang)}&fields={Uri.EscapeDataString(fields)}&page_size={nResultados}&json=1";
             var response = await _http.GetAsync(url);
@@ -206,7 +208,7 @@ public class OpenFoodFactsService
             if (!doc.RootElement.TryGetProperty("products", out var productsJson))
                 return products;
 
-            foreach (var p in productsJson.EnumerateArray())
+            foreach (var p in productsJson.EnumerateArray().Take(20))
             {
                 string servingSizeText = GetString(p, "serving_size");
                 ServingSizeObject? servingSizeObject = ExtractServingSizeGrams(servingSizeText);
@@ -235,7 +237,7 @@ public class OpenFoodFactsService
                 // Si nos faltan macros esenciales → fallback a USDA
                 //if (!HasEssentialNutrients(off.Nutriments) || string.IsNullOrEmpty(off.ServingSizeText) || off.ServingSize == null || string.IsNullOrEmpty(off.ServingSizeUnit))
                 //Si fallan macros, micros o serving size
-                if (needMacros || needServing || needMicros)
+                if ((needMacros || needServing || needMicros) && products.Count < 5)
                 {
                     _logServ.LogInfo($"USDA fallback for '{off.Product_name}' | macros:{needMacros} micros:{needMicros}");
 
