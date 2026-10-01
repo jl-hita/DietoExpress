@@ -719,6 +719,20 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void BiometricImportPreview_RejectsArchivedClients()
+    {
+        var source = ReadServerController("BiometricsController.cs");
+
+        var start = source.IndexOf("public async Task<ActionResult<BioimpedancePreviewResponseDto>> PreviewImport", StringComparison.Ordinal);
+        var end = source.IndexOf("// POST: api/clients/{clientId}/biometrics/import/confirm", start, StringComparison.Ordinal);
+
+        Assert.True(start >= 0 && end > start, "No se encontró el endpoint PreviewImport.");
+        var endpoint = source[start..end];
+
+        Assert.Contains("c.archived_at == null", endpoint);
+    }
+
+    [Fact]
     public void BiometricImport_HasDefensiveBatchAndValueLimits()
     {
         var source = ReadServerController("BiometricsController.cs");
