@@ -7,6 +7,7 @@ public interface ILicenseService
     Task<LicenseInfo?> GetLicenseAsync(int? tenantId);
     Task<bool> CanUseFeatureAsync(int? tenantId, string featureCode);
     Task<(bool Allowed, string? Reason)> CanCreateClientAsync(int? tenantId, int nutritionistId);
+    Task<(bool Allowed, string? Reason)> CanAssignClientAsync(int? tenantId, int nutritionistId, int clientId);
     Task<(bool Allowed, string? Reason)> CanCreateDietAsync(int? tenantId, int userId);
     Task<(bool Allowed, string? Reason)> CanCreateNutritionistAsync(int? tenantId, bool allowReactivation = false);
 
@@ -73,6 +74,27 @@ public class LicenseService : ILicenseService
         }
         return (true, null);
     }
+    public async Task<(bool Allowed, string? Reason)> CanAssignClientAsync(int? tenantId, int nutritionistId, int clientId)
+    {
+        var license = await GetLicenseAsync(tenantId);
+        if (license == null || license.Status != "active") return (false, "La licencia no está activa.");
+        if (license.ExpiresAt.HasValue && license.ExpiresAt.Value <= DateTime.UtcNow) return (false, "La licencia ha caducado.");
+
+        if (license.MaxClientsPerNutritionist.HasValue)
+        {
+            var count = await _context.clients.CountAsync(c =>
+                c.tenant_id == tenantId &&
+                c.archived_at == null &&
+                c.user_id == nutritionistId &&
+                c.id != clientId);
+
+            if (count >= license.MaxClientsPerNutritionist.Value)
+                return (false, "Este nutricionista ha alcanzado su límite de clientes.");
+        }
+
+        return (true, null);
+    }
+
     public async Task<(bool Allowed, string? Reason)> CanCreateDietAsync(int? tenantId, int userId)
     {
         var license = await GetLicenseAsync(tenantId);
