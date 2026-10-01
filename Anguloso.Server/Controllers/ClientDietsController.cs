@@ -580,7 +580,7 @@ public class ClientDietsController : ControllerBase
 
         try
         {
-            var pdfBytes = _pdfService.GenerateDietPdf(assignment.client, assignment.diet, assignment, _context);
+            var pdfBytes = _pdfService.GenerateDietPdf(assignment.client, assignment.diet, assignment, _context, userId.Value, User.IsInRole("clinic_admin") || User.IsInRole("superadmin"));
 
             var clientName = string.IsNullOrWhiteSpace(assignment.client.full_name) ? $"Cliente_{clientId}" : assignment.client.full_name;
             var dietName = string.IsNullOrWhiteSpace(assignment.diet.name) ? $"Dieta_{id}" : assignment.diet.name;

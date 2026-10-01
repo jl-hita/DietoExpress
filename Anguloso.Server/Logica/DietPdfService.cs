@@ -10,7 +10,7 @@ namespace Anguloso.Server.Logica;
 
 public class DietPdfService
 {
-    public byte[] GenerateDietPdf(clients client, diets diet, client_diets assignment, angulosodbContext context)
+    public byte[] GenerateDietPdf(clients client, diets diet, client_diets assignment, angulosodbContext context, int userId, bool canUseTenantLocalFoods)
     {
         QuestPDF.Settings.License = LicenseType.Community;
 
@@ -23,7 +23,9 @@ public class DietPdfService
         var exchangeFoods = context.foods
             .Include(f => f.exchange_group)
             .Where(f => f.exchange_group_id != null && f.grams_per_exchange.HasValue &&
-                        ((f.source == null || f.source.ToLower() != "local") || (client.tenant_id.HasValue && f.tenant_id == client.tenant_id.Value)))
+                        ((f.source == null || f.source.ToLower() != "local") ||
+                         (client.tenant_id.HasValue && f.tenant_id == client.tenant_id.Value &&
+                          (canUseTenantLocalFoods || f.created_by_user_id == userId))))
             .OrderBy(f => f.exchange_group_id)
             .ThenBy(f => f.name)
             .ToList();
