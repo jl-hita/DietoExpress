@@ -302,9 +302,11 @@ public class PatientPortalController : ControllerBase
         {
             var userId = AuthHelpers.GetUserId(User);
             if (userId.HasValue && _context.clients.Any(c => c.id == cid && c.archived_at == null &&
-                (AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User)!.Value &&
-                 (c.user_id == userId.Value ||
-                  _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active))))) return cid;
+                (User.IsInRole("superadmin") ||
+                 (AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User)!.Value &&
+                  (c.user_id == userId.Value ||
+                   User.IsInRole("clinic_admin") ||
+                   _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active)))))) return cid;
         }
         return null;
     }
