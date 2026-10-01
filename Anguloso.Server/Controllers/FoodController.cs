@@ -225,7 +225,7 @@ public class FoodController : ControllerBase
             .AsNoTracking()
             .FirstOrDefaultAsync(f => f.id == id &&
                 (f.source != "local" || f.created_by_user_id == userId.Value ||
-                 (User.IsInRole("clinic_admin") && AuthHelpers.GetTenantId(User).HasValue && f.tenant_id == AuthHelpers.GetTenantId(User).Value) ||
+                 (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value) ||
                  User.IsInRole("superadmin")));
         if (food == null) return NotFound();
 
