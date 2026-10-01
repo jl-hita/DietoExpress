@@ -225,15 +225,34 @@ public class PatientPortalController : ControllerBase
               (c.user_id == userId.Value ||
                _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active)))));
         if (client == null) return NotFound("Cliente no encontrado.");
-        if (string.IsNullOrWhiteSpace(client.access_token))
+        // El token se almacena únicamente como hash y, por tanto, no puede recuperarse.
+        // Si ya existe uno, no debemos devolver el hash como si fuera un bearer token:
+        // el paciente lo volvería a hashear y la autenticación fallaría.
+        if (!string.IsNullOrWhiteSpace(client.access_token))
         {
-            var rawToken = GenerateUrlSafeToken();
-            client.access_token = HashAccessToken(rawToken);
-            client.access_token_expires_at = DateTime.UtcNow.AddHours(24);
-            await _context.SaveChangesAsync();
+            return Ok(new ClientPortalAccessDto
+            {
+                ClientId = client.id,
+                AccessToken = string.Empty,
+                MagicLink = string.Empty,
+                HasPasscode = !string.IsNullOrWhiteSpace(client.passcode_hash),
+                LastPortalAccess = client.last_portal_access
+            });
         }
-        var magicLink = $"/patient?token={client.access_token}";
-        return Ok(new ClientPortalAccessDto { ClientId = client.id, AccessToken = client.access_token, MagicLink = magicLink, HasPasscode = !string.IsNullOrWhiteSpace(client.passcode_hash), LastPortalAccess = client.last_portal_access });
+
+        var rawToken = GenerateUrlSafeToken();
+        client.access_token = HashAccessToken(rawToken);
+        client.access_token_expires_at = DateTime.UtcNow.AddHours(24);
+        await _context.SaveChangesAsync();
+
+        return Ok(new ClientPortalAccessDto
+        {
+            ClientId = client.id,
+            AccessToken = rawToken,
+            MagicLink = $"/patient?token={rawToken}",
+            HasPasscode = !string.IsNullOrWhiteSpace(client.passcode_hash),
+            LastPortalAccess = client.last_portal_access
+        });
     }
 
     [HttpPost("~/api/clients/{clientId:int}/portal-access/regenerate-token")]
