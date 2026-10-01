@@ -10,7 +10,7 @@ public class billing_checkout_attempts
     public string billing_interval { get; set; } = string.Empty;
     public string idempotency_key { get; set; } = string.Empty;
     public string? stripe_session_id { get; set; }
-    public string checkout_url { get; set; } = string.Empty;
+    public string? checkout_url { get; set; }
     public string status { get; set; } = "pending";
     public DateTime created_at { get; set; } = DateTime.UtcNow;
     public DateTime expires_at { get; set; }
