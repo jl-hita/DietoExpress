@@ -72,7 +72,7 @@ public sealed class StripeBillingService : IStripeBillingService
             await transaction.CommitAsync();
 
             if (pendingAttempt.status == "pending" && !string.IsNullOrWhiteSpace(pendingAttempt.checkout_url))
-                return pendingAttempt.checkout_url;
+                return pendingAttempt.checkout_url!;
 
             // A request may arrive while another request is between persisting
             // the attempt and receiving Stripe's response. Reusing the same
