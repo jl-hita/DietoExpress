@@ -960,8 +960,8 @@ public class AuthorizationRegressionTests
     {
         var source = ReadServerController("PatientPortalController.cs");
 
-        Assert.Contains(@"Regex.IsMatch(dto.Passcode, @"^\d{6}$")", source);
-        Assert.DoesNotContain(@"Regex.IsMatch(dto.Passcode, @"^\\d{6}$")", source);
+        Assert.Contains("Regex.IsMatch(dto.Passcode, @\"^\\d{6}$\")", source);
+        Assert.DoesNotContain("Regex.IsMatch(dto.Passcode, @\"^\\\\d{6}$\")", source);
     }
 
     [Fact]
