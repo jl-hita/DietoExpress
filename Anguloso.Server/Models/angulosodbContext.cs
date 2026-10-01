@@ -91,7 +91,7 @@ public partial class angulosodbContext : DbContext
             entity.Property(e => e.assigned_at).HasDefaultValueSql("now()");
             entity.Property(e => e.is_active).HasDefaultValue(true);
 
-            entity.HasOne(d => d.client).WithOne(p => p.client_diets)
+            entity.HasOne(d => d.client).WithMany(p => p.client_diets)
                 .HasForeignKey<client_diets>(d => d.client_id)
                 .HasConstraintName("client_diets_client_id_fkey");
 
