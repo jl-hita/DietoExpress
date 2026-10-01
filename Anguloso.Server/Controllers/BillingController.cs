@@ -265,6 +265,11 @@ public sealed class BillingController : ControllerBase
     private async Task ProcessStripeEventAsync(JsonElement root, string eventType)
     {
         var data = root.GetProperty("data").GetProperty("object");
+        DateTime? stripeEventCreatedAt = null;
+        if (root.TryGetProperty("created", out var created) && created.ValueKind == JsonValueKind.Number && created.TryGetInt64(out var createdUnix))
+        {
+            stripeEventCreatedAt = DateTimeOffset.FromUnixTimeSeconds(createdUnix).UtcDateTime;
+        }
 
         switch (eventType)
         {
@@ -297,6 +302,11 @@ public sealed class BillingController : ControllerBase
                 subscription.expires_at = null;
                 subscription.cancelled_at = null;
                 subscription.cancel_at_period_end = false;
+                if (stripeEventCreatedAt.HasValue &&
+                    (!subscription.last_stripe_event_created_at.HasValue || stripeEventCreatedAt.Value > subscription.last_stripe_event_created_at.Value))
+                {
+                    subscription.last_stripe_event_created_at = stripeEventCreatedAt.Value;
+                }
                 subscription.updated_at = DateTime.UtcNow;
 
                 var plan = await _context.subscription_plans.FindAsync(planId.Value);
@@ -395,6 +405,13 @@ public sealed class BillingController : ControllerBase
                 if (subscription == null)
                     return;
 
+                // Stripe may deliver different events out of order. Never let an older
+                // subscription snapshot overwrite a state already established by a newer event.
+                if (stripeEventCreatedAt.HasValue &&
+                    subscription.last_stripe_event_created_at.HasValue &&
+                    stripeEventCreatedAt.Value <= subscription.last_stripe_event_created_at.Value)
+                    return;
+
                 subscription.status = eventType == "customer.subscription.deleted"
                     ? "cancelled"
                     : MapStripeSubscriptionStatus(ReadString(data, "status"));
@@ -436,6 +453,8 @@ public sealed class BillingController : ControllerBase
                             .SetProperty(u => u.subscription_status, subscription.status));
                 }
 
+                if (stripeEventCreatedAt.HasValue)
+                    subscription.last_stripe_event_created_at = stripeEventCreatedAt.Value;
                 subscription.updated_at = DateTime.UtcNow;
 
                 if (data.TryGetProperty("current_period_start", out var start) && start.ValueKind == JsonValueKind.Number)
