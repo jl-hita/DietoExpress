@@ -603,7 +603,7 @@ public class AuthorizationRegressionTests
         var clinic = ReadServerController("ClinicController.cs");
         var schema = ReadServerLogica("DatabaseBootstrap.cs");
 
-        Assert.Contains("var normalizedEmail = request.Email.Trim().ToLowerInvariant();", auth);
+        Assert.Contains("var normalizedEmail = req.Email.Trim().ToLowerInvariant();", auth);
         Assert.Contains("var email = req.Email.Trim().ToLowerInvariant();", clinic);
         Assert.Contains("uq_users_email_ci ON users(LOWER(email))", schema);
     }
