@@ -380,11 +380,11 @@ public class AdminUsersController : ControllerBase
             return BadRequest("El nombre de la clínica es obligatorio para una cuenta de clínica.");
 
         var username = request.Username.Trim().ToLowerInvariant();
-        var email = request.Email.Trim();
+        var email = request.Email.Trim().ToLowerInvariant();
 
         if (await _context.users.AnyAsync(u => u.username == username))
             return Conflict("El nombre de usuario ya existe.");
-        if (await _context.users.AnyAsync(u => u.email == email))
+        if (await _context.users.AnyAsync(u => u.email != null && u.email.ToLower() == email))
             return Conflict("El email ya está registrado.");
 
         var planCode = string.IsNullOrWhiteSpace(request.SubscriptionPlan) ? "free" : request.SubscriptionPlan.Trim();
@@ -429,7 +429,7 @@ public class AdminUsersController : ControllerBase
 
             if (await _context.users.AnyAsync(u => u.username == username))
                 return Conflict("El nombre de usuario ya existe.");
-            if (await _context.users.AnyAsync(u => u.email == email))
+            if (await _context.users.AnyAsync(u => u.email != null && u.email.ToLower() == email))
                 return Conflict("El email ya está registrado.");
 
             var tenant = new tenants
