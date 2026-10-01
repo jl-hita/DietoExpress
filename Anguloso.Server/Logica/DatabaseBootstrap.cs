@@ -775,6 +775,7 @@ public static class DatabaseBootstrap
 
             CREATE INDEX IF NOT EXISTS idx_foods_tenant_id ON foods(tenant_id);
             CREATE INDEX IF NOT EXISTS idx_foods_created_by_user_id ON foods(created_by_user_id);
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_foods_external_id ON foods(external_id) WHERE external_id IS NOT NULL;
         ");
 
         context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('saas-v4-food-ownership') ON CONFLICT (id) DO NOTHING;");
