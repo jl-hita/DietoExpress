@@ -31,7 +31,7 @@ public class RecipesController : ControllerBase
     {
         return await _context.foods.AnyAsync(f =>
             f.id == foodId &&
-            (!EF.Functions.ILike(f.source ?? "", "local") ||
+            ((f.source == null || f.source.ToLower() != "local") ||
              User.IsInRole("superadmin") ||
              (tenantId.HasValue && f.tenant_id == tenantId.Value && f.created_by_user_id == userId) ||
              (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value)));
@@ -85,7 +85,7 @@ public class RecipesController : ControllerBase
 
         var accessibleFoods = await _context.foods
             .Where(f => foodIds.Contains(f.id) &&
-                (!EF.Functions.ILike(f.source ?? "", "local") ||
+                ((f.source == null || f.source.ToLower() != "local") ||
                  User.IsInRole("superadmin") ||
                  (tenantId.HasValue && f.tenant_id == tenantId.Value && f.created_by_user_id == userId.Value) ||
                  (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value)))
