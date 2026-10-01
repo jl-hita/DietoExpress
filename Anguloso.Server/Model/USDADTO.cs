@@ -21,8 +21,8 @@ public class UsdaNutrient
 public class UsdaNutrientInfo
 {
     public int id { get; set; }
-    public string name { get; set; }
-    public string unitName { get; set; }
+    public string name { get; set; } = string.Empty;
+    public string unitName { get; set; } = string.Empty;
 }
 
 public class MicronutrientesDto
