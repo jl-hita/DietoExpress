@@ -504,6 +504,22 @@ public class AuthorizationRegressionTests
         }
     }
 
+    [Fact]
+    public void EmailConfirmation_DoesNotIssueJwtSession()
+    {
+        var source = ReadServerController("AuthController.cs");
+
+        var start = source.IndexOf("[HttpGet(\"confirmarEmail\")]", StringComparison.Ordinal);
+        var end = source.IndexOf("[HttpPost(\"enviarReset\")]", start, StringComparison.Ordinal);
+
+        Assert.True(start >= 0 && end > start, "No se encontró el endpoint de confirmación de email.");
+        var endpoint = source[start..end];
+
+        Assert.Contains("email_confirmed = true", endpoint);
+        Assert.DoesNotContain("CrearJwtParaUsuario(user)", endpoint);
+        Assert.DoesNotContain("token = tokenString", endpoint);
+    }
+
     private static void AssertEndpointRequiresProfessional(string relativePath, string httpAttribute)
     {
         var source = File.ReadAllText(Path.Combine(RepoRoot, relativePath.Replace('/', Path.DirectorySeparatorChar)));
