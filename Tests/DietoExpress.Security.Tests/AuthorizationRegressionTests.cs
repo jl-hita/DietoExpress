@@ -33,8 +33,8 @@ public class AuthorizationRegressionTests
     {
         var clientDetail = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "client-detail", "client-detail.component.html"));
 
-        Assert.Contains("target="_blank" rel="noopener noreferrer"", clientDetail);
-        Assert.DoesNotContain("target="_blank">", clientDetail);
+        Assert.Contains("target=\"_blank\" rel=\"noopener noreferrer\"", clientDetail);
+        Assert.DoesNotContain("target=\"_blank\">", clientDetail);
     }
 
     [Fact]
