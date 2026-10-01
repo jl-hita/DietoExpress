@@ -153,7 +153,12 @@ public class OpenFoodFactsService
                 _logServ.LogInfo($"USDA periodic refresh for '{food.name}' | lastSync:{food.last_synced_at:O}");
                 var (_, fallbackMicros, _, _, _) = await GetNutrientsFromUsdaAsync(food.name);
                 using var updateContext = CrearDbContext();
-                var trackedFood = await updateContext.foods.FirstOrDefaultAsync(f => f.id == food.id);
+                // Revalidar el alcance en el segundo contexto: no confiar solo en
+                // la lista obtenida antes del acceso externo/USDA.
+                var trackedFood = await updateContext.foods.FirstOrDefaultAsync(f =>
+                    f.id == food.id &&
+                    f.source != "local" &&
+                    f.tenant_id == null);
                 if (trackedFood == null) continue;
                 if (fallbackMicros != null) MergeMissingMicronutrientsIntoFood(trackedFood, fallbackMicros);
                 trackedFood.last_synced_at = now;
