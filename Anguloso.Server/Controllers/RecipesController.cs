@@ -115,6 +115,10 @@ public class RecipesController : ControllerBase
         if (dto == null) return BadRequest("Los datos de la receta son requeridos.");
         if (string.IsNullOrWhiteSpace(dto.Name)) return BadRequest("El nombre de la receta es requerido.");
         if (dto.Ingredients == null || !dto.Ingredients.Any()) return BadRequest("La receta debe contener al menos un ingrediente.");
+        if (dto.Ingredients.Count > 100) return BadRequest("La receta no puede contener más de 100 ingredientes.");
+        if (dto.Instructions?.Length > 10000) return BadRequest("Las instrucciones no pueden superar los 10000 caracteres.");
+        if (dto.Ingredients.Count > 100) return BadRequest("La receta no puede contener más de 100 ingredientes.");
+        if (dto.Instructions?.Length > 10000) return BadRequest("Las instrucciones no pueden superar los 10000 caracteres.");
 
         var recipe = new recipes
         {
