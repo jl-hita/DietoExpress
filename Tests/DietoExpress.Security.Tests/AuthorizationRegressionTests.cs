@@ -387,6 +387,19 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void SuperAdminPlanEndpoints_BoundPlanAndFeaturePayloads()
+    {
+        var source = ReadServerController("AdminPlansController.cs");
+
+        Assert.Contains("code.Length > 50", source);
+        Assert.Contains("r.Description?.Length > 2000", source);
+        Assert.Contains("IsValidPlanLimits", source);
+        Assert.Contains("features.Count > 100", source);
+        Assert.Contains("FeatureCode.Trim().Length > 100", source);
+        Assert.Contains("Distinct(StringComparer.Ordinal)", source);
+    }
+
+    [Fact]
     public void StripeCheckoutWebhook_RejectsStaleEventsAndInvalidPlanMetadata()
     {
         var source = ReadServerController("BillingController.cs");
