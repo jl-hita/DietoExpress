@@ -445,6 +445,7 @@ public class DietController : ControllerBase
     // y medicación habitual (medical_history / IFAF) del paciente.
     [HttpPost("validate")]
     [HttpPost("/api/diets/validate")]
+    [EnableRateLimiting("expensive")]
     public async Task<ActionResult<List<DietValidationResultDto>>> ValidateDiet([FromBody] ValidateDietRequestDto request)
     {
         var userId = AuthHelpers.GetUserId(User);
@@ -473,6 +474,7 @@ public class DietController : ControllerBase
     // redondea a cantidades comerciales lógicas y clasifica por categorías (Verduras, Carnes, Lácteos, etc.)
     [HttpGet("{id:int}/shopping-list")]
     [HttpGet("/api/diets/{id:int}/shopping-list")]
+    [EnableRateLimiting("expensive")]
     public async Task<ActionResult<List<ShoppingCategoryDto>>> GetDietShoppingList(int id)
     {
         var userId = AuthHelpers.GetUserId(User);
