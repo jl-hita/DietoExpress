@@ -92,7 +92,7 @@ public partial class angulosodbContext : DbContext
             entity.Property(e => e.is_active).HasDefaultValue(true);
 
             entity.HasOne(d => d.client).WithMany(p => p.client_diets)
-                .HasForeignKey<client_diets>(d => d.client_id)
+                .HasForeignKey(d => d.client_id)
                 .HasConstraintName("client_diets_client_id_fkey");
 
             entity.HasOne(d => d.diet).WithMany(p => p.client_diets)
