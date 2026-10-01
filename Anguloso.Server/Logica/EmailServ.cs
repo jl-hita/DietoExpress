@@ -72,7 +72,7 @@ public class EmailServ
                 }
                 catch (Exception e)
                 {
-                    _logServ.LogError("Error al enviar email.", e);
+                    _logServ.LogError("Error al enviar email.");
                     return new BoolMensaje
                     {
                         Exito = false,
