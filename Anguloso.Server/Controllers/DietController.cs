@@ -64,7 +64,7 @@ public class DietController : ControllerBase
             .Where(d => d.archived_at == null)
             .Where(d => includeAll && isSuperAdmin
                 ? true
-                : d.user_id == userId.Value || (sharedAllowed && tenantId.HasValue && d.tenant_id == tenantId.Value && d.is_shared));
+                : (tenantId.HasValue && d.tenant_id == tenantId.Value && d.user_id == userId.Value) || (sharedAllowed && tenantId.HasValue && d.tenant_id == tenantId.Value && d.is_shared));
 
         if (onlyShared == true)
         {
@@ -419,8 +419,7 @@ public class DietController : ControllerBase
                 (isSuperAdmin ||
                  (tenantId.HasValue && c.tenant_id == tenantId.Value &&
                   (c.user_id == userId.Value ||
-                   tenantId.HasValue && c.tenant_id == tenantId.Value &&
-            _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active) ||
+                   _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active) ||
                    User.IsInRole("clinic_admin")))));
 
             if (!clientExists)
@@ -455,9 +454,12 @@ public class DietController : ControllerBase
         }
 
         var tenantId = AuthHelpers.GetTenantId(User);
-        var clientExists = await _context.clients.AnyAsync(c => c.id == request.ClientId && c.archived_at == null && (c.user_id == userId.Value && tenantId.HasValue && c.tenant_id == tenantId.Value ||
-             _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active) ||
-             (User.IsInRole("clinic_admin") && tenantId.HasValue && c.tenant_id == tenantId.Value)));
+        var clientExists = await _context.clients.AnyAsync(c => c.id == request.ClientId && c.archived_at == null &&
+             (User.IsInRole("superadmin") ||
+              (tenantId.HasValue && c.tenant_id == tenantId.Value &&
+               (c.user_id == userId.Value ||
+                _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active) ||
+                User.IsInRole("clinic_admin")))));
         if (!clientExists) return NotFound("Cliente no encontrado.");
 
         var warnings = await _validationService.ValidateDietDraftCompatibilityAsync(request.ClientId, request.Diet, _context, tenantId);
