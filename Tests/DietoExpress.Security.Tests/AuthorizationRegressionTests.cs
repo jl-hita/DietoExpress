@@ -620,6 +620,15 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void DietGenerator_UsesCaseInsensitiveLocalFoodScope()
+    {
+        var source = ReadServerLogica("DietGeneratorService.cs");
+
+        Assert.Contains("EF.Functions.ILike(f.source ?? \\\"\\\", \\\"local\\\")", source);
+        Assert.DoesNotContain("f.source != \\\"local\\\"", source);
+    }
+
+    [Fact]
     public void DietPdfService_UsesCaseInsensitiveLocalFoodScope()
     {
         var source = ReadServerLogica("DietPdfService.cs");
