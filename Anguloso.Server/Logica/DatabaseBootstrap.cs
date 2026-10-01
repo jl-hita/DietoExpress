@@ -842,6 +842,7 @@ public static class DatabaseBootstrap
         context.Database.ExecuteSqlRaw(@"
             ALTER TABLE users ADD COLUMN IF NOT EXISTS email_confirmation_expires_at TIMESTAMPTZ;
             ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 1;
+            ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_token_version INTEGER NOT NULL DEFAULT 1;
 
             UPDATE users
             SET email_confirmation_expires_at = COALESCE(created_at, NOW()) + INTERVAL '24 hours'
