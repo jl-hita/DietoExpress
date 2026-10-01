@@ -66,6 +66,15 @@ public class LicenseService : ILicenseService
         var license = await GetLicenseAsync(tenantId);
         if (license == null || license.Status != "active") return (false, "La licencia no está activa.");
         if (license.ExpiresAt.HasValue && license.ExpiresAt.Value <= DateTime.UtcNow) return (false, "La licencia ha caducado.");
+        if (!tenantId.HasValue) return (false, "La organización no es válida.");
+
+        var nutritionist = await _context.users.AsNoTracking()
+            .FirstOrDefaultAsync(u => u.id == nutritionistId &&
+                                      u.tenant_id == tenantId.Value &&
+                                      u.archived_at == null &&
+                                      (u.role == "nutritionist" || u.role == "user"));
+        if (nutritionist == null) return (false, "El nutricionista no pertenece a la organización.");
+
         if (license.MaxTotalClients.HasValue && license.Clients >= license.MaxTotalClients.Value) return (false, "Se ha alcanzado el límite total de clientes de la licencia.");
         if (license.MaxClientsPerNutritionist.HasValue)
         {
@@ -79,6 +88,20 @@ public class LicenseService : ILicenseService
         var license = await GetLicenseAsync(tenantId);
         if (license == null || license.Status != "active") return (false, "La licencia no está activa.");
         if (license.ExpiresAt.HasValue && license.ExpiresAt.Value <= DateTime.UtcNow) return (false, "La licencia ha caducado.");
+        if (!tenantId.HasValue) return (false, "La organización no es válida.");
+
+        var nutritionist = await _context.users.AsNoTracking()
+            .FirstOrDefaultAsync(u => u.id == nutritionistId &&
+                                      u.tenant_id == tenantId.Value &&
+                                      u.archived_at == null &&
+                                      (u.role == "nutritionist" || u.role == "user"));
+        if (nutritionist == null) return (false, "El nutricionista no pertenece a la organización.");
+
+        var client = await _context.clients.AsNoTracking()
+            .FirstOrDefaultAsync(c => c.id == clientId &&
+                                      c.tenant_id == tenantId.Value &&
+                                      c.archived_at == null);
+        if (client == null) return (false, "El cliente no pertenece a la organización.");
 
         if (license.MaxClientsPerNutritionist.HasValue)
         {
