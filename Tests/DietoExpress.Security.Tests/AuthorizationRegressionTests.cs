@@ -274,6 +274,18 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void StripeCheckoutWebhook_RejectsStaleEventsAndInvalidPlanMetadata()
+    {
+        var source = ReadServerController("BillingController.cs");
+
+        Assert.Contains("subscription.last_stripe_event_created_at.HasValue", source);
+        Assert.Contains("stripeEventCreatedAt.Value <= subscription.last_stripe_event_created_at.Value", source);
+        Assert.Contains("FirstOrDefaultAsync(p => p.id == planId.Value && p.active)", source);
+        Assert.Contains("plan.code is "free" or "demo_nutri" or "trial_nutri"", source);
+        Assert.Contains("interval is not ("monthly" or "yearly")", source);
+    }
+
+    [Fact]
     public void BiometricImport_HasDefensiveBatchAndValueLimits()
     {
         var source = ReadServerController("BiometricsController.cs");
