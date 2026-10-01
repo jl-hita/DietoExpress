@@ -75,6 +75,7 @@ public class FoodExchangeGroupController : ControllerBase
                 (userId.HasValue && tenantId.HasValue && f.tenant_id == tenantId.Value && f.created_by_user_id == userId.Value) ||
                 (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value))
             .OrderBy(f => f.name)
+            .Take(500)
             .Select(f => new
             {
                 Id = f.id,
