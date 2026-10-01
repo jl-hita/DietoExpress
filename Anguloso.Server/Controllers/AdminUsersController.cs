@@ -520,22 +520,28 @@ public class AdminUsersController : ControllerBase
         if(user==null)return NotFound("Usuario no encontrado o no modificable.");
         if(user.archived_at!=null)return BadRequest("La cuenta ya está archivada.");
 
-        var clientIds=await _context.clients
-            .Where(c=>c.tenant_id==user.tenant_id&&c.archived_at==null&&c.user_id==id)
-            .Select(c=>c.id).ToListAsync();
-
         var assignments=request?.Assignments??new List<ClientReassignment>();
-        var expected=clientIds.ToHashSet();
-
-        if(assignments.Count!=expected.Count||!expected.SetEquals(assignments.Select(a=>a.ClientId)))
-            return Conflict(new {message="Debes decidir qué hacer con todos los pacientes activos antes de archivar la cuenta.",clientIds});
-
         var tenantId=user.tenant_id;
-        var hasOtherActiveUsers=tenantId.HasValue&&await _context.users.AnyAsync(u=>u.tenant_id==tenantId&&u.id!=id&&u.archived_at==null&&u.role!="superadmin");
 
         await using var transaction=await _context.Database.BeginTransactionAsync();
         try
         {
+            // El snapshot de pacientes y todas las reasignaciones deben quedar serializados
+            // con las mismas operaciones de asignación/desactivación del tenant.
+            if(tenantId.HasValue)
+                await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", tenantId.Value);
+
+            var clientIds=await _context.clients
+                .Where(c=>c.tenant_id==tenantId&&c.archived_at==null&&c.user_id==id)
+                .Select(c=>c.id).ToListAsync();
+
+            var expected=clientIds.ToHashSet();
+
+            if(assignments.Count!=expected.Count||!expected.SetEquals(assignments.Select(a=>a.ClientId)))
+                return Conflict(new {message="Debes decidir qué hacer con todos los pacientes activos antes de archivar la cuenta.",clientIds});
+
+            var hasOtherActiveUsers=tenantId.HasValue&&await _context.users.AnyAsync(u=>u.tenant_id==tenantId&&u.id!=id&&u.archived_at==null&&u.role!="superadmin");
+
             foreach(var item in assignments)
             {
             var client=await _context.clients.FirstAsync(c=>c.id==item.ClientId&&c.tenant_id==user.tenant_id&&c.archived_at==null&&c.user_id==id);
