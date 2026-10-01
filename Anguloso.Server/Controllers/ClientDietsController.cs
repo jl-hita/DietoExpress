@@ -189,8 +189,15 @@ public class ClientDietsController : ControllerBase
         if (!dietExists) return BadRequest("The selected diet does not exist.");
 
         // Desactivar dietas activas previas
+        var clientTenantId = await _context.clients
+            .Where(c => c.id == clientId && c.archived_at == null)
+            .Select(c => c.tenant_id)
+            .FirstOrDefaultAsync();
+
         var activeDiets = await _context.client_diets
-            .Where(cd => cd.client_id == clientId && cd.is_active == true)
+            .Include(cd => cd.diet)
+            .Where(cd => cd.client_id == clientId && cd.is_active == true &&
+                         (!clientTenantId.HasValue || (cd.diet != null && cd.diet.tenant_id == clientTenantId.Value)))
             .ToListAsync();
 
         foreach (var activeDiet in activeDiets)
@@ -260,7 +267,9 @@ public class ClientDietsController : ControllerBase
         if (dto.IsActive)
         {
             var otherActiveDiets = await _context.client_diets
-                .Where(cd => cd.client_id == clientId && cd.is_active == true && cd.id != id)
+                .Include(cd => cd.diet)
+                .Where(cd => cd.client_id == clientId && cd.is_active == true && cd.id != id &&
+                             (!clientTenantId.HasValue || (cd.diet != null && cd.diet.tenant_id == clientTenantId.Value)))
                 .ToListAsync();
 
             foreach (var activeDiet in otherActiveDiets)
