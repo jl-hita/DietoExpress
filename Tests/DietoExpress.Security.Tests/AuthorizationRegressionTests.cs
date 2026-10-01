@@ -88,6 +88,22 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void ClinicClientAssignment_IsAtomicAndHonorsNutritionistCapacity()
+    {
+        var clinic = ReadServerController("ClinicController.cs");
+        var license = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "LicenseService.cs"));
+
+        Assert.Contains("pg_advisory_xact_lock", clinic);
+        Assert.Contains("BeginTransactionAsync()", clinic);
+        Assert.Contains("transaction.CommitAsync()", clinic);
+        Assert.Contains("transaction.RollbackAsync()", clinic);
+        Assert.Contains("CanAssignClientAsync", clinic);
+        Assert.Contains("CLIENT_ASSIGNMENT", clinic);
+        Assert.Contains("MaxClientsPerNutritionist", license);
+        Assert.Contains("c.id != clientId", license);
+    }
+
+    [Fact]
     public void FoodMutations_RequireProfessionalPolicy()
     {
         var source = ReadServerController("FoodController.cs");
