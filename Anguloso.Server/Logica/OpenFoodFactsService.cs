@@ -588,6 +588,13 @@ public class OpenFoodFactsService
         try
         {
             using var dbContext = CrearDbContext();
+            await using var transaction = await dbContext.Database.BeginTransactionAsync();
+
+            // Serializar por external_id evita una carrera entre la sincronización
+            // global y la creación/edición concurrente de un alimento local.
+            await dbContext.Database.ExecuteSqlRawAsync(
+                "SELECT pg_advisory_xact_lock(hashtextextended({0}, 0))",
+                product.Code ?? string.Empty);
 
             var existing = await dbContext.foods.FirstOrDefaultAsync(f => f.external_id == product.Code);
 
@@ -671,6 +678,7 @@ public class OpenFoodFactsService
                 dbContext.foods.Add(food);
 
             await dbContext.SaveChangesAsync();
+            await transaction.CommitAsync();
             product.Id = food.id;
         }
         catch (Exception ex)
