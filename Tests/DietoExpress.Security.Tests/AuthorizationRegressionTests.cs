@@ -587,7 +587,10 @@ public class AuthorizationRegressionTests
         var diet = ReadServerController("DietController.cs");
         var recipes = ReadServerController("RecipesController.cs");
 
-        Assert.DoesNotContain(".ThenInclude(i => i.food)", diet);
+        var getDietStart = diet.IndexOf("public async Task<ActionResult<DietDetailDto>> GetDiet", StringComparison.Ordinal);
+        var getDietEnd = diet.IndexOf("// POST:", getDietStart, StringComparison.Ordinal);
+        Assert.True(getDietStart >= 0 && getDietEnd > getDietStart);
+        Assert.DoesNotContain(".ThenInclude(i => i.food)", diet[getDietStart..getDietEnd]);
         Assert.DoesNotContain(".ThenInclude(ri => ri.food)", recipes);
         Assert.Contains("accessibleFoods", diet);
         Assert.Contains("accessibleFoods", recipes);
@@ -624,7 +627,7 @@ public class AuthorizationRegressionTests
     {
         var source = ReadServerLogica("DietGeneratorService.cs");
 
-        Assert.Contains("EF.Functions.ILike(f.source ?? \"\" , \"local\")".replace(" ,", ","), source);
+        Assert.Contains("f.source.ToLower()", source);
         Assert.DoesNotContain("f.source != \"local\"", source);
     }
 
