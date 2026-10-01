@@ -1,103 +1,76 @@
 <div class="landing">
   <header class="nav">
-    <a class="brand" routerLink="/">
-      <span class="brand-mark"><mat-icon>spa</mat-icon></span>
-      <span>DietoExpress</span>
-    </a>
-    <div class="nav-actions">
-      <button mat-button (click)="iniciarSesion()">Iniciar sesión</button>
-      <button mat-flat-button color="primary" (click)="crearCuenta()">Crear cuenta gratis</button>
-    </div>
+    <a class="brand" routerLink="/"><span class="brand-mark"><mat-icon>spa</mat-icon></span><span>DietoExpress</span></a>
+    <nav class="nav-links"><a href="#funciones">Funciones</a><a href="#como-funciona">Cómo funciona</a><a href="#planes">Planes</a></nav>
+    <div class="nav-actions"><button mat-button (click)="iniciarSesion()">Iniciar sesión</button><button mat-flat-button color="primary" (click)="crearCuenta()">Crear cuenta gratis</button></div>
   </header>
-
   <main>
     <section class="hero">
       <div class="hero-copy">
-        <span class="eyebrow">GESTIÓN PROFESIONAL DE NUTRICIÓN</span>
-        <h1>Más tiempo para tus pacientes. Menos tiempo gestionando.</h1>
-        <p class="lead">
-          DietoExpress reúne clientes, dietas y seguimiento en un único espacio
-          diseñado para profesionales de la nutrición.
-        </p>
-        <div class="hero-actions">
-          <button mat-flat-button color="primary" class="primary-cta" (click)="crearCuenta()">
-            Crear mi cuenta gratis
-            <mat-icon>arrow_forward</mat-icon>
-          </button>
-          <button mat-stroked-button (click)="iniciarSesion()">Ya tengo una cuenta</button>
-        </div>
-        <div class="trust">
-          <mat-icon>check_circle</mat-icon>
-          <span>Sin tarjeta para empezar · Cuenta gratuita</span>
-        </div>
+        <span class="eyebrow">SOFTWARE PARA PROFESIONALES DE LA NUTRICIÓN</span>
+        <h1>Tu consulta. Tus clientes. Tus dietas. <span>Todo en un solo lugar.</span></h1>
+        <p class="lead">DietoExpress te ayuda a organizar tu trabajo diario y dedicar más tiempo a lo que realmente importa: tus pacientes.</p>
+        <div class="hero-actions"><button mat-flat-button color="primary" class="primary-cta" (click)="crearCuenta()">Empezar gratis <mat-icon>arrow_forward</mat-icon></button><button mat-stroked-button (click)="iniciarSesion()">Ya tengo una cuenta</button></div>
+        <div class="trust"><mat-icon>check_circle</mat-icon><span>Empieza gratis · Sin tarjeta para crear tu cuenta</span></div>
       </div>
-
       <div class="hero-visual">
-        <div class="app-window">
-          <div class="window-bar">
-            <span></span><span></span><span></span>
-          </div>
+        <div class="glow"></div>
+        <div class="app-window dashboard-window">
+          <div class="window-bar"><i></i><i></i><i></i><span>DietoExpress</span></div>
           <div class="mock-layout">
-            <div class="mock-sidebar">
+            <aside class="mock-sidebar">
               <div class="mock-logo"><mat-icon>spa</mat-icon></div>
-              <div class="mock-line active"></div>
-              <div class="mock-line"></div>
-              <div class="mock-line"></div>
-              <div class="mock-line"></div>
-            </div>
+              <div class="side-item active"><mat-icon>dashboard</mat-icon><span>Inicio</span></div>
+              <div class="side-item"><mat-icon>groups</mat-icon><span>Clientes</span></div>
+              <div class="side-item"><mat-icon>restaurant_menu</mat-icon><span>Dietas</span></div>
+              <div class="side-item"><mat-icon>settings</mat-icon><span>Ajustes</span></div>
+            </aside>
             <div class="mock-content">
-              <div class="mock-title"></div>
-              <div class="mock-cards">
-                <div></div><div></div><div></div>
+              <div class="mock-top"><div><small>Panel de control</small><strong>Buenos días, Laura</strong></div><div class="mock-avatar">L</div></div>
+              <div class="stat-grid">
+                <div class="stat-card"><mat-icon>groups</mat-icon><small>Clientes activos</small><b>48</b><em>+6 este mes</em></div>
+                <div class="stat-card"><mat-icon>restaurant_menu</mat-icon><small>Dietas</small><b>72</b><em>12 esta semana</em></div>
+                <div class="stat-card"><mat-icon>event</mat-icon><small>Seguimientos</small><b>9</b><em>Para hoy</em></div>
               </div>
-              <div class="mock-table">
-                <div></div><div></div><div></div><div></div>
+              <div class="mock-panel"><div class="panel-head"><b>Últimos clientes</b><span>Ver todos</span></div>
+                <div class="client-row"><div class="person">AM</div><div><b>Ana Martínez</b><small>Objetivo: pérdida de peso</small></div><strong>Activa</strong></div>
+                <div class="client-row"><div class="person">CG</div><div><b>Carlos García</b><small>Objetivo: recomposición</small></div><strong>Activa</strong></div>
+                <div class="client-row"><div class="person">LS</div><div><b>Lucía Sánchez</b><small>Objetivo: hábitos saludables</small></div><strong>Revisión</strong></div>
               </div>
             </div>
           </div>
         </div>
+        <div class="floating-card"><mat-icon>check_circle</mat-icon><div><b>Dieta actualizada</b><small>Ana Martínez · hace 4 min</small></div></div>
       </div>
     </section>
-
-    <section class="features">
-      <div class="section-heading">
-        <span class="eyebrow">TODO EN UN SOLO LUGAR</span>
-        <h2>Una herramienta pensada para tu día a día</h2>
-      </div>
+    <section class="proof-strip"><span>DISEÑADO PARA EL TRABAJO REAL DE UNA CONSULTA</span><div><b>Clientes</b><b>Dietas</b><b>Seguimiento</b><b>Portal del paciente</b></div></section>
+    <section class="features" id="funciones">
+      <div class="section-heading"><span class="eyebrow">TODO EN UN SOLO LUGAR</span><h2>Menos gestión. Más consulta.</h2><p>Una herramienta sencilla para centralizar las tareas que más tiempo consumen en tu día a día.</p></div>
       <div class="feature-grid">
-        <article>
-          <div class="feature-icon"><mat-icon>groups</mat-icon></div>
-          <h3>Tus clientes, organizados</h3>
-          <p>Centraliza fichas, seguimiento y toda la información que necesitas para trabajar con cada cliente.</p>
+        <article class="feature-card"><div class="feature-icon"><mat-icon>groups</mat-icon></div><span class="feature-number">01</span><h3>Gestiona tus clientes</h3><p>Ten fichas, información y seguimiento organizados para acceder a lo que necesitas en segundos.</p>
+          <div class="mini-mock"><div class="mini-title">Clientes <span>+ Nuevo</span></div><div class="mini-line"><i></i><b>Ana Martínez</b><small>Activa</small></div><div class="mini-line"><i></i><b>Carlos García</b><small>Activa</small></div><div class="mini-line"><i></i><b>Lucía Sánchez</b><small>Revisión</small></div></div>
         </article>
-        <article>
-          <div class="feature-icon"><mat-icon>restaurant_menu</mat-icon></div>
-          <h3>Dietas sin complicaciones</h3>
-          <p>Crea y reutiliza dietas con una experiencia pensada para que preparar planes sea rápido.</p>
+        <article class="feature-card featured"><div class="feature-icon"><mat-icon>restaurant_menu</mat-icon></div><span class="feature-number">02</span><h3>Crea y organiza dietas</h3><p>Prepara planes nutricionales desde un espacio pensado para trabajar con rapidez y claridad.</p>
+          <div class="mini-mock"><div class="mini-title">Plan semanal <span>Guardar</span></div><div class="meal"><b>Desayuno</b><span>Avena · Yogur · Fruta</span><em>420 kcal</em></div><div class="meal"><b>Comida</b><span>Arroz · Pollo · Verduras</span><em>610 kcal</em></div><div class="meal"><b>Cena</b><span>Salmón · Patata · Ensalada</span><em>530 kcal</em></div></div>
         </article>
-        <article>
-          <div class="feature-icon"><mat-icon>insights</mat-icon></div>
-          <h3>Crece cuando lo necesites</h3>
-          <p>Empieza con una cuenta gratuita y activa las capacidades profesionales cuando estés preparado.</p>
+        <article class="feature-card"><div class="feature-icon"><mat-icon>phone_iphone</mat-icon></div><span class="feature-number">03</span><h3>Comparte con tus pacientes</h3><p>Un espacio preparado para que el paciente pueda consultar su información y su planificación.</p>
+          <div class="mini-phone"><div class="phone-top"><span></span><b>Mi plan</b><span>•••</span></div><div class="phone-welcome">Hola, Ana 👋<small>Tu planificación de hoy</small></div><div class="phone-meal"><mat-icon>wb_sunny</mat-icon><div><b>Desayuno</b><small>420 kcal · 08:30</small></div><mat-icon>chevron_right</mat-icon></div><div class="phone-meal"><mat-icon>restaurant</mat-icon><div><b>Comida</b><small>610 kcal · 14:00</small></div><mat-icon>chevron_right</mat-icon></div></div>
         </article>
       </div>
     </section>
-
-    <section class="pricing">
-      <div>
-        <span class="eyebrow">EMPIEZA SIN COMPROMISO</span>
-        <h2>Una cuenta gratuita. Tus datos preparados para crecer contigo.</h2>
-        <p>
-          Puedes crear tu cuenta sin tarjeta. Cuando necesites trabajar con clientes
-          y todas las funciones profesionales, podrás elegir el plan que encaje contigo.
-        </p>
+    <section class="showcase" id="como-funciona">
+      <div class="showcase-copy"><span class="eyebrow">UNA VISTA CLARA DE TU TRABAJO</span><h2>De la ficha del cliente a la dieta, sin saltar entre herramientas.</h2><p>DietoExpress reúne las piezas principales de tu consulta en una interfaz coherente. Esta versión usa mockups HTML/CSS que después podremos sustituir por capturas reales de la aplicación.</p>
+        <ul><li><mat-icon>check</mat-icon><span>Información del cliente centralizada</span></li><li><mat-icon>check</mat-icon><span>Dietas accesibles desde el mismo entorno</span></li><li><mat-icon>check</mat-icon><span>Experiencia preparada para crecer</span></li></ul>
+        <button mat-flat-button color="primary" (click)="crearCuenta()">Crear mi cuenta</button>
       </div>
-      <button mat-flat-button color="primary" (click)="verPlanes()">Crear cuenta gratis</button>
+      <div class="showcase-visual"><div class="app-window detail-window"><div class="window-bar"><i></i><i></i><i></i><span>Cliente · Ana Martínez</span></div><div class="detail-body">
+        <div class="profile-head"><div class="big-avatar">AM</div><div><small>CLIENTE</small><h3>Ana Martínez</h3><span>Objetivo: pérdida de peso</span></div><button mat-stroked-button>Editar</button></div>
+        <div class="tabs"><b>Resumen</b><span>Dietas</span><span>Seguimiento</span><span>Historial</span></div>
+        <div class="detail-grid"><div class="detail-box"><small>Peso actual</small><b>68,4 kg</b><em>−1,8 kg</em></div><div class="detail-box"><small>Objetivo</small><b>64 kg</b><em>6,4% restante</em></div><div class="detail-box"><small>Plan actual</small><b>Déficit moderado</b><em>2.050 kcal/día</em></div></div>
+        <div class="progress-box"><div><b>Progreso</b><span>64%</span></div><div class="progress"><i></i></div></div>
+      </div></div></div>
     </section>
+    <section class="pricing" id="planes"><div><span class="eyebrow">EMPIEZA SIN COMPROMISO</span><h2>Empieza con DietoExpress y descubre una forma más ordenada de trabajar.</h2><p>Crea tu cuenta y conoce la aplicación. Los planes y las funciones disponibles se podrán ampliar a medida que tu consulta crezca.</p></div><button mat-flat-button color="primary" (click)="crearCuenta()">Crear cuenta gratis</button></section>
   </main>
-
-  <footer>
-    <span>© DietoExpress</span>
-    <span>Gestión profesional de nutrición</span>
-  </footer>
+  <footer><span>© DietoExpress</span><span>Gestión profesional de nutrición</span></footer>
 </div>
