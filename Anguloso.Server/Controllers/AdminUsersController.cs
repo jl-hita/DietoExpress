@@ -519,7 +519,10 @@ public class AdminUsersController : ControllerBase
         user.subscription_status = "suspended";
         user.token_version++;
         var subscription = user.tenant_id.HasValue
-            ? await _context.subscriptions.FirstOrDefaultAsync(s => s.tenant_id == user.tenant_id.Value)
+            ? await _context.subscriptions
+                .Where(s => s.tenant_id == user.tenant_id.Value && s.status != "cancelled" && s.status != "canceled")
+                .OrderByDescending(s => s.created_at)
+                .FirstOrDefaultAsync()
             : null;
         if (subscription != null) subscription.status = "suspended";
         await _context.SaveChangesAsync();
@@ -641,7 +644,10 @@ public class AdminUsersController : ControllerBase
         user.archived_at = null;
         user.token_version++;
         var subscription = user.tenant_id.HasValue
-            ? await _context.subscriptions.FirstOrDefaultAsync(s => s.tenant_id == user.tenant_id.Value)
+            ? await _context.subscriptions
+                .Where(s => s.tenant_id == user.tenant_id.Value)
+                .OrderByDescending(s => s.created_at)
+                .FirstOrDefaultAsync()
             : null;
         if (subscription != null) subscription.status = "active";
         await _context.SaveChangesAsync();
