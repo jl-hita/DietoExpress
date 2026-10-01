@@ -73,7 +73,7 @@ public class FoodController : ControllerBase
             f.id == id &&
             (f.source != "local" ||
              User.IsInRole("superadmin") ||
-             (userId.HasValue && f.created_by_user_id == userId.Value) ||
+             (userId.HasValue && tenantId.HasValue && f.tenant_id == tenantId.Value && f.created_by_user_id == userId.Value) ||
              (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value)));
         if (food == null) return NotFound();
         return Ok(food);
@@ -136,7 +136,7 @@ public class FoodController : ControllerBase
             f.id == id &&
             f.source == "local" &&
             (User.IsInRole("superadmin") ||
-             f.created_by_user_id == userId.Value ||
+             (tenantId.HasValue && f.tenant_id == tenantId.Value && f.created_by_user_id == userId.Value) ||
              (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value)));
         if (food == null) return NotFound();
 

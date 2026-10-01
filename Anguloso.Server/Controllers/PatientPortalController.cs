@@ -190,8 +190,10 @@ public class PatientPortalController : ControllerBase
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
         var client = await _context.clients.FirstOrDefaultAsync(c => c.id == clientId && c.archived_at == null &&
-            (User.IsInRole("superadmin") || c.user_id == userId.Value ||
-             _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active)));
+            (User.IsInRole("superadmin") ||
+             (AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User)!.Value &&
+              (c.user_id == userId.Value ||
+               _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active)))));
         if (client == null) return NotFound("Cliente no encontrado.");
         if (string.IsNullOrWhiteSpace(client.access_token))
         {
@@ -225,7 +227,7 @@ public class PatientPortalController : ControllerBase
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
         if (string.IsNullOrWhiteSpace(dto.Passcode) || !System.Text.RegularExpressions.Regex.IsMatch(dto.Passcode, @"^\\d{6}$")) return BadRequest("El PIN debe tener exactamente 6 dígitos.");
-        var client = await _context.clients.FirstOrDefaultAsync(c => c.id == clientId && c.user_id == userId.Value);
+        var client = await _context.clients.FirstOrDefaultAsync(c => c.id == clientId && AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User)!.Value && c.user_id == userId.Value);
         if (client == null) return NotFound("Cliente no encontrado.");
         client.passcode_hash = BCrypt.Net.BCrypt.HashPassword(dto.Passcode);
         await _context.SaveChangesAsync();

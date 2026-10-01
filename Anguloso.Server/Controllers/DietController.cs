@@ -41,7 +41,7 @@ public class DietController : ControllerBase
             f.id == foodId &&
             (f.source != "local" ||
              User.IsInRole("superadmin") ||
-             f.created_by_user_id == userId ||
+             (tenantId.HasValue && f.tenant_id == tenantId.Value && f.created_by_user_id == userId) ||
              (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value)));
     }
 
@@ -419,7 +419,8 @@ public class DietController : ControllerBase
                 (isSuperAdmin ||
                  (tenantId.HasValue && c.tenant_id == tenantId.Value &&
                   (c.user_id == userId.Value ||
-                   _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active) ||
+                   tenantId.HasValue && c.tenant_id == tenantId.Value &&
+            _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active) ||
                    User.IsInRole("clinic_admin")))));
 
             if (!clientExists)
@@ -459,7 +460,7 @@ public class DietController : ControllerBase
              (User.IsInRole("clinic_admin") && tenantId.HasValue && c.tenant_id == tenantId.Value)));
         if (!clientExists) return NotFound("Cliente no encontrado.");
 
-        var warnings = await _validationService.ValidateDietDraftCompatibilityAsync(request.ClientId, request.Diet, _context);
+        var warnings = await _validationService.ValidateDietDraftCompatibilityAsync(request.ClientId, request.Diet, _context, tenantId);
         return Ok(warnings);
     }
 
