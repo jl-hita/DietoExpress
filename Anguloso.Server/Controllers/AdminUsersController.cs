@@ -363,7 +363,7 @@ public class AdminUsersController : ControllerBase
         if (accountType == "clinic" && string.IsNullOrWhiteSpace(request.ClinicName))
             return BadRequest("El nombre de la clínica es obligatorio para una cuenta de clínica.");
 
-        var username = request.Username.Trim();
+        var username = request.Username.Trim().ToLowerInvariant();
         var email = request.Email.Trim();
 
         if (await _context.users.AnyAsync(u => u.username == username))
