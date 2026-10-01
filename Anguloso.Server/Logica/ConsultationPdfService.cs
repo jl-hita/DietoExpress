@@ -171,7 +171,7 @@ public class ConsultationPdfService
         });
     }
 
-    private void ComposeMeasurements(IContainer container, List<biometrics> measurements, biometrics previous)
+    private void ComposeMeasurements(IContainer container, List<biometrics> measurements, biometrics? previous)
     {
         container.Column(col =>
         {
