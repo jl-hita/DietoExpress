@@ -80,8 +80,9 @@ public class AuthController : ControllerBase
 
             // Buscar el usuario
             var identifier = login.Username.Trim();
+            var normalizedUsername = identifier.ToLowerInvariant();
             var user = await _context.users.FirstOrDefaultAsync(u =>
-                u.username == identifier ||
+                u.username.ToLower() == normalizedUsername ||
                 u.email == identifier ||
                 u.email.ToLower() == identifier.ToLower());
 
@@ -190,7 +191,7 @@ public class AuthController : ControllerBase
             if (usuario == null)
                 return new BoolMensaje { Exito = false, Mensaje = "Datos de registro no válidos." };
 
-            var username = usuario.Username?.Trim() ?? string.Empty;
+            var username = usuario.Username?.Trim().ToLowerInvariant() ?? string.Empty;
             var email = usuario.Email?.Trim() ?? string.Empty;
             var password = usuario.PasswordPlain ?? string.Empty;
             var nombreCompleto = usuario.FullName?.Trim() ?? string.Empty;
