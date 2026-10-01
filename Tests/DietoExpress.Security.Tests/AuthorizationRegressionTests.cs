@@ -962,7 +962,7 @@ public class AuthorizationRegressionTests
 
         Assert.Contains("MagicLink = string.Empty", source);
         Assert.Contains("AccessToken = string.Empty", source);
-        Assert.DoesNotContain('var magicLink = $"/patient?token={client.access_token}"', source);
+        Assert.DoesNotContain(`var magicLink = $"/patient?token={client.access_token}"`, source);
     }
 
     [Fact]
