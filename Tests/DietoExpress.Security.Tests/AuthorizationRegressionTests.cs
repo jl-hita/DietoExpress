@@ -954,4 +954,15 @@ public class AuthorizationRegressionTests
         Assert.Contains("request.Email.Trim().ToLowerInvariant()", source);
         Assert.Contains("u.email != null && u.email.ToLower() == email", source);
     }
+
+    [Fact]
+    public void PatientMagicLinks_StoreOnlyHashedTokens()
+    {
+        var source = ReadServerController("PatientPortalController.cs");
+
+        Assert.Contains("HashAccessToken(request.Token)", source);
+        Assert.Contains("client.access_token = HashAccessToken(rawToken)", source);
+        Assert.Contains("SHA256.HashData", source);
+        Assert.Contains("AccessToken = rawToken", source);
+    }
 }
