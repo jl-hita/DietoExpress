@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
 using System.Text.Json;
 using Anguloso.Server.Models;
 using Microsoft.EntityFrameworkCore;
@@ -82,7 +83,8 @@ public sealed class StripeBillingService : IStripeBillingService
         if (!string.IsNullOrWhiteSpace(existingSubscription?.provider_customer_id))
             form["customer"] = existingSubscription.provider_customer_id;
 
-        using var response = await SendStripeAsync(HttpMethod.Post, "/v1/checkout/sessions", form);
+        var idempotencyKey = CreateCheckoutIdempotencyKey(tenantId, plan.id, billingInterval);
+        using var response = await SendStripeAsync(HttpMethod.Post, "/v1/checkout/sessions", form, idempotencyKey);
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var url = json.RootElement.GetProperty("url").GetString();
 
@@ -100,6 +102,9 @@ public sealed class StripeBillingService : IStripeBillingService
 
         var plan = await GetPlanAsync(planCode);
         var priceId = GetPriceId(plan, billingInterval);
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", tenantId);
 
         var subscription = await _context.subscriptions
             .FirstOrDefaultAsync(s => s.tenant_id == tenantId && s.provider_subscription_id != null &&
@@ -152,10 +157,15 @@ public sealed class StripeBillingService : IStripeBillingService
 
         if (status == "incomplete" || status == "past_due")
             throw new InvalidOperationException("Stripe no ha podido completar el cambio de plan. Revisa el método de pago.");
+
+        await transaction.CommitAsync();
     }
 
     public async Task CancelRenewalAsync(int tenantId)
     {
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", tenantId);
+
         var subscription = await GetStripeBackedSubscriptionAsync(tenantId);
 
         if (subscription.cancel_at_period_end)
@@ -170,10 +180,15 @@ public sealed class StripeBillingService : IStripeBillingService
             HttpMethod.Post,
             $"/v1/subscriptions/{Uri.EscapeDataString(subscription.provider_subscription_id!)}",
             form);
+
+        await transaction.CommitAsync();
     }
 
     public async Task ReactivateRenewalAsync(int tenantId)
     {
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", tenantId);
+
         var subscription = await GetStripeBackedSubscriptionAsync(tenantId);
 
         if (!subscription.cancel_at_period_end)
@@ -188,6 +203,15 @@ public sealed class StripeBillingService : IStripeBillingService
             HttpMethod.Post,
             $"/v1/subscriptions/{Uri.EscapeDataString(subscription.provider_subscription_id!)}",
             form);
+
+        await transaction.CommitAsync();
+    }
+
+    private static string CreateCheckoutIdempotencyKey(int tenantId, int planId, string billingInterval)
+    {
+        var input = "checkout:" + tenantId.ToString(CultureInfo.InvariantCulture) + ":" + planId.ToString(CultureInfo.InvariantCulture) + ":" + billingInterval;
+        var hash = SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(input));
+        return Convert.ToHexString(hash).ToLowerInvariant();
     }
 
     private async Task<subscription_plans> GetPlanAsync(string planCode)
@@ -248,9 +272,11 @@ public sealed class StripeBillingService : IStripeBillingService
         return secretKey;
     }
 
-    private async Task<HttpResponseMessage> SendStripeAsync(HttpMethod method, string path, Dictionary<string, string>? form = null)
+    private async Task<HttpResponseMessage> SendStripeAsync(HttpMethod method, string path, Dictionary<string, string>? form = null, string? idempotencyKey = null)
     {
         var request = new HttpRequestMessage(method, $"https://api.stripe.com{path}");
+        if (!string.IsNullOrWhiteSpace(idempotencyKey))
+            request.Headers.TryAddWithoutValidation("Idempotency-Key", idempotencyKey);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", GetSecretKey());
 
         if (form != null)
