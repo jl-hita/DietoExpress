@@ -616,10 +616,34 @@ public class AuthController : ControllerBase
             }
             else
             {
-                // Crear nuevo usuario
-                user = new users
+                // Crear nuevo usuario. El lock global de registros evita que dos
+                // peticiones Google generen el mismo username al mismo tiempo.
+                await using var googleTransaction = await _context.Database.BeginTransactionAsync();
+                try
                 {
-                    username = GenerateUniqueUsername(name), // función auxiliar que te propongo abajo
+                    await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(748392616)");
+
+                    // Reconsultar después del lock por si otra petición creó la cuenta.
+                    user = await _context.users.FirstOrDefaultAsync(u =>
+                        u.google_id == googleId || u.email == email);
+
+                    if (user != null)
+                    {
+                        if (user.google_id != googleId)
+                        {
+                            user.google_id = googleId;
+                            user.provider = "google";
+                            user.email_confirmed = true;
+                        }
+                        user.last_login = DateTime.UtcNow;
+                        await _context.SaveChangesAsync();
+                        await googleTransaction.CommitAsync();
+                    }
+                    else
+                    {
+                        user = new users
+                        {
+                            username = GenerateUniqueUsername(name), // función auxiliar que te propongo abajo
                     full_name = name,
                     email = email,
                     google_id = googleId,
@@ -641,24 +665,32 @@ public class AuthController : ControllerBase
                     contact_email = email,
                     status = "active"
                 };
-                _context.tenants.Add(tenantGoogle);
-                await _context.SaveChangesAsync();
-                user.tenant_id = tenantGoogle.id;
-                _context.users.Add(user);
-                await _context.SaveChangesAsync();
-                var freePlanGoogle = await _context.subscription_plans.FirstOrDefaultAsync(p => p.code == "free");
-                if (freePlanGoogle == null)
-                    throw new InvalidOperationException("El plan gratuito no está configurado.");
+                        _context.tenants.Add(tenantGoogle);
+                        await _context.SaveChangesAsync();
+                        user.tenant_id = tenantGoogle.id;
+                        _context.users.Add(user);
+                        await _context.SaveChangesAsync();
+                        var freePlanGoogle = await _context.subscription_plans.FirstOrDefaultAsync(p => p.code == "free");
+                        if (freePlanGoogle == null)
+                            throw new InvalidOperationException("El plan gratuito no está configurado.");
 
-                _context.subscriptions.Add(new subscriptions
+                        _context.subscriptions.Add(new subscriptions
+                        {
+                            tenant_id = tenantGoogle.id,
+                            plan_id = freePlanGoogle.id,
+                            status = "active",
+                            started_at = DateTime.UtcNow,
+                            expires_at = null
+                        });
+                        await _context.SaveChangesAsync();
+                        await googleTransaction.CommitAsync();
+                    }
+                }
+                catch
                 {
-                    tenant_id = tenantGoogle.id,
-                    plan_id = freePlanGoogle.id,
-                    status = "active",
-                    started_at = DateTime.UtcNow,
-                    expires_at = null
-                });
-                await _context.SaveChangesAsync();
+                    await googleTransaction.RollbackAsync();
+                    throw;
+                }
             }
         }
         else
