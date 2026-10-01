@@ -42,7 +42,7 @@ public class PatientPortalController : ControllerBase
         {
             client = await _context.clients
                 .Include(c => c.user)
-                .FirstOrDefaultAsync(c => c.archived_at == null && c.access_token == request.Token &&
+                .FirstOrDefaultAsync(c => c.archived_at == null && c.access_token == HashAccessToken(request.Token) &&
                     c.access_token_expires_at.HasValue && c.access_token_expires_at > DateTime.UtcNow);
             if (client == null) return Unauthorized("Enlace de acceso no válido o caducado.");
         }
@@ -227,7 +227,8 @@ public class PatientPortalController : ControllerBase
         if (client == null) return NotFound("Cliente no encontrado.");
         if (string.IsNullOrWhiteSpace(client.access_token))
         {
-            client.access_token = GenerateUrlSafeToken();
+            var rawToken = GenerateUrlSafeToken();
+            client.access_token = HashAccessToken(rawToken);
             client.access_token_expires_at = DateTime.UtcNow.AddHours(24);
             await _context.SaveChangesAsync();
         }
@@ -246,11 +247,12 @@ public class PatientPortalController : ControllerBase
              (c.user_id == userId.Value ||
               _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active)))));
         if (client == null) return NotFound("Cliente no encontrado.");
-        client.access_token = GenerateUrlSafeToken();
+        var rawToken = GenerateUrlSafeToken();
+        client.access_token = HashAccessToken(rawToken);
         client.access_token_expires_at = DateTime.UtcNow.AddHours(24);
         client.portal_token_version++;
         await _context.SaveChangesAsync();
-        return Ok(new ClientPortalAccessDto { ClientId = client.id, AccessToken = client.access_token, MagicLink = $"/patient?token={client.access_token}", HasPasscode = !string.IsNullOrWhiteSpace(client.passcode_hash), LastPortalAccess = client.last_portal_access });
+        return Ok(new ClientPortalAccessDto { ClientId = client.id, AccessToken = rawToken, MagicLink = $"/patient?token={rawToken}", HasPasscode = !string.IsNullOrWhiteSpace(client.passcode_hash), LastPortalAccess = client.last_portal_access });
     }
 
     [HttpPost("~/api/clients/{clientId:int}/portal-access/passcode")]
@@ -349,6 +351,9 @@ public class PatientPortalController : ControllerBase
             Path = "/"
         });
     }
+
+    private static string HashAccessToken(string token) =>
+        Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(token))).ToLowerInvariant();
 
     private static string GenerateUrlSafeToken()
     {
