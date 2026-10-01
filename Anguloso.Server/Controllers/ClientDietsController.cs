@@ -59,6 +59,29 @@ public class ClientDietsController : ControllerBase
                (sharedAllowed && d.is_shared)))));
     }
 
+    private async Task SanitizeDietFoodScopeAsync(diets diet, int userId, int? tenantId)
+    {
+        var foodIds = diet.diet_days.SelectMany(dd => dd.meals).SelectMany(m => m.meal_items)
+            .Where(i => i.food_id.HasValue).Select(i => i.food_id!.Value).Distinct().ToList();
+        if (foodIds.Count == 0) return;
+
+        var accessibleIds = await _context.foods
+            .Where(f => foodIds.Contains(f.id) &&
+                (!EF.Functions.ILike(f.source ?? "", "local") ||
+                 User.IsInRole("superadmin") ||
+                 (tenantId.HasValue && f.tenant_id == tenantId.Value && f.created_by_user_id == userId) ||
+                 (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value)))
+            .Select(f => f.id)
+            .ToListAsync();
+
+        var allowed = accessibleIds.ToHashSet();
+        foreach (var item in diet.diet_days.SelectMany(dd => dd.meals).SelectMany(m => m.meal_items))
+        {
+            if (item.food_id.HasValue && !allowed.Contains(item.food_id.Value))
+                item.food = null;
+        }
+    }
+
     // GET: api/clients/{clientId}/diets
     [HttpGet]
     public async Task<ActionResult<List<ClientDietListDto>>> GetHistory(int clientId)
@@ -553,6 +576,8 @@ public class ClientDietsController : ControllerBase
         if (assignment.diet == null)
             return NotFound("Diet definition not found.");
 
+        await SanitizeDietFoodScopeAsync(assignment.diet, userId.Value, tenantId);
+
         try
         {
             var pdfBytes = _pdfService.GenerateDietPdf(assignment.client, assignment.diet, assignment, _context);
@@ -604,6 +629,8 @@ public class ClientDietsController : ControllerBase
 
         if (assignment.diet == null)
             return NotFound("Diet definition not found.");
+
+        await SanitizeDietFoodScopeAsync(assignment.diet, userId.Value, tenantId);
 
         try
         {
