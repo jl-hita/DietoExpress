@@ -965,4 +965,12 @@ public class AuthorizationRegressionTests
         Assert.Contains("SHA256.HashData", source);
         Assert.Contains("AccessToken = rawToken", source);
     }
+
+    [Fact]
+    public void FoodExternalIds_AreDatabaseUnique()
+    {
+        var source = ReadServerLogica("DatabaseBootstrap.cs");
+
+        Assert.Contains("uq_foods_external_id ON foods(external_id) WHERE external_id IS NOT NULL", source);
+    }
 }
