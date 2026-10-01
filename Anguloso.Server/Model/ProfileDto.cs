@@ -13,9 +13,9 @@ public class ProfileDto
 
 public class UpdateProfileDto
 {
-    public string FullName { get; set; }
-    public string ClinicName { get; set; }
-    public string ClinicAddress { get; set; }
-    public string ClinicPhone { get; set; }
-    public string ClinicLogo { get; set; }
+    public string FullName { get; set; } = string.Empty;
+    public string ClinicName { get; set; } = string.Empty;
+    public string ClinicAddress { get; set; } = string.Empty;
+    public string ClinicPhone { get; set; } = string.Empty;
+    public string ClinicLogo { get; set; } = string.Empty;
 }
