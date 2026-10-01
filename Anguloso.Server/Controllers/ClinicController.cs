@@ -148,7 +148,10 @@ public class ClinicController : ControllerBase
         }
     }
 
-    private static string HashSecurityToken(string token) =>\n        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(token)));\n\n    [HttpPut("nutritionists/{id:int}/activate")]
+    private static string HashSecurityToken(string token) =>
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(token)));
+
+    [HttpPut("nutritionists/{id:int}/activate")]
     [Authorize(Roles="clinic_admin")]
     public async Task<IActionResult> ActivateNutritionist(int id)
     {
