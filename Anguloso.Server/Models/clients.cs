@@ -37,6 +37,8 @@ public partial class clients
 
     public DateTime? archived_at { get; set; }
 
+    public int portal_token_version { get; set; } = 1;
+
     public int? tenant_id { get; set; }
 
     public virtual tenants? tenant { get; set; }
