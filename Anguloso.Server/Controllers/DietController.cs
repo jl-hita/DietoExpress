@@ -180,14 +180,23 @@ public class DietController : ControllerBase
         if (userId == null) return Unauthorized();
 
         var tenantId = AuthHelpers.GetTenantId(User);
-        var dietPermission = await _licenseService.CanCreateDietAsync(tenantId, userId.Value);
-        if (!dietPermission.Allowed)
-            return BadRequest(dietPermission.Reason);
+        if (!tenantId.HasValue) return BadRequest("El usuario no pertenece a una clínica.");
 
-        if (dto.IsTemplate && !await _licenseService.CanUseFeatureAsync(tenantId, "DIET_TEMPLATES"))
-            return Forbid();
+        await using var transaction = await _context.Database.BeginTransactionAsync();
 
-        // Si la dieta se crea desde la ficha de un paciente, validamos el acceso
+        try
+        {
+            // Serializamos la comprobación del límite de dietas por tenant.
+            await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", tenantId.Value);
+
+            var dietPermission = await _licenseService.CanCreateDietAsync(tenantId, userId.Value);
+            if (!dietPermission.Allowed)
+                return BadRequest(dietPermission.Reason);
+
+            if (dto.IsTemplate && !await _licenseService.CanUseFeatureAsync(tenantId, "DIET_TEMPLATES"))
+                return Forbid();
+
+            // Si la dieta se crea desde la ficha de un paciente, validamos el acceso
         // antes de modificar nada. La asignación se hará en la misma transacción.
         if (dto.ClientId.HasValue)
         {
@@ -207,10 +216,6 @@ public class DietController : ControllerBase
                 return NotFound("Cliente no encontrado o no pertenece al usuario.");
         }
 
-        await using var transaction = await _context.Database.BeginTransactionAsync();
-
-        try
-        {
             var diet = new diets
             {
                 user_id = userId.Value,
