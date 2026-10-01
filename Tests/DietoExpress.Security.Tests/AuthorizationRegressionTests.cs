@@ -64,6 +64,18 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void ClientCreation_SerializesAgainstTenantLicenseLimit()
+    {
+        var source = ReadServerController("ClientsController.cs");
+
+        Assert.Contains("BeginTransactionAsync()", source);
+        Assert.Contains("pg_advisory_xact_lock", source);
+        Assert.Contains("CanCreateClientAsync(tenantId, userId.Value)", source);
+        Assert.Contains("transaction.CommitAsync()", source);
+        Assert.Contains("transaction.RollbackAsync()", source);
+    }
+
+    [Fact]
     public void AuthenticationEndpoints_BoundCredentialInputSizes()
     {
         var auth = ReadServerController("AuthController.cs");
