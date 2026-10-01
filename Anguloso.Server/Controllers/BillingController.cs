@@ -254,7 +254,7 @@ public sealed class BillingController : ControllerBase
 
         try
         {
-            await ProcessStripeEventAsync(root, eventType);
+            await ProcessStripeEventAsync(root, eventType, eventId);
             paymentEvent.status = "processed";
             paymentEvent.processed_at = DateTime.UtcNow;
             await _context.SaveChangesAsync();
@@ -273,7 +273,7 @@ public sealed class BillingController : ControllerBase
         return Ok();
     }
 
-    private async Task ProcessStripeEventAsync(JsonElement root, string eventType)
+    private async Task ProcessStripeEventAsync(JsonElement root, string eventType, string eventId)
     {
         var data = root.GetProperty("data").GetProperty("object");
         DateTime? stripeEventCreatedAt = null;
