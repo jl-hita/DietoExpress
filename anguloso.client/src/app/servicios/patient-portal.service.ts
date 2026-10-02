@@ -6,6 +6,27 @@ import { environment } from '../../environments/environments';
 export interface PatientAuthRequest { token?: string; emailOrPhone?: string; passcode?: string; }
 export interface PatientAuthResponse { token?: string; clientId: number; fullName: string; clinicName?: string; clinicLogo?: string; }
 export interface ClientPortalAccess { clientId: number; accessToken: string; magicLink: string; hasPasscode: boolean; lastPortalAccess?: string; }
+
+export interface AppointmentSlot {
+  startsAt: string;
+  endsAt: string;
+  nutritionistId: number;
+  nutritionistName?: string | null;
+}
+
+export interface PatientAppointment {
+  id: number;
+  startsAt: string;
+  endsAt: string;
+  status: string;
+  patientNotes?: string | null;
+  professionalNotes?: string | null;
+  clientId: number;
+  clientName?: string | null;
+  nutritionistId: number;
+  nutritionistName?: string | null;
+}
+
 export interface PatientCheckin { id: number; week_start: string; submitted_at: string; weight?: number | null; adherence?: number | null; hunger?: number | null; difficulties?: string | null; notes?: string | null; }
 export interface PatientCheckinRequest { weight?: number | null; adherence?: number | null; hunger?: number | null; difficulties?: string | null; notes?: string | null; }
 
@@ -20,6 +41,22 @@ export class PatientPortalService {
   getMyShoppingList(clientIdParam?: number): Observable<any[]> { const params: any = {}; if (clientIdParam) params.clientId = clientIdParam; return this.http.get<any[]>(`${this.base}/portal/shopping-list`, { params }); }
   requestAccessLink(email: string): Observable<{ message: string }> {
     return this.http.post<{ message: string }>(`${this.base}/portal/request-access-link`, { email });
+  }
+
+  getAppointmentSlots(days = 30): Observable<AppointmentSlot[]> {
+    return this.http.get<AppointmentSlot[]>(this.base + '/appointments/slots?days=' + days);
+  }
+
+  getMyAppointments(): Observable<PatientAppointment[]> {
+    return this.http.get<PatientAppointment[]>(this.base + '/appointments/mine');
+  }
+
+  requestAppointment(startsAt: string, durationMinutes = 30, patientNotes?: string | null): Observable<PatientAppointment> {
+    return this.http.post<PatientAppointment>(this.base + '/appointments', { startsAt, durationMinutes, patientNotes });
+  }
+
+  cancelAppointment(id: number): Observable<void> {
+    return this.http.post<void>(this.base + '/appointments/' + id + '/cancel', {});
   }
 
   getCurrentCheckin(): Observable<PatientCheckin | null> { return this.http.get<PatientCheckin | null>(`${this.base}/portal/check-ins/current`); }
