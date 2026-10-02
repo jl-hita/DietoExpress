@@ -24,7 +24,7 @@ public class ClientDietsController : ControllerBase
     private readonly ILicenseService _licenseService;
     private readonly AutomationService _automationService;
 
-    public ClientDietsController(angulosodbContext context, DietPdfService pdfService, DietValidationService validationService, ILicenseService licenseService)
+    public ClientDietsController(angulosodbContext context, DietPdfService pdfService, DietValidationService validationService, ILicenseService licenseService, AutomationService automationService)
     {
         _context = context;
         _pdfService = pdfService;
@@ -101,7 +101,9 @@ public class ClientDietsController : ControllerBase
                 "client_diet",
                 assignmentId.ToString(),
                 new AutomationService.DietAutomationPayload(clientId, assignmentId, dietName),
-                $"diet:{eventType}:{assignmentId}:{DateTime.UtcNow.Ticks}",
+                eventType == "diet.published"
+                    ? $"diet:published:{assignmentId}"
+                    : $"diet:changed:{assignmentId}:{dietName}",
                 cancellationToken);
         }
         catch (Exception ex)
@@ -304,7 +306,7 @@ public class ClientDietsController : ControllerBase
                 await transaction.CommitAsync();
 
             await PublishDietAutomationEventAsync(
-                clientTenantId!.Value,
+                clientTenantId,
                 "diet.published",
                 clientId,
                 newAssignment.id,
