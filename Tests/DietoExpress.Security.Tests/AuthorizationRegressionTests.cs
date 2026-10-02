@@ -868,6 +868,16 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void DietPdf_LocalFoodScopeRequiresCreatorOrClinicAdmin()
+    {
+        var source = ReadServerLogica("DietPdfService.cs");
+
+        Assert.Contains("canUseTenantLocalFoods", source);
+        Assert.Contains("f.created_by_user_id == userId", source);
+        Assert.Contains("f.tenant_id == client.tenant_id.Value", source);
+    }
+
+    [Fact]
     public void DietValidation_LocalFoodScopeRequiresCreatorOrClinicAdmin()
     {
         var source = ReadServerLogica("DietValidationService.cs");
