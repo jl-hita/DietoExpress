@@ -82,15 +82,15 @@
   overflow-y: auto;
   padding: 24px 32px 40px;
   background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-/* Centra el contenido de las pantallas en monitores grandes sin
-   desperdiciar el espacio disponible en resoluciones medias. */
+/* El router-outlet no genera una caja visual propia; el componente de cada
+   pantalla se centra dentro del área disponible del contenido. */
 .page > router-outlet + * {
-  width: 100%;
-  max-width: 1440px;
-  margin-left: auto;
-  margin-right: auto;
+  width: min(100%, 1440px);
 }
 
 @media (min-width: 1600px) {
