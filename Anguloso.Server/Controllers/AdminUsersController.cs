@@ -427,7 +427,7 @@ public class AdminUsersController : ControllerBase
             // Revalidamos dentro de la transacción para cerrar la carrera entre altas.
             await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(748392616)");
 
-            if (await _context.users.AnyAsync(u => u.username == username))
+            if (await _context.users.AnyAsync(u => u.username.ToLower() == username.ToLower()))
                 return Conflict("El nombre de usuario ya existe.");
             if (await _context.users.AnyAsync(u => u.email != null && u.email.ToLower() == email))
                 return Conflict("El email ya está registrado.");
