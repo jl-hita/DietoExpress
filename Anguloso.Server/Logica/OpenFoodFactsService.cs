@@ -35,6 +35,8 @@ public class OpenFoodFactsService
         return new angulosodbContext(optionsBuilder.Options);
     }
 
+    // Consulta primero la fuente principal y normaliza el producto antes de reutilizarlo en DietoExpress;
+    // el resultado puede enriquecerse posteriormente con micronutrientes.
     public async Task<OffProduct?> GetProductByBarcodeAsync(string barcode)
     {
         var response = await _http.GetAsync($"api/v3/product/{barcode}");
@@ -52,6 +54,8 @@ public class OpenFoodFactsService
      *   - Si encuentra resultados los devuelve
      *   - Si no encuentra suficientes o ninguno: Llama a SearchProductsAsync, que busca los datos en OFF y USDA
      */
+    // Combina resultados externos con los alimentos locales y evita perder información nutricional
+    // ya existente cuando el mismo alimento aparece en varias fuentes.
     public async Task<List<OffProduct>> SearchAsync(string term, string? userName = null)
     {
         try
@@ -142,6 +146,8 @@ public class OpenFoodFactsService
      * Busca productos en OpenFoodFacts
      * Si los productos no tienen información de macros se buscan en la USDA (US Department of Agriculture)
      */
+    // Completa únicamente micronutrientes ausentes para no sobrescribir valores introducidos o
+    // importados previamente en la base de datos.
     private async Task RefreshIncompleteMicrosAsync(List<foods> foodsList)
     {
         var now = DateTime.UtcNow;

@@ -101,6 +101,8 @@ public sealed class BillingController : ControllerBase
     [Authorize(Policy = "Professional")]
     [HttpPost("subscription/change")]
     [EnableRateLimiting("expensive")]
+    // Los cambios de plan actualizan primero el estado local y después coordinan Stripe; la lógica
+    // mantiene las restricciones de clínica y prorrateo separadas de la presentación HTTP.
     public async Task<IActionResult> ChangeSubscription([FromBody] ChangeSubscriptionRequest request)
     {
         if (!_tenantContext.TenantId.HasValue)
@@ -205,6 +207,8 @@ public sealed class BillingController : ControllerBase
     [AllowAnonymous]
     [RequestSizeLimit(256 * 1024)]
     [HttpPost("stripe/webhook")]
+    // El webhook valida la firma antes de interpretar el evento y delega el procesamiento en una
+    // transacción idempotente para que Stripe pueda reenviar eventos sin duplicar efectos.
     public async Task<IActionResult> StripeWebhook()
     {
         var webhookSecret = _configuration["Stripe:WebhookSecret"];
@@ -603,6 +607,8 @@ public sealed class BillingController : ControllerBase
         }
     }
 
+    // Convierte eventos de Stripe en eventos internos de automatización. Un fallo aquí se registra
+    // sin deshacer el estado de facturación ya confirmado por Stripe.
     private async Task PublishBillingAutomationEventAsync(JsonElement root, string eventType, string eventId)
     {
         var data = root.GetProperty("data").GetProperty("object");

@@ -111,6 +111,8 @@ public sealed class GoogleCalendarService
 
     // Sincronización bidireccional: importa eventos externos, aplica cambios de horario a citas vinculadas
     // y publica las citas DietoExpress en Google mediante identificadores estables.
+    // Sincroniza primero los cambios remotos mediante syncToken y después publica en Google
+    // las citas locales; ambas direcciones comparten el identificador estable de DietoExpress.
     public async Task SyncUserAsync(int userId, CancellationToken cancellationToken = default)
     {
         var connection = await _db.google_calendar_connections.SingleOrDefaultAsync(x => x.user_id == userId, cancellationToken);
@@ -174,6 +176,8 @@ public sealed class GoogleCalendarService
 
     // Se consulta antes de aceptar una reserva. Un evento externo solo bloquea el intervalo: no crea ni
     // cancela automáticamente una cita DietoExpress, evitando convertir un evento personal en una acción clínica.
+    // Este método se usa durante una reserva: cualquier evento externo que se solape se trata
+    // como ocupado, independientemente de que sea una cita de DietoExpress.
     public async Task<bool> IsBlockedAsync(int nutritionistId, int tenantId, DateTime startsUtc, DateTime endsUtc, CancellationToken cancellationToken = default)
     {
         return await _db.external_calendar_events.AsNoTracking().AnyAsync(x =>
@@ -206,6 +210,8 @@ public sealed class GoogleCalendarService
         }
     }
 
+    // Los tokens se almacenan protegidos y se refrescan solo cuando están próximos a caducar;
+    // el nuevo token se persiste para que las siguientes sincronizaciones no repitan el refresh.
     private async Task<string> GetValidAccessTokenAsync(google_calendar_connections connection, CancellationToken cancellationToken)
     {
         if (connection.access_token_expires_at > DateTime.UtcNow.AddMinutes(1))

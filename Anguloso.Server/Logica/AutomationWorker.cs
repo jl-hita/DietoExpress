@@ -25,6 +25,8 @@ public sealed class AutomationWorker : BackgroundService
         _logger = logger;
     }
 
+    // El worker ejecuta lotes pequeños de trabajos pendientes y espera entre ciclos para
+    // evitar una consulta/ejecución continua contra PostgreSQL y los servicios externos.
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("AutomationWorker iniciado.");
@@ -79,6 +81,8 @@ public sealed class AutomationWorker : BackgroundService
 
     // Reclama un lote de trabajos de forma atómica. La combinación de transacción + SKIP LOCKED
     // permite varias instancias del servidor sin ejecutar simultáneamente el mismo trabajo.
+    // Reserva trabajos de forma compatible con concurrencia para que varias instancias del
+    // worker no procesen simultáneamente la misma automatización.
     private async Task<int> ProcessBatchAsync(CancellationToken cancellationToken)
     {
         var jobs = new List<AutomationJob>();
@@ -286,6 +290,8 @@ public sealed class AutomationWorker : BackgroundService
         await WriteExecutionAsync(connection, jobId, "completed", null, DateTime.UtcNow - started, cancellationToken);
     }
 
+    // Un fallo queda registrado como ejecución y decide el siguiente intento según la política
+    // de reintentos, manteniendo trazabilidad sin perder el trabajo original.
     private async Task FailJobAsync(AutomationJob job, Exception ex, DateTime started, CancellationToken cancellationToken)
     {
         var retry = job.Attempts < job.MaxAttempts;

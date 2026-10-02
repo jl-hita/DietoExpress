@@ -17,6 +17,8 @@ public class DietGeneratorService
         _context = context;
     }
 
+    // La generación construye una dieta a partir de objetivos nutricionales, alimentos permitidos
+    // y restricciones del paciente; los filtros de tenant se aplican antes de optimizar las cantidades.
     public async Task<DietDetailDto> GenerateDietAsync(GenerateDietRequestDto request, int? tenantId, int userId, bool canUseTenantLocalFoods, CancellationToken cancellationToken = default)
     {
         // 1. Resolver Kcal y Macros objetivo diarios
@@ -248,6 +250,8 @@ public class DietGeneratorService
 
     // Ajuste iterativo acotado: reduce el error de kcal y macronutrientes respetando los límites de cada alimento.
     // Es una heurística, no un solver matemático exacto; por eso se acota también el número de iteraciones.
+    // Ajusta las cantidades de los alimentos buscando acercarse simultáneamente a energía y
+    // macronutrientes objetivo sin sustituir las restricciones ya aplicadas a la selección.
     private double[] OptimizeGrams(List<(foods food, SlotConfig slot)> items, double tKcal, double tP, double tC, double tF)
     {
         int n = items.Count;
@@ -304,6 +308,8 @@ public class DietGeneratorService
         return grams;
     }
 
+    // Hace una segunda pasada sobre el día generado para corregir desviaciones acumuladas entre
+    // comidas y dejar los totales dentro de la tolerancia esperada por el generador.
     private void NormalizeDay(List<MealDto> meals, double targetKcal, double targetP, double targetC, double targetF)
     {
         var allItems = meals.SelectMany(m => m.Items).ToList();

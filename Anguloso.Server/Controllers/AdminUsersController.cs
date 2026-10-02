@@ -350,6 +350,8 @@ public class AdminUsersController : ControllerBase
     /// Crea una cuenta completa desde el panel de SuperAdmin, incluyendo tenant y licencia.
     /// </summary>
     [HttpPost("users/create-account")]
+    // El alta administrativa concentra validación, normalización de credenciales y creación de la
+    // cuenta dentro de las reglas de superadministración, evitando que el cliente pueda elegir su tenant.
     public async Task<IActionResult> CreateAccount([FromBody] CreateAdminAccountRequest request)
     {
         if (request == null)
@@ -556,6 +558,8 @@ public class AdminUsersController : ControllerBase
     }
 
     [HttpDelete("users/{id}")]
+    // La eliminación administrativa es lógica: antes de retirar acceso se comprueban relaciones y
+    // se conserva el historial necesario para que los pacientes no queden asociados a un usuario inexistente.
     public async Task<IActionResult> DeleteUser(int id,[FromBody] DeactivateUserRequest? request)
     {
         var user=await _context.users.FirstOrDefaultAsync(u=>u.id==id&&(u.role=="nutritionist"||u.role=="user"));
@@ -659,6 +663,8 @@ public class AdminUsersController : ControllerBase
     /// Resetea la contraseña de un usuario directamente desde el panel de administración.
     /// </summary>
     [HttpPut("users/{id}/reset-password")]
+    // El restablecimiento administrativo invalida el acceso anterior y aplica la política de credenciales
+    // desde el backend, sin confiar en que el frontend haya realizado previamente esas comprobaciones.
     public async Task<IActionResult> ResetUserPassword(int id, [FromBody] ResetPasswordAdminRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.NewPassword) || request.NewPassword.Length < 12 || request.NewPassword.Length > 256)

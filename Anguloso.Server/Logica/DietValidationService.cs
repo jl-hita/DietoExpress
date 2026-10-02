@@ -114,6 +114,8 @@ public class DietValidationService
         public string Message { get; set; } = string.Empty;
     }
 
+    // Valida una dieta ya persistida contra el perfil y las restricciones del paciente, incluyendo
+    // reglas de alimentos y comprobaciones de acceso al tenant antes de devolver incompatibilidades.
     public async Task<List<DietValidationResultDto>> ValidateDietCompatibilityAsync(int clientId, diets diet, angulosodbContext context, int? tenantId, int userId, bool canUseTenantLocalFoods)
     {
         var client = await context.clients
@@ -180,6 +182,8 @@ public class DietValidationService
         return warnings;
     }
 
+    // Variante para borradores: ejecuta las mismas reglas sobre el DTO sin exigir que la dieta
+    // exista todavía en la base de datos.
     public async Task<List<DietValidationResultDto>> ValidateDietDraftCompatibilityAsync(int clientId, DietDetailDto dietDto, angulosodbContext context, int? tenantId, int userId, bool canUseTenantLocalFoods)
     {
         var client = await context.clients
@@ -246,6 +250,8 @@ public class DietValidationService
         return warnings;
     }
 
+    // Centraliza las reglas alimento-paciente y devuelve todas las incompatibilidades detectadas
+    // para que la interfaz pueda mostrarlas sin detenerse en el primer problema.
     private List<DietValidationResultDto> CheckFoodCompatibility(clients client, foods food, string mealName, int dayIndex)
     {
         var list = new List<DietValidationResultDto>();

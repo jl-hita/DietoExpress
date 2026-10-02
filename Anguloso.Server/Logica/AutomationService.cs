@@ -244,6 +244,8 @@ public sealed class AutomationService
     }
 
     /// <summary>Programa recordatorios persistentes de check-in y tareas de seguimiento.</summary>
+    // Recorre periódicamente los pacientes activos para convertir la falta de seguimiento en
+    // recordatorios para el paciente y tareas para el profesional, usando idempotencia por semana.
     public async Task RunFollowUpAutomationSweepAsync(CancellationToken cancellationToken = default)
     {
         var candidates = new List<(int ClientId, int TenantId, int? AssignedUserId, DateTime? LastCheckin)>();
@@ -328,6 +330,8 @@ public sealed class AutomationService
     /// <summary>Recalcula periódicamente el ciclo de vida y crea tareas para pacientes sin seguimiento.</summary>
     // Barrido periódico de reconciliación: aunque un evento no llegue a procesarse, el estado puede
     // reconstruirse desde los datos persistidos. Esto hace el ciclo de vida resistente a reinicios.
+    // Recalcula el estado clínico-operativo del paciente a partir de actividad reciente.
+    // Este barrido corrige estados que no hayan podido actualizarse por un evento puntual.
     public async Task RunPatientLifecycleSweepAsync(CancellationToken cancellationToken = default)
     {
         var candidates = new List<(int ClientId, int TenantId, int? AssignedUserId, string Status, bool HasFutureAppointment)>();
@@ -625,6 +629,8 @@ public sealed class AutomationService
 
 
     /// <summary>Revisa dietas activas próximas a finalizar o ya vencidas.</summary>
+    // Genera avisos y tareas derivados de la fecha de finalización de las dietas activas.
+    // Las claves de idempotencia impiden duplicar acciones en ejecuciones sucesivas.
     public async Task RunDietAutomationSweepAsync(CancellationToken cancellationToken = default)
     {
         var candidates = new List<(int AssignmentId, int ClientId, int TenantId, int? NutritionistId, DateOnly? EndDate, string DietName)>();
