@@ -104,8 +104,8 @@
 
 /* Editor Workspace Layout */
 .editor-workspace {
-  max-width: 1400px;
   width: 100%;
+  max-width: none;
   margin: 0 auto;
 }
 
