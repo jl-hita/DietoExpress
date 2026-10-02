@@ -1,4 +1,5 @@
 using Anguloso.Server.Logica;
+using Anguloso.Server.Logica.Utils;
 using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -63,7 +64,7 @@ public class PatientMessagesController : ControllerBase
         if (!await CanProfessionalAccessAsync(userId.Value, tenantId.Value, clientId))
             return NotFound();
 
-        var conversation = await GetOrCreateConversationAsync(clientId, User.IsInRole("patient") ? null : AuthHelpers.GetUserId(User));
+        var conversation = await GetOrCreateConversationAsync(clientId, userId.Value);
         return Ok(await ReadMessagesAsync(conversation.Id, clientId));
     }
 
@@ -90,7 +91,7 @@ public class PatientMessagesController : ControllerBase
         if (!userId.HasValue || !tenantId.HasValue || !await CanProfessionalAccessAsync(userId.Value, tenantId.Value, clientId))
             return NotFound();
 
-        var conversation = await GetOrCreateConversationAsync(clientId);
+        var conversation = await GetOrCreateConversationAsync(clientId, userId.Value);
         await _context.Database.ExecuteSqlInterpolatedAsync($@"
 UPDATE patient_messages
 SET read_at = COALESCE(read_at, NOW())
@@ -128,7 +129,7 @@ WHERE conversation_id = {conversation.Id}
             .FirstOrDefaultAsync();
         if (client?.tenant_id == null) return NotFound();
 
-        var conversation = await GetOrCreateConversationAsync(clientId);
+        var conversation = await GetOrCreateConversationAsync(clientId, senderUserId);
         long messageId;
         await using var connection = _context.Database.GetDbConnection();
         if (connection.State != System.Data.ConnectionState.Open) await connection.OpenAsync();
@@ -223,10 +224,10 @@ ORDER BY c.updated_at DESC;").ToListAsync();
         }).ToList();
     }
 
-    private async Task<long> ResolvePatientIdAsync()
+    private Task<int?> ResolvePatientIdAsync()
     {
         var raw = User.FindFirst("clientId")?.Value;
-        return int.TryParse(raw, out var clientId) ? clientId : 0;
+        return Task.FromResult<int?>(int.TryParse(raw, out var clientId) && clientId > 0 ? clientId : null);
     }
 
     private async Task<ConversationRef> GetOrCreateConversationAsync(int clientId, int? nutritionistId = null)
