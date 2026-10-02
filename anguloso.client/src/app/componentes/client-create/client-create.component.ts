@@ -1,8 +1,7 @@
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { Component, EventEmitter, Output } from '@angular/core';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule } from '@angular/forms';
-import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -16,7 +15,7 @@ import { ClientService } from '../../servicios/client.service';
 
 @Component({
   selector: 'app-client-create',
-    standalone: true,
+  standalone: true,
   imports: [CommonModule, ReactiveFormsModule, MatSnackBarModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatOptionModule, MatDatepickerModule, MatNativeDateModule, MatButtonModule, MatIconModule],
   templateUrl: './client-create.component.html',
   styleUrl: './client-create.component.css'
@@ -48,7 +47,6 @@ export class ClientCreateComponent {
       gender: [''],
       notes: ['']
     });
-
     this.checkCreatePermission();
   }
 
@@ -69,24 +67,17 @@ export class ClientCreateComponent {
 
   submit() {
     if (!this.canCreateClient || this.checkingCreatePermission || this.form.invalid) return;
-
     const formValue = this.form.value;
     const client: ClientDetail = {
       ...formValue,
       birthDate: this.toIsoDate(formValue.birthDate) ?? undefined,
-      biometrics: [] // siempre vacío al crear
+      biometrics: []
     };
-
     this.clientService.createClient(client).subscribe({
       next: (res: any) => {
         const newId = res?.id;
         this.snack.open('Cliente creado', 'Cerrar', { duration: 2000 });
-
-        if (newId) {
-          this.router.navigate(['/clients', newId]);
-        } else {
-          this.router.navigate(['/clients']);
-        }
+        this.router.navigate(newId ? ['/clients', newId] : ['/clients']);
       },
       error: (error) => {
         const message = error?.error?.message || error?.error?.title || error?.error || 'Error al crear el cliente';
