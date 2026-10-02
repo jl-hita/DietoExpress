@@ -20,13 +20,15 @@ public class AppointmentsController : ControllerBase
     private readonly EmailServ _emailServ;
     private readonly NotificationService _notifications;
     private readonly AutomationService _automationService;
+    private readonly GoogleCalendarService _googleCalendar;
 
-    public AppointmentsController(angulosodbContext context, EmailServ emailServ, NotificationService notifications, AutomationService automationService)
+    public AppointmentsController(angulosodbContext context, EmailServ emailServ, NotificationService notifications, AutomationService automationService, GoogleCalendarService googleCalendar)
     {
         _context = context;
         _emailServ = emailServ;
         _notifications = notifications;
         _automationService = automationService;
+        _googleCalendar = googleCalendar;
     }
 
     [Authorize(Roles = "patient")]
@@ -136,6 +138,9 @@ public class AppointmentsController : ControllerBase
 
         var validSlot = await IsAvailableSlotAsync(client.tenant_id!.Value, nutritionistId.Value, startsUtc, endsUtc);
         if (!validSlot) return Conflict(new { message = "Ese horario ya no está disponible. Actualiza la lista de citas e inténtalo de nuevo." });
+
+        if (await _googleCalendar.IsBlockedAsync(nutritionistId.Value, client.tenant_id.Value, startsUtc, endsUtc))
+            return Conflict(new { message = "Ese horario está ocupado en el calendario externo del nutricionista." });
 
         var overlap = await _context.patient_appointments.AnyAsync(a =>
             a.tenant_id == client.tenant_id.Value &&
