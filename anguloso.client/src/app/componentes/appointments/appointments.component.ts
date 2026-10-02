@@ -60,6 +60,11 @@ export class AppointmentsComponent implements OnInit {
       .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
   }
 
+  get history(): PatientAppointment[] {
+    return this.appointments.filter(a => !this.upcoming.some(u => u.id === a.id))
+      .sort((a, b) => new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime());
+  }
+
   get pendingCount(): number { return this.appointments.filter(a => a.status === 'requested').length; }
 
   rulesFor(day: number): AvailabilityRule[] {
@@ -104,6 +109,7 @@ export class AppointmentsComponent implements OnInit {
   }
 
   changeStatus(appointment: PatientAppointment, status: string): void {
+    if (!confirm(this.statusConfirmation(status, appointment.clientName || 'el paciente'))) return;
     this.error = null; this.success = null;
     this.portalService.updateAppointmentStatus(appointment.id, status).subscribe({
       next: updated => {
@@ -114,6 +120,11 @@ export class AppointmentsComponent implements OnInit {
       },
       error: err => this.error = err?.error?.message || 'No hemos podido actualizar la cita.'
     });
+  }
+
+  statusConfirmation(status: string, patient: string): string {
+    const action = ({ confirmed: 'confirmar', cancelled: 'cancelar', completed: 'marcar como completada' } as Record<string, string>)[status] || 'actualizar';
+    return '¿Quieres ' + action + ' la cita de ' + patient + '?';
   }
 
   formatDate(value: string): string {
