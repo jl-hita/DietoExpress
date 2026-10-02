@@ -26,6 +26,7 @@ export interface CheckoutRequest {
 @Injectable({
   providedIn: 'root'
 })
+  // Transporta las operaciones de suscripción; precios, estado y reglas de facturación son responsabilidad del backend y Stripe.
 export class BillingService {
   private readonly baseUrl = '/api/billing';
 

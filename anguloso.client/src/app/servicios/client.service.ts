@@ -10,6 +10,7 @@ export interface ClientCreationAvailability {
 }
 
 @Injectable({ providedIn: 'root' })
+  // Normaliza las respuestas paginadas y las respuestas antiguas en forma de array para mantener una interfaz estable en los componentes.
 export class ClientService {
   private base = environment.apiUrl;
 

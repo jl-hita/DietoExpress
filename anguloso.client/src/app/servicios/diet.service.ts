@@ -5,6 +5,7 @@ import { environment } from '../../environments/environments';
 import { DietListItem, DietDetail, CreateDietRequest, UpdateDietRequest } from '../modelos/diet';
 
 @Injectable({ providedIn: 'root' })
+  // Encapsula el CRUD y la paginación de dietas, manteniendo un formato estable para las pantallas que consumen el servicio.
 export class DietService {
   private base = `${environment.apiUrl}/dietas`;
 

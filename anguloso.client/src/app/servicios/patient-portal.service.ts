@@ -51,6 +51,7 @@ export interface GoogleCalendarStatus { connected: boolean; email: string; calen
 export interface PatientNotification { id: number; type: string; title: string; message: string; actionUrl?: string | null; createdAt: string; readAt?: string | null; }
 
 @Injectable({ providedIn: 'root' })
+  // Centraliza autenticación y operaciones del portal para que los componentes no dupliquen rutas ni gestionen directamente el transporte HTTP.
 export class PatientPortalService {
   private base = environment.apiUrl;
   constructor(private http: HttpClient) {}

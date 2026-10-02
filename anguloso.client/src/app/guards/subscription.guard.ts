@@ -6,6 +6,7 @@ import { AuthService } from '../servicios/auth.service';
 import { LicenseService } from '../servicios/license.service';
 
 @Injectable({ providedIn: 'root' })
+  // Evita acceder a rutas de pago sin sesión o licencia activa; las comprobaciones definitivas de autorización permanecen en backend.
 export class SubscriptionGuard implements CanActivate {
   constructor(
     private authService: AuthService,

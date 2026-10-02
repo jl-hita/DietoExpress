@@ -72,6 +72,7 @@ export interface AdminLog {
 @Injectable({
   providedIn: 'root'
 })
+  // Agrupa las operaciones administrativas; la autorización efectiva permanece en backend y no se confía en el estado del cliente.
 export class AdminService {
   private readonly setupUrl = '/api/setup';
   private readonly adminUrl = '/api/admin';
