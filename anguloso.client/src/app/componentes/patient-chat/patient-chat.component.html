@@ -1,0 +1,21 @@
+<section class="chat-card">
+  <header class="chat-header">
+    <div><h2>Mensajes</h2><p>{{ patientMode ? 'Comunicación con tu nutricionista' : 'Comunicación con el paciente' }}</p></div>
+    <button type="button" mat-icon-button (click)="load()" [disabled]="loading" title="Actualizar"><mat-icon>refresh</mat-icon></button>
+  </header>
+  <div class="chat-error" *ngIf="error"><mat-icon>error_outline</mat-icon>{{ error }}</div>
+  <div class="chat-body">
+    <div class="chat-loading" *ngIf="loading">Cargando mensajes…</div>
+    <div class="chat-empty" *ngIf="!loading && !messages.length">
+      <mat-icon>forum</mat-icon><strong>Inicia la conversación</strong>
+      <span>{{ patientMode ? 'Escribe a tu nutricionista cuando lo necesites.' : 'Envía un mensaje al paciente.' }}</span>
+    </div>
+    <div class="message-row" *ngFor="let message of messages" [class.mine]="(patientMode && message.senderType === 'patient') || (!patientMode && message.senderType === 'professional')">
+      <div class="message-bubble"><div class="message-text">{{ message.body }}</div><small>{{ message.createdAt | date:'d MMM, HH:mm' }}</small></div>
+    </div>
+  </div>
+  <footer class="chat-composer">
+    <textarea [(ngModel)]="draft" (keydown)="onKeydown($event)" maxlength="5000" rows="2" [disabled]="sending" placeholder="Escribe un mensaje…"></textarea>
+    <button type="button" mat-icon-button color="primary" (click)="send()" [disabled]="sending || !draft.trim()" title="Enviar"><mat-icon>{{ sending ? 'sync' : 'send' }}</mat-icon></button>
+  </footer>
+</section>
