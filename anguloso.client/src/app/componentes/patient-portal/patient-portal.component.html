@@ -143,14 +143,35 @@
         </div>
       </section>
 
-      <!-- Sin dieta activa -->
-      <div class="empty-state" *ngIf="!activeDiet">
-        <mat-icon>restaurant_menu</mat-icon>
-        <h3>Sin plan activo</h3>
-        <p>Tu nutricionista aún no ha asignado un plan alimentario. ¡Contacta con tu consulta!</p>
+      <!-- Estados del plan de hoy -->
+      <div class="portal-inline-error" *ngIf="dietDataError">
+        <mat-icon>cloud_off</mat-icon>
+        <div>
+          <strong>No hemos podido cargar tu plan</strong>
+          <span>{{ dietDataError }}</span>
+        </div>
+        <button type="button" (click)="retryDietLoad()" aria-label="Reintentar carga del plan">
+          <mat-icon>refresh</mat-icon>
+        </button>
       </div>
 
-      <div class="today-next-card" *ngIf="todayDayData?.meals?.length">
+      <div class="empty-state" *ngIf="!dietDataError && !activeDiet">
+        <mat-icon>restaurant_menu</mat-icon>
+        <h3>Sin plan activo</h3>
+        <p>Tu nutricionista aún no ha asignado un plan alimentario. Cuando tengas uno aparecerá aquí.</p>
+        <button type="button" class="empty-state-action" (click)="setTab('progress')">
+          <mat-icon>trending_up</mat-icon>
+          Ver mi progreso
+        </button>
+      </div>
+
+      <div class="empty-state" *ngIf="activeDiet && !todayHasMeals">
+        <mat-icon>event_note</mat-icon>
+        <h3>Hoy no hay comidas programadas</h3>
+        <p>Tu plan está activo, pero no hay comidas configuradas para {{ dayName.toLowerCase() }}.</p>
+      </div>
+
+      <div class="today-next-card" *ngIf="todayHasMeals">
         <div class="next-card-icon"><mat-icon>play_arrow</mat-icon></div>
         <div class="next-card-copy">
           <span>Próximo paso</span>
@@ -166,7 +187,7 @@
       </div>
 
       <!-- Comidas del día -->
-      <ng-container *ngIf="todayDayData">
+      <ng-container *ngIf="todayHasMeals">
         <div class="meals-grid">
           <div class="meal-card" *ngFor="let meal of todayDayData.meals" [class.meal-completed]="isMealCompleted(meal)">
             <div class="meal-header">
@@ -257,7 +278,23 @@
         </div>
       </div>
 
-      <section class="shopping-summary" *ngIf="shoppingItemCount">
+      <div class="portal-inline-loading" *ngIf="shoppingLoading">
+        <mat-spinner diameter="28"></mat-spinner>
+        <span>Cargando tu lista...</span>
+      </div>
+
+      <div class="portal-inline-error" *ngIf="!shoppingLoading && shoppingDataError">
+        <mat-icon>cloud_off</mat-icon>
+        <div>
+          <strong>No hemos podido cargar tu lista</strong>
+          <span>{{ shoppingDataError }}</span>
+        </div>
+        <button type="button" (click)="retryShoppingLoad()" aria-label="Reintentar carga de la lista">
+          <mat-icon>refresh</mat-icon>
+        </button>
+      </div>
+
+      <section class="shopping-summary" *ngIf="!shoppingLoading && !shoppingDataError && shoppingItemCount">
         <div class="shopping-summary-copy">
           <div class="shopping-summary-title">
             <strong>Tu compra</strong>
@@ -279,10 +316,24 @@
         </button>
       </section>
 
-      <div class="empty-state" *ngIf="!shoppingList?.length">
+      <div class="empty-state" *ngIf="!shoppingLoading && !shoppingDataError && !shoppingItemCount && profile.hasActiveDiet">
         <mat-icon>shopping_cart_checkout</mat-icon>
-        <h3>Sin datos</h3>
-        <p>No hay ingredientes registrados en el plan activo.</p>
+        <h3>Tu lista está vacía</h3>
+        <p>No hay ingredientes registrados para tu plan actual.</p>
+        <button type="button" class="empty-state-action" (click)="setTab('today')">
+          <mat-icon>restaurant_menu</mat-icon>
+          Ver mi plan de hoy
+        </button>
+      </div>
+
+      <div class="empty-state" *ngIf="!shoppingLoading && !shoppingDataError && !shoppingItemCount && !profile.hasActiveDiet">
+        <mat-icon>shopping_cart_checkout</mat-icon>
+        <h3>Sin lista todavía</h3>
+        <p>Cuando tengas un plan activo, aquí aparecerán los ingredientes que necesitas comprar.</p>
+        <button type="button" class="empty-state-action" (click)="setTab('today')">
+          <mat-icon>restaurant_menu</mat-icon>
+          Volver a Hoy
+        </button>
       </div>
 
       <div class="shopping-category" *ngFor="let cat of shoppingList">
