@@ -190,9 +190,31 @@ public class DietController : ControllerBase
         });
     }
 
+    private static string? ValidateDietPayload(string? name, string? notes, ICollection<DietDayDto>? days)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "El nombre de la dieta es obligatorio.";
+        if (name.Length > 200) return "El nombre de la dieta no puede superar los 200 caracteres.";
+        if (notes?.Length > 10000) return "Las notas no pueden superar los 10000 caracteres.";
+        if (days == null || days.Count > 31) return "La dieta no puede contener más de 31 días.";
+        if (days.Any(d => d == null || d.Meals == null || d.Meals.Count > 12)) return "Cada día no puede contener más de 12 comidas.";
+        if (days.Any(d => d.DayIndex < 0 || d.DayIndex > 366)) return "El índice del día no es válido.";
+        if (days.SelectMany(d => d.Meals).Any(m => m == null || string.IsNullOrWhiteSpace(m.Name) || m.Name.Length > 100 || m.Items == null || m.Items.Count > 100))
+            return "Los datos de las comidas no son válidos o superan los límites permitidos.";
+        if (days.SelectMany(d => d.Meals).SelectMany(m => m.Items).Count() > 2000)
+            return "La dieta no puede contener más de 2000 alimentos/intercambios.";
+        if (days.SelectMany(d => d.Meals).SelectMany(m => m.Items).Any(i => i.Grams.HasValue && (i.Grams.Value < 0 || i.Grams.Value > 100000)))
+            return "La cantidad de gramos de un alimento no es válida.";
+        if (days.SelectMany(d => d.Meals).SelectMany(m => m.Items).Any(i => i.ExchangeCount.HasValue && (i.ExchangeCount.Value < 0 || i.ExchangeCount.Value > 10000)))
+            return "La cantidad de intercambios no es válida.";
+        return null;
+    }
+
     [HttpPost]
     public async Task<ActionResult<DietListDto>> CreateDiet([FromBody] CreateDietDto dto)
     {
+        var validationError = ValidateDietPayload(dto?.Name, dto?.Notes, dto?.Days);
+        if (validationError != null) return BadRequest(validationError);
+
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
 
@@ -338,6 +360,9 @@ public class DietController : ControllerBase
     [HttpPut("{id:int}")]
     public async Task<IActionResult> UpdateDiet(int id, [FromBody] UpdateDietDto dto)
     {
+        var validationError = ValidateDietPayload(dto?.Name, dto?.Notes, dto?.Days);
+        if (validationError != null) return BadRequest(validationError);
+
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
 
