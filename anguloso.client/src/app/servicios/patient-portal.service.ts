@@ -93,6 +93,14 @@ export class PatientPortalService {
     return this.http.post<AvailabilityRule>(this.base + '/appointments/availability', request);
   }
 
+  updateAvailability(id: number, request: AvailabilityRequest): Observable<AvailabilityRule> {
+    return this.http.put<AvailabilityRule>(this.base + '/appointments/availability/' + id, request);
+  }
+
+  deleteAvailability(id: number): Observable<void> {
+    return this.http.delete<void>(this.base + '/appointments/availability/' + id);
+  }
+
   updateAppointmentStatus(id: number, status: string, professionalNotes?: string | null): Observable<PatientAppointment> {
     return this.http.patch<PatientAppointment>(this.base + '/appointments/' + id + '/status', {
       status,
