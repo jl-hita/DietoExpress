@@ -80,9 +80,26 @@
 .page {
   flex: 1;
   overflow-y: auto;
-  padding: 24px 32px;
+  padding: 24px 32px 40px;
   background: #f8fafc;
 }
+
+/* Centra el contenido de las pantallas en monitores grandes sin
+   desperdiciar el espacio disponible en resoluciones medias. */
+.page > router-outlet + * {
+  width: 100%;
+  max-width: 1440px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@media (min-width: 1600px) {
+  .page {
+    padding-left: 48px;
+    padding-right: 48px;
+  }
+}
+
 
 .mobile-backdrop {
   display: none;
