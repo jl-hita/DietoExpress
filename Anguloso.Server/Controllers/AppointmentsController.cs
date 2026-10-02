@@ -119,6 +119,7 @@ public class AppointmentsController : ControllerBase
         if (!validSlot) return Conflict(new { message = "Ese horario ya no está disponible. Actualiza la lista de citas e inténtalo de nuevo." });
 
         var overlap = await _context.patient_appointments.AnyAsync(a =>
+            a.tenant_id == client.tenant_id.Value &&
             a.nutritionist_id == nutritionistId.Value &&
             (a.status == "requested" || a.status == "confirmed") &&
             a.starts_at < endsUtc && a.ends_at > startsUtc);
@@ -200,9 +201,9 @@ public class AppointmentsController : ControllerBase
         if (!TimeOnly.TryParse(request.StartTime, out var start) || !TimeOnly.TryParse(request.EndTime, out var end) || end <= start)
             return BadRequest(new { message = "El horario no es válido." });
 
-        var existing = request.IsActive
-            ? await _context.nutritionist_availability.FirstOrDefaultAsync(a => a.tenant_id == tenantId && a.nutritionist_id == userId && a.day_of_week == request.DayOfWeek && a.start_time == start)
-            : null;
+        var existing = await _context.nutritionist_availability.FirstOrDefaultAsync(a =>
+            a.tenant_id == tenantId.Value && a.nutritionist_id == userId.Value &&
+            a.day_of_week == request.DayOfWeek && a.start_time == start);
 
         if (existing == null)
         {
@@ -249,13 +250,16 @@ public class AppointmentsController : ControllerBase
     {
         var zone = GetMadridTimeZone();
         var local = TimeZoneInfo.ConvertTimeFromUtc(startsUtc, zone);
+        var duration = (int)(endsUtc - startsUtc).TotalMinutes;
+        if (duration <= 0) return false;
         var day = (int)local.DayOfWeek;
         var time = TimeOnly.FromDateTime(local);
         var rules = await _context.nutritionist_availability.AsNoTracking()
             .Where(a => a.tenant_id == tenantId && a.nutritionist_id == nutritionistId && a.is_active && a.day_of_week == day)
             .ToListAsync();
-        return rules.Any(r => time >= r.start_time && time.AddMinutes((endsUtc - startsUtc).TotalMinutes) <= r.end_time &&
-                              (int)(endsUtc - startsUtc).TotalMinutes == r.slot_minutes);
+        return rules.Any(r => duration == r.slot_minutes &&
+                              time >= r.start_time && time.AddMinutes(duration) <= r.end_time &&
+                              ((time.ToTimeSpan() - r.start_time.ToTimeSpan()).TotalMinutes % r.slot_minutes) == 0);
     }
 
     private async Task<AppointmentDto> ToDtoQuery(int id) =>
