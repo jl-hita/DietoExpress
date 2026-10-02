@@ -219,10 +219,32 @@ public class ClientsController : ControllerBase
         return Ok(dto);
     }
 
+    private static string? ValidateClientPayload(CreateClientDto? dto) => dto == null ? "Datos del paciente no válidos." : ValidateClientFields(dto.FullName, dto.Email, dto.Phone, dto.Gender, dto.Notes, dto.MedicalHistory, dto.DigestiveHealth, dto.FoodPreferences, dto.LifestyleHistory);
+
+    private static string? ValidateClientPayload(UpdateClientDto? dto) => dto == null ? "Datos del paciente no válidos." : ValidateClientFields(dto.FullName, dto.Email, dto.Phone, dto.Gender, dto.Notes, dto.MedicalHistory, dto.DigestiveHealth, dto.FoodPreferences, dto.LifestyleHistory);
+
+    private static string? ValidateClientFields(string? fullName, string? email, string? phone, string? gender, string? notes,
+        MedicalHistoryDto? medical, DigestiveHealthDto? digestive, FoodPreferencesDto? preferences, LifestyleHistoryDto? lifestyle)
+    {
+        if (string.IsNullOrWhiteSpace(fullName) || fullName.Length > 200) return "El nombre del paciente es obligatorio y no puede superar los 200 caracteres.";
+        if (email?.Length > 254) return "El email no puede superar los 254 caracteres.";
+        if (phone?.Length > 50) return "El teléfono no puede superar los 50 caracteres.";
+        if (gender?.Length > 50) return "El género no puede superar los 50 caracteres.";
+        if (notes?.Length > 10000) return "Las notas no pueden superar los 10000 caracteres.";
+        if (medical != null && (medical.Surgeries?.Length > 5000 || medical.RoutineMedication?.Length > 5000 || medical.OtherPathologies?.Length > 5000)) return "Los datos de antecedentes superan el tamaño permitido.";
+        if (digestive != null && (digestive.IntestinalHabits?.Length > 5000 || digestive.OtherIntolerances?.Length > 5000 || digestive.Notes?.Length > 5000)) return "Los datos digestivos superan el tamaño permitido.";
+        if (preferences != null && (preferences.PreferredFoods?.Length > 5000 || preferences.DislikedFoods?.Length > 5000 || preferences.Allergies?.Length > 5000)) return "Las preferencias alimentarias superan el tamaño permitido.";
+        if (lifestyle != null && (lifestyle.WorkSchedule?.Length > 5000 || lifestyle.SleepHabits?.Length > 5000 || lifestyle.WaterConsumption?.Length > 5000 || lifestyle.AlcoholConsumption?.Length > 5000 || lifestyle.TobaccoConsumption?.Length > 5000)) return "Los datos de estilo de vida superan el tamaño permitido.";
+        return null;
+    }
+
     // POST: api/clients
     [HttpPost]
     public async Task<ActionResult> CreateClient([FromBody] CreateClientDto dto)
     {
+        var validationError = ValidateClientPayload(dto);
+        if (validationError != null) return BadRequest(validationError);
+
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
 
@@ -329,6 +351,9 @@ public class ClientsController : ControllerBase
     [HttpPut("{id:int}")]
     public async Task<IActionResult> UpdateClient(int id, [FromBody] UpdateClientDto dto)
     {
+        var validationError = ValidateClientPayload(dto);
+        if (validationError != null) return BadRequest(validationError);
+
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
         var tenantId = AuthHelpers.GetTenantId(User);
