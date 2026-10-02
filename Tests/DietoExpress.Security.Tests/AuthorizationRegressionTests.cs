@@ -111,6 +111,22 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void ProfessionalFrontend_UsesSessionObjectAndRefreshesCookieSession()
+    {
+        var authService = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "servicios", "auth.service.ts"));
+        var login = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "login", "login.component.ts"));
+        var billing = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "billing", "billing.component.ts"));
+
+        Assert.Contains("refreshSession(): Observable<AuthUser>", authService);
+        Assert.Contains("this.http.post<AuthUser>('/api/auth/refreshSession', {})", authService);
+        Assert.DoesNotContain("localStorage", authService);
+        Assert.Contains("this.authService.login(res);", login);
+        Assert.DoesNotContain("this.authService.login(res.token)", login);
+        Assert.Contains("this.authService.login(session);", billing);
+        Assert.DoesNotContain("session.token", billing);
+    }
+
+    [Fact]
     public void ProfessionalLogout_RevokesTokenVersionAndClearsCookie()
     {
         var auth = ReadServerController("AuthController.cs");
