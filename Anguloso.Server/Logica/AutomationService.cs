@@ -561,6 +561,57 @@ public sealed class AutomationService
                         cancellationToken: cancellationToken);
                     break;
                 }
+            case "billing.subscription_started":
+            case "billing.payment_succeeded":
+            case "billing.payment_failed":
+            case "billing.plan_changed":
+            case "billing.subscription_cancelled":
+            case "billing.trial_ending":
+            case "billing.trial_ended":
+            case "billing.payment_method_missing":
+                {
+                    var payload = AutomationJson.Deserialize<BillingAutomationPayload>(evt.Payload)
+                        ?? throw new InvalidOperationException($"Payload inválido para {evt.EventType}.");
+
+                    var (subject, htmlBody) = BuildBillingEmail(evt.EventType, payload);
+                    await ScheduleActionAsync(
+                        evt.TenantId,
+                        "email_billing_contact",
+                        new BillingEmailAction(payload.AssignedUserId, subject, htmlBody),
+                        DateTime.UtcNow,
+                        evt.Id,
+                        $"event:{evt.Id}:billing-email",
+                        cancellationToken: cancellationToken);
+
+                    if (evt.EventType is "billing.payment_failed" or "billing.payment_method_missing" or
+                        "billing.subscription_cancelled" or "billing.trial_ended")
+                    {
+                        var title = evt.EventType switch
+                        {
+                            "billing.payment_failed" => "Pago de suscripción fallido",
+                            "billing.payment_method_missing" => "Falta el método de pago",
+                            "billing.subscription_cancelled" => "Suscripción cancelada",
+                            _ => "Prueba de suscripción finalizada"
+                        };
+                        var description = evt.EventType switch
+                        {
+                            "billing.payment_failed" => "Revisar el pago de la suscripción y resolver el problema de facturación.",
+                            "billing.payment_method_missing" => "Revisar el método de pago de Stripe para evitar la interrupción del servicio.",
+                            "billing.subscription_cancelled" => "Revisar la cancelación de la suscripción y contactar con la cuenta si es necesario.",
+                            _ => "Revisar el estado de la cuenta tras finalizar el periodo de prueba."
+                        };
+                        await ScheduleActionAsync(
+                            evt.TenantId,
+                            "create_professional_task",
+                            new CreateTaskAction(null, payload.AssignedUserId, title, description,
+                                DateTime.UtcNow.AddHours(24), "high", $"automation:{evt.EventType}"),
+                            DateTime.UtcNow,
+                            evt.Id,
+                            $"event:{evt.Id}:billing-task",
+                            cancellationToken: cancellationToken);
+                    }
+                    break;
+                }
         }
     }
 
@@ -742,4 +793,36 @@ public sealed class AutomationService
     public sealed record DietAutomationPayload(int ClientId, int AssignmentId, string DietName);
     public sealed record AppointmentCompletedPayload(int AppointmentId, int ClientId, int? NutritionistId);
     public sealed record AppointmentStatusPayload(int AppointmentId, int ClientId, int? NutritionistId, DateTime StartsAtUtc);
+    public sealed record BillingAutomationPayload(int SubscriptionId, string PlanCode, string Status, DateTime? CurrentPeriodEnd, DateTime? TrialEnd, int? AssignedUserId);
+    public sealed record BillingEmailAction(int? UserId, string Subject, string HtmlBody);
+
+    private static (string Subject, string HtmlBody) BuildBillingEmail(string eventType, BillingAutomationPayload payload)
+    {
+        var title = eventType switch
+        {
+            "billing.subscription_started" => "Suscripción activada",
+            "billing.payment_succeeded" => "Pago de DietoExpress recibido",
+            "billing.payment_failed" => "Problema con el pago de DietoExpress",
+            "billing.plan_changed" => "Suscripción actualizada",
+            "billing.subscription_cancelled" => "Suscripción cancelada",
+            "billing.trial_ending" => "Tu periodo de prueba está a punto de terminar",
+            "billing.trial_ended" => "Tu periodo de prueba ha terminado",
+            "billing.payment_method_missing" => "Revisa el método de pago de DietoExpress",
+            _ => "Actualización de la suscripción"
+        };
+
+        var detail = eventType switch
+        {
+            "billing.payment_failed" => "Stripe ha informado de un pago fallido. Revisa el método de pago y el estado de la suscripción.",
+            "billing.payment_method_missing" => "La suscripción no tiene un método de pago disponible o Stripe no ha podido identificarlo. Revísalo para evitar una interrupción del servicio.",
+            "billing.subscription_cancelled" => "La suscripción ha sido cancelada en Stripe.",
+            "billing.trial_ending" => $"El periodo de prueba termina el {payload.TrialEnd:dd/MM/yyyy}. Revisa la suscripción si quieres continuar con el servicio.",
+            "billing.trial_ended" => "El periodo de prueba ha finalizado. Revisa la suscripción para continuar utilizando las funciones de pago.",
+            "billing.plan_changed" => $"La cuenta está asociada al plan {payload.PlanCode}.",
+            "billing.subscription_started" => $"La suscripción al plan {payload.PlanCode} ha sido activada.",
+            _ => "El pago de la suscripción se ha procesado correctamente."
+        };
+
+        return (title, $"<p>{detail}</p><p>Puedes revisar el estado de la cuenta desde DietoExpress.</p>");
+    }
 }
