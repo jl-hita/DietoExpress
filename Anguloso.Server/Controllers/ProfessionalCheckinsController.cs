@@ -26,6 +26,7 @@ public sealed class ProfessionalCheckinsController : ControllerBase
     }
 
     [HttpGet]
+    // Un profesional solo puede consultar check-ins de pacientes que tiene asignados activamente dentro de su tenant.
     public async Task<ActionResult<IReadOnlyList<ProfessionalCheckinDto>>> Get(
         [FromQuery] bool pendingOnly = true,
         [FromQuery] int limit = 100)
@@ -70,6 +71,7 @@ public sealed class ProfessionalCheckinsController : ControllerBase
     }
 
     [HttpPost("{id:int}/review")]
+    // La revisión vuelve a comprobar tenant y asignación antes de delegar el cambio al servicio de automatización.
     public async Task<IActionResult> Review(int id)
     {
         if (!_tenantContext.TenantId.HasValue || !_tenantContext.UserId.HasValue)

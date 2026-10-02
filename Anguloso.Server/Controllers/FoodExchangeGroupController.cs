@@ -59,6 +59,7 @@ public class FoodExchangeGroupController : ControllerBase
     }
 
     [HttpGet("{id:int}/foods")]
+    // Los grupos son globales; los alimentos asociados se filtran con la misma regla de visibilidad que el resto del catálogo.
     public async Task<ActionResult> GetFoodsInGroup(int id)
     {
         var groupExists = await _context.food_exchange_groups.AnyAsync(g => g.id == id);

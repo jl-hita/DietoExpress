@@ -22,6 +22,7 @@ public sealed class ProfessionalTasksController : ControllerBase
     }
 
     [HttpGet]
+    // Las consultas SQL usan tenant_id en el WHERE para que las tareas nunca crucen organizaciones.
     public async Task<ActionResult<IReadOnlyList<ProfessionalTaskDto>>> Get(
         [FromQuery] string? status = "open",
         [FromQuery] int limit = 100)
@@ -60,6 +61,7 @@ public sealed class ProfessionalTasksController : ControllerBase
     }
 
     [HttpPost]
+    // Las tareas manuales solo pueden asignarse al usuario autenticado; las automatizadas se crean desde el servicio interno.
     public async Task<ActionResult<ProfessionalTaskDto>> Create([FromBody] ProfessionalTaskCreateRequest request)
     {
         if (!_tenantContext.TenantId.HasValue) return BadRequest(new { message = "La cuenta no tiene organización." });
@@ -78,6 +80,7 @@ public sealed class ProfessionalTasksController : ControllerBase
     }
 
     [HttpPatch("{id:long}/status")]
+    // El estado y completed_at se actualizan de forma atómica dentro de la misma sentencia SQL.
     public async Task<IActionResult> UpdateStatus(long id, [FromBody] TaskStatusRequest request)
     {
         if (!_tenantContext.TenantId.HasValue) return BadRequest(new { message = "La cuenta no tiene organización." });

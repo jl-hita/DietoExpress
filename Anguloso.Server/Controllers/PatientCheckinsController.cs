@@ -46,6 +46,7 @@ public class PatientCheckinsController : ControllerBase
     }
 
     [HttpPost]
+    // Un check-in es único por paciente y semana; guardar de nuevo actualiza el registro existente.
     public async Task<ActionResult<object>> Save([FromBody] PatientCheckinRequest request)
     {
         if (!TryGetClientId(out var clientId)) return Unauthorized();
@@ -82,6 +83,7 @@ public class PatientCheckinsController : ControllerBase
             .Select(a => (int?)a.nutritionist_id)
             .FirstOrDefaultAsync();
 
+        // El evento de automatización se publica después de guardar el check-in. Un fallo del motor no invalida el dato clínico.
         try
         {
             await _automationService.PublishEventAsync(

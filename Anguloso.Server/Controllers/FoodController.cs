@@ -74,6 +74,7 @@ public class FoodController : ControllerBase
 
     // GET: api/foods/{id}
     [HttpGet("{id:int}")]
+    // Los alimentos globales son visibles para todos; los locales solo para su creador/clinica.
     public async Task<IActionResult> GetFoodById(int id)
     {
         var userId = AuthHelpers.GetUserId(User);
@@ -91,6 +92,7 @@ public class FoodController : ControllerBase
     // POST: api/foods
     [HttpPost]
     [Authorize(Policy = "Professional")] // Solo profesionales logueados pueden crear alimentos
+    // El tenant y el usuario se obtienen siempre de los claims, nunca del payload, para evitar suplantación.
     public async Task<IActionResult> CreateCustomFood([FromBody] CustomFoodDto dto)
     {
         if (dto == null) return BadRequest("Los datos del alimento son requeridos.");
@@ -185,6 +187,7 @@ public class FoodController : ControllerBase
     // DELETE: api/foods/{id}
     [HttpDelete("{id:int}")]
     [Authorize(Policy = "Professional")]
+    // Antes de borrar se comprueba si el alimento está referenciado por una dieta para no romper datos existentes.
     public async Task<IActionResult> DeleteCustomFood(int id)
     {
         var userId = AuthHelpers.GetUserId(User);

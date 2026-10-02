@@ -27,6 +27,7 @@ public class RecipesController : ControllerBase
         _licenseService = licenseService;
     }
 
+    // Centraliza la regla de acceso a alimentos reutilizada al crear y modificar recetas.
     private async Task<bool> CanUseFoodAsync(int foodId, int userId, int? tenantId)
     {
         return await _context.foods.AnyAsync(f =>
@@ -64,6 +65,7 @@ public class RecipesController : ControllerBase
 
     // GET: api/recipes/5
     [HttpGet("{id:int}")]
+    // Primero se valida la receta y después se filtran de nuevo sus ingredientes para no exponer alimentos locales ajenos.
     public async Task<ActionResult<RecipeDetailDto>> GetRecipe(int id)
     {
         var userId = AuthHelpers.GetUserId(User);
@@ -119,6 +121,7 @@ public class RecipesController : ControllerBase
 
     // POST: api/recipes
     [HttpPost]
+    // La validación de cada ingrediente se hace contra el tenant actual antes de persistir la receta.
     public async Task<ActionResult<RecipeListDto>> CreateRecipe([FromBody] CreateRecipeDto dto)
     {
         var userId = AuthHelpers.GetUserId(User);
