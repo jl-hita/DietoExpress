@@ -1,0 +1,36 @@
+<section class="messages-page">
+  <header class="page-header">
+    <div><h1>Mensajes</h1><p>Comunicación privada con tus pacientes</p></div>
+    <span class="unread-total" *ngIf="totalUnread">{{ totalUnread }} sin leer</span>
+  </header>
+  <div class="messages-layout">
+    <aside class="conversation-list">
+      <div class="list-loading" *ngIf="loading">Cargando conversaciones…</div>
+      <div class="list-empty" *ngIf="!loading && !conversations.length">
+        <mat-icon>forum</mat-icon><strong>No hay conversaciones</strong><span>Los mensajes de tus pacientes aparecerán aquí.</span>
+      </div>
+      <button class="conversation" type="button" *ngFor="let c of conversations; trackBy: trackByClient" [class.selected]="selectedClientId === c.clientId" (click)="select(c)">
+        <div class="avatar">{{ c.clientName.charAt(0) }}</div>
+        <div class="conversation-main">
+          <div class="conversation-name">{{ c.clientName }}</div>
+          <div class="conversation-preview">{{ c.lastMessage || 'Sin mensajes' }}</div>
+        </div>
+        <div class="conversation-meta">
+          <small>{{ c.updatedAt | date:'d MMM HH:mm' }}</small>
+          <b *ngIf="c.unreadCount">{{ c.unreadCount }}</b>
+        </div>
+      </button>
+    </aside>
+    <main class="conversation-detail">
+      <div class="detail-empty" *ngIf="!selectedClientId">
+        <mat-icon>chat</mat-icon><h2>Selecciona una conversación</h2><p>Elige un paciente para consultar o responder sus mensajes.</p>
+      </div>
+      <ng-container *ngIf="selectedClientId">
+        <div class="detail-toolbar">
+          <button mat-icon-button type="button" (click)="openClient()" title="Abrir ficha del paciente"><mat-icon>person</mat-icon></button>
+        </div>
+        <app-patient-chat [clientId]="selectedClientId"></app-patient-chat>
+      </ng-container>
+    </main>
+  </div>
+</section>
