@@ -22,13 +22,13 @@
 
       <form (ngSubmit)="submitPinLogin()" class="login-form">
         <div class="form-group">
-          <label>Email o Teléfono</label>
-          <input type="text" [(ngModel)]="emailOrPhone" name="emailOrPhone" placeholder="tu@email.com o teléfono" required />
+          <label for="portal-email-phone">Email o Teléfono</label>
+          <input type="text" [(ngModel)]="emailOrPhone" id="portal-email-phone" name="emailOrPhone" autocomplete="username" placeholder="tu@email.com o teléfono" required />
         </div>
 
         <div class="form-group">
-          <label>PIN de Acceso</label>
-          <input type="password" [(ngModel)]="passcode" name="passcode" placeholder="PIN de 6 dígitos" maxlength="6" pattern="[0-9]{6}" inputmode="numeric" required />
+          <label for="portal-passcode">PIN de Acceso</label>
+          <input type="password" [(ngModel)]="passcode" id="portal-passcode" name="passcode" autocomplete="current-password" placeholder="PIN de 6 dígitos" maxlength="6" pattern="[0-9]{6}" inputmode="numeric" required />
         </div>
 
         <button type="submit" class="btn-portal-primary" [disabled]="submittingLogin">
@@ -187,7 +187,7 @@
                 </ng-container>
                 <ng-container *ngIf="!item.foodName && item.exchangeGroupName">
                   <div style="display: flex; flex-direction: column; width: 100%; gap: 6px;">
-                    <div class="exchange-item" (click)="toggleExchangeEquivalencies('ex_' + meal.mealIndex + '_' + item.exchangeGroupId, item.exchangeGroupId)" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; background: rgba(99,102,241,0.15); border-radius: 8px; border: 1px dashed rgba(99,102,241,0.4);">
+                    <div class="exchange-item" role="button" tabindex="0" (click)="toggleExchangeEquivalencies('ex_' + meal.mealIndex + '_' + item.exchangeGroupId, item.exchangeGroupId)" (keydown.enter)="toggleExchangeEquivalencies('ex_' + meal.mealIndex + '_' + item.exchangeGroupId, item.exchangeGroupId)" (keydown.space)="$event.preventDefault(); toggleExchangeEquivalencies('ex_' + meal.mealIndex + '_' + item.exchangeGroupId, item.exchangeGroupId)" [attr.aria-expanded]="expandedExchangeId === ('ex_' + meal.mealIndex + '_' + item.exchangeGroupId)" aria-label="Ver alimentos equivalentes" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; background: rgba(99,102,241,0.15); border-radius: 8px; border: 1px dashed rgba(99,102,241,0.4);">
                       <span style="display: flex; align-items: center; gap: 6px;">
                         <mat-icon class="exchange-icon">swap_horiz</mat-icon>
                         {{ item.exchangeCount }} intercambio(s) de <strong>{{ item.exchangeGroupName }}</strong>
@@ -283,7 +283,12 @@
         <ul class="shopping-items">
           <li class="shopping-item" *ngFor="let item of cat.items"
               [class.checked]="isChecked(cat.category + '_' + item.foodId)"
-              (click)="toggleItem(cat.category + '_' + item.foodId)">
+              role="button" tabindex="0"
+              [attr.aria-pressed]="isChecked(cat.category + '_' + item.foodId)"
+              [attr.aria-label]="(isChecked(cat.category + '_' + item.foodId) ? 'Desmarcar ' : 'Marcar ') + item.foodName"
+              (click)="toggleItem(cat.category + '_' + item.foodId)"
+              (keydown.enter)="toggleItem(cat.category + '_' + item.foodId)"
+              (keydown.space)="$event.preventDefault(); toggleItem(cat.category + '_' + item.foodId)">
             <div class="check-box">
               <mat-icon *ngIf="isChecked(cat.category + '_' + item.foodId)">check_box</mat-icon>
               <mat-icon *ngIf="!isChecked(cat.category + '_' + item.foodId)">check_box_outline_blank</mat-icon>
@@ -379,11 +384,11 @@
     <!-- BARRA DE NAVEGACIÓN INFERIOR              -->
     <!-- ══════════════════════════════════════════ -->
     <nav class="bottom-nav">
-      <button class="nav-tab" [class.active]="activeTab === 'today'" (click)="setTab('today')">
+      <button type="button" class="nav-tab" [class.active]="activeTab === 'today'" [attr.aria-current]="activeTab === 'today' ? 'page' : null" aria-label="Ver plan de hoy" (click)="setTab('today')">
         <mat-icon>restaurant_menu</mat-icon>
         <span>Hoy</span>
       </button>
-      <button class="nav-tab" [class.active]="activeTab === 'shopping'" (click)="setTab('shopping')">
+      <button type="button" class="nav-tab" [class.active]="activeTab === 'shopping'" [attr.aria-current]="activeTab === 'shopping' ? 'page' : null" aria-label="Ver lista de la compra" (click)="setTab('shopping')">
         <span class="nav-icon-wrap">
           <mat-icon>shopping_cart</mat-icon>
           <span class="nav-badge" *ngIf="shoppingItemCount - checkedShoppingItemCount > 0">
@@ -392,7 +397,7 @@
         </span>
         <span>Compra</span>
       </button>
-      <button class="nav-tab" [class.active]="activeTab === 'progress'" (click)="setTab('progress')">
+      <button type="button" class="nav-tab" [class.active]="activeTab === 'progress'" [attr.aria-current]="activeTab === 'progress' ? 'page' : null" aria-label="Ver mi progreso" (click)="setTab('progress')">
         <mat-icon>trending_up</mat-icon>
         <span>Progreso</span>
       </button>
