@@ -12,6 +12,7 @@ import { MatIconModule } from '@angular/material/icon';
   styleUrls: ['./onboarding.component.css']
 })
 // Documentación: este componente coordina estado local, validación y llamadas asíncronas; la vista solo refleja ese estado.
+// El onboarding transforma el estado inicial del usuario en pasos de configuración; cada avance depende de los datos realmente confirmados.
 export class OnboardingComponent {
   constructor(private router: Router, private authService: AuthService) {}
 

@@ -34,6 +34,7 @@ import { MatDividerModule } from '@angular/material/divider';
   ]
 })
 // Documentación: este componente coordina estado local, validación y llamadas asíncronas; la vista solo refleja ese estado.
+// La pantalla de ajustes separa la edición local del envío persistente para evitar mostrar como guardado un cambio que el backend haya rechazado.
 export class SettingsComponent implements OnInit, OnDestroy {
   form!: FormGroup;
   loading = false;

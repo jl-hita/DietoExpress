@@ -32,6 +32,7 @@ export interface AppRoute extends Route {
   title?: string;
 }
 
+// Las rutas agrupan las fronteras de acceso de la aplicación; los guards mejoran el control de navegación, mientras la API mantiene la autorización definitiva.
 export const routes: AppRoute[] = [
   { path: '', component: LandingComponent, pathMatch: 'full', title: 'DietoExpress' },
   { path: 'setup', component: SetupWizardComponent, canActivate: [SetupGuard], title: 'Inicialización del Sistema' },

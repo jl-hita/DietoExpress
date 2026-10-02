@@ -12,6 +12,7 @@ import { MatIconModule } from '@angular/material/icon';
   templateUrl: './landing.component.html',
   styleUrls: ['./landing.component.css']
 })
+// La landing mantiene su estado de presentación independiente de la lógica autenticada para que no pueda alterar el contexto de sesión.
 export class LandingComponent {
   constructor(
     private router: Router,

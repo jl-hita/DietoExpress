@@ -8,6 +8,7 @@ import { Component } from '@angular/core';
   imports: [RouterOutlet],
   styleUrl: './app.component.css'
 })
+// El componente raíz coordina el estado global mínimo de la aplicación; la lógica de negocio permanece en servicios y componentes especializados.
 export class AppComponent {
   title = 'anguloso.client';
 }

@@ -17,6 +17,7 @@ interface Conversation {
   templateUrl: './messages.component.html',
   styleUrls: ['./messages.component.css']
 })
+// El componente coordina la carga y actualización de conversaciones sin asumir autorización propia; el backend determina qué mensajes puede consultar el usuario.
 export class MessagesComponent implements OnInit, OnDestroy {
   conversations: Conversation[] = [];
   selectedClientId: number | null = null;
