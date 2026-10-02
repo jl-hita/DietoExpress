@@ -99,3 +99,10 @@ Quedan como deuda técnica explícita la actualización de dependencias de desar
 - El motor actualiza estos estados a partir de altas, check-ins y eventos de citas.
 - Añadí una revisión periódica que recalcula el estado y crea una tarea profesional cuando un paciente lleva más de 30 días sin seguimiento reciente.
 - Las tareas generadas usan claves de idempotencia por paciente y día.
+
+
+## Trabajo posterior a la auditoría — tareas automáticas del ciclo de vida
+
+- El barrido persistente del ciclo de vida ahora genera tareas profesionales cuando un paciente entra en información pendiente, primera cita pendiente o ausencia de seguimiento reciente.
+- Las tareas se crean solo al producirse una transición de estado y utilizan idempotencia por paciente, estado y día, evitando duplicados durante ejecuciones repetidas del worker.
+- La primera cita pendiente se mantiene como estado hasta que exista una cita completada; si ya hay una cita futura solicitada o confirmada no se genera una tarea innecesaria para proponer otra.
