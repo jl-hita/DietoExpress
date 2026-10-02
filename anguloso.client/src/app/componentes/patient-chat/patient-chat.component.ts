@@ -1,5 +1,6 @@
 import { CommonModule, DatePipe } from '@angular/common';
-import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, Input, OnChanges, SimpleChanges, OnInit } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatIconModule } from '@angular/material/icon';
@@ -14,7 +15,7 @@ interface ChatMessage { id: number; senderType: 'patient' | 'professional'; send
   templateUrl: './patient-chat.component.html',
   styleUrls: ['./patient-chat.component.css']
 })
-export class PatientChatComponent implements OnChanges {
+export class PatientChatComponent implements OnChanges, OnInit {
   @Input() clientId?: number;
   @Input() patientMode = false;
   messages: ChatMessage[] = [];
@@ -23,7 +24,14 @@ export class PatientChatComponent implements OnChanges {
   sending = false;
   error: string | null = null;
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private route: ActivatedRoute) {}
+
+  ngOnInit(): void {
+    if (!this.patientMode && !this.clientId) {
+      const id = Number(this.route.snapshot.paramMap.get('id'));
+      if (id > 0) this.clientId = id;
+    }
+  }
 
   ngOnChanges(changes: SimpleChanges): void { if (changes['clientId'] || changes['patientMode']) this.load(); }
 
