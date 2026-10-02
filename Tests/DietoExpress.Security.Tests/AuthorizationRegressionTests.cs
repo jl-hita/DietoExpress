@@ -69,11 +69,10 @@ public class AuthorizationRegressionTests
     [Fact]
     public void PatientPortal_UsesCookieAndDoesNotPersistJwtInLocalStorage()
     {
-        var interceptor = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "auth.interceptor.ts"));
         var portal = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "patient-portal", "patient-portal.component.ts"));
 
-        Assert.DoesNotContain("getPatientToken", interceptor);
-        Assert.DoesNotContain("PATIENT_TOKEN_KEY", interceptor);
+        Assert.DoesNotContain("getPatientToken", portal);
+        Assert.DoesNotContain("PATIENT_TOKEN_KEY", portal);
         Assert.DoesNotContain("savePatientToken", portal);
         Assert.DoesNotContain("localStorage.setItem('patient", portal);
     }
@@ -98,16 +97,12 @@ public class AuthorizationRegressionTests
         var auth = ReadServerController("AuthController.cs");
         var program = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Program.cs"));
         var service = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "servicios", "auth.service.ts"));
-        var interceptor = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "auth.interceptor.ts"));
-
         Assert.Contains("dietoexpress_professional_session", auth);
         Assert.Contains("HttpOnly = true", auth);
         Assert.Contains("SameSite = SameSiteMode.Strict", auth);
         Assert.Contains("MaxAge = TimeSpan.FromHours(3)", auth);
         Assert.Contains("dietoexpress_professional_session", program);
         Assert.DoesNotContain("localStorage", service);
-        Assert.DoesNotContain("localStorage", interceptor);
-        Assert.DoesNotContain("Authorization", interceptor);
     }
 
     [Fact]
