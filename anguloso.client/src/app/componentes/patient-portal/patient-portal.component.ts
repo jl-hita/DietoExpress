@@ -291,6 +291,44 @@ export class PatientPortalComponent implements OnInit {
     return '#EF4444';
   }
 
+  get weightHistory(): any[] {
+    return this.profile?.weightHistory ?? [];
+  }
+
+  get firstRecordedWeight(): number | null {
+    return this.weightHistory.length ? Number(this.weightHistory[0].weight) : null;
+  }
+
+  get latestRecordedWeight(): number | null {
+    return this.weightHistory.length ? Number(this.weightHistory[this.weightHistory.length - 1].weight) : null;
+  }
+
+  get weightChange(): number | null {
+    if (this.firstRecordedWeight === null || this.latestRecordedWeight === null || this.weightHistory.length < 2) return null;
+    return Number((this.latestRecordedWeight - this.firstRecordedWeight).toFixed(1));
+  }
+
+  get weightChangeLabel(): string {
+    return this.weightChange === null ? 'Sin historial suficiente' : 'Desde el primer registro';
+  }
+
+  get weightChangeIcon(): string {
+    if (this.weightChange === null || this.weightChange === 0) return 'horizontal_rule';
+    return this.weightChange < 0 ? 'south_east' : 'north_east';
+  }
+
+  get weightChangeText(): string {
+    if (this.weightChange === null) return '—';
+    if (this.weightChange === 0) return '0 kg';
+    return Math.abs(this.weightChange).toFixed(1) + ' kg';
+  }
+
+  formatWeightDate(dateValue: string | Date): string {
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return '';
+    return new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'short' }).format(date);
+  }
+
   getWeightBarHeight(weight: number, history: any[]): number {
     if (!history?.length) return 0;
     const min = Math.min(...history.map((h: any) => h.weight));
