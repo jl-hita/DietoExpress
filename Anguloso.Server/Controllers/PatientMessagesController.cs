@@ -204,14 +204,6 @@ RETURNING id;";
             a.nutritionist.tenant_id == tenantId);
     }
 
-    private async Task<int?> ResolveProfessionalTenantIdAsync(int userId)
-    {
-        return await _context.users.AsNoTracking()
-            .Where(u => u.id == userId)
-            .Select(u => u.tenant_id)
-            .FirstOrDefaultAsync();
-    }
-
     private async Task<IReadOnlyList<ConversationSummaryDto>> GetProfessionalConversationsAsync(int userId, int tenantId)
     {
         var rows = await _context.Database.SqlQueryRaw<ConversationSummaryRow>($@"
@@ -222,8 +214,7 @@ SELECT c.id AS ""ConversationId"", c.client_id AS ""ClientId"", cl.full_name AS 
 FROM patient_conversations c
 JOIN clients cl ON cl.id = c.client_id
 WHERE c.tenant_id = {tenantId} AND cl.archived_at IS NULL
-  AND (EXISTS (SELECT 1 FROM client_nutritionist_assignments a WHERE a.client_id = c.client_id AND a.nutritionist_id = {userId} AND a.is_active)
-       OR EXISTS (SELECT 1 FROM patient_messages m WHERE m.conversation_id = c.id AND m.sender_user_id = {userId}))
+  AND EXISTS (SELECT 1 FROM client_nutritionist_assignments a WHERE a.client_id = c.client_id AND a.nutritionist_id = {userId} AND a.is_active)
 ORDER BY c.updated_at DESC;").ToListAsync();
 
         return rows.Select(x => new ConversationSummaryDto {
