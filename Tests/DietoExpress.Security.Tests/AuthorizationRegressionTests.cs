@@ -1106,6 +1106,7 @@ public class AuthorizationRegressionTests
     {
         var auth = ReadServerController("AuthController.cs");
         var clinic = ReadServerController("ClinicController.cs");
+        var admin = ReadServerController("AdminUsersController.cs");
 
         Assert.Contains("u.username.ToLower() == candidate.ToLower()", auth);
         Assert.Contains("u.username.ToLower() == username.ToLower()", clinic);
