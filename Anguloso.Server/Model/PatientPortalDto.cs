@@ -72,3 +72,8 @@ public class ShoppingItemDto
     public string CommercialDescription { get; set; } = string.Empty;
 }
 
+
+public class PatientAccessLinkRequestDto
+{
+    public string? Email { get; set; }
+}
