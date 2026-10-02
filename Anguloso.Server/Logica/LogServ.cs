@@ -1,5 +1,6 @@
 ﻿namespace Anguloso.Server.Logica;
 
+// Servicio de fachada para mantener un punto común de logging en la lógica de aplicación.
 public class LogServ
 {
     private ILogger<LogServ> _logger;

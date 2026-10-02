@@ -2,6 +2,7 @@ using System.Text.Json;
 
 namespace Anguloso.Server.Logica;
 
+// Estos modelos representan el contrato persistente del motor: evento, trabajo programado y tarea profesional.
 public sealed record AutomationEvent(
     long Id,
     int TenantId,

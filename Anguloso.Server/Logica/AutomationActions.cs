@@ -2,6 +2,7 @@ using Npgsql;
 
 namespace Anguloso.Server.Logica;
 
+// Estas acciones son contratos serializables entre el motor de automatizaciones, el worker y los endpoints de gestión.
 public sealed record NotifyPatientAction(
     int ClientId,
     string Type,

@@ -17,6 +17,7 @@ using System.Text;
 
 namespace Anguloso.Server;
 
+// Punto de composición de la aplicación: aquí se registran autenticación, persistencia, servicios y middleware en el orden que define el pipeline.
 public class Program
 {
     public static async Task Main(string[] args)
