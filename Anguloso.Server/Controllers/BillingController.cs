@@ -590,6 +590,11 @@ public sealed class BillingController : ControllerBase
                 if (data.TryGetProperty("current_period_end", out var end) && end.ValueKind == JsonValueKind.Number)
                     subscription.current_period_end = DateTimeOffset.FromUnixTimeSeconds(end.GetInt64()).UtcDateTime;
 
+                if (data.TryGetProperty("trial_end", out var trialEnd) && trialEnd.ValueKind == JsonValueKind.Number)
+                    subscription.trial_end = DateTimeOffset.FromUnixTimeSeconds(trialEnd.GetInt64()).UtcDateTime;
+                else if (eventType == "customer.subscription.deleted")
+                    subscription.trial_end = null;
+
                 if (subscription.cancel_at_period_end)
                     subscription.cancelled_at = subscription.current_period_end;
 
