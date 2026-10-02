@@ -174,19 +174,22 @@ public sealed class GoogleCalendarService
 
     private async Task UpsertDietoExpressEventsAsync(string accessToken, google_calendar_connections connection, CancellationToken cancellationToken)
     {
-        var appointments = await _db.patient_appointments.AsNoTracking().Where(a => a.tenant_id == connection.tenant_id && a.nutritionist_id == connection.user_id &&
-            a.starts_at < DateTime.UtcNow.AddDays(180) && a.ends_at > DateTime.UtcNow.AddDays(-30)).ToListAsync(cancellationToken);
+        var appointments = await _db.patient_appointments.AsNoTracking()
+            .Where(a => a.tenant_id == connection.tenant_id && a.nutritionist_id == connection.user_id &&
+                        a.starts_at < DateTime.UtcNow.AddDays(180) && a.ends_at > DateTime.UtcNow.AddDays(-30))
+            .Select(a => new { a.id, a.starts_at, a.ends_at, a.status, ClientName = a.client.full_name })
+            .ToListAsync(cancellationToken);
 
         foreach (var appointment in appointments)
         {
             var eventId = "dietoexpress-" + appointment.id;
             var payload = new Dictionary<string,object?>
             {
-                ["summary"] = "DietoExpress · " + (appointment.client?.full_name ?? "Cita"),
+                ["summary"] = "DietoExpress · " + (appointment.ClientName ?? "Cita"),
                 ["description"] = "Cita gestionada desde DietoExpress. ID " + appointment.id,
                 ["start"] = new { dateTime = appointment.starts_at.ToString("o"), timeZone = "UTC" },
                 ["end"] = new { dateTime = appointment.ends_at.ToString("o"), timeZone = "UTC" },
-                ["extendedProperties"] = new { private_ = new Dictionary<string,string> { ["dietoexpressAppointmentId"] = appointment.id.ToString() } }
+                ["extendedProperties"] = new { @private = new Dictionary<string,string> { ["dietoexpressAppointmentId"] = appointment.id.ToString() } }
             };
             if (appointment.status == "cancelled") payload["status"] = "cancelled";
             var existing = await GetEventAsync(accessToken, connection.calendar_id, eventId, cancellationToken);
@@ -290,6 +293,6 @@ public sealed class GoogleCalendarService
     private sealed class GoogleEventsResponse { public List<GoogleCalendarEvent> Items { get; set; } = []; public string? NextSyncToken { get; set; } }
     private sealed class GoogleCalendarEvent { public string? Id { get; set; } public string? Status { get; set; } public string? Summary { get; set; } public string? ETag { get; set; } public GoogleCalendarEventDate? Start { get; set; } public GoogleCalendarEventDate? End { get; set; } public GoogleExtendedProperties? ExtendedProperties { get; set; } }
     private sealed class GoogleCalendarEventDate { public string? DateTime { get; set; } public string? Date { get; set; } }
-    private sealed class GoogleExtendedProperties { public Dictionary<string,string>? Private_ { get; set; } }
+    private sealed class GoogleExtendedProperties { [System.Text.Json.Serialization.JsonPropertyName("private")] public Dictionary<string,string>? Private_ { get; set; } }
     public sealed record GoogleCalendarConnectionDto(bool Connected, string Email, string CalendarId, DateTime? LastSyncedAt);
 }
