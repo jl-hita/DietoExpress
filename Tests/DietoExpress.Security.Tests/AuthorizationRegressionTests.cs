@@ -356,6 +356,7 @@ public class AuthorizationRegressionTests
     public void UnpagedCatalogResponses_AreBounded()
     {
         var clinic = ReadServerController("ClinicController.cs");
+        var admin = ReadServerController("AdminUsersController.cs");
         var groups = ReadServerController("FoodExchangeGroupController.cs");
         var recipes = ReadServerController("RecipesController.cs");
 
@@ -1108,6 +1109,7 @@ public class AuthorizationRegressionTests
 
         Assert.Contains("u.username.ToLower() == candidate.ToLower()", auth);
         Assert.Contains("u.username.ToLower() == username.ToLower()", clinic);
+        Assert.Contains("u.username.ToLower() == username.ToLower()", admin);
     }
 
 }
