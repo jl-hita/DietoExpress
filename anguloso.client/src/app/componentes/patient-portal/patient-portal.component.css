@@ -1389,3 +1389,30 @@
   .shopping-reset-btn span { display: none; }
   .shopping-reset-btn { padding: 6px; }
 }
+
+/* ─── ACCESSIBILITY ───────────────────────────────── */
+.nav-tab:focus-visible,
+.clinic-call-btn:focus-visible,
+.portal-logout-btn:focus-visible,
+.btn-portal-primary:focus-visible,
+.meal-complete-btn:focus-visible,
+.next-card-action:focus-visible,
+.shopping-reset-btn:focus-visible {
+  outline: 2px solid #2dd4bf;
+  outline-offset: 2px;
+}
+
+.shopping-item[role="button"]:focus-visible,
+.exchange-item[role="button"]:focus-visible {
+  outline: 2px solid #818cf8;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-fill,
+  .shopping-progress-fill,
+  .meal-complete-btn,
+  .btn-portal-primary {
+    transition: none;
+  }
+}
