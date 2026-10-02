@@ -105,10 +105,22 @@ button, input, select, textarea { max-width: 100%; }
 /* ─── Cross-device layout hardening ───────────────────────── */
 html, body { width: 100%; min-width: 0; overflow-x: hidden; }
 app-root { display: block; min-width: 0; width: 100%; }
+/* Rutas sin menú lateral: el host ocupa el viewport y su contenido
+   se centra en escritorio. El LayoutComponent queda deliberadamente fuera
+   de esta regla para que sus pantallas aprovechen todo el ancho. */
 app-root > router-outlet + * {
+  display: block;
+  width: min(100%, 1440px);
+  min-width: 0;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+app-root > app-layout {
   display: block;
   width: 100%;
   min-width: 0;
+  margin: 0;
 }
 button, a, input, select, textarea { touch-action: manipulation; }
 @media (max-width: 768px) {
