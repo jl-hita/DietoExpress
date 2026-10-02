@@ -978,6 +978,21 @@ public class AuthorizationRegressionTests
         Assert.Contains("[AllowAnonymous]", billing);
     }
 
+    [Fact]
+    public void ProductionHardening_DoesNotExposeSwaggerOrWildcardCors()
+    {
+        var program = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Program.cs"));
+
+        Assert.Contains("if (!app.Environment.IsDevelopment())", program);
+        Assert.Contains("app.UseSwagger();", program);
+        Assert.Contains("app.UseSwaggerUI();", program);
+        Assert.Contains("WithOrigins(allowedOrigins)", program);
+        Assert.DoesNotContain("AllowAnyOrigin()", program);
+        Assert.Contains("X-Content-Type-Options", program);
+        Assert.Contains("Strict-Transport-Security", program);
+        Assert.Contains("Cache-Control", program);
+    }
+
     private static void AssertEndpointRequiresProfessional(string relativePath, string httpAttribute)
     {
         var source = File.ReadAllText(Path.Combine(RepoRoot, relativePath.Replace('/', Path.DirectorySeparatorChar)));

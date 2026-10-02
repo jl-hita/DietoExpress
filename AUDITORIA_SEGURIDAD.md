@@ -35,9 +35,9 @@ La auditoría de seguridad está en fase de cierre. La pasada global final de en
 
 La revisión de dependencias también queda controlada por CI: el último despliegue pasó la auditoría .NET sin vulnerabilidades High/Critical y el npm audit de producción terminó con 0 vulnerabilidades. Los avisos restantes de npm install corresponden a dependencias del árbol de desarrollo o paquetes obsoletos/deprecados y quedan como deuda técnica, no como bloqueo de seguridad del despliegue.
 
-La auditoría sigue en curso. Hasta ahora el foco principal ha sido el aislamiento entre tenants y los controles de autorización. Cada vulnerabilidad o debilidad relevante encontrada se ha corregido y, cuando ha sido posible, se ha añadido una prueba de regresión.
+Con esta revisión se da por cerrada la auditoría planificada. Se ha completado la pasada sistemática de aislamiento multi-tenant, autorización/IDOR, concurrencia y límites de licencia, integridad de BBDD, portal de pacientes, HTTP/infraestructura, dependencias y frontend, seguida de una pasada global de regresión. No queda un hallazgo de seguridad confirmado que requiera una nueva modificación de código para cerrar esta auditoría.
 
-También estoy revisando los despliegues y corrigiendo automáticamente los fallos de compilación o tests que aparecen durante la auditoría.
+Quedan como deuda técnica explícita la actualización de dependencias de desarrollo/deprecadas y la migración futura del JWT profesional desde localStorage a una sesión basada en cookie HttpOnly, que requeriría un cambio arquitectónico y no se ha tratado como vulnerabilidad confirmada en esta auditoría.
 
 ## Revisión adicional — altas concurrentes de usuarios
 
