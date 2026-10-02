@@ -24,6 +24,7 @@ import { LandingComponent } from './componentes/landing/landing.component';
 import { OnboardingComponent } from './componentes/onboarding/onboarding.component';
 import { SubscriptionGuard } from './guards/subscription.guard';
 import { AppointmentsComponent } from './componentes/appointments/appointments.component';
+import { PatientChatComponent } from './componentes/patient-chat/patient-chat.component';
 
 export interface AppRoute extends Route {
   showInMenu?: boolean;
@@ -45,6 +46,7 @@ export const routes: AppRoute[] = [
       { path: 'appointments', component: AppointmentsComponent, canActivate: [SubscriptionGuard], title: 'Agenda y citas' },
       { path: 'clients/nuevo', component: ClientCreateComponent, canActivate: [SubscriptionGuard], title: 'Nuevo cliente' },
       { path: 'clients/:id', component: ClientDetailComponent, canActivate: [SubscriptionGuard] },
+      { path: 'clients/:id/messages', component: PatientChatComponent, canActivate: [SubscriptionGuard], title: 'Mensajes del paciente' },
       { path: 'diets', component: DietsListComponent, canActivate: [SubscriptionGuard], title: 'Dietas' },
       { path: 'diets/nuevo', component: DietCreateComponent, canActivate: [SubscriptionGuard], title: 'Nueva dieta' },
       { path: 'diets/:id', component: DietCreateComponent, canActivate: [SubscriptionGuard], title: 'Editar dieta' },
