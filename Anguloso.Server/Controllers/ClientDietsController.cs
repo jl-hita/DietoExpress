@@ -22,6 +22,7 @@ public class ClientDietsController : ControllerBase
     private readonly DietPdfService _pdfService;
     private readonly DietValidationService _validationService;
     private readonly ILicenseService _licenseService;
+    private readonly AutomationService _automationService;
 
     public ClientDietsController(angulosodbContext context, DietPdfService pdfService, DietValidationService validationService, ILicenseService licenseService)
     {
@@ -29,6 +30,7 @@ public class ClientDietsController : ControllerBase
         _pdfService = pdfService;
         _validationService = validationService;
         _licenseService = licenseService;
+        _automationService = automationService;
     }
 
     private async Task<bool> UserOwnsClientAsync(int clientId, int userId)
@@ -79,6 +81,33 @@ public class ClientDietsController : ControllerBase
         {
             if (item.food_id.HasValue && !allowed.Contains(item.food_id.Value))
                 item.food = null;
+        }
+    }
+
+
+    private async Task PublishDietAutomationEventAsync(
+        int tenantId,
+        string eventType,
+        int clientId,
+        int assignmentId,
+        string dietName,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await _automationService.PublishEventAsync(
+                tenantId,
+                eventType,
+                "client_diet",
+                assignmentId.ToString(),
+                new AutomationService.DietAutomationPayload(clientId, assignmentId, dietName),
+                $"diet:{eventType}:{assignmentId}:{DateTime.UtcNow.Ticks}",
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            HttpContext.RequestServices.GetRequiredService<ILogger<ClientDietsController>>()
+                .LogError(ex, "No se pudo registrar la automatización de la dieta {AssignmentId}.", assignmentId);
         }
     }
 
@@ -274,6 +303,14 @@ public class ClientDietsController : ControllerBase
             if (transaction != null)
                 await transaction.CommitAsync();
 
+            await PublishDietAutomationEventAsync(
+                clientTenantId!.Value,
+                "diet.published",
+                clientId,
+                newAssignment.id,
+                dietName,
+                HttpContext.RequestAborted);
+
         return Ok(new ClientDietListDto
         {
             Id = newAssignment.id,
@@ -365,6 +402,18 @@ public class ClientDietsController : ControllerBase
             await _context.SaveChangesAsync();
             if (transaction != null)
                 await transaction.CommitAsync();
+
+            if (assignment.is_active == true && clientTenantId.HasValue)
+            {
+                await PublishDietAutomationEventAsync(
+                    clientTenantId.Value,
+                    "diet.changed",
+                    clientId,
+                    assignment.id,
+                    assignment.diet?.name ?? "Dieta",
+                    HttpContext.RequestAborted);
+            }
+
             return NoContent();
         }
         catch
