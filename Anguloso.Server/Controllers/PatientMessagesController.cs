@@ -42,6 +42,16 @@ public class PatientMessagesController : ControllerBase
         return await SendAsync(clientId.Value, null, request);
     }
 
+    [HttpGet("conversations")]
+    [Authorize(Roles = "clinic_admin,nutritionist,user")]
+    public async Task<IActionResult> GetConversations()
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        var tenantId = AuthHelpers.GetTenantId(User);
+        if (!userId.HasValue || !tenantId.HasValue) return Unauthorized();
+        return Ok(await GetProfessionalConversationsAsync(userId.Value, tenantId.Value));
+    }
+
     [HttpGet("client/{clientId:int}")]
     [Authorize(Roles = "clinic_admin,nutritionist,user")]
     public async Task<IActionResult> GetProfessionalMessages(int clientId)
@@ -188,11 +198,38 @@ RETURNING id;";
         if (User.IsInRole("clinic_admin")) return true;
 
         return await _context.client_nutritionist_assignments.AnyAsync(a =>
-            a.client_id == clientId && a.nutritionist_id == userId && a.is_active)
-            || await _context.Database.SqlQueryRaw<int>($@"
-SELECT COUNT(*)::int AS ""Value""
-FROM patient_messages
-WHERE client_id = {clientId} AND tenant_id = {tenantId} AND sender_user_id = {userId};").FirstAsync() > 0;
+            a.client_id == clientId &&
+            a.nutritionist_id == userId &&
+            a.is_active &&
+            a.nutritionist.tenant_id == tenantId);
+    }
+
+    private async Task<int?> ResolveProfessionalTenantIdAsync(int userId)
+    {
+        return await _context.users.AsNoTracking()
+            .Where(u => u.id == userId)
+            .Select(u => u.tenant_id)
+            .FirstOrDefaultAsync();
+    }
+
+    private async Task<IReadOnlyList<ConversationSummaryDto>> GetProfessionalConversationsAsync(int userId, int tenantId)
+    {
+        var rows = await _context.Database.SqlQueryRaw<ConversationSummaryRow>($@"
+SELECT c.id AS ""ConversationId"", c.client_id AS ""ClientId"", cl.full_name AS ""ClientName"",
+       c.updated_at AS ""UpdatedAt"",
+       COALESCE((SELECT body FROM patient_messages m WHERE m.conversation_id = c.id ORDER BY m.created_at DESC, m.id DESC LIMIT 1), '') AS ""LastMessage"",
+       COALESCE((SELECT COUNT(*)::int FROM patient_messages m WHERE m.conversation_id = c.id AND m.sender_client_id IS NOT NULL AND m.read_at IS NULL), 0) AS ""UnreadCount""
+FROM patient_conversations c
+JOIN clients cl ON cl.id = c.client_id
+WHERE c.tenant_id = {tenantId} AND cl.archived_at IS NULL
+  AND (EXISTS (SELECT 1 FROM client_nutritionist_assignments a WHERE a.client_id = c.client_id AND a.nutritionist_id = {userId} AND a.is_active)
+       OR EXISTS (SELECT 1 FROM patient_messages m WHERE m.conversation_id = c.id AND m.sender_user_id = {userId}))
+ORDER BY c.updated_at DESC;").ToListAsync();
+
+        return rows.Select(x => new ConversationSummaryDto {
+            ConversationId = x.ConversationId, ClientId = x.ClientId, ClientName = x.ClientName,
+            UpdatedAt = x.UpdatedAt, LastMessage = x.LastMessage, UnreadCount = x.UnreadCount
+        }).ToList();
     }
 
     private async Task<long> ResolvePatientIdAsync()
@@ -277,4 +314,24 @@ public sealed class MessageDto
     public string Body { get; set; } = "";
     public DateTime CreatedAt { get; set; }
     public DateTime? ReadAt { get; set; }
+}
+
+public sealed class ConversationSummaryDto
+{
+    public long ConversationId { get; set; }
+    public int ClientId { get; set; }
+    public string ClientName { get; set; } = "";
+    public DateTime UpdatedAt { get; set; }
+    public string LastMessage { get; set; } = "";
+    public int UnreadCount { get; set; }
+}
+
+public sealed class ConversationSummaryRow
+{
+    public long ConversationId { get; set; }
+    public int ClientId { get; set; }
+    public string ClientName { get; set; } = "";
+    public DateTime UpdatedAt { get; set; }
+    public string LastMessage { get; set; } = "";
+    public int UnreadCount { get; set; }
 }
