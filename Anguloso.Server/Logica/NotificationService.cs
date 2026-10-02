@@ -18,6 +18,7 @@ public sealed class NotificationService
             ?? throw new InvalidOperationException("DefaultConnection no está configurada.");
     }
 
+    // La notificación persistida es la fuente de verdad; el push es un canal adicional y no debe impedir guardar la notificación.
     public async Task<long> CreateForPatientAsync(int tenantId, int clientId, string type, string title, string message, string? actionUrl = null, bool sendPush = true)
     {
         await using var connection = new NpgsqlConnection(_connectionString);

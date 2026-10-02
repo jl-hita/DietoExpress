@@ -23,6 +23,7 @@ public class SetupController : ControllerBase
         return Ok(new { isConfigured });
     }
 
+    // La inicialización se protege con rate limiting y un bloqueo transaccional para evitar dos instalaciones simultáneas.
     [EnableRateLimiting("auth")]
     [HttpPost("init")]
     public async Task<IActionResult> Init([FromBody] SetupInitRequest request)

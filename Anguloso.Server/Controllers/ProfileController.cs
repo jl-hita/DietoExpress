@@ -47,6 +47,7 @@ public class ProfileController : ControllerBase
     }
 
     // PUT: api/profile
+    // Solo se modifican los datos de perfil permitidos; identidad, rol y credenciales no forman parte de este endpoint.
     [HttpPut]
     public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileDto dto)
     {

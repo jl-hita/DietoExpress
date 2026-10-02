@@ -28,6 +28,7 @@ public class EmailServ
         _logServ = logServ;
     }
 
+    // SMTP se configura externamente; las credenciales nunca forman parte del código ni de la respuesta al cliente.
     public async Task<BoolMensaje> SendEmailAsync(string to, string subject, string htmlBody)
     {
         try

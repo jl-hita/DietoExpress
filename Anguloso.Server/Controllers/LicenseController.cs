@@ -17,6 +17,7 @@ public class LicenseController : ControllerBase
         _licenseService = licenseService;
     }
 
+    // La licencia se resuelve exclusivamente a partir del tenant del token; el cliente no puede seleccionar otro tenant.
     [HttpGet]
     public async Task<IActionResult> Get()
     {

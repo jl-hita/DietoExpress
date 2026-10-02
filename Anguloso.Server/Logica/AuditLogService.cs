@@ -29,6 +29,7 @@ public class AuditLogService : IAuditLogService
         _logServ = logServ;
     }
 
+    // La auditoría captura el contexto HTTP y del tenant en el momento de la operación para mantener trazabilidad RGPD.
     public async Task LogAccessAsync(string action, string entityName, string? entityId = null, int? clientId = null, string? details = null)
     {
         try

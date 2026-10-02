@@ -15,6 +15,7 @@ public class PatientNotificationsController : ControllerBase
 
     public PatientNotificationsController(NotificationService notifications) => _notifications = notifications;
 
+    // El ClientId procede del claim del paciente y se valida contra la BD antes de consultar notificaciones.
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<PatientNotificationDto>>> Get()
     {

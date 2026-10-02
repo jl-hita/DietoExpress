@@ -21,6 +21,7 @@ public class TenantContextService : ITenantContextService
         _httpContextAccessor = httpContextAccessor;
     }
 
+    // El contexto se deriva siempre de los claims autenticados, evitando aceptar tenant/user IDs enviados por el frontend.
     public int? TenantId
     {
         get
