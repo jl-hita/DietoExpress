@@ -1052,5 +1052,18 @@ public static class DatabaseBootstrap
         logger.LogInformation("Migración de automatizaciones automation-v1-engine-scheduler-tasks aplicada correctamente.");
     }
 
+    /// <summary>Estado de revisión profesional de los check-ins semanales.</summary>
+    public static void UpgradeAutomationSchemaV3(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            ALTER TABLE patient_checkins ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
+            ALTER TABLE patient_checkins ADD COLUMN IF NOT EXISTS reviewed_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+            CREATE INDEX IF NOT EXISTS idx_patient_checkins_pending_review
+                ON patient_checkins(tenant_id, reviewed_at, submitted_at);
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('automation-v3-checkin-review') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración de automatizaciones automation-v3-checkin-review aplicada correctamente.");
+    }
+
 
 }
