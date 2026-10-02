@@ -121,6 +121,12 @@ public sealed class AutomationWorker : BackgroundService
                 case "create_professional_task":
                     await ExecuteCreateTaskAsync(job, cancellationToken);
                     break;
+                case "notify_patient":
+                    await ExecuteNotifyPatientAsync(job, cancellationToken);
+                    break;
+                case "email_patient":
+                    await ExecuteEmailPatientAsync(job, cancellationToken);
+                    break;
                 default:
                     throw new InvalidOperationException($"Acción de automatización no soportada: {job.ActionType}");
             }
@@ -156,6 +162,47 @@ public sealed class AutomationWorker : BackgroundService
             action.Source,
             $"job:{job.Id}",
             cancellationToken);
+    }
+
+
+    private async Task ExecuteNotifyPatientAsync(AutomationJob job, CancellationToken cancellationToken)
+    {
+        var action = AutomationJson.Deserialize<NotifyPatientAction>(job.Payload)
+            ?? throw new InvalidOperationException("Payload inválido para notify_patient.");
+
+        using var scope = _scopeFactory.CreateScope();
+        var notifications = scope.ServiceProvider.GetRequiredService<NotificationService>();
+        await notifications.CreateForPatientAsync(
+            job.TenantId,
+            action.ClientId,
+            action.Type,
+            action.Title,
+            action.Message,
+            action.ActionUrl,
+            action.SendPush);
+    }
+
+    private async Task ExecuteEmailPatientAsync(AutomationJob job, CancellationToken cancellationToken)
+    {
+        var action = AutomationJson.Deserialize<EmailPatientAction>(job.Payload)
+            ?? throw new InvalidOperationException("Payload inválido para email_patient.");
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new NpgsqlCommand(
+            "SELECT email FROM clients WHERE id=@client AND tenant_id=@tenant AND archived_at IS NULL;",
+            connection);
+        command.Parameters.AddWithValue("client", action.ClientId);
+        command.Parameters.AddWithValue("tenant", job.TenantId);
+        var email = await command.ExecuteScalarAsync(cancellationToken) as string;
+        if (string.IsNullOrWhiteSpace(email))
+            throw new InvalidOperationException("El paciente no tiene un email válido.");
+
+        using var scope = _scopeFactory.CreateScope();
+        var emailServ = scope.ServiceProvider.GetRequiredService<EmailServ>();
+        var result = await emailServ.SendEmailAsync(email, action.Subject, action.HtmlBody);
+        if (!result.Exito)
+            throw new InvalidOperationException(result.Mensaje);
     }
 
     private async Task CompleteJobAsync(long jobId, DateTime started, CancellationToken cancellationToken)
