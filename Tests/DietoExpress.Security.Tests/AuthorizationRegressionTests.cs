@@ -1130,4 +1130,21 @@ public class AuthorizationRegressionTests
         Assert.Contains("ValidateDietPayload(dto?.Name, dto?.Notes, dto?.Days)", source);
     }
 
+
+    [Fact]
+    public void ClientCreateAndUpdate_BoundProfilePayload()
+    {
+        var source = ReadServerController("ClientsController.cs");
+
+        Assert.Contains("fullName.Length > 200", source);
+        Assert.Contains("email?.Length > 254", source);
+        Assert.Contains("phone?.Length > 50", source);
+        Assert.Contains("notes?.Length > 10000", source);
+        Assert.Contains("medical.Surgeries?.Length > 5000", source);
+        Assert.Contains("digestive.IntestinalHabits?.Length > 5000", source);
+        Assert.Contains("preferences.PreferredFoods?.Length > 5000", source);
+        Assert.Contains("lifestyle.WorkSchedule?.Length > 5000", source);
+        Assert.Contains("ValidateClientPayload(dto)", source);
+    }
+
 }
