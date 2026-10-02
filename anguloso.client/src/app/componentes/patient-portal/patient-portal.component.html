@@ -97,8 +97,9 @@
 
       <div class="day-hero">
         <div class="day-title">
-          <mat-icon>today</mat-icon>
+          <div class="day-title-icon"><mat-icon>today</mat-icon></div>
           <div>
+            <span class="eyebrow">Tu plan de hoy</span>
             <h2>{{ dayName }}</h2>
             <span>{{ today | date:'d MMMM yyyy' }}</span>
           </div>
@@ -137,6 +138,21 @@
         <mat-icon>restaurant_menu</mat-icon>
         <h3>Sin plan activo</h3>
         <p>Tu nutricionista aún no ha asignado un plan alimentario. ¡Contacta con tu consulta!</p>
+      </div>
+
+      <div class="today-next-card" *ngIf="todayDayData?.meals?.length">
+        <div class="next-card-icon"><mat-icon>play_arrow</mat-icon></div>
+        <div class="next-card-copy">
+          <span>Próximo paso</span>
+          <strong *ngIf="completedMealCount < todayMealCount">Continúa con tu plan de hoy</strong>
+          <strong *ngIf="completedMealCount === todayMealCount">¡Has completado todas tus comidas!</strong>
+          <small *ngIf="completedMealCount < todayMealCount">{{ todayMealCount - completedMealCount }} {{ todayMealCount - completedMealCount === 1 ? 'comida pendiente' : 'comidas pendientes' }}</small>
+          <small *ngIf="completedMealCount === todayMealCount">Buen trabajo. Tu día está completo.</small>
+        </div>
+        <button type="button" class="next-card-action" (click)="setTab('progress')">
+          Ver progreso
+          <mat-icon>arrow_forward</mat-icon>
+        </button>
       </div>
 
       <!-- Comidas del día -->
