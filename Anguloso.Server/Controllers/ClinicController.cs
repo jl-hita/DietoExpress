@@ -98,7 +98,7 @@ public class ClinicController : ControllerBase
             var username = (localPart.Length > 40 ? localPart[..40] : localPart).ToLowerInvariant();
             var baseUsername = username;
             var suffix = 1;
-            while (await _context.users.AnyAsync(u => u.username == username))
+            while (await _context.users.AnyAsync(u => u.username.ToLower() == username.ToLower()))
             {
                 var suffixText = suffix.ToString();
                 username = baseUsername[..Math.Min(baseUsername.Length, 50 - suffixText.Length - 1)] + "-" + suffixText;
