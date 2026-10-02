@@ -39,6 +39,10 @@ public class AvailabilityDto
     public bool IsActive { get; set; }
 }
 
+public class UpdateAvailabilityRequestDto : SaveAvailabilityRequestDto
+{
+}
+
 public class SaveAvailabilityRequestDto
 {
     public int DayOfWeek { get; set; }
