@@ -89,10 +89,10 @@ mat-list-item {
   }
 }
 */
-/* contenedor general */
+/* El área profesional ocupa todo el ancho disponible. */
 .page-container {
-  max-width: 1300px;
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
   font-family: 'Outfit', 'Inter', sans-serif;
 }
 
