@@ -36,6 +36,10 @@ export class PatientPortalComponent implements OnInit {
   emailOrPhone = '';
   passcode = '';
   submittingLogin = false;
+  accessLinkEmail = '';
+  requestingAccessLink = false;
+  accessLinkMessage: string | null = null;
+  accessLinkError: string | null = null;
 
   activeTab: ActiveTab = 'today';
   today = new Date();
@@ -103,6 +107,28 @@ export class PatientPortalComponent implements OnInit {
         this.loading = false;
         this.authError = err?.error?.message || 'El enlace de acceso ha expirado o no es válido.';
         this.showLogin = true;
+      }
+    });
+  }
+
+  requestNewAccessLink(): void {
+    const email = this.accessLinkEmail.trim().toLowerCase();
+    this.accessLinkMessage = null;
+    this.accessLinkError = null;
+    if (!email || !email.includes('@')) {
+      this.accessLinkError = 'Introduce el email con el que estás registrado.';
+      return;
+    }
+
+    this.requestingAccessLink = true;
+    this.portalService.requestAccessLink(email).subscribe({
+      next: (response) => {
+        this.requestingAccessLink = false;
+        this.accessLinkMessage = response?.message || 'Si el email corresponde a un paciente, recibirás un nuevo enlace de acceso.';
+      },
+      error: (err) => {
+        this.requestingAccessLink = false;
+        this.accessLinkError = err?.error?.message || 'No hemos podido enviar el enlace. Inténtalo de nuevo más tarde.';
       }
     });
   }
