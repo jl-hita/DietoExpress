@@ -19,12 +19,14 @@ public class AppointmentsController : ControllerBase
     private readonly angulosodbContext _context;
     private readonly EmailServ _emailServ;
     private readonly NotificationService _notifications;
+    private readonly AutomationService _automationService;
 
-    public AppointmentsController(angulosodbContext context, EmailServ emailServ, NotificationService notifications)
+    public AppointmentsController(angulosodbContext context, EmailServ emailServ, NotificationService notifications, AutomationService automationService)
     {
         _context = context;
         _emailServ = emailServ;
         _notifications = notifications;
+        _automationService = automationService;
     }
 
     [Authorize(Roles = "patient")]
@@ -360,6 +362,28 @@ public class AppointmentsController : ControllerBase
         appointment.professional_notes = request.ProfessionalNotes?.Trim();
         appointment.updated_at = DateTime.UtcNow;
         await _context.SaveChangesAsync();
+
+        if (requestedStatus == "completed" && previousStatus != "completed")
+        {
+            try
+            {
+                await _automationService.PublishEventAsync(
+                    appointment.tenant_id,
+                    "appointment.completed",
+                    "appointment",
+                    appointment.id.ToString(),
+                    new AutomationService.AppointmentCompletedPayload(
+                        appointment.id,
+                        appointment.client_id,
+                        appointment.nutritionist_id),
+                    $"appointment:{appointment.id}:completed");
+            }
+            catch (Exception ex)
+            {
+                HttpContext.RequestServices.GetRequiredService<ILogger<AppointmentsController>>()
+                    .LogError(ex, "No se pudo registrar la automatización de la cita completada {AppointmentId}.", appointment.id);
+            }
+        }
 
         if (requestedStatus == "cancelled" && previousStatus != "cancelled")
         {
