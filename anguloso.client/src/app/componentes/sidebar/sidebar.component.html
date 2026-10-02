@@ -15,6 +15,11 @@
         <mat-icon>restaurant</mat-icon><span>Dietas</span>
       </a>
     </div>
+    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount">
+      <a mat-list-item routerLink="/appointments" routerLinkActive="active-link" (click)="navigateAndClose()">
+        <mat-icon>event</mat-icon><span>Agenda y citas</span>
+      </a>
+    </div>
     <div class="menu-item">
       <a mat-list-item routerLink="/billing" routerLinkActive="active-link" (click)="navigateAndClose()">
         <mat-icon>workspace_premium</mat-icon><span>Suscripción</span>
