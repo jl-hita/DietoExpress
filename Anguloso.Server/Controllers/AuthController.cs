@@ -148,43 +148,7 @@ public class AuthController : ControllerBase
         }
     }
 
-    [HttpGet("crearAdmin")]
-    public IActionResult CreateAdmin()
-    {
-        return BadRequest("Desactivado");
-        /*
-        string username = "admin";
-        string fullName = "Administrador del sistema";
-        string plainPassword = "1234"; // puedes cambiarlo luego
-        string role = "admin";
-
-        // Encriptamos la contraseña
-        string passwordHash = BCrypt.Net.BCrypt.HashPassword(plainPassword);
-
-        // Verificamos si ya existe
-        if (_context.users.Any(u => u.username == username))
-        {
-            return BadRequest("El usuario 'admin' ya existe.");
-        }
-
-        // Creamos el nuevo usuario
-        var user = new users
-        {
-            username = username,
-            full_name = fullName,
-            password_hash = passwordHash,
-            role = role,
-            created_at = DateTime.Now
-        };
-
-        _context.users.Add(user);
-        _context.SaveChanges();
-
-        return Ok($"Usuario '{username}' creado correctamente.");
-        */
-    }
-
-    //Crea usuario y envía enlace de confirmación via email
+    // Crea usuario y envía enlace de confirmación via email
     [HttpPut("crearUser")]
     //public async Task<IActionResult> CrearUser([FromBody] Usuario usuario)
     public async Task<BoolMensaje> CrearUserAsync([FromBody] Usuario usuario)
@@ -749,76 +713,6 @@ public class AuthController : ControllerBase
         }
         return candidate;
     }
-
-    /*
-     * TODO Envía email con enlace para cambiar el password
-    [HttpPut("resetPassword")]
-    public async Task<BoolMensaje> ResetPasswordAsync([FromBody] PasswordResetEmailRequest passwordResetEmailRequest)
-    {
-        try
-        {
-            if (string.IsNullOrEmpty(passwordResetEmailRequest.Username) || string.IsNullOrEmpty(passwordResetEmailRequest.Email))
-            {
-                //return BadRequest("Usuario o contraseña no válidos.");
-                return new BoolMensaje
-                {
-                    Exito = false,
-                    Mensaje = $"Usuario y email no pueden estar en blanco"
-                };
-            }
-
-            // Buscar el usuario
-            users? user = _context.users.FirstOrDefault(u => u.username == passwordResetEmailRequest.Username && u.email == passwordResetEmailRequest.Email);
-
-            if (user == null)
-            {
-                return new BoolMensaje
-                {
-                    Exito = false,
-                    Mensaje = $"Usuario {passwordResetEmailRequest.Username} con email {passwordResetEmailRequest.Email} no encontrado"
-                };
-            }
-
-            //Creamos un password nuevo
-            int longitud = 10;
-            const string caracteres = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
-            var bytes = new byte[longitud];
-            var resultado = new char[longitud];
-
-            using (var rng = RandomNumberGenerator.Create())
-            {
-                rng.GetBytes(bytes);
-            }
-
-            for (int i = 0; i < longitud; i++)
-            {
-                resultado[i] = caracteres[bytes[i] % caracteres.Length];
-            }
-            string passwordPlain = new string(resultado);
-            string passwordHash = BCrypt.Net.BCrypt.HashPassword(passwordPlain);
-            
-
-            //Cambiamos la contraseña
-            user.password_hash = passwordHash;
-            _context.SaveChanges();
-
-            //Enviamos un email con la nueva contraseña
-            string html = $"<h1>Anguloso</h1><p>Has solicitado un reset de contraseña. Tu nueva contraseña es {passwordPlain}</p><p>No respondas a este correo.</p>";
-            BoolMensaje bmEmail = await _emailService.SendEmailAsync(passwordResetEmailRequest.Email, "Nuevo password Anguloso", html);
-
-            return bmEmail;
-        }
-        catch (Exception ex)
-        {
-            //return BadRequest(ex.Message);
-            return new BoolMensaje
-            {
-                Exito = false,
-                Mensaje = $"Error solititando cambio de password -> {ex.Message}"
-            };
-        }
-    }
-    */
 
     [Authorize(Policy = "Professional")]
     [HttpPost("refreshSession")]
