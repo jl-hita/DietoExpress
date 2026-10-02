@@ -935,4 +935,105 @@ public static class DatabaseBootstrap
         logger.LogInformation("Migración de aislamiento de conversaciones por asignación aplicada correctamente.");
     }
 
+    /// <summary>Motor persistente de automatizaciones, scheduler y tareas profesionales.</summary>
+    public static void UpgradeAutomationSchemaV1(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS automation_events (
+                id BIGSERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                event_type VARCHAR(120) NOT NULL,
+                aggregate_type VARCHAR(80) NOT NULL,
+                aggregate_id VARCHAR(120),
+                payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+                idempotency_key VARCHAR(255) NOT NULL,
+                occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_automation_events_tenant_idempotency UNIQUE (tenant_id, idempotency_key)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_automation_events_tenant_occurred
+                ON automation_events(tenant_id, occurred_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_automation_events_type_occurred
+                ON automation_events(event_type, occurred_at DESC);
+
+            CREATE TABLE IF NOT EXISTS automation_jobs (
+                id BIGSERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                event_id BIGINT REFERENCES automation_events(id) ON DELETE SET NULL,
+                action_type VARCHAR(120) NOT NULL,
+                payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+                scheduled_at TIMESTAMPTZ NOT NULL,
+                status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                attempts INTEGER NOT NULL DEFAULT 0,
+                max_attempts INTEGER NOT NULL DEFAULT 5,
+                locked_at TIMESTAMPTZ,
+                last_error VARCHAR(4000),
+                idempotency_key VARCHAR(255),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                completed_at TIMESTAMPTZ,
+                CONSTRAINT automation_jobs_status_check
+                    CHECK (status IN ('pending','processing','completed','failed','cancelled')),
+                CONSTRAINT automation_jobs_attempts_check
+                    CHECK (attempts >= 0 AND max_attempts BETWEEN 1 AND 20)
+            );
+
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_automation_jobs_tenant_idempotency
+                ON automation_jobs(tenant_id, idempotency_key)
+                WHERE idempotency_key IS NOT NULL;
+            CREATE INDEX IF NOT EXISTS idx_automation_jobs_pending
+                ON automation_jobs(status, scheduled_at, id);
+            CREATE INDEX IF NOT EXISTS idx_automation_jobs_tenant
+                ON automation_jobs(tenant_id, created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_automation_jobs_event
+                ON automation_jobs(event_id);
+
+            CREATE TABLE IF NOT EXISTS automation_executions (
+                id BIGSERIAL PRIMARY KEY,
+                job_id BIGINT NOT NULL REFERENCES automation_jobs(id) ON DELETE CASCADE,
+                result VARCHAR(30) NOT NULL,
+                error VARCHAR(4000),
+                duration_ms BIGINT NOT NULL DEFAULT 0,
+                executed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS idx_automation_executions_job
+                ON automation_executions(job_id, executed_at DESC);
+
+            CREATE TABLE IF NOT EXISTS professional_tasks (
+                id BIGSERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                client_id INTEGER REFERENCES clients(id) ON DELETE SET NULL,
+                assigned_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                title VARCHAR(250) NOT NULL,
+                description VARCHAR(4000),
+                due_at TIMESTAMPTZ,
+                priority VARCHAR(20) NOT NULL DEFAULT 'normal',
+                status VARCHAR(20) NOT NULL DEFAULT 'open',
+                source VARCHAR(120) NOT NULL DEFAULT 'manual',
+                idempotency_key VARCHAR(255),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                completed_at TIMESTAMPTZ,
+                CONSTRAINT professional_tasks_priority_check
+                    CHECK (priority IN ('low','normal','high','urgent')),
+                CONSTRAINT professional_tasks_status_check
+                    CHECK (status IN ('open','in_progress','completed','cancelled'))
+            );
+
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_professional_tasks_tenant_idempotency
+                ON professional_tasks(tenant_id, idempotency_key)
+                WHERE idempotency_key IS NOT NULL;
+            CREATE INDEX IF NOT EXISTS idx_professional_tasks_tenant_status_due
+                ON professional_tasks(tenant_id, status, due_at);
+            CREATE INDEX IF NOT EXISTS idx_professional_tasks_assigned_status
+                ON professional_tasks(assigned_user_id, status, due_at);
+            CREATE INDEX IF NOT EXISTS idx_professional_tasks_client
+                ON professional_tasks(client_id, created_at DESC);
+        ");
+
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('automation-v1-engine-scheduler-tasks') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración de automatizaciones automation-v1-engine-scheduler-tasks aplicada correctamente.");
+    }
+
+
 }
