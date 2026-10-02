@@ -106,6 +106,32 @@
         <div class="diet-name-chip" *ngIf="activeDiet">{{ activeDiet.name }}</div>
       </div>
 
+      <section class="today-summary" *ngIf="todayDayData">
+        <div class="summary-card summary-progress">
+          <div class="summary-icon"><mat-icon>task_alt</mat-icon></div>
+          <div class="summary-copy">
+            <span>Tu día</span>
+            <strong>{{ completedMealCount }} de {{ todayMealCount }} comidas</strong>
+            <div class="progress-track"><div class="progress-fill" [style.width.%]="todayProgressPercent"></div></div>
+          </div>
+          <span class="summary-percent">{{ todayProgressPercent }}%</span>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon"><mat-icon>local_fire_department</mat-icon></div>
+          <div class="summary-copy">
+            <span>Plan de hoy</span>
+            <strong>{{ todayKcal | number:'1.0-0' }} kcal</strong>
+          </div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon"><mat-icon>flag</mat-icon></div>
+          <div class="summary-copy">
+            <span>Plan activo</span>
+            <strong>{{ activeDiet?.name || 'Sin plan' }}</strong>
+          </div>
+        </div>
+      </section>
+
       <!-- Sin dieta activa -->
       <div class="empty-state" *ngIf="!activeDiet">
         <mat-icon>restaurant_menu</mat-icon>
@@ -116,7 +142,7 @@
       <!-- Comidas del día -->
       <ng-container *ngIf="todayDayData">
         <div class="meals-grid">
-          <div class="meal-card" *ngFor="let meal of todayDayData.meals">
+          <div class="meal-card" *ngFor="let meal of todayDayData.meals" [class.meal-completed]="isMealCompleted(meal)">
             <div class="meal-header">
               <div class="meal-icon-wrap">
                 <mat-icon>{{ getMealIcon(meal.name) }}</mat-icon>
@@ -127,6 +153,13 @@
                   {{ meal.items | sum:'kcal' | number:'1.0-0' }} kcal
                 </span>
               </div>
+              <button type="button" class="meal-complete-btn"
+                      [class.completed]="isMealCompleted(meal)"
+                      (click)="toggleMealCompleted(meal)"
+                      [attr.aria-label]="isMealCompleted(meal) ? 'Marcar comida como pendiente' : 'Marcar comida como completada'">
+                <mat-icon>{{ isMealCompleted(meal) ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+                <span>{{ isMealCompleted(meal) ? 'Completada' : 'Marcar hecha' }}</span>
+              </button>
             </div>
 
             <ul class="food-list">
