@@ -3,75 +3,25 @@ import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environments';
 
-export interface PatientAuthRequest {
-  token?: string;
-  emailOrPhone?: string;
-  passcode?: string;
-}
+export interface PatientAuthRequest { token?: string; emailOrPhone?: string; passcode?: string; }
+export interface PatientAuthResponse { token?: string; clientId: number; fullName: string; clinicName?: string; clinicLogo?: string; }
+export interface ClientPortalAccess { clientId: number; accessToken: string; magicLink: string; hasPasscode: boolean; lastPortalAccess?: string; }
+export interface PatientCheckin { id: number; week_start: string; submitted_at: string; weight?: number | null; adherence?: number | null; hunger?: number | null; difficulties?: string | null; notes?: string | null; }
+export interface PatientCheckinRequest { weight?: number | null; adherence?: number | null; hunger?: number | null; difficulties?: string | null; notes?: string | null; }
 
-export interface PatientAuthResponse {
-  token?: string;
-  clientId: number;
-  fullName: string;
-  clinicName?: string;
-  clinicLogo?: string;
-}
-
-export interface ClientPortalAccess {
-  clientId: number;
-  accessToken: string;
-  magicLink: string;
-  hasPasscode: boolean;
-  lastPortalAccess?: string;
-}
-
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable({ providedIn: 'root' })
 export class PatientPortalService {
   private base = environment.apiUrl;
-
   constructor(private http: HttpClient) {}
-
-  // ─── Métodos para el Paciente ───
-
-  authenticate(req: PatientAuthRequest): Observable<PatientAuthResponse> {
-    return this.http.post<PatientAuthResponse>(`${this.base}/portal/auth`, req);
-  }
-
-  clearPatientSession(): Observable<void> {
-    return this.http.post<void>(`${this.base}/portal/logout`, {});
-  }
-
-  getMyProfile(clientIdParam?: number): Observable<any> {
-    const params: any = {};
-    if (clientIdParam) params.clientId = clientIdParam;
-    return this.http.get<any>(`${this.base}/portal/profile`, { params });
-  }
-
-  getMyActiveDiet(clientIdParam?: number): Observable<any> {
-    const params: any = {};
-    if (clientIdParam) params.clientId = clientIdParam;
-    return this.http.get<any>(`${this.base}/portal/diet`, { params });
-  }
-
-  getMyShoppingList(clientIdParam?: number): Observable<any[]> {
-    const params: any = {};
-    if (clientIdParam) params.clientId = clientIdParam;
-    return this.http.get<any[]>(`${this.base}/portal/shopping-list`, { params });
-  }
-
-  // ─── Métodos para el Nutricionista ───
-
-  getClientPortalAccess(clientId: number): Observable<ClientPortalAccess> {
-    return this.http.get<ClientPortalAccess>(`${this.base}/clients/${clientId}/portal-access`);
-  }
-
-  regenerateClientToken(clientId: number): Observable<ClientPortalAccess> {
-    return this.http.post<ClientPortalAccess>(`${this.base}/clients/${clientId}/portal-access/regenerate-token`, {});
-  }
-
-  setClientPasscode(clientId: number, passcode: string): Observable<{ message: string }> {
-    return this.http.post<{ message: string }>(`${this.base}/clients/${clientId}/portal-access/passcode`, { passcode });
-  }
+  authenticate(req: PatientAuthRequest): Observable<PatientAuthResponse> { return this.http.post<PatientAuthResponse>(`${this.base}/portal/auth`, req); }
+  clearPatientSession(): Observable<void> { return this.http.post<void>(`${this.base}/portal/logout`, {}); }
+  getMyProfile(clientIdParam?: number): Observable<any> { const params: any = {}; if (clientIdParam) params.clientId = clientIdParam; return this.http.get<any>(`${this.base}/portal/profile`, { params }); }
+  getMyActiveDiet(clientIdParam?: number): Observable<any> { const params: any = {}; if (clientIdParam) params.clientId = clientIdParam; return this.http.get<any>(`${this.base}/portal/diet`, { params }); }
+  getMyShoppingList(clientIdParam?: number): Observable<any[]> { const params: any = {}; if (clientIdParam) params.clientId = clientIdParam; return this.http.get<any[]>(`${this.base}/portal/shopping-list`, { params }); }
+  getCurrentCheckin(): Observable<PatientCheckin | null> { return this.http.get<PatientCheckin | null>(`${this.base}/portal/check-ins/current`); }
+  getCheckinHistory(): Observable<PatientCheckin[]> { return this.http.get<PatientCheckin[]>(`${this.base}/portal/check-ins`); }
+  saveCheckin(request: PatientCheckinRequest): Observable<PatientCheckin> { return this.http.post<PatientCheckin>(`${this.base}/portal/check-ins`, request); }
+  getClientPortalAccess(clientId: number): Observable<ClientPortalAccess> { return this.http.get<ClientPortalAccess>(`${this.base}/clients/${clientId}/portal-access`); }
+  regenerateClientToken(clientId: number): Observable<ClientPortalAccess> { return this.http.post<ClientPortalAccess>(`${this.base}/clients/${clientId}/portal-access/regenerate-token`, {}); }
+  setClientPasscode(clientId: number, passcode: string): Observable<{ message: string }> { return this.http.post<{ message: string }>(`${this.base}/clients/${clientId}/portal-access/passcode`, { passcode }); }
 }
