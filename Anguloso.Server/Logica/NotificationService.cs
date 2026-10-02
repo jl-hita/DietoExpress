@@ -7,12 +7,12 @@ namespace Anguloso.Server.Logica;
 public sealed class NotificationService
 {
     private readonly string _connectionString;
-    private readonly IConfiguration _configuration;
+    private readonly ConfigServ _configServ;
     private readonly ILogger<NotificationService> _logger;
 
-    public NotificationService(IConfiguration configuration, ILogger<NotificationService> logger)
+    public NotificationService(ConfigServ configServ, IConfiguration configuration, ILogger<NotificationService> logger)
     {
-        _configuration = configuration;
+        _configServ = configServ;
         _logger = logger;
         _connectionString = configuration.GetConnectionString("DefaultConnection")
             ?? throw new InvalidOperationException("DefaultConnection no está configurada.");
@@ -126,13 +126,26 @@ WHERE tenant_id = @tenant AND client_id = @client AND endpoint = @endpoint;", co
         await command.ExecuteNonQueryAsync();
     }
 
-    public string? GetVapidPublicKey() => string.IsNullOrWhiteSpace(_configuration["WebPush:PublicKey"]) ? null : _configuration["WebPush:PublicKey"];
+    public string? GetVapidPublicKey()
+    {
+        var key = _configServ.GetConfigString("webPushPublicKey");
+        return IsPlaceholder(key) ? null : key;
+    }
+
+    private string? GetWebPushConfig(string name)
+    {
+        var value = _configServ.GetConfigString(name);
+        return IsPlaceholder(value) ? null : value;
+    }
+
+    private static bool IsPlaceholder(string? value) =>
+        string.IsNullOrWhiteSpace(value) || value.StartsWith("__CONFIGURE_", StringComparison.Ordinal);
 
     private async Task SendPushAsync(int clientId, PushPayload payload)
     {
-        var subject = _configuration["WebPush:Subject"];
-        var publicKey = _configuration["WebPush:PublicKey"];
-        var privateKey = _configuration["WebPush:PrivateKey"];
+        var subject = GetWebPushConfig("webPushSubject");
+        var publicKey = GetWebPushConfig("webPushPublicKey");
+        var privateKey = GetWebPushConfig("webPushPrivateKey");
         if (string.IsNullOrWhiteSpace(subject) || string.IsNullOrWhiteSpace(publicKey) || string.IsNullOrWhiteSpace(privateKey))
             return;
 
