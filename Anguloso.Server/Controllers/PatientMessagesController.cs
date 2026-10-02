@@ -63,7 +63,7 @@ public class PatientMessagesController : ControllerBase
         if (!await CanProfessionalAccessAsync(userId.Value, tenantId.Value, clientId))
             return NotFound();
 
-        var conversation = await GetOrCreateConversationAsync(clientId);
+        var conversation = await GetOrCreateConversationAsync(clientId, User.IsInRole("patient") ? null : AuthHelpers.GetUserId(User));
         return Ok(await ReadMessagesAsync(conversation.Id, clientId));
     }
 
@@ -229,7 +229,7 @@ ORDER BY c.updated_at DESC;").ToListAsync();
         return int.TryParse(raw, out var clientId) ? clientId : 0;
     }
 
-    private async Task<ConversationRef> GetOrCreateConversationAsync(int clientId)
+    private async Task<ConversationRef> GetOrCreateConversationAsync(int clientId, int? nutritionistId = null)
     {
         var client = await _context.clients.AsNoTracking()
             .Where(c => c.id == clientId && c.archived_at == null)
@@ -238,13 +238,17 @@ ORDER BY c.updated_at DESC;").ToListAsync();
         if (client?.tenant_id == null) throw new KeyNotFoundException("Paciente no encontrado.");
 
         var existing = await _context.Database.SqlQueryRaw<long>(
-            $@"SELECT id AS ""Value"" FROM patient_conversations WHERE client_id = {clientId} LIMIT 1;").FirstOrDefaultAsync();
+            nutritionistId.HasValue
+                ? $@"SELECT id AS ""Value"" FROM patient_conversations WHERE client_id = {clientId} AND assigned_nutritionist_id = {nutritionistId.Value} AND closed_at IS NULL LIMIT 1;"
+                : $@"SELECT id AS ""Value"" FROM patient_conversations WHERE client_id = {clientId} AND closed_at IS NULL LIMIT 1;").FirstOrDefaultAsync();
         if (existing != 0) return new ConversationRef(existing, client.tenant_id.Value);
 
         try
         {
             var id = await _context.Database.SqlQueryRaw<long>(
-                $@"INSERT INTO patient_conversations(tenant_id, client_id) VALUES ({client.tenant_id.Value}, {clientId}) RETURNING id;").FirstAsync();
+                nutritionistId.HasValue
+                    ? $@"INSERT INTO patient_conversations(tenant_id, client_id, assigned_nutritionist_id) VALUES ({client.tenant_id.Value}, {clientId}, {nutritionistId.Value}) RETURNING id;"
+                    : $@"INSERT INTO patient_conversations(tenant_id, client_id) VALUES ({client.tenant_id.Value}, {clientId}) RETURNING id;").FirstAsync();
             return new ConversationRef(id, client.tenant_id.Value);
         }
         catch (PostgresException ex) when (ex.SqlState == "23505")
