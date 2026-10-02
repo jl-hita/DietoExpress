@@ -12,8 +12,13 @@ namespace Anguloso.Server.Controllers;
 public class PatientCheckinsController : ControllerBase
 {
     private readonly angulosodbContext _db;
+    private readonly AutomationService _automationService;
 
-    public PatientCheckinsController(angulosodbContext db) => _db = db;
+    public PatientCheckinsController(angulosodbContext db, AutomationService automationService)
+    {
+        _db = db;
+        _automationService = automationService;
+    }
 
     [HttpGet("current")]
     public async Task<ActionResult<object>> GetCurrent()
@@ -69,6 +74,29 @@ public class PatientCheckinsController : ControllerBase
         item.difficulties = request.difficulties?.Trim();
         item.notes = request.notes?.Trim();
         await _db.SaveChangesAsync();
+
+        var nutritionistId = await _db.client_nutritionist_assignments.AsNoTracking()
+            .Where(a => a.client_id == clientId && a.is_active && a.nutritionist.tenant_id == tenantId.Value)
+            .OrderByDescending(a => a.assigned_at)
+            .Select(a => (int?)a.nutritionist_id)
+            .FirstOrDefaultAsync();
+
+        try
+        {
+            await _automationService.PublishEventAsync(
+                tenantId.Value,
+                "patient.checkin.submitted",
+                "patient_checkin",
+                item.id.ToString(),
+                new AutomationService.CheckinSubmittedPayload(clientId, nutritionistId),
+                $"checkin:{item.id}:submitted:{item.submitted_at.Ticks}");
+        }
+        catch (Exception ex)
+        {
+            HttpContext.RequestServices.GetRequiredService<ILogger<PatientCheckinsController>>()
+                .LogError(ex, "No se pudo registrar la automatización del check-in {CheckinId}.", item.id);
+        }
+
         return Ok(new { item.id, item.week_start, item.submitted_at, item.weight, item.adherence, item.hunger, item.difficulties, item.notes });
     }
 
