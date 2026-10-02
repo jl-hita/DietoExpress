@@ -418,6 +418,18 @@ public static class DatabaseBootstrap
                 INSERT INTO config (nombre_config, valor_config)
                 SELECT 'usdaApiKey', '__CONFIGURE_USDA_API_KEY__'
                 WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'usdaApiKey');
+
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'webPushSubject', '__CONFIGURE_WEBPUSH_SUBJECT__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'webPushSubject');
+
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'webPushPublicKey', '__CONFIGURE_WEBPUSH_PUBLIC_KEY__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'webPushPublicKey');
+
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'webPushPrivateKey', '__CONFIGURE_WEBPUSH_PRIVATE_KEY__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'webPushPrivateKey');
             ");
 
             logger.LogInformation("Estructura de tablas y configuración inicial verificadas y listas en PostgreSQL.");
