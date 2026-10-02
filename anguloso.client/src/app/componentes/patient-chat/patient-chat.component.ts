@@ -29,7 +29,7 @@ export class PatientChatComponent implements OnChanges, OnInit {
   ngOnInit(): void {
     if (!this.patientMode && !this.clientId) {
       const id = Number(this.route.snapshot.paramMap.get('id'));
-      if (id > 0) this.clientId = id;
+      if (id > 0) { this.clientId = id; this.load(); }
     }
   }
 
