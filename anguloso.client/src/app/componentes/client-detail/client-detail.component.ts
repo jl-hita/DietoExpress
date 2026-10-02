@@ -11,6 +11,7 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatTabChangeEvent } from '@angular/material/tabs';
 import Chart from 'chart.js/auto';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { RouterLink } from '@angular/router';
 import { DietSelectDialogComponent } from './diet-select-dialog.component';
 import { BioimpedanceImportDialogComponent } from './bioimpedance-import-dialog.component';
 
@@ -47,7 +48,8 @@ import { debounceTime, filter, switchMap } from 'rxjs/operators';
     MatIconModule,
     MatButtonModule,
     MatCheckboxModule,
-    MatDialogModule
+    MatDialogModule,
+    RouterLink
   ],
   standalone: true
 })
