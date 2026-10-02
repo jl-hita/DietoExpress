@@ -8,6 +8,7 @@ public static class BillingSchemaBootstrap
 {
     public static void Initialize(Models.angulosodbContext context, ILogger logger)
     {
+        // La inicialización es idempotente para poder ejecutarse durante cada arranque sin recrear estructuras existentes.
         context.Database.ExecuteSqlRaw(@"
             ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS stripe_product_id VARCHAR(255);
             ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS stripe_monthly_price_id VARCHAR(255);
@@ -62,6 +63,7 @@ public static class BillingSchemaBootstrap
                 WHERE provider_subscription_id IS NOT NULL;
         ");
 
+        // Este bloque concentra las tablas de trazabilidad de checkout, pagos, eventos de proveedor y facturación.
         context.Database.ExecuteSqlRaw(@"
             CREATE TABLE IF NOT EXISTS billing_checkout_attempts (
                 id BIGSERIAL PRIMARY KEY,

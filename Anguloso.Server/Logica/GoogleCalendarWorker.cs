@@ -7,6 +7,7 @@ public sealed class GoogleCalendarWorker : BackgroundService
 
     public GoogleCalendarWorker(IServiceScopeFactory scopeFactory, ILogger<GoogleCalendarWorker> logger) { _scopeFactory = scopeFactory; _logger = logger; }
 
+    // El worker crea un scope por ciclo para resolver dependencias con ciclo de vida acotado.
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         using var timer = new PeriodicTimer(TimeSpan.FromMinutes(5));
@@ -14,6 +15,7 @@ public sealed class GoogleCalendarWorker : BackgroundService
         {
             try
             {
+                // Un fallo de una sincronización se registra y no impide los ciclos posteriores.
                 using var scope = _scopeFactory.CreateScope();
                 await scope.ServiceProvider.GetRequiredService<GoogleCalendarService>().SyncAllAsync(stoppingToken);
             }

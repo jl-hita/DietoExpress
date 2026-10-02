@@ -18,6 +18,7 @@ public sealed class GoogleCalendarController : ControllerBase
 
     public GoogleCalendarController(angulosodbContext db, GoogleCalendarService calendar) { _db = db; _calendar = calendar; }
 
+    // La conexión se resuelve con la identidad del JWT para mantenerla aislada por usuario y tenant.
     [Authorize(Roles = "clinic_admin,nutritionist,user")]
     [HttpGet("status")]
     public async Task<ActionResult<GoogleCalendarService.GoogleCalendarConnectionDto>> Status(CancellationToken cancellationToken)
@@ -34,6 +35,7 @@ public sealed class GoogleCalendarController : ControllerBase
         if (!_calendar.IsConfigured) return Problem("Google Calendar no está configurado en el servidor.", statusCode: 503);
         var (userId, tenantId) = Identity();
         if (userId == null || tenantId == null) return Unauthorized();
+        // Solo se persiste el hash del state OAuth; el valor original se utiliza una única vez en la redirección.
         var raw = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(raw)));
         _db.google_calendar_oauth_states.Add(new google_calendar_oauth_states { user_id = userId.Value, state_hash = hash, expires_at = DateTime.UtcNow.AddMinutes(10) });
@@ -48,6 +50,7 @@ public sealed class GoogleCalendarController : ControllerBase
         if (!string.IsNullOrWhiteSpace(error)) return Redirect("/appointments?calendar=error");
         if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(state)) return BadRequest();
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(state)));
+        // Aunque el callback sea anónimo, el state de un solo uso vincula la respuesta al usuario que inició OAuth.
         var oauth = await _db.google_calendar_oauth_states.FirstOrDefaultAsync(x => x.state_hash == hash && x.expires_at > DateTime.UtcNow, cancellationToken);
         if (oauth == null) return BadRequest("OAuth state no válido o caducado.");
         _db.google_calendar_oauth_states.Remove(oauth);
@@ -76,6 +79,7 @@ public sealed class GoogleCalendarController : ControllerBase
         return NoContent();
     }
 
+    // Centraliza la extracción de usuario y tenant para que todos los endpoints apliquen la misma asociación.
     private (int?, int?) Identity()
     {
         if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId)) return (null, null);
