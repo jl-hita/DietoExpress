@@ -49,5 +49,30 @@ public partial class angulosodbContext
         modelBuilder.Entity<invoices>(entity => { entity.HasKey(e=>e.id); entity.HasIndex(e=>new {e.series,e.number}).IsUnique(); entity.Property(e=>e.series).HasMaxLength(20).IsRequired(); entity.Property(e=>e.status).HasMaxLength(50).IsRequired(); entity.Property(e=>e.currency).HasMaxLength(10).IsRequired(); entity.Property(e=>e.subtotal).HasPrecision(12,2); entity.Property(e=>e.tax_amount).HasPrecision(12,2); entity.Property(e=>e.total).HasPrecision(12,2); entity.HasOne(e=>e.tenant).WithMany().HasForeignKey(e=>e.tenant_id).OnDelete(DeleteBehavior.Restrict); entity.HasMany(e=>e.lines).WithOne(e=>e.invoice).HasForeignKey(e=>e.invoice_id).OnDelete(DeleteBehavior.Cascade); });
         modelBuilder.Entity<invoice_lines>(entity => { entity.HasKey(e=>e.id); entity.HasIndex(e=>new {e.invoice_id,e.line_number}).IsUnique(); entity.Property(e=>e.description).HasMaxLength(500).IsRequired(); entity.Property(e=>e.quantity).HasPrecision(12,4); entity.Property(e=>e.unit_price).HasPrecision(12,2); entity.Property(e=>e.net_amount).HasPrecision(12,2); entity.Property(e=>e.tax_rate).HasPrecision(7,4); entity.Property(e=>e.tax_amount).HasPrecision(12,2); entity.Property(e=>e.total_amount).HasPrecision(12,2); });
         modelBuilder.Entity<fiscal_records>(entity => { entity.HasKey(e=>e.id); entity.HasIndex(e=>new {e.invoice_id,e.record_type}).IsUnique(); entity.Property(e=>e.previous_hash).HasMaxLength(128).IsRequired(); entity.Property(e=>e.hash).HasMaxLength(128).IsRequired(); entity.Property(e=>e.record_type).HasMaxLength(20).IsRequired(); entity.Property(e=>e.record_version).HasMaxLength(20).IsRequired(); entity.Property(e=>e.submission_status).HasMaxLength(50).IsRequired(); entity.HasOne(e=>e.invoice).WithMany().HasForeignKey(e=>e.invoice_id).OnDelete(DeleteBehavior.Restrict); });
+        modelBuilder.Entity<nutritionist_availability>(entity =>
+        {
+            entity.HasKey(e => e.id).HasName("nutritionist_availability_pkey");
+            entity.HasIndex(e => new { e.tenant_id, e.nutritionist_id, e.day_of_week, e.start_time }).IsUnique();
+            entity.Property(e => e.start_time).HasColumnType("time");
+            entity.Property(e => e.end_time).HasColumnType("time");
+            entity.HasOne(e => e.tenant).WithMany().HasForeignKey(e => e.tenant_id).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.nutritionist).WithMany().HasForeignKey(e => e.nutritionist_id).OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<patient_appointments>(entity =>
+        {
+            entity.HasKey(e => e.id).HasName("patient_appointments_pkey");
+            entity.HasIndex(e => new { e.tenant_id, e.starts_at });
+            entity.HasIndex(e => new { e.client_id, e.starts_at });
+            entity.Property(e => e.starts_at).HasColumnType("timestamp with time zone");
+            entity.Property(e => e.ends_at).HasColumnType("timestamp with time zone");
+            entity.Property(e => e.status).HasMaxLength(30).IsRequired();
+            entity.Property(e => e.patient_notes).HasColumnType("text");
+            entity.Property(e => e.professional_notes).HasColumnType("text");
+            entity.Property(e => e.created_at).HasColumnType("timestamp with time zone").HasDefaultValueSql("now()");
+            entity.Property(e => e.updated_at).HasColumnType("timestamp with time zone").HasDefaultValueSql("now()");
+            entity.HasOne(e => e.tenant).WithMany().HasForeignKey(e => e.tenant_id).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.client).WithMany().HasForeignKey(e => e.client_id).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.nutritionist).WithMany().HasForeignKey(e => e.nutritionist_id).OnDelete(DeleteBehavior.Cascade);
+        });
     }
 }
