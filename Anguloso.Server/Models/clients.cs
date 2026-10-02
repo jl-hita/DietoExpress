@@ -37,6 +37,12 @@ public partial class clients
 
     public DateTime? archived_at { get; set; }
 
+    public string lifecycle_status { get; set; } = "pending_info";
+
+    public DateTime? lifecycle_status_changed_at { get; set; }
+
+    public DateTime? last_activity_at { get; set; }
+
     public int portal_token_version { get; set; } = 1;
 
     public int? tenant_id { get; set; }
