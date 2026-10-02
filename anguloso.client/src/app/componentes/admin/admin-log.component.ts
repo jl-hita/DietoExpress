@@ -44,6 +44,7 @@ import { AdminService } from '../../servicios/admin.service';
     @media (max-width: 700px) { .log-header { flex-direction: column; align-items: flex-start; } .date-navigation { align-self: center; } }
   `]
 })
+// Documentación: este componente coordina estado de interfaz y operaciones asíncronas que deben mantenerse alineadas con la API.
 export class AdminLogComponent implements OnInit {
   selectedDate = this.toDateString(new Date());
   previousDate?: string;

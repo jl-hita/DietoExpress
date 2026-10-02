@@ -80,6 +80,7 @@ import { AdminUser, UpdateLicenseDto } from '../../servicios/admin.service';
     }
   `]
 })
+// Documentación: este componente coordina estado de interfaz y operaciones asíncronas que deben mantenerse alineadas con la API.
 export class EditLicenseDialogComponent {
   model: UpdateLicenseDto;
   formattedExpiryDate: string = '';

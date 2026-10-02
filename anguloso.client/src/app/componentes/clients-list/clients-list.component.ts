@@ -41,6 +41,7 @@ export interface ClientItem {
   templateUrl: './clients-list.component.html',
   styleUrls: ['./clients-list.component.css']
 })
+// Documentación: este componente coordina estado de interfaz y operaciones asíncronas que deben mantenerse alineadas con la API.
 export class ClientsListComponent implements OnInit, OnDestroy {
   @Input() clients: ClientItem[] = [];
   @Input() loading: boolean = false;

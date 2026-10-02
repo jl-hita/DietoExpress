@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common'; import { FormsModule } from '@an
 import { MatCardModule } from '@angular/material/card'; import { MatButtonModule } from '@angular/material/button'; import { MatIconModule } from '@angular/material/icon'; import { MatFormFieldModule } from '@angular/material/form-field'; import { MatInputModule } from '@angular/material/input'; import { MatCheckboxModule } from '@angular/material/checkbox'; import { MatSlideToggleModule } from '@angular/material/slide-toggle'; import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { AdminService, AdminPlan } from '../../servicios/admin.service';
 @Component({selector:'app-admin-plans',standalone:true,imports:[CommonModule,FormsModule,MatCardModule,MatButtonModule,MatIconModule,MatFormFieldModule,MatInputModule,MatCheckboxModule,MatSlideToggleModule,MatSnackBarModule],templateUrl:'./admin-plans.component.html',styleUrls:['./admin-plans.component.css']})
+// Documentación: este componente coordina estado de interfaz y operaciones asíncronas que deben mantenerse alineadas con la API.
 export class AdminPlansComponent implements OnInit, OnDestroy {
   plans: AdminPlan[] = [];
   private timers = new Map<number, ReturnType<typeof setTimeout>>();

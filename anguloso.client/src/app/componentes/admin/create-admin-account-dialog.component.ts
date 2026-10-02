@@ -125,6 +125,7 @@ import { AdminPlan, CreateAdminAccountDto } from '../../servicios/admin.service'
     @media (max-width: 700px) { .dialog-content { min-width:0; } .two-cols { grid-template-columns:1fr; } }
   `]
 })
+// Documentación: este componente coordina estado de interfaz y operaciones asíncronas que deben mantenerse alineadas con la API.
 export class CreateAdminAccountDialogComponent {
   model: CreateAdminAccountDto;
   plans: AdminPlan[];

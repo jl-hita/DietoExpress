@@ -463,6 +463,7 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
     }
   `]
 })
+// Documentación: este componente coordina estado de interfaz y operaciones asíncronas que deben mantenerse alineadas con la API.
 export class AdminDashboardComponent implements OnInit {
   stats?: AdminStats;
   plans: AdminPlan[] = [];
