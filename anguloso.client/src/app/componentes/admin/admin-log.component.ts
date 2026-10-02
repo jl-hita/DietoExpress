@@ -29,7 +29,7 @@ import { AdminService } from '../../servicios/admin.service';
     </div>
   `,
   styles: [`
-    .log-container { padding: 24px; max-width: 1400px; margin: 0 auto; font-family: 'Roboto', sans-serif; }
+    .log-container { padding: 24px; width: 100%; margin: 0; font-family: 'Roboto', sans-serif; }
     .log-header { display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 20px; }
     h1 { margin: 0; color: #0f172a; font-size: 26px; }
     .log-header p { margin: 4px 0 0; color: #64748b; font-size: 14px; }
