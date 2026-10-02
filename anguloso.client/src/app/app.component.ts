@@ -1,29 +1,13 @@
 import { RouterOutlet } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
-import { Component, OnInit } from '@angular/core';
-
-interface WeatherForecast {
-  date: string;
-  temperatureC: number;
-  temperatureF: number;
-  summary: string;
-}
+import { Component } from '@angular/core';
 
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
-    standalone: true,
+  standalone: true,
   imports: [RouterOutlet],
   styleUrl: './app.component.css'
 })
-export class AppComponent implements OnInit {
-  //public forecasts: WeatherForecast[] = [];
-
-  constructor(private http: HttpClient) {}
-
-  ngOnInit() {
-    //this.getForecasts();
-  }
-
+export class AppComponent {
   title = 'anguloso.client';
 }
