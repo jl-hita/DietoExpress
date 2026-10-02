@@ -107,11 +107,47 @@
           <a *ngIf="profile.clinicPhone" [href]="'tel:' + profile.clinicPhone" class="clinic-call-btn" title="Llamar a la clínica">
             <mat-icon>phone</mat-icon>
           </a>
+          <button type="button" class="portal-notification-btn" (click)="toggleNotifications()" title="Notificaciones" aria-label="Abrir notificaciones">
+            <mat-icon>notifications</mat-icon>
+            <span class="notification-badge" *ngIf="unreadNotificationCount">{{ unreadNotificationCount > 9 ? '9+' : unreadNotificationCount }}</span>
+          </button>
           <button (click)="logoutPatient()" class="portal-logout-btn" title="Cerrar sesión">
             <mat-icon>logout</mat-icon>
           </button>
         </div>
       </div>
+
+      <section class="notification-panel" *ngIf="notificationsOpen">
+        <div class="notification-panel-header">
+          <div>
+            <strong>Notificaciones</strong>
+            <span *ngIf="unreadNotificationCount">{{ unreadNotificationCount }} sin leer</span>
+          </div>
+          <button type="button" (click)="enablePushNotifications()" [disabled]="pushBusy || !pushSupported || pushEnabled" class="notification-push-btn">
+            <mat-icon>{{ pushEnabled ? 'notifications_active' : 'notifications_none' }}</mat-icon>
+            {{ pushEnabled ? 'Push activadas' : pushBusy ? 'Activando…' : 'Activar avisos' }}
+          </button>
+        </div>
+        <div class="notification-push-message" *ngIf="pushMessage">{{ pushMessage }}</div>
+        <div class="notification-list" *ngIf="!notificationsLoading && notifications.length">
+          <button type="button" class="notification-item" *ngFor="let notification of notifications"
+                  [class.unread]="!notification.readAt" (click)="markNotificationRead(notification)">
+            <span class="notification-icon"><mat-icon>{{ notificationIcon(notification.type) }}</mat-icon></span>
+            <span class="notification-copy">
+              <strong>{{ notification.title }}</strong>
+              <span>{{ notification.message }}</span>
+              <small>{{ notification.createdAt | date:'d MMM, HH:mm' }}</small>
+            </span>
+          </button>
+        </div>
+        <div class="notification-empty" *ngIf="!notificationsLoading && !notifications.length">
+          <mat-icon>notifications_none</mat-icon>
+          <span>No tienes notificaciones.</span>
+        </div>
+        <div class="notification-loading" *ngIf="notificationsLoading">
+          <mat-spinner diameter="22"></mat-spinner>
+        </div>
+      </section>
 
       <div class="patient-user-row">
         <div class="header-avatar">
