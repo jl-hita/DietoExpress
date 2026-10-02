@@ -3,6 +3,7 @@ using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace Anguloso.Server.Controllers;
 
@@ -13,11 +14,13 @@ public class PatientMessagesController : ControllerBase
 {
     private readonly angulosodbContext _context;
     private readonly NotificationService _notifications;
+    private readonly EmailServ _emailServ;
 
-    public PatientMessagesController(angulosodbContext context, NotificationService notifications)
+    public PatientMessagesController(angulosodbContext context, NotificationService notifications, EmailServ emailServ)
     {
         _context = context;
         _notifications = notifications;
+        _emailServ = emailServ;
     }
 
     [HttpGet("patient")]
@@ -146,6 +149,31 @@ RETURNING id;";
                 body.Length > 180 ? body[..180] + "…" : body,
                 "/patient?tab=messages");
         }
+        else
+        {
+            var assignment = await _context.client_nutritionist_assignments.AsNoTracking()
+                .Where(a => a.client_id == clientId && a.is_active && a.nutritionist.tenant_id == client.tenant_id.Value)
+                .Select(a => new { a.nutritionist_id, a.nutritionist.email, a.nutritionist.full_name })
+                .FirstOrDefaultAsync();
+
+            if (assignment?.email != null)
+            {
+                try
+                {
+                    var safePatient = System.Net.WebUtility.HtmlEncode(client.full_name ?? "Paciente");
+                    var safeBody = System.Net.WebUtility.HtmlEncode(body);
+                    await _emailServ.SendEmailAsync(
+                        assignment.email,
+                        $"Nuevo mensaje de {client.full_name ?? "tu paciente"}",
+                        $"<h2>Nuevo mensaje de {safePatient}</h2><p>{safeBody}</p><p>Entra en DietoExpress para responder al paciente.</p>");
+                }
+                catch (Exception ex)
+                {
+                    HttpContext.RequestServices.GetRequiredService<ILogger<PatientMessagesController>>()
+                        .LogWarning(ex, "No se pudo enviar el aviso de nuevo mensaje del paciente {ClientId}.", clientId);
+                }
+            }
+        }
 
         return Ok(new { id = messageId });
     }
@@ -176,7 +204,7 @@ WHERE client_id = {clientId} AND tenant_id = {tenantId} AND sender_user_id = {us
     private async Task<ConversationRef> GetOrCreateConversationAsync(int clientId)
     {
         var client = await _context.clients.AsNoTracking()
-            .Where(c => c.id == clientId && c.archived_at != null == false)
+            .Where(c => c.id == clientId && c.archived_at == null)
             .Select(c => new { c.id, c.tenant_id })
             .FirstOrDefaultAsync();
         if (client?.tenant_id == null) throw new KeyNotFoundException("Paciente no encontrado.");
