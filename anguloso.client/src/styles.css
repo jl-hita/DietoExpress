@@ -103,11 +103,25 @@ button, input, select, textarea { max-width: 100%; }
 
 
 /* ─── Cross-device layout hardening ───────────────────────── */
-html, body { width: 100%; min-width: 0; overflow-x: hidden; }
-app-root { display: block; min-width: 0; width: 100%; }
-/* Rutas sin menú lateral: el host ocupa el viewport y su contenido
-   se centra en escritorio. El LayoutComponent queda deliberadamente fuera
-   de esta regla para que sus pantallas aprovechen todo el ancho. */
+html, body {
+  width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+app-root {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Angular inserta el componente de la ruta justo después de router-outlet.
+   Las rutas públicas no usan LayoutComponent, así que aquí centramos su
+   superficie completa. Las rutas con menú entran en app-layout y quedan
+   fuera de esta regla. */
 app-root > router-outlet + * {
   display: block;
   width: min(100%, 1440px);
@@ -116,11 +130,15 @@ app-root > router-outlet + * {
   margin-right: auto;
 }
 
+/* El LayoutComponent es el único shell con menú lateral. Debe ocupar todo
+   el ancho disponible de app-root; sus páginas ya trabajan sobre .page. */
 app-root > app-layout {
   display: block;
   width: 100%;
+  max-width: none;
   min-width: 0;
   margin: 0;
+  padding: 0;
 }
 button, a, input, select, textarea { touch-action: manipulation; }
 @media (max-width: 768px) {
