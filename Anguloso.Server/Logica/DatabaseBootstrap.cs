@@ -935,6 +935,23 @@ public static class DatabaseBootstrap
         logger.LogInformation("Migración de aislamiento de conversaciones por asignación aplicada correctamente.");
     }
 
+    /// <summary>Estado y actividad operativa del ciclo de vida de pacientes.</summary>
+    public static void UpgradeAutomationSchemaV2(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            ALTER TABLE clients ADD COLUMN IF NOT EXISTS lifecycle_status VARCHAR(40) NOT NULL DEFAULT 'pending_info';
+            ALTER TABLE clients ADD COLUMN IF NOT EXISTS lifecycle_status_changed_at TIMESTAMPTZ;
+            ALTER TABLE clients ADD COLUMN IF NOT EXISTS last_activity_at TIMESTAMPTZ;
+            UPDATE clients SET lifecycle_status = CASE WHEN archived_at IS NOT NULL THEN 'archived'
+                WHEN birth_date IS NULL THEN 'pending_info' ELSE 'pending_first_appointment' END
+                WHERE lifecycle_status IS NULL;
+            CREATE INDEX IF NOT EXISTS idx_clients_tenant_lifecycle
+                ON clients(tenant_id, lifecycle_status, last_activity_at);
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('automation-v2-patient-lifecycle') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración de automatizaciones automation-v2-patient-lifecycle aplicada correctamente.");
+    }
+
     /// <summary>Motor persistente de automatizaciones, scheduler y tareas profesionales.</summary>
     public static void UpgradeAutomationSchemaV1(angulosodbContext context, ILogger logger)
     {
