@@ -139,3 +139,17 @@ Quedan como deuda técnica explícita la actualización de dependencias de desar
 - Los avisos de billing se envían al contacto profesional de la cuenta por el scheduler persistente y los problemas relevantes generan además una tarea profesional con prioridad alta.
 - Las acciones utilizan la misma idempotencia, reintentos, recuperación tras reinicio y aislamiento por tenant que el resto del motor.
 - Un fallo del sistema de automatizaciones no revierte un webhook de Stripe ya procesado: primero se confirma el estado de billing y después se registra el evento de automatización.
+
+
+## Integración de Google Calendar
+
+- Implementada conexión OAuth 2.0 por profesional con Google Calendar.
+- Tokens de acceso y refresh token almacenados cifrados; no se exponen al frontend.
+- Añadido estado de conexión, cuenta conectada, sincronización manual y desconexión desde la agenda.
+- Añadida sincronización periódica persistente cada 5 minutos.
+- Las citas de DietoExpress se reflejan en Google Calendar con identificador estable.
+- Los cambios de fecha/hora realizados sobre esas citas en Google Calendar se sincronizan de vuelta a DietoExpress.
+- Los eventos externos de Google Calendar se almacenan como bloqueos de disponibilidad y evitan nuevas reservas solapadas.
+- Se utilizan estados OAuth de un solo uso, hash del state y caducidad para evitar reutilización del callback.
+- La integración mantiene aislamiento por tenant y profesional.
+- La configuración sensible de Google se realiza mediante configuración/variables de entorno del servidor.
