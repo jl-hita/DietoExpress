@@ -40,6 +40,7 @@ export class AppointmentsComponent implements OnInit {
     this.loading = true;
     this.error = null;
     const from = new Date();
+    from.setDate(from.getDate() - 90);
     const to = new Date();
     to.setDate(to.getDate() + 60);
     let pending = 2;
