@@ -188,6 +188,30 @@ public sealed class AutomationService
                 clientId = AutomationJson.Deserialize<CheckinSubmittedPayload>(evt.Payload)?.ClientId;
                 status = "follow_up";
                 break;
+            case "diet.published":
+            case "diet.changed":
+                {
+                    var payload = AutomationJson.Deserialize<DietAutomationPayload>(evt.Payload)
+                        ?? throw new InvalidOperationException($"Payload inválido para {evt.EventType}.");
+                    await ScheduleActionAsync(
+                        evt.TenantId,
+                        "notify_patient",
+                        new NotifyPatientAction(
+                            payload.ClientId,
+                            evt.EventType == "diet.published" ? "Nueva dieta disponible" : "Tu dieta ha sido actualizada",
+                            evt.EventType == "diet.published"
+                                ? $"Tu nutricionista ha publicado la dieta "{payload.DietName}"."
+                                : $"Tu nutricionista ha actualizado la dieta "{payload.DietName}".",
+                            evt.EventType == "diet.published"
+                                ? "Ya puedes consultarla desde tu portal."
+                                : "Consulta los cambios desde tu portal.",
+                            "/patient?tab=diet"),
+                        DateTime.UtcNow,
+                        evt.Id,
+                        $"event:{evt.Id}:patient-notification",
+                        cancellationToken: cancellationToken);
+                    break;
+                }
             case "appointment.completed":
                 clientId = AutomationJson.Deserialize<AppointmentCompletedPayload>(evt.Payload)?.ClientId;
                 status = "active";
@@ -715,6 +739,7 @@ public sealed class AutomationService
 
     public sealed record ClientCreatedPayload(int ClientId, int? NutritionistId);
     public sealed record CheckinSubmittedPayload(int ClientId, int? NutritionistId);
+    public sealed record DietAutomationPayload(int ClientId, int AssignmentId, string DietName);
     public sealed record AppointmentCompletedPayload(int AppointmentId, int ClientId, int? NutritionistId);
     public sealed record AppointmentStatusPayload(int AppointmentId, int ClientId, int? NutritionistId, DateTime StartsAtUtc);
 }
