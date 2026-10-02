@@ -316,7 +316,7 @@ public class AppointmentsController : ControllerBase
         if (request.ProfessionalNotes?.Length > 4000)
             return BadRequest(new { message = "Las notas profesionales no pueden superar los 4000 caracteres." });
 
-        var appointment = await _context.patient_appointments.FirstOrDefaultAsync(a => a.id == id && a.tenant_id == tenantId);
+        var appointment = await _context.patient_appointments.Include(a => a.client).Include(a => a.nutritionist).FirstOrDefaultAsync(a => a.id == id && a.tenant_id == tenantId);
         if (appointment == null) return NotFound();
         if (!User.IsInRole("clinic_admin") && appointment.nutritionist_id != userId.Value) return Forbid();
 
@@ -345,7 +345,7 @@ public class AppointmentsController : ControllerBase
             var safeNutritionist = System.Net.WebUtility.HtmlEncode(appointment.nutritionist.full_name ?? "tu nutricionista");
             var localStart = TimeZoneInfo.ConvertTimeFromUtc(appointment.starts_at, GetMadridTimeZone());
             var dateText = localStart.ToString("dddd, d 'de' MMMM 'a las' HH:mm", new System.Globalization.CultureInfo("es-ES"));
-            _ = _emailServ.SendEmailAsync(
+            await _emailServ.SendEmailAsync(
                 appointment.client.email,
                 "Tu cita ha sido cancelada",
                 $"<h2>Hola, {safeName}</h2><p>{safeNutritionist} ha cancelado la cita que tenías prevista para el {dateText}.</p><p>Puedes entrar en tu portal de paciente para consultar tus próximas citas y reservar otro horario disponible.</p>");
