@@ -50,7 +50,7 @@ public sealed class AutomationController : ControllerBase
             rows.Add(new
             {
                 id = reader.GetInt64(0),
-                eventId = reader.IsDBNull(1) ? null : reader.GetInt64(1),
+                eventId = reader.IsDBNull(1) ? (long?)null : reader.GetInt64(1),
                 actionType = reader.GetString(2),
                 scheduledAt = reader.GetDateTime(3),
                 status = reader.GetString(4),
@@ -59,7 +59,7 @@ public sealed class AutomationController : ControllerBase
                 lastError = reader.IsDBNull(7) ? null : reader.GetString(7),
                 createdAt = reader.GetDateTime(8),
                 updatedAt = reader.GetDateTime(9),
-                completedAt = reader.IsDBNull(10) ? null : reader.GetDateTime(10)
+                completedAt = reader.IsDBNull(10) ? (DateTime?)null : reader.GetDateTime(10)
             });
         }
         return Ok(rows);
