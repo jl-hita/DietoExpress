@@ -77,6 +77,8 @@ public sealed class AutomationWorker : BackgroundService
         _logger.LogInformation("AutomationWorker detenido.");
     }
 
+    // Reclama un lote de trabajos de forma atómica. La combinación de transacción + SKIP LOCKED
+    // permite varias instancias del servidor sin ejecutar simultáneamente el mismo trabajo.
     private async Task<int> ProcessBatchAsync(CancellationToken cancellationToken)
     {
         var jobs = new List<AutomationJob>();
@@ -139,6 +141,8 @@ public sealed class AutomationWorker : BackgroundService
         return jobs.Count;
     }
 
+    // Ejecuta una acción ya reclamada. Los errores se registran y el trabajo se reprograma o marca
+    // como fallido según attempts/max_attempts, por lo que un fallo temporal no pierde el trabajo.
     private async Task ExecuteJobAsync(AutomationJob job, CancellationToken cancellationToken)
     {
         var started = DateTime.UtcNow;
