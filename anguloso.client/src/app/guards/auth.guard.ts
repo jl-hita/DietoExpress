@@ -8,6 +8,7 @@ import { map, catchError, switchMap } from 'rxjs/operators';
 @Injectable({
   providedIn: 'root'
 })
+// Primero se usa la sesión local; si no existe, se intenta restaurarla antes de resolver definitivamente la navegación.
 export class AuthGuard implements CanActivate {
   constructor(
     private authService: AuthService,

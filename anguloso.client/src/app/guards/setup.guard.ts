@@ -7,6 +7,7 @@ import { map, catchError } from 'rxjs/operators';
 @Injectable({
   providedIn: 'root'
 })
+// El acceso al asistente depende del estado persistido de configuración; ante un error se evita abrir una ruta de inicialización insegura.
 export class SetupGuard implements CanActivate {
   constructor(private adminService: AdminService, private router: Router) {}
 

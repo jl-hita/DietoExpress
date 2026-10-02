@@ -6,6 +6,7 @@ import { environment } from '../../environments/environments';
 import { Profile, UpdateProfile } from '../modelos/profile';
 
 @Injectable({ providedIn: 'root' })
+// Mantiene el perfil en memoria para que distintas vistas compartan el mismo estado sin repetir consultas al backend.
 export class ProfileService {
   private base = environment.apiUrl;
   private profileSubject = new BehaviorSubject<Profile | null>(null);

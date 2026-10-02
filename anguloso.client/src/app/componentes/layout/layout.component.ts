@@ -13,6 +13,7 @@ import { MatButtonModule } from '@angular/material/button';
   templateUrl: './layout.component.html',
   styleUrls: ['./layout.component.css']
 })
+// El layout concentra el estado transversal de navegación y los cambios de interfaz compartidos por las vistas principales.
 export class LayoutComponent {
   mobileMenuOpen = false;
 
