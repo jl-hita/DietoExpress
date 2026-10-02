@@ -80,7 +80,9 @@ public class ClientsController : ControllerBase
                 Phone = c.phone,
                 Gender = c.gender,
                 BirthDate = c.birth_date.HasValue ? new DateTime?(c.birth_date.Value.ToDateTime(TimeOnly.MinValue)) : null,
-                CreatedAt = c.created_at
+                CreatedAt = c.created_at,
+                LifecycleStatus = c.lifecycle_status,
+                LastActivityAt = c.last_activity_at
             })
             .ToListAsync();
 
@@ -140,6 +142,8 @@ public class ClientsController : ControllerBase
             Gender = client.gender,
             BirthDate = client.birth_date.HasValue ? new DateTime?(client.birth_date.Value.ToDateTime(TimeOnly.MinValue)) : null,
             CreatedAt = client.created_at,
+            LifecycleStatus = client.lifecycle_status,
+            LastActivityAt = client.last_activity_at,
             Notes = client.notes
         };
 
@@ -463,6 +467,8 @@ public class ClientsController : ControllerBase
 
         // Optionally: delete biometrics cascade if not configured
         client.archived_at = DateTime.UtcNow;
+        client.lifecycle_status = "archived";
+        client.lifecycle_status_changed_at = DateTime.UtcNow;
         client.access_token = null;
         client.access_token_expires_at = null;
         await _context.SaveChangesAsync();
