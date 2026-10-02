@@ -58,8 +58,7 @@ public class LicenseService : ILicenseService
             Features = sub.plan.features.Where(f => f.enabled).Select(f => f.feature_code).ToList(),
             NutritionistReplacementAvailableAt = await GetNutritionistReplacementAvailableAtAsync(tenantId.Value) };
     }
-    public async Task<bool> CanUseFeatureAsync(int? tenantId, string featureCode)
-    {
+    // La comprobación de una funcionalidad parte siempre de la licencia efectiva del tenant y además valida su vigencia temporal.\n    public async Task<bool> CanUseFeatureAsync(int? tenantId, string featureCode)\n    {
         var license = await GetLicenseAsync(tenantId);
         return license != null && license.Status == "active" && (!license.ExpiresAt.HasValue || license.ExpiresAt.Value > DateTime.UtcNow) && license.Features.Contains(featureCode, StringComparer.OrdinalIgnoreCase);
     }
@@ -146,8 +145,7 @@ public class LicenseService : ILicenseService
         if (license.MaxNutritionists.HasValue && license.Nutritionists >= license.MaxNutritionists.Value)
             return (false, "Se ha alcanzado el límite de nutricionistas activos de la licencia.");
 
-        var replacementAvailableAt = await GetNutritionistReplacementAvailableAtAsync(tenantIdValue);
-        if (!allowReactivation && replacementAvailableAt.HasValue && replacementAvailableAt.Value > DateTime.UtcNow)
+        // Las plazas liberadas quedan temporalmente bloqueadas para evitar que una baja se convierta inmediatamente en una sustitución;\n        // la excepción de reactivación permite recuperar la misma cuenta sin consumir una plaza nueva.\n        var replacementAvailableAt = await GetNutritionistReplacementAvailableAtAsync(tenantIdValue);\n        if (!allowReactivation && replacementAvailableAt.HasValue && replacementAvailableAt.Value > DateTime.UtcNow
             return (false, $"Una plaza liberada recientemente está en periodo de sustitución hasta {replacementAvailableAt.Value:dd/MM/yyyy HH:mm} UTC.");
 
         return (true, null);
