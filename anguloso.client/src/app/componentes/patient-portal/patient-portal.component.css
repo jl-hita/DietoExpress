@@ -331,6 +331,40 @@
   background: linear-gradient(180deg, #1e293b 0%, transparent 100%);
 }
 
+.day-title {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.day-title-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  margin-right: 12px;
+  border-radius: 13px;
+  background: rgba(99,102,241,.12);
+}
+
+.day-title-icon mat-icon {
+  font-size: 26px;
+  width: 26px;
+  height: 26px;
+  color: #818cf8;
+}
+
+.day-title .eyebrow {
+  display: block;
+  margin-bottom: 2px;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
 .day-hero mat-icon, .section-hero mat-icon {
   font-size: 36px;
   width: 36px;
@@ -430,6 +464,82 @@
   border-radius: inherit;
   background: linear-gradient(90deg, #14b8a6, #6366f1);
   transition: width .3s ease;
+}
+
+.today-next-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 16px 8px;
+  padding: 12px 14px;
+  border: 1px solid rgba(20,184,166,.25);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(20,184,166,.08), rgba(99,102,241,.07));
+}
+
+.next-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border-radius: 10px;
+  background: rgba(20,184,166,.12);
+  color: #2dd4bf;
+}
+
+.next-card-icon mat-icon {
+  font-size: 19px;
+  width: 19px;
+  height: 19px;
+}
+
+.next-card-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+
+.next-card-copy span {
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.next-card-copy strong {
+  color: #e2e8f0;
+  font-size: 13px;
+}
+
+.next-card-copy small {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.next-card-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+  padding: 7px 9px;
+  border: 0;
+  background: transparent;
+  color: #818cf8;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.next-card-action mat-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
 }
 
 .diet-name-chip {
@@ -887,11 +997,19 @@
   .portal-content { padding-bottom: 92px; }
   .meals-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .today-summary { padding-left: 28px; padding-right: 28px; }
+  .today-next-card { max-width: 1080px; margin-left: auto; margin-right: auto; }
   .shopping-category, .bmi-card, .weight-history { max-width: 1080px; margin-left: auto; margin-right: auto; }
   .stats-grid { max-width: 1080px; margin-left: auto; margin-right: auto; }
 }
 
 @media (max-width: 560px) {
+  .today-next-card {
+    align-items: flex-start;
+  }
+
+  .next-card-action {
+    padding-right: 0;
+  }
   .today-summary {
     grid-template-columns: 1fr 1fr;
   }
