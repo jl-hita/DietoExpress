@@ -4,6 +4,8 @@ namespace DietoExpress.Security.Tests;
 
 public class IdorRegressionTests
 {
+    // Los tests son regresiones estáticas: cada caso exige que el endpoint vuelva a comprobar tenant, propietario o asignación antes de usar el identificador recibido.
+    // Todas las aserciones leen el fuente real del repositorio para detectar la eliminación accidental de filtros de autorización.
     private static string RepoRoot
     {
         get

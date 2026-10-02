@@ -5,6 +5,8 @@ namespace DietoExpress.Security.Tests;
 
 public class AuthorizationRegressionTests
 {
+    // Estas pruebas inspeccionan el código desplegable directamente para detectar regresiones de autorización, límites de entrada y configuración de sesión sin depender de una base de datos real.
+    // Resolver la raíz desde AppContext permite que las pruebas funcionen tanto localmente como dentro del runner de CI.
     private static string RepoRoot
     {
         get
@@ -77,6 +79,7 @@ public class AuthorizationRegressionTests
         Assert.DoesNotContain("localStorage.setItem('patient", portal);
     }
 
+    // La sesión del paciente se considera revocable cuando cambia la versión almacenada; el test verifica que el claim y el filtro de autenticación estén conectados.
     [Fact]
     public void PatientSessions_AreRevocableByPortalTokenVersion()
     {
@@ -245,6 +248,7 @@ public class AuthorizationRegressionTests
         Assert.Contains("idx_billing_checkout_pending_tenant", schema);
     }
 
+    // El checkout es especialmente sensible a carreras: dos peticiones simultáneas no deben crear estados de suscripción incompatibles dentro del mismo tenant.
     [Fact]
     public void StripeCheckout_SerializesConcurrentTenantSessions()
     {
@@ -338,6 +342,7 @@ public class AuthorizationRegressionTests
         Assert.True(clientQueryPos > lockPos);
     }
 
+    // Las mutaciones de asignaciones se comprueban como operaciones serializadas porque los límites y el estado de las relaciones pueden cambiar concurrentemente.
     [Fact]
     public void ClientDietAssignmentMutations_SerializeAgainstTenantLock()
     {

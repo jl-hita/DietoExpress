@@ -14,6 +14,7 @@ namespace DietoExpress.Security.Tests;
 
 public class TenantIsolationTests
 {
+    // Aquí sí se ejecutan los controladores contra una base InMemory: los datos de dos tenants permiten comprobar que un identificador válido por sí solo nunca basta para cruzar el límite.
     [Fact]
     public async Task AssignDiet_DoesNotAllowDietFromAnotherTenant()
     {
@@ -317,6 +318,7 @@ public class TenantIsolationTests
         Assert.Single(await db.food_favorites.ToListAsync());
     }
 
+    // Los controladores se construyen con claims y RequestServices equivalentes a una petición autenticada para que las pruebas ejerciten la autorización real del endpoint.
     private static FoodController CreateFoodController(
         angulosodbContext db,
         int userId,
@@ -346,6 +348,7 @@ public class TenantIsolationTests
         return controller;
     }
 
+    // Cada prueba recibe una base aislada para impedir que datos de una regresión contaminen otra.
     private static angulosodbContext CreateDb()
     {
         var options = new DbContextOptionsBuilder<angulosodbContext>()
@@ -355,6 +358,7 @@ public class TenantIsolationTests
         return new angulosodbContext(options);
     }
 
+    // Se inyecta una licencia simulada para poder probar por separado el acceso a dietas compartidas sin introducir Stripe ni configuración externa en el test.
     private static ClientDietsController CreateController(
         angulosodbContext db,
         int userId,
