@@ -9,6 +9,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Anguloso.Server.Logica;
 
+/// <summary>
+/// Integra la agenda profesional de DietoExpress con Google Calendar.
+/// Los tokens se cifran antes de persistirse y la sincronización respeta el tenant del profesional.
+/// Los eventos externos bloquean disponibilidad; las citas DietoExpress mantienen su propia identidad.
+/// </summary>
 public sealed class GoogleCalendarService
 {
     private readonly IHttpClientFactory _httpClientFactory;
@@ -104,6 +109,8 @@ public sealed class GoogleCalendarService
         }
     }
 
+    // Sincronización bidireccional: importa eventos externos, aplica cambios de horario a citas vinculadas
+    // y publica las citas DietoExpress en Google mediante identificadores estables.
     public async Task SyncUserAsync(int userId, CancellationToken cancellationToken = default)
     {
         var connection = await _db.google_calendar_connections.SingleOrDefaultAsync(x => x.user_id == userId, cancellationToken);
@@ -165,6 +172,8 @@ public sealed class GoogleCalendarService
         await _db.SaveChangesAsync(cancellationToken);
     }
 
+    // Se consulta antes de aceptar una reserva. Un evento externo solo bloquea el intervalo: no crea ni
+    // cancela automáticamente una cita DietoExpress, evitando convertir un evento personal en una acción clínica.
     public async Task<bool> IsBlockedAsync(int nutritionistId, int tenantId, DateTime startsUtc, DateTime endsUtc, CancellationToken cancellationToken = default)
     {
         return await _db.external_calendar_events.AsNoTracking().AnyAsync(x =>
