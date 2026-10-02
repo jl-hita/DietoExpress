@@ -491,6 +491,7 @@ export class AdminDashboardComponent implements OnInit {
     this.loadData();
   }
 
+  // El panel combina métricas, usuarios, configuración y planes; cada bloque se carga independientemente para que un fallo parcial no inutilice toda la pantalla.
   loadData(): void {
     this.adminService.getStats().subscribe({
       next: (stats) => this.stats = stats,
@@ -511,6 +512,7 @@ export class AdminDashboardComponent implements OnInit {
     });
   }
 
+  // Cada configuración tiene su propio temporizador de debounce para agrupar cambios de escritura y evitar guardar cada pulsación.
   onConfigValueChange(config: AdminConfig & { originalValor?: string; saving?: boolean; saveState?: 'idle' | 'pending' | 'saving' | 'saved' | 'error' }): void {
     config.saveState = 'pending';
     const previous = this.configTimers.get(config.id);
@@ -524,6 +526,7 @@ export class AdminDashboardComponent implements OnInit {
     this.configTimers.set(config.id, timer);
   }
 
+  // Si llega un cambio mientras otro guardado está en curso se marca como pendiente y se reintenta al terminar, evitando perder la última edición.
   saveConfig(config: AdminConfig & { originalValor?: string; saving?: boolean; saveState?: 'idle' | 'pending' | 'saving' | 'saved' | 'error'; pendingSave?: boolean }): void {
     if (config.saving) {
       config.pendingSave = true;
@@ -678,6 +681,7 @@ export class AdminDashboardComponent implements OnInit {
     });
   }
 
+  // El archivado tiene dos recorridos: sin pacientes se confirma directamente; con pacientes se abre primero un flujo para resolver sus asignaciones.
   deleteUser(user: AdminUser): void {
     this.adminService.getDeactivationPreview(user.id).subscribe({
       next: preview => {

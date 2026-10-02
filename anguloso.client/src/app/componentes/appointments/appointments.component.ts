@@ -46,6 +46,7 @@ export class AppointmentsComponent implements OnInit {
 
   connectGoogleCalendar(): void { this.portalService.connectGoogleCalendar(); }
 
+  // La sincronización invalida el estado visual local y vuelve a cargar citas/disponibilidad después de que el backend termine el proceso.
   syncGoogleCalendar(): void {
     this.calendarBusy = true; this.error = null;
     this.portalService.syncGoogleCalendar().subscribe({ next: () => { this.calendarBusy = false; this.loadGoogleCalendar(); this.load(); this.success = 'Google Calendar sincronizado.'; }, error: err => { this.calendarBusy = false; this.error = err?.error?.detail || err?.error?.message || 'No hemos podido sincronizar Google Calendar.'; } });
@@ -58,6 +59,7 @@ export class AppointmentsComponent implements OnInit {
   }
 
   // Se cargan en paralelo citas y disponibilidad para que el calendario profesional quede operativo aunque una colección tarde más que la otra.
+  // Ambas colecciones se solicitan en paralelo; el indicador global solo desaparece cuando han terminado las dos peticiones.
   load(): void {
     this.loading = true;
     this.error = null;
@@ -95,6 +97,7 @@ export class AppointmentsComponent implements OnInit {
   }
 
   // Una edición actualiza una sola regla; una alta con "lunes a viernes" crea las cinco reglas mediante forkJoin.
+  // En modo edición se actualiza una regla; para la opción laboral de lunes a viernes se crean las cinco reglas de forma concurrente.
   addAvailability(): void {
     this.success = null; this.error = null; this.saving = true;
     const request = {
@@ -187,6 +190,7 @@ export class AppointmentsComponent implements OnInit {
     });
   }
 
+  // El cambio de estado se confirma antes de enviarlo y, tras recibir la respuesta canónica del servidor, sustituye el elemento local.
   changeStatus(appointment: PatientAppointment, status: string): void {
     if (!confirm(this.statusConfirmation(status, appointment.clientName || 'el paciente'))) return;
     this.error = null; this.success = null;

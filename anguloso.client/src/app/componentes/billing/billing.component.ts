@@ -305,6 +305,7 @@ export class BillingComponent implements OnInit {
   ) {}
 
   // La página interpreta el resultado de Stripe desde la URL y, tras un checkout, espera a que el webhook active la suscripción.
+  // El resultado del checkout se lee de la URL, mientras que el estado real de la suscripción se obtiene del backend y no se deduce del retorno de Stripe.
   ngOnInit(): void {
     this.expiredNotice = this.route.snapshot.queryParamMap.get('reason') === 'expired';
     const result = this.route.snapshot.queryParamMap.get('checkout');
@@ -385,6 +386,7 @@ export class BillingComponent implements OnInit {
     return 'Cambiar a este plan';
   }
 
+  // El frontend solo inicia el checkout; precio, plan permitido y estado de suscripción se validan de nuevo en el backend.
   selectPlan(plan: BillingPlan): void {
     if (this.actionLoading || !this.hasPrice(plan)) return;
 
@@ -426,6 +428,7 @@ export class BillingComponent implements OnInit {
     });
   }
 
+  // Cancelar aquí significa desactivar la renovación automática, no borrar inmediatamente la suscripción: el periodo pagado continúa vigente.
   cancelRenewal(): void {
     const endDate = this.license?.currentPeriodEnd
       ? new Date(this.license.currentPeriodEnd).toLocaleDateString('es-ES')
