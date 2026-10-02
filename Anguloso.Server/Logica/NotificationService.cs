@@ -151,7 +151,9 @@ WHERE tenant_id = @tenant AND client_id = @client AND endpoint = @endpoint;", co
         if (string.IsNullOrWhiteSpace(subject) || string.IsNullOrWhiteSpace(publicKey) || string.IsNullOrWhiteSpace(privateKey))
             return;
 
-        // Se carga primero la lista para no mantener una conexión SQL abierta mientras se realizan peticiones HTTP al proveedor push.\n        // Las suscripciones que el proveedor marca como inexistentes se eliminan para evitar reintentos futuros.\n        var subscriptions = new List<(long Id, string Endpoint, string P256dh, string Auth)>();
+        // Se carga primero la lista para no mantener una conexión SQL abierta mientras se realizan peticiones HTTP al proveedor push.
+        // Las suscripciones que el proveedor marca como inexistentes se eliminan para evitar reintentos futuros.
+        var subscriptions = new List<(long Id, string Endpoint, string P256dh, string Auth)>();
         await using (var connection = new NpgsqlConnection(_connectionString))
         {
             await connection.OpenAsync();

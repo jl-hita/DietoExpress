@@ -252,7 +252,10 @@ public class AppointmentsController : ControllerBase
         if (!ValidateAvailabilityRequest(request, out var start, out var end, out var validationMessage))
             return BadRequest(new { message = validationMessage });
 
-        // Antes de guardar el horario se comprueba el solapamiento en la misma zona de datos del profesional;\n        // permitir dos reglas coincidentes produciría slots duplicados al calcular disponibilidad.\n        var overlapsExisting = await _context.nutritionist_availability.AnyAsync(a =>\n            a.tenant_id == tenantId.Value &&
+        // Antes de guardar el horario se comprueba el solapamiento en la misma zona de datos del profesional;
+        // permitir dos reglas coincidentes produciría slots duplicados al calcular disponibilidad.
+        var overlapsExisting = await _context.nutritionist_availability.AnyAsync(a =>
+            a.tenant_id == tenantId.Value &&
             a.nutritionist_id == userId.Value &&
             a.day_of_week == request.DayOfWeek &&
             a.start_time < end &&
@@ -503,7 +506,9 @@ public class AppointmentsController : ControllerBase
         if (request.SlotMinutes is < 15 or > 240) { message = "La duración de las citas no es válida."; return false; }
         if (!TimeOnly.TryParse(request.StartTime, out start) || !TimeOnly.TryParse(request.EndTime, out end) || end <= start)
         { message = "El horario no es válido."; return false; }
-        // El intervalo debe poder dividirse exactamente en slots; así la disponibilidad generada nunca deja un bloque parcial.\n        var totalMinutes = (int)(end - start).TotalMinutes;\n        if (totalMinutes < request.SlotMinutes || totalMinutes % request.SlotMinutes != 0)
+        // El intervalo debe poder dividirse exactamente en slots; así la disponibilidad generada nunca deja un bloque parcial.
+        var totalMinutes = (int)(end - start).TotalMinutes;
+        if (totalMinutes < request.SlotMinutes || totalMinutes % request.SlotMinutes != 0)
         { message = "El horario debe contener bloques completos de la duración seleccionada."; return false; }
         return true;
     }

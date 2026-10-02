@@ -212,7 +212,10 @@ public sealed class GoogleCalendarService
 
     // Los tokens se almacenan protegidos y se refrescan solo cuando están próximos a caducar;
     // el nuevo token se persiste para que las siguientes sincronizaciones no repitan el refresh.
-    // El token de acceso de Google caduca; si está próximo a caducar se renueva usando el refresh token cifrado\n    // y se persiste el nuevo valor para que la siguiente sincronización no tenga que repetir el refresh.\n    private async Task<string> GetValidAccessTokenAsync(google_calendar_connections connection, CancellationToken cancellationToken)\n    {
+    // El token de acceso de Google caduca; si está próximo a caducar se renueva usando el refresh token cifrado
+    // y se persiste el nuevo valor para que la siguiente sincronización no tenga que repetir el refresh.
+    private async Task<string> GetValidAccessTokenAsync(google_calendar_connections connection, CancellationToken cancellationToken)
+    {
         if (connection.access_token_expires_at > DateTime.UtcNow.AddMinutes(1))
             return _protector.Unprotect(connection.access_token_encrypted);
         if (string.IsNullOrWhiteSpace(connection.refresh_token_encrypted)) throw new InvalidOperationException("La conexión de Google Calendar no tiene refresh token.");
