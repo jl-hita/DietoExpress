@@ -364,7 +364,8 @@ public class TenantIsolationTests
             db,
             null!,
             null!,
-            license.Object);
+            license.Object,
+            null!);
 
         var claims = new List<Claim>
         {
