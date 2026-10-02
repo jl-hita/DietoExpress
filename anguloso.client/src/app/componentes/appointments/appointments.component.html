@@ -22,23 +22,29 @@
         <article class="day-card" *ngFor="let day of days">
           <div class="day-title">{{ day.label }}</div>
           <div class="rules" *ngIf="rulesFor(day.value).length; else noRules">
-            <button type="button" class="rule" *ngFor="let rule of rulesFor(day.value)"
-                    [class.inactive]="!rule.isActive" (click)="toggleAvailability(rule)" [disabled]="saving">
-              <span>{{ rule.startTime.slice(0,5) }}–{{ rule.endTime.slice(0,5) }}</span>
-              <small>{{ rule.slotMinutes }} min · {{ rule.isActive ? 'Activa' : 'Pausada' }}</small>
-            </button>
+            <div class="rule" *ngFor="let rule of rulesFor(day.value)" [class.inactive]="!rule.isActive">
+              <div class="rule-main" (click)="toggleAvailability(rule)">
+                <span>{{ rule.startTime.slice(0,5) }}–{{ rule.endTime.slice(0,5) }}</span>
+                <small>{{ rule.slotMinutes }} min · {{ rule.isActive ? 'Activa' : 'Pausada' }}</small>
+              </div>
+              <div class="rule-actions">
+                <button type="button" title="Modificar" (click)="editAvailability(rule)" [disabled]="saving"><mat-icon>edit</mat-icon></button>
+                <button type="button" title="Eliminar" (click)="deleteAvailability(rule)" [disabled]="saving"><mat-icon>delete</mat-icon></button>
+              </div>
+            </div>
           </div>
           <ng-template #noRules><span class="empty-day">Sin horario</span></ng-template>
         </article>
       </div>
       <div class="add-rule">
-        <strong>Añadir horario</strong>
+        <strong>{{ editingRuleId !== null ? 'Modificar horario' : 'Añadir horario' }}</strong>
         <select [(ngModel)]="newDay" aria-label="Día"><option [ngValue]="-1">Lunes a viernes</option><option *ngFor="let day of days" [ngValue]="day.value">{{ day.label }}</option></select>
         <input type="time" [(ngModel)]="newStart" aria-label="Hora de inicio">
         <span>—</span>
         <input type="time" [(ngModel)]="newEnd" aria-label="Hora de fin">
         <select [(ngModel)]="newSlot" aria-label="Duración"><option [ngValue]="15">15 min</option><option [ngValue]="30">30 min</option><option [ngValue]="45">45 min</option><option [ngValue]="60">60 min</option></select>
-        <button type="button" class="primary" (click)="addAvailability()" [disabled]="saving"><mat-icon>add</mat-icon> Añadir</button>
+        <button type="button" class="primary" (click)="addAvailability()" [disabled]="saving"><mat-icon>{{ editingRuleId !== null ? 'save' : 'add' }}</mat-icon> {{ editingRuleId !== null ? 'Guardar cambios' : 'Añadir' }}</button>
+        <button *ngIf="editingRuleId !== null" type="button" class="secondary" (click)="cancelAvailabilityEdit()" [disabled]="saving">Cancelar</button>
       </div>
     </section>
 
