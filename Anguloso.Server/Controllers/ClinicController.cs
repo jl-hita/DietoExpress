@@ -83,10 +83,11 @@ public class ClinicController : ControllerBase
         await using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
-            await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", tenantId.Value);
+            await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(748392616)");
 
             // El chequeo previo al lock es solo una respuesta rápida. Revalidamos
-            // dentro del lock para cerrar la carrera entre clínicas concurrentes.
+            // dentro del mismo lock global que usan los demás flujos de alta de cuentas.
+            // El username y el email son identificadores globales de acceso, no de tenant.
             if (await _context.users.AnyAsync(u => u.email != null && u.email.ToLower() == email.ToLower()))
                 return Conflict("El email ya está registrado.");
 

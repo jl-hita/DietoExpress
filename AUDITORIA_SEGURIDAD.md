@@ -62,3 +62,10 @@ También estoy revisando los despliegues y corrigiendo automáticamente los fall
 - Las recetas están modeladas como plantillas creadas por un profesional y no tienen un mecanismo explícito de compartición equivalente al de las dietas.
 - Ajusté ambas lecturas para exigir tenant y usuario creador, evitando que un profesional pueda consultar por ID o listar recetas privadas de otro profesional de la misma clínica.
 - Añadí una prueba de regresión para mantener este aislamiento.
+
+## Revisión adicional — concurrencia en altas de nutricionistas
+
+- Detecté que el alta de nutricionistas de una clínica usaba un bloqueo advisory basado en el tenant.
+- El username y el email de las cuentas son identificadores globales de acceso, por lo que dos clínicas distintas podían ejecutar simultáneamente la generación/revalidación de esos identificadores.
+- Cambié el alta para utilizar el mismo bloqueo global que los demás flujos de creación de cuentas y mantuve la revalidación de email dentro de la transacción.
+- Añadí una regresión para evitar que el alta vuelva a utilizar accidentalmente un lock limitado al tenant.
