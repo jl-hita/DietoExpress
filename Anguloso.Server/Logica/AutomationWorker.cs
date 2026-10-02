@@ -28,10 +28,19 @@ public sealed class AutomationWorker : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("AutomationWorker iniciado.");
+        var nextLifecycleSweep = DateTime.UtcNow;
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
+                if (DateTime.UtcNow >= nextLifecycleSweep)
+                {
+                    using var lifecycleScope = _scopeFactory.CreateScope();
+                    var automation = lifecycleScope.ServiceProvider.GetRequiredService<AutomationService>();
+                    await automation.RunPatientLifecycleSweepAsync(stoppingToken);
+                    nextLifecycleSweep = DateTime.UtcNow.AddHours(1);
+                }
+
                 var processed = await ProcessBatchAsync(stoppingToken);
                 if (processed == 0)
                     await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
