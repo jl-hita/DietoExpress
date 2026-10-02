@@ -63,5 +63,19 @@
         <div class="empty"><mat-icon>event_busy</mat-icon><h3>No hay próximas citas</h3><p>Cuando un paciente reserve un horario aparecerá aquí.</p></div>
       </ng-template>
     </section>
+
+    <section class="card" *ngIf="history.length">
+      <div class="card-header">
+        <div><mat-icon>history</mat-icon><div><h2>Historial</h2><p>Consultas anteriores y citas cerradas.</p></div></div>
+      </div>
+      <div class="appointment-list">
+        <article class="appointment history-row" *ngFor="let item of history.slice(0, 20)">
+          <div class="date-block"><strong>{{ formatDate(item.startsAt) }}</strong><span>{{ formatTime(item.startsAt) }}</span></div>
+          <div class="patient"><strong>{{ item.clientName || 'Paciente' }}</strong><span *ngIf="item.professionalNotes">{{ item.professionalNotes }}</span></div>
+          <span class="status" [class]="'status ' + item.status">{{ statusLabel(item.status) }}</span>
+          <div></div>
+        </article>
+      </div>
+    </section>
   </ng-container>
 </div>
