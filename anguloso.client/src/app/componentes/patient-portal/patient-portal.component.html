@@ -247,6 +247,28 @@
         </div>
       </div>
 
+      <section class="shopping-summary" *ngIf="shoppingItemCount">
+        <div class="shopping-summary-copy">
+          <div class="shopping-summary-title">
+            <strong>Tu compra</strong>
+            <span>{{ checkedShoppingItemCount }} de {{ shoppingItemCount }} productos</span>
+          </div>
+          <div class="shopping-progress-track">
+            <div class="shopping-progress-fill" [style.width.%]="shoppingProgressPercent"></div>
+          </div>
+        </div>
+        <span class="shopping-progress-percent">{{ shoppingProgressPercent }}%</span>
+        <button
+          *ngIf="checkedShoppingItemCount"
+          type="button"
+          class="shopping-reset-btn"
+          (click)="clearShoppingChecks()"
+          aria-label="Desmarcar toda la lista">
+          <mat-icon>restart_alt</mat-icon>
+          <span>Limpiar</span>
+        </button>
+      </section>
+
       <div class="empty-state" *ngIf="!shoppingList?.length">
         <mat-icon>shopping_cart_checkout</mat-icon>
         <h3>Sin datos</h3>
@@ -362,7 +384,12 @@
         <span>Hoy</span>
       </button>
       <button class="nav-tab" [class.active]="activeTab === 'shopping'" (click)="setTab('shopping')">
-        <mat-icon>shopping_cart</mat-icon>
+        <span class="nav-icon-wrap">
+          <mat-icon>shopping_cart</mat-icon>
+          <span class="nav-badge" *ngIf="shoppingItemCount - checkedShoppingItemCount > 0">
+            {{ shoppingItemCount - checkedShoppingItemCount }}
+          </span>
+        </span>
         <span>Compra</span>
       </button>
       <button class="nav-tab" [class.active]="activeTab === 'progress'" (click)="setTab('progress')">
