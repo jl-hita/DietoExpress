@@ -40,6 +40,41 @@
       <p class="login-hint">
         ¿No tienes un PIN? Solicita a tu nutricionista tu <strong>enlace mágico directo</strong>.
       </p>
+
+      <div class="access-link-recovery">
+        <div class="access-link-recovery-title">
+          <mat-icon>mail</mat-icon>
+          <div>
+            <strong>¿Ha caducado tu enlace?</strong>
+            <span>Te enviaremos uno nuevo a tu email.</span>
+          </div>
+        </div>
+
+        <div class="auth-error-banner" *ngIf="accessLinkError">
+          <mat-icon>error_outline</mat-icon>
+          <span>{{ accessLinkError }}</span>
+        </div>
+        <div class="auth-success-banner" *ngIf="accessLinkMessage">
+          <mat-icon>mark_email_read</mat-icon>
+          <span>{{ accessLinkMessage }}</span>
+        </div>
+
+        <form (ngSubmit)="requestNewAccessLink()" class="access-link-form">
+          <input
+            type="email"
+            [(ngModel)]="accessLinkEmail"
+            name="accessLinkEmail"
+            autocomplete="email"
+            placeholder="tu@email.com"
+            maxlength="320"
+            required />
+          <button type="submit" class="btn-portal-secondary" [disabled]="requestingAccessLink">
+            <mat-spinner *ngIf="requestingAccessLink" diameter="18"></mat-spinner>
+            <span *ngIf="!requestingAccessLink">Enviar enlace</span>
+            <span *ngIf="requestingAccessLink">Enviando...</span>
+          </button>
+        </form>
+      </div>
     </div>
   </div>
 
