@@ -283,7 +283,7 @@ public sealed class AutomationService
 
     private async Task SetPatientLifecycleStatusAsync(int tenantId,int clientId,string status,DateTime changedAt,CancellationToken cancellationToken)
     {
-        const string[] allowed=["pending_info","pending_first_appointment","active","follow_up","no_recent_followup","archived"];
+        string[] allowed=["pending_info","pending_first_appointment","active","follow_up","no_recent_followup","archived"];
         if(!allowed.Contains(status)) throw new ArgumentException("Estado de ciclo de vida no válido.",nameof(status));
         await using var connection=new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
