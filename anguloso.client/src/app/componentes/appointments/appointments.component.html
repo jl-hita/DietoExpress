@@ -13,6 +13,24 @@
 
   <div class="loading" *ngIf="loading"><mat-spinner diameter="32"></mat-spinner><span>Cargando agenda...</span></div>
 
+  <section class="card calendar-integration">
+    <div class="card-header">
+      <div><mat-icon>sync</mat-icon><div><h2>Google Calendar</h2><p>Sincroniza tus citas y usa tus eventos externos para bloquear horarios.</p></div></div>
+    </div>
+    <div class="calendar-status" *ngIf="googleCalendar?.connected; else calendarDisconnected">
+      <div><strong>Conectado</strong><span>{{ googleCalendar?.email }}</span><small *ngIf="googleCalendar?.lastSyncedAt">Última sincronización: {{ formatDate(googleCalendar!.lastSyncedAt!) }} {{ formatTime(googleCalendar!.lastSyncedAt!) }}</small></div>
+      <div class="actions">
+        <button type="button" class="primary small" (click)="syncGoogleCalendar()" [disabled]="calendarBusy"><mat-icon>sync</mat-icon> Sincronizar</button>
+        <button type="button" class="secondary small" (click)="disconnectGoogleCalendar()" [disabled]="calendarBusy">Desconectar</button>
+      </div>
+    </div>
+    <ng-template #calendarDisconnected>
+      <div class="calendar-status"><div><strong>Sin conectar</strong><span>Conecta tu cuenta de Google para sincronizar tu agenda.</span></div><button type="button" class="primary small" (click)="connectGoogleCalendar()"><mat-icon>event</mat-icon> Conectar Google Calendar</button></div>
+    </ng-template>
+  </section>
+
+
+
   <ng-container *ngIf="!loading">
     <section class="card">
       <div class="card-header">
