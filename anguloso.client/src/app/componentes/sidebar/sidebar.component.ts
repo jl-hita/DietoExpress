@@ -70,9 +70,10 @@ export class SidebarComponent implements OnInit {
   }
 
   logout() {
-    this.authService.logout();
-    this.closeMenu.emit();
-    this.router.navigate(['/']);
+    this.authService.logout().subscribe(() => {
+      this.closeMenu.emit();
+      this.router.navigate(['/']);
+    });
   }
 
   navigateAndClose(): void {

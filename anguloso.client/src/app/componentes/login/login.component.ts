@@ -64,7 +64,7 @@ export class LoginComponent {
 
     this.googleLogin(idToken).subscribe({
       next: (res) => {
-        this.authService.login(res.token);
+        this.authService.login(res);
         this.snackBar.open(`Bienvenido ${res.username}`, 'Cerrar', { duration: 3000 });
         this.ngZone.run(() => this.router.navigate(['/clients'])); // navegar en Angular zone
       },

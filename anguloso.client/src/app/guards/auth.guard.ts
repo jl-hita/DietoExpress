@@ -23,7 +23,19 @@ export class AuthGuard implements CanActivate {
       return true;
     }
 
-    return this.adminService.getSetupStatus().pipe(
+    return this.authService.restoreSession().pipe(
+      map(isAuthenticated => {
+        if (isAuthenticated) return true;
+        this.router.navigate(['/login']);
+        return false;
+      }),
+      catchError(() => {
+        this.router.navigate(['/login']);
+        return of(false);
+      })
+    );
+
+    /* return this.adminService.getSetupStatus().pipe(
       map(res => {
         if (!res.isConfigured) {
           this.router.navigate(['/setup']);
@@ -36,6 +48,6 @@ export class AuthGuard implements CanActivate {
         this.router.navigate(['/login']);
         return of(false);
       })
-    );
+    ); */
   }
 }

@@ -156,12 +156,19 @@ public class Program
             {
                 OnMessageReceived = context =>
                 {
-                    // El portal paciente usa una cookie HttpOnly para que el JWT
-                    // nunca quede accesible a JavaScript/localStorage.
-                    if (string.IsNullOrWhiteSpace(context.Token) &&
-                        context.Request.Cookies.TryGetValue("dietoexpress_patient_session", out var patientCookie))
+                    // Las sesiones JWT se transportan exclusivamente mediante cookies HttpOnly.
+                    // La selección por ruta permite coexistencia de sesión profesional y paciente.
+                    if (string.IsNullOrWhiteSpace(context.Token))
                     {
-                        context.Token = patientCookie;
+                        if (context.Request.Path.StartsWithSegments("/api/portal") &&
+                            context.Request.Cookies.TryGetValue("dietoexpress_patient_session", out var patientCookie))
+                        {
+                            context.Token = patientCookie;
+                        }
+                        else if (context.Request.Cookies.TryGetValue("dietoexpress_professional_session", out var professionalCookie))
+                        {
+                            context.Token = professionalCookie;
+                        }
                     }
                     return Task.CompletedTask;
                 },

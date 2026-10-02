@@ -93,6 +93,46 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void ProfessionalJwt_IsStoredOnlyInHttpOnlyCookie()
+    {
+        var auth = ReadServerController("AuthController.cs");
+        var program = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Program.cs"));
+        var service = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "servicios", "auth.service.ts"));
+        var interceptor = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "auth.interceptor.ts"));
+
+        Assert.Contains("dietoexpress_professional_session", auth);
+        Assert.Contains("HttpOnly = true", auth);
+        Assert.Contains("SameSite = SameSiteMode.Strict", auth);
+        Assert.Contains("MaxAge = TimeSpan.FromHours(3)", auth);
+        Assert.Contains("dietoexpress_professional_session", program);
+        Assert.DoesNotContain("localStorage", service);
+        Assert.DoesNotContain("localStorage", interceptor);
+        Assert.DoesNotContain("Authorization", interceptor);
+    }
+
+    [Fact]
+    public void ProfessionalLogout_RevokesTokenVersionAndClearsCookie()
+    {
+        var auth = ReadServerController("AuthController.cs");
+        var logoutPos = auth.IndexOf("HttpPost(\"logout\")", StringComparison.Ordinal);
+        Assert.True(logoutPos >= 0);
+        var logout = auth[logoutPos..];
+
+        Assert.Contains("user.token_version++", logout);
+        Assert.Contains("Response.Cookies.Delete(\"dietoexpress_professional_session\"", logout);
+        Assert.Contains("[Authorize(Policy = \"Professional\")]", logout);
+    }
+
+    [Fact]
+    public void JwtCookieSelection_AllowsProfessionalAndPatientSessionsToCoexist()
+    {
+        var program = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Program.cs"));
+        Assert.Contains("context.Request.Path.StartsWithSegments(\"/api/portal\")", program);
+        Assert.Contains("dietoexpress_patient_session", program);
+        Assert.Contains("dietoexpress_professional_session", program);
+    }
+
+    [Fact]
     public void SensitiveProfessionalEndpoints_RequireProfessionalPolicy()
     {
         AssertEndpointRequiresProfessional("Anguloso.Server/Controllers/BillingController.cs", "HttpPost(\"checkout\")");
