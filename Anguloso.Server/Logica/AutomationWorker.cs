@@ -30,6 +30,7 @@ public sealed class AutomationWorker : BackgroundService
         _logger.LogInformation("AutomationWorker iniciado.");
         var nextLifecycleSweep = DateTime.UtcNow;
         var nextFollowUpSweep = DateTime.UtcNow;
+        var nextDietSweep = DateTime.UtcNow;
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -48,6 +49,15 @@ public sealed class AutomationWorker : BackgroundService
                     var automation = followUpScope.ServiceProvider.GetRequiredService<AutomationService>();
                     await automation.RunFollowUpAutomationSweepAsync(stoppingToken);
                     nextFollowUpSweep = DateTime.UtcNow.AddHours(1);
+                }
+
+
+                if (DateTime.UtcNow >= nextDietSweep)
+                {
+                    using var dietScope = _scopeFactory.CreateScope();
+                    var automation = dietScope.ServiceProvider.GetRequiredService<AutomationService>();
+                    await automation.RunDietAutomationSweepAsync(stoppingToken);
+                    nextDietSweep = DateTime.UtcNow.AddHours(1);
                 }
 
                 var processed = await ProcessBatchAsync(stoppingToken);
