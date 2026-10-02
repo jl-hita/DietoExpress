@@ -243,7 +243,15 @@ public sealed class AutomationService
                                      WHERE pc.client_id=c.id
                                        AND COALESCE(pc.submitted_at, pc.created_at) >= NOW() - INTERVAL '14 days')
                        THEN 'follow_up'
-                     ELSE 'pending_first_appointment'
+                     WHEN NOT EXISTS (
+                          SELECT 1 FROM patient_appointments a
+                          WHERE a.client_id=c.id
+                            AND a.tenant_id=c.tenant_id
+                            AND a.status IN ('requested','confirmed')
+                            AND a.starts_at > NOW()
+                       )
+                       THEN 'pending_first_appointment'
+                     ELSE 'active'
                    END AS lifecycle_status
             FROM clients c
             WHERE c.tenant_id IS NOT NULL AND c.archived_at IS NULL;
@@ -255,15 +263,41 @@ public sealed class AutomationService
 
         foreach(var c in candidates)
         {
-            await SetPatientLifecycleStatusAsync(c.TenantId,c.ClientId,c.Status,DateTime.UtcNow,cancellationToken);
-            if(c.Status=="no_recent_followup")
-                await ScheduleActionAsync(c.TenantId,"create_professional_task",
-                    new CreateTaskAction(c.ClientId,c.AssignedUserId,
-                        "Contactar paciente sin seguimiento reciente",
-                        "El paciente lleva más de 30 días sin una actividad de seguimiento reciente.",
-                        DateTime.UtcNow.AddDays(1),"high","automation:patient.lifecycle"),
-                    DateTime.UtcNow,null,
-                    $"lifecycle:inactive:{c.ClientId}:{DateTime.UtcNow:yyyyMMdd}",
+            var changed=await SetPatientLifecycleStatusAsync(c.TenantId,c.ClientId,c.Status,DateTime.UtcNow,cancellationToken);
+            if(!changed) continue;
+
+            (string Title,string Description,string Priority)? task=c.Status switch
+            {
+                "pending_info" => (
+                    "Completar información inicial del paciente",
+                    "Revisar y completar los datos personales y biométricos necesarios antes de continuar el seguimiento.",
+                    "normal"),
+                "pending_first_appointment" => (
+                    "Proponer primera cita al paciente",
+                    "El paciente todavía no tiene una primera cita futura solicitada o confirmada. Revisar y proponer el siguiente paso.",
+                    "normal"),
+                "no_recent_followup" => (
+                    "Contactar paciente sin seguimiento reciente",
+                    "El paciente lleva más de 30 días sin una actividad de seguimiento reciente.",
+                    "high"),
+                _ => null
+            };
+
+            if(task.HasValue)
+                await ScheduleActionAsync(
+                    c.TenantId,
+                    "create_professional_task",
+                    new CreateTaskAction(
+                        c.ClientId,
+                        c.AssignedUserId,
+                        task.Value.Title,
+                        task.Value.Description,
+                        DateTime.UtcNow.AddDays(1),
+                        task.Value.Priority,
+                        "automation:patient.lifecycle"),
+                    DateTime.UtcNow,
+                    null,
+                    $"lifecycle:{c.Status}:{c.ClientId}:{DateTime.UtcNow:yyyyMMdd}",
                     cancellationToken:cancellationToken);
         }
     }
@@ -281,7 +315,7 @@ public sealed class AutomationService
         return Convert.ToBoolean(await command.ExecuteScalarAsync(cancellationToken));
     }
 
-    private async Task SetPatientLifecycleStatusAsync(int tenantId,int clientId,string status,DateTime changedAt,CancellationToken cancellationToken)
+    private async Task<bool> SetPatientLifecycleStatusAsync(int tenantId,int clientId,string status,DateTime changedAt,CancellationToken cancellationToken)
     {
         string[] allowed=["pending_info","pending_first_appointment","active","follow_up","no_recent_followup","archived"];
         if(!allowed.Contains(status)) throw new ArgumentException("Estado de ciclo de vida no válido.",nameof(status));
@@ -292,13 +326,15 @@ public sealed class AutomationService
             SET lifecycle_status=@status,
                 lifecycle_status_changed_at=CASE WHEN lifecycle_status IS DISTINCT FROM @status THEN @changed ELSE lifecycle_status_changed_at END,
                 last_activity_at=CASE WHEN @status IN ('active','follow_up') THEN @changed ELSE last_activity_at END
-            WHERE id=@client AND tenant_id=@tenant;
+            WHERE id=@client AND tenant_id=@tenant
+            RETURNING lifecycle_status_changed_at=@changed;
             """,connection);
         command.Parameters.AddWithValue("status",status);
         command.Parameters.AddWithValue("changed",changedAt);
         command.Parameters.AddWithValue("client",clientId);
         command.Parameters.AddWithValue("tenant",tenantId);
-        await command.ExecuteNonQueryAsync(cancellationToken);
+        var result=await command.ExecuteScalarAsync(cancellationToken);
+        return result is true;
     }
 
     private async Task ScheduleBuiltInRulesAsync(AutomationEvent evt, CancellationToken cancellationToken)
