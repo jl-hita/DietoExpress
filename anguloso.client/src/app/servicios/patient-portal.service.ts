@@ -46,6 +46,8 @@ export interface PatientAppointment {
 
 export interface PatientCheckin { id: number; week_start: string; submitted_at: string; weight?: number | null; adherence?: number | null; hunger?: number | null; difficulties?: string | null; notes?: string | null; }
 export interface PatientCheckinRequest { weight?: number | null; adherence?: number | null; hunger?: number | null; difficulties?: string | null; notes?: string | null; }
+export interface GoogleCalendarStatus { connected: boolean; email: string; calendarId: string; lastSyncedAt?: string | null; }
+
 export interface PatientNotification { id: number; type: string; title: string; message: string; actionUrl?: string | null; createdAt: string; readAt?: string | null; }
 
 @Injectable({ providedIn: 'root' })
@@ -108,6 +110,11 @@ export class PatientPortalService {
       professionalNotes
     });
   }
+
+  getGoogleCalendarStatus(): Observable<GoogleCalendarStatus> { return this.http.get<GoogleCalendarStatus>(this.base + '/google-calendar/status'); }
+  connectGoogleCalendar(): void { window.location.href = this.base + '/google-calendar/connect'; }
+  disconnectGoogleCalendar(): Observable<void> { return this.http.post<void>(this.base + '/google-calendar/disconnect', {}); }
+  syncGoogleCalendar(): Observable<void> { return this.http.post<void>(this.base + '/google-calendar/sync', {}); }
 
   getNotifications(): Observable<PatientNotification[]> { return this.http.get<PatientNotification[]>(this.base + '/portal/notifications'); }
   markNotificationRead(id: number): Observable<void> { return this.http.patch<void>(this.base + '/portal/notifications/' + id + '/read', {}); }
