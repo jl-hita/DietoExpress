@@ -306,7 +306,7 @@ public class ClientDietsController : ControllerBase
                 await transaction.CommitAsync();
 
             await PublishDietAutomationEventAsync(
-                clientTenantId,
+                clientTenantId.Value,
                 "diet.published",
                 clientId,
                 newAssignment.id,
