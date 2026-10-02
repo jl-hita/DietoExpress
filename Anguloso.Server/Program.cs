@@ -93,7 +93,45 @@ public class Program
                 DatabaseBootstrap.InitializeDatabaseAsync(context, logger);
                 DatabaseBootstrap.UpgradeSaaSSchema(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV2(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV3(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV4(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV5(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV6(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV7(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV8(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV9(context, logger);
                 context.Database.ExecuteSqlRaw(@"CREATE TABLE IF NOT EXISTS patient_checkins (id SERIAL PRIMARY KEY, client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE, tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, week_start DATE NOT NULL, submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), weight DOUBLE PRECISION, adherence INTEGER, hunger INTEGER, difficulties TEXT, notes TEXT, CONSTRAINT patient_checkins_client_week_key UNIQUE (client_id, week_start)); CREATE INDEX IF NOT EXISTS idx_patient_checkins_tenant_id ON patient_checkins(tenant_id); CREATE INDEX IF NOT EXISTS idx_patient_checkins_client_id ON patient_checkins(client_id);");
-                BillingSchemaBootstrap.Initialize(context, logger); databaseReady = true;
+                // Appointment scheduling schema
+context.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS nutritionist_availability (
+  id SERIAL PRIMARY KEY,
+  tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  nutritionist_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  day_of_week INTEGER NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
+  start_time TIME NOT NULL,
+  end_time TIME NOT NULL,
+  slot_minutes INTEGER NOT NULL DEFAULT 30 CHECK (slot_minutes BETWEEN 15 AND 240),
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  CONSTRAINT nutritionist_availability_time_check CHECK (end_time > start_time)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_nutritionist_availability_slot
+  ON nutritionist_availability(tenant_id, nutritionist_id, day_of_week, start_time);
+
+CREATE TABLE IF NOT EXISTS patient_appointments (
+  id SERIAL PRIMARY KEY,
+  tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  nutritionist_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  starts_at TIMESTAMPTZ NOT NULL,
+  ends_at TIMESTAMPTZ NOT NULL,
+  status VARCHAR(30) NOT NULL DEFAULT 'requested',
+  patient_notes TEXT,
+  professional_notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT patient_appointments_time_check CHECK (ends_at > starts_at),
+  CONSTRAINT patient_appointments_status_check CHECK (status IN ('requested','confirmed','cancelled','completed','no_show'))
+);
+CREATE INDEX IF NOT EXISTS idx_patient_appointments_tenant_start
+  ON patient_appointments(tenant_id, starts_at);
+CREATE INDEX IF NOT EXISTS idx_patient_appointments_client_start
+  ON patient_appointments(client_id, starts_at);
+CREATE INDEX IF NOT EXISTS idx_patient_appointments_nutritionist_start
+  ON patient_appointments(nutritionist_id, starts_at);
+");
+BillingSchemaBootstrap.Initialize(context, logger); databaseReady = true;
             }
             catch (Exception ex) { logger.LogCritical(ex, "ERROR CRÍTICO: La aplicación no pudo verificar o inicializar la base de datos."); }
         }
