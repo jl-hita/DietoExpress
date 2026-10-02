@@ -25,7 +25,7 @@ export class PatientChatComponent implements OnChanges, OnInit {
   sending = false;
   error: string | null = null;
 
-  constructor(private http: HttpClient, private route: ActivatedRoute, private portalService: PatientPortalService) {}
+  constructor(private http: HttpClient, private route: ActivatedRoute) {}
 
   ngOnInit(): void {
     if (!this.patientMode && !this.clientId) {
@@ -49,7 +49,7 @@ export class PatientChatComponent implements OnChanges, OnInit {
     const body = this.draft.trim();
     if (!body || this.sending || (!this.patientMode && !this.clientId)) return;
     this.sending = true;
-    const url = this.patientMode ? environment.apiUrl + '/messages/patient' : environment.apiUrl + '/messages/client/' + this.clientId;
+    const url = this.patientMode ? '/api/messages/patient' : '/api/messages/client/' + this.clientId;
     this.http.post<{ id: number }>(url, { body }).subscribe({
       next: () => { this.draft = ''; this.sending = false; this.load(); },
       error: err => { this.sending = false; this.error = err.error?.message || 'No se ha podido enviar el mensaje.'; }
@@ -59,7 +59,7 @@ export class PatientChatComponent implements OnChanges, OnInit {
   onKeydown(event: KeyboardEvent): void { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); this.send(); } }
 
   private markRead(): void {
-    const url = this.patientMode ? environment.apiUrl + '/messages/patient/read' : environment.apiUrl + '/messages/client/' + this.clientId + '/read';
+    const url = this.patientMode ? '/api/messages/patient/read' : '/api/messages/client/' + this.clientId + '/read';
     this.http.patch(url, {}).subscribe();
   }
 }
