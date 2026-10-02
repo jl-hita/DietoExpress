@@ -239,6 +239,8 @@ public class AppointmentsController : ControllerBase
             return BadRequest(new { message = "Estado de cita no válido." });
 
         var requestedStatus = request.Status.ToLowerInvariant();
+        if (request.ProfessionalNotes?.Length > 4000)
+            return BadRequest(new { message = "Las notas profesionales no pueden superar los 4000 caracteres." });
 
         var appointment = await _context.patient_appointments.FirstOrDefaultAsync(a => a.id == id && a.tenant_id == tenantId);
         if (appointment == null) return NotFound();
