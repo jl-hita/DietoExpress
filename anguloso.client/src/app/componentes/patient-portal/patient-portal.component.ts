@@ -7,14 +7,15 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { PatientPortalService } from '../../servicios/patient-portal.service';
 import { FoodService } from '../../servicios/food.service';
 import { SumPipe } from '../../shared/pipes/sum.pipe';
+import { PatientChatComponent } from '../patient-chat/patient-chat.component';
 import { PatientCheckin, PatientCheckinRequest, AppointmentSlot, PatientAppointment, PatientNotification } from '../../servicios/patient-portal.service';
 
-type ActiveTab = 'today' | 'shopping' | 'appointments' | 'progress';
+type ActiveTab = 'today' | 'shopping' | 'appointments' | 'progress' | 'messages';
 
 @Component({
   selector: 'app-patient-portal',
   standalone: true,
-  imports: [CommonModule, FormsModule, DatePipe, DecimalPipe, MatIconModule, MatProgressSpinnerModule, SumPipe],
+  imports: [CommonModule, FormsModule, DatePipe, DecimalPipe, MatIconModule, MatProgressSpinnerModule, SumPipe, PatientChatComponent],
   templateUrl: './patient-portal.component.html',
   styleUrls: ['./patient-portal.component.css']
 })
