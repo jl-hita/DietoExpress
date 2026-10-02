@@ -178,6 +178,8 @@ public class DietGeneratorService
 
     #region Algoritmo de Selección y Optimización Matemática
 
+    // Selecciona alimentos compatibles con la comida y reparte la cantidad objetivo mediante OptimizeGrams.
+    // La aleatoriedad favorece variedad entre candidatos con puntuaciones similares.
     private List<MealItemDto> BuildAndOptimizeMeal(
         string mealName, 
         double targetKcal, 
@@ -244,6 +246,8 @@ public class DietGeneratorService
         return result;
     }
 
+    // Ajuste iterativo acotado: reduce el error de kcal y macronutrientes respetando los límites de cada alimento.
+    // Es una heurística, no un solver matemático exacto; por eso se acota también el número de iteraciones.
     private double[] OptimizeGrams(List<(foods food, SlotConfig slot)> items, double tKcal, double tP, double tC, double tF)
     {
         int n = items.Count;
@@ -453,6 +457,8 @@ public class DietGeneratorService
         }
     }
 
+    // Clasifica el catálogo en pools funcionales. Las exclusiones por dieta se aplican antes de clasificar
+    // y los fallbacks evitan que una categoría vacía deje al generador sin opciones.
     private FoodPools CategorizeFoods(List<foods> all, string dietType)
     {
         var pools = new FoodPools();
