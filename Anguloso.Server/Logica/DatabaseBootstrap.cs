@@ -317,6 +317,42 @@ public static class DatabaseBootstrap
 
                 CREATE UNIQUE INDEX IF NOT EXISTS uq_config_nombre_config ON config(nombre_config);
 
+                CREATE TABLE IF NOT EXISTS patient_conversations (
+                    id BIGSERIAL PRIMARY KEY,
+                    tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                    client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    archived_at TIMESTAMPTZ
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_patient_conversations_client
+                    ON patient_conversations(client_id);
+                CREATE INDEX IF NOT EXISTS idx_patient_conversations_tenant
+                    ON patient_conversations(tenant_id);
+
+                CREATE TABLE IF NOT EXISTS patient_messages (
+                    id BIGSERIAL PRIMARY KEY,
+                    conversation_id BIGINT NOT NULL REFERENCES patient_conversations(id) ON DELETE CASCADE,
+                    tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                    client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                    sender_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                    sender_client_id INTEGER REFERENCES clients(id) ON DELETE SET NULL,
+                    body VARCHAR(5000) NOT NULL,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    read_at TIMESTAMPTZ,
+                    edited_at TIMESTAMPTZ,
+                    CONSTRAINT patient_messages_one_sender CHECK (
+                        (sender_user_id IS NOT NULL AND sender_client_id IS NULL)
+                        OR (sender_user_id IS NULL AND sender_client_id IS NOT NULL)
+                    )
+                );
+                CREATE INDEX IF NOT EXISTS idx_patient_messages_conversation
+                    ON patient_messages(conversation_id, created_at, id);
+                CREATE INDEX IF NOT EXISTS idx_patient_messages_tenant_client
+                    ON patient_messages(tenant_id, client_id, created_at);
+                CREATE INDEX IF NOT EXISTS idx_patient_messages_sender_user
+                    ON patient_messages(sender_user_id);
+
                 -- 20. Audit Logs (Trazabilidad clínica y RGPD)
                 CREATE TABLE IF NOT EXISTS audit_logs (
                     id BIGSERIAL PRIMARY KEY,
