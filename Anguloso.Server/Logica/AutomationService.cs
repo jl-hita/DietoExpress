@@ -226,7 +226,94 @@ public sealed class AutomationService
                         cancellationToken: cancellationToken);
                     break;
                 }
+            case "appointment.confirmed":
+                {
+                    var payload = AutomationJson.Deserialize<AppointmentStatusPayload>(evt.Payload)
+                        ?? throw new InvalidOperationException("Payload inválido para appointment.confirmed.");
+
+                    var firstReminder = payload.StartsAtUtc.AddHours(-24);
+                    if (firstReminder < DateTime.UtcNow) firstReminder = DateTime.UtcNow;
+
+                    await ScheduleActionAsync(
+                        evt.TenantId,
+                        "notify_patient",
+                        new NotifyPatientAction(
+                            payload.ClientId,
+                            "appointment_reminder",
+                            "Recordatorio de cita",
+                            "Recuerda que tienes una cita con tu nutricionista mañana.",
+                            "/patient?tab=appointments"),
+                        firstReminder,
+                        evt.Id,
+                        $"event:{evt.Id}:reminder-24h",
+                        cancellationToken: cancellationToken);
+
+                    var secondReminder = payload.StartsAtUtc.AddHours(-2);
+                    if (secondReminder > DateTime.UtcNow)
+                    {
+                        await ScheduleActionAsync(
+                            evt.TenantId,
+                            "notify_patient",
+                            new NotifyPatientAction(
+                                payload.ClientId,
+                                "appointment_reminder",
+                                "Tu cita es en 2 horas",
+                                "Recuerda que tienes una cita con tu nutricionista dentro de 2 horas.",
+                                "/patient?tab=appointments"),
+                            secondReminder,
+                            evt.Id,
+                            $"event:{evt.Id}:reminder-2h",
+                            cancellationToken: cancellationToken);
+                    }
+                    break;
+                }
+            case "appointment.cancelled":
+                {
+                    await CancelJobsForEventAggregateAsync(evt, cancellationToken);
+                    break;
+                }
+            case "appointment.no_show":
+                {
+                    var payload = AutomationJson.Deserialize<AppointmentStatusPayload>(evt.Payload)
+                        ?? throw new InvalidOperationException("Payload inválido para appointment.no_show.");
+                    await ScheduleActionAsync(
+                        evt.TenantId,
+                        "create_professional_task",
+                        new CreateTaskAction(payload.ClientId, payload.NutritionistId,
+                            "Contactar paciente por ausencia a la cita",
+                            "La cita ha quedado marcada como no presentada.",
+                            DateTime.UtcNow.AddHours(24), "high", "automation:appointment.no_show"),
+                        DateTime.UtcNow,
+                        evt.Id,
+                        $"event:{evt.Id}:create-professional-task",
+                        cancellationToken: cancellationToken);
+                    break;
+                }
         }
+    }
+
+    private async Task CancelJobsForEventAggregateAsync(AutomationEvent evt, CancellationToken cancellationToken)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new NpgsqlCommand("""
+            UPDATE automation_jobs j
+            SET status='cancelled', last_error='Evento de origen cancelado', updated_at=NOW()
+            WHERE j.tenant_id=@tenant
+              AND j.status='pending'
+              AND EXISTS (
+                  SELECT 1 FROM automation_events e
+                  WHERE e.id=j.event_id
+                    AND e.tenant_id=@tenant
+                    AND e.aggregate_type=@aggregate_type
+                    AND e.aggregate_id=@aggregate_id
+                    AND e.event_type='appointment.confirmed'
+              );
+            """, connection);
+        command.Parameters.AddWithValue("tenant", evt.TenantId);
+        command.Parameters.AddWithValue("aggregate_type", evt.AggregateType);
+        command.Parameters.AddWithValue("aggregate_id", evt.AggregateId ?? "");
+        await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
     private static string NormalizePriority(string? priority) =>
@@ -241,4 +328,5 @@ public sealed class AutomationService
     public sealed record ClientCreatedPayload(int ClientId, int? NutritionistId);
     public sealed record CheckinSubmittedPayload(int ClientId, int? NutritionistId);
     public sealed record AppointmentCompletedPayload(int AppointmentId, int ClientId, int? NutritionistId);
+    public sealed record AppointmentStatusPayload(int AppointmentId, int ClientId, int? NutritionistId, DateTime StartsAtUtc);
 }
