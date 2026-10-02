@@ -84,6 +84,7 @@ export class CrearRecetaComponent {
     this.ingredientes.removeAt(i);
   }
 
+  // La API recibe la receta y sus ingredientes en una única operación, evitando que el frontend tenga que coordinar IDs generados entre varias peticiones.
   guardarReceta() {
     if (this.formReceta.invalid) return;
     this.cargando = true;

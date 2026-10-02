@@ -124,6 +124,7 @@ export class RecipePickerDialogComponent implements OnInit {
     public dialogRef: MatDialogRef<RecipePickerDialogComponent>
   ) {}
 
+  // Primero se carga el catálogo ligero; el detalle completo de la receta se obtiene únicamente cuando el usuario selecciona una.
   ngOnInit(): void {
     this.http.get<any[]>(`${environment.apiUrl}/recipes`).subscribe({
       next: (data) => {
@@ -142,6 +143,7 @@ export class RecipePickerDialogComponent implements OnInit {
     });
   }
 
+  // La selección fuerza una segunda consulta porque el listado puede no contener todavía todos los ingredientes necesarios para insertar la receta.
   selectRecipe(recipe: any): void {
     // Si la receta no tiene los items cargados, los pedimos con getRecipe(id)
     this.loading = true;

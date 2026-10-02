@@ -166,6 +166,7 @@ export class DietGeneratorDialogComponent implements OnInit {
     });
   }
 
+  // Si el diálogo recibe un paciente sin unas kcal explícitas, consulta sus biometrías para evitar usar silenciosamente el valor genérico.
   ngOnInit(): void {
     // Si tenemos clientId y no tenemos defaultKcal, intentamos calcular sus requerimientos
     if (this.data.clientId && (!this.data.defaultKcal || this.data.defaultKcal === 2000)) {
@@ -188,6 +189,7 @@ export class DietGeneratorDialogComponent implements OnInit {
     }
   }
 
+  // El diálogo transforma la configuración visual en el DTO del motor y devuelve la dieta generada al componente que lo abrió.
   generate(): void {
     if (this.form.invalid) return;
     this.generating = true;

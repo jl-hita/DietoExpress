@@ -71,6 +71,7 @@ export class FoodSearchDialogComponent {
   ) {
     this.searchCtrl = this.fb.control<string>('');
 
+    // Debounce + distinctUntilChanged limitan las consultas mientras se escribe y switchMap descarta resultados de búsquedas anteriores.
     this.searchCtrl.valueChanges.pipe(
       debounceTime(400),
       distinctUntilChanged(),
@@ -94,6 +95,7 @@ export class FoodSearchDialogComponent {
     this.grams = 100; // Por defecto
   }
 
+  // El componente padre recibe tanto el alimento seleccionado como la cantidad para incorporarlos a la dieta.
   confirm() {
     if (this.selectedFood && this.grams > 0) {
       this.dialogRef.close({ food: this.selectedFood, grams: this.grams });
