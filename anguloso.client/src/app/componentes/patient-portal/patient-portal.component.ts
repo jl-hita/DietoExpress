@@ -26,6 +26,10 @@ export class PatientPortalComponent implements OnInit {
   authError: string | null = null;
   showLogin = false;
   portalDataError: string | null = null;
+  dietDataError: string | null = null;
+  shoppingDataError: string | null = null;
+  dietLoading = false;
+  shoppingLoading = false;
 
   // Login form model (PIN/phone)
   emailOrPhone = '';
@@ -125,6 +129,11 @@ export class PatientPortalComponent implements OnInit {
     this.profile = null;
     this.activeDiet = null;
     this.shoppingList = [];
+    this.dietDataError = null;
+    this.shoppingDataError = null;
+    this.dietLoading = false;
+    this.shoppingLoading = false;
+    this.portalDataError = null;
     this.showLogin = true;
   }
 
@@ -141,6 +150,8 @@ export class PatientPortalComponent implements OnInit {
           this.loadActiveDiet(clientIdParam);
           this.loadShoppingList(clientIdParam);
         } else {
+          this.activeDiet = null;
+          this.shoppingList = [];
           this.loading = false;
         }
       },
@@ -158,20 +169,45 @@ export class PatientPortalComponent implements OnInit {
   }
 
   loadActiveDiet(clientIdParam?: number): void {
+    this.dietLoading = true;
+    this.dietDataError = null;
     this.portalService.getMyActiveDiet(clientIdParam).subscribe({
       next: (d) => {
         this.activeDiet = d;
+        this.dietLoading = false;
         this.loading = false;
       },
-      error: () => { this.loading = false; }
+      error: (err) => {
+        this.activeDiet = null;
+        this.dietLoading = false;
+        this.loading = false;
+        this.dietDataError = err?.error?.message || 'No hemos podido cargar tu plan alimentario.';
+      }
     });
   }
 
   loadShoppingList(clientIdParam?: number): void {
+    this.shoppingLoading = true;
+    this.shoppingDataError = null;
     this.portalService.getMyShoppingList(clientIdParam).subscribe({
-      next: (s) => { this.shoppingList = s || []; },
-      error: () => {}
+      next: (s) => {
+        this.shoppingList = s || [];
+        this.shoppingLoading = false;
+      },
+      error: (err) => {
+        this.shoppingList = [];
+        this.shoppingLoading = false;
+        this.shoppingDataError = err?.error?.message || 'No hemos podido cargar tu lista de la compra.';
+      }
     });
+  }
+
+  retryDietLoad(): void {
+    this.loadActiveDiet(this.clientId);
+  }
+
+  retryShoppingLoad(): void {
+    this.loadShoppingList(this.clientId);
   }
 
   setTab(tab: ActiveTab): void {
@@ -274,6 +310,10 @@ export class PatientPortalComponent implements OnInit {
     return this.todayMealCount ? Math.round((this.completedMealCount / this.todayMealCount) * 100) : 0;
   }
 
+  get todayHasMeals(): boolean {
+    return (this.todayDayData?.meals?.length ?? 0) > 0;
+  }
+
   get todayKcal(): number {
     return this.todayDayData?.meals?.reduce((total: number, meal: any) =>
       total + (meal.items?.reduce((mealTotal: number, item: any) => mealTotal + Number(item.kcal || 0), 0) || 0), 0) ?? 0;
@@ -370,6 +410,10 @@ export class PatientPortalComponent implements OnInit {
     const max = Math.max(...history.map((h: any) => h.weight));
     if (max === min) return 60;
     return Math.round(((weight - min) / (max - min)) * 85 + 15);
+  }
+
+  get hasShoppingItems(): boolean {
+    return this.shoppingItemCount > 0;
   }
 
   toggleExchangeEquivalencies(uniqueKey: string, groupId?: number): void {
