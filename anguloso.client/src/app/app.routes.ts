@@ -4,7 +4,6 @@ import { AuthGuard } from './guards/auth.guard';
 import { LoginComponent } from './componentes/login/login.component';
 import { UserResetComponent } from './componentes/user-reset/user-reset.component';
 import { ConfirmarEmailComponent } from './componentes/confirmar-email/confirmar-email.component';
-import { FoodTesterComponent } from './componentes/food-tester/food-tester.component';
 import { ClientDetailComponent } from './componentes/client-detail/client-detail.component';
 import { ClientsListComponent } from './componentes/clients-list/clients-list.component';
 import { LayoutComponent } from './componentes/layout/layout.component';
