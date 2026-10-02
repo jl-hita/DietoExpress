@@ -1,3 +1,10 @@
+import { ReactiveFormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
+import { MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
 import { Component, NgZone } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -10,7 +17,8 @@ declare const google: any;
 
 @Component({
   selector: 'app-login',
-  standalone: false,
+    standalone: true,
+  imports: [ReactiveFormsModule, RouterLink, MatSnackBarModule, MatFormFieldModule, MatInputModule, MatIconModule, MatButtonModule],
   templateUrl: './login.component.html',
   styleUrls: ['./login.component.css']
 })
