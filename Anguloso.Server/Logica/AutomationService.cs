@@ -215,6 +215,88 @@ public sealed class AutomationService
             await SetPatientLifecycleStatusAsync(evt.TenantId, clientId.Value, status, DateTime.UtcNow, cancellationToken);
     }
 
+    /// <summary>Programa recordatorios persistentes de check-in y tareas de seguimiento.</summary>
+    public async Task RunFollowUpAutomationSweepAsync(CancellationToken cancellationToken = default)
+    {
+        var candidates = new List<(int ClientId, int TenantId, int? AssignedUserId, DateTime? LastCheckin)>();
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new NpgsqlCommand("""
+            SELECT c.id,
+                   c.tenant_id,
+                   c.user_id,
+                   (SELECT MAX(pc.submitted_at)
+                      FROM patient_checkins pc
+                     WHERE pc.client_id=c.id
+                       AND pc.tenant_id=c.tenant_id) AS last_checkin
+            FROM clients c
+            WHERE c.tenant_id IS NOT NULL
+              AND c.archived_at IS NULL
+              AND c.lifecycle_status IN ('active','follow_up')
+              AND NOT EXISTS (
+                  SELECT 1
+                    FROM patient_appointments a
+                   WHERE a.client_id=c.id
+                     AND a.tenant_id=c.tenant_id
+                     AND a.status IN ('cancelled','no_show')
+                     AND a.starts_at > NOW() - INTERVAL '7 days'
+              );
+            """, connection);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            candidates.Add((
+                reader.GetInt32(0),
+                reader.GetInt32(1),
+                reader.IsDBNull(2) ? null : reader.GetInt32(2),
+                reader.IsDBNull(3) ? null : reader.GetDateTime(3)));
+        }
+
+        foreach (var c in candidates)
+        {
+            var now = DateTime.UtcNow;
+            var needsCheckin = !c.LastCheckin.HasValue || c.LastCheckin.Value < now.AddDays(-7);
+            if (!needsCheckin) continue;
+
+            var weekKey = now.Date.AddDays(-(((int)now.DayOfWeek + 6) % 7)).ToString("yyyyMMdd");
+
+            await ScheduleActionAsync(
+                c.TenantId,
+                "notify_patient",
+                new NotifyPatientAction(
+                    c.ClientId,
+                    "checkin_reminder",
+                    "Tienes un check-in pendiente",
+                    "Completa tu check-in semanal para que tu nutricionista pueda revisar tu evolución.",
+                    "/patient?tab=checkins"),
+                now,
+                null,
+                $"followup:checkin-reminder:{c.ClientId}:{weekKey}",
+                cancellationToken: cancellationToken);
+
+            if (c.LastCheckin.HasValue && c.LastCheckin.Value < now.AddDays(-10))
+            {
+                await ScheduleActionAsync(
+                    c.TenantId,
+                    "create_professional_task",
+                    new CreateTaskAction(
+                        c.ClientId,
+                        c.AssignedUserId,
+                        "Revisar seguimiento pendiente",
+                        "El paciente lleva más de 10 días sin enviar el check-in semanal.",
+                        now.AddDays(1),
+                        "normal",
+                        "automation:followup.checkin"),
+                    now,
+                    null,
+                    $"followup:checkin-task:{c.ClientId}:{weekKey}",
+                    cancellationToken: cancellationToken);
+            }
+        }
+    }
+
     /// <summary>Recalcula periódicamente el ciclo de vida y crea tareas para pacientes sin seguimiento.</summary>
     public async Task RunPatientLifecycleSweepAsync(CancellationToken cancellationToken = default)
     {
