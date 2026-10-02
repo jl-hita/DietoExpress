@@ -564,6 +564,56 @@ public sealed class AutomationService
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    public async Task<bool> ReviewPatientCheckinAsync(
+        int tenantId,
+        int checkinId,
+        int reviewerUserId,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        await using var update = new NpgsqlCommand("""
+            UPDATE patient_checkins
+               SET reviewed_at = NOW(),
+                   reviewed_by_user_id = @reviewer
+             WHERE id=@id
+               AND tenant_id=@tenant
+               AND reviewed_at IS NULL
+            RETURNING client_id;
+            """, connection, transaction);
+        update.Parameters.AddWithValue("id", checkinId);
+        update.Parameters.AddWithValue("tenant", tenantId);
+        update.Parameters.AddWithValue("reviewer", reviewerUserId);
+
+        var clientResult = await update.ExecuteScalarAsync(cancellationToken);
+        if (clientResult is null)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return false;
+        }
+
+        var clientId = Convert.ToInt32(clientResult);
+        await using var complete = new NpgsqlCommand("""
+            UPDATE professional_tasks
+               SET status='completed',
+                   completed_at=COALESCE(completed_at,NOW()),
+                   updated_at=NOW()
+             WHERE tenant_id=@tenant
+               AND client_id=@client
+               AND status IN ('open','in_progress')
+               AND source='automation:patient.checkin.submitted'
+               AND title='Revisar check-in semanal';
+            """, connection, transaction);
+        complete.Parameters.AddWithValue("tenant", tenantId);
+        complete.Parameters.AddWithValue("client", clientId);
+        await complete.ExecuteNonQueryAsync(cancellationToken);
+
+        await transaction.CommitAsync(cancellationToken);
+        return true;
+    }
+
     private static string NormalizePriority(string? priority) =>
         priority?.Trim().ToLowerInvariant() switch
         {
