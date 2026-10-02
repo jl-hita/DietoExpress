@@ -37,6 +37,9 @@
     </mat-form-field>
 
     <div class="actions" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+      <a *ngIf="clientId" mat-stroked-button color="primary" [routerLink]="['/clients', clientId, 'messages']" title="Abrir conversación con el paciente">
+        <mat-icon>chat</mat-icon> Mensajes
+      </a>
       <button mat-stroked-button color="primary" type="button" (click)="downloadConsultationPdf()" [disabled]="!clientId" title="Generar informe de consulta de hoy">
         <mat-icon>description</mat-icon> Informe de consulta
       </button>
