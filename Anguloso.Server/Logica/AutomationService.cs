@@ -65,9 +65,12 @@ public sealed class AutomationService
         var eventId = Convert.ToInt64(result);
         await tx.CommitAsync(cancellationToken);
 
-        await ScheduleBuiltInRulesAsync(
-            new AutomationEvent(eventId, tenantId, eventType, aggregateType, aggregateId, AutomationJson.Serialize(payload), DateTime.UtcNow),
-            cancellationToken);
+        var publishedEvent = new AutomationEvent(
+            eventId, tenantId, eventType, aggregateType, aggregateId,
+            AutomationJson.Serialize(payload), DateTime.UtcNow);
+
+        await UpdatePatientLifecycleFromEventAsync(publishedEvent, cancellationToken);
+        await ScheduleBuiltInRulesAsync(publishedEvent, cancellationToken);
 
         return eventId;
     }
@@ -168,6 +171,134 @@ public sealed class AutomationService
         lookup.Parameters.AddWithValue("tenant", tenantId);
         lookup.Parameters.AddWithValue("key", idempotencyKey);
         return Convert.ToInt64(await lookup.ExecuteScalarAsync(cancellationToken));
+    }
+
+    /// <summary>Actualiza el estado operativo del paciente a partir de eventos de negocio.</summary>
+    private async Task UpdatePatientLifecycleFromEventAsync(AutomationEvent evt, CancellationToken cancellationToken)
+    {
+        int? clientId = null;
+        string? status = null;
+        switch (evt.EventType)
+        {
+            case "client.created":
+                clientId = AutomationJson.Deserialize<ClientCreatedPayload>(evt.Payload)?.ClientId;
+                status = "pending_info";
+                break;
+            case "patient.checkin.submitted":
+                clientId = AutomationJson.Deserialize<CheckinSubmittedPayload>(evt.Payload)?.ClientId;
+                status = "follow_up";
+                break;
+            case "appointment.completed":
+                clientId = AutomationJson.Deserialize<AppointmentCompletedPayload>(evt.Payload)?.ClientId;
+                status = "active";
+                break;
+            case "appointment.confirmed":
+                {
+                    var payload = AutomationJson.Deserialize<AppointmentStatusPayload>(evt.Payload);
+                    clientId = payload?.ClientId;
+                    if (clientId.HasValue)
+                        status = await HasCompletedAppointmentAsync(evt.TenantId, clientId.Value, cancellationToken)
+                            ? "active" : "pending_first_appointment";
+                    break;
+                }
+            case "appointment.cancelled":
+            case "appointment.no_show":
+                {
+                    var payload = AutomationJson.Deserialize<AppointmentStatusPayload>(evt.Payload);
+                    clientId = payload?.ClientId;
+                    if (clientId.HasValue && !await HasCompletedAppointmentAsync(evt.TenantId, clientId.Value, cancellationToken))
+                        status = "pending_first_appointment";
+                    break;
+                }
+        }
+        if (clientId.HasValue && status is not null)
+            await SetPatientLifecycleStatusAsync(evt.TenantId, clientId.Value, status, DateTime.UtcNow, cancellationToken);
+    }
+
+    /// <summary>Recalcula periódicamente el ciclo de vida y crea tareas para pacientes sin seguimiento.</summary>
+    public async Task RunPatientLifecycleSweepAsync(CancellationToken cancellationToken = default)
+    {
+        var candidates = new List<(int ClientId, int TenantId, int? AssignedUserId, string Status)>();
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        await using var command = new NpgsqlCommand("""
+            SELECT c.id, c.tenant_id, c.user_id,
+                   CASE
+                     WHEN c.archived_at IS NOT NULL THEN 'archived'
+                     WHEN c.birth_date IS NULL
+                          OR NOT EXISTS (SELECT 1 FROM biometrics b WHERE b.client_id=c.id)
+                       THEN 'pending_info'
+                     WHEN EXISTS (SELECT 1 FROM patient_appointments a
+                                   WHERE a.client_id=c.id AND a.tenant_id=c.tenant_id AND a.status='completed')
+                          AND GREATEST(
+                              COALESCE((SELECT MAX(a.starts_at) FROM patient_appointments a WHERE a.client_id=c.id AND a.tenant_id=c.tenant_id AND a.status='completed'), TIMESTAMPTZ '1970-01-01'),
+                              COALESCE((SELECT MAX(COALESCE(pc.submitted_at, pc.created_at)) FROM patient_checkins pc WHERE pc.client_id=c.id), TIMESTAMPTZ '1970-01-01')
+                          ) < NOW() - INTERVAL '30 days'
+                       THEN 'no_recent_followup'
+                     WHEN EXISTS (SELECT 1 FROM patient_appointments a
+                                   WHERE a.client_id=c.id AND a.tenant_id=c.tenant_id AND a.status='completed'
+                                     AND a.starts_at >= NOW() - INTERVAL '30 days')
+                          OR EXISTS (SELECT 1 FROM patient_checkins pc
+                                     WHERE pc.client_id=c.id
+                                       AND COALESCE(pc.submitted_at, pc.created_at) >= NOW() - INTERVAL '14 days')
+                       THEN 'follow_up'
+                     ELSE 'pending_first_appointment'
+                   END AS lifecycle_status
+            FROM clients c
+            WHERE c.tenant_id IS NOT NULL AND c.archived_at IS NULL;
+            """, connection);
+        await using var reader=await command.ExecuteReaderAsync(cancellationToken);
+        while(await reader.ReadAsync(cancellationToken))
+            candidates.Add((reader.GetInt32(0),reader.GetInt32(1),reader.IsDBNull(2)?null:reader.GetInt32(2),reader.GetString(3)));
+        await reader.DisposeAsync();
+
+        foreach(var c in candidates)
+        {
+            await SetPatientLifecycleStatusAsync(c.TenantId,c.ClientId,c.Status,DateTime.UtcNow,cancellationToken);
+            if(c.Status=="no_recent_followup")
+                await ScheduleActionAsync(c.TenantId,"create_professional_task",
+                    new CreateTaskAction(c.ClientId,c.AssignedUserId,
+                        "Contactar paciente sin seguimiento reciente",
+                        "El paciente lleva más de 30 días sin una actividad de seguimiento reciente.",
+                        DateTime.UtcNow.AddDays(1),"high","automation:patient.lifecycle"),
+                    DateTime.UtcNow,null,
+                    $"lifecycle:inactive:{c.ClientId}:{DateTime.UtcNow:yyyyMMdd}",
+                    cancellationToken:cancellationToken);
+        }
+    }
+
+    private async Task<bool> HasCompletedAppointmentAsync(int tenantId,int clientId,CancellationToken cancellationToken)
+    {
+        await using var connection=new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command=new NpgsqlCommand("""
+            SELECT EXISTS(SELECT 1 FROM patient_appointments
+                          WHERE tenant_id=@tenant AND client_id=@client AND status='completed');
+            """,connection);
+        command.Parameters.AddWithValue("tenant",tenantId);
+        command.Parameters.AddWithValue("client",clientId);
+        return Convert.ToBoolean(await command.ExecuteScalarAsync(cancellationToken));
+    }
+
+    private async Task SetPatientLifecycleStatusAsync(int tenantId,int clientId,string status,DateTime changedAt,CancellationToken cancellationToken)
+    {
+        const string[] allowed=["pending_info","pending_first_appointment","active","follow_up","no_recent_followup","archived"];
+        if(!allowed.Contains(status)) throw new ArgumentException("Estado de ciclo de vida no válido.",nameof(status));
+        await using var connection=new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command=new NpgsqlCommand("""
+            UPDATE clients
+            SET lifecycle_status=@status,
+                lifecycle_status_changed_at=CASE WHEN lifecycle_status IS DISTINCT FROM @status THEN @changed ELSE lifecycle_status_changed_at END,
+                last_activity_at=CASE WHEN @status IN ('active','follow_up') THEN @changed ELSE last_activity_at END
+            WHERE id=@client AND tenant_id=@tenant;
+            """,connection);
+        command.Parameters.AddWithValue("status",status);
+        command.Parameters.AddWithValue("changed",changedAt);
+        command.Parameters.AddWithValue("client",clientId);
+        command.Parameters.AddWithValue("tenant",tenantId);
+        await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
     private async Task ScheduleBuiltInRulesAsync(AutomationEvent evt, CancellationToken cancellationToken)
