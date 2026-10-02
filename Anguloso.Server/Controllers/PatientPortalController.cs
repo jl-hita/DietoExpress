@@ -21,12 +21,14 @@ public class PatientPortalController : ControllerBase
     private readonly angulosodbContext _context;
     private readonly IConfiguration _config;
     private readonly ILicenseService _licenseService;
+    private readonly EmailServ _emailServ;
 
-    public PatientPortalController(angulosodbContext context, IConfiguration config, ILicenseService licenseService)
+    public PatientPortalController(angulosodbContext context, IConfiguration config, ILicenseService licenseService, EmailServ emailServ)
     {
         _context = context;
         _config = config;
         _licenseService = licenseService;
+        _emailServ = emailServ;
     }
 
     /// <summary>
@@ -97,6 +99,57 @@ public class PatientPortalController : ControllerBase
             Token = null, ClientId = client.id, FullName = client.full_name,
             ClinicName = client.user?.clinic_name, ClinicLogo = client.user?.clinic_logo
         });
+    }
+
+    [EnableRateLimiting("auth")]
+    [HttpPost("request-access-link")]
+    public async Task<IActionResult> RequestAccessLink([FromBody] PatientAccessLinkRequestDto request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Email) || request.Email.Length > 320)
+            return BadRequest(new { message = "Introduce un email válido." });
+
+        var email = request.Email.Trim().ToLowerInvariant();
+        var client = await _context.clients
+            .Include(c => c.user)
+            .FirstOrDefaultAsync(c => c.archived_at == null && c.email != null && c.email.ToLower() == email);
+
+        // No revelamos si el email existe para evitar enumeración de pacientes.
+        if (client == null)
+            return Ok(new { message = "Si el email corresponde a un paciente, recibirás un nuevo enlace de acceso." });
+
+        var portalTenantId = client.tenant_id ?? client.user?.tenant_id;
+        if (!await _licenseService.CanUseFeatureAsync(portalTenantId, "CLIENT_PORTAL"))
+            return Ok(new { message = "Si el email corresponde a un paciente, recibirás un nuevo enlace de acceso." });
+
+        var rawToken = GenerateUrlSafeToken();
+        client.access_token = HashAccessToken(rawToken);
+        client.access_token_expires_at = DateTime.UtcNow.AddHours(24);
+        client.portal_token_version++;
+
+        await _context.SaveChangesAsync();
+
+        var frontendUrl = _configServValue("frontendUrl", "https://localhost:4200");
+        var magicLink = $"{frontendUrl.TrimEnd('/')}/patient?token={Uri.EscapeDataString(rawToken)}";
+        var safeName = System.Net.WebUtility.HtmlEncode(client.full_name ?? "Paciente");
+        var safeLink = System.Net.WebUtility.HtmlEncode(magicLink);
+
+        var emailResult = await _emailServ.SendEmailAsync(
+            client.email!,
+            "Tu enlace de acceso a DietoExpress",
+            $"<h2>Hola, {safeName}</h2><p>Has solicitado un nuevo enlace para acceder a tu portal de paciente.</p><p><a href='{safeLink}'>Acceder a mi portal</a></p><p>El enlace caduca en 24 horas y solo puede utilizarse una vez.</p><p>Si no has solicitado este acceso, puedes ignorar este mensaje.</p>"
+        );
+
+        if (!emailResult.Exito)
+        {
+            return StatusCode(500, new { message = "No hemos podido enviar el enlace de acceso. Inténtalo de nuevo más tarde." });
+        }
+
+        return Ok(new { message = "Si el email corresponde a un paciente, recibirás un nuevo enlace de acceso." });
+    }
+
+    private string _configServValue(string key, string fallback)
+    {
+        return _config.GetValue<string>(key) ?? fallback;
     }
 
     [HttpGet("profile")]
