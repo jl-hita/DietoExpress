@@ -39,3 +39,11 @@ También estoy revisando los despliegues y corrigiendo automáticamente los fall
 
 - Se endureció la comprobación final de unicidad de nombres de usuario en el alta administrativa para que la revalidación dentro del bloqueo transaccional también sea *case-insensitive*.
 - Esto mantiene coherente el comportamiento con el login y con las comprobaciones previas de unicidad, evitando que una variante de mayúsculas/minúsculas llegue a la fase de persistencia durante una carrera concurrente.
+
+
+## Revisión adicional — límites de creación y edición de dietas
+
+- Se limitaron los días, comidas, elementos por comida y número total de alimentos/intercambios que puede aceptar una dieta.
+- También se limitaron las longitudes de nombres y notas y los valores de gramos/intercambios.
+- Las mismas validaciones se aplican tanto al alta como a la edición para evitar que un payload grande pueda amplificarse en múltiples registros.
+- Se añadió una prueba de regresión específica para estos límites.
