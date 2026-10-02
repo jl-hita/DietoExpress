@@ -34,3 +34,8 @@ He realizado una auditoría progresiva de DietoExpress, centrada principalmente 
 La auditoría sigue en curso. Hasta ahora el foco principal ha sido el aislamiento entre tenants y los controles de autorización. Cada vulnerabilidad o debilidad relevante encontrada se ha corregido y, cuando ha sido posible, se ha añadido una prueba de regresión.
 
 También estoy revisando los despliegues y corrigiendo automáticamente los fallos de compilación o tests que aparecen durante la auditoría.
+
+## Revisión adicional — altas concurrentes de usuarios
+
+- Se endureció la comprobación final de unicidad de nombres de usuario en el alta administrativa para que la revalidación dentro del bloqueo transaccional también sea *case-insensitive*.
+- Esto mantiene coherente el comportamiento con el login y con las comprobaciones previas de unicidad, evitando que una variante de mayúsculas/minúsculas llegue a la fase de persistencia durante una carrera concurrente.
