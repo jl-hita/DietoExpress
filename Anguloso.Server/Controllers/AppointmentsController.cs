@@ -51,6 +51,8 @@ public class AppointmentsController : ControllerBase
         var nutritionistId = assignment?.nutritionist_id ?? client.user_id;
         if (nutritionistId == null) return Ok(Array.Empty<AppointmentSlotDto>());
 
+        // La disponibilidad se almacena en hora local; los huecos se generan en esa zona
+        // y se convierten a UTC antes de compararlos con las citas persistidas.
         var availability = await _context.nutritionist_availability.AsNoTracking()
             .Where(a => a.tenant_id == client.tenant_id && a.nutritionist_id == nutritionistId && a.is_active)
             .ToListAsync();
@@ -136,6 +138,8 @@ public class AppointmentsController : ControllerBase
         if (startsUtc <= DateTime.UtcNow.AddMinutes(5)) return BadRequest(new { message = "La cita debe ser futura." });
         var endsUtc = startsUtc.AddMinutes(request.DurationMinutes);
 
+        // Se comprueba de nuevo el hueco justo antes de insertar: la lista mostrada al paciente
+        // puede haber quedado obsoleta mientras otro usuario reservaba la misma franja.
         var validSlot = await IsAvailableSlotAsync(client.tenant_id!.Value, nutritionistId.Value, startsUtc, endsUtc);
         if (!validSlot) return Conflict(new { message = "Ese horario ya no está disponible. Actualiza la lista de citas e inténtalo de nuevo." });
 
@@ -352,6 +356,8 @@ public class AppointmentsController : ControllerBase
             requestedStatus != appointment.status)
             return BadRequest(new { message = "Una cita cerrada no puede cambiar de estado." });
 
+        // Las citas forman una máquina de estados cerrada: impedir saltos arbitrarios evita
+        // reabrir citas finalizadas o generar eventos de automatización incoherentes.
         var transitionAllowed = appointment.status switch
         {
             "requested" => requestedStatus is "requested" or "confirmed" or "cancelled",

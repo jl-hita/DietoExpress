@@ -160,6 +160,8 @@ public class PatientPortalController : ControllerBase
             .FirstOrDefaultAsync(c => c.id == clientId.Value && c.archived_at == null);
         if (client == null) return NotFound();
         var latestBio = client.biometrics.OrderByDescending(b => b.measurement_date).FirstOrDefault();
+        // La dieta activa se vuelve a filtrar por tenant a nivel de consulta para evitar que
+        // una asignación válida del paciente pueda cruzarse con datos de otra clínica.
         var activeDietAssignment = await _context.client_diets
             .Include(cd => cd.diet)
             .Where(cd => cd.client_id == clientId.Value && cd.is_active == true && cd.diet != null &&
@@ -171,6 +173,8 @@ public class PatientPortalController : ControllerBase
             age = DateTime.Today.Year - client.birth_date.Value.Year;
             if (client.birth_date.Value > DateOnly.FromDateTime(DateTime.Today.AddYears(-age.Value))) age--;
         }
+        // Se seleccionan las 12 mediciones más recientes y después se reordenan cronológicamente,
+        // de modo que el frontend reciba directamente la serie temporal para el gráfico.
         var weightHistory = client.biometrics.Where(b => b.weight.HasValue).OrderByDescending(b => b.measurement_date).Take(12).OrderBy(b => b.measurement_date)
             .Select(b => new WeightEntryDto { Date = b.measurement_date.ToDateTime(TimeOnly.MinValue), Weight = (double)(b.weight ?? 0) }).ToList();
         return Ok(new PatientProfileDto

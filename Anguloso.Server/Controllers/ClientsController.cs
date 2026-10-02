@@ -263,7 +263,8 @@ public class ClientsController : ControllerBase
         try
         {
             // Serializamos las altas por tenant para que el límite de pacientes de la licencia
-            // no pueda superarse mediante peticiones concurrentes.
+            // no pueda superarse mediante peticiones concurrentes. El bloqueo vive solo durante
+            // esta transacción y hace que la comprobación y el alta formen una operación lógica.
             await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", tenantId.Value);
 
             var licenseCheck = await _licenseService.CanCreateClientAsync(tenantId, userId.Value);
@@ -381,6 +382,8 @@ public class ClientsController : ControllerBase
         if (userId == null) return Unauthorized();
         var tenantId = AuthHelpers.GetTenantId(User);
 
+        // Se cargan las tablas de anamnesis junto al paciente porque la actualización mantiene
+        // el expediente clínico compuesto en una sola operación de persistencia.
         var client = await _context.clients
             .Include(c => c.medical_history)
             .Include(c => c.digestive_health)
