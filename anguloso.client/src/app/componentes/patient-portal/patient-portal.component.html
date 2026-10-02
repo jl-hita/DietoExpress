@@ -506,6 +506,28 @@
         </div>
       </div>
 
+      <section class="checkin-history" *ngIf="checkinHistory.length > 0">
+        <div class="checkin-history-header">
+          <div>
+            <h3>Revisiones anteriores</h3>
+            <span>{{ checkinHistory.length }} {{ checkinHistory.length === 1 ? 'revisión registrada' : 'revisiones registradas' }}</span>
+          </div>
+        </div>
+        <div class="checkin-history-list">
+          <article class="checkin-history-item" *ngFor="let checkin of checkinHistory | slice:0:6">
+            <div class="checkin-history-date">
+              <strong>{{ checkin.week_start | date:'d MMM' }}</strong>
+              <span>{{ checkin.submitted_at | date:'d MMM, HH:mm' }}</span>
+            </div>
+            <div class="checkin-history-metrics">
+              <span *ngIf="checkin.weight !== null && checkin.weight !== undefined"><strong>{{ checkin.weight }}</strong> kg</span>
+              <span *ngIf="checkin.adherence !== null && checkin.adherence !== undefined"><strong>{{ checkin.adherence }}</strong>% plan</span>
+              <span *ngIf="checkin.hunger !== null && checkin.hunger !== undefined"><strong>{{ checkin.hunger }}</strong>/10 hambre</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
       <div class="progress-empty" *ngIf="!weightHistory.length || weightHistory.length < 2">
         <div class="progress-empty-icon"><mat-icon>show_chart</mat-icon></div>
         <h3>Tu evolución aparecerá aquí</h3>
