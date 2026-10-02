@@ -104,7 +104,7 @@ public class BioimpedanceParserService
     // Método de dominio: concentra la transformación/cálculo para que los controladores se limiten a coordinar entrada, autorización y respuesta.
 
 
-    private ImportedBiometricRowDto> ParseLines(List<string> lines, char delimiter, string device, List<string> warnings)
+    private List<ImportedBiometricRowDto> ParseLines(List<string> lines, char delimiter, string device, List<string> warnings)
     {
         var rows = new List<ImportedBiometricRowDto>();
 

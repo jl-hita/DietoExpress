@@ -130,7 +130,7 @@ public class AnthropometryCalculatorService
     // Método de dominio: concentra la transformación/cálculo para que los controladores se limiten a coordinar entrada, autorización y respuesta.
 
 
-    private ? CalculateJacksonPollock3(biometrics b, bool isMale, int? age)
+    private double? CalculateJacksonPollock3(biometrics b, bool isMale, int? age)
     {
         if (!age.HasValue) return null;
 

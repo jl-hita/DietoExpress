@@ -26,7 +26,7 @@ public class BEDCAClient
     //Para usar una vez, cuando se instala la APP
     // La operación se mantiene asíncrona para no bloquear el hilo de la petición mientras espera I/O (BD, red o almacenamiento).
 
-    public async <string> Importador()
+    public async Task<string> Importador()
     {
         int i = 0;
         int nGuardados = 0;

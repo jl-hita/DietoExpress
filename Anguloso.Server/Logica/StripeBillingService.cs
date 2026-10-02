@@ -34,7 +34,7 @@ public sealed class StripeBillingService : IStripeBillingService
     // La operación se mantiene asíncrona para no bloquear el hilo de la petición mientras espera I/O (BD, red o almacenamiento).
 
 
-    public async <string> CreateCheckoutSessionAsync(
+    public async Task<string> CreateCheckoutSessionAsync(
         int tenantId,
         string planCode,
         string billingInterval,

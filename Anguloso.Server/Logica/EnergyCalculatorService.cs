@@ -70,7 +70,7 @@ public class EnergyCalculatorService
     // Método de dominio: concentra la transformación/cálculo para que los controladores se limiten a coordinar entrada, autorización y respuesta.
 
 
-    private string, double> CalculateTdeeForBmr(double bmr)
+    private Dictionary<string, double> CalculateTdeeForBmr(double bmr)
     {
         var tdeeDict = new Dictionary<string, double>();
         foreach (var kvp in ActivityFactors)
