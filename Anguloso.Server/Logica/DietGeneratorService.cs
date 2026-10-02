@@ -79,6 +79,8 @@ public class DietGeneratorService
 
         cancellationToken.ThrowIfCancellationRequested();
 
+        // La generación separa el catálogo en grupos antes de construir las comidas para poder
+        // buscar candidatos adecuados a cada franja y repartir el uso de alimentos entre días.
         var foodPools = CategorizeFoods(allowedFoods, request.DietType);
         var mealSplits = GetMealSplits(request.MealsPerDay);
 

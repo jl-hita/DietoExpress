@@ -17,6 +17,8 @@ public class AnthropometryCalculatorService
 
         var analysis = new AnthropometryAnalysisDto();
 
+        // Cada método aplica una ecuación distinta y puede devolver null si faltan medidas; después
+        // se selecciona la primera estimación disponible para alimentar el modelo de composición corporal.
         // 1. Calculate Body Fat Percentages
         analysis.BodyFatPercentageJacksonPollock3 = CalculateJacksonPollock3(b, isMale, age);
         analysis.BodyFatPercentageJacksonPollock4 = CalculateJacksonPollock4(b, isMale, age);

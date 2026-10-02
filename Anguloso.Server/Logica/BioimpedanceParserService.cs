@@ -52,6 +52,8 @@ public class BioimpedanceParserService
         // Determinar delimitador (coma, punto y coma o tabulación)
         char delimiter = DetectDelimiter(lines);
 
+        // La detección se hace sobre las primeras líneas porque los exportadores suelen identificar
+        // el dispositivo en la cabecera; si no hay una firma conocida, se continúa con el parser genérico.
         // Detectar si es InBody, Tanita o Genérico
         string detectedDevice = !string.IsNullOrWhiteSpace(forcedDevice) && forcedDevice != "auto"
             ? forcedDevice

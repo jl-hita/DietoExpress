@@ -36,8 +36,6 @@ public static class DatabaseBootstrap
         logger.LogInformation("Conexión con PostgreSQL establecida correctamente.");
 
         // 2. Comprobación y creación de todas las tablas con su esquema completo si no existen
-        // Este bloque se ejecuta también en instalaciones antiguas: por eso los CREATE/ALTER/INDEX
-        // posteriores deben poder repetirse sin romper un arranque ya actualizado.
         try
         {
             // Ejecutamos DDL idempotente en orden de dependencias de foreign keys

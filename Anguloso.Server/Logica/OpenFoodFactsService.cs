@@ -117,8 +117,6 @@ public class OpenFoodFactsService
                 .Take(50);
             var localResults = await localQuery.ToListAsync();
 
-            // La fuente local tiene prioridad porque ya contiene el modelo normalizado de DietoExpress;
-            // solo se consulta el catálogo externo cuando no aporta suficientes coincidencias.
             // 2. Si hay más de 5 resultados, devuelve la lista
             //if (localResults.Any())
             if (localResults.Count > 5)

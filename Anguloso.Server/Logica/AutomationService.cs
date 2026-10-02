@@ -71,8 +71,10 @@ public sealed class AutomationService
             eventId, tenantId, eventType, aggregateType, aggregateId,
             AutomationJson.Serialize(payload), DateTime.UtcNow);
 
+        // El evento ya está comprometido antes de ejecutar las reglas derivadas: un fallo de una regla
+        // no puede deshacer la publicación original y el evento persistido puede procesarse de nuevo.
         await UpdatePatientLifecycleFromEventAsync(publishedEvent, cancellationToken);
-        await ScheduleBuiltInRulesAsync(publishedEvent, cancellationToken);
+        await ScheduleBuiltInRulesAsync(publishedEvent, cancellationToken)
 
         return eventId;
     }

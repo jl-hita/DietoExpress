@@ -35,8 +35,6 @@ public class BEDCAClient
         var gruposXml = await GetFoodGroups();
         var grupos = ParseFoodGroups(gruposXml);
 
-        // Se carga una instantánea de los identificadores externos antes de importar para evitar
-        // duplicados dentro de la misma ejecución y reducir consultas repetitivas a PostgreSQL.
         var existingIds = _dbContext.foods.Select(f => f.external_id).ToHashSet();
 
         foreach (var grupo in grupos)

@@ -116,6 +116,8 @@ public class DietValidationService
 
     // Valida una dieta ya persistida contra el perfil y las restricciones del paciente, incluyendo
     // reglas de alimentos y comprobaciones de acceso al tenant antes de devolver incompatibilidades.
+    // La validación vuelve a cargar paciente y alimentos desde la BD para no confiar en datos
+    // enviados por el cliente y poder comprobar restricciones contra el estado actual del tenant.
     public async Task<List<DietValidationResultDto>> ValidateDietCompatibilityAsync(int clientId, diets diet, angulosodbContext context, int? tenantId, int userId, bool canUseTenantLocalFoods)
     {
         var client = await context.clients
