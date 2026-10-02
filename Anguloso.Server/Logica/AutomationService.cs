@@ -201,7 +201,7 @@ public sealed class AutomationService
                             evt.EventType == "diet.published" ? "Nueva dieta disponible" : "Tu dieta ha sido actualizada",
                             evt.EventType == "diet.published"
                                 ? $"Tu nutricionista ha publicado la dieta \"{payload.DietName}\"."
-                                : $"Tu nutricionista ha actualizado la dieta \"{payload.DietName}\"."
+                                : $"Tu nutricionista ha actualizado la dieta \"{payload.DietName}\".",
                             evt.EventType == "diet.published"
                                 ? "Ya puedes consultarla desde tu portal."
                                 : "Consulta los cambios desde tu portal.",
@@ -625,7 +625,7 @@ public sealed class AutomationService
                         diet.ClientId,
                         "diet_expiring",
                         "Tu dieta está próxima a finalizar",
-                        $"Tu dieta "{diet.DietName}" finaliza en {Math.Max(0, daysRemaining)} día(s). Consulta con tu nutricionista si necesitas continuar o hacer cambios.",
+                        $"Tu dieta \\"{diet.DietName}\\" finaliza en {Math.Max(0, daysRemaining)} día(s). Consulta con tu nutricionista si necesitas continuar o hacer cambios.",
                         "/patient?tab=diet"),
                     DateTime.UtcNow,
                     null,
@@ -642,7 +642,7 @@ public sealed class AutomationService
                         diet.ClientId,
                         diet.NutritionistId,
                         "Revisar dieta vencida",
-                        $"La dieta "{diet.DietName}" ha superado su fecha de finalización y necesita revisión profesional.",
+                        $"La dieta \\"{diet.DietName}\\" ha superado su fecha de finalización y necesita revisión profesional.",
                         DateTime.UtcNow,
                         "high",
                         "automation:diet.expired"),
