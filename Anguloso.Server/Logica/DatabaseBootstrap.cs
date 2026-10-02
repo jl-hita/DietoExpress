@@ -1052,6 +1052,59 @@ public static class DatabaseBootstrap
         logger.LogInformation("Migración de automatizaciones automation-v1-engine-scheduler-tasks aplicada correctamente.");
     }
 
+    /// <summary>Integración OAuth y sincronización bidireccional con Google Calendar.</summary>
+    public static void UpgradeGoogleCalendarSchemaV1(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS google_calendar_connections (
+                id SERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                google_account_email VARCHAR(320) NOT NULL,
+                calendar_id VARCHAR(500) NOT NULL DEFAULT 'primary',
+                access_token_encrypted TEXT NOT NULL,
+                refresh_token_encrypted TEXT,
+                access_token_expires_at TIMESTAMPTZ NOT NULL,
+                sync_token TEXT,
+                last_synced_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_google_calendar_connection_user UNIQUE (tenant_id, user_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_google_calendar_connections_tenant
+                ON google_calendar_connections(tenant_id);
+
+            CREATE TABLE IF NOT EXISTS google_calendar_oauth_states (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                state_hash VARCHAR(128) NOT NULL UNIQUE,
+                expires_at TIMESTAMPTZ NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS idx_google_calendar_oauth_states_expiry
+                ON google_calendar_oauth_states(expires_at);
+
+            CREATE TABLE IF NOT EXISTS external_calendar_events (
+                id SERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                provider VARCHAR(30) NOT NULL DEFAULT 'google',
+                external_event_id VARCHAR(500) NOT NULL,
+                etag VARCHAR(500),
+                title VARCHAR(500) NOT NULL,
+                starts_at TIMESTAMPTZ NOT NULL,
+                ends_at TIMESTAMPTZ NOT NULL,
+                is_all_day BOOLEAN NOT NULL DEFAULT FALSE,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_external_calendar_event UNIQUE (tenant_id, user_id, provider, external_event_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_external_calendar_events_block
+                ON external_calendar_events(tenant_id, user_id, starts_at, ends_at);
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('google-calendar-v1') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración Google Calendar google-calendar-v1 aplicada correctamente.");
+    }
+
     /// <summary>Estado de revisión profesional de los check-ins semanales.</summary>
     public static void UpgradeAutomationSchemaV3(angulosodbContext context, ILogger logger)
     {
