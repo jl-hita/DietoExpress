@@ -1,3 +1,4 @@
+// Convierte informes de bioimpedancia de distintos formatos en datos estructurados. El parser debe ser tolerante con variaciones del texto de entrada, pero no inventar valores que no pueda identificar con suficiente seguridad.
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -100,7 +101,10 @@ public class BioimpedanceParserService
         return "Genérico";
     }
 
-    private List<ImportedBiometricRowDto> ParseLines(List<string> lines, char delimiter, string device, List<string> warnings)
+    // Método de dominio: concentra la transformación/cálculo para que los controladores se limiten a coordinar entrada, autorización y respuesta.
+
+
+    private ImportedBiometricRowDto> ParseLines(List<string> lines, char delimiter, string device, List<string> warnings)
     {
         var rows = new List<ImportedBiometricRowDto>();
 

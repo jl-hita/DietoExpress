@@ -1,3 +1,4 @@
+// Cálculo de necesidades energéticas. Este servicio concentra las fórmulas y factores utilizados por la aplicación para evitar que la lógica nutricional quede repartida entre la UI y los controladores.
 using System;
 using System.Collections.Generic;
 using Anguloso.Server.Model;
@@ -66,7 +67,10 @@ public class EnergyCalculatorService
         return dto;
     }
 
-    private Dictionary<string, double> CalculateTdeeForBmr(double bmr)
+    // Método de dominio: concentra la transformación/cálculo para que los controladores se limiten a coordinar entrada, autorización y respuesta.
+
+
+    private string, double> CalculateTdeeForBmr(double bmr)
     {
         var tdeeDict = new Dictionary<string, double>();
         foreach (var kvp in ActivityFactors)

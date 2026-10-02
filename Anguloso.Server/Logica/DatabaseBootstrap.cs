@@ -1,3 +1,4 @@
+// Bootstrap/migraciones incrementales de la base de datos. Estas rutinas permiten actualizar instalaciones existentes sin depender de que el esquema haya sido creado desde cero, por lo que cada cambio debe ser idempotente.
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;

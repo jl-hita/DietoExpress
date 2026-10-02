@@ -1,3 +1,4 @@
+// Servicio de cálculo antropométrico. Las fórmulas están separadas de los controladores para que las reglas de cálculo sean reutilizables y comprobables de forma independiente.
 using System;
 using Anguloso.Server.Models;
 using Anguloso.Server.Model;
@@ -126,7 +127,10 @@ public class AnthropometryCalculatorService
         return analysis;
     }
 
-    private double? CalculateJacksonPollock3(biometrics b, bool isMale, int? age)
+    // Método de dominio: concentra la transformación/cálculo para que los controladores se limiten a coordinar entrada, autorización y respuesta.
+
+
+    private ? CalculateJacksonPollock3(biometrics b, bool isMale, int? age)
     {
         if (!age.HasValue) return null;
 

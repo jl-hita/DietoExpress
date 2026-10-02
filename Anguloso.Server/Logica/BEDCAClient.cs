@@ -1,3 +1,4 @@
+// Cliente de la fuente BEDCA. Aísla la comunicación HTTP y la transformación de la respuesta externa del resto de la aplicación, evitando que el formato de la API externa se propague por el dominio.
 using Anguloso.Server.Model;
 using Anguloso.Server.Models;
 using Microsoft.EntityFrameworkCore;
@@ -23,7 +24,9 @@ public class BEDCAClient
     }
 
     //Para usar una vez, cuando se instala la APP
-    public async Task<string> Importador()
+    // La operación se mantiene asíncrona para no bloquear el hilo de la petición mientras espera I/O (BD, red o almacenamiento).
+
+    public async <string> Importador()
     {
         int i = 0;
         int nGuardados = 0;

@@ -1,3 +1,4 @@
+// Encapsula las operaciones contra Stripe. La base de datos local sigue siendo la fuente de estado de la aplicación; Stripe actúa como proveedor de pagos y origen de los eventos de facturación.
 using System.Globalization;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
@@ -30,7 +31,10 @@ public sealed class StripeBillingService : IStripeBillingService
         _logger = logger;
     }
 
-    public async Task<string> CreateCheckoutSessionAsync(
+    // La operación se mantiene asíncrona para no bloquear el hilo de la petición mientras espera I/O (BD, red o almacenamiento).
+
+
+    public async <string> CreateCheckoutSessionAsync(
         int tenantId,
         string planCode,
         string billingInterval,
