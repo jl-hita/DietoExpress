@@ -218,12 +218,19 @@ public sealed class AutomationService
     /// <summary>Recalcula periódicamente el ciclo de vida y crea tareas para pacientes sin seguimiento.</summary>
     public async Task RunPatientLifecycleSweepAsync(CancellationToken cancellationToken = default)
     {
-        var candidates = new List<(int ClientId, int TenantId, int? AssignedUserId, string Status)>();
+        var candidates = new List<(int ClientId, int TenantId, int? AssignedUserId, string Status, bool HasFutureAppointment)>();
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         await using var command = new NpgsqlCommand("""
             SELECT c.id, c.tenant_id, c.user_id,
+                   EXISTS (
+                       SELECT 1 FROM patient_appointments fa
+                       WHERE fa.client_id=c.id
+                         AND fa.tenant_id=c.tenant_id
+                         AND fa.status IN ('requested','confirmed')
+                         AND fa.starts_at > NOW()
+                   ) AS has_future_appointment,
                    CASE
                      WHEN c.archived_at IS NOT NULL THEN 'archived'
                      WHEN c.birth_date IS NULL
@@ -243,22 +250,14 @@ public sealed class AutomationService
                                      WHERE pc.client_id=c.id
                                        AND COALESCE(pc.submitted_at, pc.created_at) >= NOW() - INTERVAL '14 days')
                        THEN 'follow_up'
-                     WHEN NOT EXISTS (
-                          SELECT 1 FROM patient_appointments a
-                          WHERE a.client_id=c.id
-                            AND a.tenant_id=c.tenant_id
-                            AND a.status IN ('requested','confirmed')
-                            AND a.starts_at > NOW()
-                       )
-                       THEN 'pending_first_appointment'
-                     ELSE 'active'
+                     ELSE 'pending_first_appointment'
                    END AS lifecycle_status
             FROM clients c
             WHERE c.tenant_id IS NOT NULL AND c.archived_at IS NULL;
             """, connection);
         await using var reader=await command.ExecuteReaderAsync(cancellationToken);
         while(await reader.ReadAsync(cancellationToken))
-            candidates.Add((reader.GetInt32(0),reader.GetInt32(1),reader.IsDBNull(2)?null:reader.GetInt32(2),reader.GetString(3)));
+            candidates.Add((reader.GetInt32(0),reader.GetInt32(1),reader.IsDBNull(2)?null:reader.GetInt32(2),reader.GetString(4),reader.GetBoolean(3)));
         await reader.DisposeAsync();
 
         foreach(var c in candidates)
@@ -272,7 +271,7 @@ public sealed class AutomationService
                     "Completar información inicial del paciente",
                     "Revisar y completar los datos personales y biométricos necesarios antes de continuar el seguimiento.",
                     "normal"),
-                "pending_first_appointment" => (
+                "pending_first_appointment" when !c.HasFutureAppointment => (
                     "Proponer primera cita al paciente",
                     "El paciente todavía no tiene una primera cita futura solicitada o confirmada. Revisar y proponer el siguiente paso.",
                     "normal"),
