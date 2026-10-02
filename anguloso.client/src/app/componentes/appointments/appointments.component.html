@@ -1,0 +1,67 @@
+<div class="appointments-page">
+  <header class="page-header">
+    <div>
+      <span class="eyebrow">AGENDA</span>
+      <h1>Citas</h1>
+      <p>Gestiona tus horarios disponibles y las citas de tus pacientes.</p>
+    </div>
+    <div class="header-count"><strong>{{ upcoming.length }}</strong><span>próximas</span></div>
+  </header>
+
+  <div class="alert success" *ngIf="success"><mat-icon>check_circle</mat-icon>{{ success }}</div>
+  <div class="alert error" *ngIf="error"><mat-icon>error_outline</mat-icon>{{ error }}<button type="button" (click)="load()">Reintentar</button></div>
+
+  <div class="loading" *ngIf="loading"><mat-spinner diameter="32"></mat-spinner><span>Cargando agenda...</span></div>
+
+  <ng-container *ngIf="!loading">
+    <section class="card">
+      <div class="card-header">
+        <div><mat-icon>event_available</mat-icon><div><h2>Disponibilidad semanal</h2><p>Los pacientes verán automáticamente estos horarios.</p></div></div>
+      </div>
+      <div class="availability-grid">
+        <article class="day-card" *ngFor="let day of days">
+          <div class="day-title">{{ day.label }}</div>
+          <div class="rules" *ngIf="rulesFor(day.value).length; else noRules">
+            <button type="button" class="rule" *ngFor="let rule of rulesFor(day.value)"
+                    [class.inactive]="!rule.isActive" (click)="toggleAvailability(rule)" [disabled]="saving">
+              <span>{{ rule.startTime.slice(0,5) }}–{{ rule.endTime.slice(0,5) }}</span>
+              <small>{{ rule.slotMinutes }} min · {{ rule.isActive ? 'Activa' : 'Pausada' }}</small>
+            </button>
+          </div>
+          <ng-template #noRules><span class="empty-day">Sin horario</span></ng-template>
+        </article>
+      </div>
+      <div class="add-rule">
+        <strong>Añadir horario</strong>
+        <select [(ngModel)]="newDay" aria-label="Día"><option *ngFor="let day of days" [ngValue]="day.value">{{ day.label }}</option></select>
+        <input type="time" [(ngModel)]="newStart" aria-label="Hora de inicio">
+        <span>—</span>
+        <input type="time" [(ngModel)]="newEnd" aria-label="Hora de fin">
+        <select [(ngModel)]="newSlot" aria-label="Duración"><option [ngValue]="15">15 min</option><option [ngValue]="30">30 min</option><option [ngValue]="45">45 min</option><option [ngValue]="60">60 min</option></select>
+        <button type="button" class="primary" (click)="addAvailability()" [disabled]="saving"><mat-icon>add</mat-icon> Añadir</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <div><mat-icon>calendar_month</mat-icon><div><h2>Próximas citas</h2><p>Gestiona las solicitudes y el estado de cada consulta.</p></div></div>
+        <span class="pending" *ngIf="pendingCount">{{ pendingCount }} pendientes</span>
+      </div>
+      <div class="appointment-list" *ngIf="upcoming.length; else noAppointments">
+        <article class="appointment" *ngFor="let item of upcoming">
+          <div class="date-block"><strong>{{ formatDate(item.startsAt) }}</strong><span>{{ formatTime(item.startsAt) }}</span></div>
+          <div class="patient"><strong>{{ item.clientName || 'Paciente' }}</strong><span *ngIf="item.patientNotes">{{ item.patientNotes }}</span></div>
+          <span class="status" [class]="'status ' + item.status">{{ statusLabel(item.status) }}</span>
+          <div class="actions">
+            <button *ngIf="item.status === 'requested'" type="button" class="primary small" (click)="changeStatus(item, 'confirmed')">Confirmar</button>
+            <button *ngIf="item.status === 'requested' || item.status === 'confirmed'" type="button" class="secondary small" (click)="changeStatus(item, 'cancelled')">Cancelar</button>
+            <button *ngIf="item.status === 'confirmed'" type="button" class="secondary small" (click)="changeStatus(item, 'completed')">Completar</button>
+          </div>
+        </article>
+      </div>
+      <ng-template #noAppointments>
+        <div class="empty"><mat-icon>event_busy</mat-icon><h3>No hay próximas citas</h3><p>Cuando un paciente reserve un horario aparecerá aquí.</p></div>
+      </ng-template>
+    </section>
+  </ng-container>
+</div>
