@@ -82,3 +82,12 @@ Quedan como deuda técnica explícita la actualización de dependencias de desar
 - El último pipeline ejecutó correctamente Angular, restauración, auditoría de dependencias .NET, compilación, pruebas de seguridad y despliegue.
 - La auditoría de dependencias .NET reportó únicamente avisos Low de NuGet.Packaging/NuGet.Protocol; el pipeline bloquea explícitamente High y Critical.
 - La auditoría de producción de npm terminó en 0 vulnerabilidades con el nivel High como umbral. Los avisos visibles durante npm install son principalmente deprecaciones del árbol de dependencias y no provocaron un hallazgo de seguridad de producción.
+
+
+## Trabajo posterior a la auditoría — migración del JWT profesional a cookie HttpOnly
+
+- Se inicia como tarea independiente posterior al cierre de la auditoría.
+- El objetivo es eliminar el JWT profesional de `localStorage` y transportarlo mediante una cookie `HttpOnly`, `Secure` y `SameSite=Strict`, siguiendo el patrón ya utilizado por el portal de pacientes.
+- Se conserva la validación JWT, los claims, el aislamiento multi-tenant, la revocación mediante `token_version` y las políticas de autorización existentes.
+- La selección de cookie se realiza por superficie para permitir que una sesión profesional y una sesión de paciente coexistan en el mismo navegador.
+- Esta migración se mantiene separada de la auditoría cerrada para probar el cambio de autenticación de extremo a extremo sin reabrir el alcance de aquella revisión.

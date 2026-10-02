@@ -64,7 +64,7 @@ export class LoginComponent {
 
     this.googleLogin(idToken).subscribe({
       next: (res) => {
-        this.authService.login(res.token);
+        this.authService.login(res);
         this.snackBar.open(`Bienvenido ${res.username}`, 'Cerrar', { duration: 3000 });
         this.ngZone.run(() => this.router.navigate(['/clients'])); // navegar en Angular zone
       },
@@ -83,7 +83,7 @@ export class LoginComponent {
     this.http.post<any>(`${this.baseUrl}/auth/login`, this.form.value)
     .subscribe({
       next: (res) => {
-        this.authService.login(res.token); // guardamos el token
+        this.authService.login(res); // la sesión se mantiene en la cookie HttpOnly
         console.log("ID -> " + res.id);
         console.log("User -> " + res.username);
         console.log("Role -> " + res.role);

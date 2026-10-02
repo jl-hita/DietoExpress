@@ -16,7 +16,7 @@ export class OnboardingComponent {
 
   get userName(): string {
     const user = this.authService.getUser();
-    return user?.unique_name ?? user?.name ?? 'profesional';
+    return user?.username ?? 'profesional';
   }
 
   irABilling(): void {
@@ -28,7 +28,6 @@ export class OnboardingComponent {
   }
 
   cerrarSesion(): void {
-    this.authService.logout();
-    this.router.navigate(['/']);
+    this.authService.logout().subscribe(() => this.router.navigate(['/']));
   }
 }

@@ -130,12 +130,15 @@ public class AuthController : ControllerBase
             */
 
             var tokenString = CrearJwtParaUsuario(user);
+            SetProfessionalSessionCookie(tokenString);
 
             return Ok(new
             {
-                token = tokenString,
                 username = user.username,
-                role = user.role
+                email = user.email,
+                role = user.role,
+                subscriptionPlan = user.subscription_plan,
+                subscriptionStatus = user.subscription_status
             });
         }
         catch(Exception e) 
@@ -682,12 +685,15 @@ public class AuthController : ControllerBase
 
         // Generar tu JWT (reutiliza el código que ya tienes en Login)
         var jwt = CrearJwtParaUsuario(user);
+        SetProfessionalSessionCookie(jwt);
 
         return Ok(new
         {
-            token = jwt,
             username = user.username,
-            role = user.role
+            email = user.email,
+            role = user.role,
+            subscriptionPlan = user.subscription_plan,
+            subscriptionStatus = user.subscription_status
         });
     }
 
@@ -826,7 +832,53 @@ public class AuthController : ControllerBase
             return Unauthorized("La cuenta no está disponible.");
 
         var jwt = CrearJwtParaUsuario(user);
-        return Ok(new { token = jwt, username = user.username, email = user.email, role = user.role });
+        SetProfessionalSessionCookie(jwt);
+        return Ok(new
+        {
+            username = user.username,
+            email = user.email,
+            role = user.role,
+            subscriptionPlan = user.subscription_plan,
+            subscriptionStatus = user.subscription_status
+        });
+    }
+
+    [Authorize(Policy = "Professional")]
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout()
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId.HasValue)
+        {
+            var user = await _context.users.FirstOrDefaultAsync(u => u.id == userId.Value && u.archived_at == null);
+            if (user != null)
+            {
+                user.token_version++;
+                await _context.SaveChangesAsync();
+            }
+        }
+
+        Response.Cookies.Delete("dietoexpress_professional_session", new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Strict,
+            Path = "/"
+        });
+        return NoContent();
+    }
+
+    private void SetProfessionalSessionCookie(string jwt)
+    {
+        Response.Cookies.Append("dietoexpress_professional_session", jwt, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Strict,
+            Expires = DateTimeOffset.UtcNow.AddHours(3),
+            MaxAge = TimeSpan.FromHours(3),
+            Path = "/"
+        });
     }
 
     [HttpGet("whoami")]

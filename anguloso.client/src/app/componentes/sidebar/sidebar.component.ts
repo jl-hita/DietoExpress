@@ -48,7 +48,7 @@ export class SidebarComponent implements OnInit {
 
   get userName(): string {
     const user = this.authService.getUser();
-    return user?.unique_name ?? user?.name ?? this.profile?.fullName ?? 'Usuario';
+    return user?.username ?? this.profile?.fullName ?? 'Usuario';
   }
 
   get isSuperAdmin(): boolean {
@@ -70,9 +70,10 @@ export class SidebarComponent implements OnInit {
   }
 
   logout() {
-    this.authService.logout();
-    this.closeMenu.emit();
-    this.router.navigate(['/']);
+    this.authService.logout().subscribe(() => {
+      this.closeMenu.emit();
+      this.router.navigate(['/']);
+    });
   }
 
   navigateAndClose(): void {

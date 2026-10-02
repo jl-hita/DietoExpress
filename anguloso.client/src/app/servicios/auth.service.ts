@@ -1,63 +1,59 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { jwtDecode } from 'jwt-decode';
-import { Observable } from 'rxjs';
+import { BehaviorSubject, Observable, of } from 'rxjs';
+import { catchError, map, tap } from 'rxjs/operators';
 
-@Injectable({
-  providedIn: 'root'
-})
+export interface AuthUser {
+  username: string;
+  email?: string;
+  role: string;
+  subscriptionPlan?: string;
+  subscriptionStatus?: string;
+}
+
+@Injectable({ providedIn: 'root' })
 export class AuthService {
-  private readonly TOKEN_KEY = 'auth_token';
+  private readonly userSubject = new BehaviorSubject<AuthUser | null>(null);
+  private sessionRestore$?: Observable<boolean>;
 
   constructor(private http: HttpClient) { }
 
-  isLoggedIn(): boolean {
-    return !!localStorage.getItem(this.TOKEN_KEY);
+  isLoggedIn(): boolean { return this.userSubject.value !== null; }
+
+  login(user: AuthUser): void { this.userSubject.next(user); }
+
+  /**
+   * Renueva la sesión profesional usando exclusivamente la cookie HttpOnly.
+   * El JWT nunca se devuelve al navegador en la respuesta.
+   */
+  refreshSession(): Observable<AuthUser> {
+    return this.http.post<AuthUser>('/api/auth/refreshSession', {}).pipe(
+      tap(user => this.userSubject.next(user))
+    );
   }
 
-  login(token: string): void {
-    localStorage.setItem(this.TOKEN_KEY, token);
+  restoreSession(): Observable<boolean> {
+    if (this.isLoggedIn()) return of(true);
+    if (this.sessionRestore$) return this.sessionRestore$;
+    this.sessionRestore$ = this.refreshSession().pipe(
+      map(() => true),
+      catchError(() => { this.userSubject.next(null); return of(false); }),
+      tap(() => { this.sessionRestore$ = undefined; })
+    );
+    return this.sessionRestore$;
   }
 
-  refreshSession(): Observable<{ token: string; username: string; email: string; role: string }> {
-    return this.http.post<{ token: string; username: string; email: string; role: string }>('/api/auth/refreshSession', {});
+  logout(): Observable<void> {
+    return this.http.post<void>('/api/auth/logout', {}).pipe(
+      tap(() => this.userSubject.next(null)),
+      catchError(() => { this.userSubject.next(null); return of(void 0); })
+    );
   }
 
-  logout(): void {
-    localStorage.removeItem(this.TOKEN_KEY);
-  }
-
-  getToken(): string | null {
-    return localStorage.getItem(this.TOKEN_KEY);
-  }
-
-  getUser(): any | null {
-    const token = this.getToken();
-    if (!token) return null;
-    try {
-      return jwtDecode(token);
-    } catch {
-      return null;
-    }
-  }
-
-  getRole(): string | null {
-    const user = this.getUser();
-    if (!user) return null;
-    return user['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || user.role || null;
-  }
-
-  isSuperAdmin(): boolean {
-    return this.getRole() === 'superadmin';
-  }
-
-  getSubscriptionPlan(): string {
-    const user = this.getUser();
-    return user?.subscriptionPlan ?? 'free';
-  }
-
-  getSubscriptionStatus(): string {
-    const user = this.getUser();
-    return user?.subscriptionStatus ?? 'active';
-  }
+  getToken(): null { return null; }
+  getUser(): AuthUser | null { return this.userSubject.value; }
+  getRole(): string | null { return this.userSubject.value?.role ?? null; }
+  isSuperAdmin(): boolean { return this.getRole() === 'superadmin'; }
+  getSubscriptionPlan(): string { return this.userSubject.value?.subscriptionPlan ?? 'free'; }
+  getSubscriptionStatus(): string { return this.userSubject.value?.subscriptionStatus ?? 'active'; }
 }

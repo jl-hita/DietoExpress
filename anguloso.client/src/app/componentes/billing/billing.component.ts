@@ -494,7 +494,7 @@ export class BillingComponent implements OnInit {
           if (license.planCode !== 'free' && license.status === 'active') {
             this.authService.refreshSession().subscribe({
               next: session => {
-                this.authService.login(session.token);
+                this.authService.login(session);
                 window.location.reload();
               },
               error: () => this.waitForCheckoutActivation(attempt + 1)
