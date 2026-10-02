@@ -427,7 +427,7 @@ public class AuthorizationRegressionTests
         var clinicEmailRecheck = clinic.IndexOf("El email ya está registrado.", clinicLock, StringComparison.Ordinal);
         Assert.True(clinicLock > clinicMethod);
         Assert.True(clinicEmailRecheck > clinicLock);
-        Assert.Equal("pg_advisory_xact_lock(748392616)", clinic.Substring(clinicLock, clinic.IndexOf(");", clinicLock) - clinicLock));
+        Assert.Equal("pg_advisory_xact_lock(748392616)", clinic.Substring(clinicLock, clinic.IndexOf(")", clinicLock) - clinicLock + 1));
     }
 
     [Fact]
