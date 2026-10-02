@@ -26,7 +26,7 @@ public class ClinicController : ControllerBase
     }
     [HttpGet("dashboard")]
     [Authorize(Roles="clinic_admin")]
-    public async Task<IActionResult> Dashboard()
+    // El dashboard agrega información del tenant autenticado para que las métricas nunca dependan de un tenant enviado por el cliente.\n    public async Task<IActionResult> Dashboard()
     {
         var tenantId=AuthHelpers.GetTenantId(User); if(!tenantId.HasValue) return BadRequest("El usuario no pertenece a una clínica.");
         if(!await _license.CanUseFeatureAsync(tenantId,"CLINIC_DASHBOARD")) return Forbid();
@@ -37,7 +37,7 @@ public class ClinicController : ControllerBase
     }
     [HttpGet("nutritionists")]
     [Authorize(Roles="clinic_admin")]
-    public async Task<IActionResult> Nutritionists()
+    // La consulta se limita al tenant actual y expone el estado de las cuentas para gestionar la plantilla de la clínica.\n    public async Task<IActionResult> Nutritionists()
     {
         var tenantId = AuthHelpers.GetTenantId(User);
         if (!tenantId.HasValue) return BadRequest("Sin clínica.");
@@ -63,7 +63,7 @@ public class ClinicController : ControllerBase
 
     [HttpPost("nutritionists")]
     [Authorize(Roles="clinic_admin")]
-    public async Task<IActionResult> CreateNutritionist([FromBody] CreateNutritionistRequest req)
+    // El alta comprueba el límite contratado antes de crear la cuenta y su relación con la clínica.\n    public async Task<IActionResult> CreateNutritionist([FromBody] CreateNutritionistRequest req)
     {
         if (req == null) return BadRequest("Datos del nutricionista no válidos.");
         var tenantId = AuthHelpers.GetTenantId(User);
@@ -164,7 +164,7 @@ public class ClinicController : ControllerBase
 
     [HttpPut("nutritionists/{id:int}/activate")]
     [Authorize(Roles="clinic_admin")]
-    public async Task<IActionResult> ActivateNutritionist(int id)
+    // La activación se realiza dentro del tenant y vuelve a contar la capacidad contratada antes de habilitar la cuenta.\n    public async Task<IActionResult> ActivateNutritionist(int id)
     {
         var tenantId = AuthHelpers.GetTenantId(User);
         if (!tenantId.HasValue) return BadRequest("Sin clínica.");
@@ -205,7 +205,7 @@ public class ClinicController : ControllerBase
 
     [HttpGet("nutritionists/{id:int}/deactivation-preview")]
     [Authorize(Roles="clinic_admin")]
-    public async Task<IActionResult> DeactivationPreview(int id)
+    // Este paso informa de pacientes y relaciones que quedarían sin nutricionista antes de confirmar la desactivación.\n    public async Task<IActionResult> DeactivationPreview(int id)
     {
         var tenantId=AuthHelpers.GetTenantId(User);
         var user=await _context.users.AsNoTracking().FirstOrDefaultAsync(u=>u.id==id&&u.tenant_id==tenantId&&u.archived_at==null&&(u.role=="nutritionist"||u.role=="user"));
@@ -228,7 +228,7 @@ public class ClinicController : ControllerBase
 
     [HttpPut("nutritionists/{id:int}/disable")]
     [Authorize(Roles="clinic_admin")]
-    public async Task<IActionResult> DisableNutritionist(int id,[FromBody] DeactivateNutritionistRequest? req)
+    // La desactivación es lógica para preservar historial y permite posteriormente reasignar pacientes activos.\n    public async Task<IActionResult> DisableNutritionist(int id,[FromBody] DeactivateNutritionistRequest? req)
     {
         var tenantId=AuthHelpers.GetTenantId(User);
         if (!tenantId.HasValue) return BadRequest("El usuario no pertenece a una clínica.");
@@ -296,7 +296,7 @@ public class ClinicController : ControllerBase
 
     [HttpPut("clients/{clientId:int}/assign")]
     [Authorize(Roles="clinic_admin")]
-    public async Task<IActionResult> AssignClient(int clientId,[FromBody] AssignClientRequest req)
+    // La asignación valida que paciente y nutricionista pertenezcan al mismo tenant y que la cuenta de destino esté activa.\n    public async Task<IActionResult> AssignClient(int clientId,[FromBody] AssignClientRequest req)
     {
         if (req == null) return BadRequest("Datos de asignación no válidos.");
         var tenantId=AuthHelpers.GetTenantId(User);

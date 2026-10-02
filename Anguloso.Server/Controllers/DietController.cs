@@ -35,7 +35,7 @@ public class DietController : ControllerBase
     }
 
 
-    private async Task<bool> CanUseFoodAsync(int foodId, int userId, int? tenantId)
+    // Los alimentos locales pertenecen al tenant; las fuentes externas pueden compartirse sin exponer datos privados.\n    private async Task<bool> CanUseFoodAsync(int foodId, int userId, int? tenantId)
     {
         return await _context.foods.AnyAsync(f =>
             f.id == foodId &&
@@ -46,7 +46,7 @@ public class DietController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<object>> GetDiets([FromQuery] bool? onlyShared = null, [FromQuery] bool includeAll = false, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null)
+    // La consulta combina propiedad individual, dietas compartidas y SuperAdmin manteniendo el aislamiento por tenant.\n    public async Task<ActionResult<object>> GetDiets([FromQuery] bool? onlyShared = null, [FromQuery] bool includeAll = false, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null)
     {
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
@@ -108,7 +108,7 @@ public class DietController : ControllerBase
     }
 
     [HttpGet("{id:int}")]
-    public async Task<ActionResult<DietDetailDto>> GetDiet(int id)
+    // Carga el árbol completo de la dieta y filtra los alimentos locales para no revelar referencias de otro tenant.\n    public async Task<ActionResult<DietDetailDto>> GetDiet(int id)
     {
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
@@ -190,7 +190,7 @@ public class DietController : ControllerBase
         });
     }
 
-    private static string? ValidateDietPayload(string? name, string? notes, ICollection<DietDayDto>? days)
+    // Los límites evitan cargas excesivas y mantienen acotado el tamaño de cada dieta recibida por API.\n    private static string? ValidateDietPayload(string? name, string? notes, ICollection<DietDayDto>? days)
     {
         if (string.IsNullOrWhiteSpace(name)) return "El nombre de la dieta es obligatorio.";
         if (name.Length > 200) return "El nombre de la dieta no puede superar los 200 caracteres.";
@@ -210,7 +210,7 @@ public class DietController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<DietListDto>> CreateDiet([FromBody] CreateDietDto dto)
+    // La dieta y su posible asignación al paciente se guardan en una única transacción.\n    public async Task<ActionResult<DietListDto>> CreateDiet([FromBody] CreateDietDto dto)
     {
         var validationError = ValidateDietPayload(dto?.Name, dto?.Notes, dto?.Days);
         if (validationError != null) return BadRequest(validationError);
@@ -358,7 +358,7 @@ public class DietController : ControllerBase
         }
     }
     [HttpPut("{id:int}")]
-    public async Task<IActionResult> UpdateDiet(int id, [FromBody] UpdateDietDto dto)
+    // La edición reconstruye el árbol días/comidas/alimentos después de comprobar que el usuario es el propietario.\n    public async Task<IActionResult> UpdateDiet(int id, [FromBody] UpdateDietDto dto)
     {
         var validationError = ValidateDietPayload(dto?.Name, dto?.Notes, dto?.Days);
         if (validationError != null) return BadRequest(validationError);
@@ -432,7 +432,7 @@ public class DietController : ControllerBase
     }
 
     [HttpDelete("{id:int}")]
-    public async Task<IActionResult> DeleteDiet(int id)
+    // El borrado es lógico para conservar el historial y evitar romper asignaciones históricas.\n    public async Task<IActionResult> DeleteDiet(int id)
     {
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();

@@ -69,7 +69,7 @@ public class AuthController : ControllerBase
     /// <response code="400">Datos incorrectos.</response>
     /// <response code="401">Usuario o contraseña inválidos.</response>
     [HttpPost("login")]
-    public async Task<IActionResult> Login([FromBody] LoginRequest login)
+    // Valida credenciales y estado de la cuenta antes de emitir la sesión JWT.\n    public async Task<IActionResult> Login([FromBody] LoginRequest login)
     {
         try
         {
@@ -151,7 +151,7 @@ public class AuthController : ControllerBase
     // Crea usuario y envía enlace de confirmación via email
     [HttpPut("crearUser")]
     //public async Task<IActionResult> CrearUser([FromBody] Usuario usuario)
-    public async Task<BoolMensaje> CrearUserAsync([FromBody] Usuario usuario)
+    // El alta pública crea una cuenta gratuita y su tenant dentro de una transacción protegida frente a carreras concurrentes.\n    public async Task<BoolMensaje> CrearUserAsync([FromBody] Usuario usuario)
     {
         try
         {
@@ -296,7 +296,7 @@ public class AuthController : ControllerBase
 
     //Confirma cuenta accediento a través de enlace en email de confirmación
     [HttpGet("confirmarEmail")]
-    public async Task<IActionResult> ConfirmarEmail([FromQuery]string token)
+    // El token recibido por correo se compara mediante su hash y, una vez usado, se elimina para impedir su reutilización.\n    public async Task<IActionResult> ConfirmarEmail([FromQuery]string token)
     {
         var tokenHash = HashSecurityToken(token);
         var user = await _context.users.FirstOrDefaultAsync(u => u.email_confirmation_token == tokenHash);
@@ -327,7 +327,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("enviarReset")]
-    public async Task<BoolMensaje> EnviarReset([FromBody] PasswordResetEmailRequest req)
+    // La respuesta es deliberadamente uniforme para no revelar si el correo corresponde a una cuenta existente.\n    public async Task<BoolMensaje> EnviarReset([FromBody] PasswordResetEmailRequest req)
     {
         if (string.IsNullOrWhiteSpace(req.Email) || req.Email.Length > 320)
             return new BoolMensaje { Exito = false, Mensaje = "Email obligatorio" };
@@ -376,7 +376,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPut("resetPassword")]
-    public async Task<BoolMensaje> ResetPassword([FromBody] PasswordResetByTokenRequest req)
+    // El consumo del token se serializa para impedir que dos peticiones concurrentes cambien la contraseña con el mismo enlace.\n    public async Task<BoolMensaje> ResetPassword([FromBody] PasswordResetByTokenRequest req)
     {
         if (req == null || string.IsNullOrWhiteSpace(req.NewPassword) || req.NewPassword.Length < 12 || req.NewPassword.Length > 256)
             return new BoolMensaje { Exito = false, Mensaje = "La nueva contraseña debe tener entre 12 y 256 caracteres." };
@@ -511,7 +511,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("google")]
-    public async Task<IActionResult> LoginGoogle([FromBody] GoogleLoginDto dto)
+    // Google valida la identidad externa; aquí se resuelve la asociación con el usuario, tenant y plan de DietoExpress.\n    public async Task<IActionResult> LoginGoogle([FromBody] GoogleLoginDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto?.IdToken) || dto.IdToken.Length > 20000)
             return BadRequest("IdToken no válido.");
@@ -662,7 +662,7 @@ public class AuthController : ControllerBase
     }
 
     //Subrutina que se usa en los distintos modos de login. Genera un token con el user
-    private string CrearJwtParaUsuario(users user)
+    // Un único constructor mantiene coherentes los claims de identidad, tenant, suscripción y revocación.\n    private string CrearJwtParaUsuario(users user)
     {
         var tokenHandler = new JwtSecurityTokenHandler();
         var key = Encoding.UTF8.GetBytes(_config["Jwt:Key"]!);
@@ -697,7 +697,7 @@ public class AuthController : ControllerBase
 
     //Crea un nombre de usuario único
     //puede transformar José López en jose.lopez y si ya existe añadir un sufijo numérico
-    private string GenerateUniqueUsername(string name)
+    // Genera un identificador legible a partir del nombre de Google y añade sufijo si ya está ocupado.\n    private string GenerateUniqueUsername(string name)
     {
         // Normalizar: quitar espacios, acentos, etc. (aquí simple)
         var baseName = name.ToLower().Replace(" ", ".").Normalize(NormalizationForm.FormD);
@@ -716,7 +716,7 @@ public class AuthController : ControllerBase
 
     [Authorize(Policy = "Professional")]
     [HttpPost("refreshSession")]
-    public async Task<IActionResult> RefreshSession()
+    // La renovación vuelve a leer la cuenta para reflejar cambios recientes de rol, suscripción o token_version.\n    public async Task<IActionResult> RefreshSession()
     {
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
@@ -739,7 +739,7 @@ public class AuthController : ControllerBase
 
     [Authorize(Policy = "Professional")]
     [HttpPost("logout")]
-    public async Task<IActionResult> Logout()
+    // Incrementar token_version revoca las sesiones emitidas previamente además de borrar la cookie del navegador.\n    public async Task<IActionResult> Logout()
     {
         var userId = AuthHelpers.GetUserId(User);
         if (userId.HasValue)
@@ -762,7 +762,7 @@ public class AuthController : ControllerBase
         return NoContent();
     }
 
-    private void SetProfessionalSessionCookie(string jwt)
+    // El JWT queda en una cookie HttpOnly, Secure y SameSite=Strict para evitar su acceso desde JavaScript.\n    private void SetProfessionalSessionCookie(string jwt)
     {
         Response.Cookies.Append("dietoexpress_professional_session", jwt, new CookieOptions
         {
