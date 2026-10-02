@@ -19,14 +19,14 @@ namespace Anguloso.Server.Controllers;
 public class PatientPortalController : ControllerBase
 {
     private readonly angulosodbContext _context;
-    private readonly IConfiguration _config;
+    private readonly ConfigServ _configServ;
     private readonly ILicenseService _licenseService;
     private readonly EmailServ _emailServ;
 
-    public PatientPortalController(angulosodbContext context, IConfiguration config, ILicenseService licenseService, EmailServ emailServ)
+    public PatientPortalController(angulosodbContext context, ConfigServ configServ, ILicenseService licenseService, EmailServ emailServ)
     {
         _context = context;
-        _config = config;
+        _configServ = configServ;
         _licenseService = licenseService;
         _emailServ = emailServ;
     }
@@ -128,7 +128,7 @@ public class PatientPortalController : ControllerBase
 
         await _context.SaveChangesAsync();
 
-        var frontendUrl = _configServValue("frontendUrl", "https://localhost:4200");
+        var frontendUrl = _configServ.GetConfigString("frontendUrl", "https://localhost:4200") ?? "https://localhost:4200";
         var magicLink = $"{frontendUrl.TrimEnd('/')}/patient?token={Uri.EscapeDataString(rawToken)}";
         var safeName = System.Net.WebUtility.HtmlEncode(client.full_name ?? "Paciente");
         var safeLink = System.Net.WebUtility.HtmlEncode(magicLink);
@@ -145,11 +145,6 @@ public class PatientPortalController : ControllerBase
         }
 
         return Ok(new { message = "Si el email corresponde a un paciente, recibirás un nuevo enlace de acceso." });
-    }
-
-    private string _configServValue(string key, string fallback)
-    {
-        return _config.GetValue<string>(key) ?? fallback;
     }
 
     [HttpGet("profile")]
