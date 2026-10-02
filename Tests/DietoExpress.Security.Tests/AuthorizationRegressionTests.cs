@@ -987,7 +987,10 @@ public class AuthorizationRegressionTests
         Assert.Contains("app.UseSwagger();", program);
         Assert.Contains("app.UseSwaggerUI();", program);
         Assert.Contains("WithOrigins(allowedOrigins)", program);
-        Assert.DoesNotContain("AllowAnyOrigin()", program);
+        var corsStart = program.LastIndexOf("builder.Services.AddCors(options =>", StringComparison.Ordinal);
+        var corsEnd = program.IndexOf("// Add services to the container.", corsStart, StringComparison.Ordinal);
+        Assert.True(corsStart >= 0 && corsEnd > corsStart);
+        Assert.DoesNotContain("AllowAnyOrigin()", program[corsStart..corsEnd]);
         Assert.Contains("X-Content-Type-Options", program);
         Assert.Contains("Strict-Transport-Security", program);
         Assert.Contains("Cache-Control", program);

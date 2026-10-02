@@ -31,7 +31,7 @@ He realizado una auditoría progresiva de DietoExpress, centrada principalmente 
 
 ## Estado
 
-La auditoría de seguridad está en fase de cierre. La pasada global final de endpoints no ha detectado un nuevo bypass de autorización o aislamiento multi-tenant que requiera cambios de código. Las superficies públicas revisadas (autenticación, setup inicial y webhook de Stripe) mantienen límites explícitos y su exposición es intencionada.
+La auditoría de seguridad queda cerrada en esta pasada. La pasada global final de endpoints no ha detectado un nuevo bypass de autorización o aislamiento multi-tenant que requiera cambios de código. Las superficies públicas revisadas (autenticación, setup inicial y webhook de Stripe) mantienen límites explícitos y su exposición es intencionada.
 
 La revisión de dependencias también queda controlada por CI: el último despliegue pasó la auditoría .NET sin vulnerabilidades High/Critical y el npm audit de producción terminó con 0 vulnerabilidades. Los avisos restantes de npm install corresponden a dependencias del árbol de desarrollo o paquetes obsoletos/deprecados y quedan como deuda técnica, no como bloqueo de seguridad del despliegue.
 
