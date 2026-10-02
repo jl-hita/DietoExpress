@@ -13,6 +13,7 @@ namespace Anguloso.Server.Controllers;
 [ApiController]
 [Authorize(Policy = "Professional")]
 [Route("api/food-exchange-groups")]
+// Los grupos de equivalencias son datos del tenant y deben permanecer aislados al consultar o modificar sus elementos.
 public class FoodExchangeGroupController : ControllerBase
 {
     private readonly angulosodbContext _context;

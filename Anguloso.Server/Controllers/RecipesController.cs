@@ -16,6 +16,7 @@ namespace Anguloso.Server.Controllers;
 [Authorize(Policy = "Professional")]
 [Route("api/[controller]")]
 [Route("api/recipes")]
+// Las recetas pueden combinar ingredientes propios y compartidos; este alcance evita exponer datos entre tenants.
 public class RecipesController : ControllerBase
 {
     private readonly angulosodbContext _context;

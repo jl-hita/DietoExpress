@@ -13,6 +13,7 @@ namespace Anguloso.Server.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Route("api/foods")]
+// La visibilidad del alimento depende de su origen y del tenant actual; estos filtros forman parte de la autorización funcional.
 public class FoodController : ControllerBase
 {
     private readonly OpenFoodFactsService _openFood;

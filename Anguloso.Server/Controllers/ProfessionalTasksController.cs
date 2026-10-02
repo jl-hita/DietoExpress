@@ -10,6 +10,7 @@ namespace Anguloso.Server.Controllers;
 [ApiController]
 [Route("api/professional/tasks")]
 [Authorize(Policy = "Professional")]
+// Las tareas profesionales son operativas y tenant-scoped; las lecturas y cambios de estado deben respetar siempre ese contexto.
 public sealed class ProfessionalTasksController : ControllerBase
 {
     private readonly AutomationService _automation;
