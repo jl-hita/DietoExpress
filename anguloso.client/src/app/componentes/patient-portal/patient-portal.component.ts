@@ -41,6 +41,7 @@ export class PatientPortalComponent implements OnInit {
 
   // Shopping list: persisted state via localStorage
   checkedItems: Record<string, boolean> = {};
+  completedMeals: Record<string, boolean> = {};
 
   constructor(
     private route: ActivatedRoute,
@@ -66,7 +67,6 @@ export class PatientPortalComponent implements OnInit {
       }
     });
 
-    this.loadCheckedItems();
   }
 
   authenticateWithToken(token: string): void {
@@ -133,6 +133,8 @@ export class PatientPortalComponent implements OnInit {
       next: (p) => {
         this.profile = p;
         if (p.id) this.clientId = p.id;
+        this.loadCheckedItems();
+        this.loadCompletedMeals();
         if (p.hasActiveDiet) {
           this.loadActiveDiet(clientIdParam);
           this.loadShoppingList(clientIdParam);
@@ -211,6 +213,37 @@ export class PatientPortalComponent implements OnInit {
     return !!this.checkedItems[key];
   }
 
+  mealKey(meal: any): string {
+    return `${this.clientId ?? 'preview'}_${this.today.toISOString().slice(0, 10)}_${meal.mealIndex}`;
+  }
+
+  isMealCompleted(meal: any): boolean {
+    return !!this.completedMeals[this.mealKey(meal)];
+  }
+
+  toggleMealCompleted(meal: any): void {
+    const key = this.mealKey(meal);
+    this.completedMeals[key] = !this.completedMeals[key];
+    this.saveCompletedMeals();
+  }
+
+  get completedMealCount(): number {
+    return this.todayDayData?.meals?.filter((meal: any) => this.isMealCompleted(meal)).length ?? 0;
+  }
+
+  get todayMealCount(): number {
+    return this.todayDayData?.meals?.length ?? 0;
+  }
+
+  get todayProgressPercent(): number {
+    return this.todayMealCount ? Math.round((this.completedMealCount / this.todayMealCount) * 100) : 0;
+  }
+
+  get todayKcal(): number {
+    return this.todayDayData?.meals?.reduce((total: number, meal: any) =>
+      total + (meal.items?.reduce((mealTotal: number, item: any) => mealTotal + Number(item.kcal || 0), 0) || 0), 0) ?? 0;
+  }
+
   private loadCheckedItems(): void {
     const saved = localStorage.getItem(`shopping_${this.clientId}`);
     if (saved) {
@@ -220,6 +253,20 @@ export class PatientPortalComponent implements OnInit {
 
   private saveCheckedItems(): void {
     localStorage.setItem(`shopping_${this.clientId}`, JSON.stringify(this.checkedItems));
+  }
+
+  private loadCompletedMeals(): void {
+    const saved = localStorage.getItem(`completed_meals_${this.clientId}_${this.today.toISOString().slice(0, 10)}`);
+    if (saved) {
+      try { this.completedMeals = JSON.parse(saved); } catch { this.completedMeals = {}; }
+    }
+  }
+
+  private saveCompletedMeals(): void {
+    localStorage.setItem(
+      `completed_meals_${this.clientId}_${this.today.toISOString().slice(0, 10)}`,
+      JSON.stringify(this.completedMeals)
+    );
   }
 
   get bmi(): string | null {
