@@ -4,8 +4,6 @@ import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatIconModule } from '@angular/material/icon';
-import { PatientPortalService } from '../../servicios/patient-portal.service';
-
 
 interface ChatMessage { id: number; senderType: 'patient' | 'professional'; senderId?: number | null; body: string; createdAt: string; readAt?: string | null; }
 
@@ -34,7 +32,9 @@ export class PatientChatComponent implements OnChanges, OnInit {
     }
   }
 
-  ngOnChanges(changes: SimpleChanges): void { if (changes['clientId'] || changes['patientMode']) this.load(); }
+  ngOnChanges(changes: SimpleChanges): void {
+    if ((changes['clientId'] || changes['patientMode']) && (this.patientMode || this.clientId)) this.load();
+  }
 
   load(): void {
     this.loading = true; this.error = null;
