@@ -1,3 +1,6 @@
+import { CommonModule } from '@angular/common';
+import { RouterLink, RouterLinkActive } from '@angular/router';
+import { MatButtonModule } from '@angular/material/button';
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
 import { AppRoute } from '../../app-routing.module';
@@ -8,7 +11,8 @@ import { AuthService } from '../../servicios/auth.service';
   selector: 'app-menu',
   templateUrl: './navbar.component.html',
   styleUrls: ['./navbar.component.css'],
-  standalone: false
+    standalone: true,
+  imports: [CommonModule, RouterLink, RouterLinkActive, MatToolbarModule, MatButtonModule],
 })
 export class NavbarComponent {
   menuRoutes: AppRoute[] = [];
