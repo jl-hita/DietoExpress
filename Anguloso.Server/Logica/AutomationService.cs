@@ -20,6 +20,8 @@ public sealed class AutomationService
         _logger = logger;
     }
 
+    // Persiste primero el evento y, solo si se inserta por primera vez, ejecuta las reglas derivadas.
+    // La restricción UNIQUE de PostgreSQL evita duplicados incluso con peticiones concurrentes.
     public async Task<long?> PublishEventAsync(
         int tenantId,
         string eventType,
@@ -75,6 +77,8 @@ public sealed class AutomationService
         return eventId;
     }
 
+    // Los trabajos se guardan en PostgreSQL, no en memoria: sobreviven a reinicios y pueden ser
+    // reclamados por el worker con control de concurrencia e idempotencia.
     public async Task<long> ScheduleActionAsync(
         int tenantId,
         string actionType,
@@ -322,6 +326,8 @@ public sealed class AutomationService
     }
 
     /// <summary>Recalcula periódicamente el ciclo de vida y crea tareas para pacientes sin seguimiento.</summary>
+    // Barrido periódico de reconciliación: aunque un evento no llegue a procesarse, el estado puede
+    // reconstruirse desde los datos persistidos. Esto hace el ciclo de vida resistente a reinicios.
     public async Task RunPatientLifecycleSweepAsync(CancellationToken cancellationToken = default)
     {
         var candidates = new List<(int ClientId, int TenantId, int? AssignedUserId, string Status, bool HasFutureAppointment)>();
@@ -442,6 +448,8 @@ public sealed class AutomationService
         return result is true;
     }
 
+    // Traduce eventos de negocio a acciones persistentes (avisos, emails y tareas). Las claves de
+    // idempotencia evitan que una repetición del mismo evento genere acciones duplicadas.
     private async Task ScheduleBuiltInRulesAsync(AutomationEvent evt, CancellationToken cancellationToken)
     {
         switch (evt.EventType)
