@@ -33,7 +33,7 @@
       </div>
       <div class="add-rule">
         <strong>Añadir horario</strong>
-        <select [(ngModel)]="newDay" aria-label="Día"><option *ngFor="let day of days" [ngValue]="day.value">{{ day.label }}</option></select>
+        <select [(ngModel)]="newDay" aria-label="Día"><option [ngValue]="-1">Lunes a viernes</option><option *ngFor="let day of days" [ngValue]="day.value">{{ day.label }}</option></select>
         <input type="time" [(ngModel)]="newStart" aria-label="Hora de inicio">
         <span>—</span>
         <input type="time" [(ngModel)]="newEnd" aria-label="Hora de fin">
