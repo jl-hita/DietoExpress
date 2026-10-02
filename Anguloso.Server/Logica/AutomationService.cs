@@ -200,8 +200,8 @@ public sealed class AutomationService
                             payload.ClientId,
                             evt.EventType == "diet.published" ? "Nueva dieta disponible" : "Tu dieta ha sido actualizada",
                             evt.EventType == "diet.published"
-                                ? $"Tu nutricionista ha publicado la dieta "{payload.DietName}"."
-                                : $"Tu nutricionista ha actualizado la dieta "{payload.DietName}".",
+                                ? $"Tu nutricionista ha publicado la dieta \"{payload.DietName}\"."
+                                : $"Tu nutricionista ha actualizado la dieta \"{payload.DietName}\"."
                             evt.EventType == "diet.published"
                                 ? "Ya puedes consultarla desde tu portal."
                                 : "Consulta los cambios desde tu portal.",
