@@ -11,6 +11,8 @@ public class ClientListDto
     public string? Gender { get; set; }
     public DateTime? BirthDate { get; set; } // ISO date (yyyy-MM-dd) in JSON
     public DateTime? CreatedAt { get; set; }
+    public string LifecycleStatus { get; set; } = "pending_info";
+    public DateTime? LastActivityAt { get; set; }
 }
 
 public class ClientDetailDto : ClientListDto
