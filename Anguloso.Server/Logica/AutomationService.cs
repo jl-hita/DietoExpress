@@ -540,6 +540,96 @@ public sealed class AutomationService
         }
     }
 
+
+    /// <summary>Revisa dietas activas próximas a finalizar o ya vencidas.</summary>
+    public async Task RunDietAutomationSweepAsync(CancellationToken cancellationToken = default)
+    {
+        var candidates = new List<(int AssignmentId, int ClientId, int TenantId, int? NutritionistId, DateOnly? EndDate, string DietName)>();
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new NpgsqlCommand("""
+            SELECT cd.id,
+                   cd.client_id,
+                   cd.diet_id,
+                   cd.end_date,
+                   c.tenant_id,
+                   d.name,
+                   (
+                       SELECT a.nutritionist_id
+                         FROM client_nutritionist_assignments a
+                        WHERE a.client_id=cd.client_id
+                          AND a.is_active
+                          AND a.nutritionist_id IS NOT NULL
+                        ORDER BY a.assigned_at DESC
+                        LIMIT 1
+                   ) AS nutritionist_id
+              FROM client_diets cd
+              JOIN clients c ON c.id=cd.client_id
+              JOIN diets d ON d.id=cd.diet_id
+             WHERE cd.is_active=true
+               AND c.archived_at IS NULL
+               AND d.archived_at IS NULL
+               AND c.tenant_id IS NOT NULL
+               AND cd.end_date IS NOT NULL;
+            """, connection);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            candidates.Add((
+                reader.GetInt32(0),
+                reader.GetInt32(1),
+                reader.GetInt32(4),
+                reader.IsDBNull(6) ? null : reader.GetInt32(6),
+                reader.IsDBNull(3) ? null : reader.GetFieldValue<DateOnly>(3),
+                reader.IsDBNull(5) ? "Dieta" : reader.GetString(5)));
+        }
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        foreach (var diet in candidates)
+        {
+            if (!diet.EndDate.HasValue) continue;
+
+            var daysRemaining = diet.EndDate.Value.DayNumber - today.DayNumber;
+            if (daysRemaining is >= 0 and <= 3)
+            {
+                await ScheduleActionAsync(
+                    diet.TenantId,
+                    "notify_patient",
+                    new NotifyPatientAction(
+                        diet.ClientId,
+                        "diet_expiring",
+                        "Tu dieta está próxima a finalizar",
+                        $"Tu dieta "{diet.DietName}" finaliza en {Math.Max(0, daysRemaining)} día(s). Consulta con tu nutricionista si necesitas continuar o hacer cambios.",
+                        "/patient?tab=diet"),
+                    DateTime.UtcNow,
+                    null,
+                    $"diet:expiring:{diet.AssignmentId}:{diet.EndDate:yyyyMMdd}",
+                    cancellationToken: cancellationToken);
+            }
+
+            if (diet.EndDate.Value < today)
+            {
+                await ScheduleActionAsync(
+                    diet.TenantId,
+                    "create_professional_task",
+                    new CreateTaskAction(
+                        diet.ClientId,
+                        diet.NutritionistId,
+                        "Revisar dieta vencida",
+                        $"La dieta "{diet.DietName}" ha superado su fecha de finalización y necesita revisión profesional.",
+                        DateTime.UtcNow,
+                        "high",
+                        "automation:diet.expired"),
+                    DateTime.UtcNow,
+                    null,
+                    $"diet:expired:{diet.AssignmentId}:{diet.EndDate:yyyyMMdd}",
+                    cancellationToken: cancellationToken);
+            }
+        }
+    }
+
     private async Task CancelJobsForEventAggregateAsync(AutomationEvent evt, CancellationToken cancellationToken)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
