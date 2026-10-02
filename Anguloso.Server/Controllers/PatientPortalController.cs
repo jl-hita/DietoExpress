@@ -20,12 +20,14 @@ public class PatientPortalController : ControllerBase
 {
     private readonly angulosodbContext _context;
     private readonly ConfigServ _configServ;
+    private readonly IConfiguration _config;
     private readonly ILicenseService _licenseService;
     private readonly EmailServ _emailServ;
 
-    public PatientPortalController(angulosodbContext context, ConfigServ configServ, ILicenseService licenseService, EmailServ emailServ)
+    public PatientPortalController(angulosodbContext context, IConfiguration config, ConfigServ configServ, ILicenseService licenseService, EmailServ emailServ)
     {
         _context = context;
+        _config = config;
         _configServ = configServ;
         _licenseService = licenseService;
         _emailServ = emailServ;
