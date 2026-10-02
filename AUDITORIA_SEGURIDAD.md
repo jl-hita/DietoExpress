@@ -129,3 +129,13 @@ Quedan como deuda técnica explícita la actualización de dependencias de desar
 - Los cambios de una dieta activa generan también una notificación al paciente.
 - Añadí un barrido horario persistente para dietas activas próximas a finalizar: avisa al paciente y crea una tarea profesional cuando la dieta ya ha vencido.
 - Las reglas usan claves de idempotencia y no generan dietas automáticamente: la decisión clínica sigue siendo del profesional.
+
+
+## Automatizaciones de billing y Stripe
+
+- Conecté los eventos de Stripe con el motor persistente de automatizaciones sin duplicar el estado de facturación: `subscriptions` y los webhooks de Stripe siguen siendo la fuente de verdad.
+- Se generan eventos de automatización para activación de suscripción, pagos correctos/fallidos, cambios de plan, cancelaciones y problemas con el método de pago.
+- Añadí persistencia de `trial_end` para poder automatizar el aviso de finalización de pruebas y generar eventos de prueba finalizada cuando corresponde.
+- Los avisos de billing se envían al contacto profesional de la cuenta por el scheduler persistente y los problemas relevantes generan además una tarea profesional con prioridad alta.
+- Las acciones utilizan la misma idempotencia, reintentos, recuperación tras reinicio y aislamiento por tenant que el resto del motor.
+- Un fallo del sistema de automatizaciones no revierte un webhook de Stripe ya procesado: primero se confirma el estado de billing y después se registra el evento de automatización.
