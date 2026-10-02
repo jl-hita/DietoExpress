@@ -43,6 +43,16 @@
     </div>
   </div>
 
+  <div *ngIf="!loading && portalDataError && !showLogin" class="portal-error-state">
+    <div class="portal-error-icon"><mat-icon>cloud_off</mat-icon></div>
+    <h2>No hemos podido cargar tu portal</h2>
+    <p>{{ portalDataError }}</p>
+    <button type="button" class="btn-portal-primary" (click)="retryLoadData()">
+      <mat-icon>refresh</mat-icon>
+      Reintentar
+    </button>
+  </div>
+
   <ng-container *ngIf="!loading && profile && !showLogin">
 
     <!-- ══════════════════════════════════════════ -->
