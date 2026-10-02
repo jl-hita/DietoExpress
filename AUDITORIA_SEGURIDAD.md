@@ -114,3 +114,11 @@ Quedan como deuda técnica explícita la actualización de dependencias de desar
 - Se genera un recordatorio al paciente una vez por semana mediante una tarea persistente e idempotente.
 - Si el paciente supera 10 días sin check-in, se genera además una tarea profesional de revisión/seguimiento.
 - Las automatizaciones respetan tenant, pacientes archivados y el scheduler persistente con reintentos y recuperación tras reinicio.
+
+## Automatizaciones de seguimiento — revisión profesional de check-ins
+
+- Añadí estado persistente de revisión (reviewed_at y reviewed_by_user_id) a los check-ins.
+- Cada check-in enviado genera una tarea profesional idempotente de revisión, y la revisión completa automáticamente las tareas pendientes asociadas al seguimiento.
+- Añadí endpoints profesionales para consultar check-ins pendientes y marcarlos como revisados.
+- El acceso se limita al tenant y a la asignación activa del paciente al profesional autenticado.
+- La migración es idempotente y también crea la tabla base de check-ins si todavía no existe, para soportar instalaciones nuevas desde cero.
