@@ -23,6 +23,7 @@ export interface LicenseStatus {
 @Injectable({
   providedIn: 'root'
 })
+// La licencia se consulta mediante el backend para que el frontend solo refleje el estado autorizado y no sea la fuente de verdad.
 export class LicenseService {
   constructor(private http: HttpClient) {}
 

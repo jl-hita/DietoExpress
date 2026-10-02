@@ -7,6 +7,7 @@ export interface ClinicClient { id:number; full_name:string; email:string; phone
 export interface ClinicDashboard { license:ClinicLicense; nutritionists:ClinicNutritionist[]; clients:ClinicClient[]; unassignedClientCount:number; }
 export interface NutritionistDeactivationPreview { nutritionist:any; clients:{clientId:number;fullName:string;email:string}[]; candidates:{id:number;fullName:string;username:string}[]; requiresReassignment:boolean; }
 @Injectable({providedIn:'root'})
+// Centraliza las operaciones de la clínica para que los componentes no dupliquen URLs ni transformaciones de las respuestas.
 export class ClinicService {
  constructor(private http:HttpClient){}
  getDashboard():Observable<ClinicDashboard>{return this.http.get<ClinicDashboard>('/api/clinic/dashboard');}

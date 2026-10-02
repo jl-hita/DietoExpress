@@ -60,6 +60,7 @@ import { FoodExchangeGroup } from '../../modelos/food-exchange-group';
     .chip.fat { background: #e3f2fd; color: #1565c0; }
   `]
 })
+// La búsqueda de intercambios traduce filtros de la interfaz al formato de consulta usado por el backend.
 export class ExchangeSearchDialogComponent {
   selectedGroup: FoodExchangeGroup | null = null;
   count: number = 1;

@@ -143,6 +143,7 @@ type KcalSource = 'default' | 'biometrics' | 'error';
     }
   `]
 })
+// El diálogo encapsula la generación de dietas y su estado asíncrono para evitar que el componente principal gestione directamente el proceso.
 export class DietGeneratorDialogComponent implements OnInit {
   form: FormGroup;
   generating = false;

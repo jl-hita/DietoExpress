@@ -12,6 +12,7 @@ export interface AuthUser {
 }
 
 @Injectable({ providedIn: 'root' })
+// Centraliza autenticación, sesión y almacenamiento del token para que los guards y componentes compartan la misma representación de identidad.
 export class AuthService {
   private readonly userSubject = new BehaviorSubject<AuthUser | null>(null);
   private sessionRestore$?: Observable<boolean>;

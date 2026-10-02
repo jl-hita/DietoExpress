@@ -9,6 +9,7 @@ import { environment } from '../../environments/environments';
 @Injectable({
   providedIn: 'root'
 })
+// Encapsula las consultas de alimentos y mantiene en un único punto la construcción de filtros y parámetros del backend.
 export class FoodService {
   private baseUrl = environment.apiUrl;
 

@@ -20,6 +20,7 @@ import { ClientService } from '../../servicios/client.service';
   templateUrl: './client-create.component.html',
   styleUrl: './client-create.component.css'
 })
+// Este formulario coordina datos personales, biometría y preferencias; mantiene la validación y el payload final separados de la vista.
 export class ClientCreateComponent {
   @Output() save = new EventEmitter<ClientDetail>();
   @Output() cancel = new EventEmitter<void>();

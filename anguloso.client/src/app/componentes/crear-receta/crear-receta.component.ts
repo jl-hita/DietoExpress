@@ -41,6 +41,7 @@ interface Receta {
     standalone: true,
   imports: [CommonModule, ReactiveFormsModule, MatCardModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatOptionModule, MatButtonModule, MatIconModule, MatProgressBarModule],
 })
+// El editor de recetas sincroniza ingredientes, cantidades y metadatos con el modelo que espera la API.
 export class CrearRecetaComponent {
   private apiUrl = environment.apiUrl +'receta/';
   formReceta: FormGroup;
