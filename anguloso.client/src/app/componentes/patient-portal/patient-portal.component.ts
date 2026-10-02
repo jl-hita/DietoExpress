@@ -7,9 +7,9 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { PatientPortalService } from '../../servicios/patient-portal.service';
 import { FoodService } from '../../servicios/food.service';
 import { SumPipe } from '../../shared/pipes/sum.pipe';
-import { PatientCheckin, PatientCheckinRequest } from '../../servicios/patient-portal.service';
+import { PatientCheckin, PatientCheckinRequest, AppointmentSlot, PatientAppointment } from '../../servicios/patient-portal.service';
 
-type ActiveTab = 'today' | 'shopping' | 'progress';
+type ActiveTab = 'today' | 'shopping' | 'appointments' | 'progress';
 
 @Component({
   selector: 'app-patient-portal',
@@ -40,6 +40,14 @@ export class PatientPortalComponent implements OnInit {
   requestingAccessLink = false;
   accessLinkMessage: string | null = null;
   accessLinkError: string | null = null;
+
+  appointments: PatientAppointment[] = [];
+  appointmentSlots: AppointmentSlot[] = [];
+  appointmentsLoading = false;
+  appointmentSlotsLoading = false;
+  appointmentError: string | null = null;
+  appointmentBooking = false;
+  appointmentSuccess: string | null = null;
 
   activeTab: ActiveTab = 'today';
   today = new Date();
@@ -180,6 +188,13 @@ export class PatientPortalComponent implements OnInit {
     this.checkinSaving = false;
     this.checkinError = null;
     this.checkinSuccess = false;
+    this.appointments = [];
+    this.appointmentSlots = [];
+    this.appointmentsLoading = false;
+    this.appointmentSlotsLoading = false;
+    this.appointmentError = null;
+    this.appointmentBooking = false;
+    this.appointmentSuccess = null;
     this.showLogin = true;
   }
 
@@ -196,6 +211,7 @@ export class PatientPortalComponent implements OnInit {
         if (!clientIdParam) {
           this.loadCurrentCheckin();
           this.loadCheckinHistory();
+          this.loadAppointments();
         }
         if (p.hasActiveDiet) {
           this.loadActiveDiet(clientIdParam);
@@ -313,6 +329,101 @@ export class PatientPortalComponent implements OnInit {
         this.checkinError = err?.error?.message || 'No hemos podido guardar tu revisión semanal. Inténtalo de nuevo.';
       }
     });
+  }
+
+  loadAppointments(): void {
+    this.appointmentsLoading = true;
+    this.appointmentError = null;
+    this.portalService.getMyAppointments().subscribe({
+      next: (items) => {
+        this.appointments = items || [];
+        this.appointmentsLoading = false;
+      },
+      error: (err) => {
+        this.appointments = [];
+        this.appointmentsLoading = false;
+        this.appointmentError = err?.error?.message || 'No hemos podido cargar tus citas.';
+      }
+    });
+  }
+
+  loadAppointmentSlots(): void {
+    this.appointmentSlotsLoading = true;
+    this.appointmentError = null;
+    this.portalService.getAppointmentSlots(30).subscribe({
+      next: (slots) => {
+        this.appointmentSlots = slots || [];
+        this.appointmentSlotsLoading = false;
+      },
+      error: (err) => {
+        this.appointmentSlots = [];
+        this.appointmentSlotsLoading = false;
+        this.appointmentError = err?.error?.message || 'No hemos podido cargar los horarios disponibles.';
+      }
+    });
+  }
+
+  openAppointments(): void {
+    this.activeTab = 'appointments';
+    this.appointmentSuccess = null;
+    if (!this.appointmentSlots.length && !this.appointmentSlotsLoading) this.loadAppointmentSlots();
+    if (!this.appointments.length && !this.appointmentsLoading) this.loadAppointments();
+  }
+
+  requestAppointment(slot: AppointmentSlot): void {
+    if (this.appointmentBooking) return;
+    this.appointmentBooking = true;
+    this.appointmentError = null;
+    this.appointmentSuccess = null;
+    this.portalService.requestAppointment(slot.startsAt, 30).subscribe({
+      next: (appointment) => {
+        this.appointmentBooking = false;
+        this.appointmentSlots = this.appointmentSlots.filter(s => s.startsAt !== slot.startsAt);
+        this.appointments = [appointment, ...this.appointments];
+        this.appointmentSuccess = 'Solicitud de cita enviada. Tu nutricionista deberá confirmarla.';
+      },
+      error: (err) => {
+        this.appointmentBooking = false;
+        this.appointmentError = err?.error?.message || 'No hemos podido solicitar la cita. Actualiza los horarios e inténtalo de nuevo.';
+        this.loadAppointmentSlots();
+      }
+    });
+  }
+
+  cancelAppointment(appointment: PatientAppointment): void {
+    if (this.appointmentBooking) return;
+    this.appointmentBooking = true;
+    this.appointmentError = null;
+    this.appointmentSuccess = null;
+    this.portalService.cancelAppointment(appointment.id).subscribe({
+      next: () => {
+        this.appointmentBooking = false;
+        appointment.status = 'cancelled';
+        this.appointmentSuccess = 'Cita cancelada.';
+      },
+      error: (err) => {
+        this.appointmentBooking = false;
+        this.appointmentError = err?.error?.message || 'No hemos podido cancelar la cita.';
+      }
+    });
+  }
+
+  get upcomingAppointments(): PatientAppointment[] {
+    return this.appointments.filter(a => a.status === 'requested' || a.status === 'confirmed')
+      .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+  }
+
+  get pastAppointments(): PatientAppointment[] {
+    return this.appointments.filter(a => a.status !== 'requested' && a.status !== 'confirmed')
+      .sort((a, b) => new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime());
+  }
+
+  formatAppointmentDate(value: string): string {
+    return new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(value));
+  }
+
+  formatAppointmentTime(value: string): string {
+    return new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' }).format(new Date(value));
   }
 
   retryDietLoad(): void {
