@@ -234,6 +234,7 @@ export interface DietValidationResult {
     }
   `]
 })
+// Documentación: este diálogo encapsula una operación administrativa con efectos persistentes y devuelve al componente padre un resultado explícito.
 export class DietSelectDialogComponent implements OnInit {
   form: FormGroup;
   diets: DietListItem[] = [];

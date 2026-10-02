@@ -48,6 +48,7 @@ import { MatIconModule } from '@angular/material/icon';
     @media(max-width:700px){ mat-dialog-content{min-width:0}.client-row{grid-template-columns:1fr;} }
   `]
 })
+// Documentación: este diálogo encapsula una operación administrativa con efectos persistentes y devuelve al componente padre un resultado explícito.
 export class NutritionistDeactivationDialogComponent {
   selection: Record<number, number|null> = {};
 

@@ -379,6 +379,7 @@ export interface BioimpedanceDialogData {
     }
   `]
 })
+// Documentación: este diálogo encapsula una operación administrativa con efectos persistentes y devuelve al componente padre un resultado explícito.
 export class BioimpedanceImportDialogComponent {
   selectedDevice = 'auto';
   selectedFile: File | null = null;

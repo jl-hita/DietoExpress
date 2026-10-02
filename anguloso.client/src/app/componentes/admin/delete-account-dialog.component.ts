@@ -73,6 +73,7 @@ import { AdminUser } from '../../servicios/admin.service';
     }
   `]
 })
+// Documentación: este diálogo encapsula una operación administrativa con efectos persistentes y devuelve al componente padre un resultado explícito.
 export class DeleteAccountDialogComponent {
   constructor(
     private dialogRef: MatDialogRef<DeleteAccountDialogComponent>,
