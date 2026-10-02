@@ -51,6 +51,7 @@ export class PatientPortalComponent implements OnInit {
 
   // Revisión semanal persistente en backend
   currentCheckin: PatientCheckin | null = null;
+  checkinHistory: PatientCheckin[] = [];
   checkinLoading = false;
   checkinSaving = false;
   checkinError: string | null = null;
@@ -148,6 +149,7 @@ export class PatientPortalComponent implements OnInit {
     this.shoppingLoading = false;
     this.portalDataError = null;
     this.currentCheckin = null;
+    this.checkinHistory = [];
     this.checkinLoading = false;
     this.checkinSaving = false;
     this.checkinError = null;
@@ -165,7 +167,10 @@ export class PatientPortalComponent implements OnInit {
         this.loadCheckedItems();
         this.loadCompletedMeals();
         // La vista previa del profesional usa clientId y no tiene sesión de paciente.
-        if (!clientIdParam) this.loadCurrentCheckin();
+        if (!clientIdParam) {
+          this.loadCurrentCheckin();
+          this.loadCheckinHistory();
+        }
         if (p.hasActiveDiet) {
           this.loadActiveDiet(clientIdParam);
           this.loadShoppingList(clientIdParam);
@@ -243,6 +248,13 @@ export class PatientPortalComponent implements OnInit {
         this.checkinLoading = false;
         this.checkinError = err?.error?.message || 'No hemos podido cargar tu revisión semanal.';
       }
+    });
+  }
+
+  loadCheckinHistory(): void {
+    this.portalService.getCheckinHistory().subscribe({
+      next: (history) => this.checkinHistory = history || [],
+      error: () => this.checkinHistory = []
     });
   }
 
