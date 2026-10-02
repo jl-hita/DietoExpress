@@ -122,3 +122,10 @@ Quedan como deuda técnica explícita la actualización de dependencias de desar
 - Añadí endpoints profesionales para consultar check-ins pendientes y marcarlos como revisados.
 - El acceso se limita al tenant y a la asignación activa del paciente al profesional autenticado.
 - La migración es idempotente y también crea la tabla base de check-ins si todavía no existe, para soportar instalaciones nuevas desde cero.
+
+## Automatizaciones de dietas
+
+- La publicación de una dieta asignada a un paciente genera un evento persistente y una notificación en el portal.
+- Los cambios de una dieta activa generan también una notificación al paciente.
+- Añadí un barrido horario persistente para dietas activas próximas a finalizar: avisa al paciente y crea una tarea profesional cuando la dieta ya ha vencido.
+- Las reglas usan claves de idempotencia y no generan dietas automáticamente: la decisión clínica sigue siendo del profesional.
