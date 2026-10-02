@@ -7,6 +7,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { PatientPortalService } from '../../servicios/patient-portal.service';
 import { FoodService } from '../../servicios/food.service';
 import { SumPipe } from '../../shared/pipes/sum.pipe';
+import { PatientCheckin, PatientCheckinRequest } from '../../servicios/patient-portal.service';
 
 type ActiveTab = 'today' | 'shopping' | 'progress';
 
@@ -47,6 +48,18 @@ export class PatientPortalComponent implements OnInit {
   // Shopping list: persisted state via localStorage
   checkedItems: Record<string, boolean> = {};
   completedMeals: Record<string, boolean> = {};
+
+  // Revisión semanal persistente en backend
+  currentCheckin: PatientCheckin | null = null;
+  checkinLoading = false;
+  checkinSaving = false;
+  checkinError: string | null = null;
+  checkinSuccess = false;
+  checkinWeight: number | null = null;
+  checkinAdherence: number | null = null;
+  checkinHunger: number | null = null;
+  checkinDifficulties = '';
+  checkinNotes = '';
 
   constructor(
     private route: ActivatedRoute,
@@ -134,6 +147,11 @@ export class PatientPortalComponent implements OnInit {
     this.dietLoading = false;
     this.shoppingLoading = false;
     this.portalDataError = null;
+    this.currentCheckin = null;
+    this.checkinLoading = false;
+    this.checkinSaving = false;
+    this.checkinError = null;
+    this.checkinSuccess = false;
     this.showLogin = true;
   }
 
@@ -146,6 +164,7 @@ export class PatientPortalComponent implements OnInit {
         if (p.id) this.clientId = p.id;
         this.loadCheckedItems();
         this.loadCompletedMeals();
+        this.loadCurrentCheckin();
         if (p.hasActiveDiet) {
           this.loadActiveDiet(clientIdParam);
           this.loadShoppingList(clientIdParam);
@@ -198,6 +217,61 @@ export class PatientPortalComponent implements OnInit {
         this.shoppingList = [];
         this.shoppingLoading = false;
         this.shoppingDataError = err?.error?.message || 'No hemos podido cargar tu lista de la compra.';
+      }
+    });
+  }
+
+  loadCurrentCheckin(): void {
+    this.checkinLoading = true;
+    this.checkinError = null;
+    this.checkinSuccess = false;
+    this.portalService.getCurrentCheckin().subscribe({
+      next: (checkin) => {
+        this.currentCheckin = checkin;
+        this.checkinLoading = false;
+        if (checkin) {
+          this.checkinWeight = checkin.weight ?? null;
+          this.checkinAdherence = checkin.adherence ?? null;
+          this.checkinHunger = checkin.hunger ?? null;
+          this.checkinDifficulties = checkin.difficulties ?? '';
+          this.checkinNotes = checkin.notes ?? '';
+        }
+      },
+      error: (err) => {
+        this.currentCheckin = null;
+        this.checkinLoading = false;
+        this.checkinError = err?.error?.message || 'No hemos podido cargar tu revisión semanal.';
+      }
+    });
+  }
+
+  saveCurrentCheckin(): void {
+    this.checkinSaving = true;
+    this.checkinError = null;
+    this.checkinSuccess = false;
+
+    const request: PatientCheckinRequest = {
+      weight: this.checkinWeight,
+      adherence: this.checkinAdherence,
+      hunger: this.checkinHunger,
+      difficulties: this.checkinDifficulties.trim() || null,
+      notes: this.checkinNotes.trim() || null
+    };
+
+    this.portalService.saveCheckin(request).subscribe({
+      next: (checkin) => {
+        this.currentCheckin = checkin;
+        this.checkinSaving = false;
+        this.checkinSuccess = true;
+        this.checkinWeight = checkin.weight ?? null;
+        this.checkinAdherence = checkin.adherence ?? null;
+        this.checkinHunger = checkin.hunger ?? null;
+        this.checkinDifficulties = checkin.difficulties ?? '';
+        this.checkinNotes = checkin.notes ?? '';
+      },
+      error: (err) => {
+        this.checkinSaving = false;
+        this.checkinError = err?.error?.message || 'No hemos podido guardar tu revisión semanal. Inténtalo de nuevo.';
       }
     });
   }
