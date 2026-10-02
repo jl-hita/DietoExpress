@@ -25,6 +25,7 @@ export class PatientPortalComponent implements OnInit {
   loading = true;
   authError: string | null = null;
   showLogin = false;
+  portalDataError: string | null = null;
 
   // Login form model (PIN/phone)
   emailOrPhone = '';
@@ -132,6 +133,7 @@ export class PatientPortalComponent implements OnInit {
     this.portalService.getMyProfile(clientIdParam).subscribe({
       next: (p) => {
         this.profile = p;
+        this.portalDataError = null;
         if (p.id) this.clientId = p.id;
         this.loadCheckedItems();
         this.loadCompletedMeals();
@@ -142,11 +144,17 @@ export class PatientPortalComponent implements OnInit {
           this.loading = false;
         }
       },
-      error: () => {
+      error: (err) => {
         this.loading = false;
-        this.showLogin = true;
+        this.portalDataError = err?.error?.message || 'No hemos podido cargar tus datos. Inténtalo de nuevo.';
+        this.showLogin = false;
       }
     });
+  }
+
+  retryLoadData(): void {
+    this.portalDataError = null;
+    this.loadData(this.clientId);
   }
 
   loadActiveDiet(clientIdParam?: number): void {
