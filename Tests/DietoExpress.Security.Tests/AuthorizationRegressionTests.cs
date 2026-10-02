@@ -1099,4 +1099,15 @@ public class AuthorizationRegressionTests
         Assert.Contains("rawLines.Length > maxLines", source);
         Assert.Contains("rawLines.Any(l => l.Length > maxLineLength)", source);
     }
+
+    [Fact]
+    public void GeneratedUsernames_AreComparedCaseInsensitively()
+    {
+        var auth = ReadServerController("AuthController.cs");
+        var clinic = ReadServerController("ClinicController.cs");
+
+        Assert.Contains("u.username.ToLower() == candidate.ToLower()", auth);
+        Assert.Contains("u.username.ToLower() == username.ToLower()", clinic);
+    }
+
 }
