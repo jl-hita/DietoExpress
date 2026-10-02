@@ -124,7 +124,7 @@ export class AppointmentsComponent implements OnInit {
   }
 
   statusConfirmation(status: string, patient: string): string {
-    const action = ({ confirmed: 'confirmar', cancelled: 'cancelar', completed: 'marcar como completada' } as Record<string, string>)[status] || 'actualizar';
+    const action = ({ confirmed: 'confirmar', cancelled: 'cancelar', completed: 'marcar como completada', no_show: 'marcar como no asistida' } as Record<string, string>)[status] || 'actualizar';
     return '¿Quieres ' + action + ' la cita de ' + patient + '?';
   }
 
