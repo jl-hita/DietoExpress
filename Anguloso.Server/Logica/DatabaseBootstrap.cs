@@ -1056,7 +1056,25 @@ public static class DatabaseBootstrap
     public static void UpgradeAutomationSchemaV3(angulosodbContext context, ILogger logger)
     {
         context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS patient_checkins (
+                id SERIAL PRIMARY KEY,
+                client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                week_start DATE NOT NULL,
+                submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                weight DOUBLE PRECISION,
+                adherence INTEGER,
+                hunger INTEGER,
+                difficulties TEXT,
+                notes TEXT,
+                reviewed_at TIMESTAMPTZ,
+                reviewed_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                CONSTRAINT patient_checkins_client_week_key UNIQUE (client_id, week_start)
+            );
+            CREATE INDEX IF NOT EXISTS idx_patient_checkins_tenant_id ON patient_checkins(tenant_id);
+            CREATE INDEX IF NOT EXISTS idx_patient_checkins_client_id ON patient_checkins(client_id);
             ALTER TABLE patient_checkins ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
+            ALTER TABLE patient_checkins ADD COLUMN IF NOT EXISTS reviewed_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
             ALTER TABLE patient_checkins ADD COLUMN IF NOT EXISTS reviewed_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
             CREATE INDEX IF NOT EXISTS idx_patient_checkins_pending_review
                 ON patient_checkins(tenant_id, reviewed_at, submitted_at);
