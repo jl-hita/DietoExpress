@@ -164,7 +164,8 @@ export class PatientPortalComponent implements OnInit {
         if (p.id) this.clientId = p.id;
         this.loadCheckedItems();
         this.loadCompletedMeals();
-        this.loadCurrentCheckin();
+        // La vista previa del profesional usa clientId y no tiene sesión de paciente.
+        if (!clientIdParam) this.loadCurrentCheckin();
         if (p.hasActiveDiet) {
           this.loadActiveDiet(clientIdParam);
           this.loadShoppingList(clientIdParam);
