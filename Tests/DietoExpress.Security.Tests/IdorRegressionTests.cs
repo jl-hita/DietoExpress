@@ -48,8 +48,18 @@ public class IdorRegressionTests
 
         Assert.Contains("r.id == id", source);
         Assert.Contains("r.tenant_id == tenantId.Value", source);
+        Assert.Contains("r.user_id == userId.Value", source);
         Assert.Contains("CanUseFoodAsync", source);
         Assert.Contains("f.tenant_id == tenantId.Value", source);
+    }
+
+    [Fact]
+    public void RecipeReads_DoNotExposeAnotherProfessionalWithinTheSameTenant()
+    {
+        var source = ReadController("RecipesController.cs");
+
+        Assert.Contains("r.tenant_id == tenantId.Value && r.user_id == userId.Value", source);
+        Assert.DoesNotContain(".Where(r => tenantId.HasValue && r.tenant_id == tenantId.Value)", source);
     }
 
     [Fact]

@@ -47,7 +47,7 @@ public class RecipesController : ControllerBase
 
         var tenantId = AuthHelpers.GetTenantId(User);
         var list = await _context.recipes
-            .Where(r => tenantId.HasValue && r.tenant_id == tenantId.Value)
+            .Where(r => tenantId.HasValue && r.tenant_id == tenantId.Value && r.user_id == userId.Value)
             .OrderByDescending(r => r.created_at)
             .Take(500)
             .Select(r => new RecipeListDto
@@ -74,7 +74,7 @@ public class RecipesController : ControllerBase
         var recipe = await _context.recipes
             .Include(r => r.recipe_items)
             .FirstOrDefaultAsync(r => r.id == id &&
-                tenantId.HasValue && r.tenant_id == tenantId.Value);
+                tenantId.HasValue && r.tenant_id == tenantId.Value && r.user_id == userId.Value);
 
         if (recipe == null) return NotFound();
 

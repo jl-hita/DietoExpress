@@ -54,3 +54,11 @@ También estoy revisando los despliegues y corrigiendo automáticamente los fall
 - Se limitaron los campos de texto del expediente del paciente tanto al crear como al editar, incluyendo antecedentes, salud digestiva, preferencias y estilo de vida.
 - Se añadieron comprobaciones defensivas para cuerpos nulos en las operaciones de alta de nutricionistas y asignación de pacientes.
 - Estas validaciones evitan que entradas excepcionalmente grandes o incompletas lleguen innecesariamente a la lógica de persistencia.
+
+
+## Revisión adicional — aislamiento de recetas entre profesionales
+
+- Detecté que el listado y la lectura individual de recetas estaban limitados al tenant, pero no al nutricionista creador.
+- Las recetas están modeladas como plantillas creadas por un profesional y no tienen un mecanismo explícito de compartición equivalente al de las dietas.
+- Ajusté ambas lecturas para exigir tenant y usuario creador, evitando que un profesional pueda consultar por ID o listar recetas privadas de otro profesional de la misma clínica.
+- Añadí una prueba de regresión para mantener este aislamiento.
