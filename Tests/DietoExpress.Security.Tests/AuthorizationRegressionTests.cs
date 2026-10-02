@@ -960,6 +960,24 @@ public class AuthorizationRegressionTests
         Assert.Contains(".Where(s => s.tenant_id == user.tenant_id.Value)", source);
     }
 
+    [Fact]
+    public void BillingAndAdministrationEndpoints_KeepExplicitAuthorizationBoundaries()
+    {
+        var billing = ReadServerController("BillingController.cs");
+        var adminPlans = ReadServerController("AdminPlansController.cs");
+        var adminUsers = ReadServerController("AdminUsersController.cs");
+        var setup = ReadServerController("SetupController.cs");
+        var portal = ReadServerController("PatientPortalController.cs");
+
+        Assert.Contains("[Authorize(Policy = \"Professional\")]", billing);
+        Assert.Contains("[Authorize(Roles = \"superadmin\")]", adminPlans);
+        Assert.Contains("[Authorize(Roles = \"superadmin\")]", adminUsers);
+        Assert.Contains("[EnableRateLimiting(\"auth\")]", setup);
+        Assert.Contains("[Authorize(Roles = \"patient\")]", portal);
+        Assert.Contains("[HttpPost(\"stripe/webhook\")]", billing);
+        Assert.Contains("[AllowAnonymous]", billing);
+    }
+
     private static void AssertEndpointRequiresProfessional(string relativePath, string httpAttribute)
     {
         var source = File.ReadAllText(Path.Combine(RepoRoot, relativePath.Replace('/', Path.DirectorySeparatorChar)));

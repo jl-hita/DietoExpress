@@ -31,6 +31,10 @@ He realizado una auditoría progresiva de DietoExpress, centrada principalmente 
 
 ## Estado
 
+La auditoría de seguridad está en fase de cierre. La pasada global final de endpoints no ha detectado un nuevo bypass de autorización o aislamiento multi-tenant que requiera cambios de código. Las superficies públicas revisadas (autenticación, setup inicial y webhook de Stripe) mantienen límites explícitos y su exposición es intencionada.
+
+La revisión de dependencias también queda controlada por CI: el último despliegue pasó la auditoría .NET sin vulnerabilidades High/Critical y el npm audit de producción terminó con 0 vulnerabilidades. Los avisos restantes de npm install corresponden a dependencias del árbol de desarrollo o paquetes obsoletos/deprecados y quedan como deuda técnica, no como bloqueo de seguridad del despliegue.
+
 La auditoría sigue en curso. Hasta ahora el foco principal ha sido el aislamiento entre tenants y los controles de autorización. Cada vulnerabilidad o debilidad relevante encontrada se ha corregido y, cuando ha sido posible, se ha añadido una prueba de regresión.
 
 También estoy revisando los despliegues y corrigiendo automáticamente los fallos de compilación o tests que aparecen durante la auditoría.
@@ -69,3 +73,12 @@ También estoy revisando los despliegues y corrigiendo automáticamente los fall
 - El username y el email de las cuentas son identificadores globales de acceso, por lo que dos clínicas distintas podían ejecutar simultáneamente la generación/revalidación de esos identificadores.
 - Cambié el alta para utilizar el mismo bloqueo global que los demás flujos de creación de cuentas y mantuve la revalidación de email dentro de la transacción.
 - Añadí una regresión para evitar que el alta vuelva a utilizar accidentalmente un lock limitado al tenant.
+
+## Revisión final — límites de autorización y dependencias
+
+- Repasé los controladores HTTP activos para confirmar que las superficies profesionales, administrativas y del portal mantienen políticas/roles explícitos.
+- Se mantuvieron como excepciones intencionadas los endpoints de login/setup, la consulta pública del Client ID de Google y el webhook de Stripe, que valida su propia firma y no depende de JWT.
+- Añadí una regresión que protege estas fronteras de autorización frente a futuras eliminaciones accidentales de los atributos.
+- El último pipeline ejecutó correctamente Angular, restauración, auditoría de dependencias .NET, compilación, pruebas de seguridad y despliegue.
+- La auditoría de dependencias .NET reportó únicamente avisos Low de NuGet.Packaging/NuGet.Protocol; el pipeline bloquea explícitamente High y Critical.
+- La auditoría de producción de npm terminó en 0 vulnerabilidades con el nivel High como umbral. Los avisos visibles durante npm install son principalmente deprecaciones del árbol de dependencias y no provocaron un hallazgo de seguridad de producción.
