@@ -238,7 +238,7 @@ public sealed class AutomationWorker : BackgroundService
 
     private async Task ExecuteBillingEmailAsync(AutomationJob job, CancellationToken cancellationToken)
     {
-        var action = AutomationJson.Deserialize<BillingEmailAction>(job.Payload)
+        var action = AutomationJson.Deserialize<AutomationService.BillingEmailAction>(job.Payload)
             ?? throw new InvalidOperationException("Payload inválido para email_billing_contact.");
 
         await using var connection = new NpgsqlConnection(_connectionString);
