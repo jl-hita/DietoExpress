@@ -34,6 +34,8 @@ public class Program
         builder.Services.AddSingleton<ConfigServ>(sp => new ConfigServ(connectionString!, sp.GetRequiredService<LogServ>()));
         builder.Services.AddSingleton<EmailServ>(sp => new EmailServ(sp.GetRequiredService<ConfigServ>(), sp.GetRequiredService<LogServ>()));
         builder.Services.AddSingleton<NotificationService>();
+        builder.Services.AddSingleton<AutomationService>();
+        builder.Services.AddHostedService<AutomationWorker>();
         builder.Services.AddHttpClient<IStripeBillingService, StripeBillingService>();
         builder.Services.AddHttpClient<OpenFoodFactsService>().AddTypedClient((httpClient, sp) => new OpenFoodFactsService(httpClient, connectionString!, sp.GetRequiredService<LogServ>(), sp.GetRequiredService<ConfigServ>()));
         var jwtKey = builder.Configuration["Jwt:Key"];
@@ -92,7 +94,7 @@ public class Program
             {
                 var context = scope.ServiceProvider.GetRequiredService<angulosodbContext>();
                 DatabaseBootstrap.InitializeDatabaseAsync(context, logger);
-                DatabaseBootstrap.UpgradeSaaSSchema(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV2(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV3(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV4(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV5(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV6(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV7(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV8(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV9(context, logger); DatabaseBootstrap.UpgradeMessagingSchemaV2(context, logger);
+                DatabaseBootstrap.UpgradeSaaSSchema(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV2(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV3(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV4(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV5(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV6(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV7(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV8(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV9(context, logger); DatabaseBootstrap.UpgradeMessagingSchemaV2(context, logger); DatabaseBootstrap.UpgradeAutomationSchemaV1(context, logger);
                 context.Database.ExecuteSqlRaw(@"CREATE TABLE IF NOT EXISTS patient_checkins (id SERIAL PRIMARY KEY, client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE, tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, week_start DATE NOT NULL, submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), weight DOUBLE PRECISION, adherence INTEGER, hunger INTEGER, difficulties TEXT, notes TEXT, CONSTRAINT patient_checkins_client_week_key UNIQUE (client_id, week_start)); CREATE INDEX IF NOT EXISTS idx_patient_checkins_tenant_id ON patient_checkins(tenant_id); CREATE INDEX IF NOT EXISTS idx_patient_checkins_client_id ON patient_checkins(client_id);");
                 // Appointment scheduling schema
 context.Database.ExecuteSqlRaw(@"
