@@ -7,7 +7,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { PatientPortalService } from '../../servicios/patient-portal.service';
 import { FoodService } from '../../servicios/food.service';
 import { SumPipe } from '../../shared/pipes/sum.pipe';
-import { PatientCheckin, PatientCheckinRequest, AppointmentSlot, PatientAppointment } from '../../servicios/patient-portal.service';
+import { PatientCheckin, PatientCheckinRequest, AppointmentSlot, PatientAppointment, PatientNotification } from '../../servicios/patient-portal.service';
 
 type ActiveTab = 'today' | 'shopping' | 'appointments' | 'progress';
 
@@ -48,6 +48,14 @@ export class PatientPortalComponent implements OnInit {
   appointmentError: string | null = null;
   appointmentBooking = false;
   appointmentSuccess: string | null = null;
+
+  notifications: PatientNotification[] = [];
+  notificationsOpen = false;
+  notificationsLoading = false;
+  pushSupported = false;
+  pushEnabled = false;
+  pushBusy = false;
+  pushMessage: string | null = null;
 
   activeTab: ActiveTab = 'today';
   today = new Date();
@@ -212,6 +220,8 @@ export class PatientPortalComponent implements OnInit {
           this.loadCurrentCheckin();
           this.loadCheckinHistory();
           this.loadAppointments();
+          this.loadNotifications();
+          this.preparePushSupport();
         }
         if (p.hasActiveDiet) {
           this.loadActiveDiet(clientIdParam);
@@ -432,6 +442,101 @@ export class PatientPortalComponent implements OnInit {
 
   retryShoppingLoad(): void {
     this.loadShoppingList(this.clientId);
+  }
+
+  loadNotifications(): void {
+    this.notificationsLoading = true;
+    this.portalService.getNotifications().subscribe({
+      next: items => { this.notifications = items || []; this.notificationsLoading = false; },
+      error: () => { this.notifications = []; this.notificationsLoading = false; }
+    });
+  }
+
+  toggleNotifications(): void {
+    this.notificationsOpen = !this.notificationsOpen;
+    if (this.notificationsOpen) this.loadNotifications();
+  }
+
+  get unreadNotificationCount(): number {
+    return this.notifications.filter(n => !n.readAt).length;
+  }
+
+  markNotificationRead(notification: PatientNotification): void {
+    if (notification.readAt) return;
+    this.portalService.markNotificationRead(notification.id).subscribe({
+      next: () => notification.readAt = new Date().toISOString()
+    });
+  }
+
+  notificationIcon(type: string): string {
+    if (type.includes('appointment')) return 'event';
+    if (type.includes('message')) return 'chat';
+    return 'notifications';
+  }
+
+  preparePushSupport(): void {
+    this.pushSupported = typeof window !== 'undefined' &&
+      'Notification' in window &&
+      'serviceWorker' in navigator &&
+      'PushManager' in window;
+    if (!this.pushSupported) return;
+    navigator.serviceWorker.register('/sw.js').then(registration => {
+      this.pushEnabled = !!registration.pushManager;
+    }).catch(() => this.pushEnabled = false);
+  }
+
+  async enablePushNotifications(): Promise<void> {
+    if (!this.pushSupported || this.pushBusy) return;
+    this.pushBusy = true;
+    this.pushMessage = null;
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        this.pushMessage = 'Las notificaciones del navegador no están permitidas.';
+        return;
+      }
+
+      const keyResponse = await this.portalService.getVapidPublicKey().toPromise();
+      if (!keyResponse?.publicKey) {
+        this.pushMessage = 'Las notificaciones push todavía no están configuradas en la clínica.';
+        return;
+      }
+
+      const registration = await navigator.serviceWorker.ready;
+      let subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: this.urlBase64ToUint8Array(keyResponse.publicKey)
+        });
+      }
+
+      const json = subscription.toJSON();
+      if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
+        this.pushMessage = 'No se ha podido completar la suscripción del navegador.';
+        return;
+      }
+
+      await this.portalService.registerPushSubscription({
+        endpoint: json.endpoint,
+        p256dh: json.keys.p256dh,
+        auth: json.keys.auth
+      }).toPromise();
+
+      this.pushEnabled = true;
+      this.pushMessage = 'Notificaciones activadas.';
+    } catch {
+      this.pushMessage = 'No se han podido activar las notificaciones en este navegador.';
+    } finally {
+      this.pushBusy = false;
+    }
+  }
+
+  private urlBase64ToUint8Array(value: string): Uint8Array {
+    const padding = '='.repeat((4 - value.length % 4) % 4);
+    const base64 = (value + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const raw = window.atob(base64);
+    return Uint8Array.from([...raw].map(char => char.charCodeAt(0)));
   }
 
   setTab(tab: ActiveTab): void {

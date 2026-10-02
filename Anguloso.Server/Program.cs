@@ -33,6 +33,7 @@ public class Program
         builder.Services.AddSingleton<LogServ>();
         builder.Services.AddSingleton<ConfigServ>(sp => new ConfigServ(connectionString!, sp.GetRequiredService<LogServ>()));
         builder.Services.AddSingleton<EmailServ>(sp => new EmailServ(sp.GetRequiredService<ConfigServ>(), sp.GetRequiredService<LogServ>()));
+        builder.Services.AddSingleton<NotificationService>();
         builder.Services.AddHttpClient<IStripeBillingService, StripeBillingService>();
         builder.Services.AddHttpClient<OpenFoodFactsService>().AddTypedClient((httpClient, sp) => new OpenFoodFactsService(httpClient, connectionString!, sp.GetRequiredService<LogServ>(), sp.GetRequiredService<ConfigServ>()));
         var jwtKey = builder.Configuration["Jwt:Key"];
@@ -130,6 +131,36 @@ CREATE INDEX IF NOT EXISTS idx_patient_appointments_client_start
   ON patient_appointments(client_id, starts_at);
 CREATE INDEX IF NOT EXISTS idx_patient_appointments_nutritionist_start
   ON patient_appointments(nutritionist_id, starts_at);
+");
+                context.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS patient_notifications (
+  id BIGSERIAL PRIMARY KEY,
+  tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  type VARCHAR(60) NOT NULL,
+  title VARCHAR(200) NOT NULL,
+  message VARCHAR(1000) NOT NULL,
+  action_url VARCHAR(1000),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  read_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_patient_notifications_client_created
+  ON patient_notifications(client_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_patient_notifications_tenant_client
+  ON patient_notifications(tenant_id, client_id);
+
+CREATE TABLE IF NOT EXISTS patient_push_subscriptions (
+  id BIGSERIAL PRIMARY KEY,
+  tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  endpoint VARCHAR(2000) NOT NULL UNIQUE,
+  p256dh VARCHAR(500) NOT NULL,
+  auth VARCHAR(500) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_patient_push_subscriptions_client
+  ON patient_push_subscriptions(client_id);
 ");
 BillingSchemaBootstrap.Initialize(context, logger); databaseReady = true;
             }

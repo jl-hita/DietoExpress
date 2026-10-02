@@ -18,11 +18,13 @@ public class AppointmentsController : ControllerBase
 
     private readonly angulosodbContext _context;
     private readonly EmailServ _emailServ;
+    private readonly NotificationService _notifications;
 
-    public AppointmentsController(angulosodbContext context, EmailServ emailServ)
+    public AppointmentsController(angulosodbContext context, EmailServ emailServ, NotificationService notifications)
     {
         _context = context;
         _emailServ = emailServ;
+        _notifications = notifications;
     }
 
     [Authorize(Roles = "patient")]
@@ -153,6 +155,14 @@ public class AppointmentsController : ControllerBase
         _context.patient_appointments.Add(appointment);
         await _context.SaveChangesAsync();
 
+        await _notifications.CreateForPatientAsync(
+            appointment.tenant_id,
+            appointment.client_id,
+            "appointment_requested",
+            "Solicitud de cita enviada",
+            "Tu solicitud de cita se ha enviado correctamente. Recibirás una notificación cuando tu nutricionista la confirme.",
+            "/patient?tab=appointments");
+
         return Ok(await ToDtoQuery(appointment.id));
     }
 
@@ -171,6 +181,17 @@ public class AppointmentsController : ControllerBase
         appointment.status = "cancelled";
         appointment.updated_at = DateTime.UtcNow;
         await _context.SaveChangesAsync();
+
+        var localStart = TimeZoneInfo.ConvertTimeFromUtc(appointment.starts_at, GetMadridTimeZone());
+        var dateText = localStart.ToString("dddd, d 'de' MMMM 'a las' HH:mm", new System.Globalization.CultureInfo("es-ES"));
+        await _notifications.CreateForPatientAsync(
+            appointment.tenant_id,
+            appointment.client_id,
+            "appointment_cancelled",
+            "Cita cancelada",
+            $"Has cancelado tu cita del {dateText}.",
+            "/patient?tab=appointments");
+
         return NoContent();
     }
 
@@ -334,21 +355,71 @@ public class AppointmentsController : ControllerBase
         if (!transitionAllowed)
             return BadRequest(new { message = "La transición de estado de la cita no es válida." });
 
+        var previousStatus = appointment.status;
         appointment.status = requestedStatus;
         appointment.professional_notes = request.ProfessionalNotes?.Trim();
         appointment.updated_at = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
-        if (requestedStatus == "cancelled" && !string.IsNullOrWhiteSpace(appointment.client.email))
+        if (requestedStatus == "cancelled" && previousStatus != "cancelled")
         {
             var safeName = System.Net.WebUtility.HtmlEncode(appointment.client.full_name ?? "Paciente");
             var safeNutritionist = System.Net.WebUtility.HtmlEncode(appointment.nutritionist.full_name ?? "tu nutricionista");
             var localStart = TimeZoneInfo.ConvertTimeFromUtc(appointment.starts_at, GetMadridTimeZone());
             var dateText = localStart.ToString("dddd, d 'de' MMMM 'a las' HH:mm", new System.Globalization.CultureInfo("es-ES"));
-            await _emailServ.SendEmailAsync(
-                appointment.client.email,
+
+            await _notifications.CreateForPatientAsync(
+                appointment.tenant_id,
+                appointment.client_id,
+                "appointment_cancelled",
                 "Tu cita ha sido cancelada",
-                $"<h2>Hola, {safeName}</h2><p>{safeNutritionist} ha cancelado la cita que tenías prevista para el {dateText}.</p><p>Puedes entrar en tu portal de paciente para consultar tus próximas citas y reservar otro horario disponible.</p>");
+                $"{appointment.nutritionist.full_name ?? "Tu nutricionista"} ha cancelado la cita del {dateText}.",
+                "/patient?tab=appointments");
+
+            if (!string.IsNullOrWhiteSpace(appointment.client.email))
+            {
+                try
+                {
+                    await _emailServ.SendEmailAsync(
+                        appointment.client.email,
+                        "Tu cita ha sido cancelada",
+                        $"<h2>Hola, {safeName}</h2><p>{safeNutritionist} ha cancelado la cita que tenías prevista para el {dateText}.</p><p>Puedes entrar en tu portal de paciente para consultar tus próximas citas y reservar otro horario disponible.</p>");
+                }
+                catch (Exception ex)
+                {
+                    HttpContext.RequestServices.GetRequiredService<ILogger<AppointmentsController>>()
+                        .LogWarning(ex, "No se pudo enviar el email de cancelación de la cita {AppointmentId}.", appointment.id);
+                }
+            }
+        }
+        else if (requestedStatus == "confirmed" && previousStatus != "confirmed")
+        {
+            var localStart = TimeZoneInfo.ConvertTimeFromUtc(appointment.starts_at, GetMadridTimeZone());
+            var dateText = localStart.ToString("dddd, d 'de' MMMM 'a las' HH:mm", new System.Globalization.CultureInfo("es-ES"));
+
+            await _notifications.CreateForPatientAsync(
+                appointment.tenant_id,
+                appointment.client_id,
+                "appointment_confirmed",
+                "Cita confirmada",
+                $"Tu nutricionista ha confirmado tu cita del {dateText}.",
+                "/patient?tab=appointments");
+
+            if (!string.IsNullOrWhiteSpace(appointment.client.email))
+            {
+                try
+                {
+                    await _emailServ.SendEmailAsync(
+                        appointment.client.email,
+                        "Tu cita ha sido confirmada",
+                        $"<h2>Hola, {System.Net.WebUtility.HtmlEncode(appointment.client.full_name ?? "Paciente")}</h2><p>Tu nutricionista ha confirmado la cita prevista para el {dateText}.</p><p>Puedes consultar todos los detalles desde tu portal de paciente.</p>");
+                }
+                catch (Exception ex)
+                {
+                    HttpContext.RequestServices.GetRequiredService<ILogger<AppointmentsController>>()
+                        .LogWarning(ex, "No se pudo enviar el email de confirmación de la cita {AppointmentId}.", appointment.id);
+                }
+            }
         }
 
         return Ok(await ToDtoQuery(appointment.id));
