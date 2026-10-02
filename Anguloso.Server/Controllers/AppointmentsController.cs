@@ -103,6 +103,7 @@ public class AppointmentsController : ControllerBase
 
         var client = await _context.clients.FirstOrDefaultAsync(c => c.id == clientId.Value && c.archived_at == null);
         if (client == null) return NotFound();
+        if (client.tenant_id == null) return BadRequest(new { message = "El paciente no está asociado a una clínica." });
 
         var assignment = await _context.client_nutritionist_assignments
             .Where(a => a.client_id == client.id && a.is_active && a.nutritionist.tenant_id == client.tenant_id)
@@ -174,8 +175,13 @@ public class AppointmentsController : ControllerBase
         var userId = AuthHelpers.GetUserId(User);
         var tenantId = AuthHelpers.GetTenantId(User);
         if (userId == null || tenantId == null) return Unauthorized();
-        var start = from ?? DateTime.UtcNow.AddDays(-7);
+        var start = from ?? DateTime.UtcNow.AddDays(-90);
         var end = to ?? DateTime.UtcNow.AddDays(60);
+        if (start.Kind != DateTimeKind.Utc || end.Kind != DateTimeKind.Utc)
+            return BadRequest(new { message = "El intervalo de fechas debe incluir zona horaria." });
+        if (end <= start) return BadRequest(new { message = "El intervalo de fechas no es válido." });
+        if ((end - start).TotalDays > 365)
+            return BadRequest(new { message = "El intervalo de consulta no puede superar un año." });
 
         var query = _context.patient_appointments.AsNoTracking().Where(a => a.tenant_id == tenantId && a.starts_at < end && a.ends_at > start);
         if (!User.IsInRole("clinic_admin"))
@@ -209,6 +215,19 @@ public class AppointmentsController : ControllerBase
         if (request.SlotMinutes is < 15 or > 240) return BadRequest(new { message = "La duración de las citas no es válida." });
         if (!TimeOnly.TryParse(request.StartTime, out var start) || !TimeOnly.TryParse(request.EndTime, out var end) || end <= start)
             return BadRequest(new { message = "El horario no es válido." });
+        var totalMinutes = (int)(end - start).TotalMinutes;
+        if (totalMinutes < request.SlotMinutes || totalMinutes % request.SlotMinutes != 0)
+            return BadRequest(new { message = "El horario debe contener bloques completos de la duración seleccionada." });
+
+        var overlapsExisting = await _context.nutritionist_availability.AnyAsync(a =>
+            a.tenant_id == tenantId.Value &&
+            a.nutritionist_id == userId.Value &&
+            a.day_of_week == request.DayOfWeek &&
+            a.start_time < end &&
+            a.end_time > start &&
+            a.start_time != start);
+        if (overlapsExisting)
+            return Conflict(new { message = "Este horario se solapa con otro horario del mismo día." });
 
         var existing = await _context.nutritionist_availability.FirstOrDefaultAsync(a =>
             a.tenant_id == tenantId.Value && a.nutritionist_id == userId.Value &&
@@ -249,6 +268,16 @@ public class AppointmentsController : ControllerBase
         if (appointment.status is "cancelled" or "completed" or "no_show" &&
             requestedStatus != appointment.status)
             return BadRequest(new { message = "Una cita cerrada no puede cambiar de estado." });
+
+        var transitionAllowed = appointment.status switch
+        {
+            "requested" => requestedStatus is "requested" or "confirmed" or "cancelled",
+            "confirmed" => requestedStatus is "confirmed" or "cancelled" or "completed" or "no_show",
+            "cancelled" or "completed" or "no_show" => requestedStatus == appointment.status,
+            _ => false
+        };
+        if (!transitionAllowed)
+            return BadRequest(new { message = "La transición de estado de la cita no es válida." });
 
         appointment.status = requestedStatus;
         appointment.professional_notes = request.ProfessionalNotes?.Trim();
