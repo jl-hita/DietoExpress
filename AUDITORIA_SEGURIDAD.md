@@ -106,3 +106,11 @@ Quedan como deuda técnica explícita la actualización de dependencias de desar
 - El barrido persistente del ciclo de vida ahora genera tareas profesionales cuando un paciente entra en información pendiente, primera cita pendiente o ausencia de seguimiento reciente.
 - Las tareas se crean solo al producirse una transición de estado y utilizan idempotencia por paciente, estado y día, evitando duplicados durante ejecuciones repetidas del worker.
 - La primera cita pendiente se mantiene como estado hasta que exista una cita completada; si ya hay una cita futura solicitada o confirmada no se genera una tarea innecesaria para proponer otra.
+
+
+## Automatizaciones de seguimiento y check-in
+
+- Añadido un barrido persistente horario para pacientes activos/en seguimiento que no han enviado el check-in semanal.
+- Se genera un recordatorio al paciente una vez por semana mediante una tarea persistente e idempotente.
+- Si el paciente supera 10 días sin check-in, se genera además una tarea profesional de revisión/seguimiento.
+- Las automatizaciones respetan tenant, pacientes archivados y el scheduler persistente con reintentos y recuperación tras reinicio.
