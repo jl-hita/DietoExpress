@@ -20,6 +20,8 @@ export class AppointmentsComponent implements OnInit {
   saving = false;
   error: string | null = null;
   success: string | null = null;
+  googleCalendar: { connected: boolean; email: string; calendarId: string; lastSyncedAt?: string | null } | null = null;
+  calendarBusy = false;
 
   readonly days = [
     { value: 1, label: 'Lunes' }, { value: 2, label: 'Martes' },
@@ -36,7 +38,24 @@ export class AppointmentsComponent implements OnInit {
 
   constructor(private portalService: PatientPortalService) {}
 
-  ngOnInit(): void { this.load(); }
+  ngOnInit(): void { this.load(); this.loadGoogleCalendar(); }
+
+  loadGoogleCalendar(): void {
+    this.portalService.getGoogleCalendarStatus().subscribe({ next: value => this.googleCalendar = value, error: () => this.googleCalendar = null });
+  }
+
+  connectGoogleCalendar(): void { this.portalService.connectGoogleCalendar(); }
+
+  syncGoogleCalendar(): void {
+    this.calendarBusy = true; this.error = null;
+    this.portalService.syncGoogleCalendar().subscribe({ next: () => { this.calendarBusy = false; this.loadGoogleCalendar(); this.load(); this.success = 'Google Calendar sincronizado.'; }, error: err => { this.calendarBusy = false; this.error = err?.error?.detail || err?.error?.message || 'No hemos podido sincronizar Google Calendar.'; } });
+  }
+
+  disconnectGoogleCalendar(): void {
+    if (!confirm('¿Desconectar Google Calendar? Los eventos externos dejarán de bloquear nuevas citas.')) return;
+    this.calendarBusy = true;
+    this.portalService.disconnectGoogleCalendar().subscribe({ next: () => { this.calendarBusy = false; this.googleCalendar = { connected: false, email: '', calendarId: 'primary' }; this.success = 'Google Calendar desconectado.'; }, error: err => { this.calendarBusy = false; this.error = err?.error?.message || 'No hemos podido desconectar Google Calendar.'; } });
+  }
 
   load(): void {
     this.loading = true;
