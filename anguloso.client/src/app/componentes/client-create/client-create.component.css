@@ -1,7 +1,7 @@
 :host {
   display: block;
-  max-width: 800px;
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
   font-family: 'Outfit', 'Inter', sans-serif;
 }
 
