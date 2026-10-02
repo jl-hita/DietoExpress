@@ -51,6 +51,7 @@ export class ClientCreateComponent {
     this.checkCreatePermission();
   }
 
+  // El límite del plan se consulta antes de habilitar la creación, pero el backend debe volver a comprobarlo al guardar.
   checkCreatePermission(): void {
     this.clientService.canCreateClient().subscribe({
       next: result => {
@@ -66,6 +67,7 @@ export class ClientCreateComponent {
     });
   }
 
+  // La fecha se normaliza antes de construir el DTO para no enviar al API el desfase introducido por el DatePicker.
   submit() {
     if (!this.canCreateClient || this.checkingCreatePermission || this.form.invalid) return;
     const formValue = this.form.value;

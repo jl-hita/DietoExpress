@@ -269,6 +269,7 @@ export class DietSelectDialogComponent implements OnInit {
     });
   }
 
+  // La compatibilidad se comprueba al seleccionar la dieta, antes de cerrar el diálogo, para que los conflictos formen parte explícita de la decisión de asignación.
   onDietSelected(dietId: number): void {
     if (!dietId) return;
     this.isValidating = true;
@@ -297,6 +298,7 @@ export class DietSelectDialogComponent implements OnInit {
     this.dialogRef.close();
   }
 
+  // Aunque existan avisos, la confirmación explícita permite continuar; la fecha se serializa en formato local para evitar cambios de día por zona horaria.
   save(): void {
     if (this.form.invalid) return;
 

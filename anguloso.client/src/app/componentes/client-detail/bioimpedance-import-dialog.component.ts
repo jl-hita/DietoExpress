@@ -424,6 +424,7 @@ export class BioimpedanceImportDialogComponent {
     }
   }
 
+  // La importación se divide en previsualización y confirmación para que el profesional pueda revisar filas y detectar duplicados antes de persistirlas.
   uploadAndPreview(): void {
     if (!this.selectedFile) return;
 
@@ -464,6 +465,7 @@ export class BioimpedanceImportDialogComponent {
     this.previewData.rows.forEach((r: any) => r.selected = checked);
   }
 
+  // Solo se envían las filas seleccionadas; el backend conserva la responsabilidad de validar y persistir las mediciones.
   confirmImport(): void {
     const selected = this.previewData.rows.filter((r: any) => r.selected);
     if (selected.length === 0) return;

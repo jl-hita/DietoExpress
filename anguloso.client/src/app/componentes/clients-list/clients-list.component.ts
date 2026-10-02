@@ -76,6 +76,7 @@ export class ClientsListComponent implements OnInit, OnDestroy {
     this.checkCreatePermission();
   }
 
+  // La paginación y búsqueda se resuelven en el servidor; el componente adapta la respuesta al modelo visual sin mantener una copia completa de los clientes.
   loadClients(): void {
     this.loading = true;
     const page = this.paginator ? this.paginator.pageIndex + 1 : this.currentPage;
@@ -130,6 +131,7 @@ export class ClientsListComponent implements OnInit, OnDestroy {
     this.refresh();
   }
 
+  // Se aplica debounce al refresco para no saturar el API cuando cambia rápidamente el filtro de búsqueda.
   refresh(): void {
     if (this.searchTimer) clearTimeout(this.searchTimer);
     this.searchTimer = setTimeout(() => this.loadClients(), 350);
@@ -193,6 +195,7 @@ export class ClientsListComponent implements OnInit, OnDestroy {
 
 
   // función que devuelve los números de página que queremos mostrar (ajustable)
+  // Mantiene un máximo de cinco botones visibles y desplaza la ventana alrededor de la página actual.
   pagesToShow() {
     const pages: number[] = [];
     const maxButtons = 5;
