@@ -29,6 +29,7 @@ public class Program
         Directory.CreateDirectory(pathLogs);
         builder.Host.UseSerilog((context, loggerConfiguration) => { loggerConfiguration.ReadFrom.Configuration(context.Configuration).Enrich.FromLogContext().WriteTo.Console().WriteTo.File(Path.Combine(pathLogs, "log-.txt"), rollingInterval: RollingInterval.Day, shared: true); });
         builder.Services.AddCors(options => { options.AddPolicy("AllowAngularApp", policy => { var allowedOrigins = builder.Environment.IsDevelopment() ? new[] { "http://localhost:4200", "https://localhost:4200", "http://127.0.0.1:4200", "https://127.0.0.1:4200" } : builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>(); policy.WithOrigins(allowedOrigins).WithHeaders("Authorization", "Content-Type", "Accept").WithMethods("GET", "POST", "PUT", "PATCH", "DELETE"); }); });
+// Add services to the container.
         builder.Services.AddSingleton<LogServ>();
         builder.Services.AddSingleton<ConfigServ>(sp => new ConfigServ(connectionString!, sp.GetRequiredService<LogServ>()));
         builder.Services.AddSingleton<EmailServ>(sp => new EmailServ(sp.GetRequiredService<ConfigServ>(), sp.GetRequiredService<LogServ>()));
