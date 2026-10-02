@@ -1,3 +1,5 @@
+import { CommonModule } from '@angular/common';
+import { ReactiveFormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Component } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
@@ -19,7 +21,8 @@ interface Ingrediente {
 
 @Component({
   selector: 'app-ingredientes',
-  standalone: false,
+    standalone: true,
+  imports: [CommonModule, ReactiveFormsModule, MatSelectModule, MatFormFieldModule, MatOptionModule],
   templateUrl: './ingredientes.component.html',
   styleUrl: './ingredientes.component.css'
 })

@@ -5,7 +5,7 @@ import { finalize } from 'rxjs';
 
 @Component({
   selector: 'app-food-tester',
-  standalone: false,
+  
   templateUrl: './food-tester.component.html',
   styleUrl: './food-tester.component.css'
 })

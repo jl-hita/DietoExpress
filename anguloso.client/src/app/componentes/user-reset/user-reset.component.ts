@@ -1,3 +1,9 @@
+import { CommonModule } from '@angular/common';
+import { ReactiveFormsModule } from '@angular/forms';
+import { MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatButtonModule } from '@angular/material/button';
 import { Location } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
@@ -8,7 +14,8 @@ import { environment } from '../../../environments/environments';
 
 @Component({
   selector: 'app-user-reset',
-  standalone: false,
+    standalone: true,
+  imports: [CommonModule, ReactiveFormsModule, MatSnackBarModule, MatFormFieldModule, MatInputModule, MatButtonModule],
   templateUrl: './user-reset.component.html',
   styleUrl: './user-reset.component.css'
 })

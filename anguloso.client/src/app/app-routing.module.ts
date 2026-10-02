@@ -1,5 +1,4 @@
-import { NgModule } from '@angular/core';
-import { Route, RouterModule, Routes } from '@angular/router';
+import { Route } from '@angular/router';
 import { UserCreateComponent } from './componentes/user-create/user-create.component';
 import { AuthGuard } from './guards/auth.guard';
 import { LoginComponent } from './componentes/login/login.component';
@@ -31,7 +30,7 @@ export interface AppRoute extends Route {
   title?: string;
 }
 
-const routes: AppRoute[] = [
+export const routes: AppRoute[] = [
   { path: '', component: LandingComponent, pathMatch: 'full', title: 'DietoExpress' },
   { path: 'setup', component: SetupWizardComponent, canActivate: [SetupGuard], title: 'Inicialización del Sistema' },
   { path: 'login', component: LoginComponent },
@@ -59,9 +58,3 @@ const routes: AppRoute[] = [
   },
   { path: '**', redirectTo: '' }
 ];
-
-@NgModule({
-  imports: [RouterModule.forRoot(routes)],
-  exports: [RouterModule]
-})
-export class AppRoutingModule { }

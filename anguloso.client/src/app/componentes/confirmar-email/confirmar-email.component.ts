@@ -1,3 +1,6 @@
+import { CommonModule } from '@angular/common';
+import { MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Component } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../servicios/auth.service';
@@ -12,7 +15,8 @@ interface LoginRequestToken {
 
 @Component({
   selector: 'app-confirmar-email',
-  standalone: false,
+    standalone: true,
+  imports: [CommonModule, MatSnackBarModule, MatProgressSpinnerModule],
   templateUrl: './confirmar-email.component.html',
   styleUrl: './confirmar-email.component.css'
 })
