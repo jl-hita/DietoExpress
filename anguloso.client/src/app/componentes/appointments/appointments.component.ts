@@ -32,6 +32,7 @@ export class AppointmentsComponent implements OnInit {
   newStart = '09:00';
   newEnd = '14:00';
   newSlot = 30;
+  editingRuleId: number | null = null;
 
   constructor(private portalService: PatientPortalService) {}
 
@@ -74,39 +75,79 @@ export class AppointmentsComponent implements OnInit {
   }
 
   addAvailability(): void {
-    this.success = null; this.error = null;
-    this.saving = true;
-
-    const daysToSave = this.newDay === -1
-      ? [1, 2, 3, 4, 5]
-      : [this.newDay];
-
-    const requests = daysToSave.map(day => this.portalService.saveAvailability({
-      dayOfWeek: day,
+    this.success = null; this.error = null; this.saving = true;
+    const request = {
+      dayOfWeek: this.newDay,
       startTime: this.newStart,
       endTime: this.newEnd,
       slotMinutes: Number(this.newSlot),
       isActive: true
-    }));
+    };
 
-    forkJoin(requests).subscribe({
+    if (this.editingRuleId !== null) {
+      const id = this.editingRuleId;
+      this.portalService.updateAvailability(id, request).subscribe({
+        next: rule => {
+          const index = this.availability.findIndex(a => a.id === id);
+          if (index >= 0) this.availability[index] = rule;
+          this.availability = [...this.availability];
+          this.success = 'Disponibilidad actualizada.';
+          this.resetAvailabilityEditor();
+          this.saving = false;
+        },
+        error: err => { this.error = err?.error?.message || 'No hemos podido actualizar el horario.'; this.saving = false; }
+      });
+      return;
+    }
+
+    const daysToSave = this.newDay === -1 ? [1, 2, 3, 4, 5] : [this.newDay];
+    forkJoin(daysToSave.map(day => this.portalService.saveAvailability({ ...request, dayOfWeek: day }))).subscribe({
       next: rules => {
         for (const rule of rules) {
           const index = this.availability.findIndex(a => a.id === rule.id);
-          if (index >= 0) this.availability[index] = rule;
-          else this.availability.push(rule);
+          if (index >= 0) this.availability[index] = rule; else this.availability.push(rule);
         }
         this.availability = [...this.availability];
-        this.success = this.newDay === -1
-          ? 'Disponibilidad de lunes a viernes guardada.'
-          : 'Disponibilidad guardada.';
+        this.success = this.newDay === -1 ? 'Disponibilidad de lunes a viernes guardada.' : 'Disponibilidad guardada.';
         this.saving = false;
       },
-      error: err => {
-        this.error = err?.error?.message || 'No hemos podido guardar el horario.';
-        this.saving = false;
-      }
+      error: err => { this.error = err?.error?.message || 'No hemos podido guardar el horario.'; this.saving = false; }
     });
+  }
+
+  editAvailability(rule: AvailabilityRule): void {
+    this.editingRuleId = rule.id;
+    this.newDay = rule.dayOfWeek;
+    this.newStart = rule.startTime.slice(0, 5);
+    this.newEnd = rule.endTime.slice(0, 5);
+    this.newSlot = rule.slotMinutes;
+    this.success = null; this.error = null;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  cancelAvailabilityEdit(): void {
+    this.resetAvailabilityEditor();
+  }
+
+  deleteAvailability(rule: AvailabilityRule): void {
+    if (!confirm('¿Eliminar este horario? Solo se puede eliminar si no tiene citas futuras reservadas.')) return;
+    this.saving = true; this.error = null; this.success = null;
+    this.portalService.deleteAvailability(rule.id).subscribe({
+      next: () => {
+        this.availability = this.availability.filter(a => a.id !== rule.id);
+        this.success = 'Disponibilidad eliminada.';
+        this.saving = false;
+      },
+      error: err => { this.error = err?.error?.message || 'No hemos podido eliminar el horario.'; this.saving = false; }
+    });
+  }
+
+  private resetAvailabilityEditor(): void {
+    this.editingRuleId = null;
+    this.newDay = 1;
+    this.newStart = '09:00';
+    this.newEnd = '14:00';
+    this.newSlot = 30;
   }
 
   toggleAvailability(rule: AvailabilityRule): void {
