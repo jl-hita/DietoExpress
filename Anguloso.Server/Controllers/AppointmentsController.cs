@@ -1,3 +1,4 @@
+using Anguloso.Server.Logica;
 using Anguloso.Server.Logica.Utils;
 using Anguloso.Server.Model;
 using Anguloso.Server.Models;
@@ -16,8 +17,13 @@ public class AppointmentsController : ControllerBase
         { "requested", "confirmed", "cancelled", "completed", "no_show" };
 
     private readonly angulosodbContext _context;
+    private readonly EmailServ _emailServ;
 
-    public AppointmentsController(angulosodbContext context) => _context = context;
+    public AppointmentsController(angulosodbContext context, EmailServ emailServ)
+    {
+        _context = context;
+        _emailServ = emailServ;
+    }
 
     [Authorize(Roles = "patient")]
     [HttpGet("slots")]
@@ -211,13 +217,8 @@ public class AppointmentsController : ControllerBase
         var userId = AuthHelpers.GetUserId(User);
         var tenantId = AuthHelpers.GetTenantId(User);
         if (userId == null || tenantId == null) return Unauthorized();
-        if (request.DayOfWeek is < 0 or > 6) return BadRequest(new { message = "El día de la semana no es válido." });
-        if (request.SlotMinutes is < 15 or > 240) return BadRequest(new { message = "La duración de las citas no es válida." });
-        if (!TimeOnly.TryParse(request.StartTime, out var start) || !TimeOnly.TryParse(request.EndTime, out var end) || end <= start)
-            return BadRequest(new { message = "El horario no es válido." });
-        var totalMinutes = (int)(end - start).TotalMinutes;
-        if (totalMinutes < request.SlotMinutes || totalMinutes % request.SlotMinutes != 0)
-            return BadRequest(new { message = "El horario debe contener bloques completos de la duración seleccionada." });
+        if (!ValidateAvailabilityRequest(request, out var start, out var end, out var validationMessage))
+            return BadRequest(new { message = validationMessage });
 
         var overlapsExisting = await _context.nutritionist_availability.AnyAsync(a =>
             a.tenant_id == tenantId.Value &&
@@ -245,6 +246,60 @@ public class AppointmentsController : ControllerBase
         await _context.SaveChangesAsync();
 
         return Ok(new AvailabilityDto { Id = existing.id, DayOfWeek = existing.day_of_week, StartTime = existing.start_time.ToString(), EndTime = existing.end_time.ToString(), SlotMinutes = existing.slot_minutes, IsActive = existing.is_active });
+    }
+
+
+    [Authorize(Roles = "clinic_admin,nutritionist,user")]
+    [HttpPut("availability/{id:int}")]
+    public async Task<ActionResult<AvailabilityDto>> UpdateAvailability(int id, [FromBody] UpdateAvailabilityRequestDto request)
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        var tenantId = AuthHelpers.GetTenantId(User);
+        if (userId == null || tenantId == null) return Unauthorized();
+        var existing = await _context.nutritionist_availability.FirstOrDefaultAsync(a =>
+            a.id == id && a.tenant_id == tenantId.Value && a.nutritionist_id == userId.Value);
+        if (existing == null) return NotFound();
+
+        if (!ValidateAvailabilityRequest(request, out var start, out var end, out var validationMessage))
+            return BadRequest(new { message = validationMessage });
+
+        if (await HasFutureReservedAppointmentsForRuleAsync(existing))
+            return Conflict(new { message = "No se puede modificar este horario porque tiene citas reservadas." });
+
+        var overlapsExisting = await _context.nutritionist_availability.AnyAsync(a =>
+            a.id != id && a.tenant_id == tenantId.Value && a.nutritionist_id == userId.Value &&
+            a.day_of_week == request.DayOfWeek && a.start_time < end && a.end_time > start);
+        if (overlapsExisting)
+            return Conflict(new { message = "Este horario se solapa con otro horario del mismo día." });
+
+        existing.day_of_week = request.DayOfWeek;
+        existing.start_time = start;
+        existing.end_time = end;
+        existing.slot_minutes = request.SlotMinutes;
+        existing.is_active = request.IsActive;
+        await _context.SaveChangesAsync();
+
+        return Ok(ToAvailabilityDto(existing));
+    }
+
+    [Authorize(Roles = "clinic_admin,nutritionist,user")]
+    [HttpDelete("availability/{id:int}")]
+    public async Task<IActionResult> DeleteAvailability(int id)
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        var tenantId = AuthHelpers.GetTenantId(User);
+        if (userId == null || tenantId == null) return Unauthorized();
+
+        var existing = await _context.nutritionist_availability.FirstOrDefaultAsync(a =>
+            a.id == id && a.tenant_id == tenantId.Value && a.nutritionist_id == userId.Value);
+        if (existing == null) return NotFound();
+
+        if (await HasFutureReservedAppointmentsForRuleAsync(existing))
+            return Conflict(new { message = "No se puede eliminar este horario porque tiene citas reservadas. Puedes pausarlo en su lugar." });
+
+        _context.nutritionist_availability.Remove(existing);
+        await _context.SaveChangesAsync();
+        return NoContent();
     }
 
     [Authorize(Roles = "clinic_admin,nutritionist,user")]
@@ -283,8 +338,60 @@ public class AppointmentsController : ControllerBase
         appointment.professional_notes = request.ProfessionalNotes?.Trim();
         appointment.updated_at = DateTime.UtcNow;
         await _context.SaveChangesAsync();
+
+        if (requestedStatus == "cancelled" && !string.IsNullOrWhiteSpace(appointment.client.email))
+        {
+            var safeName = System.Net.WebUtility.HtmlEncode(appointment.client.full_name ?? "Paciente");
+            var safeNutritionist = System.Net.WebUtility.HtmlEncode(appointment.nutritionist.full_name ?? "tu nutricionista");
+            var localStart = TimeZoneInfo.ConvertTimeFromUtc(appointment.starts_at, GetMadridTimeZone());
+            var dateText = localStart.ToString("dddd, d 'de' MMMM 'a las' HH:mm", new System.Globalization.CultureInfo("es-ES"));
+            _ = _emailServ.SendEmailAsync(
+                appointment.client.email,
+                "Tu cita ha sido cancelada",
+                $"<h2>Hola, {safeName}</h2><p>{safeNutritionist} ha cancelado la cita que tenías prevista para el {dateText}.</p><p>Puedes entrar en tu portal de paciente para consultar tus próximas citas y reservar otro horario disponible.</p>");
+        }
+
         return Ok(await ToDtoQuery(appointment.id));
     }
+
+    private bool ValidateAvailabilityRequest(SaveAvailabilityRequestDto request, out TimeOnly start, out TimeOnly end, out string message)
+    {
+        start = default;
+        end = default;
+        message = string.Empty;
+        if (request.DayOfWeek is < 0 or > 6) { message = "El día de la semana no es válido."; return false; }
+        if (request.SlotMinutes is < 15 or > 240) { message = "La duración de las citas no es válida."; return false; }
+        if (!TimeOnly.TryParse(request.StartTime, out start) || !TimeOnly.TryParse(request.EndTime, out end) || end <= start)
+        { message = "El horario no es válido."; return false; }
+        var totalMinutes = (int)(end - start).TotalMinutes;
+        if (totalMinutes < request.SlotMinutes || totalMinutes % request.SlotMinutes != 0)
+        { message = "El horario debe contener bloques completos de la duración seleccionada."; return false; }
+        return true;
+    }
+
+    private async Task<bool> HasFutureReservedAppointmentsForRuleAsync(nutritionist_availability rule)
+    {
+        var now = DateTime.UtcNow;
+        var appointments = await _context.patient_appointments.AsNoTracking()
+            .Where(a => a.tenant_id == rule.tenant_id && a.nutritionist_id == rule.nutritionist_id &&
+                        a.starts_at > now && (a.status == "requested" || a.status == "confirmed"))
+            .Select(a => new { a.starts_at, a.ends_at })
+            .ToListAsync();
+        var zone = GetMadridTimeZone();
+        return appointments.Any(a =>
+        {
+            var local = TimeZoneInfo.ConvertTimeFromUtc(a.starts_at, zone);
+            var day = (int)local.DayOfWeek;
+            var time = TimeOnly.FromDateTime(local);
+            return day == rule.day_of_week && time >= rule.start_time && time < rule.end_time;
+        });
+    }
+
+    private static AvailabilityDto ToAvailabilityDto(nutritionist_availability a) => new()
+    {
+        Id = a.id, DayOfWeek = a.day_of_week, StartTime = a.start_time.ToString(),
+        EndTime = a.end_time.ToString(), SlotMinutes = a.slot_minutes, IsActive = a.is_active
+    };
 
     private int? GetPatientClientId()
     {
