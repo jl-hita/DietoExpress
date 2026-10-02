@@ -91,3 +91,11 @@ Quedan como deuda técnica explícita la actualización de dependencias de desar
 - Se conserva la validación JWT, los claims, el aislamiento multi-tenant, la revocación mediante `token_version` y las políticas de autorización existentes.
 - La selección de cookie se realiza por superficie para permitir que una sesión profesional y una sesión de paciente coexistan en el mismo navegador.
 - Esta migración se mantiene separada de la auditoría cerrada para probar el cambio de autenticación de extremo a extremo sin reabrir el alcance de aquella revisión.
+
+
+## Trabajo posterior a la auditoría — automatizaciones: ciclo de vida del paciente
+
+- Añadí estados persistentes del ciclo de vida: información pendiente, primera cita pendiente, activo, seguimiento, sin seguimiento reciente y archivado.
+- El motor actualiza estos estados a partir de altas, check-ins y eventos de citas.
+- Añadí una revisión periódica que recalcula el estado y crea una tarea profesional cuando un paciente lleva más de 30 días sin seguimiento reciente.
+- Las tareas generadas usan claves de idempotencia por paciente y día.
