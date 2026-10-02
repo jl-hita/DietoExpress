@@ -49,6 +49,8 @@ public sealed class StripeBillingService : IStripeBillingService
 
         var priceId = GetPriceId(plan, billingInterval);
 
+        // El bloqueo transaccional es por tenant y dura solo durante la creación del intento:
+        // dos peticiones concurrentes pueden llegar al endpoint, pero solo una puede iniciar el flujo.
         // Serializa el check-and-create para evitar dos Checkout simultáneos
         // del mismo tenant cuando todavía no existe una suscripción de Stripe.
         await using var transaction = await _context.Database.BeginTransactionAsync();
