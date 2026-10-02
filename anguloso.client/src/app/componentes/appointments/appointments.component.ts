@@ -57,6 +57,7 @@ export class AppointmentsComponent implements OnInit {
     this.portalService.disconnectGoogleCalendar().subscribe({ next: () => { this.calendarBusy = false; this.googleCalendar = { connected: false, email: '', calendarId: 'primary' }; this.success = 'Google Calendar desconectado.'; }, error: err => { this.calendarBusy = false; this.error = err?.error?.message || 'No hemos podido desconectar Google Calendar.'; } });
   }
 
+  // Se cargan en paralelo citas y disponibilidad para que el calendario profesional quede operativo aunque una colección tarde más que la otra.
   load(): void {
     this.loading = true;
     this.error = null;
@@ -93,6 +94,7 @@ export class AppointmentsComponent implements OnInit {
     return this.availability.filter(a => a.dayOfWeek === day).sort((a, b) => a.startTime.localeCompare(b.startTime));
   }
 
+  // Una edición actualiza una sola regla; una alta con "lunes a viernes" crea las cinco reglas mediante forkJoin.
   addAvailability(): void {
     this.success = null; this.error = null; this.saving = true;
     const request = {

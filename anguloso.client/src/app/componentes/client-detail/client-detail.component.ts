@@ -104,6 +104,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     private dialog: MatDialog
   ) { }
 
+  // Inicializa el formulario y los autosaves; las cargas independientes se lanzan después para que una sección no bloquee las demás.
   ngOnInit(): void {
     this.clientId = Number(this.route.snapshot.paramMap.get('id'));
     this.buildForms();
@@ -128,6 +129,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     }
   }
 
+  // Los dos formularios comparten el mismo patrón: cambios válidos se persisten con debounce para evitar una petición por pulsación.
   buildForms() {
     this.clientForm = this.fb.group({
       fullName: ['', Validators.required],

@@ -82,6 +82,7 @@ export class DietCreateComponent implements OnInit {
     return this.getMeals(dayIndex).at(mealIndex).get('items') as FormArray;
   }
 
+  // La pantalla combina búsqueda reactiva, edición jerárquica mediante FormArray y validación clínica del borrador.
   ngOnInit(): void {
     // Cargar grupos de intercambio
     this.foodService.getExchangeGroups().subscribe({
@@ -198,6 +199,7 @@ export class DietCreateComponent implements OnInit {
     });
   }
 
+  // Cada alimento conserva los valores base por 100 g y los macros calculados, permitiendo recalcular al cambiar la cantidad.
   createItemGroup(item: any): FormGroup {
     const isExchange = !!item.exchangeGroupId;
     return this.fb.group({

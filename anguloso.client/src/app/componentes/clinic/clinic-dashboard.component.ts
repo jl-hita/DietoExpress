@@ -15,6 +15,7 @@ import { ClinicService, ClinicDashboard } from '../../servicios/clinic.service';
 export class ClinicDashboardComponent implements OnInit {
  data?:ClinicDashboard; showCreate=false; newNutri:any={fullName:'',email:''};
  constructor(private clinic:ClinicService,private snack:MatSnackBar,private dialog:MatDialog){}
+ // La creación depende simultáneamente del estado de la suscripción, el cupo contratado, el periodo de sustitución y la funcionalidad habilitada.
  get canCreateNutri():boolean{
    const l=this.data?.license;
    if(!l || l.status!=='active') return false;
@@ -26,6 +27,7 @@ export class ClinicDashboardComponent implements OnInit {
  load(){this.clinic.getDashboard().subscribe({next:d=>this.data=d,error:e=>this.snack.open(e?.error||'No se puede cargar el panel de clínica','Cerrar',{duration:4000})});}
  createNutri(){this.clinic.createNutritionist(this.newNutri).subscribe({next:()=>{this.snack.open('Nutricionista creado y se ha enviado la invitación por email','OK',{duration:3500});this.newNutri={fullName:'',email:''};this.showCreate=false;this.load()},error:e=>this.snack.open(e?.error?.message||e?.error||'No se pudo crear','Cerrar',{duration:5000})});}
  activateNutri(n:any){this.clinic.activateNutritionist(n.id).subscribe({next:()=>{this.snack.open('Nutricionista activado','OK',{duration:2500});this.load()},error:e=>this.snack.open(e?.error?.message||e?.error||'No se pudo activar','Cerrar',{duration:5000})});}
+ // El archivado requiere conocer primero las asignaciones afectadas para permitir al profesional decidir cómo quedan sus pacientes.
  disableNutri(n:any){
    this.clinic.getDeactivationPreview(n.id).subscribe({
      next:preview=>{

@@ -20,7 +20,6 @@ public sealed class AutomationController : ControllerBase
         _tenantContext = tenantContext;
     }
 
-    // El tenant se aplica en SQL, evitando que conocer un id de job permita consultar datos de otra cuenta.
     [HttpGet("jobs")]
     public async Task<IActionResult> GetJobs(
         [FromQuery] string? status = null,
@@ -45,7 +44,6 @@ public sealed class AutomationController : ControllerBase
         command.Parameters.AddWithValue("limit", limit);
 
         var rows = new List<object>();
-        // El límite se ejecuta en PostgreSQL para no cargar un historial mayor del necesario.
         await using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
@@ -67,7 +65,6 @@ public sealed class AutomationController : ControllerBase
         return Ok(rows);
     }
 
-    // La ejecución se relaciona con su job y se vuelve a comprobar el tenant en la misma consulta.
     [HttpGet("jobs/{id:long}/executions")]
     public async Task<IActionResult> GetExecutions(long id)
     {
@@ -104,7 +101,6 @@ public sealed class AutomationController : ControllerBase
         return Ok(rows);
     }
 
-    // Solo se cancelan trabajos pendientes; las ejecuciones ya procesadas conservan su estado histórico.
     [HttpPost("jobs/{id:long}/cancel")]
     public async Task<IActionResult> Cancel(long id, [FromBody] CancelAutomationRequest? request)
     {

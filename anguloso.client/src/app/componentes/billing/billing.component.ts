@@ -304,6 +304,7 @@ export class BillingComponent implements OnInit {
     private snackBar: MatSnackBar
   ) {}
 
+  // La página interpreta el resultado de Stripe desde la URL y, tras un checkout, espera a que el webhook active la suscripción.
   ngOnInit(): void {
     this.expiredNotice = this.route.snapshot.queryParamMap.get('reason') === 'expired';
     const result = this.route.snapshot.queryParamMap.get('checkout');
@@ -349,6 +350,7 @@ export class BillingComponent implements OnInit {
     return this.license.billingInterval === 'yearly' ? plan.yearlyPrice : plan.monthlyPrice;
   }
 
+  // El catálogo visible se filtra por nivel para no ofrecer descensos mientras una suscripción de mayor nivel sigue activa.
   get availablePlans(): BillingPlan[] {
     if (!this.license) return [];
     if (this.isTrial || this.isTrialExpired) return this.plans;

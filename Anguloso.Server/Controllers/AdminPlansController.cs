@@ -15,7 +15,6 @@ public class AdminPlansController : ControllerBase
 
     public AdminPlansController(angulosodbContext context) => _context = context;
 
-    // Se proyecta a DTOs para no exponer directamente el grafo de navegación de EF.
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
@@ -30,7 +29,6 @@ public class AdminPlansController : ControllerBase
         return Ok(plans.Select(ToResponse).ToList());
     }
 
-    // La creación normaliza el código y valida límites antes de persistir el plan.
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] PlanRequest r)
     {
@@ -67,7 +65,6 @@ public class AdminPlansController : ControllerBase
         return Ok(ToResponse(p));
     }
 
-    // El código se conserva como identificador estable; aquí solo se modifican sus propiedades configurables.
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, [FromBody] PlanRequest r)
     {
@@ -94,7 +91,6 @@ public class AdminPlansController : ControllerBase
         return Ok(ToResponse(p));
     }
 
-    // Las funcionalidades se reemplazan en bloque para que la configuración almacenada coincida con la petición.
     [HttpPut("{id:int}/features")]
     public async Task<IActionResult> Features(int id, [FromBody] List<FeatureRequest> features)
     {

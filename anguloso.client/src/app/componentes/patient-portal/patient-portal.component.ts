@@ -90,6 +90,7 @@ export class PatientPortalComponent implements OnInit {
     private foodService: FoodService
   ) {}
 
+  // El portal puede entrar mediante sesión previa o token de acceso; después carga los datos clínicos y habilita las funciones del paciente.
   ngOnInit(): void {
     this.route.queryParams.subscribe(params => {
       const token = params['token'];
@@ -486,6 +487,7 @@ export class PatientPortalComponent implements OnInit {
     }).catch(() => this.pushEnabled = false);
   }
 
+  // La suscripción Web Push se crea en el navegador y se registra en backend junto con sus claves públicas.
   async enablePushNotifications(): Promise<void> {
     if (!this.pushSupported || this.pushBusy) return;
     this.pushBusy = true;
