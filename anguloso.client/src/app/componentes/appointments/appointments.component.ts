@@ -3,6 +3,7 @@ import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { forkJoin } from 'rxjs';
 import { PatientAppointment, PatientPortalService, AvailabilityRule } from '../../servicios/patient-portal.service';
 
 @Component({
@@ -75,21 +76,36 @@ export class AppointmentsComponent implements OnInit {
   addAvailability(): void {
     this.success = null; this.error = null;
     this.saving = true;
-    this.portalService.saveAvailability({
-      dayOfWeek: this.newDay,
+
+    const daysToSave = this.newDay === -1
+      ? [1, 2, 3, 4, 5]
+      : [this.newDay];
+
+    const requests = daysToSave.map(day => this.portalService.saveAvailability({
+      dayOfWeek: day,
       startTime: this.newStart,
       endTime: this.newEnd,
       slotMinutes: Number(this.newSlot),
       isActive: true
-    }).subscribe({
-      next: rule => {
-        const index = this.availability.findIndex(a => a.id === rule.id);
-        if (index >= 0) this.availability[index] = rule; else this.availability.push(rule);
+    }));
+
+    forkJoin(requests).subscribe({
+      next: rules => {
+        for (const rule of rules) {
+          const index = this.availability.findIndex(a => a.id === rule.id);
+          if (index >= 0) this.availability[index] = rule;
+          else this.availability.push(rule);
+        }
         this.availability = [...this.availability];
-        this.success = 'Disponibilidad guardada.';
+        this.success = this.newDay === -1
+          ? 'Disponibilidad de lunes a viernes guardada.'
+          : 'Disponibilidad guardada.';
         this.saving = false;
       },
-      error: err => { this.error = err?.error?.message || 'No hemos podido guardar el horario.'; this.saving = false; }
+      error: err => {
+        this.error = err?.error?.message || 'No hemos podido guardar el horario.';
+        this.saving = false;
+      }
     });
   }
 
