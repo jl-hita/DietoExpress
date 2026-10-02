@@ -281,8 +281,8 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
   styles: [`
     .admin-container {
       padding: 24px;
-      max-width: 1300px;
-      margin: 0 auto;
+      width: 100%;
+      margin: 0;
       font-family: 'Roboto', sans-serif;
     }
     .admin-header {
