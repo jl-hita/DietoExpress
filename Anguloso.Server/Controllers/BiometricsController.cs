@@ -34,6 +34,7 @@ public class BiometricsController : ControllerBase
 
     // GET: api/clients/{clientId}/biometrics
     [HttpGet]
+    // Todas las lecturas parten de una comprobación de acceso al paciente antes de consultar sus mediciones.
     public async Task<ActionResult<List<BiometricsDto>>> GetAll(int clientId)
     {
         var userId = AuthHelpers.GetUserId(User);
@@ -67,6 +68,7 @@ public class BiometricsController : ControllerBase
 
     // GET: api/clients/{clientId}/biometrics/{id}
     [HttpGet("{id:int}")]
+    // La biometría se resuelve junto con su paciente para aplicar las mismas reglas de tenant y asignación.
     public async Task<ActionResult<BiometricsDto>> Get(int clientId, int id)
     {
         var userId = AuthHelpers.GetUserId(User);
@@ -99,6 +101,7 @@ public class BiometricsController : ControllerBase
 
     // POST: api/clients/{clientId}/biometrics
     [HttpPost]
+    // Las mediciones nuevas se validan antes de persistirlas para rechazar valores no finitos y cargas excesivas.
     public async Task<ActionResult> Create(int clientId, [FromBody] CreateBiometricDto dto)
     {
         var userId = AuthHelpers.GetUserId(User);
@@ -152,6 +155,7 @@ public class BiometricsController : ControllerBase
 
     // PUT: api/clients/{clientId}/biometrics/{id}
     [HttpPut("{id:int}")]
+    // La actualización reutiliza la autorización por paciente y reemplaza los valores enviados.
     public async Task<IActionResult> Update(int clientId, int id, [FromBody] UpdateBiometricDto dto)
     {
         var userId = AuthHelpers.GetUserId(User);
@@ -203,6 +207,7 @@ public class BiometricsController : ControllerBase
 
     // DELETE: api/clients/{clientId}/biometrics/{id}
     [HttpDelete("{id:int}")]
+    // El borrado requiere acceso al paciente y a la medición dentro del mismo tenant.
     public async Task<IActionResult> Delete(int clientId, int id)
     {
         var userId = AuthHelpers.GetUserId(User);
@@ -228,6 +233,7 @@ public class BiometricsController : ControllerBase
 
     // GET: api/clients/{clientId}/evolution
     [HttpGet("/api/clients/{clientId:int}/evolution")]
+    // La evolución se ordena cronológicamente para que el cliente pueda construir gráficos directamente.
     public async Task<ActionResult<List<BiometricsDto>>> GetEvolution(int clientId)
     {
         var userId = AuthHelpers.GetUserId(User);
@@ -263,6 +269,7 @@ public class BiometricsController : ControllerBase
     // POST: api/clients/{clientId}/biometrics/import/preview
     [HttpPost("import/preview")]
     [EnableRateLimiting("expensive")]
+    // La importación se divide en preview y confirmación para detectar fechas existentes antes de modificar datos.
     public async Task<ActionResult<BioimpedancePreviewResponseDto>> PreviewImport(
         int clientId,
         IFormFile file,
@@ -317,6 +324,7 @@ public class BiometricsController : ControllerBase
     // POST: api/clients/{clientId}/biometrics/import/confirm
     [EnableRateLimiting("expensive")]
     [HttpPost("import/confirm")]
+    // La confirmación procesa un lote acotado y actualiza por fecha, evitando duplicar mediciones del mismo día.
     public async Task<ActionResult> ConfirmImport(int clientId, [FromBody] ConfirmImportBiometricsDto dto)
     {
         var userId = AuthHelpers.GetUserId(User);

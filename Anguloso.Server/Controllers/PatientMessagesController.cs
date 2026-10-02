@@ -26,6 +26,7 @@ public class PatientMessagesController : ControllerBase
 
     [HttpGet("patient")]
     [Authorize(Roles = "patient")]
+    // El portal del paciente solo puede leer mensajes asociados a su propia identidad y tenant.
     public async Task<IActionResult> GetPatientMessages()
     {
         var clientId = await ResolvePatientIdAsync();
@@ -36,6 +37,7 @@ public class PatientMessagesController : ControllerBase
 
     [HttpPost("patient")]
     [Authorize(Roles = "patient")]
+    // El mensaje entrante se valida contra la conversación antes de persistir contenido enviado por el paciente.
     public async Task<IActionResult> SendPatientMessage([FromBody] SendMessageRequest request)
     {
         var clientId = await ResolvePatientIdAsync();
@@ -45,6 +47,7 @@ public class PatientMessagesController : ControllerBase
 
     [HttpGet("conversations")]
     [Authorize(Roles = "clinic_admin,nutritionist,user")]
+    // Agrupa las conversaciones accesibles para el profesional sin mezclar pacientes de otros tenants.
     public async Task<IActionResult> GetConversations()
     {
         var userId = AuthHelpers.GetUserId(User);
@@ -55,6 +58,7 @@ public class PatientMessagesController : ControllerBase
 
     [HttpGet("client/{clientId:int}")]
     [Authorize(Roles = "clinic_admin,nutritionist,user")]
+    // La consulta profesional se limita al paciente y a la relación nutricionista-paciente autorizada.
     public async Task<IActionResult> GetProfessionalMessages(int clientId)
     {
         var userId = AuthHelpers.GetUserId(User);
@@ -70,6 +74,7 @@ public class PatientMessagesController : ControllerBase
 
     [HttpPost("client/{clientId:int}")]
     [Authorize(Roles = "clinic_admin,nutritionist,user")]
+    // El profesional solo puede escribir en conversaciones cuyo paciente tiene acceso dentro de su tenant.
     public async Task<IActionResult> SendProfessionalMessage(int clientId, [FromBody] SendMessageRequest request)
     {
         var userId = AuthHelpers.GetUserId(User);
@@ -84,6 +89,7 @@ public class PatientMessagesController : ControllerBase
 
     [HttpPatch("client/{clientId:int}/read")]
     [Authorize(Roles = "clinic_admin,nutritionist,user")]
+    // Marcar como leído se limita a los mensajes de la conversación que el profesional puede consultar.
     public async Task<IActionResult> MarkProfessionalMessagesRead(int clientId)
     {
         var userId = AuthHelpers.GetUserId(User);
@@ -103,6 +109,7 @@ WHERE conversation_id = {conversation.Id}
 
     [HttpPatch("patient/read")]
     [Authorize(Roles = "patient")]
+    // El estado de lectura del paciente se actualiza exclusivamente sobre mensajes que le pertenecen.
     public async Task<IActionResult> MarkPatientMessagesRead()
     {
         var clientId = await ResolvePatientIdAsync();

@@ -341,6 +341,7 @@ public class ClientDietsController : ControllerBase
 
     // PUT: api/clients/{clientId}/diets/{id}
     [HttpPut("{id:int}")]
+    // La edición de una asignación mantiene el historial y valida de nuevo el acceso al paciente antes de cambiar fechas o notas.
     public async Task<IActionResult> UpdateAssignment(int clientId, int id, [FromBody] UpdateClientDietDto dto)
     {
         var userId = AuthHelpers.GetUserId(User);
@@ -433,6 +434,7 @@ public class ClientDietsController : ControllerBase
 
     // POST: api/clients/{clientId}/diets/{id}/deactivate
     [HttpPost("{id:int}/deactivate")]
+    // Desactivar una asignación cierra el periodo activo sin borrar el vínculo histórico.
     public async Task<IActionResult> DeactivateAssignment(int clientId, int id)
     {
         var userId = AuthHelpers.GetUserId(User);
@@ -489,6 +491,7 @@ public class ClientDietsController : ControllerBase
 
     // DELETE: api/clients/{clientId}/diets/{id}
     [HttpDelete("{id:int}")]
+    // El borrado comprueba primero la pertenencia de la asignación para impedir referencias cruzadas entre tenants.
     public async Task<IActionResult> DeleteAssignment(int clientId, int id)
     {
         var userId = AuthHelpers.GetUserId(User);
@@ -545,6 +548,7 @@ public class ClientDietsController : ControllerBase
     // GET: api/clients/{clientId}/diets/consultation-pdf?date=yyyy-MM-dd
     [HttpGet("consultation-pdf")]
     [EnableRateLimiting("expensive")]
+    // El PDF se genera a partir de datos ya filtrados por el acceso autorizado al paciente.
     public async Task<IActionResult> GetConsultationPdf(int clientId, [FromQuery] DateOnly? date = null)
     {
         if (!User.IsInRole("superadmin") && !await _licenseService.CanUseFeatureAsync(AuthHelpers.GetTenantId(User), "PDF_EXPORT"))
@@ -593,6 +597,7 @@ public class ClientDietsController : ControllerBase
 
     // GET: api/clients/{clientId}/diets/{id}/pdf
     [HttpGet("{id:int}/pdf")]
+    // El documento de dieta reutiliza la asignación autorizada para evitar descargar dietas ajenas.
     public async Task<IActionResult> GetDietPdf(int clientId, int id)
     {
         if (!User.IsInRole("superadmin") && !await _licenseService.CanUseFeatureAsync(AuthHelpers.GetTenantId(User), "PDF_EXPORT")) return Forbid();
@@ -647,6 +652,7 @@ public class ClientDietsController : ControllerBase
 
     // GET: api/clients/{clientId}/diets/active/pdf
     [HttpGet("active/pdf")]
+    // Obtiene la dieta actualmente activa del paciente y delega la representación al servicio PDF.
     public async Task<IActionResult> GetActiveDietPdf(int clientId)
     {
         if (!User.IsInRole("superadmin") && !await _licenseService.CanUseFeatureAsync(AuthHelpers.GetTenantId(User), "PDF_EXPORT")) return Forbid();
