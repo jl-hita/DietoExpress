@@ -1300,3 +1300,92 @@
     font-size: 7px;
   }
 }
+
+
+/* ─── SHOPPING SUMMARY & NAV BADGE ───────────────── */
+.shopping-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 1080px;
+  margin: 4px auto 10px;
+  padding: 12px 14px;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 14px;
+}
+
+.shopping-summary-copy { flex: 1; min-width: 0; }
+.shopping-summary-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+.shopping-summary-title strong { color: #e2e8f0; font-size: 12px; }
+.shopping-summary-title span { color: #64748b; font-size: 10px; }
+.shopping-progress-track { height: 5px; overflow: hidden; border-radius: 99px; background: #334155; }
+.shopping-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #14b8a6, #6366f1);
+  transition: width .25s ease;
+}
+.shopping-progress-percent {
+  color: #a5b4fc;
+  font-size: 12px;
+  font-weight: 700;
+  min-width: 32px;
+  text-align: right;
+}
+.shopping-reset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 8px;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  background: transparent;
+  color: #64748b;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.shopping-reset-btn:hover { color: #a5b4fc; border-color: #475569; }
+.shopping-reset-btn mat-icon { font-size: 16px; width: 16px; height: 16px; }
+
+.nav-icon-wrap {
+  position: relative;
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+}
+.nav-badge {
+  position: absolute;
+  top: -7px;
+  right: -10px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 99px;
+  background: #ef4444;
+  color: white;
+  font-size: 8px;
+  line-height: 15px;
+  font-weight: 800;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+@media (max-width: 560px) {
+  .shopping-summary {
+    margin-left: 12px;
+    margin-right: 12px;
+    padding: 11px 12px;
+  }
+  .shopping-summary-title { gap: 5px; }
+  .shopping-summary-title span { white-space: nowrap; }
+  .shopping-reset-btn span { display: none; }
+  .shopping-reset-btn { padding: 6px; }
+}
