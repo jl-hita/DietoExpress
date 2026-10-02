@@ -25,6 +25,7 @@ import { OnboardingComponent } from './componentes/onboarding/onboarding.compone
 import { SubscriptionGuard } from './guards/subscription.guard';
 import { AppointmentsComponent } from './componentes/appointments/appointments.component';
 import { PatientChatComponent } from './componentes/patient-chat/patient-chat.component';
+import { MessagesComponent } from './componentes/messages/messages.component';
 
 export interface AppRoute extends Route {
   showInMenu?: boolean;
@@ -44,6 +45,7 @@ export const routes: AppRoute[] = [
     children: [
       { path: 'clients', component: ClientsListComponent, canActivate: [SubscriptionGuard] },
       { path: 'appointments', component: AppointmentsComponent, canActivate: [SubscriptionGuard], title: 'Agenda y citas' },
+      { path: 'messages', component: MessagesComponent, canActivate: [SubscriptionGuard], title: 'Mensajes' },
       { path: 'clients/nuevo', component: ClientCreateComponent, canActivate: [SubscriptionGuard], title: 'Nuevo cliente' },
       { path: 'clients/:id', component: ClientDetailComponent, canActivate: [SubscriptionGuard] },
       { path: 'clients/:id/messages', component: PatientChatComponent, canActivate: [SubscriptionGuard], title: 'Mensajes del paciente' },
