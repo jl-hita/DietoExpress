@@ -363,6 +363,41 @@ public class AppointmentsController : ControllerBase
         appointment.updated_at = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
+        if ((requestedStatus == "confirmed" && previousStatus != "confirmed") ||
+            (requestedStatus == "cancelled" && previousStatus != "cancelled") ||
+            (requestedStatus == "no_show" && previousStatus != "no_show"))
+        {
+            var eventType = requestedStatus switch
+            {
+                "confirmed" => "appointment.confirmed",
+                "cancelled" => "appointment.cancelled",
+                "no_show" => "appointment.no_show",
+                _ => null
+            };
+            if (eventType != null)
+            {
+                try
+                {
+                    await _automationService.PublishEventAsync(
+                        appointment.tenant_id,
+                        eventType,
+                        "appointment",
+                        appointment.id.ToString(),
+                        new AutomationService.AppointmentStatusPayload(
+                            appointment.id,
+                            appointment.client_id,
+                            appointment.nutritionist_id,
+                            appointment.starts_at),
+                        $"appointment:{appointment.id}:{eventType}");
+                }
+                catch (Exception ex)
+                {
+                    HttpContext.RequestServices.GetRequiredService<ILogger<AppointmentsController>>()
+                        .LogError(ex, "No se pudo registrar el evento de automatización {EventType} para la cita {AppointmentId}.", eventType, appointment.id);
+                }
+            }
+        }
+
         if (requestedStatus == "completed" && previousStatus != "completed")
         {
             try
