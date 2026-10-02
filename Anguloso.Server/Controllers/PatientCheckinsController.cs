@@ -47,6 +47,8 @@ public class PatientCheckinsController : ControllerBase
         if (request.adherence is < 0 or > 100) return BadRequest(new { message = "La adherencia debe estar entre 0 y 100." });
         if (request.hunger is < 0 or > 10) return BadRequest(new { message = "El nivel indicado debe estar entre 0 y 10." });
         if (request.weight is <= 0 or > 500) return BadRequest(new { message = "El valor de peso no es válido." });
+        if (request.difficulties?.Length > 1000) return BadRequest(new { message = "Las dificultades no pueden superar los 1000 caracteres." });
+        if (request.notes?.Length > 2000) return BadRequest(new { message = "El comentario no puede superar los 2000 caracteres." });
 
         var client = await _db.clients.AsNoTracking().Where(x => x.id == clientId && x.archived_at == null).Select(x => new { x.id, x.tenant_id, UserTenantId = x.user != null ? x.user.tenant_id : null }).SingleOrDefaultAsync();
         if (client == null) return NotFound(new { message = "Paciente no disponible." });
