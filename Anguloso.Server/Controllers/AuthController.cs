@@ -736,7 +736,7 @@ public class AuthController : ControllerBase
 
         var candidate = baseName;
         int suffix = 0;
-        while (_context.users.Any(u => u.username == candidate))
+        while (_context.users.Any(u => u.username.ToLower() == candidate.ToLower()))
         {
             suffix++;
             candidate = $"{baseName}{suffix}";
