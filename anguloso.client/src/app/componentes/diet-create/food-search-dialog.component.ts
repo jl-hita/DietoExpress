@@ -55,6 +55,7 @@ import { FoodProduct } from '../../modelos/food-product';
     .selected-food-box { padding: 15px; border: 1px solid #ccc; border-radius: 8px; margin-top: 10px; background: #fdfdfd; }
   `]
 })
+// La búsqueda combina el catálogo local con el servicio externo cuando procede, manteniendo el resultado adaptado al formulario de dieta.
 export class FoodSearchDialogComponent {
   searchCtrl: any;
   results: any[] = []; 

@@ -15,6 +15,7 @@ import { AuthService } from '../../servicios/auth.service';
   templateUrl: './diets-list.component.html',
   styleUrls: ['./diets-list.component.css']
 })
+// La lista coordina carga, filtros y acciones sobre dietas; los cambios de estado se reflejan después de confirmar la operación en el backend.
 export class DietsListComponent implements OnInit, OnDestroy {
   diets: DietListItem[] = [];
   loading = false;

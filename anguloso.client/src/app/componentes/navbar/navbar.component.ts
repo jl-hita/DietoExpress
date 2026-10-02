@@ -14,6 +14,7 @@ import { AuthService } from '../../servicios/auth.service';
     standalone: true,
   imports: [CommonModule, RouterLink, RouterLinkActive, MatToolbarModule, MatButtonModule],
 })
+// La barra refleja el estado global de autenticación y navegación; no debe convertirse en una segunda fuente de autorización.
 export class NavbarComponent {
   menuRoutes: AppRoute[] = [];
 

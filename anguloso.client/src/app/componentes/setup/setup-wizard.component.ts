@@ -185,6 +185,7 @@ import { AdminService } from '../../servicios/admin.service';
     }
   `]
 })
+// El wizard avanza por etapas de configuración y solo permite pasar de fase cuando la respuesta del backend confirma el paso anterior.
 export class SetupWizardComponent implements OnInit {
   form: FormGroup;
   hidePassword = true;

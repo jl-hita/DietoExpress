@@ -30,6 +30,7 @@ interface LoginRequest {
     standalone: true,
   imports: [CommonModule, ReactiveFormsModule, RouterLink, MatSnackBarModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule],
 })
+// La creación de usuarios separa validación de formulario, selección de permisos y envío para evitar enviar estados parciales al backend.
 export class UserCreateComponent {
   private baseUrl = environment.apiUrl;
   form: FormGroup;

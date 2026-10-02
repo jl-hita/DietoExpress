@@ -111,6 +111,7 @@ import { environment } from '../../../environments/environments';
     }
   `]
 })
+// El selector mantiene separada la búsqueda de recetas de su incorporación al formulario padre para no mezclar estado temporal y estado de la dieta.
 export class RecipePickerDialogComponent implements OnInit {
   recipes: any[] = [];
   filteredRecipes: any[] = [];

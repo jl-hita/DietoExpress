@@ -14,6 +14,7 @@ import { ProfileService } from '../../servicios/profile.service';
   templateUrl: './sidebar.component.html',
   styleUrls: ['./sidebar.component.css']
 })
+// El menú deriva sus opciones del contexto actual del usuario para ocultar rutas que no son relevantes, sin sustituir la autorización del servidor.
 export class SidebarComponent implements OnInit {
   @Output() closeMenu = new EventEmitter<void>();
 

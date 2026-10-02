@@ -19,6 +19,7 @@ import { environment } from '../../../environments/environments';
   templateUrl: './user-reset.component.html',
   styleUrl: './user-reset.component.css'
 })
+// El flujo de recuperación mantiene el token fuera del estado persistente y solo lo utiliza para completar la operación autorizada.
 export class UserResetComponent implements OnInit {
   private baseUrl = environment.apiUrl;
   requestForm: FormGroup;
