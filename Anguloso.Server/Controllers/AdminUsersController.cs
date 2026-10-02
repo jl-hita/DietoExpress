@@ -382,7 +382,7 @@ public class AdminUsersController : ControllerBase
         var username = request.Username.Trim().ToLowerInvariant();
         var email = request.Email.Trim().ToLowerInvariant();
 
-        if (await _context.users.AnyAsync(u => u.username == username))
+        if (await _context.users.AnyAsync(u => u.username.ToLower() == username.ToLower()))
             return Conflict("El nombre de usuario ya existe.");
         if (await _context.users.AnyAsync(u => u.email != null && u.email.ToLower() == email))
             return Conflict("El email ya está registrado.");
