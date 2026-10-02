@@ -10,6 +10,7 @@ namespace Anguloso.Server.Controllers;
 //[Authorize(Policy = "Professional")]
 [Route("api/[controller]")]
 [ApiController]
+// Documentación: este componente encapsula lógica compartida para mantener las reglas y transformaciones fuera de los puntos de entrada del frontend.
 public class RecetaController : Controller
 {
     private readonly angulosodbContext _context;

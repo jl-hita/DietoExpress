@@ -13,7 +13,8 @@ using System.Net.NetworkInformation;
 //[Authorize]
 //[Route("api/[controller]")]
 //[ApiController]
-//public class IngredienteController : Controller
+//// Documentación: este componente encapsula lógica compartida para mantener las reglas y transformaciones fuera de los puntos de entrada del frontend.
+public class IngredienteController : Controller
 //{
 //    private readonly angulosodbContext _context;
 

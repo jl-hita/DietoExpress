@@ -9,6 +9,7 @@ using System.Linq;
 
 namespace Anguloso.Server.Logica;
 
+// Documentación: este componente encapsula lógica compartida para mantener las reglas y transformaciones fuera de los puntos de entrada del frontend.
 public class ConsultationPdfService
 {
     public byte[] GenerateConsultationPdf(clients client, DateOnly consultationDate, angulosodbContext context)

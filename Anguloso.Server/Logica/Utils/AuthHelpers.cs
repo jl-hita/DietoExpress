@@ -2,6 +2,7 @@ using System.Security.Claims;
 
 namespace Anguloso.Server.Logica.Utils;
 
+// Documentación: este componente encapsula lógica compartida para mantener las reglas y transformaciones fuera de los puntos de entrada del frontend.
 public static class AuthHelpers
 {
     public static int? GetUserId(ClaimsPrincipal user)
