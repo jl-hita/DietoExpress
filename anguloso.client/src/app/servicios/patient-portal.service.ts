@@ -46,6 +46,7 @@ export interface PatientAppointment {
 
 export interface PatientCheckin { id: number; week_start: string; submitted_at: string; weight?: number | null; adherence?: number | null; hunger?: number | null; difficulties?: string | null; notes?: string | null; }
 export interface PatientCheckinRequest { weight?: number | null; adherence?: number | null; hunger?: number | null; difficulties?: string | null; notes?: string | null; }
+export interface PatientNotification { id: number; type: string; title: string; message: string; actionUrl?: string | null; createdAt: string; readAt?: string | null; }
 
 @Injectable({ providedIn: 'root' })
 export class PatientPortalService {
@@ -107,6 +108,11 @@ export class PatientPortalService {
       professionalNotes
     });
   }
+
+  getNotifications(): Observable<PatientNotification[]> { return this.http.get<PatientNotification[]>(this.base + '/portal/notifications'); }
+  markNotificationRead(id: number): Observable<void> { return this.http.patch<void>(this.base + '/portal/notifications/' + id + '/read', {}); }
+  getVapidPublicKey(): Observable<{ publicKey: string }> { return this.http.get<{ publicKey: string }>(this.base + '/portal/push/vapid-public-key'); }
+  registerPushSubscription(subscription: { endpoint: string; p256dh: string; auth: string }): Observable<void> { return this.http.post<void>(this.base + '/portal/push-subscriptions', subscription); }
 
   getCurrentCheckin(): Observable<PatientCheckin | null> { return this.http.get<PatientCheckin | null>(`${this.base}/portal/check-ins/current`); }
   getCheckinHistory(): Observable<PatientCheckin[]> { return this.http.get<PatientCheckin[]>(`${this.base}/portal/check-ins`); }
