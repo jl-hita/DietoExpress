@@ -47,3 +47,10 @@ También estoy revisando los despliegues y corrigiendo automáticamente los fall
 - También se limitaron las longitudes de nombres y notas y los valores de gramos/intercambios.
 - Las mismas validaciones se aplican tanto al alta como a la edición para evitar que un payload grande pueda amplificarse en múltiples registros.
 - Se añadió una prueba de regresión específica para estos límites.
+
+
+## Revisión adicional — límites de payload de pacientes y entradas administrativas
+
+- Se limitaron los campos de texto del expediente del paciente tanto al crear como al editar, incluyendo antecedentes, salud digestiva, preferencias y estilo de vida.
+- Se añadieron comprobaciones defensivas para cuerpos nulos en las operaciones de alta de nutricionistas y asignación de pacientes.
+- Estas validaciones evitan que entradas excepcionalmente grandes o incompletas lleguen innecesariamente a la lógica de persistencia.

@@ -65,6 +65,7 @@ public class ClinicController : ControllerBase
     [Authorize(Roles="clinic_admin")]
     public async Task<IActionResult> CreateNutritionist([FromBody] CreateNutritionistRequest req)
     {
+        if (req == null) return BadRequest("Datos del nutricionista no válidos.");
         var tenantId = AuthHelpers.GetTenantId(User);
         if (!tenantId.HasValue) return BadRequest("Sin clínica.");
         if (!await _license.CanUseFeatureAsync(tenantId, "MULTI_NUTRITIONIST")) return Forbid();
@@ -296,6 +297,7 @@ public class ClinicController : ControllerBase
     [Authorize(Roles="clinic_admin")]
     public async Task<IActionResult> AssignClient(int clientId,[FromBody] AssignClientRequest req)
     {
+        if (req == null) return BadRequest("Datos de asignación no válidos.");
         var tenantId=AuthHelpers.GetTenantId(User);
         if(!tenantId.HasValue)return BadRequest();
         if(!await _license.CanUseFeatureAsync(tenantId,"CLIENT_ASSIGNMENT"))return Forbid();
