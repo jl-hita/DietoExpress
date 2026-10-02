@@ -82,16 +82,11 @@
   overflow-y: auto;
   padding: 24px 32px 40px;
   background: #f8fafc;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  min-width: 0;
 }
 
-/* El router-outlet no genera una caja visual propia; el componente de cada
-   pantalla se centra dentro del área disponible del contenido. */
-.page > router-outlet + * {
-  width: min(100%, 1440px);
-}
+/* Las pantallas con menú lateral aprovechan todo el ancho disponible.
+   El centrado de cada contenido concreto se decide en su propia pantalla. */
 
 @media (min-width: 1600px) {
   .page {
