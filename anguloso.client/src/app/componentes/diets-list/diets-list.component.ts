@@ -46,6 +46,7 @@ export class DietsListComponent implements OnInit, OnDestroy {
     this.loadDiets();
   }
 
+  // La paginación y búsqueda se envían al servidor; el frontend conserva únicamente la página actual y calcula su representación visual.
   loadDiets(): void {
     this.loading = true;
     this.error = null;
@@ -78,6 +79,7 @@ export class DietsListComponent implements OnInit, OnDestroy {
     this.loadDiets();
   }
 
+  // El pequeño debounce evita lanzar una petición por cada pulsación cuando el usuario está escribiendo en el buscador.
   refresh(): void {
     if (this.searchTimer) clearTimeout(this.searchTimer);
     this.searchTimer = setTimeout(() => this.loadDiets(), 350);
@@ -115,6 +117,7 @@ export class DietsListComponent implements OnInit, OnDestroy {
     }
   }
 
+  // Se limita el número de botones de página para que la paginación siga siendo manejable incluso con muchas dietas.
   pagesToShow(): number[] {
     const pages: number[] = [];
     const maxButtons = 5;

@@ -221,6 +221,7 @@ export class DietShoppingListDialogComponent implements OnInit {
     @Inject(MAT_DIALOG_DATA) public data: DietShoppingListDialogData
   ) {}
 
+  // La agregación y normalización de ingredientes se realiza en el backend para trabajar con las cantidades consolidadas de toda la dieta.
   ngOnInit(): void {
     if (this.data?.dietId) {
       this.dietService.getDietShoppingList(this.data.dietId).subscribe({
@@ -238,6 +239,7 @@ export class DietShoppingListDialogComponent implements OnInit {
     }
   }
 
+  // Las categorías proceden del backend y pueden variar en idioma o acentuación; se normalizan antes de elegir el icono visual.
   getCategoryIcon(cat: string): string {
     const c = (cat || '').toLowerCase();
     if (c.includes('verdura') || c.includes('hortaliz')) return 'eco';

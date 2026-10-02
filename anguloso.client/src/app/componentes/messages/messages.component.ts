@@ -27,6 +27,7 @@ export class MessagesComponent implements OnInit, OnDestroy {
 
   constructor(private http: HttpClient, private router: Router) {}
 
+  // Se hace polling periódico porque la mensajería no depende de un canal WebSocket; cada ciclo vuelve a consultar solo el resumen de conversaciones.
   ngOnInit(): void {
     this.refreshSubscription = interval(15000).pipe(
       startWith(0),
@@ -40,6 +41,7 @@ export class MessagesComponent implements OnInit, OnDestroy {
     });
   }
 
+  // Cancelar el intervalo es importante para evitar peticiones y actualizaciones sobre un componente que ya no está en pantalla.
   ngOnDestroy(): void { this.refreshSubscription?.unsubscribe(); }
 
   select(conversation: Conversation): void { this.selectedClientId = conversation.clientId; }

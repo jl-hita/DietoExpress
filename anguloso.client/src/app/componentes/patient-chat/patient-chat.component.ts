@@ -26,6 +26,7 @@ export class PatientChatComponent implements OnChanges, OnInit {
 
   constructor(private http: HttpClient, private route: ActivatedRoute) {}
 
+  // En modo profesional el cliente puede venir de la ruta; en modo paciente la identidad ya la resuelve el backend a partir de la sesión/token.
   ngOnInit(): void {
     if (!this.patientMode && !this.clientId) {
       const id = Number(this.route.snapshot.paramMap.get('id'));
@@ -37,6 +38,7 @@ export class PatientChatComponent implements OnChanges, OnInit {
     if ((changes['clientId'] || changes['patientMode']) && (this.patientMode || this.clientId)) this.load();
   }
 
+  // Se reutiliza la misma carga tras enviar un mensaje para mantener el historial y los estados de lectura sincronizados con el servidor.
   load(): void {
     this.loading = true; this.error = null;
     const url = this.patientMode ? '/api/messages/patient' : '/api/messages/client/' + this.clientId;
@@ -46,6 +48,7 @@ export class PatientChatComponent implements OnChanges, OnInit {
     });
   }
 
+  // La validación local evita peticiones vacías o duplicadas, pero la autorización y la asociación paciente-profesional siguen siendo responsabilidad del API.
   send(): void {
     const body = this.draft.trim();
     if (!body || this.sending || (!this.patientMode && !this.clientId)) return;
