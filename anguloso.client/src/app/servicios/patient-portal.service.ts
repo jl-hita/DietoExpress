@@ -14,6 +14,23 @@ export interface AppointmentSlot {
   nutritionistName?: string | null;
 }
 
+export interface AvailabilityRule {
+  id: number;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  slotMinutes: number;
+  isActive: boolean;
+}
+
+export interface AvailabilityRequest {
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  slotMinutes: number;
+  isActive: boolean;
+}
+
 export interface PatientAppointment {
   id: number;
   startsAt: string;
@@ -57,6 +74,30 @@ export class PatientPortalService {
 
   cancelAppointment(id: number): Observable<void> {
     return this.http.post<void>(this.base + '/appointments/' + id + '/cancel', {});
+  }
+
+  getProfessionalAppointments(from?: string, to?: string): Observable<PatientAppointment[]> {
+    let url = this.base + '/appointments/professional';
+    const params: string[] = [];
+    if (from) params.push('from=' + encodeURIComponent(from));
+    if (to) params.push('to=' + encodeURIComponent(to));
+    if (params.length) url += '?' + params.join('&');
+    return this.http.get<PatientAppointment[]>(url);
+  }
+
+  getAvailability(): Observable<AvailabilityRule[]> {
+    return this.http.get<AvailabilityRule[]>(this.base + '/appointments/availability');
+  }
+
+  saveAvailability(request: AvailabilityRequest): Observable<AvailabilityRule> {
+    return this.http.post<AvailabilityRule>(this.base + '/appointments/availability', request);
+  }
+
+  updateAppointmentStatus(id: number, status: string, professionalNotes?: string | null): Observable<PatientAppointment> {
+    return this.http.patch<PatientAppointment>(this.base + '/appointments/' + id + '/status', {
+      status,
+      professionalNotes
+    });
   }
 
   getCurrentCheckin(): Observable<PatientCheckin | null> { return this.http.get<PatientCheckin | null>(`${this.base}/portal/check-ins/current`); }
