@@ -18,6 +18,10 @@ export class PatientPortalService {
   getMyProfile(clientIdParam?: number): Observable<any> { const params: any = {}; if (clientIdParam) params.clientId = clientIdParam; return this.http.get<any>(`${this.base}/portal/profile`, { params }); }
   getMyActiveDiet(clientIdParam?: number): Observable<any> { const params: any = {}; if (clientIdParam) params.clientId = clientIdParam; return this.http.get<any>(`${this.base}/portal/diet`, { params }); }
   getMyShoppingList(clientIdParam?: number): Observable<any[]> { const params: any = {}; if (clientIdParam) params.clientId = clientIdParam; return this.http.get<any[]>(`${this.base}/portal/shopping-list`, { params }); }
+  requestAccessLink(email: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.base}/portal/request-access-link`, { email });
+  }
+
   getCurrentCheckin(): Observable<PatientCheckin | null> { return this.http.get<PatientCheckin | null>(`${this.base}/portal/check-ins/current`); }
   getCheckinHistory(): Observable<PatientCheckin[]> { return this.http.get<PatientCheckin[]>(`${this.base}/portal/check-ins`); }
   saveCheckin(request: PatientCheckinRequest): Observable<PatientCheckin> { return this.http.post<PatientCheckin>(`${this.base}/portal/check-ins`, request); }
