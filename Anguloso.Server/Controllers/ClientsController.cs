@@ -17,17 +17,20 @@ public class ClientsController : ControllerBase
     private readonly EnergyCalculatorService _calculatorService;
     private readonly IAuditLogService _auditLogService;
     private readonly ILicenseService _licenseService;
+    private readonly AutomationService _automationService;
 
     public ClientsController(
         angulosodbContext context, 
         EnergyCalculatorService calculatorService,
         IAuditLogService auditLogService,
-        ILicenseService licenseService)
+        ILicenseService licenseService,
+        AutomationService automationService)
     {
         _context = context;
         _calculatorService = calculatorService;
         _auditLogService = auditLogService;
         _licenseService = licenseService;
+        _automationService = automationService;
     }
 
     // GET: api/clients
@@ -334,6 +337,22 @@ public class ClientsController : ControllerBase
         {
             await transaction.RollbackAsync();
             throw;
+        }
+
+        try
+        {
+            await _automationService.PublishEventAsync(
+                tenantId.Value,
+                "client.created",
+                "client",
+                client.id.ToString(),
+                new AutomationService.ClientCreatedPayload(client.id, userId.Value),
+                $"client:{client.id}:created");
+        }
+        catch (Exception ex)
+        {
+            HttpContext.RequestServices.GetRequiredService<ILogger<ClientsController>>()
+                .LogError(ex, "No se pudo registrar la automatización de alta del paciente {ClientId}.", client.id);
         }
 
         await _auditLogService.LogAccessAsync(
