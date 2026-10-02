@@ -213,6 +213,33 @@ export class PatientPortalComponent implements OnInit {
     return !!this.checkedItems[key];
   }
 
+  get shoppingItemCount(): number {
+    return this.shoppingList.reduce(
+      (total: number, category: any) => total + (category.items?.length ?? 0),
+      0
+    );
+  }
+
+  get checkedShoppingItemCount(): number {
+    return this.shoppingList.reduce(
+      (total: number, category: any) => total + (category.items?.filter((item: any) =>
+        this.isChecked(category.category + '_' + item.foodId)
+      ).length ?? 0),
+      0
+    );
+  }
+
+  get shoppingProgressPercent(): number {
+    return this.shoppingItemCount
+      ? Math.round((this.checkedShoppingItemCount / this.shoppingItemCount) * 100)
+      : 0;
+  }
+
+  clearShoppingChecks(): void {
+    this.checkedItems = {};
+    this.saveCheckedItems();
+  }
+
   mealKey(meal: any): string {
     return `${this.clientId ?? 'preview'}_${this.today.toISOString().slice(0, 10)}_${meal.mealIndex}`;
   }
