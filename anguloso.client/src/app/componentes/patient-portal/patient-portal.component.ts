@@ -513,15 +513,15 @@ export class PatientPortalComponent implements OnInit {
       }
 
       const json = subscription.toJSON();
-      if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
+      if (!json.endpoint || !json.keys?.['p256dh'] || !json.keys?.['auth']) {
         this.pushMessage = 'No se ha podido completar la suscripción del navegador.';
         return;
       }
 
       await this.portalService.registerPushSubscription({
         endpoint: json.endpoint,
-        p256dh: json.keys.p256dh,
-        auth: json.keys.auth
+        p256dh: json.keys['p256dh'],
+        auth: json.keys['auth']
       }).toPromise();
 
       this.pushEnabled = true;
