@@ -1,3 +1,10 @@
+import { RouterLink } from '@angular/router';
+import { MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -30,7 +37,8 @@ interface LoginRequest {
   selector: 'app-user-create',
   templateUrl: './user-create.component.html',
   styleUrls: ['./user-create.component.css'],
-  standalone: false
+    standalone: true,
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, MatSnackBarModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule],
 })
 export class UserCreateComponent {
   private baseUrl = environment.apiUrl;
