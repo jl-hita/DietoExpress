@@ -238,10 +238,18 @@ ORDER BY c.updated_at DESC;").ToListAsync();
             .FirstOrDefaultAsync();
         if (client?.tenant_id == null) throw new KeyNotFoundException("Paciente no encontrado.");
 
+        if (!nutritionistId.HasValue)
+        {
+            nutritionistId = await _context.client_nutritionist_assignments.AsNoTracking()
+                .Where(a => a.client_id == clientId && a.is_active && a.nutritionist.tenant_id == client.tenant_id.Value)
+                .Select(a => (int?)a.nutritionist_id)
+                .FirstOrDefaultAsync();
+        }
+
         var existing = await _context.Database.SqlQueryRaw<long>(
             nutritionistId.HasValue
                 ? $@"SELECT id AS ""Value"" FROM patient_conversations WHERE client_id = {clientId} AND assigned_nutritionist_id = {nutritionistId.Value} AND closed_at IS NULL LIMIT 1;"
-                : $@"SELECT id AS ""Value"" FROM patient_conversations WHERE client_id = {clientId} AND closed_at IS NULL LIMIT 1;").FirstOrDefaultAsync();
+                : $@"SELECT id AS ""Value"" FROM patient_conversations WHERE client_id = {clientId} AND assigned_nutritionist_id IS NULL AND closed_at IS NULL LIMIT 1;").FirstOrDefaultAsync();
         if (existing != 0) return new ConversationRef(existing, client.tenant_id.Value);
 
         try
@@ -255,7 +263,7 @@ ORDER BY c.updated_at DESC;").ToListAsync();
         catch (PostgresException ex) when (ex.SqlState == "23505")
         {
             var id = await _context.Database.SqlQueryRaw<long>(
-                $@"SELECT id AS ""Value"" FROM patient_conversations WHERE client_id = {clientId} LIMIT 1;").FirstAsync();
+                $@"SELECT id AS ""Value"" FROM patient_conversations WHERE client_id = {clientId} AND closed_at IS NULL LIMIT 1;").FirstAsync();
             return new ConversationRef(id, client.tenant_id.Value);
         }
     }
