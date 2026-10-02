@@ -4,7 +4,8 @@ import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatIconModule } from '@angular/material/icon';
-import { environment } from '../../environments/environments';
+import { PatientPortalService } from '../../servicios/patient-portal.service';
+
 
 interface ChatMessage { id: number; senderType: 'patient' | 'professional'; senderId?: number | null; body: string; createdAt: string; readAt?: string | null; }
 
@@ -24,7 +25,7 @@ export class PatientChatComponent implements OnChanges, OnInit {
   sending = false;
   error: string | null = null;
 
-  constructor(private http: HttpClient, private route: ActivatedRoute) {}
+  constructor(private http: HttpClient, private route: ActivatedRoute, private portalService: PatientPortalService) {}
 
   ngOnInit(): void {
     if (!this.patientMode && !this.clientId) {
@@ -37,7 +38,7 @@ export class PatientChatComponent implements OnChanges, OnInit {
 
   load(): void {
     this.loading = true; this.error = null;
-    const url = this.patientMode ? environment.apiUrl + '/messages/patient' : environment.apiUrl + '/messages/client/' + this.clientId;
+    const url = this.patientMode ? '/api/messages/patient' : '/api/messages/client/' + this.clientId;
     this.http.get<ChatMessage[]>(url).subscribe({
       next: messages => { this.messages = messages || []; this.loading = false; this.markRead(); },
       error: err => { this.loading = false; this.error = err.status === 404 ? 'No tienes acceso a esta conversación.' : 'No se ha podido cargar la conversación.'; }
