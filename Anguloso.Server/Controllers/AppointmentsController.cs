@@ -111,7 +111,15 @@ public class AppointmentsController : ControllerBase
         var nutritionistId = assignment?.nutritionist_id ?? client.user_id;
         if (nutritionistId == null) return BadRequest(new { message = "No tienes un nutricionista asignado para reservar una cita." });
 
-        var startsUtc = request.StartsAt.Kind == DateTimeKind.Utc ? request.StartsAt : request.StartsAt.ToUniversalTime();
+        var nutritionistBelongsToTenant = await _context.users.AsNoTracking()
+            .AnyAsync(u => u.id == nutritionistId.Value && u.tenant_id == client.tenant_id);
+        if (!nutritionistBelongsToTenant)
+            return BadRequest(new { message = "El nutricionista asignado no está disponible." });
+
+        if (request.StartsAt.Kind != DateTimeKind.Utc)
+            return BadRequest(new { message = "La fecha de la cita debe incluir zona horaria." });
+
+        var startsUtc = request.StartsAt;
         if (startsUtc <= DateTime.UtcNow.AddMinutes(5)) return BadRequest(new { message = "La cita debe ser futura." });
         var endsUtc = startsUtc.AddMinutes(request.DurationMinutes);
 
@@ -149,7 +157,8 @@ public class AppointmentsController : ControllerBase
         if (clientId == null) return Unauthorized();
         var appointment = await _context.patient_appointments.FirstOrDefaultAsync(a => a.id == id && a.client_id == clientId.Value);
         if (appointment == null) return NotFound();
-        if (appointment.status is "cancelled" or "completed" or "no_show") return BadRequest(new { message = "Esta cita ya no se puede cancelar." });
+        if (appointment.status is "cancelled" or "completed" or "no_show")
+            return BadRequest(new { message = "Esta cita ya no se puede cancelar." });
         if (appointment.starts_at <= DateTime.UtcNow) return BadRequest(new { message = "No puedes cancelar una cita que ya ha comenzado." });
 
         appointment.status = "cancelled";
@@ -226,13 +235,20 @@ public class AppointmentsController : ControllerBase
         var userId = AuthHelpers.GetUserId(User);
         var tenantId = AuthHelpers.GetTenantId(User);
         if (userId == null || tenantId == null) return Unauthorized();
-        if (string.IsNullOrWhiteSpace(request.Status) || !AllowedStatuses.Contains(request.Status)) return BadRequest(new { message = "Estado de cita no válido." });
+        if (string.IsNullOrWhiteSpace(request.Status) || !AllowedStatuses.Contains(request.Status))
+            return BadRequest(new { message = "Estado de cita no válido." });
+
+        var requestedStatus = request.Status.ToLowerInvariant();
 
         var appointment = await _context.patient_appointments.FirstOrDefaultAsync(a => a.id == id && a.tenant_id == tenantId);
         if (appointment == null) return NotFound();
         if (!User.IsInRole("clinic_admin") && appointment.nutritionist_id != userId.Value) return Forbid();
 
-        appointment.status = request.Status.ToLowerInvariant();
+        if (appointment.status is "cancelled" or "completed" or "no_show" &&
+            requestedStatus != appointment.status)
+            return BadRequest(new { message = "Una cita cerrada no puede cambiar de estado." });
+
+        appointment.status = requestedStatus;
         appointment.professional_notes = request.ProfessionalNotes?.Trim();
         appointment.updated_at = DateTime.UtcNow;
         await _context.SaveChangesAsync();
