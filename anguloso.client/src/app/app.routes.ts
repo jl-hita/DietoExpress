@@ -23,6 +23,7 @@ import { BillingComponent } from './componentes/billing/billing.component';
 import { LandingComponent } from './componentes/landing/landing.component';
 import { OnboardingComponent } from './componentes/onboarding/onboarding.component';
 import { SubscriptionGuard } from './guards/subscription.guard';
+import { AppointmentsComponent } from './componentes/appointments/appointments.component';
 
 export interface AppRoute extends Route {
   showInMenu?: boolean;
@@ -41,6 +42,7 @@ export const routes: AppRoute[] = [
   { path: '', component: LayoutComponent, canActivate: [AuthGuard],
     children: [
       { path: 'clients', component: ClientsListComponent, canActivate: [SubscriptionGuard] },
+      { path: 'appointments', component: AppointmentsComponent, canActivate: [SubscriptionGuard], title: 'Agenda y citas' },
       { path: 'clients/nuevo', component: ClientCreateComponent, canActivate: [SubscriptionGuard], title: 'Nuevo cliente' },
       { path: 'clients/:id', component: ClientDetailComponent, canActivate: [SubscriptionGuard] },
       { path: 'diets', component: DietsListComponent, canActivate: [SubscriptionGuard], title: 'Dietas' },
