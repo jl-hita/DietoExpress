@@ -380,12 +380,17 @@ public class TenantIsolationTests
             new(ClaimTypes.Role, "user")
         };
 
+        var httpContext = new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity(claims, "Test"))
+        };
+        httpContext.RequestServices = new ServiceCollection()
+            .AddLogging()
+            .BuildServiceProvider();
+
         controller.ControllerContext = new ControllerContext
         {
-            HttpContext = new DefaultHttpContext
-            {
-                User = new ClaimsPrincipal(new ClaimsIdentity(claims, "Test"))
-            }
+            HttpContext = httpContext
         };
 
         return controller;
