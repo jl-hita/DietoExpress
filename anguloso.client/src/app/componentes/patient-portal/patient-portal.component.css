@@ -1416,3 +1416,35 @@
     transition: none;
   }
 }
+
+.portal-error-state {
+  max-width: 520px;
+  margin: 72px auto;
+  padding: 32px 24px;
+  text-align: center;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, .06);
+}
+
+.portal-error-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 16px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: #fef2f2;
+  color: #ef4444;
+}
+
+.portal-error-icon mat-icon { font-size: 28px; width: 28px; height: 28px; }
+.portal-error-state h2 { margin: 0 0 8px; color: #0f172a; font-size: 20px; }
+.portal-error-state p { margin: 0 auto 20px; max-width: 400px; color: #64748b; font-size: 13px; line-height: 1.6; }
+.portal-error-state .btn-portal-primary { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+.portal-error-state .btn-portal-primary mat-icon { font-size: 18px; width: 18px; height: 18px; }
+
+@media (max-width: 560px) {
+  .portal-error-state { margin: 48px 16px; padding: 28px 20px; }
+}
