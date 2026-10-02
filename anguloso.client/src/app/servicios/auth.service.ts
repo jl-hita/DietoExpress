@@ -22,11 +22,20 @@ export class AuthService {
 
   login(user: AuthUser): void { this.userSubject.next(user); }
 
+  /**
+   * Renueva la sesión profesional usando exclusivamente la cookie HttpOnly.
+   * El JWT nunca se devuelve al navegador en la respuesta.
+   */
+  refreshSession(): Observable<AuthUser> {
+    return this.http.post<AuthUser>('/api/auth/refreshSession', {}).pipe(
+      tap(user => this.userSubject.next(user))
+    );
+  }
+
   restoreSession(): Observable<boolean> {
     if (this.isLoggedIn()) return of(true);
     if (this.sessionRestore$) return this.sessionRestore$;
-    this.sessionRestore$ = this.http.post<AuthUser>('/api/auth/refreshSession', {}).pipe(
-      tap(user => this.userSubject.next(user)),
+    this.sessionRestore$ = this.refreshSession().pipe(
       map(() => true),
       catchError(() => { this.userSubject.next(null); return of(false); }),
       tap(() => { this.sessionRestore$ = undefined; })
