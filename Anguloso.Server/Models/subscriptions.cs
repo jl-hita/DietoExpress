@@ -20,6 +20,7 @@ public partial class subscriptions
     public string? provider_subscription_id { get; set; }
     public DateTime? current_period_start { get; set; }
     public DateTime? current_period_end { get; set; }
+    public DateTime? trial_end { get; set; }
     public bool cancel_at_period_end { get; set; }
     public DateTime updated_at { get; set; } = DateTime.UtcNow;
     public DateTime? last_stripe_event_created_at { get; set; }
