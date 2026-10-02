@@ -8,10 +8,7 @@ import { MatOptionModule, MatNativeDateModule } from '@angular/material/core';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { Router } from '@angular/router';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ClientDetail } from '../../modelos/client';
 import { ClientService } from '../../servicios/client.service';
 
