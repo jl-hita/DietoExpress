@@ -12,6 +12,7 @@ public interface ITenantContextService
     bool HasTenant { get; }
 }
 
+// El tenant se deriva del contexto autenticado y se expone como dependencia común; así las consultas no tienen que confiar en un tenant enviado por el cliente.
 public class TenantContextService : ITenantContextService
 {
     private readonly IHttpContextAccessor _httpContextAccessor;

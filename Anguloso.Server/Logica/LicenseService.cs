@@ -32,6 +32,7 @@ public sealed class LicenseInfo
     public List<string> Features { get; init; } = new();
 }
 // Documentación: este componente encapsula lógica compartida para mantener las reglas y transformaciones fuera de los puntos de entrada del frontend.
+// La licencia efectiva se resuelve combinando el contexto del tenant con su estado persistido; el consumidor no debe decidir el alcance por su cuenta.
 public class LicenseService : ILicenseService
 {
     // Una baja no libera inmediatamente una plaza para crear otra cuenta.

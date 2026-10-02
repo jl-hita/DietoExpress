@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 namespace Anguloso.Server.Logica;
 
 // Documentación: este componente encapsula lógica compartida para mantener las reglas y transformaciones fuera de los puntos de entrada del frontend.
+// La configuración se centraliza aquí para evitar que cada consumidor interprete de forma distinta valores opcionales o ausentes.
 public class ConfigServ
 {
     private string _connectionString;

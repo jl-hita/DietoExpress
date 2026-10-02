@@ -4,6 +4,7 @@ using WebPush;
 
 namespace Anguloso.Server.Logica;
 
+// La notificación persistida es la fuente durable; los canales de entrega se ejecutan como complemento y no deben hacer desaparecer el registro.
 public sealed class NotificationService
 {
     private readonly string _connectionString;

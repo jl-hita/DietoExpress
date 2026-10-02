@@ -16,7 +16,8 @@ public interface IEmailService
     Task<BoolMensaje> SendEmailAsync(string to, string subject, string htmlBody);
 }
 */
-//public class EmailServ: IEmailService
+//// El servicio encapsula la configuración SMTP y la composición del envío para que los procesos de negocio no dependan de detalles de transporte.
+public class EmailServ: IEmailService
 public class EmailServ
 {
     private readonly ConfigServ _configServ;

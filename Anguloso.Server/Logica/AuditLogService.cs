@@ -10,6 +10,7 @@ public interface IAuditLogService
     Task LogAccessAsync(string action, string entityName, string? entityId = null, int? clientId = null, string? details = null);
 }
 
+// El audit log registra acciones relevantes junto con su contexto para poder reconstruir quién actuó sobre qué recurso y desde qué tenant.
 public class AuditLogService : IAuditLogService
 {
     private readonly angulosodbContext _context;
