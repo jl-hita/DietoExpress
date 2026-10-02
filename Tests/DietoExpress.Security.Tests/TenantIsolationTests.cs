@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Moq;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DietoExpress.Security.Tests;
 
@@ -329,12 +330,17 @@ public class TenantIsolationTests
             new(ClaimTypes.Role, "user")
         };
 
+        var httpContext = new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity(claims, "Test"))
+        };
+        httpContext.RequestServices = new ServiceCollection()
+            .AddLogging()
+            .BuildServiceProvider();
+
         controller.ControllerContext = new ControllerContext
         {
-            HttpContext = new DefaultHttpContext
-            {
-                User = new ClaimsPrincipal(new ClaimsIdentity(claims, "Test"))
-            }
+            HttpContext = httpContext
         };
 
         return controller;
