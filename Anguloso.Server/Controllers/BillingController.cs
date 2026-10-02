@@ -19,19 +19,22 @@ public sealed class BillingController : ControllerBase
     private readonly ITenantContextService _tenantContext;
     private readonly IConfiguration _configuration;
     private readonly ConfigServ _configServ;
+    private readonly AutomationService _automationService;
 
     public BillingController(
         IStripeBillingService stripe,
         angulosodbContext context,
         ITenantContextService tenantContext,
         IConfiguration configuration,
-        ConfigServ configServ)
+        ConfigServ configServ,
+        AutomationService automationService)
     {
         _stripe = stripe;
         _context = context;
         _tenantContext = tenantContext;
         _configuration = configuration;
         _configServ = configServ;
+        _automationService = automationService;
     }
 
     [Authorize(Policy = "Professional")]
@@ -259,6 +262,20 @@ public sealed class BillingController : ControllerBase
             paymentEvent.processed_at = DateTime.UtcNow;
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
+
+            // Billing state is committed first; automation events are then persisted
+            // independently so a transient automation failure never rolls back a
+            // successfully processed Stripe event.
+            try
+            {
+                await PublishBillingAutomationEventAsync(root, eventType, eventId);
+            }
+            catch (Exception automationException)
+            {
+                // The billing webhook remains successful. The automation event has
+                // tenant-scoped idempotency and can be recovered by a later replay.
+                Console.Error.WriteLine($"Error registrando automatización de billing {eventId}: {automationException.GetType().Name}");
+            }
         }
         catch (Exception ex)
         {
@@ -577,6 +594,120 @@ public sealed class BillingController : ControllerBase
                     subscription.cancelled_at = subscription.current_period_end;
 
                 break;
+            }
+        }
+    }
+
+    private async Task PublishBillingAutomationEventAsync(JsonElement root, string eventType, string eventId)
+    {
+        var data = root.GetProperty("data").GetProperty("object");
+        var automationType = eventType switch
+        {
+            "checkout.session.completed" => "billing.subscription_started",
+            "invoice.paid" => "billing.payment_succeeded",
+            "invoice.payment_failed" => "billing.payment_failed",
+            "customer.subscription.deleted" => "billing.subscription_cancelled",
+            "customer.subscription.updated" => "billing.plan_changed",
+            _ => null
+        };
+
+        if (automationType == null)
+            return;
+
+        int? tenantId = ReadIntMetadata(data, "tenant_id");
+        var providerSubscriptionId = eventType == "checkout.session.completed"
+            ? ReadString(data, "subscription")
+            : ReadString(data, "id") ?? ReadString(data, "subscription");
+
+        if (!tenantId.HasValue && !string.IsNullOrWhiteSpace(providerSubscriptionId))
+        {
+            tenantId = await _context.subscriptions
+                .Where(s => s.payment_provider == "stripe" && s.provider_subscription_id == providerSubscriptionId)
+                .Select(s => (int?)s.tenant_id)
+                .FirstOrDefaultAsync();
+        }
+
+        if (!tenantId.HasValue)
+            return;
+
+        var subscription = !string.IsNullOrWhiteSpace(providerSubscriptionId)
+            ? await _context.subscriptions
+                .Include(s => s.plan)
+                .FirstOrDefaultAsync(s => s.tenant_id == tenantId.Value &&
+                                          s.payment_provider == "stripe" &&
+                                          s.provider_subscription_id == providerSubscriptionId)
+            : await _context.subscriptions
+                .Include(s => s.plan)
+                .Where(s => s.tenant_id == tenantId.Value)
+                .OrderByDescending(s => s.created_at)
+                .FirstOrDefaultAsync();
+
+        if (subscription == null)
+            return;
+
+        var assignedUserId = await _context.users
+            .Where(u => u.tenant_id == tenantId.Value && u.archived_at == null && u.role != "superadmin")
+            .OrderBy(u => u.role == "clinic_admin" ? 0 : 1)
+            .ThenBy(u => u.created_at)
+            .ThenBy(u => u.id)
+            .Select(u => (int?)u.id)
+            .FirstOrDefaultAsync();
+
+        var status = subscription.status;
+        var trialEnd = subscription.trial_end;
+        var payload = new AutomationService.BillingAutomationPayload(
+            subscription.id,
+            subscription.plan.code,
+            status,
+            subscription.current_period_end,
+            trialEnd,
+            assignedUserId);
+
+        await _automationService.PublishEventAsync(
+            tenantId.Value,
+            automationType,
+            "subscription",
+            subscription.id.ToString(),
+            payload,
+            $"billing:{eventId}:{automationType}");
+
+        if (eventType == "customer.subscription.updated")
+        {
+            var defaultPaymentMethod = ReadString(data, "default_payment_method");
+            if (string.IsNullOrWhiteSpace(defaultPaymentMethod) && status is "past_due" or "active")
+            {
+                await _automationService.PublishEventAsync(
+                    tenantId.Value,
+                    "billing.payment_method_missing",
+                    "subscription",
+                    subscription.id.ToString(),
+                    payload,
+                    $"billing:{eventId}:billing.payment_method_missing");
+            }
+
+            if (trialEnd.HasValue)
+            {
+                var daysUntilTrialEnd = (trialEnd.Value.Date - DateTime.UtcNow.Date).Days;
+                if (daysUntilTrialEnd is >= 0 and <= 3)
+                {
+                    await _automationService.PublishEventAsync(
+                        tenantId.Value,
+                        "billing.trial_ending",
+                        "subscription",
+                        subscription.id.ToString(),
+                        payload,
+                        $"billing:trial-ending:{subscription.id}:{trialEnd.Value:yyyyMMdd}");
+                }
+                else if (daysUntilTrialEnd < 0 && status is "cancelled" or "past_due")
+                {
+                    await _automationService.PublishEventAsync(
+                        tenantId.Value,
+                        "billing.trial_ended",
+                        "subscription",
+                        subscription.id.ToString(),
+                        payload,
+                        $"billing:trial-ended:{subscription.id}:{trialEnd.Value:yyyyMMdd}");
+                }
             }
         }
     }
