@@ -14,6 +14,7 @@ interface ChatMessage { id: number; senderType: 'patient' | 'professional'; send
   templateUrl: './patient-chat.component.html',
   styleUrls: ['./patient-chat.component.css']
 })
+// Documentación: este componente coordina estado local, validación y llamadas asíncronas; la vista solo refleja ese estado.
 export class PatientChatComponent implements OnChanges, OnInit {
   @Input() clientId?: number;
   @Input() patientMode = false;

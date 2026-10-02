@@ -210,6 +210,7 @@ export interface DietShoppingListDialogData {
     }
   `]
 })
+// Documentación: este componente coordina estado local, validación y llamadas asíncronas; la vista solo refleja ese estado.
 export class DietShoppingListDialogComponent implements OnInit {
   loading = true;
   categories: any[] = [];

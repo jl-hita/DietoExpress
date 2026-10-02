@@ -9,6 +9,7 @@ import { finalize } from 'rxjs';
   templateUrl: './food-tester.component.html',
   styleUrl: './food-tester.component.css'
 })
+// Documentación: este componente coordina estado local, validación y llamadas asíncronas; la vista solo refleja ese estado.
 export class FoodTesterComponent {
   /*
   term: string = '';

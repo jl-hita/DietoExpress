@@ -20,6 +20,7 @@ interface LoginRequestToken {
   templateUrl: './confirmar-email.component.html',
   styleUrl: './confirmar-email.component.css'
 })
+// Documentación: este componente coordina estado local, validación y llamadas asíncronas; la vista solo refleja ese estado.
 export class ConfirmarEmailComponent {
   private baseUrl = environment.apiUrl;
   estado: 'cargando' | 'ok' | 'error' = 'cargando';

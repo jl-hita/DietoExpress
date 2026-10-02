@@ -26,6 +26,7 @@ interface Ingrediente {
   templateUrl: './ingredientes.component.html',
   styleUrl: './ingredientes.component.css'
 })
+// Documentación: este componente coordina estado local, validación y llamadas asíncronas; la vista solo refleja ese estado.
 export class IngredientesComponent {
   ingredientes: Ingrediente[] = [];
   formIngrediente: FormGroup;

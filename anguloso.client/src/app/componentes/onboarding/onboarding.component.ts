@@ -11,6 +11,7 @@ import { MatIconModule } from '@angular/material/icon';
   templateUrl: './onboarding.component.html',
   styleUrls: ['./onboarding.component.css']
 })
+// Documentación: este componente coordina estado local, validación y llamadas asíncronas; la vista solo refleja ese estado.
 export class OnboardingComponent {
   constructor(private router: Router, private authService: AuthService) {}
 

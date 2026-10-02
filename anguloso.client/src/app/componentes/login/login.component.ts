@@ -19,6 +19,7 @@ declare const google: any;
   templateUrl: './login.component.html',
   styleUrls: ['./login.component.css']
 })
+// Documentación: este componente coordina estado local, validación y llamadas asíncronas; la vista solo refleja ese estado.
 export class LoginComponent {
   private baseUrl = environment.apiUrl;
   form: FormGroup;
