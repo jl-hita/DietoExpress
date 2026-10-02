@@ -1113,4 +1113,21 @@ public class AuthorizationRegressionTests
         Assert.Contains("u.username.ToLower() == username.ToLower()", admin);
     }
 
+
+    [Fact]
+    public void DietCreateAndUpdate_BoundPayloadExpansion()
+    {
+        var source = ReadServerController("DietController.cs");
+
+        Assert.Contains("days.Count > 31", source);
+        Assert.Contains("d.Meals.Count > 12", source);
+        Assert.Contains("m.Items.Count > 100", source);
+        Assert.Contains(".Count() > 2000", source);
+        Assert.Contains("m.Name.Length > 100", source);
+        Assert.Contains("notes?.Length > 10000", source);
+        Assert.Contains("i.Grams.Value > 100000", source);
+        Assert.Contains("i.ExchangeCount.Value > 10000", source);
+        Assert.Contains("ValidateDietPayload(dto?.Name, dto?.Notes, dto?.Days)", source);
+    }
+
 }
