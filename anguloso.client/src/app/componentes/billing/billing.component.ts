@@ -221,7 +221,7 @@ import { AuthService } from '../../servicios/auth.service';
     </div>
   `,
   styles: [`
-    .billing-page { max-width: 1180px; margin: 0 auto; padding: 32px 24px 48px; }
+    .billing-page { width: 100%; margin: 0; padding: 32px 24px 48px; }
     .hero { margin-bottom: 24px; }
     .eyebrow, .section-label { color: #0f766e; font-size: 12px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; }
     h1 { margin: 5px 0 8px; color: #0f172a; font-size: 32px; }
