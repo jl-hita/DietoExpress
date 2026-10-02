@@ -913,4 +913,26 @@ public static class DatabaseBootstrap
         logger.LogInformation("Migración SaaS saas-v9-security-tokens aplicada correctamente.");
     }
 
+    /// <summary>Separa las conversaciones por etapa de asignación para evitar que un nuevo nutricionista herede el historial privado anterior.</summary>
+    public static void UpgradeMessagingSchemaV2(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            ALTER TABLE patient_conversations ADD COLUMN IF NOT EXISTS assigned_nutritionist_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+            ALTER TABLE patient_conversations ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ;
+
+            CREATE INDEX IF NOT EXISTS idx_patient_conversations_assignment
+                ON patient_conversations(client_id, assigned_nutritionist_id, closed_at);
+
+            UPDATE patient_conversations pc
+            SET assigned_nutritionist_id = a.nutritionist_id
+            FROM client_nutritionist_assignments a
+            WHERE pc.client_id = a.client_id
+              AND a.is_active
+              AND pc.closed_at IS NULL
+              AND pc.assigned_nutritionist_id IS NULL;
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('messaging-v2-assignment-isolation') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración de aislamiento de conversaciones por asignación aplicada correctamente.");
+    }
+
 }
