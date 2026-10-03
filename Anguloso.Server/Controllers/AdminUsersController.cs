@@ -130,7 +130,7 @@ public class AdminUsersController : ControllerBase
 
         requestedDate = requestedDate.Date;
 
-        var logsPath = Path.Combine(Directory.GetCurrentDirectory(), "Logs");
+        var logsPath = Environment.GetEnvironmentVariable("DIETOEXPRESS_LOG_PATH") ?? (OperatingSystem.IsWindows() ? Path.Combine(Directory.GetCurrentDirectory(), "Logs") : "/var/lib/dietoexpress/Logs");
         Directory.CreateDirectory(logsPath);
 
         var logFiles = Directory.GetFiles(logsPath, "log-*.txt")
