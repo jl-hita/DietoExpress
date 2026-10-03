@@ -379,13 +379,17 @@ public class ClientsController : ControllerBase
 
             if (createdDocuments > 0)
             {
-                await _automationService.PublishEventAsync(
+                await _automationService.ScheduleActionAsync(
                     tenantId.Value,
-                    "patient.documents.created",
-                    "client",
-                    client.id.ToString(),
-                    new AutomationService.ClientCreatedPayload(client.id, userId.Value),
-                    $"client:{client.id}:documents-created");
+                    "notify_patient",
+                    new NotifyPatientAction(
+                        client.id,
+                        "documents_pending",
+                        "Tienes documentación pendiente",
+                        "Tu nutricionista ha preparado documentación que debes revisar desde tu portal.",
+                        "/patient?tab=documents"),
+                    DateTime.UtcNow,
+                    idempotencyKey: $"documents:created:{client.id}");
             }
         }
         catch (Exception ex)
