@@ -76,6 +76,87 @@ public sealed class ProfessionalCheckinsController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPost("{id:int}/follow-up-task")]
+    // Convierte las señales detectadas del check-in en una tarea operativa, manteniendo tenant y asignación del paciente en servidor.
+    public async Task<ActionResult<object>> CreateFollowUpTask(int id)
+    {
+        if (!_tenantContext.TenantId.HasValue || !_tenantContext.UserId.HasValue)
+            return BadRequest(new { message = "La cuenta no tiene organización o usuario." });
+
+        var checkins = await _db.patient_checkins.AsNoTracking()
+            .Where(c => c.tenant_id == _tenantContext.TenantId.Value &&
+                        c.client.archived_at == null &&
+                        _db.client_nutritionist_assignments.Any(a =>
+                            a.client_id == c.client_id &&
+                            a.nutritionist_id == _tenantContext.UserId.Value &&
+                            a.is_active))
+            .OrderByDescending(c => c.submitted_at)
+            .Where(c => c.client_id == _db.patient_checkins.Where(x => x.id == id).Select(x => x.client_id).FirstOrDefault())
+            .Take(4)
+            .Select(c => new
+            {
+                c.id, c.client_id, c.weight, c.adherence, c.hunger, c.energy,
+                c.sleep_quality, c.sleep_hours, c.training, c.submitted_at,
+                ClientName = c.client.full_name
+            })
+            .ToListAsync();
+
+        var latest = checkins.FirstOrDefault(c => c.id == id);
+        if (latest == null) return NotFound();
+
+        var previous = checkins.Where(c => c.id != id)
+            .OrderByDescending(c => c.submitted_at)
+            .FirstOrDefault();
+
+        var signals = new List<string>();
+        void Compare(string label, double? current, double? previousValue, double? low = null, double? high = null, double? delta = null)
+        {
+            if (!current.HasValue) return;
+            if (low.HasValue && current.Value <= low.Value) signals.Add($"{label}: {current.Value:0.0} (bajo)");
+            else if (high.HasValue && current.Value >= high.Value) signals.Add($"{label}: {current.Value:0.0} (alto)");
+            if (previousValue.HasValue && delta.HasValue)
+            {
+                var change = current.Value - previousValue.Value;
+                if (change <= -delta.Value) signals.Add($"{label}: descenso {Math.Abs(change):0.0}");
+                else if (change >= delta.Value) signals.Add($"{label}: aumento {change:0.0}");
+            }
+        }
+
+        Compare("Adherencia", latest.adherence, previous?.adherence, low: 5, delta: 2);
+        Compare("Hambre", latest.hunger, previous?.hunger, high: 8, delta: 2);
+        Compare("Energía", latest.energy, previous?.energy, low: 4, delta: 2);
+        Compare("Calidad del sueño", latest.sleep_quality, previous?.sleep_quality, low: 4, delta: 2);
+        Compare("Horas de sueño", latest.sleep_hours, previous?.sleep_hours, low: 6, delta: 1.5);
+        Compare("Entrenamiento", latest.training, previous?.training, low: 2, delta: 3);
+
+        if (latest.weight.HasValue && previous?.weight.HasValue == true && previous.weight.Value > 0)
+        {
+            var percentage = ((latest.weight.Value - previous.weight.Value) / previous.weight.Value) * 100;
+            if (Math.Abs(percentage) >= 2) signals.Add($"Peso: {(percentage > 0 ? "+" : "")}{percentage:0.0}%");
+        }
+
+        if (signals.Count == 0)
+            return BadRequest(new { message = "No hay señales de seguimiento que requieran una tarea." });
+
+        var title = $"Revisar seguimiento de {latest.ClientName}";
+        var description = $"Señales detectadas en el último check-in: {string.Join("; ", signals.Take(6))}. Revisar con el paciente y valorar si procede ajustar el plan.";
+        var taskId = await _automation.CreateProfessionalTaskAsync(
+            _tenantContext.TenantId.Value,
+            new ProfessionalTaskCreateRequest
+            {
+                ClientId = latest.client_id,
+                AssignedUserId = _tenantContext.UserId.Value,
+                Title = title,
+                Description = description,
+                DueAt = DateTime.UtcNow.AddDays(1),
+                Priority = signals.Count >= 3 ? "high" : "normal"
+            },
+            "followup.signal",
+            $"followup-signal:{_tenantContext.TenantId.Value}:{latest.id}:{_tenantContext.UserId.Value}");
+
+        return Ok(new { id = taskId });
+    }
+
     [HttpPost("{id:int}/review")]
     // La revisión vuelve a comprobar tenant y asignación antes de delegar el cambio al servicio de automatización.
     public async Task<IActionResult> Review(int id)
