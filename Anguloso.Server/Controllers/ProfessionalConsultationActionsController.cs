@@ -185,11 +185,12 @@ public sealed class ProfessionalConsultationActionsController : ControllerBase
         return nutritionistId.HasValue ? new ClientContext(tenantId.Value, nutritionistId.Value) : null;
     }
 
-    private async Task<bool> CanAccessClientAsync(ClientContext context)
+    private Task<bool> CanAccessClientAsync(ClientContext context)
     {
         var userId = _tenantContext.UserId;
-        return User.IsInRole("clinic_admin") ||
-               (userId.HasValue && userId.Value == context.NutritionistId);
+        return Task.FromResult(
+            User.IsInRole("clinic_admin") ||
+            (userId.HasValue && userId.Value == context.NutritionistId));
     }
 
     private sealed record ClientContext(int TenantId, int NutritionistId);
