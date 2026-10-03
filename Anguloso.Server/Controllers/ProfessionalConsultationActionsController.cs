@@ -16,15 +16,18 @@ public sealed class ProfessionalConsultationActionsController : ControllerBase
     private readonly angulosodbContext _db;
     private readonly ITenantContextService _tenantContext;
     private readonly GoogleCalendarService _googleCalendar;
+    private readonly AutomationService _automation;
 
     public ProfessionalConsultationActionsController(
         angulosodbContext db,
         ITenantContextService tenantContext,
-        GoogleCalendarService googleCalendar)
+        GoogleCalendarService googleCalendar,
+        AutomationService automation)
     {
         _db = db;
         _tenantContext = tenantContext;
         _googleCalendar = googleCalendar;
+        _automation = automation;
     }
 
     [HttpGet("slots")]
@@ -112,6 +115,26 @@ public sealed class ProfessionalConsultationActionsController : ControllerBase
         };
         _db.patient_appointments.Add(appointment);
         await _db.SaveChangesAsync();
+
+        try
+        {
+            await _automation.PublishEventAsync(
+                appointment.tenant_id,
+                "appointment.confirmed",
+                "appointment",
+                appointment.id.ToString(),
+                new AutomationService.AppointmentStatusPayload(
+                    appointment.id,
+                    appointment.client_id,
+                    appointment.nutritionist_id,
+                    appointment.starts_at),
+                $"appointment:{appointment.id}:confirmed");
+        }
+        catch (Exception ex)
+        {
+            HttpContext.RequestServices.GetRequiredService<ILogger<ProfessionalConsultationActionsController>>()
+                .LogError(ex, "No se pudo registrar la automatización de confirmación de la cita {AppointmentId}.", appointment.id);
+        }
 
         return Ok(new
         {
