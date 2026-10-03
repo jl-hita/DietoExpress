@@ -5,6 +5,7 @@ import { Subject, Subscription } from 'rxjs';
 import { debounceTime, filter, switchMap } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
 import { ProfileService } from '../../servicios/profile.service';
+import { AuthService } from '../../servicios/auth.service';
 import { Profile } from '../../modelos/profile';
 
 // Angular Material
@@ -45,14 +46,23 @@ export class SettingsComponent implements OnInit, OnDestroy {
   private formChangesSubscription?: Subscription;
   logoPreview: string | null = null;
   profile: Profile | null = null;
+  passwordForm!: FormGroup;
+  passwordSaving = false;
 
   constructor(
     private fb: FormBuilder,
     private profileService: ProfileService,
+    private authService: AuthService,
     private snack: MatSnackBar
   ) {}
 
   ngOnInit(): void {
+    this.passwordForm = this.fb.group({
+      oldPassword: ['', [Validators.required]],
+      newPassword: ['', [Validators.required, Validators.minLength(12)]],
+      newPasswordRep: ['', [Validators.required, Validators.minLength(12)]]
+    });
+
     this.form = this.fb.group({
       fullName: [''],
       clinicName: [''],
@@ -126,6 +136,33 @@ export class SettingsComponent implements OnInit, OnDestroy {
 
   save(): void {
     this.saveChanges$.next();
+  }
+
+  changePassword(): void {
+    if (this.passwordForm.invalid || this.passwordSaving) return;
+
+    const { oldPassword, newPassword, newPasswordRep } = this.passwordForm.value;
+    if (newPassword !== newPasswordRep) {
+      this.snack.open('Las nuevas contraseñas no coinciden.', 'Cerrar', { duration: 3000 });
+      return;
+    }
+
+    this.passwordSaving = true;
+    this.authService.changePassword(oldPassword, newPassword, newPasswordRep).subscribe({
+      next: (result) => {
+        this.passwordSaving = false;
+        if (result.exito) {
+          this.passwordForm.reset();
+          this.snack.open('Contraseña cambiada correctamente. Las demás sesiones han quedado invalidadas.', 'Cerrar', { duration: 5000 });
+        } else {
+          this.snack.open(result.mensaje || 'No se pudo cambiar la contraseña.', 'Cerrar', { duration: 4000 });
+        }
+      },
+      error: (err) => {
+        this.passwordSaving = false;
+        this.snack.open(err?.error?.mensaje || err?.error || 'No se pudo cambiar la contraseña.', 'Cerrar', { duration: 4000 });
+      }
+    });
   }
 
   ngOnDestroy(): void {
