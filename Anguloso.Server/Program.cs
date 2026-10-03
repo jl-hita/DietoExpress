@@ -26,9 +26,9 @@ public class Program
         string entorno = builder.Environment.ContentRootPath;
         var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
         builder.Services.AddDbContext<angulosodbContext>(options => options.UseNpgsql(connectionString));
-        string pathLogs = Path.Combine(builder.Environment.ContentRootPath, "Logs");
+        string pathLogs = builder.Configuration["DIETOEXPRESS_LOG_PATH"] ?? (OperatingSystem.IsWindows() ? Path.Combine(builder.Environment.ContentRootPath, "Logs") : "/var/lib/dietoexpress/Logs");
         Directory.CreateDirectory(pathLogs);
-        builder.Host.UseSerilog((context, loggerConfiguration) => { loggerConfiguration.ReadFrom.Configuration(context.Configuration).Enrich.FromLogContext().WriteTo.Console().WriteTo.File(Path.Combine(pathLogs, "log-.txt"), rollingInterval: RollingInterval.Day, shared: true); });
+        builder.Host.UseSerilog((context, loggerConfiguration) => { loggerConfiguration.ReadFrom.Configuration(context.Configuration).Enrich.FromLogContext().WriteTo.Console().WriteTo.File(Path.Combine(pathLogs, "log-.txt"), rollingInterval: RollingInterval.Day, retainedFileCountLimit: null, shared: true); });
         builder.Services.AddCors(options => { options.AddPolicy("AllowAngularApp", policy => { var allowedOrigins = builder.Environment.IsDevelopment() ? new[] { "http://localhost:4200", "https://localhost:4200", "http://127.0.0.1:4200", "https://127.0.0.1:4200" } : builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>(); policy.WithOrigins(allowedOrigins).WithHeaders("Authorization", "Content-Type", "Accept").WithMethods("GET", "POST", "PUT", "PATCH", "DELETE"); }); });
 // Add services to the container.
         builder.Services.AddSingleton<LogServ>();
