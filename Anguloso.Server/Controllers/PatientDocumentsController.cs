@@ -132,6 +132,7 @@ public class PatientDocumentsController : ControllerBase
         }
 
         var userId = AuthHelpers.GetUserId(User);
+        if (!userId.HasValue) return Unauthorized();
         var docType = string.IsNullOrWhiteSpace(documentType) ? "other" : documentType.Trim().ToLowerInvariant();
         var status = requiresSignature ? "pending" : "available";
 
