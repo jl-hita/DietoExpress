@@ -100,6 +100,7 @@ public class Program
             {
                 var context = scope.ServiceProvider.GetRequiredService<angulosodbContext>();
                 DatabaseBootstrap.InitializeDatabaseAsync(context, logger);
+                DatabaseBootstrap.EnsureCurrentSchema(context, logger);
                 DatabaseBootstrap.UpgradeSaaSSchema(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV2(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV3(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV4(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV5(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV6(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV7(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV8(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV9(context, logger); DatabaseBootstrap.UpgradeMessagingSchemaV2(context, logger); DatabaseBootstrap.UpgradeAutomationSchemaV1(context, logger);
     DatabaseBootstrap.UpgradeAutomationSchemaV2(context, logger); DatabaseBootstrap.UpgradeAutomationSchemaV3(context, logger); DatabaseBootstrap.UpgradeAutomationSchemaV4(context, logger); DatabaseBootstrap.UpgradeAutomationSchemaV5(context, logger);
                 DatabaseBootstrap.UpgradeAutomationSchemaV6(context, logger);
