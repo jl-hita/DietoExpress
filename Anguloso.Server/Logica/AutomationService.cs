@@ -1621,6 +1621,16 @@ public sealed class AutomationService
 
 
     /// <summary>Invalida jobs pendientes de una familia funcional cuando su condición ya no se cumple.</summary>
+    /// <summary>
+    /// Cancela recordatorios de documentación que ya no son necesarios.
+    /// Se limita al tenant y al prefijo de idempotencia de un paciente.
+    /// </summary>
+    public Task CancelPendingDocumentReminderJobsAsync(int tenantId, int clientId, CancellationToken cancellationToken = default)
+        => CancelPendingJobsByIdempotencyPrefixAsync(
+            tenantId,
+            $"documents:pending-reminder:{clientId}:",
+            cancellationToken);
+
     private async Task CancelPendingJobsByIdempotencyPrefixAsync(
         int tenantId,
         string prefix,
