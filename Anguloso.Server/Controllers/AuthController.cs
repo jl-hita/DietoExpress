@@ -166,6 +166,9 @@ public class AuthController : ControllerBase
             var email = usuario.Email?.Trim().ToLowerInvariant() ?? string.Empty;
             var password = usuario.PasswordPlain ?? string.Empty;
             var nombreCompleto = usuario.FullName?.Trim() ?? string.Empty;
+            var legalDocumentKey = usuario.LegalDocumentKey?.Trim() ?? string.Empty;
+            var legalDocumentVersion = usuario.LegalDocumentVersion;
+            var legalDocumentSha256 = usuario.LegalDocumentSha256?.Trim() ?? string.Empty;
 
             if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
                 return new BoolMensaje { Exito = false, Mensaje = "Usuario, contraseña y email son obligatorios." };
@@ -175,6 +178,26 @@ public class AuthController : ControllerBase
 
             if (password.Length < 12 || password.Length > 256)
                 return new BoolMensaje { Exito = false, Mensaje = "La contraseña debe tener entre 12 y 256 caracteres." };
+
+            if (!string.Equals(legalDocumentKey, "saas_terms", StringComparison.Ordinal) ||
+                !legalDocumentVersion.HasValue || string.IsNullOrWhiteSpace(legalDocumentSha256))
+                return new BoolMensaje { Exito = false, Mensaje = "Debes aceptar las condiciones de contratación vigentes antes de crear la cuenta." };
+
+            var currentTerms = await _context.Database.SqlQueryRaw<CurrentLegalDocument>(
+                """
+                SELECT document_key AS "DocumentKey", version AS "Version", sha256 AS "Sha256"
+                FROM legal_documents
+                WHERE document_key = 'saas_terms' AND status = 'published'
+                ORDER BY version DESC
+                LIMIT 1
+                """).SingleOrDefaultAsync();
+
+            if (currentTerms == null)
+                return new BoolMensaje { Exito = false, Mensaje = "Las condiciones de contratación todavía no están publicadas. El registro está temporalmente deshabilitado." };
+
+            if (currentTerms.Version != legalDocumentVersion.Value ||
+                !string.Equals(currentTerms.Sha256, legalDocumentSha256, StringComparison.OrdinalIgnoreCase))
+                return new BoolMensaje { Exito = false, Mensaje = "Las condiciones de contratación han cambiado. Recarga la página y acepta la versión vigente." };
 
             string passwordHash = BCrypt.Net.BCrypt.HashPassword(password);
 
@@ -254,6 +277,21 @@ public class AuthController : ControllerBase
                 expires_at = null
             });
             await _context.SaveChangesAsync();
+
+            await _context.Database.ExecuteSqlRawAsync(
+                """
+                INSERT INTO legal_acceptances
+                    (user_id, tenant_id, legal_document_id, document_key, document_version, document_sha256, accepted_at, ip_address, user_agent, context)
+                SELECT {0}, {1}, id, document_key, version, sha256, CURRENT_TIMESTAMP, {2}, {3}, 'signup'
+                FROM legal_documents
+                WHERE document_key = 'saas_terms' AND version = {4} AND status = 'published'
+                ON CONFLICT (user_id, legal_document_id, document_version, context) DO NOTHING
+                """,
+                user.id,
+                tenant.id,
+                HttpContext.Connection.RemoteIpAddress?.ToString(),
+                Request.Headers.UserAgent.ToString(),
+                currentTerms.Version);
 
             await transaction.CommitAsync();
 
