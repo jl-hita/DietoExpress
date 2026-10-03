@@ -321,9 +321,9 @@ export class GuidedConsultationComponent implements OnInit {
         this.loadClinicalProgress();
         this.loadFollowupHistory();
         this.loadConsultationContext();
-        this.preConsultationSignals = this.data.followupSignals ?? [];
-        this.previousAppointment = this.data.previousAppointment ?? null;
-        this.preConsultationTasks = this.data.openTasks ?? [];
+        this.preConsultationSignals = value.followupSignals ?? [];
+        this.previousAppointment = value.previousAppointment ?? null;
+        this.preConsultationTasks = value.openTasks ?? [];
         if (this.consultation) {
           this.currentStep = this.consultation.currentStep || 'summary';
           this.stepIndex = this.steps.findIndex(x => x.key === this.currentStep);
