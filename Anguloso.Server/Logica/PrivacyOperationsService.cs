@@ -1,0 +1,144 @@
+using System.Data;
+using Anguloso.Server.Models;
+using Microsoft.EntityFrameworkCore;
+
+namespace Anguloso.Server.Logica;
+
+public sealed record PrivacyRequestDto(long Id, string RequesterType, int? ClientId, string RightType, string Status, DateTime ReceivedAt, DateTime? DueAt, DateTime? ResolvedAt, string? Decision, string? Notes);
+public sealed record PrivacyIncidentDto(long Id, string Status, DateTime DetectedAt, DateTime? OccurredFrom, DateTime? OccurredTo, string? SystemsAffected, string? DataCategories, string? SubjectCategories, string Description, string? Containment, string? RiskAssessment, string? Communications, string? CorrectiveActions, DateTime? ClosedAt);
+
+public sealed record CreatePrivacyRequest(string RequesterType, int? ClientId, string RightType, DateTime? DueAt, string? Notes);
+public sealed record UpdatePrivacyRequest(string Status, string? Decision, string? Notes);
+public sealed record CreatePrivacyIncident(string Description, DateTime? OccurredFrom, DateTime? OccurredTo, string? SystemsAffected, string? DataCategories, string? SubjectCategories, string? Containment, string? RiskAssessment);
+public sealed record UpdatePrivacyIncident(string Status, string? Containment, string? RiskAssessment, string? Communications, string? CorrectiveActions);
+
+/// <summary>Gestiona expedientes administrativos RGPD sin duplicar ni almacenar el contenido clínico en los registros de cumplimiento.</summary>
+public sealed class PrivacyOperationsService
+{
+    private readonly angulosodbContext _context;
+    private readonly ITenantContextService _tenant;
+    private readonly IAuditLogService _audit;
+
+    public PrivacyOperationsService(angulosodbContext context, ITenantContextService tenant, IAuditLogService audit)
+    {
+        _context = context;
+        _tenant = tenant;
+        _audit = audit;
+    }
+
+    public async Task<IReadOnlyList<PrivacyRequestDto>> ListRequestsAsync(CancellationToken ct)
+    {
+        var tenantId = RequireTenant();
+        return await QueryAsync<PrivacyRequestDto>(
+            @"SELECT id, requester_type, client_id, right_type, status, received_at, due_at, resolved_at, decision, notes
+              FROM privacy_requests WHERE tenant_id = @tenant ORDER BY received_at DESC",
+            tenantId, (r) => new PrivacyRequestDto(r.GetInt64(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetInt32(2), r.GetString(3), r.GetString(4), r.GetDateTime(5), r.IsDBNull(6) ? null : r.GetDateTime(6), r.IsDBNull(7) ? null : r.GetDateTime(7), r.IsDBNull(8) ? null : r.GetString(8), r.IsDBNull(9) ? null : r.GetString(9)), ct);
+    }
+
+    public async Task<long?> CreateRequestAsync(CreatePrivacyRequest request, CancellationToken ct)
+    {
+        var tenantId = RequireTenant();
+        ValidateRequest(request.RequesterType, request.RightType);
+        await EnsureClientBelongsToTenantAsync(request.ClientId, tenantId, ct);
+
+        var id = await ExecuteScalarAsync<long?>(@"INSERT INTO privacy_requests
+            (tenant_id, requester_type, client_id, right_type, due_at, notes, created_by, updated_by)
+            VALUES (@tenant, @requester, @client, @right, @due, @notes, @user, @user)
+            RETURNING id", tenantId, cmd => Add(cmd, request, tenantId), ct);
+
+        await _audit.LogAccessAsync("CREATE_PRIVACY_REQUEST", "privacy_requests", id?.ToString(), request.ClientId, $"RGPD: {request.RightType}");
+        return id;
+    }
+
+    public async Task<bool> UpdateRequestAsync(long id, UpdatePrivacyRequest request, CancellationToken ct)
+    {
+        var tenantId = RequireTenant();
+        if (!new[] { "received", "verifying", "in_progress", "awaiting_client", "resolved", "rejected", "cancelled" }.Contains(request.Status))
+            throw new ArgumentException("Estado de solicitud RGPD no válido.");
+
+        var resolved = request.Status is "resolved" or "rejected" or "cancelled";
+        var count = await ExecuteNonQueryAsync(@"UPDATE privacy_requests SET status=@status, decision=@decision, notes=@notes,
+            resolved_at=CASE WHEN @resolved THEN COALESCE(resolved_at, NOW()) ELSE NULL END, updated_by=@user
+            WHERE id=@id AND tenant_id=@tenant", tenantId, cmd => {
+                Add(cmd, "status", request.Status); Add(cmd, "decision", request.Decision); Add(cmd, "notes", request.Notes);
+                Add(cmd, "resolved", resolved); Add(cmd, "user", _tenant.UserId); Add(cmd, "id", id); return cmd;
+            }, ct);
+        if (count == 0) return false;
+        await _audit.LogAccessAsync("UPDATE_PRIVACY_REQUEST", "privacy_requests", id.ToString(), null, $"RGPD solicitud: {request.Status}");
+        return true;
+    }
+
+    public async Task<IReadOnlyList<PrivacyIncidentDto>> ListIncidentsAsync(CancellationToken ct)
+    {
+        var tenantId = RequireTenant();
+        return await QueryAsync<PrivacyIncidentDto>(
+            @"SELECT id,status,detected_at,occurred_from,occurred_to,systems_affected,data_categories,subject_categories,description,containment,risk_assessment,communications,corrective_actions,closed_at
+              FROM privacy_incidents WHERE tenant_id=@tenant ORDER BY detected_at DESC",
+            tenantId, r => new PrivacyIncidentDto(r.GetInt64(0),r.GetString(1),r.GetDateTime(2),r.IsDBNull(3)?null:r.GetDateTime(3),r.IsDBNull(4)?null:r.GetDateTime(4),r.IsDBNull(5)?null:r.GetString(5),r.IsDBNull(6)?null:r.GetString(6),r.IsDBNull(7)?null:r.GetString(7),r.GetString(8),r.IsDBNull(9)?null:r.GetString(9),r.IsDBNull(10)?null:r.GetString(10),r.IsDBNull(11)?null:r.GetString(11),r.IsDBNull(12)?null:r.GetString(12),r.IsDBNull(13)?null:r.GetDateTime(13)), ct);
+    }
+
+    public async Task<long> CreateIncidentAsync(CreatePrivacyIncident request, CancellationToken ct)
+    {
+        var tenantId = RequireTenant();
+        if (string.IsNullOrWhiteSpace(request.Description)) throw new ArgumentException("La descripción del incidente es obligatoria.");
+        var id = await ExecuteScalarAsync<long>(@"INSERT INTO privacy_incidents
+            (tenant_id, description, occurred_from, occurred_to, systems_affected, data_categories, subject_categories, containment, risk_assessment, created_by, updated_by)
+            VALUES (@tenant,@description,@from,@to,@systems,@categories,@subjects,@containment,@risk,@user,@user) RETURNING id",
+            tenantId, cmd => {
+                Add(cmd,"description",request.Description); Add(cmd,"from",request.OccurredFrom); Add(cmd,"to",request.OccurredTo); Add(cmd,"systems",request.SystemsAffected);
+                Add(cmd,"categories",request.DataCategories); Add(cmd,"subjects",request.SubjectCategories); Add(cmd,"containment",request.Containment); Add(cmd,"risk",request.RiskAssessment); Add(cmd,"user",_tenant.UserId); return cmd;
+            }, ct);
+        await _audit.LogAccessAsync("CREATE_PRIVACY_INCIDENT", "privacy_incidents", id.ToString(), null, "Incidente de privacidad registrado");
+        return id;
+    }
+
+    public async Task<bool> UpdateIncidentAsync(long id, UpdatePrivacyIncident request, CancellationToken ct)
+    {
+        var tenantId = RequireTenant();
+        if (!new[] { "detected", "contained", "assessing", "notified", "remediating", "closed", "false_positive" }.Contains(request.Status))
+            throw new ArgumentException("Estado de incidente no válido.");
+        var closed = request.Status is "closed" or "false_positive";
+        var count = await ExecuteNonQueryAsync(@"UPDATE privacy_incidents SET status=@status, containment=@containment, risk_assessment=@risk,
+            communications=@communications, corrective_actions=@actions, closed_at=CASE WHEN @closed THEN COALESCE(closed_at,NOW()) ELSE NULL END, updated_by=@user
+            WHERE id=@id AND tenant_id=@tenant", tenantId, cmd => {
+                Add(cmd,"status",request.Status); Add(cmd,"containment",request.Containment); Add(cmd,"risk",request.RiskAssessment); Add(cmd,"communications",request.Communications);
+                Add(cmd,"actions",request.CorrectiveActions); Add(cmd,"closed",closed); Add(cmd,"user",_tenant.UserId); Add(cmd,"id",id); return cmd;
+            }, ct);
+        if (count == 0) return false;
+        await _audit.LogAccessAsync("UPDATE_PRIVACY_INCIDENT", "privacy_incidents", id.ToString(), null, $"Incidente de privacidad: {request.Status}");
+        return true;
+    }
+
+    private int RequireTenant() => _tenant.TenantId ?? throw new InvalidOperationException("No hay tenant autenticado.");
+
+    private async Task EnsureClientBelongsToTenantAsync(int? clientId, int tenantId, CancellationToken ct)
+    {
+        if (!clientId.HasValue) return;
+        var exists = await ExecuteScalarAsync<bool>(@"SELECT EXISTS(SELECT 1 FROM clients WHERE id=@client AND tenant_id=@tenant)", tenantId, cmd => { Add(cmd,"client",clientId); return cmd; }, ct);
+        if (!exists) throw new KeyNotFoundException("El paciente no pertenece al tenant actual.");
+    }
+
+    private async Task<List<T>> QueryAsync<T>(string sql, int tenantId, Func<IDataRecord,T> map, CancellationToken ct)
+    {
+        var db = _context.Database.GetDbConnection();
+        await using var cmd = db.CreateCommand(); cmd.CommandText=sql; Add(cmd,"tenant",tenantId);
+        if (db.State != ConnectionState.Open) await db.OpenAsync(ct);
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        var list=new List<T>(); while(await reader.ReadAsync(ct)) list.Add(map(reader)); return list;
+    }
+
+    private async Task<T> ExecuteScalarAsync<T>(string sql,int tenantId,Func<IDbCommand,IDbCommand> configure,CancellationToken ct)
+    {
+        var db=_context.Database.GetDbConnection(); await using var cmd=db.CreateCommand(); cmd.CommandText=sql; Add(cmd,"tenant",tenantId); configure(cmd);
+        if(db.State!=ConnectionState.Open) await db.OpenAsync(ct); var value=await cmd.ExecuteScalarAsync(ct); return (T)(value ?? default(T)!);
+    }
+
+    private async Task<int> ExecuteNonQueryAsync(string sql,int tenantId,Func<IDbCommand,IDbCommand> configure,CancellationToken ct)
+    {
+        var db=_context.Database.GetDbConnection(); await using var cmd=db.CreateCommand(); cmd.CommandText=sql; Add(cmd,"tenant",tenantId); configure(cmd);
+        if(db.State!=ConnectionState.Open) await db.OpenAsync(ct); return await cmd.ExecuteNonQueryAsync(ct);
+    }
+
+    private static IDbCommand Add(IDbCommand cmd,string name,object? value){var p=cmd.CreateParameter();p.ParameterName="@"+name;p.Value=value??DBNull.Value;cmd.Parameters.Add(p);return cmd;}
+    private static void ValidateRequest(string requester,string right){if(!new[]{"patient","representative","professional","other"}.Contains(requester))throw new ArgumentException("Tipo de solicitante no válido.");if(!new[]{"access","rectification","erasure","restriction","objection","portability","automated_decision"}.Contains(right))throw new ArgumentException("Derecho RGPD no válido.");}
+}
