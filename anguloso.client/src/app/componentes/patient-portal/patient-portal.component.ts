@@ -230,6 +230,7 @@ export class PatientPortalComponent implements OnInit {
           this.loadCheckinHistory();
           this.loadAppointments();
           this.loadNotifications();
+          this.loadDocuments();
           this.preparePushSupport();
         }
         if (p.hasActiveDiet) {
@@ -479,13 +480,13 @@ export class PatientPortalComponent implements OnInit {
     if (!this.documents.length && !this.documentsLoading) this.loadDocuments();
   }
 
-  downloadDocument(document: PatientDocument): void {
-    this.portalService.downloadMyDocument(document.id).subscribe({
+  downloadDocument(doc: PatientDocument): void {
+    this.portalService.downloadMyDocument(doc.id).subscribe({
       next: blob => {
         const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
+        const link = globalThis.document.createElement('a');
         link.href = url;
-        link.download = document.originalFileName || document.name + '.pdf';
+        link.download = doc.originalFileName || doc.name + '.pdf';
         link.click();
         URL.revokeObjectURL(url);
       },
