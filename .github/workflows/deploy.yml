@@ -70,8 +70,7 @@ jobs:
       # hayan terminado correctamente.
       - name: Desplegar backend
         run: |
-          rm -rf /opt/dietoexpress/*
-          cp -a /tmp/dietoexpress-backend/. /opt/dietoexpress/
+          # Los logs son datos persistentes y están fuera del directorio de despliegue.\n          sudo install -d -o joso -g joso -m 0750 /var/lib/dietoexpress/Logs\n          rm -rf /opt/dietoexpress/*\n          cp -a /tmp/dietoexpress-backend/. /opt/dietoexpress/
           mkdir -p /opt/dietoexpress/wwwroot
           cp -a /tmp/dietoexpress-frontend/. /opt/dietoexpress/wwwroot/
 
