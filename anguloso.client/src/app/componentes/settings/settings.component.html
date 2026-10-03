@@ -75,7 +75,8 @@
             </mat-form-field>
 
             <div class="password-actions">
-              <button mat-raised-button color="primary" type="submit"
+              <button mat-raised-button color="primary" type="button"
+                      (click)="changePassword()"
                       [disabled]="passwordSaving || passwordForm.invalid">
                 <mat-spinner *ngIf="passwordSaving" diameter="18"></mat-spinner>
                 <mat-icon *ngIf="!passwordSaving">key</mat-icon>
