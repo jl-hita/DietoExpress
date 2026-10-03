@@ -51,4 +51,4 @@ No deben introducirse datos clínicos innecesarios en el registro de la solicitu
 
 ## Estado
 
-La infraestructura de aislamiento multi-tenant y auditoría clínica ya permite proteger la ejecución técnica. Falta convertir este procedimiento en un flujo de producto con registro, estados, exportación y resolución controlada.
+La infraestructura de aislamiento multi-tenant y auditoría clínica protege la ejecución técnica. Ya existe registro de solicitudes con estados, exportación tenant-scoped y una transición controlada para solicitudes de supresión; siguen pendientes la verificación formal de identidad, los flujos específicos de rectificación/limitación/oposición/portabilidad y la entrega documentada al interesado.
