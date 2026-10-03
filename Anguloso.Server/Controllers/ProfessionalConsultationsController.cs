@@ -90,9 +90,9 @@ public sealed class ProfessionalConsultationsController : ControllerBase
 
         var activeDiet = await _db.client_diets.AsNoTracking()
             .Where(cd => cd.client_id == appointment.ClientId &&
-                         cd.is_active &&
+                         cd.is_active == true &&
                          cd.diet != null &&
-                         cd.diet.tenant_id == appointment.TenantId)
+                         cd.diet!.tenant_id == appointment.TenantId)
             .OrderByDescending(cd => cd.id)
             .Select(cd => new
             {
@@ -356,7 +356,7 @@ public sealed class ProfessionalConsultationsController : ControllerBase
             startedAt = reader.GetDateTime(8),
             completedAt = reader.IsDBNull(9) ? (DateTime?)null : reader.GetDateTime(9),
             createdAt = reader.GetDateTime(10),
-            updatedAt = reader.GetDateTime(11)
+            updatedAt = reader.IsDBNull(11) ? (DateTime?)null : reader.GetDateTime(11)
         };
     }
 
