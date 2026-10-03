@@ -971,3 +971,36 @@
     min-height: 230px;
   }
 }
+
+
+.followup-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.reviewed-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.82rem;
+  opacity: 0.75;
+}
+
+.reviewed-badge mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+@media (max-width: 700px) {
+  .followup-actions {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .followup-actions button {
+    width: 100%;
+  }
+}
