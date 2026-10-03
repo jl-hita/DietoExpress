@@ -18,19 +18,22 @@ public class ClientsController : ControllerBase
     private readonly IAuditLogService _auditLogService;
     private readonly ILicenseService _licenseService;
     private readonly AutomationService _automationService;
+    private readonly PatientDocumentService _patientDocumentService;
 
     public ClientsController(
         angulosodbContext context, 
         EnergyCalculatorService calculatorService,
         IAuditLogService auditLogService,
         ILicenseService licenseService,
-        AutomationService automationService)
+        AutomationService automationService,
+        PatientDocumentService patientDocumentService)
     {
         _context = context;
         _calculatorService = calculatorService;
         _auditLogService = auditLogService;
         _licenseService = licenseService;
         _automationService = automationService;
+        _patientDocumentService = patientDocumentService;
     }
 
     // GET: api/clients
@@ -362,6 +365,33 @@ public class ClientsController : ControllerBase
         {
             HttpContext.RequestServices.GetRequiredService<ILogger<ClientsController>>()
                 .LogError(ex, "No se pudo registrar la automatización de alta del paciente {ClientId}.", client.id);
+        }
+
+        // Generamos la documentación obligatoria una vez confirmado el alta.
+        // Un fallo documental nunca invalida un paciente ya creado.
+        try
+        {
+            var createdDocuments = await _patientDocumentService.CreateRequiredDocumentsAsync(
+                tenantId.Value,
+                client.id,
+                userId.Value,
+                HttpContext.RequestAborted);
+
+            if (createdDocuments > 0)
+            {
+                await _automationService.PublishEventAsync(
+                    tenantId.Value,
+                    "patient.documents.created",
+                    "client",
+                    client.id.ToString(),
+                    new AutomationService.ClientCreatedPayload(client.id, userId.Value),
+                    $"client:{client.id}:documents-created");
+            }
+        }
+        catch (Exception ex)
+        {
+            HttpContext.RequestServices.GetRequiredService<ILogger<ClientsController>>()
+                .LogError(ex, "No se pudo generar la documentación inicial del paciente {ClientId}.", client.id);
         }
 
         await _auditLogService.LogAccessAsync(
