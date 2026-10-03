@@ -73,6 +73,7 @@ public sealed class ProfessionalTasksController : ControllerBase
             return Forbid();
 
         request.AssignedUserId ??= currentUserId;
+        // Las tareas creadas por automatizaciones pasan por el mismo servicio para conservar tenant, idempotencia y trazabilidad en un único punto.
         var id = await _automation.CreateProfessionalTaskAsync(
             _tenantContext.TenantId.Value, request, "manual",
             $"manual:{_tenantContext.TenantId.Value}:{Guid.NewGuid():N}");
