@@ -20,7 +20,7 @@ public sealed class PatientDocumentService
             ?? throw new InvalidOperationException("DefaultConnection no está configurada.");
     }
 
-    public async Task<int> CreateRequiredDocumentsAsync(int tenantId, int clientId, int? userId, bool forClientCreation = true, CancellationToken cancellationToken = default)
+    public async Task<int> CreateRequiredDocumentsAsync(int tenantId, int clientId, int? userId, bool forClientCreation = true, bool includeAllRequired = false, CancellationToken cancellationToken = default)
     {
         var created = 0;
         var root = GetStorageRoot();
@@ -37,11 +37,12 @@ public sealed class PatientDocumentService
                 FROM document_templates
                 WHERE tenant_id=@tenant AND is_active=true
                   AND storage_key IS NOT NULL
-                  AND (CASE WHEN @clientCreation THEN is_required_on_client_creation ELSE is_required_before_consultation END)=true
+                  AND (CASE WHEN @allRequired THEN (is_required_on_client_creation OR is_required_before_consultation) ELSE (CASE WHEN @clientCreation THEN is_required_on_client_creation ELSE is_required_before_consultation END) END)=true
                 ORDER BY LOWER(name), version DESC, id DESC;
                 """, connection, transaction);
             templatesCommand.Parameters.AddWithValue("tenant", tenantId);
             templatesCommand.Parameters.AddWithValue("clientCreation", forClientCreation);
+            templatesCommand.Parameters.AddWithValue("allRequired", includeAllRequired);
 
             await using var reader = await templatesCommand.ExecuteReaderAsync(cancellationToken);
             var templates = new List<TemplateRow>();
@@ -101,21 +102,76 @@ public sealed class PatientDocumentService
                 if (affected > 0)
                 {
                     created++;
+
                     await using var audit = new NpgsqlCommand("""
                         INSERT INTO patient_document_events
                             (tenant_id, patient_document_id, client_id, event_type, details)
                         SELECT tenant_id, id, client_id, 'created',
-                               'Documento obligatorio generado automáticamente al crear el paciente.'
+                               @details
                         FROM patient_documents
                         WHERE tenant_id=@tenant AND client_id=@client
                           AND document_template_id=@template AND version=@version
+                          AND revoked_at IS NULL
                         ORDER BY id DESC LIMIT 1;
                         """, connection, transaction);
                     audit.Parameters.AddWithValue("tenant", tenantId);
                     audit.Parameters.AddWithValue("client", clientId);
                     audit.Parameters.AddWithValue("template", template.Id);
                     audit.Parameters.AddWithValue("version", template.Version);
+                    audit.Parameters.AddWithValue("details",
+                        $"Documento obligatorio generado automáticamente (versión {template.Version}).");
                     await audit.ExecuteNonQueryAsync(cancellationToken);
+
+                    // Una nueva versión sustituye la anterior sin borrar su historial.
+                    // La aceptación de la versión antigua permanece en patient_document_events.
+                    await using var supersedeEvents = new NpgsqlCommand("""
+                        INSERT INTO patient_document_events
+                            (tenant_id, patient_document_id, client_id, event_type, details)
+                        SELECT tenant_id, id, client_id, 'superseded',
+                               @details
+                        FROM patient_documents
+                        WHERE tenant_id=@tenant AND client_id=@client
+                          AND document_template_id IS NOT NULL
+                          AND LOWER(name)=LOWER(@name)
+                          AND id <> (
+                              SELECT id FROM patient_documents
+                              WHERE tenant_id=@tenant AND client_id=@client
+                                AND document_template_id=@template AND version=@version
+                                AND revoked_at IS NULL
+                              ORDER BY id DESC LIMIT 1
+                          )
+                          AND revoked_at IS NULL;
+                        """, connection, transaction);
+                    supersedeEvents.Parameters.AddWithValue("tenant", tenantId);
+                    supersedeEvents.Parameters.AddWithValue("client", clientId);
+                    supersedeEvents.Parameters.AddWithValue("template", template.Id);
+                    supersedeEvents.Parameters.AddWithValue("version", template.Version);
+                    supersedeEvents.Parameters.AddWithValue("name", template.Name);
+                    supersedeEvents.Parameters.AddWithValue("details",
+                        $"Sustituido por la versión {template.Version}; la aceptación de la versión anterior se conserva en el historial.");
+                    await supersedeEvents.ExecuteNonQueryAsync(cancellationToken);
+
+                    await using var supersede = new NpgsqlCommand("""
+                        UPDATE patient_documents
+                        SET revoked_at=NOW(), status='revoked', updated_at=NOW()
+                        WHERE tenant_id=@tenant AND client_id=@client
+                          AND document_template_id IS NOT NULL
+                          AND LOWER(name)=LOWER(@name)
+                          AND id <> (
+                              SELECT id FROM patient_documents
+                              WHERE tenant_id=@tenant AND client_id=@client
+                                AND document_template_id=@template AND version=@version
+                                AND revoked_at IS NULL
+                              ORDER BY id DESC LIMIT 1
+                          )
+                          AND revoked_at IS NULL;
+                        """, connection, transaction);
+                    supersede.Parameters.AddWithValue("tenant", tenantId);
+                    supersede.Parameters.AddWithValue("client", clientId);
+                    supersede.Parameters.AddWithValue("template", template.Id);
+                    supersede.Parameters.AddWithValue("version", template.Version);
+                    supersede.Parameters.AddWithValue("name", template.Name);
+                    await supersede.ExecuteNonQueryAsync(cancellationToken);
                 }
                 else
                 {
