@@ -241,7 +241,7 @@ public class DocumentTemplatesController : ControllerBase
 
     private static async Task<string> ComputeSha256Async(string path, CancellationToken ct)
     {
-        await using var stream = File.OpenRead(path);
+        await using var stream = System.IO.File.OpenRead(path);
         using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         var buffer = new byte[81920];
         int read;
