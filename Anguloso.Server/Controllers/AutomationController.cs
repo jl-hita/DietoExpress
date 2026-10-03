@@ -125,6 +125,76 @@ public sealed class AutomationController : ControllerBase
         return NoContent();
     }
 
+
+    public sealed record AutomationTemplateRequest(
+        string? PatientTitle,
+        string? PatientMessage,
+        string? ProfessionalTitle,
+        string? ProfessionalMessage,
+        string? EmailSubject,
+        string? EmailHtml);
+
+    [HttpGet("templates")]
+    public async Task<IActionResult> GetTemplates()
+    {
+        if (!_tenantContext.TenantId.HasValue) return BadRequest();
+        await using var connection = new NpgsqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand("""
+            SELECT rule_key, patient_title, patient_message, professional_title, professional_message, email_subject, email_html, updated_at
+            FROM automation_templates
+            WHERE tenant_id=@tenant
+            ORDER BY rule_key;
+            """, connection);
+        command.Parameters.AddWithValue("tenant", _tenantContext.TenantId.Value);
+        var rows = new List<object>();
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            rows.Add(new {
+                ruleKey = reader.GetString(0),
+                patientTitle = reader.IsDBNull(1) ? null : reader.GetString(1),
+                patientMessage = reader.IsDBNull(2) ? null : reader.GetString(2),
+                professionalTitle = reader.IsDBNull(3) ? null : reader.GetString(3),
+                professionalMessage = reader.IsDBNull(4) ? null : reader.GetString(4),
+                emailSubject = reader.IsDBNull(5) ? null : reader.GetString(5),
+                emailHtml = reader.IsDBNull(6) ? null : reader.GetString(6),
+                updatedAt = reader.GetDateTime(7)
+            });
+        }
+        return Ok(rows);
+    }
+
+    [HttpPut("templates/{ruleKey}")]
+    public async Task<IActionResult> UpdateTemplate(string ruleKey, [FromBody] AutomationTemplateRequest request)
+    {
+        if (!_tenantContext.TenantId.HasValue || string.IsNullOrWhiteSpace(ruleKey)) return BadRequest();
+        ruleKey = ruleKey.Trim().ToLowerInvariant();
+        if (ruleKey.Length > 120 || !SupportedRules.Any(x => x.Key == ruleKey)) return BadRequest();
+        if (new[] { request.PatientTitle, request.PatientMessage, request.ProfessionalTitle, request.ProfessionalMessage, request.EmailSubject, request.EmailHtml }.Any(x => x?.Length > 4000)) return BadRequest();
+
+        await using var connection = new NpgsqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand("""
+            INSERT INTO automation_templates(tenant_id, rule_key, patient_title, patient_message, professional_title, professional_message, email_subject, email_html, updated_at)
+            VALUES(@tenant,@rule,@pt,@pm,@ut,@um,@es,@eh,NOW())
+            ON CONFLICT (tenant_id, rule_key)
+            DO UPDATE SET patient_title=EXCLUDED.patient_title, patient_message=EXCLUDED.patient_message,
+                          professional_title=EXCLUDED.professional_title, professional_message=EXCLUDED.professional_message,
+                          email_subject=EXCLUDED.email_subject, email_html=EXCLUDED.email_html, updated_at=NOW();
+            """, connection);
+        command.Parameters.AddWithValue("tenant", _tenantContext.TenantId.Value);
+        command.Parameters.AddWithValue("rule", ruleKey);
+        command.Parameters.AddWithValue("pt", (object?)request.PatientTitle ?? DBNull.Value);
+        command.Parameters.AddWithValue("pm", (object?)request.PatientMessage ?? DBNull.Value);
+        command.Parameters.AddWithValue("ut", (object?)request.ProfessionalTitle ?? DBNull.Value);
+        command.Parameters.AddWithValue("um", (object?)request.ProfessionalMessage ?? DBNull.Value);
+        command.Parameters.AddWithValue("es", (object?)request.EmailSubject ?? DBNull.Value);
+        command.Parameters.AddWithValue("eh", (object?)request.EmailHtml ?? DBNull.Value);
+        await command.ExecuteNonQueryAsync();
+        return NoContent();
+    }
+
     // Este endpoint es solo de observabilidad y control: el worker sigue siendo el único componente que ejecuta jobs.
     [HttpGet("jobs")]
     public async Task<IActionResult> GetJobs(
