@@ -56,6 +56,48 @@
 
   <mat-tab-group class="card tabs" (selectedTabChange)="onTabChange($event)">
 
+    <mat-tab label="Comunicación">
+      <div class="communication-container" style="padding:24px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+          <mat-icon>notifications</mat-icon>
+          <div>
+            <h3 style="margin:0;">Preferencias de comunicación</h3>
+            <p style="margin:4px 0 0;color:#64748b;">Controla qué canales de automatización puede utilizar DietoExpress para este paciente.</p>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:22px 0;">
+          <mat-card style="padding:16px;">
+            <mat-checkbox [(ngModel)]="communicationPreferences.inAppEnabled">
+              <strong>Notificaciones en la aplicación</strong>
+            </mat-checkbox>
+            <p style="margin:8px 0 0;color:#64748b;font-size:13px;">Avisos persistentes dentro del portal del paciente.</p>
+          </mat-card>
+
+          <mat-card style="padding:16px;">
+            <mat-checkbox [(ngModel)]="communicationPreferences.emailEnabled">
+              <strong>Email</strong>
+            </mat-checkbox>
+            <p style="margin:8px 0 0;color:#64748b;font-size:13px;">Permite el envío de emails automáticos al paciente.</p>
+          </mat-card>
+
+          <mat-card style="padding:16px;">
+            <mat-checkbox [(ngModel)]="communicationPreferences.pushEnabled">
+              <strong>Push</strong>
+            </mat-checkbox>
+            <p style="margin:8px 0 0;color:#64748b;font-size:13px;">Permite avisos push si el paciente ha registrado el dispositivo.</p>
+          </mat-card>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:12px;">
+          <button mat-flat-button color="primary" (click)="updateCommunicationPreferences()" [disabled]="savingCommunicationPreferences">
+            <mat-spinner *ngIf="savingCommunicationPreferences" diameter="18"></mat-spinner>
+            <span *ngIf="!savingCommunicationPreferences">Guardar preferencias</span>
+          </button>
+        </div>
+      </div>
+    </mat-tab>
+
     <!-- ═══════════════════════════════════════════════════════════ -->
     <!--  TAB: BIOMÉTRICAS                                          -->
     <!-- ═══════════════════════════════════════════════════════════ -->
