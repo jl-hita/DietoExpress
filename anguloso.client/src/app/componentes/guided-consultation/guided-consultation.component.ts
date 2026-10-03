@@ -110,17 +110,17 @@ interface GuidedConsultationResponse {
           <section class="card" *ngIf="currentStep === 'checkin'">
             <div class="card-title"><mat-icon>fact_check</mat-icon><div><h2>{{ isFirstConsultation ? 'Datos iniciales' : 'Check-in y adherencia' }}</h2><p>{{ isFirstConsultation ? 'Utiliza los datos disponibles para establecer la situación de partida; el portal puede aportar nuevos check-ins posteriormente.' : 'Últimos datos estructurados comunicados por el paciente.' }}</p></div></div>
             <div *ngIf="data.latestCheckin; else noCheckin" class="metric-grid">
-              <div><span>Adherencia</span><strong>{{ data.latestCheckin?.adherence ?? '—' }}/10</strong></div>
-              <div><span>Hambre</span><strong>{{ data.latestCheckin?.hunger ?? '—' }}/10</strong></div>
-              <div><span>Energía</span><strong>{{ data.latestCheckin?.energy ?? '—' }}/10</strong></div>
-              <div><span>Sueño</span><strong>{{ data.latestCheckin?.sleep_quality ?? '—' }}/10 · {{ data.latestCheckin?.sleep_hours ?? '—' }} h</strong></div>
-              <div><span>Entrenamiento</span><strong>{{ data.latestCheckin?.training ?? '—' }}/10</strong></div>
-              <div><span>Peso</span><strong>{{ data.latestCheckin?.weight ?? '—' }} kg</strong></div>
+              <div><span>Adherencia</span><strong>{{ data.latestCheckin.adherence ?? '—' }}/10</strong></div>
+              <div><span>Hambre</span><strong>{{ data.latestCheckin.hunger ?? '—' }}/10</strong></div>
+              <div><span>Energía</span><strong>{{ data.latestCheckin.energy ?? '—' }}/10</strong></div>
+              <div><span>Sueño</span><strong>{{ data.latestCheckin.sleep_quality ?? '—' }}/10 · {{ data.latestCheckin.sleep_hours ?? '—' }} h</strong></div>
+              <div><span>Entrenamiento</span><strong>{{ data.latestCheckin.training ?? '—' }}/10</strong></div>
+              <div><span>Peso</span><strong>{{ data.latestCheckin.weight ?? '—' }} kg</strong></div>
             </div>
             <ng-template #noCheckin><div class="empty"><mat-icon>assignment_late</mat-icon><span>No hay check-in registrado.</span></div></ng-template>
             <div class="actions" *ngIf="data.latestCheckin">
-              <button mat-stroked-button type="button" *ngIf="!data.latestCheckin?.reviewed_at" (click)="reviewCheckin()"><mat-icon>done</mat-icon> Marcar revisado</button>
-              <span class="reviewed" *ngIf="data.latestCheckin?.reviewed_at"><mat-icon>check_circle</mat-icon> Revisado</span>
+              <button mat-stroked-button type="button" *ngIf="!data.latestCheckin.reviewed_at" (click)="reviewCheckin()"><mat-icon>done</mat-icon> Marcar revisado</button>
+              <span class="reviewed" *ngIf="data.latestCheckin.reviewed_at"><mat-icon>check_circle</mat-icon> Revisado</span>
             </div>
           </section>
 
