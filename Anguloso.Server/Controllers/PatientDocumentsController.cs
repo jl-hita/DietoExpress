@@ -364,16 +364,19 @@ public class PatientDocumentsController : ControllerBase
 
     private async Task<IActionResult> DownloadAsync(int clientId, long documentId, bool patientAccess)
     {
+        var tenantId = GetTenantId();
+        if (!tenantId.HasValue) return Forbid();
+
         var row = await _context.Database.SqlQueryRaw<DocumentStorageDto>(
             """
             SELECT id AS "Id", client_id AS "ClientId", tenant_id AS "TenantId",
                    storage_key AS "StorageKey", original_file_name AS "OriginalFileName",
                    mime_type AS "MimeType", name AS "Name"
             FROM patient_documents
-            WHERE id = {0} AND client_id = {1} AND revoked_at IS NULL
+            WHERE id = {0} AND client_id = {1} AND tenant_id = {2} AND revoked_at IS NULL
             LIMIT 1
             """,
-            documentId, clientId).SingleOrDefaultAsync();
+            documentId, clientId, tenantId.Value).SingleOrDefaultAsync();
 
         if (row == null) return NotFound();
 
