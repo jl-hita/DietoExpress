@@ -788,6 +788,39 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     return alerts.slice(0, 5);
   }
 
+  getFollowupTrends(): { label: string; icon: string; text: string }[] {
+    const ordered = [...this.checkins]
+      .filter(c => c.submitted_at)
+      .sort((a, b) => new Date(a.submitted_at).getTime() - new Date(b.submitted_at).getTime())
+      .slice(-4);
+    if (ordered.length < 3) return [];
+
+    const trends: { label: string; icon: string; text: string }[] = [];
+    const addTrend = (label: string, values: (number | null | undefined)[], suffix: string, precision = 1) => {
+      const valid = values.filter((v): v is number => v != null);
+      if (valid.length < 3) return;
+      const first = valid[0];
+      const last = valid[valid.length - 1];
+      const delta = last - first;
+      if (Math.abs(delta) < (suffix === ' h' ? 1 : 1.5)) return;
+      trends.push({
+        label,
+        icon: delta > 0 ? 'trending_up' : 'trending_down',
+        text: `${delta > 0 ? 'Subida' : 'Bajada'} de ${Math.abs(delta).toFixed(precision)}${suffix} en los últimos ${ordered.length} check-ins`
+      });
+    };
+
+    addTrend('Adherencia', ordered.map(c => c.adherence), '/10');
+    addTrend('Hambre', ordered.map(c => c.hunger), '/10');
+    addTrend('Energía', ordered.map(c => c.energy), '/10');
+    addTrend('Sueño', ordered.map(c => c.sleep_quality), '/10');
+    addTrend('Horas de sueño', ordered.map(c => c.sleep_hours), ' h');
+    addTrend('Entrenamiento', ordered.map(c => c.training), '/10');
+    addTrend('Peso', ordered.map(c => c.weight), ' kg');
+
+    return trends.slice(0, 4);
+  }
+
   getLatestUnreviewedCheckin(): PatientCheckin | null {
     return [...this.checkins]
       .sort((a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime())
