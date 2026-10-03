@@ -80,6 +80,10 @@ export class PatientPortalComponent implements OnInit {
   checkinWeight: number | null = null;
   checkinAdherence: number | null = null;
   checkinHunger: number | null = null;
+  checkinEnergy: number | null = null;
+  checkinSleepQuality: number | null = null;
+  checkinSleepHours: number | null = null;
+  checkinTraining: number | null = null;
   checkinDifficulties = '';
   checkinNotes = '';
 
@@ -293,6 +297,10 @@ export class PatientPortalComponent implements OnInit {
           this.checkinWeight = checkin.weight ?? null;
           this.checkinAdherence = checkin.adherence ?? null;
           this.checkinHunger = checkin.hunger ?? null;
+          this.checkinEnergy = checkin.energy ?? null;
+          this.checkinSleepQuality = checkin.sleep_quality ?? null;
+          this.checkinSleepHours = checkin.sleep_hours ?? null;
+          this.checkinTraining = checkin.training ?? null;
           this.checkinDifficulties = checkin.difficulties ?? '';
           this.checkinNotes = checkin.notes ?? '';
         }
@@ -321,6 +329,10 @@ export class PatientPortalComponent implements OnInit {
       weight: this.checkinWeight,
       adherence: this.checkinAdherence,
       hunger: this.checkinHunger,
+      energy: this.checkinEnergy,
+      sleep_quality: this.checkinSleepQuality,
+      sleep_hours: this.checkinSleepHours,
+      training: this.checkinTraining,
       difficulties: this.checkinDifficulties.trim() || null,
       notes: this.checkinNotes.trim() || null
     };
@@ -333,6 +345,10 @@ export class PatientPortalComponent implements OnInit {
         this.checkinWeight = checkin.weight ?? null;
         this.checkinAdherence = checkin.adherence ?? null;
         this.checkinHunger = checkin.hunger ?? null;
+        this.checkinEnergy = checkin.energy ?? null;
+        this.checkinSleepQuality = checkin.sleep_quality ?? null;
+        this.checkinSleepHours = checkin.sleep_hours ?? null;
+        this.checkinTraining = checkin.training ?? null;
         this.checkinDifficulties = checkin.difficulties ?? '';
         this.checkinNotes = checkin.notes ?? '';
       },
