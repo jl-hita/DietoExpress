@@ -79,6 +79,7 @@
           <div class="actions">
             <button *ngIf="item.status === 'requested'" type="button" class="primary small" (click)="changeStatus(item, 'confirmed')">Confirmar</button>
             <button *ngIf="item.status === 'requested' || item.status === 'confirmed'" type="button" class="secondary small" (click)="changeStatus(item, 'cancelled')">Cancelar</button>
+            <button *ngIf="item.status === 'confirmed'" type="button" class="primary small" (click)="startConsultation(item)"><mat-icon>play_arrow</mat-icon> Iniciar consulta</button>
             <button *ngIf="item.status === 'confirmed'" type="button" class="secondary small" (click)="changeStatus(item, 'completed')">Completar</button>
             <button *ngIf="item.status === 'confirmed'" type="button" class="secondary small" (click)="changeStatus(item, 'no_show')">No asistió</button>
           </div>
