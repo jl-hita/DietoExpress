@@ -15,13 +15,15 @@ public class PatientDocumentsController : ControllerBase
     private readonly angulosodbContext _context;
     private readonly IConfiguration _configuration;
     private readonly AutomationService _automationService;
+    private readonly PatientDocumentService _patientDocumentService;
     private const long MaxFileSize = 20 * 1024 * 1024;
 
-    public PatientDocumentsController(angulosodbContext context, IConfiguration configuration, AutomationService automationService)
+    public PatientDocumentsController(angulosodbContext context, IConfiguration configuration, AutomationService automationService, PatientDocumentService patientDocumentService)
     {
         _context = context;
         _configuration = configuration;
         _automationService = automationService;
+        _patientDocumentService = patientDocumentService;
     }
 
     [HttpGet("api/clients/{clientId:int}/documents")]
@@ -29,6 +31,14 @@ public class PatientDocumentsController : ControllerBase
     public async Task<IActionResult> ListForProfessional(int clientId)
     {
         if (!await CanAccessClientAsync(clientId)) return NotFound();
+
+        await _patientDocumentService.CreateRequiredDocumentsAsync(
+            GetTenantId() ?? 0,
+            clientId,
+            AuthHelpers.GetUserId(User),
+            forClientCreation: false,
+            includeAllRequired: true,
+            HttpContext.RequestAborted);
 
         var rows = await _context.Database.SqlQueryRaw<PatientDocumentDto>(
             """
@@ -220,6 +230,14 @@ public class PatientDocumentsController : ControllerBase
         var tenantId = await _context.clients.Where(c => c.id == clientId.Value && c.archived_at == null)
             .Select(c => c.tenant_id).SingleOrDefaultAsync();
         if (!tenantId.HasValue) return NotFound();
+
+        await _patientDocumentService.CreateRequiredDocumentsAsync(
+            tenantId.Value,
+            clientId.Value,
+            AuthHelpers.GetUserId(User),
+            forClientCreation: false,
+            includeAllRequired: true,
+            HttpContext.RequestAborted);
 
         var rows = await _context.Database.SqlQueryRaw<PatientDocumentDto>(
             """
