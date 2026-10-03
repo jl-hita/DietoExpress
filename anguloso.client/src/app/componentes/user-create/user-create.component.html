@@ -42,12 +42,24 @@
           <mat-error *ngIf="form.controls['password'].hasError('minlength')">Debe tener al menos 6 caracteres</mat-error>
         </mat-form-field>
 
-        <button mat-flat-button color="primary" class="submit" type="submit" [disabled]="form.invalid || loading">
+        <div class="legal-signup" *ngIf="!legalLoading">
+          <ng-container *ngIf="currentTerms; else legalUnavailable">
+            <label>
+              <input type="checkbox" formControlName="termsAccepted">
+              <span>Acepto las <a routerLink="/legal" target="_blank">condiciones de contratación de DietoExpress</a> vigentes (versión {{ currentTerms.version }}).</span>
+            </label>
+            <p>La política de privacidad se facilita por separado. Esta casilla registra únicamente la aceptación contractual de las condiciones.</p>
+          </ng-container>
+          <ng-template #legalUnavailable>
+            <p class="legal-error">No es posible crear cuentas hasta que estén publicadas las condiciones de contratación vigentes.</p>
+          </ng-template>
+        </div>
+
+        <button mat-flat-button color="primary" class="submit" type="submit" [disabled]="form.invalid || loading || !currentTerms">
           {{ loading ? 'Creando cuenta...' : 'Crear cuenta gratis' }}
         </button>
       </form>
 
-      <div class="terms">Al crear una cuenta aceptas que DietoExpress gestione los datos necesarios para prestar el servicio.</div>
       <p class="switch">¿Ya tienes cuenta? <a routerLink="/login">Iniciar sesión</a></p>
     </ng-container>
 
