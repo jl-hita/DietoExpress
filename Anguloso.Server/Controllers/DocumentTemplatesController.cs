@@ -27,7 +27,7 @@ public class DocumentTemplatesController : ControllerBase
         await connection.OpenAsync(cancellationToken);
         await using var command = new NpgsqlCommand("""
             SELECT id, name, description, document_type, version, is_active,
-                   is_required_on_client_creation, requires_signature, file_name, mime_type,
+                   is_required_on_client_creation, is_required_before_consultation, requires_signature, file_name, mime_type,
                    file_size, created_at, updated_at
             FROM document_templates
             WHERE tenant_id=@tenant
@@ -46,7 +46,8 @@ public class DocumentTemplatesController : ControllerBase
                 version = reader.GetInt32(4),
                 isActive = reader.GetBoolean(5),
                 requiredOnClientCreation = reader.GetBoolean(6),
-                requiresSignature = reader.GetBoolean(7),
+                requiredBeforeConsultation = reader.GetBoolean(7),
+                requiresSignature = reader.GetBoolean(8),
                 fileName = reader.IsDBNull(8) ? null : reader.GetString(8),
                 mimeType = reader.IsDBNull(9) ? null : reader.GetString(9),
                 fileSize = reader.IsDBNull(10) ? 0 : reader.GetInt64(10),
@@ -61,7 +62,7 @@ public class DocumentTemplatesController : ControllerBase
     [RequestSizeLimit(MaxFileSize)]
     public async Task<IActionResult> Create(IFormFile file, [FromForm] string name,
         [FromForm] string? description = null, [FromForm] string? documentType = null,
-        [FromForm] bool requiredOnClientCreation = false, [FromForm] bool requiresSignature = false,
+        [FromForm] bool requiredOnClientCreation = false, [FromForm] bool requiredBeforeConsultation = false, [FromForm] bool requiresSignature = false,
         CancellationToken cancellationToken = default)
     {
         var tenantId = AuthHelpers.GetTenantId(User);
@@ -100,9 +101,9 @@ public class DocumentTemplatesController : ControllerBase
             await using var insert = new NpgsqlCommand("""
                 INSERT INTO document_templates
                     (tenant_id,name,description,document_type,file_name,storage_key,mime_type,file_size,sha256,
-                     version,is_active,is_required_on_client_creation,requires_signature,created_by_user_id)
+                     version,is_active,is_required_on_client_creation,is_required_before_consultation,requires_signature,created_by_user_id)
                 VALUES (@tenant,@name,@description,@type,@filename,@storage,@mime,@size,@sha,@version,
-                        true,@required,@signature,@user)
+                        true,@required,@requiredConsultation,@signature,@user)
                 RETURNING id;
                 """, connection, tx);
             insert.Parameters.AddWithValue("tenant", tenantId.Value);
@@ -116,6 +117,7 @@ public class DocumentTemplatesController : ControllerBase
             insert.Parameters.AddWithValue("sha", hash);
             insert.Parameters.AddWithValue("version", version);
             insert.Parameters.AddWithValue("required", requiredOnClientCreation);
+            insert.Parameters.AddWithValue("requiredConsultation", requiredBeforeConsultation);
             insert.Parameters.AddWithValue("signature", requiresSignature);
             insert.Parameters.AddWithValue("user", userId.Value);
             var id = Convert.ToInt64(await insert.ExecuteScalarAsync(cancellationToken));
