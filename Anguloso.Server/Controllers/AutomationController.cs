@@ -44,6 +44,74 @@ public sealed class AutomationController : ControllerBase
         ("biometrics.evolution", "assigned_professional", ["in_app"])
     ];
 
+    public sealed record FollowupSettingsRequest(string[]? SelectedMetrics, int PeriodWeeks, System.Text.Json.JsonElement? Thresholds);
+    
+    [HttpGet("followup-settings")]
+    public async Task<IActionResult> GetFollowupSettings()
+    {
+        if (!_tenantContext.TenantId.HasValue || !_tenantContext.UserId.HasValue) return BadRequest();
+
+        await using var connection = new NpgsqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand("""
+            SELECT selected_metrics, period_weeks, thresholds, updated_at
+            FROM professional_followup_settings
+            WHERE tenant_id=@tenant AND user_id=@user
+            LIMIT 1;
+            """, connection);
+        command.Parameters.AddWithValue("tenant", _tenantContext.TenantId.Value);
+        command.Parameters.AddWithValue("user", _tenantContext.UserId.Value);
+        await using var reader = await command.ExecuteReaderAsync();
+
+        if (!await reader.ReadAsync())
+            return Ok(new {
+                selectedMetrics = new[] { "adherence", "hunger", "energy", "sleep_quality", "sleep_hours", "training", "weight" },
+                periodWeeks = 4,
+                thresholds = new { },
+                updatedAt = (DateTime?)null
+            });
+
+        return Ok(new {
+            selectedMetrics = System.Text.Json.JsonSerializer.Deserialize<string[]>(reader.GetString(0)) ?? Array.Empty<string>(),
+            periodWeeks = reader.GetInt32(1),
+            thresholds = System.Text.Json.JsonSerializer.Deserialize<object>(reader.GetString(2)) ?? new { },
+            updatedAt = reader.GetDateTime(3)
+        });
+    }
+
+    [HttpPut("followup-settings")]
+    public async Task<IActionResult> UpdateFollowupSettings([FromBody] FollowupSettingsRequest request)
+    {
+        if (!_tenantContext.TenantId.HasValue || !_tenantContext.UserId.HasValue) return BadRequest();
+        var metrics = (request.SelectedMetrics ?? Array.Empty<string>())
+            .Select(x => x.Trim().ToLowerInvariant())
+            .Distinct()
+            .Where(x => x is "adherence" or "hunger" or "energy" or "sleep_quality" or "sleep_hours" or "training" or "weight")
+            .ToArray();
+        if (metrics.Length == 0 || metrics.Length > 7 || request.PeriodWeeks is < 2 or > 12) return BadRequest();
+        var thresholds = request.Thresholds.HasValue ? request.Thresholds.Value.GetRawText() : "{}";
+
+        await using var connection = new NpgsqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand("""
+            INSERT INTO professional_followup_settings
+                (tenant_id, user_id, selected_metrics, period_weeks, thresholds, updated_at)
+            VALUES (@tenant,@user,@metrics::jsonb,@weeks,@thresholds::jsonb,NOW())
+            ON CONFLICT (tenant_id,user_id)
+            DO UPDATE SET selected_metrics=EXCLUDED.selected_metrics,
+                          period_weeks=EXCLUDED.period_weeks,
+                          thresholds=EXCLUDED.thresholds,
+                          updated_at=NOW();
+            """, connection);
+        command.Parameters.AddWithValue("tenant", _tenantContext.TenantId.Value);
+        command.Parameters.AddWithValue("user", _tenantContext.UserId.Value);
+        command.Parameters.AddWithValue("metrics", System.Text.Json.JsonSerializer.Serialize(metrics));
+        command.Parameters.AddWithValue("weeks", request.PeriodWeeks);
+        command.Parameters.AddWithValue("thresholds", thresholds);
+        await command.ExecuteNonQueryAsync();
+        return NoContent();
+    }
+
     [HttpGet("rules")]
     public async Task<IActionResult> GetRules()
     {
