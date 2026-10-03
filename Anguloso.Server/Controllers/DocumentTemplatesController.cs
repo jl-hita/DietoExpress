@@ -80,7 +80,7 @@ public class DocumentTemplatesController : ControllerBase
         await connection.OpenAsync(cancellationToken);
         await using var tx = await connection.BeginTransactionAsync(cancellationToken);
 
-        await using (var versionCommand = new NpgsqlCommand("SELECT COALESCE(MAX(version),0)+1 FROM document_templates WHERE tenant_id=@tenant AND name=@name;", connection, tx))
+        await using (var versionCommand = new NpgsqlCommand("SELECT COALESCE(MAX(version),0)+1 FROM document_templates WHERE tenant_id=@tenant AND LOWER(name)=LOWER(@name);", connection, tx))
         {
             versionCommand.Parameters.AddWithValue("tenant", tenantId.Value);
             versionCommand.Parameters.AddWithValue("name", name.Trim());
