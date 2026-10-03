@@ -32,6 +32,8 @@ public sealed class AutomationWorker : BackgroundService
         _logger.LogInformation("AutomationWorker iniciado.");
         var nextLifecycleSweep = DateTime.UtcNow;
         var nextFollowUpSweep = DateTime.UtcNow;
+        // Los barridos temporales se mantienen separados de la cola de jobs: si la cola está vacía,
+        // siguen ejecutándose las comprobaciones periódicas de lifecycle, seguimiento y dietas.
         var nextDietSweep = DateTime.UtcNow;
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -139,6 +141,8 @@ public sealed class AutomationWorker : BackgroundService
             await tx.CommitAsync(cancellationToken);
         }
 
+        // Una vez liberada la transacción de reclamación, las llamadas externas se ejecutan fuera de la
+        // transacción SQL para no mantener bloqueos mientras esperamos a email, push u otros servicios.
         foreach (var job in jobs)
             await ExecuteJobAsync(job, cancellationToken);
 
@@ -266,6 +270,8 @@ public sealed class AutomationWorker : BackgroundService
         command.Parameters.AddWithValue("tenant", job.TenantId);
         command.Parameters.AddWithValue("user_id", (object?)action.UserId ?? DBNull.Value);
         var email = await command.ExecuteScalarAsync(cancellationToken) as string;
+        // Un evento de facturación no debe bloquearse porque el destinatario preferente no tenga email:
+        // la automatización puede considerarse procesada aunque no exista un canal de comunicación válido.
         if (string.IsNullOrWhiteSpace(email))
             return;
 
