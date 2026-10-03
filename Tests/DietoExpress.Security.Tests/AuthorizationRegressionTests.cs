@@ -1270,7 +1270,6 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
-    [Fact]
     public void DocumentTemplateVersions_AreCaseInsensitiveByName()
     {
         var source = ReadServerController("DocumentTemplatesController.cs");
@@ -1279,6 +1278,7 @@ public class AuthorizationRegressionTests
         Assert.DoesNotContain("tenant=@tenant AND name=@name", source);
     }
 
+    [Fact]
     public void PatientDocuments_NewVersionsPreserveHistoryAndRequireNewAcceptance()
     {
         var source = ReadServerLogica("PatientDocumentService.cs");
