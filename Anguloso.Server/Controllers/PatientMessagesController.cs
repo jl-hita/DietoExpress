@@ -214,16 +214,16 @@ RETURNING id;";
 
     private async Task<IReadOnlyList<ConversationSummaryDto>> GetProfessionalConversationsAsync(int userId, int tenantId)
     {
-        var rows = await _context.Database.SqlQueryInterpolated<ConversationSummaryRow>($@"
+        var rows = await _context.Database.SqlQueryRaw<ConversationSummaryRow>(@"
 SELECT c.id AS ""ConversationId"", c.client_id AS ""ClientId"", cl.full_name AS ""ClientName"",
        c.updated_at AS ""UpdatedAt"",
        COALESCE((SELECT body FROM patient_messages m WHERE m.conversation_id = c.id ORDER BY m.created_at DESC, m.id DESC LIMIT 1), '') AS ""LastMessage"",
        COALESCE((SELECT COUNT(*)::int FROM patient_messages m WHERE m.conversation_id = c.id AND m.sender_client_id IS NOT NULL AND m.read_at IS NULL), 0) AS ""UnreadCount""
 FROM patient_conversations c
 JOIN clients cl ON cl.id = c.client_id
-WHERE c.tenant_id = {tenantId} AND cl.archived_at IS NULL
-  AND EXISTS (SELECT 1 FROM client_nutritionist_assignments a WHERE a.client_id = c.client_id AND a.nutritionist_id = {userId} AND a.is_active)
-ORDER BY c.updated_at DESC;").ToListAsync();
+WHERE c.tenant_id = {0} AND cl.archived_at IS NULL
+  AND EXISTS (SELECT 1 FROM client_nutritionist_assignments a WHERE a.client_id = c.client_id AND a.nutritionist_id = {1} AND a.is_active)
+ORDER BY c.updated_at DESC;", tenantId, userId).ToListAsync();
 
         return rows.Select(x => new ConversationSummaryDto {
             ConversationId = x.ConversationId, ClientId = x.ClientId, ClientName = x.ClientName,
@@ -253,37 +253,44 @@ ORDER BY c.updated_at DESC;").ToListAsync();
                 .FirstOrDefaultAsync();
         }
 
-        var existing = await _context.Database.SqlQueryRaw<long>(
-            nutritionistId.HasValue
-                ? $@"SELECT id AS ""Value"" FROM patient_conversations WHERE client_id = {clientId} AND assigned_nutritionist_id = {nutritionistId.Value} AND closed_at IS NULL LIMIT 1;"
-                : $@"SELECT id AS ""Value"" FROM patient_conversations WHERE client_id = {clientId} AND assigned_nutritionist_id IS NULL AND closed_at IS NULL LIMIT 1;").FirstOrDefaultAsync();
+        var existing = nutritionistId.HasValue
+            ? await _context.Database.SqlQueryRaw<long>(
+                @"SELECT id AS ""Value"" FROM patient_conversations WHERE client_id = {0} AND assigned_nutritionist_id = {1} AND closed_at IS NULL LIMIT 1;",
+                clientId, nutritionistId.Value).FirstOrDefaultAsync()
+            : await _context.Database.SqlQueryRaw<long>(
+                @"SELECT id AS ""Value"" FROM patient_conversations WHERE client_id = {0} AND assigned_nutritionist_id IS NULL AND closed_at IS NULL LIMIT 1;",
+                clientId).FirstOrDefaultAsync();
         if (existing != 0) return new ConversationRef(existing, client.tenant_id.Value);
 
         try
         {
-            var id = await _context.Database.SqlQueryRaw<long>(
-                nutritionistId.HasValue
-                    ? $@"INSERT INTO patient_conversations(tenant_id, client_id, assigned_nutritionist_id) VALUES ({client.tenant_id.Value}, {clientId}, {nutritionistId.Value}) RETURNING id;"
-                    : $@"INSERT INTO patient_conversations(tenant_id, client_id) VALUES ({client.tenant_id.Value}, {clientId}) RETURNING id;").FirstAsync();
+            var id = nutritionistId.HasValue
+                ? await _context.Database.SqlQueryRaw<long>(
+                    @"INSERT INTO patient_conversations(tenant_id, client_id, assigned_nutritionist_id) VALUES ({0}, {1}, {2}) RETURNING id;",
+                    client.tenant_id.Value, clientId, nutritionistId.Value).FirstAsync()
+                : await _context.Database.SqlQueryRaw<long>(
+                    @"INSERT INTO patient_conversations(tenant_id, client_id) VALUES ({0}, {1}) RETURNING id;",
+                    client.tenant_id.Value, clientId).FirstAsync();
             return new ConversationRef(id, client.tenant_id.Value);
         }
         catch (PostgresException ex) when (ex.SqlState == "23505")
         {
             var id = await _context.Database.SqlQueryRaw<long>(
-                $@"SELECT id AS ""Value"" FROM patient_conversations WHERE client_id = {clientId} AND closed_at IS NULL LIMIT 1;").FirstAsync();
+                @"SELECT id AS ""Value"" FROM patient_conversations WHERE client_id = {0} AND closed_at IS NULL LIMIT 1;",
+                clientId).FirstAsync();
             return new ConversationRef(id, client.tenant_id.Value);
         }
     }
 
     private async Task<IReadOnlyList<MessageDto>> ReadMessagesAsync(long conversationId, int clientId)
     {
-        var rows = await _context.Database.SqlQueryInterpolated<MessageRow>($@"
+        var rows = await _context.Database.SqlQueryRaw<MessageRow>(@"
 SELECT id AS ""Id"", sender_user_id AS ""SenderUserId"", sender_client_id AS ""SenderClientId"",
        body AS ""Body"", created_at AS ""CreatedAt"", read_at AS ""ReadAt""
 FROM patient_messages
-WHERE conversation_id = {conversationId} AND client_id = {clientId}
+WHERE conversation_id = {0} AND client_id = {1}
 ORDER BY created_at ASC, id ASC
-LIMIT 500;").ToListAsync();
+LIMIT 500;", conversationId, clientId).ToListAsync();
 
         return rows.Select(x => new MessageDto
         {
