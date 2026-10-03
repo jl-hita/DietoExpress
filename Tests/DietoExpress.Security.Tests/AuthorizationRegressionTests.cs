@@ -1429,4 +1429,44 @@ public class AuthorizationRegressionTests
         Assert.Contains("ValidateClientPayload(dto)", source);
     }
 
+    [Fact]
+    public void PrivacyOperations_AreTenantScopedAndProfessionalOnly()
+    {
+        var controller = ReadServerController("PrivacyOperationsController.cs");
+        var service = ReadServerLogica("PrivacyOperationsService.cs");
+        var schema = ReadServerLogica("DatabaseBootstrap.cs");
+
+        Assert.Contains("[Authorize(Policy = \"Professional\")]", controller);
+        Assert.Contains("WHERE id=@id AND tenant_id=@tenant", service);
+        Assert.Contains("WHERE tenant_id=@tenant", service);
+        Assert.Contains("tenant_id INTEGER NOT NULL REFERENCES tenants(id)", schema);
+        Assert.Contains("CREATE TABLE IF NOT EXISTS privacy_requests", schema);
+        Assert.Contains("CREATE TABLE IF NOT EXISTS privacy_incidents", schema);
+    }
+
+    [Fact]
+    public void PrivacyRequests_ValidatePatientTenantBeforePersisting()
+    {
+        var service = ReadServerLogica("PrivacyOperationsService.cs");
+
+        Assert.Contains("EnsureClientBelongsToTenantAsync(request.ClientId, tenantId, ct)", service);
+        Assert.Contains("FROM clients WHERE id=@client AND tenant_id=@tenant", service);
+        Assert.Contains("CREATE_PRIVACY_REQUEST", service);
+        Assert.Contains("UPDATE_PRIVACY_REQUEST", service);
+    }
+
+    [Fact]
+    public void PrivacyIncidentRegister_DoesNotStoreSecretsOrClinicalPayloadByDesign()
+    {
+        var service = ReadServerLogica("PrivacyOperationsService.cs");
+        var schema = ReadServerLogica("DatabaseBootstrap.cs");
+
+        Assert.Contains("CREATE_PRIVACY_INCIDENT", service);
+        Assert.DoesNotContain("password", service, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("token", service, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("description TEXT NOT NULL", schema);
+        Assert.Contains("data_categories VARCHAR(500)", schema);
+        Assert.DoesNotContain("clinical_content", schema, StringComparison.OrdinalIgnoreCase);
+    }
+
 }
