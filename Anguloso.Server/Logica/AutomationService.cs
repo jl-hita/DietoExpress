@@ -51,6 +51,9 @@ public sealed class AutomationService
                 "followup.checkin.escalation" => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"]),
                 "diet.expiry.reminder" => new AutomationRuleConfig(true, null, "patient", ["in_app"]),
                 "diet.expired" => new AutomationRuleConfig(true, null, "both", ["in_app"]),
+                "diet.renewal" => new AutomationRuleConfig(true, null, "both", ["in_app"]),
+                "biometrics.review_due" => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"]),
+                "biometrics.evolution" => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"]),
                 _ => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"])
             };
             return defaults;
