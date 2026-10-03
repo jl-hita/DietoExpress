@@ -24,6 +24,7 @@ public sealed class PatientDocumentService
     {
         var created = 0;
         var root = GetStorageRoot();
+        var copiedFiles = new List<string>();
 
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
@@ -67,6 +68,7 @@ public sealed class PatientDocumentService
                 Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
 
                 File.Copy(source, destination, overwrite: false);
+                copiedFiles.Add(destination);
                 var hash = await ComputeSha256Async(destination, cancellationToken);
 
                 await using var insert = new NpgsqlCommand("""
@@ -185,6 +187,10 @@ public sealed class PatientDocumentService
         catch
         {
             await transaction.RollbackAsync(cancellationToken);
+            foreach (var copiedFile in copiedFiles)
+            {
+                try { File.Delete(copiedFile); } catch { }
+            }
             throw;
         }
     }
