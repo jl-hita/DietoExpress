@@ -1217,16 +1217,37 @@ public sealed class AutomationService
                     if (!await IsRuleEnabledAsync(evt.TenantId, "appointment.no_show", cancellationToken)) break;
                     var payload = AutomationJson.Deserialize<AppointmentStatusPayload>(evt.Payload)
                         ?? throw new InvalidOperationException("Payload inválido para appointment.no_show.");
+                    // Si la cita se marca como no presentada antes de su hora, los recordatorios pendientes
+                    // dejan de tener sentido. La cancelación es idempotente y no afecta a otras citas del paciente.
+                    await CancelPendingJobsByIdempotencyPrefixAsync(
+                        evt.TenantId,
+                        $"appointment-reminder:{payload.AppointmentId}:",
+                        cancellationToken);
+
                     await ScheduleActionAsync(
                         evt.TenantId,
                         "create_professional_task",
                         new CreateTaskAction(payload.ClientId, payload.NutritionistId,
                             "Contactar paciente por ausencia a la cita",
-                            "La cita ha quedado marcada como no presentada.",
+                            "La cita ha quedado marcada como no presentada. Valorar contacto y reprogramación.",
                             await ApplyConfiguredDelayAsync(evt.TenantId, "appointment.no_show", DateTime.UtcNow.AddHours(24), cancellationToken), "high", "automation:appointment.no_show"),
                         DateTime.UtcNow,
                         evt.Id,
                         $"event:{evt.Id}:create-professional-task",
+                        cancellationToken: cancellationToken);
+
+                    await ScheduleActionAsync(
+                        evt.TenantId,
+                        "notify_patient",
+                        new NotifyPatientAction(
+                            payload.ClientId,
+                            "appointment_no_show",
+                            "No hemos podido realizar la cita",
+                            "La cita ha quedado marcada como no presentada. Si necesitas continuar con tu seguimiento, puedes contactar con tu nutricionista para reprogramarla.",
+                            "/patient?tab=appointments"),
+                        DateTime.UtcNow,
+                        evt.Id,
+                        $"event:{evt.Id}:patient-notification",
                         cancellationToken: cancellationToken);
                     break;
                 }
