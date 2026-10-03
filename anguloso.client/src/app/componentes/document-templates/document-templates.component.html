@@ -24,7 +24,7 @@
       <p *ngIf="!templates.length">Todavía no hay plantillas.</p>
       <div *ngFor="let t of templates" style="display:grid;grid-template-columns:1fr auto;gap:12px;padding:14px 0;border-bottom:1px solid #ddd">
         <div><strong>{{ t.name }}</strong> · v{{ t.version }}<div>{{ t.documentType }} · {{ t.fileName }}</div><small>{{ t.requiredOnClientCreation ? 'Alta ' : '' }}{{ t.requiredBeforeConsultation ? 'Consulta ' : '' }}{{ t.requiresSignature ? 'Aceptación' : 'Sin aceptación' }}</small></div>
-        <button mat-stroked-button (click)="toggle(t)">{{ t.active ? 'Desactivar' : 'Activar' }}</button>
+        <button mat-stroked-button (click)="toggle(t)">{{ t.isActive ? 'Desactivar' : 'Activar' }}</button>
       </div>
     </mat-card-content>
   </mat-card>
