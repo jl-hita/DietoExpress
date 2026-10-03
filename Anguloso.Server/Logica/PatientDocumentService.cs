@@ -32,7 +32,8 @@ public sealed class PatientDocumentService
         try
         {
             await using var templatesCommand = new NpgsqlCommand("""
-                SELECT id, name, document_type, version, requires_signature, storage_key, file_name, mime_type, file_size
+                SELECT DISTINCT ON (LOWER(name))
+                       id, name, document_type, version, requires_signature, storage_key, file_name, mime_type, file_size
                 FROM document_templates
                 WHERE tenant_id=@tenant AND is_active=true
                   AND storage_key IS NOT NULL
