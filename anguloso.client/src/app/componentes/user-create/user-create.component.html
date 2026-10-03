@@ -39,7 +39,7 @@
           <mat-icon matPrefix>lock_outline</mat-icon>
           <input matInput type="password" formControlName="password" autocomplete="new-password" required>
           <mat-error *ngIf="form.controls['password'].hasError('required')">La contraseña es obligatoria</mat-error>
-          <mat-error *ngIf="form.controls['password'].hasError('minlength')">Debe tener al menos 6 caracteres</mat-error>
+          <mat-error *ngIf="form.controls['password'].hasError('minlength')">Debe tener al menos 12 caracteres</mat-error>
         </mat-form-field>
 
         <div class="legal-signup" *ngIf="!legalLoading">
