@@ -545,7 +545,7 @@ public class ClientsController : ControllerBase
         client.portal_token_version++;
 
         await _context.client_nutritionist_assignments
-            .Where(a => a.client_id == client.id && a.tenant_id == tenantId!.Value && a.is_active)
+            .Where(a => a.client_id == client.id && a.client.tenant_id == tenantId!.Value && a.is_active)
             .ExecuteUpdateAsync(setters => setters.SetProperty(a => a.is_active, false));
 
         await _context.SaveChangesAsync();
