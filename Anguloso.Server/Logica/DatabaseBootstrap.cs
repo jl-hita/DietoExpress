@@ -1368,6 +1368,59 @@ public static class DatabaseBootstrap
 
 
     /// <summary>Refuerza la integridad de versiones y del estado activo de las plantillas documentales.</summary>
+
+    /// <summary>
+    /// Infraestructura para documentos legales propios de DietoExpress y evidencias
+    /// de aceptación. Los documentos se publicarán explícitamente; crear las tablas
+    /// no implica que un texto pendiente de revisión jurídica pueda presentarse como
+    /// condición contractual definitiva.
+    /// </summary>
+    public static void UpgradeLegalComplianceSchemaV1(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS legal_documents (
+                id BIGSERIAL PRIMARY KEY,
+                document_key VARCHAR(100) NOT NULL,
+                version INTEGER NOT NULL,
+                title VARCHAR(300) NOT NULL,
+                document_type VARCHAR(50) NOT NULL,
+                content TEXT NOT NULL,
+                status VARCHAR(20) NOT NULL DEFAULT 'draft',
+                effective_from TIMESTAMPTZ NULL,
+                sha256 VARCHAR(64) NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                published_at TIMESTAMPTZ NULL,
+                UNIQUE (document_key, version)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_legal_documents_status
+                ON legal_documents(document_key, status, version DESC);
+
+            CREATE TABLE IF NOT EXISTS legal_acceptances (
+                id BIGSERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                tenant_id INTEGER NULL REFERENCES tenants(id) ON DELETE SET NULL,
+                legal_document_id BIGINT NOT NULL REFERENCES legal_documents(id) ON DELETE RESTRICT,
+                document_key VARCHAR(100) NOT NULL,
+                document_version INTEGER NOT NULL,
+                document_sha256 VARCHAR(64) NOT NULL,
+                accepted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                ip_address VARCHAR(64) NULL,
+                user_agent VARCHAR(500) NULL,
+                context VARCHAR(50) NOT NULL DEFAULT 'signup',
+                UNIQUE (user_id, legal_document_id, document_version, context)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_legal_acceptances_user
+                ON legal_acceptances(user_id, accepted_at DESC);
+
+            CREATE INDEX IF NOT EXISTS idx_legal_acceptances_tenant
+                ON legal_acceptances(tenant_id, accepted_at DESC);
+        ");
+
+        logger.LogInformation("Migración legal-compliance-v1 comprobada correctamente.");
+    }
+
     public static void UpgradeDocumentTemplateSchemaV1(angulosodbContext context, ILogger logger)
     {
         context.Database.ExecuteSqlRaw(@"
