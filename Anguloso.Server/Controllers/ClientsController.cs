@@ -347,6 +347,7 @@ public class ClientsController : ControllerBase
             throw;
         }
 
+        // El evento se emite después de persistir el cliente; la automatización es un efecto derivado y no debe convertir un alta válida en un error de la operación principal.
         try
         {
             await _automationService.PublishEventAsync(
