@@ -30,6 +30,7 @@ public class EnergyCalculatorService
         };
 
         // 1. Mifflin-St Jeor
+        // Se calculan varias fórmulas en paralelo para que el profesional pueda comparar el resultado y no quede atado a un único método de estimación.
         double mifflinBmr = isMale
             ? (10.0 * weight) + (6.25 * height) - (5.0 * age) + 5.0
             : (10.0 * weight) + (6.25 * height) - (5.0 * age) - 161.0;
@@ -40,6 +41,7 @@ public class EnergyCalculatorService
             Tdee = CalculateTdeeForBmr(mifflinBmr)
         };
 
+        // La segunda estimación sirve como referencia independiente; las diferencias entre fórmulas se conservan en el DTO para mostrarlas en la interfaz.
         // 2. Harris-Benedict (Revised)
         double harrisBmr = isMale
             ? 88.362 + (13.397 * weight) + (4.799 * height) - (5.677 * age)
@@ -51,6 +53,7 @@ public class EnergyCalculatorService
             Tdee = CalculateTdeeForBmr(harrisBmr)
         };
 
+        // Katch-McArdle usa masa libre de grasa, por lo que solo se incluye cuando el porcentaje corporal disponible está dentro de un rango válido.
         // 3. Katch-McArdle (necesita % de grasa corporal)
         if (bodyFat.HasValue && bodyFat.Value > 0 && bodyFat.Value < 100)
         {

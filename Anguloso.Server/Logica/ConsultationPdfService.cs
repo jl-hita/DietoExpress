@@ -21,6 +21,7 @@ public class ConsultationPdfService
             .FirstOrDefault(u => u.id == client.user_id &&
                                  (!client.tenant_id.HasValue || u.tenant_id == client.tenant_id.Value));
 
+        // Se obtiene la medición más reciente de la fecha y, por separado, todo el histórico anterior para poder generar tanto la foto del día como la evolución.
         var measurements = context.biometrics
             .AsNoTracking()
             .Where(b => b.client_id == client.id && b.measurement_date == consultationDate)
@@ -34,6 +35,7 @@ public class ConsultationPdfService
             .ThenBy(b => b.id)
             .ToList();
 
+        // La actividad de dietas se filtra por tenant y por relación con el paciente/profesional para evitar mezclar información de otras consultas.
         var dietsCreated = context.diets
             .AsNoTracking()
             .Where(d => d.archived_at == null &&
@@ -54,6 +56,7 @@ public class ConsultationPdfService
             .OrderBy(cd => cd.assigned_at)
             .ToList();
 
+        // La dieta activa se determina por el intervalo de vigencia en la fecha de la consulta, no simplemente por el último registro asignado.
         var activeDiet = context.client_diets
             .AsNoTracking()
             .Include(cd => cd.diet)

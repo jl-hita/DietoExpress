@@ -21,6 +21,7 @@ public class DietPdfService
             .FirstOrDefault(u => u.id == client.user_id);
 
         // Fetch exchange foods if any
+        // Los alimentos de intercambio globales son visibles siempre; los locales solo se incluyen si pertenecen al tenant y el usuario tiene permiso o es su creador.
         var exchangeFoods = context.foods
             .Include(f => f.exchange_group)
             .Where(f => f.exchange_group_id != null && f.grams_per_exchange.HasValue &&
@@ -31,6 +32,7 @@ public class DietPdfService
             .ThenBy(f => f.name)
             .ToList();
 
+        // QuestPDF compone el documento por bloques para mantener separadas cabecera, contenido, equivalencias y lista de compra; así cada sección puede evolucionar sin alterar las demás.
         var document = Document.Create(container =>
         {
             if (nutritionist == null)
@@ -363,6 +365,7 @@ public class DietPdfService
             col.Item().Text("TABLA DE EQUIVALENCIAS DE INTERCAMBIOS").Bold().FontSize(14).FontColor("#3f51b5");
             col.Item().Text("Use esta tabla para cambiar un alimento por otro equivalente de su mismo grupo. Las cantidades mostradas corresponden a 1 INTERCAMBIO.").FontSize(9).Italic().FontColor("#555555");
 
+            // Agrupar por grupo permite imprimir una sola referencia nutricional del intercambio y después listar sus alimentos equivalentes.
             var groupedFoods = exchangeFoods.GroupBy(f => f.exchange_group).ToList();
             
             col.Item().Table(table =>
@@ -404,6 +407,7 @@ public class DietPdfService
 
     private void ComposeShoppingList(IContainer container, diets diet)
     {
+        // La lista de compra se consolida recorriendo todas las comidas: alimentos iguales suman gramos y los intercambios se acumulan por grupo.
         var shoppingItems = new List<ShoppingListItem>();
 
         if (diet.diet_days != null)
