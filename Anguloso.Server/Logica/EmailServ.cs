@@ -73,7 +73,7 @@ public class EmailServ
                 }
                 catch (Exception e)
                 {
-                    _logServ.LogError("Error al enviar email.");
+                    _logServ.LogError($"Error SMTP al enviar email a {to}: {e.GetType().Name}: {e.Message}");
                     return new BoolMensaje
                     {
                         Exito = false,
@@ -84,6 +84,7 @@ public class EmailServ
         }
         catch (Exception ex)
         {
+            _logServ.LogError($"Error preparando email para {to}: {ex.GetType().Name}: {ex.Message}");
             return new BoolMensaje
             {
                 Exito = false,
