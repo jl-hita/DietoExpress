@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.RateLimiting;
+using Anguloso.Server.Logica.Utils;
 
 namespace Anguloso.Server.Controllers;
 
@@ -72,6 +73,9 @@ public sealed class BillingController : ControllerBase
 
         if (await IsClinicSubscriptionManagedByAdminAsync())
             return Forbid();
+
+        if (!await HasAcceptedCurrentSaasTermsAsync())
+            return StatusCode(StatusCodes.Status428PreconditionRequired, "Debes aceptar las condiciones de contratación vigentes antes de iniciar un pago.");
 
         if (string.IsNullOrWhiteSpace(request.PlanCode) || request.PlanCode.Trim().Length > 50 ||
             string.IsNullOrWhiteSpace(request.BillingInterval) || request.BillingInterval.Trim().Length > 20)
@@ -181,6 +185,34 @@ public sealed class BillingController : ControllerBase
             return Ok(new { message = "La renovación ha sido reactivada." });
         }
         catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+    }
+
+    private async Task<bool> HasAcceptedCurrentSaasTermsAsync()
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        if (!userId.HasValue) return false;
+
+        var current = await _context.Database.SqlQueryRaw<CurrentLegalDocument>(
+            """
+            SELECT document_key AS "DocumentKey", version AS "Version", sha256 AS "Sha256"
+            FROM legal_documents
+            WHERE document_key = 'saas_terms' AND status = 'published'
+            ORDER BY version DESC
+            LIMIT 1
+            """).SingleOrDefaultAsync();
+
+        if (current == null) return false;
+
+        return await _context.Database.SqlQueryRaw<int>(
+            """
+            SELECT 1 AS "Value"
+            FROM legal_acceptances
+            WHERE user_id = {0}
+              AND document_key = 'saas_terms'
+              AND document_version = {1}
+              AND document_sha256 = {2}
+            LIMIT 1
+            """, userId.Value, current.Version, current.Sha256).AnyAsync();
     }
 
     private async Task<bool> IsClinicSubscriptionManagedByAdminAsync()
@@ -848,3 +880,5 @@ public sealed record BillingPlanResponse(
     int? MaxTotalClients,
     bool HasMonthlyStripePrice,
     bool HasYearlyStripePrice);
+
+internal sealed record CurrentLegalDocument(string DocumentKey, int Version, string Sha256);
