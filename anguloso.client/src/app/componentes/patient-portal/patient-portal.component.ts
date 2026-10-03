@@ -494,6 +494,17 @@ export class PatientPortalComponent implements OnInit {
     });
   }
 
+  acceptDocument(doc: PatientDocument): void {
+    if (!doc.requiresSignature || doc.status === 'signed') return;
+    this.portalService.acceptDocument(doc.id).subscribe({
+      next: () => {
+        doc.status = 'signed';
+        doc.signedAt = new Date().toISOString();
+      },
+      error: err => this.documentsError = err?.error?.message || 'No hemos podido registrar la aceptación.'
+    });
+  }
+
   loadNotifications(): void {
     this.notificationsLoading = true;
     this.portalService.getNotifications().subscribe({
