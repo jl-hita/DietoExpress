@@ -582,6 +582,28 @@
         </div>
 
         <div class="followup-evolution" *ngIf="checkins.length">
+          <div class="followup-summary" *ngIf="getFollowupAlerts().length">
+            <div class="followup-summary-header">
+              <div>
+                <strong>Resumen del seguimiento</strong>
+                <span>Cambios recientes que conviene revisar con el paciente</span>
+              </div>
+              <mat-icon>insights</mat-icon>
+            </div>
+            <div class="followup-alerts">
+              <div class="followup-alert" *ngFor="let alert of getFollowupAlerts()" [class.attention]="alert.level === 'attention'">
+                <mat-icon>{{ alert.icon }}</mat-icon>
+                <span>{{ alert.text }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="followup-summary followup-summary-ok" *ngIf="!getFollowupAlerts().length">
+            <mat-icon>check_circle</mat-icon>
+            <div>
+              <strong>Seguimiento estable</strong>
+              <span>No se han detectado cambios relevantes con los datos disponibles.</span>
+            </div>
+          </div>
           <div class="chart-card-header">
             <div><strong>Seguimiento semanal</strong><span>Evolución de adherencia, hábitos y percepción del paciente</span></div>
             <div class="followup-actions">
