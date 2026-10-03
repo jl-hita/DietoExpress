@@ -66,6 +66,13 @@ Este documento recoge el backlog funcional de automatizaciones identificado sobr
 - Cancelación de recordatorios de primera cita cuando existe una reserva futura.
 - Cancelación de recordatorios de onboarding cuando se completa el flujo.
 
+## Implementado durante la fase actual
+
+- Configuración persistente por tenant para reglas de automatización mediante `automation_rules`.
+- Activación/desactivación y retardo configurable para `client.created`, `patient.checkin.submitted`, `appointment.completed` y `appointment.no_show`.
+- API profesional `GET /api/professional/automation/rules` y `PUT /api/professional/automation/rules/{ruleKey}`.
+- Sin configuración explícita se mantienen los comportamientos actuales por defecto, evitando cambios funcionales al actualizar instalaciones existentes.
+
 ## Segunda fase: sistema configurable
 
 10. Reglas configurables por nutricionista
