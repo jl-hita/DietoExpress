@@ -1342,6 +1342,17 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void NewPatientDocumentReminders_RequirePendingSignatureDocuments()
+    {
+        var controller = ReadServerController("ClientsController.cs");
+
+        Assert.Contains("GetPendingSignatureDocumentsAsync", controller);
+        Assert.Contains("pendingSignatureDocuments.Count > 0", controller);
+        Assert.Contains("documents:pending-reminder:{client.id}:24h", controller);
+        Assert.Contains("documents:pending-reminder:{client.id}:72h", controller);
+    }
+
+    [Fact]
     public void ConsultationDocumentReminders_ArePatientScopedAndCancellable()
     {
         var controller = ReadServerController("ProfessionalConsultationsController.cs");
