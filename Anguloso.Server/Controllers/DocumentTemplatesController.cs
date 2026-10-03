@@ -48,11 +48,11 @@ public class DocumentTemplatesController : ControllerBase
                 requiredOnClientCreation = reader.GetBoolean(6),
                 requiredBeforeConsultation = reader.GetBoolean(7),
                 requiresSignature = reader.GetBoolean(8),
-                fileName = reader.IsDBNull(8) ? null : reader.GetString(8),
-                mimeType = reader.IsDBNull(9) ? null : reader.GetString(9),
-                fileSize = reader.IsDBNull(10) ? 0 : reader.GetInt64(10),
-                createdAt = reader.GetDateTime(11),
-                updatedAt = reader.GetDateTime(12)
+                fileName = reader.IsDBNull(9) ? null : reader.GetString(9),
+                mimeType = reader.IsDBNull(10) ? null : reader.GetString(10),
+                fileSize = reader.IsDBNull(11) ? 0 : reader.GetInt64(11),
+                createdAt = reader.GetDateTime(12),
+                updatedAt = reader.GetDateTime(13)
             });
         }
         return Ok(result);
