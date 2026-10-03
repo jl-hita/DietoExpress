@@ -125,6 +125,11 @@ export class PatientPortalService {
 
   getCurrentCheckin(): Observable<PatientCheckin | null> { return this.http.get<PatientCheckin | null>(`${this.base}/portal/check-ins/current`); }
   getCheckinHistory(): Observable<PatientCheckin[]> { return this.http.get<PatientCheckin[]>(`${this.base}/portal/check-ins`); }
+  getCheckins(clientId: number): Observable<PatientCheckin[]> {
+    return this.http.get<PatientCheckin[]>(`${this.base}/professional/check-ins`, {
+      params: { pendingOnly: 'false', clientId: clientId.toString(), limit: '200' }
+    });
+  }
   saveCheckin(request: PatientCheckinRequest): Observable<PatientCheckin> { return this.http.post<PatientCheckin>(`${this.base}/portal/check-ins`, request); }
   getClientPortalAccess(clientId: number): Observable<ClientPortalAccess> { return this.http.get<ClientPortalAccess>(`${this.base}/clients/${clientId}/portal-access`); }
   regenerateClientToken(clientId: number): Observable<ClientPortalAccess> { return this.http.post<ClientPortalAccess>(`${this.base}/clients/${clientId}/portal-access/regenerate-token`, {}); }
