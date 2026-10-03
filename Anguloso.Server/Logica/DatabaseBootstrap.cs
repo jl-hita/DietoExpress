@@ -937,6 +937,8 @@ public static class DatabaseBootstrap
     }
 
     /// <summary>Estado y actividad operativa del ciclo de vida de pacientes.</summary>
+    // lifecycle_status es una proyección persistida para consultas rápidas; el sweep periódico puede reconstruirla
+    // desde citas/check-ins/biometrías, por lo que no se trata como una fuente de verdad clínica independiente.
     public static void UpgradeAutomationSchemaV2(angulosodbContext context, ILogger logger)
     {
         context.Database.ExecuteSqlRaw(@"
@@ -954,7 +956,8 @@ public static class DatabaseBootstrap
     }
 
     /// <summary>Motor persistente de automatizaciones, scheduler y tareas profesionales.</summary>
-    // Las restricciones de idempotencia y estado se mantienen en PostgreSQL, no solo en C#: también protegen frente a concurrencia entre peticiones y el worker.
+    // PostgreSQL es la frontera final de consistencia del motor: estas restricciones siguen siendo efectivas
+    // aunque dos peticiones o varios workers intenten crear el mismo evento/job simultáneamente.
     public static void UpgradeAutomationSchemaV1(angulosodbContext context, ILogger logger)
     {
         context.Database.ExecuteSqlRaw(@"
@@ -1000,6 +1003,8 @@ public static class DatabaseBootstrap
             CREATE UNIQUE INDEX IF NOT EXISTS uq_automation_jobs_tenant_idempotency
                 ON automation_jobs(tenant_id, idempotency_key)
                 WHERE idempotency_key IS NOT NULL;
+            -- El worker busca por estado y vencimiento y usa SKIP LOCKED para repartir trabajo entre instancias.
+            -- Este índice mantiene esa cola acotada sin convertir la tabla completa en el punto de contención.
             CREATE INDEX IF NOT EXISTS idx_automation_jobs_pending
                 ON automation_jobs(status, scheduled_at, id);
             CREATE INDEX IF NOT EXISTS idx_automation_jobs_tenant
@@ -1007,6 +1012,8 @@ public static class DatabaseBootstrap
             CREATE INDEX IF NOT EXISTS idx_automation_jobs_event
                 ON automation_jobs(event_id);
 
+            -- Las ejecuciones son historial independiente del estado actual del job: un job puede reintentarse
+            -- varias veces y cada intento conserva su propia duración y resultado para diagnóstico/auditoría.
             CREATE TABLE IF NOT EXISTS automation_executions (
                 id BIGSERIAL PRIMARY KEY,
                 job_id BIGINT NOT NULL REFERENCES automation_jobs(id) ON DELETE CASCADE,
@@ -1039,6 +1046,8 @@ public static class DatabaseBootstrap
                     CHECK (status IN ('open','in_progress','completed','cancelled'))
             );
 
+            -- La tarea profesional tiene su propia barrera de idempotencia porque un reintento del worker puede
+            -- llegar después de que la tarea se haya creado pero antes de que el job quede marcado como completado.
             CREATE UNIQUE INDEX IF NOT EXISTS uq_professional_tasks_tenant_idempotency
                 ON professional_tasks(tenant_id, idempotency_key)
                 WHERE idempotency_key IS NOT NULL;
@@ -1108,6 +1117,8 @@ public static class DatabaseBootstrap
     }
 
     /// <summary>Estado de revisión profesional de los check-ins semanales.</summary>
+    // La unicidad por paciente y semana hace que reintentos del portal o eventos duplicados no generen dos check-ins
+    // para el mismo periodo; la automatización puede tratar esa restricción como parte de su idempotencia.
     public static void UpgradeAutomationSchemaV3(angulosodbContext context, ILogger logger)
     {
         context.Database.ExecuteSqlRaw(@"

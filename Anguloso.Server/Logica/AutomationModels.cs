@@ -12,6 +12,8 @@ public sealed record AutomationEvent(
     string Payload,
     DateTime OccurredAt);
 
+// Attempts se incrementa al reclamar el job; MaxAttempts limita los reintentos incluso si el worker se reinicia
+// durante una llamada externa y recupera posteriormente un job que quedó en processing.
 public sealed record AutomationJob(
     long Id,
     int TenantId,
@@ -48,6 +50,8 @@ public sealed class ProfessionalTaskDto
     public DateTime? CompletedAt { get; set; }
 }
 
+// Estos payloads se serializan en automation_jobs, por lo que sus nombres y significado forman parte del contrato
+// entre el productor y el worker y deben evolucionar de forma compatible con jobs ya persistidos.
 public sealed record CreateTaskAction(
     int? ClientId,
     int? AssignedUserId,

@@ -3,6 +3,8 @@ using Npgsql;
 namespace Anguloso.Server.Logica;
 
 // Estas acciones son contratos serializables entre el motor de automatizaciones, el worker y los endpoints de gestión.
+// Las acciones se almacenan como JSON y se ejecutan de forma asíncrona; los campos opcionales permiten ampliar
+// el contrato sin obligar a reescribir jobs ya persistidos.
 public sealed record NotifyPatientAction(
     int ClientId,
     string Type,
@@ -18,6 +20,7 @@ public sealed record EmailPatientAction(
 
 public sealed record CancelAutomationRequest(string? Reason);
 
+// DTO de observabilidad: expone cada intento registrado sin mezclarlo con el estado actual del job.
 public sealed class AutomationExecutionDto
 {
     public long Id { get; set; }
