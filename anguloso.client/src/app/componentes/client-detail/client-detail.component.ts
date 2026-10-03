@@ -827,6 +827,26 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
       .find(c => !c.reviewed_at) ?? null;
   }
 
+  followupTaskCreating = false;
+
+  createFollowUpTask(): void {
+    const checkin = this.checkins.length ? this.checkins[this.checkins.length - 1] : null;
+    if (!checkin || !this.getFollowupAlerts().length || this.followupTaskCreating) return;
+
+    this.followupTaskCreating = true;
+    this.portalService.createFollowUpTask(checkin.id).subscribe({
+      next: () => {
+        this.followupTaskCreating = false;
+        this.snack.open('Tarea de seguimiento creada', 'Cerrar', { duration: 1800 });
+      },
+      error: (err) => {
+        this.followupTaskCreating = false;
+        const message = err?.error?.message || 'No se ha podido crear la tarea de seguimiento';
+        this.snack.open(message, 'Cerrar', { duration: 3000 });
+      }
+    });
+  }
+
   reviewLatestCheckin(): void {
     const checkin = this.getLatestUnreviewedCheckin();
     if (!checkin) return;
