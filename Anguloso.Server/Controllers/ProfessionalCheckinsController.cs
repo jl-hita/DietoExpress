@@ -60,6 +60,10 @@ public sealed class ProfessionalCheckinsController : ControllerBase
                 Weight = c.weight,
                 Adherence = c.adherence,
                 Hunger = c.hunger,
+                Energy = c.energy,
+                SleepQuality = c.sleep_quality,
+                SleepHours = c.sleep_hours,
+                Training = c.training,
                 Difficulties = c.difficulties,
                 Notes = c.notes,
                 ReviewedAt = c.reviewed_at,
@@ -111,6 +115,10 @@ public sealed class ProfessionalCheckinsController : ControllerBase
         public double? Weight { get; set; }
         public int? Adherence { get; set; }
         public int? Hunger { get; set; }
+        public int? Energy { get; set; }
+        public int? SleepQuality { get; set; }
+        public double? SleepHours { get; set; }
+        public int? Training { get; set; }
         public string? Difficulties { get; set; }
         public string? Notes { get; set; }
         public DateTime? ReviewedAt { get; set; }
