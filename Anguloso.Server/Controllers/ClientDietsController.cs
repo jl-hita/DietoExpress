@@ -85,7 +85,7 @@ public class ClientDietsController : ControllerBase
     }
 
 
-    private async Task PublishDietAutomationEventAsync(
+    // Las dietas publicadas/cambiadas generan eventos solo después de confirmar la persistencia; así una notificación nunca anticipa un estado que la transacción pueda revertir.\n    private async Task PublishDietAutomationEventAsync(
         int tenantId,
         string eventType,
         int clientId,
