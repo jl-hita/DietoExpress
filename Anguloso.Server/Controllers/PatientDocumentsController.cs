@@ -424,6 +424,16 @@ public class PatientDocumentsController : ControllerBase
         public int Active { get; set; }
     }
 
+    private sealed class PatientDocumentAuditDto
+    {
+        public long Id { get; set; }
+        public string EventType { get; set; } = "";
+        public DateTime OccurredAt { get; set; }
+        public string? IpAddress { get; set; }
+        public string? UserAgent { get; set; }
+        public string? Details { get; set; }
+    }
+
     public sealed class PatientDocumentDto
     {
         public long Id { get; set; }
