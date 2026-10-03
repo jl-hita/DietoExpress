@@ -20,7 +20,305 @@ public sealed class AutomationController : ControllerBase
         _tenantContext = tenantContext;
     }
 
+    public sealed record AutomationRuleRequest(bool Enabled, int? DelayMinutes, string? RecipientScope, string[]? Channels);
+
+    private static readonly (string Key, string RecipientScope, string[] Channels)[] SupportedRules =
+    [
+        ("client.created", "assigned_professional", ["in_app"]),
+        ("patient.checkin.submitted", "assigned_professional", ["in_app"]),
+        ("patient.checkin.reviewed", "patient", ["in_app"]),
+        ("appointment.completed", "both", ["in_app"]),
+        ("appointment.reminder.24h", "patient", ["in_app"]),
+        ("appointment.reminder.2h", "patient", ["in_app"]),
+        ("appointment.no_show", "assigned_professional", ["in_app"]),
+        ("onboarding.info.reminder", "patient", ["in_app"]),
+        ("onboarding.info.escalation", "assigned_professional", ["in_app"]),
+        ("onboarding.first_appointment.reminder", "patient", ["in_app"]),
+        ("onboarding.first_appointment.escalation", "assigned_professional", ["in_app"]),
+        ("followup.checkin.reminder", "patient", ["in_app"]),
+        ("followup.checkin.escalation", "assigned_professional", ["in_app"]),
+        ("diet.expiry.reminder", "patient", ["in_app"]),
+        ("diet.expired", "both", ["in_app"]),
+        ("diet.renewal", "both", ["in_app"]),
+        ("biometrics.review_due", "assigned_professional", ["in_app"]),
+        ("biometrics.evolution", "assigned_professional", ["in_app"])
+    ];
+
+    [HttpGet("rules")]
+    public async Task<IActionResult> GetRules()
+    {
+        if (!_tenantContext.TenantId.HasValue) return BadRequest();
+
+        await using var connection = new NpgsqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        await connection.OpenAsync();
+
+        await using var command = new NpgsqlCommand("""
+            SELECT rule_key, enabled, delay_minutes, recipient_scope, channels, updated_at
+            FROM automation_rules
+            WHERE tenant_id=@tenant;
+            """, connection);
+        command.Parameters.AddWithValue("tenant", _tenantContext.TenantId.Value);
+
+        var configured = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            configured[reader.GetString(0)] = new
+            {
+                ruleKey = reader.GetString(0),
+                enabled = reader.GetBoolean(1),
+                delayMinutes = reader.IsDBNull(2) ? (int?)null : reader.GetInt32(2),
+                recipientScope = reader.GetString(3),
+                channels = reader.IsDBNull(4) ? Array.Empty<string>() :
+                    (System.Text.Json.JsonSerializer.Deserialize<string[]>(reader.GetString(4)) ?? Array.Empty<string>()),
+                updatedAt = reader.GetDateTime(5)
+            };
+        }
+
+        var rows = SupportedRules.Select(rule =>
+            configured.TryGetValue(rule.Key, out var value)
+                ? value
+                : new
+                {
+                    ruleKey = rule.Key,
+                    enabled = true,
+                    delayMinutes = (int?)null,
+                    recipientScope = rule.RecipientScope,
+                    channels = rule.Channels,
+                    updatedAt = (DateTime?)null
+                }).ToList();
+
+        return Ok(rows);
+    }
+
+    [HttpPut("rules/{ruleKey}")]
+    public async Task<IActionResult> UpdateRule(string ruleKey, [FromBody] AutomationRuleRequest request)
+    {
+        if (!_tenantContext.TenantId.HasValue || string.IsNullOrWhiteSpace(ruleKey)) return BadRequest();
+        ruleKey = ruleKey.Trim().ToLowerInvariant();
+        if (ruleKey.Length > 120 || request.DelayMinutes is < 0 or > 525600) return BadRequest();
+        if (!SupportedRules.Any(x => x.Key.Equals(ruleKey, StringComparison.OrdinalIgnoreCase)))
+            return BadRequest("Regla de automatización no soportada.");
+
+        var recipient = string.IsNullOrWhiteSpace(request.RecipientScope)
+            ? "assigned_professional"
+            : request.RecipientScope.Trim().ToLowerInvariant();
+        if (recipient is not ("assigned_professional" or "clinic_admin" or "patient" or "both")) return BadRequest();
+
+        var channels = request.Channels is { Length: > 0 }
+            ? request.Channels.Distinct(StringComparer.OrdinalIgnoreCase).Select(x => x.Trim().ToLowerInvariant()).ToArray()
+            : ["in_app"];
+        if (channels.Any(x => x is not ("in_app" or "email" or "push")))
+            return BadRequest();
+
+        await using var connection = new NpgsqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand("""
+            INSERT INTO automation_rules(tenant_id, rule_key, enabled, delay_minutes, recipient_scope, channels, updated_at)
+            VALUES(@tenant,@rule,@enabled,@delay,@recipient,@channels::jsonb,NOW())
+            ON CONFLICT (tenant_id, rule_key)
+            DO UPDATE SET enabled=EXCLUDED.enabled, delay_minutes=EXCLUDED.delay_minutes,
+                          recipient_scope=EXCLUDED.recipient_scope, channels=EXCLUDED.channels, updated_at=NOW();
+            """, connection);
+        command.Parameters.AddWithValue("tenant", _tenantContext.TenantId.Value);
+        command.Parameters.AddWithValue("rule", ruleKey);
+        command.Parameters.AddWithValue("enabled", request.Enabled);
+        command.Parameters.AddWithValue("delay", (object?)request.DelayMinutes ?? DBNull.Value);
+        command.Parameters.AddWithValue("recipient", recipient);
+        command.Parameters.AddWithValue("channels", System.Text.Json.JsonSerializer.Serialize(channels));
+        await command.ExecuteNonQueryAsync();
+        return NoContent();
+    }
+
+
+    public sealed record AutomationTemplateRequest(
+        string? PatientTitle,
+        string? PatientMessage,
+        string? ProfessionalTitle,
+        string? ProfessionalMessage,
+        string? EmailSubject,
+        string? EmailHtml);
+
+    [HttpGet("templates")]
+    public async Task<IActionResult> GetTemplates()
+    {
+        if (!_tenantContext.TenantId.HasValue) return BadRequest();
+        await using var connection = new NpgsqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand("""
+            SELECT rule_key, patient_title, patient_message, professional_title, professional_message, email_subject, email_html, updated_at
+            FROM automation_templates
+            WHERE tenant_id=@tenant
+            ORDER BY rule_key;
+            """, connection);
+        command.Parameters.AddWithValue("tenant", _tenantContext.TenantId.Value);
+        var persisted = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            persisted[reader.GetString(0)] = new {
+                ruleKey = reader.GetString(0),
+                patientTitle = reader.IsDBNull(1) ? null : reader.GetString(1),
+                patientMessage = reader.IsDBNull(2) ? null : reader.GetString(2),
+                professionalTitle = reader.IsDBNull(3) ? null : reader.GetString(3),
+                professionalMessage = reader.IsDBNull(4) ? null : reader.GetString(4),
+                emailSubject = reader.IsDBNull(5) ? null : reader.GetString(5),
+                emailHtml = reader.IsDBNull(6) ? null : reader.GetString(6),
+                updatedAt = reader.GetDateTime(7)
+            };
+        }
+
+        // La UI recibe el catálogo completo, incluso antes de que el tenant haya personalizado una plantilla.
+        var rows = SupportedRules.Select(rule =>
+            persisted.TryGetValue(rule.Key, out var template)
+                ? template
+                : new {
+                    ruleKey = rule.Key,
+                    patientTitle = (string?)null,
+                    patientMessage = (string?)null,
+                    professionalTitle = (string?)null,
+                    professionalMessage = (string?)null,
+                    emailSubject = (string?)null,
+                    emailHtml = (string?)null,
+                    updatedAt = (DateTime?)null
+                }).ToList();
+
+        return Ok(rows);
+    }
+
+    [HttpPut("templates/{ruleKey}")]
+    public async Task<IActionResult> UpdateTemplate(string ruleKey, [FromBody] AutomationTemplateRequest request)
+    {
+        if (!_tenantContext.TenantId.HasValue || string.IsNullOrWhiteSpace(ruleKey)) return BadRequest();
+        ruleKey = ruleKey.Trim().ToLowerInvariant();
+        if (ruleKey.Length > 120 || !SupportedRules.Any(x => x.Key == ruleKey)) return BadRequest();
+        if (new[] { request.PatientTitle, request.PatientMessage, request.ProfessionalTitle, request.ProfessionalMessage, request.EmailSubject, request.EmailHtml }.Any(x => x?.Length > 4000)) return BadRequest();
+
+        await using var connection = new NpgsqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand("""
+            INSERT INTO automation_templates(tenant_id, rule_key, patient_title, patient_message, professional_title, professional_message, email_subject, email_html, updated_at)
+            VALUES(@tenant,@rule,@pt,@pm,@ut,@um,@es,@eh,NOW())
+            ON CONFLICT (tenant_id, rule_key)
+            DO UPDATE SET patient_title=EXCLUDED.patient_title, patient_message=EXCLUDED.patient_message,
+                          professional_title=EXCLUDED.professional_title, professional_message=EXCLUDED.professional_message,
+                          email_subject=EXCLUDED.email_subject, email_html=EXCLUDED.email_html, updated_at=NOW();
+            """, connection);
+        command.Parameters.AddWithValue("tenant", _tenantContext.TenantId.Value);
+        command.Parameters.AddWithValue("rule", ruleKey);
+        command.Parameters.AddWithValue("pt", (object?)request.PatientTitle ?? DBNull.Value);
+        command.Parameters.AddWithValue("pm", (object?)request.PatientMessage ?? DBNull.Value);
+        command.Parameters.AddWithValue("ut", (object?)request.ProfessionalTitle ?? DBNull.Value);
+        command.Parameters.AddWithValue("um", (object?)request.ProfessionalMessage ?? DBNull.Value);
+        command.Parameters.AddWithValue("es", (object?)request.EmailSubject ?? DBNull.Value);
+        command.Parameters.AddWithValue("eh", (object?)request.EmailHtml ?? DBNull.Value);
+        await command.ExecuteNonQueryAsync();
+        return NoContent();
+    }
+
     // Este endpoint es solo de observabilidad y control: el worker sigue siendo el único componente que ejecuta jobs.
+    public sealed record PatientCommunicationPreferencesRequest(bool InAppEnabled, bool EmailEnabled, bool PushEnabled);
+
+    [HttpGet("clients/{clientId:int}/communication-preferences")]
+    public async Task<IActionResult> GetPatientCommunicationPreferences(int clientId)
+    {
+        if (!_tenantContext.TenantId.HasValue) return BadRequest();
+
+        await using var connection = new NpgsqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        await connection.OpenAsync();
+
+        var userId = AuthHelpers.GetUserId(User);
+        await using var access = new NpgsqlCommand("""
+            SELECT 1
+            FROM clients c
+            WHERE c.id=@client AND c.tenant_id=@tenant AND c.archived_at IS NULL
+              AND (
+                c.user_id=@user
+                OR EXISTS (
+                    SELECT 1 FROM client_nutritionist_assignments a
+                    WHERE a.client_id=c.id AND a.nutritionist_id=@user AND a.is_active
+                )
+                OR EXISTS (
+                    SELECT 1 FROM users u
+                    WHERE u.id=@user AND u.tenant_id=@tenant AND u.role='clinic_admin' AND u.archived_at IS NULL
+                )
+              )
+            LIMIT 1;
+            """, connection);
+        access.Parameters.AddWithValue("client", clientId);
+        access.Parameters.AddWithValue("tenant", _tenantContext.TenantId.Value);
+        access.Parameters.AddWithValue("user", userId ?? 0);
+        if (await access.ExecuteScalarAsync() is null) return NotFound();
+
+        await using var command = new NpgsqlCommand("""
+            SELECT in_app_enabled, email_enabled, push_enabled
+            FROM patient_communication_preferences
+            WHERE tenant_id=@tenant AND client_id=@client
+            LIMIT 1;
+            """, connection);
+        command.Parameters.AddWithValue("tenant", _tenantContext.TenantId.Value);
+        command.Parameters.AddWithValue("client", clientId);
+        await using var reader = await command.ExecuteReaderAsync();
+        if (!await reader.ReadAsync())
+            return Ok(new { inAppEnabled = true, emailEnabled = true, pushEnabled = true });
+
+        return Ok(new {
+            inAppEnabled = reader.GetBoolean(0),
+            emailEnabled = reader.GetBoolean(1),
+            pushEnabled = reader.GetBoolean(2)
+        });
+    }
+
+    [HttpPut("clients/{clientId:int}/communication-preferences")]
+    public async Task<IActionResult> UpdatePatientCommunicationPreferences(int clientId, [FromBody] PatientCommunicationPreferencesRequest request)
+    {
+        if (!_tenantContext.TenantId.HasValue) return BadRequest();
+
+        await using var connection = new NpgsqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        await connection.OpenAsync();
+
+        var userId = AuthHelpers.GetUserId(User);
+        await using var access = new NpgsqlCommand("""
+            SELECT 1
+            FROM clients c
+            WHERE c.id=@client AND c.tenant_id=@tenant AND c.archived_at IS NULL
+              AND (
+                c.user_id=@user
+                OR EXISTS (
+                    SELECT 1 FROM client_nutritionist_assignments a
+                    WHERE a.client_id=c.id AND a.nutritionist_id=@user AND a.is_active
+                )
+                OR EXISTS (
+                    SELECT 1 FROM users u
+                    WHERE u.id=@user AND u.tenant_id=@tenant AND u.role='clinic_admin' AND u.archived_at IS NULL
+                )
+              )
+            LIMIT 1;
+            """, connection);
+        access.Parameters.AddWithValue("client", clientId);
+        access.Parameters.AddWithValue("tenant", _tenantContext.TenantId.Value);
+        access.Parameters.AddWithValue("user", userId ?? 0);
+        if (await access.ExecuteScalarAsync() is null) return NotFound();
+
+        await using var command = new NpgsqlCommand("""
+            INSERT INTO patient_communication_preferences(client_id, tenant_id, in_app_enabled, email_enabled, push_enabled, updated_at)
+            VALUES(@client,@tenant,@in_app,@email,@push,NOW())
+            ON CONFLICT (client_id)
+            DO UPDATE SET in_app_enabled=EXCLUDED.in_app_enabled,
+                          email_enabled=EXCLUDED.email_enabled,
+                          push_enabled=EXCLUDED.push_enabled,
+                          tenant_id=EXCLUDED.tenant_id,
+                          updated_at=NOW();
+            """, connection);
+        command.Parameters.AddWithValue("client", clientId);
+        command.Parameters.AddWithValue("tenant", _tenantContext.TenantId.Value);
+        command.Parameters.AddWithValue("in_app", request.InAppEnabled);
+        command.Parameters.AddWithValue("email", request.EmailEnabled);
+        command.Parameters.AddWithValue("push", request.PushEnabled);
+        await command.ExecuteNonQueryAsync();
+        return NoContent();
+    }
+
     [HttpGet("jobs")]
     public async Task<IActionResult> GetJobs(
         [FromQuery] string? status = null,

@@ -20,8 +20,46 @@ public sealed class NotificationService
     }
 
     // La notificación persistida es la fuente de verdad; el push es un canal adicional y no debe impedir guardar la notificación.
+    public async Task<PatientCommunicationPreferences> GetCommunicationPreferencesAsync(int tenantId, int clientId)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand("SELECT in_app_enabled, email_enabled, push_enabled FROM patient_communication_preferences WHERE tenant_id=@tenant AND client_id=@client LIMIT 1;", connection);
+        command.Parameters.AddWithValue("tenant", tenantId);
+        command.Parameters.AddWithValue("client", clientId);
+        await using var reader = await command.ExecuteReaderAsync();
+        return await reader.ReadAsync()
+            ? new PatientCommunicationPreferences(reader.GetBoolean(0), reader.GetBoolean(1), reader.GetBoolean(2))
+            : new PatientCommunicationPreferences(true, true, true);
+    }
+
+    public async Task SetCommunicationPreferencesAsync(int tenantId, int clientId, PatientCommunicationPreferences preferences)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand("""
+            INSERT INTO patient_communication_preferences(client_id, tenant_id, in_app_enabled, email_enabled, push_enabled, updated_at)
+            VALUES(@client,@tenant,@inapp,@email,@push,NOW())
+            ON CONFLICT (client_id) DO UPDATE SET tenant_id=EXCLUDED.tenant_id, in_app_enabled=EXCLUDED.in_app_enabled, email_enabled=EXCLUDED.email_enabled, push_enabled=EXCLUDED.push_enabled, updated_at=NOW();
+            """, connection);
+        command.Parameters.AddWithValue("client", clientId);
+        command.Parameters.AddWithValue("tenant", tenantId);
+        command.Parameters.AddWithValue("inapp", preferences.InAppEnabled);
+        command.Parameters.AddWithValue("email", preferences.EmailEnabled);
+        command.Parameters.AddWithValue("push", preferences.PushEnabled);
+        await command.ExecuteNonQueryAsync();
+    }
+
     public async Task<long> CreateForPatientAsync(int tenantId, int clientId, string type, string title, string message, string? actionUrl = null, bool sendPush = true)
     {
+        var preferences = await GetCommunicationPreferencesAsync(tenantId, clientId);
+        if (!preferences.InAppEnabled)
+        {
+            if (sendPush && preferences.PushEnabled)
+                await SendPushAsync(tenantId, clientId, new PushPayload(title, message, actionUrl));
+            return 0;
+        }
+
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
         await using var command = new NpgsqlCommand(@"
@@ -38,7 +76,7 @@ RETURNING id;", connection);
         // desaparecer el aviso que el paciente puede consultar desde el portal.
         var id = Convert.ToInt64(await command.ExecuteScalarAsync());
         // El push se intenta después de confirmar la notificación in-app; así el canal efímero nunca define si el aviso existe.
-        if (sendPush) await SendPushAsync(tenantId, clientId, new PushPayload(title, message, actionUrl));
+        if (sendPush && preferences.PushEnabled) await SendPushAsync(tenantId, clientId, new PushPayload(title, message, actionUrl));
         return id;
     }
 
@@ -235,3 +273,5 @@ public sealed class PushSubscriptionDto
     public string P256dh { get; set; } = string.Empty;
     public string Auth { get; set; } = string.Empty;
 }
+
+public sealed record PatientCommunicationPreferences(bool InAppEnabled, bool EmailEnabled, bool PushEnabled);

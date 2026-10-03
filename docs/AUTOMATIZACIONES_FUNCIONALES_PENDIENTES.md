@@ -1,0 +1,148 @@
+# Automatizaciones funcionales pendientes
+
+Este documento recoge el backlog funcional de automatizaciones identificado sobre el motor persistente existente. No incluye la infraestructura ya implementada (eventos, cola persistente, worker, idempotencia, reintentos, historial y aislamiento por tenant).
+
+## Prioridad inmediata
+
+1. Flujo completo de nuevo paciente — backend de onboarding implementado; pendiente integración visual del formulario en portal
+   - formulario inicial
+   - consentimiento
+   - datos/biometría pendientes
+   - recordatorios
+   - detección de ficha completa
+   - paso a primera cita
+
+2. Completar información inicial — recordatorios y escalado implementados
+   - recordar al paciente
+   - escalado al profesional
+   - detener recordatorios al completar
+
+3. Primera cita — detección, recordatorio y cancelación al reservar implementados
+   - detectar ficha completa sin primera cita
+   - ofrecer/recordar reserva
+   - detener recordatorios al reservar
+
+4. Flujo post-cita — check-in posterior, tarea de revisión y planificación de próxima cita implementados
+   - seguimiento posterior
+   - próxima cita
+   - check-in cuando corresponda
+   - actualización de dieta cuando corresponda
+
+5. Flujo post-check-in — revisión, aviso al paciente y tarea de siguiente acción implementados
+   - revisión profesional
+   - feedback/acción posterior
+   - nueva cita o modificación de dieta cuando corresponda
+
+6. Escalado de check-in atrasado — secuencia 10/14/21 días implementada
+   - secuencia de recordatorios
+   - escalado progresivo
+   - integración con lifecycle
+
+7. Recuperación de pacientes sin seguimiento — aviso al paciente y escalado profesional implementados
+   - recordatorio al paciente
+   - tarea al profesional
+   - escalado
+   - reactivación
+
+8. Secuencia de caducidad de dieta — avisos 7/3/1/0 y cancelación al publicar nueva dieta implementados
+   - avisos previos
+   - aviso de caducidad
+   - comprobar existencia de nueva dieta
+   - detener avisos al publicar una nueva
+
+9. Recuperación de dieta caducada — aviso al paciente y tarea profesional implementados
+   - tarea profesional
+   - aviso al paciente cuando proceda
+   - seguimiento hasta resolver
+
+## Estado de implementación actual
+
+### Bloque implementado en esta iteración
+
+- Onboarding persistente: fecha de nacimiento, género, biometría mínima y consentimiento versionado.
+- Endpoint de portal para consultar/guardar el onboarding.
+- Sweep horario de onboarding con recordatorios al paciente y escalado al profesional.
+- Detección de ficha completa y guía automática hacia la primera cita.
+- Cancelación de recordatorios de primera cita cuando existe una reserva futura.
+- Cancelación de recordatorios de onboarding cuando se completa el flujo.
+
+## Implementado durante la fase actual
+
+- Configuración persistente por tenant para reglas de automatización mediante `automation_rules`.
+- Activación/desactivación y retardo configurable para `client.created`, `patient.checkin.submitted`, `appointment.completed` y `appointment.no_show`.
+- Los recordatorios de cita de 24 h y 2 h tienen configuración independiente (`appointment.reminder.24h` y `appointment.reminder.2h`), incluido el tiempo de antelación.
+- Onboarding, seguimiento y caducidad de dietas ya exponen reglas separadas para activar/desactivar recordatorios y escalados: `onboarding.info.reminder`, `onboarding.info.escalation`, `onboarding.first_appointment.reminder`, `onboarding.first_appointment.escalation`, `followup.checkin.reminder`, `followup.checkin.escalation`, `diet.expiry.reminder` y `diet.expired`.
+- El endpoint de configuración devuelve también las reglas soportadas que todavía no tienen fila persistida, usando sus valores por defecto; así la interfaz puede mostrar el catálogo completo desde el primer acceso.
+- `recipient_scope` y `channels` ya se aplican al generar los jobs: `assigned_professional`, `clinic_admin`, `patient` y `both` controlan el destinatario; `in_app`, `email` y `push` controlan el canal. El push de paciente mantiene también la notificación persistida in-app, que es el canal durable.
+- Plantillas por tenant mediante `automation_templates`: permiten personalizar títulos y mensajes de paciente/profesional y asunto/HTML de email. Los tokens disponibles inicialmente son `{title}`, `{message}` y `{action_url}`; si no existe plantilla se conserva el contenido actual.
+- Preferencias de comunicación por paciente mediante `patient_communication_preferences`: `in_app`, `email` y `push` son independientes, con valores por defecto activados. El worker y `NotificationService` las vuelven a comprobar en ejecución para respetar cambios realizados después de programar un job.
+- Reactivación automática: una actividad clínica significativa (`patient.checkin.submitted`, o una nueva solicitud/confirmación de cita cuando ya existe seguimiento previo) puede sacar al paciente de `no_recent_followup`. Los pacientes archivados quedan fuera de esta reactivación automática y requieren una acción explícita.
+- API profesional `GET /api/professional/automation/rules` y `PUT /api/professional/automation/rules/{ruleKey}`.
+- Sin configuración explícita se mantienen los comportamientos actuales por defecto, evitando cambios funcionales al actualizar instalaciones existentes.
+
+## Segunda fase: sistema configurable
+
+10. Reglas configurables por nutricionista
+11. Plantillas configurables con variables
+12. Preferencias de comunicación por paciente/profesional
+
+## Tercera fase
+
+13. Reactivación automática de pacientes inactivos
+14. Automatizaciones avanzadas de citas y dietas
+15. Recordatorios de revisiones antropométricas
+16. Recordatorios de objetivos y mediciones
+17. Campañas de recuperación de pacientes
+18. Automatizaciones basadas en evolución del paciente
+19. Análisis de check-ins y sugerencias asistidas por IA
+
+## Ya implementado y no pendiente
+
+- Alta de evento client.created y tarea inicial.
+- Check-in enviado y tarea de revisión.
+- Revisión/cierre transaccional del check-in.
+- Recordatorios de cita a 24 h y 2 h.
+- Cancelación de recordatorios de cita.
+- Cita completada y tarea de seguimiento.
+- No-show y tarea profesional.
+- Seguimiento semanal básico (>7 días y >10 días).
+- Lifecycle de pacientes.
+- Aviso de dieta próxima a caducar.
+- Tarea de dieta expirada.
+- Notificación de dieta publicada/modificada.
+- Eventos y acciones de Stripe/billing.
+
+
+## Nueva iteración: automatizaciones avanzadas y configuración visual
+
+- Automatizaciones avanzadas basadas en datos persistidos:
+  - revisión de mediciones antropométricas cuando el último control supera 30 días;
+  - detección de cambios relevantes entre los dos últimos controles (>=5 % de variación de peso o >=3 puntos porcentuales de grasa) con tarea prioritaria al profesional;
+  - aviso y tarea de renovación cuando una dieta activa termina en los próximos 14 días;
+  - todas estas reconciliaciones son horarias e idempotentes y no dependen de que se haya recibido un evento puntual.
+- Nuevas reglas configurables: `diet.renewal`, `biometrics.review_due` y `biometrics.evolution`.
+- Nueva pantalla profesional `/automations`:
+  - catálogo completo de reglas;
+  - activación/desactivación;
+  - destinatarios;
+  - canales in-app/email/push;
+  - retardos/antelaciones;
+  - edición de plantillas;
+  - consulta y cancelación de jobs pendientes.
+- Preferencias de comunicación del paciente disponibles también desde la ficha profesional, con canales independientes in-app/email/push.
+- El backend mantiene la autorización por tenant y por acceso al paciente al consultar o modificar estas preferencias.
+- La interfaz no sustituye las reglas del backend: las validaciones, límites, aislamiento por tenant y ejecución real continúan en servidor.
+
+### Sobre IA (bloque C)
+
+No se incorpora todavía. La dejamos como una capa posterior sobre este motor ya estable: análisis de check-ins, detección de patrones y sugerencias de actuación. Primero conviene cerrar automatizaciones deterministas y su configuración/observabilidad; así la IA podrá proponer acciones sobre datos y eventos ya trazables sin convertirse en una dependencia del scheduler.
+
+
+## Cierre de A+B
+
+- Corregida la interpretación de fechas de renovación de dieta para PostgreSQL/DateOnly, evitando que el sweep ignore dietas con fecha de finalización.
+- La API de reglas solo permite claves incluidas en el catálogo soportado.
+- El endpoint de plantillas devuelve el catálogo completo, aunque el tenant todavía no haya personalizado ninguna plantilla.
+- Corregidas las rutas de preferencias de comunicación de la ficha profesional para usar el área protegida de automatizaciones.
+- La ficha del paciente mantiene los bindings de preferencias independientes del formulario reactivo y carga el módulo Material necesario para los spinners.
+- C/IA permanece fuera de esta fase y se mantiene únicamente en el roadmap como posible evolución futura.

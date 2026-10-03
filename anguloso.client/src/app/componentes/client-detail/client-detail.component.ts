@@ -25,6 +25,7 @@ import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { PatientPortalService, ClientPortalAccess } from '../../servicios/patient-portal.service';
 import { Subscription } from 'rxjs';
 import { debounceTime, filter, switchMap } from 'rxjs/operators';
@@ -48,6 +49,7 @@ import { debounceTime, filter, switchMap } from 'rxjs/operators';
     MatIconModule,
     MatButtonModule,
     MatCheckboxModule,
+    MatProgressSpinnerModule,
     MatDialogModule,
     RouterLink
   ],
@@ -92,6 +94,8 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
   regeneratingToken = false;
   settingPasscode = false;
   newPasscode = '';
+  communicationPreferences = { inAppEnabled: true, emailEnabled: true, pushEnabled: true };
+  savingCommunicationPreferences = false;
 
   constructor(
     private fb: FormBuilder,
@@ -126,6 +130,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
       this.loadDietsHistory();
       this.loadEnergyRequirements();
       this.loadPortalAccess();
+      this.loadCommunicationPreferences();
     }
   }
 
@@ -235,6 +240,29 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
   private normalizeGender(value?: string | null): string {
     const normalized = (value || '').trim().toLowerCase();
     return ['male', 'female', 'other'].includes(normalized) ? normalized : '';
+  }
+
+  loadCommunicationPreferences(): void {
+    if (!this.clientId) return;
+    this.portalService.getCommunicationPreferences(this.clientId).subscribe({
+      next: preferences => this.communicationPreferences = preferences,
+      error: () => this.snack.open('No se han podido cargar las preferencias de comunicación', 'Cerrar', { duration: 3000 })
+    });
+  }
+
+  updateCommunicationPreferences(): void {
+    if (!this.clientId) return;
+    this.savingCommunicationPreferences = true;
+    this.portalService.updateCommunicationPreferences(this.clientId, this.communicationPreferences).subscribe({
+      next: () => {
+        this.savingCommunicationPreferences = false;
+        this.snack.open('Preferencias de comunicación guardadas', 'Cerrar', { duration: 1800 });
+      },
+      error: () => {
+        this.savingCommunicationPreferences = false;
+        this.snack.open('No se han podido guardar las preferencias', 'Cerrar', { duration: 3000 });
+      }
+    });
   }
 
   loadClient() {

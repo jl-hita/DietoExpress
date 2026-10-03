@@ -25,6 +25,11 @@
         <mat-icon>event</mat-icon><span>Agenda y citas</span>
       </a>
     </div>
+    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount">
+      <a mat-list-item routerLink="/automations" routerLinkActive="active-link" (click)="navigateAndClose()">
+        <mat-icon>auto_awesome</mat-icon><span>Automatizaciones</span>
+      </a>
+    </div>
     <div class="menu-item">
       <a mat-list-item routerLink="/billing" routerLinkActive="active-link" (click)="navigateAndClose()">
         <mat-icon>workspace_premium</mat-icon><span>Suscripción</span>

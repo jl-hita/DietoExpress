@@ -149,6 +149,132 @@ public class PatientPortalController : ControllerBase
         return Ok(new { message = "Si el email corresponde a un paciente, recibirás un nuevo enlace de acceso." });
     }
 
+
+    [HttpGet("onboarding")]
+    [Authorize]
+    public async Task<ActionResult<object>> GetOnboarding()
+    {
+        var clientId = ResolveAuthorizedClientId();
+        if (clientId == null) return Unauthorized();
+        if (!await PortalFeatureAllowedAsync(clientId.Value)) return Forbid();
+
+        var status = await _context.clients
+            .Where(c => c.id == clientId.Value && c.archived_at == null)
+            .Select(c => new
+            {
+                c.id,
+                c.birth_date,
+                c.gender,
+                c.onboarding_consent_at,
+                c.onboarding_consent_version,
+                HasBiometrics = c.biometrics.Any()
+            })
+            .SingleOrDefaultAsync();
+
+        if (status == null) return NotFound();
+        return Ok(new
+        {
+            clientId = status.id,
+            birthDate = status.birth_date,
+            gender = status.gender,
+            hasBiometrics = status.HasBiometrics,
+            consentAccepted = status.onboarding_consent_at != null,
+            consentVersion = status.onboarding_consent_version,
+            completed = status.birth_date != null &&
+                        !string.IsNullOrWhiteSpace(status.gender) &&
+                        status.HasBiometrics &&
+                        status.onboarding_consent_at != null
+        });
+    }
+
+    [HttpPost("onboarding")]
+    [Authorize]
+    public async Task<IActionResult> SaveOnboarding([FromBody] PatientOnboardingRequestDto request)
+    {
+        var clientId = ResolveAuthorizedClientId();
+        if (clientId == null) return Unauthorized();
+        if (!await PortalFeatureAllowedAsync(clientId.Value)) return Forbid();
+        if (request == null) return BadRequest(new { message = "Datos no válidos." });
+        if (!request.BirthDate.HasValue) return BadRequest(new { message = "La fecha de nacimiento es obligatoria." });
+        if (request.BirthDate.Value.Date > DateTime.UtcNow.Date) return BadRequest(new { message = "La fecha de nacimiento no es válida." });
+        if (string.IsNullOrWhiteSpace(request.Gender) || request.Gender.Trim().Length > 30)
+            return BadRequest(new { message = "El sexo/género es obligatorio." });
+        if (request.Weight is <= 0 or > 500) return BadRequest(new { message = "El peso no es válido." });
+        if (request.Height is <= 0 or > 300) return BadRequest(new { message = "La altura no es válida." });
+        if (!request.AcceptConsent) return BadRequest(new { message = "Debes aceptar el consentimiento para continuar." });
+        if (request.ConsentVersion?.Length > 40) return BadRequest(new { message = "La versión del consentimiento no es válida." });
+
+        var client = await _context.clients
+            .Where(c => c.id == clientId.Value && c.archived_at == null)
+            .Select(c => new { c.id, c.tenant_id, c.user_id })
+            .SingleOrDefaultAsync();
+        if (client == null || !client.tenant_id.HasValue) return NotFound();
+
+        var consentVersion = string.IsNullOrWhiteSpace(request.ConsentVersion) ? "v1" : request.ConsentVersion.Trim();
+        var birthDate = DateOnly.FromDateTime(request.BirthDate.Value.Date);
+        var gender = request.Gender.Trim();
+        var now = DateTime.UtcNow;
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        await _context.Database.ExecuteSqlInterpolatedAsync($"""
+            UPDATE clients
+            SET birth_date={birthDate},
+                gender={gender},
+                onboarding_consent_at={now},
+                onboarding_consent_version={consentVersion}
+            WHERE id={client.id} AND tenant_id={client.tenant_id.Value} AND archived_at IS NULL;
+            """);
+
+        var latest = await _context.biometrics
+            .Where(b => b.client_id == client.id)
+            .OrderByDescending(b => b.measurement_date)
+            .FirstOrDefaultAsync();
+
+        if (latest == null || latest.measurement_date < birthDate)
+        {
+            _context.biometrics.Add(new biometrics
+            {
+                client_id = client.id,
+                measurement_date = DateOnly.FromDateTime(now),
+                weight = request.Weight.Value,
+                height = request.Height.Value
+            });
+        }
+        else
+        {
+            latest.weight = (decimal?)request.Weight.Value;
+            latest.height = (decimal?)request.Height.Value;
+            latest.measurement_date = DateOnly.FromDateTime(now);
+        }
+
+        await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
+
+        int? nutritionistId = await _context.client_nutritionist_assignments
+            .Where(a => a.client_id == client.id && a.is_active && a.nutritionist.tenant_id == client.tenant_id.Value)
+            .OrderByDescending(a => a.assigned_at)
+            .Select(a => (int?)a.nutritionist_id)
+            .FirstOrDefaultAsync();
+
+        try
+        {
+            await _automationService.PublishEventAsync(
+                client.tenant_id.Value,
+                "patient.onboarding.completed",
+                "client",
+                client.id.ToString(),
+                new AutomationService.ClientOnboardingCompletedPayload(client.id, nutritionistId),
+                $"client:{client.id}:onboarding:{now.Ticks}");
+        }
+        catch (Exception ex)
+        {
+            HttpContext.RequestServices.GetRequiredService<ILogger<PatientPortalController>>()
+                .LogError(ex, "No se pudo registrar la automatización de onboarding del paciente {ClientId}.", client.id);
+        }
+
+        return Ok(new { completed = true });
+    }
+
     [HttpGet("profile")]
     [Authorize]
     public async Task<ActionResult<PatientProfileDto>> GetMyProfile()

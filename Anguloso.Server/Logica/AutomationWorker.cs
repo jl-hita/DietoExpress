@@ -30,6 +30,7 @@ public sealed class AutomationWorker : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("AutomationWorker iniciado.");
+        var nextOnboardingSweep = DateTime.UtcNow;
         var nextLifecycleSweep = DateTime.UtcNow;
         var nextFollowUpSweep = DateTime.UtcNow;
         // Los barridos temporales se mantienen separados de la cola de jobs: si la cola está vacía,
@@ -37,10 +38,19 @@ public sealed class AutomationWorker : BackgroundService
         // Los tres barridos se ejecutan como reconciliaciones de baja frecuencia; una hora limita carga y, al usar claves idempotentes,
         // tolera que el proceso se reinicie entre dos ciclos sin perder ni duplicar las acciones derivadas.
         var nextDietSweep = DateTime.UtcNow;
+        var nextAdvancedSweep = DateTime.UtcNow;
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
+                if (DateTime.UtcNow >= nextOnboardingSweep)
+                {
+                    using var onboardingScope = _scopeFactory.CreateScope();
+                    var automation = onboardingScope.ServiceProvider.GetRequiredService<AutomationService>();
+                    await automation.RunPatientOnboardingAutomationSweepAsync(stoppingToken);
+                    nextOnboardingSweep = DateTime.UtcNow.AddHours(1);
+                }
+
                 if (DateTime.UtcNow >= nextLifecycleSweep)
                 {
                     using var lifecycleScope = _scopeFactory.CreateScope();
@@ -64,6 +74,14 @@ public sealed class AutomationWorker : BackgroundService
                     var automation = dietScope.ServiceProvider.GetRequiredService<AutomationService>();
                     await automation.RunDietAutomationSweepAsync(stoppingToken);
                     nextDietSweep = DateTime.UtcNow.AddHours(1);
+                }
+
+                if (DateTime.UtcNow >= nextAdvancedSweep)
+                {
+                    using var advancedScope = _scopeFactory.CreateScope();
+                    var automation = advancedScope.ServiceProvider.GetRequiredService<AutomationService>();
+                    await automation.RunAdvancedAutomationSweepAsync(stoppingToken);
+                    nextAdvancedSweep = DateTime.UtcNow.AddHours(1);
                 }
 
                 // La cola se procesa en lotes pequeños; el límite también evita que una ráfaga de trabajos monopolice una instancia.
@@ -177,6 +195,9 @@ public sealed class AutomationWorker : BackgroundService
                 case "email_billing_contact":
                     await ExecuteBillingEmailAsync(job, cancellationToken);
                     break;
+                case "email_professional":
+                    await ExecuteProfessionalEmailAsync(job, cancellationToken);
+                    break;
                 default:
                     throw new InvalidOperationException($"Acción de automatización no soportada: {job.ActionType}");
             }
@@ -249,10 +270,50 @@ public sealed class AutomationWorker : BackgroundService
         command.Parameters.AddWithValue("client", action.ClientId);
         command.Parameters.AddWithValue("tenant", job.TenantId);
         var email = await command.ExecuteScalarAsync(cancellationToken) as string;
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            await using var preferenceCommand = new NpgsqlCommand("SELECT email_enabled FROM patient_communication_preferences WHERE tenant_id=@tenant AND client_id=@client LIMIT 1;", connection);
+            preferenceCommand.Parameters.AddWithValue("tenant", job.TenantId);
+            preferenceCommand.Parameters.AddWithValue("client", action.ClientId);
+            var preference = await preferenceCommand.ExecuteScalarAsync(cancellationToken);
+            if (preference is bool enabled && !enabled)
+                return;
+        }
         // El destinatario se resuelve al ejecutar el job, no al programarlo, para que una corrección posterior del
         // email del paciente pueda hacer recuperable un job que falló por datos incompletos.
         if (string.IsNullOrWhiteSpace(email))
             throw new InvalidOperationException("El paciente no tiene un email válido.");
+
+        using var scope = _scopeFactory.CreateScope();
+        var emailServ = scope.ServiceProvider.GetRequiredService<EmailServ>();
+        var result = await emailServ.SendEmailAsync(email, action.Subject, action.HtmlBody);
+        if (!result.Exito)
+            throw new InvalidOperationException(result.Mensaje);
+    }
+
+    private async Task ExecuteProfessionalEmailAsync(AutomationJob job, CancellationToken cancellationToken)
+    {
+        var action = AutomationJson.Deserialize<ProfessionalEmailAction>(job.Payload)
+            ?? throw new InvalidOperationException("Payload inválido para email_professional.");
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new NpgsqlCommand("""
+            SELECT email
+            FROM users
+            WHERE id=@user
+              AND tenant_id=@tenant
+              AND archived_at IS NULL
+              AND role <> 'superadmin'
+              AND email IS NOT NULL
+              AND TRIM(email) <> ''
+            LIMIT 1;
+            """, connection);
+        command.Parameters.AddWithValue("user", action.UserId);
+        command.Parameters.AddWithValue("tenant", job.TenantId);
+        var email = await command.ExecuteScalarAsync(cancellationToken) as string;
+        if (string.IsNullOrWhiteSpace(email))
+            return;
 
         using var scope = _scopeFactory.CreateScope();
         var emailServ = scope.ServiceProvider.GetRequiredService<EmailServ>();

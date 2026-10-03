@@ -1063,6 +1063,87 @@ public static class DatabaseBootstrap
         logger.LogInformation("Migración de automatizaciones automation-v1-engine-scheduler-tasks aplicada correctamente.");
     }
 
+
+    /// <summary>Datos mínimos de onboarding y consentimiento explícito del paciente.</summary>
+    public static void UpgradeAutomationSchemaV4(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            ALTER TABLE clients ADD COLUMN IF NOT EXISTS onboarding_consent_at TIMESTAMPTZ;
+            ALTER TABLE clients ADD COLUMN IF NOT EXISTS onboarding_consent_version VARCHAR(40);
+            CREATE INDEX IF NOT EXISTS idx_clients_onboarding_consent
+                ON clients(tenant_id, onboarding_consent_at);
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('automation-v4-patient-onboarding') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración de automatizaciones automation-v4-patient-onboarding aplicada correctamente.");
+    }
+
+    /// <summary>Configuración por tenant de reglas y tiempos de automatización.</summary>
+    public static void UpgradeAutomationSchemaV5(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS automation_rules (
+                id BIGSERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                rule_key VARCHAR(120) NOT NULL,
+                enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                delay_minutes INTEGER,
+                recipient_scope VARCHAR(40) NOT NULL DEFAULT 'assigned_professional',
+                channels JSONB NOT NULL DEFAULT '[\"in_app\"]'::jsonb,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT automation_rules_delay_check CHECK (delay_minutes IS NULL OR delay_minutes BETWEEN 0 AND 525600),
+                CONSTRAINT automation_rules_recipient_check CHECK (recipient_scope IN ('assigned_professional','clinic_admin','patient','both')),
+                CONSTRAINT uq_automation_rules_tenant_key UNIQUE (tenant_id, rule_key)
+            );
+            CREATE INDEX IF NOT EXISTS idx_automation_rules_tenant
+                ON automation_rules(tenant_id, enabled);
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('automation-v5-configurable-rules') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración de automatizaciones automation-v5-configurable-rules aplicada correctamente.");
+    }
+
+    /// <summary>Plantillas personalizables por tenant para el contenido de las automatizaciones.</summary>
+    public static void UpgradeAutomationSchemaV6(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS automation_templates (
+                id BIGSERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                rule_key VARCHAR(120) NOT NULL,
+                patient_title VARCHAR(250),
+                patient_message VARCHAR(4000),
+                professional_title VARCHAR(250),
+                professional_message VARCHAR(4000),
+                email_subject VARCHAR(250),
+                email_html TEXT,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_automation_templates_tenant_key UNIQUE (tenant_id, rule_key)
+            );
+            CREATE INDEX IF NOT EXISTS idx_automation_templates_tenant
+                ON automation_templates(tenant_id, rule_key);
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('automation-v6-templates') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración de automatizaciones automation-v6-templates aplicada correctamente.");
+    }
+
+    /// <summary>Preferencias de comunicación de cada paciente. Los valores por defecto mantienen el comportamiento actual.</summary>
+    public static void UpgradeAutomationSchemaV7(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS patient_communication_preferences (
+                client_id INTEGER PRIMARY KEY REFERENCES clients(id) ON DELETE CASCADE,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                in_app_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                email_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                push_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS idx_patient_communication_preferences_tenant
+                ON patient_communication_preferences(tenant_id);
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('automation-v7-patient-communication-preferences') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración de automatizaciones automation-v7-patient-communication-preferences aplicada correctamente.");
+    }
+
     /// <summary>Integración OAuth y sincronización bidireccional con Google Calendar.</summary>
     public static void UpgradeGoogleCalendarSchemaV1(angulosodbContext context, ILogger logger)
     {
