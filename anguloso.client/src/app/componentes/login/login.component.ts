@@ -1,5 +1,5 @@
 import { Component, NgZone } from '@angular/core';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -16,7 +16,7 @@ declare const google: any;
 @Component({
   selector: 'app-login',
     standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, MatSnackBarModule, MatFormFieldModule, MatInputModule, MatIconModule, MatButtonModule],
+  imports: [ReactiveFormsModule, FormsModule, RouterLink, MatSnackBarModule, MatFormFieldModule, MatInputModule, MatIconModule, MatButtonModule],
   templateUrl: './login.component.html',
   styleUrls: ['./login.component.css']
 })
@@ -70,6 +70,11 @@ export class LoginComponent {
     const idToken = response?.credential;
     if (!idToken) {
       this.snackBar.open('Error Google login', 'Cerrar', { duration: 3000 });
+      return;
+    }
+
+    if (!this.googleTermsAccepted && this.legalTerms) {
+      this.snackBar.open('Acepta las condiciones de contratación para crear una cuenta con Google.', 'Cerrar', { duration: 5000 });
       return;
     }
 
