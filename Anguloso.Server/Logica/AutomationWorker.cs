@@ -186,6 +186,9 @@ public sealed class AutomationWorker : BackgroundService
                 case "email_billing_contact":
                     await ExecuteBillingEmailAsync(job, cancellationToken);
                     break;
+                case "email_professional":
+                    await ExecuteProfessionalEmailAsync(job, cancellationToken);
+                    break;
                 default:
                     throw new InvalidOperationException($"Acción de automatización no soportada: {job.ActionType}");
             }
@@ -262,6 +265,37 @@ public sealed class AutomationWorker : BackgroundService
         // email del paciente pueda hacer recuperable un job que falló por datos incompletos.
         if (string.IsNullOrWhiteSpace(email))
             throw new InvalidOperationException("El paciente no tiene un email válido.");
+
+        using var scope = _scopeFactory.CreateScope();
+        var emailServ = scope.ServiceProvider.GetRequiredService<EmailServ>();
+        var result = await emailServ.SendEmailAsync(email, action.Subject, action.HtmlBody);
+        if (!result.Exito)
+            throw new InvalidOperationException(result.Mensaje);
+    }
+
+    private async Task ExecuteProfessionalEmailAsync(AutomationJob job, CancellationToken cancellationToken)
+    {
+        var action = AutomationJson.Deserialize<ProfessionalEmailAction>(job.Payload)
+            ?? throw new InvalidOperationException("Payload inválido para email_professional.");
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new NpgsqlCommand("""
+            SELECT email
+            FROM users
+            WHERE id=@user
+              AND tenant_id=@tenant
+              AND archived_at IS NULL
+              AND role <> 'superadmin'
+              AND email IS NOT NULL
+              AND TRIM(email) <> ''
+            LIMIT 1;
+            """, connection);
+        command.Parameters.AddWithValue("user", action.UserId);
+        command.Parameters.AddWithValue("tenant", job.TenantId);
+        var email = await command.ExecuteScalarAsync(cancellationToken) as string;
+        if (string.IsNullOrWhiteSpace(email))
+            return;
 
         using var scope = _scopeFactory.CreateScope();
         var emailServ = scope.ServiceProvider.GetRequiredService<EmailServ>();
