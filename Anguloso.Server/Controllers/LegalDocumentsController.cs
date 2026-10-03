@@ -55,6 +55,88 @@ public sealed class LegalDocumentsController : ControllerBase
         return Ok(result);
     }
 
+
+    [HttpGet("admin")]
+    [Authorize(Policy = "Professional")]
+    public async Task<IActionResult> AdminList(CancellationToken cancellationToken)
+    {
+        if (!User.IsInRole("superadmin")) return Forbid();
+
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new NpgsqlCommand("""
+            SELECT id, document_key, version, title, document_type, status,
+                   effective_from, sha256, created_at, published_at
+            FROM legal_documents
+            ORDER BY document_key, version DESC;
+            """, connection);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        var result = new List<object>();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            result.Add(new
+            {
+                id = reader.GetInt64(0),
+                key = reader.GetString(1),
+                version = reader.GetInt32(2),
+                title = reader.GetString(3),
+                documentType = reader.GetString(4),
+                status = reader.GetString(5),
+                effectiveFrom = reader.IsDBNull(6) ? (DateTime?)null : reader.GetDateTime(6),
+                sha256 = reader.GetString(7),
+                createdAt = reader.GetDateTime(8),
+                publishedAt = reader.IsDBNull(9) ? (DateTime?)null : reader.GetDateTime(9)
+            });
+        }
+        return Ok(result);
+    }
+
+    [HttpPost("admin")]
+    [Authorize(Policy = "Professional")]
+    public async Task<IActionResult> CreateAdmin([FromBody] UpsertLegalDocumentRequest request, CancellationToken cancellationToken)
+    {
+        if (!User.IsInRole("superadmin")) return Forbid();
+        if (request == null || string.IsNullOrWhiteSpace(request.DocumentKey) ||
+            string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.Content))
+            return BadRequest("Clave, título y contenido son obligatorios.");
+
+        var key = request.DocumentKey.Trim().ToLowerInvariant();
+        var type = string.IsNullOrWhiteSpace(request.DocumentType) ? "legal" : request.DocumentType.Trim().ToLowerInvariant();
+
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var tx = await connection.BeginTransactionAsync(cancellationToken);
+
+        await using var versionCommand = new NpgsqlCommand(
+            "SELECT COALESCE(MAX(version),0)+1 FROM legal_documents WHERE document_key=@key;",
+            connection, tx);
+        versionCommand.Parameters.AddWithValue("key", key);
+        var version = Convert.ToInt32(await versionCommand.ExecuteScalarAsync(cancellationToken));
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(request.Content))).ToLowerInvariant();
+
+        await using var insert = new NpgsqlCommand("""
+            INSERT INTO legal_documents
+                (document_key, version, title, document_type, content, status,
+                 effective_from, sha256, created_at, published_at)
+            VALUES
+                (@key,@version,@title,@type,@content,@status,@effective,@sha,NOW(),
+                 CASE WHEN @status='published' THEN NOW() ELSE NULL END)
+            RETURNING id;
+            """, connection, tx);
+        insert.Parameters.AddWithValue("key", key);
+        insert.Parameters.AddWithValue("version", version);
+        insert.Parameters.AddWithValue("title", request.Title.Trim());
+        insert.Parameters.AddWithValue("type", type);
+        insert.Parameters.AddWithValue("content", request.Content);
+        insert.Parameters.AddWithValue("status", string.Equals(request.Status, "published", StringComparison.OrdinalIgnoreCase) ? "published" : "draft");
+        insert.Parameters.AddWithValue("effective", (object?)request.EffectiveFrom ?? DBNull.Value);
+        insert.Parameters.AddWithValue("sha", hash);
+
+        var id = Convert.ToInt64(await insert.ExecuteScalarAsync(cancellationToken));
+        await tx.CommitAsync(cancellationToken);
+        return Ok(new { id, key, version, sha256 = hash });
+    }
+
     [HttpPost("accept")]
     [Authorize(Policy = "Professional")]
     public async Task<IActionResult> Accept([FromBody] AcceptLegalDocumentRequest request, CancellationToken cancellationToken)
@@ -157,6 +239,14 @@ public sealed class LegalDocumentsController : ControllerBase
         _configuration.GetConnectionString("DefaultConnection")
         ?? throw new InvalidOperationException("DefaultConnection no está configurada.");
 }
+
+public sealed record UpsertLegalDocumentRequest(
+    string DocumentKey,
+    string Title,
+    string Content,
+    string? DocumentType = null,
+    string? Status = null,
+    DateTime? EffectiveFrom = null);
 
 public sealed record AcceptLegalDocumentRequest(
     string DocumentKey,
