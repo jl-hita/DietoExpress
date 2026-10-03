@@ -56,6 +56,19 @@ public sealed class AutomationService
             : defaultDueAt;
     }
 
+    private async Task<DateTime> ApplyConfiguredLeadTimeAsync(
+        int tenantId,
+        string ruleKey,
+        DateTime appointmentStartUtc,
+        int defaultLeadMinutes,
+        CancellationToken cancellationToken)
+    {
+        var config = await GetRuleConfigAsync(tenantId, ruleKey, cancellationToken);
+        var leadMinutes = config.DelayMinutes ?? defaultLeadMinutes;
+        var scheduledAt = appointmentStartUtc.AddMinutes(-Math.Max(0, leadMinutes));
+        return scheduledAt < DateTime.UtcNow ? DateTime.UtcNow : scheduledAt;
+    }
+
     // Persiste primero el evento y, solo si se inserta por primera vez, ejecuta las reglas derivadas.
     // La restricción UNIQUE de PostgreSQL evita duplicados incluso con peticiones concurrentes.
     public async Task<long?> PublishEventAsync(
@@ -842,6 +855,7 @@ public sealed class AutomationService
                 }
             case "appointment.completed":
                 {
+                    if (!await IsRuleEnabledAsync(evt.TenantId, "appointment.completed", cancellationToken)) break;
                     var payload = AutomationJson.Deserialize<AppointmentCompletedPayload>(evt.Payload)
                         ?? throw new InvalidOperationException("Payload inválido para appointment.completed.");
 
@@ -903,8 +917,12 @@ public sealed class AutomationService
 
                     // Si la confirmación llega tarde, el recordatorio de 24 h se ejecuta cuanto antes; no se descarta
                     // por haber pasado su hora teórica, mientras que el de 2 h sí se omite si ya quedó atrás.
-                    var firstReminder = payload.StartsAtUtc.AddHours(-24);
-                    if (firstReminder < DateTime.UtcNow) firstReminder = DateTime.UtcNow;
+                    if (!await IsRuleEnabledAsync(evt.TenantId, "appointment.reminder.24h", cancellationToken) &&
+                        !await IsRuleEnabledAsync(evt.TenantId, "appointment.reminder.2h", cancellationToken))
+                        break;
+
+                    var firstReminder = await ApplyConfiguredLeadTimeAsync(
+                        evt.TenantId, "appointment.reminder.24h", payload.StartsAtUtc, 24 * 60, cancellationToken);
 
                     await ScheduleActionAsync(
                         evt.TenantId,
@@ -921,7 +939,8 @@ public sealed class AutomationService
                         cancellationToken: cancellationToken);
 
                     var secondReminder = payload.StartsAtUtc.AddHours(-2);
-                    if (secondReminder > DateTime.UtcNow)
+                    if (secondReminder > DateTime.UtcNow &&
+                        await IsRuleEnabledAsync(evt.TenantId, "appointment.reminder.2h", cancellationToken))
                     {
                         // El recordatorio de 2 h solo tiene sentido si todavía queda tiempo suficiente para enviarlo; si no,
                         // evitamos crear un job inmediatamente vencido que no aportaría valor al paciente.
@@ -954,6 +973,7 @@ public sealed class AutomationService
                 }
             case "appointment.no_show":
                 {
+                    if (!await IsRuleEnabledAsync(evt.TenantId, "appointment.no_show", cancellationToken)) break;
                     var payload = AutomationJson.Deserialize<AppointmentStatusPayload>(evt.Payload)
                         ?? throw new InvalidOperationException("Payload inválido para appointment.no_show.");
                     await ScheduleActionAsync(
