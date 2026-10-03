@@ -463,6 +463,8 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
   onTabChange(event: MatTabChangeEvent) {
     if (event.tab.textLabel === 'Evolución') {
       this.loadEvolution();
+      // La pestaña puede renderizar su contenido de forma diferida; esperamos a que exista el canvas.
+      setTimeout(() => this.renderCheckinChart(), 0);
     } else if (event.tab.textLabel === 'Dietas') {
       this.loadDietsHistory();
     } else if (event.tab.textLabel === 'Cálculo de Calorías') {
