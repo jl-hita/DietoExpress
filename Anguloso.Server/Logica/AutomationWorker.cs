@@ -38,6 +38,7 @@ public sealed class AutomationWorker : BackgroundService
         // Los tres barridos se ejecutan como reconciliaciones de baja frecuencia; una hora limita carga y, al usar claves idempotentes,
         // tolera que el proceso se reinicie entre dos ciclos sin perder ni duplicar las acciones derivadas.
         var nextDietSweep = DateTime.UtcNow;
+        var nextAdvancedSweep = DateTime.UtcNow;
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -73,6 +74,14 @@ public sealed class AutomationWorker : BackgroundService
                     var automation = dietScope.ServiceProvider.GetRequiredService<AutomationService>();
                     await automation.RunDietAutomationSweepAsync(stoppingToken);
                     nextDietSweep = DateTime.UtcNow.AddHours(1);
+                }
+
+                if (DateTime.UtcNow >= nextAdvancedSweep)
+                {
+                    using var advancedScope = _scopeFactory.CreateScope();
+                    var automation = advancedScope.ServiceProvider.GetRequiredService<AutomationService>();
+                    await automation.RunAdvancedAutomationSweepAsync(stoppingToken);
+                    nextAdvancedSweep = DateTime.UtcNow.AddHours(1);
                 }
 
                 // La cola se procesa en lotes pequeños; el límite también evita que una ráfaga de trabajos monopolice una instancia.
