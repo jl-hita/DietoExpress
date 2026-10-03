@@ -168,6 +168,43 @@ public class PatientDocumentsController : ControllerBase
         return Ok(rows);
     }
 
+    [HttpPost("api/portal/documents/{documentId:long}/accept")]
+    [Authorize]
+    public async Task<IActionResult> AcceptForPatient(long documentId)
+    {
+        if (!AuthHelpers.IsPatient(User)) return Forbid();
+        var clientId = AuthHelpers.GetClientId(User);
+        var tenantId = GetTenantId();
+        if (!clientId.HasValue || !tenantId.HasValue) return Unauthorized();
+
+        var affected = await _context.Database.ExecuteSqlInterpolatedAsync($"""
+            UPDATE patient_documents
+            SET status='signed', signed_at=NOW(), updated_at=NOW()
+            WHERE id={documentId} AND client_id={clientId.Value} AND tenant_id={tenantId.Value}
+              AND revoked_at IS NULL AND requires_signature=true AND status <> 'signed';
+            """);
+
+        if (affected == 0)
+        {
+            var exists = await _context.Database.SqlQueryRaw<int>(
+                "SELECT 1 AS "Value" FROM patient_documents WHERE id = {0} AND client_id = {1} AND tenant_id = {2} AND revoked_at IS NULL",
+                documentId, clientId.Value, tenantId.Value).SingleOrDefaultAsync();
+            if (exists == 0) return NotFound();
+            return Conflict(new { message = "El documento no requiere firma o ya ha sido aceptado." });
+        }
+
+        await _context.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO patient_document_events
+                (tenant_id, patient_document_id, client_id, event_type, ip_address, user_agent, details)
+            VALUES ({tenantId.Value}, {documentId}, {clientId.Value}, 'accepted',
+                    {HttpContext.Connection.RemoteIpAddress?.ToString()},
+                    {Request.Headers.UserAgent.ToString()},
+                    'Aceptación realizada por el paciente desde el portal.');
+            """);
+
+        return NoContent();
+    }
+
     [HttpGet("api/portal/documents/{documentId:long}")]
     [Authorize]
     public async Task<IActionResult> DownloadForPatient(long documentId)
