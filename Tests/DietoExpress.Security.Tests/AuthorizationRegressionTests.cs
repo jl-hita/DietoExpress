@@ -1507,4 +1507,16 @@ public class AuthorizationRegressionTests
         Assert.DoesNotContain("storage_key", service, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void PatientExport_IncludesTenantScopedLegalAcceptanceEvidence()
+    {
+        var service = ReadServerLogica("PrivacyOperationsService.cs");
+
+        Assert.Contains("legal_acceptances", service);
+        Assert.Contains("la.user_id=@user", service);
+        Assert.Contains("la.tenant_id=@tenant", service);
+        Assert.Contains("document_sha256", service);
+        Assert.DoesNotContain("ip_address", service.Substring(service.IndexOf("legalAcceptances", StringComparison.Ordinal)));
+    }
+
 }
