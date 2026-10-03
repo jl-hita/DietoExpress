@@ -20,6 +20,42 @@ public sealed class AutomationService
         _logger = logger;
     }
 
+    private sealed record AutomationRuleConfig(bool Enabled, int? DelayMinutes, string RecipientScope, string[] Channels);
+
+    private async Task<AutomationRuleConfig> GetRuleConfigAsync(int tenantId, string ruleKey, CancellationToken cancellationToken)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new NpgsqlCommand("""
+            SELECT enabled, delay_minutes, recipient_scope, channels
+            FROM automation_rules
+            WHERE tenant_id=@tenant AND rule_key=@rule
+            LIMIT 1;
+            """, connection);
+        command.Parameters.AddWithValue("tenant", tenantId);
+        command.Parameters.AddWithValue("rule", ruleKey);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
+            return new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"]);
+        var channels = reader.IsDBNull(3)
+            ? ["in_app"]
+            : (JsonSerializer.Deserialize<string[]>(reader.GetString(3)) ?? ["in_app"]);
+        return new AutomationRuleConfig(reader.GetBoolean(0),
+            reader.IsDBNull(1) ? null : reader.GetInt32(1),
+            reader.GetString(2), channels);
+    }
+
+    private async Task<bool> IsRuleEnabledAsync(int tenantId, string ruleKey, CancellationToken cancellationToken)
+        => (await GetRuleConfigAsync(tenantId, ruleKey, cancellationToken)).Enabled;
+
+    private async Task<DateTime> ApplyConfiguredDelayAsync(int tenantId, string ruleKey, DateTime defaultDueAt, CancellationToken cancellationToken)
+    {
+        var config = await GetRuleConfigAsync(tenantId, ruleKey, cancellationToken);
+        return config.DelayMinutes.HasValue
+            ? DateTime.UtcNow.AddMinutes(Math.Max(0, config.DelayMinutes.Value))
+            : defaultDueAt;
+    }
+
     // Persiste primero el evento y, solo si se inserta por primera vez, ejecuta las reglas derivadas.
     // La restricción UNIQUE de PostgreSQL evita duplicados incluso con peticiones concurrentes.
     public async Task<long?> PublishEventAsync(
@@ -277,6 +313,7 @@ public sealed class AutomationService
                 }
             case "appointment.completed":
                 {
+                    if (!await IsRuleEnabledAsync(evt.TenantId, "appointment.completed", cancellationToken)) break;
                     var payload = AutomationJson.Deserialize<AppointmentCompletedPayload>(evt.Payload)
                         ?? throw new InvalidOperationException("Payload inválido para appointment.completed.");
 
@@ -362,6 +399,7 @@ public sealed class AutomationService
             case "appointment.cancelled":
             case "appointment.no_show":
                 {
+                    if (!await IsRuleEnabledAsync(evt.TenantId, "appointment.no_show", cancellationToken)) break;
                     var payload = AutomationJson.Deserialize<AppointmentStatusPayload>(evt.Payload);
                     clientId = payload?.ClientId;
                     if (clientId.HasValue && !await HasCompletedAppointmentAsync(evt.TenantId, clientId.Value, cancellationToken))
@@ -764,9 +802,10 @@ public sealed class AutomationService
         {
             case "client.created":
                 {
+                    if (!await IsRuleEnabledAsync(evt.TenantId, "client.created", cancellationToken)) break;
                     var payload = AutomationJson.Deserialize<ClientCreatedPayload>(evt.Payload)
                         ?? throw new InvalidOperationException("Payload inválido para client.created.");
-                    var due = DateTime.UtcNow.AddDays(1);
+                    var due = await ApplyConfiguredDelayAsync(evt.TenantId, "client.created", DateTime.UtcNow.AddDays(1), cancellationToken);
                     await ScheduleActionAsync(
                         evt.TenantId,
                         "create_professional_task",
@@ -782,6 +821,7 @@ public sealed class AutomationService
                 }
             case "patient.checkin.submitted":
                 {
+                    if (!await IsRuleEnabledAsync(evt.TenantId, "patient.checkin.submitted", cancellationToken)) break;
                     var payload = AutomationJson.Deserialize<CheckinSubmittedPayload>(evt.Payload)
                         ?? throw new InvalidOperationException("Payload inválido para patient.checkin.submitted.");
                     await CancelPendingJobsByIdempotencyPrefixAsync(evt.TenantId, $"followup:checkin-reminder:{payload.ClientId}:", cancellationToken);
@@ -793,7 +833,7 @@ public sealed class AutomationService
                         new CreateTaskAction(payload.ClientId, payload.NutritionistId,
                             "Revisar check-in semanal",
                             "El paciente ha enviado un nuevo check-in semanal.",
-                            DateTime.UtcNow.AddHours(24), "high", "automation:patient.checkin.submitted"),
+                            await ApplyConfiguredDelayAsync(evt.TenantId, "patient.checkin.submitted", DateTime.UtcNow.AddHours(24), cancellationToken), "high", "automation:patient.checkin.submitted"),
                         DateTime.UtcNow,
                         evt.Id,
                         $"event:{evt.Id}:create-professional-task",
@@ -922,7 +962,7 @@ public sealed class AutomationService
                         new CreateTaskAction(payload.ClientId, payload.NutritionistId,
                             "Contactar paciente por ausencia a la cita",
                             "La cita ha quedado marcada como no presentada.",
-                            DateTime.UtcNow.AddHours(24), "high", "automation:appointment.no_show"),
+                            await ApplyConfiguredDelayAsync(evt.TenantId, "appointment.no_show", DateTime.UtcNow.AddHours(24), cancellationToken), "high", "automation:appointment.no_show"),
                         DateTime.UtcNow,
                         evt.Id,
                         $"event:{evt.Id}:create-professional-task",
