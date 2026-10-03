@@ -101,7 +101,7 @@ public sealed class ProfessionalConsultationsController : ControllerBase
         var appointment = await GetAuthorizedAppointmentAsync(appointmentId);
         if (appointment == null) return NotFound();
 
-        if (appointment.Status is not ("confirmed" or "completed"))
+        if (appointment.Status != "confirmed")
             return Conflict(new { message = "La consulta solo puede iniciarse desde una cita confirmada." });
 
         var existing = await ReadConsultationAsync(appointmentId, appointment.TenantId);
