@@ -30,6 +30,7 @@ public sealed class AutomationWorker : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("AutomationWorker iniciado.");
+        var nextOnboardingSweep = DateTime.UtcNow;
         var nextLifecycleSweep = DateTime.UtcNow;
         var nextFollowUpSweep = DateTime.UtcNow;
         // Los barridos temporales se mantienen separados de la cola de jobs: si la cola está vacía,
@@ -41,6 +42,14 @@ public sealed class AutomationWorker : BackgroundService
         {
             try
             {
+                if (DateTime.UtcNow >= nextOnboardingSweep)
+                {
+                    using var onboardingScope = _scopeFactory.CreateScope();
+                    var automation = onboardingScope.ServiceProvider.GetRequiredService<AutomationService>();
+                    await automation.RunPatientOnboardingAutomationSweepAsync(stoppingToken);
+                    nextOnboardingSweep = DateTime.UtcNow.AddHours(1);
+                }
+
                 if (DateTime.UtcNow >= nextLifecycleSweep)
                 {
                     using var lifecycleScope = _scopeFactory.CreateScope();

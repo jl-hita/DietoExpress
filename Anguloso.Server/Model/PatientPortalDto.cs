@@ -77,3 +77,14 @@ public class PatientAccessLinkRequestDto
 {
     public string? Email { get; set; }
 }
+
+    
+public class PatientOnboardingRequestDto
+{
+    public DateTime? BirthDate { get; set; }
+    public string? Gender { get; set; }
+    public double? Weight { get; set; }
+    public double? Height { get; set; }
+    public bool AcceptConsent { get; set; }
+    public string? ConsentVersion { get; set; }
+}

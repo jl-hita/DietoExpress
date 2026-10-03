@@ -4,7 +4,7 @@ Este documento recoge el backlog funcional de automatizaciones identificado sobr
 
 ## Prioridad inmediata
 
-1. Flujo completo de nuevo paciente
+1. Flujo completo de nuevo paciente — backend de onboarding implementado; pendiente integración visual del formulario en portal
    - formulario inicial
    - consentimiento
    - datos/biometría pendientes
@@ -12,12 +12,12 @@ Este documento recoge el backlog funcional de automatizaciones identificado sobr
    - detección de ficha completa
    - paso a primera cita
 
-2. Completar información inicial
+2. Completar información inicial — recordatorios y escalado implementados
    - recordar al paciente
    - escalado al profesional
    - detener recordatorios al completar
 
-3. Primera cita
+3. Primera cita — detección, recordatorio y cancelación al reservar implementados
    - detectar ficha completa sin primera cita
    - ofrecer/recordar reserva
    - detener recordatorios al reservar
@@ -54,6 +54,17 @@ Este documento recoge el backlog funcional de automatizaciones identificado sobr
    - tarea profesional
    - aviso al paciente cuando proceda
    - seguimiento hasta resolver
+
+## Estado de implementación actual
+
+### Bloque implementado en esta iteración
+
+- Onboarding persistente: fecha de nacimiento, género, biometría mínima y consentimiento versionado.
+- Endpoint de portal para consultar/guardar el onboarding.
+- Sweep horario de onboarding con recordatorios al paciente y escalado al profesional.
+- Detección de ficha completa y guía automática hacia la primera cita.
+- Cancelación de recordatorios de primera cita cuando existe una reserva futura.
+- Cancelación de recordatorios de onboarding cuando se completa el flujo.
 
 ## Segunda fase: sistema configurable
 

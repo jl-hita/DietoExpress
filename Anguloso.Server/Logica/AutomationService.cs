@@ -190,6 +190,20 @@ public sealed class AutomationService
                 clientId = AutomationJson.Deserialize<ClientCreatedPayload>(evt.Payload)?.ClientId;
                 status = "pending_info";
                 break;
+            case "patient.onboarding.completed":
+                {
+                    var payload = AutomationJson.Deserialize<ClientOnboardingCompletedPayload>(evt.Payload)
+                        ?? throw new InvalidOperationException("Payload inválido para patient.onboarding.completed.");
+                    await CancelPendingJobsByIdempotencyPrefixAsync(
+                        evt.TenantId,
+                        $"onboarding:info-reminder:{payload.ClientId}:",
+                        cancellationToken);
+                    await CancelPendingJobsByIdempotencyPrefixAsync(
+                        evt.TenantId,
+                        $"onboarding:info-task:{payload.ClientId}:",
+                        cancellationToken);
+                    break;
+                }
             case "patient.checkin.submitted":
                 clientId = AutomationJson.Deserialize<CheckinSubmittedPayload>(evt.Payload)?.ClientId;
                 status = "follow_up";
@@ -229,6 +243,12 @@ public sealed class AutomationService
                     if (clientId.HasValue)
                         status = await HasCompletedAppointmentAsync(evt.TenantId, clientId.Value, cancellationToken)
                             ? "active" : "pending_first_appointment";
+                    if (payload is not null)
+                        await CancelPendingJobsByIdempotencyPrefixAsync(
+                            evt.TenantId,
+                            $"onboarding:first-appointment-reminder:{payload.ClientId}:",
+                            cancellationToken);
+
                     break;
                 }
             case "appointment.cancelled":
@@ -243,6 +263,136 @@ public sealed class AutomationService
         }
         if (clientId.HasValue && status is not null)
             await SetPatientLifecycleStatusAsync(evt.TenantId, clientId.Value, status, DateTime.UtcNow, cancellationToken);
+    }
+
+
+    /// <summary>
+    /// Reconciliación del onboarding del paciente: recuerda información/consentimiento pendientes
+    /// y, cuando la ficha está completa, guía hacia la primera cita. Los hechos persistidos son
+    /// la fuente de verdad; por eso los recordatorios dejan de generarse automáticamente al resolverse.
+    /// </summary>
+    public async Task RunPatientOnboardingAutomationSweepAsync(CancellationToken cancellationToken = default)
+    {
+        var candidates = new List<(int ClientId, int TenantId, int? AssignedUserId, bool InfoComplete, bool HasFutureAppointment, DateTime CreatedAt)>();
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new NpgsqlCommand("""
+            SELECT c.id,
+                   c.tenant_id,
+                   c.user_id,
+                   (
+                       c.birth_date IS NOT NULL
+                       AND NULLIF(TRIM(c.gender), '') IS NOT NULL
+                       AND EXISTS (
+                           SELECT 1 FROM biometrics b
+                           WHERE b.client_id=c.id
+                             AND b.measurement_date IS NOT NULL
+                       )
+                       AND c.onboarding_consent_at IS NOT NULL
+                   ) AS info_complete,
+                   EXISTS (
+                       SELECT 1 FROM patient_appointments a
+                       WHERE a.client_id=c.id
+                         AND a.tenant_id=c.tenant_id
+                         AND a.status IN ('requested','confirmed')
+                         AND a.starts_at > NOW()
+                   ) AS has_future_appointment,
+                   COALESCE(c.created_at, NOW()) AS created_at
+            FROM clients c
+            WHERE c.tenant_id IS NOT NULL
+              AND c.archived_at IS NULL;
+            """, connection);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            candidates.Add((
+                reader.GetInt32(0),
+                reader.GetInt32(1),
+                reader.IsDBNull(2) ? null : reader.GetInt32(2),
+                reader.GetBoolean(3),
+                reader.GetBoolean(4),
+                reader.GetDateTime(5)));
+        }
+
+        foreach (var c in candidates)
+        {
+            var now = DateTime.UtcNow;
+            if (!c.InfoComplete)
+            {
+                await ScheduleActionAsync(
+                    c.TenantId,
+                    "notify_patient",
+                    new NotifyPatientAction(
+                        c.ClientId,
+                        "onboarding_info_reminder",
+                        "Completa tu información inicial",
+                        "Faltan algunos datos de tu ficha inicial. Completa la información solicitada en tu portal para que tu nutricionista pueda preparar tu seguimiento.",
+                        "/patient?tab=profile"),
+                    now,
+                    null,
+                    $"onboarding:info-reminder:{c.ClientId}:{now:yyyyMMdd}",
+                    cancellationToken: cancellationToken);
+
+                if (c.CreatedAt <= now.AddDays(-3))
+                {
+                    await ScheduleActionAsync(
+                        c.TenantId,
+                        "create_professional_task",
+                        new CreateTaskAction(
+                            c.ClientId,
+                            c.AssignedUserId,
+                            "Revisar información inicial pendiente",
+                            "El paciente todavía no ha completado los datos iniciales y/o el consentimiento del portal.",
+                            now.AddDays(1),
+                            "normal",
+                            "automation:onboarding.info"),
+                        now,
+                        null,
+                        $"onboarding:info-task:{c.ClientId}:{now:yyyyMMdd}",
+                        cancellationToken: cancellationToken);
+                }
+
+                continue;
+            }
+
+            if (!c.HasFutureAppointment)
+            {
+                await ScheduleActionAsync(
+                    c.TenantId,
+                    "notify_patient",
+                    new NotifyPatientAction(
+                        c.ClientId,
+                        "first_appointment_reminder",
+                        "Ya puedes reservar tu primera cita",
+                        "Tu ficha inicial está completa. Reserva tu primera cita con tu nutricionista desde el portal.",
+                        "/patient?tab=appointments"),
+                    now,
+                    null,
+                    $"onboarding:first-appointment-reminder:{c.ClientId}:{now:yyyyMMdd}",
+                    cancellationToken: cancellationToken);
+
+                if (c.CreatedAt <= now.AddDays(-3))
+                {
+                    await ScheduleActionAsync(
+                        c.TenantId,
+                        "create_professional_task",
+                        new CreateTaskAction(
+                            c.ClientId,
+                            c.AssignedUserId,
+                            "Proponer primera cita",
+                            "El paciente ha completado la información inicial pero todavía no tiene una cita futura solicitada o confirmada.",
+                            now.AddDays(1),
+                            "normal",
+                            "automation:onboarding.first-appointment"),
+                        now,
+                        null,
+                        $"onboarding:first-appointment-task:{c.ClientId}:{now:yyyyMMdd}",
+                        cancellationToken: cancellationToken);
+                }
+            }
+        }
     }
 
     /// <summary>Programa recordatorios persistentes de check-in y tareas de seguimiento.</summary>
@@ -741,6 +891,27 @@ public sealed class AutomationService
         }
     }
 
+
+    /// <summary>Invalida jobs pendientes de una familia funcional cuando su condición ya no se cumple.</summary>
+    private async Task CancelPendingJobsByIdempotencyPrefixAsync(
+        int tenantId,
+        string prefix,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new NpgsqlCommand("""
+            UPDATE automation_jobs
+            SET status='cancelled', locked_at=NULL, updated_at=NOW()
+            WHERE tenant_id=@tenant
+              AND status='pending'
+              AND idempotency_key LIKE @prefix;
+            """, connection);
+        command.Parameters.AddWithValue("tenant", tenantId);
+        command.Parameters.AddWithValue("prefix", prefix + "%");
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
     private async Task CancelJobsForEventAggregateAsync(AutomationEvent evt, CancellationToken cancellationToken)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
@@ -826,6 +997,7 @@ public sealed class AutomationService
             _ => "normal"
         };
 
+    public sealed record ClientOnboardingCompletedPayload(int ClientId, int? NutritionistId);
     public sealed record ClientCreatedPayload(int ClientId, int? NutritionistId);
     public sealed record CheckinSubmittedPayload(int ClientId, int? NutritionistId);
     public sealed record DietAutomationPayload(int ClientId, int AssignmentId, string DietName);

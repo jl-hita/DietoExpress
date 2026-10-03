@@ -1063,6 +1063,20 @@ public static class DatabaseBootstrap
         logger.LogInformation("Migración de automatizaciones automation-v1-engine-scheduler-tasks aplicada correctamente.");
     }
 
+
+    /// <summary>Datos mínimos de onboarding y consentimiento explícito del paciente.</summary>
+    public static void UpgradeAutomationSchemaV4(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            ALTER TABLE clients ADD COLUMN IF NOT EXISTS onboarding_consent_at TIMESTAMPTZ;
+            ALTER TABLE clients ADD COLUMN IF NOT EXISTS onboarding_consent_version VARCHAR(40);
+            CREATE INDEX IF NOT EXISTS idx_clients_onboarding_consent
+                ON clients(tenant_id, onboarding_consent_at);
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('automation-v4-patient-onboarding') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración de automatizaciones automation-v4-patient-onboarding aplicada correctamente.");
+    }
+
     /// <summary>Integración OAuth y sincronización bidireccional con Google Calendar.</summary>
     public static void UpgradeGoogleCalendarSchemaV1(angulosodbContext context, ILogger logger)
     {
