@@ -30,6 +30,16 @@ public sealed class PatientDocumentService
         await connection.OpenAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
+        // Serializamos la provisión de documentación del mismo paciente dentro de PostgreSQL.
+        // Esto evita que dos peticiones concurrentes superen simultáneamente el WHERE NOT EXISTS
+        // y creen dos copias del mismo documento obligatorio.
+        await using (var lockCommand = new NpgsqlCommand(
+            "SELECT pg_advisory_xact_lock(hashtextextended(@lockKey, 0));", connection, transaction))
+        {
+            lockCommand.Parameters.AddWithValue("lockKey", $"patient-documents:{tenantId}:{clientId}");
+            await lockCommand.ExecuteNonQueryAsync(cancellationToken);
+        }
+
         try
         {
             await using var templatesCommand = new NpgsqlCommand("""
