@@ -236,8 +236,8 @@ public class PatientPortalController : ControllerBase
             {
                 client_id = client.id,
                 measurement_date = DateOnly.FromDateTime(now),
-                weight = (decimal?)request.Weight.Value,
-                height = (decimal?)request.Height.Value
+                weight = request.Weight.Value,
+                height = request.Height.Value
             });
         }
         else
