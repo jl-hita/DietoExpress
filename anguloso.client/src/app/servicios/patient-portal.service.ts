@@ -192,6 +192,10 @@ export class PatientPortalService {
     return this.http.get(this.base + '/portal/documents/' + id, { responseType: 'blob' });
   }
 
+  acceptDocument(id: number): Observable<void> {
+    return this.http.post<void>(this.base + '/portal/documents/' + id + '/accept', {});
+  }
+
   getNotifications(): Observable<PatientNotification[]> { return this.http.get<PatientNotification[]>(this.base + '/portal/notifications'); }
   markNotificationRead(id: number): Observable<void> { return this.http.patch<void>(this.base + '/portal/notifications/' + id + '/read', {}); }
   getVapidPublicKey(): Observable<{ publicKey: string }> { return this.http.get<{ publicKey: string }>(this.base + '/portal/push/vapid-public-key'); }
