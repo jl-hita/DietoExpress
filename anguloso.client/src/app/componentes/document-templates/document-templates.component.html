@@ -1,0 +1,32 @@
+<div class="settings-page">
+  <div class="page-header"><div class="page-title-group"><mat-icon class="page-icon">description</mat-icon><div><h1 class="page-title">Documentación</h1><p class="page-subtitle">Gestiona las plantillas que se entregarán automáticamente a tus pacientes.</p></div></div></div>
+
+  <mat-card>
+    <mat-card-header><mat-card-title>Nueva plantilla</mat-card-title></mat-card-header>
+    <mat-card-content>
+      <div style="display:grid;gap:16px">
+        <mat-form-field appearance="outline"><mat-label>Nombre</mat-label><input matInput [(ngModel)]="form.name"></mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>Descripción</mat-label><textarea matInput [(ngModel)]="form.description"></textarea></mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>Tipo</mat-label><mat-select [(ngModel)]="form.documentType"><mat-option value="consent">Consentimiento</mat-option><mat-option value="privacy">Privacidad</mat-option><mat-option value="service_terms">Condiciones del servicio</mat-option><mat-option value="teleconsultation">Teleconsulta</mat-option><mat-option value="other">Otro</mat-option></mat-select></mat-form-field>
+        <input type="file" accept="application/pdf,.pdf" (change)="onFile($event)">
+        <mat-checkbox [(ngModel)]="form.requiredOnClientCreation">Obligatorio al crear paciente</mat-checkbox>
+        <mat-checkbox [(ngModel)]="form.requiredBeforeConsultation">Obligatorio antes de consulta</mat-checkbox>
+        <mat-checkbox [(ngModel)]="form.requiresSignature">Requiere aceptación</mat-checkbox>
+        <button mat-raised-button color="primary" (click)="upload()" [disabled]="saving || !selectedFile || !form.name.trim()"><mat-icon>upload</mat-icon> {{ saving ? 'Subiendo...' : 'Subir plantilla' }}</button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card style="margin-top:20px" *ngIf="loading"><mat-card-content><mat-spinner diameter="32"></mat-spinner></mat-card-content></mat-card>
+  <mat-card style="margin-top:20px" *ngIf="!loading">
+    <mat-card-header><mat-card-title>Plantillas existentes</mat-card-title></mat-card-header>
+    <mat-card-content>
+      <p *ngIf="!templates.length">Todavía no hay plantillas.</p>
+      <div *ngFor="let t of templates" style="display:grid;grid-template-columns:1fr auto;gap:12px;padding:14px 0;border-bottom:1px solid #ddd">
+        <div><strong>{{ t.name }}</strong> · v{{ t.version }}<div>{{ t.documentType }} · {{ t.fileName }}</div><small>{{ t.requiredOnClientCreation ? 'Alta ' : '' }}{{ t.requiredBeforeConsultation ? 'Consulta ' : '' }}{{ t.requiresSignature ? 'Aceptación' : 'Sin aceptación' }}</small></div>
+        <button mat-stroked-button (click)="toggle(t)">{{ t.active ? 'Desactivar' : 'Activar' }}</button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+  <p *ngIf="error" style="color:#b00020">{{ error }}</p>
+</div>
