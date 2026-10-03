@@ -20,7 +20,7 @@ public sealed class AutomationController : ControllerBase
         _tenantContext = tenantContext;
     }
 
-    [HttpGet("jobs")]
+    // Este endpoint es solo de observabilidad y control: el worker sigue siendo el único componente que ejecuta jobs.\n    [HttpGet("jobs")]
     public async Task<IActionResult> GetJobs(
         [FromQuery] string? status = null,
         [FromQuery] int limit = 100)
