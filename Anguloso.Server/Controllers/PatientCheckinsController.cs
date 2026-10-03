@@ -84,6 +84,7 @@ public class PatientCheckinsController : ControllerBase
             .FirstOrDefaultAsync();
 
         // El evento de automatización se publica después de guardar el check-in. Un fallo del motor no invalida el dato clínico.
+        // El check-in ya está guardado cuando se publica el evento; las automatizaciones pueden fallar sin deshacer el dato clínico enviado por el paciente.
         try
         {
             await _automationService.PublishEventAsync(
