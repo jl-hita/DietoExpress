@@ -109,6 +109,26 @@ export class PatientPortalService {
     });
   }
 
+  getConsultationSlots(clientId: number, durationMinutes = 30, days = 30): Observable<AppointmentSlot[]> {
+    return this.http.get<AppointmentSlot[]>(this.base + '/professional/consultation-actions/slots', {
+      params: { clientId: String(clientId), durationMinutes: String(durationMinutes), days: String(days) }
+    });
+  }
+
+  createConsultationAppointment(request: { clientId: number; startsAt: string; durationMinutes: number; notes?: string | null }): Observable<PatientAppointment> {
+    return this.http.post<PatientAppointment>(this.base + '/professional/consultation-actions/appointment', request);
+  }
+
+  createProfessionalTask(request: {
+    clientId?: number | null;
+    title: string;
+    description?: string | null;
+    dueAt?: string | null;
+    priority?: string;
+  }): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(this.base + '/professional/tasks', request);
+  }
+
   getProfessionalAppointments(from?: string, to?: string): Observable<PatientAppointment[]> {
     let url = this.base + '/appointments/professional';
     const params: string[] = [];
