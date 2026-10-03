@@ -26,8 +26,8 @@ public class PatientDocumentsController : ControllerBase
         _patientDocumentService = patientDocumentService;
     }
 
-    [HttpGet("api/clients/{clientId:int}/documents")]
     [Authorize(Policy = "Professional")]
+    [HttpGet("api/clients/{clientId:int}/documents")]
     public async Task<IActionResult> ListForProfessional(int clientId)
     {
         if (!await CanAccessClientAsync(clientId)) return NotFound();
@@ -53,8 +53,8 @@ public class PatientDocumentsController : ControllerBase
         return Ok(rows);
     }
 
-    [HttpGet("api/clients/{clientId:int}/documents/summary")]
     [Authorize(Policy = "Professional")]
+    [HttpGet("api/clients/{clientId:int}/documents/summary")]
     public async Task<IActionResult> GetSummaryForProfessional(int clientId)
     {
         if (!await CanAccessClientAsync(clientId)) return NotFound();
@@ -84,8 +84,8 @@ public class PatientDocumentsController : ControllerBase
         });
     }
 
-    [HttpPost("api/clients/{clientId:int}/documents")]
     [Authorize(Policy = "Professional")]
+    [HttpPost("api/clients/{clientId:int}/documents")]
     [RequestSizeLimit(MaxFileSize)]
     public async Task<IActionResult> UploadForProfessional(int clientId, IFormFile file,
         [FromForm] string? name = null, [FromForm] string? documentType = null,
@@ -169,16 +169,16 @@ public class PatientDocumentsController : ControllerBase
         }
     }
 
-    [HttpGet("api/clients/{clientId:int}/documents/{documentId:long}")]
     [Authorize(Policy = "Professional")]
+    [HttpGet("api/clients/{clientId:int}/documents/{documentId:long}")]
     public async Task<IActionResult> DownloadForProfessional(int clientId, long documentId)
     {
         if (!await CanAccessClientAsync(clientId)) return NotFound();
         return await DownloadAsync(clientId, documentId, false);
     }
 
-    [HttpGet("api/clients/{clientId:int}/documents/{documentId:long}/audit")]
     [Authorize(Policy = "Professional")]
+    [HttpGet("api/clients/{clientId:int}/documents/{documentId:long}/audit")]
     public async Task<IActionResult> GetAuditForProfessional(int clientId, long documentId)
     {
         if (!await CanAccessClientAsync(clientId)) return NotFound();
