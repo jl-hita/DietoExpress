@@ -129,6 +129,6 @@ export class PatientPortalService {
   getClientPortalAccess(clientId: number): Observable<ClientPortalAccess> { return this.http.get<ClientPortalAccess>(`${this.base}/clients/${clientId}/portal-access`); }
   regenerateClientToken(clientId: number): Observable<ClientPortalAccess> { return this.http.post<ClientPortalAccess>(`${this.base}/clients/${clientId}/portal-access/regenerate-token`, {}); }
   setClientPasscode(clientId: number, passcode: string): Observable<{ message: string }> { return this.http.post<{ message: string }>(`${this.base}/clients/${clientId}/portal-access/passcode`, { passcode }); }
-  getCommunicationPreferences(clientId: number): Observable<PatientCommunicationPreferences> { return this.http.get<PatientCommunicationPreferences>(`${this.base}/clients/${clientId}/communication-preferences`); }
-  updateCommunicationPreferences(clientId: number, preferences: PatientCommunicationPreferences): Observable<void> { return this.http.put<void>(`${this.base}/clients/${clientId}/communication-preferences`, preferences); }
+  getCommunicationPreferences(clientId: number): Observable<PatientCommunicationPreferences> { return this.http.get<PatientCommunicationPreferences>(`${this.base}/professional/automation/clients/${clientId}/communication-preferences`); }
+  updateCommunicationPreferences(clientId: number, preferences: PatientCommunicationPreferences): Observable<void> { return this.http.put<void>(`${this.base}/professional/automation/clients/${clientId}/communication-preferences`, preferences); }
 }
