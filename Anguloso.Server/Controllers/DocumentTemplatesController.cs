@@ -167,13 +167,49 @@ public class DocumentTemplatesController : ControllerBase
 
         if (request.Active)
         {
+            // Reuse the same tenant + logical-name lock as version creation so two
+            // concurrent activations cannot leave two versions active.
+            await using var lockCommand = new NpgsqlCommand("""
+                SELECT pg_advisory_xact_lock(
+                    hashtextextended(
+                        @lock_key,
+                        0));
+                """, connection, tx);
+            lockCommand.Parameters.AddWithValue(
+                "lock_key",
+                $"{tenantId.Value}:document-template-active:{id}");
+            // Locking by id alone would not protect sibling versions. Resolve the
+            // logical name first and then acquire the stable name-based lock.
+            await lockCommand.DisposeAsync();
+
+            await using var nameCommand = new NpgsqlCommand(
+                "SELECT name FROM document_templates WHERE id=@id AND tenant_id=@tenant;",
+                connection, tx);
+            nameCommand.Parameters.AddWithValue("id", id);
+            nameCommand.Parameters.AddWithValue("tenant", tenantId.Value);
+            var templateName = Convert.ToString(await nameCommand.ExecuteScalarAsync(cancellationToken));
+            if (string.IsNullOrWhiteSpace(templateName))
+            {
+                await tx.RollbackAsync(cancellationToken);
+                return NotFound();
+            }
+
+            await using var logicalLock = new NpgsqlCommand(
+                "SELECT pg_advisory_xact_lock(hashtextextended(@lock_key, 0));",
+                connection, tx);
+            logicalLock.Parameters.AddWithValue(
+                "lock_key",
+                $"{tenantId.Value}:document-template:{templateName.Trim().ToLowerInvariant()}");
+            await logicalLock.ExecuteNonQueryAsync(cancellationToken);
+
             await using var deactivate = new NpgsqlCommand("""
                 UPDATE document_templates
                 SET is_active=false, updated_at=NOW()
-                WHERE tenant_id=@tenant AND LOWER(name)=LOWER((SELECT name FROM document_templates WHERE id=@id AND tenant_id=@tenant))
+                WHERE tenant_id=@tenant AND LOWER(name)=LOWER(@name)
                   AND is_active=true AND id<>@id;
                 """, connection, tx);
             deactivate.Parameters.AddWithValue("tenant", tenantId.Value);
+            deactivate.Parameters.AddWithValue("name", templateName);
             deactivate.Parameters.AddWithValue("id", id);
             await deactivate.ExecuteNonQueryAsync(cancellationToken);
         }
