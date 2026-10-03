@@ -6,7 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { FormsModule } from '@angular/forms';
-import { PatientCheckin, PatientPortalService, PatientAppointment } from '../../servicios/patient-portal.service';
+import { PatientCheckin, PatientPortalService, PatientAppointment, AppointmentSlot } from '../../servicios/patient-portal.service';
 import { DietService } from '../../servicios/diet.service';
 
 interface ConsultationStep {
@@ -248,7 +248,7 @@ export class GuidedConsultationComponent implements OnInit {
   activeDiet: any = null;
   pendingTasks: any[] = [];
   nextAppointment: PatientAppointment | null = null;
-  consultationSlots: PatientAppointment[] = [];
+  consultationSlots: AppointmentSlot[] = [];
   slotDuration = 30;
   selectedSlot: string | null = null;
   slotsLoading = false;
@@ -493,7 +493,7 @@ export class GuidedConsultationComponent implements OnInit {
     this.slotsLoading = true;
     this.selectedSlot = null;
     this.portalService.getConsultationSlots(clientId, this.slotDuration, 30).subscribe({
-      next: slots => { this.consultationSlots = slots as any; this.slotsLoading = false; },
+      next: slots => { this.consultationSlots = slots; this.slotsLoading = false; },
       error: err => { this.consultationSlots = []; this.slotsLoading = false; this.snack.open(err?.error?.message || 'No se han podido consultar los huecos.', 'Cerrar', { duration: 3000 }); }
     });
   }
