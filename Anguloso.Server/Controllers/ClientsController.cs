@@ -380,17 +380,36 @@ public class ClientsController : ControllerBase
 
             if (createdDocuments > 0)
             {
+                var now = DateTime.UtcNow;
+                var notification = new NotifyPatientAction(
+                    client.id,
+                    "documents_pending",
+                    "Tienes documentación pendiente",
+                    "Tu nutricionista ha preparado documentación que debes revisar desde tu portal.",
+                    "/patient?tab=documents");
+
                 await _automationService.ScheduleActionAsync(
                     tenantId.Value,
                     "notify_patient",
-                    new NotifyPatientAction(
-                        client.id,
-                        "documents_pending",
-                        "Tienes documentación pendiente",
-                        "Tu nutricionista ha preparado documentación que debes revisar desde tu portal.",
-                        "/patient?tab=documents"),
-                    DateTime.UtcNow,
+                    notification,
+                    now,
                     idempotencyKey: $"documents:created:{client.id}");
+
+                // Recordatorios diferidos: el worker comprueba que sigan existiendo pendientes
+                // antes de crear la notificación, por lo que no molestan si el paciente ya completó todo.
+                await _automationService.ScheduleActionAsync(
+                    tenantId.Value,
+                    "notify_patient",
+                    notification,
+                    now.AddHours(24),
+                    idempotencyKey: $"documents:pending-reminder:{client.id}:24h");
+
+                await _automationService.ScheduleActionAsync(
+                    tenantId.Value,
+                    "notify_patient",
+                    notification,
+                    now.AddHours(72),
+                    idempotencyKey: $"documents:pending-reminder:{client.id}:72h");
             }
         }
         catch (Exception ex)
