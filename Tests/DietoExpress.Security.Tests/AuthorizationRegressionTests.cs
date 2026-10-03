@@ -1225,6 +1225,76 @@ public class AuthorizationRegressionTests
 
 
     [Fact]
+    public void PatientDocuments_ProfessionalEndpointsRequireProfessionalPolicy()
+    {
+        var source = ReadServerController("PatientDocumentsController.cs");
+
+        foreach (var marker in new[]
+        {
+            "api/clients/{clientId:int}/documents",
+            "api/clients/{clientId:int}/documents/summary",
+            "api/clients/{clientId:int}/documents/{documentId:long}",
+            "api/clients/{clientId:int}/documents/{documentId:long}/audit"
+        })
+        {
+            AssertEndpointAttributePair(source, marker);
+        }
+
+        Assert.Contains("[Authorize]", source);
+        Assert.Contains("AuthHelpers.IsPatient(User)", source);
+    }
+
+    [Fact]
+    public void PatientDocuments_DownloadsEnforceTenantAndPrivateStorage()
+    {
+        var source = ReadServerController("PatientDocumentsController.cs");
+
+        Assert.Contains("tenant_id = {2}", source);
+        Assert.Contains("GetSafePhysicalPath", source);
+        Assert.Contains("DIETOEXPRESS_DOCUMENTS_PATH", source);
+        Assert.DoesNotContain("wwwroot", source);
+        Assert.Contains("storage_key", source);
+        Assert.Contains("revoked_at IS NULL", source);
+    }
+
+    [Fact]
+    public void PatientDocuments_AcceptanceAuditsExactVersionAndHash()
+    {
+        var source = ReadServerController("PatientDocumentsController.cs");
+
+        Assert.Contains("DocumentAcceptanceSnapshot", source);
+        Assert.Contains("documentSnapshot.Version", source);
+        Assert.Contains("documentSnapshot.Sha256", source);
+        Assert.Contains("event_type, ip_address, user_agent, details", source);
+        Assert.Contains("signed_at=NOW()", source);
+    }
+
+    [Fact]
+    public void PatientDocuments_NewVersionsPreserveHistoryAndRequireNewAcceptance()
+    {
+        var source = ReadServerLogica("PatientDocumentService.cs");
+
+        Assert.Contains("includeAllRequired", source);
+        Assert.Contains("LOWER(name)", source);
+        Assert.Contains("revoked_at=NOW(), status='revoked'", source);
+        Assert.Contains("event_type, details", source);
+        Assert.Contains("'superseded'", source);
+        Assert.Contains("la aceptación de la versión anterior se conserva", source);
+    }
+
+    [Fact]
+    public void PatientDocuments_ConsultationChecksOnlyConsultationRequiredTemplates()
+    {
+        var source = ReadServerLogica("PatientDocumentService.cs");
+        var controller = ReadServerController("ProfessionalConsultationsController.cs");
+
+        Assert.Contains("is_required_before_consultation=true", source);
+        Assert.Contains("GetPendingSignatureDocumentsBeforeConsultationAsync", controller);
+        Assert.Contains("includeAllRequired: true", controller);
+    }
+
+
+    [Fact]
     public void ClientCreateAndUpdate_BoundProfilePayload()
     {
         var source = ReadServerController("ClientsController.cs");
