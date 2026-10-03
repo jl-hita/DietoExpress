@@ -354,7 +354,7 @@ public class AuthController : ControllerBase
         await _context.SaveChangesAsync();
 
         string frontendUrl = _configServ.GetConfigString("frontendUrl", "https://localhost:4200") ?? "https://localhost:4200";
-        string url = $"{frontendUrl.TrimEnd('/')}/reset-password?token={Uri.EscapeDataString(token)}";
+        string url = $"{frontendUrl.TrimEnd('/')}/reset-pwd?token={Uri.EscapeDataString(token)}";
 
         var bm = await _emailServ.SendEmailAsync(
             user.email,
