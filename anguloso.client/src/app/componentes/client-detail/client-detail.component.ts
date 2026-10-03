@@ -27,7 +27,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCardModule } from '@angular/material/card';
-import { PatientCheckin, PatientPortalService, ClientPortalAccess } from '../../servicios/patient-portal.service';
+import { PatientCheckin, PatientPortalService, ClientPortalAccess, FollowupSettings } from '../../servicios/patient-portal.service';
 import { Subscription } from 'rxjs';
 import { debounceTime, filter, switchMap } from 'rxjs/operators';
 
@@ -80,6 +80,11 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
   checkinChart: Chart | null = null;
   checkins: PatientCheckin[] = [];
   selectedFollowupMetric = 'adherence';
+  followupSettings: FollowupSettings = {
+    selectedMetrics: ['adherence','hunger','energy','sleep_quality','sleep_hours','training','weight'],
+    periodWeeks: 4,
+    thresholds: {}
+  };
   dietsHistory: ClientDiet[] = [];
   energyReq: any = null;
   selectedActivity = 'Moderado';
@@ -137,6 +142,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
       this.loadPortalAccess();
       this.loadCommunicationPreferences();
       this.loadPatientCheckins();
+      this.loadFollowupSettings();
     }
   }
 
@@ -792,7 +798,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     const ordered = [...this.checkins]
       .filter(c => c.submitted_at)
       .sort((a, b) => new Date(a.submitted_at).getTime() - new Date(b.submitted_at).getTime())
-      .slice(-4);
+      .slice(-this.followupSettings.periodWeeks);
     if (ordered.length < 3) return [];
 
     const trends: { label: string; icon: string; text: string }[] = [];
@@ -819,6 +825,26 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     addTrend('Peso', ordered.map(c => c.weight), ' kg');
 
     return trends.slice(0, 4);
+  }
+
+  loadFollowupSettings(): void {
+    this.portalService.getFollowupSettings().subscribe({
+      next: settings => {
+        this.followupSettings = {
+          selectedMetrics: settings.selectedMetrics?.length ? settings.selectedMetrics : this.followupSettings.selectedMetrics,
+          periodWeeks: settings.periodWeeks || 4,
+          thresholds: settings.thresholds || {}
+        };
+        if (!this.followupSettings.selectedMetrics.includes(this.selectedFollowupMetric)) {
+          this.selectedFollowupMetric = this.followupSettings.selectedMetrics[0] ?? 'adherence';
+          this.renderCheckinChart();
+        }
+      }
+    });
+  }
+
+  private followupRule(metric: string, defaults: { low?: number; high?: number; drop?: number; rise?: number }): { low?: number; high?: number; drop?: number; rise?: number } {
+    return { ...defaults, ...(this.followupSettings.thresholds?.[metric] ?? {}) };
   }
 
   getLatestUnreviewedCheckin(): PatientCheckin | null {
