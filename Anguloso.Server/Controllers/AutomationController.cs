@@ -38,7 +38,10 @@ public sealed class AutomationController : ControllerBase
         ("followup.checkin.reminder", "patient", ["in_app"]),
         ("followup.checkin.escalation", "assigned_professional", ["in_app"]),
         ("diet.expiry.reminder", "patient", ["in_app"]),
-        ("diet.expired", "both", ["in_app"])
+        ("diet.expired", "both", ["in_app"]),
+        ("diet.renewal", "both", ["in_app"]),
+        ("biometrics.review_due", "assigned_professional", ["in_app"]),
+        ("biometrics.evolution", "assigned_professional", ["in_app"])
     ];
 
     [HttpGet("rules")]
