@@ -41,4 +41,4 @@ No registrar secretos, contraseñas, tokens ni el contenido clínico completo de
 
 ## Estado
 
-Actualmente existe infraestructura de logging/auditoría de seguridad y acceso clínico. Falta un registro de incidentes de primera clase y un flujo operativo asociado.
+Existe infraestructura de logging/auditoría y un registro `privacy_incidents` tenant-scoped con estados, evaluación, comunicaciones y medidas correctivas. El procedimiento de decisión/notificación sigue requiriendo operación y validación según el tratamiento concreto.
