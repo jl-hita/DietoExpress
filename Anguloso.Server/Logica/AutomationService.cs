@@ -179,7 +179,7 @@ public sealed class AutomationService
         return 0;
     }
 
-    private async Task<int?[]> ResolveProfessionalRecipientsAsync(int tenantId, string scope, int? assignedUserId, CancellationToken cancellationToken)
+    private async Task<int[]> ResolveProfessionalRecipientsAsync(int tenantId, string scope, int? assignedUserId, CancellationToken cancellationToken)
     {
         if (scope == "assigned_professional")
             return assignedUserId.HasValue ? [assignedUserId.Value] : [];
@@ -192,14 +192,12 @@ public sealed class AutomationService
             WHERE tenant_id=@tenant
               AND archived_at IS NULL
               AND role <> 'superadmin'
-              AND email IS NOT NULL
-              AND TRIM(email) <> ''
               AND (@scope <> 'clinic_admin' OR role='clinic_admin')
             ORDER BY CASE WHEN role='clinic_admin' THEN 0 ELSE 1 END, created_at, id;
             """, connection);
         command.Parameters.AddWithValue("tenant", tenantId);
         command.Parameters.AddWithValue("scope", scope);
-        var result = new List<int?>();
+        var result = new List<int>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
         {
