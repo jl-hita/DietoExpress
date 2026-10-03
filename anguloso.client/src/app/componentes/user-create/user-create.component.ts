@@ -10,12 +10,16 @@ import { MatIconModule } from '@angular/material/icon';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../servicios/auth.service';
 import { environment } from '../../../environments/environments';
+import { LegalDocument, LegalService } from '../../servicios/legal.service';
 
 interface Usuario {
   username: string;
   fullName?: string;
   passwordPlain: string;
   email: string;
+  legalDocumentKey: string;
+  legalDocumentVersion: number;
+  legalDocumentSha256: string;
 }
 
 interface LoginRequest {
@@ -36,6 +40,10 @@ export class UserCreateComponent {
   form: FormGroup;
   loading = false;
   usuarioCreado = false;
+  legalDocuments: LegalDocument[] = [];
+  currentTerms: LegalDocument | null = null;
+  termsAccepted = false;
+  legalLoading = true;
 
   constructor(
     private fb: FormBuilder,
@@ -43,12 +51,15 @@ export class UserCreateComponent {
     private snackBar: MatSnackBar,
     private authService: AuthService,
     private router: Router,
+    private legalService: LegalService,
   ) {
+    this.loadLegalDocuments();
     this.form = this.fb.group({
       username: ['', [Validators.required]],
       fullName: [''],
       password: ['', [Validators.required, Validators.minLength(12)]],
       email: ['', [Validators.required, Validators.email]],
+      termsAccepted: [false, Validators.requiredTrue],
     });
   }
 
@@ -56,14 +67,31 @@ export class UserCreateComponent {
     this.router.navigate(['/login']);
   }
 
+  loadLegalDocuments(): void {
+    this.legalService.getCurrent().subscribe({
+      next: docs => {
+        this.legalDocuments = docs;
+        this.currentTerms = docs.find(d => d.key === 'saas_terms') ?? null;
+        this.legalLoading = false;
+      },
+      error: () => {
+        this.currentTerms = null;
+        this.legalLoading = false;
+      }
+    });
+  }
+
   crearUsuario() {
-    if (this.form.invalid) return;
+    if (this.form.invalid || !this.currentTerms) return;
 
     const usuario: Usuario = {
       username: this.form.value.username,
       fullName: this.form.value.fullName,
       passwordPlain: this.form.value.password,
-      email: this.form.value.email
+      email: this.form.value.email,
+      legalDocumentKey: this.currentTerms!.key,
+      legalDocumentVersion: this.currentTerms!.version,
+      legalDocumentSha256: this.currentTerms!.sha256
     };
 
     this.loading = true;
