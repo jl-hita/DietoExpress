@@ -29,6 +29,12 @@
       </button>
 
       <div class="divider"><span>o continúa con</span></div>
+      <div class="google-legal" *ngIf="legalTerms">
+        <label>
+          <input type="checkbox" [(ngModel)]="googleTermsAccepted" [ngModelOptions]="{standalone: true}">
+          <span>Acepto las <a routerLink="/legal" target="_blank">condiciones de contratación</a> vigentes para crear una cuenta con Google.</span>
+        </label>
+      </div>
       <div class="boton-centrado"><div id="googleBtn"></div></div>
 
       <p class="forgot">
