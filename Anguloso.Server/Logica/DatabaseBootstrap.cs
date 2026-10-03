@@ -1088,7 +1088,7 @@ public static class DatabaseBootstrap
                 enabled BOOLEAN NOT NULL DEFAULT TRUE,
                 delay_minutes INTEGER,
                 recipient_scope VARCHAR(40) NOT NULL DEFAULT 'assigned_professional',
-                channels JSONB NOT NULL DEFAULT '["in_app"]'::jsonb,
+                channels JSONB NOT NULL DEFAULT '[""in_app""]'::jsonb,
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 CONSTRAINT automation_rules_delay_check CHECK (delay_minutes IS NULL OR delay_minutes BETWEEN 0 AND 525600),
                 CONSTRAINT automation_rules_recipient_check CHECK (recipient_scope IN ('assigned_professional','clinic_admin','patient','both')),
