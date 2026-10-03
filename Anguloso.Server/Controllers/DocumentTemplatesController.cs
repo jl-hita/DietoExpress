@@ -169,19 +169,8 @@ public class DocumentTemplatesController : ControllerBase
         {
             // Reuse the same tenant + logical-name lock as version creation so two
             // concurrent activations cannot leave two versions active.
-            await using var lockCommand = new NpgsqlCommand("""
-                SELECT pg_advisory_xact_lock(
-                    hashtextextended(
-                        @lock_key,
-                        0));
-                """, connection, tx);
-            lockCommand.Parameters.AddWithValue(
-                "lock_key",
-                $"{tenantId.Value}:document-template-active:{id}");
             // Locking by id alone would not protect sibling versions. Resolve the
             // logical name first and then acquire the stable name-based lock.
-            await lockCommand.DisposeAsync();
-
             await using var nameCommand = new NpgsqlCommand(
                 "SELECT name FROM document_templates WHERE id=@id AND tenant_id=@tenant;",
                 connection, tx);
