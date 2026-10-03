@@ -265,7 +265,7 @@ public class PatientDocumentsController : ControllerBase
 
         var documentSnapshot = await _context.Database.SqlQueryRaw<DocumentAcceptanceSnapshot>(
             """
-            SELECT version AS "Version", sha256 AS "Sha256"
+            SELECT version AS "Version", sha256 AS "Sha256", status AS "Status"
             FROM patient_documents
             WHERE id = {0} AND client_id = {1} AND tenant_id = {2}
               AND revoked_at IS NULL AND requires_signature = true
@@ -279,7 +279,7 @@ public class PatientDocumentsController : ControllerBase
             UPDATE patient_documents
             SET status='signed', signed_at=NOW(), updated_at=NOW()
             WHERE id={documentId} AND client_id={clientId.Value} AND tenant_id={tenantId.Value}
-              AND revoked_at IS NULL AND requires_signature=true AND status <> 'signed';
+              AND revoked_at IS NULL AND requires_signature=true AND status='pending';
             """);
 
         if (affected == 0)
@@ -288,7 +288,14 @@ public class PatientDocumentsController : ControllerBase
                 "SELECT 1 AS "Value" FROM patient_documents WHERE id = {0} AND client_id = {1} AND tenant_id = {2} AND revoked_at IS NULL",
                 documentId, clientId.Value, tenantId.Value).SingleOrDefaultAsync();
             if (exists == 0) return NotFound();
-            return Conflict(new { message = "El documento no requiere firma o ya ha sido aceptado." });
+
+            // Aceptación idempotente: si otra petición concurrente ya la registró,
+            // no duplicamos auditoría ni automatizaciones.
+            var currentStatus = await _context.Database.SqlQueryRaw<string>(
+                "SELECT status AS \"Value\" FROM patient_documents WHERE id = {0} AND client_id = {1} AND tenant_id = {2} AND revoked_at IS NULL LIMIT 1",
+                documentId, clientId.Value, tenantId.Value).SingleOrDefaultAsync();
+            if (string.Equals(currentStatus, "signed", StringComparison.OrdinalIgnoreCase)) return NoContent();
+            return Conflict(new { message = "El documento no está pendiente de aceptación." });
         }
 
         await _context.Database.ExecuteSqlInterpolatedAsync($"""
@@ -449,6 +456,7 @@ public class PatientDocumentsController : ControllerBase
     {
         public int Version { get; set; }
         public string Sha256 { get; set; } = "";
+        public string Status { get; set; } = "";
     }
 
     private sealed class DocumentSummaryDto
