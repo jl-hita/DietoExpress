@@ -248,6 +248,13 @@ public class PatientDocumentsController : ControllerBase
 
         if (pending == 0)
         {
+            // Los recordatorios de 24h/72h dejan de ser válidos en cuanto se completa
+            // la documentación. La cancelación es idempotente y está limitada al tenant.
+            await _automationService.CancelPendingDocumentReminderJobsAsync(
+                tenantId.Value,
+                clientId.Value,
+                HttpContext.RequestAborted);
+
             var assignedUserId = await _context.Database.SqlQueryRaw<int?>(
                 """
                 SELECT nutritionist_id
