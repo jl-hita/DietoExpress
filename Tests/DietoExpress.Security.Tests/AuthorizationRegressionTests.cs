@@ -1461,7 +1461,7 @@ public class AuthorizationRegressionTests
         var service = ReadServerLogica("PrivacyOperationsService.cs");
         var schema = ReadServerLogica("DatabaseBootstrap.cs");
         var createIncidentPos = service.IndexOf("public async Task<long> CreateIncidentAsync", StringComparison.Ordinal);
-        var updateIncidentPos = service.IndexOf("public async Task<long> UpdateIncidentAsync", createIncidentPos, StringComparison.Ordinal);
+        var updateIncidentPos = service.IndexOf("public async Task<bool> UpdateIncidentAsync", createIncidentPos, StringComparison.Ordinal);
         var exportPos = service.IndexOf("public async Task<object?> ExportClientAsync", updateIncidentPos, StringComparison.Ordinal);
 
         Assert.True(createIncidentPos >= 0 && updateIncidentPos > createIncidentPos && exportPos > updateIncidentPos);
