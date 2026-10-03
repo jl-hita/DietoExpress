@@ -23,14 +23,16 @@ public class PatientPortalController : ControllerBase
     private readonly IConfiguration _config;
     private readonly ILicenseService _licenseService;
     private readonly EmailServ _emailServ;
+    private readonly AutomationService _automationService;
 
-    public PatientPortalController(angulosodbContext context, IConfiguration config, ConfigServ configServ, ILicenseService licenseService, EmailServ emailServ)
+    public PatientPortalController(angulosodbContext context, IConfiguration config, ConfigServ configServ, ILicenseService licenseService, EmailServ emailServ, AutomationService automationService)
     {
         _context = context;
         _config = config;
         _configServ = configServ;
         _licenseService = licenseService;
         _emailServ = emailServ;
+        _automationService = automationService;
     }
 
     /// <summary>
@@ -242,8 +244,8 @@ public class PatientPortalController : ControllerBase
         }
         else
         {
-            latest.weight = (decimal?)request.Weight.Value;
-            latest.height = (decimal?)request.Height.Value;
+            latest.weight = (double?)request.Weight.Value;
+            latest.height = (double?)request.Height.Value;
             latest.measurement_date = DateOnly.FromDateTime(now);
         }
 
