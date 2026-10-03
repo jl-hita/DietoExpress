@@ -1077,6 +1077,30 @@ public static class DatabaseBootstrap
         logger.LogInformation("Migración de automatizaciones automation-v4-patient-onboarding aplicada correctamente.");
     }
 
+    /// <summary>Configuración por tenant de reglas y tiempos de automatización.</summary>
+    public static void UpgradeAutomationSchemaV5(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS automation_rules (
+                id BIGSERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                rule_key VARCHAR(120) NOT NULL,
+                enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                delay_minutes INTEGER,
+                recipient_scope VARCHAR(40) NOT NULL DEFAULT 'assigned_professional',
+                channels JSONB NOT NULL DEFAULT '[\"in_app\"]'::jsonb,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT automation_rules_delay_check CHECK (delay_minutes IS NULL OR delay_minutes BETWEEN 0 AND 525600),
+                CONSTRAINT automation_rules_recipient_check CHECK (recipient_scope IN ('assigned_professional','clinic_admin','patient','both')),
+                CONSTRAINT uq_automation_rules_tenant_key UNIQUE (tenant_id, rule_key)
+            );
+            CREATE INDEX IF NOT EXISTS idx_automation_rules_tenant
+                ON automation_rules(tenant_id, enabled);
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('automation-v5-configurable-rules') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración de automatizaciones automation-v5-configurable-rules aplicada correctamente.");
+    }
+
     /// <summary>Integración OAuth y sincronización bidireccional con Google Calendar.</summary>
     public static void UpgradeGoogleCalendarSchemaV1(angulosodbContext context, ILogger logger)
     {
