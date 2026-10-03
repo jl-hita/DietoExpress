@@ -54,7 +54,7 @@
         </mat-card-header>
         <mat-divider></mat-divider>
         <mat-card-content class="card-content">
-          <form [formGroup]="passwordForm" (ngSubmit)="changePassword()" class="password-form">
+          <div [formGroup]="passwordForm" class="password-form">
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Contraseña actual</mat-label>
               <mat-icon matPrefix>lock</mat-icon>
@@ -82,7 +82,7 @@
                 {{ passwordSaving ? 'Cambiando...' : 'Cambiar contraseña' }}
               </button>
             </div>
-          </form>
+          </div>
           <p class="security-note">
             Al cambiar la contraseña se invalidan las sesiones existentes. También recibirás un aviso por email.
           </p>
