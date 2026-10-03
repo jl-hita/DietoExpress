@@ -29,6 +29,10 @@ interface GuidedConsultationResponse {
   suggestedConsultationType: 'first' | 'follow_up';
   consultation: any | null;
   latestCheckin: PatientCheckin | null;
+  previousAppointment?: any;
+  activeDiet?: any;
+  openTasks?: any[];
+  followupSignals?: any[];
 }
 
 @Component({
