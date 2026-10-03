@@ -584,9 +584,8 @@ public class AuthController : ControllerBase
         GoogleJsonWebSignature.Payload payload;
         try
         {
-            var settings = new GoogleJsonWebSignature.ValidationSettings()
+            var settings = new GoogleJsonWebSignature.ValidationSettings
             {
-                // Comprueba que el token fue emitido para nuestro client id
                 Audience = new[] { _configServ.GetConfigString("googleClientId") }
             };
 
@@ -594,28 +593,43 @@ public class AuthController : ControllerBase
         }
         catch (Exception)
         {
-            // token inválido o expirado
             return Unauthorized("Token de Google inválido o expirado.");
         }
 
-        // payload contiene: Email, EmailVerified, Name, GivenName, FamilyName, Picture, Subject (sub = google id)
         if (string.IsNullOrWhiteSpace(payload.Email) || payload.EmailVerified != true)
             return Unauthorized("La cuenta de Google no tiene el email verificado.");
 
         var googleId = payload.Subject;
         var email = payload.Email.Trim().ToLowerInvariant();
-        var name = payload.Name ?? payload.Email;
+        var name = string.IsNullOrWhiteSpace(payload.Name) ? payload.Email : payload.Name;
 
-        // Buscar por google_id primero
+        // Una cuenta ya vinculada por Google puede iniciar sesión sin volver a aceptar
+        // las condiciones contractuales. La aceptación solo es requisito para un alta nueva.
         var user = await _context.users.FirstOrDefaultAsync(u => u.google_id == googleId);
 
         if (user == null)
         {
-            // Si no existe, buscar por email (posible usuario local ya creado)
+            // Si existe una cuenta local con ese email, enlazamos Google con ella.
+            // Esto no constituye un alta nueva y, por tanto, no exige una nueva aceptación.
             user = await _context.users.FirstOrDefaultAsync(u => u.email.ToLower() == email);
 
-            if (user == null)
+            if (user != null)
             {
+                if (user.archived_at.HasValue)
+                    return Unauthorized("Esta cuenta está archivada y no puede iniciar sesión.");
+
+                user.google_id = googleId;
+                user.provider = "google";
+                user.email_confirmed = true;
+                user.last_login = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+            }
+            else
+            {
+                // El alta Google y su aceptación legal deben ser atómicos: si la creación
+                // termina correctamente, la evidencia de aceptación queda asociada al
+                // mismo usuario y tenant. El lock evita dos altas simultáneas para el mismo
+                // email/Google ID.
                 var currentTerms = await _context.Database.SqlQueryRaw<CurrentLegalDocument>(
                     """
                     SELECT document_key AS "DocumentKey", version AS "Version", sha256 AS "Sha256"
@@ -625,24 +639,14 @@ public class AuthController : ControllerBase
                     LIMIT 1
                     """).SingleOrDefaultAsync();
 
-                if (currentTerms == null || dto.LegalDocumentVersion != currentTerms.Version ||
+                if (currentTerms == null ||
+                    dto.LegalDocumentVersion != currentTerms.Version ||
                     !string.Equals(dto.LegalDocumentSha256, currentTerms.Sha256, StringComparison.OrdinalIgnoreCase))
-                    return StatusCode(StatusCodes.Status428PreconditionRequired, "Para crear una cuenta con Google debes aceptar las condiciones de contratación vigentes.");
-            }
+                {
+                    return StatusCode(StatusCodes.Status428PreconditionRequired,
+                        "Para crear una cuenta con Google debes aceptar las condiciones de contratación vigentes.");
+                }
 
-            if (user != null)
-            {
-                // Opción A: enlazar cuentas (recomendado) -> guardamos google_id y provider
-                user.google_id = googleId;
-                user.provider = "google";
-                user.email_confirmed = true; // Google garantiza el email verificado, pero comprueba payload.EmailVerified si quieres.
-                user.last_login = DateTime.UtcNow;
-                await _context.SaveChangesAsync();
-            }
-            else
-            {
-                // Crear nuevo usuario. El lock global de registros evita que dos
-                // peticiones Google generen el mismo username al mismo tiempo.
                 await using var googleTransaction = await _context.Database.BeginTransactionAsync();
                 try
                 {
@@ -654,75 +658,57 @@ public class AuthController : ControllerBase
 
                     if (user != null)
                     {
+                        if (user.archived_at.HasValue)
+                            return Unauthorized("Esta cuenta está archivada y no puede iniciar sesión.");
+
                         if (user.google_id != googleId)
                         {
                             user.google_id = googleId;
                             user.provider = "google";
                             user.email_confirmed = true;
                         }
+
                         user.last_login = DateTime.UtcNow;
                         await _context.SaveChangesAsync();
-
-                        var googleTerms = await _context.Database.SqlQueryRaw<CurrentLegalDocument>(
-                            """
-                            SELECT document_key AS "DocumentKey", version AS "Version", sha256 AS "Sha256"
-                            FROM legal_documents
-                            WHERE document_key = 'saas_terms' AND status = 'published'
-                            ORDER BY version DESC
-                            LIMIT 1
-                            """).SingleOrDefaultAsync();
-                        if (googleTerms == null)
-                            throw new InvalidOperationException("Las condiciones de contratación no están publicadas.");
-
-                        await _context.Database.ExecuteSqlRawAsync(
-                            """
-                            INSERT INTO legal_acceptances
-                                (user_id, tenant_id, legal_document_id, document_key, document_version, document_sha256, accepted_at, ip_address, user_agent, context)
-                            SELECT {0}, {1}, id, document_key, version, sha256, CURRENT_TIMESTAMP, {2}, {3}, 'signup_google'
-                            FROM legal_documents
-                            WHERE document_key = 'saas_terms' AND version = {4} AND status = 'published'
-                            ON CONFLICT (user_id, legal_document_id, document_version, context) DO NOTHING
-                            """,
-                            user.id,
-                            tenantGoogle.id,
-                            HttpContext.Connection.RemoteIpAddress?.ToString(),
-                            Request.Headers.UserAgent.ToString(),
-                            googleTerms.Version);
-
-                        await googleTransaction.CommitAsync();
                     }
                     else
                     {
+                        var username = GenerateUniqueUsername(name);
                         user = new users
                         {
-                            username = GenerateUniqueUsername(name), // función auxiliar que te propongo abajo
-                    full_name = name,
-                    email = email,
-                    google_id = googleId,
-                    provider = "google",
-                    role = "nutritionist",
-                    email_confirmed = true,
-                    created_at = DateTime.UtcNow,
-                    last_login = DateTime.UtcNow,
-                    subscription_plan = "free",
-                    subscription_status = "active",
-                    max_clients_allowed = 1
-                };
+                            username = username,
+                            full_name = name,
+                            email = email,
+                            google_id = googleId,
+                            provider = "google",
+                            role = "nutritionist",
+                            email_confirmed = true,
+                            created_at = DateTime.UtcNow,
+                            last_login = DateTime.UtcNow,
+                            subscription_plan = "free",
+                            subscription_status = "active",
+                            max_clients_allowed = 1
+                        };
 
-                var tenantGoogle = new tenants
-                {
-                    legal_name = name,
-                    trade_name = name,
-                    slug = $"{GenerateUniqueUsername(name)}-{Guid.NewGuid():N}",
-                    contact_email = email,
-                    status = "active"
-                };
+                        var tenantGoogle = new tenants
+                        {
+                            legal_name = name,
+                            trade_name = name,
+                            slug = $"{username}-{Guid.NewGuid():N}",
+                            contact_email = email,
+                            status = "active"
+                        };
+
                         _context.tenants.Add(tenantGoogle);
                         await _context.SaveChangesAsync();
+
                         user.tenant_id = tenantGoogle.id;
                         _context.users.Add(user);
                         await _context.SaveChangesAsync();
-                        var freePlanGoogle = await _context.subscription_plans.FirstOrDefaultAsync(p => p.code == "free");
+
+                        var freePlanGoogle = await _context.subscription_plans
+                            .FirstOrDefaultAsync(p => p.code == "free" && p.active);
+
                         if (freePlanGoogle == null)
                             throw new InvalidOperationException("El plan gratuito no está configurado.");
 
@@ -735,8 +721,30 @@ public class AuthController : ControllerBase
                             expires_at = null
                         });
                         await _context.SaveChangesAsync();
-                        await googleTransaction.CommitAsync();
+
+                        await _context.Database.ExecuteSqlRawAsync(
+                            """
+                            INSERT INTO legal_acceptances
+                                (user_id, tenant_id, legal_document_id, document_key, document_version,
+                                 document_sha256, accepted_at, ip_address, user_agent, context)
+                            SELECT {0}, {1}, id, document_key, version, sha256, CURRENT_TIMESTAMP,
+                                   {2}, {3}, 'signup_google'
+                            FROM legal_documents
+                            WHERE document_key = 'saas_terms'
+                              AND version = {4}
+                              AND sha256 = {5}
+                              AND status = 'published'
+                            ON CONFLICT (user_id, legal_document_id, document_version, context) DO NOTHING
+                            """,
+                            user.id,
+                            tenantGoogle.id,
+                            HttpContext.Connection.RemoteIpAddress?.ToString(),
+                            Request.Headers.UserAgent.ToString(),
+                            currentTerms.Version,
+                            currentTerms.Sha256);
                     }
+
+                    await googleTransaction.CommitAsync();
                 }
                 catch
                 {
@@ -747,7 +755,6 @@ public class AuthController : ControllerBase
         }
         else
         {
-            // usuario encontrado por google_id -> actualizar last_login
             user.last_login = DateTime.UtcNow;
             await _context.SaveChangesAsync();
         }
@@ -755,7 +762,6 @@ public class AuthController : ControllerBase
         if (user.archived_at.HasValue)
             return Unauthorized("Esta cuenta está archivada y no puede iniciar sesión.");
 
-        // Generar tu JWT (reutiliza el código que ya tienes en Login)
         var jwt = CrearJwtParaUsuario(user);
         SetProfessionalSessionCookie(jwt);
 
