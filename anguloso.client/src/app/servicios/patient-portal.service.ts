@@ -143,6 +143,28 @@ export class PatientPortalService {
   getClientPortalAccess(clientId: number): Observable<ClientPortalAccess> { return this.http.get<ClientPortalAccess>(`${this.base}/clients/${clientId}/portal-access`); }
   regenerateClientToken(clientId: number): Observable<ClientPortalAccess> { return this.http.post<ClientPortalAccess>(`${this.base}/clients/${clientId}/portal-access/regenerate-token`, {}); }
   setClientPasscode(clientId: number, passcode: string): Observable<{ message: string }> { return this.http.post<{ message: string }>(`${this.base}/clients/${clientId}/portal-access/passcode`, { passcode }); }
+  getGuidedConsultation(appointmentId: number): Observable<any> {
+    return this.http.get<any>(`${this.base}/professional/consultations/appointment/${appointmentId}`);
+  }
+
+  startGuidedConsultation(appointmentId: number, consultationType?: string): Observable<any> {
+    return this.http.post<any>(`${this.base}/professional/consultations/appointment/${appointmentId}/start`, {
+      consultationType
+    });
+  }
+
+  updateGuidedConsultationProgress(appointmentId: number, request: {
+    currentStep: string;
+    completedSteps: string[];
+    progress: Record<string, unknown>;
+  }): Observable<any> {
+    return this.http.put<any>(`${this.base}/professional/consultations/appointment/${appointmentId}/progress`, request);
+  }
+
+  completeGuidedConsultation(appointmentId: number): Observable<any> {
+    return this.http.post<any>(`${this.base}/professional/consultations/appointment/${appointmentId}/complete`, {});
+  }
+
   getFollowupSettings(): Observable<FollowupSettings> { return this.http.get<FollowupSettings>(this.base + '/professional/automation/followup-settings'); }
   updateFollowupSettings(settings: FollowupSettings): Observable<void> { return this.http.put<void>(this.base + '/professional/automation/followup-settings', settings); }
 
