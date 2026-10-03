@@ -1109,6 +1109,27 @@
           <button mat-stroked-button type="button" (click)="downloadPatientDocument(doc)">
             <mat-icon>picture_as_pdf</mat-icon> Abrir
           </button>
+          <button mat-stroked-button type="button" (click)="toggleDocumentAudit(doc)" [disabled]="loadingDocumentAudit[doc.id]">
+            <mat-icon>{{ documentAudit[doc.id] ? 'expand_less' : 'history' }}</mat-icon>
+            {{ documentAudit[doc.id] ? 'Ocultar historial' : 'Historial' }}
+          </button>
+        </div>
+
+        <div *ngIf="documentAudit[doc.id]" style="margin: -4px 0 8px 0; padding:14px 16px; border-left:3px solid #cbd5e1; background:#f8fafc; border-radius:0 8px 8px 0;">
+          <div *ngIf="documentAudit[doc.id].length === 0" style="font-size:13px; color:#64748b;">No hay eventos registrados.</div>
+          <div *ngFor="let event of documentAudit[doc.id]" style="display:grid; grid-template-columns:150px 1fr; gap:8px 16px; padding:8px 0; border-bottom:1px solid #e2e8f0;">
+            <div style="font-size:12px; color:#64748b;">{{ event.occurredAt | date:'dd/MM/yyyy HH:mm:ss' }}</div>
+            <div>
+              <div style="font-weight:600;">{{ getDocumentEventLabel(event.eventType) }}</div>
+              <div *ngIf="event.details" style="font-size:12px; color:#475569;">{{ event.details }}</div>
+              <div *ngIf="event.ipAddress || event.userAgent" style="font-size:11px; color:#94a3b8; margin-top:3px;">
+                <span *ngIf="event.ipAddress">IP: {{ event.ipAddress }}</span>
+                <span *ngIf="event.ipAddress && event.userAgent"> · </span>
+                <span *ngIf="event.userAgent">{{ event.userAgent }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
         </div>
       </div>
     </mat-tab>
