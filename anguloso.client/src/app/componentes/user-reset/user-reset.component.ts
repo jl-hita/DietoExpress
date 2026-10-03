@@ -7,7 +7,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { Location } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, Validators } from '@angular/forms';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ActivatedRoute, Router } from '@angular/router';
 import { environment } from '../../../environments/environments';
@@ -21,6 +21,11 @@ import { environment } from '../../../environments/environments';
 })
 // El flujo de recuperación mantiene el token fuera del estado persistente y solo lo utiliza para completar la operación autorizada.
 export class UserResetComponent implements OnInit {
+  private readonly passwordsMatchValidator = (control: AbstractControl): ValidationErrors | null => {
+    const password = control.get('newPassword')?.value;
+    const confirmation = control.get('newPasswordRep')?.value;
+    return password && confirmation && password !== confirmation ? { passwordsMismatch: true } : null;
+  };
   private baseUrl = environment.apiUrl;
   requestForm: FormGroup;
   resetForm: FormGroup;
@@ -42,7 +47,7 @@ export class UserResetComponent implements OnInit {
     this.resetForm = this.fb.group({
       newPassword: ['', [Validators.required, Validators.minLength(12)]],
       newPasswordRep: ['', [Validators.required, Validators.minLength(12)]]
-    });
+    }, { validators: this.passwordsMatchValidator });
   }
 
   ngOnInit(): void {
