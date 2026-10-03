@@ -404,6 +404,9 @@ public static class DatabaseBootstrap
                     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                 );
+                ALTER TABLE document_templates
+                    ADD COLUMN IF NOT EXISTS is_required_before_consultation BOOLEAN NOT NULL DEFAULT FALSE;
+
                 CREATE UNIQUE INDEX IF NOT EXISTS uq_document_templates_tenant_name_version
                     ON document_templates(tenant_id, name, version);
                 CREATE INDEX IF NOT EXISTS idx_document_templates_tenant_active
