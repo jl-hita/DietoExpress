@@ -75,6 +75,7 @@ Este documento recoge el backlog funcional de automatizaciones identificado sobr
 - El endpoint de configuración devuelve también las reglas soportadas que todavía no tienen fila persistida, usando sus valores por defecto; así la interfaz puede mostrar el catálogo completo desde el primer acceso.
 - `recipient_scope` y `channels` ya se aplican al generar los jobs: `assigned_professional`, `clinic_admin`, `patient` y `both` controlan el destinatario; `in_app`, `email` y `push` controlan el canal. El push de paciente mantiene también la notificación persistida in-app, que es el canal durable.
 - Plantillas por tenant mediante `automation_templates`: permiten personalizar títulos y mensajes de paciente/profesional y asunto/HTML de email. Los tokens disponibles inicialmente son `{title}`, `{message}` y `{action_url}`; si no existe plantilla se conserva el contenido actual.
+- Preferencias de comunicación por paciente mediante `patient_communication_preferences`: `in_app`, `email` y `push` son independientes, con valores por defecto activados. El worker y `NotificationService` las vuelven a comprobar en ejecución para respetar cambios realizados después de programar un job.
 - API profesional `GET /api/professional/automation/rules` y `PUT /api/professional/automation/rules/{ruleKey}`.
 - Sin configuración explícita se mantienen los comportamientos actuales por defecto, evitando cambios funcionales al actualizar instalaciones existentes.
 
