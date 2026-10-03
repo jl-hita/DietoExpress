@@ -44,7 +44,7 @@ export interface PatientAppointment {
   nutritionistName?: string | null;
 }
 
-export interface PatientCheckin { id: number; week_start: string; submitted_at: string; weight?: number | null; adherence?: number | null; hunger?: number | null; energy?: number | null; sleep_quality?: number | null; sleep_hours?: number | null; training?: number | null; difficulties?: string | null; notes?: string | null; }
+export interface PatientCheckin { id: number; week_start: string; submitted_at: string; weight?: number | null; adherence?: number | null; hunger?: number | null; energy?: number | null; sleep_quality?: number | null; sleep_hours?: number | null; training?: number | null; difficulties?: string | null; notes?: string | null; reviewed_at?: string | null; reviewed_by_user_id?: number | null; }
 export interface PatientCheckinRequest { weight?: number | null; adherence?: number | null; hunger?: number | null; energy?: number | null; sleep_quality?: number | null; sleep_hours?: number | null; training?: number | null; difficulties?: string | null; notes?: string | null; }
 export interface GoogleCalendarStatus { connected: boolean; email: string; calendarId: string; lastSyncedAt?: string | null; }
 
@@ -130,6 +130,7 @@ export class PatientPortalService {
       params: { pendingOnly: 'false', clientId: clientId.toString(), limit: '200' }
     });
   }
+  reviewCheckin(id: number): Observable<void> { return this.http.post<void>(`${this.base}/professional/check-ins/${id}/review`, {}); }
   saveCheckin(request: PatientCheckinRequest): Observable<PatientCheckin> { return this.http.post<PatientCheckin>(`${this.base}/portal/check-ins`, request); }
   getClientPortalAccess(clientId: number): Observable<ClientPortalAccess> { return this.http.get<ClientPortalAccess>(`${this.base}/clients/${clientId}/portal-access`); }
   regenerateClientToken(clientId: number): Observable<ClientPortalAccess> { return this.http.post<ClientPortalAccess>(`${this.base}/clients/${clientId}/portal-access/regenerate-token`, {}); }
