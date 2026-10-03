@@ -1101,6 +1101,30 @@ public static class DatabaseBootstrap
         logger.LogInformation("Migración de automatizaciones automation-v5-configurable-rules aplicada correctamente.");
     }
 
+    /// <summary>Plantillas personalizables por tenant para el contenido de las automatizaciones.</summary>
+    public static void UpgradeAutomationSchemaV6(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS automation_templates (
+                id BIGSERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                rule_key VARCHAR(120) NOT NULL,
+                patient_title VARCHAR(250),
+                patient_message VARCHAR(4000),
+                professional_title VARCHAR(250),
+                professional_message VARCHAR(4000),
+                email_subject VARCHAR(250),
+                email_html TEXT,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_automation_templates_tenant_key UNIQUE (tenant_id, rule_key)
+            );
+            CREATE INDEX IF NOT EXISTS idx_automation_templates_tenant
+                ON automation_templates(tenant_id, rule_key);
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('automation-v6-templates') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración de automatizaciones automation-v6-templates aplicada correctamente.");
+    }
+
     /// <summary>Integración OAuth y sincronización bidireccional con Google Calendar.</summary>
     public static void UpgradeGoogleCalendarSchemaV1(angulosodbContext context, ILogger logger)
     {
