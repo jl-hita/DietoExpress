@@ -124,7 +124,7 @@ public sealed class ProfessionalConsultationsController : ControllerBase
                     title = taskReader.GetString(1),
                     description = taskReader.IsDBNull(2) ? null : taskReader.GetString(2),
                     priority = taskReader.GetString(3),
-                    dueAt = taskReader.IsDBNull(4) ? null : taskReader.GetDateTime(4),
+                    dueAt = taskReader.IsDBNull(4) ? (DateTime?)null : taskReader.GetDateTime(4),
                     createdAt = taskReader.GetDateTime(5)
                 });
             }
