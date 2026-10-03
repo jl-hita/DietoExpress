@@ -66,7 +66,7 @@ public class DietController : ControllerBase
             .Where(d => d.archived_at == null)
             .Where(d => includeAll && isSuperAdmin
                 ? true
-                : (d.tenant_id == tenantIdValue && d.user_id == userId.Value) || (sharedAllowed && tenantId.HasValue && d.tenant_id == tenantId.Value && d.is_shared));
+                : (tenantId.HasValue && d.tenant_id == tenantId.Value && d.user_id == userId.Value) || (sharedAllowed && tenantId.HasValue && d.tenant_id == tenantId.Value && d.is_shared));
 
         if (onlyShared == true)
         {
@@ -385,7 +385,7 @@ public class DietController : ControllerBase
             .Include(d => d.diet_days)
                 .ThenInclude(dd => dd.meals)
                     .ThenInclude(m => m.meal_items)
-            .FirstOrDefaultAsync(d => d.id == id && d.archived_at == null && tenantId.HasValue && d.tenant_id == tenantId.Value && d.user_id == userId.Value);
+            .FirstOrDefaultAsync(d => d.id == id && d.archived_at == null && d.tenant_id == tenantIdValue && d.user_id == userId.Value);
 
         if (diet == null) return NotFound();
 
