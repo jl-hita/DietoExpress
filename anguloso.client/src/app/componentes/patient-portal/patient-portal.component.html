@@ -257,6 +257,26 @@
               <span>Hambre esta semana <small>(0–10)</small></span>
               <input type="number" name="checkinHunger" [(ngModel)]="checkinHunger" min="0" max="10" step="1" inputmode="numeric" placeholder="Ej. 4" />
             </label>
+
+            <label class="checkin-field">
+              <span>Energía <small>(0–10)</small></span>
+              <input type="number" name="checkinEnergy" [(ngModel)]="checkinEnergy" min="0" max="10" step="1" inputmode="numeric" placeholder="Ej. 7" />
+            </label>
+
+            <label class="checkin-field">
+              <span>Calidad del sueño <small>(0–10)</small></span>
+              <input type="number" name="checkinSleepQuality" [(ngModel)]="checkinSleepQuality" min="0" max="10" step="1" inputmode="numeric" placeholder="Ej. 7" />
+            </label>
+
+            <label class="checkin-field">
+              <span>Horas de sueño <small>(h)</small></span>
+              <input type="number" name="checkinSleepHours" [(ngModel)]="checkinSleepHours" min="0" max="24" step="0.5" inputmode="decimal" placeholder="Ej. 7,5" />
+            </label>
+
+            <label class="checkin-field">
+              <span>Actividad / entrenamiento <small>(0–10)</small></span>
+              <input type="number" name="checkinTraining" [(ngModel)]="checkinTraining" min="0" max="10" step="1" inputmode="numeric" placeholder="Ej. 6" />
+            </label>
           </div>
 
           <label class="checkin-field checkin-field-full">
