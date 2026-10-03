@@ -29,7 +29,8 @@ public sealed class ProfessionalCheckinsController : ControllerBase
     // Un profesional solo puede consultar check-ins de pacientes que tiene asignados activamente dentro de su tenant.
     public async Task<ActionResult<IReadOnlyList<ProfessionalCheckinDto>>> Get(
         [FromQuery] bool pendingOnly = true,
-        [FromQuery] int limit = 100)
+        [FromQuery] int limit = 100,
+        [FromQuery] int? clientId = null)
     {
         if (!_tenantContext.TenantId.HasValue || !_tenantContext.UserId.HasValue)
             return BadRequest(new { message = "La cuenta no tiene organización o usuario." });
@@ -38,6 +39,7 @@ public sealed class ProfessionalCheckinsController : ControllerBase
 
         var query = _db.patient_checkins.AsNoTracking()
             .Where(c => c.tenant_id == _tenantContext.TenantId.Value &&
+                        (!clientId.HasValue || c.client_id == clientId.Value) &&
                         c.client.archived_at == null &&
                         _db.client_nutritionist_assignments.Any(a =>
                             a.client_id == c.client_id &&
