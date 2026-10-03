@@ -479,6 +479,7 @@ public sealed class AutomationService
             var now = DateTime.UtcNow;
             if (!c.InfoComplete)
             {
+                if (!await IsRuleEnabledAsync(c.TenantId, "onboarding.info.reminder", cancellationToken)) continue;
                 await ScheduleActionAsync(
                     c.TenantId,
                     "notify_patient",
@@ -493,7 +494,8 @@ public sealed class AutomationService
                     $"onboarding:info-reminder:{c.ClientId}:{now:yyyyMMdd}",
                     cancellationToken: cancellationToken);
 
-                if (c.CreatedAt <= now.AddDays(-3))
+                if (c.CreatedAt <= now.AddDays(-3) &&
+                    await IsRuleEnabledAsync(c.TenantId, "onboarding.info.escalation", cancellationToken))
                 {
                     await ScheduleActionAsync(
                         c.TenantId,
@@ -517,6 +519,7 @@ public sealed class AutomationService
 
             if (!c.HasFutureAppointment)
             {
+                if (!await IsRuleEnabledAsync(c.TenantId, "onboarding.first_appointment.reminder", cancellationToken)) continue;
                 await ScheduleActionAsync(
                     c.TenantId,
                     "notify_patient",
@@ -531,7 +534,8 @@ public sealed class AutomationService
                     $"onboarding:first-appointment-reminder:{c.ClientId}:{now:yyyyMMdd}",
                     cancellationToken: cancellationToken);
 
-                if (c.CreatedAt <= now.AddDays(-3))
+                if (c.CreatedAt <= now.AddDays(-3) &&
+                    await IsRuleEnabledAsync(c.TenantId, "onboarding.first_appointment.escalation", cancellationToken))
                 {
                     await ScheduleActionAsync(
                         c.TenantId,
@@ -598,7 +602,7 @@ public sealed class AutomationService
         {
             var now = DateTime.UtcNow;
             var needsCheckin = !c.LastCheckin.HasValue || c.LastCheckin.Value < now.AddDays(-7);
-            if (!needsCheckin) continue;
+            if (!needsCheckin || !await IsRuleEnabledAsync(c.TenantId, "followup.checkin.reminder", cancellationToken)) continue;
 
             var weekKey = now.Date.AddDays(-(((int)now.DayOfWeek + 6) % 7)).ToString("yyyyMMdd");
             var daysSinceCheckin = c.LastCheckin.HasValue ? (int)Math.Floor((now - c.LastCheckin.Value).TotalDays) : int.MaxValue;
@@ -620,7 +624,8 @@ public sealed class AutomationService
                 $"followup:checkin-reminder:{c.ClientId}:{weekKey}:{level}",
                 cancellationToken: cancellationToken);
 
-            if (daysSinceCheckin >= 10)
+            if (daysSinceCheckin >= 10 &&
+                await IsRuleEnabledAsync(c.TenantId, "followup.checkin.escalation", cancellationToken))
             {
                 await ScheduleActionAsync(
                     c.TenantId,
@@ -1115,7 +1120,8 @@ public sealed class AutomationService
             var daysRemaining = diet.EndDate.Value.DayNumber - today.DayNumber;
             // Se avisa durante los tres días anteriores y también el propio día de vencimiento; la clave usa
             // la fecha de fin, por lo que una ejecución diaria no repite el aviso para la misma asignación.
-            if (daysRemaining is 7 or 3 or 1 or 0)
+            if (daysRemaining is 7 or 3 or 1 or 0 &&
+                await IsRuleEnabledAsync(diet.TenantId, "diet.expiry.reminder", cancellationToken))
             {
                 await ScheduleActionAsync(
                     diet.TenantId,
@@ -1136,7 +1142,8 @@ public sealed class AutomationService
 
             // Una dieta vencida genera tarea profesional inmediata en lugar de modificar automáticamente la dieta:
             // la decisión clínica de renovar, sustituir o finalizar queda deliberadamente en manos del profesional.
-            if (diet.EndDate.Value < today)
+            if (diet.EndDate.Value < today &&
+                await IsRuleEnabledAsync(diet.TenantId, "diet.expired", cancellationToken))
             {
                 await ScheduleActionAsync(
                     diet.TenantId,
