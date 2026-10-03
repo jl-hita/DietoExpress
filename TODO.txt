@@ -455,6 +455,63 @@ Google Fit
 
 Así el gasto energético podría ajustarse automáticamente según la actividad real.
 
+
+
+====================================
+== ROADMAP FUTURO: DESCUBRIMIENTO Y MARKETPLACE ==
+====================================
+
+Fase futura: Directorio / marketplace de nutricionistas y clínicas
+
+Objetivo:
+Permitir que potenciales pacientes encuentren profesionales y clínicas que utilicen DietoExpress, tanto presencialmente como online.
+
+Búsqueda:
+- Buscar nutricionistas o clínicas por ubicación.
+- Buscar profesionales que trabajen exclusivamente online o también presencialmente.
+- Filtros por especialidad, modalidad, distancia, precio, disponibilidad y valoraciones (cuando estén implementadas).
+- Perfil público del profesional o clínica.
+- Posibilidad futura de solicitar/reservar cita desde el perfil.
+- Evolución futura hacia flujo completo: búsqueda → reserva → paciente → consentimiento/formulario → consulta → seguimiento.
+
+Preparación de datos y ubicación:
+- Normalizar ciudad/municipio y calle/dirección en los perfiles profesionales y de clínica.
+- Sustituir entradas de texto libre donde sea necesario por autocompletado de valores normalizados.
+- Ejemplo: al escribir “bar”, mostrar sugerencias como “Barcelona” y permitir seleccionar un valor canónico.
+- Valorar una fuente/geocodificador fiable para municipios, calles y coordenadas, evitando depender de texto introducido manualmente para búsquedas geográficas.
+- Mantener por separado el valor mostrado al usuario y los identificadores normalizados/geográficos necesarios para búsquedas por proximidad.
+- Diseñar la persistencia pensando desde el principio en búsquedas por radio/distancia y no solamente por coincidencia textual.
+
+Modalidad de atención:
+- Añadir en Ajustes/perfil profesional una opción explícita “Realizo consultas online”.
+- Mantener separada la disponibilidad presencial y online para poder filtrar correctamente.
+- Preparar el modelo para futuras modalidades adicionales si fueran necesarias.
+
+Publicación y confianza:
+- El profesional podrá decidir si quiere mostrar su perfil en el directorio.
+- Estados de publicación: no publicado / pendiente de verificación / verificado / publicado.
+- Valorar posteriormente verificación de identidad y/o titulación profesional.
+- No publicar automáticamente a cualquier cuenta recién creada sin controles adecuados.
+
+Clínicas:
+- Perfil público de clínica.
+- Ubicación y modalidades de atención.
+- Nutricionistas asociados a la clínica.
+- Integración con el modelo actual de cuentas multi-nutricionista.
+
+Monetización futura:
+- El directorio puede convertirse también en canal de adquisición de nutricionistas para DietoExpress.
+- Posible visibilidad destacada como producto futuro, con reglas transparentes.
+- No forma parte del desarrollo inmediato: primero estabilizar el núcleo SaaS, facturación, agenda, comunicación y automatizaciones.
+
+Dependencias recomendadas antes de implementar el marketplace:
+1. Modelo estable de profesionales y clínicas.
+2. Perfil profesional completo.
+3. Agenda/citas.
+4. Comunicación nutricionista-paciente.
+5. Automatizaciones.
+6. Opcionalmente pagos de citas.
+
 Posible hoja de ruta
 Fase 1 (Completado)
 Editor visual de dietas. 
