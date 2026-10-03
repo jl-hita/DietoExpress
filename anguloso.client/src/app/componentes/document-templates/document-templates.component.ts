@@ -79,7 +79,7 @@ export class DocumentTemplatesComponent implements OnInit {
   }
 
   toggle(template: DocumentTemplate): void {
-    this.http.patch('/api/document-templates/' + template.id + '/active', { active: !template.active }).subscribe({
+    this.http.patch('/api/document-templates/' + template.id + '/active', { active: !template.isActive }).subscribe({
       next: () => template.isActive = !template.isActive,
       error: e => this.error = e?.error?.message || 'No se pudo cambiar el estado.'
     });
