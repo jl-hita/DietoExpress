@@ -199,6 +199,108 @@ public sealed class AutomationController : ControllerBase
     }
 
     // Este endpoint es solo de observabilidad y control: el worker sigue siendo el único componente que ejecuta jobs.
+    public sealed record PatientCommunicationPreferencesRequest(bool InAppEnabled, bool EmailEnabled, bool PushEnabled);
+
+    [HttpGet("clients/{clientId:int}/communication-preferences")]
+    public async Task<IActionResult> GetPatientCommunicationPreferences(int clientId)
+    {
+        if (!_tenantContext.TenantId.HasValue) return BadRequest();
+
+        await using var connection = new NpgsqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        await connection.OpenAsync();
+
+        var userId = AuthHelpers.GetUserId(User);
+        await using var access = new NpgsqlCommand("""
+            SELECT 1
+            FROM clients c
+            WHERE c.id=@client AND c.tenant_id=@tenant AND c.archived_at IS NULL
+              AND (
+                c.user_id=@user
+                OR EXISTS (
+                    SELECT 1 FROM client_nutritionist_assignments a
+                    WHERE a.client_id=c.id AND a.nutritionist_id=@user AND a.is_active
+                )
+                OR EXISTS (
+                    SELECT 1 FROM users u
+                    WHERE u.id=@user AND u.tenant_id=@tenant AND u.role='clinic_admin' AND u.archived_at IS NULL
+                )
+              )
+            LIMIT 1;
+            """, connection);
+        access.Parameters.AddWithValue("client", clientId);
+        access.Parameters.AddWithValue("tenant", _tenantContext.TenantId.Value);
+        access.Parameters.AddWithValue("user", userId ?? 0);
+        if (await access.ExecuteScalarAsync() is null) return NotFound();
+
+        await using var command = new NpgsqlCommand("""
+            SELECT in_app_enabled, email_enabled, push_enabled
+            FROM patient_communication_preferences
+            WHERE tenant_id=@tenant AND client_id=@client
+            LIMIT 1;
+            """, connection);
+        command.Parameters.AddWithValue("tenant", _tenantContext.TenantId.Value);
+        command.Parameters.AddWithValue("client", clientId);
+        await using var reader = await command.ExecuteReaderAsync();
+        if (!await reader.ReadAsync())
+            return Ok(new { inAppEnabled = true, emailEnabled = true, pushEnabled = true });
+
+        return Ok(new {
+            inAppEnabled = reader.GetBoolean(0),
+            emailEnabled = reader.GetBoolean(1),
+            pushEnabled = reader.GetBoolean(2)
+        });
+    }
+
+    [HttpPut("clients/{clientId:int}/communication-preferences")]
+    public async Task<IActionResult> UpdatePatientCommunicationPreferences(int clientId, [FromBody] PatientCommunicationPreferencesRequest request)
+    {
+        if (!_tenantContext.TenantId.HasValue) return BadRequest();
+
+        await using var connection = new NpgsqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        await connection.OpenAsync();
+
+        var userId = AuthHelpers.GetUserId(User);
+        await using var access = new NpgsqlCommand("""
+            SELECT 1
+            FROM clients c
+            WHERE c.id=@client AND c.tenant_id=@tenant AND c.archived_at IS NULL
+              AND (
+                c.user_id=@user
+                OR EXISTS (
+                    SELECT 1 FROM client_nutritionist_assignments a
+                    WHERE a.client_id=c.id AND a.nutritionist_id=@user AND a.is_active
+                )
+                OR EXISTS (
+                    SELECT 1 FROM users u
+                    WHERE u.id=@user AND u.tenant_id=@tenant AND u.role='clinic_admin' AND u.archived_at IS NULL
+                )
+              )
+            LIMIT 1;
+            """, connection);
+        access.Parameters.AddWithValue("client", clientId);
+        access.Parameters.AddWithValue("tenant", _tenantContext.TenantId.Value);
+        access.Parameters.AddWithValue("user", userId ?? 0);
+        if (await access.ExecuteScalarAsync() is null) return NotFound();
+
+        await using var command = new NpgsqlCommand("""
+            INSERT INTO patient_communication_preferences(client_id, tenant_id, in_app_enabled, email_enabled, push_enabled, updated_at)
+            VALUES(@client,@tenant,@in_app,@email,@push,NOW())
+            ON CONFLICT (client_id)
+            DO UPDATE SET in_app_enabled=EXCLUDED.in_app_enabled,
+                          email_enabled=EXCLUDED.email_enabled,
+                          push_enabled=EXCLUDED.push_enabled,
+                          tenant_id=EXCLUDED.tenant_id,
+                          updated_at=NOW();
+            """, connection);
+        command.Parameters.AddWithValue("client", clientId);
+        command.Parameters.AddWithValue("tenant", _tenantContext.TenantId.Value);
+        command.Parameters.AddWithValue("in_app", request.InAppEnabled);
+        command.Parameters.AddWithValue("email", request.EmailEnabled);
+        command.Parameters.AddWithValue("push", request.PushEnabled);
+        await command.ExecuteNonQueryAsync();
+        return NoContent();
+    }
+
     [HttpGet("jobs")]
     public async Task<IActionResult> GetJobs(
         [FromQuery] string? status = null,
