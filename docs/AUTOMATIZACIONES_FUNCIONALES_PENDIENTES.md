@@ -111,3 +111,28 @@ Este documento recoge el backlog funcional de automatizaciones identificado sobr
 - Tarea de dieta expirada.
 - Notificación de dieta publicada/modificada.
 - Eventos y acciones de Stripe/billing.
+
+
+## Nueva iteración: automatizaciones avanzadas y configuración visual
+
+- Automatizaciones avanzadas basadas en datos persistidos:
+  - revisión de mediciones antropométricas cuando el último control supera 30 días;
+  - detección de cambios relevantes entre los dos últimos controles (>=5 % de variación de peso o >=3 puntos porcentuales de grasa) con tarea prioritaria al profesional;
+  - aviso y tarea de renovación cuando una dieta activa termina en los próximos 14 días;
+  - todas estas reconciliaciones son horarias e idempotentes y no dependen de que se haya recibido un evento puntual.
+- Nuevas reglas configurables: `diet.renewal`, `biometrics.review_due` y `biometrics.evolution`.
+- Nueva pantalla profesional `/automations`:
+  - catálogo completo de reglas;
+  - activación/desactivación;
+  - destinatarios;
+  - canales in-app/email/push;
+  - retardos/antelaciones;
+  - edición de plantillas;
+  - consulta y cancelación de jobs pendientes.
+- Preferencias de comunicación del paciente disponibles también desde la ficha profesional, con canales independientes in-app/email/push.
+- El backend mantiene la autorización por tenant y por acceso al paciente al consultar o modificar estas preferencias.
+- La interfaz no sustituye las reglas del backend: las validaciones, límites, aislamiento por tenant y ejecución real continúan en servidor.
+
+### Sobre IA (bloque C)
+
+No se incorpora todavía. La dejamos como una capa posterior sobre este motor ya estable: análisis de check-ins, detección de patrones y sugerencias de actuación. Primero conviene cerrar automatizaciones deterministas y su configuración/observabilidad; así la IA podrá proponer acciones sobre datos y eventos ya trazables sin convertirse en una dependencia del scheduler.
