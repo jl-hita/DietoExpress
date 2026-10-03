@@ -18,6 +18,13 @@ public sealed record EmailPatientAction(
     string Subject,
     string HtmlBody);
 
+// El destinatario profesional se guarda como user_id y se resuelve el email al ejecutar el job,
+// igual que el correo del paciente, para tolerar cambios posteriores en los datos de contacto.
+public sealed record ProfessionalEmailAction(
+    int UserId,
+    string Subject,
+    string HtmlBody);
+
 public sealed record CancelAutomationRequest(string? Reason);
 
 // DTO de observabilidad: expone cada intento registrado sin mezclarlo con el estado actual del job.
