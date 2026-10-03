@@ -71,7 +71,10 @@ jobs:
       - name: Desplegar backend
         run: |
           # Los logs son datos persistentes y están fuera del directorio de despliegue.
-          sudo install -d -o joso -g joso -m 0750 /var/lib/dietoexpress/Logs
+          # El directorio /var/lib/dietoexpress/Logs se crea una sola vez en el servidor
+          # con permisos para joso; el despliegue no debe depender de sudo interactivo.
+          test -d /var/lib/dietoexpress/Logs
+          test -w /var/lib/dietoexpress/Logs
           rm -rf /opt/dietoexpress/*
           cp -a /tmp/dietoexpress-backend/. /opt/dietoexpress/
           mkdir -p /opt/dietoexpress/wwwroot
