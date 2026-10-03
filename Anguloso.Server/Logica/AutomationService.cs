@@ -69,6 +69,169 @@ public sealed class AutomationService
         return scheduledAt < DateTime.UtcNow ? DateTime.UtcNow : scheduledAt;
     }
 
+    // La configuración de destinatarios y canales se aplica al crear el job, no al ejecutarlo: así el worker sigue siendo
+    // un ejecutor ciego y los jobs persistidos representan exactamente las entregas solicitadas por la regla.
+    private async Task<long> ScheduleConfiguredActionAsync(
+        int tenantId, string actionType, object payload, DateTime scheduledAt, long? eventId,
+        string? idempotencyKey, int maxAttempts, CancellationToken cancellationToken)
+    {
+        var ruleKey = ResolveRuleKey(actionType, payload, idempotencyKey);
+        if (ruleKey is null)
+            return await ScheduleRawActionAsync(tenantId, actionType, payload, scheduledAt, eventId, idempotencyKey, maxAttempts, cancellationToken);
+
+        var config = await GetRuleConfigAsync(tenantId, ruleKey, cancellationToken);
+        if (!config.Enabled)
+            return 0;
+
+        var channels = config.Channels
+            .Where(c => c is not null)
+            .Select(c => c.Trim().ToLowerInvariant())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var scope = config.RecipientScope.Trim().ToLowerInvariant();
+        var wantsPatient = scope is "patient" or "both";
+        var wantsProfessional = scope is "assigned_professional" or "clinic_admin" or "both";
+
+        async Task SchedulePatientAsync(NotifyPatientAction action)
+        {
+            if (channels.Contains("in_app") || channels.Contains("push"))
+            {
+                await ScheduleRawActionAsync(tenantId, "notify_patient",
+                    action with { SendPush = channels.Contains("push") }, scheduledAt, eventId,
+                    idempotencyKey is null ? null : $"{idempotencyKey}:patient:in-app", maxAttempts, cancellationToken);
+            }
+            if (channels.Contains("email"))
+            {
+                await ScheduleRawActionAsync(tenantId, "email_patient",
+                    new EmailPatientAction(action.ClientId, action.Title, $"<p>{System.Net.WebUtility.HtmlEncode(action.Message)}</p>"),
+                    scheduledAt, eventId,
+                    idempotencyKey is null ? null : $"{idempotencyKey}:patient:email", maxAttempts, cancellationToken);
+            }
+        }
+
+        async Task ScheduleProfessionalAsync(int? assignedUserId, int? clientId, string title, string? description, DateTime? dueAt, string priority, string source)
+        {
+            var recipientIds = await ResolveProfessionalRecipientsAsync(tenantId, scope, assignedUserId, cancellationToken);
+            foreach (var recipientId in recipientIds)
+            {
+                if (channels.Contains("in_app"))
+                {
+                    await ScheduleRawActionAsync(tenantId, "create_professional_task",
+                        new CreateTaskAction(clientId, recipientId, title, description, dueAt, priority, source),
+                        scheduledAt, eventId,
+                        idempotencyKey is null ? null : $"{idempotencyKey}:professional:in-app:{recipientId}", maxAttempts, cancellationToken);
+                }
+                if (channels.Contains("email"))
+                {
+                    await ScheduleRawActionAsync(tenantId, "email_professional",
+                        new ProfessionalEmailAction(recipientId, title, $"<p>{System.Net.WebUtility.HtmlEncode(description ?? title)}</p>"),
+                        scheduledAt, eventId,
+                        idempotencyKey is null ? null : $"{idempotencyKey}:professional:email:{recipientId}", maxAttempts, cancellationToken);
+                }
+            }
+        }
+
+        switch (payload)
+        {
+            case NotifyPatientAction patientAction:
+                if (wantsPatient) await SchedulePatientAsync(patientAction);
+                if (wantsProfessional)
+                    await ScheduleProfessionalAsync(null, patientAction.ClientId, patientAction.Title, patientAction.Message, scheduledAt, "normal", $"automation:{ruleKey}");
+                break;
+            case EmailPatientAction emailAction:
+                if (wantsPatient && channels.Contains("email"))
+                    await ScheduleRawActionAsync(tenantId, "email_patient", emailAction, scheduledAt, eventId,
+                        idempotencyKey is null ? null : $"{idempotencyKey}:patient:email", maxAttempts, cancellationToken);
+                if (wantsPatient && (channels.Contains("in_app") || channels.Contains("push")))
+                    await SchedulePatientAsync(new NotifyPatientAction(emailAction.ClientId, ruleKey, emailAction.Subject, StripHtml(emailAction.HtmlBody), null));
+                break;
+            case CreateTaskAction taskAction:
+                if (wantsProfessional)
+                    await ScheduleProfessionalAsync(taskAction.AssignedUserId, taskAction.ClientId, taskAction.Title, taskAction.Description, taskAction.DueAt, taskAction.Priority, taskAction.Source);
+                if (wantsPatient && channels.Contains("email"))
+                    await ScheduleRawActionAsync(tenantId, "email_patient",
+                        new EmailPatientAction(taskAction.ClientId ?? throw new InvalidOperationException("La regla requiere un paciente."), taskAction.Title,
+                            $"<p>{System.Net.WebUtility.HtmlEncode(taskAction.Description ?? taskAction.Title)}</p>"),
+                        scheduledAt, eventId,
+                        idempotencyKey is null ? null : $"{idempotencyKey}:patient:email", maxAttempts, cancellationToken);
+                break;
+            default:
+                return await ScheduleRawActionAsync(tenantId, actionType, payload, scheduledAt, eventId, idempotencyKey, maxAttempts, cancellationToken);
+        }
+
+        return 0;
+    }
+
+    private async Task<int?[]> ResolveProfessionalRecipientsAsync(int tenantId, string scope, int? assignedUserId, CancellationToken cancellationToken)
+    {
+        if (scope == "assigned_professional")
+            return assignedUserId.HasValue ? [assignedUserId.Value] : [];
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new NpgsqlCommand("""
+            SELECT id
+            FROM users
+            WHERE tenant_id=@tenant
+              AND archived_at IS NULL
+              AND role <> 'superadmin'
+              AND email IS NOT NULL
+              AND TRIM(email) <> ''
+              AND (@scope <> 'clinic_admin' OR role='clinic_admin')
+            ORDER BY CASE WHEN role='clinic_admin' THEN 0 ELSE 1 END, created_at, id;
+            """, connection);
+        command.Parameters.AddWithValue("tenant", tenantId);
+        command.Parameters.AddWithValue("scope", scope);
+        var result = new List<int?>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            if (scope == "both" && assignedUserId.HasValue && reader.GetInt32(0) != assignedUserId.Value)
+                continue;
+            result.Add(reader.GetInt32(0));
+        }
+        return result.ToArray();
+    }
+
+    private static string? ResolveRuleKey(string actionType, object payload, string? idempotencyKey)
+    {
+        if (idempotencyKey?.StartsWith("onboarding:info-reminder:", StringComparison.Ordinal) == true) return "onboarding.info.reminder";
+        if (idempotencyKey?.StartsWith("onboarding:info-task:", StringComparison.Ordinal) == true) return "onboarding.info.escalation";
+        if (idempotencyKey?.StartsWith("onboarding:first-appointment-reminder:", StringComparison.Ordinal) == true) return "onboarding.first_appointment.reminder";
+        if (idempotencyKey?.StartsWith("onboarding:first-appointment-task:", StringComparison.Ordinal) == true) return "onboarding.first_appointment.escalation";
+        if (idempotencyKey?.StartsWith("followup:checkin-reminder:", StringComparison.Ordinal) == true) return "followup.checkin.reminder";
+        if (idempotencyKey?.StartsWith("followup:checkin-task:", StringComparison.Ordinal) == true) return "followup.checkin.escalation";
+        if (idempotencyKey?.StartsWith("diet:expiring:", StringComparison.Ordinal) == true) return "diet.expiry.reminder";
+        if (idempotencyKey?.StartsWith("diet:expired:", StringComparison.Ordinal) == true || idempotencyKey?.StartsWith("diet:expired-notification:", StringComparison.Ordinal) == true) return "diet.expired";
+        if (idempotencyKey?.EndsWith(":reminder-24h", StringComparison.Ordinal) == true) return "appointment.reminder.24h";
+        if (idempotencyKey?.EndsWith(":reminder-2h", StringComparison.Ordinal) == true) return "appointment.reminder.2h";
+        if (idempotencyKey?.StartsWith("postappointment:checkin:", StringComparison.Ordinal) == true) return "appointment.completed";
+        if (idempotencyKey?.StartsWith("postappointment:next:", StringComparison.Ordinal) == true) return "appointment.completed";
+
+        return payload switch
+        {
+            CreateTaskAction task when task.Source == "automation:client.created" => "client.created",
+            CreateTaskAction task when task.Source == "automation:patient.checkin.submitted" => "patient.checkin.submitted",
+            CreateTaskAction task when task.Source == "automation:patient.checkin.reviewed" => "patient.checkin.reviewed",
+            CreateTaskAction task when task.Source == "automation:appointment.completed" => "appointment.completed",
+            CreateTaskAction task when task.Source == "automation:appointment.no_show" => "appointment.no_show",
+            CreateTaskAction task when task.Source == "automation:onboarding.info" => "onboarding.info.escalation",
+            CreateTaskAction task when task.Source == "automation:onboarding:first-appointment" => "onboarding.first_appointment.escalation",
+            CreateTaskAction task when task.Source == "automation:followup.checkin" => "followup.checkin.escalation",
+            CreateTaskAction task when task.Source == "automation:diet.expired" => "diet.expired",
+            NotifyPatientAction notification when notification.Type == "checkin_reviewed" => "patient.checkin.reviewed",
+            NotifyPatientAction notification when notification.Type == "post_appointment_checkin" => "appointment.completed",
+            NotifyPatientAction notification when notification.Type == "appointment_reminder" => idempotencyKey?.EndsWith(":reminder-2h", StringComparison.Ordinal) == true ? "appointment.reminder.2h" : "appointment.reminder.24h",
+            NotifyPatientAction notification when notification.Type == "onboarding_info_reminder" => "onboarding.info.reminder",
+            NotifyPatientAction notification when notification.Type == "first_appointment_reminder" => "onboarding.first_appointment.reminder",
+            NotifyPatientAction notification when notification.Type == "checkin_reminder" => "followup.checkin.reminder",
+            NotifyPatientAction notification when notification.Type == "diet_expiring" => "diet.expiry.reminder",
+            NotifyPatientAction notification when notification.Type == "diet_expired" => "diet.expired",
+            _ => null
+        };
+    }
+
+    private static string StripHtml(string html) => System.Text.RegularExpressions.Regex.Replace(html, "<[^>]+>", " ").Trim();
+
     // Persiste primero el evento y, solo si se inserta por primera vez, ejecuta las reglas derivadas.
     // La restricción UNIQUE de PostgreSQL evita duplicados incluso con peticiones concurrentes.
     public async Task<long?> PublishEventAsync(
@@ -131,6 +294,17 @@ public sealed class AutomationService
     // Los trabajos se guardan en PostgreSQL, no en memoria: sobreviven a reinicios y pueden ser
     // reclamados por el worker con control de concurrencia e idempotencia.
     public async Task<long> ScheduleActionAsync(
+        int tenantId,
+        string actionType,
+        object payload,
+        DateTime scheduledAt,
+        long? eventId = null,
+        string? idempotencyKey = null,
+        int maxAttempts = 5,
+        CancellationToken cancellationToken = default)
+        => await ScheduleConfiguredActionAsync(tenantId, actionType, payload, scheduledAt, eventId, idempotencyKey, maxAttempts, cancellationToken);
+
+    private async Task<long> ScheduleRawActionAsync(
         int tenantId,
         string actionType,
         object payload,
