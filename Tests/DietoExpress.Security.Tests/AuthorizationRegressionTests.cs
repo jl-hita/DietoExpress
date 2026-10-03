@@ -1460,14 +1460,22 @@ public class AuthorizationRegressionTests
     {
         var service = ReadServerLogica("PrivacyOperationsService.cs");
         var schema = ReadServerLogica("DatabaseBootstrap.cs");
-        var incidentSection = service.Substring(
-            service.IndexOf("public async Task<long> CreateIncidentAsync", StringComparison.Ordinal),
-            service.IndexOf("public async Task<object?> ExportClientAsync", StringComparison.Ordinal)
-                - service.IndexOf("public async Task<long> CreateIncidentAsync", StringComparison.Ordinal));
+        var createIncidentPos = service.IndexOf("public async Task<long> CreateIncidentAsync", StringComparison.Ordinal);
+        var updateIncidentPos = service.IndexOf("public async Task<long> UpdateIncidentAsync", createIncidentPos, StringComparison.Ordinal);
+        var exportPos = service.IndexOf("public async Task<object?> ExportClientAsync", updateIncidentPos, StringComparison.Ordinal);
 
-        Assert.Contains("CREATE_PRIVACY_INCIDENT", incidentSection);
-        Assert.DoesNotContain("password", incidentSection, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("token", incidentSection, StringComparison.OrdinalIgnoreCase);
+        Assert.True(createIncidentPos >= 0 && updateIncidentPos > createIncidentPos && exportPos > updateIncidentPos);
+
+        // Las comprobaciones de secretos se limitan a los cuerpos que persisten el incidente.
+        // Así no confundimos nombres técnicos como CancellationToken con tokens de autenticación.
+        var createBodyStart = service.IndexOf('{', createIncidentPos);
+        var updateBodyStart = service.IndexOf('{', updateIncidentPos);
+        var incidentBodies = service[createBodyStart..exportPos];
+
+        Assert.True(createBodyStart > createIncidentPos && updateBodyStart > updateIncidentPos);
+        Assert.Contains("CREATE_PRIVACY_INCIDENT", incidentBodies);
+        Assert.DoesNotContain("password", incidentBodies, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("token", incidentBodies, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("description TEXT NOT NULL", schema);
         Assert.Contains("data_categories VARCHAR(500)", schema);
         Assert.DoesNotContain("clinical_content", schema, StringComparison.OrdinalIgnoreCase);
