@@ -1371,6 +1371,21 @@ public static class DatabaseBootstrap
         logger.LogInformation("Migración de automatizaciones automation-v7-patient-communication-preferences aplicada correctamente.");
     }
 
+    /// <summary>Amplía el check-in semanal con variables estructuradas de seguimiento.</summary>
+    public static void UpgradeAutomationSchemaV8(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            ALTER TABLE patient_checkins ADD COLUMN IF NOT EXISTS energy INTEGER;
+            ALTER TABLE patient_checkins ADD COLUMN IF NOT EXISTS sleep_quality INTEGER;
+            ALTER TABLE patient_checkins ADD COLUMN IF NOT EXISTS sleep_hours DOUBLE PRECISION;
+            ALTER TABLE patient_checkins ADD COLUMN IF NOT EXISTS training INTEGER;
+            CREATE INDEX IF NOT EXISTS idx_patient_checkins_client_submitted
+                ON patient_checkins(client_id, submitted_at DESC);
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('automation-v8-structured-followup') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración de automatizaciones automation-v8-structured-followup aplicada correctamente.");
+    }
+
     /// <summary>Integración OAuth y sincronización bidireccional con Google Calendar.</summary>
     public static void UpgradeGoogleCalendarSchemaV1(angulosodbContext context, ILogger logger)
     {
