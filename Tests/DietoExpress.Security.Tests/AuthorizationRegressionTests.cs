@@ -1385,7 +1385,7 @@ public class AuthorizationRegressionTests
         var source = ReadServerController("PatientDocumentsController.cs");
 
         Assert.Contains("AND revoked_at IS NULL AND requires_signature=true AND status='pending'", source);
-        Assert.Contains("if (string.Equals(currentStatus, "signed", StringComparison.OrdinalIgnoreCase)) return NoContent();", source);
+        Assert.Contains(@"if (string.Equals(currentStatus, ""signed"", StringComparison.OrdinalIgnoreCase)) return NoContent();", source);
         Assert.Contains("no duplicamos auditoría ni automatizaciones", source);
         Assert.Contains("documentSnapshot.Sha256", source);
     }
