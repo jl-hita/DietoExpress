@@ -259,6 +259,10 @@ public sealed class AutomationService
         if (idempotencyKey?.StartsWith("followup:checkin-task:", StringComparison.Ordinal) == true) return "followup.checkin.escalation";
         if (idempotencyKey?.StartsWith("diet:expiring:", StringComparison.Ordinal) == true) return "diet.expiry.reminder";
         if (idempotencyKey?.StartsWith("diet:expired:", StringComparison.Ordinal) == true || idempotencyKey?.StartsWith("diet:expired-notification:", StringComparison.Ordinal) == true) return "diet.expired";
+        if (idempotencyKey?.StartsWith("diet:renewal:", StringComparison.Ordinal) == true) return "diet.renewal";
+        if (idempotencyKey?.StartsWith("diet:renewal-task:", StringComparison.Ordinal) == true) return "diet.renewal";
+        if (idempotencyKey?.StartsWith("biometrics:review_due:", StringComparison.Ordinal) == true) return "biometrics.review_due";
+        if (idempotencyKey?.StartsWith("biometrics:evolution:", StringComparison.Ordinal) == true) return "biometrics.evolution";
         if (idempotencyKey?.EndsWith(":reminder-24h", StringComparison.Ordinal) == true) return "appointment.reminder.24h";
         if (idempotencyKey?.EndsWith(":reminder-2h", StringComparison.Ordinal) == true) return "appointment.reminder.2h";
         if (idempotencyKey?.StartsWith("postappointment:checkin:", StringComparison.Ordinal) == true) return "appointment.completed";
@@ -275,6 +279,9 @@ public sealed class AutomationService
             CreateTaskAction task when task.Source == "automation:onboarding:first-appointment" => "onboarding.first_appointment.escalation",
             CreateTaskAction task when task.Source == "automation:followup.checkin" => "followup.checkin.escalation",
             CreateTaskAction task when task.Source == "automation:diet.expired" => "diet.expired",
+            CreateTaskAction task when task.Source == "automation:diet.renewal" => "diet.renewal",
+            CreateTaskAction task when task.Source == "automation:biometrics.review_due" => "biometrics.review_due",
+            CreateTaskAction task when task.Source == "automation:biometrics.evolution" => "biometrics.evolution",
             NotifyPatientAction notification when notification.Type == "checkin_reviewed" => "patient.checkin.reviewed",
             NotifyPatientAction notification when notification.Type == "post_appointment_checkin" => "appointment.completed",
             NotifyPatientAction notification when notification.Type == "appointment_reminder" => idempotencyKey?.EndsWith(":reminder-2h", StringComparison.Ordinal) == true ? "appointment.reminder.2h" : "appointment.reminder.24h",
@@ -283,6 +290,7 @@ public sealed class AutomationService
             NotifyPatientAction notification when notification.Type == "checkin_reminder" => "followup.checkin.reminder",
             NotifyPatientAction notification when notification.Type == "diet_expiring" => "diet.expiry.reminder",
             NotifyPatientAction notification when notification.Type == "diet_expired" => "diet.expired",
+            NotifyPatientAction notification when notification.Type == "diet_renewal" => "diet.renewal",
             _ => null
         };
     }
@@ -884,6 +892,174 @@ public sealed class AutomationService
     // reconstruirse desde los datos persistidos. Esto hace el ciclo de vida resistente a reinicios.
     // Recalcula el estado clínico-operativo del paciente a partir de actividad reciente.
     // Este barrido corrige estados que no hayan podido actualizarse por un evento puntual.
+    /// <summary>
+    /// Reconciliación de automatizaciones clínicas avanzadas. No depende de eventos puntuales:
+    /// reconstruye recordatorios a partir de las últimas mediciones y dietas persistidas.
+    /// </summary>
+    public async Task RunAdvancedAutomationSweepAsync(CancellationToken cancellationToken = default)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        var patients = new List<(int TenantId, int ClientId, int? UserId)>();
+        await using (var command = new NpgsqlCommand("""
+            SELECT id, tenant_id, user_id
+            FROM clients
+            WHERE archived_at IS NULL AND tenant_id IS NOT NULL;
+            """, connection))
+        {
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+                patients.Add((reader.GetInt32(1), reader.GetInt32(0), reader.IsDBNull(2) ? null : reader.GetInt32(2)));
+        }
+
+        foreach (var patient in patients)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (await IsRuleEnabledAsync(patient.TenantId, "biometrics.review_due", cancellationToken))
+            {
+                await using var biometricCommand = new NpgsqlCommand("""
+                    SELECT measurement_date
+                    FROM biometrics
+                    WHERE client_id=@client
+                    ORDER BY measurement_date DESC
+                    LIMIT 1;
+                    """, connection);
+                biometricCommand.Parameters.AddWithValue("client", patient.ClientId);
+                var latest = await biometricCommand.ExecuteScalarAsync(cancellationToken);
+
+                if (latest is DateTime latestDate && latestDate.Date <= DateTime.UtcNow.Date.AddDays(-30)
+                    || latest is DateOnly latestDateOnly && latestDateOnly <= DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-30))
+                    || latest is null)
+                {
+                    var keyDate = latest is DateTime dt ? dt.ToString("yyyyMMdd") :
+                        latest is DateOnly d ? d.ToString("yyyyMMdd") : "none";
+                    await ScheduleConfiguredActionAsync(
+                        patient.TenantId,
+                        "create_professional_task",
+                        new CreateTaskAction(
+                            patient.ClientId,
+                            patient.UserId,
+                            "Revisar mediciones antropométricas",
+                            "No hay una medición antropométrica reciente. Revisar si corresponde programar una nueva valoración.",
+                            DateTime.UtcNow,
+                            "normal",
+                            "automation:biometrics.review_due"),
+                        DateTime.UtcNow,
+                        null,
+                        $"biometrics:review_due:{patient.ClientId}:{keyDate}:{DateTime.UtcNow:yyyyMMdd}",
+                        3,
+                        cancellationToken);
+                }
+            }
+
+            if (await IsRuleEnabledAsync(patient.TenantId, "biometrics.evolution", cancellationToken))
+            {
+                await using var evolutionCommand = new NpgsqlCommand("""
+                    SELECT measurement_date, weight, body_fat
+                    FROM biometrics
+                    WHERE client_id=@client
+                    ORDER BY measurement_date DESC, id DESC
+                    LIMIT 2;
+                    """, connection);
+                evolutionCommand.Parameters.AddWithValue("client", patient.ClientId);
+
+                var measurements = new List<(DateOnly Date, double? Weight, double? BodyFat)>();
+                await using var evolutionReader = await evolutionCommand.ExecuteReaderAsync(cancellationToken);
+                while (await evolutionReader.ReadAsync(cancellationToken))
+                    measurements.Add((evolutionReader.GetFieldValue<DateOnly>(0),
+                        evolutionReader.IsDBNull(1) ? null : evolutionReader.GetDouble(1),
+                        evolutionReader.IsDBNull(2) ? null : evolutionReader.GetDouble(2)));
+
+                if (measurements.Count == 2)
+                {
+                    var current = measurements[0];
+                    var previous = measurements[1];
+                    var weightChange = current.Weight.HasValue && previous.Weight is > 0
+                        ? Math.Abs(current.Weight.Value - previous.Weight.Value) / previous.Weight.Value
+                        : 0;
+                    var bodyFatChange = current.BodyFat.HasValue && previous.BodyFat.HasValue
+                        ? Math.Abs(current.BodyFat.Value - previous.BodyFat.Value)
+                        : 0;
+
+                    if (weightChange >= 0.05 || bodyFatChange >= 3)
+                    {
+                        var detail = weightChange >= 0.05
+                            ? $"El peso ha variado aproximadamente un {weightChange:P0} entre las dos últimas mediciones."
+                            : $"El porcentaje de grasa ha variado {bodyFatChange:0.0} puntos entre las dos últimas mediciones.";
+
+                        await ScheduleConfiguredActionAsync(
+                            patient.TenantId,
+                            "create_professional_task",
+                            new CreateTaskAction(
+                                patient.ClientId,
+                                patient.UserId,
+                                "Revisar evolución antropométrica",
+                                detail,
+                                DateTime.UtcNow,
+                                "high",
+                                "automation:biometrics.evolution"),
+                            DateTime.UtcNow,
+                            null,
+                            $"biometrics:evolution:{patient.ClientId}:{current.Date:yyyyMMdd}",
+                            3,
+                            cancellationToken);
+                    }
+                }
+            }
+
+            if (await IsRuleEnabledAsync(patient.TenantId, "diet.renewal", cancellationToken))
+            {
+                await using var dietCommand = new NpgsqlCommand("""
+                    SELECT cd.end_date
+                    FROM client_diets cd
+                    WHERE cd.client_id=@client AND cd.is_active=TRUE
+                    ORDER BY cd.end_date NULLS LAST, cd.id DESC
+                    LIMIT 1;
+                    """, connection);
+                dietCommand.Parameters.AddWithValue("client", patient.ClientId);
+                var end = await dietCommand.ExecuteScalarAsync(cancellationToken);
+                if (end is DateTime endDate && endDate.Date <= DateTime.UtcNow.Date.AddDays(14))
+                {
+                    var remaining = (endDate.Date - DateTime.UtcNow.Date).Days;
+                    await ScheduleConfiguredActionAsync(
+                        patient.TenantId,
+                        "notify_patient",
+                        new NotifyPatientAction(
+                            patient.ClientId,
+                            "diet_renewal",
+                            "Tu dieta está próxima a finalizar",
+                            $"Tu dieta actual termina en {Math.Max(0, remaining)} días. Puedes contactar con tu nutricionista para revisar la siguiente.",
+                            "/patient?tab=diets",
+                            false),
+                        DateTime.UtcNow,
+                        null,
+                        $"diet:renewal:{patient.ClientId}:{endDate:yyyyMMdd}",
+                        3,
+                        cancellationToken);
+
+                    await ScheduleConfiguredActionAsync(
+                        patient.TenantId,
+                        "create_professional_task",
+                        new CreateTaskAction(
+                            patient.ClientId,
+                            patient.UserId,
+                            "Planificar renovación de dieta",
+                            $"La dieta activa del paciente finaliza el {endDate:dd/MM/yyyy}. Revisar continuidad o actualización.",
+                            DateTime.UtcNow,
+                            "normal",
+                            "automation:diet.renewal"),
+                        DateTime.UtcNow,
+                        null,
+                        $"diet:renewal-task:{patient.ClientId}:{endDate:yyyyMMdd}",
+                        3,
+                        cancellationToken);
+                }
+            }
+        }
+    }
+
     public async Task RunPatientLifecycleSweepAsync(CancellationToken cancellationToken = default)
     {
         var candidates = new List<(int ClientId, int TenantId, int? AssignedUserId, string Status, bool HasFutureAppointment)>();
