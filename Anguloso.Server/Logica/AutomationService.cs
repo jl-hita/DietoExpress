@@ -340,6 +340,8 @@ public sealed class AutomationService
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
+        // El estado se deriva de hechos persistidos, no de un contador mantenido por los eventos.
+        // Así el barrido puede reparar inconsistencias y volver a calcular el estado tras reinicios.
         await using var command = new NpgsqlCommand("""
             SELECT c.id, c.tenant_id, c.user_id,
                    EXISTS (
@@ -458,6 +460,8 @@ public sealed class AutomationService
     // idempotencia evitan que una repetición del mismo evento genere acciones duplicadas.
     private async Task ScheduleBuiltInRulesAsync(AutomationEvent evt, CancellationToken cancellationToken)
     {
+        // Las reglas incorporadas se traducen a jobs persistentes; no se ejecutan directamente dentro
+        // de la petición que generó el evento para mantener la respuesta independiente de email/push.
         switch (evt.EventType)
         {
             case "client.created":
@@ -635,6 +639,8 @@ public sealed class AutomationService
     // Las claves de idempotencia impiden duplicar acciones en ejecuciones sucesivas.
     public async Task RunDietAutomationSweepAsync(CancellationToken cancellationToken = default)
     {
+        // Esta tarea periódica complementa los eventos de dieta: sirve como red de seguridad para
+        // recordatorios que dependen del tiempo transcurrido y no de una única modificación de datos.
         var candidates = new List<(int AssignmentId, int ClientId, int TenantId, int? NutritionistId, DateOnly? EndDate, string DietName)>();
 
         await using var connection = new NpgsqlConnection(_connectionString);
