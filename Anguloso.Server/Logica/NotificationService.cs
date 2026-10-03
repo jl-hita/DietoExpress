@@ -53,7 +53,12 @@ public sealed class NotificationService
     public async Task<long> CreateForPatientAsync(int tenantId, int clientId, string type, string title, string message, string? actionUrl = null, bool sendPush = true)
     {
         var preferences = await GetCommunicationPreferencesAsync(tenantId, clientId);
-        if (!preferences.InAppEnabled) return 0;
+        if (!preferences.InAppEnabled)
+        {
+            if (sendPush && preferences.PushEnabled)
+                await SendPushAsync(tenantId, clientId, new PushPayload(title, message, actionUrl));
+            return 0;
+        }
 
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
