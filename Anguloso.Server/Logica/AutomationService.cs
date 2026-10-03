@@ -923,21 +923,25 @@ public sealed class AutomationService
                     var firstReminder = await ApplyConfiguredLeadTimeAsync(
                         evt.TenantId, "appointment.reminder.24h", payload.StartsAtUtc, 24 * 60, cancellationToken);
 
-                    await ScheduleActionAsync(
-                        evt.TenantId,
-                        "notify_patient",
-                        new NotifyPatientAction(
-                            payload.ClientId,
-                            "appointment_reminder",
-                            "Recordatorio de cita",
-                            "Recuerda que tienes una cita con tu nutricionista mañana.",
-                            "/patient?tab=appointments"),
-                        firstReminder,
-                        evt.Id,
-                        $"event:{evt.Id}:reminder-24h",
-                        cancellationToken: cancellationToken);
+                    if (await IsRuleEnabledAsync(evt.TenantId, "appointment.reminder.24h", cancellationToken))
+                    {
+                        await ScheduleActionAsync(
+                            evt.TenantId,
+                            "notify_patient",
+                            new NotifyPatientAction(
+                                payload.ClientId,
+                                "appointment_reminder",
+                                "Recordatorio de cita",
+                                "Recuerda que tienes una cita con tu nutricionista.",
+                                "/patient?tab=appointments"),
+                            firstReminder,
+                            evt.Id,
+                            $"event:{evt.Id}:reminder-24h",
+                            cancellationToken: cancellationToken);
+                    }
 
-                    var secondReminder = payload.StartsAtUtc.AddHours(-2);
+                    var secondReminder = await ApplyConfiguredLeadTimeAsync(
+                        evt.TenantId, "appointment.reminder.2h", payload.StartsAtUtc, 2 * 60, cancellationToken);
                     if (secondReminder > DateTime.UtcNow &&
                         await IsRuleEnabledAsync(evt.TenantId, "appointment.reminder.2h", cancellationToken))
                     {
