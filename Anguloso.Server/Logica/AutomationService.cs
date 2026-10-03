@@ -63,6 +63,36 @@ public sealed class AutomationService
             reader.GetString(2), channels);
     }
 
+    private sealed record AutomationTemplate(string? PatientTitle, string? PatientMessage, string? ProfessionalTitle, string? ProfessionalMessage, string? EmailSubject, string? EmailHtml);
+
+    private async Task<AutomationTemplate?> GetTemplateAsync(int tenantId, string ruleKey, CancellationToken cancellationToken)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new NpgsqlCommand("""
+            SELECT patient_title, patient_message, professional_title, professional_message, email_subject, email_html
+            FROM automation_templates
+            WHERE tenant_id=@tenant AND rule_key=@rule
+            LIMIT 1;
+            """, connection);
+        command.Parameters.AddWithValue("tenant", tenantId);
+        command.Parameters.AddWithValue("rule", ruleKey);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken)) return null;
+        return new AutomationTemplate(
+            reader.IsDBNull(0) ? null : reader.GetString(0),
+            reader.IsDBNull(1) ? null : reader.GetString(1),
+            reader.IsDBNull(2) ? null : reader.GetString(2),
+            reader.IsDBNull(3) ? null : reader.GetString(3),
+            reader.IsDBNull(4) ? null : reader.GetString(4),
+            reader.IsDBNull(5) ? null : reader.GetString(5));
+    }
+
+    private static string RenderTemplate(string template, string title, string message, string? actionUrl = null)
+        => template.Replace("{title}", title, StringComparison.OrdinalIgnoreCase)
+                   .Replace("{message}", message, StringComparison.OrdinalIgnoreCase)
+                   .Replace("{action_url}", actionUrl ?? "", StringComparison.OrdinalIgnoreCase);
+
     private async Task<bool> IsRuleEnabledAsync(int tenantId, string ruleKey, CancellationToken cancellationToken)
         => (await GetRuleConfigAsync(tenantId, ruleKey, cancellationToken)).Enabled;
 
@@ -109,19 +139,26 @@ public sealed class AutomationService
         var wantsPatient = scope is "patient" or "both";
         var wantsProfessional = scope is "assigned_professional" or "clinic_admin" or "both";
 
+        var template = await GetTemplateAsync(tenantId, ruleKey, cancellationToken);
+
         async Task SchedulePatientAsync(NotifyPatientAction action)
         {
+            var title = string.IsNullOrWhiteSpace(template?.PatientTitle) ? action.Title : RenderTemplate(template.PatientTitle, action.Title, action.Message, action.ActionUrl);
+            var message = string.IsNullOrWhiteSpace(template?.PatientMessage) ? action.Message : RenderTemplate(template.PatientMessage, action.Title, action.Message, action.ActionUrl);
             if (channels.Contains("in_app") || channels.Contains("push"))
             {
                 await ScheduleRawActionAsync(tenantId, "notify_patient",
-                    action with { SendPush = channels.Contains("push") }, scheduledAt, eventId,
+                    action with { Title = title, Message = message, SendPush = channels.Contains("push") }, scheduledAt, eventId,
                     idempotencyKey is null ? null : $"{idempotencyKey}:patient:in-app", maxAttempts, cancellationToken);
             }
             if (channels.Contains("email"))
             {
+                var subject = string.IsNullOrWhiteSpace(template?.EmailSubject) ? title : RenderTemplate(template.EmailSubject, title, message, action.ActionUrl);
+                var html = string.IsNullOrWhiteSpace(template?.EmailHtml)
+                    ? $"<p>{System.Net.WebUtility.HtmlEncode(message)}</p>"
+                    : RenderTemplate(template.EmailHtml, title, message, action.ActionUrl);
                 await ScheduleRawActionAsync(tenantId, "email_patient",
-                    new EmailPatientAction(action.ClientId, action.Title, $"<p>{System.Net.WebUtility.HtmlEncode(action.Message)}</p>"),
-                    scheduledAt, eventId,
+                    new EmailPatientAction(action.ClientId, subject, html), scheduledAt, eventId,
                     idempotencyKey is null ? null : $"{idempotencyKey}:patient:email", maxAttempts, cancellationToken);
             }
         }
@@ -129,19 +166,23 @@ public sealed class AutomationService
         async Task ScheduleProfessionalAsync(int? assignedUserId, int? clientId, string title, string? description, DateTime? dueAt, string priority, string source)
         {
             var recipientIds = await ResolveProfessionalRecipientsAsync(tenantId, scope, assignedUserId, cancellationToken);
+            var professionalTitle = string.IsNullOrWhiteSpace(template?.ProfessionalTitle) ? title : RenderTemplate(template.ProfessionalTitle, title, description ?? title);
+            var professionalMessage = string.IsNullOrWhiteSpace(template?.ProfessionalMessage) ? description : RenderTemplate(template.ProfessionalMessage, title, description ?? title);
             foreach (var recipientId in recipientIds)
             {
                 if (channels.Contains("in_app"))
                 {
                     await ScheduleRawActionAsync(tenantId, "create_professional_task",
-                        new CreateTaskAction(clientId, recipientId, title, description, dueAt, priority, source),
+                        new CreateTaskAction(clientId, recipientId, professionalTitle, professionalMessage, dueAt, priority, source),
                         scheduledAt, eventId,
                         idempotencyKey is null ? null : $"{idempotencyKey}:professional:in-app:{recipientId}", maxAttempts, cancellationToken);
                 }
                 if (channels.Contains("email"))
                 {
                     await ScheduleRawActionAsync(tenantId, "email_professional",
-                        new ProfessionalEmailAction(recipientId, title, $"<p>{System.Net.WebUtility.HtmlEncode(description ?? title)}</p>"),
+                        new ProfessionalEmailAction(recipientId,
+                            string.IsNullOrWhiteSpace(template?.EmailSubject) ? professionalTitle : RenderTemplate(template.EmailSubject, professionalTitle, professionalMessage),
+                            string.IsNullOrWhiteSpace(template?.EmailHtml) ? $"<p>{System.Net.WebUtility.HtmlEncode(professionalMessage ?? professionalTitle)}</p>" : RenderTemplate(template.EmailHtml, professionalTitle, professionalMessage)),
                         scheduledAt, eventId,
                         idempotencyKey is null ? null : $"{idempotencyKey}:professional:email:{recipientId}", maxAttempts, cancellationToken);
                 }
