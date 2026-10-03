@@ -80,11 +80,35 @@ public class DocumentTemplatesController : ControllerBase
         await connection.OpenAsync(cancellationToken);
         await using var tx = await connection.BeginTransactionAsync(cancellationToken);
 
+        // Serialize version creation per tenant + logical template name. MAX(version)+1 alone
+        // is racy when two professionals upload the same template concurrently.
+        await using (var lockCommand = new NpgsqlCommand(
+            "SELECT pg_advisory_xact_lock(hashtextextended(@lock_key, 0));", connection, tx))
+        {
+            lockCommand.Parameters.AddWithValue(
+                "lock_key",
+                $"{tenantId.Value}:document-template:{name.Trim().ToLowerInvariant()}");
+            await lockCommand.ExecuteNonQueryAsync(cancellationToken);
+        }
+
         await using (var versionCommand = new NpgsqlCommand("SELECT COALESCE(MAX(version),0)+1 FROM document_templates WHERE tenant_id=@tenant AND LOWER(name)=LOWER(@name);", connection, tx))
         {
             versionCommand.Parameters.AddWithValue("tenant", tenantId.Value);
             versionCommand.Parameters.AddWithValue("name", name.Trim());
             version = Convert.ToInt32(await versionCommand.ExecuteScalarAsync(cancellationToken));
+        }
+
+        // A logical template has one active version. Deactivate the previous active version
+        // inside the same transaction before publishing the new one.
+        await using (var deactivateCommand = new NpgsqlCommand("""
+            UPDATE document_templates
+            SET is_active=false, updated_at=NOW()
+            WHERE tenant_id=@tenant AND LOWER(name)=LOWER(@name) AND is_active=true;
+            """, connection, tx))
+        {
+            deactivateCommand.Parameters.AddWithValue("tenant", tenantId.Value);
+            deactivateCommand.Parameters.AddWithValue("name", name.Trim());
+            await deactivateCommand.ExecuteNonQueryAsync(cancellationToken);
         }
 
         var storageKey = $"{tenantId.Value}/templates/{Guid.NewGuid():N}.pdf";
@@ -139,12 +163,34 @@ public class DocumentTemplatesController : ControllerBase
         if (!tenantId.HasValue) return Forbid();
         await using var connection = new NpgsqlConnection(ConnectionString);
         await connection.OpenAsync(cancellationToken);
-        await using var command = new NpgsqlCommand("UPDATE document_templates SET is_active=@active, updated_at=NOW() WHERE id=@id AND tenant_id=@tenant;", connection);
+        await using var tx = await connection.BeginTransactionAsync(cancellationToken);
+
+        if (request.Active)
+        {
+            await using var deactivate = new NpgsqlCommand("""
+                UPDATE document_templates
+                SET is_active=false, updated_at=NOW()
+                WHERE tenant_id=@tenant AND LOWER(name)=LOWER((SELECT name FROM document_templates WHERE id=@id AND tenant_id=@tenant))
+                  AND is_active=true AND id<>@id;
+                """, connection, tx);
+            deactivate.Parameters.AddWithValue("tenant", tenantId.Value);
+            deactivate.Parameters.AddWithValue("id", id);
+            await deactivate.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await using var command = new NpgsqlCommand("UPDATE document_templates SET is_active=@active, updated_at=NOW() WHERE id=@id AND tenant_id=@tenant;", connection, tx);
         command.Parameters.AddWithValue("active", request.Active);
         command.Parameters.AddWithValue("id", id);
         command.Parameters.AddWithValue("tenant", tenantId.Value);
         var count = await command.ExecuteNonQueryAsync(cancellationToken);
-        return count == 0 ? NotFound() : NoContent();
+        if (count == 0)
+        {
+            await tx.RollbackAsync(cancellationToken);
+            return NotFound();
+        }
+
+        await tx.CommitAsync(cancellationToken);
+        return NoContent();
     }
 
     public sealed record SetActiveRequest(bool Active);
