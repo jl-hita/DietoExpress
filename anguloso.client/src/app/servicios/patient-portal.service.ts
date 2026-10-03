@@ -131,6 +131,7 @@ export class PatientPortalService {
     });
   }
   reviewCheckin(id: number): Observable<void> { return this.http.post<void>(`${this.base}/professional/check-ins/${id}/review`, {}); }
+  createFollowUpTask(id: number): Observable<{ id: number }> { return this.http.post<{ id: number }>(`${this.base}/professional/check-ins/${id}/follow-up-task`, {}); }
   saveCheckin(request: PatientCheckinRequest): Observable<PatientCheckin> { return this.http.post<PatientCheckin>(`${this.base}/portal/check-ins`, request); }
   getClientPortalAccess(clientId: number): Observable<ClientPortalAccess> { return this.http.get<ClientPortalAccess>(`${this.base}/clients/${clientId}/portal-access`); }
   regenerateClientToken(clientId: number): Observable<ClientPortalAccess> { return this.http.post<ClientPortalAccess>(`${this.base}/clients/${clientId}/portal-access/regenerate-token`, {}); }
