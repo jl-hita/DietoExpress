@@ -289,7 +289,7 @@ public class AuthController : ControllerBase
                 """,
                 user.id,
                 tenant.id,
-                HttpContext.Connection.RemoteIpAddress?.ToString(),
+                HttpContext.Connection.RemoteIpAddress?.ToString() ?? "",
                 Request.Headers.UserAgent.ToString(),
                 currentTerms.Version);
 
