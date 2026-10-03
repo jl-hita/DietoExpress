@@ -22,7 +22,7 @@ Este documento recoge el backlog funcional de automatizaciones identificado sobr
    - ofrecer/recordar reserva
    - detener recordatorios al reservar
 
-4. Flujo post-cita
+4. Flujo post-cita — check-in posterior, tarea de revisión y planificación de próxima cita implementados
    - seguimiento posterior
    - próxima cita
    - check-in cuando corresponda
