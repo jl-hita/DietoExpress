@@ -434,6 +434,8 @@ public sealed class AutomationService
         return Convert.ToBoolean(await command.ExecuteScalarAsync(cancellationToken));
     }
 
+    // last_activity_at solo avanza para estados de seguimiento: pasar a pending_info/pending_first_appointment
+    // no debe borrar la última actividad real del paciente ni hacer que un cambio administrativo parezca actividad clínica.
     private async Task<bool> SetPatientLifecycleStatusAsync(int tenantId,int clientId,string status,DateTime changedAt,CancellationToken cancellationToken)
     {
         string[] allowed=["pending_info","pending_first_appointment","active","follow_up","no_recent_followup","archived"];
@@ -521,6 +523,8 @@ public sealed class AutomationService
                     var payload = AutomationJson.Deserialize<AppointmentStatusPayload>(evt.Payload)
                         ?? throw new InvalidOperationException("Payload inválido para appointment.confirmed.");
 
+                    // Si la confirmación llega tarde, el recordatorio de 24 h se ejecuta cuanto antes; no se descarta
+                    // por haber pasado su hora teórica, mientras que el de 2 h sí se omite si ya quedó atrás.
                     var firstReminder = payload.StartsAtUtc.AddHours(-24);
                     if (firstReminder < DateTime.UtcNow) firstReminder = DateTime.UtcNow;
 
@@ -541,6 +545,8 @@ public sealed class AutomationService
                     var secondReminder = payload.StartsAtUtc.AddHours(-2);
                     if (secondReminder > DateTime.UtcNow)
                     {
+                        // El recordatorio de 2 h solo tiene sentido si todavía queda tiempo suficiente para enviarlo; si no,
+                        // evitamos crear un job inmediatamente vencido que no aportaría valor al paciente.
                         await ScheduleActionAsync(
                             evt.TenantId,
                             "notify_patient",
@@ -559,6 +565,8 @@ public sealed class AutomationService
                 }
             case "appointment.cancelled":
                 {
+                    // Al cancelar una cita se invalidan los recordatorios pendientes asociados a la confirmación original,
+                    // pero nunca jobs que ya estén en processing/completed o pertenezcan a otro agregado.
                     await CancelJobsForEventAggregateAsync(evt, cancellationToken);
                     break;
                 }
@@ -690,6 +698,8 @@ public sealed class AutomationService
             if (!diet.EndDate.HasValue) continue;
 
             var daysRemaining = diet.EndDate.Value.DayNumber - today.DayNumber;
+            // Se avisa durante los tres días anteriores y también el propio día de vencimiento; la clave usa
+            // la fecha de fin, por lo que una ejecución diaria no repite el aviso para la misma asignación.
             if (daysRemaining is >= 0 and <= 3)
             {
                 await ScheduleActionAsync(
@@ -707,6 +717,8 @@ public sealed class AutomationService
                     cancellationToken: cancellationToken);
             }
 
+            // Una dieta vencida genera tarea profesional inmediata en lugar de modificar automáticamente la dieta:
+            // la decisión clínica de renovar, sustituir o finalizar queda deliberadamente en manos del profesional.
             if (diet.EndDate.Value < today)
             {
                 await ScheduleActionAsync(
