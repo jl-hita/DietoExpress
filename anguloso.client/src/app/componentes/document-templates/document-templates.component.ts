@@ -16,7 +16,7 @@ interface DocumentTemplate {
   description?: string | null;
   documentType: string;
   version: number;
-  active: boolean;
+  isActive: boolean;
   requiredOnClientCreation: boolean;
   requiredBeforeConsultation: boolean;
   requiresSignature: boolean;
@@ -80,7 +80,7 @@ export class DocumentTemplatesComponent implements OnInit {
 
   toggle(template: DocumentTemplate): void {
     this.http.patch('/api/document-templates/' + template.id + '/active', { active: !template.active }).subscribe({
-      next: () => template.active = !template.active,
+      next: () => template.isActive = !template.isActive,
       error: e => this.error = e?.error?.message || 'No se pudo cambiar el estado.'
     });
   }
