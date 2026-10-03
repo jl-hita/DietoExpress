@@ -27,6 +27,7 @@ import { AppointmentsComponent } from './componentes/appointments/appointments.c
 import { PatientChatComponent } from './componentes/patient-chat/patient-chat.component';
 import { MessagesComponent } from './componentes/messages/messages.component';
 import { AutomationSettingsComponent } from './componentes/automation-settings/automation-settings.component';
+import { GuidedConsultationComponent } from './componentes/guided-consultation/guided-consultation.component';
 
 export interface AppRoute extends Route {
   showInMenu?: boolean;
@@ -49,6 +50,7 @@ export const routes: AppRoute[] = [
     children: [
       { path: 'clients', component: ClientsListComponent, canActivate: [SubscriptionGuard] },
       { path: 'appointments', component: AppointmentsComponent, canActivate: [SubscriptionGuard], title: 'Agenda y citas' },
+      { path: 'appointments/:appointmentId/consultation', component: GuidedConsultationComponent, canActivate: [SubscriptionGuard], title: 'Consulta guiada' },
       { path: 'messages', component: MessagesComponent, canActivate: [SubscriptionGuard], title: 'Mensajes' },
       { path: 'clients/nuevo', component: ClientCreateComponent, canActivate: [SubscriptionGuard], title: 'Nuevo cliente' },
       { path: 'clients/:id', component: ClientDetailComponent, canActivate: [SubscriptionGuard] },
