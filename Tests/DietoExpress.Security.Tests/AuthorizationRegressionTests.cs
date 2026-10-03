@@ -1469,4 +1469,29 @@ public class AuthorizationRegressionTests
         Assert.DoesNotContain("clinical_content", schema, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void PatientExport_IsTenantScopedAndExcludesAuthenticationSecrets()
+    {
+        var service = ReadServerLogica("PrivacyOperationsService.cs");
+        var controller = ReadServerController("PrivacyOperationsController.cs");
+
+        Assert.Contains("c.tenant_id == tenantId", service);
+        Assert.Contains("EXPORT_PATIENT_DATA", service);
+        Assert.DoesNotContain("passcode_hash", service);
+        Assert.DoesNotContain("access_token", service);
+        Assert.DoesNotContain("access_token_expires_at", service);
+        Assert.Contains("clients/{clientId:int}/export", controller);
+    }
+
+    [Fact]
+    public void ErasureWorkflow_DoesNotPerformImmediatePhysicalDelete()
+    {
+        var service = ReadServerLogica("PrivacyOperationsService.cs");
+
+        Assert.Contains("right_type='erasure'", service);
+        Assert.Contains("pendiente de revisión de obligaciones de conservación", service);
+        Assert.DoesNotContain("DELETE FROM clients", service);
+        Assert.DoesNotContain("_context.clients.Remove", service);
+    }
+
 }
