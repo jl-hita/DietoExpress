@@ -1470,7 +1470,8 @@ public class AuthorizationRegressionTests
         // Así no confundimos nombres técnicos como CancellationToken con tokens de autenticación.
         var createBodyStart = service.IndexOf('{', createIncidentPos);
         var updateBodyStart = service.IndexOf('{', updateIncidentPos);
-        var incidentBodies = service[createBodyStart..exportPos];
+        var incidentBodies = service[createBodyStart..updateIncidentPos]
+            + service[updateBodyStart..exportPos];
 
         Assert.True(createBodyStart > createIncidentPos && updateBodyStart > updateIncidentPos);
         Assert.Contains("CREATE_PRIVACY_INCIDENT", incidentBodies);
