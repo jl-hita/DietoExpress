@@ -66,7 +66,7 @@ public class DietController : ControllerBase
             .Where(d => d.archived_at == null)
             .Where(d => includeAll && isSuperAdmin
                 ? true
-                : (tenantId.HasValue && d.tenant_id == tenantId.Value && d.user_id == userId.Value) || (sharedAllowed && tenantId.HasValue && d.tenant_id == tenantId.Value && d.is_shared));
+                : (d.tenant_id == tenantIdValue && d.user_id == userId.Value) || (sharedAllowed && tenantId.HasValue && d.tenant_id == tenantId.Value && d.is_shared));
 
         if (onlyShared == true)
         {
@@ -226,6 +226,7 @@ public class DietController : ControllerBase
 
         var tenantId = AuthHelpers.GetTenantId(User);
         if (!tenantId.HasValue) return BadRequest("El usuario no pertenece a una clínica.");
+        var tenantIdValue = tenantId.Value;
 
         // La creación y eventual asignación de la dieta forman una unidad: si falla cualquiera de las validaciones o escrituras posteriores, no queda una dieta huérfana ni una asignación parcial.
         await using var transaction = await _context.Database.BeginTransactionAsync();
@@ -233,14 +234,14 @@ public class DietController : ControllerBase
         try
         {
             // Serializamos la comprobación del límite de dietas por tenant.
-            await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", tenantId.Value);
+            await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", tenantIdValue);
 
             // El bloqueo advisory se mantiene dentro de la transacción para que dos peticiones concurrentes no puedan consumir simultáneamente la misma plaza de licencia.
-            var dietPermission = await _licenseService.CanCreateDietAsync(tenantId, userId.Value);
+            var dietPermission = await _licenseService.CanCreateDietAsync(tenantIdValue, userId.Value);
             if (!dietPermission.Allowed)
                 return BadRequest(dietPermission.Reason);
 
-            if (dto.IsTemplate && !await _licenseService.CanUseFeatureAsync(tenantId, "DIET_TEMPLATES"))
+            if (dto.IsTemplate && !await _licenseService.CanUseFeatureAsync(tenantIdValue, "DIET_TEMPLATES"))
                 return Forbid();
 
             // Si la dieta se crea desde la ficha de un paciente, validamos el acceso
@@ -376,6 +377,8 @@ public class DietController : ControllerBase
         if (userId == null) return Unauthorized();
 
         var tenantId = AuthHelpers.GetTenantId(User);
+        if (!tenantId.HasValue) return BadRequest("El usuario no pertenece a una clínica.");
+        var tenantIdValue = tenantId.Value;
 
         // Solo el autor original puede editar su dieta
         var diet = await _context.diets

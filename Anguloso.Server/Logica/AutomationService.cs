@@ -172,7 +172,7 @@ public sealed class AutomationService
         {
             var recipientIds = await ResolveProfessionalRecipientsAsync(tenantId, scope, assignedUserId, cancellationToken);
             var professionalTitle = string.IsNullOrWhiteSpace(template?.ProfessionalTitle) ? title : RenderTemplate(template.ProfessionalTitle, title, description ?? title);
-            var professionalMessage = string.IsNullOrWhiteSpace(template?.ProfessionalMessage) ? description : RenderTemplate(template.ProfessionalMessage, title, description ?? title);
+            var professionalMessage = string.IsNullOrWhiteSpace(template?.ProfessionalMessage) ? (description ?? title) : RenderTemplate(template.ProfessionalMessage, title, description ?? title);
             foreach (var recipientId in recipientIds)
             {
                 if (channels.Contains("in_app"))
@@ -894,11 +894,6 @@ public sealed class AutomationService
         }
     }
 
-    /// <summary>Recalcula periódicamente el ciclo de vida y crea tareas para pacientes sin seguimiento.</summary>
-    // Barrido periódico de reconciliación: aunque un evento no llegue a procesarse, el estado puede
-    // reconstruirse desde los datos persistidos. Esto hace el ciclo de vida resistente a reinicios.
-    // Recalcula el estado clínico-operativo del paciente a partir de actividad reciente.
-    // Este barrido corrige estados que no hayan podido actualizarse por un evento puntual.
     /// <summary>
     /// Reconciliación de automatizaciones clínicas avanzadas. No depende de eventos puntuales:
     /// reconstruye recordatorios a partir de las últimas mediciones y dietas persistidas.

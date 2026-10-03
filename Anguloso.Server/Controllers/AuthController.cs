@@ -738,7 +738,7 @@ public class AuthController : ControllerBase
                             """,
                             user.id,
                             tenantGoogle.id,
-                            HttpContext.Connection.RemoteIpAddress?.ToString(),
+                            HttpContext.Connection.RemoteIpAddress?.ToString() ?? "",
                             Request.Headers.UserAgent.ToString(),
                             currentTerms.Version,
                             currentTerms.Sha256);
