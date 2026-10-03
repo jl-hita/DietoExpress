@@ -32,6 +32,23 @@ public class PatientNotificationsController : ControllerBase
         return await _notifications.MarkAsReadAsync(client.Value.TenantId, client.Value.ClientId, id) ? NoContent() : NotFound();
     }
 
+    [HttpGet("~/api/portal/communication-preferences")]
+    public async Task<IActionResult> GetCommunicationPreferences()
+    {
+        var client = await ResolvePatientAsync();
+        if (client == null) return Unauthorized();
+        return Ok(await _notifications.GetCommunicationPreferencesAsync(client.Value.TenantId, client.Value.ClientId));
+    }
+
+    [HttpPut("~/api/portal/communication-preferences")]
+    public async Task<IActionResult> SetCommunicationPreferences([FromBody] PatientCommunicationPreferences request)
+    {
+        var client = await ResolvePatientAsync();
+        if (client == null) return Unauthorized();
+        await _notifications.SetCommunicationPreferencesAsync(client.Value.TenantId, client.Value.ClientId, request);
+        return NoContent();
+    }
+
     [HttpGet("~/api/portal/push/vapid-public-key")]
     public IActionResult GetVapidPublicKey()
     {
