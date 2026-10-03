@@ -1519,4 +1519,17 @@ public class AuthorizationRegressionTests
         Assert.DoesNotContain("ip_address", service.Substring(service.IndexOf("legalAcceptances", StringComparison.Ordinal)));
     }
 
+    [Fact]
+    public void PatientArchive_RevokesPortalSessionAndActiveAssignments()
+    {
+        var controller = ReadServerController("ClientsController.cs");
+
+        Assert.Contains("client.access_token = null", controller);
+        Assert.Contains("client.access_token_expires_at = null", controller);
+        Assert.Contains("portal_token_version", controller);
+        Assert.Contains("client_nutritionist_assignments", controller);
+        Assert.Contains("SetProperty(a => a.is_active, false)", controller);
+        Assert.Contains("ARCHIVE_PATIENT", controller);
+    }
+
 }
