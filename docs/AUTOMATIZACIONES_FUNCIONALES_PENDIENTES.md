@@ -136,3 +136,13 @@ Este documento recoge el backlog funcional de automatizaciones identificado sobr
 ### Sobre IA (bloque C)
 
 No se incorpora todavía. La dejamos como una capa posterior sobre este motor ya estable: análisis de check-ins, detección de patrones y sugerencias de actuación. Primero conviene cerrar automatizaciones deterministas y su configuración/observabilidad; así la IA podrá proponer acciones sobre datos y eventos ya trazables sin convertirse en una dependencia del scheduler.
+
+
+## Cierre de A+B
+
+- Corregida la interpretación de fechas de renovación de dieta para PostgreSQL/DateOnly, evitando que el sweep ignore dietas con fecha de finalización.
+- La API de reglas solo permite claves incluidas en el catálogo soportado.
+- El endpoint de plantillas devuelve el catálogo completo, aunque el tenant todavía no haya personalizado ninguna plantilla.
+- Corregidas las rutas de preferencias de comunicación de la ficha profesional para usar el área protegida de automatizaciones.
+- La ficha del paciente mantiene los bindings de preferencias independientes del formulario reactivo y carga el módulo Material necesario para los spinners.
+- C/IA permanece fuera de esta fase y se mantiene únicamente en el roadmap como posible evolución futura.
