@@ -1470,6 +1470,57 @@ public static class DatabaseBootstrap
         logger.LogInformation("Migración legal-compliance-v1 comprobada correctamente.");
     }
 
+    /// <summary>Provisiona los registros operativos necesarios para tramitar derechos y brechas sin almacenar contenido clínico innecesario.</summary>
+    public static void UpgradePrivacyOperationsSchemaV1(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS privacy_requests (
+                id BIGSERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                requester_type VARCHAR(30) NOT NULL,
+                client_id INTEGER NULL REFERENCES clients(id) ON DELETE SET NULL,
+                right_type VARCHAR(30) NOT NULL,
+                status VARCHAR(30) NOT NULL DEFAULT 'received',
+                received_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                due_at TIMESTAMPTZ NULL,
+                resolved_at TIMESTAMPTZ NULL,
+                decision VARCHAR(100) NULL,
+                notes TEXT NULL,
+                created_by INTEGER NULL REFERENCES users(id) ON DELETE SET NULL,
+                updated_by INTEGER NULL REFERENCES users(id) ON DELETE SET NULL,
+                CONSTRAINT privacy_requests_requester_check CHECK (requester_type IN ('patient','representative','professional','other')),
+                CONSTRAINT privacy_requests_right_check CHECK (right_type IN ('access','rectification','erasure','restriction','objection','portability','automated_decision')),
+                CONSTRAINT privacy_requests_status_check CHECK (status IN ('received','verifying','in_progress','awaiting_client','resolved','rejected','cancelled'))
+            );
+            CREATE INDEX IF NOT EXISTS idx_privacy_requests_tenant_status ON privacy_requests(tenant_id, status, received_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_privacy_requests_tenant_client ON privacy_requests(tenant_id, client_id, received_at DESC);
+
+            CREATE TABLE IF NOT EXISTS privacy_incidents (
+                id BIGSERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                status VARCHAR(30) NOT NULL DEFAULT 'detected',
+                detected_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                occurred_from TIMESTAMPTZ NULL,
+                occurred_to TIMESTAMPTZ NULL,
+                systems_affected VARCHAR(500) NULL,
+                data_categories VARCHAR(500) NULL,
+                subject_categories VARCHAR(500) NULL,
+                description TEXT NOT NULL,
+                containment TEXT NULL,
+                risk_assessment TEXT NULL,
+                communications TEXT NULL,
+                corrective_actions TEXT NULL,
+                closed_at TIMESTAMPTZ NULL,
+                created_by INTEGER NULL REFERENCES users(id) ON DELETE SET NULL,
+                updated_by INTEGER NULL REFERENCES users(id) ON DELETE SET NULL,
+                CONSTRAINT privacy_incidents_status_check CHECK (status IN ('detected','contained','assessing','notified','remediating','closed','false_positive'))
+            );
+            CREATE INDEX IF NOT EXISTS idx_privacy_incidents_tenant_status ON privacy_incidents(tenant_id, status, detected_at DESC);
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('privacy-operations-v1') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración privacy-operations-v1 aplicada/comprobada correctamente.");
+    }
+
     public static void UpgradeDocumentTemplateSchemaV1(angulosodbContext context, ILogger logger)
     {
         context.Database.ExecuteSqlRaw(@"

@@ -1429,4 +1429,119 @@ public class AuthorizationRegressionTests
         Assert.Contains("ValidateClientPayload(dto)", source);
     }
 
+    [Fact]
+    public void PrivacyOperations_AreTenantScopedAndProfessionalOnly()
+    {
+        var controller = ReadServerController("PrivacyOperationsController.cs");
+        var service = ReadServerLogica("PrivacyOperationsService.cs");
+        var schema = ReadServerLogica("DatabaseBootstrap.cs");
+
+        Assert.Contains("[Authorize(Policy = \"Professional\")]", controller);
+        Assert.Contains("WHERE id=@id AND tenant_id=@tenant", service);
+        Assert.Contains("WHERE tenant_id=@tenant", service);
+        Assert.Contains("tenant_id INTEGER NOT NULL REFERENCES tenants(id)", schema);
+        Assert.Contains("CREATE TABLE IF NOT EXISTS privacy_requests", schema);
+        Assert.Contains("CREATE TABLE IF NOT EXISTS privacy_incidents", schema);
+    }
+
+    [Fact]
+    public void PrivacyRequests_ValidatePatientTenantBeforePersisting()
+    {
+        var service = ReadServerLogica("PrivacyOperationsService.cs");
+
+        Assert.Contains("EnsureClientBelongsToTenantAsync(request.ClientId, tenantId, ct)", service);
+        Assert.Contains("FROM clients WHERE id=@client AND tenant_id=@tenant", service);
+        Assert.Contains("CREATE_PRIVACY_REQUEST", service);
+        Assert.Contains("UPDATE_PRIVACY_REQUEST", service);
+    }
+
+    [Fact]
+    public void PrivacyIncidentRegister_DoesNotStoreSecretsOrClinicalPayloadByDesign()
+    {
+        var service = ReadServerLogica("PrivacyOperationsService.cs");
+        var schema = ReadServerLogica("DatabaseBootstrap.cs");
+
+        Assert.Contains("CREATE_PRIVACY_INCIDENT", service);
+        Assert.DoesNotContain("password", service, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("token", service, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("description TEXT NOT NULL", schema);
+        Assert.Contains("data_categories VARCHAR(500)", schema);
+        Assert.DoesNotContain("clinical_content", schema, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void PatientExport_IsTenantScopedAndExcludesAuthenticationSecrets()
+    {
+        var service = ReadServerLogica("PrivacyOperationsService.cs");
+        var controller = ReadServerController("PrivacyOperationsController.cs");
+
+        Assert.Contains("c.tenant_id == tenantId", service);
+        Assert.Contains("EXPORT_PATIENT_DATA", service);
+        Assert.DoesNotContain("passcode_hash", service);
+        Assert.DoesNotContain("access_token", service);
+        Assert.DoesNotContain("access_token_expires_at", service);
+        Assert.Contains("clients/{clientId:int}/export", controller);
+    }
+
+    [Fact]
+    public void ErasureWorkflow_DoesNotPerformImmediatePhysicalDelete()
+    {
+        var service = ReadServerLogica("PrivacyOperationsService.cs");
+
+        Assert.Contains("right_type='erasure'", service);
+        Assert.Contains("pendiente de revisión de obligaciones de conservación", service);
+        Assert.DoesNotContain("DELETE FROM clients", service);
+        Assert.DoesNotContain("_context.clients.Remove", service);
+    }
+
+    [Fact]
+    public void PatientExport_IncludesTenantScopedDocumentsAppointmentsAndMessagesWithoutStorageKeys()
+    {
+        var service = ReadServerLogica("PrivacyOperationsService.cs");
+
+        Assert.Contains("FROM patient_documents WHERE client_id=@client AND tenant_id=@tenant", service);
+        Assert.Contains("FROM patient_appointments WHERE client_id=@client AND tenant_id=@tenant", service);
+        Assert.Contains("FROM patient_messages WHERE client_id=@client AND tenant_id=@tenant", service);
+        Assert.Contains("original_file_name", service);
+        Assert.Contains("sha256", service);
+        Assert.DoesNotContain("storage_key", service, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void PatientExport_IncludesTenantScopedLegalAcceptanceEvidence()
+    {
+        var service = ReadServerLogica("PrivacyOperationsService.cs");
+
+        Assert.Contains("legal_acceptances", service);
+        Assert.Contains("la.user_id=@user", service);
+        Assert.Contains("la.tenant_id=@tenant", service);
+        Assert.Contains("document_sha256", service);
+        Assert.DoesNotContain("ip_address", service.Substring(service.IndexOf("legalAcceptances", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void PatientArchive_RevokesPortalSessionAndActiveAssignments()
+    {
+        var controller = ReadServerController("ClientsController.cs");
+
+        Assert.Contains("client.access_token = null", controller);
+        Assert.Contains("client.access_token_expires_at = null", controller);
+        Assert.Contains("portal_token_version", controller);
+        Assert.Contains("client_nutritionist_assignments", controller);
+        Assert.Contains("SetProperty(a => a.is_active, false)", controller);
+        Assert.Contains("ARCHIVE_PATIENT", controller);
+    }
+
+    [Fact]
+    public void PatientDocuments_RevokedFilesRemainPrivateAndUnavailable()
+    {
+        var controller = ReadServerController("PatientDocumentsController.cs");
+
+        // Revocar un documento corta el acceso lógico; el archivo físico no se purga
+        // automáticamente mientras la política de conservación no defina su plazo.
+        Assert.Contains("revoked_at IS NULL", controller);
+        Assert.Contains("GetSafePhysicalPath", controller);
+        Assert.Contains("tenant_id = {2}", controller);
+    }
+
 }
