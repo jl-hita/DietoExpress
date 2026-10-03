@@ -29,6 +29,7 @@ import { MessagesComponent } from './componentes/messages/messages.component';
 import { AutomationSettingsComponent } from './componentes/automation-settings/automation-settings.component';
 import { GuidedConsultationComponent } from './componentes/guided-consultation/guided-consultation.component';
 import { DocumentTemplatesComponent } from './componentes/document-templates/document-templates.component';
+import { LegalDocumentsComponent } from './componentes/legal-documents/legal-documents.component';
 
 export interface AppRoute extends Route {
   showInMenu?: boolean;
@@ -46,6 +47,7 @@ export const routes: AppRoute[] = [
   { path: 'reset-password', component: UserResetComponent, title: 'Restablecer contraseña', showInMenu: false },
   { path: 'confirmar-email', component: ConfirmarEmailComponent, title: 'Confirmar email', showInMenu: false },
   { path: 'patient', component: PatientPortalComponent, title: 'Portal del Paciente' },
+  { path: 'legal', component: LegalDocumentsComponent, title: 'Documentación legal' },
 
   { path: '', component: LayoutComponent, canActivate: [AuthGuard],
     children: [
