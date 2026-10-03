@@ -45,6 +45,10 @@ public partial class clients
 
     public int portal_token_version { get; set; } = 1;
 
+    public DateTime? onboarding_consent_at { get; set; }
+
+    public string onboarding_consent_version { get; set; }
+
     public int? tenant_id { get; set; }
 
     public virtual tenants? tenant { get; set; }
