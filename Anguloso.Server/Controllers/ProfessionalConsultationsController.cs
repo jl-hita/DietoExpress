@@ -78,6 +78,53 @@ public sealed class ProfessionalConsultationsController : ControllerBase
                            a.id != appointmentId &&
                            a.status == "completed");
 
+        var previousAppointment = await _db.patient_appointments.AsNoTracking()
+            .Where(a => a.tenant_id == appointment.TenantId &&
+                        a.client_id == appointment.ClientId &&
+                        a.id != appointmentId &&
+                        a.status == "completed" &&
+                        a.starts_at < appointment.StartsAt)
+            .OrderByDescending(a => a.starts_at)
+            .Select(a => new { a.id, a.starts_at, a.ends_at, a.professional_notes })
+            .FirstOrDefaultAsync();
+
+        var activeDiet = await _db.diets.AsNoTracking()
+            .Where(d => d.tenant_id == appointment.TenantId &&
+                        d.user_id == appointment.NutritionistId &&
+                        d.client_id == appointment.ClientId &&
+                        !d.is_archived)
+            .OrderByDescending(d => d.created_at)
+            .Select(d => new
+            {
+                d.id, d.name, d.target_kcal, d.target_protein, d.target_carbs, d.target_fat,
+                d.created_at, d.updated_at
+            })
+            .FirstOrDefaultAsync();
+
+        var openTasks = await _db.professional_tasks.AsNoTracking()
+            .Where(t => t.tenant_id == appointment.TenantId &&
+                        t.client_id == appointment.ClientId &&
+                        t.status == "open")
+            .OrderBy(t => t.due_at)
+            .ThenByDescending(t => t.priority)
+            .Take(10)
+            .Select(t => new
+            {
+                t.id, t.title, t.description, t.priority, t.due_at, t.created_at
+            })
+            .ToListAsync();
+
+        var followupSignals = new List<object>();
+        if (latestCheckin != null)
+        {
+            if (latestCheckin.adherence.HasValue && latestCheckin.adherence.Value <= 5) followupSignals.Add(new { code = "adherence_low", label = "Adherencia baja", value = latestCheckin.adherence });
+            if (latestCheckin.hunger.HasValue && latestCheckin.hunger.Value >= 8) followupSignals.Add(new { code = "hunger_high", label = "Hambre elevada", value = latestCheckin.hunger });
+            if (latestCheckin.energy.HasValue && latestCheckin.energy.Value <= 4) followupSignals.Add(new { code = "energy_low", label = "Energía baja", value = latestCheckin.energy });
+            if (latestCheckin.sleep_quality.HasValue && latestCheckin.sleep_quality.Value <= 4) followupSignals.Add(new { code = "sleep_quality_low", label = "Sueño mejorable", value = latestCheckin.sleep_quality });
+            if (latestCheckin.sleep_hours.HasValue && latestCheckin.sleep_hours.Value <= 6) followupSignals.Add(new { code = "sleep_hours_low", label = "Pocas horas de sueño", value = latestCheckin.sleep_hours });
+            if (latestCheckin.training.HasValue && latestCheckin.training.Value <= 2) followupSignals.Add(new { code = "training_low", label = "Entrenamiento bajo", value = latestCheckin.training });
+        }
+
         return Ok(new
         {
             appointment = new
@@ -92,7 +139,11 @@ public sealed class ProfessionalConsultationsController : ControllerBase
             },
             suggestedConsultationType = previousConsultationExists ? "follow_up" : "first",
             consultation,
-            latestCheckin
+            latestCheckin,
+            previousAppointment,
+            activeDiet,
+            openTasks,
+            followupSignals
         });
     }
 
