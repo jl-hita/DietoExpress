@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using Anguloso.Server.Logica;
 using Anguloso.Server.Logica.Utils;
 using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -13,12 +14,14 @@ public class PatientDocumentsController : ControllerBase
 {
     private readonly angulosodbContext _context;
     private readonly IConfiguration _configuration;
+    private readonly AutomationService _automationService;
     private const long MaxFileSize = 20 * 1024 * 1024;
 
-    public PatientDocumentsController(angulosodbContext context, IConfiguration configuration)
+    public PatientDocumentsController(angulosodbContext context, IConfiguration configuration, AutomationService automationService)
     {
         _context = context;
         _configuration = configuration;
+        _automationService = automationService;
     }
 
     [HttpGet("api/clients/{clientId:int}/documents")]
@@ -43,6 +46,37 @@ public class PatientDocumentsController : ControllerBase
             clientId, GetTenantId() ?? 0).ToListAsync();
 
         return Ok(rows);
+    }
+
+    [HttpGet("api/clients/{clientId:int}/documents/summary")]
+    [Authorize(Policy = "Professional")]
+    public async Task<IActionResult> GetSummaryForProfessional(int clientId)
+    {
+        if (!await CanAccessClientAsync(clientId)) return NotFound();
+        var tenantId = GetTenantId();
+        if (!tenantId.HasValue) return Forbid();
+
+        var summary = await _context.Database.SqlQueryRaw<DocumentSummaryDto>(
+            """
+            SELECT
+                COUNT(*)::int AS "Total",
+                COUNT(*) FILTER (WHERE requires_signature = true)::int AS "Required",
+                COUNT(*) FILTER (WHERE requires_signature = true AND status = 'signed')::int AS "Accepted",
+                COUNT(*) FILTER (WHERE requires_signature = true AND status = 'pending')::int AS "Pending",
+                COUNT(*) FILTER (WHERE revoked_at IS NULL)::int AS "Active"
+            FROM patient_documents
+            WHERE tenant_id = {0} AND client_id = {1} AND revoked_at IS NULL
+            """, tenantId.Value, clientId).SingleAsync();
+
+        return Ok(new
+        {
+            total = summary.Total,
+            required = summary.Required,
+            accepted = summary.Accepted,
+            pending = summary.Pending,
+            active = summary.Active,
+            allRequiredComplete = summary.Pending == 0
+        });
     }
 
     [HttpPost("api/clients/{clientId:int}/documents")]
@@ -202,6 +236,45 @@ public class PatientDocumentsController : ControllerBase
                     'Aceptación realizada por el paciente desde el portal.');
             """);
 
+        // Cuando se completa el último documento obligatorio, dejamos una tarea idempotente
+        // al profesional asignado. El worker resuelve el destinatario al ejecutar el job.
+        var pending = await _context.Database.SqlQueryRaw<int>(
+            """
+            SELECT COUNT(*)::int AS "Value"
+            FROM patient_documents
+            WHERE tenant_id = {0} AND client_id = {1}
+              AND revoked_at IS NULL AND requires_signature = true AND status = 'pending'
+            """, tenantId.Value, clientId.Value).SingleAsync();
+
+        if (pending == 0)
+        {
+            var assignedUserId = await _context.Database.SqlQueryRaw<int?>(
+                """
+                SELECT nutritionist_id
+                FROM client_nutritionist_assignments
+                WHERE client_id = {0} AND is_active = true
+                ORDER BY assigned_at DESC, id DESC
+                LIMIT 1
+                """, clientId.Value).SingleOrDefaultAsync();
+
+            if (assignedUserId.HasValue)
+            {
+                await _automationService.ScheduleActionAsync(
+                    tenantId.Value,
+                    "create_professional_task",
+                    new CreateTaskAction(
+                        clientId.Value,
+                        assignedUserId.Value,
+                        "Documentación completada",
+                        "El paciente ha completado toda la documentación obligatoria.",
+                        null,
+                        "normal",
+                        "automation:documents.completed"),
+                    DateTime.UtcNow,
+                    idempotencyKey: $"documents:completed:{clientId.Value}");
+            }
+        }
+
         return NoContent();
     }
 
@@ -296,6 +369,15 @@ public class PatientDocumentsController : ControllerBase
         var header = new byte[5];
         var read = await stream.ReadAsync(header);
         return read == 5 && Encoding.ASCII.GetString(header) == "%PDF-";
+    }
+
+    private sealed class DocumentSummaryDto
+    {
+        public int Total { get; set; }
+        public int Required { get; set; }
+        public int Accepted { get; set; }
+        public int Pending { get; set; }
+        public int Active { get; set; }
     }
 
     public sealed class PatientDocumentDto
