@@ -1125,6 +1125,25 @@ public static class DatabaseBootstrap
         logger.LogInformation("Migración de automatizaciones automation-v6-templates aplicada correctamente.");
     }
 
+    /// <summary>Preferencias de comunicación de cada paciente. Los valores por defecto mantienen el comportamiento actual.</summary>
+    public static void UpgradeAutomationSchemaV7(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS patient_communication_preferences (
+                client_id INTEGER PRIMARY KEY REFERENCES clients(id) ON DELETE CASCADE,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                in_app_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                email_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                push_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS idx_patient_communication_preferences_tenant
+                ON patient_communication_preferences(tenant_id);
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('automation-v7-patient-communication-preferences') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración de automatizaciones automation-v7-patient-communication-preferences aplicada correctamente.");
+    }
+
     /// <summary>Integración OAuth y sincronización bidireccional con Google Calendar.</summary>
     public static void UpgradeGoogleCalendarSchemaV1(angulosodbContext context, ILogger logger)
     {
