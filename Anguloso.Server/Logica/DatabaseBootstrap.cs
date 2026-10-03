@@ -1408,6 +1408,38 @@ public static class DatabaseBootstrap
         logger.LogInformation("Migración de automatizaciones automation-v9-followup-settings aplicada correctamente.");
     }
 
+    /// <summary>Persistencia del flujo guiado de consulta asociado a una cita.</summary>
+    public static void UpgradeAutomationSchemaV10(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS professional_consultations (
+                id BIGSERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                appointment_id INTEGER NOT NULL REFERENCES patient_appointments(id) ON DELETE CASCADE,
+                client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                professional_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                consultation_type VARCHAR(20) NOT NULL DEFAULT 'follow_up',
+                status VARCHAR(20) NOT NULL DEFAULT 'in_progress',
+                current_step VARCHAR(60) NOT NULL DEFAULT 'summary',
+                progress JSONB NOT NULL DEFAULT jsonb_build_object(),
+                completed_steps JSONB NOT NULL DEFAULT jsonb_build_array(),
+                started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                completed_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_professional_consultation_appointment UNIQUE (tenant_id, appointment_id),
+                CONSTRAINT professional_consultation_type_check CHECK (consultation_type IN ('first','follow_up','quick')),
+                CONSTRAINT professional_consultation_status_check CHECK (status IN ('in_progress','completed','cancelled'))
+            );
+            CREATE INDEX IF NOT EXISTS idx_professional_consultations_client
+                ON professional_consultations(tenant_id, client_id, started_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_professional_consultations_professional
+                ON professional_consultations(tenant_id, professional_id, status, started_at DESC);
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('automation-v10-guided-consultations') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración de automatizaciones automation-v10-guided-consultations aplicada correctamente.");
+    }
+
     /// <summary>Integración OAuth y sincronización bidireccional con Google Calendar.</summary>
     public static void UpgradeGoogleCalendarSchemaV1(angulosodbContext context, ILogger logger)
     {
