@@ -8,4 +8,7 @@ public class Usuario
 
     public string? PasswordPlain { get; set; }
     public string? Email { get; set; }
+    public string? LegalDocumentKey { get; set; }
+    public int? LegalDocumentVersion { get; set; }
+    public string? LegalDocumentSha256 { get; set; }
 }
