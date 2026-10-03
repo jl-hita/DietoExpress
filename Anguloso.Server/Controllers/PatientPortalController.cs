@@ -213,6 +213,8 @@ public class PatientPortalController : ControllerBase
         if (client == null || !client.tenant_id.HasValue) return NotFound();
 
         var consentVersion = string.IsNullOrWhiteSpace(request.ConsentVersion) ? "v1" : request.ConsentVersion.Trim();
+        var weight = request.Weight!.Value;
+        var height = request.Height!.Value;
         var birthDate = DateOnly.FromDateTime(request.BirthDate.Value.Date);
         var gender = request.Gender.Trim();
         var now = DateTime.UtcNow;
@@ -238,14 +240,14 @@ public class PatientPortalController : ControllerBase
             {
                 client_id = client.id,
                 measurement_date = DateOnly.FromDateTime(now),
-                weight = request.Weight.Value,
-                height = request.Height.Value
+                weight = weight,
+                height = height
             });
         }
         else
         {
-            latest.weight = (double?)request.Weight.Value;
-            latest.height = (double?)request.Height.Value;
+            latest.weight = weight;
+            latest.height = height;
             latest.measurement_date = DateOnly.FromDateTime(now);
         }
 
