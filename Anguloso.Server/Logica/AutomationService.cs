@@ -1620,7 +1620,6 @@ public sealed class AutomationService
     }
 
 
-    /// <summary>Invalida jobs pendientes de una familia funcional cuando su condición ya no se cumple.</summary>
     /// <summary>
     /// Cancela recordatorios de documentación que ya no son necesarios.
     /// Se limita al tenant y al prefijo de idempotencia de un paciente.
