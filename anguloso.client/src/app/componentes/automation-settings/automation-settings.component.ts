@@ -13,6 +13,7 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { environment } from '../../../environments/environments';
+import { PatientPortalService, FollowupSettings } from '../../servicios/patient-portal.service';
 
 interface AutomationRule {
   ruleKey: string;
@@ -155,6 +156,50 @@ interface AutomationJob {
           </section>
         </mat-tab>
 
+        <mat-tab label="Seguimiento">
+          <section class="section">
+            <div class="section-intro">
+              <div><h2>Panel de seguimiento</h2><p>Configura qué métricas aparecen y cuándo una variación genera una señal para revisar.</p></div>
+            </div>
+            <mat-card class="template-card" *ngIf="followupSettings">
+              <div class="followup-period">
+                <mat-form-field appearance="outline">
+                  <mat-label>Histórico</mat-label>
+                  <mat-select [(ngModel)]="followupSettings.periodWeeks">
+                    <mat-option [value]="2">Últimos 2 check-ins</mat-option>
+                    <mat-option [value]="4">Últimos 4 check-ins</mat-option>
+                    <mat-option [value]="6">Últimos 6 check-ins</mat-option>
+                    <mat-option [value]="8">Últimos 8 check-ins</mat-option>
+                    <mat-option [value]="12">Últimos 12 check-ins</mat-option>
+                  </mat-select>
+                </mat-form-field>
+              </div>
+              <h3>Métricas visibles y señales</h3>
+              <div class="followup-settings-grid">
+                <div class="followup-setting" *ngFor="let metric of followupMetricKeys">
+                  <div class="followup-setting-head">
+                    <mat-checkbox [checked]="followupSettings.selectedMetrics.includes(metric.key)" (change)="toggleFollowupMetric(metric.key)">
+                      {{ metric.label }}
+                    </mat-checkbox>
+                  </div>
+                  <div class="threshold-grid">
+                    <mat-form-field appearance="outline"><mat-label>Mínimo</mat-label><input matInput type="number" [(ngModel)]="followupSettings.thresholds[metric.key].low"></mat-form-field>
+                    <mat-form-field appearance="outline"><mat-label>Máximo</mat-label><input matInput type="number" [(ngModel)]="followupSettings.thresholds[metric.key].high"></mat-form-field>
+                    <mat-form-field appearance="outline"><mat-label>Bajada</mat-label><input matInput type="number" min="0" [(ngModel)]="followupSettings.thresholds[metric.key].drop"></mat-form-field>
+                    <mat-form-field appearance="outline"><mat-label>Subida</mat-label><input matInput type="number" min="0" [(ngModel)]="followupSettings.thresholds[metric.key].rise"></mat-form-field>
+                  </div>
+                </div>
+              </div>
+              <div class="actions">
+                <button mat-flat-button color="primary" (click)="saveFollowupSettings()" [disabled]="followupSaving">
+                  <mat-spinner *ngIf="followupSaving" diameter="18"></mat-spinner>
+                  <span *ngIf="!followupSaving">Guardar configuración</span>
+                </button>
+              </div>
+            </mat-card>
+          </section>
+        </mat-tab>
+
         <mat-tab label="Actividad">
           <section class="section">
             <div class="section-intro">
@@ -196,14 +241,20 @@ interface AutomationJob {
     .rule-fields { display:grid; grid-template-columns:1fr 1fr; gap:12px; } mat-form-field { width:100%; }
     .channels { display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding-top:6px; border-top:1px solid #e2e8f0; }
     .channels > span { width:100%; color:#64748b; font-size:12px; font-weight:600; }
-    .template-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; } .full { width:100%; }
+    .template-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .followup-period { max-width:280px; margin-bottom:20px; }
+    .followup-settings-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:10px; }
+    .followup-setting { padding:14px; border:1px solid #e2e8f0; border-radius:12px; }
+    .followup-setting-head { margin-bottom:8px; }
+    .threshold-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+ .full { width:100%; }
     .tokens { margin-top:5px; padding:12px; background:#f8fafc; border-radius:8px; color:#64748b; font-size:12px; }
     .tokens code { margin-left:5px; } .actions { display:flex; justify-content:flex-end; margin-top:18px; }
     .jobs-table { width:100%; overflow:auto; } .job-row { display:grid; grid-template-columns:1.4fr 1.2fr .8fr .6fr 45px; align-items:center; gap:12px; padding:11px 6px; border-bottom:1px solid #e2e8f0; min-width:650px; font-size:13px; color:#334155; }
     .job-head { color:#64748b; font-size:11px; font-weight:700; text-transform:uppercase; } .status { font-weight:600; }
     .status.failed { color:#b91c1c; } .status.completed { color:#15803d; } .empty,.loading { min-height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; color:#94a3b8; }
     .loading.small { min-height:130px; } .empty mat-icon { font-size:42px; width:42px; height:42px; }
-    @media (max-width:760px) { .automation-page{padding:24px 16px 40px}.hero,.section-intro{align-items:stretch; flex-direction:column}.rule-fields,.template-grid{grid-template-columns:1fr}.rule-grid{grid-template-columns:1fr}.rule-head{flex-direction:column} }
+    @media (max-width:760px) { .automation-page{padding:24px 16px 40px}.hero,.section-intro{align-items:stretch; flex-direction:column}.rule-fields,.template-grid,.followup-settings-grid{grid-template-columns:1fr}.threshold-grid{grid-template-columns:1fr 1fr}.rule-grid{grid-template-columns:1fr}.rule-head{flex-direction:column} }
   `]
 })
 export class AutomationSettingsComponent implements OnInit {
@@ -216,10 +267,47 @@ export class AutomationSettingsComponent implements OnInit {
   loading = true;
   jobsLoading = false;
   saving = false;
+  followupSaving = false;
+  followupSettings: FollowupSettings = {
+    selectedMetrics: ['adherence','hunger','energy','sleep_quality','sleep_hours','training','weight'],
+    periodWeeks: 4,
+    thresholds: {}
+  };
+  followupMetricKeys = [
+    { key:'adherence', label:'Adherencia' }, { key:'hunger', label:'Hambre' },
+    { key:'energy', label:'Energía' }, { key:'sleep_quality', label:'Calidad del sueño' },
+    { key:'sleep_hours', label:'Horas de sueño' }, { key:'training', label:'Entrenamiento' },
+    { key:'weight', label:'Peso' }
+  ];
 
-  constructor(private http: HttpClient, private snack: MatSnackBar) {}
+  constructor(private http: HttpClient, private snack: MatSnackBar, private portalService: PatientPortalService) {}
 
-  ngOnInit(): void { this.reload(); }
+  ngOnInit(): void { this.reload(); this.loadFollowupSettings(); }
+
+  loadFollowupSettings(): void {
+    this.portalService.getFollowupSettings().subscribe({
+      next: settings => {
+        this.followupSettings = settings;
+        for (const metric of this.followupMetricKeys) this.followupSettings.thresholds[metric.key] ??= {};
+      },
+      error: () => this.snack.open('No se ha podido cargar la configuración de seguimiento.', 'Cerrar', { duration: 3000 })
+    });
+  }
+
+  toggleFollowupMetric(key: string): void {
+    const selected = new Set(this.followupSettings.selectedMetrics);
+    if (selected.has(key)) selected.delete(key); else selected.add(key);
+    if (!selected.size) { this.snack.open('Debe quedar al menos una métrica seleccionada.', 'Cerrar', { duration: 2200 }); return; }
+    this.followupSettings.selectedMetrics = [...selected];
+  }
+
+  saveFollowupSettings(): void {
+    this.followupSaving = true;
+    this.portalService.updateFollowupSettings(this.followupSettings).subscribe({
+      next: () => { this.followupSaving = false; this.snack.open('Configuración de seguimiento guardada.', 'Cerrar', { duration: 1800 }); },
+      error: () => { this.followupSaving = false; this.snack.open('No se ha podido guardar la configuración de seguimiento.', 'Cerrar', { duration: 3000 }); }
+    });
+  }
 
   reload(): void {
     this.loading = true;
