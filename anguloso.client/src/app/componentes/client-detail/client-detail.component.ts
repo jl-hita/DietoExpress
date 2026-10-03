@@ -27,7 +27,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCardModule } from '@angular/material/card';
-import { PatientCheckin, PatientCheckin, PatientPortalService, ClientPortalAccess } from '../../servicios/patient-portal.service';
+import { PatientCheckin, PatientPortalService, ClientPortalAccess } from '../../servicios/patient-portal.service';
 import { Subscription } from 'rxjs';
 import { debounceTime, filter, switchMap } from 'rxjs/operators';
 
