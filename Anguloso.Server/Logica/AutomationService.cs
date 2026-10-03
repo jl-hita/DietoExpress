@@ -36,7 +36,25 @@ public sealed class AutomationService
         command.Parameters.AddWithValue("rule", ruleKey);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         if (!await reader.ReadAsync(cancellationToken))
-            return new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"]);
+        {
+            var defaults = ruleKey switch
+            {
+                "patient.checkin.reviewed" => new AutomationRuleConfig(true, null, "patient", ["in_app"]),
+                "appointment.completed" => new AutomationRuleConfig(true, null, "both", ["in_app"]),
+                "appointment.reminder.24h" => new AutomationRuleConfig(true, null, "patient", ["in_app"]),
+                "appointment.reminder.2h" => new AutomationRuleConfig(true, null, "patient", ["in_app"]),
+                "onboarding.info.reminder" => new AutomationRuleConfig(true, null, "patient", ["in_app"]),
+                "onboarding.info.escalation" => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"]),
+                "onboarding.first_appointment.reminder" => new AutomationRuleConfig(true, null, "patient", ["in_app"]),
+                "onboarding.first_appointment.escalation" => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"]),
+                "followup.checkin.reminder" => new AutomationRuleConfig(true, null, "patient", ["in_app"]),
+                "followup.checkin.escalation" => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"]),
+                "diet.expiry.reminder" => new AutomationRuleConfig(true, null, "patient", ["in_app"]),
+                "diet.expired" => new AutomationRuleConfig(true, null, "both", ["in_app"]),
+                _ => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"])
+            };
+            return defaults;
+        }
         var channels = reader.IsDBNull(3)
             ? ["in_app"]
             : (JsonSerializer.Deserialize<string[]>(reader.GetString(3)) ?? ["in_app"]);
