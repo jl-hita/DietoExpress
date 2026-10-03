@@ -581,6 +581,25 @@
           </div>
         </div>
 
+        <div class="followup-evolution" *ngIf="checkins.length">
+          <div class="chart-card-header">
+            <div><strong>Seguimiento semanal</strong><span>Evolución de adherencia, hábitos y percepción del paciente</span></div>
+            <mat-form-field appearance="outline">
+              <mat-label>Métrica</mat-label>
+              <mat-select [value]="selectedFollowupMetric" (selectionChange)="onFollowupMetricChange($event.value)">
+                <mat-option value="adherence">Adherencia</mat-option>
+                <mat-option value="hunger">Hambre</mat-option>
+                <mat-option value="energy">Energía</mat-option>
+                <mat-option value="sleep_quality">Calidad del sueño</mat-option>
+                <mat-option value="sleep_hours">Horas de sueño</mat-option>
+                <mat-option value="training">Entrenamiento</mat-option>
+                <mat-option value="weight">Peso del check-in</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+          <div class="chart-wrapper secondary-chart"><canvas id="checkinEvolutionChart"></canvas></div>
+        </div>
+
         <div class="secondary-evolution" *ngIf="evolutionData.length >= 2">
           <div class="chart-controls">
             <mat-form-field appearance="outline">
