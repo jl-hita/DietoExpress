@@ -855,19 +855,6 @@ public sealed class AutomationService
                         cancellationToken: cancellationToken);
                     break;
                 }
-                    await ScheduleActionAsync(
-                        evt.TenantId,
-                        "create_professional_task",
-                        new CreateTaskAction(payload.ClientId, payload.NutritionistId,
-                            "Preparar seguimiento de la cita",
-                            "Revisar la cita completada y preparar la siguiente acción de seguimiento.",
-                            DateTime.UtcNow.AddHours(24), "normal", "automation:appointment.completed"),
-                        DateTime.UtcNow,
-                        evt.Id,
-                        $"event:{evt.Id}:create-professional-task",
-                        cancellationToken: cancellationToken);
-                    break;
-                }
             case "appointment.confirmed":
                 {
                     var payload = AutomationJson.Deserialize<AppointmentStatusPayload>(evt.Payload)
