@@ -73,11 +73,8 @@ export class LoginComponent {
       return;
     }
 
-    if (!this.googleTermsAccepted && this.legalTerms) {
-      this.snackBar.open('Acepta las condiciones de contratación para crear una cuenta con Google.', 'Cerrar', { duration: 5000 });
-      return;
-    }
-
+    // No bloqueamos aquí el login Google: el backend distingue entre una cuenta
+    // existente (no requiere nueva aceptación) y un alta nueva (428 si no se ha aceptado).
     this.googleLogin(idToken).subscribe({
       next: (res) => {
         this.authService.login(res);
@@ -86,7 +83,11 @@ export class LoginComponent {
       },
       error: (err) => {
         console.error(err);
-        this.snackBar.open('Error al autenticar con Google', 'Cerrar', { duration: 4000 });
+        if (err?.status === 428) {
+          this.snackBar.open('Para crear una cuenta con Google debes aceptar las condiciones de contratación vigentes.', 'Cerrar', { duration: 5000 });
+        } else {
+          this.snackBar.open('Error al autenticar con Google', 'Cerrar', { duration: 4000 });
+        }
       }
     });
   }
