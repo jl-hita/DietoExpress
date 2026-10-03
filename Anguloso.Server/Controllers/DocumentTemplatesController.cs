@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Anguloso.Server.Logica.Utils;
 using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Authorization;
