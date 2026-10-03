@@ -27,6 +27,17 @@ public sealed class PrivacyOperationsController : ControllerBase
     public async Task<IActionResult> UpdateRequest(long id, [FromBody] UpdatePrivacyRequest request, CancellationToken ct)
         => await _service.UpdateRequestAsync(id, request, ct) ? NoContent() : NotFound();
 
+    [HttpGet("clients/{clientId:int}/export")]
+    public async Task<IActionResult> ExportClient(int clientId, CancellationToken ct)
+    {
+        var result = await _service.ExportClientAsync(clientId, ct);
+        return result == null ? NotFound() : Ok(result);
+    }
+
+    [HttpPost("requests/{id:long}/start-erasure")]
+    public async Task<IActionResult> StartErasure(long id, CancellationToken ct)
+        => await _service.RequestErasureAsync(id, ct) ? NoContent() : NotFound();
+
     [HttpGet("incidents")]
     public async Task<ActionResult<IReadOnlyList<PrivacyIncidentDto>>> Incidents(CancellationToken ct) => Ok(await _service.ListIncidentsAsync(ct));
 
