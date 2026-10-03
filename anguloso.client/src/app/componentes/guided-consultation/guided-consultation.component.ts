@@ -129,6 +129,19 @@ interface GuidedConsultationResponse {
             </div>
             <div class="empty" *ngIf="!activeDiet"><mat-icon>restaurant</mat-icon><span>No hay una dieta activa asignada.</span></div>
             <div class="actions"><button mat-stroked-button type="button" (click)="openPatientDiet()"><mat-icon>open_in_new</mat-icon> Abrir dietas</button></div>
+            <div class="quick-form">
+              <h3>Crear dieta rápida</h3>
+              <div class="inline-fields">
+                <label>Nombre<input [(ngModel)]="quickDietName" maxlength="200" placeholder="Ej. Plan de seguimiento octubre"></label>
+                <label>Kcal<input type="number" [(ngModel)]="quickDietKcal"></label>
+                <label>Proteína (g)<input type="number" [(ngModel)]="quickDietProtein"></label>
+                <label>Carbohidratos (g)<input type="number" [(ngModel)]="quickDietCarbs"></label>
+                <label>Grasa (g)<input type="number" [(ngModel)]="quickDietFat"></label>
+              </div>
+              <button mat-flat-button color="primary" type="button" (click)="createQuickDiet()" [disabled]="!quickDietName.trim() || creatingDiet">
+                <mat-icon>add</mat-icon>{{ creatingDiet ? 'Creando…' : 'Crear y abrir dieta' }}
+              </button>
+            </div>
           </section>
 
           <section class="card" *ngIf="currentStep === 'education'">
@@ -155,6 +168,20 @@ interface GuidedConsultationResponse {
               <mat-icon>{{ taskCreating ? 'hourglass_top' : 'add_task' }}</mat-icon>
               {{ taskCreating ? 'Creando tarea…' : 'Crear tarea desde el seguimiento' }}
             </button>
+            <div class="quick-form">
+              <h3>Crear tarea manual</h3>
+              <div class="form-grid">
+                <label>Título<input [(ngModel)]="taskTitle" maxlength="200" placeholder="Ej. Revisar adherencia dentro de una semana"></label>
+                <label>Descripción<textarea rows="3" [(ngModel)]="taskDescription" maxlength="2000"></textarea></label>
+                <div class="inline-fields">
+                  <label>Prioridad<select [(ngModel)]="taskPriority"><option value="low">Baja</option><option value="normal">Normal</option><option value="high">Alta</option></select></label>
+                  <label>Fecha límite<input type="date" [(ngModel)]="taskDueAt"></label>
+                </div>
+              </div>
+              <button mat-flat-button color="primary" type="button" (click)="createManualTask()" [disabled]="!taskTitle.trim() || taskCreating">
+                <mat-icon>add_task</mat-icon> Crear tarea
+              </button>
+            </div>
           </section>
 
           <section class="card" *ngIf="currentStep === 'next_appointment'">
@@ -164,6 +191,21 @@ interface GuidedConsultationResponse {
               <div><span>Estado</span><strong>{{ nextAppointment.status }}</strong></div>
             </div>
             <div class="empty" *ngIf="!nextAppointment"><mat-icon>event_busy</mat-icon><span>No hay una próxima cita confirmada.</span></div>
+            <div class="quick-form">
+              <h3>Programar siguiente cita</h3>
+              <div class="inline-fields">
+                <label>Duración<select [(ngModel)]="slotDuration" (ngModelChange)="loadConsultationSlots()"><option [ngValue]="30">30 min</option><option [ngValue]="45">45 min</option><option [ngValue]="60">60 min</option></select></label>
+                <div class="slot-status">{{ slotsLoading ? 'Buscando huecos…' : consultationSlots.length ? 'Huecos disponibles' : 'No hay huecos en los próximos 30 días' }}</div>
+              </div>
+              <div class="slot-list" *ngIf="consultationSlots.length">
+                <button type="button" *ngFor="let slot of consultationSlots" [class.selected]="selectedSlot === slot.startsAt" (click)="selectedSlot = slot.startsAt">
+                  {{ slot.startsAt | date:'EEE dd/MM · HH:mm' }}
+                </button>
+              </div>
+              <button mat-flat-button color="primary" type="button" (click)="bookNextAppointment()" [disabled]="!selectedSlot || bookingAppointment">
+                <mat-icon>event_available</mat-icon>{{ bookingAppointment ? 'Programando…' : 'Confirmar próxima cita' }}
+              </button>
+            </div>
             <button mat-stroked-button type="button" (click)="backToAgenda()"><mat-icon>calendar_month</mat-icon> Abrir agenda</button>
           </section>
 
@@ -189,7 +231,7 @@ interface GuidedConsultationResponse {
     <div class="loading" *ngIf="loading"><mat-spinner diameter="40"></mat-spinner><span>Preparando consulta…</span></div>
   `,
   styles: [`
-    .consultation-page{width:100%;padding:28px 24px 44px;box-sizing:border-box}.consultation-header{display:flex;justify-content:space-between;gap:20px;align-items:flex-end;margin-bottom:22px}.eyebrow{font-size:11px;font-weight:800;letter-spacing:1.2px;color:#0f766e}.consultation-header h1{margin:5px 0 4px;font-size:30px;color:#0f172a}.consultation-header p{margin:0;color:#64748b}.header-actions{display:flex;align-items:center;gap:12px}.status{padding:7px 11px;border-radius:999px;background:#fef3c7;color:#92400e;font-size:12px;font-weight:700}.status.completed{background:#dcfce7;color:#166534}.flow-layout{display:grid;grid-template-columns:280px minmax(0,1fr);gap:20px;align-items:start}.stepper{position:sticky;top:18px;display:grid;gap:6px}.stepper button{border:1px solid transparent;background:#f8fafc;border-radius:11px;padding:10px;text-align:left;display:flex;gap:10px;align-items:center;cursor:pointer}.stepper button.active{background:#ecfeff;border-color:#99f6e4}.stepper button.done{background:#f0fdf4}.step-number{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#e2e8f0;color:#475569;font-size:12px;font-weight:700;flex:none}.stepper button.active .step-number{background:#0f766e;color:#fff}.stepper button.done .step-number{background:#16a34a;color:#fff}.stepper strong{display:block;font-size:12px;color:#0f172a}.stepper small{display:block;color:#64748b;font-size:10px;margin-top:2px}.step-content{min-width:0}.card{background:#fff;border:1px solid #e2e8f0;border-radius:15px;padding:22px;min-height:270px;box-sizing:border-box}.card-title{display:flex;gap:12px;align-items:flex-start;margin-bottom:20px}.card-title>mat-icon{color:#0f766e}.card-title h2{margin:0 0 4px;font-size:20px;color:#0f172a}.card-title p{margin:0;color:#64748b;font-size:12px}.summary-grid,.metric-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.history-table{border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin:14px 0}.history-row{display:grid;grid-template-columns:1.2fr repeat(4,1fr);gap:8px;padding:10px 12px;border-top:1px solid #e2e8f0;font-size:12px;color:#334155}.history-head{border-top:0;background:#f8fafc;font-weight:700;color:#64748b}.task-list{display:grid;gap:8px;margin-bottom:16px}.task-item{display:flex;justify-content:space-between;gap:12px;padding:12px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc}.task-item strong{display:block;font-size:13px;color:#0f172a}.task-item small{display:block;margin-top:3px;color:#64748b;font-size:11px}.task-item>span{font-size:10px;font-weight:800;text-transform:uppercase;color:#0f766e}.form-grid{display:grid;gap:16px}.form-grid label{display:grid;gap:7px;font-size:12px;font-weight:700;color:#334155}.form-grid textarea{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:10px;padding:12px;font:inherit;font-weight:400;resize:vertical;min-height:90px}.save-state{display:block;margin-top:8px;color:#64748b}.save-state.saved{color:#15803d}.summary-grid>div,.metric-grid>div{padding:14px;border-radius:10px;background:#f8fafc}.summary-grid span,.metric-grid span{display:block;color:#64748b;font-size:11px}.summary-grid strong,.metric-grid strong{display:block;margin-top:4px;color:#0f172a;font-size:14px}.helper{padding:14px;border-radius:10px;background:#f8fafc;color:#64748b;font-size:13px;line-height:1.5;margin-bottom:15px}.placeholder{min-height:130px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#94a3b8;text-align:center}.placeholder mat-icon{font-size:38px;width:38px;height:38px}.actions{display:flex;align-items:center;gap:12px;margin-top:18px}.reviewed{display:flex;align-items:center;gap:6px;color:#15803d;font-size:12px}.navigation{display:flex;justify-content:space-between;gap:10px;margin-top:16px}.empty{min-height:120px;display:flex;align-items:center;justify-content:center;gap:8px;color:#94a3b8}.loading{min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#64748b}@media(max-width:850px){.consultation-page{padding:20px 14px 36px}.consultation-header{align-items:stretch;flex-direction:column}.header-actions{justify-content:space-between}.flow-layout{grid-template-columns:1fr}.stepper{position:static;display:flex;overflow:auto;padding-bottom:3px}.stepper button{min-width:190px}.summary-grid,.metric-grid{grid-template-columns:1fr}.history-row{grid-template-columns:1fr 1fr}.history-head{display:none}}
+    .consultation-page{width:100%;padding:28px 24px 44px;box-sizing:border-box}.consultation-header{display:flex;justify-content:space-between;gap:20px;align-items:flex-end;margin-bottom:22px}.eyebrow{font-size:11px;font-weight:800;letter-spacing:1.2px;color:#0f766e}.consultation-header h1{margin:5px 0 4px;font-size:30px;color:#0f172a}.consultation-header p{margin:0;color:#64748b}.header-actions{display:flex;align-items:center;gap:12px}.status{padding:7px 11px;border-radius:999px;background:#fef3c7;color:#92400e;font-size:12px;font-weight:700}.status.completed{background:#dcfce7;color:#166534}.flow-layout{display:grid;grid-template-columns:280px minmax(0,1fr);gap:20px;align-items:start}.stepper{position:sticky;top:18px;display:grid;gap:6px}.stepper button{border:1px solid transparent;background:#f8fafc;border-radius:11px;padding:10px;text-align:left;display:flex;gap:10px;align-items:center;cursor:pointer}.stepper button.active{background:#ecfeff;border-color:#99f6e4}.stepper button.done{background:#f0fdf4}.step-number{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#e2e8f0;color:#475569;font-size:12px;font-weight:700;flex:none}.stepper button.active .step-number{background:#0f766e;color:#fff}.stepper button.done .step-number{background:#16a34a;color:#fff}.stepper strong{display:block;font-size:12px;color:#0f172a}.stepper small{display:block;color:#64748b;font-size:10px;margin-top:2px}.step-content{min-width:0}.card{background:#fff;border:1px solid #e2e8f0;border-radius:15px;padding:22px;min-height:270px;box-sizing:border-box}.card-title{display:flex;gap:12px;align-items:flex-start;margin-bottom:20px}.card-title>mat-icon{color:#0f766e}.card-title h2{margin:0 0 4px;font-size:20px;color:#0f172a}.card-title p{margin:0;color:#64748b;font-size:12px}.summary-grid,.metric-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.history-table{border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin:14px 0}.history-row{display:grid;grid-template-columns:1.2fr repeat(4,1fr);gap:8px;padding:10px 12px;border-top:1px solid #e2e8f0;font-size:12px;color:#334155}.history-head{border-top:0;background:#f8fafc;font-weight:700;color:#64748b}.task-list{display:grid;gap:8px;margin-bottom:16px}.quick-form{margin-top:18px;padding:15px;border:1px solid #e2e8f0;border-radius:11px;background:#f8fafc}.quick-form h3{margin:0 0 12px;font-size:14px;color:#0f172a}.inline-fields{display:flex;gap:12px;flex-wrap:wrap}.inline-fields label{flex:1;min-width:130px;display:grid;gap:6px;font-size:11px;font-weight:700;color:#334155}.inline-fields input,.inline-fields select{box-sizing:border-box;width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:9px;background:#fff;font:inherit}.slot-status{align-self:end;padding:10px;color:#64748b;font-size:12px}.slot-list{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.slot-list button{border:1px solid #cbd5e1;background:#fff;border-radius:9px;padding:9px 11px;cursor:pointer;color:#334155}.slot-list button.selected{border-color:#0f766e;background:#ecfeff;color:#0f766e;font-weight:700}.task-item{display:flex;justify-content:space-between;gap:12px;padding:12px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc}.task-item strong{display:block;font-size:13px;color:#0f172a}.task-item small{display:block;margin-top:3px;color:#64748b;font-size:11px}.task-item>span{font-size:10px;font-weight:800;text-transform:uppercase;color:#0f766e}.form-grid{display:grid;gap:16px}.form-grid label{display:grid;gap:7px;font-size:12px;font-weight:700;color:#334155}.form-grid textarea{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:10px;padding:12px;font:inherit;font-weight:400;resize:vertical;min-height:90px}.save-state{display:block;margin-top:8px;color:#64748b}.save-state.saved{color:#15803d}.summary-grid>div,.metric-grid>div{padding:14px;border-radius:10px;background:#f8fafc}.summary-grid span,.metric-grid span{display:block;color:#64748b;font-size:11px}.summary-grid strong,.metric-grid strong{display:block;margin-top:4px;color:#0f172a;font-size:14px}.helper{padding:14px;border-radius:10px;background:#f8fafc;color:#64748b;font-size:13px;line-height:1.5;margin-bottom:15px}.placeholder{min-height:130px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#94a3b8;text-align:center}.placeholder mat-icon{font-size:38px;width:38px;height:38px}.actions{display:flex;align-items:center;gap:12px;margin-top:18px}.reviewed{display:flex;align-items:center;gap:6px;color:#15803d;font-size:12px}.navigation{display:flex;justify-content:space-between;gap:10px;margin-top:16px}.empty{min-height:120px;display:flex;align-items:center;justify-content:center;gap:8px;color:#94a3b8}.loading{min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#64748b}@media(max-width:850px){.consultation-page{padding:20px 14px 36px}.consultation-header{align-items:stretch;flex-direction:column}.header-actions{justify-content:space-between}.flow-layout{grid-template-columns:1fr}.stepper{position:static;display:flex;overflow:auto;padding-bottom:3px}.stepper button{min-width:190px}.summary-grid,.metric-grid{grid-template-columns:1fr}.history-row{grid-template-columns:1fr 1fr}.history-head{display:none}}
   `]
 })
 export class GuidedConsultationComponent implements OnInit {
@@ -206,6 +248,21 @@ export class GuidedConsultationComponent implements OnInit {
   activeDiet: any = null;
   pendingTasks: any[] = [];
   nextAppointment: PatientAppointment | null = null;
+  consultationSlots: PatientAppointment[] = [];
+  slotDuration = 30;
+  selectedSlot: string | null = null;
+  slotsLoading = false;
+  bookingAppointment = false;
+  taskTitle = '';
+  taskDescription = '';
+  taskPriority = 'normal';
+  taskDueAt = '';
+  quickDietName = '';
+  quickDietKcal: number | null = null;
+  quickDietProtein: number | null = null;
+  quickDietCarbs: number | null = null;
+  quickDietFat: number | null = null;
+  creatingDiet = false;
   currentStep = 'summary';
   stepIndex = 0;
 
@@ -403,6 +460,92 @@ export class GuidedConsultationComponent implements OnInit {
       error: err => {
         this.taskCreating = false;
         this.snack.open(err?.error?.message || 'No se ha podido crear la tarea.', 'Cerrar', { duration: 3000 });
+      }
+    });
+  }
+
+  createManualTask(): void {
+    if (!this.data || !this.taskTitle.trim() || this.taskCreating) return;
+    this.taskCreating = true;
+    this.portalService.createProfessionalTask({
+      clientId: this.data.appointment.clientId,
+      title: this.taskTitle.trim(),
+      description: this.taskDescription.trim() || null,
+      priority: this.taskPriority,
+      dueAt: this.taskDueAt ? new Date(this.taskDueAt + 'T23:59:59').toISOString() : null
+    }).subscribe({
+      next: () => {
+        this.taskCreating = false;
+        this.taskTitle = ''; this.taskDescription = ''; this.taskDueAt = '';
+        this.snack.open('Tarea creada.', 'Cerrar', { duration: 1800 });
+        this.loadConsultationContext();
+      },
+      error: err => {
+        this.taskCreating = false;
+        this.snack.open(err?.error?.message || 'No se ha podido crear la tarea.', 'Cerrar', { duration: 3000 });
+      }
+    });
+  }
+
+  loadConsultationSlots(): void {
+    const clientId = this.data?.appointment.clientId;
+    if (!clientId) return;
+    this.slotsLoading = true;
+    this.selectedSlot = null;
+    this.portalService.getConsultationSlots(clientId, this.slotDuration, 30).subscribe({
+      next: slots => { this.consultationSlots = slots as any; this.slotsLoading = false; },
+      error: err => { this.consultationSlots = []; this.slotsLoading = false; this.snack.open(err?.error?.message || 'No se han podido consultar los huecos.', 'Cerrar', { duration: 3000 }); }
+    });
+  }
+
+  bookNextAppointment(): void {
+    const clientId = this.data?.appointment.clientId;
+    if (!clientId || !this.selectedSlot || this.bookingAppointment) return;
+    this.bookingAppointment = true;
+    this.portalService.createConsultationAppointment({
+      clientId,
+      startsAt: this.selectedSlot,
+      durationMinutes: this.slotDuration,
+      notes: 'Programada desde la consulta guiada.'
+    }).subscribe({
+      next: appointment => {
+        this.bookingAppointment = false;
+        this.nextAppointment = appointment;
+        this.consultationSlots = this.consultationSlots.filter(s => s.startsAt !== this.selectedSlot);
+        this.selectedSlot = null;
+        this.snack.open('Próxima cita programada.', 'Cerrar', { duration: 2000 });
+        this.saveProgress();
+      },
+      error: err => {
+        this.bookingAppointment = false;
+        this.snack.open(err?.error?.message || 'No se ha podido programar la cita.', 'Cerrar', { duration: 3500 });
+        this.loadConsultationSlots();
+      }
+    });
+  }
+
+  createQuickDiet(): void {
+    const clientId = this.data?.appointment.clientId;
+    if (!clientId || !this.quickDietName.trim() || this.creatingDiet) return;
+    this.creatingDiet = true;
+    this.dietService.createDiet({
+      name: this.quickDietName.trim(),
+      targetKcal: this.quickDietKcal ?? undefined,
+      targetProtein: this.quickDietProtein ?? undefined,
+      targetCarbs: this.quickDietCarbs ?? undefined,
+      targetFat: this.quickDietFat ?? undefined,
+      clientId,
+      days: []
+    }).subscribe({
+      next: diet => {
+        this.creatingDiet = false;
+        this.activeDiet = diet;
+        this.snack.open('Dieta creada y asignada al paciente.', 'Cerrar', { duration: 2200 });
+        if (diet?.id) this.router.navigate(['/diets', diet.id]);
+      },
+      error: err => {
+        this.creatingDiet = false;
+        this.snack.open(err?.error?.message || 'No se ha podido crear la dieta.', 'Cerrar', { duration: 3500 });
       }
     });
   }
