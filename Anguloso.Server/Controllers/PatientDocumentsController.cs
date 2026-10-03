@@ -266,6 +266,18 @@ public class PatientDocumentsController : ControllerBase
         var tenantId = GetTenantId();
         if (!clientId.HasValue || !tenantId.HasValue) return Unauthorized();
 
+        var documentSnapshot = await _context.Database.SqlQueryRaw<DocumentAcceptanceSnapshot>(
+            """
+            SELECT version AS "Version", sha256 AS "Sha256"
+            FROM patient_documents
+            WHERE id = {0} AND client_id = {1} AND tenant_id = {2}
+              AND revoked_at IS NULL AND requires_signature = true
+            LIMIT 1
+            """,
+            documentId, clientId.Value, tenantId.Value).SingleOrDefaultAsync();
+
+        if (documentSnapshot == null) return NotFound();
+
         var affected = await _context.Database.ExecuteSqlInterpolatedAsync($"""
             UPDATE patient_documents
             SET status='signed', signed_at=NOW(), updated_at=NOW()
@@ -288,7 +300,7 @@ public class PatientDocumentsController : ControllerBase
             VALUES ({tenantId.Value}, {documentId}, {clientId.Value}, 'accepted',
                     {HttpContext.Connection.RemoteIpAddress?.ToString()},
                     {Request.Headers.UserAgent.ToString()},
-                    'Aceptación realizada por el paciente desde el portal.');
+                    { $"Aceptación realizada por el paciente desde el portal. Versión {documentSnapshot.Version}; SHA-256 {documentSnapshot.Sha256}." });
             """);
 
         // Cuando se completa el último documento obligatorio, dejamos una tarea idempotente
@@ -431,6 +443,12 @@ public class PatientDocumentsController : ControllerBase
         var header = new byte[5];
         var read = await stream.ReadAsync(header);
         return read == 5 && Encoding.ASCII.GetString(header) == "%PDF-";
+    }
+
+    private sealed class DocumentAcceptanceSnapshot
+    {
+        public int Version { get; set; }
+        public string Sha256 { get; set; } = "";
     }
 
     private sealed class DocumentSummaryDto
