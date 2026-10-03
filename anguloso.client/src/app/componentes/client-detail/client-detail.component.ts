@@ -27,7 +27,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCardModule } from '@angular/material/card';
-import { PatientCheckin, PatientPortalService, ClientPortalAccess, FollowupSettings, PatientDocument, ProfessionalDocumentSummary } from '../../servicios/patient-portal.service';
+import { PatientCheckin, PatientPortalService, ClientPortalAccess, FollowupSettings, PatientDocument, ProfessionalDocumentSummary, PatientDocumentAuditEvent } from '../../servicios/patient-portal.service';
 import { Subscription } from 'rxjs';
 import { debounceTime, filter, switchMap } from 'rxjs/operators';
 
@@ -111,6 +111,8 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
   patientDocuments: PatientDocument[] = [];
   documentSummary: ProfessionalDocumentSummary = { total: 0, required: 0, accepted: 0, pending: 0, active: 0, allRequiredComplete: true };
   loadingDocuments = false;
+  documentAudit: Record<number, PatientDocumentAuditEvent[]> = {};
+  loadingDocumentAudit: Record<number, boolean> = {};
 
   constructor(
     private fb: FormBuilder,
@@ -272,6 +274,32 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
       next: summary => this.documentSummary = summary,
       error: () => { /* La lista de documentos sigue siendo útil aunque falle el resumen. */ }
     });
+  }
+
+  toggleDocumentAudit(doc: PatientDocument): void {
+    if (this.documentAudit[doc.id]) {
+      delete this.documentAudit[doc.id];
+      return;
+    }
+    if (!this.clientId) return;
+    this.loadingDocumentAudit[doc.id] = true;
+    this.portalService.getProfessionalDocumentAudit(this.clientId, doc.id).subscribe({
+      next: events => this.documentAudit[doc.id] = events,
+      error: () => this.snack.open('No se ha podido cargar el historial del documento', 'Cerrar', { duration: 3000 }),
+      complete: () => this.loadingDocumentAudit[doc.id] = false
+    });
+  }
+
+  getDocumentEventLabel(eventType: string): string {
+    switch (eventType) {
+      case 'created': return 'Creado';
+      case 'uploaded': return 'Subido';
+      case 'viewed': return 'Visualizado';
+      case 'accepted': return 'Aceptado por el paciente';
+      case 'revoked': return 'Revocado';
+      case 'superseded': return 'Sustituido por una nueva versión';
+      default: return eventType;
+    }
   }
 
   downloadPatientDocument(doc: PatientDocument): void {
