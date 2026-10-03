@@ -1494,4 +1494,17 @@ public class AuthorizationRegressionTests
         Assert.DoesNotContain("_context.clients.Remove", service);
     }
 
+    [Fact]
+    public void PatientExport_IncludesTenantScopedDocumentsAppointmentsAndMessagesWithoutStorageKeys()
+    {
+        var service = ReadServerLogica("PrivacyOperationsService.cs");
+
+        Assert.Contains("FROM patient_documents WHERE client_id=@client AND tenant_id=@tenant", service);
+        Assert.Contains("FROM patient_appointments WHERE client_id=@client AND tenant_id=@tenant", service);
+        Assert.Contains("FROM patient_messages WHERE client_id=@client AND tenant_id=@tenant", service);
+        Assert.Contains("original_file_name", service);
+        Assert.Contains("sha256", service);
+        Assert.DoesNotContain("storage_key", service, StringComparison.OrdinalIgnoreCase);
+    }
+
 }
