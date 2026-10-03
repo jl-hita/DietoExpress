@@ -93,7 +93,8 @@ public sealed class AutomationWorker : BackgroundService
             await connection.OpenAsync(cancellationToken);
             await using var tx = await connection.BeginTransactionAsync(cancellationToken);
 
-            // Recupera trabajos atascados por una caída/reinicio anterior.
+            // Diez minutos es el umbral para distinguir un worker que sigue ejecutando una acción externa de un proceso que
+            // probablemente murió; al volver a pending el job puede ser recuperado por la siguiente iteración o instancia.
             await using (var recover = new NpgsqlCommand("""
                 UPDATE automation_jobs
                 SET status='pending', locked_at=NULL, updated_at=NOW()
@@ -130,6 +131,8 @@ public sealed class AutomationWorker : BackgroundService
 
             foreach (var job in jobs)
             {
+                // El intento se incrementa al reclamar el job, no al terminarlo: así un proceso que muera durante una
+                // llamada externa consume igualmente un intento y no puede reintentarse indefinidamente tras cada reinicio.
                 await using var update = new NpgsqlCommand("""
                     UPDATE automation_jobs
                     SET status='processing', locked_at=NOW(), attempts=attempts+1, updated_at=NOW()
@@ -183,6 +186,8 @@ public sealed class AutomationWorker : BackgroundService
         }
     }
 
+    // La creación usa como idempotency key el propio job: si el worker ejecuta la acción y cae antes de marcarla
+    // completada, el reintento no crea una segunda tarea profesional.
     private async Task ExecuteCreateTaskAsync(AutomationJob job, CancellationToken cancellationToken)
     {
         var action = AutomationJson.Deserialize<CreateTaskAction>(job.Payload)
@@ -208,6 +213,8 @@ public sealed class AutomationWorker : BackgroundService
     }
 
 
+    // La notificación se crea a través de NotificationService en un scope propio; el worker no conserva estado
+    // de petición HTTP y cada ejecución obtiene sus dependencias desde un ámbito independiente.
     private async Task ExecuteNotifyPatientAsync(AutomationJob job, CancellationToken cancellationToken)
     {
         var action = AutomationJson.Deserialize<NotifyPatientAction>(job.Payload)
@@ -282,6 +289,8 @@ public sealed class AutomationWorker : BackgroundService
             throw new InvalidOperationException(result.Mensaje);
     }
 
+    // El historial de ejecución se escribe junto con el cambio de estado en la misma conexión, de modo que una
+    // ejecución marcada como completada siempre deja también su traza de duración/resultados.
     private async Task CompleteJobAsync(long jobId, DateTime started, CancellationToken cancellationToken)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
