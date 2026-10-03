@@ -1279,6 +1279,30 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void DocumentTemplateVersions_AreSerializedPerTenantAndName()
+    {
+        var source = ReadServerController("DocumentTemplatesController.cs");
+
+        Assert.Contains("pg_advisory_xact_lock", source);
+        Assert.Contains("hashtextextended", source);
+        Assert.Contains("document-template:{name.Trim().ToLowerInvariant()}", source);
+        Assert.Contains("SET is_active=false", source);
+        Assert.Contains("LOWER(name)=LOWER(@name)", source);
+    }
+
+    [Fact]
+    public void DocumentTemplateActivation_CannotLeaveMultipleActiveVersions()
+    {
+        var source = ReadServerController("DocumentTemplatesController.cs");
+        var bootstrap = ReadServerLogica("DatabaseBootstrap.cs");
+
+        Assert.Contains("SET is_active=false", source);
+        Assert.Contains("id<>@id", source);
+        Assert.Contains("uq_document_templates_tenant_name_active_ci", bootstrap);
+        Assert.Contains("PARTITION BY tenant_id, LOWER(name)", bootstrap);
+    }
+
+    [Fact]
     public void PatientDocuments_NewVersionsPreserveHistoryAndRequireNewAcceptance()
     {
         var source = ReadServerLogica("PatientDocumentService.cs");
