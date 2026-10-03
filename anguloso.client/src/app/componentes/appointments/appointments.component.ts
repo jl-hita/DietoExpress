@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -36,7 +37,7 @@ export class AppointmentsComponent implements OnInit {
   newSlot = 30;
   editingRuleId: number | null = null;
 
-  constructor(private portalService: PatientPortalService) {}
+  constructor(private portalService: PatientPortalService, private router: Router) {}
 
   ngOnInit(): void { this.load(); this.loadGoogleCalendar(); }
 
@@ -203,6 +204,10 @@ export class AppointmentsComponent implements OnInit {
       },
       error: err => this.error = err?.error?.message || 'No hemos podido actualizar la cita.'
     });
+  }
+
+  startConsultation(appointment: PatientAppointment): void {
+    this.router.navigate(['/appointments', appointment.id, 'consultation']);
   }
 
   statusConfirmation(status: string, patient: string): string {
