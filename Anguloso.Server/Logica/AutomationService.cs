@@ -274,9 +274,60 @@ public sealed class AutomationService
                     break;
                 }
             case "appointment.completed":
-                clientId = AutomationJson.Deserialize<AppointmentCompletedPayload>(evt.Payload)?.ClientId;
-                status = "active";
-                break;
+                {
+                    var payload = AutomationJson.Deserialize<AppointmentCompletedPayload>(evt.Payload)
+                        ?? throw new InvalidOperationException("Payload inválido para appointment.completed.");
+
+                    await ScheduleActionAsync(
+                        evt.TenantId,
+                        "notify_patient",
+                        new NotifyPatientAction(
+                            payload.ClientId,
+                            "post_appointment_checkin",
+                            "Tu cita ha terminado",
+                            "En unos días podrás completar tu check-in para contarle a tu nutricionista cómo ha ido esta semana.",
+                            "/patient?tab=checkins"),
+                        DateTime.UtcNow.AddDays(3),
+                        evt.Id,
+                        $"postappointment:checkin:{payload.ClientId}:{evt.Id}",
+                        cancellationToken: cancellationToken);
+
+                    if (!await HasFutureAppointmentAsync(evt.TenantId, payload.ClientId, cancellationToken))
+                    {
+                        await ScheduleActionAsync(
+                            evt.TenantId,
+                            "create_professional_task",
+                            new CreateTaskAction(
+                                payload.ClientId,
+                                payload.NutritionistId,
+                                "Planificar próxima cita",
+                                "La última cita se ha completado y no existe una cita futura. Valorar la siguiente revisión y, si procede, la actualización de la dieta.",
+                                DateTime.UtcNow.AddDays(14),
+                                "normal",
+                                "automation:appointment.completed"),
+                            DateTime.UtcNow.AddDays(14),
+                            evt.Id,
+                            $"postappointment:next:{payload.ClientId}:{payload.AppointmentId}",
+                            cancellationToken: cancellationToken);
+                    }
+
+                    await ScheduleActionAsync(
+                        evt.TenantId,
+                        "create_professional_task",
+                        new CreateTaskAction(
+                            payload.ClientId,
+                            payload.NutritionistId,
+                            "Revisar resultado de la cita",
+                            "Revisar la cita completada y confirmar si el plan de seguimiento, check-in o dieta requiere alguna acción.",
+                            DateTime.UtcNow.AddDays(1),
+                            "normal",
+                            "automation:appointment.completed"),
+                        DateTime.UtcNow,
+                        evt.Id,
+                        $"event:{evt.Id}:create-professional-task",
+                        cancellationToken: cancellationToken);
+                    break;
+                }
             case "appointment.confirmed":
                 {
                     var payload = AutomationJson.Deserialize<AppointmentStatusPayload>(evt.Payload);
@@ -719,7 +770,7 @@ public sealed class AutomationService
                         ?? throw new InvalidOperationException("Payload inválido para patient.checkin.submitted.");
                     await CancelPendingJobsByIdempotencyPrefixAsync(evt.TenantId, $"followup:checkin-reminder:{payload.ClientId}:", cancellationToken);
                     await CancelPendingJobsByIdempotencyPrefixAsync(evt.TenantId, $"followup:checkin-task:{payload.ClientId}:", cancellationToken);
-                    await CancelPendingJobsByIdempotencyPrefixAsync(evt.TenantId, $"event:{evt.Id}:post-appointment-checkin:", cancellationToken);
+                    await CancelPendingJobsByIdempotencyPrefixAsync(evt.TenantId, $"postappointment:checkin:{payload.ClientId}:", cancellationToken);
                     await ScheduleActionAsync(
                         evt.TenantId,
                         "create_professional_task",
