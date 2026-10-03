@@ -20,7 +20,7 @@ public sealed class PatientDocumentService
             ?? throw new InvalidOperationException("DefaultConnection no está configurada.");
     }
 
-    public async Task<int> CreateRequiredDocumentsAsync(int tenantId, int clientId, int? userId, CancellationToken cancellationToken = default)
+    public async Task<int> CreateRequiredDocumentsAsync(int tenantId, int clientId, int? userId, bool forClientCreation = true, CancellationToken cancellationToken = default)
     {
         var created = 0;
         var root = GetStorageRoot();
@@ -34,11 +34,13 @@ public sealed class PatientDocumentService
             await using var templatesCommand = new NpgsqlCommand("""
                 SELECT id, name, document_type, version, requires_signature, storage_key, file_name, mime_type, file_size
                 FROM document_templates
-                WHERE tenant_id=@tenant AND is_active=true AND is_required_on_client_creation=true
+                WHERE tenant_id=@tenant AND is_active=true
                   AND storage_key IS NOT NULL
+                  AND (CASE WHEN @clientCreation THEN is_required_on_client_creation ELSE is_required_before_consultation END)=true
                 ORDER BY id;
                 """, connection, transaction);
             templatesCommand.Parameters.AddWithValue("tenant", tenantId);
+            templatesCommand.Parameters.AddWithValue("clientCreation", forClientCreation);
 
             await using var reader = await templatesCommand.ExecuteReaderAsync(cancellationToken);
             var templates = new List<TemplateRow>();
