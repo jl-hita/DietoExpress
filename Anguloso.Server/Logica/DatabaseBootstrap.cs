@@ -1423,6 +1423,7 @@ public static class DatabaseBootstrap
     /// no implica que un texto pendiente de revisión jurídica pueda presentarse como
     /// condición contractual definitiva.
     /// </summary>
+    /// <summary>Provisiona documentos legales y evidencias de aceptación sin publicar automáticamente ningún texto.</summary>
     public static void UpgradeLegalComplianceSchemaV1(angulosodbContext context, ILogger logger)
     {
         context.Database.ExecuteSqlRaw(@"

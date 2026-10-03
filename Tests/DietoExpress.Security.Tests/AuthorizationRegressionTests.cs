@@ -383,7 +383,7 @@ public class AuthorizationRegressionTests
 
         Assert.Contains("BeginTransactionAsync()", source);
         Assert.Contains("pg_advisory_xact_lock", source);
-        Assert.Contains("CanCreateDietAsync(tenantId, userId.Value)", source);
+        Assert.Contains("CanCreateDietAsync(tenantIdValue, userId.Value)", source);
         Assert.Contains("transaction.CommitAsync()", source);
         Assert.Contains("transaction.RollbackAsync()", source);
     }

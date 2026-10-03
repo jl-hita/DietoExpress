@@ -186,8 +186,8 @@ public sealed class AutomationService
                 {
                     await ScheduleRawActionAsync(tenantId, "email_professional",
                         new ProfessionalEmailAction(recipientId,
-                            string.IsNullOrWhiteSpace(template?.EmailSubject) ? professionalTitle : RenderTemplate(template.EmailSubject, professionalTitle, professionalMessage),
-                            string.IsNullOrWhiteSpace(template?.EmailHtml) ? $"<p>{System.Net.WebUtility.HtmlEncode(professionalMessage ?? professionalTitle)}</p>" : RenderTemplate(template.EmailHtml, professionalTitle, professionalMessage)),
+                            string.IsNullOrWhiteSpace(template?.EmailSubject) ? professionalTitle : RenderTemplate(template.EmailSubject, professionalTitle, professionalMessage ?? professionalTitle),
+                            string.IsNullOrWhiteSpace(template?.EmailHtml) ? $"<p>{System.Net.WebUtility.HtmlEncode(professionalMessage ?? professionalTitle)}</p>" : RenderTemplate(template.EmailHtml, professionalTitle, professionalMessage ?? professionalTitle)),
                         scheduledAt, eventId,
                         idempotencyKey is null ? null : $"{idempotencyKey}:professional:email:{recipientId}", maxAttempts, cancellationToken);
                 }

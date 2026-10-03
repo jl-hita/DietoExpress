@@ -91,6 +91,7 @@ public sealed class LegalDocumentsController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Crea una nueva versión documental; publicar una versión es una acción explícita y separada del borrador.</summary>
     [HttpPost("admin")]
     [Authorize(Policy = "Professional")]
     public async Task<IActionResult> CreateAdmin([FromBody] UpsertLegalDocumentRequest request, CancellationToken cancellationToken)
@@ -137,6 +138,7 @@ public sealed class LegalDocumentsController : ControllerBase
         return Ok(new { id, key, version, sha256 = hash });
     }
 
+    /// <summary>Registra la aceptación de la versión publicada exacta para conservar evidencia auditable del texto aceptado.</summary>
     [HttpPost("accept")]
     [Authorize(Policy = "Professional")]
     public async Task<IActionResult> Accept([FromBody] AcceptLegalDocumentRequest request, CancellationToken cancellationToken)
