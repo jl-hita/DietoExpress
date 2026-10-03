@@ -9,6 +9,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { BillingPlan, BillingService } from '../../servicios/billing.service';
 import { LicenseService, LicenseStatus } from '../../servicios/license.service';
 import { AuthService } from '../../servicios/auth.service';
+import { LegalAcceptance, LegalDocument, LegalService } from '../../servicios/legal.service';
 
 @Component({
   selector: 'app-billing',
