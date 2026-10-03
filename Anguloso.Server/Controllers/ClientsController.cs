@@ -48,6 +48,7 @@ public class ClientsController : ControllerBase
         var searchTerm = search?.Trim();
         if (searchTerm?.Length > 100) return BadRequest("El texto de búsqueda no puede superar los 100 caracteres.");
 
+        // La consulta aplica primero aislamiento y asignación; la paginación y búsqueda se ejecutan sobre ese conjunto ya autorizado para no convertir filtros del frontend en un mecanismo de acceso.
         var query = _context.clients
             .Where(c => c.archived_at == null)
             .Where(c => includeAll && isSuperAdmin
@@ -110,6 +111,7 @@ public class ClientsController : ControllerBase
         var isClinicAdmin = User.IsInRole("clinic_admin");
         var isSuperAdmin = User.IsInRole("superadmin");
 
+        // Se carga en una única consulta la ficha clínica y sus relaciones necesarias. El límite del histórico evita que una ficha con muchos años de mediciones genere una respuesta desproporcionada.
         var client = await _context.clients
             .Include(c => c.biometrics.OrderByDescending(b => b.measurement_date).Take(500))
             .Include(c => c.medical_history)
@@ -125,6 +127,7 @@ public class ClientsController : ControllerBase
         if (client == null) return NotFound();
 
         // Trazabilidad de acceso a datos clínicos (Art. 32 RGPD y Ley 41/2002)
+        // El acceso a la historia clínica se registra después de comprobar autorización y antes de devolver los datos, dejando trazabilidad del acceso sin registrar intentos rechazados como lecturas válidas.
         await _auditLogService.LogAccessAsync(
             action: "READ_MEDICAL_CHART",
             entityName: "clients",

@@ -55,12 +55,14 @@ public class BiometricsController : ControllerBase
             if (client.birth_date.Value > DateOnly.FromDateTime(DateTime.Today.AddYears(-age.Value))) age--;
         }
 
+        // Se limita el histórico a 500 mediciones y se ordena de más reciente a más antigua para mantener acotada la respuesta de la ficha y facilitar la visualización inmediata.
         var biometricsList = await _context.biometrics
             .Where(b => b.client_id == clientId)
             .OrderByDescending(b => b.measurement_date)
             .Take(500)
             .ToListAsync();
 
+        // El mapeo incorpora los cálculos derivados de antropometría en la respuesta, manteniendo la entidad persistida como fuente de datos originales.
         var list = biometricsList.Select(b => MapToDto(b, client.gender, age)).ToList();
 
         return Ok(list);
@@ -115,6 +117,7 @@ public class BiometricsController : ControllerBase
                   User.IsInRole("clinic_admin")));
         if (client == null) return NotFound();
 
+        // La validación rechaza NaN/infinidades y valores fuera de rango antes de materializar la entidad, evitando almacenar datos que puedan romper posteriormente los cálculos antropométricos.
         if (HasInvalidMeasurementValues(dto))
             return BadRequest("Las mediciones contienen valores no válidos.");
 

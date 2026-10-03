@@ -133,6 +133,7 @@ public class DietController : ControllerBase
 
         if (d == null) return NotFound();
 
+        // Primero se obtiene el conjunto de IDs realmente referenciados por la dieta; después se cargan solo los alimentos accesibles para el usuario, evitando exponer filas locales de otro tenant.
         var foodIds = d.diet_days
             .SelectMany(dd => dd.meals)
             .SelectMany(m => m.meal_items)
@@ -226,6 +227,7 @@ public class DietController : ControllerBase
         var tenantId = AuthHelpers.GetTenantId(User);
         if (!tenantId.HasValue) return BadRequest("El usuario no pertenece a una clínica.");
 
+        // La creación y eventual asignación de la dieta forman una unidad: si falla cualquiera de las validaciones o escrituras posteriores, no queda una dieta huérfana ni una asignación parcial.
         await using var transaction = await _context.Database.BeginTransactionAsync();
 
         try
@@ -233,6 +235,7 @@ public class DietController : ControllerBase
             // Serializamos la comprobación del límite de dietas por tenant.
             await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", tenantId.Value);
 
+            // El bloqueo advisory se mantiene dentro de la transacción para que dos peticiones concurrentes no puedan consumir simultáneamente la misma plaza de licencia.
             var dietPermission = await _licenseService.CanCreateDietAsync(tenantId, userId.Value);
             if (!dietPermission.Allowed)
                 return BadRequest(dietPermission.Reason);
