@@ -22,33 +22,69 @@ public sealed class AutomationController : ControllerBase
 
     public sealed record AutomationRuleRequest(bool Enabled, int? DelayMinutes, string? RecipientScope, string[]? Channels);
 
+    private static readonly (string Key, string RecipientScope, string[] Channels)[] SupportedRules =
+    [
+        ("client.created", "assigned_professional", ["in_app"]),
+        ("patient.checkin.submitted", "assigned_professional", ["in_app"]),
+        ("patient.checkin.reviewed", "patient", ["in_app"]),
+        ("appointment.completed", "both", ["in_app"]),
+        ("appointment.reminder.24h", "patient", ["in_app"]),
+        ("appointment.reminder.2h", "patient", ["in_app"]),
+        ("appointment.no_show", "assigned_professional", ["in_app"]),
+        ("onboarding.info.reminder", "patient", ["in_app"]),
+        ("onboarding.info.escalation", "assigned_professional", ["in_app"]),
+        ("onboarding.first_appointment.reminder", "patient", ["in_app"]),
+        ("onboarding.first_appointment.escalation", "assigned_professional", ["in_app"]),
+        ("followup.checkin.reminder", "patient", ["in_app"]),
+        ("followup.checkin.escalation", "assigned_professional", ["in_app"]),
+        ("diet.expiry.reminder", "patient", ["in_app"]),
+        ("diet.expired", "both", ["in_app"])
+    ];
+
     [HttpGet("rules")]
     public async Task<IActionResult> GetRules()
     {
         if (!_tenantContext.TenantId.HasValue) return BadRequest();
+
         await using var connection = new NpgsqlConnection(_configuration.GetConnectionString("DefaultConnection"));
         await connection.OpenAsync();
+
         await using var command = new NpgsqlCommand("""
             SELECT rule_key, enabled, delay_minutes, recipient_scope, channels, updated_at
             FROM automation_rules
-            WHERE tenant_id=@tenant
-            ORDER BY rule_key;
+            WHERE tenant_id=@tenant;
             """, connection);
         command.Parameters.AddWithValue("tenant", _tenantContext.TenantId.Value);
-        var rows = new List<object>();
+
+        var configured = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
         await using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
-            rows.Add(new
+            configured[reader.GetString(0)] = new
             {
                 ruleKey = reader.GetString(0),
                 enabled = reader.GetBoolean(1),
                 delayMinutes = reader.IsDBNull(2) ? (int?)null : reader.GetInt32(2),
                 recipientScope = reader.GetString(3),
-                channels = reader.IsDBNull(4) ? Array.Empty<string>() : (System.Text.Json.JsonSerializer.Deserialize<string[]>(reader.GetString(4)) ?? Array.Empty<string>()),
+                channels = reader.IsDBNull(4) ? Array.Empty<string>() :
+                    (System.Text.Json.JsonSerializer.Deserialize<string[]>(reader.GetString(4)) ?? Array.Empty<string>()),
                 updatedAt = reader.GetDateTime(5)
-            });
+            };
         }
+
+        var rows = SupportedRules.Select(rule =>
+            configured.TryGetValue(rule.Key, out var value)
+                ? value
+                : new
+                {
+                    ruleKey = rule.Key,
+                    enabled = true,
+                    delayMinutes = (int?)null,
+                    recipientScope = rule.RecipientScope,
+                    channels = rule.Channels,
+                    updatedAt = (DateTime?)null
+                }).ToList();
+
         return Ok(rows);
     }
 
