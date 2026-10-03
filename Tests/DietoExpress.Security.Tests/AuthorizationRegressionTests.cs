@@ -1290,7 +1290,8 @@ public class AuthorizationRegressionTests
 
         Assert.Contains("is_required_before_consultation=true", source);
         Assert.Contains("GetPendingSignatureDocumentsBeforeConsultationAsync", controller);
-        Assert.Contains("includeAllRequired: true", controller);
+        Assert.Contains("forClientCreation: false", controller);
+        Assert.Contains("includeAllRequired: false", controller);
     }
 
 
