@@ -1022,9 +1022,16 @@ public sealed class AutomationService
                     """, connection);
                 dietCommand.Parameters.AddWithValue("client", patient.ClientId);
                 var end = await dietCommand.ExecuteScalarAsync(cancellationToken);
-                if (end is DateTime endDate && endDate.Date <= DateTime.UtcNow.Date.AddDays(14))
+                var endDate = end switch
                 {
-                    var remaining = (endDate.Date - DateTime.UtcNow.Date).Days;
+                    DateOnly date => date,
+                    DateTime dateTime => DateOnly.FromDateTime(dateTime),
+                    _ => (DateOnly?)null
+                };
+
+                if (endDate.HasValue && endDate.Value <= DateOnly.FromDateTime(DateTime.UtcNow).AddDays(14))
+                {
+                    var remaining = (endDate.Value.ToDateTime(TimeOnly.MinValue).Date - DateTime.UtcNow.Date).Days;
                     await ScheduleConfiguredActionAsync(
                         patient.TenantId,
                         "notify_patient",
@@ -1037,7 +1044,7 @@ public sealed class AutomationService
                             false),
                         DateTime.UtcNow,
                         null,
-                        $"diet:renewal:{patient.ClientId}:{endDate:yyyyMMdd}",
+                        $"diet:renewal:{patient.ClientId}:{endDate.Value:yyyyMMdd}",
                         3,
                         cancellationToken);
 
@@ -1048,13 +1055,13 @@ public sealed class AutomationService
                             patient.ClientId,
                             patient.UserId,
                             "Planificar renovación de dieta",
-                            $"La dieta activa del paciente finaliza el {endDate:dd/MM/yyyy}. Revisar continuidad o actualización.",
+                            $"La dieta activa del paciente finaliza el {endDate.Value:dd/MM/yyyy}. Revisar continuidad o actualización.",
                             DateTime.UtcNow,
                             "normal",
                             "automation:diet.renewal"),
                         DateTime.UtcNow,
                         null,
-                        $"diet:renewal-task:{patient.ClientId}:{endDate:yyyyMMdd}",
+                        $"diet:renewal-task:{patient.ClientId}:{endDate.Value:yyyyMMdd}",
                         3,
                         cancellationToken);
                 }
