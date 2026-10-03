@@ -450,7 +450,7 @@ export class BillingComponent implements OnInit {
         this.snackBar.open(response.message || 'Cambio de suscripción enviado correctamente.', 'Cerrar', { duration: 6000 });
         this.loadData();
       },
-      error: err => {
+      error: (err: any) => {
         this.actionLoading = false;
         this.selectedPlanCode = null;
         this.showError(err, 'No se ha podido cambiar la suscripción.');
@@ -599,12 +599,12 @@ export class BillingComponent implements OnInit {
   private loadLegalState(): void {
     this.legalLoading = true;
     this.legalService.getCurrent().subscribe({
-      next: documents => {
+      next: (documents: LegalDocument[]) => {
         this.legalDocuments = documents;
         const terms = documents.find(d => d.key === 'saas_terms');
         this.legalService.getAcceptances().subscribe({
-          next: acceptances => {
-            this.termsAccepted = !!terms && acceptances.some(a =>
+          next: (acceptances: LegalAcceptance[]) => {
+            this.termsAccepted = !!terms && acceptances.some((a: LegalAcceptance) =>
               a.key === terms.key && a.version === terms.version && a.sha256 === terms.sha256);
             this.legalLoading = false;
           },
