@@ -172,6 +172,43 @@ public class PatientDocumentsController : ControllerBase
         return await DownloadAsync(clientId, documentId, false);
     }
 
+    [HttpGet("api/clients/{clientId:int}/documents/{documentId:long}/audit")]
+    [Authorize(Policy = "Professional")]
+    public async Task<IActionResult> GetAuditForProfessional(int clientId, long documentId)
+    {
+        if (!await CanAccessClientAsync(clientId)) return NotFound();
+
+        var tenantId = GetTenantId();
+        if (!tenantId.HasValue) return Forbid();
+
+        var documentExists = await _context.Database.SqlQueryRaw<int>(
+            """
+            SELECT 1 AS "Value"
+            FROM patient_documents
+            WHERE id = {0} AND tenant_id = {1} AND client_id = {2}
+            LIMIT 1
+            """,
+            documentId, tenantId.Value, clientId).SingleOrDefaultAsync();
+
+        if (documentExists == 0) return NotFound();
+
+        var events = await _context.Database.SqlQueryRaw<PatientDocumentAuditDto>(
+            """
+            SELECT id AS "Id",
+                   event_type AS "EventType",
+                   occurred_at AS "OccurredAt",
+                   ip_address AS "IpAddress",
+                   user_agent AS "UserAgent",
+                   details AS "Details"
+            FROM patient_document_events
+            WHERE tenant_id = {0} AND client_id = {1} AND patient_document_id = {2}
+            ORDER BY occurred_at ASC, id ASC
+            """,
+            tenantId.Value, clientId, documentId).ToListAsync();
+
+        return Ok(events);
+    }
+
     [HttpGet("api/portal/documents")]
     [Authorize]
     public async Task<IActionResult> ListForPatient()
