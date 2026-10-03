@@ -1095,7 +1095,7 @@ public sealed class AutomationService
                                    WHERE a.client_id=c.id AND a.tenant_id=c.tenant_id AND a.status='completed')
                           AND GREATEST(
                               COALESCE((SELECT MAX(a.starts_at) FROM patient_appointments a WHERE a.client_id=c.id AND a.tenant_id=c.tenant_id AND a.status='completed'), TIMESTAMPTZ '1970-01-01'),
-                              COALESCE((SELECT MAX(COALESCE(pc.submitted_at, pc.created_at)) FROM patient_checkins pc WHERE pc.client_id=c.id), TIMESTAMPTZ '1970-01-01')
+                              COALESCE((SELECT MAX(pc.submitted_at) FROM patient_checkins pc WHERE pc.client_id=c.id), TIMESTAMPTZ '1970-01-01')
                           ) < NOW() - INTERVAL '30 days'
                        THEN 'no_recent_followup'
                      WHEN EXISTS (SELECT 1 FROM patient_appointments a
@@ -1103,7 +1103,7 @@ public sealed class AutomationService
                                      AND a.starts_at >= NOW() - INTERVAL '30 days')
                           OR EXISTS (SELECT 1 FROM patient_checkins pc
                                      WHERE pc.client_id=c.id
-                                       AND COALESCE(pc.submitted_at, pc.created_at) >= NOW() - INTERVAL '14 days')
+                                       AND pc.submitted_at >= NOW() - INTERVAL '14 days')
                        THEN 'follow_up'
                      ELSE 'pending_first_appointment'
                    END AS lifecycle_status
