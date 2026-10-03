@@ -231,12 +231,14 @@ public class PatientDocumentsController : ControllerBase
             .Select(c => c.tenant_id).SingleOrDefaultAsync();
         if (!tenantId.HasValue) return NotFound();
 
+        // Abrir el portal no debe provisionar documentos que solo son obligatorios antes de una consulta.
+        // Esos documentos se crean en el flujo de inicio de consulta.
         await _patientDocumentService.CreateRequiredDocumentsAsync(
             tenantId.Value,
             clientId.Value,
             AuthHelpers.GetUserId(User),
-            forClientCreation: false,
-            includeAllRequired: true,
+            forClientCreation: true,
+            includeAllRequired: false,
             HttpContext.RequestAborted);
 
         var rows = await _context.Database.SqlQueryRaw<PatientDocumentDto>(
