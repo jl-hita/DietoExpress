@@ -739,6 +739,55 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     this.renderCheckinChart();
   }
 
+  getFollowupAlerts(): { level: 'attention' | 'info'; icon: string; text: string }[] {
+    const ordered = [...this.checkins].sort((a, b) =>
+      new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime());
+    if (!ordered.length) return [];
+
+    const latest = ordered[0];
+    const previous = ordered[1];
+    const alerts: { level: 'attention' | 'info'; icon: string; text: string }[] = [];
+
+    const compare = (label: string, current: number | null | undefined, previousValue: number | null | undefined,
+                     rules: { low?: number; high?: number; drop?: number; rise?: number },
+                     suffix = '') => {
+      if (current == null) return;
+      if (rules.low != null && current <= rules.low) {
+        alerts.push({ level: 'attention', icon: 'priority_high', text: `${label}: ${current}${suffix} — valor bajo para revisar` });
+      } else if (rules.high != null && current >= rules.high) {
+        alerts.push({ level: 'attention', icon: 'priority_high', text: `${label}: ${current}${suffix} — valor alto para revisar` });
+      }
+      if (previousValue != null) {
+        const delta = current - previousValue;
+        if (rules.drop != null && delta <= -rules.drop) {
+          alerts.push({ level: 'attention', icon: 'trending_down', text: `${label}: descenso de ${Math.abs(delta).toFixed(1)}${suffix} respecto al último check-in` });
+        } else if (rules.rise != null && delta >= rules.rise) {
+          alerts.push({ level: 'attention', icon: 'trending_up', text: `${label}: aumento de ${delta.toFixed(1)}${suffix} respecto al último check-in` });
+        }
+      }
+    };
+
+    compare('Adherencia', latest.adherence, previous?.adherence, { low: 5, drop: 2 }, '/10');
+    compare('Hambre', latest.hunger, previous?.hunger, { high: 8, rise: 2 }, '/10');
+    compare('Energía', latest.energy, previous?.energy, { low: 4, drop: 2 }, '/10');
+    compare('Calidad del sueño', latest.sleep_quality, previous?.sleep_quality, { low: 4, drop: 2 }, '/10');
+    compare('Horas de sueño', latest.sleep_hours, previous?.sleep_hours, { low: 6, drop: 1.5 }, ' h');
+    compare('Entrenamiento', latest.training, previous?.training, { low: 2, drop: 3 }, '/10');
+
+    if (latest.weight != null && previous?.weight != null && previous.weight > 0) {
+      const percentage = ((latest.weight - previous.weight) / previous.weight) * 100;
+      if (Math.abs(percentage) >= 2) {
+        alerts.push({
+          level: 'info',
+          icon: percentage < 0 ? 'trending_down' : 'trending_up',
+          text: `Peso: ${percentage > 0 ? '+' : ''}${percentage.toFixed(1)}% respecto al último check-in`
+        });
+      }
+    }
+
+    return alerts.slice(0, 5);
+  }
+
   getLatestUnreviewedCheckin(): PatientCheckin | null {
     return [...this.checkins]
       .sort((a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime())
