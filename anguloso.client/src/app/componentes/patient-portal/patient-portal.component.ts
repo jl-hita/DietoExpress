@@ -8,9 +8,9 @@ import { PatientPortalService } from '../../servicios/patient-portal.service';
 import { FoodService } from '../../servicios/food.service';
 import { SumPipe } from '../../shared/pipes/sum.pipe';
 import { PatientChatComponent } from '../patient-chat/patient-chat.component';
-import { PatientCheckin, PatientCheckinRequest, AppointmentSlot, PatientAppointment, PatientNotification } from '../../servicios/patient-portal.service';
+import { PatientCheckin, PatientCheckinRequest, AppointmentSlot, PatientAppointment, PatientNotification, PatientDocument } from '../../servicios/patient-portal.service';
 
-type ActiveTab = 'today' | 'shopping' | 'appointments' | 'progress' | 'messages';
+type ActiveTab = 'today' | 'shopping' | 'appointments' | 'progress' | 'messages' | 'documents';
 
 @Component({
   selector: 'app-patient-portal',
@@ -32,6 +32,9 @@ export class PatientPortalComponent implements OnInit {
   shoppingDataError: string | null = null;
   dietLoading = false;
   shoppingLoading = false;
+  documents: PatientDocument[] = [];
+  documentsLoading = false;
+  documentsError: string | null = null;
 
   // Login form model (PIN/phone)
   emailOrPhone = '';
@@ -460,6 +463,34 @@ export class PatientPortalComponent implements OnInit {
 
   retryShoppingLoad(): void {
     this.loadShoppingList(this.clientId);
+  }
+
+  loadDocuments(): void {
+    this.documentsLoading = true;
+    this.documentsError = null;
+    this.portalService.getMyDocuments().subscribe({
+      next: docs => { this.documents = docs || []; this.documentsLoading = false; },
+      error: err => { this.documents = []; this.documentsLoading = false; this.documentsError = err?.error?.message || 'No hemos podido cargar tus documentos.'; }
+    });
+  }
+
+  openDocuments(): void {
+    this.activeTab = 'documents';
+    if (!this.documents.length && !this.documentsLoading) this.loadDocuments();
+  }
+
+  downloadDocument(document: PatientDocument): void {
+    this.portalService.downloadMyDocument(document.id).subscribe({
+      next: blob => {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = document.originalFileName || document.name + '.pdf';
+        link.click();
+        URL.revokeObjectURL(url);
+      },
+      error: err => this.documentsError = err?.error?.message || 'No hemos podido descargar el documento.'
+    });
   }
 
   loadNotifications(): void {
