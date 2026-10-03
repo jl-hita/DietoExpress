@@ -28,29 +28,29 @@ Este documento recoge el backlog funcional de automatizaciones identificado sobr
    - check-in cuando corresponda
    - actualización de dieta cuando corresponda
 
-5. Flujo post-check-in
+5. Flujo post-check-in — revisión, aviso al paciente y tarea de siguiente acción implementados
    - revisión profesional
    - feedback/acción posterior
    - nueva cita o modificación de dieta cuando corresponda
 
-6. Escalado de check-in atrasado
+6. Escalado de check-in atrasado — secuencia 10/14/21 días implementada
    - secuencia de recordatorios
    - escalado progresivo
    - integración con lifecycle
 
-7. Recuperación de pacientes sin seguimiento
+7. Recuperación de pacientes sin seguimiento — aviso al paciente y escalado profesional implementados
    - recordatorio al paciente
    - tarea al profesional
    - escalado
    - reactivación
 
-8. Secuencia de caducidad de dieta
+8. Secuencia de caducidad de dieta — avisos 7/3/1/0 y cancelación al publicar nueva dieta implementados
    - avisos previos
    - aviso de caducidad
    - comprobar existencia de nueva dieta
    - detener avisos al publicar una nueva
 
-9. Recuperación de dieta caducada
+9. Recuperación de dieta caducada — aviso al paciente y tarea profesional implementados
    - tarea profesional
    - aviso al paciente cuando proceda
    - seguimiento hasta resolver

@@ -213,6 +213,8 @@ public sealed class AutomationService
                 {
                     var payload = AutomationJson.Deserialize<DietAutomationPayload>(evt.Payload)
                         ?? throw new InvalidOperationException($"Payload inválido para {evt.EventType}.");
+                    await CancelPendingJobsByIdempotencyPrefixAsync(evt.TenantId, $"diet:expiring:{payload.AssignmentId}:", cancellationToken);
+                    await CancelPendingJobsByIdempotencyPrefixAsync(evt.TenantId, $"diet:expired:{payload.AssignmentId}:", cancellationToken);
                     await ScheduleActionAsync(
                         evt.TenantId,
                         "notify_patient",
@@ -230,6 +232,45 @@ public sealed class AutomationService
                         evt.Id,
                         $"event:{evt.Id}:patient-notification",
                         cancellationToken: cancellationToken);
+                    break;
+                }
+            case "patient.checkin.reviewed":
+                {
+                    var payload = AutomationJson.Deserialize<CheckinReviewedPayload>(evt.Payload)
+                        ?? throw new InvalidOperationException("Payload inválido para patient.checkin.reviewed.");
+
+                    await ScheduleActionAsync(
+                        evt.TenantId,
+                        "notify_patient",
+                        new NotifyPatientAction(
+                            payload.ClientId,
+                            "checkin_reviewed",
+                            "Tu check-in ha sido revisado",
+                            "Tu nutricionista ya ha revisado tu último check-in. Puedes consultar tu evolución desde el portal.",
+                            "/patient?tab=checkins"),
+                        DateTime.UtcNow,
+                        evt.Id,
+                        $"event:{evt.Id}:patient-notification",
+                        cancellationToken: cancellationToken);
+
+                    if (!await HasFutureAppointmentAsync(evt.TenantId, payload.ClientId, cancellationToken))
+                    {
+                        await ScheduleActionAsync(
+                            evt.TenantId,
+                            "create_professional_task",
+                            new CreateTaskAction(
+                                payload.ClientId,
+                                payload.NutritionistId,
+                                "Planificar siguiente paso tras el check-in",
+                                "El último check-in ha sido revisado y el paciente no tiene una cita futura. Valorar seguimiento, nueva cita o actualización de dieta.",
+                                DateTime.UtcNow.AddDays(1),
+                                "normal",
+                                "automation:patient.checkin.reviewed"),
+                            DateTime.UtcNow,
+                            evt.Id,
+                            $"event:{evt.Id}:next-action-task",
+                            cancellationToken: cancellationToken);
+                    }
                     break;
                 }
             case "appointment.completed":
@@ -443,22 +484,26 @@ public sealed class AutomationService
             if (!needsCheckin) continue;
 
             var weekKey = now.Date.AddDays(-(((int)now.DayOfWeek + 6) % 7)).ToString("yyyyMMdd");
+            var daysSinceCheckin = c.LastCheckin.HasValue ? (int)Math.Floor((now - c.LastCheckin.Value).TotalDays) : int.MaxValue;
+            var level = daysSinceCheckin >= 21 ? "critical" : daysSinceCheckin >= 14 ? "escalated" : daysSinceCheckin >= 10 ? "overdue" : "weekly";
+            var message = level switch
+            {
+                "critical" => "Llevas varias semanas sin completar tu seguimiento. Entra en tu portal para retomarlo.",
+                "escalated" => "Tu seguimiento lleva más de dos semanas pendiente. Completa el check-in para que tu nutricionista pueda revisar tu evolución.",
+                "overdue" => "Tu check-in lleva más de 10 días pendiente. Completa el seguimiento desde tu portal.",
+                _ => "Completa tu check-in semanal para que tu nutricionista pueda revisar tu evolución."
+            };
 
             await ScheduleActionAsync(
                 c.TenantId,
                 "notify_patient",
-                new NotifyPatientAction(
-                    c.ClientId,
-                    "checkin_reminder",
-                    "Tienes un check-in pendiente",
-                    "Completa tu check-in semanal para que tu nutricionista pueda revisar tu evolución.",
-                    "/patient?tab=checkins"),
+                new NotifyPatientAction(c.ClientId, "checkin_reminder", "Tienes un check-in pendiente", message, "/patient?tab=checkins"),
                 now,
                 null,
-                $"followup:checkin-reminder:{c.ClientId}:{weekKey}",
+                $"followup:checkin-reminder:{c.ClientId}:{weekKey}:{level}",
                 cancellationToken: cancellationToken);
 
-            if (c.LastCheckin.HasValue && c.LastCheckin.Value < now.AddDays(-10))
+            if (daysSinceCheckin >= 10)
             {
                 await ScheduleActionAsync(
                     c.TenantId,
@@ -466,14 +511,14 @@ public sealed class AutomationService
                     new CreateTaskAction(
                         c.ClientId,
                         c.AssignedUserId,
-                        "Revisar seguimiento pendiente",
-                        "El paciente lleva más de 10 días sin enviar el check-in semanal.",
+                        daysSinceCheckin >= 21 ? "Escalar paciente sin seguimiento" : "Revisar seguimiento pendiente",
+                        daysSinceCheckin >= 21 ? "El paciente lleva al menos 21 días sin enviar un check-in. Valorar contacto directo o reactivación." : "El paciente lleva más de 10 días sin enviar el check-in semanal.",
                         now.AddDays(1),
-                        "normal",
+                        daysSinceCheckin >= 21 ? "high" : "normal",
                         "automation:followup.checkin"),
                     now,
                     null,
-                    $"followup:checkin-task:{c.ClientId}:{weekKey}",
+                    $"followup:checkin-task:{c.ClientId}:{weekKey}:{level}",
                     cancellationToken: cancellationToken);
             }
         }
@@ -552,6 +597,23 @@ public sealed class AutomationService
                 _ => null
             };
 
+            if (c.Status == "no_recent_followup")
+            {
+                await ScheduleActionAsync(
+                    c.TenantId,
+                    "notify_patient",
+                    new NotifyPatientAction(
+                        c.ClientId,
+                        "followup_recovery",
+                        "Te echamos de menos",
+                        "Hace tiempo que no registras actividad de seguimiento. Si quieres continuar, entra en tu portal y retoma el contacto con tu nutricionista.",
+                        "/patient?tab=checkins"),
+                    DateTime.UtcNow,
+                    null,
+                    $"lifecycle:recovery:{c.ClientId}:{DateTime.UtcNow:yyyyMMdd}",
+                    cancellationToken: cancellationToken);
+            }
+
             if(task.HasValue)
                 await ScheduleActionAsync(
                     c.TenantId,
@@ -569,6 +631,23 @@ public sealed class AutomationService
                     $"lifecycle:{c.Status}:{c.ClientId}:{DateTime.UtcNow:yyyyMMdd}",
                     cancellationToken:cancellationToken);
         }
+    }
+
+    private async Task<bool> HasFutureAppointmentAsync(int tenantId, int clientId, CancellationToken cancellationToken)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new NpgsqlCommand("""
+            SELECT EXISTS(
+                SELECT 1 FROM patient_appointments
+                WHERE tenant_id=@tenant AND client_id=@client
+                  AND status IN ('requested','confirmed')
+                  AND starts_at > NOW()
+            );
+            """, connection);
+        command.Parameters.AddWithValue("tenant", tenantId);
+        command.Parameters.AddWithValue("client", clientId);
+        return Convert.ToBoolean(await command.ExecuteScalarAsync(cancellationToken));
     }
 
     private async Task<bool> HasCompletedAppointmentAsync(int tenantId,int clientId,CancellationToken cancellationToken)
@@ -638,6 +717,8 @@ public sealed class AutomationService
                 {
                     var payload = AutomationJson.Deserialize<CheckinSubmittedPayload>(evt.Payload)
                         ?? throw new InvalidOperationException("Payload inválido para patient.checkin.submitted.");
+                    await CancelPendingJobsByIdempotencyPrefixAsync(evt.TenantId, $"followup:checkin-reminder:{payload.ClientId}:", cancellationToken);
+                    await CancelPendingJobsByIdempotencyPrefixAsync(evt.TenantId, $"followup:checkin-task:{payload.ClientId}:", cancellationToken);
                     await ScheduleActionAsync(
                         evt.TenantId,
                         "create_professional_task",
@@ -826,7 +907,16 @@ public sealed class AutomationService
                AND c.archived_at IS NULL
                AND d.archived_at IS NULL
                AND c.tenant_id IS NOT NULL
-               AND cd.end_date IS NOT NULL;
+               AND cd.end_date IS NOT NULL
+               AND NOT EXISTS (
+                   SELECT 1
+                   FROM client_diets newer
+                   WHERE newer.client_id=cd.client_id
+                     AND newer.is_active=true
+                     AND newer.id <> cd.id
+                     AND newer.start_date IS NOT NULL
+                     AND newer.start_date > cd.end_date
+               );
             """, connection);
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -851,7 +941,7 @@ public sealed class AutomationService
             var daysRemaining = diet.EndDate.Value.DayNumber - today.DayNumber;
             // Se avisa durante los tres días anteriores y también el propio día de vencimiento; la clave usa
             // la fecha de fin, por lo que una ejecución diaria no repite el aviso para la misma asignación.
-            if (daysRemaining is >= 0 and <= 3)
+            if (daysRemaining is 7 or 3 or 1 or 0)
             {
                 await ScheduleActionAsync(
                     diet.TenantId,
@@ -859,12 +949,14 @@ public sealed class AutomationService
                     new NotifyPatientAction(
                         diet.ClientId,
                         "diet_expiring",
-                        "Tu dieta está próxima a finalizar",
-                        $"Tu dieta \"{diet.DietName}\" finaliza en {Math.Max(0, daysRemaining)} día(s). Consulta con tu nutricionista si necesitas continuar o hacer cambios.",
+                        daysRemaining == 0 ? "Tu dieta finaliza hoy" : "Tu dieta está próxima a finalizar",
+                        daysRemaining == 0
+                            ? $"Tu dieta \"{diet.DietName}\" finaliza hoy. Contacta con tu nutricionista si necesitas continuar."
+                            : $"Tu dieta \"{diet.DietName}\" finaliza en {daysRemaining} día(s). Consulta con tu nutricionista si necesitas continuar o hacer cambios.",
                         "/patient?tab=diet"),
                     DateTime.UtcNow,
                     null,
-                    $"diet:expiring:{diet.AssignmentId}:{diet.EndDate:yyyyMMdd}",
+                    $"diet:expiring:{diet.AssignmentId}:{diet.EndDate:yyyyMMdd}:{daysRemaining}",
                     cancellationToken: cancellationToken);
             }
 
@@ -872,6 +964,20 @@ public sealed class AutomationService
             // la decisión clínica de renovar, sustituir o finalizar queda deliberadamente en manos del profesional.
             if (diet.EndDate.Value < today)
             {
+                await ScheduleActionAsync(
+                    diet.TenantId,
+                    "notify_patient",
+                    new NotifyPatientAction(
+                        diet.ClientId,
+                        "diet_expired",
+                        "Tu dieta ha finalizado",
+                        $"Tu dieta \"{diet.DietName}\" ha finalizado. Contacta con tu nutricionista para revisar el siguiente paso.",
+                        "/patient?tab=diet"),
+                    DateTime.UtcNow,
+                    null,
+                    $"diet:expired-notification:{diet.AssignmentId}:{diet.EndDate:yyyyMMdd}",
+                    cancellationToken: cancellationToken);
+
                 await ScheduleActionAsync(
                     diet.TenantId,
                     "create_professional_task",
@@ -985,6 +1091,38 @@ public sealed class AutomationService
         await complete.ExecuteNonQueryAsync(cancellationToken);
 
         await transaction.CommitAsync(cancellationToken);
+
+        int? nutritionistId = null;
+        await using (var assignmentConnection = new NpgsqlConnection(_connectionString))
+        {
+            await assignmentConnection.OpenAsync(cancellationToken);
+            await using var assignmentCommand = new NpgsqlCommand("""
+                SELECT nutritionist_id
+                FROM client_nutritionist_assignments
+                WHERE client_id=@client AND is_active
+                ORDER BY assigned_at DESC
+                LIMIT 1;
+                """, assignmentConnection);
+            assignmentCommand.Parameters.AddWithValue("client", clientId);
+            var value = await assignmentCommand.ExecuteScalarAsync(cancellationToken);
+            if (value is not null && value != DBNull.Value) nutritionistId = Convert.ToInt32(value);
+        }
+
+        try
+        {
+            await PublishEventAsync(
+                tenantId,
+                "patient.checkin.reviewed",
+                "patient_checkin",
+                checkinId.ToString(),
+                new CheckinReviewedPayload(clientId, nutritionistId),
+                $"checkin:{checkinId}:reviewed:{reviewerUserId}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "No se pudo registrar la automatización posterior a la revisión del check-in {CheckinId}.", checkinId);
+        }
+
         return true;
     }
 
@@ -999,6 +1137,7 @@ public sealed class AutomationService
 
     public sealed record ClientOnboardingCompletedPayload(int ClientId, int? NutritionistId);
     public sealed record ClientCreatedPayload(int ClientId, int? NutritionistId);
+    public sealed record CheckinReviewedPayload(int ClientId, int? NutritionistId);
     public sealed record CheckinSubmittedPayload(int ClientId, int? NutritionistId);
     public sealed record DietAutomationPayload(int ClientId, int AssignmentId, string DietName);
     public sealed record AppointmentCompletedPayload(int AppointmentId, int ClientId, int? NutritionistId);
