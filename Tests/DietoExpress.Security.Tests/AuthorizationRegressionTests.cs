@@ -1295,6 +1295,45 @@ public class AuthorizationRegressionTests
 
 
     [Fact]
+    public void PatientPortal_DoesNotProvisionConsultationOnlyDocuments()
+    {
+        var source = ReadServerController("PatientDocumentsController.cs");
+        var portalPos = source.IndexOf("ListForPatient", StringComparison.Ordinal);
+        Assert.True(portalPos >= 0);
+
+        var portal = source[portalPos..];
+        Assert.Contains("forClientCreation: true", portal);
+        Assert.Contains("includeAllRequired: false", portal);
+        Assert.DoesNotContain("forClientCreation: false", portal[..Math.Min(portal.Length, 1200)]);
+    }
+
+    [Fact]
+    public void ConsultationDocumentReminders_ArePatientScopedAndCancellable()
+    {
+        var controller = ReadServerController("ProfessionalConsultationsController.cs");
+        var automation = ReadServerLogica("AutomationService.cs");
+
+        Assert.Contains("documents:pending-reminder:{appointment.ClientId}:consultation:{appointment.Id}:24h", controller);
+        Assert.Contains("documents:pending-reminder:{appointment.ClientId}:consultation:{appointment.Id}:72h", controller);
+        Assert.Contains("DateTime.UtcNow.AddHours(24)", controller);
+        Assert.Contains("DateTime.UtcNow.AddHours(72)", controller);
+        Assert.Contains("documents:pending-reminder:{clientId}:", automation);
+        Assert.Contains("status='cancelled'", automation);
+    }
+
+    [Fact]
+    public void PatientDocuments_NonSignatureDocumentsAreNotPendingSignatures()
+    {
+        var service = ReadServerLogica("PatientDocumentService.cs");
+        var controller = ReadServerController("PatientDocumentsController.cs");
+
+        Assert.Contains("template.RequiresSignature ? "pending" : "available"", service);
+        Assert.Contains("requires_signature=true", service);
+        Assert.Contains("status='pending'", service);
+        Assert.Contains("requires_signature = true AND status = 'pending'", controller);
+    }
+
+    [Fact]
     public void ClientCreateAndUpdate_BoundProfilePayload()
     {
         var source = ReadServerController("ClientsController.cs");
