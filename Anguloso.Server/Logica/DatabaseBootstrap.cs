@@ -479,6 +479,233 @@ public static class DatabaseBootstrap
     }
 
     /// <summary>
+    /// Repara de forma aditiva el esquema actual. No depende de schema_migrations porque una
+    /// instalación histórica puede haber registrado una migración antes de completarla.
+    /// Solo crea estructuras o columnas ausentes; no elimina ni modifica datos existentes.
+    /// </summary>
+    public static void EnsureCurrentSchema(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            -- Estructuras SaaS imprescindibles para licencias y asignaciones.
+            CREATE TABLE IF NOT EXISTS subscription_plans (
+                id SERIAL PRIMARY KEY,
+                code VARCHAR(50) NOT NULL UNIQUE,
+                name VARCHAR(150) NOT NULL,
+                description TEXT,
+                monthly_price NUMERIC(10,2) NOT NULL DEFAULT 0,
+                yearly_price NUMERIC(10,2) NOT NULL DEFAULT 0,
+                stripe_product_id VARCHAR(255),
+                stripe_monthly_price_id VARCHAR(255),
+                stripe_yearly_price_id VARCHAR(255),
+                max_nutritionists INTEGER,
+                max_clients_per_nutritionist INTEGER,
+                max_total_clients INTEGER,
+                trial_days INTEGER,
+                active BOOLEAN NOT NULL DEFAULT TRUE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            CREATE TABLE IF NOT EXISTS subscription_plan_features (
+                id SERIAL PRIMARY KEY,
+                plan_id INTEGER NOT NULL REFERENCES subscription_plans(id) ON DELETE CASCADE,
+                feature_code VARCHAR(100) NOT NULL,
+                enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                CONSTRAINT subscription_plan_features_unique UNIQUE(plan_id, feature_code)
+            );
+            CREATE TABLE IF NOT EXISTS subscriptions (
+                id SERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                plan_id INTEGER NOT NULL REFERENCES subscription_plans(id) ON DELETE RESTRICT,
+                status VARCHAR(50) NOT NULL DEFAULT 'active',
+                started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                expires_at TIMESTAMPTZ,
+                cancelled_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            CREATE TABLE IF NOT EXISTS subscription_events (
+                id BIGSERIAL PRIMARY KEY,
+                subscription_id INTEGER NOT NULL REFERENCES subscriptions(id) ON DELETE CASCADE,
+                event_type VARCHAR(100) NOT NULL,
+                old_plan_id INTEGER REFERENCES subscription_plans(id) ON DELETE SET NULL,
+                new_plan_id INTEGER REFERENCES subscription_plans(id) ON DELETE SET NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                details TEXT
+            );
+            CREATE TABLE IF NOT EXISTS client_nutritionist_assignments (
+                id SERIAL PRIMARY KEY,
+                client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                nutritionist_id INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+                assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                assigned_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                unassigned_at TIMESTAMPTZ,
+                is_active BOOLEAN NOT NULL DEFAULT TRUE
+            );
+            CREATE INDEX IF NOT EXISTS idx_subscriptions_tenant_id ON subscriptions(tenant_id);
+            CREATE INDEX IF NOT EXISTS idx_subscription_events_subscription_id ON subscription_events(subscription_id);
+            CREATE INDEX IF NOT EXISTS idx_assignments_nutritionist_id ON client_nutritionist_assignments(nutritionist_id);
+
+            -- Columnas de seguridad, archivado y onboarding que el código actual consulta.
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS email_confirmation_expires_at TIMESTAMPTZ;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 1;
+            ALTER TABLE clients ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+            ALTER TABLE clients ADD COLUMN IF NOT EXISTS access_token_expires_at TIMESTAMPTZ;
+            ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_token_version INTEGER NOT NULL DEFAULT 1;
+            ALTER TABLE clients ADD COLUMN IF NOT EXISTS lifecycle_status VARCHAR(40) NOT NULL DEFAULT 'pending_info';
+            ALTER TABLE clients ADD COLUMN IF NOT EXISTS lifecycle_status_changed_at TIMESTAMPTZ;
+            ALTER TABLE clients ADD COLUMN IF NOT EXISTS last_activity_at TIMESTAMPTZ;
+            ALTER TABLE clients ADD COLUMN IF NOT EXISTS onboarding_consent_at TIMESTAMPTZ;
+            ALTER TABLE clients ADD COLUMN IF NOT EXISTS onboarding_consent_version VARCHAR(40);
+            ALTER TABLE clients ALTER COLUMN user_id DROP NOT NULL;
+            ALTER TABLE diets ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+            ALTER TABLE recipes ADD COLUMN IF NOT EXISTS tenant_id INTEGER REFERENCES tenants(id);
+
+            CREATE INDEX IF NOT EXISTS idx_users_archived_at ON users(archived_at);
+            CREATE INDEX IF NOT EXISTS idx_clients_archived_at ON clients(archived_at);
+            CREATE INDEX IF NOT EXISTS idx_clients_onboarding_consent ON clients(tenant_id, onboarding_consent_at);
+            CREATE INDEX IF NOT EXISTS idx_clients_tenant_lifecycle ON clients(tenant_id, lifecycle_status, last_activity_at);
+            CREATE INDEX IF NOT EXISTS idx_clients_tenant_user_id ON clients(tenant_id, user_id);
+
+            -- Motor de automatizaciones y tareas: todas las tablas se crean de forma independiente.
+            CREATE TABLE IF NOT EXISTS automation_events (
+                id BIGSERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                event_type VARCHAR(120) NOT NULL,
+                aggregate_type VARCHAR(80) NOT NULL,
+                aggregate_id VARCHAR(120),
+                payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+                idempotency_key VARCHAR(255) NOT NULL,
+                occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_automation_events_tenant_idempotency UNIQUE (tenant_id, idempotency_key)
+            );
+            CREATE TABLE IF NOT EXISTS automation_jobs (
+                id BIGSERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                event_id BIGINT REFERENCES automation_events(id) ON DELETE SET NULL,
+                action_type VARCHAR(120) NOT NULL,
+                payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+                scheduled_at TIMESTAMPTZ NOT NULL,
+                status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                attempts INTEGER NOT NULL DEFAULT 0,
+                max_attempts INTEGER NOT NULL DEFAULT 5,
+                locked_at TIMESTAMPTZ,
+                last_error VARCHAR(4000),
+                idempotency_key VARCHAR(255),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                completed_at TIMESTAMPTZ
+            );
+            CREATE TABLE IF NOT EXISTS automation_executions (
+                id BIGSERIAL PRIMARY KEY,
+                job_id BIGINT NOT NULL REFERENCES automation_jobs(id) ON DELETE CASCADE,
+                result VARCHAR(30) NOT NULL,
+                error VARCHAR(4000),
+                duration_ms BIGINT NOT NULL DEFAULT 0,
+                executed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            CREATE TABLE IF NOT EXISTS professional_tasks (
+                id BIGSERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                client_id INTEGER REFERENCES clients(id) ON DELETE SET NULL,
+                assigned_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                title VARCHAR(250) NOT NULL,
+                description VARCHAR(4000),
+                due_at TIMESTAMPTZ,
+                priority VARCHAR(20) NOT NULL DEFAULT 'normal',
+                status VARCHAR(20) NOT NULL DEFAULT 'open',
+                source VARCHAR(120) NOT NULL DEFAULT 'manual',
+                idempotency_key VARCHAR(255),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                completed_at TIMESTAMPTZ
+            );
+            CREATE TABLE IF NOT EXISTS automation_rules (
+                id BIGSERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                rule_key VARCHAR(120) NOT NULL,
+                enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                delay_minutes INTEGER,
+                recipient_scope VARCHAR(40) NOT NULL DEFAULT 'assigned_professional',
+                channels JSONB NOT NULL DEFAULT '[""in_app""]'::jsonb,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_automation_rules_tenant_key UNIQUE (tenant_id, rule_key)
+            );
+            CREATE TABLE IF NOT EXISTS automation_templates (
+                id BIGSERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                rule_key VARCHAR(120) NOT NULL,
+                patient_title VARCHAR(250),
+                patient_message VARCHAR(4000),
+                professional_title VARCHAR(250),
+                professional_message VARCHAR(4000),
+                email_subject VARCHAR(250),
+                email_html TEXT,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_automation_templates_tenant_key UNIQUE (tenant_id, rule_key)
+            );
+            CREATE TABLE IF NOT EXISTS patient_communication_preferences (
+                client_id INTEGER PRIMARY KEY REFERENCES clients(id) ON DELETE CASCADE,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                in_app_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                email_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                push_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+
+            -- Google Calendar: si la migración original no llegó a ejecutarse, el worker debe poder arrancar.
+            CREATE TABLE IF NOT EXISTS google_calendar_connections (
+                id SERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                google_account_email VARCHAR(320) NOT NULL,
+                calendar_id VARCHAR(500) NOT NULL DEFAULT 'primary',
+                access_token_encrypted TEXT NOT NULL,
+                refresh_token_encrypted TEXT,
+                access_token_expires_at TIMESTAMPTZ NOT NULL,
+                sync_token TEXT,
+                last_synced_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_google_calendar_connection_user UNIQUE (tenant_id, user_id)
+            );
+            CREATE TABLE IF NOT EXISTS google_calendar_oauth_states (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                state_hash VARCHAR(128) NOT NULL UNIQUE,
+                expires_at TIMESTAMPTZ NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            CREATE TABLE IF NOT EXISTS external_calendar_events (
+                id SERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                provider VARCHAR(30) NOT NULL DEFAULT 'google',
+                external_event_id VARCHAR(500) NOT NULL,
+                etag VARCHAR(500),
+                title VARCHAR(500) NOT NULL,
+                starts_at TIMESTAMPTZ NOT NULL,
+                ends_at TIMESTAMPTZ NOT NULL,
+                is_all_day BOOLEAN NOT NULL DEFAULT FALSE,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_external_calendar_event UNIQUE (tenant_id, user_id, provider, external_event_id)
+            );
+
+            -- Índices mínimos de cola y actividad.
+            CREATE INDEX IF NOT EXISTS idx_automation_jobs_pending ON automation_jobs(status, scheduled_at, id);
+            CREATE INDEX IF NOT EXISTS idx_automation_jobs_tenant ON automation_jobs(tenant_id, created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_automation_jobs_event ON automation_jobs(event_id);
+            CREATE INDEX IF NOT EXISTS idx_automation_executions_job ON automation_executions(job_id, executed_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_professional_tasks_tenant_status_due ON professional_tasks(tenant_id, status, due_at);
+            CREATE INDEX IF NOT EXISTS idx_professional_tasks_assigned_status ON professional_tasks(assigned_user_id, status, due_at);
+            CREATE INDEX IF NOT EXISTS idx_patient_communication_preferences_tenant ON patient_communication_preferences(tenant_id);
+            CREATE INDEX IF NOT EXISTS idx_google_calendar_connections_tenant ON google_calendar_connections(tenant_id);
+            CREATE INDEX IF NOT EXISTS idx_google_calendar_oauth_states_expiry ON google_calendar_oauth_states(expires_at);
+            CREATE INDEX IF NOT EXISTS idx_external_calendar_events_block ON external_calendar_events(tenant_id, user_id, starts_at, ends_at);
+        ");
+
+        logger.LogInformation("Comprobación/reparación aditiva del esquema actual completada.");
+    }
+
+    /// <summary>
     /// Evoluciones incrementales de la BBDD SaaS. Es idempotente y se ejecuta al arrancar,
     /// por lo que una instalación existente no necesita recrearse.
     /// </summary>
