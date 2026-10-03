@@ -162,17 +162,34 @@ public sealed class ProfessionalConsultationsController : ControllerBase
         {
             try
             {
+                var notification = new NotifyPatientAction(
+                    appointment.ClientId,
+                    "documents_pending",
+                    "Necesitas completar documentación",
+                    "Hay documentación pendiente de firma que debes completar antes de tu consulta.",
+                    "/patient?tab=documents");
+
                 await _automationService.ScheduleActionAsync(
                     appointment.TenantId,
                     "notify_patient",
-                    new NotifyPatientAction(
-                        appointment.ClientId,
-                        "documents_pending",
-                        "Necesitas completar documentación",
-                        "Hay documentación pendiente de firma que debes completar antes de tu consulta.",
-                        "/patient?tab=documents"),
+                    notification,
                     DateTime.UtcNow,
                     idempotencyKey: $"documents:consultation:{appointment.Id}");
+
+                // Los recordatorios se cancelan automáticamente al completar toda la documentación.
+                await _automationService.ScheduleActionAsync(
+                    appointment.TenantId,
+                    "notify_patient",
+                    notification,
+                    DateTime.UtcNow.AddHours(24),
+                    idempotencyKey: $"documents:pending-reminder:{appointment.ClientId}:consultation:{appointment.Id}:24h");
+
+                await _automationService.ScheduleActionAsync(
+                    appointment.TenantId,
+                    "notify_patient",
+                    notification,
+                    DateTime.UtcNow.AddHours(72),
+                    idempotencyKey: $"documents:pending-reminder:{appointment.ClientId}:consultation:{appointment.Id}:72h");
             }
             catch (Exception ex)
             {
