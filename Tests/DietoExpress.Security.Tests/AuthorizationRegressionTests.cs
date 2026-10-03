@@ -1327,7 +1327,7 @@ public class AuthorizationRegressionTests
         var service = ReadServerLogica("PatientDocumentService.cs");
         var controller = ReadServerController("PatientDocumentsController.cs");
 
-        Assert.Contains("template.RequiresSignature ? "pending" : "available"", service);
+        Assert.Contains(@"template.RequiresSignature ? ""pending"" : ""available""", service);
         Assert.Contains("requires_signature=true", service);
         Assert.Contains("status='pending'", service);
         Assert.Contains("requires_signature = true AND status = 'pending'", controller);
