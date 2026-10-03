@@ -27,7 +27,7 @@ public sealed class AutomationController : ControllerBase
         [FromQuery] int limit = 100)
     {
         if (!_tenantContext.TenantId.HasValue) return BadRequest();
-        limit = Math.Clamp(limit, 1, 200);
+        // El límite evita que la pantalla de observabilidad pueda convertir una consulta administrativa en una lectura masiva.\n        limit = Math.Clamp(limit, 1, 200);
 
         await using var connection = new NpgsqlConnection(_configuration.GetConnectionString("DefaultConnection"));
         await connection.OpenAsync();
@@ -43,7 +43,7 @@ public sealed class AutomationController : ControllerBase
             LIMIT @limit;
             """, connection);
         command.Parameters.AddWithValue("tenant", _tenantContext.TenantId.Value);
-        command.Parameters.AddWithValue("status", (object?)status?.Trim().ToLowerInvariant() ?? DBNull.Value);
+        // El estado se normaliza antes de consultar, pero no se concatena en SQL: sigue siendo un parámetro y no puede alterar la consulta.\n        command.Parameters.AddWithValue("status", (object?)status?.Trim().ToLowerInvariant() ?? DBNull.Value);
         command.Parameters.AddWithValue("limit", limit);
 
         var rows = new List<object>();
