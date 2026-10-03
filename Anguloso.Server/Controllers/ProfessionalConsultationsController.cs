@@ -150,9 +150,10 @@ public sealed class ProfessionalConsultationsController : ControllerBase
             appointment.ClientId,
             _tenantContext.UserId,
             forClientCreation: false,
+            includeAllRequired: true,
             cancellationToken: HttpContext.RequestAborted);
 
-        var pendingDocuments = await _patientDocumentService.GetPendingSignatureDocumentsAsync(
+        var pendingDocuments = await _patientDocumentService.GetPendingSignatureDocumentsBeforeConsultationAsync(
             appointment.TenantId,
             appointment.ClientId,
             HttpContext.RequestAborted);
