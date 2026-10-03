@@ -68,21 +68,21 @@
 
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:22px 0;">
           <mat-card style="padding:16px;">
-            <mat-checkbox [(ngModel)]="communicationPreferences.inAppEnabled">
+            <mat-checkbox [(ngModel)]="communicationPreferences.inAppEnabled" [ngModelOptions]="{standalone: true}">
               <strong>Notificaciones en la aplicación</strong>
             </mat-checkbox>
             <p style="margin:8px 0 0;color:#64748b;font-size:13px;">Avisos persistentes dentro del portal del paciente.</p>
           </mat-card>
 
           <mat-card style="padding:16px;">
-            <mat-checkbox [(ngModel)]="communicationPreferences.emailEnabled">
+            <mat-checkbox [(ngModel)]="communicationPreferences.emailEnabled" [ngModelOptions]="{standalone: true}">
               <strong>Email</strong>
             </mat-checkbox>
             <p style="margin:8px 0 0;color:#64748b;font-size:13px;">Permite el envío de emails automáticos al paciente.</p>
           </mat-card>
 
           <mat-card style="padding:16px;">
-            <mat-checkbox [(ngModel)]="communicationPreferences.pushEnabled">
+            <mat-checkbox [(ngModel)]="communicationPreferences.pushEnabled" [ngModelOptions]="{standalone: true}">
               <strong>Push</strong>
             </mat-checkbox>
             <p style="margin:8px 0 0;color:#64748b;font-size:13px;">Permite avisos push si el paciente ha registrado el dispositivo.</p>
