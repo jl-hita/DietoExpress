@@ -1386,6 +1386,28 @@ public static class DatabaseBootstrap
         logger.LogInformation("Migración de automatizaciones automation-v8-structured-followup aplicada correctamente.");
     }
 
+    /// <summary>Configuración persistente del panel de seguimiento por profesional.</summary>
+    public static void UpgradeAutomationSchemaV9(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS professional_followup_settings (
+                id BIGSERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                selected_metrics JSONB NOT NULL DEFAULT '[""adherence"",""hunger"",""energy"",""sleep_quality"",""sleep_hours"",""training"",""weight""]'::jsonb,
+                period_weeks INTEGER NOT NULL DEFAULT 4,
+                thresholds JSONB NOT NULL DEFAULT '{}'::jsonb,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_professional_followup_settings UNIQUE (tenant_id, user_id),
+                CONSTRAINT professional_followup_period_check CHECK (period_weeks BETWEEN 2 AND 12)
+            );
+            CREATE INDEX IF NOT EXISTS idx_professional_followup_settings_tenant
+                ON professional_followup_settings(tenant_id);
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('automation-v9-followup-settings') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración de automatizaciones automation-v9-followup-settings aplicada correctamente.");
+    }
+
     /// <summary>Integración OAuth y sincronización bidireccional con Google Calendar.</summary>
     public static void UpgradeGoogleCalendarSchemaV1(angulosodbContext context, ILogger logger)
     {
