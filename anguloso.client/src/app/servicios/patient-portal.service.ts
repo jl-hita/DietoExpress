@@ -51,6 +51,13 @@ export interface GoogleCalendarStatus { connected: boolean; email: string; calen
 export interface PatientNotification { id: number; type: string; title: string; message: string; actionUrl?: string | null; createdAt: string; readAt?: string | null; }
 export interface PatientCommunicationPreferences { inAppEnabled: boolean; emailEnabled: boolean; pushEnabled: boolean; }
 
+export interface FollowupSettings {
+  selectedMetrics: string[];
+  periodWeeks: number;
+  thresholds: Record<string, { low?: number; high?: number; drop?: number; rise?: number }>;
+  updatedAt?: string | null;
+}
+
 @Injectable({ providedIn: 'root' })
   // Centraliza autenticación y operaciones del portal para que los componentes no dupliquen rutas ni gestionen directamente el transporte HTTP.
 export class PatientPortalService {
@@ -136,6 +143,9 @@ export class PatientPortalService {
   getClientPortalAccess(clientId: number): Observable<ClientPortalAccess> { return this.http.get<ClientPortalAccess>(`${this.base}/clients/${clientId}/portal-access`); }
   regenerateClientToken(clientId: number): Observable<ClientPortalAccess> { return this.http.post<ClientPortalAccess>(`${this.base}/clients/${clientId}/portal-access/regenerate-token`, {}); }
   setClientPasscode(clientId: number, passcode: string): Observable<{ message: string }> { return this.http.post<{ message: string }>(`${this.base}/clients/${clientId}/portal-access/passcode`, { passcode }); }
+  getFollowupSettings(): Observable<FollowupSettings> { return this.http.get<FollowupSettings>(this.base + '/professional/automation/followup-settings'); }
+  updateFollowupSettings(settings: FollowupSettings): Observable<void> { return this.http.put<void>(this.base + '/professional/automation/followup-settings', settings); }
+
   getCommunicationPreferences(clientId: number): Observable<PatientCommunicationPreferences> { return this.http.get<PatientCommunicationPreferences>(`${this.base}/professional/automation/clients/${clientId}/communication-preferences`); }
   updateCommunicationPreferences(clientId: number, preferences: PatientCommunicationPreferences): Observable<void> { return this.http.put<void>(`${this.base}/professional/automation/clients/${clientId}/communication-preferences`, preferences); }
 }
