@@ -194,6 +194,8 @@ public sealed class AutomationService
                 {
                     var payload = AutomationJson.Deserialize<ClientOnboardingCompletedPayload>(evt.Payload)
                         ?? throw new InvalidOperationException("Payload inválido para patient.onboarding.completed.");
+                    clientId = payload.ClientId;
+                    status = "pending_first_appointment";
                     await CancelPendingJobsByIdempotencyPrefixAsync(
                         evt.TenantId,
                         $"onboarding:info-reminder:{payload.ClientId}:",
@@ -326,6 +328,20 @@ public sealed class AutomationService
                         evt.Id,
                         $"event:{evt.Id}:create-professional-task",
                         cancellationToken: cancellationToken);
+                    break;
+                }
+            case "appointment.requested":
+                {
+                    var payload = AutomationJson.Deserialize<AppointmentStatusPayload>(evt.Payload);
+                    clientId = payload?.ClientId;
+                    if (clientId.HasValue)
+                        status = await HasCompletedAppointmentAsync(evt.TenantId, clientId.Value, cancellationToken)
+                            ? "active" : "pending_first_appointment";
+                    if (payload is not null)
+                        await CancelPendingJobsByIdempotencyPrefixAsync(
+                            evt.TenantId,
+                            $"onboarding:first-appointment-reminder:{payload.ClientId}:",
+                            cancellationToken);
                     break;
                 }
             case "appointment.confirmed":
