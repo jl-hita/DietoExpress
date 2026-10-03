@@ -37,7 +37,8 @@ RETURNING id;", connection);
         // La notificación in-app queda persistida antes de intentar push: un fallo del proveedor no debe hacer
         // desaparecer el aviso que el paciente puede consultar desde el portal.
         var id = Convert.ToInt64(await command.ExecuteScalarAsync());
-        if (sendPush) await SendPushAsync(clientId, new PushPayload(title, message, actionUrl));
+        // El push se intenta después de confirmar la notificación in-app; así el canal efímero nunca define si el aviso existe.
+        if (sendPush) await SendPushAsync(tenantId, clientId, new PushPayload(title, message, actionUrl));
         return id;
     }
 
@@ -88,6 +89,8 @@ RETURNING id;", connection);
         return await command.ExecuteScalarAsync() != null;
     }
 
+    // El endpoint identifica de forma única la suscripción del navegador; al volver a registrarlo se actualizan sus claves y propietario.
+    // Esto permite renovar una suscripción sin acumular registros obsoletos para el mismo endpoint.
     public async Task RegisterPushSubscriptionAsync(int tenantId, int clientId, PushSubscriptionDto subscription)
     {
         if (string.IsNullOrWhiteSpace(subscription.Endpoint) ||
@@ -145,7 +148,7 @@ WHERE tenant_id = @tenant AND client_id = @client AND endpoint = @endpoint;", co
     private static bool IsPlaceholder(string? value) =>
         string.IsNullOrWhiteSpace(value) || value.StartsWith("__CONFIGURE_", StringComparison.Ordinal);
 
-    private async Task SendPushAsync(int clientId, PushPayload payload)
+    private async Task SendPushAsync(int tenantId, int clientId, PushPayload payload)
     {
         var subject = GetWebPushConfig("webPushSubject");
         var publicKey = GetWebPushConfig("webPushPublicKey");
@@ -162,7 +165,8 @@ WHERE tenant_id = @tenant AND client_id = @client AND endpoint = @endpoint;", co
             await using var command = new NpgsqlCommand(@"
 SELECT id, endpoint, p256dh, auth
 FROM patient_push_subscriptions
-WHERE client_id = @client;", connection);
+WHERE tenant_id = @tenant AND client_id = @client;", connection);
+            command.Parameters.AddWithValue("tenant", tenantId);
             command.Parameters.AddWithValue("client", clientId);
             await using var reader = await command.ExecuteReaderAsync();
             while (await reader.ReadAsync())
@@ -170,6 +174,8 @@ WHERE client_id = @client;", connection);
         }
 
         if (subscriptions.Count == 0) return;
+
+        // Las credenciales VAPID se leen una sola vez por lote; no se consulta configuración ni se crea el cliente HTTP por suscripción.
         var vapid = new VapidDetails(subject, publicKey, privateKey);
         var webPush = new WebPushClient();
         var json = JsonSerializer.Serialize(new { title = payload.Title, body = payload.Body, url = payload.ActionUrl ?? "/patient" });

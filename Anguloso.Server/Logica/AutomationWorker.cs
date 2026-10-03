@@ -34,6 +34,8 @@ public sealed class AutomationWorker : BackgroundService
         var nextFollowUpSweep = DateTime.UtcNow;
         // Los barridos temporales se mantienen separados de la cola de jobs: si la cola está vacía,
         // siguen ejecutándose las comprobaciones periódicas de lifecycle, seguimiento y dietas.
+        // Los tres barridos se ejecutan como reconciliaciones de baja frecuencia; una hora limita carga y, al usar claves idempotentes,
+        // tolera que el proceso se reinicie entre dos ciclos sin perder ni duplicar las acciones derivadas.
         var nextDietSweep = DateTime.UtcNow;
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -64,6 +66,7 @@ public sealed class AutomationWorker : BackgroundService
                     nextDietSweep = DateTime.UtcNow.AddHours(1);
                 }
 
+                // La cola se procesa en lotes pequeños; el límite también evita que una ráfaga de trabajos monopolice una instancia.
                 var processed = await ProcessBatchAsync(stoppingToken);
                 if (processed == 0)
                     await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
