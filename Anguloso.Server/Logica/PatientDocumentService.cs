@@ -37,7 +37,7 @@ public sealed class PatientDocumentService
                 WHERE tenant_id=@tenant AND is_active=true
                   AND storage_key IS NOT NULL
                   AND (CASE WHEN @clientCreation THEN is_required_on_client_creation ELSE is_required_before_consultation END)=true
-                ORDER BY id;
+                ORDER BY LOWER(name), version DESC, id DESC;
                 """, connection, transaction);
             templatesCommand.Parameters.AddWithValue("tenant", tenantId);
             templatesCommand.Parameters.AddWithValue("clientCreation", forClientCreation);
