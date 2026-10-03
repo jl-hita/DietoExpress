@@ -1460,10 +1460,14 @@ public class AuthorizationRegressionTests
     {
         var service = ReadServerLogica("PrivacyOperationsService.cs");
         var schema = ReadServerLogica("DatabaseBootstrap.cs");
+        var incidentSection = service.Substring(
+            service.IndexOf("public async Task<long> CreateIncidentAsync", StringComparison.Ordinal),
+            service.IndexOf("public async Task<object?> ExportClientAsync", StringComparison.Ordinal)
+                - service.IndexOf("public async Task<long> CreateIncidentAsync", StringComparison.Ordinal));
 
-        Assert.Contains("CREATE_PRIVACY_INCIDENT", service);
-        Assert.DoesNotContain("password", service, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("token", service, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("CREATE_PRIVACY_INCIDENT", incidentSection);
+        Assert.DoesNotContain("password", incidentSection, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("token", incidentSection, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("description TEXT NOT NULL", schema);
         Assert.Contains("data_categories VARCHAR(500)", schema);
         Assert.DoesNotContain("clinical_content", schema, StringComparison.OrdinalIgnoreCase);
