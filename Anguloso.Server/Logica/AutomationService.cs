@@ -488,6 +488,8 @@ public sealed class AutomationService
                 }
             case "patient.checkin.submitted":
                 clientId = AutomationJson.Deserialize<CheckinSubmittedPayload>(evt.Payload)?.ClientId;
+                // Un check-in es actividad clínica explícita: si el paciente estaba en no_recent_followup,
+                // esta interacción lo reactiva sin tocar pacientes archivados.
                 status = "follow_up";
                 break;
             case "diet.published":
@@ -1029,7 +1031,7 @@ public sealed class AutomationService
             SET lifecycle_status=@status,
                 lifecycle_status_changed_at=CASE WHEN lifecycle_status IS DISTINCT FROM @status THEN @changed ELSE lifecycle_status_changed_at END,
                 last_activity_at=CASE WHEN @status IN ('active','follow_up') THEN @changed ELSE last_activity_at END
-            WHERE id=@client AND tenant_id=@tenant
+            WHERE id=@client AND tenant_id=@tenant AND archived_at IS NULL
             RETURNING lifecycle_status_changed_at=@changed;
             """,connection);
         command.Parameters.AddWithValue("status",status);
