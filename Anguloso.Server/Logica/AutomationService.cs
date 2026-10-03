@@ -683,7 +683,8 @@ public sealed class AutomationService
                 reader.IsDBNull(5) ? "Dieta" : reader.GetString(5)));
         }
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        // Las fechas de finalización de dieta son fechas de calendario, por lo que el barrido las compara con UTC
+        // de forma consistente con el resto del worker y evita depender de la zona horaria del servidor.\n        var today = DateOnly.FromDateTime(DateTime.UtcNow);
         foreach (var diet in candidates)
         {
             if (!diet.EndDate.HasValue) continue;
@@ -751,7 +752,8 @@ public sealed class AutomationService
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
-    public async Task<bool> ReviewPatientCheckinAsync(
+    // Marcar el check-in y cerrar su tarea automática forman una única transacción: no queremos dejar el check-in
+    // como revisado mientras la tarea asociada continúa abierta, ni al contrario.\n    public async Task<bool> ReviewPatientCheckinAsync(
         int tenantId,
         int checkinId,
         int reviewerUserId,
