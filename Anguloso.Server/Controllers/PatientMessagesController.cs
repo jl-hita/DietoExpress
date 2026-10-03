@@ -214,7 +214,7 @@ RETURNING id;";
 
     private async Task<IReadOnlyList<ConversationSummaryDto>> GetProfessionalConversationsAsync(int userId, int tenantId)
     {
-        var rows = await _context.Database.SqlQueryRaw<ConversationSummaryRow>($@"
+        var rows = await _context.Database.SqlQueryInterpolated<ConversationSummaryRow>($@"
 SELECT c.id AS ""ConversationId"", c.client_id AS ""ClientId"", cl.full_name AS ""ClientName"",
        c.updated_at AS ""UpdatedAt"",
        COALESCE((SELECT body FROM patient_messages m WHERE m.conversation_id = c.id ORDER BY m.created_at DESC, m.id DESC LIMIT 1), '') AS ""LastMessage"",
@@ -277,7 +277,7 @@ ORDER BY c.updated_at DESC;").ToListAsync();
 
     private async Task<IReadOnlyList<MessageDto>> ReadMessagesAsync(long conversationId, int clientId)
     {
-        var rows = await _context.Database.SqlQueryRaw<MessageRow>($@"
+        var rows = await _context.Database.SqlQueryInterpolated<MessageRow>($@"
 SELECT id AS ""Id"", sender_user_id AS ""SenderUserId"", sender_client_id AS ""SenderClientId"",
        body AS ""Body"", created_at AS ""CreatedAt"", read_at AS ""ReadAt""
 FROM patient_messages
