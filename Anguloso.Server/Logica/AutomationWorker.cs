@@ -94,7 +94,8 @@ public sealed class AutomationWorker : BackgroundService
             await using var tx = await connection.BeginTransactionAsync(cancellationToken);
 
             // Diez minutos es el umbral para distinguir un worker que sigue ejecutando una acción externa de un proceso que
-            // probablemente murió; al volver a pending el job puede ser recuperado por la siguiente iteración o instancia.
+            // probablemente murió. Es deliberadamente conservador: una recuperación prematura podría duplicar una acción externa,
+            // por lo que las acciones que puedan repetirse deben apoyarse además en su propia idempotencia.
             await using (var recover = new NpgsqlCommand("""
                 UPDATE automation_jobs
                 SET status='pending', locked_at=NULL, updated_at=NOW()
@@ -245,6 +246,8 @@ public sealed class AutomationWorker : BackgroundService
         command.Parameters.AddWithValue("client", action.ClientId);
         command.Parameters.AddWithValue("tenant", job.TenantId);
         var email = await command.ExecuteScalarAsync(cancellationToken) as string;
+        // El destinatario se resuelve al ejecutar el job, no al programarlo, para que una corrección posterior del
+        // email del paciente pueda hacer recuperable un job que falló por datos incompletos.
         if (string.IsNullOrWhiteSpace(email))
             throw new InvalidOperationException("El paciente no tiene un email válido.");
 
@@ -277,8 +280,8 @@ public sealed class AutomationWorker : BackgroundService
         command.Parameters.AddWithValue("tenant", job.TenantId);
         command.Parameters.AddWithValue("user_id", (object?)action.UserId ?? DBNull.Value);
         var email = await command.ExecuteScalarAsync(cancellationToken) as string;
-        // Un evento de facturación no debe bloquearse porque el destinatario preferente no tenga email:
-        // la automatización puede considerarse procesada aunque no exista un canal de comunicación válido.
+        // El destinatario de facturación se resuelve dinámicamente y tiene fallback dentro del tenant. Si no existe
+        // ningún destinatario válido, no hay una acción de envío que reintentar y el evento no debe quedar bloqueado.
         if (string.IsNullOrWhiteSpace(email))
             return;
 
@@ -290,7 +293,8 @@ public sealed class AutomationWorker : BackgroundService
     }
 
     // El historial de ejecución se escribe junto con el cambio de estado en la misma conexión, de modo que una
-    // ejecución marcada como completada siempre deja también su traza de duración/resultados.
+    // ejecución marcada como completada siempre deja también su traza de duración/resultados; el historial refleja
+    // intentos individuales y no sustituye al estado durable del job.
     private async Task CompleteJobAsync(long jobId, DateTime started, CancellationToken cancellationToken)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
@@ -309,6 +313,8 @@ public sealed class AutomationWorker : BackgroundService
     // de reintentos, manteniendo trazabilidad sin perder el trabajo original.
     private async Task FailJobAsync(AutomationJob job, Exception ex, DateTime started, CancellationToken cancellationToken)
     {
+        // El backoff crece por intento hasta 5 minutos para no castigar continuamente servicios externos que estén
+        // temporalmente degradados. La comparación usa el intento ya consumido al reclamar el job.
         var retry = job.Attempts < job.MaxAttempts;
         var delay = TimeSpan.FromSeconds(Math.Min(300, Math.Pow(2, Math.Max(0, job.Attempts - 1)) * 5));
 

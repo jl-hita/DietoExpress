@@ -34,6 +34,8 @@ RETURNING id;", connection);
         command.Parameters.AddWithValue("title", title);
         command.Parameters.AddWithValue("message", message);
         command.Parameters.AddWithValue("action", (object?)actionUrl ?? DBNull.Value);
+        // La notificación in-app queda persistida antes de intentar push: un fallo del proveedor no debe hacer
+        // desaparecer el aviso que el paciente puede consultar desde el portal.
         var id = Convert.ToInt64(await command.ExecuteScalarAsync());
         if (sendPush) await SendPushAsync(clientId, new PushPayload(title, message, actionUrl));
         return id;
@@ -184,6 +186,8 @@ WHERE client_id = @client;", connection);
             }
             catch (Exception ex)
             {
+                // Un fallo puntual de push no invalida la notificación persistida ni debe bloquear otras suscripciones.
+                // El portal sigue siendo el canal durable aunque el proveedor push esté temporalmente degradado.
                 _logger.LogWarning(ex, "No se pudo enviar push al paciente {ClientId}.", clientId);
             }
         }
