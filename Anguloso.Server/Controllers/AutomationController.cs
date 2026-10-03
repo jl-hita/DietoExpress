@@ -101,8 +101,10 @@ public sealed class AutomationController : ControllerBase
         if (recipient is not ("assigned_professional" or "clinic_admin" or "patient" or "both")) return BadRequest();
 
         var channels = request.Channels is { Length: > 0 }
-            ? request.Channels.Distinct(StringComparer.OrdinalIgnoreCase).Select(x => x.Trim().ToLowerInvariant()).Where(x => x.Length <= 30).Take(10).ToArray()
+            ? request.Channels.Distinct(StringComparer.OrdinalIgnoreCase).Select(x => x.Trim().ToLowerInvariant()).ToArray()
             : ["in_app"];
+        if (channels.Any(x => x is not ("in_app" or "email" or "push")))
+            return BadRequest();
 
         await using var connection = new NpgsqlConnection(_configuration.GetConnectionString("DefaultConnection"));
         await connection.OpenAsync();
