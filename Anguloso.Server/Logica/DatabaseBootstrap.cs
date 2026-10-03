@@ -1367,6 +1367,37 @@ public static class DatabaseBootstrap
     }
 
 
+    /// <summary>Refuerza la integridad de versiones y del estado activo de las plantillas documentales.</summary>
+    public static void UpgradeDocumentTemplateSchemaV1(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            -- Si una instalación anterior tiene varias versiones activas de la misma plantilla,
+            -- conserva activa únicamente la versión más reciente antes de crear la restricción.
+            WITH ranked AS (
+                SELECT id,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY tenant_id, LOWER(name)
+                           ORDER BY version DESC, id DESC
+                       ) AS rn
+                FROM document_templates
+                WHERE is_active = TRUE
+            )
+            UPDATE document_templates dt
+            SET is_active = FALSE,
+                updated_at = NOW()
+            FROM ranked r
+            WHERE dt.id = r.id
+              AND r.rn > 1;
+
+            -- Una sola versión activa por plantilla lógica.
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_document_templates_tenant_name_active_ci
+                ON document_templates(tenant_id, LOWER(name))
+                WHERE is_active = TRUE;
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('document-templates-v1-integrity') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración documental document-templates-v1-integrity aplicada correctamente.");
+    }
+
     /// <summary>Datos mínimos de onboarding y consentimiento explícito del paciente.</summary>
     public static void UpgradeAutomationSchemaV4(angulosodbContext context, ILogger logger)
     {
