@@ -954,6 +954,7 @@ public static class DatabaseBootstrap
     }
 
     /// <summary>Motor persistente de automatizaciones, scheduler y tareas profesionales.</summary>
+    // Las restricciones de idempotencia y estado se mantienen en PostgreSQL, no solo en C#: también protegen frente a concurrencia entre peticiones y el worker.
     public static void UpgradeAutomationSchemaV1(angulosodbContext context, ILogger logger)
     {
         context.Database.ExecuteSqlRaw(@"
