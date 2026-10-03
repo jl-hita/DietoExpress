@@ -1111,7 +1111,6 @@
             <mat-icon>{{ documentAudit[doc.id] ? 'expand_less' : 'history' }}</mat-icon>
             {{ documentAudit[doc.id] ? 'Ocultar historial' : 'Historial' }}
           </button>
-        </div>
 
         <div *ngIf="documentAudit[doc.id]" style="margin: -4px 0 8px 0; padding:14px 16px; border-left:3px solid #cbd5e1; background:#f8fafc; border-radius:0 8px 8px 0;">
           <div *ngIf="documentAudit[doc.id].length === 0" style="font-size:13px; color:#64748b;">No hay eventos registrados.</div>
@@ -1127,6 +1126,7 @@
               </div>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </mat-tab>
