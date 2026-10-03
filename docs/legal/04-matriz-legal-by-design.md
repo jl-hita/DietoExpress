@@ -11,9 +11,9 @@ Cada nueva funcionalidad que trate datos personales debe identificar antes de ac
 | Tenancy | Aislar datos entre responsables | tenant_id + autorización + pruebas IDOR | Implementado / mantener |
 | Salud | Restringir acceso a expediente | autorización + auditoría READ_MEDICAL_CHART | Implementado |
 | Documentos | Evidenciar aceptación | legal_documents + legal_acceptances + hash/versionado | Implementado |
-| Derechos | Facilitar acceso/exportación/corrección/supresión | Procedimientos y endpoints específicos | Pendiente |
+| Derechos | Facilitar acceso/exportación/corrección/supresión | Registro RGPD + exportación + flujo de supresión controlada | Parcial |
 | Conservación | No aplicar TTL global | Matriz por tratamiento | Pendiente |
-| Brechas | Registrar y evaluar incidentes | Registro de incidentes | Pendiente |
+| Brechas | Registrar y evaluar incidentes | Registro `privacy_incidents` + auditoría + procedimiento | Parcial |
 | Subencargados | Inventario y transferencias | Catálogo de proveedores | Pendiente |
 | Menores | Representación y consentimiento cuando proceda | Flujo específico | Pendiente |
 | Comunicaciones | Separar asistencial y marketing | Preferencias por finalidad/canal | Parcial |
