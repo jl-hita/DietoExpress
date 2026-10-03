@@ -109,6 +109,51 @@ public sealed class PrivacyOperationsService
         return true;
     }
 
+    public async Task<object?> ExportClientAsync(int clientId, CancellationToken ct)
+    {
+        var tenantId = RequireTenant();
+        var client = await _context.clients.AsNoTracking()
+            .Include(c => c.biometrics)
+            .Include(c => c.medical_history)
+            .Include(c => c.digestive_health)
+            .Include(c => c.food_preferences)
+            .Include(c => c.lifestyle_history)
+            .Include(c => c.client_diets)
+            .FirstOrDefaultAsync(c => c.id == clientId && c.tenant_id == tenantId, ct);
+        if (client == null) return null;
+
+        // La exportación se limita al tenant y devuelve una fotografía de los datos operativos conocidos; no incluye secretos de autenticación.
+        await _audit.LogAccessAsync("EXPORT_PATIENT_DATA", "clients", clientId.ToString(), clientId, "Exportación de datos del expediente");
+        return new
+        {
+            exportedAt = DateTime.UtcNow,
+            client = new
+            {
+                client.id, client.full_name, client.email, client.phone, client.birth_date, client.gender,
+                client.notes, client.created_at, client.archived_at, client.lifecycle_status,
+                client.onboarding_consent_at, client.onboarding_consent_version
+            },
+            biometrics = client.biometrics,
+            medicalHistory = client.medical_history,
+            digestiveHealth = client.digestive_health,
+            foodPreferences = client.food_preferences,
+            lifestyleHistory = client.lifestyle_history,
+            diets = client.client_diets
+        };
+    }
+
+    public async Task<bool> RequestErasureAsync(long requestId, CancellationToken ct)
+    {
+        var tenantId = RequireTenant();
+        var count = await ExecuteNonQueryAsync(@"UPDATE privacy_requests
+            SET status='in_progress', decision='Supresión solicitada: pendiente de revisión de obligaciones de conservación.', updated_by=@user
+            WHERE id=@id AND tenant_id=@tenant AND right_type='erasure'",
+            tenantId, cmd => { Add(cmd,"id",requestId); Add(cmd,"user",_tenant.UserId); return cmd; }, ct);
+        if (count == 0) return false;
+        await _audit.LogAccessAsync("REQUEST_PATIENT_ERASURE", "privacy_requests", requestId.ToString(), null, "Solicitud de supresión pendiente de revisión");
+        return true;
+    }
+
     private int RequireTenant() => _tenant.TenantId ?? throw new InvalidOperationException("No hay tenant autenticado.");
 
     private async Task EnsureClientBelongsToTenantAsync(int? clientId, int tenantId, CancellationToken ct)
