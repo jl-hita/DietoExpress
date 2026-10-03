@@ -32,13 +32,8 @@ public class PatientDocumentsController : ControllerBase
     {
         if (!await CanAccessClientAsync(clientId)) return NotFound();
 
-        await _patientDocumentService.CreateRequiredDocumentsAsync(
-            GetTenantId() ?? 0,
-            clientId,
-            AuthHelpers.GetUserId(User),
-            forClientCreation: false,
-            includeAllRequired: true,
-            cancellationToken: HttpContext.RequestAborted);
+        // La consulta de documentos es de lectura; no debe crear documentación como efecto lateral.
+        // El alta y el inicio de consulta son los puntos que provisionan documentación obligatoria.
 
         var rows = await _context.Database.SqlQueryRaw<PatientDocumentDto>(
             """
