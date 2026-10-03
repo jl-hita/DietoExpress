@@ -7,6 +7,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
@@ -52,7 +53,7 @@ interface AutomationJob {
   standalone: true,
   imports: [
     CommonModule, FormsModule, MatButtonModule, MatCardModule, MatCheckboxModule,
-    MatIconModule, MatInputModule, MatProgressSpinnerModule, MatSelectModule,
+    MatIconModule, MatInputModule, MatFormFieldModule, MatProgressSpinnerModule, MatSelectModule,
     MatSlideToggleModule, MatTabsModule, MatSnackBarModule
   ],
   template: `
