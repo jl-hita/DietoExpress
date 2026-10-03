@@ -1381,6 +1381,16 @@ public class AuthorizationRegressionTests
 
 
     [Fact]
+    public void PatientDocumentProvisioning_SerializesConcurrentRequestsPerPatient()
+    {
+        var service = ReadServerLogic("PatientDocumentService.cs");
+
+        Assert.Contains("pg_advisory_xact_lock(hashtextextended(@lockKey, 0))", service);
+        Assert.Contains("patient-documents:{tenantId}:{clientId}", service);
+        Assert.Contains("WHERE NOT EXISTS", service);
+    }
+
+    [Fact]
     public void PatientDocumentProvisioning_CleansCopiedFilesWhenTransactionFails()
     {
         var source = ReadServerLogica("PatientDocumentService.cs");
