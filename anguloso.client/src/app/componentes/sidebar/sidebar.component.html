@@ -30,6 +30,11 @@
         <mat-icon>auto_awesome</mat-icon><span>Automatizaciones</span>
       </a>
     </div>
+    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount">
+      <a mat-list-item routerLink="/documents" routerLinkActive="active-link" (click)="navigateAndClose()">
+        <mat-icon>description</mat-icon><span>Documentación</span>
+      </a>
+    </div>
     <div class="menu-item">
       <a mat-list-item routerLink="/billing" routerLinkActive="active-link" (click)="navigateAndClose()">
         <mat-icon>workspace_premium</mat-icon><span>Suscripción</span>

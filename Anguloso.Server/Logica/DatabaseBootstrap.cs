@@ -383,6 +383,82 @@ public static class DatabaseBootstrap
                 CREATE INDEX IF NOT EXISTS idx_audit_logs_client_id ON audit_logs(client_id);
                 CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant_id ON audit_logs(tenant_id);
 
+                -- 21. Document templates and patient documents
+                CREATE TABLE IF NOT EXISTS document_templates (
+                    id BIGSERIAL PRIMARY KEY,
+                    tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                    name VARCHAR(200) NOT NULL,
+                    description VARCHAR(1000),
+                    document_type VARCHAR(50) NOT NULL DEFAULT 'other',
+                    content_html TEXT,
+                    file_name VARCHAR(255),
+                    storage_key VARCHAR(500),
+                    mime_type VARCHAR(100),
+                    file_size BIGINT,
+                    sha256 VARCHAR(64),
+                    version INTEGER NOT NULL DEFAULT 1,
+                    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                    is_required_on_client_creation BOOLEAN NOT NULL DEFAULT FALSE,
+                    requires_signature BOOLEAN NOT NULL DEFAULT FALSE,
+                    created_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                );
+                ALTER TABLE document_templates
+                    ADD COLUMN IF NOT EXISTS is_required_before_consultation BOOLEAN NOT NULL DEFAULT FALSE;
+
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_document_templates_tenant_name_version
+                    ON document_templates(tenant_id, name, version);
+                CREATE INDEX IF NOT EXISTS idx_document_templates_tenant_active
+                    ON document_templates(tenant_id, is_active);
+
+                CREATE TABLE IF NOT EXISTS patient_documents (
+                    id BIGSERIAL PRIMARY KEY,
+                    tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                    client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                    document_template_id BIGINT REFERENCES document_templates(id) ON DELETE SET NULL,
+                    consultation_id BIGINT,
+                    name VARCHAR(255) NOT NULL,
+                    document_type VARCHAR(50) NOT NULL DEFAULT 'other',
+                    status VARCHAR(30) NOT NULL DEFAULT 'pending',
+                    version INTEGER NOT NULL DEFAULT 1,
+                    requires_signature BOOLEAN NOT NULL DEFAULT FALSE,
+                    signed_at TIMESTAMPTZ,
+                    viewed_at TIMESTAMPTZ,
+                    revoked_at TIMESTAMPTZ,
+                    storage_key VARCHAR(500) NOT NULL,
+                    original_file_name VARCHAR(255),
+                    mime_type VARCHAR(100) NOT NULL,
+                    file_size BIGINT NOT NULL,
+                    sha256 VARCHAR(64) NOT NULL,
+                    created_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                );
+                CREATE INDEX IF NOT EXISTS idx_patient_documents_tenant_client
+                    ON patient_documents(tenant_id, client_id, created_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_patient_documents_template
+                    ON patient_documents(document_template_id);
+                CREATE INDEX IF NOT EXISTS idx_patient_documents_status
+                    ON patient_documents(tenant_id, status);
+
+                CREATE TABLE IF NOT EXISTS patient_document_events (
+                    id BIGSERIAL PRIMARY KEY,
+                    tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                    patient_document_id BIGINT NOT NULL REFERENCES patient_documents(id) ON DELETE CASCADE,
+                    client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                    event_type VARCHAR(50) NOT NULL,
+                    ip_address VARCHAR(50),
+                    user_agent VARCHAR(500),
+                    details TEXT,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                );
+                CREATE INDEX IF NOT EXISTS idx_patient_document_events_document
+                    ON patient_document_events(patient_document_id, created_at);
+                CREATE INDEX IF NOT EXISTS idx_patient_document_events_client
+                    ON patient_document_events(tenant_id, client_id, created_at DESC);
+
+
                 -- Índices de users para el dashboard de administración y consultas frecuentes
                 CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at DESC, id DESC);
                 CREATE INDEX IF NOT EXISTS idx_users_license_expires_at ON users(license_expires_at);
@@ -1290,6 +1366,37 @@ public static class DatabaseBootstrap
         logger.LogInformation("Migración de automatizaciones automation-v1-engine-scheduler-tasks aplicada correctamente.");
     }
 
+
+    /// <summary>Refuerza la integridad de versiones y del estado activo de las plantillas documentales.</summary>
+    public static void UpgradeDocumentTemplateSchemaV1(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            -- Si una instalación anterior tiene varias versiones activas de la misma plantilla,
+            -- conserva activa únicamente la versión más reciente antes de crear la restricción.
+            WITH ranked AS (
+                SELECT id,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY tenant_id, LOWER(name)
+                           ORDER BY version DESC, id DESC
+                       ) AS rn
+                FROM document_templates
+                WHERE is_active = TRUE
+            )
+            UPDATE document_templates dt
+            SET is_active = FALSE,
+                updated_at = NOW()
+            FROM ranked r
+            WHERE dt.id = r.id
+              AND r.rn > 1;
+
+            -- Una sola versión activa por plantilla lógica.
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_document_templates_tenant_name_active_ci
+                ON document_templates(tenant_id, LOWER(name))
+                WHERE is_active = TRUE;
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('document-templates-v1-integrity') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración documental document-templates-v1-integrity aplicada correctamente.");
+    }
 
     /// <summary>Datos mínimos de onboarding y consentimiento explícito del paciente.</summary>
     public static void UpgradeAutomationSchemaV4(angulosodbContext context, ILogger logger)

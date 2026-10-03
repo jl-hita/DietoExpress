@@ -737,6 +737,57 @@
     <!-- ══════════════════════════════════════════ -->
     <!-- BARRA DE NAVEGACIÓN INFERIOR              -->
     <!-- ══════════════════════════════════════════ -->
+    <!-- TAB: DOCUMENTACIÓN -->
+    <main class="portal-content documents-content" *ngIf="activeTab === 'documents'">
+      <div class="section-hero">
+        <mat-icon>description</mat-icon>
+        <div>
+          <h2>Documentación</h2>
+          <span>Documentos compartidos por tu nutricionista</span>
+        </div>
+      </div>
+
+      <section class="appointment-card" *ngIf="!documentsLoading && !documentsError">
+        <div class="empty-state" *ngIf="!documents.length">
+          <mat-icon>folder_open</mat-icon>
+          <h3>No tienes documentos todavía</h3>
+          <p>Cuando tu nutricionista comparta documentación contigo aparecerá aquí.</p>
+        </div>
+        <article class="appointment-item" *ngFor="let doc of documents">
+          <div class="appointment-item-date">
+            <mat-icon>picture_as_pdf</mat-icon>
+          </div>
+          <div class="appointment-item-info">
+            <strong>{{ doc.name }}</strong>
+            <span>Versión {{ doc.version }} · {{ doc.createdAt | date:'d MMM yyyy' }}</span>
+            <span class="appointment-status" *ngIf="doc.requiresSignature && doc.status === 'pending'">Pendiente de firma/aceptación</span>
+            <span class="appointment-status" *ngIf="doc.status === 'signed'">Aceptado</span>
+            <span class="appointment-status" *ngIf="!doc.requiresSignature && doc.status !== 'signed'">Disponible</span>
+          </div>
+          <div class="document-actions">
+            <button type="button" class="appointment-cancel" (click)="downloadDocument(doc)">Abrir PDF</button>
+            <button type="button" class="appointment-cancel" *ngIf="doc.requiresSignature && doc.status === 'pending'" (click)="acceptDocument(doc)">Aceptar documento</button>
+          </div>
+        </article>
+      </section>
+
+      <div class="portal-inline-loading" *ngIf="documentsLoading">
+        <mat-spinner diameter="28"></mat-spinner>
+        <span>Cargando documentación...</span>
+      </div>
+
+      <div class="portal-inline-error" *ngIf="documentsError">
+        <mat-icon>cloud_off</mat-icon>
+        <div>
+          <strong>No hemos podido cargar la documentación</strong>
+          <span>{{ documentsError }}</span>
+        </div>
+        <button type="button" (click)="loadDocuments()" aria-label="Reintentar documentación">
+          <mat-icon>refresh</mat-icon>
+        </button>
+      </div>
+    </main>
+
     <nav class="bottom-nav">
       <button type="button" class="nav-tab" [class.active]="activeTab === 'today'" [attr.aria-current]="activeTab === 'today' ? 'page' : null" aria-label="Ver plan de hoy" (click)="setTab('today')">
         <mat-icon>restaurant_menu</mat-icon>
@@ -758,6 +809,10 @@
       <button type="button" class="nav-tab" [class.active]="activeTab === 'messages'" [attr.aria-current]="activeTab === 'messages' ? 'page' : null" aria-label="Ver mis mensajes" (click)="setTab('messages')">
         <mat-icon>chat</mat-icon>
         <span>Mensajes</span>
+      </button>
+      <button type="button" class="nav-tab" [class.active]="activeTab === 'documents'" [attr.aria-current]="activeTab === 'documents' ? 'page' : null" aria-label="Ver mi documentación" (click)="openDocuments()">
+        <mat-icon>description</mat-icon>
+        <span>Docs</span>
       </button>
       <button type="button" class="nav-tab" [class.active]="activeTab === 'progress'" [attr.aria-current]="activeTab === 'progress' ? 'page' : null" aria-label="Ver mi progreso" (click)="setTab('progress')">
         <mat-icon>trending_up</mat-icon>

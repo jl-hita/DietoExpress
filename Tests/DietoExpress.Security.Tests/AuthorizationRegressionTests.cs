@@ -1225,6 +1225,195 @@ public class AuthorizationRegressionTests
 
 
     [Fact]
+    public void PatientDocuments_ProfessionalEndpointsRequireProfessionalPolicy()
+    {
+        var source = ReadServerController("PatientDocumentsController.cs");
+
+        foreach (var marker in new[]
+        {
+            "api/clients/{clientId:int}/documents",
+            "api/clients/{clientId:int}/documents/summary",
+            "api/clients/{clientId:int}/documents/{documentId:long}",
+            "api/clients/{clientId:int}/documents/{documentId:long}/audit"
+        })
+        {
+            AssertEndpointAttributePair(source, marker);
+        }
+
+        Assert.Contains("[Authorize]", source);
+        Assert.Contains("AuthHelpers.IsPatient(User)", source);
+    }
+
+    [Fact]
+    public void PatientDocuments_DownloadsEnforceTenantAndPrivateStorage()
+    {
+        var source = ReadServerController("PatientDocumentsController.cs");
+
+        Assert.Contains("tenant_id = {2}", source);
+        Assert.Contains("GetSafePhysicalPath", source);
+        Assert.Contains("DIETOEXPRESS_DOCUMENTS_PATH", source);
+        Assert.DoesNotContain("wwwroot", source);
+        Assert.Contains("storage_key", source);
+        Assert.Contains("revoked_at IS NULL", source);
+    }
+
+    [Fact]
+    public void PatientDocuments_AcceptanceAuditsExactVersionAndHash()
+    {
+        var source = ReadServerController("PatientDocumentsController.cs");
+
+        Assert.Contains("DocumentAcceptanceSnapshot", source);
+        Assert.Contains("documentSnapshot.Version", source);
+        Assert.Contains("documentSnapshot.Sha256", source);
+        Assert.Contains("event_type, ip_address, user_agent, details", source);
+        Assert.Contains("signed_at=NOW()", source);
+    }
+
+    [Fact]
+    public void DocumentTemplateVersions_AreCaseInsensitiveByName()
+    {
+        var source = ReadServerController("DocumentTemplatesController.cs");
+
+        Assert.Contains("LOWER(name)=LOWER(@name)", source);
+        Assert.DoesNotContain("tenant=@tenant AND name=@name", source);
+    }
+
+    [Fact]
+    public void DocumentTemplateVersions_AreSerializedPerTenantAndName()
+    {
+        var source = ReadServerController("DocumentTemplatesController.cs");
+
+        Assert.Contains("pg_advisory_xact_lock", source);
+        Assert.Contains("hashtextextended", source);
+        Assert.Contains("document-template:{name.Trim().ToLowerInvariant()}", source);
+        Assert.Contains("SET is_active=false", source);
+        Assert.Contains("LOWER(name)=LOWER(@name)", source);
+    }
+
+    [Fact]
+    public void DocumentTemplateActivation_CannotLeaveMultipleActiveVersions()
+    {
+        var source = ReadServerController("DocumentTemplatesController.cs");
+        var bootstrap = ReadServerLogica("DatabaseBootstrap.cs");
+
+        Assert.Contains("SET is_active=false", source);
+        Assert.Contains("id<>@id", source);
+        Assert.Contains("uq_document_templates_tenant_name_active_ci", bootstrap);
+        Assert.Contains("PARTITION BY tenant_id, LOWER(name)", bootstrap);
+    }
+
+    [Fact]
+    public void PatientDocuments_NewVersionsPreserveHistoryAndRequireNewAcceptance()
+    {
+        var source = ReadServerLogica("PatientDocumentService.cs");
+
+        Assert.Contains("includeAllRequired", source);
+        Assert.Contains("LOWER(name)", source);
+        Assert.Contains("revoked_at=NOW(), status='revoked'", source);
+        Assert.Contains("event_type, details", source);
+        Assert.Contains("'superseded'", source);
+        Assert.Contains("la aceptación de la versión anterior se conserva", source);
+    }
+
+    [Fact]
+    public void PatientDocuments_ConsultationChecksOnlyConsultationRequiredTemplates()
+    {
+        var source = ReadServerLogica("PatientDocumentService.cs");
+        var controller = ReadServerController("ProfessionalConsultationsController.cs");
+
+        Assert.Contains("is_required_before_consultation=true", source);
+        Assert.Contains("GetPendingSignatureDocumentsBeforeConsultationAsync", controller);
+        Assert.Contains("forClientCreation: false", controller);
+        Assert.Contains("includeAllRequired: false", controller);
+    }
+
+
+    [Fact]
+    public void PatientPortal_DoesNotProvisionConsultationOnlyDocuments()
+    {
+        var source = ReadServerController("PatientDocumentsController.cs");
+        var portalPos = source.IndexOf("ListForPatient", StringComparison.Ordinal);
+        Assert.True(portalPos >= 0);
+
+        var portal = source[portalPos..];
+        Assert.Contains("forClientCreation: true", portal);
+        Assert.Contains("includeAllRequired: false", portal);
+        Assert.DoesNotContain("forClientCreation: false", portal[..Math.Min(portal.Length, 1200)]);
+    }
+
+    [Fact]
+    public void NewPatientDocumentReminders_RequirePendingSignatureDocuments()
+    {
+        var controller = ReadServerController("ClientsController.cs");
+
+        Assert.Contains("GetPendingSignatureDocumentsAsync", controller);
+        Assert.Contains("pendingSignatureDocuments.Count > 0", controller);
+        Assert.Contains("documents:pending-reminder:{client.id}:24h", controller);
+        Assert.Contains("documents:pending-reminder:{client.id}:72h", controller);
+    }
+
+    [Fact]
+    public void ConsultationDocumentReminders_ArePatientScopedAndCancellable()
+    {
+        var controller = ReadServerController("ProfessionalConsultationsController.cs");
+        var automation = ReadServerLogica("AutomationService.cs");
+
+        Assert.Contains("documents:pending-reminder:{appointment.ClientId}:consultation:{appointment.Id}:24h", controller);
+        Assert.Contains("documents:pending-reminder:{appointment.ClientId}:consultation:{appointment.Id}:72h", controller);
+        Assert.Contains("DateTime.UtcNow.AddHours(24)", controller);
+        Assert.Contains("DateTime.UtcNow.AddHours(72)", controller);
+        Assert.Contains("documents:pending-reminder:{clientId}:", automation);
+        Assert.Contains("status='cancelled'", automation);
+    }
+
+    [Fact]
+    public void PatientDocuments_NonSignatureDocumentsAreNotPendingSignatures()
+    {
+        var service = ReadServerLogica("PatientDocumentService.cs");
+        var controller = ReadServerController("PatientDocumentsController.cs");
+
+        Assert.Contains(@"template.RequiresSignature ? ""pending"" : ""available""", service);
+        Assert.Contains("requires_signature=true", service);
+        Assert.Contains("status='pending'", service);
+        Assert.Contains("requires_signature = true AND status = 'pending'", controller);
+    }
+
+
+
+    [Fact]
+    public void PatientDocumentProvisioning_SerializesConcurrentRequestsPerPatient()
+    {
+        var service = ReadServerLogic("PatientDocumentService.cs");
+
+        Assert.Contains("pg_advisory_xact_lock(hashtextextended(@lockKey, 0))", service);
+        Assert.Contains("patient-documents:{tenantId}:{clientId}", service);
+        Assert.Contains("WHERE NOT EXISTS", service);
+    }
+
+    [Fact]
+    public void PatientDocumentProvisioning_CleansCopiedFilesWhenTransactionFails()
+    {
+        var source = ReadServerLogica("PatientDocumentService.cs");
+
+        Assert.Contains("var copiedFiles = new List<string>();", source);
+        Assert.Contains("copiedFiles.Add(destination);", source);
+        Assert.Contains("await transaction.RollbackAsync(cancellationToken);", source);
+        Assert.Contains("foreach (var copiedFile in copiedFiles)", source);
+        Assert.Contains("File.Delete(copiedFile)", source);
+    }
+
+    [Fact]
+    public void PatientDocumentAcceptance_IsIdempotentUnderConcurrentRetries()
+    {
+        var source = ReadServerController("PatientDocumentsController.cs");
+
+        Assert.Contains("AND revoked_at IS NULL AND requires_signature=true AND status='pending'", source);
+        Assert.Contains(@"if (string.Equals(currentStatus, ""signed"", StringComparison.OrdinalIgnoreCase)) return NoContent();", source);
+        Assert.Contains("no duplicamos auditoría ni automatizaciones", source);
+        Assert.Contains("documentSnapshot.Sha256", source);
+    }
+
+    [Fact]
     public void ClientCreateAndUpdate_BoundProfilePayload()
     {
         var source = ReadServerController("ClientsController.cs");

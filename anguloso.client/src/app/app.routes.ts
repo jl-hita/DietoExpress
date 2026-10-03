@@ -28,6 +28,7 @@ import { PatientChatComponent } from './componentes/patient-chat/patient-chat.co
 import { MessagesComponent } from './componentes/messages/messages.component';
 import { AutomationSettingsComponent } from './componentes/automation-settings/automation-settings.component';
 import { GuidedConsultationComponent } from './componentes/guided-consultation/guided-consultation.component';
+import { DocumentTemplatesComponent } from './componentes/document-templates/document-templates.component';
 
 export interface AppRoute extends Route {
   showInMenu?: boolean;
@@ -60,6 +61,7 @@ export const routes: AppRoute[] = [
       { path: 'diets/:id', component: DietCreateComponent, canActivate: [SubscriptionGuard], title: 'Editar dieta' },
       { path: 'onboarding', component: OnboardingComponent, title: 'Bienvenido a DietoExpress' },
       { path: 'settings', component: SettingsComponent, title: 'Ajustes' },
+      { path: 'documents', component: DocumentTemplatesComponent, canActivate: [SubscriptionGuard], title: 'Documentación' },
       { path: 'automations', component: AutomationSettingsComponent, canActivate: [SubscriptionGuard], title: 'Automatizaciones' },
       { path: 'billing', component: BillingComponent, title: 'Suscripción' },
       { path: 'admin', component: AdminDashboardComponent, canActivate: [SuperAdminGuard], title: 'Panel SuperAdmin' },

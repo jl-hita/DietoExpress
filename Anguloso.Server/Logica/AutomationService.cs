@@ -54,6 +54,8 @@ public sealed class AutomationService
                 "diet.renewal" => new AutomationRuleConfig(true, null, "both", ["in_app"]),
                 "biometrics.review_due" => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"]),
                 "biometrics.evolution" => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"]),
+                "documents.pending.reminder" => new AutomationRuleConfig(true, null, "patient", ["in_app"]),
+                "documents.completed" => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"]),
                 _ => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"])
             };
             return defaults;
@@ -266,6 +268,8 @@ public sealed class AutomationService
         if (idempotencyKey?.StartsWith("diet:renewal-task:", StringComparison.Ordinal) == true) return "diet.renewal";
         if (idempotencyKey?.StartsWith("biometrics:review_due:", StringComparison.Ordinal) == true) return "biometrics.review_due";
         if (idempotencyKey?.StartsWith("biometrics:evolution:", StringComparison.Ordinal) == true) return "biometrics.evolution";
+        if (idempotencyKey?.StartsWith("documents:pending-reminder:", StringComparison.Ordinal) == true) return "documents.pending.reminder";
+        if (idempotencyKey?.StartsWith("documents:completed:", StringComparison.Ordinal) == true) return "documents.completed";
         if (idempotencyKey?.EndsWith(":reminder-24h", StringComparison.Ordinal) == true) return "appointment.reminder.24h";
         if (idempotencyKey?.EndsWith(":reminder-2h", StringComparison.Ordinal) == true) return "appointment.reminder.2h";
         if (idempotencyKey?.StartsWith("postappointment:checkin:", StringComparison.Ordinal) == true) return "appointment.completed";
@@ -1616,7 +1620,16 @@ public sealed class AutomationService
     }
 
 
-    /// <summary>Invalida jobs pendientes de una familia funcional cuando su condición ya no se cumple.</summary>
+    /// <summary>
+    /// Cancela recordatorios de documentación que ya no son necesarios.
+    /// Se limita al tenant y al prefijo de idempotencia de un paciente.
+    /// </summary>
+    public Task CancelPendingDocumentReminderJobsAsync(int tenantId, int clientId, CancellationToken cancellationToken = default)
+        => CancelPendingJobsByIdempotencyPrefixAsync(
+            tenantId,
+            $"documents:pending-reminder:{clientId}:",
+            cancellationToken);
+
     private async Task CancelPendingJobsByIdempotencyPrefixAsync(
         int tenantId,
         string prefix,

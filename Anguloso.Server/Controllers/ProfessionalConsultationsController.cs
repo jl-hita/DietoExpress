@@ -27,12 +27,18 @@ public sealed class ProfessionalConsultationsController : ControllerBase
     private readonly angulosodbContext _db;
     private readonly IConfiguration _configuration;
     private readonly ITenantContextService _tenantContext;
+    private readonly PatientDocumentService _patientDocumentService;
+    private readonly AutomationService _automationService;
 
-    public ProfessionalConsultationsController(angulosodbContext db, IConfiguration configuration, ITenantContextService tenantContext)
+    public ProfessionalConsultationsController(angulosodbContext db, IConfiguration configuration, ITenantContextService tenantContext,
+        PatientDocumentService patientDocumentService,
+        AutomationService automationService)
     {
         _db = db;
         _configuration = configuration;
         _tenantContext = tenantContext;
+        _patientDocumentService = patientDocumentService;
+        _automationService = automationService;
     }
 
     public sealed record StartConsultationRequest(string? ConsultationType);
@@ -136,6 +142,67 @@ public sealed class ProfessionalConsultationsController : ControllerBase
         if (appointment == null) return NotFound();
         if (appointment.Status != "confirmed")
             return Conflict(new { message = "La consulta solo puede iniciarse desde una cita confirmada." });
+
+        // Los documentos marcados como obligatorios antes de consulta se provisionan
+        // aquí también, por si la plantilla se configuró después del alta del paciente.
+        await _patientDocumentService.CreateRequiredDocumentsAsync(
+            appointment.TenantId,
+            appointment.ClientId,
+            _tenantContext.UserId,
+            forClientCreation: false,
+            includeAllRequired: false,
+            cancellationToken: HttpContext.RequestAborted);
+
+        var pendingDocuments = await _patientDocumentService.GetPendingSignatureDocumentsBeforeConsultationAsync(
+            appointment.TenantId,
+            appointment.ClientId,
+            HttpContext.RequestAborted);
+
+        if (pendingDocuments.Count > 0)
+        {
+            try
+            {
+                var notification = new NotifyPatientAction(
+                    appointment.ClientId,
+                    "documents_pending",
+                    "Necesitas completar documentación",
+                    "Hay documentación pendiente de firma que debes completar antes de tu consulta.",
+                    "/patient?tab=documents");
+
+                await _automationService.ScheduleActionAsync(
+                    appointment.TenantId,
+                    "notify_patient",
+                    notification,
+                    DateTime.UtcNow,
+                    idempotencyKey: $"documents:consultation:{appointment.Id}");
+
+                // Los recordatorios se cancelan automáticamente al completar toda la documentación.
+                await _automationService.ScheduleActionAsync(
+                    appointment.TenantId,
+                    "notify_patient",
+                    notification,
+                    DateTime.UtcNow.AddHours(24),
+                    idempotencyKey: $"documents:pending-reminder:{appointment.ClientId}:consultation:{appointment.Id}:24h");
+
+                await _automationService.ScheduleActionAsync(
+                    appointment.TenantId,
+                    "notify_patient",
+                    notification,
+                    DateTime.UtcNow.AddHours(72),
+                    idempotencyKey: $"documents:pending-reminder:{appointment.ClientId}:consultation:{appointment.Id}:72h");
+            }
+            catch (Exception ex)
+            {
+                HttpContext.RequestServices.GetRequiredService<ILogger<ProfessionalConsultationsController>>()
+                    .LogError(ex, "No se pudo notificar la documentación pendiente del paciente {ClientId}.", appointment.ClientId);
+            }
+
+            return Conflict(new
+            {
+                message = "La consulta no puede iniciarse hasta completar la documentación pendiente.",
+                requiredDocuments = pendingDocuments
+            });
+        }
 
         var existing = await ReadConsultationAsync(appointmentId, appointment.TenantId);
         if (existing != null) return Ok(existing);
