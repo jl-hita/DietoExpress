@@ -1066,6 +1066,54 @@
     </mat-tab>
 
     <!-- ═══════════════════════════════════════════════════════════ -->
+    <!--  TAB: DOCUMENTACIÓN                                        -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <mat-tab label="Documentación">
+      <div style="padding:24px 16px; display:flex; flex-direction:column; gap:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;">
+          <div>
+            <h3 style="margin:0 0 4px;">Documentación del paciente</h3>
+            <p style="margin:0; color:#64748b; font-size:13px;">Documentos requeridos, aceptación y estado de la documentación.</p>
+          </div>
+          <div *ngIf="!loadingDocuments" style="font-size:15px; font-weight:700;">
+            Documentación: {{ documentSummary.accepted }}/{{ documentSummary.required }} completados
+          </div>
+        </div>
+
+        <div *ngIf="!loadingDocuments && documentSummary.pending > 0" style="padding:14px 16px; border-radius:10px; background:#fff7ed; border:1px solid #fed7aa; color:#9a3412;">
+          <strong>{{ documentSummary.pending }} documento(s) pendiente(s)</strong> de aceptación.
+          La consulta se bloqueará si alguno de ellos está marcado como obligatorio antes de la consulta.
+        </div>
+        <div *ngIf="!loadingDocuments && documentSummary.required > 0 && documentSummary.pending === 0" style="padding:14px 16px; border-radius:10px; background:#ecfdf5; border:1px solid #a7f3d0; color:#065f46;">
+          Toda la documentación obligatoria está completada.
+        </div>
+
+        <div *ngIf="loadingDocuments" style="display:flex; align-items:center; gap:10px; padding:24px 0;">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Cargando documentación...</span>
+        </div>
+
+        <div *ngIf="!loadingDocuments && patientDocuments.length === 0" style="padding:28px; text-align:center; color:#64748b; border:1px dashed #cbd5e1; border-radius:10px;">
+          No hay documentos asociados a este paciente.
+        </div>
+
+        <div *ngFor="let doc of patientDocuments" style="display:flex; align-items:center; gap:14px; padding:14px; border:1px solid #e2e8f0; border-radius:10px; flex-wrap:wrap;">
+          <mat-icon style="color:#475569;">description</mat-icon>
+          <div style="flex:1; min-width:220px;">
+            <div style="font-weight:600;">{{ doc.name }}</div>
+            <div style="font-size:12px; color:#64748b;">v{{ doc.version }} · {{ doc.documentType }} · {{ doc.createdAt | date:'dd/MM/yyyy HH:mm' }}</div>
+          </div>
+          <span *ngIf="doc.requiresSignature && doc.status === 'pending'" style="font-size:12px; font-weight:600; color:#b45309;">Pendiente</span>
+          <span *ngIf="doc.status === 'signed'" style="font-size:12px; font-weight:600; color:#047857;">Aceptado</span>
+          <span *ngIf="!doc.requiresSignature && doc.status !== 'signed'" style="font-size:12px; color:#475569;">Disponible</span>
+          <button mat-stroked-button type="button" (click)="downloadPatientDocument(doc)">
+            <mat-icon>picture_as_pdf</mat-icon> Abrir
+          </button>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
     <!--  TAB: PORTAL DEL PACIENTE                                  -->
     <!-- ═══════════════════════════════════════════════════════════ -->
     <mat-tab label="Portal del Paciente">
