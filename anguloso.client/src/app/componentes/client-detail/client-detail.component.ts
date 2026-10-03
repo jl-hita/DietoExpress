@@ -27,7 +27,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCardModule } from '@angular/material/card';
-import { PatientPortalService, ClientPortalAccess } from '../../servicios/patient-portal.service';
+import { PatientCheckin, PatientCheckin, PatientPortalService, ClientPortalAccess } from '../../servicios/patient-portal.service';
 import { Subscription } from 'rxjs';
 import { debounceTime, filter, switchMap } from 'rxjs/operators';
 
@@ -77,6 +77,9 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
   chart: Chart | null = null;
   weightChart: Chart | null = null;
   bodyFatChart: Chart | null = null;
+  checkinChart: Chart | null = null;
+  checkins: PatientCheckin[] = [];
+  selectedFollowupMetric = 'adherence';
   dietsHistory: ClientDiet[] = [];
   energyReq: any = null;
   selectedActivity = 'Moderado';
@@ -133,6 +136,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
       this.loadEnergyRequirements();
       this.loadPortalAccess();
       this.loadCommunicationPreferences();
+      this.loadPatientCheckins();
     }
   }
 
@@ -453,6 +457,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     if (this.chart) this.chart.destroy();
     if (this.weightChart) this.weightChart.destroy();
     if (this.bodyFatChart) this.bodyFatChart.destroy();
+    if (this.checkinChart) this.checkinChart.destroy();
   }
 
   onTabChange(event: MatTabChangeEvent) {
@@ -715,9 +720,80 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     return this.getDelta(this.getBodyFatValue(this.getLatestBiometric()), this.getBodyFatValue(this.getPreviousBiometric()));
   }
 
+  loadPatientCheckins(): void {
+    if (!this.clientId) return;
+    this.portalService.getCheckins(this.clientId).subscribe({
+      next: checkins => {
+        this.checkins = [...checkins].sort((a, b) =>
+          new Date(a.submitted_at).getTime() - new Date(b.submitted_at).getTime());
+        setTimeout(() => this.renderCheckinChart(), 0);
+      },
+      error: () => this.checkins = []
+    });
+  }
+
+  onFollowupMetricChange(metric: string): void {
+    this.selectedFollowupMetric = metric;
+    this.renderCheckinChart();
+  }
+
+  private getFollowupMetricValue(checkin: PatientCheckin): number | null {
+    switch (this.selectedFollowupMetric) {
+      case 'adherence': return checkin.adherence ?? null;
+      case 'hunger': return checkin.hunger ?? null;
+      case 'energy': return checkin.energy ?? null;
+      case 'sleep_quality': return checkin.sleep_quality ?? null;
+      case 'sleep_hours': return checkin.sleep_hours ?? null;
+      case 'training': return checkin.training ?? null;
+      case 'weight': return checkin.weight ?? null;
+      default: return null;
+    }
+  }
+
+  getFollowupMetricLabel(): string {
+    switch (this.selectedFollowupMetric) {
+      case 'adherence': return 'Adherencia (%)';
+      case 'hunger': return 'Hambre (0–10)';
+      case 'energy': return 'Energía (0–10)';
+      case 'sleep_quality': return 'Calidad del sueño (0–10)';
+      case 'sleep_hours': return 'Horas de sueño';
+      case 'training': return 'Entrenamiento (0–10)';
+      case 'weight': return 'Peso del check-in (kg)';
+      default: return '';
+    }
+  }
+
+  private renderCheckinChart(): void {
+    const canvas = document.getElementById('checkinEvolutionChart') as HTMLCanvasElement | null;
+    if (!canvas) return;
+    if (this.checkinChart) this.checkinChart.destroy();
+    if (this.checkins.length < 1) return;
+    this.checkinChart = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: this.checkins.map(c => {
+          const d = new Date(c.submitted_at);
+          return Number.isNaN(d.getTime()) ? c.week_start : d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
+        }),
+        datasets: [{
+          label: this.getFollowupMetricLabel(),
+          data: this.checkins.map(c => this.getFollowupMetricValue(c)),
+          borderWidth: 3, tension: 0.3, fill: false, spanGaps: true,
+          pointRadius: 4, pointHoverRadius: 6
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: true, position: 'top' } },
+        scales: { y: { beginAtZero: false }, x: { grid: { display: false } } }
+      }
+    });
+  }
+
   renderEvolutionCharts() {
     this.renderWeightChart();
     this.renderBodyFatChart();
+    this.renderCheckinChart();
     if (this.evolutionData.length >= 2) this.renderChart();
   }
 
