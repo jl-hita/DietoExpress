@@ -44,8 +44,8 @@ export interface PatientAppointment {
   nutritionistName?: string | null;
 }
 
-export interface PatientCheckin { id: number; week_start: string; submitted_at: string; weight?: number | null; adherence?: number | null; hunger?: number | null; difficulties?: string | null; notes?: string | null; }
-export interface PatientCheckinRequest { weight?: number | null; adherence?: number | null; hunger?: number | null; difficulties?: string | null; notes?: string | null; }
+export interface PatientCheckin { id: number; week_start: string; submitted_at: string; weight?: number | null; adherence?: number | null; hunger?: number | null; energy?: number | null; sleep_quality?: number | null; sleep_hours?: number | null; training?: number | null; difficulties?: string | null; notes?: string | null; }
+export interface PatientCheckinRequest { weight?: number | null; adherence?: number | null; hunger?: number | null; energy?: number | null; sleep_quality?: number | null; sleep_hours?: number | null; training?: number | null; difficulties?: string | null; notes?: string | null; }
 export interface GoogleCalendarStatus { connected: boolean; email: string; calendarId: string; lastSyncedAt?: string | null; }
 
 export interface PatientNotification { id: number; type: string; title: string; message: string; actionUrl?: string | null; createdAt: string; readAt?: string | null; }
