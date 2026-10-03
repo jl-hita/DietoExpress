@@ -919,3 +919,55 @@
     min-height: 44px;
   }
 }
+
+
+/* Seguimiento semanal */
+.followup-evolution {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(100, 116, 139, 0.18);
+  border-radius: 12px;
+  background: var(--surface-card, #fff);
+}
+
+.followup-evolution .chart-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.followup-evolution .chart-card-header > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.followup-evolution .chart-card-header span {
+  font-size: 0.82rem;
+  opacity: 0.72;
+}
+
+.followup-evolution mat-form-field {
+  min-width: 190px;
+}
+
+.followup-evolution .secondary-chart {
+  min-height: 280px;
+}
+
+@media (max-width: 700px) {
+  .followup-evolution {
+    padding: 0.75rem;
+  }
+
+  .followup-evolution mat-form-field {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .followup-evolution .secondary-chart {
+    min-height: 230px;
+  }
+}
