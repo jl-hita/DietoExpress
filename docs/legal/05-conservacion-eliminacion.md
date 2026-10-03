@@ -29,12 +29,12 @@ No existe un TTL único para DietoExpress. La eliminación debe depender de la f
 
 ## Estado de implementación
 
-- Archivado lógico de pacientes: existente.
+- Archivado lógico de pacientes: implementado; revoca sesiones de portal y desactiva asignaciones activas.
 - Auditoría de acceso clínico: existente.
-- Política técnica de retención por categoría: pendiente de implementación.
-- Flujo formal de solicitud de supresión: pendiente.
-- Exportación integral del expediente: pendiente de completar.
-- Purga de backups documentada: pendiente de documentar según infraestructura real.
+- Política técnica de retención por categoría: pendiente de definir con los responsables y obligaciones reales.
+- Flujo de solicitud de supresión: infraestructura implementada; la ejecución física queda bloqueada hasta resolver conservación.
+- Exportación del expediente: implementada para datos operativos, documentos, citas, mensajes y evidencias de aceptación legal; debe revisarse por cada nuevo módulo.
+- Purga de backups: pendiente de documentar según infraestructura real.
 
 ## Regla para futuras funcionalidades
 
