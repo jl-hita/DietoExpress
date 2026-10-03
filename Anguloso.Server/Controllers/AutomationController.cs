@@ -20,6 +20,73 @@ public sealed class AutomationController : ControllerBase
         _tenantContext = tenantContext;
     }
 
+    public sealed record AutomationRuleRequest(bool Enabled, int? DelayMinutes, string? RecipientScope, string[]? Channels);
+
+    [HttpGet("rules")]
+    public async Task<IActionResult> GetRules()
+    {
+        if (!_tenantContext.TenantId.HasValue) return BadRequest();
+        await using var connection = new NpgsqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand("""
+            SELECT rule_key, enabled, delay_minutes, recipient_scope, channels, updated_at
+            FROM automation_rules
+            WHERE tenant_id=@tenant
+            ORDER BY rule_key;
+            """, connection);
+        command.Parameters.AddWithValue("tenant", _tenantContext.TenantId.Value);
+        var rows = new List<object>();
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            rows.Add(new
+            {
+                ruleKey = reader.GetString(0),
+                enabled = reader.GetBoolean(1),
+                delayMinutes = reader.IsDBNull(2) ? (int?)null : reader.GetInt32(2),
+                recipientScope = reader.GetString(3),
+                channels = reader.IsDBNull(4) ? Array.Empty<string>() : (System.Text.Json.JsonSerializer.Deserialize<string[]>(reader.GetString(4)) ?? Array.Empty<string>()),
+                updatedAt = reader.GetDateTime(5)
+            });
+        }
+        return Ok(rows);
+    }
+
+    [HttpPut("rules/{ruleKey}")]
+    public async Task<IActionResult> UpdateRule(string ruleKey, [FromBody] AutomationRuleRequest request)
+    {
+        if (!_tenantContext.TenantId.HasValue || string.IsNullOrWhiteSpace(ruleKey)) return BadRequest();
+        ruleKey = ruleKey.Trim().ToLowerInvariant();
+        if (ruleKey.Length > 120 || request.DelayMinutes is < 0 or > 525600) return BadRequest();
+
+        var recipient = string.IsNullOrWhiteSpace(request.RecipientScope)
+            ? "assigned_professional"
+            : request.RecipientScope.Trim().ToLowerInvariant();
+        if (recipient is not ("assigned_professional" or "clinic_admin" or "patient" or "both")) return BadRequest();
+
+        var channels = request.Channels is { Length: > 0 }
+            ? request.Channels.Distinct(StringComparer.OrdinalIgnoreCase).Select(x => x.Trim().ToLowerInvariant()).Where(x => x.Length <= 30).Take(10).ToArray()
+            : ["in_app"];
+
+        await using var connection = new NpgsqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand("""
+            INSERT INTO automation_rules(tenant_id, rule_key, enabled, delay_minutes, recipient_scope, channels, updated_at)
+            VALUES(@tenant,@rule,@enabled,@delay,@recipient,@channels::jsonb,NOW())
+            ON CONFLICT (tenant_id, rule_key)
+            DO UPDATE SET enabled=EXCLUDED.enabled, delay_minutes=EXCLUDED.delay_minutes,
+                          recipient_scope=EXCLUDED.recipient_scope, channels=EXCLUDED.channels, updated_at=NOW();
+            """, connection);
+        command.Parameters.AddWithValue("tenant", _tenantContext.TenantId.Value);
+        command.Parameters.AddWithValue("rule", ruleKey);
+        command.Parameters.AddWithValue("enabled", request.Enabled);
+        command.Parameters.AddWithValue("delay", (object?)request.DelayMinutes ?? DBNull.Value);
+        command.Parameters.AddWithValue("recipient", recipient);
+        command.Parameters.AddWithValue("channels", System.Text.Json.JsonSerializer.Serialize(channels));
+        await command.ExecuteNonQueryAsync();
+        return NoContent();
+    }
+
     // Este endpoint es solo de observabilidad y control: el worker sigue siendo el único componente que ejecuta jobs.
     [HttpGet("jobs")]
     public async Task<IActionResult> GetJobs(
