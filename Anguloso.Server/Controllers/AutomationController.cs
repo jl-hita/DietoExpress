@@ -20,7 +20,8 @@ public sealed class AutomationController : ControllerBase
         _tenantContext = tenantContext;
     }
 
-    // Este endpoint es solo de observabilidad y control: el worker sigue siendo el único componente que ejecuta jobs.\n    [HttpGet("jobs")]
+    // Este endpoint es solo de observabilidad y control: el worker sigue siendo el único componente que ejecuta jobs.
+    [HttpGet("jobs")]
     public async Task<IActionResult> GetJobs(
         [FromQuery] string? status = null,
         [FromQuery] int limit = 100)
@@ -30,6 +31,8 @@ public sealed class AutomationController : ControllerBase
 
         await using var connection = new NpgsqlConnection(_configuration.GetConnectionString("DefaultConnection"));
         await connection.OpenAsync();
+        // Todas las lecturas se filtran por tenant en SQL, no después de materializar resultados, para que una
+        // futura modificación del DTO no pueda convertir accidentalmente la consulta en una fuga cross-tenant.
         await using var command = new NpgsqlCommand("""
             SELECT id, event_id, action_type, scheduled_at, status, attempts, max_attempts,
                    last_error, created_at, updated_at, completed_at
@@ -73,6 +76,8 @@ public sealed class AutomationController : ControllerBase
         await using var connection = new NpgsqlConnection(_configuration.GetConnectionString("DefaultConnection"));
         await connection.OpenAsync();
 
+        // La consulta de ejecuciones parte del job y vuelve a comprobar su tenant; conocer un job_id no basta
+        // para consultar el historial de otra organización.
         await using var command = new NpgsqlCommand("""
             SELECT e.id, e.job_id, e.result, e.error, e.duration_ms, e.executed_at
             FROM automation_executions e
@@ -108,6 +113,8 @@ public sealed class AutomationController : ControllerBase
 
         await using var connection = new NpgsqlConnection(_configuration.GetConnectionString("DefaultConnection"));
         await connection.OpenAsync();
+        // La transición pending -> cancelled se hace de forma condicional en SQL: si el worker ya reclamó el job,
+        // este endpoint no pisa su ejecución ni altera su política de reintentos.
         await using var command = new NpgsqlCommand("""
             UPDATE automation_jobs
             SET status='cancelled',
