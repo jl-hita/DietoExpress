@@ -32,7 +32,7 @@ public sealed class PrivacyOperationsService
         return await QueryAsync<PrivacyRequestDto>(
             @"SELECT id, requester_type, client_id, right_type, status, received_at, due_at, resolved_at, decision, notes
               FROM privacy_requests WHERE tenant_id = @tenant ORDER BY received_at DESC",
-            tenantId, (r) => new PrivacyRequestDto(r.GetInt64(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetInt32(2), r.GetString(3), r.GetString(4), r.GetDateTime(5), r.IsDBNull(6) ? null : r.GetDateTime(6), r.IsDBNull(7) ? null : r.GetDateTime(7), r.IsDBNull(8) ? null : r.GetString(8), r.IsDBNull(9) ? null : r.GetString(9)), ct);
+            tenantId, (r) => new PrivacyRequestDto(r.GetInt64(0), r.GetString(1), r.IsDBNull(2) ? (int?)null : r.GetInt32(2), r.GetString(3), r.GetString(4), r.GetDateTime(5), r.IsDBNull(6) ? (DateTime?)null : r.GetDateTime(6), r.IsDBNull(7) ? (DateTime?)null : r.GetDateTime(7), r.IsDBNull(8) ? (string?)null : r.GetString(8), r.IsDBNull(9) ? (string?)null : r.GetString(9)), ct);
     }
 
     public async Task<long?> CreateRequestAsync(CreatePrivacyRequest request, CancellationToken ct)
@@ -41,12 +41,20 @@ public sealed class PrivacyOperationsService
         ValidateRequest(request.RequesterType, request.RightType);
         await EnsureClientBelongsToTenantAsync(request.ClientId, tenantId, ct);
 
-        var id = await ExecuteScalarAsync<long?>(@"INSERT INTO privacy_requests
+        var id = await ExecuteScalarAsync<long>(@"INSERT INTO privacy_requests
             (tenant_id, requester_type, client_id, right_type, due_at, notes, created_by, updated_by)
             VALUES (@tenant, @requester, @client, @right, @due, @notes, @user, @user)
-            RETURNING id", tenantId, cmd => Add(cmd, request, tenantId), ct);
+            RETURNING id", tenantId, cmd => {
+                Add(cmd, "requester", request.RequesterType);
+                Add(cmd, "client", request.ClientId);
+                Add(cmd, "right", request.RightType);
+                Add(cmd, "due", request.DueAt);
+                Add(cmd, "notes", request.Notes);
+                Add(cmd, "user", _tenant.UserId);
+                return cmd;
+            }, ct);
 
-        await _audit.LogAccessAsync("CREATE_PRIVACY_REQUEST", "privacy_requests", id?.ToString(), request.ClientId, $"RGPD: {request.RightType}");
+        await _audit.LogAccessAsync("CREATE_PRIVACY_REQUEST", "privacy_requests", id.ToString(), request.ClientId, $"RGPD: {request.RightType}");
         return id;
     }
 
@@ -74,7 +82,7 @@ public sealed class PrivacyOperationsService
         return await QueryAsync<PrivacyIncidentDto>(
             @"SELECT id,status,detected_at,occurred_from,occurred_to,systems_affected,data_categories,subject_categories,description,containment,risk_assessment,communications,corrective_actions,closed_at
               FROM privacy_incidents WHERE tenant_id=@tenant ORDER BY detected_at DESC",
-            tenantId, r => new PrivacyIncidentDto(r.GetInt64(0),r.GetString(1),r.GetDateTime(2),r.IsDBNull(3)?null:r.GetDateTime(3),r.IsDBNull(4)?null:r.GetDateTime(4),r.IsDBNull(5)?null:r.GetString(5),r.IsDBNull(6)?null:r.GetString(6),r.IsDBNull(7)?null:r.GetString(7),r.GetString(8),r.IsDBNull(9)?null:r.GetString(9),r.IsDBNull(10)?null:r.GetString(10),r.IsDBNull(11)?null:r.GetString(11),r.IsDBNull(12)?null:r.GetString(12),r.IsDBNull(13)?null:r.GetDateTime(13)), ct);
+            tenantId, r => new PrivacyIncidentDto(r.GetInt64(0),r.GetString(1),r.GetDateTime(2),r.IsDBNull(3)?(DateTime?)null:r.GetDateTime(3),r.IsDBNull(4)?(DateTime?)null:r.GetDateTime(4),r.IsDBNull(5)?(string?)null:r.GetString(5),r.IsDBNull(6)?(string?)null:r.GetString(6),r.IsDBNull(7)?(string?)null:r.GetString(7),r.GetString(8),r.IsDBNull(9)?(string?)null:r.GetString(9),r.IsDBNull(10)?(string?)null:r.GetString(10),r.IsDBNull(11)?(string?)null:r.GetString(11),r.IsDBNull(12)?(string?)null:r.GetString(12),r.IsDBNull(13)?(DateTime?)null:r.GetDateTime(13)), ct);
     }
 
     public async Task<long> CreateIncidentAsync(CreatePrivacyIncident request, CancellationToken ct)
@@ -140,14 +148,14 @@ public sealed class PrivacyOperationsService
             lifestyleHistory = client.lifestyle_history,
             diets = client.client_diets,
             documents = await QueryClientAsync("SELECT id,name,document_type,status,version,requires_signature,original_file_name,mime_type,file_size,sha256,created_at,updated_at,revoked_at FROM patient_documents WHERE client_id=@client AND tenant_id=@tenant ORDER BY created_at,id",
-                tenantId, clientId, r => new { Id = r.GetInt64(0), Name = r.GetString(1), DocumentType = r.GetString(2), Status = r.GetString(3), Version = r.GetInt32(4), RequiresSignature = r.GetBoolean(5), OriginalFileName = r.IsDBNull(6) ? null : r.GetString(6), MimeType = r.IsDBNull(7) ? null : r.GetString(7), FileSize = r.IsDBNull(8) ? null : r.GetInt64(8), Sha256 = r.IsDBNull(9) ? null : r.GetString(9), CreatedAt = r.GetDateTime(10), UpdatedAt = r.GetDateTime(11), RevokedAt = r.IsDBNull(12) ? null : r.GetDateTime(12) }),
+                tenantId, clientId, r => new { Id = r.GetInt64(0), Name = r.GetString(1), DocumentType = r.GetString(2), Status = r.GetString(3), Version = r.GetInt32(4), RequiresSignature = r.GetBoolean(5), OriginalFileName = r.IsDBNull(6) ? (string?)null : r.GetString(6), MimeType = r.IsDBNull(7) ? (string?)null : r.GetString(7), FileSize = r.IsDBNull(8) ? (long?)null : r.GetInt64(8), Sha256 = r.IsDBNull(9) ? (string?)null : r.GetString(9), CreatedAt = r.GetDateTime(10), UpdatedAt = r.GetDateTime(11), RevokedAt = r.IsDBNull(12) ? (DateTime?)null : r.GetDateTime(12) }),
             appointments = await QueryClientAsync("SELECT id,starts_at,ends_at,status,professional_notes,created_at FROM patient_appointments WHERE client_id=@client AND tenant_id=@tenant ORDER BY starts_at,id",
                 tenantId, clientId, r => new { Id = r.GetInt64(0), StartsAt = r.GetDateTime(1), EndsAt = r.IsDBNull(2) ? null : r.GetDateTime(2), Status = r.GetString(3), ProfessionalNotes = r.IsDBNull(4) ? null : r.GetString(4), CreatedAt = r.GetDateTime(5) }),
             messages = await QueryClientAsync("SELECT id,conversation_id,sender_user_id,sender_client_id,body,created_at FROM patient_messages WHERE client_id=@client AND tenant_id=@tenant ORDER BY created_at,id",
-                tenantId, clientId, r => new { Id = r.GetInt64(0), ConversationId = r.GetInt64(1), SenderUserId = r.IsDBNull(2) ? null : r.GetInt32(2), SenderClientId = r.IsDBNull(3) ? null : r.GetInt32(3), Body = r.GetString(4), CreatedAt = r.GetDateTime(5) }),
+                tenantId, clientId, r => new { Id = r.GetInt64(0), ConversationId = r.GetInt64(1), SenderUserId = r.IsDBNull(2) ? (int?)null : r.GetInt32(2), SenderClientId = r.IsDBNull(3) ? (int?)null : r.GetInt32(3), Body = r.GetString(4), CreatedAt = r.GetDateTime(5) }),
             legalAcceptances = client.user_id.HasValue
                 ? await QueryUserAsync("SELECT la.document_key,la.document_version,la.document_sha256,la.accepted_at,la.context FROM legal_acceptances la WHERE la.user_id=@user AND la.tenant_id=@tenant ORDER BY la.accepted_at,id",
-                    tenantId, client.user_id.Value, r => new { DocumentKey = r.GetString(0), DocumentVersion = r.GetInt32(1), DocumentSha256 = r.GetString(2), AcceptedAt = r.GetDateTime(3), Context = r.GetString(4) })
+                    tenantId, client.user_id.Value, r => (object)new { DocumentKey = r.GetString(0), DocumentVersion = r.GetInt32(1), DocumentSha256 = r.GetString(2), AcceptedAt = r.GetDateTime(3), Context = r.GetString(4) })
                 : new List<object>()
         };
     }
