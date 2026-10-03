@@ -91,7 +91,7 @@ public sealed class ProfessionalCheckinsController : ControllerBase
         if (checkin == null) return NotFound();
         if (checkin.reviewed_at.HasValue) return NoContent();
 
-        var reviewed = await _automation.ReviewPatientCheckinAsync(
+        // La revisión delega en el servicio de automatizaciones para que el cambio de estado y sus efectos derivados mantengan una única regla de negocio.\n        var reviewed = await _automation.ReviewPatientCheckinAsync(
             _tenantContext.TenantId.Value,
             id,
             _tenantContext.UserId.Value);
