@@ -285,7 +285,7 @@ public class PatientDocumentsController : ControllerBase
         if (affected == 0)
         {
             var exists = await _context.Database.SqlQueryRaw<int>(
-                "SELECT 1 AS "Value" FROM patient_documents WHERE id = {0} AND client_id = {1} AND tenant_id = {2} AND revoked_at IS NULL",
+                "SELECT 1 AS \\"Value\\" FROM patient_documents WHERE id = {0} AND client_id = {1} AND tenant_id = {2} AND revoked_at IS NULL",
                 documentId, clientId.Value, tenantId.Value).SingleOrDefaultAsync();
             if (exists == 0) return NotFound();
 
