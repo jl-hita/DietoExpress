@@ -739,6 +739,29 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     this.renderCheckinChart();
   }
 
+  getLatestUnreviewedCheckin(): PatientCheckin | null {
+    return [...this.checkins]
+      .sort((a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime())
+      .find(c => !c.reviewed_at) ?? null;
+  }
+
+  reviewLatestCheckin(): void {
+    const checkin = this.getLatestUnreviewedCheckin();
+    if (!checkin) return;
+    this.portalService.reviewCheckin(checkin.id).subscribe({
+      next: () => {
+        checkin.reviewed_at = new Date().toISOString();
+        this.snack.open('Check-in marcado como revisado', 'Cerrar', { duration: 1800 });
+      },
+      error: (err) => {
+        if (err?.status === 409) {
+          this.loadPatientCheckins();
+        }
+        this.snack.open('No se ha podido marcar el check-in como revisado', 'Cerrar', { duration: 3000 });
+      }
+    });
+  }
+
   private getFollowupMetricValue(checkin: PatientCheckin): number | null {
     switch (this.selectedFollowupMetric) {
       case 'adherence': return checkin.adherence ?? null;
