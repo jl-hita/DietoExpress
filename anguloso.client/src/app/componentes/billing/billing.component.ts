@@ -129,7 +129,23 @@ import { AuthService } from '../../servicios/auth.service';
           </div>
         </mat-card>
 
-        <section *ngIf="availablePlans.length || currentPaidPlan" class="plans-section">
+        <section class="legal-checkout" *ngIf="!legalLoading">
+        <div *ngIf="legalDocuments.length; else legalUnavailable">
+          <div class="legal-links">
+            <a routerLink="/legal" target="_blank">Consultar documentación legal vigente</a>
+          </div>
+          <label class="legal-acceptance">
+            <input type="checkbox" [checked]="termsAccepted" (change)="acceptTerms()" [disabled]="termsAccepted || legalAccepting">
+            <span>Acepto las <a routerLink="/legal" target="_blank">condiciones de contratación de DietoExpress</a> vigentes.</span>
+          </label>
+          <p *ngIf="!termsAccepted" class="legal-hint">Es necesario aceptar las condiciones antes de iniciar un nuevo pago.</p>
+        </div>
+        <ng-template #legalUnavailable>
+          <p class="legal-warning">La contratación está temporalmente deshabilitada porque todavía no hay condiciones de contratación publicadas.</p>
+        </ng-template>
+      </section>
+
+      <section *ngIf="availablePlans.length || currentPaidPlan" class="plans-section">
           <div class="section-heading">
             <div>
               <span class="section-label">{{ currentPaidPlan ? 'Cambiar de plan o facturación' : 'Elige un plan' }}</span>
@@ -275,6 +291,12 @@ import { AuthService } from '../../servicios/auth.service';
     .no-upgrade div { display: flex; flex-direction: column; gap: 3px; }
     .no-upgrade span { font-size: 13px; }
     .loading { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 80px 0; color: #64748b; }
+    .legal-checkout { margin: 22px 0 0; padding: 16px 18px; border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc; }
+    .legal-links { margin-bottom: 12px; }
+    .legal-links a, .legal-acceptance a { color: #0f766e; font-weight: 600; }
+    .legal-acceptance { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: #334155; cursor: pointer; }
+    .legal-acceptance input { margin-top: 3px; }
+    .legal-hint, .legal-warning { margin: 9px 0 0; color: #92400e; font-size: 12px; }
     .secure-note { display: flex; justify-content: center; align-items: center; gap: 7px; margin: 28px 0 0; color: #94a3b8; font-size: 12px; }
     .secure-note mat-icon { font-size: 17px; width: 17px; height: 17px; }
     @media (max-width: 760px) {
@@ -295,13 +317,18 @@ export class BillingComponent implements OnInit {
   checkoutResult: 'success' | 'cancelled' | null = null;
   expiredNotice = false;
   isSuperAdmin = false;
+  legalDocuments: LegalDocument[] = [];
+  termsAccepted = false;
+  legalLoading = true;
+  legalAccepting = false;
 
   constructor(
     private billingService: BillingService,
     private authService: AuthService,
     private licenseService: LicenseService,
     private route: ActivatedRoute,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private legalService: LegalService
   ) {}
 
   // La página interpreta el resultado de Stripe desde la URL y, tras un checkout, espera a que el webhook active la suscripción.
@@ -311,6 +338,7 @@ export class BillingComponent implements OnInit {
     const result = this.route.snapshot.queryParamMap.get('checkout');
     if (result === 'success' || result === 'cancelled') this.checkoutResult = result;
     this.isSuperAdmin = this.authService.isSuperAdmin();
+    this.loadLegalState();
     if (!this.isSuperAdmin) this.loadData();
     else this.loading = false;
 
@@ -463,6 +491,10 @@ export class BillingComponent implements OnInit {
   }
 
   private startCheckout(plan: BillingPlan): void {
+    if (!this.termsAccepted) {
+      this.snackBar.open('Antes de contratar debes leer y aceptar las condiciones de contratación vigentes.', 'Cerrar', { duration: 6000 });
+      return;
+    }
     this.actionLoading = true;
     this.selectedPlanCode = plan.code;
 
@@ -541,6 +573,51 @@ export class BillingComponent implements OnInit {
     };
 
     poll();
+  }
+
+  acceptTerms(): void {
+    const terms = this.legalDocuments.find(d => d.key === 'saas_terms');
+    if (!terms || this.legalAccepting) return;
+
+    this.legalAccepting = true;
+    this.legalService.accept(terms.key, terms.version, 'billing_checkout').subscribe({
+      next: () => {
+        this.termsAccepted = true;
+        this.legalAccepting = false;
+        this.snackBar.open('Condiciones de contratación aceptadas.', 'Cerrar', { duration: 4000 });
+      },
+      error: err => {
+        this.legalAccepting = false;
+        const message = err?.error?.message || err?.error || 'No se han podido registrar las condiciones.';
+        this.snackBar.open(message, 'Cerrar', { duration: 6000 });
+      }
+    });
+  }
+
+  private loadLegalState(): void {
+    this.legalLoading = true;
+    this.legalService.getCurrent().subscribe({
+      next: documents => {
+        this.legalDocuments = documents;
+        const terms = documents.find(d => d.key === 'saas_terms');
+        this.legalService.getAcceptances().subscribe({
+          next: acceptances => {
+            this.termsAccepted = !!terms && acceptances.some(a =>
+              a.key === terms.key && a.version === terms.version && a.sha256 === terms.sha256);
+            this.legalLoading = false;
+          },
+          error: () => {
+            this.termsAccepted = false;
+            this.legalLoading = false;
+          }
+        });
+      },
+      error: () => {
+        this.legalDocuments = [];
+        this.termsAccepted = false;
+        this.legalLoading = false;
+      }
+    });
   }
 
   private loadData(): void {
