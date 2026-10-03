@@ -489,6 +489,54 @@ public static class DatabaseBootstrap
             // Configuración inicial idempotente. No se sobrescriben valores existentes.
             context.Database.ExecuteSqlRaw(@"
                 INSERT INTO config (nombre_config, valor_config)
+                SELECT 'platformLegalName', '__CONFIGURE_PLATFORM_LEGAL_NAME__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'platformLegalName');
+
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'platformLegalForm', '__CONFIGURE_PLATFORM_LEGAL_FORM__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'platformLegalForm');
+
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'platformTaxId', '__CONFIGURE_PLATFORM_NIF_DNI__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'platformTaxId');
+
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'platformAddress', '__CONFIGURE_PLATFORM_ADDRESS__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'platformAddress');
+
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'platformPostalCode', '__CONFIGURE_PLATFORM_POSTAL_CODE__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'platformPostalCode');
+
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'platformCity', '__CONFIGURE_PLATFORM_CITY__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'platformCity');
+
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'platformProvince', '__CONFIGURE_PLATFORM_PROVINCE__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'platformProvince');
+
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'platformCountry', '__CONFIGURE_PLATFORM_COUNTRY__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'platformCountry');
+
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'platformContactEmail', '__CONFIGURE_PLATFORM_CONTACT_EMAIL__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'platformContactEmail');
+
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'platformContactPhone', '__CONFIGURE_PLATFORM_CONTACT_PHONE__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'platformContactPhone');
+
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'platformDpoEmail', '__CONFIGURE_PLATFORM_DPO_EMAIL__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'platformDpoEmail');
+
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'platformRegistryData', '__CONFIGURE_PLATFORM_REGISTRY_DATA__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'platformRegistryData');
+
+                INSERT INTO config (nombre_config, valor_config)
                 SELECT 'googleClientId', '__CONFIGURE_GOOGLE_CLIENT_ID__'
                 WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'googleClientId');
 
