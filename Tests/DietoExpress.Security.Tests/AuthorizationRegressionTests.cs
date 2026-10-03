@@ -1379,6 +1379,19 @@ public class AuthorizationRegressionTests
     }
 
 
+
+    [Fact]
+    public void PatientDocumentProvisioning_CleansCopiedFilesWhenTransactionFails()
+    {
+        var source = ReadServerLogica("PatientDocumentService.cs");
+
+        Assert.Contains("var copiedFiles = new List<string>();", source);
+        Assert.Contains("copiedFiles.Add(destination);", source);
+        Assert.Contains("await transaction.RollbackAsync(cancellationToken);", source);
+        Assert.Contains("foreach (var copiedFile in copiedFiles)", source);
+        Assert.Contains("File.Delete(copiedFile)", source);
+    }
+
     [Fact]
     public void PatientDocumentAcceptance_IsIdempotentUnderConcurrentRetries()
     {
