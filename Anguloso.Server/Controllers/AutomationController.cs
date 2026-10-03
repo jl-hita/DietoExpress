@@ -97,6 +97,8 @@ public sealed class AutomationController : ControllerBase
         if (!_tenantContext.TenantId.HasValue || string.IsNullOrWhiteSpace(ruleKey)) return BadRequest();
         ruleKey = ruleKey.Trim().ToLowerInvariant();
         if (ruleKey.Length > 120 || request.DelayMinutes is < 0 or > 525600) return BadRequest();
+        if (!SupportedRules.Any(x => x.Key.Equals(ruleKey, StringComparison.OrdinalIgnoreCase)))
+            return BadRequest("Regla de automatización no soportada.");
 
         var recipient = string.IsNullOrWhiteSpace(request.RecipientScope)
             ? "assigned_professional"
@@ -150,11 +152,11 @@ public sealed class AutomationController : ControllerBase
             ORDER BY rule_key;
             """, connection);
         command.Parameters.AddWithValue("tenant", _tenantContext.TenantId.Value);
-        var rows = new List<object>();
+        var persisted = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
         await using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
-            rows.Add(new {
+            persisted[reader.GetString(0)] = new {
                 ruleKey = reader.GetString(0),
                 patientTitle = reader.IsDBNull(1) ? null : reader.GetString(1),
                 patientMessage = reader.IsDBNull(2) ? null : reader.GetString(2),
@@ -163,8 +165,24 @@ public sealed class AutomationController : ControllerBase
                 emailSubject = reader.IsDBNull(5) ? null : reader.GetString(5),
                 emailHtml = reader.IsDBNull(6) ? null : reader.GetString(6),
                 updatedAt = reader.GetDateTime(7)
-            });
+            };
         }
+
+        // La UI recibe el catálogo completo, incluso antes de que el tenant haya personalizado una plantilla.
+        var rows = SupportedRules.Select(rule =>
+            persisted.TryGetValue(rule.Key, out var template)
+                ? template
+                : new {
+                    ruleKey = rule.Key,
+                    patientTitle = (string?)null,
+                    patientMessage = (string?)null,
+                    professionalTitle = (string?)null,
+                    professionalMessage = (string?)null,
+                    emailSubject = (string?)null,
+                    emailHtml = (string?)null,
+                    updatedAt = (DateTime?)null
+                }).ToList();
+
         return Ok(rows);
     }
 
