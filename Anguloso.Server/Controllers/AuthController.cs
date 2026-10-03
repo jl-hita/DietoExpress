@@ -614,6 +614,22 @@ public class AuthController : ControllerBase
             // Si no existe, buscar por email (posible usuario local ya creado)
             user = await _context.users.FirstOrDefaultAsync(u => u.email.ToLower() == email);
 
+            if (user == null)
+            {
+                var currentTerms = await _context.Database.SqlQueryRaw<CurrentLegalDocument>(
+                    """
+                    SELECT document_key AS "DocumentKey", version AS "Version", sha256 AS "Sha256"
+                    FROM legal_documents
+                    WHERE document_key = 'saas_terms' AND status = 'published'
+                    ORDER BY version DESC
+                    LIMIT 1
+                    """).SingleOrDefaultAsync();
+
+                if (currentTerms == null || dto.LegalDocumentVersion != currentTerms.Version ||
+                    !string.Equals(dto.LegalDocumentSha256, currentTerms.Sha256, StringComparison.OrdinalIgnoreCase))
+                    return StatusCode(StatusCodes.Status428PreconditionRequired, "Para crear una cuenta con Google debes aceptar las condiciones de contratación vigentes.");
+            }
+
             if (user != null)
             {
                 // Opción A: enlazar cuentas (recomendado) -> guardamos google_id y provider
@@ -646,6 +662,33 @@ public class AuthController : ControllerBase
                         }
                         user.last_login = DateTime.UtcNow;
                         await _context.SaveChangesAsync();
+
+                        var googleTerms = await _context.Database.SqlQueryRaw<CurrentLegalDocument>(
+                            """
+                            SELECT document_key AS "DocumentKey", version AS "Version", sha256 AS "Sha256"
+                            FROM legal_documents
+                            WHERE document_key = 'saas_terms' AND status = 'published'
+                            ORDER BY version DESC
+                            LIMIT 1
+                            """).SingleOrDefaultAsync();
+                        if (googleTerms == null)
+                            throw new InvalidOperationException("Las condiciones de contratación no están publicadas.");
+
+                        await _context.Database.ExecuteSqlRawAsync(
+                            """
+                            INSERT INTO legal_acceptances
+                                (user_id, tenant_id, legal_document_id, document_key, document_version, document_sha256, accepted_at, ip_address, user_agent, context)
+                            SELECT {0}, {1}, id, document_key, version, sha256, CURRENT_TIMESTAMP, {2}, {3}, 'signup_google'
+                            FROM legal_documents
+                            WHERE document_key = 'saas_terms' AND version = {4} AND status = 'published'
+                            ON CONFLICT (user_id, legal_document_id, document_version, context) DO NOTHING
+                            """,
+                            user.id,
+                            tenantGoogle.id,
+                            HttpContext.Connection.RemoteIpAddress?.ToString(),
+                            Request.Headers.UserAgent.ToString(),
+                            googleTerms.Version);
+
                         await googleTransaction.CommitAsync();
                     }
                     else
@@ -866,4 +909,6 @@ public class PasswordResetByTokenRequest
 public class GoogleLoginDto
 {
     public string IdToken { get; set; } = string.Empty;
+    public int? LegalDocumentVersion { get; set; }
+    public string? LegalDocumentSha256 { get; set; }
 }
