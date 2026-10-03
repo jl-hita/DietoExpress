@@ -538,8 +538,16 @@ public class ClientsController : ControllerBase
         client.archived_at = DateTime.UtcNow;
         client.lifecycle_status = "archived";
         client.lifecycle_status_changed_at = DateTime.UtcNow;
+        // Archivar no elimina el expediente: revoca acceso al portal y separa al paciente de sus profesionales activos.
+        // La supresión física se tramita por el flujo RGPD específico, tras revisar obligaciones de conservación.
         client.access_token = null;
         client.access_token_expires_at = null;
+        client.portal_token_version++;
+
+        await _context.client_nutritionist_assignments
+            .Where(a => a.client_id == client.id && a.is_active)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(a => a.is_active, false));
+
         await _context.SaveChangesAsync();
         await _auditLogService.LogAccessAsync("ARCHIVE_PATIENT", "clients", client.id.ToString(), client.id, "Archivado del expediente clínico");
 
