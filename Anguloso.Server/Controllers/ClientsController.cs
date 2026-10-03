@@ -395,21 +395,29 @@ public class ClientsController : ControllerBase
                     now,
                     idempotencyKey: $"documents:created:{client.id}");
 
-                // Recordatorios diferidos: el worker comprueba que sigan existiendo pendientes
-                // antes de crear la notificación, por lo que no molestan si el paciente ya completó todo.
-                await _automationService.ScheduleActionAsync(
+                // Solo programamos recordatorios si realmente hay documentos pendientes de aceptación.
+                // Los documentos meramente informativos no deben generar recordatorios de firma.
+                var pendingSignatureDocuments = await _patientDocumentService.GetPendingSignatureDocumentsAsync(
                     tenantId.Value,
-                    "notify_patient",
-                    notification,
-                    now.AddHours(24),
-                    idempotencyKey: $"documents:pending-reminder:{client.id}:24h");
+                    client.id,
+                    HttpContext.RequestAborted);
 
-                await _automationService.ScheduleActionAsync(
-                    tenantId.Value,
-                    "notify_patient",
-                    notification,
-                    now.AddHours(72),
-                    idempotencyKey: $"documents:pending-reminder:{client.id}:72h");
+                if (pendingSignatureDocuments.Count > 0)
+                {
+                    await _automationService.ScheduleActionAsync(
+                        tenantId.Value,
+                        "notify_patient",
+                        notification,
+                        now.AddHours(24),
+                        idempotencyKey: $"documents:pending-reminder:{client.id}:24h");
+
+                    await _automationService.ScheduleActionAsync(
+                        tenantId.Value,
+                        "notify_patient",
+                        notification,
+                        now.AddHours(72),
+                        idempotencyKey: $"documents:pending-reminder:{client.id}:72h");
+                }
             }
         }
         catch (Exception ex)
