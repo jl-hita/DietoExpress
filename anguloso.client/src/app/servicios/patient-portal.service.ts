@@ -51,6 +51,15 @@ export interface GoogleCalendarStatus { connected: boolean; email: string; calen
 export interface PatientNotification { id: number; type: string; title: string; message: string; actionUrl?: string | null; createdAt: string; readAt?: string | null; }
 export interface PatientCommunicationPreferences { inAppEnabled: boolean; emailEnabled: boolean; pushEnabled: boolean; }
 
+export interface ProfessionalDocumentSummary {
+  total: number;
+  required: number;
+  accepted: number;
+  pending: number;
+  active: number;
+  allRequiredComplete: boolean;
+}
+
 export interface PatientDocument {
   id: number;
   name: string;
@@ -194,6 +203,18 @@ export class PatientPortalService {
 
   acceptDocument(id: number): Observable<void> {
     return this.http.post<void>(this.base + '/portal/documents/' + id + '/accept', {});
+  }
+
+  getProfessionalDocuments(clientId: number): Observable<PatientDocument[]> {
+    return this.http.get<PatientDocument[]>(`${this.base}/clients/${clientId}/documents`);
+  }
+
+  getProfessionalDocumentSummary(clientId: number): Observable<ProfessionalDocumentSummary> {
+    return this.http.get<ProfessionalDocumentSummary>(`${this.base}/clients/${clientId}/documents/summary`);
+  }
+
+  downloadProfessionalDocument(clientId: number, documentId: number): Observable<Blob> {
+    return this.http.get(`${this.base}/clients/${clientId}/documents/${documentId}`, { responseType: 'blob' });
   }
 
   getNotifications(): Observable<PatientNotification[]> { return this.http.get<PatientNotification[]>(this.base + '/portal/notifications'); }
