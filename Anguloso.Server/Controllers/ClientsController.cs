@@ -375,7 +375,8 @@ public class ClientsController : ControllerBase
                 tenantId.Value,
                 client.id,
                 userId.Value,
-                HttpContext.RequestAborted);
+                forClientCreation: true,
+                cancellationToken: HttpContext.RequestAborted);
 
             if (createdDocuments > 0)
             {
