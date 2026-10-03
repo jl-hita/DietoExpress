@@ -133,19 +133,21 @@ public class DocumentTemplatesController : ControllerBase
     }
 
     [HttpPatch("{id:long}/active")]
-    public async Task<IActionResult> SetActive(long id, [FromBody] bool active, CancellationToken cancellationToken)
+    public async Task<IActionResult> SetActive(long id, [FromBody] SetActiveRequest request, CancellationToken cancellationToken)
     {
         var tenantId = AuthHelpers.GetTenantId(User);
         if (!tenantId.HasValue) return Forbid();
         await using var connection = new NpgsqlConnection(ConnectionString);
         await connection.OpenAsync(cancellationToken);
         await using var command = new NpgsqlCommand("UPDATE document_templates SET is_active=@active, updated_at=NOW() WHERE id=@id AND tenant_id=@tenant;", connection);
-        command.Parameters.AddWithValue("active", active);
+        command.Parameters.AddWithValue("active", request.Active);
         command.Parameters.AddWithValue("id", id);
         command.Parameters.AddWithValue("tenant", tenantId.Value);
         var count = await command.ExecuteNonQueryAsync(cancellationToken);
         return count == 0 ? NotFound() : NoContent();
     }
+
+    public sealed record SetActiveRequest(bool Active);
 
     private string ConnectionString => _configuration.GetConnectionString("DefaultConnection")
         ?? throw new InvalidOperationException("DefaultConnection no está configurada.");
