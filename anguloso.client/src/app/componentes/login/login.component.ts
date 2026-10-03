@@ -1,4 +1,5 @@
 import { Component, NgZone } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
@@ -16,7 +17,7 @@ declare const google: any;
 @Component({
   selector: 'app-login',
     standalone: true,
-  imports: [ReactiveFormsModule, FormsModule, RouterLink, MatSnackBarModule, MatFormFieldModule, MatInputModule, MatIconModule, MatButtonModule],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, RouterLink, MatSnackBarModule, MatFormFieldModule, MatInputModule, MatIconModule, MatButtonModule],
   templateUrl: './login.component.html',
   styleUrls: ['./login.component.css']
 })
