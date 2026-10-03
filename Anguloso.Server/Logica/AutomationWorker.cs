@@ -261,6 +261,15 @@ public sealed class AutomationWorker : BackgroundService
         command.Parameters.AddWithValue("client", action.ClientId);
         command.Parameters.AddWithValue("tenant", job.TenantId);
         var email = await command.ExecuteScalarAsync(cancellationToken) as string;
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            await using var preferenceCommand = new NpgsqlCommand("SELECT email_enabled FROM patient_communication_preferences WHERE tenant_id=@tenant AND client_id=@client LIMIT 1;", connection);
+            preferenceCommand.Parameters.AddWithValue("tenant", job.TenantId);
+            preferenceCommand.Parameters.AddWithValue("client", action.ClientId);
+            var preference = await preferenceCommand.ExecuteScalarAsync(cancellationToken);
+            if (preference is bool enabled && !enabled)
+                return;
+        }
         // El destinatario se resuelve al ejecutar el job, no al programarlo, para que una corrección posterior del
         // email del paciente pueda hacer recuperable un job que falló por datos incompletos.
         if (string.IsNullOrWhiteSpace(email))
