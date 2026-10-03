@@ -28,7 +28,7 @@ public class PatientCheckinsController : ControllerBase
         var weekStart = GetWeekStart(DateOnly.FromDateTime(DateTime.UtcNow));
         var item = await _db.patient_checkins.AsNoTracking()
             .Where(x => x.client_id == clientId && x.week_start == weekStart)
-            .Select(x => new { x.id, x.week_start, x.submitted_at, x.weight, x.adherence, x.hunger, x.difficulties, x.notes })
+            .Select(x => new { x.id, x.week_start, x.submitted_at, x.weight, x.adherence, x.hunger, x.energy, x.sleep_quality, x.sleep_hours, x.training, x.difficulties, x.notes })
             .SingleOrDefaultAsync();
         return Ok(item);
     }
@@ -52,7 +52,11 @@ public class PatientCheckinsController : ControllerBase
         if (!TryGetClientId(out var clientId)) return Unauthorized();
         if (request == null) return BadRequest(new { message = "Datos no válidos." });
         if (request.adherence is < 0 or > 100) return BadRequest(new { message = "La adherencia debe estar entre 0 y 100." });
-        if (request.hunger is < 0 or > 10) return BadRequest(new { message = "El nivel indicado debe estar entre 0 y 10." });
+        if (request.hunger is < 0 or > 10) return BadRequest(new { message = "El nivel de hambre debe estar entre 0 y 10." });
+        if (request.energy is < 0 or > 10) return BadRequest(new { message = "El nivel de energía debe estar entre 0 y 10." });
+        if (request.sleep_quality is < 0 or > 10) return BadRequest(new { message = "La calidad del sueño debe estar entre 0 y 10." });
+        if (request.sleep_hours is < 0 or > 24) return BadRequest(new { message = "Las horas de sueño deben estar entre 0 y 24." });
+        if (request.training is < 0 or > 10) return BadRequest(new { message = "El nivel de entrenamiento debe estar entre 0 y 10." });
         if (request.weight is <= 0 or > 500) return BadRequest(new { message = "El valor de peso no es válido." });
         if (request.difficulties?.Length > 1000) return BadRequest(new { message = "Las dificultades no pueden superar los 1000 caracteres." });
         if (request.notes?.Length > 2000) return BadRequest(new { message = "El comentario no puede superar los 2000 caracteres." });
@@ -73,6 +77,10 @@ public class PatientCheckinsController : ControllerBase
         item.weight = request.weight;
         item.adherence = request.adherence;
         item.hunger = request.hunger;
+        item.energy = request.energy;
+        item.sleep_quality = request.sleep_quality;
+        item.sleep_hours = request.sleep_hours;
+        item.training = request.training;
         item.difficulties = request.difficulties?.Trim();
         item.notes = request.notes?.Trim();
         await _db.SaveChangesAsync();
@@ -118,6 +126,10 @@ public class PatientCheckinsController : ControllerBase
         public double? weight { get; set; }
         public int? adherence { get; set; }
         public int? hunger { get; set; }
+        public int? energy { get; set; }
+        public int? sleep_quality { get; set; }
+        public double? sleep_hours { get; set; }
+        public int? training { get; set; }
         public string? difficulties { get; set; }
         public string? notes { get; set; }
     }
