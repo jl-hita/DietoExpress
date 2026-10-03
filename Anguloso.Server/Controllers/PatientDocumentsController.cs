@@ -38,7 +38,7 @@ public class PatientDocumentsController : ControllerBase
             AuthHelpers.GetUserId(User),
             forClientCreation: false,
             includeAllRequired: true,
-            HttpContext.RequestAborted);
+            cancellationToken: HttpContext.RequestAborted);
 
         var rows = await _context.Database.SqlQueryRaw<PatientDocumentDto>(
             """
