@@ -145,12 +145,12 @@ public sealed class ProfessionalConsultationsController : ControllerBase
 
         // Los documentos marcados como obligatorios antes de consulta se provisionan
         // aquí también, por si la plantilla se configuró después del alta del paciente.
-        var generatedDocuments = await _patientDocumentService.CreateRequiredDocumentsAsync(
+        await _patientDocumentService.CreateRequiredDocumentsAsync(
             appointment.TenantId,
             appointment.ClientId,
             _tenantContext.UserId,
             forClientCreation: false,
-            HttpContext.RequestAborted);
+            cancellationToken: HttpContext.RequestAborted);
 
         var pendingDocuments = await _patientDocumentService.GetPendingSignatureDocumentsAsync(
             appointment.TenantId,
