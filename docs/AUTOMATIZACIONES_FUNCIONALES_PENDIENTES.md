@@ -71,6 +71,8 @@ Este documento recoge el backlog funcional de automatizaciones identificado sobr
 - Configuración persistente por tenant para reglas de automatización mediante `automation_rules`.
 - Activación/desactivación y retardo configurable para `client.created`, `patient.checkin.submitted`, `appointment.completed` y `appointment.no_show`.
 - Los recordatorios de cita de 24 h y 2 h tienen configuración independiente (`appointment.reminder.24h` y `appointment.reminder.2h`), incluido el tiempo de antelación.
+- Onboarding, seguimiento y caducidad de dietas ya exponen reglas separadas para activar/desactivar recordatorios y escalados: `onboarding.info.reminder`, `onboarding.info.escalation`, `onboarding.first_appointment.reminder`, `onboarding.first_appointment.escalation`, `followup.checkin.reminder`, `followup.checkin.escalation`, `diet.expiry.reminder` y `diet.expired`.
+- El endpoint de configuración devuelve también las reglas soportadas que todavía no tienen fila persistida, usando sus valores por defecto; así la interfaz puede mostrar el catálogo completo desde el primer acceso.
 - API profesional `GET /api/professional/automation/rules` y `PUT /api/professional/automation/rules/{ruleKey}`.
 - Sin configuración explícita se mantienen los comportamientos actuales por defecto, evitando cambios funcionales al actualizar instalaciones existentes.
 
