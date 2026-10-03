@@ -1532,4 +1532,16 @@ public class AuthorizationRegressionTests
         Assert.Contains("ARCHIVE_PATIENT", controller);
     }
 
+    [Fact]
+    public void PatientDocuments_RevokedFilesRemainPrivateAndUnavailable()
+    {
+        var controller = ReadServerController("PatientDocumentsController.cs");
+
+        // Revocar un documento corta el acceso lógico; el archivo físico no se purga
+        // automáticamente mientras la política de conservación no defina su plazo.
+        Assert.Contains("revoked_at IS NULL", controller);
+        Assert.Contains("GetSafePhysicalPath", controller);
+        Assert.Contains("tenant_id = {2}", controller);
+    }
+
 }
