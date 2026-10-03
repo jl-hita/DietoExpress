@@ -210,6 +210,32 @@ public sealed class PatientDocumentService
         return result;
     }
 
+    public async Task<IReadOnlyList<string>> GetPendingSignatureDocumentsBeforeConsultationAsync(int tenantId, int clientId, CancellationToken cancellationToken = default)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new NpgsqlCommand("""
+            SELECT pd.name
+            FROM patient_documents pd
+            INNER JOIN document_templates dt
+                ON dt.id = pd.document_template_id
+               AND dt.tenant_id = pd.tenant_id
+            WHERE pd.tenant_id=@tenant AND pd.client_id=@client
+              AND pd.revoked_at IS NULL
+              AND pd.requires_signature=true
+              AND pd.status='pending'
+              AND dt.is_active=true
+              AND dt.is_required_before_consultation=true
+            ORDER BY pd.created_at, pd.id;
+            """, connection);
+        command.Parameters.AddWithValue("tenant", tenantId);
+        command.Parameters.AddWithValue("client", clientId);
+        var result = new List<string>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken)) result.Add(reader.GetString(0));
+        return result;
+    }
+
     private string GetStorageRoot()
     {
         var configured = _configuration["DIETOEXPRESS_DOCUMENTS_PATH"];
