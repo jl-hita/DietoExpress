@@ -933,11 +933,10 @@ public sealed class AutomationService
                 var latest = await biometricCommand.ExecuteScalarAsync(cancellationToken);
 
                 if (latest is DateTime latestDate && latestDate.Date <= DateTime.UtcNow.Date.AddDays(-30)
-                    || latest is DateOnly latestDateOnly && latestDateOnly <= DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-30))
-                    || latest is null)
+                    || latest is DateOnly latestDateOnly && latestDateOnly <= DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-30)))
                 {
                     var keyDate = latest is DateTime dt ? dt.ToString("yyyyMMdd") :
-                        latest is DateOnly d ? d.ToString("yyyyMMdd") : "none";
+                        latest is DateOnly d ? d.ToString("yyyyMMdd") : "unknown";
                     await ScheduleConfiguredActionAsync(
                         patient.TenantId,
                         "create_professional_task",
@@ -951,7 +950,7 @@ public sealed class AutomationService
                             "automation:biometrics.review_due"),
                         DateTime.UtcNow,
                         null,
-                        $"biometrics:review_due:{patient.ClientId}:{keyDate}:{DateTime.UtcNow:yyyyMMdd}",
+                        $"biometrics:review_due:{patient.ClientId}:{keyDate}",
                         3,
                         cancellationToken);
                 }
