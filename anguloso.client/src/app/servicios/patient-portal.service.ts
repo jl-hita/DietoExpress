@@ -51,6 +51,24 @@ export interface GoogleCalendarStatus { connected: boolean; email: string; calen
 export interface PatientNotification { id: number; type: string; title: string; message: string; actionUrl?: string | null; createdAt: string; readAt?: string | null; }
 export interface PatientCommunicationPreferences { inAppEnabled: boolean; emailEnabled: boolean; pushEnabled: boolean; }
 
+export interface PatientDocument {
+  id: number;
+  name: string;
+  documentType: string;
+  status: string;
+  version: number;
+  requiresSignature: boolean;
+  signedAt?: string | null;
+  viewedAt?: string | null;
+  originalFileName?: string | null;
+  mimeType: string;
+  fileSize: number;
+  sha256: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+
 export interface ProfessionalTask {
   id: number;
   tenantId: number;
@@ -165,6 +183,14 @@ export class PatientPortalService {
   connectGoogleCalendar(): void { window.location.href = this.base + '/google-calendar/connect'; }
   disconnectGoogleCalendar(): Observable<void> { return this.http.post<void>(this.base + '/google-calendar/disconnect', {}); }
   syncGoogleCalendar(): Observable<void> { return this.http.post<void>(this.base + '/google-calendar/sync', {}); }
+
+  getMyDocuments(): Observable<PatientDocument[]> {
+    return this.http.get<PatientDocument[]>(this.base + '/portal/documents');
+  }
+
+  downloadMyDocument(id: number): Observable<Blob> {
+    return this.http.get(this.base + '/portal/documents/' + id, { responseType: 'blob' });
+  }
 
   getNotifications(): Observable<PatientNotification[]> { return this.http.get<PatientNotification[]>(this.base + '/portal/notifications'); }
   markNotificationRead(id: number): Observable<void> { return this.http.patch<void>(this.base + '/portal/notifications/' + id + '/read', {}); }
