@@ -51,6 +51,21 @@ export interface GoogleCalendarStatus { connected: boolean; email: string; calen
 export interface PatientNotification { id: number; type: string; title: string; message: string; actionUrl?: string | null; createdAt: string; readAt?: string | null; }
 export interface PatientCommunicationPreferences { inAppEnabled: boolean; emailEnabled: boolean; pushEnabled: boolean; }
 
+export interface ProfessionalTask {
+  id: number;
+  tenantId: number;
+  clientId?: number | null;
+  assignedUserId?: number | null;
+  title: string;
+  description?: string | null;
+  dueAt?: string | null;
+  priority: string;
+  status: string;
+  source: string;
+  createdAt: string;
+  completedAt?: string | null;
+}
+
 export interface FollowupSettings {
   selectedMetrics: string[];
   periodWeeks: number;
@@ -86,6 +101,12 @@ export class PatientPortalService {
 
   cancelAppointment(id: number): Observable<void> {
     return this.http.post<void>(this.base + '/appointments/' + id + '/cancel', {});
+  }
+
+  getProfessionalTasks(status = 'open', limit = 100): Observable<ProfessionalTask[]> {
+    return this.http.get<ProfessionalTask[]>(this.base + '/professional/tasks', {
+      params: { status, limit: String(limit) }
+    });
   }
 
   getProfessionalAppointments(from?: string, to?: string): Observable<PatientAppointment[]> {
