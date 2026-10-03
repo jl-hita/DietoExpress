@@ -856,7 +856,8 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
   followupTaskCreating = false;
 
   createFollowUpTask(): void {
-    const checkin = this.checkins.length ? this.checkins[this.checkins.length - 1] : null;
+    const checkin = [...this.checkins]
+      .sort((a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime())[0] ?? null;
     if (!checkin || !this.getFollowupAlerts().length || this.followupTaskCreating) return;
 
     this.followupTaskCreating = true;
