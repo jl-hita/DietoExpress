@@ -3,6 +3,7 @@ using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace Anguloso.Server.Controllers;
 
@@ -14,15 +15,18 @@ public sealed class ProfessionalCheckinsController : ControllerBase
     private readonly angulosodbContext _db;
     private readonly AutomationService _automation;
     private readonly ITenantContextService _tenantContext;
+    private readonly IConfiguration _configuration;
 
     public ProfessionalCheckinsController(
         angulosodbContext db,
         AutomationService automation,
-        ITenantContextService tenantContext)
+        ITenantContextService tenantContext,
+        IConfiguration configuration)
     {
         _db = db;
         _automation = automation;
         _tenantContext = tenantContext;
+        _configuration = configuration;
     }
 
     [HttpGet]
@@ -108,31 +112,80 @@ public sealed class ProfessionalCheckinsController : ControllerBase
             .OrderByDescending(c => c.submitted_at)
             .FirstOrDefault();
 
-        var signals = new List<string>();
-        void Compare(string label, double? current, double? previousValue, double? low = null, double? high = null, double? delta = null)
+        var selectedMetrics = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            if (!current.HasValue) return;
-            if (low.HasValue && current.Value <= low.Value) signals.Add($"{label}: {current.Value:0.0} (bajo)");
-            else if (high.HasValue && current.Value >= high.Value) signals.Add($"{label}: {current.Value:0.0} (alto)");
-            if (previousValue.HasValue && delta.HasValue)
+            "adherence", "hunger", "energy", "sleep_quality", "sleep_hours", "training", "weight"
+        };
+        var thresholds = new Dictionary<string, FollowupThreshold>(StringComparer.OrdinalIgnoreCase);
+
+        await using (var connection = new NpgsqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+        {
+            await connection.OpenAsync();
+            await using var command = new NpgsqlCommand("""
+                SELECT selected_metrics, thresholds
+                FROM professional_followup_settings
+                WHERE tenant_id=@tenant AND user_id=@user
+                LIMIT 1;
+                """, connection);
+            command.Parameters.AddWithValue("tenant", _tenantContext.TenantId.Value);
+            command.Parameters.AddWithValue("user", _tenantContext.UserId.Value);
+            await using var reader = await command.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
             {
-                var change = current.Value - previousValue.Value;
-                if (change <= -delta.Value) signals.Add($"{label}: descenso {Math.Abs(change):0.0}");
-                else if (change >= delta.Value) signals.Add($"{label}: aumento {change:0.0}");
+                var configuredMetrics = System.Text.Json.JsonSerializer.Deserialize<string[]>(
+                    reader.GetFieldValue<string>(0));
+                if (configuredMetrics is { Length: > 0 })
+                    selectedMetrics = configuredMetrics
+                        .Where(x => x is "adherence" or "hunger" or "energy" or "sleep_quality" or "sleep_hours" or "training" or "weight")
+                        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                var configuredThresholds = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, FollowupThreshold>>(
+                    reader.GetFieldValue<string>(1));
+                if (configuredThresholds != null)
+                    thresholds = new Dictionary<string, FollowupThreshold>(configuredThresholds, StringComparer.OrdinalIgnoreCase);
             }
         }
 
-        Compare("Adherencia", latest.adherence, previous?.adherence, low: 5, delta: 2);
-        Compare("Hambre", latest.hunger, previous?.hunger, high: 8, delta: 2);
-        Compare("Energía", latest.energy, previous?.energy, low: 4, delta: 2);
-        Compare("Calidad del sueño", latest.sleep_quality, previous?.sleep_quality, low: 4, delta: 2);
-        Compare("Horas de sueño", latest.sleep_hours, previous?.sleep_hours, low: 6, delta: 1.5);
-        Compare("Entrenamiento", latest.training, previous?.training, low: 2, delta: 3);
+        var signals = new List<string>();
+        void Compare(string metric, string label, double? current, double? previousValue,
+            double? defaultLow = null, double? defaultHigh = null, double? defaultDelta = null)
+        {
+            if (!selectedMetrics.Contains(metric) || !current.HasValue) return;
+            var rule = thresholds.TryGetValue(metric, out var configured)
+                ? configured
+                : new FollowupThreshold();
+            var low = configured?.Low ?? defaultLow;
+            var high = configured?.High ?? defaultHigh;
+            var deltaDrop = configured?.Drop ?? defaultDelta;
+            var deltaRise = configured?.Rise ?? defaultDelta;
 
-        if (latest.weight.HasValue && previous?.weight.HasValue == true && previous.weight.Value > 0)
+            if (low.HasValue && current.Value <= low.Value) signals.Add($"{label}: {current.Value:0.0} (bajo)");
+            else if (high.HasValue && current.Value >= high.Value) signals.Add($"{label}: {current.Value:0.0} (alto)");
+
+            if (previousValue.HasValue)
+            {
+                var change = current.Value - previousValue.Value;
+                if (deltaDrop.HasValue && change <= -deltaDrop.Value) signals.Add($"{label}: descenso {Math.Abs(change):0.0}");
+                if (deltaRise.HasValue && change >= deltaRise.Value) signals.Add($"{label}: aumento {change:0.0}");
+            }
+        }
+
+        Compare("adherence", "Adherencia", latest.adherence, previous?.adherence, defaultLow: 5, defaultDelta: 2);
+        Compare("hunger", "Hambre", latest.hunger, previous?.hunger, defaultHigh: 8, defaultDelta: 2);
+        Compare("energy", "Energía", latest.energy, previous?.energy, defaultLow: 4, defaultDelta: 2);
+        Compare("sleep_quality", "Calidad del sueño", latest.sleep_quality, previous?.sleep_quality, defaultLow: 4, defaultDelta: 2);
+        Compare("sleep_hours", "Horas de sueño", latest.sleep_hours, previous?.sleep_hours, defaultLow: 6, defaultDelta: 1.5);
+        Compare("training", "Entrenamiento", latest.training, previous?.training, defaultLow: 2, defaultDelta: 3);
+
+        if (selectedMetrics.Contains("weight") && latest.weight.HasValue && previous?.weight.HasValue == true && previous.weight.Value > 0)
         {
             var percentage = ((latest.weight.Value - previous.weight.Value) / previous.weight.Value) * 100;
-            if (Math.Abs(percentage) >= 2) signals.Add($"Peso: {(percentage > 0 ? "+" : "")}{percentage:0.0}%");
+            var weightRule = thresholds.TryGetValue("weight", out var configuredWeight)
+                ? configuredWeight
+                : new FollowupThreshold();
+            var changeThreshold = weightRule.Drop ?? weightRule.Rise ?? 2;
+            if (Math.Abs(percentage) >= changeThreshold)
+                signals.Add($"Peso: {(percentage > 0 ? "+" : "")}{percentage:0.0}%");
         }
 
         if (signals.Count == 0)
@@ -186,6 +239,14 @@ public sealed class ProfessionalCheckinsController : ControllerBase
             _tenantContext.UserId.Value);
 
         return reviewed ? NoContent() : Conflict(new { message = "El check-in ya fue revisado por otro profesional." });
+    }
+
+    private sealed class FollowupThreshold
+    {
+        public double? Low { get; set; }
+        public double? High { get; set; }
+        public double? Drop { get; set; }
+        public double? Rise { get; set; }
     }
 
     public sealed class ProfessionalCheckinDto
