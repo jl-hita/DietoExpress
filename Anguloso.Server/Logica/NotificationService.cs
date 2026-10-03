@@ -37,7 +37,7 @@ RETURNING id;", connection);
         // La notificación in-app queda persistida antes de intentar push: un fallo del proveedor no debe hacer
         // desaparecer el aviso que el paciente puede consultar desde el portal.
         var id = Convert.ToInt64(await command.ExecuteScalarAsync());
-        if (sendPush) await SendPushAsync(clientId, new PushPayload(title, message, actionUrl));
+        // El push se intenta después de confirmar la notificación in-app; así el canal efímero nunca define si el aviso existe.\n        if (sendPush) await SendPushAsync(tenantId, clientId, new PushPayload(title, message, actionUrl));
         return id;
     }
 
@@ -88,7 +88,7 @@ RETURNING id;", connection);
         return await command.ExecuteScalarAsync() != null;
     }
 
-    public async Task RegisterPushSubscriptionAsync(int tenantId, int clientId, PushSubscriptionDto subscription)
+    // El endpoint identifica de forma única la suscripción del navegador; al volver a registrarlo se actualizan sus claves y propietario.\n    // Esto permite renovar una suscripción sin acumular registros obsoletos para el mismo endpoint.\n    public async Task RegisterPushSubscriptionAsync(int tenantId, int clientId, PushSubscriptionDto subscription)
     {
         if (string.IsNullOrWhiteSpace(subscription.Endpoint) ||
             string.IsNullOrWhiteSpace(subscription.P256dh) ||
@@ -145,7 +145,7 @@ WHERE tenant_id = @tenant AND client_id = @client AND endpoint = @endpoint;", co
     private static bool IsPlaceholder(string? value) =>
         string.IsNullOrWhiteSpace(value) || value.StartsWith("__CONFIGURE_", StringComparison.Ordinal);
 
-    private async Task SendPushAsync(int clientId, PushPayload payload)
+    private async Task SendPushAsync(int tenantId, int clientId, PushPayload payload)
     {
         var subject = GetWebPushConfig("webPushSubject");
         var publicKey = GetWebPushConfig("webPushPublicKey");
