@@ -88,31 +88,47 @@ public sealed class ProfessionalConsultationsController : ControllerBase
             .Select(a => new { a.id, a.starts_at, a.ends_at, a.professional_notes })
             .FirstOrDefaultAsync();
 
-        var activeDiet = await _db.diets.AsNoTracking()
-            .Where(d => d.tenant_id == appointment.TenantId &&
-                        d.user_id == appointment.NutritionistId &&
-                        d.client_id == appointment.ClientId &&
-                        !d.is_archived)
-            .OrderByDescending(d => d.created_at)
-            .Select(d => new
+        var activeDiet = await _db.client_diets.AsNoTracking()
+            .Where(cd => cd.client_id == appointment.ClientId &&
+                         cd.is_active &&
+                         cd.diet != null &&
+                         cd.diet.tenant_id == appointment.TenantId)
+            .OrderByDescending(cd => cd.id)
+            .Select(cd => new
             {
-                d.id, d.name, d.target_kcal, d.target_protein, d.target_carbs, d.target_fat,
-                d.created_at, d.updated_at
+                cd.diet!.id, cd.diet.name, cd.diet.target_kcal, cd.diet.target_protein,
+                cd.diet.target_carbs, cd.diet.target_fat,
+                cd.diet.created_at, cd.diet.updated_at
             })
             .FirstOrDefaultAsync();
 
-        var openTasks = await _db.professional_tasks.AsNoTracking()
-            .Where(t => t.tenant_id == appointment.TenantId &&
-                        t.client_id == appointment.ClientId &&
-                        t.status == "open")
-            .OrderBy(t => t.due_at)
-            .ThenByDescending(t => t.priority)
-            .Take(10)
-            .Select(t => new
+        var openTasks = new List<object>();
+        await using (var taskConnection = new NpgsqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+        {
+            await taskConnection.OpenAsync();
+            await using var taskCommand = new NpgsqlCommand("""
+                SELECT id, title, description, priority, due_at, created_at
+                FROM professional_tasks
+                WHERE tenant_id=@tenant AND client_id=@client AND status='open'
+                ORDER BY due_at NULLS LAST, created_at DESC
+                LIMIT 10;
+                """, taskConnection);
+            taskCommand.Parameters.AddWithValue("tenant", appointment.TenantId);
+            taskCommand.Parameters.AddWithValue("client", appointment.ClientId);
+            await using var taskReader = await taskCommand.ExecuteReaderAsync();
+            while (await taskReader.ReadAsync())
             {
-                t.id, t.title, t.description, t.priority, t.due_at, t.created_at
-            })
-            .ToListAsync();
+                openTasks.Add(new
+                {
+                    id = taskReader.GetInt64(0),
+                    title = taskReader.GetString(1),
+                    description = taskReader.IsDBNull(2) ? null : taskReader.GetString(2),
+                    priority = taskReader.GetString(3),
+                    dueAt = taskReader.IsDBNull(4) ? null : taskReader.GetDateTime(4),
+                    createdAt = taskReader.GetDateTime(5)
+                });
+            }
+        }
 
         var followupSignals = new List<object>();
         if (latestCheckin != null)
