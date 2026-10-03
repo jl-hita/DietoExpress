@@ -266,3 +266,9 @@
   .save-bar { justify-content: stretch; }
   .save-btn { width: 100%; justify-content: center; }
 }
+
+
+.password-form { display: flex; flex-direction: column; gap: 4px; max-width: 620px; }
+.password-actions { display: flex; justify-content: flex-start; margin-top: 4px; }
+.password-actions button { min-height: 42px; display: inline-flex; align-items: center; gap: 8px; }
+.security-note { margin: 14px 0 0; color: #64748b; font-size: 13px; line-height: 1.5; }
