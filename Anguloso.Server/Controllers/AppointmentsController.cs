@@ -174,6 +174,26 @@ public class AppointmentsController : ControllerBase
             "Tu solicitud de cita se ha enviado correctamente. Recibirás una notificación cuando tu nutricionista la confirme.",
             "/patient?tab=appointments");
 
+        try
+        {
+            await _automationService.PublishEventAsync(
+                appointment.tenant_id,
+                "appointment.requested",
+                "appointment",
+                appointment.id.ToString(),
+                new AutomationService.AppointmentStatusPayload(
+                    appointment.id,
+                    appointment.client_id,
+                    appointment.nutritionist_id,
+                    appointment.starts_at),
+                $"appointment:{appointment.id}:requested");
+        }
+        catch (Exception ex)
+        {
+            HttpContext.RequestServices.GetRequiredService<ILogger<AppointmentsController>>()
+                .LogError(ex, "No se pudo registrar la automatización de solicitud de cita {AppointmentId}.", appointment.id);
+        }
+
         return Ok(await ToDtoQuery(appointment.id));
     }
 
