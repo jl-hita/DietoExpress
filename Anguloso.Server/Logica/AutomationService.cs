@@ -1218,11 +1218,9 @@ public sealed class AutomationService
                     var payload = AutomationJson.Deserialize<AppointmentStatusPayload>(evt.Payload)
                         ?? throw new InvalidOperationException("Payload inválido para appointment.no_show.");
                     // Si la cita se marca como no presentada antes de su hora, los recordatorios pendientes
-                    // dejan de tener sentido. La cancelación es idempotente y no afecta a otras citas del paciente.
-                    await CancelPendingJobsByIdempotencyPrefixAsync(
-                        evt.TenantId,
-                        $"appointment-reminder:{payload.AppointmentId}:",
-                        cancellationToken);
+                    // dejan de tener sentido. Se reutiliza la cancelación por agregado para invalidar únicamente
+                    // los jobs de esta cita, igual que en una cancelación explícita.
+                    await CancelJobsForEventAggregateAsync(evt, cancellationToken);
 
                     await ScheduleActionAsync(
                         evt.TenantId,
