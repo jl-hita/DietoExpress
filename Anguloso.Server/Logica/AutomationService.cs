@@ -412,7 +412,6 @@ public sealed class AutomationService
             case "appointment.cancelled":
             case "appointment.no_show":
                 {
-                    if (!await IsRuleEnabledAsync(evt.TenantId, "appointment.no_show", cancellationToken)) break;
                     var payload = AutomationJson.Deserialize<AppointmentStatusPayload>(evt.Payload);
                     clientId = payload?.ClientId;
                     if (clientId.HasValue && !await HasCompletedAppointmentAsync(evt.TenantId, clientId.Value, cancellationToken))
