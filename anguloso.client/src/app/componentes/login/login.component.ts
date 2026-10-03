@@ -9,6 +9,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../servicios/auth.service';
 import { environment } from '../../../environments/environments';
+import { LegalDocument, LegalService } from '../../servicios/legal.service';
 
 declare const google: any;
 
@@ -25,6 +26,8 @@ export class LoginComponent {
   form: FormGroup;
   loading = false;
   private googleClientId: string | null = null;
+  legalTerms: LegalDocument | null = null;
+  googleTermsAccepted = false;
 
   constructor(
     private fb: FormBuilder,
@@ -32,8 +35,10 @@ export class LoginComponent {
     private authService: AuthService,
     private router: Router,
     private snackBar: MatSnackBar,
-    private ngZone: NgZone
+    private ngZone: NgZone,
+    private legalService: LegalService
   ) {
+    this.legalService.getCurrent().subscribe({ next: docs => this.legalTerms = docs.find(d => d.key === 'saas_terms') ?? null, error: () => this.legalTerms = null });
     this.form = this.fb.group({
       username: ['', Validators.required],
       password: ['', Validators.required]
@@ -105,7 +110,11 @@ export class LoginComponent {
   }
 
   googleLogin(idToken: string) {
-    return this.http.post<any>(`${this.baseUrl}/auth/google`, { idToken });
+    return this.http.post<any>(`${this.baseUrl}/auth/google`, {
+      idToken,
+      legalDocumentVersion: this.googleTermsAccepted ? this.legalTerms?.version : null,
+      legalDocumentSha256: this.googleTermsAccepted ? this.legalTerms?.sha256 : null
+    });
   }
 
 
