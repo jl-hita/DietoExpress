@@ -12,7 +12,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { environment } from '../../environments/environments';
+import { environment } from '../../../environments/environments';
 
 interface AutomationRule {
   ruleKey: string;
@@ -142,7 +142,7 @@ interface AutomationJob {
               </div>
 
               <div class="tokens">
-                Variables disponibles: <code>{title}</code> <code>{message}</code> <code>{action_url}</code>
+                Variables disponibles: <code>{{ '{title}' }}</code> <code>{{ '{message}' }}</code> <code>{{ '{action_url}' }}</code>
               </div>
 
               <div class="actions">

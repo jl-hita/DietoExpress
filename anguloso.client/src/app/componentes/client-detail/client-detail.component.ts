@@ -26,6 +26,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatCardModule } from '@angular/material/card';
 import { PatientPortalService, ClientPortalAccess } from '../../servicios/patient-portal.service';
 import { Subscription } from 'rxjs';
 import { debounceTime, filter, switchMap } from 'rxjs/operators';
@@ -50,6 +51,7 @@ import { debounceTime, filter, switchMap } from 'rxjs/operators';
     MatButtonModule,
     MatCheckboxModule,
     MatProgressSpinnerModule,
+    MatCardModule,
     MatDialogModule,
     RouterLink
   ],
