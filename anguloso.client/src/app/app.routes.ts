@@ -40,6 +40,8 @@ export const routes: AppRoute[] = [
   { path: 'login', component: LoginComponent },
   { path: 'crear-usuario', component: UserCreateComponent, title: 'Crear cuenta', showInMenu: false },
   { path: 'reset-pwd', component: UserResetComponent, title: 'Crear usuario', showInMenu: false },
+  // Alias compatible con enlaces de recuperación enviados antes de la migración a reset-pwd.
+  { path: 'reset-password', component: UserResetComponent, title: 'Restablecer contraseña', showInMenu: false },
   { path: 'confirmar-email', component: ConfirmarEmailComponent, title: 'Confirmar email', showInMenu: false },
   { path: 'patient', component: PatientPortalComponent, title: 'Portal del Paciente' },
 
