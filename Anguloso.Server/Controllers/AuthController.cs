@@ -40,9 +40,10 @@ public class AuthController : ControllerBase
     private readonly EmailServ _emailServ;
     private readonly ConfigServ _configServ;
     private readonly LogServ _logServ;
+    private readonly IAuditLogService _audit;
 
     //public AuthController(angulosodbContext context, IConfiguration config, IEmailService emailService, ConfigServ configServ)
-    public AuthController(angulosodbContext context, IConfiguration config, EmailServ emailServ, ConfigServ configServ, LogServ logServ)
+    public AuthController(angulosodbContext context, IConfiguration config, EmailServ emailServ, ConfigServ configServ, LogServ logServ, IAuditLogService audit)
     {
         _context = context;
         _config = config;
@@ -50,6 +51,7 @@ public class AuthController : ControllerBase
         _emailServ = emailServ;
         _configServ = configServ;
         _logServ = logServ;
+        _audit = audit;
     }
 
     /// <summary>
@@ -351,8 +353,8 @@ public class AuthController : ControllerBase
         user.reset_token_expiration = DateTime.UtcNow.AddMinutes(30);
         await _context.SaveChangesAsync();
 
-        string dominio = _configServ.GetConfigString("dominio", "www.tusitio.com") ?? "www.tusitio.com";
-        string url = $"https://{dominio}/reset-password?token={Uri.EscapeDataString(token)}";
+        string frontendUrl = _configServ.GetConfigString("frontendUrl", "https://localhost:4200") ?? "https://localhost:4200";
+        string url = $"{frontendUrl.TrimEnd('/')}/reset-password?token={Uri.EscapeDataString(token)}";
 
         var bm = await _emailServ.SendEmailAsync(
             user.email,
@@ -484,6 +486,25 @@ public class AuthController : ControllerBase
             user.password_hash = BCrypt.Net.BCrypt.HashPassword(passwordResetRequest.NewPassword);
             user.token_version++;
             await _context.SaveChangesAsync();
+
+            await _audit.LogAccessAsync(
+                "CHANGE_PASSWORD",
+                "users",
+                user.id.ToString(),
+                null,
+                "El usuario cambió su propia contraseña.");
+
+            if (!string.IsNullOrWhiteSpace(user.email))
+            {
+                var notification = await _emailServ.SendEmailAsync(
+                    user.email,
+                    "Contraseña cambiada en DietoExpress",
+                    $@"<p>Hola {System.Net.WebUtility.HtmlEncode(user.username)},</p>
+                       <p>Tu contraseña de DietoExpress se ha cambiado correctamente.</p>
+                       <p>Si no has realizado este cambio, restablece tu contraseña inmediatamente y contacta con soporte.</p>");
+                if (!notification.Exito)
+                    _logServ.LogError($"No se pudo enviar la notificación de cambio de contraseña a {user.email}.");
+            }
 
             return new BoolMensaje
             {
