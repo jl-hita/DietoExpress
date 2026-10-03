@@ -51,6 +51,14 @@ export class AuthService {
     );
   }
 
+  changePassword(oldPassword: string, newPassword: string, newPasswordRep: string): Observable<{ exito: boolean; mensaje: string }> {
+    return this.http.put<{ exito: boolean; mensaje: string }>('/api/auth/cambiarPassword', {
+      oldPassword,
+      newPassword,
+      newPasswordRep
+    });
+  }
+
   getToken(): null { return null; }
   getUser(): AuthUser | null { return this.userSubject.value; }
   getRole(): string | null { return this.userSubject.value?.role ?? null; }
