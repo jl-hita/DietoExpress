@@ -144,7 +144,11 @@ public sealed class PrivacyOperationsService
             appointments = await QueryClientAsync("SELECT id,starts_at,ends_at,status,professional_notes,created_at FROM patient_appointments WHERE client_id=@client AND tenant_id=@tenant ORDER BY starts_at,id",
                 tenantId, clientId, r => new { Id = r.GetInt64(0), StartsAt = r.GetDateTime(1), EndsAt = r.IsDBNull(2) ? null : r.GetDateTime(2), Status = r.GetString(3), ProfessionalNotes = r.IsDBNull(4) ? null : r.GetString(4), CreatedAt = r.GetDateTime(5) }),
             messages = await QueryClientAsync("SELECT id,conversation_id,sender_user_id,sender_client_id,body,created_at FROM patient_messages WHERE client_id=@client AND tenant_id=@tenant ORDER BY created_at,id",
-                tenantId, clientId, r => new { Id = r.GetInt64(0), ConversationId = r.GetInt64(1), SenderUserId = r.IsDBNull(2) ? null : r.GetInt32(2), SenderClientId = r.IsDBNull(3) ? null : r.GetInt32(3), Body = r.GetString(4), CreatedAt = r.GetDateTime(5) })
+                tenantId, clientId, r => new { Id = r.GetInt64(0), ConversationId = r.GetInt64(1), SenderUserId = r.IsDBNull(2) ? null : r.GetInt32(2), SenderClientId = r.IsDBNull(3) ? null : r.GetInt32(3), Body = r.GetString(4), CreatedAt = r.GetDateTime(5) }),
+            legalAcceptances = client.user_id.HasValue
+                ? await QueryClientAsync("SELECT la.document_key,la.document_version,la.document_sha256,la.accepted_at,la.context FROM legal_acceptances la WHERE la.user_id=@clientUser AND la.tenant_id=@tenant ORDER BY la.accepted_at,id",
+                    tenantId, client.user_id.Value, r => new { DocumentKey = r.GetString(0), DocumentVersion = r.GetInt32(1), DocumentSha256 = r.GetString(2), AcceptedAt = r.GetDateTime(3), Context = r.GetString(4) })
+                : new List<object>()
         };
     }
 
@@ -166,7 +170,7 @@ public sealed class PrivacyOperationsService
         await using var cmd = db.CreateCommand();
         cmd.CommandText = sql;
         Add(cmd,"tenant",tenantId);
-        Add(cmd,"client",clientId);
+        Add(cmd,"clientUser",clientId);
         if (db.State != ConnectionState.Open) await db.OpenAsync();
         await using var reader = await cmd.ExecuteReaderAsync();
         var list = new List<T>();
