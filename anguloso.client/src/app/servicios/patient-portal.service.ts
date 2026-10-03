@@ -78,6 +78,15 @@ export interface PatientDocument {
 }
 
 
+export interface PatientDocumentAuditEvent {
+  id: number;
+  eventType: string;
+  occurredAt: string;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  details?: string | null;
+}
+
 export interface ProfessionalTask {
   id: number;
   tenantId: number;
@@ -215,6 +224,10 @@ export class PatientPortalService {
 
   downloadProfessionalDocument(clientId: number, documentId: number): Observable<Blob> {
     return this.http.get(`${this.base}/clients/${clientId}/documents/${documentId}`, { responseType: 'blob' });
+  }
+
+  getProfessionalDocumentAudit(clientId: number, documentId: number): Observable<PatientDocumentAuditEvent[]> {
+    return this.http.get<PatientDocumentAuditEvent[]>(`${this.base}/clients/${clientId}/documents/${documentId}/audit`);
   }
 
   getNotifications(): Observable<PatientNotification[]> { return this.http.get<PatientNotification[]>(this.base + '/portal/notifications'); }
