@@ -70,7 +70,12 @@ export class SettingsComponent implements OnInit, OnDestroy {
       clinicName: [''],
       clinicAddress: [''],
       clinicPhone: [''],
-      clinicLogo: ['']
+      clinicLogo: [''],
+      directoryEnabled: [false],
+      onlineConsultations: [false],
+      directoryCity: [''],
+      directoryBio: ['', Validators.maxLength(2000)],
+      directorySpecialties: ['', Validators.maxLength(500)]
     });
 
     this.loading = true;
@@ -102,7 +107,12 @@ export class SettingsComponent implements OnInit, OnDestroy {
           clinicName: data.clinicName ?? '',
           clinicAddress: data.clinicAddress ?? '',
           clinicPhone: data.clinicPhone ?? '',
-          clinicLogo: data.clinicLogo ?? ''
+          clinicLogo: data.clinicLogo ?? '',
+          directoryEnabled: data.directoryEnabled ?? false,
+          onlineConsultations: data.onlineConsultations ?? false,
+          directoryCity: data.directoryCity ?? '',
+          directoryBio: data.directoryBio ?? '',
+          directorySpecialties: data.directorySpecialties ?? ''
         });
         if (data.clinicLogo) {
           this.logoPreview = data.clinicLogo;
