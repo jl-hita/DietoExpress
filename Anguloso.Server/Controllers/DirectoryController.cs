@@ -18,19 +18,22 @@ public class DirectoryController : ControllerBase
     private readonly AppointmentConcurrencyService _appointmentConcurrency;
     private readonly AutomationService _automationService;
     private readonly GoogleCalendarService _googleCalendar;
+    private readonly PatientDocumentService _patientDocumentService;
 
     public DirectoryController(
         angulosodbContext context,
         ILicenseService licenseService,
         AppointmentConcurrencyService appointmentConcurrency,
         AutomationService automationService,
-        GoogleCalendarService googleCalendar)
+        GoogleCalendarService googleCalendar,
+        PatientDocumentService patientDocumentService)
     {
         _context = context;
         _licenseService = licenseService;
         _appointmentConcurrency = appointmentConcurrency;
         _automationService = automationService;
         _googleCalendar = googleCalendar;
+        _patientDocumentService = patientDocumentService;
     }
 
     // Solo los profesionales que activan expresamente la visibilidad salen al directorio público.
@@ -259,6 +262,25 @@ public class DirectoryController : ControllerBase
         _context.patient_appointments.Add(appointment);
         await _context.SaveChangesAsync();
         await transaction.CommitAsync();
+
+        // La reserva pública convierte al visitante en paciente operativo: tras confirmar la transacción,
+        // provisionamos los documentos obligatorios de alta sin mezclar esta operación con el lock de la agenda.
+        // Si el almacenamiento documental falla, la cita sigue siendo válida y el alta podrá reintentarse.
+        try
+        {
+            await _patientDocumentService.CreateRequiredDocumentsAsync(
+                appointment.tenant_id,
+                appointment.client_id,
+                professional.id,
+                forClientCreation: true,
+                includeAllRequired: false,
+                cancellationToken: HttpContext.RequestAborted);
+        }
+        catch (Exception ex)
+        {
+            HttpContext.RequestServices.GetRequiredService<ILogger<DirectoryController>>()
+                .LogError(ex, "No se pudo provisionar la documentación de alta del paciente {ClientId} tras la reserva pública.", appointment.client_id);
+        }
 
         try
         {
