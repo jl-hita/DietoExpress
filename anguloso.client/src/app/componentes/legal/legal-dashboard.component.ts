@@ -7,11 +7,12 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { LegalSettingsComponent } from '../legal-settings/legal-settings.component';
 import { LegalDocumentGeneratorService, LegalGeneratedDocument } from '../../servicios/legal-document-generator.service';
 import { LegalGovernanceComponent } from './legal-governance.component';
+import { LegalEvidenceComponent } from './legal-evidence.component';
 
 @Component({
   selector: 'app-legal-dashboard',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatCardModule, MatIconModule, MatTabsModule, LegalSettingsComponent, LegalGovernanceComponent],
+  imports: [CommonModule, MatButtonModule, MatCardModule, MatIconModule, MatTabsModule, LegalSettingsComponent, LegalGovernanceComponent, LegalEvidenceComponent],
   template: `
     <main class="page">
       <header>
@@ -78,11 +79,7 @@ import { LegalGovernanceComponent } from './legal-governance.component';
           </section> -->
         </mat-tab>
 
-        <mat-tab label="Evidencias">
-          <mat-card><mat-card-header><mat-icon mat-card-avatar>history</mat-icon><mat-card-title>Trazabilidad</mat-card-title></mat-card-header>
-            <mat-card-content>Las versiones legales, hashes, aceptaciones, solicitudes de derechos e incidentes se conservan mediante los mecanismos de evidencia del sistema.</mat-card-content>
-          </mat-card>
-        </mat-tab>
+        <mat-tab label="Evidencias"><app-legal-evidence></app-legal-evidence></mat-tab>
       </mat-tab-group>
     </main>`,
   styles: [`
