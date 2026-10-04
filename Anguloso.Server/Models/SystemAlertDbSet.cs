@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+
 namespace Anguloso.Server.Models;
 
 public partial class angulosodbContext
