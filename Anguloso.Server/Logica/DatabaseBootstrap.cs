@@ -1788,7 +1788,7 @@ public static class DatabaseBootstrap
                 user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                 selected_metrics JSONB NOT NULL DEFAULT '[""adherence"",""hunger"",""energy"",""sleep_quality"",""sleep_hours"",""training"",""weight""]'::jsonb,
                 period_weeks INTEGER NOT NULL DEFAULT 4,
-                thresholds JSONB NOT NULL DEFAULT '{}'::jsonb,
+                thresholds JSONB NOT NULL DEFAULT jsonb_build_object(),
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 CONSTRAINT uq_professional_followup_settings UNIQUE (tenant_id, user_id),
                 CONSTRAINT professional_followup_period_check CHECK (period_weeks BETWEEN 2 AND 12)
