@@ -11,7 +11,6 @@ import { PatientChatComponent } from '../patient-chat/patient-chat.component';
 import { AppointmentSlot, PatientAppointment, PatientNotification, PatientDocument } from '../../servicios/patient-portal.service';
 import { PatientCheckinComponent } from './patient-checkin/patient-checkin.component';
 import { PatientAppointmentsComponent } from './patient-appointments/patient-appointments.component';
-import { PatientNotificationsComponent } from './patient-notifications/patient-notifications.component';
 import { PatientProgressComponent } from './patient-progress/patient-progress.component';
 import { AccessLinkRecoveryComponent } from './access-link-recovery/access-link-recovery.component';
 import { PatientShoppingComponent } from './patient-shopping/patient-shopping.component';
@@ -23,7 +22,7 @@ type ActiveTab = 'today' | 'shopping' | 'appointments' | 'progress' | 'messages'
 @Component({
   selector: 'app-patient-portal',
   standalone: true,
-  imports: [CommonModule, FormsModule, DatePipe, DecimalPipe, MatIconModule, MatProgressSpinnerModule, SumPipe, PatientChatComponent, PatientCheckinComponent, PatientAppointmentsComponent, PatientNotificationsComponent, PatientProgressComponent, AccessLinkRecoveryComponent, PatientShoppingComponent, PatientHeaderComponent, PatientDocumentsComponent],
+  imports: [CommonModule, FormsModule, DatePipe, DecimalPipe, MatIconModule, MatProgressSpinnerModule, SumPipe, PatientChatComponent, PatientCheckinComponent, PatientAppointmentsComponent, PatientProgressComponent, AccessLinkRecoveryComponent, PatientShoppingComponent, PatientHeaderComponent, PatientDocumentsComponent],
   templateUrl: './patient-portal.component.html',
   styleUrls: ['./patient-portal.component.css']
 })
