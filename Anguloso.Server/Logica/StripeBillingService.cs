@@ -309,7 +309,6 @@ public sealed class StripeBillingService : IStripeBillingService
         var stripeSubscription = await GetStripeSubscriptionAsync(subscription.provider_subscription_id);
         var items = stripeSubscription.GetProperty("items").GetProperty("data");
         string? additionalItemId = null;
-        var currentAdditionalQuantity = 0;
 
         foreach (var item in items.EnumerateArray())
         {
@@ -319,7 +318,6 @@ public sealed class StripeBillingService : IStripeBillingService
                 continue;
 
             additionalItemId = item.GetProperty("id").GetString();
-            currentAdditionalQuantity = item.TryGetProperty("quantity", out var quantity) && quantity.TryGetInt32(out var q) ? q : 0;
             break;
         }
 
