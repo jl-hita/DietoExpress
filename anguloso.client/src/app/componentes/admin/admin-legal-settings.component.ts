@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
-import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatDividerModule } from '@angular/material/divider';
@@ -39,6 +39,7 @@ import { LegalDocumentGeneratorService, LegalGeneratedDocument } from '../../ser
         <mat-card-content>
           <mat-form-field appearance="outline" class="full"><mat-label>Resumen de proveedores/subencargados</mat-label><textarea matInput rows="2" formControlName="providers_summary"></textarea></mat-form-field>
           <mat-form-field appearance="outline" class="full"><mat-label>Transferencias internacionales</mat-label><textarea matInput rows="2" formControlName="international_transfers_summary"></textarea></mat-form-field>
+          <mat-form-field appearance="outline" class="full"><mat-label>Procedimiento/canal de notificación de brechas</mat-label><textarea matInput rows="2" formControlName="breach_notification_summary"></textarea></mat-form-field>
           <mat-form-field appearance="outline" class="full"><mat-label>Referencia a matriz de conservación</mat-label><input matInput formControlName="retention_policy_reference"></mat-form-field>
           <mat-form-field appearance="outline" class="full"><mat-label>Subencargados y procedimiento de autorización</mat-label><textarea matInput rows="2" formControlName="subprocessors_summary"></textarea></mat-form-field>
           <mat-form-field appearance="outline" class="full"><mat-label>Terceros/cookies no esenciales</mat-label><textarea matInput rows="2" formControlName="cookie_third_parties"></textarea></mat-form-field>
@@ -101,7 +102,7 @@ export class AdminLegalSettingsComponent implements OnInit {
       legal_name:[''], tax_id:[''], address:[''], contact_email:[''], contact_phone:[''], privacy_email:[''], dpo_email:[''], website:[''],
       registration_information:[''], providers_summary:[''], international_transfers_summary:[''], retention_policy_reference:[''],
       cancellation_policy_summary:[''], support_email:[''], support_policy_summary:[''], claims_email:[''], governing_law_summary:[''],
-      non_essential_cookies_summary:[''], cookie_third_parties:[''], subprocessors_summary:[''], document_version:['1'], last_update_date:['']
+      non_essential_cookies_summary:[''], cookie_third_parties:[''], subprocessors_summary:[''], breach_notification_summary:[''], document_version:['1'], last_update_date:['']
     });
   }
 
