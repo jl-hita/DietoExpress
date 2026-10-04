@@ -7,7 +7,6 @@ import { CommonModule } from '@angular/common';
 import { ProfileService } from '../../servicios/profile.service';
 import { AuthService } from '../../servicios/auth.service';
 import { Profile } from '../../modelos/profile';
-import { LegalSettingsComponent } from '../legal-settings/legal-settings.component';
 
 // Angular Material
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -34,8 +33,7 @@ import { MatTabsModule } from '@angular/material/tabs';
     MatProgressSpinnerModule,
     MatCardModule,
     MatDividerModule,
-    MatTabsModule,
-    LegalSettingsComponent
+    MatTabsModule
   ]
 })
 // Documentación: este componente coordina estado local, validación y llamadas asíncronas; la vista solo refleja ese estado.
