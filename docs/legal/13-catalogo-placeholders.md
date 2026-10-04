@@ -27,3 +27,18 @@ SuperAdmin configura identidad del titular, NIF/CIF, domicilio, contacto, privac
 ## Importante
 
 Los textos son plantillas de trabajo para adaptar a la actividad real. No constituyen por sí mismos una certificación de cumplimiento ni sustituyen una revisión jurídica.
+
+
+## Campos añadidos en la revisión documental
+
+- `professional.dpa_duration`: duración del encargo.
+- `professional.dpa_end_of_service_summary`: devolución/supresión al finalizar.
+- `professional.patient_additional_purposes`: finalidades adicionales para pacientes.
+- `professional.patient_special_categories_summary`: categorías especiales u otros datos adicionales.
+- `professional.consultation_risks`: riesgos relevantes, cuando proceda.
+- `platform.breach_notification_summary`: procedimiento/canal de notificación de brechas al responsable.
+- `rat.dpo_contact`: contacto del DPD/DPD, si procede.
+- `rat.*_data_categories`, `rat.*_recipients`, `rat.*_transfers`: detalle del RAT por actividad.
+- `rat.security_measures_reference`: referencia a medidas técnicas y organizativas.
+
+Estos campos no se deben rellenar con valores genéricos para superar el gate: deben representar la situación real de DietoExpress o del profesional/centro. La plantilla sigue siendo un documento de trabajo y requiere revisión jurídica antes de publicación.
