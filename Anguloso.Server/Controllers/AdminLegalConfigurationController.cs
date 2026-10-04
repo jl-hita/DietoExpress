@@ -38,7 +38,7 @@ public sealed class AdminLegalConfigurationController : ControllerBase
     }
 
     [HttpPut]
-    public async Task<IActionResult> Put([FromBody] LegalSettingsRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Put([FromBody] AdminLegalSettingsRequest request, CancellationToken cancellationToken)
     {
         if (request?.Values == null) return BadRequest("Configuración legal no válida.");
 
@@ -94,4 +94,4 @@ public sealed class AdminLegalConfigurationController : ControllerBase
         ?? throw new InvalidOperationException("DefaultConnection no está configurada.");
 }
 
-public sealed record LegalSettingsRequest(Dictionary<string, string> Values);
+public sealed record AdminLegalSettingsRequest(Dictionary<string, string> Values);
