@@ -603,8 +603,9 @@ public sealed class AutomationService
                             cancellationToken: cancellationToken);
                     }
 
-                    clientId = payload.ClientId;
-                    status = await HasCompletedAppointmentAsync(evt.TenantId, clientId, cancellationToken)
+                    var appointmentClientId = payload.ClientId;
+                    clientId = appointmentClientId;
+                    status = await HasCompletedAppointmentAsync(evt.TenantId, appointmentClientId, cancellationToken)
                         ? "active" : "pending_first_appointment";
                     await CancelPendingJobsByIdempotencyPrefixAsync(
                         evt.TenantId,
