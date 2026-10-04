@@ -16,13 +16,14 @@ import { PatientProgressComponent } from './patient-progress/patient-progress.co
 import { AccessLinkRecoveryComponent } from './access-link-recovery/access-link-recovery.component';
 import { PatientShoppingComponent } from './patient-shopping/patient-shopping.component';
 import { PatientHeaderComponent } from './patient-header/patient-header.component';
+import { PatientDocumentsComponent } from './patient-documents/patient-documents.component';
 
 type ActiveTab = 'today' | 'shopping' | 'appointments' | 'progress' | 'messages' | 'documents';
 
 @Component({
   selector: 'app-patient-portal',
   standalone: true,
-  imports: [CommonModule, FormsModule, DatePipe, DecimalPipe, MatIconModule, MatProgressSpinnerModule, SumPipe, PatientChatComponent, PatientCheckinComponent, PatientAppointmentsComponent, PatientNotificationsComponent, PatientProgressComponent, AccessLinkRecoveryComponent, PatientShoppingComponent, PatientHeaderComponent],
+  imports: [CommonModule, FormsModule, DatePipe, DecimalPipe, MatIconModule, MatProgressSpinnerModule, SumPipe, PatientChatComponent, PatientCheckinComponent, PatientAppointmentsComponent, PatientNotificationsComponent, PatientProgressComponent, AccessLinkRecoveryComponent, PatientShoppingComponent, PatientHeaderComponent, PatientDocumentsComponent],
   templateUrl: './patient-portal.component.html',
   styleUrls: ['./patient-portal.component.css']
 })
