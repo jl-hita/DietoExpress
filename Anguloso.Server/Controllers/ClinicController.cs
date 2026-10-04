@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Anguloso.Server.Controllers;
 [ApiController]
 [Route("api/clinic")]
-[Authorize(Roles = "clinic_admin,nutritionist")]
+[Authorize(Roles = "clinic_admin")]
 public class ClinicController : ControllerBase
 {
     private readonly angulosodbContext _context;
@@ -36,6 +36,8 @@ public class ClinicController : ControllerBase
         if (!tenantId.HasValue) return BadRequest("Sin clínica.");
         if (request == null || !request.TargetSeats.HasValue)
             return BadRequest("Debes indicar el número de puestos contratados.");
+        if (request.TargetSeats.Value > 1000)
+            return BadRequest("La capacidad máxima configurada para una clínica es de 1000 nutricionistas.");
 
         var license = await _license.GetLicenseAsync(tenantId);
         if (license == null || !string.Equals(license.PlanCode, "clinic_full", StringComparison.OrdinalIgnoreCase))
@@ -120,7 +122,7 @@ public class ClinicController : ControllerBase
         await using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
-            await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(748392616)");
+            await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0}, {1})", tenantId.Value, 748392616);
 
             // El chequeo previo al lock es solo una respuesta rápida. Revalidamos
             // dentro del mismo lock global que usan los demás flujos de alta de cuentas.
