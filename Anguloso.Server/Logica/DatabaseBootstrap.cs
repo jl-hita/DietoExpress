@@ -969,7 +969,9 @@ public static class DatabaseBootstrap
 
             UPDATE subscription_plans
             SET stripe_monthly_price_id = 'price_1UKdmV0RD4LdDkcU7ueOlu1B',
-                stripe_yearly_price_id = 'price_1UKdn20RD4LdDkcUpJchaR8Y'
+                stripe_yearly_price_id = 'price_1UKdn20RD4LdDkcUpJchaR8Y',
+                stripe_additional_monthly_price_id = 'price_1UMtJL0RD4LdDkcUxuGmtujj',
+                stripe_additional_yearly_price_id = 'price_1UMtJL0RD4LdDkcUXjwqcCsG'
             WHERE code = 'clinic_full';
 
             INSERT INTO subscription_plan_features(plan_id,feature_code,enabled)
