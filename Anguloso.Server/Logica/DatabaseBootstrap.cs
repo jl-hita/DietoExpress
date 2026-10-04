@@ -39,7 +39,9 @@ public static class DatabaseBootstrap
         try
         {
             // Ejecutamos DDL idempotente en orden de dependencias de foreign keys
-            context.Database.ExecuteSqlRaw(@"
+            context.Database.ExecuteSqlRaw(@"UPDATE users SET role = 'nutritionist' WHERE role = 'user';
+
+                    
                 -- 1. Tenants (Clínicas / Organizaciones)
                 CREATE TABLE IF NOT EXISTS tenants (
                     id SERIAL PRIMARY KEY,
@@ -64,7 +66,7 @@ public static class DatabaseBootstrap
                     password_hash VARCHAR(255),
                     created_at TIMESTAMPTZ DEFAULT NOW(),
                     last_login TIMESTAMPTZ,
-                    role VARCHAR(20) DEFAULT 'user',
+                    role VARCHAR(20) DEFAULT 'nutritionist',
                     email VARCHAR(150) UNIQUE,
                     email_confirmed BOOLEAN DEFAULT FALSE,
                     email_confirmation_token VARCHAR(255),
