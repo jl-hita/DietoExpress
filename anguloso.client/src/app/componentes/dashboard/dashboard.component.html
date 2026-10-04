@@ -1,37 +1,98 @@
-<main class="dashboard" *ngIf="!loading && data">
-  <header class="hero">
-    <div><span class="eyebrow">DIETOEXPRESS</span><h1>Tu jornada de hoy</h1><p>Un resumen de lo que requiere tu atención.</p></div>
-  </header>
-  <section class="cards">
-    <button mat-card class="metric" (click)="openAppointments()"><mat-icon>event</mat-icon><strong>{{data.todayAppointments.length}}</strong><span>Citas hoy</span></button>
-    <button mat-card class="metric" (click)="openMessages()"><mat-icon>mail</mat-icon><strong>{{data.unreadMessageCount}}</strong><span>Mensajes sin leer</span></button>
-    <button mat-card class="metric" (click)="openClient(data.pendingDocuments[0].clientId)" [disabled]="!data.pendingDocumentCount"><mat-icon>description</mat-icon><strong>{{data.pendingDocumentCount}}</strong><span>Documentos pendientes</span></button>
-    <button mat-card class="metric" (click)="openClient(data.pendingPatientData[0].clientId)" [disabled]="!data.pendingPatientDataCount"><mat-icon>person_search</mat-icon><strong>{{data.pendingPatientDataCount}}</strong><span>Pacientes con datos pendientes</span></button>
-    <button mat-card class="metric" (click)="openTasks()"><mat-icon>task_alt</mat-icon><strong>{{data.openTaskCount}}</strong><span>Tareas abiertas</span><small *ngIf="data.overdueTaskCount">{{data.overdueTaskCount}} vencidas</small></button>
-  </section>
-  <section class="grid">
-    <mat-card><mat-card-header><mat-card-title>Citas de hoy</mat-card-title></mat-card-header><mat-card-content>
-      <div class="row" *ngFor="let a of data.todayAppointments">
-        <div><strong>{{a.startsAt|date:'HH:mm'}}</strong><span>{{a.clientName}}</span></div>
-        <span class="status">{{a.status==='requested'?'Solicitada':'Confirmada'}}</span>
-        <button mat-button (click)="openClient(a.clientId)">Paciente</button>
+<main class="dashboard">
+  <ng-container *ngIf="loading">
+    <div class="loading"><mat-spinner diameter="42"></mat-spinner><span>Cargando tu jornada…</span></div>
+  </ng-container>
+
+  <ng-container *ngIf="!loading && data">
+    <header class="hero">
+      <div>
+        <span class="eyebrow">DIETOEXPRESS</span>
+        <h1>Tu jornada de hoy</h1>
+        <p>Un resumen de lo que requiere tu atención.</p>
       </div>
-      <p class="empty" *ngIf="!data.todayAppointments.length">No tienes citas pendientes para hoy.</p>
-    </mat-card-content></mat-card>
-    <mat-card><mat-card-header><mat-card-title>Pacientes con datos pendientes</mat-card-title></mat-card-header><mat-card-content>
-      <div class="row" *ngFor="let p of data.pendingPatientData">
-        <div><strong>{{p.clientName}}</strong><span>Falta: {{p.missingFields}}</span></div>
-        <button mat-button (click)="openClient(p.clientId)">Abrir ficha</button>
-      </div>
-      <p class="empty" *ngIf="!data.pendingPatientData.length">No hay pacientes con datos de onboarding pendientes.</p>
-    </mat-card-content></mat-card>
-    <mat-card><mat-card-header><mat-card-title>Pacientes con documentación pendiente</mat-card-title></mat-card-header><mat-card-content>
-      <div class="row" *ngFor="let p of data.pendingDocuments">
-        <div><strong>{{p.clientName}}</strong><span>{{p.pendingCount}} documento{{p.pendingCount===1?'':'s'}} pendiente{{p.pendingCount===1?'':'s'}}</span></div>
-        <button mat-button (click)="openClient(p.clientId)">Abrir ficha</button>
-      </div>
-      <p class="empty" *ngIf="!data.pendingDocuments.length">No hay documentación pendiente de aceptación.</p>
-    </mat-card-content></mat-card>
-  </section>
-  <div class="error" *ngIf="error">{{error}}</div>
+      <button mat-stroked-button (click)="reload()" aria-label="Actualizar dashboard">
+        <mat-icon>refresh</mat-icon> Actualizar
+      </button>
+    </header>
+
+    <section class="cards" aria-label="Resumen">
+      <button mat-card class="metric" (click)="openAppointments()">
+        <mat-icon>event</mat-icon><strong>{{data.todayAppointments.length}}</strong><span>Citas hoy</span>
+      </button>
+      <button mat-card class="metric" (click)="openMessages()">
+        <mat-icon>mail</mat-icon><strong>{{data.unreadMessageCount}}</strong><span>Mensajes sin leer</span>
+      </button>
+      <button mat-card class="metric" (click)="openClient(data.pendingDocuments[0].clientId)" [disabled]="!data.pendingDocumentCount">
+        <mat-icon>description</mat-icon><strong>{{data.pendingDocumentCount}}</strong><span>Documentos pendientes</span>
+      </button>
+      <button mat-card class="metric" (click)="openClient(data.pendingPatientData[0].clientId)" [disabled]="!data.pendingPatientDataCount">
+        <mat-icon>person_search</mat-icon><strong>{{data.pendingPatientDataCount}}</strong><span>Pacientes con datos pendientes</span>
+      </button>
+      <button mat-card class="metric" (click)="openTasks()">
+        <mat-icon>task_alt</mat-icon><strong>{{data.openTaskCount}}</strong><span>Tareas abiertas</span>
+        <small *ngIf="data.overdueTaskCount">{{data.overdueTaskCount}} vencidas</small>
+      </button>
+    </section>
+
+    <section class="grid">
+      <mat-card>
+        <mat-card-header><mat-card-title>Citas de hoy</mat-card-title></mat-card-header>
+        <mat-card-content>
+          <div class="row" *ngFor="let a of data.todayAppointments">
+            <div><strong>{{a.startsAt|date:'HH:mm'}}</strong><span>{{a.clientName}}</span></div>
+            <span class="status">{{a.status==='requested'?'Solicitada':'Confirmada'}}</span>
+            <button mat-button (click)="openAppointment(a)">{{a.status==='confirmed'?'Consulta':'Agenda'}}</button>
+          </div>
+          <p class="empty" *ngIf="!data.todayAppointments.length">No tienes citas pendientes para hoy.</p>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card>
+        <mat-card-header>
+          <mat-card-title>Tareas que requieren atención</mat-card-title>
+          <button mat-button class="header-action" (click)="openTasks()" *ngIf="data.openTaskCount">Ver todas</button>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="row" *ngFor="let task of data.openTasks">
+            <div>
+              <strong>{{task.title}}</strong>
+              <span>{{task.clientName}} · {{priorityLabel(task.priority)}}</span>
+            </div>
+            <span class="status overdue" *ngIf="isOverdue(task)">Vencida</span>
+            <span class="due" *ngIf="!isOverdue(task) && task.dueAt">Vence {{task.dueAt|date:'dd/MM HH:mm'}}</span>
+            <button mat-button (click)="openTask(task)">{{task.clientId?'Paciente':'Abrir'}}</button>
+          </div>
+          <p class="empty" *ngIf="!data.openTasks.length">No tienes tareas abiertas.</p>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card>
+        <mat-card-header><mat-card-title>Pacientes con datos pendientes</mat-card-title></mat-card-header>
+        <mat-card-content>
+          <div class="row" *ngFor="let p of data.pendingPatientData">
+            <div><strong>{{p.clientName}}</strong><span>Falta: {{p.missingFields}}</span></div>
+            <button mat-button (click)="openClient(p.clientId)">Abrir ficha</button>
+          </div>
+          <p class="empty" *ngIf="!data.pendingPatientData.length">No hay pacientes con datos de onboarding pendientes.</p>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card>
+        <mat-card-header><mat-card-title>Pacientes con documentación pendiente</mat-card-title></mat-card-header>
+        <mat-card-content>
+          <div class="row" *ngFor="let p of data.pendingDocuments">
+            <div><strong>{{p.clientName}}</strong><span>{{p.pendingCount}} documento{{p.pendingCount===1?'':'s'}} pendiente{{p.pendingCount===1?'':'s'}}</span></div>
+            <button mat-button (click)="openClient(p.clientId)">Abrir ficha</button>
+          </div>
+          <p class="empty" *ngIf="!data.pendingDocuments.length">No hay documentación pendiente de aceptación.</p>
+        </mat-card-content>
+      </mat-card>
+    </section>
+  </ng-container>
+
+  <div class="error" *ngIf="error">
+    <mat-icon>error_outline</mat-icon>
+    <span>{{error}}</span>
+    <button mat-button (click)="reload()">Reintentar</button>
+  </div>
 </main>
