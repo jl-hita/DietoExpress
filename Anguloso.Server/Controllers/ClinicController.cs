@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Anguloso.Server.Controllers;
 [ApiController]
 [Route("api/clinic")]
-[Authorize(Roles = "clinic_admin,nutritionist,user")]
+[Authorize(Roles = "clinic_admin,nutritionist")]
 public class ClinicController : ControllerBase
 {
     private readonly angulosodbContext _context;
