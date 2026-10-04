@@ -58,6 +58,15 @@ public partial class users
 
     public string clinic_logo { get; set; }
 
+
+    // Campos opcionales del directorio público; se mantienen aquí para que EF pueda consultar y persistir el perfil.
+    public bool? directory_enabled { get; set; }
+    public bool? online_consultations { get; set; }
+    public string directory_city { get; set; }
+    public string directory_bio { get; set; }
+    public string directory_specialties { get; set; }
+    public string directory_slug { get; set; }
+
     public string subscription_plan { get; set; }
 
     public string subscription_status { get; set; }
