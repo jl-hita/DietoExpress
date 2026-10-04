@@ -21,6 +21,20 @@ public sealed class PatientDocumentFlowRegressionTests
         => File.ReadAllText(Path.Combine(RepoRoot, relativePath));
 
     [Fact]
+    public void ProfessionalDashboardMustExposePendingPatientData()
+    {
+        var source = ReadServerSource("Anguloso.Server/Controllers/ProfessionalDashboardController.cs");
+
+        Assert.Contains("PendingPatientDataCount", source);
+        Assert.Contains("PendingPatientData", source);
+        Assert.Contains("cl.birth_date IS NULL", source);
+        Assert.Contains("cl.onboarding_consent_at IS NULL", source);
+        Assert.Contains("b.weight IS NOT NULL", source);
+        Assert.Contains("b.height IS NOT NULL", source);
+        Assert.Contains("nutritionist_id=@user AND a.is_active", source);
+    }
+
+    [Fact]
     public void ConsultationStartMustProvisionAndBlockOnRequiredDocuments()
     {
         var source = ReadServerSource("Anguloso.Server/Controllers/ProfessionalConsultationsController.cs");
