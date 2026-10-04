@@ -431,85 +431,19 @@
     <!-- ══════════════════════════════════════════ -->
     <!-- TAB: PROGRESO                             -->
     <!-- ══════════════════════════════════════════ -->
-    <main class="portal-content" *ngIf="activeTab === 'progress'">
-      <div class="section-hero">
-        <mat-icon>trending_up</mat-icon>
-        <div>
-          <h2>Mi Progreso</h2>
-          <span>Evolución de tu peso</span>
-        </div>
-      </div>
-
-      <!-- Resumen de evolución -->
-      <section class="progress-overview" *ngIf="profile">
-        <div class="progress-main-card">
-          <div class="progress-main-icon"><mat-icon>monitor_weight</mat-icon></div>
-          <div class="progress-main-copy">
-            <span>Peso actual</span>
-            <strong>{{ profile.currentWeight ?? '—' }}<small *ngIf="profile.currentWeight"> kg</small></strong>
-            <em *ngIf="weightHistory.length > 1">
-              {{ weightChangeIcon === 'south_east' ? '↓' : weightChangeIcon === 'north_east' ? '↑' : '→' }}
-              {{ weightChangeText }} {{ weightChangeLabel.toLowerCase() }}
-            </em>
-          </div>
-        </div>
-
-        <div class="progress-mini-card">
-          <span>Altura</span>
-          <strong>{{ profile.currentHeight ?? '—' }}<small *ngIf="profile.currentHeight"> cm</small></strong>
-          <mat-icon>height</mat-icon>
-        </div>
-
-        <div class="progress-mini-card" *ngIf="bmi">
-          <span>IMC</span>
-          <strong [style.color]="bmiColor">{{ bmi }}</strong>
-          <small [style.color]="bmiColor">{{ bmiCategory }}</small>
-        </div>
-      </section>
-
-      <section class="progress-tip" *ngIf="weightHistory.length > 1">
-        <mat-icon>insights</mat-icon>
-        <div>
-          <strong>Tu evolución</strong>
-          <span>
-            {{ weightChange === null || weightChange === 0
-              ? 'Tu peso se mantiene estable en los registros disponibles.'
-              : 'Has registrado ' + weightChangeText + (weightChange! < 0 ? ' menos' : ' más') + ' desde el primer registro.' }}
-          </span>
-        </div>
-      </section>
-
-      <!-- Historial de peso -->
-      <div class="weight-history" *ngIf="weightHistory.length > 1">
-        <div class="weight-history-header">
-          <div>
-            <h3>Evolución del peso</h3>
-            <span>{{ weightHistory.length }} mediciones registradas</span>
-          </div>
-          <span class="weight-range">{{ weightHistory[0].weight }} → {{ weightHistory[weightHistory.length - 1].weight }} kg</span>
-        </div>
-
-        <div class="weight-chart">
-          <div *ngFor="let entry of weightHistory" class="weight-bar-wrapper">
-            <div class="weight-bar"
-                 [style.height.%]="getWeightBarHeight(entry.weight, weightHistory)"
-                 [title]="entry.weight + ' kg · ' + formatWeightDate(entry.date)">
-            </div>
-            <span class="weight-bar-label">{{ entry.weight }}</span>
-            <span class="weight-date-label">{{ formatWeightDate(entry.date) }}</span>
-          </div>
-        </div>
-      </div>
-
-      <app-patient-checkin-history [enabled]="!isPreview"></app-patient-checkin-history>
-
-      <div class="progress-empty" *ngIf="!weightHistory.length || weightHistory.length < 2">
-        <div class="progress-empty-icon"><mat-icon>show_chart</mat-icon></div>
-        <h3>Tu evolución aparecerá aquí</h3>
-        <p>Cuando tengas al menos dos mediciones de peso podremos mostrar cómo ha evolucionado tu progreso.</p>
-      </div>
-    </main>
-
+    <app-patient-progress
+      *ngIf="activeTab === 'progress'"
+      [profile]="profile"
+      [weightHistory]="weightHistory"
+      [bmi]="bmi"
+      [bmiColor]="bmiColor"
+      [bmiCategory]="bmiCategory"
+      [weightChangeIcon]="weightChangeIcon"
+      [weightChangeText]="weightChangeText"
+      [weightChangeLabel]="weightChangeLabel"
+      [weightChange]="weightChange"
+      [isPreview]="isPreview">
+    </app-patient-progress>
     <main class="portal-content messages-content" *ngIf="activeTab === 'messages'">
       <app-patient-chat [patientMode]="true"></app-patient-chat>
     </main>
