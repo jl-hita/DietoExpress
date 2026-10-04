@@ -66,6 +66,31 @@ public sealed class PatientDocumentFlowRegressionTests
     }
 
     [Fact]
+    public void PatientPortalReadMustNotProvisionConsultationDocuments()
+    {
+        var source = ReadServerSource("Anguloso.Server/Controllers/PatientDocumentsController.cs");
+        var methodStart = source.IndexOf("public async Task<IActionResult> ListForPatient()");
+        Assert.True(methodStart >= 0);
+        var methodEnd = source.IndexOf("    [HttpPost(\"api/portal/documents/{documentId:long}/accept\")]", methodStart);
+        Assert.True(methodEnd > methodStart);
+        var method = source[methodStart..methodEnd];
+
+        Assert.DoesNotContain("CreateRequiredDocumentsAsync", method);
+        Assert.Contains("Select(c => c.tenant_id)", method);
+        Assert.Contains("claimedTenantId", method);
+    }
+
+    [Fact]
+    public void PatientPortalDocumentOperationsMustValidateClaimedTenantAgainstPatientRecord()
+    {
+        var source = ReadServerSource("Anguloso.Server/Controllers/PatientDocumentsController.cs");
+
+        Assert.Contains("var claimedTenantId = AuthHelpers.GetTenantId(User);", source);
+        Assert.Contains("claimedTenantId.Value != tenantId.Value", source);
+        Assert.Contains("patientAccess", source);
+    }
+
+    [Fact]
     public void ConsultationPendingQueryMustOnlyConsiderActiveTemplatesMarkedBeforeConsultation()
     {
         var source = ReadServerSource("Anguloso.Server/Logica/PatientDocumentService.cs");
