@@ -14,7 +14,7 @@ import { LegalDocumentGeneratorService, LegalGeneratedDocument } from '../../ser
 @Component({
   selector: 'app-admin-legal-settings',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, MatButtonModule, MatCardModule, MatDividerModule, MatFormFieldModule, MatIconModule, MatInputModule, MatSnackBarModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, MatButtonModule, MatCardModule, MatDividerModule, MatFormFieldModule, MatIconModule, MatInputModule, MatSnackBarModule],
   template: `
     <main class="page" [formGroup]="form">
       <header><div><h1>Configuración legal de DietoExpress</h1><p>Datos del titular y de la plataforma que se insertarán en las plantillas legales.</p></div></header>
@@ -71,7 +71,9 @@ import { LegalDocumentGeneratorService, LegalGeneratedDocument } from '../../ser
             <mat-icon>description</mat-icon>{{ template.key }}
           </button>
         </div>
-        <div *ngIf="lastGenerated" class="generated">
+        <div class="documents"><h2>Documentos generados</h2><div class="doc-row" *ngFor="let doc of documents" (click)="openDocument(doc.id)"><div><strong>{{ doc.title }}</strong><small>v{{doc.version}} · {{doc.status}}</small></div><span *ngIf="doc.hasUnresolvedPlaceholders" class="pending">Pendientes: {{doc.unresolved?.join(", ")}}</span><span *ngIf="!doc.hasUnresolvedPlaceholders" class="ready">Sin placeholders</span></div></div>
+      <section *ngIf="selectedDocument" class="editor"><h2>{{selectedDocument.title}} · v{{selectedDocument.version}}</h2><textarea [(ngModel)]="selectedDocument.content" rows="18"></textarea><div class="actions"><button mat-stroked-button (click)="saveDocument()">Guardar borrador</button><button mat-raised-button color="primary" (click)="publishDocument()" [disabled]="selectedDocument.unresolved?.length">Validar y publicar</button></div></section>
+      <div *ngIf="lastGenerated" class="generated">
           <strong>{{ lastGenerated.title }}</strong> · versión {{ lastGenerated.version }}
           <span *ngIf="lastGenerated.unresolved?.length"> · Pendientes: {{ lastGenerated.unresolved.join(', ') }}</span>
           <span *ngIf="!lastGenerated.unresolved?.length"> · Sin placeholders pendientes</span>
@@ -82,7 +84,7 @@ import { LegalDocumentGeneratorService, LegalGeneratedDocument } from '../../ser
     </main>
   `,
   styles: [`
-    .page{padding:24px;display:grid;gap:18px;max-width:1100px}.page h1{margin:0}.page header p{color:#64748b}.notice{display:flex;gap:10px;padding:14px;border-radius:10px;background:#fff7ed;color:#9a3412}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding-top:18px}.wide{grid-column:1/-1}.full{width:100%}.generator{padding:18px;border:1px solid #e2e8f0;border-radius:12px}.generator h2{margin:0 0 4px}.generator p{color:#64748b}.template-grid{display:flex;flex-wrap:wrap;gap:8px}.generated{margin-top:14px;padding:10px;border-radius:8px;background:#f8fafc}.actions{display:flex;justify-content:flex-end}@media(max-width:700px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}}
+    .page{padding:24px;display:grid;gap:18px;max-width:1100px}.page h1{margin:0}.page header p{color:#64748b}.notice{display:flex;gap:10px;padding:14px;border-radius:10px;background:#fff7ed;color:#9a3412}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding-top:18px}.wide{grid-column:1/-1}.full{width:100%}.generator{padding:18px;border:1px solid #e2e8f0;border-radius:12px}.generator h2{margin:0 0 4px}.generator p{color:#64748b}.template-grid{display:flex;flex-wrap:wrap;gap:8px}.generated{margin-top:14px;padding:10px;border-radius:8px;background:#f8fafc}.documents{display:grid;gap:8px}.doc-row{display:flex;justify-content:space-between;gap:12px;padding:12px;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer}.doc-row small{display:block;color:#64748b}.pending{color:#b45309}.ready{color:#15803d}.editor textarea{width:100%;box-sizing:border-box;font:14px/1.5 monospace;padding:12px;border:1px solid #cbd5e1;border-radius:8px}.actions{display:flex;justify-content:flex-end}@media(max-width:700px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}}
   `]
 })
 export class AdminLegalSettingsComponent implements OnInit {
@@ -91,6 +93,8 @@ export class AdminLegalSettingsComponent implements OnInit {
   generating = false;
   templates: { key: string; file: string }[] = [];
   lastGenerated: LegalGeneratedDocument | null = null;
+  documents: LegalGeneratedDocument[] = [];
+  selectedDocument: LegalGeneratedDocument | null = null;
 
   constructor(private fb: FormBuilder, private legal: LegalConfigurationService, private generator: LegalDocumentGeneratorService, private snack: MatSnackBar) {
     this.form = this.fb.group({
@@ -102,12 +106,18 @@ export class AdminLegalSettingsComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.loadDocuments();
     this.generator.getTemplates().subscribe({ next: templates => this.templates = templates, error: () => this.snack.open('No se pudieron cargar las plantillas.', 'Cerrar', {duration:4000}) });
     this.legal.getPlatform().subscribe({
       next: settings => { const values: Record<string,string> = {}; settings.forEach(s => values[s.key]=s.value ?? ''); this.form.patchValue(values); },
       error: () => this.snack.open('No se pudo cargar la configuración legal de DietoExpress.', 'Cerrar', {duration:4000})
     });
   }
+
+  loadDocuments(): void { this.generator.list().subscribe({ next: docs => this.documents=docs, error:()=>this.snack.open('No se pudieron cargar los documentos.', 'Cerrar', {duration:4000}) }); }
+  openDocument(id:number): void { this.generator.get(id).subscribe({next:doc=>this.selectedDocument=doc,error:()=>this.snack.open('No se pudo abrir el documento.', 'Cerrar',{duration:4000})}); }
+  saveDocument(): void { if(!this.selectedDocument?.content)return; this.generator.update(this.selectedDocument.id,this.selectedDocument.content).subscribe({next:()=>{this.snack.open('Borrador guardado.','Cerrar',{duration:2500});this.loadDocuments();},error:()=>this.snack.open('No se pudo guardar el borrador.','Cerrar',{duration:4000})}); }
+  publishDocument(): void { if(!this.selectedDocument || this.selectedDocument.unresolved?.length)return; if(!confirm('¿Publicar esta versión como documento legal oficial?'))return; this.generator.publish(this.selectedDocument.id).subscribe({next:()=>{this.snack.open('Documento publicado.','Cerrar',{duration:3000});this.selectedDocument=null;this.loadDocuments();},error:()=>this.snack.open('No se pudo publicar el documento.','Cerrar',{duration:4000})}); }
 
   generate(templateKey: string): void {
     if (this.generating) return;
