@@ -2,7 +2,7 @@
   <div class="header"><div><h1>Panel de clínica</h1><p>Gestiona nutricionistas, clientes y asignaciones.</p></div><button mat-stroked-button (click)="load()"><mat-icon>refresh</mat-icon> Actualizar</button></div>
   <div *ngIf="data" class="kpis">
     <mat-card><span>Plan</span><strong>{{data.license.planName}}</strong></mat-card>
-    <mat-card><span>Nutricionistas</span><strong>{{data.license.nutritionists}}{{contractedSeats ? ' / '+contractedSeats : ''}}</strong></mat-card>
+    <mat-card><span>Nutricionistas</span><strong>{{data.license.nutritionists}} / {{contractedSeats}} puestos</strong></mat-card>
     <mat-card><span>Clientes</span><strong>{{data.license.clients}}{{data.license.maxTotalClients ? ' / '+data.license.maxTotalClients : ''}}</strong></mat-card>
     <mat-card><span>Máximo por nutricionista</span><strong>{{data.license.maxClientsPerNutritionist ?? '∞'}}</strong></mat-card>
   </div>
