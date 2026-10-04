@@ -85,7 +85,7 @@ public static class DatabaseBootstrap
                     tenant_id INTEGER REFERENCES tenants(id)
                 );
 
-                -- Normalización de roles heredados: "user" siempre representó una cuenta profesional.
+                -- Normalización de roles heredados: el antiguo rol user siempre representó una cuenta profesional.
                 -- Se ejecuta después de crear users para funcionar también en instalaciones nuevas.
                 UPDATE users SET role = 'superadmin' WHERE role = 'admin';
                 UPDATE users SET role = 'nutritionist' WHERE role IS NULL OR TRIM(role) = '' OR role = 'user';
