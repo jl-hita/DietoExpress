@@ -86,8 +86,12 @@ public class AdminPlansController : ControllerBase
         p.max_clients_per_nutritionist = r.MaxClientsPerNutritionist;
         p.max_total_clients = r.MaxTotalClients;
         p.trial_days = r.TrialDays;
-        p.stripe_additional_monthly_price_id = r.StripeAdditionalMonthlyPriceId;
-        p.stripe_additional_yearly_price_id = r.StripeAdditionalYearlyPriceId;
+        // Los Price IDs son opcionales en el formulario administrativo; si no se envían,
+        // conservamos la configuración existente para no romper la facturación de clínicas.
+        if (r.StripeAdditionalMonthlyPriceId != null)
+            p.stripe_additional_monthly_price_id = r.StripeAdditionalMonthlyPriceId.Trim();
+        if (r.StripeAdditionalYearlyPriceId != null)
+            p.stripe_additional_yearly_price_id = r.StripeAdditionalYearlyPriceId.Trim();
         p.active = r.Active;
 
         await _context.SaveChangesAsync();
