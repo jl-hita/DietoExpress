@@ -14,7 +14,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { AdminService, AdminConfig, AdminStats, AdminUser, AdminPlan, CreateAdminAccountDto } from '../../servicios/admin.service';
+import { AdminService, AdminAlert, AdminConfig, AdminStats, AdminUser, AdminPlan, CreateAdminAccountDto } from '../../servicios/admin.service';
 import { EditLicenseDialogComponent } from './edit-license-dialog.component';
 import { ResetPasswordDialogComponent } from './reset-password-dialog.component';
 import { CreateAdminAccountDialogComponent } from './create-admin-account-dialog.component';
@@ -43,6 +43,26 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
   ],
   template: `
     <div class="admin-container">
+      <mat-card class="alerts-card" *ngIf="alerts.length">
+        <div class="alerts-header">
+          <div>
+            <h2><mat-icon>error_outline</mat-icon> Incidencias de la aplicación</h2>
+            <p>Hay problemas operativos que requieren revisión. El detalle técnico permanece en el servidor.</p>
+          </div>
+          <span class="alert-count">{{ alerts.length }}</span>
+        </div>
+        <div class="alert-item" *ngFor="let alert of alerts" [ngClass]="'severity-' + alert.severity">
+          <mat-icon>{{ alert.severity === 'critical' ? 'report' : (alert.severity === 'error' ? 'error' : 'warning_amber') }}</mat-icon>
+          <div class="alert-body">
+            <strong>{{ alert.title }}</strong>
+            <span>{{ alert.message }}</span>
+            <small>{{ alert.component }} · {{ alert.lastSeenAt | date:'dd/MM/yyyy HH:mm' }}<ng-container *ngIf="alert.occurrences > 1"> · {{ alert.occurrences }} ocurrencias</ng-container></small>
+          </div>
+          <button mat-stroked-button (click)="resolveAlert(alert)" [disabled]="resolvingAlertIds.has(alert.id)">
+            {{ resolvingAlertIds.has(alert.id) ? 'Guardando…' : 'Marcar revisada' }}
+          </button>
+        </div>
+      </mat-card>
       <div class="admin-header">
         <div>
           <h1>Panel de Control de SuperAdministrador</h1>
@@ -284,6 +304,26 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
     </div>
   `,
   styles: [`
+    .alerts-card { margin-bottom: 24px; padding: 20px; border-radius: 12px; border-left: 5px solid #dc2626; }
+    .alerts-header { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; margin-bottom:14px; }
+    .alerts-header h2 { margin:0; display:flex; align-items:center; gap:8px; font-size:20px; color:#991b1b; }
+    .alerts-header h2 mat-icon { color:#dc2626; }
+    .alerts-header p { margin:5px 0 0; color:#64748b; font-size:13px; }
+    .alert-count { min-width:28px; height:28px; border-radius:50%; display:grid; place-items:center; background:#fee2e2; color:#991b1b; font-weight:700; }
+    .alert-item { display:flex; align-items:center; gap:12px; padding:13px; border:1px solid #fecaca; border-radius:10px; background:#fff7f7; margin-top:10px; }
+    .alert-item > mat-icon { color:#dc2626; flex:none; }
+    .alert-body { flex:1; min-width:0; display:grid; gap:3px; }
+    .alert-body strong { color:#7f1d1d; }
+    .alert-body span { color:#334155; font-size:13px; }
+    .alert-body small { color:#64748b; font-size:11px; }
+    .severity-warning { border-color:#fde68a; background:#fffbeb; }
+    .severity-warning > mat-icon { color:#d97706; }
+    .severity-warning .alert-body strong { color:#92400e; }
+    .severity-info { border-color:#bfdbfe; background:#eff6ff; }
+    .severity-info > mat-icon { color:#2563eb; }
+    .severity-info .alert-body strong { color:#1e40af; }
+    @media (max-width: 768px) { .alert-item { align-items:flex-start; flex-wrap:wrap; } .alert-item button { margin-left:32px; } }
+
     .admin-container {
       padding: 24px;
       width: 100%;
@@ -470,6 +510,8 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
 })
 // Documentación: este componente coordina estado de interfaz y operaciones asíncronas que deben mantenerse alineadas con la API.
 export class AdminDashboardComponent implements OnInit {
+  alerts: AdminAlert[] = [];
+  resolvingAlertIds = new Set<number>();
   stats?: AdminStats;
   plans: AdminPlan[] = [];
   users: AdminUser[] = [];
@@ -498,6 +540,10 @@ export class AdminDashboardComponent implements OnInit {
 
   // El panel combina métricas, usuarios, configuración y planes; cada bloque se carga independientemente para que un fallo parcial no inutilice toda la pantalla.
   loadData(): void {
+    this.adminService.getAlerts().subscribe({
+      next: alerts => this.alerts = alerts,
+      error: err => console.error('Error fetching application alerts', err)
+    });
     this.adminService.getStats().subscribe({
       next: (stats) => this.stats = stats,
       error: (err) => console.error('Error fetching admin stats', err)

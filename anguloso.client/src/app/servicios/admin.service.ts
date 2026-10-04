@@ -13,6 +13,17 @@ export interface SetupInitRequest {
   password: string;
 }
 
+export interface AdminAlert {
+  id: number;
+  severity: 'critical' | 'error' | 'warning' | 'info';
+  component: string;
+  title: string;
+  message: string;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  occurrences: number;
+}
+
 export interface AdminStats {
   totalUsers: number;
   totalClients: number;
@@ -85,6 +96,14 @@ export class AdminService {
 
   initSuperAdmin(data: SetupInitRequest): Observable<{ message: string }> {
     return this.http.post<{ message: string }>(`${this.setupUrl}/init`, data);
+  }
+
+  getAlerts(): Observable<AdminAlert[]> {
+    return this.http.get<AdminAlert[]>(`${this.adminUrl}/alerts`);
+  }
+
+  resolveAlert(id: number): Observable<void> {
+    return this.http.post<void>(`${this.adminUrl}/alerts/${id}/resolve`, {});
   }
 
   getStats(): Observable<AdminStats> {
