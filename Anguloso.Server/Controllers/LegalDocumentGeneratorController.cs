@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 using Anguloso.Server.Logica.Utils;
 using Microsoft.AspNetCore.Authorization;
@@ -11,225 +13,76 @@ namespace Anguloso.Server.Controllers;
 [Authorize(Policy = "Professional")]
 public sealed class LegalDocumentGeneratorController : ControllerBase
 {
-    private static readonly Dictionary<string, string> Templates = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["01-aviso-legal"] = "01-aviso-legal.md",
-        ["02-privacidad-dietoexpress"] = "02-privacidad-dietoexpress.md",
-        ["03-terminos-saas"] = "03-terminos-saas.md",
-        ["04-politica-cookies"] = "04-politica-cookies.md",
-        ["05-dpa-encargo-tratamiento"] = "05-dpa-encargo-tratamiento.md",
-        ["06-informacion-privacidad-paciente"] = "06-informacion-privacidad-paciente.md",
-        ["07-consentimiento-informado-paciente"] = "07-consentimiento-informado-paciente.md",
-        ["08-condiciones-economicas"] = "08-condiciones-economicas.md",
-        ["09-rat-minimo"] = "09-rat-minimo.md",
-        ["10-matriz-conservacion"] = "10-matriz-conservacion.md",
-        ["11-analisis-riesgos-eipd"] = "11-analisis-riesgos-eipd.md"
-    };
-
     private readonly IConfiguration _configuration;
-
     public LegalDocumentGeneratorController(IConfiguration configuration) => _configuration = configuration;
 
-    [HttpGet("templates")]
-    public IActionResult ListTemplates() =>
-        Ok(Templates.Keys.Select(key => new { key, file = Templates[key] }));
-
-    [HttpPost("{templateKey}")]
-    public async Task<IActionResult> Generate(string templateKey, CancellationToken cancellationToken)
+    private static readonly Dictionary<string,string> Titles = new(StringComparer.OrdinalIgnoreCase)
     {
-        if (!Templates.TryGetValue(templateKey, out var fileName))
-            return NotFound("Plantilla legal no encontrada.");
-
-        var scope = GetScope();
-        if (scope == null) return Unauthorized();
-
-        var templatePath = Path.Combine(AppContext.BaseDirectory, "LegalTemplates", fileName);
-        if (!System.IO.File.Exists(templatePath))
-            return Problem("La plantilla legal no está disponible en el despliegue.");
-
-        var template = await System.IO.File.ReadAllTextAsync(templatePath, cancellationToken);
-        var values = await ReadConfiguration(scope.Value.type, scope.Value.id, cancellationToken);
-
-        // Compatibilidad con las plantillas existentes: display_name se deriva
-        // de la identidad legal cuando no existe un campo específico.
-        if (!values.ContainsKey("display_name"))
-            values["display_name"] = values.GetValueOrDefault("legal_name", string.Empty);
-
-        var rendered = Regex.Replace(template, @"{{([a-zA-Z0-9_.-]+)}}", match =>
-        {
-            var key = match.Groups[1].Value;
-            return values.TryGetValue(key, out var value) ? value : match.Value;
-        });
-
-        var unresolved = Regex.Matches(rendered, @"{{([a-zA-Z0-9_.-]+)}}")
-            .Select(m => m.Groups[1].Value)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-
-        var title = GetTitle(templateKey);
-        var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
-            System.Text.Encoding.UTF8.GetBytes(rendered))).ToLowerInvariant();
-
-        await using var connection = new NpgsqlConnection(ConnectionString);
-        await connection.OpenAsync(cancellationToken);
-
-        await using var versionCommand = new NpgsqlCommand("""
-            SELECT COALESCE(MAX(version),0)+1
-            FROM legal_generated_documents
-            WHERE scope_type=@scope AND scope_id=@scopeId AND template_key=@key;
-            """, connection);
-        versionCommand.Parameters.AddWithValue("scope", scope.Value.type);
-        versionCommand.Parameters.AddWithValue("scopeId", scope.Value.id);
-        versionCommand.Parameters.AddWithValue("key", templateKey);
-        var version = Convert.ToInt32(await versionCommand.ExecuteScalarAsync(cancellationToken));
-
-        await using var insert = new NpgsqlCommand("""
-            INSERT INTO legal_generated_documents
-                (scope_type, scope_id, template_key, version, title, content, status, sha256)
-            VALUES
-                (@scope,@scopeId,@key,@version,@title,@content,'draft',@sha)
-            RETURNING id;
-            """, connection);
-        insert.Parameters.AddWithValue("scope", scope.Value.type);
-        insert.Parameters.AddWithValue("scopeId", scope.Value.id);
-        insert.Parameters.AddWithValue("key", templateKey);
-        insert.Parameters.AddWithValue("version", version);
-        insert.Parameters.AddWithValue("title", title);
-        insert.Parameters.AddWithValue("content", rendered);
-        insert.Parameters.AddWithValue("sha", hash);
-        var id = Convert.ToInt64(await insert.ExecuteScalarAsync(cancellationToken));
-
-        return Ok(new { id, templateKey, version, title, content = rendered, sha256 = hash, unresolved });
-    }
-
-    [HttpGet]
-    public async Task<IActionResult> List(CancellationToken cancellationToken)
-    {
-        var scope = GetScope();
-        if (scope == null) return Unauthorized();
-
-        await using var connection = new NpgsqlConnection(ConnectionString);
-        await connection.OpenAsync(cancellationToken);
-        await using var command = new NpgsqlCommand("""
-            SELECT id, template_key, version, title, status, sha256, generated_at
-            FROM legal_generated_documents
-            WHERE scope_type=@scope AND scope_id=@scopeId
-            ORDER BY generated_at DESC;
-            """, connection);
-        command.Parameters.AddWithValue("scope", scope.Value.type);
-        command.Parameters.AddWithValue("scopeId", scope.Value.id);
-
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        var result = new List<object>();
-        while (await reader.ReadAsync(cancellationToken))
-            result.Add(new
-            {
-                id = reader.GetInt64(0),
-                templateKey = reader.GetString(1),
-                version = reader.GetInt32(2),
-                title = reader.GetString(3),
-                status = reader.GetString(4),
-                sha256 = reader.GetString(5),
-                generatedAt = reader.GetDateTime(6)
-            });
-
-        return Ok(result);
-    }
-
-    [HttpGet("{id:long}")]
-    public async Task<IActionResult> Get(long id, CancellationToken cancellationToken)
-    {
-        var scope = GetScope();
-        if (scope == null) return Unauthorized();
-
-        await using var connection = new NpgsqlConnection(ConnectionString);
-        await connection.OpenAsync(cancellationToken);
-        await using var command = new NpgsqlCommand("""
-            SELECT id, template_key, version, title, content, status, sha256, generated_at
-            FROM legal_generated_documents
-            WHERE id=@id AND scope_type=@scope AND scope_id=@scopeId;
-            """, connection);
-        command.Parameters.AddWithValue("id", id);
-        command.Parameters.AddWithValue("scope", scope.Value.type);
-        command.Parameters.AddWithValue("scopeId", scope.Value.id);
-
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        if (!await reader.ReadAsync(cancellationToken)) return NotFound();
-
-        return Ok(new
-        {
-            id = reader.GetInt64(0),
-            templateKey = reader.GetString(1),
-            version = reader.GetInt32(2),
-            title = reader.GetString(3),
-            content = reader.GetString(4),
-            status = reader.GetString(5),
-            sha256 = reader.GetString(6),
-            generatedAt = reader.GetDateTime(7)
-        });
-    }
-
-    private (string type, int id)? GetScope()
-    {
-        var userId = AuthHelpers.GetUserId(User);
-        if (!userId.HasValue) return null;
-
-        if (User.IsInRole("superadmin")) return ("platform", 1);
-
-        var tenantId = AuthHelpers.GetTenantId(User);
-        if (User.IsInRole("clinic_admin") && tenantId.HasValue)
-            return ("tenant", tenantId.Value);
-
-        return ("user", userId.Value);
-    }
-
-    private async Task<Dictionary<string, string>> ReadConfiguration(
-        string scopeType, int scopeId, CancellationToken cancellationToken)
-    {
-        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-        await using var connection = new NpgsqlConnection(ConnectionString);
-        await connection.OpenAsync(cancellationToken);
-        await using var command = new NpgsqlCommand("""
-            SELECT scope_type, setting_key, setting_value
-            FROM legal_configuration
-            WHERE (scope_type=@scope AND scope_id=@scopeId)
-               OR (scope_type='platform' AND scope_id=1);
-            """, connection);
-        command.Parameters.AddWithValue("scope", scopeType);
-        command.Parameters.AddWithValue("scopeId", scopeId);
-
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        while (await reader.ReadAsync(cancellationToken))
-        {
-            var type = reader.GetString(0);
-            var key = reader.GetString(1);
-            var prefix = type.Equals("platform", StringComparison.OrdinalIgnoreCase)
-                ? "platform."
-                : "professional.";
-            result[prefix + key] = reader.GetString(2);
-        }
-
-        return result;
-    }
-
-    private static string GetTitle(string key) => key switch
-    {
-        "01-aviso-legal" => "Aviso legal",
-        "02-privacidad-dietoexpress" => "Política de privacidad de DietoExpress",
-        "03-terminos-saas" => "Términos y condiciones de DietoExpress",
-        "04-politica-cookies" => "Política de cookies",
-        "05-dpa-encargo-tratamiento" => "Acuerdo de encargo del tratamiento",
-        "06-informacion-privacidad-paciente" => "Información de privacidad para pacientes",
-        "07-consentimiento-informado-paciente" => "Consentimiento informado del paciente",
-        "08-condiciones-economicas" => "Condiciones económicas",
-        "09-rat-minimo" => "Registro de Actividades de Tratamiento",
-        "10-matriz-conservacion" => "Matriz de conservación y supresión",
-        "11-analisis-riesgos-eipd" => "Análisis de riesgos y decisión EIPD",
-        _ => key
+        ["01-aviso-legal"]="Aviso legal",["02-privacidad-dietoexpress"]="Política de privacidad de DietoExpress",
+        ["03-terminos-saas"]="Términos y condiciones de DietoExpress",["04-politica-cookies"]="Política de cookies",
+        ["05-dpa-encargo-tratamiento"]="Acuerdo de encargo del tratamiento",["06-informacion-privacidad-paciente"]="Información de privacidad para pacientes",
+        ["07-consentimiento-informado-paciente"]="Consentimiento informado del paciente",["08-condiciones-economicas"]="Condiciones económicas",
+        ["09-rat-minimo"]="Registro de Actividades de Tratamiento",["10-matriz-conservacion"]="Matriz de conservación y supresión",
+        ["11-analisis-riesgos-eipd"]="Análisis de riesgos y decisión EIPD"
     };
 
-    private string ConnectionString =>
-        _configuration.GetConnectionString("DefaultConnection")
-        ?? throw new InvalidOperationException("DefaultConnection no está configurada.");
+    [HttpGet] public async Task<IActionResult> List(CancellationToken ct)
+    {
+        var scope=GetScope(); if(scope==null)return Unauthorized();
+        await using var c=new NpgsqlConnection(ConnectionString); await c.OpenAsync(ct);
+        await using var q=new NpgsqlCommand("""SELECT id,template_key,version,title,status,sha256,generated_at,content FROM legal_generated_documents WHERE scope_type=@s AND scope_id=@i ORDER BY generated_at DESC;""",c);
+        q.Parameters.AddWithValue("s",scope.Value.type);q.Parameters.AddWithValue("i",scope.Value.id);
+        await using var rd=await q.ExecuteReaderAsync(ct);var list=new List<object>();
+        while(await rd.ReadAsync(ct)){var content=rd.GetString(7);var pending=Regex.Matches(content,@"\{\{([a-zA-Z0-9_.-]+)\}\}").Select(m=>m.Groups[1].Value).Distinct().ToArray();
+            list.Add(new{id=rd.GetInt64(0),templateKey=rd.GetString(1),version=rd.GetInt32(2),title=rd.GetString(3),status=rd.GetString(4),sha256=rd.GetString(5),generatedAt=rd.GetDateTime(6),hasUnresolvedPlaceholders=pending.Length>0,unresolved=pending});}
+        return Ok(list);
+    }
+
+    [HttpGet("{id:long}")] public async Task<IActionResult> Get(long id,CancellationToken ct)
+    {
+        var scope=GetScope();if(scope==null)return Unauthorized();
+        await using var c=new NpgsqlConnection(ConnectionString);await c.OpenAsync(ct);
+        await using var q=new NpgsqlCommand("""SELECT id,template_key,version,title,content,status,sha256,generated_at FROM legal_generated_documents WHERE id=@id AND scope_type=@s AND scope_id=@i;""",c);
+        q.Parameters.AddWithValue("id",id);q.Parameters.AddWithValue("s",scope.Value.type);q.Parameters.AddWithValue("i",scope.Value.id);
+        await using var rd=await q.ExecuteReaderAsync(ct);if(!await rd.ReadAsync(ct))return NotFound();
+        var content=rd.GetString(4);var pending=Regex.Matches(content,@"\{\{([a-zA-Z0-9_.-]+)\}\}").Select(m=>m.Groups[1].Value).Distinct().ToArray();
+        return Ok(new{id=rd.GetInt64(0),templateKey=rd.GetString(1),version=rd.GetInt32(2),title=rd.GetString(3),content,status=rd.GetString(5),sha256=rd.GetString(6),generatedAt=rd.GetDateTime(7),unresolved=pending});
+    }
+
+    [HttpPut("{id:long}")] public async Task<IActionResult> Update(long id,[FromBody] UpdateGeneratedDocumentRequest request,CancellationToken ct)
+    {
+        var scope=GetScope();if(scope==null)return Unauthorized();if(request==null||string.IsNullOrWhiteSpace(request.Content))return BadRequest("El contenido es obligatorio.");
+        var hash=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(request.Content))).ToLowerInvariant();
+        await using var c=new NpgsqlConnection(ConnectionString);await c.OpenAsync(ct);
+        await using var q=new NpgsqlCommand("""UPDATE legal_generated_documents SET content=@content,sha256=@sha,updated_at=NOW(),status='draft' WHERE id=@id AND scope_type=@s AND scope_id=@i AND status<>'published' RETURNING id;""",c);
+        q.Parameters.AddWithValue("id",id);q.Parameters.AddWithValue("s",scope.Value.type);q.Parameters.AddWithValue("i",scope.Value.id);q.Parameters.AddWithValue("content",request.Content);q.Parameters.AddWithValue("sha",hash);
+        var result=await q.ExecuteScalarAsync(ct);return result==null?NotFound():Ok(new{id,sha256=hash,status="draft"});
+    }
+
+    [HttpPost("{id:long}/publish")] public async Task<IActionResult> Publish(long id,CancellationToken ct)
+    {
+        if(!User.IsInRole("superadmin"))return Forbid();
+        var scope=("platform",1);
+        await using var c=new NpgsqlConnection(ConnectionString);await c.OpenAsync(ct);await using var tx=await c.BeginTransactionAsync(ct);
+        await using var q=new NpgsqlCommand("""SELECT template_key,title,content,version FROM legal_generated_documents WHERE id=@id AND scope_type='platform' AND scope_id=1 AND status='draft' FOR UPDATE;""",c,tx);
+        q.Parameters.AddWithValue("id",id);await using var rd=await q.ExecuteReaderAsync(ct);if(!await rd.ReadAsync(ct))return NotFound();
+        var key=rd.GetString(0);var title=rd.GetString(1);var content=rd.GetString(2);var sourceVersion=rd.GetInt32(3);await rd.CloseAsync();
+        var unresolved=Regex.Matches(content,@"\{\{([a-zA-Z0-9_.-]+)\}\}").Select(m=>m.Groups[1].Value).Distinct().ToArray();
+        if(unresolved.Length>0)return Conflict(new{message="El documento contiene placeholders sin resolver.",unresolved});
+        var hash=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content))).ToLowerInvariant();
+        await using var ins=new NpgsqlCommand("""INSERT INTO legal_documents(document_key,version,title,document_type,content,status,effective_from,sha256,created_at,published_at) VALUES(@key,(SELECT COALESCE(MAX(version),0)+1 FROM legal_documents WHERE document_key=@key),@title,'legal',@content,'published',NOW(),@sha,NOW(),NOW()) RETURNING id,version;""",c,tx);
+        ins.Parameters.AddWithValue("key",key);ins.Parameters.AddWithValue("title",title);ins.Parameters.AddWithValue("content",content);ins.Parameters.AddWithValue("sha",hash);
+        await using var published=await ins.ExecuteReaderAsync(ct);await published.ReadAsync(ct);var publishedId=published.GetInt64(0);var publishedVersion=published.GetInt32(1);await published.CloseAsync();
+        await using var mark=new NpgsqlCommand("""UPDATE legal_generated_documents SET status='published',updated_at=NOW() WHERE id=@id;""",c,tx);mark.Parameters.AddWithValue("id",id);await mark.ExecuteNonQueryAsync(ct);
+        await tx.CommitAsync(ct);return Ok(new{generatedDocumentId=id,legalDocumentId=publishedId,version=publishedVersion,sourceVersion});
+    }
+
+    private (string type,int id)? GetScope()
+    {
+        var uid=AuthHelpers.GetUserId(User);if(!uid.HasValue)return null;
+        if(User.IsInRole("superadmin"))return("platform",1);
+        var tenant=AuthHelpers.GetTenantId(User);return User.IsInRole("clinic_admin")&&tenant.HasValue?("tenant",tenant.Value):("user",uid.Value);
+    }
+    private string ConnectionString=>_configuration.GetConnectionString("DefaultConnection")??throw new InvalidOperationException("DefaultConnection no está configurada.");
 }
+public sealed record UpdateGeneratedDocumentRequest(string Content);
