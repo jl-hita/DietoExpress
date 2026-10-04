@@ -180,7 +180,7 @@ CREATE INDEX IF NOT EXISTS idx_patient_push_subscriptions_client
 ");
 BillingSchemaBootstrap.Initialize(context, logger); databaseReady = true;
             }
-            catch (Exception ex) { logger.LogCritical(ex, "ERROR CRÍTICO: La aplicación no pudo verificar o inicializar la base de datos."); }
+            catch (Exception ex) { logger.LogCritical(ex, "ERROR CRÍTICO: La aplicación no pudo verificar o inicializar la base de datos."); throw; }
         }
         if (databaseReady)
         {
