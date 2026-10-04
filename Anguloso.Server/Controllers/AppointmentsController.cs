@@ -234,7 +234,7 @@ public class AppointmentsController : ControllerBase
         return NoContent();
     }
 
-    [Authorize(Roles = "clinic_admin,nutritionist,user")]
+    [Authorize(Roles = "clinic_admin,nutritionist")]
     [HttpGet("professional")]
     public async Task<ActionResult<IEnumerable<AppointmentDto>>> GetProfessionalAppointments([FromQuery] DateTime? from, [FromQuery] DateTime? to)
     {
@@ -256,7 +256,7 @@ public class AppointmentsController : ControllerBase
         return Ok(await query.OrderBy(a => a.starts_at).Take(500).Select(a => ToDto(a)).ToListAsync());
     }
 
-    [Authorize(Roles = "clinic_admin,nutritionist,user")]
+    [Authorize(Roles = "clinic_admin,nutritionist")]
     [HttpGet("availability")]
     public async Task<ActionResult<IEnumerable<AvailabilityDto>>> GetAvailability()
     {
@@ -270,7 +270,7 @@ public class AppointmentsController : ControllerBase
             .ToListAsync());
     }
 
-    [Authorize(Roles = "clinic_admin,nutritionist,user")]
+    [Authorize(Roles = "clinic_admin,nutritionist")]
     [HttpPost("availability")]
     public async Task<ActionResult<AvailabilityDto>> SaveAvailability([FromBody] SaveAvailabilityRequestDto request)
     {
@@ -311,7 +311,7 @@ public class AppointmentsController : ControllerBase
     }
 
 
-    [Authorize(Roles = "clinic_admin,nutritionist,user")]
+    [Authorize(Roles = "clinic_admin,nutritionist")]
     [HttpPut("availability/{id:int}")]
     public async Task<ActionResult<AvailabilityDto>> UpdateAvailability(int id, [FromBody] UpdateAvailabilityRequestDto request)
     {
@@ -344,7 +344,7 @@ public class AppointmentsController : ControllerBase
         return Ok(ToAvailabilityDto(existing));
     }
 
-    [Authorize(Roles = "clinic_admin,nutritionist,user")]
+    [Authorize(Roles = "clinic_admin,nutritionist")]
     [HttpDelete("availability/{id:int}")]
     public async Task<IActionResult> DeleteAvailability(int id)
     {
@@ -364,7 +364,7 @@ public class AppointmentsController : ControllerBase
         return NoContent();
     }
 
-    [Authorize(Roles = "clinic_admin,nutritionist,user")]
+    [Authorize(Roles = "clinic_admin,nutritionist")]
     [HttpPatch("{id:int}/status")]
     public async Task<ActionResult<AppointmentDto>> UpdateStatus(int id, [FromBody] UpdateAppointmentStatusRequestDto request)
     {
