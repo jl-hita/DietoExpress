@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from '@angular/core';
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -10,7 +10,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
   templateUrl: './patient-shopping.component.html',
   styleUrls: ['./patient-shopping.component.css']
 })
-export class PatientShoppingComponent {
+export class PatientShoppingComponent implements OnInit, OnChanges {
   @Input() shoppingList: any[] = [];
   @Input() shoppingLoading = false;
   @Input() shoppingDataError: string | null = null;
@@ -26,6 +26,12 @@ export class PatientShoppingComponent {
   ngOnInit(): void {
     this.loadCheckedItems();
     this.emitCounts();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['shoppingList'] && !changes['shoppingList'].firstChange) {
+      this.emitCounts();
+    }
   }
 
   get shoppingItemCount(): number {
