@@ -51,6 +51,26 @@
     <p *ngIf="profile.specialties"><strong>Especialidades:</strong> {{ profile.specialties }}</p>
     <p *ngIf="profile.publicBio">{{ profile.publicBio }}</p>
 
-    <button mat-stroked-button type="button" disabled>Reservar cita — próxima fase</button>
+    <section class="availability" aria-labelledby="availability-title">
+      <h3 id="availability-title">Próximos horarios disponibles</h3>
+      <p *ngIf="availabilityLoading" class="status">Consultando disponibilidad...</p>
+      <p *ngIf="availabilityError" class="status error">{{ availabilityError }}</p>
+      <p *ngIf="!availabilityLoading && !availabilityError && !availability.length" class="status">
+        En este momento no hay horarios publicados.
+      </p>
+      <div *ngIf="availability.length" class="slot-list">
+        <button
+          *ngFor="let slot of availability"
+          type="button"
+          class="slot"
+          disabled
+          [attr.aria-label]="'Reservar ' + formatSlot(slot)">
+          {{ formatSlot(slot) }}
+        </button>
+      </div>
+      <p class="booking-note">
+        La reserva online se habilitará en la siguiente fase. El pago online no será necesario para reservar.
+      </p>
+    </section>
   </section>
 </main>
