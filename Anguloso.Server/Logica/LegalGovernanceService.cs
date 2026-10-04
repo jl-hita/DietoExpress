@@ -26,13 +26,20 @@ public sealed class LegalGovernanceService
             MapRat,ct);
     public async Task<long> CreateRatAsync(SaveLegalRatActivity r,CancellationToken ct)
     {
-        ValidateRat(r); return await ExecuteScalarAsync<long>(@"INSERT INTO legal_rat_activities(scope_type,scope_id,name,purpose,role,legal_basis,subject_categories,data_categories,special_categories,recipients,international_transfers,retention,security_measures,notes,status) VALUES(@scope,@id,@name,@purpose,@role,@basis,@subjects,@data,@special,@recipients,@transfers,@retention,@security,@notes,@status) RETURNING id",r,ct);
+        ValidateRat(r); var id = await ExecuteScalarAsync<long>(@"INSERT INTO legal_rat_activities(scope_type,scope_id,name,purpose,role,legal_basis,subject_categories,data_categories,special_categories,recipients,international_transfers,retention,security_measures,notes,status) VALUES(@scope,@id,@name,@purpose,@role,@basis,@subjects,@data,@special,@recipients,@transfers,@retention,@security,@notes,@status) RETURNING id",r,ct);
+        await _audit.LogAccessAsync("CREATE_LEGAL_RAT_ACTIVITY","legal_rat_activities",id.ToString(),null,$"RAT: {r.Name}");
+        return id;
     }
     public async Task<bool> UpdateRatAsync(long id,SaveLegalRatActivity r,CancellationToken ct)
     {
-        ValidateRat(r); return await ExecuteNonQueryAsync(@"UPDATE legal_rat_activities SET name=@name,purpose=@purpose,role=@role,legal_basis=@basis,subject_categories=@subjects,data_categories=@data,special_categories=@special,recipients=@recipients,international_transfers=@transfers,retention=@retention,security_measures=@security,notes=@notes,status=@status,updated_at=NOW() WHERE id=@row AND scope_type=@scope AND scope_id=@id",r,id,ct)>0;
+        ValidateRat(r); var updated=await ExecuteNonQueryAsync(@"UPDATE legal_rat_activities SET name=@name,purpose=@purpose,role=@role,legal_basis=@basis,subject_categories=@subjects,data_categories=@data,special_categories=@special,recipients=@recipients,international_transfers=@transfers,retention=@retention,security_measures=@security,notes=@notes,status=@status,updated_at=NOW() WHERE id=@row AND scope_type=@scope AND scope_id=@id",r,id,ct)>0;
     }
-    public async Task<bool> DeleteRatAsync(long id,CancellationToken ct)=>await ExecuteNonQueryAsync(@"UPDATE legal_rat_activities SET status='archived',updated_at=NOW() WHERE id=@row AND scope_type=@scope AND scope_id=@id",null,id,ct)>0;
+    public async Task<bool> DeleteRatAsync(long id,CancellationToken ct)
+    {
+        var updated=await ExecuteNonQueryAsync(@"UPDATE legal_rat_activities SET status='archived',updated_at=NOW() WHERE id=@row AND scope_type=@scope AND scope_id=@id",null,id,ct)>0;
+        if(updated) await _audit.LogAccessAsync("ARCHIVE_LEGAL_RAT_ACTIVITY","legal_rat_activities",id.ToString());
+        return updated;
+    }
 
     public async Task<IReadOnlyList<LegalRiskAssessmentDto>> ListRisksAsync(CancellationToken ct)
         => await QueryAsync(@"SELECT id,name,risk_description,likelihood,impact,measures,residual_risk,owner,review_date,status FROM legal_risk_assessments WHERE scope_type=@scope AND scope_id=@id ORDER BY id",MapRisk,ct);
