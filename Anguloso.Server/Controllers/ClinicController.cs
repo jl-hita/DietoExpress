@@ -15,15 +15,55 @@ public class ClinicController : ControllerBase
     private readonly IAuditLogService _audit;
     private readonly EmailServ _emailServ;
     private readonly ConfigServ _configServ;
+    private readonly IStripeBillingService _stripe;
 
-    public ClinicController(angulosodbContext context, ILicenseService license, IAuditLogService audit, EmailServ emailServ, ConfigServ configServ)
+    public ClinicController(angulosodbContext context, ILicenseService license, IAuditLogService audit, EmailServ emailServ, ConfigServ configServ, IStripeBillingService stripe)
     {
         _context = context;
         _license = license;
         _audit = audit;
         _emailServ = emailServ;
         _configServ = configServ;
+        _stripe = stripe;
     }
+    [HttpPost("nutritionist-seats")]
+    [Authorize(Roles="clinic_admin")]
+    [EnableRateLimiting("expensive")]
+    public async Task<IActionResult> ChangeNutritionistSeats([FromBody] ChangeNutritionistSeatsRequest request)
+    {
+        var tenantId = AuthHelpers.GetTenantId(User);
+        if (!tenantId.HasValue) return BadRequest("Sin clínica.");
+        if (request == null) return BadRequest("Datos de capacidad no válidos.");
+
+        var license = await _license.GetLicenseAsync(tenantId);
+        if (license == null || !string.Equals(license.PlanCode, "clinic_full", StringComparison.OrdinalIgnoreCase))
+            return BadRequest("La gestión de puestos adicionales solo está disponible para clínicas.");
+
+        if (!request.TargetSeats.HasValue)
+            return BadRequest("Debes indicar el número de puestos contratados.");
+
+        var targetSeats = request.TargetSeats.Value;
+        var validation = await _license.CanReduceNutritionistCapacityAsync(tenantId.Value, targetSeats);
+        if (!validation.Allowed)
+        {
+            var currentCapacity = license.ContractedNutritionists ?? license.IncludedNutritionists ?? 0;
+            if (targetSeats > currentCapacity)
+            {
+                // La ampliación se valida de nuevo dentro de la misma transacción/lock del servicio Stripe.
+            }
+            else
+                return BadRequest(validation.Reason);
+        }
+
+        if (targetSeats < (license.ContractedNutritionists ?? license.IncludedNutritionists ?? 0))
+            await _stripe.ChangeNutritionistSeatsAsync(tenantId.Value, targetSeats);
+        else
+            await _stripe.ChangeNutritionistSeatsAsync(tenantId.Value, targetSeats);
+
+        var updated = await _license.GetLicenseAsync(tenantId);
+        return Ok(new { message = "Capacidad profesional actualizada correctamente.", license = updated });
+    }
+
     [HttpGet("dashboard")]
     [Authorize(Roles="clinic_admin")]
     // El dashboard agrega información del tenant autenticado para que las métricas nunca dependan de un tenant enviado por el cliente.
@@ -369,3 +409,4 @@ public record CreateNutritionistRequest(string Email, string? FullName);
 public record AssignClientRequest(int? NutritionistId);
 public record ClientReassignment(int ClientId,int? NutritionistId);
 public record DeactivateNutritionistRequest(List<ClientReassignment> Assignments);
+public sealed record ChangeNutritionistSeatsRequest(int? TargetSeats);
