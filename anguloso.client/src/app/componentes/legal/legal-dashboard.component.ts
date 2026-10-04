@@ -10,6 +10,7 @@ import { LegalGovernanceComponent } from './legal-governance.component';
 import { LegalEvidenceComponent } from './legal-evidence.component';
 import { LegalGovernanceService } from '../../servicios/legal-governance.service';
 import { LegalEvidenceService } from '../../servicios/legal-evidence.service';
+import { LegalConfigurationService } from '../../servicios/legal-configuration.service';
 
 @Component({
   selector: 'app-legal-dashboard',
@@ -21,11 +22,11 @@ import { LegalEvidenceService } from '../../servicios/legal-evidence.service';
         <div><h1>Legal y cumplimiento</h1><p>Un único espacio para preparar, revisar y mantener la documentación legal de tu cuenta.</p></div>
       </header>
 
-      <section class="status" [class.ok]="pending===0 && documents.length>0">
+      <section class="status" [class.ok]="technicalStatus==='ready'" [class.review]="technicalStatus==='review'">
         <mat-icon>{{ pending===0 && documents.length>0 ? 'check_circle' : 'pending_actions' }}</mat-icon>
         <div>
-          <strong>{{ pending===0 && documents.length>0 ? 'No hay placeholders pendientes en los documentos generados' : 'Hay documentación pendiente' }}</strong>
-          <span>{{ pending }} documento(s) requieren completar o revisar información.</span>
+          <strong>{{ technicalStatus==='ready' ? 'Estado técnico preparado' : technicalStatus==='review' ? 'Revisión técnica pendiente' : 'Faltan elementos del mínimo técnico' }}</strong>
+          <span>Configuración pendiente: {{configMissing}} · documentos pendientes: {{pending}} · RAT: {{ratCount}} · EIPD: {{eipdDecision}}</span>
         </div>
       </section>
 
@@ -90,28 +91,44 @@ import { LegalEvidenceService } from '../../servicios/legal-evidence.service';
     </main>`,
   styles: [`
     .page{padding:24px;display:grid;gap:18px;max-width:1200px}.page h1{margin:0}.page header p{color:#64748b}
-    .status{display:flex;gap:14px;align-items:center;padding:18px;border-radius:12px;background:#fff7ed;color:#9a3412}.status.ok{background:#f0fdf4;color:#166534}.status mat-icon{font-size:32px;width:32px;height:32px}.status span{display:block;margin-top:3px}
+    .status{display:flex;gap:14px;align-items:center;padding:18px;border-radius:12px;background:#fff7ed;color:#9a3412}.status.ok{background:#f0fdf4;color:#166534}.status.review{background:#fffbeb;color:#92400e}.status mat-icon{font-size:32px;width:32px;height:32px}.status span{display:block;margin-top:3px}
     .cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:20px 0}.cards strong{font-size:28px}.pending-list{display:grid;gap:10px}.pending-list div{display:flex;justify-content:space-between;gap:16px;padding:10px;border-bottom:1px solid #e2e8f0}.pending{color:#b45309}.ready{color:#15803d}.scope-note{display:flex;gap:10px;margin-top:16px}.documents,.placeholder-section{display:grid;gap:14px;padding:20px 0}.toolbar{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}.toolbar>div{flex:1 1 100%}.toolbar h2{margin:0 0 4px}.toolbar p{color:#64748b}.doc-row{display:flex;justify-content:space-between;gap:12px;padding:12px;border:1px solid #e2e8f0;border-radius:8px}.doc-row small{display:block;color:#64748b}.empty{color:#64748b}@media(max-width:800px){.cards{grid-template-columns:1fr}.pending-list div,.doc-row{display:grid}}
   `]
 })
 export class LegalDashboardComponent implements OnInit {
   documents: LegalGeneratedDocument[] = [];
   ratCount=0; openRisks=0; openRequests=0; openIncidents=0; eipdDecision='pending';
+  configMissing=0; technicalStatus:'ready'|'review'|'pending'='pending';
   pendingDocs: LegalGeneratedDocument[] = [];
   pending = 0;
   templates: {key:string; file:string}[] = [];
   generating = false;
 
-  constructor(private generator: LegalDocumentGeneratorService, private governance: LegalGovernanceService, private evidence: LegalEvidenceService) {}
+  constructor(private generator: LegalDocumentGeneratorService, private governance: LegalGovernanceService, private evidence: LegalEvidenceService, private config: LegalConfigurationService) {}
 
   ngOnInit(): void {
     this.loadDocuments();
     this.generator.getTemplates().subscribe({next: templates => this.templates=templates});
-    this.governance.listRat().subscribe({next:x=>this.ratCount=x.filter(a=>a.status!=='archived').length});
+    this.config.getProfessional().subscribe({next: settings => {
+      const required=['legal_name','tax_id','address','contact_email','privacy_email','patient_privacy_legal_basis','patient_retention_summary','dpa_duration'];
+      const values=new Map(settings.map(s=>[s.key,(s.value||'').trim()]));
+      this.configMissing=required.filter(k=>!values.get(k)).length;
+      this.updateStatus();
+    }, error:()=>{this.configMissing=1;this.updateStatus();}});
+    this.governance.listRat().subscribe({next:x=>{this.ratCount=x.filter(a=>a.status!=='archived').length;this.updateStatus();}});
+    this.governance.listRisks().subscribe({next:x=>{this.openRisks=x.filter(a=>a.status==='open').length;this.updateStatus();}});
+    this.governance.listEipd().subscribe({next:x=>{this.eipdDecision=x.length ? x[0].decision : 'pending';this.updateStatus();}});
     this.governance.listRisks().subscribe({next:x=>this.openRisks=x.filter(a=>a.status==='open').length});
     this.governance.listEipd().subscribe({next:x=>this.eipdDecision=x.length ? x[0].decision : 'pending'});
-    this.evidence.requests().subscribe({next:x=>this.openRequests=x.filter(a=>!['resolved','rejected','cancelled'].includes(a.status)).length});
+    this.evidence.requests().subscribe({next:x=>{this.openRequests=x.filter(a=>!['resolved','rejected','cancelled'].includes(a.status)).length;this.updateStatus();}});
+    this.evidence.incidents().subscribe({next:x=>{this.openIncidents=x.filter(a=>!['closed','false_positive'].includes(a.status)).length;this.updateStatus();}});
     this.evidence.incidents().subscribe({next:x=>this.openIncidents=x.filter(a=>!['closed','false_positive'].includes(a.status)).length});
+  }
+
+  updateStatus(): void {
+    if(this.configMissing>0 || this.pending>0 || this.ratCount===0 || this.eipdDecision==='pending') this.technicalStatus='pending';
+    else if(this.openRisks>0 || this.openRequests>0 || this.openIncidents>0 || this.eipdDecision==='required') this.technicalStatus='review';
+    else this.technicalStatus='ready';
   }
 
   loadDocuments(): void {
@@ -119,6 +136,7 @@ export class LegalDashboardComponent implements OnInit {
       this.documents=docs;
       this.pendingDocs=docs.filter(d => !!d.hasUnresolvedPlaceholders || !!d.unresolved?.length);
       this.pending=this.pendingDocs.length;
+      this.updateStatus();
     }});
   }
 
