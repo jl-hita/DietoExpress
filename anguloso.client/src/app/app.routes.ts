@@ -31,6 +31,7 @@ import { GuidedConsultationComponent } from './componentes/guided-consultation/g
 import { DocumentTemplatesComponent } from './componentes/document-templates/document-templates.component';
 import { LegalDocumentsComponent } from './componentes/legal-documents/legal-documents.component';
 import { AdminLegalSettingsComponent } from './componentes/admin/admin-legal-settings.component';
+import { LegalDashboardComponent } from './componentes/legal/legal-dashboard.component';
 
 export interface AppRoute extends Route {
   showInMenu?: boolean;
@@ -64,6 +65,7 @@ export const routes: AppRoute[] = [
       { path: 'diets/:id', component: DietCreateComponent, canActivate: [SubscriptionGuard], title: 'Editar dieta' },
       { path: 'onboarding', component: OnboardingComponent, title: 'Bienvenido a DietoExpress' },
       { path: 'settings', component: SettingsComponent, title: 'Ajustes' },
+      { path: 'legal-manage', component: LegalDashboardComponent, canActivate: [SubscriptionGuard], title: 'Legal', showInMenu: true },
       { path: 'documents', component: DocumentTemplatesComponent, canActivate: [SubscriptionGuard], title: 'Documentación' },
       { path: 'automations', component: AutomationSettingsComponent, canActivate: [SubscriptionGuard], title: 'Automatizaciones' },
       { path: 'billing', component: BillingComponent, title: 'Suscripción' },
