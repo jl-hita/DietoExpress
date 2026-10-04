@@ -1,3 +1,9 @@
+.portal-content { flex:1; overflow-y:auto; padding:0 0 90px; scrollbar-width:thin; scrollbar-color:#334155 transparent; }
+.eyebrow { display:block; margin-bottom:2px; color:#64748b; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; }
+.empty-state { display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:48px 24px; gap:12px; color:#475569; }
+.empty-state mat-icon { font-size:48px; width:48px; height:48px; color:#334155; }
+.empty-state h3 { margin:0; font-size:18px; font-weight:700; color:#64748b; }
+.empty-state p { margin:0; font-size:14px; max-width:260px; line-height:1.6; }
 /* Estilos aislados del módulo de citas para evitar cargar este bloque en el componente principal. */
 .portal-inline-error {
   display: flex; align-items: center; gap: 10px; max-width: 1080px; margin: 12px auto; padding: 12px 14px;
