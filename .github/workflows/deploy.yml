@@ -76,11 +76,13 @@ jobs:
           test -d /var/lib/dietoexpress/Logs
           test -w /var/lib/dietoexpress/Logs
 
-          # El spool vive dentro del área persistente de logs, que ya pertenece a joso.
-          # Así no dependemos de sudo interactivo en el runner para crear directorios bajo /var/lib.
-          mkdir -p /var/lib/dietoexpress/Logs/AlertSpool
-          test -d /var/lib/dietoexpress/Logs/AlertSpool
-          test -w /var/lib/dietoexpress/Logs/AlertSpool
+          # El spool es deliberadamente independiente de Logs: debe seguir disponible
+          # como cola de recuperación aunque el almacenamiento habitual de logs cambie.
+          # El servicio se ejecuta con el usuario joso, por lo que el directorio persistente
+          # debe existir y ser escribible antes de reiniciar la aplicación.
+          mkdir -p /var/lib/dietoexpress/AlertSpool
+          test -d /var/lib/dietoexpress/AlertSpool
+          test -w /var/lib/dietoexpress/AlertSpool
 
           rm -rf /opt/dietoexpress/*
           cp -a /tmp/dietoexpress-backend/. /opt/dietoexpress/
