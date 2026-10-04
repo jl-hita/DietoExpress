@@ -85,7 +85,15 @@ public class ProfileController : ControllerBase
         }
 
         await _context.SaveChangesAsync();
-        return NoContent();
+        return Ok(new ProfileDto
+        {
+            Username = user.username, Email = user.email, FullName = user.full_name,
+            ClinicName = user.clinic_name, ClinicAddress = user.clinic_address, ClinicPhone = user.clinic_phone,
+            ClinicLogo = user.clinic_logo, DirectoryEnabled = user.directory_enabled ?? false,
+            OnlineConsultations = user.online_consultations ?? false, DirectoryCity = user.directory_city,
+            DirectoryBio = user.directory_bio, DirectorySpecialties = user.directory_specialties,
+            DirectorySlug = user.directory_slug
+        });
     }
     private static string BuildSlug(string? fullName, string username)
     {
