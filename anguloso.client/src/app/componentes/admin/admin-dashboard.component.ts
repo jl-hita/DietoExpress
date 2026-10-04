@@ -650,6 +650,23 @@ export class AdminDashboardComponent implements OnInit {
     this.loadUsers(false);
   }
 
+  resolveAlert(alert: AdminAlert): void {
+    if (this.resolvingAlertIds.has(alert.id)) return;
+
+    this.resolvingAlertIds.add(alert.id);
+    this.adminService.resolveAlert(alert.id).subscribe({
+      next: () => {
+        this.alerts = this.alerts.filter(current => current.id !== alert.id);
+        this.resolvingAlertIds.delete(alert.id);
+        this.snackBar.open('Incidencia marcada como revisada.', 'OK', { duration: 3000 });
+      },
+      error: () => {
+        this.resolvingAlertIds.delete(alert.id);
+        this.snackBar.open('No se pudo marcar la incidencia como revisada.', 'Cerrar', { duration: 4000 });
+      }
+    });
+  }
+
   isExpiredOrNear(dateStr: string): boolean {
     const d = new Date(dateStr).getTime();
     const now = new Date().getTime();
