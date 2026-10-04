@@ -30,6 +30,7 @@ public sealed class LicenseInfo
     public int? IncludedNutritionists { get; init; }
     public int? ContractedNutritionists { get; init; }
     public int? AvailableNutritionistSlots { get; init; }
+    public bool AdditionalSeatPriceConfigured { get; init; }
     public int? MaxClientsPerNutritionist { get; init; }
     public int? MaxTotalClients { get; init; }
     public DateTime? NutritionistReplacementAvailableAt { get; init; }
@@ -57,12 +58,17 @@ public class LicenseService : ILicenseService
         var includedNutritionists = sub.plan.max_nutritionists;
         var contractedNutritionists = sub.contracted_nutritionists ?? includedNutritionists;
         var availableNutritionistSlots = contractedNutritionists.HasValue ? Math.Max(0, contractedNutritionists.Value - nutritionists) : (int?)null;
+        var additionalSeatPriceConfigured = string.Equals(sub.plan.code, "clinic_full", StringComparison.OrdinalIgnoreCase)
+            && (string.Equals(sub.billing_interval, "yearly", StringComparison.OrdinalIgnoreCase)
+                ? !string.IsNullOrWhiteSpace(sub.plan.stripe_additional_yearly_price_id)
+                : !string.IsNullOrWhiteSpace(sub.plan.stripe_additional_monthly_price_id));
         return new LicenseInfo { TenantId = tenantId.Value, PlanCode = sub.plan.code, PlanName = sub.plan.name, Status = sub.status, ExpiresAt = sub.expires_at,
             CurrentPeriodStart = sub.current_period_start, CurrentPeriodEnd = sub.current_period_end,
             BillingInterval = sub.billing_interval, CancelAtPeriodEnd = sub.cancel_at_period_end,
             Nutritionists = nutritionists, Clients = clients, MaxNutritionists = sub.plan.max_nutritionists,
             IncludedNutritionists = includedNutritionists, ContractedNutritionists = contractedNutritionists,
             AvailableNutritionistSlots = availableNutritionistSlots,
+            AdditionalSeatPriceConfigured = additionalSeatPriceConfigured,
             MaxClientsPerNutritionist = sub.plan.max_clients_per_nutritionist, MaxTotalClients = sub.plan.max_total_clients,
             Features = sub.plan.features.Where(f => f.enabled).Select(f => f.feature_code).ToList(),
             NutritionistReplacementAvailableAt = await GetNutritionistReplacementAvailableAtAsync(tenantId.Value) };
