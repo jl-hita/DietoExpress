@@ -41,9 +41,10 @@ public class AuthController : ControllerBase
     private readonly ConfigServ _configServ;
     private readonly LogServ _logServ;
     private readonly IAuditLogService _audit;
+    private readonly PatientDocumentTemplateSeeder _patientDocumentTemplateSeeder;
 
     //public AuthController(angulosodbContext context, IConfiguration config, IEmailService emailService, ConfigServ configServ)
-    public AuthController(angulosodbContext context, IConfiguration config, EmailServ emailServ, ConfigServ configServ, LogServ logServ, IAuditLogService audit)
+    public AuthController(angulosodbContext context, IConfiguration config, EmailServ emailServ, ConfigServ configServ, LogServ logServ, IAuditLogService audit, PatientDocumentTemplateSeeder patientDocumentTemplateSeeder)
     {
         _context = context;
         _config = config;
@@ -52,6 +53,7 @@ public class AuthController : ControllerBase
         _configServ = configServ;
         _logServ = logServ;
         _audit = audit;
+        _patientDocumentTemplateSeeder = patientDocumentTemplateSeeder;
     }
 
     /// <summary>
@@ -263,6 +265,7 @@ public class AuthController : ControllerBase
             };
             _context.tenants.Add(tenant);
             await _context.SaveChangesAsync();
+            await _patientDocumentTemplateSeeder.SeedTenantAsync(tenant.id, HttpContext.RequestAborted);
             user.tenant_id = tenant.id;
 
             _context.users.Add(user);
@@ -702,6 +705,7 @@ public class AuthController : ControllerBase
                         _context.tenants.Add(tenantGoogle);
                         await _context.SaveChangesAsync();
 
+                        await _patientDocumentTemplateSeeder.SeedTenantAsync(tenantGoogle.id, HttpContext.RequestAborted);
                         user.tenant_id = tenantGoogle.id;
                         _context.users.Add(user);
                         await _context.SaveChangesAsync();
