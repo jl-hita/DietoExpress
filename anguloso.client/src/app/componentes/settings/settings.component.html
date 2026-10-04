@@ -172,6 +172,55 @@
       </div>
 
       </mat-tab>
+
+      <mat-tab label="Directorio">
+        <mat-card class="settings-card directory-card">
+          <mat-card-header>
+            <mat-icon mat-card-avatar class="section-icon">public</mat-icon>
+            <mat-card-title>Perfil público</mat-card-title>
+            <mat-card-subtitle>Haz que nuevos pacientes puedan encontrarte desde el directorio de DietoExpress.</mat-card-subtitle>
+          </mat-card-header>
+          <mat-divider></mat-divider>
+          <mat-card-content class="card-content">
+            <mat-slide-toggle formControlName="directoryEnabled">
+              Mostrar mi perfil en el directorio
+            </mat-slide-toggle>
+            <p class="directory-help">Solo se publican los datos de esta sección y la información profesional básica. Tu email, teléfono privado y datos de pacientes nunca se muestran.</p>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Ciudad o municipio</mat-label>
+              <mat-icon matPrefix>location_city</mat-icon>
+              <input matInput formControlName="directoryCity" placeholder="Ej: Valencia">
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Especialidades</mat-label>
+              <mat-icon matPrefix>restaurant</mat-icon>
+              <input matInput formControlName="directorySpecialties" placeholder="Ej: nutrición deportiva, pérdida de peso">
+              <mat-hint>Separa las especialidades con comas.</mat-hint>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Presentación pública</mat-label>
+              <textarea matInput formControlName="directoryBio" rows="5" maxlength="2000"
+                        placeholder="Cuenta brevemente qué tipo de pacientes atiendes y cómo trabajas."></textarea>
+            </mat-form-field>
+
+            <mat-slide-toggle formControlName="onlineConsultations">
+              Ofrezco consultas online
+            </mat-slide-toggle>
+
+            <div class="public-url" *ngIf="profile?.directorySlug">
+              <mat-icon>link</mat-icon>
+              <span>Tu perfil público:</span>
+              <a [href]="'/nutricionistas/' + profile?.directorySlug" target="_blank" rel="noopener">
+                /nutricionistas/{{ profile?.directorySlug }}
+              </a>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </mat-tab>
+
     </mat-tab-group>
     </form>
   </ng-container>
