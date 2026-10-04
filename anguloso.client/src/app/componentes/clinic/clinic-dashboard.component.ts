@@ -16,12 +16,55 @@ export class ClinicDashboardComponent implements OnInit {
  data?:ClinicDashboard; showCreate=false; newNutri:any={fullName:'',email:''};
  constructor(private clinic:ClinicService,private snack:MatSnackBar,private dialog:MatDialog){}
  // La creación depende simultáneamente del estado de la suscripción, el cupo contratado, el periodo de sustitución y la funcionalidad habilitada.
+ get contractedSeats():number {
+   const l=this.data?.license;
+   return l?.contractedNutritionists ?? l?.includedNutritionists ?? 0;
+ }
+ get canAddSeat():boolean {
+   const l=this.data?.license;
+   return !!l &&
+     l.status === 'active' &&
+     l.planCode === 'clinic_full' &&
+     !!l.additionalSeatPriceConfigured;
+ }
+ get canRemoveSeat():boolean {
+   const l=this.data?.license;
+   return !!l &&
+     l.status === 'active' &&
+     l.planCode === 'clinic_full' &&
+     this.contractedSeats > (l.includedNutritionists ?? l.maxNutritionists ?? 0) &&
+     this.contractedSeats > l.nutritionists;
+ }
  get canCreateNutri():boolean{
    const l=this.data?.license;
    if(!l || l.status!=='active') return false;
    if(l.contractedNutritionists != null && l.nutritionists >= l.contractedNutritionists) return false;
    if(l.nutritionistReplacementAvailableAt && new Date(l.nutritionistReplacementAvailableAt).getTime() > Date.now()) return false;
    return l.features?.includes('MULTI_NUTRITIONIST') ?? false;
+ }
+ addSeat():void {
+   if (!this.canAddSeat) return;
+   const target = this.contractedSeats + 1;
+   if (!window.confirm('Añadirás un puesto profesional adicional por 15 €/mes. Stripe aplicará el prorrateo correspondiente. ¿Continuar?')) return;
+   this.clinic.changeNutritionistSeats(target).subscribe({
+     next: response => {
+       this.snack.open(response?.message || 'Puesto profesional añadido.', 'OK', {duration:4000});
+       this.load();
+     },
+     error: e => this.snack.open(e?.error?.message || e?.error || 'No se pudo añadir el puesto.', 'Cerrar', {duration:5000})
+   });
+ }
+ removeSeat():void {
+   if (!this.canRemoveSeat) return;
+   const target = this.contractedSeats - 1;
+   if (!window.confirm('Reducirás un puesto profesional adicional. Stripe aplicará el prorrateo correspondiente. ¿Continuar?')) return;
+   this.clinic.changeNutritionistSeats(target).subscribe({
+     next: response => {
+       this.snack.open(response?.message || 'Puesto profesional eliminado.', 'OK', {duration:4000});
+       this.load();
+     },
+     error: e => this.snack.open(e?.error?.message || e?.error || 'No se pudo eliminar el puesto.', 'Cerrar', {duration:5000})
+   });
  }
  ngOnInit(){this.load();}
  load(){this.clinic.getDashboard().subscribe({next:d=>this.data=d,error:e=>this.snack.open(e?.error||'No se puede cargar el panel de clínica','Cerrar',{duration:4000})});}
