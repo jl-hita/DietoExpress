@@ -3,6 +3,17 @@ import { CommonModule, DecimalPipe } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
+interface PatientShoppingItem {
+  foodId: number;
+  foodName: string;
+  totalGrams: number;
+}
+
+interface PatientShoppingCategory {
+  category: string;
+  items: PatientShoppingItem[];
+}
+
 @Component({
   selector: 'app-patient-shopping',
   standalone: true,
@@ -11,7 +22,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
   styleUrls: ['./patient-shopping.component.css']
 })
 export class PatientShoppingComponent implements OnInit, OnChanges {
-  @Input() shoppingList: any[] = [];
+  @Input() shoppingList: PatientShoppingCategory[] = [];
   @Input() shoppingLoading = false;
   @Input() shoppingDataError: string | null = null;
   @Input() hasActiveDiet = false;
@@ -44,12 +55,12 @@ export class PatientShoppingComponent implements OnInit, OnChanges {
 
   get shoppingItemCount(): number {
     return this.shoppingList.reduce(
-      (total: number, category: any) => total + (category.items?.length ?? 0), 0);
+      (total: number, category: PatientShoppingCategory) => total + (category.items?.length ?? 0), 0);
   }
 
   get checkedShoppingItemCount(): number {
     return this.shoppingList.reduce(
-      (total: number, category: any) => total + (category.items?.filter((item: any) =>
+      (total: number, category: PatientShoppingCategory) => total + (category.items?.filter((item: PatientShoppingItem) =>
         this.isChecked(category.category + '_' + item.foodId)).length ?? 0), 0);
   }
 
