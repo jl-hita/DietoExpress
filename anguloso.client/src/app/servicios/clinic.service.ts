@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-export interface ClinicLicense { tenantId:number; planCode:string; planName:string; status:string; expiresAt?:string; nutritionists:number; clients:number; maxNutritionists?:number; includedNutritionists?:number; contractedNutritionists?:number; availableNutritionistSlots?:number; additionalSeatPriceConfigured?:boolean; additionalSeatPriceConfigured?:boolean; maxClientsPerNutritionist?:number; maxTotalClients?:number; nutritionistReplacementAvailableAt?:string|null; features:string[]; }
+export interface ClinicLicense { tenantId:number; planCode:string; planName:string; status:string; expiresAt?:string; nutritionists:number; clients:number; maxNutritionists?:number; includedNutritionists?:number; contractedNutritionists?:number; availableNutritionistSlots?:number; additionalSeatPriceConfigured?:boolean; maxClientsPerNutritionist?:number; maxTotalClients?:number; nutritionistReplacementAvailableAt?:string|null; features:string[]; }
 export interface ClinicNutritionist { id:number; full_name:string; username:string; email:string; role:string; last_login?:string; archived_at?:string|null; active:boolean; clientCount:number; }
 export interface ClinicClient { id:number; full_name:string; email:string; phone:string; nutritionistId:number|null; nutritionistName:string|null; }
 export interface ClinicDashboard { license:ClinicLicense; nutritionists:ClinicNutritionist[]; clients:ClinicClient[]; unassignedClientCount:number; }
