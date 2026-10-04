@@ -82,7 +82,7 @@ public class ClinicController : ControllerBase
         // Estas tablas son módulos SQL adicionales y no forman parte del modelo EF generado.
         // Consultamos solo agregados para mantener el dashboard desacoplado del scaffold.
         var todayAppointments = await _context.Database.SqlQueryRaw<int>(
-            @"SELECT COUNT(*)::int AS \"Value\"
+            @"SELECT COUNT(*)::int AS ""Value""
               FROM patient_appointments
               WHERE tenant_id = {0}
                 AND starts_at >= {1}
@@ -91,7 +91,7 @@ public class ClinicController : ControllerBase
             tenantId.Value, todayStart, tomorrowStart).SingleAsync();
 
         var unreadMessages = await _context.Database.SqlQueryRaw<int>(
-            @"SELECT COUNT(*)::int AS \"Value\"
+            @"SELECT COUNT(*)::int AS ""Value""
               FROM patient_messages m
               INNER JOIN patient_conversations c ON c.id = m.conversation_id
               WHERE c.tenant_id = {0}
@@ -100,7 +100,7 @@ public class ClinicController : ControllerBase
             tenantId.Value).SingleAsync();
 
         var pendingDocuments = await _context.Database.SqlQueryRaw<int>(
-            @"SELECT COUNT(*)::int AS \"Value\"
+            @"SELECT COUNT(*)::int AS ""Value""
               FROM patient_documents d
               INNER JOIN clients c ON c.id = d.client_id
               WHERE d.tenant_id = {0}
