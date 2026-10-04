@@ -101,6 +101,10 @@ public sealed class LegalDocumentsController : ControllerBase
             string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.Content))
             return BadRequest("Clave, título y contenido son obligatorios.");
 
+        var publishing = string.Equals(request.Status, "published", StringComparison.OrdinalIgnoreCase);
+        if (publishing && (request.Content.Contains("{{", StringComparison.Ordinal) || request.Content.Contains("}}", StringComparison.Ordinal)))
+            return Conflict("No se puede publicar un documento legal que contenga placeholders sin resolver.");
+
         var key = request.DocumentKey.Trim().ToLowerInvariant();
         var type = string.IsNullOrWhiteSpace(request.DocumentType) ? "legal" : request.DocumentType.Trim().ToLowerInvariant();
 
