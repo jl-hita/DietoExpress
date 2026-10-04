@@ -189,7 +189,7 @@ public sealed class LegalDocumentGeneratorController : ControllerBase
         await using var connection = new NpgsqlConnection(ConnectionString);
         await connection.OpenAsync(cancellationToken);
         await using var command = new NpgsqlCommand("""
-            SELECT setting_key, setting_value
+            SELECT scope_type, setting_key, setting_value
             FROM legal_configuration
             WHERE (scope_type=@scope AND scope_id=@scopeId)
                OR (scope_type='platform' AND scope_id=1);
@@ -199,15 +199,16 @@ public sealed class LegalDocumentGeneratorController : ControllerBase
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
-            result[reader.GetString(0)] = reader.GetString(1);
+        {
+            var type = reader.GetString(0);
+            var key = reader.GetString(1);
+            var prefix = type.Equals("platform", StringComparison.OrdinalIgnoreCase)
+                ? "platform."
+                : "professional.";
+            result[prefix + key] = reader.GetString(2);
+        }
 
-        // Platform variables are stored without the prefix in the settings table.
-        // Add explicit prefixes before rendering.
-        var platform = result.ToDictionary(x => "platform." + x.Key, x => x.Value, StringComparer.OrdinalIgnoreCase);
-        var local = result.ToDictionary(x => "professional." + x.Key, x => x.Value, StringComparer.OrdinalIgnoreCase);
-        var merged = new Dictionary<string, string>(platform, StringComparer.OrdinalIgnoreCase);
-        foreach (var item in local) merged[item.Key] = item.Value;
-        return merged;
+        return result;
     }
 
     private static string GetTitle(string key) => key switch
