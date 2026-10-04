@@ -103,7 +103,7 @@ export class PatientShoppingComponent implements OnInit, OnChanges {
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
         this.checkedItems = Object.fromEntries(
           Object.entries(parsed).filter(([, value]) => value === true)
-        );
+        ) as Record<string, boolean>;
       }
     } catch {
       // Un valor corrupto en localStorage no debe impedir el uso de la lista de la compra.
