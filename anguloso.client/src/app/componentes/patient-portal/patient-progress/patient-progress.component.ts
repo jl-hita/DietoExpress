@@ -10,7 +10,8 @@ import { PatientCheckinHistoryComponent } from '../patient-checkin-history/patie
   templateUrl: './patient-progress.component.html',
   styleUrls: ['./patient-progress.component.css']
 })
-interface PatientProgressProfile {
+export class PatientProgressComponent {
+
   currentWeight?: number | null;
   currentHeight?: number | null;
 }
@@ -20,7 +21,6 @@ interface PatientWeightEntry {
   weight: number;
 }
 
-export class PatientProgressComponent {
   @Input() profile: PatientProgressProfile | null = null;
   @Input() weightHistory: PatientWeightEntry[] = [];
   @Input() bmi: number | string | null = null;
