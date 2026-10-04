@@ -163,9 +163,9 @@ public class AdminPlansController : ControllerBase
             p.max_total_clients,
             p.trial_days,
             p.active,
+            p.created_at,
             p.stripe_additional_monthly_price_id,
             p.stripe_additional_yearly_price_id,
-            p.created_at,
             p.features
                 .Select(f => new FeatureResponse(
                     f.id,
