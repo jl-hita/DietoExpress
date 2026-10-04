@@ -26,6 +26,9 @@ public sealed class LegalDocumentGeneratorController : ControllerBase
         ["11-analisis-riesgos-eipd"]="Análisis de riesgos y decisión EIPD"
     };
 
+    [HttpGet("templates")]
+    public IActionResult Templates() => Ok(Titles.Select(x => new { key=x.Key, title=x.Value }));
+
     [HttpGet] public async Task<IActionResult> List(CancellationToken ct)
     {
         var scope=GetScope(); if(scope==null)return Unauthorized();
