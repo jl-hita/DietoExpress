@@ -71,7 +71,7 @@ export class LoginComponent {
     switch (role) {
       case 'superadmin': return ['/admin'];
       case 'clinic_admin': return ['/clinic'];
-      case 'nutritionist': return ['/clients'];
+      case 'nutritionist': return ['/dashboard'];
       default: return ['/clients'];
     }
   }
