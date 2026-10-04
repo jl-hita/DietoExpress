@@ -56,6 +56,8 @@ public class AdminPlansController : ControllerBase
             max_clients_per_nutritionist = r.MaxClientsPerNutritionist,
             max_total_clients = r.MaxTotalClients,
             trial_days = r.TrialDays,
+            stripe_additional_monthly_price_id = r.StripeAdditionalMonthlyPriceId,
+            stripe_additional_yearly_price_id = r.StripeAdditionalYearlyPriceId,
             active = r.Active
         };
 
@@ -84,6 +86,8 @@ public class AdminPlansController : ControllerBase
         p.max_clients_per_nutritionist = r.MaxClientsPerNutritionist;
         p.max_total_clients = r.MaxTotalClients;
         p.trial_days = r.TrialDays;
+        p.stripe_additional_monthly_price_id = r.StripeAdditionalMonthlyPriceId;
+        p.stripe_additional_yearly_price_id = r.StripeAdditionalYearlyPriceId;
         p.active = r.Active;
 
         await _context.SaveChangesAsync();
@@ -155,6 +159,8 @@ public class AdminPlansController : ControllerBase
             p.max_total_clients,
             p.trial_days,
             p.active,
+            p.stripe_additional_monthly_price_id,
+            p.stripe_additional_yearly_price_id,
             p.created_at,
             p.features
                 .Select(f => new FeatureResponse(
@@ -176,7 +182,9 @@ public record PlanRequest(
     int? MaxClientsPerNutritionist,
     int? MaxTotalClients,
     int? TrialDays,
-    bool Active);
+    bool Active,
+    string? StripeAdditionalMonthlyPriceId,
+    string? StripeAdditionalYearlyPriceId);
 
 public record FeatureRequest(
     [property: JsonPropertyName("feature_code")] string FeatureCode,
