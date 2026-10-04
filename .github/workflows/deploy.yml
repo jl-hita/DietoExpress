@@ -80,7 +80,7 @@ jobs:
           # como cola de recuperación aunque el almacenamiento habitual de logs cambie.
           # El servicio se ejecuta con el usuario joso, por lo que el directorio persistente
           # debe existir y ser escribible antes de reiniciar la aplicación.
-          mkdir -p /var/lib/dietoexpress/AlertSpool
+          sudo install -d -o joso -g joso -m 750 /var/lib/dietoexpress/AlertSpool
           test -d /var/lib/dietoexpress/AlertSpool
           sudo -u joso test -w /var/lib/dietoexpress/AlertSpool
 
