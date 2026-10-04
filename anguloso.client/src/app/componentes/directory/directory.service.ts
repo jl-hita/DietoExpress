@@ -28,6 +28,23 @@ export class DirectoryService {
     );
   }
 
+  requestAppointment(
+    slug: string,
+    request: {
+      startsAt: string;
+      durationMinutes: number;
+      fullName: string;
+      email: string;
+      phone?: string;
+      patientNotes?: string;
+    }
+  ): Observable<{ startsAt: string; endsAt: string; status: string; nutritionistName: string }> {
+    return this.http.post<{ startsAt: string; endsAt: string; status: string; nutritionistName: string }>(
+      this.apiUrl + '/api/directory/professionals/' + encodeURIComponent(slug) + '/appointments',
+      request
+    );
+  }
+
   getBySlug(slug: string): Observable<DirectoryProfile> {
     return this.http.get<DirectoryProfile>(
       `${this.apiUrl}/api/directory/professionals/${encodeURIComponent(slug)}`

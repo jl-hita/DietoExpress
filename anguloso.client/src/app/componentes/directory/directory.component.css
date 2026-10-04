@@ -137,10 +137,58 @@
   border: 1px solid #bbb;
   border-radius: 8px;
   background: #f7f7f7;
-  cursor: not-allowed;
+  cursor: pointer;
 }
 
 .booking-note {
   margin: 16px 0 0;
   font-size: 13px;
+}
+
+
+.slot.selected {
+  font-weight: 700;
+  border-width: 2px;
+}
+
+.booking-form {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+}
+
+.booking-form h3 {
+  margin: 0;
+}
+
+.booking-form .field {
+  min-width: 0;
+}
+
+.booking-form textarea {
+  min-height: 90px;
+  resize: vertical;
+  padding: 10px 12px;
+  border: 1px solid #bbb;
+  border-radius: 6px;
+  font: inherit;
+}
+
+.booking-form .field span {
+  font-weight: 400;
+  font-size: 0.9em;
+}
+
+.booking-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.booking-success {
+  margin: 16px 0 0;
+  font-weight: 600;
 }

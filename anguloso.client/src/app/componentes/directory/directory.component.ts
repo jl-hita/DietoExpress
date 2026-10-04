@@ -25,6 +25,14 @@ export class DirectoryComponent implements OnInit {
   availability: PublicAvailabilitySlot[] = [];
   availabilityLoading = false;
   availabilityError = '';
+  selectedSlot: PublicAvailabilitySlot | null = null;
+  bookingSubmitting = false;
+  bookingError = '';
+  bookingSuccess: string | null = null;
+  bookingFullName = '';
+  bookingEmail = '';
+  bookingPhone = '';
+  bookingNotes = '';
 
   constructor(
     private readonly route: ActivatedRoute,
@@ -88,6 +96,65 @@ export class DirectoryComponent implements OnInit {
         this.availability = [];
         this.availabilityError = 'No se ha podido consultar la disponibilidad.';
         this.availabilityLoading = false;
+      }
+    });
+  }
+
+  selectSlot(slot: PublicAvailabilitySlot): void {
+    this.selectedSlot = slot;
+    this.bookingError = '';
+    this.bookingSuccess = null;
+  }
+
+  clearSelectedSlot(): void {
+    this.selectedSlot = null;
+    this.bookingError = '';
+  }
+
+  requestAppointment(): void {
+    if (!this.profile || !this.selectedSlot || this.bookingSubmitting) return;
+
+    const fullName = this.bookingFullName.trim();
+    const email = this.bookingEmail.trim().toLowerCase();
+    const phone = this.bookingPhone.trim();
+    const notes = this.bookingNotes.trim();
+
+    if (!fullName || !email) {
+      this.bookingError = 'El nombre y el email son obligatorios.';
+      return;
+    }
+    if (notes.length > 500) {
+      this.bookingError = 'El comentario no puede superar los 500 caracteres.';
+      return;
+    }
+
+    // El slot se muestra como disponible en una consulta anterior; el backend lo
+    // vuelve a comprobar dentro de una transacción antes de aceptar la solicitud.
+    this.bookingSubmitting = true;
+    this.bookingError = '';
+    this.bookingSuccess = null;
+
+    this.directoryService.requestAppointment(this.profile.slug, {
+      startsAt: this.selectedSlot.startsAt,
+      durationMinutes: Math.round(
+        (new Date(this.selectedSlot.endsAt).getTime() - new Date(this.selectedSlot.startsAt).getTime()) / 60000
+      ),
+      fullName,
+      email,
+      phone: phone || undefined,
+      patientNotes: notes || undefined
+    }).subscribe({
+      next: () => {
+        this.bookingSuccess = 'Solicitud enviada para el ' + this.formatSlot(this.selectedSlot!) + '. El profesional deberá confirmarla.';
+        this.bookingSubmitting = false;
+        this.selectedSlot = null;
+        this.bookingNotes = '';
+        this.loadAvailability(this.profile!.slug);
+      },
+      error: error => {
+        this.bookingSubmitting = false;
+        this.bookingError = error?.error?.message || 'No se ha podido enviar la solicitud. El horario puede haber sido reservado por otra persona.';
+        this.loadAvailability(this.profile!.slug);
       }
     });
   }
