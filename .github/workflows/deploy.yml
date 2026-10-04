@@ -82,7 +82,7 @@ jobs:
           # debe existir y ser escribible antes de reiniciar la aplicación.
           mkdir -p /var/lib/dietoexpress/AlertSpool
           test -d /var/lib/dietoexpress/AlertSpool
-          test -w /var/lib/dietoexpress/AlertSpool
+          sudo -u joso test -w /var/lib/dietoexpress/AlertSpool
 
           rm -rf /opt/dietoexpress/*
           cp -a /tmp/dietoexpress-backend/. /opt/dietoexpress/
