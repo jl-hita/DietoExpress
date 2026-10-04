@@ -174,6 +174,8 @@ public sealed class LegalDocumentGeneratorController : ControllerBase
         var userId = AuthHelpers.GetUserId(User);
         if (!userId.HasValue) return null;
 
+        if (User.IsInRole("superadmin")) return ("platform", 1);
+
         var tenantId = AuthHelpers.GetTenantId(User);
         if (User.IsInRole("clinic_admin") && tenantId.HasValue)
             return ("tenant", tenantId.Value);
