@@ -23,15 +23,16 @@ export class PatientProgressComponent {
   @Input() isPreview = false;
 
   formatWeightDate(dateValue: string | Date): string {
-    return new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'short' }).format(new Date(dateValue));
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return '';
+    return new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'short' }).format(date);
   }
 
   getWeightBarHeight(weight: number, history: any[]): number {
-    const values = history.map(item => Number(item.weight)).filter(value => Number.isFinite(value));
-    if (!values.length) return 0;
-    const min = Math.min(...values);
-    const max = Math.max(...values);
+    if (!history?.length) return 0;
+    const min = Math.min(...history.map((h: any) => h.weight));
+    const max = Math.max(...history.map((h: any) => h.weight));
     if (max === min) return 60;
-    return 20 + ((Number(weight) - min) / (max - min)) * 80;
+    return Math.round(((weight - min) / (max - min)) * 85 + 15);
   }
 }
