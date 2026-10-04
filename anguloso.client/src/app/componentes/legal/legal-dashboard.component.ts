@@ -23,7 +23,7 @@ import { LegalConfigurationService } from '../../servicios/legal-configuration.s
       </header>
 
       <section class="status" [class.ok]="technicalStatus==='ready'" [class.review]="technicalStatus==='review'">
-        <mat-icon>{{ pending===0 && documents.length>0 ? 'check_circle' : 'pending_actions' }}</mat-icon>
+        <mat-icon>{{ technicalStatus==='ready' ? 'check_circle' : technicalStatus==='review' ? 'rate_review' : 'pending_actions' }}</mat-icon>
         <div>
           <strong>{{ technicalStatus==='ready' ? 'Estado técnico preparado' : technicalStatus==='review' ? 'Revisión técnica pendiente' : 'Faltan elementos del mínimo técnico' }}</strong>
           <span>Configuración pendiente: {{configMissing}} · documentos pendientes: {{pending}} · RAT: {{ratCount}} · EIPD: {{eipdDecision}}</span>
@@ -118,8 +118,6 @@ export class LegalDashboardComponent implements OnInit {
     this.governance.listRat().subscribe({next:x=>{this.ratCount=x.filter(a=>a.status!=='archived').length;this.updateStatus();}});
     this.governance.listRisks().subscribe({next:x=>{this.openRisks=x.filter(a=>a.status==='open').length;this.updateStatus();}});
     this.governance.listEipd().subscribe({next:x=>{this.eipdDecision=x.length ? x[0].decision : 'pending';this.updateStatus();}});
-    this.governance.listRisks().subscribe({next:x=>this.openRisks=x.filter(a=>a.status==='open').length});
-    this.governance.listEipd().subscribe({next:x=>this.eipdDecision=x.length ? x[0].decision : 'pending'});
     this.evidence.requests().subscribe({next:x=>{this.openRequests=x.filter(a=>!['resolved','rejected','cancelled'].includes(a.status)).length;this.updateStatus();}});
     this.evidence.incidents().subscribe({next:x=>{this.openIncidents=x.filter(a=>!['closed','false_positive'].includes(a.status)).length;this.updateStatus();}});
     this.evidence.incidents().subscribe({next:x=>this.openIncidents=x.filter(a=>!['closed','false_positive'].includes(a.status)).length});
