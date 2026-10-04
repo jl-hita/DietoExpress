@@ -614,6 +614,42 @@ public sealed class BillingController : ControllerBase
                         : updatedPlan.monthly_price;
                     subscription.currency = "eur";
 
+                    // La capacidad contratada se deriva del item adicional de Stripe.
+                    // Así la BD solo refleja una ampliación/reducción cuando Stripe ha
+                    // confirmado realmente el cambio, incluidos los pending_update.
+                    if (string.Equals(updatedPlan.code, "clinic_full", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var included = updatedPlan.max_nutritionists ?? 0;
+                        var additionalPriceId = string.Equals(subscription.billing_interval, "yearly", StringComparison.OrdinalIgnoreCase)
+                            ? updatedPlan.stripe_additional_yearly_price_id
+                            : updatedPlan.stripe_additional_monthly_price_id;
+                        var additionalQuantity = 0;
+
+                        if (!string.IsNullOrWhiteSpace(additionalPriceId) &&
+                            data.TryGetProperty("items", out var subscriptionItems) &&
+                            subscriptionItems.TryGetProperty("data", out var itemData) &&
+                            itemData.ValueKind == JsonValueKind.Array)
+                        {
+                            foreach (var item in itemData.EnumerateArray())
+                            {
+                                if (!item.TryGetProperty("price", out var itemPrice) ||
+                                    !itemPrice.TryGetProperty("id", out var itemPriceId) ||
+                                    !string.Equals(itemPriceId.GetString(), additionalPriceId, StringComparison.Ordinal))
+                                    continue;
+
+                                if (item.TryGetProperty("quantity", out var quantity) && quantity.TryGetInt32(out var parsedQuantity))
+                                    additionalQuantity = Math.Max(0, parsedQuantity);
+                                break;
+                            }
+                        }
+
+                        subscription.contracted_nutritionists = included + additionalQuantity;
+                    }
+                    else
+                    {
+                        subscription.contracted_nutritionists = null;
+                    }
+
                     var owner = await _context.users
                         .Where(u => u.tenant_id == subscription.tenant_id && u.role != "superadmin")
                         .OrderBy(u => u.created_at).ThenBy(u => u.id)
