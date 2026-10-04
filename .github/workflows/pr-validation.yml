@@ -8,6 +8,13 @@ on:
 permissions:
   contents: read
 
+# Las validaciones de PR comparten una única cola.
+# Si llega un commit más reciente antes de empezar/terminar la validación anterior,
+# GitHub cancela la ejecución obsoleta y conserva únicamente la más reciente.
+concurrency:
+  group: dietoexpress-pr-validation
+  cancel-in-progress: true
+
 jobs:
   validate:
     runs-on: ubuntu-latest
