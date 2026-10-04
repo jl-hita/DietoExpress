@@ -1576,6 +1576,7 @@ public class AuthorizationRegressionTests
         Assert.Contains("status = \"requested\"", controller);
         Assert.Contains("CanCreateClientAsync", controller);
         Assert.Contains("CanAssignClientAsync", controller);
+        Assert.Contains("appointment.requested", ReadServerLogica("AutomationService.cs"));
 
         // La seguridad aquí no depende de que un texto concreto no aparezca en comentarios.
         // Comprobamos la frontera real del endpoint: el DTO público no acepta contexto de tenant
