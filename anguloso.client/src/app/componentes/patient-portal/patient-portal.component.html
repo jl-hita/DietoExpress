@@ -41,40 +41,12 @@
         ¿No tienes un PIN? Solicita a tu nutricionista tu <strong>enlace mágico directo</strong>.
       </p>
 
-      <div class="access-link-recovery">
-        <div class="access-link-recovery-title">
-          <mat-icon>mail</mat-icon>
-          <div>
-            <strong>¿Ha caducado tu enlace?</strong>
-            <span>Te enviaremos uno nuevo a tu email.</span>
-          </div>
-        </div>
-
-        <div class="auth-error-banner" *ngIf="accessLinkError">
-          <mat-icon>error_outline</mat-icon>
-          <span>{{ accessLinkError }}</span>
-        </div>
-        <div class="auth-success-banner" *ngIf="accessLinkMessage">
-          <mat-icon>mark_email_read</mat-icon>
-          <span>{{ accessLinkMessage }}</span>
-        </div>
-
-        <form (ngSubmit)="requestNewAccessLink()" class="access-link-form">
-          <input
-            type="email"
-            [(ngModel)]="accessLinkEmail"
-            name="accessLinkEmail"
-            autocomplete="email"
-            placeholder="tu@email.com"
-            maxlength="320"
-            required />
-          <button type="submit" class="btn-portal-secondary" [disabled]="requestingAccessLink">
-            <mat-spinner *ngIf="requestingAccessLink" diameter="18"></mat-spinner>
-            <span *ngIf="!requestingAccessLink">Enviar enlace</span>
-            <span *ngIf="requestingAccessLink">Enviando...</span>
-          </button>
-        </form>
-      </div>
+      <app-access-link-recovery
+        [error]="accessLinkError"
+        [message]="accessLinkMessage"
+        [loading]="requestingAccessLink"
+        (request)="requestNewAccessLink($event)">
+      </app-access-link-recovery>
     </div>
   </div>
 
@@ -93,83 +65,21 @@
     <!-- ══════════════════════════════════════════ -->
     <!-- HEADER CON BRANDING DE CLÍNICA             -->
     <!-- ══════════════════════════════════════════ -->
-    <header class="portal-header">
-      <div class="clinic-brand-bar" *ngIf="profile.clinicName || profile.nutritionistName">
-        <div class="clinic-brand-left">
-          <img *ngIf="profile.clinicLogo" [src]="profile.clinicLogo" alt="Logo Clínica" class="clinic-logo-mini" />
-          <mat-icon *ngIf="!profile.clinicLogo" class="clinic-icon">local_hospital</mat-icon>
-          <div class="clinic-texts">
-            <span class="clinic-name">{{ profile.clinicName || 'Consulta Nutricional' }}</span>
-            <span class="nutritionist-name" *ngIf="profile.nutritionistName">{{ profile.nutritionistName }}</span>
-          </div>
-        </div>
-        <div class="clinic-actions">
-          <a *ngIf="profile.clinicPhone" [href]="'tel:' + profile.clinicPhone" class="clinic-call-btn" title="Llamar a la clínica">
-            <mat-icon>phone</mat-icon>
-          </a>
-          <button type="button" class="portal-notification-btn" (click)="toggleNotifications()" title="Notificaciones" aria-label="Abrir notificaciones">
-            <mat-icon>notifications</mat-icon>
-            <span class="notification-badge" *ngIf="unreadNotificationCount">{{ unreadNotificationCount > 9 ? '9+' : unreadNotificationCount }}</span>
-          </button>
-          <button (click)="logoutPatient()" class="portal-logout-btn" title="Cerrar sesión">
-            <mat-icon>logout</mat-icon>
-          </button>
-        </div>
-      </div>
-
-      <section class="notification-panel" *ngIf="notificationsOpen">
-        <div class="notification-panel-header">
-          <div>
-            <strong>Notificaciones</strong>
-            <span *ngIf="unreadNotificationCount">{{ unreadNotificationCount }} sin leer</span>
-          </div>
-          <button type="button" (click)="enablePushNotifications()" [disabled]="pushBusy || !pushSupported || pushEnabled" class="notification-push-btn">
-            <mat-icon>{{ pushEnabled ? 'notifications_active' : 'notifications_none' }}</mat-icon>
-            {{ pushEnabled ? 'Push activadas' : pushBusy ? 'Activando…' : 'Activar avisos' }}
-          </button>
-        </div>
-        <div class="notification-push-message" *ngIf="pushMessage">{{ pushMessage }}</div>
-        <div class="notification-list" *ngIf="!notificationsLoading && notifications.length">
-          <button type="button" class="notification-item" *ngFor="let notification of notifications"
-                  [class.unread]="!notification.readAt" (click)="markNotificationRead(notification)">
-            <span class="notification-icon"><mat-icon>{{ notificationIcon(notification.type) }}</mat-icon></span>
-            <span class="notification-copy">
-              <strong>{{ notification.title }}</strong>
-              <span>{{ notification.message }}</span>
-              <small>{{ notification.createdAt | date:'d MMM, HH:mm' }}</small>
-            </span>
-          </button>
-        </div>
-        <div class="notification-empty" *ngIf="!notificationsLoading && !notifications.length">
-          <mat-icon>notifications_none</mat-icon>
-          <span>No tienes notificaciones.</span>
-        </div>
-        <div class="notification-loading" *ngIf="notificationsLoading">
-          <mat-spinner diameter="22"></mat-spinner>
-        </div>
-      </section>
-
-      <div class="patient-user-row">
-        <div class="header-avatar">
-          {{ profile.fullName?.charAt(0)?.toUpperCase() }}
-        </div>
-        <div class="header-info">
-          <h1 class="header-name">{{ profile.fullName }}</h1>
-          <span class="header-meta">
-            <ng-container *ngIf="profile.age">{{ profile.age }} años &nbsp;·&nbsp;</ng-container>
-            <ng-container *ngIf="profile.currentWeight">{{ profile.currentWeight }} kg</ng-container>
-          </span>
-        </div>
-        <div class="header-diet-badge" *ngIf="profile.hasActiveDiet">
-          <mat-icon>check_circle</mat-icon>
-          <span>Dieta activa</span>
-        </div>
-        <div class="header-diet-badge badge-inactive" *ngIf="!profile.hasActiveDiet">
-          <mat-icon>info</mat-icon>
-          <span>Sin dieta activa</span>
-        </div>
-      </div>
-    </header>
+    <app-patient-header
+      [profile]="profile"
+      [notificationsOpen]="notificationsOpen"
+      [notifications]="notifications"
+      [notificationsLoading]="notificationsLoading"
+      [unreadNotificationCount]="unreadNotificationCount"
+      [pushSupported]="pushSupported"
+      [pushEnabled]="pushEnabled"
+      [pushBusy]="pushBusy"
+      [pushMessage]="pushMessage"
+      (toggleNotifications)="toggleNotifications()"
+      (logout)="logoutPatient()"
+      (markNotificationRead)="markNotificationRead($event)"
+      (enablePush)="enablePushNotifications()">
+    </app-patient-header>
 
     <!-- ══════════════════════════════════════════ -->
     <!-- TAB: HOY (Comidas del día)                 -->
@@ -342,284 +252,47 @@
     <!-- ══════════════════════════════════════════ -->
     <!-- TAB: LISTA DE LA COMPRA                   -->
     <!-- ══════════════════════════════════════════ -->
-    <main class="portal-content" *ngIf="activeTab === 'appointments'">
-      <div class="appointments-hero">
-        <div>
-          <span class="eyebrow">Citas</span>
-          <h2>Reserva una cita con tu nutricionista</h2>
-          <p>Elige uno de los horarios disponibles. La cita quedará pendiente de confirmación.</p>
-        </div>
-        <mat-icon>event</mat-icon>
-      </div>
-
-      <div class="portal-inline-error" *ngIf="appointmentError">
-        <mat-icon>cloud_off</mat-icon>
-        <div>
-          <strong>No hemos podido gestionar tus citas</strong>
-          <span>{{ appointmentError }}</span>
-        </div>
-        <button type="button" (click)="loadAppointmentSlots()" aria-label="Actualizar horarios">
-          <mat-icon>refresh</mat-icon>
-        </button>
-      </div>
-
-      <div class="appointment-success" *ngIf="appointmentSuccess">
-        <mat-icon>check_circle</mat-icon>
-        <span>{{ appointmentSuccess }}</span>
-      </div>
-
-      <section class="appointment-card">
-        <div class="appointment-card-header">
-          <div>
-            <h3>Próximos horarios</h3>
-            <span>Disponibles durante los próximos 30 días</span>
-          </div>
-          <button type="button" class="empty-state-action" (click)="loadAppointmentSlots()" [disabled]="appointmentSlotsLoading">
-            <mat-icon>refresh</mat-icon>
-            Actualizar
-          </button>
-        </div>
-
-        <div class="portal-inline-loading" *ngIf="appointmentSlotsLoading">
-          <mat-spinner diameter="24"></mat-spinner>
-          <span>Buscando horarios...</span>
-        </div>
-
-        <div class="appointment-slots" *ngIf="!appointmentSlotsLoading && appointmentSlots.length">
-          <button type="button" class="appointment-slot" *ngFor="let slot of appointmentSlots | slice:0:30"
-                  (click)="requestAppointment(slot)" [disabled]="appointmentBooking">
-            <span class="appointment-slot-date">{{ formatAppointmentDate(slot.startsAt) }}</span>
-            <strong>{{ formatAppointmentTime(slot.startsAt) }}</strong>
-            <span class="appointment-slot-action">Reservar <mat-icon>arrow_forward</mat-icon></span>
-          </button>
-        </div>
-
-        <div class="empty-state" *ngIf="!appointmentSlotsLoading && !appointmentSlots.length">
-          <mat-icon>event_busy</mat-icon>
-          <h3>No hay horarios disponibles</h3>
-          <p>Tu nutricionista todavía no ha configurado disponibilidad para las próximas semanas.</p>
-        </div>
-      </section>
-
-      <section class="appointment-card" *ngIf="upcomingAppointments.length">
-        <div class="appointment-card-header">
-          <div>
-            <h3>Mis próximas citas</h3>
-            <span>{{ upcomingAppointments.length }} cita{{ upcomingAppointments.length === 1 ? '' : 's' }}</span>
-          </div>
-        </div>
-
-        <article class="appointment-item" *ngFor="let appointment of upcomingAppointments">
-          <div class="appointment-item-date">
-            <strong>{{ formatAppointmentDate(appointment.startsAt) }}</strong>
-            <span>{{ formatAppointmentTime(appointment.startsAt) }}</span>
-          </div>
-          <div class="appointment-item-info">
-            <strong>{{ appointment.nutritionistName || 'Tu nutricionista' }}</strong>
-            <span [class]="appointment.status === 'confirmed' ? 'appointment-status confirmed' : 'appointment-status pending'">
-              {{ appointment.status === 'confirmed' ? 'Confirmada' : 'Pendiente de confirmación' }}
-            </span>
-          </div>
-          <button type="button" class="appointment-cancel" (click)="cancelAppointment(appointment)" [disabled]="appointmentBooking">
-            Cancelar
-          </button>
-        </article>
-      </section>
-
-      <section class="appointment-card" *ngIf="pastAppointments.length">
-        <div class="appointment-card-header">
-          <div>
-            <h3>Historial de citas</h3>
-            <span>Últimas citas</span>
-          </div>
-        </div>
-        <article class="appointment-item appointment-item-past" *ngFor="let appointment of pastAppointments | slice:0:10">
-          <div class="appointment-item-date">
-            <strong>{{ formatAppointmentDate(appointment.startsAt) }}</strong>
-            <span>{{ formatAppointmentTime(appointment.startsAt) }}</span>
-          </div>
-          <div class="appointment-item-info">
-            <strong>{{ appointment.nutritionistName || 'Tu nutricionista' }}</strong>
-            <span class="appointment-status">{{ appointment.status === 'cancelled' ? 'Cancelada' : appointment.status === 'completed' ? 'Completada' : appointment.status === 'no_show' ? 'No asistida' : appointment.status }}</span>
-          </div>
-        </article>
-      </section>
-    </main>
-
-    <main class="portal-content" *ngIf="activeTab === 'shopping'">
-      <div class="section-hero">
-        <mat-icon>shopping_cart</mat-icon>
-        <div>
-          <h2>Lista de la Compra</h2>
-          <span>Ingredientes de tu plan semanal</span>
-        </div>
-      </div>
-
-      <div class="portal-inline-loading" *ngIf="shoppingLoading">
-        <mat-spinner diameter="28"></mat-spinner>
-        <span>Cargando tu lista...</span>
-      </div>
-
-      <div class="portal-inline-error" *ngIf="!shoppingLoading && shoppingDataError">
-        <mat-icon>cloud_off</mat-icon>
-        <div>
-          <strong>No hemos podido cargar tu lista</strong>
-          <span>{{ shoppingDataError }}</span>
-        </div>
-        <button type="button" (click)="retryShoppingLoad()" aria-label="Reintentar carga de la lista">
-          <mat-icon>refresh</mat-icon>
-        </button>
-      </div>
-
-      <section class="shopping-summary" *ngIf="!shoppingLoading && !shoppingDataError && shoppingItemCount">
-        <div class="shopping-summary-copy">
-          <div class="shopping-summary-title">
-            <strong>Tu compra</strong>
-            <span>{{ checkedShoppingItemCount }} de {{ shoppingItemCount }} productos</span>
-          </div>
-          <div class="shopping-progress-track">
-            <div class="shopping-progress-fill" [style.width.%]="shoppingProgressPercent"></div>
-          </div>
-        </div>
-        <span class="shopping-progress-percent">{{ shoppingProgressPercent }}%</span>
-        <button
-          *ngIf="checkedShoppingItemCount"
-          type="button"
-          class="shopping-reset-btn"
-          (click)="clearShoppingChecks()"
-          aria-label="Desmarcar toda la lista">
-          <mat-icon>restart_alt</mat-icon>
-          <span>Limpiar</span>
-        </button>
-      </section>
-
-      <div class="empty-state" *ngIf="!shoppingLoading && !shoppingDataError && !shoppingItemCount && profile.hasActiveDiet">
-        <mat-icon>shopping_cart_checkout</mat-icon>
-        <h3>Tu lista está vacía</h3>
-        <p>No hay ingredientes registrados para tu plan actual.</p>
-        <button type="button" class="empty-state-action" (click)="setTab('today')">
-          <mat-icon>restaurant_menu</mat-icon>
-          Ver mi plan de hoy
-        </button>
-      </div>
-
-      <div class="empty-state" *ngIf="!shoppingLoading && !shoppingDataError && !shoppingItemCount && !profile.hasActiveDiet">
-        <mat-icon>shopping_cart_checkout</mat-icon>
-        <h3>Sin lista todavía</h3>
-        <p>Cuando tengas un plan activo, aquí aparecerán los ingredientes que necesitas comprar.</p>
-        <button type="button" class="empty-state-action" (click)="setTab('today')">
-          <mat-icon>restaurant_menu</mat-icon>
-          Volver a Hoy
-        </button>
-      </div>
-
-      <div class="shopping-category" *ngFor="let cat of shoppingList">
-        <div class="category-header">
-          <mat-icon>{{ getShoppingIcon(cat.category) }}</mat-icon>
-          <h3>{{ cat.category }}</h3>
-        </div>
-        <ul class="shopping-items">
-          <li class="shopping-item" *ngFor="let item of cat.items"
-              [class.checked]="isChecked(cat.category + '_' + item.foodId)"
-              role="button" tabindex="0"
-              [attr.aria-pressed]="isChecked(cat.category + '_' + item.foodId)"
-              [attr.aria-label]="(isChecked(cat.category + '_' + item.foodId) ? 'Desmarcar ' : 'Marcar ') + item.foodName"
-              (click)="toggleItem(cat.category + '_' + item.foodId)"
-              (keydown.enter)="toggleItem(cat.category + '_' + item.foodId)"
-              (keydown.space)="$event.preventDefault(); toggleItem(cat.category + '_' + item.foodId)">
-            <div class="check-box">
-              <mat-icon *ngIf="isChecked(cat.category + '_' + item.foodId)">check_box</mat-icon>
-              <mat-icon *ngIf="!isChecked(cat.category + '_' + item.foodId)">check_box_outline_blank</mat-icon>
-            </div>
-            <span class="item-name">{{ item.foodName }}</span>
-            <span class="item-grams">~{{ item.totalGrams | number:'1.0-0' }}g</span>
-          </li>
-        </ul>
-      </div>
-    </main>
+    <app-patient-appointments
+      *ngIf="activeTab === 'appointments'"
+      [slots]="appointmentSlots"
+      [upcomingAppointments]="upcomingAppointments"
+      [pastAppointments]="pastAppointments"
+      [loading]="appointmentSlotsLoading"
+      [booking]="appointmentBooking"
+      [error]="appointmentError"
+      [success]="appointmentSuccess"
+      (refresh)="loadAppointmentSlots()"
+      (request)="requestAppointment($event)"
+      (cancel)="cancelAppointment($event)">
+    </app-patient-appointments>
+    <app-patient-shopping
+      *ngIf="activeTab === 'shopping'"
+      [shoppingList]="shoppingList"
+      [shoppingLoading]="shoppingLoading"
+      [shoppingDataError]="shoppingDataError"
+      [hasActiveDiet]="profile.hasActiveDiet"
+      [clientId]="clientId"
+      (retry)="retryShoppingLoad()"
+      (backToToday)="setTab('today')"
+      (countsChange)="onShoppingCountsChange($event)">
+    </app-patient-shopping>
 
     <!-- ══════════════════════════════════════════ -->
     <!-- TAB: PROGRESO                             -->
     <!-- ══════════════════════════════════════════ -->
-    <main class="portal-content" *ngIf="activeTab === 'progress'">
-      <div class="section-hero">
-        <mat-icon>trending_up</mat-icon>
-        <div>
-          <h2>Mi Progreso</h2>
-          <span>Evolución de tu peso</span>
-        </div>
-      </div>
-
-      <!-- Resumen de evolución -->
-      <section class="progress-overview" *ngIf="profile">
-        <div class="progress-main-card">
-          <div class="progress-main-icon"><mat-icon>monitor_weight</mat-icon></div>
-          <div class="progress-main-copy">
-            <span>Peso actual</span>
-            <strong>{{ profile.currentWeight ?? '—' }}<small *ngIf="profile.currentWeight"> kg</small></strong>
-            <em *ngIf="weightHistory.length > 1">
-              {{ weightChangeIcon === 'south_east' ? '↓' : weightChangeIcon === 'north_east' ? '↑' : '→' }}
-              {{ weightChangeText }} {{ weightChangeLabel.toLowerCase() }}
-            </em>
-          </div>
-        </div>
-
-        <div class="progress-mini-card">
-          <span>Altura</span>
-          <strong>{{ profile.currentHeight ?? '—' }}<small *ngIf="profile.currentHeight"> cm</small></strong>
-          <mat-icon>height</mat-icon>
-        </div>
-
-        <div class="progress-mini-card" *ngIf="bmi">
-          <span>IMC</span>
-          <strong [style.color]="bmiColor">{{ bmi }}</strong>
-          <small [style.color]="bmiColor">{{ bmiCategory }}</small>
-        </div>
-      </section>
-
-      <section class="progress-tip" *ngIf="weightHistory.length > 1">
-        <mat-icon>insights</mat-icon>
-        <div>
-          <strong>Tu evolución</strong>
-          <span>
-            {{ weightChange === null || weightChange === 0
-              ? 'Tu peso se mantiene estable en los registros disponibles.'
-              : 'Has registrado ' + weightChangeText + (weightChange! < 0 ? ' menos' : ' más') + ' desde el primer registro.' }}
-          </span>
-        </div>
-      </section>
-
-      <!-- Historial de peso -->
-      <div class="weight-history" *ngIf="weightHistory.length > 1">
-        <div class="weight-history-header">
-          <div>
-            <h3>Evolución del peso</h3>
-            <span>{{ weightHistory.length }} mediciones registradas</span>
-          </div>
-          <span class="weight-range">{{ weightHistory[0].weight }} → {{ weightHistory[weightHistory.length - 1].weight }} kg</span>
-        </div>
-
-        <div class="weight-chart">
-          <div *ngFor="let entry of weightHistory" class="weight-bar-wrapper">
-            <div class="weight-bar"
-                 [style.height.%]="getWeightBarHeight(entry.weight, weightHistory)"
-                 [title]="entry.weight + ' kg · ' + formatWeightDate(entry.date)">
-            </div>
-            <span class="weight-bar-label">{{ entry.weight }}</span>
-            <span class="weight-date-label">{{ formatWeightDate(entry.date) }}</span>
-          </div>
-        </div>
-      </div>
-
-      <app-patient-checkin-history [enabled]="!isPreview"></app-patient-checkin-history>
-
-      <div class="progress-empty" *ngIf="!weightHistory.length || weightHistory.length < 2">
-        <div class="progress-empty-icon"><mat-icon>show_chart</mat-icon></div>
-        <h3>Tu evolución aparecerá aquí</h3>
-        <p>Cuando tengas al menos dos mediciones de peso podremos mostrar cómo ha evolucionado tu progreso.</p>
-      </div>
-    </main>
-
+    <app-patient-progress
+      *ngIf="activeTab === 'progress'"
+      [profile]="profile"
+      [weightHistory]="weightHistory"
+      [bmi]="bmi"
+      [bmiColor]="bmiColor"
+      [bmiCategory]="bmiCategory"
+      [weightChangeIcon]="weightChangeIcon"
+      [weightChangeText]="weightChangeText"
+      [weightChangeLabel]="weightChangeLabel"
+      [weightChange]="weightChange"
+      [isPreview]="isPreview">
+    </app-patient-progress>
     <main class="portal-content messages-content" *ngIf="activeTab === 'messages'">
       <app-patient-chat [patientMode]="true"></app-patient-chat>
     </main>
@@ -628,55 +301,15 @@
     <!-- BARRA DE NAVEGACIÓN INFERIOR              -->
     <!-- ══════════════════════════════════════════ -->
     <!-- TAB: DOCUMENTACIÓN -->
-    <main class="portal-content documents-content" *ngIf="activeTab === 'documents'">
-      <div class="section-hero">
-        <mat-icon>description</mat-icon>
-        <div>
-          <h2>Documentación</h2>
-          <span>Documentos compartidos por tu nutricionista</span>
-        </div>
-      </div>
-
-      <section class="appointment-card" *ngIf="!documentsLoading && !documentsError">
-        <div class="empty-state" *ngIf="!documents.length">
-          <mat-icon>folder_open</mat-icon>
-          <h3>No tienes documentos todavía</h3>
-          <p>Cuando tu nutricionista comparta documentación contigo aparecerá aquí.</p>
-        </div>
-        <article class="appointment-item" *ngFor="let doc of documents">
-          <div class="appointment-item-date">
-            <mat-icon>picture_as_pdf</mat-icon>
-          </div>
-          <div class="appointment-item-info">
-            <strong>{{ doc.name }}</strong>
-            <span>Versión {{ doc.version }} · {{ doc.createdAt | date:'d MMM yyyy' }}</span>
-            <span class="appointment-status" *ngIf="doc.requiresSignature && doc.status === 'pending'">Pendiente de firma/aceptación</span>
-            <span class="appointment-status" *ngIf="doc.status === 'signed'">Aceptado</span>
-            <span class="appointment-status" *ngIf="!doc.requiresSignature && doc.status !== 'signed'">Disponible</span>
-          </div>
-          <div class="document-actions">
-            <button type="button" class="appointment-cancel" (click)="downloadDocument(doc)">Abrir PDF</button>
-            <button type="button" class="appointment-cancel" *ngIf="doc.requiresSignature && doc.status === 'pending'" (click)="acceptDocument(doc)">Aceptar documento</button>
-          </div>
-        </article>
-      </section>
-
-      <div class="portal-inline-loading" *ngIf="documentsLoading">
-        <mat-spinner diameter="28"></mat-spinner>
-        <span>Cargando documentación...</span>
-      </div>
-
-      <div class="portal-inline-error" *ngIf="documentsError">
-        <mat-icon>cloud_off</mat-icon>
-        <div>
-          <strong>No hemos podido cargar la documentación</strong>
-          <span>{{ documentsError }}</span>
-        </div>
-        <button type="button" (click)="loadDocuments()" aria-label="Reintentar documentación">
-          <mat-icon>refresh</mat-icon>
-        </button>
-      </div>
-    </main>
+    <app-patient-documents
+      *ngIf="activeTab === 'documents'"
+      [documents]="documents"
+      [loading]="documentsLoading"
+      [error]="documentsError"
+      (retry)="loadDocuments()"
+      (download)="downloadDocument($event)"
+      (accept)="acceptDocument($event)">
+    </app-patient-documents>
 
     <nav class="bottom-nav">
       <button type="button" class="nav-tab" [class.active]="activeTab === 'today'" [attr.aria-current]="activeTab === 'today' ? 'page' : null" aria-label="Ver plan de hoy" (click)="setTab('today')">

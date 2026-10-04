@@ -1,0 +1,81 @@
+<main class="portal-content">
+  <div class="section-hero">
+    <mat-icon>shopping_cart</mat-icon>
+    <div>
+      <h2>Lista de la Compra</h2>
+      <span>Ingredientes de tu plan semanal</span>
+    </div>
+  </div>
+
+  <div class="portal-inline-loading" *ngIf="shoppingLoading">
+    <mat-spinner diameter="28"></mat-spinner>
+    <span>Cargando tu lista...</span>
+  </div>
+
+  <div class="portal-inline-error" *ngIf="!shoppingLoading && shoppingDataError">
+    <mat-icon>cloud_off</mat-icon>
+    <div>
+      <strong>No hemos podido cargar tu lista</strong>
+      <span>{{ shoppingDataError }}</span>
+    </div>
+    <button type="button" (click)="retry.emit()" aria-label="Reintentar carga de la lista">
+      <mat-icon>refresh</mat-icon>
+    </button>
+  </div>
+
+  <section class="shopping-summary" *ngIf="!shoppingLoading && !shoppingDataError && shoppingItemCount">
+    <div class="shopping-summary-copy">
+      <div class="shopping-summary-title">
+        <strong>Tu compra</strong>
+        <span>{{ checkedShoppingItemCount }} de {{ shoppingItemCount }} productos</span>
+      </div>
+      <div class="shopping-progress-track"><div class="shopping-progress-fill" [style.width.%]="shoppingProgressPercent"></div></div>
+    </div>
+    <span class="shopping-progress-percent">{{ shoppingProgressPercent }}%</span>
+    <button *ngIf="checkedShoppingItemCount" type="button" class="shopping-reset-btn"
+      (click)="clearShoppingChecks()" aria-label="Desmarcar toda la lista">
+      <mat-icon>restart_alt</mat-icon><span>Limpiar</span>
+    </button>
+  </section>
+
+  <div class="empty-state" *ngIf="!shoppingLoading && !shoppingDataError && !shoppingItemCount && hasActiveDiet">
+    <mat-icon>shopping_cart_checkout</mat-icon>
+    <h3>Tu lista está vacía</h3>
+    <p>No hay ingredientes registrados para tu plan actual.</p>
+    <button type="button" class="empty-state-action" (click)="backToToday.emit()">
+      <mat-icon>restaurant_menu</mat-icon> Ver mi plan de hoy
+    </button>
+  </div>
+
+  <div class="empty-state" *ngIf="!shoppingLoading && !shoppingDataError && !shoppingItemCount && !hasActiveDiet">
+    <mat-icon>shopping_cart_checkout</mat-icon>
+    <h3>Sin lista todavía</h3>
+    <p>Cuando tengas un plan activo, aquí aparecerán los ingredientes que necesitas comprar.</p>
+    <button type="button" class="empty-state-action" (click)="backToToday.emit()">
+      <mat-icon>restaurant_menu</mat-icon> Volver a Hoy
+    </button>
+  </div>
+
+  <div class="shopping-category" *ngFor="let cat of shoppingList">
+    <div class="category-header">
+      <mat-icon>{{ getShoppingIcon(cat.category) }}</mat-icon><h3>{{ cat.category }}</h3>
+    </div>
+    <ul class="shopping-items">
+      <li class="shopping-item" *ngFor="let item of cat.items"
+        [class.checked]="isChecked(cat.category + '_' + item.foodId)"
+        role="button" tabindex="0"
+        [attr.aria-pressed]="isChecked(cat.category + '_' + item.foodId)"
+        [attr.aria-label]="(isChecked(cat.category + '_' + item.foodId) ? 'Desmarcar ' : 'Marcar ') + item.foodName"
+        (click)="toggleItem(cat.category + '_' + item.foodId)"
+        (keydown.enter)="toggleItem(cat.category + '_' + item.foodId)"
+        (keydown.space)="$event.preventDefault(); toggleItem(cat.category + '_' + item.foodId)">
+        <div class="check-box">
+          <mat-icon *ngIf="isChecked(cat.category + '_' + item.foodId)">check_box</mat-icon>
+          <mat-icon *ngIf="!isChecked(cat.category + '_' + item.foodId)">check_box_outline_blank</mat-icon>
+        </div>
+        <span class="item-name">{{ item.foodName }}</span>
+        <span class="item-grams">~{{ item.totalGrams | number:'1.0-0' }}g</span>
+      </li>
+    </ul>
+  </div>
+</main>

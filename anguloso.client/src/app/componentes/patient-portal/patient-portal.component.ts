@@ -10,14 +10,19 @@ import { SumPipe } from '../../shared/pipes/sum.pipe';
 import { PatientChatComponent } from '../patient-chat/patient-chat.component';
 import { AppointmentSlot, PatientAppointment, PatientNotification, PatientDocument } from '../../servicios/patient-portal.service';
 import { PatientCheckinComponent } from './patient-checkin/patient-checkin.component';
-import { PatientCheckinHistoryComponent } from './patient-checkin-history/patient-checkin-history.component';
+import { PatientAppointmentsComponent } from './patient-appointments/patient-appointments.component';
+import { PatientProgressComponent } from './patient-progress/patient-progress.component';
+import { AccessLinkRecoveryComponent } from './access-link-recovery/access-link-recovery.component';
+import { PatientShoppingComponent } from './patient-shopping/patient-shopping.component';
+import { PatientHeaderComponent } from './patient-header/patient-header.component';
+import { PatientDocumentsComponent } from './patient-documents/patient-documents.component';
 
 type ActiveTab = 'today' | 'shopping' | 'appointments' | 'progress' | 'messages' | 'documents';
 
 @Component({
   selector: 'app-patient-portal',
   standalone: true,
-  imports: [CommonModule, FormsModule, DatePipe, DecimalPipe, MatIconModule, MatProgressSpinnerModule, SumPipe, PatientChatComponent, PatientCheckinComponent, PatientCheckinHistoryComponent],
+  imports: [CommonModule, FormsModule, DatePipe, DecimalPipe, MatIconModule, MatProgressSpinnerModule, SumPipe, PatientChatComponent, PatientCheckinComponent, PatientAppointmentsComponent, PatientProgressComponent, AccessLinkRecoveryComponent, PatientShoppingComponent, PatientHeaderComponent, PatientDocumentsComponent],
   templateUrl: './patient-portal.component.html',
   styleUrls: ['./patient-portal.component.css']
 })
@@ -28,6 +33,8 @@ export class PatientPortalComponent implements OnInit {
   profile: any = null;
   activeDiet: any = null;
   shoppingList: any[] = [];
+  shoppingItemCount = 0;
+  checkedShoppingItemCount = 0;
   loading = true;
   authError: string | null = null;
   showLogin = false;
@@ -44,7 +51,6 @@ export class PatientPortalComponent implements OnInit {
   emailOrPhone = '';
   passcode = '';
   submittingLogin = false;
-  accessLinkEmail = '';
   requestingAccessLink = false;
   accessLinkMessage: string | null = null;
   accessLinkError: string | null = null;
@@ -73,8 +79,6 @@ export class PatientPortalComponent implements OnInit {
   exchangeFoodsCache: Record<number, any[]> = {};
   exchangeLoading = false;
 
-  // Shopping list: persisted state via localStorage
-  checkedItems: Record<string, boolean> = {};
   completedMeals: Record<string, boolean> = {};
 
   constructor(
@@ -123,17 +127,17 @@ export class PatientPortalComponent implements OnInit {
     });
   }
 
-  requestNewAccessLink(): void {
-    const email = this.accessLinkEmail.trim().toLowerCase();
+  requestNewAccessLink(email: string): void {
+    const emailToUse = email.trim().toLowerCase();
     this.accessLinkMessage = null;
     this.accessLinkError = null;
-    if (!email || !email.includes('@')) {
+    if (!emailToUse || !emailToUse.includes('@')) {
       this.accessLinkError = 'Introduce el email con el que estás registrado.';
       return;
     }
 
     this.requestingAccessLink = true;
-    this.portalService.requestAccessLink(email).subscribe({
+    this.portalService.requestAccessLink(emailToUse).subscribe({
       next: (response) => {
         this.requestingAccessLink = false;
         this.accessLinkMessage = response?.message || 'Si el email corresponde a un paciente, recibirás un nuevo enlace de acceso.';
@@ -204,7 +208,6 @@ export class PatientPortalComponent implements OnInit {
         this.profile = p;
         this.portalDataError = null;
         if (p.id) this.clientId = p.id;
-        this.loadCheckedItems();
         this.loadCompletedMeals();
         // La vista previa del profesional usa clientId y no tiene sesión de paciente.
         if (!clientIdParam) {
@@ -232,7 +235,7 @@ export class PatientPortalComponent implements OnInit {
 
   retryLoadData(): void {
     this.portalDataError = null;
-    this.loadData(this.clientId);
+    this.loadData(this.isPreview ? this.clientId : undefined);
   }
 
   loadActiveDiet(clientIdParam?: number): void {
@@ -356,20 +359,12 @@ export class PatientPortalComponent implements OnInit {
       .sort((a, b) => new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime());
   }
 
-  formatAppointmentDate(value: string): string {
-    return new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(value));
-  }
-
-  formatAppointmentTime(value: string): string {
-    return new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' }).format(new Date(value));
-  }
-
   retryDietLoad(): void {
-    this.loadActiveDiet(this.clientId);
+    this.loadActiveDiet(this.isPreview ? this.clientId : undefined);
   }
 
   retryShoppingLoad(): void {
-    this.loadShoppingList(this.clientId);
+    this.loadShoppingList(this.isPreview ? this.clientId : undefined);
   }
 
   loadDocuments(): void {
@@ -433,12 +428,6 @@ export class PatientPortalComponent implements OnInit {
     this.portalService.markNotificationRead(notification.id).subscribe({
       next: () => notification.readAt = new Date().toISOString()
     });
-  }
-
-  notificationIcon(type: string): string {
-    if (type.includes('appointment')) return 'event';
-    if (type.includes('message')) return 'chat';
-    return 'notifications';
   }
 
   preparePushSupport(): void {
@@ -536,51 +525,6 @@ export class PatientPortalComponent implements OnInit {
     return 'food_bank';
   }
 
-  getShoppingIcon(category: string): string {
-    const c = (category ?? '').toLowerCase();
-    if (c.includes('fruta') || c.includes('verdura') || c.includes('vegetal')) return 'eco';
-    if (c.includes('carne') || c.includes('pescado') || c.includes('proteína')) return 'set_meal';
-    if (c.includes('lácteo') || c.includes('lacteo') || c.includes('leche')) return 'local_cafe';
-    if (c.includes('cereal') || c.includes('harina') || c.includes('pan')) return 'grain';
-    return 'shopping_basket';
-  }
-
-  toggleItem(key: string): void {
-    this.checkedItems[key] = !this.checkedItems[key];
-    this.saveCheckedItems();
-  }
-
-  isChecked(key: string): boolean {
-    return !!this.checkedItems[key];
-  }
-
-  get shoppingItemCount(): number {
-    return this.shoppingList.reduce(
-      (total: number, category: any) => total + (category.items?.length ?? 0),
-      0
-    );
-  }
-
-  get checkedShoppingItemCount(): number {
-    return this.shoppingList.reduce(
-      (total: number, category: any) => total + (category.items?.filter((item: any) =>
-        this.isChecked(category.category + '_' + item.foodId)
-      ).length ?? 0),
-      0
-    );
-  }
-
-  get shoppingProgressPercent(): number {
-    return this.shoppingItemCount
-      ? Math.round((this.checkedShoppingItemCount / this.shoppingItemCount) * 100)
-      : 0;
-  }
-
-  clearShoppingChecks(): void {
-    this.checkedItems = {};
-    this.saveCheckedItems();
-  }
-
   mealKey(meal: any): string {
     return `${this.clientId ?? 'preview'}_${this.today.toISOString().slice(0, 10)}_${meal.mealIndex}`;
   }
@@ -614,17 +558,6 @@ export class PatientPortalComponent implements OnInit {
   get todayKcal(): number {
     return this.todayDayData?.meals?.reduce((total: number, meal: any) =>
       total + (meal.items?.reduce((mealTotal: number, item: any) => mealTotal + Number(item.kcal || 0), 0) || 0), 0) ?? 0;
-  }
-
-  private loadCheckedItems(): void {
-    const saved = localStorage.getItem(`shopping_${this.clientId}`);
-    if (saved) {
-      try { this.checkedItems = JSON.parse(saved); } catch {}
-    }
-  }
-
-  private saveCheckedItems(): void {
-    localStorage.setItem(`shopping_${this.clientId}`, JSON.stringify(this.checkedItems));
   }
 
   private loadCompletedMeals(): void {
@@ -711,6 +644,12 @@ export class PatientPortalComponent implements OnInit {
 
   get hasShoppingItems(): boolean {
     return this.shoppingItemCount > 0;
+  }
+
+  /** Actualiza el único dato de compra que necesita la navegación inferior. */
+  onShoppingCountsChange(counts: { total: number; checked: number }): void {
+    this.shoppingItemCount = counts.total;
+    this.checkedShoppingItemCount = counts.checked;
   }
 
   toggleExchangeEquivalencies(uniqueKey: string, groupId?: number): void {

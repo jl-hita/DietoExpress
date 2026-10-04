@@ -1,0 +1,46 @@
+<main class="portal-content documents-content">
+  <div class="section-hero">
+    <mat-icon>description</mat-icon>
+    <div>
+      <h2>Documentación</h2>
+      <span>Documentos compartidos por tu nutricionista</span>
+    </div>
+  </div>
+
+  <section class="appointment-card" *ngIf="!loading && !error">
+    <div class="empty-state" *ngIf="!documents.length">
+      <mat-icon>folder_open</mat-icon>
+      <h3>No tienes documentos todavía</h3>
+      <p>Cuando tu nutricionista comparta documentación contigo aparecerá aquí.</p>
+    </div>
+    <article class="appointment-item" *ngFor="let doc of documents">
+      <div class="appointment-item-date"><mat-icon>picture_as_pdf</mat-icon></div>
+      <div class="appointment-item-info">
+        <strong>{{ doc.name }}</strong>
+        <span>Versión {{ doc.version }} · {{ doc.createdAt | date:'d MMM yyyy' }}</span>
+        <span class="appointment-status" *ngIf="doc.requiresSignature && doc.status === 'pending'">Pendiente de firma/aceptación</span>
+        <span class="appointment-status" *ngIf="doc.status === 'signed'">Aceptado</span>
+        <span class="appointment-status" *ngIf="!doc.requiresSignature && doc.status !== 'signed'">Disponible</span>
+      </div>
+      <div class="document-actions">
+        <button type="button" class="appointment-cancel" (click)="download.emit(doc)">Abrir PDF</button>
+        <button type="button" class="appointment-cancel" *ngIf="doc.requiresSignature && doc.status === 'pending'" (click)="accept.emit(doc)">Aceptar documento</button>
+      </div>
+    </article>
+  </section>
+
+  <div class="portal-inline-loading" *ngIf="loading">
+    <mat-spinner diameter="28"></mat-spinner>
+    <span>Cargando documentación...</span>
+  </div>
+  <div class="portal-inline-error" *ngIf="error">
+    <mat-icon>cloud_off</mat-icon>
+    <div>
+      <strong>No hemos podido cargar la documentación</strong>
+      <span>{{ error }}</span>
+    </div>
+    <button type="button" (click)="retry.emit()" aria-label="Reintentar documentación">
+      <mat-icon>refresh</mat-icon>
+    </button>
+  </div>
+</main>

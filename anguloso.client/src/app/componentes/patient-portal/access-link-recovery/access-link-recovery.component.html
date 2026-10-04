@@ -1,0 +1,34 @@
+<div class="access-link-recovery">
+  <div class="access-link-recovery-title">
+    <mat-icon>mail</mat-icon>
+    <div>
+      <strong>¿Ha caducado tu enlace?</strong>
+      <span>Te enviaremos uno nuevo a tu email.</span>
+    </div>
+  </div>
+
+  <div class="auth-error-banner" *ngIf="error">
+    <mat-icon>error_outline</mat-icon>
+    <span>{{ error }}</span>
+  </div>
+  <div class="auth-success-banner" *ngIf="message">
+    <mat-icon>mark_email_read</mat-icon>
+    <span>{{ message }}</span>
+  </div>
+
+  <form (ngSubmit)="submit()" class="access-link-form">
+    <input
+      type="email"
+      [(ngModel)]="email"
+      name="accessLinkEmail"
+      autocomplete="email"
+      placeholder="tu@email.com"
+      maxlength="320"
+      required />
+    <button type="submit" class="btn-portal-secondary" [disabled]="loading">
+      <mat-spinner *ngIf="loading" diameter="18"></mat-spinner>
+      <span *ngIf="!loading">Enviar enlace</span>
+      <span *ngIf="loading">Enviando...</span>
+    </button>
+  </form>
+</div>
