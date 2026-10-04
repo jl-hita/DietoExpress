@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Anguloso.Server.Controllers;
 
 [ApiController]
-[Authorize(Roles = "admin,superadmin")]
+[Authorize(Roles = "superadmin")]
 [Route("[controller]")]
 public class TestController : ControllerBase
 {
