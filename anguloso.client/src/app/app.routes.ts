@@ -65,7 +65,7 @@ export const routes: AppRoute[] = [
       { path: 'diets/:id', component: DietCreateComponent, canActivate: [SubscriptionGuard], title: 'Editar dieta' },
       { path: 'onboarding', component: OnboardingComponent, title: 'Bienvenido a DietoExpress' },
       { path: 'settings', component: SettingsComponent, title: 'Ajustes' },
-      { path: 'legal-manage', component: LegalDashboardComponent, canActivate: [SubscriptionGuard], title: 'Legal', showInMenu: false },
+      { path: 'legal-manage', component: LegalDashboardComponent, canActivate: [SubscriptionGuard], title: 'Legal' },
       { path: 'documents', component: DocumentTemplatesComponent, canActivate: [SubscriptionGuard], title: 'Documentación' },
       { path: 'automations', component: AutomationSettingsComponent, canActivate: [SubscriptionGuard], title: 'Automatizaciones' },
       { path: 'billing', component: BillingComponent, title: 'Suscripción' },
