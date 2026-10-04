@@ -1558,4 +1558,25 @@ public class AuthorizationRegressionTests
         Assert.Contains("tenant_id = {2}", controller);
     }
 
+
+    [Fact]
+    public void PublicDirectoryBooking_IsTenantScopedAndRevalidatesAvailability()
+    {
+        var controller = ReadServerController("DirectoryController.cs");
+
+        Assert.Contains("[AllowAnonymous]", controller);
+        Assert.Contains("[EnableRateLimiting(\"auth\")]", controller);
+        Assert.Contains("u.directory_enabled == true", controller);
+        Assert.Contains("professional.tenant_id.Value", controller);
+        Assert.Contains("BeginTransactionAsync()", controller);
+        Assert.Contains("pg_advisory_xact_lock", ReadServerLogica("AppointmentConcurrencyService.cs"));
+        Assert.Contains("IsBlockedAsync", controller);
+        Assert.Contains("a.tenant_id == professional.tenant_id.Value", controller);
+        Assert.Contains("status == \"requested\" || a.status == \"confirmed\"", controller);
+        Assert.Contains("status = \"requested\"", controller);
+        Assert.Contains("CanCreateClientAsync", controller);
+        Assert.Contains("CanAssignClientAsync", controller);
+        Assert.DoesNotContain("tenantId", controller.Substring(controller.IndexOf("RequestPublicAppointment", StringComparison.Ordinal), 600));
+    }
+
 }
