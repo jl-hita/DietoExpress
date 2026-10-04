@@ -582,22 +582,26 @@ public sealed class AutomationService
 
                     // Una reserva pendiente debe generar una tarea inmediata para el profesional.
                     // El paciente ya recibe la confirmación síncrona; los recordatorios posteriores
-                    // se activan al confirmar la cita.
-                    await ScheduleActionAsync(
-                        evt.TenantId,
-                        "create_professional_task",
-                        new CreateTaskAction(
-                            payload.ClientId,
-                            payload.NutritionistId,
-                            "Nueva solicitud de cita",
-                            "Hay una nueva solicitud de cita pendiente de revisar y confirmar.",
+                    // se activan al confirmar la cita. El profesional es opcional en el payload
+                    // para conservar la tolerancia de los eventos históricos sin inventar destinatarios.
+                    if (payload.NutritionistId.HasValue)
+                    {
+                        await ScheduleActionAsync(
+                            evt.TenantId,
+                            "create_professional_task",
+                            new CreateTaskAction(
+                                payload.ClientId,
+                                payload.NutritionistId.Value,
+                                "Nueva solicitud de cita",
+                                "Hay una nueva solicitud de cita pendiente de revisar y confirmar.",
+                                DateTime.UtcNow,
+                                "high",
+                                "automation:appointment.requested"),
                             DateTime.UtcNow,
-                            "high",
-                            "automation:appointment.requested"),
-                        DateTime.UtcNow,
-                        evt.Id,
-                        $"event:{evt.Id}:create-professional-task",
-                        cancellationToken: cancellationToken);
+                            evt.Id,
+                            $"event:{evt.Id}:create-professional-task",
+                            cancellationToken: cancellationToken);
+                    }
 
                     clientId = payload.ClientId;
                     status = await HasCompletedAppointmentAsync(evt.TenantId, clientId, cancellationToken)
