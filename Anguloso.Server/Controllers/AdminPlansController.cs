@@ -213,4 +213,6 @@ public record PlanResponse(
     [property: JsonPropertyName("trial_days")] int? TrialDays,
     [property: JsonPropertyName("active")] bool Active,
     [property: JsonPropertyName("created_at")] DateTime CreatedAt,
+    [property: JsonPropertyName("stripe_additional_monthly_price_id")] string? StripeAdditionalMonthlyPriceId,
+    [property: JsonPropertyName("stripe_additional_yearly_price_id")] string? StripeAdditionalYearlyPriceId,
     [property: JsonPropertyName("features")] List<FeatureResponse> Features);
