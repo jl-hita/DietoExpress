@@ -1,0 +1,13 @@
+.checkin-history { max-width:1080px; margin:12px auto 16px; padding:18px; background:#1e293b; border:1px solid #334155; border-radius:18px; }
+.checkin-history-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.checkin-history-header h3 { margin:0 0 3px; color:#f1f5f9; font-size:14px; }
+.checkin-history-header span { color:#64748b; font-size:10px; }
+.checkin-history-list { display:flex; flex-direction:column; gap:7px; }
+.checkin-history-item { display:flex; align-items:center; gap:16px; padding:10px 12px; border:1px solid #334155; border-radius:11px; background:#0f172a; }
+.checkin-history-date { display:flex; flex-direction:column; flex:0 0 115px; }
+.checkin-history-date strong { color:#e2e8f0; font-size:11px; }
+.checkin-history-date span { color:#64748b; font-size:9px; }
+.checkin-history-metrics { display:flex; flex-wrap:wrap; gap:8px; color:#64748b; font-size:10px; }
+.checkin-history-metrics span { padding:4px 7px; border-radius:7px; background:#1e293b; }
+.checkin-history-metrics strong { color:#cbd5e1; }
+@media (max-width:560px) { .checkin-history { margin-left:12px; margin-right:12px; padding:15px; } .checkin-history-item { align-items:flex-start; flex-direction:column; gap:7px; } .checkin-history-date { flex-basis:auto; } }
