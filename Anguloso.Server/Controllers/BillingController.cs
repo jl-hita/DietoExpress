@@ -384,6 +384,7 @@ public sealed class BillingController : ControllerBase
                     {
                         tenant_id = tenantId.Value,
                         plan_id = planId.Value,
+                        contracted_nutritionists = plan.code == "clinic_full" ? plan.max_nutritionists : null,
                         status = paymentStatus == "paid" ? "active" : "past_due",
                         started_at = DateTime.UtcNow,
                         billing_interval = interval,
