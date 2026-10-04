@@ -20,6 +20,7 @@ export class ClinicDashboardComponent implements OnInit {
    const l=this.data?.license;
    return l?.contractedNutritionists ?? l?.includedNutritionists ?? 0;
  }
+ get includedSeats():number { const l=this.data?.license; return l?.includedNutritionists ?? l?.maxNutritionists ?? 0; }
  get canAddSeat():boolean {
    const l=this.data?.license;
    return !!l &&
