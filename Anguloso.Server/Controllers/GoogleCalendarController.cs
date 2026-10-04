@@ -18,7 +18,7 @@ public sealed class GoogleCalendarController : ControllerBase
 
     public GoogleCalendarController(angulosodbContext db, GoogleCalendarService calendar) { _db = db; _calendar = calendar; }
 
-    [Authorize(Roles = "clinic_admin,nutritionist,user")]
+    [Authorize(Roles = "clinic_admin,nutritionist")]
     [HttpGet("status")]
     public async Task<ActionResult<GoogleCalendarService.GoogleCalendarConnectionDto>> Status(CancellationToken cancellationToken)
     {
