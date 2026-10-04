@@ -21,7 +21,7 @@ public class TenantIsolationTests
         await using var db = CreateDb();
 
         db.users.AddRange(
-            new users { id = 1, tenant_id = 10, role = "user" },
+            new users { id = 1, tenant_id = 10, role = "nutritionist" },
             new users { id = 2, tenant_id = 20, role = "user" });
 
         db.clients.Add(new clients
