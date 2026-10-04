@@ -76,13 +76,11 @@ jobs:
           test -d /var/lib/dietoexpress/Logs
           test -w /var/lib/dietoexpress/Logs
 
-          # El spool es deliberadamente independiente de Logs: debe seguir disponible
-          # como cola de recuperación aunque el almacenamiento habitual de logs cambie.
-          # El servicio se ejecuta con el usuario joso, por lo que el directorio persistente
-          # debe existir y ser escribible antes de reiniciar la aplicación.
-          sudo install -d -o joso -g joso -m 750 /var/lib/dietoexpress/AlertSpool
+          # El spool es almacenamiento persistente del servidor, igual que Logs.
+          # Se provisiona una sola vez fuera del despliegue; aquí solo verificamos que
+          # la aplicación pueda utilizarlo sin depender de sudo interactivo.
           test -d /var/lib/dietoexpress/AlertSpool
-          sudo -u joso test -w /var/lib/dietoexpress/AlertSpool
+          test -w /var/lib/dietoexpress/AlertSpool
 
           rm -rf /opt/dietoexpress/*
           cp -a /tmp/dietoexpress-backend/. /opt/dietoexpress/
