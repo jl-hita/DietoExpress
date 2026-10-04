@@ -23,7 +23,9 @@ public sealed class LegalConfigurationController : ControllerBase
         "patient_recipients_summary", "patient_retention_summary",
         "privacy_policy_url", "consultation_description", "consultation_limits",
         "service_prices_summary", "booking_payment_summary",
-        "appointment_cancellation_summary", "refund_summary", "no_show_summary"
+        "appointment_cancellation_summary", "refund_summary", "no_show_summary",
+        "dpa_duration", "dpa_end_of_service_summary", "patient_additional_purposes",
+        "patient_special_categories_summary", "consultation_risks"
     ];
 
     private readonly IConfiguration _configuration;
