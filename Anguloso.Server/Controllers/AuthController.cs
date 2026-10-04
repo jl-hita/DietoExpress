@@ -265,7 +265,6 @@ public class AuthController : ControllerBase
             };
             _context.tenants.Add(tenant);
             await _context.SaveChangesAsync();
-            await _patientDocumentTemplateSeeder.SeedTenantAsync(tenant.id, HttpContext.RequestAborted);
             user.tenant_id = tenant.id;
 
             _context.users.Add(user);
@@ -297,6 +296,7 @@ public class AuthController : ControllerBase
                 currentTerms.Version);
 
             await transaction.CommitAsync();
+            await _patientDocumentTemplateSeeder.SeedTenantAsync(tenant.id, HttpContext.RequestAborted);
 
             //obtenemos el dominio de la url
             string frontendUrl = _configServ.GetConfigString("frontendUrl", "https://localhost:4200") ?? "https://localhost:4200";
@@ -705,7 +705,6 @@ public class AuthController : ControllerBase
                         _context.tenants.Add(tenantGoogle);
                         await _context.SaveChangesAsync();
 
-                        await _patientDocumentTemplateSeeder.SeedTenantAsync(tenantGoogle.id, HttpContext.RequestAborted);
                         user.tenant_id = tenantGoogle.id;
                         _context.users.Add(user);
                         await _context.SaveChangesAsync();
@@ -749,6 +748,7 @@ public class AuthController : ControllerBase
                     }
 
                     await googleTransaction.CommitAsync();
+                    await _patientDocumentTemplateSeeder.SeedTenantAsync(tenantGoogle.id, HttpContext.RequestAborted);
                 }
                 catch
                 {
