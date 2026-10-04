@@ -10,9 +10,19 @@ import { PatientCheckinHistoryComponent } from '../patient-checkin-history/patie
   templateUrl: './patient-progress.component.html',
   styleUrls: ['./patient-progress.component.css']
 })
+interface PatientProgressProfile {
+  currentWeight?: number | null;
+  currentHeight?: number | null;
+}
+
+interface PatientWeightEntry {
+  date: string | Date;
+  weight: number;
+}
+
 export class PatientProgressComponent {
-  @Input() profile: any = null;
-  @Input() weightHistory: any[] = [];
+  @Input() profile: PatientProgressProfile | null = null;
+  @Input() weightHistory: PatientWeightEntry[] = [];
   @Input() bmi: number | string | null = null;
   @Input() bmiColor = '';
   @Input() bmiCategory = '';
@@ -28,10 +38,10 @@ export class PatientProgressComponent {
     return new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'short' }).format(date);
   }
 
-  getWeightBarHeight(weight: number, history: any[]): number {
-    if (!history?.length) return 0;
-    const min = Math.min(...history.map((h: any) => h.weight));
-    const max = Math.max(...history.map((h: any) => h.weight));
+  getWeightBarHeight(weight: number, history: PatientWeightEntry[]): number {
+    if (!history.length) return 0;
+    const min = Math.min(...history.map(h => h.weight));
+    const max = Math.max(...history.map(h => h.weight));
     if (max === min) return 60;
     return Math.round(((weight - min) / (max - min)) * 85 + 15);
   }
