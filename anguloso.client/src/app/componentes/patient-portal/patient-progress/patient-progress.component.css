@@ -1,0 +1,50 @@
+/* Estilos aislados del módulo de progreso para mantener ligero el componente principal. */
+.section-hero { display:flex; align-items:center; gap:14px; padding:20px 20px 12px; background:linear-gradient(180deg,#1e293b 0%,transparent 100%); }
+.section-hero mat-icon { font-size:36px; width:36px; height:36px; color:#6366f1; }
+.section-hero h2 { margin:0 0 2px; font-size:20px; font-weight:700; color:#f1f5f9; }
+.section-hero span { font-size:12px; color:#64748b; }
+.progress-overview { display:grid; grid-template-columns:minmax(0,1.6fr) repeat(2,minmax(150px,.8fr)); gap:10px; max-width:1080px; margin:12px auto 10px; padding:0 16px; }
+.progress-main-card,.progress-mini-card { background:#1e293b; border:1px solid #334155; border-radius:16px; min-width:0; }
+.progress-main-card { display:flex; align-items:center; gap:12px; padding:16px; }
+.progress-main-icon { display:flex; align-items:center; justify-content:center; width:44px; height:44px; flex:0 0 44px; border-radius:13px; background:rgba(99,102,241,.12); color:#818cf8; }
+.progress-main-icon mat-icon { font-size:23px; width:23px; height:23px; }
+.progress-main-copy { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.progress-main-copy span,.progress-mini-card span { color:#64748b; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }
+.progress-main-copy strong,.progress-mini-card strong { color:#f1f5f9; font-size:23px; line-height:1.15; }
+.progress-main-copy strong small,.progress-mini-card strong small { font-size:12px; font-weight:600; margin-left:3px; color:#94a3b8; }
+.progress-main-copy em { color:#64748b; font-size:10px; font-style:normal; }
+.progress-mini-card { position:relative; display:flex; flex-direction:column; justify-content:center; gap:4px; padding:14px 42px 14px 16px; }
+.progress-mini-card > mat-icon { position:absolute; right:14px; top:50%; transform:translateY(-50%); color:#6366f1; font-size:22px; width:22px; height:22px; }
+.progress-mini-card > small { font-size:10px; color:#64748b; }
+.progress-tip { display:flex; align-items:flex-start; gap:10px; max-width:1080px; margin:0 auto 10px; padding:11px 16px; border:1px solid rgba(99,102,241,.18); border-radius:13px; background:rgba(99,102,241,.06); }
+.progress-tip > mat-icon { color:#818cf8; font-size:20px; width:20px; height:20px; flex:0 0 20px; }
+.progress-tip div { display:flex; flex-direction:column; gap:2px; }
+.progress-tip strong { color:#cbd5e1; font-size:11px; }
+.progress-tip span { color:#64748b; font-size:11px; line-height:1.4; }
+.weight-history { max-width:1080px; }
+.weight-history-header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:16px; }
+.weight-history-header > div { min-width:0; }
+.weight-history h3 { margin:0 0 3px; }
+.weight-history-header > div > span { color:#64748b; font-size:10px; }
+.weight-range { color:#818cf8; font-size:11px; font-weight:700; white-space:nowrap; }
+.weight-chart { height:116px; }
+.weight-bar-wrapper { position:relative; }
+.weight-date-label { color:#475569; font-size:8px; white-space:nowrap; }
+.progress-empty { display:flex; flex-direction:column; align-items:center; text-align:center; max-width:500px; margin:20px auto; padding:34px 24px; }
+.progress-empty-icon { display:flex; align-items:center; justify-content:center; width:54px; height:54px; margin-bottom:10px; border-radius:16px; background:rgba(99,102,241,.08); }
+.progress-empty-icon mat-icon { color:#475569; font-size:28px; width:28px; height:28px; }
+.progress-empty h3 { margin:0 0 6px; color:#94a3b8; font-size:16px; }
+.progress-empty p { margin:0; max-width:360px; color:#64748b; font-size:12px; line-height:1.5; }
+@media (max-width:700px) {
+  .progress-overview { grid-template-columns:1fr 1fr; }
+  .progress-main-card { grid-column:1 / -1; }
+  .progress-tip { margin-left:16px; margin-right:16px; }
+  .weight-history-header { align-items:flex-start; }
+}
+@media (max-width:420px) {
+  .progress-overview { padding-left:12px; padding-right:12px; }
+  .progress-main-card,.progress-mini-card { border-radius:14px; }
+  .weight-range { display:none; }
+  .weight-chart { gap:4px; }
+  .weight-date-label { font-size:7px; }
+}
