@@ -51,7 +51,6 @@ export class PatientPortalComponent implements OnInit {
   emailOrPhone = '';
   passcode = '';
   submittingLogin = false;
-  accessLinkEmail = '';
   requestingAccessLink = false;
   accessLinkMessage: string | null = null;
   accessLinkError: string | null = null;
@@ -236,7 +235,7 @@ export class PatientPortalComponent implements OnInit {
 
   retryLoadData(): void {
     this.portalDataError = null;
-    this.loadData(this.clientId);
+    this.loadData(this.isPreview ? this.clientId : undefined);
   }
 
   loadActiveDiet(clientIdParam?: number): void {
@@ -360,20 +359,12 @@ export class PatientPortalComponent implements OnInit {
       .sort((a, b) => new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime());
   }
 
-  formatAppointmentDate(value: string): string {
-    return new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(value));
-  }
-
-  formatAppointmentTime(value: string): string {
-    return new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' }).format(new Date(value));
-  }
-
   retryDietLoad(): void {
-    this.loadActiveDiet(this.clientId);
+    this.loadActiveDiet(this.isPreview ? this.clientId : undefined);
   }
 
   retryShoppingLoad(): void {
-    this.loadShoppingList(this.clientId);
+    this.loadShoppingList(this.isPreview ? this.clientId : undefined);
   }
 
   loadDocuments(): void {
@@ -437,12 +428,6 @@ export class PatientPortalComponent implements OnInit {
     this.portalService.markNotificationRead(notification.id).subscribe({
       next: () => notification.readAt = new Date().toISOString()
     });
-  }
-
-  notificationIcon(type: string): string {
-    if (type.includes('appointment')) return 'event';
-    if (type.includes('message')) return 'chat';
-    return 'notifications';
   }
 
   preparePushSupport(): void {
