@@ -745,10 +745,11 @@ public class AuthController : ControllerBase
                             Request.Headers.UserAgent.ToString(),
                             currentTerms.Version,
                             currentTerms.Sha256);
+
+                        await _patientDocumentTemplateSeeder.SeedTenantAsync(tenantGoogle.id, HttpContext.RequestAborted);
                     }
 
                     await googleTransaction.CommitAsync();
-                    await _patientDocumentTemplateSeeder.SeedTenantAsync(tenantGoogle.id, HttpContext.RequestAborted);
                 }
                 catch
                 {
