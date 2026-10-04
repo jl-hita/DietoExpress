@@ -47,6 +47,8 @@
         [loading]="requestingAccessLink"
         (request)="requestNewAccessLink($event)">
       </app-access-link-recovery>
+    </div>
+  </div>
 
   <div *ngIf="!loading && portalDataError && !showLogin" class="portal-error-state">
     <div class="portal-error-icon"><mat-icon>cloud_off</mat-icon></div>
