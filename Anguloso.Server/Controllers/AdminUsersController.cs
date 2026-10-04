@@ -28,7 +28,7 @@ public class AdminUsersController : ControllerBase
     [HttpGet("stats")]
     public async Task<IActionResult> GetStats()
     {
-        var totalUsers = await _context.users.CountAsync(u => u.archived_at == null && (u.role == "nutritionist" || u.role == "user"));
+        var totalUsers = await _context.users.CountAsync(u => u.archived_at == null && u.role == "nutritionist");
         var totalClients = await _context.clients.CountAsync(c => c.archived_at == null);
         var totalDiets = await _context.diets.CountAsync();
         
@@ -317,6 +317,8 @@ public class AdminUsersController : ControllerBase
             }
 
             subscription.plan_id = plan.id;
+            if (plan.code == "clinic_full" && !subscription.contracted_nutritionists.HasValue)
+                subscription.contracted_nutritionists = plan.max_nutritionists;
             subscription.status = subscriptionStatus;
             subscription.expires_at = request.LicenseExpiresAt;
 
@@ -539,7 +541,7 @@ public class AdminUsersController : ControllerBase
     [HttpGet("users/{id}/deactivation-preview")]
     public async Task<IActionResult> DeactivationPreview(int id)
     {
-        var user=await _context.users.AsNoTracking().FirstOrDefaultAsync(u=>u.id==id&&(u.role=="nutritionist"||u.role=="user")&&u.archived_at==null);
+        var user=await _context.users.AsNoTracking().FirstOrDefaultAsync(u=>u.id==id&&u.role=="nutritionist"&&u.archived_at==null);
         if(user==null)return NotFound("Usuario no encontrado o no modificable.");
 
         var clients=await _context.clients.AsNoTracking()
@@ -549,7 +551,7 @@ public class AdminUsersController : ControllerBase
             .ToListAsync();
 
         var candidates=await _context.users.AsNoTracking()
-            .Where(u=>u.tenant_id==user.tenant_id&&u.id!=id&&u.archived_at==null&&(u.role=="nutritionist"||u.role=="user"))
+            .Where(u=>u.tenant_id==user.tenant_id&&u.id!=id&&u.archived_at==null&&u.role=="nutritionist")
             .OrderBy(u=>u.full_name)
             .Select(u=>new {id=u.id,fullName=u.full_name,username=u.username})
             .ToListAsync();
@@ -562,7 +564,7 @@ public class AdminUsersController : ControllerBase
     // se conserva el historial necesario para que los pacientes no queden asociados a un usuario inexistente.
     public async Task<IActionResult> DeleteUser(int id,[FromBody] DeactivateUserRequest? request)
     {
-        var user=await _context.users.FirstOrDefaultAsync(u=>u.id==id&&(u.role=="nutritionist"||u.role=="user"));
+        var user=await _context.users.FirstOrDefaultAsync(u=>u.id==id&&u.role=="nutritionist");
         if(user==null)return NotFound("Usuario no encontrado o no modificable.");
         if(user.archived_at!=null)return BadRequest("La cuenta ya está archivada.");
 
@@ -594,7 +596,7 @@ public class AdminUsersController : ControllerBase
 
             if(item.NutritionistId.HasValue)
             {
-                var target=await _context.users.FirstOrDefaultAsync(u=>u.id==item.NutritionistId.Value&&u.tenant_id==user.tenant_id&&u.archived_at==null&&(u.role=="nutritionist"||u.role=="user"));
+                var target=await _context.users.FirstOrDefaultAsync(u=>u.id==item.NutritionistId.Value&&u.tenant_id==user.tenant_id&&u.archived_at==null&&u.role=="nutritionist");
                 if(target==null)return BadRequest("Uno de los nutricionistas seleccionados no pertenece al tenant o está archivado.");
             }
 

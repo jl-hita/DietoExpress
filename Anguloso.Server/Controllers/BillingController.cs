@@ -127,12 +127,15 @@ public sealed class BillingController : ControllerBase
 
             if (targetPlan == null) return BadRequest("El plan solicitado no existe o no está activo.");
 
-            if (targetPlan.max_nutritionists.HasValue)
+            // El límite base de 5 puestos solo aplica al pasar a una suscripción que no sea
+            // una clínica ya dimensionada con puestos adicionales. Cambiar de mensual a anual
+            // dentro de clinic_full no debe expulsar a profesionales ya contratados.
+            if (targetPlan.max_nutritionists.HasValue && !string.Equals(targetPlan.code, "clinic_full", StringComparison.OrdinalIgnoreCase))
             {
                 var activeNutritionists = await _context.users.CountAsync(u =>
                     u.tenant_id == _tenantContext.TenantId.Value &&
                     u.archived_at == null &&
-                    (u.role == "nutritionist" || u.role == "user"));
+                    u.role == "nutritionist");
 
                 if (activeNutritionists > targetPlan.max_nutritionists.Value)
                     return BadRequest($"No puedes cambiar a {targetPlan.name}: tienes {activeNutritionists} nutricionistas activos y el plan permite {targetPlan.max_nutritionists.Value}.");
@@ -384,6 +387,7 @@ public sealed class BillingController : ControllerBase
                     {
                         tenant_id = tenantId.Value,
                         plan_id = planId.Value,
+                        contracted_nutritionists = plan.code == "clinic_full" ? plan.max_nutritionists : null,
                         status = paymentStatus == "paid" ? "active" : "past_due",
                         started_at = DateTime.UtcNow,
                         billing_interval = interval,
@@ -420,6 +424,8 @@ public sealed class BillingController : ControllerBase
                 }
 
                 subscription.plan_id = planId.Value;
+                if (plan.code == "clinic_full" && !subscription.contracted_nutritionists.HasValue)
+                    subscription.contracted_nutritionists = plan.max_nutritionists;
                 subscription.billing_interval = interval;
                 subscription.payment_provider = "stripe";
                 subscription.provider_customer_id = customerId;
@@ -591,12 +597,58 @@ public sealed class BillingController : ControllerBase
                     subscription.provider_customer_id = customerId;
 
                 var updatedPlan = await _context.subscription_plans.FindAsync(subscription.plan_id);
+                if (updatedPlan != null && string.Equals(updatedPlan.code, "clinic_full", StringComparison.OrdinalIgnoreCase))
+                {
+                    var included = updatedPlan.max_nutritionists ?? 0;
+                    var additionalPriceId = subscription.billing_interval == "yearly"
+                        ? updatedPlan.stripe_additional_yearly_price_id
+                        : updatedPlan.stripe_additional_monthly_price_id;
+                    var additionalQuantity = ReadSubscriptionItemQuantity(data, additionalPriceId);
+                    subscription.contracted_nutritionists = included + additionalQuantity;
+                }
+
                 if (updatedPlan != null && !string.IsNullOrWhiteSpace(subscription.billing_interval))
                 {
                     subscription.amount = subscription.billing_interval == "yearly"
                         ? updatedPlan.yearly_price
                         : updatedPlan.monthly_price;
                     subscription.currency = "eur";
+
+                    // La capacidad contratada se deriva del item adicional de Stripe.
+                    // Así la BD solo refleja una ampliación/reducción cuando Stripe ha
+                    // confirmado realmente el cambio, incluidos los pending_update.
+                    if (string.Equals(updatedPlan.code, "clinic_full", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var included = updatedPlan.max_nutritionists ?? 0;
+                        var additionalPriceId = string.Equals(subscription.billing_interval, "yearly", StringComparison.OrdinalIgnoreCase)
+                            ? updatedPlan.stripe_additional_yearly_price_id
+                            : updatedPlan.stripe_additional_monthly_price_id;
+                        var additionalQuantity = 0;
+
+                        if (!string.IsNullOrWhiteSpace(additionalPriceId) &&
+                            data.TryGetProperty("items", out var subscriptionItems) &&
+                            subscriptionItems.TryGetProperty("data", out var itemData) &&
+                            itemData.ValueKind == JsonValueKind.Array)
+                        {
+                            foreach (var item in itemData.EnumerateArray())
+                            {
+                                if (!item.TryGetProperty("price", out var itemPrice) ||
+                                    !itemPrice.TryGetProperty("id", out var itemPriceId) ||
+                                    !string.Equals(itemPriceId.GetString(), additionalPriceId, StringComparison.Ordinal))
+                                    continue;
+
+                                if (item.TryGetProperty("quantity", out var quantity) && quantity.TryGetInt32(out var parsedQuantity))
+                                    additionalQuantity = Math.Max(0, parsedQuantity);
+                                break;
+                            }
+                        }
+
+                        subscription.contracted_nutritionists = included + additionalQuantity;
+                    }
+                    else
+                    {
+                        subscription.contracted_nutritionists = null;
+                    }
 
                     var owner = await _context.users
                         .Where(u => u.tenant_id == subscription.tenant_id && u.role != "superadmin")
@@ -641,6 +693,29 @@ public sealed class BillingController : ControllerBase
 
     // Convierte eventos de Stripe en eventos internos de automatización. Un fallo aquí se registra
     // sin deshacer el estado de facturación ya confirmado por Stripe.
+    private static int ReadSubscriptionItemQuantity(JsonElement subscription, string? priceId)
+    {
+        if (string.IsNullOrWhiteSpace(priceId) ||
+            !subscription.TryGetProperty("items", out var items) ||
+            !items.TryGetProperty("data", out var data) ||
+            data.ValueKind != JsonValueKind.Array)
+            return 0;
+
+        foreach (var item in data.EnumerateArray())
+        {
+            if (!item.TryGetProperty("price", out var price) ||
+                !price.TryGetProperty("id", out var id) ||
+                !string.Equals(id.GetString(), priceId, StringComparison.Ordinal))
+                continue;
+
+            return item.TryGetProperty("quantity", out var quantity) && quantity.TryGetInt32(out var value)
+                ? Math.Max(0, value)
+                : 0;
+        }
+
+        return 0;
+    }
+
     private async Task PublishBillingAutomationEventAsync(JsonElement root, string eventType, string eventId)
     {
         var data = root.GetProperty("data").GetProperty("object");

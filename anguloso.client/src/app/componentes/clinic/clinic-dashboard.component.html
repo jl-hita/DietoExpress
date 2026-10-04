@@ -2,22 +2,22 @@
   <div class="header"><div><h1>Panel de clínica</h1><p>Gestiona nutricionistas, clientes y asignaciones.</p></div><button mat-stroked-button (click)="load()"><mat-icon>refresh</mat-icon> Actualizar</button></div>
   <div *ngIf="data" class="kpis">
     <mat-card><span>Plan</span><strong>{{data.license.planName}}</strong></mat-card>
-    <mat-card><span>Nutricionistas</span><strong>{{data.license.nutritionists}}{{data.license.maxNutritionists ? ' / '+data.license.maxNutritionists : ''}}</strong></mat-card>
+    <mat-card><span>Nutricionistas</span><strong>{{data.license.nutritionists}} / {{contractedSeats}} puestos</strong></mat-card>
     <mat-card><span>Clientes</span><strong>{{data.license.clients}}{{data.license.maxTotalClients ? ' / '+data.license.maxTotalClients : ''}}</strong></mat-card>
     <mat-card><span>Máximo por nutricionista</span><strong>{{data.license.maxClientsPerNutritionist ?? '∞'}}</strong></mat-card>
   </div>
   <mat-card class="card">
-    <div class="section-title"><h2>Nutricionistas</h2><button mat-flat-button color="primary"
+    <div class="section-title"><h2>Nutricionistas</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button mat-stroked-button color="primary" *ngIf="canAddSeat && data?.license?.nutritionists === contractedSeats" (click)="addSeat()"><mat-icon>add</mat-icon> Añadir puesto adicional</button><button mat-stroked-button color="primary" *ngIf="canAddSeat && contractedSeats > includedSeats && (data?.license?.nutritionists ?? 0) <= contractedSeats - 1" (click)="removeSeat()"><mat-icon>remove</mat-icon> Quitar puesto</button><button mat-flat-button color="primary"
       [disabled]="!canCreateNutri"
       (click)="showCreate=!showCreate">
-      <mat-icon>person_add</mat-icon> Añadir
-    </button></div>
+      <mat-icon>person_add</mat-icon> Añadir nutricionista
+    </button></div></div>
     <div *ngIf="showCreate" class="create-form">
       <input placeholder="Nombre completo" [(ngModel)]="newNutri.fullName">
       <input placeholder="Email de acceso" type="email" [(ngModel)]="newNutri.email">
       <button mat-flat-button color="primary" [disabled]="!newNutri.email" (click)="createNutri()">Crear e invitar</button>
     </div>
-    <p *ngIf="data?.license?.nutritionistReplacementAvailableAt && (data?.license?.nutritionists ?? 0) < (data?.license?.maxNutritionists ?? 0)"
+    <p *ngIf="data?.license?.nutritionistReplacementAvailableAt && (data?.license?.nutritionists ?? 0) < contractedSeats"
        style="margin:10px 0;color:#92400e">
       No puedes sustituir una baja todavía. La próxima plaza para una nueva alta estará disponible el
       {{data?.license?.nutritionistReplacementAvailableAt | date:'dd/MM/yyyy HH:mm'}}.

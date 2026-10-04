@@ -18,7 +18,7 @@ public sealed class GoogleCalendarController : ControllerBase
 
     public GoogleCalendarController(angulosodbContext db, GoogleCalendarService calendar) { _db = db; _calendar = calendar; }
 
-    [Authorize(Roles = "clinic_admin,nutritionist,user")]
+    [Authorize(Roles = "clinic_admin,nutritionist")]
     [HttpGet("status")]
     public async Task<ActionResult<GoogleCalendarService.GoogleCalendarConnectionDto>> Status(CancellationToken cancellationToken)
     {
@@ -27,7 +27,7 @@ public sealed class GoogleCalendarController : ControllerBase
         return Ok(await _calendar.GetConnectionAsync(userId.Value, tenantId.Value, cancellationToken) ?? new GoogleCalendarService.GoogleCalendarConnectionDto(false, "", "primary", null));
     }
 
-    [Authorize(Roles = "clinic_admin,nutritionist,user")]
+    [Authorize(Roles = "clinic_admin,nutritionist")]
     [HttpGet("connect")]
     public async Task<IActionResult> Connect(CancellationToken cancellationToken)
     {
@@ -56,7 +56,7 @@ public sealed class GoogleCalendarController : ControllerBase
         catch { return Redirect("/appointments?calendar=error"); }
     }
 
-    [Authorize(Roles = "clinic_admin,nutritionist,user")]
+    [Authorize(Roles = "clinic_admin,nutritionist")]
     [HttpPost("disconnect")]
     public async Task<IActionResult> Disconnect(CancellationToken cancellationToken)
     {
@@ -66,7 +66,7 @@ public sealed class GoogleCalendarController : ControllerBase
         return NoContent();
     }
 
-    [Authorize(Roles = "clinic_admin,nutritionist,user")]
+    [Authorize(Roles = "clinic_admin,nutritionist")]
     [HttpPost("sync")]
     public async Task<IActionResult> Sync(CancellationToken cancellationToken)
     {

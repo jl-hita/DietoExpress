@@ -14,6 +14,7 @@ public interface IStripeBillingService
     Task ChangeSubscriptionAsync(int tenantId, string planCode, string billingInterval);
     Task CancelRenewalAsync(int tenantId);
     Task ReactivateRenewalAsync(int tenantId);
+    Task ChangeNutritionistSeatsAsync(int tenantId, int targetSeats);
 }
 
 public sealed class StripeBillingService : IStripeBillingService
@@ -212,6 +213,7 @@ public sealed class StripeBillingService : IStripeBillingService
         await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", tenantId);
 
         var subscription = await _context.subscriptions
+            .Include(s => s.plan)
             .FirstOrDefaultAsync(s => s.tenant_id == tenantId && s.provider_subscription_id != null &&
                                       s.status != "cancelled" && s.status != "canceled");
 
@@ -221,10 +223,7 @@ public sealed class StripeBillingService : IStripeBillingService
         if (subscription.cancel_at_period_end)
             throw new InvalidOperationException("La renovación está cancelada para el final del periodo. Reactiva primero la renovación y después cambia de plan.");
 
-        var currentPlan = await _context.subscription_plans
-            .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.id == subscription.plan_id);
-
+        var currentPlan = subscription.plan;
         if (currentPlan?.code == "clinic_full" && plan.code == "nutri_full")
             throw new InvalidOperationException("No se puede cambiar de Enterprise a Professional mientras la suscripción Enterprise siga activa. Cancela la renovación y, cuando termine el periodo actual, podrás contratar Professional.");
 
@@ -233,22 +232,83 @@ public sealed class StripeBillingService : IStripeBillingService
             throw new InvalidOperationException("La cuenta ya tiene ese plan y periodo de facturación.");
 
         var stripeSubscription = await GetStripeSubscriptionAsync(subscription.provider_subscription_id);
-        var item = stripeSubscription.GetProperty("items").GetProperty("data")[0];
-        var itemId = item.GetProperty("id").GetString();
+        var items = stripeSubscription.GetProperty("items").GetProperty("data");
 
-        if (string.IsNullOrWhiteSpace(itemId))
-            throw new InvalidOperationException("Stripe no devolvió el elemento de suscripción.");
+        JsonElement? baseItem = null;
+        JsonElement? additionalItem = null;
+        var currentAdditionalMonthly = currentPlan?.stripe_additional_monthly_price_id;
+        var currentAdditionalYearly = currentPlan?.stripe_additional_yearly_price_id;
+
+        foreach (var item in items.EnumerateArray())
+        {
+            var itemPriceId = item.GetProperty("price").GetProperty("id").GetString();
+            if (string.Equals(itemPriceId, currentAdditionalMonthly, StringComparison.Ordinal) ||
+                string.Equals(itemPriceId, currentAdditionalYearly, StringComparison.Ordinal))
+                additionalItem = item;
+            else if (!baseItem.HasValue)
+                baseItem = item;
+        }
+
+        if (!baseItem.HasValue)
+            throw new InvalidOperationException("Stripe no devolvió el elemento principal de la suscripción.");
 
         var form = new Dictionary<string, string>
         {
-            ["items[0][id]"] = itemId,
+            ["items[0][id]"] = baseItem.Value.GetProperty("id").GetString() ?? throw new InvalidOperationException("Elemento principal de Stripe sin identificador."),
             ["items[0][price]"] = priceId,
+            ["items[0][quantity]"] = "1",
             ["proration_behavior"] = "always_invoice",
             ["payment_behavior"] = "pending_if_incomplete",
             ["metadata[plan_id]"] = plan.id.ToString(CultureInfo.InvariantCulture),
             ["metadata[plan_code]"] = plan.code,
             ["metadata[billing_interval]"] = billingInterval
         };
+
+        if (plan.code == "clinic_full")
+        {
+            var included = plan.max_nutritionists ?? 0;
+            var contracted = subscription.contracted_nutritionists ?? included;
+            var targetAdditionalQuantity = Math.Max(0, contracted - included);
+            var targetAdditionalPriceId = billingInterval == "yearly"
+                ? plan.stripe_additional_yearly_price_id
+                : plan.stripe_additional_monthly_price_id;
+
+            if (targetAdditionalQuantity > 0 && string.IsNullOrWhiteSpace(targetAdditionalPriceId))
+                throw new InvalidOperationException("Falta configurar el Price ID de los puestos adicionales de Stripe.");
+
+            if (additionalItem.HasValue)
+            {
+                var additionalId = additionalItem.Value.GetProperty("id").GetString();
+                if (string.IsNullOrWhiteSpace(additionalId))
+                    throw new InvalidOperationException("Elemento adicional de Stripe sin identificador.");
+
+                if (targetAdditionalQuantity > 0)
+                {
+                    form["items[1][id]"] = additionalId;
+                    form["items[1][price]"] = targetAdditionalPriceId!;
+                    form["items[1][quantity]"] = targetAdditionalQuantity.ToString(CultureInfo.InvariantCulture);
+                }
+                else
+                {
+                    form["items[1][id]"] = additionalId;
+                    form["items[1][deleted]"] = "true";
+                }
+            }
+            else if (targetAdditionalQuantity > 0)
+            {
+                form["items[1][price]"] = targetAdditionalPriceId!;
+                form["items[1][quantity]"] = targetAdditionalQuantity.ToString(CultureInfo.InvariantCulture);
+            }
+        }
+        else if (additionalItem.HasValue)
+        {
+            var additionalId = additionalItem.Value.GetProperty("id").GetString();
+            if (!string.IsNullOrWhiteSpace(additionalId))
+            {
+                form["items[1][id]"] = additionalId;
+                form["items[1][deleted]"] = "true";
+            }
+        }
 
         using var response = await SendStripeAsync(
             HttpMethod.Post,
@@ -260,9 +320,108 @@ public sealed class StripeBillingService : IStripeBillingService
             ? statusElement.GetString()
             : null;
 
-        if (status == "incomplete" || status == "past_due")
+        if (status is "incomplete" or "past_due")
             throw new InvalidOperationException("Stripe no ha podido completar el cambio de plan. Revisa el método de pago.");
 
+        // La BD local se sincroniza con el webhook customer.subscription.updated.
+        // Así no adelantamos un cambio de capacidad si Stripe ha dejado la operación
+        // como pending_update a la espera del pago de la prorrata.
+        await transaction.CommitAsync();
+    }
+
+    public async Task ChangeNutritionistSeatsAsync(int tenantId, int targetSeats)
+    {
+        if (targetSeats < 1)
+            throw new ArgumentException("La capacidad debe ser de al menos 1 nutricionista.", nameof(targetSeats));
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", tenantId);
+
+        var subscription = await _context.subscriptions
+            .Include(s => s.plan)
+            .FirstOrDefaultAsync(s => s.tenant_id == tenantId &&
+                                      s.payment_provider == "stripe" &&
+                                      s.provider_subscription_id != null &&
+                                      s.status != "cancelled" && s.status != "canceled");
+
+        if (subscription == null || string.IsNullOrWhiteSpace(subscription.provider_subscription_id))
+            throw new InvalidOperationException("No existe una suscripción de Stripe activa.");
+
+        if (!string.Equals(subscription.plan.code, "clinic_full", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Los puestos adicionales solo están disponibles para una suscripción de clínica.");
+
+        var included = subscription.plan.max_nutritionists ?? 0;
+        if (targetSeats < included)
+            throw new InvalidOperationException($"La suscripción Clínica incluye {included} puestos y no puede reducirse por debajo de esa cantidad.");
+
+        var activeNutritionists = await _context.users.CountAsync(u =>
+            u.tenant_id == tenantId && u.archived_at == null && u.role == "nutritionist");
+        if (targetSeats < activeNutritionists)
+            throw new InvalidOperationException($"No puedes contratar {targetSeats} puestos mientras haya {activeNutritionists} nutricionistas activos.");
+
+        if (subscription.cancel_at_period_end)
+            throw new InvalidOperationException("La renovación está cancelada. Reactiva primero la renovación.");
+
+        var additionalPriceId = subscription.billing_interval == "yearly"
+            ? subscription.plan.stripe_additional_yearly_price_id
+            : subscription.plan.stripe_additional_monthly_price_id;
+        if (string.IsNullOrWhiteSpace(additionalPriceId))
+            throw new InvalidOperationException("Falta configurar en DietoExpress el Price ID de los puestos adicionales de Stripe.");
+
+        var stripeSubscription = await GetStripeSubscriptionAsync(subscription.provider_subscription_id);
+        var items = stripeSubscription.GetProperty("items").GetProperty("data");
+        string? additionalItemId = null;
+
+        foreach (var item in items.EnumerateArray())
+        {
+            var price = item.GetProperty("price");
+            var priceId = price.TryGetProperty("id", out var priceIdElement) ? priceIdElement.GetString() : null;
+            if (!string.Equals(priceId, additionalPriceId, StringComparison.Ordinal))
+                continue;
+
+            additionalItemId = item.GetProperty("id").GetString();
+            break;
+        }
+
+        var targetAdditionalQuantity = targetSeats - included;
+        var form = new Dictionary<string, string>
+        {
+            ["proration_behavior"] = "always_invoice",
+            ["payment_behavior"] = "pending_if_incomplete"
+        };
+
+        if (targetAdditionalQuantity == 0)
+        {
+            if (!string.IsNullOrWhiteSpace(additionalItemId))
+            {
+                form["items[0][id]"] = additionalItemId;
+                form["items[0][deleted]"] = "true";
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(additionalItemId))
+        {
+            form["items[0][id]"] = additionalItemId;
+            form["items[0][quantity]"] = targetAdditionalQuantity.ToString(CultureInfo.InvariantCulture);
+        }
+        else
+        {
+            form["items[0][price]"] = additionalPriceId;
+            form["items[0][quantity]"] = targetAdditionalQuantity.ToString(CultureInfo.InvariantCulture);
+        }
+
+        using var response = await SendStripeAsync(
+            HttpMethod.Post,
+            $"/v1/subscriptions/{Uri.EscapeDataString(subscription.provider_subscription_id)}",
+            form);
+
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var status = json.RootElement.TryGetProperty("status", out var statusElement) ? statusElement.GetString() : null;
+        if (status is "incomplete" or "past_due")
+            throw new InvalidOperationException("Stripe no ha podido completar el cambio de puestos. Revisa el método de pago.");
+
+        // La capacidad local se confirma con customer.subscription.updated.
+        // Stripe puede dejar una modificación como pending_update si necesita completar
+        // el pago de la prorrata; no debemos reflejar el nuevo cupo antes de ese momento.
         await transaction.CommitAsync();
     }
 

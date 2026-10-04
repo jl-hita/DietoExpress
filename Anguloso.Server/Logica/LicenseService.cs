@@ -10,6 +10,7 @@ public interface ILicenseService
     Task<(bool Allowed, string? Reason)> CanAssignClientAsync(int? tenantId, int nutritionistId, int clientId);
     Task<(bool Allowed, string? Reason)> CanCreateDietAsync(int? tenantId, int userId);
     Task<(bool Allowed, string? Reason)> CanCreateNutritionistAsync(int? tenantId, bool allowReactivation = false);
+    Task<(bool Allowed, string? Reason)> CanReduceNutritionistCapacityAsync(int tenantId, int targetCapacity);
 
 }
 public sealed class LicenseInfo
@@ -26,6 +27,10 @@ public sealed class LicenseInfo
     public int Nutritionists { get; init; }
     public int Clients { get; init; }
     public int? MaxNutritionists { get; init; }
+    public int? IncludedNutritionists { get; init; }
+    public int? ContractedNutritionists { get; init; }
+    public int? AvailableNutritionistSlots { get; init; }
+    public bool AdditionalSeatPriceConfigured { get; init; }
     public int? MaxClientsPerNutritionist { get; init; }
     public int? MaxTotalClients { get; init; }
     public DateTime? NutritionistReplacementAvailableAt { get; init; }
@@ -48,12 +53,22 @@ public class LicenseService : ILicenseService
             .Where(s => s.tenant_id == tenantId.Value && s.status != "cancelled" && s.status != "canceled")
             .OrderByDescending(s => s.created_at).FirstOrDefaultAsync();
         if (sub == null) return null;
-        var nutritionists = await _context.users.CountAsync(u => u.tenant_id == tenantId && u.archived_at == null && (u.role == "nutritionist" || u.role == "user"));
+        var nutritionists = await _context.users.CountAsync(u => u.tenant_id == tenantId && u.archived_at == null && u.role == "nutritionist");
         var clients = await _context.clients.CountAsync(c => c.tenant_id == tenantId && c.archived_at == null);
+        var includedNutritionists = sub.plan.max_nutritionists;
+        var contractedNutritionists = sub.contracted_nutritionists ?? includedNutritionists;
+        var availableNutritionistSlots = contractedNutritionists.HasValue ? Math.Max(0, contractedNutritionists.Value - nutritionists) : (int?)null;
+        var additionalSeatPriceConfigured = string.Equals(sub.plan.code, "clinic_full", StringComparison.OrdinalIgnoreCase)
+            && (string.Equals(sub.billing_interval, "yearly", StringComparison.OrdinalIgnoreCase)
+                ? !string.IsNullOrWhiteSpace(sub.plan.stripe_additional_yearly_price_id)
+                : !string.IsNullOrWhiteSpace(sub.plan.stripe_additional_monthly_price_id));
         return new LicenseInfo { TenantId = tenantId.Value, PlanCode = sub.plan.code, PlanName = sub.plan.name, Status = sub.status, ExpiresAt = sub.expires_at,
             CurrentPeriodStart = sub.current_period_start, CurrentPeriodEnd = sub.current_period_end,
             BillingInterval = sub.billing_interval, CancelAtPeriodEnd = sub.cancel_at_period_end,
             Nutritionists = nutritionists, Clients = clients, MaxNutritionists = sub.plan.max_nutritionists,
+            IncludedNutritionists = includedNutritionists, ContractedNutritionists = contractedNutritionists,
+            AvailableNutritionistSlots = availableNutritionistSlots,
+            AdditionalSeatPriceConfigured = additionalSeatPriceConfigured,
             MaxClientsPerNutritionist = sub.plan.max_clients_per_nutritionist, MaxTotalClients = sub.plan.max_total_clients,
             Features = sub.plan.features.Where(f => f.enabled).Select(f => f.feature_code).ToList(),
             NutritionistReplacementAvailableAt = await GetNutritionistReplacementAvailableAtAsync(tenantId.Value) };
@@ -75,7 +90,7 @@ public class LicenseService : ILicenseService
             .FirstOrDefaultAsync(u => u.id == nutritionistId &&
                                       u.tenant_id == tenantId.Value &&
                                       u.archived_at == null &&
-                                      (u.role == "nutritionist" || u.role == "user"));
+                                      u.role == "nutritionist");
         if (nutritionist == null) return (false, "El nutricionista no pertenece a la organización.");
 
         if (license.MaxTotalClients.HasValue && license.Clients >= license.MaxTotalClients.Value) return (false, "Se ha alcanzado el límite total de clientes de la licencia.");
@@ -97,7 +112,7 @@ public class LicenseService : ILicenseService
             .FirstOrDefaultAsync(u => u.id == nutritionistId &&
                                       u.tenant_id == tenantId.Value &&
                                       u.archived_at == null &&
-                                      (u.role == "nutritionist" || u.role == "user"));
+                                      u.role == "nutritionist");
         if (nutritionist == null) return (false, "El nutricionista no pertenece a la organización.");
 
         var client = await _context.clients.AsNoTracking()
@@ -144,14 +159,37 @@ public class LicenseService : ILicenseService
         var license = await GetLicenseAsync(tenantIdValue);
         if (license == null || license.Status != "active") return (false, "La licencia no está activa.");
         if (license.ExpiresAt.HasValue && license.ExpiresAt.Value <= DateTime.UtcNow) return (false, "La licencia ha caducado.");
-        if (license.MaxNutritionists.HasValue && license.Nutritionists >= license.MaxNutritionists.Value)
-            return (false, "Se ha alcanzado el límite de nutricionistas activos de la licencia.");
+        var capacity = license.ContractedNutritionists ?? license.MaxNutritionists;
+        if (capacity.HasValue && license.Nutritionists >= capacity.Value)
+            return (false, "Se ha alcanzado el límite de puestos profesionales contratados.");
 
         // Las plazas liberadas quedan temporalmente bloqueadas para evitar que una baja se convierta inmediatamente en una sustitución;
         // la excepción de reactivación permite recuperar la misma cuenta sin consumir una plaza nueva.
         var replacementAvailableAt = await GetNutritionistReplacementAvailableAtAsync(tenantIdValue);
         if (!allowReactivation && replacementAvailableAt.HasValue && replacementAvailableAt.Value > DateTime.UtcNow)
             return (false, $"Una plaza liberada recientemente está en periodo de sustitución hasta {replacementAvailableAt.Value:dd/MM/yyyy HH:mm} UTC.");
+
+        return (true, null);
+    }
+
+    public async Task<(bool Allowed, string? Reason)> CanReduceNutritionistCapacityAsync(int tenantId, int targetCapacity)
+    {
+        if (targetCapacity < 1)
+            return (false, "La capacidad debe ser al menos de 1 nutricionista.");
+
+        var license = await GetLicenseAsync(tenantId);
+        if (license == null || license.Status != "active")
+            return (false, "La licencia no está activa.");
+
+        if (!string.Equals(license.PlanCode, "clinic_full", StringComparison.OrdinalIgnoreCase))
+            return (false, "La gestión de puestos adicionales solo está disponible para clínicas.");
+
+        var included = license.IncludedNutritionists ?? license.MaxNutritionists ?? 0;
+        if (targetCapacity < included)
+            return (false, $"La suscripción Clínica incluye {included} puestos; no puedes contratar menos.");
+
+        if (targetCapacity < license.Nutritionists)
+            return (false, $"No puedes reducir a {targetCapacity} puestos mientras haya {license.Nutritionists} nutricionistas activos.");
 
         return (true, null);
     }
@@ -163,7 +201,7 @@ public class LicenseService : ILicenseService
             .Where(u => u.tenant_id == tenantId
                         && u.archived_at != null
                         && u.archived_at > cutoff
-                        && (u.role == "nutritionist" || u.role == "user"))
+                        && u.role == "nutritionist")
             .MaxAsync(u => (DateTime?)u.archived_at);
 
         return latestDeactivation?.Add(NutritionistReplacementCooldown);

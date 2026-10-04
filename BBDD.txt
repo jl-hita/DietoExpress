@@ -1,11 +1,11 @@
 -- ============================================================================= -- ANGULOSO / DIETEXPRESS — Script de creación de BBDD -- Base de datos: dietexpressdb (PostgreSQL) -- Generado: 2026-07-19 -- =============================================================================
--- ============================================================================= -- 1. USERS — Dueños de la licencia / nutricionistas -- =============================================================================
+-- ============================================================================= -- 1. USERS — Nutricionistas, administradores de clínica y superadministradores -- =============================================================================
 CREATE TABLE users ( id SERIAL PRIMARY KEY, username VARCHAR(50),
   full_name VARCHAR(100),
   password_hash VARCHAR,
   created_at TIMESTAMPTZ DEFAULT NOW(), 
   last_login TIMESTAMPTZ, 
-  role VARCHAR(20), 
+  role VARCHAR(20) DEFAULT 'nutritionist', 
   email VARCHAR, 
   email_confirmed BOOLEAN DEFAULT FALSE, 
   email_confirmation_token TEXT,

@@ -46,7 +46,7 @@ public class PatientMessagesController : ControllerBase
     }
 
     [HttpGet("conversations")]
-    [Authorize(Roles = "clinic_admin,nutritionist,user")]
+    [Authorize(Roles = "clinic_admin,nutritionist")]
     // Agrupa las conversaciones accesibles para el profesional sin mezclar pacientes de otros tenants.
     public async Task<IActionResult> GetConversations()
     {
@@ -57,7 +57,7 @@ public class PatientMessagesController : ControllerBase
     }
 
     [HttpGet("client/{clientId:int}")]
-    [Authorize(Roles = "clinic_admin,nutritionist,user")]
+    [Authorize(Roles = "clinic_admin,nutritionist")]
     // La consulta profesional se limita al paciente y a la relación nutricionista-paciente autorizada.
     public async Task<IActionResult> GetProfessionalMessages(int clientId)
     {
@@ -73,7 +73,7 @@ public class PatientMessagesController : ControllerBase
     }
 
     [HttpPost("client/{clientId:int}")]
-    [Authorize(Roles = "clinic_admin,nutritionist,user")]
+    [Authorize(Roles = "clinic_admin,nutritionist")]
     // El profesional solo puede escribir en conversaciones cuyo paciente tiene acceso dentro de su tenant.
     public async Task<IActionResult> SendProfessionalMessage(int clientId, [FromBody] SendMessageRequest request)
     {
@@ -88,7 +88,7 @@ public class PatientMessagesController : ControllerBase
     }
 
     [HttpPatch("client/{clientId:int}/read")]
-    [Authorize(Roles = "clinic_admin,nutritionist,user")]
+    [Authorize(Roles = "clinic_admin,nutritionist")]
     // Marcar como leído se limita a los mensajes de la conversación que el profesional puede consultar.
     public async Task<IActionResult> MarkProfessionalMessagesRead(int clientId)
     {

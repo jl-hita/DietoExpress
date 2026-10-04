@@ -7,6 +7,8 @@ public partial class subscriptions
     public int id { get; set; }
     public int tenant_id { get; set; }
     public int plan_id { get; set; }
+    /// <summary>Plazas profesionales contratadas actualmente. Para clinic_full incluye las plazas base más las adicionales.</summary>
+    public int? contracted_nutritionists { get; set; }
     public string status { get; set; } = "active";
     public DateTime started_at { get; set; } = DateTime.UtcNow;
     public DateTime? expires_at { get; set; }

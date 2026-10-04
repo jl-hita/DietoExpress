@@ -12,6 +12,9 @@ public partial class subscription_plans
     public string? stripe_product_id { get; set; }
     public string? stripe_monthly_price_id { get; set; }
     public string? stripe_yearly_price_id { get; set; }
+    /// <summary>Price de Stripe para cada puesto profesional adicional.</summary>
+    public string? stripe_additional_monthly_price_id { get; set; }
+    public string? stripe_additional_yearly_price_id { get; set; }
     public int? max_nutritionists { get; set; }
     public int? max_clients_per_nutritionist { get; set; }
     public int? max_total_clients { get; set; }

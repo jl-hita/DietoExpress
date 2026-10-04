@@ -21,8 +21,8 @@ public class TenantIsolationTests
         await using var db = CreateDb();
 
         db.users.AddRange(
-            new users { id = 1, tenant_id = 10, role = "user" },
-            new users { id = 2, tenant_id = 20, role = "user" });
+            new users { id = 1, tenant_id = 10, role = "nutritionist" },
+            new users { id = 2, tenant_id = 20, role = "nutritionist" });
 
         db.clients.Add(new clients
         {
@@ -60,8 +60,8 @@ public class TenantIsolationTests
         await using var db = CreateDb();
 
         db.users.AddRange(
-            new users { id = 1, tenant_id = 10, role = "user" },
-            new users { id = 2, tenant_id = 20, role = "user" });
+            new users { id = 1, tenant_id = 10, role = "nutritionist" },
+            new users { id = 2, tenant_id = 20, role = "nutritionist" });
 
         db.clients.Add(new clients
         {
@@ -105,8 +105,8 @@ public class TenantIsolationTests
         await using var db = CreateDb();
 
         db.users.AddRange(
-            new users { id = 1, tenant_id = 10, role = "user" },
-            new users { id = 2, tenant_id = 20, role = "user" });
+            new users { id = 1, tenant_id = 10, role = "nutritionist" },
+            new users { id = 2, tenant_id = 20, role = "nutritionist" });
 
         db.clients.Add(new clients
         {
@@ -152,8 +152,8 @@ public class TenantIsolationTests
         await using var db = CreateDb();
 
         db.users.AddRange(
-            new users { id = 1, tenant_id = 10, role = "user" },
-            new users { id = 2, tenant_id = 20, role = "user" });
+            new users { id = 1, tenant_id = 10, role = "nutritionist" },
+            new users { id = 2, tenant_id = 20, role = "nutritionist" });
 
         db.clients.Add(new clients
         {
@@ -198,8 +198,8 @@ public class TenantIsolationTests
         await using var db = CreateDb();
 
         db.users.AddRange(
-            new users { id = 1, tenant_id = 10, role = "user" },
-            new users { id = 2, tenant_id = 20, role = "user" });
+            new users { id = 1, tenant_id = 10, role = "nutritionist" },
+            new users { id = 2, tenant_id = 20, role = "nutritionist" });
 
         db.clients.Add(new clients
         {
@@ -254,7 +254,7 @@ public class TenantIsolationTests
     {
         await using var db = CreateDb();
 
-        db.users.Add(new users { id = 1, tenant_id = 10, role = "user" });
+        db.users.Add(new users { id = 1, tenant_id = 10, role = "nutritionist" });
         db.clients.Add(new clients
         {
             id = 100,
@@ -293,7 +293,7 @@ public class TenantIsolationTests
     {
         await using var db = CreateDb();
 
-        db.users.Add(new users { id = 1, tenant_id = 10, role = "user" });
+        db.users.Add(new users { id = 1, tenant_id = 10, role = "nutritionist" });
         db.foods.Add(new foods
         {
             id = 900,
@@ -329,7 +329,7 @@ public class TenantIsolationTests
         {
             new(ClaimTypes.NameIdentifier, userId.ToString()),
             new("tenantId", tenantId.ToString()),
-            new(ClaimTypes.Role, "user")
+            new(ClaimTypes.Role, "nutritionist")
         };
 
         var httpContext = new DefaultHttpContext
@@ -381,7 +381,7 @@ public class TenantIsolationTests
         {
             new(ClaimTypes.NameIdentifier, userId.ToString()),
             new("tenantId", tenantId.ToString()),
-            new(ClaimTypes.Role, "user")
+            new(ClaimTypes.Role, "nutritionist")
         };
 
         var httpContext = new DefaultHttpContext

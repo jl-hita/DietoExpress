@@ -56,6 +56,8 @@ public class AdminPlansController : ControllerBase
             max_clients_per_nutritionist = r.MaxClientsPerNutritionist,
             max_total_clients = r.MaxTotalClients,
             trial_days = r.TrialDays,
+            stripe_additional_monthly_price_id = r.StripeAdditionalMonthlyPriceId,
+            stripe_additional_yearly_price_id = r.StripeAdditionalYearlyPriceId,
             active = r.Active
         };
 
@@ -84,6 +86,12 @@ public class AdminPlansController : ControllerBase
         p.max_clients_per_nutritionist = r.MaxClientsPerNutritionist;
         p.max_total_clients = r.MaxTotalClients;
         p.trial_days = r.TrialDays;
+        // Los Price IDs son opcionales en el formulario administrativo; si no se envían,
+        // conservamos la configuración existente para no romper la facturación de clínicas.
+        if (r.StripeAdditionalMonthlyPriceId != null)
+            p.stripe_additional_monthly_price_id = r.StripeAdditionalMonthlyPriceId.Trim();
+        if (r.StripeAdditionalYearlyPriceId != null)
+            p.stripe_additional_yearly_price_id = r.StripeAdditionalYearlyPriceId.Trim();
         p.active = r.Active;
 
         await _context.SaveChangesAsync();
@@ -156,6 +164,8 @@ public class AdminPlansController : ControllerBase
             p.trial_days,
             p.active,
             p.created_at,
+            p.stripe_additional_monthly_price_id,
+            p.stripe_additional_yearly_price_id,
             p.features
                 .Select(f => new FeatureResponse(
                     f.id,
@@ -176,7 +186,9 @@ public record PlanRequest(
     int? MaxClientsPerNutritionist,
     int? MaxTotalClients,
     int? TrialDays,
-    bool Active);
+    bool Active,
+    string? StripeAdditionalMonthlyPriceId,
+    string? StripeAdditionalYearlyPriceId);
 
 public record FeatureRequest(
     [property: JsonPropertyName("feature_code")] string FeatureCode,
@@ -201,4 +213,6 @@ public record PlanResponse(
     [property: JsonPropertyName("trial_days")] int? TrialDays,
     [property: JsonPropertyName("active")] bool Active,
     [property: JsonPropertyName("created_at")] DateTime CreatedAt,
+    [property: JsonPropertyName("stripe_additional_monthly_price_id")] string? StripeAdditionalMonthlyPriceId,
+    [property: JsonPropertyName("stripe_additional_yearly_price_id")] string? StripeAdditionalYearlyPriceId,
     [property: JsonPropertyName("features")] List<FeatureResponse> Features);

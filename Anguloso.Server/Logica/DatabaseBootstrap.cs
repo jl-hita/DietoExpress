@@ -64,7 +64,7 @@ public static class DatabaseBootstrap
                     password_hash VARCHAR(255),
                     created_at TIMESTAMPTZ DEFAULT NOW(),
                     last_login TIMESTAMPTZ,
-                    role VARCHAR(20) DEFAULT 'user',
+                    role VARCHAR(20) DEFAULT 'nutritionist',
                     email VARCHAR(150) UNIQUE,
                     email_confirmed BOOLEAN DEFAULT FALSE,
                     email_confirmation_token VARCHAR(255),
@@ -84,6 +84,13 @@ public static class DatabaseBootstrap
                     max_clients_allowed INTEGER DEFAULT 10,
                     tenant_id INTEGER REFERENCES tenants(id)
                 );
+
+                -- Normalización de roles heredados: el antiguo rol user siempre representó una cuenta profesional.
+                -- Se ejecuta después de crear users para funcionar también en instalaciones nuevas.
+                UPDATE users SET role = 'superadmin' WHERE role = 'admin';
+                UPDATE users SET role = 'nutritionist' WHERE role IS NULL OR TRIM(role) = '' OR role = 'user';
+                ALTER TABLE users DROP CONSTRAINT IF EXISTS ck_users_role_allowed;
+                ALTER TABLE users ADD CONSTRAINT ck_users_role_allowed CHECK (role IN ('superadmin', 'nutritionist', 'clinic_admin'));
 
                 -- 3. Clients (Pacientes)
                 CREATE TABLE IF NOT EXISTS clients (
@@ -962,7 +969,9 @@ public static class DatabaseBootstrap
 
             UPDATE subscription_plans
             SET stripe_monthly_price_id = 'price_1UKdmV0RD4LdDkcU7ueOlu1B',
-                stripe_yearly_price_id = 'price_1UKdn20RD4LdDkcUpJchaR8Y'
+                stripe_yearly_price_id = 'price_1UKdn20RD4LdDkcUpJchaR8Y',
+                stripe_additional_monthly_price_id = 'price_1UMtJL0RD4LdDkcUxuGmtujj',
+                stripe_additional_yearly_price_id = 'price_1UMtJL0RD4LdDkcUXjwqcCsG'
             WHERE code = 'clinic_full';
 
             INSERT INTO subscription_plan_features(plan_id,feature_code,enabled)

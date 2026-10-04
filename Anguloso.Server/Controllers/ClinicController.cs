@@ -3,11 +3,12 @@ using Anguloso.Server.Logica.Utils;
 using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 namespace Anguloso.Server.Controllers;
 [ApiController]
 [Route("api/clinic")]
-[Authorize(Roles = "clinic_admin,nutritionist,user")]
+[Authorize(Roles = "clinic_admin")]
 public class ClinicController : ControllerBase
 {
     private readonly angulosodbContext _context;
@@ -15,15 +16,50 @@ public class ClinicController : ControllerBase
     private readonly IAuditLogService _audit;
     private readonly EmailServ _emailServ;
     private readonly ConfigServ _configServ;
+    private readonly IStripeBillingService _stripe;
 
-    public ClinicController(angulosodbContext context, ILicenseService license, IAuditLogService audit, EmailServ emailServ, ConfigServ configServ)
+    public ClinicController(angulosodbContext context, ILicenseService license, IAuditLogService audit, EmailServ emailServ, ConfigServ configServ, IStripeBillingService stripe)
     {
         _context = context;
         _license = license;
         _audit = audit;
         _emailServ = emailServ;
         _configServ = configServ;
+        _stripe = stripe;
     }
+    [HttpPost("nutritionist-seats")]
+    [Authorize(Roles="clinic_admin")]
+    [EnableRateLimiting("expensive")]
+    public async Task<IActionResult> ChangeNutritionistSeats([FromBody] ChangeNutritionistSeatsRequest request)
+    {
+        var tenantId = AuthHelpers.GetTenantId(User);
+        if (!tenantId.HasValue) return BadRequest("Sin clínica.");
+        if (request == null || !request.TargetSeats.HasValue)
+            return BadRequest("Debes indicar el número de puestos contratados.");
+        if (request.TargetSeats.Value > 1000)
+            return BadRequest("La capacidad máxima configurada para una clínica es de 1000 nutricionistas.");
+
+        var license = await _license.GetLicenseAsync(tenantId);
+        if (license == null || !string.Equals(license.PlanCode, "clinic_full", StringComparison.OrdinalIgnoreCase))
+            return BadRequest("La gestión de puestos adicionales solo está disponible para clínicas.");
+
+        var included = license.IncludedNutritionists ?? license.MaxNutritionists ?? 0;
+        if (request.TargetSeats.Value < included)
+            return BadRequest($"La suscripción Clínica incluye {included} puestos y no puede reducirse por debajo de esa cantidad.");
+
+        if (request.TargetSeats.Value < license.Nutritionists)
+            return BadRequest($"No puedes reducir a {request.TargetSeats.Value} puestos mientras haya {license.Nutritionists} nutricionistas activos.");
+
+        try
+        {
+            await _stripe.ChangeNutritionistSeatsAsync(tenantId.Value, request.TargetSeats.Value);
+            var updated = await _license.GetLicenseAsync(tenantId);
+            return Ok(new { message = "Capacidad profesional actualizada correctamente.", license = updated });
+        }
+        catch (ArgumentException ex) { return BadRequest(ex.Message); }
+        catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+    }
+
     [HttpGet("dashboard")]
     [Authorize(Roles="clinic_admin")]
     // El dashboard agrega información del tenant autenticado para que las métricas nunca dependan de un tenant enviado por el cliente.
@@ -31,7 +67,7 @@ public class ClinicController : ControllerBase
     {
         var tenantId=AuthHelpers.GetTenantId(User); if(!tenantId.HasValue) return BadRequest("El usuario no pertenece a una clínica.");
         if(!await _license.CanUseFeatureAsync(tenantId,"CLINIC_DASHBOARD")) return Forbid();
-        var license=await _license.GetLicenseAsync(tenantId); var users=await _context.users.AsNoTracking().Where(u=>u.tenant_id==tenantId && u.archived_at==null && (u.role=="nutritionist"||u.role=="user")).OrderBy(u=>u.id).Take(500).Select(u=>new { u.id,u.full_name,u.username,u.email,u.role,u.last_login,clientCount=_context.clients.Count(c=>c.tenant_id==tenantId&&c.archived_at==null&&c.user_id==u.id)}).ToListAsync();
+        var license=await _license.GetLicenseAsync(tenantId); var users=await _context.users.AsNoTracking().Where(u=>u.tenant_id==tenantId && u.archived_at==null && u.role=="nutritionist").OrderBy(u=>u.id).Take(500).Select(u=>new { u.id,u.full_name,u.username,u.email,u.role,u.last_login,clientCount=_context.clients.Count(c=>c.tenant_id==tenantId&&c.archived_at==null&&c.user_id==u.id)}).ToListAsync();
         var clients=await _context.clients.AsNoTracking().Where(c=>c.tenant_id==tenantId&&c.archived_at==null).OrderBy(c=>c.full_name).Take(1000).Select(c=>new {c.id,c.full_name,c.email,c.phone,nutritionistId=c.user_id,nutritionistName=_context.users.Where(u=>u.id==c.user_id && u.tenant_id==tenantId).Select(u=>u.full_name).FirstOrDefault()}).ToListAsync();
         var unassignedClientCount=clients.Count(c=>c.nutritionistId==null);
         return Ok(new { license, nutritionists=users, clients, unassignedClientCount });
@@ -46,7 +82,7 @@ public class ClinicController : ControllerBase
 
         var users = await _context.users.AsNoTracking()
             .Where(u => u.tenant_id == tenantId &&
-                        (u.role == "nutritionist" || u.role == "user") &&
+                        u.role == "nutritionist" &&
                         true)
             .Take(500)
             .OrderByDescending(u => u.archived_at == null)
@@ -86,7 +122,7 @@ public class ClinicController : ControllerBase
         await using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
-            await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(748392616)");
+            await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0}, {1})", tenantId.Value, 748392616);
 
             // El chequeo previo al lock es solo una respuesta rápida. Revalidamos
             // dentro del mismo lock global que usan los demás flujos de alta de cuentas.
@@ -181,7 +217,7 @@ public class ClinicController : ControllerBase
 
             var user = await _context.users.FirstOrDefaultAsync(u =>
                 u.id == id && u.tenant_id == tenantId && u.archived_at != null &&
-                (u.role == "nutritionist" || u.role == "user"));
+                u.role == "nutritionist");
 
             if (user == null) return NotFound("Nutricionista desactivado no encontrado.");
 
@@ -213,7 +249,7 @@ public class ClinicController : ControllerBase
     public async Task<IActionResult> DeactivationPreview(int id)
     {
         var tenantId=AuthHelpers.GetTenantId(User);
-        var user=await _context.users.AsNoTracking().FirstOrDefaultAsync(u=>u.id==id&&u.tenant_id==tenantId&&u.archived_at==null&&(u.role=="nutritionist"||u.role=="user"));
+        var user=await _context.users.AsNoTracking().FirstOrDefaultAsync(u=>u.id==id&&u.tenant_id==tenantId&&u.archived_at==null&&u.role=="nutritionist");
         if(user==null)return NotFound("Nutricionista no encontrado.");
 
         var clients=await _context.clients.AsNoTracking()
@@ -223,7 +259,7 @@ public class ClinicController : ControllerBase
             .ToListAsync();
 
         var candidates=await _context.users.AsNoTracking()
-            .Where(u=>u.tenant_id==tenantId&&u.id!=id&&u.archived_at==null&&(u.role=="nutritionist"||u.role=="user"))
+            .Where(u=>u.tenant_id==tenantId&&u.id!=id&&u.archived_at==null&&u.role=="nutritionist")
             .OrderBy(u=>u.full_name)
             .Select(u=>new {id=u.id,fullName=u.full_name,username=u.username})
             .ToListAsync();
@@ -238,7 +274,7 @@ public class ClinicController : ControllerBase
     {
         var tenantId=AuthHelpers.GetTenantId(User);
         if (!tenantId.HasValue) return BadRequest("El usuario no pertenece a una clínica.");
-        var user=await _context.users.FirstOrDefaultAsync(u=>u.id==id&&u.tenant_id==tenantId&&u.archived_at==null&&(u.role=="nutritionist"||u.role=="user"));
+        var user=await _context.users.FirstOrDefaultAsync(u=>u.id==id&&u.tenant_id==tenantId&&u.archived_at==null&&u.role=="nutritionist");
         if(user==null)return NotFound("Nutricionista no encontrado.");
 
         var assignments=req?.Assignments??new List<ClientReassignment>();
@@ -259,7 +295,7 @@ public class ClinicController : ControllerBase
             {
                 var client=await _context.clients.FirstAsync(c=>c.id==item.ClientId&&c.tenant_id==tenantId&&c.archived_at==null&&c.user_id==id);
                 var nutritionist = item.NutritionistId.HasValue
-                    ? await _context.users.FirstOrDefaultAsync(u => u.id == item.NutritionistId.Value && u.tenant_id == tenantId && u.archived_at == null && (u.role == "nutritionist" || u.role == "user"))
+                    ? await _context.users.FirstOrDefaultAsync(u => u.id == item.NutritionistId.Value && u.tenant_id == tenantId && u.archived_at == null && u.role == "nutritionist")
                     : null;
                 if(item.NutritionistId.HasValue && nutritionist == null)
                     return BadRequest("Uno de los nutricionistas seleccionados no pertenece a la clínica o está archivado.");
@@ -327,7 +363,7 @@ public class ClinicController : ControllerBase
 
             if(req.NutritionistId.HasValue)
             {
-                var nutritionist=await _context.users.FirstOrDefaultAsync(u=>u.id==req.NutritionistId.Value&&u.tenant_id==tenantId&&u.archived_at==null&&(u.role=="nutritionist"||u.role=="user"));
+                var nutritionist=await _context.users.FirstOrDefaultAsync(u=>u.id==req.NutritionistId.Value&&u.tenant_id==tenantId&&u.archived_at==null&&u.role=="nutritionist");
                 if(nutritionist==null)return BadRequest("Nutricionista no válido.");
 
                 var allowed=await _license.CanAssignClientAsync(tenantId,nutritionist.id,clientId);
@@ -369,3 +405,4 @@ public record CreateNutritionistRequest(string Email, string? FullName);
 public record AssignClientRequest(int? NutritionistId);
 public record ClientReassignment(int ClientId,int? NutritionistId);
 public record DeactivateNutritionistRequest(List<ClientReassignment> Assignments);
+public sealed record ChangeNutritionistSeatsRequest(int? TargetSeats);

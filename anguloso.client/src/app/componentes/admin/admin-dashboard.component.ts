@@ -204,7 +204,7 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
                   <mat-icon>lock_reset</mat-icon>
                 </button>
 
-                <button *ngIf="!u.archivedAt && (u.role === 'nutritionist' || u.role === 'user')" mat-icon-button color="warn" matTooltip="Archivar Cuenta" (click)="deleteUser(u)">
+                <button *ngIf="!u.archivedAt && (u.role === 'nutritionist')" mat-icon-button color="warn" matTooltip="Archivar Cuenta" (click)="deleteUser(u)">
                   <mat-icon>delete_forever</mat-icon>
                 </button>
 

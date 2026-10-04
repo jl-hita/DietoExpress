@@ -12,7 +12,10 @@ public static class BillingSchemaBootstrap
             ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS stripe_product_id VARCHAR(255);
             ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS stripe_monthly_price_id VARCHAR(255);
             ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS stripe_yearly_price_id VARCHAR(255);
+            ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS stripe_additional_monthly_price_id VARCHAR(255);
+            ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS stripe_additional_yearly_price_id VARCHAR(255);
 
+            ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS contracted_nutritionists INTEGER;
             ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS billing_interval VARCHAR(20);
             ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS amount NUMERIC(12,2);
             ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS currency VARCHAR(10) NOT NULL DEFAULT 'eur';
@@ -26,6 +29,14 @@ public static class BillingSchemaBootstrap
             ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
             ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS last_stripe_event_created_at TIMESTAMPTZ;
             ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS last_stripe_event_id VARCHAR(255);
+
+            -- Inicializa la capacidad contratada con las plazas incluidas en el plan.
+            UPDATE subscriptions s
+            SET contracted_nutritionists = p.max_nutritionists
+            FROM subscription_plans p
+            WHERE s.plan_id = p.id
+              AND s.contracted_nutritionists IS NULL
+              AND p.max_nutritionists IS NOT NULL;
 
             -- Existing/legacy rows must not be allowed to carry NULL status:
             -- NULL would bypass the partial active-subscription uniqueness predicate.
