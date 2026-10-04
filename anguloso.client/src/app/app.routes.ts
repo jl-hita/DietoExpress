@@ -30,6 +30,7 @@ import { AutomationSettingsComponent } from './componentes/automation-settings/a
 import { GuidedConsultationComponent } from './componentes/guided-consultation/guided-consultation.component';
 import { DocumentTemplatesComponent } from './componentes/document-templates/document-templates.component';
 import { LegalDocumentsComponent } from './componentes/legal-documents/legal-documents.component';
+import { AdminLegalSettingsComponent } from './componentes/admin/admin-legal-settings.component';
 
 export interface AppRoute extends Route {
   showInMenu?: boolean;
@@ -67,6 +68,7 @@ export const routes: AppRoute[] = [
       { path: 'automations', component: AutomationSettingsComponent, canActivate: [SubscriptionGuard], title: 'Automatizaciones' },
       { path: 'billing', component: BillingComponent, title: 'Suscripción' },
       { path: 'admin', component: AdminDashboardComponent, canActivate: [SuperAdminGuard], title: 'Panel SuperAdmin' },
+      { path: 'admin/legal', component: AdminLegalSettingsComponent, canActivate: [SuperAdminGuard], title: 'Legal — DietoExpress' },
       { path: 'admin/logs', component: AdminLogComponent, canActivate: [SuperAdminGuard], title: 'Logs del sistema' },
       { path: 'admin/plans', component: AdminPlansComponent, canActivate: [SuperAdminGuard], title: 'Planes SaaS' },
       { path: 'clinic', component: ClinicDashboardComponent, title: 'Panel de clínica' }
