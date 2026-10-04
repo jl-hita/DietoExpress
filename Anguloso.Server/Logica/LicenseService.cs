@@ -26,6 +26,9 @@ public sealed class LicenseInfo
     public int Nutritionists { get; init; }
     public int Clients { get; init; }
     public int? MaxNutritionists { get; init; }
+    public int? IncludedNutritionists { get; init; }
+    public int? ContractedNutritionists { get; init; }
+    public int? AvailableNutritionistSlots { get; init; }
     public int? MaxClientsPerNutritionist { get; init; }
     public int? MaxTotalClients { get; init; }
     public DateTime? NutritionistReplacementAvailableAt { get; init; }
@@ -50,10 +53,15 @@ public class LicenseService : ILicenseService
         if (sub == null) return null;
         var nutritionists = await _context.users.CountAsync(u => u.tenant_id == tenantId && u.archived_at == null && u.role == "nutritionist");
         var clients = await _context.clients.CountAsync(c => c.tenant_id == tenantId && c.archived_at == null);
+        var includedNutritionists = sub.plan.max_nutritionists;
+        var contractedNutritionists = sub.contracted_nutritionists ?? includedNutritionists;
+        var availableNutritionistSlots = contractedNutritionists.HasValue ? Math.Max(0, contractedNutritionists.Value - nutritionists) : (int?)null;
         return new LicenseInfo { TenantId = tenantId.Value, PlanCode = sub.plan.code, PlanName = sub.plan.name, Status = sub.status, ExpiresAt = sub.expires_at,
             CurrentPeriodStart = sub.current_period_start, CurrentPeriodEnd = sub.current_period_end,
             BillingInterval = sub.billing_interval, CancelAtPeriodEnd = sub.cancel_at_period_end,
             Nutritionists = nutritionists, Clients = clients, MaxNutritionists = sub.plan.max_nutritionists,
+            IncludedNutritionists = includedNutritionists, ContractedNutritionists = contractedNutritionists,
+            AvailableNutritionistSlots = availableNutritionistSlots,
             MaxClientsPerNutritionist = sub.plan.max_clients_per_nutritionist, MaxTotalClients = sub.plan.max_total_clients,
             Features = sub.plan.features.Where(f => f.enabled).Select(f => f.feature_code).ToList(),
             NutritionistReplacementAvailableAt = await GetNutritionistReplacementAvailableAtAsync(tenantId.Value) };
@@ -144,8 +152,9 @@ public class LicenseService : ILicenseService
         var license = await GetLicenseAsync(tenantIdValue);
         if (license == null || license.Status != "active") return (false, "La licencia no está activa.");
         if (license.ExpiresAt.HasValue && license.ExpiresAt.Value <= DateTime.UtcNow) return (false, "La licencia ha caducado.");
-        if (license.MaxNutritionists.HasValue && license.Nutritionists >= license.MaxNutritionists.Value)
-            return (false, "Se ha alcanzado el límite de nutricionistas activos de la licencia.");
+        var capacity = license.ContractedNutritionists ?? license.MaxNutritionists;
+        if (capacity.HasValue && license.Nutritionists >= capacity.Value)
+            return (false, "Se ha alcanzado el límite de puestos profesionales contratados.");
 
         // Las plazas liberadas quedan temporalmente bloqueadas para evitar que una baja se convierta inmediatamente en una sustitución;
         // la excepción de reactivación permite recuperar la misma cuenta sin consumir una plaza nueva.
