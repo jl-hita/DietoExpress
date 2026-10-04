@@ -597,6 +597,16 @@ public sealed class BillingController : ControllerBase
                     subscription.provider_customer_id = customerId;
 
                 var updatedPlan = await _context.subscription_plans.FindAsync(subscription.plan_id);
+                if (updatedPlan != null && string.Equals(updatedPlan.code, "clinic_full", StringComparison.OrdinalIgnoreCase))
+                {
+                    var included = updatedPlan.max_nutritionists ?? 0;
+                    var additionalPriceId = subscription.billing_interval == "yearly"
+                        ? updatedPlan.stripe_additional_yearly_price_id
+                        : updatedPlan.stripe_additional_monthly_price_id;
+                    var additionalQuantity = ReadSubscriptionItemQuantity(data, additionalPriceId);
+                    subscription.contracted_nutritionists = included + additionalQuantity;
+                }
+
                 if (updatedPlan != null && !string.IsNullOrWhiteSpace(subscription.billing_interval))
                 {
                     subscription.amount = subscription.billing_interval == "yearly"
@@ -647,6 +657,29 @@ public sealed class BillingController : ControllerBase
 
     // Convierte eventos de Stripe en eventos internos de automatización. Un fallo aquí se registra
     // sin deshacer el estado de facturación ya confirmado por Stripe.
+    private static int ReadSubscriptionItemQuantity(JsonElement subscription, string? priceId)
+    {
+        if (string.IsNullOrWhiteSpace(priceId) ||
+            !subscription.TryGetProperty("items", out var items) ||
+            !items.TryGetProperty("data", out var data) ||
+            data.ValueKind != JsonValueKind.Array)
+            return 0;
+
+        foreach (var item in data.EnumerateArray())
+        {
+            if (!item.TryGetProperty("price", out var price) ||
+                !price.TryGetProperty("id", out var id) ||
+                !string.Equals(id.GetString(), priceId, StringComparison.Ordinal))
+                continue;
+
+            return item.TryGetProperty("quantity", out var quantity) && quantity.TryGetInt32(out var value)
+                ? Math.Max(0, value)
+                : 0;
+        }
+
+        return 0;
+    }
+
     private async Task PublishBillingAutomationEventAsync(JsonElement root, string eventType, string eventId)
     {
         var data = root.GetProperty("data").GetProperty("object");
