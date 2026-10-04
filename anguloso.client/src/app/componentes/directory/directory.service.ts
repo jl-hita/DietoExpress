@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environments';
-import { DirectoryProfile } from './directory.models';
+import { DirectoryProfile, PublicAvailabilitySlot } from './directory.models';
 
 @Injectable({ providedIn: 'root' })
 export class DirectoryService {
@@ -18,6 +18,14 @@ export class DirectoryService {
     if (online) params = params.set('online', 'true');
 
     return this.http.get<DirectoryProfile[]>(`${this.apiUrl}/api/directory/professionals`, { params });
+  }
+
+  getAvailability(slug: string, days = 30): Observable<PublicAvailabilitySlot[]> {
+    const params = new HttpParams().set('days', String(days));
+    return this.http.get<PublicAvailabilitySlot[]>(
+      `${this.apiUrl}/api/directory/professionals/${encodeURIComponent(slug)}/availability`,
+      { params }
+    );
   }
 
   getBySlug(slug: string): Observable<DirectoryProfile> {
