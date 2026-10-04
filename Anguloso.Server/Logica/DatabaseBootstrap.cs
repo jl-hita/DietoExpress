@@ -1423,6 +1423,31 @@ public static class DatabaseBootstrap
     /// no implica que un texto pendiente de revisión jurídica pueda presentarse como
     /// condición contractual definitiva.
     /// </summary>
+
+    /// <summary>
+    /// Almacena los datos legales parametrizables de la plataforma y de cada
+    /// profesional/clínica. Los valores vacíos son deliberados: no se publica
+    /// ningún documento legal solo por crear esta infraestructura.
+    /// </summary>
+    public static void UpgradeLegalConfigurationSchemaV1(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS legal_configuration (
+                id BIGSERIAL PRIMARY KEY,
+                scope_type VARCHAR(20) NOT NULL,
+                scope_id INTEGER NOT NULL,
+                setting_key VARCHAR(120) NOT NULL,
+                setting_value TEXT NOT NULL DEFAULT '',
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                UNIQUE (scope_type, scope_id, setting_key)
+            );
+            CREATE INDEX IF NOT EXISTS idx_legal_configuration_scope
+                ON legal_configuration(scope_type, scope_id);
+        ");
+
+        logger.LogInformation("Esquema de configuración legal parametrizable comprobado.");
+    }
+
     /// <summary>Provisiona documentos legales y evidencias de aceptación sin publicar automáticamente ningún texto.</summary>
     public static void UpgradeLegalComplianceSchemaV1(angulosodbContext context, ILogger logger)
     {
