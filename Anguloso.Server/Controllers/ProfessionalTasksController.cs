@@ -29,19 +29,22 @@ public sealed class ProfessionalTasksController : ControllerBase
         [FromQuery] int limit = 100)
     {
         if (!_tenantContext.TenantId.HasValue) return BadRequest(new { message = "La cuenta no tiene organización." });
+        var isClinicAdmin = User.IsInRole("clinic_admin");
+        if (!isClinicAdmin && !_tenantContext.UserId.HasValue) return Unauthorized();
         limit = Math.Clamp(limit, 1, 200);
 
         var statuses = string.IsNullOrWhiteSpace(status) ? null : status.Trim().ToLowerInvariant();
+        var assignmentFilter = isClinicAdmin ? "" : " AND assigned_user_id=@user";
         var sql = statuses is null
-            ? """
+            ? $"""
               SELECT id, tenant_id, client_id, assigned_user_id, title, description, due_at, priority, status, source, created_at, completed_at
-              FROM professional_tasks WHERE tenant_id=@tenant
+              FROM professional_tasks WHERE tenant_id=@tenant{assignmentFilter}
               ORDER BY CASE WHEN status='open' THEN 0 WHEN status='in_progress' THEN 1 ELSE 2 END,
                        due_at NULLS LAST, created_at DESC LIMIT @limit;
               """
-            : """
+            : $"""
               SELECT id, tenant_id, client_id, assigned_user_id, title, description, due_at, priority, status, source, created_at, completed_at
-              FROM professional_tasks WHERE tenant_id=@tenant AND status=@status
+              FROM professional_tasks WHERE tenant_id=@tenant AND status=@status{assignmentFilter}
               ORDER BY due_at NULLS LAST, created_at DESC LIMIT @limit;
               """;
 
@@ -51,6 +54,7 @@ public sealed class ProfessionalTasksController : ControllerBase
         command.Parameters.AddWithValue("tenant", _tenantContext.TenantId.Value);
         command.Parameters.AddWithValue("limit", limit);
         if (statuses is not null) command.Parameters.AddWithValue("status", statuses);
+        if (!isClinicAdmin) command.Parameters.AddWithValue("user", _tenantContext.UserId!.Value);
 
         var result = new List<ProfessionalTaskDto>();
         await using var reader = await command.ExecuteReaderAsync();
@@ -92,16 +96,20 @@ public sealed class ProfessionalTasksController : ControllerBase
 
         await using var connection = new NpgsqlConnection(HttpContext.RequestServices.GetRequiredService<IConfiguration>().GetConnectionString("DefaultConnection"));
         await connection.OpenAsync();
-        await using var command = new NpgsqlCommand("""
+        var isClinicAdmin = User.IsInRole("clinic_admin");
+        if (!isClinicAdmin && !_tenantContext.UserId.HasValue) return Unauthorized();
+        var assignmentFilter = isClinicAdmin ? "" : " AND assigned_user_id=@user";
+        await using var command = new NpgsqlCommand($"""
             UPDATE professional_tasks
             SET status=@status,
                 completed_at=CASE WHEN @status='completed' THEN COALESCE(completed_at,NOW()) ELSE NULL END,
                 updated_at=NOW()
-            WHERE id=@id AND tenant_id=@tenant;
+            WHERE id=@id AND tenant_id=@tenant{assignmentFilter};
             """, connection);
         command.Parameters.AddWithValue("status", status!);
         command.Parameters.AddWithValue("id", id);
         command.Parameters.AddWithValue("tenant", _tenantContext.TenantId.Value);
+        if (!isClinicAdmin) command.Parameters.AddWithValue("user", _tenantContext.UserId!.Value);
         var count = await command.ExecuteNonQueryAsync();
         return count == 0 ? NotFound() : NoContent();
     }
