@@ -421,6 +421,8 @@ public sealed class BillingController : ControllerBase
                 }
 
                 subscription.plan_id = planId.Value;
+                if (plan.code == "clinic_full" && !subscription.contracted_nutritionists.HasValue)
+                    subscription.contracted_nutritionists = plan.max_nutritionists;
                 subscription.billing_interval = interval;
                 subscription.payment_provider = "stripe";
                 subscription.provider_customer_id = customerId;
