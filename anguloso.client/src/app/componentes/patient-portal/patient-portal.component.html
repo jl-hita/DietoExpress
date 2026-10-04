@@ -342,110 +342,19 @@
     <!-- ══════════════════════════════════════════ -->
     <!-- TAB: LISTA DE LA COMPRA                   -->
     <!-- ══════════════════════════════════════════ -->
-    <main class="portal-content" *ngIf="activeTab === 'appointments'">
-      <div class="appointments-hero">
-        <div>
-          <span class="eyebrow">Citas</span>
-          <h2>Reserva una cita con tu nutricionista</h2>
-          <p>Elige uno de los horarios disponibles. La cita quedará pendiente de confirmación.</p>
-        </div>
-        <mat-icon>event</mat-icon>
-      </div>
-
-      <div class="portal-inline-error" *ngIf="appointmentError">
-        <mat-icon>cloud_off</mat-icon>
-        <div>
-          <strong>No hemos podido gestionar tus citas</strong>
-          <span>{{ appointmentError }}</span>
-        </div>
-        <button type="button" (click)="loadAppointmentSlots()" aria-label="Actualizar horarios">
-          <mat-icon>refresh</mat-icon>
-        </button>
-      </div>
-
-      <div class="appointment-success" *ngIf="appointmentSuccess">
-        <mat-icon>check_circle</mat-icon>
-        <span>{{ appointmentSuccess }}</span>
-      </div>
-
-      <section class="appointment-card">
-        <div class="appointment-card-header">
-          <div>
-            <h3>Próximos horarios</h3>
-            <span>Disponibles durante los próximos 30 días</span>
-          </div>
-          <button type="button" class="empty-state-action" (click)="loadAppointmentSlots()" [disabled]="appointmentSlotsLoading">
-            <mat-icon>refresh</mat-icon>
-            Actualizar
-          </button>
-        </div>
-
-        <div class="portal-inline-loading" *ngIf="appointmentSlotsLoading">
-          <mat-spinner diameter="24"></mat-spinner>
-          <span>Buscando horarios...</span>
-        </div>
-
-        <div class="appointment-slots" *ngIf="!appointmentSlotsLoading && appointmentSlots.length">
-          <button type="button" class="appointment-slot" *ngFor="let slot of appointmentSlots | slice:0:30"
-                  (click)="requestAppointment(slot)" [disabled]="appointmentBooking">
-            <span class="appointment-slot-date">{{ formatAppointmentDate(slot.startsAt) }}</span>
-            <strong>{{ formatAppointmentTime(slot.startsAt) }}</strong>
-            <span class="appointment-slot-action">Reservar <mat-icon>arrow_forward</mat-icon></span>
-          </button>
-        </div>
-
-        <div class="empty-state" *ngIf="!appointmentSlotsLoading && !appointmentSlots.length">
-          <mat-icon>event_busy</mat-icon>
-          <h3>No hay horarios disponibles</h3>
-          <p>Tu nutricionista todavía no ha configurado disponibilidad para las próximas semanas.</p>
-        </div>
-      </section>
-
-      <section class="appointment-card" *ngIf="upcomingAppointments.length">
-        <div class="appointment-card-header">
-          <div>
-            <h3>Mis próximas citas</h3>
-            <span>{{ upcomingAppointments.length }} cita{{ upcomingAppointments.length === 1 ? '' : 's' }}</span>
-          </div>
-        </div>
-
-        <article class="appointment-item" *ngFor="let appointment of upcomingAppointments">
-          <div class="appointment-item-date">
-            <strong>{{ formatAppointmentDate(appointment.startsAt) }}</strong>
-            <span>{{ formatAppointmentTime(appointment.startsAt) }}</span>
-          </div>
-          <div class="appointment-item-info">
-            <strong>{{ appointment.nutritionistName || 'Tu nutricionista' }}</strong>
-            <span [class]="appointment.status === 'confirmed' ? 'appointment-status confirmed' : 'appointment-status pending'">
-              {{ appointment.status === 'confirmed' ? 'Confirmada' : 'Pendiente de confirmación' }}
-            </span>
-          </div>
-          <button type="button" class="appointment-cancel" (click)="cancelAppointment(appointment)" [disabled]="appointmentBooking">
-            Cancelar
-          </button>
-        </article>
-      </section>
-
-      <section class="appointment-card" *ngIf="pastAppointments.length">
-        <div class="appointment-card-header">
-          <div>
-            <h3>Historial de citas</h3>
-            <span>Últimas citas</span>
-          </div>
-        </div>
-        <article class="appointment-item appointment-item-past" *ngFor="let appointment of pastAppointments | slice:0:10">
-          <div class="appointment-item-date">
-            <strong>{{ formatAppointmentDate(appointment.startsAt) }}</strong>
-            <span>{{ formatAppointmentTime(appointment.startsAt) }}</span>
-          </div>
-          <div class="appointment-item-info">
-            <strong>{{ appointment.nutritionistName || 'Tu nutricionista' }}</strong>
-            <span class="appointment-status">{{ appointment.status === 'cancelled' ? 'Cancelada' : appointment.status === 'completed' ? 'Completada' : appointment.status === 'no_show' ? 'No asistida' : appointment.status }}</span>
-          </div>
-        </article>
-      </section>
-    </main>
-
+    <app-patient-appointments
+      *ngIf="activeTab === 'appointments'"
+      [slots]="appointmentSlots"
+      [upcomingAppointments]="upcomingAppointments"
+      [pastAppointments]="pastAppointments"
+      [loading]="appointmentSlotsLoading"
+      [booking]="appointmentBooking"
+      [error]="appointmentError"
+      [success]="appointmentSuccess"
+      (refresh)="loadAppointmentSlots()"
+      (request)="requestAppointment($event)"
+      (cancel)="cancelAppointment($event)">
+    </app-patient-appointments>
     <main class="portal-content" *ngIf="activeTab === 'shopping'">
       <div class="section-hero">
         <mat-icon>shopping_cart</mat-icon>
