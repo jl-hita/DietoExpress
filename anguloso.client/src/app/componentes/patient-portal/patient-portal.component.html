@@ -65,64 +65,21 @@
     <!-- ══════════════════════════════════════════ -->
     <!-- HEADER CON BRANDING DE CLÍNICA             -->
     <!-- ══════════════════════════════════════════ -->
-    <header class="portal-header">
-      <div class="clinic-brand-bar" *ngIf="profile.clinicName || profile.nutritionistName">
-        <div class="clinic-brand-left">
-          <img *ngIf="profile.clinicLogo" [src]="profile.clinicLogo" alt="Logo Clínica" class="clinic-logo-mini" />
-          <mat-icon *ngIf="!profile.clinicLogo" class="clinic-icon">local_hospital</mat-icon>
-          <div class="clinic-texts">
-            <span class="clinic-name">{{ profile.clinicName || 'Consulta Nutricional' }}</span>
-            <span class="nutritionist-name" *ngIf="profile.nutritionistName">{{ profile.nutritionistName }}</span>
-          </div>
-        </div>
-        <div class="clinic-actions">
-          <a *ngIf="profile.clinicPhone" [href]="'tel:' + profile.clinicPhone" class="clinic-call-btn" title="Llamar a la clínica">
-            <mat-icon>phone</mat-icon>
-          </a>
-          <button type="button" class="portal-notification-btn" (click)="toggleNotifications()" title="Notificaciones" aria-label="Abrir notificaciones">
-            <mat-icon>notifications</mat-icon>
-            <span class="notification-badge" *ngIf="unreadNotificationCount">{{ unreadNotificationCount > 9 ? '9+' : unreadNotificationCount }}</span>
-          </button>
-          <button (click)="logoutPatient()" class="portal-logout-btn" title="Cerrar sesión">
-            <mat-icon>logout</mat-icon>
-          </button>
-        </div>
-      </div>
-
-      <app-patient-notifications
-        [open]="notificationsOpen"
-        [notifications]="notifications"
-        [loading]="notificationsLoading"
-        [unreadCount]="unreadNotificationCount"
-        [pushSupported]="pushSupported"
-        [pushEnabled]="pushEnabled"
-        [pushBusy]="pushBusy"
-        [pushMessage]="pushMessage"
-        (markRead)="markNotificationRead($event)"
-        (enablePush)="enablePushNotifications()">
-      </app-patient-notifications>
-
-      <div class="patient-user-row">
-        <div class="header-avatar">
-          {{ profile.fullName?.charAt(0)?.toUpperCase() }}
-        </div>
-        <div class="header-info">
-          <h1 class="header-name">{{ profile.fullName }}</h1>
-          <span class="header-meta">
-            <ng-container *ngIf="profile.age">{{ profile.age }} años &nbsp;·&nbsp;</ng-container>
-            <ng-container *ngIf="profile.currentWeight">{{ profile.currentWeight }} kg</ng-container>
-          </span>
-        </div>
-        <div class="header-diet-badge" *ngIf="profile.hasActiveDiet">
-          <mat-icon>check_circle</mat-icon>
-          <span>Dieta activa</span>
-        </div>
-        <div class="header-diet-badge badge-inactive" *ngIf="!profile.hasActiveDiet">
-          <mat-icon>info</mat-icon>
-          <span>Sin dieta activa</span>
-        </div>
-      </div>
-    </header>
+    <app-patient-header
+      [profile]="profile"
+      [notificationsOpen]="notificationsOpen"
+      [notifications]="notifications"
+      [notificationsLoading]="notificationsLoading"
+      [unreadNotificationCount]="unreadNotificationCount"
+      [pushSupported]="pushSupported"
+      [pushEnabled]="pushEnabled"
+      [pushBusy]="pushBusy"
+      [pushMessage]="pushMessage"
+      (toggleNotifications)="toggleNotifications()"
+      (logout)="logoutPatient()"
+      (markNotificationRead)="markNotificationRead($event)"
+      (enablePush)="enablePushNotifications()">
+    </app-patient-header>
 
     <!-- ══════════════════════════════════════════ -->
     <!-- TAB: HOY (Comidas del día)                 -->
