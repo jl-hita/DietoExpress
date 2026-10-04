@@ -20,21 +20,9 @@ export class ProfileService {
     );
   }
 
-  updateProfile(dto: UpdateProfile): Observable<void> {
-    return this.http.put<void>(`${this.base}/profile`, dto).pipe(
-      tap(() => {
-        const current = this.profileSubject.value;
-        if (current) {
-          this.profileSubject.next({
-            ...current,
-            fullName: dto.fullName ?? current.fullName,
-            clinicName: dto.clinicName,
-            clinicAddress: dto.clinicAddress,
-            clinicPhone: dto.clinicPhone,
-            clinicLogo: dto.clinicLogo
-          });
-        }
-      })
+  updateProfile(dto: UpdateProfile): Observable<Profile> {
+    return this.http.put<Profile>(`${this.base}/profile`, dto).pipe(
+      tap(profile => this.profileSubject.next(profile))
     );
   }
 }

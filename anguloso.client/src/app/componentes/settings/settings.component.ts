@@ -17,6 +17,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCardModule } from '@angular/material/card';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatTabsModule } from '@angular/material/tabs';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 
 @Component({
   selector: 'app-settings',
@@ -33,7 +34,8 @@ import { MatTabsModule } from '@angular/material/tabs';
     MatProgressSpinnerModule,
     MatCardModule,
     MatDividerModule,
-    MatTabsModule
+    MatTabsModule,
+    MatSlideToggleModule
   ]
 })
 // Documentación: este componente coordina estado local, validación y llamadas asíncronas; la vista solo refleja ese estado.
@@ -70,7 +72,12 @@ export class SettingsComponent implements OnInit, OnDestroy {
       clinicName: [''],
       clinicAddress: [''],
       clinicPhone: [''],
-      clinicLogo: ['']
+      clinicLogo: [''],
+      directoryEnabled: [false],
+      onlineConsultations: [false],
+      directoryCity: [''],
+      directoryBio: ['', Validators.maxLength(2000)],
+      directorySpecialties: ['', Validators.maxLength(500)]
     });
 
     this.loading = true;
@@ -102,7 +109,12 @@ export class SettingsComponent implements OnInit, OnDestroy {
           clinicName: data.clinicName ?? '',
           clinicAddress: data.clinicAddress ?? '',
           clinicPhone: data.clinicPhone ?? '',
-          clinicLogo: data.clinicLogo ?? ''
+          clinicLogo: data.clinicLogo ?? '',
+          directoryEnabled: data.directoryEnabled ?? false,
+          onlineConsultations: data.onlineConsultations ?? false,
+          directoryCity: data.directoryCity ?? '',
+          directoryBio: data.directoryBio ?? '',
+          directorySpecialties: data.directorySpecialties ?? ''
         });
         if (data.clinicLogo) {
           this.logoPreview = data.clinicLogo;

@@ -22,6 +22,8 @@ export const routes: AppRoute[] = [
   { path: 'confirmar-email', loadComponent: () => import('./componentes/confirmar-email/confirmar-email.component').then(m => m.ConfirmarEmailComponent), title: 'Confirmar email', showInMenu: false },
   { path: 'patient', loadComponent: () => import('./componentes/patient-portal/patient-portal.component').then(m => m.PatientPortalComponent), title: 'Portal del Paciente' },
   { path: 'legal', loadComponent: () => import('./componentes/legal-documents/legal-documents.component').then(m => m.LegalDocumentsComponent), title: 'Documentación legal' },
+  { path: 'nutricionistas', loadComponent: () => import('./componentes/directory/directory.component').then(m => m.DirectoryComponent), title: 'Directorio de nutricionistas' },
+  { path: 'nutricionistas/:slug', loadComponent: () => import('./componentes/directory/directory.component').then(m => m.DirectoryComponent), title: 'Perfil profesional' },
 
   { path: '', loadComponent: () => import('./componentes/layout/layout.component').then(m => m.LayoutComponent), canActivate: [AuthGuard],
     children: [
