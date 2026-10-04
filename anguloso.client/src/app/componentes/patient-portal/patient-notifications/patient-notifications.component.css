@@ -1,0 +1,25 @@
+/* Panel de notificaciones aislado para mantener ligero el CSS del portal principal. */
+.notification-panel {
+  position:absolute; z-index:20; top:76px; right:20px; width:min(420px,calc(100vw - 32px)); max-height:min(70vh,620px);
+  overflow:auto; background:#0f172a; border:1px solid #334155; border-radius:18px; box-shadow:0 18px 50px rgba(0,0,0,.35);
+}
+.notification-panel-header { padding:16px; display:flex; align-items:center; justify-content:space-between; gap:12px; border-bottom:1px solid #1e293b; }
+.notification-panel-header > div { display:flex; flex-direction:column; gap:3px; }
+.notification-panel-header span { color:#94a3b8; font-size:12px; }
+.notification-push-btn { border:1px solid #475569; background:#1e293b; color:#e2e8f0; border-radius:10px; padding:8px 10px; display:inline-flex; align-items:center; gap:6px; font-size:11px; cursor:pointer; }
+.notification-push-btn:disabled { opacity:.55; cursor:default; }
+.notification-push-message { padding:10px 16px; color:#a5b4fc; font-size:12px; }
+.notification-list { display:flex; flex-direction:column; }
+.notification-item { width:100%; border:0; border-bottom:1px solid #1e293b; background:transparent; color:#e2e8f0; text-align:left; padding:14px 16px; display:flex; gap:12px; cursor:pointer; }
+.notification-item:hover { background:#111c31; }
+.notification-item.unread { background:rgba(99,102,241,.08); }
+.notification-icon { flex:0 0 36px; width:36px; height:36px; border-radius:10px; background:rgba(99,102,241,.16); color:#a5b4fc; display:inline-flex; align-items:center; justify-content:center; }
+.notification-copy { min-width:0; display:flex; flex-direction:column; gap:3px; }
+.notification-copy strong { font-size:13px; }
+.notification-copy span { color:#cbd5e1; font-size:12px; line-height:1.4; }
+.notification-copy small { color:#64748b; font-size:10px; }
+.notification-empty,.notification-loading { min-height:110px; display:flex; align-items:center; justify-content:center; gap:8px; color:#64748b; font-size:12px; }
+@media (max-width:600px) {
+  .notification-panel { top:70px; right:12px; }
+  .notification-panel-header { align-items:flex-start; flex-direction:column; }
+}
