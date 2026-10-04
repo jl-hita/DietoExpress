@@ -18,6 +18,9 @@ La documentación del paciente debe integrarse con el alta y con el inicio de ca
 | PAT-006 | Declaración de información sanitaria y responsabilidad del paciente | Sí | No | Sí | Adaptar al servicio |
 | PAT-007 | Representación de menores o personas representadas | Cuando proceda | No | Sí | Solo cuando corresponda |
 | PAT-008 | Consentimiento para comunicaciones comerciales | No | No | Sí | Opcional y separado; nunca preseleccionado por defecto |
+| PAT-009 | Anamnesis y antecedentes nutricionales | No | No | No | Registro asistencial; no convertir automáticamente en consentimiento |
+| PAT-010 | Registro de seguimiento y evolución | No | No | No | Registro asistencial por seguimiento/consulta |
+| PAT-011 | Autorización para intercambio de información asistencial | Cuando proceda | No | Sí | Destinatario, finalidad y alcance concretos |
 
 ## Principios
 
