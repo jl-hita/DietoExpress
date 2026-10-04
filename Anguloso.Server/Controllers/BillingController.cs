@@ -127,7 +127,10 @@ public sealed class BillingController : ControllerBase
 
             if (targetPlan == null) return BadRequest("El plan solicitado no existe o no está activo.");
 
-            if (targetPlan.max_nutritionists.HasValue)
+            // El límite base de 5 puestos solo aplica al pasar a una suscripción que no sea
+            // una clínica ya dimensionada con puestos adicionales. Cambiar de mensual a anual
+            // dentro de clinic_full no debe expulsar a profesionales ya contratados.
+            if (targetPlan.max_nutritionists.HasValue && !string.Equals(targetPlan.code, "clinic_full", StringComparison.OrdinalIgnoreCase))
             {
                 var activeNutritionists = await _context.users.CountAsync(u =>
                     u.tenant_id == _tenantContext.TenantId.Value &&
