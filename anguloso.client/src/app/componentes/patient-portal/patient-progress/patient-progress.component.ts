@@ -13,7 +13,7 @@ import { PatientCheckinHistoryComponent } from '../patient-checkin-history/patie
 export class PatientProgressComponent {
   @Input() profile: any = null;
   @Input() weightHistory: any[] = [];
-  @Input() bmi: number | null = null;
+  @Input() bmi: number | string | null = null;
   @Input() bmiColor = '';
   @Input() bmiCategory = '';
   @Input() weightChangeIcon = '';
