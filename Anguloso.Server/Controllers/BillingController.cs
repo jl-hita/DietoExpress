@@ -132,7 +132,7 @@ public sealed class BillingController : ControllerBase
                 var activeNutritionists = await _context.users.CountAsync(u =>
                     u.tenant_id == _tenantContext.TenantId.Value &&
                     u.archived_at == null &&
-                    (u.role == "nutritionist" || u.role == "user"));
+                    u.role == "nutritionist");
 
                 if (activeNutritionists > targetPlan.max_nutritionists.Value)
                     return BadRequest($"No puedes cambiar a {targetPlan.name}: tienes {activeNutritionists} nutricionistas activos y el plan permite {targetPlan.max_nutritionists.Value}.");
