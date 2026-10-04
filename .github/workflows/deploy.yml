@@ -76,9 +76,9 @@ jobs:
           test -d /var/lib/dietoexpress/Logs
           test -w /var/lib/dietoexpress/Logs
 
-          # El spool permite conservar incidentes de arranque cuando PostgreSQL no está disponible.
-          # Debe existir fuera del directorio de despliegue y ser escribible por el servicio.
-          mkdir -p /var/lib/dietoexpress/AlertSpool
+          # El runner no necesita permisos globales sobre /var/lib/dietoexpress:
+          # solo prepara este directorio persistente con el mismo usuario que ejecuta la aplicación.
+          sudo install -d -o joso -g joso -m 750 /var/lib/dietoexpress/AlertSpool
           test -d /var/lib/dietoexpress/AlertSpool
           test -w /var/lib/dietoexpress/AlertSpool
 
