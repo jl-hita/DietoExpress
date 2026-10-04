@@ -3,13 +3,13 @@ import { CommonModule, DecimalPipe } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
-interface PatientShoppingItem {
+export interface PatientShoppingItem {
   foodId: number;
   foodName: string;
   totalGrams: number;
 }
 
-interface PatientShoppingCategory {
+export interface PatientShoppingCategory {
   category: string;
   items: PatientShoppingItem[];
 }
