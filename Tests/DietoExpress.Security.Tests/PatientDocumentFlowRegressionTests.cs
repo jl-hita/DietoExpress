@@ -4,11 +4,21 @@ namespace DietoExpress.Security.Tests;
 
 public sealed class PatientDocumentFlowRegressionTests
 {
-    private static string ReadServerSource(string relativePath)
+    private static string RepoRoot
     {
-        var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../"));
-        return File.ReadAllText(Path.Combine(root, relativePath));
+        get
+        {
+            var directory = new DirectoryInfo(AppContext.BaseDirectory);
+            while (directory != null && !File.Exists(Path.Combine(directory.FullName, "Anguloso.Server", "Program.cs")))
+                directory = directory.Parent;
+
+            return directory?.FullName
+                ?? throw new InvalidOperationException("No se encontró la raíz del repositorio.");
+        }
     }
+
+    private static string ReadServerSource(string relativePath)
+        => File.ReadAllText(Path.Combine(RepoRoot, relativePath));
 
     [Fact]
     public void ConsultationStartMustProvisionAndBlockOnRequiredDocuments()
