@@ -18,7 +18,8 @@ public sealed class LegalGovernanceService
     private readonly angulosodbContext _db;
     private readonly ITenantContextService _tenant;
     private readonly IAuditLogService _audit;
-    public LegalGovernanceService(angulosodbContext db,ITenantContextService tenant,IAuditLogService audit){_db=db;_tenant=tenant;_audit=audit;}
+    private readonly IHttpContextAccessor _http;
+    public LegalGovernanceService(angulosodbContext db,ITenantContextService tenant,IAuditLogService audit,IHttpContextAccessor http){_db=db;_tenant=tenant;_audit=audit;_http=http;}
 
     public async Task<IReadOnlyList<LegalRatActivityDto>> ListRatAsync(CancellationToken ct)
         => await QueryAsync(@"SELECT id,name,purpose,role,legal_basis,subject_categories,data_categories,special_categories,recipients,international_transfers,retention,security_measures,notes,status FROM legal_rat_activities WHERE scope_type=@scope AND scope_id=@id ORDER BY id",
@@ -47,7 +48,7 @@ public sealed class LegalGovernanceService
         return await ExecuteScalarAsync<long>(@"INSERT INTO legal_eipd_decisions(scope_type,scope_id,decision,justification,additional_measures,review_date,document_reference,created_by) VALUES(@scope,@id,@decision,@justification,@measures,@review,@reference,@user) RETURNING id",r,ct);
     }
 
-    private (string scope,int id) Scope(){if(_tenant.TenantId is int t)return("tenant",t);if(_tenant.UserId is int u)return("user",u);throw new InvalidOperationException("No hay ámbito legal autenticado.");}
+    private (string scope,int id) Scope(){if(_http.HttpContext?.User.IsInRole("superadmin")==true)return("platform",1);if(_tenant.TenantId is int t)return("tenant",t);if(_tenant.UserId is int u)return("user",u);throw new InvalidOperationException("No hay ámbito legal autenticado.");}
     private async Task<List<T>> QueryAsync<T>(string sql,Func<IDataRecord,T> map,CancellationToken ct){var(s,id)=Scope();var db=_db.Database.GetDbConnection();await using var c=db.CreateCommand();c.CommandText=sql;Add(c,"scope",s);Add(c,"id",id);if(db.State!=ConnectionState.Open)await db.OpenAsync(ct);await using var rd=await c.ExecuteReaderAsync(ct);var list=new List<T>();while(await rd.ReadAsync(ct))list.Add(map(rd));return list;}
     private async Task<long> ExecuteScalarAsync<T>(string sql,T? r,CancellationToken ct){var(s,id)=Scope();var db=_db.Database.GetDbConnection();await using var c=db.CreateCommand();c.CommandText=sql;Add(c,"scope",s);Add(c,"id",id);if(r is not null)Bind(c,r);if(db.State!=ConnectionState.Open)await db.OpenAsync(ct);return Convert.ToInt64(await c.ExecuteScalarAsync(ct));}
     private async Task<int> ExecuteNonQueryAsync(string sql,object? r,long row,CancellationToken ct){var(s,id)=Scope();var db=_db.Database.GetDbConnection();await using var c=db.CreateCommand();c.CommandText=sql;Add(c,"scope",s);Add(c,"id",id);Add(c,"row",row);if(r is not null)Bind(c,r);if(db.State!=ConnectionState.Open)await db.OpenAsync(ct);return await c.ExecuteNonQueryAsync(ct);}
