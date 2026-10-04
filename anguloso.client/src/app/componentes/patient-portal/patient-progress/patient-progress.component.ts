@@ -3,15 +3,7 @@ import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { PatientCheckinHistoryComponent } from '../patient-checkin-history/patient-checkin-history.component';
 
-@Component({
-  selector: 'app-patient-progress',
-  standalone: true,
-  imports: [CommonModule, MatIconModule, PatientCheckinHistoryComponent],
-  templateUrl: './patient-progress.component.html',
-  styleUrls: ['./patient-progress.component.css']
-})
-export class PatientProgressComponent {
-
+interface PatientProgressProfile {
   currentWeight?: number | null;
   currentHeight?: number | null;
 }
@@ -21,6 +13,14 @@ interface PatientWeightEntry {
   weight: number;
 }
 
+@Component({
+  selector: 'app-patient-progress',
+  standalone: true,
+  imports: [CommonModule, MatIconModule, PatientCheckinHistoryComponent],
+  templateUrl: './patient-progress.component.html',
+  styleUrls: ['./patient-progress.component.css']
+})
+export class PatientProgressComponent {
   @Input() profile: PatientProgressProfile | null = null;
   @Input() weightHistory: PatientWeightEntry[] = [];
   @Input() bmi: number | string | null = null;
