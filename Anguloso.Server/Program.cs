@@ -37,7 +37,7 @@ public class Program
         builder.Services.AddSingleton<NotificationService>();
         // El servicio comparte la lógica de publicación entre peticiones y el worker; el worker separado procesa los jobs sin bloquear las peticiones HTTP.
         builder.Services.AddSingleton<AutomationService>();
-        builder.Services.AddScoped<PatientDocumentService>(); builder.Services.AddScoped<PrivacyOperationsService>(); builder.Services.AddScoped<LegalGovernanceService>();
+        builder.Services.AddScoped<PatientDocumentService>(); builder.Services.AddSingleton<PatientDocumentTemplateSeeder>(); builder.Services.AddScoped<PrivacyOperationsService>(); builder.Services.AddScoped<LegalGovernanceService>();
         builder.Services.AddDataProtection();
         builder.Services.AddHttpClient();
         builder.Services.AddSingleton<GoogleCalendarService>();
@@ -202,6 +202,8 @@ CREATE INDEX IF NOT EXISTS idx_patient_push_subscriptions_client
   ON patient_push_subscriptions(client_id);
 ");
 BillingSchemaBootstrap.Initialize(context, logger);
+                var patientTemplateSeeder = scope.ServiceProvider.GetRequiredService<PatientDocumentTemplateSeeder>();
+                await patientTemplateSeeder.SeedAllTenantsAsync();
                 // Una vez disponible el esquema, recuperamos incidencias que pudieron producirse con PostgreSQL caído.
                 await ApplicationAlertService.FlushPendingAsync(context, logger);
                 databaseReady = true;
