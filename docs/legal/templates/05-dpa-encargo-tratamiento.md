@@ -1,53 +1,57 @@
 # Acuerdo de encargo del tratamiento
 
-**Entre**
+**Responsable:** {{professional.legal_name}} (NIF/CIF {{professional.tax_id}}), {{professional.address}}.  
+**Encargado:** {{platform.legal_name}} (NIF/CIF {{platform.tax_id}}), {{platform.address}}.
 
-**Responsable:** {{professional.legal_name}} (NIF/CIF {{professional.tax_id}}), domicilio {{professional.address}}, contacto {{professional.privacy_email}}.
-
-**Encargado:** {{platform.legal_name}} (NIF/CIF {{platform.tax_id}}), domicilio {{platform.address}}, contacto {{platform.privacy_email}}.
-
-## 1. Objeto
+## 1. Objeto, duración y ámbito
 
 El Encargado tratará datos personales por cuenta del Responsable para prestar las funcionalidades de DietoExpress contratadas.
 
-## 2. Naturaleza y finalidad
+**Duración:** {{professional.dpa_duration}}  
+**Naturaleza y finalidad:** gestión de pacientes, dietas, documentación, agenda, comunicaciones y demás funcionalidades activadas por el Responsable.
 
-Gestión de pacientes, dietas, documentación, agenda, comunicaciones y demás funcionalidades activadas por el Responsable.
+## 2. Categorías de interesados y datos
 
-## 3. Categorías de interesados
+Interesados: pacientes/clientes, profesionales y personal autorizado cuando resulte necesario.
 
-Pacientes/clientes del Responsable, profesionales y personal autorizado.
+Datos: identificativos y de contacto, información de cita y gestión y, cuando el Responsable los registre, datos relativos a salud o nutrición y demás categorías indicadas en sus actividades de tratamiento.
 
-## 4. Categorías de datos
+## 3. Instrucciones y uso de los datos
 
-Datos identificativos y de contacto, información de cita y gestión, y los datos de salud o nutrición que el Responsable decida registrar dentro de las funcionalidades disponibles.
+El Encargado tratará los datos únicamente siguiendo instrucciones documentadas del Responsable, salvo obligación legal aplicable. No utilizará los datos para finalidades propias incompatibles con el encargo.
 
-## 5. Instrucciones
+## 4. Personas autorizadas y confidencialidad
 
-El Encargado tratará los datos únicamente siguiendo instrucciones documentadas del Responsable, salvo obligación legal.
+El acceso quedará limitado a personas autorizadas que estén sujetas a un deber de confidencialidad y necesiten acceder para prestar el servicio.
 
-## 6. Confidencialidad y seguridad
+## 5. Medidas de seguridad
 
-El Encargado garantizará la confidencialidad de las personas autorizadas y aplicará medidas técnicas y organizativas apropiadas al riesgo.
+El Encargado aplicará medidas técnicas y organizativas apropiadas al riesgo. Las medidas y garantías aplicables se documentarán y actualizarán cuando corresponda.
 
-## 7. Subencargados
+## 6. Subencargados
 
-Subencargados autorizados o procedimiento de autorización: {{platform.subprocessors_summary}}.
+Subencargados y procedimiento de autorización: {{platform.subprocessors_summary}}.
 
-## 8. Derechos y asistencia
+El Responsable dispondrá del mecanismo de información y oposición que corresponda ante cambios de subencargados.
 
-El Encargado asistirá al Responsable, dentro de lo razonable y técnicamente posible, en la atención de derechos, incidentes y obligaciones de seguridad.
+## 7. Asistencia al Responsable
 
-## 9. Brechas
+El Encargado asistirá al Responsable, dentro del alcance del servicio y de sus posibilidades, en la atención de derechos, seguridad, brechas, evaluaciones de impacto y consultas previas cuando resulte aplicable.
 
-El Encargado notificará al Responsable las violaciones de seguridad de datos personales conforme al procedimiento y plazos contractualmente definidos.
+## 8. Violaciones de seguridad
+
+Procedimiento y canal de notificación al Responsable: {{platform.breach_notification_summary}}.
+
+## 9. Transferencias internacionales
+
+Situación y garantías aplicables: {{platform.international_transfers_summary}}.
 
 ## 10. Devolución y supresión
 
-Al finalizar el servicio, los datos serán devueltos, exportados o suprimidos conforme a las instrucciones del Responsable y a las obligaciones legales de conservación aplicables.
+Al finalizar el servicio, el Responsable decidirá entre devolución, exportación y supresión, salvo conservación exigida por una obligación legal. Plazos y excepciones: {{professional.dpa_end_of_service_summary}}.
 
-## 11. Auditoría
+## 11. Auditoría y acreditación
 
-El Responsable podrá solicitar información razonable para verificar el cumplimiento del presente acuerdo.
+El Encargado facilitará la información razonablemente necesaria para demostrar el cumplimiento de las obligaciones aplicables y colaborará en auditorías dentro de límites razonables y de seguridad.
 
-**Nota interna:** plantilla contractual. Debe completarse con el inventario real de subencargados y revisarse jurídicamente.
+**Nota interna:** plantilla contractual. Debe completarse con proveedores, transferencias, medidas, duración y procedimiento de fin de servicio reales y revisarse jurídicamente antes de utilizarse.
