@@ -88,9 +88,11 @@ public sealed class ProfessionalDashboardController : ControllerBase
         {
             command.Parameters.AddWithValue("tenant", tenantId.Value);
             command.Parameters.AddWithValue("user", userId.Value);
-            var now = DateTime.UtcNow;
-            command.Parameters.AddWithValue("from", now.Date);
-            command.Parameters.AddWithValue("to", now.Date.AddDays(1));
+            var madrid = GetMadridTimeZone();
+            var localToday = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, madrid).Date;
+            var fromUtc = TimeZoneInfo.ConvertTimeToUtc(localToday, madrid);
+            command.Parameters.AddWithValue("from", fromUtc);
+            command.Parameters.AddWithValue("to", fromUtc.AddDays(1));
             await using var reader = await command.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
@@ -124,6 +126,9 @@ public sealed class ProfessionalDashboardController : ControllerBase
 
         return Ok(result);
     }
+
+    private static TimeZoneInfo GetMadridTimeZone() =>
+        TimeZoneInfo.FindSystemTimeZoneById(OperatingSystem.IsWindows() ? "Romance Standard Time" : "Europe/Madrid");
 }
 
 public sealed class ProfessionalDashboardDto
