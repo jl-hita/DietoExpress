@@ -227,15 +227,10 @@ public class PatientDocumentsController : ControllerBase
             .Select(c => c.tenant_id).SingleOrDefaultAsync();
         if (!tenantId.HasValue) return NotFound();
 
-        // Abrir el portal no debe provisionar documentos que solo son obligatorios antes de una consulta.
-        // Esos documentos se crean en el flujo de inicio de consulta.
-        await _patientDocumentService.CreateRequiredDocumentsAsync(
-            tenantId.Value,
-            clientId.Value,
-            AuthHelpers.GetUserId(User),
-            forClientCreation: true,
-            includeAllRequired: false,
-            HttpContext.RequestAborted);
+        // El tenant se obtiene del expediente, no del token del paciente, para que un claim
+        // desactualizado no pueda cruzar el límite de aislamiento entre clínicas.
+        var claimedTenantId = AuthHelpers.GetTenantId(User);
+        if (claimedTenantId.HasValue && claimedTenantId.Value != tenantId.Value) return Forbid();
 
         var rows = await _context.Database.SqlQueryRaw<PatientDocumentDto>(
             """
@@ -261,8 +256,18 @@ public class PatientDocumentsController : ControllerBase
     {
         if (!AuthHelpers.IsPatient(User)) return Forbid();
         var clientId = AuthHelpers.GetClientId(User);
-        var tenantId = GetTenantId();
-        if (!clientId.HasValue || !tenantId.HasValue) return Unauthorized();
+        if (!clientId.HasValue) return Unauthorized();
+
+        // El expediente es la fuente de verdad del tenant del paciente; el claim solo se valida
+        // contra él cuando existe.
+        var tenantId = await _context.clients
+            .Where(c => c.id == clientId.Value && c.archived_at == null)
+            .Select(c => c.tenant_id)
+            .SingleOrDefaultAsync();
+        if (!tenantId.HasValue) return NotFound();
+
+        var claimedTenantId = AuthHelpers.GetTenantId(User);
+        if (claimedTenantId.HasValue && claimedTenantId.Value != tenantId.Value) return Forbid();
 
         var documentSnapshot = await _context.Database.SqlQueryRaw<DocumentAcceptanceSnapshot>(
             """
@@ -369,8 +374,19 @@ public class PatientDocumentsController : ControllerBase
 
     private async Task<IActionResult> DownloadAsync(int clientId, long documentId, bool patientAccess)
     {
-        var tenantId = GetTenantId();
-        if (!tenantId.HasValue) return Forbid();
+        // Para el portal, el tenant se resuelve desde el cliente y se valida contra el claim.
+        // Para profesionales, el tenant procede del contexto autenticado habitual.
+        var tenantId = patientAccess
+            ? await _context.clients.Where(c => c.id == clientId && c.archived_at == null)
+                .Select(c => c.tenant_id).SingleOrDefaultAsync()
+            : GetTenantId();
+        if (!tenantId.HasValue) return patientAccess ? NotFound() : Forbid();
+
+        if (patientAccess)
+        {
+            var claimedTenantId = AuthHelpers.GetTenantId(User);
+            if (claimedTenantId.HasValue && claimedTenantId.Value != tenantId.Value) return Forbid();
+        }
 
         var row = await _context.Database.SqlQueryRaw<DocumentStorageDto>(
             """
