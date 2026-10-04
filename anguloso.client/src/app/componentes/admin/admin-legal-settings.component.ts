@@ -76,7 +76,7 @@ import { LegalDocumentGeneratorService, LegalGeneratedDocument } from '../../ser
       <section *ngIf="selectedDocument" class="editor"><h2>{{selectedDocument.title}} · v{{selectedDocument.version}}</h2><textarea [(ngModel)]="selectedDocument.content" rows="18"></textarea><div class="actions"><button mat-stroked-button (click)="saveDocument()">Guardar borrador</button><button mat-raised-button color="primary" (click)="publishDocument()" [disabled]="selectedDocument.unresolved?.length">Validar y publicar</button></div></section>
       <div *ngIf="lastGenerated" class="generated">
           <strong>{{ lastGenerated.title }}</strong> · versión {{ lastGenerated.version }}
-          <span *ngIf="lastGenerated.unresolved?.length"> · Pendientes: {{ lastGenerated.unresolved.join(', ') }}</span>
+          <span *ngIf="lastGenerated.unresolved?.length"> · Pendientes: {{ (lastGenerated.unresolved ?? []).join(', ') }}</span>
           <span *ngIf="!lastGenerated.unresolved?.length"> · Sin placeholders pendientes</span>
         </div>
       </section>
