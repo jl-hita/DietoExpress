@@ -45,7 +45,14 @@ public sealed class LegalGovernanceService
     {
         if(!new[]{"required","not_required","pending"}.Contains(r.Decision))throw new ArgumentException("Decisión EIPD no válida.");
         if(string.IsNullOrWhiteSpace(r.Justification))throw new ArgumentException("La justificación de la decisión EIPD es obligatoria.");
-        return await ExecuteScalarAsync<long>(@"INSERT INTO legal_eipd_decisions(scope_type,scope_id,decision,justification,additional_measures,review_date,document_reference,created_by) VALUES(@scope,@id,@decision,@justification,@measures,@review,@reference,@user) RETURNING id",r,ct);
+        var (scope, scopeId) = Scope();
+        var userId = _tenant.UserId;
+        var db = _db.Database.GetDbConnection();
+        await using var command = db.CreateCommand();
+        command.CommandText = @"INSERT INTO legal_eipd_decisions(scope_type,scope_id,decision,justification,additional_measures,review_date,document_reference,created_by) VALUES(@scope,@id,@decision,@justification,@measures,@review,@reference,@user) RETURNING id";
+        Add(command,"scope",scope); Add(command,"id",scopeId); Add(command,"decision",r.Decision); Add(command,"justification",r.Justification); Add(command,"measures",r.AdditionalMeasures); Add(command,"review",r.ReviewDate); Add(command,"reference",r.DocumentReference); Add(command,"user",(object?)userId ?? DBNull.Value);
+        if(db.State!=ConnectionState.Open) await db.OpenAsync(ct);
+        return Convert.ToInt64(await command.ExecuteScalarAsync(ct));
     }
 
     private (string scope,int id) Scope(){if(_http.HttpContext?.User.IsInRole("superadmin")==true)return("platform",1);if(_tenant.TenantId is int t)return("tenant",t);if(_tenant.UserId is int u)return("user",u);throw new InvalidOperationException("No hay ámbito legal autenticado.");}
