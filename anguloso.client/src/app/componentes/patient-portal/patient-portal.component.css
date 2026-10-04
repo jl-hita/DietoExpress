@@ -791,119 +791,6 @@
   border-radius: 8px;
 }
 
-/* ─── PROGRESS ────────────────────────────────────── */
-.bmi-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: #1e293b;
-  border: 1px solid #334155;
-  border-radius: 20px;
-  margin: 12px 16px;
-  padding: 28px;
-}
-
-.bmi-value {
-  font-size: 52px;
-  font-weight: 800;
-  line-height: 1;
-}
-
-.bmi-label {
-  font-size: 13px;
-  color: #64748b;
-  margin: 4px 0 8px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.bmi-category {
-  font-size: 16px;
-  font-weight: 700;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  padding: 0 16px 12px;
-}
-
-.stat-card {
-  background: #1e293b;
-  border: 1px solid #334155;
-  border-radius: 16px;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
-
-.stat-card mat-icon { color: #6366f1; font-size: 28px; width: 28px; height: 28px; }
-
-.stat-value {
-  font-size: 22px;
-  font-weight: 700;
-  color: #f1f5f9;
-}
-
-.stat-label {
-  font-size: 11px;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.weight-history {
-  margin: 0 16px 16px;
-  background: #1e293b;
-  border: 1px solid #334155;
-  border-radius: 16px;
-  padding: 16px;
-}
-
-.weight-history h3 {
-  margin: 0 0 16px;
-  font-size: 14px;
-  font-weight: 700;
-  color: #94a3b8;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.weight-chart {
-  display: flex;
-  align-items: flex-end;
-  gap: 6px;
-  height: 80px;
-}
-
-.weight-bar-wrapper {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
-  height: 100%;
-}
-
-.weight-bar {
-  width: 100%;
-  background: linear-gradient(180deg, #6366f1, #8b5cf6);
-  border-radius: 4px 4px 0 0;
-  min-height: 4px;
-  transition: height 0.4s ease;
-}
-
-.weight-bar-label {
-  font-size: 9px;
-  color: #64748b;
-}
-
 /* ─── EMPTY STATE ─────────────────────────────────── */
 .empty-state {
   display: flex;
@@ -998,8 +885,7 @@
   .meals-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .today-summary { padding-left: 28px; padding-right: 28px; }
   .today-next-card { max-width: 1080px; margin-left: auto; margin-right: auto; }
-  .shopping-category, .bmi-card, .weight-history { max-width: 1080px; margin-left: auto; margin-right: auto; }
-  .stats-grid { max-width: 1080px; margin-left: auto; margin-right: auto; }
+  .shopping-category, .weight-history { max-width: 1080px; margin-left: auto; margin-right: auto; }
 }
 
 @media (max-width: 560px) {
