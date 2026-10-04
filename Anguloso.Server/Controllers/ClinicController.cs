@@ -79,26 +79,37 @@ public class ClinicController : ControllerBase
         var todayStart = TimeZoneInfo.ConvertTimeToUtc(localToday, madrid);
         var tomorrowStart = todayStart.AddDays(1);
 
-        var todayAppointments = await _context.patient_appointments.AsNoTracking()
-            .CountAsync(a => a.tenant_id == tenantId &&
-                             a.starts_at >= todayStart &&
-                             a.starts_at < tomorrowStart &&
-                             (a.status == "requested" || a.status == "confirmed"));
+        // Estas tablas son módulos SQL adicionales y no forman parte del modelo EF generado.
+        // Consultamos solo agregados para mantener el dashboard desacoplado del scaffold.
+        var todayAppointments = await _context.Database.SqlQueryRaw<int>(
+            @"SELECT COUNT(*)::int AS \"Value\"
+              FROM patient_appointments
+              WHERE tenant_id = {0}
+                AND starts_at >= {1}
+                AND starts_at < {2}
+                AND status IN ('requested', 'confirmed')",
+            tenantId.Value, todayStart, tomorrowStart).SingleAsync();
 
-        var unreadMessages = await _context.patient_messages.AsNoTracking()
-            .Where(m => m.sender_client_id != null && m.read_at == null)
-            .Join(_context.patient_conversations.AsNoTracking().Where(c => c.tenant_id == tenantId),
-                  m => m.conversation_id, c => c.id, (m, c) => m)
-            .CountAsync();
+        var unreadMessages = await _context.Database.SqlQueryRaw<int>(
+            @"SELECT COUNT(*)::int AS \"Value\"
+              FROM patient_messages m
+              INNER JOIN patient_conversations c ON c.id = m.conversation_id
+              WHERE c.tenant_id = {0}
+                AND m.sender_client_id IS NOT NULL
+                AND m.read_at IS NULL",
+            tenantId.Value).SingleAsync();
 
-        var pendingDocuments = await _context.patient_documents.AsNoTracking()
-            .Where(d => d.tenant_id == tenantId &&
-                        d.revoked_at == null &&
-                        d.requires_signature &&
-                        d.status == "pending")
-            .Join(_context.clients.AsNoTracking().Where(c => c.archived_at == null),
-                  d => d.client_id, c => c.id, (d, c) => d)
-            .CountAsync();
+        var pendingDocuments = await _context.Database.SqlQueryRaw<int>(
+            @"SELECT COUNT(*)::int AS \"Value\"
+              FROM patient_documents d
+              INNER JOIN clients c ON c.id = d.client_id
+              WHERE d.tenant_id = {0}
+                AND c.tenant_id = {0}
+                AND c.archived_at IS NULL
+                AND d.revoked_at IS NULL
+                AND d.requires_signature = TRUE
+                AND d.status = 'pending'",
+            tenantId.Value).SingleAsync();
 
         return Ok(new {
             license,
@@ -109,7 +120,6 @@ public class ClinicController : ControllerBase
             unreadMessageCount=unreadMessages,
             pendingDocumentCount=pendingDocuments
         });
-        return Ok(new { license, nutritionists=users, clients, unassignedClientCount });
     }
     [HttpGet("nutritionists")]
     [Authorize(Roles="clinic_admin")]
