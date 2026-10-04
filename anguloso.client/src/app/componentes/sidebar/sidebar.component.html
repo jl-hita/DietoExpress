@@ -45,6 +45,16 @@
         <mat-icon>settings</mat-icon><span>Ajustes</span>
       </a>
     </div>
+    <div class="menu-item" *ngIf="!isSuperAdmin && (isProfessionalAccount || isFreeAccount)">
+      <a mat-list-item routerLink="/legal-manage" routerLinkActive="active-link" (click)="navigateAndClose()">
+        <mat-icon>gavel</mat-icon><span>Legal</span>
+      </a>
+    </div>
+    <div class="menu-item superadmin-item" *ngIf="isSuperAdmin">
+      <a mat-list-item routerLink="/admin/legal" routerLinkActive="active-link" (click)="navigateAndClose()">
+        <mat-icon>gavel</mat-icon><span>Legal</span>
+      </a>
+    </div>
     <div class="menu-item superadmin-item" *ngIf="isClinic">
       <a mat-list-item routerLink="/clinic" routerLinkActive="active-link" (click)="navigateAndClose()">
         <mat-icon>business</mat-icon><span>Panel de clínica</span>

@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -37,7 +38,8 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
     MatTooltipModule,
     MatPaginatorModule,
     MatDialogModule,
-    MatSnackBarModule
+    MatSnackBarModule,
+    RouterLink
   ],
   template: `
     <div class="admin-container">
@@ -48,6 +50,9 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
         </div>
         <button mat-flat-button color="primary" (click)="openCreateAccount()">
           <mat-icon>person_add</mat-icon> Crear cuenta
+        </button>
+        <button mat-stroked-button color="primary" routerLink="/admin/legal">
+          <mat-icon>gavel</mat-icon> Legal
         </button>
         <button mat-stroked-button color="primary" (click)="loadData()">
           <mat-icon>refresh</mat-icon> Actualizar

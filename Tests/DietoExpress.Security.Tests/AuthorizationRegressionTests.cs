@@ -1220,7 +1220,8 @@ public class AuthorizationRegressionTests
         Assert.Contains("notes?.Length > 10000", source);
         Assert.Contains("i.Grams.Value > 100000", source);
         Assert.Contains("i.ExchangeCount.Value > 10000", source);
-        Assert.Contains("ValidateDietPayload(dto?.Name, dto?.Notes, dto?.Days)", source);
+        Assert.Contains("ArgumentNullException.ThrowIfNull(dto);", source);
+        Assert.Contains("ValidateDietPayload(dto.Name, dto.Notes, dto.Days)", source);
     }
 
 

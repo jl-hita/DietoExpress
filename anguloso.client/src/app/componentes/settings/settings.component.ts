@@ -16,6 +16,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCardModule } from '@angular/material/card';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatTabsModule } from '@angular/material/tabs';
 
 @Component({
   selector: 'app-settings',
@@ -31,7 +32,8 @@ import { MatDividerModule } from '@angular/material/divider';
     MatIconModule,
     MatProgressSpinnerModule,
     MatCardModule,
-    MatDividerModule
+    MatDividerModule,
+    MatTabsModule
   ]
 })
 // Documentación: este componente coordina estado local, validación y llamadas asíncronas; la vista solo refleja ese estado.

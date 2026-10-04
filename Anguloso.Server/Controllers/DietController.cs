@@ -218,7 +218,9 @@ public class DietController : ControllerBase
     // La dieta y su posible asignación al paciente se guardan en una única transacción.
     public async Task<ActionResult<DietListDto>> CreateDiet([FromBody] CreateDietDto dto)
     {
-        var validationError = ValidateDietPayload(dto?.Name, dto?.Notes, dto?.Days);
+        ArgumentNullException.ThrowIfNull(dto);
+
+        var validationError = ValidateDietPayload(dto.Name, dto.Notes, dto.Days);
         if (validationError != null) return BadRequest(validationError);
 
         var userId = AuthHelpers.GetUserId(User);
@@ -370,7 +372,9 @@ public class DietController : ControllerBase
     // La edición reconstruye el árbol días/comidas/alimentos después de comprobar que el usuario es el propietario.
     public async Task<IActionResult> UpdateDiet(int id, [FromBody] UpdateDietDto dto)
     {
-        var validationError = ValidateDietPayload(dto?.Name, dto?.Notes, dto?.Days);
+        ArgumentNullException.ThrowIfNull(dto);
+
+        var validationError = ValidateDietPayload(dto.Name, dto.Notes, dto.Days);
         if (validationError != null) return BadRequest(validationError);
 
         var userId = AuthHelpers.GetUserId(User);
