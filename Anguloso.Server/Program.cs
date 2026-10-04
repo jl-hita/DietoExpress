@@ -100,6 +100,29 @@ public class Program
             try
             {
                 var context = scope.ServiceProvider.GetRequiredService<angulosodbContext>();
+                // Esta tabla se crea antes del resto del bootstrap para poder registrar el fallo si una
+                // migración posterior rompe el arranque. El propio mecanismo de alerta nunca bloquea el proceso.
+                context.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS system_alerts (
+    id BIGSERIAL PRIMARY KEY,
+    severity VARCHAR(20) NOT NULL,
+    component VARCHAR(120) NOT NULL,
+    title VARCHAR(250) NOT NULL,
+    message VARCHAR(1000) NOT NULL,
+    technical_details TEXT,
+    first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    occurrences INTEGER NOT NULL DEFAULT 1,
+    resolved_at TIMESTAMPTZ,
+    resolved_by_user_id INTEGER,
+    CONSTRAINT system_alerts_severity_check CHECK (severity IN ('critical','error','warning','info'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_system_alerts_active_component_title
+    ON system_alerts(component, title)
+    WHERE resolved_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_system_alerts_active
+    ON system_alerts(resolved_at, severity, last_seen_at DESC);
+");
                 DatabaseBootstrap.InitializeDatabaseAsync(context, logger);
                 DatabaseBootstrap.EnsureCurrentSchema(context, logger);
                 DatabaseBootstrap.UpgradeDocumentTemplateSchemaV1(context, logger);
@@ -180,7 +203,25 @@ CREATE INDEX IF NOT EXISTS idx_patient_push_subscriptions_client
 ");
 BillingSchemaBootstrap.Initialize(context, logger); databaseReady = true;
             }
-            catch (Exception ex) { logger.LogCritical(ex, "ERROR CRÍTICO: La aplicación no pudo verificar o inicializar la base de datos."); throw; }
+            catch (Exception ex)
+            {
+                logger.LogCritical(ex, "ERROR CRÍTICO: La aplicación no pudo verificar o inicializar la base de datos.");
+                try
+                {
+                    await ApplicationAlertService.RecordAsync(
+                        scope.ServiceProvider.GetRequiredService<angulosodbContext>(),
+                        "critical",
+                        "database-bootstrap",
+                        "La base de datos no pudo inicializarse",
+                        "El arranque de la aplicación ha encontrado un error de infraestructura. Revisa la configuración o el esquema de la base de datos.",
+                        ex);
+                }
+                catch (Exception alertException)
+                {
+                    logger.LogError(alertException, "No se pudo registrar la alerta crítica de bootstrap.");
+                }
+                throw;
+            }
         }
         if (databaseReady)
         {
@@ -188,7 +229,17 @@ BillingSchemaBootstrap.Initialize(context, logger); databaseReady = true;
             {
                 var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
                 try { var context = scope.ServiceProvider.GetRequiredService<angulosodbContext>(); var bedcaCount = context.foods.Count(f => f.source == "bedca"); if (bedcaCount == 0) { logger.LogInformation("No se han encontrado alimentos BEDCA. Iniciando importación inicial..."); var logServ = scope.ServiceProvider.GetRequiredService<LogServ>(); var bedcaClient = new BEDCAClient(new HttpClient(), logServ, context); var resultado = await bedcaClient.Importador(); var importedCount = context.foods.Count(f => f.source == "bedca"); if (importedCount == 0) throw new InvalidOperationException("La importación BEDCA terminó sin insertar ningún alimento."); logger.LogInformation("Importación inicial BEDCA completada correctamente: {Resultado}", resultado); } else logger.LogInformation("Catálogo BEDCA ya inicializado ({Count} alimentos). Se omite la importación.", bedcaCount); }
-                catch (Exception ex) { logger.LogError(ex, "La importación inicial BEDCA no se pudo completar. Se reintentará en el siguiente arranque."); }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "La importación inicial BEDCA no se pudo completar. Se reintentará en el siguiente arranque.");
+                    await ApplicationAlertService.RecordAsync(
+                        scope.ServiceProvider.GetRequiredService<angulosodbContext>(),
+                        "warning",
+                        "bedca-import",
+                        "La importación inicial de alimentos no se completó",
+                        "El catálogo de alimentos todavía no está completo. La aplicación reintentará la importación en el siguiente arranque.",
+                        ex);
+                }
             }
         }
         app.UseCors("AllowAngularApp");
