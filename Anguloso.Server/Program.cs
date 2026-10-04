@@ -37,7 +37,7 @@ public class Program
         builder.Services.AddSingleton<NotificationService>();
         // El servicio comparte la lógica de publicación entre peticiones y el worker; el worker separado procesa los jobs sin bloquear las peticiones HTTP.
         builder.Services.AddSingleton<AutomationService>();
-        builder.Services.AddScoped<PatientDocumentService>(); builder.Services.AddScoped<PrivacyOperationsService>();
+        builder.Services.AddScoped<PatientDocumentService>(); builder.Services.AddScoped<PrivacyOperationsService>(); builder.Services.AddScoped<LegalGovernanceService>();
         builder.Services.AddDataProtection();
         builder.Services.AddHttpClient();
         builder.Services.AddSingleton<GoogleCalendarService>();
