@@ -4,7 +4,8 @@ import { Observable } from 'rxjs';
 
 export interface DashboardAppointment { id:number; clientId:number; clientName:string; startsAt:string; endsAt:string; status:string; }
 export interface DashboardPendingClient { clientId:number; clientName:string; pendingCount:number; }
-export interface ProfessionalDashboard { openTaskCount:number; overdueTaskCount:number; unreadMessageCount:number; pendingDocumentCount:number; todayAppointments:DashboardAppointment[]; pendingDocuments:DashboardPendingClient[]; }
+export interface DashboardPendingDataClient { clientId:number; clientName:string; missingFields:string; }
+export interface ProfessionalDashboard { openTaskCount:number; overdueTaskCount:number; unreadMessageCount:number; pendingDocumentCount:number; pendingPatientDataCount:number; todayAppointments:DashboardAppointment[]; pendingDocuments:DashboardPendingClient[]; pendingPatientData:DashboardPendingDataClient[]; }
 
 @Injectable({providedIn:'root'})
 export class ProfessionalDashboardService {

@@ -6,6 +6,7 @@
     <button mat-card class="metric" (click)="openAppointments()"><mat-icon>event</mat-icon><strong>{{data.todayAppointments.length}}</strong><span>Citas hoy</span></button>
     <button mat-card class="metric" (click)="openMessages()"><mat-icon>mail</mat-icon><strong>{{data.unreadMessageCount}}</strong><span>Mensajes sin leer</span></button>
     <button mat-card class="metric" (click)="openClient(data.pendingDocuments[0].clientId)" [disabled]="!data.pendingDocumentCount"><mat-icon>description</mat-icon><strong>{{data.pendingDocumentCount}}</strong><span>Documentos pendientes</span></button>
+    <button mat-card class="metric" (click)="openClient(data.pendingPatientData[0].clientId)" [disabled]="!data.pendingPatientDataCount"><mat-icon>person_search</mat-icon><strong>{{data.pendingPatientDataCount}}</strong><span>Pacientes con datos pendientes</span></button>
     <button mat-card class="metric" (click)="openTasks()"><mat-icon>task_alt</mat-icon><strong>{{data.openTaskCount}}</strong><span>Tareas abiertas</span><small *ngIf="data.overdueTaskCount">{{data.overdueTaskCount}} vencidas</small></button>
   </section>
   <section class="grid">
@@ -16,6 +17,13 @@
         <button mat-button (click)="openClient(a.clientId)">Paciente</button>
       </div>
       <p class="empty" *ngIf="!data.todayAppointments.length">No tienes citas pendientes para hoy.</p>
+    </mat-card-content></mat-card>
+    <mat-card><mat-card-header><mat-card-title>Pacientes con datos pendientes</mat-card-title></mat-card-header><mat-card-content>
+      <div class="row" *ngFor="let p of data.pendingPatientData">
+        <div><strong>{{p.clientName}}</strong><span>Falta: {{p.missingFields}}</span></div>
+        <button mat-button (click)="openClient(p.clientId)">Abrir ficha</button>
+      </div>
+      <p class="empty" *ngIf="!data.pendingPatientData.length">No hay pacientes con datos de onboarding pendientes.</p>
     </mat-card-content></mat-card>
     <mat-card><mat-card-header><mat-card-title>Pacientes con documentación pendiente</mat-card-title></mat-card-header><mat-card-content>
       <div class="row" *ngFor="let p of data.pendingDocuments">

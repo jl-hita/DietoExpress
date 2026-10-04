@@ -75,6 +75,27 @@ public sealed class ProfessionalDashboardController : ControllerBase
         }
 
         await using (var command = new NpgsqlCommand("""
+            SELECT COUNT(*)::int
+            FROM clients cl
+            WHERE cl.tenant_id=@tenant AND cl.archived_at IS NULL
+              AND EXISTS (SELECT 1 FROM client_nutritionist_assignments a
+                          WHERE a.client_id=cl.id AND a.nutritionist_id=@user AND a.is_active)
+              AND (cl.birth_date IS NULL
+                   OR NULLIF(BTRIM(cl.gender), '') IS NULL
+                   OR cl.onboarding_consent_at IS NULL
+                   OR NOT EXISTS (
+                       SELECT 1 FROM biometrics b
+                       WHERE b.client_id=cl.id
+                         AND b.weight IS NOT NULL
+                         AND b.height IS NOT NULL));
+            """, connection))
+        {
+            command.Parameters.AddWithValue("tenant", tenantId.Value);
+            command.Parameters.AddWithValue("user", userId.Value);
+            result.PendingPatientDataCount = Convert.ToInt32(await command.ExecuteScalarAsync());
+        }
+
+        await using (var command = new NpgsqlCommand("""
             SELECT pa.id, pa.client_id, COALESCE(cl.full_name,'Paciente'), pa.starts_at, pa.ends_at, pa.status
             FROM patient_appointments pa
             JOIN clients cl ON cl.id=pa.client_id
@@ -102,6 +123,46 @@ public sealed class ProfessionalDashboardController : ControllerBase
                     StartsAt = reader.GetDateTime(3), EndsAt = reader.GetDateTime(4), Status = reader.GetString(5)
                 });
             }
+        }
+
+        await using (var command = new NpgsqlCommand("""
+            SELECT cl.id, COALESCE(cl.full_name,'Paciente'),
+                   CONCAT_WS(', ',
+                       CASE WHEN cl.birth_date IS NULL THEN 'fecha de nacimiento' END,
+                       CASE WHEN NULLIF(BTRIM(cl.gender), '') IS NULL THEN 'sexo/género' END,
+                       CASE WHEN cl.onboarding_consent_at IS NULL THEN 'consentimiento de onboarding' END,
+                       CASE WHEN NOT EXISTS (
+                           SELECT 1 FROM biometrics b
+                           WHERE b.client_id=cl.id
+                             AND b.weight IS NOT NULL
+                             AND b.height IS NOT NULL
+                       ) THEN 'peso y altura' END) AS missing_fields
+            FROM clients cl
+            WHERE cl.tenant_id=@tenant AND cl.archived_at IS NULL
+              AND EXISTS (SELECT 1 FROM client_nutritionist_assignments a
+                          WHERE a.client_id=cl.id AND a.nutritionist_id=@user AND a.is_active)
+              AND (cl.birth_date IS NULL
+                   OR NULLIF(BTRIM(cl.gender), '') IS NULL
+                   OR cl.onboarding_consent_at IS NULL
+                   OR NOT EXISTS (
+                       SELECT 1 FROM biometrics b
+                       WHERE b.client_id=cl.id
+                         AND b.weight IS NOT NULL
+                         AND b.height IS NOT NULL))
+            ORDER BY cl.created_at DESC, cl.id DESC
+            LIMIT 10;
+            """, connection))
+        {
+            command.Parameters.AddWithValue("tenant", tenantId.Value);
+            command.Parameters.AddWithValue("user", userId.Value);
+            await using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+                result.PendingPatientData.Add(new DashboardPendingDataClientDto
+                {
+                    ClientId = reader.GetInt32(0),
+                    ClientName = reader.GetString(1),
+                    MissingFields = reader.IsDBNull(2) ? "" : reader.GetString(2)
+                });
         }
 
         await using (var command = new NpgsqlCommand("""
@@ -137,8 +198,17 @@ public sealed class ProfessionalDashboardDto
     public int OverdueTaskCount { get; set; }
     public int UnreadMessageCount { get; set; }
     public int PendingDocumentCount { get; set; }
+    public int PendingPatientDataCount { get; set; }
     public List<DashboardAppointmentDto> TodayAppointments { get; set; } = [];
     public List<DashboardPendingClientDto> PendingDocuments { get; set; } = [];
+    public List<DashboardPendingDataClientDto> PendingPatientData { get; set; } = [];
+}
+
+public sealed class DashboardPendingDataClientDto
+{
+    public int ClientId { get; set; }
+    public string ClientName { get; set; } = "";
+    public string MissingFields { get; set; } = "";
 }
 
 public sealed class DashboardAppointmentDto
