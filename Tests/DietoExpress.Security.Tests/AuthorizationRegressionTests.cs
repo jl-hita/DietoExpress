@@ -21,6 +21,19 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void ProfessionalTasks_NutritionistsAreScopedToAssignedTasksWhileClinicAdminsKeepTenantScope()
+    {
+        var source = ReadServerController("ProfessionalTasksController.cs");
+
+        Assert.Contains("var isClinicAdmin = User.IsInRole(\\"clinic_admin\\");", source);
+        Assert.Contains("var assignmentFilter = isClinicAdmin ? \\\"\\\" : \\\" AND assigned_user_id=@user\\\";", source);
+        Assert.Contains("FROM professional_tasks WHERE tenant_id=@tenant{assignmentFilter}", source);
+        Assert.Contains("FROM professional_tasks WHERE tenant_id=@tenant AND status=@status{assignmentFilter}", source);
+        Assert.Contains("if (!isClinicAdmin) command.Parameters.AddWithValue(\\"user\\", _tenantContext.UserId!.Value);", source);
+        Assert.Contains("WHERE id=@id AND tenant_id=@tenant{assignmentFilter};", source);
+    }
+
+    [Fact]
     public void PatientIdentity_IsExplicitlyExcludedFromProfessionalPolicy()
     {
         var program = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Program.cs"));
