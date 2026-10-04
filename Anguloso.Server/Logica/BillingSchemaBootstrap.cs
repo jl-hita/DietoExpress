@@ -12,6 +12,8 @@ public static class BillingSchemaBootstrap
             ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS stripe_product_id VARCHAR(255);
             ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS stripe_monthly_price_id VARCHAR(255);
             ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS stripe_yearly_price_id VARCHAR(255);
+            ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS stripe_additional_monthly_price_id VARCHAR(255);
+            ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS stripe_additional_yearly_price_id VARCHAR(255);
 
             ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS contracted_nutritionists INTEGER;
             ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS billing_interval VARCHAR(20);
