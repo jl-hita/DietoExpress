@@ -6,11 +6,12 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTabsModule } from '@angular/material/tabs';
 import { LegalSettingsComponent } from '../legal-settings/legal-settings.component';
 import { LegalDocumentGeneratorService, LegalGeneratedDocument } from '../../servicios/legal-document-generator.service';
+import { LegalGovernanceComponent } from './legal-governance.component';
 
 @Component({
   selector: 'app-legal-dashboard',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatCardModule, MatIconModule, MatTabsModule, LegalSettingsComponent],
+  imports: [CommonModule, MatButtonModule, MatCardModule, MatIconModule, MatTabsModule, LegalSettingsComponent, LegalGovernanceComponent],
   template: `
     <main class="page">
       <header>
@@ -65,7 +66,8 @@ import { LegalDocumentGeneratorService, LegalGeneratedDocument } from '../../ser
           </section>
         </mat-tab>
 
-        <mat-tab label="RAT y riesgos">
+        <mat-tab label="RAT y riesgos"><app-legal-governance></app-legal-governance>
+          <!--
           <section class="placeholder-section">
             <mat-card><mat-card-header><mat-icon mat-card-avatar>account_tree</mat-icon><mat-card-title>Registro de Actividades de Tratamiento</mat-card-title></mat-card-header>
               <mat-card-content>La estructura de documentación RAT ya está contemplada en el gate. En este siguiente nivel se incorporará su edición estructurada por actividad.</mat-card-content>
@@ -73,7 +75,7 @@ import { LegalDocumentGeneratorService, LegalGeneratedDocument } from '../../ser
             <mat-card><mat-card-header><mat-icon mat-card-avatar>security</mat-icon><mat-card-title>Riesgos y EIPD</mat-card-title></mat-card-header>
               <mat-card-content>La evaluación de riesgos y la decisión sobre EIPD deben reflejar la situación real y no se completan automáticamente con valores genéricos.</mat-card-content>
             </mat-card>
-          </section>
+          </section> -->
         </mat-tab>
 
         <mat-tab label="Evidencias">
