@@ -1,0 +1,56 @@
+<main class="directory-page">
+  <header class="directory-header">
+    <a routerLink="/" class="brand">DietoExpress</a>
+    <h1 *ngIf="!profile">Directorio de nutricionistas</h1>
+    <h1 *ngIf="profile">Perfil profesional</h1>
+  </header>
+
+  <section *ngIf="!profile" class="search-panel">
+    <div class="field">
+      <label for="city">Ciudad</label>
+      <input id="city" type="text" [(ngModel)]="city" placeholder="Valencia, Alicante..." />
+    </div>
+
+    <div class="field">
+      <label for="speciality">Especialidad</label>
+      <input id="speciality" type="text" [(ngModel)]="speciality" placeholder="Nutrición deportiva..." />
+    </div>
+
+    <label class="online-filter">
+      <input type="checkbox" [(ngModel)]="online" />
+      Consulta online
+    </label>
+
+    <button mat-flat-button type="button" (click)="search()">Buscar</button>
+  </section>
+
+  <p *ngIf="loading" class="status">Cargando...</p>
+  <p *ngIf="error" class="status error">{{ error }}</p>
+
+  <section *ngIf="!profile && !loading && !error" class="results">
+    <article *ngFor="let item of profiles" class="profile-card">
+      <img *ngIf="item.clinicLogo" [src]="item.clinicLogo" [alt]="item.fullName" />
+      <div class="profile-content">
+        <h2>{{ item.fullName }}</h2>
+        <p *ngIf="item.clinicName">{{ item.clinicName }}</p>
+        <p *ngIf="item.city">{{ item.city }}</p>
+        <span *ngIf="item.onlineConsultations" class="badge">Consulta online</span>
+        <p *ngIf="item.specialties">{{ item.specialties }}</p>
+        <a mat-button [routerLink]="['/nutricionistas', item.slug]">Ver perfil</a>
+      </div>
+    </article>
+  </section>
+
+  <section *ngIf="profile" class="public-profile">
+    <a routerLink="/nutricionistas" class="back">← Volver al directorio</a>
+    <img *ngIf="profile.clinicLogo" [src]="profile.clinicLogo" [alt]="profile.fullName" />
+    <h2>{{ profile.fullName }}</h2>
+    <p *ngIf="profile.clinicName">{{ profile.clinicName }}</p>
+    <p *ngIf="profile.city">{{ profile.city }}</p>
+    <span *ngIf="profile.onlineConsultations" class="badge">Consulta online</span>
+    <p *ngIf="profile.specialties"><strong>Especialidades:</strong> {{ profile.specialties }}</p>
+    <p *ngIf="profile.publicBio">{{ profile.publicBio }}</p>
+
+    <button mat-stroked-button type="button" disabled>Reservar cita — próxima fase</button>
+  </section>
+</main>
