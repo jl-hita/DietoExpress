@@ -1576,7 +1576,33 @@ public class AuthorizationRegressionTests
         Assert.Contains("status = \"requested\"", controller);
         Assert.Contains("CanCreateClientAsync", controller);
         Assert.Contains("CanAssignClientAsync", controller);
-        Assert.DoesNotContain("tenantId", controller.Substring(controller.IndexOf("RequestPublicAppointment", StringComparison.Ordinal), 600));
+
+        // La seguridad aquí no depende de que un texto concreto no aparezca en comentarios.
+        // Comprobamos la frontera real del endpoint: el DTO público no acepta contexto de tenant
+        // ni de profesional y el método los resuelve exclusivamente a partir del slug publicado.
+        var methodStart = controller.IndexOf("public async Task<ActionResult<PublicAppointmentConfirmationDto>> RequestPublicAppointment", StringComparison.Ordinal);
+        var methodEnd = controller.IndexOf("\n    [AllowAnonymous]", methodStart, StringComparison.Ordinal);
+        Assert.True(methodStart >= 0 && methodEnd > methodStart);
+        var method = controller[methodStart..methodEnd];
+
+        Assert.Contains(
+            "RequestPublicAppointment(\n        string slug,\n        [FromBody] PublicAppointmentRequestDto request)",
+            method);
+        Assert.Contains("u.directory_slug == normalized", method);
+        Assert.Contains("Select(u => new { u.id, u.tenant_id, u.full_name })", method);
+        Assert.DoesNotContain("request.TenantId", method);
+        Assert.DoesNotContain("request.NutritionistId", method);
+        Assert.DoesNotContain("[FromQuery] int tenantId", method);
+        Assert.DoesNotContain("[FromQuery] int nutritionistId", method);
+
+        var dto = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Model", "AppointmentDto.cs"));
+        var dtoStart = dto.IndexOf("public class PublicAppointmentRequestDto", StringComparison.Ordinal);
+        var dtoEnd = dto.IndexOf("\n}\n", dtoStart, StringComparison.Ordinal) + 2;
+        Assert.True(dtoStart >= 0 && dtoEnd > dtoStart);
+        var publicRequestDto = dto[dtoStart..dtoEnd];
+
+        Assert.DoesNotContain("TenantId", publicRequestDto);
+        Assert.DoesNotContain("NutritionistId", publicRequestDto);
     }
 
 }
