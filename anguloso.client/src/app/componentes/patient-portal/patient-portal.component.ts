@@ -127,10 +127,10 @@ export class PatientPortalComponent implements OnInit {
   }
 
   requestNewAccessLink(email?: string): void {
-    const email = this.accessLinkEmail.trim().toLowerCase();
+    const emailToUse = (email ?? this.accessLinkEmail).trim().toLowerCase();
     this.accessLinkMessage = null;
     this.accessLinkError = null;
-    if (!email || !email.includes('@')) {
+    if (!emailToUse || !emailToUse.includes('@')) {
       this.accessLinkError = 'Introduce el email con el que estás registrado.';
       return;
     }
