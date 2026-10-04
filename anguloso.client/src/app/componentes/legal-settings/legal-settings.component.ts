@@ -68,7 +68,12 @@ import { LegalConfigurationService } from '../../servicios/legal-configuration.s
           <mat-form-field appearance="outline" class="full"><mat-label>Conservación de datos del paciente</mat-label><textarea matInput rows="2" formControlName="patient_retention_summary"></textarea></mat-form-field>
           <mat-form-field appearance="outline" class="full"><mat-label>URL de política de privacidad</mat-label><input matInput formControlName="privacy_policy_url"></mat-form-field>
           <mat-form-field appearance="outline" class="full"><mat-label>Descripción del servicio / consulta</mat-label><textarea matInput rows="2" formControlName="consultation_description"></textarea></mat-form-field>
+          <mat-form-field appearance="outline" class="full"><mat-label>Finalidades adicionales del tratamiento</mat-label><textarea matInput rows="2" formControlName="patient_additional_purposes"></textarea></mat-form-field>
+          <mat-form-field appearance="outline" class="full"><mat-label>Categorías especiales u otros datos adicionales</mat-label><textarea matInput rows="2" formControlName="patient_special_categories_summary"></textarea></mat-form-field>
+          <mat-form-field appearance="outline" class="full"><mat-label>Riesgos relevantes de la consulta, cuando proceda</mat-label><textarea matInput rows="2" formControlName="consultation_risks"></textarea></mat-form-field>
           <mat-form-field appearance="outline" class="full"><mat-label>Límites, alternativas e información relevante</mat-label><textarea matInput rows="2" formControlName="consultation_limits"></textarea></mat-form-field>
+          <mat-form-field appearance="outline" class="full"><mat-label>Duración del encargo de tratamiento</mat-label><input matInput formControlName="dpa_duration"></mat-form-field>
+          <mat-form-field appearance="outline" class="full"><mat-label>Devolución / supresión al finalizar el servicio</mat-label><textarea matInput rows="2" formControlName="dpa_end_of_service_summary"></textarea></mat-form-field>
         </mat-card-content>
       </mat-card>
 
@@ -125,7 +130,7 @@ export class LegalSettingsComponent implements OnInit {
       patient_recipients_summary: [''], patient_retention_summary: [''], privacy_policy_url: [''],
       consultation_description: [''], consultation_limits: [''], service_prices_summary: [''],
       booking_payment_summary: [''], appointment_cancellation_summary: [''], refund_summary: [''],
-      no_show_summary: ['']
+      no_show_summary: [''], dpa_duration: [''], dpa_end_of_service_summary: [''], patient_additional_purposes: [''], patient_special_categories_summary: [''], consultation_risks: ['']
     });
   }
 
