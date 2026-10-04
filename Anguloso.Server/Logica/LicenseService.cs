@@ -10,6 +10,7 @@ public interface ILicenseService
     Task<(bool Allowed, string? Reason)> CanAssignClientAsync(int? tenantId, int nutritionistId, int clientId);
     Task<(bool Allowed, string? Reason)> CanCreateDietAsync(int? tenantId, int userId);
     Task<(bool Allowed, string? Reason)> CanCreateNutritionistAsync(int? tenantId, bool allowReactivation = false);
+    Task<(bool Allowed, string? Reason)> CanReduceNutritionistCapacityAsync(int tenantId, int targetCapacity);
 
 }
 public sealed class LicenseInfo
@@ -161,6 +162,28 @@ public class LicenseService : ILicenseService
         var replacementAvailableAt = await GetNutritionistReplacementAvailableAtAsync(tenantIdValue);
         if (!allowReactivation && replacementAvailableAt.HasValue && replacementAvailableAt.Value > DateTime.UtcNow)
             return (false, $"Una plaza liberada recientemente está en periodo de sustitución hasta {replacementAvailableAt.Value:dd/MM/yyyy HH:mm} UTC.");
+
+        return (true, null);
+    }
+
+    public async Task<(bool Allowed, string? Reason)> CanReduceNutritionistCapacityAsync(int tenantId, int targetCapacity)
+    {
+        if (targetCapacity < 1)
+            return (false, "La capacidad debe ser al menos de 1 nutricionista.");
+
+        var license = await GetLicenseAsync(tenantId);
+        if (license == null || license.Status != "active")
+            return (false, "La licencia no está activa.");
+
+        if (!string.Equals(license.PlanCode, "clinic_full", StringComparison.OrdinalIgnoreCase))
+            return (false, "La gestión de puestos adicionales solo está disponible para clínicas.");
+
+        var included = license.IncludedNutritionists ?? license.MaxNutritionists ?? 0;
+        if (targetCapacity < included)
+            return (false, $"La suscripción Clínica incluye {included} puestos; no puedes contratar menos.");
+
+        if (targetCapacity < license.Nutritionists)
+            return (false, $"No puedes reducir a {targetCapacity} puestos mientras haya {license.Nutritionists} nutricionistas activos.");
 
         return (true, null);
     }
