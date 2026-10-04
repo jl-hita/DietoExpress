@@ -5,7 +5,13 @@ export interface Profile {
   clinicName?: string;
   clinicAddress?: string;
   clinicPhone?: string;
-  clinicLogo?: string; // base64 string
+  clinicLogo?: string;
+  directoryEnabled?: boolean;
+  onlineConsultations?: boolean;
+  directoryCity?: string;
+  directoryBio?: string;
+  directorySpecialties?: string;
+  directorySlug?: string;
 }
 
 export interface UpdateProfile {
@@ -13,5 +19,10 @@ export interface UpdateProfile {
   clinicName?: string;
   clinicAddress?: string;
   clinicPhone?: string;
-  clinicLogo?: string; // base64 string
+  clinicLogo?: string;
+  directoryEnabled?: boolean;
+  onlineConsultations?: boolean;
+  directoryCity?: string;
+  directoryBio?: string;
+  directorySpecialties?: string;
 }
