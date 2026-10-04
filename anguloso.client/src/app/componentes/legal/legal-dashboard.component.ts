@@ -95,7 +95,7 @@ import { LegalEvidenceService } from '../../servicios/legal-evidence.service';
 })
 export class LegalDashboardComponent implements OnInit {
   documents: LegalGeneratedDocument[] = [];
-  ratCount=0; openRisks=0; openRequests=0; openIncidents=0;
+  ratCount=0; openRisks=0; openRequests=0; openIncidents=0; eipdDecision='pending';
   pendingDocs: LegalGeneratedDocument[] = [];
   pending = 0;
   templates: {key:string; file:string}[] = [];
@@ -108,6 +108,7 @@ export class LegalDashboardComponent implements OnInit {
     this.generator.getTemplates().subscribe({next: templates => this.templates=templates});
     this.governance.listRat().subscribe({next:x=>this.ratCount=x.filter(a=>a.status!=='archived').length});
     this.governance.listRisks().subscribe({next:x=>this.openRisks=x.filter(a=>a.status==='open').length});
+    this.governance.listEipd().subscribe({next:x=>this.eipdDecision=x.length ? x[0].decision : 'pending'});
     this.evidence.requests().subscribe({next:x=>this.openRequests=x.filter(a=>!['resolved','rejected','cancelled'].includes(a.status)).length});
     this.evidence.incidents().subscribe({next:x=>this.openIncidents=x.filter(a=>!['closed','false_positive'].includes(a.status)).length});
   }
