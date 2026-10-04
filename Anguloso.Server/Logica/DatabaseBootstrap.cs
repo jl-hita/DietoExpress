@@ -1910,4 +1910,27 @@ public static class DatabaseBootstrap
     }
 
 
+
+    /// <summary>Campos y restricciones del perfil público del directorio de profesionales.</summary>
+    public static void UpgradeDirectorySchemaV1(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS directory_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS online_consultations BOOLEAN NOT NULL DEFAULT FALSE;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS directory_city VARCHAR(120);
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS directory_bio VARCHAR(2000);
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS directory_specialties VARCHAR(500);
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS directory_slug VARCHAR(120);
+
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_users_directory_slug
+                ON users(directory_slug)
+                WHERE directory_slug IS NOT NULL;
+
+            CREATE INDEX IF NOT EXISTS idx_users_directory_search
+                ON users(directory_enabled, directory_city);
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('directory-v1') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración de directorio directory-v1 aplicada/comprobada correctamente.");
+    }
+
 }
