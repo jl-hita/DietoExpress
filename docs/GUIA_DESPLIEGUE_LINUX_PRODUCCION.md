@@ -973,7 +973,7 @@ Toda migración no reversible debe tener un procedimiento de rollback antes de e
 12. Crear /var/www/dietoexpress.
 13. Crear /var/lib/dietoexpress/Logs.
 14. Crear /var/lib/dietoexpress/AlertSpool.
-15. Restaurar dietoeexpress.env desde backup seguro.
+15. Restaurar dietoexpress.env desde backup seguro.
 16. Instalar Nginx.
 17. Configurar DNS.
 18. Emitir certificado.
