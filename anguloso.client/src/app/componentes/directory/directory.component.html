@@ -58,19 +58,61 @@
       <p *ngIf="!availabilityLoading && !availabilityError && !availability.length" class="status">
         En este momento no hay horarios publicados.
       </p>
+      <!-- La selección no reserva el hueco todavía; solo abre el formulario. -->
       <div *ngIf="availability.length" class="slot-list">
         <button
           *ngFor="let slot of availability"
           type="button"
           class="slot"
-          disabled
-          [attr.aria-label]="'Reservar ' + formatSlot(slot)">
+          [class.selected]="selectedSlot?.startsAt === slot.startsAt"
+          (click)="selectSlot(slot)"
+          [attr.aria-label]="'Seleccionar ' + formatSlot(slot)">
           {{ formatSlot(slot) }}
         </button>
       </div>
-      <p class="booking-note">
-        La reserva online se habilitará en la siguiente fase. El pago online no será necesario para reservar.
-      </p>
+
+      <p *ngIf="bookingSuccess" class="booking-success" role="status">{{ bookingSuccess }}</p>
+
+      <form *ngIf="selectedSlot" class="booking-form" (ngSubmit)="requestAppointment()">
+        <h3>Solicitar {{ formatSlot(selectedSlot) }}</h3>
+        <p class="booking-note">
+          La solicitud no requiere pago online. El profesional recibirá la petición y deberá confirmarla.
+        </p>
+
+        <div class="field">
+          <label for="booking-name">Nombre completo</label>
+          <input id="booking-name" name="bookingName" type="text" maxlength="200"
+                 [(ngModel)]="bookingFullName" required autocomplete="name" />
+        </div>
+
+        <div class="field">
+          <label for="booking-email">Email</label>
+          <input id="booking-email" name="bookingEmail" type="email" maxlength="254"
+                 [(ngModel)]="bookingEmail" required autocomplete="email" />
+        </div>
+
+        <div class="field">
+          <label for="booking-phone">Teléfono <span>(opcional)</span></label>
+          <input id="booking-phone" name="bookingPhone" type="tel" maxlength="50"
+                 [(ngModel)]="bookingPhone" autocomplete="tel" />
+        </div>
+
+        <div class="field">
+          <label for="booking-notes">Comentario <span>(opcional)</span></label>
+          <textarea id="booking-notes" name="bookingNotes" maxlength="500"
+                    [(ngModel)]="bookingNotes"
+                    placeholder="No incluyas aquí información médica o especialmente sensible."></textarea>
+        </div>
+
+        <p *ngIf="bookingError" class="status error" role="alert">{{ bookingError }}</p>
+
+        <div class="booking-actions">
+          <button mat-button type="button" (click)="clearSelectedSlot()" [disabled]="bookingSubmitting">Cancelar</button>
+          <button mat-flat-button type="submit" [disabled]="bookingSubmitting">
+            {{ bookingSubmitting ? 'Enviando...' : 'Solicitar cita' }}
+          </button>
+        </div>
+      </form>
     </section>
   </section>
 </main>
