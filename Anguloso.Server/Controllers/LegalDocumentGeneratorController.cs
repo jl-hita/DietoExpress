@@ -26,6 +26,28 @@ public sealed class LegalDocumentGeneratorController : ControllerBase
         ["11-analisis-riesgos-eipd"]="Análisis de riesgos y decisión EIPD"
     };
 
+    [HttpPost("{templateKey}")]
+    public async Task<IActionResult> Generate(string templateKey, CancellationToken ct)
+    {
+        var scope=GetScope(); if(scope==null)return Unauthorized();
+        if(!Titles.ContainsKey(templateKey))return NotFound("Plantilla legal no encontrada.");
+        var path=Path.Combine(AppContext.BaseDirectory,"LegalTemplates",templateKey+".md");
+        if(!System.IO.File.Exists(path))return Problem("La plantilla legal no está disponible en el despliegue.");
+        var template=await System.IO.File.ReadAllTextAsync(path,ct);
+        var values=await ReadConfiguration(scope.Value.type,scope.Value.id,ct);
+        var rendered=Regex.Replace(template,@"\{\{([a-zA-Z0-9_.-]+)\}\}",m=>values.TryGetValue(m.Groups[1].Value,out var value)?value:m.Value);
+        var pending=Regex.Matches(rendered,@"\{\{([a-zA-Z0-9_.-]+)\}\}").Select(m=>m.Groups[1].Value).Distinct().ToArray();
+        var hash=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rendered))).ToLowerInvariant();
+        await using var c=new NpgsqlConnection(ConnectionString);await c.OpenAsync(ct);
+        await using var v=new NpgsqlCommand("""SELECT COALESCE(MAX(version),0)+1 FROM legal_generated_documents WHERE scope_type=@s AND scope_id=@i AND template_key=@k;""",c);
+        v.Parameters.AddWithValue("s",scope.Value.type);v.Parameters.AddWithValue("i",scope.Value.id);v.Parameters.AddWithValue("k",templateKey);
+        var version=Convert.ToInt32(await v.ExecuteScalarAsync(ct));
+        await using var q=new NpgsqlCommand("""INSERT INTO legal_generated_documents(scope_type,scope_id,template_key,version,title,content,status,sha256) VALUES(@s,@i,@k,@v,@t,@c,'draft',@h) RETURNING id;""",c);
+        q.Parameters.AddWithValue("s",scope.Value.type);q.Parameters.AddWithValue("i",scope.Value.id);q.Parameters.AddWithValue("k",templateKey);q.Parameters.AddWithValue("v",version);q.Parameters.AddWithValue("t",Titles[templateKey]);q.Parameters.AddWithValue("c",rendered);q.Parameters.AddWithValue("h",hash);
+        var id=Convert.ToInt64(await q.ExecuteScalarAsync(ct));
+        return Ok(new{id,templateKey,version,title=Titles[templateKey],content=rendered,status="draft",sha256=hash,generatedAt=DateTime.UtcNow,unresolved=pending});
+    }
+
     [HttpGet("templates")]
     public IActionResult Templates() => Ok(Titles.Select(x => new { key=x.Key, title=x.Value }));
 
