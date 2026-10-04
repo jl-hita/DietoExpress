@@ -26,7 +26,7 @@ public sealed class LegalGovernanceService
             MapRat,ct);
     public async Task<long> CreateRatAsync(SaveLegalRatActivity r,CancellationToken ct)
     {
-        ValidateRat(r); var id = await ExecuteScalarAsync<long>(@"INSERT INTO legal_rat_activities(scope_type,scope_id,name,purpose,role,legal_basis,subject_categories,data_categories,special_categories,recipients,international_transfers,retention,security_measures,notes,status) VALUES(@scope,@id,@name,@purpose,@role,@basis,@subjects,@data,@special,@recipients,@transfers,@retention,@security,@notes,@status) RETURNING id",r,ct);
+        ValidateRat(r); var id = await ExecuteScalarAsync(@"INSERT INTO legal_rat_activities(scope_type,scope_id,name,purpose,role,legal_basis,subject_categories,data_categories,special_categories,recipients,international_transfers,retention,security_measures,notes,status) VALUES(@scope,@id,@name,@purpose,@role,@basis,@subjects,@data,@special,@recipients,@transfers,@retention,@security,@notes,@status) RETURNING id",r,ct);
         await _audit.LogAccessAsync("CREATE_LEGAL_RAT_ACTIVITY","legal_rat_activities",id.ToString(),null,$"RAT: {r.Name}");
         return id;
     }
@@ -72,7 +72,7 @@ public sealed class LegalGovernanceService
     private async Task<int> ExecuteNonQueryAsync(string sql,object? r,long row,CancellationToken ct){var(s,id)=Scope();var db=_db.Database.GetDbConnection();await using var c=db.CreateCommand();c.CommandText=sql;Add(c,"scope",s);Add(c,"id",id);Add(c,"row",row);if(r is not null)Bind(c,r);if(db.State!=ConnectionState.Open)await db.OpenAsync(ct);return await c.ExecuteNonQueryAsync(ct);}
     private static void Bind(IDbCommand c,object r){foreach(var p in r.GetType().GetProperties()){var n=p.Name switch{"RiskDescription"=>"description","LegalBasis"=>"basis","SubjectCategories"=>"subjects","DataCategories"=>"data","SpecialCategories"=>"special","InternationalTransfers"=>"transfers","SecurityMeasures"=>"security","ResidualRisk"=>"residual","AdditionalMeasures"=>"measures","DocumentReference"=>"reference","ReviewDate"=>"review","Likelihood"=>"likelihood","Impact"=>"impact","Name"=>"name","Purpose"=>"purpose","Role"=>"role","Recipients"=>"recipients","Retention"=>"retention","Notes"=>"notes","Status"=>"status","Decision"=>"decision","Justification"=>"justification","Owner"=>"owner",_=>p.Name};var q=c.CreateParameter();q.ParameterName="@"+n;q.Value=p.GetValue(r)??DBNull.Value;c.Parameters.Add(q);} }
     private static IDbCommand Add(IDbCommand c,string n,object? v){var p=c.CreateParameter();p.ParameterName="@"+n;p.Value=v??DBNull.Value;c.Parameters.Add(p);return c;}
-    private static LegalRatActivityDto MapRat(IDataRecord r)=>new(r.GetInt64(0),r.GetString(1),r.GetString(2),r.GetString(3),N(r,4),N(r,5),N(r,6),N(r,7),N(r,8),N(r,9),N(r,10),N(r,11),N(r,12),N(r,13),r.GetString(14));
+    private static LegalRatActivityDto MapRat(IDataRecord r)=>new(r.GetInt64(0),r.GetString(1),r.GetString(2),r.GetString(3),N(r,4),N(r,5),N(r,6),N(r,7),N(r,8),N(r,9),N(r,10),N(r,11),N(r,12),N(r,13),r.GetString(13));
     private static LegalRiskAssessmentDto MapRisk(IDataRecord r)=>new(r.GetInt64(0),r.GetString(1),r.GetString(2),r.GetInt32(3),r.GetInt32(4),N(r,5),N(r,6),N(r,7),r.IsDBNull(8)?null:r.GetDateTime(8),r.GetString(9));
     private static LegalEipdDecisionDto MapEipd(IDataRecord r)=>new(r.GetInt64(0),r.GetString(1),r.GetString(2),N(r,3),r.GetDateTime(4),r.IsDBNull(5)?null:r.GetDateTime(5),N(r,6));
     private static string? N(IDataRecord r,int i)=>r.IsDBNull(i)?null:r.GetString(i);
