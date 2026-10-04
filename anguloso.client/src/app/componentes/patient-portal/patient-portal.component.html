@@ -214,97 +214,7 @@
         </div>
       </section>
 
-      <!-- Revisión semanal persistente -->
-      <section class="weekly-checkin" *ngIf="profile">
-        <div class="weekly-checkin-header">
-          <div class="weekly-checkin-icon"><mat-icon>event_available</mat-icon></div>
-          <div>
-            <span class="eyebrow">Revisión semanal</span>
-            <h3>Cuéntanos cómo ha ido tu semana</h3>
-            <p>Esta información se guarda en tu seguimiento para que tu nutricionista pueda revisarla.</p>
-          </div>
-        </div>
-
-        <div class="portal-inline-loading" *ngIf="checkinLoading">
-          <mat-spinner diameter="24"></mat-spinner>
-          <span>Cargando tu revisión...</span>
-        </div>
-
-        <div class="portal-inline-error" *ngIf="!checkinLoading && checkinError">
-          <mat-icon>cloud_off</mat-icon>
-          <div>
-            <strong>No hemos podido cargar tu revisión</strong>
-            <span>{{ checkinError }}</span>
-          </div>
-          <button type="button" (click)="loadCurrentCheckin()" aria-label="Reintentar carga de la revisión">
-            <mat-icon>refresh</mat-icon>
-          </button>
-        </div>
-
-        <form class="checkin-form" *ngIf="!checkinLoading" (ngSubmit)="saveCurrentCheckin()">
-          <div class="checkin-grid">
-            <label class="checkin-field">
-              <span>Peso actual <small>(kg)</small></span>
-              <input type="number" name="checkinWeight" [(ngModel)]="checkinWeight" min="0.1" max="500" step="0.1" inputmode="decimal" placeholder="Ej. 82,5" />
-            </label>
-
-            <label class="checkin-field">
-              <span>Adherencia al plan <small>(%)</small></span>
-              <input type="number" name="checkinAdherence" [(ngModel)]="checkinAdherence" min="0" max="100" step="5" inputmode="numeric" placeholder="Ej. 80" />
-            </label>
-
-            <label class="checkin-field">
-              <span>Hambre esta semana <small>(0–10)</small></span>
-              <input type="number" name="checkinHunger" [(ngModel)]="checkinHunger" min="0" max="10" step="1" inputmode="numeric" placeholder="Ej. 4" />
-            </label>
-
-            <label class="checkin-field">
-              <span>Energía <small>(0–10)</small></span>
-              <input type="number" name="checkinEnergy" [(ngModel)]="checkinEnergy" min="0" max="10" step="1" inputmode="numeric" placeholder="Ej. 7" />
-            </label>
-
-            <label class="checkin-field">
-              <span>Calidad del sueño <small>(0–10)</small></span>
-              <input type="number" name="checkinSleepQuality" [(ngModel)]="checkinSleepQuality" min="0" max="10" step="1" inputmode="numeric" placeholder="Ej. 7" />
-            </label>
-
-            <label class="checkin-field">
-              <span>Horas de sueño <small>(h)</small></span>
-              <input type="number" name="checkinSleepHours" [(ngModel)]="checkinSleepHours" min="0" max="24" step="0.5" inputmode="decimal" placeholder="Ej. 7,5" />
-            </label>
-
-            <label class="checkin-field">
-              <span>Actividad / entrenamiento <small>(0–10)</small></span>
-              <input type="number" name="checkinTraining" [(ngModel)]="checkinTraining" min="0" max="10" step="1" inputmode="numeric" placeholder="Ej. 6" />
-            </label>
-          </div>
-
-          <label class="checkin-field checkin-field-full">
-            <span>Dificultades o incidencias</span>
-            <textarea name="checkinDifficulties" [(ngModel)]="checkinDifficulties" rows="2" maxlength="1000" placeholder="¿Ha habido algún problema para seguir el plan?"></textarea>
-          </label>
-
-          <label class="checkin-field checkin-field-full">
-            <span>Comentario para tu nutricionista <small>(opcional)</small></span>
-            <textarea name="checkinNotes" [(ngModel)]="checkinNotes" rows="2" maxlength="2000" placeholder="Cualquier cosa que quieras comentar..."></textarea>
-          </label>
-
-          <div class="checkin-footer">
-            <span class="checkin-saved" *ngIf="checkinSuccess">
-              <mat-icon>check_circle</mat-icon>
-              Revisión guardada
-            </span>
-            <span class="checkin-last" *ngIf="currentCheckin && !checkinSuccess">
-              Última actualización: {{ currentCheckin.submitted_at | date:'d MMM, HH:mm' }}
-            </span>
-            <button type="submit" class="checkin-save-btn" [disabled]="checkinSaving">
-              <mat-spinner *ngIf="checkinSaving" diameter="18"></mat-spinner>
-              <mat-icon *ngIf="!checkinSaving">save</mat-icon>
-              {{ checkinSaving ? 'Guardando...' : (currentCheckin ? 'Actualizar revisión' : 'Guardar revisión') }}
-            </button>
-          </div>
-        </form>
-      </section>
+      <app-patient-checkin [enabled]="!isPreview"></app-patient-checkin>
 
       <!-- Estados del plan de hoy -->
       <div class="portal-inline-error" *ngIf="dietDataError">
@@ -701,27 +611,7 @@
         </div>
       </div>
 
-      <section class="checkin-history" *ngIf="checkinHistory.length > 0">
-        <div class="checkin-history-header">
-          <div>
-            <h3>Revisiones anteriores</h3>
-            <span>{{ checkinHistory.length }} {{ checkinHistory.length === 1 ? 'revisión registrada' : 'revisiones registradas' }}</span>
-          </div>
-        </div>
-        <div class="checkin-history-list">
-          <article class="checkin-history-item" *ngFor="let checkin of checkinHistory | slice:0:6">
-            <div class="checkin-history-date">
-              <strong>{{ checkin.week_start | date:'d MMM' }}</strong>
-              <span>{{ checkin.submitted_at | date:'d MMM, HH:mm' }}</span>
-            </div>
-            <div class="checkin-history-metrics">
-              <span *ngIf="checkin.weight !== null && checkin.weight !== undefined"><strong>{{ checkin.weight }}</strong> kg</span>
-              <span *ngIf="checkin.adherence !== null && checkin.adherence !== undefined"><strong>{{ checkin.adherence }}</strong>% plan</span>
-              <span *ngIf="checkin.hunger !== null && checkin.hunger !== undefined"><strong>{{ checkin.hunger }}</strong>/10 hambre</span>
-            </div>
-          </article>
-        </div>
-      </section>
+      <app-patient-checkin-history [enabled]="!isPreview"></app-patient-checkin-history>
 
       <div class="progress-empty" *ngIf="!weightHistory.length || weightHistory.length < 2">
         <div class="progress-empty-icon"><mat-icon>show_chart</mat-icon></div>
