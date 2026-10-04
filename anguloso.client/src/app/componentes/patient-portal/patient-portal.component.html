@@ -273,7 +273,8 @@
       [hasActiveDiet]="profile.hasActiveDiet"
       [clientId]="clientId"
       (retry)="retryShoppingLoad()"
-      (backToToday)="setTab('today')">
+      (backToToday)="setTab('today')"
+      (countsChange)="onShoppingCountsChange($event)">
     </app-patient-shopping>
 
     <!-- ══════════════════════════════════════════ -->
