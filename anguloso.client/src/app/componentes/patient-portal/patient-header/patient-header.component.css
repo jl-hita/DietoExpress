@@ -6,7 +6,7 @@
 .clinic-texts { display:flex; flex-direction:column; }
 .clinic-name { font-size:13px; font-weight:700; color:#f8fafc; letter-spacing:-.01em; }
 .nutritionist-name { font-size:11px; color:#94a3b8; }
-.clinic-actions { display:flex; align-items:center; gap:8px; }
+.clinic-actions { position:relative; display:flex; align-items:center; gap:8px; }
 .clinic-call-btn,.portal-logout-btn { display:flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:8px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1); color:#cbd5e1; text-decoration:none; cursor:pointer; transition:all .2s; }
 .clinic-call-btn:hover { background:rgba(20,184,166,.2); color:#14b8a6; }
 .portal-logout-btn:hover { background:rgba(239,68,68,.2); color:#ef4444; }
