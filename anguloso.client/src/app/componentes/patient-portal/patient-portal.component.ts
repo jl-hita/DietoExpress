@@ -13,13 +13,14 @@ import { PatientCheckinComponent } from './patient-checkin/patient-checkin.compo
 import { PatientAppointmentsComponent } from './patient-appointments/patient-appointments.component';
 import { PatientNotificationsComponent } from './patient-notifications/patient-notifications.component';
 import { PatientProgressComponent } from './patient-progress/patient-progress.component';
+import { AccessLinkRecoveryComponent } from './access-link-recovery/access-link-recovery.component';
 
 type ActiveTab = 'today' | 'shopping' | 'appointments' | 'progress' | 'messages' | 'documents';
 
 @Component({
   selector: 'app-patient-portal',
   standalone: true,
-  imports: [CommonModule, FormsModule, DatePipe, DecimalPipe, MatIconModule, MatProgressSpinnerModule, SumPipe, PatientChatComponent, PatientCheckinComponent, PatientAppointmentsComponent, PatientNotificationsComponent, PatientProgressComponent],
+  imports: [CommonModule, FormsModule, DatePipe, DecimalPipe, MatIconModule, MatProgressSpinnerModule, SumPipe, PatientChatComponent, PatientCheckinComponent, PatientAppointmentsComponent, PatientNotificationsComponent, PatientProgressComponent, AccessLinkRecoveryComponent],
   templateUrl: './patient-portal.component.html',
   styleUrls: ['./patient-portal.component.css']
 })
@@ -125,7 +126,7 @@ export class PatientPortalComponent implements OnInit {
     });
   }
 
-  requestNewAccessLink(): void {
+  requestNewAccessLink(email?: string): void {
     const email = this.accessLinkEmail.trim().toLowerCase();
     this.accessLinkMessage = null;
     this.accessLinkError = null;
@@ -135,7 +136,7 @@ export class PatientPortalComponent implements OnInit {
     }
 
     this.requestingAccessLink = true;
-    this.portalService.requestAccessLink(email).subscribe({
+    this.portalService.requestAccessLink(emailToUse).subscribe({
       next: (response) => {
         this.requestingAccessLink = false;
         this.accessLinkMessage = response?.message || 'Si el email corresponde a un paciente, recibirás un nuevo enlace de acceso.';
