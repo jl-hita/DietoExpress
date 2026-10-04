@@ -43,10 +43,10 @@ public class ProfileController : ControllerBase
             ClinicLogo = user.clinic_logo,
             DirectoryEnabled = user.directory_enabled ?? false,
             OnlineConsultations = user.online_consultations ?? false,
-            DirectoryCity = user.directory_city,
-            DirectoryBio = user.directory_bio,
-            DirectorySpecialties = user.directory_specialties,
-            DirectorySlug = user.directory_slug
+            DirectoryCity = user.directory_city ?? string.Empty,
+            DirectoryBio = user.directory_bio ?? string.Empty,
+            DirectorySpecialties = user.directory_specialties ?? string.Empty,
+            DirectorySlug = user.directory_slug ?? string.Empty
         };
 
         return Ok(dto);
@@ -74,8 +74,8 @@ public class ProfileController : ControllerBase
         user.directory_bio = string.IsNullOrWhiteSpace(dto.DirectoryBio) ? null : dto.DirectoryBio.Trim();
         user.directory_specialties = string.IsNullOrWhiteSpace(dto.DirectorySpecialties) ? null : dto.DirectorySpecialties.Trim();
 
-        // El slug es estable mientras exista; al activarlo por primera vez se genera desde el nombre profesional.
-        if (string.IsNullOrWhiteSpace(user.directory_slug))
+        // El slug solo se necesita cuando el profesional publica su ficha; una vez creado permanece estable.
+        if (dto.DirectoryEnabled && string.IsNullOrWhiteSpace(user.directory_slug))
         {
             var baseSlug = BuildSlug(user.full_name, user.username);
             user.directory_slug = baseSlug;
@@ -90,9 +90,9 @@ public class ProfileController : ControllerBase
             Username = user.username, Email = user.email, FullName = user.full_name,
             ClinicName = user.clinic_name, ClinicAddress = user.clinic_address, ClinicPhone = user.clinic_phone,
             ClinicLogo = user.clinic_logo, DirectoryEnabled = user.directory_enabled ?? false,
-            OnlineConsultations = user.online_consultations ?? false, DirectoryCity = user.directory_city,
-            DirectoryBio = user.directory_bio, DirectorySpecialties = user.directory_specialties,
-            DirectorySlug = user.directory_slug
+            OnlineConsultations = user.online_consultations ?? false, DirectoryCity = user.directory_city ?? string.Empty,
+            DirectoryBio = user.directory_bio ?? string.Empty, DirectorySpecialties = user.directory_specialties ?? string.Empty,
+            DirectorySlug = user.directory_slug ?? string.Empty
         });
     }
     private static string BuildSlug(string? fullName, string username)
