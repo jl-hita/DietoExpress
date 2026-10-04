@@ -57,7 +57,7 @@ public class DirectoryController : ControllerBase
                 Slug = u.directory_slug ?? string.Empty,
                 FullName = u.full_name ?? string.Empty,
                 ClinicName = u.clinic_name ?? string.Empty,
-                ClinicAddress = u.clinic_address ?? string.Empty,
+                // La ficha pública no expone la dirección exacta de la consulta.
                 City = u.directory_city ?? string.Empty,
                 ClinicLogo = u.clinic_logo ?? string.Empty,
                 PublicBio = u.directory_bio ?? string.Empty,
