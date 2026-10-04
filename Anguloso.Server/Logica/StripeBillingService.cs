@@ -419,9 +419,9 @@ public sealed class StripeBillingService : IStripeBillingService
         if (status is "incomplete" or "past_due")
             throw new InvalidOperationException("Stripe no ha podido completar el cambio de puestos. Revisa el método de pago.");
 
-        subscription.contracted_nutritionists = targetSeats;
-        subscription.updated_at = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        // La capacidad local se confirma con customer.subscription.updated.
+        // Stripe puede dejar una modificación como pending_update si necesita completar
+        // el pago de la prorrata; no debemos reflejar el nuevo cupo antes de ese momento.
         await transaction.CommitAsync();
     }
 
