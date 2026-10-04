@@ -333,8 +333,10 @@ public sealed class StripeBillingService : IStripeBillingService
         if (targetAdditionalQuantity == 0)
         {
             if (!string.IsNullOrWhiteSpace(additionalItemId))
+            {
                 form["items[0][id]"] = additionalItemId;
                 form["items[0][deleted]"] = "true";
+            }
         }
         else if (!string.IsNullOrWhiteSpace(additionalItemId))
         {
