@@ -41,6 +41,7 @@ public sealed class AutomationService
             {
                 "patient.checkin.reviewed" => new AutomationRuleConfig(true, null, "patient", ["in_app"]),
                 "appointment.completed" => new AutomationRuleConfig(true, null, "both", ["in_app"]),
+                "appointment.requested" => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"]),
                 "appointment.reminder.24h" => new AutomationRuleConfig(true, null, "patient", ["in_app"]),
                 "appointment.reminder.2h" => new AutomationRuleConfig(true, null, "patient", ["in_app"]),
                 "onboarding.info.reminder" => new AutomationRuleConfig(true, null, "patient", ["in_app"]),
@@ -281,6 +282,7 @@ public sealed class AutomationService
             CreateTaskAction task when task.Source == "automation:patient.checkin.submitted" => "patient.checkin.submitted",
             CreateTaskAction task when task.Source == "automation:patient.checkin.reviewed" => "patient.checkin.reviewed",
             CreateTaskAction task when task.Source == "automation:appointment.completed" => "appointment.completed",
+            CreateTaskAction task when task.Source == "automation:appointment.requested" => "appointment.requested",
             CreateTaskAction task when task.Source == "automation:appointment.no_show" => "appointment.no_show",
             CreateTaskAction task when task.Source == "automation:onboarding.info" => "onboarding.info.escalation",
             CreateTaskAction task when task.Source == "automation:onboarding:first-appointment" => "onboarding.first_appointment.escalation",
@@ -570,6 +572,32 @@ public sealed class AutomationService
                             $"event:{evt.Id}:next-action-task",
                             cancellationToken: cancellationToken);
                     }
+                    break;
+                }
+            case "appointment.requested":
+                {
+                    if (!await IsRuleEnabledAsync(evt.TenantId, "appointment.requested", cancellationToken)) break;
+                    var payload = AutomationJson.Deserialize<AppointmentStatusPayload>(evt.Payload)
+                        ?? throw new InvalidOperationException("Payload inválido para appointment.requested.");
+
+                    // Una reserva pendiente debe generar una tarea inmediata para el profesional.
+                    // El paciente ya recibe la confirmación síncrona; los recordatorios posteriores
+                    // se activan al confirmar la cita.
+                    await ScheduleActionAsync(
+                        evt.TenantId,
+                        "create_professional_task",
+                        new CreateTaskAction(
+                            payload.ClientId,
+                            payload.NutritionistId,
+                            "Nueva solicitud de cita",
+                            "Hay una nueva solicitud de cita pendiente de revisar y confirmar.",
+                            DateTime.UtcNow,
+                            "high",
+                            "automation:appointment.requested"),
+                        DateTime.UtcNow,
+                        evt.Id,
+                        $"event:{evt.Id}:create-professional-task",
+                        cancellationToken: cancellationToken);
                     break;
                 }
             case "appointment.completed":
