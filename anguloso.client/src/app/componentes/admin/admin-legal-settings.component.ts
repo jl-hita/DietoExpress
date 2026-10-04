@@ -9,6 +9,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { LegalConfigurationService } from '../../servicios/legal-configuration.service';
+import { LegalDocumentGeneratorService, LegalGeneratedDocument } from '../../servicios/legal-document-generator.service';
 
 @Component({
   selector: 'app-admin-legal-settings',
@@ -62,18 +63,36 @@ import { LegalConfigurationService } from '../../servicios/legal-configuration.s
         </mat-card-content>
       </mat-card>
 
+      <section class="generator">
+        <h2>Generar borradores</h2>
+        <p>Genera una nueva versión de cada plantilla con los datos actuales. Siempre se guarda como <strong>borrador</strong>; no se publica automáticamente.</p>
+        <div class="template-grid">
+          <button mat-stroked-button *ngFor="let template of templates" (click)="generate(template.key)" [disabled]="generating">
+            <mat-icon>description</mat-icon>{{ template.key }}
+          </button>
+        </div>
+        <div *ngIf="lastGenerated" class="generated">
+          <strong>{{ lastGenerated.title }}</strong> · versión {{ lastGenerated.version }}
+          <span *ngIf="lastGenerated.unresolved?.length"> · Pendientes: {{ lastGenerated.unresolved.join(', ') }}</span>
+          <span *ngIf="!lastGenerated.unresolved?.length"> · Sin placeholders pendientes</span>
+        </div>
+      </section>
+
       <div class="actions"><button mat-raised-button color="primary" (click)="save()" [disabled]="saving"><mat-icon>save</mat-icon>{{ saving ? 'Guardando...' : 'Guardar configuración legal' }}</button></div>
     </main>
   `,
   styles: [`
-    .page{padding:24px;display:grid;gap:18px;max-width:1100px}.page h1{margin:0}.page header p{color:#64748b}.notice{display:flex;gap:10px;padding:14px;border-radius:10px;background:#fff7ed;color:#9a3412}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding-top:18px}.wide{grid-column:1/-1}.full{width:100%}.actions{display:flex;justify-content:flex-end}@media(max-width:700px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}}
+    .page{padding:24px;display:grid;gap:18px;max-width:1100px}.page h1{margin:0}.page header p{color:#64748b}.notice{display:flex;gap:10px;padding:14px;border-radius:10px;background:#fff7ed;color:#9a3412}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding-top:18px}.wide{grid-column:1/-1}.full{width:100%}.generator{padding:18px;border:1px solid #e2e8f0;border-radius:12px}.generator h2{margin:0 0 4px}.generator p{color:#64748b}.template-grid{display:flex;flex-wrap:wrap;gap:8px}.generated{margin-top:14px;padding:10px;border-radius:8px;background:#f8fafc}.actions{display:flex;justify-content:flex-end}@media(max-width:700px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}}
   `]
 })
 export class AdminLegalSettingsComponent implements OnInit {
   form: FormGroup;
   saving = false;
+  generating = false;
+  templates: { key: string; file: string }[] = [];
+  lastGenerated: LegalGeneratedDocument | null = null;
 
-  constructor(private fb: FormBuilder, private legal: LegalConfigurationService, private snack: MatSnackBar) {
+  constructor(private fb: FormBuilder, private legal: LegalConfigurationService, private generator: LegalDocumentGeneratorService, private snack: MatSnackBar) {
     this.form = this.fb.group({
       legal_name:[''], tax_id:[''], address:[''], contact_email:[''], contact_phone:[''], privacy_email:[''], dpo_email:[''], website:[''],
       registration_information:[''], providers_summary:[''], international_transfers_summary:[''], retention_policy_reference:[''],
@@ -83,9 +102,26 @@ export class AdminLegalSettingsComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.generator.getTemplates().subscribe({ next: templates => this.templates = templates, error: () => this.snack.open('No se pudieron cargar las plantillas.', 'Cerrar', {duration:4000}) });
     this.legal.getPlatform().subscribe({
       next: settings => { const values: Record<string,string> = {}; settings.forEach(s => values[s.key]=s.value ?? ''); this.form.patchValue(values); },
       error: () => this.snack.open('No se pudo cargar la configuración legal de DietoExpress.', 'Cerrar', {duration:4000})
+    });
+  }
+
+  generate(templateKey: string): void {
+    if (this.generating) return;
+    this.generating = true;
+    this.generator.generate(templateKey).subscribe({
+      next: document => {
+        this.generating = false;
+        this.lastGenerated = document;
+        this.snack.open('Borrador generado.', 'Cerrar', { duration: 3000 });
+      },
+      error: () => {
+        this.generating = false;
+        this.snack.open('No se pudo generar el borrador.', 'Cerrar', { duration: 4000 });
+      }
     });
   }
 
