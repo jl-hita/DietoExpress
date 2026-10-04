@@ -24,7 +24,7 @@ jobs:
 
       - name: Angular install
         working-directory: anguloso.client
-        run: npm ci
+        run: npm install
 
       - name: Angular dependency audit
         working-directory: anguloso.client
