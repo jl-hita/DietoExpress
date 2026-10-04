@@ -15,6 +15,28 @@ public class CreateAppointmentRequestDto
     public string? PatientNotes { get; set; }
 }
 
+public class PublicAppointmentConfirmationDto
+{
+    public DateTime StartsAt { get; set; }
+    public DateTime EndsAt { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public string NutritionistName { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Datos mínimos necesarios para solicitar una cita desde el directorio público.
+/// El tenant y el profesional se resuelven siempre a partir del slug publicado.
+/// </summary>
+public class PublicAppointmentRequestDto
+{
+    public DateTime StartsAt { get; set; }
+    public string FullName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string? Phone { get; set; }
+    public string? PatientNotes { get; set; }
+    public int DurationMinutes { get; set; } = 30;
+}
+
 public class AppointmentDto
 {
     public int Id { get; set; }

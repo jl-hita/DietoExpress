@@ -21,14 +21,16 @@ public class AppointmentsController : ControllerBase
     private readonly NotificationService _notifications;
     private readonly AutomationService _automationService;
     private readonly GoogleCalendarService _googleCalendar;
+    private readonly AppointmentConcurrencyService _appointmentConcurrency;
 
-    public AppointmentsController(angulosodbContext context, EmailServ emailServ, NotificationService notifications, AutomationService automationService, GoogleCalendarService googleCalendar)
+    public AppointmentsController(angulosodbContext context, EmailServ emailServ, NotificationService notifications, AutomationService automationService, GoogleCalendarService googleCalendar, AppointmentConcurrencyService appointmentConcurrency)
     {
         _context = context;
         _emailServ = emailServ;
         _notifications = notifications;
         _automationService = automationService;
         _googleCalendar = googleCalendar;
+        _appointmentConcurrency = appointmentConcurrency;
     }
 
     [Authorize(Roles = "patient")]
@@ -138,6 +140,11 @@ public class AppointmentsController : ControllerBase
         if (startsUtc <= DateTime.UtcNow.AddMinutes(5)) return BadRequest(new { message = "La cita debe ser futura." });
         var endsUtc = startsUtc.AddMinutes(request.DurationMinutes);
 
+        // El mismo lock se usa en reservas públicas y del portal: la comprobación y el INSERT
+        // quedan serializados por profesional dentro de la transacción PostgreSQL.
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        await _appointmentConcurrency.LockAsync(client.tenant_id!.Value, nutritionistId.Value);
+
         // Se comprueba de nuevo el hueco justo antes de insertar: la lista mostrada al paciente
         // puede haber quedado obsoleta mientras otro usuario reservaba la misma franja.
         var validSlot = await IsAvailableSlotAsync(client.tenant_id!.Value, nutritionistId.Value, startsUtc, endsUtc);
@@ -165,6 +172,7 @@ public class AppointmentsController : ControllerBase
         };
         _context.patient_appointments.Add(appointment);
         await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
 
         await _notifications.CreateForPatientAsync(
             appointment.tenant_id,
