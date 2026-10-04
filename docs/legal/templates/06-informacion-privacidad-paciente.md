@@ -2,30 +2,43 @@
 
 **Responsable:** {{professional.legal_name}}  
 **NIF/CIF:** {{professional.tax_id}}  
-**Contacto:** {{professional.privacy_email}}
+**Contacto de privacidad:** {{professional.privacy_email}}  
+**Información ampliada:** {{professional.privacy_policy_url}}
 
-## Finalidad
+## 1. Finalidades
 
-Gestionar la relación profesional de nutrición, la anamnesis, las mediciones, la elaboración y seguimiento de planes dietéticos, las citas y las comunicaciones relacionadas con la atención.
+Gestionar la relación profesional de nutrición, anamnesis, mediciones, elaboración y seguimiento de planes dietéticos, citas y comunicaciones relacionadas con la atención.
 
-## Base jurídica
+Finalidades adicionales, si existen: {{professional.patient_additional_purposes}}.
+
+## 2. Base jurídica
 
 {{professional.patient_privacy_legal_basis}}
 
-## Datos tratados
+Cuando se traten categorías especiales de datos, la condición que habilita dicho tratamiento deberá identificarse expresamente y ser coherente con la actividad real.
 
-Datos identificativos y de contacto, información aportada durante la consulta, antecedentes y hábitos relevantes para la atención, mediciones y demás información necesaria para la prestación profesional.
+## 3. Datos tratados
 
-## Destinatarios y encargados
+Datos identificativos y de contacto, información aportada durante la consulta, antecedentes y hábitos relevantes, mediciones y demás información necesaria para la atención.
+
+Categorías especiales u otros datos adicionales: {{professional.patient_special_categories_summary}}.
+
+## 4. Destinatarios y encargados
 
 {{professional.patient_recipients_summary}}
 
-## Conservación
+Cuando corresponda, se informará de los encargados y de las transferencias internacionales aplicables.
+
+## 5. Conservación
 
 {{professional.patient_retention_summary}}
 
-## Derechos
+## 6. Derechos
 
-Puede ejercer los derechos aplicables mediante {{professional.privacy_email}} y obtener información adicional en {{professional.privacy_policy_url}}.
+La persona interesada puede ejercer los derechos que resulten aplicables mediante {{professional.privacy_email}} y obtener información adicional en {{professional.privacy_policy_url}}.
 
-**Nota interna:** la base jurídica y los plazos deben ser definidos por el profesional/centro según su actividad real.
+## 7. Autoridad de control
+
+La persona interesada puede presentar una reclamación ante la autoridad de control competente, sin perjuicio de cualquier otro recurso.
+
+**Nota interna:** no confundir la información de privacidad con un consentimiento para el tratamiento. La base jurídica, categorías especiales, destinatarios y plazos deben ser definidos según la actividad real y revisados jurídicamente.
