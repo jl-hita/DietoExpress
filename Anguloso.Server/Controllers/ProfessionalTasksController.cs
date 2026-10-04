@@ -29,6 +29,8 @@ public sealed class ProfessionalTasksController : ControllerBase
         [FromQuery] int limit = 100)
     {
         if (!_tenantContext.TenantId.HasValue) return BadRequest(new { message = "La cuenta no tiene organización." });
+        var isClinicAdmin = User.IsInRole("clinic_admin");
+        if (!isClinicAdmin && !_tenantContext.UserId.HasValue) return Unauthorized();
         limit = Math.Clamp(limit, 1, 200);
 
         var statuses = string.IsNullOrWhiteSpace(status) ? null : status.Trim().ToLowerInvariant();
