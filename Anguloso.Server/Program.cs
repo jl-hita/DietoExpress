@@ -201,7 +201,10 @@ CREATE TABLE IF NOT EXISTS patient_push_subscriptions (
 CREATE INDEX IF NOT EXISTS idx_patient_push_subscriptions_client
   ON patient_push_subscriptions(client_id);
 ");
-BillingSchemaBootstrap.Initialize(context, logger); databaseReady = true;
+BillingSchemaBootstrap.Initialize(context, logger);
+                // Una vez disponible el esquema, recuperamos incidencias que pudieron producirse con PostgreSQL caído.
+                await ApplicationAlertService.FlushPendingAsync(context, logger);
+                databaseReady = true;
             }
             catch (Exception ex)
             {
@@ -214,7 +217,8 @@ BillingSchemaBootstrap.Initialize(context, logger); databaseReady = true;
                         "database-bootstrap",
                         "La base de datos no pudo inicializarse",
                         "El arranque de la aplicación ha encontrado un error de infraestructura. Revisa la configuración o el esquema de la base de datos.",
-                        ex);
+                        ex,
+                        logger);
                 }
                 catch (Exception alertException)
                 {
