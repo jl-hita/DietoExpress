@@ -102,6 +102,25 @@ public sealed class LegalDocumentGeneratorController : ControllerBase
         await tx.CommitAsync(ct);return Ok(new{generatedDocumentId=id,legalDocumentId=publishedId,version=publishedVersion,sourceVersion});
     }
 
+    private async Task<Dictionary<string,string>> ReadConfiguration(string scopeType, int scopeId, CancellationToken ct)
+    {
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync(ct);
+        await using var command = new NpgsqlCommand("""
+            SELECT setting_key, setting_value
+            FROM legal_configuration
+            WHERE scope_type=@scope AND scope_id=@scopeId;
+            """, connection);
+        command.Parameters.AddWithValue("scope", scopeType);
+        command.Parameters.AddWithValue("scopeId", scopeId);
+
+        var values = new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
+        await using var reader = await command.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+            values[reader.GetString(0)] = reader.GetString(1);
+        return values;
+    }
+
     private (string type,int id)? GetScope()
     {
         var uid=AuthHelpers.GetUserId(User);if(!uid.HasValue)return null;
