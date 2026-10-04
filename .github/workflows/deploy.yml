@@ -80,7 +80,7 @@ jobs:
           # solo prepara este directorio persistente con el mismo usuario que ejecuta la aplicación.
           sudo install -d -o joso -g joso -m 750 /var/lib/dietoexpress/AlertSpool
           test -d /var/lib/dietoexpress/AlertSpool
-          test -w /var/lib/dietoexpress/AlertSpool
+          sudo -u joso test -w /var/lib/dietoexpress/AlertSpool
 
           rm -rf /opt/dietoexpress/*
           cp -a /tmp/dietoexpress-backend/. /opt/dietoexpress/
