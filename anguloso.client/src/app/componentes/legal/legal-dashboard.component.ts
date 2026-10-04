@@ -44,6 +44,7 @@ import { LegalEvidenceService } from '../../servicios/legal-evidence.service';
             <mat-card><mat-card-header><mat-icon mat-card-avatar>account_tree</mat-icon><mat-card-title>RAT</mat-card-title></mat-card-header><mat-card-content><strong>{{ratCount}}</strong> actividades registradas</mat-card-content></mat-card>
             <mat-card><mat-card-header><mat-icon mat-card-avatar>warning</mat-icon><mat-card-title>Riesgos abiertos</mat-card-title></mat-card-header><mat-card-content><strong>{{openRisks}}</strong> requieren seguimiento</mat-card-content></mat-card>
             <mat-card><mat-card-header><mat-icon mat-card-avatar>privacy_tip</mat-icon><mat-card-title>Privacidad</mat-card-title></mat-card-header><mat-card-content><strong>{{openRequests}}</strong> solicitudes · <strong>{{openIncidents}}</strong> incidentes activos</mat-card-content></mat-card>
+            <mat-card><mat-card-header><mat-icon mat-card-avatar>policy</mat-icon><mat-card-title>EIPD</mat-card-title></mat-card-header><mat-card-content>Decisión: <strong>{{eipdDecision}}</strong></mat-card-content></mat-card>
           </section>
           <mat-card *ngIf="pendingDocs.length">
             <mat-card-header><mat-icon mat-card-avatar>warning</mat-icon><mat-card-title>Qué falta</mat-card-title></mat-card-header>
