@@ -8,19 +8,23 @@ import { PatientPortalService } from '../../servicios/patient-portal.service';
 import { FoodService } from '../../servicios/food.service';
 import { SumPipe } from '../../shared/pipes/sum.pipe';
 import { PatientChatComponent } from '../patient-chat/patient-chat.component';
-import { PatientCheckin, PatientCheckinRequest, AppointmentSlot, PatientAppointment, PatientNotification, PatientDocument } from '../../servicios/patient-portal.service';
+import { AppointmentSlot, PatientAppointment, PatientNotification, PatientDocument } from '../../servicios/patient-portal.service';
+import { PatientCheckinComponent } from './patient-checkin/patient-checkin.component';
+import { PatientCheckinHistoryComponent } from './patient-checkin-history/patient-checkin-history.component';
 
 type ActiveTab = 'today' | 'shopping' | 'appointments' | 'progress' | 'messages' | 'documents';
 
 @Component({
   selector: 'app-patient-portal',
   standalone: true,
-  imports: [CommonModule, FormsModule, DatePipe, DecimalPipe, MatIconModule, MatProgressSpinnerModule, SumPipe, PatientChatComponent],
+  imports: [CommonModule, FormsModule, DatePipe, DecimalPipe, MatIconModule, MatProgressSpinnerModule, SumPipe, PatientChatComponent, PatientCheckinComponent, PatientCheckinHistoryComponent],
   templateUrl: './patient-portal.component.html',
   styleUrls: ['./patient-portal.component.css']
 })
 export class PatientPortalComponent implements OnInit {
   clientId?: number;
+  /** True when the professional is previewing the portal instead of using the patient session. */
+  isPreview = false;
   profile: any = null;
   activeDiet: any = null;
   shoppingList: any[] = [];
@@ -72,23 +76,6 @@ export class PatientPortalComponent implements OnInit {
   // Shopping list: persisted state via localStorage
   checkedItems: Record<string, boolean> = {};
   completedMeals: Record<string, boolean> = {};
-
-  // Revisión semanal persistente en backend
-  currentCheckin: PatientCheckin | null = null;
-  checkinHistory: PatientCheckin[] = [];
-  checkinLoading = false;
-  checkinSaving = false;
-  checkinError: string | null = null;
-  checkinSuccess = false;
-  checkinWeight: number | null = null;
-  checkinAdherence: number | null = null;
-  checkinHunger: number | null = null;
-  checkinEnergy: number | null = null;
-  checkinSleepQuality: number | null = null;
-  checkinSleepHours: number | null = null;
-  checkinTraining: number | null = null;
-  checkinDifficulties = '';
-  checkinNotes = '';
 
   constructor(
     private route: ActivatedRoute,
@@ -199,12 +186,6 @@ export class PatientPortalComponent implements OnInit {
     this.dietLoading = false;
     this.shoppingLoading = false;
     this.portalDataError = null;
-    this.currentCheckin = null;
-    this.checkinHistory = [];
-    this.checkinLoading = false;
-    this.checkinSaving = false;
-    this.checkinError = null;
-    this.checkinSuccess = false;
     this.appointments = [];
     this.appointmentSlots = [];
     this.appointmentsLoading = false;
@@ -216,6 +197,7 @@ export class PatientPortalComponent implements OnInit {
   }
 
   loadData(clientIdParam?: number): void {
+    this.isPreview = !!clientIdParam;
     this.loading = true;
     this.portalService.getMyProfile(clientIdParam).subscribe({
       next: (p) => {
@@ -226,8 +208,6 @@ export class PatientPortalComponent implements OnInit {
         this.loadCompletedMeals();
         // La vista previa del profesional usa clientId y no tiene sesión de paciente.
         if (!clientIdParam) {
-          this.loadCurrentCheckin();
-          this.loadCheckinHistory();
           this.loadAppointments();
           this.loadNotifications();
           this.loadDocuments();
@@ -285,80 +265,6 @@ export class PatientPortalComponent implements OnInit {
         this.shoppingList = [];
         this.shoppingLoading = false;
         this.shoppingDataError = err?.error?.message || 'No hemos podido cargar tu lista de la compra.';
-      }
-    });
-  }
-
-  loadCurrentCheckin(): void {
-    this.checkinLoading = true;
-    this.checkinError = null;
-    this.checkinSuccess = false;
-    this.portalService.getCurrentCheckin().subscribe({
-      next: (checkin) => {
-        this.currentCheckin = checkin;
-        this.checkinLoading = false;
-        if (checkin) {
-          this.checkinWeight = checkin.weight ?? null;
-          this.checkinAdherence = checkin.adherence ?? null;
-          this.checkinHunger = checkin.hunger ?? null;
-          this.checkinEnergy = checkin.energy ?? null;
-          this.checkinSleepQuality = checkin.sleep_quality ?? null;
-          this.checkinSleepHours = checkin.sleep_hours ?? null;
-          this.checkinTraining = checkin.training ?? null;
-          this.checkinDifficulties = checkin.difficulties ?? '';
-          this.checkinNotes = checkin.notes ?? '';
-        }
-      },
-      error: (err) => {
-        this.currentCheckin = null;
-        this.checkinLoading = false;
-        this.checkinError = err?.error?.message || 'No hemos podido cargar tu revisión semanal.';
-      }
-    });
-  }
-
-  loadCheckinHistory(): void {
-    this.portalService.getCheckinHistory().subscribe({
-      next: (history) => this.checkinHistory = history || [],
-      error: () => this.checkinHistory = []
-    });
-  }
-
-  saveCurrentCheckin(): void {
-    this.checkinSaving = true;
-    this.checkinError = null;
-    this.checkinSuccess = false;
-
-    const request: PatientCheckinRequest = {
-      weight: this.checkinWeight,
-      adherence: this.checkinAdherence,
-      hunger: this.checkinHunger,
-      energy: this.checkinEnergy,
-      sleep_quality: this.checkinSleepQuality,
-      sleep_hours: this.checkinSleepHours,
-      training: this.checkinTraining,
-      difficulties: this.checkinDifficulties.trim() || null,
-      notes: this.checkinNotes.trim() || null
-    };
-
-    this.portalService.saveCheckin(request).subscribe({
-      next: (checkin) => {
-        this.currentCheckin = checkin;
-        this.checkinSaving = false;
-        this.checkinSuccess = true;
-        this.checkinWeight = checkin.weight ?? null;
-        this.checkinAdherence = checkin.adherence ?? null;
-        this.checkinHunger = checkin.hunger ?? null;
-        this.checkinEnergy = checkin.energy ?? null;
-        this.checkinSleepQuality = checkin.sleep_quality ?? null;
-        this.checkinSleepHours = checkin.sleep_hours ?? null;
-        this.checkinTraining = checkin.training ?? null;
-        this.checkinDifficulties = checkin.difficulties ?? '';
-        this.checkinNotes = checkin.notes ?? '';
-      },
-      error: (err) => {
-        this.checkinSaving = false;
-        this.checkinError = err?.error?.message || 'No hemos podido guardar tu revisión semanal. Inténtalo de nuevo.';
       }
     });
   }
