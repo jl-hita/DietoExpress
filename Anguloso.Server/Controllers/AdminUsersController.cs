@@ -317,6 +317,8 @@ public class AdminUsersController : ControllerBase
             }
 
             subscription.plan_id = plan.id;
+            if (plan.code == "clinic_full" && !subscription.contracted_nutritionists.HasValue)
+                subscription.contracted_nutritionists = plan.max_nutritionists;
             subscription.status = subscriptionStatus;
             subscription.expires_at = request.LicenseExpiresAt;
 
