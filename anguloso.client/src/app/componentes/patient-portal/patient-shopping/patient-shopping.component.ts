@@ -3,6 +3,17 @@ import { CommonModule, DecimalPipe } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
+export interface PatientShoppingItem {
+  foodId: number;
+  foodName: string;
+  totalGrams: number;
+}
+
+export interface PatientShoppingCategory {
+  category: string;
+  items: PatientShoppingItem[];
+}
+
 @Component({
   selector: 'app-patient-shopping',
   standalone: true,
@@ -11,7 +22,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
   styleUrls: ['./patient-shopping.component.css']
 })
 export class PatientShoppingComponent implements OnInit, OnChanges {
-  @Input() shoppingList: any[] = [];
+  @Input() shoppingList: PatientShoppingCategory[] = [];
   @Input() shoppingLoading = false;
   @Input() shoppingDataError: string | null = null;
   @Input() hasActiveDiet = false;
@@ -29,6 +40,14 @@ export class PatientShoppingComponent implements OnInit, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes['clientId'] && !changes['clientId'].firstChange) {
+      // El componente puede sobrevivir a un cambio de paciente; recargar este estado evita
+      // que los checks guardados localmente de un paciente aparezcan en otro.
+      this.loadCheckedItems();
+      this.emitCounts();
+      return;
+    }
+
     if (changes['shoppingList'] && !changes['shoppingList'].firstChange) {
       this.emitCounts();
     }
@@ -36,12 +55,12 @@ export class PatientShoppingComponent implements OnInit, OnChanges {
 
   get shoppingItemCount(): number {
     return this.shoppingList.reduce(
-      (total: number, category: any) => total + (category.items?.length ?? 0), 0);
+      (total: number, category: PatientShoppingCategory) => total + (category.items?.length ?? 0), 0);
   }
 
   get checkedShoppingItemCount(): number {
     return this.shoppingList.reduce(
-      (total: number, category: any) => total + (category.items?.filter((item: any) =>
+      (total: number, category: PatientShoppingCategory) => total + (category.items?.filter((item: PatientShoppingItem) =>
         this.isChecked(category.category + '_' + item.foodId)).length ?? 0), 0);
   }
 
@@ -76,9 +95,19 @@ export class PatientShoppingComponent implements OnInit, OnChanges {
   }
 
   private loadCheckedItems(): void {
+    this.checkedItems = {};
     const saved = localStorage.getItem(`shopping_${this.clientId}`);
     if (!saved) return;
-    try { this.checkedItems = JSON.parse(saved); } catch { this.checkedItems = {}; }
+    try {
+      const parsed = JSON.parse(saved);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        this.checkedItems = Object.fromEntries(
+          Object.entries(parsed).filter(([, value]) => value === true)
+        ) as Record<string, boolean>;
+      }
+    } catch {
+      // Un valor corrupto en localStorage no debe impedir el uso de la lista de la compra.
+    }
   }
 
   private emitCounts(): void {

@@ -13,7 +13,7 @@ import { PatientCheckinComponent } from './patient-checkin/patient-checkin.compo
 import { PatientAppointmentsComponent } from './patient-appointments/patient-appointments.component';
 import { PatientProgressComponent } from './patient-progress/patient-progress.component';
 import { AccessLinkRecoveryComponent } from './access-link-recovery/access-link-recovery.component';
-import { PatientShoppingComponent } from './patient-shopping/patient-shopping.component';
+import { PatientShoppingCategory, PatientShoppingComponent } from './patient-shopping/patient-shopping.component';
 import { PatientHeaderComponent } from './patient-header/patient-header.component';
 import { PatientDocumentsComponent } from './patient-documents/patient-documents.component';
 
@@ -32,7 +32,7 @@ export class PatientPortalComponent implements OnInit {
   isPreview = false;
   profile: any = null;
   activeDiet: any = null;
-  shoppingList: any[] = [];
+  shoppingList: PatientShoppingCategory[] = [];
   shoppingItemCount = 0;
   checkedShoppingItemCount = 0;
   loading = true;
@@ -197,6 +197,15 @@ export class PatientPortalComponent implements OnInit {
     this.appointmentError = null;
     this.appointmentBooking = false;
     this.appointmentSuccess = null;
+    this.documents = [];
+    this.documentsLoading = false;
+    this.documentsError = null;
+    this.notifications = [];
+    this.notificationsOpen = false;
+    this.notificationsLoading = false;
+    this.completedMeals = {};
+    this.isPreview = false;
+    this.clientId = undefined;
     this.showLogin = true;
   }
 
