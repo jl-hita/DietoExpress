@@ -45,7 +45,7 @@ export class ClinicDashboardComponent implements OnInit {
  addSeat():void {
    if (!this.canAddSeat) return;
    const target = this.contractedSeats + 1;
-   if (!window.confirm('Añadirás un puesto profesional adicional por 15 €/mes. Stripe aplicará el prorrateo correspondiente. ¿Continuar?')) return;
+   if (!window.confirm('Añadirás un puesto profesional adicional al precio configurado para tu periodo de facturación. Stripe aplicará el prorrateo correspondiente. ¿Continuar?')) return;
    this.clinic.changeNutritionistSeats(target).subscribe({
      next: response => {
        this.snack.open(response?.message || 'Puesto profesional añadido.', 'OK', {duration:4000});
