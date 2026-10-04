@@ -1,0 +1,31 @@
+<section class="notification-panel" *ngIf="open">
+  <div class="notification-panel-header">
+    <div>
+      <strong>Notificaciones</strong>
+      <span *ngIf="unreadCount">{{ unreadCount }} sin leer</span>
+    </div>
+    <button type="button" (click)="enablePush.emit()" [disabled]="pushBusy || !pushSupported || pushEnabled" class="notification-push-btn">
+      <mat-icon>{{ pushEnabled ? 'notifications_active' : 'notifications_none' }}</mat-icon>
+      {{ pushEnabled ? 'Push activadas' : pushBusy ? 'Activando…' : 'Activar avisos' }}
+    </button>
+  </div>
+  <div class="notification-push-message" *ngIf="pushMessage">{{ pushMessage }}</div>
+  <div class="notification-list" *ngIf="!loading && notifications.length">
+    <button type="button" class="notification-item" *ngFor="let notification of notifications"
+            [class.unread]="!notification.readAt" (click)="markRead.emit(notification)">
+      <span class="notification-icon"><mat-icon>{{ notificationIcon(notification.type) }}</mat-icon></span>
+      <span class="notification-copy">
+        <strong>{{ notification.title }}</strong>
+        <span>{{ notification.message }}</span>
+        <small>{{ notification.createdAt | date:'d MMM, HH:mm' }}</small>
+      </span>
+    </button>
+  </div>
+  <div class="notification-empty" *ngIf="!loading && !notifications.length">
+    <mat-icon>notifications_none</mat-icon>
+    <span>No tienes notificaciones.</span>
+  </div>
+  <div class="notification-loading" *ngIf="loading">
+    <mat-spinner diameter="22"></mat-spinner>
+  </div>
+</section>
