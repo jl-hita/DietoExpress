@@ -154,5 +154,5 @@ public static class ApplicationAlertService
         Environment.GetEnvironmentVariable("DIETOEXPRESS_ALERT_SPOOL")
         ?? (OperatingSystem.IsWindows()
             ? Path.Combine(AppContext.BaseDirectory, "AlertSpool")
-            : "/var/lib/dietoexpress/Logs/AlertSpool");
+            : "/var/lib/dietoexpress/AlertSpool");
 }
