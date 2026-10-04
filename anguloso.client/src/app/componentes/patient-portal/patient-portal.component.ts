@@ -197,6 +197,15 @@ export class PatientPortalComponent implements OnInit {
     this.appointmentError = null;
     this.appointmentBooking = false;
     this.appointmentSuccess = null;
+    this.documents = [];
+    this.documentsLoading = false;
+    this.documentsError = null;
+    this.notifications = [];
+    this.notificationsOpen = false;
+    this.notificationsLoading = false;
+    this.completedMeals = {};
+    this.isPreview = false;
+    this.clientId = undefined;
     this.showLogin = true;
   }
 
