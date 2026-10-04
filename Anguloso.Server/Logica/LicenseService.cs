@@ -48,7 +48,7 @@ public class LicenseService : ILicenseService
             .Where(s => s.tenant_id == tenantId.Value && s.status != "cancelled" && s.status != "canceled")
             .OrderByDescending(s => s.created_at).FirstOrDefaultAsync();
         if (sub == null) return null;
-        var nutritionists = await _context.users.CountAsync(u => u.tenant_id == tenantId && u.archived_at == null && (u.role == "nutritionist" || u.role == "user"));
+        var nutritionists = await _context.users.CountAsync(u => u.tenant_id == tenantId && u.archived_at == null && u.role == "nutritionist");
         var clients = await _context.clients.CountAsync(c => c.tenant_id == tenantId && c.archived_at == null);
         return new LicenseInfo { TenantId = tenantId.Value, PlanCode = sub.plan.code, PlanName = sub.plan.name, Status = sub.status, ExpiresAt = sub.expires_at,
             CurrentPeriodStart = sub.current_period_start, CurrentPeriodEnd = sub.current_period_end,
@@ -75,7 +75,7 @@ public class LicenseService : ILicenseService
             .FirstOrDefaultAsync(u => u.id == nutritionistId &&
                                       u.tenant_id == tenantId.Value &&
                                       u.archived_at == null &&
-                                      (u.role == "nutritionist" || u.role == "user"));
+                                      u.role == "nutritionist");
         if (nutritionist == null) return (false, "El nutricionista no pertenece a la organización.");
 
         if (license.MaxTotalClients.HasValue && license.Clients >= license.MaxTotalClients.Value) return (false, "Se ha alcanzado el límite total de clientes de la licencia.");
@@ -97,7 +97,7 @@ public class LicenseService : ILicenseService
             .FirstOrDefaultAsync(u => u.id == nutritionistId &&
                                       u.tenant_id == tenantId.Value &&
                                       u.archived_at == null &&
-                                      (u.role == "nutritionist" || u.role == "user"));
+                                      u.role == "nutritionist");
         if (nutritionist == null) return (false, "El nutricionista no pertenece a la organización.");
 
         var client = await _context.clients.AsNoTracking()
@@ -163,7 +163,7 @@ public class LicenseService : ILicenseService
             .Where(u => u.tenant_id == tenantId
                         && u.archived_at != null
                         && u.archived_at > cutoff
-                        && (u.role == "nutritionist" || u.role == "user"))
+                        && u.role == "nutritionist")
             .MaxAsync(u => (DateTime?)u.archived_at);
 
         return latestDeactivation?.Add(NutritionistReplacementCooldown);
