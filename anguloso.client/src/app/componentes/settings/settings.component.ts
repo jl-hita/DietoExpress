@@ -7,6 +7,7 @@ import { CommonModule } from '@angular/common';
 import { ProfileService } from '../../servicios/profile.service';
 import { AuthService } from '../../servicios/auth.service';
 import { Profile } from '../../modelos/profile';
+import { LegalConfigurationService } from '../../servicios/legal-configuration.service';
 
 // Angular Material
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -16,6 +17,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCardModule } from '@angular/material/card';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatTabsModule } from '@angular/material/tabs';
 
 @Component({
   selector: 'app-settings',
@@ -31,7 +33,8 @@ import { MatDividerModule } from '@angular/material/divider';
     MatIconModule,
     MatProgressSpinnerModule,
     MatCardModule,
-    MatDividerModule
+    MatDividerModule,
+    MatTabsModule
   ]
 })
 // Documentación: este componente coordina estado local, validación y llamadas asíncronas; la vista solo refleja ese estado.
@@ -47,12 +50,16 @@ export class SettingsComponent implements OnInit, OnDestroy {
   logoPreview: string | null = null;
   profile: Profile | null = null;
   passwordForm!: FormGroup;
+  legalForm!: FormGroup;
+  legalSaving = false;
+  isClinicAccount = false;
   passwordSaving = false;
 
   constructor(
     private fb: FormBuilder,
     private profileService: ProfileService,
     private authService: AuthService,
+    private legalConfigurationService: LegalConfigurationService,
     private snack: MatSnackBar
   ) {}
 
@@ -62,6 +69,33 @@ export class SettingsComponent implements OnInit, OnDestroy {
       newPassword: ['', [Validators.required, Validators.minLength(12)]],
       newPasswordRep: ['', [Validators.required, Validators.minLength(12)]]
     });
+
+    this.legalForm = this.fb.group({
+      legal_name: [''],
+      tax_id: [''],
+      address: [''],
+      contact_email: [''],
+      contact_phone: [''],
+      privacy_email: [''],
+      dpo_email: [''],
+      website: [''],
+      professional_title: [''],
+      professional_college: [''],
+      professional_collegiate_number: [''],
+      professional_title_country: [''],
+      patient_privacy_legal_basis: [''],
+      patient_recipients_summary: [''],
+      patient_retention_summary: [''],
+      privacy_policy_url: [''],
+      consultation_description: [''],
+      consultation_limits: [''],
+      service_prices_summary: [''],
+      booking_payment_summary: [''],
+      appointment_cancellation_summary: [''],
+      refund_summary: [''],
+      no_show_summary: ['']
+    });
+    this.isClinicAccount = this.authService.getRole() === 'clinic_admin';
 
     this.form = this.fb.group({
       fullName: [''],
@@ -92,6 +126,15 @@ export class SettingsComponent implements OnInit, OnDestroy {
       }
     });
 
+    this.legalConfigurationService.getProfessional().subscribe({
+      next: settings => {
+        const values: Record<string, string> = {};
+        settings.forEach(setting => values[setting.key] = setting.value ?? '');
+        this.legalForm.patchValue(values);
+      },
+      error: () => this.snack.open('No se pudo cargar la configuración legal.', 'Cerrar', { duration: 4000 })
+    });
+
     this.profileService.getProfile().subscribe({
       next: (data) => {
         this.profile = data;
@@ -112,6 +155,21 @@ export class SettingsComponent implements OnInit, OnDestroy {
       error: () => {
         this.snack.open('Error al cargar el perfil', 'Cerrar', { duration: 3000 });
         this.loading = false;
+      }
+    });
+  }
+
+  saveLegal(): void {
+    if (this.legalSaving) return;
+    this.legalSaving = true;
+    this.legalConfigurationService.saveProfessional(this.legalForm.getRawValue()).subscribe({
+      next: () => {
+        this.legalSaving = false;
+        this.snack.open('Configuración legal guardada.', 'Cerrar', { duration: 3000 });
+      },
+      error: () => {
+        this.legalSaving = false;
+        this.snack.open('No se pudo guardar la configuración legal.', 'Cerrar', { duration: 4000 });
       }
     });
   }
