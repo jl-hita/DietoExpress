@@ -8,6 +8,8 @@ import { LegalSettingsComponent } from '../legal-settings/legal-settings.compone
 import { LegalDocumentGeneratorService, LegalGeneratedDocument } from '../../servicios/legal-document-generator.service';
 import { LegalGovernanceComponent } from './legal-governance.component';
 import { LegalEvidenceComponent } from './legal-evidence.component';
+import { LegalGovernanceService } from '../../servicios/legal-governance.service';
+import { LegalEvidenceService } from '../../servicios/legal-evidence.service';
 
 @Component({
   selector: 'app-legal-dashboard',
@@ -39,6 +41,9 @@ import { LegalEvidenceComponent } from './legal-evidence.component';
             <mat-card><mat-card-header><mat-icon mat-card-avatar>verified_user</mat-icon><mat-card-title>Publicación</mat-card-title></mat-card-header>
               <mat-card-content>Los borradores se generan sin publicar automáticamente.</mat-card-content>
             </mat-card>
+            <mat-card><mat-card-header><mat-icon mat-card-avatar>account_tree</mat-icon><mat-card-title>RAT</mat-card-title></mat-card-header><mat-card-content><strong>{{ratCount}}</strong> actividades registradas</mat-card-content></mat-card>
+            <mat-card><mat-card-header><mat-icon mat-card-avatar>warning</mat-icon><mat-card-title>Riesgos abiertos</mat-card-title></mat-card-header><mat-card-content><strong>{{openRisks}}</strong> requieren seguimiento</mat-card-content></mat-card>
+            <mat-card><mat-card-header><mat-icon mat-card-avatar>privacy_tip</mat-icon><mat-card-title>Privacidad</mat-card-title></mat-card-header><mat-card-content><strong>{{openRequests}}</strong> solicitudes · <strong>{{openIncidents}}</strong> incidentes activos</mat-card-content></mat-card>
           </section>
           <mat-card *ngIf="pendingDocs.length">
             <mat-card-header><mat-icon mat-card-avatar>warning</mat-icon><mat-card-title>Qué falta</mat-card-title></mat-card-header>
@@ -90,16 +95,21 @@ import { LegalEvidenceComponent } from './legal-evidence.component';
 })
 export class LegalDashboardComponent implements OnInit {
   documents: LegalGeneratedDocument[] = [];
+  ratCount=0; openRisks=0; openRequests=0; openIncidents=0;
   pendingDocs: LegalGeneratedDocument[] = [];
   pending = 0;
   templates: {key:string; file:string}[] = [];
   generating = false;
 
-  constructor(private generator: LegalDocumentGeneratorService) {}
+  constructor(private generator: LegalDocumentGeneratorService, private governance: LegalGovernanceService, private evidence: LegalEvidenceService) {}
 
   ngOnInit(): void {
     this.loadDocuments();
     this.generator.getTemplates().subscribe({next: templates => this.templates=templates});
+    this.governance.listRat().subscribe({next:x=>this.ratCount=x.filter(a=>a.status!=='archived').length});
+    this.governance.listRisks().subscribe({next:x=>this.openRisks=x.filter(a=>a.status==='open').length});
+    this.evidence.requests().subscribe({next:x=>this.openRequests=x.filter(a=>!['resolved','rejected','cancelled'].includes(a.status)).length});
+    this.evidence.incidents().subscribe({next:x=>this.openIncidents=x.filter(a=>!['closed','false_positive'].includes(a.status)).length});
   }
 
   loadDocuments(): void {
