@@ -33,6 +33,8 @@ public sealed class LegalGovernanceService
     public async Task<bool> UpdateRatAsync(long id,SaveLegalRatActivity r,CancellationToken ct)
     {
         ValidateRat(r); var updated=await ExecuteNonQueryAsync(@"UPDATE legal_rat_activities SET name=@name,purpose=@purpose,role=@role,legal_basis=@basis,subject_categories=@subjects,data_categories=@data,special_categories=@special,recipients=@recipients,international_transfers=@transfers,retention=@retention,security_measures=@security,notes=@notes,status=@status,updated_at=NOW() WHERE id=@row AND scope_type=@scope AND scope_id=@id",r,id,ct)>0;
+        if(updated) await _audit.LogAccessAsync("UPDATE_LEGAL_RAT_ACTIVITY","legal_rat_activities",id.ToString(),null,$"RAT: {r.Name}");
+        return updated;
     }
     public async Task<bool> DeleteRatAsync(long id,CancellationToken ct)
     {
@@ -43,8 +45,8 @@ public sealed class LegalGovernanceService
 
     public async Task<IReadOnlyList<LegalRiskAssessmentDto>> ListRisksAsync(CancellationToken ct)
         => await QueryAsync(@"SELECT id,name,risk_description,likelihood,impact,measures,residual_risk,owner,review_date,status FROM legal_risk_assessments WHERE scope_type=@scope AND scope_id=@id ORDER BY id",MapRisk,ct);
-    public async Task<long> CreateRiskAsync(SaveLegalRisk r,CancellationToken ct){ValidateRisk(r);return await ExecuteScalarAsync<long>(@"INSERT INTO legal_risk_assessments(scope_type,scope_id,name,risk_description,likelihood,impact,measures,residual_risk,owner,review_date,status) VALUES(@scope,@id,@name,@description,@likelihood,@impact,@measures,@residual,@owner,@review,@status) RETURNING id",r,ct);}
-    public async Task<bool> UpdateRiskAsync(long id,SaveLegalRisk r,CancellationToken ct){ValidateRisk(r);return await ExecuteNonQueryAsync(@"UPDATE legal_risk_assessments SET name=@name,risk_description=@description,likelihood=@likelihood,impact=@impact,measures=@measures,residual_risk=@residual,owner=@owner,review_date=@review,status=@status,updated_at=NOW() WHERE id=@row AND scope_type=@scope AND scope_id=@id",r,id,ct)>0;}
+    public async Task<long> CreateRiskAsync(SaveLegalRisk r,CancellationToken ct){ValidateRisk(r);var id=await ExecuteScalarAsync<long>(@"INSERT INTO legal_risk_assessments(scope_type,scope_id,name,risk_description,likelihood,impact,measures,residual_risk,owner,review_date,status) VALUES(@scope,@id,@name,@description,@likelihood,@impact,@measures,@residual,@owner,@review,@status) RETURNING id",r,ct);await _audit.LogAccessAsync("CREATE_LEGAL_RISK","legal_risk_assessments",id.ToString(),null,$"Riesgo: {r.Name}");return id;}
+    public async Task<bool> UpdateRiskAsync(long id,SaveLegalRisk r,CancellationToken ct){ValidateRisk(r);var updated=await ExecuteNonQueryAsync(@"UPDATE legal_risk_assessments SET name=@name,risk_description=@description,likelihood=@likelihood,impact=@impact,measures=@measures,residual_risk=@residual,owner=@owner,review_date=@review,status=@status,updated_at=NOW() WHERE id=@row AND scope_type=@scope AND scope_id=@id",r,id,ct)>0;if(updated)await _audit.LogAccessAsync("UPDATE_LEGAL_RISK","legal_risk_assessments",id.ToString(),null,$"Riesgo: {r.Name}");return updated;}
 
     public async Task<IReadOnlyList<LegalEipdDecisionDto>> ListEipdAsync(CancellationToken ct)
         => await QueryAsync(@"SELECT id,decision,justification,additional_measures,decided_at,review_date,document_reference FROM legal_eipd_decisions WHERE scope_type=@scope AND scope_id=@id ORDER BY decided_at DESC",MapEipd,ct);
@@ -59,7 +61,9 @@ public sealed class LegalGovernanceService
         command.CommandText = @"INSERT INTO legal_eipd_decisions(scope_type,scope_id,decision,justification,additional_measures,review_date,document_reference,created_by) VALUES(@scope,@id,@decision,@justification,@measures,@review,@reference,@user) RETURNING id";
         Add(command,"scope",scope); Add(command,"id",scopeId); Add(command,"decision",r.Decision); Add(command,"justification",r.Justification); Add(command,"measures",r.AdditionalMeasures); Add(command,"review",r.ReviewDate); Add(command,"reference",r.DocumentReference); Add(command,"user",(object?)userId ?? DBNull.Value);
         if(db.State!=ConnectionState.Open) await db.OpenAsync(ct);
-        return Convert.ToInt64(await command.ExecuteScalarAsync(ct));
+        var id = Convert.ToInt64(await command.ExecuteScalarAsync(ct));
+        await _audit.LogAccessAsync("CREATE_LEGAL_EIPD_DECISION","legal_eipd_decisions",id.ToString(),null,$"EIPD: {r.Decision}");
+        return id;
     }
 
     private (string scope,int id) Scope(){if(_http.HttpContext?.User.IsInRole("superadmin")==true)return("platform",1);if(_tenant.TenantId is int t)return("tenant",t);if(_tenant.UserId is int u)return("user",u);throw new InvalidOperationException("No hay ámbito legal autenticado.");}
