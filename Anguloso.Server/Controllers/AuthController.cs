@@ -651,6 +651,7 @@ public class AuthController : ControllerBase
                 }
 
                 await using var googleTransaction = await _context.Database.BeginTransactionAsync();
+                var createdGoogleTenantId = 0;
                 try
                 {
                     await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(748392616)");
@@ -706,6 +707,7 @@ public class AuthController : ControllerBase
                         await _context.SaveChangesAsync();
 
                         user.tenant_id = tenantGoogle.id;
+                        createdGoogleTenantId = tenantGoogle.id;
                         _context.users.Add(user);
                         await _context.SaveChangesAsync();
 
@@ -746,10 +748,11 @@ public class AuthController : ControllerBase
                             currentTerms.Version,
                             currentTerms.Sha256);
 
-                        await _patientDocumentTemplateSeeder.SeedTenantAsync(tenantGoogle.id, HttpContext.RequestAborted);
                     }
 
                     await googleTransaction.CommitAsync();
+                    if (createdGoogleTenantId > 0)
+                        await _patientDocumentTemplateSeeder.SeedTenantAsync(createdGoogleTenantId, HttpContext.RequestAborted);
                 }
                 catch
                 {
