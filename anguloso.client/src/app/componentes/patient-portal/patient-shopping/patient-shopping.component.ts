@@ -29,6 +29,14 @@ export class PatientShoppingComponent implements OnInit, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes['clientId'] && !changes['clientId'].firstChange) {
+      // El componente puede sobrevivir a un cambio de paciente; recargar este estado evita
+      // que los checks guardados localmente de un paciente aparezcan en otro.
+      this.loadCheckedItems();
+      this.emitCounts();
+      return;
+    }
+
     if (changes['shoppingList'] && !changes['shoppingList'].firstChange) {
       this.emitCounts();
     }
