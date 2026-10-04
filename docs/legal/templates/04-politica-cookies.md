@@ -7,22 +7,28 @@
 
 {{platform.legal_name}} — {{platform.contact_email}}.
 
-## 2. Qué tecnologías utilizamos
+## 2. Tecnologías utilizadas
 
-DietoExpress puede utilizar almacenamiento local, cookies técnicas y tecnologías equivalentes necesarias para autenticación, seguridad, preferencias y funcionamiento del servicio.
+DietoExpress utiliza cookies, almacenamiento local u otras tecnologías equivalentes. Las tecnologías estrictamente necesarias se utilizan para prestar las funciones solicitadas, autenticación, seguridad y preferencias.
 
-Tecnologías no estrictamente necesarias: {{platform.non_essential_cookies_summary}}.
+Tecnologías no esenciales: {{platform.non_essential_cookies_summary}}.
 
-## 3. Gestión
+## 3. Cookies no esenciales
 
-Cuando sea legalmente necesario, las tecnologías no esenciales se activarán únicamente después de obtener la decisión o consentimiento correspondiente.
+Cuando una tecnología no sea estrictamente necesaria, su utilización quedará condicionada al mecanismo de consentimiento que corresponda. La aceptación deberá mantenerse separada de la aceptación de términos y privacidad.
+
+El usuario podrá aceptar, rechazar o configurar las categorías disponibles desde el mecanismo de gestión de cookies.
 
 ## 4. Terceros
 
 Servicios de terceros que pueden intervenir: {{platform.cookie_third_parties}}.
 
-## 5. Configuración
+## 5. Información detallada
 
-El usuario podrá consultar o modificar sus preferencias mediante el mecanismo de gestión disponible en la plataforma.
+El inventario publicado deberá identificar, cuando corresponda, nombre de la cookie o tecnología, proveedor, finalidad, duración y si es propia o de terceros.
 
-**Nota interna:** debe completarse con un inventario real de cookies/SDK y su finalidad.
+## 6. Retirada y modificación del consentimiento
+
+El usuario podrá modificar o retirar su decisión mediante el mecanismo de configuración disponible en la plataforma.
+
+**Nota interna:** esta plantilla debe contrastarse con el inventario real de cookies/SDK y con el mecanismo de consentimiento implementado. La AEPD exige consentimiento válido para cookies no exceptuadas y que aceptar y rechazar se ofrezcan en condiciones equivalentes. No debe publicarse hasta verificarlo.
