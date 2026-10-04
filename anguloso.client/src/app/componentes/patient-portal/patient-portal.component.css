@@ -172,7 +172,7 @@
 }
 
 /* ─── SECTION HERO ────────────────────────────────── */
-.day-hero, .section-hero {
+.day-hero {
   display: flex;
   align-items: center;
   gap: 14px;
@@ -214,21 +214,21 @@
   letter-spacing: .08em;
 }
 
-.day-hero mat-icon, .section-hero mat-icon {
+.day-hero mat-icon {
   font-size: 36px;
   width: 36px;
   height: 36px;
   color: #6366f1;
 }
 
-.day-hero h2, .section-hero h2 {
+.day-hero h2 {
   margin: 0 0 2px;
   font-size: 20px;
   font-weight: 700;
   color: #f1f5f9;
 }
 
-.day-hero span, .section-hero span {
+.day-hero span {
   font-size: 12px;
   color: #64748b;
 }
@@ -714,12 +714,9 @@
 
 /* ─── ACCESSIBILITY ───────────────────────────────── */
 .nav-tab:focus-visible,
-.clinic-call-btn:focus-visible,
-.portal-logout-btn:focus-visible,
 .btn-portal-primary:focus-visible,
 .meal-complete-btn:focus-visible,
-.next-card-action:focus-visible,
-.shopping-reset-btn:focus-visible {
+.next-card-action:focus-visible {
   outline: 2px solid #2dd4bf;
   outline-offset: 2px;
 }
