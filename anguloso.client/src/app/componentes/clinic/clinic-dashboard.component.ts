@@ -19,7 +19,7 @@ export class ClinicDashboardComponent implements OnInit {
  get canCreateNutri():boolean{
    const l=this.data?.license;
    if(!l || l.status!=='active') return false;
-   if(l.maxNutritionists != null && l.nutritionists >= l.maxNutritionists) return false;
+   if(l.contractedNutritionists != null && l.nutritionists >= l.contractedNutritionists) return false;
    if(l.nutritionistReplacementAvailableAt && new Date(l.nutritionistReplacementAvailableAt).getTime() > Date.now()) return false;
    return l.features?.includes('MULTI_NUTRITIONIST') ?? false;
  }
