@@ -1547,6 +1547,36 @@ public static class DatabaseBootstrap
     }
 
     /// <summary>Provisiona RAT, evaluación de riesgos y decisión de EIPD por ámbito/tenant.</summary>
+    /// <summary>Provisiona el almacenamiento versionado de documentos legales generados sin publicar automáticamente ningún texto.</summary>
+    public static void UpgradeLegalGeneratedDocumentsSchemaV1(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS legal_generated_documents (
+                id BIGSERIAL PRIMARY KEY,
+                scope_type VARCHAR(20) NOT NULL,
+                scope_id INTEGER NOT NULL,
+                template_key VARCHAR(100) NOT NULL,
+                version INTEGER NOT NULL DEFAULT 1,
+                title VARCHAR(300) NOT NULL,
+                content TEXT NOT NULL,
+                status VARCHAR(20) NOT NULL DEFAULT 'draft',
+                sha256 VARCHAR(64) NOT NULL,
+                generated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_legal_generated_documents_scope_template_version
+                    UNIQUE (scope_type, scope_id, template_key, version)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_legal_generated_documents_scope
+                ON legal_generated_documents(scope_type, scope_id);
+
+            CREATE INDEX IF NOT EXISTS idx_legal_generated_documents_template
+                ON legal_generated_documents(scope_type, scope_id, template_key);
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('legal-generated-documents-v1') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración legal-generated-documents-v1 aplicada/comprobada correctamente.");
+    }
+
     public static void UpgradeLegalGovernanceSchemaV1(angulosodbContext context, ILogger logger)
     {
         context.Database.ExecuteSqlRaw(@"
