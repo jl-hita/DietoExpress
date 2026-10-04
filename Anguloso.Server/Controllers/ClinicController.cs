@@ -3,6 +3,7 @@ using Anguloso.Server.Logica.Utils;
 using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 namespace Anguloso.Server.Controllers;
 [ApiController]
@@ -33,35 +34,28 @@ public class ClinicController : ControllerBase
     {
         var tenantId = AuthHelpers.GetTenantId(User);
         if (!tenantId.HasValue) return BadRequest("Sin clínica.");
-        if (request == null) return BadRequest("Datos de capacidad no válidos.");
+        if (request == null || !request.TargetSeats.HasValue)
+            return BadRequest("Debes indicar el número de puestos contratados.");
 
         var license = await _license.GetLicenseAsync(tenantId);
         if (license == null || !string.Equals(license.PlanCode, "clinic_full", StringComparison.OrdinalIgnoreCase))
             return BadRequest("La gestión de puestos adicionales solo está disponible para clínicas.");
 
-        if (!request.TargetSeats.HasValue)
-            return BadRequest("Debes indicar el número de puestos contratados.");
+        var included = license.IncludedNutritionists ?? license.MaxNutritionists ?? 0;
+        if (request.TargetSeats.Value < included)
+            return BadRequest($"La suscripción Clínica incluye {included} puestos y no puede reducirse por debajo de esa cantidad.");
 
-        var targetSeats = request.TargetSeats.Value;
-        var validation = await _license.CanReduceNutritionistCapacityAsync(tenantId.Value, targetSeats);
-        if (!validation.Allowed)
+        if (request.TargetSeats.Value < license.Nutritionists)
+            return BadRequest($"No puedes reducir a {request.TargetSeats.Value} puestos mientras haya {license.Nutritionists} nutricionistas activos.");
+
+        try
         {
-            var currentCapacity = license.ContractedNutritionists ?? license.IncludedNutritionists ?? 0;
-            if (targetSeats > currentCapacity)
-            {
-                // La ampliación se valida de nuevo dentro de la misma transacción/lock del servicio Stripe.
-            }
-            else
-                return BadRequest(validation.Reason);
+            await _stripe.ChangeNutritionistSeatsAsync(tenantId.Value, request.TargetSeats.Value);
+            var updated = await _license.GetLicenseAsync(tenantId);
+            return Ok(new { message = "Capacidad profesional actualizada correctamente.", license = updated });
         }
-
-        if (targetSeats < (license.ContractedNutritionists ?? license.IncludedNutritionists ?? 0))
-            await _stripe.ChangeNutritionistSeatsAsync(tenantId.Value, targetSeats);
-        else
-            await _stripe.ChangeNutritionistSeatsAsync(tenantId.Value, targetSeats);
-
-        var updated = await _license.GetLicenseAsync(tenantId);
-        return Ok(new { message = "Capacidad profesional actualizada correctamente.", license = updated });
+        catch (ArgumentException ex) { return BadRequest(ex.Message); }
+        catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
     }
 
     [HttpGet("dashboard")]
