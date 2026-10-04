@@ -87,7 +87,10 @@ public static class DatabaseBootstrap
 
                 -- Normalización de roles heredados: "user" siempre representó una cuenta profesional.
                 -- Se ejecuta después de crear users para funcionar también en instalaciones nuevas.
+                UPDATE users SET role = 'superadmin' WHERE role = 'admin';
                 UPDATE users SET role = 'nutritionist' WHERE role = 'user';
+                ALTER TABLE users DROP CONSTRAINT IF EXISTS ck_users_role_allowed;
+                ALTER TABLE users ADD CONSTRAINT ck_users_role_allowed CHECK (role IN ('superadmin', 'nutritionist', 'clinic_admin'));
 
                 -- 3. Clients (Pacientes)
                 CREATE TABLE IF NOT EXISTS clients (
