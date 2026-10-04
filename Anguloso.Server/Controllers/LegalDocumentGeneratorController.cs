@@ -87,7 +87,7 @@ public sealed class LegalDocumentGeneratorController : ControllerBase
     [HttpPost("{id:long}/publish")] public async Task<IActionResult> Publish(long id,CancellationToken ct)
     {
         if(!User.IsInRole("superadmin"))return Forbid();
-        var scope=("platform",1);
+        
         await using var c=new NpgsqlConnection(ConnectionString);await c.OpenAsync(ct);await using var tx=await c.BeginTransactionAsync(ct);
         await using var q=new NpgsqlCommand("""SELECT template_key,title,content,version FROM legal_generated_documents WHERE id=@id AND scope_type='platform' AND scope_id=1 AND status='draft' FOR UPDATE;""",c,tx);
         q.Parameters.AddWithValue("id",id);await using var rd=await q.ExecuteReaderAsync(ct);if(!await rd.ReadAsync(ct))return NotFound();
