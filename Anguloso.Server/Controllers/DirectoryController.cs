@@ -39,7 +39,7 @@ public class DirectoryController : ControllerBase
     public async Task<ActionResult<IEnumerable<DirectoryProfileDto>>> Search([FromQuery] DirectorySearchDto filter)
     {
         var query = _context.users.AsNoTracking()
-            .Where(u => u.archived_at == null && u.role != "admin" && u.role != "superadmin" && u.directory_enabled == true);
+            .Where(u => u.archived_at == null && u.role == "nutritionist" && u.directory_enabled == true);
 
         if (!string.IsNullOrWhiteSpace(filter.City))
             query = query.Where(u => u.directory_city != null && EF.Functions.ILike(u.directory_city, $"%{filter.City.Trim()}%"));
