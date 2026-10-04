@@ -1546,6 +1546,74 @@ public static class DatabaseBootstrap
         logger.LogInformation("Migración privacy-operations-v1 aplicada/comprobada correctamente.");
     }
 
+    /// <summary>Provisiona RAT, evaluación de riesgos y decisión de EIPD por ámbito/tenant.</summary>
+    public static void UpgradeLegalGovernanceSchemaV1(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS legal_rat_activities (
+                id BIGSERIAL PRIMARY KEY,
+                scope_type VARCHAR(20) NOT NULL,
+                scope_id INTEGER NOT NULL,
+                name VARCHAR(200) NOT NULL,
+                purpose TEXT NOT NULL,
+                role VARCHAR(50) NOT NULL,
+                legal_basis TEXT,
+                subject_categories TEXT,
+                data_categories TEXT,
+                special_categories TEXT,
+                recipients TEXT,
+                international_transfers TEXT,
+                retention TEXT,
+                security_measures TEXT,
+                notes TEXT,
+                status VARCHAR(20) NOT NULL DEFAULT 'draft',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT legal_rat_role_check CHECK (role IN ('controller','processor','joint_controller')),
+                CONSTRAINT legal_rat_status_check CHECK (status IN ('draft','active','archived'))
+            );
+            CREATE INDEX IF NOT EXISTS idx_legal_rat_scope ON legal_rat_activities(scope_type, scope_id);
+
+            CREATE TABLE IF NOT EXISTS legal_risk_assessments (
+                id BIGSERIAL PRIMARY KEY,
+                scope_type VARCHAR(20) NOT NULL,
+                scope_id INTEGER NOT NULL,
+                name VARCHAR(200) NOT NULL,
+                risk_description TEXT NOT NULL,
+                likelihood INTEGER NOT NULL,
+                impact INTEGER NOT NULL,
+                measures TEXT,
+                residual_risk TEXT,
+                owner TEXT,
+                review_date DATE,
+                status VARCHAR(20) NOT NULL DEFAULT 'open',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT legal_risk_likelihood_check CHECK (likelihood BETWEEN 1 AND 5),
+                CONSTRAINT legal_risk_impact_check CHECK (impact BETWEEN 1 AND 5),
+                CONSTRAINT legal_risk_status_check CHECK (status IN ('open','accepted','mitigated','closed'))
+            );
+            CREATE INDEX IF NOT EXISTS idx_legal_risk_scope ON legal_risk_assessments(scope_type, scope_id);
+
+            CREATE TABLE IF NOT EXISTS legal_eipd_decisions (
+                id BIGSERIAL PRIMARY KEY,
+                scope_type VARCHAR(20) NOT NULL,
+                scope_id INTEGER NOT NULL,
+                decision VARCHAR(30) NOT NULL,
+                justification TEXT NOT NULL,
+                additional_measures TEXT,
+                decided_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                review_date DATE,
+                document_reference TEXT,
+                created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                CONSTRAINT legal_eipd_decision_check CHECK (decision IN ('required','not_required','pending'))
+            );
+            CREATE INDEX IF NOT EXISTS idx_legal_eipd_scope ON legal_eipd_decisions(scope_type, scope_id);
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('legal-governance-v1') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración legal-governance-v1 aplicada/comprobada correctamente.");
+    }
+
     public static void UpgradeDocumentTemplateSchemaV1(angulosodbContext context, ILogger logger)
     {
         context.Database.ExecuteSqlRaw(@"
