@@ -74,7 +74,9 @@ public class ClinicController : ControllerBase
         // Indicadores operativos compartidos conceptualmente con el dashboard profesional:
         // siempre se calculan dentro del tenant y con la misma fuente de datos de citas,
         // mensajes y documentación, pero agregados para toda la clínica.
-        var todayStart = DateTime.UtcNow.Date;
+        var madrid = GetMadridTimeZone();
+        var localToday = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, madrid).Date;
+        var todayStart = TimeZoneInfo.ConvertTimeToUtc(localToday, madrid);
         var tomorrowStart = todayStart.AddDays(1);
 
         var todayAppointments = await _context.patient_appointments.AsNoTracking()
@@ -234,6 +236,9 @@ public class ClinicController : ControllerBase
             throw;
         }
     }
+
+    private static TimeZoneInfo GetMadridTimeZone() =>
+        TimeZoneInfo.FindSystemTimeZoneById(OperatingSystem.IsWindows() ? "Romance Standard Time" : "Europe/Madrid");
 
     private static string HashSecurityToken(string token) =>
         Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(token)));
