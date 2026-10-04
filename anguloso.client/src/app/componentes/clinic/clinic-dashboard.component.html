@@ -7,7 +7,7 @@
     <mat-card><span>Máximo por nutricionista</span><strong>{{data.license.maxClientsPerNutritionist ?? '∞'}}</strong></mat-card>
   </div>
   <mat-card class="card">
-    <div class="section-title"><h2>Nutricionistas</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button mat-stroked-button color="primary" *ngIf="canAddSeat" (click)="addSeat()"><mat-icon>add</mat-icon> Añadir puesto · 15 €/mes</button><button mat-flat-button color="primary"
+    <div class="section-title"><h2>Nutricionistas</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button mat-stroked-button color="primary" *ngIf="canAddSeat && data?.license.nutritionists === contractedSeats" (click)="addSeat()"><mat-icon>add</mat-icon> Añadir puesto · 15 €/mes</button><button mat-stroked-button color="primary" *ngIf="canAddSeat && contractedSeats > includedSeats && (data?.license.nutritionists ?? 0) <= contractedSeats - 1" (click)="removeSeat()"><mat-icon>remove</mat-icon> Quitar puesto</button><button mat-flat-button color="primary"
       [disabled]="!canCreateNutri"
       (click)="showCreate=!showCreate">
       <mat-icon>person_add</mat-icon> Añadir nutricionista
