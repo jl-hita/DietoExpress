@@ -5,6 +5,9 @@
     <mat-card><span>Nutricionistas</span><strong>{{data.license.nutritionists}} / {{contractedSeats}} puestos</strong></mat-card>
     <mat-card><span>Clientes</span><strong>{{data.license.clients}}{{data.license.maxTotalClients ? ' / '+data.license.maxTotalClients : ''}}</strong></mat-card>
     <mat-card><span>Máximo por nutricionista</span><strong>{{data.license.maxClientsPerNutritionist ?? '∞'}}</strong></mat-card>
+    <mat-card><span>Citas de hoy</span><strong>{{data.todayAppointments}}</strong></mat-card>
+    <mat-card><span>Mensajes sin leer</span><strong>{{data.unreadMessageCount}}</strong></mat-card>
+    <mat-card><span>Documentos pendientes</span><strong>{{data.pendingDocumentCount}}</strong></mat-card>
   </div>
   <mat-card class="card">
     <div class="section-title"><h2>Nutricionistas</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button mat-stroked-button color="primary" *ngIf="canAddSeat && data?.license?.nutritionists === contractedSeats" (click)="addSeat()"><mat-icon>add</mat-icon> Añadir puesto adicional</button><button mat-stroked-button color="primary" *ngIf="canAddSeat && contractedSeats > includedSeats && (data?.license?.nutritionists ?? 0) <= contractedSeats - 1" (click)="removeSeat()"><mat-icon>remove</mat-icon> Quitar puesto</button><button mat-flat-button color="primary"

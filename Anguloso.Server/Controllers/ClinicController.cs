@@ -70,6 +70,45 @@ public class ClinicController : ControllerBase
         var license=await _license.GetLicenseAsync(tenantId); var users=await _context.users.AsNoTracking().Where(u=>u.tenant_id==tenantId && u.archived_at==null && u.role=="nutritionist").OrderBy(u=>u.id).Take(500).Select(u=>new { u.id,u.full_name,u.username,u.email,u.role,u.last_login,clientCount=_context.clients.Count(c=>c.tenant_id==tenantId&&c.archived_at==null&&c.user_id==u.id)}).ToListAsync();
         var clients=await _context.clients.AsNoTracking().Where(c=>c.tenant_id==tenantId&&c.archived_at==null).OrderBy(c=>c.full_name).Take(1000).Select(c=>new {c.id,c.full_name,c.email,c.phone,nutritionistId=c.user_id,nutritionistName=_context.users.Where(u=>u.id==c.user_id && u.tenant_id==tenantId).Select(u=>u.full_name).FirstOrDefault()}).ToListAsync();
         var unassignedClientCount=clients.Count(c=>c.nutritionistId==null);
+
+        // Indicadores operativos compartidos conceptualmente con el dashboard profesional:
+        // siempre se calculan dentro del tenant y con la misma fuente de datos de citas,
+        // mensajes y documentación, pero agregados para toda la clínica.
+        var madrid = GetMadridTimeZone();
+        var localToday = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, madrid).Date;
+        var todayStart = TimeZoneInfo.ConvertTimeToUtc(localToday, madrid);
+        var tomorrowStart = todayStart.AddDays(1);
+
+        var todayAppointments = await _context.patient_appointments.AsNoTracking()
+            .CountAsync(a => a.tenant_id == tenantId &&
+                             a.starts_at >= todayStart &&
+                             a.starts_at < tomorrowStart &&
+                             (a.status == "requested" || a.status == "confirmed"));
+
+        var unreadMessages = await _context.patient_messages.AsNoTracking()
+            .Where(m => m.sender_client_id != null && m.read_at == null)
+            .Join(_context.patient_conversations.AsNoTracking().Where(c => c.tenant_id == tenantId),
+                  m => m.conversation_id, c => c.id, (m, c) => m)
+            .CountAsync();
+
+        var pendingDocuments = await _context.patient_documents.AsNoTracking()
+            .Where(d => d.tenant_id == tenantId &&
+                        d.revoked_at == null &&
+                        d.requires_signature &&
+                        d.status == "pending")
+            .Join(_context.clients.AsNoTracking().Where(c => c.archived_at == null),
+                  d => d.client_id, c => c.id, (d, c) => d)
+            .CountAsync();
+
+        return Ok(new {
+            license,
+            nutritionists=users,
+            clients,
+            unassignedClientCount,
+            todayAppointments,
+            unreadMessageCount=unreadMessages,
+            pendingDocumentCount=pendingDocuments
+        });
         return Ok(new { license, nutritionists=users, clients, unassignedClientCount });
     }
     [HttpGet("nutritionists")]
@@ -197,6 +236,9 @@ public class ClinicController : ControllerBase
             throw;
         }
     }
+
+    private static TimeZoneInfo GetMadridTimeZone() =>
+        TimeZoneInfo.FindSystemTimeZoneById(OperatingSystem.IsWindows() ? "Romance Standard Time" : "Europe/Madrid");
 
     private static string HashSecurityToken(string token) =>
         Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(token)));

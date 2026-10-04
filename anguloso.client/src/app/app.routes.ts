@@ -27,6 +27,7 @@ export const routes: AppRoute[] = [
 
   { path: '', loadComponent: () => import('./componentes/layout/layout.component').then(m => m.LayoutComponent), canActivate: [AuthGuard],
     children: [
+      { path: 'dashboard', loadComponent: () => import('./componentes/dashboard/dashboard.component').then(m => m.DashboardComponent), canActivate: [SubscriptionGuard], title: 'Dashboard' },
       { path: 'clients', loadComponent: () => import('./componentes/clients-list/clients-list.component').then(m => m.ClientsListComponent), canActivate: [SubscriptionGuard] },
       { path: 'appointments', loadComponent: () => import('./componentes/appointments/appointments.component').then(m => m.AppointmentsComponent), canActivate: [SubscriptionGuard], title: 'Agenda y citas' },
       { path: 'appointments/:appointmentId/consultation', loadComponent: () => import('./componentes/guided-consultation/guided-consultation.component').then(m => m.GuidedConsultationComponent), canActivate: [SubscriptionGuard], title: 'Consulta guiada' },

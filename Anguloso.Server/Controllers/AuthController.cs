@@ -41,9 +41,10 @@ public class AuthController : ControllerBase
     private readonly ConfigServ _configServ;
     private readonly LogServ _logServ;
     private readonly IAuditLogService _audit;
+    private readonly PatientDocumentTemplateSeeder _patientDocumentTemplateSeeder;
 
     //public AuthController(angulosodbContext context, IConfiguration config, IEmailService emailService, ConfigServ configServ)
-    public AuthController(angulosodbContext context, IConfiguration config, EmailServ emailServ, ConfigServ configServ, LogServ logServ, IAuditLogService audit)
+    public AuthController(angulosodbContext context, IConfiguration config, EmailServ emailServ, ConfigServ configServ, LogServ logServ, IAuditLogService audit, PatientDocumentTemplateSeeder patientDocumentTemplateSeeder)
     {
         _context = context;
         _config = config;
@@ -52,6 +53,7 @@ public class AuthController : ControllerBase
         _configServ = configServ;
         _logServ = logServ;
         _audit = audit;
+        _patientDocumentTemplateSeeder = patientDocumentTemplateSeeder;
     }
 
     /// <summary>
@@ -294,6 +296,7 @@ public class AuthController : ControllerBase
                 currentTerms.Version);
 
             await transaction.CommitAsync();
+            await _patientDocumentTemplateSeeder.SeedTenantAsync(tenant.id, HttpContext.RequestAborted);
 
             //obtenemos el dominio de la url
             string frontendUrl = _configServ.GetConfigString("frontendUrl", "https://localhost:4200") ?? "https://localhost:4200";
@@ -745,6 +748,7 @@ public class AuthController : ControllerBase
                     }
 
                     await googleTransaction.CommitAsync();
+                    await _patientDocumentTemplateSeeder.SeedTenantAsync(tenantGoogle.id, HttpContext.RequestAborted);
                 }
                 catch
                 {

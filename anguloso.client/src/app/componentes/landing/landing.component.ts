@@ -14,6 +14,14 @@ import { MatIconModule } from '@angular/material/icon';
 })
 // La landing mantiene su estado de presentación independiente de la lógica autenticada para que no pueda alterar el contexto de sesión.
 export class LandingComponent {
+  private getPostLoginRoute(role: string | null): string[] {
+    switch (role) {
+      case "superadmin": return ["/admin"];
+      case "clinic_admin": return ["/clinic"];
+      case "nutritionist": return ["/dashboard"];
+      default: return ["/login"];
+    }
+  }
   constructor(
     private router: Router,
     private authService: AuthService,
@@ -22,7 +30,7 @@ export class LandingComponent {
 
   ngOnInit(): void {
     if (this.authService.isLoggedIn()) {
-      this.router.navigate(['/clients']);
+      this.router.navigate(this.getPostLoginRoute(this.authService.getRole()));
       return;
     }
 
