@@ -43,6 +43,39 @@ public sealed class ProfessionalDashboardController : ControllerBase
             }
         }
 
+        // El listado permite convertir el contador de tareas en una acción útil sin perder el aislamiento por profesional.
+        await using (var command = new NpgsqlCommand("""
+            SELECT t.id, t.client_id, COALESCE(cl.full_name,'Paciente'),
+                   t.title, t.due_at, t.priority, t.status
+            FROM professional_tasks t
+            LEFT JOIN clients cl ON cl.id=t.client_id AND cl.tenant_id=t.tenant_id
+            WHERE t.tenant_id=@tenant AND t.assigned_user_id=@user
+              AND t.status IN ('open','in_progress')
+            ORDER BY
+                CASE WHEN t.due_at IS NOT NULL AND t.due_at < NOW() THEN 0 ELSE 1 END,
+                CASE t.priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END,
+                t.due_at NULLS LAST, t.created_at DESC
+            LIMIT 10;
+            """, connection))
+        {
+            command.Parameters.AddWithValue("tenant", tenantId.Value);
+            command.Parameters.AddWithValue("user", userId.Value);
+            await using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                result.OpenTasks.Add(new DashboardTaskDto
+                {
+                    Id = reader.GetInt64(0),
+                    ClientId = reader.IsDBNull(1) ? null : reader.GetInt32(1),
+                    ClientName = reader.GetString(2),
+                    Title = reader.GetString(3),
+                    DueAt = reader.IsDBNull(4) ? null : reader.GetDateTime(4),
+                    Priority = reader.GetString(5),
+                    Status = reader.GetString(6)
+                });
+            }
+        }
+
         await using (var command = new NpgsqlCommand("""
             SELECT COUNT(*)::int
             FROM patient_conversations c
@@ -199,9 +232,21 @@ public sealed class ProfessionalDashboardDto
     public int UnreadMessageCount { get; set; }
     public int PendingDocumentCount { get; set; }
     public int PendingPatientDataCount { get; set; }
+    public List<DashboardTaskDto> OpenTasks { get; set; } = [];
     public List<DashboardAppointmentDto> TodayAppointments { get; set; } = [];
     public List<DashboardPendingClientDto> PendingDocuments { get; set; } = [];
     public List<DashboardPendingDataClientDto> PendingPatientData { get; set; } = [];
+}
+
+public sealed class DashboardTaskDto
+{
+    public long Id { get; set; }
+    public int? ClientId { get; set; }
+    public string ClientName { get; set; } = "";
+    public string Title { get; set; } = "";
+    public DateTime? DueAt { get; set; }
+    public string Priority { get; set; } = "";
+    public string Status { get; set; } = "";
 }
 
 public sealed class DashboardPendingDataClientDto
