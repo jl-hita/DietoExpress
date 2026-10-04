@@ -117,37 +117,18 @@
         </div>
       </div>
 
-      <section class="notification-panel" *ngIf="notificationsOpen">
-        <div class="notification-panel-header">
-          <div>
-            <strong>Notificaciones</strong>
-            <span *ngIf="unreadNotificationCount">{{ unreadNotificationCount }} sin leer</span>
-          </div>
-          <button type="button" (click)="enablePushNotifications()" [disabled]="pushBusy || !pushSupported || pushEnabled" class="notification-push-btn">
-            <mat-icon>{{ pushEnabled ? 'notifications_active' : 'notifications_none' }}</mat-icon>
-            {{ pushEnabled ? 'Push activadas' : pushBusy ? 'Activando…' : 'Activar avisos' }}
-          </button>
-        </div>
-        <div class="notification-push-message" *ngIf="pushMessage">{{ pushMessage }}</div>
-        <div class="notification-list" *ngIf="!notificationsLoading && notifications.length">
-          <button type="button" class="notification-item" *ngFor="let notification of notifications"
-                  [class.unread]="!notification.readAt" (click)="markNotificationRead(notification)">
-            <span class="notification-icon"><mat-icon>{{ notificationIcon(notification.type) }}</mat-icon></span>
-            <span class="notification-copy">
-              <strong>{{ notification.title }}</strong>
-              <span>{{ notification.message }}</span>
-              <small>{{ notification.createdAt | date:'d MMM, HH:mm' }}</small>
-            </span>
-          </button>
-        </div>
-        <div class="notification-empty" *ngIf="!notificationsLoading && !notifications.length">
-          <mat-icon>notifications_none</mat-icon>
-          <span>No tienes notificaciones.</span>
-        </div>
-        <div class="notification-loading" *ngIf="notificationsLoading">
-          <mat-spinner diameter="22"></mat-spinner>
-        </div>
-      </section>
+      <app-patient-notifications
+        [open]="notificationsOpen"
+        [notifications]="notifications"
+        [loading]="notificationsLoading"
+        [unreadCount]="unreadNotificationCount"
+        [pushSupported]="pushSupported"
+        [pushEnabled]="pushEnabled"
+        [pushBusy]="pushBusy"
+        [pushMessage]="pushMessage"
+        (markRead)="markNotificationRead($event)"
+        (enablePush)="enablePushNotifications()">
+      </app-patient-notifications>
 
       <div class="patient-user-row">
         <div class="header-avatar">
