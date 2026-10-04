@@ -21,7 +21,7 @@ public sealed class AdminLegalConfigurationController : ControllerBase
         "support_email", "support_policy_summary", "claims_email",
         "governing_law_summary", "non_essential_cookies_summary",
         "cookie_third_parties", "subprocessors_summary", "document_version",
-        "last_update_date"
+        "last_update_date", "breach_notification_summary"
     ];
 
     private readonly IConfiguration _configuration;
