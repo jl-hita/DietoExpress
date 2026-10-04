@@ -1,11 +1,12 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 @Component({
   selector: 'app-patient-shopping',
   standalone: true,
-  imports: [CommonModule, DecimalPipe, MatIconModule],
+  imports: [CommonModule, DecimalPipe, MatIconModule, MatProgressSpinnerModule],
   templateUrl: './patient-shopping.component.html',
   styleUrls: ['./patient-shopping.component.css']
 })
@@ -18,11 +19,13 @@ export class PatientShoppingComponent {
 
   @Output() retry = new EventEmitter<void>();
   @Output() backToToday = new EventEmitter<void>();
+  @Output() countsChange = new EventEmitter<{ total: number; checked: number }>();
 
   checkedItems: Record<string, boolean> = {};
 
   ngOnInit(): void {
     this.loadCheckedItems();
+    this.emitCounts();
   }
 
   get shoppingItemCount(): number {
@@ -53,6 +56,7 @@ export class PatientShoppingComponent {
   toggleItem(key: string): void {
     this.checkedItems[key] = !this.checkedItems[key];
     this.saveCheckedItems();
+    this.emitCounts();
   }
 
   isChecked(key: string): boolean {
@@ -62,12 +66,17 @@ export class PatientShoppingComponent {
   clearShoppingChecks(): void {
     this.checkedItems = {};
     this.saveCheckedItems();
+    this.emitCounts();
   }
 
   private loadCheckedItems(): void {
     const saved = localStorage.getItem(`shopping_${this.clientId}`);
     if (!saved) return;
     try { this.checkedItems = JSON.parse(saved); } catch { this.checkedItems = {}; }
+  }
+
+  private emitCounts(): void {
+    this.countsChange.emit({ total: this.shoppingItemCount, checked: this.checkedShoppingItemCount });
   }
 
   private saveCheckedItems(): void {
