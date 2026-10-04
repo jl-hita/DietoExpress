@@ -307,13 +307,16 @@ public class ClientDietsController : ControllerBase
             if (transaction != null)
                 await transaction.CommitAsync();
 
-            await PublishDietAutomationEventAsync(
-                clientTenantId.Value,
-                "diet.published",
-                clientId,
-                newAssignment.id,
-                dietName,
-                HttpContext.RequestAborted);
+            if (clientTenantId.HasValue)
+            {
+                await PublishDietAutomationEventAsync(
+                    clientTenantId.Value,
+                    "diet.published",
+                    clientId,
+                    newAssignment.id,
+                    dietName,
+                    HttpContext.RequestAborted);
+            }
 
         return Ok(new ClientDietListDto
         {
