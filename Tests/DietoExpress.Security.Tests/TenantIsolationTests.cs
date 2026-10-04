@@ -329,7 +329,7 @@ public class TenantIsolationTests
         {
             new(ClaimTypes.NameIdentifier, userId.ToString()),
             new("tenantId", tenantId.ToString()),
-            new(ClaimTypes.Role, "user")
+            new(ClaimTypes.Role, "nutritionist")
         };
 
         var httpContext = new DefaultHttpContext
@@ -381,7 +381,7 @@ public class TenantIsolationTests
         {
             new(ClaimTypes.NameIdentifier, userId.ToString()),
             new("tenantId", tenantId.ToString()),
-            new(ClaimTypes.Role, "user")
+            new(ClaimTypes.Role, "nutritionist")
         };
 
         var httpContext = new DefaultHttpContext
