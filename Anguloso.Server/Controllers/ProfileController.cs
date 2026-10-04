@@ -87,4 +87,14 @@ public class ProfileController : ControllerBase
         await _context.SaveChangesAsync();
         return NoContent();
     }
+    private static string BuildSlug(string? fullName, string username)
+    {
+        var source = string.IsNullOrWhiteSpace(fullName) ? username : fullName;
+        var normalized = source.Trim().ToLowerInvariant().Normalize(System.Text.NormalizationForm.FormD);
+        var chars = normalized.Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark)
+            .Select(c => char.IsLetterOrDigit(c) ? c : '-').ToArray();
+        var slug = new string(chars).Replace("--", "-").Trim('-');
+        return string.IsNullOrWhiteSpace(slug) ? $"profesional-{username.ToLowerInvariant()}" : slug;
+    }
+
 }
