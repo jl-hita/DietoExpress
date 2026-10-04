@@ -40,7 +40,13 @@ public class ProfileController : ControllerBase
             ClinicName = user.clinic_name,
             ClinicAddress = user.clinic_address,
             ClinicPhone = user.clinic_phone,
-            ClinicLogo = user.clinic_logo
+            ClinicLogo = user.clinic_logo,
+            DirectoryEnabled = user.directory_enabled ?? false,
+            OnlineConsultations = user.online_consultations ?? false,
+            DirectoryCity = user.directory_city,
+            DirectoryBio = user.directory_bio,
+            DirectorySpecialties = user.directory_specialties,
+            DirectorySlug = user.directory_slug
         };
 
         return Ok(dto);
@@ -62,6 +68,21 @@ public class ProfileController : ControllerBase
         user.clinic_address = dto.ClinicAddress;
         user.clinic_phone = dto.ClinicPhone;
         user.clinic_logo = dto.ClinicLogo;
+        user.directory_enabled = dto.DirectoryEnabled;
+        user.online_consultations = dto.OnlineConsultations;
+        user.directory_city = string.IsNullOrWhiteSpace(dto.DirectoryCity) ? null : dto.DirectoryCity.Trim();
+        user.directory_bio = string.IsNullOrWhiteSpace(dto.DirectoryBio) ? null : dto.DirectoryBio.Trim();
+        user.directory_specialties = string.IsNullOrWhiteSpace(dto.DirectorySpecialties) ? null : dto.DirectorySpecialties.Trim();
+
+        // El slug es estable mientras exista; al activarlo por primera vez se genera desde el nombre profesional.
+        if (string.IsNullOrWhiteSpace(user.directory_slug))
+        {
+            var baseSlug = BuildSlug(user.full_name, user.username);
+            user.directory_slug = baseSlug;
+            var suffix = 2;
+            while (await _context.users.AnyAsync(u => u.id != user.id && u.directory_slug == user.directory_slug))
+                user.directory_slug = $"{baseSlug}-{suffix++}";
+        }
 
         await _context.SaveChangesAsync();
         return NoContent();
