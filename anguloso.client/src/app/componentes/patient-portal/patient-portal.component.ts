@@ -11,13 +11,14 @@ import { PatientChatComponent } from '../patient-chat/patient-chat.component';
 import { AppointmentSlot, PatientAppointment, PatientNotification, PatientDocument } from '../../servicios/patient-portal.service';
 import { PatientCheckinComponent } from './patient-checkin/patient-checkin.component';
 import { PatientCheckinHistoryComponent } from './patient-checkin-history/patient-checkin-history.component';
+import { PatientAppointmentsComponent } from './patient-appointments/patient-appointments.component';
 
 type ActiveTab = 'today' | 'shopping' | 'appointments' | 'progress' | 'messages' | 'documents';
 
 @Component({
   selector: 'app-patient-portal',
   standalone: true,
-  imports: [CommonModule, FormsModule, DatePipe, DecimalPipe, MatIconModule, MatProgressSpinnerModule, SumPipe, PatientChatComponent, PatientCheckinComponent, PatientCheckinHistoryComponent],
+  imports: [CommonModule, FormsModule, DatePipe, DecimalPipe, MatIconModule, MatProgressSpinnerModule, SumPipe, PatientChatComponent, PatientCheckinComponent, PatientCheckinHistoryComponent, PatientAppointmentsComponent],
   templateUrl: './patient-portal.component.html',
   styleUrls: ['./patient-portal.component.css']
 })
