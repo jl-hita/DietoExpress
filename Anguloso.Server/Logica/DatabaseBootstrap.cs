@@ -39,9 +39,7 @@ public static class DatabaseBootstrap
         try
         {
             // Ejecutamos DDL idempotente en orden de dependencias de foreign keys
-            context.Database.ExecuteSqlRaw(@"UPDATE users SET role = 'nutritionist' WHERE role = 'user';
-
-                    
+            context.Database.ExecuteSqlRaw(@"
                 -- 1. Tenants (Clínicas / Organizaciones)
                 CREATE TABLE IF NOT EXISTS tenants (
                     id SERIAL PRIMARY KEY,
@@ -86,6 +84,10 @@ public static class DatabaseBootstrap
                     max_clients_allowed INTEGER DEFAULT 10,
                     tenant_id INTEGER REFERENCES tenants(id)
                 );
+
+                -- Normalización de roles heredados: "user" siempre representó una cuenta profesional.
+                -- Se ejecuta después de crear users para funcionar también en instalaciones nuevas.
+                UPDATE users SET role = 'nutritionist' WHERE role = 'user';
 
                 -- 3. Clients (Pacientes)
                 CREATE TABLE IF NOT EXISTS clients (
