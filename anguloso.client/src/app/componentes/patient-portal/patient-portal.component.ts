@@ -34,6 +34,8 @@ export class PatientPortalComponent implements OnInit {
   profile: any = null;
   activeDiet: any = null;
   shoppingList: any[] = [];
+  shoppingItemCount = 0;
+  checkedShoppingItemCount = 0;
   loading = true;
   authError: string | null = null;
   showLogin = false;
@@ -658,6 +660,12 @@ export class PatientPortalComponent implements OnInit {
 
   get hasShoppingItems(): boolean {
     return this.shoppingItemCount > 0;
+  }
+
+  /** Actualiza el único dato de compra que necesita la navegación inferior. */
+  onShoppingCountsChange(counts: { total: number; checked: number }): void {
+    this.shoppingItemCount = counts.total;
+    this.checkedShoppingItemCount = counts.checked;
   }
 
   toggleExchangeEquivalencies(uniqueKey: string, groupId?: number): void {
