@@ -9,3 +9,11 @@ export interface DirectoryProfile {
   specialties: string;
   onlineConsultations: boolean;
 }
+
+
+export interface PublicAvailabilitySlot {
+  startsAt: string;
+  endsAt: string;
+  nutritionistId: number;
+  nutritionistName?: string;
+}

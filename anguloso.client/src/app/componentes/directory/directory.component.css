@@ -118,3 +118,29 @@
     min-width: 0;
   }
 }
+
+
+.availability {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid #ddd;
+}
+
+.slot-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.slot {
+  padding: 10px 12px;
+  border: 1px solid #bbb;
+  border-radius: 8px;
+  background: #f7f7f7;
+  cursor: not-allowed;
+}
+
+.booking-note {
+  margin: 16px 0 0;
+  font-size: 13px;
+}

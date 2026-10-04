@@ -3,7 +3,7 @@ import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
-import { DirectoryProfile } from './directory.models';
+import { DirectoryProfile, PublicAvailabilitySlot } from './directory.models';
 import { DirectoryService } from './directory.service';
 
 @Component({
@@ -22,6 +22,9 @@ export class DirectoryComponent implements OnInit {
   profile: DirectoryProfile | null = null;
   loading = false;
   error = '';
+  availability: PublicAvailabilitySlot[] = [];
+  availabilityLoading = false;
+  availabilityError = '';
 
   constructor(
     private readonly route: ActivatedRoute,
@@ -63,11 +66,40 @@ export class DirectoryComponent implements OnInit {
       next: profile => {
         this.profile = profile;
         this.loading = false;
+        this.loadAvailability(profile.slug);
       },
       error: () => {
         this.error = 'No se ha encontrado el profesional solicitado.';
         this.loading = false;
       }
     });
+  }
+
+  loadAvailability(slug: string): void {
+    this.availabilityLoading = true;
+    this.availabilityError = '';
+
+    this.directoryService.getAvailability(slug).subscribe({
+      next: slots => {
+        this.availability = slots;
+        this.availabilityLoading = false;
+      },
+      error: () => {
+        this.availability = [];
+        this.availabilityError = 'No se ha podido consultar la disponibilidad.';
+        this.availabilityLoading = false;
+      }
+    });
+  }
+
+  formatSlot(slot: PublicAvailabilitySlot): string {
+    const date = new Date(slot.startsAt);
+    return new Intl.DateTimeFormat('es-ES', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(date);
   }
 }
