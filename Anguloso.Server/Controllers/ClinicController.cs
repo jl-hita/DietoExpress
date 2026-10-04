@@ -31,7 +31,7 @@ public class ClinicController : ControllerBase
     {
         var tenantId=AuthHelpers.GetTenantId(User); if(!tenantId.HasValue) return BadRequest("El usuario no pertenece a una clínica.");
         if(!await _license.CanUseFeatureAsync(tenantId,"CLINIC_DASHBOARD")) return Forbid();
-        var license=await _license.GetLicenseAsync(tenantId); var users=await _context.users.AsNoTracking().Where(u=>u.tenant_id==tenantId && u.archived_at==null && (u.role=="nutritionist"||u.role=="user")).OrderBy(u=>u.id).Take(500).Select(u=>new { u.id,u.full_name,u.username,u.email,u.role,u.last_login,clientCount=_context.clients.Count(c=>c.tenant_id==tenantId&&c.archived_at==null&&c.user_id==u.id)}).ToListAsync();
+        var license=await _license.GetLicenseAsync(tenantId); var users=await _context.users.AsNoTracking().Where(u=>u.tenant_id==tenantId && u.archived_at==null && u.role=="nutritionist").OrderBy(u=>u.id).Take(500).Select(u=>new { u.id,u.full_name,u.username,u.email,u.role,u.last_login,clientCount=_context.clients.Count(c=>c.tenant_id==tenantId&&c.archived_at==null&&c.user_id==u.id)}).ToListAsync();
         var clients=await _context.clients.AsNoTracking().Where(c=>c.tenant_id==tenantId&&c.archived_at==null).OrderBy(c=>c.full_name).Take(1000).Select(c=>new {c.id,c.full_name,c.email,c.phone,nutritionistId=c.user_id,nutritionistName=_context.users.Where(u=>u.id==c.user_id && u.tenant_id==tenantId).Select(u=>u.full_name).FirstOrDefault()}).ToListAsync();
         var unassignedClientCount=clients.Count(c=>c.nutritionistId==null);
         return Ok(new { license, nutritionists=users, clients, unassignedClientCount });
@@ -46,7 +46,7 @@ public class ClinicController : ControllerBase
 
         var users = await _context.users.AsNoTracking()
             .Where(u => u.tenant_id == tenantId &&
-                        (u.role == "nutritionist" || u.role == "user") &&
+                        u.role == "nutritionist" &&
                         true)
             .Take(500)
             .OrderByDescending(u => u.archived_at == null)
@@ -181,7 +181,7 @@ public class ClinicController : ControllerBase
 
             var user = await _context.users.FirstOrDefaultAsync(u =>
                 u.id == id && u.tenant_id == tenantId && u.archived_at != null &&
-                (u.role == "nutritionist" || u.role == "user"));
+                u.role == "nutritionist");
 
             if (user == null) return NotFound("Nutricionista desactivado no encontrado.");
 
@@ -213,7 +213,7 @@ public class ClinicController : ControllerBase
     public async Task<IActionResult> DeactivationPreview(int id)
     {
         var tenantId=AuthHelpers.GetTenantId(User);
-        var user=await _context.users.AsNoTracking().FirstOrDefaultAsync(u=>u.id==id&&u.tenant_id==tenantId&&u.archived_at==null&&(u.role=="nutritionist"||u.role=="user"));
+        var user=await _context.users.AsNoTracking().FirstOrDefaultAsync(u=>u.id==id&&u.tenant_id==tenantId&&u.archived_at==null&&u.role=="nutritionist");
         if(user==null)return NotFound("Nutricionista no encontrado.");
 
         var clients=await _context.clients.AsNoTracking()
@@ -223,7 +223,7 @@ public class ClinicController : ControllerBase
             .ToListAsync();
 
         var candidates=await _context.users.AsNoTracking()
-            .Where(u=>u.tenant_id==tenantId&&u.id!=id&&u.archived_at==null&&(u.role=="nutritionist"||u.role=="user"))
+            .Where(u=>u.tenant_id==tenantId&&u.id!=id&&u.archived_at==null&&u.role=="nutritionist")
             .OrderBy(u=>u.full_name)
             .Select(u=>new {id=u.id,fullName=u.full_name,username=u.username})
             .ToListAsync();
@@ -238,7 +238,7 @@ public class ClinicController : ControllerBase
     {
         var tenantId=AuthHelpers.GetTenantId(User);
         if (!tenantId.HasValue) return BadRequest("El usuario no pertenece a una clínica.");
-        var user=await _context.users.FirstOrDefaultAsync(u=>u.id==id&&u.tenant_id==tenantId&&u.archived_at==null&&(u.role=="nutritionist"||u.role=="user"));
+        var user=await _context.users.FirstOrDefaultAsync(u=>u.id==id&&u.tenant_id==tenantId&&u.archived_at==null&&u.role=="nutritionist");
         if(user==null)return NotFound("Nutricionista no encontrado.");
 
         var assignments=req?.Assignments??new List<ClientReassignment>();
@@ -259,7 +259,7 @@ public class ClinicController : ControllerBase
             {
                 var client=await _context.clients.FirstAsync(c=>c.id==item.ClientId&&c.tenant_id==tenantId&&c.archived_at==null&&c.user_id==id);
                 var nutritionist = item.NutritionistId.HasValue
-                    ? await _context.users.FirstOrDefaultAsync(u => u.id == item.NutritionistId.Value && u.tenant_id == tenantId && u.archived_at == null && (u.role == "nutritionist" || u.role == "user"))
+                    ? await _context.users.FirstOrDefaultAsync(u => u.id == item.NutritionistId.Value && u.tenant_id == tenantId && u.archived_at == null && u.role == "nutritionist")
                     : null;
                 if(item.NutritionistId.HasValue && nutritionist == null)
                     return BadRequest("Uno de los nutricionistas seleccionados no pertenece a la clínica o está archivado.");
@@ -327,7 +327,7 @@ public class ClinicController : ControllerBase
 
             if(req.NutritionistId.HasValue)
             {
-                var nutritionist=await _context.users.FirstOrDefaultAsync(u=>u.id==req.NutritionistId.Value&&u.tenant_id==tenantId&&u.archived_at==null&&(u.role=="nutritionist"||u.role=="user"));
+                var nutritionist=await _context.users.FirstOrDefaultAsync(u=>u.id==req.NutritionistId.Value&&u.tenant_id==tenantId&&u.archived_at==null&&u.role=="nutritionist");
                 if(nutritionist==null)return BadRequest("Nutricionista no válido.");
 
                 var allowed=await _license.CanAssignClientAsync(tenantId,nutritionist.id,clientId);
