@@ -34,6 +34,44 @@ public sealed class PatientDocumentFlowRegressionTests
         Assert.Contains("nutritionist_id=@user AND a.is_active", source);
     }
 
+
+    [Fact]
+    public void ProfessionalDashboardMustExposePendingCheckinsAndUpcomingAppointments()
+    {
+        var source = ReadServerSource("Anguloso.Server/Controllers/ProfessionalDashboardController.cs");
+
+        Assert.Contains("PendingCheckinCount", source);
+        Assert.Contains("PendingCheckins", source);
+        Assert.Contains("c.reviewed_at IS NULL", source);
+        Assert.Contains("UpcomingAppointments", source);
+        Assert.Contains("pa.starts_at >= @from AND pa.starts_at < @to", source);
+        Assert.Contains("pa.status IN ('requested','confirmed')", source);
+        Assert.Contains("pa.nutritionist_id=@user", source);
+        Assert.Contains("GetMadridTimeZone()", source);
+    }
+
+    [Fact]
+    public void ProfessionalDashboardClientListsMustRemainAssignmentScoped()
+    {
+        var source = ReadServerSource("Anguloso.Server/Controllers/ProfessionalDashboardController.cs");
+
+        var checkinStart = source.IndexOf("SELECT c.id, c.client_id, COALESCE(cl.full_name,'Paciente'), c.submitted_at");
+        Assert.True(checkinStart >= 0);
+        var checkinEnd = source.IndexOf("await using (var command", checkinStart + 1);
+        Assert.True(checkinEnd > checkinStart);
+        var checkinQuery = source[checkinStart..checkinEnd];
+        Assert.Contains("c.tenant_id=@tenant", checkinQuery);
+        Assert.Contains("a.nutritionist_id=@user AND a.is_active", checkinQuery);
+
+        var upcomingStart = source.IndexOf("SELECT pa.id, pa.client_id, COALESCE(cl.full_name,'Paciente'), pa.starts_at, pa.ends_at, pa.status");
+        Assert.True(upcomingStart >= 0);
+        var upcomingEnd = source.IndexOf("return Ok(result);", upcomingStart);
+        Assert.True(upcomingEnd > upcomingStart);
+        var upcomingQuery = source[upcomingStart..upcomingEnd];
+        Assert.Contains("pa.tenant_id=@tenant", upcomingQuery);
+        Assert.Contains("pa.nutritionist_id=@user", upcomingQuery);
+    }
+
     [Fact]
     public void ConsultationStartMustProvisionAndBlockOnRequiredDocuments()
     {
