@@ -149,6 +149,26 @@ public sealed class SpecializationsRegressionTests
     }
 
     [Fact]
+    public void SportsAndClinicalSpecializations_DefineStructuredNutritionRules()
+    {
+        var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
+        var resolver = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "SpecializationRulesService.cs"));
+        var generator = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
+
+        Assert.Contains("('sports_nutrition','sports_default_protein','nutrition_profile'", bootstrap);
+        Assert.Contains("protein_g_per_kg", bootstrap);
+        Assert.Contains("('diabetes','diabetes_guidance','clinical_guidance'", bootstrap);
+        Assert.Contains("('hypertension','hypertension_guidance','clinical_guidance'", bootstrap);
+        Assert.Contains("('dyslipidemia','dyslipidemia_guidance','clinical_guidance'", bootstrap);
+        Assert.Contains("('renal','renal_guidance','clinical_guidance'", bootstrap);
+        Assert.Contains("GetNutritionProfileAsync", resolver);
+        Assert.Contains("GetClinicalGuidanceAsync", resolver);
+        Assert.Contains("CalculateSportsProteinAsync", generator);
+        Assert.Contains("clinicalGuidance", generator);
+        Assert.Contains("Los objetivos explícitos enviados por el profesional siempre prevalecen", generator);
+    }
+
+    [Fact]
     public void DietGeneration_ConsumesSpecializationRules()
     {
         var generator = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
