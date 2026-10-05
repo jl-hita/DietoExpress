@@ -411,24 +411,29 @@ public sealed class AutomationWorker : BackgroundService
             throw new InvalidOperationException(result.Mensaje);
     }
 
-    // El historial de ejecución se escribe junto con el cambio de estado en la misma conexión, de modo que una
-    // ejecución marcada como completada siempre deja también su traza de duración/resultados; el historial refleja
-    // intentos individuales y no sustituye al estado durable del job.
+    // El historial de ejecución se escribe en la misma transacción que el cambio de estado, de modo que una
+    // ejecución marcada como completada o fallida siempre deja también su traza de duración/resultados; el historial
+    // refleja intentos individuales y no sustituye al estado durable del job.
     private async Task CompleteJobAsync(long jobId, int attempts, DateTime started, CancellationToken cancellationToken)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         await using var command = new NpgsqlCommand("""
             UPDATE automation_jobs
             SET status='completed', completed_at=NOW(), locked_at=NULL, last_error=NULL, updated_at=NOW()
             WHERE id=@id AND status='processing' AND attempts=@attempts;
-            """, connection);
+            """, connection, transaction);
         command.Parameters.AddWithValue("id", jobId);
         command.Parameters.AddWithValue("attempts", attempts);
         var updated = await command.ExecuteNonQueryAsync(cancellationToken);
         if (updated != 1)
+        {
+            await transaction.RollbackAsync(cancellationToken);
             return;
-        await WriteExecutionAsync(connection, jobId, "completed", null, DateTime.UtcNow - started, cancellationToken);
+        }
+        await WriteExecutionAsync(connection, transaction, jobId, "completed", null, DateTime.UtcNow - started, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
     }
 
     // Un fallo queda registrado como ejecución y decide el siguiente intento según la política
@@ -444,6 +449,7 @@ public sealed class AutomationWorker : BackgroundService
 
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         await using var command = new NpgsqlCommand(retry
             ? """
               UPDATE automation_jobs
@@ -458,7 +464,7 @@ public sealed class AutomationWorker : BackgroundService
               UPDATE automation_jobs
               SET status='failed', locked_at=NULL, last_error=@error, updated_at=NOW()
               WHERE id=@id AND status='processing' AND attempts=@attempts;
-              """, connection);
+              """, connection, transaction);
         command.Parameters.AddWithValue("id", job.Id);
         command.Parameters.AddWithValue("attempts", job.Attempts);
         command.Parameters.AddWithValue("error", ex.Message.Length > 4000 ? ex.Message[..4000] : ex.Message);
@@ -467,7 +473,8 @@ public sealed class AutomationWorker : BackgroundService
         if (updated != 1)
             return;
 
-        await WriteExecutionAsync(connection, job.Id, retry ? "retrying" : "failed", ex.Message, DateTime.UtcNow - started, cancellationToken);
+        await WriteExecutionAsync(connection, transaction, job.Id, retry ? "retrying" : "failed", ex.Message, DateTime.UtcNow - started, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         // Una provisión documental agotada no puede quedar únicamente en los logs: crea una tarea visible
         // para el profesional asignado. La clave basada en el job mantiene la alerta idempotente.
@@ -505,6 +512,7 @@ public sealed class AutomationWorker : BackgroundService
 
     private static async Task WriteExecutionAsync(
         NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
         long jobId,
         string result,
         string? error,
@@ -514,7 +522,7 @@ public sealed class AutomationWorker : BackgroundService
         await using var command = new NpgsqlCommand("""
             INSERT INTO automation_executions(job_id, result, error, duration_ms, executed_at)
             VALUES (@job, @result, @error, @duration, NOW());
-            """, connection);
+            """, connection, transaction);
         command.Parameters.AddWithValue("job", jobId);
         command.Parameters.AddWithValue("result", result);
         command.Parameters.AddWithValue("error", (object?)error ?? DBNull.Value);
