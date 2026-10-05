@@ -20,7 +20,7 @@
         <mat-icon>restaurant</mat-icon><span>Dietas</span>
       </a>
     </div>
-    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount">
+    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isClinic || isSuperAdmin">
       <a mat-list-item routerLink="/support" routerLinkActive="active-link" (click)="navigateAndClose()">
         <mat-icon>support_agent</mat-icon><span>Soporte</span>
       </a>

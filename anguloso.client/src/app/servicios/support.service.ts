@@ -62,7 +62,9 @@ export class SupportService {
     return this.http.post<void>(this.base + '/tickets/' + id + '/messages', { body, internal });
   }
 
-  updateTicket(id: number, request: { status?: SupportStatus; priority?: SupportPriority; assignedToUserId?: number | null }): Observable<void> {
-    return this.http.patch<void>(this.base + '/tickets/' + id, request);
-  }
+  updateTicket(id: number, request: { status?: SupportStatus; priority?: SupportPriority; assignedToUserId?: number | null }): Observable<void> { return this.http.patch<void>(this.base + '/tickets/' + id, request); }
+  reopenTicket(id:number):Observable<void>{return this.http.post<void>(this.base+'/tickets/'+id+'/reopen',{});}
+  getNotifications():Observable<any[]>{return this.http.get<any[]>(this.base+'/notifications');}
+  getUnreadNotificationCount():Observable<number>{return this.http.get<number>(this.base+'/notifications/unread-count');}
+  markNotificationRead(id:number):Observable<void>{return this.http.post<void>(this.base+'/notifications/'+id+'/read',{});}
 }

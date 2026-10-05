@@ -26,6 +26,7 @@ import { SupportCategory, SupportPriority, SupportService, SupportStatus, Suppor
 export class SupportComponent implements OnInit, OnDestroy {
   tickets: SupportTicketSummary[] = [];
   selected: SupportTicket | null = null;
+  notifications:any[]=[]; notificationCount=0;
   loading = false;
   saving = false;
   error = '';
@@ -76,7 +77,7 @@ export class SupportComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.loadTickets();
+    this.loadTickets(); this.loadNotifications();
   }
 
   ngOnDestroy(): void {
@@ -109,6 +110,9 @@ export class SupportComponent implements OnInit, OnDestroy {
     });
   }
 
+  loadNotifications():void{this.support.getNotifications().subscribe(v=>this.notifications=v);this.support.getUnreadNotificationCount().subscribe(v=>this.notificationCount=v);}
+  openNotification(n:any):void{this.support.markNotificationRead(n.id).subscribe(()=>{this.loadNotifications();const t=this.tickets.find(x=>x.id===n.ticketId);if(t)this.openTicket(t);});}
+  reopenTicket():void{if(!this.selected||this.isSuperAdmin||this.saving)return;this.saving=true;this.support.reopenTicket(this.selected.id).subscribe({next:()=>{this.saving=false;this.loadTickets();},error:()=>{this.saving=false;this.error='No se ha podido reabrir el ticket.';}});}
   openTicket(ticket: SupportTicketSummary): void {
     this.error = '';
     this.support.getTicket(ticket.id).subscribe({

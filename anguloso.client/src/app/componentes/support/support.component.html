@@ -1,12 +1,13 @@
 <div class="support-page">
   <header class="page-header">
     <div>
-      <h1>Soporte</h1>
+      <h1>Soporte <span *ngIf="notificationCount">({{notificationCount}} nuevas)</span></h1>
       <p>{{ isSuperAdmin ? 'Gestiona las consultas de profesionales y clínicas.' : 'Contacta con el equipo de DietoExpress.' }}</p>
     </div>
     <mat-icon>support_agent</mat-icon>
   </header>
 
+  <mat-card *ngIf="notifications.length" class="notifications-card"><mat-card-title>Notificaciones</mat-card-title><button class="notification-item" *ngFor="let n of notifications" (click)="openNotification(n)">{{n.title}} — {{n.message}}</button></mat-card>
   <div class="support-grid">
     <mat-card class="ticket-list">
       <mat-card-header>
@@ -89,6 +90,7 @@
         </article>
       </div>
 
+      <button *ngIf="!isSuperAdmin && (selected.status === 'resolved' || selected.status === 'closed')" mat-stroked-button type="button" (click)="reopenTicket()">Reabrir ticket</button>
       <form class="reply-box" (ngSubmit)="sendReply()" *ngIf="selected.status !== 'closed' || isSuperAdmin">
         <mat-form-field appearance="outline">
           <mat-label>{{ internal ? 'Nota interna' : 'Respuesta' }}</mat-label>
