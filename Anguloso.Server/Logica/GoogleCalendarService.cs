@@ -278,10 +278,22 @@ public sealed class GoogleCalendarService
         using var response = await client.GetAsync(url, cancellationToken);
         if (response.StatusCode == HttpStatusCode.Gone && !string.IsNullOrWhiteSpace(syncToken))
         {
+            _logger.LogWarning("Google Calendar devolvió 410 para el syncToken del usuario; se reiniciará la sincronización incremental.");
             return await ListEventsAsync(accessToken, calendarId, null, cancellationToken);
         }
-        response.EnsureSuccessStatusCode();
-        return JsonSerializer.Deserialize<GoogleEventsResponse>(await response.Content.ReadAsStringAsync(cancellationToken), JsonOptions) ?? new();
+
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogError(
+                "Google Calendar rechazó la lectura de eventos. HTTP {StatusCode}. CalendarId {CalendarId}. Respuesta: {ResponseBody}",
+                (int)response.StatusCode,
+                calendarId,
+                body);
+            throw new InvalidOperationException($"Google Calendar rechazó la lectura de eventos (HTTP {(int)response.StatusCode}).");
+        }
+
+        return JsonSerializer.Deserialize<GoogleEventsResponse>(body, JsonOptions) ?? new();
     }
 
     private async Task<JsonElement?> GetEventAsync(string accessToken, string calendarId, string eventId, CancellationToken cancellationToken)
@@ -303,7 +315,13 @@ public sealed class GoogleCalendarService
         if (!response.IsSuccessStatusCode)
         {
             var body = await response.Content.ReadAsStringAsync(cancellationToken);
-            throw new InvalidOperationException("Google Calendar rechazó la sincronización: " + body);
+            _logger.LogError(
+                "Google Calendar rechazó la escritura de un evento. HTTP {StatusCode}. CalendarId {CalendarId}. EventId {EventId}. Respuesta: {ResponseBody}",
+                (int)response.StatusCode,
+                calendarId,
+                eventId,
+                body);
+            throw new InvalidOperationException($"Google Calendar rechazó la sincronización (HTTP {(int)response.StatusCode}).");
         }
     }
 
