@@ -1,0 +1,63 @@
+<main class="statistics-page">
+  <header class="hero">
+    <div>
+      <span class="eyebrow">DIETOEXPRESS</span>
+      <h1>Estadísticas</h1>
+      <p>Actividad y evolución del periodo seleccionado.</p>
+    </div>
+    <div class="filters">
+      <label>Desde <input type="date" [(ngModel)]="from"></label>
+      <label>Hasta <input type="date" [(ngModel)]="to"></label>
+      <button type="button" (click)="reload()">Actualizar</button>
+    </div>
+  </header>
+
+  <div class="error" *ngIf="error"><mat-icon>error_outline</mat-icon>{{error}}</div>
+  <div class="loading" *ngIf="loading"><mat-spinner diameter="40"></mat-spinner><span>Cargando estadísticas…</span></div>
+
+  <ng-container *ngIf="!loading && data">
+    <section class="cards">
+      <mat-card><mat-icon>group</mat-icon><strong>{{data.activePatients}}</strong><span>Pacientes activos</span></mat-card>
+      <mat-card><mat-icon>person_add</mat-icon><strong>{{data.newPatients}}</strong><span>Nuevos en el periodo</span></mat-card>
+      <mat-card><mat-icon>event_available</mat-icon><strong>{{data.completedAppointments}}</strong><span>Citas completadas</span></mat-card>
+      <mat-card><mat-icon>assignment_turned_in</mat-icon><strong>{{data.checkins}}</strong><span>Check-ins recibidos</span></mat-card>
+      <mat-card><mat-icon>favorite</mat-icon><strong>{{data.averageAdherence == null ? '—' : (data.averageAdherence | number:'1.0-1')}}</strong><span>Adherencia media</span></mat-card>
+      <mat-card><mat-icon>person_off</mat-icon><strong>{{data.archivedPatients}}</strong><span>Pacientes archivados</span></mat-card>
+      <mat-card><mat-icon>event_busy</mat-icon><strong>{{noShowRate() | number:'1.0-1'}}%</strong><span>Tasa de no asistencia</span></mat-card>
+      <mat-card><mat-icon>fact_check</mat-icon><strong>{{reviewRate() | number:'1.0-1'}}%</strong><span>Check-ins revisados</span></mat-card>
+    </section>
+
+    <section class="grid">
+      <mat-card class="chart-card">
+        <mat-card-header><mat-card-title>Evolución mensual</mat-card-title></mat-card-header>
+        <mat-card-content>
+          <div class="legend"><span><i></i>Nuevos pacientes</span><span><i></i>Citas completadas</span><span><i></i>Check-ins</span></div>
+          <div class="chart">
+            <div class="month" *ngFor="let item of data.series">
+              <div class="bars">
+                <span class="bar patients" [style.height]="barHeight(item.newPatients,'newPatients')" [title]="item.newPatients + ' nuevos'"></span>
+                <span class="bar appointments" [style.height]="barHeight(item.completedAppointments,'completedAppointments')" [title]="item.completedAppointments + ' citas'"></span>
+                <span class="bar checkins" [style.height]="barHeight(item.checkins,'checkins')" [title]="item.checkins + ' check-ins'"></span>
+              </div>
+              <small>{{formatMonth(item.month)}}</small>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="detail-card">
+        <mat-card-header><mat-card-title>Actividad del periodo</mat-card-title></mat-card-header>
+        <mat-card-content>
+          <div><span>Citas registradas</span><strong>{{data.totalAppointments}}</strong></div>
+          <div><span>Citas canceladas</span><strong>{{data.cancelledAppointments}}</strong></div>
+          <div><span>No asistencias</span><strong>{{data.noShowAppointments}}</strong></div>
+          <div><span>Check-ins revisados</span><strong>{{data.reviewedCheckins}}</strong></div>
+          <ng-container *ngIf="data.scope === 'clinic'">
+            <div class="revenue"><span>Ingresos de suscripción</span><strong>{{data.subscriptionRevenue | currency:'EUR':'symbol':'1.2-2'}}</strong></div>
+            <div><span>Pagos cobrados</span><strong>{{data.paidPayments}}</strong></div>
+          </ng-container>
+        </mat-card-content>
+      </mat-card>
+    </section>
+  </ng-container>
+</main>
