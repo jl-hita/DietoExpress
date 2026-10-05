@@ -25,6 +25,8 @@
       <mat-card><mat-icon>person_off</mat-icon><strong>{{data.archivedPatients}}</strong><span>Pacientes archivados</span></mat-card>
       <mat-card><mat-icon>event_busy</mat-icon><strong>{{noShowRate() | number:'1.0-1'}}%</strong><span>Tasa de no asistencia</span></mat-card>
       <mat-card><mat-icon>fact_check</mat-icon><strong>{{reviewRate() | number:'1.0-1'}}%</strong><span>Check-ins revisados</span></mat-card>
+      <mat-card><mat-icon>monitor_weight</mat-icon><strong>{{data.weightChangeKg == null ? '—' : ((data.weightChangeKg > 0 ? '+' : '') + (data.weightChangeKg | number:'1.1-1'))}}</strong><span>Cambio medio de peso (kg)</span></mat-card>
+      <mat-card><mat-icon>accessibility</mat-icon><strong>{{data.bodyFatChangePoints == null ? '—' : ((data.bodyFatChangePoints > 0 ? '+' : '') + (data.bodyFatChangePoints | number:'1.1-1'))}}</strong><span>Cambio medio de grasa (puntos)</span></mat-card>
     </section>
 
     <section class="grid">
