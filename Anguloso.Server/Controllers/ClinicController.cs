@@ -111,6 +111,16 @@ public class ClinicController : ControllerBase
                 AND d.status = 'pending'",
             tenantId.Value).SingleAsync();
 
+        var documentProvisioning = await _context.Database.SqlQueryRaw<ClinicDocumentProvisioningSummary>(
+            @"SELECT
+                  COUNT(*) FILTER (WHERE j.status IN ('pending','processing'))::int AS ""RetryCount"",
+                  COUNT(*) FILTER (WHERE j.status='failed')::int AS ""FailedCount""
+              FROM automation_jobs j
+              WHERE j.tenant_id = {0}
+                AND j.action_type = 'provision_patient_documents'
+                AND j.idempotency_key LIKE CONCAT('documents:provision:', {0}, ':%:creation')",
+            tenantId.Value).SingleAsync();
+
         return Ok(new {
             license,
             nutritionists=users,
@@ -118,7 +128,9 @@ public class ClinicController : ControllerBase
             unassignedClientCount,
             todayAppointments,
             unreadMessageCount=unreadMessages,
-            pendingDocumentCount=pendingDocuments
+            pendingDocumentCount=pendingDocuments,
+            documentProvisioningRetryCount=documentProvisioning.RetryCount,
+            documentProvisioningFailedCount=documentProvisioning.FailedCount
         });
     }
     [HttpGet("nutritionists")]
@@ -458,3 +470,10 @@ public record AssignClientRequest(int? NutritionistId);
 public record ClientReassignment(int ClientId,int? NutritionistId);
 public record DeactivateNutritionistRequest(List<ClientReassignment> Assignments);
 public sealed record ChangeNutritionistSeatsRequest(int? TargetSeats);
+
+
+public sealed class ClinicDocumentProvisioningSummary
+{
+    public int RetryCount { get; set; }
+    public int FailedCount { get; set; }
+}
