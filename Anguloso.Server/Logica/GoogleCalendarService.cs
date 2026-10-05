@@ -81,7 +81,16 @@ public sealed class GoogleCalendarService
         existing.sync_token = null;
         existing.updated_at = DateTime.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);
-        await SyncUserAsync(existing.user_id, cancellationToken);
+        try
+        {
+            await SyncUserAsync(existing.user_id, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            // La autorización ya se ha persistido correctamente. Un fallo de la sincronización inicial
+            // no debe hacer que Google parezca no conectado; el usuario podrá reintentar la sincronización.
+            _logger.LogWarning(ex, "Google Calendar autorizado para el usuario {UserId}, pero falló la sincronización inicial.", existing.user_id);
+        }
     }
 
     public async Task DisconnectAsync(int userId, int tenantId, CancellationToken cancellationToken = default)
