@@ -56,7 +56,7 @@ public sealed class NotificationService
         if (!preferences.InAppEnabled)
         {
             if (sendPush && preferences.PushEnabled)
-                await SendPushAsync(tenantId, clientId, new PushPayload(title, message, actionUrl));
+                await SendPushAsync(tenantId, clientId, new PushPayload(title, message, actionUrl), null, idempotencyKey);
             return 0;
         }
 
@@ -84,7 +84,8 @@ RETURNING id;", connection);
         // Una clave durable permite que un reintento tras una caída del worker reutilice la misma
         // notificación en lugar de insertar otra idéntica.
         // El push se intenta después de confirmar la notificación in-app; así el canal efímero nunca define si el aviso existe.
-        if (sendPush && preferences.PushEnabled) await SendPushAsync(tenantId, clientId, new PushPayload(title, message, actionUrl));
+        if (sendPush && preferences.PushEnabled)
+            await SendPushAsync(tenantId, clientId, new PushPayload(title, message, actionUrl), id, idempotencyKey);
         return id;
     }
 
@@ -214,7 +215,7 @@ WHERE tenant_id = @tenant AND client_id = @client AND endpoint = @endpoint;", co
     private static bool IsPlaceholder(string? value) =>
         string.IsNullOrWhiteSpace(value) || value.StartsWith("__CONFIGURE_", StringComparison.Ordinal);
 
-    private async Task SendPushAsync(int tenantId, int clientId, PushPayload payload)
+    private async Task SendPushAsync(int tenantId, int clientId, PushPayload payload, long? notificationId, string? idempotencyKey)
     {
         var subject = GetWebPushConfig("webPushSubject");
         var publicKey = GetWebPushConfig("webPushPublicKey");
@@ -248,20 +249,86 @@ WHERE tenant_id = @tenant AND client_id = @client;", connection);
 
         foreach (var item in subscriptions)
         {
+            // El ledger evita envíos concurrentes duplicados cuando dos workers recuperan el mismo efecto.
+            // No convierte Web Push en exactly-once: si el proveedor acepta el mensaje y el proceso cae
+            // antes de marcarlo como enviado, un reintento posterior puede volver a entregarlo.
+            var deliveryKey = !string.IsNullOrWhiteSpace(idempotencyKey)
+                ? idempotencyKey
+                : notificationId.HasValue
+                    ? $"notification:{notificationId.Value}"
+                    : $"direct:{Guid.NewGuid():N}";
+            if (!await TryClaimPushDeliveryAsync(tenantId, notificationId, item.Id, deliveryKey))
+                continue;
+
             try
             {
                 await webPush.SendNotificationAsync(new PushSubscription(item.Endpoint, item.P256dh, item.Auth), json, vapid);
+                await MarkPushDeliveryAsync(tenantId, item.Id, deliveryKey, true, null);
             }
             catch (WebPushException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Gone || ex.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
                 await DeleteSubscriptionAsync(item.Id);
+                await MarkPushDeliveryAsync(tenantId, item.Id, deliveryKey, true, "La suscripción push ya no existe.");
             }
             catch (Exception ex)
             {
+                await MarkPushDeliveryAsync(tenantId, item.Id, deliveryKey, false, ex.Message);
                 // Un fallo puntual de push no invalida la notificación persistida ni debe bloquear otras suscripciones.
                 // El portal sigue siendo el canal durable aunque el proveedor push esté temporalmente degradado.
                 _logger.LogWarning(ex, "No se pudo enviar push al paciente {ClientId}.", clientId);
             }
+        }
+    }
+
+    private async Task<bool> TryClaimPushDeliveryAsync(int tenantId, long? notificationId, long subscriptionId, string deliveryKey)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand("""
+            INSERT INTO patient_push_deliveries
+                (tenant_id, notification_id, subscription_id, delivery_key, status, attempts, created_at, updated_at)
+            VALUES
+                (@tenant, @notification, @subscription, @delivery_key, 'processing', 1, NOW(), NOW())
+            ON CONFLICT (tenant_id, delivery_key, subscription_id)
+            DO UPDATE SET
+                status='processing',
+                attempts=patient_push_deliveries.attempts + 1,
+                updated_at=NOW()
+            WHERE patient_push_deliveries.status <> 'sent'
+              AND patient_push_deliveries.updated_at < NOW() - INTERVAL '10 minutes'
+            RETURNING id;
+            """, connection);
+        command.Parameters.AddWithValue("tenant", tenantId);
+        command.Parameters.AddWithValue("notification", (object?)notificationId ?? DBNull.Value);
+        command.Parameters.AddWithValue("subscription", subscriptionId);
+        command.Parameters.AddWithValue("delivery_key", deliveryKey);
+        return await command.ExecuteScalarAsync() is not null;
+    }
+
+    private async Task MarkPushDeliveryAsync(int tenantId, long subscriptionId, string deliveryKey, bool sent, string? error)
+    {
+        try
+        {
+            await using var connection = new NpgsqlConnection(_connectionString);
+            await connection.OpenAsync();
+            await using var command = new NpgsqlCommand("""
+                UPDATE patient_push_deliveries
+                SET status=@status, last_error=@error, sent_at=CASE WHEN @sent THEN NOW() ELSE sent_at END, updated_at=NOW()
+                WHERE tenant_id=@tenant AND subscription_id=@subscription AND delivery_key=@delivery_key;
+                """, connection);
+            command.Parameters.AddWithValue("status", sent ? "sent" : "failed");
+            command.Parameters.AddWithValue("sent", sent);
+            command.Parameters.AddWithValue("error", (object?)error ?? DBNull.Value);
+            command.Parameters.AddWithValue("tenant", tenantId);
+            command.Parameters.AddWithValue("subscription", subscriptionId);
+            command.Parameters.AddWithValue("delivery_key", deliveryKey);
+            await command.ExecuteNonQueryAsync();
+        }
+        catch (Exception ex)
+        {
+            // El ledger es una defensa contra duplicados concurrentes, no puede convertirse en una causa
+            // de pérdida de la notificación principal si PostgreSQL está temporalmente degradado.
+            _logger.LogWarning(ex, "No se pudo actualizar el ledger de entrega push.");
         }
     }
 
