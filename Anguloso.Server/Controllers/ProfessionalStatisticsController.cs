@@ -160,6 +160,33 @@ public sealed class ProfessionalStatisticsController : ControllerBase
         {
             await using var command = new NpgsqlCommand("""
                 SELECT
+                    COUNT(*) FILTER (WHERE s.status NOT IN ('cancelled', 'canceled')
+                        AND s.started_at < @to AND (s.expires_at IS NULL OR s.expires_at >= @from)),
+                    COUNT(*) FILTER (WHERE s.cancel_at_period_end
+                        AND s.status NOT IN ('cancelled', 'canceled')),
+                    COUNT(*) FILTER (WHERE s.status IN ('cancelled', 'canceled')
+                        AND s.cancelled_at >= @from AND s.cancelled_at < @to),
+                    COUNT(*) FILTER (WHERE s.status NOT IN ('cancelled', 'canceled')
+                        AND s.started_at >= @from AND s.started_at < @to)
+                FROM subscriptions s
+                WHERE s.tenant_id=@tenant;
+                """, connection);
+
+            AddCommonParameters(command, tenantId.Value, userId, fromUtc, toExclusiveUtc);
+            await using var reader = await command.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                result.ActiveSubscriptions = reader.IsDBNull(0) ? 0 : reader.GetInt32(0);
+                result.ScheduledCancellations = reader.IsDBNull(1) ? 0 : reader.GetInt32(1);
+                result.CancelledSubscriptions = reader.IsDBNull(2) ? 0 : reader.GetInt32(2);
+                result.NewSubscriptions = reader.IsDBNull(3) ? 0 : reader.GetInt32(3);
+            }
+        }
+
+        if (isClinicAdmin)
+        {
+            await using var command = new NpgsqlCommand("""
+                SELECT
                     COALESCE(SUM(sp.amount) FILTER (WHERE sp.status='paid' AND sp.paid_at >= @from AND sp.paid_at < @to), 0),
                     COUNT(*) FILTER (WHERE sp.status='paid' AND sp.paid_at >= @from AND sp.paid_at < @to)::int
                 FROM subscription_payments sp
@@ -381,6 +408,10 @@ public sealed class ProfessionalStatisticsDto
     public decimal SubscriptionRevenue { get; set; }
     public int PaidPayments { get; set; }
     public List<ProfessionalStatisticsWorkloadDto> NutritionistWorkload { get; set; } = [];
+    public int ActiveSubscriptions { get; set; }
+    public int ScheduledCancellations { get; set; }
+    public int CancelledSubscriptions { get; set; }
+    public int NewSubscriptions { get; set; }
     public double? WeightChangeKg { get; set; }
     public double? BodyFatChangePoints { get; set; }
     public double? MuscleMassChangeKg { get; set; }
