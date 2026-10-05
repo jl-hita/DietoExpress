@@ -244,6 +244,9 @@ public class DietValidationService
         var specializationExclusions = tenantId.HasValue
             ? await _specializationRulesService.GetFoodExclusionsAsync(clientId, tenantId.Value)
             : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var structuredSpecializationExclusions = tenantId.HasValue
+            ? await _specializationRulesService.GetExcludedFoodIdsAsync(clientId, tenantId.Value, foodsMap.Keys.ToArray())
+            : new HashSet<int>();
 
         if (dietDto.Days == null) return warnings;
 
