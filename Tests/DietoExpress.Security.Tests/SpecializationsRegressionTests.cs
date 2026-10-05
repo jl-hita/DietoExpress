@@ -39,6 +39,11 @@ public sealed class SpecializationsRegressionTests
         Assert.Contains("'sports_nutrition'", bootstrap);
         Assert.Contains("'diabetes'", bootstrap);
         Assert.Contains("'celiac'", bootstrap);
+        Assert.Contains("'tree_nut_allergy'", bootstrap);
+        Assert.Contains("'peanut_allergy'", bootstrap);
+        Assert.Contains("'soy_allergy'", bootstrap);
+        Assert.Contains("DO $", bootstrap);
+        Assert.Contains("END $;", bootstrap);
     }
 
     [Fact]
@@ -124,8 +129,18 @@ public sealed class SpecializationsRegressionTests
         Assert.Contains("'animal'", bootstrap);
         Assert.Contains("'gluten'", bootstrap);
         Assert.Contains("'lactose'", bootstrap);
+        Assert.Contains("'tree_nut'", bootstrap);
+        Assert.Contains("'peanut'", bootstrap);
+        Assert.Contains("'soy'", bootstrap);
+        Assert.Contains("almendra|almendras", bootstrap);
+        Assert.Contains("cacahuete|cacahuetes", bootstrap);
+        Assert.Contains("soja|soya", bootstrap);
+        Assert.Contains("flags && ARRAY['meat','fish','egg','dairy','honey','gelatin']", bootstrap);
         Assert.Contains("('celiac','exclude_food_gluten'", bootstrap);
         Assert.Contains("('lactose_intolerance','exclude_food_lactose'", bootstrap);
+        Assert.Contains("('tree_nut_allergy','exclude_food_tree_nuts'", bootstrap);
+        Assert.Contains("('peanut_allergy','exclude_food_peanut'", bootstrap);
+        Assert.Contains("('soy_allergy','exclude_food_soy'", bootstrap);
         Assert.Contains("\"required_flags\"", bootstrap);
         Assert.Contains("GetExcludedFoodIdsAsync", resolver);
         Assert.Contains("dietary_flags && @required_flags", resolver);
