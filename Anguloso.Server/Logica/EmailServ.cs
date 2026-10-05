@@ -33,7 +33,7 @@ public class EmailServ
     // reenvíos del mismo efecto tras una caída del worker entre el envío y el marcado del job como completado.
     // SMTP no ofrece una garantía universal de exactly-once: la ventana de caída después de aceptar el mensaje
     // por el servidor SMTP sigue siendo intrínsecamente ambigua y debe considerarse at-least-once.
-    public async Task<BoolMensaje> SendEmailAsync(string to, string subject, string htmlBody)
+    public async Task<BoolMensaje> SendEmailAsync(string to, string subject, string htmlBody, string? idempotencyKey = null)
     {
         try
         {
@@ -60,9 +60,10 @@ public class EmailServ
                     IsBodyHtml = true
                 };
 
-                // El identificador se deriva de todo el efecto observable para que dos reintentos del mismo job
-                // produzcan exactamente el mismo Message-ID sin persistir contenido sensible adicional.
-                var identity = $"{to}\n{subject}\n{htmlBody}";
+                // Los jobs persistentes aportan una clave estable para que un reintento del mismo efecto
+                // conserve el Message-ID. Las llamadas directas no tienen una identidad durable y reciben
+                // un identificador nuevo para no confundir dos envíos legítimos con el mismo contenido.
+                var identity = idempotencyKey ?? Guid.NewGuid().ToString("N");
                 var hash = SHA256.HashData(Encoding.UTF8.GetBytes(identity));
                 var messageId = $"<{Convert.ToHexString(hash).ToLowerInvariant()}@dietoexpress.local>";
                 mail.Headers.Add("Message-ID", messageId);
