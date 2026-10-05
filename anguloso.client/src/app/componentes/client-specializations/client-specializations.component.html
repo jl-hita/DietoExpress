@@ -42,14 +42,14 @@
 
           <p>{{ item.description }}</p>
 
-          <mat-form-field *ngIf="isSelected(item.id)" class="notes">
+          <div *ngIf="isSelected(item.id)" class="notes">
             <label>Notas profesionales</label>
             <textarea
               rows="2"
               [(ngModel)]="notes[item.id]"
               maxlength="2000"
               placeholder="Criterios o contexto específico del paciente"></textarea>
-          </mat-form-field>
+          </div>
 
           <div class="tenant-setting">
             <mat-checkbox
