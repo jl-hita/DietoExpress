@@ -21,6 +21,26 @@ export interface ClientSpecialization {
   notes?: string | null;
 }
 
+export interface SportsNutritionProfile {
+  discipline: string;
+  trainingGoal: string;
+  sessionsPerWeek: number;
+  sessionMinutes: number;
+  proteinGPerKg: number;
+  carbsGPerKg: number;
+  hydrationMlPerKg: number;
+}
+
+export interface WeightManagementProfile {
+  goal: string;
+  targetWeightKg: number | null;
+  targetRateKgPerWeek: number;
+  deficitPercent: number;
+  minimumKcal: number;
+  proteinGPerKg: number;
+  reviewWeeks: number;
+}
+
 export interface ClientSpecializationItem {
   specializationId: number;
   notes?: string | null;
@@ -45,5 +65,13 @@ export class SpecializationService {
 
   setClientSpecializations(clientId: number, items: ClientSpecializationItem[]): Observable<void> {
     return this.http.put<void>(`${this.baseUrl}/clients/${clientId}`, { items });
+  }
+
+  getClientSpecializationProfile<T>(clientId: number, code: string): Observable<{ code: string; configuration: T }> {
+    return this.http.get<{ code: string; configuration: T }>(this.baseUrl + '/clients/' + clientId + '/' + code + '/profile');
+  }
+
+  setClientSpecializationProfile<T>(clientId: number, code: string, configuration: T): Observable<void> {
+    return this.http.put<void>(this.baseUrl + '/clients/' + clientId + '/' + code + '/profile', { configuration });
   }
 }
