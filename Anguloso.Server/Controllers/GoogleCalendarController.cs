@@ -15,8 +15,14 @@ public sealed class GoogleCalendarController : ControllerBase
 {
     private readonly angulosodbContext _db;
     private readonly GoogleCalendarService _calendar;
+    private readonly ILogger<GoogleCalendarController> _logger;
 
-    public GoogleCalendarController(angulosodbContext db, GoogleCalendarService calendar) { _db = db; _calendar = calendar; }
+    public GoogleCalendarController(angulosodbContext db, GoogleCalendarService calendar, ILogger<GoogleCalendarController> logger)
+    {
+        _db = db;
+        _calendar = calendar;
+        _logger = logger;
+    }
 
     [Authorize(Roles = "clinic_admin,nutritionist")]
     [HttpGet("status")]
@@ -45,15 +51,27 @@ public sealed class GoogleCalendarController : ControllerBase
     [HttpGet("callback")]
     public async Task<IActionResult> Callback([FromQuery] string? code, [FromQuery] string? state, [FromQuery] string? error, CancellationToken cancellationToken)
     {
-        if (!string.IsNullOrWhiteSpace(error)) return Redirect("/appointments?calendar=error");
+        if (!string.IsNullOrWhiteSpace(error))
+        {
+            _logger.LogWarning("Google Calendar OAuth rechazado por Google: {Error}", error);
+            return Redirect("/appointments?calendar=error");
+        }
         if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(state)) return BadRequest();
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(state)));
         var oauth = await _db.google_calendar_oauth_states.FirstOrDefaultAsync(x => x.state_hash == hash && x.expires_at > DateTime.UtcNow, cancellationToken);
         if (oauth == null) return BadRequest("OAuth state no válido o caducado.");
         _db.google_calendar_oauth_states.Remove(oauth);
         await _db.SaveChangesAsync(cancellationToken);
-        try { await _calendar.CompleteAuthorizationAsync(code, oauth, cancellationToken); return Redirect("/appointments?calendar=connected"); }
-        catch { return Redirect("/appointments?calendar=error"); }
+        try
+        {
+            await _calendar.CompleteAuthorizationAsync(code, oauth, cancellationToken);
+            return Redirect("/appointments?calendar=connected");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error completando la autorización OAuth de Google Calendar para el usuario {UserId}.", oauth.user_id);
+            return Redirect("/appointments?calendar=error");
+        }
     }
 
     [Authorize(Roles = "clinic_admin,nutritionist")]
