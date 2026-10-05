@@ -286,8 +286,7 @@ public class DirectoryController : ControllerBase
         {
             // La reserva ya está confirmada; registramos la incidencia sin convertir un fallo
             // operativo del sistema documental en un fallo de la reserva.
-            HttpContext.RequestServices.GetRequiredService<ILogger<DirectoryController>>()
-                .LogError(ex, "No se pudo programar la provisión documental del paciente {ClientId}.", appointment.client_id);
+            _logger.LogError(ex, "No se pudo programar la provisión documental del paciente {ClientId}.", appointment.client_id);
         }
 
         try
@@ -303,8 +302,7 @@ public class DirectoryController : ControllerBase
         }
         catch (Exception ex)
         {
-            HttpContext.RequestServices.GetRequiredService<ILogger<DirectoryController>>()
-                .LogError(ex, "No se pudo registrar la automatización de reserva pública {AppointmentId}.", appointment.id);
+            _logger.LogError(ex, "No se pudo registrar la automatización de reserva pública {AppointmentId}.", appointment.id);
         }
 
         return Ok(new PublicAppointmentConfirmationDto
