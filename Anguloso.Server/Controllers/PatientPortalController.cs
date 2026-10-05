@@ -1,6 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Security.Cryptography;
 using System.Text;
 using Anguloso.Server.Logica;
 using Anguloso.Server.Logica.Utils;
@@ -19,20 +18,20 @@ namespace Anguloso.Server.Controllers;
 public class PatientPortalController : ControllerBase
 {
     private readonly angulosodbContext _context;
-    private readonly ConfigServ _configServ;
     private readonly IConfiguration _config;
     private readonly ILicenseService _licenseService;
     private readonly EmailServ _emailServ;
     private readonly AutomationService _automationService;
+    private readonly PatientPortalAccessService _portalAccessService;
 
-    public PatientPortalController(angulosodbContext context, IConfiguration config, ConfigServ configServ, ILicenseService licenseService, EmailServ emailServ, AutomationService automationService)
+    public PatientPortalController(angulosodbContext context, IConfiguration config, ILicenseService licenseService, EmailServ emailServ, AutomationService automationService, PatientPortalAccessService portalAccessService)
     {
         _context = context;
         _config = config;
-        _configServ = configServ;
         _licenseService = licenseService;
         _emailServ = emailServ;
         _automationService = automationService;
+        _portalAccessService = portalAccessService;
     }
 
     /// <summary>
@@ -48,7 +47,7 @@ public class PatientPortalController : ControllerBase
         {
             client = await _context.clients
                 .Include(c => c.user)
-                .FirstOrDefaultAsync(c => c.archived_at == null && c.access_token == HashAccessToken(request.Token) &&
+                .FirstOrDefaultAsync(c => c.archived_at == null && c.access_token == PatientPortalAccessService.HashAccessToken(request.Token) &&
                     c.access_token_expires_at.HasValue && c.access_token_expires_at > DateTime.UtcNow);
             if (client == null) return Unauthorized("Enlace de acceso no válido o caducado.");
         }
@@ -77,7 +76,7 @@ public class PatientPortalController : ControllerBase
         {
             var consumed = await _context.clients
                 .Where(c => c.id == client.id &&
-                            c.access_token == HashAccessToken(request.Token) &&
+                            c.access_token == PatientPortalAccessService.HashAccessToken(request.Token) &&
                             c.access_token_expires_at.HasValue &&
                             c.access_token_expires_at > DateTime.UtcNow)
                 .ExecuteUpdateAsync(setters => setters
@@ -125,15 +124,10 @@ public class PatientPortalController : ControllerBase
         if (!await _licenseService.CanUseFeatureAsync(portalTenantId, "CLIENT_PORTAL"))
             return Ok(new { message = "Si el email corresponde a un paciente, recibirás un nuevo enlace de acceso." });
 
-        var rawToken = GenerateUrlSafeToken();
-        client.access_token = HashAccessToken(rawToken);
-        client.access_token_expires_at = DateTime.UtcNow.AddHours(24);
-        client.portal_token_version++;
+        var magicLink = await _portalAccessService.CreateAccessLinkAsync(client.id, HttpContext.RequestAborted);
+        if (magicLink == null)
+            return Ok(new { message = "Si el email corresponde a un paciente, recibirás un nuevo enlace de acceso." });
 
-        await _context.SaveChangesAsync();
-
-        var frontendUrl = _configServ.GetConfigString("frontendUrl", "https://localhost:4200") ?? "https://localhost:4200";
-        var magicLink = $"{frontendUrl.TrimEnd('/')}/patient?token={Uri.EscapeDataString(rawToken)}";
         var safeName = System.Net.WebUtility.HtmlEncode(client.full_name ?? "Paciente");
         var safeLink = System.Net.WebUtility.HtmlEncode(magicLink);
 
@@ -144,9 +138,7 @@ public class PatientPortalController : ControllerBase
         );
 
         if (!emailResult.Exito)
-        {
             return StatusCode(500, new { message = "No hemos podido enviar el enlace de acceso. Inténtalo de nuevo más tarde." });
-        }
 
         return Ok(new { message = "Si el email corresponde a un paciente, recibirás un nuevo enlace de acceso." });
     }
@@ -424,8 +416,8 @@ public class PatientPortalController : ControllerBase
             });
         }
 
-        var rawToken = GenerateUrlSafeToken();
-        client.access_token = HashAccessToken(rawToken);
+        var rawToken = PatientPortalAccessService.GenerateUrlSafeToken();
+        client.access_token = PatientPortalAccessService.HashAccessToken(rawToken);
         client.access_token_expires_at = DateTime.UtcNow.AddHours(24);
         await _context.SaveChangesAsync();
 
@@ -450,8 +442,8 @@ public class PatientPortalController : ControllerBase
              (c.user_id == userId.Value ||
               _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active)))));
         if (client == null) return NotFound("Cliente no encontrado.");
-        var rawToken = GenerateUrlSafeToken();
-        client.access_token = HashAccessToken(rawToken);
+        var rawToken = PatientPortalAccessService.GenerateUrlSafeToken();
+        client.access_token = PatientPortalAccessService.HashAccessToken(rawToken);
         client.access_token_expires_at = DateTime.UtcNow.AddHours(24);
         client.portal_token_version++;
         await _context.SaveChangesAsync();
@@ -557,13 +549,4 @@ public class PatientPortalController : ControllerBase
         });
     }
 
-    private static string HashAccessToken(string token) =>
-        Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(token))).ToLowerInvariant();
-
-    private static string GenerateUrlSafeToken()
-    {
-        var bytes = new byte[32];
-        RandomNumberGenerator.Fill(bytes);
-        return Convert.ToBase64String(bytes).Replace("+", "-").Replace("/", "_").Replace("=", "");
-    }
 }

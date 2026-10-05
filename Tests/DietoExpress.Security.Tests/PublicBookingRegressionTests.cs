@@ -48,4 +48,32 @@ public class PublicBookingRegressionTests
         Assert.Contains("cancellationToken: CancellationToken.None", booking[schedulingPos..]);
         Assert.DoesNotContain("cancellationToken: HttpContext.RequestAborted", booking[schedulingPos..]);
     }
+
+    [Fact]
+    public void PublicBooking_SendsInitialPortalAccessOnlyForNewPortalPatients()
+    {
+        var source = File.ReadAllText(Path.Combine(
+            RepoRoot, "Anguloso.Server", "Controllers", "DirectoryController.cs"));
+
+        Assert.Contains("PatientPortalAccessService _portalAccessService", source);
+        Assert.Contains("EmailServ _emailServ", source);
+        Assert.Contains("client.passcode_hash == null && client.access_token == null", source);
+        Assert.Contains("CreateAccessLinkAsync(client.id", source);
+        Assert.Contains("Tu reserva en DietoExpress", source);
+        Assert.Contains("No regeneramos tokens de pacientes ya operativos", source);
+    }
+
+    [Fact]
+    public void PublicBooking_UsesTheSamePortalAccessTokenServiceAsPortalRecovery()
+    {
+        var accessService = File.ReadAllText(Path.Combine(
+            RepoRoot, "Anguloso.Server", "Logica", "PatientPortalAccessService.cs"));
+        var portal = File.ReadAllText(Path.Combine(
+            RepoRoot, "Anguloso.Server", "Controllers", "PatientPortalController.cs"));
+
+        Assert.Contains("public static string HashAccessToken", accessService);
+        Assert.Contains("PatientPortalAccessService.HashAccessToken(request.Token)", portal);
+        Assert.Contains("CreateAccessLinkAsync(client.id", portal);
+    }
+
 }
