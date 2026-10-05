@@ -1,7 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
 using Anguloso.Server.Logica;
 using Anguloso.Server.Logica.Utils;
 using Anguloso.Server.Model;
@@ -19,18 +17,16 @@ namespace Anguloso.Server.Controllers;
 public class PatientPortalController : ControllerBase
 {
     private readonly angulosodbContext _context;
-    private readonly ConfigServ _configServ;
     private readonly IConfiguration _config;
     private readonly ILicenseService _licenseService;
     private readonly EmailServ _emailServ;
     private readonly AutomationService _automationService;
     private readonly PatientPortalAccessService _portalAccessService;
 
-    public PatientPortalController(angulosodbContext context, IConfiguration config, ConfigServ configServ, ILicenseService licenseService, EmailServ emailServ, AutomationService automationService, PatientPortalAccessService portalAccessService)
+    public PatientPortalController(angulosodbContext context, IConfiguration config, ILicenseService licenseService, EmailServ emailServ, AutomationService automationService, PatientPortalAccessService portalAccessService)
     {
         _context = context;
         _config = config;
-        _configServ = configServ;
         _licenseService = licenseService;
         _emailServ = emailServ;
         _automationService = automationService;
