@@ -263,23 +263,31 @@ public class DirectoryController : ControllerBase
         await _context.SaveChangesAsync();
         await transaction.CommitAsync();
 
-        // La reserva pública convierte al visitante en paciente operativo: tras confirmar la transacción,
-        // provisionamos los documentos obligatorios de alta sin mezclar esta operación con el lock de la agenda.
-        // Si el almacenamiento documental falla, la cita sigue siendo válida y el alta podrá reintentarse.
+        // La reserva pública convierte al visitante en paciente operativo. La provisión documental se
+        // ejecuta como trabajo persistente después del commit: sobrevive a reinicios y dispone de reintentos
+        // con backoff, de modo que un fallo de disco/almacenamiento no deje el alta en un estado irrecuperable.
         try
         {
-            await _patientDocumentService.CreateRequiredDocumentsAsync(
+            await _automationService.ScheduleActionAsync(
                 appointment.tenant_id,
-                appointment.client_id,
-                professional.id,
-                forClientCreation: true,
-                includeAllRequired: false,
+                "provision_patient_documents",
+                new AutomationService.ProvisionPatientDocumentsAction(
+                    appointment.client_id,
+                    professional.id,
+                    ForClientCreation: true,
+                    IncludeAllRequired: false),
+                DateTime.UtcNow,
+                null,
+                $"documents:provision:{appointment.tenant_id}:{appointment.client_id}:creation",
+                maxAttempts: 8,
                 cancellationToken: HttpContext.RequestAborted);
         }
         catch (Exception ex)
         {
+            // La reserva ya está confirmada; registramos la incidencia sin convertir un fallo
+            // operativo del sistema documental en un fallo de la reserva.
             HttpContext.RequestServices.GetRequiredService<ILogger<DirectoryController>>()
-                .LogError(ex, "No se pudo provisionar la documentación de alta del paciente {ClientId} tras la reserva pública.", appointment.client_id);
+                .LogError(ex, "No se pudo programar la provisión documental del paciente {ClientId}.", appointment.client_id);
         }
 
         try
