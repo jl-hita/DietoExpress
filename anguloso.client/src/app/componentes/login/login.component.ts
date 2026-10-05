@@ -8,7 +8,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { HttpClient } from '@angular/common/http';
-import { AuthService } from '../../servicios/auth.service';
+import { AuthService, AuthUser } from '../../servicios/auth.service';
 import { environment } from '../../../environments/environments';
 import { LegalDocument, LegalService } from '../../servicios/legal.service';
 
