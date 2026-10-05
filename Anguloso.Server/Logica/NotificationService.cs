@@ -50,7 +50,7 @@ public sealed class NotificationService
         await command.ExecuteNonQueryAsync();
     }
 
-    public async Task<long> CreateForPatientAsync(int tenantId, int clientId, string type, string title, string message, string? actionUrl = null, bool sendPush = true)
+    public async Task<long> CreateForPatientAsync(int tenantId, int clientId, string type, string title, string message, string? actionUrl = null, bool sendPush = true, string? idempotencyKey = null)
     {
         var preferences = await GetCommunicationPreferencesAsync(tenantId, clientId);
         if (!preferences.InAppEnabled)
@@ -63,8 +63,9 @@ public sealed class NotificationService
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
         await using var command = new NpgsqlCommand(@"
-INSERT INTO patient_notifications (tenant_id, client_id, type, title, message, action_url, created_at)
-VALUES (@tenant, @client, @type, @title, @message, @action, NOW())
+INSERT INTO patient_notifications (tenant_id, client_id, type, title, message, action_url, created_at, idempotency_key)
+VALUES (@tenant, @client, @type, @title, @message, @action, NOW(), @idempotency)
+ON CONFLICT (tenant_id, idempotency_key) DO NOTHING
 RETURNING id;", connection);
         command.Parameters.AddWithValue("tenant", tenantId);
         command.Parameters.AddWithValue("client", clientId);
@@ -72,12 +73,39 @@ RETURNING id;", connection);
         command.Parameters.AddWithValue("title", title);
         command.Parameters.AddWithValue("message", message);
         command.Parameters.AddWithValue("action", (object?)actionUrl ?? DBNull.Value);
+        command.Parameters.AddWithValue("idempotency", (object?)idempotencyKey ?? DBNull.Value);
         // La notificación in-app queda persistida antes de intentar push: un fallo del proveedor no debe hacer
         // desaparecer el aviso que el paciente puede consultar desde el portal.
-        var id = Convert.ToInt64(await command.ExecuteScalarAsync());
+        var result = await command.ExecuteScalarAsync();
+        var id = result is null
+            ? await GetNotificationIdByIdempotencyKeyAsync(tenantId, idempotencyKey)
+            : Convert.ToInt64(result);
+
+        // Una clave durable permite que un reintento tras una caída del worker reutilice la misma
+        // notificación en lugar de insertar otra idéntica.
         // El push se intenta después de confirmar la notificación in-app; así el canal efímero nunca define si el aviso existe.
         if (sendPush && preferences.PushEnabled) await SendPushAsync(tenantId, clientId, new PushPayload(title, message, actionUrl));
         return id;
+    }
+
+    private async Task<long> GetNotificationIdByIdempotencyKeyAsync(int tenantId, string? idempotencyKey)
+    {
+        if (string.IsNullOrWhiteSpace(idempotencyKey))
+            throw new InvalidOperationException("No se pudo resolver la notificación idempotente.");
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand(@"
+SELECT id
+FROM patient_notifications
+WHERE tenant_id=@tenant AND idempotency_key=@idempotency
+LIMIT 1;", connection);
+        command.Parameters.AddWithValue("tenant", tenantId);
+        command.Parameters.AddWithValue("idempotency", idempotencyKey);
+        var value = await command.ExecuteScalarAsync();
+        return value is null
+            ? throw new InvalidOperationException("La notificación idempotente no pudo recuperarse.")
+            : Convert.ToInt64(value);
     }
 
     public async Task<IReadOnlyList<PatientNotificationDto>> GetForPatientAsync(int tenantId, int clientId, int limit = 50)
