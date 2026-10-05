@@ -32,7 +32,7 @@ public sealed class AutomationExternalEffectsRegressionTests
         // SMTP no ofrece exactly-once de forma universal, pero un Message-ID estable permite
         // que proveedores que deduplican mensajes reconozcan un reintento del mismo efecto.
         Assert.Contains("SHA256.HashData", source);
-        Assert.Contains("mail.Headers.Add("Message-ID", messageId)", source);
+        Assert.Contains('mail.Headers.Add("Message-ID", messageId)', source);
         Assert.Contains("Message-ID determinista", source);
     }
 
@@ -43,8 +43,8 @@ public sealed class AutomationExternalEffectsRegressionTests
 
         // Si el proceso cae después de la acción y antes de CompleteJobAsync, las acciones
         // persistentes deben reconocer el mismo job en lugar de crear un segundo efecto.
-        Assert.Contains("$"job:{job.Id}"", source);
-        Assert.Contains("$"job:{job.Id}:document-provision-failed"", source);
+        Assert.Contains('$"job:{job.Id}"', source);
+        Assert.Contains('$"job:{job.Id}:document-provision-failed"', source);
         Assert.Contains("CreateProfessionalTaskAsync", source);
         Assert.Contains("CreateRequiredDocumentsAsync", source);
     }
