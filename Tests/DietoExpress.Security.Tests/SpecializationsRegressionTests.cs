@@ -97,8 +97,7 @@ public sealed class SpecializationsRegressionTests
         Assert.Contains("SpecializationService", component);
         Assert.Contains("setClientSpecializations", component);
     }
-}
-
+    
     [Fact]
     public void DietarySpecializations_AreSeededWithFoodExclusionRules()
     {
@@ -123,6 +122,6 @@ public sealed class SpecializationsRegressionTests
         Assert.Contains("tenant_specializations", resolver);
         Assert.Contains("food_exclusion", resolver);
         Assert.Contains("specializationExclusions", validation);
-        Assert.Contains("AlertType = "Specialization"", validation);
+        Assert.Contains("AlertType = \"Specialization\"", validation);
     }
 }
