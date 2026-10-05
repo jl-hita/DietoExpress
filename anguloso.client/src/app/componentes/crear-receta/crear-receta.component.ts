@@ -13,26 +13,6 @@ import { Component } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environments';
 
-interface Ingrediente {
-  id?: number;           // Opcional, porque al crear uno nuevo todavía no tiene ID
-  nombre: string;
-  comprado?: boolean;    // Opcional, default false
-  descripcion?: string;  // Opcional
-  cantidad: number;
-  unidad: string;
-  id_usuario?: number;   // Opcional
-  id_receta?: number;    // Opcional
-}
-
-interface Receta {
-  id?: number;           // Opcional, porque al crear una receta todavía no tiene ID
-  nombre: string;
-  descripcion?: string;  // Opcional
-  receta?: string;       // El texto de la receta
-  fecha_creacion?: string | Date; // Puede venir como string ISO o Date
-  id_usuario: number;
-}
-
 @Component({
   selector: 'app-crear-receta',
   templateUrl: './crear-receta.component.html',
