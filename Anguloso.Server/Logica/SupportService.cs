@@ -86,7 +86,7 @@ WHERE t.id=@id
 """;
         await using var ticketCommand = new NpgsqlCommand(ticketSql, connection);
         ticketCommand.Parameters.AddWithValue("id", ticketId);
-        ticketCommand.Parameters.AddWithValue("tenant", tenantId);
+        ticketCommand.Parameters.AddWithValue("tenant", (object?)tenantId ?? DBNull.Value);
         ticketCommand.Parameters.AddWithValue("user", userId);
         ticketCommand.Parameters.AddWithValue("superadmin", isSuperAdmin);
 
