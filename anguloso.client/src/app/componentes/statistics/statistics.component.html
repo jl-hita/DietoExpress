@@ -29,6 +29,13 @@
       <mat-card><mat-icon>accessibility</mat-icon><strong>{{data.bodyFatChangePoints == null ? '—' : ((data.bodyFatChangePoints > 0 ? '+' : '') + (data.bodyFatChangePoints | number:'1.1-1'))}}</strong><span>Cambio medio de grasa (puntos)</span></mat-card>
     </section>
 
+    <section class="subscription-summary" *ngIf="data.scope === 'clinic'">
+      <mat-card><mat-icon>autorenew</mat-icon><strong>{{data.activeSubscriptions}}</strong><span>Suscripciones activas</span></mat-card>
+      <mat-card><mat-icon>person_add</mat-icon><strong>{{data.newSubscriptions}}</strong><span>Nuevas suscripciones</span></mat-card>
+      <mat-card><mat-icon>event_busy</mat-icon><strong>{{data.scheduledCancellations}}</strong><span>Cancelaciones programadas</span></mat-card>
+      <mat-card><mat-icon>cancel</mat-icon><strong>{{data.cancelledSubscriptions}}</strong><span>Canceladas en el periodo</span></mat-card>
+    </section>
+
     <section class="grid">
       <mat-card class="chart-card">
         <mat-card-header><mat-card-title>Evolución mensual</mat-card-title></mat-card-header>
