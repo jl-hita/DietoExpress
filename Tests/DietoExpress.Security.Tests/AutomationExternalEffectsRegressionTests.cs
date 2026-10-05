@@ -54,6 +54,16 @@ public sealed class AutomationExternalEffectsRegressionTests
 
 
     [Fact]
+    public void StaleAutomationRecoveryMustNotExceedMaxAttempts()
+    {
+        var source = ReadServerSource("Anguloso.Server/Logica/AutomationWorker.cs");
+
+        Assert.Contains("CASE WHEN attempts >= max_attempts THEN 'failed' ELSE 'pending' END", source);
+        Assert.Contains("attempts >= max_attempts", source);
+        Assert.Contains("El worker anterior quedó huérfano tras agotar los reintentos permitidos.", source);
+    }
+
+    [Fact]
     public void PatientNotificationsMustPersistTheAutomationIdempotencyKey()
     {
         var service = ReadServerSource("Anguloso.Server/Logica/NotificationService.cs");
