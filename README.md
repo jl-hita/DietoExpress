@@ -285,10 +285,6 @@ Las mejoras futuras del soporte se consideran evolución y no deuda funcional de
    - Prioridad a ahorro de tiempo y reducción de tareas administrativas.
 
 9. **Especializaciones**
-   - Plantillas y flujos específicos por especialidad.
-   - Parámetros configurables sin acoplar el núcleo a una única especialidad.
-
-9. **Especializaciones**
 
    La arquitectura de especializaciones queda preparada para perfiles estructurados por paciente y reglas específicas de generación/validación.
 
