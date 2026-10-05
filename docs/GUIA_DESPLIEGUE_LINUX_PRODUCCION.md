@@ -472,8 +472,47 @@ Nunca guardar el client secret en Git ni en el frontend.
 5. Crear un cliente OAuth de tipo **Aplicación web**.
 6. Añadir como URI de redirección autorizado exactamente:
    `https://<DOMINIO>/api/google-calendar/callback`
-7. Activar la API de Google Calendar.
+7. Activar la **Google Calendar API** en el mismo proyecto de Google Cloud al que pertenece el Client ID.
 8. Comprobar que el Client ID y Client Secret utilizados por el servidor pertenecen al mismo proyecto y cliente OAuth.
+9. Comprobar que la API queda realmente habilitada antes de probar la sincronización. La autorización OAuth puede funcionar aunque la Google Calendar API siga deshabilitada.
+10. Realizar una sincronización real y revisar el journal antes de dar por terminada la instalación.
+
+## Comprobación obligatoria de la Google Calendar API
+
+**Este paso es independiente de la pantalla de consentimiento OAuth y es obligatorio.** La integración necesita que el servicio `calendar-json.googleapis.com` esté habilitado en el proyecto que consume el OAuth Client ID.
+
+En la instalación actual, el OAuth Client ID utilizado por DietoExpress pertenece al proyecto cuyo **número de proyecto es `559931656538`**. El nombre visible del proyecto puede cambiar, por lo que para diagnosticar errores hay que comprobar siempre el proyecto asociado al Client ID.
+
+La API que debe estar habilitada es:
+
+~~~text
+Google Calendar API
+Servicio: calendar-json.googleapis.com
+~~~
+
+Si Google Calendar devuelve **HTTP 403** con `SERVICE_DISABLED` o `accessNotConfigured`, hay que habilitar esta API en el proyecto correcto y esperar unos minutos a que Google propague el cambio.
+
+### Verificación durante una instalación nueva
+
+Después de configurar OAuth y antes de considerar Google Calendar operativo:
+
+1. Abrir **APIs y servicios → Biblioteca** en el proyecto que contiene el Client ID.
+2. Buscar **Google Calendar API**.
+3. Pulsar **Habilitar** si todavía no está habilitada.
+4. Confirmar que la API figura como habilitada.
+5. Esperar unos minutos si se acaba de activar.
+6. Conectar una cuenta de prueba desde DietoExpress.
+7. Pulsar **Sincronizar**.
+8. Revisar el journal:
+
+~~~bash
+sudo journalctl -u dietoexpress.service --since "10 minutes ago" --no-pager | grep -E "Google OAuth|Google Calendar"
+~~~
+
+9. Confirmar que no aparecen `SERVICE_DISABLED`, `accessNotConfigured` ni HTTP 403.
+10. Comprobar que la interfaz muestra la sincronización como correcta.
+
+**Importante:** que Google muestre y complete el consentimiento OAuth **no demuestra que Google Calendar API esté habilitada**. OAuth y la activación de la API son comprobaciones distintas.
 
 ## Pasar Google Cloud de Prueba a Producción
 
@@ -503,7 +542,7 @@ La publicación en producción no sustituye a las pruebas funcionales. Deben pro
 
 Durante la fase de Prueba, los refresh tokens de Google pueden tener una caducidad limitada. Para un SaaS real no se debe depender de ese comportamiento de pruebas.
 
-## Diagnóstico de errores OAuth
+## Diagnóstico de errores OAuth y Google Calendar
 
 Si Google muestra el consentimiento correctamente pero DietoExpress vuelve a `/appointments?calendar=error`, revisar primero:
 
@@ -514,6 +553,20 @@ sudo journalctl -u dietoexpress.service --since "10 minutes ago" --no-pager | gr
 El backend registra el código HTTP y el `error`/`error_description` devueltos por el endpoint de token, pero nunca registra el client secret ni los tokens.
 
 Nunca publicar client secrets ni access/refresh tokens en tickets, logs, capturas o commits.
+
+### Diagnóstico específico de HTTP 403
+
+Si la conexión OAuth funciona, la cuenta aparece conectada, pero **Sincronizar** falla con un 403, revisar primero el journal:
+
+~~~bash
+sudo journalctl -u dietoexpress.service --since "10 minutes ago" --no-pager | grep -E "Google OAuth|Google Calendar"
+~~~
+
+Si aparece `SERVICE_DISABLED`, `accessNotConfigured`, `calendar-json.googleapis.com` o un mensaje indicando que Google Calendar API está deshabilitada en un proyecto, la solución es **habilitar Google Calendar API en ese mismo proyecto de Google Cloud**. No es necesario generar otro Client ID ni volver a autorizar la cuenta únicamente por este motivo.
+
+Después de habilitarla, esperar unos minutos y repetir **Sincronizar**.
+
+El backend registra el detalle técnico del proveedor sin registrar tokens ni secretos. Los errores esperables del proveedor durante una sincronización ya no terminan como un 500 no controlado: el endpoint devuelve un **502 Bad Gateway** con un mensaje seguro y deja el detalle técnico en el journal.
 
 ---
 
@@ -1134,7 +1187,10 @@ La recuperación debe poder ejecutarse sin depender de archivos que solo existan
 
 ## Integraciones
 - [ ] SMTP.
-- [ ] Google.
+- [ ] Google OAuth configurado.
+- [ ] **Google Calendar API habilitada en el proyecto del Client ID.**
+- [ ] conexión Google Calendar realizada.
+- [ ] sincronización manual realizada correctamente.
 - [ ] USDA.
 - [ ] Open Food Facts.
 - [ ] Web Push.
