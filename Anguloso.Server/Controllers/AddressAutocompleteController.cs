@@ -39,7 +39,7 @@ public sealed class AddressAutocompleteController : ControllerBase
                 Suggestions = suggestions.Select(Map).ToList()
             });
         }
-        catch (InvalidOperationException ex)
+        catch (InvalidOperationException)
         {
             return StatusCode(StatusCodes.Status503ServiceUnavailable, "El servicio de direcciones no está configurado correctamente.");
         }
