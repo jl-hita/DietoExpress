@@ -42,11 +42,16 @@ export class SupportService {
 
   constructor(private readonly http: HttpClient) {}
 
-  getTickets(filters: { status?: string; category?: string; priority?: string } = {}): Observable<SupportTicketSummary[]> {
+  getTickets(filters: { status?: string; category?: string; priority?: string; search?: string; assignedToUserId?: number; from?: string; to?: string; tenantId?: number } = {}): Observable<SupportTicketSummary[]> {
     let params = new HttpParams();
     if (filters.status) params = params.set('status', filters.status);
     if (filters.category) params = params.set('category', filters.category);
     if (filters.priority) params = params.set('priority', filters.priority);
+    if (filters.search) params = params.set('search', filters.search);
+    if (filters.assignedToUserId) params = params.set('assignedToUserId', filters.assignedToUserId);
+    if (filters.from) params = params.set('from', filters.from);
+    if (filters.to) params = params.set('to', filters.to);
+    if (filters.tenantId) params = params.set('tenantId', filters.tenantId);
     return this.http.get<SupportTicketSummary[]>(this.base + '/tickets', { params });
   }
 
@@ -64,7 +69,9 @@ export class SupportService {
 
   updateTicket(id: number, request: { status?: SupportStatus; priority?: SupportPriority; assignedToUserId?: number | null }): Observable<void> { return this.http.patch<void>(this.base + '/tickets/' + id, request); }
   reopenTicket(id:number):Observable<void>{return this.http.post<void>(this.base+'/tickets/'+id+'/reopen',{});}
+  getAssignees():Observable<{id:number;name:string}[]>{return this.http.get<{id:number;name:string}[]>(this.base+'/assignees');}
   getNotifications():Observable<any[]>{return this.http.get<any[]>(this.base+'/notifications');}
   getUnreadNotificationCount():Observable<number>{return this.http.get<number>(this.base+'/notifications/unread-count');}
   markNotificationRead(id:number):Observable<void>{return this.http.post<void>(this.base+'/notifications/'+id+'/read',{});}
+  getAudit(id:number):Observable<any[]>{return this.http.get<any[]>(this.base+'/tickets/'+id+'/audit');}
 }

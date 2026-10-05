@@ -13,59 +13,51 @@ public sealed class SupportService
     }
 
     public async Task<IReadOnlyList<SupportTicketSummaryDto>> GetTicketsAsync(
-        int userId, int? tenantId, bool isSuperAdmin, string? status, string? category, string? priority)
+        int userId, int? tenantId, bool isSuperAdmin, string? status, string? category, string? priority,
+        string? search, int? assignedToUserId, DateTime? from, DateTime? to, int? filterTenantId)
     {
         var result = new List<SupportTicketSummaryDto>();
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
-
-        var sql = """
-SELECT t.id, t.tenant_id, t.created_by_user_id, t.assigned_to_user_id,
-       t.subject, t.category, t.priority, t.status, t.created_at, t.updated_at, t.closed_at,
-       creator.full_name, assignee.full_name,
-       (SELECT COUNT(*) FROM support_messages m WHERE m.ticket_id=t.id AND m.is_internal=FALSE) AS message_count
-FROM support_tickets t
-JOIN users creator ON creator.id=t.created_by_user_id
-LEFT JOIN users assignee ON assignee.id=t.assigned_to_user_id
-WHERE 1=1
-""";
-        if (!isSuperAdmin)
-            sql += " AND t.tenant_id=@tenant AND t.created_by_user_id=@user ";
-        else
-            sql += " AND (@tenant IS NULL OR t.tenant_id=@tenant) ";
-
+        var sql = "SELECT t.id,t.tenant_id,t.created_by_user_id,t.assigned_to_user_id,t.subject,t.category,t.priority,t.status,t.created_at,t.updated_at,t.closed_at,creator.full_name,assignee.full_name,(SELECT COUNT(*) FROM support_messages m WHERE m.ticket_id=t.id AND m.is_internal=FALSE) FROM support_tickets t JOIN users creator ON creator.id=t.created_by_user_id LEFT JOIN users assignee ON assignee.id=t.assigned_to_user_id WHERE 1=1 ";
+        if (!isSuperAdmin) sql += " AND t.tenant_id=@tenant AND t.created_by_user_id=@user ";
+        else if (filterTenantId.HasValue) sql += " AND t.tenant_id=@filterTenant ";
         if (!string.IsNullOrWhiteSpace(status)) sql += " AND t.status=@status ";
         if (!string.IsNullOrWhiteSpace(category)) sql += " AND t.category=@category ";
         if (!string.IsNullOrWhiteSpace(priority)) sql += " AND t.priority=@priority ";
-        sql += " ORDER BY t.updated_at DESC, t.id DESC LIMIT 200;";
-
+        if (!string.IsNullOrWhiteSpace(search)) sql += " AND (t.subject ILIKE @search OR EXISTS (SELECT 1 FROM support_messages sm WHERE sm.ticket_id=t.id AND sm.is_internal=FALSE AND sm.body ILIKE @search)) ";
+        if (assignedToUserId.HasValue) sql += " AND t.assigned_to_user_id=@assigned ";
+        if (from.HasValue) sql += " AND t.created_at>=@from ";
+        if (to.HasValue) sql += " AND t.created_at<@to ";
+        sql += " ORDER BY t.updated_at DESC,t.id DESC LIMIT 200;";
         await using var command = new NpgsqlCommand(sql, connection);
-        command.Parameters.AddWithValue("tenant", (object?)tenantId ?? DBNull.Value);
-        command.Parameters.AddWithValue("status", (object?)status ?? DBNull.Value);
-        command.Parameters.AddWithValue("category", (object?)category ?? DBNull.Value);
-        command.Parameters.AddWithValue("priority", (object?)priority ?? DBNull.Value);
-
+        command.Parameters.AddWithValue("tenant",(object?)tenantId??DBNull.Value);
+        command.Parameters.AddWithValue("user",userId);
+        command.Parameters.AddWithValue("filterTenant",(object?)filterTenantId??DBNull.Value);
+        command.Parameters.AddWithValue("status",(object?)status??DBNull.Value);
+        command.Parameters.AddWithValue("category",(object?)category??DBNull.Value);
+        command.Parameters.AddWithValue("priority",(object?)priority??DBNull.Value);
+        command.Parameters.AddWithValue("search",(object?)(string.IsNullOrWhiteSpace(search)?null:"%"+search.Trim()+"%")??DBNull.Value);
+        command.Parameters.AddWithValue("assigned",(object?)assignedToUserId??DBNull.Value);
+        command.Parameters.AddWithValue("from",(object?)from??DBNull.Value);
+        command.Parameters.AddWithValue("to",(object?)to??DBNull.Value);
         await using var reader = await command.ExecuteReaderAsync();
-        while (await reader.ReadAsync())
-        {
-            result.Add(new SupportTicketSummaryDto
-            {
-                Id = reader.GetInt64(0),
-                TenantId = reader.GetInt32(1),
-                CreatedByUserId = reader.GetInt32(2),
-                AssignedToUserId = reader.IsDBNull(3) ? null : reader.GetInt32(3),
-                Subject = reader.GetString(4),
-                Category = reader.GetString(5),
-                Priority = reader.GetString(6),
-                Status = reader.GetString(7),
-                CreatedAt = reader.GetDateTime(8),
-                UpdatedAt = reader.GetDateTime(9),
-                ClosedAt = reader.IsDBNull(10) ? null : reader.GetDateTime(10),
-                CreatedByName = reader.GetString(11),
-                AssignedToName = reader.IsDBNull(12) ? null : reader.GetString(12),
-                MessageCount = reader.GetInt64(13)
-            });
-        }
+        while (await reader.ReadAsync()) result.Add(new SupportTicketSummaryDto {
+            Id=reader.GetInt64(0),TenantId=reader.GetInt32(1),CreatedByUserId=reader.GetInt32(2),
+            AssignedToUserId=reader.IsDBNull(3)?null:reader.GetInt32(3),Subject=reader.GetString(4),Category=reader.GetString(5),
+            Priority=reader.GetString(6),Status=reader.GetString(7),CreatedAt=reader.GetDateTime(8),UpdatedAt=reader.GetDateTime(9),
+            ClosedAt=reader.IsDBNull(10)?null:reader.GetDateTime(10),CreatedByName=reader.GetString(11),
+            AssignedToName=reader.IsDBNull(12)?null:reader.GetString(12),MessageCount=reader.GetInt64(13)});
+        return result;
+    }
+
+    public async Task<IReadOnlyList<SupportAssigneeDto>> GetAssigneesAsync()
+    {
+        var result=new List<SupportAssigneeDto>();
+        await using var connection=new NpgsqlConnection(_connectionString); await connection.OpenAsync();
+        await using var command=new NpgsqlCommand("SELECT u.id,u.full_name FROM users u WHERE u.role='superadmin' AND u.archived_at IS NULL ORDER BY u.full_name,u.id;",connection);
+        await using var reader=await command.ExecuteReaderAsync();
+        while(await reader.ReadAsync()) result.Add(new SupportAssigneeDto{Id=reader.GetInt32(0),Name=reader.GetString(1)});
         return result;
     }
 
@@ -215,32 +207,32 @@ WHERE id=@id;
         return true;
     }
 
-    public async Task<bool> UpdateTicketAsync(long ticketId, int userId, string? status, string? priority, int? assignedToUserId)
+    public async Task<SupportTicketChangeResult?> UpdateTicketAsync(long ticketId,int userId,string? status,string? priority,int? assignedToUserId)
     {
-        if (status != null) ValidateEnum(status, new[] { "open", "in_progress", "waiting_user", "resolved", "closed" }, "Estado no válido.");
-        if (priority != null) ValidateEnum(priority, new[] { "low", "normal", "high", "urgent" }, "Prioridad no válida.");
+        if(status!=null) ValidateEnum(status,new[]{"open","in_progress","waiting_user","resolved","closed"},"Estado no válido.");
+        if(priority!=null) ValidateEnum(priority,new[]{"low","normal","high","urgent"},"Prioridad no válida.");
+        await using var connection=new NpgsqlConnection(_connectionString); await connection.OpenAsync();
+        await using var transaction=await connection.BeginTransactionAsync();
+        await using var current=new NpgsqlCommand("SELECT status,priority,assigned_to_user_id FROM support_tickets WHERE id=@id FOR UPDATE;",connection,transaction);
+        current.Parameters.AddWithValue("id",ticketId);
+        await using var reader=await current.ExecuteReaderAsync();
+        if(!await reader.ReadAsync())return null;
+        var oldStatus=reader.GetString(0);var oldPriority=reader.GetString(1);var oldAssigned=reader.IsDBNull(2)?(int?)null:reader.GetInt32(2);await reader.CloseAsync();
+        if(assignedToUserId.HasValue){await using var valid=new NpgsqlCommand("SELECT 1 FROM users WHERE id=@id AND role='superadmin' AND archived_at IS NULL;",connection,transaction);valid.Parameters.AddWithValue("id",assignedToUserId.Value);if(await valid.ExecuteScalarAsync()==null)throw new ArgumentException("El usuario asignado no es un SuperAdmin activo.");}
+        var newStatus=status??oldStatus;var newPriority=priority??oldPriority;
+        await using var update=new NpgsqlCommand("UPDATE support_tickets SET status=@s,priority=@p,assigned_to_user_id=@a,updated_at=NOW(),closed_at=CASE WHEN @s='closed' THEN COALESCE(closed_at,NOW()) ELSE NULL END WHERE id=@id;",connection,transaction);
+        update.Parameters.AddWithValue("s",newStatus);update.Parameters.AddWithValue("p",newPriority);update.Parameters.AddWithValue("a",(object?)assignedToUserId??DBNull.Value);update.Parameters.AddWithValue("id",ticketId);await update.ExecuteNonQueryAsync();
+        if(oldStatus!=newStatus)await InsertAuditAsync(connection,transaction,ticketId,userId,"status_changed",oldStatus,newStatus);
+        if(oldPriority!=newPriority)await InsertAuditAsync(connection,transaction,ticketId,userId,"priority_changed",oldPriority,newPriority);
+        if(oldAssigned!=assignedToUserId)await InsertAuditAsync(connection,transaction,ticketId,userId,"assignment_changed",oldAssigned?.ToString(),assignedToUserId?.ToString());
+        await transaction.CommitAsync();
+        return new SupportTicketChangeResult{StatusChanged=oldStatus!=newStatus,PriorityChanged=oldPriority!=newPriority,AssignmentChanged=oldAssigned!=assignedToUserId,AssignedToUserId=assignedToUserId};
+    }
 
-        await using var connection = new NpgsqlConnection(_connectionString);
-        await connection.OpenAsync();
-        const string sql = """
-UPDATE support_tickets
-SET status=COALESCE(@status,status),
-    priority=COALESCE(@priority,priority),
-    assigned_to_user_id=@assigned,
-    updated_at=NOW(),
-    closed_at=CASE WHEN COALESCE(@status,status)='closed' THEN COALESCE(closed_at,NOW()) ELSE NULL END
-WHERE id=@id
-  AND @superadmin
-  AND (@assigned IS NULL OR EXISTS (SELECT 1 FROM users u WHERE u.id=@assigned AND u.role='superadmin' AND u.archived_at IS NULL))
-RETURNING id;
-""";
-        await using var command = new NpgsqlCommand(sql, connection);
-        command.Parameters.AddWithValue("id", ticketId);
-        command.Parameters.AddWithValue("superadmin", true);
-        command.Parameters.AddWithValue("assigned", (object?)assignedToUserId ?? DBNull.Value);
-        command.Parameters.AddWithValue("status", (object?)status ?? DBNull.Value);
-        command.Parameters.AddWithValue("priority", (object?)priority ?? DBNull.Value);
-        return await command.ExecuteScalarAsync() != null;
+    private static async Task InsertAuditAsync(NpgsqlConnection connection,NpgsqlTransaction transaction,long ticketId,int actor,string action,string? oldValue,string? newValue)
+    {
+        await using var command=new NpgsqlCommand("INSERT INTO support_ticket_audit(ticket_id,actor_user_id,action,old_value,new_value) VALUES(@t,@u,@a,@o,@n);",connection,transaction);
+        command.Parameters.AddWithValue("t",ticketId);command.Parameters.AddWithValue("u",actor);command.Parameters.AddWithValue("a",action);command.Parameters.AddWithValue("o",(object?)oldValue??DBNull.Value);command.Parameters.AddWithValue("n",(object?)newValue??DBNull.Value);await command.ExecuteNonQueryAsync();
     }
 
     private static async Task AddMessageInternalAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, long ticketId, int authorUserId, string body, bool internalNote)
@@ -312,6 +304,9 @@ public sealed class SupportTicketDto : SupportTicketSummaryDto
 {
     public List<SupportMessageDto> Messages { get; } = new();
 }
+
+public sealed class SupportAssigneeDto{public int Id{get;set;}public string Name{get;set;}="";}
+public sealed class SupportTicketChangeResult{public bool StatusChanged{get;set;}public bool PriorityChanged{get;set;}public bool AssignmentChanged{get;set;}public int? AssignedToUserId{get;set;}}
 
 public sealed class SupportMessageDto
 {

@@ -23,11 +23,11 @@ public sealed class SupportController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<SupportTicketSummaryDto>>> GetTickets(
         [FromQuery] string? status = null,
         [FromQuery] string? category = null,
-        [FromQuery] string? priority = null)
+        [FromQuery] string? priority = null, [FromQuery] string? search = null, [FromQuery] int? assignedToUserId = null, [FromQuery] DateTime? from = null, [FromQuery] DateTime? to = null, [FromQuery] int? filterTenantId = null)
     {
         if (!TryIdentity(out var userId, out var tenantId)) return Unauthorized();
         var isSuperAdmin = User.IsInRole("superadmin");
-        return Ok(await _support.GetTicketsAsync(userId, tenantId, isSuperAdmin, status, category, priority));
+        return Ok(await _support.GetTicketsAsync(userId, tenantId, isSuperAdmin, status, category, priority, search, assignedToUserId, from, to, filterTenantId));
     }
 
     [HttpGet("tickets/{ticketId:long}")]
@@ -84,13 +84,19 @@ public sealed class SupportController : ControllerBase
         try
         {
             var updated = await _support.UpdateTicketAsync(ticketId, userId.Value, request.Status, request.Priority, request.AssignedToUserId);
-            return updated ? NoContent() : NotFound();
+            if (updated == null) return NotFound();
+            await _enhancements.NotifyTicketChangeAsync(ticketId, userId.Value, updated);
+            return NoContent();
         }
         catch (ArgumentException ex)
         {
             return BadRequest(ex.Message);
         }
     }
+
+    [HttpGet("assignees")]
+    [Authorize(Roles = "superadmin")]
+    public async Task<ActionResult> Assignees() => Ok(await _support.GetAssigneesAsync());
 
     [HttpGet("notifications")]
     public async Task<ActionResult> Notifications(){var id=AuthHelpers.GetUserId(User);return id.HasValue?Ok(await _enhancements.ListAsync(id.Value)):Unauthorized();}

@@ -51,6 +51,25 @@ public sealed class SupportEnhancementService
         return result;
     }
 
+    public async Task NotifyTicketChangeAsync(long ticketId,int actorUserId,SupportTicketChangeResult change)
+    {
+        if(!change.StatusChanged&&!change.PriorityChanged&&!change.AssignmentChanged)return;
+        try{
+            await using var c=new NpgsqlConnection(_cs);await c.OpenAsync();
+            await using var q=new NpgsqlCommand("SELECT subject,created_by_user_id FROM support_tickets WHERE id=@t;",c);q.Parameters.AddWithValue("t",ticketId);
+            await using var r=await q.ExecuteReaderAsync();if(!await r.ReadAsync())return;
+            var subject=r.GetString(0);var creator=r.GetInt32(1);await r.CloseAsync();
+            var recipients=new HashSet<int>{creator};if(change.AssignedToUserId.HasValue)recipients.Add(change.AssignedToUserId.Value);
+            foreach(var recipient in recipients.Where(x=>x!=actorUserId)){
+                var title=recipient==change.AssignedToUserId?"Ticket asignado":"Ticket actualizado";
+                var key="support-change:"+ticketId+":"+recipient+":"+DateTime.UtcNow.ToString("yyyyMMddHHmm");
+                await using var n=new NpgsqlCommand("INSERT INTO support_notifications(recipient_user_id,ticket_id,type,title,message,action_url,idempotency_key) VALUES(@u,@t,'support_ticket_change',@title,@m,@url,@key) ON CONFLICT(recipient_user_id,idempotency_key) DO NOTHING;",c);
+                n.Parameters.AddWithValue("u",recipient);n.Parameters.AddWithValue("t",ticketId);n.Parameters.AddWithValue("title",title);
+                n.Parameters.AddWithValue("m","El ticket «"+subject+"» ha sido actualizado.");n.Parameters.AddWithValue("url","/support?ticket="+ticketId);n.Parameters.AddWithValue("key",key);await n.ExecuteNonQueryAsync();
+            }
+        }catch(Exception ex){_logger.LogWarning(ex,"No se pudo notificar un cambio de ticket.");}
+    }
+
     public async Task ReopenAsync(long ticketId,int userId,int tenantId){await using var c=new NpgsqlConnection(_cs);await c.OpenAsync();await using var q=new NpgsqlCommand("UPDATE support_tickets SET status='open',closed_at=NULL,updated_at=NOW() WHERE id=@id AND tenant_id=@tenant AND created_by_user_id=@u AND status IN('resolved','closed') RETURNING id;",c);q.Parameters.AddWithValue("id",ticketId);q.Parameters.AddWithValue("tenant",tenantId);q.Parameters.AddWithValue("u",userId);if(await q.ExecuteScalarAsync()==null)throw new KeyNotFoundException();await using var a=new NpgsqlCommand("INSERT INTO support_ticket_audit(ticket_id,actor_user_id,action,old_value,new_value) VALUES(@t,@u,'reopened','resolved/closed','open');",c);a.Parameters.AddWithValue("t",ticketId);a.Parameters.AddWithValue("u",userId);await a.ExecuteNonQueryAsync();}
     public async Task AuditAsync(long ticketId,int userId,string action,string? oldValue,string? newValue){await using var c=new NpgsqlConnection(_cs);await c.OpenAsync();await using var q=new NpgsqlCommand("INSERT INTO support_ticket_audit(ticket_id,actor_user_id,action,old_value,new_value) VALUES(@t,@u,@a,@o,@n);",c);q.Parameters.AddWithValue("t",ticketId);q.Parameters.AddWithValue("u",userId);q.Parameters.AddWithValue("a",action);q.Parameters.AddWithValue("o",(object?)oldValue??DBNull.Value);q.Parameters.AddWithValue("n",(object?)newValue??DBNull.Value);await q.ExecuteNonQueryAsync();}
 }
