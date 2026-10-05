@@ -187,7 +187,6 @@ public sealed class PatientDocumentFlowRegressionTests
         Assert.Contains("scheduled_at=NOW() + (@delay * INTERVAL '1 second')", worker);
     }
 
-}
 
     [Fact]
     public void AutomationWorkerMustFenceCompletionAndFailureByClaimedAttempt()
