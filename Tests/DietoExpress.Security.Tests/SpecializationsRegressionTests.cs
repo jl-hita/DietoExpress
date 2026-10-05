@@ -119,7 +119,13 @@ public sealed class SpecializationsRegressionTests
 
         Assert.Contains("dietary_flags TEXT[]", bootstrap);
         Assert.Contains("classify_food_dietary_flags", bootstrap);
+        Assert.Contains("trigo|harina de trigo", bootstrap);
+        Assert.Contains("lactosa|leche", bootstrap);
         Assert.Contains("'animal'", bootstrap);
+        Assert.Contains("'gluten'", bootstrap);
+        Assert.Contains("'lactose'", bootstrap);
+        Assert.Contains("('celiac','exclude_food_gluten'", bootstrap);
+        Assert.Contains("('lactose_intolerance','exclude_food_lactose'", bootstrap);
         Assert.Contains("\"required_flags\"", bootstrap);
         Assert.Contains("GetExcludedFoodIdsAsync", resolver);
         Assert.Contains("dietary_flags && @required_flags", resolver);
