@@ -176,6 +176,46 @@ public sealed class ProfessionalStatisticsController : ControllerBase
         }
 
         await using (var command = new NpgsqlCommand($"""
+            WITH ranked AS (
+                SELECT b.weight, b.body_fat, b.muscle_mass,
+                       ROW_NUMBER() OVER (PARTITION BY b.client_id ORDER BY b.measurement_date ASC, b.id ASC) AS first_rank,
+                       ROW_NUMBER() OVER (PARTITION BY b.client_id ORDER BY b.measurement_date DESC, b.id DESC) AS last_rank
+                FROM biometrics b
+                JOIN clients c ON c.id=b.client_id AND c.tenant_id=b.tenant_id
+                WHERE b.tenant_id=@tenant
+                  AND b.measurement_date >= @from::date
+                  AND b.measurement_date < @to::date
+                  AND c.archived_at IS NULL
+                  {periodPatientScope}
+            ),
+            changes AS (
+                SELECT
+                    MAX(weight) FILTER (WHERE first_rank=1) AS first_weight,
+                    MAX(weight) FILTER (WHERE last_rank=1) AS last_weight,
+                    MAX(body_fat) FILTER (WHERE first_rank=1) AS first_body_fat,
+                    MAX(body_fat) FILTER (WHERE last_rank=1) AS last_body_fat,
+                    MAX(muscle_mass) FILTER (WHERE first_rank=1) AS first_muscle,
+                    MAX(muscle_mass) FILTER (WHERE last_rank=1) AS last_muscle
+                FROM ranked
+            )
+            SELECT
+                last_weight-first_weight,
+                last_body_fat-first_body_fat,
+                last_muscle-first_muscle
+            FROM changes;
+            """, connection))
+        {
+            AddCommonParameters(command, tenantId.Value, userId, fromUtc, toExclusiveUtc);
+            await using var reader = await command.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                result.WeightChangeKg = reader.IsDBNull(0) ? null : reader.GetDouble(0);
+                result.BodyFatChangePoints = reader.IsDBNull(1) ? null : reader.GetDouble(1);
+                result.MuscleMassChangeKg = reader.IsDBNull(2) ? null : reader.GetDouble(2);
+            }
+        }
+
+        await using (var command = new NpgsqlCommand($"""
             WITH months AS (
                 SELECT generate_series(
                     date_trunc('month', @from::timestamptz),
@@ -272,6 +312,9 @@ public sealed class ProfessionalStatisticsDto
     public double? AverageAdherence { get; set; }
     public decimal SubscriptionRevenue { get; set; }
     public int PaidPayments { get; set; }
+    public double? WeightChangeKg { get; set; }
+    public double? BodyFatChangePoints { get; set; }
+    public double? MuscleMassChangeKg { get; set; }
     public List<ProfessionalStatisticsPointDto> Series { get; set; } = [];
 }
 
