@@ -11,10 +11,12 @@ namespace Anguloso.Server.Logica;
 public class DietGeneratorService
 {
     private readonly angulosodbContext _context;
+    private readonly SpecializationRulesService _specializationRulesService;
 
-    public DietGeneratorService(angulosodbContext context)
+    public DietGeneratorService(angulosodbContext context, SpecializationRulesService specializationRulesService)
     {
         _context = context;
+        _specializationRulesService = specializationRulesService;
     }
 
     // La generación construye una dieta a partir de objetivos nutricionales, alimentos permitidos
@@ -45,7 +47,15 @@ public class DietGeneratorService
                     AddLactoseKeywords(exclusions);
                 if (client.digestive_health?.fodmaps_intolerance == true)
                     AddFodmapKeywords(exclusions);
-                if (client.food_preferences != null && !string.IsNullOrWhiteSpace(client.food_preferences.allergies))
+                if (tenantId.HasValue)
+            {
+                var specializationExclusions = await _specializationRulesService.GetFoodExclusionsAsync(
+                    client.id, tenantId.Value, cancellationToken);
+                foreach (var keyword in specializationExclusions)
+                    exclusions.Add(keyword);
+            }
+
+            if (client.food_preferences != null && !string.IsNullOrWhiteSpace(client.food_preferences.allergies))
                 {
                     var customAllergies = client.food_preferences.allergies
                         .Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries)
