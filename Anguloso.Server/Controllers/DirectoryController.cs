@@ -280,7 +280,9 @@ public class DirectoryController : ControllerBase
                 null,
                 $"documents:provision:{appointment.tenant_id}:{appointment.client_id}:creation",
                 maxAttempts: 8,
-                cancellationToken: HttpContext.RequestAborted);
+                // La reserva ya está confirmada en PostgreSQL: la provisión es trabajo durable y no debe
+                // perderse si el navegador cancela la petición justo después del commit.
+                cancellationToken: CancellationToken.None);
         }
         catch (Exception ex)
         {
