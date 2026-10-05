@@ -1350,9 +1350,9 @@ public class AuthorizationRegressionTests
         Assert.True(portalPos >= 0);
 
         var portal = source[portalPos..];
-        Assert.Contains("forClientCreation: true", portal);
-        Assert.Contains("includeAllRequired: false", portal);
-        Assert.DoesNotContain("forClientCreation: false", portal[..Math.Min(portal.Length, 1200)]);
+        Assert.DoesNotContain("CreateRequiredDocumentsAsync", portal[..Math.Min(portal.Length, 2200)]);
+        Assert.Contains("Select(c => c.tenant_id)", portal);
+        Assert.Contains("claimedTenantId", portal);
     }
 
     [Fact]
