@@ -90,8 +90,21 @@ public sealed class GoogleCalendarController : ControllerBase
     {
         var (userId, tenantId) = Identity();
         if (userId == null || tenantId == null) return Unauthorized();
-        await _calendar.SyncUserAsync(userId.Value, tenantId.Value, cancellationToken);
-        return NoContent();
+        try
+        {
+            await _calendar.SyncUserAsync(userId.Value, tenantId.Value, cancellationToken);
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Los errores funcionales del proveedor externo no deben convertirse en un 500 no controlado.
+            // El detalle técnico ya queda registrado por GoogleCalendarService sin exponer tokens ni secretos.
+            _logger.LogWarning(ex, "No se pudo sincronizar Google Calendar para el usuario {UserId} y tenant {TenantId}.", userId.Value, tenantId.Value);
+            return Problem(
+                title: "No se pudo sincronizar Google Calendar.",
+                detail: "Google Calendar no ha podido completar la sincronización. Revisa la configuración de la integración o inténtalo de nuevo más tarde.",
+                statusCode: StatusCodes.Status502BadGateway);
+        }
     }
 
     private (int?, int?) Identity()
