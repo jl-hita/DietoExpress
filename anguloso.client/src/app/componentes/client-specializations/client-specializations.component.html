@@ -1,0 +1,65 @@
+<div class="page-wrapper">
+  <div class="header">
+    <div>
+      <a mat-button [routerLink]="['/clients', clientId]">
+        <mat-icon>arrow_back</mat-icon>
+        Volver al paciente
+      </a>
+      <h2>Especializaciones nutricionales</h2>
+      <p>Selecciona los enfoques que forman parte del contexto profesional de este paciente.</p>
+    </div>
+    <button mat-flat-button color="primary" type="button" (click)="save()" [disabled]="loading || saving">
+      <mat-spinner *ngIf="saving" diameter="18"></mat-spinner>
+      <span *ngIf="!saving"><mat-icon>save</mat-icon> Guardar paciente</span>
+    </button>
+  </div>
+
+  <div *ngIf="loading" class="state">
+    <mat-spinner diameter="40"></mat-spinner>
+    <span>Cargando especializaciones...</span>
+  </div>
+
+  <div *ngIf="!loading && error" class="message error">{{ error }}</div>
+  <div *ngIf="!loading && success" class="message success">{{ success }}</div>
+
+  <ng-container *ngIf="!loading">
+    <mat-card *ngFor="let category of categories" class="category-card">
+      <mat-card-header>
+        <mat-card-title>{{ getCategoryLabel(category) }}</mat-card-title>
+      </mat-card-header>
+
+      <mat-card-content class="grid">
+        <div *ngFor="let item of itemsFor(category)" class="specialization">
+          <div class="specialization-main">
+            <mat-checkbox
+              [checked]="isSelected(item.id)"
+              [disabled]="!item.enabled"
+              (change)="toggleClient(item.id, $event.checked)">
+              <strong>{{ item.name }}</strong>
+            </mat-checkbox>
+            <span class="disabled" *ngIf="!item.enabled">Desactivada para este tenant</span>
+          </div>
+
+          <p>{{ item.description }}</p>
+
+          <mat-form-field *ngIf="isSelected(item.id)" class="notes">
+            <label>Notas profesionales</label>
+            <textarea
+              rows="2"
+              [(ngModel)]="notes[item.id]"
+              maxlength="2000"
+              placeholder="Criterios o contexto específico del paciente"></textarea>
+          </mat-form-field>
+
+          <div class="tenant-setting">
+            <mat-checkbox
+              [checked]="item.enabled"
+              (change)="toggleTenant(item, $event.checked)">
+              Disponible para este tenant
+            </mat-checkbox>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </ng-container>
+</div>
