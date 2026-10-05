@@ -20,13 +20,14 @@ public sealed class GeoapifyAddressProvider : IAddressProvider
 
     public string Name => "Geoapify";
     public int DailyLimit => _options.GeoapifyDailyLimit;
+    public bool IsConfigured => !string.IsNullOrWhiteSpace(_options.GeoapifyApiKey) && !_options.GeoapifyApiKey.StartsWith("__CONFIGURE_", StringComparison.Ordinal);
 
     public async Task<IReadOnlyList<AddressAutocompleteService.AddressSuggestion>> SearchAsync(
         string text,
         CancellationToken cancellationToken)
     {
         var apiKey = _options.GeoapifyApiKey;
-        if (string.IsNullOrWhiteSpace(apiKey) || apiKey.StartsWith("__CONFIGURE_", StringComparison.Ordinal))
+        if (!IsConfigured)
             throw new InvalidOperationException("Geoapify no está configurado.");
 
         var url =
