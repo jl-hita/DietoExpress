@@ -10,6 +10,12 @@ namespace Anguloso.Server.Logica;
 
 public class DietValidationService
 {
+    private readonly SpecializationRulesService _specializationRulesService;
+
+    public DietValidationService(SpecializationRulesService specializationRulesService)
+    {
+        _specializationRulesService = specializationRulesService;
+    }
     private static readonly string[] LactoseKeywords = new[] 
     { 
         "leche", "queso", "yogur", "lact", "nata", "mantequilla", "cuajada", "suero", 
@@ -161,6 +167,9 @@ public class DietValidationService
             .ToDictionaryAsync(f => f.id);
 
         var warnings = new List<DietValidationResultDto>();
+        var specializationExclusions = tenantId.HasValue
+            ? await _specializationRulesService.GetFoodExclusionsAsync(clientId, tenantId.Value)
+            : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         if (diet.diet_days == null) return warnings;
 
@@ -175,7 +184,7 @@ public class DietValidationService
                     if (!item.food_id.HasValue || !foodsMap.TryGetValue(item.food_id.Value, out var food)) 
                         continue;
 
-                    var foodWarnings = CheckFoodCompatibility(client, food, meal.name, day.day_index);
+                    var foodWarnings = CheckFoodCompatibility(client, food, meal.name, day.day_index, specializationExclusions);
                     warnings.AddRange(foodWarnings);
                 }
             }
@@ -229,6 +238,9 @@ public class DietValidationService
             .ToDictionaryAsync(f => f.id);
 
         var warnings = new List<DietValidationResultDto>();
+        var specializationExclusions = tenantId.HasValue
+            ? await _specializationRulesService.GetFoodExclusionsAsync(clientId, tenantId.Value)
+            : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         if (dietDto.Days == null) return warnings;
 
@@ -243,7 +255,7 @@ public class DietValidationService
                     if (!item.FoodId.HasValue || !foodsMap.TryGetValue(item.FoodId.Value, out var food)) 
                         continue;
 
-                    var foodWarnings = CheckFoodCompatibility(client, food, meal.Name, day.DayIndex);
+                    var foodWarnings = CheckFoodCompatibility(client, food, meal.Name, day.DayIndex, specializationExclusions);
                     warnings.AddRange(foodWarnings);
                 }
             }
@@ -254,11 +266,31 @@ public class DietValidationService
 
     // Centraliza las reglas alimento-paciente y devuelve todas las incompatibilidades detectadas
     // para que la interfaz pueda mostrarlas sin detenerse en el primer problema.
-    private List<DietValidationResultDto> CheckFoodCompatibility(clients client, foods food, string mealName, int dayIndex)
+    private List<DietValidationResultDto> CheckFoodCompatibility(clients client, foods food, string mealName, int dayIndex, HashSet<string> specializationExclusions)
     {
         var list = new List<DietValidationResultDto>();
         var nameLower = (food.name ?? "").ToLowerInvariant();
         var catLower = (food.category ?? "").ToLowerInvariant();
+
+        // Las exclusiones derivadas de especializaciones se aplican además de las
+        // preferencias individuales y producen una alerta explícita para el profesional.
+        foreach (var keyword in specializationExclusions)
+        {
+            if (nameLower.Contains(keyword) || catLower.Contains(keyword))
+            {
+                list.Add(new DietValidationResultDto
+                {
+                    FoodId = food.id,
+                    FoodName = food.name ?? string.Empty,
+                    MealName = mealName ?? string.Empty,
+                    DayIndex = dayIndex,
+                    AlertType = "Specialization",
+                    Severity = "High",
+                    Message = $"La especialización activa del paciente excluye este alimento por la regla «{keyword}»."
+                });
+                break;
+            }
+        }
 
         // 1. Lactose Check
         if (client.digestive_health?.lactose_intolerance == true)
