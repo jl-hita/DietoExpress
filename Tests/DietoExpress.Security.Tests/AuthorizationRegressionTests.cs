@@ -50,6 +50,23 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void ProfessionalStatistics_SubscriptionMetricsAreTenantScoped()
+    {
+        var source = ReadServerController("ProfessionalStatisticsController.cs");
+
+        Assert.Contains("FROM subscriptions s", source);
+        Assert.Contains("s.tenant_id=@tenant", source);
+        Assert.Contains("s.status NOT IN ('cancelled', 'canceled')", source);
+        Assert.Contains("s.cancel_at_period_end", source);
+        Assert.Contains("s.cancelled_at >= @from", source);
+        Assert.Contains("s.started_at >= @from", source);
+        Assert.Contains("ActiveSubscriptions", source);
+        Assert.Contains("ScheduledCancellations", source);
+        Assert.Contains("CancelledSubscriptions", source);
+        Assert.Contains("NewSubscriptions", source);
+    }
+
+    [Fact]
     public void ProfessionalStatistics_ClinicWorkloadIsTenantAndRoleScoped()
     {
         var source = ReadServerController("ProfessionalStatisticsController.cs");
