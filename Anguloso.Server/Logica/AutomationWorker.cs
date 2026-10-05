@@ -39,6 +39,7 @@ public sealed class AutomationWorker : BackgroundService
         // tolera que el proceso se reinicie entre dos ciclos sin perder ni duplicar las acciones derivadas.
         var nextDietSweep = DateTime.UtcNow;
         var nextAdvancedSweep = DateTime.UtcNow;
+        var nextDocumentProvisioningSweep = DateTime.UtcNow;
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -74,6 +75,15 @@ public sealed class AutomationWorker : BackgroundService
                     var automation = dietScope.ServiceProvider.GetRequiredService<AutomationService>();
                     await automation.RunDietAutomationSweepAsync(stoppingToken);
                     nextDietSweep = DateTime.UtcNow.AddHours(1);
+                }
+
+
+                if (DateTime.UtcNow >= nextDocumentProvisioningSweep)
+                {
+                    using var documentScope = _scopeFactory.CreateScope();
+                    var automation = documentScope.ServiceProvider.GetRequiredService<AutomationService>();
+                    await automation.RunDocumentProvisioningReconciliationSweepAsync(stoppingToken);
+                    nextDocumentProvisioningSweep = DateTime.UtcNow.AddHours(1);
                 }
 
                 if (DateTime.UtcNow >= nextAdvancedSweep)
