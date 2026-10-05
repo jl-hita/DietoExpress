@@ -226,7 +226,7 @@ public class PatientPortalController : ControllerBase
             .OrderByDescending(b => b.measurement_date)
             .FirstOrDefaultAsync();
 
-        if (latest == null || latest.measurement_date < birthDate)
+        if (latest == null)
         {
             _context.biometrics.Add(new biometrics
             {
@@ -398,8 +398,9 @@ public class PatientPortalController : ControllerBase
         var client = await _context.clients.FirstOrDefaultAsync(c => c.id == clientId && c.archived_at == null &&
             (User.IsInRole("superadmin") ||
              (AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User)!.Value &&
-              (c.user_id == userId.Value ||
-               _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active)))));
+              (User.IsInRole("clinic_admin") ||
+               c.user_id == userId.Value ||
+               _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active))))));
         if (client == null) return NotFound("Cliente no encontrado.");
         // El token se almacena únicamente como hash y, por tanto, no puede recuperarse.
         // Si ya existe uno, no debemos devolver el hash como si fuera un bearer token:
