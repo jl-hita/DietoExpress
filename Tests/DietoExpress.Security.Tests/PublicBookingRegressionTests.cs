@@ -45,5 +45,7 @@ public class PublicBookingRegressionTests
         Assert.Contains("IncludeAllRequired: false", booking[schedulingPos..]);
         Assert.Contains("maxAttempts: 8", booking[schedulingPos..]);
         Assert.Contains("documents:provision:", booking[schedulingPos..]);
+        Assert.Contains("cancellationToken: CancellationToken.None", booking[schedulingPos..]);
+        Assert.DoesNotContain("cancellationToken: HttpContext.RequestAborted", booking[schedulingPos..]);
     }
 }
