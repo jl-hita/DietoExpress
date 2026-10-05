@@ -167,6 +167,9 @@ public sealed class PatientDocumentFlowRegressionTests
         Assert.Contains("documents:reconcile:", automation);
         Assert.Contains("dt.created_at <= j.created_at", automation);
         Assert.Contains("provision_patient_documents", automation);
+        Assert.Contains("ScheduleReconciliationRepairAsync", automation);
+        Assert.Contains("WHERE automation_jobs.status='failed'", automation);
+        Assert.Contains("attempts=0", automation);
         Assert.Contains("RunDocumentProvisioningReconciliationSweepAsync", worker);
         Assert.Contains("nextDocumentProvisioningSweep = DateTime.UtcNow.AddHours(1)", worker);
     }
