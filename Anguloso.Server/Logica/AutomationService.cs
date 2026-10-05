@@ -922,6 +922,65 @@ public sealed class AutomationService
     }
 
     /// <summary>
+    /// Repara provisiones documentales que figuran como completadas pero no contienen
+    /// todos los documentos obligatorios que existían en el momento del alta.
+    /// La clave de idempotencia incorpora plantilla y versión para que cada discrepancia
+    /// pueda generar una única reparación durable sin crear un bucle de jobs.
+    /// </summary>
+    public async Task RunDocumentProvisioningReconciliationSweepAsync(CancellationToken cancellationToken = default)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        var repairs = new List<(int TenantId, int ClientId, int? UserId, long TemplateId, int Version)>();
+        await using (var command = new NpgsqlCommand("""
+            SELECT DISTINCT j.tenant_id, c.id, c.user_id, dt.id, dt.version
+            FROM automation_jobs j
+            INNER JOIN clients c
+                ON c.id = (j.payload->>'ClientId')::integer
+               AND c.tenant_id = j.tenant_id
+               AND c.archived_at IS NULL
+            INNER JOIN document_templates dt
+                ON dt.tenant_id = j.tenant_id
+               AND dt.is_active = true
+               AND dt.storage_key IS NOT NULL
+               AND dt.is_required_on_client_creation = true
+               AND dt.created_at <= j.created_at
+            WHERE j.action_type='provision_patient_documents'
+              AND j.status='completed'
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM patient_documents pd
+                  WHERE pd.tenant_id=j.tenant_id
+                    AND pd.client_id=c.id
+                    AND pd.document_template_id=dt.id
+                    AND pd.version=dt.version
+                    AND pd.revoked_at IS NULL
+              )
+            ORDER BY j.tenant_id, c.id, dt.id, dt.version;
+            """, connection))
+        {
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+                repairs.Add((reader.GetInt32(0), reader.GetInt32(1), reader.IsDBNull(2) ? null : reader.GetInt32(2), reader.GetInt64(3), reader.GetInt32(4)));
+        }
+
+        foreach (var repair in repairs)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await ScheduleActionAsync(
+                repair.TenantId,
+                "provision_patient_documents",
+                new ProvisionPatientDocumentsAction(repair.ClientId, repair.UserId, true, false),
+                DateTime.UtcNow,
+                null,
+                $"documents:reconcile:{repair.TenantId}:{repair.ClientId}:{repair.TemplateId}:{repair.Version}",
+                5,
+                cancellationToken);
+        }
+    }
+
+    /// <summary>
     /// Reconciliación de automatizaciones clínicas avanzadas. No depende de eventos puntuales:
     /// reconstruye recordatorios a partir de las últimas mediciones y dietas persistidas.
     /// </summary>
