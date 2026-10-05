@@ -2007,4 +2007,101 @@ public static class DatabaseBootstrap
         logger.LogInformation("Migración de directorio directory-v1 aplicada/comprobada correctamente.");
     }
 
+
+    /// <summary>
+    /// Crea el catálogo base de especializaciones y su configuración por tenant.
+    /// Las reglas se almacenan como JSON para que futuras especializaciones puedan añadir
+    /// parámetros sin convertir el generador de dietas en una colección de condicionales.
+    /// </summary>
+    public static void UpgradeSpecializationsSchemaV1(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS specializations (
+                id SERIAL PRIMARY KEY,
+                code VARCHAR(80) NOT NULL UNIQUE,
+                name VARCHAR(160) NOT NULL,
+                category VARCHAR(40) NOT NULL,
+                description VARCHAR(1000),
+                active BOOLEAN NOT NULL DEFAULT TRUE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+
+            CREATE TABLE IF NOT EXISTS tenant_specializations (
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                specialization_id INTEGER NOT NULL REFERENCES specializations(id) ON DELETE CASCADE,
+                enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                PRIMARY KEY (tenant_id, specialization_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_tenant_specializations_tenant
+                ON tenant_specializations(tenant_id, enabled);
+
+            CREATE TABLE IF NOT EXISTS client_specializations (
+                id BIGSERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                specialization_id INTEGER NOT NULL REFERENCES specializations(id) ON DELETE RESTRICT,
+                notes VARCHAR(2000),
+                created_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_client_specialization UNIQUE (tenant_id, client_id, specialization_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_client_specializations_client
+                ON client_specializations(tenant_id, client_id);
+
+            CREATE TABLE IF NOT EXISTS specialization_rules (
+                id BIGSERIAL PRIMARY KEY,
+                specialization_id INTEGER NOT NULL REFERENCES specializations(id) ON DELETE CASCADE,
+                rule_code VARCHAR(120) NOT NULL,
+                rule_type VARCHAR(50) NOT NULL,
+                configuration JSONB NOT NULL DEFAULT '{}'::jsonb,
+                priority INTEGER NOT NULL DEFAULT 100,
+                active BOOLEAN NOT NULL DEFAULT TRUE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_specialization_rule_code UNIQUE (specialization_id, rule_code)
+            );
+            CREATE INDEX IF NOT EXISTS idx_specialization_rules_specialization
+                ON specialization_rules(specialization_id, active, priority);
+
+            INSERT INTO specializations(code,name,category,description)
+            VALUES
+                ('vegan','Vegana','dietary','Patrón alimentario sin alimentos de origen animal.'),
+                ('vegetarian','Vegetariana','dietary','Patrón alimentario vegetariano configurable por el profesional.'),
+                ('flexitarian','Flexitariana','dietary','Patrón predominantemente vegetal con consumo ocasional de alimentos animales.'),
+                ('pescatarian','Pescetariana','dietary','Patrón sin carne terrestre con consumo de pescado y marisco.'),
+                ('sports_nutrition','Nutrición deportiva','sports','Especialización para objetivos relacionados con entrenamiento y rendimiento.'),
+                ('weight_management','Control de peso','clinical','Especialización para objetivos de composición corporal y control ponderal.'),
+                ('diabetes','Diabetes','clinical','Condición clínica que requiere criterios específicos definidos y revisados por el profesional.'),
+                ('hypertension','Hipertensión','clinical','Condición clínica que puede requerir parámetros dietéticos específicos.'),
+                ('dyslipidemia','Dislipemia','clinical','Condición clínica relacionada con el perfil lipídico.'),
+                ('celiac','Enfermedad celíaca','clinical','Condición que requiere exclusión estricta de gluten según criterio profesional.'),
+                ('lactose_intolerance','Intolerancia a la lactosa','clinical','Intolerancia alimentaria con adaptación individual de alimentos y cantidades.'),
+                ('fodmap','Enfoque bajo FODMAP','clinical','Protocolo dietético configurable para síntomas digestivos, bajo supervisión profesional.'),
+                ('renal','Enfermedad renal','clinical','Condición clínica que puede requerir restricciones y objetivos individualizados.'),
+                ('pregnancy','Embarazo','life_stage','Especialización para seguimiento nutricional durante el embarazo.'),
+                ('lactation','Lactancia','life_stage','Especialización para seguimiento nutricional durante la lactancia.'),
+                ('pediatric','Nutrición pediátrica','life_stage','Especialización para población infantil y adolescente.')
+            ON CONFLICT (code) DO UPDATE SET
+                name = EXCLUDED.name,
+                category = EXCLUDED.category,
+                description = EXCLUDED.description,
+                active = TRUE;
+
+            -- Los tenants existentes reciben inicialmente todo el catálogo activo.
+            -- Las filas explícitas permiten posteriormente desactivar especializaciones
+            -- sin afectar al catálogo global ni a otros tenants.
+            INSERT INTO tenant_specializations(tenant_id, specialization_id, enabled)
+            SELECT t.id, s.id, TRUE
+            FROM tenants t
+            CROSS JOIN specializations s
+            WHERE s.active
+            ON CONFLICT (tenant_id, specialization_id) DO NOTHING;
+        ");
+
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('specializations-v1') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración de especializaciones specializations-v1 aplicada correctamente.");
+    }
+
 }
