@@ -285,8 +285,26 @@ Las mejoras futuras del soporte se consideran evolución y no deuda funcional de
    - Prioridad a ahorro de tiempo y reducción de tareas administrativas.
 
 9. **Especializaciones**
-   - Plantillas y flujos específicos por especialidad.
-   - Parámetros configurables sin acoplar el núcleo a una única especialidad.
+
+   La arquitectura de especializaciones queda preparada para perfiles estructurados por paciente y reglas específicas de generación/validación.
+
+   - **Nutrición deportiva avanzada**
+     - Perfil de disciplina, objetivo, frecuencia y duración del entrenamiento.
+     - Parámetros configurables de proteína, hidratos e hidratación.
+     - Integración de los parámetros del perfil con la generación de dietas.
+     - Indicaciones contextuales para entrenamiento, rendimiento y recuperación.
+     - Evolución prevista hacia periodización de hidratos, timing nutricional y estrategias específicas por deporte.
+
+   - **Pérdida de peso / obesidad**
+     - Perfil específico de objetivo, peso objetivo y ritmo de pérdida.
+     - Déficit energético configurable y mínimo energético de seguridad definido por el profesional.
+     - Objetivo de proteína configurable para favorecer el mantenimiento de masa magra.
+     - Revisión periódica y seguimiento de respuesta.
+     - Integración de parámetros con la generación de dietas y validaciones.
+     - Evolución prevista hacia fases de pérdida, mantenimiento, recomposición y estrategias conductuales.
+
+   - Plantillas y parámetros configurables para otras especialidades.
+   - Evitar acoplar el núcleo a una única especialidad.
 
 10. **Multiidioma**
     - Español.
@@ -310,6 +328,7 @@ Las mejoras futuras del soporte se consideran evolución y no deuda funcional de
 
 12. **Automatización e IA avanzada**
     - Generación asistida de dietas.
+    - La especialización avanzada se integra con este bloque como contexto estructurado para futuras funciones de asistencia, sin delegar el criterio profesional en la IA.
     - Sugerencias de alimentos y recetas.
     - Asistencia durante la consulta.
     - Resúmenes y seguimiento.

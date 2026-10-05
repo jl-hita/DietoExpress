@@ -783,3 +783,33 @@ CREATE TABLE external_api_usage (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT uq_external_api_usage_day_provider_operation UNIQUE (usage_date, provider, operation)
 );
+
+
+====================================
+== ESPECIALIZACIONES AVANZADAS — MÓDULO 12 ==
+====================================
+
+Implementadas en la primera versión del bloque:
+
+- Nutrición deportiva avanzada.
+  - Perfil estructurado por paciente.
+  - Disciplina, objetivo, sesiones y duración.
+  - Proteína, hidratos e hidratación configurables.
+  - Integración con la generación automática de dietas.
+  - Reglas clínicas contextuales.
+
+- Pérdida de peso / obesidad.
+  - Perfil estructurado por paciente.
+  - Objetivo, peso objetivo y ritmo semanal.
+  - Déficit energético configurable.
+  - Mínimo energético definido por el profesional.
+  - Proteína objetivo configurable.
+  - Revisión periódica.
+  - Integración con la generación automática de dietas.
+
+Pendiente como evolución del bloque:
+- Periodización avanzada de hidratos y timing nutricional según deporte.
+- Estrategias específicas por disciplina.
+- Fases de pérdida, mantenimiento y recomposición.
+- Seguimiento automático de tendencia de peso y adherencia.
+- Reglas clínicas adicionales revisadas antes de automatizarlas.

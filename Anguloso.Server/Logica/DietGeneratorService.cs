@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Text.Json;
 using Anguloso.Server.Model;
 using Anguloso.Server.Models;
 using Microsoft.EntityFrameworkCore;
@@ -28,6 +29,8 @@ public class DietGeneratorService
         clients? client = null;
         SpecializationRulesService.NutritionProfile? nutritionProfile = null;
         IReadOnlyList<string> clinicalGuidance = Array.Empty<string>();
+        JsonElement? sportsProfile = null;
+        JsonElement? weightProfile = null;
         var exclusions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         if (request.ClientId.HasValue)
@@ -46,6 +49,10 @@ public class DietGeneratorService
                         client.id, tenantId.Value, cancellationToken);
                     clinicalGuidance = await _specializationRulesService.GetClinicalGuidanceAsync(
                         client.id, tenantId.Value, cancellationToken);
+                    sportsProfile = await _specializationRulesService.GetClientSpecializationProfileAsync(
+                        client.id, tenantId.Value, "sports_nutrition", cancellationToken);
+                    weightProfile = await _specializationRulesService.GetClientSpecializationProfileAsync(
+                        client.id, tenantId.Value, "weight_management", cancellationToken);
                 }
 
                 if (client.digestive_health?.gluten_intolerance == true)
@@ -74,12 +81,29 @@ public class DietGeneratorService
         }
 
         // Los objetivos explícitos enviados por el profesional siempre prevalecen.
+        // El mínimo energético se aplica antes de calcular macros para mantener coherencia entre
+        // energía y distribución de macronutrientes.
+        var minimumKcal = GetProfileDouble(weightProfile, "minimumKcal");
+        if (minimumKcal.HasValue)
+            targetKcal = Math.Max(targetKcal, minimumKcal.Value);
+
+        double? sportsProtein = GetProfileDouble(sportsProfile, "proteinGPerKg");
+        double? sportsCarbs = GetProfileDouble(sportsProfile, "carbsGPerKg");
+        double? weightProtein = GetProfileDouble(weightProfile, "proteinGPerKg");
+
         double targetProtein = request.TargetProtein
-            ?? (nutritionProfile != null && client != null
-                ? await CalculateSportsProteinAsync(client.id, nutritionProfile, targetKcal, cancellationToken)
-                : CalculateDefaultProtein(targetKcal, request.DietType));
+            ?? (client != null && sportsProtein.HasValue
+                ? await CalculateGramsFromKgAsync(client.id, sportsProtein.Value, CalculateDefaultProtein(targetKcal, request.DietType), cancellationToken)
+                : client != null && weightProtein.HasValue
+                    ? await CalculateGramsFromKgAsync(client.id, weightProtein.Value, CalculateDefaultProtein(targetKcal, request.DietType), cancellationToken)
+                    : nutritionProfile != null && client != null
+                        ? await CalculateSportsProteinAsync(client.id, nutritionProfile, targetKcal, cancellationToken)
+                        : CalculateDefaultProtein(targetKcal, request.DietType));
         double targetFat = request.TargetFat ?? CalculateDefaultFat(targetKcal, request.DietType);
-        double targetCarbs = request.TargetCarbs ?? CalculateDefaultCarbs(targetKcal, targetProtein, targetFat);
+        double targetCarbs = request.TargetCarbs
+            ?? (client != null && sportsCarbs.HasValue
+                ? await CalculateGramsFromKgAsync(client.id, sportsCarbs.Value, CalculateDefaultCarbs(targetKcal, targetProtein, targetFat), cancellationToken)
+                : CalculateDefaultCarbs(targetKcal, targetProtein, targetFat));
 
         // 3. Cargar un catálogo acotado de alimentos desde la BD.
         // No debemos traer toda la tabla a memoria: el catálogo puede crecer mucho
@@ -601,6 +625,37 @@ public class DietGeneratorService
     #endregion
 
     #region Helpers de Cálculo y Restricciones
+
+    private static double? GetProfileDouble(JsonElement? profile, string property)
+    {
+        if (!profile.HasValue || profile.Value.ValueKind != JsonValueKind.Object)
+            return null;
+
+        if (!profile.Value.TryGetProperty(property, out var value) || value.ValueKind != JsonValueKind.Number)
+            return null;
+
+        return value.TryGetDouble(out var number) && !double.IsNaN(number) && !double.IsInfinity(number)
+            ? number
+            : null;
+    }
+
+    private async Task<double> CalculateGramsFromKgAsync(
+        int clientId,
+        double gramsPerKg,
+        double fallbackValue,
+        CancellationToken cancellationToken)
+    {
+        var latest = await _context.biometrics
+            .AsNoTracking()
+            .Where(b => b.client_id == clientId && b.weight.HasValue && b.weight > 0)
+            .OrderByDescending(b => b.measurement_date)
+            .ThenByDescending(b => b.id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return latest?.weight is double weight && weight > 0
+            ? Math.Round(weight * gramsPerKg, 1)
+            : fallbackValue;
+    }
 
     private async Task<double> CalculateSportsProteinAsync(
         int clientId,

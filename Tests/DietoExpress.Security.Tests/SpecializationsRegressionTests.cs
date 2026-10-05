@@ -169,6 +169,28 @@ public sealed class SpecializationsRegressionTests
     }
 
     [Fact]
+    public void AdvancedSpecializationProfiles_AreTenantScopedAndValidated()
+    {
+        var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
+        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "SpecializationsController.cs"));
+        var resolver = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "SpecializationRulesService.cs"));
+        var generator = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
+
+        Assert.Contains("client_specialization_profiles", bootstrap);
+        Assert.Contains("UNIQUE (tenant_id, client_id, specialization_id)", bootstrap);
+        Assert.Contains("sports_carbohydrate_guidance", bootstrap);
+        Assert.Contains("weight_management_guidance", bootstrap);
+        Assert.Contains("weight_management_protein", bootstrap);
+        Assert.Contains("GetClientSpecializationProfileAsync", resolver);
+        Assert.Contains("clients/{clientId:int}/{code}/profile", controller);
+        Assert.Contains("ValidateProfile", controller);
+        Assert.Contains("configuration::jsonb", controller);
+        Assert.Contains("sportsProfile", generator);
+        Assert.Contains("weightProfile", generator);
+        Assert.Contains("minimumKcal", generator);
+    }
+
+    [Fact]
     public void DietGeneration_ConsumesSpecializationRules()
     {
         var generator = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));

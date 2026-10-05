@@ -276,6 +276,48 @@ public sealed record NutritionProfile(
         return guidance;
     }
 
+
+    /// <summary>
+    /// Devuelve la configuración estructurada de una especialización del paciente.
+    /// La lectura siempre queda limitada al tenant y a una especialización concreta.
+    /// </summary>
+    public async Task<JsonElement?> GetClientSpecializationProfileAsync(
+        int clientId,
+        int tenantId,
+        string specializationCode,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = _context.Database.GetDbConnection();
+        if (connection.State != ConnectionState.Open)
+            await connection.OpenAsync(cancellationToken);
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = @"
+            SELECT csp.configuration
+            FROM client_specialization_profiles csp
+            JOIN specializations s ON s.id=csp.specialization_id AND s.active=TRUE
+            WHERE csp.client_id=@client
+              AND csp.tenant_id=@tenant
+              AND s.code=@code
+            LIMIT 1;";
+        Add(command, "client", clientId);
+        Add(command, "tenant", tenantId);
+        Add(command, "code", specializationCode);
+
+        var value = await command.ExecuteScalarAsync(cancellationToken);
+        if (value == null || value == DBNull.Value) return null;
+
+        try
+        {
+            using var document = JsonDocument.Parse(Convert.ToString(value) ?? "{}");
+            return document.RootElement.Clone();
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
     private static void Add(DbCommand command, string name, object value)
     {
         var parameter = command.CreateParameter();

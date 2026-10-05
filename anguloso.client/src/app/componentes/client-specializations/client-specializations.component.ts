@@ -8,7 +8,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { ClientSpecialization, Specialization, SpecializationService } from '../../servicios/specialization.service';
+import { ClientSpecialization, Specialization, SpecializationService, SportsNutritionProfile, WeightManagementProfile } from '../../servicios/specialization.service';
 
 @Component({
   selector: 'app-client-specializations',
@@ -36,6 +36,8 @@ export class ClientSpecializationsComponent implements OnInit, OnDestroy {
   catalog: Specialization[] = [];
   selected = new Set<number>();
   notes: Record<number, string> = {};
+  sportsProfile: SportsNutritionProfile = { discipline: '', trainingGoal: 'composición corporal', sessionsPerWeek: 3, sessionMinutes: 60, proteinGPerKg: 1.6, carbsGPerKg: 4, hydrationMlPerKg: 35 };
+  weightProfile: WeightManagementProfile = { goal: 'pérdida de grasa', targetWeightKg: null, targetRateKgPerWeek: 0.5, deficitPercent: 15, minimumKcal: 1200, proteinGPerKg: 1.6, reviewWeeks: 2 };
   loading = true;
   saving = false;
   error = '';
@@ -63,6 +65,7 @@ export class ClientSpecializationsComponent implements OnInit, OnDestroy {
           this.notes = Object.fromEntries(
             client.map(x => [x.specializationId, x.notes ?? ''])
           );
+          this.loadProfiles(client);
           this.loading = false;
         },
         error: () => {
@@ -70,6 +73,25 @@ export class ClientSpecializationsComponent implements OnInit, OnDestroy {
           this.loading = false;
         }
       });
+  }
+
+  private loadProfiles(client: ClientSpecialization[]): void {
+    const requests = [];
+    if (client.some(x => x.code === 'sports_nutrition')) {
+      requests.push(this.service.getClientSpecializationProfile<SportsNutritionProfile>(this.clientId, 'sports_nutrition'));
+    }
+    if (client.some(x => x.code === 'weight_management')) {
+      requests.push(this.service.getClientSpecializationProfile<WeightManagementProfile>(this.clientId, 'weight_management'));
+    }
+    if (!requests.length) return;
+
+    forkJoin(requests).pipe(takeUntil(this.destroy$)).subscribe({
+      next: profiles => profiles.forEach(profile => {
+        if (profile.code === 'sports_nutrition') this.sportsProfile = { ...this.sportsProfile, ...(profile.configuration ?? {}) };
+        if (profile.code === 'weight_management') this.weightProfile = { ...this.weightProfile, ...(profile.configuration ?? {}) };
+      }),
+      error: () => this.error = 'Las especializaciones se han cargado, pero no se han podido recuperar todos sus perfiles.'
+    });
   }
 
   get categories(): string[] {
@@ -136,14 +158,40 @@ export class ClientSpecializationsComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: () => {
-          this.saving = false;
-          this.success = 'Especializaciones del paciente guardadas.';
+          const profileWrites = [];
+          if (this.selected.has(this.idForCode('sports_nutrition'))) {
+            profileWrites.push(this.service.setClientSpecializationProfile(this.clientId, 'sports_nutrition', this.sportsProfile));
+          }
+          if (this.selected.has(this.idForCode('weight_management'))) {
+            profileWrites.push(this.service.setClientSpecializationProfile(this.clientId, 'weight_management', this.weightProfile));
+          }
+
+          if (!profileWrites.length) {
+            this.saving = false;
+            this.success = 'Especializaciones del paciente guardadas.';
+            return;
+          }
+
+          forkJoin(profileWrites).pipe(takeUntil(this.destroy$)).subscribe({
+            next: () => {
+              this.saving = false;
+              this.success = 'Especializaciones y perfiles del paciente guardados.';
+            },
+            error: () => {
+              this.saving = false;
+              this.error = 'Las especializaciones se han guardado, pero no se han podido guardar todos los perfiles.';
+            }
+          });
         },
         error: err => {
           this.saving = false;
           this.error = err?.error || 'No se han podido guardar las especializaciones.';
         }
       });
+  }
+
+  private idForCode(code: string): number {
+    return this.catalog.find(x => x.code === code)?.id ?? -1;
   }
 
   ngOnDestroy(): void {

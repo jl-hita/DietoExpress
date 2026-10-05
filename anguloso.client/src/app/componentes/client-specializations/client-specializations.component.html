@@ -51,6 +51,48 @@
               placeholder="Criterios o contexto específico del paciente"></textarea>
           </div>
 
+          <div *ngIf="item.code === 'sports_nutrition' && isSelected(item.id)" class="profile-panel">
+            <h4>Perfil de nutrición deportiva</h4>
+            <div class="profile-grid">
+              <label>Disciplina<input [(ngModel)]="sportsProfile.discipline" maxlength="100" placeholder="Ej. fuerza, ciclismo, running"></label>
+              <label>Objetivo
+                <select [(ngModel)]="sportsProfile.trainingGoal">
+                  <option value="rendimiento">Rendimiento</option>
+                  <option value="masa muscular">Masa muscular</option>
+                  <option value="composición corporal">Composición corporal</option>
+                  <option value="mantenimiento">Mantenimiento</option>
+                </select>
+              </label>
+              <label>Sesiones/semana<input type="number" [(ngModel)]="sportsProfile.sessionsPerWeek" min="0" max="14"></label>
+              <label>Minutos/sesión<input type="number" [(ngModel)]="sportsProfile.sessionMinutes" min="0" max="600"></label>
+              <label>Proteína (g/kg)<input type="number" [(ngModel)]="sportsProfile.proteinGPerKg" min="1" max="3" step="0.1"></label>
+              <label>Hidratos (g/kg)<input type="number" [(ngModel)]="sportsProfile.carbsGPerKg" min="0" max="12" step="0.1"></label>
+              <label>Hidratación (ml/kg)<input type="number" [(ngModel)]="sportsProfile.hydrationMlPerKg" min="0" max="60"></label>
+            </div>
+            <p class="profile-hint">Parámetros de trabajo del profesional; deben ajustarse a la disciplina, carga y objetivo.</p>
+          </div>
+
+          <div *ngIf="item.code === 'weight_management' && isSelected(item.id)" class="profile-panel">
+            <h4>Pérdida de peso / obesidad</h4>
+            <div class="profile-grid">
+              <label>Objetivo
+                <select [(ngModel)]="weightProfile.goal">
+                  <option value="pérdida de grasa">Pérdida de grasa</option>
+                  <option value="reducción ponderal">Reducción ponderal</option>
+                  <option value="recomposición">Recomposición</option>
+                  <option value="mantenimiento">Mantenimiento tras pérdida</option>
+                </select>
+              </label>
+              <label>Peso objetivo (kg)<input type="number" [(ngModel)]="weightProfile.targetWeightKg" min="1" max="500" step="0.1"></label>
+              <label>Ritmo objetivo (kg/sem)<input type="number" [(ngModel)]="weightProfile.targetRateKgPerWeek" min="0" max="1.5" step="0.1"></label>
+              <label>Déficit energético (%)<input type="number" [(ngModel)]="weightProfile.deficitPercent" min="0" max="20" step="1"></label>
+              <label>Proteína (g/kg)<input type="number" [(ngModel)]="weightProfile.proteinGPerKg" min="0.8" max="2.5" step="0.1"></label>
+              <label>Mínimo energético (kcal)<input type="number" [(ngModel)]="weightProfile.minimumKcal" min="800" max="5000" step="50"></label>
+              <label>Revisión (semanas)<input type="number" [(ngModel)]="weightProfile.reviewWeeks" min="1" max="12"></label>
+            </div>
+            <p class="profile-hint">El ritmo y el déficit se revisan con la evolución del paciente y su contexto clínico.</p>
+          </div>
+
           <div class="tenant-setting">
             <mat-checkbox
               [checked]="item.enabled"
