@@ -284,7 +284,8 @@ public sealed class AutomationWorker : BackgroundService
             action.Title,
             action.Message,
             action.ActionUrl,
-            action.SendPush);
+            action.SendPush,
+            $"job:{job.Id}:patient-notification");
     }
 
     private async Task ExecuteEmailPatientAsync(AutomationJob job, CancellationToken cancellationToken)
@@ -316,7 +317,7 @@ public sealed class AutomationWorker : BackgroundService
 
         using var scope = _scopeFactory.CreateScope();
         var emailServ = scope.ServiceProvider.GetRequiredService<EmailServ>();
-        var result = await emailServ.SendEmailAsync(email, action.Subject, action.HtmlBody);
+        var result = await emailServ.SendEmailAsync(email, action.Subject, action.HtmlBody, $"job:{job.Id}:email");
         if (!result.Exito)
             throw new InvalidOperationException(result.Mensaje);
     }
@@ -347,7 +348,7 @@ public sealed class AutomationWorker : BackgroundService
 
         using var scope = _scopeFactory.CreateScope();
         var emailServ = scope.ServiceProvider.GetRequiredService<EmailServ>();
-        var result = await emailServ.SendEmailAsync(email, action.Subject, action.HtmlBody);
+        var result = await emailServ.SendEmailAsync(email, action.Subject, action.HtmlBody, $"job:{job.Id}:email");
         if (!result.Exito)
             throw new InvalidOperationException(result.Mensaje);
     }
@@ -397,7 +398,7 @@ public sealed class AutomationWorker : BackgroundService
 
         using var scope = _scopeFactory.CreateScope();
         var emailServ = scope.ServiceProvider.GetRequiredService<EmailServ>();
-        var result = await emailServ.SendEmailAsync(email, action.Subject, action.HtmlBody);
+        var result = await emailServ.SendEmailAsync(email, action.Subject, action.HtmlBody, $"job:{job.Id}:email");
         if (!result.Exito)
             throw new InvalidOperationException(result.Mensaje);
     }
