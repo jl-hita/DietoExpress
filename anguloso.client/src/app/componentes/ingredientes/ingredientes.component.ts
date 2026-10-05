@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule } from '@angular/forms';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Component } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatSelectModule } from '@angular/material/select';
@@ -27,6 +27,8 @@ interface Ingrediente {
   styleUrl: './ingredientes.component.css'
 })
 // Documentación: este componente coordina estado local, validación y llamadas asíncronas; la vista solo refleja ese estado.
+interface MutationResponse { mensaje?: string; }
+
 export class IngredientesComponent {
   ingredientes: Ingrediente[] = [];
   formIngrediente: FormGroup;
@@ -77,19 +79,9 @@ export class IngredientesComponent {
 
   agregarIngrediente() {
     if (this.formIngrediente.invalid) return;
-    /*
-    var ingrediente: Ingrediente = {
-      nombre: this.formIngrediente.value.nombre,
-      cantidad: this.formIngrediente.value.cantidad,
-      unidad: this.formIngrediente.value.unidad,
-    }
-    console.log('API URL:', this.apiUrl);
-    console.log(this.formIngrediente.value);
-    */
     const nuevo = this.formIngrediente.value;
-    this.http.put(`${this.apiUrl}/addIngrediente`, nuevo).subscribe({
-    //this.http.put(`${this.apiUrl}/addIngrediente`, ingrediente).subscribe({
-      next: (res: any) => {
+    this.http.put<MutationResponse>(`${this.apiUrl}/addIngrediente`, nuevo).subscribe({
+      next: (res: MutationResponse) => {
         this.mensaje = res.mensaje || 'Ingrediente guardado';
         this.formIngrediente.reset({ cantidad: 1, unidad: 'ud' });
         this.cargarIngredientes();
@@ -105,8 +97,7 @@ export class IngredientesComponent {
     // Aquí luego llamarás al endpoint correspondiente
     ing.comprado = !ing.comprado;
 
-    const nuevo = this.formIngrediente.value;
-    this.http.put(`${this.apiUrl}/marcarCompradoIngredientes`, ing).subscribe({
+    this.http.put<MutationResponse>(`${this.apiUrl}/marcarCompradoIngredientes`, ing).subscribe({
       next: (res: any) => {
         this.mensaje = res.mensaje || 'Ingrediente guardado';
         this.formIngrediente.reset({ cantidad: 1, unidad: 'ud' });
@@ -120,10 +111,9 @@ export class IngredientesComponent {
   }
 
   borrarIngrediente(ing: Ingrediente) {
-    // Aquí luego llamarás al endpoint delete
     this.ingredientes = this.ingredientes.filter(i => i.id !== ing.id);
 
-    this.http.put(`${this.apiUrl}/delIngredientes`, ing).subscribe({
+    this.http.put<MutationResponse>(`${this.apiUrl}/delIngredientes`, ing).subscribe({
       next: (res: any) => {
         this.mensaje = res.mensaje || 'Ingrediente guardado';
         this.formIngrediente.reset({ cantidad: 1, unidad: 'ud' });
