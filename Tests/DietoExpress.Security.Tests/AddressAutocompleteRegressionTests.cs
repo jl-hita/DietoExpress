@@ -67,6 +67,8 @@ public sealed class AddressAutocompleteRegressionTests
 
         Assert.Contains("GeoapifyApiKey", geoapify);
         Assert.Contains("LocationIqApiKey", locationIq);
+        Assert.Contains("GetConfigString(\"geoapifyApiKey\")", ReadSource("Anguloso.Server/Logica/AddressProviderOptions.cs"));
+        Assert.Contains("GetConfigString(\"locationIqApiKey\")", ReadSource("Anguloso.Server/Logica/AddressProviderOptions.cs"));
         Assert.DoesNotContain("GeoapifyApiKey", angular);
         Assert.DoesNotContain("LocationIqApiKey", angular);
         Assert.DoesNotContain("apiKey=", angular);
@@ -82,6 +84,8 @@ public sealed class AddressAutocompleteRegressionTests
         Assert.Contains("'locationIqApiKey', '__CONFIGURE_LOCATIONIQ_API_KEY__'", bootstrap);
         Assert.Contains("'addressPrimaryProvider', 'Geoapify'", bootstrap);
         Assert.Contains("'addressFallbackProvider', 'LocationIQ'", bootstrap);
+        Assert.Contains("'geoapifyApiKey', '__CONFIGURE_GEOAPIFY_API_KEY__'", bootstrap);
+        Assert.Contains("'locationIqApiKey', '__CONFIGURE_LOCATIONIQ_API_KEY__'", bootstrap);
     }
 
     [Fact]
@@ -107,6 +111,17 @@ public sealed class AddressAutocompleteRegressionTests
         Assert.Contains("client.city = dto.City", controller);
         Assert.Contains("client.province = dto.Province", controller);
         Assert.Contains("UpgradeClientAddressSchemaV1", bootstrap);
+    }
+
+    [Fact]
+    public void AddressProviderConfigurationMustNotReadEnvironmentKeys()
+    {
+        var program = ReadSource("Anguloso.Server/Program.cs");
+
+        Assert.DoesNotContain("Geoapify:ApiKey", program);
+        Assert.DoesNotContain("LocationIQ:ApiKey", program);
+        Assert.Contains("AddressProviderOptions.Load", program);
+        Assert.Contains("GetRequiredService<ConfigServ>()", program);
     }
 
     [Fact]
