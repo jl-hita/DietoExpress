@@ -177,19 +177,20 @@ public sealed class ProfessionalStatisticsController : ControllerBase
 
         await using (var command = new NpgsqlCommand($"""
             WITH ranked AS (
-                SELECT b.weight, b.body_fat, b.muscle_mass,
+                SELECT b.client_id, b.weight, b.body_fat, b.muscle_mass,
                        ROW_NUMBER() OVER (PARTITION BY b.client_id ORDER BY b.measurement_date ASC, b.id ASC) AS first_rank,
                        ROW_NUMBER() OVER (PARTITION BY b.client_id ORDER BY b.measurement_date DESC, b.id DESC) AS last_rank
                 FROM biometrics b
-                JOIN clients c ON c.id=b.client_id AND c.tenant_id=b.tenant_id
-                WHERE b.tenant_id=@tenant
+                JOIN clients c ON c.id=b.client_id
+                WHERE c.tenant_id=@tenant
                   AND b.measurement_date >= @from::date
-                  AND b.measurement_date < @to::date
+                  AND b.measurement_date < @to::date + interval '1 day'
                   AND c.archived_at IS NULL
                   {periodPatientScope}
             ),
-            changes AS (
+            per_client AS (
                 SELECT
+                    client_id,
                     MAX(weight) FILTER (WHERE first_rank=1) AS first_weight,
                     MAX(weight) FILTER (WHERE last_rank=1) AS last_weight,
                     MAX(body_fat) FILTER (WHERE first_rank=1) AS first_body_fat,
@@ -197,12 +198,14 @@ public sealed class ProfessionalStatisticsController : ControllerBase
                     MAX(muscle_mass) FILTER (WHERE first_rank=1) AS first_muscle,
                     MAX(muscle_mass) FILTER (WHERE last_rank=1) AS last_muscle
                 FROM ranked
+                GROUP BY client_id
             )
             SELECT
-                last_weight-first_weight,
-                last_body_fat-first_body_fat,
-                last_muscle-first_muscle
-            FROM changes;
+                AVG(last_weight-first_weight),
+                AVG(last_body_fat-first_body_fat),
+                AVG(last_muscle-first_muscle)
+            FROM per_client
+            WHERE first_weight IS NOT NULL AND last_weight IS NOT NULL;
             """, connection))
         {
             AddCommonParameters(command, tenantId.Value, userId, fromUtc, toExclusiveUtc);
