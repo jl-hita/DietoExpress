@@ -26,7 +26,7 @@ public class DietGeneratorService
         // 1. Resolver cliente y especializaciones antes de fijar los objetivos automáticos.
         double targetKcal = request.TargetKcal > 0 ? request.TargetKcal : 2000;
         clients? client = null;
-        NutritionProfile? nutritionProfile = null;
+        SpecializationRulesService.NutritionProfile? nutritionProfile = null;
         IReadOnlyList<string> clinicalGuidance = Array.Empty<string>();
 
         if (request.ClientId.HasValue)
