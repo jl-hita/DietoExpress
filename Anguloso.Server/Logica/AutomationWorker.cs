@@ -156,7 +156,7 @@ public sealed class AutomationWorker : BackgroundService
                     reader.GetString(3),
                     reader.GetString(4),
                     reader.GetDateTime(5),
-                    reader.GetInt32(6),
+                    reader.GetInt32(6) + 1,
                     reader.GetInt32(7)));
             }
             await reader.DisposeAsync();
@@ -215,7 +215,7 @@ public sealed class AutomationWorker : BackgroundService
                     throw new InvalidOperationException($"Acción de automatización no soportada: {job.ActionType}");
             }
 
-            await CompleteJobAsync(job.Id, started, cancellationToken);
+            await CompleteJobAsync(job.Id, job.Attempts, started, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -388,16 +388,17 @@ public sealed class AutomationWorker : BackgroundService
     // El historial de ejecución se escribe junto con el cambio de estado en la misma conexión, de modo que una
     // ejecución marcada como completada siempre deja también su traza de duración/resultados; el historial refleja
     // intentos individuales y no sustituye al estado durable del job.
-    private async Task CompleteJobAsync(long jobId, DateTime started, CancellationToken cancellationToken)
+    private async Task CompleteJobAsync(long jobId, int attempts, DateTime started, CancellationToken cancellationToken)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
         await using var command = new NpgsqlCommand("""
             UPDATE automation_jobs
             SET status='completed', completed_at=NOW(), locked_at=NULL, last_error=NULL, updated_at=NOW()
-            WHERE id=@id;
+            WHERE id=@id AND status='processing' AND attempts=@attempts;
             """, connection);
         command.Parameters.AddWithValue("id", jobId);
+        command.Parameters.AddWithValue("attempts", attempts);
         await command.ExecuteNonQueryAsync(cancellationToken);
         await WriteExecutionAsync(connection, jobId, "completed", null, DateTime.UtcNow - started, cancellationToken);
     }
@@ -421,7 +422,7 @@ public sealed class AutomationWorker : BackgroundService
                   locked_at=NULL,
                   last_error=@error,
                   updated_at=NOW()
-              WHERE id=@id;
+              WHERE id=@id AND status='processing' AND attempts=@attempts;
               """
             : """
               UPDATE automation_jobs
@@ -429,6 +430,7 @@ public sealed class AutomationWorker : BackgroundService
               WHERE id=@id;
               """, connection);
         command.Parameters.AddWithValue("id", job.Id);
+        command.Parameters.AddWithValue("attempts", job.Attempts);
         command.Parameters.AddWithValue("error", ex.Message.Length > 4000 ? ex.Message[..4000] : ex.Message);
         if (retry) command.Parameters.AddWithValue("delay", delay.TotalSeconds);
         await command.ExecuteNonQueryAsync(cancellationToken);
