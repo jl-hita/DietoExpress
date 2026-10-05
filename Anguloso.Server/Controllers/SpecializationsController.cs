@@ -1,6 +1,6 @@
 using System.Data;
 using System.Data.Common;
-using Anguloso.Server.Logica.Utils;
+using Anguloso.Server.Logica.Utils;\nusing Anguloso.Server.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -16,10 +16,10 @@ namespace Anguloso.Server.Controllers;
 [Authorize(Policy = "Professional")]
 public sealed class SpecializationsController : ControllerBase
 {
-    private readonly Models.angulosodbContext _context;
+    private readonly angulosodbContext _context;
     private readonly IAuditLogService _auditLogService;
 
-    public SpecializationsController(Models.angulosodbContext context, IAuditLogService auditLogService)
+    public SpecializationsController(angulosodbContext context, IAuditLogService auditLogService)
     {
         _context = context;
         _auditLogService = auditLogService;
