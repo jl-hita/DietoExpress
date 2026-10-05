@@ -106,7 +106,7 @@ public sealed class AutomationExternalEffectsRegressionTests
         Assert.Contains("TryClaimPushDeliveryAsync", service);
         Assert.Contains("patient_push_deliveries", service);
         Assert.Contains("WHERE patient_push_deliveries.status = 'failed'", service);
-        Assert.Contains("AND patient_push_deliveries.status = 'processing'", service);
+        Assert.Contains("OR (patient_push_deliveries.status = 'processing'", service);
         Assert.Contains("updated_at < NOW() - INTERVAL '10 minutes'", service);
         Assert.Contains("MarkPushDeliveryAsync", service);
         Assert.Contains("uq_patient_push_deliveries_key", schema);
