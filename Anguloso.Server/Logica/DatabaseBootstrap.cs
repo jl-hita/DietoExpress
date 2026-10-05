@@ -2049,6 +2049,21 @@ public static class DatabaseBootstrap
             );
             CREATE INDEX IF NOT EXISTS idx_client_specializations_client
                 ON client_specializations(tenant_id, client_id);
+            -- Perfil estructurado por paciente/especialización. La configuración clínica no se
+            -- mezcla con notas libres para poder evolucionarla sin acoplar el núcleo del paciente.
+            CREATE TABLE IF NOT EXISTS client_specialization_profiles (
+                id BIGSERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                specialization_id INTEGER NOT NULL REFERENCES specializations(id) ON DELETE CASCADE,
+                configuration JSONB NOT NULL DEFAULT '{}'::jsonb,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_client_specialization_profile UNIQUE (tenant_id, client_id, specialization_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_client_specialization_profiles_client
+                ON client_specialization_profiles(tenant_id, client_id);
+
 
             -- Refuerza a nivel de base de datos que una asignación nunca pueda
             -- combinar un cliente con el tenant equivocado.
@@ -2092,7 +2107,7 @@ public static class DatabaseBootstrap
                 ('flexitarian','Flexitariana','dietary','Patrón predominantemente vegetal con consumo ocasional de alimentos animales.'),
                 ('pescatarian','Pescetariana','dietary','Patrón sin carne terrestre con consumo de pescado y marisco.'),
                 ('sports_nutrition','Nutrición deportiva','sports','Especialización para objetivos relacionados con entrenamiento y rendimiento.'),
-                ('weight_management','Control de peso','clinical','Especialización para objetivos de composición corporal y control ponderal.'),
+                ('weight_management','Pérdida de peso y obesidad','clinical','Especialización completa para manejo del peso, composición corporal, pérdida de grasa y seguimiento ponderal individualizado.'),
                 ('diabetes','Diabetes','clinical','Condición clínica que requiere criterios específicos definidos y revisados por el profesional.'),
                 ('hypertension','Hipertensión','clinical','Condición clínica que puede requerir parámetros dietéticos específicos.'),
                 ('dyslipidemia','Dislipemia','clinical','Condición clínica relacionada con el perfil lipídico.'),
@@ -2126,6 +2141,10 @@ public static class DatabaseBootstrap
                 ('soy_allergy','exclude_food_soy','food_exclusion','{{""required_flags"":[""soy""],""keywords"":[""soja"",""soya"",""soy"",""tofu"",""tempeh"",""edamame""]}}',10),
                 ('sports_nutrition','sports_default_protein','nutrition_profile','{{""protein_g_per_kg"":1.6,""protein_min_g_per_kg"":1.4,""protein_max_g_per_kg"":2.0}}',10),
                 ('sports_nutrition','sports_guidance','clinical_guidance','{{""message"":""Nutrición deportiva: usar 1,4-2,0 g de proteína/kg/día como rango de referencia inicial en personas activas y ajustar según deporte, volumen de entrenamiento, composición corporal y objetivo."" }}',20),
+                ('sports_nutrition','sports_carbohydrate_guidance','clinical_guidance','{{""message"":""Nutrición deportiva: individualizar hidratos según disciplina, volumen, intensidad, fase de entrenamiento y objetivo. Priorizar disponibilidad suficiente de carbohidratos alrededor de sesiones exigentes cuando proceda."" }}',21),
+                ('sports_nutrition','sports_hydration_guidance','clinical_guidance','{{""message"":""Nutrición deportiva: individualizar hidratación según peso, duración, ambiente, tasa de sudoración y pérdidas de sodio; evitar pautas rígidas cuando falten datos."" }}',22),
+                ('weight_management','weight_management_guidance','clinical_guidance','{{""message"":""Manejo del peso: priorizar un déficit energético sostenible, preservar masa muscular, monitorizar evolución y ajustar según respuesta. Evitar objetivos automáticos extremos y adaptar el plan al contexto clínico."" }}',20),
+                ('weight_management','weight_management_protein','nutrition_profile','{{""protein_g_per_kg"":1.6,""protein_min_g_per_kg"":1.2,""protein_max_g_per_kg"":2.0}}',10),
                 ('diabetes','diabetes_guidance','clinical_guidance','{{""message"":""Diabetes: individualizar energía, cantidad y distribución de hidratos y revisar medicación, glucemia y objetivos clínicos. Priorizar calidad de los hidratos, fibra y limitar azúcares libres."" }}',20),
                 ('hypertension','hypertension_guidance','clinical_guidance','{{""message"":""Hipertensión: priorizar un patrón bajo en sodio/sal y rico en alimentos poco procesados, verduras y frutas. El objetivo de sodio debe individualizarse según criterio clínico."" }}',20),
                 ('dyslipidemia','dyslipidemia_guidance','clinical_guidance','{{""message"":""Dislipemia: priorizar grasas insaturadas, fibra y alimentos mínimamente procesados; limitar grasas saturadas y trans y adaptar el plan al perfil lipídico."" }}',20),
