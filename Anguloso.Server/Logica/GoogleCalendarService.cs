@@ -301,7 +301,17 @@ public sealed class GoogleCalendarService
         using var client = CreateClient(accessToken);
         using var response = await client.GetAsync("https://www.googleapis.com/calendar/v3/calendars/" + Uri.EscapeDataString(calendarId) + "/events/" + Uri.EscapeDataString(eventId), cancellationToken);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogError(
+                "Google Calendar rechazó la lectura de un evento. HTTP {StatusCode}. CalendarId {CalendarId}. EventId {EventId}. Respuesta: {ResponseBody}",
+                (int)response.StatusCode,
+                calendarId,
+                eventId,
+                body);
+            throw new GoogleCalendarProviderException("lectura de un evento", response.StatusCode);
+        }
         return JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken)).RootElement.Clone();
     }
 
@@ -321,7 +331,22 @@ public sealed class GoogleCalendarService
                 calendarId,
                 eventId,
                 body);
-            throw new InvalidOperationException($"Google Calendar rechazó la sincronización (HTTP {(int)response.StatusCode}).");
+            throw new GoogleCalendarProviderException("escritura de un evento", response.StatusCode);
+        }
+    }
+
+    /// <summary>
+    /// Representa un rechazo HTTP del proveedor de Google durante una operación de Calendar.
+    /// Permite que el controlador devuelva un error controlado al cliente en lugar de convertirlo en un 500 no gestionado.
+    /// </summary>
+    public sealed class GoogleCalendarProviderException : Exception
+    {
+        public HttpStatusCode StatusCode { get; }
+
+        public GoogleCalendarProviderException(string operation, HttpStatusCode statusCode)
+            : base($"Google Calendar rechazó la {operation} (HTTP {(int)statusCode}).")
+        {
+            StatusCode = statusCode;
         }
     }
 
