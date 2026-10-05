@@ -1,0 +1,36 @@
+.support-page { padding: 24px; max-width: 1500px; margin: 0 auto; }
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.page-header h1 { margin: 0; }
+.page-header p { margin: 6px 0 0; opacity: .72; }
+.support-grid { display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); gap: 20px; align-items: start; }
+.ticket-list, .ticket-detail, .new-ticket { padding: 4px; }
+.filters { display: grid; gap: 8px; padding: 16px 16px 4px; }
+.ticket-items { max-height: 700px; overflow: auto; }
+.ticket-item { width: 100%; display: block; text-align: left; border: 0; border-bottom: 1px solid rgba(0,0,0,.08); background: transparent; padding: 14px 16px; cursor: pointer; }
+.ticket-item:hover, .ticket-item.selected { background: rgba(0,0,0,.04); }
+.ticket-top, .ticket-meta, .reply-actions, .form-row { display: flex; gap: 10px; align-items: center; }
+.ticket-top { justify-content: space-between; gap: 12px; }
+.ticket-meta { margin: 7px 0 4px; font-size: .86rem; opacity: .72; }
+.ticket-item small { display: block; opacity: .65; margin-top: 3px; }
+.priority { font-size: .75rem; white-space: nowrap; }
+.priority-urgent { font-weight: 700; }
+.priority-high { font-weight: 600; }
+.ticket-detail { min-height: 600px; }
+.admin-controls { display: flex; gap: 12px; padding: 16px 0 0; }
+.conversation { display: flex; flex-direction: column; gap: 12px; padding: 20px 0; max-height: 560px; overflow: auto; }
+.message { padding: 14px 16px; border-radius: 10px; background: rgba(0,0,0,.035); }
+.message.internal { border-left: 4px solid currentColor; }
+.message-header { display: flex; flex-wrap: wrap; gap: 10px; font-size: .84rem; opacity: .75; }
+.message p { white-space: pre-wrap; margin: 8px 0 0; }
+.internal-label { font-weight: 600; }
+.reply-box, .new-ticket form { display: flex; flex-direction: column; gap: 10px; }
+.reply-actions span { flex: 1; }
+.form-row > * { flex: 1; }
+.error { margin-top: 16px; }
+.empty { padding: 20px 16px; opacity: .65; }
+@media (max-width: 900px) {
+  .support-page { padding: 12px; }
+  .support-grid { grid-template-columns: 1fr; }
+  .ticket-items { max-height: 360px; }
+  .admin-controls, .form-row { flex-direction: column; align-items: stretch; }
+}
