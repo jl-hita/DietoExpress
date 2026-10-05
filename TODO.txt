@@ -512,50 +512,254 @@ Dependencias recomendadas antes de implementar el marketplace:
 5. Automatizaciones.
 6. Opcionalmente pagos de citas.
 
-Posible hoja de ruta actualizada
+ROADMAP ACTUALIZADO — OCTUBRE 2026
 
-ESTADO ACTUAL
-- Módulos funcionales principales de DietoExpress: implementados.
-- Módulo 16 — Directorio público / marketplace inicial: COMPLETADO.
-  - Perfil público voluntario de profesionales.
-  - Búsqueda por ciudad, especialidad y consultas online.
-  - Ficha pública.
-  - Disponibilidad pública reutilizando la agenda.
-  - Reserva pública sin pago online.
-  - Revalidación server-side y protección contra dobles reservas.
-  - Creación/reutilización del paciente y asociación al profesional.
-  - Provisión de documentación inicial.
-  - Acceso inicial seguro al portal del paciente.
-  - Aislamiento multi-tenant, rate limiting y regresiones de seguridad.
-- Módulo 17 — Soporte y comunicación con SuperAdmin: COMPLETADO.
-  - Sistema de tickets/conversaciones para incidencias y consultas de soporte.
-  - Aislamiento por tenant y control de acceso por rol.
-  - Estados y prioridades de tickets.
-  - Asignación y seguimiento por SuperAdmin.
-  - Notas internas no visibles para el cliente.
-  - Historial/auditoría de cambios relevantes.
-  - Notificaciones asociadas al ciclo de soporte.
-  - Reapertura de conversaciones/tickets.
-  - Filtros y búsqueda para gestión del soporte.
-  - Protección de los flujos y regresiones de seguridad revisadas.
-  - Primera versión cerrada; las futuras mejoras son evolutivas, no deuda funcional del módulo.
-- Google Calendar: integración funcional y endurecimiento/documentación realizados.
+OBJETIVO
+Consolidar DietoExpress como SaaS profesional estable antes de abrir nuevas áreas grandes de producto. La prioridad inmediata es cerrar hardening/auditoría, validar despliegue y documentación de producción y mantener el núcleo actual sin introducir deuda técnica innecesaria.
 
-PRÓXIMOS BLOQUES
-1. Hardening y auditoría rápida de flujos tras los últimos desarrollos.
-2. Despliegue Linux desde cero y mantenimiento de la guía exhaustiva de producción.
-3. Consulta guiada y herramientas avanzadas de gestión de consulta.
-4. Estadísticas y gestión profesional.
-5. Pagos puntuales y pago online de consultas.
-6. Documentación legal y cumplimiento avanzado.
-7. Gestión profesional y VERI*FACTU: ingresos, gastos, registros de IVA e informes orientados a Renta, sin sustituir asesoramiento fiscal.
-8. Nuevos módulos profesionales inspirados en herramientas de gestión nutricional existentes.
-9. Especializaciones y soporte multiidioma.
-10. Evolución del directorio hacia marketplace completo: clínicas, valoraciones, distancia, precio, verificación y monetización.
-11. Automatización e IA avanzada, sujeta a revisión de privacidad, seguridad y marco legal.
+====================================
+== BLOQUES COMPLETADOS ==
+====================================
 
-NOTA SOBRE LOS MÓDULOS 16 Y 17
-El directorio y la reserva pública del M16, así como el soporte y comunicación con SuperAdmin del M17, deben considerarse bloques funcionalmente cerrados en su primera versión. Las mejoras posteriores deben entrar como evolución priorizada y no reabrir el alcance base salvo que una auditoría encuentre un defecto real.
+Módulos funcionales principales:
+- Gestión multi-tenant de pacientes, profesionales y clínicas.
+- Dietas, recetas, alimentos y bibliotecas compartidas.
+- Seguimiento y biometrías.
+- Portal del paciente.
+- Documentación, consentimiento y privacidad.
+- Comunicación profesional-paciente.
+- Automatizaciones y notificaciones.
+- Agenda y citas.
+- Suscripciones y modelo SaaS con Stripe.
+- Normalización de roles: superadmin, nutritionist y clinic_admin.
+- Integraciones de alimentos: BEDCA, Open Food Facts y USDA.
+- Control de uso/cuotas de proveedores externos.
+- Directorio público y reservas iniciales.
+- Soporte y comunicación con SuperAdmin.
+- Google Calendar.
+- Documentación de instalación y despliegue Linux, con endurecimiento de los flujos recientemente incorporados.
+
+MÓDULO 16 — DIRECTORIO PÚBLICO / MARKETPLACE INICIAL: COMPLETADO
+- Perfil público voluntario de profesionales.
+- Búsqueda por ciudad, especialidad y consultas online.
+- Ficha pública.
+- Disponibilidad pública reutilizando la agenda.
+- Reserva pública sin pago online.
+- Revalidación server-side y protección contra dobles reservas.
+- Creación/reutilización del paciente y asociación al profesional.
+- Provisión de documentación inicial.
+- Acceso inicial seguro al portal del paciente.
+- Aislamiento multi-tenant.
+- Rate limiting y regresiones de seguridad.
+- El pago online de consultas queda fuera del alcance base y como evolución posterior.
+
+MÓDULO 17 — SOPORTE Y COMUNICACIÓN CON SUPERADMIN: COMPLETADO
+- Tickets/conversaciones de soporte.
+- Aislamiento por tenant y control de acceso por rol.
+- Estados y prioridades.
+- Asignación y seguimiento por SuperAdmin.
+- Notas internas.
+- Historial y auditoría.
+- Notificaciones.
+- Reapertura.
+- Filtros y búsqueda.
+- Protecciones y regresiones de seguridad.
+- Primera versión funcionalmente cerrada.
+- Futuras mejoras de soporte se tratarán como evolución, no como deuda funcional del M17.
+
+GOOGLE CALENDAR: COMPLETADO EN SU PRIMERA VERSIÓN
+- Integración funcional con agenda.
+- Correcciones de configuración/despliegue.
+- Documentación de instalación actualizada.
+- Endurecimiento aplicado.
+
+====================================
+== FASE ACTUAL — ESTABILIZACIÓN ==
+====================================
+
+1. HARDENING Y AUDITORÍA RÁPIDA
+Prioridad inmediata.
+- Revisar flujos críticos introducidos o modificados recientemente.
+- Revisar autenticación, autorización y normalización de roles.
+- Revisar aislamiento multi-tenant.
+- Revisar portal del paciente y enlaces/magic links.
+- Revisar reservas públicas y concurrencia.
+- Revisar soporte/tickets y visibilidad de notas internas.
+- Revisar Stripe/webhooks y límites de planes.
+- Revisar Google Calendar y agenda.
+- Revisar endpoints públicos, rate limiting y validaciones.
+- Corregir únicamente defectos reales encontrados.
+- Mantener regresiones automatizadas para cada corrección relevante.
+
+2. DESPLIEGUE Y OPERACIÓN DE PRODUCCIÓN
+- Mantener la guía exhaustiva para instalar DietoExpress desde cero en un servidor Linux nuevo.
+- Documentar PostgreSQL, usuario/base de datos, permisos y comprobaciones de esquema.
+- Documentar directorios de aplicación, logs y permisos.
+- Documentar variables/secrets y configuración de producción.
+- Documentar systemd.
+- Documentar Nginx, dominio, HTTPS y renovación de Let's Encrypt.
+- Documentar despliegue CI/CD y rollback.
+- Documentar comprobaciones post-despliegue.
+- Documentar tareas que actualmente se hacen manualmente y deberán automatizarse en un servidor comercial.
+- Mantener la guía sincronizada con cada cambio de infraestructura.
+
+====================================
+== SIGUIENTE EVOLUCIÓN DE PRODUCTO ==
+====================================
+
+3. CONSULTA GUIADA Y HERRAMIENTAS AVANZADAS
+- Mejorar la ficha/flujo de consulta.
+- Historial clínico estructurado.
+- Notas, patologías, alergias, intolerancias y medicación.
+- Formularios/check-ins configurables.
+- Seguimiento entre consultas.
+- Plantillas y herramientas para reducir trabajo repetitivo.
+- Integración progresiva con automatizaciones.
+
+4. ESTADÍSTICAS Y GESTIÓN PROFESIONAL
+- Dashboard profesional.
+- Evolución de pacientes.
+- Métricas de actividad.
+- Estadísticas de citas, pacientes y dietas.
+- Indicadores de negocio del profesional/clinica.
+- Exportaciones e informes.
+
+5. PAGOS PUNTUALES Y CONSULTAS DE PAGO
+- Pago online de citas del directorio.
+- Integración con Stripe manteniendo la separación respecto a las suscripciones SaaS.
+- Estados de pago y reserva.
+- Cancelaciones/reembolsos según reglas de negocio.
+- Liquidación/comisiones al profesional en una fase posterior.
+- Protección frente a inconsistencias entre pago, cita y disponibilidad.
+
+6. DOCUMENTACIÓN LEGAL Y CUMPLIMIENTO AVANZADO
+- Revisar textos legales y consentimiento.
+- Gestión de versiones de documentos.
+- Trazabilidad de aceptación.
+- Exportación/borrado conforme a los flujos de privacidad.
+- Retención y minimización de datos.
+- Herramientas de soporte al cumplimiento RGPD.
+- Mantener explícito que DietoExpress no sustituye asesoramiento jurídico.
+
+7. GESTIÓN PROFESIONAL Y VERI*FACTU
+- Ingresos y gastos.
+- Registros de IVA.
+- Informes.
+- Información orientada a Renta.
+- Preparación para VERI*FACTU.
+- Trazabilidad e integridad de registros.
+- Sin presentarse como asesor fiscal ni sustituir a una gestoría.
+- Diseñar el módulo para poder adaptarlo a cambios normativos.
+
+====================================
+== EVOLUCIÓN PROFESIONAL ==
+====================================
+
+8. NUEVOS MÓDULOS PROFESIONALES
+- Incorporar progresivamente funcionalidades inspiradas en herramientas profesionales de nutrición.
+- Priorizar las que reduzcan tiempo administrativo y de consulta.
+- Evitar duplicar funcionalidades ya cubiertas por módulos existentes.
+- Cada módulo deberá pasar por revisión de seguridad, multi-tenant, UX y rendimiento.
+
+9. ESPECIALIZACIONES
+- Funcionalidades específicas para diferentes perfiles/especialidades de nutrición.
+- Plantillas y parámetros configurables.
+- Flujos clínicos específicos cuando exista una necesidad clara.
+- Evitar acoplar el núcleo a una única especialidad.
+
+10. MULTIIDIOMA
+- Español como idioma principal.
+- Inglés como siguiente idioma prioritario.
+- Preparar traducción de frontend, mensajes, emails, documentos y contenidos públicos.
+- Mantener fechas, unidades y formatos localizables.
+
+====================================
+== EVOLUCIÓN DEL DIRECTORIO ==
+====================================
+
+11. MARKETPLACE COMPLETO
+- Clínicas y perfiles públicos.
+- Distancia y búsquedas geográficas.
+- Precio.
+- Disponibilidad avanzada.
+- Valoraciones.
+- Verificación profesional.
+- Mejoras de descubrimiento.
+- Reserva con pago online.
+- Monetización y visibilidad destacada con reglas transparentes.
+- Preparar adquisición de profesionales mediante el propio directorio.
+- Mantener controles contra abuso, perfiles fraudulentos y scraping.
+
+====================================
+== AUTOMATIZACIÓN E IA ==
+====================================
+
+12. AUTOMATIZACIÓN E IA AVANZADA
+- Generación asistida de dietas.
+- Sugerencias de alimentos, recetas y sustituciones.
+- Asistencia durante la consulta.
+- Resúmenes y preparación de seguimiento.
+- Automatizaciones inteligentes.
+- Integración progresiva de proveedores de IA.
+- Control de costes/cuotas y fallback de proveedores.
+- Revisar privacidad, tratamiento de datos, seguridad y marco legal antes de incorporar información sensible.
+- Mantener supervisión profesional: la IA no debe sustituir el criterio del nutricionista.
+
+====================================
+== LÍNEAS FUTURAS ==
+====================================
+
+13. INTEGRACIONES DE SALUD Y DISPOSITIVOS
+- Garmin.
+- Fitbit.
+- Apple Health.
+- Google Fit/Health Connect.
+- Importación de actividad y otros datos autorizados.
+- Utilizar estos datos para mejorar seguimiento y, cuando proceda, estimaciones energéticas.
+
+14. EVOLUCIÓN DE LA EXPERIENCIA DEL PACIENTE
+- Seguimiento avanzado.
+- Check-ins configurables.
+- Registro de peso/medidas.
+- Adherencia y hábitos.
+- Comunicación contextual.
+- Gamificación únicamente si aporta valor real y sin generar dinámicas perjudiciales.
+
+15. ESCALABILIDAD Y OPERACIÓN
+- Observabilidad.
+- Métricas y alertas.
+- Backups y restauración verificada.
+- Estrategia de migraciones.
+- Gestión de logs.
+- Rate limiting y protección frente a abuso.
+- Optimización de PostgreSQL.
+- Cachés donde aporten valor.
+- Preparación para crecimiento de tenants y clínicas.
+- Automatización de tareas de mantenimiento.
+
+16. PRODUCTO Y NEGOCIO
+- Refinar planes Free/Professional/Clinic según uso real.
+- Analítica de conversión y activación.
+- Onboarding.
+- Gestión de límites y capacidad de clínicas.
+- Facturación SaaS y operaciones de cuenta.
+- Recuperación de cuentas y soporte.
+- Preparación para comercialización a mayor escala.
+
+====================================
+== REGLA DE PRIORIZACIÓN ==
+====================================
+
+Orden recomendado:
+1. Seguridad, hardening y corrección de regresiones.
+2. Producción, despliegue y operabilidad.
+3. Mejoras que reduzcan trabajo diario del nutricionista.
+4. Monetización directamente relacionada con funcionalidades ya existentes.
+5. Cumplimiento legal/fiscal.
+6. Evolución del marketplace.
+7. IA e integraciones avanzadas.
+
+Los módulos 16 y 17 se consideran funcionalmente cerrados en su primera versión. No deben reabrirse como deuda salvo que una auditoría encuentre un defecto real. Las mejoras posteriores se incorporarán como evolución priorizada.
 
 -- Control de cuotas de proveedores de direcciones
 CREATE TABLE external_api_usage (
