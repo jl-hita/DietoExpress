@@ -35,7 +35,8 @@ public sealed class AddressAutocompleteRegressionTests
         Assert.Contains("[EnableRateLimiting(\"expensive\")]", controller);
         Assert.Contains("query.Length < 3", controller);
         Assert.Contains("query.Length > 120", controller);
-        Assert.Contains("Geoapify", service);
+        Assert.Contains("_options.Primary", service);
+        Assert.Contains("Geoapify", geoapify);
         Assert.Contains("filter=countrycode:es", geoapify);
         Assert.Contains("countrycodes=es", locationIq);
         Assert.Contains("limit=5", geoapify);
