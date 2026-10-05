@@ -378,6 +378,54 @@ public sealed class AutomationService
         CancellationToken cancellationToken = default)
         => await ScheduleConfiguredActionAsync(tenantId, actionType, payload, scheduledAt, eventId, idempotencyKey, maxAttempts, cancellationToken);
 
+    // Las reparaciones de reconciliación pueden fallar de forma permanente por una incidencia temporal o de infraestructura.
+    // Al siguiente barrido deben poder reactivarse sin crear otro job: la clave de reconciliación sigue siendo única.
+    private async Task<long> ScheduleReconciliationRepairAsync(
+        int tenantId,
+        ProvisionPatientDocumentsAction action,
+        DateTime scheduledAt,
+        string idempotencyKey,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        const string sql = """
+            INSERT INTO automation_jobs
+                (tenant_id, action_type, payload, scheduled_at, status, attempts, max_attempts, idempotency_key, created_at, updated_at, locked_at, completed_at, last_error)
+            VALUES
+                (@tenant, 'provision_patient_documents', @payload, @scheduled_at, 'pending', 0, 5, @idempotency_key, NOW(), NOW(), NULL, NULL, NULL)
+            ON CONFLICT (tenant_id, idempotency_key) WHERE idempotency_key IS NOT NULL
+            DO UPDATE SET
+                status='pending',
+                scheduled_at=EXCLUDED.scheduled_at,
+                attempts=0,
+                max_attempts=EXCLUDED.max_attempts,
+                locked_at=NULL,
+                completed_at=NULL,
+                last_error=NULL,
+                updated_at=NOW()
+            WHERE automation_jobs.status='failed'
+            RETURNING id;
+            """;
+
+        await using var command = new NpgsqlCommand(sql, connection);
+        command.Parameters.AddWithValue("tenant", tenantId);
+        command.Parameters.Add(new NpgsqlParameter("payload", NpgsqlDbType.Jsonb) { Value = AutomationJson.Serialize(action) });
+        command.Parameters.AddWithValue("scheduled_at", scheduledAt);
+        command.Parameters.AddWithValue("idempotency_key", idempotencyKey);
+
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+        if (result is not null) return Convert.ToInt64(result);
+
+        await using var lookup = new NpgsqlCommand(
+            "SELECT id FROM automation_jobs WHERE tenant_id=@tenant AND idempotency_key=@key;",
+            connection);
+        lookup.Parameters.AddWithValue("tenant", tenantId);
+        lookup.Parameters.AddWithValue("key", idempotencyKey);
+        return Convert.ToInt64(await lookup.ExecuteScalarAsync(cancellationToken));
+    }
+
     private async Task<long> ScheduleRawActionAsync(
         int tenantId,
         string actionType,
@@ -968,14 +1016,11 @@ public sealed class AutomationService
         foreach (var repair in repairs)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await ScheduleActionAsync(
+            await ScheduleReconciliationRepairAsync(
                 repair.TenantId,
-                "provision_patient_documents",
                 new ProvisionPatientDocumentsAction(repair.ClientId, repair.UserId, true, false),
                 DateTime.UtcNow,
-                null,
                 $"documents:reconcile:{repair.TenantId}:{repair.ClientId}:{repair.TemplateId}:{repair.Version}",
-                5,
                 cancellationToken);
         }
     }
