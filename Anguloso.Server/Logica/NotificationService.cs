@@ -294,8 +294,9 @@ WHERE tenant_id = @tenant AND client_id = @client;", connection);
                 status='processing',
                 attempts=patient_push_deliveries.attempts + 1,
                 updated_at=NOW()
-            WHERE patient_push_deliveries.status <> 'sent'
-              AND patient_push_deliveries.updated_at < NOW() - INTERVAL '10 minutes'
+            WHERE patient_push_deliveries.status = 'failed'
+               OR (patient_push_deliveries.status = 'processing'
+                   AND patient_push_deliveries.updated_at < NOW() - INTERVAL '10 minutes')
             RETURNING id;
             """, connection);
         command.Parameters.AddWithValue("tenant", tenantId);
