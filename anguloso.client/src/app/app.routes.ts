@@ -33,6 +33,7 @@ export const routes: AppRoute[] = [
       { path: 'appointments/:appointmentId/consultation', loadComponent: () => import('./componentes/guided-consultation/guided-consultation.component').then(m => m.GuidedConsultationComponent), canActivate: [SubscriptionGuard], title: 'Consulta guiada' },
       { path: 'messages', loadComponent: () => import('./componentes/messages/messages.component').then(m => m.MessagesComponent), canActivate: [SubscriptionGuard], title: 'Mensajes' },
       { path: 'clients/nuevo', loadComponent: () => import('./componentes/client-create/client-create.component').then(m => m.ClientCreateComponent), canActivate: [SubscriptionGuard], title: 'Nuevo cliente' },
+      { path: 'clients/:id/specializations', loadComponent: () => import('./componentes/client-specializations/client-specializations.component').then(m => m.ClientSpecializationsComponent), canActivate: [SubscriptionGuard], title: 'Especializaciones del paciente' },
       { path: 'clients/:id', loadComponent: () => import('./componentes/client-detail/client-detail.component').then(m => m.ClientDetailComponent), canActivate: [SubscriptionGuard] },
       { path: 'clients/:id/messages', loadComponent: () => import('./componentes/patient-chat/patient-chat.component').then(m => m.PatientChatComponent), canActivate: [SubscriptionGuard], title: 'Mensajes del paciente' },
       { path: 'diets', loadComponent: () => import('./componentes/diets-list/diets-list.component').then(m => m.DietsListComponent), canActivate: [SubscriptionGuard], title: 'Dietas' },
