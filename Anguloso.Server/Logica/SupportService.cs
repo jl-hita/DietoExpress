@@ -290,7 +290,7 @@ public sealed class UpdateSupportTicketRequest
     public int? AssignedToUserId { get; set; }
 }
 
-public sealed class SupportTicketSummaryDto
+public class SupportTicketSummaryDto
 {
     public long Id { get; set; }
     public int TenantId { get; set; }
