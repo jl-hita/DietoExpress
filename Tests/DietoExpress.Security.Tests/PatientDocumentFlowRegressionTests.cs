@@ -117,7 +117,7 @@ public sealed class PatientDocumentFlowRegressionTests
     {
         var source = ReadServerSource("Anguloso.Server/Logica/AutomationWorker.cs");
 
-        Assert.Contains("job.ActionType == "provision_patient_documents"", source);
+        Assert.Contains("job.ActionType == \"provision_patient_documents\"", source);
         Assert.Contains("CreateProfessionalTaskAsync", source);
         Assert.Contains("automation:patient-documents.provision.failed", source);
         Assert.Contains("job:{job.Id}:document-provision-failed", source);
