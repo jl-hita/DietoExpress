@@ -146,10 +146,12 @@ public sealed class PatientDocumentFlowRegressionTests
         Assert.Contains("completed_incomplete", professional);
         Assert.Contains("documentProvisioningIncompleteCount", professional);
         Assert.Contains("dt.is_required_on_client_creation=true", professional);
+        Assert.Contains("dt.created_at <= j.created_at", professional);
         Assert.Contains("pd.document_template_id=dt.id", professional);
         Assert.Contains("pd.version=dt.version", professional);
 
         Assert.Contains("IncompleteCount", clinic);
+        Assert.Contains("dt.created_at <= j.created_at", clinic);
         Assert.Contains("j.status='completed' AND EXISTS", clinic);
         Assert.Contains("documentProvisioningIncompleteCount", clinic);
     }
