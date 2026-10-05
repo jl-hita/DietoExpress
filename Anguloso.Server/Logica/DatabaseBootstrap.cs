@@ -2050,6 +2050,26 @@ public static class DatabaseBootstrap
             CREATE INDEX IF NOT EXISTS idx_client_specializations_client
                 ON client_specializations(tenant_id, client_id);
 
+            -- Refuerza a nivel de base de datos que una asignación nunca pueda
+            -- combinar un cliente con el tenant equivocado.
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_clients_tenant_id_id
+                ON clients(tenant_id, id);
+
+            DO $
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1
+                    FROM pg_constraint
+                    WHERE conname = 'fk_client_specializations_client_tenant'
+                ) THEN
+                    ALTER TABLE client_specializations
+                        ADD CONSTRAINT fk_client_specializations_client_tenant
+                        FOREIGN KEY (tenant_id, client_id)
+                        REFERENCES clients(tenant_id, id)
+                        ON DELETE CASCADE;
+                END IF;
+            END $;
+
             CREATE TABLE IF NOT EXISTS specialization_rules (
                 id BIGSERIAL PRIMARY KEY,
                 specialization_id INTEGER NOT NULL REFERENCES specializations(id) ON DELETE CASCADE,
