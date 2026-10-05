@@ -2098,6 +2098,9 @@ public static class DatabaseBootstrap
                 ('dyslipidemia','Dislipemia','clinical','Condición clínica relacionada con el perfil lipídico.'),
                 ('celiac','Enfermedad celíaca','clinical','Condición que requiere exclusión estricta de gluten según criterio profesional.'),
                 ('lactose_intolerance','Intolerancia a la lactosa','clinical','Intolerancia alimentaria con adaptación individual de alimentos y cantidades.'),
+                ('tree_nut_allergy','Alergia a frutos secos','allergy','Alergia alimentaria que requiere exclusión de frutos secos según criterio profesional.'),
+                ('peanut_allergy','Alergia al cacahuete','allergy','Alergia alimentaria que requiere exclusión de cacahuete según criterio profesional.'),
+                ('soy_allergy','Alergia a la soja','allergy','Alergia alimentaria que requiere exclusión de soja según criterio profesional.'),
                 ('fodmap','Enfoque bajo FODMAP','clinical','Protocolo dietético configurable para síntomas digestivos, bajo supervisión profesional.'),
                 ('renal','Enfermedad renal','clinical','Condición clínica que puede requerir restricciones y objetivos individualizados.'),
                 ('pregnancy','Embarazo','life_stage','Especialización para seguimiento nutricional durante el embarazo.'),
@@ -2117,7 +2120,10 @@ public static class DatabaseBootstrap
                 ('vegetarian','exclude_food_keywords','food_exclusion','{""required_flags"":[""meat"",""fish"",""gelatin""],""keywords"":[""carne"",""pollo"",""pavo"",""cerdo"",""ternera"",""vacuno"",""cordero"",""jamon"",""jamón"",""embutido"",""salchicha"",""chorizo"",""atun"",""atún"",""salmon"",""salmón"",""pescado"",""marisco"",""gamba"",""camaron"",""camarón"",""mejillon"",""mejillón"",""gelatina""]}',10),
                 ('pescatarian','exclude_food_keywords','food_exclusion','{""required_flags"":[""meat"",""gelatin""],""keywords"":[""carne"",""pollo"",""pavo"",""cerdo"",""ternera"",""vacuno"",""cordero"",""jamon"",""jamón"",""embutido"",""salchicha"",""chorizo"",""gelatina""]}',10),
                 ('celiac','exclude_food_gluten','food_exclusion','{""required_flags"":[""gluten""],""keywords"":[""gluten"",""trigo"",""cebada"",""centeno"",""espelta"",""avena""]}',10),
-                ('lactose_intolerance','exclude_food_lactose','food_exclusion','{""required_flags"":[""lactose""],""keywords"":[""lactosa"",""leche"",""suero"",""lácteo"",""lacteo""]}',10)
+                ('lactose_intolerance','exclude_food_lactose','food_exclusion','{""required_flags"":[""lactose""],""keywords"":[""lactosa"",""leche"",""suero"",""lácteo"",""lacteo""]}',10),
+                ('tree_nut_allergy','exclude_food_tree_nuts','food_exclusion','{""required_flags"":[""tree_nut""],""keywords"":[""almendra"",""almendras"",""nuez"",""nueces"",""avellana"",""avellanas"",""anacardo"",""anacardos"",""pistacho"",""pistachos"",""pacana"",""pacanas"",""macadamia"",""macadamias"",""nuez de brasil""]}',10),
+                ('peanut_allergy','exclude_food_peanut','food_exclusion','{""required_flags"":[""peanut""],""keywords"":[""cacahuete"",""cacahuetes"",""maní"",""mani"",""peanut"",""peanuts""]}',10),
+                ('soy_allergy','exclude_food_soy','food_exclusion','{""required_flags"":[""soy""],""keywords"":[""soja"",""soya"",""soy"",""tofu"",""tempeh"",""edamame""]}',10)
             ) AS v(code,rule_code,rule_type,configuration,priority)
               ON s.code=v.code
             ON CONFLICT (specialization_id, rule_code) DO UPDATE SET
@@ -2176,8 +2182,19 @@ public static class DatabaseBootstrap
                 IF text_to_classify ~* '(^|[^[:alnum:]])(lactosa|leche|l[aá]cteo|l[aá]cteos|suero l[aá]cteo|case[ií]na|nata|yogur|yogurt)($|[^[:alnum:]])' THEN
                     flags := array_append(flags, 'lactose');
                 END IF;
+                IF text_to_classify ~* '(^|[^[:alnum:]])(almendra|almendras|nuez|nueces|avellana|avellanas|anacardo|anacardos|pistacho|pistachos|pacana|pacanas|macadamia|macadamias|nuez de brasil)($|[^[:alnum:]])' THEN
+                    flags := array_append(flags, 'tree_nut');
+                END IF;
+                IF text_to_classify ~* '(^|[^[:alnum:]])(cacahuete|cacahuetes|man[ií]|peanut|peanuts)($|[^[:alnum:]])' THEN
+                    flags := array_append(flags, 'peanut');
+                END IF;
+                IF text_to_classify ~* '(^|[^[:alnum:]])(soja|soya|soy|tofu|tempeh|edamame)($|[^[:alnum:]])' THEN
+                    flags := array_append(flags, 'soy');
+                END IF;
 
-                IF cardinality(flags) > 0 THEN
+                -- Solo las señales inequívocamente animales convierten el alimento en 'animal'.
+                -- Las flags de gluten, lactosa y alérgenos vegetales no deben hacerlo.
+                IF flags && ARRAY['meat','fish','egg','dairy','honey','gelatin']::TEXT[] THEN
                     flags := array_append(flags, 'animal');
                 END IF;
                 NEW.dietary_flags := flags;
