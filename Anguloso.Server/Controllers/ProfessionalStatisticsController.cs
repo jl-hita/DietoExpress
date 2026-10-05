@@ -218,6 +218,71 @@ public sealed class ProfessionalStatisticsController : ControllerBase
             }
         }
 
+        if (isClinicAdmin)
+        {
+            await using var command = new NpgsqlCommand("""
+                SELECT
+                    u.id,
+                    u.full_name,
+                    (
+                        SELECT COUNT(DISTINCT ca.client_id)::int
+                        FROM client_nutritionist_assignments ca
+                        JOIN clients c ON c.id=ca.client_id
+                        WHERE ca.nutritionist_id=u.id
+                          AND ca.is_active
+                          AND c.tenant_id=@tenant
+                          AND c.archived_at IS NULL
+                    ),
+                    (
+                        SELECT COUNT(*)::int
+                        FROM patient_appointments pa
+                        JOIN clients c ON c.id=pa.client_id AND c.tenant_id=pa.tenant_id
+                        WHERE pa.tenant_id=@tenant
+                          AND pa.nutritionist_id=u.id
+                          AND pa.starts_at >= @from
+                          AND pa.starts_at < @to
+                          AND pa.status='completed'
+                          AND c.archived_at IS NULL
+                    ),
+                    (
+                        SELECT COUNT(*)::int
+                        FROM patient_checkins pc
+                        JOIN clients c ON c.id=pc.client_id AND c.tenant_id=pc.tenant_id
+                        WHERE pc.tenant_id=@tenant
+                          AND pc.submitted_at >= @from
+                          AND pc.submitted_at < @to
+                          AND c.archived_at IS NULL
+                          AND EXISTS (
+                              SELECT 1
+                              FROM client_nutritionist_assignments ca
+                              WHERE ca.client_id=pc.client_id
+                                AND ca.nutritionist_id=u.id
+                                AND ca.assigned_at <= pc.submitted_at
+                                AND (ca.unassigned_at IS NULL OR ca.unassigned_at >= pc.submitted_at)
+                          )
+                    )
+                FROM users u
+                WHERE u.tenant_id=@tenant
+                  AND u.role='nutritionist'
+                  AND u.archived_at IS NULL
+                ORDER BY u.full_name;
+                """, connection);
+
+            AddCommonParameters(command, tenantId.Value, userId, fromUtc, toExclusiveUtc);
+            await using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                result.NutritionistWorkload.Add(new ProfessionalStatisticsWorkloadDto
+                {
+                    NutritionistId = reader.GetInt32(0),
+                    NutritionistName = reader.GetString(1),
+                    ActivePatients = reader.GetInt32(2),
+                    CompletedAppointments = reader.GetInt32(3),
+                    Checkins = reader.GetInt32(4)
+                });
+            }
+        }
+
         await using (var command = new NpgsqlCommand($"""
             WITH months AS (
                 SELECT generate_series(
@@ -315,10 +380,20 @@ public sealed class ProfessionalStatisticsDto
     public double? AverageAdherence { get; set; }
     public decimal SubscriptionRevenue { get; set; }
     public int PaidPayments { get; set; }
+    public List<ProfessionalStatisticsWorkloadDto> NutritionistWorkload { get; set; } = [];
     public double? WeightChangeKg { get; set; }
     public double? BodyFatChangePoints { get; set; }
     public double? MuscleMassChangeKg { get; set; }
     public List<ProfessionalStatisticsPointDto> Series { get; set; } = [];
+}
+
+public sealed class ProfessionalStatisticsWorkloadDto
+{
+    public int NutritionistId { get; set; }
+    public string NutritionistName { get; set; } = string.Empty;
+    public int ActivePatients { get; set; }
+    public int CompletedAppointments { get; set; }
+    public int Checkins { get; set; }
 }
 
 public sealed class ProfessionalStatisticsPointDto
