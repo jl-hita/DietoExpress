@@ -98,7 +98,7 @@ export class IngredientesComponent {
     ing.comprado = !ing.comprado;
 
     this.http.put<MutationResponse>(`${this.apiUrl}/marcarCompradoIngredientes`, ing).subscribe({
-      next: (res: any) => {
+      next: (res: MutationResponse) => {
         this.mensaje = res.mensaje || 'Ingrediente guardado';
         this.formIngrediente.reset({ cantidad: 1, unidad: 'ud' });
         this.cargarIngredientes();
@@ -114,7 +114,7 @@ export class IngredientesComponent {
     this.ingredientes = this.ingredientes.filter(i => i.id !== ing.id);
 
     this.http.put<MutationResponse>(`${this.apiUrl}/delIngredientes`, ing).subscribe({
-      next: (res: any) => {
+      next: (res: MutationResponse) => {
         this.mensaje = res.mensaje || 'Ingrediente guardado';
         this.formIngrediente.reset({ cantidad: 1, unidad: 'ud' });
         this.cargarIngredientes();
