@@ -135,21 +135,34 @@ public sealed class ProfessionalDashboardController : ControllerBase
         }
 
         await using (var command = new NpgsqlCommand("""
-            SELECT cl.id, COALESCE(cl.full_name,'Paciente'), j.status, j.attempts, j.max_attempts,
-                   j.last_error, j.updated_at
+            SELECT cl.id, COALESCE(cl.full_name,'Paciente'),
+                   CASE WHEN j.status='completed' THEN 'completed_incomplete' ELSE j.status END,
+                   j.attempts, j.max_attempts, j.last_error, j.updated_at
             FROM automation_jobs j
             JOIN clients cl
               ON cl.tenant_id=j.tenant_id
              AND j.idempotency_key = CONCAT('documents:provision:', j.tenant_id, ':', cl.id, ':creation')
             WHERE j.tenant_id=@tenant
               AND j.action_type='provision_patient_documents'
-              AND j.status IN ('pending','processing','failed')
+              AND (j.status IN ('pending','processing','failed') OR
+                   (j.status='completed' AND EXISTS (
+                       SELECT 1 FROM document_templates dt
+                       WHERE dt.tenant_id=j.tenant_id AND dt.is_active=true
+                         AND dt.storage_key IS NOT NULL
+                         AND dt.is_required_on_client_creation=true
+                         AND NOT EXISTS (
+                             SELECT 1 FROM patient_documents pd
+                             WHERE pd.tenant_id=j.tenant_id AND pd.client_id=cl.id
+                               AND pd.document_template_id=dt.id AND pd.version=dt.version
+                               AND pd.revoked_at IS NULL
+                         )
+                   )))
               AND cl.archived_at IS NULL
               AND EXISTS (
                   SELECT 1 FROM client_nutritionist_assignments a
                   WHERE a.client_id=cl.id AND a.nutritionist_id=@user AND a.is_active
               )
-            ORDER BY CASE j.status WHEN 'failed' THEN 0 ELSE 1 END, j.updated_at DESC
+            ORDER BY CASE j.status WHEN 'failed' THEN 0 WHEN 'completed' THEN 1 ELSE 2 END, j.updated_at DESC
             LIMIT 10;
             """, connection))
         {
@@ -167,6 +180,45 @@ public sealed class ProfessionalDashboardController : ControllerBase
                     LastError = reader.IsDBNull(5) ? null : reader.GetString(5),
                     UpdatedAt = reader.GetDateTime(6)
                 });
+        }
+
+        // Un job completado no basta por sí solo: reconciliamos su resultado con las plantillas activas
+        // que siguen siendo obligatorias para el alta. Así una copia perdida o una plantilla omitida
+        // vuelve a aparecer como incidencia aunque el worker haya marcado correctamente el job.
+        await using (var command = new NpgsqlCommand("""
+            SELECT COUNT(*)::int
+            FROM automation_jobs j
+            JOIN clients cl
+              ON cl.tenant_id=j.tenant_id
+             AND j.idempotency_key = CONCAT('documents:provision:', j.tenant_id, ':', cl.id, ':creation')
+            WHERE j.tenant_id=@tenant
+              AND j.action_type='provision_patient_documents'
+              AND j.status='completed'
+              AND cl.archived_at IS NULL
+              AND EXISTS (
+                  SELECT 1 FROM client_nutritionist_assignments a
+                  WHERE a.client_id=cl.id AND a.nutritionist_id=@user AND a.is_active
+              )
+              AND EXISTS (
+                  SELECT 1 FROM document_templates dt
+                  WHERE dt.tenant_id=j.tenant_id
+                    AND dt.is_active=true
+                    AND dt.storage_key IS NOT NULL
+                    AND dt.is_required_on_client_creation=true
+                    AND NOT EXISTS (
+                        SELECT 1 FROM patient_documents pd
+                        WHERE pd.tenant_id=j.tenant_id
+                          AND pd.client_id=cl.id
+                          AND pd.document_template_id=dt.id
+                          AND pd.version=dt.version
+                          AND pd.revoked_at IS NULL
+                    )
+              );
+            """, connection))
+        {
+            command.Parameters.AddWithValue("tenant", tenantId.Value);
+            command.Parameters.AddWithValue("user", userId.Value);
+            result.DocumentProvisioningIncompleteCount = Convert.ToInt32(await command.ExecuteScalarAsync());
         }
 
         await using (var command = new NpgsqlCommand("""
@@ -296,6 +348,7 @@ public sealed class ProfessionalDashboardDto
     public int PendingPatientDataCount { get; set; }
     public int DocumentProvisioningRetryCount { get; set; }
     public int DocumentProvisioningFailedCount { get; set; }
+    public int DocumentProvisioningIncompleteCount { get; set; }
     public List<DashboardDocumentProvisioningDto> DocumentProvisioningIssues { get; set; } = [];
     public List<DashboardTaskDto> OpenTasks { get; set; } = [];
     public List<DashboardAppointmentDto> TodayAppointments { get; set; } = [];
