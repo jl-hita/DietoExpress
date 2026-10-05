@@ -23,9 +23,7 @@ public class PublicBookingRegressionTests
         var source = File.ReadAllText(Path.Combine(
             RepoRoot, "Anguloso.Server", "Controllers", "DirectoryController.cs"));
 
-        Assert.Contains("private readonly PatientDocumentService _patientDocumentService;", source);
-        Assert.Contains("PatientDocumentService patientDocumentService)", source);
-        Assert.Contains("_patientDocumentService = patientDocumentService;", source);
+        Assert.Contains("AutomationService _automationService;", source);
 
         var bookingStart = source.IndexOf(
             "public async Task<ActionResult<PublicAppointmentConfirmationDto>> RequestPublicAppointment",
@@ -36,13 +34,16 @@ public class PublicBookingRegressionTests
 
         var booking = source[bookingStart..bookingEnd];
         var commitPos = booking.IndexOf("await transaction.CommitAsync();", StringComparison.Ordinal);
-        var provisioningPos = booking.IndexOf("CreateRequiredDocumentsAsync(", commitPos, StringComparison.Ordinal);
+        var schedulingPos = booking.IndexOf("ScheduleActionAsync(", commitPos, StringComparison.Ordinal);
 
         Assert.True(commitPos >= 0);
-        Assert.True(provisioningPos > commitPos);
-        Assert.Contains("forClientCreation: true", booking[provisioningPos..]);
-        Assert.Contains("includeAllRequired: false", booking[provisioningPos..]);
-        Assert.Contains("appointment.tenant_id", booking[provisioningPos..]);
-        Assert.Contains("appointment.client_id", booking[provisioningPos..]);
+        Assert.True(schedulingPos > commitPos);
+        Assert.Contains("provision_patient_documents", booking[schedulingPos..]);
+        Assert.Contains("appointment.tenant_id", booking[schedulingPos..]);
+        Assert.Contains("appointment.client_id", booking[schedulingPos..]);
+        Assert.Contains("ForClientCreation: true", booking[schedulingPos..]);
+        Assert.Contains("IncludeAllRequired: false", booking[schedulingPos..]);
+        Assert.Contains("maxAttempts: 8", booking[schedulingPos..]);
+        Assert.Contains("documents:provision:", booking[schedulingPos..]);
     }
 }

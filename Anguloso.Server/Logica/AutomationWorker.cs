@@ -195,6 +195,9 @@ public sealed class AutomationWorker : BackgroundService
                 case "email_billing_contact":
                     await ExecuteBillingEmailAsync(job, cancellationToken);
                     break;
+                case "provision_patient_documents":
+                    await ExecuteProvisionPatientDocumentsAsync(job, cancellationToken);
+                    break;
                 case "email_professional":
                     await ExecuteProfessionalEmailAsync(job, cancellationToken);
                     break;
@@ -320,6 +323,22 @@ public sealed class AutomationWorker : BackgroundService
         var result = await emailServ.SendEmailAsync(email, action.Subject, action.HtmlBody);
         if (!result.Exito)
             throw new InvalidOperationException(result.Mensaje);
+    }
+
+    private async Task ExecuteProvisionPatientDocumentsAsync(AutomationJob job, CancellationToken cancellationToken)
+    {
+        var action = AutomationJson.Deserialize<AutomationService.ProvisionPatientDocumentsAction>(job.Payload)
+            ?? throw new InvalidOperationException("Payload inválido para provision_patient_documents.");
+
+        using var scope = _scopeFactory.CreateScope();
+        var documents = scope.ServiceProvider.GetRequiredService<PatientDocumentService>();
+        await documents.CreateRequiredDocumentsAsync(
+            job.TenantId,
+            action.ClientId,
+            action.UserId,
+            action.ForClientCreation,
+            action.IncludeAllRequired,
+            cancellationToken);
     }
 
     private async Task ExecuteBillingEmailAsync(AutomationJob job, CancellationToken cancellationToken)

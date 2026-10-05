@@ -99,4 +99,17 @@ public sealed class PatientDocumentFlowRegressionTests
         Assert.Contains("dt.is_required_before_consultation=true", source);
         Assert.Contains("pd.status='pending'", source);
     }
+    [Fact]
+    public void DocumentProvisioningJobMustBePersistentAndRetryable()
+    {
+        var service = ReadServerSource("Anguloso.Server/Logica/AutomationService.cs");
+        var worker = ReadServerSource("Anguloso.Server/Logica/AutomationWorker.cs");
+
+        Assert.Contains("ProvisionPatientDocumentsAction", service);
+        Assert.Contains("provision_patient_documents", worker);
+        Assert.Contains("GetRequiredService<PatientDocumentService>()", worker);
+        Assert.Contains("maxAttempts", service);
+        Assert.Contains("scheduled_at=NOW() + (@delay * INTERVAL '1 second')", worker);
+    }
+
 }

@@ -1797,6 +1797,7 @@ public sealed class AutomationService
     public sealed record AppointmentStatusPayload(int AppointmentId, int ClientId, int? NutritionistId, DateTime StartsAtUtc);
     public sealed record BillingAutomationPayload(int SubscriptionId, string PlanCode, string Status, DateTime? CurrentPeriodEnd, DateTime? TrialEnd, int? AssignedUserId);
     public sealed record BillingEmailAction(int? UserId, string Subject, string HtmlBody);
+    public sealed record ProvisionPatientDocumentsAction(int ClientId, int? UserId, bool ForClientCreation, bool IncludeAllRequired);
 
     private static (string Subject, string HtmlBody) BuildBillingEmail(string eventType, BillingAutomationPayload payload)
     {
