@@ -13,6 +13,9 @@ public sealed record SaveLegalRisk(string Name,string RiskDescription,int Likeli
 public sealed record SaveLegalEipd(string Decision,string Justification,string? AdditionalMeasures,DateTime? ReviewDate,string? DocumentReference);
 
 /// <summary>Gestiona el RAT y la evaluación de riesgos del ámbito legal actual.</summary>
+public sealed record LegalRetentionPolicyDto(long Id,string TreatmentKey,string Label,string StartEvent,int PeriodValue,string PeriodUnit,string DeletionAction,bool LegalHold,string? ExceptionNotes,string Status);
+public sealed record SaveLegalRetentionPolicy(string TreatmentKey,string Label,string StartEvent,int PeriodValue,string PeriodUnit,string DeletionAction,bool LegalHold,string? ExceptionNotes,string Status);
+
 public sealed class LegalGovernanceService
 {
     private readonly angulosodbContext _db;
@@ -20,6 +23,41 @@ public sealed class LegalGovernanceService
     private readonly IAuditLogService _audit;
     private readonly IHttpContextAccessor _http;
     public LegalGovernanceService(angulosodbContext db,ITenantContextService tenant,IAuditLogService audit,IHttpContextAccessor http){_db=db;_tenant=tenant;_audit=audit;_http=http;}
+
+    public async Task<IReadOnlyList<LegalRetentionPolicyDto>> ListRetentionAsync(CancellationToken ct)
+    {
+        var scopeId=RequireScope();
+        await using var cmd=CreateCommand(@"SELECT id,treatment_key,label,start_event,period_value,period_unit,deletion_action,legal_hold,exception_notes,status
+            FROM legal_retention_policies WHERE scope_type='tenant' AND scope_id=@scope ORDER BY label,id");
+        Add(cmd,"scope",scopeId);
+        return await ReadAsync(cmd,r=>new LegalRetentionPolicyDto(r.GetInt64(0),r.GetString(1),r.GetString(2),r.GetString(3),r.GetInt32(4),r.GetString(5),r.GetString(6),r.GetBoolean(7),r.IsDBNull(8)?null:r.GetString(8),r.GetString(9)),ct);
+    }
+
+    public async Task UpsertRetentionAsync(SaveLegalRetentionPolicy request,CancellationToken ct)
+    {
+        var scopeId=RequireScope(); ValidateRetention(request);
+        await using var cmd=CreateCommand(@"INSERT INTO legal_retention_policies
+            (scope_type,scope_id,treatment_key,label,start_event,period_value,period_unit,deletion_action,legal_hold,exception_notes,status,updated_at)
+            VALUES ('tenant',@scope,@key,@label,@start,@period,@unit,@action,@hold,@notes,@status,NOW())
+            ON CONFLICT(scope_type,scope_id,treatment_key) DO UPDATE SET label=EXCLUDED.label,start_event=EXCLUDED.start_event,
+            period_value=EXCLUDED.period_value,period_unit=EXCLUDED.period_unit,deletion_action=EXCLUDED.deletion_action,
+            legal_hold=EXCLUDED.legal_hold,exception_notes=EXCLUDED.exception_notes,status=EXCLUDED.status,updated_at=NOW()");
+        Add(cmd,"scope",scopeId); Add(cmd,"key",request.TreatmentKey.Trim().ToLowerInvariant()); Add(cmd,"label",request.Label.Trim());
+        Add(cmd,"start",request.StartEvent.Trim()); Add(cmd,"period",request.PeriodValue); Add(cmd,"unit",request.PeriodUnit);
+        Add(cmd,"action",request.DeletionAction); Add(cmd,"hold",request.LegalHold); Add(cmd,"notes",request.ExceptionNotes); Add(cmd,"status",request.Status);
+        await ExecuteAsync(cmd,ct);
+        await _audit.LogAccessAsync("UPDATE_LEGAL_RETENTION_POLICY","legal_retention_policies",request.TreatmentKey,null,"Actualización de matriz de conservación");
+    }
+
+    private static void ValidateRetention(SaveLegalRetentionPolicy r)
+    {
+        if(string.IsNullOrWhiteSpace(r.TreatmentKey)||string.IsNullOrWhiteSpace(r.Label)||string.IsNullOrWhiteSpace(r.StartEvent)) throw new ArgumentException("Clave, etiqueta y evento de inicio son obligatorios.");
+        if(r.PeriodValue<0) throw new ArgumentException("El periodo no puede ser negativo.");
+        if(!new[]{"days","months","years","indefinite"}.Contains(r.PeriodUnit)) throw new ArgumentException("Unidad de conservación no válida.");
+        if(r.PeriodUnit=="indefinite"&&r.PeriodValue!=0) throw new ArgumentException("Un periodo indefinido debe usar valor 0.");
+        if(!new[]{"review","anonymize","delete","retain"}.Contains(r.DeletionAction)) throw new ArgumentException("Acción de conservación no válida.");
+        if(!new[]{"draft","active","archived"}.Contains(r.Status)) throw new ArgumentException("Estado de conservación no válido.");
+    }
 
     public async Task<IReadOnlyList<LegalRatActivityDto>> ListRatAsync(CancellationToken ct)
         => await QueryAsync(@"SELECT id,name,purpose,role,legal_basis,subject_categories,data_categories,special_categories,recipients,international_transfers,retention,security_measures,notes,status FROM legal_rat_activities WHERE scope_type=@scope AND scope_id=@id ORDER BY id",

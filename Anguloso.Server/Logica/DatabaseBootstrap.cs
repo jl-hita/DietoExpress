@@ -1700,6 +1700,26 @@ public static class DatabaseBootstrap
         logger.LogInformation("Migración legal-governance-v1 aplicada/comprobada correctamente.");
     }
 
+    /// <summary>Provisiona una matriz estructurada de conservación por tratamiento y ámbito.</summary>
+    public static void UpgradeLegalRetentionSchemaV1(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"CREATE TABLE IF NOT EXISTS legal_retention_policies (
+            id BIGSERIAL PRIMARY KEY, scope_type VARCHAR(20) NOT NULL, scope_id INTEGER NOT NULL,
+            treatment_key VARCHAR(100) NOT NULL, label VARCHAR(250) NOT NULL, start_event VARCHAR(100) NOT NULL,
+            period_value INTEGER NOT NULL, period_unit VARCHAR(20) NOT NULL,
+            deletion_action VARCHAR(30) NOT NULL DEFAULT 'review', legal_hold BOOLEAN NOT NULL DEFAULT FALSE,
+            exception_notes TEXT NULL, status VARCHAR(20) NOT NULL DEFAULT 'draft',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            UNIQUE(scope_type,scope_id,treatment_key),
+            CONSTRAINT legal_retention_period_check CHECK(period_value>=0),
+            CONSTRAINT legal_retention_unit_check CHECK(period_unit IN ('days','months','years','indefinite')),
+            CONSTRAINT legal_retention_action_check CHECK(deletion_action IN ('review','anonymize','delete','retain')),
+            CONSTRAINT legal_retention_status_check CHECK(status IN ('draft','active','archived')));
+            CREATE INDEX IF NOT EXISTS idx_legal_retention_scope ON legal_retention_policies(scope_type,scope_id,status);");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('legal-retention-v1') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Matriz de conservación legal comprobada correctamente.");
+    }
+
     public static void UpgradeDocumentTemplateSchemaV1(angulosodbContext context, ILogger logger)
     {
         context.Database.ExecuteSqlRaw(@"

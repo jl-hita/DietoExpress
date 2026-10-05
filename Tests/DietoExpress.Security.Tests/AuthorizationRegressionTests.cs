@@ -1621,3 +1621,18 @@ public class AuthorizationRegressionTests
     }
 
 }
+
+    [Fact]
+    public void LegalRetentionMatrix_IsTenantScopedAndDoesNotExecuteAutomaticDeletion()
+    {
+        var service = ReadServerLogica("LegalGovernanceService.cs");
+        var controller = ReadServerController("LegalGovernanceController.cs");
+        var schema = ReadServerLogica("DatabaseBootstrap.cs");
+
+        Assert.Contains("scope_type='tenant' AND scope_id=@scope", service);
+        Assert.Contains("UPDATE_LEGAL_RETENTION_POLICY", service);
+        Assert.Contains("[HttpGet(\"retention\")]", controller);
+        Assert.Contains("[HttpPut(\"retention\")]", controller);
+        Assert.Contains("CREATE TABLE IF NOT EXISTS legal_retention_policies", schema);
+        Assert.DoesNotContain("DELETE FROM", service, StringComparison.OrdinalIgnoreCase);
+    }

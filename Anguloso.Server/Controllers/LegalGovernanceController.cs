@@ -12,6 +12,17 @@ public sealed class LegalGovernanceController : ControllerBase
     private readonly LegalGovernanceService _service;
     public LegalGovernanceController(LegalGovernanceService service)=>_service=service;
 
+    [HttpGet("retention")]
+    public async Task<ActionResult<IReadOnlyList<LegalRetentionPolicyDto>>> Retention(CancellationToken ct)
+        => Ok(await _service.ListRetentionAsync(ct));
+
+    [HttpPut("retention")]
+    public async Task<IActionResult> SaveRetention([FromBody] SaveLegalRetentionPolicy request,CancellationToken ct)
+    {
+        try { await _service.UpsertRetentionAsync(request,ct); return NoContent(); }
+        catch(ArgumentException ex) { return BadRequest(ex.Message); }
+    }
+
     [HttpGet("rat")]
     public async Task<IActionResult> Rat(CancellationToken ct)=>Ok(await _service.ListRatAsync(ct));
     [HttpPost("rat")]
