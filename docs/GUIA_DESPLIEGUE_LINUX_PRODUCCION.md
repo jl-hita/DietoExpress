@@ -8,7 +8,7 @@
 
 Internet → DNS → Nginx/HTTPS → ASP.NET Core → PostgreSQL.
 
-Servicios externos actuales: Stripe, Google OAuth/Calendar, SMTP, USDA FoodData Central, Open Food Facts y Geoapify (autocompletado de direcciones).
+Servicios externos actuales: Stripe, Google OAuth/Calendar, SMTP, USDA FoodData Central, Open Food Facts, Geoapify y LocationIQ (autocompletado de direcciones con failover controlado).
 
 Rutas de producción actuales:
 
@@ -315,6 +315,13 @@ DIETOEXPRESS_LOG_PATH=/var/lib/dietoexpress/Logs
 DIETOEXPRESS_ALERT_SPOOL=/var/lib/dietoexpress/AlertSpool
 ASPNETCORE_ENVIRONMENT=Production
 Geoapify__ApiKey=<GEOAPIFY_API_KEY>
+LocationIQ__ApiKey=<LOCATIONIQ_API_KEY>
+AddressProviders__Primary=Geoapify
+AddressProviders__Fallback=LocationIQ
+AddressProviders__WarningThreshold=0.80
+AddressProviders__FailoverThreshold=0.90
+AddressProviders__GeoapifyDailyLimit=3000
+AddressProviders__LocationIqDailyLimit=5000
 ~~~
 
 Generar una clave JWT aleatoria:
@@ -349,28 +356,56 @@ ConfigServ utiliza la tabla config. Entre los parámetros actuales conocidos:
 
 - googleClientId
 
-## Geoapify
+## Autocompletado de direcciones y failover
 
-La búsqueda de direcciones de pacientes utiliza el Address Autocomplete API de Geoapify a través del backend. La clave **no se entrega al navegador**.
+La búsqueda de direcciones de pacientes utiliza Geoapify como proveedor principal y LocationIQ como respaldo. Las claves no se entregan al navegador.
 
-Configurar en /etc/dietoexpress/dietoexpress.env:
+La aplicación mantiene en PostgreSQL un contador diario por proveedor y operación. Antes de cada llamada reserva atómicamente una unidad de cuota. Por defecto se emite aviso al 80 % y se deja de consumir un proveedor al alcanzar el 90 % de su límite configurado, pasando al siguiente proveedor.
+
+Configuración de producción:
 
 ~~~text
 Geoapify__ApiKey=<GEOAPIFY_API_KEY>
+LocationIQ__ApiKey=<LOCATIONIQ_API_KEY>
+AddressProviders__Primary=Geoapify
+AddressProviders__Fallback=LocationIQ
+AddressProviders__WarningThreshold=0.80
+AddressProviders__FailoverThreshold=0.90
+AddressProviders__GeoapifyDailyLimit=3000
+AddressProviders__LocationIqDailyLimit=5000
 ~~~
 
-En el panel de Geoapify se recomienda restringir la clave al servidor de producción mediante su IP pública y habilitar únicamente las APIs necesarias. La aplicación restringe además las consultas a España, aplica debounce en Angular y rate limiting en el backend.
+Los límites anteriores son valores de referencia para los planes gratuitos actuales; deben revisarse contra las condiciones de las cuentas contratadas antes de una puesta en producción. No se deben asumir como límites permanentes del proveedor.
 
-La integración requiere la atribución indicada por Geoapify. DietoExpress la muestra junto al campo de autocompletado.
+En Geoapify se recomienda restringir la clave al servidor de producción mediante su IP pública y habilitar únicamente las APIs necesarias. LocationIQ también debe configurarse con las restricciones disponibles.
+
+La aplicación restringe las consultas a España, aplica debounce en Angular, rate limiting en el backend y no envía las claves al cliente.
+
+La interfaz muestra la atribución de ambos proveedores para que el cambio automático no elimine los requisitos de atribución del proveedor de respaldo.
+
+El bootstrap crea además placeholders en la tabla config:
+
+- geoapifyApiKey
+- locationIqApiKey
+- addressPrimaryProvider
+- addressFallbackProvider
+- addressWarningThreshold
+- addressFailoverThreshold
+- addressGeoapifyDailyLimit
+- addressLocationIqDailyLimit
+
+Las claves reales deben permanecer en /etc/dietoexpress/dietoexpress.env; los placeholders del bootstrap no contienen secretos.
 
 Antes de producción:
 
-1. Crear el proyecto/API key de Geoapify.
-2. Activar Address Autocomplete API.
-3. Restringir la clave al servidor cuando sea posible.
-4. Añadir Geoapify__ApiKey al archivo de entorno.
+1. Crear las cuentas/API keys de Geoapify y LocationIQ.
+2. Verificar que el uso comercial del plan elegido y sus requisitos de atribución son compatibles con DietoExpress.
+3. Añadir ambas claves al archivo de entorno.
+4. Ajustar límites y umbrales si las cuentas contratadas tienen valores diferentes.
 5. Reiniciar DietoExpress.
-6. Probar una dirección española completa y comprobar que se rellenan código postal, población y provincia.
+6. Probar una dirección española completa.
+7. Comprobar en PostgreSQL que external_api_usage incrementa el proveedor utilizado.
+8. Probar en un entorno controlado el failover cuando se alcanza el umbral.
 
 ## USDA
 

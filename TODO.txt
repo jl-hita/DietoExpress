@@ -531,3 +531,14 @@ Fase 4
 Integración con wearables.
 Aplicación móvil.
 Soporte para varios nutricionistas por cuenta.
+
+-- Control de cuotas de proveedores de direcciones
+CREATE TABLE external_api_usage (
+    id BIGSERIAL PRIMARY KEY,
+    usage_date DATE NOT NULL,
+    provider VARCHAR(80) NOT NULL,
+    operation VARCHAR(120) NOT NULL,
+    request_count INTEGER NOT NULL DEFAULT 0,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_external_api_usage_day_provider_operation UNIQUE (usage_date, provider, operation)
+);

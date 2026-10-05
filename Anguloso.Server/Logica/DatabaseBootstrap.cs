@@ -324,6 +324,21 @@ public static class DatabaseBootstrap
                 );
 
                 CREATE UNIQUE INDEX IF NOT EXISTS uq_config_nombre_config ON config(nombre_config);
+                CREATE TABLE IF NOT EXISTS external_api_usage (
+                    id BIGSERIAL PRIMARY KEY,
+                    usage_date DATE NOT NULL,
+                    provider VARCHAR(80) NOT NULL,
+                    operation VARCHAR(120) NOT NULL,
+                    request_count INTEGER NOT NULL DEFAULT 0,
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    CONSTRAINT uq_external_api_usage_day_provider_operation
+                        UNIQUE (usage_date, provider, operation),
+                    CONSTRAINT ck_external_api_usage_request_count
+                        CHECK (request_count >= 0)
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_external_api_usage_provider_date
+                    ON external_api_usage(provider, usage_date DESC);
 
                 CREATE TABLE IF NOT EXISTS patient_conversations (
                     id BIGSERIAL PRIMARY KEY,
@@ -598,6 +613,38 @@ public static class DatabaseBootstrap
                 INSERT INTO config (nombre_config, valor_config)
                 SELECT 'webPushPrivateKey', '__CONFIGURE_WEBPUSH_PRIVATE_KEY__'
                 WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'webPushPrivateKey');
+                
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'geoapifyApiKey', '__CONFIGURE_GEOAPIFY_API_KEY__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'geoapifyApiKey');
+
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'locationIqApiKey', '__CONFIGURE_LOCATIONIQ_API_KEY__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'locationIqApiKey');
+
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'addressPrimaryProvider', 'Geoapify'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'addressPrimaryProvider');
+
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'addressFallbackProvider', 'LocationIQ'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'addressFallbackProvider');
+
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'addressWarningThreshold', '0.80'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'addressWarningThreshold');
+
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'addressFailoverThreshold', '0.90'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'addressFailoverThreshold');
+
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'addressGeoapifyDailyLimit', '3000'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'addressGeoapifyDailyLimit');
+
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT 'addressLocationIqDailyLimit', '5000'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'addressLocationIqDailyLimit');
             ");
 
             logger.LogInformation("Estructura de tablas y configuración inicial verificadas y listas en PostgreSQL.");

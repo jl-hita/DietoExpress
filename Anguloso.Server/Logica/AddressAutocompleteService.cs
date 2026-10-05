@@ -1,24 +1,24 @@
-using System.Text.Json;
-
 namespace Anguloso.Server.Logica;
 
 /// <summary>
-/// Adapta el proveedor externo de direcciones al modelo estable que consume DietoExpress.
-/// Mantener esta frontera permite sustituir Geoapify sin propagar su contrato por la aplicación.
+/// Coordina proveedores de autocompletado y aplica el control de cuota antes de cada llamada externa.
 /// </summary>
 public sealed class AddressAutocompleteService
 {
-    private readonly IHttpClientFactory _httpClientFactory;
-    private readonly IConfiguration _configuration;
+    private readonly AddressUsageService _usage;
+    private readonly IReadOnlyDictionary<string, IAddressProvider> _providers;
+    private readonly AddressProviderOptions _options;
     private readonly ILogger<AddressAutocompleteService> _logger;
 
     public AddressAutocompleteService(
-        IHttpClientFactory httpClientFactory,
-        IConfiguration configuration,
+        AddressUsageService usage,
+        IEnumerable<IAddressProvider> providers,
+        AddressProviderOptions options,
         ILogger<AddressAutocompleteService> logger)
     {
-        _httpClientFactory = httpClientFactory;
-        _configuration = configuration;
+        _usage = usage;
+        _providers = providers.ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
+        _options = options;
         _logger = logger;
     }
 
@@ -26,94 +26,37 @@ public sealed class AddressAutocompleteService
         string text,
         CancellationToken cancellationToken)
     {
-        var apiKey = _configuration["Geoapify:ApiKey"];
-        if (string.IsNullOrWhiteSpace(apiKey))
-            throw new InvalidOperationException("Geoapify no está configurado: falta Geoapify:ApiKey.");
-
-        var encodedText = Uri.EscapeDataString(text.Trim());
-        var url =
-            $"https://api.geoapify.com/v1/geocode/autocomplete?text={encodedText}&lang=es&limit=5&filter=countrycode:es&apiKey={Uri.EscapeDataString(apiKey)}";
-
-        using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        var client = _httpClientFactory.CreateClient();
-        client.Timeout = TimeSpan.FromSeconds(5);
-
-        using var response = await client.SendAsync(request, cancellationToken);
-        if (!response.IsSuccessStatusCode)
+        foreach (var providerName in GetProviderOrder())
         {
-            _logger.LogWarning(
-                "Geoapify devolvió HTTP {StatusCode} para una búsqueda de dirección.",
-                (int)response.StatusCode);
-            throw new HttpRequestException($"El proveedor de direcciones devolvió HTTP {(int)response.StatusCode}.");
-        }
-
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
-
-        var suggestions = new List<AddressSuggestion>();
-        if (!document.RootElement.TryGetProperty("features", out var features) ||
-            features.ValueKind != JsonValueKind.Array)
-            return suggestions;
-
-        foreach (var feature in features.EnumerateArray())
-        {
-            if (!feature.TryGetProperty("properties", out var properties))
+            if (!_providers.TryGetValue(providerName, out var provider) || !provider.IsConfigured)
                 continue;
 
-            var street = GetString(properties, "street");
-            var houseNumber = GetString(properties, "housenumber");
-            var city = FirstNonEmpty(
-                GetString(properties, "city"),
-                GetString(properties, "municipality"),
-                GetString(properties, "town"),
-                GetString(properties, "village"));
-            var province = FirstNonEmpty(
-                GetString(properties, "state"),
-                GetString(properties, "county"));
-            var country = GetString(properties, "country");
-            var countryCode = GetString(properties, "country_code");
-            var displayName = GetString(properties, "formatted");
+            if (!await _usage.TryReserveAsync(provider.Name, provider.DailyLimit, cancellationToken))
+                continue;
 
-            double? latitude = null;
-            double? longitude = null;
-            if (feature.TryGetProperty("geometry", out var geometry) &&
-                geometry.TryGetProperty("coordinates", out var coordinates) &&
-                coordinates.ValueKind == JsonValueKind.Array &&
-                coordinates.GetArrayLength() >= 2)
+            try
             {
-                longitude = GetDouble(coordinates[0]);
-                latitude = GetDouble(coordinates[1]);
+                return await provider.SearchAsync(text, cancellationToken);
             }
-
-            suggestions.Add(new AddressSuggestion(
-                displayName,
-                street,
-                houseNumber,
-                GetString(properties, "postcode"),
-                city,
-                province,
-                country,
-                countryCode,
-                latitude,
-                longitude));
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "El proveedor {Provider} no está configurado. Se intentará el siguiente proveedor.", provider.Name);
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogWarning(ex, "El proveedor {Provider} falló. Se intentará el siguiente proveedor.", provider.Name);
+            }
         }
 
-        return suggestions;
+        throw new InvalidOperationException("No hay ningún proveedor de direcciones disponible.");
     }
 
-    private static string GetString(JsonElement element, string propertyName) =>
-        element.TryGetProperty(propertyName, out var value) &&
-        value.ValueKind == JsonValueKind.String
-            ? value.GetString()?.Trim() ?? string.Empty
-            : string.Empty;
-
-    private static double? GetDouble(JsonElement value) =>
-        value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var number)
-            ? number
-            : null;
-
-    private static string FirstNonEmpty(params string[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
+    private IEnumerable<string> GetProviderOrder()
+    {
+        yield return _options.Primary;
+        if (!string.Equals(_options.Primary, _options.Fallback, StringComparison.OrdinalIgnoreCase))
+            yield return _options.Fallback;
+    }
 
     public sealed record AddressSuggestion(
         string DisplayName,
