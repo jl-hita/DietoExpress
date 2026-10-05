@@ -400,7 +400,7 @@ public class PatientPortalController : ControllerBase
              (AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User)!.Value &&
               (User.IsInRole("clinic_admin") ||
                c.user_id == userId.Value ||
-               _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active))))));
+               _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active)))));
         if (client == null) return NotFound("Cliente no encontrado.");
         // El token se almacena únicamente como hash y, por tanto, no puede recuperarse.
         // Si ya existe uno, no debemos devolver el hash como si fuera un bearer token:
