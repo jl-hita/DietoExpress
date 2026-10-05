@@ -54,11 +54,11 @@ public sealed class SpecializationsRegressionTests
     {
         var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "SpecializationsController.cs"));
 
-        Assert.Contains("[Authorize(Policy = \\"Professional\\")]", controller);
+        Assert.Contains("[Authorize(Policy = \"Professional\")]", controller);
         Assert.Contains("ts.tenant_id=@tenant", controller);
         Assert.Contains("FROM specializations s", controller);
         Assert.Contains("WHERE s.active = TRUE", controller);
-        Assert.Contains("Add(command, \\"tenant\\", tenantId.Value)", controller);
+        Assert.Contains("Add(command, \"tenant\", tenantId.Value)", controller);
     }
 
     [Fact]
@@ -68,7 +68,7 @@ public sealed class SpecializationsRegressionTests
 
         Assert.Contains("c.id=@client AND c.tenant_id=@tenant AND c.archived_at IS NULL", controller);
         Assert.Contains("a.client_id=c.id AND a.nutritionist_id=@user AND a.is_active=TRUE", controller);
-        Assert.Contains("User.IsInRole(\\"clinic_admin\\") || owner || assigned", controller);
+        Assert.Contains("User.IsInRole(\"clinic_admin\") || owner || assigned", controller);
         Assert.Contains("JOIN tenant_specializations ts", controller);
         Assert.Contains("ts.tenant_id=@tenant AND ts.enabled=TRUE", controller);
     }
@@ -97,7 +97,7 @@ public sealed class SpecializationsRegressionTests
         Assert.Contains("SpecializationService", component);
         Assert.Contains("setClientSpecializations", component);
     }
-    
+
     [Fact]
     public void DietarySpecializations_AreSeededWithFoodExclusionRules()
     {
@@ -109,7 +109,6 @@ public sealed class SpecializationsRegressionTests
         Assert.Contains("configuration::jsonb", bootstrap);
     }
 
-    
     [Fact]
     public void DietaryCompatibility_UsesStructuredFoodFlags()
     {
@@ -121,7 +120,7 @@ public sealed class SpecializationsRegressionTests
         Assert.Contains("dietary_flags TEXT[]", bootstrap);
         Assert.Contains("classify_food_dietary_flags", bootstrap);
         Assert.Contains("'animal'", bootstrap);
-        Assert.Contains("\\"required_flags\\"", bootstrap);
+        Assert.Contains("\"required_flags\"", bootstrap);
         Assert.Contains("GetExcludedFoodIdsAsync", resolver);
         Assert.Contains("dietary_flags && @required_flags", resolver);
         Assert.Contains("structuredSpecializationExclusions", generator);
