@@ -34,6 +34,22 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void ProfessionalStatistics_IsTenantScopedAndSeparatesClinicAndNutritionistScopes()
+    {
+        var source = ReadServerController("ProfessionalStatisticsController.cs");
+
+        Assert.Contains("[Authorize(Roles = \"nutritionist,clinic_admin\")]", source);
+        Assert.Contains("var tenantId = AuthHelpers.GetTenantId(User);", source);
+        Assert.Contains("var isClinicAdmin = User.IsInRole(\"clinic_admin\");", source);
+        Assert.Contains("WHERE c.tenant_id=@tenant", source);
+        Assert.Contains("ca.nutritionist_id = @user", source);
+        Assert.Contains("ca.assigned_at < @to", source);
+        Assert.Contains("ca.unassigned_at >= @from", source);
+        Assert.Contains("s.tenant_id=@tenant", source);
+        Assert.Contains("if (isClinicAdmin)", source);
+    }
+
+    [Fact]
     public void PatientIdentity_IsExplicitlyExcludedFromProfessionalPolicy()
     {
         var program = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Program.cs"));
