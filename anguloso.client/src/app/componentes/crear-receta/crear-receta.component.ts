@@ -11,7 +11,6 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { Component } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { AuthService } from '../../servicios/auth.service';
 import { environment } from '../../../environments/environments';
 
 interface Ingrediente {
@@ -42,6 +41,8 @@ interface Receta {
   imports: [CommonModule, ReactiveFormsModule, MatCardModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatOptionModule, MatButtonModule, MatIconModule, MatProgressBarModule],
 })
 // El editor de recetas sincroniza ingredientes, cantidades y metadatos con el modelo que espera la API.
+interface MutationResponse { exito: boolean; mensaje: string; }
+
 export class CrearRecetaComponent {
   private apiUrl = environment.apiUrl +'receta/';
   formReceta: FormGroup;
@@ -57,7 +58,7 @@ export class CrearRecetaComponent {
     { value: 'l', label: 'Litros' }
   ];
 
-  constructor(private fb: FormBuilder, private http: HttpClient, private authService: AuthService) {
+  constructor(private fb: FormBuilder, private http: HttpClient) {
     this.formReceta = this.fb.group({
       nombre: ['', Validators.required],
       descripcion: [''],
@@ -89,28 +90,6 @@ export class CrearRecetaComponent {
     if (this.formReceta.invalid) return;
     this.cargando = true;
 
-    /*
-    var receta: Receta = {
-      nombre: this.formReceta.value.nombre,
-      descripcion: this.formReceta.value.descripcion,
-      receta: this.formReceta.value.receta,
-      id_usuario: 0
-    };
-
-    const ingredientes = this.formReceta.value.ingredientes;
-    const user = this.authService.getUser();
-    console.log("User -> " + user);
-
-    this.http.put<{ exito: boolean, mensaje: string }>(this.apiUrl+'addRecetaSolo', receta).subscribe(
-      bm => {
-        if (bm.exito) console.log("id receta -> " + bm.mensaje);
-        else console.log(bm.mensaje);
-      },
-      err => {
-        console.error("Error guardando receta", err);
-      }
-    );
-    */
     const body = {
       receta: {
         nombre: this.formReceta.value.nombre,
@@ -120,7 +99,7 @@ export class CrearRecetaComponent {
       ingredientes: this.formReceta.value.ingredientes
     };
 
-    this.http.put<any>(this.apiUrl + 'addReceta', body).subscribe({
+    this.http.put<MutationResponse>(this.apiUrl + 'addReceta', body).subscribe({
       next: res => {
         this.mensaje = res.mensaje;
         this.cargando = false;
