@@ -13,7 +13,7 @@ public sealed class SupportService
     }
 
     public async Task<IReadOnlyList<SupportTicketSummaryDto>> GetTicketsAsync(
-        int userId, int tenantId, bool isSuperAdmin, string? status, string? category, string? priority)
+        int userId, int? tenantId, bool isSuperAdmin, string? status, string? category, string? priority)
     {
         var result = new List<SupportTicketSummaryDto>();
         await using var connection = new NpgsqlConnection(_connectionString);
@@ -40,7 +40,7 @@ WHERE 1=1
         sql += " ORDER BY t.updated_at DESC, t.id DESC LIMIT 200;";
 
         await using var command = new NpgsqlCommand(sql, connection);
-        command.Parameters.AddWithValue("tenant", tenantId);
+        command.Parameters.AddWithValue("tenant", (object?)tenantId ?? DBNull.Value);
         command.Parameters.AddWithValue("status", (object?)status ?? DBNull.Value);
         command.Parameters.AddWithValue("category", (object?)category ?? DBNull.Value);
         command.Parameters.AddWithValue("priority", (object?)priority ?? DBNull.Value);
@@ -69,7 +69,7 @@ WHERE 1=1
         return result;
     }
 
-    public async Task<SupportTicketDto?> GetTicketAsync(long ticketId, int userId, int tenantId, bool isSuperAdmin)
+    public async Task<SupportTicketDto?> GetTicketAsync(long ticketId, int userId, int? tenantId, bool isSuperAdmin)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
@@ -215,7 +215,7 @@ WHERE id=@id;
         return true;
     }
 
-    public async Task<bool> UpdateTicketAsync(long ticketId, int userId, int tenantId, string? status, string? priority, int? assignedToUserId)
+    public async Task<bool> UpdateTicketAsync(long ticketId, int userId, string? status, string? priority, int? assignedToUserId)
     {
         if (status != null) ValidateEnum(status, new[] { "open", "in_progress", "waiting_user", "resolved", "closed" }, "Estado no válido.");
         if (priority != null) ValidateEnum(priority, new[] { "low", "normal", "high", "urgent" }, "Prioridad no válida.");
