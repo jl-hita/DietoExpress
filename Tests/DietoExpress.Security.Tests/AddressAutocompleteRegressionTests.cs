@@ -52,6 +52,7 @@ public sealed class AddressAutocompleteRegressionTests
         Assert.Contains("ON CONFLICT (usage_date, provider, operation)", usage);
         Assert.Contains("WHERE external_api_usage.request_count < @cap", usage);
         Assert.Contains("RETURNING request_count", usage);
+        Assert.Contains("provider.IsConfigured", service);
         Assert.Contains("TryReserveAsync(provider.Name, provider.DailyLimit", service);
         Assert.Contains("CREATE TABLE IF NOT EXISTS external_api_usage", bootstrap);
     }
