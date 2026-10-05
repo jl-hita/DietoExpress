@@ -603,7 +603,7 @@ public class DietGeneratorService
 
     private async Task<double> CalculateSportsProteinAsync(
         int clientId,
-        NutritionProfile profile,
+        SpecializationRulesService.NutritionProfile profile,
         double targetKcal,
         CancellationToken cancellationToken)
     {
