@@ -42,6 +42,7 @@ public sealed class SpecializationsController : ControllerBase
             WHERE s.active = TRUE
             ORDER BY s.category, s.name;");
         Add(command, "tenant", tenantId.Value);
+        await OpenConnectionAsync(command.Connection!);
 
         await using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
@@ -84,6 +85,7 @@ public sealed class SpecializationsController : ControllerBase
         Add(command, "tenant", tenantId.Value);
         Add(command, "specialization", specializationId);
         Add(command, "enabled", dto.Enabled);
+        await OpenConnectionAsync(command.Connection!);
 
         var result = await command.ExecuteScalarAsync();
         if (result == null) return NotFound("La especialización no existe o está inactiva.");
@@ -114,6 +116,7 @@ public sealed class SpecializationsController : ControllerBase
             ORDER BY s.category, s.name;");
         Add(command, "tenant", access.TenantId);
         Add(command, "client", clientId);
+        await OpenConnectionAsync(command.Connection!);
 
         await using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
@@ -264,7 +267,7 @@ public sealed class SpecializationsController : ControllerBase
         return new ClientAccess(allowed, false, tenantId.Value);
     }
 
-    private DbCommand CreateCommand(string sql)
+    private static async Task OpenConnectionAsync(DbConnection connection)\n    {\n        if (connection.State != ConnectionState.Open) await connection.OpenAsync();\n    }\n\n    private DbCommand CreateCommand(string sql)
     {
         var command = _context.Database.GetDbConnection().CreateCommand();
         command.CommandText = sql;
