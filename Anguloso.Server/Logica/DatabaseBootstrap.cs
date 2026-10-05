@@ -2244,4 +2244,35 @@ public static class DatabaseBootstrap
         logger.LogInformation("Migración de especializaciones specializations-v1 aplicada correctamente.");
     }
 
+    /// <summary>Extiende las citas existentes con modalidad y metadatos de videollamada.</summary>
+    public static void UpgradeOnlineConsultationSchemaV1(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            ALTER TABLE patient_appointments
+                ADD COLUMN IF NOT EXISTS modality VARCHAR(20) NOT NULL DEFAULT 'in_person',
+                ADD COLUMN IF NOT EXISTS video_provider VARCHAR(30),
+                ADD COLUMN IF NOT EXISTS video_room_name VARCHAR(100),
+                ADD COLUMN IF NOT EXISTS video_room_url VARCHAR(500),
+                ADD COLUMN IF NOT EXISTS video_expires_at TIMESTAMPTZ;
+
+            ALTER TABLE patient_appointments
+                DROP CONSTRAINT IF EXISTS patient_appointments_modality_check;
+
+            ALTER TABLE patient_appointments
+                ADD CONSTRAINT patient_appointments_modality_check
+                CHECK (modality IN ('in_person','online'));
+
+            CREATE INDEX IF NOT EXISTS idx_patient_appointments_online
+                ON patient_appointments(tenant_id, nutritionist_id, starts_at)
+                WHERE modality = 'online' AND status IN ('requested','confirmed');
+
+            CREATE TABLE IF NOT EXISTS schema_migrations (
+                id VARCHAR(200) PRIMARY KEY,
+                applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('online-consultation-v1') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración de consulta online online-consultation-v1 aplicada correctamente.");
+    }
+
 }

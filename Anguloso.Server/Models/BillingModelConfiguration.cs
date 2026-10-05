@@ -66,6 +66,10 @@ public partial class angulosodbContext
             entity.Property(e => e.starts_at).HasColumnType("timestamp with time zone");
             entity.Property(e => e.ends_at).HasColumnType("timestamp with time zone");
             entity.Property(e => e.status).HasMaxLength(30).IsRequired();
+            entity.Property(e => e.modality).HasMaxLength(20).IsRequired();
+            entity.Property(e => e.video_provider).HasMaxLength(30);
+            entity.Property(e => e.video_room_name).HasMaxLength(100);
+            entity.Property(e => e.video_room_url).HasMaxLength(500);
             entity.Property(e => e.patient_notes).HasColumnType("text");
             entity.Property(e => e.professional_notes).HasColumnType("text");
             entity.Property(e => e.created_at).HasColumnType("timestamp with time zone").HasDefaultValueSql("now()");
