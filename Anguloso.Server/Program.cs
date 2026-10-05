@@ -180,9 +180,14 @@ CREATE TABLE IF NOT EXISTS patient_notifications (
   title VARCHAR(200) NOT NULL,
   message VARCHAR(1000) NOT NULL,
   action_url VARCHAR(1000),
+  idempotency_key VARCHAR(200),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   read_at TIMESTAMPTZ
 );
+ALTER TABLE patient_notifications
+  ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(200);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_patient_notifications_tenant_idempotency
+  ON patient_notifications(tenant_id, idempotency_key);
 CREATE INDEX IF NOT EXISTS idx_patient_notifications_client_created
   ON patient_notifications(client_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_patient_notifications_tenant_client
