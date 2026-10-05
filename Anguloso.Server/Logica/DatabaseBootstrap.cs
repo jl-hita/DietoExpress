@@ -2139,6 +2139,8 @@ public static class DatabaseBootstrap
         // para que las especializaciones no dependan exclusivamente de coincidencias de texto.
         context.Database.ExecuteSqlRaw(@"
             ALTER TABLE foods ADD COLUMN IF NOT EXISTS dietary_flags TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
+            CREATE INDEX IF NOT EXISTS idx_foods_dietary_flags_gin
+                ON foods USING GIN (dietary_flags);
 
             CREATE OR REPLACE FUNCTION classify_food_dietary_flags()
             RETURNS trigger AS $$
@@ -2182,7 +2184,7 @@ public static class DatabaseBootstrap
 
             -- Recalcular las banderas existentes haciendo que el trigger ejecute la misma clasificación
             -- que se aplicará automáticamente a los nuevos alimentos y a los cambios de nombre/categoría.
-            UPDATE foods SET name = name;
+            UPDATE foods SET name = name WHERE dietary_flags = ARRAY[]::TEXT[];
         ");
 
         context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('specializations-v1') ON CONFLICT (id) DO NOTHING;");
