@@ -42,6 +42,8 @@ export class DashboardComponent implements OnInit {
   }
   openMessages():void{this.router.navigate(['/messages']);}
   openTasks():void{this.router.navigate(['/automations']);}
+  openCheckins():void{this.router.navigate(['/clients']);}
+  openCheckin(checkin:{clientId:number}):void{this.openClient(checkin.clientId);}
   openTask(task:DashboardTask):void {
     if (task.clientId) this.openClient(task.clientId);
     else this.openTasks();
