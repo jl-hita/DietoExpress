@@ -125,7 +125,7 @@ public sealed class ProfessionalStatisticsController : ControllerBase
             SELECT
                 COUNT(*)::int,
                 COUNT(*) FILTER (WHERE pc.reviewed_at IS NOT NULL)::int,
-                AVG(pc.adherence)
+                AVG(pc.adherence)::double precision
             FROM patient_checkins pc
             JOIN clients c ON c.id=pc.client_id AND c.tenant_id=pc.tenant_id
             WHERE pc.submitted_at >= @from AND pc.submitted_at < @to
