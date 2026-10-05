@@ -472,8 +472,33 @@ Nunca guardar el client secret en Git ni en el frontend.
 5. Crear un cliente OAuth de tipo **Aplicación web**.
 6. Añadir como URI de redirección autorizado exactamente:
    `https://<DOMINIO>/api/google-calendar/callback`
-7. Activar la API de Google Calendar.
+7. **Activar explícitamente la API de Google Calendar en el proyecto que contiene el OAuth Client ID.** No basta con crear el cliente OAuth ni con configurar la pantalla de consentimiento.
 8. Comprobar que el Client ID y Client Secret utilizados por el servidor pertenecen al mismo proyecto y cliente OAuth.
+9. Confirmar en **Google Cloud → APIs y servicios → APIs habilitadas** que aparece `Google Calendar API` y que está habilitada.
+10. Si se utiliza el Client ID actual de DietoExpress, verificar el proyecto por el número de proyecto que aparece asociado al cliente OAuth; no asumir que el nombre visible del proyecto coincide con el número usado por la API.
+
+## Comprobación obligatoria de Google Calendar API antes de probar la sincronización
+
+La autorización OAuth y el acceso a Google Calendar son dos configuraciones distintas. Es posible completar correctamente todo el consentimiento OAuth y, aun así, recibir un `403 SERVICE_DISABLED` al sincronizar si **Google Calendar API no está habilitada en el proyecto del OAuth Client**.
+
+Antes de dar por válida la instalación, comprobar:
+
+1. Abrir Google Cloud con el proyecto que contiene el OAuth Client ID utilizado por `/etc/dietoexpress/dietoexpress.env`.
+2. Ir a **APIs y servicios → Biblioteca**.
+3. Buscar **Google Calendar API**.
+4. Pulsar **Habilitar** si no está habilitada.
+5. Volver a **APIs y servicios → APIs habilitadas** y confirmar que `Google Calendar API` aparece activa.
+6. Esperar unos minutos si se acaba de activar.
+7. En DietoExpress, comprobar primero **Conectar Google Calendar** y después **Sincronizar**.
+8. Revisar el journal si la sincronización falla:
+
+~~~bash
+sudo journalctl -u dietoexpress.service --since "10 minutes ago" --no-pager | grep -E "Google OAuth|Google Calendar"
+~~~
+
+El error `SERVICE_DISABLED`, `accessNotConfigured` o el mensaje **"Google Calendar API has not been used in project ... or it is disabled"** significa que la API no está habilitada en el proyecto que está usando el OAuth Client. **No es necesario desconectar y volver a autorizar la cuenta** después de habilitar la API: la conexión OAuth existente puede reutilizarse.
+
+Como comprobación de seguridad, el número de proyecto indicado por Google debe corresponder al proyecto del OAuth Client configurado en el servidor. Si no coincide, detener el diagnóstico y corregir el Client ID/proyecto antes de continuar.
 
 ## Pasar Google Cloud de Prueba a Producción
 
@@ -503,7 +528,7 @@ La publicación en producción no sustituye a las pruebas funcionales. Deben pro
 
 Durante la fase de Prueba, los refresh tokens de Google pueden tener una caducidad limitada. Para un SaaS real no se debe depender de ese comportamiento de pruebas.
 
-## Diagnóstico de errores OAuth
+## Diagnóstico de errores OAuth y Calendar
 
 Si Google muestra el consentimiento correctamente pero DietoExpress vuelve a `/appointments?calendar=error`, revisar primero:
 
@@ -511,7 +536,11 @@ Si Google muestra el consentimiento correctamente pero DietoExpress vuelve a `/a
 sudo journalctl -u dietoexpress.service --since "10 minutes ago" --no-pager | grep -E "Google OAuth|Google Calendar"
 ~~~
 
-El backend registra el código HTTP y el `error`/`error_description` devueltos por el endpoint de token, pero nunca registra el client secret ni los tokens.
+El backend registra el código HTTP y el `error`/`error_description` devueltos por el endpoint de token y, para errores de la API de Calendar, registra el código HTTP y la respuesta de Google sin tokens. Nunca registra el client secret ni los access/refresh tokens.
+
+Para un `403` de sincronización, comprobar primero **Google Calendar API habilitada en el mismo proyecto del OAuth Client**. Para un `401`, revisar la conexión OAuth y la renovación del refresh token. Para errores `404` del calendario, comprobar el `calendarId` y la cuenta conectada.
+
+La API de sincronización no debe considerarse correctamente instalada hasta que una sincronización manual termine con éxito y se observe `last_synced_at` actualizado.
 
 Nunca publicar client secrets ni access/refresh tokens en tickets, logs, capturas o commits.
 
