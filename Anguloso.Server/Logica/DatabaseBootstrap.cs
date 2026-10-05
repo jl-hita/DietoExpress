@@ -2065,21 +2065,6 @@ public static class DatabaseBootstrap
             CREATE INDEX IF NOT EXISTS idx_specialization_rules_specialization
                 ON specialization_rules(specialization_id, active, priority);
 
-            INSERT INTO specialization_rules(specialization_id, rule_code, rule_type, configuration, priority, active)
-            SELECT s.id, v.rule_code, v.rule_type, v.configuration::jsonb, v.priority, TRUE
-            FROM specializations s
-            JOIN (VALUES
-                ('vegan','exclude_food_keywords','food_exclusion','{"keywords":["carne","pollo","pavo","cerdo","ternera","vacuno","cordero","jamon","jamón","embutido","salchicha","chorizo","atun","atún","salmon","salmón","pescado","marisco","gamba","camaron","camarón","mejillon","mejillón","huevo","leche","queso","yogur","yogurt","nata","mantequilla","miel","gelatina"]}',10),
-                ('vegetarian','exclude_food_keywords','food_exclusion','{"keywords":["carne","pollo","pavo","cerdo","ternera","vacuno","cordero","jamon","jamón","embutido","salchicha","chorizo","atun","atún","salmon","salmón","pescado","marisco","gamba","camaron","camarón","mejillon","mejillón","gelatina"]}',10),
-                ('pescatarian','exclude_food_keywords','food_exclusion','{"keywords":["carne","pollo","pavo","cerdo","ternera","vacuno","cordero","jamon","jamón","embutido","salchicha","chorizo","gelatina"]}',10)
-            ) AS v(code,rule_code,rule_type,configuration,priority)
-              ON s.code=v.code
-            ON CONFLICT (specialization_id, rule_code) DO UPDATE SET
-                rule_type=EXCLUDED.rule_type,
-                configuration=EXCLUDED.configuration,
-                priority=EXCLUDED.priority,
-                active=TRUE;
-
             INSERT INTO specializations(code,name,category,description)
             VALUES
                 ('vegan','Vegana','dietary','Patrón alimentario sin alimentos de origen animal.'),
@@ -2104,7 +2089,22 @@ public static class DatabaseBootstrap
                 description = EXCLUDED.description,
                 active = TRUE;
 
-            -- Los tenants existentes reciben inicialmente todo el catálogo activo.
+    INSERT INTO specialization_rules(specialization_id, rule_code, rule_type, configuration, priority, active)
+            SELECT s.id, v.rule_code, v.rule_type, v.configuration::jsonb, v.priority, TRUE
+            FROM specializations s
+            JOIN (VALUES
+                ('vegan','exclude_food_keywords','food_exclusion','{"keywords":["carne","pollo","pavo","cerdo","ternera","vacuno","cordero","jamon","jamón","embutido","salchicha","chorizo","atun","atún","salmon","salmón","pescado","marisco","gamba","camaron","camarón","mejillon","mejillón","huevo","leche","queso","yogur","yogurt","nata","mantequilla","miel","gelatina"]}',10),
+                ('vegetarian','exclude_food_keywords','food_exclusion','{"keywords":["carne","pollo","pavo","cerdo","ternera","vacuno","cordero","jamon","jamón","embutido","salchicha","chorizo","atun","atún","salmon","salmón","pescado","marisco","gamba","camaron","camarón","mejillon","mejillón","gelatina"]}',10),
+                ('pescatarian','exclude_food_keywords','food_exclusion','{"keywords":["carne","pollo","pavo","cerdo","ternera","vacuno","cordero","jamon","jamón","embutido","salchicha","chorizo","gelatina"]}',10)
+            ) AS v(code,rule_code,rule_type,configuration,priority)
+              ON s.code=v.code
+            ON CONFLICT (specialization_id, rule_code) DO UPDATE SET
+                rule_type=EXCLUDED.rule_type,
+                configuration=EXCLUDED.configuration,
+                priority=EXCLUDED.priority,
+                active=TRUE;
+
+                    -- Los tenants existentes reciben inicialmente todo el catálogo activo.
             -- Las filas explícitas permiten posteriormente desactivar especializaciones
             -- sin afectar al catálogo global ni a otros tenants.
             INSERT INTO tenant_specializations(tenant_id, specialization_id, enabled)
