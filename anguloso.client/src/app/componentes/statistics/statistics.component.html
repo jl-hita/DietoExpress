@@ -47,6 +47,24 @@
         </mat-card-content>
       </mat-card>
 
+      <mat-card class="workload-card" *ngIf="data.scope === 'clinic'">
+        <mat-card-header><mat-card-title>Carga por nutricionista</mat-card-title></mat-card-header>
+        <mat-card-content>
+          <div class="workload-table" *ngIf="data.nutritionistWorkload.length; else noNutritionists">
+            <div class="workload-row workload-header">
+              <strong>Nutricionista</strong><strong>Pacientes</strong><strong>Citas</strong><strong>Check-ins</strong>
+            </div>
+            <div class="workload-row" *ngFor="let item of data.nutritionistWorkload">
+              <span>{{item.nutritionistName}}</span>
+              <strong>{{item.activePatients}}</strong>
+              <strong>{{item.completedAppointments}}</strong>
+              <strong>{{item.checkins}}</strong>
+            </div>
+          </div>
+          <ng-template #noNutritionists><p class="empty-state">No hay nutricionistas activos en el periodo.</p></ng-template>
+        </mat-card-content>
+      </mat-card>
+
       <mat-card class="detail-card">
         <mat-card-header><mat-card-title>Actividad del periodo</mat-card-title></mat-card-header>
         <mat-card-content>
