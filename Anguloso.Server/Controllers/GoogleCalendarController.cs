@@ -90,7 +90,7 @@ public sealed class GoogleCalendarController : ControllerBase
     {
         var (userId, tenantId) = Identity();
         if (userId == null || tenantId == null) return Unauthorized();
-        await _calendar.SyncUserAsync(userId.Value, cancellationToken);
+        await _calendar.SyncUserAsync(userId.Value, tenantId.Value, cancellationToken);
         return NoContent();
     }
 
