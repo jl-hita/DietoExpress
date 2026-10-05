@@ -135,6 +135,25 @@ public sealed class PatientDocumentFlowRegressionTests
         Assert.DoesNotContain("RequestServices.GetRequiredService<ILogger<DirectoryController>>", source);
     }
 
+
+    [Fact]
+    public void CompletedDocumentProvisioningMustBeReconciledAgainstRequiredDocuments()
+    {
+        var professional = ReadServerSource("Anguloso.Server/Controllers/ProfessionalDashboardController.cs");
+        var clinic = ReadServerSource("Anguloso.Server/Controllers/ClinicController.cs");
+
+        Assert.Contains("j.status='completed'", professional);
+        Assert.Contains("completed_incomplete", professional);
+        Assert.Contains("documentProvisioningIncompleteCount", professional);
+        Assert.Contains("dt.is_required_on_client_creation=true", professional);
+        Assert.Contains("pd.document_template_id=dt.id", professional);
+        Assert.Contains("pd.version=dt.version", professional);
+
+        Assert.Contains("IncompleteCount", clinic);
+        Assert.Contains("j.status='completed' AND EXISTS", clinic);
+        Assert.Contains("documentProvisioningIncompleteCount", clinic);
+    }
+
     [Fact]
     public void DocumentProvisioningJobMustBePersistentAndRetryable()
     {
