@@ -155,38 +155,208 @@ El objetivo es mantener una base técnica preparada para evolucionar desde una h
 
 ### Estado actual
 
-Los bloques principales ya implementados incluyen gestión multi-tenant de pacientes, dietas y recetas, portal del paciente, comunicación profesional-paciente, documentación y privacidad, automatizaciones, agenda, suscripciones/Stripe, **Módulo 16 — Directorio público y reservas** y **Módulo 17 — Soporte y comunicación con SuperAdmin**.
+DietoExpress ya cubre el núcleo de una plataforma SaaS profesional para nutricionistas y clínicas:
 
-El Módulo 16 queda completado en su primera versión: perfiles públicos, búsqueda y filtros, fichas profesionales, disponibilidad pública, reserva sin pago online, validación de concurrencia, creación/reutilización de pacientes, documentación inicial y acceso seguro al portal.
+- Gestión multi-tenant de profesionales, clínicas y pacientes.
+- Dietas, recetas, alimentos y bibliotecas compartidas.
+- Seguimiento y biometrías.
+- Portal del paciente.
+- Documentación, consentimiento y privacidad.
+- Comunicación y automatizaciones.
+- Agenda y citas.
+- Suscripciones y modelo SaaS con Stripe.
+- Roles normalizados: `superadmin`, `nutritionist` y `clinic_admin`.
+- Integraciones de alimentos con BEDCA, Open Food Facts y USDA.
+- Directorio público y reservas iniciales.
+- Soporte y comunicación con SuperAdmin.
+- Integración funcional con Google Calendar.
+- Despliegue Linux y documentación de instalación en evolución continua.
 
-El Módulo 17 queda **completado en su primera versión**, incluyendo:
+### Módulo 16 — Directorio público y reservas: COMPLETADO
 
-- Sistema de tickets/conversaciones para incidencias y consultas de soporte.
-- Aislamiento por tenant y control de acceso por rol.
-- Estados y prioridades de tickets.
+Primera versión cerrada funcionalmente:
+
+- Perfiles públicos voluntarios.
+- Búsqueda por ciudad, especialidad y consulta online.
+- Fichas profesionales.
+- Disponibilidad pública reutilizando la agenda.
+- Reserva pública sin pago online.
+- Revalidación server-side y protección frente a dobles reservas.
+- Creación/reutilización del paciente y asociación al profesional.
+- Provisión de documentación inicial.
+- Acceso seguro al portal del paciente.
+- Aislamiento multi-tenant y rate limiting.
+- Regresiones de seguridad.
+
+El pago online de consultas queda como evolución posterior.
+
+### Módulo 17 — Soporte y comunicación con SuperAdmin: COMPLETADO
+
+Primera versión cerrada funcionalmente:
+
+- Tickets y conversaciones de soporte.
+- Aislamiento por tenant y autorización por rol.
+- Estados y prioridades.
 - Asignación y seguimiento por SuperAdmin.
 - Notas internas no visibles para el cliente.
-- Historial y auditoría de cambios relevantes.
-- Notificaciones asociadas al ciclo de soporte.
-- Reapertura de conversaciones/tickets.
-- Filtros y búsqueda para gestión del soporte.
-- Protecciones y regresiones de seguridad revisadas.
+- Historial y auditoría.
+- Notificaciones.
+- Reapertura.
+- Filtros y búsqueda.
+- Protecciones y regresiones de seguridad.
 
-El M17 se considera funcionalmente cerrado en esta primera versión. Las mejoras futuras de soporte serán evolutivas y no forman parte de la deuda funcional del módulo base.
+Las mejoras futuras del soporte se consideran evolución y no deuda funcional del módulo base.
 
-### Próximos bloques
+### Google Calendar: COMPLETADO EN SU PRIMERA VERSIÓN
 
-- **Hardening y auditoría rápida de flujos** tras los últimos bloques de desarrollo.
-- **Despliegue Linux desde cero**: mantener la guía exhaustiva de instalación, configuración, secretos, directorios/logs, PostgreSQL, systemd, Nginx y HTTPS.
-- **Consulta guiada y herramientas avanzadas de gestión de consulta.**
-- **Estadísticas y gestión profesional.**
-- **Pagos puntuales y pago online de consultas.**
-- **Documentación legal y cumplimiento avanzado.**
-- **Gestión profesional y VERI*FACTU**: ingresos, gastos, registros de IVA e informes orientados a Renta, sin sustituir asesoramiento fiscal.
-- **Nuevos módulos profesionales** inspirados en herramientas de gestión nutricional existentes.
-- **Especializaciones y soporte multiidioma.**
-- **Evolución del directorio hacia marketplace completo**: clínicas, valoraciones, distancia, precio, verificación y monetización.
-- **Funcionalidades avanzadas de automatización e IA**, sujetas a revisión de privacidad, seguridad y marco legal.
+- Integración funcional con la agenda.
+- Correcciones de configuración y despliegue.
+- Endurecimiento.
+- Guía de instalación actualizada.
+
+### Fase actual — Estabilización
+
+1. **Hardening y auditoría rápida**
+   - Flujos críticos recientes.
+   - Autenticación, autorización y roles.
+   - Aislamiento multi-tenant.
+   - Portal y magic links.
+   - Reservas públicas y concurrencia.
+   - Soporte y notas internas.
+   - Stripe, webhooks y límites de planes.
+   - Agenda y Google Calendar.
+   - Endpoints públicos y rate limiting.
+   - Mantener regresiones automatizadas para cada defecto corregido.
+
+2. **Producción y operación**
+   - Guía completa para desplegar desde cero en Linux.
+   - PostgreSQL, permisos y comprobaciones de esquema.
+   - Directorios, logs y permisos.
+   - Secrets y configuración.
+   - systemd.
+   - Nginx, HTTPS y renovación de Let's Encrypt.
+   - CI/CD, rollback y comprobaciones post-despliegue.
+   - Automatización progresiva de tareas actualmente manuales.
+
+### Próximas evoluciones de producto
+
+3. **Consulta guiada y herramientas avanzadas de gestión de consulta**
+   - Historial clínico estructurado.
+   - Notas, patologías, alergias, intolerancias y medicación.
+   - Formularios y check-ins.
+   - Seguimiento entre consultas.
+   - Plantillas y herramientas para reducir trabajo repetitivo.
+
+4. **Estadísticas y gestión profesional**
+   - Dashboard.
+   - Evolución de pacientes.
+   - Métricas de actividad.
+   - Estadísticas de citas, pacientes y dietas.
+   - Indicadores de negocio.
+   - Exportaciones e informes.
+
+5. **Pagos puntuales y pago online de consultas**
+   - Pago de citas del directorio.
+   - Integración con Stripe separada de las suscripciones SaaS.
+   - Estados de pago y reserva.
+   - Cancelaciones y reembolsos.
+   - Liquidación/comisiones al profesional en una fase posterior.
+
+6. **Documentación legal y cumplimiento avanzado**
+   - Versionado de documentos.
+   - Trazabilidad de consentimientos.
+   - Exportación y borrado.
+   - Retención y minimización.
+   - Herramientas de soporte RGPD.
+   - Revisión jurídica externa cuando corresponda.
+
+7. **Gestión profesional y VERI*FACTU**
+   - Ingresos y gastos.
+   - Registros de IVA.
+   - Informes orientados a Renta.
+   - Preparación para VERI*FACTU.
+   - Trazabilidad e integridad de registros.
+   - Sin sustituir asesoramiento fiscal.
+
+### Evolución profesional
+
+8. **Nuevos módulos profesionales**
+   - Funcionalidades inspiradas en herramientas profesionales de nutrición.
+   - Prioridad a ahorro de tiempo y reducción de tareas administrativas.
+
+9. **Especializaciones**
+   - Plantillas y flujos específicos por especialidad.
+   - Parámetros configurables sin acoplar el núcleo a una única especialidad.
+
+10. **Multiidioma**
+    - Español.
+    - Inglés como siguiente prioridad.
+    - Traducción de frontend, emails, documentos y contenidos públicos.
+    - Formatos localizables.
+
+### Evolución del directorio
+
+11. **Marketplace completo**
+    - Clínicas y perfiles públicos.
+    - Distancia y búsquedas geográficas.
+    - Precio y disponibilidad avanzada.
+    - Valoraciones.
+    - Verificación profesional.
+    - Reserva con pago online.
+    - Monetización y visibilidad destacada.
+    - Controles contra abuso, fraude y scraping.
+
+### Automatización e IA
+
+12. **Automatización e IA avanzada**
+    - Generación asistida de dietas.
+    - Sugerencias de alimentos y recetas.
+    - Asistencia durante la consulta.
+    - Resúmenes y seguimiento.
+    - Automatizaciones inteligentes.
+    - Control de costes y cuotas de proveedores.
+    - Revisión de privacidad, seguridad y marco legal.
+    - Supervisión profesional del resultado.
+
+### Líneas futuras
+
+13. **Integraciones de salud y dispositivos**
+    - Garmin, Fitbit, Apple Health y Google Fit/Health Connect.
+    - Importación autorizada de actividad y otros datos.
+
+14. **Evolución de la experiencia del paciente**
+    - Check-ins configurables.
+    - Registro de peso y medidas.
+    - Adherencia y hábitos.
+    - Comunicación contextual.
+
+15. **Escalabilidad y operación**
+    - Observabilidad, métricas y alertas.
+    - Backups y restauración verificada.
+    - Gestión de logs y migraciones.
+    - Rate limiting y protección frente a abuso.
+    - Optimización de PostgreSQL y cachés.
+    - Preparación para crecimiento de tenants y clínicas.
+
+16. **Producto y negocio**
+    - Refinar planes Free/Professional/Clinic según uso real.
+    - Onboarding y activación.
+    - Analítica de conversión.
+    - Límites y capacidad de clínicas.
+    - Facturación SaaS y operaciones de cuenta.
+    - Preparación para comercialización a mayor escala.
+
+### Orden de prioridad
+
+1. Seguridad, hardening y corrección de regresiones.
+2. Producción, despliegue y operabilidad.
+3. Mejoras que reduzcan el trabajo diario del nutricionista.
+4. Monetización relacionada con funcionalidades existentes.
+5. Cumplimiento legal y fiscal.
+6. Evolución del marketplace.
+7. IA e integraciones avanzadas.
+
+Los módulos 16 y 17 quedan cerrados en su primera versión. Las mejoras posteriores se incorporarán como evolución y solo se reabrirá su alcance base si una auditoría encuentra un defecto real.
 
 ## Lo que demuestra este proyecto
 
