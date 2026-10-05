@@ -31,7 +31,7 @@ public sealed class LocationIqAddressProvider : IAddressProvider
             throw new InvalidOperationException("LocationIQ no está configurado.");
 
         var url =
-            $"https://api.locationiq.com/v1/autocomplete?key={Uri.EscapeDataString(apiKey)}&q={Uri.EscapeDataString(text.Trim())}&format=json&limit=5&countrycodes=es&accept-language=es&normalizecity=1&dedupe=1";
+            $"https://api.locationiq.com/v1/autocomplete?key={Uri.EscapeDataString(apiKey!)}&q={Uri.EscapeDataString(text.Trim())}&format=json&limit=5&countrycodes=es&accept-language=es&normalizecity=1&dedupe=1";
 
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         using var client = _httpClientFactory.CreateClient();
