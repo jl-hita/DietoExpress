@@ -155,35 +155,25 @@ El objetivo es mantener una base técnica preparada para evolucionar desde una h
 
 ### Estado actual
 
-Los bloques principales ya implementados incluyen gestión multi-tenant de pacientes, dietas y recetas, portal del paciente, comunicación profesional-paciente, documentación y privacidad, automatizaciones, agenda, suscripciones/Stripe, directorio público y **Módulo 17 — Soporte y comunicación con SuperAdmin**.
+Los bloques principales ya implementados incluyen gestión multi-tenant de pacientes, dietas y recetas, portal del paciente, comunicación profesional-paciente, documentación y privacidad, automatizaciones, agenda, suscripciones/Stripe, **Módulo 16 — Directorio público y reservas** y **Módulo 17 — Soporte y comunicación con SuperAdmin**.
+
+El Módulo 16 queda completado en su primera versión: perfiles públicos, búsqueda y filtros, fichas profesionales, disponibilidad pública, reserva sin pago online, validación de concurrencia, creación/reutilización de pacientes, documentación inicial y acceso seguro al portal.
 
 El Módulo 17 queda completado en su primera versión: tickets/conversaciones, aislamiento por tenant, notas internas, asignación a SuperAdmin, estados y prioridades, historial/auditoría, notificaciones, reapertura, filtros y búsqueda.
 
 ### Próximos bloques
 
-- **Hardening y auditoría rápida de flujos**: revisión de regresiones funcionales y de seguridad tras los últimos bloques de desarrollo.
-- **Despliegue Linux desde cero**: completar y mantener la guía exhaustiva de instalación, configuración, secretos, directorios/logs, PostgreSQL, systemd, Nginx y HTTPS.
-- **Google Calendar**: integración de agenda y documentación operativa, con endurecimiento de la configuración OAuth.
+- **Hardening y auditoría rápida de flujos** tras los últimos bloques de desarrollo.
+- **Despliegue Linux desde cero**: mantener la guía exhaustiva de instalación, configuración, secretos, directorios/logs, PostgreSQL, systemd, Nginx y HTTPS.
 - **Consulta guiada y herramientas avanzadas de gestión de consulta.**
 - **Estadísticas y gestión profesional.**
-- **Agenda y reservas públicas.**
 - **Pagos puntuales y pago online de consultas.**
 - **Documentación legal y cumplimiento avanzado.**
 - **Gestión profesional y VERI*FACTU**: ingresos, gastos, registros de IVA e informes orientados a Renta, sin sustituir asesoramiento fiscal.
 - **Nuevos módulos profesionales** inspirados en herramientas de gestión nutricional existentes.
 - **Especializaciones y soporte multiidioma.**
-- **Evolución del directorio hacia marketplace.**
+- **Evolución del directorio hacia marketplace completo**: clínicas, valoraciones, distancia, precio, verificación y monetización.
 - **Funcionalidades avanzadas de automatización e IA**, sujetas a revisión de privacidad, seguridad y marco legal.
-
-### Mejoras pendientes de soporte
-
-Como evolución posterior del Módulo 17 quedan, si aportan valor real:
-
-- contador de no leídos por ticket basado en última lectura;
-- filtros avanzados de tenant en la interfaz de SuperAdmin;
-- mejoras de UX del centro de notificaciones;
-- adjuntos en tickets, cuando exista un modelo seguro de almacenamiento y antivirus/validación;
-- cualquier realtime/polling solo si la necesidad real lo justifica; no forma parte de la primera versión.
 
 ## Lo que demuestra este proyecto
 
