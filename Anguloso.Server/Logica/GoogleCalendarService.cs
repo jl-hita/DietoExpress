@@ -59,12 +59,25 @@ public sealed class GoogleCalendarService
             ["code"] = code, ["client_id"] = clientId, ["client_secret"] = clientSecret,
             ["redirect_uri"] = redirectUri, ["grant_type"] = "authorization_code"
         }), cancellationToken);
-        if (!tokenResponse.IsSuccessStatusCode) throw new InvalidOperationException("Google no ha autorizado el acceso al calendario.");
-        var token = JsonSerializer.Deserialize<GoogleTokenResponse>(await tokenResponse.Content.ReadAsStringAsync(cancellationToken)) ?? throw new InvalidOperationException("Respuesta OAuth de Google no válida.");
+        var tokenBody = await tokenResponse.Content.ReadAsStringAsync(cancellationToken);
+        if (!tokenResponse.IsSuccessStatusCode)
+        {
+            var googleError = TryReadGoogleOAuthError(tokenBody);
+            _logger.LogError(
+                "Google rechazó el intercambio OAuth. HTTP {StatusCode}. Error {ErrorCode}. Descripción: {ErrorDescription}. RedirectUri configurado: {RedirectUri}.",
+                (int)tokenResponse.StatusCode,
+                googleError.Error,
+                googleError.Description,
+                redirectUri);
+            throw new InvalidOperationException("Google no ha autorizado el acceso al calendario.");
+        }
+        var token = JsonSerializer.Deserialize<GoogleTokenResponse>(tokenBody, JsonOptions)
+            ?? throw new InvalidOperationException("Respuesta OAuth de Google no válida.");
 
         var user = await _db.users.AsNoTracking().Where(u => u.id == oauthState.user_id && u.tenant_id != null && u.archived_at == null).Select(u => new { u.id, TenantId = u.tenant_id!.Value }).SingleOrDefaultAsync(cancellationToken)
             ?? throw new InvalidOperationException("Usuario no disponible.");
 
+        _logger.LogInformation("Google OAuth: intercambio de código correcto para el usuario {UserId}; preparando persistencia de la conexión.", oauthState.user_id);
         var email = await GetUserEmailAsync(token.access_token, cancellationToken);
         var existing = await _db.google_calendar_connections.SingleOrDefaultAsync(x => x.user_id == user.id && x.tenant_id == user.TenantId, cancellationToken);
         if (existing == null)
@@ -81,9 +94,10 @@ public sealed class GoogleCalendarService
         existing.sync_token = null;
         existing.updated_at = DateTime.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation("Google Calendar: conexión OAuth persistida para el usuario {UserId}, tenant {TenantId}, cuenta {GoogleAccountEmail}.", existing.user_id, existing.tenant_id, existing.google_account_email);
         try
         {
-            await SyncUserAsync(existing.user_id, cancellationToken);
+            await SyncUserAsync(existing.user_id, existing.tenant_id, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -113,7 +127,7 @@ public sealed class GoogleCalendarService
         var ids = await _db.google_calendar_connections.AsNoTracking().Select(x => new { x.user_id, x.tenant_id }).ToListAsync(cancellationToken);
         foreach (var item in ids)
         {
-            try { await SyncUserAsync(item.user_id, cancellationToken); }
+            try { await SyncUserAsync(item.user_id, item.tenant_id, cancellationToken); }
             catch (Exception ex) { _logger.LogError(ex, "Error sincronizando Google Calendar para usuario {UserId}.", item.user_id); }
         }
     }
@@ -122,9 +136,9 @@ public sealed class GoogleCalendarService
     // y publica las citas DietoExpress en Google mediante identificadores estables.
     // Sincroniza primero los cambios remotos mediante syncToken y después publica en Google
     // las citas locales; ambas direcciones comparten el identificador estable de DietoExpress.
-    public async Task SyncUserAsync(int userId, CancellationToken cancellationToken = default)
+    public async Task SyncUserAsync(int userId, int tenantId, CancellationToken cancellationToken = default)
     {
-        var connection = await _db.google_calendar_connections.SingleOrDefaultAsync(x => x.user_id == userId, cancellationToken);
+        var connection = await _db.google_calendar_connections.SingleOrDefaultAsync(x => x.user_id == userId && x.tenant_id == tenantId, cancellationToken);
         if (connection == null) return;
 
         var accessToken = await GetValidAccessTokenAsync(connection, cancellationToken);
@@ -290,6 +304,22 @@ public sealed class GoogleCalendarService
         {
             var body = await response.Content.ReadAsStringAsync(cancellationToken);
             throw new InvalidOperationException("Google Calendar rechazó la sincronización: " + body);
+        }
+    }
+
+    private static (string? Error, string? Description) TryReadGoogleOAuthError(string body)
+    {
+        try
+        {
+            using var json = JsonDocument.Parse(body);
+            var root = json.RootElement;
+            var error = root.TryGetProperty("error", out var errorElement) ? errorElement.GetString() : null;
+            var description = root.TryGetProperty("error_description", out var descriptionElement) ? descriptionElement.GetString() : null;
+            return (error, description);
+        }
+        catch (JsonException)
+        {
+            return (null, null);
         }
     }
 
