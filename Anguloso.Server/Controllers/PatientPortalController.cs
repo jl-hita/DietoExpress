@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Text;
 using Anguloso.Server.Logica;
 using Anguloso.Server.Logica.Utils;
 using Anguloso.Server.Model;
@@ -75,7 +76,7 @@ public class PatientPortalController : ControllerBase
         {
             var consumed = await _context.clients
                 .Where(c => c.id == client.id &&
-                            c.access_token == HashAccessToken(request.Token) &&
+                            c.access_token == PatientPortalAccessService.HashAccessToken(request.Token) &&
                             c.access_token_expires_at.HasValue &&
                             c.access_token_expires_at > DateTime.UtcNow)
                 .ExecuteUpdateAsync(setters => setters
@@ -415,8 +416,8 @@ public class PatientPortalController : ControllerBase
             });
         }
 
-        var rawToken = GenerateUrlSafeToken();
-        client.access_token = HashAccessToken(rawToken);
+        var rawToken = PatientPortalAccessService.GenerateUrlSafeToken();
+        client.access_token = PatientPortalAccessService.HashAccessToken(rawToken);
         client.access_token_expires_at = DateTime.UtcNow.AddHours(24);
         await _context.SaveChangesAsync();
 
@@ -441,8 +442,8 @@ public class PatientPortalController : ControllerBase
              (c.user_id == userId.Value ||
               _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active)))));
         if (client == null) return NotFound("Cliente no encontrado.");
-        var rawToken = GenerateUrlSafeToken();
-        client.access_token = HashAccessToken(rawToken);
+        var rawToken = PatientPortalAccessService.GenerateUrlSafeToken();
+        client.access_token = PatientPortalAccessService.HashAccessToken(rawToken);
         client.access_token_expires_at = DateTime.UtcNow.AddHours(24);
         client.portal_token_version++;
         await _context.SaveChangesAsync();
