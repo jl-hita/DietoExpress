@@ -424,6 +424,39 @@ public sealed class AutomationWorker : BackgroundService
         await command.ExecuteNonQueryAsync(cancellationToken);
 
         await WriteExecutionAsync(connection, job.Id, retry ? "retrying" : "failed", ex.Message, DateTime.UtcNow - started, cancellationToken);
+
+        // Una provisión documental agotada no puede quedar únicamente en los logs: crea una tarea visible
+        // para el profesional asignado. La clave basada en el job mantiene la alerta idempotente.
+        if (!retry && job.ActionType == "provision_patient_documents")
+        {
+            try
+            {
+                var action = AutomationJson.Deserialize<AutomationService.ProvisionPatientDocumentsAction>(job.Payload);
+                if (action is not null)
+                {
+                    using var scope = _scopeFactory.CreateScope();
+                    var automation = scope.ServiceProvider.GetRequiredService<AutomationService>();
+                    await automation.CreateProfessionalTaskAsync(
+                        job.TenantId,
+                        new ProfessionalTaskCreateRequest
+                        {
+                            ClientId = action.ClientId,
+                            AssignedUserId = action.UserId,
+                            Title = "Revisar documentación del paciente",
+                            Description = "La provisión automática de documentación ha fallado tras agotar todos los reintentos. Revisar la documentación del paciente y completar el alta manualmente si procede.",
+                            DueAt = DateTime.UtcNow,
+                            Priority = "urgent"
+                        },
+                        "automation:patient-documents.provision.failed",
+                        $"job:{job.Id}:document-provision-failed",
+                        cancellationToken);
+                }
+            }
+            catch (Exception taskEx)
+            {
+                _logger.LogError(taskEx, "No se pudo crear la tarea de recuperación del job documental {JobId}.", job.Id);
+            }
+        }
     }
 
     private static async Task WriteExecutionAsync(
