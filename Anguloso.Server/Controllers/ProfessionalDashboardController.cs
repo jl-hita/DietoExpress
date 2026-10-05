@@ -108,6 +108,58 @@ public sealed class ProfessionalDashboardController : ControllerBase
         }
 
         await using (var command = new NpgsqlCommand("""
+            SELECT
+                COUNT(*) FILTER (WHERE j.status IN ('pending','processing'))::int,
+                COUNT(*) FILTER (WHERE j.status='failed')::int
+            FROM automation_jobs j
+            JOIN clients cl ON cl.tenant_id=j.tenant_id
+            WHERE j.tenant_id=@tenant
+              AND j.action_type='provision_patient_documents'
+              AND j.idempotency_key LIKE CONCAT('documents:provision:', @tenant, ':%:creation')
+              AND cl.archived_at IS NULL
+              AND j.idempotency_key LIKE CONCAT('documents:provision:', @tenant, ':', cl.id, ':creation');
+            """, connection))
+        {
+            command.Parameters.AddWithValue("tenant", tenantId.Value);
+            await using var reader = await command.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                result.DocumentProvisioningRetryCount = reader.GetInt32(0);
+                result.DocumentProvisioningFailedCount = reader.GetInt32(1);
+            }
+        }
+
+        await using (var command = new NpgsqlCommand("""
+            SELECT cl.id, COALESCE(cl.full_name,'Paciente'), j.status, j.attempts, j.max_attempts,
+                   j.last_error, j.updated_at
+            FROM automation_jobs j
+            JOIN clients cl
+              ON cl.tenant_id=j.tenant_id
+             AND j.idempotency_key = CONCAT('documents:provision:', j.tenant_id, ':', cl.id, ':creation')
+            WHERE j.tenant_id=@tenant
+              AND j.action_type='provision_patient_documents'
+              AND j.status IN ('pending','processing','failed')
+              AND cl.archived_at IS NULL
+            ORDER BY CASE j.status WHEN 'failed' THEN 0 ELSE 1 END, j.updated_at DESC
+            LIMIT 10;
+            """, connection))
+        {
+            command.Parameters.AddWithValue("tenant", tenantId.Value);
+            await using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+                result.DocumentProvisioningIssues.Add(new DashboardDocumentProvisioningDto
+                {
+                    ClientId = reader.GetInt32(0),
+                    ClientName = reader.GetString(1),
+                    Status = reader.GetString(2),
+                    Attempts = reader.GetInt32(3),
+                    MaxAttempts = reader.GetInt32(4),
+                    LastError = reader.IsDBNull(5) ? null : reader.GetString(5),
+                    UpdatedAt = reader.GetDateTime(6)
+                });
+        }
+
+        await using (var command = new NpgsqlCommand("""
             SELECT COUNT(*)::int
             FROM clients cl
             WHERE cl.tenant_id=@tenant AND cl.archived_at IS NULL
@@ -232,6 +284,9 @@ public sealed class ProfessionalDashboardDto
     public int UnreadMessageCount { get; set; }
     public int PendingDocumentCount { get; set; }
     public int PendingPatientDataCount { get; set; }
+    public int DocumentProvisioningRetryCount { get; set; }
+    public int DocumentProvisioningFailedCount { get; set; }
+    public List<DashboardDocumentProvisioningDto> DocumentProvisioningIssues { get; set; } = [];
     public List<DashboardTaskDto> OpenTasks { get; set; } = [];
     public List<DashboardAppointmentDto> TodayAppointments { get; set; } = [];
     public List<DashboardPendingClientDto> PendingDocuments { get; set; } = [];
@@ -264,6 +319,17 @@ public sealed class DashboardAppointmentDto
     public DateTime StartsAt { get; set; }
     public DateTime EndsAt { get; set; }
     public string Status { get; set; } = "";
+}
+
+public sealed class DashboardDocumentProvisioningDto
+{
+    public int ClientId { get; set; }
+    public string ClientName { get; set; } = "";
+    public string Status { get; set; } = "";
+    public int Attempts { get; set; }
+    public int MaxAttempts { get; set; }
+    public string? LastError { get; set; }
+    public DateTime UpdatedAt { get; set; }
 }
 
 public sealed class DashboardPendingClientDto
