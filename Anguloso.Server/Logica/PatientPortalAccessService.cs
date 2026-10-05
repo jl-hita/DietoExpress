@@ -45,7 +45,7 @@ public sealed class PatientPortalAccessService
     public static string HashAccessToken(string token) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))).ToLowerInvariant();
 
-    private static string GenerateUrlSafeToken()
+    public static string GenerateUrlSafeToken()
     {
         var bytes = new byte[32];
         RandomNumberGenerator.Fill(bytes);
