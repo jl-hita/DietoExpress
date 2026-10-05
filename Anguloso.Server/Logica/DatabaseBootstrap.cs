@@ -2160,8 +2160,9 @@ public static class DatabaseBootstrap
                 BEFORE INSERT OR UPDATE OF name, category ON foods
                 FOR EACH ROW EXECUTE FUNCTION classify_food_dietary_flags();
 
-            UPDATE foods SET dietary_flags = ARRAY[]::TEXT[];
-            UPDATE foods SET dietary_flags = classify_food_dietary_flags();
+            -- Recalcular las banderas existentes haciendo que el trigger ejecute la misma clasificación
+            -- que se aplicará automáticamente a los nuevos alimentos y a los cambios de nombre/categoría.
+            UPDATE foods SET name = name;
         ");
 
         context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('specializations-v1') ON CONFLICT (id) DO NOTHING;");
