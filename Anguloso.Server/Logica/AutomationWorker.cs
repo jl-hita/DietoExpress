@@ -399,7 +399,9 @@ public sealed class AutomationWorker : BackgroundService
             """, connection);
         command.Parameters.AddWithValue("id", jobId);
         command.Parameters.AddWithValue("attempts", attempts);
-        await command.ExecuteNonQueryAsync(cancellationToken);
+        var updated = await command.ExecuteNonQueryAsync(cancellationToken);
+        if (updated != 1)
+            return;
         await WriteExecutionAsync(connection, jobId, "completed", null, DateTime.UtcNow - started, cancellationToken);
     }
 
@@ -407,6 +409,8 @@ public sealed class AutomationWorker : BackgroundService
     // de reintentos, manteniendo trazabilidad sin perder el trabajo original.
     private async Task FailJobAsync(AutomationJob job, Exception ex, DateTime started, CancellationToken cancellationToken)
     {
+        // La actualización queda acotada al intento reclamado: si el job fue recuperado y otro worker lo reclamó,
+        // el worker antiguo no puede sobrescribir el resultado del nuevo intento.
         // El backoff crece por intento hasta 5 minutos para no castigar continuamente servicios externos que estén
         // temporalmente degradados. La comparación usa el intento ya consumido al reclamar el job.
         var retry = job.Attempts < job.MaxAttempts;
@@ -427,13 +431,15 @@ public sealed class AutomationWorker : BackgroundService
             : """
               UPDATE automation_jobs
               SET status='failed', locked_at=NULL, last_error=@error, updated_at=NOW()
-              WHERE id=@id;
+              WHERE id=@id AND status='processing' AND attempts=@attempts;
               """, connection);
         command.Parameters.AddWithValue("id", job.Id);
         command.Parameters.AddWithValue("attempts", job.Attempts);
         command.Parameters.AddWithValue("error", ex.Message.Length > 4000 ? ex.Message[..4000] : ex.Message);
         if (retry) command.Parameters.AddWithValue("delay", delay.TotalSeconds);
-        await command.ExecuteNonQueryAsync(cancellationToken);
+        var updated = await command.ExecuteNonQueryAsync(cancellationToken);
+        if (updated != 1)
+            return;
 
         await WriteExecutionAsync(connection, job.Id, retry ? "retrying" : "failed", ex.Message, DateTime.UtcNow - started, cancellationToken);
 
