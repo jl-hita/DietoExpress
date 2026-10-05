@@ -100,6 +100,42 @@ public sealed class PatientDocumentFlowRegressionTests
         Assert.Contains("pd.status='pending'", source);
     }
     [Fact]
+    public void DashboardMustExposeDocumentProvisioningFailuresAndRetryingJobs()
+    {
+        var source = ReadServerSource("Anguloso.Server/Controllers/ProfessionalDashboardController.cs");
+
+        Assert.Contains("DocumentProvisioningRetryCount", source);
+        Assert.Contains("DocumentProvisioningFailedCount", source);
+        Assert.Contains("DocumentProvisioningIssues", source);
+        Assert.Contains("status IN ('pending','processing','failed')", source);
+        Assert.Contains("a.nutritionist_id=@user AND a.is_active", source);
+        Assert.Contains("documents:provision:", source);
+    }
+
+    [Fact]
+    public void FailedDocumentProvisioningMustCreateAnIdempotentRecoveryTask()
+    {
+        var source = ReadServerSource("Anguloso.Server/Logica/AutomationWorker.cs");
+
+        Assert.Contains("job.ActionType == "provision_patient_documents"", source);
+        Assert.Contains("CreateProfessionalTaskAsync", source);
+        Assert.Contains("automation:patient-documents.provision.failed", source);
+        Assert.Contains("job:{job.Id}:document-provision-failed", source);
+        Assert.Contains("Revisar documentación del paciente", source);
+    }
+
+    [Fact]
+    public void PublicBookingMustUseInjectedLogger()
+    {
+        var source = ReadServerSource("Anguloso.Server/Controllers/DirectoryController.cs");
+
+        Assert.Contains("ILogger<DirectoryController> _logger", source);
+        Assert.Contains("ILogger<DirectoryController> logger", source);
+        Assert.Contains("_logger.LogError", source);
+        Assert.DoesNotContain("RequestServices.GetRequiredService<ILogger<DirectoryController>>", source);
+    }
+
+    [Fact]
     public void DocumentProvisioningJobMustBePersistentAndRetryable()
     {
         var service = ReadServerSource("Anguloso.Server/Logica/AutomationService.cs");
