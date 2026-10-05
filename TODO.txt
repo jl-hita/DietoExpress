@@ -527,7 +527,18 @@ ESTADO ACTUAL
   - Provisión de documentación inicial.
   - Acceso inicial seguro al portal del paciente.
   - Aislamiento multi-tenant, rate limiting y regresiones de seguridad.
-- Módulo 17 — Soporte y comunicación con SuperAdmin: COMPLETADO en su primera versión.
+- Módulo 17 — Soporte y comunicación con SuperAdmin: COMPLETADO.
+  - Sistema de tickets/conversaciones para incidencias y consultas de soporte.
+  - Aislamiento por tenant y control de acceso por rol.
+  - Estados y prioridades de tickets.
+  - Asignación y seguimiento por SuperAdmin.
+  - Notas internas no visibles para el cliente.
+  - Historial/auditoría de cambios relevantes.
+  - Notificaciones asociadas al ciclo de soporte.
+  - Reapertura de conversaciones/tickets.
+  - Filtros y búsqueda para gestión del soporte.
+  - Protección de los flujos y regresiones de seguridad revisadas.
+  - Primera versión cerrada; las futuras mejoras son evolutivas, no deuda funcional del módulo.
 - Google Calendar: integración funcional y endurecimiento/documentación realizados.
 
 PRÓXIMOS BLOQUES
@@ -543,8 +554,8 @@ PRÓXIMOS BLOQUES
 10. Evolución del directorio hacia marketplace completo: clínicas, valoraciones, distancia, precio, verificación y monetización.
 11. Automatización e IA avanzada, sujeta a revisión de privacidad, seguridad y marco legal.
 
-NOTA SOBRE EL MÓDULO 16
-El directorio y la reserva pública ya no deben tratarse como trabajo pendiente. El pago online de consultas sí queda explícitamente como evolución posterior.
+NOTA SOBRE LOS MÓDULOS 16 Y 17
+El directorio y la reserva pública del M16, así como el soporte y comunicación con SuperAdmin del M17, deben considerarse bloques funcionalmente cerrados en su primera versión. Las mejoras posteriores deben entrar como evolución priorizada y no reabrir el alcance base salvo que una auditoría encuentre un defecto real.
 
 -- Control de cuotas de proveedores de direcciones
 CREATE TABLE external_api_usage (
