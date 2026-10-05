@@ -50,7 +50,7 @@ public sealed class ProfessionalStatisticsController : ControllerBase
             Scope = isClinicAdmin ? "clinic" : "nutritionist"
         };
 
-        var scope = isClinicAdmin
+        var activePatientScope = isClinicAdmin
             ? ""
             : """
               AND EXISTS (
@@ -61,6 +61,18 @@ public sealed class ProfessionalStatisticsController : ControllerBase
               )
               """;
 
+        var periodPatientScope = isClinicAdmin
+            ? ""
+            : """
+              AND EXISTS (
+                  SELECT 1 FROM client_nutritionist_assignments ca
+                  WHERE ca.client_id = c.id
+                    AND ca.nutritionist_id = @user
+                    AND ca.assigned_at < @to
+                    AND (ca.unassigned_at IS NULL OR ca.unassigned_at >= @from)
+              )
+              """;
+
         await using (var command = new NpgsqlCommand($"""
             SELECT
                 COUNT(*) FILTER (WHERE c.archived_at IS NULL)::int,
@@ -68,7 +80,7 @@ public sealed class ProfessionalStatisticsController : ControllerBase
                 COUNT(*) FILTER (WHERE c.archived_at >= @from AND c.archived_at < @to)::int
             FROM clients c
             WHERE c.tenant_id=@tenant
-              {scope};
+              {activePatientScope};
             """, connection))
         {
             AddCommonParameters(command, tenantId.Value, userId, fromUtc, toExclusiveUtc);
@@ -117,7 +129,8 @@ public sealed class ProfessionalStatisticsController : ControllerBase
                   SELECT 1 FROM client_nutritionist_assignments ca
                   WHERE ca.client_id=pc.client_id
                     AND ca.nutritionist_id=@user
-                    AND ca.is_active
+                    AND ca.assigned_at <= pc.submitted_at
+                    AND (ca.unassigned_at IS NULL OR ca.unassigned_at >= pc.submitted_at)
               )
               """;
 
@@ -177,7 +190,7 @@ public sealed class ProfessionalStatisticsController : ControllerBase
                     WHERE c.tenant_id=@tenant
                       AND c.created_at >= m.month_start
                       AND c.created_at < m.month_start + interval '1 month'
-                      {scope}
+                      {periodPatientScope}
                 ),
                 (
                     SELECT COUNT(*)::int FROM patient_appointments pa
@@ -201,7 +214,8 @@ public sealed class ProfessionalStatisticsController : ControllerBase
                           SELECT 1 FROM client_nutritionist_assignments ca
                           WHERE ca.client_id=pc.client_id
                             AND ca.nutritionist_id=@user
-                            AND ca.is_active
+                            AND ca.assigned_at <= pc.submitted_at
+                            AND (ca.unassigned_at IS NULL OR ca.unassigned_at >= pc.submitted_at)
                       )
                       """)}
                 )
