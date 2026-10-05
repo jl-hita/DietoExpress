@@ -55,11 +55,12 @@ public class AuthorizationRegressionTests
         var source = ReadServerController("ProfessionalStatisticsController.cs");
 
         Assert.Contains("FROM biometrics b", source);
-        Assert.Contains("b.tenant_id=@tenant", source);
+        Assert.Contains("JOIN clients c ON c.id=b.client_id", source);
+        Assert.Contains("c.tenant_id=@tenant", source);
         Assert.Contains("b.measurement_date >= @from::date", source);
-        Assert.Contains("last_weight-first_weight", source);
-        Assert.Contains("last_body_fat-first_body_fat", source);
-        Assert.Contains("last_muscle-first_muscle", source);
+        Assert.Contains("AVG(last_weight-first_weight)", source);
+        Assert.Contains("AVG(last_body_fat-first_body_fat)", source);
+        Assert.Contains("AVG(last_muscle-first_muscle)", source);
     }
 
     [Fact]
