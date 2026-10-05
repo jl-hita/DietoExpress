@@ -2093,9 +2093,9 @@ public static class DatabaseBootstrap
             SELECT s.id, v.rule_code, v.rule_type, v.configuration::jsonb, v.priority, TRUE
             FROM specializations s
             JOIN (VALUES
-                ('vegan','exclude_food_keywords','food_exclusion','{"required_flags":["animal"],"keywords":["carne","pollo","pavo","cerdo","ternera","vacuno","cordero","jamon","jamón","embutido","salchicha","chorizo","atun","atún","salmon","salmón","pescado","marisco","gamba","camaron","camarón","mejillon","mejillón","huevo","leche","queso","yogur","yogurt","nata","mantequilla","miel","gelatina"]}',10),
-                ('vegetarian','exclude_food_keywords','food_exclusion','{"required_flags":["meat","fish","gelatin"],"keywords":["carne","pollo","pavo","cerdo","ternera","vacuno","cordero","jamon","jamón","embutido","salchicha","chorizo","atun","atún","salmon","salmón","pescado","marisco","gamba","camaron","camarón","mejillon","mejillón","gelatina"]}',10),
-                ('pescatarian','exclude_food_keywords','food_exclusion','{"required_flags":["meat","gelatin"],"keywords":["carne","pollo","pavo","cerdo","ternera","vacuno","cordero","jamon","jamón","embutido","salchicha","chorizo","gelatina"]}',10)
+                ('vegan','exclude_food_keywords','food_exclusion','{""required_flags"":[""animal""],""keywords"":[""carne"",""pollo"",""pavo"",""cerdo"",""ternera"",""vacuno"",""cordero"",""jamon"",""jamón"",""embutido"",""salchicha"",""chorizo"",""atun"",""atún"",""salmon"",""salmón"",""pescado"",""marisco"",""gamba"",""camaron"",""camarón"",""mejillon"",""mejillón"",""huevo"",""leche"",""queso"",""yogur"",""yogurt"",""nata"",""mantequilla"",""miel"",""gelatina""]}',10),
+                ('vegetarian','exclude_food_keywords','food_exclusion','{""required_flags"":[""meat"",""fish"",""gelatin""],""keywords"":[""carne"",""pollo"",""pavo"",""cerdo"",""ternera"",""vacuno"",""cordero"",""jamon"",""jamón"",""embutido"",""salchicha"",""chorizo"",""atun"",""atún"",""salmon"",""salmón"",""pescado"",""marisco"",""gamba"",""camaron"",""camarón"",""mejillon"",""mejillón"",""gelatina""]}',10),
+                ('pescatarian','exclude_food_keywords','food_exclusion','{""required_flags"":[""meat"",""gelatin""],""keywords"":[""carne"",""pollo"",""pavo"",""cerdo"",""ternera"",""vacuno"",""cordero"",""jamon"",""jamón"",""embutido"",""salchicha"",""chorizo"",""gelatina""]}',10)
             ) AS v(code,rule_code,rule_type,configuration,priority)
               ON s.code=v.code
             ON CONFLICT (specialization_id, rule_code) DO UPDATE SET
