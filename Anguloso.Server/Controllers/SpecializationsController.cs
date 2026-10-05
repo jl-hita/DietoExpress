@@ -154,7 +154,7 @@ public sealed class SpecializationsController : ControllerBase
         if (distinctItems.Any(x => x.Notes?.Length > 2000))
             return BadRequest("Las notas de especialización no pueden superar los 2000 caracteres.");
 
-        await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted);
+        var connection = _context.Database.GetDbConnection();\n        await OpenConnectionAsync(connection);\n        await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.ReadCommitted);
         try
         {
             await using (var delete = CreateCommand(@"
@@ -176,7 +176,7 @@ public sealed class SpecializationsController : ControllerBase
                       ON ts.specialization_id=s.id AND ts.tenant_id=@tenant AND ts.enabled=TRUE
                     WHERE s.active=TRUE AND s.id = ANY(@ids);"))
                 {
-                    Add(validate, "tenant", access.TenantId);
+                    validate.Transaction = transaction;\n                    Add(validate, "tenant", access.TenantId);
                     AddArray(validate, "ids", distinctItems.Select(x => x.SpecializationId).ToArray());
                     await using var reader = await validate.ExecuteReaderAsync();
                     while (await reader.ReadAsync()) validIds.Add(reader.GetInt32(0));
@@ -194,7 +194,7 @@ public sealed class SpecializationsController : ControllerBase
                         INSERT INTO client_specializations
                             (tenant_id, client_id, specialization_id, notes, created_by_user_id, updated_at)
                         VALUES (@tenant,@client,@specialization,@notes,@user,NOW());");
-                    Add(insert, "tenant", access.TenantId);
+                    insert.Transaction = transaction;\n                    Add(insert, "tenant", access.TenantId);
                     Add(insert, "client", clientId);
                     Add(insert, "specialization", item.SpecializationId);
                     Add(insert, "notes", (object?)item.Notes ?? DBNull.Value);
