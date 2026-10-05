@@ -50,6 +50,24 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void ProfessionalStatistics_ClinicWorkloadIsTenantAndRoleScoped()
+    {
+        var source = ReadServerController("ProfessionalStatisticsController.cs");
+
+        Assert.Contains("if (isClinicAdmin)", source);
+        Assert.Contains("FROM users u", source);
+        Assert.Contains("u.tenant_id=@tenant", source);
+        Assert.Contains("u.role='nutritionist'", source);
+        Assert.Contains("u.archived_at IS NULL", source);
+        Assert.Contains("ca.is_active", source);
+        Assert.Contains("c.tenant_id=@tenant", source);
+        Assert.Contains("pa.tenant_id=@tenant", source);
+        Assert.Contains("pc.tenant_id=@tenant", source);
+        Assert.Contains("ca.assigned_at <= pc.submitted_at", source);
+        Assert.Contains("NutritionistWorkload", source);
+    }
+
+    [Fact]
     public void ProfessionalStatistics_IncludesAnthropometricMetricsWithTenantScope()
     {
         var source = ReadServerController("ProfessionalStatisticsController.cs");
