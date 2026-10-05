@@ -1160,10 +1160,11 @@ public class AuthorizationRegressionTests
     public void PatientMagicLinks_StoreOnlyHashedTokens()
     {
         var source = ReadServerController("PatientPortalController.cs");
+        var accessService = ReadServerLogic("PatientPortalAccessService.cs");
 
-        Assert.Contains("HashAccessToken(request.Token)", source);
-        Assert.Contains("client.access_token = HashAccessToken(rawToken)", source);
-        Assert.Contains("SHA256.HashData", source);
+        Assert.Contains("PatientPortalAccessService.HashAccessToken(request.Token)", source);
+        Assert.Contains("client.access_token = PatientPortalAccessService.HashAccessToken(rawToken)", source);
+        Assert.Contains("SHA256.HashData", accessService);
         Assert.Contains("AccessToken = rawToken", source);
     }
 
@@ -1172,7 +1173,7 @@ public class AuthorizationRegressionTests
     {
         var source = ReadServerController("PatientPortalController.cs");
 
-        Assert.Contains("c.access_token == HashAccessToken(request.Token)", source);
+        Assert.Contains("c.access_token == PatientPortalAccessService.HashAccessToken(request.Token)", source);
         Assert.DoesNotContain("c.access_token == request.Token", source);
     }
 
