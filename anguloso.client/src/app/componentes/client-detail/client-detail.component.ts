@@ -5,6 +5,8 @@ import { FoodService } from '../../servicios/food.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ClientDetail, Biometric, ClientDiet } from '../../modelos/client';
+import { AddressSuggestion } from '../../modelos/address';
+import { AddressAutocompleteComponent } from '../address-autocomplete/address-autocomplete.component';
 import { FoodInExchangeGroup } from '../../modelos/food-exchange-group';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
@@ -53,7 +55,8 @@ import { debounceTime, filter, switchMap } from 'rxjs/operators';
     MatProgressSpinnerModule,
     MatCardModule,
     MatDialogModule,
-    RouterLink
+    RouterLink,
+    AddressAutocompleteComponent
   ],
   standalone: true
 })
@@ -160,6 +163,13 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
       fullName: ['', Validators.required],
       email: [''],
       phone: [''],
+      address: [''],
+      postalCode: [''],
+      city: [''],
+      province: [''],
+      country: ['España'],
+      latitude: [null],
+      longitude: [null],
       birthDate: [''],
       gender: [''],
       notes: [''],
@@ -348,6 +358,13 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
           fullName: c.fullName,
           email: c.email,
           phone: c.phone,
+          address: c.address || '',
+          postalCode: c.postalCode || '',
+          city: c.city || '',
+          province: c.province || '',
+          country: c.country || 'España',
+          latitude: c.latitude ?? null,
+          longitude: c.longitude ?? null,
           birthDate: this.toDateInputValue(c.birthDate),
           gender: this.normalizeGender(c.gender),
           notes: c.notes,
@@ -377,11 +394,36 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     });
   }
 
+  /** Aplica al formulario los datos estructurados devueltos por el autocompletado. */
+  applyAddressSuggestion(suggestion: AddressSuggestion): void {
+    this.clientForm.patchValue({
+      address: suggestion.displayName,
+      postalCode: suggestion.postalCode,
+      city: suggestion.city,
+      province: suggestion.province,
+      country: suggestion.country || 'España',
+      latitude: suggestion.latitude ?? null,
+      longitude: suggestion.longitude ?? null
+    });
+  }
+
+  /** Mantiene la edición manual de la dirección independiente de la sugerencia seleccionada. */
+  onAddressValueChanged(value: string): void {
+    this.clientForm.patchValue({ address: value, latitude: null, longitude: null });
+  }
+
   private getClientPayload() {
     return {
       fullName: this.clientForm.value.fullName,
       email: this.clientForm.value.email,
       phone: this.clientForm.value.phone,
+      address: this.clientForm.value.address,
+      postalCode: this.clientForm.value.postalCode,
+      city: this.clientForm.value.city,
+      province: this.clientForm.value.province,
+      country: this.clientForm.value.country,
+      latitude: this.clientForm.value.latitude,
+      longitude: this.clientForm.value.longitude,
       birthDate: this.clientForm.value.birthDate,
       gender: this.clientForm.value.gender,
       notes: this.clientForm.value.notes,

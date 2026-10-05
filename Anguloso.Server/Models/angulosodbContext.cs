@@ -108,6 +108,11 @@ public partial class angulosodbContext : DbContext
             entity.Property(e => e.created_at).HasDefaultValueSql("now()");
             entity.HasIndex(e => e.archived_at, "idx_clients_archived_at");
             entity.Property(e => e.email).HasMaxLength(150);
+            entity.Property(e => e.address).HasMaxLength(300);
+            entity.Property(e => e.postal_code).HasMaxLength(20);
+            entity.Property(e => e.city).HasMaxLength(120);
+            entity.Property(e => e.province).HasMaxLength(120);
+            entity.Property(e => e.country).HasMaxLength(120);
             entity.Property(e => e.full_name)
                 .IsRequired()
                 .HasMaxLength(100);
