@@ -9,6 +9,14 @@ export interface ProfessionalStatisticsPoint {
   checkins:number;
 }
 
+export interface ProfessionalStatisticsWorkload {
+  nutritionistId:number;
+  nutritionistName:string;
+  activePatients:number;
+  completedAppointments:number;
+  checkins:number;
+}
+
 export interface ProfessionalStatistics {
   from:string;
   to:string;
@@ -25,6 +33,7 @@ export interface ProfessionalStatistics {
   averageAdherence:number|null;
   subscriptionRevenue:number;
   paidPayments:number;
+  nutritionistWorkload:ProfessionalStatisticsWorkload[];
   weightChangeKg:number|null;
   bodyFatChangePoints:number|null;
   muscleMassChangeKg:number|null;
