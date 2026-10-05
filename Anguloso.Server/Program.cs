@@ -40,6 +40,17 @@ public class Program
         builder.Services.AddScoped<PatientDocumentService>(); builder.Services.AddSingleton<PatientDocumentTemplateSeeder>(); builder.Services.AddScoped<PrivacyOperationsService>(); builder.Services.AddScoped<LegalGovernanceService>();
         builder.Services.AddDataProtection();
         builder.Services.AddHttpClient();
+
+        // Las claves reales llegan desde la configuración del servidor. Los límites por defecto
+        // reflejan los planes gratuitos actuales y se pueden ajustar sin recompilar la aplicación.
+        var addressProviderOptions = builder.Configuration.GetSection("AddressProviders").Get<AddressProviderOptions>()
+            ?? new AddressProviderOptions();
+        addressProviderOptions.GeoapifyApiKey = builder.Configuration["Geoapify:ApiKey"] ?? addressProviderOptions.GeoapifyApiKey;
+        addressProviderOptions.LocationIqApiKey = builder.Configuration["LocationIQ:ApiKey"] ?? addressProviderOptions.LocationIqApiKey;
+        builder.Services.AddSingleton(addressProviderOptions);
+        builder.Services.AddSingleton<AddressUsageService>();
+        builder.Services.AddSingleton<IAddressProvider, GeoapifyAddressProvider>();
+        builder.Services.AddSingleton<IAddressProvider, LocationIqAddressProvider>();
         builder.Services.AddSingleton<GoogleCalendarService>();
         builder.Services.AddHostedService<GoogleCalendarWorker>();
         builder.Services.AddHostedService<AutomationWorker>();
