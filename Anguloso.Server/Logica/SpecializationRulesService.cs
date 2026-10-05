@@ -162,6 +162,120 @@ public sealed class SpecializationRulesService
         return excluded;
     }
 
+public sealed record NutritionProfile(
+    double ProteinGramsPerKg,
+    double? ProteinMinGramsPerKg,
+    double? ProteinMaxGramsPerKg);
+
+    /// <summary>
+    /// Devuelve el perfil nutricional estructurado de la especialización deportiva.
+    /// Si hay más de un perfil incompatible activo, no se aplica ninguno automáticamente.
+    /// </summary>
+    public async Task<NutritionProfile?> GetNutritionProfileAsync(
+        int clientId,
+        int tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = _context.Database.GetDbConnection();
+        if (connection.State != ConnectionState.Open)
+            await connection.OpenAsync(cancellationToken);
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = @"
+            SELECT sr.configuration
+            FROM client_specializations cs
+            JOIN specializations s ON s.id=cs.specialization_id AND s.active=TRUE
+            JOIN tenant_specializations ts
+              ON ts.specialization_id=s.id AND ts.tenant_id=cs.tenant_id AND ts.enabled=TRUE
+            JOIN specialization_rules sr
+              ON sr.specialization_id=s.id AND sr.rule_type='nutrition_profile' AND sr.active=TRUE
+            WHERE cs.client_id=@client AND cs.tenant_id=@tenant
+            ORDER BY sr.priority ASC, sr.id ASC;";
+
+        Add(command, "client", clientId);
+        Add(command, "tenant", tenantId);
+
+        NutritionProfile? profile = null;
+        var profilesFound = 0;
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            if (reader.IsDBNull(0)) continue;
+            try
+            {
+                using var document = JsonDocument.Parse(reader.GetString(0));
+                var root = document.RootElement;
+                if (!root.TryGetProperty("protein_g_per_kg", out var protein))
+                    continue;
+
+                profilesFound++;
+                if (profilesFound > 1) return null;
+
+                profile = new NutritionProfile(
+                    protein.GetDouble(),
+                    root.TryGetProperty("protein_min_g_per_kg", out var min) ? min.GetDouble() : null,
+                    root.TryGetProperty("protein_max_g_per_kg", out var max) ? max.GetDouble() : null);
+            }
+            catch (JsonException)
+            {
+                // Una configuración clínica mal formada no debe romper la generación.
+            }
+        }
+
+        return profile;
+    }
+
+    /// <summary>
+    /// Recupera indicaciones clínicas informativas asociadas a las especializaciones activas.
+    /// Son contexto para el profesional, no prescripciones automáticas.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> GetClinicalGuidanceAsync(
+        int clientId,
+        int tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = _context.Database.GetDbConnection();
+        if (connection.State != ConnectionState.Open)
+            await connection.OpenAsync(cancellationToken);
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = @"
+            SELECT sr.configuration
+            FROM client_specializations cs
+            JOIN specializations s ON s.id=cs.specialization_id AND s.active=TRUE
+            JOIN tenant_specializations ts
+              ON ts.specialization_id=s.id AND ts.tenant_id=cs.tenant_id AND ts.enabled=TRUE
+            JOIN specialization_rules sr
+              ON sr.specialization_id=s.id AND sr.rule_type='clinical_guidance' AND sr.active=TRUE
+            WHERE cs.client_id=@client AND cs.tenant_id=@tenant
+            ORDER BY sr.priority ASC, sr.id ASC;";
+
+        Add(command, "client", clientId);
+        Add(command, "tenant", tenantId);
+
+        var guidance = new List<string>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            if (reader.IsDBNull(0)) continue;
+            try
+            {
+                using var document = JsonDocument.Parse(reader.GetString(0));
+                if (document.RootElement.TryGetProperty("message", out var message))
+                {
+                    var value = message.GetString()?.Trim();
+                    if (!string.IsNullOrWhiteSpace(value)) guidance.Add(value);
+                }
+            }
+            catch (JsonException)
+            {
+                // La guía es informativa: una configuración inválida se omite.
+            }
+        }
+
+        return guidance;
+    }
+
     private static void Add(DbCommand command, string name, object value)
     {
         var parameter = command.CreateParameter();
