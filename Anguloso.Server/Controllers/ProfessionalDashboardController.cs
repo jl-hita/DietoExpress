@@ -148,6 +148,7 @@ public sealed class ProfessionalDashboardController : ControllerBase
                    (j.status='completed' AND EXISTS (
                        SELECT 1 FROM document_templates dt
                        WHERE dt.tenant_id=j.tenant_id AND dt.is_active=true
+                         AND dt.created_at <= j.created_at
                          AND dt.storage_key IS NOT NULL
                          AND dt.is_required_on_client_creation=true
                          AND NOT EXISTS (
@@ -203,6 +204,7 @@ public sealed class ProfessionalDashboardController : ControllerBase
                   SELECT 1 FROM document_templates dt
                   WHERE dt.tenant_id=j.tenant_id
                     AND dt.is_active=true
+                    AND dt.created_at <= j.created_at
                     AND dt.storage_key IS NOT NULL
                     AND dt.is_required_on_client_creation=true
                     AND NOT EXISTS (
