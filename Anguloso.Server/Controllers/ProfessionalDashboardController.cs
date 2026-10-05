@@ -275,6 +275,75 @@ public sealed class ProfessionalDashboardController : ControllerBase
             }
         }
 
+
+        await using (var command = new NpgsqlCommand("""
+            SELECT COUNT(*)::int
+            FROM patient_checkins c
+            JOIN clients cl ON cl.id=c.client_id
+            WHERE c.tenant_id=@tenant AND cl.archived_at IS NULL
+              AND c.reviewed_at IS NULL
+              AND EXISTS (SELECT 1 FROM client_nutritionist_assignments a
+                          WHERE a.client_id=c.client_id AND a.nutritionist_id=@user AND a.is_active);
+            """, connection))
+        {
+            command.Parameters.AddWithValue("tenant", tenantId.Value);
+            command.Parameters.AddWithValue("user", userId.Value);
+            result.PendingCheckinCount = Convert.ToInt32(await command.ExecuteScalarAsync());
+        }
+
+        await using (var command = new NpgsqlCommand("""
+            SELECT c.id, c.client_id, COALESCE(cl.full_name,'Paciente'), c.submitted_at
+            FROM patient_checkins c
+            JOIN clients cl ON cl.id=c.client_id
+            WHERE c.tenant_id=@tenant AND cl.archived_at IS NULL
+              AND c.reviewed_at IS NULL
+              AND EXISTS (SELECT 1 FROM client_nutritionist_assignments a
+                          WHERE a.client_id=c.client_id AND a.nutritionist_id=@user AND a.is_active)
+            ORDER BY c.submitted_at DESC
+            LIMIT 10;
+            """, connection))
+        {
+            command.Parameters.AddWithValue("tenant", tenantId.Value);
+            command.Parameters.AddWithValue("user", userId.Value);
+            await using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+                result.PendingCheckins.Add(new DashboardCheckinDto
+                {
+                    Id = reader.GetInt32(0),
+                    ClientId = reader.GetInt32(1),
+                    ClientName = reader.GetString(2),
+                    SubmittedAt = reader.GetDateTime(3)
+                });
+        }
+
+        await using (var command = new NpgsqlCommand("""
+            SELECT pa.id, pa.client_id, COALESCE(cl.full_name,'Paciente'), pa.starts_at, pa.ends_at, pa.status
+            FROM patient_appointments pa
+            JOIN clients cl ON cl.id=pa.client_id
+            WHERE pa.tenant_id=@tenant AND pa.nutritionist_id=@user
+              AND cl.archived_at IS NULL
+              AND pa.starts_at >= @from AND pa.starts_at < @to
+              AND pa.status IN ('requested','confirmed')
+            ORDER BY pa.starts_at
+            LIMIT 10;
+            """, connection))
+        {
+            command.Parameters.AddWithValue("tenant", tenantId.Value);
+            command.Parameters.AddWithValue("user", userId.Value);
+            var madrid = GetMadridTimeZone();
+            var localToday = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, madrid).Date;
+            var fromUtc = TimeZoneInfo.ConvertTimeToUtc(localToday.AddDays(1), madrid);
+            command.Parameters.AddWithValue("from", fromUtc);
+            command.Parameters.AddWithValue("to", fromUtc.AddDays(7));
+            await using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+                result.UpcomingAppointments.Add(new DashboardAppointmentDto
+                {
+                    Id = reader.GetInt32(0), ClientId = reader.GetInt32(1), ClientName = reader.GetString(2),
+                    StartsAt = reader.GetDateTime(3), EndsAt = reader.GetDateTime(4), Status = reader.GetString(5)
+                });
+        }
+
         await using (var command = new NpgsqlCommand("""
             SELECT cl.id, COALESCE(cl.full_name,'Paciente'),
                    CONCAT_WS(', ',
@@ -349,12 +418,15 @@ public sealed class ProfessionalDashboardDto
     public int UnreadMessageCount { get; set; }
     public int PendingDocumentCount { get; set; }
     public int PendingPatientDataCount { get; set; }
+    public int PendingCheckinCount { get; set; }
     public int DocumentProvisioningRetryCount { get; set; }
     public int DocumentProvisioningFailedCount { get; set; }
     public int DocumentProvisioningIncompleteCount { get; set; }
     public List<DashboardDocumentProvisioningDto> DocumentProvisioningIssues { get; set; } = [];
     public List<DashboardTaskDto> OpenTasks { get; set; } = [];
     public List<DashboardAppointmentDto> TodayAppointments { get; set; } = [];
+    public List<DashboardAppointmentDto> UpcomingAppointments { get; set; } = [];
+    public List<DashboardCheckinDto> PendingCheckins { get; set; } = [];
     public List<DashboardPendingClientDto> PendingDocuments { get; set; } = [];
     public List<DashboardPendingDataClientDto> PendingPatientData { get; set; } = [];
 }
@@ -396,6 +468,14 @@ public sealed class DashboardDocumentProvisioningDto
     public int MaxAttempts { get; set; }
     public string? LastError { get; set; }
     public DateTime UpdatedAt { get; set; }
+}
+
+public sealed class DashboardCheckinDto
+{
+    public int Id { get; set; }
+    public int ClientId { get; set; }
+    public string ClientName { get; set; } = "";
+    public DateTime SubmittedAt { get; set; }
 }
 
 public sealed class DashboardPendingClientDto
