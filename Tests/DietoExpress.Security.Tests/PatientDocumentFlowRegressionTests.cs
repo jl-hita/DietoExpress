@@ -197,8 +197,8 @@ public sealed class PatientDocumentFlowRegressionTests
         Assert.Contains("reader.GetInt32(6) + 1", source);
         Assert.Contains("WHERE id=@id AND status='processing' AND attempts=@attempts", source);
         Assert.Contains("CompleteJobAsync(job.Id, job.Attempts", source);
-        Assert.Contains("command.Parameters.AddWithValue(" + ""attempts"" + ", attempts)", source);
-        Assert.Contains("command.Parameters.AddWithValue(" + ""attempts"" + ", job.Attempts)", source);
+        Assert.Contains("command.Parameters.AddWithValue(\"attempts\", attempts)", source);
+        Assert.Contains("command.Parameters.AddWithValue(\"attempts\", job.Attempts)", source);
         Assert.Contains("if (updated != 1)", source);
     }
 
