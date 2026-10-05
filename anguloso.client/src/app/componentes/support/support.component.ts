@@ -36,6 +36,8 @@ export class SupportComponent implements OnInit, OnDestroy {
   statusFilter = '';
   categoryFilter = '';
   priorityFilter = '';
+  searchFilter=''; assignedFilter:number|null=null; fromFilter=''; toFilter='';
+  assignees:{id:number;name:string}[]=[]; auditEntries:any[]=[];
 
   newSubject = '';
   newCategory: SupportCategory = 'question';
@@ -77,7 +79,7 @@ export class SupportComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.loadTickets(); this.loadNotifications();
+    this.loadTickets(); this.loadNotifications(); if(this.isSuperAdmin)this.support.getAssignees().subscribe(v=>this.assignees=v);
   }
 
   ngOnDestroy(): void {
@@ -91,7 +93,7 @@ export class SupportComponent implements OnInit, OnDestroy {
     this.refreshSubscription = this.support.getTickets({
       status: this.statusFilter || undefined,
       category: this.categoryFilter || undefined,
-      priority: this.priorityFilter || undefined
+      priority: this.priorityFilter || undefined, search: this.searchFilter.trim() || undefined, assignedToUserId: this.assignedFilter || undefined, from: this.fromFilter ? this.fromFilter+'T00:00:00' : undefined, to: this.toFilter ? this.toFilter+'T23:59:59.999' : undefined
     }).subscribe({
       next: tickets => {
         this.tickets = tickets;
@@ -113,10 +115,13 @@ export class SupportComponent implements OnInit, OnDestroy {
   loadNotifications():void{this.support.getNotifications().subscribe(v=>this.notifications=v);this.support.getUnreadNotificationCount().subscribe(v=>this.notificationCount=v);}
   openNotification(n:any):void{this.support.markNotificationRead(n.id).subscribe(()=>{this.loadNotifications();const t=this.tickets.find(x=>x.id===n.ticketId);if(t)this.openTicket(t);});}
   reopenTicket():void{if(!this.selected||this.isSuperAdmin||this.saving)return;this.saving=true;this.support.reopenTicket(this.selected.id).subscribe({next:()=>{this.saving=false;this.loadTickets();},error:()=>{this.saving=false;this.error='No se ha podido reabrir el ticket.';}});}
+  loadAudit():void{if(this.selected&&this.isSuperAdmin)this.support.getAudit(this.selected.id).subscribe(v=>this.auditEntries=v);}
+  clearFilters():void{this.statusFilter='';this.categoryFilter='';this.priorityFilter='';this.searchFilter='';this.assignedFilter=null;this.fromFilter='';this.toFilter='';this.loadTickets();}
+
   openTicket(ticket: SupportTicketSummary): void {
     this.error = '';
     this.support.getTicket(ticket.id).subscribe({
-      next: value => this.selected = value,
+      next: value => {this.selected=value;this.auditEntries=[];if(this.isSuperAdmin)this.loadAudit();},
       error: () => this.error = 'No se ha podido abrir el ticket.'
     });
   }
@@ -168,10 +173,10 @@ export class SupportComponent implements OnInit, OnDestroy {
     });
   }
 
-  changeTicket(status: SupportStatus | undefined, priority: SupportPriority | undefined): void {
+  changeTicket(status: SupportStatus | undefined, priority: SupportPriority | undefined, assignedToUserId:number|null|undefined=undefined): void {
     if (!this.selected || !this.isSuperAdmin || this.saving) return;
     this.saving = true;
-    this.support.updateTicket(this.selected.id, { status, priority }).subscribe({
+    this.support.updateTicket(this.selected.id, { status, priority, ...(assignedToUserId !== undefined ? {assignedToUserId} : {}) }).subscribe({
       next: () => {
         this.saving = false;
         this.support.getTicket(this.selected!.id).subscribe(ticket => this.selected = ticket);

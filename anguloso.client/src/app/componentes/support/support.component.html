@@ -29,6 +29,10 @@
             <mat-option *ngFor="let item of priorities" [value]="item.value">{{ item.label }}</mat-option>
           </mat-select>
         </mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>Buscar</mat-label><input matInput [(ngModel)]="searchFilter" (keyup.enter)="loadTickets()" placeholder="Asunto o mensaje"></mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>Desde</mat-label><input matInput type="date" [(ngModel)]="fromFilter"></mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>Hasta</mat-label><input matInput type="date" [(ngModel)]="toFilter"></mat-form-field>
+        <mat-form-field appearance="outline" *ngIf="isSuperAdmin"><mat-label>Asignado a</mat-label><mat-select [(ngModel)]="assignedFilter"><mat-option [value]="null">Todos</mat-option><mat-option *ngFor="let a of assignees" [value]="a.id">{{a.name}}</mat-option></mat-select></mat-form-field>
         <mat-form-field appearance="outline">
           <mat-label>Categoría</mat-label>
           <mat-select [(ngModel)]="categoryFilter" (selectionChange)="loadTickets()">
@@ -36,6 +40,7 @@
             <mat-option *ngFor="let item of categories" [value]="item.value">{{ item.label }}</mat-option>
           </mat-select>
         </mat-form-field>
+        <button mat-stroked-button type="button" (click)="loadTickets()">Aplicar</button><button mat-button type="button" (click)="clearFilters()">Limpiar</button>
       </div>
 
       <div class="ticket-items" *ngIf="!loading">
@@ -76,7 +81,9 @@
             <mat-option *ngFor="let item of priorities" [value]="item.value">{{ item.label }}</mat-option>
           </mat-select>
         </mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>Asignado a</mat-label><mat-select [ngModel]="selected.assignedToUserId" (ngModelChange)="changeTicket(undefined,undefined,$event)"><mat-option [value]="null">Sin asignar</mat-option><mat-option *ngFor="let a of assignees" [value]="a.id">{{a.name}}</mat-option></mat-select></mat-form-field>
       </div>
+      <details class="audit-panel" *ngIf="isSuperAdmin"><summary>Historial de cambios</summary><button mat-button type="button" (click)="loadAudit()">Actualizar historial</button><div *ngFor="let a of auditEntries"><small>{{a.createdAt | date:'short'}} · {{a.actorName}}</small><div>{{a.action}}: {{a.oldValue || '—'}} → {{a.newValue || '—'}}</div></div></details>
 
       <div class="conversation">
         <article class="message" *ngFor="let message of selected.messages; trackBy: trackById"
