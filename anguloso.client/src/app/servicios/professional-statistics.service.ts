@@ -34,6 +34,10 @@ export interface ProfessionalStatistics {
   subscriptionRevenue:number;
   paidPayments:number;
   nutritionistWorkload:ProfessionalStatisticsWorkload[];
+  activeSubscriptions:number;
+  scheduledCancellations:number;
+  cancelledSubscriptions:number;
+  newSubscriptions:number;
   weightChangeKg:number|null;
   bodyFatChangePoints:number|null;
   muscleMassChangeKg:number|null;
