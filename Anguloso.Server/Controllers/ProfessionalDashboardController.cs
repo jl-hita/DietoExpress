@@ -220,7 +220,8 @@ public sealed class ProfessionalDashboardController : ControllerBase
         {
             command.Parameters.AddWithValue("tenant", tenantId.Value);
             command.Parameters.AddWithValue("user", userId.Value);
-            result.DocumentProvisioningIncompleteCount = Convert.ToInt32(await command.ExecuteScalarAsync());
+            var documentProvisioningIncompleteCount = Convert.ToInt32(await command.ExecuteScalarAsync());
+            result.DocumentProvisioningIncompleteCount = documentProvisioningIncompleteCount;
         }
 
         await using (var command = new NpgsqlCommand("""
