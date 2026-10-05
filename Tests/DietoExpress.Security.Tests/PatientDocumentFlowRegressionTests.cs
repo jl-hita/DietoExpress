@@ -202,6 +202,18 @@ public sealed class PatientDocumentFlowRegressionTests
     }
 
     [Fact]
+    public void AutomationWorkerMustClaimJobsOneAtATimeBeforeExecutingThem()
+    {
+        var source = ReadServerSource("Anguloso.Server/Logica/AutomationWorker.cs");
+
+        Assert.Contains("ClaimNextJobAsync(cancellationToken)", source);
+        Assert.Contains("LIMIT 1", source);
+        Assert.Contains("await ExecuteJobAsync(job, cancellationToken)", source);
+        Assert.Contains("for (var i = 0; i < 20; i++)", source);
+        Assert.DoesNotContain("LIMIT 20", source);
+    }
+
+    [Fact]
     public void AutomationWorkerMustRecoverStaleProcessingJobs()
     {
         var source = ReadServerSource("Anguloso.Server/Logica/AutomationWorker.cs");
