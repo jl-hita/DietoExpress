@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -37,9 +37,24 @@ export class AppointmentsComponent implements OnInit {
   newSlot = 30;
   editingRuleId: number | null = null;
 
-  constructor(private portalService: PatientPortalService, private router: Router) {}
+  constructor(private portalService: PatientPortalService, private router: Router, private route: ActivatedRoute) {}
 
-  ngOnInit(): void { this.load(); this.loadGoogleCalendar(); }
+  ngOnInit(): void {
+    this.handleGoogleCalendarResult();
+    this.load();
+    this.loadGoogleCalendar();
+  }
+
+  private handleGoogleCalendarResult(): void {
+    const result = this.route.snapshot.queryParamMap.get('calendar');
+    if (result === 'connected') {
+      this.success = 'Google Calendar conectado correctamente.';
+      this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
+    } else if (result === 'error') {
+      this.error = 'No hemos podido completar la conexión con Google Calendar. Revisa el registro del servidor para obtener más detalles.';
+      this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
+    }
+  }
 
   loadGoogleCalendar(): void {
     this.portalService.getGoogleCalendarStatus().subscribe({ next: value => this.googleCalendar = value, error: () => this.googleCalendar = null });
