@@ -97,4 +97,20 @@ public sealed class AutomationExternalEffectsRegressionTests
         Assert.True(persistence >= 0, "La notificación in-app debe persistirse antes del canal push.");
         Assert.True(push > persistence, "El push debe ejecutarse después de persistir la notificación durable.");
     }
+    [Fact]
+    public void PushDeliveryMustUseDurableLedgerWithConcurrentClaimProtection()
+    {
+        var service = ReadServerSource("Anguloso.Server/Logica/NotificationService.cs");
+        var schema = ReadServerSource("Anguloso.Server/Program.cs");
+
+        Assert.Contains("TryClaimPushDeliveryAsync", service);
+        Assert.Contains("patient_push_deliveries", service);
+        Assert.Contains("status <> 'sent'", service);
+        Assert.Contains("updated_at < NOW() - INTERVAL '10 minutes'", service);
+        Assert.Contains("MarkPushDeliveryAsync", service);
+        Assert.Contains("uq_patient_push_deliveries_key", schema);
+        Assert.Contains("patient_push_deliveries", schema);
+        Assert.Contains("No convierte Web Push en exactly-once", service);
+    }
+
 }
