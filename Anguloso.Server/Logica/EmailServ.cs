@@ -1,8 +1,8 @@
-﻿using Anguloso.Server.Model;
-using Microsoft.Extensions.Options;
+using Anguloso.Server.Model;
 using System.Net;
 using System.Net.Mail;
-using System.Runtime;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Anguloso.Server.Logica;
 
@@ -29,6 +29,10 @@ public class EmailServ
     }
 
     // SMTP se configura externamente; las credenciales nunca forman parte del código ni de la respuesta al cliente.
+    // El Message-ID determinista permite a los servidores/proveedores que implementan deduplicación SMTP reconocer
+    // reenvíos del mismo efecto tras una caída del worker entre el envío y el marcado del job como completado.
+    // SMTP no ofrece una garantía universal de exactly-once: la ventana de caída después de aceptar el mensaje
+    // por el servidor SMTP sigue siendo intrínsecamente ambigua y debe considerarse at-least-once.
     public async Task<BoolMensaje> SendEmailAsync(string to, string subject, string htmlBody)
     {
         try
@@ -56,14 +60,20 @@ public class EmailServ
                     IsBodyHtml = true
                 };
 
+                // El identificador se deriva de todo el efecto observable para que dos reintentos del mismo job
+                // produzcan exactamente el mismo Message-ID sin persistir contenido sensible adicional.
+                var identity = $"{to}\n{subject}\n{htmlBody}";
+                var hash = SHA256.HashData(Encoding.UTF8.GetBytes(identity));
+                var messageId = $"<{Convert.ToHexString(hash).ToLowerInvariant()}@dietoexpress.local>";
+                mail.Headers.Add("Message-ID", messageId);
+
                 mail.To.Add(to);
 
                 try
                 {
                     await client.SendMailAsync(mail);
 
-                    //Console.WriteLine("");
-                    _logServ.LogInfo($"Email enviado a {to}");
+                    _logServ.LogInfo($"Email enviado a {to} con Message-ID {messageId}");
 
                     return new BoolMensaje
                     {
@@ -71,9 +81,9 @@ public class EmailServ
                         Mensaje = $"Email enviado a {to}"
                     };
                 }
-                catch (Exception e)
+                catch (Exception ex)
                 {
-                    _logServ.LogError($"Error SMTP al enviar email a {to}: {e.GetType().Name}: {e.Message}");
+                    _logServ.LogError($"Error SMTP al enviar email a {to}: {ex.GetType().Name}: {ex.Message}");
                     return new BoolMensaje
                     {
                         Exito = false,
