@@ -278,6 +278,20 @@ Las mejoras futuras del soporte se consideran evolución y no deuda funcional de
    - Trazabilidad e integridad de registros.
    - Sin sustituir asesoramiento fiscal.
 
+### Módulo 12 — Especializaciones avanzadas: COMPLETADO
+
+La primera implementación funcional de las especializaciones avanzadas queda cerrada y mergeada en `main`:
+
+- **Nutrición deportiva avanzada**: perfil estructurado por paciente con disciplina, objetivo, frecuencia y duración del entrenamiento, proteína, hidratos e hidratación configurables e integración con la generación de dietas.
+- **Pérdida de peso / obesidad**: perfil específico con objetivo, peso objetivo, ritmo de pérdida, déficit energético, mínimo energético, proteína y revisión periódica, integrado con la generación de dietas y sus validaciones.
+- Perfiles persistidos como configuración estructurada y aislados por tenant.
+- UI profesional para configurar y revisar ambos perfiles.
+- Salvaguarda de mínimo energético y uso de parámetros específicos en el cálculo de macros.
+- Regresiones automatizadas para aislamiento tenant, validación y generación.
+- Roadmap preparado para evolucionar hacia periodización deportiva, timing nutricional, fases de pérdida/mantenimiento, recomposición y estrategias conductuales.
+
+La implementación base queda cerrada; las capacidades adicionales se tratarán como evolución del módulo.
+
 ### Evolución profesional
 
 8. **Nuevos módulos profesionales**
