@@ -142,11 +142,19 @@ public sealed class AutomationWorker : BackgroundService
         await connection.OpenAsync(cancellationToken);
         await using var tx = await connection.BeginTransactionAsync(cancellationToken);
 
-        // Diez minutos es el umbral para considerar huérfano un job. Al reclamar solo un job cada vez,
-        // este timeout ya no puede afectar a trabajos que llevan esperando dentro de un lote reservado.
+        // Diez minutos es el umbral para considerar huérfano un job. Un job que ya consumió todos
+        // sus intentos no vuelve a ejecutarse: la recuperación lo marca como fallido de forma definitiva.
+        // Así un crash nunca permite superar max_attempts por la vía de la reclamación de huérfanos.
         await using (var recover = new NpgsqlCommand("""
             UPDATE automation_jobs
-            SET status='pending', locked_at=NULL, updated_at=NOW()
+            SET status = CASE WHEN attempts >= max_attempts THEN 'failed' ELSE 'pending' END,
+                locked_at = NULL,
+                completed_at = CASE WHEN attempts >= max_attempts THEN NOW() ELSE completed_at END,
+                last_error = CASE
+                    WHEN attempts >= max_attempts THEN COALESCE(last_error, 'El worker anterior quedó huérfano tras agotar los reintentos permitidos.')
+                    ELSE last_error
+                END,
+                updated_at = NOW()
             WHERE status='processing'
               AND locked_at < NOW() - INTERVAL '10 minutes';
             """, connection, tx))
