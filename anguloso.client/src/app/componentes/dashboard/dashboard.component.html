@@ -77,6 +77,26 @@
         </mat-card-content>
       </mat-card>
 
+      <mat-card *ngIf="data.documentProvisioningRetryCount || data.documentProvisioningFailedCount || data.documentProvisioningIssues.length">
+        <mat-card-header><mat-card-title>Estado de provisión documental</mat-card-title></mat-card-header>
+        <mat-card-content>
+          <p *ngIf="data.documentProvisioningRetryCount">
+            Hay {{data.documentProvisioningRetryCount}} provisión{{data.documentProvisioningRetryCount===1?'':'es'}} en reintento.
+          </p>
+          <p *ngIf="data.documentProvisioningFailedCount" class="error">
+            {{data.documentProvisioningFailedCount}} provisión{{data.documentProvisioningFailedCount===1?'':'es'}} ha{{data.documentProvisioningFailedCount===1?'':'n'}} fallado definitivamente y requiere revisión.
+          </p>
+          <div class="row" *ngFor="let p of data.documentProvisioningIssues">
+            <div>
+              <strong>{{p.clientName}}</strong>
+              <span>{{p.status==='failed'?'Fallida':(p.status==='processing'?'Procesando':'Reintentando')}} · {{p.attempts}}/{{p.maxAttempts}} intentos</span>
+              <small *ngIf="p.lastError">{{p.lastError}}</small>
+            </div>
+            <button mat-button (click)="openClient(p.clientId)">Abrir ficha</button>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
       <mat-card>
         <mat-card-header><mat-card-title>Pacientes con documentación pendiente</mat-card-title></mat-card-header>
         <mat-card-content>
