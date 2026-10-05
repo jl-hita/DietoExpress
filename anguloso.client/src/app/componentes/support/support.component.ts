@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -16,7 +17,7 @@ import { SupportCategory, SupportPriority, SupportService, SupportStatus, Suppor
   selector: 'app-support',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, MatButtonModule, MatCardModule, MatFormFieldModule,
+    CommonModule, FormsModule, MatButtonModule, MatCardModule, MatCheckboxModule, MatFormFieldModule,
     MatIconModule, MatInputModule, MatSelectModule, MatProgressSpinnerModule
   ],
   templateUrl: './support.component.html',
