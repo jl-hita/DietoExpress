@@ -364,15 +364,19 @@ La aplicación mantiene en PostgreSQL un contador diario por proveedor y operaci
 
 Configuración de producción:
 
+La configuración de los proveedores de direcciones se almacena en la tabla `config` de PostgreSQL y se carga mediante `ConfigServ`. Las claves reales no se versionan ni se entregan al navegador.
+
+Parámetros:
+
 ~~~text
-Geoapify__ApiKey=<GEOAPIFY_API_KEY>
-LocationIQ__ApiKey=<LOCATIONIQ_API_KEY>
-AddressProviders__Primary=Geoapify
-AddressProviders__Fallback=LocationIQ
-AddressProviders__WarningThreshold=0.80
-AddressProviders__FailoverThreshold=0.90
-AddressProviders__GeoapifyDailyLimit=3000
-AddressProviders__LocationIqDailyLimit=5000
+geoapifyApiKey=<GEOAPIFY_API_KEY>
+locationIqApiKey=<LOCATIONIQ_API_KEY>
+addressPrimaryProvider=Geoapify
+addressFallbackProvider=LocationIQ
+addressWarningThreshold=0.80
+addressFailoverThreshold=0.90
+addressGeoapifyDailyLimit=3000
+addressLocationIqDailyLimit=5000
 ~~~
 
 Los límites anteriores son valores de referencia para los planes gratuitos actuales; deben revisarse contra las condiciones de las cuentas contratadas antes de una puesta en producción. No se deben asumir como límites permanentes del proveedor.
@@ -383,28 +387,17 @@ La aplicación restringe las consultas a España, aplica debounce en Angular, ra
 
 La interfaz muestra la atribución de ambos proveedores para que el cambio automático no elimine los requisitos de atribución del proveedor de respaldo.
 
-El bootstrap crea además placeholders en la tabla config:
-
-- geoapifyApiKey
-- locationIqApiKey
-- addressPrimaryProvider
-- addressFallbackProvider
-- addressWarningThreshold
-- addressFailoverThreshold
-- addressGeoapifyDailyLimit
-- addressLocationIqDailyLimit
-
-Las claves reales deben permanecer en /etc/dietoexpress/dietoexpress.env; los placeholders del bootstrap no contienen secretos.
+El bootstrap crea automáticamente los valores iniciales si todavía no existen en `config`, incluidos placeholders para las dos claves. Sustituir los placeholders por las claves reales mediante el mecanismo de administración de configuración antes de utilizar el autocompletado en producción.
 
 Antes de producción:
 
 1. Crear las cuentas/API keys de Geoapify y LocationIQ.
 2. Verificar que el uso comercial del plan elegido y sus requisitos de atribución son compatibles con DietoExpress.
-3. Añadir ambas claves al archivo de entorno.
+3. Configurar ambas claves en `config` mediante el mecanismo administrativo previsto.
 4. Ajustar límites y umbrales si las cuentas contratadas tienen valores diferentes.
-5. Reiniciar DietoExpress.
+5. Reiniciar DietoExpress para que la nueva configuración quede cargada en los servicios singleton.
 6. Probar una dirección española completa.
-7. Comprobar en PostgreSQL que external_api_usage incrementa el proveedor utilizado.
+7. Comprobar en PostgreSQL que `external_api_usage` incrementa el proveedor utilizado.
 8. Probar en un entorno controlado el failover cuando se alcanza el umbral.
 
 ## USDA
