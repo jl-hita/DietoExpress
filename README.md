@@ -159,7 +159,20 @@ Los bloques principales ya implementados incluyen gestión multi-tenant de pacie
 
 El Módulo 16 queda completado en su primera versión: perfiles públicos, búsqueda y filtros, fichas profesionales, disponibilidad pública, reserva sin pago online, validación de concurrencia, creación/reutilización de pacientes, documentación inicial y acceso seguro al portal.
 
-El Módulo 17 queda completado en su primera versión: tickets/conversaciones, aislamiento por tenant, notas internas, asignación a SuperAdmin, estados y prioridades, historial/auditoría, notificaciones, reapertura, filtros y búsqueda.
+El Módulo 17 queda **completado en su primera versión**, incluyendo:
+
+- Sistema de tickets/conversaciones para incidencias y consultas de soporte.
+- Aislamiento por tenant y control de acceso por rol.
+- Estados y prioridades de tickets.
+- Asignación y seguimiento por SuperAdmin.
+- Notas internas no visibles para el cliente.
+- Historial y auditoría de cambios relevantes.
+- Notificaciones asociadas al ciclo de soporte.
+- Reapertura de conversaciones/tickets.
+- Filtros y búsqueda para gestión del soporte.
+- Protecciones y regresiones de seguridad revisadas.
+
+El M17 se considera funcionalmente cerrado en esta primera versión. Las mejoras futuras de soporte serán evolutivas y no forman parte de la deuda funcional del módulo base.
 
 ### Próximos bloques
 
