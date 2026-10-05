@@ -2121,7 +2121,7 @@ public static class DatabaseBootstrap
             ALTER TABLE foods ADD COLUMN IF NOT EXISTS dietary_flags TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
 
             CREATE OR REPLACE FUNCTION classify_food_dietary_flags()
-            RETURNS trigger AS $
+            RETURNS trigger AS $$
             DECLARE
                 text_to_classify TEXT;
                 flags TEXT[] := ARRAY[]::TEXT[];
@@ -2153,7 +2153,7 @@ public static class DatabaseBootstrap
                 NEW.dietary_flags := flags;
                 RETURN NEW;
             END;
-            $ LANGUAGE plpgsql;
+            $$ LANGUAGE plpgsql;
 
             DROP TRIGGER IF EXISTS trg_foods_dietary_flags ON foods;
             CREATE TRIGGER trg_foods_dietary_flags
