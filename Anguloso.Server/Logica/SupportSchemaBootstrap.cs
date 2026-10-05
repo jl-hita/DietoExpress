@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Anguloso.Server.Models;
 
 namespace Anguloso.Server.Logica;
 
