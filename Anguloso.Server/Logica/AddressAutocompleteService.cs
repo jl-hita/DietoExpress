@@ -28,7 +28,7 @@ public sealed class AddressAutocompleteService
     {
         foreach (var providerName in GetProviderOrder())
         {
-            if (!_providers.TryGetValue(providerName, out var provider))
+            if (!_providers.TryGetValue(providerName, out var provider) || !provider.IsConfigured)
                 continue;
 
             if (!await _usage.TryReserveAsync(provider.Name, provider.DailyLimit, cancellationToken))
