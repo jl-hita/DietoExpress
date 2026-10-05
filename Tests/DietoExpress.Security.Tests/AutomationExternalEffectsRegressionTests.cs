@@ -131,8 +131,8 @@ public sealed class AutomationExternalEffectsRegressionTests
         var calendar = ReadServerSource("Anguloso.Server/Logica/GoogleCalendarService.cs");
 
         Assert.Contains("Idempotency-Key", stripe);
-        Assert.Contains("SendStripeAsync(HttpMethod.Post, "/v1/checkout/sessions", form, idempotencyKey)", stripe);
-        Assert.Contains("var eventId = "dietoexpress-" + appointment.id", calendar);
+        Assert.Contains("SendStripeAsync(HttpMethod.Post, \"/v1/checkout/sessions\", form, idempotencyKey)", stripe);
+        Assert.Contains("var eventId = \"dietoexpress-\" + appointment.id", calendar);
         Assert.Contains("SendEventAsync(accessToken, connection.calendar_id, eventId, payload", calendar);
     }
 
