@@ -113,4 +113,15 @@ public sealed class AutomationExternalEffectsRegressionTests
         Assert.Contains("No convierte Web Push en exactly-once", service);
     }
 
+    [Fact]
+    public void AutomationExecutionHistoryMustCommitAtomicallyWithJobState()
+    {
+        var source = ReadServerSource("Anguloso.Server/Logica/AutomationWorker.cs");
+
+        Assert.Contains("BeginTransactionAsync(cancellationToken)", source);
+        Assert.Contains("WriteExecutionAsync(connection, transaction", source);
+        Assert.Contains("await transaction.CommitAsync(cancellationToken)", source);
+        Assert.Contains("NpgsqlTransaction transaction", source);
+    }
+
 }
