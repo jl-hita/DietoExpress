@@ -7,6 +7,7 @@ public interface IAddressProvider
 {
     string Name { get; }
     int DailyLimit { get; }
+    bool IsConfigured { get; }
     Task<IReadOnlyList<AddressAutocompleteService.AddressSuggestion>> SearchAsync(
         string text,
         CancellationToken cancellationToken);
