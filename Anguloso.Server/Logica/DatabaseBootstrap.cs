@@ -2093,9 +2093,9 @@ public static class DatabaseBootstrap
             SELECT s.id, v.rule_code, v.rule_type, v.configuration::jsonb, v.priority, TRUE
             FROM specializations s
             JOIN (VALUES
-                ('vegan','exclude_food_keywords','food_exclusion','{"keywords":["carne","pollo","pavo","cerdo","ternera","vacuno","cordero","jamon","jamón","embutido","salchicha","chorizo","atun","atún","salmon","salmón","pescado","marisco","gamba","camaron","camarón","mejillon","mejillón","huevo","leche","queso","yogur","yogurt","nata","mantequilla","miel","gelatina"]}',10),
-                ('vegetarian','exclude_food_keywords','food_exclusion','{"keywords":["carne","pollo","pavo","cerdo","ternera","vacuno","cordero","jamon","jamón","embutido","salchicha","chorizo","atun","atún","salmon","salmón","pescado","marisco","gamba","camaron","camarón","mejillon","mejillón","gelatina"]}',10),
-                ('pescatarian','exclude_food_keywords','food_exclusion','{"keywords":["carne","pollo","pavo","cerdo","ternera","vacuno","cordero","jamon","jamón","embutido","salchicha","chorizo","gelatina"]}',10)
+                ('vegan','exclude_food_keywords','food_exclusion','{"required_flags":["animal"],"keywords":["carne","pollo","pavo","cerdo","ternera","vacuno","cordero","jamon","jamón","embutido","salchicha","chorizo","atun","atún","salmon","salmón","pescado","marisco","gamba","camaron","camarón","mejillon","mejillón","huevo","leche","queso","yogur","yogurt","nata","mantequilla","miel","gelatina"]}',10),
+                ('vegetarian','exclude_food_keywords','food_exclusion','{"required_flags":["meat","fish","gelatin"],"keywords":["carne","pollo","pavo","cerdo","ternera","vacuno","cordero","jamon","jamón","embutido","salchicha","chorizo","atun","atún","salmon","salmón","pescado","marisco","gamba","camaron","camarón","mejillon","mejillón","gelatina"]}',10),
+                ('pescatarian','exclude_food_keywords','food_exclusion','{"required_flags":["meat","gelatin"],"keywords":["carne","pollo","pavo","cerdo","ternera","vacuno","cordero","jamon","jamón","embutido","salchicha","chorizo","gelatina"]}',10)
             ) AS v(code,rule_code,rule_type,configuration,priority)
               ON s.code=v.code
             ON CONFLICT (specialization_id, rule_code) DO UPDATE SET
@@ -2113,6 +2113,55 @@ public static class DatabaseBootstrap
             CROSS JOIN specializations s
             WHERE s.active
             ON CONFLICT (tenant_id, specialization_id) DO NOTHING;
+        ");
+
+        // Clasificación dietética estructurada de alimentos. Se mantiene en la tabla de alimentos
+        // para que las especializaciones no dependan exclusivamente de coincidencias de texto.
+        context.Database.ExecuteSqlRaw(@"
+            ALTER TABLE foods ADD COLUMN IF NOT EXISTS dietary_flags TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
+
+            CREATE OR REPLACE FUNCTION classify_food_dietary_flags()
+            RETURNS trigger AS $
+            DECLARE
+                text_to_classify TEXT;
+                flags TEXT[] := ARRAY[]::TEXT[];
+            BEGIN
+                text_to_classify := lower(coalesce(NEW.name,'') || ' ' || coalesce(NEW.category,''));
+
+                IF text_to_classify ~* '(^|[^[:alnum:]])(carne|cerdo|jam[oó]n|embutido|salchicha|chorizo|pollo|pavo|ternera|vacuno|cordero|cabrito|conejo|buey|hamburguesa|bacon|tocino|salami|mortadela)($|[^[:alnum:]])' THEN
+                    flags := array_append(flags, 'meat');
+                END IF;
+                IF text_to_classify ~* '(^|[^[:alnum:]])(pescado|at[uú]n|salm[oó]n|merluza|bacalao|sardina|caballa|dorada|lubina|trucha|anchoa|marisco|gamba|camar[oó]n|mejill[oó]n|almeja|calamar|pulpo|sepia)($|[^[:alnum:]])' THEN
+                    flags := array_append(flags, 'fish');
+                END IF;
+                IF text_to_classify ~* '(^|[^[:alnum:]])(huevo|huevos|clara|yema|ovoproducto|mayonesa)($|[^[:alnum:]])' THEN
+                    flags := array_append(flags, 'egg');
+                END IF;
+                IF text_to_classify ~* '(^|[^[:alnum:]])(leche|queso|yogur|yogurt|nata|mantequilla|suero|k[eé]fir|l[aá]cteo|l[aá]cteos|case[ií]na|whey)($|[^[:alnum:]])' THEN
+                    flags := array_append(flags, 'dairy');
+                END IF;
+                IF text_to_classify ~* '(^|[^[:alnum:]])miel($|[^[:alnum:]])' THEN
+                    flags := array_append(flags, 'honey');
+                END IF;
+                IF text_to_classify ~* '(^|[^[:alnum:]])gelatina($|[^[:alnum:]])' THEN
+                    flags := array_append(flags, 'gelatin');
+                END IF;
+
+                IF cardinality(flags) > 0 THEN
+                    flags := array_append(flags, 'animal');
+                END IF;
+                NEW.dietary_flags := flags;
+                RETURN NEW;
+            END;
+            $ LANGUAGE plpgsql;
+
+            DROP TRIGGER IF EXISTS trg_foods_dietary_flags ON foods;
+            CREATE TRIGGER trg_foods_dietary_flags
+                BEFORE INSERT OR UPDATE OF name, category ON foods
+                FOR EACH ROW EXECUTE FUNCTION classify_food_dietary_flags();
+
+            UPDATE foods SET dietary_flags = ARRAY[]::TEXT[];
+            UPDATE foods SET dietary_flags = classify_food_dietary_flags();
         ");
 
         context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('specializations-v1') ON CONFLICT (id) DO NOTHING;");
