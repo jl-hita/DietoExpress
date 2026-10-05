@@ -81,27 +81,29 @@ public class DietGeneratorService
         }
 
         // Los objetivos explícitos enviados por el profesional siempre prevalecen.
+        // El mínimo energético se aplica antes de calcular macros para mantener coherencia entre
+        // energía y distribución de macronutrientes.
+        var minimumKcal = GetProfileDouble(weightProfile, "minimumKcal");
+        if (minimumKcal.HasValue)
+            targetKcal = Math.Max(targetKcal, minimumKcal.Value);
+
         double? sportsProtein = GetProfileDouble(sportsProfile, "proteinGPerKg");
         double? sportsCarbs = GetProfileDouble(sportsProfile, "carbsGPerKg");
         double? weightProtein = GetProfileDouble(weightProfile, "proteinGPerKg");
 
         double targetProtein = request.TargetProtein
             ?? (client != null && sportsProtein.HasValue
-                ? await CalculateGramsFromKgAsync(client.id, sportsProtein.Value, cancellationToken)
+                ? await CalculateGramsFromKgAsync(client.id, sportsProtein.Value, targetKcal, request.DietType, cancellationToken)
                 : client != null && weightProtein.HasValue
-                    ? await CalculateGramsFromKgAsync(client.id, weightProtein.Value, cancellationToken)
+                    ? await CalculateGramsFromKgAsync(client.id, weightProtein.Value, targetKcal, request.DietType, cancellationToken)
                     : nutritionProfile != null && client != null
                         ? await CalculateSportsProteinAsync(client.id, nutritionProfile, targetKcal, cancellationToken)
                         : CalculateDefaultProtein(targetKcal, request.DietType));
         double targetFat = request.TargetFat ?? CalculateDefaultFat(targetKcal, request.DietType);
         double targetCarbs = request.TargetCarbs
             ?? (client != null && sportsCarbs.HasValue
-                ? await CalculateGramsFromKgAsync(client.id, sportsCarbs.Value, cancellationToken)
+                ? await CalculateGramsFromKgAsync(client.id, sportsCarbs.Value, targetKcal, request.DietType, cancellationToken)
                 : CalculateDefaultCarbs(targetKcal, targetProtein, targetFat));
-
-        var minimumKcal = GetProfileDouble(weightProfile, "minimumKcal");
-        if (minimumKcal.HasValue)
-            targetKcal = Math.Max(targetKcal, minimumKcal.Value);
 
         // 3. Cargar un catálogo acotado de alimentos desde la BD.
         // No debemos traer toda la tabla a memoria: el catálogo puede crecer mucho
@@ -637,7 +639,12 @@ public class DietGeneratorService
             : null;
     }
 
-    private async Task<double> CalculateGramsFromKgAsync(int clientId, double gramsPerKg, CancellationToken cancellationToken)
+    private async Task<double> CalculateGramsFromKgAsync(
+        int clientId,
+        double gramsPerKg,
+        double targetKcal,
+        string dietType,
+        CancellationToken cancellationToken)
     {
         var latest = await _context.biometrics
             .AsNoTracking()
@@ -648,7 +655,7 @@ public class DietGeneratorService
 
         return latest?.weight is double weight && weight > 0
             ? Math.Round(weight * gramsPerKg, 1)
-            : 0;
+            : CalculateDefaultProtein(targetKcal, dietType);
     }
 
     private async Task<double> CalculateSportsProteinAsync(
