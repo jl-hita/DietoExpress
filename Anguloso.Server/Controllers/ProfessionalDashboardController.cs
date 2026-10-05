@@ -112,12 +112,20 @@ public sealed class ProfessionalDashboardController : ControllerBase
                 COUNT(*) FILTER (WHERE j.status IN ('pending','processing'))::int,
                 COUNT(*) FILTER (WHERE j.status='failed')::int
             FROM automation_jobs j
+            JOIN clients cl
+              ON cl.tenant_id=j.tenant_id
+             AND j.idempotency_key = CONCAT('documents:provision:', j.tenant_id, ':', cl.id, ':creation')
             WHERE j.tenant_id=@tenant
               AND j.action_type='provision_patient_documents'
-              AND j.idempotency_key LIKE CONCAT('documents:provision:', @tenant, ':%:creation');
+              AND cl.archived_at IS NULL
+              AND EXISTS (
+                  SELECT 1 FROM client_nutritionist_assignments a
+                  WHERE a.client_id=cl.id AND a.nutritionist_id=@user AND a.is_active
+              );
             """, connection))
         {
             command.Parameters.AddWithValue("tenant", tenantId.Value);
+            command.Parameters.AddWithValue("user", userId.Value);
             await using var reader = await command.ExecuteReaderAsync();
             if (await reader.ReadAsync())
             {
