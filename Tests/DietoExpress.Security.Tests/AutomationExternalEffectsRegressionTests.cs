@@ -33,6 +33,7 @@ public sealed class AutomationExternalEffectsRegressionTests
         // que proveedores que deduplican mensajes reconozcan un reintento del mismo efecto.
         Assert.Contains("SHA256.HashData", source);
         Assert.Contains("mail.Headers.Add(\"Message-ID\", messageId)", source);
+        Assert.Contains("idempotencyKey ?? Guid.NewGuid()", source);
         Assert.Contains("Message-ID determinista", source);
     }
 
@@ -45,8 +46,23 @@ public sealed class AutomationExternalEffectsRegressionTests
         // persistentes deben reconocer el mismo job en lugar de crear un segundo efecto.
         Assert.Contains("$\"job:{job.Id}\"", source);
         Assert.Contains("$\"job:{job.Id}:document-provision-failed\"", source);
+        Assert.Contains("$\"job:{job.Id}:email\"", source);
+        Assert.Contains("$\"job:{job.Id}:patient-notification\"", source);
         Assert.Contains("CreateProfessionalTaskAsync", source);
         Assert.Contains("CreateRequiredDocumentsAsync", source);
+    }
+
+
+    [Fact]
+    public void PatientNotificationsMustPersistTheAutomationIdempotencyKey()
+    {
+        var service = ReadServerSource("Anguloso.Server/Logica/NotificationService.cs");
+        var schema = ReadServerSource("Anguloso.Server/Program.cs");
+
+        Assert.Contains("idempotency_key", service);
+        Assert.Contains("ON CONFLICT (tenant_id, idempotency_key) DO NOTHING", service);
+        Assert.Contains("ADD COLUMN IF NOT EXISTS idempotency_key", schema);
+        Assert.Contains("uq_patient_notifications_tenant_idempotency", schema);
     }
 
     [Fact]
