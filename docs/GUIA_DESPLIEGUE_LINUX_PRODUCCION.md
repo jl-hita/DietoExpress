@@ -8,7 +8,7 @@
 
 Internet → DNS → Nginx/HTTPS → ASP.NET Core → PostgreSQL.
 
-Servicios externos actuales: Stripe, Google OAuth/Calendar, SMTP, USDA FoodData Central y Open Food Facts.
+Servicios externos actuales: Stripe, Google OAuth/Calendar, SMTP, USDA FoodData Central, Open Food Facts y Geoapify (autocompletado de direcciones).
 
 Rutas de producción actuales:
 
@@ -314,6 +314,7 @@ Cors__AllowedOrigins__0=https://<DOMINIO>
 DIETOEXPRESS_LOG_PATH=/var/lib/dietoexpress/Logs
 DIETOEXPRESS_ALERT_SPOOL=/var/lib/dietoexpress/AlertSpool
 ASPNETCORE_ENVIRONMENT=Production
+Geoapify__ApiKey=<GEOAPIFY_API_KEY>
 ~~~
 
 Generar una clave JWT aleatoria:
@@ -347,6 +348,29 @@ ConfigServ utiliza la tabla config. Entre los parámetros actuales conocidos:
 ## Google
 
 - googleClientId
+
+## Geoapify
+
+La búsqueda de direcciones de pacientes utiliza el Address Autocomplete API de Geoapify a través del backend. La clave **no se entrega al navegador**.
+
+Configurar en /etc/dietoexpress/dietoexpress.env:
+
+~~~text
+Geoapify__ApiKey=<GEOAPIFY_API_KEY>
+~~~
+
+En el panel de Geoapify se recomienda restringir la clave al servidor de producción mediante su IP pública y habilitar únicamente las APIs necesarias. La aplicación restringe además las consultas a España, aplica debounce en Angular y rate limiting en el backend.
+
+La integración requiere la atribución indicada por Geoapify. DietoExpress la muestra junto al campo de autocompletado.
+
+Antes de producción:
+
+1. Crear el proyecto/API key de Geoapify.
+2. Activar Address Autocomplete API.
+3. Restringir la clave al servidor cuando sea posible.
+4. Añadir Geoapify__ApiKey al archivo de entorno.
+5. Reiniciar DietoExpress.
+6. Probar una dirección española completa y comprobar que se rellenan código postal, población y provincia.
 
 ## USDA
 

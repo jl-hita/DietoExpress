@@ -15,6 +15,13 @@ export interface ClientListItem {
 
 /** GET /api/clients/{id}  → incluye biometría (equivale a ClientDetailDto) */
 export interface ClientDetail extends ClientListItem {
+  address?: string;
+  postalCode?: string;
+  city?: string;
+  province?: string;
+  country?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   notes?: string;
   biometrics: Biometric[];
   medicalHistory?: MedicalHistory;
@@ -28,6 +35,13 @@ export interface CreateClientRequest {
   fullName: string;
   email?: string;
   phone?: string;
+  address?: string;
+  postalCode?: string;
+  city?: string;
+  province?: string;
+  country?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   gender?: string;
   birthDate?: string; // yyyy-MM-dd
   notes?: string;
@@ -42,6 +56,13 @@ export interface UpdateClientRequest {
   fullName: string;
   email?: string;
   phone?: string;
+  address?: string;
+  postalCode?: string;
+  city?: string;
+  province?: string;
+  country?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   gender?: string;
   birthDate?: string; // yyyy-MM-dd
   notes?: string;

@@ -22,6 +22,21 @@ public partial class clients
 
     public string phone { get; set; }
 
+    // Datos estructurados de domicilio del paciente. Se mantienen separados de las observaciones para poder reutilizar geolocalización y búsquedas futuras.
+    public string address { get; set; }
+
+    public string postal_code { get; set; }
+
+    public string city { get; set; }
+
+    public string province { get; set; }
+
+    public string country { get; set; }
+
+    public double? latitude { get; set; }
+
+    public double? longitude { get; set; }
+
     public DateOnly? birth_date { get; set; }
 
     public string gender { get; set; }

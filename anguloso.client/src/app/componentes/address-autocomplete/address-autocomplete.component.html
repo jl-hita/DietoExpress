@@ -1,0 +1,32 @@
+<mat-form-field appearance="outline" class="address-field">
+  <mat-label>{{ label }}</mat-label>
+  <input
+    matInput
+    [formControl]="control"
+    [placeholder]="placeholder"
+    autocomplete="street-address"
+    [matAutocomplete]="addressAutocomplete" />
+
+  <mat-progress-spinner
+    *ngIf="loading"
+    matSuffix
+    diameter="20"
+    mode="indeterminate">
+  </mat-progress-spinner>
+
+  <mat-autocomplete
+    #addressAutocomplete="matAutocomplete"
+    (optionSelected)="selectSuggestion($event)"
+    [displayWith]="displaySuggestion.bind(this)">
+    <mat-option
+      *ngFor="let suggestion of suggestions"
+      [value]="suggestion">
+      <span class="suggestion-title">{{ suggestion.displayName }}</span>
+      <span class="suggestion-details">
+        {{ suggestion.postalCode }} · {{ suggestion.city }}<ng-container *ngIf="suggestion.province"> · {{ suggestion.province }}</ng-container>
+      </span>
+    </mat-option>
+  </mat-autocomplete>
+</mat-form-field>
+
+<div class="address-attribution">Powered by <a href="https://www.geoapify.com/" target="_blank" rel="noopener noreferrer">Geoapify</a></div>

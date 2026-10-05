@@ -11,12 +11,14 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { Router } from '@angular/router';
 import { ClientDetail } from '../../modelos/client';
+import { AddressSuggestion } from '../../modelos/address';
+import { AddressAutocompleteComponent } from '../address-autocomplete/address-autocomplete.component';
 import { ClientService } from '../../servicios/client.service';
 
 @Component({
   selector: 'app-client-create',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, MatSnackBarModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatOptionModule, MatDatepickerModule, MatNativeDateModule, MatButtonModule, MatIconModule],
+  imports: [CommonModule, ReactiveFormsModule, MatSnackBarModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatOptionModule, MatDatepickerModule, MatNativeDateModule, MatButtonModule, MatIconModule, AddressAutocompleteComponent],
   templateUrl: './client-create.component.html',
   styleUrl: './client-create.component.css'
 })
@@ -44,6 +46,13 @@ export class ClientCreateComponent {
       fullName: ['', Validators.required],
       email: ['', [Validators.email]],
       phone: [''],
+      address: [''],
+      postalCode: [''],
+      city: [''],
+      province: [''],
+      country: ['España'],
+      latitude: [null],
+      longitude: [null],
       birthDate: [''],
       gender: [''],
       notes: ['']
@@ -65,6 +74,24 @@ export class ClientCreateComponent {
         this.checkingCreatePermission = false;
       }
     });
+  }
+
+  /** Mantiene los campos estructurados sincronizados cuando el usuario selecciona una sugerencia. */
+  applyAddressSuggestion(suggestion: AddressSuggestion): void {
+    this.form.patchValue({
+      address: suggestion.displayName,
+      postalCode: suggestion.postalCode,
+      city: suggestion.city,
+      province: suggestion.province,
+      country: suggestion.country || 'España',
+      latitude: suggestion.latitude ?? null,
+      longitude: suggestion.longitude ?? null
+    });
+  }
+
+  /** Permite editar la dirección manualmente después de una selección sin perder el valor escrito. */
+  onAddressValueChanged(value: string): void {
+    this.form.patchValue({ address: value, latitude: null, longitude: null }, { emitEvent: false });
   }
 
   // La fecha se normaliza antes de construir el DTO para no enviar al API el desfase introducido por el DatePicker.

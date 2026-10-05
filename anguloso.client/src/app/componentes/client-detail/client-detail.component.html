@@ -16,6 +16,30 @@
       <input matInput formControlName="phone" />
     </mat-form-field>
 
+    <app-address-autocomplete
+      class="address-autocomplete"
+      [initialValue]="clientForm.get('address')?.value || ''"
+      label="Dirección"
+      placeholder="Empieza a escribir la dirección"
+      (suggestionSelected)="applyAddressSuggestion($event)"
+      (valueChanged)="onAddressValueChanged($event)">
+    </app-address-autocomplete>
+
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Código postal</mat-label>
+      <input matInput formControlName="postalCode" autocomplete="postal-code" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Población / municipio</mat-label>
+      <input matInput formControlName="city" autocomplete="address-level2" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Provincia</mat-label>
+      <input matInput formControlName="province" autocomplete="address-level1" />
+    </mat-form-field>
+
     <mat-form-field appearance="outline" class="full-width">
       <mat-label>Fecha de nacimiento</mat-label>
       <input matInput type="date" formControlName="birthDate" />

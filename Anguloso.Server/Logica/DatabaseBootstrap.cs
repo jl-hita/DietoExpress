@@ -1920,6 +1920,24 @@ public static class DatabaseBootstrap
 
 
 
+    /// <summary>Campos estructurados de domicilio de pacientes y coordenadas opcionales.</summary>
+    public static void UpgradeClientAddressSchemaV1(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            ALTER TABLE clients ADD COLUMN IF NOT EXISTS address VARCHAR(300);
+            ALTER TABLE clients ADD COLUMN IF NOT EXISTS postal_code VARCHAR(20);
+            ALTER TABLE clients ADD COLUMN IF NOT EXISTS city VARCHAR(120);
+            ALTER TABLE clients ADD COLUMN IF NOT EXISTS province VARCHAR(120);
+            ALTER TABLE clients ADD COLUMN IF NOT EXISTS country VARCHAR(120);
+            ALTER TABLE clients ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
+            ALTER TABLE clients ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
+            CREATE INDEX IF NOT EXISTS idx_clients_tenant_city
+                ON clients(tenant_id, city);
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('client-address-v1') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración de domicilio de pacientes client-address-v1 aplicada/comprobada correctamente.");
+    }
+
     /// <summary>Campos y restricciones del perfil público del directorio de profesionales.</summary>
     public static void UpgradeDirectorySchemaV1(angulosodbContext context, ILogger logger)
     {

@@ -145,6 +145,13 @@ public class ClientsController : ControllerBase
             FullName = client.full_name,
             Email = client.email,
             Phone = client.phone,
+            Address = client.address,
+            PostalCode = client.postal_code,
+            City = client.city,
+            Province = client.province,
+            Country = client.country,
+            Latitude = client.latitude,
+            Longitude = client.longitude,
             Gender = client.gender,
             BirthDate = client.birth_date.HasValue ? new DateTime?(client.birth_date.Value.ToDateTime(TimeOnly.MinValue)) : null,
             CreatedAt = client.created_at,
@@ -232,16 +239,22 @@ public class ClientsController : ControllerBase
         return Ok(dto);
     }
 
-    private static string? ValidateClientPayload(CreateClientDto? dto) => dto == null ? "Datos del paciente no válidos." : ValidateClientFields(dto.FullName, dto.Email, dto.Phone, dto.Gender, dto.Notes, dto.MedicalHistory, dto.DigestiveHealth, dto.FoodPreferences, dto.LifestyleHistory);
+    private static string? ValidateClientPayload(CreateClientDto? dto) => dto == null ? "Datos del paciente no válidos." : ValidateClientFields(dto.FullName, dto.Email, dto.Phone, dto.Address, dto.PostalCode, dto.City, dto.Province, dto.Country, dto.Latitude, dto.Longitude, dto.Gender, dto.Notes, dto.MedicalHistory, dto.DigestiveHealth, dto.FoodPreferences, dto.LifestyleHistory);
 
-    private static string? ValidateClientPayload(UpdateClientDto? dto) => dto == null ? "Datos del paciente no válidos." : ValidateClientFields(dto.FullName, dto.Email, dto.Phone, dto.Gender, dto.Notes, dto.MedicalHistory, dto.DigestiveHealth, dto.FoodPreferences, dto.LifestyleHistory);
+    private static string? ValidateClientPayload(UpdateClientDto? dto) => dto == null ? "Datos del paciente no válidos." : ValidateClientFields(dto.FullName, dto.Email, dto.Phone, dto.Address, dto.PostalCode, dto.City, dto.Province, dto.Country, dto.Latitude, dto.Longitude, dto.Gender, dto.Notes, dto.MedicalHistory, dto.DigestiveHealth, dto.FoodPreferences, dto.LifestyleHistory);
 
-    private static string? ValidateClientFields(string? fullName, string? email, string? phone, string? gender, string? notes,
+    private static string? ValidateClientFields(string? fullName, string? email, string? phone, string? address, string? postalCode, string? city, string? province, string? country, double? latitude, double? longitude, string? gender, string? notes,
         MedicalHistoryDto? medical, DigestiveHealthDto? digestive, FoodPreferencesDto? preferences, LifestyleHistoryDto? lifestyle)
     {
         if (string.IsNullOrWhiteSpace(fullName) || fullName.Length > 200) return "El nombre del paciente es obligatorio y no puede superar los 200 caracteres.";
         if (email?.Length > 254) return "El email no puede superar los 254 caracteres.";
         if (phone?.Length > 50) return "El teléfono no puede superar los 50 caracteres.";
+        if (address?.Length > 300) return "La dirección no puede superar los 300 caracteres.";
+        if (postalCode?.Length > 20) return "El código postal no puede superar los 20 caracteres.";
+        if (city?.Length > 120) return "La población no puede superar los 120 caracteres.";
+        if (province?.Length > 120) return "La provincia no puede superar los 120 caracteres.";
+        if (country?.Length > 120) return "El país no puede superar los 120 caracteres.";
+        if (latitude is < -90 or > 90 || longitude is < -180 or > 180) return "Las coordenadas geográficas no son válidas.";
         if (gender?.Length > 50) return "El género no puede superar los 50 caracteres.";
         if (notes?.Length > 10000) return "Las notas no pueden superar los 10000 caracteres.";
         if (medical != null && (medical.Surgeries?.Length > 5000 || medical.RoutineMedication?.Length > 5000 || medical.OtherPathologies?.Length > 5000)) return "Los datos de antecedentes superan el tamaño permitido.";
@@ -283,6 +296,13 @@ public class ClientsController : ControllerBase
             full_name = dto.FullName,
             email = dto.Email ?? "",
             phone = dto.Phone ?? "",
+            address = dto.Address ?? "",
+            postal_code = dto.PostalCode ?? "",
+            city = dto.City ?? "",
+            province = dto.Province ?? "",
+            country = dto.Country ?? "España",
+            latitude = dto.Latitude,
+            longitude = dto.Longitude,
             gender = dto.Gender ?? "",
             notes = dto.Notes ?? "",
             created_at = DateTime.UtcNow
@@ -466,6 +486,13 @@ public class ClientsController : ControllerBase
         client.full_name = dto.FullName;
         client.email = dto.Email ?? client.email;
         client.phone = dto.Phone ?? client.phone;
+        client.address = dto.Address ?? client.address;
+        client.postal_code = dto.PostalCode ?? client.postal_code;
+        client.city = dto.City ?? client.city;
+        client.province = dto.Province ?? client.province;
+        client.country = dto.Country ?? client.country;
+        client.latitude = dto.Latitude;
+        client.longitude = dto.Longitude;
         client.gender = dto.Gender ?? client.gender;
         client.notes = dto.Notes ?? client.notes;
         if (dto.BirthDate.HasValue) client.birth_date = DateOnly.FromDateTime(dto.BirthDate.Value);
