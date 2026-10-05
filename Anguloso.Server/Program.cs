@@ -41,13 +41,10 @@ public class Program
         builder.Services.AddDataProtection();
         builder.Services.AddHttpClient();
 
-        // Las claves reales llegan desde la configuración del servidor. Los límites por defecto
-        // reflejan los planes gratuitos actuales y se pueden ajustar sin recompilar la aplicación.
-        var addressProviderOptions = builder.Configuration.GetSection("AddressProviders").Get<AddressProviderOptions>()
-            ?? new AddressProviderOptions();
-        addressProviderOptions.GeoapifyApiKey = builder.Configuration["Geoapify:ApiKey"] ?? addressProviderOptions.GeoapifyApiKey;
-        addressProviderOptions.LocationIqApiKey = builder.Configuration["LocationIQ:ApiKey"] ?? addressProviderOptions.LocationIqApiKey;
-        builder.Services.AddSingleton(addressProviderOptions);
+        // La tabla config de PostgreSQL es la fuente de verdad de los proveedores de direcciones.
+        // Esto evita duplicar claves entre appsettings, variables de entorno y la base de datos.
+        builder.Services.AddSingleton<AddressProviderOptions>(sp =>
+            AddressProviderOptions.Load(sp.GetRequiredService<ConfigServ>()));
         builder.Services.AddSingleton<AddressUsageService>();
         builder.Services.AddSingleton<IAddressProvider, GeoapifyAddressProvider>();
         builder.Services.AddSingleton<IAddressProvider, LocationIqAddressProvider>();
