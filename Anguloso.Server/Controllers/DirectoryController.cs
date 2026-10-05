@@ -18,6 +18,8 @@ public class DirectoryController : ControllerBase
     private readonly AppointmentConcurrencyService _appointmentConcurrency;
     private readonly AutomationService _automationService;
     private readonly GoogleCalendarService _googleCalendar;
+    private readonly EmailServ _emailServ;
+    private readonly PatientPortalAccessService _portalAccessService;
     private readonly ILogger<DirectoryController> _logger;
 
     public DirectoryController(
@@ -26,6 +28,8 @@ public class DirectoryController : ControllerBase
         AppointmentConcurrencyService appointmentConcurrency,
         AutomationService automationService,
         GoogleCalendarService googleCalendar,
+        EmailServ emailServ,
+        PatientPortalAccessService portalAccessService,
         ILogger<DirectoryController> logger)
     {
         _context = context;
@@ -33,6 +37,8 @@ public class DirectoryController : ControllerBase
         _appointmentConcurrency = appointmentConcurrency;
         _automationService = automationService;
         _googleCalendar = googleCalendar;
+        _emailServ = emailServ;
+        _portalAccessService = portalAccessService;
         _logger = logger;
     }
 
@@ -289,6 +295,34 @@ public class DirectoryController : ControllerBase
             // La reserva ya está confirmada; registramos la incidencia sin convertir un fallo
             // operativo del sistema documental en un fallo de la reserva.
             _logger.LogError(ex, "No se pudo programar la provisión documental del paciente {ClientId}.", appointment.client_id);
+        }
+
+        // Un paciente nuevo necesita una puerta de entrada al portal para completar la documentación
+        // provisionada por la reserva. No regeneramos tokens de pacientes ya operativos para no invalidar
+        // sesiones/enlaces existentes: en ese caso sigue disponible el flujo normal de acceso.
+        if (client.passcode_hash == null && client.access_token == null && !string.IsNullOrWhiteSpace(client.email))
+        {
+            try
+            {
+                var accessLink = await _portalAccessService.CreateAccessLinkAsync(client.id, CancellationToken.None);
+                if (accessLink != null)
+                {
+                    var safeName = System.Net.WebUtility.HtmlEncode(client.full_name ?? "Paciente");
+                    var safeLink = System.Net.WebUtility.HtmlEncode(accessLink);
+                    await _emailServ.SendEmailAsync(
+                        client.email!,
+                        "Tu reserva en DietoExpress",
+                        $"<h2>Hola, {safeName}</h2>" +
+                        $"<p>Hemos recibido tu solicitud de cita con {System.Net.WebUtility.HtmlEncode(professional.full_name ?? "tu nutricionista")}.</p>" +
+                        $"<p>Antes de la consulta puedes completar tus datos y la documentación desde tu portal:</p>" +
+                        $"<p><a href='{safeLink}'>Acceder a mi portal</a></p>" +
+                        "<p>Este enlace caduca en 24 horas y solo puede utilizarse una vez.</p>");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "No se pudo enviar el acceso inicial al portal para el paciente {ClientId}.", client.id);
+            }
         }
 
         try
