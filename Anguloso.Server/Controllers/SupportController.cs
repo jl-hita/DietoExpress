@@ -15,11 +15,9 @@ namespace Anguloso.Server.Controllers;
 public sealed class SupportController : ControllerBase
 {
     private readonly SupportService _support;
+    private readonly SupportEnhancementService _enhancements;
 
-    public SupportController(SupportService support)
-    {
-        _support = support;
-    }
+    public SupportController(SupportService support, SupportEnhancementService enhancements){_support=support;_enhancements=enhancements;}
 
     [HttpGet("tickets")]
     public async Task<ActionResult<IReadOnlyList<SupportTicketSummaryDto>>> GetTickets(
@@ -49,6 +47,7 @@ public sealed class SupportController : ControllerBase
         try
         {
             var id = await _support.CreateTicketAsync(userId, tenantId, request);
+            await _enhancements.NotifyAsync(id,userId,false);
             return CreatedAtAction(nameof(GetTicket), new { ticketId = id }, new { id });
         }
         catch (ArgumentException ex)
@@ -66,6 +65,7 @@ public sealed class SupportController : ControllerBase
         {
             var updated = await _support.AddMessageAsync(
                 ticketId, userId, tenantId, User.IsInRole("superadmin"), request.Body, request.Internal);
+            if(updated) await _enhancements.NotifyAsync(ticketId,userId,request.Internal);
             return updated ? NoContent() : NotFound();
         }
         catch (ArgumentException ex)
@@ -92,6 +92,17 @@ public sealed class SupportController : ControllerBase
         }
     }
 
+    [HttpGet("notifications")]
+    public async Task<ActionResult> Notifications(){var id=AuthHelpers.GetUserId(User);return id.HasValue?Ok(await _enhancements.ListAsync(id.Value)):Unauthorized();}
+    [HttpGet("notifications/unread-count")]
+    public async Task<ActionResult<int>> UnreadCount(){var id=AuthHelpers.GetUserId(User);return id.HasValue?Ok(await _enhancements.UnreadAsync(id.Value)):Unauthorized();}
+    [HttpPost("notifications/{id:long}/read")]
+    public async Task<ActionResult> ReadNotification(long id){var u=AuthHelpers.GetUserId(User);if(!u.HasValue)return Unauthorized();await _enhancements.ReadAsync(u.Value,id);return NoContent();}
+    [HttpPost("tickets/{ticketId:long}/reopen")]
+    public async Task<ActionResult> Reopen(long ticketId){if(!TryIdentity(out var u,out var t)||User.IsInRole("superadmin"))return BadRequest();try{await _enhancements.ReopenAsync(ticketId,u,t);return NoContent();}catch(KeyNotFoundException){return NotFound();}}
+    [HttpGet("tickets/{ticketId:long}/audit")]
+    [Authorize(Roles="superadmin")]
+    public async Task<ActionResult> Audit(long ticketId)=>Ok(await _enhancements.GetAuditAsync(ticketId));
     private bool TryIdentity(out int userId, out int tenantId)
     {
         var id = AuthHelpers.GetUserId(User);

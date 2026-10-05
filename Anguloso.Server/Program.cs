@@ -35,6 +35,7 @@ public class Program
         builder.Services.AddSingleton<ConfigServ>(sp => new ConfigServ(connectionString!, sp.GetRequiredService<LogServ>()));
         builder.Services.AddSingleton<EmailServ>(sp => new EmailServ(sp.GetRequiredService<ConfigServ>(), sp.GetRequiredService<LogServ>()));
         builder.Services.AddSingleton<NotificationService>();
+        builder.Services.AddScoped<SupportEnhancementService>();
         builder.Services.AddScoped<SupportService>();
         // El servicio comparte la lógica de publicación entre peticiones y el worker; el worker separado procesa los jobs sin bloquear las peticiones HTTP.
         builder.Services.AddSingleton<AutomationService>();
