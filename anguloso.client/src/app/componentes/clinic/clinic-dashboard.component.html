@@ -10,6 +10,7 @@
     <mat-card><span>Documentos pendientes</span><strong>{{data.pendingDocumentCount}}</strong></mat-card>
     <mat-card *ngIf="data.documentProvisioningRetryCount"><span>Provisiones en reintento</span><strong>{{data.documentProvisioningRetryCount}}</strong></mat-card>
     <mat-card *ngIf="data.documentProvisioningFailedCount"><span>Provisiones fallidas</span><strong>{{data.documentProvisioningFailedCount}}</strong></mat-card>
+    <mat-card *ngIf="data.documentProvisioningIncompleteCount"><span>Provisiones incompletas</span><strong>{{data.documentProvisioningIncompleteCount}}</strong></mat-card>
   </div>
   <mat-card class="card">
     <div class="section-title"><h2>Nutricionistas</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button mat-stroked-button color="primary" *ngIf="canAddSeat && data?.license?.nutritionists === contractedSeats" (click)="addSeat()"><mat-icon>add</mat-icon> Añadir puesto adicional</button><button mat-stroked-button color="primary" *ngIf="canAddSeat && contractedSeats > includedSeats && (data?.license?.nutritionists ?? 0) <= contractedSeats - 1" (click)="removeSeat()"><mat-icon>remove</mat-icon> Quitar puesto</button><button mat-flat-button color="primary"
