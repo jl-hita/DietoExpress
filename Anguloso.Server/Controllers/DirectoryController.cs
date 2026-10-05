@@ -18,22 +18,19 @@ public class DirectoryController : ControllerBase
     private readonly AppointmentConcurrencyService _appointmentConcurrency;
     private readonly AutomationService _automationService;
     private readonly GoogleCalendarService _googleCalendar;
-    private readonly PatientDocumentService _patientDocumentService;
 
     public DirectoryController(
         angulosodbContext context,
         ILicenseService licenseService,
         AppointmentConcurrencyService appointmentConcurrency,
         AutomationService automationService,
-        GoogleCalendarService googleCalendar,
-        PatientDocumentService patientDocumentService)
+        GoogleCalendarService googleCalendar)
     {
         _context = context;
         _licenseService = licenseService;
         _appointmentConcurrency = appointmentConcurrency;
         _automationService = automationService;
         _googleCalendar = googleCalendar;
-        _patientDocumentService = patientDocumentService;
     }
 
     // Solo los profesionales que activan expresamente la visibilidad salen al directorio público.
