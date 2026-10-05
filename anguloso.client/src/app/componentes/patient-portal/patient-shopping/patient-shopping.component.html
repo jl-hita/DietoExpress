@@ -74,7 +74,9 @@
           <mat-icon *ngIf="!isChecked(cat.category + '_' + item.foodId)">check_box_outline_blank</mat-icon>
         </div>
         <span class="item-name">{{ item.foodName }}</span>
-        <span class="item-grams">~{{ item.totalGrams | number:'1.0-0' }}g</span>
+        <span class="item-amount" [attr.title]="item.commercialDescription || ('Necesitas ' + item.totalGrams + ' g')">
+          {{ item.commercialDescription || ('~' + (item.totalGrams | number:'1.0-0') + ' g') }}
+        </span>
       </li>
     </ul>
   </div>

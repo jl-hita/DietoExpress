@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTabsModule } from '@angular/material/tabs';
 import { DietService } from '../../servicios/diet.service';
+import { ShoppingListCategory } from '../../modelos/shopping-list';
 
 export interface DietShoppingListDialogData {
   dietId: number;
@@ -72,7 +73,7 @@ export interface DietShoppingListDialogData {
                     {{ item.roundedGrams >= 1000 ? (item.roundedGrams / 1000 | number:'1.1-2') + ' kg' : (item.roundedGrams | number:'1.0-0') + ' g' }}
                   </span>
                   <span class="exact-amount">
-                    (receta: {{ item.totalGrams | number:'1.0-1' }} g)
+                    {{ item.commercialDescription || ('dieta: ' + (item.totalGrams | number:'1.0-1') + ' g') }}
                   </span>
                 </div>
               </div>
@@ -213,7 +214,7 @@ export interface DietShoppingListDialogData {
 // Documentación: este componente coordina estado local, validación y llamadas asíncronas; la vista solo refleja ese estado.
 export class DietShoppingListDialogComponent implements OnInit {
   loading = true;
-  categories: any[] = [];
+  categories: ShoppingListCategory[] = [];
 
   constructor(
     private dietService: DietService,

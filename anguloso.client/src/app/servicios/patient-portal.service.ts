@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environments';
+import { ShoppingListCategory } from '../modelos/shopping-list';
 
 export interface PatientAuthRequest { token?: string; emailOrPhone?: string; passcode?: string; }
 export interface PatientAuthResponse { token?: string; clientId: number; fullName: string; clinicName?: string; clinicLogo?: string; }
@@ -118,7 +119,7 @@ export class PatientPortalService {
   clearPatientSession(): Observable<void> { return this.http.post<void>(`${this.base}/portal/logout`, {}); }
   getMyProfile(clientIdParam?: number): Observable<any> { const params: any = {}; if (clientIdParam) params.clientId = clientIdParam; return this.http.get<any>(`${this.base}/portal/profile`, { params }); }
   getMyActiveDiet(clientIdParam?: number): Observable<any> { const params: any = {}; if (clientIdParam) params.clientId = clientIdParam; return this.http.get<any>(`${this.base}/portal/diet`, { params }); }
-  getMyShoppingList(clientIdParam?: number): Observable<any[]> { const params: any = {}; if (clientIdParam) params.clientId = clientIdParam; return this.http.get<any[]>(`${this.base}/portal/shopping-list`, { params }); }
+  getMyShoppingList(clientIdParam?: number): Observable<ShoppingListCategory[]> { const params: any = {}; if (clientIdParam) params.clientId = clientIdParam; return this.http.get<ShoppingListCategory[]>(`${this.base}/portal/shopping-list`, { params }); }
   requestAccessLink(email: string): Observable<{ message: string }> {
     return this.http.post<{ message: string }>(`${this.base}/portal/request-access-link`, { email });
   }

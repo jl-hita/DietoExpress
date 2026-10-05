@@ -3,6 +3,7 @@ import { Injectable } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { environment } from '../../environments/environments';
 import { DietListItem, DietDetail, CreateDietRequest, UpdateDietRequest } from '../modelos/diet';
+import { ShoppingListCategory } from '../modelos/shopping-list';
 
 @Injectable({ providedIn: 'root' })
   // Encapsula el CRUD y la paginación de dietas, manteniendo un formato estable para las pantallas que consumen el servicio.
@@ -58,8 +59,8 @@ export class DietService {
     return this.http.post<any[]>(`${this.base}/validate`, { clientId, diet });
   }
 
-  getDietShoppingList(dietId: number): Observable<any[]> {
-    return this.http.get<any[]>(`${this.base}/${dietId}/shopping-list`);
+  getDietShoppingList(dietId: number): Observable<ShoppingListCategory[]> {
+    return this.http.get<ShoppingListCategory[]>(`${this.base}/${dietId}/shopping-list`);
   }
 }
 
