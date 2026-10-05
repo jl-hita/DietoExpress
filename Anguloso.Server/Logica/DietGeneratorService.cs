@@ -28,6 +28,7 @@ public class DietGeneratorService
         clients? client = null;
         SpecializationRulesService.NutritionProfile? nutritionProfile = null;
         IReadOnlyList<string> clinicalGuidance = Array.Empty<string>();
+        var exclusions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         if (request.ClientId.HasValue)
         {
