@@ -25,6 +25,9 @@ export interface ProfessionalStatistics {
   averageAdherence:number|null;
   subscriptionRevenue:number;
   paidPayments:number;
+  weightChangeKg:number|null;
+  bodyFatChangePoints:number|null;
+  muscleMassChangeKg:number|null;
   series:ProfessionalStatisticsPoint[];
 }
 
