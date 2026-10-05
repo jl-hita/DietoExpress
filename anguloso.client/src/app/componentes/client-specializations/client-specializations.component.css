@@ -83,6 +83,51 @@
   font: inherit;
 }
 
+.profile-panel {
+  margin: 14px 0;
+  padding: 14px;
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.profile-panel h4 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.profile-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  color: #475569;
+}
+
+.profile-grid input,
+.profile-grid select {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 36px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 7px 8px;
+  font: inherit;
+  background: white;
+}
+
+.profile-hint {
+  margin: 10px 0 0;
+  color: #64748b;
+  font-size: 12px;
+}
+
 .tenant-setting {
   border-top: 1px solid #f1f5f9;
   padding-top: 8px;
