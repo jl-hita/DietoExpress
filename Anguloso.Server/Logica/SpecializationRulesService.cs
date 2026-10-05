@@ -148,8 +148,8 @@ public sealed class SpecializationRulesService
             foodCommand.CommandText = @"
                 SELECT id
                 FROM foods
-                WHERE id = ANY(@food_ids)
-                  AND dietary_flags && @required_flags;";
+                WHERE id = ANY(@food_ids::integer[])
+                  AND dietary_flags && @required_flags::text[];";
 
             Add(foodCommand, "food_ids", foodIds.ToArray());
             Add(foodCommand, "required_flags", requiredFlags.ToArray());
