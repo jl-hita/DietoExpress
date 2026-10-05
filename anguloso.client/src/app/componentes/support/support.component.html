@@ -1,0 +1,143 @@
+<div class="support-page">
+  <header class="page-header">
+    <div>
+      <h1>Soporte</h1>
+      <p>{{ isSuperAdmin ? 'Gestiona las consultas de profesionales y clínicas.' : 'Contacta con el equipo de DietoExpress.' }}</p>
+    </div>
+    <mat-icon>support_agent</mat-icon>
+  </header>
+
+  <div class="support-grid">
+    <mat-card class="ticket-list">
+      <mat-card-header>
+        <mat-card-title>{{ isSuperAdmin ? 'Bandeja de soporte' : 'Mis tickets' }}</mat-card-title>
+      </mat-card-header>
+
+      <div class="filters">
+        <mat-form-field appearance="outline">
+          <mat-label>Estado</mat-label>
+          <mat-select [(ngModel)]="statusFilter" (selectionChange)="loadTickets()">
+            <mat-option value="">Todos</mat-option>
+            <mat-option *ngFor="let item of statuses" [value]="item.value">{{ item.label }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Prioridad</mat-label>
+          <mat-select [(ngModel)]="priorityFilter" (selectionChange)="loadTickets()">
+            <mat-option value="">Todas</mat-option>
+            <mat-option *ngFor="let item of priorities" [value]="item.value">{{ item.label }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Categoría</mat-label>
+          <mat-select [(ngModel)]="categoryFilter" (selectionChange)="loadTickets()">
+            <mat-option value="">Todas</mat-option>
+            <mat-option *ngFor="let item of categories" [value]="item.value">{{ item.label }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <div class="ticket-items" *ngIf="!loading">
+        <button class="ticket-item" *ngFor="let ticket of tickets; trackBy: trackById"
+                [class.selected]="selected?.id === ticket.id" (click)="openTicket(ticket)">
+          <div class="ticket-top">
+            <strong>{{ ticket.subject }}</strong>
+            <span class="priority" [class]="'priority-' + ticket.priority">{{ priorityLabel(ticket.priority) }}</span>
+          </div>
+          <div class="ticket-meta">
+            <span>{{ categoryLabel(ticket.category) }}</span>
+            <span>{{ statusLabel(ticket.status) }}</span>
+          </div>
+          <small>{{ ticket.updatedAt | date:'short' }} · {{ ticket.messageCount }} mensajes</small>
+          <small *ngIf="isSuperAdmin">{{ ticket.createdByUsername }}</small>
+        </button>
+        <p class="empty" *ngIf="tickets.length === 0">No hay tickets con estos filtros.</p>
+      </div>
+      <mat-spinner diameter="32" *ngIf="loading"></mat-spinner>
+    </mat-card>
+
+    <mat-card class="ticket-detail" *ngIf="selected">
+      <mat-card-header>
+        <mat-card-title>{{ selected.subject }}</mat-card-title>
+        <mat-card-subtitle>{{ categoryLabel(selected.category) }} · {{ priorityLabel(selected.priority) }}</mat-card-subtitle>
+      </mat-card-header>
+
+      <div class="admin-controls" *ngIf="isSuperAdmin">
+        <mat-form-field appearance="outline">
+          <mat-label>Estado</mat-label>
+          <mat-select [ngModel]="selected.status" (ngModelChange)="changeTicket($event, undefined)">
+            <mat-option *ngFor="let item of statuses" [value]="item.value">{{ item.label }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Prioridad</mat-label>
+          <mat-select [ngModel]="selected.priority" (ngModelChange)="changeTicket(undefined, $event)">
+            <mat-option *ngFor="let item of priorities" [value]="item.value">{{ item.label }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <div class="conversation">
+        <article class="message" *ngFor="let message of selected.messages; trackBy: trackById"
+                 [class.internal]="message.internal">
+          <div class="message-header">
+            <strong>{{ message.authorUsername }}</strong>
+            <span>{{ message.createdAt | date:'short' }}</span>
+            <span class="internal-label" *ngIf="message.internal">Nota interna</span>
+          </div>
+          <p>{{ message.body }}</p>
+        </article>
+      </div>
+
+      <form class="reply-box" (ngSubmit)="sendReply()" *ngIf="selected.status !== 'closed' || isSuperAdmin">
+        <mat-form-field appearance="outline">
+          <mat-label>{{ internal ? 'Nota interna' : 'Respuesta' }}</mat-label>
+          <textarea matInput rows="5" name="reply" [(ngModel)]="reply" maxlength="10000"
+                    placeholder="Escribe tu mensaje..."></textarea>
+        </mat-form-field>
+        <div class="reply-actions">
+          <mat-checkbox *ngIf="isSuperAdmin" name="internal" [(ngModel)]="internal">Nota interna</mat-checkbox>
+          <span></span>
+          <button mat-flat-button type="submit" [disabled]="!reply.trim() || saving">
+            {{ saving ? 'Enviando…' : 'Enviar' }}
+          </button>
+        </div>
+      </form>
+    </mat-card>
+
+    <mat-card class="new-ticket" *ngIf="!isSuperAdmin">
+      <mat-card-header>
+        <mat-card-title>Nuevo ticket</mat-card-title>
+      </mat-card-header>
+      <form (ngSubmit)="createTicket()">
+        <mat-form-field appearance="outline">
+          <mat-label>Asunto</mat-label>
+          <input matInput name="subject" [(ngModel)]="newSubject" maxlength="200" required>
+        </mat-form-field>
+        <div class="form-row">
+          <mat-form-field appearance="outline">
+            <mat-label>Categoría</mat-label>
+            <mat-select name="category" [(ngModel)]="newCategory">
+              <mat-option *ngFor="let item of categories" [value]="item.value">{{ item.label }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Prioridad</mat-label>
+            <mat-select name="priority" [(ngModel)]="newPriority">
+              <mat-option *ngFor="let item of priorities" [value]="item.value">{{ item.label }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+        <mat-form-field appearance="outline">
+          <mat-label>Describe la consulta</mat-label>
+          <textarea matInput rows="6" name="body" [(ngModel)]="newBody" maxlength="10000" required></textarea>
+        </mat-form-field>
+        <button mat-flat-button type="submit" [disabled]="creating || !newSubject.trim() || !newBody.trim()">
+          {{ creating ? 'Creando…' : 'Abrir ticket' }}
+        </button>
+      </form>
+    </mat-card>
+  </div>
+
+  <p class="error" *ngIf="error">{{ error }}</p>
+</div>
