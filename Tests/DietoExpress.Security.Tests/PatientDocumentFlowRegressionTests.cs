@@ -156,6 +156,21 @@ public sealed class PatientDocumentFlowRegressionTests
         Assert.Contains("documentProvisioningIncompleteCount", clinic);
     }
 
+
+    [Fact]
+    public void CompletedDocumentProvisioningMustScheduleIdempotentRepairJobs()
+    {
+        var automation = ReadServerSource("Anguloso.Server/Logica/AutomationService.cs");
+        var worker = ReadServerSource("Anguloso.Server/Logica/AutomationWorker.cs");
+
+        Assert.Contains("RunDocumentProvisioningReconciliationSweepAsync", automation);
+        Assert.Contains("documents:reconcile:", automation);
+        Assert.Contains("dt.created_at <= j.created_at", automation);
+        Assert.Contains("provision_patient_documents", automation);
+        Assert.Contains("RunDocumentProvisioningReconciliationSweepAsync", worker);
+        Assert.Contains("nextDocumentProvisioningSweep = DateTime.UtcNow.AddHours(1)", worker);
+    }
+
     [Fact]
     public void DocumentProvisioningJobMustBePersistentAndRetryable()
     {
