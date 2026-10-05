@@ -43,8 +43,8 @@ public sealed class AutomationExternalEffectsRegressionTests
 
         // Si el proceso cae después de la acción y antes de CompleteJobAsync, las acciones
         // persistentes deben reconocer el mismo job en lugar de crear un segundo efecto.
-        Assert.Contains("\$\"job:{job.Id}\"", source);
-        Assert.Contains("\$\"job:{job.Id}:document-provision-failed\"", source);
+        Assert.Contains("$\"job:{job.Id}\"", source);
+        Assert.Contains("$\"job:{job.Id}:document-provision-failed\"", source);
         Assert.Contains("CreateProfessionalTaskAsync", source);
         Assert.Contains("CreateRequiredDocumentsAsync", source);
     }
