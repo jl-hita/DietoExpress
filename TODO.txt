@@ -512,25 +512,39 @@ Dependencias recomendadas antes de implementar el marketplace:
 5. Automatizaciones.
 6. Opcionalmente pagos de citas.
 
-Posible hoja de ruta
-Fase 1 (Completado)
-Editor visual de dietas. 
-Totales nutricionales en tiempo real.
-Alimentos personalizados.
-Fase 2
-Cálculo automático del gasto energético.
-Recetas dentro de las dietas.
-Historial clínico.
-PDF mucho más completo.
-Fase 3
-Portal del paciente.
-Generación automática de dietas.
-SaaS.
-Multiidioma.
-Fase 4
-Integración con wearables.
-Aplicación móvil.
-Soporte para varios nutricionistas por cuenta.
+Posible hoja de ruta actualizada
+
+ESTADO ACTUAL
+- Módulos funcionales principales de DietoExpress: implementados.
+- Módulo 16 — Directorio público / marketplace inicial: COMPLETADO.
+  - Perfil público voluntario de profesionales.
+  - Búsqueda por ciudad, especialidad y consultas online.
+  - Ficha pública.
+  - Disponibilidad pública reutilizando la agenda.
+  - Reserva pública sin pago online.
+  - Revalidación server-side y protección contra dobles reservas.
+  - Creación/reutilización del paciente y asociación al profesional.
+  - Provisión de documentación inicial.
+  - Acceso inicial seguro al portal del paciente.
+  - Aislamiento multi-tenant, rate limiting y regresiones de seguridad.
+- Módulo 17 — Soporte y comunicación con SuperAdmin: COMPLETADO en su primera versión.
+- Google Calendar: integración funcional y endurecimiento/documentación realizados.
+
+PRÓXIMOS BLOQUES
+1. Hardening y auditoría rápida de flujos tras los últimos desarrollos.
+2. Despliegue Linux desde cero y mantenimiento de la guía exhaustiva de producción.
+3. Consulta guiada y herramientas avanzadas de gestión de consulta.
+4. Estadísticas y gestión profesional.
+5. Pagos puntuales y pago online de consultas.
+6. Documentación legal y cumplimiento avanzado.
+7. Gestión profesional y VERI*FACTU: ingresos, gastos, registros de IVA e informes orientados a Renta, sin sustituir asesoramiento fiscal.
+8. Nuevos módulos profesionales inspirados en herramientas de gestión nutricional existentes.
+9. Especializaciones y soporte multiidioma.
+10. Evolución del directorio hacia marketplace completo: clínicas, valoraciones, distancia, precio, verificación y monetización.
+11. Automatización e IA avanzada, sujeta a revisión de privacidad, seguridad y marco legal.
+
+NOTA SOBRE EL MÓDULO 16
+El directorio y la reserva pública ya no deben tratarse como trabajo pendiente. El pago online de consultas sí queda explícitamente como evolución posterior.
 
 -- Control de cuotas de proveedores de direcciones
 CREATE TABLE external_api_usage (
