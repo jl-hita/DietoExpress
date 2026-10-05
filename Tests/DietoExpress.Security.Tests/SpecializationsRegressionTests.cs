@@ -109,6 +109,25 @@ public sealed class SpecializationsRegressionTests
         Assert.Contains("configuration::jsonb", bootstrap);
     }
 
+    
+    [Fact]
+    public void DietaryCompatibility_UsesStructuredFoodFlags()
+    {
+        var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
+        var resolver = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "SpecializationRulesService.cs"));
+        var generator = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
+        var validation = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietValidationService.cs"));
+
+        Assert.Contains("dietary_flags TEXT[]", bootstrap);
+        Assert.Contains("classify_food_dietary_flags", bootstrap);
+        Assert.Contains("'animal'", bootstrap);
+        Assert.Contains(""required_flags"", bootstrap);
+        Assert.Contains("GetExcludedFoodIdsAsync", resolver);
+        Assert.Contains("dietary_flags && @required_flags", resolver);
+        Assert.Contains("structuredSpecializationExclusions", generator);
+        Assert.Contains("structuredSpecializationExclusions", validation);
+    }
+
     [Fact]
     public void DietGeneration_ConsumesSpecializationRules()
     {
