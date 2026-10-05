@@ -82,6 +82,12 @@ jobs:
           test -d /var/lib/dietoexpress/AlertSpool
           test -w /var/lib/dietoexpress/AlertSpool
 
+          # Los documentos de pacientes y plantillas son almacenamiento persistente.
+          # Se provisionan una sola vez fuera del despliegue; aquí solo verificamos que
+          # la aplicación pueda utilizarlos sin depender de sudo interactivo.
+          test -d /var/lib/dietoexpress/documents
+          test -w /var/lib/dietoexpress/documents
+
           rm -rf /opt/dietoexpress/*
           cp -a /tmp/dietoexpress-backend/. /opt/dietoexpress/
           mkdir -p /opt/dietoexpress/wwwroot
