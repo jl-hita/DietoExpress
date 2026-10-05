@@ -15,6 +15,7 @@ export interface ProfessionalDashboard {
   pendingPatientDataCount:number;
   documentProvisioningRetryCount:number;
   documentProvisioningFailedCount:number;
+  documentProvisioningIncompleteCount:number;
   documentProvisioningIssues:DashboardDocumentProvisioning[];
   openTasks:DashboardTask[];
   todayAppointments:DashboardAppointment[];
