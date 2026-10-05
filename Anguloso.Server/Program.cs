@@ -205,6 +205,22 @@ CREATE TABLE IF NOT EXISTS patient_push_subscriptions (
 );
 CREATE INDEX IF NOT EXISTS idx_patient_push_subscriptions_client
   ON patient_push_subscriptions(client_id);
+CREATE TABLE IF NOT EXISTS patient_push_deliveries (
+  id BIGSERIAL PRIMARY KEY,
+  tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  notification_id BIGINT NULL REFERENCES patient_notifications(id) ON DELETE CASCADE,
+  subscription_id BIGINT NOT NULL REFERENCES patient_push_subscriptions(id) ON DELETE CASCADE,
+  delivery_key VARCHAR(255) NOT NULL,
+  status VARCHAR(20) NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  last_error TEXT NULL,
+  sent_at TIMESTAMPTZ NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT uq_patient_push_deliveries_key UNIQUE (tenant_id, delivery_key, subscription_id)
+);
+CREATE INDEX IF NOT EXISTS idx_patient_push_deliveries_status
+  ON patient_push_deliveries(status, updated_at);
 ");
 BillingSchemaBootstrap.Initialize(context, logger);
                 var patientTemplateSeeder = scope.ServiceProvider.GetRequiredService<PatientDocumentTemplateSeeder>();
