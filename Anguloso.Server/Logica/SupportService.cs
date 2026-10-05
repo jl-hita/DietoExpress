@@ -55,7 +55,7 @@ public sealed class SupportService
     {
         var result=new List<SupportAssigneeDto>();
         await using var connection=new NpgsqlConnection(_connectionString); await connection.OpenAsync();
-        await using var command=new NpgsqlCommand("SELECT id,full_name FROM users WHERE role='superadmin' AND archived_at IS NULL ORDER BY full_name,id;",connection);
+        await using var command=new NpgsqlCommand("SELECT u.id,u.full_name FROM users u WHERE u.role='superadmin' AND u.archived_at IS NULL ORDER BY u.full_name,u.id;",connection);
         await using var reader=await command.ExecuteReaderAsync();
         while(await reader.ReadAsync()) result.Add(new SupportAssigneeDto{Id=reader.GetInt32(0),Name=reader.GetString(1)});
         return result;
