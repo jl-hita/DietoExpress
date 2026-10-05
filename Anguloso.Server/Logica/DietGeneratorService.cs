@@ -79,12 +79,28 @@ public class DietGeneratorService
             .Take(maxFoodsToLoad)
             .ToListAsync(cancellationToken);
 
-        // Filtrar alimentos válidos (comunes y no excluidos)
-        var allowedFoods = allFoods.Where(f => IsCommonFood(f) && !IsExcluded(f, exclusions)).ToList();
+        // Las reglas estructuradas por atributos tienen prioridad sobre las coincidencias de texto.
+        // Esto evita depender de que el nombre comercial del alimento contenga una palabra concreta.
+        var structuredSpecializationExclusions = tenantId.HasValue && request.ClientId.HasValue
+            ? await _specializationRulesService.GetExcludedFoodIdsAsync(
+                request.ClientId.Value,
+                tenantId.Value,
+                allFoods.Select(f => f.id).ToArray(),
+                cancellationToken)
+            : new HashSet<int>();
+
+        // Filtrar alimentos válidos (comunes y no excluidos).
+        var allowedFoods = allFoods
+            .Where(f => IsCommonFood(f)
+                && !structuredSpecializationExclusions.Contains(f.id)
+                && !IsExcluded(f, exclusions))
+            .ToList();
         if (allowedFoods.Count < 20)
         {
             // Fallback si la lista común es muy restrictiva
-            allowedFoods = allFoods.Where(f => !IsExcluded(f, exclusions)).ToList();
+            allowedFoods = allFoods
+                .Where(f => !structuredSpecializationExclusions.Contains(f.id) && !IsExcluded(f, exclusions))
+                .ToList();
         }
 
         cancellationToken.ThrowIfCancellationRequested();
