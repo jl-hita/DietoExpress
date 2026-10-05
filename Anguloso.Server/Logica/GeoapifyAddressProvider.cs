@@ -31,7 +31,7 @@ public sealed class GeoapifyAddressProvider : IAddressProvider
             throw new InvalidOperationException("Geoapify no está configurado.");
 
         var url =
-            $"https://api.geoapify.com/v1/geocode/autocomplete?text={Uri.EscapeDataString(text.Trim())}&lang=es&limit=5&filter=countrycode:es&apiKey={Uri.EscapeDataString(apiKey)}";
+            $"https://api.geoapify.com/v1/geocode/autocomplete?text={Uri.EscapeDataString(text.Trim())}&lang=es&limit=5&filter=countrycode:es&apiKey={Uri.EscapeDataString(apiKey!)}";
 
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         using var client = _httpClientFactory.CreateClient();
