@@ -42,8 +42,8 @@ public sealed class SpecializationsRegressionTests
         Assert.Contains("'tree_nut_allergy'", bootstrap);
         Assert.Contains("'peanut_allergy'", bootstrap);
         Assert.Contains("'soy_allergy'", bootstrap);
-        Assert.Contains("DO $", bootstrap);
-        Assert.Contains("END $;", bootstrap);
+        Assert.Contains("DO $$", bootstrap);
+        Assert.Contains("END $$;", bootstrap);
     }
 
     [Fact]
