@@ -98,3 +98,31 @@ public sealed class SpecializationsRegressionTests
         Assert.Contains("setClientSpecializations", component);
     }
 }
+
+    [Fact]
+    public void DietarySpecializations_AreSeededWithFoodExclusionRules()
+    {
+        var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
+        Assert.Contains("exclude_food_keywords", bootstrap);
+        Assert.Contains("'vegan'", bootstrap);
+        Assert.Contains("'vegetarian'", bootstrap);
+        Assert.Contains("'pescatarian'", bootstrap);
+        Assert.Contains("configuration::jsonb", bootstrap);
+    }
+
+    [Fact]
+    public void DietGeneration_ConsumesSpecializationRules()
+    {
+        var generator = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
+        var resolver = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "SpecializationRulesService.cs"));
+        var validation = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietValidationService.cs"));
+
+        Assert.Contains("SpecializationRulesService", generator);
+        Assert.Contains("GetFoodExclusionsAsync", generator);
+        Assert.Contains("client_specializations", resolver);
+        Assert.Contains("tenant_specializations", resolver);
+        Assert.Contains("food_exclusion", resolver);
+        Assert.Contains("specializationExclusions", validation);
+        Assert.Contains("AlertType = "Specialization"", validation);
+    }
+}
