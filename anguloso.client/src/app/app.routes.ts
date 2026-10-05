@@ -32,6 +32,7 @@ export const routes: AppRoute[] = [
       { path: 'appointments', loadComponent: () => import('./componentes/appointments/appointments.component').then(m => m.AppointmentsComponent), canActivate: [SubscriptionGuard], title: 'Agenda y citas' },
       { path: 'appointments/:appointmentId/consultation', loadComponent: () => import('./componentes/guided-consultation/guided-consultation.component').then(m => m.GuidedConsultationComponent), canActivate: [SubscriptionGuard], title: 'Consulta guiada' },
       { path: 'messages', loadComponent: () => import('./componentes/messages/messages.component').then(m => m.MessagesComponent), canActivate: [SubscriptionGuard], title: 'Mensajes' },
+      { path: 'statistics', loadComponent: () => import('./componentes/statistics/statistics.component').then(m => m.StatisticsComponent), canActivate: [SubscriptionGuard], title: 'Estadísticas' },
       { path: 'clients/nuevo', loadComponent: () => import('./componentes/client-create/client-create.component').then(m => m.ClientCreateComponent), canActivate: [SubscriptionGuard], title: 'Nuevo cliente' },
       { path: 'clients/:id/specializations', loadComponent: () => import('./componentes/client-specializations/client-specializations.component').then(m => m.ClientSpecializationsComponent), canActivate: [SubscriptionGuard], title: 'Especializaciones del paciente' },
       { path: 'clients/:id', loadComponent: () => import('./componentes/client-detail/client-detail.component').then(m => m.ClientDetailComponent), canActivate: [SubscriptionGuard] },
