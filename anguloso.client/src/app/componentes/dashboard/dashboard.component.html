@@ -19,6 +19,9 @@
       <button mat-card class="metric" (click)="openAppointments()">
         <mat-icon>event</mat-icon><strong>{{data.todayAppointments.length}}</strong><span>Citas hoy</span>
       </button>
+      <button mat-card class="metric" (click)="openCheckins()">
+        <mat-icon>fact_check</mat-icon><strong>{{data.pendingCheckinCount}}</strong><span>Check-ins por revisar</span>
+      </button>
       <button mat-card class="metric" (click)="openMessages()">
         <mat-icon>mail</mat-icon><strong>{{data.unreadMessageCount}}</strong><span>Mensajes sin leer</span>
       </button>
@@ -63,6 +66,29 @@
             <button mat-button (click)="openTask(task)">{{task.clientId?'Paciente':'Abrir'}}</button>
           </div>
           <p class="empty" *ngIf="!data.openTasks.length">No tienes tareas abiertas.</p>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card>
+        <mat-card-header><mat-card-title>Próximas citas</mat-card-title></mat-card-header>
+        <mat-card-content>
+          <div class="row" *ngFor="let a of data.upcomingAppointments">
+            <div><strong>{{a.startsAt|date:'EEE dd/MM HH:mm'}}</strong><span>{{a.clientName}}</span></div>
+            <span class="status">{{a.status==='requested'?'Solicitada':'Confirmada'}}</span>
+            <button mat-button (click)="openAppointment(a)">{{a.status==='confirmed'?'Consulta':'Agenda'}}</button>
+          </div>
+          <p class="empty" *ngIf="!data.upcomingAppointments.length">No hay citas próximas confirmadas o solicitadas.</p>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card>
+        <mat-card-header><mat-card-title>Check-ins por revisar</mat-card-title><button mat-button class="header-action" (click)="openCheckins()" *ngIf="data.pendingCheckinCount">Ver pacientes</button></mat-card-header>
+        <mat-card-content>
+          <div class="row" *ngFor="let c of data.pendingCheckins">
+            <div><strong>{{c.clientName}}</strong><span>Enviado {{c.submittedAt|date:'dd/MM/yyyy HH:mm'}}</span></div>
+            <button mat-button (click)="openCheckin(c)">Revisar paciente</button>
+          </div>
+          <p class="empty" *ngIf="!data.pendingCheckins.length">No tienes check-ins pendientes de revisión.</p>
         </mat-card-content>
       </mat-card>
 
