@@ -112,76 +112,93 @@ public sealed class AutomationWorker : BackgroundService
         _logger.LogInformation("AutomationWorker detenido.");
     }
 
-    // Reclama un lote de trabajos de forma atómica. La combinación de transacción + SKIP LOCKED
-    // permite varias instancias del servidor sin ejecutar simultáneamente el mismo trabajo.
-    // Reserva trabajos de forma compatible con concurrencia para que varias instancias del
-    // worker no procesen simultáneamente la misma automatización.
+    // Recupera trabajos huérfanos y reclama cada job justo antes de ejecutarlo.
+    // No se reserva un lote completo durante minutos: si una acción tarda mucho, los demás jobs
+    // siguen pendientes y no pueden ser recuperados prematuramente por otra instancia.
     private async Task<int> ProcessBatchAsync(CancellationToken cancellationToken)
     {
-        var jobs = new List<AutomationJob>();
-        await using (var connection = new NpgsqlConnection(_connectionString))
+        var processed = 0;
+
+        for (var i = 0; i < 20; i++)
         {
-            await connection.OpenAsync(cancellationToken);
-            await using var tx = await connection.BeginTransactionAsync(cancellationToken);
+            var job = await ClaimNextJobAsync(cancellationToken);
+            if (job is null)
+                break;
 
-            // Diez minutos es el umbral para distinguir un worker que sigue ejecutando una acción externa de un proceso que
-            // probablemente murió. Es deliberadamente conservador: una recuperación prematura podría duplicar una acción externa,
-            // por lo que las acciones que puedan repetirse deben apoyarse además en su propia idempotencia.
-            await using (var recover = new NpgsqlCommand("""
-                UPDATE automation_jobs
-                SET status='pending', locked_at=NULL, updated_at=NOW()
-                WHERE status='processing'
-                  AND locked_at < NOW() - INTERVAL '10 minutes';
-                """, connection, tx))
-            {
-                await recover.ExecuteNonQueryAsync(cancellationToken);
-            }
-
-            await using var command = new NpgsqlCommand("""
-                SELECT id, tenant_id, event_id, action_type, payload, scheduled_at, attempts, max_attempts
-                FROM automation_jobs
-                WHERE status='pending' AND scheduled_at <= NOW()
-                ORDER BY scheduled_at, id
-                FOR UPDATE SKIP LOCKED
-                LIMIT 20;
-                """, connection, tx);
-
-            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-            while (await reader.ReadAsync(cancellationToken))
-            {
-                jobs.Add(new AutomationJob(
-                    reader.GetInt64(0),
-                    reader.GetInt32(1),
-                    reader.IsDBNull(2) ? null : reader.GetInt64(2),
-                    reader.GetString(3),
-                    reader.GetString(4),
-                    reader.GetDateTime(5),
-                    reader.GetInt32(6) + 1,
-                    reader.GetInt32(7)));
-            }
-            await reader.DisposeAsync();
-
-            foreach (var job in jobs)
-            {
-                // El intento se incrementa al reclamar el job, no al terminarlo: así un proceso que muera durante una
-                // llamada externa consume igualmente un intento y no puede reintentarse indefinidamente tras cada reinicio.
-                await using var update = new NpgsqlCommand("""
-                    UPDATE automation_jobs
-                    SET status='processing', locked_at=NOW(), attempts=attempts+1, updated_at=NOW()
-                    WHERE id=@id AND status='pending';
-                    """, connection, tx);
-                update.Parameters.AddWithValue("id", job.Id);
-                await update.ExecuteNonQueryAsync(cancellationToken);
-            }
-            await tx.CommitAsync(cancellationToken);
+            // La transacción de reclamación ya está cerrada; las acciones externas se ejecutan fuera de
+            // cualquier bloqueo SQL y el siguiente job no se reserva hasta terminar este.
+            await ExecuteJobAsync(job, cancellationToken);
+            processed++;
         }
 
-        // Una vez liberada la transacción de reclamación, las llamadas externas se ejecutan fuera de la
-        // transacción SQL para no mantener bloqueos mientras esperamos a email, push u otros servicios.
-        foreach (var job in jobs)
-            await ExecuteJobAsync(job, cancellationToken);
+        return processed;
+    }
 
-        return jobs.Count;
+    // La recuperación de trabajos obsoletos y la reclamación del siguiente job son una única operación transaccional.
+    // SKIP LOCKED permite que varias instancias compitan por la cola sin bloquearse mutuamente.
+    private async Task<AutomationJob?> ClaimNextJobAsync(CancellationToken cancellationToken)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var tx = await connection.BeginTransactionAsync(cancellationToken);
+
+        // Diez minutos es el umbral para considerar huérfano un job. Al reclamar solo un job cada vez,
+        // este timeout ya no puede afectar a trabajos que llevan esperando dentro de un lote reservado.
+        await using (var recover = new NpgsqlCommand("""
+            UPDATE automation_jobs
+            SET status='pending', locked_at=NULL, updated_at=NOW()
+            WHERE status='processing'
+              AND locked_at < NOW() - INTERVAL '10 minutes';
+            """, connection, tx))
+        {
+            await recover.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await using var command = new NpgsqlCommand("""
+            SELECT id, tenant_id, event_id, action_type, payload, scheduled_at, attempts, max_attempts
+            FROM automation_jobs
+            WHERE status='pending' AND scheduled_at <= NOW()
+            ORDER BY scheduled_at, id
+            FOR UPDATE SKIP LOCKED
+            LIMIT 1;
+            """, connection, tx);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
+        {
+            await reader.DisposeAsync();
+            await tx.CommitAsync(cancellationToken);
+            return null;
+        }
+
+        var job = new AutomationJob(
+            reader.GetInt64(0),
+            reader.GetInt32(1),
+            reader.IsDBNull(2) ? null : reader.GetInt64(2),
+            reader.GetString(3),
+            reader.GetString(4),
+            reader.GetDateTime(5),
+            reader.GetInt32(6) + 1,
+            reader.GetInt32(7));
+        await reader.DisposeAsync();
+
+        // El intento se incrementa al reclamar el job, no al terminarlo: un proceso que muera durante una
+        // llamada externa consume igualmente un intento y no puede reintentarse indefinidamente tras cada reinicio.
+        await using var update = new NpgsqlCommand("""
+            UPDATE automation_jobs
+            SET status='processing', locked_at=NOW(), attempts=attempts+1, updated_at=NOW()
+            WHERE id=@id AND status='pending';
+            """, connection, tx);
+        update.Parameters.AddWithValue("id", job.Id);
+        var updated = await update.ExecuteNonQueryAsync(cancellationToken);
+        if (updated != 1)
+        {
+            await tx.RollbackAsync(cancellationToken);
+            return null;
+        }
+
+        await tx.CommitAsync(cancellationToken);
+        return job;
     }
 
     // Ejecuta una acción ya reclamada. Los errores se registran y el trabajo se reprograma o marca
