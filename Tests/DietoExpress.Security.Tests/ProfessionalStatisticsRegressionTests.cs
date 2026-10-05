@@ -94,6 +94,6 @@ public sealed class ProfessionalStatisticsRegressionTests
         Assert.Contains("path: 'statistics'", routes);
         Assert.Contains("StatisticsComponent", routes);
         Assert.Contains("canActivate: [SubscriptionGuard]", routes);
-        Assert.Contains("routerLink="/ + "\"statistics\"" + "", sidebar);
+        Assert.Contains("routerLink=\"/statistics\"", sidebar);
     }
 }
