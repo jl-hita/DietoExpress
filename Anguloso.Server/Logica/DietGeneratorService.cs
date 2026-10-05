@@ -93,16 +93,16 @@ public class DietGeneratorService
 
         double targetProtein = request.TargetProtein
             ?? (client != null && sportsProtein.HasValue
-                ? await CalculateGramsFromKgAsync(client.id, sportsProtein.Value, targetKcal, request.DietType, cancellationToken)
+                ? await CalculateGramsFromKgAsync(client.id, sportsProtein.Value, CalculateDefaultProtein(targetKcal, request.DietType), cancellationToken)
                 : client != null && weightProtein.HasValue
-                    ? await CalculateGramsFromKgAsync(client.id, weightProtein.Value, targetKcal, request.DietType, cancellationToken)
+                    ? await CalculateGramsFromKgAsync(client.id, weightProtein.Value, CalculateDefaultProtein(targetKcal, request.DietType), cancellationToken)
                     : nutritionProfile != null && client != null
                         ? await CalculateSportsProteinAsync(client.id, nutritionProfile, targetKcal, cancellationToken)
                         : CalculateDefaultProtein(targetKcal, request.DietType));
         double targetFat = request.TargetFat ?? CalculateDefaultFat(targetKcal, request.DietType);
         double targetCarbs = request.TargetCarbs
             ?? (client != null && sportsCarbs.HasValue
-                ? await CalculateGramsFromKgAsync(client.id, sportsCarbs.Value, targetKcal, request.DietType, cancellationToken)
+                ? await CalculateGramsFromKgAsync(client.id, sportsCarbs.Value, CalculateDefaultCarbs(targetKcal, targetProtein, targetFat), cancellationToken)
                 : CalculateDefaultCarbs(targetKcal, targetProtein, targetFat));
 
         // 3. Cargar un catálogo acotado de alimentos desde la BD.
@@ -642,8 +642,7 @@ public class DietGeneratorService
     private async Task<double> CalculateGramsFromKgAsync(
         int clientId,
         double gramsPerKg,
-        double targetKcal,
-        string dietType,
+        double fallbackValue,
         CancellationToken cancellationToken)
     {
         var latest = await _context.biometrics
@@ -655,7 +654,7 @@ public class DietGeneratorService
 
         return latest?.weight is double weight && weight > 0
             ? Math.Round(weight * gramsPerKg, 1)
-            : CalculateDefaultProtein(targetKcal, dietType);
+            : fallbackValue;
     }
 
     private async Task<double> CalculateSportsProteinAsync(
