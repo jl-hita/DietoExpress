@@ -66,9 +66,7 @@ public sealed class SupportController : ControllerBase
             var updated = await _support.AddMessageAsync(
                 ticketId, userId, tenantId, User.IsInRole("superadmin"), request.Body, request.Internal);
             if(updated) await _enhancements.NotifyAsync(ticketId,userId,request.Internal);
-            if (updated == null) return NotFound();
-            await _enhancements.NotifyTicketChangeAsync(ticketId, userId.Value, updated);
-            return NoContent();
+            return updated ? NoContent() : NotFound();
         }
         catch (ArgumentException ex)
         {
