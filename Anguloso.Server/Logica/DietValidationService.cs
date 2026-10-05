@@ -170,6 +170,9 @@ public class DietValidationService
         var specializationExclusions = tenantId.HasValue
             ? await _specializationRulesService.GetFoodExclusionsAsync(clientId, tenantId.Value)
             : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var structuredSpecializationExclusions = tenantId.HasValue
+            ? await _specializationRulesService.GetExcludedFoodIdsAsync(clientId, tenantId.Value, foodsMap.Keys.ToArray())
+            : new HashSet<int>();
 
         if (diet.diet_days == null) return warnings;
 
@@ -184,7 +187,7 @@ public class DietValidationService
                     if (!item.food_id.HasValue || !foodsMap.TryGetValue(item.food_id.Value, out var food)) 
                         continue;
 
-                    var foodWarnings = CheckFoodCompatibility(client, food, meal.name, day.day_index, specializationExclusions);
+                    var foodWarnings = CheckFoodCompatibility(client, food, meal.name, day.day_index, specializationExclusions, structuredSpecializationExclusions);
                     warnings.AddRange(foodWarnings);
                 }
             }
@@ -255,7 +258,7 @@ public class DietValidationService
                     if (!item.FoodId.HasValue || !foodsMap.TryGetValue(item.FoodId.Value, out var food)) 
                         continue;
 
-                    var foodWarnings = CheckFoodCompatibility(client, food, meal.Name, day.DayIndex, specializationExclusions);
+                    var foodWarnings = CheckFoodCompatibility(client, food, meal.Name, day.DayIndex, specializationExclusions, structuredSpecializationExclusions);
                     warnings.AddRange(foodWarnings);
                 }
             }
@@ -266,29 +269,52 @@ public class DietValidationService
 
     // Centraliza las reglas alimento-paciente y devuelve todas las incompatibilidades detectadas
     // para que la interfaz pueda mostrarlas sin detenerse en el primer problema.
-    private List<DietValidationResultDto> CheckFoodCompatibility(clients client, foods food, string mealName, int dayIndex, HashSet<string> specializationExclusions)
+    private List<DietValidationResultDto> CheckFoodCompatibility(
+        clients client,
+        foods food,
+        string mealName,
+        int dayIndex,
+        HashSet<string> specializationExclusions,
+        HashSet<int> structuredSpecializationExclusions)
     {
         var list = new List<DietValidationResultDto>();
         var nameLower = (food.name ?? "").ToLowerInvariant();
         var catLower = (food.category ?? "").ToLowerInvariant();
 
-        // Las exclusiones derivadas de especializaciones se aplican además de las
-        // preferencias individuales y producen una alerta explícita para el profesional.
-        foreach (var keyword in specializationExclusions)
+        // Las reglas estructuradas detectan incompatibilidades aunque el nombre comercial no
+        // contenga una palabra concreta. La regla textual se mantiene como respaldo para
+        // alimentos aún no clasificados.
+        if (structuredSpecializationExclusions.Contains(food.id))
         {
-            if (nameLower.Contains(keyword) || catLower.Contains(keyword))
+            list.Add(new DietValidationResultDto
             {
-                list.Add(new DietValidationResultDto
+                FoodId = food.id,
+                FoodName = food.name ?? string.Empty,
+                MealName = mealName ?? string.Empty,
+                DayIndex = dayIndex,
+                AlertType = "Specialization",
+                Severity = "High",
+                Message = "La especialización activa del paciente excluye este alimento por sus atributos dietéticos."
+            });
+        }
+        else
+        {
+            foreach (var keyword in specializationExclusions)
+            {
+                if (nameLower.Contains(keyword) || catLower.Contains(keyword))
                 {
-                    FoodId = food.id,
-                    FoodName = food.name ?? string.Empty,
-                    MealName = mealName ?? string.Empty,
-                    DayIndex = dayIndex,
-                    AlertType = "Specialization",
-                    Severity = "High",
-                    Message = $"La especialización activa del paciente excluye este alimento por la regla «{keyword}»."
-                });
-                break;
+                    list.Add(new DietValidationResultDto
+                    {
+                        FoodId = food.id,
+                        FoodName = food.name ?? string.Empty,
+                        MealName = mealName ?? string.Empty,
+                        DayIndex = dayIndex,
+                        AlertType = "Specialization",
+                        Severity = "High",
+                        Message = $"La especialización activa del paciente excluye este alimento por la regla «{keyword}»."
+                    });
+                    break;
+                }
             }
         }
 
