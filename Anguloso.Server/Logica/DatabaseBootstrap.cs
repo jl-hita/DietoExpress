@@ -2115,7 +2115,9 @@ public static class DatabaseBootstrap
             JOIN (VALUES
                 ('vegan','exclude_food_keywords','food_exclusion','{""required_flags"":[""animal""],""keywords"":[""carne"",""pollo"",""pavo"",""cerdo"",""ternera"",""vacuno"",""cordero"",""jamon"",""jamón"",""embutido"",""salchicha"",""chorizo"",""atun"",""atún"",""salmon"",""salmón"",""pescado"",""marisco"",""gamba"",""camaron"",""camarón"",""mejillon"",""mejillón"",""huevo"",""leche"",""queso"",""yogur"",""yogurt"",""nata"",""mantequilla"",""miel"",""gelatina""]}',10),
                 ('vegetarian','exclude_food_keywords','food_exclusion','{""required_flags"":[""meat"",""fish"",""gelatin""],""keywords"":[""carne"",""pollo"",""pavo"",""cerdo"",""ternera"",""vacuno"",""cordero"",""jamon"",""jamón"",""embutido"",""salchicha"",""chorizo"",""atun"",""atún"",""salmon"",""salmón"",""pescado"",""marisco"",""gamba"",""camaron"",""camarón"",""mejillon"",""mejillón"",""gelatina""]}',10),
-                ('pescatarian','exclude_food_keywords','food_exclusion','{""required_flags"":[""meat"",""gelatin""],""keywords"":[""carne"",""pollo"",""pavo"",""cerdo"",""ternera"",""vacuno"",""cordero"",""jamon"",""jamón"",""embutido"",""salchicha"",""chorizo"",""gelatina""]}',10)
+                ('pescatarian','exclude_food_keywords','food_exclusion','{""required_flags"":[""meat"",""gelatin""],""keywords"":[""carne"",""pollo"",""pavo"",""cerdo"",""ternera"",""vacuno"",""cordero"",""jamon"",""jamón"",""embutido"",""salchicha"",""chorizo"",""gelatina""]}',10),
+                ('celiac','exclude_food_gluten','food_exclusion','{""required_flags"":[""gluten""],""keywords"":[""gluten"",""trigo"",""cebada"",""centeno"",""espelta"",""avena""]}',10),
+                ('lactose_intolerance','exclude_food_lactose','food_exclusion','{""required_flags"":[""lactose""],""keywords"":[""lactosa"",""leche"",""suero"",""lácteo"",""lacteo"]}',10)
             ) AS v(code,rule_code,rule_type,configuration,priority)
               ON s.code=v.code
             ON CONFLICT (specialization_id, rule_code) DO UPDATE SET
@@ -2167,6 +2169,12 @@ public static class DatabaseBootstrap
                 END IF;
                 IF text_to_classify ~* '(^|[^[:alnum:]])gelatina($|[^[:alnum:]])' THEN
                     flags := array_append(flags, 'gelatin');
+                END IF;
+                IF text_to_classify ~* '(^|[^[:alnum:]])(trigo|harina de trigo|cebada|centeno|espelta|gluten|pan|pasta|cusc[uú]s|galleta|galletas|bizcocho|bizcochos)($|[^[:alnum:]])' THEN
+                    flags := array_append(flags, 'gluten');
+                END IF;
+                IF text_to_classify ~* '(^|[^[:alnum:]])(lactosa|leche|l[aá]cteo|l[aá]cteos|suero l[aá]cteo|case[ií]na|nata|yogur|yogurt)($|[^[:alnum:]])' THEN
+                    flags := array_append(flags, 'lactose');
                 END IF;
 
                 IF cardinality(flags) > 0 THEN
