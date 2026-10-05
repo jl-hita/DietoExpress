@@ -13,6 +13,11 @@ public class CreateAppointmentRequestDto
     public DateTime StartsAt { get; set; }
     public int DurationMinutes { get; set; } = 30;
     public string? PatientNotes { get; set; }
+    public string Modality { get; set; } = "in_person";
+    public string Modality { get; set; } = "in_person";
+    public string? VideoProvider { get; set; }
+    public string? VideoRoomUrl { get; set; }
+    public DateTime? VideoExpiresAt { get; set; }
 }
 
 public class PublicAppointmentConfirmationDto
