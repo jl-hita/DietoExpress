@@ -77,7 +77,7 @@
         </mat-card-content>
       </mat-card>
 
-      <mat-card *ngIf="data.documentProvisioningRetryCount || data.documentProvisioningFailedCount || data.documentProvisioningIssues.length">
+      <mat-card *ngIf="data.documentProvisioningRetryCount || data.documentProvisioningFailedCount || data.documentProvisioningIncompleteCount || data.documentProvisioningIssues.length">
         <mat-card-header><mat-card-title>Estado de provisión documental</mat-card-title></mat-card-header>
         <mat-card-content>
           <p *ngIf="data.documentProvisioningRetryCount">
@@ -86,10 +86,13 @@
           <p *ngIf="data.documentProvisioningFailedCount" class="error">
             {{data.documentProvisioningFailedCount}} provisión{{data.documentProvisioningFailedCount===1?'':'es'}} ha{{data.documentProvisioningFailedCount===1?'':'n'}} fallado definitivamente y requiere revisión.
           </p>
+          <p *ngIf="data.documentProvisioningIncompleteCount" class="error">
+            {{data.documentProvisioningIncompleteCount}} provisión{{data.documentProvisioningIncompleteCount===1?'':'es'}} figura{{data.documentProvisioningIncompleteCount===1?'':'n'}} completada{{data.documentProvisioningIncompleteCount===1?'':'s'}}, pero falta documentación obligatoria.
+          </p>
           <div class="row" *ngFor="let p of data.documentProvisioningIssues">
             <div>
               <strong>{{p.clientName}}</strong>
-              <span>{{p.status==='failed'?'Fallida':(p.status==='processing'?'Procesando':'Reintentando')}} · {{p.attempts}}/{{p.maxAttempts}} intentos</span>
+              <span>{{p.status==='failed'?'Fallida':(p.status==='completed_incomplete'?'Completada pero incompleta':(p.status==='processing'?'Procesando':'Reintentando'))}} · {{p.attempts}}/{{p.maxAttempts}} intentos</span>
               <small *ngIf="p.lastError">{{p.lastError}}</small>
             </div>
             <button mat-button (click)="openClient(p.clientId)">Abrir ficha</button>
