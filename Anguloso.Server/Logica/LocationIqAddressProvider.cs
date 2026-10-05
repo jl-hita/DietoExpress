@@ -20,13 +20,14 @@ public sealed class LocationIqAddressProvider : IAddressProvider
 
     public string Name => "LocationIQ";
     public int DailyLimit => _options.LocationIqDailyLimit;
+    public bool IsConfigured => !string.IsNullOrWhiteSpace(_options.LocationIqApiKey) && !_options.LocationIqApiKey.StartsWith("__CONFIGURE_", StringComparison.Ordinal);
 
     public async Task<IReadOnlyList<AddressAutocompleteService.AddressSuggestion>> SearchAsync(
         string text,
         CancellationToken cancellationToken)
     {
         var apiKey = _options.LocationIqApiKey;
-        if (string.IsNullOrWhiteSpace(apiKey) || apiKey.StartsWith("__CONFIGURE_", StringComparison.Ordinal))
+        if (!IsConfigured)
             throw new InvalidOperationException("LocationIQ no está configurado.");
 
         var url =
