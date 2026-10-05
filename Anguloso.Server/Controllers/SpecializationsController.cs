@@ -165,6 +165,7 @@ public sealed class SpecializationsController : ControllerBase
                 DELETE FROM client_specializations
                 WHERE tenant_id=@tenant AND client_id=@client;"))
             {
+                delete.Transaction = transaction;
                 Add(delete, "tenant", access.TenantId);
                 Add(delete, "client", clientId);
                 await delete.ExecuteNonQueryAsync();
