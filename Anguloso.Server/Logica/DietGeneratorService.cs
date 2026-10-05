@@ -11,27 +11,28 @@ namespace Anguloso.Server.Logica;
 public class DietGeneratorService
 {
     private readonly angulosodbContext _context;
+    private readonly SpecializationRulesService _specializationRulesService;
 
-    public DietGeneratorService(angulosodbContext context)
+    public DietGeneratorService(angulosodbContext context, SpecializationRulesService specializationRulesService)
     {
         _context = context;
+        _specializationRulesService = specializationRulesService;
     }
 
     // La generación construye una dieta a partir de objetivos nutricionales, alimentos permitidos
     // y restricciones del paciente; los filtros de tenant se aplican antes de optimizar las cantidades.
     public async Task<DietDetailDto> GenerateDietAsync(GenerateDietRequestDto request, int? tenantId, int userId, bool canUseTenantLocalFoods, CancellationToken cancellationToken = default)
     {
-        // 1. Resolver Kcal y Macros objetivo diarios
+        // 1. Resolver cliente y especializaciones antes de fijar los objetivos automáticos.
         double targetKcal = request.TargetKcal > 0 ? request.TargetKcal : 2000;
-        double targetProtein = request.TargetProtein ?? CalculateDefaultProtein(targetKcal, request.DietType);
-        double targetFat = request.TargetFat ?? CalculateDefaultFat(targetKcal, request.DietType);
-        double targetCarbs = request.TargetCarbs ?? CalculateDefaultCarbs(targetKcal, targetProtein, targetFat);
+        clients? client = null;
+        SpecializationRulesService.NutritionProfile? nutritionProfile = null;
+        IReadOnlyList<string> clinicalGuidance = Array.Empty<string>();
+        var exclusions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        // 2. Extraer exclusiones del paciente
-        var exclusions = new HashSet<string>(request.ExcludedFoodKeywords.Select(k => k.ToLowerInvariant()));
         if (request.ClientId.HasValue)
         {
-            var client = await _context.clients
+            client = await _context.clients
                 .Include(c => c.digestive_health)
                 .Include(c => c.food_preferences)
                 .AsNoTracking()
@@ -39,13 +40,29 @@ public class DietGeneratorService
 
             if (client != null)
             {
+                if (tenantId.HasValue)
+                {
+                    nutritionProfile = await _specializationRulesService.GetNutritionProfileAsync(
+                        client.id, tenantId.Value, cancellationToken);
+                    clinicalGuidance = await _specializationRulesService.GetClinicalGuidanceAsync(
+                        client.id, tenantId.Value, cancellationToken);
+                }
+
                 if (client.digestive_health?.gluten_intolerance == true)
                     AddGlutenKeywords(exclusions);
                 if (client.digestive_health?.lactose_intolerance == true)
                     AddLactoseKeywords(exclusions);
                 if (client.digestive_health?.fodmaps_intolerance == true)
                     AddFodmapKeywords(exclusions);
-                if (client.food_preferences != null && !string.IsNullOrWhiteSpace(client.food_preferences.allergies))
+                if (tenantId.HasValue)
+            {
+                var specializationExclusions = await _specializationRulesService.GetFoodExclusionsAsync(
+                    client.id, tenantId.Value, cancellationToken);
+                foreach (var keyword in specializationExclusions)
+                    exclusions.Add(keyword);
+            }
+
+            if (client.food_preferences != null && !string.IsNullOrWhiteSpace(client.food_preferences.allergies))
                 {
                     var customAllergies = client.food_preferences.allergies
                         .Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries)
@@ -55,6 +72,14 @@ public class DietGeneratorService
                 }
             }
         }
+
+        // Los objetivos explícitos enviados por el profesional siempre prevalecen.
+        double targetProtein = request.TargetProtein
+            ?? (nutritionProfile != null && client != null
+                ? await CalculateSportsProteinAsync(client.id, nutritionProfile, targetKcal, cancellationToken)
+                : CalculateDefaultProtein(targetKcal, request.DietType));
+        double targetFat = request.TargetFat ?? CalculateDefaultFat(targetKcal, request.DietType);
+        double targetCarbs = request.TargetCarbs ?? CalculateDefaultCarbs(targetKcal, targetProtein, targetFat);
 
         // 3. Cargar un catálogo acotado de alimentos desde la BD.
         // No debemos traer toda la tabla a memoria: el catálogo puede crecer mucho
@@ -69,12 +94,28 @@ public class DietGeneratorService
             .Take(maxFoodsToLoad)
             .ToListAsync(cancellationToken);
 
-        // Filtrar alimentos válidos (comunes y no excluidos)
-        var allowedFoods = allFoods.Where(f => IsCommonFood(f) && !IsExcluded(f, exclusions)).ToList();
+        // Las reglas estructuradas por atributos tienen prioridad sobre las coincidencias de texto.
+        // Esto evita depender de que el nombre comercial del alimento contenga una palabra concreta.
+        var structuredSpecializationExclusions = tenantId.HasValue && request.ClientId.HasValue
+            ? await _specializationRulesService.GetExcludedFoodIdsAsync(
+                request.ClientId.Value,
+                tenantId.Value,
+                allFoods.Select(f => f.id).ToArray(),
+                cancellationToken)
+            : new HashSet<int>();
+
+        // Filtrar alimentos válidos (comunes y no excluidos).
+        var allowedFoods = allFoods
+            .Where(f => IsCommonFood(f)
+                && !structuredSpecializationExclusions.Contains(f.id)
+                && !IsExcluded(f, exclusions))
+            .ToList();
         if (allowedFoods.Count < 20)
         {
             // Fallback si la lista común es muy restrictiva
-            allowedFoods = allFoods.Where(f => !IsExcluded(f, exclusions)).ToList();
+            allowedFoods = allFoods
+                .Where(f => !structuredSpecializationExclusions.Contains(f.id) && !IsExcluded(f, exclusions))
+                .ToList();
         }
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -139,7 +180,8 @@ public class DietGeneratorService
             TargetProtein = (decimal)Math.Round(targetProtein),
             TargetCarbs = (decimal)Math.Round(targetCarbs),
             TargetFat = (decimal)Math.Round(targetFat),
-            Notes = $"Plan generado automáticamente por el motor heurístico el {DateTime.Now:dd/MM/yyyy}. {request.MealsPerDay} comidas al día.",
+            Notes = $"Plan generado automáticamente por el motor heurístico el {DateTime.Now:dd/MM/yyyy}. {request.MealsPerDay} comidas al día." +
+                (clinicalGuidance.Count > 0 ? " Especializaciones activas: " + string.Join(" ", clinicalGuidance) : string.Empty),
             Days = daysList
         };
     }
@@ -559,6 +601,31 @@ public class DietGeneratorService
     #endregion
 
     #region Helpers de Cálculo y Restricciones
+
+    private async Task<double> CalculateSportsProteinAsync(
+        int clientId,
+        SpecializationRulesService.NutritionProfile profile,
+        double targetKcal,
+        CancellationToken cancellationToken)
+    {
+        var latestBiometric = await _context.biometrics
+            .AsNoTracking()
+            .Where(b => b.client_id == clientId && b.weight.HasValue && b.weight > 0)
+            .OrderByDescending(b => b.measurement_date)
+            .ThenByDescending(b => b.id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (latestBiometric?.weight is not double weight || weight <= 0)
+            return CalculateDefaultProtein(targetKcal, "Equilibrada");
+
+        var gramsPerKg = profile.ProteinGramsPerKg;
+        if (profile.ProteinMinGramsPerKg.HasValue)
+            gramsPerKg = Math.Max(gramsPerKg, profile.ProteinMinGramsPerKg.Value);
+        if (profile.ProteinMaxGramsPerKg.HasValue)
+            gramsPerKg = Math.Min(gramsPerKg, profile.ProteinMaxGramsPerKg.Value);
+
+        return Math.Round(weight * gramsPerKg, 1);
+    }
 
     private double CalculateDefaultProtein(double kcal, string dietType)
     {

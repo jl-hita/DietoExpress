@@ -2007,4 +2007,222 @@ public static class DatabaseBootstrap
         logger.LogInformation("Migración de directorio directory-v1 aplicada/comprobada correctamente.");
     }
 
+
+    /// <summary>
+    /// Crea el catálogo base de especializaciones y su configuración por tenant.
+    /// Las reglas se almacenan como JSON para que futuras especializaciones puedan añadir
+    /// parámetros sin convertir el generador de dietas en una colección de condicionales.
+    /// </summary>
+    public static void UpgradeSpecializationsSchemaV1(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS specializations (
+                id SERIAL PRIMARY KEY,
+                code VARCHAR(80) NOT NULL UNIQUE,
+                name VARCHAR(160) NOT NULL,
+                category VARCHAR(40) NOT NULL,
+                description VARCHAR(1000),
+                active BOOLEAN NOT NULL DEFAULT TRUE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+
+            CREATE TABLE IF NOT EXISTS tenant_specializations (
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                specialization_id INTEGER NOT NULL REFERENCES specializations(id) ON DELETE CASCADE,
+                enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                PRIMARY KEY (tenant_id, specialization_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_tenant_specializations_tenant
+                ON tenant_specializations(tenant_id, enabled);
+
+            CREATE TABLE IF NOT EXISTS client_specializations (
+                id BIGSERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                specialization_id INTEGER NOT NULL REFERENCES specializations(id) ON DELETE RESTRICT,
+                notes VARCHAR(2000),
+                created_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_client_specialization UNIQUE (tenant_id, client_id, specialization_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_client_specializations_client
+                ON client_specializations(tenant_id, client_id);
+
+            -- Refuerza a nivel de base de datos que una asignación nunca pueda
+            -- combinar un cliente con el tenant equivocado.
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_clients_tenant_id_id
+                ON clients(tenant_id, id);
+
+            DO $
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1
+                    FROM pg_constraint
+                    WHERE conname = 'fk_client_specializations_client_tenant'
+                ) THEN
+                    ALTER TABLE client_specializations
+                        ADD CONSTRAINT fk_client_specializations_client_tenant
+                        FOREIGN KEY (tenant_id, client_id)
+                        REFERENCES clients(tenant_id, id)
+                        ON DELETE CASCADE;
+                END IF;
+            END $;
+
+            CREATE TABLE IF NOT EXISTS specialization_rules (
+                id BIGSERIAL PRIMARY KEY,
+                specialization_id INTEGER NOT NULL REFERENCES specializations(id) ON DELETE CASCADE,
+                rule_code VARCHAR(120) NOT NULL,
+                rule_type VARCHAR(50) NOT NULL,
+                configuration JSONB NOT NULL DEFAULT '{}'::jsonb,
+                priority INTEGER NOT NULL DEFAULT 100,
+                active BOOLEAN NOT NULL DEFAULT TRUE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_specialization_rule_code UNIQUE (specialization_id, rule_code)
+            );
+            CREATE INDEX IF NOT EXISTS idx_specialization_rules_specialization
+                ON specialization_rules(specialization_id, active, priority);
+
+            INSERT INTO specializations(code,name,category,description)
+            VALUES
+                ('vegan','Vegana','dietary','Patrón alimentario sin alimentos de origen animal.'),
+                ('vegetarian','Vegetariana','dietary','Patrón alimentario vegetariano configurable por el profesional.'),
+                ('flexitarian','Flexitariana','dietary','Patrón predominantemente vegetal con consumo ocasional de alimentos animales.'),
+                ('pescatarian','Pescetariana','dietary','Patrón sin carne terrestre con consumo de pescado y marisco.'),
+                ('sports_nutrition','Nutrición deportiva','sports','Especialización para objetivos relacionados con entrenamiento y rendimiento.'),
+                ('weight_management','Control de peso','clinical','Especialización para objetivos de composición corporal y control ponderal.'),
+                ('diabetes','Diabetes','clinical','Condición clínica que requiere criterios específicos definidos y revisados por el profesional.'),
+                ('hypertension','Hipertensión','clinical','Condición clínica que puede requerir parámetros dietéticos específicos.'),
+                ('dyslipidemia','Dislipemia','clinical','Condición clínica relacionada con el perfil lipídico.'),
+                ('celiac','Enfermedad celíaca','clinical','Condición que requiere exclusión estricta de gluten según criterio profesional.'),
+                ('lactose_intolerance','Intolerancia a la lactosa','clinical','Intolerancia alimentaria con adaptación individual de alimentos y cantidades.'),
+                ('tree_nut_allergy','Alergia a frutos secos','allergy','Alergia alimentaria que requiere exclusión de frutos secos según criterio profesional.'),
+                ('peanut_allergy','Alergia al cacahuete','allergy','Alergia alimentaria que requiere exclusión de cacahuete según criterio profesional.'),
+                ('soy_allergy','Alergia a la soja','allergy','Alergia alimentaria que requiere exclusión de soja según criterio profesional.'),
+                ('fodmap','Enfoque bajo FODMAP','clinical','Protocolo dietético configurable para síntomas digestivos, bajo supervisión profesional.'),
+                ('renal','Enfermedad renal','clinical','Condición clínica que puede requerir restricciones y objetivos individualizados.'),
+                ('pregnancy','Embarazo','life_stage','Especialización para seguimiento nutricional durante el embarazo.'),
+                ('lactation','Lactancia','life_stage','Especialización para seguimiento nutricional durante la lactancia.'),
+                ('pediatric','Nutrición pediátrica','life_stage','Especialización para población infantil y adolescente.')
+            ON CONFLICT (code) DO UPDATE SET
+                name = EXCLUDED.name,
+                category = EXCLUDED.category,
+                description = EXCLUDED.description,
+                active = TRUE;
+
+    INSERT INTO specialization_rules(specialization_id, rule_code, rule_type, configuration, priority, active)
+            SELECT s.id, v.rule_code, v.rule_type, v.configuration::jsonb, v.priority, TRUE
+            FROM specializations s
+            JOIN (VALUES
+                ('vegan','exclude_food_keywords','food_exclusion','{""required_flags"":[""animal""],""keywords"":[""carne"",""pollo"",""pavo"",""cerdo"",""ternera"",""vacuno"",""cordero"",""jamon"",""jamón"",""embutido"",""salchicha"",""chorizo"",""atun"",""atún"",""salmon"",""salmón"",""pescado"",""marisco"",""gamba"",""camaron"",""camarón"",""mejillon"",""mejillón"",""huevo"",""leche"",""queso"",""yogur"",""yogurt"",""nata"",""mantequilla"",""miel"",""gelatina""]}',10),
+                ('vegetarian','exclude_food_keywords','food_exclusion','{""required_flags"":[""meat"",""fish"",""gelatin""],""keywords"":[""carne"",""pollo"",""pavo"",""cerdo"",""ternera"",""vacuno"",""cordero"",""jamon"",""jamón"",""embutido"",""salchicha"",""chorizo"",""atun"",""atún"",""salmon"",""salmón"",""pescado"",""marisco"",""gamba"",""camaron"",""camarón"",""mejillon"",""mejillón"",""gelatina""]}',10),
+                ('pescatarian','exclude_food_keywords','food_exclusion','{""required_flags"":[""meat"",""gelatin""],""keywords"":[""carne"",""pollo"",""pavo"",""cerdo"",""ternera"",""vacuno"",""cordero"",""jamon"",""jamón"",""embutido"",""salchicha"",""chorizo"",""gelatina""]}',10),
+                ('celiac','exclude_food_gluten','food_exclusion','{""required_flags"":[""gluten""],""keywords"":[""gluten"",""trigo"",""cebada"",""centeno"",""espelta"",""avena""]}',10),
+                ('lactose_intolerance','exclude_food_lactose','food_exclusion','{""required_flags"":[""lactose""],""keywords"":[""lactosa"",""leche"",""suero"",""lácteo"",""lacteo""]}',10),
+                ('tree_nut_allergy','exclude_food_tree_nuts','food_exclusion','{""required_flags"":[""tree_nut""],""keywords"":[""almendra"",""almendras"",""nuez"",""nueces"",""avellana"",""avellanas"",""anacardo"",""anacardos"",""pistacho"",""pistachos"",""pacana"",""pacanas"",""macadamia"",""macadamias"",""nuez de brasil""]}',10),
+                ('peanut_allergy','exclude_food_peanut','food_exclusion','{""required_flags"":[""peanut""],""keywords"":[""cacahuete"",""cacahuetes"",""maní"",""mani"",""peanut"",""peanuts""]}',10),
+                ('soy_allergy','exclude_food_soy','food_exclusion','{""required_flags"":[""soy""],""keywords"":[""soja"",""soya"",""soy"",""tofu"",""tempeh"",""edamame""]}',10),
+                ('sports_nutrition','sports_default_protein','nutrition_profile','{""protein_g_per_kg"":1.6,""protein_min_g_per_kg"":1.4,""protein_max_g_per_kg"":2.0}',10),
+                ('sports_nutrition','sports_guidance','clinical_guidance','{""message"":""Nutrición deportiva: usar 1,4-2,0 g de proteína/kg/día como rango de referencia inicial en personas activas y ajustar según deporte, volumen de entrenamiento, composición corporal y objetivo."" }',20),
+                ('diabetes','diabetes_guidance','clinical_guidance','{""message"":""Diabetes: individualizar energía, cantidad y distribución de hidratos y revisar medicación, glucemia y objetivos clínicos. Priorizar calidad de los hidratos, fibra y limitar azúcares libres."" }',20),
+                ('hypertension','hypertension_guidance','clinical_guidance','{""message"":""Hipertensión: priorizar un patrón bajo en sodio/sal y rico en alimentos poco procesados, verduras y frutas. El objetivo de sodio debe individualizarse según criterio clínico."" }',20),
+                ('dyslipidemia','dyslipidemia_guidance','clinical_guidance','{""message"":""Dislipemia: priorizar grasas insaturadas, fibra y alimentos mínimamente procesados; limitar grasas saturadas y trans y adaptar el plan al perfil lipídico."" }',20),
+                ('renal','renal_guidance','clinical_guidance','{""message"":""Enfermedad renal: no aplicar automáticamente objetivos de proteína, sodio, potasio o fósforo. Individualizar según función renal, estadio, tratamiento y criterio clínico."" }',20),
+                ('pregnancy','pregnancy_guidance','clinical_guidance','{""message"":""Embarazo: individualizar energía y micronutrientes según etapa gestacional y seguimiento profesional. No usar restricciones automáticas que puedan comprometer la adecuación nutricional."" }',20),
+                ('lactation','lactation_guidance','clinical_guidance','{""message"":""Lactancia: individualizar energía, hidratación y micronutrientes según demanda y situación clínica. Evitar restricciones innecesarias que comprometan la adecuación nutricional."" }',20),
+                ('pediatric','pediatric_guidance','clinical_guidance','{""message"":""Nutrición pediátrica: individualizar por edad, crecimiento, desarrollo y situación clínica. No aplicar objetivos de adulto de forma automática."" }',20)
+            ) AS v(code,rule_code,rule_type,configuration,priority)
+              ON s.code=v.code
+            ON CONFLICT (specialization_id, rule_code) DO UPDATE SET
+                rule_type=EXCLUDED.rule_type,
+                configuration=EXCLUDED.configuration,
+                priority=EXCLUDED.priority,
+                active=TRUE;
+
+                    -- Los tenants existentes reciben inicialmente todo el catálogo activo.
+            -- Las filas explícitas permiten posteriormente desactivar especializaciones
+            -- sin afectar al catálogo global ni a otros tenants.
+            INSERT INTO tenant_specializations(tenant_id, specialization_id, enabled)
+            SELECT t.id, s.id, TRUE
+            FROM tenants t
+            CROSS JOIN specializations s
+            WHERE s.active
+            ON CONFLICT (tenant_id, specialization_id) DO NOTHING;
+        ");
+
+        // Clasificación dietética estructurada de alimentos. Se mantiene en la tabla de alimentos
+        // para que las especializaciones no dependan exclusivamente de coincidencias de texto.
+        context.Database.ExecuteSqlRaw(@"
+            ALTER TABLE foods ADD COLUMN IF NOT EXISTS dietary_flags TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
+            CREATE INDEX IF NOT EXISTS idx_foods_dietary_flags_gin
+                ON foods USING GIN (dietary_flags);
+
+            CREATE OR REPLACE FUNCTION classify_food_dietary_flags()
+            RETURNS trigger AS $$
+            DECLARE
+                text_to_classify TEXT;
+                flags TEXT[] := ARRAY[]::TEXT[];
+            BEGIN
+                text_to_classify := lower(coalesce(NEW.name,'') || ' ' || coalesce(NEW.category,''));
+
+                IF text_to_classify ~* '(^|[^[:alnum:]])(carne|cerdo|jam[oó]n|embutido|salchicha|chorizo|pollo|pavo|ternera|vacuno|cordero|cabrito|conejo|buey|hamburguesa|bacon|tocino|salami|mortadela)($|[^[:alnum:]])' THEN
+                    flags := array_append(flags, 'meat');
+                END IF;
+                IF text_to_classify ~* '(^|[^[:alnum:]])(pescado|at[uú]n|salm[oó]n|merluza|bacalao|sardina|caballa|dorada|lubina|trucha|anchoa|marisco|gamba|camar[oó]n|mejill[oó]n|almeja|calamar|pulpo|sepia)($|[^[:alnum:]])' THEN
+                    flags := array_append(flags, 'fish');
+                END IF;
+                IF text_to_classify ~* '(^|[^[:alnum:]])(huevo|huevos|clara|yema|ovoproducto|mayonesa)($|[^[:alnum:]])' THEN
+                    flags := array_append(flags, 'egg');
+                END IF;
+                IF text_to_classify ~* '(^|[^[:alnum:]])(leche|queso|yogur|yogurt|nata|mantequilla|suero|k[eé]fir|l[aá]cteo|l[aá]cteos|case[ií]na|whey)($|[^[:alnum:]])' THEN
+                    flags := array_append(flags, 'dairy');
+                END IF;
+                IF text_to_classify ~* '(^|[^[:alnum:]])miel($|[^[:alnum:]])' THEN
+                    flags := array_append(flags, 'honey');
+                END IF;
+                IF text_to_classify ~* '(^|[^[:alnum:]])gelatina($|[^[:alnum:]])' THEN
+                    flags := array_append(flags, 'gelatin');
+                END IF;
+                IF text_to_classify ~* '(^|[^[:alnum:]])(trigo|harina de trigo|cebada|centeno|espelta|gluten|pan|pasta|cusc[uú]s|galleta|galletas|bizcocho|bizcochos)($|[^[:alnum:]])' THEN
+                    flags := array_append(flags, 'gluten');
+                END IF;
+                IF text_to_classify ~* '(^|[^[:alnum:]])(lactosa|leche|l[aá]cteo|l[aá]cteos|suero l[aá]cteo|case[ií]na|nata|yogur|yogurt)($|[^[:alnum:]])' THEN
+                    flags := array_append(flags, 'lactose');
+                END IF;
+                IF text_to_classify ~* '(^|[^[:alnum:]])(almendra|almendras|nuez|nueces|avellana|avellanas|anacardo|anacardos|pistacho|pistachos|pacana|pacanas|macadamia|macadamias|nuez de brasil)($|[^[:alnum:]])' THEN
+                    flags := array_append(flags, 'tree_nut');
+                END IF;
+                IF text_to_classify ~* '(^|[^[:alnum:]])(cacahuete|cacahuetes|man[ií]|peanut|peanuts)($|[^[:alnum:]])' THEN
+                    flags := array_append(flags, 'peanut');
+                END IF;
+                IF text_to_classify ~* '(^|[^[:alnum:]])(soja|soya|soy|tofu|tempeh|edamame)($|[^[:alnum:]])' THEN
+                    flags := array_append(flags, 'soy');
+                END IF;
+
+                -- Solo las señales inequívocamente animales convierten el alimento en 'animal'.
+                -- Las flags de gluten, lactosa y alérgenos vegetales no deben hacerlo.
+                IF flags && ARRAY['meat','fish','egg','dairy','honey','gelatin']::TEXT[] THEN
+                    flags := array_append(flags, 'animal');
+                END IF;
+                NEW.dietary_flags := flags;
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql;
+
+            DROP TRIGGER IF EXISTS trg_foods_dietary_flags ON foods;
+            CREATE TRIGGER trg_foods_dietary_flags
+                BEFORE INSERT OR UPDATE OF name, category ON foods
+                FOR EACH ROW EXECUTE FUNCTION classify_food_dietary_flags();
+
+            -- Recalcular las banderas existentes haciendo que el trigger ejecute la misma clasificación
+            -- que se aplicará automáticamente a los nuevos alimentos y a los cambios de nombre/categoría.
+            UPDATE foods SET name = name WHERE dietary_flags = ARRAY[]::TEXT[];
+        ");
+
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('specializations-v1') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración de especializaciones specializations-v1 aplicada correctamente.");
+    }
+
 }
