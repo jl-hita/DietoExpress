@@ -114,7 +114,26 @@ public class ClinicController : ControllerBase
         var documentProvisioning = await _context.Database.SqlQueryRaw<ClinicDocumentProvisioningSummary>(
             @"SELECT
                   COUNT(*) FILTER (WHERE j.status IN ('pending','processing'))::int AS ""RetryCount"",
-                  COUNT(*) FILTER (WHERE j.status='failed')::int AS ""FailedCount""
+                  COUNT(*) FILTER (WHERE j.status='failed')::int AS ""FailedCount"",
+                  COUNT(*) FILTER (WHERE j.status='completed' AND EXISTS (
+                      SELECT 1 FROM clients cl
+                      WHERE cl.tenant_id=j.tenant_id
+                        AND j.idempotency_key = CONCAT('documents:provision:', j.tenant_id, ':', cl.id, ':creation')
+                        AND cl.archived_at IS NULL
+                        AND EXISTS (
+                            SELECT 1 FROM document_templates dt
+                            WHERE dt.tenant_id=j.tenant_id
+                              AND dt.is_active=true
+                              AND dt.storage_key IS NOT NULL
+                              AND dt.is_required_on_client_creation=true
+                              AND NOT EXISTS (
+                                  SELECT 1 FROM patient_documents pd
+                                  WHERE pd.tenant_id=j.tenant_id AND pd.client_id=cl.id
+                                    AND pd.document_template_id=dt.id AND pd.version=dt.version
+                                    AND pd.revoked_at IS NULL
+                              )
+                        )
+                  ))::int AS ""IncompleteCount""
               FROM automation_jobs j
               WHERE j.tenant_id = {0}
                 AND j.action_type = 'provision_patient_documents'
@@ -130,7 +149,8 @@ public class ClinicController : ControllerBase
             unreadMessageCount=unreadMessages,
             pendingDocumentCount=pendingDocuments,
             documentProvisioningRetryCount=documentProvisioning.RetryCount,
-            documentProvisioningFailedCount=documentProvisioning.FailedCount
+            documentProvisioningFailedCount=documentProvisioning.FailedCount,
+            documentProvisioningIncompleteCount=documentProvisioning.IncompleteCount
         });
     }
     [HttpGet("nutritionists")]
@@ -476,4 +496,5 @@ public sealed class ClinicDocumentProvisioningSummary
 {
     public int RetryCount { get; set; }
     public int FailedCount { get; set; }
+    public int IncompleteCount { get; set; }
 }
