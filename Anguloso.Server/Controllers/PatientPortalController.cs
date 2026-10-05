@@ -364,29 +364,105 @@ public class PatientPortalController : ControllerBase
         var clientId = ResolveAuthorizedClientId();
         if (clientId == null) return Unauthorized();
         if (!await PortalFeatureAllowedAsync(clientId.Value)) return Forbid();
+
+        var tenantId = await _context.clients.AsNoTracking()
+            .Where(c => c.id == clientId.Value && c.archived_at == null)
+            .Select(c => c.tenant_id ?? c.user!.tenant_id)
+            .FirstOrDefaultAsync();
+        if (tenantId == null) return NotFound("Paciente sin tenant válido.");
+
         var activeAssignment = await _context.client_diets
             .Include(cd => cd.diet)
             .Where(cd => cd.client_id == clientId.Value && cd.is_active == true && cd.diet != null &&
-                         cd.diet.tenant_id == _context.clients.Where(c => c.id == clientId.Value).Select(c => c.tenant_id).FirstOrDefault())
+                         cd.diet.tenant_id == tenantId)
             .FirstOrDefaultAsync();
         if (activeAssignment == null) return NotFound("No hay plan activo para generar la lista de la compra.");
-        var diet = await _context.diets.Include(d => d.diet_days).ThenInclude(dd => dd.meals).ThenInclude(m => m.meal_items)
-            .FirstOrDefaultAsync(d => d.id == activeAssignment.diet_id &&
-                             d.tenant_id == _context.clients.Where(c => c.id == clientId.Value).Select(c => c.tenant_id).FirstOrDefault());
+
+        var diet = await _context.diets
+            .Include(d => d.diet_days)
+                .ThenInclude(dd => dd.meals)
+                    .ThenInclude(m => m.meal_items)
+                        .ThenInclude(i => i.exchange_group)
+            .FirstOrDefaultAsync(d => d.id == activeAssignment.diet_id && d.tenant_id == tenantId);
         if (diet == null) return NotFound("Plan no encontrado.");
 
-        var shoppingFoodIds = diet.diet_days.SelectMany(dd => dd.meals).SelectMany(m => m.meal_items)
-            .Where(i => i.food_id.HasValue).Select(i => i.food_id!.Value).Distinct().ToList();
+        var foodIds = diet.diet_days
+            .SelectMany(dd => dd.meals)
+            .SelectMany(m => m.meal_items)
+            .Where(i => i.food_id.HasValue)
+            .Select(i => i.food_id!.Value)
+            .Distinct()
+            .ToList();
+
         var shoppingFoods = await _context.foods
-            .Where(f => shoppingFoodIds.Contains(f.id) &&
+            .Where(f => foodIds.Contains(f.id) &&
                 ((f.source == null || f.source.ToLower() != "local") || f.tenant_id == diet.tenant_id))
             .ToDictionaryAsync(f => f.id);
 
-        var grouped = diet.diet_days.SelectMany(dd => dd.meals).SelectMany(m => m.meal_items).Where(i => i.food_id.HasValue && shoppingFoods.ContainsKey(i.food_id.Value) && i.grams.HasValue)
-            .GroupBy(i => new { FoodId = i.food_id!.Value, FoodName = shoppingFoods[i.food_id.Value].name ?? "Desconocido", Category = shoppingFoods[i.food_id.Value].category ?? "Otros" })
-            .Select(g => new ShoppingItemDto { FoodId = g.Key.FoodId, FoodName = g.Key.FoodName, Category = g.Key.Category, TotalGrams = Math.Round((double)g.Sum(i => i.grams!.Value), 0) })
-            .GroupBy(s => s.Category).Select(catGroup => new ShoppingCategoryDto { Category = catGroup.Key, Items = catGroup.OrderBy(i => i.FoodName).ToList() }).OrderBy(c => c.Category).ToList();
-        return Ok(grouped);
+        var mealItems = diet.diet_days
+            .SelectMany(dd => dd.meals)
+            .SelectMany(m => m.meal_items)
+            .ToList();
+
+        var items = new List<ShoppingItemDto>();
+
+        var foodGroups = mealItems
+            .Where(i => i.food_id.HasValue && shoppingFoods.ContainsKey(i.food_id.Value) && i.grams.HasValue && i.grams.Value > 0)
+            .GroupBy(i => new
+            {
+                FoodId = i.food_id!.Value,
+                FoodName = shoppingFoods[i.food_id.Value].name ?? "Alimento",
+                Category = ShoppingListRules.NormalizeCategory(shoppingFoods[i.food_id.Value].category, shoppingFoods[i.food_id.Value].name)
+            });
+
+        foreach (var group in foodGroups)
+        {
+            var totalGrams = Math.Round((double)group.Sum(i => i.grams!.Value), 1);
+            var commercial = ShoppingListRules.CalculateCommercialRounding(totalGrams, group.Key.FoodName, group.Key.Category);
+            items.Add(new ShoppingItemDto
+            {
+                FoodId = group.Key.FoodId,
+                FoodName = group.Key.FoodName,
+                Category = group.Key.Category,
+                TotalGrams = totalGrams,
+                RoundedGrams = commercial.roundedGrams,
+                CommercialDescription = commercial.commercialDesc
+            });
+        }
+
+        var exchangeGroups = mealItems
+            .Where(i => i.food_id.HasValue == false && i.exchange_group != null && i.exchange_count.HasValue && i.exchange_count.Value > 0)
+            .GroupBy(i => new
+            {
+                GroupId = i.exchange_group!.id,
+                GroupName = i.exchange_group!.name ?? "Grupo de Intercambio"
+            });
+
+        foreach (var group in exchangeGroups)
+        {
+            var totalCount = Math.Round((double)group.Sum(i => i.exchange_count!.Value), 1);
+            items.Add(new ShoppingItemDto
+            {
+                FoodId = -group.Key.GroupId,
+                FoodName = group.Key.GroupName,
+                Category = "Opciones Equivalentes (Intercambios)",
+                TotalGrams = totalCount,
+                RoundedGrams = Math.Ceiling(totalCount),
+                CommercialDescription = $"{totalCount} intercambio(s) semanal(es) (seleccionar alimento equivalente)"
+            });
+        }
+
+        var result = items
+            .GroupBy(i => i.Category)
+            .OrderBy(g => g.Key)
+            .Select(g => new ShoppingCategoryDto
+            {
+                Category = g.Key,
+                Items = g.OrderBy(i => i.FoodName).ToList()
+            })
+            .ToList();
+
+        return Ok(result);
     }
 
     [HttpGet("~/api/clients/{clientId:int}/portal-access")]

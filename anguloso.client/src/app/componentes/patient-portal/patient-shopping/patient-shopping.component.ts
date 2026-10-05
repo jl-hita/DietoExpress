@@ -2,17 +2,10 @@ import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChange
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { ShoppingListCategory, ShoppingListItem } from '../../../modelos/shopping-list';
 
-export interface PatientShoppingItem {
-  foodId: number;
-  foodName: string;
-  totalGrams: number;
-}
-
-export interface PatientShoppingCategory {
-  category: string;
-  items: PatientShoppingItem[];
-}
+export type PatientShoppingItem = ShoppingListItem;
+export type PatientShoppingCategory = ShoppingListCategory;
 
 @Component({
   selector: 'app-patient-shopping',

@@ -539,6 +539,18 @@ Módulos funcionales principales:
 - Google Calendar.
 - Documentación de instalación y despliegue Linux, con endurecimiento de los flujos recientemente incorporados.
 
+MÓDULO 6 — LISTA DE LA COMPRA: COMPLETADO
+- Generación consolidada de la lista a partir de la dieta.
+- Agrupación y normalización de categorías compartida entre profesional y paciente.
+- Redondeo a cantidades comerciales y descripción práctica de compra.
+- Misma semántica de lista en el endpoint profesional y en el portal del paciente.
+- Inclusión de opciones de intercambio.
+- Modelo TypeScript compartido y eliminación del `any` específico de estos endpoints.
+- Estado local de checks conservado y aislado por paciente.
+- Aislamiento multi-tenant y filtrado server-side de alimentos locales.
+- Regresiones de seguridad verificadas: 193/193 tests.
+- CI completo verificado correctamente.
+
 MÓDULO 16 — DIRECTORIO PÚBLICO / MARKETPLACE INICIAL: COMPLETADO
 - Perfil público voluntario de profesionales.
 - Búsqueda por ciudad, especialidad y consultas online.
