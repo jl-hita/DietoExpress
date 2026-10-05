@@ -50,9 +50,9 @@ public sealed class SupportRegressionTests
     {
         var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "SupportController.cs"));
 
-        Assert.Contains("[Authorize(Roles = "nutritionist,clinic_admin,superadmin")]", controller);
-        Assert.Contains("[Authorize(Roles = "superadmin")]", controller);
-        Assert.Contains("if (User.IsInRole("superadmin")) return Forbid();", controller);
+        Assert.Contains("[Authorize(Roles = \"nutritionist,clinic_admin,superadmin\")]", controller);
+        Assert.Contains("[Authorize(Roles = \"superadmin\")]", controller);
+        Assert.Contains("if (User.IsInRole(\"superadmin\")) return Forbid();", controller);
     }
 
     [Fact]
