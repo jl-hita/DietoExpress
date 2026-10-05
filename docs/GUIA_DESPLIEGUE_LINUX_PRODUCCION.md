@@ -447,18 +447,73 @@ Probar:
 
 # 15. Google OAuth y Calendar
 
-Si se utiliza:
+Si se utiliza la integración con Google Calendar, la configuración de producción debe quedar documentada y separada de cualquier entorno de pruebas.
 
-1. crear/configurar proyecto en Google Cloud;
-2. configurar OAuth;
-3. autorizar el dominio de producción;
-4. registrar los redirect URI exactos;
-5. configurar googleClientId;
-6. configurar permisos de Calendar;
-7. probar login;
-8. probar conexión y renovación de Calendar.
+## Configuración del servidor
 
-Nunca publicar client secrets.
+Definir en `/etc/dietoexpress/dietoexpress.env`:
+
+~~~text
+GoogleCalendar__ClientId=<CLIENT_ID>.apps.googleusercontent.com
+GoogleCalendar__ClientSecret=<CLIENT_SECRET>
+GoogleCalendar__RedirectUri=https://<DOMINIO>/api/google-calendar/callback
+~~~
+
+El `RedirectUri` debe coincidir exactamente con el URI autorizado en Google Cloud, incluyendo esquema HTTPS, dominio, ruta y ausencia/presencia de una barra final.
+
+Nunca guardar el client secret en Git ni en el frontend.
+
+## Google Cloud
+
+1. Crear, o seleccionar, el proyecto de Google Cloud destinado a DietoExpress.
+2. Configurar la pantalla de consentimiento OAuth.
+3. Para las pruebas iniciales puede utilizarse el estado **Prueba** y añadir la cuenta que realizará las pruebas como usuario de prueba.
+4. Autorizar el dominio de producción (`<DOMINIO>`).
+5. Crear un cliente OAuth de tipo **Aplicación web**.
+6. Añadir como URI de redirección autorizado exactamente:
+   `https://<DOMINIO>/api/google-calendar/callback`
+7. Activar la API de Google Calendar.
+8. Comprobar que el Client ID y Client Secret utilizados por el servidor pertenecen al mismo proyecto y cliente OAuth.
+
+## Pasar Google Cloud de Prueba a Producción
+
+Antes de abrir DietoExpress a usuarios reales, **no dejar la aplicación OAuth en estado Prueba**.
+
+El paso de producción debe realizarse explícitamente:
+
+1. Terminar las pruebas de OAuth y Google Calendar en modo Prueba.
+2. Revisar la pantalla de consentimiento, nombre de la aplicación, dominio autorizado, correo de soporte y datos de contacto.
+3. Revisar los scopes solicitados y mantener únicamente los necesarios. DietoExpress utiliza el acceso de Calendar definido por la implementación vigente.
+4. En Google Cloud, cambiar el estado de publicación de la pantalla de consentimiento de **Prueba** a **En producción**.
+5. Si Google solicita verificación por el scope utilizado, completar el proceso de verificación antes de ofrecer la integración públicamente.
+6. Volver a probar la autorización con una cuenta que no esté configurada como usuario de prueba.
+7. Revocar y volver a autorizar una conexión de prueba si es necesario para comprobar el flujo completo de consentimiento.
+8. Verificar especialmente que el refresh token funciona después de la publicación y que una sincronización posterior a la caducidad del access token puede renovarlo.
+9. Documentar cualquier cambio de Client ID, proyecto o secret y actualizar `/etc/dietoexpress/dietoexpress.env`.
+
+La publicación en producción no sustituye a las pruebas funcionales. Deben probarse al menos:
+
+- conexión;
+- desconexión;
+- sincronización manual;
+- sincronización automática;
+- renovación del token;
+- bloqueo de disponibilidad por eventos externos;
+- aislamiento por tenant.
+
+Durante la fase de Prueba, los refresh tokens de Google pueden tener una caducidad limitada. Para un SaaS real no se debe depender de ese comportamiento de pruebas.
+
+## Diagnóstico de errores OAuth
+
+Si Google muestra el consentimiento correctamente pero DietoExpress vuelve a `/appointments?calendar=error`, revisar primero:
+
+~~~bash
+sudo journalctl -u dietoexpress.service --since "10 minutes ago" --no-pager | grep -E "Google OAuth|Google Calendar"
+~~~
+
+El backend registra el código HTTP y el `error`/`error_description` devueltos por el endpoint de token, pero nunca registra el client secret ni los tokens.
+
+Nunca publicar client secrets ni access/refresh tokens en tickets, logs, capturas o commits.
 
 ---
 
