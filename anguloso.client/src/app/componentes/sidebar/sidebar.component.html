@@ -1,10 +1,23 @@
 <div class="sidebar-container">
-  <div class="profile">
-    <img [src]="profileImage" (error)="onProfileImageError()" alt="Imagen de perfil" class="avatar" />
-    <div class="name">{{ userName }}</div>
+  <div class="profile" *ngIf="isNutritionist; else staticProfile">
+    <a mat-list-item class="profile-link" routerLink="/dashboard" (click)="navigateAndClose()" aria-label="Ir al dashboard">
+      <img [src]="profileImage" (error)="onProfileImageError()" alt="Imagen de perfil" class="avatar" />
+      <div class="name">{{ userName }}</div>
+    </a>
   </div>
+  <ng-template #staticProfile>
+    <div class="profile">
+      <img [src]="profileImage" (error)="onProfileImageError()" alt="Imagen de perfil" class="avatar" />
+      <div class="name">{{ userName }}</div>
+    </div>
+  </ng-template>
 
   <mat-nav-list>
+    <div class="menu-item dashboard-item" *ngIf="isNutritionist">
+      <a mat-list-item routerLink="/dashboard" routerLinkActive="active-link" [routerLinkActiveOptions]="{ exact: true }" (click)="navigateAndClose()">
+        <mat-icon>dashboard</mat-icon><span>Inicio</span>
+      </a>
+    </div>
     <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isClinic || isSuperAdmin">
       <a mat-list-item routerLink="/statistics" routerLinkActive="active-link" (click)="navigateAndClose()">
         <mat-icon>insights</mat-icon><span>Estadísticas</span>
