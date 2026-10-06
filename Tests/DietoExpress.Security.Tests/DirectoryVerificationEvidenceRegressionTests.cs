@@ -22,8 +22,8 @@ public class DirectoryVerificationEvidenceRegressionTests
     {
         var source = Read("Anguloso.Server/Controllers/DirectoryVerificationEvidenceController.cs");
         Assert.Contains("[Authorize]", source);
-        Assert.Contains("[Authorize(Policy = "Professional")]", source);
-        Assert.Contains("[Authorize(Roles = "superadmin")]", source);
+        Assert.Contains("[Authorize(Policy = \"Professional\")]", source);
+        Assert.Contains("[Authorize(Roles = \"superadmin\")]", source);
         Assert.Contains("DIETOEXPRESS_DOCUMENTS_PATH", source);
         Assert.DoesNotContain("wwwroot", source);
     }
