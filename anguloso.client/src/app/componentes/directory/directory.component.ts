@@ -6,6 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { DirectoryProfile, PublicAvailabilitySlot } from './directory.models';
 import { DirectoryService } from './directory.service';
 import { PublicSeoService } from '../../servicios/public-seo.service';
+import { PublicFunnelAnalyticsService } from '../../servicios/public-funnel-analytics.service';
 
 @Component({
   selector: 'app-directory',
@@ -41,7 +42,8 @@ export class DirectoryComponent implements OnInit {
   constructor(
     private readonly route: ActivatedRoute,
     private readonly directoryService: DirectoryService,
-    private readonly publicSeoService: PublicSeoService
+    private readonly publicSeoService: PublicSeoService,
+    private readonly publicFunnelAnalytics: PublicFunnelAnalyticsService
   ) {}
 
   ngOnInit(): void {
@@ -49,6 +51,7 @@ export class DirectoryComponent implements OnInit {
     if (slug) this.loadProfile(slug);
     else {
       this.publicSeoService.setDirectorySeo({ city: this.city, province: this.province, speciality: this.speciality, online: this.online });
+      this.publicFunnelAnalytics.track('directory_view');
       this.search();
     }
   }
@@ -134,6 +137,7 @@ export class DirectoryComponent implements OnInit {
       next: profile => {
         this.profile = profile;
         this.publicSeoService.setProfileSeo(profile);
+        this.publicFunnelAnalytics.track('profile_view', profile.slug);
         this.loading = false;
         this.loadAvailability(profile.slug);
       },
@@ -174,6 +178,7 @@ export class DirectoryComponent implements OnInit {
     if (notes.length > 500) { this.bookingError = 'El comentario no puede superar los 500 caracteres.'; return; }
 
     this.bookingSubmitting = true; this.bookingError = ''; this.bookingSuccess = null;
+    this.publicFunnelAnalytics.track('booking_started', this.profile.slug);
     this.directoryService.requestAppointment(this.profile.slug, {
       startsAt: this.selectedSlot.startsAt,
       durationMinutes: Math.round((new Date(this.selectedSlot.endsAt).getTime() - new Date(this.selectedSlot.startsAt).getTime()) / 60000),
