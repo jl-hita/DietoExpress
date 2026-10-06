@@ -1,8 +1,8 @@
 <div class="landing">
   <header class="nav">
     <a class="brand" routerLink="/"><span class="brand-mark"><mat-icon>spa</mat-icon></span><span>DietoExpress</span></a>
-    <nav class="nav-links"><a href="#funciones">Funciones</a><a href="#como-funciona">Cómo funciona</a><a href="#planes">Planes</a></nav>
-    <div class="nav-actions"><button mat-button (click)="iniciarSesion()">Iniciar sesión</button><button mat-flat-button color="primary" (click)="crearCuenta()">Crear cuenta gratis</button></div>
+    <nav class="nav-links"><a href="#funciones">Funciones</a><a href="#como-funciona">Cómo funciona</a><a href="#planes">Planes</a><a routerLink="/nutricionistas">Buscar nutricionista</a></nav>
+    <div class="nav-actions"><a mat-button routerLink="/nutricionistas">Soy paciente</a><button mat-button (click)="iniciarSesion()">Iniciar sesión</button><button mat-flat-button color="primary" (click)="crearCuenta()">Crear cuenta gratis</button></div>
   </header>
   <main>
     <section class="hero">
@@ -44,6 +44,15 @@
       </div>
     </section>
     <section class="proof-strip"><span>DISEÑADO PARA EL TRABAJO REAL DE UNA CONSULTA</span><div><b>Clientes</b><b>Dietas</b><b>Seguimiento</b><b>Portal del paciente</b></div></section>
+    <section class="features" id="pacientes">
+      <div class="section-heading"><span class="eyebrow">¿BUSCAS UN NUTRICIONISTA?</span><h2>Encuentra al profesional que encaja contigo.</h2><p>Explora nutricionistas por ciudad, especialidad y consulta online. Puedes descubrir profesionales sin crear una cuenta y reservar cuando encuentres el que buscas.</p></div>
+      <div class="feature-grid">
+        <article class="feature-card"><div class="feature-icon"><mat-icon>search</mat-icon></div><span class="feature-number">01</span><h3>Busca sin registrarte</h3><p>Filtra profesionales por ubicación, especialidad o consulta online antes de compartir ningún dato personal.</p></article>
+        <article class="feature-card featured"><div class="feature-icon"><mat-icon>person_search</mat-icon></div><span class="feature-number">02</span><h3>Conoce su perfil</h3><p>Consulta especialidades, experiencia, modalidad y los próximos horarios disponibles de cada profesional.</p></article>
+        <article class="feature-card"><div class="feature-icon"><mat-icon>event_available</mat-icon></div><span class="feature-number">03</span><h3>Solicita tu consulta</h3><p>Elige un horario disponible y solicita la cita. El profesional la confirmará y podrás continuar el proceso desde tu portal.</p></article>
+      </div>
+      <div class="hero-actions" style="justify-content:center;margin-top:32px"><a mat-flat-button color="primary" class="primary-cta" routerLink="/nutricionistas">Encontrar nutricionista <mat-icon>arrow_forward</mat-icon></a></div>
+    </section>
     <section class="features" id="funciones">
       <div class="section-heading"><span class="eyebrow">TODO EN UN SOLO LUGAR</span><h2>Menos gestión. Más consulta.</h2><p>Una herramienta sencilla para centralizar las tareas que más tiempo consumen en tu día a día.</p></div>
       <div class="feature-grid">
