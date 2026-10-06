@@ -62,7 +62,6 @@ export class PatientPortalComponent implements OnInit {
   appointmentError: string | null = null;
   appointmentBooking = false;
   appointmentSuccess: string | null = null;
-  appointmentModality: 'in_person' | 'online' = 'in_person';
 
   notifications: PatientNotification[] = [];
   notificationsOpen = false;
