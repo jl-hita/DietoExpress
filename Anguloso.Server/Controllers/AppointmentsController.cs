@@ -448,14 +448,14 @@ public class AppointmentsController : ControllerBase
                 appointment.video_room_url = videoRoom.RoomUrl;
                 appointment.video_expires_at = videoRoom.ExpiresAtUtc;
             }
-            catch (InvalidOperationException ex)
+            catch (InvalidOperationException)
             {
                 return StatusCode(StatusCodes.Status503ServiceUnavailable, new
                 {
                     message = "Las consultas online no están disponibles en este momento."
                 });
             }
-            catch (HttpRequestException ex)
+            catch (HttpRequestException)
             {
                 return StatusCode(StatusCodes.Status503ServiceUnavailable, new
                 {
