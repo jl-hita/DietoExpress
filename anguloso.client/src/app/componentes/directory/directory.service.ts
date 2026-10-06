@@ -18,13 +18,13 @@ export class DirectoryService {
     if (speciality?.trim()) params = params.set('speciality', speciality.trim());
     if (online) params = params.set('online', 'true');
 
-    return this.http.get<DirectoryProfile[]>(`${this.apiUrl}/api/directory/professionals`, { params });
+    return this.http.get<DirectoryProfile[]>(`${this.apiUrl}/directory/professionals`, { params });
   }
 
   getAvailability(slug: string, days = 30): Observable<PublicAvailabilitySlot[]> {
     const params = new HttpParams().set('days', String(days));
     return this.http.get<PublicAvailabilitySlot[]>(
-      `${this.apiUrl}/api/directory/professionals/${encodeURIComponent(slug)}/availability`,
+      `${this.apiUrl}/directory/professionals/${encodeURIComponent(slug)}/availability`,
       { params }
     );
   }
@@ -41,14 +41,14 @@ export class DirectoryService {
     }
   ): Observable<{ startsAt: string; endsAt: string; status: string; nutritionistName: string }> {
     return this.http.post<{ startsAt: string; endsAt: string; status: string; nutritionistName: string }>(
-      this.apiUrl + '/api/directory/professionals/' + encodeURIComponent(slug) + '/appointments',
+      this.apiUrl + '/directory/professionals/' + encodeURIComponent(slug) + '/appointments',
       request
     );
   }
 
   getBySlug(slug: string): Observable<DirectoryProfile> {
     return this.http.get<DirectoryProfile>(
-      `${this.apiUrl}/api/directory/professionals/${encodeURIComponent(slug)}`
+      `${this.apiUrl}/directory/professionals/${encodeURIComponent(slug)}`
     );
   }
 }
