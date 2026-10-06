@@ -376,6 +376,7 @@ public partial class angulosodbContext : DbContext
             entity.Property(e => e.clinic_address).HasMaxLength(250);
             entity.Property(e => e.clinic_phone).HasMaxLength(50);
             entity.Property(e => e.clinic_logo).HasColumnType("text");
+            entity.Property(e => e.directory_province).HasMaxLength(120);
             entity.HasIndex(e => e.username).IsUnique();
             entity.HasIndex(e => e.email).IsUnique().HasFilter("email IS NOT NULL");
             entity.HasIndex(e => e.google_id).IsUnique().HasFilter("google_id IS NOT NULL");
