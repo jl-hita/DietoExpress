@@ -279,3 +279,6 @@
 .public-url { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:12px; background:#f8f9ff; border:1px solid #e8eaf6; border-radius:8px; }
 .public-url mat-icon { color:#3f51b5; }
 .public-url a { word-break:break-all; }
+
+
+.field-hint { margin: -4px 0 12px; color: #64748b; font-size: 12px; line-height: 1.4; }
