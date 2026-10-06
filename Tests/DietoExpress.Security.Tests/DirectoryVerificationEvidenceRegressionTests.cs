@@ -47,5 +47,8 @@ public class DirectoryVerificationEvidenceRegressionTests
         Assert.Contains("revoked_at", source);
         Assert.Contains("reviewed_by_user_id", source);
         Assert.Contains("review_note", source);
+        Assert.Contains("identity", source);
+        Assert.Contains("qualification", source);
+        Assert.Contains("approved", source);
     }
 }
