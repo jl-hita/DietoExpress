@@ -1,85 +1,172 @@
 <div class="landing">
   <header class="nav">
     <a class="brand" routerLink="/"><span class="brand-mark"><mat-icon>spa</mat-icon></span><span>DietoExpress</span></a>
-    <nav class="nav-links"><a href="#funciones">Funciones</a><a href="#como-funciona">Cómo funciona</a><a href="#planes">Planes</a><a routerLink="/nutricionistas">Buscar nutricionista</a></nav>
-    <div class="nav-actions"><a mat-button routerLink="/nutricionistas">Soy paciente</a><button mat-button (click)="iniciarSesion()">Iniciar sesión</button><button mat-flat-button color="primary" (click)="crearCuenta()">Crear cuenta gratis</button></div>
+    <nav class="nav-links">
+      <a href="#funciones">Funciones</a>
+      <a href="#pacientes">Para pacientes</a>
+      <a href="#clinicas">Clínicas</a>
+      <a href="#planes">Planes</a>
+      <a routerLink="/nutricionistas">Buscar nutricionista</a>
+    </nav>
+    <div class="nav-actions">
+      <a mat-button routerLink="/nutricionistas">Soy paciente</a>
+      <button mat-button (click)="iniciarSesion()">Iniciar sesión</button>
+      <button mat-flat-button color="primary" (click)="crearCuenta()">Crear cuenta gratis</button>
+    </div>
   </header>
+
   <main>
     <section class="hero">
       <div class="hero-copy">
-        <span class="eyebrow">SOFTWARE PARA PROFESIONALES DE LA NUTRICIÓN</span>
-        <h1>Tu consulta. Tus clientes. Tus dietas. <span>Todo en un solo lugar.</span></h1>
-        <p class="lead">DietoExpress te ayuda a organizar tu trabajo diario y dedicar más tiempo a lo que realmente importa: tus pacientes.</p>
-        <div class="hero-actions"><button mat-flat-button color="primary" class="primary-cta" (click)="crearCuenta()">Empezar gratis <mat-icon>arrow_forward</mat-icon></button><button mat-stroked-button (click)="iniciarSesion()">Ya tengo una cuenta</button></div>
-        <div class="trust"><mat-icon>check_circle</mat-icon><span>Empieza gratis · Sin tarjeta para crear tu cuenta</span></div>
+        <span class="eyebrow">SOFTWARE PROFESIONAL PARA NUTRICIONISTAS Y CLÍNICAS</span>
+        <h1>Tu consulta, <span>mucho más fácil.</span></h1>
+        <p class="lead">DietoExpress reúne pacientes, dietas, agenda, seguimiento, comunicación y reservas online en un solo lugar. Menos administración. Más tiempo para cuidar de tus pacientes.</p>
+        <div class="hero-actions">
+          <button mat-flat-button color="primary" class="primary-cta" (click)="crearCuenta()">Empezar gratis <mat-icon>arrow_forward</mat-icon></button>
+          <a mat-stroked-button routerLink="/nutricionistas">Buscar nutricionista</a>
+        </div>
+        <div class="trust"><mat-icon>check_circle</mat-icon><span>Prueba gratuita · Sin tarjeta para empezar</span></div>
       </div>
       <div class="hero-visual">
         <div class="glow"></div>
         <div class="app-window dashboard-window">
-          <div class="window-bar"><i></i><i></i><i></i><span>DietoExpress</span></div>
+          <div class="window-bar"><i></i><i></i><i></i><span>DietoExpress · Panel de control</span></div>
           <div class="mock-layout">
             <aside class="mock-sidebar">
               <div class="mock-logo"><mat-icon>spa</mat-icon></div>
               <div class="side-item active"><mat-icon>dashboard</mat-icon><span>Inicio</span></div>
-              <div class="side-item"><mat-icon>groups</mat-icon><span>Clientes</span></div>
+              <div class="side-item"><mat-icon>groups</mat-icon><span>Pacientes</span></div>
+              <div class="side-item"><mat-icon>event</mat-icon><span>Agenda</span></div>
               <div class="side-item"><mat-icon>restaurant_menu</mat-icon><span>Dietas</span></div>
-              <div class="side-item"><mat-icon>settings</mat-icon><span>Ajustes</span></div>
+              <div class="side-item"><mat-icon>chat</mat-icon><span>Mensajes</span></div>
             </aside>
             <div class="mock-content">
               <div class="mock-top"><div><small>Panel de control</small><strong>Buenos días, Laura</strong></div><div class="mock-avatar">L</div></div>
               <div class="stat-grid">
-                <div class="stat-card"><mat-icon>groups</mat-icon><small>Clientes activos</small><b>48</b><em>+6 este mes</em></div>
-                <div class="stat-card"><mat-icon>restaurant_menu</mat-icon><small>Dietas</small><b>72</b><em>12 esta semana</em></div>
-                <div class="stat-card"><mat-icon>event</mat-icon><small>Seguimientos</small><b>9</b><em>Para hoy</em></div>
+                <div class="stat-card"><mat-icon>groups</mat-icon><small>Pacientes activos</small><b>48</b><em>+6 este mes</em></div>
+                <div class="stat-card"><mat-icon>event</mat-icon><small>Citas de hoy</small><b>7</b><em>2 online</em></div>
+                <div class="stat-card"><mat-icon>notifications</mat-icon><small>Pendientes</small><b>4</b><em>Para revisar</em></div>
               </div>
-              <div class="mock-panel"><div class="panel-head"><b>Últimos clientes</b><span>Ver todos</span></div>
-                <div class="client-row"><div class="person">AM</div><div><b>Ana Martínez</b><small>Objetivo: pérdida de peso</small></div><strong>Activa</strong></div>
-                <div class="client-row"><div class="person">CG</div><div><b>Carlos García</b><small>Objetivo: recomposición</small></div><strong>Activa</strong></div>
-                <div class="client-row"><div class="person">LS</div><div><b>Lucía Sánchez</b><small>Objetivo: hábitos saludables</small></div><strong>Revisión</strong></div>
+              <div class="mock-panel"><div class="panel-head"><b>Próximas citas</b><span>Ver agenda</span></div>
+                <div class="client-row"><div class="person">AM</div><div><b>Ana Martínez</b><small>10:00 · Seguimiento</small></div><strong>Confirmada</strong></div>
+                <div class="client-row"><div class="person">CG</div><div><b>Carlos García</b><small>12:30 · Online</small></div><strong>Confirmada</strong></div>
+                <div class="client-row"><div class="person">LS</div><div><b>Lucía Sánchez</b><small>17:00 · Consulta</small></div><strong>Pendiente</strong></div>
               </div>
             </div>
           </div>
         </div>
-        <div class="floating-card"><mat-icon>check_circle</mat-icon><div><b>Dieta actualizada</b><small>Ana Martínez · hace 4 min</small></div></div>
+        <div class="floating-card"><mat-icon>bolt</mat-icon><div><b>Paciente actualizado</b><small>Automatización completada · hace 4 min</small></div></div>
       </div>
     </section>
-    <section class="proof-strip"><span>DISEÑADO PARA EL TRABAJO REAL DE UNA CONSULTA</span><div><b>Clientes</b><b>Dietas</b><b>Seguimiento</b><b>Portal del paciente</b></div></section>
-    <section class="features" id="pacientes">
-      <div class="section-heading"><span class="eyebrow">¿BUSCAS UN NUTRICIONISTA?</span><h2>Encuentra al profesional que encaja contigo.</h2><p>Explora nutricionistas por ciudad, especialidad y consulta online. Puedes descubrir profesionales sin crear una cuenta y reservar cuando encuentres el que buscas.</p></div>
+
+    <section class="proof-strip">
+      <span>TODO LO QUE NECESITAS PARA UNA CONSULTA MODERNA</span>
+      <div><b>Pacientes</b><b>Dietas</b><b>Agenda</b><b>Portal</b><b>Reservas online</b><b>Chat</b></div>
+    </section>
+
+    <section class="features" id="funciones">
+      <div class="section-heading">
+        <span class="eyebrow">UNA PLATAFORMA COMPLETA</span>
+        <h2>Todo tu trabajo, conectado.</h2>
+        <p>Desde la primera reserva hasta el seguimiento, DietoExpress elimina tareas repetitivas y mantiene toda la relación con el paciente en un único entorno.</p>
+      </div>
       <div class="feature-grid">
-        <article class="feature-card"><div class="feature-icon"><mat-icon>search</mat-icon></div><span class="feature-number">01</span><h3>Busca sin registrarte</h3><p>Filtra profesionales por ubicación, especialidad o consulta online antes de compartir ningún dato personal.</p></article>
-        <article class="feature-card featured"><div class="feature-icon"><mat-icon>person_search</mat-icon></div><span class="feature-number">02</span><h3>Conoce su perfil</h3><p>Consulta especialidades, experiencia, modalidad y los próximos horarios disponibles de cada profesional.</p></article>
-        <article class="feature-card"><div class="feature-icon"><mat-icon>event_available</mat-icon></div><span class="feature-number">03</span><h3>Solicita tu consulta</h3><p>Elige un horario disponible y solicita la cita. El profesional la confirmará y podrás continuar el proceso desde tu portal.</p></article>
+        <article class="feature-card"><div class="feature-icon"><mat-icon>groups</mat-icon></div><span class="feature-number">01</span><h3>Gestiona pacientes</h3><p>Fichas, documentación, consentimientos, historial y seguimiento siempre a mano.</p></article>
+        <article class="feature-card featured"><div class="feature-icon"><mat-icon>restaurant_menu</mat-icon></div><span class="feature-number">02</span><h3>Crea dietas y recetas</h3><p>Planifica la alimentación, consulta alimentos y organiza recetas para trabajar con rapidez.</p></article>
+        <article class="feature-card"><div class="feature-icon"><mat-icon>event_available</mat-icon></div><span class="feature-number">03</span><h3>Agenda y reservas</h3><p>Disponibilidad, citas, cancelaciones y reservas públicas con protección frente a dobles reservas.</p></article>
+        <article class="feature-card"><div class="feature-icon"><mat-icon>chat</mat-icon></div><span class="feature-number">04</span><h3>Comunícate con tus pacientes</h3><p>Mensajería profesional y notificaciones para que el seguimiento no dependa de conversaciones dispersas.</p></article>
+        <article class="feature-card featured"><div class="feature-icon"><mat-icon>notifications_active</mat-icon></div><span class="feature-number">05</span><h3>Automatiza el seguimiento</h3><p>Recordatorios, eventos de citas, check-ins, onboarding y avisos para reducir trabajo manual.</p></article>
+        <article class="feature-card"><div class="feature-icon"><mat-icon>calendar_month</mat-icon></div><span class="feature-number">06</span><h3>Sincroniza tu calendario</h3><p>Integra Google Calendar y mantén tus citas coordinadas con tu agenda habitual.</p></article>
+      </div>
+    </section>
+
+    <section class="showcase" id="como-funciona">
+      <div class="showcase-copy">
+        <span class="eyebrow">UNA EXPERIENCIA PENSADA PARA TU DÍA A DÍA</span>
+        <h2>De la reserva al seguimiento, sin saltar entre herramientas.</h2>
+        <p>El paciente puede encontrar un profesional, consultar su disponibilidad y solicitar una cita. Tú recibes la información en tu entorno de trabajo y continúas desde ahí con documentación, consulta y seguimiento.</p>
+        <ul>
+          <li><mat-icon>check</mat-icon><span>Agenda y disponibilidad configurables</span></li>
+          <li><mat-icon>check</mat-icon><span>Portal del paciente y documentación</span></li>
+          <li><mat-icon>check</mat-icon><span>Mensajería, notificaciones y automatizaciones</span></li>
+          <li><mat-icon>check</mat-icon><span>Google Calendar y consulta online preparada</span></li>
+        </ul>
+        <button mat-flat-button color="primary" (click)="crearCuenta()">Crear mi cuenta</button>
+      </div>
+      <div class="showcase-visual">
+        <div class="app-window detail-window">
+          <div class="window-bar"><i></i><i></i><i></i><span>Paciente · Ana Martínez</span></div>
+          <div class="detail-body">
+            <div class="profile-head"><div class="big-avatar">AM</div><div><small>PACIENTE</small><h3>Ana Martínez</h3><span>Objetivo: pérdida de peso</span></div><button mat-stroked-button>Ver portal</button></div>
+            <div class="tabs"><b>Resumen</b><span>Dieta</span><span>Citas</span><span>Mensajes</span></div>
+            <div class="detail-grid"><div class="detail-box"><small>Próxima cita</small><b>Jueves 10:00</b><em>Consulta online</em></div><div class="detail-box"><small>Plan actual</small><b>2.050 kcal</b><em>Déficit moderado</em></div><div class="detail-box"><small>Seguimiento</small><b>64%</b><em>Progreso registrado</em></div></div>
+            <div class="progress-box"><div><b>Última actualización</b><span>Hoy</span></div><div class="progress"><i></i></div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="features" id="pacientes">
+      <div class="section-heading">
+        <span class="eyebrow">TAMBIÉN PARA QUIEN TE ESTÁ BUSCANDO</span>
+        <h2>Convierte DietoExpress en una puerta de entrada para nuevos pacientes.</h2>
+        <p>Tu perfil público puede formar parte de un directorio pensado para descubrir profesionales por ubicación, especialidad y modalidad.</p>
+      </div>
+      <div class="feature-grid">
+        <article class="feature-card"><div class="feature-icon"><mat-icon>search</mat-icon></div><span class="feature-number">01</span><h3>Te pueden encontrar</h3><p>Los pacientes pueden explorar profesionales por ciudad, provincia, especialidad y consulta online.</p></article>
+        <article class="feature-card featured"><div class="feature-icon"><mat-icon>person_search</mat-icon></div><span class="feature-number">02</span><h3>Un perfil que convierte</h3><p>Presenta tu experiencia, especialidades, modalidad, ubicación pública y disponibilidad de forma clara.</p></article>
+        <article class="feature-card"><div class="feature-icon"><mat-icon>event_available</mat-icon></div><span class="feature-number">03</span><h3>Reserva sin fricción</h3><p>El paciente puede consultar días disponibles y sus horarios, solicitar una cita y continuar desde su portal.</p></article>
       </div>
       <div class="hero-actions" style="justify-content:center;margin-top:32px"><a mat-flat-button color="primary" class="primary-cta" routerLink="/nutricionistas">Encontrar nutricionista <mat-icon>arrow_forward</mat-icon></a></div>
     </section>
-    <section class="features" id="funciones">
-      <div class="section-heading"><span class="eyebrow">TODO EN UN SOLO LUGAR</span><h2>Menos gestión. Más consulta.</h2><p>Una herramienta sencilla para centralizar las tareas que más tiempo consumen en tu día a día.</p></div>
+
+    <section class="features" id="clinicas">
+      <div class="section-heading">
+        <span class="eyebrow">PARA PROFESIONALES Y CLÍNICAS</span>
+        <h2>Crece sin perder el control.</h2>
+        <p>Gestiona equipos de nutricionistas y una consulta compartida desde una misma plataforma.</p>
+      </div>
       <div class="feature-grid">
-        <article class="feature-card"><div class="feature-icon"><mat-icon>groups</mat-icon></div><span class="feature-number">01</span><h3>Gestiona tus clientes</h3><p>Ten fichas, información y seguimiento organizados para acceder a lo que necesitas en segundos.</p>
-          <div class="mini-mock"><div class="mini-title">Clientes <span>+ Nuevo</span></div><div class="mini-line"><i></i><b>Ana Martínez</b><small>Activa</small></div><div class="mini-line"><i></i><b>Carlos García</b><small>Activa</small></div><div class="mini-line"><i></i><b>Lucía Sánchez</b><small>Revisión</small></div></div>
-        </article>
-        <article class="feature-card featured"><div class="feature-icon"><mat-icon>restaurant_menu</mat-icon></div><span class="feature-number">02</span><h3>Crea y organiza dietas</h3><p>Prepara planes nutricionales desde un espacio pensado para trabajar con rapidez y claridad.</p>
-          <div class="mini-mock"><div class="mini-title">Plan semanal <span>Guardar</span></div><div class="meal"><b>Desayuno</b><span>Avena · Yogur · Fruta</span><em>420 kcal</em></div><div class="meal"><b>Comida</b><span>Arroz · Pollo · Verduras</span><em>610 kcal</em></div><div class="meal"><b>Cena</b><span>Salmón · Patata · Ensalada</span><em>530 kcal</em></div></div>
-        </article>
-        <article class="feature-card"><div class="feature-icon"><mat-icon>phone_iphone</mat-icon></div><span class="feature-number">03</span><h3>Comparte con tus pacientes</h3><p>Un espacio preparado para que el paciente pueda consultar su información y su planificación.</p>
-          <div class="mini-phone"><div class="phone-top"><span></span><b>Mi plan</b><span>•••</span></div><div class="phone-welcome">Hola, Ana 👋<small>Tu planificación de hoy</small></div><div class="phone-meal"><mat-icon>wb_sunny</mat-icon><div><b>Desayuno</b><small>420 kcal · 08:30</small></div><mat-icon>chevron_right</mat-icon></div><div class="phone-meal"><mat-icon>restaurant</mat-icon><div><b>Comida</b><small>610 kcal · 14:00</small></div><mat-icon>chevron_right</mat-icon></div></div>
-        </article>
+        <article class="feature-card"><div class="feature-icon"><mat-icon>business</mat-icon></div><h3>Gestión de clínica</h3><p>Administra tu organización, profesionales y pacientes desde un espacio centralizado.</p></article>
+        <article class="feature-card featured"><div class="feature-icon"><mat-icon>group_add</mat-icon></div><h3>Equipo de nutricionistas</h3><p>Incorpora profesionales, gestiona sus accesos y organiza el crecimiento de tu equipo.</p></article>
+        <article class="feature-card"><div class="feature-icon"><mat-icon>share</mat-icon></div><h3>Trabajo compartido</h3><p>Comparte recursos y dietas cuando lo necesites manteniendo separada la información de cada paciente.</p></article>
       </div>
     </section>
-    <section class="showcase" id="como-funciona">
-      <div class="showcase-copy"><span class="eyebrow">UNA VISTA CLARA DE TU TRABAJO</span><h2>De la ficha del cliente a la dieta, sin saltar entre herramientas.</h2><p>DietoExpress reúne las piezas principales de tu consulta en una interfaz coherente. Esta versión usa mockups HTML/CSS que después podremos sustituir por capturas reales de la aplicación.</p>
-        <ul><li><mat-icon>check</mat-icon><span>Información del cliente centralizada</span></li><li><mat-icon>check</mat-icon><span>Dietas accesibles desde el mismo entorno</span></li><li><mat-icon>check</mat-icon><span>Experiencia preparada para crecer</span></li></ul>
-        <button mat-flat-button color="primary" (click)="crearCuenta()">Crear mi cuenta</button>
+
+    <section class="features">
+      <div class="section-heading">
+        <span class="eyebrow">NUTRICIÓN MÁS ESPECIALIZADA</span>
+        <h2>Una herramienta que crece contigo.</h2>
+        <p>DietoExpress incorpora soporte para trabajar de forma más específica según el perfil de tu consulta.</p>
       </div>
-      <div class="showcase-visual"><div class="app-window detail-window"><div class="window-bar"><i></i><i></i><i></i><span>Cliente · Ana Martínez</span></div><div class="detail-body">
-        <div class="profile-head"><div class="big-avatar">AM</div><div><small>CLIENTE</small><h3>Ana Martínez</h3><span>Objetivo: pérdida de peso</span></div><button mat-stroked-button>Editar</button></div>
-        <div class="tabs"><b>Resumen</b><span>Dietas</span><span>Seguimiento</span><span>Historial</span></div>
-        <div class="detail-grid"><div class="detail-box"><small>Peso actual</small><b>68,4 kg</b><em>−1,8 kg</em></div><div class="detail-box"><small>Objetivo</small><b>64 kg</b><em>6,4% restante</em></div><div class="detail-box"><small>Plan actual</small><b>Déficit moderado</b><em>2.050 kcal/día</em></div></div>
-        <div class="progress-box"><div><b>Progreso</b><span>64%</span></div><div class="progress"><i></i></div></div>
-      </div></div></div>
+      <div class="feature-grid">
+        <article class="feature-card featured"><div class="feature-icon"><mat-icon>fitness_center</mat-icon></div><h3>Nutrición deportiva</h3><p>Un espacio preparado para consultas que trabajan con rendimiento, entrenamiento y objetivos deportivos.</p></article>
+        <article class="feature-card"><div class="feature-icon"><mat-icon>monitor_weight</mat-icon></div><h3>Pérdida de peso y obesidad</h3><p>Organiza el seguimiento de pacientes con objetivos de pérdida de peso desde una visión continuada.</p></article>
+        <article class="feature-card"><div class="feature-icon"><mat-icon>shopping_cart</mat-icon></div><h3>Lista de la compra</h3><p>Transforma la planificación nutricional en una herramienta práctica para el paciente.</p></article>
+      </div>
     </section>
-    <section class="pricing" id="planes"><div><span class="eyebrow">EMPIEZA SIN COMPROMISO</span><h2>Empieza con DietoExpress y descubre una forma más ordenada de trabajar.</h2><p>Crea tu cuenta y conoce la aplicación. Los planes y las funciones disponibles se podrán ampliar a medida que tu consulta crezca.</p></div><button mat-flat-button color="primary" (click)="crearCuenta()">Crear cuenta gratis</button></section>
+
+    <section class="pricing" id="planes">
+      <div>
+        <span class="eyebrow">EMPIEZA SIN COMPLICACIONES</span>
+        <h2>Una plataforma profesional para una consulta profesional.</h2>
+        <p>Empieza con una prueba gratuita y descubre DietoExpress. Cuando tu consulta crezca, puedes pasar a un plan profesional o gestionar una clínica con tu equipo.</p>
+      </div>
+      <button mat-flat-button color="primary" (click)="crearCuenta()">Crear cuenta gratis</button>
+    </section>
+
+    <section class="trust-block">
+      <div class="section-heading">
+        <span class="eyebrow">HECHO PARA TRABAJAR CON TRANQUILIDAD</span>
+        <h2>Tu consulta merece una base sólida.</h2>
+      </div>
+      <div class="trust-grid">
+        <div><mat-icon>security</mat-icon><h3>Seguridad</h3><p>Separación de datos por organización, control de acceso y validaciones en las operaciones sensibles.</p></div>
+        <div><mat-icon>verified_user</mat-icon><h3>Privacidad y documentación</h3><p>Consentimientos, documentación y herramientas para gestionar la relación profesional con el paciente.</p></div>
+        <div><mat-icon>cloud_done</mat-icon><h3>Siempre conectado</h3><p>Accede a tu entorno de trabajo y mantén la información de tu consulta organizada en un único sistema.</p></div>
+      </div>
+    </section>
   </main>
-  <footer><span>© DietoExpress</span><span>Gestión profesional de nutrición</span></footer>
+
+  <footer><span>© DietoExpress</span><span>Gestión profesional de nutrición</span><a routerLink="/nutricionistas">Buscar nutricionista</a></footer>
 </div>
