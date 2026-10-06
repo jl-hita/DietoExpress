@@ -68,6 +68,7 @@ public class Program
         });
         builder.Services.AddSingleton<IVideoMeetingProvider, LiveKitVideoMeetingProvider>();
         builder.Services.AddScoped<VideoQuotaService>();
+        builder.Services.AddScoped<LiveKitAnalyticsService>();
         builder.Services.AddHostedService<GoogleCalendarWorker>();
         builder.Services.AddHostedService<AutomationWorker>();
         builder.Services.AddHttpClient<IStripeBillingService, StripeBillingService>();
