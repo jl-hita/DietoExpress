@@ -32,8 +32,8 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
   cameraEnabled = true;
 
   private room?: Room;
-  private localAudio?: LocalAudioTrack;
-  private localVideoTrack?: LocalVideoTrack;
+  localAudio?: LocalAudioTrack;
+  localVideoTrack?: LocalVideoTrack;
   private readonly remoteElements = new Map<string, HTMLElement>();
   private appointmentId = 0;
 
