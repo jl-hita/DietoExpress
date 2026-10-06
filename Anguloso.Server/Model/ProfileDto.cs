@@ -18,6 +18,7 @@ public class ProfileDto
     [StringLength(2000)] public string DirectoryBio { get; set; } = string.Empty;
     [StringLength(500)] public string DirectorySpecialties { get; set; } = string.Empty;
     public string DirectorySlug { get; set; } = string.Empty;
+    public string DirectoryPublicationStatus { get; set; } = "draft";
 }
 
 public class UpdateProfileDto
