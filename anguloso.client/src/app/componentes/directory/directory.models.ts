@@ -4,6 +4,7 @@ export interface DirectoryProfile {
   fullName: string;
   clinicName: string;
   city: string;
+  province: string;
   clinicLogo: string;
   publicBio: string;
   specialties: string;
