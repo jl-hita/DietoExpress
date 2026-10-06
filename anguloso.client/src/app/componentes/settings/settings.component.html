@@ -108,11 +108,14 @@
             <input matInput formControlName="clinicName" placeholder="Ej: Centro de Nutrición Saludable" />
           </mat-form-field>
 
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Dirección</mat-label>
-            <mat-icon matPrefix>location_on</mat-icon>
-            <input matInput formControlName="clinicAddress" placeholder="Ej: Calle Gran Vía 45, 2º, Madrid" />
-          </mat-form-field>
+          <app-address-autocomplete
+            label="Dirección de la clínica"
+            placeholder="Empieza a escribir la dirección de la consulta"
+            [initialValue]="form.get('clinicAddress')?.value ?? ''"
+            (valueChanged)="form.get('clinicAddress')?.setValue($event)"
+            (suggestionSelected)="onClinicAddressSelected($event)">
+          </app-address-autocomplete>
+          <p class="field-hint">Al seleccionar una dirección se completan automáticamente la ciudad y la provincia del perfil público.</p>
 
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Teléfono de contacto</mat-label>
@@ -191,6 +194,21 @@
               <mat-label>Ciudad o municipio</mat-label>
               <mat-icon matPrefix>location_city</mat-icon>
               <input matInput formControlName="directoryCity" placeholder="Ej: Valencia">
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Provincia</mat-label>
+              <mat-icon matPrefix>map</mat-icon>
+              <input matInput formControlName="directoryProvince"
+                     placeholder="Empieza a escribir la provincia"
+                     [matAutocomplete]="provinceAutocomplete"
+                     (input)="filterProvinces()">
+              <mat-autocomplete #provinceAutocomplete="matAutocomplete"
+                                (optionSelected)="onProvinceSelected($event.option.value)">
+                <mat-option *ngFor="let province of filteredProvinces" [value]="province">
+                  {{ province }}
+                </mat-option>
+              </mat-autocomplete>
             </mat-form-field>
 
             <mat-form-field appearance="outline" class="full-width">

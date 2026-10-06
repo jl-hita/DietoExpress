@@ -44,6 +44,7 @@ public class ProfileController : ControllerBase
             DirectoryEnabled = user.directory_enabled ?? false,
             OnlineConsultations = user.online_consultations ?? false,
             DirectoryCity = user.directory_city ?? string.Empty,
+            DirectoryProvince = user.directory_province ?? string.Empty,
             DirectoryBio = user.directory_bio ?? string.Empty,
             DirectorySpecialties = user.directory_specialties ?? string.Empty,
             DirectorySlug = user.directory_slug ?? string.Empty
@@ -71,6 +72,7 @@ public class ProfileController : ControllerBase
         user.directory_enabled = dto.DirectoryEnabled;
         user.online_consultations = dto.OnlineConsultations;
         user.directory_city = string.IsNullOrWhiteSpace(dto.DirectoryCity) ? null : dto.DirectoryCity.Trim();
+        user.directory_province = string.IsNullOrWhiteSpace(dto.DirectoryProvince) ? null : dto.DirectoryProvince.Trim();
         user.directory_bio = string.IsNullOrWhiteSpace(dto.DirectoryBio) ? null : dto.DirectoryBio.Trim();
         user.directory_specialties = string.IsNullOrWhiteSpace(dto.DirectorySpecialties) ? null : dto.DirectorySpecialties.Trim();
 
@@ -91,7 +93,7 @@ public class ProfileController : ControllerBase
             ClinicName = user.clinic_name, ClinicAddress = user.clinic_address, ClinicPhone = user.clinic_phone,
             ClinicLogo = user.clinic_logo, DirectoryEnabled = user.directory_enabled ?? false,
             OnlineConsultations = user.online_consultations ?? false, DirectoryCity = user.directory_city ?? string.Empty,
-            DirectoryBio = user.directory_bio ?? string.Empty, DirectorySpecialties = user.directory_specialties ?? string.Empty,
+            DirectoryProvince = user.directory_province ?? string.Empty, DirectoryBio = user.directory_bio ?? string.Empty, DirectorySpecialties = user.directory_specialties ?? string.Empty,
             DirectorySlug = user.directory_slug ?? string.Empty
         });
     }

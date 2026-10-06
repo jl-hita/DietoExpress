@@ -7,6 +7,8 @@ import { CommonModule } from '@angular/common';
 import { ProfileService } from '../../servicios/profile.service';
 import { AuthService } from '../../servicios/auth.service';
 import { Profile } from '../../modelos/profile';
+import { AddressSuggestion } from '../../modelos/address';
+import { AddressAutocompleteComponent } from '../address-autocomplete/address-autocomplete.component';
 
 // Angular Material
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -18,6 +20,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 
 @Component({
   selector: 'app-settings',
@@ -35,7 +38,9 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
     MatCardModule,
     MatDividerModule,
     MatTabsModule,
-    MatSlideToggleModule
+    MatSlideToggleModule,
+    MatAutocompleteModule,
+    AddressAutocompleteComponent
   ]
 })
 // Documentación: este componente coordina estado local, validación y llamadas asíncronas; la vista solo refleja ese estado.
@@ -52,6 +57,17 @@ export class SettingsComponent implements OnInit, OnDestroy {
   profile: Profile | null = null;
   passwordForm!: FormGroup;
   passwordSaving = false;
+
+  readonly provinces = [
+    'Álava', 'Albacete', 'Alicante', 'Almería', 'Asturias', 'Ávila', 'Badajoz', 'Barcelona',
+    'Bizkaia', 'Burgos', 'Cáceres', 'Cádiz', 'Cantabria', 'Castellón', 'Ciudad Real', 'Córdoba',
+    'Cuenca', 'Gipuzkoa', 'Girona', 'Granada', 'Guadalajara', 'Huelva', 'Huesca', 'Illes Balears',
+    'Jaén', 'La Rioja', 'Las Palmas', 'León', 'Lleida', 'Lugo', 'Madrid', 'Málaga', 'Murcia',
+    'Navarra', 'Ourense', 'Palencia', 'Pontevedra', 'Salamanca', 'Santa Cruz de Tenerife',
+    'Segovia', 'Sevilla', 'Soria', 'Tarragona', 'Teruel', 'Toledo', 'Valencia', 'Valladolid',
+    'Vizcaya', 'Zamora', 'Zaragoza'
+  ];
+  filteredProvinces = [...this.provinces];
 
   constructor(
     private fb: FormBuilder,
@@ -76,6 +92,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
       directoryEnabled: [false],
       onlineConsultations: [false],
       directoryCity: [''],
+      directoryProvince: [''],
       directoryBio: ['', Validators.maxLength(2000)],
       directorySpecialties: ['', Validators.maxLength(500)]
     });
@@ -113,6 +130,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
           directoryEnabled: data.directoryEnabled ?? false,
           onlineConsultations: data.onlineConsultations ?? false,
           directoryCity: data.directoryCity ?? '',
+          directoryProvince: data.directoryProvince ?? '',
           directoryBio: data.directoryBio ?? '',
           directorySpecialties: data.directorySpecialties ?? ''
         });
@@ -128,6 +146,26 @@ export class SettingsComponent implements OnInit, OnDestroy {
         this.loading = false;
       }
     });
+  }
+
+  onClinicAddressSelected(suggestion: AddressSuggestion): void {
+    this.form.patchValue({
+      clinicAddress: suggestion.displayName,
+      directoryCity: suggestion.city || this.form.get('directoryCity')?.value || '',
+      directoryProvince: suggestion.province || this.form.get('directoryProvince')?.value || ''
+    });
+    this.filterProvinces();
+  }
+
+  filterProvinces(): void {
+    const value = String(this.form.get('directoryProvince')?.value ?? '').trim().toLocaleLowerCase('es');
+    this.filteredProvinces = value
+      ? this.provinces.filter(province => province.toLocaleLowerCase('es').includes(value))
+      : [...this.provinces];
+  }
+
+  onProvinceSelected(province: string): void {
+    this.form.get('directoryProvince')?.setValue(province);
   }
 
   onLogoSelected(event: Event): void {

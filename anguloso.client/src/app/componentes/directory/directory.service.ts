@@ -10,10 +10,11 @@ export class DirectoryService {
 
   constructor(private readonly http: HttpClient) {}
 
-  search(city?: string, speciality?: string, online?: boolean): Observable<DirectoryProfile[]> {
+  search(city?: string, province?: string, speciality?: string, online?: boolean): Observable<DirectoryProfile[]> {
     let params = new HttpParams();
 
     if (city?.trim()) params = params.set('city', city.trim());
+    if (province?.trim()) params = params.set('province', province.trim());
     if (speciality?.trim()) params = params.set('speciality', speciality.trim());
     if (online) params = params.set('online', 'true');
 

@@ -12,6 +12,11 @@
     </div>
 
     <div class="field">
+      <label for="province">Provincia</label>
+      <input id="province" type="text" [(ngModel)]="province" placeholder="Valencia, Alicante..." />
+    </div>
+
+    <div class="field">
       <label for="speciality">Especialidad</label>
       <input id="speciality" type="text" [(ngModel)]="speciality" placeholder="Nutrición deportiva..." />
     </div>
@@ -33,7 +38,7 @@
       <div class="profile-content">
         <h2>{{ item.fullName }}</h2>
         <p *ngIf="item.clinicName">{{ item.clinicName }}</p>
-        <p *ngIf="item.city">{{ item.city }}</p>
+        <p *ngIf="item.city || item.province">{{ item.city }}<span *ngIf="item.city && item.province">, </span>{{ item.province }}</p>
         <span *ngIf="item.onlineConsultations" class="badge">Consulta online</span>
         <p *ngIf="item.specialties">{{ item.specialties }}</p>
         <a mat-button [routerLink]="['/nutricionistas', item.slug]">Ver perfil</a>
@@ -46,7 +51,7 @@
     <img *ngIf="profile.clinicLogo" [src]="profile.clinicLogo" [alt]="profile.fullName" />
     <h2>{{ profile.fullName }}</h2>
     <p *ngIf="profile.clinicName">{{ profile.clinicName }}</p>
-    <p *ngIf="profile.city">{{ profile.city }}</p>
+    <p *ngIf="profile.city || profile.province">{{ profile.city }}<span *ngIf="profile.city && profile.province">, </span>{{ profile.province }}</p>
     <span *ngIf="profile.onlineConsultations" class="badge">Consulta online</span>
     <p *ngIf="profile.specialties"><strong>Especialidades:</strong> {{ profile.specialties }}</p>
     <p *ngIf="profile.publicBio">{{ profile.publicBio }}</p>

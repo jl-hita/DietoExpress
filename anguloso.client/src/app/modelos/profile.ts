@@ -9,6 +9,7 @@ export interface Profile {
   directoryEnabled?: boolean;
   onlineConsultations?: boolean;
   directoryCity?: string;
+  directoryProvince?: string;
   directoryBio?: string;
   directorySpecialties?: string;
   directorySlug?: string;
@@ -23,6 +24,7 @@ export interface UpdateProfile {
   directoryEnabled?: boolean;
   onlineConsultations?: boolean;
   directoryCity?: string;
+  directoryProvince?: string;
   directoryBio?: string;
   directorySpecialties?: string;
 }

@@ -52,6 +52,8 @@ public class DirectoryController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(filter.City))
             query = query.Where(u => u.directory_city != null && EF.Functions.ILike(u.directory_city, $"%{filter.City.Trim()}%"));
+        if (!string.IsNullOrWhiteSpace(filter.Province))
+            query = query.Where(u => u.directory_province != null && EF.Functions.ILike(u.directory_province, $"%{filter.Province.Trim()}%"));
         if (filter.Online == true)
             query = query.Where(u => u.online_consultations == true);
         if (!string.IsNullOrWhiteSpace(filter.Speciality))
@@ -65,6 +67,7 @@ public class DirectoryController : ControllerBase
                 FullName = u.full_name ?? string.Empty,
                 ClinicName = u.clinic_name ?? string.Empty,
                 City = u.directory_city ?? string.Empty,
+                Province = u.directory_province ?? string.Empty,
                 ClinicLogo = u.clinic_logo ?? string.Empty,
                 PublicBio = u.directory_bio ?? string.Empty,
                 Specialties = u.directory_specialties ?? string.Empty,
@@ -87,6 +90,7 @@ public class DirectoryController : ControllerBase
                 ClinicName = u.clinic_name ?? string.Empty,
                 // La ficha pública no expone la dirección exacta de la consulta.
                 City = u.directory_city ?? string.Empty,
+                Province = u.directory_province ?? string.Empty,
                 ClinicLogo = u.clinic_logo ?? string.Empty,
                 PublicBio = u.directory_bio ?? string.Empty,
                 Specialties = u.directory_specialties ?? string.Empty,
