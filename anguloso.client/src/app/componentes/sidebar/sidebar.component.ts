@@ -61,6 +61,10 @@ export class SidebarComponent implements OnInit {
     return role === 'clinic_admin';
   }
 
+  get isNutritionist(): boolean {
+    return this.authService.getRole() === 'nutritionist';
+  }
+
   get isFreeAccount(): boolean {
     return this.authService.getSubscriptionPlan() === 'free';
   }
