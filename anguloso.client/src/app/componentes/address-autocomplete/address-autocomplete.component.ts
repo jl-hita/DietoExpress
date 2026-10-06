@@ -44,7 +44,7 @@ export class AddressAutocompleteComponent implements OnInit, OnDestroy, OnChange
   constructor(private readonly addressService: AddressService) {}
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['initialValue'] && !changes['initialValue'].firstChange) {
+    if (changes['initialValue']) {
       const value = this.initialValue ?? '';
       if (this.control.value !== value) {
         this.control.setValue(value, { emitEvent: false });
