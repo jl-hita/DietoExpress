@@ -771,8 +771,8 @@ public class AppointmentsController : ControllerBase
     {
         Id = a.id, StartsAt = a.starts_at, EndsAt = a.ends_at, Status = a.status,
         PatientNotes = a.patient_notes, ProfessionalNotes = a.professional_notes,
-        ClientId = a.client_id, ClientName = a.client.full_name,
-        NutritionistId = a.nutritionist_id, NutritionistName = a.nutritionist.full_name,
+        ClientId = a.client_id, ClientName = a.client != null ? a.client.full_name : "Paciente",
+        NutritionistId = a.nutritionist_id, NutritionistName = a.nutritionist != null ? a.nutritionist.full_name : "Nutricionista",
         Modality = a.modality, VideoProvider = a.video_provider, VideoRoomUrl = a.video_room_url, VideoExpiresAt = a.video_expires_at
     };
 
