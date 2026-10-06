@@ -149,11 +149,6 @@ public class AdminUsersController : ControllerBase
 
         if (selected != null)
         {
-            const long maxLogBytes = 2 * 1024 * 1024;
-            var fileInfo = new FileInfo(selected.Path);
-            if (fileInfo.Length > maxLogBytes)
-                return StatusCode(StatusCodes.Status413PayloadTooLarge, "El archivo de log solicitado supera el tamaño máximo de lectura.");
-
             await using var stream = new FileStream(selected.Path, FileMode.Open, FileAccess.Read,
                 FileShare.ReadWrite | FileShare.Delete, 4096, useAsync: true);
             using var reader = new StreamReader(stream);
