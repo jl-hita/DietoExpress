@@ -392,6 +392,21 @@ public static class DatabaseBootstrap
                     created_at TIMESTAMPTZ DEFAULT NOW()
                 );
 
+                CREATE TABLE IF NOT EXISTS public_funnel_events (
+    id BIGSERIAL PRIMARY KEY,
+    event_name VARCHAR(40) NOT NULL,
+    professional_slug VARCHAR(120),
+    appointment_id INTEGER REFERENCES patient_appointments(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT public_funnel_events_event_check CHECK (event_name IN ('directory_view','profile_view','booking_started','booking_requested'))
+);
+CREATE INDEX IF NOT EXISTS idx_public_funnel_events_created
+    ON public_funnel_events(created_at);
+CREATE INDEX IF NOT EXISTS idx_public_funnel_events_event_created
+    ON public_funnel_events(event_name, created_at);
+CREATE INDEX IF NOT EXISTS idx_public_funnel_events_appointment
+    ON public_funnel_events(appointment_id);
+
                 -- Índices de rendimiento
                 CREATE INDEX IF NOT EXISTS idx_clients_user_id ON clients(user_id);
                 CREATE INDEX IF NOT EXISTS idx_clients_tenant_id ON clients(tenant_id);
