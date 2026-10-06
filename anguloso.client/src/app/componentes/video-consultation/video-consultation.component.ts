@@ -1,5 +1,6 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
-import { Location } from '@angular/common';
+import { CommonModule, Location } from '@angular/common';
+import { MatIconModule } from '@angular/material/icon';
 import { ActivatedRoute } from '@angular/router';
 import { createLocalAudioTrack, createLocalVideoTrack, LocalAudioTrack, LocalVideoTrack, RemoteTrack, RemoteTrackPublication, RemoteParticipant, Room, RoomEvent, Track } from 'livekit-client';
 import { PatientPortalService } from '../../servicios/patient-portal.service';
@@ -9,6 +10,7 @@ type ConnectionState = 'connecting' | 'waiting' | 'connected' | 'reconnecting' |
 @Component({
   selector: 'app-video-consultation',
   standalone: true,
+  imports: [CommonModule, MatIconModule],
   templateUrl: './video-consultation.component.html',
   styleUrls: ['./video-consultation.component.css']
 })
