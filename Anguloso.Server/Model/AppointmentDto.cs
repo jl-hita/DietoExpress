@@ -56,6 +56,10 @@ public class AppointmentDto
     public string? ClientName { get; set; }
     public int NutritionistId { get; set; }
     public string? NutritionistName { get; set; }
+    public string Modality { get; set; } = "in_person";
+    public string? VideoProvider { get; set; }
+    public string? VideoRoomUrl { get; set; }
+    public DateTime? VideoExpiresAt { get; set; }
 }
 
 public class AvailabilityDto
