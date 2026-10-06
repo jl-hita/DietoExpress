@@ -31,6 +31,10 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
   microphoneEnabled = true;
   cameraEnabled = true;
   quotaWarning = '';
+  callTimeWarning = '';
+  remainingSeconds = 0;
+
+  private callTimer?: ReturnType<typeof setInterval>;
 
   private room?: Room;
   localAudio?: LocalAudioTrack;
@@ -68,6 +72,7 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
         } else {
           this.quotaWarning = '';
         }
+        this.startCallTimer(access.expiresAt);
         void this.connectToRoom(access.roomUrl, access.token);
       },
       error: err => {
@@ -152,7 +157,37 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  private startCallTimer(expiresAt: string): void {
+    if (this.callTimer) clearInterval(this.callTimer);
+    const deadline = new Date(expiresAt).getTime();
+
+    const update = () => {
+      const remaining = Math.max(0, deadline - Date.now());
+      this.remainingSeconds = Math.ceil(remaining / 1000);
+
+      if (this.remainingSeconds <= 0) {
+        this.callTimeWarning = 'Se ha alcanzado el límite máximo de 60 minutos. La consulta ha terminado.';
+        if (this.callTimer) clearInterval(this.callTimer);
+        void this.room?.disconnect();
+        this.connected = false;
+        return;
+      }
+
+      if (this.remainingSeconds <= 60) {
+        this.callTimeWarning = 'Queda menos de 1 minuto para alcanzar el límite máximo de la consulta.';
+      } else if (this.remainingSeconds <= 5 * 60) {
+        this.callTimeWarning = 'Quedan menos de 5 minutos para alcanzar el límite máximo de la consulta.';
+      } else {
+        this.callTimeWarning = '';
+      }
+    };
+
+    update();
+    this.callTimer = setInterval(update, 1000);
+  }
+
   leave(): void {
+    if (this.callTimer) clearInterval(this.callTimer);
     void this.room?.disconnect();
     window.close();
   }
@@ -189,6 +224,7 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.callTimer) clearInterval(this.callTimer);
     this.localAudio?.stop();
     this.localVideoTrack?.stop();
     void this.room?.disconnect();
