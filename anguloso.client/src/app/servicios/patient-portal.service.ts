@@ -13,6 +13,8 @@ export interface AppointmentSlot {
   endsAt: string;
   nutritionistId: number;
   nutritionistName?: string | null;
+  onlineConsultationsAvailable?: boolean;
+  modality?: string;
 }
 
 export interface AvailabilityRule {
@@ -43,6 +45,10 @@ export interface PatientAppointment {
   clientName?: string | null;
   nutritionistId: number;
   nutritionistName?: string | null;
+  modality?: string;
+  videoProvider?: string | null;
+  videoRoomUrl?: string | null;
+  videoExpiresAt?: string | null;
 }
 
 export interface PatientCheckin { id: number; week_start: string; submitted_at: string; weight?: number | null; adherence?: number | null; hunger?: number | null; energy?: number | null; sleep_quality?: number | null; sleep_hours?: number | null; training?: number | null; difficulties?: string | null; notes?: string | null; reviewed_at?: string | null; reviewed_by_user_id?: number | null; }
@@ -132,8 +138,23 @@ export class PatientPortalService {
     return this.http.get<PatientAppointment[]>(this.base + '/appointments/mine');
   }
 
-  requestAppointment(startsAt: string, durationMinutes = 30, patientNotes?: string | null): Observable<PatientAppointment> {
-    return this.http.post<PatientAppointment>(this.base + '/appointments', { startsAt, durationMinutes, patientNotes });
+  requestAppointment(startsAt: string, durationMinutes = 30, patientNotes?: string | null, modality = 'in_person'): Observable<PatientAppointment> {
+    return this.http.post<PatientAppointment>(this.base + '/appointments', { startsAt, durationMinutes, patientNotes, modality });
+  }
+
+  getVideoAccess(id: number): Observable<{ provider: string; roomUrl: string; token: string; expiresAt: string }> {
+    return this.http.get<{ provider: string; roomUrl: string; token: string; expiresAt: string }>(this.base + '/appointments/' + id + '/video-access');
+  }
+
+  openVideoAccess(id: number, onError?: (error: any) => void): void {
+    this.getVideoAccess(id).subscribe({
+      next: access => {
+        const url = new URL(access.roomUrl);
+        url.searchParams.set('t', access.token);
+        window.open(url.toString(), '_blank', 'noopener,noreferrer');
+      },
+      error: err => onError?.(err)
+    });
   }
 
   cancelAppointment(id: number): Observable<void> {
