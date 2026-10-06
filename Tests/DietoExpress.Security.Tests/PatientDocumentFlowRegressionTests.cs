@@ -102,7 +102,7 @@ public sealed class PatientDocumentFlowRegressionTests
         var source = ReadServerSource("Anguloso.Server/Controllers/ProfessionalConsultationsController.cs");
 
         Assert.Contains("PublishEventAsync(", source);
-        Assert.Contains(""appointment.completed"", source);
+        Assert.Contains("\"appointment.completed\"", source);
         Assert.Contains("AppointmentCompletedPayload", source);
         Assert.Contains('$"appointment:{appointment.Id}:completed"', source);
     }
