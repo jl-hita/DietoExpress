@@ -2005,7 +2005,7 @@ public static class DatabaseBootstrap
                 ON users(directory_enabled, directory_province, directory_city);
         ");
         context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('directory-v2') ON CONFLICT (id) DO NOTHING;");
-        logger.LogInformation("Migración de directorio directory-v1 aplicada/comprobada correctamente.");
+        logger.LogInformation("Migración de directorio directory-v2 aplicada/comprobada correctamente.");
     }
 
 
