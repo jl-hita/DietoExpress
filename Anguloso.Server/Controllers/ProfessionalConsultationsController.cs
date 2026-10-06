@@ -154,7 +154,7 @@ public sealed class ProfessionalConsultationsController : ControllerBase
             {
                 id = appointment.Id, startsAt = appointment.StartsAt, endsAt = appointment.EndsAt,
                 status = appointment.Status, clientId = appointment.ClientId, clientName = appointment.ClientName,
-                nutritionistId = appointment.NutritionistId
+                nutritionistId = appointment.NutritionistId, modality = appointment.Modality
             },
             suggestedConsultationType = previousConsultationExists ? "follow_up" : "first",
             consultation, latestCheckin, previousAppointment, activeDiet, openTasks, followupSignals,
@@ -397,7 +397,7 @@ public sealed class ProfessionalConsultationsController : ControllerBase
             .Select(a => new AuthorizedAppointment
             {
                 Id = a.id, TenantId = a.tenant_id, ClientId = a.client_id, ClientName = a.client.full_name,
-                NutritionistId = a.nutritionist_id, StartsAt = a.starts_at, EndsAt = a.ends_at, Status = a.status
+                NutritionistId = a.nutritionist_id, StartsAt = a.starts_at, EndsAt = a.ends_at, Status = a.status, Modality = a.modality
             })
             .SingleOrDefaultAsync();
 
@@ -449,5 +449,6 @@ public sealed class ProfessionalConsultationsController : ControllerBase
         public DateTime StartsAt { get; set; }
         public DateTime EndsAt { get; set; }
         public string Status { get; set; } = string.Empty;
+        public string? Modality { get; set; }
     }
 }

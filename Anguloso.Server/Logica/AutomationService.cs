@@ -57,6 +57,10 @@ public sealed class AutomationService
                 "biometrics.evolution" => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"]),
                 "documents.pending.reminder" => new AutomationRuleConfig(true, null, "patient", ["in_app"]),
                 "documents.completed" => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"]),
+                "online_consultation.room_available.patient" => new AutomationRuleConfig(true, null, "patient", ["in_app", "push"]),
+                "online_consultation.room_available.professional" => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"]),
+                "online_consultation.patient_waiting" => new AutomationRuleConfig(true, 5, "patient", ["in_app", "push"]),
+                "online_consultation.professional_waiting" => new AutomationRuleConfig(true, 5, "assigned_professional", ["in_app"]),
                 _ => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"])
             };
             return defaults;
@@ -271,6 +275,10 @@ public sealed class AutomationService
         if (idempotencyKey?.StartsWith("biometrics:evolution:", StringComparison.Ordinal) == true) return "biometrics.evolution";
         if (idempotencyKey?.StartsWith("documents:pending-reminder:", StringComparison.Ordinal) == true) return "documents.pending.reminder";
         if (idempotencyKey?.StartsWith("documents:completed:", StringComparison.Ordinal) == true) return "documents.completed";
+        if (idempotencyKey?.StartsWith("online:room-ready:patient:", StringComparison.Ordinal) == true) return "online_consultation.room_available.patient";
+        if (idempotencyKey?.StartsWith("online:room-ready:professional:", StringComparison.Ordinal) == true) return "online_consultation.room_available.professional";
+        if (idempotencyKey?.StartsWith("online:waiting:patient:", StringComparison.Ordinal) == true) return "online_consultation.patient_waiting";
+        if (idempotencyKey?.StartsWith("online:waiting:professional:", StringComparison.Ordinal) == true) return "online_consultation.professional_waiting";
         if (idempotencyKey?.EndsWith(":reminder-24h", StringComparison.Ordinal) == true) return "appointment.reminder.24h";
         if (idempotencyKey?.EndsWith(":reminder-2h", StringComparison.Ordinal) == true) return "appointment.reminder.2h";
         if (idempotencyKey?.StartsWith("postappointment:checkin:", StringComparison.Ordinal) == true) return "appointment.completed";
@@ -666,6 +674,10 @@ public sealed class AutomationService
                     if (!await IsRuleEnabledAsync(evt.TenantId, "appointment.completed", cancellationToken)) break;
                     var payload = AutomationJson.Deserialize<AppointmentCompletedPayload>(evt.Payload)
                         ?? throw new InvalidOperationException("Payload inválido para appointment.completed.");
+                    await CancelPendingJobsByIdempotencyPrefixAsync(evt.TenantId, $"online:room-ready:patient:{payload.AppointmentId}", cancellationToken);
+                    await CancelPendingJobsByIdempotencyPrefixAsync(evt.TenantId, $"online:room-ready:professional:{payload.AppointmentId}", cancellationToken);
+                    await CancelPendingJobsByIdempotencyPrefixAsync(evt.TenantId, $"online:waiting:patient:{payload.AppointmentId}:", cancellationToken);
+                    await CancelPendingJobsByIdempotencyPrefixAsync(evt.TenantId, $"online:waiting:professional:{payload.AppointmentId}:", cancellationToken);
 
                     await ScheduleActionAsync(
                         evt.TenantId,
@@ -730,6 +742,42 @@ public sealed class AutomationService
                             $"onboarding:first-appointment-reminder:{payload.ClientId}:",
                             cancellationToken);
 
+                    break;
+                }
+            case "video.finished":
+                {
+                    var payload = AutomationJson.Deserialize<AppointmentStatusPayload>(evt.Payload);
+                    if (payload is not null)
+                    {
+                        await CancelPendingJobsByIdempotencyPrefixAsync(evt.TenantId, $"online:room-ready:patient:{payload.AppointmentId}", cancellationToken);
+                        await CancelPendingJobsByIdempotencyPrefixAsync(evt.TenantId, $"online:room-ready:professional:{payload.AppointmentId}", cancellationToken);
+                        await CancelPendingJobsByIdempotencyPrefixAsync(evt.TenantId, $"online:waiting:patient:{payload.AppointmentId}:", cancellationToken);
+                        await CancelPendingJobsByIdempotencyPrefixAsync(evt.TenantId, $"online:waiting:professional:{payload.AppointmentId}:", cancellationToken);
+                    }
+                    break;
+                }
+            case "video.participant.connected":
+                {
+                    var payload = AutomationJson.Deserialize<VideoParticipantConnectedPayload>(evt.Payload)
+                        ?? throw new InvalidOperationException("Payload inválido para video.participant.connected.");
+                    var oppositeRole = string.Equals(payload.ParticipantRole, "patient", StringComparison.OrdinalIgnoreCase) ? "professional" : "patient";
+                    await CancelPendingJobsByIdempotencyPrefixAsync(evt.TenantId, $"online:waiting:{oppositeRole}:{payload.AppointmentId}:", cancellationToken);
+                    if (string.Equals(payload.ParticipantRole, "patient", StringComparison.OrdinalIgnoreCase))
+                    {
+                        await ScheduleActionAsync(evt.TenantId, "notify_patient",
+                            new NotifyPatientAction(payload.ClientId, "online_professional_waiting", "Tu nutricionista todavía no ha entrado",
+                                "La sala está abierta y tu nutricionista todavía no se ha conectado. Puedes permanecer en la sala o volver a intentarlo.",
+                                $"/video-consultation/{payload.AppointmentId}"),
+                            DateTime.UtcNow.AddMinutes(5), evt.Id, $"online:waiting:professional:{payload.AppointmentId}:{evt.Id}", cancellationToken: cancellationToken);
+                    }
+                    else
+                    {
+                        await ScheduleActionAsync(evt.TenantId, "notify_patient",
+                            new NotifyPatientAction(payload.ClientId, "online_patient_waiting", "El paciente todavía no ha entrado",
+                                "La sala está abierta y el paciente todavía no se ha conectado. Puedes permanecer en la sala mientras esperas.",
+                                $"/video-consultation/{payload.AppointmentId}"),
+                            DateTime.UtcNow.AddMinutes(5), evt.Id, $"online:waiting:patient:{payload.AppointmentId}:{evt.Id}", cancellationToken: cancellationToken);
+                    }
                     break;
                 }
             case "appointment.cancelled":
@@ -1473,6 +1521,22 @@ public sealed class AutomationService
                         !await IsRuleEnabledAsync(evt.TenantId, "appointment.reminder.2h", cancellationToken))
                         break;
 
+                    if (string.Equals(payload.Modality, "online", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var roomReady = await ApplyConfiguredLeadTimeAsync(evt.TenantId, "online_consultation.room_available.patient", payload.StartsAtUtc, 15, cancellationToken);
+                        await ScheduleActionAsync(evt.TenantId, "notify_patient",
+                            new NotifyPatientAction(payload.ClientId, "online_room_available", "Sala de consulta online disponible",
+                                "La sala de tu consulta online ya está disponible. Puedes entrar desde tu portal.",
+                                $"/video-consultation/{payload.AppointmentId}"),
+                            roomReady, evt.Id, $"online:room-ready:patient:{payload.AppointmentId}", cancellationToken: cancellationToken);
+                        var professionalRoomReady = await ApplyConfiguredLeadTimeAsync(evt.TenantId, "online_consultation.room_available.professional", payload.StartsAtUtc, 15, cancellationToken);
+                        await ScheduleActionAsync(evt.TenantId, "notify_patient",
+                            new NotifyPatientAction(payload.ClientId, "online_room_available_professional", "Sala de consulta online preparada",
+                                "La sala de la consulta online ya está disponible. Puedes entrar desde la agenda.",
+                                $"/video-consultation/{payload.AppointmentId}"),
+                            professionalRoomReady, evt.Id, $"online:room-ready:professional:{payload.AppointmentId}", cancellationToken: cancellationToken);
+                    }
+
                     var firstReminder = await ApplyConfiguredLeadTimeAsync(
                         evt.TenantId, "appointment.reminder.24h", payload.StartsAtUtc, 24 * 60, cancellationToken);
 
@@ -1484,8 +1548,8 @@ public sealed class AutomationService
                             new NotifyPatientAction(
                                 payload.ClientId,
                                 "appointment_reminder",
-                                "Recordatorio de cita",
-                                "Recuerda que tienes una cita con tu nutricionista.",
+                                string.Equals(payload.Modality, "online", StringComparison.OrdinalIgnoreCase) ? "Recordatorio de consulta online" : "Recordatorio de cita",
+                                string.Equals(payload.Modality, "online", StringComparison.OrdinalIgnoreCase) ? "Recuerda que tienes una consulta online con tu nutricionista. La sala estará disponible 15 minutos antes." : "Recuerda que tienes una cita con tu nutricionista.",
                                 "/patient?tab=appointments"),
                             firstReminder,
                             evt.Id,
@@ -1506,8 +1570,8 @@ public sealed class AutomationService
                             new NotifyPatientAction(
                                 payload.ClientId,
                                 "appointment_reminder",
-                                "Tu cita es en 2 horas",
-                                "Recuerda que tienes una cita con tu nutricionista dentro de 2 horas.",
+                                string.Equals(payload.Modality, "online", StringComparison.OrdinalIgnoreCase) ? "Tu consulta online es en 2 horas" : "Tu cita es en 2 horas",
+                                string.Equals(payload.Modality, "online", StringComparison.OrdinalIgnoreCase) ? "Recuerda que tienes una consulta online con tu nutricionista dentro de 2 horas." : "Recuerda que tienes una cita con tu nutricionista dentro de 2 horas.",
                                 "/patient?tab=appointments"),
                             secondReminder,
                             evt.Id,
@@ -1525,6 +1589,13 @@ public sealed class AutomationService
                     // Al cancelar una cita se invalidan los recordatorios pendientes asociados a la confirmación original,
                     // pero nunca jobs que ya estén en processing/completed o pertenezcan a otro agregado.
                     await CancelJobsForEventAggregateAsync(evt, cancellationToken);
+                    if (payload is not null)
+                    {
+                        await CancelPendingJobsByIdempotencyPrefixAsync(evt.TenantId, $"online:room-ready:patient:{payload.AppointmentId}", cancellationToken);
+                        await CancelPendingJobsByIdempotencyPrefixAsync(evt.TenantId, $"online:room-ready:professional:{payload.AppointmentId}", cancellationToken);
+                        await CancelPendingJobsByIdempotencyPrefixAsync(evt.TenantId, $"online:waiting:patient:{payload.AppointmentId}:", cancellationToken);
+                        await CancelPendingJobsByIdempotencyPrefixAsync(evt.TenantId, $"online:waiting:professional:{payload.AppointmentId}:", cancellationToken);
+                    }
                     break;
                 }
             case "appointment.no_show":
@@ -1898,7 +1969,8 @@ public sealed class AutomationService
     public sealed record CheckinSubmittedPayload(int ClientId, int? NutritionistId);
     public sealed record DietAutomationPayload(int ClientId, int AssignmentId, string DietName);
     public sealed record AppointmentCompletedPayload(int AppointmentId, int ClientId, int? NutritionistId);
-    public sealed record AppointmentStatusPayload(int AppointmentId, int ClientId, int? NutritionistId, DateTime StartsAtUtc);
+    public sealed record AppointmentStatusPayload(int AppointmentId, int ClientId, int? NutritionistId, DateTime StartsAtUtc, string? Modality = null);
+    public sealed record VideoParticipantConnectedPayload(int AppointmentId, int ClientId, int? NutritionistId, string ParticipantRole);
     public sealed record BillingAutomationPayload(int SubscriptionId, string PlanCode, string Status, DateTime? CurrentPeriodEnd, DateTime? TrialEnd, int? AssignedUserId);
     public sealed record BillingEmailAction(int? UserId, string Subject, string HtmlBody);
     public sealed record ProvisionPatientDocumentsAction(int ClientId, int? UserId, bool ForClientCreation, bool IncludeAllRequired);

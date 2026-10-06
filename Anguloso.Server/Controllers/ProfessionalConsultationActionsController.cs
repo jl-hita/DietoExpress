@@ -156,11 +156,7 @@ public sealed class ProfessionalConsultationActionsController : ControllerBase
                 "appointment.confirmed",
                 "appointment",
                 appointment.id.ToString(),
-                new AutomationService.AppointmentStatusPayload(
-                    appointment.id,
-                    appointment.client_id,
-                    appointment.nutritionist_id,
-                    appointment.starts_at),
+                new AutomationService.AppointmentStatusPayload(appointment.id, appointment.client_id, appointment.nutritionist_id, appointment.starts_at, appointment.modality),
                 $"appointment:{appointment.id}:confirmed");
         }
         catch (Exception ex)
