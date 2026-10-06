@@ -764,7 +764,7 @@ internal static class AdminConfigMetadata
         "ADDRESS_GEOAPIFY_DAILY_LIMIT" => "Número máximo de consultas diarias que DietoExpress debe considerar disponibles para Geoapify. Ejemplo: «3000», según el límite real de tu cuenta.",
         "ADDRESS_LOCATIONIQ_DAILY_LIMIT" => "Número máximo de consultas diarias que DietoExpress debe considerar disponibles para LocationIQ. Ejemplo: «5000», según el límite real de tu cuenta.",
         _ => "Configuración técnica cuyo significado concreto depende de la función que la utilice. Si no sabes qué valor necesita, no introduzcas uno al azar; primero debe documentarse su propósito."
-    };;
+    };
 }
 
 public class UpdateConfigRequest
