@@ -5,6 +5,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { DirectoryProfile, PublicAvailabilitySlot } from './directory.models';
 import { DirectoryService } from './directory.service';
+import { PublicSeoService } from '../../servicios/public-seo.service';
 
 @Component({
   selector: 'app-directory',
@@ -37,12 +38,19 @@ export class DirectoryComponent implements OnInit {
   calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   selectedAvailabilityDate: string | null = null;
 
-  constructor(private readonly route: ActivatedRoute, private readonly directoryService: DirectoryService) {}
+  constructor(
+    private readonly route: ActivatedRoute,
+    private readonly directoryService: DirectoryService,
+    private readonly publicSeoService: PublicSeoService
+  ) {}
 
   ngOnInit(): void {
     const slug = this.route.snapshot.paramMap.get('slug');
     if (slug) this.loadProfile(slug);
-    else this.search();
+    else {
+      this.publicSeoService.setDirectorySeo({ city: this.city, province: this.province, speciality: this.speciality, online: this.online });
+      this.search();
+    }
   }
 
   get calendarDays(): Array<{ date: Date; dayNumber: number; key: string; slotCount: number; inCurrentMonth: boolean; disabled: boolean }> {
@@ -112,6 +120,7 @@ export class DirectoryComponent implements OnInit {
   }
 
   search(): void {
+    this.publicSeoService.setDirectorySeo({ city: this.city, province: this.province, speciality: this.speciality, online: this.online });
     this.loading = true; this.error = ''; this.profile = null;
     this.directoryService.search(this.city, this.province, this.speciality, this.online).subscribe({
       next: profiles => { this.profiles = profiles; this.loading = false; },
@@ -122,7 +131,12 @@ export class DirectoryComponent implements OnInit {
   loadProfile(slug: string): void {
     this.loading = true; this.error = '';
     this.directoryService.getBySlug(slug).subscribe({
-      next: profile => { this.profile = profile; this.loading = false; this.loadAvailability(profile.slug); },
+      next: profile => {
+        this.profile = profile;
+        this.publicSeoService.setProfileSeo(profile);
+        this.loading = false;
+        this.loadAvailability(profile.slug);
+      },
       error: () => { this.error = 'No se ha encontrado el profesional solicitado.'; this.loading = false; }
     });
   }
