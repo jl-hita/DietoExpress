@@ -331,13 +331,14 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
-    public void AdminDiagnostics_BoundSearchAndLogReadSize()
+    public void AdminDiagnostics_BoundSearchAndAllowFullLogRead()
     {
         var source = ReadServerController("AdminUsersController.cs");
 
         Assert.Contains("searchTerm.Length > 100", source);
-        Assert.Contains("maxLogBytes = 2 * 1024 * 1024", source);
-        Assert.Contains("StatusCodes.Status413PayloadTooLarge", source);
+        Assert.DoesNotContain("maxLogBytes = 2 * 1024 * 1024", source);
+        Assert.DoesNotContain("StatusCodes.Status413PayloadTooLarge", source);
+        Assert.Contains("await reader.ReadToEndAsync()", source);
     }
 
     [Fact]
