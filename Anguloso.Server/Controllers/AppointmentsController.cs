@@ -807,7 +807,7 @@ public class AppointmentsController : ControllerBase
         return await UpdateStatus(id, new UpdateAppointmentStatusRequestDto { Status = "completed" });
     }
 
-    private sealed class VideoConsultationEventRequest { public string? Event { get; set; } }
+    public sealed class VideoConsultationEventRequest { public string? Event { get; set; } }
 
     private bool ValidateAvailabilityRequest(SaveAvailabilityRequestDto request, out TimeOnly start, out TimeOnly end, out string message)
     {
