@@ -30,6 +30,7 @@ public class UpdateProfileDto
     public bool DirectoryEnabled { get; set; }
     public bool OnlineConsultations { get; set; }
     [StringLength(120)] public string DirectoryCity { get; set; } = string.Empty;
+    [StringLength(120)] public string DirectoryProvince { get; set; } = string.Empty;
     [StringLength(2000)] public string DirectoryBio { get; set; } = string.Empty;
     [StringLength(500)] public string DirectorySpecialties { get; set; } = string.Empty;
 }
