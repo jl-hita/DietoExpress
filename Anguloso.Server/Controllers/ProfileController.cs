@@ -72,6 +72,7 @@ public class ProfileController : ControllerBase
         user.directory_enabled = dto.DirectoryEnabled;
         user.online_consultations = dto.OnlineConsultations;
         user.directory_city = string.IsNullOrWhiteSpace(dto.DirectoryCity) ? null : dto.DirectoryCity.Trim();
+        user.directory_province = string.IsNullOrWhiteSpace(dto.DirectoryProvince) ? null : dto.DirectoryProvince.Trim();
         user.directory_bio = string.IsNullOrWhiteSpace(dto.DirectoryBio) ? null : dto.DirectoryBio.Trim();
         user.directory_specialties = string.IsNullOrWhiteSpace(dto.DirectorySpecialties) ? null : dto.DirectorySpecialties.Trim();
 
