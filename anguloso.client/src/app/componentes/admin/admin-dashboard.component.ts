@@ -417,6 +417,18 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
     .config-card {
       margin-top: 24px;
     }
+    .video-usage-card {
+      margin: 0 0 18px;
+      padding: 14px 16px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      background: #f8fafc;
+      display: grid;
+      gap: 8px;
+    }
+    .video-usage-card > div:first-child { display: grid; gap: 3px; }
+    .video-usage-metrics { display: flex; gap: 18px; flex-wrap: wrap; color: #334155; }
+    .video-usage-card small { color: #64748b; }
     .section-header {
       margin-bottom: 16px;
     }
