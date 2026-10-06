@@ -168,3 +168,5 @@ button:disabled {
 .call-time-warning { margin: 0 0 16px; padding: 12px 14px; border: 1px solid #fdba74; border-radius: 10px; background: #fff7ed; color: #9a3412; display: flex; gap: 8px; flex-wrap: wrap; }
 .call-time-warning strong { font-weight: 700; }
 .call-time-warning span { color: #7c2d12; }
+
+.connection-banner{margin:0 1rem 1rem;padding:.75rem 1rem;border-radius:.65rem;background:#1f2937;display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}.connection-banner.connected{border:1px solid #166534}.connection-banner.warning{border:1px solid #a16207}.connection-dot{width:.65rem;height:.65rem;border-radius:50%;background:#9ca3af;flex:0 0 auto}.connection-banner.connected .connection-dot{background:#22c55e}.connection-banner.warning .connection-dot{background:#f59e0b}.connection-banner button{margin-left:auto}.finalize-button{background:#166534;color:#fff}.finalized-card{text-align:center}.finalized-card button{margin-top:1rem}
