@@ -104,7 +104,7 @@ public sealed class PatientDocumentFlowRegressionTests
         Assert.Contains("PublishEventAsync(", source);
         Assert.Contains("\"appointment.completed\"", source);
         Assert.Contains("AppointmentCompletedPayload", source);
-        Assert.Contains('$"appointment:{appointment.Id}:completed"', source);
+        Assert.Contains("$\"appointment:{appointment.Id}:completed\"", source);
     }
 
     [Fact]
