@@ -82,8 +82,7 @@ public sealed class LiveKitVideoMeetingProvider : IVideoMeetingProvider
             await _rooms.CreateRoom(new CreateRoomRequest
             {
                 Name = roomName,
-                EmptyTimeout = Math.Clamp(_options.EmptyRoomTimeoutSeconds, 60, 3600),
-                MaxParticipants = 2
+                EmptyTimeout = Math.Clamp(_options.EmptyRoomTimeoutSeconds, 60, 3600)
             });
         }
         catch (Exception ex)
