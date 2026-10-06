@@ -2340,25 +2340,6 @@ public static class DatabaseBootstrap
         try
         {
             context.Database.ExecuteSqlRaw(@"
-                INSERT INTO config (nombre_config, valor_config)
-                SELECT new_name, c.valor_config
-                FROM (VALUES
-                    ('VIDEO_DAILY_ENABLED','VIDEO_LIVEKIT_ENABLED'),
-                    ('VIDEO_DAILY_API_KEY','VIDEO_LIVEKIT_API_KEY'),
-                    ('VIDEO_DAILY_DOMAIN','VIDEO_LIVEKIT_URL'),
-                    ('VIDEO_DAILY_ROOM_EXPIRY_MINUTES','VIDEO_LIVEKIT_ROOM_EXPIRY_MINUTES'),
-                    ('VIDEO_DAILY_ROOM_CREATION_LEAD_MINUTES','VIDEO_LIVEKIT_ROOM_CREATION_LEAD_MINUTES')
-                ) AS m(old_name,new_name)
-                JOIN LATERAL (
-                    SELECT valor_config
-                    FROM config
-                    WHERE nombre_config = m.old_name
-                    ORDER BY id
-                    LIMIT 1
-                ) c ON TRUE
-                ON CONFLICT (nombre_config) DO UPDATE
-                    SET valor_config = EXCLUDED.valor_config;
-
                 INSERT INTO config (nombre_config, valor_config) VALUES
                     ('VIDEO_LIVEKIT_ENABLED','0'),
                     ('VIDEO_LIVEKIT_URL',''),
