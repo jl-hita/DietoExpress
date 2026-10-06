@@ -1,61 +1,15 @@
 <main class="video-page">
-  <header class="video-header">
-    <div>
-      <h1>Consulta online</h1>
-      <p>Conexión privada de DietoExpress</p>
-    </div>
-    <button type="button" class="leave-button" (click)="leave()" [disabled]="connecting">Salir</button>
-  </header>
-
-  @if (error) {
-    <section class="state-card error-card">
-      <h2>No se puede iniciar la consulta</h2>
-      <p>{{ error }}</p>
-      <button type="button" (click)="connect()" [disabled]="connecting">Reintentar</button>
-    </section>
-  } @else {
-    @if (quotaWarning) {
-      <section class="quota-warning">
-        <strong>Aviso de consumo</strong>
-        <span>{{ quotaWarning }}</span>
-      </section>
-    }
-
-    @if (callTimeWarning) {
-      <section class="call-time-warning">
-        <strong>Límite de consulta</strong>
-        <span>{{ callTimeWarning }}</span>
-      </section>
-    }
-
-    <section class="room">
-      <div class="remote-stage">
-        <div #remoteContainer class="remote-container"></div>
-        @if (!connected && !loading) {
-          <div class="waiting">Esperando conexión…</div>
-        }
-      </div>
-
-      <aside class="local-stage">
-        <video #localVideo autoplay muted playsinline></video>
-        @if (!cameraEnabled) {
-          <div class="camera-off">Cámara desactivada</div>
-        }
-      </aside>
-    </section>
-
-    <footer class="controls">
-      <button type="button" (click)="toggleMicrophone()" [disabled]="!localAudio">
-        {{ microphoneEnabled ? 'Silenciar micrófono' : 'Activar micrófono' }}
-      </button>
-      <button type="button" (click)="toggleCamera()" [disabled]="!localVideoTrack">
-        {{ cameraEnabled ? 'Apagar cámara' : 'Activar cámara' }}
-      </button>
-      <button type="button" class="leave-button" (click)="leave()">Salir de la consulta</button>
-    </footer>
-
-    @if (loading) {
-      <p class="status">Conectando con la consulta segura…</p>
+  <header class="video-header"><div><h1>Consulta online</h1><p>Conexión privada de DietoExpress</p></div><button type="button" class="leave-button" (click)="leave()" [disabled]="connecting">Salir</button></header>
+  @if (error && connectionState === 'error') { <section class="state-card error-card"><h2>No se puede iniciar o recuperar la consulta</h2><p>{{ error }}</p><button type="button" (click)="retry()" [disabled]="connecting">Reintentar conexión</button></section> }
+  @else {
+    @if (quotaWarning) { <section class="quota-warning"><strong>Aviso de consumo</strong><span>{{ quotaWarning }}</span></section> }
+    @if (callTimeWarning) { <section class="call-time-warning"><strong>Límite de consulta</strong><span>{{ callTimeWarning }}</span></section> }
+    <section class="connection-banner" [class.connected]="connectionState === 'connected'" [class.warning]="connectionState === 'reconnecting' || connectionState === 'disconnected'"><span class="connection-dot"></span><strong>{{ connectionStateLabel }}</strong><span *ngIf="connectionState === 'waiting'">Puedes permanecer en la sala hasta que entre la otra persona.</span><span *ngIf="connectionState === 'connected'">{{ remoteParticipantCount }} participante{{ remoteParticipantCount === 1 ? '' : 's' }} conectado{{ remoteParticipantCount === 1 ? '' : 's' }}.</span><span *ngIf="connectionState === 'reconnecting'">La conexión se está recuperando automáticamente.</span><button *ngIf="connectionState === 'disconnected'" type="button" (click)="retry()" [disabled]="connecting">Reintentar</button></section>
+    @if (connectionState === 'finalized') { <section class="state-card finalized-card"><h2>Consulta finalizada</h2><p>La cita ha quedado cerrada y el acceso a la sala ha sido revocado.</p><button type="button" (click)="leave()">Volver</button></section> }
+    @else {
+      <section class="room"><div class="remote-stage"><div #remoteContainer class="remote-container"></div>@if (connectionState === 'waiting') { <div class="waiting">Esperando al otro participante…</div> }@if (connectionState === 'reconnecting') { <div class="waiting">Recuperando la conexión…</div> }</div><aside class="local-stage"><video #localVideo autoplay muted playsinline></video>@if (!cameraEnabled) { <div class="camera-off">Cámara desactivada</div> }</aside></section>
+      <footer class="controls"><button type="button" (click)="toggleMicrophone()" [disabled]="!localAudio || connectionState === 'reconnecting'">{{ microphoneEnabled ? 'Silenciar micrófono' : 'Activar micrófono' }}</button><button type="button" (click)="toggleCamera()" [disabled]="!localVideoTrack || connectionState === 'reconnecting'">{{ cameraEnabled ? 'Apagar cámara' : 'Activar cámara' }}</button><button *ngIf="canFinalize" type="button" class="finalize-button" (click)="finalize()" [disabled]="finalizing || connectionState === 'connecting'"><mat-icon>check_circle</mat-icon> {{ finalizing ? 'Finalizando…' : 'Finalizar consulta' }}</button><button type="button" class="leave-button" (click)="leave()">Salir</button></footer>
+      @if (loading) { <p class="status">Conectando con la consulta segura…</p> }
     }
   }
 </main>

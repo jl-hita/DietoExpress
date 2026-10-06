@@ -142,18 +142,22 @@ export class PatientPortalService {
     return this.http.post<PatientAppointment>(this.base + '/appointments', { startsAt, durationMinutes, patientNotes, modality });
   }
 
-  getVideoAccess(id: number): Observable<{ provider: string; roomUrl: string; token: string; expiresAt: string; maxCallDurationMinutes?: number; quota?: { warning: boolean; critical: boolean; nutritionistUsedParticipantMinutes: number; nutritionistLimitParticipantMinutes: number; globalUsedParticipantMinutes: number; globalLimitParticipantMinutes: number } }> {
-    return this.http.get<{ provider: string; roomUrl: string; token: string; expiresAt: string; quota?: { warning: boolean; critical: boolean; nutritionistUsedParticipantMinutes: number; nutritionistLimitParticipantMinutes: number; globalUsedParticipantMinutes: number; globalLimitParticipantMinutes: number } }>(this.base + '/appointments/' + id + '/video-access');
+  getVideoAccess(id: number): Observable<any> {
+    return this.http.get<any>(this.base + '/appointments/' + id + '/video-access');
+  }
+
+  recordVideoEvent(id: number, event: 'connected' | 'reconnecting' | 'reconnected' | 'disconnected' | 'failed'): Observable<void> {
+    return this.http.post<void>(this.base + '/appointments/' + id + '/video-event', { event });
+  }
+
+  finishVideoConsultation(id: number): Observable<PatientAppointment> {
+    return this.http.post<PatientAppointment>(this.base + '/appointments/' + id + '/video-finish', {});
   }
 
   openVideoAccess(id: number, onError?: (error: any) => void): void {
-    // El token nunca se coloca en la URL ni se expone en el historial del navegador.
-    // La vista de consulta lo solicita al backend justo antes de conectar a LiveKit.
-    const url = new URL('/video-consultation/' + id, window.location.origin);
-    const popup = window.open(url.toString(), '_blank', 'noopener,noreferrer');
-    if (!popup) {
-      onError?.({ error: { message: 'El navegador ha bloqueado la ventana de la consulta online.' } });
-    }
+    // La consulta se abre dentro de la aplicación para conservar navegación, sesión y estados de conexión.
+    try { window.location.assign(new URL('/video-consultation/' + id, window.location.origin).toString()); }
+    catch (error) { onError?.(error); }
   }
 
   cancelAppointment(id: number): Observable<void> {

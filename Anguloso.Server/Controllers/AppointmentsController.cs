@@ -25,8 +25,9 @@ public class AppointmentsController : ControllerBase
     private readonly IVideoMeetingProvider _videoMeetings;
     private readonly VideoQuotaService _videoQuota;
     private readonly LiveKitVideoOptions _videoOptions;
+    private readonly IAuditLogService _audit;
 
-    public AppointmentsController(angulosodbContext context, EmailServ emailServ, NotificationService notifications, AutomationService automationService, GoogleCalendarService googleCalendar, AppointmentConcurrencyService appointmentConcurrency, IVideoMeetingProvider videoMeetings, VideoQuotaService videoQuota, LiveKitVideoOptions videoOptions)
+    public AppointmentsController(angulosodbContext context, EmailServ emailServ, NotificationService notifications, AutomationService automationService, GoogleCalendarService googleCalendar, AppointmentConcurrencyService appointmentConcurrency, IVideoMeetingProvider videoMeetings, VideoQuotaService videoQuota, LiveKitVideoOptions videoOptions, IAuditLogService audit)
     {
         _context = context;
         _emailServ = emailServ;
@@ -37,6 +38,7 @@ public class AppointmentsController : ControllerBase
         _videoMeetings = videoMeetings;
         _videoQuota = videoQuota;
         _videoOptions = videoOptions;
+        _audit = audit;
     }
 
     [Authorize(Roles = "patient")]
@@ -535,6 +537,8 @@ public class AppointmentsController : ControllerBase
 
         if (requestedStatus == "completed" && previousStatus != "completed")
         {
+            await _audit.LogAccessAsync("APPOINTMENT_COMPLETED", "patient_appointment", appointment.id.ToString(), appointment.client_id,
+                appointment.modality == "online" ? "Consulta online finalizada." : "Cita finalizada.");
             try
             {
                 await _automationService.PublishEventAsync(
@@ -739,12 +743,18 @@ public class AppointmentsController : ControllerBase
             sessionExpiresAt,
             HttpContext.RequestAborted);
 
+        await _audit.LogAccessAsync("VIDEO_ACCESS_GRANTED", "video_consultation", appointment.id.ToString(), appointment.client_id,
+            $"provider={appointment.video_provider};expiresAt={sessionExpiresAt:O}");
+
         return Ok(new
         {
             provider = appointment.video_provider,
             roomUrl = appointment.video_room_url,
             token,
             expiresAt = sessionExpiresAt,
+            videoStartedAt = videoStartedAt.Value,
+            appointmentStatus = appointment.status,
+            canFinalize = isOwner,
             maxCallDurationMinutes = maxCallMinutes,
             quota = new
             {
@@ -758,6 +768,46 @@ public class AppointmentsController : ControllerBase
             }
         });
     }
+
+    [Authorize(Roles = "patient,nutritionist")]
+    [HttpPost("{id:int}/video-event")]
+    public async Task<IActionResult> RecordVideoEvent(int id, [FromBody] VideoConsultationEventRequest request)
+    {
+        var allowed = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["connected"] = "VIDEO_CONNECTED", ["reconnecting"] = "VIDEO_RECONNECTING",
+            ["reconnected"] = "VIDEO_RECONNECTED", ["disconnected"] = "VIDEO_DISCONNECTED",
+            ["failed"] = "VIDEO_CONNECTION_FAILED"
+        };
+        if (request == null || string.IsNullOrWhiteSpace(request.Event) || !allowed.TryGetValue(request.Event.Trim(), out var action))
+            return BadRequest(new { message = "Estado de videollamada no válido." });
+        var appointment = await _context.patient_appointments.AsNoTracking().FirstOrDefaultAsync(x => x.id == id);
+        if (appointment == null) return NotFound();
+        if (appointment.modality != "online" || appointment.status != "confirmed") return Conflict(new { message = "La cita no tiene una consulta online activa." });
+        if (User.IsInRole("patient"))
+        {
+            var clientId = GetPatientClientId();
+            if (clientId == null || clientId.Value != appointment.client_id) return NotFound();
+        }
+        else
+        {
+            var userId = AuthHelpers.GetUserId(User); var tenantId = AuthHelpers.GetTenantId(User);
+            if (userId == null || tenantId == null || tenantId.Value != appointment.tenant_id || userId.Value != appointment.nutritionist_id) return Forbid();
+        }
+        await _audit.LogAccessAsync(action, "video_consultation", appointment.id.ToString(), appointment.client_id,
+            $"state={request.Event.Trim().ToLowerInvariant()}");
+        return NoContent();
+    }
+
+    [Authorize(Roles = "nutritionist")]
+    [HttpPost("{id:int}/video-finish")]
+    public async Task<ActionResult<AppointmentDto>> FinishVideoConsultation(int id)
+    {
+        // Reutilizamos la misma máquina de estados, automatizaciones, notificaciones y revocación de sala.
+        return await UpdateStatus(id, new UpdateAppointmentStatusRequestDto { Status = "completed" });
+    }
+
+    public sealed class VideoConsultationEventRequest { public string? Event { get; set; } }
 
     private bool ValidateAvailabilityRequest(SaveAvailabilityRequestDto request, out TimeOnly start, out TimeOnly end, out string message)
     {
