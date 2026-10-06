@@ -6,6 +6,7 @@ public class AppointmentSlotDto
     public DateTime EndsAt { get; set; }
     public int NutritionistId { get; set; }
     public string? NutritionistName { get; set; }
+    public bool OnlineConsultationsAvailable { get; set; }
     public string Modality { get; set; } = "in_person";
     public string? VideoProvider { get; set; }
     public string? VideoRoomUrl { get; set; }
