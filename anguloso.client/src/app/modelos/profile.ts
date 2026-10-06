@@ -24,6 +24,7 @@ export interface UpdateProfile {
   directoryEnabled?: boolean;
   onlineConsultations?: boolean;
   directoryCity?: string;
+  directoryProvince?: string;
   directoryBio?: string;
   directorySpecialties?: string;
 }
