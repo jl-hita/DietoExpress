@@ -63,6 +63,7 @@ public partial class users
     public bool? directory_enabled { get; set; }
     public bool? online_consultations { get; set; }
     public string directory_city { get; set; }
+    public string directory_province { get; set; }
     public string directory_bio { get; set; }
     public string directory_specialties { get; set; }
     public string directory_slug { get; set; }
