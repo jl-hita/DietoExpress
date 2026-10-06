@@ -798,3 +798,76 @@ internal static class AdminConfigMetadata
         "ADDRESS_FALLBACK_PROVIDER" => "Proveedor alternativo que se utilizará si el proveedor principal falla o alcanza su umbral. Ejemplo: «LocationIQ».",
         "ADDRESS_WARNING_THRESHOLD" => "Porcentaje de uso a partir del cual DietoExpress debe advertir de que se aproxima al límite del proveedor. Ejemplo: «80» para avisar al alcanzar el 80 %.",
         "ADDRESS_FAILOVER_THRESHOLD" => "Porcentaje de uso a partir del cual DietoExpress debe activar el proveedor alternativo. Ejemplo: «95» para cambiar de proveedor al alcanzar el 95 %.",
+        "ADDRESS_GEOAPIFY_DAILY_LIMIT" => "Número máximo de consultas diarias que DietoExpress debe considerar disponibles para Geoapify. Ejemplo: «3000», según el límite real de tu cuenta.",
+        "ADDRESS_LOCATIONIQ_DAILY_LIMIT" => "Número máximo de consultas diarias que DietoExpress debe considerar disponibles para LocationIQ. Ejemplo: «5000», según el límite real de tu cuenta.",
+        _ => "Configuración técnica cuyo significado concreto depende de la función que la utilice. Si no sabes qué valor necesita, no introduzcas uno al azar; primero debe documentarse su propósito."
+    };
+}
+
+public class UpdateConfigRequest
+{
+    public string? Valor { get; set; }
+}
+
+public class AdminUsersPageDto
+{
+    public List<AdminUserDto> Items { get; set; } = new();
+    public int TotalCount { get; set; }
+    public int Page { get; set; }
+    public int PageSize { get; set; }
+}
+
+public class AdminUserDto
+{
+    public int Id { get; set; }
+    public string Username { get; set; } = string.Empty;
+    public string? FullName { get; set; }
+    public string? Email { get; set; }
+    public bool EmailConfirmed { get; set; }
+    public string? Role { get; set; }
+    public string? ClinicName { get; set; }
+    public DateTime? CreatedAt { get; set; }
+    public DateTime? LastLogin { get; set; }
+    public string SubscriptionPlan { get; set; } = "free";
+    public string SubscriptionStatus { get; set; } = "active";
+    public DateTime? LicenseExpiresAt { get; set; }
+    public int MaxClientsAllowed { get; set; } = 10;
+    public int ClientCount { get; set; }
+    public DateTime? ArchivedAt { get; set; }
+}
+
+public class DeactivateUserRequest
+{
+    public List<ClientReassignment> Assignments { get; set; } = new();
+}
+
+public class UpdateLicenseRequest
+{
+    public string SubscriptionPlan { get; set; } = "free";
+    public string SubscriptionStatus { get; set; } = "active";
+    public DateTime? LicenseExpiresAt { get; set; }
+    public int? MaxClientsAllowed { get; set; }
+}
+
+public class ResetPasswordAdminRequest
+{
+    public string NewPassword { get; set; } = string.Empty;
+}
+
+public class CreateAdminAccountRequest
+{
+    public string AccountType { get; set; } = "nutritionist";
+    public string Username { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+    public string? ClinicName { get; set; }
+    public string? LegalName { get; set; }
+    public string? CifNif { get; set; }
+    public string? ClinicAddress { get; set; }
+    public string? ClinicPhone { get; set; }
+    public string SubscriptionPlan { get; set; } = "free";
+    public string SubscriptionStatus { get; set; } = "active";
+    public DateTime? LicenseExpiresAt { get; set; }
+    public int? MaxClientsAllowed { get; set; }
+}
