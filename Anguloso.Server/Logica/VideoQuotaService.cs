@@ -57,7 +57,7 @@ public sealed class VideoQuotaService
         // Serializamos las reservas por nutricionista para que dos pestañas no puedan
         // superar simultáneamente la cuota antes de que PostgreSQL confirme ambas.
         await _context.Database.ExecuteSqlRawAsync(
-            "SELECT pg_advisory_xact_lock(917234, {0});",
+            "SELECT pg_advisory_xact_lock(917234, 0); SELECT pg_advisory_xact_lock(917234, {0});",
             new object[] { nutritionistId });
 
         var existingReservation = await _context.Database
@@ -109,6 +109,10 @@ public sealed class VideoQuotaService
                 ? $"Cuota de videollamadas agotada para nutricionista {nutritionistId}"
                 : "Cuota global de videollamadas agotada";
 
+            await transaction.RollbackAsync(cancellationToken);
+
+            // La alerta se registra después del rollback para que no quede anulada por la
+            // misma transacción que rechaza la reserva.
             await ApplicationAlertService.RecordAsync(
                 _context,
                 "error",
@@ -116,8 +120,6 @@ public sealed class VideoQuotaService
                 title,
                 $"Se ha bloqueado una nueva consulta online porque {scope} superaría la cuota mensual configurada.",
                 logger: _logger);
-
-            await transaction.RollbackAsync(cancellationToken);
 
             return BuildResult(
                 false,
