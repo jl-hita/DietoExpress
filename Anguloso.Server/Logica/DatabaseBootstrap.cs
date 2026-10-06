@@ -1879,6 +1879,22 @@ public static class DatabaseBootstrap
         logger.LogInformation("Migración de automatizaciones automation-v10-guided-consultations aplicada correctamente.");
     }
 
+    /// <summary>Amplía la consulta guiada con decisiones, acciones y contexto clínico estructurado.</summary>
+    public static void UpgradeAutomationSchemaV11(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            ALTER TABLE professional_consultations
+                ADD COLUMN IF NOT EXISTS decision_summary TEXT,
+                ADD COLUMN IF NOT EXISTS actions_summary TEXT,
+                ADD COLUMN IF NOT EXISTS next_consultation_plan TEXT;
+
+            CREATE INDEX IF NOT EXISTS idx_professional_consultations_client_completed
+                ON professional_consultations(tenant_id, client_id, status, completed_at DESC);
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('automation-v11-consultation-clinical-summary') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración de consulta guiada automation-v11-consultation-clinical-summary aplicada correctamente.");
+    }
+
     /// <summary>Integración OAuth y sincronización bidireccional con Google Calendar.</summary>
     public static void UpgradeGoogleCalendarSchemaV1(angulosodbContext context, ILogger logger)
     {
