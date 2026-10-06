@@ -87,7 +87,10 @@ export class AddressAutocompleteComponent implements OnInit, OnDestroy, OnChange
     this.suggestionSelected.emit(suggestion);
   }
 
-  displaySuggestion(suggestion: AddressSuggestion): string {
+  displaySuggestion(suggestion: AddressSuggestion | string | null): string {
+    if (typeof suggestion === 'string') {
+      return suggestion;
+    }
     return suggestion?.displayName ?? '';
   }
 
