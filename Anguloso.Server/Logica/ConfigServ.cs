@@ -8,6 +8,45 @@ namespace Anguloso.Server.Logica;
 // La configuración se centraliza aquí para evitar que cada consumidor interprete de forma distinta valores opcionales o ausentes.
 public class ConfigServ
 {
+    private static readonly IReadOnlyDictionary<string, string> LegacyAliases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["platformLegalName"] = "PLATFORM_LEGAL_NAME",
+        ["platformLegalForm"] = "PLATFORM_LEGAL_FORM",
+        ["platformTaxId"] = "PLATFORM_TAX_ID",
+        ["platformAddress"] = "PLATFORM_ADDRESS",
+        ["platformPostalCode"] = "PLATFORM_POSTAL_CODE",
+        ["platformCity"] = "PLATFORM_CITY",
+        ["platformProvince"] = "PLATFORM_PROVINCE",
+        ["platformCountry"] = "PLATFORM_COUNTRY",
+        ["platformContactEmail"] = "PLATFORM_CONTACT_EMAIL",
+        ["platformContactPhone"] = "PLATFORM_CONTACT_PHONE",
+        ["platformDpoEmail"] = "PLATFORM_DPO_EMAIL",
+        ["platformRegistryData"] = "PLATFORM_REGISTRY_DATA",
+        ["googleClientId"] = "GOOGLE_CLIENT_ID",
+        ["dominio"] = "PLATFORM_DOMAIN",
+        ["frontendUrl"] = "PLATFORM_FRONTEND_URL",
+        ["smtpServer"] = "EMAIL_SMTP_SERVER",
+        ["smtpPort"] = "EMAIL_SMTP_PORT",
+        ["smtpEnableSsl"] = "EMAIL_SMTP_ENABLE_SSL",
+        ["smtpFromEmail"] = "EMAIL_SMTP_FROM_EMAIL",
+        ["smtpFromName"] = "EMAIL_SMTP_FROM_NAME",
+        ["smtpUser"] = "EMAIL_SMTP_USERNAME",
+        ["smtpPwd"] = "EMAIL_SMTP_PASSWORD",
+        ["usdaApiKey"] = "FOOD_USDA_API_KEY",
+        ["webPushSubject"] = "NOTIFICATIONS_WEBPUSH_SUBJECT",
+        ["webPushPublicKey"] = "NOTIFICATIONS_WEBPUSH_PUBLIC_KEY",
+        ["webPushPrivateKey"] = "NOTIFICATIONS_WEBPUSH_PRIVATE_KEY",
+        ["geoapifyApiKey"] = "ADDRESS_GEOAPIFY_API_KEY",
+        ["locationIqApiKey"] = "ADDRESS_LOCATIONIQ_API_KEY",
+        ["addressPrimaryProvider"] = "ADDRESS_PRIMARY_PROVIDER",
+        ["addressFallbackProvider"] = "ADDRESS_FALLBACK_PROVIDER",
+        ["addressWarningThreshold"] = "ADDRESS_WARNING_THRESHOLD",
+        ["addressFailoverThreshold"] = "ADDRESS_FAILOVER_THRESHOLD",
+        ["addressGeoapifyDailyLimit"] = "ADDRESS_GEOAPIFY_DAILY_LIMIT",
+        ["addressLocationIqDailyLimit"] = "ADDRESS_LOCATIONIQ_DAILY_LIMIT",
+    };
+
+    private static string NormalizeName(string nombre) => LegacyAliases.TryGetValue(nombre, out var normalized) ? normalized : nombre;
     private string _connectionString;
     private LogServ _logServ;
 
@@ -31,7 +70,8 @@ public class ConfigServ
         {
             using var dbContext = CrearDbContext();
 
-            config? configuracion = dbContext.config.AsNoTracking().Where(c => c.nombre_config == nombre).FirstOrDefault();
+            var normalizedName = NormalizeName(nombre);
+            config? configuracion = dbContext.config.AsNoTracking().Where(c => c.nombre_config == normalizedName).FirstOrDefault();
 
             //Si no se encuentra se devuelve defecto
             if (configuracion == null)
@@ -41,7 +81,7 @@ public class ConfigServ
                 {
                     config nuevaConfig = new config
                     {
-                        nombre_config = nombre,
+                        nombre_config = normalizedName,
                         valor_config = defecto.ToString()
                     };
 
@@ -73,7 +113,8 @@ public class ConfigServ
         {
             using var dbContext = CrearDbContext();
 
-            config? configuracion = dbContext.config.AsNoTracking().Where(c => c.nombre_config == nombre).FirstOrDefault();
+            var normalizedName = NormalizeName(nombre);
+            config? configuracion = dbContext.config.AsNoTracking().Where(c => c.nombre_config == normalizedName).FirstOrDefault();
 
             //Si no se encuentra se devuelve defecto
             if (configuracion == null)
@@ -83,7 +124,7 @@ public class ConfigServ
                 {
                     config nuevaConfig = new config
                     {
-                        nombre_config = nombre,
+                        nombre_config = normalizedName,
                         valor_config = defecto
                     };
 
@@ -111,7 +152,8 @@ public class ConfigServ
         {
             using var dbContext = CrearDbContext();
 
-            config? configuracion = dbContext.config.AsNoTracking().Where(c => c.nombre_config == nombre).FirstOrDefault();
+            var normalizedName = NormalizeName(nombre);
+            config? configuracion = dbContext.config.AsNoTracking().Where(c => c.nombre_config == normalizedName).FirstOrDefault();
 
             //Si no se encuentra se devuelve defecto
             if (configuracion == null)
@@ -121,7 +163,7 @@ public class ConfigServ
                 {
                     config nuevaConfig = new config
                     {
-                        nombre_config = nombre,
+                        nombre_config = normalizedName,
                         valor_config = (bool)defecto ? "1" : "0"
                     };
 

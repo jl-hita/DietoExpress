@@ -70,6 +70,8 @@ export interface AdminConfig {
   valor: string;
   esSecreta: boolean;
   tieneValor: boolean;
+  categoria: string;
+  descripcion: string;
 }
 
 export interface AdminLog {

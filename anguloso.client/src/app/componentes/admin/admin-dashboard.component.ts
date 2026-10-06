@@ -14,6 +14,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTabsModule } from '@angular/material/tabs';
 import { AdminService, AdminAlert, AdminConfig, AdminStats, AdminUser, AdminPlan, CreateAdminAccountDto } from '../../servicios/admin.service';
 import { EditLicenseDialogComponent } from './edit-license-dialog.component';
 import { ResetPasswordDialogComponent } from './reset-password-dialog.component';
@@ -39,6 +40,7 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
     MatPaginatorModule,
     MatDialogModule,
     MatSnackBarModule,
+    MatTabsModule,
     RouterLink
   ],
   template: `
@@ -267,38 +269,23 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
           </div>
         </div>
 
-        <div class="table-container config-table-container">
-          <table mat-table [dataSource]="configs" class="config-table">
-            <ng-container matColumnDef="id">
-              <th mat-header-cell *matHeaderCellDef>ID</th>
-              <td mat-cell *matCellDef="let config">{{ config.id }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="nombre">
-              <th mat-header-cell *matHeaderCellDef>Nombre</th>
-              <td mat-cell *matCellDef="let config"><strong>{{ config.nombre }}</strong></td>
-            </ng-container>
-
-            <ng-container matColumnDef="valor">
-              <th mat-header-cell *matHeaderCellDef>Valor</th>
-              <td mat-cell *matCellDef="let config" class="config-value">
-                <mat-form-field appearance="outline" class="config-value-field">
-                  <input matInput [type]="config.esSecreta ? 'password' : 'text'" [(ngModel)]="config.valor" (ngModelChange)="onConfigValueChange(config)" [placeholder]="config.esSecreta && config.tieneValor ? '•••••••• (configurado)' : ''" autocomplete="new-password" />
-                  <mat-hint *ngIf="config.saveState === 'pending' || config.saveState === 'saving'">Guardando...</mat-hint>
-                  <mat-hint *ngIf="config.saveState === 'saved'">✓ Guardado</mat-hint>
-                  <mat-hint *ngIf="config.saveState === 'error'" class="config-error">⚠ No se ha podido guardar. Revisa el valor.</mat-hint>
-                </mat-form-field>
-              </td>
-            </ng-container>
-
-            <tr mat-header-row *matHeaderRowDef="configDisplayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: configDisplayedColumns;"></tr>
-          </table>
-
-          <div *ngIf="configs.length === 0" class="empty-state">
-            <mat-icon>settings_off</mat-icon>
-            <p>No hay líneas en la tabla de configuración.</p>
-          </div>
+        <mat-tab-group animationDuration="0ms" class="config-tabs">
+          <mat-tab *ngFor="let tab of configTabs" [label]="tab.label">
+            <div class="config-tab-content">
+              <div class="config-grid" *ngIf="configsFor(tab.key).length; else emptyConfig">
+                <mat-card class="config-item" *ngFor="let config of configsFor(tab.key)">
+                  <div class="config-item-header"><div><strong>{{ config.nombre }}</strong><span class="config-description">{{ config.descripcion }}</span></div><span class="secret-badge" *ngIf="config.esSecreta">Secreto</span></div>
+                  <mat-form-field appearance="outline" class="config-value-field">
+                    <mat-label>Valor</mat-label>
+                    <input matInput [type]="config.esSecreta ? 'password' : 'text'" [(ngModel)]="config.valor" (ngModelChange)="onConfigValueChange(config)" [placeholder]="config.esSecreta && config.tieneValor ? '•••••••• (configurado)' : ''" autocomplete="new-password" />
+                    <mat-hint *ngIf="config.saveState === 'pending' || config.saveState === 'saving'">Guardando...</mat-hint><mat-hint *ngIf="config.saveState === 'saved'">✓ Guardado</mat-hint><mat-hint *ngIf="config.saveState === 'error'" class="config-error">⚠ No se ha podido guardar.</mat-hint>
+                  </mat-form-field>
+                </mat-card>
+              </div>
+              <ng-template #emptyConfig><div class="empty-state"><mat-icon>settings_off</mat-icon><p>No hay configuración en esta categoría.</p></div></ng-template>
+            </div>
+          </mat-tab>
+        </mat-tab-group>
         </div>
       </mat-card>
     </div>
@@ -427,6 +414,15 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
       color: #64748b;
       font-size: 13px;
     }
+    .config-tabs { margin-top: 8px; }
+    .config-tab-content { padding: 20px 4px 4px; }
+    .config-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; }
+    .config-item { padding:16px; border-radius:10px; }
+    .config-item-header { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:8px; }
+    .config-item-header > div { display:grid; gap:4px; min-width:0; }
+    .config-description { color:#64748b; font-size:12px; line-height:1.4; }
+    .secret-badge { color:#7c3aed; background:#f5f3ff; border-radius:999px; padding:4px 8px; font-size:11px; white-space:nowrap; }
+    @media (max-width:700px) { .config-grid { grid-template-columns:1fr; } }
     .config-table {
       width: 100%;
     }
@@ -521,6 +517,8 @@ export class AdminDashboardComponent implements OnInit {
   configs: AdminConfig[] = [];
   displayedColumns = ['user', 'plan', 'status', 'expires', 'usage', 'lastLogin', 'actions'];
   configDisplayedColumns = ['id', 'nombre', 'valor'];
+  configTabs = [{key:'PLATFORM',label:'Plataforma'},{key:'EMAIL',label:'Email'},{key:'GOOGLE',label:'Google / Calendario'},{key:'VIDEO',label:'Videollamadas'},{key:'FOOD',label:'Alimentos'},{key:'NOTIFICATIONS',label:'Notificaciones'},{key:'ADDRESS',label:'Direcciones'},{key:'OTHER',label:'Otros'}];
+  configsFor(category: string): AdminConfig[] { return this.configs.filter(c => c.categoria === category); }
   private configTimers = new Map<number, ReturnType<typeof setTimeout>>();
   private searchTimer?: ReturnType<typeof setTimeout>;
 

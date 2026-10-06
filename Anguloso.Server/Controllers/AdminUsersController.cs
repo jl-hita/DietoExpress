@@ -67,7 +67,9 @@ public class AdminUsersController : ControllerBase
             Nombre = c.nombre_config,
             Valor = AdminConfigSecurity.IsSecretConfig(c.nombre_config) ? string.Empty : c.valor_config,
             EsSecreta = AdminConfigSecurity.IsSecretConfig(c.nombre_config),
-            TieneValor = !string.IsNullOrWhiteSpace(c.valor_config)
+            TieneValor = !string.IsNullOrWhiteSpace(c.valor_config),
+            Categoria = AdminConfigMetadata.GetCategory(c.nombre_config),
+            Descripcion = AdminConfigMetadata.GetDescription(c.nombre_config)
         }).ToList();
 
         return Ok(config);
@@ -114,7 +116,9 @@ public class AdminUsersController : ControllerBase
             Nombre = config.nombre_config,
             Valor = AdminConfigSecurity.IsSecretConfig(config.nombre_config) ? string.Empty : config.valor_config,
             EsSecreta = AdminConfigSecurity.IsSecretConfig(config.nombre_config),
-            TieneValor = !string.IsNullOrWhiteSpace(config.valor_config)
+            TieneValor = !string.IsNullOrWhiteSpace(config.valor_config),
+            Categoria = AdminConfigMetadata.GetCategory(config.nombre_config),
+            Descripcion = AdminConfigMetadata.GetDescription(config.nombre_config)
         });
     }
 
@@ -706,6 +710,43 @@ public class AdminConfigDto
     public string Valor { get; set; } = string.Empty;
     public bool EsSecreta { get; set; }
     public bool TieneValor { get; set; }
+    public string Categoria { get; set; } = "OTHER";
+    public string Descripcion { get; set; } = "Configuración pendiente de documentar.";
+}
+
+internal static class AdminConfigMetadata
+{
+    public static string GetCategory(string name) => name.Split('_')[0] switch
+    {
+        "PLATFORM" => "PLATFORM", "EMAIL" => "EMAIL", "GOOGLE" => "GOOGLE", "VIDEO" => "VIDEO",
+        "FOOD" => "FOOD", "NOTIFICATIONS" => "NOTIFICATIONS", "ADDRESS" => "ADDRESS", _ => "OTHER"
+    };
+
+    public static string GetDescription(string name) => name switch
+    {
+        "VIDEO_DAILY_ENABLED" => "Activa las consultas online mediante Daily.",
+        "VIDEO_DAILY_API_KEY" => "Clave privada de servidor para la API de Daily.",
+        "VIDEO_DAILY_DOMAIN" => "Dominio de la sala Daily de DietoExpress.",
+        "VIDEO_DAILY_ROOM_EXPIRY_MINUTES" => "Minutos que permanece disponible la sala después de finalizar la cita.",
+        "VIDEO_DAILY_ROOM_CREATION_LEAD_MINUTES" => "Antelación mínima prevista para crear salas de consulta.",
+        "EMAIL_SMTP_SERVER" => "Servidor SMTP utilizado para el envío de correo.",
+        "EMAIL_SMTP_PORT" => "Puerto del servidor SMTP.",
+        "EMAIL_SMTP_ENABLE_SSL" => "Indica si la conexión SMTP utiliza TLS/SSL.",
+        "EMAIL_SMTP_FROM_EMAIL" => "Dirección remitente de los correos de la plataforma.",
+        "EMAIL_SMTP_FROM_NAME" => "Nombre mostrado como remitente.",
+        "EMAIL_SMTP_USERNAME" => "Usuario de autenticación SMTP.",
+        "EMAIL_SMTP_PASSWORD" => "Contraseña de autenticación SMTP.",
+        "FOOD_USDA_API_KEY" => "Clave privada para consultar USDA.",
+        "ADDRESS_GEOAPIFY_API_KEY" => "Clave privada del proveedor Geoapify.",
+        "ADDRESS_LOCATIONIQ_API_KEY" => "Clave privada del proveedor LocationIQ.",
+        "ADDRESS_PRIMARY_PROVIDER" => "Proveedor principal de geocodificación de direcciones.",
+        "ADDRESS_FALLBACK_PROVIDER" => "Proveedor alternativo cuando falla el principal.",
+        "ADDRESS_WARNING_THRESHOLD" => "Umbral de uso a partir del cual se genera advertencia.",
+        "ADDRESS_FAILOVER_THRESHOLD" => "Umbral de uso a partir del cual se activa el cambio de proveedor.",
+        "ADDRESS_GEOAPIFY_DAILY_LIMIT" => "Límite diario configurado para Geoapify.",
+        "ADDRESS_LOCATIONIQ_DAILY_LIMIT" => "Límite diario configurado para LocationIQ.",
+        _ => "Configuración de " + name.Replace('_', ' ').ToLowerInvariant() + "."
+    };
 }
 
 public class UpdateConfigRequest

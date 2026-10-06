@@ -511,140 +511,140 @@ public static class DatabaseBootstrap
             // Configuración inicial idempotente. No se sobrescriben valores existentes.
             context.Database.ExecuteSqlRaw(@"
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'platformLegalName', '__CONFIGURE_PLATFORM_LEGAL_NAME__'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'platformLegalName');
+                SELECT 'PLATFORM_LEGAL_NAME', '__CONFIGURE_PLATFORM_LEGAL_NAME__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'PLATFORM_LEGAL_NAME');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'platformLegalForm', '__CONFIGURE_PLATFORM_LEGAL_FORM__'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'platformLegalForm');
+                SELECT 'PLATFORM_LEGAL_FORM', '__CONFIGURE_PLATFORM_LEGAL_FORM__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'PLATFORM_LEGAL_FORM');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'platformTaxId', '__CONFIGURE_PLATFORM_NIF_DNI__'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'platformTaxId');
+                SELECT 'PLATFORM_TAX_ID', '__CONFIGURE_PLATFORM_NIF_DNI__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'PLATFORM_TAX_ID');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'platformAddress', '__CONFIGURE_PLATFORM_ADDRESS__'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'platformAddress');
+                SELECT 'PLATFORM_ADDRESS', '__CONFIGURE_PLATFORM_ADDRESS__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'PLATFORM_ADDRESS');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'platformPostalCode', '__CONFIGURE_PLATFORM_POSTAL_CODE__'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'platformPostalCode');
+                SELECT 'PLATFORM_POSTAL_CODE', '__CONFIGURE_PLATFORM_POSTAL_CODE__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'PLATFORM_POSTAL_CODE');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'platformCity', '__CONFIGURE_PLATFORM_CITY__'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'platformCity');
+                SELECT 'PLATFORM_CITY', '__CONFIGURE_PLATFORM_CITY__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'PLATFORM_CITY');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'platformProvince', '__CONFIGURE_PLATFORM_PROVINCE__'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'platformProvince');
+                SELECT 'PLATFORM_PROVINCE', '__CONFIGURE_PLATFORM_PROVINCE__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'PLATFORM_PROVINCE');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'platformCountry', '__CONFIGURE_PLATFORM_COUNTRY__'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'platformCountry');
+                SELECT 'PLATFORM_COUNTRY', '__CONFIGURE_PLATFORM_COUNTRY__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'PLATFORM_COUNTRY');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'platformContactEmail', '__CONFIGURE_PLATFORM_CONTACT_EMAIL__'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'platformContactEmail');
+                SELECT 'PLATFORM_CONTACT_EMAIL', '__CONFIGURE_PLATFORM_CONTACT_EMAIL__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'PLATFORM_CONTACT_EMAIL');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'platformContactPhone', '__CONFIGURE_PLATFORM_CONTACT_PHONE__'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'platformContactPhone');
+                SELECT 'PLATFORM_CONTACT_PHONE', '__CONFIGURE_PLATFORM_CONTACT_PHONE__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'PLATFORM_CONTACT_PHONE');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'platformDpoEmail', '__CONFIGURE_PLATFORM_DPO_EMAIL__'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'platformDpoEmail');
+                SELECT 'PLATFORM_DPO_EMAIL', '__CONFIGURE_PLATFORM_DPO_EMAIL__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'PLATFORM_DPO_EMAIL');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'platformRegistryData', '__CONFIGURE_PLATFORM_REGISTRY_DATA__'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'platformRegistryData');
+                SELECT 'PLATFORM_REGISTRY_DATA', '__CONFIGURE_PLATFORM_REGISTRY_DATA__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'PLATFORM_REGISTRY_DATA');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'googleClientId', '__CONFIGURE_GOOGLE_CLIENT_ID__'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'googleClientId');
+                SELECT 'GOOGLE_CLIENT_ID', '__CONFIGURE_GOOGLE_CLIENT_ID__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'GOOGLE_CLIENT_ID');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'dominio', '__CONFIGURE_DOMAIN__'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'dominio');
+                SELECT 'PLATFORM_DOMAIN', '__CONFIGURE_DOMAIN__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'PLATFORM_DOMAIN');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'frontendUrl', '__CONFIGURE_FRONTEND_URL__'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'frontendUrl');
+                SELECT 'PLATFORM_FRONTEND_URL', '__CONFIGURE_FRONTEND_URL__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'PLATFORM_FRONTEND_URL');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'smtpServer', '__CONFIGURE_SMTP_SERVER__'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'smtpServer');
+                SELECT 'EMAIL_SMTP_SERVER', '__CONFIGURE_SMTP_SERVER__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'EMAIL_SMTP_SERVER');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'smtpPort', '__CONFIGURE_SMTP_PORT__'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'smtpPort');
+                SELECT 'EMAIL_SMTP_PORT', '__CONFIGURE_SMTP_PORT__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'EMAIL_SMTP_PORT');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'smtpEnableSsl', '__CONFIGURE_SMTP_ENABLE_SSL__'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'smtpEnableSsl');
+                SELECT 'EMAIL_SMTP_ENABLE_SSL', '__CONFIGURE_SMTP_ENABLE_SSL__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'EMAIL_SMTP_ENABLE_SSL');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'smtpFromEmail', '__CONFIGURE_SMTP_FROM_EMAIL__'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'smtpFromEmail');
+                SELECT 'EMAIL_SMTP_FROM_EMAIL', '__CONFIGURE_SMTP_FROM_EMAIL__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'EMAIL_SMTP_FROM_EMAIL');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'smtpFromName', '__CONFIGURE_SMTP_FROM_NAME__'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'smtpFromName');
+                SELECT 'EMAIL_SMTP_FROM_NAME', '__CONFIGURE_SMTP_FROM_NAME__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'EMAIL_SMTP_FROM_NAME');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'smtpUser', '__CONFIGURE_SMTP_USER__'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'smtpUser');
+                SELECT 'EMAIL_SMTP_USERNAME', '__CONFIGURE_SMTP_USER__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'EMAIL_SMTP_USERNAME');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'smtpPwd', '__CONFIGURE_SMTP_PASSWORD__'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'smtpPwd');
+                SELECT 'EMAIL_SMTP_PASSWORD', '__CONFIGURE_SMTP_PASSWORD__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'EMAIL_SMTP_PASSWORD');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'usdaApiKey', '__CONFIGURE_USDA_API_KEY__'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'usdaApiKey');
+                SELECT 'FOOD_USDA_API_KEY', '__CONFIGURE_USDA_API_KEY__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'FOOD_USDA_API_KEY');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'webPushSubject', '__CONFIGURE_WEBPUSH_SUBJECT__'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'webPushSubject');
+                SELECT 'NOTIFICATIONS_WEBPUSH_SUBJECT', '__CONFIGURE_WEBPUSH_SUBJECT__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'NOTIFICATIONS_WEBPUSH_SUBJECT');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'webPushPublicKey', '__CONFIGURE_WEBPUSH_PUBLIC_KEY__'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'webPushPublicKey');
+                SELECT 'NOTIFICATIONS_WEBPUSH_PUBLIC_KEY', '__CONFIGURE_WEBPUSH_PUBLIC_KEY__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'NOTIFICATIONS_WEBPUSH_PUBLIC_KEY');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'webPushPrivateKey', '__CONFIGURE_WEBPUSH_PRIVATE_KEY__'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'webPushPrivateKey');
+                SELECT 'NOTIFICATIONS_WEBPUSH_PRIVATE_KEY', '__CONFIGURE_WEBPUSH_PRIVATE_KEY__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'NOTIFICATIONS_WEBPUSH_PRIVATE_KEY');
                 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'geoapifyApiKey', '__CONFIGURE_GEOAPIFY_API_KEY__'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'geoapifyApiKey');
+                SELECT 'ADDRESS_GEOAPIFY_API_KEY', '__CONFIGURE_GEOAPIFY_API_KEY__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'ADDRESS_GEOAPIFY_API_KEY');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'locationIqApiKey', '__CONFIGURE_LOCATIONIQ_API_KEY__'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'locationIqApiKey');
+                SELECT 'ADDRESS_LOCATIONIQ_API_KEY', '__CONFIGURE_LOCATIONIQ_API_KEY__'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'ADDRESS_LOCATIONIQ_API_KEY');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'addressPrimaryProvider', 'Geoapify'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'addressPrimaryProvider');
+                SELECT 'ADDRESS_PRIMARY_PROVIDER', 'Geoapify'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'ADDRESS_PRIMARY_PROVIDER');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'addressFallbackProvider', 'LocationIQ'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'addressFallbackProvider');
+                SELECT 'ADDRESS_FALLBACK_PROVIDER', 'LocationIQ'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'ADDRESS_FALLBACK_PROVIDER');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'addressWarningThreshold', '0.80'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'addressWarningThreshold');
+                SELECT 'ADDRESS_WARNING_THRESHOLD', '0.80'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'ADDRESS_WARNING_THRESHOLD');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'addressFailoverThreshold', '0.90'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'addressFailoverThreshold');
+                SELECT 'ADDRESS_FAILOVER_THRESHOLD', '0.90'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'ADDRESS_FAILOVER_THRESHOLD');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'addressGeoapifyDailyLimit', '3000'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'addressGeoapifyDailyLimit');
+                SELECT 'ADDRESS_GEOAPIFY_DAILY_LIMIT', '3000'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'ADDRESS_GEOAPIFY_DAILY_LIMIT');
 
                 INSERT INTO config (nombre_config, valor_config)
-                SELECT 'addressLocationIqDailyLimit', '5000'
-                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'addressLocationIqDailyLimit');
+                SELECT 'ADDRESS_LOCATIONIQ_DAILY_LIMIT', '5000'
+                WHERE NOT EXISTS (SELECT 1 FROM config WHERE nombre_config = 'ADDRESS_LOCATIONIQ_DAILY_LIMIT');
             ");
 
             logger.LogInformation("Estructura de tablas y configuración inicial verificadas y listas en PostgreSQL.");
@@ -2273,6 +2273,56 @@ public static class DatabaseBootstrap
         ");
         context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('online-consultation-v1') ON CONFLICT (id) DO NOTHING;");
         logger.LogInformation("Migración de consulta online online-consultation-v1 aplicada correctamente.");
+    }
+
+
+    public static void UpgradeConfigurationNamingV1(angulosodbContext context, ILogger logger)
+    {
+        try
+        {
+            context.Database.ExecuteSqlRaw(@"
+                CREATE TABLE IF NOT EXISTS schema_migrations (
+                    migration_name VARCHAR(200) PRIMARY KEY,
+                    applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                );
+                INSERT INTO config (nombre_config, valor_config)
+                SELECT m.new_name, c.valor_config
+                FROM (VALUES
+                    ('platformLegalName','PLATFORM_LEGAL_NAME'),('platformLegalForm','PLATFORM_LEGAL_FORM'),('platformTaxId','PLATFORM_TAX_ID'),
+                    ('platformAddress','PLATFORM_ADDRESS'),('platformPostalCode','PLATFORM_POSTAL_CODE'),('platformCity','PLATFORM_CITY'),
+                    ('platformProvince','PLATFORM_PROVINCE'),('platformCountry','PLATFORM_COUNTRY'),('platformContactEmail','PLATFORM_CONTACT_EMAIL'),
+                    ('platformContactPhone','PLATFORM_CONTACT_PHONE'),('platformDpoEmail','PLATFORM_DPO_EMAIL'),('platformRegistryData','PLATFORM_REGISTRY_DATA'),
+                    ('googleClientId','GOOGLE_CLIENT_ID'),('dominio','PLATFORM_DOMAIN'),('frontendUrl','PLATFORM_FRONTEND_URL'),
+                    ('smtpServer','EMAIL_SMTP_SERVER'),('smtpPort','EMAIL_SMTP_PORT'),('smtpEnableSsl','EMAIL_SMTP_ENABLE_SSL'),
+                    ('smtpFromEmail','EMAIL_SMTP_FROM_EMAIL'),('smtpFromName','EMAIL_SMTP_FROM_NAME'),('smtpUser','EMAIL_SMTP_USERNAME'),('smtpPwd','EMAIL_SMTP_PASSWORD'),
+                    ('usdaApiKey','FOOD_USDA_API_KEY'),('webPushSubject','NOTIFICATIONS_WEBPUSH_SUBJECT'),('webPushPublicKey','NOTIFICATIONS_WEBPUSH_PUBLIC_KEY'),
+                    ('webPushPrivateKey','NOTIFICATIONS_WEBPUSH_PRIVATE_KEY'),('geoapifyApiKey','ADDRESS_GEOAPIFY_API_KEY'),('locationIqApiKey','ADDRESS_LOCATIONIQ_API_KEY'),
+                    ('addressPrimaryProvider','ADDRESS_PRIMARY_PROVIDER'),('addressFallbackProvider','ADDRESS_FALLBACK_PROVIDER'),
+                    ('addressWarningThreshold','ADDRESS_WARNING_THRESHOLD'),('addressFailoverThreshold','ADDRESS_FAILOVER_THRESHOLD'),
+                    ('addressGeoapifyDailyLimit','ADDRESS_GEOAPIFY_DAILY_LIMIT'),('addressLocationIqDailyLimit','ADDRESS_LOCATIONIQ_DAILY_LIMIT')
+                ) AS m(old_name,new_name)
+                JOIN LATERAL (SELECT valor_config FROM config WHERE nombre_config = m.old_name ORDER BY id LIMIT 1) c ON TRUE
+                WHERE NOT EXISTS (SELECT 1 FROM config existing WHERE existing.nombre_config = m.new_name);
+                DELETE FROM config WHERE nombre_config IN (
+                    'platformLegalName','platformLegalForm','platformTaxId','platformAddress','platformPostalCode','platformCity','platformProvince','platformCountry',
+                    'platformContactEmail','platformContactPhone','platformDpoEmail','platformRegistryData','googleClientId','dominio','frontendUrl',
+                    'smtpServer','smtpPort','smtpEnableSsl','smtpFromEmail','smtpFromName','smtpUser','smtpPwd','usdaApiKey','webPushSubject','webPushPublicKey',
+                    'webPushPrivateKey','geoapifyApiKey','locationIqApiKey','addressPrimaryProvider','addressFallbackProvider','addressWarningThreshold',
+                    'addressFailoverThreshold','addressGeoapifyDailyLimit','addressLocationIqDailyLimit'
+                );
+                INSERT INTO config (nombre_config, valor_config) VALUES
+                    ('VIDEO_DAILY_ENABLED','0'),('VIDEO_DAILY_API_KEY',''),('VIDEO_DAILY_DOMAIN',''),
+                    ('VIDEO_DAILY_ROOM_EXPIRY_MINUTES','30'),('VIDEO_DAILY_ROOM_CREATION_LEAD_MINUTES','60')
+                ON CONFLICT DO NOTHING;
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_config_nombre_config ON config(nombre_config);
+            ");
+            logger.LogInformation("Nombres de configuración normalizados correctamente.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "No se pudo normalizar la configuración.");
+            throw;
+        }
     }
 
 }
