@@ -164,3 +164,7 @@ button:disabled {
 .quota-warning { margin: 0 0 16px; padding: 12px 14px; border: 1px solid #fde68a; border-radius: 10px; background: #fffbeb; color: #92400e; display: flex; gap: 8px; flex-wrap: wrap; }
 .quota-warning strong { font-weight: 700; }
 .quota-warning span { color: #78350f; }
+
+.call-time-warning { margin: 0 0 16px; padding: 12px 14px; border: 1px solid #fdba74; border-radius: 10px; background: #fff7ed; color: #9a3412; display: flex; gap: 8px; flex-wrap: wrap; }
+.call-time-warning strong { font-weight: 700; }
+.call-time-warning span { color: #7c2d12; }
