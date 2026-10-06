@@ -21,7 +21,7 @@ import { PatientPortalService } from '../../servicios/patient-portal.service';
   styleUrls: ['./video-consultation.component.css']
 })
 export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
-  @ViewChild('localVideo', { static: true }) localVideo!: ElementRef<HTMLVideoElement>;
+  @ViewChild('localVideo', { static: true }) localVideoElementRef!: ElementRef<HTMLVideoElement>;
   @ViewChild('remoteContainer', { static: true }) remoteContainer!: ElementRef<HTMLDivElement>;
 
   loading = true;
@@ -33,7 +33,7 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
 
   private room?: Room;
   private localAudio?: LocalAudioTrack;
-  private localVideo?: LocalVideoTrack;
+  private localVideoTrack?: LocalVideoTrack;
   private readonly remoteElements = new Map<string, HTMLElement>();
   private appointmentId = 0;
 
@@ -93,9 +93,9 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
       await this.room.connect(serverUrl, token);
 
       try {
-        this.localVideo = await createLocalVideoTrack();
-        await this.room.localParticipant.publishTrack(this.localVideo);
-        this.localVideo.attach(this.localVideoElement());
+        this.localVideoTrack = await createLocalVideoTrack();
+        await this.room.localParticipant.publishTrack(this.localVideoTrack);
+        this.localVideoTrack.attach(this.localVideoElement());
       } catch {
         this.cameraEnabled = false;
       }
@@ -125,9 +125,9 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
   }
 
   toggleCamera(): void {
-    if (!this.localVideo) return;
+    if (!this.localVideoTrack) return;
     this.cameraEnabled = !this.cameraEnabled;
-    this.localVideo.enable(this.cameraEnabled);
+    this.localVideoTrack.enable(this.cameraEnabled);
   }
 
   leave(): void {
@@ -171,13 +171,9 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
     track.detach().forEach(element => element.remove());
   }
 
-  private localVideoElement(): HTMLVideoElement {
-    return this.localVideo.nativeElement;
-  }
-
-  ngOnDestroy(): void {
+   ngOnDestroy(): void {
     this.localAudio?.stop();
-    this.localVideo?.stop();
+    this.localVideoTrack?.stop();
     void this.room?.disconnect();
     this.remoteElements.clear();
   }
