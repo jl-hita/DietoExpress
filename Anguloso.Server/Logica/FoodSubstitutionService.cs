@@ -37,6 +37,8 @@ public sealed class FoodSubstitutionService
             excludedFlags ?? Array.Empty<string>(),
             StringComparer.OrdinalIgnoreCase);
 
+        // Keep the database query provider-agnostic. The InMemory provider cannot
+        // translate Contains inside Any over the mapped string array.
         var candidates = await _context.foods.AsNoTracking()
             .Where(f =>
                 f.id != source.id &&
@@ -44,7 +46,6 @@ public sealed class FoodSubstitutionService
                  isSuperAdmin ||
                  (tenantId.HasValue && f.tenant_id == tenantId.Value)))
             .Where(f => f.kcal != null || f.protein != null || f.carbs != null || f.fat != null)
-            .Where(f => excluded.Count == 0 || !f.dietary_flags.Any(flag => excluded.Contains(flag)))
             .Select(f => new
             {
                 f.id, f.name, f.brands, f.category, f.kcal, f.protein, f.carbs, f.fat,
@@ -53,10 +54,18 @@ public sealed class FoodSubstitutionService
             .Take(500)
             .ToListAsync(cancellationToken);
 
+        if (excluded.Count > 0)
+        {
+            candidates = candidates
+                .Where(f => f.dietary_flags == null ||
+                            !f.dietary_flags.Any(flag => excluded.Contains(flag)))
+                .ToList();
+        }
+
         static double Distance(double? a, double? b)
         {
             if (!a.HasValue || !b.HasValue) return 1.0;
-            var denominator = Math.Max(Math.Abs(a.Value), 1.0);
+            var denominator = Math.Max(Math.Abs(b.Value), 1.0);
             return Math.Min(Math.Abs(a.Value - b.Value) / denominator, 2.0);
         }
 
