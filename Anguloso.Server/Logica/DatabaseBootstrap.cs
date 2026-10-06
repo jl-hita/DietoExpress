@@ -2056,7 +2056,7 @@ public static class DatabaseBootstrap
                 tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
                 client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
                 specialization_id INTEGER NOT NULL REFERENCES specializations(id) ON DELETE CASCADE,
-                configuration JSONB NOT NULL DEFAULT '{}'::jsonb,
+                configuration JSONB NOT NULL DEFAULT '{{}}'::jsonb,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 CONSTRAINT uq_client_specialization_profile UNIQUE (tenant_id, client_id, specialization_id)
