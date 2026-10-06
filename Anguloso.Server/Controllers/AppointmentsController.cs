@@ -406,22 +406,21 @@ public class AppointmentsController : ControllerBase
             return BadRequest(new { message = "La transición de estado de la cita no es válida." });
 
         var previousStatus = appointment.status;
-        VideoMeetingRoom? createdVideoRoom = null;
         if (requestedStatus == "confirmed" && previousStatus != "confirmed" &&
             appointment.modality == "online" && string.IsNullOrWhiteSpace(appointment.video_room_name))
         {
             try
             {
-                createdVideoRoom = await _videoMeetings.CreatePrivateRoomAsync(
+                var videoRoom = await _videoMeetings.CreatePrivateRoomAsync(
                     $"appointment-{appointment.id}",
                     appointment.starts_at,
                     appointment.ends_at,
                     HttpContext.RequestAborted);
 
-                appointment.video_provider = createdVideoRoom.Provider;
-                appointment.video_room_name = createdVideoRoom.RoomName;
-                appointment.video_room_url = createdVideoRoom.RoomUrl;
-                appointment.video_expires_at = createdVideoRoom.ExpiresAtUtc;
+                appointment.video_provider = videoRoom.Provider;
+                appointment.video_room_name = videoRoom.RoomName;
+                appointment.video_room_url = videoRoom.RoomUrl;
+                appointment.video_expires_at = videoRoom.ExpiresAtUtc;
             }
             catch (InvalidOperationException ex)
             {
