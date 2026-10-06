@@ -76,4 +76,21 @@ public class PublicBookingRegressionTests
         Assert.Contains("CreateAccessLinkAsync(client.id", portal);
     }
 
+
+    [Fact]
+    public void PublicBooking_ExposesOnlineModalityAndResolvesItServerSide()
+    {
+        var dto = File.ReadAllText(Path.Combine(
+            RepoRoot, "Anguloso.Server", "Model", "AppointmentDto.cs"));
+        var controller = File.ReadAllText(Path.Combine(
+            RepoRoot, "Anguloso.Server", "Controllers", "DirectoryController.cs"));
+        var component = File.ReadAllText(Path.Combine(
+            RepoRoot, "anguloso.client", "src", "app", "componentes", "directory", "directory.component.ts"));
+
+        Assert.Contains("public string Modality { get; set; } = \"in_person\";", dto);
+        Assert.Contains("var requestedModality = request.Modality?.Trim().ToLowerInvariant() ?? \"in_person\";", controller);
+        Assert.Contains("professional.online_consultations != true", controller);
+        Assert.Contains("modality: this.bookingModality", component);
+        Assert.Contains("bookingModality: 'in_person' | 'online'", component);
+    }
 }

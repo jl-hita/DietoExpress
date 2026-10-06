@@ -38,6 +38,7 @@ export class DirectoryService {
       email: string;
       phone?: string;
       patientNotes?: string;
+      modality?: 'in_person' | 'online';
     }
   ): Observable<{ startsAt: string; endsAt: string; status: string; nutritionistName: string }> {
     return this.http.post<{ startsAt: string; endsAt: string; status: string; nutritionistName: string }>(

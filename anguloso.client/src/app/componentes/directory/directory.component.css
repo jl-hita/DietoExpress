@@ -44,3 +44,7 @@
   .calendar-day { min-height:54px; padding:5px; border-radius:7px; }
   .calendar-day small { padding:2px 4px; }
 }
+.booking-modality { border: 0; padding: 0; margin: 20px 0; display: grid; gap: 10px; }
+.booking-modality legend { font-weight: 600; margin-bottom: 4px; }
+.booking-modality label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.booking-modality small { opacity: .75; line-height: 1.4; }

@@ -33,6 +33,7 @@ export class DirectoryComponent implements OnInit {
   bookingEmail = '';
   bookingPhone = '';
   bookingNotes = '';
+  bookingModality: 'in_person' | 'online' = 'in_person';
   calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   selectedAvailabilityDate: string | null = null;
 
@@ -144,7 +145,7 @@ export class DirectoryComponent implements OnInit {
   }
 
   selectSlot(slot: PublicAvailabilitySlot): void {
-    this.selectedSlot = slot; this.bookingError = ''; this.bookingSuccess = null;
+    this.selectedSlot = slot; this.bookingError = ''; this.bookingSuccess = null; this.bookingModality = 'in_person';
   }
 
   clearSelectedSlot(): void { this.selectedSlot = null; this.bookingError = ''; }
@@ -162,11 +163,12 @@ export class DirectoryComponent implements OnInit {
     this.directoryService.requestAppointment(this.profile.slug, {
       startsAt: this.selectedSlot.startsAt,
       durationMinutes: Math.round((new Date(this.selectedSlot.endsAt).getTime() - new Date(this.selectedSlot.startsAt).getTime()) / 60000),
-      fullName, email, phone: phone || undefined, patientNotes: notes || undefined
+      fullName, email, phone: phone || undefined, patientNotes: notes || undefined,
+      modality: this.bookingModality
     }).subscribe({
       next: () => {
         this.bookingSuccess = 'Solicitud enviada para el ' + this.formatSlot(this.selectedSlot!) + '. El profesional deberá confirmarla.';
-        this.bookingSubmitting = false; this.selectedSlot = null; this.bookingNotes = '';
+        this.bookingSubmitting = false; this.selectedSlot = null; this.bookingNotes = ''; this.bookingModality = 'in_person';
         this.loadAvailability(this.profile!.slug);
       },
       error: error => {
