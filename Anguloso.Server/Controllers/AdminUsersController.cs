@@ -53,6 +53,35 @@ public class AdminUsersController : ControllerBase
     /// <summary>
     /// Devuelve todas las líneas de la tabla de configuración para el panel del superadministrador.
     /// </summary>
+    [HttpGet("video-usage")]
+    public async Task<IActionResult> GetVideoUsage([FromServices] LiveKitAnalyticsService analyticsService)
+    {
+        var nutritionistLimit = await _context.config.AsNoTracking()
+            .Where(c => c.nombre_config == "VIDEO_LIVEKIT_NUTRITIONIST_MONTHLY_PARTICIPANT_MINUTES")
+            .Select(c => c.valor_config)
+            .FirstOrDefaultAsync();
+        var globalLimit = await _context.config.AsNoTracking()
+            .Where(c => c.nombre_config == "VIDEO_LIVEKIT_GLOBAL_MONTHLY_PARTICIPANT_MINUTES")
+            .Select(c => c.valor_config)
+            .FirstOrDefaultAsync();
+
+        var analytics = await analyticsService.GetRecentConnectionMinutesAsync(HttpContext.RequestAborted);
+        return Ok(new
+        {
+            nutritionistLimitParticipantMinutes = int.TryParse(nutritionistLimit, out var nl) ? nl : 800,
+            globalLimitParticipantMinutes = int.TryParse(globalLimit, out var gl) ? gl : 4000,
+            analytics = new
+            {
+                available = analytics.Available,
+                connectionMinutes = analytics.ConnectionMinutes,
+                sessions = analytics.Sessions,
+                from = analytics.FromUtc,
+                to = analytics.ToUtc,
+                message = analytics.Message
+            }
+        });
+    }
+
     [HttpGet("config")]
     public async Task<IActionResult> GetConfig()
     {
