@@ -76,9 +76,17 @@
           {{ appointment.status === 'confirmed' ? 'Confirmada' : 'Pendiente de confirmación' }}
         </span>
       </div>
-      <button type="button" class="appointment-cancel" (click)="cancel.emit(appointment)" [disabled]="booking">
-        Cancelar
-      </button>
+      <div class="appointment-item-actions">
+        <button *ngIf="appointment.modality === 'online' && appointment.status === 'confirmed'"
+                type="button" class="appointment-video"
+                (click)="joinVideo.emit(appointment)" [disabled]="booking">
+          <mat-icon>videocam</mat-icon>
+          Entrar en consulta
+        </button>
+        <button type="button" class="appointment-cancel" (click)="cancel.emit(appointment)" [disabled]="booking">
+          Cancelar
+        </button>
+      </div>
     </article>
   </section>
 
