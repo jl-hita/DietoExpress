@@ -54,24 +54,12 @@ public class DirectoryController : ControllerBase
             query = query.Where(u => u.directory_city != null && EF.Functions.ILike(u.directory_city, $"%{filter.City.Trim()}%"));
         if (!string.IsNullOrWhiteSpace(filter.Province))
         {
-            var province = filter.Province.Trim();
-            // El proveedor de direcciones puede devolver la forma valenciana "València",
-            // mientras que el selector del directorio usa la forma castellana "Valencia".
-            // Admitimos ambas formas para no hacer depender la búsqueda de la variante guardada.
-            if (province.Equals("Valencia", StringComparison.OrdinalIgnoreCase))
-            {
-                query = query.Where(u =>
-                    u.directory_province != null &&
-                    (EF.Functions.ILike(u.directory_province, "%Valencia%") ||
-                     EF.Functions.ILike(u.directory_province, "%València%")));
-            }
-            else
-            {
-                var provincePattern = $"%{province}%";
-                query = query.Where(u =>
-                    u.directory_province != null &&
-                    EF.Functions.ILike(u.directory_province, provincePattern));
-            }
+            var provincePattern = $"%{filter.Province.Trim()}%";
+            query = query.Where(u =>
+                u.directory_province != null &&
+                EF.Functions.ILike(
+                    EF.Functions.Unaccent(u.directory_province),
+                    EF.Functions.Unaccent(provincePattern)));
         }
         if (filter.Online == true)
             query = query.Where(u => u.online_consultations == true);
