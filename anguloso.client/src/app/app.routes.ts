@@ -24,6 +24,9 @@ export const routes: AppRoute[] = [
   { path: 'video-consultation/:appointmentId', loadComponent: () => import('./componentes/video-consultation/video-consultation.component').then(m => m.VideoConsultationComponent), title: 'Consulta online' },
   { path: 'legal', loadComponent: () => import('./componentes/legal-documents/legal-documents.component').then(m => m.LegalDocumentsComponent), title: 'Documentación legal' },
   { path: 'nutricionistas', loadComponent: () => import('./componentes/directory/directory.component').then(m => m.DirectoryComponent), title: 'Directorio de nutricionistas' },
+  { path: 'nutricionistas/online', loadComponent: () => import('./componentes/directory/directory.component').then(m => m.DirectoryComponent), title: 'Nutricionistas online' },
+  { path: 'nutricionistas/ciudad/:city', loadComponent: () => import('./componentes/directory/directory.component').then(m => m.DirectoryComponent), title: 'Nutricionistas por ciudad' },
+  { path: 'nutricionistas/especialidad/:speciality', loadComponent: () => import('./componentes/directory/directory.component').then(m => m.DirectoryComponent), title: 'Nutricionistas por especialidad' },
   { path: 'nutricionistas/:slug', loadComponent: () => import('./componentes/directory/directory.component').then(m => m.DirectoryComponent), title: 'Perfil profesional' },
 
   { path: '', loadComponent: () => import('./componentes/layout/layout.component').then(m => m.LayoutComponent), canActivate: [AuthGuard],
