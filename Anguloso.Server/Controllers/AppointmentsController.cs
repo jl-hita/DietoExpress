@@ -23,8 +23,9 @@ public class AppointmentsController : ControllerBase
     private readonly GoogleCalendarService _googleCalendar;
     private readonly AppointmentConcurrencyService _appointmentConcurrency;
     private readonly IVideoMeetingProvider _videoMeetings;
+    private readonly VideoQuotaService _videoQuota;
 
-    public AppointmentsController(angulosodbContext context, EmailServ emailServ, NotificationService notifications, AutomationService automationService, GoogleCalendarService googleCalendar, AppointmentConcurrencyService appointmentConcurrency, IVideoMeetingProvider videoMeetings)
+    public AppointmentsController(angulosodbContext context, EmailServ emailServ, NotificationService notifications, AutomationService automationService, GoogleCalendarService googleCalendar, AppointmentConcurrencyService appointmentConcurrency, IVideoMeetingProvider videoMeetings, VideoQuotaService videoQuota)
     {
         _context = context;
         _emailServ = emailServ;
@@ -33,6 +34,7 @@ public class AppointmentsController : ControllerBase
         _googleCalendar = googleCalendar;
         _appointmentConcurrency = appointmentConcurrency;
         _videoMeetings = videoMeetings;
+        _videoQuota = videoQuota;
     }
 
     [Authorize(Roles = "patient")]
@@ -683,6 +685,25 @@ public class AppointmentsController : ControllerBase
         var displayName = isOwner
             ? (appointment.nutritionist.full_name ?? "Nutricionista")
             : (appointment.client.full_name ?? "Paciente");
+        var quota = await _videoQuota.ReserveForAppointmentAsync(
+            appointment.id,
+            appointment.nutritionist_id,
+            appointment.starts_at,
+            appointment.ends_at,
+            HttpContext.RequestAborted);
+
+        if (!quota.Allowed)
+        {
+            return StatusCode(StatusCodes.Status429TooManyRequests, new
+            {
+                message = "La cuota mensual de videollamadas se ha alcanzado. El acceso a nuevas consultas online está temporalmente bloqueado.",
+                nutritionistUsedParticipantMinutes = quota.NutritionistUsedParticipantMinutes,
+                nutritionistLimitParticipantMinutes = quota.NutritionistLimitParticipantMinutes,
+                globalUsedParticipantMinutes = quota.GlobalUsedParticipantMinutes,
+                globalLimitParticipantMinutes = quota.GlobalLimitParticipantMinutes
+            });
+        }
+
         var token = await _videoMeetings.CreateMeetingTokenAsync(
             appointment.video_room_name,
             displayName,
@@ -697,7 +718,17 @@ public class AppointmentsController : ControllerBase
             provider = appointment.video_provider,
             roomUrl = appointment.video_room_url,
             token,
-            expiresAt = appointment.video_expires_at.Value
+            expiresAt = appointment.video_expires_at.Value,
+            quota = new
+            {
+                reservedParticipantMinutes = quota.ReservedParticipantMinutes,
+                nutritionistUsedParticipantMinutes = quota.NutritionistUsedParticipantMinutes,
+                nutritionistLimitParticipantMinutes = quota.NutritionistLimitParticipantMinutes,
+                globalUsedParticipantMinutes = quota.GlobalUsedParticipantMinutes,
+                globalLimitParticipantMinutes = quota.GlobalLimitParticipantMinutes,
+                warning = quota.Warning,
+                critical = quota.Critical
+            }
         });
     }
 
