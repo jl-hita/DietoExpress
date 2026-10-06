@@ -43,7 +43,7 @@ public class PublicFunnelAnalyticsRegressionTests
     public void AdminFunnel_IsRestrictedToSuperAdmin()
     {
         var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "PublicFunnelAnalyticsController.cs"));
-        Assert.Contains("[Authorize(Roles = "superadmin")]", controller);
+        Assert.Contains("[Authorize(Roles = \"superadmin\")]", controller);
         Assert.Contains("CompletedConsultations", controller);
     }
 }
