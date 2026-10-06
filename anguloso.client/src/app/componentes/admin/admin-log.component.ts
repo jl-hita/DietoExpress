@@ -86,7 +86,7 @@ export class AdminLogComponent implements OnInit {
         this.selectedDate = result.date;
         this.previousDate = result.previousDate;
         this.nextDate = result.nextDate;
-        this.content = result.content;
+        this.content = result.content ?? '';
         this.exists = result.exists;
         this.loading = false;
       },

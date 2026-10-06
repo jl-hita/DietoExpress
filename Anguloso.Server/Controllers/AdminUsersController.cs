@@ -123,49 +123,89 @@ public class AdminUsersController : ControllerBase
     }
 
     [HttpGet("logs")]
-    public async Task<IActionResult> GetLog([FromQuery] string? date = null)
+    public IActionResult GetLog([FromQuery] string? date = null)
     {
-        DateTime requestedDate;
+        if (!TryParseLogDate(date, out var requestedDate, out var error))
+            return BadRequest(error);
 
-        if (string.IsNullOrWhiteSpace(date))
-            requestedDate = DateTime.Today;
-        else if (!DateTime.TryParseExact(date, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out requestedDate))
-            return BadRequest("La fecha debe tener el formato yyyy-MM-dd.");
-
-        requestedDate = requestedDate.Date;
-
-        var logsPath = Environment.GetEnvironmentVariable("DIETOEXPRESS_LOG_PATH") ?? (OperatingSystem.IsWindows() ? Path.Combine(Directory.GetCurrentDirectory(), "Logs") : "/var/lib/dietoexpress/Logs");
-        Directory.CreateDirectory(logsPath);
-
-        var logFiles = Directory.GetFiles(logsPath, "log-*.txt")
-            .Select(path => new { Path = path, Date = TryGetLogFileDate(path) })
-            .Where(x => x.Date.HasValue)
-            .Select(x => new { x.Path, Date = x.Date!.Value })
-            .OrderBy(x => x.Date)
-            .ToList();
-
+        var logFiles = GetLogFiles();
         var selected = logFiles.FirstOrDefault(x => x.Date == requestedDate);
-        var content = string.Empty;
-
-        if (selected != null)
-        {
-            await using var stream = new FileStream(selected.Path, FileMode.Open, FileAccess.Read,
-                FileShare.ReadWrite | FileShare.Delete, 4096, useAsync: true);
-            using var reader = new StreamReader(stream);
-            content = await reader.ReadToEndAsync();
-        }
-
-        var previousDate = logFiles.Where(x => x.Date < requestedDate).Select(x => (DateTime?)x.Date).LastOrDefault();
-        var nextDate = logFiles.Where(x => x.Date > requestedDate).Select(x => (DateTime?)x.Date).FirstOrDefault();
 
         return Ok(new
         {
             date = requestedDate.ToString("yyyy-MM-dd"),
-            exists = selected != null,
-            content,
-            previousDate = previousDate?.ToString("yyyy-MM-dd"),
-            nextDate = nextDate?.ToString("yyyy-MM-dd")
+            exists = selected != default,
+            previousDate = logFiles.Where(x => x.Date < requestedDate).Select(x => (DateTime?)x.Date).LastOrDefault()?.ToString("yyyy-MM-dd"),
+            nextDate = logFiles.Where(x => x.Date > requestedDate).Select(x => (DateTime?)x.Date).FirstOrDefault()?.ToString("yyyy-MM-dd")
         });
+    }
+
+    /// <summary>
+    /// Transmite el archivo de log directamente al cliente para evitar que System.Text.Json
+    /// tenga que materializar archivos grandes como una única cadena JSON.
+    /// </summary>
+    [HttpGet("logs/content")]
+    public IActionResult GetLogContent([FromQuery] string? date = null)
+    {
+        if (!TryParseLogDate(date, out var requestedDate, out var error))
+            return BadRequest(error);
+
+        var selected = GetLogFiles().FirstOrDefault(x => x.Date == requestedDate);
+        if (selected == default)
+            return NotFound("No existe ningún archivo de log para la fecha solicitada.");
+
+        var stream = new FileStream(
+            selected.Path,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.ReadWrite | FileShare.Delete,
+            bufferSize: 64 * 1024,
+            options: FileOptions.Asynchronous | FileOptions.SequentialScan);
+
+        return File(stream, "text/plain; charset=utf-8", enableRangeProcessing: true);
+    }
+
+    private static bool TryParseLogDate(string? date, out DateTime requestedDate, out string? error)
+    {
+        if (string.IsNullOrWhiteSpace(date))
+        {
+            requestedDate = DateTime.Today;
+            error = null;
+            return true;
+        }
+
+        if (!DateTime.TryParseExact(
+            date,
+            "yyyy-MM-dd",
+            System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None,
+            out requestedDate))
+        {
+            error = "La fecha debe tener el formato yyyy-MM-dd.";
+            requestedDate = default;
+            return false;
+        }
+
+        requestedDate = requestedDate.Date;
+        error = null;
+        return true;
+    }
+
+    private static List<(string Path, DateTime Date)> GetLogFiles()
+    {
+        var logsPath = Environment.GetEnvironmentVariable("DIETOEXPRESS_LOG_PATH")
+            ?? (OperatingSystem.IsWindows()
+                ? Path.Combine(Directory.GetCurrentDirectory(), "Logs")
+                : "/var/lib/dietoexpress/Logs");
+
+        Directory.CreateDirectory(logsPath);
+
+        return Directory.GetFiles(logsPath, "log-*.txt")
+            .Select(path => new { Path = path, Date = TryGetLogFileDate(path) })
+            .Where(x => x.Date.HasValue)
+            .Select(x => (Path: x.Path, Date: x.Date!.Value))
+            .OrderBy(x => x.Date)
+            .ToList();
     }
 
     private static DateTime? TryGetLogFileDate(string path)

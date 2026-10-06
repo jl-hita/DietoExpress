@@ -338,7 +338,9 @@ public class AuthorizationRegressionTests
         Assert.Contains("searchTerm.Length > 100", source);
         Assert.DoesNotContain("maxLogBytes = 2 * 1024 * 1024", source);
         Assert.DoesNotContain("StatusCodes.Status413PayloadTooLarge", source);
-        Assert.Contains("await reader.ReadToEndAsync()", source);
+        Assert.Contains("new FileStream(", source);
+        Assert.Contains("FileShare.ReadWrite | FileShare.Delete", source);
+        Assert.Contains("enableRangeProcessing: true", source);
     }
 
     [Fact]

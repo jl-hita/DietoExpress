@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, switchMap } from 'rxjs';
 
 export interface SetupStatusResponse {
   isConfigured: boolean;
@@ -78,7 +78,7 @@ export interface AdminConfig {
 export interface AdminLog {
   date: string;
   exists: boolean;
-  content: string;
+  content?: string;
   previousDate?: string;
   nextDate?: string;
 }
@@ -124,7 +124,27 @@ export class AdminService {
   getLog(date?: string): Observable<AdminLog> {
     let params: any = {};
     if (date) params.date = date;
-    return this.http.get<AdminLog>(`${this.adminUrl}/logs`, { params });
+
+    return this.http.get<AdminLog>(`${this.adminUrl}/logs`, { params }).pipe(
+      switchMap(metadata => {
+        if (!metadata.exists) return new Observable<AdminLog>(subscriber => {
+          subscriber.next(metadata);
+          subscriber.complete();
+        });
+
+        return this.http.get(`${this.adminUrl}/logs/content`, {
+          params: { date: metadata.date },
+          responseType: 'text'
+        }).pipe(
+          switchMap(content => {
+            return new Observable<AdminLog>(subscriber => {
+              subscriber.next({ ...metadata, content });
+              subscriber.complete();
+            });
+          })
+        );
+      })
+    );
   }
 
   getUsers(search?: string, status?: string, plan?: string, page = 1, pageSize = 25): Observable<AdminUsersPage> {
