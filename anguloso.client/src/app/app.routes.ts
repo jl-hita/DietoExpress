@@ -21,6 +21,7 @@ export const routes: AppRoute[] = [
   { path: 'reset-password', loadComponent: () => import('./componentes/user-reset/user-reset.component').then(m => m.UserResetComponent), title: 'Restablecer contraseña', showInMenu: false },
   { path: 'confirmar-email', loadComponent: () => import('./componentes/confirmar-email/confirmar-email.component').then(m => m.ConfirmarEmailComponent), title: 'Confirmar email', showInMenu: false },
   { path: 'patient', loadComponent: () => import('./componentes/patient-portal/patient-portal.component').then(m => m.PatientPortalComponent), title: 'Portal del Paciente' },
+  { path: 'video-consultation/:appointmentId', loadComponent: () => import('./componentes/video-consultation/video-consultation.component').then(m => m.VideoConsultationComponent), title: 'Consulta online' },
   { path: 'legal', loadComponent: () => import('./componentes/legal-documents/legal-documents.component').then(m => m.LegalDocumentsComponent), title: 'Documentación legal' },
   { path: 'nutricionistas', loadComponent: () => import('./componentes/directory/directory.component').then(m => m.DirectoryComponent), title: 'Directorio de nutricionistas' },
   { path: 'nutricionistas/:slug', loadComponent: () => import('./componentes/directory/directory.component').then(m => m.DirectoryComponent), title: 'Perfil profesional' },
