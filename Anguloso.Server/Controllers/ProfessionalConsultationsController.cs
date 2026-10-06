@@ -316,6 +316,11 @@ public sealed class ProfessionalConsultationsController : ControllerBase
 
         var affected = await command.ExecuteNonQueryAsync();
         if (affected == 0) return NotFound();
+
+        await _auditLogService.LogAccessAsync(
+            "CONSULTATION_PROGRESS", "professional_consultations", appointmentId.ToString(), appointment.ClientId,
+            $"step={step}");
+
         return Ok(await ReadConsultationAsync(appointmentId, appointment.TenantId));
     }
 
@@ -356,6 +361,30 @@ public sealed class ProfessionalConsultationsController : ControllerBase
         await appointmentCommand.ExecuteNonQueryAsync();
 
         await transaction.CommitAsync();
+
+        try
+        {
+            await _automationService.PublishEventAsync(
+                appointment.TenantId,
+                "appointment.completed",
+                "appointment",
+                appointment.Id.ToString(),
+                new AutomationService.AppointmentCompletedPayload(
+                    appointment.Id,
+                    appointment.ClientId,
+                    appointment.NutritionistId),
+                $"appointment:{appointment.Id}:completed");
+        }
+        catch (Exception ex)
+        {
+            HttpContext.RequestServices.GetRequiredService<ILogger<ProfessionalConsultationsController>>()
+                .LogError(ex, "No se pudo registrar la automatización de la cita completada {AppointmentId}.", appointment.Id);
+        }
+
+        await _auditLogService.LogAccessAsync(
+            "CONSULTATION_COMPLETE", "professional_consultations", appointmentId.ToString(), appointment.ClientId,
+            "Consulta guiada completada.");
+
         return Ok(await ReadConsultationAsync(appointmentId, appointment.TenantId));
     }
 
