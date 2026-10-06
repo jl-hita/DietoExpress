@@ -16,6 +16,7 @@ public partial class patient_appointments
     public string? video_room_name { get; set; }
     public string? video_room_url { get; set; }
     public DateTime? video_expires_at { get; set; }
+    public DateTime? video_started_at { get; set; }
     public string? patient_notes { get; set; }
     public string? professional_notes { get; set; }
     public DateTime created_at { get; set; } = DateTime.UtcNow;

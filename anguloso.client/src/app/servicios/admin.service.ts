@@ -75,6 +75,19 @@ export interface AdminConfig {
   saveState?: any;
 }
 
+export interface AdminVideoUsage {
+  nutritionistLimitParticipantMinutes: number;
+  globalLimitParticipantMinutes: number;
+  analytics: {
+    available: boolean;
+    connectionMinutes: number;
+    sessions: number;
+    from: string;
+    to: string;
+    message?: string;
+  };
+}
+
 export interface AdminLog {
   date: string;
   exists: boolean;
@@ -120,6 +133,8 @@ export class AdminService {
   updateConfig(id: number, valor: string): Observable<AdminConfig> {
     return this.http.put<AdminConfig>(`${this.adminUrl}/config/${id}`, { valor });
   }
+
+  getVideoUsage(): Observable<AdminVideoUsage> { return this.http.get<AdminVideoUsage>(`${this.adminUrl}/video-usage`); }
 
   getLog(date?: string): Observable<AdminLog> {
     let params: any = {};

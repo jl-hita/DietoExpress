@@ -2354,7 +2354,9 @@ public static class DatabaseBootstrap
                     ('VIDEO_LIVEKIT_API_SECRET',''),
                     ('VIDEO_LIVEKIT_ROOM_EXPIRY_MINUTES','30'),
                     ('VIDEO_LIVEKIT_ROOM_CREATION_LEAD_MINUTES','60'),
-                    ('VIDEO_LIVEKIT_EMPTY_ROOM_TIMEOUT_SECONDS','300')
+                    ('VIDEO_LIVEKIT_EMPTY_ROOM_TIMEOUT_SECONDS','300'),
+                    ('VIDEO_LIVEKIT_MAX_CALL_DURATION_MINUTES','60'),
+                    ('VIDEO_LIVEKIT_PROJECT_ID','')
                 ON CONFLICT DO NOTHING;
 
                 DELETE FROM config
@@ -2385,6 +2387,9 @@ public static class DatabaseBootstrap
         try
         {
             context.Database.ExecuteSqlRaw(@"
+                ALTER TABLE patient_appointments ADD COLUMN IF NOT EXISTS video_started_at TIMESTAMPTZ NULL;
+                CREATE INDEX IF NOT EXISTS ix_patient_appointments_video_started_at ON patient_appointments (video_started_at);
+
                 CREATE TABLE IF NOT EXISTS video_usage_reservations (
                     id BIGSERIAL PRIMARY KEY,
                     appointment_id INTEGER NOT NULL UNIQUE REFERENCES patient_appointments(id) ON DELETE CASCADE,

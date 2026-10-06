@@ -24,8 +24,9 @@ public class AppointmentsController : ControllerBase
     private readonly AppointmentConcurrencyService _appointmentConcurrency;
     private readonly IVideoMeetingProvider _videoMeetings;
     private readonly VideoQuotaService _videoQuota;
+    private readonly LiveKitVideoOptions _videoOptions;
 
-    public AppointmentsController(angulosodbContext context, EmailServ emailServ, NotificationService notifications, AutomationService automationService, GoogleCalendarService googleCalendar, AppointmentConcurrencyService appointmentConcurrency, IVideoMeetingProvider videoMeetings, VideoQuotaService videoQuota)
+    public AppointmentsController(angulosodbContext context, EmailServ emailServ, NotificationService notifications, AutomationService automationService, GoogleCalendarService googleCalendar, AppointmentConcurrencyService appointmentConcurrency, IVideoMeetingProvider videoMeetings, VideoQuotaService videoQuota, LiveKitVideoOptions videoOptions)
     {
         _context = context;
         _emailServ = emailServ;
@@ -35,6 +36,7 @@ public class AppointmentsController : ControllerBase
         _appointmentConcurrency = appointmentConcurrency;
         _videoMeetings = videoMeetings;
         _videoQuota = videoQuota;
+        _videoOptions = videoOptions;
     }
 
     [Authorize(Roles = "patient")]
@@ -681,6 +683,30 @@ public class AppointmentsController : ControllerBase
         if (now >= appointment.video_expires_at.Value)
             return Conflict(new { message = "El acceso a la sala ha expirado." });
 
+        // El límite de duración empieza en el primer acceso real a la sala, no en la hora
+        // teórica de la cita. Así una consulta que empieza tarde conserva sus 60 minutos.
+        var videoStartedAt = appointment.video_started_at;
+        if (!videoStartedAt.HasValue)
+        {
+            var startedAt = now;
+            await _context.Database.ExecuteSqlInterpolatedAsync($@"
+                UPDATE patient_appointments
+                SET video_started_at = {startedAt}
+                WHERE id = {appointment.id} AND video_started_at IS NULL;");
+            videoStartedAt = await _context.patient_appointments.AsNoTracking()
+                .Where(a => a.id == appointment.id)
+                .Select(a => a.video_started_at)
+                .FirstAsync(HttpContext.RequestAborted);
+        }
+
+        var maxCallMinutes = Math.Clamp(_videoOptions.MaxCallDurationMinutes, 1, 240);
+        var callDeadline = videoStartedAt.Value.AddMinutes(maxCallMinutes);
+        var sessionExpiresAt = callDeadline < appointment.video_expires_at.Value
+            ? callDeadline
+            : appointment.video_expires_at.Value;
+        if (now >= sessionExpiresAt)
+            return Conflict(new { message = "La duración máxima de la consulta online ya se ha alcanzado." });
+
         var isOwner = User.IsInRole("nutritionist");
         var displayName = isOwner
             ? (appointment.nutritionist.full_name ?? "Nutricionista")
@@ -710,7 +736,7 @@ public class AppointmentsController : ControllerBase
             Guid.NewGuid().ToString("N"),
             isOwner,
             notBefore,
-            appointment.video_expires_at.Value,
+            sessionExpiresAt,
             HttpContext.RequestAborted);
 
         return Ok(new
@@ -718,7 +744,8 @@ public class AppointmentsController : ControllerBase
             provider = appointment.video_provider,
             roomUrl = appointment.video_room_url,
             token,
-            expiresAt = appointment.video_expires_at.Value,
+            expiresAt = sessionExpiresAt,
+            maxCallDurationMinutes = maxCallMinutes,
             quota = new
             {
                 reservedParticipantMinutes = quota.ReservedParticipantMinutes,

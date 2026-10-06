@@ -15,7 +15,7 @@ import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTabsModule } from '@angular/material/tabs';
-import { AdminService, AdminAlert, AdminConfig, AdminStats, AdminUser, AdminPlan, CreateAdminAccountDto } from '../../servicios/admin.service';
+import { AdminService, AdminAlert, AdminConfig, AdminStats, AdminUser, AdminPlan, CreateAdminAccountDto, AdminVideoUsage } from '../../servicios/admin.service';
 import { EditLicenseDialogComponent } from './edit-license-dialog.component';
 import { ResetPasswordDialogComponent } from './reset-password-dialog.component';
 import { CreateAdminAccountDialogComponent } from './create-admin-account-dialog.component';
@@ -269,6 +269,24 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
           </div>
         </div>
 
+        <div class="video-usage-card" *ngIf="videoUsage">
+          <div>
+            <strong>Consumo real de LiveKit</strong>
+            <span *ngIf="videoUsage.analytics.available">
+              {{ videoUsage.analytics.connectionMinutes }} minutos-participante en los últimos 7 días
+              ({{ videoUsage.analytics.sessions }} sesiones).
+            </span>
+            <span *ngIf="!videoUsage.analytics.available" class="text-muted">
+              {{ videoUsage.analytics.message }}
+            </span>
+          </div>
+          <div class="video-usage-metrics">
+            <span>Cuota/nutricionista: <b>{{ videoUsage.nutritionistLimitParticipantMinutes }}</b></span>
+            <span>Cuota global: <b>{{ videoUsage.globalLimitParticipantMinutes }}</b></span>
+          </div>
+          <small>La cuota interna se reserva como estimación; connectionMinutes es el consumo real reportado por LiveKit cuando Analytics está disponible.</small>
+        </div>
+
         <mat-tab-group animationDuration="0ms" class="config-tabs">
           <mat-tab *ngFor="let tab of configTabs"><ng-template mat-tab-label>{{ tab.label }}</ng-template>
             <div class="config-tab-content">
@@ -399,6 +417,18 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
     .config-card {
       margin-top: 24px;
     }
+    .video-usage-card {
+      margin: 0 0 18px;
+      padding: 14px 16px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      background: #f8fafc;
+      display: grid;
+      gap: 8px;
+    }
+    .video-usage-card > div:first-child { display: grid; gap: 3px; }
+    .video-usage-metrics { display: flex; gap: 18px; flex-wrap: wrap; color: #334155; }
+    .video-usage-card small { color: #64748b; }
     .section-header {
       margin-bottom: 16px;
     }
@@ -505,6 +535,7 @@ export class AdminDashboardComponent implements OnInit {
   userPage = 1;
   userPageSize = 25;
   configs: AdminConfig[] = [];
+  videoUsage?: AdminVideoUsage;
   displayedColumns = ['user', 'plan', 'status', 'expires', 'usage', 'lastLogin', 'actions'];
   configDisplayedColumns = ['id', 'nombre', 'valor'];
   configTabs = [{key:'PLATFORM',label:'Plataforma'},{key:'EMAIL',label:'Email'},{key:'GOOGLE',label:'Google / Calendario'},{key:'VIDEO',label:'Videollamadas'},{key:'FOOD',label:'Alimentos'},{key:'NOTIFICATIONS',label:'Notificaciones'},{key:'ADDRESS',label:'Direcciones'},{key:'OTHER',label:'Otros'}];
@@ -538,9 +569,17 @@ export class AdminDashboardComponent implements OnInit {
     });
     this.loadUsers();
     this.loadConfig();
+    this.loadVideoUsage();
     this.adminService.getPlans().subscribe({
       next: plans => this.plans = plans.filter(p => p.active),
       error: () => this.snackBar.open('Error al cargar los planes.', 'Cerrar', { duration: 4000 })
+    });
+  }
+
+  loadVideoUsage(): void {
+    this.adminService.getVideoUsage().subscribe({
+      next: usage => this.videoUsage = usage,
+      error: err => console.error('Error fetching LiveKit usage', err)
     });
   }
 
@@ -780,3 +819,4 @@ export class AdminDashboardComponent implements OnInit {
     });
   }
 }
+

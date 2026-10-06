@@ -53,6 +53,35 @@ public class AdminUsersController : ControllerBase
     /// <summary>
     /// Devuelve todas las líneas de la tabla de configuración para el panel del superadministrador.
     /// </summary>
+    [HttpGet("video-usage")]
+    public async Task<IActionResult> GetVideoUsage([FromServices] LiveKitAnalyticsService analyticsService)
+    {
+        var nutritionistLimit = await _context.config.AsNoTracking()
+            .Where(c => c.nombre_config == "VIDEO_LIVEKIT_NUTRITIONIST_MONTHLY_PARTICIPANT_MINUTES")
+            .Select(c => c.valor_config)
+            .FirstOrDefaultAsync();
+        var globalLimit = await _context.config.AsNoTracking()
+            .Where(c => c.nombre_config == "VIDEO_LIVEKIT_GLOBAL_MONTHLY_PARTICIPANT_MINUTES")
+            .Select(c => c.valor_config)
+            .FirstOrDefaultAsync();
+
+        var analytics = await analyticsService.GetRecentConnectionMinutesAsync(HttpContext.RequestAborted);
+        return Ok(new
+        {
+            nutritionistLimitParticipantMinutes = int.TryParse(nutritionistLimit, out var nl) ? nl : 800,
+            globalLimitParticipantMinutes = int.TryParse(globalLimit, out var gl) ? gl : 4000,
+            analytics = new
+            {
+                available = analytics.Available,
+                connectionMinutes = analytics.ConnectionMinutes,
+                sessions = analytics.Sessions,
+                from = analytics.FromUtc,
+                to = analytics.ToUtc,
+                message = analytics.Message
+            }
+        });
+    }
+
     [HttpGet("config")]
     public async Task<IActionResult> GetConfig()
     {
@@ -788,6 +817,8 @@ internal static class AdminConfigMetadata
         "VIDEO_LIVEKIT_ROOM_EXPIRY_MINUTES" => "Minutos adicionales durante los que la sala se considera válida después de finalizar la cita. Ejemplo: «30» para mantenerla disponible 30 minutos adicionales.",
         "VIDEO_LIVEKIT_ROOM_CREATION_LEAD_MINUTES" => "Antelación prevista para preparar una sala antes de una consulta online. Ejemplo: «60» para una hora. La reserva sigue creando la sala al confirmar la cita.",
         "VIDEO_LIVEKIT_EMPTY_ROOM_TIMEOUT_SECONDS" => "Tiempo, en segundos, que LiveKit mantiene una sala vacía antes de cerrarla. Ejemplo: «300» para cinco minutos.",
+        "VIDEO_LIVEKIT_MAX_CALL_DURATION_MINUTES" => "Duración máxima real de una consulta online desde el primer acceso. Ejemplo: «60» para una hora. Se avisa a los 5 y 1 minutos restantes.",
+        "VIDEO_LIVEKIT_PROJECT_ID" => "Identificador del proyecto de LiveKit Cloud para consultar Analytics y mostrar connectionMinutes. Se obtiene en la URL del proyecto de LiveKit y empieza por «p_». Es necesario para Analytics; el plan Scale o superior es obligatorio.",
         "VIDEO_LIVEKIT_NUTRITIONIST_MONTHLY_PARTICIPANT_MINUTES" => "Cuota mensual de minutos-participante reservables por cada nutricionista. Una cita de 30 minutos entre paciente y nutricionista consume 60 minutos-participante estimados. Ejemplo: «800».",
         "VIDEO_LIVEKIT_GLOBAL_MONTHLY_PARTICIPANT_MINUTES" => "Cuota mensual global de minutos-participante que DietoExpress permite reservar antes de bloquear nuevas consultas online. Ejemplo: «4000» como margen de seguridad frente a los 5000 del plan gratuito de LiveKit.",
         "VIDEO_LIVEKIT_QUOTA_WARNING_PERCENT" => "Porcentaje de cuota a partir del cual DietoExpress genera un aviso de consumo elevado. Ejemplo: «80».",
