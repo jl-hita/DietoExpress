@@ -64,16 +64,48 @@
         En este momento no hay horarios publicados.
       </p>
       <!-- La selección no reserva el hueco todavía; solo abre el formulario. -->
-      <div *ngIf="availability.length" class="slot-list">
-        <button
-          *ngFor="let slot of availability"
-          type="button"
-          class="slot"
-          [class.selected]="selectedSlot?.startsAt === slot.startsAt"
-          (click)="selectSlot(slot)"
-          [attr.aria-label]="'Seleccionar ' + formatSlot(slot)">
-          {{ formatSlot(slot) }}
-        </button>
+      <div *ngIf="availability.length" class="availability-calendar">
+        <div class="calendar-header">
+          <button type="button" class="calendar-nav" (click)="previousMonth()" [disabled]="!canGoToPreviousMonth" aria-label="Mes anterior">‹</button>
+          <strong>{{ monthLabel() }}</strong>
+          <button type="button" class="calendar-nav" (click)="nextMonth()" [disabled]="!canGoToNextMonth" aria-label="Mes siguiente">›</button>
+        </div>
+        <div class="calendar-weekdays">
+          <span *ngFor="let day of ['L','M','X','J','V','S','D']">{{ day }}</span>
+        </div>
+        <div class="calendar-grid">
+          <button *ngFor="let day of calendarDays"
+                  type="button"
+                  class="calendar-day"
+                  [class.outside]="!day.inCurrentMonth"
+                  [class.available]="day.slotCount > 0"
+                  [class.busy]="day.slotCount > 3"
+                  [class.selected]="selectedAvailabilityDate === day.key"
+                  [disabled]="day.disabled"
+                  (click)="selectAvailabilityDate(day.key)"
+                  [attr.aria-label]="day.slotCount ? day.dayNumber + ' de ' + monthLabel() + ', ' + day.slotCount + ' huecos disponibles' : day.dayNumber + ' sin disponibilidad'">
+            <span>{{ day.dayNumber }}</span>
+            <small *ngIf="day.slotCount">{{ day.slotCount }}</small>
+          </button>
+        </div>
+        <div class="calendar-legend">
+          <span><i class="legend-dot many"></i> Más de 3 huecos</span>
+          <span><i class="legend-dot few"></i> 1–3 huecos</span>
+        </div>
+      </div>
+
+      <div *ngIf="selectedDateSlots.length" class="day-slots">
+        <h4>Horarios del {{ selectedDateSlots[0].startsAt | date:'EEEE d MMMM':'':'es-ES' }}</h4>
+        <div class="slot-list">
+          <button *ngFor="let slot of selectedDateSlots"
+                  type="button"
+                  class="slot"
+                  [class.selected]="selectedSlot?.startsAt === slot.startsAt"
+                  (click)="selectSlot(slot)"
+                  [attr.aria-label]="'Seleccionar ' + formatSlot(slot)">
+            {{ formatDaySlot(slot) }}
+          </button>
+        </div>
       </div>
 
       <p *ngIf="bookingSuccess" class="booking-success" role="status">{{ bookingSuccess }}</p>

@@ -130,7 +130,7 @@ export class PatientPortalService {
     return this.http.post<{ message: string }>(`${this.base}/portal/request-access-link`, { email });
   }
 
-  getAppointmentSlots(days = 30): Observable<AppointmentSlot[]> {
+  getAppointmentSlots(days = 60): Observable<AppointmentSlot[]> {
     return this.http.get<AppointmentSlot[]>(this.base + '/appointments/slots?days=' + days);
   }
 

@@ -21,7 +21,7 @@ export class DirectoryService {
     return this.http.get<DirectoryProfile[]>(`${this.apiUrl}/directory/professionals`, { params });
   }
 
-  getAvailability(slug: string, days = 30): Observable<PublicAvailabilitySlot[]> {
+  getAvailability(slug: string, days = 60): Observable<PublicAvailabilitySlot[]> {
     const params = new HttpParams().set('days', String(days));
     return this.http.get<PublicAvailabilitySlot[]>(
       `${this.apiUrl}/directory/professionals/${encodeURIComponent(slug)}/availability`,
