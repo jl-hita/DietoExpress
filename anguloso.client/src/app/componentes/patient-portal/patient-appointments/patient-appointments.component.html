@@ -41,9 +41,19 @@
       <span>Buscando horarios...</span>
     </div>
 
+    <div class="appointment-modality" *ngIf="slots.length && slots[0].onlineConsultationsAvailable">
+      <span>Modalidad</span>
+      <button type="button" [class.selected]="selectedModality === 'in_person'" (click)="selectedModality = 'in_person'">
+        <mat-icon>place</mat-icon> Presencial
+      </button>
+      <button type="button" [class.selected]="selectedModality === 'online'" (click)="selectedModality = 'online'">
+        <mat-icon>videocam</mat-icon> Online
+      </button>
+    </div>
+
     <div class="appointment-slots" *ngIf="!loading && slots.length">
       <button type="button" class="appointment-slot" *ngFor="let slot of slots | slice:0:30"
-              (click)="request.emit(slot)" [disabled]="booking">
+              (click)="request.emit({ slot, modality: selectedModality })" [disabled]="booking">
         <span class="appointment-slot-date">{{ formatDate(slot.startsAt) }}</span>
         <strong>{{ formatTime(slot.startsAt) }}</strong>
         <span class="appointment-slot-action">Reservar <mat-icon>arrow_forward</mat-icon></span>
