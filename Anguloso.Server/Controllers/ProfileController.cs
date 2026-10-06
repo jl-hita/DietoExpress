@@ -93,7 +93,7 @@ public class ProfileController : ControllerBase
             ClinicName = user.clinic_name, ClinicAddress = user.clinic_address, ClinicPhone = user.clinic_phone,
             ClinicLogo = user.clinic_logo, DirectoryEnabled = user.directory_enabled ?? false,
             OnlineConsultations = user.online_consultations ?? false, DirectoryCity = user.directory_city ?? string.Empty,
-            DirectoryBio = user.directory_bio ?? string.Empty, DirectorySpecialties = user.directory_specialties ?? string.Empty,
+            DirectoryProvince = user.directory_province ?? string.Empty, DirectoryBio = user.directory_bio ?? string.Empty, DirectorySpecialties = user.directory_specialties ?? string.Empty,
             DirectorySlug = user.directory_slug ?? string.Empty
         });
     }
