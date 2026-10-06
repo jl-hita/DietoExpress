@@ -33,6 +33,11 @@ interface GuidedConsultationResponse {
   activeDiet?: any;
   openTasks?: any[];
   followupSignals?: any[];
+  biometrics?: {
+    latest?: any;
+    previous?: any;
+    changes?: { weight?: number | null; bodyFat?: number | null; muscleMass?: number | null; waist?: number | null } | null;
+  };
 }
 
 @Component({
@@ -84,6 +89,10 @@ interface GuidedConsultationResponse {
               <div class="summary-card"><span>Objetivos</span><strong>{{ goalsText ? 'Ya definidos' : 'Por definir' }}</strong><small>Concretar prioridades del paciente.</small></div>
               <div class="summary-card"><span>Plan</span><strong>{{ activeDiet ? 'Dieta activa' : 'Por configurar' }}</strong><small>Decidir el plan de trabajo inicial.</small></div>
             </div>
+            <div class="signal-panel" *ngIf="preConsultationSignals.length">
+              <h3>Señales para revisar</h3>
+              <div class="signal-list"><span *ngFor="let signal of preConsultationSignals">{{ signal.label }}<b *ngIf="signal.value !== null && signal.value !== undefined">{{ signal.value }}</b></span></div>
+            </div>
             <div class="pre-summary" *ngIf="!isFirstConsultation && (previousAppointment || preConsultationTasks.length)">
               <div class="summary-card" *ngIf="previousAppointment"><span>Consulta anterior</span><strong>{{ previousAppointment.starts_at | date:'dd/MM/yyyy' }}</strong><small>{{ previousAppointment.professional_notes || 'Sin notas registradas.' }}</small></div>
               <div class="summary-card" *ngIf="preConsultationTasks.length"><span>Tareas abiertas</span><strong>{{ preConsultationTasks.length }}</strong><small>Revisar antes de cerrar el seguimiento.</small></div>
@@ -104,6 +113,21 @@ interface GuidedConsultationResponse {
               </div>
             </div>
             <div class="empty" *ngIf="!followupHistory.length"><mat-icon>timeline</mat-icon><span>{{ isFirstConsultation ? 'No hay datos previos: utiliza la consulta para establecer la línea de base.' : 'No hay histórico de check-ins.' }}</span></div>
+            <div class="quick-form" *ngIf="data.biometrics?.latest">
+              <h3>Última valoración antropométrica</h3>
+              <div class="metric-grid">
+                <div><span>Fecha</span><strong>{{ data.biometrics.latest.measurement_date | date:'dd/MM/yyyy' }}</strong></div>
+                <div><span>Peso</span><strong>{{ data.biometrics.latest.weight ?? '—' }} kg</strong></div>
+                <div><span>Altura</span><strong>{{ data.biometrics.latest.height ?? '—' }} cm</strong></div>
+                <div><span>Grasa corporal</span><strong>{{ data.biometrics.latest.body_fat ?? '—' }} %</strong></div>
+              </div>
+              <div class="change-grid" *ngIf="data.biometrics.changes">
+                <span *ngIf="data.biometrics.changes.weight !== null && data.biometrics.changes.weight !== undefined">Peso: {{ data.biometrics.changes.weight > 0 ? '+' : '' }}{{ data.biometrics.changes.weight | number:'1.1-1' }} kg</span>
+                <span *ngIf="data.biometrics.changes.bodyFat !== null && data.biometrics.changes.bodyFat !== undefined">Grasa: {{ data.biometrics.changes.bodyFat > 0 ? '+' : '' }}{{ data.biometrics.changes.bodyFat | number:'1.1-1' }} pp</span>
+                <span *ngIf="data.biometrics.changes.muscleMass !== null && data.biometrics.changes.muscleMass !== undefined">Masa muscular: {{ data.biometrics.changes.muscleMass > 0 ? '+' : '' }}{{ data.biometrics.changes.muscleMass | number:'1.1-1' }} kg</span>
+                <span *ngIf="data.biometrics.changes.waist !== null && data.biometrics.changes.waist !== undefined">Cintura: {{ data.biometrics.changes.waist > 0 ? '+' : '' }}{{ data.biometrics.changes.waist | number:'1.1-1' }} cm</span>
+              </div>
+            </div>
             <button mat-stroked-button type="button" (click)="openPatient()"><mat-icon>open_in_new</mat-icon> Abrir ficha del paciente</button>
           </section>
 
@@ -129,6 +153,12 @@ interface GuidedConsultationResponse {
             <div class="form-grid">
               <label>Objetivos y cambios acordados
                 <textarea rows="7" [(ngModel)]="goalsText" (blur)="saveClinicalProgress()" [placeholder]="isFirstConsultation ? 'Objetivos iniciales, prioridades del paciente, metas medibles…' : 'Objetivos concretos, cambios acordados, prioridades para la siguiente revisión…'"></textarea>
+              </label>
+              <label>Decisiones clínicas y acuerdos
+                <textarea rows="5" [(ngModel)]="decisionSummary" (blur)="saveClinicalProgress()" placeholder="Decisiones tomadas, ajustes aprobados y acuerdos con el paciente…"></textarea>
+              </label>
+              <label>Acciones y tareas acordadas
+                <textarea rows="5" [(ngModel)]="actionsSummary" (blur)="saveClinicalProgress()" placeholder="Qué se hará, quién lo hará y qué debe quedar resuelto…"></textarea>
               </label>
               <label>Observaciones clínicas
                 <textarea rows="5" [(ngModel)]="clinicalNotes" (blur)="saveClinicalProgress()" placeholder="Observaciones relevantes de la consulta…"></textarea>
@@ -164,6 +194,9 @@ interface GuidedConsultationResponse {
           <section class="card" *ngIf="currentStep === 'education'">
             <div class="card-title"><mat-icon>school</mat-icon><div><h2>{{ isFirstConsultation ? 'Educación inicial' : 'Educación y recomendaciones' }}</h2><p>{{ isFirstConsultation ? 'Deja registrados los conceptos y hábitos explicados en la primera consulta.' : 'Registra los puntos que quieres reforzar con el paciente.' }}</p></div></div>
             <div class="form-grid">
+              <label>Plan para la próxima consulta
+                <textarea rows="5" [(ngModel)]="nextConsultationPlan" (blur)="saveClinicalProgress()" placeholder="Qué revisar en la próxima visita, objetivos o datos que deben estar disponibles…"></textarea>
+              </label>
               <label>Educación y recomendaciones
                 <textarea rows="8" [(ngModel)]="educationText" (blur)="saveClinicalProgress()" placeholder="Recomendaciones explicadas, hábitos trabajados, educación nutricional…"></textarea>
               </label>
@@ -248,7 +281,7 @@ interface GuidedConsultationResponse {
     <div class="loading" *ngIf="loading"><mat-spinner diameter="40"></mat-spinner><span>Preparando consulta…</span></div>
   `,
   styles: [`
-    .consultation-page{width:100%;padding:28px 24px 44px;box-sizing:border-box}.consultation-header{display:flex;justify-content:space-between;gap:20px;align-items:flex-end;margin-bottom:22px}.eyebrow{font-size:11px;font-weight:800;letter-spacing:1.2px;color:#0f766e}.consultation-header h1{margin:5px 0 4px;font-size:30px;color:#0f172a}.consultation-header p{margin:0;color:#64748b}.header-actions{display:flex;align-items:center;gap:12px}.status{padding:7px 11px;border-radius:999px;background:#fef3c7;color:#92400e;font-size:12px;font-weight:700}.status.completed{background:#dcfce7;color:#166534}.flow-layout{display:grid;grid-template-columns:280px minmax(0,1fr);gap:20px;align-items:start}.stepper{position:sticky;top:18px;display:grid;gap:6px}.stepper button{border:1px solid transparent;background:#f8fafc;border-radius:11px;padding:10px;text-align:left;display:flex;gap:10px;align-items:center;cursor:pointer}.stepper button.active{background:#ecfeff;border-color:#99f6e4}.stepper button.done{background:#f0fdf4}.step-number{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#e2e8f0;color:#475569;font-size:12px;font-weight:700;flex:none}.stepper button.active .step-number{background:#0f766e;color:#fff}.stepper button.done .step-number{background:#16a34a;color:#fff}.stepper strong{display:block;font-size:12px;color:#0f172a}.stepper small{display:block;color:#64748b;font-size:10px;margin-top:2px}.step-content{min-width:0}.card{background:#fff;border:1px solid #e2e8f0;border-radius:15px;padding:22px;min-height:270px;box-sizing:border-box}.card-title{display:flex;gap:12px;align-items:flex-start;margin-bottom:20px}.card-title>mat-icon{color:#0f766e}.card-title h2{margin:0 0 4px;font-size:20px;color:#0f172a}.card-title p{margin:0;color:#64748b;font-size:12px}.summary-grid,.metric-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.history-table{border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin:14px 0}.history-row{display:grid;grid-template-columns:1.2fr repeat(4,1fr);gap:8px;padding:10px 12px;border-top:1px solid #e2e8f0;font-size:12px;color:#334155}.history-head{border-top:0;background:#f8fafc;font-weight:700;color:#64748b}.task-list{display:grid;gap:8px;margin-bottom:16px}.pre-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}.summary-card{padding:14px;border:1px solid #e2e8f0;border-radius:11px;background:#fff;display:grid;gap:5px}.summary-card span{font-size:11px;color:#64748b}.summary-card strong{font-size:16px;color:#0f172a}.summary-card small{font-size:11px;color:#64748b}.mode-banner{display:flex;gap:10px;align-items:flex-start;padding:14px;border:1px solid #cbd5e1;border-radius:11px;background:#f8fafc;margin-bottom:16px}.mode-banner>mat-icon{color:#0f766e}.mode-banner strong{display:block;font-size:13px;color:#0f172a}.mode-banner span{display:block;margin-top:3px;font-size:12px;color:#64748b;line-height:1.45}.mode-banner.followup{background:#eff6ff;border-color:#bfdbfe}.mode-banner.followup>mat-icon{color:#2563eb}.signal-panel{margin-bottom:18px;padding:15px;border:1px solid #fed7aa;border-radius:11px;background:#fff7ed}.signal-panel h3{margin:0 0 10px;font-size:14px}.signal-list{display:flex;flex-wrap:wrap;gap:8px}.signal-list span{padding:7px 10px;border-radius:999px;background:#ffedd5;font-size:12px;color:#9a3412}.signal-list b{margin-left:4px}.quick-form{margin-top:18px;padding:15px;border:1px solid #e2e8f0;border-radius:11px;background:#f8fafc}.quick-form h3{margin:0 0 12px;font-size:14px;color:#0f172a}.inline-fields{display:flex;gap:12px;flex-wrap:wrap}.inline-fields label{flex:1;min-width:130px;display:grid;gap:6px;font-size:11px;font-weight:700;color:#334155}.inline-fields input,.inline-fields select{box-sizing:border-box;width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:9px;background:#fff;font:inherit}.slot-status{align-self:end;padding:10px;color:#64748b;font-size:12px}.slot-list{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.slot-list button{border:1px solid #cbd5e1;background:#fff;border-radius:9px;padding:9px 11px;cursor:pointer;color:#334155}.slot-list button.selected{border-color:#0f766e;background:#ecfeff;color:#0f766e;font-weight:700}.task-item{display:flex;justify-content:space-between;gap:12px;padding:12px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc}.task-item strong{display:block;font-size:13px;color:#0f172a}.task-item small{display:block;margin-top:3px;color:#64748b;font-size:11px}.task-item>span{font-size:10px;font-weight:800;text-transform:uppercase;color:#0f766e}.form-grid{display:grid;gap:16px}.form-grid label{display:grid;gap:7px;font-size:12px;font-weight:700;color:#334155}.form-grid textarea{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:10px;padding:12px;font:inherit;font-weight:400;resize:vertical;min-height:90px}.save-state{display:block;margin-top:8px;color:#64748b}.save-state.saved{color:#15803d}.summary-grid>div,.metric-grid>div{padding:14px;border-radius:10px;background:#f8fafc}.summary-grid span,.metric-grid span{display:block;color:#64748b;font-size:11px}.summary-grid strong,.metric-grid strong{display:block;margin-top:4px;color:#0f172a;font-size:14px}.helper{padding:14px;border-radius:10px;background:#f8fafc;color:#64748b;font-size:13px;line-height:1.5;margin-bottom:15px}.placeholder{min-height:130px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#94a3b8;text-align:center}.placeholder mat-icon{font-size:38px;width:38px;height:38px}.actions{display:flex;align-items:center;gap:12px;margin-top:18px}.reviewed{display:flex;align-items:center;gap:6px;color:#15803d;font-size:12px}.navigation{display:flex;justify-content:space-between;gap:10px;margin-top:16px}.empty{min-height:120px;display:flex;align-items:center;justify-content:center;gap:8px;color:#94a3b8}.loading{min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#64748b}@media(max-width:850px){.consultation-page{padding:20px 14px 36px}.consultation-header{align-items:stretch;flex-direction:column}.header-actions{justify-content:space-between}.flow-layout{grid-template-columns:1fr}.stepper{position:static;display:flex;overflow:auto;padding-bottom:3px}.stepper button{min-width:190px}.summary-grid,.metric-grid{grid-template-columns:1fr}.history-row{grid-template-columns:1fr 1fr}.history-head{display:none}}
+    .consultation-page{width:100%;padding:28px 24px 44px;box-sizing:border-box}.consultation-header{display:flex;justify-content:space-between;gap:20px;align-items:flex-end;margin-bottom:22px}.eyebrow{font-size:11px;font-weight:800;letter-spacing:1.2px;color:#0f766e}.consultation-header h1{margin:5px 0 4px;font-size:30px;color:#0f172a}.consultation-header p{margin:0;color:#64748b}.header-actions{display:flex;align-items:center;gap:12px}.status{padding:7px 11px;border-radius:999px;background:#fef3c7;color:#92400e;font-size:12px;font-weight:700}.status.completed{background:#dcfce7;color:#166534}.flow-layout{display:grid;grid-template-columns:280px minmax(0,1fr);gap:20px;align-items:start}.stepper{position:sticky;top:18px;display:grid;gap:6px}.stepper button{border:1px solid transparent;background:#f8fafc;border-radius:11px;padding:10px;text-align:left;display:flex;gap:10px;align-items:center;cursor:pointer}.stepper button.active{background:#ecfeff;border-color:#99f6e4}.stepper button.done{background:#f0fdf4}.step-number{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#e2e8f0;color:#475569;font-size:12px;font-weight:700;flex:none}.stepper button.active .step-number{background:#0f766e;color:#fff}.stepper button.done .step-number{background:#16a34a;color:#fff}.stepper strong{display:block;font-size:12px;color:#0f172a}.stepper small{display:block;color:#64748b;font-size:10px;margin-top:2px}.step-content{min-width:0}.card{background:#fff;border:1px solid #e2e8f0;border-radius:15px;padding:22px;min-height:270px;box-sizing:border-box}.card-title{display:flex;gap:12px;align-items:flex-start;margin-bottom:20px}.card-title>mat-icon{color:#0f766e}.card-title h2{margin:0 0 4px;font-size:20px;color:#0f172a}.card-title p{margin:0;color:#64748b;font-size:12px}.summary-grid,.metric-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.history-table{border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin:14px 0}.history-row{display:grid;grid-template-columns:1.2fr repeat(4,1fr);gap:8px;padding:10px 12px;border-top:1px solid #e2e8f0;font-size:12px;color:#334155}.history-head{border-top:0;background:#f8fafc;font-weight:700;color:#64748b}.task-list{display:grid;gap:8px;margin-bottom:16px}.pre-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}.summary-card{padding:14px;border:1px solid #e2e8f0;border-radius:11px;background:#fff;display:grid;gap:5px}.summary-card span{font-size:11px;color:#64748b}.summary-card strong{font-size:16px;color:#0f172a}.summary-card small{font-size:11px;color:#64748b}.mode-banner{display:flex;gap:10px;align-items:flex-start;padding:14px;border:1px solid #cbd5e1;border-radius:11px;background:#f8fafc;margin-bottom:16px}.mode-banner>mat-icon{color:#0f766e}.mode-banner strong{display:block;font-size:13px;color:#0f172a}.mode-banner span{display:block;margin-top:3px;font-size:12px;color:#64748b;line-height:1.45}.mode-banner.followup{background:#eff6ff;border-color:#bfdbfe}.mode-banner.followup>mat-icon{color:#2563eb}.signal-panel{margin-bottom:18px;padding:15px;border:1px solid #fed7aa;border-radius:11px;background:#fff7ed}.signal-panel h3{margin:0 0 10px;font-size:14px}.signal-list{display:flex;flex-wrap:wrap;gap:8px}.signal-list span{padding:7px 10px;border-radius:999px;background:#ffedd5;font-size:12px;color:#9a3412}.signal-list b{margin-left:4px}.quick-form{margin-top:18px;padding:15px;border:1px solid #e2e8f0;border-radius:11px;background:#f8fafc}.quick-form h3{margin:0 0 12px;font-size:14px;color:#0f172a}.inline-fields{display:flex;gap:12px;flex-wrap:wrap}.inline-fields label{flex:1;min-width:130px;display:grid;gap:6px;font-size:11px;font-weight:700;color:#334155}.inline-fields input,.inline-fields select{box-sizing:border-box;width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:9px;background:#fff;font:inherit}.slot-status{align-self:end;padding:10px;color:#64748b;font-size:12px}.slot-list{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.slot-list button{border:1px solid #cbd5e1;background:#fff;border-radius:9px;padding:9px 11px;cursor:pointer;color:#334155}.slot-list button.selected{border-color:#0f766e;background:#ecfeff;color:#0f766e;font-weight:700}.task-item{display:flex;justify-content:space-between;gap:12px;padding:12px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc}.task-item strong{display:block;font-size:13px;color:#0f172a}.task-item small{display:block;margin-top:3px;color:#64748b;font-size:11px}.task-item>span{font-size:10px;font-weight:800;text-transform:uppercase;color:#0f766e}.form-grid{display:grid;gap:16px}.form-grid label{display:grid;gap:7px;font-size:12px;font-weight:700;color:#334155}.form-grid textarea{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:10px;padding:12px;font:inherit;font-weight:400;resize:vertical;min-height:90px}.save-state{display:block;margin-top:8px;color:#64748b}.save-state.saved{color:#15803d}.change-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.change-grid span{padding:7px 10px;border-radius:999px;background:#ecfeff;color:#0f766e;font-size:11px;font-weight:700}.summary-grid>div,.metric-grid>div{padding:14px;border-radius:10px;background:#f8fafc}.summary-grid span,.metric-grid span{display:block;color:#64748b;font-size:11px}.summary-grid strong,.metric-grid strong{display:block;margin-top:4px;color:#0f172a;font-size:14px}.helper{padding:14px;border-radius:10px;background:#f8fafc;color:#64748b;font-size:13px;line-height:1.5;margin-bottom:15px}.placeholder{min-height:130px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#94a3b8;text-align:center}.placeholder mat-icon{font-size:38px;width:38px;height:38px}.actions{display:flex;align-items:center;gap:12px;margin-top:18px}.reviewed{display:flex;align-items:center;gap:6px;color:#15803d;font-size:12px}.navigation{display:flex;justify-content:space-between;gap:10px;margin-top:16px}.empty{min-height:120px;display:flex;align-items:center;justify-content:center;gap:8px;color:#94a3b8}.loading{min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#64748b}@media(max-width:850px){.consultation-page{padding:20px 14px 36px}.consultation-header{align-items:stretch;flex-direction:column}.header-actions{justify-content:space-between}.flow-layout{grid-template-columns:1fr}.stepper{position:static;display:flex;overflow:auto;padding-bottom:3px}.stepper button{min-width:190px}.summary-grid,.metric-grid{grid-template-columns:1fr}.history-row{grid-template-columns:1fr 1fr}.history-head{display:none}}
   `]
 })
 export class GuidedConsultationComponent implements OnInit {
@@ -261,6 +294,9 @@ export class GuidedConsultationComponent implements OnInit {
   goalsText = '';
   educationText = '';
   clinicalNotes = '';
+  decisionSummary = '';
+  actionsSummary = '';
+  nextConsultationPlan = '';
   clinicalSaveState: 'idle' | 'saving' | 'saved' | 'error' = 'idle';
   activeDiet: any = null;
   pendingTasks: any[] = [];
@@ -356,6 +392,9 @@ export class GuidedConsultationComponent implements OnInit {
     this.goalsText = typeof progress.goals === 'string' ? progress.goals : '';
     this.educationText = typeof progress.education === 'string' ? progress.education : '';
     this.clinicalNotes = typeof progress.clinicalNotes === 'string' ? progress.clinicalNotes : '';
+    this.decisionSummary = typeof progress.decisionSummary === 'string' ? progress.decisionSummary : (this.consultation?.decisionSummary || '');
+    this.actionsSummary = typeof progress.actionsSummary === 'string' ? progress.actionsSummary : (this.consultation?.actionsSummary || '');
+    this.nextConsultationPlan = typeof progress.nextConsultationPlan === 'string' ? progress.nextConsultationPlan : (this.consultation?.nextConsultationPlan || '');
   }
 
   loadFollowupHistory(): void {
@@ -401,7 +440,10 @@ export class GuidedConsultationComponent implements OnInit {
       ...(this.consultation.progress || {}),
       goals: this.goalsText.trim(),
       education: this.educationText.trim(),
-      clinicalNotes: this.clinicalNotes.trim()
+      clinicalNotes: this.clinicalNotes.trim(),
+      decisionSummary: this.decisionSummary.trim(),
+      actionsSummary: this.actionsSummary.trim(),
+      nextConsultationPlan: this.nextConsultationPlan.trim()
     };
     this.portalService.updateGuidedConsultationProgress(this.data.appointment.id, {
       currentStep: this.currentStep,
