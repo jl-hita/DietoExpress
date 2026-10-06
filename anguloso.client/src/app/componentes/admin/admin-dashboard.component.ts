@@ -270,9 +270,9 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
         </div>
 
         <mat-tab-group animationDuration="0ms" class="config-tabs">
-          <mat-tab *ngFor="let tab of configTabs" [label]="tab.label">
+          <mat-tab *ngFor="let tab of configTabs"><ng-template mat-tab-label>{{ tab.label }}</ng-template>
             <div class="config-tab-content">
-              <div class="config-grid" *ngIf="configsFor(tab.key).length; else emptyConfig">
+              <div class="config-grid" *ngIf="configsFor(tab.key).length > 0">
                 <mat-card class="config-item" *ngFor="let config of configsFor(tab.key)">
                   <div class="config-item-header"><div><strong>{{ config.nombre }}</strong><span class="config-description">{{ config.descripcion }}</span></div><span class="secret-badge" *ngIf="config.esSecreta">Secreto</span></div>
                   <mat-form-field appearance="outline" class="config-value-field">
@@ -282,7 +282,7 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
                   </mat-form-field>
                 </mat-card>
               </div>
-              <ng-template #emptyConfig><div class="empty-state"><mat-icon>settings_off</mat-icon><p>No hay configuración en esta categoría.</p></div></ng-template>
+              <div *ngIf="configsFor(tab.key).length === 0" class="empty-state"><mat-icon>settings_off</mat-icon><p>No hay configuración en esta categoría.</p></div>
             </div>
           </mat-tab>
         </mat-tab-group>
