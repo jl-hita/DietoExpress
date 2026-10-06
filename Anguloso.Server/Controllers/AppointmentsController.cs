@@ -22,8 +22,9 @@ public class AppointmentsController : ControllerBase
     private readonly AutomationService _automationService;
     private readonly GoogleCalendarService _googleCalendar;
     private readonly AppointmentConcurrencyService _appointmentConcurrency;
+    private readonly IVideoMeetingProvider _videoMeetings;
 
-    public AppointmentsController(angulosodbContext context, EmailServ emailServ, NotificationService notifications, AutomationService automationService, GoogleCalendarService googleCalendar, AppointmentConcurrencyService appointmentConcurrency)
+    public AppointmentsController(angulosodbContext context, EmailServ emailServ, NotificationService notifications, AutomationService automationService, GoogleCalendarService googleCalendar, AppointmentConcurrencyService appointmentConcurrency, IVideoMeetingProvider videoMeetings)
     {
         _context = context;
         _emailServ = emailServ;
@@ -31,6 +32,7 @@ public class AppointmentsController : ControllerBase
         _automationService = automationService;
         _googleCalendar = googleCalendar;
         _appointmentConcurrency = appointmentConcurrency;
+        _videoMeetings = videoMeetings;
     }
 
     [Authorize(Roles = "patient")]
@@ -115,6 +117,8 @@ public class AppointmentsController : ControllerBase
         var clientId = GetPatientClientId();
         if (clientId == null) return Unauthorized();
         if (request.DurationMinutes is < 15 or > 120) return BadRequest(new { message = "La duración de la cita no es válida." });
+        var requestedModality = request.Modality?.Trim().ToLowerInvariant() ?? "in_person";
+        if (requestedModality is not ("in_person" or "online")) return BadRequest(new { message = "La modalidad de la cita no es válida." });
         if (request.PatientNotes?.Length > 2000) return BadRequest(new { message = "El comentario no puede superar los 2000 caracteres." });
 
         var client = await _context.clients.FirstOrDefaultAsync(c => c.id == clientId.Value && c.archived_at == null);
@@ -132,6 +136,8 @@ public class AppointmentsController : ControllerBase
             .AnyAsync(u => u.id == nutritionistId.Value && u.tenant_id == client.tenant_id);
         if (!nutritionistBelongsToTenant)
             return BadRequest(new { message = "El nutricionista asignado no está disponible." });
+        if (requestedModality == "online" && !await _context.users.AsNoTracking().AnyAsync(u => u.id == nutritionistId.Value && u.tenant_id == client.tenant_id && u.online_consultations == true))
+            return BadRequest(new { message = "El nutricionista no tiene habilitadas las consultas online." });
 
         if (request.StartsAt.Kind != DateTimeKind.Utc)
             return BadRequest(new { message = "La fecha de la cita debe incluir zona horaria." });
@@ -168,6 +174,7 @@ public class AppointmentsController : ControllerBase
             starts_at = startsUtc,
             ends_at = endsUtc,
             status = "requested",
+            modality = requestedModality,
             patient_notes = request.PatientNotes?.Trim()
         };
         _context.patient_appointments.Add(appointment);
@@ -399,6 +406,39 @@ public class AppointmentsController : ControllerBase
             return BadRequest(new { message = "La transición de estado de la cita no es válida." });
 
         var previousStatus = appointment.status;
+        VideoMeetingRoom? createdVideoRoom = null;
+        if (requestedStatus == "confirmed" && previousStatus != "confirmed" &&
+            appointment.modality == "online" && string.IsNullOrWhiteSpace(appointment.video_room_name))
+        {
+            try
+            {
+                createdVideoRoom = await _videoMeetings.CreatePrivateRoomAsync(
+                    $"appointment-{appointment.id}",
+                    appointment.starts_at,
+                    appointment.ends_at,
+                    HttpContext.RequestAborted);
+
+                appointment.video_provider = createdVideoRoom.Provider;
+                appointment.video_room_name = createdVideoRoom.RoomName;
+                appointment.video_room_url = createdVideoRoom.RoomUrl;
+                appointment.video_expires_at = createdVideoRoom.ExpiresAtUtc;
+            }
+            catch (InvalidOperationException ex)
+            {
+                return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+                {
+                    message = "Las consultas online no están disponibles en este momento."
+                });
+            }
+            catch (HttpRequestException ex)
+            {
+                return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+                {
+                    message = "No se ha podido preparar la sala de la consulta online."
+                });
+            }
+        }
+
         appointment.status = requestedStatus;
         appointment.professional_notes = request.ProfessionalNotes?.Trim();
         appointment.updated_at = DateTime.UtcNow;
@@ -463,6 +503,23 @@ public class AppointmentsController : ControllerBase
 
         if (requestedStatus == "cancelled" && previousStatus != "cancelled")
         {
+            if (!string.IsNullOrWhiteSpace(appointment.video_room_name))
+            {
+                try
+                {
+                    await _videoMeetings.DeleteRoomAsync(appointment.video_room_name, HttpContext.RequestAborted);
+                    appointment.video_room_name = null;
+                    appointment.video_room_url = null;
+                    appointment.video_provider = null;
+                    appointment.video_expires_at = null;
+                    await _context.SaveChangesAsync();
+                }
+                catch (Exception ex)
+                {
+                    HttpContext.RequestServices.GetRequiredService<ILogger<AppointmentsController>>()
+                        .LogWarning(ex, "No se pudo eliminar la sala online de la cita {AppointmentId}.", appointment.id);
+                }
+            }
             var safeName = System.Net.WebUtility.HtmlEncode(appointment.client.full_name ?? "Paciente");
             var safeNutritionist = System.Net.WebUtility.HtmlEncode(appointment.nutritionist.full_name ?? "tu nutricionista");
             var localStart = TimeZoneInfo.ConvertTimeFromUtc(appointment.starts_at, GetMadridTimeZone());
@@ -523,6 +580,65 @@ public class AppointmentsController : ControllerBase
         }
 
         return Ok(await ToDtoQuery(appointment.id));
+    }
+
+    [Authorize(Roles = "patient,nutritionist")]
+    [HttpGet("{id:int}/video-access")]
+    public async Task<IActionResult> GetVideoAccess(int id)
+    {
+        var appointment = await _context.patient_appointments.AsNoTracking()
+            .Include(a => a.client)
+            .Include(a => a.nutritionist)
+            .FirstOrDefaultAsync(a => a.id == id);
+
+        if (appointment == null) return NotFound();
+        if (appointment.modality != "online" || appointment.status != "confirmed" ||
+            string.IsNullOrWhiteSpace(appointment.video_room_name) ||
+            string.IsNullOrWhiteSpace(appointment.video_room_url) ||
+            !appointment.video_expires_at.HasValue)
+            return Conflict(new { message = "La cita no dispone de una consulta online activa." });
+
+        if (User.IsInRole("patient"))
+        {
+            var clientId = GetPatientClientId();
+            if (clientId == null || clientId.Value != appointment.client_id)
+                return NotFound();
+        }
+        else
+        {
+            var userId = AuthHelpers.GetUserId(User);
+            var tenantId = AuthHelpers.GetTenantId(User);
+            if (userId == null || tenantId == null || tenantId.Value != appointment.tenant_id || userId.Value != appointment.nutritionist_id)
+                return Forbid();
+        }
+
+        var now = DateTime.UtcNow;
+        var notBefore = appointment.starts_at.AddMinutes(-15);
+        if (now < notBefore)
+            return Conflict(new { message = "La sala estará disponible 15 minutos antes de la cita.", availableFrom = notBefore });
+        if (now >= appointment.video_expires_at.Value)
+            return Conflict(new { message = "El acceso a la sala ha expirado." });
+
+        var isOwner = User.IsInRole("nutritionist");
+        var displayName = isOwner
+            ? (appointment.nutritionist.full_name ?? "Nutricionista")
+            : (appointment.client.full_name ?? "Paciente");
+        var token = await _videoMeetings.CreateMeetingTokenAsync(
+            appointment.video_room_name,
+            displayName,
+            $"{(isOwner ? "nutritionist" : "patient")}:{(isOwner ? appointment.nutritionist_id : appointment.client_id)}",
+            isOwner,
+            notBefore,
+            appointment.video_expires_at.Value,
+            HttpContext.RequestAborted);
+
+        return Ok(new
+        {
+            provider = appointment.video_provider,
+            roomUrl = appointment.video_room_url,
+            token,
+            expiresAt = appointment.video_expires_at.Value
+        });
     }
 
     private bool ValidateAvailabilityRequest(SaveAvailabilityRequestDto request, out TimeOnly start, out TimeOnly end, out string message)
@@ -596,7 +712,8 @@ public class AppointmentsController : ControllerBase
         Id = a.id, StartsAt = a.starts_at, EndsAt = a.ends_at, Status = a.status,
         PatientNotes = a.patient_notes, ProfessionalNotes = a.professional_notes,
         ClientId = a.client_id, ClientName = a.client.full_name,
-        NutritionistId = a.nutritionist_id, NutritionistName = a.nutritionist.full_name
+        NutritionistId = a.nutritionist_id, NutritionistName = a.nutritionist.full_name,
+        Modality = a.modality, VideoProvider = a.video_provider, VideoRoomUrl = a.video_room_url, VideoExpiresAt = a.video_expires_at
     };
 
     private static TimeZoneInfo GetMadridTimeZone()
