@@ -1604,7 +1604,7 @@ public class AuthorizationRegressionTests
             "RequestPublicAppointment(\n        string slug,\n        [FromBody] PublicAppointmentRequestDto request)",
             method);
         Assert.Contains("u.directory_slug == normalized", method);
-        Assert.Contains("Select(u => new { u.id, u.tenant_id, u.full_name })", method);
+        Assert.Contains("Select(u => new { u.id, u.tenant_id, u.full_name, u.online_consultations })", method);
         Assert.DoesNotContain("request.TenantId", method);
         Assert.DoesNotContain("request.NutritionistId", method);
         Assert.DoesNotContain("[FromQuery] int tenantId", method);
