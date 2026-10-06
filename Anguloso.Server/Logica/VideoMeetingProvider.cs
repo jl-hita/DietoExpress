@@ -52,7 +52,7 @@ public sealed class LiveKitVideoMeetingProvider : IVideoMeetingProvider
         _logger = logger;
         if (_options.IsConfigured)
         {
-            _rooms = new RoomServiceClient(_options.ServerUrl, _options.ApiKey, _options.ApiSecret);
+            _rooms = new RoomServiceClient(ToApiUrl(_options.ServerUrl), _options.ApiKey, _options.ApiSecret);
         }
         else
         {
@@ -155,4 +155,11 @@ public sealed class LiveKitVideoMeetingProvider : IVideoMeetingProvider
         if (!_options.IsConfigured)
             throw new InvalidOperationException("El proveedor de videollamadas no está configurado.");
     }
+
+    private static string ToApiUrl(string serverUrl) =>
+        serverUrl.StartsWith("wss://", StringComparison.OrdinalIgnoreCase)
+            ? "https://" + serverUrl["wss://".Length..]
+            : serverUrl.StartsWith("ws://", StringComparison.OrdinalIgnoreCase)
+                ? "http://" + serverUrl["ws://".Length..]
+                : serverUrl;
 }
