@@ -7,6 +7,7 @@ public class DirectoryProfileDto
     public string FullName { get; set; } = string.Empty;
     public string ClinicName { get; set; } = string.Empty;
     public string City { get; set; } = string.Empty;
+    public string Province { get; set; } = string.Empty;
     public string ClinicLogo { get; set; } = string.Empty;
     public string PublicBio { get; set; } = string.Empty;
     public string Specialties { get; set; } = string.Empty;
@@ -16,6 +17,7 @@ public class DirectoryProfileDto
 public class DirectorySearchDto
 {
     public string? City { get; set; }
+    public string? Province { get; set; }
     public bool? Online { get; set; }
     public string? Speciality { get; set; }
 }
