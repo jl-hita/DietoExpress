@@ -81,7 +81,7 @@ public sealed class LiveKitAnalyticsService
             }
 
             return new(true, total, sessions.Sessions?.Count ?? 0, from, to,
-                sessions.Sessions?.Count >= 100 ? "Se muestran las primeras 100 sesiones del periodo." : null);
+                (sessions.Sessions?.Count ?? 0) >= 100 ? "Se muestran las primeras 100 sesiones del periodo." : null);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
