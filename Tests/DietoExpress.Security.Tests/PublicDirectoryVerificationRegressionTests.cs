@@ -23,8 +23,8 @@ public class PublicDirectoryVerificationRegressionTests
     {
         var source = Read("Anguloso.Server/Controllers/DirectoryController.cs");
 
-        Assert.Contains("u.directory_publication_status == "published"", source);
-        Assert.Contains("u.role == "nutritionist"", source);
+        Assert.Contains("u.directory_publication_status == \"published\"", source);
+        Assert.Contains("u.role == \"nutritionist\"", source);
         Assert.Contains("u.directory_enabled == true", source);
     }
 
@@ -33,7 +33,7 @@ public class PublicDirectoryVerificationRegressionTests
     {
         var source = Read("Anguloso.Server/Controllers/ProfileController.cs");
 
-        Assert.Contains("user.directory_publication_status = "pending"", source);
+        Assert.Contains("user.directory_publication_status = \"pending\"", source);
         Assert.Contains("publicProfileChanged", source);
         Assert.Contains("user.full_name, dto.FullName", source);
         Assert.Contains("user.clinic_name, dto.ClinicName", source);
@@ -45,10 +45,10 @@ public class PublicDirectoryVerificationRegressionTests
     {
         var source = Read("Anguloso.Server/Controllers/AdminDirectoryVerificationController.cs");
 
-        Assert.Contains("[Authorize(Roles = "superadmin")]", source);
+        Assert.Contains("[Authorize(Roles = \"superadmin\")]", source);
         Assert.Contains("PUBLIC_DIRECTORY_VERIFICATION_UPDATED", source);
         Assert.Contains("directory_verified_by_user_id", source);
-        Assert.Contains("status is "verified" or "published"", source);
+        Assert.Contains("status is \"verified\" or \"published\"", source);
     }
 
     [Fact]
@@ -56,7 +56,7 @@ public class PublicDirectoryVerificationRegressionTests
     {
         var source = Read("Anguloso.Server/Controllers/AdminDirectoryVerificationController.cs");
 
-        Assert.Contains("status == "published" && user.directory_enabled != true", source);
+        Assert.Contains("status == \"published\" && user.directory_enabled != true", source);
         Assert.Contains("No se puede publicar una ficha", source);
     }
 
