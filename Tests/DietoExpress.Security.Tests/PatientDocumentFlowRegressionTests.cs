@@ -84,6 +84,52 @@ public sealed class PatientDocumentFlowRegressionTests
     }
 
     [Fact]
+    public void GuidedConsultationMustExposeClinicalSummaryAndBiometricEvolution()
+    {
+        var source = ReadServerSource("Anguloso.Server/Controllers/ProfessionalConsultationsController.cs");
+
+        Assert.Contains("biometricHistory", source);
+        Assert.Contains("biometricChanges", source);
+        Assert.Contains("decisionSummary", source);
+        Assert.Contains("actionsSummary", source);
+        Assert.Contains("nextConsultationPlan", source);
+        Assert.Contains("CONSULTATION_COMPLETE", source);
+    }
+
+    [Fact]
+    public void GuidedConsultationCompletionMustPublishAppointmentCompletedAutomation()
+    {
+        var source = ReadServerSource("Anguloso.Server/Controllers/ProfessionalConsultationsController.cs");
+
+        Assert.Contains("PublishEventAsync(", source);
+        Assert.Contains(""appointment.completed"", source);
+        Assert.Contains("AppointmentCompletedPayload", source);
+        Assert.Contains("appointment:{appointment.Id}:completed", source);
+    }
+
+    [Fact]
+    public void GuidedConsultationMustAuditStartProgressAndCompletion()
+    {
+        var source = ReadServerSource("Anguloso.Server/Controllers/ProfessionalConsultationsController.cs");
+
+        Assert.Contains("CONSULTATION_START", source);
+        Assert.Contains("CONSULTATION_PROGRESS", source);
+        Assert.Contains("CONSULTATION_COMPLETE", source);
+        Assert.Contains("IAuditLogService", source);
+    }
+
+    [Fact]
+    public void ConsultationSchemaMustSupportClinicalSummaryFields()
+    {
+        var source = ReadServerSource("Anguloso.Server/Logica/DatabaseBootstrap.cs");
+
+        Assert.Contains("automation-v11-consultation-clinical-summary", source);
+        Assert.Contains("decision_summary TEXT", source);
+        Assert.Contains("actions_summary TEXT", source);
+        Assert.Contains("next_consultation_plan TEXT", source);
+    }
+
+    [Fact]
     public void PatientAcceptanceMustBeTenantAndClientBound()
     {
         var source = ReadServerSource("Anguloso.Server/Controllers/PatientDocumentsController.cs");
