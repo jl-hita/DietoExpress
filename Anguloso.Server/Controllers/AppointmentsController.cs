@@ -442,7 +442,32 @@ public class AppointmentsController : ControllerBase
         appointment.status = requestedStatus;
         appointment.professional_notes = request.ProfessionalNotes?.Trim();
         appointment.updated_at = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+
+        // La sala externa se crea antes del commit de la cita, por lo que un fallo de
+        // persistencia no debe dejar una sala huérfana accesible en Daily.
+        var createdVideoRoomName = appointment.video_room_name;
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch
+        {
+            if (!string.IsNullOrWhiteSpace(createdVideoRoomName) && previousStatus != "confirmed")
+            {
+                try
+                {
+                    await _videoMeetings.DeleteRoomAsync(createdVideoRoomName, CancellationToken.None);
+                }
+                catch (Exception cleanupEx)
+                {
+                    HttpContext.RequestServices.GetRequiredService<ILogger<AppointmentsController>>()
+                        .LogError(cleanupEx, "No se pudo limpiar la sala Daily {RoomName} tras fallar la confirmación de la cita {AppointmentId}.",
+                            createdVideoRoomName, appointment.id);
+                }
+            }
+
+            throw;
+        }
 
         if ((requestedStatus == "confirmed" && previousStatus != "confirmed") ||
             (requestedStatus == "cancelled" && previousStatus != "cancelled") ||
@@ -503,21 +528,25 @@ public class AppointmentsController : ControllerBase
 
         if (requestedStatus == "cancelled" && previousStatus != "cancelled")
         {
-            if (!string.IsNullOrWhiteSpace(appointment.video_room_name))
+            // Primero revocamos el acceso desde nuestra BD y después intentamos borrar
+            // la sala externa. Si Daily falla, el usuario sigue sin poder obtener un token.
+            var roomToDelete = appointment.video_room_name;
+            if (!string.IsNullOrWhiteSpace(roomToDelete))
             {
+                appointment.video_room_name = null;
+                appointment.video_room_url = null;
+                appointment.video_provider = null;
+                appointment.video_expires_at = null;
+                await _context.SaveChangesAsync();
+
                 try
                 {
-                    await _videoMeetings.DeleteRoomAsync(appointment.video_room_name, HttpContext.RequestAborted);
-                    appointment.video_room_name = null;
-                    appointment.video_room_url = null;
-                    appointment.video_provider = null;
-                    appointment.video_expires_at = null;
-                    await _context.SaveChangesAsync();
+                    await _videoMeetings.DeleteRoomAsync(roomToDelete, HttpContext.RequestAborted);
                 }
                 catch (Exception ex)
                 {
                     HttpContext.RequestServices.GetRequiredService<ILogger<AppointmentsController>>()
-                        .LogWarning(ex, "No se pudo eliminar la sala online de la cita {AppointmentId}.", appointment.id);
+                        .LogWarning(ex, "No se pudo eliminar la sala online de la cita {AppointmentId}; el acceso ya ha sido revocado en DietoExpress.", appointment.id);
                 }
             }
             var safeName = System.Net.WebUtility.HtmlEncode(appointment.client.full_name ?? "Paciente");
