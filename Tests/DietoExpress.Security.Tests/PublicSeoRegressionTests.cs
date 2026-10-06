@@ -28,7 +28,7 @@ public class PublicSeoRegressionTests
         Assert.Contains("PublicSeoService", component);
         Assert.Contains("setDirectorySeo", component);
         Assert.Contains("setProfileSeo", component);
-        Assert.Contains("rel = 'canonical'", service.Replace("'", """));
+        Assert.Contains("link.rel = 'canonical'", service);
         Assert.Contains("application/ld+json", service);
         Assert.Contains("Person", service);
         Assert.Contains("og:title", service);
