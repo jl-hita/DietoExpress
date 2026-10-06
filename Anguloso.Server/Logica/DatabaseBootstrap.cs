@@ -2378,5 +2378,45 @@ public static class DatabaseBootstrap
             throw;
         }
     }
+ 
+    /// <summary>Inicializa la persistencia de cuotas mensuales de videollamadas.</summary>
+    public static void UpgradeVideoQuotaSchemaV1(angulosodbContext context, ILogger logger)
+    {
+        try
+        {
+            context.Database.ExecuteSqlRaw(@"
+                CREATE TABLE IF NOT EXISTS video_usage_reservations (
+                    id BIGSERIAL PRIMARY KEY,
+                    appointment_id INTEGER NOT NULL UNIQUE REFERENCES patient_appointments(id) ON DELETE CASCADE,
+                    nutritionist_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    period_start DATE NOT NULL,
+                    participant_minutes INTEGER NOT NULL CHECK (participant_minutes > 0),
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                );
+                CREATE INDEX IF NOT EXISTS ix_video_usage_reservations_nutritionist_period
+                    ON video_usage_reservations (nutritionist_id, period_start);
+                CREATE INDEX IF NOT EXISTS ix_video_usage_reservations_period
+                    ON video_usage_reservations (period_start);
+
+                INSERT INTO config (nombre_config, valor_config) VALUES
+                    ('VIDEO_LIVEKIT_NUTRITIONIST_MONTHLY_PARTICIPANT_MINUTES','800'),
+                    ('VIDEO_LIVEKIT_GLOBAL_MONTHLY_PARTICIPANT_MINUTES','4000'),
+                    ('VIDEO_LIVEKIT_QUOTA_WARNING_PERCENT','80'),
+                    ('VIDEO_LIVEKIT_QUOTA_CRITICAL_PERCENT','90')
+                ON CONFLICT DO NOTHING;
+
+                INSERT INTO schema_migrations(id)
+                VALUES ('video-quota-v1')
+                ON CONFLICT (id) DO NOTHING;
+            ");
+            logger.LogInformation("Migración de cuotas de videollamadas aplicada correctamente.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "No se pudo inicializar la cuota de videollamadas.");
+            throw;
+        }
+    }
+
 }
 

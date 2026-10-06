@@ -30,6 +30,7 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
   error = '';
   microphoneEnabled = true;
   cameraEnabled = true;
+  quotaWarning = '';
 
   private room?: Room;
   localAudio?: LocalAudioTrack;
@@ -59,7 +60,16 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
     this.error = '';
 
     this.portalService.getVideoAccess(this.appointmentId).subscribe({
-      next: access => void this.connectToRoom(access.roomUrl, access.token),
+      next: access => {
+        if (access.quota?.critical) {
+          this.quotaWarning = 'La cuota de videollamadas está en nivel crítico. La consulta actual está autorizada, pero nuevas consultas podrían quedar bloqueadas.';
+        } else if (access.quota?.warning) {
+          this.quotaWarning = 'La cuota de videollamadas se está acercando a su límite mensual.';
+        } else {
+          this.quotaWarning = '';
+        }
+        void this.connectToRoom(access.roomUrl, access.token);
+      },
       error: err => {
         this.connecting = false;
         this.loading = false;
