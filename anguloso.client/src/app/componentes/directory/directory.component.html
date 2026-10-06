@@ -116,6 +116,21 @@
           La solicitud no requiere pago online. El profesional recibirá la petición y deberá confirmarla.
         </p>
 
+        <fieldset class="booking-modality" *ngIf="profile.onlineConsultations">
+          <legend>Modalidad</legend>
+          <label>
+            <input type="radio" name="bookingModality" [(ngModel)]="bookingModality" value="in_person" />
+            Presencial
+          </label>
+          <label>
+            <input type="radio" name="bookingModality" [(ngModel)]="bookingModality" value="online" />
+            Consulta online
+          </label>
+          <small *ngIf="bookingModality === 'online'">
+            Recibirás el acceso a la consulta online en tu portal cuando el profesional confirme la cita.
+          </small>
+        </fieldset>
+
         <div class="field">
           <label for="booking-name">Nombre completo</label>
           <input id="booking-name" name="bookingName" type="text" maxlength="200"
