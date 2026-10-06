@@ -286,7 +286,6 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
             </div>
           </mat-tab>
         </mat-tab-group>
-        </div>
       </mat-card>
     </div>
   `,
