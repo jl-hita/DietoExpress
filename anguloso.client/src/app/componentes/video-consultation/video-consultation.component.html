@@ -1,0 +1,47 @@
+<main class="video-page">
+  <header class="video-header">
+    <div>
+      <h1>Consulta online</h1>
+      <p>Conexión privada de DietoExpress</p>
+    </div>
+    <button type="button" class="leave-button" (click)="leave()" [disabled]="connecting">Salir</button>
+  </header>
+
+  @if (error) {
+    <section class="state-card error-card">
+      <h2>No se puede iniciar la consulta</h2>
+      <p>{{ error }}</p>
+      <button type="button" (click)="connect()" [disabled]="connecting">Reintentar</button>
+    </section>
+  } @else {
+    <section class="room">
+      <div class="remote-stage">
+        <div #remoteContainer class="remote-container"></div>
+        @if (!connected && !loading) {
+          <div class="waiting">Esperando conexión…</div>
+        }
+      </div>
+
+      <aside class="local-stage">
+        <video #localVideo autoplay muted playsinline></video>
+        @if (!cameraEnabled) {
+          <div class="camera-off">Cámara desactivada</div>
+        }
+      </aside>
+    </section>
+
+    <footer class="controls">
+      <button type="button" (click)="toggleMicrophone()" [disabled]="!localAudio">
+        {{ microphoneEnabled ? 'Silenciar micrófono' : 'Activar micrófono' }}
+      </button>
+      <button type="button" (click)="toggleCamera()" [disabled]="!localVideoTrack">
+        {{ cameraEnabled ? 'Apagar cámara' : 'Activar cámara' }}
+      </button>
+      <button type="button" class="leave-button" (click)="leave()">Salir de la consulta</button>
+    </footer>
+
+    @if (loading) {
+      <p class="status">Conectando con la consulta segura…</p>
+    }
+  }
+</main>

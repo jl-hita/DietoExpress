@@ -2315,11 +2315,6 @@ public static class DatabaseBootstrap
                     'addressFailoverThreshold','addressGeoapifyDailyLimit','addressLocationIqDailyLimit'
                 );
 
-                INSERT INTO config (nombre_config, valor_config) VALUES
-                    ('VIDEO_DAILY_ENABLED','0'),('VIDEO_DAILY_API_KEY',''),('VIDEO_DAILY_DOMAIN',''),
-                    ('VIDEO_DAILY_ROOM_EXPIRY_MINUTES','30'),('VIDEO_DAILY_ROOM_CREATION_LEAD_MINUTES','60')
-                ON CONFLICT DO NOTHING;
-
                 CREATE UNIQUE INDEX IF NOT EXISTS uq_config_nombre_config ON config(nombre_config);
                 INSERT INTO schema_migrations(id) VALUES ('configuration-naming-v1')
                 ON CONFLICT (id) DO NOTHING;
@@ -2333,4 +2328,43 @@ public static class DatabaseBootstrap
         }
     }
 
+
+    /// <summary>Configura y normaliza las claves del proveedor de videollamadas LiveKit.</summary>
+    public static void UpgradeVideoProviderSchemaV1(angulosodbContext context, ILogger logger)
+    {
+        try
+        {
+            context.Database.ExecuteSqlRaw(@"
+                INSERT INTO config (nombre_config, valor_config) VALUES
+                    ('VIDEO_LIVEKIT_ENABLED','0'),
+                    ('VIDEO_LIVEKIT_URL',''),
+                    ('VIDEO_LIVEKIT_API_KEY',''),
+                    ('VIDEO_LIVEKIT_API_SECRET',''),
+                    ('VIDEO_LIVEKIT_ROOM_EXPIRY_MINUTES','30'),
+                    ('VIDEO_LIVEKIT_ROOM_CREATION_LEAD_MINUTES','60'),
+                    ('VIDEO_LIVEKIT_EMPTY_ROOM_TIMEOUT_SECONDS','300')
+                ON CONFLICT DO NOTHING;
+
+                DELETE FROM config
+                WHERE nombre_config IN (
+                    'VIDEO_DAILY_ENABLED',
+                    'VIDEO_DAILY_API_KEY',
+                    'VIDEO_DAILY_DOMAIN',
+                    'VIDEO_DAILY_ROOM_EXPIRY_MINUTES',
+                    'VIDEO_DAILY_ROOM_CREATION_LEAD_MINUTES'
+                );
+
+                INSERT INTO schema_migrations(id)
+                VALUES ('video-provider-livekit-v1')
+                ON CONFLICT (id) DO NOTHING;
+            ");
+            logger.LogInformation("Migración del proveedor de videollamadas LiveKit aplicada correctamente.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "No se pudo migrar la configuración del proveedor de videollamadas a LiveKit.");
+            throw;
+        }
+    }
 }
+

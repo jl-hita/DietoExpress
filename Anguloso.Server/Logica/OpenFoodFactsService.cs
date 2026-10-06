@@ -589,6 +589,26 @@ public class OpenFoodFactsService
      *  - Si está lo ignora
      *  - Si no está lo guarda
      */
+    /// <summary>
+    /// OpenFoodFacts puede devolver valores de estado como "unknown" o "not-applicable"
+    /// además de las letras del Nutri-Score. La columna local solo almacena el código corto.
+    /// Durante esta fase de diagnóstico registramos el valor original para verificar qué
+    /// variantes está entregando realmente el proveedor.
+    /// </summary>
+    private string? NormalizeNutriscore(string? rawValue)
+    {
+        var raw = rawValue?.Trim();
+        if (string.IsNullOrWhiteSpace(raw))
+            return null;
+
+        var normalized = raw.ToLowerInvariant();
+        if (normalized is "a" or "b" or "c" or "d" or "e")
+            return normalized;
+
+        _logServ.LogWarning($"OpenFoodFacts nutriscore_grade no compatible: '{raw}'. Se normaliza a null.");
+        return null;
+    }
+
     private async Task SaveFoodToDb(OffProduct product)
     {
         try
@@ -629,7 +649,7 @@ public class OpenFoodFactsService
             food.name = product.Product_name;
             food.brands = product.Brands;
             food.category = product.Category;
-            food.nutriscore = product.Nutriscore_grade;
+            food.nutriscore = NormalizeNutriscore(product.Nutriscore_grade);
 
             // =========================
             // Serving size

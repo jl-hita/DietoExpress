@@ -149,11 +149,6 @@ public class AdminUsersController : ControllerBase
 
         if (selected != null)
         {
-            const long maxLogBytes = 2 * 1024 * 1024;
-            var fileInfo = new FileInfo(selected.Path);
-            if (fileInfo.Length > maxLogBytes)
-                return StatusCode(StatusCodes.Status413PayloadTooLarge, "El archivo de log solicitado supera el tamaño máximo de lectura.");
-
             await using var stream = new FileStream(selected.Path, FileMode.Open, FileAccess.Read,
                 FileShare.ReadWrite | FileShare.Delete, 4096, useAsync: true);
             using var reader = new StreamReader(stream);
@@ -746,11 +741,13 @@ internal static class AdminConfigMetadata
         "EMAIL_SMTP_FROM_NAME" => "Nombre visible junto al remitente en los emails. Ejemplo: «DietoExpress».",
         "EMAIL_SMTP_USERNAME" => "Usuario con el que DietoExpress se autentica contra el servidor SMTP. Ejemplo: «no-reply@tudominio.es». Es un dato sensible y se muestra oculto.",
         "EMAIL_SMTP_PASSWORD" => "Contraseña del usuario SMTP. Ejemplo: la contraseña específica de aplicación proporcionada por tu proveedor de correo. Es un secreto y nunca se muestra en pantalla.",
-        "VIDEO_DAILY_ENABLED" => "Activa o desactiva las consultas online mediante Daily. Ejemplo: «true» para permitir reservas de consulta online o «false» para desactivarlas temporalmente.",
-        "VIDEO_DAILY_API_KEY" => "Clave privada de servidor de Daily utilizada para crear y gestionar salas. Ejemplo: la API key entregada por tu cuenta de Daily. Es un secreto y no debe compartirse con el navegador.",
-        "VIDEO_DAILY_DOMAIN" => "Dominio de Daily asociado a la cuenta que utilizará DietoExpress para las salas privadas. Ejemplo: «tudominio.daily.co».",
-        "VIDEO_DAILY_ROOM_EXPIRY_MINUTES" => "Tiempo, en minutos, durante el que una sala de consulta puede permanecer disponible antes de expirar. Ejemplo: «60» para una hora.",
-        "VIDEO_DAILY_ROOM_CREATION_LEAD_MINUTES" => "Antelación mínima, en minutos, con la que DietoExpress prevé crear la sala antes de una consulta online. Ejemplo: «30» para crearla 30 minutos antes.",
+        "VIDEO_LIVEKIT_ENABLED" => "Activa o desactiva las consultas online mediante LiveKit. Ejemplo: «true» para permitir consultas online o «false» para desactivarlas temporalmente.",
+        "VIDEO_LIVEKIT_URL" => "URL websocket del servidor LiveKit que utiliza DietoExpress para conectar las consultas. En LiveKit Cloud suele ser «wss://tu-proyecto.livekit.cloud». No uses una URL de navegador ni incluyas credenciales.",
+        "VIDEO_LIVEKIT_API_KEY" => "Clave de API de servidor de LiveKit utilizada para gestionar salas y emitir tokens. Ejemplo: la API key de tu proyecto LiveKit. Es un secreto y nunca debe enviarse al navegador.",
+        "VIDEO_LIVEKIT_API_SECRET" => "Secreto de API de servidor de LiveKit utilizado para firmar tokens. Ejemplo: el API secret de tu proyecto LiveKit. Es un secreto crítico y nunca debe exponerse al cliente.",
+        "VIDEO_LIVEKIT_ROOM_EXPIRY_MINUTES" => "Minutos adicionales durante los que la sala se considera válida después de finalizar la cita. Ejemplo: «30» para mantenerla disponible 30 minutos adicionales.",
+        "VIDEO_LIVEKIT_ROOM_CREATION_LEAD_MINUTES" => "Antelación prevista para preparar una sala antes de una consulta online. Ejemplo: «60» para una hora. La reserva sigue creando la sala al confirmar la cita.",
+        "VIDEO_LIVEKIT_EMPTY_ROOM_TIMEOUT_SECONDS" => "Tiempo, en segundos, que LiveKit mantiene una sala vacía antes de cerrarla. Ejemplo: «300» para cinco minutos.",
         "FOOD_USDA_API_KEY" => "Clave privada para consultar la API de alimentos USDA cuando DietoExpress utilice ese proveedor. Ejemplo: la API key asignada por USDA. Es un secreto.",
         "NOTIFICATIONS_WEBPUSH_SUBJECT" => "Identificador del asunto/origen utilizado al solicitar credenciales de Web Push. Ejemplo: «mailto:soporte@tudominio.es» o el valor requerido por tu proveedor/configuración.",
         "NOTIFICATIONS_WEBPUSH_PUBLIC_KEY" => "Clave pública VAPID utilizada para las notificaciones Web Push. Ejemplo: una clave pública generada para DietoExpress. Puede compartirse con el navegador.",
