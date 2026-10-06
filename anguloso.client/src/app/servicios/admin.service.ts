@@ -75,6 +75,29 @@ export interface AdminConfig {
   saveState?: any;
 }
 
+export interface DirectoryVerificationItem {
+  id: number;
+  username: string;
+  fullName?: string;
+  email?: string;
+  clinicName?: string;
+  city?: string;
+  province?: string;
+  specialties?: string;
+  slug?: string;
+  publicationStatus: string;
+  verifiedAt?: string | null;
+  verifiedByUserId?: number | null;
+  verificationNote?: string | null;
+  directoryEnabled: boolean;
+  onlineConsultations: boolean;
+}
+
+export interface DirectoryVerificationUpdate {
+  status: 'pending' | 'verified' | 'published' | 'rejected' | 'draft';
+  note?: string | null;
+}
+
 export interface AdminVideoUsage {
   nutritionistLimitParticipantMinutes: number;
   globalLimitParticipantMinutes: number;
@@ -192,6 +215,16 @@ export class AdminService {
 
   resetUserPassword(id: number, newPassword: string): Observable<{ message: string }> {
     return this.http.put<{ message: string }>(`${this.adminUrl}/users/${id}/reset-password`, { newPassword });
+  }
+
+  getDirectoryVerification(status?: string): Observable<DirectoryVerificationItem[]> {
+    let params: any = {};
+    if (status) params.status = status;
+    return this.http.get<DirectoryVerificationItem[]>(`${this.adminUrl}/directory-verification`, { params });
+  }
+
+  updateDirectoryVerification(id: number, data: DirectoryVerificationUpdate): Observable<DirectoryVerificationItem> {
+    return this.http.put<DirectoryVerificationItem>(`${this.adminUrl}/directory-verification/${id}`, data);
   }
 
   getPlans(): Observable<AdminPlan[]> { return this.http.get<AdminPlan[]>(`${this.adminUrl}/plans`); }
