@@ -19,7 +19,7 @@ export class PublicSeoService {
   private readonly meta = inject(Meta);
   private readonly document = inject(DOCUMENT);
 
-  setDirectorySeo(filters: { city: string; province: string; speciality: string; online: boolean }): void {
+  setDirectorySeo(filters: { city: string; province: string; speciality: string; online: boolean }, canonicalPath = '/nutricionistas'): void {
     const parts = [filters.speciality, filters.city, filters.province].map(value => value.trim()).filter(Boolean);
     const suffix = parts.length ? ` de ${parts.join(', ')}` : '';
     const onlineSuffix = filters.online ? ' con consulta online' : '';
@@ -27,7 +27,7 @@ export class PublicSeoService {
     this.apply(
       `Nutricionistas${suffix}${onlineSuffix} | DietoExpress`,
       `Encuentra nutricionistas${suffix}${onlineSuffix}. Consulta perfiles profesionales y solicita cita en DietoExpress.`,
-      '/nutricionistas',
+      canonicalPath,
       null
     );
   }
