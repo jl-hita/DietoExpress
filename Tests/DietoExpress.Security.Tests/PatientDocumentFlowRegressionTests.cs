@@ -309,4 +309,38 @@ public sealed class PatientDocumentFlowRegressionTests
     }
 
 
+    [Fact]
+    public void OnlineConsultationMustExposeConnectionLifecycleAndFinalizationEndpoints()
+    {
+        var source = ReadServerSource("Anguloso.Server/Controllers/AppointmentsController.cs");
+        Assert.Contains("[HttpPost(\"{id:int}/video-event\")]", source);
+        Assert.Contains("VIDEO_CONNECTED", source);
+        Assert.Contains("VIDEO_RECONNECTING", source);
+        Assert.Contains("VIDEO_RECONNECTED", source);
+        Assert.Contains("VIDEO_DISCONNECTED", source);
+        Assert.Contains("VIDEO_CONNECTION_FAILED", source);
+        Assert.Contains("[HttpPost(\"{id:int}/video-finish\")]", source);
+        Assert.Contains("APPOINTMENT_COMPLETED", source);
+        Assert.Contains("canFinalize = isOwner", source);
+    }
+
+    [Fact]
+    public void OnlineConsultationClientMustProvideRecoveryAndEmbeddedLifecycleStates()
+    {
+        var service = ReadServerSource("anguloso.client/src/app/servicios/patient-portal.service.ts");
+        var component = ReadServerSource("anguloso.client/src/app/componentes/video-consultation/video-consultation.component.ts");
+        var template = ReadServerSource("anguloso.client/src/app/componentes/video-consultation/video-consultation.component.html");
+        Assert.DoesNotContain("window.open(", service);
+        Assert.Contains("window.location.assign", service);
+        Assert.Contains("recordVideoEvent", service);
+        Assert.Contains("finishVideoConsultation", service);
+        Assert.Contains("reconnecting", component);
+        Assert.Contains("reconnected", component);
+        Assert.Contains("remoteParticipantCount", component);
+        Assert.Contains("retry()", component);
+        Assert.Contains("finalize()", component);
+        Assert.Contains("Consulta finalizada", template);
+        Assert.Contains("Reintentar", template);
+    }
+
 }
