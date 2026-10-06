@@ -2009,6 +2009,17 @@ public static class DatabaseBootstrap
     }
 
 
+    /// <summary>Habilita la comparación de texto del directorio sin distinguir tildes.</summary>
+    public static void UpgradeDirectorySchemaV2(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            CREATE EXTENSION IF NOT EXISTS unaccent;
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('directory-v3-unaccent') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Extensión PostgreSQL unaccent habilitada para búsquedas del directorio.");
+    }
+
+
     /// <summary>
     /// Crea el catálogo base de especializaciones y su configuración por tenant.
     /// Las reglas se almacenan como JSON para que futuras especializaciones puedan añadir
