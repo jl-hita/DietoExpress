@@ -113,19 +113,19 @@ interface GuidedConsultationResponse {
               </div>
             </div>
             <div class="empty" *ngIf="!followupHistory.length"><mat-icon>timeline</mat-icon><span>{{ isFirstConsultation ? 'No hay datos previos: utiliza la consulta para establecer la línea de base.' : 'No hay histórico de check-ins.' }}</span></div>
-            <div class="quick-form" *ngIf="data.biometrics?.latest">
+            <div class="quick-form" *ngIf="latestBiometric">
               <h3>Última valoración antropométrica</h3>
               <div class="metric-grid">
-                <div><span>Fecha</span><strong>{{ data.biometrics.latest.measurement_date | date:'dd/MM/yyyy' }}</strong></div>
-                <div><span>Peso</span><strong>{{ data.biometrics.latest.weight ?? '—' }} kg</strong></div>
-                <div><span>Altura</span><strong>{{ data.biometrics.latest.height ?? '—' }} cm</strong></div>
-                <div><span>Grasa corporal</span><strong>{{ data.biometrics.latest.body_fat ?? '—' }} %</strong></div>
+                <div><span>Fecha</span><strong>{{ latestBiometric.measurement_date | date:'dd/MM/yyyy' }}</strong></div>
+                <div><span>Peso</span><strong>{{ latestBiometric.weight ?? '—' }} kg</strong></div>
+                <div><span>Altura</span><strong>{{ latestBiometric.height ?? '—' }} cm</strong></div>
+                <div><span>Grasa corporal</span><strong>{{ latestBiometric.body_fat ?? '—' }} %</strong></div>
               </div>
-              <div class="change-grid" *ngIf="data.biometrics.changes">
-                <span *ngIf="data.biometrics.changes.weight !== null && data.biometrics.changes.weight !== undefined">Peso: {{ data.biometrics.changes.weight > 0 ? '+' : '' }}{{ data.biometrics.changes.weight | number:'1.1-1' }} kg</span>
-                <span *ngIf="data.biometrics.changes.bodyFat !== null && data.biometrics.changes.bodyFat !== undefined">Grasa: {{ data.biometrics.changes.bodyFat > 0 ? '+' : '' }}{{ data.biometrics.changes.bodyFat | number:'1.1-1' }} pp</span>
-                <span *ngIf="data.biometrics.changes.muscleMass !== null && data.biometrics.changes.muscleMass !== undefined">Masa muscular: {{ data.biometrics.changes.muscleMass > 0 ? '+' : '' }}{{ data.biometrics.changes.muscleMass | number:'1.1-1' }} kg</span>
-                <span *ngIf="data.biometrics.changes.waist !== null && data.biometrics.changes.waist !== undefined">Cintura: {{ data.biometrics.changes.waist > 0 ? '+' : '' }}{{ data.biometrics.changes.waist | number:'1.1-1' }} cm</span>
+              <div class="change-grid" *ngIf="biometricChanges">
+                <span *ngIf="biometricChanges.weight !== null && biometricChanges.weight !== undefined">Peso: {{ biometricChanges.weight > 0 ? '+' : '' }}{{ biometricChanges.weight | number:'1.1-1' }} kg</span>
+                <span *ngIf="biometricChanges.bodyFat !== null && biometricChanges.bodyFat !== undefined">Grasa: {{ biometricChanges.bodyFat > 0 ? '+' : '' }}{{ biometricChanges.bodyFat | number:'1.1-1' }} pp</span>
+                <span *ngIf="biometricChanges.muscleMass !== null && biometricChanges.muscleMass !== undefined">Masa muscular: {{ biometricChanges.muscleMass > 0 ? '+' : '' }}{{ biometricChanges.muscleMass | number:'1.1-1' }} kg</span>
+                <span *ngIf="biometricChanges.waist !== null && biometricChanges.waist !== undefined">Cintura: {{ biometricChanges.waist > 0 ? '+' : '' }}{{ biometricChanges.waist | number:'1.1-1' }} cm</span>
               </div>
             </div>
             <button mat-stroked-button type="button" (click)="openPatient()"><mat-icon>open_in_new</mat-icon> Abrir ficha del paciente</button>
@@ -324,6 +324,14 @@ export class GuidedConsultationComponent implements OnInit {
 
   get isFirstConsultation(): boolean {
     return this.data?.suggestedConsultationType === 'first' || this.consultation?.consultationType === 'first';
+  }
+
+  get latestBiometric(): any | null {
+    return this.data?.biometrics?.latest ?? null;
+  }
+
+  get biometricChanges(): { weight?: number | null; bodyFat?: number | null; muscleMass?: number | null; waist?: number | null } | null {
+    return this.data?.biometrics?.changes ?? null;
   }
 
   readonly steps: ConsultationStep[] = [
