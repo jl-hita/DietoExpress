@@ -62,7 +62,8 @@ public class Program
                 ApiSecret = config.GetConfigString("VIDEO_LIVEKIT_API_SECRET") ?? string.Empty,
                 RoomExpiryMinutesAfterAppointment = config.GetConfigInt("VIDEO_LIVEKIT_ROOM_EXPIRY_MINUTES", 30) ?? 30,
                 RoomCreationLeadMinutes = config.GetConfigInt("VIDEO_LIVEKIT_ROOM_CREATION_LEAD_MINUTES", 60) ?? 60,
-                EmptyRoomTimeoutSeconds = config.GetConfigInt("VIDEO_LIVEKIT_EMPTY_ROOM_TIMEOUT_SECONDS", 300) ?? 300
+                EmptyRoomTimeoutSeconds = config.GetConfigInt("VIDEO_LIVEKIT_EMPTY_ROOM_TIMEOUT_SECONDS", 300) ?? 300,
+                MaxCallDurationMinutes = config.GetConfigInt("VIDEO_LIVEKIT_MAX_CALL_DURATION_MINUTES", 60) ?? 60
             };
         });
         builder.Services.AddSingleton<IVideoMeetingProvider, LiveKitVideoMeetingProvider>();
