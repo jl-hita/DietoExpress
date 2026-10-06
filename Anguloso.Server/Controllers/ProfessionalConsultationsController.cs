@@ -29,16 +29,19 @@ public sealed class ProfessionalConsultationsController : ControllerBase
     private readonly ITenantContextService _tenantContext;
     private readonly PatientDocumentService _patientDocumentService;
     private readonly AutomationService _automationService;
+    private readonly IAuditLogService _auditLogService;
 
     public ProfessionalConsultationsController(angulosodbContext db, IConfiguration configuration, ITenantContextService tenantContext,
         PatientDocumentService patientDocumentService,
-        AutomationService automationService)
+        AutomationService automationService,
+        IAuditLogService auditLogService)
     {
         _db = db;
         _configuration = configuration;
         _tenantContext = tenantContext;
         _patientDocumentService = patientDocumentService;
         _automationService = automationService;
+        _auditLogService = auditLogService;
     }
 
     public sealed record StartConsultationRequest(string? ConsultationType);
@@ -60,6 +63,29 @@ public sealed class ProfessionalConsultationsController : ControllerBase
                 c.sleep_quality, c.sleep_hours, c.training, c.difficulties, c.notes, c.reviewed_at
             })
             .FirstOrDefaultAsync();
+
+        var biometricHistory = await _db.biometrics.AsNoTracking()
+            .Where(b => b.client_id == appointment.ClientId)
+            .OrderByDescending(b => b.measurement_date)
+            .Take(2)
+            .Select(b => new
+            {
+                b.id, b.measurement_date, b.weight, b.height, b.body_fat,
+                b.muscle_mass, b.waist, b.hip, b.notes
+            })
+            .ToListAsync();
+
+        var latestBiometric = biometricHistory.FirstOrDefault();
+        var previousBiometric = biometricHistory.Skip(1).FirstOrDefault();
+        var biometricChanges = latestBiometric == null || previousBiometric == null
+            ? null
+            : new
+            {
+                weight = latestBiometric.weight.HasValue && previousBiometric.weight.HasValue ? latestBiometric.weight.Value - previousBiometric.weight.Value : (double?)null,
+                bodyFat = latestBiometric.body_fat.HasValue && previousBiometric.body_fat.HasValue ? latestBiometric.body_fat.Value - previousBiometric.body_fat.Value : (double?)null,
+                muscleMass = latestBiometric.muscle_mass.HasValue && previousBiometric.muscle_mass.HasValue ? latestBiometric.muscle_mass.Value - previousBiometric.muscle_mass.Value : (double?)null,
+                waist = latestBiometric.waist.HasValue && previousBiometric.waist.HasValue ? latestBiometric.waist.Value - previousBiometric.waist.Value : (double?)null
+            };
 
         var previousConsultationExists = await _db.patient_appointments.AsNoTracking()
             .AnyAsync(a => a.tenant_id == appointment.TenantId && a.client_id == appointment.ClientId &&
@@ -131,7 +157,8 @@ public sealed class ProfessionalConsultationsController : ControllerBase
                 nutritionistId = appointment.NutritionistId
             },
             suggestedConsultationType = previousConsultationExists ? "follow_up" : "first",
-            consultation, latestCheckin, previousAppointment, activeDiet, openTasks, followupSignals
+            consultation, latestCheckin, previousAppointment, activeDiet, openTasks, followupSignals,
+            biometrics = new { latest = latestBiometric, previous = previousBiometric, changes = biometricChanges }
         });
     }
 
@@ -233,6 +260,10 @@ public sealed class ProfessionalConsultationsController : ControllerBase
         command.Parameters.AddWithValue("type", consultationType);
         await command.ExecuteNonQueryAsync();
 
+        await _auditLogService.LogAccessAsync(
+            "CONSULTATION_START", "professional_consultations", appointmentId.ToString(), appointment.ClientId,
+            $"type={consultationType}");
+
         return Ok(await ReadConsultationAsync(appointmentId, appointment.TenantId));
     }
 
@@ -256,7 +287,13 @@ public sealed class ProfessionalConsultationsController : ControllerBase
         await connection.OpenAsync();
         await using var command = new NpgsqlCommand("""
             UPDATE professional_consultations
-            SET current_step=@step, completed_steps=@completed::jsonb, progress=@progress::jsonb, updated_at=NOW()
+            SET current_step=@step,
+                completed_steps=@completed::jsonb,
+                progress=@progress::jsonb,
+                decision_summary=NULLIF(@decision,''),
+                actions_summary=NULLIF(@actions,''),
+                next_consultation_plan=NULLIF(@next_plan,''),
+                updated_at=NOW()
             WHERE tenant_id=@tenant AND appointment_id=@appointment;
             """, connection);
         command.Parameters.AddWithValue("tenant", appointment.TenantId);
@@ -265,8 +302,25 @@ public sealed class ProfessionalConsultationsController : ControllerBase
         command.Parameters.AddWithValue("completed", JsonSerializer.Serialize(completedSteps));
         command.Parameters.AddWithValue("progress", progressJson);
 
+        var progressObject = request.Progress.HasValue && request.Progress.Value.ValueKind == JsonValueKind.Object
+            ? request.Progress.Value : default;
+        var decision = progressObject.ValueKind == JsonValueKind.Object && progressObject.TryGetProperty("decisionSummary", out var decisionProperty)
+            ? decisionProperty.GetString() ?? string.Empty : string.Empty;
+        var actions = progressObject.ValueKind == JsonValueKind.Object && progressObject.TryGetProperty("actionsSummary", out var actionsProperty)
+            ? actionsProperty.GetString() ?? string.Empty : string.Empty;
+        var nextPlan = progressObject.ValueKind == JsonValueKind.Object && progressObject.TryGetProperty("nextConsultationPlan", out var nextPlanProperty)
+            ? nextPlanProperty.GetString() ?? string.Empty : string.Empty;
+        command.Parameters.AddWithValue("decision", decision.Trim().Length > 4000 ? decision.Trim()[..4000] : decision.Trim());
+        command.Parameters.AddWithValue("actions", actions.Trim().Length > 4000 ? actions.Trim()[..4000] : actions.Trim());
+        command.Parameters.AddWithValue("next_plan", nextPlan.Trim().Length > 4000 ? nextPlan.Trim()[..4000] : nextPlan.Trim());
+
         var affected = await command.ExecuteNonQueryAsync();
         if (affected == 0) return NotFound();
+
+        await _auditLogService.LogAccessAsync(
+            "CONSULTATION_PROGRESS", "professional_consultations", appointmentId.ToString(), appointment.ClientId,
+            $"step={step}");
+
         return Ok(await ReadConsultationAsync(appointmentId, appointment.TenantId));
     }
 
@@ -307,6 +361,30 @@ public sealed class ProfessionalConsultationsController : ControllerBase
         await appointmentCommand.ExecuteNonQueryAsync();
 
         await transaction.CommitAsync();
+
+        try
+        {
+            await _automationService.PublishEventAsync(
+                appointment.TenantId,
+                "appointment.completed",
+                "appointment",
+                appointment.Id.ToString(),
+                new AutomationService.AppointmentCompletedPayload(
+                    appointment.Id,
+                    appointment.ClientId,
+                    appointment.NutritionistId),
+                $"appointment:{appointment.Id}:completed");
+        }
+        catch (Exception ex)
+        {
+            HttpContext.RequestServices.GetRequiredService<ILogger<ProfessionalConsultationsController>>()
+                .LogError(ex, "No se pudo registrar la automatización de la cita completada {AppointmentId}.", appointment.Id);
+        }
+
+        await _auditLogService.LogAccessAsync(
+            "CONSULTATION_COMPLETE", "professional_consultations", appointmentId.ToString(), appointment.ClientId,
+            "Consulta guiada completada.");
+
         return Ok(await ReadConsultationAsync(appointmentId, appointment.TenantId));
     }
 
@@ -334,7 +412,8 @@ public sealed class ProfessionalConsultationsController : ControllerBase
         await connection.OpenAsync();
         await using var command = new NpgsqlCommand("""
             SELECT id, client_id, professional_id, consultation_type, status, current_step,
-                   progress, completed_steps, started_at, completed_at, created_at, updated_at
+                   progress, completed_steps, decision_summary, actions_summary, next_consultation_plan,
+                   started_at, completed_at, created_at, updated_at
             FROM professional_consultations
             WHERE tenant_id=@tenant AND appointment_id=@appointment LIMIT 1;
             """, connection);
@@ -350,10 +429,13 @@ public sealed class ProfessionalConsultationsController : ControllerBase
             consultationType = reader.GetString(3), status = reader.GetString(4), currentStep = reader.GetString(5),
             progress = JsonSerializer.Deserialize<object>(reader.GetFieldValue<string>(6)) ?? new { },
             completedSteps = JsonSerializer.Deserialize<string[]>(reader.GetFieldValue<string>(7)) ?? Array.Empty<string>(),
-            startedAt = reader.GetDateTime(8),
-            completedAt = reader.IsDBNull(9) ? (DateTime?)null : reader.GetDateTime(9),
-            createdAt = reader.GetDateTime(10),
-            updatedAt = reader.IsDBNull(11) ? (DateTime?)null : reader.GetDateTime(11)
+            decisionSummary = reader.IsDBNull(8) ? null : reader.GetString(8),
+            actionsSummary = reader.IsDBNull(9) ? null : reader.GetString(9),
+            nextConsultationPlan = reader.IsDBNull(10) ? null : reader.GetString(10),
+            startedAt = reader.GetDateTime(11),
+            completedAt = reader.IsDBNull(12) ? (DateTime?)null : reader.GetDateTime(12),
+            createdAt = reader.GetDateTime(13),
+            updatedAt = reader.IsDBNull(14) ? (DateTime?)null : reader.GetDateTime(14)
         };
     }
 
