@@ -13,6 +13,7 @@ public sealed class LiveKitVideoOptions
     public int RoomExpiryMinutesAfterAppointment { get; init; } = 30;
     public int RoomCreationLeadMinutes { get; init; } = 60;
     public int EmptyRoomTimeoutSeconds { get; init; } = 300;
+    public int MaxCallDurationMinutes { get; init; } = 60;
 
     public bool IsConfigured =>
         Enabled &&
