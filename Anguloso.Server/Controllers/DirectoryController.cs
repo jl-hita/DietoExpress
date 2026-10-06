@@ -90,6 +90,7 @@ public class DirectoryController : ControllerBase
                 ClinicName = u.clinic_name ?? string.Empty,
                 // La ficha pública no expone la dirección exacta de la consulta.
                 City = u.directory_city ?? string.Empty,
+                Province = u.directory_province ?? string.Empty,
                 ClinicLogo = u.clinic_logo ?? string.Empty,
                 PublicBio = u.directory_bio ?? string.Empty,
                 Specialties = u.directory_specialties ?? string.Empty,
