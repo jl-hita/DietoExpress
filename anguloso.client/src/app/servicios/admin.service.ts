@@ -72,6 +72,7 @@ export interface AdminConfig {
   tieneValor: boolean;
   categoria: string;
   descripcion: string;
+  saveState?: string;
 }
 
 export interface AdminLog {
