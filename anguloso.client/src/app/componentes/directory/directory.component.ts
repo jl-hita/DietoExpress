@@ -48,8 +48,14 @@ export class DirectoryComponent implements OnInit {
 
   ngOnInit(): void {
     const slug = this.route.snapshot.paramMap.get('slug');
+    const city = this.route.snapshot.paramMap.get('city');
+    const speciality = this.route.snapshot.paramMap.get('speciality');
+    const onlineRoute = this.route.snapshot.routeConfig?.path === 'nutricionistas/online';
     if (slug) this.loadProfile(slug);
     else {
+      this.city = city || '';
+      this.speciality = speciality || '';
+      this.online = onlineRoute;
       this.publicSeoService.setDirectorySeo({ city: this.city, province: this.province, speciality: this.speciality, online: this.online });
       this.publicFunnelAnalytics.track('directory_view');
       this.search();
