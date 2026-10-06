@@ -38,3 +38,4 @@ public class PublicSeoIndexingRegressionTests
         Assert.Contains("nutricionistas/:slug", routes);
     }
 }
+// Mantener estas regresiones junto al flujo público para evitar páginas SEO sin control de publicación.
