@@ -80,6 +80,28 @@ public class AdminDirectoryVerificationController : ControllerBase
 
         if (status is "verified" or "published")
         {
+            var evidenceCount = await _context.Database.SqlQueryRaw<int>("""
+                SELECT COUNT(*)::integer AS "Value"
+                FROM directory_verification_evidence
+                WHERE user_id = {0} AND revoked_at IS NULL
+                  AND status = 'approved'
+                  AND evidence_type IN ('identity','qualification')
+                """, user.id).SingleAsync();
+
+            var approvedTypes = await _context.Database.SqlQueryRaw<string>("""
+                SELECT string_agg(DISTINCT evidence_type, ',')
+                FROM directory_verification_evidence
+                WHERE user_id = {0} AND revoked_at IS NULL AND status = 'approved'
+                """, user.id).SingleOrDefaultAsync();
+
+            if (evidenceCount < 2 || approvedTypes is null ||
+                !approvedTypes.Contains("identity", StringComparison.OrdinalIgnoreCase) ||
+                !approvedTypes.Contains("qualification", StringComparison.OrdinalIgnoreCase))
+                return BadRequest("Para verificar o publicar la ficha deben estar aprobadas las evidencias de identidad y titulación.");
+        }
+
+        if (status is "verified" or "published")
+        {
             user.directory_verified_at ??= DateTime.UtcNow;
             user.directory_verified_by_user_id = AuthHelpers.GetUserId(User);
         }
