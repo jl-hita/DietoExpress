@@ -324,7 +324,7 @@ public class TenantIsolationTests
         int userId,
         int tenantId)
     {
-        var controller = new FoodController(null!, db);
+        var controller = new FoodController(null!, db, new FoodSubstitutionService(db));
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, userId.ToString()),
