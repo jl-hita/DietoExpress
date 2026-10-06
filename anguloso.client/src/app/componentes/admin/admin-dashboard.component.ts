@@ -413,15 +413,6 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
       color: #64748b;
       font-size: 13px;
     }
-    .config-tabs { margin-top: 8px; }
-    .config-tab-content { padding: 20px 4px 4px; }
-    .config-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; }
-    .config-item { padding:16px; border-radius:10px; }
-    .config-item-header { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:8px; }
-    .config-item-header > div { display:grid; gap:4px; min-width:0; }
-    .config-description { color:#64748b; font-size:12px; line-height:1.4; }
-    .secret-badge { color:#7c3aed; background:#f5f3ff; border-radius:999px; padding:4px 8px; font-size:11px; white-space:nowrap; }
-    @media (max-width:700px) { .config-grid { grid-template-columns:1fr; } }
     .config-table {
       width: 100%;
     }
