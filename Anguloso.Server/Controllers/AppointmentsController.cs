@@ -203,11 +203,7 @@ public class AppointmentsController : ControllerBase
                 "appointment.requested",
                 "appointment",
                 appointment.id.ToString(),
-                new AutomationService.AppointmentStatusPayload(
-                    appointment.id,
-                    appointment.client_id,
-                    appointment.nutritionist_id,
-                    appointment.starts_at),
+                new AutomationService.AppointmentStatusPayload(appointment.id, appointment.client_id, appointment.nutritionist_id, appointment.starts_at, appointment.modality),
                 $"appointment:{appointment.id}:requested");
         }
         catch (Exception ex)
@@ -520,11 +516,7 @@ public class AppointmentsController : ControllerBase
                         eventType,
                         "appointment",
                         appointment.id.ToString(),
-                        new AutomationService.AppointmentStatusPayload(
-                            appointment.id,
-                            appointment.client_id,
-                            appointment.nutritionist_id,
-                            appointment.starts_at),
+                        new AutomationService.AppointmentStatusPayload(appointment.id, appointment.client_id, appointment.nutritionist_id, appointment.starts_at, appointment.modality),
                         $"appointment:{appointment.id}:{eventType}");
                 }
                 catch (Exception ex)
@@ -796,6 +788,24 @@ public class AppointmentsController : ControllerBase
         }
         await _audit.LogAccessAsync(action, "video_consultation", appointment.id.ToString(), appointment.client_id,
             $"state={request.Event.Trim().ToLowerInvariant()}");
+
+        if (string.Equals(request.Event.Trim(), "connected", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                await _automationService.PublishEventAsync(
+                    appointment.tenant_id, "video.participant.connected", "video_consultation", appointment.id.ToString(),
+                    new AutomationService.VideoParticipantConnectedPayload(appointment.id, appointment.client_id, appointment.nutritionist_id,
+                        User.IsInRole("patient") ? "patient" : "professional"),
+                    $"video:{appointment.id}:connected:{(User.IsInRole("patient") ? "patient" : "professional")}:{DateTime.UtcNow:yyyyMMddHHmmssfff}");
+            }
+            catch (Exception ex)
+            {
+                HttpContext.RequestServices.GetRequiredService<ILogger<AppointmentsController>>()
+                    .LogError(ex, "No se pudo registrar la presencia de la videollamada {AppointmentId}.", appointment.id);
+            }
+        }
+
         return NoContent();
     }
 
@@ -803,8 +813,34 @@ public class AppointmentsController : ControllerBase
     [HttpPost("{id:int}/video-finish")]
     public async Task<ActionResult<AppointmentDto>> FinishVideoConsultation(int id)
     {
-        // Reutilizamos la misma máquina de estados, automatizaciones, notificaciones y revocación de sala.
-        return await UpdateStatus(id, new UpdateAppointmentStatusRequestDto { Status = "completed" });
+        // La videollamada y la consulta clínica son estados distintos: cerrar la sala no cierra la cita.
+        var userId = AuthHelpers.GetUserId(User);
+        var tenantId = AuthHelpers.GetTenantId(User);
+        if (userId == null || tenantId == null) return Unauthorized();
+        var appointment = await _context.patient_appointments.FirstOrDefaultAsync(a => a.id == id && a.tenant_id == tenantId.Value && a.nutritionist_id == userId.Value);
+        if (appointment == null) return NotFound();
+        if (appointment.modality != "online" || appointment.status != "confirmed") return Conflict(new { message = "La consulta online ya no está activa." });
+
+        var roomToDelete = appointment.video_room_name;
+        appointment.video_room_name = null;
+        appointment.video_room_url = null;
+        appointment.video_provider = null;
+        appointment.video_expires_at = null;
+        appointment.video_started_at = null;
+        appointment.updated_at = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        if (!string.IsNullOrWhiteSpace(roomToDelete))
+        {
+            try { await _videoMeetings.DeleteRoomAsync(roomToDelete, CancellationToken.None); }
+            catch (Exception ex) { HttpContext.RequestServices.GetRequiredService<ILogger<AppointmentsController>>().LogWarning(ex, "No se pudo eliminar la sala LiveKit de la cita {AppointmentId}; el acceso ya está revocado.", id); }
+        }
+
+        await _audit.LogAccessAsync("VIDEO_FINISHED", "video_consultation", id.ToString(), appointment.client_id, "Videollamada finalizada; pendiente de cierre clínico.");
+        await _automationService.PublishEventAsync(appointment.tenant_id, "video.finished", "video_consultation", id.ToString(),
+            new AutomationService.AppointmentStatusPayload(appointment.id, appointment.client_id, appointment.nutritionist_id, appointment.starts_at, appointment.modality),
+            $"video:{appointment.id}:finished");
+        return Ok(await ToDtoQuery(id));
     }
 
     public sealed class VideoConsultationEventRequest { public string? Event { get; set; } }

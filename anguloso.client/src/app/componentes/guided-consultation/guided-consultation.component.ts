@@ -25,6 +25,7 @@ interface GuidedConsultationResponse {
     clientId: number;
     clientName?: string | null;
     nutritionistId: number;
+    modality?: string | null;
   };
   suggestedConsultationType: 'first' | 'follow_up';
   consultation: any | null;
@@ -53,6 +54,7 @@ interface GuidedConsultationResponse {
           <p>{{ data.suggestedConsultationType === 'first' ? 'Primera consulta' : 'Seguimiento' }} · {{ data.appointment.startsAt | date:'dd/MM/yyyy HH:mm' }}</p>
         </div>
         <div class="header-actions">
+          <button mat-flat-button color="primary" type="button" *ngIf="data.appointment.modality === 'online' && consultation?.status !== 'completed'" (click)="openOnlineConsultation()"><mat-icon>videocam</mat-icon> Entrar en consulta online</button>
           <span class="status" [class.completed]="consultation?.status === 'completed'">
             {{ consultation?.status === 'completed' ? 'Completada' : 'En curso' }}
           </span>
@@ -641,6 +643,11 @@ export class GuidedConsultationComponent implements OnInit {
         this.snack.open(err?.error?.message || 'No se ha podido cerrar la consulta.', 'Cerrar', { duration: 3500 });
       }
     });
+  }
+
+  openOnlineConsultation(): void {
+    if (!this.data?.appointment.id || this.data.appointment.modality !== 'online') return;
+    this.router.navigate(['/video-consultation', this.data.appointment.id], { queryParams: { returnUrl: this.router.url } });
   }
 
   openPatient(): void {

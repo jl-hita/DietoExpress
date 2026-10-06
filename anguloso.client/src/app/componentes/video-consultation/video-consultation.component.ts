@@ -1,7 +1,7 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { createLocalAudioTrack, createLocalVideoTrack, LocalAudioTrack, LocalVideoTrack, RemoteTrack, RemoteTrackPublication, RemoteParticipant, Room, RoomEvent, Track } from 'livekit-client';
 import { PatientPortalService } from '../../servicios/patient-portal.service';
 
@@ -23,7 +23,7 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
   private callTimer?: ReturnType<typeof setInterval>; private manualDisconnect = false; private room?: Room; private appointmentId = 0;
   localAudio?: LocalAudioTrack; localVideoTrack?: LocalVideoTrack; private readonly remoteElements = new Map<string, HTMLElement>();
 
-  constructor(private readonly route: ActivatedRoute, private readonly portalService: PatientPortalService, private readonly location: Location) {}
+  constructor(private readonly route: ActivatedRoute, private readonly router: Router, private readonly portalService: PatientPortalService, private readonly location: Location) {}
 
   ngAfterViewInit(): void {
     const rawId = this.route.snapshot.paramMap.get('appointmentId'); this.appointmentId = Number(rawId);
@@ -85,17 +85,27 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
 
   retry():void{void this.connect();}
 
+  private getReturnUrl(): string | null {
+    const value = this.route.snapshot.queryParamMap.get('returnUrl');
+    return value && value.startsWith('/appointments/') && value.includes('/consultation') ? value : null;
+  }
+  private returnToConsultation(): void {
+    const returnUrl = this.getReturnUrl();
+    if (returnUrl) { void this.router.navigateByUrl(returnUrl); return; }
+    this.location.back();
+  }
+
   finalize():void {
     if(!this.canFinalize||this.finalizing||this.connectionState==='finalized')return;
     if(!confirm('¿Finalizar la consulta online y marcar la cita como completada?'))return;
     this.finalizing=true;
     this.portalService.finishVideoConsultation(this.appointmentId).subscribe({
-      next:()=>{this.connectionState='finalized';this.connected=false;this.manualDisconnect=true;if(this.callTimer)clearInterval(this.callTimer);void this.room?.disconnect();this.finalizing=false;},
+      next:()=>{this.connectionState='finalized';this.connected=false;this.manualDisconnect=true;if(this.callTimer)clearInterval(this.callTimer);void this.room?.disconnect();this.finalizing=false;this.returnToConsultation();},
       error:err=>{this.error=err?.error?.message||'No hemos podido finalizar la consulta.';this.finalizing=false;}
     });
   }
 
-  leave():void{if(this.callTimer)clearInterval(this.callTimer);this.manualDisconnect=true;void this.room?.disconnect();this.connectionState=this.connectionState==='finalized'?'finalized':'disconnected';this.location.back();}
+  leave():void{if(this.callTimer)clearInterval(this.callTimer);this.manualDisconnect=true;void this.room?.disconnect();this.connectionState=this.connectionState==='finalized'?'finalized':'disconnected';this.returnToConsultation();}
   private recordVideoEvent(event:'connected'|'reconnecting'|'reconnected'|'disconnected'|'failed'):void{this.portalService.recordVideoEvent(this.appointmentId,event).subscribe({error:()=>undefined});}
   private attachRemoteTrack(track:RemoteTrack,publication:RemoteTrackPublication,participant:RemoteParticipant):void{
     if(track.kind!==Track.Kind.Video&&track.kind!==Track.Kind.Audio)return;const element=track.attach();element.autoplay=true;element.setAttribute('playsinline','true');element.classList.add(track.kind===Track.Kind.Video?'remote-video':'remote-audio');
