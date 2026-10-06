@@ -747,7 +747,7 @@ internal static class AdminConfigMetadata
         "EMAIL_SMTP_USERNAME" => "Usuario con el que DietoExpress se autentica contra el servidor SMTP. Ejemplo: «no-reply@tudominio.es». Es un dato sensible y se muestra oculto.",
         "EMAIL_SMTP_PASSWORD" => "Contraseña del usuario SMTP. Ejemplo: la contraseña específica de aplicación proporcionada por tu proveedor de correo. Es un secreto y nunca se muestra en pantalla.",
         "VIDEO_LIVEKIT_ENABLED" => "Activa o desactiva las consultas online mediante LiveKit. Ejemplo: «true» para permitir consultas online o «false» para desactivarlas temporalmente.",
-        "VIDEO_LIVEKIT_URL" => "URL del servidor LiveKit que utiliza DietoExpress para crear salas. En LiveKit Cloud suele ser una URL HTTPS del proyecto, por ejemplo «https://tu-proyecto.livekit.cloud». No uses una URL de navegador ni incluyas credenciales.",
+        "VIDEO_LIVEKIT_URL" => "URL websocket del servidor LiveKit que utiliza DietoExpress para conectar las consultas. En LiveKit Cloud suele ser «wss://tu-proyecto.livekit.cloud». No uses una URL de navegador ni incluyas credenciales.",
         "VIDEO_LIVEKIT_API_KEY" => "Clave de API de servidor de LiveKit utilizada para gestionar salas y emitir tokens. Ejemplo: la API key de tu proyecto LiveKit. Es un secreto y nunca debe enviarse al navegador.",
         "VIDEO_LIVEKIT_API_SECRET" => "Secreto de API de servidor de LiveKit utilizado para firmar tokens. Ejemplo: el API secret de tu proyecto LiveKit. Es un secreto crítico y nunca debe exponerse al cliente.",
         "VIDEO_LIVEKIT_ROOM_EXPIRY_MINUTES" => "Minutos adicionales durante los que la sala se considera válida después de finalizar la cita. Ejemplo: «30» para mantenerla disponible 30 minutos adicionales.",
