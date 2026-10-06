@@ -21,6 +21,13 @@
       </section>
     }
 
+    @if (callTimeWarning) {
+      <section class="call-time-warning">
+        <strong>Límite de consulta</strong>
+        <span>{{ callTimeWarning }}</span>
+      </section>
+    }
+
     <section class="room">
       <div class="remote-stage">
         <div #remoteContainer class="remote-container"></div>
