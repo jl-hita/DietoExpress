@@ -18,11 +18,13 @@ public class FoodController : ControllerBase
 {
     private readonly OpenFoodFactsService _openFood;
     private readonly angulosodbContext _dbContext;
+    private readonly FoodSubstitutionService _foodSubstitutionService;
 
-    public FoodController(OpenFoodFactsService openFood, angulosodbContext dbContext)
+    public FoodController(OpenFoodFactsService openFood, angulosodbContext dbContext, FoodSubstitutionService foodSubstitutionService)
     {
         _openFood = openFood;
         _dbContext = dbContext;
+        _foodSubstitutionService = foodSubstitutionService;
     }
 
     [HttpGet("barcode/{code}")]
@@ -128,6 +130,7 @@ public class FoodController : ControllerBase
             created_by_user_id = userId,
             exchange_group_id = dto.ExchangeGroupId,
             grams_per_exchange = dto.GramsPerExchange,
+            dietary_flags = NormalizeDietaryFlags(dto.DietaryFlags),
             created_at = DateTime.UtcNow,
             last_synced_at = DateTime.UtcNow
         };
@@ -179,10 +182,56 @@ public class FoodController : ControllerBase
         food.source = "local";
         food.exchange_group_id = dto.ExchangeGroupId;
         food.grams_per_exchange = dto.GramsPerExchange;
+        food.dietary_flags = NormalizeDietaryFlags(dto.DietaryFlags);
         food.last_synced_at = DateTime.UtcNow;
 
         await _dbContext.SaveChangesAsync();
         return NoContent();
+    }
+
+    [HttpGet("{id:int}/substitutions")]
+    [Authorize(Policy = "Professional")]
+    public async Task<IActionResult> GetSubstitutions(
+        int id,
+        [FromQuery] string target = "balanced",
+        [FromQuery] string[]? excludeFlags = null,
+        [FromQuery] int limit = 10,
+        CancellationToken cancellationToken = default)
+    {
+        var tenantId = AuthHelpers.GetTenantId(User);
+        if (!User.IsInRole("superadmin") && !tenantId.HasValue)
+            return BadRequest("La cuenta profesional no tiene una clínica asociada.");
+
+        var visibleFood = await _dbContext.foods.AsNoTracking().AnyAsync(f =>
+            f.id == id &&
+            ((f.source == null || f.source.ToLower() != "local") ||
+             User.IsInRole("superadmin") ||
+             (tenantId.HasValue && f.tenant_id == tenantId.Value)),
+            cancellationToken);
+
+        if (!visibleFood) return NotFound();
+
+        try
+        {
+            var result = await _foodSubstitutionService.SuggestAsync(
+                id, tenantId, User.IsInRole("superadmin"), target, excludeFlags, limit, cancellationToken);
+            return Ok(result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    private static string[] NormalizeDietaryFlags(IEnumerable<string>? flags)
+    {
+        return (flags ?? Array.Empty<string>())
+            .Where(flag => !string.IsNullOrWhiteSpace(flag))
+            .Select(flag => flag.Trim().ToLowerInvariant())
+            .Where(flag => flag.Length <= 50)
+            .Distinct(StringComparer.Ordinal)
+            .Take(30)
+            .ToArray();
     }
 
     // DELETE: api/foods/{id}

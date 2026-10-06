@@ -2423,5 +2423,50 @@ public static class DatabaseBootstrap
         }
     }
 
+    /// <summary>Inicializa la clasificación dietética estructurada de alimentos.</summary>
+    public static void UpgradeFoodNutritionSchemaV1(angulosodbContext context, ILogger logger)
+    {
+        try
+        {
+            context.Database.ExecuteSqlRaw(@"
+                ALTER TABLE foods
+                    ADD COLUMN IF NOT EXISTS dietary_flags TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
+
+                CREATE INDEX IF NOT EXISTS idx_foods_dietary_flags
+                    ON foods USING GIN (dietary_flags);
+
+                -- Clasificación inicial conservadora. No sustituye una revisión profesional.
+                UPDATE foods
+                SET dietary_flags = ARRAY(
+                    SELECT DISTINCT flag
+                    FROM unnest(dietary_flags || CASE
+                        WHEN LOWER(COALESCE(name,'')) ~ '(gluten|trigo|cebada|centeno)' THEN ARRAY['gluten']::TEXT[] ELSE ARRAY[]::TEXT[] END
+                        || CASE
+                        WHEN LOWER(COALESCE(name,'')) ~ '(leche|lácteo|lacteo|yogur|queso|mantequilla)' THEN ARRAY['dairy']::TEXT[] ELSE ARRAY[]::TEXT[] END
+                        || CASE
+                        WHEN LOWER(COALESCE(name,'')) ~ '(cacahuete|cacahuetes|maní|mani)' THEN ARRAY['peanut']::TEXT[] ELSE ARRAY[]::TEXT[] END
+                        || CASE
+                        WHEN LOWER(COALESCE(name,'')) ~ '(soja|soya)' THEN ARRAY['soy']::TEXT[] ELSE ARRAY[]::TEXT[] END
+                        || CASE
+                        WHEN LOWER(COALESCE(name,'')) ~ '(huevo|huevos)' THEN ARRAY['egg']::TEXT[] ELSE ARRAY[]::TEXT[] END
+                        || CASE
+                        WHEN LOWER(COALESCE(name,'')) ~ '(almendra|almendras|nuez|nueces|avellana|avellanas|pistacho|pistachos|anacardo|anacardos)' THEN ARRAY['tree_nut']::TEXT[] ELSE ARRAY[]::TEXT[] END
+                    ) AS flags(flag)
+                    WHERE flag IS NOT NULL AND BTRIM(flag) <> ''
+                );
+
+                INSERT INTO schema_migrations(id)
+                VALUES ('food-nutrition-v1')
+                ON CONFLICT (id) DO NOTHING;
+            ");
+            logger.LogInformation("Clasificación dietética estructurada de alimentos inicializada.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "No se pudo inicializar la clasificación dietética de alimentos.");
+            throw;
+        }
+    }
+
 }
 

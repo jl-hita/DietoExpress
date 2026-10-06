@@ -265,6 +265,7 @@ public partial class angulosodbContext : DbContext
                 .HasMaxLength(50)
                 .HasDefaultValueSql("'local'::character varying");
             entity.Property(e => e.grams_per_exchange).HasPrecision(6, 2);
+            entity.Property(e => e.dietary_flags).HasColumnType("text[]").HasDefaultValueSql("ARRAY[]::text[]");
 
             entity.HasIndex(e => e.tenant_id, "idx_foods_tenant_id");
             entity.HasIndex(e => e.created_by_user_id, "idx_foods_created_by_user_id");
