@@ -95,7 +95,7 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
       try {
         this.localVideoTrack = await createLocalVideoTrack();
         await this.room.localParticipant.publishTrack(this.localVideoTrack);
-        this.localVideoTrack.attach(this.localVideoElement());
+        this.localVideoTrack.attach(this.localVideoElementRef.nativeElement);
       } catch {
         this.cameraEnabled = false;
       }
@@ -118,16 +118,28 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  toggleMicrophone(): void {
-    if (!this.localAudio) return;
-    this.microphoneEnabled = !this.microphoneEnabled;
-    this.localAudio.enable(this.microphoneEnabled);
+  async toggleMicrophone(): Promise<void> {
+    if (!this.room || !this.localAudio) return;
+
+    const enabled = !this.microphoneEnabled;
+    try {
+      await this.room.localParticipant.setMicrophoneEnabled(enabled);
+      this.microphoneEnabled = enabled;
+    } catch {
+      // Conservamos el estado visual anterior si LiveKit no puede cambiar el dispositivo.
+    }
   }
 
-  toggleCamera(): void {
-    if (!this.localVideoTrack) return;
-    this.cameraEnabled = !this.cameraEnabled;
-    this.localVideoTrack.enable(this.cameraEnabled);
+  async toggleCamera(): Promise<void> {
+    if (!this.room || !this.localVideoTrack) return;
+
+    const enabled = !this.cameraEnabled;
+    try {
+      await this.room.localParticipant.setCameraEnabled(enabled);
+      this.cameraEnabled = enabled;
+    } catch {
+      // Conservamos el estado visual anterior si LiveKit no puede cambiar el dispositivo.
+    }
   }
 
   leave(): void {
@@ -154,24 +166,19 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
 
     const wrapper = document.createElement('div');
     wrapper.className = 'remote-participant';
-    wrapper.dataset.participant = participant.identity;
-    wrapper.dataset.track = publication.trackSid || '';
+    wrapper.dataset['participant'] = participant.identity;
+    wrapper.dataset['track'] = publication.trackSid || '';
     wrapper.appendChild(element);
 
-    if (track.kind === Track.Kind.Video) {
-      this.remoteContainer.nativeElement.appendChild(wrapper);
-      this.remoteElements.set(publication.trackSid || participant.identity, wrapper);
-    } else {
-      this.remoteContainer.nativeElement.appendChild(wrapper);
-      this.remoteElements.set(publication.trackSid || participant.identity, wrapper);
-    }
+    this.remoteContainer.nativeElement.appendChild(wrapper);
+    this.remoteElements.set(publication.trackSid || participant.identity, wrapper);
   }
 
   private detachRemoteTrack(track: RemoteTrack): void {
     track.detach().forEach(element => element.remove());
   }
 
-   ngOnDestroy(): void {
+  ngOnDestroy(): void {
     this.localAudio?.stop();
     this.localVideoTrack?.stop();
     void this.room?.disconnect();
