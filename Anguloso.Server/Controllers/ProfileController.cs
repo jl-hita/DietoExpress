@@ -72,6 +72,9 @@ public class ProfileController : ControllerBase
         user.clinic_logo = dto.ClinicLogo;
         var requestedDirectoryEnabled = dto.DirectoryEnabled;
         var publicProfileChanged = requestedDirectoryEnabled != (user.directory_enabled ?? false)
+            || !string.Equals(user.full_name, dto.FullName ?? user.full_name, StringComparison.Ordinal)
+            || !string.Equals(user.clinic_name, dto.ClinicName, StringComparison.Ordinal)
+            || !string.Equals(user.clinic_logo, dto.ClinicLogo, StringComparison.Ordinal)
             || !string.Equals(user.directory_city, string.IsNullOrWhiteSpace(dto.DirectoryCity) ? null : dto.DirectoryCity.Trim(), StringComparison.Ordinal)
             || !string.Equals(user.directory_province, string.IsNullOrWhiteSpace(dto.DirectoryProvince) ? null : dto.DirectoryProvince.Trim(), StringComparison.Ordinal)
             || !string.Equals(user.directory_bio, string.IsNullOrWhiteSpace(dto.DirectoryBio) ? null : dto.DirectoryBio.Trim(), StringComparison.Ordinal)
