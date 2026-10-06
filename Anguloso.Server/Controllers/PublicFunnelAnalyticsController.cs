@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Anguloso.Server.Logica;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace Anguloso.Server.Controllers;
@@ -18,6 +19,7 @@ public sealed class PublicFunnelAnalyticsController : ControllerBase
 
     [AllowAnonymous]
     [HttpPost("events")]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> Track([FromBody] PublicFunnelEventRequest request, CancellationToken cancellationToken)
     {
         if (request.EventName is not ("directory_view" or "profile_view" or "booking_started"))
