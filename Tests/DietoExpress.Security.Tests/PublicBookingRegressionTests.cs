@@ -87,7 +87,7 @@ public class PublicBookingRegressionTests
         var component = File.ReadAllText(Path.Combine(
             RepoRoot, "anguloso.client", "src", "app", "componentes", "directory", "directory.component.ts"));
 
-        Assert.Contains("public string Modality { get; set; } = \"in_person";", dto);
+        Assert.Contains("public string Modality { get; set; } = \"in_person\";", dto);
         Assert.Contains("var requestedModality = request.Modality?.Trim().ToLowerInvariant() ?? \"in_person\";", controller);
         Assert.Contains("professional.online_consultations != true", controller);
         Assert.Contains("modality: this.bookingModality", component);
