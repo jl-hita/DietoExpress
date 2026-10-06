@@ -41,4 +41,7 @@ public class CustomFoodDto
 
     public int? ExchangeGroupId { get; set; }
     public decimal? GramsPerExchange { get; set; }
+
+    /// <summary>Etiquetas dietéticas estructuradas usadas por restricciones, alérgenos y sustituciones.</summary>
+    public string[]? DietaryFlags { get; set; }
 }
