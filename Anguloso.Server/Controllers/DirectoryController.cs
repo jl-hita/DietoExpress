@@ -21,6 +21,7 @@ public class DirectoryController : ControllerBase
     private readonly EmailServ _emailServ;
     private readonly PatientPortalAccessService _portalAccessService;
     private readonly ILogger<DirectoryController> _logger;
+    private readonly IPublicFunnelAnalyticsService _funnelAnalytics;
 
     public DirectoryController(
         angulosodbContext context,
@@ -30,7 +31,8 @@ public class DirectoryController : ControllerBase
         GoogleCalendarService googleCalendar,
         EmailServ emailServ,
         PatientPortalAccessService portalAccessService,
-        ILogger<DirectoryController> logger)
+        ILogger<DirectoryController> logger,
+        IPublicFunnelAnalyticsService funnelAnalytics)
     {
         _context = context;
         _licenseService = licenseService;
@@ -40,6 +42,7 @@ public class DirectoryController : ControllerBase
         _emailServ = emailServ;
         _portalAccessService = portalAccessService;
         _logger = logger;
+        _funnelAnalytics = funnelAnalytics;
     }
 
     // Solo los profesionales que activan expresamente la visibilidad salen al directorio público.
@@ -285,6 +288,15 @@ public class DirectoryController : ControllerBase
         _context.patient_appointments.Add(appointment);
         await _context.SaveChangesAsync();
         await transaction.CommitAsync();
+
+        try
+        {
+            await _funnelAnalytics.TrackAsync("booking_requested", normalized, appointment.id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "No se pudo registrar la analítica de reserva pública {AppointmentId}.", appointment.id);
+        }
 
         // La reserva pública convierte al visitante en paciente operativo. La provisión documental se
         // ejecuta como trabajo persistente después del commit: sobrevive a reinicios y dispone de reintentos

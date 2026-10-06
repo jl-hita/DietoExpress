@@ -58,6 +58,7 @@ public partial class angulosodbContext : DbContext
     public virtual DbSet<tenants> tenants { get; set; }
 
     public virtual DbSet<audit_logs> audit_logs { get; set; }
+    public virtual DbSet<public_funnel_events> public_funnel_events { get; set; }
     public virtual DbSet<subscription_plans> subscription_plans { get; set; }
     public virtual DbSet<subscription_plan_features> subscription_plan_features { get; set; }
     public virtual DbSet<subscriptions> subscriptions { get; set; }
