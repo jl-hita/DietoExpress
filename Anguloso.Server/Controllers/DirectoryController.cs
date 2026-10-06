@@ -51,7 +51,7 @@ public class DirectoryController : ControllerBase
     public async Task<ActionResult<IEnumerable<DirectoryProfileDto>>> Search([FromQuery] DirectorySearchDto filter)
     {
         var query = _context.users.AsNoTracking()
-            .Where(u => u.archived_at == null && u.role == "nutritionist" && u.directory_enabled == true);
+            .Where(u => u.archived_at == null && u.role == "nutritionist" && u.directory_enabled == true && u.directory_publication_status == "published");
 
         if (!string.IsNullOrWhiteSpace(filter.City))
             query = query.Where(u => u.directory_city != null && EF.Functions.ILike(u.directory_city, $"%{filter.City.Trim()}%"));
@@ -91,7 +91,7 @@ public class DirectoryController : ControllerBase
     {
         var normalized = slug.Trim().ToLowerInvariant();
         var profile = await _context.users.AsNoTracking()
-            .Where(u => u.archived_at == null && u.directory_enabled == true && u.directory_slug == normalized)
+            .Where(u => u.archived_at == null && u.role == "nutritionist" && u.directory_enabled == true && u.directory_publication_status == "published" && u.directory_slug == normalized)
             .Select(u => new DirectoryProfileDto
             {
                 Username = u.username,
