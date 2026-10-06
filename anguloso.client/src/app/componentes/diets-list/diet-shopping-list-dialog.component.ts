@@ -57,7 +57,7 @@ export interface DietShoppingListDialogData {
             <div class="category-header">
               <mat-icon class="cat-icon">{{ getCategoryIcon(cat.category) }}</mat-icon>
               <span class="cat-title">{{ cat.category }}</span>
-              <span class="cat-count">({{ cat.items?.length || 0 }})</span>
+              <span class="cat-count">({{ cat.items.length || 0 }})</span>
             </div>
 
             <div class="items-table">
