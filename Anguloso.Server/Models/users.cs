@@ -67,6 +67,10 @@ public partial class users
     public string directory_bio { get; set; }
     public string directory_specialties { get; set; }
     public string directory_slug { get; set; }
+    public string directory_publication_status { get; set; }
+    public DateTime? directory_verified_at { get; set; }
+    public int? directory_verified_by_user_id { get; set; }
+    public string directory_verification_note { get; set; }
 
     public string subscription_plan { get; set; }
 
