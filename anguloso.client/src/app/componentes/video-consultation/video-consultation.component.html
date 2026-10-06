@@ -14,6 +14,13 @@
       <button type="button" (click)="connect()" [disabled]="connecting">Reintentar</button>
     </section>
   } @else {
+    @if (quotaWarning) {
+      <section class="quota-warning">
+        <strong>Aviso de consumo</strong>
+        <span>{{ quotaWarning }}</span>
+      </section>
+    }
+
     <section class="room">
       <div class="remote-stage">
         <div #remoteContainer class="remote-container"></div>
