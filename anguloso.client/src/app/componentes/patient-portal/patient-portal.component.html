@@ -263,7 +263,8 @@
       [success]="appointmentSuccess"
       (refresh)="loadAppointmentSlots()"
       (request)="requestAppointment($event)"
-      (cancel)="cancelAppointment($event)">
+      (cancel)="cancelAppointment($event)"
+      (joinVideo)="joinVideoAppointment($event)">
     </app-patient-appointments>
     <app-patient-shopping
       *ngIf="activeTab === 'shopping'"
