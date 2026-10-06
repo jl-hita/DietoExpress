@@ -505,6 +505,7 @@ export class AdminDashboardComponent implements OnInit {
   userPage = 1;
   userPageSize = 25;
   configs: AdminConfig[] = [];
+  videoUsage?: AdminVideoUsage;
   displayedColumns = ['user', 'plan', 'status', 'expires', 'usage', 'lastLogin', 'actions'];
   configDisplayedColumns = ['id', 'nombre', 'valor'];
   configTabs = [{key:'PLATFORM',label:'Plataforma'},{key:'EMAIL',label:'Email'},{key:'GOOGLE',label:'Google / Calendario'},{key:'VIDEO',label:'Videollamadas'},{key:'FOOD',label:'Alimentos'},{key:'NOTIFICATIONS',label:'Notificaciones'},{key:'ADDRESS',label:'Direcciones'},{key:'OTHER',label:'Otros'}];
@@ -538,9 +539,17 @@ export class AdminDashboardComponent implements OnInit {
     });
     this.loadUsers();
     this.loadConfig();
+    this.loadVideoUsage();
     this.adminService.getPlans().subscribe({
       next: plans => this.plans = plans.filter(p => p.active),
       error: () => this.snackBar.open('Error al cargar los planes.', 'Cerrar', { duration: 4000 })
+    });
+  }
+
+  loadVideoUsage(): void {
+    this.adminService.getVideoUsage().subscribe({
+      next: usage => this.videoUsage = usage,
+      error: err => console.error('Error fetching LiveKit usage', err)
     });
   }
 
