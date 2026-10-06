@@ -28,7 +28,7 @@
     <div class="appointment-card-header">
       <div>
         <h3>Próximos horarios</h3>
-        <span>Disponibles durante los próximos 30 días</span>
+        <span>Consulta los días disponibles y elige un horario</span>
       </div>
       <button type="button" class="empty-state-action" (click)="refresh.emit()" [disabled]="loading">
         <mat-icon>refresh</mat-icon>
@@ -51,13 +51,46 @@
       </button>
     </div>
 
-    <div class="appointment-slots" *ngIf="!loading && slots.length">
-      <button type="button" class="appointment-slot" *ngFor="let slot of slots | slice:0:30"
-              (click)="request.emit({ slot, modality: selectedModality })" [disabled]="booking">
-        <span class="appointment-slot-date">{{ formatDate(slot.startsAt) }}</span>
-        <strong>{{ formatTime(slot.startsAt) }}</strong>
-        <span class="appointment-slot-action">Reservar <mat-icon>arrow_forward</mat-icon></span>
-      </button>
+    <div class="availability-calendar" *ngIf="!loading && slots.length">
+      <div class="calendar-header">
+        <button type="button" class="calendar-nav" (click)="previousMonth()" [disabled]="!canGoToPreviousMonth" aria-label="Mes anterior">‹</button>
+        <strong>{{ monthLabel() }}</strong>
+        <button type="button" class="calendar-nav" (click)="nextMonth()" [disabled]="!canGoToNextMonth" aria-label="Mes siguiente">›</button>
+      </div>
+      <div class="calendar-weekdays">
+        <span *ngFor="let day of ['L','M','X','J','V','S','D']">{{ day }}</span>
+      </div>
+      <div class="calendar-grid">
+        <button *ngFor="let day of calendarDays"
+                type="button"
+                class="calendar-day"
+                [class.outside]="!day.inCurrentMonth"
+                [class.available]="day.slotCount > 0"
+                [class.busy]="day.slotCount > 3"
+                [class.selected]="selectedAvailabilityDate === day.key"
+                [disabled]="day.disabled"
+                (click)="selectAvailabilityDate(day.key)"
+                [attr.aria-label]="day.slotCount ? day.dayNumber + ', ' + day.slotCount + ' huecos disponibles' : day.dayNumber + ', sin disponibilidad'">
+          <span>{{ day.dayNumber }}</span>
+          <small *ngIf="day.slotCount">{{ day.slotCount }}</small>
+        </button>
+      </div>
+      <div class="calendar-legend">
+        <span><i class="legend-dot many"></i> Más de 3 huecos</span>
+        <span><i class="legend-dot few"></i> 1–3 huecos</span>
+      </div>
+    </div>
+
+    <div class="day-slots" *ngIf="selectedDateSlots.length">
+      <h4>Horarios disponibles</h4>
+      <div class="appointment-slots">
+        <button type="button" class="appointment-slot" *ngFor="let slot of selectedDateSlots"
+                (click)="request.emit({ slot, modality: selectedModality })" [disabled]="booking">
+          <span class="appointment-slot-date">{{ formatDaySlot(slot.startsAt) }}</span>
+          <strong>{{ formatTime(slot.startsAt) }}</strong>
+          <span class="appointment-slot-action">Reservar <mat-icon>arrow_forward</mat-icon></span>
+        </button>
+      </div>
     </div>
 
     <div class="empty-state" *ngIf="!loading && !slots.length">
