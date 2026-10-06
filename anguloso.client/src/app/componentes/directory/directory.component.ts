@@ -34,6 +34,89 @@ export class DirectoryComponent implements OnInit {
   bookingEmail = '';
   bookingPhone = '';
   bookingNotes = '';
+  calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  selectedAvailabilityDate: string | null = null;
+
+  get calendarDays(): Array<{ date: Date; dayNumber: number; key: string; slotCount: number; inCurrentMonth: boolean; disabled: boolean }> {
+    const year = this.calendarMonth.getFullYear();
+    const month = this.calendarMonth.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const startOffset = firstDay.getDay();
+    const start = new Date(year, month, 1 - startOffset);
+    return Array.from({ length: 42 }, (_, index) => {
+      const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + index);
+      const key = this.dateKey(date);
+      const slotCount = this.slotsForDate(key).length;
+      return {
+        date,
+        dayNumber: date.getDate(),
+        key,
+        slotCount,
+        inCurrentMonth: date.getMonth() === month,
+        disabled: date < new Date(new Date().setHours(0, 0, 0, 0)) || slotCount === 0
+      };
+    });
+  }
+
+  get selectedDateSlots(): PublicAvailabilitySlot[] {
+    return this.selectedAvailabilityDate ? this.slotsForDate(this.selectedAvailabilityDate) : [];
+  }
+
+  get canGoToPreviousMonth(): boolean {
+    const current = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    return this.calendarMonth > current;
+  }
+
+  get canGoToNextMonth(): boolean {
+    const lastSlotDate = this.availability.length
+      ? new Date(Math.max(...this.availability.map(slot => new Date(slot.startsAt).getTime())))
+      : new Date();
+    const loadedLastMonth = new Date(lastSlotDate.getFullYear(), lastSlotDate.getMonth(), 1);
+    return this.calendarMonth < loadedLastMonth;
+  }
+
+  previousMonth(): void {
+    if (this.canGoToPreviousMonth) {
+      this.calendarMonth = new Date(this.calendarMonth.getFullYear(), this.calendarMonth.getMonth() - 1, 1);
+      this.selectedAvailabilityDate = null;
+    }
+  }
+
+  nextMonth(): void {
+    if (this.canGoToNextMonth) {
+      this.calendarMonth = new Date(this.calendarMonth.getFullYear(), this.calendarMonth.getMonth() + 1, 1);
+      this.selectedAvailabilityDate = null;
+    }
+  }
+
+  selectAvailabilityDate(key: string): void {
+    const slots = this.slotsForDate(key);
+    if (!slots.length) return;
+    this.selectedAvailabilityDate = key;
+    this.selectedSlot = null;
+    this.bookingError = '';
+  }
+
+  slotsForDate(key: string): PublicAvailabilitySlot[] {
+    return this.availability.filter(slot => this.dateKey(new Date(slot.startsAt)) === key);
+  }
+
+  dateKey(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return year + '-' + month + '-' + day;
+  }
+
+  monthLabel(): string {
+    return new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(this.calendarMonth);
+  }
+
+  formatDaySlot(slot: PublicAvailabilitySlot): string {
+    return new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' }).format(new Date(slot.startsAt));
+  }
+
+  selectSlot(slot: PublicAvailabilitySlot): void {
 
   constructor(
     private readonly route: ActivatedRoute,
@@ -91,6 +174,12 @@ export class DirectoryComponent implements OnInit {
     this.directoryService.getAvailability(slug).subscribe({
       next: slots => {
         this.availability = slots;
+        const firstAvailable = slots[0];
+        if (firstAvailable) {
+          const firstDate = new Date(firstAvailable.startsAt);
+          this.calendarMonth = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
+        }
+        this.selectedAvailabilityDate = null;
         this.availabilityLoading = false;
       },
       error: () => {
