@@ -147,14 +147,13 @@ export class PatientPortalService {
   }
 
   openVideoAccess(id: number, onError?: (error: any) => void): void {
-    this.getVideoAccess(id).subscribe({
-      next: access => {
-        const url = new URL(access.roomUrl);
-        url.searchParams.set('t', access.token);
-        window.open(url.toString(), '_blank', 'noopener,noreferrer');
-      },
-      error: err => onError?.(err)
-    });
+    // El token nunca se coloca en la URL ni se expone en el historial del navegador.
+    // La vista de consulta lo solicita al backend justo antes de conectar a LiveKit.
+    const url = new URL('/video-consultation/' + id, window.location.origin);
+    const popup = window.open(url.toString(), '_blank', 'noopener,noreferrer');
+    if (!popup) {
+      onError?.({ error: { message: 'El navegador ha bloqueado la ventana de la consulta online.' } });
+    }
   }
 
   cancelAppointment(id: number): Observable<void> {
