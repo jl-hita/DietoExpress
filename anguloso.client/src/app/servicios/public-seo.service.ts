@@ -105,12 +105,12 @@ export class PublicSeoService {
   }
 
   private absoluteUrl(path: string): string {
-    const origin = this.document.location?.origin || 'https://jlhitap.duckdns.org';
-    return new URL(path, origin).toString();
+    const origin = this.document.location?.origin;
+    return origin ? new URL(path, origin).toString() : path;
   }
 
   private truncate(value: string): string {
-    const normalized = value.replace(/\\s+/g, ' ').trim();
+    const normalized = value.replace(/\s+/g, ' ').trim();
     return normalized.length <= 160 ? normalized : normalized.slice(0, 157).trimEnd() + '...';
   }
 }
