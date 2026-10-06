@@ -294,8 +294,26 @@ BillingSchemaBootstrap.Initialize(context, logger);
                 }
             }
         }
+        var liveKitCspSource = string.Empty;
+        try
+        {
+            var liveKitUrl = app.Services.GetRequiredService<ConfigServ>().GetConfigString("VIDEO_LIVEKIT_URL");
+            if (Uri.TryCreate(liveKitUrl, UriKind.Absolute, out var liveKitUri) &&
+                (liveKitUri.Scheme.Equals("wss", StringComparison.OrdinalIgnoreCase) ||
+                 liveKitUri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase)))
+            {
+                var host = liveKitUri.Host;
+                var port = liveKitUri.IsDefaultPort ? string.Empty : $":{liveKitUri.Port}";
+                liveKitCspSource = $" wss://{host}{port}";
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "No se pudo cargar el endpoint LiveKit para la política CSP.");
+        }
+
         app.UseCors("AllowAngularApp");
-        if (!app.Environment.IsDevelopment()) { app.UseHttpsRedirection(); app.Use(async (context, next) => { context.Response.Headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"; context.Response.Headers["X-Content-Type-Options"] = "nosniff"; context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin"; context.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"; if (context.Request.Path.StartsWithSegments("/api")) { context.Response.Headers["Cache-Control"] = "no-store"; context.Response.Headers["Pragma"] = "no-cache"; } context.Response.Headers["Content-Security-Policy"] = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; script-src 'self' https://accounts.google.com; connect-src 'self' https://accounts.google.com; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; frame-src https://accounts.google.com; upgrade-insecure-requests"; await next(); }); }
+        if (!app.Environment.IsDevelopment()) { app.UseHttpsRedirection(); app.Use(async (context, next) => { context.Response.Headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"; context.Response.Headers["X-Content-Type-Options"] = "nosniff"; context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin"; context.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"; if (context.Request.Path.StartsWithSegments("/api")) { context.Response.Headers["Cache-Control"] = "no-store"; context.Response.Headers["Pragma"] = "no-cache"; } context.Response.Headers["Content-Security-Policy"] = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; script-src 'self' https://accounts.google.com; connect-src 'self' https://accounts.google.com{liveKitCspSource}; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; frame-src https://accounts.google.com; upgrade-insecure-requests"; await next(); }); }
         app.UseDefaultFiles(); app.UseStaticFiles(); if (app.Environment.IsDevelopment()) { app.UseSwagger(); app.UseSwaggerUI(); } app.UseRateLimiter(); app.UseAuthentication(); app.UseAuthorization(); app.MapControllers(); if (!app.Environment.IsDevelopment()) app.MapFallbackToFile("/index.html");
         try { app.Run(); } finally { Log.CloseAndFlush(); }
     }
