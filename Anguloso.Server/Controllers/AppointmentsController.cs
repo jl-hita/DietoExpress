@@ -50,10 +50,11 @@ public class AppointmentsController : ControllerBase
         var assignment = await _context.client_nutritionist_assignments.AsNoTracking()
             .Where(a => a.client_id == client.id && a.is_active && a.nutritionist.tenant_id == client.tenant_id)
             .OrderByDescending(a => a.assigned_at)
-            .Select(a => new { a.nutritionist_id, NutritionistName = a.nutritionist.full_name })
+            .Select(a => new { a.nutritionist_id, NutritionistName = a.nutritionist.full_name, OnlineConsultationsAvailable = a.nutritionist.online_consultations == true })
             .FirstOrDefaultAsync();
         var nutritionistId = assignment?.nutritionist_id ?? client.user_id;
         if (nutritionistId == null) return Ok(Array.Empty<AppointmentSlotDto>());
+        var onlineConsultationsAvailable = assignment?.OnlineConsultationsAvailable ?? await _context.users.AsNoTracking().AnyAsync(u => u.id == nutritionistId.Value && u.tenant_id == client.tenant_id && u.online_consultations == true);
 
         // La disponibilidad se almacena en hora local; los huecos se generan en esa zona
         // y se convierten a UTC antes de compararlos con las citas persistidas.
@@ -87,7 +88,7 @@ public class AppointmentsController : ControllerBase
                     var endUtc = utc.AddMinutes(rule.slot_minutes);
                     if (utc <= from || utc >= to) continue;
                     if (appointments.Any(a => a.starts_at < endUtc && a.ends_at > utc)) continue;
-                    slots.Add(new AppointmentSlotDto { StartsAt = utc, EndsAt = endUtc, NutritionistId = nutritionistId.Value, NutritionistName = assignment?.NutritionistName });
+                    slots.Add(new AppointmentSlotDto { StartsAt = utc, EndsAt = endUtc, NutritionistId = nutritionistId.Value, NutritionistName = assignment?.NutritionistName, OnlineConsultationsAvailable = onlineConsultationsAvailable });
                 }
             }
         }
