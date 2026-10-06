@@ -15,7 +15,7 @@ import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTabsModule } from '@angular/material/tabs';
-import { AdminService, AdminAlert, AdminConfig, AdminStats, AdminUser, AdminPlan, CreateAdminAccountDto } from '../../servicios/admin.service';
+import { AdminService, AdminAlert, AdminConfig, AdminStats, AdminUser, AdminPlan, CreateAdminAccountDto, AdminVideoUsage } from '../../servicios/admin.service';
 import { EditLicenseDialogComponent } from './edit-license-dialog.component';
 import { ResetPasswordDialogComponent } from './reset-password-dialog.component';
 import { CreateAdminAccountDialogComponent } from './create-admin-account-dialog.component';
@@ -267,6 +267,24 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
             <h2>Configuración de la aplicación</h2>
             <p class="section-subtitle">Todas las líneas de la tabla config.</p>
           </div>
+        </div>
+
+        <div class="video-usage-card" *ngIf="videoUsage">
+          <div>
+            <strong>Consumo real de LiveKit</strong>
+            <span *ngIf="videoUsage.analytics.available">
+              {{ videoUsage.analytics.connectionMinutes }} minutos-participante en los últimos 7 días
+              ({{ videoUsage.analytics.sessions }} sesiones).
+            </span>
+            <span *ngIf="!videoUsage.analytics.available" class="text-muted">
+              {{ videoUsage.analytics.message }}
+            </span>
+          </div>
+          <div class="video-usage-metrics">
+            <span>Cuota/nutricionista: <b>{{ videoUsage.nutritionistLimitParticipantMinutes }}</b></span>
+            <span>Cuota global: <b>{{ videoUsage.globalLimitParticipantMinutes }}</b></span>
+          </div>
+          <small>La cuota interna se reserva como estimación; connectionMinutes es el consumo real reportado por LiveKit cuando Analytics está disponible.</small>
         </div>
 
         <mat-tab-group animationDuration="0ms" class="config-tabs">
@@ -789,3 +807,4 @@ export class AdminDashboardComponent implements OnInit {
     });
   }
 }
+
