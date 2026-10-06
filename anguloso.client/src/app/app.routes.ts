@@ -52,6 +52,7 @@ export const routes: AppRoute[] = [
       { path: 'admin/legal', loadComponent: () => import('./componentes/admin/admin-legal-settings.component').then(m => m.AdminLegalSettingsComponent), canActivate: [SuperAdminGuard], title: 'Legal — DietoExpress' },
       { path: 'admin/logs', loadComponent: () => import('./componentes/admin/admin-log.component').then(m => m.AdminLogComponent), canActivate: [SuperAdminGuard], title: 'Logs del sistema' },
       { path: 'admin/plans', loadComponent: () => import('./componentes/admin/admin-plans.component').then(m => m.AdminPlansComponent), canActivate: [SuperAdminGuard], title: 'Planes SaaS' },
+      { path: 'admin/directory-verification', loadComponent: () => import('./componentes/admin/admin-directory-verification.component').then(m => m.AdminDirectoryVerificationComponent), canActivate: [SuperAdminGuard], title: 'Verificación del directorio' },
       { path: 'clinic', loadComponent: () => import('./componentes/clinic/clinic-dashboard.component').then(m => m.ClinicDashboardComponent), title: 'Panel de clínica' }
     ]
   },
