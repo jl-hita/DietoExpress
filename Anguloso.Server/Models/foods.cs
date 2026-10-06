@@ -81,6 +81,8 @@ public partial class foods
 
     public decimal? grams_per_exchange { get; set; }
 
+    public string[] dietary_flags { get; set; } = Array.Empty<string>();
+
     public virtual tenants tenant { get; set; }
 
     public virtual users created_by_user { get; set; }
