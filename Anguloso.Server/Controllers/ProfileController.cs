@@ -47,7 +47,8 @@ public class ProfileController : ControllerBase
             DirectoryProvince = user.directory_province ?? string.Empty,
             DirectoryBio = user.directory_bio ?? string.Empty,
             DirectorySpecialties = user.directory_specialties ?? string.Empty,
-            DirectorySlug = user.directory_slug ?? string.Empty
+            DirectorySlug = user.directory_slug ?? string.Empty,
+            DirectoryPublicationStatus = user.directory_publication_status ?? "draft"
         };
 
         return Ok(dto);
@@ -69,7 +70,14 @@ public class ProfileController : ControllerBase
         user.clinic_address = dto.ClinicAddress;
         user.clinic_phone = dto.ClinicPhone;
         user.clinic_logo = dto.ClinicLogo;
-        user.directory_enabled = dto.DirectoryEnabled;
+        var requestedDirectoryEnabled = dto.DirectoryEnabled;
+        var publicProfileChanged = requestedDirectoryEnabled != (user.directory_enabled ?? false)
+            || !string.Equals(user.directory_city, string.IsNullOrWhiteSpace(dto.DirectoryCity) ? null : dto.DirectoryCity.Trim(), StringComparison.Ordinal)
+            || !string.Equals(user.directory_province, string.IsNullOrWhiteSpace(dto.DirectoryProvince) ? null : dto.DirectoryProvince.Trim(), StringComparison.Ordinal)
+            || !string.Equals(user.directory_bio, string.IsNullOrWhiteSpace(dto.DirectoryBio) ? null : dto.DirectoryBio.Trim(), StringComparison.Ordinal)
+            || !string.Equals(user.directory_specialties, string.IsNullOrWhiteSpace(dto.DirectorySpecialties) ? null : dto.DirectorySpecialties.Trim(), StringComparison.Ordinal)
+            || dto.OnlineConsultations != (user.online_consultations ?? false);
+        user.directory_enabled = requestedDirectoryEnabled;
         user.online_consultations = dto.OnlineConsultations;
         user.directory_city = string.IsNullOrWhiteSpace(dto.DirectoryCity) ? null : dto.DirectoryCity.Trim();
         user.directory_province = string.IsNullOrWhiteSpace(dto.DirectoryProvince) ? null : dto.DirectoryProvince.Trim();
@@ -77,7 +85,7 @@ public class ProfileController : ControllerBase
         user.directory_specialties = string.IsNullOrWhiteSpace(dto.DirectorySpecialties) ? null : dto.DirectorySpecialties.Trim();
 
         // El slug solo se necesita cuando el profesional publica su ficha; una vez creado permanece estable.
-        if (dto.DirectoryEnabled && string.IsNullOrWhiteSpace(user.directory_slug))
+        if (requestedDirectoryEnabled && string.IsNullOrWhiteSpace(user.directory_slug))
         {
             var baseSlug = BuildSlug(user.full_name, user.username);
             user.directory_slug = baseSlug;
@@ -85,6 +93,11 @@ public class ProfileController : ControllerBase
             while (await _context.users.AnyAsync(u => u.id != user.id && u.directory_slug == user.directory_slug))
                 user.directory_slug = $"{baseSlug}-{suffix++}";
         }
+
+        if (!requestedDirectoryEnabled)
+            user.directory_publication_status = "draft";
+        else if (publicProfileChanged && user.directory_publication_status != "pending")
+            user.directory_publication_status = "pending";
 
         await _context.SaveChangesAsync();
         return Ok(new ProfileDto
@@ -94,7 +107,8 @@ public class ProfileController : ControllerBase
             ClinicLogo = user.clinic_logo, DirectoryEnabled = user.directory_enabled ?? false,
             OnlineConsultations = user.online_consultations ?? false, DirectoryCity = user.directory_city ?? string.Empty,
             DirectoryProvince = user.directory_province ?? string.Empty, DirectoryBio = user.directory_bio ?? string.Empty, DirectorySpecialties = user.directory_specialties ?? string.Empty,
-            DirectorySlug = user.directory_slug ?? string.Empty
+            DirectorySlug = user.directory_slug ?? string.Empty,
+            DirectoryPublicationStatus = user.directory_publication_status ?? "draft"
         });
     }
     private static string BuildSlug(string? fullName, string username)
