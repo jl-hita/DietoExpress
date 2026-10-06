@@ -58,13 +58,20 @@ public class DirectoryController : ControllerBase
             // El proveedor de direcciones puede devolver la forma valenciana "València",
             // mientras que el selector del directorio usa la forma castellana "Valencia".
             // Admitimos ambas formas para no hacer depender la búsqueda de la variante guardada.
-            var provinceVariants = province.Equals("Valencia", StringComparison.OrdinalIgnoreCase)
-                ? new[] { "Valencia", "València" }
-                : new[] { province };
-
-            query = query.Where(u =>
-                u.directory_province != null &&
-                provinceVariants.Any(value => EF.Functions.ILike(u.directory_province, $"%{value}%")));
+            if (province.Equals("Valencia", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(u =>
+                    u.directory_province != null &&
+                    (EF.Functions.ILike(u.directory_province, "%Valencia%") ||
+                     EF.Functions.ILike(u.directory_province, "%València%")));
+            }
+            else
+            {
+                var provincePattern = $"%{province}%";
+                query = query.Where(u =>
+                    u.directory_province != null &&
+                    EF.Functions.ILike(u.directory_province, provincePattern));
+            }
         }
         if (filter.Online == true)
             query = query.Where(u => u.online_consultations == true);
