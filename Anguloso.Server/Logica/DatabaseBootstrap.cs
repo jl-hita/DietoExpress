@@ -2315,11 +2315,6 @@ public static class DatabaseBootstrap
                     'addressFailoverThreshold','addressGeoapifyDailyLimit','addressLocationIqDailyLimit'
                 );
 
-                INSERT INTO config (nombre_config, valor_config) VALUES
-                    ('VIDEO_DAILY_ENABLED','0'),('VIDEO_DAILY_API_KEY',''),('VIDEO_DAILY_DOMAIN',''),
-                    ('VIDEO_DAILY_ROOM_EXPIRY_MINUTES','30'),('VIDEO_DAILY_ROOM_CREATION_LEAD_MINUTES','60')
-                ON CONFLICT DO NOTHING;
-
                 CREATE UNIQUE INDEX IF NOT EXISTS uq_config_nombre_config ON config(nombre_config);
                 INSERT INTO schema_migrations(id) VALUES ('configuration-naming-v1')
                 ON CONFLICT (id) DO NOTHING;
