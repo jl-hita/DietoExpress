@@ -54,7 +54,7 @@ export class DirectoryComponent implements OnInit {
     if (slug) this.loadProfile(slug);
     else {
       this.city = city || '';
-      this.speciality = speciality || '';
+      this.speciality = speciality ? speciality.replace(/-/g, ' ') : '';
       this.online = onlineRoute;
       this.publicSeoService.setDirectorySeo({ city: this.city, province: this.province, speciality: this.speciality, online: this.online });
       this.publicFunnelAnalytics.track('directory_view');
