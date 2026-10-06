@@ -23,6 +23,7 @@ export class PatientAppointmentsComponent {
   @Output() refresh = new EventEmitter<void>();
   @Output() request = new EventEmitter<AppointmentSlot>();
   @Output() cancel = new EventEmitter<PatientAppointment>();
+  @Output() joinVideo = new EventEmitter<PatientAppointment>();
 
   formatDate(value: string): string {
     return new Intl.DateTimeFormat('es-ES', {
