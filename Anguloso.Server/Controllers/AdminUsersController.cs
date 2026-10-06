@@ -752,7 +752,7 @@ internal static class AdminConfigMetadata
         "VIDEO_LIVEKIT_API_SECRET" => "Secreto de API de servidor de LiveKit utilizado para firmar tokens. Ejemplo: el API secret de tu proyecto LiveKit. Es un secreto crítico y nunca debe exponerse al cliente.",
         "VIDEO_LIVEKIT_ROOM_EXPIRY_MINUTES" => "Minutos adicionales durante los que la sala se considera válida después de finalizar la cita. Ejemplo: «30» para mantenerla disponible 30 minutos adicionales.",
         "VIDEO_LIVEKIT_ROOM_CREATION_LEAD_MINUTES" => "Antelación prevista para preparar una sala antes de una consulta online. Ejemplo: «60» para una hora. La reserva sigue creando la sala al confirmar la cita.",
-        "VIDEO_LIVEKIT_EMPTY_ROOM_TIMEOUT_SECONDS" => "Tiempo, en segundos, que LiveKit mantiene una sala vacía antes de cerrarla. Ejemplo: «300» para cinco minutos.";
+        "VIDEO_LIVEKIT_EMPTY_ROOM_TIMEOUT_SECONDS" => "Tiempo, en segundos, que LiveKit mantiene una sala vacía antes de cerrarla. Ejemplo: «300» para cinco minutos.",
         "FOOD_USDA_API_KEY" => "Clave privada para consultar la API de alimentos USDA cuando DietoExpress utilice ese proveedor. Ejemplo: la API key asignada por USDA. Es un secreto.",
         "NOTIFICATIONS_WEBPUSH_SUBJECT" => "Identificador del asunto/origen utilizado al solicitar credenciales de Web Push. Ejemplo: «mailto:soporte@tudominio.es» o el valor requerido por tu proveedor/configuración.",
         "NOTIFICATIONS_WEBPUSH_PUBLIC_KEY" => "Clave pública VAPID utilizada para las notificaciones Web Push. Ejemplo: una clave pública generada para DietoExpress. Puede compartirse con el navegador.",
