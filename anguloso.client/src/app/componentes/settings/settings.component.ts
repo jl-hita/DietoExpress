@@ -152,9 +152,22 @@ export class SettingsComponent implements OnInit, OnDestroy {
     this.form.patchValue({
       clinicAddress: suggestion.displayName,
       directoryCity: suggestion.city || this.form.get('directoryCity')?.value || '',
-      directoryProvince: suggestion.province || this.form.get('directoryProvince')?.value || ''
+      directoryProvince: this.canonicalizeProvince(suggestion.province) || this.form.get('directoryProvince')?.value || ''
     });
     this.filterProvinces();
+  }
+
+  private canonicalizeProvince(value: string | null | undefined): string {
+    const candidate = String(value ?? '').trim();
+    if (!candidate) return '';
+
+    const normalize = (text: string) => text
+      .normalize('NFD')
+      .replace(/[\\u0300-\\u036f]/g, '')
+      .toLocaleLowerCase('es');
+
+    const normalizedCandidate = normalize(candidate);
+    return this.provinces.find(province => normalize(province) === normalizedCandidate) ?? candidate;
   }
 
   filterProvinces(): void {
