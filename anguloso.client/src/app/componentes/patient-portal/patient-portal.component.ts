@@ -320,12 +320,13 @@ export class PatientPortalComponent implements OnInit {
     if (!this.appointments.length && !this.appointmentsLoading) this.loadAppointments();
   }
 
-  requestAppointment(slot: AppointmentSlot): void {
+  requestAppointment(selection: { slot: AppointmentSlot; modality: 'in_person' | 'online' }): void {
+    const slot = selection.slot;
     if (this.appointmentBooking) return;
     this.appointmentBooking = true;
     this.appointmentError = null;
     this.appointmentSuccess = null;
-    this.portalService.requestAppointment(slot.startsAt, 30).subscribe({
+    this.portalService.requestAppointment(slot.startsAt, 30, null, selection.modality).subscribe({
       next: (appointment) => {
         this.appointmentBooking = false;
         this.appointmentSlots = this.appointmentSlots.filter(s => s.startsAt !== slot.startsAt);
@@ -337,6 +338,12 @@ export class PatientPortalComponent implements OnInit {
         this.appointmentError = err?.error?.message || 'No hemos podido solicitar la cita. Actualiza los horarios e inténtalo de nuevo.';
         this.loadAppointmentSlots();
       }
+    });
+  }
+
+  joinVideoAppointment(appointment: PatientAppointment): void {
+    this.portalService.openVideoAccess(appointment.id, err => {
+      this.appointmentError = err?.error?.message || 'No hemos podido abrir la consulta online. Comprueba que la cita esté dentro de su ventana de acceso.';
     });
   }
 

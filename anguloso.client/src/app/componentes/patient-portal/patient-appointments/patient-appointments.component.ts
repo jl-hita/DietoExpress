@@ -21,8 +21,10 @@ export class PatientAppointmentsComponent {
   @Input() success: string | null = null;
 
   @Output() refresh = new EventEmitter<void>();
-  @Output() request = new EventEmitter<AppointmentSlot>();
+  @Output() request = new EventEmitter<{ slot: AppointmentSlot; modality: 'in_person' | 'online' }>();
+  selectedModality: 'in_person' | 'online' = 'in_person';
   @Output() cancel = new EventEmitter<PatientAppointment>();
+  @Output() joinVideo = new EventEmitter<PatientAppointment>();
 
   formatDate(value: string): string {
     return new Intl.DateTimeFormat('es-ES', {

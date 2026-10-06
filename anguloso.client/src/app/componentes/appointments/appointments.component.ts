@@ -221,6 +221,12 @@ export class AppointmentsComponent implements OnInit {
     });
   }
 
+  joinVideoAppointment(appointment: PatientAppointment): void {
+    this.portalService.openVideoAccess(appointment.id, err => {
+      this.error = err?.error?.message || 'No hemos podido abrir la consulta online. Comprueba que la cita esté dentro de su ventana de acceso.';
+    });
+  }
+
   startConsultation(appointment: PatientAppointment): void {
     this.router.navigate(['/appointments', appointment.id, 'consultation']);
   }

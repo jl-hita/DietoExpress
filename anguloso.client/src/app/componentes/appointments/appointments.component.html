@@ -74,12 +74,13 @@
       <div class="appointment-list" *ngIf="upcoming.length; else noAppointments">
         <article class="appointment" *ngFor="let item of upcoming">
           <div class="date-block"><strong>{{ formatDate(item.startsAt) }}</strong><span>{{ formatTime(item.startsAt) }}</span></div>
-          <div class="patient"><strong>{{ item.clientName || 'Paciente' }}</strong><span *ngIf="item.patientNotes">{{ item.patientNotes }}</span></div>
+          <div class="patient"><strong>{{ item.clientName || 'Paciente' }}</strong><span *ngIf="item.modality === 'online'"><mat-icon>videocam</mat-icon> Consulta online</span><span *ngIf="item.patientNotes">{{ item.patientNotes }}</span></div>
           <span class="status" [class]="'status ' + item.status">{{ statusLabel(item.status) }}</span>
           <div class="actions">
             <button *ngIf="item.status === 'requested'" type="button" class="primary small" (click)="changeStatus(item, 'confirmed')">Confirmar</button>
             <button *ngIf="item.status === 'requested' || item.status === 'confirmed'" type="button" class="secondary small" (click)="changeStatus(item, 'cancelled')">Cancelar</button>
             <button *ngIf="item.status === 'confirmed'" type="button" class="primary small" (click)="startConsultation(item)"><mat-icon>play_arrow</mat-icon> Iniciar consulta</button>
+            <button *ngIf="item.status === 'confirmed' && item.modality === 'online'" type="button" class="secondary small" (click)="joinVideoAppointment(item)"><mat-icon>videocam</mat-icon> Entrar online</button>
             <button *ngIf="item.status === 'confirmed'" type="button" class="secondary small" (click)="changeStatus(item, 'completed')">Completar</button>
             <button *ngIf="item.status === 'confirmed'" type="button" class="secondary small" (click)="changeStatus(item, 'no_show')">No asistió</button>
           </div>

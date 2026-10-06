@@ -6,6 +6,11 @@ public class AppointmentSlotDto
     public DateTime EndsAt { get; set; }
     public int NutritionistId { get; set; }
     public string? NutritionistName { get; set; }
+    public bool OnlineConsultationsAvailable { get; set; }
+    public string Modality { get; set; } = "in_person";
+    public string? VideoProvider { get; set; }
+    public string? VideoRoomUrl { get; set; }
+    public DateTime? VideoExpiresAt { get; set; }
 }
 
 public class CreateAppointmentRequestDto
@@ -13,6 +18,7 @@ public class CreateAppointmentRequestDto
     public DateTime StartsAt { get; set; }
     public int DurationMinutes { get; set; } = 30;
     public string? PatientNotes { get; set; }
+    public string Modality { get; set; } = "in_person";
 }
 
 public class PublicAppointmentConfirmationDto
@@ -21,6 +27,7 @@ public class PublicAppointmentConfirmationDto
     public DateTime EndsAt { get; set; }
     public string Status { get; set; } = string.Empty;
     public string NutritionistName { get; set; } = string.Empty;
+    public string Modality { get; set; } = "in_person";
 }
 
 /// <summary>
@@ -35,6 +42,7 @@ public class PublicAppointmentRequestDto
     public string? Phone { get; set; }
     public string? PatientNotes { get; set; }
     public int DurationMinutes { get; set; } = 30;
+    public string Modality { get; set; } = "in_person";
 }
 
 public class AppointmentDto
@@ -49,6 +57,10 @@ public class AppointmentDto
     public string? ClientName { get; set; }
     public int NutritionistId { get; set; }
     public string? NutritionistName { get; set; }
+    public string Modality { get; set; } = "in_person";
+    public string? VideoProvider { get; set; }
+    public string? VideoRoomUrl { get; set; }
+    public DateTime? VideoExpiresAt { get; set; }
 }
 
 public class AvailabilityDto

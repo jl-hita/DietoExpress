@@ -51,6 +51,8 @@ public class Program
         builder.Services.AddSingleton<IAddressProvider, GeoapifyAddressProvider>();
         builder.Services.AddSingleton<IAddressProvider, LocationIqAddressProvider>();
         builder.Services.AddSingleton<GoogleCalendarService>();
+        builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Configuration.IConfiguration>().GetSection("Video:Daily").Get<DailyVideoOptions>() ?? new DailyVideoOptions());
+        builder.Services.AddHttpClient<IVideoMeetingProvider, DailyVideoMeetingProvider>();
         builder.Services.AddHostedService<GoogleCalendarWorker>();
         builder.Services.AddHostedService<AutomationWorker>();
         builder.Services.AddHttpClient<IStripeBillingService, StripeBillingService>();
@@ -141,7 +143,7 @@ CREATE INDEX IF NOT EXISTS idx_system_alerts_active
     DatabaseBootstrap.UpgradeAutomationSchemaV2(context, logger); DatabaseBootstrap.UpgradeAutomationSchemaV3(context, logger); DatabaseBootstrap.UpgradeAutomationSchemaV4(context, logger); DatabaseBootstrap.UpgradeAutomationSchemaV5(context, logger);
                 DatabaseBootstrap.UpgradeAutomationSchemaV6(context, logger);
                 DatabaseBootstrap.UpgradeAutomationSchemaV7(context, logger); DatabaseBootstrap.UpgradeAutomationSchemaV8(context, logger); DatabaseBootstrap.UpgradeAutomationSchemaV9(context, logger);
-        DatabaseBootstrap.UpgradeAutomationSchemaV10(context, logger); DatabaseBootstrap.UpgradeGoogleCalendarSchemaV1(context, logger); DatabaseBootstrap.UpgradeClientAddressSchemaV1(context, logger); DatabaseBootstrap.UpgradeDirectorySchemaV1(context, logger); DatabaseBootstrap.UpgradeSpecializationsSchemaV1(context, logger); SupportSchemaBootstrap.Initialize(context, logger);
+        DatabaseBootstrap.UpgradeAutomationSchemaV10(context, logger); DatabaseBootstrap.UpgradeGoogleCalendarSchemaV1(context, logger); DatabaseBootstrap.UpgradeOnlineConsultationSchemaV1(context, logger); DatabaseBootstrap.UpgradeClientAddressSchemaV1(context, logger); DatabaseBootstrap.UpgradeDirectorySchemaV1(context, logger); DatabaseBootstrap.UpgradeSpecializationsSchemaV1(context, logger); SupportSchemaBootstrap.Initialize(context, logger);
                 context.Database.ExecuteSqlRaw(@"CREATE TABLE IF NOT EXISTS patient_checkins (id SERIAL PRIMARY KEY, client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE, tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, week_start DATE NOT NULL, submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), weight DOUBLE PRECISION, adherence INTEGER, hunger INTEGER, difficulties TEXT, notes TEXT, CONSTRAINT patient_checkins_client_week_key UNIQUE (client_id, week_start)); CREATE INDEX IF NOT EXISTS idx_patient_checkins_tenant_id ON patient_checkins(tenant_id); CREATE INDEX IF NOT EXISTS idx_patient_checkins_client_id ON patient_checkins(client_id);");
                 // Appointment scheduling schema
 context.Database.ExecuteSqlRaw(@"
