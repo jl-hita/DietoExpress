@@ -16,6 +16,15 @@ public interface IVideoMeetingProvider
         DateTime endsAtUtc,
         CancellationToken cancellationToken = default);
 
+    Task<string> CreateMeetingTokenAsync(
+        string roomName,
+        string userName,
+        string userId,
+        bool isOwner,
+        DateTime notBeforeUtc,
+        DateTime expiresAtUtc,
+        CancellationToken cancellationToken = default);
+
     Task DeleteRoomAsync(string roomName, CancellationToken cancellationToken = default);
 }
 
@@ -112,6 +121,63 @@ public sealed class DailyVideoMeetingProvider : IVideoMeetingProvider
             DateTimeOffset.FromUnixTimeSeconds(expiry).UtcDateTime);
     }
 
+    public async Task<string> CreateMeetingTokenAsync(
+        string roomName,
+        string userName,
+        string userId,
+        bool isOwner,
+        DateTime notBeforeUtc,
+        DateTime expiresAtUtc,
+        CancellationToken cancellationToken = default)
+    {
+        if (!_options.IsConfigured)
+            throw new InvalidOperationException("El proveedor de videollamadas no está configurado.");
+        if (string.IsNullOrWhiteSpace(roomName))
+            throw new ArgumentException("La sala de videollamada no es válida.", nameof(roomName));
+        if (notBeforeUtc.Kind != DateTimeKind.Utc || expiresAtUtc.Kind != DateTimeKind.Utc || expiresAtUtc <= notBeforeUtc)
+            throw new ArgumentException("La ventana del token debe estar expresada en UTC.");
+
+        var now = DateTime.UtcNow;
+        var effectiveNotBefore = notBeforeUtc < now.AddMinutes(-1) ? now : notBeforeUtc;
+        if (effectiveNotBefore >= expiresAtUtc)
+            throw new InvalidOperationException("La ventana de acceso a la videollamada ya ha expirado.");
+
+        var client = _httpClientFactory.CreateClient();
+        client.BaseAddress = new Uri("https://api.daily.co/v1/");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _options.ApiKey);
+
+        var payload = new
+        {
+            properties = new
+            {
+                room_name = roomName,
+                user_name = userName,
+                user_id = userId,
+                is_owner = isOwner,
+                nbf = new DateTimeOffset(effectiveNotBefore).ToUnixTimeSeconds(),
+                exp = new DateTimeOffset(expiresAtUtc).ToUnixTimeSeconds(),
+                eject_at_token_exp = true
+            }
+        };
+
+        using var response = await client.PostAsJsonAsync("meeting-tokens", payload, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning(
+                "Daily no pudo crear el token de la sala {RoomName}. HTTP {StatusCode}.",
+                roomName,
+                (int)response.StatusCode);
+            throw new HttpRequestException($"No se pudo crear el acceso a la videollamada. HTTP {(int)response.StatusCode}.");
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<DailyMeetingTokenResponse>(cancellationToken: cancellationToken)
+                     ?? throw new InvalidOperationException("Daily devolvió una respuesta vacía al crear el token.");
+        if (string.IsNullOrWhiteSpace(result.Token))
+            throw new InvalidOperationException("Daily no devolvió un token válido.");
+
+        return result.Token;
+    }
+
     public async Task DeleteRoomAsync(string roomName, CancellationToken cancellationToken = default)
     {
         if (!_options.IsConfigured || string.IsNullOrWhiteSpace(roomName))
@@ -129,6 +195,12 @@ public sealed class DailyVideoMeetingProvider : IVideoMeetingProvider
                 roomName,
                 (int)response.StatusCode);
         }
+    }
+
+    private sealed class DailyMeetingTokenResponse
+    {
+        [JsonPropertyName("token")]
+        public string? Token { get; set; }
     }
 
     private sealed class DailyRoomResponse
