@@ -17,17 +17,20 @@ public sealed class ProfessionalConsultationActionsController : ControllerBase
     private readonly ITenantContextService _tenantContext;
     private readonly GoogleCalendarService _googleCalendar;
     private readonly AutomationService _automation;
+    private readonly IVideoMeetingProvider _videoMeetings;
 
     public ProfessionalConsultationActionsController(
         angulosodbContext db,
         ITenantContextService tenantContext,
         GoogleCalendarService googleCalendar,
-        AutomationService automation)
+        AutomationService automation,
+        IVideoMeetingProvider videoMeetings)
     {
         _db = db;
         _tenantContext = tenantContext;
         _googleCalendar = googleCalendar;
         _automation = automation;
+        _videoMeetings = videoMeetings;
     }
 
     [HttpGet("slots")]
@@ -94,6 +97,10 @@ public sealed class ProfessionalConsultationActionsController : ControllerBase
         if (context == null) return NotFound();
         if (!await CanAccessClientAsync(context)) return Forbid();
         if (request.DurationMinutes is < 15 or > 120) return BadRequest(new { message = "La duración no es válida." });
+        var modality = request.Modality?.Trim().ToLowerInvariant() ?? "in_person";
+        if (modality is not ("in_person" or "online")) return BadRequest(new { message = "La modalidad no es válida." });
+        if (modality == "online" && !await _db.users.AsNoTracking().AnyAsync(u => u.id == context.NutritionistId && u.tenant_id == context.TenantId && u.online_consultations == true))
+            return BadRequest(new { message = "El profesional no tiene habilitadas las consultas online." });
         if (request.StartsAt.Kind != DateTimeKind.Utc || request.StartsAt <= DateTime.UtcNow.AddMinutes(5))
             return BadRequest(new { message = "La fecha debe ser futura y estar expresada en UTC." });
 
@@ -103,6 +110,27 @@ public sealed class ProfessionalConsultationActionsController : ControllerBase
         if (await _googleCalendar.IsBlockedAsync(context.NutritionistId, context.TenantId, request.StartsAt, endsAt))
             return Conflict(new { message = "Ese horario está ocupado en el calendario externo." });
 
+        VideoMeetingRoom? videoRoom = null;
+        if (modality == "online")
+        {
+            try
+            {
+                videoRoom = await _videoMeetings.CreatePrivateRoomAsync(
+                    $"appointment-pending-{Guid.NewGuid():N}",
+                    request.StartsAt,
+                    endsAt,
+                    HttpContext.RequestAborted);
+            }
+            catch (InvalidOperationException)
+            {
+                return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = "Las consultas online no están disponibles en este momento." });
+            }
+            catch (HttpRequestException)
+            {
+                return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = "No se ha podido preparar la sala de la consulta online." });
+            }
+        }
+
         var appointment = new patient_appointments
         {
             tenant_id = context.TenantId,
@@ -111,6 +139,11 @@ public sealed class ProfessionalConsultationActionsController : ControllerBase
             starts_at = request.StartsAt,
             ends_at = endsAt,
             status = "confirmed",
+            modality = modality,
+            video_provider = videoRoom?.Provider,
+            video_room_name = videoRoom?.RoomName,
+            video_room_url = videoRoom?.RoomUrl,
+            video_expires_at = videoRoom?.ExpiresAtUtc,
             patient_notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim()
         };
         _db.patient_appointments.Add(appointment);
@@ -143,7 +176,11 @@ public sealed class ProfessionalConsultationActionsController : ControllerBase
             endsAt = appointment.ends_at,
             status = appointment.status,
             clientId = appointment.client_id,
-            nutritionistId = appointment.nutritionist_id
+            nutritionistId = appointment.nutritionist_id,
+            modality = appointment.modality,
+            videoProvider = appointment.video_provider,
+            videoRoomUrl = appointment.video_room_url,
+            videoExpiresAt = appointment.video_expires_at
         });
     }
 
@@ -201,5 +238,6 @@ public sealed class ProfessionalConsultationActionsController : ControllerBase
         public DateTime StartsAt { get; set; }
         public int DurationMinutes { get; set; } = 30;
         public string? Notes { get; set; }
+        public string Modality { get; set; } = "in_person";
     }
 }
