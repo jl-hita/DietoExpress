@@ -321,12 +321,13 @@ export class PatientPortalComponent implements OnInit {
     if (!this.appointments.length && !this.appointmentsLoading) this.loadAppointments();
   }
 
-  requestAppointment(slot: AppointmentSlot): void {
+  requestAppointment(selection: { slot: AppointmentSlot; modality: 'in_person' | 'online' }): void {
+    const slot = selection.slot;
     if (this.appointmentBooking) return;
     this.appointmentBooking = true;
     this.appointmentError = null;
     this.appointmentSuccess = null;
-    this.portalService.requestAppointment(slot.startsAt, 30, null, this.appointmentModality).subscribe({
+    this.portalService.requestAppointment(slot.startsAt, 30, null, selection.modality).subscribe({
       next: (appointment) => {
         this.appointmentBooking = false;
         this.appointmentSlots = this.appointmentSlots.filter(s => s.startsAt !== slot.startsAt);
