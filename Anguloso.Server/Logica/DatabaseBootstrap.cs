@@ -2280,11 +2280,14 @@ public static class DatabaseBootstrap
     {
         try
         {
+            // La migración debe ejecutarse antes de eliminar las claves antiguas y antes de
+            // considerar aplicados los valores nuevos sembrados como placeholders.
             context.Database.ExecuteSqlRaw(@"
                 CREATE TABLE IF NOT EXISTS schema_migrations (
-                    migration_name VARCHAR(200) PRIMARY KEY,
+                    id VARCHAR(200) PRIMARY KEY,
                     applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                 );
+
                 INSERT INTO config (nombre_config, valor_config)
                 SELECT m.new_name, c.valor_config
                 FROM (VALUES
@@ -2302,7 +2305,8 @@ public static class DatabaseBootstrap
                     ('addressGeoapifyDailyLimit','ADDRESS_GEOAPIFY_DAILY_LIMIT'),('addressLocationIqDailyLimit','ADDRESS_LOCATIONIQ_DAILY_LIMIT')
                 ) AS m(old_name,new_name)
                 JOIN LATERAL (SELECT valor_config FROM config WHERE nombre_config = m.old_name ORDER BY id LIMIT 1) c ON TRUE
-                WHERE NOT EXISTS (SELECT 1 FROM config existing WHERE existing.nombre_config = m.new_name);
+                ON CONFLICT (nombre_config) DO NOTHING;
+
                 DELETE FROM config WHERE nombre_config IN (
                     'platformLegalName','platformLegalForm','platformTaxId','platformAddress','platformPostalCode','platformCity','platformProvince','platformCountry',
                     'platformContactEmail','platformContactPhone','platformDpoEmail','platformRegistryData','googleClientId','dominio','frontendUrl',
@@ -2310,11 +2314,15 @@ public static class DatabaseBootstrap
                     'webPushPrivateKey','geoapifyApiKey','locationIqApiKey','addressPrimaryProvider','addressFallbackProvider','addressWarningThreshold',
                     'addressFailoverThreshold','addressGeoapifyDailyLimit','addressLocationIqDailyLimit'
                 );
+
                 INSERT INTO config (nombre_config, valor_config) VALUES
                     ('VIDEO_DAILY_ENABLED','0'),('VIDEO_DAILY_API_KEY',''),('VIDEO_DAILY_DOMAIN',''),
                     ('VIDEO_DAILY_ROOM_EXPIRY_MINUTES','30'),('VIDEO_DAILY_ROOM_CREATION_LEAD_MINUTES','60')
                 ON CONFLICT DO NOTHING;
+
                 CREATE UNIQUE INDEX IF NOT EXISTS uq_config_nombre_config ON config(nombre_config);
+                INSERT INTO schema_migrations(id) VALUES ('configuration-naming-v1')
+                ON CONFLICT (id) DO NOTHING;
             ");
             logger.LogInformation("Nombres de configuración normalizados correctamente.");
         }
