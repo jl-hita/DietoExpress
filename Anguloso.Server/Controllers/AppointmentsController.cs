@@ -225,9 +225,34 @@ public class AppointmentsController : ControllerBase
             return BadRequest(new { message = "Esta cita ya no se puede cancelar." });
         if (appointment.starts_at <= DateTime.UtcNow) return BadRequest(new { message = "No puedes cancelar una cita que ya ha comenzado." });
 
+        var roomToDelete = appointment.video_room_name;
         appointment.status = "cancelled";
         appointment.updated_at = DateTime.UtcNow;
+
+        // Revocar primero el acceso en DietoExpress para que un fallo del proveedor externo
+        // nunca deje la cita accesible desde nuestra API.
+        if (!string.IsNullOrWhiteSpace(roomToDelete))
+        {
+            appointment.video_room_name = null;
+            appointment.video_room_url = null;
+            appointment.video_provider = null;
+            appointment.video_expires_at = null;
+        }
+
         await _context.SaveChangesAsync();
+
+        if (!string.IsNullOrWhiteSpace(roomToDelete))
+        {
+            try
+            {
+                await _videoMeetings.DeleteRoomAsync(roomToDelete, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                HttpContext.RequestServices.GetRequiredService<ILogger<AppointmentsController>>()
+                    .LogWarning(ex, "No se pudo eliminar la sala online de la cita {AppointmentId}; el acceso ya ha sido revocado.", appointment.id);
+            }
+        }
 
         var localStart = TimeZoneInfo.ConvertTimeFromUtc(appointment.starts_at, GetMadridTimeZone());
         var dateText = localStart.ToString("dddd, d 'de' MMMM 'a las' HH:mm", new System.Globalization.CultureInfo("es-ES"));
@@ -444,7 +469,7 @@ public class AppointmentsController : ControllerBase
         appointment.updated_at = DateTime.UtcNow;
 
         // La sala externa se crea antes del commit de la cita, por lo que un fallo de
-        // persistencia no debe dejar una sala huérfana accesible en Daily.
+        // persistencia no debe dejar una sala huérfana accesible en LiveKit.
         var createdVideoRoomName = appointment.video_room_name;
         try
         {
@@ -461,7 +486,7 @@ public class AppointmentsController : ControllerBase
                 catch (Exception cleanupEx)
                 {
                     HttpContext.RequestServices.GetRequiredService<ILogger<AppointmentsController>>()
-                        .LogError(cleanupEx, "No se pudo limpiar la sala Daily {RoomName} tras fallar la confirmación de la cita {AppointmentId}.",
+                        .LogError(cleanupEx, "No se pudo limpiar la sala LiveKit {RoomName} tras fallar la confirmación de la cita {AppointmentId}.",
                             createdVideoRoomName, appointment.id);
                 }
             }
@@ -526,10 +551,11 @@ public class AppointmentsController : ControllerBase
             }
         }
 
-        if (requestedStatus == "cancelled" && previousStatus != "cancelled")
+        if (requestedStatus is "cancelled" or "completed" or "no_show" &&
+            previousStatus != requestedStatus)
         {
-            // Primero revocamos el acceso desde nuestra BD y después intentamos borrar
-            // la sala externa. Si Daily falla, el usuario sigue sin poder obtener un token.
+            // Al cancelar o cerrar la cita se revoca primero el acceso local y después
+            // se elimina la sala externa. Así el fallo de LiveKit no reabre la consulta.
             var roomToDelete = appointment.video_room_name;
             if (!string.IsNullOrWhiteSpace(roomToDelete))
             {
@@ -541,7 +567,7 @@ public class AppointmentsController : ControllerBase
 
                 try
                 {
-                    await _videoMeetings.DeleteRoomAsync(roomToDelete, HttpContext.RequestAborted);
+                    await _videoMeetings.DeleteRoomAsync(roomToDelete, CancellationToken.None);
                 }
                 catch (Exception ex)
                 {
@@ -549,6 +575,10 @@ public class AppointmentsController : ControllerBase
                         .LogWarning(ex, "No se pudo eliminar la sala online de la cita {AppointmentId}; el acceso ya ha sido revocado en DietoExpress.", appointment.id);
                 }
             }
+        }
+
+        if (requestedStatus == "cancelled" && previousStatus != "cancelled")
+        {
             var safeName = System.Net.WebUtility.HtmlEncode(appointment.client.full_name ?? "Paciente");
             var safeNutritionist = System.Net.WebUtility.HtmlEncode(appointment.nutritionist.full_name ?? "tu nutricionista");
             var localStart = TimeZoneInfo.ConvertTimeFromUtc(appointment.starts_at, GetMadridTimeZone());
@@ -622,6 +652,7 @@ public class AppointmentsController : ControllerBase
 
         if (appointment == null) return NotFound();
         if (appointment.modality != "online" || appointment.status != "confirmed" ||
+            !string.Equals(appointment.video_provider, "livekit", StringComparison.OrdinalIgnoreCase) ||
             string.IsNullOrWhiteSpace(appointment.video_room_name) ||
             string.IsNullOrWhiteSpace(appointment.video_room_url) ||
             !appointment.video_expires_at.HasValue)
@@ -655,7 +686,7 @@ public class AppointmentsController : ControllerBase
         var token = await _videoMeetings.CreateMeetingTokenAsync(
             appointment.video_room_name,
             displayName,
-            $"{(isOwner ? "nutritionist" : "patient")}:{(isOwner ? appointment.nutritionist_id : appointment.client_id)}",
+            Guid.NewGuid().ToString("N"),
             isOwner,
             notBefore,
             appointment.video_expires_at.Value,
