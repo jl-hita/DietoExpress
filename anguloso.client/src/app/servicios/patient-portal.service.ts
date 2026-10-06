@@ -142,8 +142,8 @@ export class PatientPortalService {
     return this.http.post<PatientAppointment>(this.base + '/appointments', { startsAt, durationMinutes, patientNotes, modality });
   }
 
-  getVideoAccess(id: number): Observable<{ provider: string; roomUrl: string; token: string; expiresAt: string }> {
-    return this.http.get<{ provider: string; roomUrl: string; token: string; expiresAt: string }>(this.base + '/appointments/' + id + '/video-access');
+  getVideoAccess(id: number): Observable<{ provider: string; roomUrl: string; token: string; expiresAt: string; quota?: { warning: boolean; critical: boolean; nutritionistUsedParticipantMinutes: number; nutritionistLimitParticipantMinutes: number; globalUsedParticipantMinutes: number; globalLimitParticipantMinutes: number } }> {
+    return this.http.get<{ provider: string; roomUrl: string; token: string; expiresAt: string; quota?: { warning: boolean; critical: boolean; nutritionistUsedParticipantMinutes: number; nutritionistLimitParticipantMinutes: number; globalUsedParticipantMinutes: number; globalLimitParticipantMinutes: number } }>(this.base + '/appointments/' + id + '/video-access');
   }
 
   openVideoAccess(id: number, onError?: (error: any) => void): void {
