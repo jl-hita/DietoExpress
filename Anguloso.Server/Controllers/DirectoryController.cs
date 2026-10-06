@@ -121,16 +121,21 @@ public class DirectoryController : ControllerBase
             return BadRequest(new { message = "El comentario no puede superar los 500 caracteres." });
         if (request.DurationMinutes is < 15 or > 120)
             return BadRequest(new { message = "La duración de la cita no es válida." });
+        var requestedModality = request.Modality?.Trim().ToLowerInvariant() ?? "in_person";
+        if (requestedModality is not ("in_person" or "online"))
+            return BadRequest(new { message = "La modalidad de la cita no es válida." });
 
         var professional = await _context.users.AsNoTracking()
             .Where(u => u.archived_at == null &&
                         u.directory_enabled == true &&
                         u.directory_slug == normalized)
-            .Select(u => new { u.id, u.tenant_id, u.full_name })
+            .Select(u => new { u.id, u.tenant_id, u.full_name, u.online_consultations })
             .FirstOrDefaultAsync();
 
         if (professional == null || !professional.tenant_id.HasValue)
             return NotFound();
+        if (requestedModality == "online" && professional.online_consultations != true)
+            return BadRequest(new { message = "Este profesional no tiene habilitadas las consultas online." });
 
         if (request.StartsAt.Kind != DateTimeKind.Utc)
             return BadRequest(new { message = "La fecha de la cita debe incluir zona horaria." });
@@ -263,6 +268,7 @@ public class DirectoryController : ControllerBase
             starts_at = startsUtc,
             ends_at = endsUtc,
             status = "requested",
+            modality = requestedModality,
             patient_notes = notes
         };
         _context.patient_appointments.Add(appointment);
@@ -346,7 +352,8 @@ public class DirectoryController : ControllerBase
             StartsAt = appointment.starts_at,
             EndsAt = appointment.ends_at,
             Status = appointment.status,
-            NutritionistName = professional.full_name ?? string.Empty
+            NutritionistName = professional.full_name ?? string.Empty,
+            Modality = appointment.modality
         });
     }
 
