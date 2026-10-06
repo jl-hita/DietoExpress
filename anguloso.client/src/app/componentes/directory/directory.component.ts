@@ -15,6 +15,7 @@ import { DirectoryService } from './directory.service';
 })
 export class DirectoryComponent implements OnInit {
   city = '';
+  province = '';
   speciality = '';
   online = false;
 
@@ -54,7 +55,7 @@ export class DirectoryComponent implements OnInit {
     this.error = '';
     this.profile = null;
 
-    this.directoryService.search(this.city, this.speciality, this.online).subscribe({
+    this.directoryService.search(this.city, this.province, this.speciality, this.online).subscribe({
       next: profiles => {
         this.profiles = profiles;
         this.loading = false;
