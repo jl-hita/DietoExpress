@@ -431,7 +431,7 @@ public sealed class AdvancedDietOptimizerService
         var step = name.Contains("yogur") ? 125 :
                    name.Contains("leche") ? 50 :
                    (name.Contains("huevo") || name.Contains("clara")) ? 10 : 0;
-        return step > 0 ? Math.Round(grams / step, MidpointRounding.AwayFromZero) * step : grams;
+        return step > 0 ? Math.Round(grams / step, MidpointRounding.AwayFromZero) * step : Math.Max(grams, 0);
     }
 
     private static void ApplyItemRatio(MealItemDto item, double grams)
@@ -518,6 +518,37 @@ public sealed class AdvancedDietOptimizerService
             .Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark)
             .ToArray();
         return new string(chars).Normalize(System.Text.NormalizationForm.FormC).ToLowerInvariant();
+    }
+
+    private static bool IsStandardCulinaryOil(foods food)
+    {
+        var name = NormalizeFoodTerm(food.name ?? string.Empty);
+        return name.Equals("aceite de oliva", StringComparison.OrdinalIgnoreCase) ||
+               name.Contains("aceite de oliva virgen") ||
+               name.Contains("aceite de oliva virgen extra") ||
+               name.Equals("aceite de girasol", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsHighGlycemicHeuristic(foods food)
+    {
+        // El catálogo actual no tiene índice glucémico explícito. Cuando no hay ese dato,
+        // solo aplicamos una penalización conservadora a alimentos inequívocamente de alta
+        // respuesta glucémica; no inferimos un IG numérico a partir de los carbohidratos.
+        var name = NormalizeFoodTerm(food.name ?? string.Empty);
+        return name.Contains("pan blanco") || name.Contains("pan de molde blanco") ||
+               name.Contains("arroz blanco") || name.Contains("arroz inflado") ||
+               name.Contains("pure de patata") || name.Contains("puré de patata") ||
+               name.Contains("patata instantanea") || name.Contains("patata instantánea");
+    }
+
+    private static double CalculateFoodQualityPenalty(foods food, string role)
+    {
+        var penalty = 0.0;
+        if (role == "Oil" && !IsStandardCulinaryOil(food))
+            penalty += 1000;
+        if ((role == "Carbs" || role == "BreakfastCarb" || role == "SnackCarb" || role == "LightCarb") && IsHighGlycemicHeuristic(food))
+            penalty += 35;
+        return penalty;
     }
 
     private static string InferRole(string mealName, foods food)
