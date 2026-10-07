@@ -214,7 +214,7 @@ public class DirectoryVerificationEvidenceController : ControllerBase
                 originalFileName=reader.GetString(5), mimeType=reader.GetString(6), fileSize=reader.GetInt64(7),
                 sha256=reader.GetString(8), status=reader.GetString(9),
                 reviewNote=reader.IsDBNull(10) ? null : reader.GetString(10),
-                uploadedAt=reader.GetDateTime(11), reviewedAt=reader.IsDBNull(12) ? null : reader.GetDateTime(12)
+                uploadedAt=reader.GetDateTime(11), reviewedAt=reader.IsDBNull(12) ? (DateTime?)null : reader.GetDateTime(12)
             });
         }
         return Ok(rows);
@@ -305,7 +305,7 @@ public class DirectoryVerificationEvidenceController : ControllerBase
                 id=reader.GetInt64(0), evidenceType=reader.GetString(1), originalFileName=reader.GetString(2),
                 mimeType=reader.GetString(3), fileSize=reader.GetInt64(4), sha256=reader.GetString(5),
                 status=reader.GetString(6), reviewNote=reader.IsDBNull(7) ? null : reader.GetString(7),
-                uploadedAt=reader.GetDateTime(8), reviewedAt=reader.IsDBNull(9) ? null : reader.GetDateTime(9)
+                uploadedAt=reader.GetDateTime(8), reviewedAt=reader.IsDBNull(9) ? (DateTime?)null : reader.GetDateTime(9)
             });
         return rows;
     }
