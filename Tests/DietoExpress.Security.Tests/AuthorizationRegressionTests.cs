@@ -277,6 +277,24 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void AutomatedDietGeneration_FoodVisibilityFilter_IsEfTranslatable()
+    {
+        var source = ReadServerLogica("DietGeneratorService.cs");
+        var start = source.IndexOf("var allFoods = await _context.foods", StringComparison.Ordinal);
+        var end = source.IndexOf("var structuredSpecializationExclusions", start, StringComparison.Ordinal);
+
+        Assert.True(start >= 0 && end > start);
+        var section = source[start..end];
+
+        // El filtro de alimentos no puede invocar métodos CLR dentro de una consulta EF.
+        Assert.DoesNotContain("UserCanUseTenantLocalFood(f,", section);
+        Assert.Contains("f.tenant_id == tenantId.Value", section);
+        Assert.Contains("f.created_by_user_id == userId", section);
+        Assert.Contains("canUseAnyTenantLocalFood", section);
+        Assert.Contains(".ToListAsync(cancellationToken)", section);
+    }
+
+    [Fact]
     public void AutomatedDietGeneration_BoundsMacroAndDietTypeInput()
     {
         var source = ReadServerController("DietController.cs");

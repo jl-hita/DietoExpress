@@ -171,11 +171,17 @@ public class DietGeneratorService
         // No debemos traer toda la tabla a memoria: el catálogo puede crecer mucho
         // con las sincronizaciones de USDA/OpenFoodFacts y bloquear la generación.
         const int maxFoodsToLoad = 5000;
+        // La expresión debe ser completamente traducible por EF Core. No podemos invocar
+        // UserCanUseTenantLocalFood dentro del Where porque EF no puede traducir métodos CLR
+        // arbitrarios a SQL. La regla de visibilidad se expresa aquí con propiedades y valores
+        // simples; así mantenemos el filtro en BD y evitamos cargar alimentos no autorizados.
+        var canUseAnyTenantLocalFood = tenantId.HasValue && canUseTenantLocalFoods;
         var allFoods = await _context.foods
             .AsNoTracking()
             .Where(f => f.kcal.HasValue && f.kcal > 0 && f.name != null &&
                 ((f.source == null || f.source.ToLower() != "local") ||
-                 UserCanUseTenantLocalFood(f, tenantId, userId, canUseTenantLocalFoods)))
+                 (tenantId.HasValue && f.tenant_id == tenantId.Value &&
+                  (canUseAnyTenantLocalFood || f.created_by_user_id == userId))))
             .OrderBy(f => f.id)
             .Include(f => f.exchange_group)
             .Take(maxFoodsToLoad)
