@@ -1639,4 +1639,17 @@ public class AuthorizationRegressionTests
         Assert.DoesNotContain("NutritionistId", publicRequestDto);
     }
 
+    [Fact]
+    public void ProductionSecurityHeaders_AllowOnlineConsultationMediaOnlyFromOwnOrigin()
+    {
+        var program = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Program.cs"));
+
+        Assert.Contains("Strict-Transport-Security", program);
+        Assert.Contains("X-Content-Type-Options", program);
+        Assert.Contains("frame-ancestors 'self'", program);
+        Assert.Contains("Permissions-Policy", program);
+        Assert.Contains("camera=(self), microphone=(self), geolocation=()", program);
+        Assert.DoesNotContain("camera=(), microphone=()", program);
+    }
+
 }
