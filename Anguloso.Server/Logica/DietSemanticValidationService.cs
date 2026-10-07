@@ -214,33 +214,24 @@ public sealed class DietSemanticValidationService
 
         if (client?.medical_history == null) return;
 
-        var foods = diet.Days.SelectMany(d => d.Meals).SelectMany(m => m.Items)
-            .Where(i => i.FoodId.HasValue && (i.Grams ?? 0) > 0)
-            .ToList();
-
-        if (client.medical_history.diabetes == true)
+        foreach (var day in diet.Days)
+        foreach (var meal in day.Meals)
+        foreach (var item in meal.Items.Where(i => i.FoodId.HasValue && (i.Grams ?? 0) > 0))
         {
-            foreach (var item in foods)
-            {
-                var food = Normalize(item.FoodName ?? string.Empty);
-                if (new[] { "refresco", "bebida azucarada", "zumo", "caramelo", "mermelada", "azucar", "bolleria industrial" }
+            var food = Normalize(item.FoodName ?? string.Empty);
+
+            if (client.medical_history.diabetes == true &&
+                new[] { "refresco", "bebida azucarada", "zumo", "caramelo", "mermelada", "azucar", "bolleria industrial" }
                     .Any(food.Contains))
-                {
-                    errors.Add($"Día {item.MealIndex + 1}: «{item.FoodName}» no se admite como componente automático en un paciente con diabetes.");
-                }
+            {
+                errors.Add($"Día {day.DayIndex + 1}, {meal.Name}: «{item.FoodName}» no se admite como componente automático en un paciente con diabetes.");
             }
-        }
 
-        if (client.medical_history.hypertension == true)
-        {
-            foreach (var item in foods)
-            {
-                var food = Normalize(item.FoodName ?? string.Empty);
-                if (new[] { "patatas fritas", "chips", "snack salado", "sopa instantanea", "caldo concentrado" }
+            if (client.medical_history.hypertension == true &&
+                new[] { "patatas fritas", "chips", "snack salado", "sopa instantanea", "caldo concentrado" }
                     .Any(food.Contains))
-                {
-                    errors.Add($"Día {item.MealIndex + 1}: «{item.FoodName}» no se admite como componente automático en una pauta con hipertensión.");
-                }
+            {
+                errors.Add($"Día {day.DayIndex + 1}, {meal.Name}: «{item.FoodName}» no se admite como componente automático en una pauta con hipertensión.");
             }
         }
     }
