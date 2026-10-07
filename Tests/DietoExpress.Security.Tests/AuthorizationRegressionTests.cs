@@ -352,6 +352,22 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void AutomatedDietGeneration_UsesCulinaryServingGuardrails()
+    {
+        var source = ReadServerLogica("DietGeneratorService.cs");
+
+        Assert.Contains("\"jengibre\"", source);
+        Assert.Contains("\"nuez moscada\"", source);
+        Assert.Contains("\"pan rallado\"", source);
+        Assert.Contains("\"yogur líquido\"", source);
+        Assert.Contains("SnapToServingSize", source);
+        Assert.Contains("name.Contains(\"yogur\")", source);
+        Assert.Contains("return (50, 180)", source);
+        Assert.DoesNotContain("(c >= 18 && c > p)", source);
+        Assert.DoesNotContain("(p >= 16 && p > c && fat < 18)", source);
+    }
+
+    [Fact]
     public void AutomatedDietGeneration_BoundsMacroAndDietTypeInput()
     {
         var source = ReadServerController("DietController.cs");
