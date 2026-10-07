@@ -108,7 +108,7 @@ jobs:
       - name: Smoke test producción
         run: |
           set -euo pipefail
-          sudo systemctl is-active --quiet dietoexpress.service
+          systemctl is-active --quiet dietoexpress.service
           curl --fail --silent --show-error --max-time 30 https://jlhitap.duckdns.org/ | grep -Fq "DietoExpress"
           curl --fail --silent --show-error --max-time 30             -H 'Accept: application/json'             https://jlhitap.duckdns.org/api/directory/professionals             > /tmp/dietoexpress-smoke-directory.json
           python3 -c 'import json,sys; data=json.load(open("/tmp/dietoexpress-smoke-directory.json")); assert isinstance(data,list)'
