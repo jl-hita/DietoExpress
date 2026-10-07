@@ -4,7 +4,7 @@ namespace Anguloso.Server.Model;
 
 public class GenerateDietRequestDto
 {
-    public double TargetKcal { get; set; } = 2000;
+    public double TargetKcal { get; set; } = 0;
     public double? TargetProtein { get; set; }
     public double? TargetCarbs { get; set; }
     public double? TargetFat { get; set; }
@@ -20,4 +20,8 @@ public class GenerateDietRequestDto
     public int MaxWeeklyFoodRepetitions { get; set; } = 4;
     public int ShoppingVarietyThreshold { get; set; } = 28;
     public bool EnableGlobalOptimization { get; set; } = true;
+    public bool EnableDietTherapyRules { get; set; } = true;
+    public bool EnableAutomaticEnergyEstimate { get; set; } = true;
+    public bool UseExchangeGroups { get; set; } = true;
+    public bool ExplainGeneration { get; set; } = true;
 }
