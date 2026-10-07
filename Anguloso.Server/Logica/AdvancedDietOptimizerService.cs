@@ -609,10 +609,16 @@ public sealed class AdvancedDietOptimizerService
     private static double NutrientDistance(foods a, foods b)
     {
         double Rel(double x, double y) => Math.Abs((x - y) / Math.Max(1, Math.Abs(y)));
-        return Rel(a.kcal ?? 0, b.kcal ?? 0)
-             + Rel(a.protein ?? 0, b.protein ?? 0)
-             + Rel(a.carbs ?? 0, b.carbs ?? 0)
-             + Rel(a.fat ?? 0, b.fat ?? 0);
+        var nutrientDistance =
+            Rel(a.kcal ?? 0, b.kcal ?? 0)
+            + Rel(a.protein ?? 0, b.protein ?? 0)
+            + Rel(a.carbs ?? 0, b.carbs ?? 0)
+            + Rel(a.fat ?? 0, b.fat ?? 0);
+
+        // Las equivalencias profesionales tienen prioridad cuando están disponibles:
+        // intercambiar dentro del mismo grupo suele preservar mejor la estructura de la dieta.
+        var exchangeBonus = a.exchange_group_id.HasValue && a.exchange_group_id == b.exchange_group_id ? 0.35 : 0;
+        return Math.Max(0, nutrientDistance - exchangeBonus);
     }
 
     private static bool IsOptimizerFood(foods food)
@@ -636,7 +642,11 @@ public sealed class AdvancedDietOptimizerService
     }
 
     private static bool SameRole(string role, foods food)
-        => InferRole("comida", food) == role || role == "protein" && (food.protein ?? 0) >= 12;
+        => InferRole("comida", food) == role
+           || role == "protein" && (food.protein ?? 0) >= 12
+           || role == "carb" && (food.carbs ?? 0) >= 10
+           || role == "vegetable" && GetFamily(food) == "verdura"
+           || role == "fruit" && GetFamily(food) == "fruta";
 
     private static double MealShare(string mealName, int mealsPerDay)
     {
