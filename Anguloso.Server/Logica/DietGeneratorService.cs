@@ -409,7 +409,7 @@ public class DietGeneratorService
                     {
                         if (yogurtUsedInMeal)
                             continue;
-                        yogurtUsedToday = true;
+                        yogurtUsedInMeal = true;
                         var yogurtGrams = standardYogurt?.serving_size > 0 ? standardYogurt.serving_size.Value : 125;
                         if (item.Grams.HasValue)
                             ReplaceItemForGenerator(item, foodsById.GetValueOrDefault(item.FoodId ?? 0) ?? standardYogurt, yogurtGrams);
