@@ -1128,3 +1128,58 @@
   .workspace-grid { padding: 8px; }
   .sidebar-sticky-content { height: 320px; }
 }
+
+
+/* UX 1.0 — editor responsive, touch targets and clear destructive actions. */
+.editor-header { gap: 16px; }
+.header-actions { flex-wrap: wrap; justify-content: flex-end; }
+.header-actions .btn { min-height: 44px; }
+.btn-delete-day, .btn-delete-meal, .btn-remove-item { min-width: 44px; min-height: 44px; }
+.btn-remove-item { display: inline-flex; align-items: center; justify-content: center; }
+.day-pill, .btn-add-day, .meal-card-footer .btn, .days-nav-wrapper button { min-height: 44px; }
+.items-table { width: 100%; }
+.items-table th, .items-table td { vertical-align: middle; }
+
+@media (max-width: 900px) {
+  .editor-header { position: sticky; top: 0; z-index: 20; align-items: flex-start; }
+  .header-left { min-width: 0; }
+  .header-title-area { min-width: 0; }
+  .header-title-area h1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .header-actions { width: 100%; justify-content: flex-start; }
+  .workspace-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 700px) {
+  .editor-container { padding: 0; }
+  .editor-header { flex-direction: column; padding: 12px; }
+  .header-left { width: 100%; }
+  .header-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .header-actions .btn { width: 100%; justify-content: center; }
+  .header-actions .btn-accent { grid-column: 1 / -1; }
+  .inline-name-form { width: 100%; }
+  .diet-name-input { width: 100%; box-sizing: border-box; }
+  .targets-grid { grid-template-columns: 1fr 1fr; }
+  .days-selector-bar { flex-direction: column; align-items: stretch; }
+  .days-nav-wrapper { flex-direction: column; align-items: stretch; }
+  .days-pills { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; }
+  .day-pill { flex: 0 0 auto; }
+  .meal-card-header { flex-direction: column; align-items: stretch; gap: 10px; }
+  .meal-summary-nutrients { flex-wrap: wrap; }
+  .meal-card-footer { flex-wrap: wrap; }
+  .meal-card-footer .btn { flex: 1 1 100%; justify-content: center; }
+  .items-table { display: block; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; }
+  .items-table th, .items-table td { padding: 9px 8px; }
+  .progress-bars-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 480px) {
+  .targets-grid { grid-template-columns: 1fr; }
+  .header-actions { grid-template-columns: 1fr; }
+  .header-actions .btn-accent { grid-column: auto; }
+  .day-progress-panel, .targets-setup-card, .notes-card, .meal-card { border-radius: 12px; }
+  .client-context-banner, .clinical-warnings-card { margin-left: 0; margin-right: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .editor-container *, .editor-container *::before, .editor-container *::after { scroll-behavior: auto !important; transition: none !important; }
+}
