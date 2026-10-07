@@ -386,38 +386,31 @@ public class DietGeneratorService
         double targetF)
     {
         var kcal = Math.Max(food.kcal ?? 0, 1);
-        var protein = Math.Max(food.protein ?? 0, 0);
-        var carbs = Math.Max(food.carbs ?? 0, 0);
-        var fat = Math.Max(food.fat ?? 0, 0);
+        var proteinShare = (Math.Max(food.protein ?? 0, 0) * 4.0) / kcal;
+        var carbsShare = (Math.Max(food.carbs ?? 0, 0) * 4.0) / kcal;
+        var fatShare = (Math.Max(food.fat ?? 0, 0) * 9.0) / kcal;
+
+        var targetProteinShare = targetKcal > 0 ? (targetP * 4.0) / targetKcal : 0;
+        var targetCarbsShare = targetKcal > 0 ? (targetC * 4.0) / targetKcal : 0;
+        var targetFatShare = targetKcal > 0 ? (targetF * 9.0) / targetKcal : 0;
 
         var penalty = role switch
         {
             "Protein" or "DairyOrEgg" or "SnackProtein" =>
-                Math.Max(0, 1.0 - protein / 20.0) * 12 +
-                Math.Max(0, fat / 30.0 - 1.0) * 4,
+                Math.Abs(proteinShare - targetProteinShare) * 25 +
+                Math.Max(0, fatShare - targetFatShare) * 6,
             "Carbs" or "BreakfastCarb" or "LightCarb" =>
-                Math.Max(0, 1.0 - carbs / 20.0) * 10,
+                Math.Abs(carbsShare - targetCarbsShare) * 20,
             "Vegetable" =>
-                Math.Max(0, kcal / 150.0 - 1.0) * 8 +
-                Math.Max(0, protein / 20.0 - 1.0) * 3,
+                Math.Max(0, kcal / 150.0 - 1.0) * 8,
             "Fruit" =>
                 Math.Max(0, kcal / 100.0 - 1.5) * 5,
             "Oil" =>
-                Math.Max(0, 1.0 - fat / 60.0) * 8,
+                Math.Abs(fatShare - targetFatShare) * 15,
             _ => 0
         };
 
-        // Evita que la heurística de selección se vuelva sensible a objetivos
-        // inexistentes o a valores no finitos.
-        if (double.IsNaN(penalty) || double.IsInfinity(penalty))
-            return 0;
-
-        // Pequeño ajuste por densidad energética cuando la comida tiene un objetivo claro.
-        var targetDensity = targetKcal > 0 ? targetKcal / 4.0 : 0;
-        if (targetDensity > 0 && role != "Vegetable" && role != "Fruit")
-            penalty += Math.Abs((kcal / 100.0) - Math.Min(targetDensity / 10.0, 20.0)) * 0.05;
-
-        return penalty;
+        return double.IsNaN(penalty) || double.IsInfinity(penalty) ? 0 : penalty;
     }
 
     // Ajuste iterativo acotado: reduce el error de kcal y macronutrientes respetando los límites de cada alimento.
