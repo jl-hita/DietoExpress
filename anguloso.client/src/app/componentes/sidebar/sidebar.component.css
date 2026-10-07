@@ -46,3 +46,10 @@ mat-nav-list {padding-top:8px!important;display:flex;flex-direction:column;gap:6
 .profile-link:focus-visible { outline:2px solid #0d9488; outline-offset:3px; }
 .profile-link .name { color:#f1f5f9; }
 .dashboard-item a { font-weight:600!important; }
+
+
+.trial-banner { display:flex; align-items:center; gap:10px; margin:8px 12px 12px; padding:10px 12px; border:1px solid #bfe4dc; border-radius:12px; background:#effaf7; color:#28534f; cursor:pointer; }
+.trial-banner mat-icon { color:#0d9488; font-size:20px; width:20px; height:20px; }
+.trial-banner div { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.trial-banner strong { font-size:12px; }
+.trial-banner span { font-size:11px; color:#55706d; }
