@@ -9,6 +9,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { LegalConfigurationService } from '../../servicios/legal-configuration.service';
+import { LegalReadiness, LegalService } from '../../servicios/legal.service';
 import { LegalDocumentGeneratorService, LegalGeneratedDocument } from '../../servicios/legal-document-generator.service';
 
 @Component({
@@ -20,6 +21,15 @@ import { LegalDocumentGeneratorService, LegalGeneratedDocument } from '../../ser
       <header><div><h1>Configuración legal de DietoExpress</h1><p>Datos del titular y de la plataforma que se insertarán en las plantillas legales.</p></div></header>
 
       <div class="notice"><mat-icon>warning</mat-icon><span>Completar estos campos no equivale a una revisión jurídica. Los documentos publicados deben estar sin placeholders y revisados antes de activarse.</span></div>
+      <mat-card class="readiness" *ngIf="readiness">
+        <mat-card-header><mat-icon mat-card-avatar>{{ readiness.ready ? 'verified' : 'pending_actions' }}</mat-icon><mat-card-title>{{ readiness.ready ? 'Preparación técnica para 1.0 completada' : 'Preparación técnica para 1.0 pendiente' }}</mat-card-title></mat-card-header>
+        <mat-card-content>
+          <p>{{ readiness.ready ? 'Todos los documentos públicos mínimos están publicados y la configuración esencial está completa.' : 'Completa los elementos pendientes antes de considerar cerrado el bloque legal técnico.' }}</p>
+          <div class="readiness-grid"><div *ngFor="let document of readiness.documents" [class.ready]="document.published"><mat-icon>{{ document.published ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon><span>{{ document.title }}</span></div></div>
+          <div *ngIf="readiness.missingConfiguration.length" class="missing-config"><strong>Configuración pendiente:</strong> {{ readiness.missingConfiguration.join(', ') }}</div>
+          <small>{{ readiness.note }}</small>
+        </mat-card-content>
+      </mat-card>
 
       <mat-card><mat-card-header><mat-icon mat-card-avatar>business</mat-icon><mat-card-title>Identidad del titular</mat-card-title></mat-card-header><mat-divider></mat-divider>
         <mat-card-content class="grid">
@@ -85,7 +95,7 @@ import { LegalDocumentGeneratorService, LegalGeneratedDocument } from '../../ser
     </main>
   `,
   styles: [`
-    .page{padding:24px;display:grid;gap:18px;max-width:1100px}.page h1{margin:0}.page header p{color:#64748b}.notice{display:flex;gap:10px;padding:14px;border-radius:10px;background:#fff7ed;color:#9a3412}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding-top:18px}.wide{grid-column:1/-1}.full{width:100%}.generator{padding:18px;border:1px solid #e2e8f0;border-radius:12px}.generator h2{margin:0 0 4px}.generator p{color:#64748b}.template-grid{display:flex;flex-wrap:wrap;gap:8px}.generated{margin-top:14px;padding:10px;border-radius:8px;background:#f8fafc}.documents{display:grid;gap:8px}.doc-row{display:flex;justify-content:space-between;gap:12px;padding:12px;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer}.doc-row small{display:block;color:#64748b}.pending{color:#b45309}.ready{color:#15803d}.editor textarea{width:100%;box-sizing:border-box;font:14px/1.5 monospace;padding:12px;border:1px solid #cbd5e1;border-radius:8px}.actions{display:flex;justify-content:flex-end}@media(max-width:700px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}}
+    .page{padding:24px;display:grid;gap:18px;max-width:1100px}.page h1{margin:0}.page header p{color:#64748b}.notice{display:flex;gap:10px;padding:14px;border-radius:10px;background:#fff7ed;color:#9a3412}.readiness{border-left:4px solid #0f766e}.readiness-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}.readiness-grid>div{display:flex;align-items:center;gap:8px;padding:8px;border-radius:8px;background:#f8fafc}.readiness-grid>div.ready{color:#166534;background:#f0fdf4}.missing-config{margin:10px 0;padding:10px;border-radius:8px;background:#fff7ed;color:#9a3412}.readiness small{display:block;color:#64748b}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding-top:18px}.wide{grid-column:1/-1}.full{width:100%}.generator{padding:18px;border:1px solid #e2e8f0;border-radius:12px}.generator h2{margin:0 0 4px}.generator p{color:#64748b}.template-grid{display:flex;flex-wrap:wrap;gap:8px}.generated{margin-top:14px;padding:10px;border-radius:8px;background:#f8fafc}.documents{display:grid;gap:8px}.doc-row{display:flex;justify-content:space-between;gap:12px;padding:12px;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer}.doc-row small{display:block;color:#64748b}.pending{color:#b45309}.ready{color:#15803d}.editor textarea{width:100%;box-sizing:border-box;font:14px/1.5 monospace;padding:12px;border:1px solid #cbd5e1;border-radius:8px}.actions{display:flex;justify-content:flex-end}@media(max-width:700px){.readiness-grid{grid-template-columns:1fr}.grid{grid-template-columns:1fr}.wide{grid-column:auto}}
   `]
 })
 export class AdminLegalSettingsComponent implements OnInit {
@@ -95,9 +105,10 @@ export class AdminLegalSettingsComponent implements OnInit {
   templates: { key: string; file: string }[] = [];
   lastGenerated: LegalGeneratedDocument | null = null;
   documents: LegalGeneratedDocument[] = [];
+  readiness: LegalReadiness | null = null;
   selectedDocument: LegalGeneratedDocument | null = null;
 
-  constructor(private fb: FormBuilder, private legal: LegalConfigurationService, private generator: LegalDocumentGeneratorService, private snack: MatSnackBar) {
+  constructor(private fb: FormBuilder, private legal: LegalConfigurationService, private generator: LegalDocumentGeneratorService, private legalService: LegalService, private snack: MatSnackBar) {
     this.form = this.fb.group({
       legal_name:[''], tax_id:[''], address:[''], contact_email:[''], contact_phone:[''], privacy_email:[''], dpo_email:[''], website:[''],
       registration_information:[''], providers_summary:[''], international_transfers_summary:[''], retention_policy_reference:[''],
@@ -108,6 +119,7 @@ export class AdminLegalSettingsComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadDocuments();
+    this.legalService.getReadiness().subscribe({ next: readiness => this.readiness = readiness, error: () => this.readiness = null });
     this.generator.getTemplates().subscribe({ next: templates => this.templates = templates, error: () => this.snack.open('No se pudieron cargar las plantillas.', 'Cerrar', {duration:4000}) });
     this.legal.getPlatform().subscribe({
       next: settings => { const values: Record<string,string> = {}; settings.forEach(s => values[s.key]=s.value ?? ''); this.form.patchValue(values); },
