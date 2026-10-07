@@ -537,6 +537,10 @@ public sealed class AdvancedDietOptimizerService
         return "other";
     }
 
+    // Compatibilidad con comprobaciones históricas: las llamadas nuevas usan el contexto de comida.
+    private static bool SameRole(string role, foods food)
+        => InferRole("comida", food) == role;
+
     private static bool SameRole(string role, string mealName, foods food)
         => InferRole(mealName, food) == role;
 
