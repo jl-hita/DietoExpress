@@ -213,6 +213,7 @@ public sealed class BillingController : ControllerBase
             WHERE user_id = {0}
               AND document_key = 'saas_terms'
               AND document_version = {1}
+              AND interaction_type = 'acceptance'
               AND document_sha256 = {2}
             LIMIT 1
             """, userId.Value, current.Version, current.Sha256).AnyAsync();

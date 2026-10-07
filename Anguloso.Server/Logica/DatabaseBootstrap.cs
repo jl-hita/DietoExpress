@@ -1553,8 +1553,16 @@ CREATE INDEX IF NOT EXISTS idx_public_funnel_events_appointment
                 ip_address VARCHAR(64) NULL,
                 user_agent VARCHAR(500) NULL,
                 context VARCHAR(50) NOT NULL DEFAULT 'signup',
+                interaction_type VARCHAR(20) NOT NULL DEFAULT 'acceptance',
                 UNIQUE (user_id, legal_document_id, document_version, context)
             );
+
+            ALTER TABLE legal_acceptances
+                ADD COLUMN IF NOT EXISTS interaction_type VARCHAR(20) NOT NULL DEFAULT 'acceptance';
+            ALTER TABLE legal_acceptances
+                DROP CONSTRAINT IF EXISTS ck_legal_acceptances_interaction_type;
+            ALTER TABLE legal_acceptances
+                ADD CONSTRAINT ck_legal_acceptances_interaction_type CHECK (interaction_type IN ('acceptance','acknowledgement'));
 
             CREATE INDEX IF NOT EXISTS idx_legal_acceptances_user
                 ON legal_acceptances(user_id, accepted_at DESC);
