@@ -26,7 +26,7 @@
 
     <section class="progress-section" aria-label="Progreso de configuración">
       <div class="progress-label">
-        <strong>{{ completedCount }} de {{ steps.length }} pasos completados</strong>
+        <strong>{{ completedCount }} de {{ requiredSteps.length }} pasos necesarios completados</strong>
         <span>{{ progress }}%</span>
       </div>
       <mat-progress-bar mode="determinate" [value]="progress"></mat-progress-bar>
