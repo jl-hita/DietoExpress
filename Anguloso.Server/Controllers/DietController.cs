@@ -19,19 +19,22 @@ public class DietController : ControllerBase
     private readonly DietValidationService _validationService;
     private readonly LogServ _logServ;
     private readonly ILicenseService _licenseService;
+    private readonly DietRegenerationService _regenerationService;
 
     public DietController(
         angulosodbContext context, 
         DietGeneratorService generatorService, 
         DietValidationService validationService,
         LogServ logServ,
-        ILicenseService licenseService)
+        ILicenseService licenseService,
+        DietRegenerationService regenerationService)
     {
         _context = context;
         _generatorService = generatorService;
         _validationService = validationService;
         _logServ = logServ;
         _licenseService = licenseService;
+        _regenerationService = regenerationService;
     }
 
 
@@ -465,6 +468,49 @@ public class DietController : ControllerBase
         await _context.SaveChangesAsync();
 
         return NoContent();
+    }
+
+    [HttpPost("{id:int}/regenerate")]
+    [EnableRateLimiting("expensive")]
+    public async Task<ActionResult<DietRegenerationResponseDto>> RegenerateDietPart(
+        int id,
+        [FromBody] DietRegenerationRequestDto request)
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId == null) return Unauthorized();
+
+        if (request == null) return BadRequest("La solicitud de regeneración es obligatoria.");
+        if (request.Operation == "replace-food" && (!request.MealItemId.HasValue || !request.ReplacementFoodId.HasValue))
+            return BadRequest("Para sustituir un alimento son obligatorios MealItemId y ReplacementFoodId.");
+        if (request.Operation == "regenerate-meal" && !request.MealId.HasValue)
+            return BadRequest("Para regenerar una comida es obligatorio MealId.");
+        if (request.Operation == "regenerate-day" && !request.DayId.HasValue)
+            return BadRequest("Para regenerar un día es obligatorio DayId.");
+
+        try
+        {
+            var result = await _regenerationService.RegenerateAsync(
+                id,
+                request,
+                userId.Value,
+                AuthHelpers.GetTenantId(User),
+                User.IsInRole("superadmin"),
+                HttpContext.RequestAborted);
+
+            return result.RolledBack ? Conflict(result) : Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return UnprocessableEntity(new { message = ex.Message });
+        }
     }
 
     // POST: api/dietas/generate
