@@ -1,6 +1,7 @@
 <div class="page-wrapper">
-  <form [formGroup]="clientForm" class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;"><h2>Datos del cliente</h2><span class="autosave-status" [class.error]="clientSaveState === 'error'"><mat-icon *ngIf="clientSaveState === 'saved'">check_circle</mat-icon><mat-icon *ngIf="clientSaveState === 'saving'">sync</mat-icon><mat-icon *ngIf="clientSaveState === 'error'">error</mat-icon>{{ clientSaveState === 'saving' ? 'Guardando...' : clientSaveState === 'error' ? 'Error al guardar' : 'Todos los cambios guardados' }}</span></div>
+  <form [formGroup]="clientForm" class="card client-profile-card" aria-labelledby="client-detail-title">
+    <div class="client-profile-header"><div><h2 id="client-detail-title">Datos del cliente</h2><p class="client-profile-subtitle">Información básica y clínica del paciente. Los cambios se guardan automáticamente.</p></div><span class="autosave-status" [class.error]="clientSaveState === 'error'"><mat-icon *ngIf="clientSaveState === 'saved'">check_circle</mat-icon><mat-icon *ngIf="clientSaveState === 'saving'">sync</mat-icon><mat-icon *ngIf="clientSaveState === 'error'">error</mat-icon>{{ clientSaveState === 'saving' ? 'Guardando...' : clientSaveState === 'error' ? 'Error al guardar' : 'Todos los cambios guardados' }}</span></div>
+    <div class="client-form-grid">
     <mat-form-field appearance="outline" class="full-width">
       <mat-label>Nombre completo</mat-label>
       <input matInput formControlName="fullName" required />
@@ -55,12 +56,13 @@
       </mat-select>
     </mat-form-field>
 
-    <mat-form-field appearance="outline" class="full-width">
+    <mat-form-field appearance="outline" class="full-width client-notes-field">
       <mat-label>Notas</mat-label>
       <textarea matInput rows="3" formControlName="notes"></textarea>
     </mat-form-field>
+    </div>
 
-    <div class="actions" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+    <div class="actions client-actions" aria-label="Acciones del paciente">
       <a *ngIf="clientId" mat-stroked-button color="primary" [routerLink]="['/clients', clientId, 'specializations']" title="Configurar especializaciones del paciente">
         <mat-icon>tune</mat-icon> Especializaciones
       </a>
@@ -81,7 +83,7 @@
     </div>
   </form>
 
-  <mat-tab-group class="card tabs" (selectedTabChange)="onTabChange($event)">
+  <mat-tab-group class="card tabs" (selectedTabChange)="onTabChange($event)" animationDuration="0ms">
 
     <mat-tab label="Comunicación">
       <div class="communication-container" style="padding:24px;">
@@ -129,7 +131,7 @@
     <!--  TAB: BIOMÉTRICAS                                          -->
     <!-- ═══════════════════════════════════════════════════════════ -->
     <mat-tab label="Biométricas">
-      <div class="biometrics-toolbar" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+      <div class="biometrics-toolbar">
         <button mat-flat-button color="primary" type="button" (click)="openNewBiometric()" aria-label="Añadir nueva biometría">
           <mat-icon>add</mat-icon> Nueva biometría
         </button>
