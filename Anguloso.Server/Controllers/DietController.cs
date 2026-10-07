@@ -495,6 +495,7 @@ public class DietController : ControllerBase
                 userId.Value,
                 AuthHelpers.GetTenantId(User),
                 User.IsInRole("superadmin"),
+                User.IsInRole("clinic_admin") || User.IsInRole("superadmin"),
                 HttpContext.RequestAborted);
 
             return result.RolledBack ? Conflict(result) : Ok(result);
