@@ -263,7 +263,8 @@ public sealed class AdvancedDietOptimizerService
         double targetProtein,
         double targetCarbs,
         double targetFat,
-        GenerateDietRequestDto request)
+        GenerateDietRequestDto request,
+        DietTherapyProfile? therapyProfile = null)
     {
         var days = diet.Days.ToList();
         if (days.Count == 0) return double.MaxValue;
