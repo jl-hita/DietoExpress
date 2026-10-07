@@ -306,4 +306,21 @@ public sealed class DietGeneratorRegressionTests
         Assert.Contains("±15 %", service);
     }
 
+
+    [Fact]
+    public void Generator_CentralizesClinicalSafetyInTheFinalSemanticGate()
+    {
+        var semantic = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietSemanticValidationService.cs"));
+        var generator = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
+
+        Assert.Contains("ValidateDietDraftCompatibilityAsync", semantic);
+        Assert.Contains("string.Equals(warning.Severity, "High"", semantic);
+        Assert.Contains("ValidatePatientTherapySemanticsAsync", semantic);
+        Assert.Contains("ValidateDietTypeSemantics", semantic);
+        Assert.Contains("IsAnimalFood", semantic);
+        Assert.Contains("IsKetoForbiddenCarb", semantic);
+        Assert.DoesNotContain("_dietValidationService", generator);
+        Assert.Contains("canUseTenantLocalFoods", generator);
+    }
+
 }
