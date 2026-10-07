@@ -431,7 +431,22 @@ public sealed class AdvancedDietOptimizerService
         var step = name.Contains("yogur") ? 125 :
                    name.Contains("leche") ? 50 :
                    (name.Contains("huevo") || name.Contains("clara")) ? 10 : 0;
-        return step > 0 ? Math.Round(grams / step, MidpointRounding.AwayFromZero) * step : Math.Max(grams, 0);
+
+        // Componentes principales no se reducen a cantidades simbólicas durante el
+        // ajuste global. Cinco gramos de arroz/pasta/patata no constituyen una ración.
+        var minimum = name.Contains("arroz") || name.Contains("pasta") || name.Contains("patata") ||
+                      name.Contains("boniato") || name.Contains("avena") || name.Contains("quinoa") ||
+                      name.Contains("lenteja") || name.Contains("garbanzo") || name.Contains("alubia") ||
+                      name.Contains("guisante") ? 50 : 0;
+        minimum = Math.Max(minimum,
+            name.Contains("tomate") || name.Contains("lechuga") || name.Contains("espinaca") ||
+            name.Contains("zanahoria") || name.Contains("pepino") || name.Contains("pimiento") ||
+            name.Contains("brocoli") || name.Contains("calabacin") || name.Contains("berenjena") ? 100 : 0);
+
+        var snapped = step > 0
+            ? Math.Round(grams / step, MidpointRounding.AwayFromZero) * step
+            : Math.Round(Math.Max(grams, minimum), 0);
+        return Math.Max(snapped, minimum);
     }
 
     private static void ApplyItemRatio(MealItemDto item, double grams)
