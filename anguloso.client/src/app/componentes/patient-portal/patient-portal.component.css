@@ -909,3 +909,33 @@
   align-items: center;
   justify-content: center;
 }
+
+
+/* UX 1.0 — touch targets and resilient mobile layouts. */
+.nav-tab { min-height: 56px; }
+.portal-notification-btn, .next-card-action { min-width: 44px; min-height: 44px; }
+.meal-complete-btn { min-width: 44px; min-height: 44px; }
+
+@media (max-width: 560px) {
+  .day-hero { padding: 16px 14px 10px; }
+  .day-title-icon { width: 38px; height: 38px; margin-right: 9px; }
+  .day-hero h2 { font-size: 18px; }
+  .today-summary { padding-left: 12px; padding-right: 12px; gap: 8px; }
+  .summary-card { padding: 10px; border-radius: 12px; }
+  .today-next-card { margin-left: 12px; margin-right: 12px; padding: 10px 12px; }
+  .next-card-action { margin-left: 0; flex: 0 0 auto; }
+  .meals-grid { padding-left: 12px; padding-right: 12px; }
+  .meal-card { padding: 13px; }
+  .meal-header { align-items: flex-start; }
+  .food-item { min-height: 40px; }
+  .food-name { overflow-wrap: anywhere; }
+  .bottom-nav { padding-bottom: max(0px, env(safe-area-inset-bottom)); }
+  .nav-tab { padding-top: 9px; padding-bottom: 9px; }
+}
+
+@media (max-width: 360px) {
+  .nav-tab { font-size: 10px; }
+  .nav-tab mat-icon { font-size: 20px; width: 20px; height: 20px; }
+  .summary-card { gap: 7px; }
+  .summary-icon { width: 30px; height: 30px; flex-basis: 30px; }
+}
