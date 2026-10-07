@@ -366,9 +366,7 @@ public sealed class AdvancedDietOptimizerService
     {
         var items = meal.Items.Where(i => (i.Grams ?? 0) > 0).ToList();
         if (items.Count == 0) return;
-        var bounds = items.ToDictionary(item => item, item => (
-            Min: Math.Max(5.0, (double)(item.Grams ?? 0) * 0.75),
-            Max: Math.Min(350.0, (double)(item.Grams ?? 0) * 1.25)));
+        var bounds = items.ToDictionary(item => item, item => GetCulinaryBounds(meal.Name, item));
 
         for (var pass = 0; pass < 10; pass++)
         {
@@ -403,10 +401,10 @@ public sealed class AdvancedDietOptimizerService
 
         if (smallMeal)
         {
-            if (food.Contains("yogur")) return (100, 200);
+            if (food.Contains("yogur")) return (125, 125);
             if (food.Contains("leche")) return (100, 300);
             if (food.Contains("huevo") || food.Contains("clara")) return (50, 180);
-            if (food.Contains("manzana") || food.Contains("naranja") || food.Contains("pera") || food.Contains("mandarina") || food.Contains("platano") || food.Contains("fresa") || food.Contains("kiwi") || food.Contains("melocoton") || food.Contains("melon") || food.Contains("sandia") || food.Contains("uva")) return (80, 200);
+            if (food.Contains("manzana") || food.Contains("naranja") || food.Contains("pera") || food.Contains("mandarina") || food.Contains("platano") || food.Contains("fresa") || food.Contains("kiwi") || food.Contains("melocoton") || food.Contains("melon") || food.Contains("sandia") || food.Contains("uva") || food.Contains("albaricoque") || food.Contains("ciruela")) return (100, 250);
             return (30, 180);
         }
 
@@ -588,7 +586,7 @@ public sealed class AdvancedDietOptimizerService
         var penalty = 0.0;
         if (role == "Oil" && !IsStandardCulinaryOil(food))
             penalty += 1000;
-        if ((role == "Carbs" || role == "BreakfastCarb" || role == "SnackCarb" || role == "LightCarb") && IsHighGlycemicHeuristic(food))
+        if ((role == "carb" || role == "breakfast_carb" || role == "snack_carb" || role == "light_carb") && IsHighGlycemicHeuristic(food))
             penalty += 35;
         var name = NormalizeFoodTerm(food.name ?? string.Empty);
         if (name.Contains("seco") || name.Contains("seca") || name.Contains("crudo") || name.Contains("cruda"))
@@ -635,7 +633,12 @@ public sealed class AdvancedDietOptimizerService
         if (meal.Contains("desayuno") || meal.Contains("media") || meal.Contains("merienda"))
         {
             if (isFruit) return "fruit";
-            if (isCarb) return "carb";
+            if (isCarb)
+            {
+                var isLegume = new[] { "lenteja", "garbanzo", "alubia", "guisante" }.Any(n.Contains);
+                if (isLegume) return "other";
+                return "breakfast_carb";
+            }
             if (isDairy || isEgg) return "snack_protein";
             if (isNut) return "fat";
             return "other";

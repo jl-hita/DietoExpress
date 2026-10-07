@@ -249,4 +249,36 @@ public sealed class DietGeneratorRegressionTests
     }
 
 
+    [Fact]
+    public void Generator_EnforcesHardCulinaryMinimumsAndMealScopedYogurt()
+    {
+        var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
+
+        Assert.Contains("var yogurtUsedInMeal = false", source);
+        Assert.DoesNotContain("var yogurtUsedToday = false", source);
+        Assert.Contains("return (125, 125)", source);
+        Assert.Contains("return (100, 250)", source);
+        Assert.Contains("Math.Max(snapped, minimum)", source);
+    }
+
+    [Fact]
+    public void Generator_PreventsLegumesFromReplacingBreakfastCarbohydrates()
+    {
+        var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "AdvancedDietOptimizerService.cs"));
+
+        Assert.Contains("return \"breakfast_carb\"", source);
+        Assert.Contains("var isLegume = new[] { \"lenteja\", \"garbanzo\", \"alubia\", \"guisante\" }", source);
+        Assert.Contains("if (isLegume) return \"other\"", source);
+    }
+
+    [Fact]
+    public void Generator_GlobalOptimizerUsesCulinaryBoundsInsteadOfRelativeDrift()
+    {
+        var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "AdvancedDietOptimizerService.cs"));
+
+        Assert.Contains("GetCulinaryBounds(meal.Name, item)", source);
+        Assert.DoesNotContain("Math.Max(5.0, (double)(item.Grams ?? 0) * 0.75)", source);
+    }
+
+
 }

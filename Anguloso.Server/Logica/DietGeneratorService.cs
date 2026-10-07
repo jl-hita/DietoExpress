@@ -1066,10 +1066,24 @@ public class DietGeneratorService
     private static double SnapExistingItemServing(MealItemDto item, double grams)
     {
         var name = NormalizeFoodTerm(item.FoodName ?? string.Empty);
+        var minimum = name.Contains("yogur") ? 125 :
+                      name.Contains("manzana") || name.Contains("naranja") || name.Contains("pera") ||
+                      name.Contains("mandarina") || name.Contains("platano") || name.Contains("fresa") ||
+                      name.Contains("kiwi") || name.Contains("melon") || name.Contains("sandia") ||
+                      name.Contains("melocoton") || name.Contains("albaricoque") || name.Contains("ciruela") ||
+                      name.Contains("uva") ? 100 :
+                      name.Contains("tomate") || name.Contains("lechuga") || name.Contains("espinaca") ||
+                      name.Contains("zanahoria") || name.Contains("pepino") || name.Contains("pimiento") ||
+                      name.Contains("brocoli") || name.Contains("calabacin") || name.Contains("berenjena") ||
+                      name.Contains("cebolla") || name.Contains("puerro") || name.Contains("coliflor") ? 100 :
+                      name.Contains("arroz") || name.Contains("pasta") || name.Contains("patata") ||
+                      name.Contains("boniato") || name.Contains("lenteja") || name.Contains("garbanzo") ||
+                      name.Contains("alubia") || name.Contains("guisante") || name.Contains("quinoa") ? 50 : 0;
         var step = name.Contains("yogur") ? 125 :
                    name.Contains("leche") ? 50 :
                    (name.Contains("huevo") || name.Contains("clara")) ? 10 : 0;
-        return step > 0 ? Math.Round(grams / step, MidpointRounding.AwayFromZero) * step : grams;
+        var snapped = step > 0 ? Math.Round(grams / step, MidpointRounding.AwayFromZero) * step : grams;
+        return Math.Max(snapped, minimum);
     }
 
     private static void ApplyItemRatio(MealItemDto item, double grams)
