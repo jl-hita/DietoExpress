@@ -109,7 +109,7 @@ public sealed class DietRegenerationService
             var mealUsed = selectedMeal.meal_items.Where(i => i.food_id.HasValue).Select(i => i.food_id!.Value).ToHashSet();
             foreach (var item in selectedMeal.meal_items)
             {
-                var candidates = allFoods.Where(f => IsAllowed(f, forbidden) && IsCompatibleRole(f, item, selectedMeal.Name))
+                var candidates = allFoods.Where(f => IsAllowed(f, forbidden) && IsCompatibleRole(f, item, selectedMeal.name))
                     .Where(f => !request.PreserveWeeklyVariety || !usedFoodIds.Contains(f.id) || mealUsed.Contains(f.id))
                     .OrderBy(f => CandidateScore(f, item, usedFoodIds, mealUsed))
                     .Take(20)
@@ -140,7 +140,7 @@ public sealed class DietRegenerationService
                 var mealUsed = meal.meal_items.Where(i => i.food_id.HasValue).Select(i => i.food_id!.Value).ToHashSet();
                 foreach (var item in meal.meal_items)
                 {
-                    var candidates = allFoods.Where(f => IsAllowed(f, forbidden) && IsCompatibleRole(f, item, meal.Name))
+                    var candidates = allFoods.Where(f => IsAllowed(f, forbidden) && IsCompatibleRole(f, item, meal.name))
                         .Where(f => !request.PreserveWeeklyVariety || !usedFoodIds.Contains(f.id) || mealUsed.Contains(f.id))
                         .OrderBy(f => CandidateScore(f, item, usedFoodIds, mealUsed)).Take(15).ToList();
                     if (candidates.Count == 0)
