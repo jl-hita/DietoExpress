@@ -385,14 +385,16 @@ public sealed class AdvancedDietOptimizerService
         double targetProtein,
         double targetCarbs,
         double targetFat,
-        GenerateDietRequestDto request)
+        GenerateDietRequestDto request,
+        DietTherapyProfile? therapyProfile = null)
     {
+        var weekly = therapyProfile?.FrequencyTargets ?? new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
         var familyTargets = new[]
         {
-            ("fruta", Math.Max(1, diet.Days.Count)),
-            ("verdura", Math.Max(2, diet.Days.Count * 2)),
-            ("legumbre", Math.Max(1, (int)Math.Ceiling(diet.Days.Count * 3.0 / 7.0))),
-            ("pescado_marisco", Math.Max(1, (int)Math.Ceiling(diet.Days.Count * 2.0 / 7.0)))
+            ("fruta", Math.Max(1, (int)Math.Ceiling(diet.Days.Count * weekly.GetValueOrDefault("fruta", 1)))),
+            ("verdura", Math.Max(2, (int)Math.Ceiling(diet.Days.Count * weekly.GetValueOrDefault("verdura", 2)))),
+            ("legumbre", Math.Max(1, (int)Math.Ceiling(diet.Days.Count * weekly.GetValueOrDefault("legumbre", 3.0 / 7.0)))),
+            ("pescado_marisco", Math.Max(1, (int)Math.Ceiling(diet.Days.Count * weekly.GetValueOrDefault("pescado_marisco", 2.0 / 7.0))))
         };
 
         foreach (var (family, target) in familyTargets)
