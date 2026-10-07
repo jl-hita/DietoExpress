@@ -50,6 +50,7 @@ public sealed class AdvancedDietOptimizerService
 
         var candidates = allowedFoods
             .Where(IsOptimizerFood)
+            .Where(IsProfessionalAutomaticFood)
             .Take(2500)
             .ToList();
 
@@ -83,8 +84,10 @@ public sealed class AdvancedDietOptimizerService
                         var alternatives = candidates
                             .Where(f => f.id != source.id)
                             .Where(f => SameRole(role, meal.Name, f))
+                            .Where(f => IsProfessionalReplacement(role, f))
                             .Where(f => !meal.Items.Any(i => i.FoodId == f.id))
-                            .OrderBy(f => NutrientDistance(f, source))
+                            .OrderBy(f => CalculateFoodQualityPenalty(f, role))
+                            .ThenBy(f => NutrientDistance(f, source))
                             .Take(12)
                             .ToList();
 
@@ -166,7 +169,10 @@ public sealed class AdvancedDietOptimizerService
 
             var role = InferRole(meal.Name, source);
             var candidate = allowedFoods
+                .Where(IsOptimizerFood)
+                .Where(IsProfessionalAutomaticFood)
                 .Where(f => f.id != source.id && SameRole(role, meal.Name, f))
+                .Where(f => IsProfessionalReplacement(role, f))
                 .OrderBy(f => NutrientDistance(f, source))
                 .ThenBy(f => WeeklyUseCount(diet, f.id))
                 .FirstOrDefault();
@@ -556,6 +562,27 @@ public sealed class AdvancedDietOptimizerService
                name.Contains("patata instantanea") || name.Contains("patata instantánea");
     }
 
+    private static bool IsProfessionalAutomaticFood(foods food)
+    {
+        var n = NormalizeFoodTerm(food.name ?? string.Empty);
+        var forbidden = new[]
+        {
+            "flan", "petit suisse", "natillas", "pudding", "mousse", "postre lacteo",
+            "crema de postre", "yogur liquido", "yogur con ", "yogur desnatado con ",
+            "yogur griego azucarado", "yogur azucarado",
+            "lenteja seca", "lentejas secas", "garbanzo seco", "garbanzos secos",
+            "alubia seca", "alubias secas", "huevo de pato", "huevo de codorniz",
+            "huevo de pavo", "huevo de gallina de guinea"
+        };
+        if (forbidden.Any(n.Contains)) return false;
+        if (n.StartsWith("aceite ") || n.Equals("aceite", StringComparison.OrdinalIgnoreCase))
+            return IsStandardCulinaryOil(food);
+        return true;
+    }
+
+    private static bool IsProfessionalReplacement(string role, foods food)
+        => IsProfessionalAutomaticFood(food) && (role != "oil" || IsStandardCulinaryOil(food));
+
     private static double CalculateFoodQualityPenalty(foods food, string role)
     {
         var penalty = 0.0;
@@ -563,6 +590,13 @@ public sealed class AdvancedDietOptimizerService
             penalty += 1000;
         if ((role == "Carbs" || role == "BreakfastCarb" || role == "SnackCarb" || role == "LightCarb") && IsHighGlycemicHeuristic(food))
             penalty += 35;
+        var name = NormalizeFoodTerm(food.name ?? string.Empty);
+        if (name.Contains("seco") || name.Contains("seca") || name.Contains("crudo") || name.Contains("cruda"))
+            penalty += 500;
+        if (name.Contains("fiambre"))
+            penalty += 20;
+        if (name.Contains("yogur") && (name.Contains("con ") || name.Contains("azucar")))
+            penalty += 80;
         return penalty;
     }
 
