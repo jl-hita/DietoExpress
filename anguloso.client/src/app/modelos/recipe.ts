@@ -8,6 +8,21 @@ export interface RecipeListItem {
   name: string;
   instructions?: string;
   createdAt?: string; // ISO date
+  servings?: number;
+  yieldGrams?: number;
+  nutrition?: RecipeNutrition;
+  dietaryFlags?: string[];
+}
+
+export interface RecipeNutrition {
+  totalKcal?: number;
+  totalProtein?: number;
+  totalCarbs?: number;
+  totalFat?: number;
+  perServingKcal?: number;
+  perServingProtein?: number;
+  perServingCarbs?: number;
+  perServingFat?: number;
 }
 
 /** Ingrediente calculado tal como lo devuelve el backend en GET /api/recipes/{id} */
@@ -22,6 +37,7 @@ export interface RecipeIngredient {
   protein?: number;
   carbs?: number;
   fat?: number;
+  dietaryFlags?: string[];
 }
 
 /** GET /api/recipes/{id} */
