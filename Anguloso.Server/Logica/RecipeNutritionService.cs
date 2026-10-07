@@ -50,7 +50,7 @@ public sealed class RecipeNutritionService
         await _context.SaveChangesAsync(cancellationToken);
     }
 
-    private static RecipeIngredientDto BuildIngredient(recipe_items item, foods food){var f=(double)item.grams/100.0;return new RecipeIngredientDto{FoodId=food.id,FoodName=food.name,Brands=food.brands,Grams=item.grams,Kcal=Scale(food.kcal,f),Protein=Scale(food.protein,f),Carbs=Scale(food.carbs,f),Fat=Scale(food.fat,f),DietaryFlags=food.dietary_flags??Array.Empty<string>()};}
+    private static RecipeIngredientDto BuildIngredient(recipe_items item, foods food){var f=(double)item.grams/100.0;return new RecipeIngredientDto{FoodId=food.id,FoodName=food.name,Brands=food.brands,Grams=item.grams,Kcal=Scale(food.kcal,f),Protein=Scale(food.protein,f),Carbs=Scale(food.carbs,f),Fat=Scale(food.fat,f),DietaryFlags=(food.dietary_flags??Array.Empty<string>()).ToList()};}
     private static double? Scale(double? v,double f)=>v.HasValue?Math.Round(v.Value*f,2):null;
     private static double? Sum(IEnumerable<double?> v){var x=v.Where(a=>a.HasValue).Select(a=>a!.Value).ToList();return x.Count==0?null:Math.Round(x.Sum(),2);}
     private static double? Divide(double? v,decimal d)=>v.HasValue&&d>0?Math.Round(v.Value/(double)d,2):null;
