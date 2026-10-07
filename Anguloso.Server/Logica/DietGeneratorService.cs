@@ -422,36 +422,66 @@ public class DietGeneratorService
 
     // Hace una segunda pasada sobre el día generado para corregir desviaciones acumuladas entre
     // comidas y dejar los totales dentro de la tolerancia esperada por el generador.
-    private void NormalizeDay(List<MealDto> meals, double targetKcal, double targetP, double targetC, double targetF)
+    // Reequilibra el día usando energía y los tres macronutrientes. La versión anterior
+    // escalaba exclusivamente por kcal y podía alejar la dieta de proteína, carbohidratos
+    // y grasa después del ajuste final.
+    private void RebalanceDay(List<MealDto> meals, double targetKcal, double targetProtein, double targetCarbs, double targetFat)
     {
-        var allItems = meals.SelectMany(m => m.Items).ToList();
+        var allItems = meals.SelectMany(m => m.Items).Where(i => (i.Grams ?? 0) > 0).ToList();
         if (!allItems.Any()) return;
 
-        double totalKcal = (double)allItems.Sum(i => i.Kcal ?? 0);
-        if (totalKcal <= 0) return;
-
-        double factor = targetKcal / totalKcal;
-
-        // Solo ajustar si la desviación es notable (> 3%)
-        if (Math.Abs(factor - 1.0) > 0.03)
+        for (int iteration = 0; iteration < 18; iteration++)
         {
+            var totalKcal = allItems.Sum(i => (double)(i.Kcal ?? 0));
+            var totalProtein = allItems.Sum(i => (double)(i.Protein ?? 0));
+            var totalCarbs = allItems.Sum(i => (double)(i.Carbs ?? 0));
+            var totalFat = allItems.Sum(i => (double)(i.Fat ?? 0));
+
+            var kcalError = RelativeError(totalKcal, targetKcal);
+            var proteinError = RelativeError(totalProtein, targetProtein);
+            var carbsError = RelativeError(totalCarbs, targetCarbs);
+            var fatError = RelativeError(totalFat, targetFat);
+
+            if (Math.Abs(kcalError) < 0.02 && Math.Abs(proteinError) < 0.03 &&
+                Math.Abs(carbsError) < 0.03 && Math.Abs(fatError) < 0.03)
+                break;
+
             foreach (var item in allItems)
             {
-                double oldGrams = (double)(item.Grams ?? 100);
-                double newGrams = Math.Round(oldGrams * factor, 0);
+                var grams = (double)(item.Grams ?? 0);
+                if (grams <= 0) continue;
 
-                // Evitar porciones irrisorias o gigantescas
-                newGrams = Math.Clamp(newGrams, 5, 350);
+                var itemKcal = (double)(item.Kcal ?? 0);
+                var itemProtein = (double)(item.Protein ?? 0);
+                var itemCarbs = (double)(item.Carbs ?? 0);
+                var itemFat = (double)(item.Fat ?? 0);
 
-                double ratio = newGrams / Math.Max(oldGrams, 1);
+                // Cada alimento recibe una corrección ponderada por su contribución actual.
+                // Se limita el paso para evitar porciones absurdas o inestabilidad.
+                var contribution =
+                    (0.35 * proteinError * SafeShare(itemProtein, totalProtein)) +
+                    (0.25 * carbsError * SafeShare(itemCarbs, totalCarbs)) +
+                    (0.20 * fatError * SafeShare(itemFat, totalFat)) +
+                    (0.20 * kcalError * SafeShare(itemKcal, totalKcal));
+
+                var factor = Math.Clamp(1.0 + contribution, 0.90, 1.10);
+                var newGrams = Math.Clamp(Math.Round(grams * factor, 0), 5, 350);
+                var ratio = newGrams / grams;
+
                 item.Grams = (decimal)newGrams;
-                item.Kcal = (decimal)Math.Round((double)(item.Kcal ?? 0) * ratio, 1);
-                item.Protein = (decimal)Math.Round((double)(item.Protein ?? 0) * ratio, 1);
-                item.Carbs = (decimal)Math.Round((double)(item.Carbs ?? 0) * ratio, 1);
-                item.Fat = (decimal)Math.Round((double)(item.Fat ?? 0) * ratio, 1);
+                item.Kcal = (decimal)Math.Round(itemKcal * ratio, 1);
+                item.Protein = (decimal)Math.Round(itemProtein * ratio, 1);
+                item.Carbs = (decimal)Math.Round(itemCarbs * ratio, 1);
+                item.Fat = (decimal)Math.Round(itemFat * ratio, 1);
             }
         }
     }
+
+    private static double RelativeError(double actual, double target)
+        => target <= 0 ? 0 : (target - actual) / target;
+
+    private static double SafeShare(double value, double total)
+        => total <= 0 ? 0 : value / total;
 
     #endregion
 
