@@ -12,7 +12,7 @@
     </div>
   </ng-template>
 
-  <mat-nav-list>
+  <div class="trial-banner" *ngIf="isTrial && trialDaysRemaining > 0" routerLink="/billing" role="button" tabindex="0" aria-label="Ver estado de la prueba profesional">\n    <mat-icon>schedule</mat-icon>\n    <div><strong>Prueba profesional</strong><span>{{ trialDaysRemaining }} {{ trialDaysRemaining === 1 ? 'día' : 'días' }} restantes</span></div>\n  </div>\n\n  <mat-nav-list>
     <div class="menu-item dashboard-item" *ngIf="isNutritionist">
       <a mat-list-item routerLink="/dashboard" routerLinkActive="active-link" [routerLinkActiveOptions]="{ exact: true }" (click)="navigateAndClose()">
         <mat-icon>dashboard</mat-icon><span>Inicio</span>
