@@ -222,10 +222,12 @@ public sealed class AdvancedDietOptimizerService
                     {
                         Recipe = recipe,
                         Ingredients = recipe.recipe_items
-                            .Where(i => i.food != null && foodMap.ContainsKey(i.food_id) && i.grams > 0)
+                            .Where(i => i.food != null && i.grams > 0)
                             .ToList()
                     })
-                    .Where(x => x.Ingredients.Count >= 2)
+                    .Where(x => x.Ingredients.Count >= 2
+                             && x.Ingredients.Count == x.Recipe.recipe_items.Count
+                             && x.Ingredients.All(i => foodMap.ContainsKey(i.food_id)))
                     .Select(x => new
                     {
                         x.Recipe,
@@ -343,18 +345,25 @@ public sealed class AdvancedDietOptimizerService
                 var targetFood = candidates.FirstOrDefault(f => GetFamily(f) == family);
                 if (targetFood == null) break;
 
-                var meal = diet.Days
+                var candidateMeal = diet.Days
                     .SelectMany(d => d.Meals)
                     .Where(m => m.Name.Contains("comida", StringComparison.OrdinalIgnoreCase)
                              || m.Name.Contains("cena", StringComparison.OrdinalIgnoreCase)
                              || family == "fruta")
-                    .OrderBy(m => m.Items.Count(i => i.FoodId == targetFood.id))
+                    .Select(m => new
+                    {
+                        Meal = m,
+                        Item = m.Items.FirstOrDefault(i =>
+                            i.FoodId.HasValue &&
+                            candidates.Any(f => f.id == i.FoodId.Value && SameRole(InferRole(m.Name, f), targetFood)))
+                    })
+                    .Where(x => x.Item != null)
+                    .OrderBy(x => x.Meal.Items.Count(i => i.FoodId == targetFood.id))
                     .FirstOrDefault();
 
-                var replace = meal?.Items.FirstOrDefault();
-                if (replace == null) continue;
+                if (candidateMeal?.Item == null) continue;
 
-                ReplaceItem(replace, targetFood, Math.Max(20, (double)(replace.Grams ?? 0)));
+                ReplaceItem(candidateMeal.Item, targetFood, Math.Max(20, (double)(candidateMeal.Item.Grams ?? 0)));
             }
         }
     }
