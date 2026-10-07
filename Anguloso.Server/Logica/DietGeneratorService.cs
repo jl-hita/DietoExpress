@@ -183,7 +183,6 @@ public class DietGeneratorService
 
         var weeklyUsageCount = new Dictionary<int, int>();
         var weeklyRoleFamilyUsage = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        var weeklyMealSignatures = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var daysList = new List<DietDayDto>();
         var rnd = new Random();
 
@@ -214,7 +213,6 @@ public class DietGeneratorService
                     dislikedFoods,
                     adherenceBoost,
                     weeklyRoleFamilyUsage,
-                    weeklyMealSignatures,
                     rnd
                 );
 
@@ -228,15 +226,6 @@ public class DietGeneratorService
 
             // Normalización final del día para calibración exacta de Kcal y Macros
             RebalanceDay(todayMeals, targetKcal, targetProtein, targetCarbs, targetFat);
-
-            // Registrar las combinaciones finales después del reequilibrado permite que la
-            // optimización semanal conozca el plan real que verá el paciente.
-            foreach (var meal in todayMeals)
-            {
-                var signature = BuildMealSignature(meal);
-                if (!string.IsNullOrWhiteSpace(signature))
-                    weeklyMealSignatures.Add(signature);
-            }
 
             daysList.Add(new DietDayDto
             {
@@ -313,7 +302,6 @@ public class DietGeneratorService
         HashSet<string> dislikedFoods,
         double adherenceBoost,
         Dictionary<string, int> weeklyRoleFamilyUsage,
-        HashSet<string> weeklyMealSignatures,
         Random rnd)
     {
         var slots = GetTemplateForMeal(mealName);
@@ -447,12 +435,6 @@ public class DietGeneratorService
             _ => "otro"
         };
     }
-
-    private static string BuildMealSignature(MealDto meal)
-        => string.Join("|", meal.Items
-            .Where(i => i.FoodId.HasValue)
-            .Select(i => i.FoodId!.Value)
-            .OrderBy(id => id));
 
     // Evalúa si el alimento encaja bien con el papel de su franja y con los objetivos
     // de la comida. Es una señal de selección, no una regla clínica.
