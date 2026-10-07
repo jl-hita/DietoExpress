@@ -2522,6 +2522,35 @@ CREATE INDEX IF NOT EXISTS idx_public_funnel_events_appointment
             throw;
         }
     }
+    /// <summary>Extiende recetas y platos con nutrición por ración, restricciones y trazabilidad.</summary>
+    public static void UpgradeProfessionalRecipeSchemaV1(angulosodbContext context, ILogger logger)
+    {
+        try
+        {
+            context.Database.ExecuteSqlRaw(@"
+                ALTER TABLE recipes
+                    ADD COLUMN IF NOT EXISTS servings NUMERIC(6,2) NOT NULL DEFAULT 1,
+                    ADD COLUMN IF NOT EXISTS yield_grams NUMERIC(8,2);
+
+                ALTER TABLE meal_items
+                    ADD COLUMN IF NOT EXISTS recipe_id INTEGER REFERENCES recipes(id) ON DELETE SET NULL,
+                    ADD COLUMN IF NOT EXISTS recipe_servings NUMERIC(6,2);
+
+                CREATE INDEX IF NOT EXISTS idx_meal_items_recipe_id ON meal_items(recipe_id);
+
+                INSERT INTO schema_migrations(id)
+                VALUES ('professional-recipe-v1')
+                ON CONFLICT (id) DO NOTHING;
+            ");
+            logger.LogInformation("Esquema de recetas profesionales inicializado correctamente.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "No se pudo inicializar el esquema de recetas profesionales.");
+            throw;
+        }
+    }
+
 
 }
 
