@@ -111,7 +111,7 @@ public sealed class DietGeneratorRegressionTests
         Assert.Contains("TryReplaceRepeatedMealItem", source);
         Assert.Contains("CalculateSubstitutionScore", source);
         Assert.Contains("DecrementUsage", source);
-        Assert.Contains("same role", source);
+        Assert.Contains("mismo rol", source);
     }
 
     [Fact]
