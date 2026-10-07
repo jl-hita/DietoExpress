@@ -95,7 +95,7 @@ public sealed class DietRegenerationService
 
             Replace(item, replacement, Math.Max(5, (double)(item.grams ?? 100)));
             RebalanceMeal(selectedMeal, DietMealTarget(diet, selectedDay, selectedMeal), request.PreserveNutritionTargets);
-            response.PreviousFoodName = previous.name;
+            response.PreviousFoodName = previous.Name;
             response.NewFoodName = replacement.name;
         }
         else if (request.Operation == "regenerate-meal")
@@ -127,7 +127,7 @@ public sealed class DietRegenerationService
             }
 
             RebalanceMeal(selectedMeal, DietMealTarget(diet, selectedDay, selectedMeal), request.PreserveNutritionTargets);
-            response.PreviousFoodName = string.Join(", ", original.Select(x => x.name).Where(x => !string.IsNullOrWhiteSpace(x)).Take(3));
+            response.PreviousFoodName = string.Join(", ", original.Select(x => x.Name).Where(x => !string.IsNullOrWhiteSpace(x)).Take(3));
             response.NewFoodName = string.Join(", ", selectedMeal.meal_items.Select(i => i.food_id.HasValue ? allFoods.FirstOrDefault(f => f.id == i.food_id)?.name : null).Where(x => !string.IsNullOrWhiteSpace(x)).Take(3));
         }
         else
