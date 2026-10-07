@@ -68,7 +68,7 @@ public sealed class DietRegenerationService
 
         await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
         var before = Objective(diet);
-        Meal? selectedMeal = null;
+        meals? selectedMeal = null;
         diet_days? selectedDay = null;
 
         if (request.Operation == "replace-food")
@@ -335,8 +335,3 @@ public sealed class DietRegenerationService
     private sealed record SnapshotDto(int? FoodId, decimal? Kcal, decimal? Protein, decimal? Carbs, decimal? Fat, string? Name);
 }
 
-internal static class DietRegenerationRequestExtensions
-{
-    // La dieta no almacena ClientId actualmente; el endpoint puede recibirlo en una extensión futura.
-    public static int? ClientIdOrNull(this DietRegenerationRequestDto request, diets diet) => null;
-}
