@@ -6,6 +6,7 @@ import { AuthService } from '../../servicios/auth.service';
 import { ProfileService } from '../../servicios/profile.service';
 import { Profile } from '../../modelos/profile';
 import { LicenseService, LicenseStatus } from '../../servicios/license.service';
+import { PatientPortalService, AvailabilityRule } from '../../servicios/patient-portal.service';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -42,6 +43,7 @@ interface OnboardingStep {
 export class OnboardingComponent implements OnInit {
   profile: Profile | null = null;
   license: LicenseStatus | null = null;
+  availability: AvailabilityRule[] = [];
   loading = true;
   error = false;
   steps: OnboardingStep[] = [];
@@ -50,24 +52,27 @@ export class OnboardingComponent implements OnInit {
     private router: Router,
     private authService: AuthService,
     private profileService: ProfileService,
-    private licenseService: LicenseService
+    private licenseService: LicenseService,
+    private patientPortalService: PatientPortalService
   ) {}
 
   ngOnInit(): void {
     if (this.authService.isSuperAdmin()) {
       this.loading = false;
-      this.buildSteps(null, null);
+      this.buildSteps(null, null, []);
       return;
     }
 
     forkJoin({
       profile: this.profileService.getProfile(),
-      license: this.licenseService.getLicense()
+      license: this.licenseService.getLicense(),
+      availability: this.patientPortalService.getAvailability()
     }).subscribe({
-      next: ({ profile, license }) => {
+      next: ({ profile, license, availability }) => {
         this.profile = profile;
         this.license = license;
-        this.buildSteps(profile, license);
+        this.availability = availability;
+        this.buildSteps(profile, license, availability);
         this.loading = false;
       },
       error: () => {
@@ -97,9 +102,10 @@ export class OnboardingComponent implements OnInit {
     return this.requiredSteps.length > 0 && this.completedCount === this.requiredSteps.length;
   }
 
-  private buildSteps(profile: Profile | null, license: LicenseStatus | null): void {
+  private buildSteps(profile: Profile | null, license: LicenseStatus | null, availability: AvailabilityRule[]): void {
     const hasProfessionalName = !!profile?.fullName?.trim();
     const hasClinic = !!profile?.clinicName?.trim() && !!profile?.clinicAddress?.trim();
+    const hasAvailability = availability.some(rule => rule.isActive && rule.endTime > rule.startTime);
     const hasSpecialties = !!profile?.directorySpecialties?.trim();
     const hasPublicProfile = !!profile?.directoryEnabled && !!profile?.directorySlug;
     const hasPatient = (license?.clients ?? 0) > 0;
@@ -121,6 +127,14 @@ export class OnboardingComponent implements OnInit {
         icon: 'business',
         route: '/settings',
         complete: hasClinic
+      },
+      {
+        key: 'schedule',
+        title: 'Define tus horarios',
+        description: 'Configura al menos un horario activo para que la agenda y las reservas conozcan tu disponibilidad.',
+        icon: 'schedule',
+        route: '/appointments',
+        complete: hasAvailability
       },
       {
         key: 'specialties',
