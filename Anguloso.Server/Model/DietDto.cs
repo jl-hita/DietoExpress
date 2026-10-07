@@ -87,6 +87,10 @@ public class MealItemDto
     public decimal? Carbs { get; set; }
     public decimal? Fat { get; set; }
 
+    public int? RecipeId { get; set; }
+    public string? RecipeName { get; set; }
+    public decimal? RecipeServings { get; set; }
+
     // Para la vista en el FrontEnd en detalle:
     public string? FoodName { get; set; }
 

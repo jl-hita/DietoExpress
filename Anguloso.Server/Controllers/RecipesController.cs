@@ -199,50 +199,33 @@ public class RecipesController : ControllerBase
         }
 
         await _context.SaveChangesAsync();
+        await _recipeNutritionService.RefreshRecipeUsagesAsync(recipe.id, HttpContext.RequestAborted);
         return NoContent();
     }
 
     // Sustituye un ingrediente y recalcula automáticamente nutrición, restricciones y usos en dietas.
     [HttpPost("{id:int}/substitute")]
-    public async Task<ActionResult<RecipeDetailDto>> SubstituteIngredient(
-        int id,
-        [FromBody] SubstituteRecipeIngredientDto dto)
+    public async Task<ActionResult<RecipeDetailDto>> SubstituteIngredient(int id, [FromBody] SubstituteRecipeIngredientDto dto)
     {
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
         var tenantId = AuthHelpers.GetTenantId(User);
         if (!await _licenseService.CanUseFeatureAsync(tenantId, "RECIPES")) return Forbid();
-
-        var recipe = await _context.recipes
-            .Include(r => r.recipe_items).ThenInclude(i => i.food)
-            .FirstOrDefaultAsync(r => r.id == id && tenantId.HasValue &&
-                                       r.tenant_id == tenantId.Value && r.user_id == userId.Value);
+        var recipe = await _context.recipes.Include(r => r.recipe_items).ThenInclude(i => i.food)
+            .FirstOrDefaultAsync(r => r.id == id && tenantId.HasValue && r.tenant_id == tenantId.Value && r.user_id == userId.Value);
         if (recipe == null) return NotFound();
-
         var ingredient = recipe.recipe_items.FirstOrDefault(i => i.food_id == dto.IngredientFoodId);
         if (ingredient == null) return NotFound("El ingrediente no forma parte de la receta.");
-        if (!await CanUseFoodAsync(dto.ReplacementFoodId, userId.Value, tenantId))
-            return BadRequest("El alimento sustituto no está disponible para esta cuenta.");
-
+        if (!await CanUseFoodAsync(dto.ReplacementFoodId, userId.Value, tenantId)) return BadRequest("El alimento sustituto no está disponible para esta cuenta.");
         var replacement = await _context.foods.AsNoTracking().FirstOrDefaultAsync(f => f.id == dto.ReplacementFoodId);
         if (replacement == null) return NotFound("Alimento sustituto no encontrado.");
-
-        var originalFood = ingredient.food;
         var grams = ingredient.grams;
-        if (dto.PreserveCalories && originalFood?.kcal > 0 && replacement.kcal > 0)
-        {
-            var adjusted = (double)grams * originalFood.kcal.Value / replacement.kcal.Value;
-            grams = (decimal)Math.Clamp(adjusted, 0.1, 10000);
-        }
-
-        ingredient.food_id = replacement.id;
-        ingredient.grams = Math.Round(grams, 2);
+        if (dto.PreserveCalories && ingredient.food?.kcal > 0 && replacement.kcal > 0)
+            grams = (decimal)Math.Clamp((double)grams * ingredient.food.kcal.Value / replacement.kcal.Value, 0.1, 10000);
+        ingredient.food_id = replacement.id; ingredient.grams = Math.Round(grams, 2);
         await _context.SaveChangesAsync();
         await _recipeNutritionService.RefreshRecipeUsagesAsync(recipe.id, HttpContext.RequestAborted);
-
-        var refreshed = await _context.recipes
-            .Include(r => r.recipe_items).ThenInclude(i => i.food)
-            .FirstAsync(r => r.id == recipe.id);
+        var refreshed = await _context.recipes.Include(r => r.recipe_items).ThenInclude(i => i.food).FirstAsync(r => r.id == recipe.id);
         var ids = refreshed.recipe_items.Select(i => i.food_id).Distinct().ToList();
         var foods = await _context.foods.Where(f => ids.Contains(f.id)).ToDictionaryAsync(f => f.id);
         return Ok(await _recipeNutritionService.BuildDetailAsync(refreshed, foods, HttpContext.RequestAborted));
