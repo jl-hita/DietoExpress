@@ -22,6 +22,7 @@ export interface LegalAcceptance {
   sha256: string;
   acceptedAt: string;
   context: string;
+  action: "acceptance" | "acknowledgement";
 }
 
 @Injectable({ providedIn: 'root' })
@@ -34,12 +35,21 @@ export class LegalService {
     return this.http.get<LegalDocument[]>(`${this.baseUrl}/current`);
   }
 
-  accept(documentKey: string, version?: number, context = 'user_action'): Observable<LegalAcceptance> {
+  record(documentKey: string, version?: number, context = 'user_action', action: 'accept' | 'acknowledge' = 'accept'): Observable<LegalAcceptance> {
     return this.http.post<LegalAcceptance>(`${this.baseUrl}/accept`, {
       documentKey,
       version,
-      context
+      context,
+      action
     });
+  }
+
+  accept(documentKey: string, version?: number, context = 'user_action'): Observable<LegalAcceptance> {
+    return this.record(documentKey, version, context, 'accept');
+  }
+
+  acknowledge(documentKey: string, version?: number, context = 'information'): Observable<LegalAcceptance> {
+    return this.record(documentKey, version, context, 'acknowledge');
   }
 
   getAcceptances(): Observable<LegalAcceptance[]> {
