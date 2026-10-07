@@ -368,7 +368,7 @@ public class DietGeneratorService
         "patatas chips", "chips de patata", "aceite de algodón", "aceite de coco", "aceite de palma",
         "aceite de maíz", "aceite de soja", "aceite de cacahuete", "aceite de sésamo",
         "zumo", "jugo", "néctar", "puré", "pure", "ahumado", "huevo de pavo", "huevo de codorniz",
-        "melón desecado", "fruta desecada", "fruta seca azucarada"
+        "melón desecado", "fruta desecada", "fruta seca azucarada", "preparado lácteo", "preparado lacteo"
     };
 
     private bool IsCommonFood(foods f)

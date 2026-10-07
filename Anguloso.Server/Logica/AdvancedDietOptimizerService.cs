@@ -326,6 +326,10 @@ public sealed class AdvancedDietOptimizerService
     {
         var items = day.Meals.SelectMany(m => m.Items).Where(i => (i.Grams ?? 0) > 0).ToList();
         if (items.Count == 0) return;
+        var bounds = items.ToDictionary(item => item, item => (
+            Min: Math.Max(5.0, (double)(item.Grams ?? 0) * 0.75),
+            Max: Math.Min(350.0, (double)(item.Grams ?? 0) * 1.25)));
+
         for (var pass = 0; pass < 18; pass++)
         {
             var current = MacroError(items, targetKcal, targetProtein, targetCarbs, targetFat);
@@ -335,7 +339,10 @@ public sealed class AdvancedDietOptimizerService
                 var grams = (double)(item.Grams ?? 0);
                 var best = grams;
                 var bestError = current;
-                foreach (var candidate in new[] { Math.Max(5, grams - 5), Math.Min(350, grams + 5) })
+                foreach (var candidate in new[] {
+                    Math.Clamp(grams - 5, bounds[item].Min, bounds[item].Max),
+                    Math.Clamp(grams + 5, bounds[item].Min, bounds[item].Max)
+                }.Distinct())
                 {
                     ApplyItemRatio(item, candidate);
                     var error = MacroError(items, targetKcal, targetProtein, targetCarbs, targetFat);
@@ -352,6 +359,10 @@ public sealed class AdvancedDietOptimizerService
     {
         var items = meal.Items.Where(i => (i.Grams ?? 0) > 0).ToList();
         if (items.Count == 0) return;
+        var bounds = items.ToDictionary(item => item, item => (
+            Min: Math.Max(5.0, (double)(item.Grams ?? 0) * 0.75),
+            Max: Math.Min(350.0, (double)(item.Grams ?? 0) * 1.25)));
+
         for (var pass = 0; pass < 10; pass++)
         {
             var current = MacroError(items, targetKcal, targetProtein, targetCarbs, targetFat);
@@ -361,14 +372,17 @@ public sealed class AdvancedDietOptimizerService
                 var grams = (double)(item.Grams ?? 0);
                 var best = grams;
                 var bestError = current;
-                foreach (var candidate in new[] { Math.Max(5, grams - 5), Math.Min(350, grams + 5) })
+                foreach (var candidate in new[] {
+                    Math.Clamp(grams - 5, bounds[item].Min, bounds[item].Max),
+                    Math.Clamp(grams + 5, bounds[item].Min, bounds[item].Max)
+                }.Distinct())
                 {
                     ApplyItemRatio(item, candidate);
                     var error = MacroError(items, targetKcal, targetProtein, targetCarbs, targetFat);
                     if (error < bestError) { best = candidate; bestError = error; }
                 }
                 ApplyItemRatio(item, best);
-                if (bestError < current) { current = bestError; improved = true; }
+                if (bestError + 0.000001 < current) { current = bestError; improved = true; }
             }
             if (!improved) break;
         }
@@ -465,17 +479,34 @@ public sealed class AdvancedDietOptimizerService
 
     private static string InferRole(string mealName, foods food)
     {
-        var n = (food.name ?? string.Empty).ToLowerInvariant();
-        var c = (food.category ?? string.Empty).ToLowerInvariant();
-        if (mealName.Contains("desayuno", StringComparison.OrdinalIgnoreCase)) return n.Contains("yogur") || n.Contains("leche") || n.Contains("queso") || n.Contains("huevo") ? "protein" : "breakfast";
-        if (c.Contains("verdura") || c.Contains("hortal") || n.Contains("tomate") || n.Contains("lechuga")) return "vegetable";
-        if (c.Contains("fruta") || n.Contains("manzana") || n.Contains("plátano") || n.Contains("naranja")) return "fruit";
-        if (n.Contains("arroz") || n.Contains("pasta") || n.Contains("patata") || n.Contains("pan")) return "carb";
-        if (n.Contains("aceite") || n.Contains("nuez") || n.Contains("almendra") || n.Contains("avellana")) return "fat";
-        return "protein";
+        var n = NormalizeFoodTerm(food.name ?? string.Empty);
+        var c = NormalizeFoodTerm(food.category ?? string.Empty);
+        var meal = NormalizeFoodTerm(mealName);
+        bool isVegetable = c.Contains("verdura") || c.Contains("hortal") || new[] { "tomate","lechuga","espinaca","calabacin","berenjena","brocoli","zanahoria","pepino","pimiento","judia verde","champiñon","calabaza" }.Any(n.Contains);
+        bool isFruit = c.Contains("fruta") || new[] { "manzana","platano","naranja","pera","fresa","kiwi","mandarina","sandia","melon","melocoton","albaricoque","ciruela","uva" }.Any(n.Contains);
+        bool isFat = n.Contains("aceite") || new[] { "nuez","almendra","avellana","anacardo","pistacho" }.Any(n.Contains);
+        bool isCarb = new[] { "arroz","pasta","patata","boniato","pan","avena","quinoa","macarron","espagueti","lenteja","garbanzo","alubia","cuscus","cuscús","tostada" }.Any(n.Contains);
+        bool isDairyOrEgg = new[] { "yogur","leche","queso","kefir","huevo","clara" }.Any(n.Contains);
+        bool isProtein = isDairyOrEgg || new[] { "pollo","pavo","ternera","cerdo","conejo","atun","salmon","merluza","bacalao","dorada","lubina","sardina","caballa","gamba","tofu","tempeh" }.Any(n.Contains);
+
+        if (meal.Contains("desayuno") || meal.Contains("media") || meal.Contains("merienda"))
+        {
+            if (isFruit) return "fruit";
+            if (isCarb) return "carb";
+            if (isDairyOrEgg || isProtein) return "protein";
+            if (isFat) return "fat";
+        }
+        if (isVegetable) return "vegetable";
+        if (isFruit) return "fruit";
+        if (isFat) return "fat";
+        if (isCarb) return "carb";
+        if (isDairyOrEgg || isProtein) return "protein";
+        return "other";
     }
 
-    private static bool SameRole(string role, foods food) => InferRole("comida", food) == role || role == "protein" && (food.protein ?? 0) >= 12 || role == "carb" && (food.carbs ?? 0) >= 10 || role == "vegetable" && GetFamily(food) == "verdura" || role == "fruit" && GetFamily(food) == "fruta";
+    private static bool SameRole(string role, foods food)
+        => InferRole("comida", food) == role;
+
     private static double MealShare(string mealName, int mealsPerDay)
     {
         var name = mealName.ToLowerInvariant();

@@ -339,6 +339,19 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void AdvancedDietOptimizer_PreservesCulinaryRolesAndPortionBounds()
+    {
+        var source = ReadServerLogica("AdvancedDietOptimizerService.cs");
+
+        Assert.Contains("if (meal.Contains(\"desayuno\") || meal.Contains(\"media\") || meal.Contains(\"merienda\"))", source);
+        Assert.Contains("private static bool SameRole(string role, foods food)", source);
+        Assert.Contains("=> InferRole(\"comida\", food) == role;", source);
+        Assert.Contains("item.Grams ?? 0) * 0.75", source);
+        Assert.Contains("item.Grams ?? 0) * 1.25", source);
+        Assert.DoesNotContain("Math.Max(5, grams - 5), Math.Min(350, grams + 5)", source);
+    }
+
+    [Fact]
     public void AutomatedDietGeneration_BoundsMacroAndDietTypeInput()
     {
         var source = ReadServerController("DietController.cs");
