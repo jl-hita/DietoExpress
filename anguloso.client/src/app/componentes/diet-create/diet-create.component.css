@@ -1150,6 +1150,110 @@
 }
 
 @media (max-width: 700px) {
+  /* En móvil, cada alimento ocupa una fila propia y sus valores pasan a una segunda fila.
+     Así los nombres largos no pueden imponer el ancho de la tabla/página. */
+  .meal-items-list {
+    overflow-x: visible;
+  }
+
+  .items-table {
+    display: block;
+    width: 100%;
+    white-space: normal;
+  }
+
+  .items-table thead {
+    display: none;
+  }
+
+  .items-table tbody,
+  .items-table tr {
+    display: block;
+    width: 100%;
+  }
+
+  .items-table tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #f1f5f9;
+    box-sizing: border-box;
+  }
+
+  .items-table tr:last-child {
+    border-bottom: none;
+  }
+
+  .items-table td {
+    box-sizing: border-box;
+    border: 0;
+    padding: 5px 6px;
+    min-width: 0;
+  }
+
+  .items-table td.food-name {
+    flex: 0 0 100%;
+    width: 100%;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    padding-bottom: 7px;
+  }
+
+  .items-table td.food-name > span:not(.exchange-badge) {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .items-table td:nth-child(2),
+  .items-table td:nth-child(3),
+  .items-table td:nth-child(4),
+  .items-table td:nth-child(5),
+  .items-table td:nth-child(6) {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .items-table td:nth-child(2)::before { content: 'Cantidad'; }
+  .items-table td:nth-child(3)::before { content: 'Kcal'; }
+  .items-table td:nth-child(4)::before { content: 'P'; }
+  .items-table td:nth-child(5)::before { content: 'C'; }
+  .items-table td:nth-child(6)::before { content: 'G'; }
+
+  .items-table td:nth-child(2)::before,
+  .items-table td:nth-child(3)::before,
+  .items-table td:nth-child(4)::before,
+  .items-table td:nth-child(5)::before,
+  .items-table td:nth-child(6)::before {
+    display: block;
+    font-size: 9px;
+    line-height: 1.2;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+
+  .items-table td:nth-child(7) {
+    margin-left: auto;
+    padding-left: 0;
+  }
+
+  .exchange-badge {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .quantity-input-wrapper {
+    max-width: 100%;
+  }
+
+  .qty-input {
+    width: 58px;
+  }
+
   .editor-container { padding: 0; }
   .editor-header { flex-direction: column; padding: 12px; }
   .header-left { width: 100%; }
