@@ -13,4 +13,11 @@ public class GenerateDietRequestDto
     public string DietType { get; set; } = "Equilibrada"; // Equilibrada, AltaProteina, BajaCarbos, Vegetariana
     public int? ClientId { get; set; } // Si se pasa, se leen automáticamente sus alergias e intolerancias
     public List<string> ExcludedFoodKeywords { get; set; } = new();
+
+    // Motor avanzado: permite que el generador use recetas reales, optimización global
+    // y control de compras sin convertir las preferencias blandas en restricciones clínicas.
+    public bool UseRecipes { get; set; } = true;
+    public int MaxWeeklyFoodRepetitions { get; set; } = 4;
+    public int ShoppingVarietyThreshold { get; set; } = 28;
+    public bool EnableGlobalOptimization { get; set; } = true;
 }
