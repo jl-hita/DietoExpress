@@ -32,6 +32,10 @@ public class DietGeneratorService
         JsonElement? sportsProfile = null;
         JsonElement? weightProfile = null;
         var exclusions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var preferredFoods = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var dislikedFoods = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        double? recentAdherence = null;
+        var adherenceBoost = 0.0;
 
         if (request.ClientId.HasValue)
         {
@@ -43,6 +47,34 @@ public class DietGeneratorService
 
             if (client != null)
             {
+                // Las preferencias del paciente son criterios blandos: nunca pueden vencer
+                // alergias, intolerancias, exclusiones clínicas o reglas de especialización.
+                preferredFoods = ParseFoodTerms(client.food_preferences?.preferred_foods);
+                dislikedFoods = ParseFoodTerms(client.food_preferences?.disliked_foods);
+
+                var recentCheckins = await _context.patient_checkins
+                    .AsNoTracking()
+                    .Where(c => c.client_id == client.id &&
+                        (!tenantId.HasValue || c.tenant_id == tenantId.Value))
+                    .OrderByDescending(c => c.week_start)
+                    .Take(6)
+                    .Select(c => c.adherence)
+                    .ToListAsync(cancellationToken);
+
+                if (recentCheckins.Count > 0)
+                {
+                    recentAdherence = recentCheckins.Where(v => v.HasValue)
+                        .Select(v => (double)v!.Value)
+                        .DefaultIfEmpty()
+                        .Average();
+
+                    // Cuando la adherencia reciente es baja damos más peso a lo que el
+                    // paciente ya ha declarado que le gusta. Es una señal de adherencia,
+                    // no una regla clínica ni una sustitución del criterio profesional.
+                    if (recentAdherence.HasValue && recentAdherence.Value <= 5)
+                        adherenceBoost = 20;
+                }
+
                 if (tenantId.HasValue)
                 {
                     nutritionProfile = await _specializationRulesService.GetNutritionProfileAsync(
@@ -168,14 +200,17 @@ public class DietGeneratorService
                 double mealTargetF = targetFat * split.KcalPct;
 
                 var mealItems = BuildAndOptimizeMeal(
-                    split.MealName, 
-                    mealTargetKcal, 
-                    mealTargetP, 
-                    mealTargetC, 
-                    mealTargetF, 
-                    foodPools, 
-                    weeklyUsageCount, 
-                    dayUsedFoodIds, 
+                    split.MealName,
+                    mealTargetKcal,
+                    mealTargetP,
+                    mealTargetC,
+                    mealTargetF,
+                    foodPools,
+                    weeklyUsageCount,
+                    dayUsedFoodIds,
+                    preferredFoods,
+                    dislikedFoods,
+                    adherenceBoost,
                     rnd
                 );
 
@@ -188,7 +223,7 @@ public class DietGeneratorService
             }
 
             // Normalización final del día para calibración exacta de Kcal y Macros
-            NormalizeDay(todayMeals, targetKcal, targetProtein, targetCarbs, targetFat);
+            RebalanceDay(todayMeals, targetKcal, targetProtein, targetCarbs, targetFat);
 
             daysList.Add(new DietDayDto
             {
@@ -205,7 +240,9 @@ public class DietGeneratorService
             TargetCarbs = (decimal)Math.Round(targetCarbs),
             TargetFat = (decimal)Math.Round(targetFat),
             Notes = $"Plan generado automáticamente por el motor heurístico el {DateTime.Now:dd/MM/yyyy}. {request.MealsPerDay} comidas al día." +
-                (clinicalGuidance.Count > 0 ? " Especializaciones activas: " + string.Join(" ", clinicalGuidance) : string.Empty),
+                (clinicalGuidance.Count > 0 ? " Especializaciones activas: " + string.Join(" ", clinicalGuidance) : string.Empty) +
+                (preferredFoods.Count > 0 ? " Preferencias alimentarias del paciente aplicadas como criterio de adherencia." : string.Empty) +
+                (recentAdherence.HasValue ? $" Adherencia reciente considerada: {Math.Round(recentAdherence.Value, 1)}/10." : string.Empty),
             Days = daysList
         };
     }
@@ -257,8 +294,11 @@ public class DietGeneratorService
         double targetC, 
         double targetF, 
         FoodPools pools, 
-        Dictionary<int, int> weeklyUsage, 
-        HashSet<int> dayUsage, 
+        Dictionary<int, int> weeklyUsage,
+        HashSet<int> dayUsage,
+        HashSet<string> preferredFoods,
+        HashSet<string> dislikedFoods,
+        double adherenceBoost,
         Random rnd)
     {
         var slots = GetTemplateForMeal(mealName);
@@ -274,7 +314,12 @@ public class DietGeneratorService
                 .Select(f => new
                 {
                     Food = f,
-                    Score = (dayUsage.Contains(f.id) ? 2000 : 0) + (weeklyUsage.GetValueOrDefault(f.id, 0) * 20) + rnd.Next(0, 10)
+                    Score =
+                        (dayUsage.Contains(f.id) ? 2000 : 0) +
+                        (weeklyUsage.GetValueOrDefault(f.id, 0) * 20) +
+                        (MatchesFoodTerms(f, dislikedFoods) ? 80 : 0) -
+                        (MatchesFoodTerms(f, preferredFoods) ? 40 + adherenceBoost : 0) +
+                        rnd.Next(0, 10)
                 })
                 .OrderBy(x => x.Score)
                 .Take(6)
@@ -377,36 +422,101 @@ public class DietGeneratorService
     }
 
     // Hace una segunda pasada sobre el día generado para corregir desviaciones acumuladas entre
-    // comidas y dejar los totales dentro de la tolerancia esperada por el generador.
-    private void NormalizeDay(List<MealDto> meals, double targetKcal, double targetP, double targetC, double targetF)
+    // comidas y acercar simultáneamente energía y macronutrientes sin alterar las restricciones
+    // que ya se aplicaron durante la selección de alimentos.
+    // Se usa descenso por coordenadas: cada pequeño cambio de gramos se acepta solo si mejora
+    // una función de error conjunta. Esto permite corregir la proporción de macros, algo que
+    // un simple escalado global por kcal no puede conseguir.
+    private void RebalanceDay(List<MealDto> meals, double targetKcal, double targetProtein, double targetCarbs, double targetFat)
     {
-        var allItems = meals.SelectMany(m => m.Items).ToList();
+        var allItems = meals
+            .SelectMany(m => m.Items)
+            .Where(i => (i.Grams ?? 0) > 0)
+            .ToList();
+
         if (!allItems.Any()) return;
 
-        double totalKcal = (double)allItems.Sum(i => i.Kcal ?? 0);
-        if (totalKcal <= 0) return;
+        const double stepGrams = 5.0;
+        const int maxPasses = 24;
+        var currentError = CalculateRebalanceError(allItems, targetKcal, targetProtein, targetCarbs, targetFat);
 
-        double factor = targetKcal / totalKcal;
-
-        // Solo ajustar si la desviación es notable (> 3%)
-        if (Math.Abs(factor - 1.0) > 0.03)
+        for (int pass = 0; pass < maxPasses; pass++)
         {
+            var improved = false;
+
             foreach (var item in allItems)
             {
-                double oldGrams = (double)(item.Grams ?? 100);
-                double newGrams = Math.Round(oldGrams * factor, 0);
+                var currentGrams = (double)(item.Grams ?? 0);
+                if (currentGrams <= 0) continue;
 
-                // Evitar porciones irrisorias o gigantescas
-                newGrams = Math.Clamp(newGrams, 5, 350);
+                var bestGrams = currentGrams;
+                var bestError = currentError;
 
-                double ratio = newGrams / Math.Max(oldGrams, 1);
-                item.Grams = (decimal)newGrams;
-                item.Kcal = (decimal)Math.Round((double)(item.Kcal ?? 0) * ratio, 1);
-                item.Protein = (decimal)Math.Round((double)(item.Protein ?? 0) * ratio, 1);
-                item.Carbs = (decimal)Math.Round((double)(item.Carbs ?? 0) * ratio, 1);
-                item.Fat = (decimal)Math.Round((double)(item.Fat ?? 0) * ratio, 1);
+                foreach (var candidateGrams in new[] {
+                    Math.Clamp(currentGrams - stepGrams, 5, 350),
+                    Math.Clamp(currentGrams + stepGrams, 5, 350)
+                }.Distinct())
+                {
+                    ApplyItemRatio(item, candidateGrams);
+                    var candidateError = CalculateRebalanceError(allItems, targetKcal, targetProtein, targetCarbs, targetFat);
+
+                    if (candidateError + 0.000001 < bestError)
+                    {
+                        bestError = candidateError;
+                        bestGrams = candidateGrams;
+                    }
+                }
+
+                ApplyItemRatio(item, bestGrams);
+                if (bestError + 0.000001 < currentError)
+                {
+                    currentError = bestError;
+                    improved = true;
+                }
+                else
+                {
+                    ApplyItemRatio(item, currentGrams);
+                }
             }
+
+            if (!improved || currentError < 0.0025)
+                break;
         }
+    }
+
+    private static double CalculateRebalanceError(
+        IReadOnlyCollection<MealItemDto> items,
+        double targetKcal,
+        double targetProtein,
+        double targetCarbs,
+        double targetFat)
+    {
+        var totalKcal = items.Sum(i => (double)(i.Kcal ?? 0));
+        var totalProtein = items.Sum(i => (double)(i.Protein ?? 0));
+        var totalCarbs = items.Sum(i => (double)(i.Carbs ?? 0));
+        var totalFat = items.Sum(i => (double)(i.Fat ?? 0));
+
+        return
+            (0.35 * Math.Pow(RelativeError(totalKcal, targetKcal), 2)) +
+            (0.25 * Math.Pow(RelativeError(totalProtein, targetProtein), 2)) +
+            (0.20 * Math.Pow(RelativeError(totalCarbs, targetCarbs), 2)) +
+            (0.20 * Math.Pow(RelativeError(totalFat, targetFat), 2));
+    }
+
+    private static double RelativeError(double actual, double target)
+        => target <= 0 ? 0 : (target - actual) / target;
+
+    private static void ApplyItemRatio(MealItemDto item, double grams)
+    {
+        var oldGrams = (double)(item.Grams ?? 0);
+        if (oldGrams <= 0) return;
+
+        var ratio = grams / oldGrams;
+        item.Grams = (decimal)grams;
+        item.Kcal = (decimal)Math.Round((double)(item.Kcal ?? 0) * ratio, 1);
+        item.Protein = (decimal)Math.Round((double)(item.Protein ?? 0) * ratio, 1);
+        item.Carbs = (decimal)Math.Round((double)(item.Carbs ?? 0) * ratio, 1);
+        item.Fat = (decimal)Math.Round((double)(item.Fat ?? 0) * ratio, 1);
     }
 
     #endregion
@@ -560,6 +670,7 @@ public class DietGeneratorService
             if (isVegan && (
                 name.Contains("huevo") || name.Contains("clara") ||
                 name.Contains("yogur") || name.Contains("queso") || name.Contains("leche") || name.Contains("kéfir") ||
+                name.Contains("miel") || name.Contains("gelatina") ||
                 cat.Contains("lácteo") || cat.Contains("lacteo") || cat.Contains("huevo")))
                 continue;
 
@@ -710,6 +821,41 @@ public class DietGeneratorService
     {
         double usedKcal = (proteinGrams * 4.0) + (fatGrams * 9.0);
         return Math.Max(0, (kcal - usedKcal) / 4.0);
+    }
+
+    private static HashSet<string> ParseFoodTerms(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        return raw
+            .Split(new[] { ',', ';', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(NormalizeFoodTerm)
+            .Where(term => term.Length >= 3)
+            .Take(80)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeFoodTerm(string value)
+    {
+        var normalized = (value ?? string.Empty).Trim().ToLowerInvariant()
+            .Normalize(System.Text.NormalizationForm.FormD);
+        var chars = normalized
+            .Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark)
+            .ToArray();
+
+        return new string(chars).Normalize(System.Text.NormalizationForm.FormC);
+    }
+
+    private static bool MatchesFoodTerms(foods food, HashSet<string> terms)
+    {
+        if (terms.Count == 0) return false;
+
+        var name = NormalizeFoodTerm(food.name ?? string.Empty);
+        var category = NormalizeFoodTerm(food.category ?? string.Empty);
+
+        return terms.Any(term => name.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                                 category.Contains(term, StringComparison.OrdinalIgnoreCase));
     }
 
     private bool IsExcluded(foods food, HashSet<string> exclusions)
