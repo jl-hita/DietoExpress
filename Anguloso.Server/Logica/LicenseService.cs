@@ -142,12 +142,7 @@ public class LicenseService : ILicenseService
         if (license == null || license.Status != "active") return (false, "La licencia no está activa.");
         if (license.ExpiresAt.HasValue && license.ExpiresAt.Value <= DateTime.UtcNow) return (false, "La licencia ha caducado.");
 
-        if (string.Equals(license.PlanCode, "free", StringComparison.OrdinalIgnoreCase))
-        {
-            var count = await _context.diets.CountAsync(d => d.tenant_id == tenantId && d.user_id == userId);
-            if (count >= 1) return (false, "La cuenta gratuita permite crear una sola dieta.");
-        }
-
+        // El trial de DietoExpress es una prueba completa de Nutri Full; su única restricción es la vigencia temporal.
         return (true, null);
     }
 
