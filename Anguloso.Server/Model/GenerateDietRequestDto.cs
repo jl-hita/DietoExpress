@@ -24,4 +24,6 @@ public class GenerateDietRequestDto
     public bool EnableAutomaticEnergyEstimate { get; set; } = true;
     public bool UseExchangeGroups { get; set; } = true;
     public bool ExplainGeneration { get; set; } = true;
+    public int? TemplateDietId { get; set; }
+    public int? VariantOfDietId { get; set; }
 }
