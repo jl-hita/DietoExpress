@@ -100,7 +100,7 @@ public sealed class AdvancedDietOptimizerService
                                 targetFat * MealShare(meal.Name, request.MealsPerDay));
 
                             var candidateScore = CalculateGlobalScore(
-                                diet, foodMap, targetKcal, targetProtein, targetCarbs, targetFat, request);
+                                diet, foodMap, targetKcal, targetProtein, targetCarbs, targetFat, request, therapyProfile);
 
                             if (candidateScore + 0.000001 < currentScore)
                             {
@@ -121,14 +121,14 @@ public sealed class AdvancedDietOptimizerService
 
         // Repair final de frecuencias: si una frecuencia positiva está claramente por debajo
         // del objetivo, se intenta reemplazar el alimento menos útil de una comida compatible.
-        RepairWeeklyFrequencies(diet, candidates, targetKcal, targetProtein, targetCarbs, targetFat, request);
+        RepairWeeklyFrequencies(diet, candidates, targetKcal, targetProtein, targetCarbs, targetFat, request, therapyProfile);
 
         // El último reequilibrado se hace sobre cada día, porque las sustituciones inteligentes
         // deben conservar los objetivos diarios aunque hayan cambiado densidades nutricionales.
         foreach (var day in diet.Days)
             RebalanceDay(day, targetKcal, targetProtein, targetCarbs, targetFat);
 
-        var score = CalculateGlobalScore(diet, foodMap, targetKcal, targetProtein, targetCarbs, targetFat, request);
+        var score = CalculateGlobalScore(diet, foodMap, targetKcal, targetProtein, targetCarbs, targetFat, request, therapyProfile);
         var shopping = CalculateShoppingMetrics(diet);
 
         diet.Notes = (diet.Notes ?? string.Empty)
@@ -157,7 +157,7 @@ public sealed class AdvancedDietOptimizerService
 
         var foodMap = allowedFoods.GroupBy(f => f.id).ToDictionary(g => g.Key, g => g.First());
         var before = meal.Items.ToList();
-        var originalScore = CalculateGlobalScore(diet, foodMap, targetKcal, targetProtein, targetCarbs, targetFat, request);
+        var originalScore = CalculateGlobalScore(diet, foodMap, targetKcal, targetProtein, targetCarbs, targetFat, request, therapyProfile);
 
         // Regeneración local: cada componente se sustituye por candidatos de su mismo rol.
         // Si ningún cambio mejora el plan completo, se restaura el estado original.
@@ -184,7 +184,7 @@ public sealed class AdvancedDietOptimizerService
             targetCarbs * MealShare(meal.Name, request.MealsPerDay),
             targetFat * MealShare(meal.Name, request.MealsPerDay));
 
-        var newScore = CalculateGlobalScore(diet, foodMap, targetKcal, targetProtein, targetCarbs, targetFat, request);
+        var newScore = CalculateGlobalScore(diet, foodMap, targetKcal, targetProtein, targetCarbs, targetFat, request, therapyProfile);
         if (newScore >= originalScore)
             meal.Items = before;
 
