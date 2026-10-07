@@ -465,6 +465,11 @@ public sealed class AdvancedDietOptimizerService
         item.Protein = (decimal)Math.Round((double)(item.Protein ?? 0) * ratio, 1);
         item.Carbs = (decimal)Math.Round((double)(item.Carbs ?? 0) * ratio, 1);
         item.Fat = (decimal)Math.Round((double)(item.Fat ?? 0) * ratio, 1);
+        if (item.ExchangeCount.HasValue && old > 0)
+        {
+            var exchangeRatio = (double)item.ExchangeCount.Value / old;
+            item.ExchangeCount = (decimal)Math.Round(grams * exchangeRatio, 1);
+        }
     }
 
     private static MealItemDto ToMealItem(foods food, double grams)
@@ -505,6 +510,10 @@ public sealed class AdvancedDietOptimizerService
         item.Carbs = (decimal)Math.Round((food.carbs ?? 0) * ratio, 1);
         item.Fat = (decimal)Math.Round((food.fat ?? 0) * ratio, 1);
         item.ExchangeGroupId = food.exchange_group_id;
+        item.ExchangeGroupName = food.exchange_group?.name;
+        item.ExchangeCount = food.grams_per_exchange.HasValue && food.grams_per_exchange.Value > 0
+            ? (decimal?)Math.Round((decimal)item.Grams.Value / food.grams_per_exchange.Value, 1)
+            : null;
     }
 
     private static MealItemDto CloneItem(MealItemDto source) => new()

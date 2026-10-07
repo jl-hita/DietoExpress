@@ -201,10 +201,15 @@ public sealed class DietGeneratorRegressionTests
     [Fact]
     public void Generator_UsesExchangeGroupsForSemanticSubstitution()
     {
-        var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "AdvancedDietOptimizerService.cs"));
-        Assert.Contains("exchange_group_id", source);
-        Assert.Contains("exchangeBonus", source);
-        Assert.Contains("exchange_group?.name", source);
+        var optimizerSource = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "AdvancedDietOptimizerService.cs"));
+        var generatorSource = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
+
+        Assert.Contains("exchange_group_id", optimizerSource);
+        Assert.Contains("exchangeBonus", optimizerSource);
+        Assert.Contains("exchange_group?.name", optimizerSource);
+        Assert.Contains("ExchangeGroupId = f.exchange_group_id", generatorSource);
+        Assert.Contains("ExchangeGroupName = f.exchange_group?.name", generatorSource);
+        Assert.Contains("ExchangeCount = exchangeCount", generatorSource);
     }
 
     [Fact]

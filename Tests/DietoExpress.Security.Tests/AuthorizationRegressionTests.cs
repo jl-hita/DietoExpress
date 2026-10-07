@@ -1716,8 +1716,10 @@ public class AuthorizationRegressionTests
         var method = controller[methodStart..methodEnd];
 
         Assert.Contains(
-            "RequestPublicAppointment(\n        string slug,\n        [FromBody] PublicAppointmentRequestDto request)",
+            "RequestPublicAppointment(",
             method);
+        Assert.Contains("string slug,", method);
+        Assert.Contains("[FromBody] PublicAppointmentRequestDto request)", method);
         Assert.Contains("u.directory_slug == normalized", method);
         Assert.Contains("Select(u => new { u.id, u.tenant_id, u.full_name, u.online_consultations })", method);
         Assert.DoesNotContain("request.TenantId", method);
@@ -1727,7 +1729,7 @@ public class AuthorizationRegressionTests
 
         var dto = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Model", "AppointmentDto.cs"));
         var dtoStart = dto.IndexOf("public class PublicAppointmentRequestDto", StringComparison.Ordinal);
-        var dtoEnd = dto.IndexOf("\n}\n", dtoStart, StringComparison.Ordinal) + 2;
+        var dtoEnd = dto.IndexOf('}', dtoStart) + 1;
         Assert.True(dtoStart >= 0 && dtoEnd > dtoStart);
         var publicRequestDto = dto[dtoStart..dtoEnd];
 

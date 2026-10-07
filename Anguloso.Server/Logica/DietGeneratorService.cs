@@ -482,6 +482,11 @@ public class DietGeneratorService
         item.Protein = (decimal)Math.Round((food.protein ?? 0) * ratio, 1);
         item.Carbs = (decimal)Math.Round((food.carbs ?? 0) * ratio, 1);
         item.Fat = (decimal)Math.Round((food.fat ?? 0) * ratio, 1);
+        item.ExchangeGroupId = food.exchange_group_id;
+        item.ExchangeGroupName = food.exchange_group?.name;
+        item.ExchangeCount = food.grams_per_exchange.HasValue && food.grams_per_exchange.Value > 0
+            ? (decimal?)Math.Round((decimal)g / food.grams_per_exchange.Value, 1)
+            : null;
     }
 
     private static bool UserCanUseTenantLocalFood(foods food, int? tenantId, int userId, bool canUseTenantLocalFoods)
@@ -616,6 +621,9 @@ public class DietGeneratorService
                 Math.Max(grams[i], chosenFoods[i].slot.MinGrams));
             g = Math.Clamp(g, chosenFoods[i].slot.MinGrams, chosenFoods[i].slot.MaxGrams);
             double ratio = g / 100.0;
+            var exchangeCount = f.grams_per_exchange.HasValue && f.grams_per_exchange.Value > 0
+                ? (decimal?)Math.Round((decimal)g / f.grams_per_exchange.Value, 1)
+                : null;
 
             result.Add(new MealItemDto
             {
@@ -625,7 +633,10 @@ public class DietGeneratorService
                 Kcal = (decimal)Math.Round((f.kcal ?? 0) * ratio, 1),
                 Protein = (decimal)Math.Round((f.protein ?? 0) * ratio, 1),
                 Carbs = (decimal)Math.Round((f.carbs ?? 0) * ratio, 1),
-                Fat = (decimal)Math.Round((f.fat ?? 0) * ratio, 1)
+                Fat = (decimal)Math.Round((f.fat ?? 0) * ratio, 1),
+                ExchangeGroupId = f.exchange_group_id,
+                ExchangeGroupName = f.exchange_group?.name,
+                ExchangeCount = exchangeCount
             });
         }
 
@@ -718,6 +729,11 @@ public class DietGeneratorService
             currentItem.Protein = (decimal)Math.Round((replacement.protein ?? 0) * ratio, 1);
             currentItem.Carbs = (decimal)Math.Round((replacement.carbs ?? 0) * ratio, 1);
             currentItem.Fat = (decimal)Math.Round((replacement.fat ?? 0) * ratio, 1);
+            currentItem.ExchangeGroupId = replacement.exchange_group_id;
+            currentItem.ExchangeGroupName = replacement.exchange_group?.name;
+            currentItem.ExchangeCount = replacement.grams_per_exchange.HasValue && replacement.grams_per_exchange.Value > 0
+                ? (decimal?)Math.Round((decimal)grams / replacement.grams_per_exchange.Value, 1)
+                : null;
             return;
         }
     }
@@ -1110,6 +1126,11 @@ public class DietGeneratorService
         item.Protein = (decimal)Math.Round((double)(item.Protein ?? 0) * ratio, 1);
         item.Carbs = (decimal)Math.Round((double)(item.Carbs ?? 0) * ratio, 1);
         item.Fat = (decimal)Math.Round((double)(item.Fat ?? 0) * ratio, 1);
+        if (item.ExchangeCount.HasValue && oldGrams > 0)
+        {
+            var exchangeRatio = (double)item.ExchangeCount.Value / oldGrams;
+            item.ExchangeCount = (decimal)Math.Round(grams * exchangeRatio, 1);
+        }
     }
 
     #endregion
