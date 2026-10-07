@@ -66,7 +66,7 @@ public sealed class LegalDocumentsController : ControllerBase
         {
             new { Key = "01-aviso-legal", Title = "Aviso legal" },
             new { Key = "02-privacidad-dietoexpress", Title = "Política de privacidad" },
-            new { Key = "03-terminos-saas", Title = "Términos y condiciones" },
+            new { Key = "saas_terms", Title = "Términos y condiciones" },
             new { Key = "04-politica-cookies", Title = "Política de cookies" },
             new { Key = "05-dpa-encargo-tratamiento", Title = "Acuerdo de encargo del tratamiento" },
             new { Key = "08-condiciones-economicas", Title = "Condiciones económicas" }
@@ -213,6 +213,8 @@ public sealed class LegalDocumentsController : ControllerBase
 
         var userId = AuthHelpers.GetUserId(User);
         var tenantId = AuthHelpers.GetTenantId(User);
+        var action = string.IsNullOrWhiteSpace(request.Action) ? "accept" : request.Action.Trim().ToLowerInvariant();
+        if (action is not ("accept" or "acknowledge")) return BadRequest("Acción legal no válida.");
         if (!userId.HasValue) return Unauthorized();
 
         await using var connection = new NpgsqlConnection(ConnectionString);
@@ -247,9 +249,9 @@ public sealed class LegalDocumentsController : ControllerBase
         await using var insert = new NpgsqlCommand("""
             INSERT INTO legal_acceptances
                 (user_id, tenant_id, legal_document_id, document_key, document_version,
-                 document_sha256, accepted_at, ip_address, user_agent, context)
+                 document_sha256, accepted_at, ip_address, user_agent, context, interaction_type)
             VALUES
-                (@user,@tenant,@document,@key,@version,@sha,NOW(),@ip,@ua,@context)
+                (@user,@tenant,@document,@key,@version,@sha,NOW(),@ip,@ua,@context,@action)
             ON CONFLICT (user_id, legal_document_id, document_version, context) DO NOTHING;
             """, connection, tx);
         insert.Parameters.AddWithValue("user", userId.Value);
@@ -261,6 +263,7 @@ public sealed class LegalDocumentsController : ControllerBase
         insert.Parameters.AddWithValue("ip", (object?)ip ?? DBNull.Value);
         insert.Parameters.AddWithValue("ua", (object?)userAgent ?? DBNull.Value);
         insert.Parameters.AddWithValue("context", string.IsNullOrWhiteSpace(request.Context) ? "signup" : request.Context.Trim().ToLowerInvariant());
+        insert.Parameters.AddWithValue("action", action == "acknowledge" ? "acknowledgement" : "acceptance");
 
         await insert.ExecuteNonQueryAsync(cancellationToken);
         await tx.CommitAsync(cancellationToken);
@@ -278,7 +281,7 @@ public sealed class LegalDocumentsController : ControllerBase
         await using var connection = new NpgsqlConnection(ConnectionString);
         await connection.OpenAsync(cancellationToken);
         await using var command = new NpgsqlCommand("""
-            SELECT document_key, document_version, document_sha256, accepted_at, context
+            SELECT document_key, document_version, document_sha256, accepted_at, context, interaction_type
             FROM legal_acceptances
             WHERE user_id=@user
             ORDER BY accepted_at DESC;
@@ -295,7 +298,8 @@ public sealed class LegalDocumentsController : ControllerBase
                 version = reader.GetInt32(1),
                 sha256 = reader.GetString(2),
                 acceptedAt = reader.GetDateTime(3),
-                context = reader.GetString(4)
+                context = reader.GetString(4),
+                action = reader.GetString(5)
             });
         }
 
@@ -318,4 +322,5 @@ public sealed record UpsertLegalDocumentRequest(
 public sealed record AcceptLegalDocumentRequest(
     string DocumentKey,
     int? Version = null,
-    string? Context = null);
+    string? Context = null,
+    string? Action = null);
