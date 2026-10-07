@@ -309,20 +309,23 @@ public class DietGeneratorService
             var candidates = pools.GetFoodsForSlot(slot.Role);
             if (!candidates.Any()) continue;
 
-            // Puntuación de variedad
+            // Puntuación multicriterio: variedad semanal + preferencias + adecuación
+            // nutricional al papel de la comida. La aleatoriedad solo desempata candidatos
+            // razonablemente equivalentes; nunca vence una restricción clínica.
             var scoredCandidates = candidates
                 .Select(f => new
                 {
                     Food = f,
                     Score =
                         (dayUsage.Contains(f.id) ? 2000 : 0) +
-                        (weeklyUsage.GetValueOrDefault(f.id, 0) * 20) +
+                        CalculateWeeklyRepetitionPenalty(f, weeklyUsage) +
+                        CalculateSlotNutritionPenalty(f, slot.Role, targetKcal, targetP, targetC, targetF) +
                         (MatchesFoodTerms(f, dislikedFoods) ? 80 : 0) -
                         (MatchesFoodTerms(f, preferredFoods) ? 40 + adherenceBoost : 0) +
-                        rnd.Next(0, 10)
+                        rnd.Next(0, 6)
                 })
                 .OrderBy(x => x.Score)
-                .Take(6)
+                .Take(8)
                 .ToList();
 
             if (scoredCandidates.Any())
@@ -359,6 +362,62 @@ public class DietGeneratorService
         }
 
         return result;
+    }
+
+    // Penaliza la repetición de un alimento de forma progresiva. Así un alimento
+    // favorito puede seguir apareciendo, pero el plan evita convertirse en una dieta
+    // repetitiva cuando existen alternativas equivalentes.
+    private static double CalculateWeeklyRepetitionPenalty(
+        foods food,
+        Dictionary<int, int> weeklyUsage)
+    {
+        var uses = weeklyUsage.GetValueOrDefault(food.id, 0);
+        return uses == 0 ? 0 : 15 * uses * uses;
+    }
+
+    // Evalúa si el alimento encaja bien con el papel de su franja y con los objetivos
+    // de la comida. Es una señal de selección, no una regla clínica.
+    private static double CalculateSlotNutritionPenalty(
+        foods food,
+        string role,
+        double targetKcal,
+        double targetP,
+        double targetC,
+        double targetF)
+    {
+        var kcal = Math.Max(food.kcal ?? 0, 1);
+        var protein = Math.Max(food.protein ?? 0, 0);
+        var carbs = Math.Max(food.carbs ?? 0, 0);
+        var fat = Math.Max(food.fat ?? 0, 0);
+
+        var penalty = role switch
+        {
+            "Protein" or "DairyOrEgg" or "SnackProtein" =>
+                Math.Max(0, 1.0 - protein / 20.0) * 12 +
+                Math.Max(0, fat / 30.0 - 1.0) * 4,
+            "Carbs" or "BreakfastCarb" or "LightCarb" =>
+                Math.Max(0, 1.0 - carbs / 20.0) * 10,
+            "Vegetable" =>
+                Math.Max(0, kcal / 150.0 - 1.0) * 8 +
+                Math.Max(0, protein / 20.0 - 1.0) * 3,
+            "Fruit" =>
+                Math.Max(0, kcal / 100.0 - 1.5) * 5,
+            "Oil" =>
+                Math.Max(0, 1.0 - fat / 60.0) * 8,
+            _ => 0
+        };
+
+        // Evita que la heurística de selección se vuelva sensible a objetivos
+        // inexistentes o a valores no finitos.
+        if (double.IsNaN(penalty) || double.IsInfinity(penalty))
+            return 0;
+
+        // Pequeño ajuste por densidad energética cuando la comida tiene un objetivo claro.
+        var targetDensity = targetKcal > 0 ? targetKcal / 4.0 : 0;
+        if (targetDensity > 0 && role != "Vegetable" && role != "Fruit")
+            penalty += Math.Abs((kcal / 100.0) - Math.Min(targetDensity / 10.0, 20.0)) * 0.05;
+
+        return penalty;
     }
 
     // Ajuste iterativo acotado: reduce el error de kcal y macronutrientes respetando los límites de cada alimento.
