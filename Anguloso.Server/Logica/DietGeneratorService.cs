@@ -177,6 +177,7 @@ public class DietGeneratorService
                 ((f.source == null || f.source.ToLower() != "local") ||
                  UserCanUseTenantLocalFood(f, tenantId, userId, canUseTenantLocalFoods)))
             .OrderBy(f => f.id)
+            .Include(f => f.exchange_group)
             .Take(maxFoodsToLoad)
             .ToListAsync(cancellationToken);
 
@@ -210,6 +211,30 @@ public class DietGeneratorService
         // buscar candidatos adecuados a cada franja y repartir el uso de alimentos entre días.
         var foodPools = CategorizeFoods(allowedFoods, request.DietType);
         var mealSplits = GetMealSplits(request.MealsPerDay);
+
+        // Las plantillas profesionales reutilizan la estructura de comidas, pero no fuerzan
+        // alimentos concretos: cada componente vuelve a pasar por las restricciones clínicas
+        // y por el optimizador global.
+        var templateId = request.TemplateDietId ?? request.VariantOfDietId;
+        if (templateId.HasValue && tenantId.HasValue)
+        {
+            var templateMeals = await _context.diets
+                .AsNoTracking()
+                .Where(d => d.id == templateId.Value &&
+                            d.tenant_id == tenantId.Value &&
+                            d.archived_at == null &&
+                            (d.is_template || request.VariantOfDietId.HasValue))
+                .SelectMany(d => d.diet_days.OrderBy(dd => dd.day_index).Take(1)
+                    .SelectMany(dd => dd.meals.OrderBy(m => m.meal_index)
+                        .Select(m => m.name)))
+                .ToListAsync(cancellationToken);
+
+            if (templateMeals.Count == mealSplits.Count)
+            {
+                for (var i = 0; i < mealSplits.Count; i++)
+                    mealSplits[i].MealName = templateMeals[i];
+            }
+        }
 
         var weeklyUsageCount = new Dictionary<int, int>();
         var weeklyRoleFamilyUsage = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
