@@ -54,7 +54,8 @@ public class DietGeneratorService
 
                 var recentCheckins = await _context.patient_checkins
                     .AsNoTracking()
-                    .Where(c => c.client_id == client.id)
+                    .Where(c => c.client_id == client.id &&
+                        (!tenantId.HasValue || c.tenant_id == tenantId.Value))
                     .OrderByDescending(c => c.week_start)
                     .Take(6)
                     .Select(c => c.adherence)
@@ -421,67 +422,102 @@ public class DietGeneratorService
     }
 
     // Hace una segunda pasada sobre el día generado para corregir desviaciones acumuladas entre
-    // comidas y dejar los totales dentro de la tolerancia esperada por el generador.
-    // Reequilibra el día usando energía y los tres macronutrientes. La versión anterior
-    // escalaba exclusivamente por kcal y podía alejar la dieta de proteína, carbohidratos
-    // y grasa después del ajuste final.
+    // comidas y acercar simultáneamente energía y macronutrientes sin alterar las restricciones
+    // que ya se aplicaron durante la selección de alimentos.
+    // Se usa descenso por coordenadas: cada pequeño cambio de gramos se acepta solo si mejora
+    // una función de error conjunta. Esto permite corregir la proporción de macros, algo que
+    // un simple escalado global por kcal no puede conseguir.
     private void RebalanceDay(List<MealDto> meals, double targetKcal, double targetProtein, double targetCarbs, double targetFat)
     {
-        var allItems = meals.SelectMany(m => m.Items).Where(i => (i.Grams ?? 0) > 0).ToList();
+        var allItems = meals
+            .SelectMany(m => m.Items)
+            .Where(i => (i.Grams ?? 0) > 0)
+            .ToList();
+
         if (!allItems.Any()) return;
 
-        for (int iteration = 0; iteration < 18; iteration++)
+        const double stepGrams = 5.0;
+        const int maxPasses = 24;
+        var currentError = CalculateRebalanceError(allItems, targetKcal, targetProtein, targetCarbs, targetFat);
+
+        for (int pass = 0; pass < maxPasses; pass++)
         {
-            var totalKcal = allItems.Sum(i => (double)(i.Kcal ?? 0));
-            var totalProtein = allItems.Sum(i => (double)(i.Protein ?? 0));
-            var totalCarbs = allItems.Sum(i => (double)(i.Carbs ?? 0));
-            var totalFat = allItems.Sum(i => (double)(i.Fat ?? 0));
-
-            var kcalError = RelativeError(totalKcal, targetKcal);
-            var proteinError = RelativeError(totalProtein, targetProtein);
-            var carbsError = RelativeError(totalCarbs, targetCarbs);
-            var fatError = RelativeError(totalFat, targetFat);
-
-            if (Math.Abs(kcalError) < 0.02 && Math.Abs(proteinError) < 0.03 &&
-                Math.Abs(carbsError) < 0.03 && Math.Abs(fatError) < 0.03)
-                break;
+            var improved = false;
 
             foreach (var item in allItems)
             {
-                var grams = (double)(item.Grams ?? 0);
-                if (grams <= 0) continue;
+                var currentGrams = (double)(item.Grams ?? 0);
+                if (currentGrams <= 0) continue;
 
-                var itemKcal = (double)(item.Kcal ?? 0);
-                var itemProtein = (double)(item.Protein ?? 0);
-                var itemCarbs = (double)(item.Carbs ?? 0);
-                var itemFat = (double)(item.Fat ?? 0);
+                var bestGrams = currentGrams;
+                var bestError = currentError;
 
-                // Cada alimento recibe una corrección ponderada por su contribución actual.
-                // Se limita el paso para evitar porciones absurdas o inestabilidad.
-                var contribution =
-                    (0.35 * proteinError * SafeShare(itemProtein, totalProtein)) +
-                    (0.25 * carbsError * SafeShare(itemCarbs, totalCarbs)) +
-                    (0.20 * fatError * SafeShare(itemFat, totalFat)) +
-                    (0.20 * kcalError * SafeShare(itemKcal, totalKcal));
+                foreach (var candidateGrams in new[] {
+                    Math.Clamp(currentGrams - stepGrams, 5, 350),
+                    Math.Clamp(currentGrams + stepGrams, 5, 350)
+                }.Distinct())
+                {
+                    ApplyItemRatio(item, candidateGrams);
+                    var candidateError = CalculateRebalanceError(allItems, targetKcal, targetProtein, targetCarbs, targetFat);
 
-                var factor = Math.Clamp(1.0 + contribution, 0.90, 1.10);
-                var newGrams = Math.Clamp(Math.Round(grams * factor, 0), 5, 350);
-                var ratio = newGrams / grams;
+                    if (candidateError + 0.000001 < bestError)
+                    {
+                        bestError = candidateError;
+                        bestGrams = candidateGrams;
+                    }
+                }
 
-                item.Grams = (decimal)newGrams;
-                item.Kcal = (decimal)Math.Round(itemKcal * ratio, 1);
-                item.Protein = (decimal)Math.Round(itemProtein * ratio, 1);
-                item.Carbs = (decimal)Math.Round(itemCarbs * ratio, 1);
-                item.Fat = (decimal)Math.Round(itemFat * ratio, 1);
+                ApplyItemRatio(item, bestGrams);
+                if (bestError + 0.000001 < currentError)
+                {
+                    currentError = bestError;
+                    improved = true;
+                }
+                else
+                {
+                    ApplyItemRatio(item, currentGrams);
+                }
             }
+
+            if (!improved || currentError < 0.0025)
+                break;
         }
+    }
+
+    private static double CalculateRebalanceError(
+        IReadOnlyCollection<MealItemDto> items,
+        double targetKcal,
+        double targetProtein,
+        double targetCarbs,
+        double targetFat)
+    {
+        var totalKcal = items.Sum(i => (double)(i.Kcal ?? 0));
+        var totalProtein = items.Sum(i => (double)(i.Protein ?? 0));
+        var totalCarbs = items.Sum(i => (double)(i.Carbs ?? 0));
+        var totalFat = items.Sum(i => (double)(i.Fat ?? 0));
+
+        return
+            (0.35 * Math.Pow(RelativeError(totalKcal, targetKcal), 2)) +
+            (0.25 * Math.Pow(RelativeError(totalProtein, targetProtein), 2)) +
+            (0.20 * Math.Pow(RelativeError(totalCarbs, targetCarbs), 2)) +
+            (0.20 * Math.Pow(RelativeError(totalFat, targetFat), 2));
     }
 
     private static double RelativeError(double actual, double target)
         => target <= 0 ? 0 : (target - actual) / target;
 
-    private static double SafeShare(double value, double total)
-        => total <= 0 ? 0 : value / total;
+    private static void ApplyItemRatio(MealItemDto item, double grams)
+    {
+        var oldGrams = (double)(item.Grams ?? 0);
+        if (oldGrams <= 0) return;
+
+        var ratio = grams / oldGrams;
+        item.Grams = (decimal)grams;
+        item.Kcal = (decimal)Math.Round((double)(item.Kcal ?? 0) * ratio, 1);
+        item.Protein = (decimal)Math.Round((double)(item.Protein ?? 0) * ratio, 1);
+        item.Carbs = (decimal)Math.Round((double)(item.Carbs ?? 0) * ratio, 1);
+        item.Fat = (decimal)Math.Round((double)(item.Fat ?? 0) * ratio, 1);
+    }
 
     #endregion
 
