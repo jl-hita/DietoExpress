@@ -129,4 +129,50 @@ public sealed class DietGeneratorRegressionTests
         Assert.Contains("CalculateSlotNutritionPenalty(candidate, role", source);
     }
 
+    [Fact]
+    public void Generator_UsesGlobalWeeklyOptimizerWithFrequencyAndShoppingSignals()
+    {
+        var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "AdvancedDietOptimizerService.cs"));
+
+        Assert.Contains("CalculateGlobalScore", source);
+        Assert.Contains("FrequencyPenalty", source);
+        Assert.Contains("RepairWeeklyFrequencies", source);
+        Assert.Contains("CalculateShoppingMetrics", source);
+        Assert.Contains("ShoppingVarietyThreshold", source);
+        Assert.Contains("MaxWeeklyFoodRepetitions", source);
+    }
+
+    [Fact]
+    public void Generator_UsesRecipesOnlyWhenAllIngredientsAreAllowed()
+    {
+        var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "AdvancedDietOptimizerService.cs"));
+
+        Assert.Contains("ApplyRecipeCandidatesAsync", source);
+        Assert.Contains("x.Ingredients.Count == x.Recipe.recipe_items.Count", source);
+        Assert.Contains("x.Ingredients.All(i => foodMap.ContainsKey(i.food_id))", source);
+        Assert.Contains("request.UseRecipes", source);
+    }
+
+    [Fact]
+    public void Generator_RebalancesAfterGlobalSubstitutions()
+    {
+        var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "AdvancedDietOptimizerService.cs"));
+
+        Assert.Contains("RebalanceMeal", source);
+        Assert.Contains("RebalanceDay", source);
+        Assert.Contains("ReplaceItem(item, candidate", source);
+        Assert.Contains("currentScore", source);
+    }
+
+    [Fact]
+    public void Generator_ExposesAdvancedOptimizationControls()
+    {
+        var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Model", "GenerateDietRequestDto.cs"));
+
+        Assert.Contains("UseRecipes", source);
+        Assert.Contains("EnableGlobalOptimization", source);
+        Assert.Contains("MaxWeeklyFoodRepetitions", source);
+        Assert.Contains("ShoppingVarietyThreshold", source);
+    }
+
 }

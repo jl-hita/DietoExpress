@@ -13,11 +13,13 @@ public class DietGeneratorService
 {
     private readonly angulosodbContext _context;
     private readonly SpecializationRulesService _specializationRulesService;
+    private readonly AdvancedDietOptimizerService _advancedDietOptimizer;
 
     public DietGeneratorService(angulosodbContext context, SpecializationRulesService specializationRulesService)
     {
         _context = context;
         _specializationRulesService = specializationRulesService;
+        _advancedDietOptimizer = new AdvancedDietOptimizerService(context);
     }
 
     // La generación construye una dieta a partir de objetivos nutricionales, alimentos permitidos
@@ -236,7 +238,7 @@ public class DietGeneratorService
             });
         }
 
-        return new DietDetailDto
+        var advancedDiet = new DietDetailDto
         {
             Name = $"Plan {request.DietType} ({Math.Round(targetKcal)} kcal)",
             TargetKcal = (decimal)Math.Round(targetKcal),
@@ -249,6 +251,24 @@ public class DietGeneratorService
                 (recentAdherence.HasValue ? $" Adherencia reciente considerada: {Math.Round(recentAdherence.Value, 1)}/10." : string.Empty),
             Days = daysList
         };
+
+        // Fase global posterior: recetas, frecuencias, compras, diversidad y sustituciones
+        // compiten sobre la semana completa y vuelven a equilibrar cada día después.
+        if (request.EnableGlobalOptimization)
+        {
+            await _advancedDietOptimizer.OptimizeWeeklyPlanAsync(
+                advancedDiet,
+                request,
+                allowedFoods,
+                tenantId,
+                targetKcal,
+                targetProtein,
+                targetCarbs,
+                targetFat,
+                cancellationToken);
+        }
+
+        return advancedDiet;
     }
 
     private static bool UserCanUseTenantLocalFood(foods food, int? tenantId, int userId, bool canUseTenantLocalFoods)
