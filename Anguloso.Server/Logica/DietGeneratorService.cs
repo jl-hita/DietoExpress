@@ -363,7 +363,7 @@ public class DietGeneratorService
         "suplemento", "espesante", "edulcorante", "almidón", "fécula", "salsa de soja", "pastilla de caldo",
         "cubito", "gelatina en polvo", "levadura", "licor", "bebida alcohólica", "vino", "cerveza", "vodka",
         "anís", "aguardiente", "oporto", "brandy", "whisky", "ron", "ginebra", "sidra", "sirope", "jarabe",
-        "snack", "gusanito", "patatas fritas de bolsa", "palomitas", "gofre", "croissant", "donut", "bollería",
+        "snack", "gusanito", "patatas fritas de bolsa", "palomitas", "gofre", "croissant", "donut", "bollería", "ensaimada", "magdalena", "bizcocho",
         "chuchería", "caramelo", "chicle", "malvavisco", "bombón", "chocolate blanco", "cacao en polvo azucarado",
         "patatas chips", "chips de patata", "aceite de algodón", "aceite de coco", "aceite de palma",
         "aceite de maíz", "aceite de soja", "aceite de cacahuete", "aceite de sésamo",
@@ -1003,7 +1003,7 @@ public class DietGeneratorService
                 "Fruit" => Fruits,
                 "DairyOrEgg" => DairyAndEggs,
                 "BreakfastCarb" => BreakfastCarbs,
-                "SnackProtein" => DairyAndEggs.Concat(Proteins).ToList(),
+                "SnackProtein" => DairyAndEggs.ToList(),
                 "SnackCarb" => BreakfastCarbs.Concat(Carbs).ToList(),
                 "SnackFruit" => Fruits,
                 "FruitOrNuts" => Fruits.Concat(Nuts).ToList(),
@@ -1092,14 +1092,14 @@ public class DietGeneratorService
                 pools.Proteins.Add(f);
             }
             // Carbohidratos Base Comunes
-            else if (name.Contains("arroz") || name.Contains("pasta") || name.Contains("patata") || name.Contains("macarrones") || name.Contains("espaguetis") || name.Contains("lenteja") || name.Contains("garbanzo") || name.Contains("alubia") || name.Contains("quinoa") || (c >= 18 && c > p))
+            else if (name.Contains("arroz") || name.Contains("pasta") || name.Contains("patata") || name.Contains("macarrones") || name.Contains("espaguetis") || name.Contains("lenteja") || name.Contains("garbanzo") || name.Contains("alubia") || name.Contains("guisante") || name.Contains("quinoa") || (c >= 18 && c > p))
             {
                 pools.Carbs.Add(f);
             }
         }
 
         // Fallbacks
-        if (!pools.OilsAndFats.Any()) pools.OilsAndFats = all.Where(f => (f.fat ?? 0) > 60).Take(5).ToList();
+        // El aceite culinario es un componente explícito: nunca usamos frutos secos u otras grasas como sustituto silencioso.\n        // Si el catálogo no tiene aceite común, la generación fallará con un mensaje descriptivo.\n        
         if (!pools.BreakfastCarbs.Any()) pools.BreakfastCarbs = pools.Carbs;
         if (!pools.DairyAndEggs.Any()) pools.DairyAndEggs = pools.Proteins;
 

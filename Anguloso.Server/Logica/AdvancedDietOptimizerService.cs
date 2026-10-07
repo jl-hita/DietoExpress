@@ -82,7 +82,7 @@ public sealed class AdvancedDietOptimizerService
 
                         var alternatives = candidates
                             .Where(f => f.id != source.id)
-                            .Where(f => SameRole(role, f))
+                            .Where(f => SameRole(role, meal.Name, f))
                             .Where(f => !meal.Items.Any(i => i.FoodId == f.id))
                             .OrderBy(f => NutrientDistance(f, source))
                             .Take(12)
@@ -166,7 +166,7 @@ public sealed class AdvancedDietOptimizerService
 
             var role = InferRole(meal.Name, source);
             var candidate = allowedFoods
-                .Where(f => f.id != source.id && SameRole(role, f))
+                .Where(f => f.id != source.id && SameRole(role, meal.Name, f))
                 .OrderBy(f => NutrientDistance(f, source))
                 .ThenBy(f => WeeklyUseCount(diet, f.id))
                 .FirstOrDefault();
@@ -315,7 +315,7 @@ public sealed class AdvancedDietOptimizerService
                 if (current >= target) break;
                 var targetFood = candidates.FirstOrDefault(f => GetFamily(f) == family);
                 if (targetFood == null) break;
-                var candidateMeal = diet.Days.SelectMany(d => d.Meals).Where(m => m.Name.Contains("comida", StringComparison.OrdinalIgnoreCase) || m.Name.Contains("cena", StringComparison.OrdinalIgnoreCase) || family == "fruta").Select(m => new { Meal = m, Item = m.Items.FirstOrDefault(i => i.FoodId.HasValue && candidates.Any(f => f.id == i.FoodId.Value && SameRole(InferRole(m.Name, f), targetFood))) }).Where(x => x.Item != null).OrderBy(x => x.Meal.Items.Count(i => i.FoodId == targetFood.id)).FirstOrDefault();
+                var candidateMeal = diet.Days.SelectMany(d => d.Meals).Where(m => m.Name.Contains("comida", StringComparison.OrdinalIgnoreCase) || m.Name.Contains("cena", StringComparison.OrdinalIgnoreCase) || family == "fruta").Select(m => new { Meal = m, Item = m.Items.FirstOrDefault(i => i.FoodId.HasValue && candidates.Any(f => f.id == i.FoodId.Value && SameRole(InferRole(m.Name, f), m.Name, targetFood))) }).Where(x => x.Item != null).OrderBy(x => x.Meal.Items.Count(i => i.FoodId == targetFood.id)).FirstOrDefault();
                 if (candidateMeal?.Item == null) continue;
                 ReplaceItem(candidateMeal.Item, targetFood, Math.Max(20, (double)(candidateMeal.Item.Grams ?? 0)));
             }
@@ -482,30 +482,54 @@ public sealed class AdvancedDietOptimizerService
         var n = NormalizeFoodTerm(food.name ?? string.Empty);
         var c = NormalizeFoodTerm(food.category ?? string.Empty);
         var meal = NormalizeFoodTerm(mealName);
-        bool isVegetable = c.Contains("verdura") || c.Contains("hortal") || new[] { "tomate","lechuga","espinaca","calabacin","berenjena","brocoli","zanahoria","pepino","pimiento","judia verde","champiñon","calabaza" }.Any(n.Contains);
-        bool isFruit = c.Contains("fruta") || new[] { "manzana","platano","naranja","pera","fresa","kiwi","mandarina","sandia","melon","melocoton","albaricoque","ciruela","uva" }.Any(n.Contains);
-        bool isFat = n.Contains("aceite") || new[] { "nuez","almendra","avellana","anacardo","pistacho" }.Any(n.Contains);
-        bool isCarb = new[] { "arroz","pasta","patata","boniato","pan","avena","quinoa","macarron","espagueti","lenteja","garbanzo","alubia","cuscus","cuscús","tostada" }.Any(n.Contains);
-        bool isDairyOrEgg = new[] { "yogur","leche","queso","kefir","huevo","clara" }.Any(n.Contains);
-        bool isProtein = isDairyOrEgg || new[] { "pollo","pavo","ternera","cerdo","conejo","atun","salmon","merluza","bacalao","dorada","lubina","sardina","caballa","gamba","tofu","tempeh" }.Any(n.Contains);
 
+        bool isVegetable = c.Contains("verdura") || c.Contains("hortal") ||
+            new[] { "tomate","lechuga","espinaca","calabacin","berenjena","brocoli","zanahoria",
+                    "pepino","pimiento","judia verde","champiñon","calabaza" }.Any(n.Contains);
+
+        bool isFruit = c.Contains("fruta") ||
+            new[] { "manzana","platano","naranja","pera","fresa","kiwi","mandarina","sandia",
+                    "melon","melocoton","albaricoque","ciruela","uva" }.Any(n.Contains);
+
+        bool isOil = n.StartsWith("aceite ", StringComparison.OrdinalIgnoreCase) ||
+                     n.Equals("aceite", StringComparison.OrdinalIgnoreCase);
+
+        bool isNut = new[] { "nuez","almendra","avellana","anacardo","pistacho" }.Any(n.Contains);
+
+        bool isCarb = new[] { "arroz","pasta","patata","boniato","pan","avena","quinoa","macarron",
+                              "espagueti","lenteja","garbanzo","alubia","guisante","cuscus","cuscús","tostada" }
+            .Any(n.Contains);
+
+        bool isDairy = new[] { "yogur","leche","queso","kefir" }.Any(n.Contains);
+        bool isEgg = new[] { "huevo","clara","tortilla" }.Any(n.Contains);
+        bool isMainProtein = new[] { "pollo","pavo","ternera","cerdo","conejo","atun","salmon",
+                                     "merluza","bacalao","dorada","lubina","sardina","caballa",
+                                     "gamba","tofu","tempeh" }.Any(n.Contains);
+
+        // Las ingestas pequeñas tienen una semántica propia: un componente proteico de snack
+        // debe ser lácteo/huevo, no carne o pescado. Esto evita sustituciones absurdas como
+        // cordero o atún en media mañana simplemente porque cuadran los macros.
         if (meal.Contains("desayuno") || meal.Contains("media") || meal.Contains("merienda"))
         {
             if (isFruit) return "fruit";
             if (isCarb) return "carb";
-            if (isDairyOrEgg || isProtein) return "protein";
-            if (isFat) return "fat";
+            if (isDairy || isEgg) return "snack_protein";
+            if (isNut) return "fat";
+            return "other";
         }
+
+        // En comida/cena los roles son estrictos: la grasa culinaria solo puede ser aceite,
+        // y la proteína no puede convertirse silenciosamente en queso u otra grasa.
         if (isVegetable) return "vegetable";
         if (isFruit) return "fruit";
-        if (isFat) return "fat";
+        if (isOil) return "oil";
         if (isCarb) return "carb";
-        if (isDairyOrEgg || isProtein) return "protein";
+        if (isEgg || isMainProtein) return "protein";
         return "other";
     }
 
-    private static bool SameRole(string role, foods food)
-        => InferRole("comida", food) == role;
+    private static bool SameRole(string role, string mealName, foods food)
+        => InferRole(mealName, food) == role;
 
     private static double MealShare(string mealName, int mealsPerDay)
     {
