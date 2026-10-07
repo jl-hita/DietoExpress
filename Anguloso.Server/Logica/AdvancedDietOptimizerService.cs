@@ -246,7 +246,7 @@ public sealed class AdvancedDietOptimizerService
                     if (totalKcal <= 0) continue;
 
                     var scale = mealTarget / totalKcal;
-                    meal.Items = best.Ingredients.Select(i => ToMealItem(i.food, (double)i.grams * scale, best.Recipe.id, scale)).ToList();
+                    meal.Items = best.Ingredients.Select(i => ToMealItem(i.food, (double)i.grams * scale)).ToList();
 
                     // La receta se acepta solo si todos sus ingredientes siguen en el catálogo
                     // permitido. Las restricciones clínicas ya han sido aplicadas a allowedFoods.

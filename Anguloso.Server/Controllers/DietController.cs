@@ -127,7 +127,7 @@ public class DietController : ControllerBase
             .Include(d => d.user)
             .Include(d => d.diet_days)
                 .ThenInclude(dd => dd.meals)
-                    .ThenInclude(m => m.meal_items)
+                    .ThenInclude(m => m.meal_items).ThenInclude(i => i.recipe)
             .Include(d => d.diet_days)
                 .ThenInclude(dd => dd.meals)
                     .ThenInclude(m => m.meal_items)

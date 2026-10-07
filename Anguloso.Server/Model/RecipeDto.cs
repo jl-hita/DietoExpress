@@ -29,6 +29,7 @@ public class RecipeIngredientDto
     public double? Protein { get; set; }
     public double? Carbs { get; set; }
     public double? Fat { get; set; }
+    public List<string> DietaryFlags { get; set; } = new();
 }
 
 public class CreateRecipeDto
