@@ -295,6 +295,22 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void AutomatedDietGeneration_RejectsUnusualFoodsAndPreservesPortionBounds()
+    {
+        var source = ReadServerLogica("DietGeneratorService.cs");
+
+        Assert.Contains("aceite de algodón", source);
+        Assert.Contains("zumo", source);
+        Assert.Contains("huevo de pavo", source);
+        Assert.Contains("patatas chips", source);
+        Assert.Contains("desecado", source);
+        Assert.Contains("rebalanceBounds", source);
+        Assert.Contains("item.Grams ?? 0) * 0.75", source);
+        Assert.Contains("item.Grams ?? 0) * 1.25", source);
+        Assert.DoesNotContain("Math.Clamp(currentGrams - stepGrams, 5, 350)", source);
+    }
+
+    [Fact]
     public void AutomatedDietGeneration_BoundsMacroAndDietTypeInput()
     {
         var source = ReadServerController("DietController.cs");

@@ -364,7 +364,11 @@ public class DietGeneratorService
         "cubito", "gelatina en polvo", "levadura", "licor", "bebida alcohólica", "vino", "cerveza", "vodka",
         "anís", "aguardiente", "oporto", "brandy", "whisky", "ron", "ginebra", "sidra", "sirope", "jarabe",
         "snack", "gusanito", "patatas fritas de bolsa", "palomitas", "gofre", "croissant", "donut", "bollería",
-        "chuchería", "caramelo", "chicle", "malvavisco", "bombón", "chocolate blanco", "cacao en polvo azucarado"
+        "chuchería", "caramelo", "chicle", "malvavisco", "bombón", "chocolate blanco", "cacao en polvo azucarado",
+        "patatas chips", "chips de patata", "aceite de algodón", "aceite de coco", "aceite de palma",
+        "aceite de maíz", "aceite de soja", "aceite de cacahuete", "aceite de sésamo",
+        "zumo", "jugo", "néctar", "puré", "pure", "ahumado", "huevo de pavo", "huevo de codorniz",
+        "melón desecado", "fruta desecada", "fruta seca azucarada"
     };
 
     private bool IsCommonFood(foods f)
@@ -377,7 +381,7 @@ public class DietGeneratorService
             return false;
 
         // Evitar nombres con códigos o rarezas industriales
-        if (name.Length > 80 || name.Contains("deshidratado") || name.Contains("liofilizado") || name.Contains("polvo"))
+        if (name.Length > 80 || name.Contains("deshidratado") || name.Contains("desecado") || name.Contains("liofilizado") || name.Contains("polvo"))
             return false;
 
         return true;
@@ -784,6 +788,13 @@ public class DietGeneratorService
 
         const double stepGrams = 5.0;
         const int maxPasses = 24;
+        // El rebalanceo nunca debe convertir una ración normal en una cantidad culinariamente
+        // absurda. Conservamos un margen respecto a la cantidad elegida inicialmente.
+        var rebalanceBounds = allItems.ToDictionary(
+            item => item,
+            item => (
+                Min: Math.Max(5.0, (double)(item.Grams ?? 0) * 0.75),
+                Max: Math.Min(350.0, (double)(item.Grams ?? 0) * 1.25)));
         var currentError = CalculateRebalanceError(allItems, targetKcal, targetProtein, targetCarbs, targetFat);
 
         for (int pass = 0; pass < maxPasses; pass++)
@@ -799,8 +810,8 @@ public class DietGeneratorService
                 var bestError = currentError;
 
                 foreach (var candidateGrams in new[] {
-                    Math.Clamp(currentGrams - stepGrams, 5, 350),
-                    Math.Clamp(currentGrams + stepGrams, 5, 350)
+                    Math.Clamp(currentGrams - stepGrams, rebalanceBounds[item].Min, rebalanceBounds[item].Max),
+                    Math.Clamp(currentGrams + stepGrams, rebalanceBounds[item].Min, rebalanceBounds[item].Max)
                 }.Distinct())
                 {
                     ApplyItemRatio(item, candidateGrams);
