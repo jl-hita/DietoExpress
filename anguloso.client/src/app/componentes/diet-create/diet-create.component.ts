@@ -649,7 +649,7 @@ export class DietCreateComponent implements OnInit {
   openGeneratorDialog(): void {
     const currentKcal = this.form.get('targetKcal')?.value;
     const dialogRef = this.dialog.open(DietGeneratorDialogComponent, {
-      width: '520px',
+      width: 'min(520px, calc(100vw - 24px))',
       data: {
         clientId: this.clientId,
         clientName: this.clientName,
