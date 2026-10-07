@@ -370,7 +370,9 @@ export class BillingComponent implements OnInit {
     return Math.max(0, Math.ceil((new Date(this.license.expiresAt).getTime() - Date.now()) / 86400000));
   }
 
-  get trialIsEndingSoon(): boolean { return this.isTrial && this.trialDaysRemaining > 0 && this.trialDaysRemaining <= 3; }\n\n  get currentStatusLabel(): string {
+  get trialIsEndingSoon(): boolean { return this.isTrial && this.trialDaysRemaining > 0 && this.trialDaysRemaining <= 3; }
+
+  get currentStatusLabel(): string {
     if (this.isTrialExpired) return 'Finalizado';
     if (this.license?.cancelAtPeriodEnd) return 'Finaliza al terminar el periodo';
     if (this.license?.status === 'past_due') return 'Pago pendiente';
