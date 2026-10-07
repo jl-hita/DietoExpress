@@ -477,6 +477,15 @@ public sealed class AdvancedDietOptimizerService
 
     private static bool IsOptimizerFood(foods food) => food.kcal.HasValue && food.kcal > 0 && !string.IsNullOrWhiteSpace(food.name);
 
+    private static string NormalizeFoodTerm(string value)
+    {
+        var normalized = value.Normalize(System.Text.NormalizationForm.FormD);
+        var chars = normalized
+            .Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark)
+            .ToArray();
+        return new string(chars).Normalize(System.Text.NormalizationForm.FormC).ToLowerInvariant();
+    }
+
     private static string InferRole(string mealName, foods food)
     {
         var n = NormalizeFoodTerm(food.name ?? string.Empty);
