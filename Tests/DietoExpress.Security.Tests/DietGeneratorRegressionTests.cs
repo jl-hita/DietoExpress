@@ -100,4 +100,33 @@ public sealed class DietGeneratorRegressionTests
         Assert.Contains("name.Contains(\"gelatina\")", source);
         Assert.Contains("if (isVegan", source);
     }
+
+    [Fact]
+    public void Generator_ControlsCompleteMealRepetitionWithSmartSubstitution()
+    {
+        var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
+
+        Assert.Contains("weeklyMealSignatures", source);
+        Assert.Contains("CreateMealSignature", source);
+        Assert.Contains("TryReplaceRepeatedMealItem", source);
+        Assert.Contains("CalculateSubstitutionScore", source);
+        Assert.Contains("DecrementUsage", source);
+        Assert.Contains("same role", source);
+    }
+
+    [Fact]
+    public void Generator_SubstitutionPreservesNutritionAndWeeklyDiversitySignals()
+    {
+        var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
+
+        Assert.Contains("densityError", source);
+        Assert.Contains("candidate.kcal", source);
+        Assert.Contains("candidate.protein", source);
+        Assert.Contains("candidate.carbs", source);
+        Assert.Contains("candidate.fat", source);
+        Assert.Contains("CalculateWeeklyRepetitionPenalty(candidate, weeklyUsage)", source);
+        Assert.Contains("CalculateRoleFamilyRepetitionPenalty(candidate, role, weeklyRoleFamilyUsage)", source);
+        Assert.Contains("CalculateSlotNutritionPenalty(candidate, role", source);
+    }
+
 }
