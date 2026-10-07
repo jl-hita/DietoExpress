@@ -30,6 +30,7 @@ export class DietCreateComponent implements OnInit {
   isEdit = false;
   dietId: number | null = null;
   loading = false;
+  saving = false;
   exchangeGroups: FoodExchangeGroup[] = [];
 
   // Client context for live clinical validation
@@ -361,6 +362,11 @@ export class DietCreateComponent implements OnInit {
   }
 
   removeDay(dIndex: number): void {
+    if (this.days.length <= 1) {
+      this.snackBar.open('La dieta debe conservar al menos un día. Añade otro día antes de eliminar este.', 'Cerrar', { duration: 3000 });
+      return;
+    }
+    if (!confirm(`¿Eliminar el Día ${dIndex + 1}? Se perderán sus comidas y alimentos.`)) return;
     this.days.removeAt(dIndex);
     // Renumerar los demas
     for(let i = 0; i < this.days.length; i++) {
@@ -387,6 +393,8 @@ export class DietCreateComponent implements OnInit {
   }
 
   removeMeal(dIndex: number, mIndex: number): void {
+    const mealName = this.getMeals(dIndex).at(mIndex).get('name')?.value || `Comida ${mIndex + 1}`;
+    if (!confirm(`¿Eliminar «${mealName}»? Se perderán los alimentos de esta comida.`)) return;
     this.getMeals(dIndex).removeAt(mIndex);
     // Adjust targetMealForAdd if it was pointing to this meal
     if (this.targetMealForAdd && this.targetMealForAdd.dIndex === dIndex && this.targetMealForAdd.mIndex === mIndex) {
@@ -411,6 +419,9 @@ export class DietCreateComponent implements OnInit {
   }
 
   removeItem(dIndex: number, mIndex: number, iIndex: number): void {
+    const item = this.getItems(dIndex, mIndex).at(iIndex);
+    const itemName = item?.get('foodName')?.value || item?.get('exchangeGroupName')?.value || 'este alimento';
+    if (!confirm(`¿Quitar «${itemName}» de la comida?`)) return;
     this.getItems(dIndex, mIndex).removeAt(iIndex);
   }
 
@@ -508,7 +519,8 @@ export class DietCreateComponent implements OnInit {
   get targetFat(): number { return this.form.get('targetFat')?.value || 0; }
 
   submit(): void {
-    if (this.form.invalid) return;
+    if (this.form.invalid || this.saving) return;
+    this.saving = true;
     const raw = this.form.getRawValue();
     const dto: CreateDietRequest = {
       name: raw.name,
@@ -546,6 +558,7 @@ export class DietCreateComponent implements OnInit {
         : `Se han detectado ${this.validationWarnings.length} posibles incompatibilidades clínicas con el paciente. ¿Deseas continuar y guardar?`;
 
       if (!confirm(confirmMsg)) {
+        this.saving = false;
         return;
       }
     }
@@ -556,7 +569,7 @@ export class DietCreateComponent implements OnInit {
           this.snackBar.open('Dieta actualizada', 'Cerrar', { duration: 3000 });
           this.router.navigate(['/diets']);
         },
-        error: () => this.snackBar.open('Error al actualizar', 'Cerrar', { duration: 4000 })
+        error: () => { this.saving = false; this.snackBar.open('Error al actualizar', 'Cerrar', { duration: 4000 }); }
       });
     } else {
       this.dietService.createDiet(dto).subscribe({
@@ -568,12 +581,13 @@ export class DietCreateComponent implements OnInit {
           );
           this.router.navigate(this.clientId ? ['/clients', this.clientId] : ['/diets']);
         },
-        error: () => this.snackBar.open('Error al crear la dieta', 'Cerrar', { duration: 4000 })
+        error: () => { this.saving = false; this.snackBar.open('Error al crear la dieta', 'Cerrar', { duration: 4000 }); }
       });
     }
   }
 
   cancel(): void {
+    if (this.form.dirty && !this.saving && !confirm('Hay cambios sin guardar. ¿Salir sin guardar la dieta?')) return;
     this.router.navigate(this.clientId ? ['/clients', this.clientId] : ['/diets']);
   }
 
