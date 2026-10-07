@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { AuthService } from '../../servicios/auth.service';
 import { Profile } from '../../modelos/profile';
 import { ProfileService } from '../../servicios/profile.service';
+import { LicenseService, LicenseStatus } from '../../servicios/license.service';
 
 @Component({
   selector: 'app-sidebar',
@@ -19,12 +20,14 @@ export class SidebarComponent implements OnInit {
   @Output() closeMenu = new EventEmitter<void>();
 
   profile: Profile | null = null;
+  license: LicenseStatus | null = null;
   readonly defaultProfileImage = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"%3E%3Ccircle cx="24" cy="24" r="24" fill="%23e0e0e0"/%3E%3Ccircle cx="24" cy="18" r="8" fill="%23909090"/%3E%3Cpath d="M10 40c2-8 9-12 14-12s12 4 14 12" fill="%23909090"/%3E%3C/svg%3E';
 
   constructor(
     private router: Router,
     private authService: AuthService,
-    private profileService: ProfileService
+    private profileService: ProfileService,
+    private licenseService: LicenseService
   ) { }
 
   ngOnInit(): void {
@@ -67,6 +70,13 @@ export class SidebarComponent implements OnInit {
 
   get isFreeAccount(): boolean {
     return this.authService.getSubscriptionPlan() === 'free';
+  }
+
+  get isTrial(): boolean { return this.license?.planCode === 'free' && !!this.license?.expiresAt; }
+
+  get trialDaysRemaining(): number {
+    if (!this.license?.expiresAt) return 0;
+    return Math.max(0, Math.ceil((new Date(this.license.expiresAt).getTime() - Date.now()) / 86400000));
   }
 
   get isProfessionalAccount(): boolean {

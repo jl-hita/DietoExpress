@@ -1113,6 +1113,22 @@ public class AuthorizationRegressionTests
     private static string ReadServerModel(string fileName) =>
         File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Models", fileName));
 
+    [Fact]
+    public void PublicTrial_UsesFullProfessionalLimitsAndSevenDayExpiry()
+    {
+        var auth = ReadServerController("AuthController.cs");
+        var license = ReadServerLogic("LicenseService.cs");
+        var bootstrap = ReadServerLogic("DatabaseBootstrap.cs");
+
+        Assert.Contains("max_clients_allowed = 100", auth);
+        Assert.Contains("expires_at = DateTime.UtcNow.AddDays(freePlan.trial_days ?? 7)", auth);
+        Assert.Contains("expires_at = DateTime.UtcNow.AddDays(freePlanGoogle.trial_days ?? 7)", auth);
+        Assert.DoesNotContain("La cuenta gratuita permite crear una sola dieta.", license);
+        Assert.Contains("('free','Prueba profesional','Prueba completa de Nutri Full durante 7 días',0,0,1,100,100,7,TRUE)", bootstrap);
+        Assert.Contains("professional_plan.code = 'nutri_full'", bootstrap);
+    }
+
+
     private static string ReadServerController(string fileName) =>
         File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", fileName));
 

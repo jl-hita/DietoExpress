@@ -8,6 +8,11 @@
 .eyebrow { color:#0d9488; font-size:11px; font-weight:800; letter-spacing:1.4px; }
 h1 { color:#123b39; font-size:34px; letter-spacing:-1px; margin:10px 0 8px; }
 .heading p,.created-state p { color:#70807e; line-height:1.6; font-size:14px; margin:0 auto; }
+.trial-intro { display:flex; gap:12px; align-items:flex-start; margin:0 0 22px; padding:14px 15px; border:1px solid #cfe9e4; border-radius:14px; background:#f2fbf8; color:#28534f; }
+.trial-intro mat-icon { flex:0 0 auto; color:#0d9488; }
+.trial-intro div { display:flex; flex-direction:column; gap:3px; }
+.trial-intro strong { font-size:13px; }
+.trial-intro span { color:#55706d; font-size:12px; line-height:1.5; }
 form { display:flex; flex-direction:column; gap:8px; }
 .full-width { width:100%; }
 .submit { height:48px; margin-top:8px; border-radius:11px; font-weight:700; }
