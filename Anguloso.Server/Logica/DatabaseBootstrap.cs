@@ -1016,7 +1016,7 @@ CREATE INDEX IF NOT EXISTS idx_public_funnel_events_appointment
             -- Seed de planes comerciales. Son editables desde el SuperAdmin.
             INSERT INTO subscription_plans(code,name,description,monthly_price,yearly_price,max_nutritionists,max_clients_per_nutritionist,max_total_clients,trial_days,active)
             VALUES
-                ('free','Cuenta gratuita','Cuenta de acceso sin capacidad profesional',0,0,1,0,0,NULL,TRUE),
+                ('free','Prueba profesional','Prueba completa de Nutri Full durante 7 días',0,0,1,100,100,7,TRUE),
                 ('demo_nutri','Demo nutricionista','Acceso profesional temporal concedido por SuperAdmin',0,0,1,100,100,14,TRUE),
                 ('nutri_full','Nutri Full','Licencia profesional individual',29.90,299,1,100,100,NULL,TRUE),
                 ('clinic_full','Clínica Full','Licencia para clínicas con varios nutricionistas',79.90,799,5,100,500,NULL,TRUE)
