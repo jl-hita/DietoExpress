@@ -1059,6 +1059,13 @@ CREATE INDEX IF NOT EXISTS idx_public_funnel_events_appointment
             ON CONFLICT(plan_id,feature_code) DO NOTHING;
 
             -- FREE durante el trial comparte las mismas funcionalidades profesionales que Nutri Full.
+            INSERT INTO subscription_plan_features(plan_id, feature_code, enabled)
+            SELECT free_plan.id, professional.feature_code, TRUE
+            FROM subscription_plan_features professional
+            JOIN subscription_plans professional_plan ON professional_plan.id = professional.plan_id
+            JOIN subscription_plans free_plan ON free_plan.code = 'free'
+            WHERE professional_plan.code = 'nutri_full'
+            ON CONFLICT(plan_id, feature_code) DO UPDATE SET enabled = TRUE;
 
             -- Asignamos una suscripción a cada tenant existente si todavía no tiene ninguna.
             INSERT INTO subscriptions(tenant_id,plan_id,status,started_at,expires_at)
