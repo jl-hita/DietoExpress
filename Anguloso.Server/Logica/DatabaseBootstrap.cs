@@ -1022,6 +1022,17 @@ CREATE INDEX IF NOT EXISTS idx_public_funnel_events_appointment
                 ('clinic_full','Clínica Full','Licencia para clínicas con varios nutricionistas',79.90,799,5,100,500,NULL,TRUE)
             ON CONFLICT(code) DO NOTHING;
 
+            -- El trial público reutiliza el catálogo del plan profesional individual: solo cambia la vigencia temporal.
+            UPDATE subscription_plans
+            SET name = 'Prueba profesional',
+                description = 'Prueba completa de Nutri Full durante 7 días',
+                max_nutritionists = 1,
+                max_clients_per_nutritionist = 100,
+                max_total_clients = 100,
+                trial_days = 7,
+                active = TRUE
+            WHERE code = 'free';
+
             -- Price IDs de Stripe Test Mode para los planes comerciales.
             -- Se mantienen en BBDD para que Checkout no dependa de valores hardcodeados en el código.
             UPDATE subscription_plans
@@ -1044,12 +1055,10 @@ CREATE INDEX IF NOT EXISTS idx_public_funnel_events_appointment
                 ('RECIPES'),('DIET_TEMPLATES'),('SHARED_DIETS'),('MULTI_NUTRITIONIST'),
                 ('CLINIC_DASHBOARD'),('CLIENT_ASSIGNMENT'),('AUDIT_LOGS')
             ) f(feature_code)
-            WHERE p.code IN ('demo_nutri','nutri_full','clinic_full')
+            WHERE p.code IN ('free','demo_nutri','nutri_full','clinic_full')
             ON CONFLICT(plan_id,feature_code) DO NOTHING;
 
-            -- La cuenta FREE no tiene funciones profesionales; la DEMO sí las tiene.
-            UPDATE subscription_plan_features SET enabled = FALSE
-            WHERE plan_id = (SELECT id FROM subscription_plans WHERE code='free');
+            -- FREE durante el trial comparte las mismas funcionalidades profesionales que Nutri Full.
 
             -- Asignamos una suscripción a cada tenant existente si todavía no tiene ninguna.
             INSERT INTO subscriptions(tenant_id,plan_id,status,started_at,expires_at)
