@@ -345,7 +345,7 @@ public sealed class DietSemanticValidationService
     private static bool IsLegumeName(string? name) => new[] { "lenteja","garbanzo","alubia","judia","guisante" }.Any(Normalize(name ?? string.Empty).Contains);
     private static bool IsMainProteinName(string? name) => new[] { "pollo","pavo","ternera","cerdo","conejo","atun","salmon","merluza","bacalao","dorada","lubina","sardina","caballa","gamba","tofu","tempeh" }.Any(Normalize(name ?? string.Empty).Contains);
     private static bool IsFattyProtein(string? name) => new[] { "salmon","sardina","caballa","aguacate" }.Any(Normalize(name ?? string.Empty).Contains);
-    private static bool IsEgg(string? name) => Normalize(name ?? string.Empty).Contains("huevo") || Normalize(name ?? string.Empty).Contains("clara");
+    private static bool IsEgg(string? name) => new[] { "huevo", "clara", "tortilla" }.Any(Normalize(name ?? string.Empty).Contains);
     private static bool IsNut(string? name) => new[] { "nuez","almendra","avellana","anacardo","pistacho" }.Any(Normalize(name ?? string.Empty).Contains);
     private static bool IsBreakfastCarb(string? name) => new[] { "avena","pan","tostada","copos","cereal" }.Any(Normalize(name ?? string.Empty).Contains);
     private static bool IsSnackProtein(string? name) => new[] { "yogur","leche","kefir","queso","huevo","clara" }.Any(Normalize(name ?? string.Empty).Contains);

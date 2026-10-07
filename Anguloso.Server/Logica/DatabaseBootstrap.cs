@@ -148,6 +148,23 @@ public static class DatabaseBootstrap
                     carbs NUMERIC(6, 2) NOT NULL DEFAULT 0,
                     fat NUMERIC(6, 2) NOT NULL DEFAULT 0
                 );
+                -- Grupos estándar de intercambio. Se siembran aquí para que una instalación
+                -- nueva no dependa de ejecutar manualmente seed_exchange_groups.sql.
+                INSERT INTO food_exchange_groups (id, name, kcal, protein, carbs, fat) VALUES
+                    (1, 'Lácteos Enteros', 120.00, 6.00, 10.00, 6.00),
+                    (2, 'Lácteos Desnatados', 60.00, 6.00, 10.00, 0.00),
+                    (3, 'Verduras Grupo A (bajo HC)', 25.00, 1.00, 5.00, 0.00),
+                    (4, 'Verduras Grupo B (medio HC)', 50.00, 2.00, 10.00, 0.00),
+                    (5, 'Frutas', 40.00, 0.00, 10.00, 0.00),
+                    (6, 'Féculas y Cereales', 70.00, 2.00, 15.00, 0.00),
+                    (7, 'Alimentos Proteicos (Magros)', 55.00, 7.00, 0.00, 2.50),
+                    (8, 'Alimentos Proteicos (Grasos)', 75.00, 7.00, 0.00, 5.00),
+                    (9, 'Grasas', 90.00, 0.00, 0.00, 10.00)
+                ON CONFLICT (id) DO UPDATE SET
+                    name=EXCLUDED.name, kcal=EXCLUDED.kcal, protein=EXCLUDED.protein,
+                    carbs=EXCLUDED.carbs, fat=EXCLUDED.fat;
+                SELECT setval('food_exchange_groups_id_seq', GREATEST((SELECT COALESCE(MAX(id), 1) FROM food_exchange_groups), 1));
+
 
                 -- 6. Food Sources (Fuentes de alimentos BEDCA, USDA, etc.)
                 CREATE TABLE IF NOT EXISTS food_sources (

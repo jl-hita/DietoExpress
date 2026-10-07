@@ -1041,7 +1041,7 @@ public class DietGeneratorService
         {
             if (food.Contains("yogur")) return (100, 200);
             if (food.Contains("leche")) return (100, 300);
-            if (food.Contains("huevo") || food.Contains("clara")) return (50, 180);
+            if (food.Contains("huevo") || food.Contains("clara") || food.Contains("tortilla")) return (50, 180);
             if (food.Contains("manzana") || food.Contains("naranja") || food.Contains("pera") || food.Contains("mandarina") || food.Contains("platano") || food.Contains("fresa") || food.Contains("kiwi") || food.Contains("melocoton") || food.Contains("melon") || food.Contains("sandia") || food.Contains("uva")) return (80, 200);
             return (30, 180);
         }
@@ -1093,7 +1093,7 @@ public class DietGeneratorService
                       name.Contains("alubia") || name.Contains("guisante") || name.Contains("quinoa") ? 50 : 0;
         var step = name.Contains("yogur") ? 125 :
                    name.Contains("leche") ? 50 :
-                   (name.Contains("huevo") || name.Contains("clara")) ? 10 : 0;
+                   (name.Contains("huevo") || name.Contains("clara") || name.Contains("tortilla")) ? 10 : 0;
         var snapped = step > 0 ? Math.Round(grams / step, MidpointRounding.AwayFromZero) * step : grams;
         return Math.Max(snapped, minimum);
     }

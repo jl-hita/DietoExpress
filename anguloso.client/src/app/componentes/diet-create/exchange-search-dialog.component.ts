@@ -13,6 +13,9 @@ import { FoodExchangeGroup } from '../../modelos/food-exchange-group';
     <h2 mat-dialog-title>Añadir Intercambio</h2>
     <mat-dialog-content>
       <p class="exchange-info">Selecciona un grupo de intercambio y el número de intercambios que deseas añadir a esta comida.</p>
+      <div *ngIf="!data.exchangeGroups?.length" class="exchange-empty">
+        No hay grupos de intercambio configurados todavía. El sistema los inicializará automáticamente al arrancar.
+      </div>
 
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>Grupo de Intercambio</mat-label>
@@ -49,6 +52,7 @@ import { FoodExchangeGroup } from '../../modelos/food-exchange-group';
     .full-width { width: 100%; margin-top: 8px; }
     .mt-2 { margin-top: 16px; }
     .exchange-info { color: #666; font-size: 13px; margin-bottom: 12px; }
+    .exchange-empty { padding: 12px; border-radius: 8px; background: #fff8e1; color: #795548; font-size: 13px; margin-bottom: 12px; }
     .group-macros { font-size: 11px; color: #888; }
     .macros-preview { background: #e8eaf6; border-radius: 8px; padding: 12px; margin-top: 16px; }
     .macros-preview h4 { margin: 0 0 10px 0; font-size: 13px; color: #3f51b5; }
@@ -71,7 +75,7 @@ export class ExchangeSearchDialogComponent {
   ) {}
 
   confirm() {
-    if (this.selectedGroup && this.count > 0) {
+    if (this.selectedGroup && Number.isFinite(this.count) && this.count > 0) {
       this.dialogRef.close({ group: this.selectedGroup, count: this.count });
     }
   }
