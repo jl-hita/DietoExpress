@@ -213,7 +213,7 @@ public sealed class DietGeneratorRegressionTests
         var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
         Assert.Contains("request.ExplainGeneration", source);
         Assert.Contains("Reglas aplicadas", source);
-        Assert.Contains("Motor experto", source);
+        Assert.Contains("motor experto", source);
     }
 
 }
