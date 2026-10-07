@@ -368,7 +368,11 @@ public class DietGeneratorService
         "patatas chips", "chips de patata", "aceite de algodón", "aceite de coco", "aceite de palma",
         "aceite de maíz", "aceite de soja", "aceite de cacahuete", "aceite de sésamo",
         "zumo", "jugo", "néctar", "puré", "pure", "ahumado", "huevo de pavo", "huevo de codorniz",
-        "melón desecado", "fruta desecada", "fruta seca azucarada", "preparado lácteo", "preparado lacteo"
+        "melón desecado", "fruta desecada", "fruta seca azucarada", "preparado lácteo", "preparado lacteo",
+        "jengibre", "nuez moscada", "canela", "pimienta", "curry", "cúrcuma", "comino", "orégano", "oregano",
+        "perejil", "romero", "tomillo", "albahaca", "paprika", "vinagre", "mostaza", "ketchup", "mayonesa",
+        "pan rallado", "mousse", "nata montada", "postre lácteo", "postre lacteo", "yogur líquido", "yogur liquido",
+        "bonito en aceite vegetal", "en aceite vegetal", "aceite vegetal",
     };
 
     private bool IsCommonFood(foods f)
@@ -380,8 +384,15 @@ public class DietGeneratorService
         if (RareKeywords.Any(k => name.Contains(k) || cat.Contains(k)))
             return false;
 
-        // Evitar nombres con códigos o rarezas industriales
+        // Evitar nombres con códigos o rarezas industriales.
+        // El generador no debe convertir especias, condimentos o productos preparados en
+        // componentes principales solo porque su composición nutricional parezca encajar.
         if (name.Length > 80 || name.Contains("deshidratado") || name.Contains("desecado") || name.Contains("liofilizado") || name.Contains("polvo"))
+            return false;
+
+        // Productos líquidos o preparados de yogur se reservan para selección manual/recetas:
+        // una ración profesional de yogur se expresa como envase/porción estándar.
+        if (name.Contains("yogur líquido") || name.Contains("yogur liquido") || name.Contains("mousse") || name.Contains("postre lácteo") || name.Contains("postre lacteo"))
             return false;
 
         return true;
@@ -718,6 +729,27 @@ public class DietGeneratorService
     // Es una heurística, no un solver matemático exacto; por eso se acota también el número de iteraciones.
     // Ajusta las cantidades de los alimentos buscando acercarse simultáneamente a energía y
     // macronutrientes objetivo sin sustituir las restricciones ya aplicadas a la selección.
+    private static double SnapToServingSize(foods food, SlotConfig slot, double grams)
+    {
+        var name = NormalizeFoodTerm(food.name ?? string.Empty);
+        var step = slot.ServingStepGrams;
+
+        // Los yogures comerciales se sirven por envase/porción; no generamos 95 g o 143 g
+        // de un yogur como si fuera un ingrediente continuo.
+        if (name.Contains("yogur"))
+            step = 125;
+        else if (name.Contains("leche"))
+            step = 50;
+        else if (name.Contains("huevo") || name.Contains("clara"))
+            step = 10;
+
+        if (!step.HasValue || step.Value <= 0)
+            return Math.Round(Math.Clamp(grams, slot.MinGrams, slot.MaxGrams), 0);
+
+        var snapped = Math.Round(grams / step.Value, MidpointRounding.AwayFromZero) * step.Value;
+        return Math.Round(Math.Clamp(snapped, slot.MinGrams, slot.MaxGrams), 0);
+    }
+
     private double[] OptimizeGrams(List<(foods food, SlotConfig slot)> items, double tKcal, double tP, double tC, double tF)
     {
         int n = items.Count;
@@ -923,6 +955,7 @@ public class DietGeneratorService
         public double MinGrams { get; set; }
         public double MaxGrams { get; set; }
         public double DefaultGrams { get; set; }
+        public double? ServingStepGrams { get; set; }
     }
 
     private List<SlotConfig> GetTemplateForMeal(string mealName)
@@ -1056,8 +1089,11 @@ public class DietGeneratorService
                 (c > 10 && c > fat)))
                 continue;
 
-            // Aceites y Grasas (Priorizar Aceite de Oliva)
-            if (name.Contains("aceite de oliva") || name.Contains("aceite de girasol"))
+            // Aceites culinarios: solo aceites habituales. Nunca dejamos que un aceite raro
+            // compita por la ración de grasa de una comida normal.
+            if (name.Equals("aceite de oliva", StringComparison.OrdinalIgnoreCase) ||
+                name.Contains("aceite de oliva virgen") || name.Contains("aceite de oliva virgen extra") ||
+                name.Equals("aceite de girasol", StringComparison.OrdinalIgnoreCase))
             {
                 pools.OilsAndFats.Add(f);
             }
@@ -1077,7 +1113,7 @@ public class DietGeneratorService
                 pools.Fruits.Add(f);
             }
             // Desayuno (Panes, Avena, Tostadas)
-            else if (name.Contains("avena") || name.Contains("pan integral") || name.Contains("pan de molde") || name.Contains("pan blanco") || name.Contains("tostada") || name.Contains("copos"))
+            else if (name.Contains("avena") || name.Contains("pan integral") || name.Contains("pan de molde") || name.Equals("pan blanco") || name.Contains("tostada") || name.Contains("copos"))
             {
                 pools.BreakfastCarbs.Add(f);
             }
@@ -1100,8 +1136,15 @@ public class DietGeneratorService
 
         // Fallbacks
         // El aceite culinario es un componente explícito: nunca usamos frutos secos u otras grasas como sustituto silencioso.\n        // Si el catálogo no tiene aceite común, la generación fallará con un mensaje descriptivo.\n        
-        if (!pools.BreakfastCarbs.Any()) pools.BreakfastCarbs = pools.Carbs;
-        if (!pools.DairyAndEggs.Any()) pools.DairyAndEggs = pools.Proteins;
+        if (!pools.BreakfastCarbs.Any())
+            pools.BreakfastCarbs = pools.Carbs
+                .Where(f => IsStandardBreakfastCarb(f))
+                .ToList();
+
+        // No degradamos un desayuno a carne/pescado solo porque falte un lácteo.
+        // Si no existe un pool adecuado, la generación ya habrá fallado en la validación anterior.
+        if (!pools.DairyAndEggs.Any())
+            pools.DairyAndEggs = new List<foods>();
 
         return pools;
     }
@@ -1109,6 +1152,14 @@ public class DietGeneratorService
     #endregion
 
     #region Helpers de Cálculo y Restricciones
+
+    private static bool IsStandardBreakfastCarb(foods food)
+    {
+        var name = NormalizeFoodTerm(food.name ?? string.Empty);
+        return name.Contains("avena") || name.Contains("pan integral") ||
+               name.Contains("pan de molde") || name.Equals("pan blanco") ||
+               name.Contains("tostada") || name.Contains("copos");
+    }
 
     private static double? GetProfileDouble(JsonElement? profile, string property)
     {
