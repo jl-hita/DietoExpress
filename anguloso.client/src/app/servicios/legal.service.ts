@@ -13,6 +13,9 @@ export interface LegalDocument {
   publishedAt?: string | null;
 }
 
+export interface LegalReadinessDocument { key:string; title:string; published:boolean; }
+export interface LegalReadiness { ready:boolean; documents:LegalReadinessDocument[]; missingConfiguration:string[]; note:string; }
+
 export interface LegalAcceptance {
   key: string;
   version: number;
@@ -41,5 +44,9 @@ export class LegalService {
 
   getAcceptances(): Observable<LegalAcceptance[]> {
     return this.http.get<LegalAcceptance[]>(`${this.baseUrl}/acceptances`);
+  }
+
+  getReadiness(): Observable<LegalReadiness> {
+    return this.http.get<LegalReadiness>(`${this.baseUrl}/readiness`);
   }
 }

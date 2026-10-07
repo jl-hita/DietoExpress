@@ -56,6 +56,67 @@ public sealed class LegalDocumentsController : ControllerBase
     }
 
 
+    [HttpGet("readiness")]
+    [Authorize(Policy = "Professional")]
+    public async Task<IActionResult> Readiness(CancellationToken cancellationToken)
+    {
+        if (!User.IsInRole("superadmin")) return Forbid();
+
+        var requiredDocuments = new[]
+        {
+            new { Key = "01-aviso-legal", Title = "Aviso legal" },
+            new { Key = "02-privacidad-dietoexpress", Title = "Política de privacidad" },
+            new { Key = "03-terminos-saas", Title = "Términos y condiciones" },
+            new { Key = "04-politica-cookies", Title = "Política de cookies" },
+            new { Key = "05-dpa-encargo-tratamiento", Title = "Acuerdo de encargo del tratamiento" },
+            new { Key = "08-condiciones-economicas", Title = "Condiciones económicas" }
+        };
+        var requiredConfiguration = new[]
+        {
+            "legal_name", "tax_id", "address", "contact_email", "privacy_email",
+            "providers_summary", "international_transfers_summary",
+            "cookie_third_parties", "non_essential_cookies_summary",
+            "cancellation_policy_summary", "support_email", "claims_email",
+            "governing_law_summary", "document_version", "last_update_date"
+        };
+
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync(cancellationToken);
+        var published = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        await using (var documents = new NpgsqlCommand("""
+            SELECT DISTINCT ON (document_key) document_key
+            FROM legal_documents
+            WHERE status='published'
+            ORDER BY document_key, version DESC;
+            """, connection))
+        await using (var reader = await documents.ExecuteReaderAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken)) published.Add(reader.GetString(0));
+        }
+
+        var configured = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        await using (var configuration = new NpgsqlCommand("""
+            SELECT setting_key
+            FROM legal_configuration
+            WHERE scope_type='platform' AND scope_id=1
+              AND NULLIF(TRIM(setting_value), '') IS NOT NULL;
+            """, connection))
+        await using (var reader = await configuration.ExecuteReaderAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken)) configured.Add(reader.GetString(0));
+        }
+
+        var documentsStatus = requiredDocuments.Select(d => new { key=d.Key, title=d.Title, published=published.Contains(d.Key) }).ToArray();
+        var missingConfiguration = requiredConfiguration.Where(k => !configured.Contains(k)).ToArray();
+        return Ok(new
+        {
+            ready = documentsStatus.All(d => d.published) && missingConfiguration.Length == 0,
+            documents = documentsStatus,
+            missingConfiguration,
+            note = "La preparación técnica no sustituye la revisión jurídica externa ni la validación de los datos reales del titular y proveedores."
+        });
+    }
+
     [HttpGet("admin")]
     [Authorize(Policy = "Professional")]
     public async Task<IActionResult> AdminList(CancellationToken cancellationToken)
