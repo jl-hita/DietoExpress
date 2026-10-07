@@ -182,6 +182,7 @@ public class DietGeneratorService
         var mealSplits = GetMealSplits(request.MealsPerDay);
 
         var weeklyUsageCount = new Dictionary<int, int>();
+        var weeklyRoleFamilyUsage = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var daysList = new List<DietDayDto>();
         var rnd = new Random();
 
@@ -211,6 +212,7 @@ public class DietGeneratorService
                     preferredFoods,
                     dislikedFoods,
                     adherenceBoost,
+                    weeklyRoleFamilyUsage,
                     rnd
                 );
 
@@ -299,6 +301,7 @@ public class DietGeneratorService
         HashSet<string> preferredFoods,
         HashSet<string> dislikedFoods,
         double adherenceBoost,
+        Dictionary<string, int> weeklyRoleFamilyUsage,
         Random rnd)
     {
         var slots = GetTemplateForMeal(mealName);
@@ -319,6 +322,7 @@ public class DietGeneratorService
                     Score =
                         (dayUsage.Contains(f.id) ? 2000 : 0) +
                         CalculateWeeklyRepetitionPenalty(f, weeklyUsage) +
+                        CalculateRoleFamilyRepetitionPenalty(f, slot.Role, weeklyRoleFamilyUsage) +
                         CalculateSlotNutritionPenalty(f, slot.Role, targetKcal, targetP, targetC, targetF) +
                         (MatchesFoodTerms(f, dislikedFoods) ? 80 : 0) -
                         (MatchesFoodTerms(f, preferredFoods) ? 40 + adherenceBoost : 0) +
@@ -334,6 +338,9 @@ public class DietGeneratorService
                 chosenFoods.Add((pick, slot));
                 dayUsage.Add(pick.id);
                 weeklyUsage[pick.id] = weeklyUsage.GetValueOrDefault(pick.id, 0) + 1;
+
+                var familyKey = $"{slot.Role}:{GetFoodFamily(pick)}";
+                weeklyRoleFamilyUsage[familyKey] = weeklyRoleFamilyUsage.GetValueOrDefault(familyKey, 0) + 1;
             }
         }
 
@@ -373,6 +380,60 @@ public class DietGeneratorService
     {
         var uses = weeklyUsage.GetValueOrDefault(food.id, 0);
         return uses == 0 ? 0 : 15 * uses * uses;
+    }
+
+    // Evita concentrar toda la semana en la misma familia de alimentos dentro de un rol.
+    // Por ejemplo, pollo y pavo no se consideran dos fuentes completamente independientes.
+    private static double CalculateRoleFamilyRepetitionPenalty(
+        foods food,
+        string role,
+        Dictionary<string, int> weeklyRoleFamilyUsage)
+    {
+        var key = $"{role}:{GetFoodFamily(food)}";
+        var uses = weeklyRoleFamilyUsage.GetValueOrDefault(key, 0);
+        return uses == 0 ? 0 : 12 * uses * uses;
+    }
+
+    private static string GetFoodFamily(foods food)
+    {
+        var name = NormalizeFoodTerm(food.name ?? string.Empty);
+
+        if (name.Contains("pollo") || name.Contains("pavo"))
+            return "ave";
+        if (name.Contains("ternera") || name.Contains("cerdo") || name.Contains("lomo") || name.Contains("vacuno"))
+            return "carne";
+        if (name.Contains("atun") || name.Contains("salmon") || name.Contains("merluza") ||
+            name.Contains("bacalao") || name.Contains("dorada") || name.Contains("lubina") ||
+            name.Contains("sardina") || name.Contains("caballa") || name.Contains("gamba"))
+            return "pescado_marisco";
+        if (name.Contains("huevo") || name.Contains("clara"))
+            return "huevo";
+        if (name.Contains("yogur") || name.Contains("queso") || name.Contains("leche") ||
+            name.Contains("kefir"))
+            return "lacteo";
+        if (name.Contains("tofu") || name.Contains("tempeh") || name.Contains("soja"))
+            return "soja";
+        if (name.Contains("lenteja") || name.Contains("garbanzo") || name.Contains("alubia") ||
+            name.Contains("judia") || name.Contains("frijol"))
+            return "legumbre";
+        if (name.Contains("arroz"))
+            return "arroz";
+        if (name.Contains("pasta") || name.Contains("espagueti") || name.Contains("macarron"))
+            return "pasta";
+        if (name.Contains("patata") || name.Contains("boniato"))
+            return "tuberculo";
+        if (name.Contains("avena") || name.Contains("pan") || name.Contains("tostada"))
+            return "cereal_pan";
+
+        return NormalizeFoodTerm(food.category ?? string.Empty) switch
+        {
+            var category when category.Contains("pescado") => "pescado_marisco",
+            var category when category.Contains("carne") => "carne",
+            var category when category.Contains("lacteo") => "lacteo",
+            var category when category.Contains("fruta") => "fruta",
+            var category when category.Contains("verdura") => "verdura",
+            _ => "otro"
+        };
     }
 
     // Evalúa si el alimento encaja bien con el papel de su franja y con los objetivos
