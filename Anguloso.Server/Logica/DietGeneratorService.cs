@@ -735,10 +735,16 @@ public class DietGeneratorService
         var name = NormalizeFoodTerm(food.name ?? string.Empty);
         var step = slot.ServingStepGrams;
 
+        // Si el catálogo conoce la ración del alimento, la respetamos antes que inventar
+        // cantidades arbitrarias. Es especialmente importante para yogures y productos por unidad.
+        if (food.serving_size.HasValue && food.serving_size.Value > 0 &&
+            string.Equals(food.serving_size_unit, "g", StringComparison.OrdinalIgnoreCase))
+            step = food.serving_size.Value;
+
         // Los yogures comerciales se sirven por envase/porción; no generamos 95 g o 143 g
         // de un yogur como si fuera un ingrediente continuo.
         if (name.Contains("yogur"))
-            step = 125;
+            step = food.serving_size is > 0 ? food.serving_size.Value : 125;
         else if (name.Contains("leche"))
             step = 50;
         else if (name.Contains("huevo") || name.Contains("clara"))
