@@ -223,9 +223,9 @@ public sealed class DietGeneratorRegressionTests
         var service = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietRegenerationService.cs"));
         var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "DietController.cs"));
 
-        Assert.Contains("replace-food", dto);
-        Assert.Contains("regenerate-meal", dto);
-        Assert.Contains("regenerate-day", dto);
+        Assert.Contains("replace-food", service);
+        Assert.Contains("regenerate-meal", service);
+        Assert.Contains("regenerate-day", service);
         Assert.Contains("PreserveNutritionTargets", dto);
         Assert.Contains("PreserveWeeklyVariety", dto);
         Assert.Contains("BeginTransactionAsync", service);
@@ -245,7 +245,7 @@ public sealed class DietGeneratorRegressionTests
         Assert.Contains("tenant_id == tenantId.Value", service);
         Assert.Contains("food_preferences", service);
         Assert.Contains("digestive_health", service);
-        Assert.Contains("diet.tenant_id == tenantId.Value", service);
+        Assert.Contains("d.tenant_id == tenantId.Value", service);
     }
 
 
