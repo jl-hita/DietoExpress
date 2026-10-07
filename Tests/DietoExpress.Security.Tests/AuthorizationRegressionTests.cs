@@ -340,7 +340,10 @@ public class AuthorizationRegressionTests
         Assert.DoesNotContain("StatusCodes.Status413PayloadTooLarge", source);
         Assert.Contains("new FileStream(", source);
         Assert.Contains("FileShare.ReadWrite | FileShare.Delete", source);
-        Assert.Contains("enableRangeProcessing: true", source);
+        Assert.Contains("const int chunkSizeBytes = 512 * 1024", source);
+        Assert.Contains("X-Log-Start", source);
+        Assert.Contains("X-Log-Has-More", source);
+        Assert.Contains("LogEntryHeaderRegex", source);
     }
 
     [Fact]
