@@ -69,8 +69,8 @@ public sealed class DietGeneratorRegressionTests
     {
         var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
 
-        Assert.Contains("name.Contains("miel")", source);
-        Assert.Contains("name.Contains("gelatina")", source);
+        Assert.Contains("name.Contains(\"miel\")", source);
+        Assert.Contains("name.Contains(\"gelatina\")", source);
         Assert.Contains("if (isVegan", source);
     }
 }
