@@ -1,9 +1,14 @@
 .sidebar-container {
   height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   padding: 24px 16px;
   box-sizing: border-box;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 .profile {
   display:flex; flex-direction:column; align-items:center; padding-bottom:24px;
@@ -14,7 +19,7 @@
   box-shadow:0 0 0 3px rgba(13,148,136,.2);margin-bottom:10px;object-fit:cover;background:#1e293b;
 }
 .profile .name {font-family:'Outfit',sans-serif;font-weight:600;font-size:15px;color:#f1f5f9;letter-spacing:.01em;max-width:100%;text-align:center;overflow-wrap:anywhere;}
-mat-nav-list {padding-top:8px!important;display:flex;flex-direction:column;gap:6px;}
+mat-nav-list {padding-top:8px!important;display:flex;flex-direction:column;gap:6px;min-height:0;}
 .menu-item a {
   border-radius:10px!important;color:#f8fafc!important;font-family:'Outfit',sans-serif!important;
   font-size:14px!important;font-weight:500!important;padding:10px 14px!important;
@@ -32,11 +37,11 @@ mat-nav-list {padding-top:8px!important;display:flex;flex-direction:column;gap:6
 .superadmin-item a:hover span,.superadmin-item a:hover mat-icon {color:#fff!important;}
 .superadmin-item a.active-link {background-color:#0f766e!important;color:#fff!important;}
 .superadmin-item a.active-link span,.superadmin-item a.active-link mat-icon {color:#fff!important;}
-.logout-link {margin-top:auto;border-top:1px solid #1e293b;padding-top:12px;}
+.logout-link {margin-top:12px;border-top:1px solid #1e293b;padding-top:12px;}
 .logout-link a:hover {background:rgba(239,68,68,.12)!important;color:#f87171!important;}
 .logout-link a:hover span,.logout-link a:hover mat-icon {color:#f87171!important;}
 @media(max-width:768px){
-  .sidebar-container{padding:20px 12px;}
+  .sidebar-container{padding:16px 12px;}
   .profile{padding-bottom:18px;margin-bottom:10px;}
   .profile .avatar{width:56px;height:56px;}
   .menu-item a{min-height:44px;padding:10px 12px!important;}
