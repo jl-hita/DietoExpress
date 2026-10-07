@@ -297,6 +297,7 @@ public partial class angulosodbContext : DbContext
             entity.Property(e => e.kcal).HasPrecision(6, 2);
             entity.Property(e => e.protein).HasPrecision(6, 2);
             entity.Property(e => e.exchange_count).HasPrecision(6, 2);
+            entity.Property(e => e.recipe_servings).HasPrecision(6, 2);
 
             entity.HasOne(d => d.food).WithMany(p => p.meal_items)
                 .HasForeignKey(d => d.food_id)
@@ -307,6 +308,11 @@ public partial class angulosodbContext : DbContext
                 .HasForeignKey(d => d.exchange_group_id)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("meal_items_exchange_group_id_fkey");
+
+            entity.HasOne(d => d.recipe).WithMany()
+                .HasForeignKey(d => d.recipe_id)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("meal_items_recipe_id_fkey");
 
             entity.HasOne(d => d.meal).WithMany(p => p.meal_items)
                 .HasForeignKey(d => d.meal_id)
@@ -352,6 +358,8 @@ public partial class angulosodbContext : DbContext
             entity.Property(e => e.name)
                 .IsRequired()
                 .HasMaxLength(200);
+            entity.Property(e => e.servings).HasPrecision(6, 2).HasDefaultValue(1);
+            entity.Property(e => e.yield_grams).HasPrecision(8, 2);
 
             entity.HasOne(d => d.user).WithMany(p => p.recipes)
                 .HasForeignKey(d => d.user_id)
