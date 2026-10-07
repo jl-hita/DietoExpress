@@ -4,7 +4,18 @@ namespace DietoExpress.Security.Tests;
 
 public class ProfessionalOnboardingRegressionTests
 {
-    private static string RepoRoot => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../"));
+    private static string RepoRoot
+    {
+        get
+        {
+            var directory = new DirectoryInfo(AppContext.BaseDirectory);
+            while (directory != null && !File.Exists(Path.Combine(directory.FullName, "Anguloso.Server", "Program.cs")))
+                directory = directory.Parent;
+
+            return directory?.FullName
+                ?? throw new InvalidOperationException("No se encontró la raíz del repositorio.");
+        }
+    }
 
     private static string Read(string path) => File.ReadAllText(Path.Combine(RepoRoot, path));
 
