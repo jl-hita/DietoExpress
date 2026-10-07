@@ -254,16 +254,19 @@ public class DietGeneratorService
 
         // Fase global posterior: recetas, frecuencias, compras, diversidad y sustituciones
         // compiten sobre la semana completa y vuelven a equilibrar cada día después.
-        await _advancedDietOptimizer.OptimizeWeeklyPlanAsync(
-            advancedDiet,
-            request,
-            allowedFoods,
-            tenantId,
-            targetKcal,
-            targetProtein,
-            targetCarbs,
-            targetFat,
-            cancellationToken);
+        if (request.EnableGlobalOptimization)
+        {
+            await _advancedDietOptimizer.OptimizeWeeklyPlanAsync(
+                advancedDiet,
+                request,
+                allowedFoods,
+                tenantId,
+                targetKcal,
+                targetProtein,
+                targetCarbs,
+                targetFat,
+                cancellationToken);
+        }
 
         return advancedDiet;
     }
