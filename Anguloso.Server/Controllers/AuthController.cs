@@ -252,7 +252,7 @@ public class AuthController : ControllerBase
                 token_version = 1,
                 subscription_plan = "free",
                 subscription_status = "active",
-                max_clients_allowed = 1
+                max_clients_allowed = 100
             };
 
             var tenant = new tenants
@@ -276,7 +276,7 @@ public class AuthController : ControllerBase
                 plan_id = freePlan.id,
                 status = "active",
                 started_at = DateTime.UtcNow,
-                expires_at = null
+                expires_at = DateTime.UtcNow.AddDays(freePlan.trial_days ?? 7)
             });
             await _context.SaveChangesAsync();
 
@@ -691,7 +691,7 @@ public class AuthController : ControllerBase
                             last_login = DateTime.UtcNow,
                             subscription_plan = "free",
                             subscription_status = "active",
-                            max_clients_allowed = 1
+                            max_clients_allowed = 100
                         };
 
                         var tenantGoogle = new tenants
@@ -723,7 +723,7 @@ public class AuthController : ControllerBase
                             plan_id = freePlanGoogle.id,
                             status = "active",
                             started_at = DateTime.UtcNow,
-                            expires_at = null
+                            expires_at = DateTime.UtcNow.AddDays(freePlanGoogle.trial_days ?? 7)
                         });
                         await _context.SaveChangesAsync();
 
