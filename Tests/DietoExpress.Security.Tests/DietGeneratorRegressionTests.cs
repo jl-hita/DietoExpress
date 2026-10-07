@@ -175,4 +175,45 @@ public sealed class DietGeneratorRegressionTests
         Assert.Contains("ShoppingVarietyThreshold", source);
     }
 
+    [Fact]
+    public void Generator_UsesStructuredDietTherapyAndEnergyRules()
+    {
+        var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietTherapyRuleEngine.cs"));
+        Assert.Contains("EstimateEnergy", source);
+        Assert.Contains("diabetes", source);
+        Assert.Contains("hypertension", source);
+        Assert.Contains("hypothyroidism", source);
+        Assert.Contains("NutrientWeights", source);
+        Assert.Contains("FrequencyTargets", source);
+    }
+
+    [Fact]
+    public void Generator_UsesLatestBiometricsAndProfessionalTemplates()
+    {
+        var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
+        Assert.Contains("_context.biometrics", source);
+        Assert.Contains("OrderByDescending(b => b.measurement_date)", source);
+        Assert.Contains("TemplateDietId", source);
+        Assert.Contains("VariantOfDietId", source);
+        Assert.Contains("d.is_template", source);
+    }
+
+    [Fact]
+    public void Generator_UsesExchangeGroupsForSemanticSubstitution()
+    {
+        var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "AdvancedDietOptimizerService.cs"));
+        Assert.Contains("exchange_group_id", source);
+        Assert.Contains("exchangeBonus", source);
+        Assert.Contains("exchange_group?.name", source);
+    }
+
+    [Fact]
+    public void Generator_ExplainsAppliedExpertRules()
+    {
+        var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
+        Assert.Contains("request.ExplainGeneration", source);
+        Assert.Contains("Reglas aplicadas", source);
+        Assert.Contains("motor experto", source);
+    }
+
 }

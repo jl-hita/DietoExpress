@@ -14,12 +14,14 @@ public class DietGeneratorService
     private readonly angulosodbContext _context;
     private readonly SpecializationRulesService _specializationRulesService;
     private readonly AdvancedDietOptimizerService _advancedDietOptimizer;
+    private readonly DietTherapyRuleEngine _dietTherapyRuleEngine;
 
     public DietGeneratorService(angulosodbContext context, SpecializationRulesService specializationRulesService)
     {
         _context = context;
         _specializationRulesService = specializationRulesService;
         _advancedDietOptimizer = new AdvancedDietOptimizerService(context);
+        _dietTherapyRuleEngine = new DietTherapyRuleEngine();
     }
 
     // La generación construye una dieta a partir de objetivos nutricionales, alimentos permitidos
@@ -27,13 +29,17 @@ public class DietGeneratorService
     public async Task<DietDetailDto> GenerateDietAsync(GenerateDietRequestDto request, int? tenantId, int userId, bool canUseTenantLocalFoods, CancellationToken cancellationToken = default)
     {
         // 1. Resolver cliente y especializaciones antes de fijar los objetivos automáticos.
-        double targetKcal = request.TargetKcal > 0 ? request.TargetKcal : 2000;
+        var hasExplicitKcal = request.TargetKcal > 0;
+        double targetKcal = hasExplicitKcal ? request.TargetKcal : 2000;
         clients? client = null;
         SpecializationRulesService.NutritionProfile? nutritionProfile = null;
         IReadOnlyList<string> clinicalGuidance = Array.Empty<string>();
         JsonElement? sportsProfile = null;
         JsonElement? weightProfile = null;
         var exclusions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        DietTherapyProfile? dietTherapyProfile = null;
+        biometrics? latestBiometrics = null;
+
         var preferredFoods = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var dislikedFoods = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         double? recentAdherence = null;
@@ -43,12 +49,34 @@ public class DietGeneratorService
         {
             client = await _context.clients
                 .Include(c => c.digestive_health)
-                .Include(c => c.food_preferences)
+                 .Include(c => c.food_preferences)
+                .Include(c => c.medical_history)
+                .Include(c => c.lifestyle_history)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(c => c.id == request.ClientId.Value && c.archived_at == null && (!tenantId.HasValue || c.tenant_id == tenantId.Value), cancellationToken);
 
             if (client != null)
             {
+                latestBiometrics = await _context.biometrics
+                    .AsNoTracking()
+                    .Where(b => b.client_id == client.id)
+                    .OrderByDescending(b => b.measurement_date)
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                if (request.EnableDietTherapyRules)
+                {
+                    dietTherapyProfile = _dietTherapyRuleEngine.BuildProfile(
+                        client,
+                        client.medical_history,
+                        client.lifestyle_history,
+                        latestBiometrics,
+                        request.DietType,
+                        targetKcal,
+                        hasExplicitKcal);
+
+                    if (!hasExplicitKcal && request.EnableAutomaticEnergyEstimate)
+                        targetKcal = dietTherapyProfile.TargetKcal;
+                }
                 // Las preferencias del paciente son criterios blandos: nunca pueden vencer
                 // alergias, intolerancias, exclusiones clínicas o reglas de especialización.
                 preferredFoods = ParseFoodTerms(client.food_preferences?.preferred_foods);
@@ -149,6 +177,7 @@ public class DietGeneratorService
                 ((f.source == null || f.source.ToLower() != "local") ||
                  UserCanUseTenantLocalFood(f, tenantId, userId, canUseTenantLocalFoods)))
             .OrderBy(f => f.id)
+            .Include(f => f.exchange_group)
             .Take(maxFoodsToLoad)
             .ToListAsync(cancellationToken);
 
@@ -182,6 +211,30 @@ public class DietGeneratorService
         // buscar candidatos adecuados a cada franja y repartir el uso de alimentos entre días.
         var foodPools = CategorizeFoods(allowedFoods, request.DietType);
         var mealSplits = GetMealSplits(request.MealsPerDay);
+
+        // Las plantillas profesionales reutilizan la estructura de comidas, pero no fuerzan
+        // alimentos concretos: cada componente vuelve a pasar por las restricciones clínicas
+        // y por el optimizador global.
+        var templateId = request.TemplateDietId ?? request.VariantOfDietId;
+        if (templateId.HasValue && tenantId.HasValue)
+        {
+            var templateMeals = await _context.diets
+                .AsNoTracking()
+                .Where(d => d.id == templateId.Value &&
+                            d.tenant_id == tenantId.Value &&
+                            d.archived_at == null &&
+                            (d.is_template || request.VariantOfDietId.HasValue))
+                .SelectMany(d => d.diet_days.OrderBy(dd => dd.day_index).Take(1)
+                    .SelectMany(dd => dd.meals.OrderBy(m => m.meal_index)
+                        .Select(m => m.name)))
+                .ToListAsync(cancellationToken);
+
+            if (templateMeals.Count == mealSplits.Count)
+            {
+                for (var i = 0; i < mealSplits.Count; i++)
+                    mealSplits[i].MealName = templateMeals[i];
+            }
+        }
 
         var weeklyUsageCount = new Dictionary<int, int>();
         var weeklyRoleFamilyUsage = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -245,7 +298,8 @@ public class DietGeneratorService
             TargetProtein = (decimal)Math.Round(targetProtein),
             TargetCarbs = (decimal)Math.Round(targetCarbs),
             TargetFat = (decimal)Math.Round(targetFat),
-            Notes = $"Plan generado automáticamente por el motor heurístico el {DateTime.Now:dd/MM/yyyy}. {request.MealsPerDay} comidas al día." +
+            Notes = $"Plan generado automáticamente por el motor experto el {DateTime.Now:dd/MM/yyyy}. {request.MealsPerDay} comidas al día." +
+                (request.ExplainGeneration && dietTherapyProfile != null && dietTherapyProfile.Rules.Count > 0 ? " Reglas aplicadas: " + string.Join(" ", dietTherapyProfile.Rules) : string.Empty) +
                 (clinicalGuidance.Count > 0 ? " Especializaciones activas: " + string.Join(" ", clinicalGuidance) : string.Empty) +
                 (preferredFoods.Count > 0 ? " Preferencias alimentarias del paciente aplicadas como criterio de adherencia." : string.Empty) +
                 (recentAdherence.HasValue ? $" Adherencia reciente considerada: {Math.Round(recentAdherence.Value, 1)}/10." : string.Empty),
@@ -265,6 +319,7 @@ public class DietGeneratorService
                 targetProtein,
                 targetCarbs,
                 targetFat,
+                dietTherapyProfile,
                 cancellationToken);
         }
 
