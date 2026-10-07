@@ -12,6 +12,13 @@ namespace Anguloso.Server.Logica;
 
 public sealed class DietSemanticValidationService
 {
+    private readonly DietValidationService _dietValidationService;
+
+    public DietSemanticValidationService(DietValidationService dietValidationService)
+    {
+        _dietValidationService = dietValidationService;
+    }
+
     /// <summary>
     /// Última barrera del generador. Una dieta no se acepta aunque sus macros cuadren
     /// si su estructura, porciones, variedad, alimentos o recetas son semánticamente incoherentes.
@@ -21,6 +28,9 @@ public sealed class DietSemanticValidationService
         GenerateDietRequestDto request,
         IReadOnlyCollection<foods> allowedFoods,
         angulosodbContext context,
+        int? tenantId = null,
+        int userId = 0,
+        bool canUseTenantLocalFoods = false,
         CancellationToken cancellationToken = default)
     {
         var errors = ValidateStructure(diet, request, allowedFoods);
@@ -92,6 +102,27 @@ public sealed class DietSemanticValidationService
             errors.Add($"La misma combinación de alimentos se repite {pair.Value} veces en la semana; la variedad culinaria mínima no se cumple.");
 
         ValidateDailyNutrition(errors, diet, request);
+
+        // La barrera semántica final también consolida las incompatibilidades clínicas
+        // de la misma forma que la validación de borradores. Así ninguna optimización,
+        // receta o sustitución puede sortear alergias, intolerancias, especializaciones
+        // o interacciones farmacológicas justo antes de aceptar el plan.
+        if (request.ClientId.HasValue)
+        {
+            var compatibilityWarnings = await _dietValidationService.ValidateDietDraftCompatibilityAsync(
+                request.ClientId.Value,
+                diet,
+                context,
+                tenantId,
+                userId,
+                canUseTenantLocalFoods);
+
+            foreach (var warning in compatibilityWarnings.Where(w =>
+                string.Equals(w.Severity, "High", StringComparison.OrdinalIgnoreCase)))
+            {
+                errors.Add($"Incompatibilidad clínica de alta severidad: {warning.Message}");
+            }
+        }
 
         if (errors.Count > 0)
         {
