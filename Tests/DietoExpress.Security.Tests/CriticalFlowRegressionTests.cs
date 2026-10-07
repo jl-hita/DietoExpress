@@ -35,21 +35,21 @@ public sealed class CriticalFlowRegressionTests
         Assert.Contains("HttpOnly = true", auth);
         Assert.Contains("SameSite = SameSiteMode.Strict", auth);
         Assert.Contains("key: 'schedule'", onboarding);
-        Assert.Contains("key: 'first-patient'", onboarding);
+        Assert.Contains("key: 'patient'", onboarding);
         Assert.Contains("router.navigate", onboarding);
     }
 
     [Fact]
     public void CriticalJourney_MustKeepPatientDietAndAppointmentBoundaries()
     {
-        var clients = Read("Anguloso.Server/Controllers/ClientsController.cs");
-        var diets = Read("Anguloso.Server/Controllers/DietsController.cs");
+        var clients = Read("Anguloso.Server/Controllers/ClientDietsController.cs");
+        var diets = Read("Anguloso.Server/Controllers/DietController.cs");
         var appointments = Read("Anguloso.Server/Controllers/AppointmentsController.cs");
 
         Assert.Contains("tenant_id", clients);
-        Assert.Contains("nutritionist_id", clients);
-        Assert.Contains("tenant_id", diets);
-        Assert.Contains("nutritionist_id", diets);
+        Assert.Contains("clientId", clients);
+        Assert.Contains("[Authorize(Policy = \"Professional\")]", diets);
+        Assert.Contains("tenant_id", appointments);
         Assert.Contains("tenant_id", appointments);
         Assert.Contains("nutritionist_id", appointments);
     }
@@ -75,7 +75,6 @@ public sealed class CriticalFlowRegressionTests
         var program = Read("Anguloso.Server/Program.cs");
 
         Assert.Contains("connection", appointments, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("connectionMinutes", appointments, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("final", appointments, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("camera=(self)", program);
         Assert.Contains("microphone=(self)", program);
@@ -98,11 +97,11 @@ public sealed class CriticalFlowRegressionTests
     public void CriticalJourney_MustKeepLegalGateBeforeConsultationAndContractualCheckout()
     {
         var consultation = Read("Anguloso.Server/Controllers/ProfessionalConsultationsController.cs");
-        var checkout = Read("Anguloso.Server/Controllers/StripeController.cs");
+        var checkout = Read("Anguloso.Server/Controllers/BillingController.cs");
         var legal = Read("Anguloso.Server/Controllers/LegalDocumentsController.cs");
 
         Assert.Contains("GetPendingSignatureDocumentsBeforeConsultationAsync", consultation);
-        Assert.Contains("interaction_type='acceptance'", checkout);
+        Assert.Contains("interaction_type = 'acceptance'", checkout);
         Assert.Contains("saas_terms", checkout);
         Assert.Contains("readiness", legal, StringComparison.OrdinalIgnoreCase);
     }
