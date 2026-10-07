@@ -102,6 +102,7 @@ public sealed class DietSemanticValidationService
             errors.Add($"La misma combinación de alimentos se repite {pair.Value} veces en la semana; la variedad culinaria mínima no se cumple.");
 
         ValidateDailyNutrition(errors, diet, request);
+        ValidateDietTypeSemantics(errors, diet, request.DietType);
 
         // La barrera semántica final también consolida las incompatibilidades clínicas
         // de la misma forma que la validación de borradores. Así ninguna optimización,
@@ -195,6 +196,55 @@ public sealed class DietSemanticValidationService
         if (IsRareOil(food.name))
             errors.Add($"Día {dayIndex + 1}, {meal.Name}: «{food.name}» es un aceite no estándar.");
     }
+
+    private static void ValidateDietTypeSemantics(List<string> errors, DietDetailDto diet, string dietType)
+    {
+        var type = Normalize(dietType);
+        var vegan = type.Contains("vegana");
+        var vegetarian = type.Contains("vegetariana") && !vegan;
+        var keto = type.Contains("cetogen");
+        var lowCarb = type.Contains("baja") && type.Contains("carb");
+
+        foreach (var day in diet.Days)
+        foreach (var meal in day.Meals)
+        foreach (var item in meal.Items.Where(i => i.FoodId.HasValue && (i.Grams ?? 0) > 0))
+        {
+            var food = Normalize(item.FoodName ?? string.Empty);
+
+            if ((vegan || vegetarian) && IsAnimalFood(food))
+                errors.Add($"Día {day.DayIndex + 1}, {meal.Name}: «{item.FoodName}» no es compatible con una pauta {(vegan ? "vegana" : "vegetariana")}.");
+
+            if (keto && IsKetoForbiddenCarb(food))
+                errors.Add($"Día {day.DayIndex + 1}, {meal.Name}: «{item.FoodName}» es incompatible con la estructura de una pauta cetogénica.");
+
+            if (lowCarb && IsLowCarbForbiddenStaple(food))
+                errors.Add($"Día {day.DayIndex + 1}, {meal.Name}: «{item.FoodName}» es un hidrato concentrado no compatible con la pauta baja en hidratos.");
+
+            if (food.Contains("zumo") || food.Contains("refresco") || food.Contains("bebida azucarada") ||
+                food.Contains("mermelada") || food.Contains("caramelo") || food.Contains("bolleria") ||
+                food.Contains("azucar"))
+            {
+                // Estos productos no son una prohibición universal, pero sí una señal dura
+                // cuando el paciente tiene diabetes: el motor no los introduce como base automática.
+                // La comprobación clínica final se aplica abajo solo si el paciente tiene diabetes.
+            }
+        }
+    }
+
+    private static bool IsAnimalFood(string food) =>
+        new[] { "carne", "pollo", "pavo", "ternera", "cerdo", "conejo", "cordero", "pescado",
+                "atun", "salmon", "merluza", "bacalao", "sardina", "caballa", "marisco", "gamba",
+                "huevo", "clara", "leche", "yogur", "queso", "kefir", "mantequilla", "miel",
+                "gelatina" }.Any(food.Contains);
+
+    private static bool IsKetoForbiddenCarb(string food) =>
+        new[] { "pan", "arroz", "pasta", "patata", "boniato", "avena", "cuscus", "quinoa",
+                "lenteja", "garbanzo", "alubia", "guisante", "arroz inflado", "cereal",
+                "platano", "uva", "mango", "cereza" }.Any(food.Contains);
+
+    private static bool IsLowCarbForbiddenStaple(string food) =>
+        new[] { "pan blanco", "pan de molde", "arroz blanco", "pasta", "macarron", "espagueti",
+                "patata", "boniato", "cuscus", "arroz inflado", "cereal azucarado" }.Any(food.Contains);
 
     private static void ValidateDailyNutrition(List<string> errors, DietDetailDto diet, GenerateDietRequestDto request)
     {
