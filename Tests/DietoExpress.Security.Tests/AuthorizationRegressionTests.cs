@@ -311,6 +311,34 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
+    public void AutomatedDietGeneration_BuildsMealsFromCulinaryComponentsBeforeMacroOptimization()
+    {
+        var source = ReadServerLogica("DietGeneratorService.cs");
+        var templateStart = source.IndexOf("private List<SlotConfig> GetTemplateForMeal", StringComparison.Ordinal);
+        var templateEnd = source.IndexOf("#endregion", templateStart, StringComparison.Ordinal);
+
+        Assert.True(templateStart >= 0 && templateEnd > templateStart);
+        var template = source[templateStart..templateEnd];
+
+        Assert.Contains("Role = \"Carbs\"", template);
+        Assert.Contains("Role = \"Protein\"", template);
+        Assert.Contains("Role = \"Vegetable\"", template);
+        Assert.Contains("Role = \"Oil\"", template);
+
+        Assert.Contains("Role = \"BreakfastCarb\"", template);
+        Assert.Contains("Role = \"DairyOrEgg\"", template);
+        Assert.Contains("Role = \"SnackProtein\"", template);
+        Assert.Contains("Role = \"Fruit\"", template);
+
+        var buildStart = source.IndexOf("private List<MealItemDto> BuildAndOptimizeMeal", StringComparison.Ordinal);
+        Assert.True(buildStart >= 0);
+        var build = source[buildStart..source.IndexOf("private static string CreateMealSignature", buildStart, StringComparison.Ordinal)];
+
+        Assert.True(build.IndexOf("var slots = GetTemplateForMeal", StringComparison.Ordinal)
+            < build.IndexOf("var grams = OptimizeGrams", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void AutomatedDietGeneration_BoundsMacroAndDietTypeInput()
     {
         var source = ReadServerController("DietController.cs");

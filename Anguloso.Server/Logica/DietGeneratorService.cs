@@ -392,6 +392,9 @@ public class DietGeneratorService
     #region Algoritmo de Selección y Optimización Matemática
 
     // Selecciona alimentos compatibles con la comida y reparte la cantidad objetivo mediante OptimizeGrams.
+    // Primera fase: construye la comida por componentes culinarios.
+    // Segunda fase: OptimizeGrams ajusta las cantidades dentro de los límites de cada componente.
+    // La selección de alimentos no depende primero de cuadrar macros.
     // La aleatoriedad favorece variedad entre candidatos con puntuaciones similares.
     private List<MealItemDto> BuildAndOptimizeMeal(
         string mealName, 
@@ -697,7 +700,7 @@ public class DietGeneratorService
             "Protein" or "DairyOrEgg" or "SnackProtein" =>
                 Math.Abs(proteinShare - targetProteinShare) * 25 +
                 Math.Max(0, fatShare - targetFatShare) * 6,
-            "Carbs" or "BreakfastCarb" or "LightCarb" =>
+            "Carbs" or "BreakfastCarb" or "LightCarb" or "SnackCarb" =>
                 Math.Abs(carbsShare - targetCarbsShare) * 20,
             "Vegetable" =>
                 Math.Max(0, kcal / 150.0 - 1.0) * 8,
@@ -749,7 +752,7 @@ public class DietGeneratorService
                     double p100 = f.protein ?? 1;
                     step = (errP / Math.Max(p100, 5)) * 15.0;
                 }
-                else if (s.Role == "Carbs" || s.Role == "BreakfastCarb" || s.Role == "LightCarb")
+                else if (s.Role == "Carbs" || s.Role == "BreakfastCarb" || s.Role == "LightCarb" || s.Role == "SnackCarb")
                 {
                     double c100 = f.carbs ?? 1;
                     step = (errC / Math.Max(c100, 5)) * 15.0;
@@ -925,40 +928,51 @@ public class DietGeneratorService
     private List<SlotConfig> GetTemplateForMeal(string mealName)
     {
         var m = mealName.ToLowerInvariant();
+
+        // Las comidas pequeñas no se tratan como una comida principal reducida.
+        // Se construyen con combinaciones habituales de desayuno/media mañana/merienda.
+        // El optimizador ajusta después las cantidades, pero nunca elimina el componente
+        // que da identidad culinaria a la ingesta.
         if (m.Contains("desayuno"))
         {
             return new List<SlotConfig>
             {
-                new() { Role = "BreakfastCarb", MinGrams = 30, MaxGrams = 80, DefaultGrams = 50 },
-                new() { Role = "DairyOrEgg", MinGrams = 80, MaxGrams = 200, DefaultGrams = 125 },
+                // Desayuno habitual: cereal/pan + lácteo/huevo + fruta.
+                new() { Role = "BreakfastCarb", MinGrams = 35, MaxGrams = 90, DefaultGrams = 55 },
+                new() { Role = "DairyOrEgg", MinGrams = 100, MaxGrams = 200, DefaultGrams = 150 },
                 new() { Role = "Fruit", MinGrams = 80, MaxGrams = 180, DefaultGrams = 120 }
             };
         }
-        if (m.Contains("media") || m.Contains("merienda"))
+
+        if (m.Contains("media"))
         {
             return new List<SlotConfig>
             {
-                new() { Role = "SnackProtein", MinGrams = 80, MaxGrams = 180, DefaultGrams = 125 },
-                new() { Role = "FruitOrNuts", MinGrams = 15, MaxGrams = 120, DefaultGrams = 30 }
-            };
-        }
-        if (m.Contains("cena"))
-        {
-            return new List<SlotConfig>
-            {
-                new() { Role = "Protein", MinGrams = 100, MaxGrams = 200, DefaultGrams = 130 },
-                new() { Role = "Vegetable", MinGrams = 100, MaxGrams = 250, DefaultGrams = 150 },
-                new() { Role = "LightCarb", MinGrams = 30, MaxGrams = 120, DefaultGrams = 60 },
-                new() { Role = "Oil", MinGrams = 5, MaxGrams = 15, DefaultGrams = 10 }
+                // Media mañana habitual: fruta + lácteo/proteína.
+                new() { Role = "Fruit", MinGrams = 100, MaxGrams = 200, DefaultGrams = 150 },
+                new() { Role = "SnackProtein", MinGrams = 80, MaxGrams = 180, DefaultGrams = 125 }
             };
         }
 
-        // Comida Principal
+        if (m.Contains("merienda"))
+        {
+            return new List<SlotConfig>
+            {
+                // Merienda habitual: pan/avena + proteína, con fruta como tercer componente.
+                new() { Role = "BreakfastCarb", MinGrams = 30, MaxGrams = 80, DefaultGrams = 50 },
+                new() { Role = "SnackProtein", MinGrams = 60, MaxGrams = 160, DefaultGrams = 100 },
+                new() { Role = "Fruit", MinGrams = 80, MaxGrams = 180, DefaultGrams = 120 }
+            };
+        }
+
+        // Comida y cena son comidas principales: hidrato + proteína + verdura/hortaliza
+        // + grasa culinaria. La fuente de hidratos puede quedar vacía únicamente cuando
+        // el tipo de dieta no la permite (por ejemplo, una cetogénica).
         return new List<SlotConfig>
         {
-            new() { Role = "Protein", MinGrams = 110, MaxGrams = 220, DefaultGrams = 140 },
             new() { Role = "Carbs", MinGrams = 50, MaxGrams = 180, DefaultGrams = 100 },
-            new() { Role = "Vegetable", MinGrams = 80, MaxGrams = 200, DefaultGrams = 120 },
+            new() { Role = "Protein", MinGrams = 100, MaxGrams = 220, DefaultGrams = 140 },
+            new() { Role = "Vegetable", MinGrams = 100, MaxGrams = 250, DefaultGrams = 150 },
             new() { Role = "Oil", MinGrams = 5, MaxGrams = 18, DefaultGrams = 10 }
         };
     }
@@ -990,6 +1004,8 @@ public class DietGeneratorService
                 "DairyOrEgg" => DairyAndEggs,
                 "BreakfastCarb" => BreakfastCarbs,
                 "SnackProtein" => DairyAndEggs.Concat(Proteins).ToList(),
+                "SnackCarb" => BreakfastCarbs.Concat(Carbs).ToList(),
+                "SnackFruit" => Fruits,
                 "FruitOrNuts" => Fruits.Concat(Nuts).ToList(),
                 "Oil" => OilsAndFats,
                 "Fat" => OilsAndFats.Concat(Nuts).ToList(),
