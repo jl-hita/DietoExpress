@@ -81,16 +81,20 @@ export class OnboardingComponent implements OnInit {
     return this.profile?.fullName || this.authService.getUser()?.username || 'profesional';
   }
 
+  get requiredSteps(): OnboardingStep[] {
+    return this.steps.filter(step => !step.optional);
+  }
+
   get completedCount(): number {
-    return this.steps.filter(step => step.complete).length;
+    return this.requiredSteps.filter(step => step.complete).length;
   }
 
   get progress(): number {
-    return this.steps.length ? Math.round(this.completedCount * 100 / this.steps.length) : 100;
+    return this.requiredSteps.length ? Math.round(this.completedCount * 100 / this.requiredSteps.length) : 100;
   }
 
   get isComplete(): boolean {
-    return this.steps.length > 0 && this.completedCount === this.steps.length;
+    return this.requiredSteps.length > 0 && this.completedCount === this.requiredSteps.length;
   }
 
   private buildSteps(profile: Profile | null, license: LicenseStatus | null): void {
