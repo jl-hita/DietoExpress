@@ -117,7 +117,7 @@ public sealed class DietRegenerationService
                     .ToList();
 
                 if (candidates.Count == 0)
-                    candidates = allFoods.Where(f => IsAllowed(f, forbidden) && IsCompatibleRole(f, item, selectedMeal.Name))
+                    candidates = allFoods.Where(f => IsAllowed(f, forbidden) && IsCompatibleRole(f, item, selectedMeal.name))
                         .OrderBy(f => CandidateScore(f, item, usedFoodIds, mealUsed)).Take(20).ToList();
 
                 var candidate = candidates.FirstOrDefault();
@@ -157,7 +157,7 @@ public sealed class DietRegenerationService
         }
 
         var after = Objective(diet);
-        var maxAllowedWorsening = request.PreserveNutritionTargets ? 0.12m : 0.30m;
+        var maxAllowedWorsening = request.PreserveNutritionTargets ? 0.12 : 0.30;
         if (after > before * (1 + maxAllowedWorsening))
         {
             await transaction.RollbackAsync(cancellationToken);
