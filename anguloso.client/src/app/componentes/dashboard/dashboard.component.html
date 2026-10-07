@@ -1,50 +1,53 @@
-<main class="dashboard">
+<main class="dashboard" aria-labelledby="dashboard-title">
   <ng-container *ngIf="loading">
-    <div class="loading"><mat-spinner diameter="42"></mat-spinner><span>Cargando tu jornada…</span></div>
+    <div class="loading" role="status" aria-live="polite">
+      <mat-spinner diameter="42"></mat-spinner>
+      <span>Cargando tu jornada…</span>
+    </div>
   </ng-container>
 
   <ng-container *ngIf="!loading && data">
     <header class="hero">
       <div>
         <span class="eyebrow">DIETOEXPRESS</span>
-        <h1>Tu jornada de hoy</h1>
+        <h1 id="dashboard-title">Tu jornada de hoy</h1>
         <p>Un resumen de lo que requiere tu atención.</p>
       </div>
-      <button mat-stroked-button (click)="reload()" aria-label="Actualizar dashboard">
-        <mat-icon>refresh</mat-icon> Actualizar
+      <button mat-stroked-button type="button" (click)="reload()" aria-label="Actualizar dashboard">
+        <mat-icon aria-hidden="true">refresh</mat-icon> Actualizar
       </button>
     </header>
 
     <section class="cards" aria-label="Resumen">
-      <button mat-card class="metric" (click)="openAppointments()">
-        <mat-icon>event</mat-icon><strong>{{data.todayAppointments.length}}</strong><span>Citas hoy</span>
+      <button mat-card type="button" class="metric" (click)="openAppointments()" aria-label="Ver citas de hoy">
+        <mat-icon aria-hidden="true">event</mat-icon><strong>{{data.todayAppointments.length}}</strong><span>Citas hoy</span>
       </button>
-      <button mat-card class="metric" (click)="openCheckins()">
-        <mat-icon>fact_check</mat-icon><strong>{{data.pendingCheckinCount}}</strong><span>Check-ins por revisar</span>
+      <button mat-card type="button" class="metric" (click)="openCheckins()" aria-label="Ver check-ins pendientes">
+        <mat-icon aria-hidden="true">fact_check</mat-icon><strong>{{data.pendingCheckinCount}}</strong><span>Check-ins por revisar</span>
       </button>
-      <button mat-card class="metric" (click)="openMessages()">
-        <mat-icon>mail</mat-icon><strong>{{data.unreadMessageCount}}</strong><span>Mensajes sin leer</span>
+      <button mat-card type="button" class="metric" (click)="openMessages()" aria-label="Ver mensajes sin leer">
+        <mat-icon aria-hidden="true">mail</mat-icon><strong>{{data.unreadMessageCount}}</strong><span>Mensajes sin leer</span>
       </button>
-      <button mat-card class="metric" (click)="openClient(data.pendingDocuments[0].clientId)" [disabled]="!data.pendingDocumentCount">
-        <mat-icon>description</mat-icon><strong>{{data.pendingDocumentCount}}</strong><span>Documentos pendientes</span>
+      <button mat-card type="button" class="metric" (click)="openClient(data.pendingDocuments[0].clientId)" [disabled]="!data.pendingDocumentCount" aria-label="Ver documentos pendientes">
+        <mat-icon aria-hidden="true">description</mat-icon><strong>{{data.pendingDocumentCount}}</strong><span>Documentos pendientes</span>
       </button>
-      <button mat-card class="metric" (click)="openClient(data.pendingPatientData[0].clientId)" [disabled]="!data.pendingPatientDataCount">
-        <mat-icon>person_search</mat-icon><strong>{{data.pendingPatientDataCount}}</strong><span>Pacientes con datos pendientes</span>
+      <button mat-card type="button" class="metric" (click)="openClient(data.pendingPatientData[0].clientId)" [disabled]="!data.pendingPatientDataCount" aria-label="Ver pacientes con datos pendientes">
+        <mat-icon aria-hidden="true">person_search</mat-icon><strong>{{data.pendingPatientDataCount}}</strong><span>Pacientes con datos pendientes</span>
       </button>
-      <button mat-card class="metric" (click)="openTasks()">
-        <mat-icon>task_alt</mat-icon><strong>{{data.openTaskCount}}</strong><span>Tareas abiertas</span>
+      <button mat-card type="button" class="metric" (click)="openTasks()" aria-label="Ver tareas abiertas">
+        <mat-icon aria-hidden="true">task_alt</mat-icon><strong>{{data.openTaskCount}}</strong><span>Tareas abiertas</span>
         <small *ngIf="data.overdueTaskCount">{{data.overdueTaskCount}} vencidas</small>
       </button>
     </section>
 
-    <section class="grid">
+    <section class="grid" aria-label="Actividad">
       <mat-card>
         <mat-card-header><mat-card-title>Citas de hoy</mat-card-title></mat-card-header>
         <mat-card-content>
           <div class="row" *ngFor="let a of data.todayAppointments">
             <div><strong>{{a.startsAt|date:'HH:mm'}}</strong><span>{{a.clientName}}</span></div>
             <span class="status">{{a.status==='requested'?'Solicitada':'Confirmada'}}</span>
-            <button mat-button (click)="openAppointment(a)">{{a.status==='confirmed'?'Consulta':'Agenda'}}</button>
+            <button mat-button type="button" (click)="openAppointment(a)">{{a.status==='confirmed'?'Consulta':'Agenda'}}</button>
           </div>
           <p class="empty" *ngIf="!data.todayAppointments.length">No tienes citas pendientes para hoy.</p>
         </mat-card-content>
@@ -53,17 +56,14 @@
       <mat-card>
         <mat-card-header>
           <mat-card-title>Tareas que requieren atención</mat-card-title>
-          <button mat-button class="header-action" (click)="openTasks()" *ngIf="data.openTaskCount">Ver todas</button>
+          <button mat-button type="button" class="header-action" (click)="openTasks()" *ngIf="data.openTaskCount">Ver todas</button>
         </mat-card-header>
         <mat-card-content>
           <div class="row" *ngFor="let task of data.openTasks">
-            <div>
-              <strong>{{task.title}}</strong>
-              <span>{{task.clientName}} · {{priorityLabel(task.priority)}}</span>
-            </div>
+            <div><strong>{{task.title}}</strong><span>{{task.clientName}} · {{priorityLabel(task.priority)}}</span></div>
             <span class="status overdue" *ngIf="isOverdue(task)">Vencida</span>
             <span class="due" *ngIf="!isOverdue(task) && task.dueAt">Vence {{task.dueAt|date:'dd/MM HH:mm'}}</span>
-            <button mat-button (click)="openTask(task)">{{task.clientId?'Paciente':'Abrir'}}</button>
+            <button mat-button type="button" (click)="openTask(task)">{{task.clientId?'Paciente':'Abrir'}}</button>
           </div>
           <p class="empty" *ngIf="!data.openTasks.length">No tienes tareas abiertas.</p>
         </mat-card-content>
@@ -75,18 +75,18 @@
           <div class="row" *ngFor="let a of data.upcomingAppointments">
             <div><strong>{{a.startsAt|date:'EEE dd/MM HH:mm'}}</strong><span>{{a.clientName}}</span></div>
             <span class="status">{{a.status==='requested'?'Solicitada':'Confirmada'}}</span>
-            <button mat-button (click)="openAppointment(a)">{{a.status==='confirmed'?'Consulta':'Agenda'}}</button>
+            <button mat-button type="button" (click)="openAppointment(a)">{{a.status==='confirmed'?'Consulta':'Agenda'}}</button>
           </div>
           <p class="empty" *ngIf="!data.upcomingAppointments.length">No hay citas próximas confirmadas o solicitadas.</p>
         </mat-card-content>
       </mat-card>
 
       <mat-card>
-        <mat-card-header><mat-card-title>Check-ins por revisar</mat-card-title><button mat-button class="header-action" (click)="openCheckins()" *ngIf="data.pendingCheckinCount">Ver pacientes</button></mat-card-header>
+        <mat-card-header><mat-card-title>Check-ins por revisar</mat-card-title><button mat-button type="button" class="header-action" (click)="openCheckins()" *ngIf="data.pendingCheckinCount">Ver pacientes</button></mat-card-header>
         <mat-card-content>
           <div class="row" *ngFor="let c of data.pendingCheckins">
             <div><strong>{{c.clientName}}</strong><span>Enviado {{c.submittedAt|date:'dd/MM/yyyy HH:mm'}}</span></div>
-            <button mat-button (click)="openCheckin(c)">Revisar paciente</button>
+            <button mat-button type="button" (click)="openCheckin(c)">Revisar paciente</button>
           </div>
           <p class="empty" *ngIf="!data.pendingCheckins.length">No tienes check-ins pendientes de revisión.</p>
         </mat-card-content>
@@ -97,7 +97,7 @@
         <mat-card-content>
           <div class="row" *ngFor="let p of data.pendingPatientData">
             <div><strong>{{p.clientName}}</strong><span>Falta: {{p.missingFields}}</span></div>
-            <button mat-button (click)="openClient(p.clientId)">Abrir ficha</button>
+            <button mat-button type="button" (click)="openClient(p.clientId)">Abrir ficha</button>
           </div>
           <p class="empty" *ngIf="!data.pendingPatientData.length">No hay pacientes con datos de onboarding pendientes.</p>
         </mat-card-content>
@@ -106,22 +106,12 @@
       <mat-card *ngIf="data.documentProvisioningRetryCount || data.documentProvisioningFailedCount || data.documentProvisioningIncompleteCount || data.documentProvisioningIssues.length">
         <mat-card-header><mat-card-title>Estado de provisión documental</mat-card-title></mat-card-header>
         <mat-card-content>
-          <p *ngIf="data.documentProvisioningRetryCount">
-            Hay {{data.documentProvisioningRetryCount}} provisión{{data.documentProvisioningRetryCount===1?'':'es'}} en reintento.
-          </p>
-          <p *ngIf="data.documentProvisioningFailedCount" class="error">
-            {{data.documentProvisioningFailedCount}} provisión{{data.documentProvisioningFailedCount===1?'':'es'}} ha{{data.documentProvisioningFailedCount===1?'':'n'}} fallado definitivamente y requiere revisión.
-          </p>
-          <p *ngIf="data.documentProvisioningIncompleteCount" class="error">
-            {{data.documentProvisioningIncompleteCount}} provisión{{data.documentProvisioningIncompleteCount===1?'':'es'}} figura{{data.documentProvisioningIncompleteCount===1?'':'n'}} completada{{data.documentProvisioningIncompleteCount===1?'':'s'}}, pero falta documentación obligatoria.
-          </p>
+          <p *ngIf="data.documentProvisioningRetryCount">Hay {{data.documentProvisioningRetryCount}} provisión{{data.documentProvisioningRetryCount===1?'':'es'}} en reintento.</p>
+          <p *ngIf="data.documentProvisioningFailedCount" class="error-text">{{data.documentProvisioningFailedCount}} provisión{{data.documentProvisioningFailedCount===1?'':'es'}} ha{{data.documentProvisioningFailedCount===1?'':'n'}} fallado definitivamente y requiere revisión.</p>
+          <p *ngIf="data.documentProvisioningIncompleteCount" class="error-text">{{data.documentProvisioningIncompleteCount}} provisión{{data.documentProvisioningIncompleteCount===1?'':'es'}} figura{{data.documentProvisioningIncompleteCount===1?'':'n'}} completada{{data.documentProvisioningIncompleteCount===1?'':'s'}}, pero falta documentación obligatoria.</p>
           <div class="row" *ngFor="let p of data.documentProvisioningIssues">
-            <div>
-              <strong>{{p.clientName}}</strong>
-              <span>{{p.status==='failed'?'Fallida':(p.status==='completed_incomplete'?'Completada pero incompleta':(p.status==='processing'?'Procesando':'Reintentando'))}} · {{p.attempts}}/{{p.maxAttempts}} intentos</span>
-              <small *ngIf="p.lastError">{{p.lastError}}</small>
-            </div>
-            <button mat-button (click)="openClient(p.clientId)">Abrir ficha</button>
+            <div><strong>{{p.clientName}}</strong><span>{{p.status==='failed'?'Fallida':(p.status==='completed_incomplete'?'Completada pero incompleta':(p.status==='processing'?'Procesando':'Reintentando'))}} · {{p.attempts}}/{{p.maxAttempts}} intentos</span><small *ngIf="p.lastError">{{p.lastError}}</small></div>
+            <button mat-button type="button" (click)="openClient(p.clientId)">Abrir ficha</button>
           </div>
         </mat-card-content>
       </mat-card>
@@ -131,7 +121,7 @@
         <mat-card-content>
           <div class="row" *ngFor="let p of data.pendingDocuments">
             <div><strong>{{p.clientName}}</strong><span>{{p.pendingCount}} documento{{p.pendingCount===1?'':'s'}} pendiente{{p.pendingCount===1?'':'s'}}</span></div>
-            <button mat-button (click)="openClient(p.clientId)">Abrir ficha</button>
+            <button mat-button type="button" (click)="openClient(p.clientId)">Abrir ficha</button>
           </div>
           <p class="empty" *ngIf="!data.pendingDocuments.length">No hay documentación pendiente de aceptación.</p>
         </mat-card-content>
@@ -139,9 +129,9 @@
     </section>
   </ng-container>
 
-  <div class="error" *ngIf="error">
-    <mat-icon>error_outline</mat-icon>
+  <div class="error" *ngIf="error" role="alert">
+    <mat-icon aria-hidden="true">error_outline</mat-icon>
     <span>{{error}}</span>
-    <button mat-button (click)="reload()">Reintentar</button>
+    <button mat-button type="button" (click)="reload()">Reintentar</button>
   </div>
 </main>
