@@ -44,6 +44,7 @@ public sealed class DietGeneratorRegressionTests
         Assert.Contains("recentAdherence", source);
         Assert.Contains("recentAdherence.Value <= 5", source);
         Assert.Contains("adherenceBoost", source);
+        Assert.Contains("c.tenant_id == tenantId.Value", source);
     }
 
     [Fact]
@@ -58,6 +59,8 @@ public sealed class DietGeneratorRegressionTests
         Assert.Contains("RelativeError(totalProtein, targetProtein)", source);
         Assert.Contains("RelativeError(totalCarbs, targetCarbs)", source);
         Assert.Contains("RelativeError(totalFat, targetFat)", source);
+        Assert.Contains("CalculateRebalanceError", source);
+        Assert.Contains("ApplyItemRatio", source);
         Assert.DoesNotContain("NormalizeDay(todayMeals", source);
     }
 
