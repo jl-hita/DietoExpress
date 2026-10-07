@@ -898,11 +898,21 @@ public class DietGeneratorService
     private static double RelativeError(double actual, double target)
         => target <= 0 ? 0 : (target - actual) / target;
 
+    private static double SnapExistingItemServing(MealItemDto item, double grams)
+    {
+        var name = NormalizeFoodTerm(item.FoodName ?? string.Empty);
+        var step = name.Contains("yogur") ? 125 :
+                   name.Contains("leche") ? 50 :
+                   (name.Contains("huevo") || name.Contains("clara")) ? 10 : 0;
+        return step > 0 ? Math.Round(grams / step, MidpointRounding.AwayFromZero) * step : grams;
+    }
+
     private static void ApplyItemRatio(MealItemDto item, double grams)
     {
         var oldGrams = (double)(item.Grams ?? 0);
         if (oldGrams <= 0) return;
 
+        grams = SnapExistingItemServing(item, grams);
         var ratio = grams / oldGrams;
         item.Grams = (decimal)grams;
         item.Kcal = (decimal)Math.Round((double)(item.Kcal ?? 0) * ratio, 1);
