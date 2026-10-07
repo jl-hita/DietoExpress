@@ -33,6 +33,7 @@ public sealed class AdvancedDietOptimizerService
         double targetProtein,
         double targetCarbs,
         double targetFat,
+        DietTherapyProfile? therapyProfile = null,
         CancellationToken cancellationToken = default)
     {
         if (diet.Days == null || diet.Days.Count == 0 || allowedFoods.Count == 0)
@@ -58,7 +59,7 @@ public sealed class AdvancedDietOptimizerService
         // Búsqueda local global: cada iteración evalúa cambios en cualquier día/comida y
         // conserva solo movimientos que mejoran la función objetivo completa.
         var currentScore = CalculateGlobalScore(
-            diet, foodMap, targetKcal, targetProtein, targetCarbs, targetFat, request);
+            diet, foodMap, targetKcal, targetProtein, targetCarbs, targetFat, request, therapyProfile);
 
         for (var pass = 0; pass < 6; pass++)
         {
@@ -146,7 +147,8 @@ public sealed class AdvancedDietOptimizerService
         double targetProtein,
         double targetCarbs,
         double targetFat,
-        GenerateDietRequestDto request)
+        GenerateDietRequestDto request,
+        DietTherapyProfile? therapyProfile = null)
     {
         var day = diet.Days.FirstOrDefault(d => d.DayIndex == dayIndex);
         var meal = day?.Meals.FirstOrDefault(m => m.MealIndex == mealIndex);
@@ -289,7 +291,8 @@ public sealed class AdvancedDietOptimizerService
             .GroupBy(i => GetFamily(foodMap[i.FoodId!.Value]))
             .ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
 
-        var frequencyPenalty = FrequencyPenalty(familyCounts, days.Count);
+        var frequencyPenalty = FrequencyPenalty(familyCounts, days.Count, therapyProfile);
+        var therapyPenalty = CalculateTherapyNutrientPenalty(days, foodMap, therapyProfile);
         var shopping = CalculateShoppingMetrics(diet);
 
         // La función prioriza seguridad/nutrición, después variedad y adherencia, y finalmente
@@ -299,21 +302,79 @@ public sealed class AdvancedDietOptimizerService
              + duplicateMeals * 7
              + repeatedFoods * 1.5
              + frequencyPenalty * 5
+             + therapyPenalty * 8
              + Math.Max(0, shopping.UniqueFoods - request.ShoppingVarietyThreshold) * 0.20;
     }
 
-    private static double FrequencyPenalty(Dictionary<string, int> counts, int days)
+    private static double FrequencyPenalty(Dictionary<string, int> counts, int days, DietTherapyProfile? therapyProfile)
     {
+        var weekly = therapyProfile?.FrequencyTargets ?? new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["fruta"] = 1,
+            ["verdura"] = 2,
+            ["legumbre"] = 3.0 / 7.0,
+            ["pescado_marisco"] = 2.0 / 7.0,
+            ["frutos_secos"] = 4.0 / 7.0
+        };
+
         var targets = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
         {
-            ["fruta"] = Math.Max(1, days),
-            ["verdura"] = Math.Max(2, days * 2),
-            ["legumbre"] = Math.Max(1, (int)Math.Ceiling(days * 3.0 / 7.0)),
-            ["pescado_marisco"] = Math.Max(1, (int)Math.Ceiling(days * 2.0 / 7.0)),
-            ["frutos_secos"] = Math.Max(1, (int)Math.Ceiling(days * 4.0 / 7.0))
+            ["fruta"] = Math.Max(1, (int)Math.Ceiling(days * weekly.GetValueOrDefault("fruta"))),
+            ["verdura"] = Math.Max(2, (int)Math.Ceiling(days * weekly.GetValueOrDefault("verdura"))),
+            ["legumbre"] = Math.Max(1, (int)Math.Ceiling(days * weekly.GetValueOrDefault("legumbre"))),
+            ["pescado_marisco"] = Math.Max(1, (int)Math.Ceiling(days * weekly.GetValueOrDefault("pescado_marisco"))),
+            ["frutos_secos"] = Math.Max(1, (int)Math.Ceiling(days * weekly.GetValueOrDefault("frutos_secos")))
         };
 
         return targets.Sum(target => Math.Max(0, target.Value - counts.GetValueOrDefault(target.Key)) * 2.0);
+    }
+
+    private static double CalculateTherapyNutrientPenalty(
+        IEnumerable<DietDayDto> days,
+        IReadOnlyDictionary<int, foods> foodMap,
+        DietTherapyProfile? profile)
+    {
+        if (profile == null || profile.NutrientWeights.Count == 0)
+            return 0;
+
+        var items = days.SelectMany(d => d.Meals).SelectMany(m => m.Items)
+            .Where(i => i.FoodId.HasValue && foodMap.ContainsKey(i.FoodId.Value) && (i.Grams ?? 0) > 0)
+            .ToList();
+
+        if (items.Count == 0) return 0;
+
+        double penalty = 0;
+        foreach (var item in items)
+        {
+            var food = foodMap[item.FoodId!.Value];
+            var grams = (double)item.Grams!.Value / 100.0;
+            foreach (var rule in profile.NutrientWeights)
+            {
+                var value = rule.Key.ToLowerInvariant() switch
+                {
+                    "sugar" => food.sugar ?? 0,
+                    "salt" => food.salt ?? 0,
+                    "fiber" => food.fiber ?? 0,
+                    "potassium" => food.potassium_mg ?? 0,
+                    _ => 0
+                };
+
+                if (value <= 0) continue;
+                var normalized = rule.Key.Equals("salt", StringComparison.OrdinalIgnoreCase)
+                    ? value / 1.0
+                    : rule.Key.Equals("sugar", StringComparison.OrdinalIgnoreCase)
+                        ? value / 10.0
+                        : rule.Key.Equals("fiber", StringComparison.OrdinalIgnoreCase)
+                            ? value / 3.0
+                            : value / 100.0;
+
+                penalty += Math.Max(0, rule.Value) * normalized * grams;
+                if (rule.Value < 0)
+                    penalty -= Math.Min(1, normalized) * Math.Abs(rule.Value) * grams * 0.1;
+            }
+        }
+
+        return Math.Max(0, penalty / Math.Max(1, items.Count));
     }
 
     private static void RepairWeeklyFrequencies(
