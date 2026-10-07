@@ -102,3 +102,13 @@ jobs:
         run: |
           sudo systemctl enable dietoexpress.service
           sudo systemctl restart dietoexpress.service
+
+      # Smoke test real sobre la instancia recién desplegada: verifica systemd, TLS/nginx,
+      # frontend estático y un endpoint público del backend contra la misma producción.
+      - name: Smoke test producción
+        run: |
+          set -euo pipefail
+          sudo systemctl is-active --quiet dietoexpress.service
+          curl --fail --silent --show-error --max-time 30 https://jlhitap.duckdns.org/ | grep -Fq "DietoExpress"
+          curl --fail --silent --show-error --max-time 30             -H 'Accept: application/json'             https://jlhitap.duckdns.org/api/directory/professionals             > /tmp/dietoexpress-smoke-directory.json
+          python3 -c 'import json,sys; data=json.load(open("/tmp/dietoexpress-smoke-directory.json")); assert isinstance(data,list)'
