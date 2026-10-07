@@ -110,12 +110,31 @@ jobs:
       - name: Smoke test producción
         run: |
           set -euo pipefail
-          systemctl is-active --quiet dietoexpress.service
-          curl --fail --silent --show-error --max-time 30 \
-            --resolve jlhitap.duckdns.org:443:127.0.0.1 \
-            https://jlhitap.duckdns.org/ | grep -Fq "DietoExpress"
-          curl --fail --silent --show-error --max-time 30 \
+
+          # Tras un restart systemd puede marcar el servicio como activo antes de que
+          # Kestrel haya terminado de enlazar el puerto. Esperamos explícitamente a que
+          # nginx pueda servir la aplicación antes de declarar fallido el despliegue.
+          for attempt in $(seq 1 12); do
+            if systemctl is-active --quiet dietoexpress.service && \
+              curl --fail --silent --show-error --max-time 5 \
+                --resolve jlhitap.duckdns.org:443:127.0.0.1 \
+                https://jlhitap.duckdns.org/ | grep -Fq "DietoExpress"; then
+              break
+            fi
+
+            if [ "$attempt" -eq 12 ]; then
+              echo "La aplicación no quedó disponible tras 60 segundos."
+              systemctl status dietoexpress.service --no-pager || true
+              journalctl -u dietoexpress.service -n 100 --no-pager || true
+              exit 1
+            fi
+
+            sleep 5
+          done
+
+          curl --fail --silent --show-error --max-time 10 \
             --resolve jlhitap.duckdns.org:443:127.0.0.1 \
             -H 'Accept: application/json' \
-            https://jlhitap.duckdns.org/api/directory/professionals             > /tmp/dietoexpress-smoke-directory.json
+            https://jlhitap.duckdns.org/api/directory/professionals \
+            > /tmp/dietoexpress-smoke-directory.json
           python3 -c 'import json,sys; data=json.load(open("/tmp/dietoexpress-smoke-directory.json")); assert isinstance(data,list)'
