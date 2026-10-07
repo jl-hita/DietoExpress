@@ -216,4 +216,37 @@ public sealed class DietGeneratorRegressionTests
         Assert.Contains("motor experto", source);
     }
 
+    [Fact]
+    public void Generator_ExposesLocalizedRegenerationOperations()
+    {
+        var dto = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Model", "DietRegenerationDto.cs"));
+        var service = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietRegenerationService.cs"));
+        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "DietController.cs"));
+
+        Assert.Contains("replace-food", dto);
+        Assert.Contains("regenerate-meal", dto);
+        Assert.Contains("regenerate-day", dto);
+        Assert.Contains("PreserveNutritionTargets", dto);
+        Assert.Contains("PreserveWeeklyVariety", dto);
+        Assert.Contains("BeginTransactionAsync", service);
+        Assert.Contains("RollbackAsync", service);
+        Assert.Contains("IsAllowed", service);
+        Assert.Contains("RebalanceMeal", service);
+        Assert.Contains("[HttpPost("{id:int}/regenerate")]", controller);
+    }
+
+    [Fact]
+    public void Generator_RegenerationIsPatientAndTenantAware()
+    {
+        var service = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietRegenerationService.cs"));
+        var dto = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Model", "DietRegenerationDto.cs"));
+
+        Assert.Contains("ClientId", dto);
+        Assert.Contains("tenant_id == tenantId.Value", service);
+        Assert.Contains("food_preferences", service);
+        Assert.Contains("digestive_health", service);
+        Assert.Contains("diet.tenant_id == tenantId.Value", service);
+    }
+
+
 }
