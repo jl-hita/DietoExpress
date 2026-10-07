@@ -996,3 +996,116 @@
 
 
 .followup-summary,.followup-trends{margin-bottom:14px;padding:14px 16px;border:1px solid #e2e8f0;border-radius:12px;background:#fff}.followup-summary-header,.followup-trends-header{display:flex;align-items:center;justify-content:space-between;gap:12px}.followup-summary-header strong,.followup-trends-header strong{display:block;font-size:14px;color:#0f172a}.followup-summary-header span,.followup-trends-header span{display:block;margin-top:3px;color:#64748b;font-size:11px}.followup-summary-header mat-icon,.followup-trends-header mat-icon{color:#64748b}.followup-alerts,.followup-trend-list{display:grid;gap:7px;margin-top:10px}.followup-alert,.followup-trend{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:8px;background:#f8fafc;color:#475569;font-size:12px}.followup-alert mat-icon,.followup-trend mat-icon{font-size:18px;width:18px;height:18px;color:#64748b}.followup-alert.attention mat-icon{color:#b45309}.followup-summary-ok{display:flex;align-items:center;gap:10px;background:#f0fdf4;border-color:#bbf7d0}.followup-summary-ok>mat-icon{color:#15803d}.followup-summary-ok strong{display:block;color:#166534;font-size:13px}.followup-summary-ok span{display:block;color:#4b5563;font-size:11px;margin-top:2px}@media (max-width:700px){.followup-summary,.followup-trends{padding:12px}.followup-alert,.followup-trend{font-size:11px}}
+
+
+/* ─── UX 1.0: cabecera y formulario del paciente ─────────────── */
+.client-profile-card {
+  padding: 24px;
+}
+
+.client-profile-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.client-profile-header h2 {
+  margin: 0 0 4px;
+}
+
+.client-profile-subtitle {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.client-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 16px;
+  row-gap: 2px;
+}
+
+.client-form-grid .full-width {
+  width: 100%;
+}
+
+.client-notes-field {
+  grid-column: 1 / -1;
+}
+
+.client-actions {
+  justify-content: flex-start;
+  margin-top: 4px;
+}
+
+.client-actions a,
+.client-actions button {
+  min-height: 44px;
+}
+
+.tabs ::ng-deep .mat-mdc-tab {
+  min-width: 110px;
+}
+
+.tabs ::ng-deep .mat-mdc-tab-label-content {
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .client-profile-card {
+    padding: 16px;
+  }
+
+  .client-profile-header {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .client-form-grid {
+    grid-template-columns: 1fr;
+    column-gap: 0;
+  }
+
+  .client-notes-field {
+    grid-column: auto;
+  }
+
+  .client-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .client-actions a,
+  .client-actions button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .tabs {
+    border-radius: 12px;
+  }
+
+  .tabs ::ng-deep .mat-mdc-tab {
+    min-width: 0;
+    flex: 1 1 0;
+    padding: 0 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .client-profile-card {
+    padding: 12px;
+  }
+
+  .client-profile-subtitle {
+    font-size: 12px;
+  }
+
+  .biometrics-toolbar {
+    padding-top: 12px;
+  }
+}
