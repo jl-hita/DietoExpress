@@ -16,16 +16,14 @@ public class DietGeneratorService
     private readonly AdvancedDietOptimizerService _advancedDietOptimizer;
     private readonly DietTherapyRuleEngine _dietTherapyRuleEngine;
     private readonly DietSemanticValidationService _semanticValidationService;
-    private readonly DietValidationService _dietValidationService;
 
-    public DietGeneratorService(angulosodbContext context, SpecializationRulesService specializationRulesService, DietSemanticValidationService semanticValidationService, DietValidationService dietValidationService)
+    public DietGeneratorService(angulosodbContext context, SpecializationRulesService specializationRulesService, DietSemanticValidationService semanticValidationService)
     {
         _context = context;
         _specializationRulesService = specializationRulesService;
         _advancedDietOptimizer = new AdvancedDietOptimizerService(context);
         _dietTherapyRuleEngine = new DietTherapyRuleEngine();
         _semanticValidationService = semanticValidationService;
-        _dietValidationService = dietValidationService;
     }
 
     // La generación construye una dieta a partir de objetivos nutricionales, alimentos permitidos
@@ -357,15 +355,15 @@ public class DietGeneratorService
         NormalizeGeneratedPlan(advancedDiet, allowedFoods, request.MealsPerDay);
 
         // Última barrera: una dieta matemáticamente correcta pero culinariamente absurda no puede salir del motor.
-        await _semanticValidationService.ValidateOrThrowAsync(advancedDiet, request, allowedFoods, _context, cancellationToken);
-
-        if (request.ClientId.HasValue)
-        {
-            var compatibilityWarnings = await _dietValidationService.ValidateDietDraftCompatibilityAsync(request.ClientId.Value, advancedDiet, _context, tenantId, userId, canUseTenantLocalFoods);
-            var highSeverity = compatibilityWarnings.Where(w => string.Equals(w.Severity, "High", StringComparison.OrdinalIgnoreCase)).ToList();
-            if (highSeverity.Count > 0)
-                throw new InvalidOperationException("El generador rechazó la dieta por incompatibilidades clínicas: " + string.Join(" | ", highSeverity.Take(8).Select(w => w.Message)));
-        }
+        await _semanticValidationService.ValidateOrThrowAsync(
+            advancedDiet,
+            request,
+            allowedFoods,
+            _context,
+            tenantId,
+            userId,
+            canUseTenantLocalFoods,
+            cancellationToken);
 
         return advancedDiet;
     }
