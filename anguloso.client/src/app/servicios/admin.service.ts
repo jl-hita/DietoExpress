@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, switchMap } from 'rxjs';
+import { Observable, map } from 'rxjs';
 
 export interface SetupStatusResponse {
   isConfigured: boolean;
@@ -114,9 +114,16 @@ export interface AdminVideoUsage {
 export interface AdminLog {
   date: string;
   exists: boolean;
-  content?: string;
   previousDate?: string;
   nextDate?: string;
+}
+
+export interface AdminLogChunk {
+  content: string;
+  startByte: number;
+  endByte: number;
+  totalBytes: number;
+  hasMore: boolean;
 }
 
 @Injectable({
@@ -159,29 +166,28 @@ export class AdminService {
 
   getVideoUsage(): Observable<AdminVideoUsage> { return this.http.get<AdminVideoUsage>(`${this.adminUrl}/video-usage`); }
 
-  getLog(date?: string): Observable<AdminLog> {
-    let params: any = {};
+  getLogMetadata(date?: string): Observable<AdminLog> {
+    const params: any = {};
     if (date) params.date = date;
+    return this.http.get<AdminLog>(`${this.adminUrl}/logs`, { params });
+  }
 
-    return this.http.get<AdminLog>(`${this.adminUrl}/logs`, { params }).pipe(
-      switchMap(metadata => {
-        if (!metadata.exists) return new Observable<AdminLog>(subscriber => {
-          subscriber.next(metadata);
-          subscriber.complete();
-        });
+  getLogChunk(date: string, endByte?: number): Observable<AdminLogChunk> {
+    const params: any = { date };
+    if (endByte !== undefined) params.endByte = endByte;
 
-        return this.http.get(`${this.adminUrl}/logs/content`, {
-          params: { date: metadata.date },
-          responseType: 'text'
-        }).pipe(
-          switchMap(content => {
-            return new Observable<AdminLog>(subscriber => {
-              subscriber.next({ ...metadata, content });
-              subscriber.complete();
-            });
-          })
-        );
-      })
+    return this.http.get(`${this.adminUrl}/logs/content`, {
+      params,
+      observe: 'response',
+      responseType: 'text'
+    }).pipe(
+      map(response => ({
+        content: response.body ?? '',
+        startByte: Number(response.headers.get('X-Log-Start') ?? '0'),
+        endByte: Number(response.headers.get('X-Log-End') ?? '0'),
+        totalBytes: Number(response.headers.get('X-Log-Length') ?? '0'),
+        hasMore: response.headers.get('X-Log-Has-More') === 'true'
+      }))
     );
   }
 
