@@ -326,7 +326,10 @@ public sealed class AdvancedDietOptimizerService
     {
         var items = day.Meals.SelectMany(m => m.Items).Where(i => (i.Grams ?? 0) > 0).ToList();
         if (items.Count == 0) return;
-        var bounds = items.ToDictionary(item => item, item => GetCulinaryBounds(meal.Name, item));
+        var bounds = day.Meals
+            .SelectMany(meal => meal.Items.Select(item => new { Meal = meal, Item = item }))
+            .Where(x => (x.Item.Grams ?? 0) > 0)
+            .ToDictionary(x => x.Item, x => GetCulinaryBounds(x.Meal.Name, x.Item));
 
         for (var pass = 0; pass < 18; pass++)
         {
