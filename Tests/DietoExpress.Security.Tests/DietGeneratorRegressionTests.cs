@@ -65,6 +65,20 @@ public sealed class DietGeneratorRegressionTests
     }
 
     [Fact]
+    public void Generator_PrioritizesWeeklyVarietyAndSlotNutrition()
+    {
+        var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
+
+        Assert.Contains("CalculateWeeklyRepetitionPenalty", source);
+        Assert.Contains("uses * uses", source);
+        Assert.Contains("CalculateSlotNutritionPenalty", source);
+        Assert.Contains("targetProteinShare", source);
+        Assert.Contains("targetCarbsShare", source);
+        Assert.Contains("targetFatShare", source);
+        Assert.Contains(".Take(8)", source);
+    }
+
+    [Fact]
     public void Generator_VeganFilter_ExcludesAnimalDerivedHoneyAndGelatin()
     {
         var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
