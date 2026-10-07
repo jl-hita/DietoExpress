@@ -4,7 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
-import { AdminService } from '../../servicios/admin.service';
+import { AdminLog, AdminService } from '../../servicios/admin.service';
 
 @Component({
   selector: 'app-admin-log',
@@ -13,19 +13,57 @@ import { AdminService } from '../../servicios/admin.service';
   template: `
     <div class="log-container">
       <div class="log-header">
-        <div><h1>Logs del sistema</h1><p>Consulta el log de Serilog por día.</p></div>
+        <div>
+          <h1>Logs del sistema</h1>
+          <p>Consulta el log de Serilog por día.</p>
+        </div>
         <div class="date-navigation">
           <button mat-icon-button [disabled]="!previousDate || loading" (click)="loadLog(previousDate!)" aria-label="Día anterior"><mat-icon>chevron_left</mat-icon></button>
           <strong>{{ selectedDate | date:'dd/MM/yyyy' }}</strong>
           <button mat-icon-button [disabled]="!nextDate || loading" (click)="loadLog(nextDate!)" aria-label="Día siguiente"><mat-icon>chevron_right</mat-icon></button>
         </div>
       </div>
+
       <mat-card class="log-card">
-        <div class="log-toolbar"><span>{{ exists ? 'Log disponible' : 'No hay log para este día' }}</span><div class="log-actions"><mat-form-field appearance="outline" class="level-filter"><mat-label>Nivel</mat-label><mat-select [(value)]="levelFilter"><mat-option value="all">Todos</mat-option><mat-option value="info">Info</mat-option><mat-option value="warning">Warning</mat-option><mat-option value="error">Error</mat-option></mat-select></mat-form-field><button mat-stroked-button (click)="loadLog(selectedDate)" [disabled]="loading"><mat-icon>refresh</mat-icon> Actualizar</button></div></div>
-        <div *ngIf="exists" class="log-content">
-          <div *ngFor="let line of filteredLogLines" class="log-line" [class.warning-line]="getLevel(line) === 'warning'" [class.error-line]="getLevel(line) === 'error'">{{ line }}</div>
+        <div class="log-toolbar">
+          <span>
+            {{ exists ? (hasMoreOlder ? 'Mostrando la parte más reciente del log' : 'Log completo cargado') : 'No hay log para este día' }}
+          </span>
+          <div class="log-actions">
+            <mat-form-field appearance="outline" class="level-filter">
+              <mat-label>Nivel</mat-label>
+              <mat-select [(value)]="levelFilter">
+                <mat-option value="all">Todos</mat-option>
+                <mat-option value="info">Info</mat-option>
+                <mat-option value="warning">Warning</mat-option>
+                <mat-option value="error">Error</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <button mat-stroked-button (click)="loadLog(selectedDate)" [disabled]="loading">
+              <mat-icon>refresh</mat-icon> Actualizar
+            </button>
+          </div>
         </div>
-        <div *ngIf="!exists" class="empty-state"><mat-icon>event_busy</mat-icon><p>No existe ningún archivo de log para {{ selectedDate | date:'dd/MM/yyyy' }}.</p></div>
+
+        <div *ngIf="exists" class="log-content" (scroll)="onLogScroll($event)">
+
+          <div *ngIf="filteredLogEntries.length; else noMatches">
+            <div
+              *ngFor="let entry of filteredLogEntries"
+              class="log-entry"
+              [class.warning-line]="getLevel(entry) === 'warning'"
+              [class.error-line]="getLevel(entry) === 'error'">{{ entry }}</div>
+          </div>
+
+          <ng-template #noMatches>
+            <div class="no-matches">No hay entradas que coincidan con el nivel seleccionado.</div>
+          </ng-template>
+        </div>
+
+        <div *ngIf="!exists" class="empty-state">
+          <mat-icon>event_busy</mat-icon>
+          <p>No existe ningún archivo de log para {{ selectedDate | date:'dd/MM/yyyy' }}.</p>
+        </div>
       </mat-card>
     </div>
   `,
@@ -41,58 +79,91 @@ import { AdminService } from '../../servicios/admin.service';
     .level-filter { width: 150px; }
     .level-filter ::ng-deep .mat-mdc-form-field-subscript-wrapper { display: none; }
     .log-content { margin: 0; padding: 16px; max-height: calc(100vh - 230px); min-height: 300px; overflow: auto; background: #0f172a; color: #e2e8f0; border-radius: 8px; font: 12px/1.5 'Cascadia Mono', 'Consolas', monospace; text-align: left; }
-    .log-line { white-space: pre; min-height: 1.5em; }
+    .log-entry { white-space: pre; min-height: 1.5em; padding: 0 4px; }
     .warning-line { background: #78350f; color: #fff; }
     .error-line { background: #7f1d1d; color: #fff; }
+    .no-matches { padding: 24px 4px; color: #94a3b8; }
     .empty-state { min-height: 300px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #94a3b8; }
     .empty-state mat-icon { font-size: 48px; width: 48px; height: 48px; }
-    @media (max-width: 700px) { .log-header { flex-direction: column; align-items: flex-start; } .date-navigation { align-self: center; } .log-toolbar { flex-direction: column; align-items: flex-start; } .log-actions { width: 100%; } .level-filter { flex: 1; } }
+    @media (max-width: 700px) {
+      .log-header { flex-direction: column; align-items: flex-start; }
+      .date-navigation { align-self: center; }
+      .log-toolbar { flex-direction: column; align-items: flex-start; }
+      .log-actions { width: 100%; }
+      .level-filter { flex: 1; }
+    }
   `]
 })
-// Documentación: este componente coordina estado de interfaz y operaciones asíncronas que deben mantenerse alineadas con la API.
+// Documentación: el visor trabaja con entradas completas y bloques acotados para no materializar
+// archivos de log enormes en el navegador. El filtro se aplica a la entrada Serilog completa,
+// incluyendo excepciones y stack traces multilínea.
 export class AdminLogComponent implements OnInit {
+  // La carga histórica se activa automáticamente al alcanzar el inicio del visor.
   selectedDate = this.toDateString(new Date());
   previousDate?: string;
   nextDate?: string;
-  content = '';
   exists = false;
   loading = false;
+  loadingOlder = false;
   levelFilter: 'all' | 'info' | 'warning' | 'error' = 'all';
 
-  get logLines(): string[] {
-    return this.content ? this.content.split(/\r?\n/) : [];
+  private logEntries: string[] = [];
+  private oldestLoadedByte = 0;
+  hasMoreOlder = false;
+
+  get filteredLogEntries(): string[] {
+    if (this.levelFilter === 'all') return this.logEntries;
+    return this.logEntries.filter(entry => this.getLevel(entry) === this.levelFilter);
   }
 
-  get filteredLogLines(): string[] {
-    if (this.levelFilter === 'all') return this.logLines;
-    return this.logLines.filter(line => this.getLevel(line) === this.levelFilter);
-  }
-
-  getLevel(line: string): 'info' | 'warning' | 'error' | 'other' {
-    if (/\[(ERR|FTL)\]/i.test(line)) return 'error';
-    if (/\[(WRN)\]/i.test(line)) return 'warning';
-    if (/\[(INF)\]/i.test(line)) return 'info';
+  getLevel(entry: string): 'info' | 'warning' | 'error' | 'other' {
+    const header = entry.split(/\r?\n/, 1)[0];
+    if (/\[(ERR|FTL)\]/i.test(header)) return 'error';
+    if (/\[WRN\]/i.test(header)) return 'warning';
+    if (/\[INF\]/i.test(header)) return 'info';
     return 'other';
   }
 
   constructor(private adminService: AdminService) {}
 
-  ngOnInit(): void { this.loadLog(this.selectedDate); }
+  ngOnInit(): void {
+    this.loadLog(this.selectedDate);
+  }
 
   loadLog(date: string): void {
     this.loading = true;
-    this.adminService.getLog(date).subscribe({
-      next: (result) => {
+    this.adminService.getLogMetadata(date).subscribe({
+      next: (result: AdminLog) => {
         this.selectedDate = result.date;
         this.previousDate = result.previousDate;
         this.nextDate = result.nextDate;
-        this.content = result.content ?? '';
         this.exists = result.exists;
-        this.loading = false;
+        this.logEntries = [];
+        this.oldestLoadedByte = 0;
+        this.hasMoreOlder = false;
+
+        if (!result.exists) {
+          this.loading = false;
+          return;
+        }
+
+        this.adminService.getLogChunk(result.date).subscribe({
+          next: chunk => {
+            this.logEntries = this.parseEntries(chunk.content);
+            this.oldestLoadedByte = chunk.startByte;
+            this.hasMoreOlder = chunk.hasMore;
+            this.loading = false;
+          },
+          error: err => {
+            console.error('Error al cargar el contenido del log', err);
+            this.exists = false;
+            this.loading = false;
+          }
+        });
       },
-      error: (err) => {
-        console.error('Error al cargar el log', err);
-        this.content = '';
+      error: err => {
+        console.error('Error al cargar los metadatos del log', err);
+        this.logEntries = [];
         this.exists = false;
         this.previousDate = undefined;
         this.nextDate = undefined;
@@ -101,5 +172,56 @@ export class AdminLogComponent implements OnInit {
     });
   }
 
-  private toDateString(date: Date): string { return date.toISOString().slice(0, 10); }
+  onLogScroll(event: Event): void {
+    const element = event.target as HTMLElement;
+    // Al acercarnos al principio pedimos el bloque anterior automáticamente. El umbral
+    // evita tener que llegar exactamente al píxel 0 y permite encadenar varias cargas.
+    if (element.scrollTop <= 180) {
+      this.loadOlder(element);
+    }
+  }
+
+  loadOlder(element?: HTMLElement): void {
+    if (!this.exists || !this.hasMoreOlder || this.loadingOlder) return;
+
+    this.loadingOlder = true;
+    const previousScrollHeight = element?.scrollHeight ?? 0;
+    const previousScrollTop = element?.scrollTop ?? 0;
+    this.adminService.getLogChunk(this.selectedDate, this.oldestLoadedByte).subscribe({
+      next: chunk => {
+        const olderEntries = this.parseEntries(chunk.content);
+        this.logEntries = [...olderEntries, ...this.logEntries];
+        this.oldestLoadedByte = chunk.startByte;
+        this.hasMoreOlder = chunk.hasMore;
+        this.loadingOlder = false;
+
+        // Al insertar contenido arriba, conservamos la posición visual para que el usuario
+        // pueda seguir desplazándose hacia atrás sin que el scroll salte al inicio.
+        if (element) {
+          setTimeout(() => {
+            element.scrollTop = previousScrollTop + (element.scrollHeight - previousScrollHeight);
+          });
+        }
+      },
+      error: err => {
+        console.error('Error al cargar bloques anteriores del log', err);
+        this.loadingOlder = false;
+      }
+    });
+  }
+
+  private parseEntries(content: string): string[] {
+    if (!content) return [];
+
+    // Cada entrada empieza por la cabecera de Serilog. El lookahead conserva todos los
+    // saltos de línea siguientes dentro de la misma entrada, incluidos stack traces.
+    return content
+      .split(/(?=^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} [+-]\d{2}:\d{2} \[[A-Z]{3}\])/m)
+      .map(entry => entry.replace(/^\r?\n+|\r?\n+$/g, ''))
+      .filter(entry => entry.length > 0);
+  }
+
+  private toDateString(date: Date): string {
+    return date.toISOString().slice(0, 10);
+  }
 }
