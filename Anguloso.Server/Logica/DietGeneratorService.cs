@@ -32,6 +32,10 @@ public class DietGeneratorService
         JsonElement? sportsProfile = null;
         JsonElement? weightProfile = null;
         var exclusions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var preferredFoods = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var dislikedFoods = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        double? recentAdherence = null;
+        var adherenceBoost = 0.0;
 
         if (request.ClientId.HasValue)
         {
@@ -43,6 +47,33 @@ public class DietGeneratorService
 
             if (client != null)
             {
+                // Las preferencias del paciente son criterios blandos: nunca pueden vencer
+                // alergias, intolerancias, exclusiones clínicas o reglas de especialización.
+                preferredFoods = ParseFoodTerms(client.food_preferences?.preferred_foods);
+                dislikedFoods = ParseFoodTerms(client.food_preferences?.disliked_foods);
+
+                var recentCheckins = await _context.patient_checkins
+                    .AsNoTracking()
+                    .Where(c => c.client_id == client.id)
+                    .OrderByDescending(c => c.week_start)
+                    .Take(6)
+                    .Select(c => c.adherence)
+                    .ToListAsync(cancellationToken);
+
+                if (recentCheckins.Count > 0)
+                {
+                    recentAdherence = recentCheckins.Where(v => v.HasValue)
+                        .Select(v => (double)v!.Value)
+                        .DefaultIfEmpty()
+                        .Average();
+
+                    // Cuando la adherencia reciente es baja damos más peso a lo que el
+                    // paciente ya ha declarado que le gusta. Es una señal de adherencia,
+                    // no una regla clínica ni una sustitución del criterio profesional.
+                    if (recentAdherence.HasValue && recentAdherence.Value <= 5)
+                        adherenceBoost = 20;
+                }
+
                 if (tenantId.HasValue)
                 {
                     nutritionProfile = await _specializationRulesService.GetNutritionProfileAsync(
@@ -168,14 +199,17 @@ public class DietGeneratorService
                 double mealTargetF = targetFat * split.KcalPct;
 
                 var mealItems = BuildAndOptimizeMeal(
-                    split.MealName, 
-                    mealTargetKcal, 
-                    mealTargetP, 
-                    mealTargetC, 
-                    mealTargetF, 
-                    foodPools, 
-                    weeklyUsageCount, 
-                    dayUsedFoodIds, 
+                    split.MealName,
+                    mealTargetKcal,
+                    mealTargetP,
+                    mealTargetC,
+                    mealTargetF,
+                    foodPools,
+                    weeklyUsageCount,
+                    dayUsedFoodIds,
+                    preferredFoods,
+                    dislikedFoods,
+                    adherenceBoost,
                     rnd
                 );
 
@@ -188,7 +222,7 @@ public class DietGeneratorService
             }
 
             // Normalización final del día para calibración exacta de Kcal y Macros
-            NormalizeDay(todayMeals, targetKcal, targetProtein, targetCarbs, targetFat);
+            RebalanceDay(todayMeals, targetKcal, targetProtein, targetCarbs, targetFat);
 
             daysList.Add(new DietDayDto
             {
@@ -205,7 +239,9 @@ public class DietGeneratorService
             TargetCarbs = (decimal)Math.Round(targetCarbs),
             TargetFat = (decimal)Math.Round(targetFat),
             Notes = $"Plan generado automáticamente por el motor heurístico el {DateTime.Now:dd/MM/yyyy}. {request.MealsPerDay} comidas al día." +
-                (clinicalGuidance.Count > 0 ? " Especializaciones activas: " + string.Join(" ", clinicalGuidance) : string.Empty),
+                (clinicalGuidance.Count > 0 ? " Especializaciones activas: " + string.Join(" ", clinicalGuidance) : string.Empty) +
+                (preferredFoods.Count > 0 ? " Preferencias alimentarias del paciente aplicadas como criterio de adherencia." : string.Empty) +
+                (recentAdherence.HasValue ? $" Adherencia reciente considerada: {Math.Round(recentAdherence.Value, 1)}/10." : string.Empty),
             Days = daysList
         };
     }
@@ -257,8 +293,11 @@ public class DietGeneratorService
         double targetC, 
         double targetF, 
         FoodPools pools, 
-        Dictionary<int, int> weeklyUsage, 
-        HashSet<int> dayUsage, 
+        Dictionary<int, int> weeklyUsage,
+        HashSet<int> dayUsage,
+        HashSet<string> preferredFoods,
+        HashSet<string> dislikedFoods,
+        double adherenceBoost,
         Random rnd)
     {
         var slots = GetTemplateForMeal(mealName);
@@ -274,7 +313,12 @@ public class DietGeneratorService
                 .Select(f => new
                 {
                     Food = f,
-                    Score = (dayUsage.Contains(f.id) ? 2000 : 0) + (weeklyUsage.GetValueOrDefault(f.id, 0) * 20) + rnd.Next(0, 10)
+                    Score =
+                        (dayUsage.Contains(f.id) ? 2000 : 0) +
+                        (weeklyUsage.GetValueOrDefault(f.id, 0) * 20) +
+                        (MatchesFoodTerms(f, dislikedFoods) ? 80 : 0) -
+                        (MatchesFoodTerms(f, preferredFoods) ? 40 + adherenceBoost : 0) +
+                        rnd.Next(0, 10)
                 })
                 .OrderBy(x => x.Score)
                 .Take(6)
@@ -560,6 +604,7 @@ public class DietGeneratorService
             if (isVegan && (
                 name.Contains("huevo") || name.Contains("clara") ||
                 name.Contains("yogur") || name.Contains("queso") || name.Contains("leche") || name.Contains("kéfir") ||
+                name.Contains("miel") || name.Contains("gelatina") ||
                 cat.Contains("lácteo") || cat.Contains("lacteo") || cat.Contains("huevo")))
                 continue;
 
@@ -710,6 +755,36 @@ public class DietGeneratorService
     {
         double usedKcal = (proteinGrams * 4.0) + (fatGrams * 9.0);
         return Math.Max(0, (kcal - usedKcal) / 4.0);
+    }
+
+    private static HashSet<string> ParseFoodTerms(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        return raw
+            .Split(new[] { ',', ';', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(NormalizeFoodTerm)
+            .Where(term => term.Length >= 3)
+            .Take(80)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeFoodTerm(string value)
+        => string.Join(" ", (value ?? string.Empty).Trim().ToLowerInvariant()
+            .Normalize(System.Text.NormalizationForm.FormD)
+            .Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark))
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries));
+
+    private static bool MatchesFoodTerms(foods food, HashSet<string> terms)
+    {
+        if (terms.Count == 0) return false;
+
+        var name = NormalizeFoodTerm(food.name ?? string.Empty);
+        var category = NormalizeFoodTerm(food.category ?? string.Empty);
+
+        return terms.Any(term => name.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                                 category.Contains(term, StringComparison.OrdinalIgnoreCase));
     }
 
     private bool IsExcluded(foods food, HashSet<string> exclusions)
