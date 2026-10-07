@@ -21,7 +21,7 @@ public class PublicSeoIndexingRegressionTests
     public void Sitemap_OnlyUsesPublishedDirectoryProfilesAndPopulatedFacets()
     {
         var source = Read("Anguloso.Server/Controllers/PublicSitemapController.cs");
-        Assert.Contains("directory_publication_status == "published"", source);
+        Assert.Contains("directory_publication_status == \"published\"", source);
         Assert.Contains("Count >= 3", source);
         Assert.Contains("/nutricionistas/ciudad/", source);
         Assert.Contains("/nutricionistas/especialidad/", source);
