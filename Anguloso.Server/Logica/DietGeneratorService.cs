@@ -801,10 +801,15 @@ public class DietGeneratorService
     }
 
     private static string NormalizeFoodTerm(string value)
-        => string.Join(" ", (value ?? string.Empty).Trim().ToLowerInvariant()
-            .Normalize(System.Text.NormalizationForm.FormD)
-            .Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark))
-            .Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    {
+        var normalized = (value ?? string.Empty).Trim().ToLowerInvariant()
+            .Normalize(System.Text.NormalizationForm.FormD);
+        var chars = normalized
+            .Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark)
+            .ToArray();
+
+        return new string(chars).Normalize(System.Text.NormalizationForm.FormC);
+    }
 
     private static bool MatchesFoodTerms(foods food, HashSet<string> terms)
     {
