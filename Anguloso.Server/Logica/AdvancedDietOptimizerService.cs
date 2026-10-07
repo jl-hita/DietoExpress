@@ -402,10 +402,21 @@ public sealed class AdvancedDietOptimizerService
     private static double MealEnergyError(MealDto meal, double target) => target <= 0 ? 0 : Math.Abs(meal.Items.Sum(i => (double)(i.Kcal ?? 0)) - target) / target;
     private static double RecipeEnergyError(IEnumerable<recipe_items> ingredients, double target) { var kcal = ingredients.Sum(i => (i.food.kcal ?? 0) * (double)i.grams / 100.0); return target <= 0 ? 0 : Math.Abs(kcal - target) / target; }
 
+    private static double SnapExistingItemServing(MealItemDto item, double grams)
+    {
+        var name = NormalizeFoodTerm(item.FoodName ?? string.Empty);
+        var step = name.Contains("yogur") ? 125 :
+                   name.Contains("leche") ? 50 :
+                   (name.Contains("huevo") || name.Contains("clara")) ? 10 : 0;
+        return step > 0 ? Math.Round(grams / step, MidpointRounding.AwayFromZero) * step : grams;
+    }
+
     private static void ApplyItemRatio(MealItemDto item, double grams)
     {
         var old = (double)(item.Grams ?? 0);
         if (old <= 0) return;
+
+        grams = SnapExistingItemServing(item, grams);
         var ratio = grams / old;
         item.Grams = (decimal)grams;
         item.Kcal = (decimal)Math.Round((double)(item.Kcal ?? 0) * ratio, 1);
