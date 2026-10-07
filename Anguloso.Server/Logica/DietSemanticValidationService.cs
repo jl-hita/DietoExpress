@@ -167,10 +167,10 @@ public sealed class DietSemanticValidationService
 
     private static void ValidateDailyNutrition(List<string> errors, DietDetailDto diet, GenerateDietRequestDto request)
     {
-        var kcalTarget = (double)(diet.TargetKcal ?? request.TargetKcal);
-        var proteinTarget = (double)(diet.TargetProtein ?? request.TargetProtein ?? 0);
-        var carbsTarget = (double)(diet.TargetCarbs ?? request.TargetCarbs ?? 0);
-        var fatTarget = (double)(diet.TargetFat ?? request.TargetFat ?? 0);
+        var kcalTarget = diet.TargetKcal.HasValue ? (double)diet.TargetKcal.Value : request.TargetKcal;
+        var proteinTarget = diet.TargetProtein.HasValue ? (double)diet.TargetProtein.Value : request.TargetProtein ?? 0;
+        var carbsTarget = diet.TargetCarbs.HasValue ? (double)diet.TargetCarbs.Value : request.TargetCarbs ?? 0;
+        var fatTarget = diet.TargetFat.HasValue ? (double)diet.TargetFat.Value : request.TargetFat ?? 0;
         if (kcalTarget <= 0) return;
 
         foreach (var day in diet.Days)
