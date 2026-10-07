@@ -138,9 +138,52 @@ type KcalSource = 'default' | 'biometrics' | 'error';
   `,
   styles: [`
     .generator-dialog {
-      min-width: 380px;
+      width: 100%;
+      min-width: 0;
       max-width: 520px;
       padding: 8px;
+      box-sizing: border-box;
+    }
+
+    .generator-dialog mat-dialog-content {
+      min-width: 0;
+      box-sizing: border-box;
+    }
+
+    .generator-dialog .dialog-form > div {
+      min-width: 0;
+    }
+
+    .generator-dialog mat-form-field {
+      width: 100%;
+      min-width: 0;
+    }
+
+    .generator-dialog mat-dialog-actions {
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 600px) {
+      .generator-dialog {
+        padding: 4px;
+      }
+
+      .generator-dialog h2[mat-dialog-title] {
+        font-size: 18px;
+        line-height: 1.3;
+      }
+
+      .generator-dialog .dialog-form > div {
+        grid-template-columns: 1fr !important;
+      }
+
+      .generator-dialog mat-dialog-actions {
+        justify-content: stretch;
+      }
+
+      .generator-dialog mat-dialog-actions button {
+        flex: 1 1 auto;
+      }
     }
   `]
 })
