@@ -54,7 +54,7 @@ public sealed class DietRegenerationService
             .Take(5000)
             .ToListAsync(cancellationToken);
 
-        var client = request.ClientIdOrNull(diet) is int clientId
+        var client = request.ClientId is int clientId
             ? await _context.clients.AsNoTracking()
                 .Include(c => c.food_preferences)
                 .Include(c => c.digestive_health)
@@ -66,6 +66,7 @@ public sealed class DietRegenerationService
         var usedFoodIds = diet.diet_days.SelectMany(d => d.meals).SelectMany(m => m.meal_items)
             .Where(i => i.food_id.HasValue).Select(i => i.food_id!.Value).ToHashSet();
 
+        await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
         var before = Objective(diet);
         Meal? selectedMeal = null;
         diet_days? selectedDay = null;
@@ -158,11 +159,7 @@ public sealed class DietRegenerationService
         var maxAllowedWorsening = request.PreserveNutritionTargets ? 0.12m : 0.30m;
         if (after > before * (1 + maxAllowedWorsening))
         {
-            _context.Entry(diet).State = EntityState.Unchanged;
-            foreach (var day in diet.diet_days)
-                foreach (var meal in day.meals)
-                    foreach (var item in meal.meal_items)
-                        _context.Entry(item).State = EntityState.Unchanged;
+            await transaction.RollbackAsync(cancellationToken);
             response.Success = false;
             response.RolledBack = true;
             response.ObjectiveBefore = (decimal)Math.Round(before, 4);
@@ -173,6 +170,7 @@ public sealed class DietRegenerationService
         }
 
         await _context.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         response.Success = true;
         response.ObjectiveBefore = (decimal)Math.Round(before, 4);
@@ -315,19 +313,23 @@ public sealed class DietRegenerationService
     private static SnapshotDto Snapshot(meal_items item) =>
         new(item.food_id, item.kcal, item.protein, item.carbs, item.fat, null);
 
-    private static decimal Objective(diets diet)
+    private static double Objective(diets diet)
     {
         var targetKcal = (double)(diet.target_kcal ?? 2000);
         var targetP = (double)(diet.target_protein ?? 0);
         var targetC = (double)(diet.target_carbs ?? 0);
         var targetF = (double)(diet.target_fat ?? 0);
-        var actual = diet.diet_days.SelectMany(d => d.meals).SelectMany(m => m.meal_items);
-        var ak = actual.Sum(i => (double)(i.kcal ?? 0));
-        var ap = actual.Sum(i => (double)(i.protein ?? 0));
-        var ac = actual.Sum(i => (double)(i.carbs ?? 0));
-        var af = actual.Sum(i => (double)(i.fat ?? 0));
-        double Relative(double a, double b) => b <= 0 ? 0 : Math.Abs(a - b) / b;
-        return (decimal)(Relative(ak, targetKcal) * .45 + Relative(ap, targetP) * .2 + Relative(ac, targetC) * .15 + Relative(af, targetF) * .2);
+        double Relative(double actual, double target) => target <= 0 ? 0 : Math.Abs(actual - target) / target;
+
+        var dailyErrors = diet.diet_days.Select(day =>
+        {
+            var items = day.meals.SelectMany(m => m.meal_items).ToList();
+            return Relative(items.Sum(i => (double)(i.kcal ?? 0)), targetKcal) * .45
+                 + Relative(items.Sum(i => (double)(i.protein ?? 0)), targetP) * .20
+                 + Relative(items.Sum(i => (double)(i.carbs ?? 0)), targetC) * .15
+                 + Relative(items.Sum(i => (double)(i.fat ?? 0)), targetF) * .20;
+        });
+        return dailyErrors.DefaultIfEmpty().Average();
     }
 
     private sealed record SnapshotDto(int? FoodId, decimal? Kcal, decimal? Protein, decimal? Carbs, decimal? Fat, string? Name);
