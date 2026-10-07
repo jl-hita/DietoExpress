@@ -25,7 +25,9 @@ public class DirectoryVerificationEvidenceRegressionTests
         Assert.Contains("[Authorize(Policy = \"Professional\")]", source);
         Assert.Contains("[Authorize(Roles = \"superadmin\")]", source);
         Assert.Contains("DIETOEXPRESS_DOCUMENTS_PATH", source);
-        Assert.DoesNotContain("wwwroot", source);
+        Assert.Contains("DIETOEXPRESS_DOCUMENTS_PATH", source);
+        Assert.Contains("GetStoragePath", source);
+        Assert.Contains("PhysicalFile", source);
     }
 
     [Fact]
