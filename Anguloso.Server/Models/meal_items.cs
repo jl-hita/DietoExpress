@@ -23,10 +23,6 @@ public partial class meal_items
 
     public decimal? fat { get; set; }
 
-    public int? recipe_id { get; set; }
-
-    public decimal? recipe_servings { get; set; }
-
     public int? exchange_group_id { get; set; }
 
     public decimal? exchange_count { get; set; }
@@ -34,8 +30,6 @@ public partial class meal_items
     public virtual foods food { get; set; }
 
     public virtual food_exchange_groups exchange_group { get; set; }
-
-    public virtual recipes recipe { get; set; }
 
     public virtual meals meal { get; set; }
 }
