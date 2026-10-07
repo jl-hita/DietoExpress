@@ -72,7 +72,14 @@ export class SidebarComponent implements OnInit {
     return this.authService.getSubscriptionPlan() === 'free';
   }
 
-  get isTrial(): boolean { return this.license?.planCode === 'free' && !!this.license?.expiresAt; }\n\n  get trialDaysRemaining(): number {\n    if (!this.license?.expiresAt) return 0;\n    return Math.max(0, Math.ceil((new Date(this.license.expiresAt).getTime() - Date.now()) / 86400000));\n  }\n\n  get isProfessionalAccount(): boolean {
+  get isTrial(): boolean { return this.license?.planCode === 'free' && !!this.license?.expiresAt; }
+
+  get trialDaysRemaining(): number {
+    if (!this.license?.expiresAt) return 0;
+    return Math.max(0, Math.ceil((new Date(this.license.expiresAt).getTime() - Date.now()) / 86400000));
+  }
+
+  get isProfessionalAccount(): boolean {
     const plan = this.authService.getSubscriptionPlan();
     return this.isSuperAdmin || plan === 'demo_nutri' || plan === 'nutri_full' || plan === 'clinic_full';
   }
