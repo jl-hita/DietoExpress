@@ -183,6 +183,7 @@ public class DietGeneratorService
 
         var weeklyUsageCount = new Dictionary<int, int>();
         var weeklyRoleFamilyUsage = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var weeklyMealSignatures = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var daysList = new List<DietDayDto>();
         var rnd = new Random();
 
@@ -213,6 +214,7 @@ public class DietGeneratorService
                     dislikedFoods,
                     adherenceBoost,
                     weeklyRoleFamilyUsage,
+                    weeklyMealSignatures,
                     rnd
                 );
 
@@ -302,6 +304,7 @@ public class DietGeneratorService
         HashSet<string> dislikedFoods,
         double adherenceBoost,
         Dictionary<string, int> weeklyRoleFamilyUsage,
+        HashSet<string> weeklyMealSignatures,
         Random rnd)
     {
         var slots = GetTemplateForMeal(mealName);
@@ -368,7 +371,139 @@ public class DietGeneratorService
             });
         }
 
+        // Evitar comidas completas idénticas: si la combinación ya apareció en la semana,
+        // intentamos sustituir un componente por otro del mismo rol y con perfil nutricional similar.
+        // Si no existe una alternativa segura, conservamos la comida original: la diversidad nunca
+        // debe imponerse a la disponibilidad de alimentos válidos ni a las restricciones clínicas.
+        var signature = CreateMealSignature(result);
+        if (!weeklyMealSignatures.Add(signature))
+        {
+            TryReplaceRepeatedMealItem(
+                result,
+                chosenFoods,
+                slots,
+                pools,
+                weeklyUsage,
+                weeklyRoleFamilyUsage,
+                dayUsage,
+                preferredFoods,
+                dislikedFoods,
+                adherenceBoost,
+                targetKcal,
+                targetP,
+                targetC,
+                targetF);
+
+            signature = CreateMealSignature(result);
+            weeklyMealSignatures.Add(signature);
+        }
+
         return result;
+    }
+
+    private static string CreateMealSignature(IEnumerable<MealItemDto> items)
+        => string.Join("|", items.Select(i => i.FoodId ?? 0).OrderBy(id => id));
+
+    private void TryReplaceRepeatedMealItem(
+        List<MealItemDto> items,
+        List<(foods food, SlotConfig slot)> chosenFoods,
+        List<SlotConfig> slots,
+        FoodPools pools,
+        Dictionary<int, int> weeklyUsage,
+        Dictionary<string, int> weeklyRoleFamilyUsage,
+        HashSet<int> dayUsage,
+        HashSet<string> preferredFoods,
+        HashSet<string> dislikedFoods,
+        double adherenceBoost,
+        double targetKcal,
+        double targetP,
+        double targetC,
+        double targetF)
+    {
+        for (int index = 0; index < items.Count && index < chosenFoods.Count; index++)
+        {
+            var current = chosenFoods[index];
+            var currentItem = items[index];
+            var alternatives = pools.GetFoodsForSlot(current.slot.Role)
+                .Where(f => f.id != current.food.id && !dayUsage.Contains(f.id))
+                .Select(f => new
+                {
+                    Food = f,
+                    Score = CalculateSubstitutionScore(
+                        f, current.food, currentItem, current.slot.Role, weeklyUsage,
+                        weeklyRoleFamilyUsage, preferredFoods, dislikedFoods, adherenceBoost,
+                        targetKcal, targetP, targetC, targetF)
+                })
+                .OrderBy(x => x.Score)
+                .Take(12)
+                .ToList();
+
+            if (!alternatives.Any()) continue;
+
+            var replacement = alternatives[0].Food;
+            var oldFamilyKey = $"{current.slot.Role}:{GetFoodFamily(current.food)}";
+            var newFamilyKey = $"{current.slot.Role}:{GetFoodFamily(replacement)}";
+
+            DecrementUsage(weeklyUsage, current.food.id);
+            DecrementUsage(weeklyRoleFamilyUsage, oldFamilyKey);
+            weeklyUsage[replacement.id] = weeklyUsage.GetValueOrDefault(replacement.id, 0) + 1;
+            weeklyRoleFamilyUsage[newFamilyKey] = weeklyRoleFamilyUsage.GetValueOrDefault(newFamilyKey, 0) + 1;
+            dayUsage.Remove(current.food.id);
+            dayUsage.Add(replacement.id);
+
+            var grams = Math.Max(5, (double)(currentItem.Grams ?? 0));
+            var ratio = grams / 100.0;
+            currentItem.FoodId = replacement.id;
+            currentItem.FoodName = replacement.name;
+            currentItem.Grams = (decimal)grams;
+            currentItem.Kcal = (decimal)Math.Round((replacement.kcal ?? 0) * ratio, 1);
+            currentItem.Protein = (decimal)Math.Round((replacement.protein ?? 0) * ratio, 1);
+            currentItem.Carbs = (decimal)Math.Round((replacement.carbs ?? 0) * ratio, 1);
+            currentItem.Fat = (decimal)Math.Round((replacement.fat ?? 0) * ratio, 1);
+            return;
+        }
+    }
+
+    private static double CalculateSubstitutionScore(
+        foods candidate,
+        foods source,
+        MealItemDto currentItem,
+        string role,
+        Dictionary<int, int> weeklyUsage,
+        Dictionary<string, int> weeklyRoleFamilyUsage,
+        HashSet<string> preferredFoods,
+        HashSet<string> dislikedFoods,
+        double adherenceBoost,
+        double targetKcal,
+        double targetP,
+        double targetC,
+        double targetF)
+    {
+        double densityError(double? candidateValue, double? sourceValue)
+        {
+            if (!candidateValue.HasValue || !sourceValue.HasValue || sourceValue.Value <= 0) return 1.0;
+            return Math.Min(Math.Abs(candidateValue.Value - sourceValue.Value) / sourceValue.Value, 2.0);
+        }
+
+        var nutritionError =
+            0.35 * densityError(candidate.kcal, source.kcal) +
+            0.30 * densityError(candidate.protein, source.protein) +
+            0.20 * densityError(candidate.carbs, source.carbs) +
+            0.15 * densityError(candidate.fat, source.fat);
+        var score = nutritionError * 100.0;
+        score += CalculateWeeklyRepetitionPenalty(candidate, weeklyUsage);
+        score += CalculateRoleFamilyRepetitionPenalty(candidate, role, weeklyRoleFamilyUsage);
+        score += MatchesFoodTerms(candidate, dislikedFoods) ? 80 : 0;
+        score -= MatchesFoodTerms(candidate, preferredFoods) ? 40 + adherenceBoost : 0;
+        score += CalculateSlotNutritionPenalty(candidate, role, targetKcal, targetP, targetC, targetF);
+        return score;
+    }
+
+    private static void DecrementUsage<TKey>(Dictionary<TKey, int> usage, TKey key) where TKey : notnull
+    {
+        if (!usage.TryGetValue(key, out var count)) return;
+        if (count <= 1) usage.Remove(key);
+        else usage[key] = count - 1;
     }
 
     // Penaliza la repetición de un alimento de forma progresiva. Así un alimento
