@@ -9,6 +9,7 @@ public sealed class DietRegenerationRequestDto
     public int? MealId { get; set; }
     public int? MealItemId { get; set; }
     public int? ReplacementFoodId { get; set; }
+    public int? ClientId { get; set; }
     public bool PreserveNutritionTargets { get; set; } = true;
     public bool PreserveWeeklyVariety { get; set; } = true;
 }
