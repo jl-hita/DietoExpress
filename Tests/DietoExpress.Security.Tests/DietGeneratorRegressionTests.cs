@@ -314,7 +314,7 @@ public sealed class DietGeneratorRegressionTests
         var generator = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
 
         Assert.Contains("ValidateDietDraftCompatibilityAsync", semantic);
-        Assert.Contains("string.Equals(warning.Severity, "High"", semantic);
+        Assert.Contains("string.Equals(warning.Severity, \\"High\\"", semantic);
         Assert.Contains("ValidatePatientTherapySemanticsAsync", semantic);
         Assert.Contains("ValidateDietTypeSemantics", semantic);
         Assert.Contains("IsAnimalFood", semantic);
