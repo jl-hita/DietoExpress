@@ -51,7 +51,7 @@ builder.Services.AddScoped<SupportEnhancementService>();
         builder.Services.AddSingleton<AddressUsageService>();
         builder.Services.AddSingleton<IAddressProvider, GeoapifyAddressProvider>();
         builder.Services.AddSingleton<IAddressProvider, LocationIqAddressProvider>();
-        builder.Services.AddSingleton<GoogleCalendarService>();
+        builder.Services.AddScoped<GoogleCalendarService>();
         builder.Services.AddSingleton(sp =>
         {
             var config = sp.GetRequiredService<ConfigServ>();
