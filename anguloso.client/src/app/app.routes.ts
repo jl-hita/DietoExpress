@@ -24,6 +24,9 @@ export const routes: AppRoute[] = [
   { path: 'video-consultation/:appointmentId', loadComponent: () => import('./componentes/video-consultation/video-consultation.component').then(m => m.VideoConsultationComponent), title: 'Consulta online' },
   { path: 'legal', loadComponent: () => import('./componentes/legal-documents/legal-documents.component').then(m => m.LegalDocumentsComponent), title: 'Documentación legal' },
   { path: 'nutricionistas', loadComponent: () => import('./componentes/directory/directory.component').then(m => m.DirectoryComponent), title: 'Directorio de nutricionistas' },
+  { path: 'nutricionistas/online', loadComponent: () => import('./componentes/directory/directory.component').then(m => m.DirectoryComponent), title: 'Nutricionistas online' },
+  { path: 'nutricionistas/ciudad/:city', loadComponent: () => import('./componentes/directory/directory.component').then(m => m.DirectoryComponent), title: 'Nutricionistas por ciudad' },
+  { path: 'nutricionistas/especialidad/:speciality', loadComponent: () => import('./componentes/directory/directory.component').then(m => m.DirectoryComponent), title: 'Nutricionistas por especialidad' },
   { path: 'nutricionistas/:slug', loadComponent: () => import('./componentes/directory/directory.component').then(m => m.DirectoryComponent), title: 'Perfil profesional' },
 
   { path: '', loadComponent: () => import('./componentes/layout/layout.component').then(m => m.LayoutComponent), canActivate: [AuthGuard],
@@ -53,6 +56,7 @@ export const routes: AppRoute[] = [
       { path: 'admin/logs', loadComponent: () => import('./componentes/admin/admin-log.component').then(m => m.AdminLogComponent), canActivate: [SuperAdminGuard], title: 'Logs del sistema' },
       { path: 'admin/plans', loadComponent: () => import('./componentes/admin/admin-plans.component').then(m => m.AdminPlansComponent), canActivate: [SuperAdminGuard], title: 'Planes SaaS' },
       { path: 'admin/directory-verification', loadComponent: () => import('./componentes/admin/admin-directory-verification.component').then(m => m.AdminDirectoryVerificationComponent), canActivate: [SuperAdminGuard], title: 'Verificación del directorio' },
+      { path: 'admin/directory-verification/review', loadComponent: () => import('./componentes/admin/admin-directory-review.component').then(m => m.AdminDirectoryReviewComponent), canActivate: [SuperAdminGuard], title: 'Revisión documental del directorio' },
       { path: 'clinic', loadComponent: () => import('./componentes/clinic/clinic-dashboard.component').then(m => m.ClinicDashboardComponent), title: 'Panel de clínica' }
     ]
   },
