@@ -347,7 +347,129 @@ public class DietGeneratorService
                 cancellationToken);
         }
 
+        // Postcondición culinaria: ninguna fase posterior puede volver a introducir
+        // cantidades cero, aceites no habituales o productos preparados que el generador
+        // no usaría en una pauta profesional.
+        NormalizeGeneratedPlan(advancedDiet, allowedFoods, request.MealsPerDay);
+
         return advancedDiet;
+    }
+
+    private static void NormalizeGeneratedPlan(DietDetailDto diet, IReadOnlyCollection<foods> allowedFoods, int mealsPerDay)
+    {
+        var foodsById = allowedFoods.GroupBy(f => f.id).ToDictionary(g => g.Key, g => g.First());
+        var standardYogurt = allowedFoods
+            .Where(IsProfessionalAutomaticFoodForGenerator)
+            .Where(f => NormalizeFoodTerm(f.name ?? string.Empty).StartsWith("yogur") &&
+                        !NormalizeFoodTerm(f.name ?? string.Empty).Contains("con ") &&
+                        !NormalizeFoodTerm(f.name ?? string.Empty).Contains("azucar"))
+            .OrderBy(f => Math.Abs((f.serving_size ?? 125) - 125))
+            .FirstOrDefault();
+        var standardOil = allowedFoods
+            .Where(IsStandardCulinaryOilForGenerator)
+            .OrderBy(f => NormalizeFoodTerm(f.name ?? string.Empty).Contains("girasol") ? 1 : 0)
+            .FirstOrDefault();
+
+        foreach (var day in diet.Days)
+        {
+            var yogurtUsedToday = false;
+
+            foreach (var meal in day.Meals)
+            {
+                var normalizedItems = new List<MealItemDto>();
+
+                foreach (var item in meal.Items.ToList())
+                {
+                    if ((item.Grams ?? 0) <= 0)
+                        continue;
+
+                    var name = NormalizeFoodTerm(item.FoodName ?? string.Empty);
+
+                    if (IsOilNameForGenerator(name) && !IsStandardCulinaryOilForGenerator(foodsById.GetValueOrDefault(item.FoodId ?? 0)))
+                    {
+                        if (standardOil != null)
+                            ReplaceItemForGenerator(item, standardOil, Math.Max(5, Math.Min(10, (double)(item.Grams ?? 10))));
+                    }
+
+                    name = NormalizeFoodTerm(item.FoodName ?? string.Empty);
+
+                    if (IsPreparedDairyForGenerator(name))
+                    {
+                        if (standardYogurt != null && !yogurtUsedToday)
+                        {
+                            ReplaceItemForGenerator(item, standardYogurt, 125);
+                            yogurtUsedToday = true;
+                        }
+                        else
+                        {
+                            continue;
+                        }
+                    }
+
+                    if (name.Contains("yogur"))
+                    {
+                        if (yogurtUsedToday)
+                            continue;
+                        yogurtUsedToday = true;
+                        var yogurtGrams = standardYogurt?.serving_size > 0 ? standardYogurt.serving_size.Value : 125;
+                        if (item.Grams.HasValue)
+                            ReplaceItemForGenerator(item, foodsById.GetValueOrDefault(item.FoodId ?? 0) ?? standardYogurt, yogurtGrams);
+                    }
+
+                    normalizedItems.Add(item);
+                }
+
+                meal.Items = normalizedItems;
+            }
+        }
+    }
+
+    private static bool IsProfessionalAutomaticFoodForGenerator(foods food)
+    {
+        var n = NormalizeFoodTerm(food.name ?? string.Empty);
+        if (n.Contains("flan") || n.Contains("petit suisse") || n.Contains("natillas") ||
+            n.Contains("pudding") || n.Contains("mousse") || n.Contains("postre lacteo") ||
+            n.Contains("yogur liquido") || n.Contains("yogur con ") || n.Contains("yogur desnatado con ") ||
+            n.Contains("yogur azucarado") || n.Contains("lenteja seca") || n.Contains("garbanzo seco") ||
+            n.Contains("alubia seca") || n.Contains("huevo de pato") || n.Contains("huevo de codorniz") ||
+            n.Contains("huevo de pavo"))
+            return false;
+        return true;
+    }
+
+    private static bool IsPreparedDairyForGenerator(string name)
+        => name.Contains("flan") || name.Contains("petit suisse") || name.Contains("natillas") ||
+           name.Contains("pudding") || name.Contains("mousse") || name.Contains("postre lacteo") ||
+           name.Contains("yogur con ") || name.Contains("yogur desnatado con ") ||
+           name.Contains("yogur azucarado");
+
+    private static bool IsOilNameForGenerator(string name)
+        => name.StartsWith("aceite ") || name.Equals("aceite");
+
+    private static bool IsStandardCulinaryOilForGenerator(foods? food)
+    {
+        if (food == null) return false;
+        var n = NormalizeFoodTerm(food.name ?? string.Empty);
+        return n.Equals("aceite de oliva") || n.Contains("aceite de oliva virgen") ||
+               n.Contains("aceite de oliva virgen extra") || n.Equals("aceite de girasol");
+    }
+
+    private static void ReplaceItemForGenerator(MealItemDto item, foods food, double grams)
+    {
+        var g = food.serving_size.HasValue && food.serving_size.Value > 0 &&
+                string.Equals(food.serving_size_unit, "g", StringComparison.OrdinalIgnoreCase) &&
+                NormalizeFoodTerm(food.name ?? string.Empty).Contains("yogur")
+            ? food.serving_size.Value
+            : grams;
+        g = Math.Clamp(g, 5, 350);
+        var ratio = g / 100.0;
+        item.FoodId = food.id;
+        item.FoodName = food.name;
+        item.Grams = (decimal)Math.Round(g, 0);
+        item.Kcal = (decimal)Math.Round((food.kcal ?? 0) * ratio, 1);
+        item.Protein = (decimal)Math.Round((food.protein ?? 0) * ratio, 1);
+        item.Carbs = (decimal)Math.Round((food.carbs ?? 0) * ratio, 1);
+        item.Fat = (decimal)Math.Round((food.fat ?? 0) * ratio, 1);
     }
 
     private static bool UserCanUseTenantLocalFood(foods food, int? tenantId, int userId, bool canUseTenantLocalFoods)
@@ -368,12 +490,12 @@ public class DietGeneratorService
         "chuchería", "caramelo", "chicle", "malvavisco", "bombón", "chocolate blanco", "cacao en polvo azucarado",
         "patatas chips", "chips de patata", "aceite de algodón", "aceite de coco", "aceite de palma",
         "aceite de maíz", "aceite de soja", "aceite de cacahuete", "aceite de sésamo",
-        "zumo", "jugo", "néctar", "puré", "pure", "ahumado", "huevo de pavo", "huevo de codorniz",
+        "zumo", "jugo", "néctar", "puré", "pure", "ahumado", "huevo de pavo", "huevo de codorniz", "huevo de pato", "huevo de gallina de guinea",
         "melón desecado", "fruta desecada", "fruta seca azucarada", "preparado lácteo", "preparado lacteo",
         "jengibre", "nuez moscada", "canela", "pimienta", "curry", "cúrcuma", "comino", "orégano", "oregano",
         "perejil", "romero", "tomillo", "albahaca", "paprika", "vinagre", "mostaza", "ketchup", "mayonesa",
-        "pan rallado", "mousse", "nata montada", "postre lácteo", "postre lacteo", "yogur líquido", "yogur liquido",
-        "bonito en aceite vegetal", "en aceite vegetal", "aceite vegetal",
+        "pan rallado", "flan", "petit suisse", "natillas", "pudding", "mousse", "crema de postre", "nata montada", "postre lácteo", "postre lacteo", "yogur líquido", "yogur liquido",
+        "bonito en aceite vegetal", "en aceite vegetal", "lenteja seca", "lentejas secas", "garbanzo seco", "garbanzos secos", "alubia seca", "alubias secas", "aceite vegetal",
     };
 
     private bool IsCommonFood(foods f)
@@ -394,6 +516,11 @@ public class DietGeneratorService
         // Productos líquidos o preparados de yogur se reservan para selección manual/recetas:
         // una ración profesional de yogur se expresa como envase/porción estándar.
         if (name.Contains("yogur líquido") || name.Contains("yogur liquido") || name.Contains("mousse") || name.Contains("postre lácteo") || name.Contains("postre lacteo"))
+            return false;
+
+        // Las legumbres secas/crudas son materia prima, no una ración lista para comer.
+        if ((name.Contains("lenteja") || name.Contains("garbanzo") || name.Contains("alubia")) &&
+            (name.Contains("seca") || name.Contains("seco") || name.Contains("cruda") || name.Contains("crudo")))
             return false;
 
         return true;
@@ -473,7 +600,9 @@ public class DietGeneratorService
         for (int i = 0; i < chosenFoods.Count; i++)
         {
             var f = chosenFoods[i].food;
-            double g = Math.Round(grams[i], 0);
+            double g = SnapToServingSize(chosenFoods[i].food, chosenFoods[i].slot,
+                Math.Max(grams[i], chosenFoods[i].slot.MinGrams));
+            g = Math.Clamp(g, chosenFoods[i].slot.MinGrams, chosenFoods[i].slot.MaxGrams);
             double ratio = g / 100.0;
 
             result.Add(new MealItemDto
@@ -808,6 +937,14 @@ public class DietGeneratorService
 
                 grams[i] = Math.Clamp(grams[i] + step, s.MinGrams, s.MaxGrams);
             }
+        }
+
+        // La optimización trabaja en continuo, pero la salida profesional debe volver
+        // a cantidades culinarias válidas antes de llegar al DTO.
+        for (var i = 0; i < n; i++)
+        {
+            grams[i] = SnapToServingSize(items[i].food, items[i].slot, Math.Max(grams[i], items[i].slot.MinGrams));
+            grams[i] = Math.Clamp(grams[i], items[i].slot.MinGrams, items[i].slot.MaxGrams);
         }
 
         return grams;
