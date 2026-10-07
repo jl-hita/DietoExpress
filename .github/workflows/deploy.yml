@@ -115,11 +115,17 @@ jobs:
           # Kestrel haya terminado de enlazar el puerto. Esperamos explícitamente a que
           # nginx pueda servir la aplicación antes de declarar fallido el despliegue.
           for attempt in $(seq 1 12); do
+            # curl puede devolver 502 mientras Kestrel termina de arrancar.
+            # Guardamos la respuesta para que un fallo transitorio no aborte el bucle
+            # por set -e antes de poder reintentarlo.
             if systemctl is-active --quiet dietoexpress.service && \
               curl --fail --silent --show-error --max-time 5 \
                 --resolve jlhitap.duckdns.org:443:127.0.0.1 \
-                https://jlhitap.duckdns.org/ | grep -Fq "DietoExpress"; then
-              break
+                https://jlhitap.duckdns.org/ \
+                > /tmp/dietoexpress-smoke-home.html 2>/tmp/dietoexpress-smoke-curl.err; then
+              if grep -Fq "DietoExpress" /tmp/dietoexpress-smoke-home.html; then
+                break
+              fi
             fi
 
             if [ "$attempt" -eq 12 ]; then
