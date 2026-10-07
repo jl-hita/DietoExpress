@@ -205,6 +205,59 @@
                   <span class="percent">{{ getPercent(getDayFat(dIndex), targetFat) }}% completado</span>
                 </div>
               </div>
+
+              <!-- Resumen de Micronutrientes y % CDR del Día -->
+              <div *ngIf="getDayMicronutrients(dIndex) as micro" style="margin-top: 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                  <span style="font-size: 12px; font-weight: 700; color: #334155; display: flex; align-items: center; gap: 6px;">
+                    <mat-icon style="font-size: 16px; width: 16px; height: 16px; color: #6366f1;">biotech</mat-icon>
+                    Perfil de Micronutrientes del Día (% CDR Ingesta Diaria Recomendada)
+                  </span>
+                  <span style="font-size: 11px; color: #64748b;">Fibra: <strong>{{ micro.fiberG }}g</strong> ({{ micro.fiberPctRda }}% CDR) · Sal: <strong>{{ micro.saltG }}g</strong></span>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; font-size: 11.5px;">
+                  <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 8px;">
+                    <div style="color: #64748b;">Calcio</div>
+                    <div style="font-weight: 700; color: #1e293b;">{{ micro.calciumMg }} mg</div>
+                    <div [style.color]="micro.calciumPctRda >= 80 ? '#16a34a' : '#d97706'" style="font-size: 10.5px; font-weight: 600;">{{ micro.calciumPctRda }}% CDR</div>
+                  </div>
+                  <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 8px;">
+                    <div style="color: #64748b;">Hierro</div>
+                    <div style="font-weight: 700; color: #1e293b;">{{ micro.ironMg }} mg</div>
+                    <div [style.color]="micro.ironPctRda >= 80 ? '#16a34a' : '#d97706'" style="font-size: 10.5px; font-weight: 600;">{{ micro.ironPctRda }}% CDR</div>
+                  </div>
+                  <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 8px;">
+                    <div style="color: #64748b;">Magnesio</div>
+                    <div style="font-weight: 700; color: #1e293b;">{{ micro.magnesiumMg }} mg</div>
+                    <div [style.color]="micro.magnesiumPctRda >= 80 ? '#16a34a' : '#d97706'" style="font-size: 10.5px; font-weight: 600;">{{ micro.magnesiumPctRda }}% CDR</div>
+                  </div>
+                  <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 8px;">
+                    <div style="color: #64748b;">Potasio</div>
+                    <div style="font-weight: 700; color: #1e293b;">{{ micro.potassiumMg }} mg</div>
+                    <div [style.color]="micro.potassiumPctRda >= 80 ? '#16a34a' : '#d97706'" style="font-size: 10.5px; font-weight: 600;">{{ micro.potassiumPctRda }}% CDR</div>
+                  </div>
+                  <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 8px;">
+                    <div style="color: #64748b;">Zinc</div>
+                    <div style="font-weight: 700; color: #1e293b;">{{ micro.zincMg }} mg</div>
+                    <div [style.color]="micro.zincPctRda >= 80 ? '#16a34a' : '#d97706'" style="font-size: 10.5px; font-weight: 600;">{{ micro.zincPctRda }}% CDR</div>
+                  </div>
+                  <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 8px;">
+                    <div style="color: #64748b;">Vit. C</div>
+                    <div style="font-weight: 700; color: #1e293b;">{{ micro.vitaminCMg }} mg</div>
+                    <div [style.color]="micro.vitaminCPctRda >= 80 ? '#16a34a' : '#d97706'" style="font-size: 10.5px; font-weight: 600;">{{ micro.vitaminCPctRda }}% CDR</div>
+                  </div>
+                  <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 8px;">
+                    <div style="color: #64748b;">Vit. B12</div>
+                    <div style="font-weight: 700; color: #1e293b;">{{ micro.vitaminB12Ug }} µg</div>
+                    <div [style.color]="micro.vitaminB12PctRda >= 80 ? '#16a34a' : '#d97706'" style="font-size: 10.5px; font-weight: 600;">{{ micro.vitaminB12PctRda }}% CDR</div>
+                  </div>
+                  <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 8px;">
+                    <div style="color: #64748b;">Folatos</div>
+                    <div style="font-weight: 700; color: #1e293b;">{{ micro.folateUg }} µg</div>
+                    <div [style.color]="micro.folatePctRda >= 80 ? '#16a34a' : '#d97706'" style="font-size: 10.5px; font-weight: 600;">{{ micro.folatePctRda }}% CDR</div>
+                  </div>
+                </div>
+              </div>
             </section>
 
             <!-- Comidas del Día -->

@@ -365,7 +365,96 @@ public class DietGeneratorService
             canUseTenantLocalFoods,
             cancellationToken);
 
+        // Calcular resumen diario de micronutrientes y % CDR para cada día generado
+        PopulateDailyMicronutrients(advancedDiet, allowedFoods);
+
         return advancedDiet;
+    }
+
+    public static void PopulateDailyMicronutrients(DietDetailDto diet, IReadOnlyCollection<foods> allowedFoods)
+    {
+        if (diet.Days == null || diet.Days.Count == 0) return;
+        var foodsById = allowedFoods.GroupBy(f => f.id).ToDictionary(g => g.Key, g => g.First());
+
+        foreach (var day in diet.Days)
+        {
+            var summary = new MicronutrientDailySummaryDto();
+            double ca = 0, fe = 0, mg = 0, k = 0, zn = 0;
+            double vitA = 0, vitC = 0, vitD = 0, vitE = 0, vitB12 = 0, folate = 0;
+            double fiber = 0, sugar = 0, salt = 0;
+
+            foreach (var meal in day.Meals)
+            {
+                foreach (var item in meal.Items)
+                {
+                    if (!item.FoodId.HasValue || (item.Grams ?? 0) <= 0 || !foodsById.TryGetValue(item.FoodId.Value, out var food))
+                        continue;
+
+                    var ratio = (double)item.Grams!.Value / 100.0;
+                    ca += (food.calcium_mg ?? 0) * ratio;
+                    fe += (food.iron_mg ?? 0) * ratio;
+                    mg += (food.magnesium_mg ?? 0) * ratio;
+                    k += (food.potassium_mg ?? 0) * ratio;
+                    zn += (food.zinc_mg ?? 0) * ratio;
+
+                    vitA += (food.vitamin_a_ug ?? 0) * ratio;
+                    vitC += (food.vitamin_c_mg ?? 0) * ratio;
+                    vitD += (food.vitamin_d_ug ?? 0) * ratio;
+                    vitE += (food.vitamin_e_mg ?? 0) * ratio;
+                    vitB12 += (food.vitamin_b12_ug ?? 0) * ratio;
+                    folate += (food.folate_ug ?? 0) * ratio;
+
+                    fiber += (food.fiber ?? 0) * ratio;
+                    sugar += (food.sugar ?? 0) * ratio;
+                    salt += (food.salt ?? 0) * ratio;
+                }
+            }
+
+            // Ingestas Diarias Recomendadas (CDR / RDA adultos según EFSA/AESAN)
+            const double rdaCa = 950.0;     // mg
+            const double rdaFe = 14.0;      // mg (media adulta ponderada)
+            const double rdaMg = 350.0;     // mg
+            const double rdaK = 3500.0;     // mg
+            const double rdaZn = 10.0;      // mg
+            const double rdaVitA = 800.0;   // ug
+            const double rdaVitC = 80.0;    // mg
+            const double rdaVitD = 15.0;    // ug (600 UI)
+            const double rdaVitE = 12.0;    // mg
+            const double rdaVitB12 = 2.5;   // ug
+            const double rdaFolate = 330.0; // ug
+            const double rdaFiber = 30.0;   // g
+
+            summary.CalciumMg = (decimal)Math.Round(ca, 1);
+            summary.CalciumPctRda = (decimal)Math.Round((ca / rdaCa) * 100.0, 0);
+            summary.IronMg = (decimal)Math.Round(fe, 1);
+            summary.IronPctRda = (decimal)Math.Round((fe / rdaFe) * 100.0, 0);
+            summary.MagnesiumMg = (decimal)Math.Round(mg, 1);
+            summary.MagnesiumPctRda = (decimal)Math.Round((mg / rdaMg) * 100.0, 0);
+            summary.PotassiumMg = (decimal)Math.Round(k, 1);
+            summary.PotassiumPctRda = (decimal)Math.Round((k / rdaK) * 100.0, 0);
+            summary.ZincMg = (decimal)Math.Round(zn, 1);
+            summary.ZincPctRda = (decimal)Math.Round((zn / rdaZn) * 100.0, 0);
+
+            summary.VitaminAUg = (decimal)Math.Round(vitA, 1);
+            summary.VitaminAPctRda = (decimal)Math.Round((vitA / rdaVitA) * 100.0, 0);
+            summary.VitaminCMg = (decimal)Math.Round(vitC, 1);
+            summary.VitaminCPctRda = (decimal)Math.Round((vitC / rdaVitC) * 100.0, 0);
+            summary.VitaminDUg = (decimal)Math.Round(vitD, 1);
+            summary.VitaminDPctRda = (decimal)Math.Round((vitD / rdaVitD) * 100.0, 0);
+            summary.VitaminEMg = (decimal)Math.Round(vitE, 1);
+            summary.VitaminEPctRda = (decimal)Math.Round((vitE / rdaVitE) * 100.0, 0);
+            summary.VitaminB12Ug = (decimal)Math.Round(vitB12, 1);
+            summary.VitaminB12PctRda = (decimal)Math.Round((vitB12 / rdaVitB12) * 100.0, 0);
+            summary.FolateUg = (decimal)Math.Round(folate, 1);
+            summary.FolatePctRda = (decimal)Math.Round((folate / rdaFolate) * 100.0, 0);
+
+            summary.FiberG = (decimal)Math.Round(fiber, 1);
+            summary.FiberPctRda = (decimal)Math.Round((fiber / rdaFiber) * 100.0, 0);
+            summary.SugarG = (decimal)Math.Round(sugar, 1);
+            summary.SaltG = (decimal)Math.Round(salt, 2);
+
+            day.Micronutrients = summary;
+        }
     }
 
     private static void NormalizeGeneratedPlan(DietDetailDto diet, IReadOnlyCollection<foods> allowedFoods, int mealsPerDay)

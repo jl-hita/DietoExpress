@@ -58,11 +58,43 @@ export type Diet = DietDetail;
 
 // ─── Sub-modelos del árbol ────────────────────────────────────────────────────
 
+export interface MicronutrientDailySummary {
+  calciumMg: number;
+  calciumPctRda: number;
+  ironMg: number;
+  ironPctRda: number;
+  magnesiumMg: number;
+  magnesiumPctRda: number;
+  potassiumMg: number;
+  potassiumPctRda: number;
+  zincMg: number;
+  zincPctRda: number;
+
+  vitaminAUg: number;
+  vitaminAPctRda: number;
+  vitaminCMg: number;
+  vitaminCPctRda: number;
+  vitaminDUg: number;
+  vitaminDPctRda: number;
+  vitaminEMg: number;
+  vitaminEPctRda: number;
+  vitaminB12Ug: number;
+  vitaminB12PctRda: number;
+  folateUg: number;
+  folatePctRda: number;
+
+  fiberG: number;
+  fiberPctRda: number;
+  sugarG: number;
+  saltG: number;
+}
+
 /** Equivale a DietDayDto */
 export interface DietDay {
   id?: number;
   dayIndex: number;
   meals: Meal[];
+  micronutrients?: MicronutrientDailySummary;
 }
 
 /** Equivale a MealDto */

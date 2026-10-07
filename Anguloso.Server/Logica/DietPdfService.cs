@@ -230,14 +230,83 @@ public class DietPdfService
             col.Item().Background("#3f51b5").Padding(6).Text(dayName.ToUpper())
                 .Bold().FontSize(11).FontColor(Colors.White);
 
-            // Comidas del dÃ­a
+            // Comidas del día
             if (day.meals != null)
             {
                 foreach (var meal in day.meals.OrderBy(m => m.meal_index))
                 {
                     col.Item().Element(c => ComposeMeal(c, meal));
                 }
+
+                // Resumen diario de % CDR de Micronutrientes
+                col.Item().Element(c => ComposeDayMicronutrients(c, day.meals));
             }
+        });
+    }
+
+    private void ComposeDayMicronutrients(IContainer container, IEnumerable<meals> dayMeals)
+    {
+        var items = dayMeals.SelectMany(m => m.meal_items ?? Enumerable.Empty<meal_items>()).ToList();
+        if (!items.Any(i => i.food != null)) return;
+
+        double ca = 0, fe = 0, mg = 0, k = 0, zn = 0;
+        double vitA = 0, vitC = 0, vitD = 0, vitE = 0, vitB12 = 0, folate = 0, fiber = 0;
+
+        foreach (var item in items)
+        {
+            if (item.food == null || (item.grams ?? 0) <= 0) continue;
+            var ratio = (double)item.grams!.Value / 100.0;
+            ca += (item.food.calcium_mg ?? 0) * ratio;
+            fe += (item.food.iron_mg ?? 0) * ratio;
+            mg += (item.food.magnesium_mg ?? 0) * ratio;
+            k += (item.food.potassium_mg ?? 0) * ratio;
+            zn += (item.food.zinc_mg ?? 0) * ratio;
+            vitA += (item.food.vitamin_a_ug ?? 0) * ratio;
+            vitC += (item.food.vitamin_c_mg ?? 0) * ratio;
+            vitD += (item.food.vitamin_d_ug ?? 0) * ratio;
+            vitE += (item.food.vitamin_e_mg ?? 0) * ratio;
+            vitB12 += (item.food.vitamin_b12_ug ?? 0) * ratio;
+            folate += (item.food.folate_ug ?? 0) * ratio;
+            fiber += (item.food.fiber ?? 0) * ratio;
+        }
+
+        const double rdaCa = 950.0;     // mg
+        const double rdaFe = 14.0;      // mg
+        const double rdaMg = 350.0;     // mg
+        const double rdaK = 3500.0;     // mg
+        const double rdaZn = 10.0;      // mg
+        const double rdaVitA = 800.0;   // ug
+        const double rdaVitC = 80.0;    // mg
+        const double rdaVitD = 15.0;    // ug
+        const double rdaVitE = 12.0;    // mg
+        const double rdaVitB12 = 2.5;   // ug
+        const double rdaFolate = 330.0; // ug
+        const double rdaFiber = 30.0;   // g
+
+        container.Background("#f8fafc").Border(1).BorderColor("#e2e8f0").CornerRadius(4).Padding(6).Column(col =>
+        {
+            col.Item().Text("RESUMEN DE MICRONUTRIENTES Y % CDR DEL DÍA").Bold().FontSize(8).FontColor("#475569");
+            col.Item().Table(table =>
+            {
+                table.ColumnsDefinition(cols =>
+                {
+                    for (int i = 0; i < 6; i++) cols.RelativeColumn(1);
+                });
+
+                table.Cell().Text($"Calcio: {ca:F0}mg ({Math.Round(ca/rdaCa*100):0}% CDR)").FontSize(7);
+                table.Cell().Text($"Hierro: {fe:F1}mg ({Math.Round(fe/rdaFe*100):0}% CDR)").FontSize(7);
+                table.Cell().Text($"Magnesio: {mg:F0}mg ({Math.Round(mg/rdaMg*100):0}% CDR)").FontSize(7);
+                table.Cell().Text($"Potasio: {k:F0}mg ({Math.Round(k/rdaK*100):0}% CDR)").FontSize(7);
+                table.Cell().Text($"Zinc: {zn:F1}mg ({Math.Round(zn/rdaZn*100):0}% CDR)").FontSize(7);
+                table.Cell().Text($"Fibra: {fiber:F1}g ({Math.Round(fiber/rdaFiber*100):0}% CDR)").FontSize(7);
+
+                table.Cell().Text($"Vit A: {vitA:F0}µg ({Math.Round(vitA/rdaVitA*100):0}% CDR)").FontSize(7);
+                table.Cell().Text($"Vit C: {vitC:F0}mg ({Math.Round(vitC/rdaVitC*100):0}% CDR)").FontSize(7);
+                table.Cell().Text($"Vit D: {vitD:F1}µg ({Math.Round(vitD/rdaVitD*100):0}% CDR)").FontSize(7);
+                table.Cell().Text($"Vit E: {vitE:F1}mg ({Math.Round(vitE/rdaVitE*100):0}% CDR)").FontSize(7);
+                table.Cell().Text($"Vit B12: {vitB12:F1}µg ({Math.Round(vitB12/rdaVitB12*100):0}% CDR)").FontSize(7);
+                table.Cell().Text($"Folatos: {folate:F0}µg ({Math.Round(folate/rdaFolate*100):0}% CDR)").FontSize(7);
+            });
         });
     }
 

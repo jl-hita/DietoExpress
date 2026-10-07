@@ -65,6 +65,42 @@ public class DietDayDto
     public int Id { get; set; }
     public int DayIndex { get; set; }
     public ICollection<MealDto> Meals { get; set; } = new List<MealDto>();
+    public MicronutrientDailySummaryDto? Micronutrients { get; set; }
+}
+
+public class MicronutrientDailySummaryDto
+{
+    // Minerales y electrolitos (valores absolutos y % CDR)
+    public decimal CalciumMg { get; set; }
+    public decimal CalciumPctRda { get; set; }
+    public decimal IronMg { get; set; }
+    public decimal IronPctRda { get; set; }
+    public decimal MagnesiumMg { get; set; }
+    public decimal MagnesiumPctRda { get; set; }
+    public decimal PotassiumMg { get; set; }
+    public decimal PotassiumPctRda { get; set; }
+    public decimal ZincMg { get; set; }
+    public decimal ZincPctRda { get; set; }
+
+    // Vitaminas (valores absolutos y % CDR)
+    public decimal VitaminAUg { get; set; }
+    public decimal VitaminAPctRda { get; set; }
+    public decimal VitaminCMg { get; set; }
+    public decimal VitaminCPctRda { get; set; }
+    public decimal VitaminDUg { get; set; }
+    public decimal VitaminDPctRda { get; set; }
+    public decimal VitaminEMg { get; set; }
+    public decimal VitaminEPctRda { get; set; }
+    public decimal VitaminB12Ug { get; set; }
+    public decimal VitaminB12PctRda { get; set; }
+    public decimal FolateUg { get; set; }
+    public decimal FolatePctRda { get; set; }
+
+    // Fibra, Azúcar y Sal
+    public decimal FiberG { get; set; }
+    public decimal FiberPctRda { get; set; }
+    public decimal SugarG { get; set; }
+    public decimal SaltG { get; set; }
 }
 
 public class MealDto

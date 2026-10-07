@@ -185,10 +185,11 @@ export class DietCreateComponent implements OnInit {
     });
   }
 
-  createDayGroup(index: number = 0): FormGroup {
+  createDayGroup(index: number = 0, micronutrients: any = null): FormGroup {
     return this.fb.group({
       dayIndex: [index],
-      meals: this.fb.array([])
+      meals: this.fb.array([]),
+      micronutrients: [micronutrients]
     });
   }
 
@@ -513,6 +514,10 @@ export class DietCreateComponent implements OnInit {
     return Math.min(100, Math.round((current / target) * 100));
   }
 
+  getDayMicronutrients(dIndex: number): any {
+    return this.days.at(dIndex)?.get('micronutrients')?.value || null;
+  }
+
   get targetKcal(): number { return this.form.get('targetKcal')?.value || 0; }
   get targetProtein(): number { return this.form.get('targetProtein')?.value || 0; }
   get targetCarbs(): number { return this.form.get('targetCarbs')?.value || 0; }
@@ -677,7 +682,7 @@ export class DietCreateComponent implements OnInit {
     // Reconstruir árbol con la dieta generada
     if (d.days) {
       d.days.forEach((day: any) => {
-        const dayGroup = this.createDayGroup(day.dayIndex);
+        const dayGroup = this.createDayGroup(day.dayIndex, day.micronutrients);
         const mealsArray = dayGroup.get('meals') as FormArray;
         day.meals.forEach((meal: any) => {
           const mealGroup = this.createMealGroup(meal.name, meal.mealIndex);
