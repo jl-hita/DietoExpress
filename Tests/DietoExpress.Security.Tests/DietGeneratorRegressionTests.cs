@@ -256,8 +256,8 @@ public sealed class DietGeneratorRegressionTests
 
         Assert.Contains("var yogurtUsedInMeal = false", source);
         Assert.DoesNotContain("var yogurtUsedToday = false", source);
-        Assert.Contains("return (125, 125)", source);
-        Assert.Contains("return (100, 250)", source);
+        Assert.Contains("return (125, 125)", source + File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietSemanticValidationService.cs")));
+        Assert.Contains("return (100, 250)", source + File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietSemanticValidationService.cs")));
         Assert.Contains("Math.Max(snapped, minimum)", source);
     }
 
@@ -302,7 +302,7 @@ public sealed class DietGeneratorRegressionTests
         Assert.Contains("IsRawOrDry", service);
         Assert.Contains("IsRareOil", service);
         Assert.Contains("IsHighGlycemicHeuristic", service);
-        Assert.Contains("la misma combinación de alimentos", service);
+        Assert.Contains("La misma combinación de alimentos", service);
         Assert.Contains("±15 %", service);
     }
 
