@@ -103,6 +103,7 @@ public sealed class DietSemanticValidationService
 
         ValidateDailyNutrition(errors, diet, request);
         ValidateDietTypeSemantics(errors, diet, request.DietType);
+        await ValidatePatientTherapySemanticsAsync(errors, diet, request, context, cancellationToken);
 
         // La barrera semántica final también consolida las incompatibilidades clínicas
         // de la misma forma que la validación de borradores. Así ninguna optimización,
@@ -195,6 +196,53 @@ public sealed class DietSemanticValidationService
             errors.Add($"Día {dayIndex + 1}, {meal.Name}: «{food.name}» es una fuente de hidratos de respuesta glucémica elevada no priorizada.");
         if (IsRareOil(food.name))
             errors.Add($"Día {dayIndex + 1}, {meal.Name}: «{food.name}» es un aceite no estándar.");
+    }
+
+    private static async Task ValidatePatientTherapySemanticsAsync(
+        List<string> errors,
+        DietDetailDto diet,
+        GenerateDietRequestDto request,
+        angulosodbContext context,
+        CancellationToken cancellationToken)
+    {
+        if (!request.ClientId.HasValue) return;
+
+        var client = await context.clients
+            .AsNoTracking()
+            .Include(c => c.medical_history)
+            .FirstOrDefaultAsync(c => c.id == request.ClientId.Value && c.archived_at == null, cancellationToken);
+
+        if (client?.medical_history == null) return;
+
+        var foods = diet.Days.SelectMany(d => d.Meals).SelectMany(m => m.Items)
+            .Where(i => i.FoodId.HasValue && (i.Grams ?? 0) > 0)
+            .ToList();
+
+        if (client.medical_history.diabetes == true)
+        {
+            foreach (var item in foods)
+            {
+                var food = Normalize(item.FoodName ?? string.Empty);
+                if (new[] { "refresco", "bebida azucarada", "zumo", "caramelo", "mermelada", "azucar", "bolleria industrial" }
+                    .Any(food.Contains))
+                {
+                    errors.Add($"Día {item.MealIndex + 1}: «{item.FoodName}» no se admite como componente automático en un paciente con diabetes.");
+                }
+            }
+        }
+
+        if (client.medical_history.hypertension == true)
+        {
+            foreach (var item in foods)
+            {
+                var food = Normalize(item.FoodName ?? string.Empty);
+                if (new[] { "patatas fritas", "chips", "snack salado", "sopa instantanea", "caldo concentrado" }
+                    .Any(food.Contains))
+                {
+                    errors.Add($"Día {item.MealIndex + 1}: «{item.FoodName}» no se admite como componente automático en una pauta con hipertensión.");
+                }
+            }
+        }
     }
 
     private static void ValidateDietTypeSemantics(List<string> errors, DietDetailDto diet, string dietType)
