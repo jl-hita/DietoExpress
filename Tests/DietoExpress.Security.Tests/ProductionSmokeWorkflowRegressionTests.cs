@@ -25,7 +25,7 @@ public sealed class ProductionSmokeWorkflowRegressionTests
         Assert.Contains("systemctl is-active --quiet dietoexpress.service", workflow);
         Assert.Contains("https://jlhitap.duckdns.org/", workflow);
         Assert.Contains("https://jlhitap.duckdns.org/api/directory/professionals", workflow);
-        Assert.Contains("python3 -c 'import json,sys;", workflow);
+        Assert.Contains("python3 -c 'import json;", workflow);
         Assert.Contains("grep -Fq \"DietoExpress\"", workflow);
     }
 }

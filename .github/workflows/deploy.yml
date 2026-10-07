@@ -138,9 +138,26 @@ jobs:
             sleep 5
           done
 
-          curl --fail --silent --show-error --max-time 10 \
-            --resolve jlhitap.duckdns.org:443:127.0.0.1 \
-            -H 'Accept: application/json' \
-            https://jlhitap.duckdns.org/api/directory/professionals \
-            > /tmp/dietoexpress-smoke-directory.json
-          python3 -c 'import json,sys; data=json.load(open("/tmp/dietoexpress-smoke-directory.json")); assert isinstance(data,list)'
+          # El backend puede tardar un poco más que el frontend en quedar listo.
+          # Reintentamos también el endpoint público para no convertir un 502 transitorio
+          # posterior al arranque en un falso fallo de despliegue.
+          for attempt in $(seq 1 12); do
+            if curl --fail --silent --show-error --max-time 5 \
+              --resolve jlhitap.duckdns.org:443:127.0.0.1 \
+              -H 'Accept: application/json' \
+              https://jlhitap.duckdns.org/api/directory/professionals \
+              > /tmp/dietoexpress-smoke-directory.json; then
+              if python3 -c 'import json; data=json.load(open("/tmp/dietoexpress-smoke-directory.json")); assert isinstance(data,list)'; then
+                break
+              fi
+            fi
+
+            if [ "$attempt" -eq 12 ]; then
+              echo "El endpoint de directorio no quedó disponible tras 60 segundos."
+              systemctl status dietoexpress.service --no-pager || true
+              journalctl -u dietoexpress.service -n 100 --no-pager || true
+              exit 1
+            fi
+
+            sleep 5
+          done
