@@ -305,8 +305,9 @@ public class AuthorizationRegressionTests
         Assert.Contains("patatas chips", source);
         Assert.Contains("desecado", source);
         Assert.Contains("rebalanceBounds", source);
-        Assert.Contains("item.Grams ?? 0) * 0.75", source);
-        Assert.Contains("item.Grams ?? 0) * 1.25", source);
+        Assert.Contains("GetCulinaryBounds", source);
+        Assert.Contains("return (100, 250)", source);
+        Assert.Contains("return (50, 180)", source);
         Assert.DoesNotContain("Math.Clamp(currentGrams - stepGrams, 5, 350)", source);
     }
 
