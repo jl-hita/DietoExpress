@@ -77,7 +77,7 @@ import { LegalAcceptance, LegalDocument, LegalService } from '../../servicios/le
               <span class="section-label">Tu suscripción</span>
               <div class="current-title-row">
                 <h2>{{ license.planName }}</h2>
-                <span class="status" [class.expiring]="license.cancelAtPeriodEnd" [class.expired]="isTrialExpired">
+                <span class="status" [class.expiring]="license.cancelAtPeriodEnd || trialIsEndingSoon" [class.expired]="isTrialExpired">
                   {{ currentStatusLabel }}
                 </span>
               </div>
@@ -100,6 +100,10 @@ import { LegalAcceptance, LegalDocument, LegalService } from '../../servicios/le
             <div *ngIf="isTrial">
               <span>Periodo de prueba</span>
               <strong>{{ trialDaysRemaining }} {{ trialDaysRemaining === 1 ? 'día' : 'días' }} restantes</strong>
+            </div>
+            <div *ngIf="isTrial && license.expiresAt">
+              <span>Finaliza</span>
+              <strong>{{ license.expiresAt | date:'d MMM y, HH:mm' }}</strong>
             </div>
             <div *ngIf="currentPaidPlan">
               <span>Renovación automática</span>
@@ -366,7 +370,7 @@ export class BillingComponent implements OnInit {
     return Math.max(0, Math.ceil((new Date(this.license.expiresAt).getTime() - Date.now()) / 86400000));
   }
 
-  get currentStatusLabel(): string {
+  get trialIsEndingSoon(): boolean { return this.isTrial && this.trialDaysRemaining > 0 && this.trialDaysRemaining <= 3; }\n\n  get currentStatusLabel(): string {
     if (this.isTrialExpired) return 'Finalizado';
     if (this.license?.cancelAtPeriodEnd) return 'Finaliza al terminar el periodo';
     if (this.license?.status === 'past_due') return 'Pago pendiente';
