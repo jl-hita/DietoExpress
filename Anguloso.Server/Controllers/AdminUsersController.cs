@@ -170,12 +170,18 @@ public class AdminUsersController : ControllerBase
     }
 
     /// <summary>
-    /// Transmite el archivo de log directamente al cliente para evitar que System.Text.Json
-    /// tenga que materializar archivos grandes como una única cadena JSON.
+    /// Devuelve un bloque acotado del log, empezando siempre en el inicio de una entrada
+    /// Serilog. La primera carga trae únicamente la parte más reciente; las siguientes
+    /// pueden pedir bloques anteriores mediante endByte. Esto evita descargar archivos
+    /// de varios cientos de MB solo para abrir el visor.
     /// </summary>
     [HttpGet("logs/content")]
-    public IActionResult GetLogContent([FromQuery] string? date = null)
+    public IActionResult GetLogContent(
+        [FromQuery] string? date = null,
+        [FromQuery] long? endByte = null)
     {
+        const int chunkSizeBytes = 512 * 1024;
+
         if (!TryParseLogDate(date, out var requestedDate, out var error))
             return BadRequest(error);
 
@@ -183,16 +189,78 @@ public class AdminUsersController : ControllerBase
         if (selected == default)
             return NotFound("No existe ningún archivo de log para la fecha solicitada.");
 
-        var stream = new FileStream(
-            selected.Path,
-            FileMode.Open,
-            FileAccess.Read,
-            FileShare.ReadWrite | FileShare.Delete,
-            bufferSize: 64 * 1024,
-            options: FileOptions.Asynchronous | FileOptions.SequentialScan);
+        var fileInfo = new FileInfo(selected.Path);
+        var fileLength = fileInfo.Length;
+        var requestedEnd = endByte ?? fileLength;
 
-        return File(stream, "text/plain; charset=utf-8", enableRangeProcessing: true);
+        if (requestedEnd < 0 || requestedEnd > fileLength)
+            return BadRequest("El desplazamiento del log no es válido.");
+
+        if (requestedEnd == 0)
+        {
+            Response.Headers["X-Log-Start"] = "0";
+            Response.Headers["X-Log-End"] = "0";
+            Response.Headers["X-Log-Length"] = fileLength.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            Response.Headers["X-Log-Has-More"] = fileLength > 0 ? "true" : "false";
+            return Content(string.Empty, "text/plain; charset=utf-8");
+        }
+
+        var candidateStart = Math.Max(0, requestedEnd - chunkSizeBytes);
+        var bytesToRead = checked((int)(requestedEnd - candidateStart));
+        var buffer = new byte[bytesToRead];
+
+        using (var stream = new FileStream(
+                   selected.Path,
+                   FileMode.Open,
+                   FileAccess.Read,
+                   FileShare.ReadWrite | FileShare.Delete,
+                   bufferSize: 64 * 1024,
+                   options: FileOptions.SequentialScan))
+        {
+            stream.Seek(candidateStart, SeekOrigin.Begin);
+            var read = 0;
+            while (read < buffer.Length)
+            {
+                var count = stream.Read(buffer, read, buffer.Length - read);
+                if (count == 0) break;
+                read += count;
+            }
+
+            if (read != buffer.Length)
+                Array.Resize(ref buffer, read);
+        }
+
+        var text = System.Text.Encoding.UTF8.GetString(buffer);
+        var firstHeader = LogEntryHeaderRegex.Match(text);
+
+        // Si el bloque empieza a mitad de una entrada, descartamos esa entrada parcial.
+        // Así cada respuesta puede concatenarse con la anterior sin duplicar ni truncar
+        // excepciones multilínea.
+        var startByte = candidateStart;
+        if (firstHeader.Success && firstHeader.Index > 0)
+        {
+            startByte += System.Text.Encoding.UTF8.GetByteCount(text[..firstHeader.Index]);
+            text = text[firstHeader.Index..];
+        }
+        else if (!firstHeader.Success && candidateStart > 0)
+        {
+            // No hay una cabecera completa en el bloque; no exponemos una porción que
+            // no pueda interpretarse como una entrada independiente.
+            text = string.Empty;
+            startByte = requestedEnd;
+        }
+
+        Response.Headers["X-Log-Start"] = startByte.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        Response.Headers["X-Log-End"] = requestedEnd.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        Response.Headers["X-Log-Length"] = fileLength.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        Response.Headers["X-Log-Has-More"] = startByte > 0 ? "true" : "false";
+
+        return Content(text, "text/plain; charset=utf-8");
     }
+
+    private static readonly Regex LogEntryHeaderRegex = new(
+        @"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} [+-]\d{2}:\d{2} \[[A-Z]{3}\]",
+        RegexOptions.Multiline | RegexOptions.Compiled);
 
     private static bool TryParseLogDate(string? date, out DateTime requestedDate, out string? error)
     {
