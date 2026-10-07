@@ -232,7 +232,7 @@ public sealed class DietGeneratorRegressionTests
         Assert.Contains("RollbackAsync", service);
         Assert.Contains("IsAllowed", service);
         Assert.Contains("RebalanceMeal", service);
-        Assert.Contains("[HttpPost("{id:int}/regenerate")]", controller);
+        Assert.Contains("[HttpPost(\"{id:int}/regenerate\")]", controller);
     }
 
     [Fact]
