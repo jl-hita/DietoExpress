@@ -228,7 +228,8 @@ public class DietGeneratorService
         if (!foodPools.Carbs.Any() && !request.DietType.Equals("Cetogenica", StringComparison.OrdinalIgnoreCase)) missingPools.Add("hidratos de carbono");
         if (!foodPools.Vegetables.Any()) missingPools.Add("verduras/hortalizas");
         if (!foodPools.Fruits.Any()) missingPools.Add("frutas");
-        if (!foodPools.DairyAndEggs.Any()) missingPools.Add("lácteos/huevos o una fuente proteica alternativa");
+        if (!foodPools.DairyAndEggs.Any() && !request.DietType.Equals("Vegana", StringComparison.OrdinalIgnoreCase)) missingPools.Add("lácteos/huevos");
+        if (!foodPools.OilsAndFats.Any()) missingPools.Add("aceite culinario");
         if (missingPools.Count > 0)
         {
             throw new InvalidOperationException(
@@ -1154,12 +1155,14 @@ public class DietGeneratorService
                 pools.DairyAndEggs.Add(f);
             }
             // Proteínas Principales Magras/Pescados
-            else if (name.Contains("pechuga") || name.Contains("pollo") || name.Contains("pavo") || name.Contains("lomo") || name.Contains("ternera") || name.Contains("atún") || name.Contains("salmon") || name.Contains("merluza") || name.Contains("bacalao") || name.Contains("dorada") || name.Contains("lubina") || name.Contains("gambas") || name.Contains("tofu") || (p >= 16 && p > c && fat < 18))
+            else if (cat.Contains("carne") || cat.Contains("pescado") || cat.Contains("marisco") ||
+                     name.Contains("pechuga") || name.Contains("pollo") || name.Contains("pavo") || name.Contains("lomo") || name.Contains("ternera") || name.Contains("cerdo") || name.Contains("conejo") || name.Contains("atún") || name.Contains("salmon") || name.Contains("merluza") || name.Contains("bacalao") || name.Contains("dorada") || name.Contains("lubina") || name.Contains("sardina") || name.Contains("caballa") || name.Contains("gambas") || name.Contains("gamba") || name.Contains("tofu") || name.Contains("tempeh"))
             {
                 pools.Proteins.Add(f);
             }
             // Carbohidratos Base Comunes
-            else if (name.Contains("arroz") || name.Contains("pasta") || name.Contains("patata") || name.Contains("macarrones") || name.Contains("espaguetis") || name.Contains("lenteja") || name.Contains("garbanzo") || name.Contains("alubia") || name.Contains("guisante") || name.Contains("quinoa") || (c >= 18 && c > p))
+            else if (cat.Contains("cereal") || cat.Contains("cereales") || cat.Contains("legumbre") || cat.Contains("tubérculo") || cat.Contains("tuberculo") ||
+                     name.Contains("arroz") || name.Contains("pasta") || name.Contains("patata") || name.Contains("boniato") || name.Contains("macarrones") || name.Contains("espaguetis") || name.Contains("lenteja") || name.Contains("garbanzo") || name.Contains("alubia") || name.Contains("guisante") || name.Contains("quinoa") || name.Contains("cuscús") || name.Contains("cuscus"))
             {
                 pools.Carbs.Add(f);
             }
