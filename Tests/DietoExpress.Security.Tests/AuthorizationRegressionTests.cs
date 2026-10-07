@@ -347,8 +347,9 @@ public class AuthorizationRegressionTests
         Assert.Contains("if (meal.Contains(\"desayuno\") || meal.Contains(\"media\") || meal.Contains(\"merienda\"))", source);
         Assert.Contains("private static bool SameRole(string role, foods food)", source);
         Assert.Contains("=> InferRole(\"comida\", food) == role;", source);
-        Assert.Contains("item.Grams ?? 0) * 0.75", source);
-        Assert.Contains("item.Grams ?? 0) * 1.25", source);
+        Assert.Contains("GetCulinaryBounds(meal.Name, item)", source);
+        Assert.DoesNotContain("item.Grams ?? 0) * 0.75", source);
+        Assert.DoesNotContain("item.Grams ?? 0) * 1.25", source);
         Assert.DoesNotContain("Math.Max(5, grams - 5), Math.Min(350, grams + 5)", source);
     }
 

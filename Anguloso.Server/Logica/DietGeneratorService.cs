@@ -372,10 +372,9 @@ public class DietGeneratorService
 
         foreach (var day in diet.Days)
         {
-            var yogurtUsedToday = false;
-
             foreach (var meal in day.Meals)
             {
+                var yogurtUsedInMeal = false;
                 var normalizedItems = new List<MealItemDto>();
 
                 foreach (var item in meal.Items.ToList())
@@ -395,10 +394,10 @@ public class DietGeneratorService
 
                     if (IsPreparedDairyForGenerator(name))
                     {
-                        if (standardYogurt != null && !yogurtUsedToday)
+                        if (standardYogurt != null && !yogurtUsedInMeal)
                         {
                             ReplaceItemForGenerator(item, standardYogurt, 125);
-                            yogurtUsedToday = true;
+                            yogurtUsedInMeal = true;
                         }
                         else
                         {
@@ -408,7 +407,7 @@ public class DietGeneratorService
 
                     if (name.Contains("yogur"))
                     {
-                        if (yogurtUsedToday)
+                        if (yogurtUsedInMeal)
                             continue;
                         yogurtUsedToday = true;
                         var yogurtGrams = standardYogurt?.serving_size > 0 ? standardYogurt.serving_size.Value : 125;
