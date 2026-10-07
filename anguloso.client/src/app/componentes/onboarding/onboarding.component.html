@@ -1,36 +1,72 @@
 <div class="onboarding">
-  <div class="onboarding-card">
-    <div class="icon"><mat-icon>spa</mat-icon></div>
-    <span class="eyebrow">BIENVENIDO A DIETOEXPRESS</span>
-    <h1>Hola, {{ userName }}</h1>
-    <p class="intro">
-      Tu cuenta está creada y lista. Ahora mismo tienes una cuenta gratuita:
-      puedes explorar DietoExpress, completar tu perfil y consultar los planes
-      disponibles cuando quieras.
-    </p>
+  <div class="onboarding-card" *ngIf="loading">
+    <mat-spinner diameter="44"></mat-spinner>
+    <p>Cargando tu configuración...</p>
+  </div>
 
-    <div class="steps">
-      <div class="step">
-        <span>1</span>
-        <div><strong>Empieza por un cliente</strong><p>Crea tu primer cliente y prueba la gestión.</p></div>
-      </div>
-      <div class="step">
-        <span>2</span>
-        <div><strong>Crea una dieta</strong><p>Prepara una dieta y descubre el flujo de trabajo.</p></div>
-      </div>
-      <div class="step">
-        <span>3</span>
-        <div><strong>Cuando necesites más</strong><p>Pasa a un plan profesional para ampliar los límites.</p></div>
+  <div class="onboarding-card" *ngIf="!loading && error">
+    <div class="icon error"><mat-icon>cloud_off</mat-icon></div>
+    <h1>No hemos podido cargar tu configuración</h1>
+    <p class="intro">Tus datos no se han modificado. Puedes volver a intentarlo.</p>
+    <button mat-flat-button color="primary" (click)="ngOnInit()">Reintentar</button>
+  </div>
+
+  <div class="onboarding-card wide" *ngIf="!loading && !error">
+    <div class="hero">
+      <div class="icon"><mat-icon>spa</mat-icon></div>
+      <div>
+        <span class="eyebrow">ACTIVACIÓN PROFESIONAL</span>
+        <h1>Hola, {{ userName }}</h1>
+        <p class="intro">
+          Vamos a dejar tu consulta preparada paso a paso. Puedes completar lo imprescindible
+          ahora y volver a los pasos opcionales cuando quieras.
+        </p>
       </div>
     </div>
 
+    <section class="progress-section" aria-label="Progreso de configuración">
+      <div class="progress-label">
+        <strong>{{ completedCount }} de {{ steps.length }} pasos completados</strong>
+        <span>{{ progress }}%</span>
+      </div>
+      <mat-progress-bar mode="determinate" [value]="progress"></mat-progress-bar>
+    </section>
+
+    <div class="steps">
+      <article class="step" *ngFor="let step of steps" [class.complete]="step.complete">
+        <div class="step-icon"><mat-icon>{{ step.complete ? 'check' : step.icon }}</mat-icon></div>
+        <div class="step-copy">
+          <div class="step-title">
+            <strong>{{ step.title }}</strong>
+            <span class="optional" *ngIf="step.optional">Opcional</span>
+          </div>
+          <p>{{ step.description }}</p>
+        </div>
+        <button mat-stroked-button type="button" [routerLink]="step.route">
+          {{ step.complete ? 'Revisar' : 'Configurar' }}
+        </button>
+      </article>
+    </div>
+
+    <div class="summary" *ngIf="license">
+      <mat-icon>workspace_premium</mat-icon>
+      <div>
+        <strong>Plan {{ license.planName }}</strong>
+        <span>{{ license.clients }} pacientes · {{ license.nutritionists }} profesional{{ license.nutritionists === 1 ? '' : 'es' }}</span>
+      </div>
+      <a routerLink="/billing">Ver suscripción</a>
+    </div>
+
     <div class="actions">
-      <button mat-flat-button color="primary" routerLink="/clients">
-        Empezar a probar
+      <button mat-flat-button color="primary" (click)="goToNext()" *ngIf="!isComplete">
+        Continuar configuración
         <mat-icon>arrow_forward</mat-icon>
       </button>
-      <button mat-button (click)="configurarPerfil()">Configurar mi perfil</button>
-      <button mat-button (click)="irABilling()">Ver planes y precios</button>
+      <button mat-flat-button color="primary" (click)="goToDashboard()" *ngIf="isComplete">
+        Ir al dashboard
+        <mat-icon>dashboard</mat-icon>
+      </button>
+      <button mat-button (click)="goToDashboard()">Ir al dashboard</button>
     </div>
 
     <button mat-button class="logout" (click)="cerrarSesion()">Cerrar sesión</button>
