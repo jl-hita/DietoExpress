@@ -281,4 +281,29 @@ public sealed class DietGeneratorRegressionTests
     }
 
 
+    [Fact]
+    public void Generator_HasHardSemanticFinalGate()
+    {
+        var service = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietSemanticValidationService.cs"));
+        var generator = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
+        Assert.Contains("ValidateOrThrowAsync", service);
+        Assert.Contains("ValidateMealSemantics", service);
+        Assert.Contains("ValidateDailyNutrition", service);
+        Assert.Contains("GetCulinaryBounds", service);
+        Assert.Contains("MaxWeeklyFoodRepetitions", service);
+        Assert.Contains("_semanticValidationService.ValidateOrThrowAsync", generator);
+    }
+
+    [Fact]
+    public void Generator_SemanticGateCoversKnownAbsurdCases()
+    {
+        var service = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietSemanticValidationService.cs"));
+        Assert.Contains("IsLegumeName", service);
+        Assert.Contains("IsRawOrDry", service);
+        Assert.Contains("IsRareOil", service);
+        Assert.Contains("IsHighGlycemicHeuristic", service);
+        Assert.Contains("la misma combinación de alimentos", service);
+        Assert.Contains("±15 %", service);
+    }
+
 }
