@@ -349,6 +349,7 @@ export class PatientPortalComponent implements OnInit {
 
   cancelAppointment(appointment: PatientAppointment): void {
     if (this.appointmentBooking) return;
+    if (!confirm(`¿Cancelar la cita del ${new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(appointment.startsAt))}?`)) return;
     this.appointmentBooking = true;
     this.appointmentError = null;
     this.appointmentSuccess = null;
