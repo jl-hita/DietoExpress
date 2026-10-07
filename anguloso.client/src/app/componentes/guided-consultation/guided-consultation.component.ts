@@ -631,6 +631,7 @@ export class GuidedConsultationComponent implements OnInit {
 
   completeConsultation(): void {
     if (!this.data || this.completing || this.consultation?.status === 'completed') return;
+    if (!confirm('¿Cerrar esta consulta? Se registrará como completada y no se podrá continuar editándola como consulta en curso.')) return;
     this.completing = true;
     this.portalService.completeGuidedConsultation(this.data.appointment.id).subscribe({
       next: consultation => {

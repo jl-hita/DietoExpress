@@ -2,7 +2,7 @@
   <!-- Sticky Header Superior -->
   <header class="editor-header">
     <div class="header-left">
-      <button type="button" class="back-btn" (click)="cancel()" matTooltip="Volver al listado">
+      <button type="button" class="back-btn" (click)="cancel()" aria-label="Volver al listado" matTooltip="Volver al listado">
         <mat-icon>arrow_back</mat-icon>
       </button>
       <div class="header-title-area">
@@ -24,8 +24,8 @@
         <mat-icon>auto_awesome</mat-icon> Generar con Autómata
       </button>
       <button type="button" class="btn btn-secondary" (click)="cancel()">Cancelar</button>
-      <button type="button" class="btn btn-primary" (click)="submit()" [disabled]="form.invalid">
-        <mat-icon>save</mat-icon> {{ isEdit ? 'Guardar Cambios' : 'Crear Dieta' }}
+      <button type="button" class="btn btn-primary" (click)="submit()" [disabled]="form.invalid || saving" [attr.aria-busy]="saving">
+        <mat-icon>{{ saving ? 'hourglass_top' : 'save' }}</mat-icon> {{ saving ? 'Guardando…' : (isEdit ? 'Guardar Cambios' : 'Crear Dieta') }}
       </button>
     </div>
   </header>
@@ -235,7 +235,7 @@
                     <span class="badge badge-macro">C: {{ getMealCarbs(dIndex, mIndex) | number:'1.0-1' }}g</span>
                     <span class="badge badge-macro">G: {{ getMealFat(dIndex, mIndex) | number:'1.0-1' }}g</span>
                     
-                    <button type="button" class="btn-delete-meal" (click)="removeMeal(dIndex, mIndex)" matTooltip="Eliminar comida">
+                    <button type="button" class="btn-delete-meal" [attr.aria-label]="'Eliminar ' + (mealCtrl.get('name')?.value || 'comida')" (click)="removeMeal(dIndex, mIndex)" matTooltip="Eliminar comida">
                       <mat-icon>delete</mat-icon>
                     </button>
                   </div>
@@ -247,7 +247,7 @@
                     <p>No hay alimentos en esta comida. Usa el buscador de la derecha para añadir alimentos.</p>
                   </div>
 
-                  <table class="items-table" *ngIf="getItems(dIndex, mIndex).controls.length > 0">
+                  <table class="items-table" *ngIf="getItems(dIndex, mIndex).controls.length > 0" aria-label="Alimentos de la comida">
                     <thead>
                       <tr>
                         <th>Alimento / Intercambio</th>
@@ -302,7 +302,7 @@
                         
                         <!-- Botón borrar ingrediente -->
                         <td>
-                          <button type="button" class="btn-remove-item" (click)="removeItem(dIndex, mIndex, iIndex)" matTooltip="Quitar alimento">
+                          <button type="button" class="btn-remove-item" [attr.aria-label]="'Quitar ' + (itemCtrl.get('foodName')?.value || itemCtrl.get('exchangeGroupName')?.value || 'alimento')" (click)="removeItem(dIndex, mIndex, iIndex)" matTooltip="Quitar alimento">
                             <mat-icon>close</mat-icon>
                           </button>
                         </td>
