@@ -127,7 +127,7 @@ public class DietController : ControllerBase
             .Include(d => d.user)
             .Include(d => d.diet_days)
                 .ThenInclude(dd => dd.meals)
-                    .ThenInclude(m => m.meal_items)
+                    .ThenInclude(m => m.meal_items).ThenInclude(i => i.recipe)
             .Include(d => d.diet_days)
                 .ThenInclude(dd => dd.meals)
                     .ThenInclude(m => m.meal_items)
@@ -183,6 +183,9 @@ public class DietController : ControllerBase
                         Id = i.id,
                         FoodId = i.food_id,
                         Grams = i.grams,
+                        RecipeId = i.recipe_id,
+                        RecipeName = i.recipe != null ? i.recipe.name : null,
+                        RecipeServings = i.recipe_servings,
                         Kcal = i.kcal,
                         Protein = i.protein,
                         Carbs = i.carbs,
@@ -305,6 +308,8 @@ public class DietController : ControllerBase
                                 protein = itemDto.Protein,
                                 carbs = itemDto.Carbs,
                                 fat = itemDto.Fat,
+                                recipe_id = itemDto.RecipeId,
+                                recipe_servings = itemDto.RecipeServings,
                                 exchange_group_id = itemDto.ExchangeGroupId,
                                 exchange_count = itemDto.ExchangeCount
                             });
@@ -569,10 +574,29 @@ public class DietController : ControllerBase
                 HttpContext.RequestAborted);
             return Ok(diet);
         }
+        catch (InvalidOperationException ex)
+        {
+            _logServ.LogError($"Error controlado al generar el plan de dieta: {ex}");
+            return UnprocessableEntity(new
+            {
+                message = "No se ha podido generar una dieta válida con los parámetros seleccionados.",
+                detail = ex.Message
+            });
+        }
+        catch (OperationCanceledException) when (HttpContext.RequestAborted.IsCancellationRequested)
+        {
+            _logServ.LogError("La generación de la dieta fue cancelada por el cliente.");
+            return StatusCode(499, new { message = "La generación fue cancelada antes de terminar." });
+        }
         catch (Exception ex)
         {
-            _logServ.LogError($"Error al generar el plan de dieta: {ex.Message}");
-            return BadRequest("Error al generar el plan de dieta estructurado.");
+            _logServ.LogError($"Error inesperado al generar el plan de dieta: {ex}");
+            var reference = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+            return StatusCode(500, new
+            {
+                message = "El generador no ha podido completar la dieta por un error interno.",
+                detail = $"Referencia {reference}. Revisa los parámetros y vuelve a intentarlo; si persiste, facilita esta referencia al administrador."
+            });
         }
     }
 

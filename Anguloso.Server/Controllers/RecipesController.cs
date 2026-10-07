@@ -21,11 +21,13 @@ public class RecipesController : ControllerBase
 {
     private readonly angulosodbContext _context;
     private readonly ILicenseService _licenseService;
+    private readonly RecipeNutritionService _recipeNutritionService;
 
-    public RecipesController(angulosodbContext context, ILicenseService licenseService)
+    public RecipesController(angulosodbContext context, ILicenseService licenseService, RecipeNutritionService recipeNutritionService)
     {
         _context = context;
         _licenseService = licenseService;
+        _recipeNutritionService = recipeNutritionService;
     }
 
     // Centraliza la regla de acceso a alimentos reutilizada al crear y modificar recetas.
@@ -94,28 +96,7 @@ public class RecipesController : ControllerBase
                  (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value)))
             .ToDictionaryAsync(f => f.id);
 
-        var dto = new RecipeDetailDto
-        {
-            Id = recipe.id,
-            Name = recipe.name,
-            Instructions = recipe.instructions,
-            CreatedAt = recipe.created_at,
-            Ingredients = recipe.recipe_items.Select(ri => {
-                // Cálculo proporcional a los gramos (macros están almacenados por 100g)
-                double factor = (double)ri.grams / 100.0;
-                return new RecipeIngredientDto
-                {
-                    FoodId = ri.food_id,
-                    FoodName = accessibleFoods.TryGetValue(ri.food_id, out var accessibleFood) ? accessibleFood.name : "Alimento no disponible",
-                    Brands = accessibleFood?.brands,
-                    Grams = ri.grams,
-                    Kcal = accessibleFood?.kcal.HasValue == true ? (double?)Math.Round(accessibleFood.kcal.Value * factor, 2) : null,
-                    Protein = accessibleFood?.protein.HasValue == true ? (double?)Math.Round(accessibleFood.protein.Value * factor, 2) : null,
-                    Carbs = accessibleFood?.carbs.HasValue == true ? (double?)Math.Round(accessibleFood.carbs.Value * factor, 2) : null,
-                    Fat = accessibleFood?.fat.HasValue == true ? (double?)Math.Round(accessibleFood.fat.Value * factor, 2) : null
-                };
-            }).ToList()
-        };
+        var dto = await _recipeNutritionService.BuildDetailAsync(recipe, accessibleFoods, HttpContext.RequestAborted);
 
         return Ok(dto);
     }
@@ -141,6 +122,8 @@ public class RecipesController : ControllerBase
             tenant_id = AuthHelpers.GetTenantId(User),
             name = dto.Name,
             instructions = dto.Instructions ?? "",
+            servings = dto.Servings <= 0 ? 1 : dto.Servings,
+            yield_grams = dto.YieldGrams,
             created_at = DateTime.UtcNow
         };
 
@@ -195,6 +178,8 @@ public class RecipesController : ControllerBase
         // Actualizar campos
         recipe.name = dto.Name;
         recipe.instructions = dto.Instructions ?? "";
+        recipe.servings = dto.Servings <= 0 ? 1 : dto.Servings;
+        recipe.yield_grams = dto.YieldGrams;
 
         // Limpiar ingredientes antiguos
         _context.recipe_items.RemoveRange(recipe.recipe_items);
@@ -214,7 +199,36 @@ public class RecipesController : ControllerBase
         }
 
         await _context.SaveChangesAsync();
+        await _recipeNutritionService.RefreshRecipeUsagesAsync(recipe.id, HttpContext.RequestAborted);
         return NoContent();
+    }
+
+    // Sustituye un ingrediente y recalcula automáticamente nutrición, restricciones y usos en dietas.
+    [HttpPost("{id:int}/substitute")]
+    public async Task<ActionResult<RecipeDetailDto>> SubstituteIngredient(int id, [FromBody] SubstituteRecipeIngredientDto dto)
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId == null) return Unauthorized();
+        var tenantId = AuthHelpers.GetTenantId(User);
+        if (!await _licenseService.CanUseFeatureAsync(tenantId, "RECIPES")) return Forbid();
+        var recipe = await _context.recipes.Include(r => r.recipe_items).ThenInclude(i => i.food)
+            .FirstOrDefaultAsync(r => r.id == id && tenantId.HasValue && r.tenant_id == tenantId.Value && r.user_id == userId.Value);
+        if (recipe == null) return NotFound();
+        var ingredient = recipe.recipe_items.FirstOrDefault(i => i.food_id == dto.IngredientFoodId);
+        if (ingredient == null) return NotFound("El ingrediente no forma parte de la receta.");
+        if (!await CanUseFoodAsync(dto.ReplacementFoodId, userId.Value, tenantId)) return BadRequest("El alimento sustituto no está disponible para esta cuenta.");
+        var replacement = await _context.foods.AsNoTracking().FirstOrDefaultAsync(f => f.id == dto.ReplacementFoodId);
+        if (replacement == null) return NotFound("Alimento sustituto no encontrado.");
+        var grams = ingredient.grams;
+        if (dto.PreserveCalories && ingredient.food?.kcal > 0 && replacement.kcal > 0)
+            grams = (decimal)Math.Clamp((double)grams * ingredient.food.kcal.Value / replacement.kcal.Value, 0.1, 10000);
+        ingredient.food_id = replacement.id; ingredient.grams = Math.Round(grams, 2);
+        await _context.SaveChangesAsync();
+        await _recipeNutritionService.RefreshRecipeUsagesAsync(recipe.id, HttpContext.RequestAborted);
+        var refreshed = await _context.recipes.Include(r => r.recipe_items).ThenInclude(i => i.food).FirstAsync(r => r.id == recipe.id);
+        var ids = refreshed.recipe_items.Select(i => i.food_id).Distinct().ToList();
+        var foods = await _context.foods.Where(f => ids.Contains(f.id)).ToDictionaryAsync(f => f.id);
+        return Ok(await _recipeNutritionService.BuildDetailAsync(refreshed, foods, HttpContext.RequestAborted));
     }
 
     // DELETE: api/recipes/5

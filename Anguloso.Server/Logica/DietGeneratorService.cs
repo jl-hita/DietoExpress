@@ -209,8 +209,25 @@ public class DietGeneratorService
 
         // La generación separa el catálogo en grupos antes de construir las comidas para poder
         // buscar candidatos adecuados a cada franja y repartir el uso de alimentos entre días.
+        if (allowedFoods.Count == 0)
+        {
+            throw new InvalidOperationException(
+                "No queda ningún alimento compatible con las restricciones clínicas, el tipo de dieta y las exclusiones seleccionadas. Reduce las exclusiones o revisa las intolerancias/alergias del paciente.");
+        }
+
         var foodPools = CategorizeFoods(allowedFoods, request.DietType);
         var mealSplits = GetMealSplits(request.MealsPerDay);
+        var missingPools = new List<string>();
+        if (!foodPools.Proteins.Any()) missingPools.Add("proteínas");
+        if (!foodPools.Carbs.Any() && !request.DietType.Equals("Cetogenica", StringComparison.OrdinalIgnoreCase)) missingPools.Add("hidratos de carbono");
+        if (!foodPools.Vegetables.Any()) missingPools.Add("verduras/hortalizas");
+        if (!foodPools.Fruits.Any()) missingPools.Add("frutas");
+        if (!foodPools.DairyAndEggs.Any()) missingPools.Add("lácteos/huevos o una fuente proteica alternativa");
+        if (missingPools.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"El catálogo compatible no contiene suficientes alimentos para construir el plan. Faltan: {string.Join(", ", missingPools)}. Revisa las restricciones del paciente, el tipo de dieta y las exclusiones.");
+        }
 
         // Las plantillas profesionales reutilizan la estructura de comidas, pero no fuerzan
         // alimentos concretos: cada componente vuelve a pasar por las restricciones clínicas

@@ -1,74 +1,36 @@
 <mat-card class="receta-card">
-  <h2>Crear nueva receta</h2>
-
+  <h2>Receta profesional</h2>
+  <p>La nutrición se calcula desde los alimentos seleccionados y se propagan automáticamente sus restricciones.</p>
   <form [formGroup]="formReceta" (ngSubmit)="guardarReceta()">
     <div class="form-grid">
-      <mat-form-field appearance="outline" class="full-width">
-        <mat-label>Nombre</mat-label>
-        <input matInput formControlName="nombre" required>
-        <mat-error *ngIf="formReceta.controls['nombre'].hasError('required')">
-          El nombre es obligatorio
-        </mat-error>
-      </mat-form-field>
-
-      <mat-form-field appearance="outline" class="full-width">
-        <mat-label>Descripción</mat-label>
-        <textarea matInput formControlName="descripcion" rows="5"></textarea>
-      </mat-form-field>
-
-      <mat-form-field appearance="outline" class="full-width">
-        <mat-label>Instrucciones</mat-label>
-        <textarea matInput formControlName="receta" rows="14" required></textarea>
-        <mat-error *ngIf="formReceta.controls['receta'].hasError('required')">
-          Las instrucciones son obligatorias
-        </mat-error>
-      </mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Nombre</mat-label><input matInput formControlName="name"></mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Raciones</mat-label><input matInput type="number" step="0.1" formControlName="servings"></mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Peso final (g)</mat-label><input matInput type="number" step="1" formControlName="yieldGrams"></mat-form-field>
+      <mat-form-field appearance="outline" class="full-width"><mat-label>Instrucciones</mat-label><textarea matInput rows="6" formControlName="instructions"></textarea></mat-form-field>
     </div>
-
+    <mat-form-field appearance="outline" class="full-width"><mat-label>Buscar alimento</mat-label><input matInput formControlName="search" (input)="buscarAlimentos()" placeholder="Pollo, arroz, yogur..."></mat-form-field>
+    <div class="food-results" *ngIf="resultados.length">
+      <button mat-stroked-button type="button" *ngFor="let food of resultados" (click)="agregarAlimento(food)">{{food.name}}<span *ngIf="food.brands"> · {{food.brands }}</span></button>
+    </div>
+    <mat-progress-bar *ngIf="buscando || cargando" mode="indeterminate"></mat-progress-bar>
     <h3>Ingredientes</h3>
-    <div formArrayName="ingredientes" class="ingredientes-lista">
-      <div *ngFor="let ing of ingredientes.controls; let i = index" [formGroupName]="i" class="ingrediente-item">
-        <mat-form-field appearance="outline">
-          <mat-label>Nombre</mat-label>
-          <input matInput formControlName="nombre">
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Cantidad</mat-label>
-          <input matInput type="number" formControlName="cantidad">
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Unidad</mat-label>
-          <mat-select formControlName="unidad">
-            <mat-option *ngFor="let u of unidades" [value]="u.value">
-              {{u.label}}
-            </mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="desc-field">
-          <mat-label>Descripción</mat-label>
-          <input matInput formControlName="descripcion">
-        </mat-form-field>
-
-        <button mat-icon-button color="warn" type="button" (click)="eliminarIngrediente(i)">
-          <mat-icon>delete</mat-icon>
-        </button>
+    <div formArrayName="ingredients">
+      <div *ngFor="let ing of ingredients.controls; let i=index" [formGroupName]="i" class="ingrediente-item">
+        <strong>{{ing.value.foodName}}</strong>
+        <mat-form-field appearance="outline"><mat-label>Gramos</mat-label><input matInput type="number" step="1" formControlName="grams"></mat-form-field>
+        <button mat-icon-button color="warn" type="button" (click)="eliminarIngrediente(i)"><mat-icon>delete</mat-icon></button>
       </div>
     </div>
-
-    <button mat-stroked-button type="button" color="primary" (click)="agregarIngrediente()">
-      <mat-icon>add</mat-icon> Añadir ingrediente
-    </button>
-
-    <div class="acciones">
-      <button mat-flat-button color="accent" type="submit" [disabled]="formReceta.invalid || cargando">
-        Guardar receta
-      </button>
-    </div>
+    <section *ngIf="ingredients.length" class="nutrition-summary">
+      <h3>Nutrición calculada</h3>
+      <div>Total: {{total('kcal')|number:'1.0-0'}} kcal · P {{total('protein')|number:'1.0-1'}} g · HC {{total('carbs')|number:'1.0-1'}} g · G {{total('fat')|number:'1.0-1'}} g</div>
+      <div>Por ración: {{perServing('kcal')|number:'1.0-0'}} kcal · P {{perServing('protein')|number:'1.0-1'}} g · HC {{perServing('carbs')|number:'1.0-1'}} g · G {{perServing('fat')|number:'1.0-1'}} g</div>
+    </section>
+    <button mat-flat-button color="accent" type="submit" [disabled]="formReceta.invalid || !ingredients.length || cargando">Guardar receta</button>
   </form>
-
-  <mat-progress-bar *ngIf="cargando" mode="indeterminate"></mat-progress-bar>
-  <p *ngIf="mensaje" class="mensaje">{{ mensaje }}</p>
+  <p *ngIf="mensaje" class="mensaje">{{mensaje}}</p>
+  <section *ngIf="detalle" class="nutrition-summary">
+    <strong>Guardada:</strong> {{detalle.nutrition?.perServingKcal|number:'1.0-0'}} kcal/ración
+    <span *ngIf="detalle.dietaryFlags?.length"> · {{detalle.dietaryFlags.join(', ')}}</span>
+  </section>
 </mat-card>

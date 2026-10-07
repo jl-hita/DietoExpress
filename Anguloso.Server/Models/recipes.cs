@@ -21,6 +21,10 @@ public partial class recipes
 
     public string instructions { get; set; }
 
+    public decimal servings { get; set; }
+
+    public decimal? yield_grams { get; set; }
+
     public DateTime? created_at { get; set; }
 
     public int? tenant_id { get; set; }

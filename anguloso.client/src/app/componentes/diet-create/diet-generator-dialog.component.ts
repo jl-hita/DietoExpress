@@ -122,8 +122,9 @@ type KcalSource = 'default' | 'biometrics' | 'error';
           <span style="font-size: 13px; color: #475569;">Optimizando combinaciones de alimentos y macronutrientes...</span>
         </div>
 
-        <div *ngIf="errorMessage" style="color: #dc2626; font-size: 13px; margin-top: 8px;">
-          {{ errorMessage }}
+        <div *ngIf="errorMessage" style="color: #991b1b; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 10px 12px; font-size: 13px; margin-top: 8px; line-height: 1.45;">
+          <div style="font-weight: 600; margin-bottom: 4px;">No se ha podido generar la dieta</div>
+          <div>{{ errorMessage }}</div>
         </div>
       </mat-dialog-content>
 
@@ -216,10 +217,26 @@ export class DietGeneratorDialogComponent implements OnInit {
       },
       error: (err) => {
         this.generating = false;
-        this.errorMessage = 'Hubo un error al generar la dieta. Por favor verifica las opciones.';
+        this.errorMessage = this.getGenerationErrorMessage(err);
         console.error('Error generating diet:', err);
       }
     });
+  }
+
+  private getGenerationErrorMessage(err: any): string {
+    const payload = err?.error;
+    const serverMessage = typeof payload === 'string'
+      ? payload
+      : payload?.detail || payload?.message || payload?.error;
+
+    if (serverMessage) return String(serverMessage);
+
+    if (err?.status === 0) return 'No se ha podido contactar con el servidor. Comprueba la conexión e inténtalo de nuevo.';
+    if (err?.status === 401 || err?.status === 403) return 'La sesión no permite ejecutar el generador. Vuelve a iniciar sesión o comprueba los permisos de tu cuenta.';
+    if (err?.status === 429) return 'El generador está temporalmente ocupado porque se ha alcanzado el límite de solicitudes. Espera unos segundos e inténtalo de nuevo.';
+    if (err?.status >= 500) return 'El servidor ha encontrado un problema al ejecutar el generador. Inténtalo de nuevo; si persiste, revisa los registros del servidor.';
+
+    return 'La solicitud no ha podido completarse. Revisa los parámetros seleccionados y vuelve a intentarlo.';
   }
 }
 
