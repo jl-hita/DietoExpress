@@ -660,7 +660,7 @@ public sealed class AdvancedDietOptimizerService
 
     private static string GetFamily(foods food)
     {
-        var text = ((food.name ?? string.Empty) + " " + (food.category ?? string.Empty)).ToLowerInvariant();
+        var text = ((food.name ?? string.Empty) + " " + (food.category ?? string.Empty) + " " + (food.exchange_group?.name ?? string.Empty)).ToLowerInvariant();
         if (text.Contains("fruta") || new[] { "manzana", "pera", "naranja", "plátano", "platano", "kiwi", "fresa", "mandarina", "melón", "melon" }.Any(text.Contains)) return "fruta";
         if (text.Contains("verdura") || text.Contains("hortal") || new[] { "tomate", "lechuga", "espinaca", "brócoli", "brocoli", "calabacín", "calabacin", "zanahoria", "pimiento" }.Any(text.Contains)) return "verdura";
         if (new[] { "lenteja", "garbanzo", "alubia", "judía", "judia", "legumbre" }.Any(text.Contains)) return "legumbre";
