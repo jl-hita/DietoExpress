@@ -20,6 +20,7 @@ public sealed class DietRegenerationService
         int userId,
         int? tenantId,
         bool isSuperAdmin,
+        bool canUseTenantLocalFoods,
         CancellationToken cancellationToken = default)
     {
         var response = new DietRegenerationResponseDto { DietId = dietId, Operation = request.Operation };
@@ -49,7 +50,7 @@ public sealed class DietRegenerationService
             .Where(f => f.kcal.HasValue && f.kcal > 0 && f.name != null &&
                 ((f.source == null || f.source.ToLower() != "local") ||
                  isSuperAdmin ||
-                 (tenantId.HasValue && f.tenant_id == tenantId.Value)))
+                 (tenantId.HasValue && f.tenant_id == tenantId.Value && (canUseTenantLocalFoods || f.created_by_user_id == userId))))
             .Include(f => f.exchange_group)
             .Take(5000)
             .ToListAsync(cancellationToken);
