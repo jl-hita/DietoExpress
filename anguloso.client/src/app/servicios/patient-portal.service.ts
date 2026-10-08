@@ -134,6 +134,10 @@ export class PatientPortalService {
     return this.http.get<AppointmentSlot[]>(this.base + '/appointments/slots?days=' + days);
   }
 
+  submitDirectoryReview(appointmentId: number, rating: number, comment?: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(this.base + '/portal/reviews', { appointmentId, rating, comment });
+  }
+
   getMyAppointments(): Observable<PatientAppointment[]> {
     return this.http.get<PatientAppointment[]>(this.base + '/appointments/mine');
   }
