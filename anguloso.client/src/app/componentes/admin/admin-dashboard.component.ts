@@ -691,7 +691,7 @@ export class AdminDashboardComponent implements OnInit {
     this.adminService.restoreDatabaseBackup(backup.fileName).subscribe({
       next: () => {
         this.databaseBackupOperation = '';
-        this.snackBar.open('Restauración completada. Comprueba el estado de DietoExpress antes de continuar.', 'OK', { duration: 8000 });
+        this.snackBar.open('Restauración iniciada. DietoExpress se reiniciará cuando termine el proceso.', 'OK', { duration: 8000 });
         this.loadDatabaseBackups();
       },
       error: err => {
