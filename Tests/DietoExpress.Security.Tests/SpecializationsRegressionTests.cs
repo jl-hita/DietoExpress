@@ -49,9 +49,9 @@ public sealed class SpecializationsRegressionTests
     [Fact]
     public void SpecializationsBootstrap_IsInvokedDuringStartup()
     {
-        var program = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Program.cs"));
+        var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
 
-        Assert.Contains("DatabaseBootstrap.UpgradeSpecializationsSchemaV1(context, logger);", program);
+        Assert.Contains("UpgradeSpecializationsSchemaV1(context, logger);", bootstrap);
     }
 
     [Fact]
