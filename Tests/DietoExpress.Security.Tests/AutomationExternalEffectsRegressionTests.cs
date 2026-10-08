@@ -67,7 +67,7 @@ public sealed class AutomationExternalEffectsRegressionTests
     public void PatientNotificationsMustPersistTheAutomationIdempotencyKey()
     {
         var service = ReadServerSource("Anguloso.Server/Logica/NotificationService.cs");
-        var schema = ReadServerSource("Anguloso.Server/Program.cs");
+        var schema = ReadServerSource("Anguloso.Server/Logica/DatabaseBootstrap.cs");
 
         Assert.Contains("idempotency_key", service);
         Assert.Contains("ON CONFLICT (tenant_id, idempotency_key) DO NOTHING", service);
