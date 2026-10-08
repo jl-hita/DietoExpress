@@ -29,3 +29,18 @@ public class DirectorySearchDto
     public string? Goal { get; set; }
     public bool? AvailableOnly { get; set; }
 }
+
+public class DirectoryReviewDto
+{
+    public long Id { get; set; }
+    public int Rating { get; set; }
+    public string Comment { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+    public bool Verified { get; set; } = true;
+}
+
+public class DirectoryReviewSummaryDto
+{
+    public double AverageRating { get; set; }
+    public int ReviewCount { get; set; }
+}
