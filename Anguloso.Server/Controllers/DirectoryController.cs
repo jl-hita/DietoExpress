@@ -536,7 +536,14 @@ public class DirectoryController : ControllerBase
         return Ok(new DirectoryReviewSummaryDto
         {
             AverageRating = Math.Round(summary.AverageRating, 1),
-            ReviewCount = summary.ReviewCount
+            ReviewCount = summary.ReviewCount,
+            Reviews = rows.Select(r => new DirectoryReviewDto
+            {
+                Rating = r.Rating,
+                Comment = r.Comment ?? string.Empty,
+                CreatedAt = r.CreatedAt,
+                Verified = true
+            }).ToList()
         });
     }
 
