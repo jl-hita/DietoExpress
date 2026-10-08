@@ -2,12 +2,13 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { FormsModule } from '@angular/forms';
 import { AppointmentSlot, PatientAppointment, PatientPortalService } from '../../../servicios/patient-portal.service';
 
 @Component({
   selector: 'app-patient-appointments',
   standalone: true,
-  imports: [CommonModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [CommonModule, FormsModule, MatIconModule, MatProgressSpinnerModule],
   templateUrl: './patient-appointments.component.html',
   styleUrls: ['./patient-appointments.component.css']
 })
