@@ -1,6 +1,6 @@
 # Consentimiento informado del paciente
 
-**Profesional/centro:** {{professional.display_name}}  
+**Profesional/centro:** {{professional.legal_name}}  
 **Contacto:** {{professional.contact_email}}
 
 La persona firmante declara haber recibido información suficiente sobre la intervención o servicio de nutrición que se le va a prestar, su finalidad, alcance, alternativas y posibilidad de plantear dudas.
