@@ -104,6 +104,43 @@ public class PatientPortalController : ControllerBase
         });
     }
 
+    [Authorize]
+    [HttpPost("reviews")]
+    public async Task<IActionResult> SubmitDirectoryReview([FromBody] DirectoryReviewRequestDto request)
+    {
+        if (!(User.IsInRole("patient"))) return Forbid();
+        var clientIdClaim = User.FindFirstValue("clientId");
+        if (!int.TryParse(clientIdClaim, out var clientId)) return Unauthorized();
+        if (request.AppointmentId <= 0 || request.Rating is < 1 or > 5) return BadRequest(new { message = "La valoración no es válida." });
+        if (request.Comment?.Length > 1000) return BadRequest(new { message = "El comentario no puede superar 1000 caracteres." });
+
+        var appointment = await _context.patient_appointments.AsNoTracking()
+            .Where(a => a.id == request.AppointmentId && a.client_id == clientId && a.status == "completed")
+            .Select(a => new { a.id, a.nutritionist_id, a.tenant_id })
+            .SingleOrDefaultAsync();
+        if (appointment == null)
+            return BadRequest(new { message = "Solo puedes valorar una consulta realizada." });
+
+        var professional = await _context.users.AsNoTracking()
+            .Where(u => u.id == appointment.nutritionist_id && u.tenant_id == appointment.tenant_id &&
+                        u.role == "nutritionist" && u.directory_enabled == true &&
+                        u.directory_publication_status == "published")
+            .Select(u => u.id)
+            .SingleOrDefaultAsync();
+        if (professional == 0) return BadRequest(new { message = "El profesional no está disponible en el directorio." });
+
+        var exists = await _context.Database.SqlQueryRaw<int>(
+            @"SELECT COUNT(*)::integer AS ""Value"" FROM public_directory_reviews WHERE appointment_id = {0}",
+            appointment.id).SingleAsync();
+        if (exists > 0) return Conflict(new { message = "Esta consulta ya ha sido valorada." });
+
+        await _context.Database.ExecuteSqlInterpolatedAsync($@"
+            INSERT INTO public_directory_reviews (nutritionist_id, client_id, appointment_id, rating, comment)
+            VALUES ({appointment.nutritionist_id}, {clientId}, {appointment.id}, {request.Rating}, {request.Comment?.Trim()});
+        ");
+        return Ok(new { message = "Gracias por tu valoración." });
+    }
+
     [EnableRateLimiting("auth")]
     [HttpPost("request-access-link")]
     public async Task<IActionResult> RequestAccessLink([FromBody] PatientAccessLinkRequestDto request)

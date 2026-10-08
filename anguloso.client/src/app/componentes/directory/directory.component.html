@@ -32,6 +32,8 @@
     </div>
 
     <label class="online-filter">
+      <input type="checkbox" [(ngModel)]="availableOnly" />
+      Solo con disponibilidad
       <input type="checkbox" [(ngModel)]="online" />
       Consulta online
     </label>
@@ -54,7 +56,8 @@
         <span *ngIf="item.onlineConsultations" class="badge">Consulta online</span>
         <span *ngIf="item.isVerified" class="badge verified">Perfil verificado</span>
         <p *ngIf="item.specialtyList.length" class="specialty-tags"><span *ngFor="let specialty of item.specialtyList">{{ specialty }}</span></p>
-        <p class="profile-quality">Perfil {{ item.profileCompleteness }}% completo</p>
+        <p class="profile-quality">Perfil {{ item.profileCompleteness }}% completo · {{ item.availableRuleCount ? "Agenda activa" : "Sin agenda publicada" }}</p>
+        <p *ngIf="item.reviewCount" class="profile-rating">★ {{ item.averageRating.toFixed(1) }}/5 · {{ item.reviewCount }} valoración{{ item.reviewCount === 1 ? '' : 'es' }}</p>
         <a mat-button [routerLink]="['/nutricionistas', item.slug]" (click)="trackProfileClick(item.slug)">Ver perfil y disponibilidad</a>
       </div>
     </article>
@@ -68,8 +71,25 @@
     <p *ngIf="profile.city || profile.province">{{ profile.city }}<span *ngIf="profile.city && profile.province">, </span>{{ profile.province }}</p>
     <span *ngIf="profile.onlineConsultations" class="badge">Consulta online</span>
     <span *ngIf="profile.isVerified" class="badge verified">Perfil verificado</span>
+    <button mat-button type="button" (click)="shareProfile()">Compartir perfil</button>
     <p *ngIf="profile.specialtyList.length" class="specialty-tags"><span *ngFor="let specialty of profile.specialtyList">{{ specialty }}</span></p>
     <p *ngIf="profile.publicBio">{{ profile.publicBio }}</p>
+    <p *ngIf="profile.reviewCount" class="profile-rating">★ {{ profile.averageRating.toFixed(1) }}/5 · {{ profile.reviewCount }} valoración{{ profile.reviewCount === 1 ? '' : 'es' }} verificadas</p>
+
+    <section class="reputation" *ngIf="reviewSummary" aria-labelledby="reputation-title">
+      <h3 id="reputation-title">Valoraciones</h3>
+      <div *ngIf="reviewSummary.reviewCount" class="rating-summary">
+        <strong>{{ reviewSummary.averageRating.toFixed(1) }}/5</strong>
+        <span aria-label="Valoración media">★★★★★</span>
+        <small>{{ reviewSummary.reviewCount }} valoración{{ reviewSummary.reviewCount === 1 ? '' : 'es' }} verificadas</small>
+      </div>
+      <p *ngIf="!reviewSummary.reviewCount" class="status">Todavía no hay valoraciones.</p>
+      <article *ngFor="let review of reviewSummary.reviews" class="review">
+        <div class="review-rating" [attr.aria-label]="review.rating + ' de 5 estrellas'">{{ '★'.repeat(review.rating) }}{{ '☆'.repeat(5 - review.rating) }}</div>
+        <p *ngIf="review.comment">{{ review.comment }}</p>
+        <small>{{ review.createdAt | date:'d MMMM yyyy':'':'es-ES' }} · Consulta verificada</small>
+      </article>
+    </section>
 
     <section class="availability" aria-labelledby="availability-title">
       <h3 id="availability-title">Próximos horarios disponibles</h3>

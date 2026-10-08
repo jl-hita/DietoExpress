@@ -69,12 +69,30 @@ public class DirectoryController : ControllerBase
         if (!string.IsNullOrWhiteSpace(filter.Speciality))
             query = query.Where(u => u.directory_specialties != null && EF.Functions.ILike(u.directory_specialties, $"%{filter.Speciality.Trim()}%"));
 
+        if (!string.IsNullOrWhiteSpace(filter.Goal))
+        {
+            var goal = filter.Goal.Trim().ToLowerInvariant();
+            var goalTerms = goal switch
+            {
+                "pérdida de peso" or "perdida de peso" => new[] { "pérdida de peso", "perdida de peso", "obesidad", "control de peso" },
+                "nutrición deportiva" or "nutricion deportiva" => new[] { "nutrición deportiva", "nutricion deportiva", "deporte" },
+                "obesidad" => new[] { "obesidad", "pérdida de peso", "perdida de peso" },
+                _ => new[] { goal }
+            };
+            query = query.Where(u => u.directory_specialties != null &&
+                goalTerms.Any(term => EF.Functions.ILike(u.directory_specialties, $"%{term}%")));
+        }
+
+        if (filter.AvailableOnly == true)
+            query = query.Where(u => _context.nutritionist_availability.Any(a => a.nutritionist_id == u.id && a.is_active));
+
         var profiles = await query
             .OrderBy(u => u.directory_city)
             .ThenBy(u => u.full_name)
-            .Take(100)
+             .Take(200)
             .Select(u => new DirectoryProfileDto
             {
+                NutritionistId = u.id,
                 Username = u.username,
                 Slug = u.directory_slug ?? string.Empty,
                 FullName = u.full_name ?? string.Empty,
@@ -88,9 +106,31 @@ public class DirectoryController : ControllerBase
                 IsVerified = u.directory_publication_status == "published"
             }).ToListAsync();
 
+        var ids = profiles.Select(p => p.NutritionistId).ToArray();
+        var availabilityCounts = await _context.nutritionist_availability.AsNoTracking()
+            .Where(a => ids.Contains(a.nutritionist_id) && a.is_active)
+            .GroupBy(a => a.nutritionist_id)
+            .Select(g => new { NutritionistId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.NutritionistId, x => x.Count);
+
+        var reviewSummaries = ids.Length == 0
+            ? new Dictionary<int, (double Average, int Count)>()
+            : (await _context.Database.SqlQueryRaw<DirectoryReviewAggregate>(
+                @"SELECT nutritionist_id AS ""NutritionistId"",
+                         COALESCE(AVG(rating), 0)::double precision AS ""AverageRating"",
+                         COUNT(*)::integer AS ""ReviewCount""
+                  FROM public_directory_reviews
+                  WHERE nutritionist_id = ANY({0})
+                  GROUP BY nutritionist_id", ids).ToListAsync())
+              .ToDictionary(x => x.NutritionistId, x => (x.AverageRating, x.ReviewCount));
+
         foreach (var profile in profiles)
         {
             profile.SpecialtyList = SplitSpecialties(profile.Specialties);
+            var review = reviewSummaries.GetValueOrDefault(profile.NutritionistId);
+            profile.AverageRating = Math.Round(review.Item1, 1);
+            profile.ReviewCount = review.Item2;
+            profile.AvailableRuleCount = availabilityCounts.GetValueOrDefault(profile.NutritionistId);
             profile.ProfileCompleteness = CalculateProfileCompleteness(profile);
             profile.RankingScore = CalculateRankingScore(profile, filter);
         }
@@ -110,6 +150,7 @@ public class DirectoryController : ControllerBase
             .Where(u => u.archived_at == null && u.role == "nutritionist" && u.directory_enabled == true && u.directory_publication_status == "published" && u.directory_slug == normalized)
             .Select(u => new DirectoryProfileDto
             {
+                NutritionistId = u.id,
                 Username = u.username,
                 Slug = u.directory_slug ?? string.Empty,
                 FullName = u.full_name ?? string.Empty,
@@ -129,7 +170,17 @@ public class DirectoryController : ControllerBase
 
         profile.SpecialtyList = SplitSpecialties(profile.Specialties);
         profile.ProfileCompleteness = CalculateProfileCompleteness(profile);
-        profile.RankingScore = profile.ProfileCompleteness;
+        profile.AvailableRuleCount = await _context.nutritionist_availability.AsNoTracking().CountAsync(a => a.nutritionist_id == profile.NutritionistId && a.is_active);
+        var reviewSummary = await _context.Database.SqlQueryRaw<DirectoryReviewSummaryRow>(
+            @"SELECT COALESCE(AVG(rating), 0)::double precision AS ""AverageRating"",
+                     COUNT(*)::integer AS ""ReviewCount""
+              FROM public_directory_reviews
+              WHERE nutritionist_id = {0}", profile.NutritionistId).SingleAsync();
+        profile.AverageRating = Math.Round(reviewSummary.AverageRating, 1);
+        profile.ReviewCount = reviewSummary.ReviewCount;
+        profile.RankingScore = profile.ProfileCompleteness + Math.Min(profile.AvailableRuleCount * 2, 20)
+            + Math.Min(profile.ReviewCount * 2, 10)
+            + (profile.AverageRating >= 4.5 ? 20 : profile.AverageRating >= 4.0 ? 10 : 0);
         return Ok(profile);
     }
 
@@ -480,6 +531,66 @@ public class DirectoryController : ControllerBase
         return Ok(slots.OrderBy(s => s.StartsAt).Take(200));
     }
 
+    [AllowAnonymous]
+    [HttpGet("professionals/{slug}/reviews")]
+    public async Task<ActionResult<DirectoryReviewSummaryDto>> GetReviews(string slug)
+    {
+        var normalized = slug.Trim().ToLowerInvariant();
+        var professional = await _context.users.AsNoTracking()
+            .Where(u => u.archived_at == null && u.role == "nutritionist" &&
+                        u.directory_enabled == true && u.directory_publication_status == "published" &&
+                        u.directory_slug == normalized)
+            .Select(u => u.id)
+            .FirstOrDefaultAsync();
+        if (professional == 0) return NotFound();
+
+        var rows = await _context.Database.SqlQueryRaw<DirectoryReviewRow>(
+            @"SELECT rating AS ""Rating"", comment AS ""Comment"", created_at AS ""CreatedAt""
+              FROM public_directory_reviews
+              WHERE nutritionist_id = {0}
+              ORDER BY created_at DESC
+              LIMIT 20", professional).ToListAsync();
+
+        var summary = await _context.Database.SqlQueryRaw<DirectoryReviewSummaryRow>(
+            @"SELECT COALESCE(AVG(rating), 0)::double precision AS ""AverageRating"",
+                     COUNT(*)::integer AS ""ReviewCount""
+              FROM public_directory_reviews
+              WHERE nutritionist_id = {0}", professional).SingleAsync();
+
+        return Ok(new DirectoryReviewSummaryDto
+        {
+            AverageRating = Math.Round(summary.AverageRating, 1),
+            ReviewCount = summary.ReviewCount,
+            Reviews = rows.Select(r => new DirectoryReviewDto
+            {
+                Rating = r.Rating,
+                Comment = r.Comment ?? string.Empty,
+                CreatedAt = r.CreatedAt,
+                Verified = true
+            }).ToList()
+        });
+    }
+
+    private sealed class DirectoryReviewAggregate
+    {
+        public int NutritionistId { get; set; }
+        public double AverageRating { get; set; }
+        public int ReviewCount { get; set; }
+    }
+
+    private sealed class DirectoryReviewRow
+    {
+        public int Rating { get; set; }
+        public string? Comment { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+
+    private sealed class DirectoryReviewSummaryRow
+    {
+        public double AverageRating { get; set; }
+        public int ReviewCount { get; set; }
+    }
+
     private static string[] SplitSpecialties(string? value)
     {
         return (value ?? string.Empty)
@@ -523,7 +634,13 @@ public class DirectoryController : ControllerBase
         }
 
         if (filter.Online == true && profile.OnlineConsultations) score += 35;
+        if (!string.IsNullOrWhiteSpace(filter.Goal) && profile.SpecialtyList.Any(x => x.Contains(filter.Goal.Trim(), StringComparison.OrdinalIgnoreCase))) score += 60;
+        if (filter.AvailableOnly == true && profile.AvailableRuleCount > 0) score += 40;
+        score += Math.Min(profile.AvailableRuleCount * 2, 20);
         if (profile.IsVerified) score += 20;
+        if (profile.ReviewCount > 0) score += Math.Min(profile.ReviewCount * 2, 10);
+        if (profile.AverageRating >= 4.5) score += 20;
+        else if (profile.AverageRating >= 4.0) score += 10;
         return score;
     }
 

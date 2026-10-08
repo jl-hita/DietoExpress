@@ -13,6 +13,9 @@ export interface DirectoryProfile {
   profileCompleteness: number;
   rankingScore: number;
   isVerified: boolean;
+  availableRuleCount: number;
+  averageRating: number;
+  reviewCount: number;
 }
 
 
@@ -21,4 +24,19 @@ export interface PublicAvailabilitySlot {
   endsAt: string;
   nutritionistId: number;
   nutritionistName?: string;
+}
+
+
+export interface DirectoryReview {
+  id: number;
+  rating: number;
+  comment: string;
+  createdAt: string;
+  verified: boolean;
+}
+
+export interface DirectoryReviewSummary {
+  averageRating: number;
+  reviewCount: number;
+  reviews: DirectoryReview[];
 }

@@ -3,7 +3,7 @@ import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
-import { DirectoryProfile, PublicAvailabilitySlot } from './directory.models';
+import { DirectoryProfile, PublicAvailabilitySlot, DirectoryReviewSummary } from './directory.models';
 import { DirectoryService } from './directory.service';
 import { PublicSeoService } from '../../servicios/public-seo.service';
 import { PublicFunnelAnalyticsService } from '../../servicios/public-funnel-analytics.service';
@@ -21,11 +21,13 @@ export class DirectoryComponent implements OnInit {
   speciality = '';
   online = false;
   goal = '';
+  availableOnly = false;
   profiles: DirectoryProfile[] = [];
   profile: DirectoryProfile | null = null;
   loading = false;
   error = '';
   availability: PublicAvailabilitySlot[] = [];
+  reviewSummary: DirectoryReviewSummary | null = null;
   availabilityLoading = false;
   availabilityError = '';
   selectedSlot: PublicAvailabilitySlot | null = null;
@@ -57,6 +59,7 @@ export class DirectoryComponent implements OnInit {
       this.city = city || '';
       this.speciality = speciality ? speciality.replace(/-/g, ' ') : '';
       this.online = onlineRoute;
+      this.availableOnly = false;
       this.publicSeoService.setDirectorySeo({ city: this.city, province: this.province, speciality: this.speciality, online: this.online });
       this.publicFunnelAnalytics.track('directory_view');
       this.search();
@@ -131,10 +134,20 @@ export class DirectoryComponent implements OnInit {
 
   trackProfileClick(slug: string): void { this.publicFunnelAnalytics.track('profile_selected', slug); }
 
+  async shareProfile(): Promise<void> {
+    if (!this.profile) return;
+    const url = window.location.href;
+    const text = `Consulta el perfil de ${this.profile.fullName} en DietoExpress`;
+    try {
+      if (navigator.share) await navigator.share({ title: this.profile.fullName, text, url });
+      else await navigator.clipboard.writeText(url);
+    } catch { /* El usuario puede cancelar el diálogo nativo sin que sea un error. */ }
+  }
+
   search(): void {
     this.publicSeoService.setDirectorySeo({ city: this.city, province: this.province, speciality: this.speciality, online: this.online });
     this.loading = true; this.error = ''; this.profile = null;
-    this.directoryService.search(this.city, this.province, this.speciality, this.online).subscribe({
+    this.directoryService.search(this.city, this.province, this.speciality, this.online, this.goal, this.availableOnly).subscribe({
       next: profiles => { this.profiles = profiles; this.loading = false; },
       error: () => { this.error = 'No se ha podido cargar el directorio.'; this.loading = false; }
     });
@@ -149,8 +162,16 @@ export class DirectoryComponent implements OnInit {
         this.publicFunnelAnalytics.track('profile_view', profile.slug);
         this.loading = false;
         this.loadAvailability(profile.slug);
+        this.loadReviews(profile.slug);
       },
       error: () => { this.error = 'No se ha encontrado el profesional solicitado.'; this.loading = false; }
+    });
+  }
+
+  loadReviews(slug: string): void {
+    this.directoryService.getReviews(slug).subscribe({
+      next: summary => this.reviewSummary = summary,
+      error: () => this.reviewSummary = null
     });
   }
 

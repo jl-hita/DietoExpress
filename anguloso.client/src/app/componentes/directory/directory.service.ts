@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environments';
-import { DirectoryProfile, PublicAvailabilitySlot } from './directory.models';
+import { DirectoryProfile, PublicAvailabilitySlot, DirectoryReviewSummary } from './directory.models';
 
 @Injectable({ providedIn: 'root' })
 export class DirectoryService {
@@ -10,13 +10,15 @@ export class DirectoryService {
 
   constructor(private readonly http: HttpClient) {}
 
-  search(city?: string, province?: string, speciality?: string, online?: boolean): Observable<DirectoryProfile[]> {
+  search(city?: string, province?: string, speciality?: string, online?: boolean, goal?: string, availableOnly?: boolean): Observable<DirectoryProfile[]> {
     let params = new HttpParams();
 
     if (city?.trim()) params = params.set('city', city.trim());
     if (province?.trim()) params = params.set('province', province.trim());
     if (speciality?.trim()) params = params.set('speciality', speciality.trim());
     if (online) params = params.set('online', 'true');
+    if (goal?.trim()) params = params.set('goal', goal.trim());
+    if (availableOnly) params = params.set('availableOnly', 'true');
 
     return this.http.get<DirectoryProfile[]>(`${this.apiUrl}/directory/professionals`, { params });
   }
@@ -45,6 +47,10 @@ export class DirectoryService {
       this.apiUrl + '/directory/professionals/' + encodeURIComponent(slug) + '/appointments',
       request
     );
+  }
+
+  getReviews(slug: string): Observable<DirectoryReviewSummary> {
+    return this.http.get<DirectoryReviewSummary>(`${this.apiUrl}/directory/professionals/${encodeURIComponent(slug)}/reviews`);
   }
 
   getBySlug(slug: string): Observable<DirectoryProfile> {
