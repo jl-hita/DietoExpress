@@ -118,6 +118,17 @@ export interface AdminLog {
   nextDate?: string;
 }
 
+export interface AdminDatabaseBackup {
+  fileName: string;
+  sizeBytes: number;
+  createdAtUtc: string;
+}
+
+export interface AdminDatabaseBackupsResponse {
+  configured: boolean;
+  items: AdminDatabaseBackup[];
+}
+
 export interface AdminLogChunk {
   content: string;
   startByte: number;
@@ -165,6 +176,18 @@ export class AdminService {
   }
 
   getVideoUsage(): Observable<AdminVideoUsage> { return this.http.get<AdminVideoUsage>(`${this.adminUrl}/video-usage`); }
+
+  getDatabaseBackups(): Observable<AdminDatabaseBackupsResponse> {
+    return this.http.get<AdminDatabaseBackupsResponse>(`${this.adminUrl}/database-backups`);
+  }
+
+  createDatabaseBackup(): Observable<AdminDatabaseBackup> {
+    return this.http.post<AdminDatabaseBackup>(`${this.adminUrl}/database-backups`, {});
+  }
+
+  getDatabaseBackupDownloadUrl(fileName: string): string {
+    return `${this.adminUrl}/database-backups/${encodeURIComponent(fileName)}`;
+  }
 
   getLogMetadata(date?: string): Observable<AdminLog> {
     const params: any = {};
