@@ -108,7 +108,13 @@ builder.Services.AddScoped<SupportEnhancementService>();
                     if (!int.TryParse(tokenVersionClaim, out var tokenVersion)) { context.Fail("Token sin versión de seguridad."); return; }
                     var db = context.HttpContext.RequestServices.GetRequiredService<angulosodbContext>();
                     var user = await db.users.AsNoTracking().Where(u => u.id == userId).Select(u => new { u.archived_at, u.token_version, u.role, u.subscription_plan, u.subscription_status }).FirstOrDefaultAsync();
-                    if (user == null || user.archived_at != null) { context.Fail("Cuenta no disponible."); return; }
+                    var archivedSupport = context.Principal?.FindFirstValue("archivedSupport") == "true";
+                    if (user == null) { context.Fail("Cuenta no disponible."); return; }
+                    if (user.archived_at != null && (!archivedSupport || !context.HttpContext.Request.Path.StartsWithSegments("/api/support")))
+                    {
+                        context.Fail("Cuenta no disponible.");
+                        return;
+                    }
                     if (user.token_version != tokenVersion) { context.Fail("Sesión revocada."); return; }
                     if (context.Principal?.Identity is ClaimsIdentity identity) { foreach (var claim in identity.FindAll(ClaimTypes.Role).ToList()) identity.RemoveClaim(claim); identity.AddClaim(new Claim(ClaimTypes.Role, user.role ?? "nutritionist")); foreach (var claim in identity.FindAll("subscriptionPlan").ToList()) identity.RemoveClaim(claim); identity.AddClaim(new Claim("subscriptionPlan", user.subscription_plan ?? "free")); foreach (var claim in identity.FindAll("subscriptionStatus").ToList()) identity.RemoveClaim(claim); identity.AddClaim(new Claim("subscriptionStatus", user.subscription_status ?? "active")); }
                 }
