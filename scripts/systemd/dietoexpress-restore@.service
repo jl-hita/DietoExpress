@@ -11,5 +11,6 @@ EnvironmentFile=-/etc/dietoexpress/dietoexpress.env
 ExecStartPre=/usr/bin/systemctl stop dietoexpress.service
 # El código de restore que vive en /opt se ejecuta explícitamente como joso.
 ExecStart=/usr/bin/runuser -u joso -- /bin/bash /opt/dietoexpress/scripts/dietoexpress-restore-user.sh --restore %i --confirm
-# Garantizamos que una restauración fallida no deje la aplicación parada.
-ExecStopPost=/usr/bin/systemctl start dietoexpress.service
+# Garantizamos que una restauración fallida no deje la aplicación parada y retiramos el aviso
+# únicamente después de haber conseguido arrancar de nuevo DietoExpress.
+ExecStopPost=/bin/bash -c '/usr/bin/systemctl start dietoexpress.service && /usr/bin/rm -f /var/lib/dietoexpress/maintenance.json'

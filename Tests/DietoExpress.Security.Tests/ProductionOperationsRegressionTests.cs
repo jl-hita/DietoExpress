@@ -65,6 +65,10 @@ public sealed class ProductionOperationsRegressionTests
         var controller = File.ReadAllText(Path.Combine(root, "Anguloso.Server", "Controllers", "AdminDatabaseBackupController.cs"));
         var databaseBackupService = File.ReadAllText(Path.Combine(root, "Anguloso.Server", "Logica", "DatabaseBackupService.cs"));
         var adminDashboard = File.ReadAllText(Path.Combine(root, "anguloso.client", "src", "app", "componentes", "admin", "admin-dashboard.component.ts"));
+        var maintenanceController = File.ReadAllText(Path.Combine(root, "Anguloso.Server", "Controllers", "MaintenanceController.cs"));
+        var maintenanceService = File.ReadAllText(Path.Combine(root, "Anguloso.Server", "Logica", "MaintenanceNoticeService.cs"));
+        var appComponent = File.ReadAllText(Path.Combine(root, "anguloso.client", "src", "app", "app.component.ts"));
+        var appTemplate = File.ReadAllText(Path.Combine(root, "anguloso.client", "src", "app", "app.component.html"));
 
         Assert.Contains("OnCalendar=Sun 02:00", backupTimer);
         Assert.Contains("Persistent=true", backupTimer);
@@ -73,12 +77,14 @@ public sealed class ProductionOperationsRegressionTests
         Assert.Contains("/usr/local/sbin/dietoexpress-restore-web", provisioning);
         Assert.Contains("systemctl start --no-block", restoreWrapper);
         Assert.Contains("runuser -u joso", restoreUnit);
-        Assert.Contains("ExecStopPost=/usr/bin/systemctl start dietoexpress.service", restoreUnit);
+        Assert.Contains("ExecStopPost=/bin/bash -c", restoreUnit);
+        Assert.Contains("maintenance.json", restoreUnit);
         Assert.DoesNotContain("install-dietoexpress-backup-automation.sh", deploy);
         Assert.DoesNotContain("sudo bash /opt/dietoexpress/scripts/", deploy);
         Assert.Contains("[HttpPost(\"{fileName}/verify\")]", controller);
         Assert.Contains("[HttpPost(\"{fileName}/restore\")]", controller);
         Assert.Contains("/usr/local/sbin/dietoexpress-restore-web", databaseBackupService);
+        Assert.Contains("maintenance", databaseBackupService);
         Assert.Contains("[HttpGet(\"{fileName}/restore-status\")]", controller);
         Assert.Contains("getDatabaseRestoreStatus", File.ReadAllText(Path.Combine(root, "anguloso.client", "src", "app", "servicios", "admin.service.ts")));
         Assert.Contains("databaseRestoreElapsedSeconds", adminDashboard);
@@ -87,6 +93,11 @@ public sealed class ProductionOperationsRegressionTests
         Assert.DoesNotContain("databaseRestoreCountdownSeconds", adminDashboard);
         Assert.DoesNotContain("La restauración comenzará en", adminDashboard);
         Assert.DoesNotContain("cancelDatabaseRestoreCountdown", adminDashboard);
+        Assert.Contains("[AllowAnonymous]", maintenanceController);
+        Assert.Contains("DIETOEXPRESS_MAINTENANCE_FILE", maintenanceService);
+        Assert.Contains("timer(0, 2000)", appComponent);
+        Assert.Contains("maintenanceNotice", appComponent);
+        Assert.Contains("maintenanceNotice", appTemplate);
     }
 
     [Fact]

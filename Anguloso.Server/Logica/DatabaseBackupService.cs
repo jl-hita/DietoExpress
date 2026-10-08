@@ -16,8 +16,9 @@ public sealed class DatabaseBackupService
     private readonly string _dbHost;
     private readonly string _dbPort;
     private readonly string _restoreScript;
+    private readonly MaintenanceNoticeService _maintenance;
 
-    public DatabaseBackupService(IConfiguration configuration)
+    public DatabaseBackupService(IConfiguration configuration, MaintenanceNoticeService maintenance)
     {
         _backupDir = configuration["DIETOEXPRESS_BACKUP_DIR"] ?? Environment.GetEnvironmentVariable("DIETOEXPRESS_BACKUP_DIR") ?? string.Empty;
         _databaseUrl = configuration["DIETOEXPRESS_DATABASE_URL"] ?? Environment.GetEnvironmentVariable("DIETOEXPRESS_DATABASE_URL") ?? string.Empty;
@@ -26,6 +27,7 @@ public sealed class DatabaseBackupService
         _dbHost = configuration["DIETOEXPRESS_DB_HOST"] ?? Environment.GetEnvironmentVariable("DIETOEXPRESS_DB_HOST") ?? "127.0.0.1";
         _dbPort = configuration["DIETOEXPRESS_DB_PORT"] ?? Environment.GetEnvironmentVariable("DIETOEXPRESS_DB_PORT") ?? "5432";
         _restoreScript = configuration["DIETOEXPRESS_RESTORE_SCRIPT"] ?? Environment.GetEnvironmentVariable("DIETOEXPRESS_RESTORE_SCRIPT") ?? Path.Combine(AppContext.BaseDirectory, "scripts", "dietoexpress-restore.sh");
+        _maintenance = maintenance;
     }
 
     public bool IsConfigured => !string.IsNullOrWhiteSpace(_backupDir) && (!string.IsNullOrWhiteSpace(_databaseUrl) || !string.IsNullOrWhiteSpace(_databaseName));
@@ -70,10 +72,23 @@ public sealed class DatabaseBackupService
         EnsureConfigured();
         var safeName = ValidateBackupFileName(fileName);
         EnsureBackupExists(safeName);
+
+        // El aviso se escribe antes de arrancar systemd y vive fuera de PostgreSQL.
+        // Así los usuarios que ya están conectados lo ven antes de que el servicio se detenga
+        // y el estado no se pierde durante la restauración de la propia base de datos.
+        _maintenance.Activate(
+            "Mantenimiento urgente",
+            "DietoExpress va a realizar una restauración de la base de datos. La aplicación puede dejar de estar disponible temporalmente. Por favor, no inicies nuevas operaciones hasta que finalice.");
+
         var wrapper = configurationRestoreWrapper();
         var result = await RunRestoreScriptAsync("--restore", safeName, ct, wrapper);
         if (result.ExitCode != 0)
+        {
+            // Si el wrapper no llegó a arrancar la unidad, no debemos dejar un aviso permanente.
+            _maintenance.Clear();
             throw new InvalidOperationException($"La restauración ha fallado: {result.Output}");
+        }
+
         return result.Output;
     }
 

@@ -1,3 +1,11 @@
+<div *ngIf="maintenanceNotice" class="maintenance-banner" role="alert" aria-live="assertive">
+  <div class="maintenance-banner-icon" aria-hidden="true">⚠</div>
+  <div class="maintenance-banner-content">
+    <strong>{{ maintenanceNotice.title }}</strong>
+    <span>{{ maintenanceNotice.message }}</span>
+  </div>
+</div>
+
 <!--<h1>{{ title }}</h1>-->
 <!--<app-menu></app-menu>-->
 <router-outlet></router-outlet>
