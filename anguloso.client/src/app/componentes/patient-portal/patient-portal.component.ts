@@ -179,10 +179,35 @@ export class PatientPortalComponent implements OnInit {
   }
 
   logoutPatient(): void {
+    const clientId = this.clientId;
     this.portalService.clearPatientSession().subscribe({
-      next: () => this.resetPatientView(),
-      error: () => this.resetPatientView()
+      next: () => {
+        this.clearLocalPatientState(clientId);
+        this.resetPatientView();
+      },
+      error: () => {
+        this.clearLocalPatientState(clientId);
+        this.resetPatientView();
+      }
     });
+  }
+
+  /**
+   * El portal usa localStorage únicamente para el estado funcional de comidas completadas.
+   * Se limpia al cerrar sesión para evitar que un dispositivo compartido conserve datos
+   * funcionales asociados al paciente.
+   */
+  private clearLocalPatientState(clientId?: number): void {
+    if (!clientId) return;
+    const prefix = `completed_meals_${clientId}_`;
+    try {
+      for (let index = localStorage.length - 1; index >= 0; index--) {
+        const key = localStorage.key(index);
+        if (key?.startsWith(prefix)) localStorage.removeItem(key);
+      }
+    } catch {
+      // El portal sigue funcionando aunque el navegador no permita modificar localStorage.
+    }
   }
 
   private resetPatientView(): void {
