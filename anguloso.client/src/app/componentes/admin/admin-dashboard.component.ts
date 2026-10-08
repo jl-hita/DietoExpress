@@ -594,7 +594,7 @@ export class AdminDashboardComponent implements OnInit {
   planFilter = '';
 
   constructor(
-    private adminService: AdminService,
+    public adminService: AdminService,
     private dialog: MatDialog,
     private snackBar: MatSnackBar
   ) {}
