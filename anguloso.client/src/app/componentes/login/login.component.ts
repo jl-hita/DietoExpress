@@ -111,6 +111,12 @@ export class LoginComponent {
     .subscribe({
       next: (res) => {
         this.authService.login(res); // la sesión se mantiene en la cookie HttpOnly
+        if (res.archivedSupport) {
+          this.snackBar.open('Cuenta archivada. Puedes comunicarte con tu clínica desde soporte.', 'Cerrar', { duration: 5000 });
+          this.router.navigate(['/archived-support']);
+          this.loading = false;
+          return;
+        }
         console.log("ID -> " + res.id);
         console.log("User -> " + res.username);
         console.log("Role -> " + res.role);
