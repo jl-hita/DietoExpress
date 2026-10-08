@@ -517,6 +517,12 @@ export class PatientPortalComponent implements OnInit {
     this.activeTab = tab;
   }
 
+  /** Lleva al paciente al directorio público cuando ya no tiene un nutricionista asignado. */
+  findNutritionist(): void {
+    this.router.navigate(['/nutricionistas']);
+  }
+
+
   // Devuelve el día de la dieta que corresponde al día de la semana actual
   get todayDayData(): any | null {
     if (!this.activeDiet?.days?.length) return null;
