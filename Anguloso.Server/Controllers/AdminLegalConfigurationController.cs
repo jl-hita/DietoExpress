@@ -26,8 +26,6 @@ public sealed class AdminLegalConfigurationController : ControllerBase
         "retention_matrix_summary",
         "risk_owner", "risk_date", "risk_version", "risk_scope", "risk_summary", "risk_controls_summary",
         "risk_residual_risk_summary", "risk_dpia_decision", "risk_dpia_justification", "risk_next_review"
-        "risk_owner", "risk_date", "risk_version", "risk_scope", "risk_summary", "risk_controls_summary",
-        "risk_residual_risk_summary", "risk_dpia_decision", "risk_dpia_justification", "risk_next_review"
     ];
 
     private readonly IConfiguration _configuration;
