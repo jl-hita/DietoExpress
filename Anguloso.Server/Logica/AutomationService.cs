@@ -1976,6 +1976,7 @@ public sealed class AutomationService
         CancellationToken cancellationToken = default)
     {
         // La comprobación vinculante se realiza en el worker justo antes del envío; aquí solo se persiste el trabajo.
+        return await ScheduleRawActionAsync(
             tenantId,
             "commercial_email_patient",
             new CommercialEmailPatientAction(clientId, subject, htmlBody),
