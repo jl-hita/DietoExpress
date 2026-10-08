@@ -10,7 +10,19 @@ La restauración de producción puede iniciarse desde la interfaz de SuperAdmin,
 
 ## 2. Backups automáticos semanales
 
-Producción instala un `systemd timer` que ejecuta un backup cada domingo de madrugada, con un pequeño retraso aleatorio para evitar coincidencias rígidas con otras tareas.
+Producción utiliza un `systemd timer` que ejecuta un backup cada domingo de madrugada, con un pequeño retraso aleatorio para evitar coincidencias rígidas con otras tareas.
+
+La infraestructura privilegiada de backups se **provisiona una sola vez por el administrador del servidor**. No se instala desde GitHub Actions: el despliegue normal nunca ejecuta como root scripts que viven en `/opt/dietoexpress`, porque ese directorio pertenece al usuario de despliegue.
+
+Tras el primer despliegue que incluya esta infraestructura, el administrador debe ejecutar en producción:
+
+```bash
+sudo /opt/dietoexpress/scripts/provision-dietoexpress-backup-automation.sh
+```
+
+El provisioning instala las unidades systemd como root y deja el wrapper de restauración en `/usr/local/sbin/dietoexpress-restore-web`, también propiedad de root. Los backups normales siguen ejecutándose como `joso` y no necesitan privilegios.
+
+El provisioning solo es necesario para crear/actualizar la infraestructura del servidor. Los despliegues posteriores no vuelven a ejecutarlo.
 
 La política por defecto conserva las **8 últimas copias**. El backup automático y el backup manual desde SuperAdmin utilizan el mismo directorio y la misma política de retención.
 
@@ -79,11 +91,15 @@ Antes de restaurar:
 5. Comprobar que existe espacio suficiente.
 6. Confirmar que PostgreSQL está operativo.
 
-La operación puede iniciarse desde SuperAdmin con **Restaurar**. La petición devuelve inmediatamente después de crear una unidad systemd independiente, porque el proceso de restauración detiene `dietoexpress.service`. El mismo flujo también puede iniciarse manualmente en el servidor con:
+La operación puede iniciarse desde SuperAdmin con **Restaurar**. La petición devuelve inmediatamente después de solicitar una unidad systemd independiente. El wrapper privilegiado está fuera del árbol de despliegue y solo acepta nombres de backup válidos; la unidad root-owned detiene/reinicia `dietoexpress.service` y ejecuta el `pg_restore` como `joso`.
+
+Para una intervención manual del administrador puede utilizarse el mismo wrapper:
 
 ```bash
-./scripts/dietoexpress-restore.sh --restore dietoexpress-postgresql-XXXXXXXX.dump --confirm
+sudo /usr/local/sbin/dietoexpress-restore-web dietoexpress-postgresql-XXXXXXXX.dump --confirm
 ```
+
+El script `scripts/dietoexpress-restore.sh` se conserva para operaciones de verificación/compatibilidad, pero no debe utilizarse como mecanismo privilegiado de restauración desde el proceso web.
 
 El helper realiza, en este orden:
 
