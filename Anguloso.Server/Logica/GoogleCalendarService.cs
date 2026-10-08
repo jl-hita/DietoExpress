@@ -39,7 +39,9 @@ public sealed class GoogleCalendarService
     {
         var clientId = _configuration["GoogleCalendar:ClientId"] ?? throw new InvalidOperationException("Google Calendar no está configurado.");
         var redirectUri = _configuration["GoogleCalendar:RedirectUri"] ?? throw new InvalidOperationException("Google Calendar no está configurado.");
-        var scope = "https://www.googleapis.com/auth/calendar";
+        // El alcance calendar permite la sincronización y los alcances OIDC permiten identificar la cuenta conectada.
+        // Google solo devuelve el email en userinfo cuando se ha solicitado el alcance correspondiente.
+        var scope = "openid email https://www.googleapis.com/auth/calendar";
         return "https://accounts.google.com/o/oauth2/v2/auth" +
                "?client_id=" + Uri.EscapeDataString(clientId) +
                "&redirect_uri=" + Uri.EscapeDataString(redirectUri) +
@@ -79,6 +81,8 @@ public sealed class GoogleCalendarService
 
         _logger.LogInformation("Google OAuth: intercambio de código correcto para el usuario {UserId}; preparando persistencia de la conexión.", oauthState.user_id);
         var email = await GetUserEmailAsync(token.access_token, cancellationToken);
+        if (string.IsNullOrWhiteSpace(email))
+            _logger.LogWarning("Google OAuth se completó para el usuario {UserId}, pero Google no devolvió el email de la cuenta. Si la conexión procede de una autorización anterior, será necesario volver a autorizar para conceder el alcance de email.", oauthState.user_id);
         var existing = await _db.google_calendar_connections.SingleOrDefaultAsync(x => x.user_id == user.id && x.tenant_id == user.TenantId, cancellationToken);
         if (existing == null)
         {
@@ -218,7 +222,10 @@ public sealed class GoogleCalendarService
 
         foreach (var appointment in appointments)
         {
-            var eventId = "dietoexpress-" + appointment.id;
+            // Google Calendar exige IDs de evento en base32hex: solo a-v en minúscula y dígitos.
+            // El guion de "dietoexpress-1" provocaba HTTP 400 "Invalid resource id value".
+            // Este identificador sigue siendo estable y permite localizar la cita sin guardar otra clave.
+            var eventId = "dieto" + appointment.id;
             var payload = new Dictionary<string,object?>
             {
                 ["summary"] = "DietoExpress · " + (appointment.ClientName ?? "Cita"),
