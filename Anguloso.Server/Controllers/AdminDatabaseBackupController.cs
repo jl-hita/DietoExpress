@@ -48,7 +48,7 @@ public sealed class AdminDatabaseBackupController : ControllerBase
         try
         {
             var output = await _backups.RestoreAsync(fileName, ct);
-            return Ok(new { fileName, restored = true, output });
+            return Accepted(new { fileName, restored = false, started = true, output });
         }
         catch (FileNotFoundException) { return NotFound(); }
         catch (ArgumentException) { return BadRequest(); }
