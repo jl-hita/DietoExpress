@@ -66,7 +66,7 @@ public sealed class DatabaseBootstrapRegressionTests
         var verifyStart = bootstrap.IndexOf("private static void VerifyCurrentSchema(", StringComparison.Ordinal);
         Assert.True(verifyStart >= 0, "No se encontró la verificación final del esquema.");
         var verification = bootstrap[verifyStart..];
-        Assert.Contains("SELECT string_agg(required_table, ', ' ORDER BY required_table) AS \\"Value\\"", verification);
+        Assert.Contains("SELECT string_agg(required_table, ', ' ORDER BY required_table) AS \"Value\"", verification);
         Assert.Contains("SqlQueryRaw<string>(sql)", verification);
     }
 
