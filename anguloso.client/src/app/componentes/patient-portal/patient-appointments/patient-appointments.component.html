@@ -150,5 +150,31 @@
         <span class="appointment-status">{{ appointment.status === 'cancelled' ? 'Cancelada' : appointment.status === 'completed' ? 'Completada' : appointment.status === 'no_show' ? 'No asistida' : appointment.status }}</span>
       </div>
     </article>
+    <article class="appointment-item appointment-review" *ngFor="let appointment of (pastAppointments | slice:0:10)">
+      <ng-container *ngIf="appointment.status === 'completed' && !reviewMessages[appointment.id]">
+        <div>
+          <strong>¿Cómo fue tu consulta?</strong>
+          <span>Tu valoración solo se publicará como reseña verificada.</span>
+        </div>
+        <div class="review-stars" role="radiogroup" aria-label="Valora tu consulta">
+          <button *ngFor="let star of [1,2,3,4,5]" type="button"
+                  [class.selected]="(reviewRatings[appointment.id] || 0) >= star"
+                  (click)="reviewRatings[appointment.id] = star"
+                  [attr.aria-label]="star + ' estrellas'">★</button>
+        </div>
+        <textarea maxlength="1000" [(ngModel)]="reviewComments[appointment.id]"
+                  placeholder="Comentario opcional"></textarea>
+        <button type="button" class="appointment-video"
+                (click)="submitReview(appointment)"
+                [disabled]="reviewSubmitting[appointment.id] || !reviewRatings[appointment.id]">
+          {{ reviewSubmitting[appointment.id] ? 'Guardando...' : 'Publicar valoración' }}
+        </button>
+        <small class="portal-inline-error" *ngIf="reviewErrors[appointment.id]">{{ reviewErrors[appointment.id] }}</small>
+      </ng-container>
+      <div class="appointment-success" *ngIf="reviewMessages[appointment.id]">
+        <mat-icon>verified</mat-icon>
+        <span>{{ reviewMessages[appointment.id] }}</span>
+      </div>
+    </article>
   </section>
 </section>
