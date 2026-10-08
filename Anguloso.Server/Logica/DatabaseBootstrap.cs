@@ -484,6 +484,47 @@ CREATE INDEX IF NOT EXISTS idx_patient_push_deliveries_status
                     created_at TIMESTAMPTZ DEFAULT NOW()
                 );
 
+                -- Tablas de agenda: deben existir antes de crear el embudo público y
+                -- cualquier tabla de automatizaciones que tenga claves foráneas a citas.
+                CREATE TABLE IF NOT EXISTS patient_appointments (
+                    id SERIAL PRIMARY KEY,
+                    tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                    client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                    nutritionist_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    starts_at TIMESTAMPTZ NOT NULL,
+                    ends_at TIMESTAMPTZ NOT NULL,
+                    status VARCHAR(30) NOT NULL DEFAULT 'requested',
+                    modality VARCHAR(30) NOT NULL DEFAULT 'in_person',
+                    video_provider VARCHAR(50),
+                    video_room_name VARCHAR(255),
+                    video_room_url TEXT,
+                    video_expires_at TIMESTAMPTZ,
+                    video_started_at TIMESTAMPTZ,
+                    patient_notes TEXT,
+                    professional_notes TEXT,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    CONSTRAINT ck_patient_appointments_time CHECK (ends_at > starts_at)
+                );
+                CREATE INDEX IF NOT EXISTS idx_patient_appointments_tenant_nutritionist_starts
+                    ON patient_appointments(tenant_id, nutritionist_id, starts_at);
+                CREATE INDEX IF NOT EXISTS idx_patient_appointments_client_starts
+                    ON patient_appointments(client_id, starts_at DESC);
+
+                CREATE TABLE IF NOT EXISTS nutritionist_availability (
+                    id SERIAL PRIMARY KEY,
+                    tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                    nutritionist_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    day_of_week INTEGER NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
+                    start_time TIME NOT NULL,
+                    end_time TIME NOT NULL,
+                    slot_minutes INTEGER NOT NULL DEFAULT 30,
+                    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                    CONSTRAINT ck_nutritionist_availability_time CHECK (end_time > start_time)
+                );
+                CREATE INDEX IF NOT EXISTS idx_nutritionist_availability_lookup
+                    ON nutritionist_availability(tenant_id, nutritionist_id, day_of_week, is_active);
+
                 CREATE TABLE IF NOT EXISTS public_funnel_events (
     id BIGSERIAL PRIMARY KEY,
     event_name VARCHAR(40) NOT NULL,
