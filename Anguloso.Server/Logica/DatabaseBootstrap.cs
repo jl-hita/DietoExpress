@@ -909,6 +909,13 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
             ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS stripe_yearly_price_id VARCHAR(255);
             ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS stripe_additional_monthly_price_id VARCHAR(255);
             ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS stripe_additional_yearly_price_id VARCHAR(255);
+            -- Reparación temprana: el seed de planes se ejecuta dentro de esta migración,
+            -- antes de BillingSchemaBootstrap. Debe ser segura en instalaciones antiguas.
+            ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS stripe_product_id VARCHAR(255);
+            ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS stripe_monthly_price_id VARCHAR(255);
+            ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS stripe_yearly_price_id VARCHAR(255);
+            ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS stripe_additional_monthly_price_id VARCHAR(255);
+            ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS stripe_additional_yearly_price_id VARCHAR(255);
             CREATE TABLE IF NOT EXISTS subscription_plan_features (
                 id SERIAL PRIMARY KEY,
                 plan_id INTEGER NOT NULL REFERENCES subscription_plans(id) ON DELETE CASCADE,
