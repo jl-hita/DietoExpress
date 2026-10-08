@@ -3,32 +3,45 @@
 **Versión:** {{platform.document_version}}  
 **Última actualización:** {{platform.last_update_date}}
 
-## 1. Identificación del prestador
+## 1. Titular y prestador
 
-{{platform.legal_name}} (NIF/CIF {{platform.tax_id}}), con domicilio en {{platform.address}}, correo electrónico {{platform.contact_email}} y teléfono {{platform.contact_phone}}, es el titular de este sitio web y de la plataforma DietoExpress.
+**Denominación:** {{platform.legal_name}}  
+**NIF/CIF:** {{platform.tax_id}}  
+**Domicilio:** {{platform.address}}  
+**Email:** {{platform.contact_email}}  
+**Teléfono:** {{platform.contact_phone}}  
+**Sitio web:** {{platform.website}}
 
-Dominio: {{platform.website}}
+Información registral, autorización administrativa o habilitación profesional, cuando resulte exigible:  
+{{platform.registration_information}}
 
-Si la actividad está sujeta a inscripción registral, autorización administrativa o profesión regulada, se indicará aquí la información que corresponda: {{platform.registration_information}}.
+## 2. Actividad y objeto
 
-## 2. Objeto
+DietoExpress es una plataforma tecnológica destinada a facilitar la gestión de profesionales y clínicas de nutrición, incluyendo, según el plan y configuración contratados, gestión de pacientes, dietas, recetas, agenda, documentación, comunicaciones, videollamadas y otras funcionalidades.
 
-DietoExpress es una plataforma software destinada a facilitar la gestión profesional de consultas de nutrición, pacientes, documentación, dietas, agenda y comunicaciones, según las funcionalidades contratadas.
+DietoExpress no sustituye el criterio profesional ni determina por sí misma la actuación sanitaria o nutricional que corresponda al profesional responsable.
 
-## 3. Condiciones de uso
+## 3. Condiciones de acceso y uso
 
-El acceso y uso del servicio queda sujeto a la normativa aplicable y a las condiciones contractuales vigentes. El usuario se compromete a utilizar la plataforma de forma lícita, diligente y conforme a su finalidad.
+El acceso debe realizarse conforme a la finalidad del servicio y a las condiciones contractuales aplicables. Las personas usuarias deberán facilitar información veraz, mantener la confidencialidad de sus credenciales y utilizar la plataforma de forma lícita.
 
-## 4. Responsabilidad
+## 4. Responsabilidades
 
-DietoExpress mantiene la plataforma con medidas razonables de seguridad y continuidad, pero no garantiza disponibilidad ininterrumpida. Cada profesional o clínica es responsable de los tratamientos, contenidos y decisiones profesionales que realice con la información gestionada mediante la plataforma.
+Cada profesional o clínica responde de la información que incorpora, de las relaciones que mantiene con sus pacientes, de las decisiones profesionales y de las bases jurídicas e información que correspondan a los tratamientos que realice como responsable.
+
+{{platform.legal_name}} mantiene medidas técnicas y organizativas razonables para proteger la plataforma, sin garantizar una disponibilidad absolutamente ininterrumpida.
 
 ## 5. Propiedad intelectual
 
-Los elementos propios de DietoExpress, incluyendo software, diseño, marcas, textos y componentes, pertenecen a {{platform.legal_name}} o a sus respectivos titulares.
+El software, diseño, documentación, textos, marcas y demás elementos propios de DietoExpress pertenecen a {{platform.legal_name}} o a sus respectivos titulares y quedan protegidos por la normativa aplicable.
 
 ## 6. Contacto
 
-Para cuestiones relacionadas con la plataforma: {{platform.contact_email}}.
+Para cuestiones generales: {{platform.contact_email}}.  
+Para cuestiones de privacidad: {{platform.privacy_email}}.  
+Para soporte: {{platform.support_email}}.  
+Para reclamaciones: {{platform.claims_email}}.
 
-**Nota interna:** este texto es una plantilla. Debe revisarse jurídicamente y no publicarse mientras queden variables sin cumplimentar.
+## 7. Legislación aplicable
+
+La legislación y jurisdicción aplicables, dentro de los límites imperativos que correspondan, se indican en: {{platform.governing_law_summary}}.
