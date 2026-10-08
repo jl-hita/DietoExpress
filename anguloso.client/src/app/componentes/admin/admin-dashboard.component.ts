@@ -635,10 +635,14 @@ export class AdminDashboardComponent implements OnInit {
   databaseBackupConfigured = false;
   databaseBackupRunning = false;
   databaseBackupOperation = '';
-  databaseRestoreCountdownActive = false;
-  databaseRestoreCountdownSeconds = 0;
-  databaseRestoreScheduledAt?: Date;
-  private databaseRestoreCountdownTimer?: ReturnType<typeof setInterval>;
+  databaseRestoreRunning = false;
+  databaseRestoreCompleted = false;
+  databaseRestoreFailed = false;
+  databaseRestoreElapsedSeconds = 0;
+  databaseRestorePhaseLabel = '';
+  databaseRestorePhaseMessage = '';
+  private databaseRestoreTimer?: ReturnType<typeof setInterval>;
+  private databaseRestorePollTimer?: ReturnType<typeof setInterval>;
   displayedColumns = ['user', 'plan', 'status', 'expires', 'usage', 'lastLogin', 'actions'];
   configDisplayedColumns = ['id', 'nombre', 'valor'];
   configTabs = [{key:'PLATFORM',label:'Plataforma'},{key:'EMAIL',label:'Email'},{key:'GOOGLE',label:'Google / Calendario'},{key:'VIDEO',label:'Videollamadas'},{key:'FOOD',label:'Alimentos'},{key:'NOTIFICATIONS',label:'Notificaciones'},{key:'ADDRESS',label:'Direcciones'},{key:'OTHER',label:'Otros'}];
