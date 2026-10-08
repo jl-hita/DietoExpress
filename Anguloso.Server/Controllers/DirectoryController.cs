@@ -507,6 +507,52 @@ public class DirectoryController : ControllerBase
         return Ok(slots.OrderBy(s => s.StartsAt).Take(200));
     }
 
+    [AllowAnonymous]
+    [HttpGet("professionals/{slug}/reviews")]
+    public async Task<ActionResult<DirectoryReviewSummaryDto>> GetReviews(string slug)
+    {
+        var normalized = slug.Trim().ToLowerInvariant();
+        var professional = await _context.users.AsNoTracking()
+            .Where(u => u.archived_at == null && u.role == "nutritionist" &&
+                        u.directory_enabled == true && u.directory_publication_status == "published" &&
+                        u.directory_slug == normalized)
+            .Select(u => u.id)
+            .FirstOrDefaultAsync();
+        if (professional == 0) return NotFound();
+
+        var rows = await _context.Database.SqlQueryRaw<DirectoryReviewRow>(
+            @"SELECT rating AS ""Rating"", comment AS ""Comment"", created_at AS ""CreatedAt""
+              FROM public_directory_reviews
+              WHERE nutritionist_id = {0}
+              ORDER BY created_at DESC
+              LIMIT 20", professional).ToListAsync();
+
+        var summary = await _context.Database.SqlQueryRaw<DirectoryReviewSummaryRow>(
+            @"SELECT COALESCE(AVG(rating), 0)::double precision AS ""AverageRating"",
+                     COUNT(*)::integer AS ""ReviewCount""
+              FROM public_directory_reviews
+              WHERE nutritionist_id = {0}", professional).SingleAsync();
+
+        return Ok(new DirectoryReviewSummaryDto
+        {
+            AverageRating = Math.Round(summary.AverageRating, 1),
+            ReviewCount = summary.ReviewCount
+        });
+    }
+
+    private sealed class DirectoryReviewRow
+    {
+        public int Rating { get; set; }
+        public string? Comment { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+
+    private sealed class DirectoryReviewSummaryRow
+    {
+        public double AverageRating { get; set; }
+        public int ReviewCount { get; set; }
+    }
+
     private static string[] SplitSpecialties(string? value)
     {
         return (value ?? string.Empty)
