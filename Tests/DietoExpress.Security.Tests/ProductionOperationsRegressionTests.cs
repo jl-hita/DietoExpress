@@ -79,7 +79,7 @@ public sealed class ProductionOperationsRegressionTests
         Assert.Contains("[HttpPost(\"{fileName}/verify\")]", controller);
         Assert.Contains("[HttpPost(\"{fileName}/restore\")]", controller);
         Assert.Contains("/usr/local/sbin/dietoexpress-restore-web", databaseBackupService);
-        Assert.Contains("[HttpGet("{fileName}/restore-status")]", controller);
+        Assert.Contains("[HttpGet(\"{fileName}/restore-status\")]", controller);
         Assert.Contains("getDatabaseRestoreStatus", File.ReadAllText(Path.Combine(root, "anguloso.client", "src", "app", "servicios", "admin.service.ts")));
         Assert.Contains("databaseRestoreElapsedSeconds", adminDashboard);
         Assert.Contains("startDatabaseRestorePolling", adminDashboard);
