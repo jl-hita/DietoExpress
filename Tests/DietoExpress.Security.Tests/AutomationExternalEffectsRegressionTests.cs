@@ -133,7 +133,7 @@ public sealed class AutomationExternalEffectsRegressionTests
 
         Assert.Contains("Idempotency-Key", stripe);
         Assert.Contains("SendStripeAsync(HttpMethod.Post, \"/v1/checkout/sessions\", form, idempotencyKey)", stripe);
-        Assert.Contains("var eventId = \"dietoexpress-\" + appointment.id", calendar);
+        Assert.Contains('var eventId = "dieto" + appointment.id', calendar);\n        Assert.Contains('openid email https://www.googleapis.com/auth/calendar', calendar);
         Assert.Contains("SendEventAsync(accessToken, connection.calendar_id, eventId, payload", calendar);
     }
 
