@@ -11,6 +11,7 @@ DB_USER="${DIETOEXPRESS_DB_USER:-}"
 DB_HOST="${DIETOEXPRESS_DB_HOST:-127.0.0.1}"
 DB_PORT="${DIETOEXPRESS_DB_PORT:-5432}"
 INCLUDE_ENV="${DIETOEXPRESS_BACKUP_INCLUDE_ENV:-false}"
+RETENTION="${DIETOEXPRESS_BACKUP_RETENTION:-8}"
 
 if [[ -z "$BACKUP_DIR" ]]; then
   echo "ERROR: DIETOEXPRESS_BACKUP_DIR no está configurado." >&2
@@ -62,3 +63,13 @@ fi
 
 echo "Backup creado: $output"
 echo "Checksum: $manifest"
+
+# Mantiene solo las últimas N copias completas. Los sidecars se eliminan junto
+# con su dump para evitar dejar metadatos huérfanos.
+if [[ "$RETENTION" =~ ^[0-9]+$ ]] && (( RETENTION > 0 )); then
+  mapfile -t backups < <(find "$BACKUP_DIR" -maxdepth 1 -type f -name 'dietoexpress-postgresql-*.dump' -printf '%T@ %p\n' | sort -nr | tail -n +$((RETENTION + 1)) | cut -d' ' -f2-)
+  for old_backup in "${backups[@]}"; do
+    old_base="${old_backup%.dump}"
+    rm -f -- "$old_backup" "${old_base}.sha256" "${old_base}.txt"
+  done
+fi
