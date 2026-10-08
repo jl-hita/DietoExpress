@@ -3,7 +3,7 @@ import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
-import { DirectoryProfile, PublicAvailabilitySlot } from './directory.models';
+import { DirectoryProfile, PublicAvailabilitySlot, DirectoryReviewSummary } from './directory.models';
 import { DirectoryService } from './directory.service';
 import { PublicSeoService } from '../../servicios/public-seo.service';
 import { PublicFunnelAnalyticsService } from '../../servicios/public-funnel-analytics.service';
@@ -27,6 +27,7 @@ export class DirectoryComponent implements OnInit {
   loading = false;
   error = '';
   availability: PublicAvailabilitySlot[] = [];
+  reviewSummary: DirectoryReviewSummary | null = null;
   availabilityLoading = false;
   availabilityError = '';
   selectedSlot: PublicAvailabilitySlot | null = null;
@@ -161,8 +162,16 @@ export class DirectoryComponent implements OnInit {
         this.publicFunnelAnalytics.track('profile_view', profile.slug);
         this.loading = false;
         this.loadAvailability(profile.slug);
+        this.loadReviews(profile.slug);
       },
       error: () => { this.error = 'No se ha encontrado el profesional solicitado.'; this.loading = false; }
+    });
+  }
+
+  loadReviews(slug: string): void {
+    this.directoryService.getReviews(slug).subscribe({
+      next: summary => this.reviewSummary = summary,
+      error: () => this.reviewSummary = null
     });
   }
 
