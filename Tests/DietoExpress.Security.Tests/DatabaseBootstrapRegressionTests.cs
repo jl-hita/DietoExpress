@@ -60,6 +60,17 @@ public sealed class DatabaseBootstrapRegressionTests
     }
 
     [Fact]
+    public void Bootstrap_ScalarTableVerificationAliasesAggregateAsValue()
+    {
+        var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
+        var verifyStart = bootstrap.IndexOf("private static void VerifyCurrentSchema(", StringComparison.Ordinal);
+        Assert.True(verifyStart >= 0, "No se encontró la verificación final del esquema.");
+        var verification = bootstrap[verifyStart..];
+        Assert.Contains("SELECT string_agg(required_table, ', ' ORDER BY required_table) AS \\"Value\\"", verification);
+        Assert.Contains("SqlQueryRaw<string>(sql)", verification);
+    }
+
+    [Fact]
     public void Bootstrap_VerifiesEveryMappedEfColumn()
     {
         var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
