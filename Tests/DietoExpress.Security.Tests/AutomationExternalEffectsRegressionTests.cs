@@ -101,7 +101,7 @@ public sealed class AutomationExternalEffectsRegressionTests
     public void PushDeliveryMustUseDurableLedgerWithConcurrentClaimProtection()
     {
         var service = ReadServerSource("Anguloso.Server/Logica/NotificationService.cs");
-        var schema = ReadServerSource("Anguloso.Server/Program.cs");
+        var schema = ReadServerSource("Anguloso.Server/Logica/DatabaseBootstrap.cs");
 
         Assert.Contains("TryClaimPushDeliveryAsync", service);
         Assert.Contains("patient_push_deliveries", service);
