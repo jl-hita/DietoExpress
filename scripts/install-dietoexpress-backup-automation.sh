@@ -2,6 +2,7 @@
 set -euo pipefail
 
 APP_DIR="${DIETOEXPRESS_APP_DIR:-/opt/dietoexpress}"
+chmod 0750 "$APP_DIR/scripts/dietoexpress-backup.sh" "$APP_DIR/scripts/dietoexpress-restore.sh" "$APP_DIR/scripts/dietoexpress-restore-web.sh"
 SYSTEMD_DIR="/etc/systemd/system"
 SUDOERS_FILE="/etc/sudoers.d/dietoexpress-restore"
 
