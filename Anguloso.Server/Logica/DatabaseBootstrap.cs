@@ -2912,7 +2912,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
         if (expectedColumns.Length > 0)
         {
             static string SqlLiteral(string value) => value.Replace("'", "''", StringComparison.Ordinal);
-            var expectedValues = string.Join(",\\n", expectedColumns.Select(column =>
+            var expectedValues = string.Join(",\n", expectedColumns.Select(column =>
                 $"('{SqlLiteral(column.Schema)}', '{SqlLiteral(column.Table)}', '{SqlLiteral(column.Column)}')"));
 
             var missingColumnsSql = $"""
