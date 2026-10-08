@@ -1,4 +1,6 @@
 <div class="sidebar-container">
+  <a class="sidebar-brand" routerLink="/" aria-label="DietoExpress"><img src="/dietoexpress-logo-dark.svg" alt="DietoExpress · Tu suite profesional de nutrición" /></a>
+
   <div class="profile" *ngIf="isNutritionist; else staticProfile">
     <a mat-list-item class="profile-link" routerLink="/dashboard" (click)="navigateAndClose()" aria-label="Ir al dashboard">
       <img [src]="profileImage" (error)="onProfileImageError()" alt="Imagen de perfil" class="avatar" />
