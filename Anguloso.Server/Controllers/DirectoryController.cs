@@ -171,7 +171,16 @@ public class DirectoryController : ControllerBase
         profile.SpecialtyList = SplitSpecialties(profile.Specialties);
         profile.ProfileCompleteness = CalculateProfileCompleteness(profile);
         profile.AvailableRuleCount = await _context.nutritionist_availability.AsNoTracking().CountAsync(a => a.nutritionist_id == profile.NutritionistId && a.is_active);
-        profile.RankingScore = profile.ProfileCompleteness + Math.Min(profile.AvailableRuleCount * 2, 20);
+        var reviewSummary = await _context.Database.SqlQueryRaw<DirectoryReviewSummaryRow>(
+            @"SELECT COALESCE(AVG(rating), 0)::double precision AS ""AverageRating"",
+                     COUNT(*)::integer AS ""ReviewCount""
+              FROM public_directory_reviews
+              WHERE nutritionist_id = {0}", profile.NutritionistId).SingleAsync();
+        profile.AverageRating = Math.Round(reviewSummary.AverageRating, 1);
+        profile.ReviewCount = reviewSummary.ReviewCount;
+        profile.RankingScore = profile.ProfileCompleteness + Math.Min(profile.AvailableRuleCount * 2, 20)
+            + Math.Min(profile.ReviewCount * 2, 10)
+            + (profile.AverageRating >= 4.5 ? 20 : profile.AverageRating >= 4.0 ? 10 : 0);
         return Ok(profile);
     }
 
