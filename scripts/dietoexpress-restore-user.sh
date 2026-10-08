@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # Esta parte de la restauración se ejecuta siempre como joso. El control privilegiado
-# (parar/arrancar el servicio y crear la unidad systemd) queda fuera del árbol de
-# despliegue, en archivos propiedad de root instalados por el provisioning inicial.
+# (parar/arrancar el servicio y ejecutar pg_restore como postgres) queda fuera del árbol
+# de despliegue, en archivos propiedad de root instalados por el provisioning inicial.
 BACKUP_DIR="${DIETOEXPRESS_BACKUP_DIR:-}"
 DATABASE_URL="${DIETOEXPRESS_DATABASE_URL:-}"
 DB_NAME="${DIETOEXPRESS_DATABASE:-}"
@@ -11,10 +11,9 @@ DB_USER="${DIETOEXPRESS_DB_USER:-}"
 DB_HOST="${DIETOEXPRESS_DB_HOST:-127.0.0.1}"
 DB_PORT="${DIETOEXPRESS_DB_PORT:-5432}"
 BACKUP_SCRIPT="${DIETOEXPRESS_BACKUP_SCRIPT:-/opt/dietoexpress/scripts/dietoexpress-backup.sh}"
+RESTORE_HELPER="${DIETOEXPRESS_RESTORE_HELPER:-/usr/local/sbin/dietoexpress-pg-restore}"
 MAINTENANCE_FILE="${DIETOEXPRESS_MAINTENANCE_FILE:-/var/lib/dietoexpress/maintenance.json}"
 
-# El aviso es externo a PostgreSQL y debe desaparecer tanto tras éxito como tras rollback.
-# El trap se ejecuta antes de que la unidad root vuelva a arrancar DietoExpress.
 clear_maintenance_notice() {
   rm -f -- "$MAINTENANCE_FILE"
 }
@@ -56,9 +55,11 @@ pg_restore --list "$path" >/dev/null
   echo "ERROR: no existe el script de backup: $BACKUP_SCRIPT" >&2
   exit 1
 }
+[[ -x "$RESTORE_HELPER" ]] || {
+  echo "ERROR: no existe el helper privilegiado de restauración: $RESTORE_HELPER. Ejecuta de nuevo el provisioning como root." >&2
+  exit 1
+}
 
-# El servicio ya ha sido detenido por la unidad systemd root antes de llegar aquí.
-# El backup previo se genera como joso, igual que los backups normales.
 pre_restore_output="$("$BACKUP_SCRIPT")"
 pre_restore_file="$(printf '%s\n' "$pre_restore_output" | sed -n 's/^Backup creado: //p' | tail -n1)"
 [[ -n "$pre_restore_file" && -f "$pre_restore_file" ]] || {
@@ -68,14 +69,8 @@ pre_restore_file="$(printf '%s\n' "$pre_restore_output" | sed -n 's/^Backup crea
 
 restore_ok=false
 set +e
-if [[ -n "$DATABASE_URL" ]]; then
-  pg_restore --clean --if-exists --no-owner --exit-on-error --dbname="$DATABASE_URL" "$path"
-  rc=$?
-else
-  pg_restore --clean --if-exists --no-owner --exit-on-error \
-    --host="$DB_HOST" --port="$DB_PORT" --username="$DB_USER" --dbname="$DB_NAME" "$path"
-  rc=$?
-fi
+sudo -n "$RESTORE_HELPER" --restore "$file" --confirm
+rc=$?
 set -e
 
 if [[ $rc -eq 0 ]]; then
@@ -86,14 +81,9 @@ fi
 
 if [[ "$restore_ok" != true ]]; then
   set +e
-  if [[ -n "$DATABASE_URL" ]]; then
-    pg_restore --clean --if-exists --no-owner --exit-on-error --dbname="$DATABASE_URL" "$pre_restore_file"
-    rollback_rc=$?
-  else
-    pg_restore --clean --if-exists --no-owner --exit-on-error \
-      --host="$DB_HOST" --port="$DB_PORT" --username="$DB_USER" --dbname="$DB_NAME" "$pre_restore_file"
-    rollback_rc=$?
-  fi
+  pre_restore_name="$(basename "$pre_restore_file")"
+  sudo -n "$RESTORE_HELPER" --restore "$pre_restore_name" --confirm
+  rollback_rc=$?
   set -e
 
   if [[ $rollback_rc -ne 0 ]]; then
