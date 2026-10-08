@@ -122,7 +122,7 @@ export class AdminLogComponent implements OnInit {
   levelFilter: 'all' | 'info' | 'warning' | 'error' = 'all';
   searchText = '';
   searching = false;
-  private searchActive = false;
+  searchActive = false;
   searchResultCount = 0;
 
   private logEntries: string[] = [];
