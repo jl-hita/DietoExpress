@@ -108,7 +108,7 @@ public sealed class DatabaseBackupService
         var executable = wrapper ?? _restoreScript;
         var psi = new ProcessStartInfo
         {
-            FileName = wrapper is null ? "/usr/bin/env" : executable,
+            FileName = wrapper is null ? "/usr/bin/env" : "/usr/bin/sudo",
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -119,18 +119,18 @@ public sealed class DatabaseBackupService
         {
             psi.ArgumentList.Add("bash");
             psi.ArgumentList.Add(executable);
+            psi.ArgumentList.Add(operation);
+            psi.ArgumentList.Add(fileName);
         }
         else
         {
-            psi.ArgumentList.Add("--restore".Equals(operation, StringComparison.Ordinal) ? fileName : fileName);
-        }
-
-        if (wrapper is null)
-            psi.ArgumentList.Add(operation);
-        if (wrapper is null)
+            // La restauración modifica PostgreSQL y detiene el servicio, por lo que
+            // requiere un wrapper root explícitamente autorizado en sudoers.
+            psi.ArgumentList.Add("-n");
+            psi.ArgumentList.Add(executable);
             psi.ArgumentList.Add(fileName);
-        if (wrapper is not null)
             psi.ArgumentList.Add("--confirm");
+        }
 
         using var process = Process.Start(psi) ?? throw new InvalidOperationException("No se pudo iniciar la operación de restauración.");
         var stdout = await process.StandardOutput.ReadToEndAsync(ct);
