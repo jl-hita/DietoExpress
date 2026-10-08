@@ -5,7 +5,7 @@
 .onboarding-card{text-align:center;}
 .hero{display:flex;align-items:center;gap:22px;text-align:left;margin-bottom:30px;}
 .icon{width:62px;height:62px;flex:0 0 62px;display:grid;place-items:center;border-radius:19px;background:#0d9488;color:white;}
-.icon mat-icon{font-size:32px;width:32px;height:32px;}
+ .icon img{width:62px;height:62px;display:block;border-radius:19px;}
 .icon.error{background:#9a5a2f;}
 .eyebrow{font-size:11px;font-weight:800;letter-spacing:1.5px;color:#0d9488;}
 h1{font-size:38px;letter-spacing:-1px;color:#123b39;margin:8px 0 8px;}

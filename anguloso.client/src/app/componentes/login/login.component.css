@@ -1,6 +1,6 @@
 :host { display:block; min-height:100vh; }
 .auth-shell { min-height:100vh; display:flex; flex-direction:column; align-items:center; background:linear-gradient(145deg,#f5fbf9,#e4f4f0); padding:34px 20px; box-sizing:border-box; font-family:'Outfit','Inter',sans-serif; }
-.auth-brand { display:flex; align-items:center; gap:10px; color:#123b39; font-size:21px; font-weight:800; cursor:pointer; margin-bottom:34px; }
+.auth-brand { display:flex; align-items:center; justify-content:center; cursor:pointer; margin-bottom:34px; }.brand-logo{display:block;width:270px;height:auto;max-width:90vw;}
 .brand-mark { width:36px; height:36px; display:grid; place-items:center; border-radius:11px; background:#0d9488; color:white; }
 .brand-mark mat-icon { font-size:21px; width:21px; height:21px; }
 .auth-card { width:min(430px,100%); background:white; border-radius:24px; padding:38px; box-sizing:border-box; box-shadow:0 22px 65px rgba(18,59,57,.13); }
