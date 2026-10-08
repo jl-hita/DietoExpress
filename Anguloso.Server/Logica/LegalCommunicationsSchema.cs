@@ -13,8 +13,17 @@ public static class LegalCommunicationsSchema
                 email_enabled BOOLEAN NOT NULL DEFAULT FALSE,
                 unsubscribe_token_hash VARCHAR(128),
                 unsubscribed_at TIMESTAMPTZ,
+                consented_at TIMESTAMPTZ,
+                consent_version VARCHAR(128),
+                consent_source VARCHAR(128),
+                revoked_at TIMESTAMPTZ,
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
+            ALTER TABLE patient_commercial_communication_preferences ADD COLUMN IF NOT EXISTS consented_at TIMESTAMPTZ;
+            ALTER TABLE patient_commercial_communication_preferences ADD COLUMN IF NOT EXISTS consent_version VARCHAR(128);
+            ALTER TABLE patient_commercial_communication_preferences ADD COLUMN IF NOT EXISTS consent_source VARCHAR(128);
+            ALTER TABLE patient_commercial_communication_preferences ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ;
+
             CREATE INDEX IF NOT EXISTS idx_patient_commercial_preferences_tenant
                 ON patient_commercial_communication_preferences(tenant_id);
             CREATE UNIQUE INDEX IF NOT EXISTS uq_patient_commercial_unsubscribe_token
