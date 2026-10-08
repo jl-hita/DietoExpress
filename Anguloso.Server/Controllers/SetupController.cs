@@ -67,6 +67,9 @@ public class SetupController : ControllerBase
             password_hash = BCrypt.Net.BCrypt.HashPassword(request.Password),
             role = "superadmin",
             email_confirmed = true,
+            // Una cuenta superadmin nunca debe publicarse en el directorio profesional.
+            directory_enabled = false,
+            online_consultations = false,
             subscription_plan = "enterprise",
             subscription_status = "active",
             created_at = DateTime.UtcNow
