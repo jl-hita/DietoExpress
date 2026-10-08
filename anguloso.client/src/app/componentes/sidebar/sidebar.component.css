@@ -10,7 +10,7 @@
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
-.profile {
+.sidebar-brand{display:flex;align-items:center;justify-content:center;margin:0 4px 22px;padding:0 4px;}.sidebar-brand img{display:block;width:190px;max-width:100%;height:auto;}.profile {
   display:flex; flex-direction:column; align-items:center; padding-bottom:24px;
   border-bottom:1px solid #1e293b; margin-bottom:16px;
 }
