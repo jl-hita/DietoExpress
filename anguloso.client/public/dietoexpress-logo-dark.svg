@@ -2,7 +2,7 @@
 <title id="title">DietoExpress</title><desc id="desc">Tu suite profesional de nutrición</desc>
 <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#8ACB38"/><stop offset=".48" stop-color="#31AE45"/><stop offset="1" stop-color="#07904D"/></linearGradient></defs>
 <rect x="0" y="2" width="274" height="274" rx="48" fill="url(#g)"/>
-<g><path d="M38 36 L37 51 L86 52 L118 80 L104 91 L92 106 L85 109 L64 109 L56 113 L55 92 L64 91 L65 99 L86 80 L65 62 L64 71 L56 70 L56 62 L38 62 L38 124 L64 127 L91 126 L112 116 L121 106 L128 88 L127 68 L115 47 L99 37 L87 34 L42 34 Z" fill="#fff"/></g>
+<g transform="scale(1.681)"><path d="M38 36 L37 51 L86 52 L118 80 L104 91 L92 106 L85 109 L64 109 L56 113 L55 92 L64 91 L65 99 L86 80 L65 62 L64 71 L56 70 L56 62 L38 62 L38 124 L64 127 L91 126 L112 116 L121 106 L128 88 L127 68 L115 47 L99 37 L87 34 L42 34 Z" fill="#fff"/></g>
 <text x="320" y="142" font-family="Outfit,Inter,Arial,sans-serif" font-size="86" font-weight="700" letter-spacing="-3" fill="#fff">Dieto<tspan fill="#86D83B">Express</tspan></text>
 <text x="323" y="201" font-family="Outfit,Inter,Arial,sans-serif" font-size="28" font-weight="400" letter-spacing="4" fill="#fff">Tu suite profesional de nutrición</text>
 </svg>
