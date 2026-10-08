@@ -86,6 +86,19 @@
     <!-- ══════════════════════════════════════════ -->
     <main class="portal-content" *ngIf="activeTab === 'today'">
 
+      <section class="unassigned-nutritionist-card" *ngIf="!isPreview && !profile?.nutritionistName">
+        <div class="unassigned-nutritionist-icon"><mat-icon>person_search</mat-icon></div>
+        <div class="unassigned-nutritionist-copy">
+          <span class="eyebrow">Sin nutricionista asignado</span>
+          <strong>Puedes seguir usando tu portal</strong>
+          <p>Tus dietas y tu historial siguen disponibles. Busca un nuevo nutricionista para continuar tu seguimiento.</p>
+        </div>
+        <button type="button" class="unassigned-nutritionist-action" (click)="findNutritionist()">
+          Buscar nutricionista
+          <mat-icon>arrow_forward</mat-icon>
+        </button>
+      </section>
+
       <div class="day-hero">
         <div class="day-title">
           <div class="day-title-icon"><mat-icon>today</mat-icon></div>
