@@ -23,6 +23,10 @@
 
   <ItemGroup>
     <Content Include="LegalTemplates\**\*.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\scripts\dietoexpress-backup.sh"
+             Link="scripts\dietoexpress-backup.sh"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
     <Content Include="..\docs\patient-documents\PAT-*.md"
              Link="PatientDocumentTemplates\%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest"
