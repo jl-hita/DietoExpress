@@ -29,6 +29,28 @@ public sealed class DatabaseBootstrapRegressionTests
             "Se encontró un bloque DO con delimitador de cierre incompleto.");
     }
 
+ 
+    [Fact]
+    public void Bootstrap_RepairsStripeColumnsBeforeSaaSSeedUpdates()
+    {
+        var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
+        var billingRepair = bootstrap.IndexOf("ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS stripe_additional_monthly_price_id", StringComparison.Ordinal);
+        var seedUpdate = bootstrap.IndexOf("SET stripe_monthly_price_id = 'price_1UKdmV0RD4LdDkcU7ueOlu1B'", StringComparison.Ordinal);
+        Assert.True(billingRepair >= 0, "El bootstrap inicial debe reparar las columnas de Stripe antes de migrar datos.");
+        Assert.True(seedUpdate > billingRepair, "Los UPDATE de Stripe no pueden ejecutarse antes de garantizar las columnas.");
+    }
+
+    [Fact]
+    public void Bootstrap_InitializesBillingSchemaBeforeSubsequentSaaSMigrations()
+    {
+        var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
+        var baseSaas = bootstrap.IndexOf("UpgradeSaaSSchema(context, logger);", StringComparison.Ordinal);
+        var billing = bootstrap.IndexOf("BillingSchemaBootstrap.Initialize(context, logger);", StringComparison.Ordinal);
+        var nextSaas = bootstrap.IndexOf("UpgradeSaaSSchemaV2(context, logger);", StringComparison.Ordinal);
+        Assert.True(baseSaas >= 0 && billing > baseSaas && nextSaas > billing,
+            "El esquema base de billing debe inicializarse entre SaaS v1 y las migraciones SaaS posteriores.");
+    }
+
     [Fact]
     public void Bootstrap_VerifiesEveryTableCreatedBySchemaBootstrappers()
     {
