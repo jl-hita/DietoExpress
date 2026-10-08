@@ -29,7 +29,7 @@ import { AdminLog, AdminService } from '../../servicios/admin.service';
       <mat-card class="log-card">
         <div class="log-toolbar">
           <span>
-            {{ exists ? (hasMoreOlder ? 'Mostrando la parte más reciente del log' : 'Log completo cargado') : 'No hay log para este día' }}
+            {{ !exists ? 'No hay log para este día' : (searchActive ? (searchResultCount + ' entradas encontradas para «' + searchText + '»') : (hasMoreOlder ? 'Mostrando la parte más reciente del log' : 'Log completo cargado')) }}
           </span>
           <div class="log-actions">
             <mat-form-field appearance="outline" class="search-filter">
@@ -123,6 +123,7 @@ export class AdminLogComponent implements OnInit {
   searchText = '';
   searching = false;
   private searchActive = false;
+  searchResultCount = 0;
 
   private logEntries: string[] = [];
   private oldestLoadedByte = 0;
@@ -141,6 +142,7 @@ export class AdminLogComponent implements OnInit {
     this.adminService.searchLog(this.selectedDate, query).subscribe({
       next: result => {
         this.logEntries = result.entries;
+        this.searchResultCount = result.count;
         this.searchActive = true;
         this.oldestLoadedByte = 0;
         this.hasMoreOlder = false;
@@ -156,6 +158,7 @@ export class AdminLogComponent implements OnInit {
   clearSearch(): void {
     this.searchText = '';
     this.searchActive = false;
+    this.searchResultCount = 0;
     this.loadLog(this.selectedDate);
   }
 
@@ -184,6 +187,8 @@ export class AdminLogComponent implements OnInit {
         this.logEntries = [];
         this.oldestLoadedByte = 0;
         this.hasMoreOlder = false;
+        this.searchActive = false;
+        this.searchResultCount = 0;
 
         if (!result.exists) {
           this.loading = false;
