@@ -67,6 +67,43 @@ import { LegalDocumentGeneratorService, LegalGeneratedDocument } from '../../ser
         </mat-card-content>
       </mat-card>
 
+      <mat-card><mat-card-header><mat-icon mat-card-avatar>payments</mat-icon><mat-card-title>Contratación y condiciones económicas</mat-card-title></mat-card-header><mat-divider></mat-divider>
+        <mat-card-content>
+          <mat-form-field appearance="outline" class="full"><mat-label>Precios, planes e impuestos</mat-label><textarea matInput rows="3" formControlName="pricing_summary"></textarea></mat-form-field>
+          <mat-form-field appearance="outline" class="full"><mat-label>Facturación, renovación y vencimiento</mat-label><textarea matInput rows="3" formControlName="billing_terms_summary"></textarea></mat-form-field>
+          <mat-form-field appearance="outline" class="full"><mat-label>Cancelación y reembolsos</mat-label><textarea matInput rows="3" formControlName="refund_summary"></textarea></mat-form-field>
+          <mat-form-field appearance="outline" class="full"><mat-label>Desistimiento/limitaciones aplicables a consumidores</mat-label><textarea matInput rows="3" formControlName="consumer_withdrawal_summary"></textarea></mat-form-field>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card><mat-card-header><mat-icon mat-card-avatar>fact_check</mat-icon><mat-card-title>RAT y conservación</mat-card-title></mat-card-header><mat-divider></mat-divider>
+        <mat-card-content>
+          <mat-form-field appearance="outline"><mat-label>Rol del responsable</mat-label><input matInput formControlName="rat_controller_role"></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Fecha de revisión RAT</mat-label><input matInput formControlName="rat_review_date"></mat-form-field>
+          <mat-form-field appearance="outline" class="full"><mat-label>Cuentas y seguridad: finalidades, datos, bases y conservación</mat-label><textarea matInput rows="4" formControlName="rat_accounts_summary"></textarea></mat-form-field>
+          <mat-form-field appearance="outline" class="full"><mat-label>Suscripciones y facturación: finalidades, datos, bases y conservación</mat-label><textarea matInput rows="4" formControlName="rat_billing_summary"></textarea></mat-form-field>
+          <mat-form-field appearance="outline" class="full"><mat-label>Pacientes: tratamientos propios/por cuenta de profesionales, categorías y bases</mat-label><textarea matInput rows="4" formControlName="rat_patient_summary"></textarea></mat-form-field>
+          <mat-form-field appearance="outline" class="full"><mat-label>Seguridad, auditoría e incidencias</mat-label><textarea matInput rows="3" formControlName="rat_security_summary"></textarea></mat-form-field>
+          <mat-form-field appearance="outline" class="full"><mat-label>Derechos y solicitudes</mat-label><textarea matInput rows="3" formControlName="rat_rights_summary"></textarea></mat-form-field>
+          <mat-form-field appearance="outline" class="full"><mat-label>Matriz de conservación y supresión</mat-label><textarea matInput rows="7" formControlName="retention_matrix_summary"></textarea></mat-form-field>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card><mat-card-header><mat-icon mat-card-avatar>security</mat-icon><mat-card-title>Análisis de riesgos / EIPD</mat-card-title></mat-card-header><mat-divider></mat-divider>
+        <mat-card-content class="grid">
+          <mat-form-field appearance="outline"><mat-label>Responsable del análisis</mat-label><input matInput formControlName="risk_owner"></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Fecha</mat-label><input matInput formControlName="risk_date"></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Versión</mat-label><input matInput formControlName="risk_version"></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Próxima revisión</mat-label><input matInput formControlName="risk_next_review"></mat-form-field>
+          <mat-form-field appearance="outline" class="wide"><mat-label>Alcance</mat-label><textarea matInput rows="3" formControlName="risk_scope"></textarea></mat-form-field>
+          <mat-form-field appearance="outline" class="wide"><mat-label>Riesgos identificados</mat-label><textarea matInput rows="5" formControlName="risk_summary"></textarea></mat-form-field>
+          <mat-form-field appearance="outline" class="wide"><mat-label>Medidas técnicas y organizativas</mat-label><textarea matInput rows="5" formControlName="risk_controls_summary"></textarea></mat-form-field>
+          <mat-form-field appearance="outline" class="wide"><mat-label>Riesgo residual</mat-label><textarea matInput rows="3" formControlName="risk_residual_risk_summary"></textarea></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Decisión EIPD</mat-label><input matInput formControlName="risk_dpia_decision"></mat-form-field>
+          <mat-form-field appearance="outline" class="wide"><mat-label>Justificación EIPD</mat-label><textarea matInput rows="4" formControlName="risk_dpia_justification"></textarea></mat-form-field>
+        </mat-card-content>
+      </mat-card>
+
       <mat-card><mat-card-header><mat-icon mat-card-avatar>history</mat-icon><mat-card-title>Control documental</mat-card-title></mat-card-header><mat-divider></mat-divider>
         <mat-card-content class="grid">
           <mat-form-field appearance="outline"><mat-label>Versión documental</mat-label><input matInput formControlName="document_version"></mat-form-field>
@@ -113,7 +150,13 @@ export class AdminLegalSettingsComponent implements OnInit {
       legal_name:[''], tax_id:[''], address:[''], contact_email:[''], contact_phone:[''], privacy_email:[''], dpo_email:[''], website:[''],
       registration_information:[''], providers_summary:[''], international_transfers_summary:[''], retention_policy_reference:[''],
       cancellation_policy_summary:[''], support_email:[''], support_policy_summary:[''], claims_email:[''], governing_law_summary:[''],
-      non_essential_cookies_summary:[''], cookie_third_parties:[''], subprocessors_summary:[''], breach_notification_summary:[''], document_version:['1'], last_update_date:['']
+      pricing_summary:[''], billing_terms_summary:[''], refund_summary:[''], consumer_withdrawal_summary:[''],
+      non_essential_cookies_summary:[''], cookie_third_parties:[''], subprocessors_summary:[''], breach_notification_summary:[''],
+      rat_controller_role:[''], rat_review_date:[''], rat_accounts_summary:[''], rat_billing_summary:[''], rat_patient_summary:[''],
+      rat_security_summary:[''], rat_rights_summary:[''], retention_matrix_summary:[''],
+      risk_owner:[''], risk_date:[''], risk_version:['1'], risk_scope:[''], risk_summary:[''], risk_controls_summary:[''],
+      risk_residual_risk_summary:[''], risk_dpia_decision:[''], risk_dpia_justification:[''], risk_next_review:[''],
+      document_version:['1'], last_update_date:['']
     });
   }
 
