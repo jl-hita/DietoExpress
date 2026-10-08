@@ -20,6 +20,7 @@ export class DirectoryComponent implements OnInit {
   province = '';
   speciality = '';
   online = false;
+  goal = '';
   profiles: DirectoryProfile[] = [];
   profile: DirectoryProfile | null = null;
   loading = false;
@@ -127,6 +128,8 @@ export class DirectoryComponent implements OnInit {
   formatDaySlot(slot: PublicAvailabilitySlot): string {
     return new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' }).format(new Date(slot.startsAt));
   }
+
+  trackProfileClick(slug: string): void { this.publicFunnelAnalytics.track('profile_selected', slug); }
 
   search(): void {
     this.publicSeoService.setDirectorySeo({ city: this.city, province: this.province, speciality: this.speciality, online: this.online });
