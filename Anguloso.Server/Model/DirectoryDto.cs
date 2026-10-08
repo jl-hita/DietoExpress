@@ -12,6 +12,10 @@ public class DirectoryProfileDto
     public string PublicBio { get; set; } = string.Empty;
     public string Specialties { get; set; } = string.Empty;
     public bool OnlineConsultations { get; set; }
+    public string[] SpecialtyList { get; set; } = Array.Empty<string>();
+    public int ProfileCompleteness { get; set; }
+    public int RankingScore { get; set; }
+    public bool IsVerified { get; set; }
 }
 
 public class DirectorySearchDto

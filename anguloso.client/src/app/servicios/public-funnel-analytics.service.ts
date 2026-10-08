@@ -8,7 +8,7 @@ export class PublicFunnelAnalyticsService {
 
   constructor(private readonly http: HttpClient) {}
 
-  track(eventName: 'directory_view' | 'profile_view' | 'booking_started', professionalSlug?: string): void {
+  track(eventName: 'directory_view' | 'profile_view' | 'profile_selected' | 'booking_started', professionalSlug?: string): void {
     // La analítica pública es server-side. No usamos cookies ni storage del navegador
     // para deduplicar eventos, evitando convertir una optimización de analítica en
     // una tecnología de almacenamiento del dispositivo.

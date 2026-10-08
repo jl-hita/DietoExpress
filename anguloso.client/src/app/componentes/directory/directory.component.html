@@ -21,6 +21,16 @@
       <input id="speciality" type="text" [(ngModel)]="speciality" placeholder="Nutrición deportiva..." />
     </div>
 
+    <div class="field">
+      <label for="goal">Objetivo</label>
+      <select id="goal" [(ngModel)]="goal">
+        <option value="">Cualquier objetivo</option>
+        <option value="pérdida de peso">Pérdida de peso</option>
+        <option value="nutrición deportiva">Nutrición deportiva</option>
+        <option value="obesidad">Obesidad</option>
+      </select>
+    </div>
+
     <label class="online-filter">
       <input type="checkbox" [(ngModel)]="online" />
       Consulta online
@@ -32,7 +42,9 @@
   <p *ngIf="loading" class="status">Cargando...</p>
   <p *ngIf="error" class="status error">{{ error }}</p>
 
-  <section *ngIf="!profile && !loading && !error" class="results">
+  <p *ngIf="!loading && !error && !profiles.length" class="empty-state">No hemos encontrado profesionales con esos criterios. Prueba a ampliar la zona, quitar filtros o seleccionar consulta online.</p>
+
+  <section *ngIf="!profile && !loading && !error && profiles.length" class="results">
     <article *ngFor="let item of profiles" class="profile-card">
       <img *ngIf="item.clinicLogo" [src]="item.clinicLogo" [alt]="item.fullName" />
       <div class="profile-content">
@@ -40,8 +52,10 @@
         <p *ngIf="item.clinicName">{{ item.clinicName }}</p>
         <p *ngIf="item.city || item.province">{{ item.city }}<span *ngIf="item.city && item.province">, </span>{{ item.province }}</p>
         <span *ngIf="item.onlineConsultations" class="badge">Consulta online</span>
-        <p *ngIf="item.specialties">{{ item.specialties }}</p>
-        <a mat-button [routerLink]="['/nutricionistas', item.slug]">Ver perfil</a>
+        <span *ngIf="item.isVerified" class="badge verified">Perfil verificado</span>
+        <p *ngIf="item.specialtyList.length" class="specialty-tags"><span *ngFor="let specialty of item.specialtyList">{{ specialty }}</span></p>
+        <p class="profile-quality">Perfil {{ item.profileCompleteness }}% completo</p>
+        <a mat-button [routerLink]="['/nutricionistas', item.slug]" (click)="trackProfileClick(item.slug)">Ver perfil y disponibilidad</a>
       </div>
     </article>
   </section>
@@ -53,7 +67,8 @@
     <p *ngIf="profile.clinicName">{{ profile.clinicName }}</p>
     <p *ngIf="profile.city || profile.province">{{ profile.city }}<span *ngIf="profile.city && profile.province">, </span>{{ profile.province }}</p>
     <span *ngIf="profile.onlineConsultations" class="badge">Consulta online</span>
-    <p *ngIf="profile.specialties"><strong>Especialidades:</strong> {{ profile.specialties }}</p>
+    <span *ngIf="profile.isVerified" class="badge verified">Perfil verificado</span>
+    <p *ngIf="profile.specialtyList.length" class="specialty-tags"><span *ngFor="let specialty of profile.specialtyList">{{ specialty }}</span></p>
     <p *ngIf="profile.publicBio">{{ profile.publicBio }}</p>
 
     <section class="availability" aria-labelledby="availability-title">

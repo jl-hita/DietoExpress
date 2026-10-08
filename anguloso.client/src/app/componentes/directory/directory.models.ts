@@ -9,6 +9,10 @@ export interface DirectoryProfile {
   publicBio: string;
   specialties: string;
   onlineConsultations: boolean;
+  specialtyList: string[];
+  profileCompleteness: number;
+  rankingScore: number;
+  isVerified: boolean;
 }
 
 

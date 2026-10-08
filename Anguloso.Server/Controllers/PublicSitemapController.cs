@@ -32,6 +32,10 @@ public class PublicSitemapController : ControllerBase
         var cities = await published.Where(u => u.directory_city != null && u.directory_city != "")
             .GroupBy(u => u.directory_city!).Select(g => new { Value = g.Key, Count = g.Count() })
             .Where(x => x.Count >= 3).Take(100).ToListAsync(ct);
+        var citySpecialties = await published
+            .Where(u => u.directory_city != null && u.directory_city != "" && u.directory_specialties != null && u.directory_specialties != "")
+            .Select(u => new { City = u.directory_city!, Specialties = u.directory_specialties! })
+            .Take(10000).ToListAsync(ct);
         var specialties = await published.Where(u => u.directory_specialties != null && u.directory_specialties != "")
             .SelectMany(u => u.directory_specialties!.Split(',', StringSplitOptions.RemoveEmptyEntries))
             .Select(x => x.Trim()).Where(x => x != "").GroupBy(x => x).Select(g => new { Value = g.Key, Count = g.Count() })
@@ -42,6 +46,17 @@ public class PublicSitemapController : ControllerBase
         if (online >= 3) urls.Add("/nutricionistas/online");
         urls.AddRange(cities.Select(x => "/nutricionistas/ciudad/" + Slugify(x.Value)));
         urls.AddRange(specialties.Select(x => "/nutricionistas/especialidad/" + Slugify(x.Value)));
+
+        // Solo indexamos combinaciones ciudad+especialidad con oferta suficiente para evitar páginas SEO vacías.
+        var combinations = citySpecialties
+            .SelectMany(x => x.Specialties.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(s => new { x.City, Speciality = s }))
+            .GroupBy(x => new { City = x.City.Trim(), Speciality = x.Speciality.Trim() })
+            .Where(g => g.Count() >= 3)
+            .Take(500)
+            .Select(g => "/nutricionistas/" + Slugify(g.Key.City) + "/" + Slugify(g.Key.Speciality));
+        urls.AddRange(combinations);
+
         urls.AddRange(profiles.Select(x => "/nutricionistas/" + Uri.EscapeDataString(x)));
 
         var xml = new System.Text.StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\"?><urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">");

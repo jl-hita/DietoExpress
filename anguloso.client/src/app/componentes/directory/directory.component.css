@@ -48,3 +48,10 @@
 .booking-modality legend { font-weight: 600; margin-bottom: 4px; }
 .booking-modality label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .booking-modality small { opacity: .75; line-height: 1.4; }
+
+.search-panel select { width:100%; min-height:44px; border:1px solid #cbd5e1; border-radius:10px; padding:0 12px; background:#fff; }
+.badge.verified { border:1px solid #bbf7d0; background:#f0fdf4; color:#166534; }
+.specialty-tags { display:flex; flex-wrap:wrap; gap:6px; }
+.specialty-tags span { padding:4px 9px; border-radius:999px; background:#eff6ff; color:#1d4ed8; font-size:12px; }
+.profile-quality { font-size:12px; color:#64748b; }
+.empty-state { padding:24px; border:1px dashed #cbd5e1; border-radius:14px; text-align:center; color:#475569; }

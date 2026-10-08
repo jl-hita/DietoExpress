@@ -69,7 +69,10 @@ public class DirectoryController : ControllerBase
         if (!string.IsNullOrWhiteSpace(filter.Speciality))
             query = query.Where(u => u.directory_specialties != null && EF.Functions.ILike(u.directory_specialties, $"%{filter.Speciality.Trim()}%"));
 
-        return Ok(await query.OrderBy(u => u.directory_city).ThenBy(u => u.full_name).Take(100)
+        var profiles = await query
+            .OrderBy(u => u.directory_city)
+            .ThenBy(u => u.full_name)
+            .Take(100)
             .Select(u => new DirectoryProfileDto
             {
                 Username = u.username,
@@ -81,8 +84,21 @@ public class DirectoryController : ControllerBase
                 ClinicLogo = u.clinic_logo ?? string.Empty,
                 PublicBio = u.directory_bio ?? string.Empty,
                 Specialties = u.directory_specialties ?? string.Empty,
-                OnlineConsultations = u.online_consultations ?? false
-            }).ToListAsync());
+                OnlineConsultations = u.online_consultations ?? false,
+                IsVerified = u.directory_publication_status == "published"
+            }).ToListAsync();
+
+        foreach (var profile in profiles)
+        {
+            profile.SpecialtyList = SplitSpecialties(profile.Specialties);
+            profile.ProfileCompleteness = CalculateProfileCompleteness(profile);
+            profile.RankingScore = CalculateRankingScore(profile, filter);
+        }
+
+        return Ok(profiles
+            .OrderByDescending(p => p.RankingScore)
+            .ThenBy(p => p.FullName)
+            .ToList());
     }
 
     [AllowAnonymous]
@@ -104,10 +120,17 @@ public class DirectoryController : ControllerBase
                 ClinicLogo = u.clinic_logo ?? string.Empty,
                 PublicBio = u.directory_bio ?? string.Empty,
                 Specialties = u.directory_specialties ?? string.Empty,
-                OnlineConsultations = u.online_consultations ?? false
+                OnlineConsultations = u.online_consultations ?? false,
+                IsVerified = u.directory_publication_status == "published"
             }).FirstOrDefaultAsync();
 
-        return profile == null ? NotFound() : Ok(profile);
+        if (profile == null)
+            return NotFound();
+
+        profile.SpecialtyList = SplitSpecialties(profile.Specialties);
+        profile.ProfileCompleteness = CalculateProfileCompleteness(profile);
+        profile.RankingScore = profile.ProfileCompleteness;
+        return Ok(profile);
     }
 
     [AllowAnonymous]
@@ -455,6 +478,53 @@ public class DirectoryController : ControllerBase
         }
 
         return Ok(slots.OrderBy(s => s.StartsAt).Take(200));
+    }
+
+    private static string[] SplitSpecialties(string? value)
+    {
+        return (value ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(x => x.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(12)
+            .ToArray();
+    }
+
+    private static int CalculateProfileCompleteness(DirectoryProfileDto profile)
+    {
+        var score = 0;
+        if (!string.IsNullOrWhiteSpace(profile.FullName)) score += 15;
+        if (!string.IsNullOrWhiteSpace(profile.City)) score += 15;
+        if (!string.IsNullOrWhiteSpace(profile.Province)) score += 5;
+        if (!string.IsNullOrWhiteSpace(profile.PublicBio)) score += 25;
+        if (profile.SpecialtyList.Length > 0) score += 20;
+        if (!string.IsNullOrWhiteSpace(profile.ClinicName)) score += 5;
+        if (!string.IsNullOrWhiteSpace(profile.ClinicLogo)) score += 5;
+        if (profile.OnlineConsultations) score += 10;
+        return score;
+    }
+
+    private static int CalculateRankingScore(DirectoryProfileDto profile, DirectorySearchDto filter)
+    {
+        var score = profile.ProfileCompleteness;
+        var city = filter.City?.Trim();
+        var speciality = filter.Speciality?.Trim();
+
+        if (!string.IsNullOrWhiteSpace(city))
+        {
+            if (string.Equals(profile.City, city, StringComparison.OrdinalIgnoreCase)) score += 80;
+            else if (profile.City.Contains(city, StringComparison.OrdinalIgnoreCase)) score += 35;
+        }
+
+        if (!string.IsNullOrWhiteSpace(speciality))
+        {
+            if (profile.SpecialtyList.Any(x => string.Equals(x, speciality, StringComparison.OrdinalIgnoreCase))) score += 70;
+            else if (profile.SpecialtyList.Any(x => x.Contains(speciality, StringComparison.OrdinalIgnoreCase))) score += 30;
+        }
+
+        if (filter.Online == true && profile.OnlineConsultations) score += 35;
+        if (profile.IsVerified) score += 20;
+        return score;
     }
 
     private static TimeZoneInfo GetMadridTimeZone()
