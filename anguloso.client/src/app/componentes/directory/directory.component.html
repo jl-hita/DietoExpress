@@ -74,6 +74,21 @@
     <p *ngIf="profile.specialtyList.length" class="specialty-tags"><span *ngFor="let specialty of profile.specialtyList">{{ specialty }}</span></p>
     <p *ngIf="profile.publicBio">{{ profile.publicBio }}</p>
 
+    <section class="reputation" *ngIf="reviewSummary" aria-labelledby="reputation-title">
+      <h3 id="reputation-title">Valoraciones</h3>
+      <div *ngIf="reviewSummary.reviewCount" class="rating-summary">
+        <strong>{{ reviewSummary.averageRating.toFixed(1) }}/5</strong>
+        <span aria-label="Valoración media">★★★★★</span>
+        <small>{{ reviewSummary.reviewCount }} valoración{{ reviewSummary.reviewCount === 1 ? '' : 'es' }} verificadas</small>
+      </div>
+      <p *ngIf="!reviewSummary.reviewCount" class="status">Todavía no hay valoraciones.</p>
+      <article *ngFor="let review of reviewSummary.reviews" class="review">
+        <div class="review-rating" [attr.aria-label]="review.rating + ' de 5 estrellas'">{{ '★'.repeat(review.rating) }}{{ '☆'.repeat(5 - review.rating) }}</div>
+        <p *ngIf="review.comment">{{ review.comment }}</p>
+        <small>{{ review.createdAt | date:'d MMMM yyyy':'':'es-ES' }} · Consulta verificada</small>
+      </article>
+    </section>
+
     <section class="availability" aria-labelledby="availability-title">
       <h3 id="availability-title">Próximos horarios disponibles</h3>
       <p *ngIf="availabilityLoading" class="status">Consultando disponibilidad...</p>
