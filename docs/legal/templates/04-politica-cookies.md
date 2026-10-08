@@ -7,28 +7,37 @@
 
 {{platform.legal_name}} — {{platform.contact_email}}.
 
-## 2. Tecnologías utilizadas
+## 2. Cookies utilizadas
 
-DietoExpress utiliza cookies, almacenamiento local u otras tecnologías equivalentes. Las tecnologías estrictamente necesarias se utilizan para prestar las funciones solicitadas, autenticación, seguridad y preferencias.
+DietoExpress utiliza actualmente las siguientes cookies propias de sesión:
 
-Tecnologías no esenciales: {{platform.non_essential_cookies_summary}}.
+| Cookie | Finalidad | Duración | Tipo |
+|---|---|---|---|
+| `dietoexpress_professional_session` | Sesión autenticada del profesional | 3 horas | Necesaria |
+| `dietoexpress_patient_session` | Sesión autenticada del paciente | 8 horas | Necesaria |
 
-## 3. Cookies no esenciales
+Estas cookies se configuran como `HttpOnly`, `Secure` y `SameSite=Strict`.
 
-Cuando una tecnología no sea estrictamente necesaria, su utilización quedará condicionada al mecanismo de consentimiento que corresponda. La aceptación deberá mantenerse separada de la aceptación de términos y privacidad.
+## 3. Tecnologías similares
 
-El usuario podrá aceptar, rechazar o configurar las categorías disponibles desde el mecanismo de gestión de cookies.
+El portal puede utilizar almacenamiento local para funciones solicitadas por el paciente, actualmente para recordar comidas completadas. La analítica pública se procesa server-side y no utiliza almacenamiento del navegador para deduplicación.
 
 ## 4. Terceros
 
-Servicios de terceros que pueden intervenir: {{platform.cookie_third_parties}}.
+{{platform.cookie_third_parties}}.
 
-## 5. Información detallada
+Los recursos e integraciones de terceros deben comprobarse en el flujo efectivo y no deben describirse como cookies si no establecen una cookie o tecnología equivalente.
 
-El inventario publicado deberá identificar, cuando corresponda, nombre de la cookie o tecnología, proveedor, finalidad, duración y si es propia o de terceros.
+## 5. Tecnologías no necesarias
 
-## 6. Retirada y modificación del consentimiento
+En la versión técnica auditada no se han identificado cookies de publicidad ni SDK de analítica de terceros.
 
-El usuario podrá modificar o retirar su decisión mediante el mecanismo de configuración disponible en la plataforma.
+Si se incorpora una tecnología no estrictamente necesaria, deberá bloquearse hasta disponer del consentimiento correspondiente, actualizar el inventario y publicar la información aplicable.
 
-**Nota interna:** esta plantilla debe contrastarse con el inventario real de cookies/SDK y con el mecanismo de consentimiento implementado. La AEPD exige consentimiento válido para cookies no exceptuadas y que aceptar y rechazar se ofrezcan en condiciones equivalentes. No debe publicarse hasta verificarlo.
+## 6. Gestión y retirada
+
+Las cookies estrictamente necesarias para autenticación y seguridad no se presentan como una categoría opcional.
+
+Cuando exista consentimiento para una tecnología no necesaria, el usuario podrá aceptar, rechazar o configurar las categorías disponibles y retirar su decisión posteriormente con una facilidad equivalente.
+
+**Nota interna:** esta plantilla debe validarse contra el dominio de producción, la configuración de terceros y la revisión jurídica antes de marcar el documento como definitivo.
