@@ -60,6 +60,16 @@ public sealed class DatabaseBootstrapRegressionTests
     }
 
     [Fact]
+    public void Bootstrap_VerifiesEveryMappedEfColumn()
+    {
+        var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
+        Assert.Contains("context.Model.GetEntityTypes()", bootstrap);
+        Assert.Contains("property.GetColumnName(storeObject)", bootstrap);
+        Assert.Contains("information_schema.columns actual", bootstrap);
+        Assert.Contains("Faltan columnas", bootstrap);
+    }
+
+    [Fact]
     public void Bootstrap_VerifiesEveryTableCreatedBySchemaBootstrappers()
     {
         var schemaFiles = new[]
