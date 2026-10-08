@@ -33,11 +33,16 @@ public sealed class DatabaseBootstrapRegressionTests
     [Fact]
     public void Bootstrap_RepairsStripeColumnsBeforeSaaSSeedUpdates()
     {
-        var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
+        var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
+        var methodStart = source.IndexOf("public static void UpgradeSaaSSchema(", StringComparison.Ordinal);
+        Assert.True(methodStart >= 0, "No se encontró la migración SaaS que inicializa el catálogo de planes.");
+        var nextMethod = source.IndexOf("public static void UpgradeSaaSSchemaV2(", methodStart, StringComparison.Ordinal);
+        Assert.True(nextMethod > methodStart, "No se pudo delimitar la migración SaaS base.");
+        var bootstrap = source[methodStart..nextMethod];
         var billingRepair = bootstrap.IndexOf("ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS stripe_additional_monthly_price_id", StringComparison.Ordinal);
         var seedUpdate = bootstrap.IndexOf("SET stripe_monthly_price_id = 'price_1UKdmV0RD4LdDkcU7ueOlu1B'", StringComparison.Ordinal);
-        Assert.True(billingRepair >= 0, "El bootstrap inicial debe reparar las columnas de Stripe antes de migrar datos.");
-        Assert.True(seedUpdate > billingRepair, "Los UPDATE de Stripe no pueden ejecutarse antes de garantizar las columnas.");
+        Assert.True(billingRepair >= 0, "UpgradeSaaSSchema debe reparar las columnas de Stripe antes de migrar datos.");
+        Assert.True(seedUpdate > billingRepair, "Los UPDATE de Stripe no pueden ejecutarse antes de garantizar las columnas dentro de UpgradeSaaSSchema.");
     }
 
     [Fact]
