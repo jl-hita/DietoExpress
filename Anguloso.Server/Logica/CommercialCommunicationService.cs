@@ -60,6 +60,10 @@ public sealed class CommercialCommunicationService
                               email_enabled=true,
                               unsubscribe_token_hash=EXCLUDED.unsubscribe_token_hash,
                               unsubscribed_at=NULL,
+                              consented_at=NOW(),
+                              consent_version=EXCLUDED.consent_version,
+                              consent_source=EXCLUDED.consent_source,
+                              revoked_at=NULL,
                               updated_at=NOW();
                 """, connection, transaction);
             enable.Parameters.AddWithValue("client", clientId);
