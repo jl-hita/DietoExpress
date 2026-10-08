@@ -43,6 +43,9 @@ public sealed class DatabaseBootstrapRegressionTests
         var seedUpdate = bootstrap.IndexOf("SET stripe_monthly_price_id = 'price_1UKdmV0RD4LdDkcU7ueOlu1B'", StringComparison.Ordinal);
         Assert.True(billingRepair >= 0, "UpgradeSaaSSchema debe reparar las columnas de Stripe antes de migrar datos.");
         Assert.True(seedUpdate > billingRepair, "Los UPDATE de Stripe no pueden ejecutarse antes de garantizar las columnas dentro de UpgradeSaaSSchema.");
+        var billingModel = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Models", "BillingModelConfiguration.cs"));
+        Assert.Contains("entity.Property(e => e.stripe_additional_monthly_price_id).HasMaxLength(255);", billingModel);
+        Assert.Contains("entity.Property(e => e.stripe_additional_yearly_price_id).HasMaxLength(255);", billingModel);
     }
 
     [Fact]
