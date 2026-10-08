@@ -14,6 +14,8 @@ export interface DirectoryProfile {
   rankingScore: number;
   isVerified: boolean;
   availableRuleCount: number;
+  averageRating: number;
+  reviewCount: number;
 }
 
 
