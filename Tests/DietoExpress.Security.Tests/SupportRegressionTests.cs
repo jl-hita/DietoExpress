@@ -39,10 +39,10 @@ public sealed class SupportRegressionTests
     [Fact]
     public void SupportBootstrap_IsRegisteredDuringStartup()
     {
-        var program = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Program.cs"));
+        var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
 
         Assert.Contains("builder.Services.AddScoped<SupportService>();", program);
-        Assert.Contains("SupportSchemaBootstrap.Initialize(context, logger);", program);
+        Assert.Contains("SupportSchemaBootstrap.Initialize(context, logger);", bootstrap);
     }
 
     [Fact]
