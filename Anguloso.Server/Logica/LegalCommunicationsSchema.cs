@@ -1,12 +1,11 @@
-using Npgsql;
-
+using Microsoft.EntityFrameworkCore;
 namespace Anguloso.Server.Logica;
 
 public static class LegalCommunicationsSchema
 {
-    public static void Initialize(NpgsqlConnection connection)
+    public static void Initialize(Models.angulosodbContext context)
     {
-        using var command = new NpgsqlCommand("""
+        context.Database.ExecuteSqlRaw("""
             CREATE TABLE IF NOT EXISTS patient_commercial_communication_preferences (
                 client_id INTEGER PRIMARY KEY REFERENCES clients(id) ON DELETE CASCADE,
                 tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -41,7 +40,6 @@ public static class LegalCommunicationsSchema
             CREATE UNIQUE INDEX IF NOT EXISTS uq_patient_commercial_unsubscribe_token
                 ON patient_commercial_communication_preferences(unsubscribe_token_hash)
                 WHERE unsubscribe_token_hash IS NOT NULL;
-            """, connection);
-        command.ExecuteNonQuery();
+            """);
     }
 }

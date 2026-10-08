@@ -35,6 +35,30 @@ public static class DatabaseBootstrap
 
         logger.LogInformation("Conexión con PostgreSQL establecida correctamente.");
 
+        // El registro de incidencias forma parte del bootstrap para que los fallos de cualquier
+        // fase posterior puedan persistirse sin depender de DDL en Program.cs.
+        context.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS system_alerts (
+    id BIGSERIAL PRIMARY KEY,
+    severity VARCHAR(20) NOT NULL,
+    component VARCHAR(120) NOT NULL,
+    title VARCHAR(250) NOT NULL,
+    message VARCHAR(1000) NOT NULL,
+    technical_details TEXT,
+    first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    occurrences INTEGER NOT NULL DEFAULT 1,
+    resolved_at TIMESTAMPTZ,
+    resolved_by_user_id INTEGER,
+    CONSTRAINT system_alerts_severity_check CHECK (severity IN ('critical','error','warning','info'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_system_alerts_active_component_title
+    ON system_alerts(component, title)
+    WHERE resolved_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_system_alerts_active
+    ON system_alerts(resolved_at, severity, last_seen_at DESC);
+");
+
         // 2. Comprobación y creación de todas las tablas con su esquema completo si no existen
         try
         {
@@ -590,6 +614,68 @@ CREATE INDEX IF NOT EXISTS idx_public_funnel_events_appointment
                 CREATE INDEX IF NOT EXISTS idx_users_email_trgm
                     ON users USING gin (LOWER(email) gin_trgm_ops);
             ");
+
+            // Todas las estructuras de la aplicación se inicializan desde este único punto.
+            // Las rutinas históricas conservan sus marcadores para actualizar instalaciones antiguas;
+            // el DDL actual debe seguir siendo idempotente para poder reparar esquemas incompletos.
+            LegalCommunicationsSchema.Initialize(context);
+            EnsureCurrentSchema(context, logger);
+            UpgradeDocumentTemplateSchemaV1(context, logger);
+            UpgradeLegalComplianceSchemaV1(context, logger);
+            UpgradeLegalConfigurationSchemaV1(context, logger);
+            UpgradeLegalGeneratedDocumentsSchemaV1(context, logger);
+            UpgradePrivacyOperationsSchemaV1(context, logger);
+            UpgradeLegalGovernanceSchemaV1(context, logger);
+            UpgradeSaaSSchema(context, logger);
+            UpgradeSaaSSchemaV2(context, logger);
+            UpgradeSaaSSchemaV3(context, logger);
+            UpgradeSaaSSchemaV4(context, logger);
+            UpgradeSaaSSchemaV5(context, logger);
+            UpgradeSaaSSchemaV6(context, logger);
+            UpgradeSaaSSchemaV7(context, logger);
+            UpgradeSaaSSchemaV8(context, logger);
+            UpgradeSaaSSchemaV9(context, logger);
+            UpgradeMessagingSchemaV2(context, logger);
+            UpgradeAutomationSchemaV1(context, logger);
+            UpgradeAutomationSchemaV2(context, logger);
+            UpgradeAutomationSchemaV3(context, logger);
+            UpgradeAutomationSchemaV4(context, logger);
+            UpgradeAutomationSchemaV5(context, logger);
+            UpgradeAutomationSchemaV6(context, logger);
+            UpgradeAutomationSchemaV7(context, logger);
+            UpgradeAutomationSchemaV8(context, logger);
+            UpgradeAutomationSchemaV9(context, logger);
+            UpgradeAutomationSchemaV10(context, logger);
+            UpgradeAutomationSchemaV11(context, logger);
+            UpgradeGoogleCalendarSchemaV1(context, logger);
+            UpgradeOnlineConsultationSchemaV1(context, logger);
+            UpgradeClientAddressSchemaV1(context, logger);
+            UpgradeDirectorySchemaV1(context, logger);
+            UpgradeDirectorySchemaV2(context, logger);
+            UpgradeSpecializationsSchemaV1(context, logger);
+            UpgradeConfigurationNamingV1(context, logger);
+            UpgradeVideoProviderSchemaV1(context, logger);
+            UpgradeVideoQuotaSchemaV1(context, logger);
+            UpgradeFoodNutritionSchemaV1(context, logger);
+            UpgradeProfessionalRecipeSchemaV1(context, logger);
+            SupportSchemaBootstrap.Initialize(context, logger);
+            PublicDirectoryVerificationSchema.Initialize(context, logger);
+            context.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS public_directory_reviews (
+    id BIGSERIAL PRIMARY KEY,
+    nutritionist_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    appointment_id INTEGER NOT NULL REFERENCES patient_appointments(id) ON DELETE CASCADE,
+    rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+    comment VARCHAR(1000),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_public_directory_review_appointment UNIQUE (appointment_id)
+);
+CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
+    ON public_directory_reviews(nutritionist_id, created_at DESC);
+");
+            BillingSchemaBootstrap.Initialize(context, logger);
 
             // Configuración inicial idempotente. No se sobrescriben valores existentes.
             context.Database.ExecuteSqlRaw(@"

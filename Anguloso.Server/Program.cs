@@ -4,7 +4,6 @@ using Anguloso.Server.Models;
 using Google.Apis.Http;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
-using Npgsql;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
@@ -139,59 +138,8 @@ builder.Services.AddScoped<SupportEnhancementService>();
             try
             {
                 var context = scope.ServiceProvider.GetRequiredService<angulosodbContext>();
-                // Esta tabla se crea antes del resto del bootstrap para poder registrar el fallo si una
-                // migración posterior rompe el arranque. El propio mecanismo de alerta nunca bloquea el proceso.
-                context.Database.ExecuteSqlRaw(@"
-CREATE TABLE IF NOT EXISTS system_alerts (
-    id BIGSERIAL PRIMARY KEY,
-    severity VARCHAR(20) NOT NULL,
-    component VARCHAR(120) NOT NULL,
-    title VARCHAR(250) NOT NULL,
-    message VARCHAR(1000) NOT NULL,
-    technical_details TEXT,
-    first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    occurrences INTEGER NOT NULL DEFAULT 1,
-    resolved_at TIMESTAMPTZ,
-    resolved_by_user_id INTEGER,
-    CONSTRAINT system_alerts_severity_check CHECK (severity IN ('critical','error','warning','info'))
-);
-CREATE UNIQUE INDEX IF NOT EXISTS uq_system_alerts_active_component_title
-    ON system_alerts(component, title)
-    WHERE resolved_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_system_alerts_active
-    ON system_alerts(resolved_at, severity, last_seen_at DESC);
-");
+                // Todo el esquema se garantiza desde DatabaseBootstrap. Program.cs no contiene DDL ni migraciones puntuales.
                 DatabaseBootstrap.InitializeDatabaseAsync(context, logger);
-                using (var legalConnection = new NpgsqlConnection(connectionString)) { legalConnection.Open(); LegalCommunicationsSchema.Initialize(legalConnection); }
-                DatabaseBootstrap.EnsureCurrentSchema(context, logger);
-                DatabaseBootstrap.UpgradeDocumentTemplateSchemaV1(context, logger);
-                DatabaseBootstrap.UpgradeLegalComplianceSchemaV1(context, logger); DatabaseBootstrap.UpgradeLegalConfigurationSchemaV1(context, logger); DatabaseBootstrap.UpgradeLegalGeneratedDocumentsSchemaV1(context, logger); DatabaseBootstrap.UpgradePrivacyOperationsSchemaV1(context, logger); DatabaseBootstrap.UpgradeLegalGovernanceSchemaV1(context, logger);
-                DatabaseBootstrap.UpgradeSaaSSchema(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV2(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV3(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV4(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV5(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV6(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV7(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV8(context, logger); DatabaseBootstrap.UpgradeSaaSSchemaV9(context, logger); DatabaseBootstrap.UpgradeMessagingSchemaV2(context, logger); DatabaseBootstrap.UpgradeAutomationSchemaV1(context, logger);
-    DatabaseBootstrap.UpgradeAutomationSchemaV2(context, logger); DatabaseBootstrap.UpgradeAutomationSchemaV3(context, logger); DatabaseBootstrap.UpgradeAutomationSchemaV4(context, logger); DatabaseBootstrap.UpgradeAutomationSchemaV5(context, logger);
-                DatabaseBootstrap.UpgradeAutomationSchemaV6(context, logger);
-                DatabaseBootstrap.UpgradeAutomationSchemaV7(context, logger); DatabaseBootstrap.UpgradeAutomationSchemaV8(context, logger); DatabaseBootstrap.UpgradeAutomationSchemaV9(context, logger);
-        DatabaseBootstrap.UpgradeAutomationSchemaV10(context, logger); DatabaseBootstrap.UpgradeAutomationSchemaV11(context, logger); DatabaseBootstrap.UpgradeGoogleCalendarSchemaV1(context, logger); DatabaseBootstrap.UpgradeOnlineConsultationSchemaV1(context, logger); DatabaseBootstrap.UpgradeClientAddressSchemaV1(context, logger); DatabaseBootstrap.UpgradeDirectorySchemaV1(context, logger); DatabaseBootstrap.UpgradeSpecializationsSchemaV1(context, logger); DatabaseBootstrap.UpgradeConfigurationNamingV1(context, logger); DatabaseBootstrap.UpgradeVideoProviderSchemaV1(context, logger); DatabaseBootstrap.UpgradeVideoQuotaSchemaV1(context, logger); DatabaseBootstrap.UpgradeFoodNutritionSchemaV1(context, logger); DatabaseBootstrap.UpgradeProfessionalRecipeSchemaV1(context, logger); SupportSchemaBootstrap.Initialize(context, logger);
-        DatabaseBootstrap.UpgradeDirectorySchemaV2(context, logger);
-                PublicDirectoryVerificationSchema.Initialize(context, logger);
-                context.Database.ExecuteSqlRaw(@"
-CREATE TABLE IF NOT EXISTS public_directory_reviews (
-    id BIGSERIAL PRIMARY KEY,
-    nutritionist_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
-    appointment_id INTEGER NOT NULL REFERENCES patient_appointments(id) ON DELETE CASCADE,
-    rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
-    comment VARCHAR(1000),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_public_directory_review_appointment UNIQUE (appointment_id)
-);
-CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
-    ON public_directory_reviews(nutritionist_id, created_at DESC);
-");
-                context.Database.ExecuteSqlRaw(@"CREATE TABLE IF NOT EXISTS patient_checkins (id SERIAL PRIMARY KEY, client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE, tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, week_start DATE NOT NULL, submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), weight DOUBLE PRECISION, adherence INTEGER, hunger INTEGER, difficulties TEXT, notes TEXT, CONSTRAINT patient_checkins_client_week_key UNIQUE (client_id, week_start)); CREATE INDEX IF NOT EXISTS idx_patient_checkins_tenant_id ON patient_checkins(tenant_id); CREATE INDEX IF NOT EXISTS idx_patient_checkins_client_id ON patient_checkins(client_id);");
-                
-BillingSchemaBootstrap.Initialize(context, logger);
                 var patientTemplateSeeder = scope.ServiceProvider.GetRequiredService<PatientDocumentTemplateSeeder>();
                 await patientTemplateSeeder.SeedAllTenantsAsync();
                 // Una vez disponible el esquema, recuperamos incidencias que pudieron producirse con PostgreSQL caído.
