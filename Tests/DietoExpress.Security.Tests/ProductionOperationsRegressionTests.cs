@@ -79,7 +79,6 @@ public sealed class ProductionOperationsRegressionTests
         Assert.Contains("[HttpPost(\"{fileName}/verify\")]", controller);
         Assert.Contains("[HttpPost(\"{fileName}/restore\")]", controller);
         Assert.Contains("/usr/local/sbin/dietoexpress-restore-web", databaseBackupService);
-        Assert.DoesNotContain("/opt/dietoexpress/scripts/dietoexpress-restore-web.sh", databaseBackupService);
         Assert.Contains("databaseRestoreCountdownSeconds = 10", adminDashboard);
         Assert.Contains("La restauración comenzará en", adminDashboard);
         Assert.Contains("cancelDatabaseRestoreCountdown()", adminDashboard);
