@@ -635,7 +635,8 @@ export class AdminDashboardComponent implements OnInit {
   databaseBackupConfigured = false;
   databaseBackupRunning = false;
   databaseBackupOperation = '';
-  // La restauración se inicia inmediatamente y el estado se consulta contra systemd; no existe cuenta atrás previa.\n  databaseRestoreRunning = false;
+  // La restauración se inicia inmediatamente y el estado se consulta contra systemd; no existe cuenta atrás previa.
+  databaseRestoreRunning = false;
   databaseRestoreCompleted = false;
   databaseRestoreFailed = false;
   databaseRestoreElapsedSeconds = 0;
