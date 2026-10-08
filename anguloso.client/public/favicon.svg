@@ -1,20 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
-  <title>DietoExpress</title>
-  <desc>Icono de DietoExpress: una D formada con un tenedor y una hoja verde.</desc>
-  <defs>
-    <linearGradient id="bg" x1="8" y1="4" x2="56" y2="60" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#0F766E"/>
-      <stop offset="1" stop-color="#075E59"/>
-    </linearGradient>
-    <linearGradient id="leaf" x1="26" y1="22" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#A3E635"/>
-      <stop offset="1" stop-color="#4ADE80"/>
-    </linearGradient>
-  </defs>
-  <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#bg)"/>
-  <path fill="#fff" d="M18 14h7v18.5c0 2.5 1.2 4.5 3.2 5.8 1.5 1 2.5 2.6 2.5 4.5V50h-7v-7.8c0-1.2-.6-2.2-1.6-2.9C19.6 37.2 18 34.1 18 30V14Z"/>
-  <path fill="#fff" d="M18 14h4v10h-4zm6 0h4v10h-4z"/>
-  <path fill="#fff" d="M25 14h15c9.4 0 16 6.6 16 16s-6.6 16-16 16H29v-7h11c5.4 0 9-3.5 9-9s-3.6-9-9-9H25v-7Z"/>
-  <path fill="url(#leaf)" d="M28 44c1.8-11.7 9.3-19.1 21-21 1.1 11.5-5.8 19.7-18.2 22.2L28 44Z"/>
-  <path fill="#075E59" d="M30.5 43.7c4.1-6.7 9.3-11.2 16.2-15.1-5.7 5.4-9.9 10.1-13.4 16.2l-2.8.6Z"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 163 163" role="img" aria-labelledby="title">
+<title id="title">DietoExpress</title>
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#8ACB38"/><stop offset=".48" stop-color="#31AE45"/><stop offset="1" stop-color="#07904D"/></linearGradient></defs>
+<rect width="163" height="163" rx="29" fill="url(#g)"/>
+<path d="M38 36 L37 51 L86 52 L118 80 L104 91 L92 106 L85 109 L64 109 L56 113 L55 92 L64 91 L65 99 L86 80 L65 62 L64 71 L56 70 L56 62 L38 62 L38 124 L64 127 L91 126 L112 116 L121 106 L128 88 L127 68 L115 47 L99 37 L87 34 L42 34 Z" fill="#fff"/>
 </svg>
