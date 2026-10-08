@@ -43,4 +43,5 @@ public class DirectoryReviewSummaryDto
 {
     public double AverageRating { get; set; }
     public int ReviewCount { get; set; }
+    public List<DirectoryReviewDto> Reviews { get; set; } = new();
 }
