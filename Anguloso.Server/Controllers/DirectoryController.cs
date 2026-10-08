@@ -136,6 +136,7 @@ public class DirectoryController : ControllerBase
             .Where(u => u.archived_at == null && u.role == "nutritionist" && u.directory_enabled == true && u.directory_publication_status == "published" && u.directory_slug == normalized)
             .Select(u => new DirectoryProfileDto
             {
+                NutritionistId = u.id,
                 Username = u.username,
                 Slug = u.directory_slug ?? string.Empty,
                 FullName = u.full_name ?? string.Empty,
