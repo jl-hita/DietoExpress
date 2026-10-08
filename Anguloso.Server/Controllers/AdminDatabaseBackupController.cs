@@ -39,7 +39,7 @@ public sealed class AdminDatabaseBackupController : ControllerBase
         }
         catch (FileNotFoundException) { return NotFound(); }
         catch (ArgumentException) { return BadRequest(); }
-        catch (InvalidOperationException ex) => Problem(title: "No se pudo verificar el backup", detail: ex.Message, statusCode: StatusCodes.Status500InternalServerError);
+        catch (InvalidOperationException ex) { return Problem(title: "No se pudo verificar el backup", detail: ex.Message, statusCode: StatusCodes.Status500InternalServerError); }
     }
 
     [HttpPost("{fileName}/restore")]
@@ -52,7 +52,7 @@ public sealed class AdminDatabaseBackupController : ControllerBase
         }
         catch (FileNotFoundException) { return NotFound(); }
         catch (ArgumentException) { return BadRequest(); }
-        catch (InvalidOperationException ex) => Problem(title: "No se pudo restaurar el backup", detail: ex.Message, statusCode: StatusCodes.Status500InternalServerError);
+        catch (InvalidOperationException ex) { return Problem(title: "No se pudo restaurar el backup", detail: ex.Message, statusCode: StatusCodes.Status500InternalServerError); }
     }
 
     [HttpGet("{fileName}")]
