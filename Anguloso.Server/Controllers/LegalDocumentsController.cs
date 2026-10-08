@@ -66,7 +66,7 @@ public sealed class LegalDocumentsController : ControllerBase
         {
             new { Key = "01-aviso-legal", Title = "Aviso legal" },
             new { Key = "02-privacidad-dietoexpress", Title = "Política de privacidad" },
-            new { Key = "saas_terms", Title = "Términos y condiciones" },
+            new { Key = "03-terminos-saas", Title = "Términos y condiciones" },
             new { Key = "04-politica-cookies", Title = "Política de cookies" },
             new { Key = "05-dpa-encargo-tratamiento", Title = "Acuerdo de encargo del tratamiento" },
             new { Key = "08-condiciones-economicas", Title = "Condiciones económicas" }
