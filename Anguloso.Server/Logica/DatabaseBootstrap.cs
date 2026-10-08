@@ -2877,7 +2877,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                 FROM information_schema.tables t
                 WHERE t.table_schema = 'public'
                   AND t.table_name = required.required_table
-            );
+            )
         """;
 
         var missing = context.Database
@@ -2924,7 +2924,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                     WHERE actual.table_schema = expected.schema_name
                       AND actual.table_name = expected.table_name
                       AND actual.column_name = expected.column_name
-                );
+                )
                 """;
 
             var missingColumns = context.Database.SqlQueryRaw<string>(missingColumnsSql).FirstOrDefault();
