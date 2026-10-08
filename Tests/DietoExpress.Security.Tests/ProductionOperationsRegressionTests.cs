@@ -63,6 +63,8 @@ public sealed class ProductionOperationsRegressionTests
         var restoreUnit = File.ReadAllText(Path.Combine(root, "scripts", "systemd", "dietoexpress-restore@.service"));
         var deploy = File.ReadAllText(Path.Combine(root, ".github", "workflows", "deploy.yml"));
         var controller = File.ReadAllText(Path.Combine(root, "Anguloso.Server", "Controllers", "AdminDatabaseBackupController.cs"));
+        var backupService = File.ReadAllText(Path.Combine(root, "Anguloso.Server", "Logica", "DatabaseBackupService.cs"));
+        var adminDashboard = File.ReadAllText(Path.Combine(root, "anguloso.client", "src", "app", "componentes", "admin", "admin-dashboard.component.ts"));
 
         Assert.Contains("OnCalendar=Sun 02:00", backupTimer);
         Assert.Contains("Persistent=true", backupTimer);
@@ -76,6 +78,10 @@ public sealed class ProductionOperationsRegressionTests
         Assert.DoesNotContain("sudo bash /opt/dietoexpress/scripts/", deploy);
         Assert.Contains("[HttpPost(\"{fileName}/verify\")]", controller);
         Assert.Contains("[HttpPost(\"{fileName}/restore\")]", controller);
+        Assert.Contains("/usr/local/sbin/dietoexpress-restore-web", backupService);
+        Assert.DoesNotContain("/opt/dietoexpress/scripts/dietoexpress-restore-web.sh", backupService);
+        Assert.Contains("databaseRestoreCountdownSeconds = 10", adminDashboard);
+        Assert.Contains("La restauración comenzará en", adminDashboard);
     }
 
     [Fact]
