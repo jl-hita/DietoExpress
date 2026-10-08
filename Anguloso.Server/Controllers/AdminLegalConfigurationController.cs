@@ -20,8 +20,18 @@ public sealed class AdminLegalConfigurationController : ControllerBase
         "retention_policy_reference", "cancellation_policy_summary",
         "support_email", "support_policy_summary", "claims_email",
         "governing_law_summary", "non_essential_cookies_summary",
-        "cookie_third_parties", "subprocessors_summary", "document_version",
-        "last_update_date", "breach_notification_summary"
+        "cookie_third_parties", "subprocessors_summary", "document_version", "last_update_date", "breach_notification_summary",
+        "rat_controller_role", "rat_review_date", "rat_accounts_legal_basis", "rat_accounts_retention",
+        "rat_billing_legal_basis", "rat_billing_retention", "rat_patient_legal_basis",
+        "rat_security_legal_basis", "rat_security_retention", "rat_rights_legal_basis", "rat_rights_retention",
+        "retention_account_start", "retention_account_period", "retention_account_lock", "retention_account_delete", "retention_account_exception",
+        "retention_billing_start", "retention_billing_period", "retention_billing_lock", "retention_billing_delete", "retention_billing_exception",
+        "retention_patient_start", "retention_patient_period", "retention_patient_lock", "retention_patient_delete", "retention_patient_exception",
+        "retention_acceptance_start", "retention_acceptance_period", "retention_acceptance_lock", "retention_acceptance_delete", "retention_acceptance_exception",
+        "retention_logs_start", "retention_logs_period", "retention_logs_lock", "retention_logs_delete", "retention_logs_exception",
+        "retention_backup_start", "retention_backup_period", "retention_backup_lock", "retention_backup_delete", "retention_backup_exception",
+        "risk_owner", "risk_date", "risk_version", "risk_scope", "risk_summary", "risk_controls_summary",
+        "risk_residual_risk_summary", "risk_dpia_decision", "risk_dpia_justification", "risk_next_review"
     ];
 
     private readonly IConfiguration _configuration;
