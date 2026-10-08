@@ -634,7 +634,12 @@ public class AuthController : ControllerBase
             if (user != null)
             {
                 if (user.archived_at.HasValue)
-                    return Unauthorized("Esta cuenta está archivada y no puede iniciar sesión.");
+                {
+                    if (user.role != "nutritionist") return Unauthorized("Esta cuenta está archivada y no puede iniciar sesión.");
+                    var supportJwt = CrearJwtParaUsuario(user, supportOnly: true);
+                    SetProfessionalSessionCookie(supportJwt);
+                    return Ok(new { username = user.username, email = user.email, role = user.role, subscriptionPlan = user.subscription_plan, subscriptionStatus = user.subscription_status, archivedSupport = true });
+                }
 
                 user.google_id = googleId;
                 user.provider = "google";
@@ -678,7 +683,12 @@ public class AuthController : ControllerBase
                     if (user != null)
                     {
                         if (user.archived_at.HasValue)
-                            return Unauthorized("Esta cuenta está archivada y no puede iniciar sesión.");
+                        {
+                            if (user.role != "nutritionist") return Unauthorized("Esta cuenta está archivada y no puede iniciar sesión.");
+                            var supportJwt = CrearJwtParaUsuario(user, supportOnly: true);
+                            SetProfessionalSessionCookie(supportJwt);
+                            return Ok(new { username = user.username, email = user.email, role = user.role, subscriptionPlan = user.subscription_plan, subscriptionStatus = user.subscription_status, archivedSupport = true });
+                        }
 
                         if (user.google_id != googleId)
                         {
