@@ -68,8 +68,8 @@ public sealed class ProductionOperationsRegressionTests
         Assert.Contains("systemctl enable --now dietoexpress-backup.timer", installer);
         Assert.Contains("systemd-run", restoreWrapper);
         Assert.Contains("dietoexpress-restore.sh --restore", restoreWrapper);
-        Assert.Contains("[HttpPost("{fileName}/verify")]", controller);
-        Assert.Contains("[HttpPost("{fileName}/restore")]", controller);
+        Assert.Contains("[HttpPost(\"{fileName}/verify\")]", controller);
+        Assert.Contains("[HttpPost(\"{fileName}/restore\")]", controller);
     }
 
     [Fact]
