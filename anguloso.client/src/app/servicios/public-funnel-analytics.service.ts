@@ -9,14 +9,9 @@ export class PublicFunnelAnalyticsService {
   constructor(private readonly http: HttpClient) {}
 
   track(eventName: 'directory_view' | 'profile_view' | 'booking_started', professionalSlug?: string): void {
-    const key = 'dietexpress-funnel:' + eventName + ':' + (professionalSlug || 'directory');
-    try {
-      if (sessionStorage.getItem(key) === '1') return;
-      sessionStorage.setItem(key, '1');
-    } catch {
-      // Si el almacenamiento de sesión no está disponible, el evento sigue siendo útil.
-    }
-
+    // La analítica pública es server-side. No usamos cookies ni storage del navegador
+    // para deduplicar eventos, evitando convertir una optimización de analítica en
+    // una tecnología de almacenamiento del dispositivo.
     this.http.post(this.endpoint, { eventName, professionalSlug }).subscribe({
       error: () => { /* La analítica nunca debe afectar al flujo público. */ }
     });
