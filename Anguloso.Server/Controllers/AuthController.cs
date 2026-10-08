@@ -98,7 +98,22 @@ public class AuthController : ControllerBase
                 return Unauthorized("Credenciales inválidas.");
 
             if (user.archived_at.HasValue)
-                return Unauthorized("Esta cuenta está archivada y no puede iniciar sesión.");
+            {
+                if (user.role != "nutritionist")
+                    return Unauthorized("Esta cuenta está archivada y no puede iniciar sesión.");
+
+                var supportJwt = CrearJwtParaUsuario(user, supportOnly: true);
+                SetProfessionalSessionCookie(supportJwt);
+                return Ok(new
+                {
+                    username = user.username,
+                    email = user.email,
+                    role = user.role,
+                    subscriptionPlan = user.subscription_plan,
+                    subscriptionStatus = user.subscription_status,
+                    archivedSupport = true
+                });
+            }
 
             if (user.email_confirmed == null || user.email_confirmed == false)
                 return Unauthorized("Debes confirmar tu email antes de iniciar sesión.");
@@ -785,7 +800,7 @@ public class AuthController : ControllerBase
 
     //Subrutina que se usa en los distintos modos de login. Genera un token con el user
     // Un único constructor mantiene coherentes los claims de identidad, tenant, suscripción y revocación.
-    private string CrearJwtParaUsuario(users user)
+    private string CrearJwtParaUsuario(users user, bool supportOnly = false)
     {
         var tokenHandler = new JwtSecurityTokenHandler();
         var key = Encoding.UTF8.GetBytes(_config["Jwt:Key"]!);
@@ -799,6 +814,9 @@ public class AuthController : ControllerBase
             new Claim("subscriptionStatus", user.subscription_status ?? "active"),
             new Claim("tokenVersion", user.token_version.ToString())
         };
+
+        if (supportOnly)
+            claims.Add(new Claim("archivedSupport", "true"));
 
         if (user.tenant_id.HasValue)
         {
