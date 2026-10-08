@@ -17,11 +17,29 @@ public sealed class SupportEnhancementService
         if(internalNote)return;
         try{
             await using var c=new NpgsqlConnection(_cs);await c.OpenAsync();
-            await using var q=new NpgsqlCommand("""SELECT t.subject,t.created_by_user_id,t.assigned_to_user_id,m.id,m.body FROM support_tickets t JOIN LATERAL(SELECT id,body FROM support_messages WHERE ticket_id=t.id AND is_internal=FALSE ORDER BY id DESC LIMIT 1)m ON TRUE WHERE t.id=@t;""",c);
+            await using var q=new NpgsqlCommand("""SELECT t.subject,t.created_by_user_id,t.assigned_to_user_id,t.tenant_id,m.id,m.body FROM support_tickets t JOIN LATERAL(SELECT id,body FROM support_messages WHERE ticket_id=t.id AND is_internal=FALSE ORDER BY id DESC LIMIT 1)m ON TRUE WHERE t.id=@t;""",c);
             q.Parameters.AddWithValue("t",ticketId);await using var r=await q.ExecuteReaderAsync();if(!await r.ReadAsync())return;
-            var subject=r.GetString(0);var creator=r.GetInt32(1);var assigned=r.IsDBNull(2)?(int?)null:r.GetInt32(2);var mid=r.GetInt64(3);var body=r.GetString(4);await r.CloseAsync();
+            var subject=r.GetString(0);var creator=r.GetInt32(1);var assigned=r.IsDBNull(2)?(int?)null:r.GetInt32(2);var tenantId=r.GetInt32(3);var mid=r.GetInt64(4);var body=r.GetString(5);await r.CloseAsync();
             var ids=new List<int>();
-            if(actor==creator){if(assigned.HasValue)ids.Add(assigned.Value);else{await using var a=new NpgsqlCommand("SELECT id FROM users WHERE role='superadmin' AND archived_at IS NULL AND id<>@u;",c);a.Parameters.AddWithValue("u",actor);await using var ar=await a.ExecuteReaderAsync();while(await ar.ReadAsync())ids.Add(ar.GetInt32(0));}}
+            if(actor==creator)
+            {
+                if(assigned.HasValue) ids.Add(assigned.Value);
+                else
+                {
+                    await using var clinic=new NpgsqlCommand("SELECT id FROM users WHERE role='clinic_admin' AND tenant_id=@tenant AND archived_at IS NULL;",c);
+                    clinic.Parameters.AddWithValue("tenant",tenantId);
+                    await using var cr=await clinic.ExecuteReaderAsync();
+                    while(await cr.ReadAsync()) ids.Add(cr.GetInt32(0));
+                    await cr.CloseAsync();
+                    if(ids.Count==0)
+                    {
+                        await using var a=new NpgsqlCommand("SELECT id FROM users WHERE role='superadmin' AND archived_at IS NULL AND id<>@u;",c);
+                        a.Parameters.AddWithValue("u",actor);
+                        await using var ar=await a.ExecuteReaderAsync();
+                        while(await ar.ReadAsync()) ids.Add(ar.GetInt32(0));
+                    }
+                }
+            }
             else ids.Add(creator);
             foreach(var id in ids.Distinct()){
                 var title=actor==creator?"Nuevo mensaje de soporte":"Nueva respuesta de soporte";var msg=actor==creator?$"Hay actividad nueva en «{subject}».":$"El equipo de DietoExpress ha respondido a «{subject}».";

@@ -9,6 +9,7 @@ export interface AuthUser {
   role: string;
   subscriptionPlan?: string;
   subscriptionStatus?: string;
+  archivedSupport?: boolean;
 }
 
 @Injectable({ providedIn: 'root' })

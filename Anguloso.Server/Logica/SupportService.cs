@@ -20,7 +20,8 @@ public sealed class SupportService
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
         var sql = "SELECT t.id,t.tenant_id,t.created_by_user_id,t.assigned_to_user_id,t.subject,t.category,t.priority,t.status,t.created_at,t.updated_at,t.closed_at,creator.full_name,assignee.full_name,(SELECT COUNT(*) FROM support_messages m WHERE m.ticket_id=t.id AND m.is_internal=FALSE) FROM support_tickets t JOIN users creator ON creator.id=t.created_by_user_id LEFT JOIN users assignee ON assignee.id=t.assigned_to_user_id WHERE 1=1 ";
-        if (!isSuperAdmin) sql += " AND t.tenant_id=@tenant AND t.created_by_user_id=@user ";
+        if (!isSuperAdmin && !await IsClinicAdminAsync(userId, tenantId, connection)) sql += " AND t.tenant_id=@tenant AND t.created_by_user_id=@user ";
+        else if (!isSuperAdmin) sql += " AND t.tenant_id=@tenant ";
         else if (filterTenantId.HasValue) sql += " AND t.tenant_id=@filterTenant ";
         if (!string.IsNullOrWhiteSpace(status)) sql += " AND t.status=@status ";
         if (!string.IsNullOrWhiteSpace(category)) sql += " AND t.category=@category ";
@@ -49,6 +50,17 @@ public sealed class SupportService
             ClosedAt=reader.IsDBNull(10)?null:reader.GetDateTime(10),CreatedByName=reader.GetString(11),
             AssignedToName=reader.IsDBNull(12)?null:reader.GetString(12),MessageCount=reader.GetInt64(13)});
         return result;
+    }
+
+    private static async Task<bool> IsClinicAdminAsync(int userId, int? tenantId, NpgsqlConnection connection)
+    {
+        if (!tenantId.HasValue) return false;
+        await using var command = new NpgsqlCommand(
+            "SELECT role='clinic_admin' FROM users WHERE id=@user AND tenant_id=@tenant AND archived_at IS NULL;",
+            connection);
+        command.Parameters.AddWithValue("user", userId);
+        command.Parameters.AddWithValue("tenant", tenantId.Value);
+        return Convert.ToBoolean(await command.ExecuteScalarAsync() ?? false);
     }
 
     public async Task<IReadOnlyList<SupportAssigneeDto>> GetAssigneesAsync()
