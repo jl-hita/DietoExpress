@@ -133,7 +133,6 @@ CREATE INDEX IF NOT EXISTS idx_system_alerts_active
                     tenant_id INTEGER REFERENCES tenants(id)
                 );
 
-            context.Database.ExecuteSqlRaw(@"
 CREATE TABLE IF NOT EXISTS patient_notifications (
   id BIGSERIAL PRIMARY KEY,
   tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -183,7 +182,6 @@ CREATE TABLE IF NOT EXISTS patient_push_deliveries (
 );
 CREATE INDEX IF NOT EXISTS idx_patient_push_deliveries_status
   ON patient_push_deliveries(status, updated_at);
-");
 
 
                 -- 4. Biometrics (Mediciones y Bioimpedancia)
