@@ -45,3 +45,10 @@ public class DirectoryReviewSummaryDto
     public int ReviewCount { get; set; }
     public List<DirectoryReviewDto> Reviews { get; set; } = new();
 }
+
+public class DirectoryReviewRequestDto
+{
+    public int AppointmentId { get; set; }
+    public int Rating { get; set; }
+    public string? Comment { get; set; }
+}
