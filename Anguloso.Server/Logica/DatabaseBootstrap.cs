@@ -2844,7 +2844,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
         // el arranque se detiene con un diagnóstico explícito en lugar de fallar más tarde
         // desde una funcionalidad aparentemente no relacionada.
         const string sql = """
-            SELECT string_agg(required_table, ', ' ORDER BY required_table)
+            SELECT string_agg(required_table, ', ' ORDER BY required_table) AS "Value"
             FROM (
                 SELECT unnest(ARRAY[
                     'tenants','users','clients','patient_notifications','patient_push_subscriptions',
