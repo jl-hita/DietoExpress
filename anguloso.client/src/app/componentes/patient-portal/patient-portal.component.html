@@ -325,6 +325,31 @@
       (accept)="acceptDocument($event)">
     </app-patient-documents>
 
+    <section class="portal-content" *ngIf="!isPreview && !showLogin" style="padding-top:0;">
+      <div style="margin-top:18px;padding:18px;border:1px solid rgba(148,163,184,.25);border-radius:14px;background:rgba(15,23,42,.35);">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <mat-icon>campaign</mat-icon>
+          <div>
+            <strong>Comunicaciones comerciales</strong>
+            <p style="margin:4px 0;color:#94a3b8;font-size:13px;">
+              Puedes aceptar o retirar en cualquier momento las comunicaciones comerciales por email.
+              Esto no afecta a las comunicaciones asistenciales necesarias para tu atención.
+            </p>
+          </div>
+        </div>
+        <label style="display:flex;align-items:center;gap:10px;margin-top:12px;">
+          <input type="checkbox" [(ngModel)]="commercialEmailEnabled" [disabled]="commercialPreferenceSaving || !commercialPreferenceLoaded">
+          <span>Quiero recibir comunicaciones comerciales por email</span>
+        </label>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:12px;">
+          <button type="button" class="btn-portal-primary" (click)="updateCommercialPreference()" [disabled]="commercialPreferenceSaving || !commercialPreferenceLoaded">
+            {{ commercialPreferenceSaving ? 'Guardando...' : 'Guardar preferencia' }}
+          </button>
+          <span *ngIf="commercialPreferenceMessage" style="font-size:13px;color:#94a3b8;">{{ commercialPreferenceMessage }}</span>
+        </div>
+      </div>
+    </section>
+
     <nav class="bottom-nav">
       <button type="button" class="nav-tab" [class.active]="activeTab === 'today'" [attr.aria-current]="activeTab === 'today' ? 'page' : null" aria-label="Ver plan de hoy" (click)="setTab('today')">
         <mat-icon>restaurant_menu</mat-icon>
