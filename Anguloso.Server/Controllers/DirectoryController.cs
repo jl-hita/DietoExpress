@@ -128,8 +128,8 @@ public class DirectoryController : ControllerBase
         {
             profile.SpecialtyList = SplitSpecialties(profile.Specialties);
             var review = reviewSummaries.GetValueOrDefault(profile.NutritionistId);
-            profile.AverageRating = Math.Round(review.Average, 1);
-            profile.ReviewCount = review.Count;
+            profile.AverageRating = Math.Round(review.Item1, 1);
+            profile.ReviewCount = review.Item2;
             profile.AvailableRuleCount = availabilityCounts.GetValueOrDefault(profile.NutritionistId);
             profile.ProfileCompleteness = CalculateProfileCompleteness(profile);
             profile.RankingScore = CalculateRankingScore(profile, filter);
