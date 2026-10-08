@@ -30,7 +30,7 @@ public sealed class CommercialCommunicationService
         return (bool?)await command.ExecuteScalarAsync(cancellationToken) == true;
     }
 
-    public async Task SetEmailPreferenceAsync(int clientId, int tenantId, bool enabled, CancellationToken cancellationToken = default)
+    public async Task SetEmailPreferenceAsync(int clientId, int tenantId, bool enabled, string source = "patient_portal", string? consentVersion = null, CancellationToken cancellationToken = default)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
@@ -40,7 +40,7 @@ public sealed class CommercialCommunicationService
         {
             await using var disable = new NpgsqlCommand("""
                 UPDATE patient_commercial_communication_preferences
-                SET email_enabled=false, unsubscribed_at=NOW(), updated_at=NOW()
+                SET email_enabled=false, unsubscribed_at=NOW(), revoked_at=NOW(), updated_at=NOW()
                 WHERE client_id=@client AND tenant_id=@tenant;
                 """, connection, transaction);
             disable.Parameters.AddWithValue("client", clientId);
@@ -53,8 +53,8 @@ public sealed class CommercialCommunicationService
             var hash = HashToken(token);
             await using var enable = new NpgsqlCommand("""
                 INSERT INTO patient_commercial_communication_preferences
-                    (client_id, tenant_id, email_enabled, unsubscribe_token_hash, unsubscribed_at, updated_at)
-                VALUES (@client,@tenant,true,@hash,NULL,NOW())
+                    (client_id, tenant_id, email_enabled, unsubscribe_token_hash, unsubscribed_at, consented_at, consent_version, consent_source, revoked_at, updated_at)
+                VALUES (@client,@tenant,true,@hash,NULL,NOW(),@version,@source,NULL,NOW())
                 ON CONFLICT (client_id)
                 DO UPDATE SET tenant_id=EXCLUDED.tenant_id,
                               email_enabled=true,
@@ -65,6 +65,8 @@ public sealed class CommercialCommunicationService
             enable.Parameters.AddWithValue("client", clientId);
             enable.Parameters.AddWithValue("tenant", tenantId);
             enable.Parameters.AddWithValue("hash", hash);
+            enable.Parameters.AddWithValue("version", (object?)consentVersion ?? "commercial-communications-v1");
+            enable.Parameters.AddWithValue("source", source);
             await enable.ExecuteNonQueryAsync(cancellationToken);
         }
 
@@ -98,12 +100,51 @@ public sealed class CommercialCommunicationService
         await connection.OpenAsync(cancellationToken);
         await using var command = new NpgsqlCommand("""
             UPDATE patient_commercial_communication_preferences
-            SET email_enabled=false, unsubscribed_at=NOW(), updated_at=NOW()
+            SET email_enabled=false, unsubscribed_at=NOW(), revoked_at=NOW(), updated_at=NOW()
             WHERE unsubscribe_token_hash=@hash
             RETURNING client_id;
             """, connection);
         command.Parameters.AddWithValue("hash", hash);
         return await command.ExecuteScalarAsync(cancellationToken) is not null;
+    }
+
+
+    public async Task<string?> GetCurrentConsentVersionAsync(CancellationToken cancellationToken = default)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new NpgsqlCommand("""
+            SELECT setting_value
+            FROM legal_configuration
+            WHERE scope_type='platform' AND scope_id=1 AND setting_key='document_version'
+            LIMIT 1;
+            """, connection);
+        var value = await command.ExecuteScalarAsync(cancellationToken);
+        return value is string text && !string.IsNullOrWhiteSpace(text) ? text : "commercial-communications-v1";
+    }
+
+    public async Task<bool> SendCommercialEmailAsync(
+        EmailServ emailServ,
+        int clientId,
+        string subject,
+        string htmlBody,
+        string idempotencyKey,
+        CancellationToken cancellationToken = default)
+    {
+        var unsubscribeUrl = await CreateUnsubscribeUrlAsync(clientId, cancellationToken);
+        if (unsubscribeUrl is null || !await IsOptedInAsync(clientId, cancellationToken))
+            return false;
+
+        var footer = $"""
+            <hr>
+            <p style="font-size:12px;color:#64748b">
+              Recibes este mensaje porque has aceptado comunicaciones comerciales de DietoExpress.
+              <a href="{System.Net.WebUtility.HtmlEncode(unsubscribeUrl)}">Darte de baja de comunicaciones comerciales</a>.
+              Las comunicaciones asistenciales necesarias no se ven afectadas.
+            </p>
+            """;
+        var result = await emailServ.SendEmailAsync(clientId.ToString(), subject, htmlBody + footer, idempotencyKey);
+        return result.Exito;
     }
 
     private static string HashToken(string token) =>
