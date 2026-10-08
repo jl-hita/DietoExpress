@@ -113,9 +113,23 @@ public class DirectoryController : ControllerBase
             .Select(g => new { NutritionistId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.NutritionistId, x => x.Count);
 
+        var reviewSummaries = ids.Length == 0
+            ? new Dictionary<int, (double Average, int Count)>()
+            : (await _context.Database.SqlQueryRaw<DirectoryReviewAggregate>(
+                @"SELECT nutritionist_id AS ""NutritionistId"",
+                         COALESCE(AVG(rating), 0)::double precision AS ""AverageRating"",
+                         COUNT(*)::integer AS ""ReviewCount""
+                  FROM public_directory_reviews
+                  WHERE nutritionist_id = ANY({0})
+                  GROUP BY nutritionist_id", ids).ToListAsync())
+              .ToDictionary(x => x.NutritionistId, x => (x.AverageRating, x.ReviewCount));
+
         foreach (var profile in profiles)
         {
             profile.SpecialtyList = SplitSpecialties(profile.Specialties);
+            var review = reviewSummaries.GetValueOrDefault(profile.NutritionistId);
+            profile.AverageRating = Math.Round(review.Average, 1);
+            profile.ReviewCount = review.Count;
             profile.AvailableRuleCount = availabilityCounts.GetValueOrDefault(profile.NutritionistId);
             profile.ProfileCompleteness = CalculateProfileCompleteness(profile);
             profile.RankingScore = CalculateRankingScore(profile, filter);
@@ -548,6 +562,13 @@ public class DirectoryController : ControllerBase
         });
     }
 
+    private sealed class DirectoryReviewAggregate
+    {
+        public int NutritionistId { get; set; }
+        public double AverageRating { get; set; }
+        public int ReviewCount { get; set; }
+    }
+
     private sealed class DirectoryReviewRow
     {
         public int Rating { get; set; }
@@ -608,6 +629,9 @@ public class DirectoryController : ControllerBase
         if (filter.AvailableOnly == true && profile.AvailableRuleCount > 0) score += 40;
         score += Math.Min(profile.AvailableRuleCount * 2, 20);
         if (profile.IsVerified) score += 20;
+        if (profile.ReviewCount > 0) score += Math.Min(profile.ReviewCount * 2, 10);
+        if (profile.AverageRating >= 4.5) score += 20;
+        else if (profile.AverageRating >= 4.0) score += 10;
         return score;
     }
 
