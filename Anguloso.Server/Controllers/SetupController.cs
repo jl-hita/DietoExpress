@@ -70,6 +70,7 @@ public class SetupController : ControllerBase
             // Una cuenta superadmin nunca debe publicarse en el directorio profesional.
             directory_enabled = false,
             online_consultations = false,
+            directory_publication_status = "draft",
             subscription_plan = "enterprise",
             subscription_status = "active",
             created_at = DateTime.UtcNow
