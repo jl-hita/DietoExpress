@@ -2,7 +2,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { AppointmentSlot, PatientAppointment } from '../../../servicios/patient-portal.service';
+import { AppointmentSlot, PatientAppointment, PatientPortalService } from '../../../servicios/patient-portal.service';
 
 @Component({
   selector: 'app-patient-appointments',
@@ -23,11 +23,35 @@ export class PatientAppointmentsComponent {
   @Output() refresh = new EventEmitter<void>();
   @Output() request = new EventEmitter<{ slot: AppointmentSlot; modality: 'in_person' | 'online' }>();
   selectedModality: 'in_person' | 'online' = 'in_person';
+  reviewRatings: Record<number, number> = {};
+  reviewComments: Record<number, string> = {};
+  reviewSubmitting: Record<number, boolean> = {};
+  reviewMessages: Record<number, string> = {};
+  reviewErrors: Record<number, string> = {};
+
+  constructor(private readonly portalService: PatientPortalService) {}
   @Output() cancel = new EventEmitter<PatientAppointment>();
   @Output() joinVideo = new EventEmitter<PatientAppointment>();
 
   calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   selectedAvailabilityDate: string | null = null;
+
+  submitReview(appointment: PatientAppointment): void {
+    const rating = this.reviewRatings[appointment.id] || 0;
+    if (rating < 1 || rating > 5 || this.reviewSubmitting[appointment.id]) return;
+    this.reviewSubmitting[appointment.id] = true;
+    this.reviewErrors[appointment.id] = '';
+    this.portalService.submitDirectoryReview(appointment.id, rating, this.reviewComments[appointment.id] || '').subscribe({
+      next: result => {
+        this.reviewSubmitting[appointment.id] = false;
+        this.reviewMessages[appointment.id] = result.message || 'Gracias por tu valoración.';
+      },
+      error: err => {
+        this.reviewSubmitting[appointment.id] = false;
+        this.reviewErrors[appointment.id] = err?.error?.message || 'No hemos podido guardar la valoración.';
+      }
+    });
+  }
 
   get calendarDays(): Array<{ date: Date; dayNumber: number; key: string; slotCount: number; inCurrentMonth: boolean; disabled: boolean }> {
     const year = this.calendarMonth.getFullYear();
