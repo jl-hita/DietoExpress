@@ -621,7 +621,6 @@ CREATE INDEX IF NOT EXISTS idx_public_funnel_events_appointment
             // Las rutinas históricas conservan sus marcadores para actualizar instalaciones antiguas;
             // el DDL actual debe seguir siendo idempotente para poder reparar esquemas incompletos.
             LegalCommunicationsSchema.Initialize(context);
-            EnsureCurrentSchema(context, logger);
             UpgradeDocumentTemplateSchemaV1(context, logger);
             UpgradeLegalComplianceSchemaV1(context, logger);
             UpgradeLegalConfigurationSchemaV1(context, logger);
@@ -678,6 +677,8 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
     ON public_directory_reviews(nutritionist_id, created_at DESC);
 ");
             BillingSchemaBootstrap.Initialize(context, logger);
+
+            VerifyCurrentSchema(context, logger);
 
             // Configuración inicial idempotente. No se sobrescriben valores existentes.
             context.Database.ExecuteSqlRaw(@"
@@ -1065,6 +1066,70 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                 id VARCHAR(100) PRIMARY KEY,
                 applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
+        ");
+
+        // Estas estructuras deben reconciliarse incluso cuando saas-v1 ya figura como aplicada.
+        // Una restauración parcial o una BBDD antigua puede haber perdido objetos sin eliminar
+        // el marcador histórico. El DDL es idempotente y solo repara lo que falte.
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS subscription_plans (
+                id SERIAL PRIMARY KEY,
+                code VARCHAR(50) NOT NULL UNIQUE,
+                name VARCHAR(150) NOT NULL,
+                description TEXT,
+                monthly_price NUMERIC(10,2) NOT NULL DEFAULT 0,
+                yearly_price NUMERIC(10,2) NOT NULL DEFAULT 0,
+                stripe_product_id VARCHAR(255),
+                stripe_monthly_price_id VARCHAR(255),
+                stripe_yearly_price_id VARCHAR(255),
+                max_nutritionists INTEGER,
+                max_clients_per_nutritionist INTEGER,
+                max_total_clients INTEGER,
+                trial_days INTEGER,
+                active BOOLEAN NOT NULL DEFAULT TRUE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            CREATE TABLE IF NOT EXISTS subscription_plan_features (
+                id SERIAL PRIMARY KEY,
+                plan_id INTEGER NOT NULL REFERENCES subscription_plans(id) ON DELETE CASCADE,
+                feature_code VARCHAR(100) NOT NULL,
+                enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                CONSTRAINT subscription_plan_features_unique UNIQUE(plan_id, feature_code)
+            );
+            CREATE TABLE IF NOT EXISTS subscriptions (
+                id SERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                plan_id INTEGER NOT NULL REFERENCES subscription_plans(id) ON DELETE RESTRICT,
+                status VARCHAR(50) NOT NULL DEFAULT 'active',
+                started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                expires_at TIMESTAMPTZ,
+                cancelled_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            CREATE TABLE IF NOT EXISTS subscription_events (
+                id BIGSERIAL PRIMARY KEY,
+                subscription_id INTEGER NOT NULL REFERENCES subscriptions(id) ON DELETE CASCADE,
+                event_type VARCHAR(100) NOT NULL,
+                old_plan_id INTEGER REFERENCES subscription_plans(id) ON DELETE SET NULL,
+                new_plan_id INTEGER REFERENCES subscription_plans(id) ON DELETE SET NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                details TEXT
+            );
+            CREATE TABLE IF NOT EXISTS client_nutritionist_assignments (
+                id SERIAL PRIMARY KEY,
+                client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                nutritionist_id INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+                assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                assigned_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                unassigned_at TIMESTAMPTZ,
+                is_active BOOLEAN NOT NULL DEFAULT TRUE
+            );
+            ALTER TABLE recipes ADD COLUMN IF NOT EXISTS tenant_id INTEGER REFERENCES tenants(id);
+            CREATE INDEX IF NOT EXISTS idx_recipes_tenant_id ON recipes(tenant_id);
+            CREATE INDEX IF NOT EXISTS idx_subscriptions_tenant_id ON subscriptions(tenant_id);
+            CREATE INDEX IF NOT EXISTS idx_subscription_events_subscription_id ON subscription_events(subscription_id);
+            CREATE INDEX IF NOT EXISTS idx_assignments_nutritionist_id ON client_nutritionist_assignments(nutritionist_id);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_assignments_active_client ON client_nutritionist_assignments(client_id) WHERE is_active = TRUE;
         ");
 
         var alreadyApplied = context.Database
@@ -2707,6 +2772,55 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
         }
     }
 
+
+    private static void VerifyCurrentSchema(angulosodbContext context, ILogger logger)
+    {
+        // Contrato mínimo de tablas: si alguna falta después de todas las reconciliaciones,
+        // el arranque se detiene con un diagnóstico explícito en lugar de fallar más tarde
+        // desde una funcionalidad aparentemente no relacionada.
+        const string sql = """
+            SELECT string_agg(required_table, ', ' ORDER BY required_table)
+            FROM (
+                SELECT unnest(ARRAY[
+                    'tenants','users','clients','patient_notifications','patient_push_subscriptions',
+                    'patient_push_deliveries','biometrics','food_exchange_groups','food_sources','foods',
+                    'diets','client_diets','diet_days','meals','meal_items','recipes','recipe_items',
+                    'medical_history','digestive_health','food_preferences','lifestyle_history','config',
+                    'external_api_usage','patient_conversations','patient_messages','audit_logs',
+                    'public_funnel_events','patient_appointments','nutritionist_availability',
+                    'document_templates','patient_documents','patient_document_events',
+                    'subscription_plans','subscription_plan_features','subscriptions','subscription_events',
+                    'client_nutritionist_assignments','automation_events','automation_jobs',
+                    'automation_executions','professional_tasks','automation_rules','automation_templates',
+                    'patient_communication_preferences','google_calendar_connections',
+                    'google_calendar_oauth_states','external_calendar_events','legal_configuration',
+                    'legal_documents','legal_acceptances','privacy_requests','privacy_incidents',
+                    'legal_generated_documents','legal_rat_activities','legal_risk_assessments',
+                    'legal_eipd_decisions','professional_followup_settings','professional_consultations',
+                    'patient_checkins','specializations','tenant_specializations','client_specializations',
+                    'client_specialization_profiles','specialization_rules','video_usage_reservations'
+                ]) AS required_table
+            ) required
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM information_schema.tables t
+                WHERE t.table_schema = 'public'
+                  AND t.table_name = required.required_table
+            );
+        """;
+
+        var missing = context.Database
+            .SqlQueryRaw<string>(sql)
+            .FirstOrDefault();
+
+        if (!string.IsNullOrWhiteSpace(missing))
+        {
+            logger.LogCritical("El bootstrap no pudo reconciliar el esquema. Faltan tablas: {MissingTables}", missing);
+            throw new InvalidOperationException($"El esquema de DietoExpress está incompleto. Faltan tablas: {missing}");
+        }
+
+        logger.LogInformation("Esquema de DietoExpress reconciliado y verificado correctamente.");
+    }
 
 }
 
