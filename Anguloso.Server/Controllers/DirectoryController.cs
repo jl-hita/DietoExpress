@@ -69,12 +69,30 @@ public class DirectoryController : ControllerBase
         if (!string.IsNullOrWhiteSpace(filter.Speciality))
             query = query.Where(u => u.directory_specialties != null && EF.Functions.ILike(u.directory_specialties, $"%{filter.Speciality.Trim()}%"));
 
+        if (!string.IsNullOrWhiteSpace(filter.Goal))
+        {
+            var goal = filter.Goal.Trim().ToLowerInvariant();
+            var goalTerms = goal switch
+            {
+                "pérdida de peso" or "perdida de peso" => new[] { "pérdida de peso", "perdida de peso", "obesidad", "control de peso" },
+                "nutrición deportiva" or "nutricion deportiva" => new[] { "nutrición deportiva", "nutricion deportiva", "deporte" },
+                "obesidad" => new[] { "obesidad", "pérdida de peso", "perdida de peso" },
+                _ => new[] { goal }
+            };
+            query = query.Where(u => u.directory_specialties != null &&
+                goalTerms.Any(term => EF.Functions.ILike(u.directory_specialties, $"%{term}%")));
+        }
+
+        if (filter.AvailableOnly == true)
+            query = query.Where(u => _context.nutritionist_availability.Any(a => a.nutritionist_id == u.id && a.is_active));
+
         var profiles = await query
             .OrderBy(u => u.directory_city)
             .ThenBy(u => u.full_name)
-            .Take(100)
+             .Take(200)
             .Select(u => new DirectoryProfileDto
             {
+                NutritionistId = u.id,
                 Username = u.username,
                 Slug = u.directory_slug ?? string.Empty,
                 FullName = u.full_name ?? string.Empty,
@@ -88,9 +106,17 @@ public class DirectoryController : ControllerBase
                 IsVerified = u.directory_publication_status == "published"
             }).ToListAsync();
 
+        var ids = profiles.Select(p => p.NutritionistId).ToArray();
+        var availabilityCounts = await _context.nutritionist_availability.AsNoTracking()
+            .Where(a => ids.Contains(a.nutritionist_id) && a.is_active)
+            .GroupBy(a => a.nutritionist_id)
+            .Select(g => new { NutritionistId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.NutritionistId, x => x.Count);
+
         foreach (var profile in profiles)
         {
             profile.SpecialtyList = SplitSpecialties(profile.Specialties);
+            profile.AvailableRuleCount = availabilityCounts.GetValueOrDefault(profile.NutritionistId);
             profile.ProfileCompleteness = CalculateProfileCompleteness(profile);
             profile.RankingScore = CalculateRankingScore(profile, filter);
         }
@@ -129,7 +155,8 @@ public class DirectoryController : ControllerBase
 
         profile.SpecialtyList = SplitSpecialties(profile.Specialties);
         profile.ProfileCompleteness = CalculateProfileCompleteness(profile);
-        profile.RankingScore = profile.ProfileCompleteness;
+        profile.AvailableRuleCount = await _context.nutritionist_availability.AsNoTracking().CountAsync(a => a.nutritionist_id == profile.NutritionistId && a.is_active);
+        profile.RankingScore = profile.ProfileCompleteness + Math.Min(profile.AvailableRuleCount * 2, 20);
         return Ok(profile);
     }
 
@@ -523,6 +550,9 @@ public class DirectoryController : ControllerBase
         }
 
         if (filter.Online == true && profile.OnlineConsultations) score += 35;
+        if (!string.IsNullOrWhiteSpace(filter.Goal) && profile.SpecialtyList.Any(x => x.Contains(filter.Goal.Trim(), StringComparison.OrdinalIgnoreCase))) score += 60;
+        if (filter.AvailableOnly == true && profile.AvailableRuleCount > 0) score += 40;
+        score += Math.Min(profile.AvailableRuleCount * 2, 20);
         if (profile.IsVerified) score += 20;
         return score;
     }

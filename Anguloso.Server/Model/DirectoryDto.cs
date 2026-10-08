@@ -2,6 +2,7 @@ namespace Anguloso.Server.Model;
 
 public class DirectoryProfileDto
 {
+    public int NutritionistId { get; set; }
     public string Username { get; set; } = string.Empty;
     public string Slug { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
@@ -16,6 +17,7 @@ public class DirectoryProfileDto
     public int ProfileCompleteness { get; set; }
     public int RankingScore { get; set; }
     public bool IsVerified { get; set; }
+    public int AvailableRuleCount { get; set; }
 }
 
 public class DirectorySearchDto
@@ -24,4 +26,6 @@ public class DirectorySearchDto
     public string? Province { get; set; }
     public bool? Online { get; set; }
     public string? Speciality { get; set; }
+    public string? Goal { get; set; }
+    public bool? AvailableOnly { get; set; }
 }

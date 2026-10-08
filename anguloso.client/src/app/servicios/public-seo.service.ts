@@ -32,6 +32,15 @@ export class PublicSeoService {
     );
   }
 
+  setMarketplaceLandingSeo(): void {
+    this.apply(
+      'Consigue pacientes y gestiona tu consulta | DietoExpress',
+      'Crea tu perfil profesional gratis, publica tu disponibilidad y permite que nuevos pacientes encuentren y reserven contigo.',
+      '/para-nutricionistas',
+      { '@context': 'https://schema.org', '@type': 'WebPage', name: 'DietaExpress para nutricionistas' }
+    );
+  }
+
   setProfileSeo(profile: PublicSeoProfile): void {
     const location = [profile.city, profile.province].filter(value => value.trim()).join(', ');
     const specialty = profile.specialties.trim();

@@ -21,6 +21,7 @@ export class DirectoryComponent implements OnInit {
   speciality = '';
   online = false;
   goal = '';
+  availableOnly = false;
   profiles: DirectoryProfile[] = [];
   profile: DirectoryProfile | null = null;
   loading = false;
@@ -57,6 +58,7 @@ export class DirectoryComponent implements OnInit {
       this.city = city || '';
       this.speciality = speciality ? speciality.replace(/-/g, ' ') : '';
       this.online = onlineRoute;
+      this.availableOnly = false;
       this.publicSeoService.setDirectorySeo({ city: this.city, province: this.province, speciality: this.speciality, online: this.online });
       this.publicFunnelAnalytics.track('directory_view');
       this.search();
@@ -131,10 +133,20 @@ export class DirectoryComponent implements OnInit {
 
   trackProfileClick(slug: string): void { this.publicFunnelAnalytics.track('profile_selected', slug); }
 
+  async shareProfile(): Promise<void> {
+    if (!this.profile) return;
+    const url = window.location.href;
+    const text = `Consulta el perfil de ${this.profile.fullName} en DietoExpress`;
+    try {
+      if (navigator.share) await navigator.share({ title: this.profile.fullName, text, url });
+      else await navigator.clipboard.writeText(url);
+    } catch { /* El usuario puede cancelar el diálogo nativo sin que sea un error. */ }
+  }
+
   search(): void {
     this.publicSeoService.setDirectorySeo({ city: this.city, province: this.province, speciality: this.speciality, online: this.online });
     this.loading = true; this.error = ''; this.profile = null;
-    this.directoryService.search(this.city, this.province, this.speciality, this.online).subscribe({
+    this.directoryService.search(this.city, this.province, this.speciality, this.online, this.goal, this.availableOnly).subscribe({
       next: profiles => { this.profiles = profiles; this.loading = false; },
       error: () => { this.error = 'No se ha podido cargar el directorio.'; this.loading = false; }
     });
