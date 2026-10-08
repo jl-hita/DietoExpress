@@ -1,56 +1,62 @@
-# Términos y condiciones de uso de DietoExpress
+# Términos y condiciones de DietoExpress
 
 **Versión:** {{platform.document_version}}  
 **Fecha:** {{platform.last_update_date}}
 
-## 1. Identificación
+## 1. Prestador
 
-El servicio es prestado por {{platform.legal_name}}, NIF/CIF {{platform.tax_id}}, con domicilio en {{platform.address}} y contacto {{platform.contact_email}}.
+El servicio es prestado por **{{platform.legal_name}}**, NIF/CIF **{{platform.tax_id}}**, con domicilio en **{{platform.address}}** y contacto **{{platform.contact_email}}**.
 
-## 2. Servicio
+## 2. Objeto
 
-DietoExpress proporciona software para la gestión de la actividad de profesionales y clínicas de nutrición. Las funcionalidades disponibles dependen del plan contratado.
+DietoExpress proporciona software como servicio para la gestión de profesionales y clínicas de nutrición. Las funcionalidades disponibles dependen del plan y de los servicios efectivamente contratados.
 
-## 3. Alta y cuenta
+## 3. Cuenta y seguridad
 
-El titular de la cuenta debe facilitar información veraz, mantener sus credenciales bajo control y comunicar cualquier uso no autorizado.
+El cliente debe proporcionar datos veraces, mantener sus credenciales bajo control y comunicar usos no autorizados. El cliente es responsable de las cuentas y permisos que gestione dentro de su organización.
 
-## 4. Suscripción y precio
+## 4. Contratación electrónica
 
-Plan contratado: según la página de precios y el pedido realizado.  
-Los precios se muestran con la fiscalidad y condiciones aplicables antes de la contratación.
+Antes de contratar se mostrarán las condiciones aplicables, el precio, la periodicidad y los impuestos que correspondan. Los pasos de contratación, corrección de errores, archivo del contrato y demás información previa se pondrán a disposición conforme a la normativa aplicable.
 
-Periodicidad: mensual o anual, según elección del cliente.
+## 5. Precio y facturación
 
-## 5. Renovación, cancelación y efectos
+**Precios y planes:** {{platform.pricing_summary}}
 
-La suscripción se renueva conforme a la modalidad contratada hasta que el cliente solicite su cancelación en las condiciones indicadas durante la contratación. La cancelación de la renovación no implica necesariamente la eliminación inmediata de los datos.
+**Facturación, renovación y vencimiento:** {{platform.billing_terms_summary}}
 
-Condiciones específicas: {{platform.cancellation_policy_summary}}.
+## 6. Cancelación, reembolso y desistimiento
 
-## 6. Obligaciones del cliente profesional
+**Cancelación y renovación:** {{platform.cancellation_policy_summary}}
 
-El profesional o clínica es responsable de la licitud de los tratamientos que realice, de la información facilitada a sus pacientes, de sus consentimientos y de las decisiones profesionales adoptadas.
+**Reembolsos:** {{platform.refund_summary}}
 
-## 7. Protección de datos
+**Desistimiento y limitaciones aplicables a consumidores:** {{platform.consumer_withdrawal_summary}}
 
-Cuando corresponda, DietoExpress actuará como encargado del tratamiento y el cliente como responsable respecto de los datos de sus pacientes, conforme al acuerdo de encargo aplicable.
+## 7. Uso profesional y datos de pacientes
 
-## 8. Disponibilidad y soporte
+El profesional o clínica es responsable de la relación con sus pacientes, de la información que les facilite, de las bases jurídicas aplicables y de las decisiones profesionales adoptadas.
 
-Canal de soporte: {{platform.support_email}}.  
-Condiciones de soporte: {{platform.support_policy_summary}}.
+Cuando corresponda, DietoExpress tratará los datos de pacientes como encargado del tratamiento conforme al acuerdo de encargo aplicable.
+
+## 8. Disponibilidad, soporte e incidencias
+
+**Soporte:** {{platform.support_email}}
+
+**Condiciones de soporte:** {{platform.support_policy_summary}}
+
+La disponibilidad puede verse afectada por mantenimiento, incidencias de proveedores, fuerza mayor u otras circunstancias fuera del control razonable del prestador.
 
 ## 9. Propiedad intelectual
 
-El software y sus componentes son propiedad de {{platform.legal_name}} o de sus licenciantes.
+El software y los elementos propios de DietoExpress pertenecen a {{platform.legal_name}} o a sus licenciantes. El cliente recibe únicamente los derechos de uso necesarios conforme a la contratación.
 
 ## 10. Resolución y reclamaciones
 
-Canal de reclamaciones: {{platform.claims_email}}.
+**Canal de reclamaciones:** {{platform.claims_email}}
+
+La terminación del contrato no elimina las obligaciones que deban mantenerse por su propia naturaleza.
 
 ## 11. Ley aplicable
 
-Ley aplicable y jurisdicción, dentro de los límites legalmente permitidos: {{platform.governing_law_summary}}.
-
-**Nota interna:** debe revisarse antes de utilizarse como contrato definitivo.
+{{platform.governing_law_summary}}

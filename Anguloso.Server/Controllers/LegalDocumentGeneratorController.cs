@@ -26,11 +26,18 @@ public sealed class LegalDocumentGeneratorController : ControllerBase
         ["11-analisis-riesgos-eipd"]="Análisis de riesgos y decisión EIPD"
     };
 
+    private static readonly HashSet<string> PlatformTemplates =
+    ["01-aviso-legal","02-privacidad-dietoexpress","03-terminos-saas","04-politica-cookies","09-rat-minimo","10-matriz-conservacion","11-analisis-riesgos-eipd"];
+
+    private static readonly HashSet<string> ProfessionalTemplates =
+    ["05-dpa-encargo-tratamiento","06-informacion-privacidad-paciente","07-consentimiento-informado-paciente","08-condiciones-economicas"];
+
     [HttpPost("{templateKey}")]
     public async Task<IActionResult> Generate(string templateKey, CancellationToken ct)
     {
         var scope=GetScope(); if(scope==null)return Unauthorized();
         if(!Titles.ContainsKey(templateKey))return NotFound("Plantilla legal no encontrada.");
+        if(!CanUseTemplate(scope.Value.type, templateKey)) return Forbid();
         var path=Path.Combine(AppContext.BaseDirectory,"LegalTemplates",templateKey+".md");
         if(!System.IO.File.Exists(path))return Problem("La plantilla legal no está disponible en el despliegue.");
         var template=await System.IO.File.ReadAllTextAsync(path,ct);
@@ -49,7 +56,12 @@ public sealed class LegalDocumentGeneratorController : ControllerBase
     }
 
     [HttpGet("templates")]
-    public IActionResult Templates() => Ok(Titles.Select(x => new { key=x.Key, title=x.Value }));
+    public IActionResult Templates()
+    {
+        var scope=GetScope();
+        if(scope==null) return Unauthorized();
+        return Ok(Titles.Where(x=>CanUseTemplate(scope.Value.type,x.Key)).Select(x=>new { key=x.Key, title=x.Value }));
+    }
 
     [HttpGet] public async Task<IActionResult> List(CancellationToken ct)
     {
@@ -92,6 +104,8 @@ public sealed class LegalDocumentGeneratorController : ControllerBase
         await using var q=new NpgsqlCommand("""SELECT template_key,title,content,version FROM legal_generated_documents WHERE id=@id AND scope_type='platform' AND scope_id=1 AND status='draft' FOR UPDATE;""",c,tx);
         q.Parameters.AddWithValue("id",id);await using var rd=await q.ExecuteReaderAsync(ct);if(!await rd.ReadAsync(ct))return NotFound();
         var key=rd.GetString(0);var title=rd.GetString(1);var content=rd.GetString(2);var sourceVersion=rd.GetInt32(3);await rd.CloseAsync();
+        if (!PlatformTemplates.Contains(key))
+            return Conflict(new { message = "Este documento es interno y no se publica en el catálogo público.", documentKey = key });
         var unresolved=Regex.Matches(content,@"\{\{([a-zA-Z0-9_.-]+)\}\}").Select(m=>m.Groups[1].Value).Distinct().ToArray();
         if(unresolved.Length>0)return Conflict(new{message="El documento contiene placeholders sin resolver.",unresolved});
         var hash=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content))).ToLowerInvariant();
@@ -106,20 +120,30 @@ public sealed class LegalDocumentGeneratorController : ControllerBase
     {
         await using var connection = new NpgsqlConnection(ConnectionString);
         await connection.OpenAsync(ct);
-        await using var command = new NpgsqlCommand("""
-            SELECT setting_key, setting_value
-            FROM legal_configuration
-            WHERE scope_type=@scope AND scope_id=@scopeId;
-            """, connection);
-        command.Parameters.AddWithValue("scope", scopeType);
-        command.Parameters.AddWithValue("scopeId", scopeId);
-
         var values = new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
-        await using var reader = await command.ExecuteReaderAsync(ct);
-        while (await reader.ReadAsync(ct))
-            values[reader.GetString(0)] = reader.GetString(1);
+
+        async Task Load(string type, int id, string prefix)
+        {
+            await using var command = new NpgsqlCommand("""
+                SELECT setting_key, setting_value
+                FROM legal_configuration
+                WHERE scope_type=@scope AND scope_id=@scopeId;
+                """, connection);
+            command.Parameters.AddWithValue("scope", type);
+            command.Parameters.AddWithValue("scopeId", id);
+            await using var reader = await command.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+                values[$"{prefix}.{reader.GetString(0)}"] = reader.GetString(1);
+        }
+
+        await Load("platform", 1, "platform");
+        if (scopeType != "platform")
+            await Load(scopeType, scopeId, "professional");
         return values;
     }
+
+    private static bool CanUseTemplate(string scopeType, string key) =>
+        scopeType == "platform" ? PlatformTemplates.Contains(key) : ProfessionalTemplates.Contains(key);
 
     private (string type,int id)? GetScope()
     {

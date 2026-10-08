@@ -1,6 +1,6 @@
 # Condiciones económicas, cancelación y reembolso
 
-**Profesional/centro:** {{professional.display_name}}  
+**Profesional/centro:** {{professional.legal_name}}  
 **Contacto:** {{professional.contact_email}}
 
 ## Servicios

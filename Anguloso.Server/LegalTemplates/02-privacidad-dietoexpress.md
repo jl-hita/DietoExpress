@@ -1,52 +1,64 @@
 # Política de privacidad de DietoExpress
 
 **Versión:** {{platform.document_version}}  
-**Fecha:** {{platform.last_update_date}}
+**Fecha de actualización:** {{platform.last_update_date}}
 
 ## 1. Responsable
 
-Responsable: {{platform.legal_name}}  
-NIF/CIF: {{platform.tax_id}}  
-Domicilio: {{platform.address}}  
-Correo de privacidad: {{platform.privacy_email}}  
-Contacto: {{platform.contact_email}}
+**Responsable:** {{platform.legal_name}}  
+**NIF/CIF:** {{platform.tax_id}}  
+**Domicilio:** {{platform.address}}  
+**Email de privacidad:** {{platform.privacy_email}}  
+**Email general:** {{platform.contact_email}}  
+**DPO, si procede:** {{platform.dpo_email}}
 
-## 2. Qué datos tratamos
+## 2. Ámbito
 
-Dependiendo del uso del servicio podemos tratar datos identificativos y de contacto, credenciales, datos de cuenta y suscripción, datos de facturación, registros de acceso y seguridad, solicitudes de derechos y comunicaciones con soporte.
+Esta política explica cómo se tratan los datos personales en los servicios en los que {{platform.legal_name}} actúa como responsable. Cuando DietoExpress trata datos de pacientes por cuenta de un profesional o clínica, el profesional o clínica determina las finalidades y bases de ese tratamiento y DietoExpress actúa como encargado conforme al acuerdo aplicable.
 
-Cuando DietoExpress actúa como encargado por cuenta de un profesional o clínica, los datos de sus pacientes se tratan conforme a las instrucciones documentadas del responsable correspondiente.
+## 3. Categorías de datos
 
-## 3. Finalidades y bases jurídicas
+Según el servicio utilizado pueden tratarse datos identificativos y de contacto, datos de cuenta y autenticación, información contractual y de suscripción, facturación, registros técnicos y de seguridad, comunicaciones de soporte, evidencias de aceptación de documentos y solicitudes de derechos.
 
-Las finalidades, categorías, bases jurídicas, destinatarios, transferencias y plazos concretos constan en el Registro de Actividades de Tratamiento y en la información específica que corresponda a cada formulario o servicio.
+Los datos de pacientes pueden incluir información relacionada con la atención nutricional y datos de salud cuando el profesional o clínica los incorpora a la plataforma. Estos datos se tratan por cuenta del responsable correspondiente cuando así proceda.
 
-Tratamientos principales: prestación del servicio contratado, gestión de cuentas, seguridad, soporte, facturación, cumplimiento de obligaciones legales y, cuando proceda, comunicaciones comerciales.
+## 4. Finalidades y bases jurídicas
 
-## 4. Encargados y proveedores
+Las finalidades y bases jurídicas concretas se documentan en el RAT y en las informaciones específicas proporcionadas en cada contexto. Pueden incluir ejecución del contrato, cumplimiento de obligaciones legales, seguridad, gestión de incidencias, atención de derechos y, cuando exista una base jurídica válida, comunicaciones comerciales.
 
-Proveedores utilizados por DietoExpress: {{platform.providers_summary}}.
+No se utilizarán datos para una finalidad incompatible con aquella para la que fueron obtenidos.
 
-La relación con encargados y subencargados se documentará mediante los contratos y garantías correspondientes.
+## 5. Proveedores y encargados
 
-## 5. Transferencias internacionales
+Proveedores y categorías de destinatarios:  
+{{platform.providers_summary}}
 
-Situación documentada: {{platform.international_transfers_summary}}.
+Subencargados y procedimiento de autorización:  
+{{platform.subprocessors_summary}}
 
-## 6. Conservación
+## 6. Transferencias internacionales
 
-Los plazos se determinan por finalidad y tratamiento, conforme a la matriz de conservación vigente: {{platform.retention_policy_reference}}.
+Situación y garantías aplicables:  
+{{platform.international_transfers_summary}}
 
-## 7. Derechos
+## 7. Conservación
 
-La persona interesada puede ejercer los derechos que resulten aplicables contactando con {{platform.privacy_email}}. También puede acudir a la autoridad de protección de datos competente.
+Los datos se conservarán durante los plazos necesarios para cada finalidad y, cuando proceda, durante los periodos exigidos por obligaciones legales o para la defensa de responsabilidades. La referencia operativa es: {{platform.retention_policy_reference}}.
 
-## 8. Seguridad y brechas
+## 8. Derechos
 
-DietoExpress aplica medidas técnicas y organizativas proporcionales al riesgo y dispone de procedimientos para gestionar incidentes y brechas de datos personales.
+Las personas interesadas pueden ejercer los derechos que les correspondan, incluyendo acceso, rectificación, supresión, limitación, oposición y portabilidad cuando sean aplicables, mediante {{platform.privacy_email}}.
 
-## 9. Cambios
+También pueden presentar una reclamación ante la autoridad de protección de datos competente.
 
-Las modificaciones relevantes se publicarán con una nueva versión, conservando la evidencia de las versiones aceptadas cuando corresponda.
+## 9. Seguridad y brechas
 
-**Nota interna:** debe completarse con el RAT real, proveedores, transferencias, conservación y revisión jurídica antes de publicar.
+DietoExpress aplica medidas técnicas y organizativas apropiadas al riesgo. El canal y procedimiento operativo para incidentes y brechas se describe en: {{platform.breach_notification_summary}}.
+
+## 10. Comunicaciones comerciales
+
+Las comunicaciones asistenciales, operativas o necesarias para prestar el servicio se diferencian de las comunicaciones comerciales. Las comunicaciones comerciales por medios electrónicos se enviarán únicamente cuando exista una base jurídica válida y se facilitará un mecanismo sencillo para oponerse o darse de baja.
+
+## 11. Cambios
+
+Las modificaciones relevantes de esta política se publicarán mediante una nueva versión. La evidencia de las versiones aceptadas se conservará cuando corresponda.

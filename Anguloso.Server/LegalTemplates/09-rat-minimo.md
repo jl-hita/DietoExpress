@@ -1,38 +1,46 @@
 # Registro de Actividades de Tratamiento — DietoExpress
 
-**Responsable/rol:** {{rat.controller_role}}  
-**Organización:** {{rat.organization}}  
-**Fecha de revisión:** {{rat.review_date}}
+**Versión:** {{platform.document_version}}  
+**Fecha de revisión:** {{platform.rat_review_date}}
 
-## Actividades
+## 1. Responsable y alcance
 
-### Gestión de cuentas y usuarios
-Finalidad: alta, autenticación, seguridad, soporte y gestión contractual.  
-Categorías: usuarios profesionales y administradores.  
-Base jurídica: {{rat.accounts_legal_basis}}.  
-Conservación: {{rat.accounts_retention}}.
+**Responsable/rol:** {{platform.rat_controller_role}}  
+**Organización:** {{platform.legal_name}}  
+**NIF/CIF:** {{platform.tax_id}}  
+**Domicilio:** {{platform.address}}  
+**Contacto de privacidad:** {{platform.privacy_email}}
 
-### Suscripciones y facturación
-Finalidad: contratación, cobro, facturación y obligaciones legales.  
-Proveedores: Stripe y proveedores que se indiquen en el inventario.  
-Base jurídica: {{rat.billing_legal_basis}}.  
-Conservación: {{rat.billing_retention}}.
+Este registro describe, a nivel operativo, los tratamientos realizados por DietoExpress como prestador de la plataforma y distingue los tratamientos propios de aquellos en los que DietoExpress actúa por cuenta de profesionales o clínicas.
 
-### Pacientes cuando DietoExpress actúa como encargado
-Finalidad: prestar las funcionalidades contratadas por el profesional/centro.  
-Categorías: pacientes/clientes.  
-Datos: identificativos, contacto y datos relacionados con la atención nutricional.  
-Base jurídica determinada por el Responsable: {{rat.patient_legal_basis}}.  
-Conservación: conforme a las instrucciones del Responsable y obligaciones aplicables.
+## 2. Gestión de cuentas y seguridad
 
-### Seguridad y auditoría
-Finalidad: prevención, detección, investigación de incidentes y trazabilidad.  
-Base jurídica: {{rat.security_legal_basis}}.  
-Conservación: {{rat.security_retention}}.
+{{platform.rat_accounts_summary}}
 
-### Atención de derechos e incidentes
-Finalidad: gestionar solicitudes de derechos y brechas.  
-Base jurídica: {{rat.rights_legal_basis}}.  
-Conservación: {{rat.rights_retention}}.
+## 3. Suscripciones, facturación y obligaciones legales
 
-**Nota:** el RAT debe reflejar los tratamientos reales y ser revisado periódicamente.
+{{platform.rat_billing_summary}}
+
+## 4. Pacientes tratados por cuenta de profesionales o clínicas
+
+{{platform.rat_patient_summary}}
+
+## 5. Seguridad, auditoría e incidencias
+
+{{platform.rat_security_summary}}
+
+## 6. Derechos y solicitudes
+
+{{platform.rat_rights_summary}}
+
+## 7. Encargados, destinatarios y transferencias
+
+Proveedores y subencargados: {{platform.providers_summary}}.  
+Subencargados y procedimiento de autorización: {{platform.subprocessors_summary}}.  
+Transferencias internacionales y garantías aplicables: {{platform.international_transfers_summary}}.
+
+## 8. Conservación
+
+La conservación se determina por finalidad y tratamiento conforme a la matriz vigente: {{platform.retention_policy_reference}}.
+
+**Nota de control:** este RAT debe mantenerse actualizado cuando cambien los tratamientos, proveedores, finalidades, bases jurídicas o plazos.

@@ -66,7 +66,7 @@ public sealed class LegalDocumentsController : ControllerBase
         {
             new { Key = "01-aviso-legal", Title = "Aviso legal" },
             new { Key = "02-privacidad-dietoexpress", Title = "Política de privacidad" },
-            new { Key = "saas_terms", Title = "Términos y condiciones" },
+            new { Key = "03-terminos-saas", Title = "Términos y condiciones" },
             new { Key = "04-politica-cookies", Title = "Política de cookies" },
             new { Key = "05-dpa-encargo-tratamiento", Title = "Acuerdo de encargo del tratamiento" },
             new { Key = "08-condiciones-economicas", Title = "Condiciones económicas" }
@@ -76,8 +76,13 @@ public sealed class LegalDocumentsController : ControllerBase
             "legal_name", "tax_id", "address", "contact_email", "privacy_email",
             "providers_summary", "international_transfers_summary",
             "cookie_third_parties", "non_essential_cookies_summary",
-            "cancellation_policy_summary", "support_email", "claims_email",
-            "governing_law_summary", "document_version", "last_update_date"
+            "cancellation_policy_summary", "pricing_summary", "billing_terms_summary", "refund_summary",
+            "consumer_withdrawal_summary", "support_email", "claims_email",
+            "governing_law_summary", "document_version", "last_update_date",
+            "rat_controller_role", "rat_review_date", "rat_accounts_summary", "rat_billing_summary",
+            "rat_patient_summary", "rat_security_summary", "rat_rights_summary", "retention_matrix_summary",
+            "risk_owner", "risk_date", "risk_version", "risk_scope", "risk_summary", "risk_controls_summary",
+            "risk_residual_risk_summary", "risk_dpia_decision", "risk_dpia_justification", "risk_next_review"
         };
 
         await using var connection = new NpgsqlConnection(ConnectionString);
