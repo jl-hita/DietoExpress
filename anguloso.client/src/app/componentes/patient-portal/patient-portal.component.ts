@@ -69,6 +69,10 @@ export class PatientPortalComponent implements OnInit {
   pushSupported = false;
   pushEnabled = false;
   pushBusy = false;
+  commercialEmailEnabled = false;
+  commercialPreferenceLoaded = false;
+  commercialPreferenceSaving = false;
+  commercialPreferenceMessage: string | null = null;
   pushMessage: string | null = null;
 
   activeTab: ActiveTab = 'today';
@@ -222,6 +226,7 @@ export class PatientPortalComponent implements OnInit {
         if (!clientIdParam) {
           this.loadAppointments();
           this.loadNotifications();
+          this.loadCommercialPreference();
           this.loadDocuments();
           this.preparePushSupport();
         }
@@ -420,6 +425,36 @@ export class PatientPortalComponent implements OnInit {
         doc.signedAt = new Date().toISOString();
       },
       error: err => this.documentsError = err?.error?.message || 'No hemos podido registrar la aceptación.'
+    });
+  }
+
+  loadCommercialPreference(): void {
+    if (this.isPreview || this.commercialPreferenceLoaded) return;
+    this.portalService.getCommercialCommunicationPreference().subscribe({
+      next: value => {
+        this.commercialEmailEnabled = !!value?.emailEnabled;
+        this.commercialPreferenceLoaded = true;
+      },
+      error: () => this.commercialPreferenceMessage = 'No hemos podido cargar tus preferencias comerciales.'
+    });
+  }
+
+  updateCommercialPreference(): void {
+    if (this.isPreview || this.commercialPreferenceSaving) return;
+    this.commercialPreferenceSaving = true;
+    this.commercialPreferenceMessage = null;
+    this.portalService.updateCommercialCommunicationPreference(this.commercialEmailEnabled).subscribe({
+      next: () => {
+        this.commercialPreferenceSaving = false;
+        this.commercialPreferenceLoaded = true;
+        this.commercialPreferenceMessage = this.commercialEmailEnabled
+          ? 'Has activado las comunicaciones comerciales por email.'
+          : 'Has desactivado las comunicaciones comerciales por email.';
+      },
+      error: err => {
+        this.commercialPreferenceSaving = false;
+        this.commercialPreferenceMessage = err?.error?.message || 'No hemos podido guardar la preferencia.';
+      }
     });
   }
 
