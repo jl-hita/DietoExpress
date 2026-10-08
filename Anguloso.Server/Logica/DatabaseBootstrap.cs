@@ -35,6 +35,15 @@ public static class DatabaseBootstrap
 
         logger.LogInformation("Conexión con PostgreSQL establecida correctamente.");
 
+        // El registro de migraciones debe existir antes de ejecutar cualquier rutina histórica.
+        // No se puede esperar a UpgradeSaaSSchema: las migraciones legales/documentales se ejecutan antes.
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS schema_migrations (
+                id VARCHAR(200) PRIMARY KEY,
+                applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+        ");
+
         // El registro de incidencias forma parte del bootstrap para que los fallos de cualquier
         // fase posterior puedan persistirse sin depender de DDL en Program.cs.
         context.Database.ExecuteSqlRaw(@"
