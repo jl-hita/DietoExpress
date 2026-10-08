@@ -282,15 +282,32 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
           <p>Todavía no hay copias disponibles.</p>
         </div>
 
-        <div *ngIf="databaseRestoreCountdownActive" class="restore-countdown">
-  <div class="restore-countdown-icon"><mat-icon>schedule</mat-icon></div>
-  <div class="restore-countdown-content">
-    <strong>Restauración programada</strong>
-    <span>La restauración comenzará en <b>{{ databaseRestoreCountdownSeconds }}</b> segundos.</span>
-    <small>Prevista a las {{ databaseRestoreScheduledAt | date:'HH:mm:ss' }}</small>
-  </div>
-  <button mat-stroked-button color="warn" type="button" (click)="cancelDatabaseRestoreCountdown()">Cancelar</button>
-</div>
+        <div *ngIf="databaseRestoreRunning" class="restore-progress">
+          <div class="restore-progress-icon"><mat-icon>restore</mat-icon></div>
+          <div class="restore-progress-content">
+            <strong>{{ databaseRestorePhaseLabel }}</strong>
+            <span>{{ databaseRestorePhaseMessage }}</span>
+            <small>Tiempo transcurrido: {{ formatRestoreElapsed(databaseRestoreElapsedSeconds) }}</small>
+          </div>
+        </div>
+
+        <div *ngIf="databaseRestoreCompleted" class="restore-progress restore-progress-success">
+          <div class="restore-progress-icon"><mat-icon>check_circle</mat-icon></div>
+          <div class="restore-progress-content">
+            <strong>Restauración completada</strong>
+            <span>El backup se ha restaurado correctamente.</span>
+            <small>Tiempo total: {{ formatRestoreElapsed(databaseRestoreElapsedSeconds) }}</small>
+          </div>
+        </div>
+
+        <div *ngIf="databaseRestoreFailed" class="restore-progress restore-progress-error">
+          <div class="restore-progress-icon"><mat-icon>error</mat-icon></div>
+          <div class="restore-progress-content">
+            <strong>Restauración fallida</strong>
+            <span>El proceso no ha terminado correctamente. Revisa los logs del servidor.</span>
+            <small>Tiempo total: {{ formatRestoreElapsed(databaseRestoreElapsedSeconds) }}</small>
+          </div>
+        </div>
 
 <div class="backup-list" *ngIf="databaseBackups.length">
           <div class="backup-row" *ngFor="let backup of databaseBackups">
@@ -299,7 +316,7 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
               <span>{{ formatBackupSize(backup.sizeBytes) }} · {{ backup.createdAtUtc | date:'dd/MM/yyyy HH:mm':'UTC' }} UTC</span>
             </div>
             <div class="backup-actions">
-              <button mat-stroked-button (click)="verifyDatabaseBackup(backup)" [disabled]="databaseBackupOperation === backup.fileName">
+              <button mat-stroked-button (click)="verifyDatabaseBackup(backup)" [disabled]="databaseBackupOperation === backup.fileName || databaseRestoreRunning">
                 <mat-icon>verified</mat-icon> Verificar
               </button>
               <button mat-stroked-button color="warn" (click)="restoreDatabaseBackup(backup)" [disabled]="databaseBackupOperation === backup.fileName">
@@ -467,6 +484,12 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
       padding: 20px;
       border-radius: 12px;
     }
+    .restore-progress { display:flex; align-items:center; gap:14px; margin:16px 0; padding:14px 16px; border:1px solid #cbd5e1; border-radius:10px; background:#f8fafc; }
+    .restore-progress-icon { display:grid; place-items:center; flex:none; }
+    .restore-progress-content { display:grid; gap:4px; min-width:0; flex:1; }
+    .restore-progress-content small { color:#64748b; }
+    .restore-progress-success { border-color:#86efac; background:#f0fdf4; }
+    .restore-progress-error { border-color:#fca5a5; background:#fef2f2; }
     .backup-card { margin-bottom: 24px; }
     .backup-card .section-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; }
     .backup-card .section-header h2 { display:flex; align-items:center; gap:8px; }
@@ -701,7 +724,7 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   restoreDatabaseBackup(backup: AdminDatabaseBackup): void {
-    if (this.databaseBackupOperation || this.databaseRestoreCountdownActive) return;
+    if (this.databaseBackupOperation || this.databaseRestoreRunning) return;
     const confirmed = confirm(
       'ATENCIÓN: esta operación sustituirá la base de datos actual por la del backup seleccionado. ' +
       'Se creará automáticamente un backup del estado actual antes de restaurar y, si falla, se intentará hacer rollback. ¿Continuar?'
@@ -709,54 +732,75 @@ export class AdminDashboardComponent implements OnInit {
     if (!confirmed) return;
 
     this.databaseBackupOperation = backup.fileName;
-    this.databaseRestoreCountdownActive = true;
-    this.databaseRestoreCountdownSeconds = 10;
-    this.databaseRestoreScheduledAt = new Date(Date.now() + 10000);
+    this.databaseRestoreRunning = true;
+    this.databaseRestoreCompleted = false;
+    this.databaseRestoreFailed = false;
+    this.databaseRestoreElapsedSeconds = 0;
+    this.databaseRestorePhaseLabel = 'Iniciando restauración…';
+    this.databaseRestorePhaseMessage = 'Preparando la restauración del backup seleccionado.';
+    const startedAt = Date.now();
 
-    this.databaseRestoreCountdownTimer = setInterval(() => {
-      this.databaseRestoreCountdownSeconds = Math.max(
-        0,
-        Math.ceil((this.databaseRestoreScheduledAt!.getTime() - Date.now()) / 1000)
-      );
-      if (this.databaseRestoreCountdownSeconds === 0) {
-        this.clearDatabaseRestoreCountdownTimer();
-        this.databaseRestoreCountdownActive = false;
-        this.startDatabaseRestore(backup);
-      }
+    this.databaseRestoreTimer = setInterval(() => {
+      this.databaseRestoreElapsedSeconds = Math.floor((Date.now() - startedAt) / 1000);
     }, 250);
-  }
 
-  cancelDatabaseRestoreCountdown(): void {
-    this.clearDatabaseRestoreCountdownTimer();
-    this.databaseRestoreCountdownActive = false;
-    this.databaseRestoreScheduledAt = undefined;
-    this.databaseBackupOperation = '';
-    this.snackBar.open('Restauración cancelada.', 'OK', { duration: 3000 });
-  }
-
-  private clearDatabaseRestoreCountdownTimer(): void {
-    if (this.databaseRestoreCountdownTimer) {
-      clearInterval(this.databaseRestoreCountdownTimer);
-      this.databaseRestoreCountdownTimer = undefined;
-    }
-  }
-
-  private startDatabaseRestore(backup: AdminDatabaseBackup): void {
     this.adminService.restoreDatabaseBackup(backup.fileName).subscribe({
-      next: () => {
-        this.databaseBackupOperation = '';
-        this.databaseRestoreScheduledAt = undefined;
-        this.snackBar.open('Restauración iniciada. DietoExpress se reiniciará cuando termine el proceso.', 'OK', { duration: 8000 });
-        this.loadDatabaseBackups();
-      },
+      next: () => this.startDatabaseRestorePolling(backup.fileName, startedAt),
       error: err => {
-        this.databaseBackupOperation = '';
-        this.databaseRestoreScheduledAt = undefined;
-        const message = err?.error?.detail || err?.error?.title || 'No se pudo restaurar el backup.';
+        this.finishDatabaseRestore(false);
+        const message = err?.error?.detail || err?.error?.title || 'No se pudo iniciar la restauración.';
         this.snackBar.open(message, 'Cerrar', { duration: 8000 });
-        this.loadDatabaseBackups();
       }
     });
+  }
+
+  private startDatabaseRestorePolling(fileName: string, startedAt: number): void {
+    const poll = () => {
+      this.adminService.getDatabaseRestoreStatus(fileName).subscribe({
+        next: status => {
+          if (status.phase === 'completed') {
+            this.finishDatabaseRestore(true);
+            this.databaseRestoreElapsedSeconds = Math.max(this.databaseRestoreElapsedSeconds, Math.floor((Date.now() - startedAt) / 1000));
+            this.snackBar.open('Restauración completada correctamente.', 'OK', { duration: 8000 });
+            this.loadDatabaseBackups();
+            return;
+          }
+          if (status.phase === 'failed') {
+            this.finishDatabaseRestore(false);
+            this.databaseRestoreElapsedSeconds = Math.max(this.databaseRestoreElapsedSeconds, Math.floor((Date.now() - startedAt) / 1000));
+            this.snackBar.open('La restauración ha fallado. Revisa los logs del servidor.', 'Cerrar', { duration: 8000 });
+            return;
+          }
+          this.databaseRestorePhaseLabel = status.phase === 'starting' ? 'Iniciando restauración…' : 'Restaurando PostgreSQL…';
+          this.databaseRestorePhaseMessage = status.phase === 'starting'
+            ? 'El servicio de restauración está arrancando.'
+            : 'La base de datos se está restaurando. DietoExpress puede estar temporalmente no disponible.';
+        },
+        error: () => {
+          this.databaseRestorePhaseLabel = 'Restaurando PostgreSQL…';
+          this.databaseRestorePhaseMessage = 'DietoExpress está temporalmente detenido mientras termina la restauración.';
+        }
+      });
+    };
+    poll();
+    this.databaseRestorePollTimer = setInterval(poll, 1500);
+  }
+
+  private finishDatabaseRestore(success: boolean): void {
+    if (this.databaseRestoreTimer) clearInterval(this.databaseRestoreTimer);
+    if (this.databaseRestorePollTimer) clearInterval(this.databaseRestorePollTimer);
+    this.databaseRestoreTimer = undefined;
+    this.databaseRestorePollTimer = undefined;
+    this.databaseRestoreRunning = false;
+    this.databaseRestoreCompleted = success;
+    this.databaseRestoreFailed = !success;
+    this.databaseBackupOperation = '';
+  }
+
+  formatRestoreElapsed(seconds: number): string {
+    const minutes = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const secs = (seconds % 60).toString().padStart(2, '0');
+    return minutes + ':' + secs;
   }
 
   formatBackupSize(bytes: number): string {
