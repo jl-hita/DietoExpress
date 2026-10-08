@@ -264,7 +264,7 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
         <div class="section-header">
           <div>
             <h2><mat-icon>backup</mat-icon> Copias de seguridad de PostgreSQL</h2>
-            <p class="section-subtitle">Crea una copia operativa desde el panel y descarga las copias disponibles. La restauración de producción continúa siendo una operación controlada de infraestructura.</p>
+            <p class="section-subtitle">Backups manuales y semanales. Puedes verificar una copia o iniciar una restauración controlada.</p>
           </div>
           <button mat-flat-button color="primary" (click)="createDatabaseBackup()" [disabled]="databaseBackupRunning || !databaseBackupConfigured">
             <mat-icon>save</mat-icon>
@@ -288,9 +288,17 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
               <strong>{{ backup.fileName }}</strong>
               <span>{{ formatBackupSize(backup.sizeBytes) }} · {{ backup.createdAtUtc | date:'dd/MM/yyyy HH:mm':'UTC' }} UTC</span>
             </div>
-            <a mat-stroked-button color="primary" [href]="adminService.getDatabaseBackupDownloadUrl(backup.fileName)">
-              <mat-icon>download</mat-icon> Descargar
-            </a>
+            <div class="backup-actions">
+              <button mat-stroked-button (click)="verifyDatabaseBackup(backup)" [disabled]="databaseBackupOperation === backup.fileName">
+                <mat-icon>verified</mat-icon> Verificar
+              </button>
+              <button mat-stroked-button color="warn" (click)="restoreDatabaseBackup(backup)" [disabled]="databaseBackupOperation === backup.fileName">
+                <mat-icon>restore</mat-icon> Restaurar
+              </button>
+              <a mat-stroked-button color="primary" [href]="adminService.getDatabaseBackupDownloadUrl(backup.fileName)">
+                <mat-icon>download</mat-icon> Descargar
+              </a>
+            </div>
           </div>
         </div>
       </mat-card>
@@ -555,6 +563,10 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
     .text-muted { color: #94a3b8; font-size: 12px; }
     .text-right { text-align: right; }
 
+    .backup-policy { display:flex; align-items:center; gap:8px; padding:10px 12px; margin-bottom:12px; border-radius:8px; background:#f1f5f9; color:#475569; font-size:13px; }
+    .backup-policy mat-icon { font-size:20px; width:20px; height:20px; }
+    .backup-actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+
     .empty-state {
       text-align: center;
       padding: 40px;
@@ -582,6 +594,7 @@ export class AdminDashboardComponent implements OnInit {
   databaseBackups: AdminDatabaseBackup[] = [];
   databaseBackupConfigured = false;
   databaseBackupRunning = false;
+  databaseBackupOperation = '';
   displayedColumns = ['user', 'plan', 'status', 'expires', 'usage', 'lastLogin', 'actions'];
   configDisplayedColumns = ['id', 'nombre', 'valor'];
   configTabs = [{key:'PLATFORM',label:'Plataforma'},{key:'EMAIL',label:'Email'},{key:'GOOGLE',label:'Google / Calendario'},{key:'VIDEO',label:'Videollamadas'},{key:'FOOD',label:'Alimentos'},{key:'NOTIFICATIONS',label:'Notificaciones'},{key:'ADDRESS',label:'Direcciones'},{key:'OTHER',label:'Otros'}];
@@ -646,6 +659,46 @@ export class AdminDashboardComponent implements OnInit {
         this.databaseBackupRunning = false;
         const message = err?.error?.detail || err?.error?.title || 'No se pudo crear el backup.';
         this.snackBar.open(message, 'Cerrar', { duration: 6000 });
+      }
+    });
+  }
+
+  verifyDatabaseBackup(backup: AdminDatabaseBackup): void {
+    if (this.databaseBackupOperation) return;
+    this.databaseBackupOperation = backup.fileName;
+    this.adminService.verifyDatabaseBackup(backup.fileName).subscribe({
+      next: () => {
+        this.databaseBackupOperation = '';
+        this.snackBar.open('Backup verificado correctamente.', 'OK', { duration: 4000 });
+      },
+      error: err => {
+        this.databaseBackupOperation = '';
+        const message = err?.error?.detail || err?.error?.title || 'No se pudo verificar el backup.';
+        this.snackBar.open(message, 'Cerrar', { duration: 6000 });
+      }
+    });
+  }
+
+  restoreDatabaseBackup(backup: AdminDatabaseBackup): void {
+    if (this.databaseBackupOperation) return;
+    const confirmed = confirm(
+      'ATENCIÓN: esta operación sustituirá la base de datos actual por la del backup seleccionado. ' +
+      'Se creará automáticamente un backup del estado actual antes de restaurar y, si falla, se intentará hacer rollback. ¿Continuar?'
+    );
+    if (!confirmed) return;
+
+    this.databaseBackupOperation = backup.fileName;
+    this.adminService.restoreDatabaseBackup(backup.fileName).subscribe({
+      next: () => {
+        this.databaseBackupOperation = '';
+        this.snackBar.open('Restauración iniciada. DietoExpress se reiniciará cuando termine el proceso.', 'OK', { duration: 8000 });
+        this.loadDatabaseBackups();
+      },
+      error: err => {
+        this.databaseBackupOperation = '';
+        const message = err?.error?.detail || err?.error?.title || 'No se pudo restaurar el backup.';
+        this.snackBar.open(message, 'Cerrar', { duration: 8000 });
+        this.loadDatabaseBackups();
       }
     });
   }

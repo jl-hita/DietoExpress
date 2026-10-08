@@ -1,0 +1,11 @@
+[Unit]
+Description=Backup semanal de DietoExpress
+
+[Timer]
+OnCalendar=Sun 02:00
+Persistent=true
+RandomizedDelaySec=15m
+Unit=dietoexpress-backup.service
+
+[Install]
+WantedBy=timers.target

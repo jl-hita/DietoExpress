@@ -6,9 +6,26 @@ El SuperAdmin puede consultar, crear y descargar copias de seguridad PostgreSQL 
 
 Las copias contienen datos sensibles. Deben tratarse como información protegida y conservarse según la política de seguridad y retención de DietoExpress.
 
-La restauración de producción **no se ejecuta desde la interfaz web**. Es una operación de infraestructura deliberadamente separada del proceso ASP.NET para evitar que la aplicación pueda destruirse o quedar inutilizada mientras se está restaurando su propia base de datos.
+La restauración de producción puede iniciarse desde la interfaz de SuperAdmin, pero **no se ejecuta dentro del proceso ASP.NET**. La aplicación solicita una unidad systemd independiente que realiza la restauración y detiene/reinicia DietoExpress de forma controlada.
 
-## 2. Crear un backup desde SuperAdmin
+## 2. Backups automáticos semanales
+
+Producción instala un `systemd timer` que ejecuta un backup cada domingo de madrugada, con un pequeño retraso aleatorio para evitar coincidencias rígidas con otras tareas.
+
+La política por defecto conserva las **8 últimas copias**. El backup automático y el backup manual desde SuperAdmin utilizan el mismo directorio y la misma política de retención.
+
+Puedes comprobar el timer en el servidor:
+
+```bash
+systemctl status dietoexpress-backup.timer
+systemctl list-timers dietoexpress-backup.timer
+journalctl -u dietoexpress-backup.service --since "7 days ago" --no-pager
+```
+
+La retención elimina el dump y sus sidecars SHA-256/metadatos juntos. No se borran archivos que no tengan el nombre de backup esperado.
+
+## 3. Crear un backup desde SuperAdmin
+
 
 1. Entrar con una cuenta con rol `superadmin`.
 2. Abrir el panel de Administración.
@@ -21,7 +38,7 @@ La restauración de producción **no se ejecuta desde la interfaz web**. Es una 
 
 Si la sección indica que el backup no está configurado, no se debe intentar solucionar el problema modificando datos desde la aplicación. La configuración del destino y de PostgreSQL corresponde a la operación del servidor.
 
-## 3. Qué contiene una copia
+## 4. Qué contiene una copia
 
 El sistema utiliza el script operativo `scripts/dietoexpress-backup.sh`.
 
@@ -31,9 +48,9 @@ La configuración de producción puede incluirse en el backup mediante la opció
 
 **Nunca** enviar un backup, el archivo de configuración de producción ni sus secretos por correo, tickets o canales no autorizados.
 
-## 4. Verificación antes de restaurar
+## 5. Verificación antes de restaurar
 
-Antes de modificar una base de datos se debe comprobar el backup:
+Antes de modificar una base de datos se debe comprobar el backup. Desde SuperAdmin puede hacerse con **Verificar** en la fila de la copia; equivale al preflight `--verify` del servidor.
 
 ```bash
 ./scripts/dietoexpress-restore.sh --verify dietoexpress-postgresql-XXXXXXXX.dump
@@ -49,7 +66,7 @@ El preflight comprueba:
 
 El modo `--verify` **no modifica la base de datos ni detiene DietoExpress**.
 
-## 5. Restauración controlada de producción
+## 6. Restauración controlada de producción
 
 La restauración debe realizarla un administrador de infraestructura con acceso al servidor. No se debe ejecutar desde el navegador ni mediante una petición HTTP.
 
@@ -62,7 +79,7 @@ Antes de restaurar:
 5. Comprobar que existe espacio suficiente.
 6. Confirmar que PostgreSQL está operativo.
 
-La operación se inicia en el servidor con:
+La operación puede iniciarse desde SuperAdmin con **Restaurar**. La petición devuelve inmediatamente después de crear una unidad systemd independiente, porque el proceso de restauración detiene `dietoexpress.service`. El mismo flujo también puede iniciarse manualmente en el servidor con:
 
 ```bash
 ./scripts/dietoexpress-restore.sh --restore dietoexpress-postgresql-XXXXXXXX.dump --confirm
@@ -80,7 +97,7 @@ El helper realiza, en este orden:
 
 Si tanto la restauración como el rollback fallan, se considera un incidente crítico y no se deben realizar cambios manuales adicionales sin conservar primero toda la evidencia y consultar el procedimiento de recuperación.
 
-## 6. Después de restaurar
+## 7. Después de restaurar
 
 Comprobar siempre:
 
@@ -102,7 +119,7 @@ Después realizar el smoke test de producción:
 
 Si la restauración corresponde a una versión anterior, comprobar también la compatibilidad entre el código desplegado y el esquema restaurado.
 
-## 7. Restauración de prueba
+## 8. Restauración de prueba
 
 La existencia de backups y del script de restauración **no demuestra que el proceso de recuperación haya sido probado**.
 
@@ -110,7 +127,7 @@ Para cerrar este requisito de 1.0 se debe realizar una restauración real en una
 
 La prueba debe hacerse sin tocar la base de producción.
 
-## 8. Reglas de seguridad
+## 9. Reglas de seguridad
 
 - Solo `superadmin` puede gestionar backups desde la aplicación.
 - No ejecutar restauraciones mediante endpoints web.
@@ -122,7 +139,7 @@ La prueba debe hacerse sin tocar la base de producción.
 - Registrar las restauraciones e incidencias operativas.
 - Ante una restauración dudosa, detenerse y verificar primero el backup mediante `--verify`.
 
-## 9. Resumen operativo
+## 10. Resumen operativo
 
 **Backup normal:** SuperAdmin → Administración → Copias de seguridad → Crear backup.
 
@@ -130,6 +147,6 @@ La prueba debe hacerse sin tocar la base de producción.
 
 **Comprobación:** `--verify`.
 
-**Restauración:** operación de infraestructura con `--restore ... --confirm`, nunca desde la aplicación web.
+**Restauración:** SuperAdmin → **Restaurar**, o manualmente con `--restore ... --confirm`. La interfaz solo inicia la unidad systemd; el `pg_restore` se ejecuta fuera del proceso web.
 
 **Incidente durante restore:** el helper intenta rollback automático al backup creado inmediatamente antes de la restauración.

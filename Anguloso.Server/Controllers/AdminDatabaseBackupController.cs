@@ -29,6 +29,32 @@ public sealed class AdminDatabaseBackupController : ControllerBase
         }
     }
 
+    [HttpPost("{fileName}/verify")]
+    public async Task<IActionResult> Verify(string fileName, CancellationToken ct)
+    {
+        try
+        {
+            var output = await _backups.VerifyAsync(fileName, ct);
+            return Ok(new { fileName, verified = true, output });
+        }
+        catch (FileNotFoundException) { return NotFound(); }
+        catch (ArgumentException) { return BadRequest(); }
+        catch (InvalidOperationException ex) { return Problem(title: "No se pudo verificar el backup", detail: ex.Message, statusCode: StatusCodes.Status500InternalServerError); }
+    }
+
+    [HttpPost("{fileName}/restore")]
+    public async Task<IActionResult> Restore(string fileName, CancellationToken ct)
+    {
+        try
+        {
+            var output = await _backups.RestoreAsync(fileName, ct);
+            return Accepted(new { fileName, restored = false, started = true, output });
+        }
+        catch (FileNotFoundException) { return NotFound(); }
+        catch (ArgumentException) { return BadRequest(); }
+        catch (InvalidOperationException ex) { return Problem(title: "No se pudo restaurar el backup", detail: ex.Message, statusCode: StatusCodes.Status500InternalServerError); }
+    }
+
     [HttpGet("{fileName}")]
     public IActionResult Download(string fileName)
     {

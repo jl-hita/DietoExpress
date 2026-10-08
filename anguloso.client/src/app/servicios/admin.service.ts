@@ -196,6 +196,18 @@ export class AdminService {
     return `${this.adminUrl}/database-backups/${encodeURIComponent(fileName)}`;
   }
 
+  verifyDatabaseBackup(fileName: string): Observable<{ fileName: string; verified: boolean; output: string }> {
+    return this.http.post<{ fileName: string; verified: boolean; output: string }>(
+      `${this.adminUrl}/database-backups/${encodeURIComponent(fileName)}/verify`, {}
+    );
+  }
+
+  restoreDatabaseBackup(fileName: string): Observable<{ fileName: string; restored: boolean; output: string }> {
+    return this.http.post<{ fileName: string; restored: boolean; output: string }>(
+      `${this.adminUrl}/database-backups/${encodeURIComponent(fileName)}/restore`, {}
+    );
+  }
+
   getLogMetadata(date?: string): Observable<AdminLog> {
     const params: any = {};
     if (date) params.date = date;

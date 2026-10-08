@@ -93,6 +93,10 @@ jobs:
           mkdir -p /opt/dietoexpress/wwwroot
           cp -a /tmp/dietoexpress-frontend/. /opt/dietoexpress/wwwroot/
 
+      - name: Configurar backups automáticos y restauración segura
+        run: |
+          sudo bash /opt/dietoexpress/scripts/install-dietoexpress-backup-automation.sh
+
       - name: Desplegar frontend
         run: |
           rm -rf /var/www/dietoexpress/*
