@@ -1,0 +1,91 @@
+using System.Security.Cryptography;
+using System.Text;
+using Npgsql;
+
+namespace Anguloso.Server.Logica;
+
+public sealed class CommercialCommunicationService
+{
+    private readonly IConfiguration _configuration;
+    private readonly string _connectionString;
+
+    public CommercialCommunicationService(IConfiguration configuration)
+    {
+        _configuration = configuration;
+        _connectionString = configuration.GetConnectionString("DefaultConnection")
+            ?? throw new InvalidOperationException("DefaultConnection no está configurada.");
+    }
+
+    public async Task<bool> IsOptedInAsync(int clientId, CancellationToken cancellationToken = default)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new NpgsqlCommand("""
+            SELECT email_enabled
+            FROM patient_commercial_communication_preferences
+            WHERE client_id=@client
+            LIMIT 1;
+            """, connection);
+        command.Parameters.AddWithValue("client", clientId);
+        return (bool?)await command.ExecuteScalarAsync(cancellationToken) == true;
+    }
+
+    public async Task SetEmailPreferenceAsync(int clientId, int tenantId, bool enabled, CancellationToken cancellationToken = default)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        if (!enabled)
+        {
+            await using var disable = new NpgsqlCommand("""
+                UPDATE patient_commercial_communication_preferences
+                SET email_enabled=false, unsubscribed_at=NOW(), updated_at=NOW()
+                WHERE client_id=@client AND tenant_id=@tenant;
+                """, connection, transaction);
+            disable.Parameters.AddWithValue("client", clientId);
+            disable.Parameters.AddWithValue("tenant", tenantId);
+            await disable.ExecuteNonQueryAsync(cancellationToken);
+        }
+        else
+        {
+            var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
+            var hash = HashToken(token);
+            await using var enable = new NpgsqlCommand("""
+                INSERT INTO patient_commercial_communication_preferences
+                    (client_id, tenant_id, email_enabled, unsubscribe_token_hash, unsubscribed_at, updated_at)
+                VALUES (@client,@tenant,true,@hash,NULL,NOW())
+                ON CONFLICT (client_id)
+                DO UPDATE SET tenant_id=EXCLUDED.tenant_id,
+                              email_enabled=true,
+                              unsubscribe_token_hash=EXCLUDED.unsubscribe_token_hash,
+                              unsubscribed_at=NULL,
+                              updated_at=NOW();
+                """, connection, transaction);
+            enable.Parameters.AddWithValue("client", clientId);
+            enable.Parameters.AddWithValue("tenant", tenantId);
+            enable.Parameters.AddWithValue("hash", hash);
+            await enable.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+    }
+
+    public async Task<bool> UnsubscribeAsync(string token, CancellationToken cancellationToken = default)
+    {
+        var hash = HashToken(token);
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new NpgsqlCommand("""
+            UPDATE patient_commercial_communication_preferences
+            SET email_enabled=false, unsubscribed_at=NOW(), updated_at=NOW()
+            WHERE unsubscribe_token_hash=@hash
+            RETURNING client_id;
+            """, connection);
+        command.Parameters.AddWithValue("hash", hash);
+        return await command.ExecuteScalarAsync(cancellationToken) is not null;
+    }
+
+    private static string HashToken(string token) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))).ToLowerInvariant();
+}
