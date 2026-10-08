@@ -4,6 +4,7 @@ using Anguloso.Server.Models;
 using Google.Apis.Http;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
@@ -39,6 +40,7 @@ public class Program
 builder.Services.AddScoped<SupportEnhancementService>();
         builder.Services.AddScoped<SupportService>();
         builder.Services.AddSingleton<DatabaseBackupService>();
+        builder.Services.AddScoped<CommercialCommunicationService>();
         // El servicio comparte la lógica de publicación entre peticiones y el worker; el worker separado procesa los jobs sin bloquear las peticiones HTTP.
         builder.Services.AddSingleton<AutomationService>();
         builder.Services.AddScoped<PatientPortalAccessService>(); builder.Services.AddScoped<PatientDocumentService>(); builder.Services.AddSingleton<PatientDocumentTemplateSeeder>(); builder.Services.AddScoped<PrivacyOperationsService>(); builder.Services.AddScoped<LegalGovernanceService>();
@@ -160,6 +162,7 @@ CREATE INDEX IF NOT EXISTS idx_system_alerts_active
     ON system_alerts(resolved_at, severity, last_seen_at DESC);
 ");
                 DatabaseBootstrap.InitializeDatabaseAsync(context, logger);
+                using (var legalConnection = new NpgsqlConnection(connectionString)) { legalConnection.Open(); LegalCommunicationsSchema.Initialize(legalConnection); }
                 DatabaseBootstrap.EnsureCurrentSchema(context, logger);
                 DatabaseBootstrap.UpgradeDocumentTemplateSchemaV1(context, logger);
                 DatabaseBootstrap.UpgradeLegalComplianceSchemaV1(context, logger); DatabaseBootstrap.UpgradeLegalConfigurationSchemaV1(context, logger); DatabaseBootstrap.UpgradeLegalGeneratedDocumentsSchemaV1(context, logger); DatabaseBootstrap.UpgradePrivacyOperationsSchemaV1(context, logger); DatabaseBootstrap.UpgradeLegalGovernanceSchemaV1(context, logger);
