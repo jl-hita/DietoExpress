@@ -1963,6 +1963,33 @@ public sealed class AutomationService
             _ => "normal"
         };
 
+    /// <summary>Programa un envío comercial. El consentimiento se comprueba de nuevo por el worker justo antes del SMTP.</summary>
+    public async Task<long> ScheduleCommercialEmailAsync(
+        int tenantId,
+        int clientId,
+        string subject,
+        string htmlBody,
+        DateTime scheduledAt,
+        long? eventId = null,
+        string? idempotencyKey = null,
+        int maxAttempts = 3,
+        CancellationToken cancellationToken = default)
+    {
+        var optedIn = await new CommercialCommunicationService(new ConfigurationManager()).IsOptedInAsync(clientId, cancellationToken);
+        if (!optedIn)
+            return 0;
+
+        return await ScheduleRawActionAsync(
+            tenantId,
+            "commercial_email_patient",
+            new CommercialEmailPatientAction(clientId, subject, htmlBody),
+            scheduledAt,
+            eventId,
+            idempotencyKey ?? $"commercial-email:{clientId}:{Guid.NewGuid():N}",
+            maxAttempts,
+            cancellationToken);
+    }
+
     public sealed record ClientOnboardingCompletedPayload(int ClientId, int? NutritionistId);
     public sealed record ClientCreatedPayload(int ClientId, int? NutritionistId);
     public sealed record CheckinReviewedPayload(int ClientId, int? NutritionistId);
