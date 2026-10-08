@@ -17,23 +17,15 @@
 .auth-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
-  color: #123b39;
-  font-size: 21px;
-  font-weight: 800;
+  justify-content: center;
   margin-bottom: 34px;
 }
 
-.brand-mark {
-  width: 36px;
-  height: 36px;
-  display: grid;
-  place-items: center;
-  border-radius: 11px;
-  background: #0d9488;
-  color: white;
-  font-size: 18px;
-  font-weight: 800;
+.brand-logo {
+  display: block;
+  width: 270px;
+  height: auto;
+  max-width: 90vw;
 }
 
 .auth-card {
