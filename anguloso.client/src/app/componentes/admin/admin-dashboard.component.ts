@@ -15,7 +15,7 @@ import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTabsModule } from '@angular/material/tabs';
-import { AdminService, AdminAlert, AdminConfig, AdminStats, AdminUser, AdminPlan, CreateAdminAccountDto, AdminVideoUsage } from '../../servicios/admin.service';
+import { AdminService, AdminAlert, AdminConfig, AdminStats, AdminUser, AdminPlan, CreateAdminAccountDto, AdminVideoUsage, AdminDatabaseBackup } from '../../servicios/admin.service';
 import { EditLicenseDialogComponent } from './edit-license-dialog.component';
 import { ResetPasswordDialogComponent } from './reset-password-dialog.component';
 import { CreateAdminAccountDialogComponent } from './create-admin-account-dialog.component';
@@ -260,6 +260,41 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
         </div>
       </mat-card>
 
+      <mat-card class="table-card backup-card">
+        <div class="section-header">
+          <div>
+            <h2><mat-icon>backup</mat-icon> Copias de seguridad de PostgreSQL</h2>
+            <p class="section-subtitle">Crea una copia operativa desde el panel y descarga las copias disponibles. La restauración de producción continúa siendo una operación controlada de infraestructura.</p>
+          </div>
+          <button mat-flat-button color="primary" (click)="createDatabaseBackup()" [disabled]="databaseBackupRunning || !databaseBackupConfigured">
+            <mat-icon>save</mat-icon>
+            {{ databaseBackupRunning ? 'Creando copia…' : 'Crear backup ahora' }}
+          </button>
+        </div>
+
+        <div *ngIf="!databaseBackupConfigured" class="backup-warning">
+          <mat-icon>warning_amber</mat-icon>
+          <span>Las copias no están configuradas en el servidor. Debe definirse <code>DIETOEXPRESS_BACKUP_DIR</code> y la conexión de PostgreSQL.</span>
+        </div>
+
+        <div *ngIf="databaseBackupConfigured && databaseBackups.length === 0" class="empty-state backup-empty">
+          <mat-icon>cloud_off</mat-icon>
+          <p>Todavía no hay copias disponibles.</p>
+        </div>
+
+        <div class="backup-list" *ngIf="databaseBackups.length">
+          <div class="backup-row" *ngFor="let backup of databaseBackups">
+            <div>
+              <strong>{{ backup.fileName }}</strong>
+              <span>{{ formatBackupSize(backup.sizeBytes) }} · {{ backup.createdAtUtc | date:'dd/MM/yyyy HH:mm':'UTC' }} UTC</span>
+            </div>
+            <a mat-stroked-button color="primary" [href]="adminService.getDatabaseBackupDownloadUrl(backup.fileName)">
+              <mat-icon>download</mat-icon> Descargar
+            </a>
+          </div>
+        </div>
+      </mat-card>
+
       <!-- Application Configuration -->
       <mat-card class="table-card config-card">
         <div class="section-header">
@@ -414,9 +449,17 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
       padding: 20px;
       border-radius: 12px;
     }
-    .config-card {
-      margin-top: 24px;
-    }
+    .backup-card { margin-bottom: 24px; }
+    .backup-card .section-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; }
+    .backup-card .section-header h2 { display:flex; align-items:center; gap:8px; }
+    .backup-list { display:grid; gap:8px; }
+    .backup-row { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:12px 14px; border:1px solid #e2e8f0; border-radius:10px; background:#f8fafc; }
+    .backup-row > div { min-width:0; display:grid; gap:3px; }
+    .backup-row strong { overflow-wrap:anywhere; }
+    .backup-row span { color:#64748b; font-size:12px; }
+    .backup-warning { display:flex; align-items:flex-start; gap:10px; padding:12px 14px; border-radius:10px; background:#fffbeb; border:1px solid #fde68a; color:#92400e; }
+    .backup-warning mat-icon { flex:none; }
+    .config-card { margin-top: 24px; }
     .video-usage-card {
       margin: 0 0 18px;
       padding: 14px 16px;
@@ -536,6 +579,9 @@ export class AdminDashboardComponent implements OnInit {
   userPageSize = 25;
   configs: AdminConfig[] = [];
   videoUsage?: AdminVideoUsage;
+  databaseBackups: AdminDatabaseBackup[] = [];
+  databaseBackupConfigured = false;
+  databaseBackupRunning = false;
   displayedColumns = ['user', 'plan', 'status', 'expires', 'usage', 'lastLogin', 'actions'];
   configDisplayedColumns = ['id', 'nombre', 'valor'];
   configTabs = [{key:'PLATFORM',label:'Plataforma'},{key:'EMAIL',label:'Email'},{key:'GOOGLE',label:'Google / Calendario'},{key:'VIDEO',label:'Videollamadas'},{key:'FOOD',label:'Alimentos'},{key:'NOTIFICATIONS',label:'Notificaciones'},{key:'ADDRESS',label:'Direcciones'},{key:'OTHER',label:'Otros'}];
@@ -548,7 +594,7 @@ export class AdminDashboardComponent implements OnInit {
   planFilter = '';
 
   constructor(
-    private adminService: AdminService,
+    public adminService: AdminService,
     private dialog: MatDialog,
     private snackBar: MatSnackBar
   ) {}
@@ -570,10 +616,45 @@ export class AdminDashboardComponent implements OnInit {
     this.loadUsers();
     this.loadConfig();
     this.loadVideoUsage();
+    this.loadDatabaseBackups();
     this.adminService.getPlans().subscribe({
       next: plans => this.plans = plans.filter(p => p.active),
       error: () => this.snackBar.open('Error al cargar los planes.', 'Cerrar', { duration: 4000 })
     });
+  }
+
+  loadDatabaseBackups(): void {
+    this.adminService.getDatabaseBackups().subscribe({
+      next: result => {
+        this.databaseBackupConfigured = result.configured;
+        this.databaseBackups = result.items;
+      },
+      error: () => this.snackBar.open('No se pudo consultar el estado de las copias.', 'Cerrar', { duration: 4000 })
+    });
+  }
+
+  createDatabaseBackup(): void {
+    if (this.databaseBackupRunning || !this.databaseBackupConfigured) return;
+    this.databaseBackupRunning = true;
+    this.adminService.createDatabaseBackup().subscribe({
+      next: backup => {
+        this.databaseBackups = [backup, ...this.databaseBackups.filter(x => x.fileName !== backup.fileName)];
+        this.databaseBackupRunning = false;
+        this.snackBar.open('Backup creado correctamente.', 'OK', { duration: 4000 });
+      },
+      error: err => {
+        this.databaseBackupRunning = false;
+        const message = err?.error?.detail || err?.error?.title || 'No se pudo crear el backup.';
+        this.snackBar.open(message, 'Cerrar', { duration: 6000 });
+      }
+    });
+  }
+
+  formatBackupSize(bytes: number): string {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
   }
 
   loadVideoUsage(): void {

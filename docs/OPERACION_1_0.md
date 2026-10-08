@@ -56,7 +56,19 @@ Procedimiento recomendado:
 6. Registrar el resultado.
 7. Solo después planificar una restauración sobre producción si fuese necesaria.
 
-La existencia del script de backup **no significa que la restauración haya sido probada**. Esa prueba debe realizarse de forma controlada y quedar registrada.
+Para una restauración controlada sobre producción existe `scripts/dietoexpress-restore.sh`. El helper exige checksum válido y formato PostgreSQL correcto, crea automáticamente un backup pre-restauración, detiene `dietoexpress.service`, ejecuta `pg_restore --clean --if-exists --no-owner` y, si la restauración falla, intenta recuperar automáticamente el backup previo. El arranque final del servicio se comprueba con systemd.
+
+Ejemplos:
+
+```bash
+# Solo preflight: no modifica producción.
+./scripts/dietoexpress-restore.sh --verify dietoexpress-postgresql-XXXXXXXX.dump
+
+# Restauración controlada. Requiere sudo no interactivo para systemctl.
+./scripts/dietoexpress-restore.sh --restore dietoexpress-postgresql-XXXXXXXX.dump --confirm
+```
+
+El helper está pensado para una operación de infraestructura, no para ejecutarse desde el proceso web ni como respuesta HTTP. La existencia del script **no significa que la restauración haya sido probada**. Esa prueba debe realizarse de forma controlada y quedar registrada.
 
 ## Rollback de aplicación
 
