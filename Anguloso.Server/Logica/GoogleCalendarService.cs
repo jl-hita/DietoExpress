@@ -229,7 +229,19 @@ public sealed class GoogleCalendarService
             };
             if (appointment.status == "cancelled") payload["status"] = "cancelled";
             var existing = await GetEventAsync(accessToken, connection.calendar_id, eventId, cancellationToken);
-            await SendEventAsync(accessToken, connection.calendar_id, eventId, payload, existing == null ? "PUT" : "PUT", cancellationToken);
+
+            // Google usa POST (events.insert) para crear y PUT (events.update) para modificar.
+            // Un PUT sobre un evento que todavía no existe devuelve 404.
+            if (existing == null)
+            {
+                if (appointment.status == "cancelled") continue;
+                payload["id"] = eventId;
+                await SendEventAsync(accessToken, connection.calendar_id, eventId, payload, "POST", cancellationToken);
+            }
+            else
+            {
+                await SendEventAsync(accessToken, connection.calendar_id, eventId, payload, "PUT", cancellationToken);
+            }
         }
     }
 
@@ -319,7 +331,10 @@ public sealed class GoogleCalendarService
     {
         using var client = CreateClient(accessToken);
         using var content = new StringContent(JsonSerializer.Serialize(payload, JsonOptions), Encoding.UTF8, "application/json");
-        using var request = new HttpRequestMessage(new HttpMethod(method), "https://www.googleapis.com/calendar/v3/calendars/" + Uri.EscapeDataString(calendarId) + "/events/" + Uri.EscapeDataString(eventId));
+        var url = "https://www.googleapis.com/calendar/v3/calendars/" + Uri.EscapeDataString(calendarId) + "/events";
+        if (method == "PUT")
+            url += "/" + Uri.EscapeDataString(eventId);
+        using var request = new HttpRequestMessage(new HttpMethod(method), url);
         request.Content = content;
         using var response = await client.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)
