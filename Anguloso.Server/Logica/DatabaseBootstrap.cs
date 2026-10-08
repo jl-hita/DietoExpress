@@ -40,6 +40,57 @@ public static class DatabaseBootstrap
         {
             // Ejecutamos DDL idempotente en orden de dependencias de foreign keys
             context.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS patient_notifications (
+  id BIGSERIAL PRIMARY KEY,
+  tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  type VARCHAR(60) NOT NULL,
+  title VARCHAR(200) NOT NULL,
+  message VARCHAR(1000) NOT NULL,
+  action_url VARCHAR(1000),
+  idempotency_key VARCHAR(200),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  read_at TIMESTAMPTZ
+);
+ALTER TABLE patient_notifications
+  ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(200);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_patient_notifications_tenant_idempotency
+  ON patient_notifications(tenant_id, idempotency_key);
+CREATE INDEX IF NOT EXISTS idx_patient_notifications_client_created
+  ON patient_notifications(client_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_patient_notifications_tenant_client
+  ON patient_notifications(tenant_id, client_id);
+
+CREATE TABLE IF NOT EXISTS patient_push_subscriptions (
+  id BIGSERIAL PRIMARY KEY,
+  tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  endpoint VARCHAR(2000) NOT NULL UNIQUE,
+  p256dh VARCHAR(500) NOT NULL,
+  auth VARCHAR(500) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_patient_push_subscriptions_client
+  ON patient_push_subscriptions(client_id);
+CREATE TABLE IF NOT EXISTS patient_push_deliveries (
+  id BIGSERIAL PRIMARY KEY,
+  tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  notification_id BIGINT NULL REFERENCES patient_notifications(id) ON DELETE CASCADE,
+  subscription_id BIGINT NOT NULL REFERENCES patient_push_subscriptions(id) ON DELETE CASCADE,
+  delivery_key VARCHAR(255) NOT NULL,
+  status VARCHAR(20) NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  last_error TEXT NULL,
+  sent_at TIMESTAMPTZ NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT uq_patient_push_deliveries_key UNIQUE (tenant_id, delivery_key, subscription_id)
+);
+CREATE INDEX IF NOT EXISTS idx_patient_push_deliveries_status
+  ON patient_push_deliveries(status, updated_at);
+");
+                context.Database.ExecuteSqlRaw(@"
                 -- 1. Tenants (Clínicas / Organizaciones)
                 CREATE TABLE IF NOT EXISTS tenants (
                     id SERIAL PRIMARY KEY,
