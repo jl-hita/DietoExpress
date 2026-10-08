@@ -135,6 +135,19 @@ public sealed class CommercialCommunicationService
         if (unsubscribeUrl is null || !await IsOptedInAsync(clientId, cancellationToken))
             return false;
 
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new NpgsqlCommand("""
+            SELECT email
+            FROM clients
+            WHERE id=@client AND archived_at IS NULL AND email IS NOT NULL AND TRIM(email) <> ''
+            LIMIT 1;
+            """, connection);
+        command.Parameters.AddWithValue("client", clientId);
+        var email = await command.ExecuteScalarAsync(cancellationToken) as string;
+        if (string.IsNullOrWhiteSpace(email))
+            return false;
+
         var footer = $"""
             <hr>
             <p style="font-size:12px;color:#64748b">
@@ -143,7 +156,7 @@ public sealed class CommercialCommunicationService
               Las comunicaciones asistenciales necesarias no se ven afectadas.
             </p>
             """;
-        var result = await emailServ.SendEmailAsync(clientId.ToString(), subject, htmlBody + footer, idempotencyKey);
+        var result = await emailServ.SendEmailAsync(email, subject, htmlBody + footer, idempotencyKey);
         return result.Exito;
     }
 
