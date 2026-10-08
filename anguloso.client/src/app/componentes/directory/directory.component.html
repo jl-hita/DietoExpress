@@ -57,6 +57,7 @@
         <span *ngIf="item.isVerified" class="badge verified">Perfil verificado</span>
         <p *ngIf="item.specialtyList.length" class="specialty-tags"><span *ngFor="let specialty of item.specialtyList">{{ specialty }}</span></p>
         <p class="profile-quality">Perfil {{ item.profileCompleteness }}% completo · {{ item.availableRuleCount ? "Agenda activa" : "Sin agenda publicada" }}</p>
+        <p *ngIf="item.reviewCount" class="profile-rating">★ {{ item.averageRating.toFixed(1) }}/5 · {{ item.reviewCount }} valoración{{ item.reviewCount === 1 ? '' : 'es' }}</p>
         <a mat-button [routerLink]="['/nutricionistas', item.slug]" (click)="trackProfileClick(item.slug)">Ver perfil y disponibilidad</a>
       </div>
     </article>
@@ -73,6 +74,7 @@
     <button mat-button type="button" (click)="shareProfile()">Compartir perfil</button>
     <p *ngIf="profile.specialtyList.length" class="specialty-tags"><span *ngFor="let specialty of profile.specialtyList">{{ specialty }}</span></p>
     <p *ngIf="profile.publicBio">{{ profile.publicBio }}</p>
+    <p *ngIf="profile.reviewCount" class="profile-rating">★ {{ profile.averageRating.toFixed(1) }}/5 · {{ profile.reviewCount }} valoración{{ profile.reviewCount === 1 ? '' : 'es' }} verificadas</p>
 
     <section class="reputation" *ngIf="reviewSummary" aria-labelledby="reputation-title">
       <h3 id="reputation-title">Valoraciones</h3>
