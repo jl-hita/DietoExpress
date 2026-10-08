@@ -77,6 +77,35 @@ public sealed class DatabaseBackupService
         return result.Output;
     }
 
+    public async Task<DatabaseRestoreStatus> GetRestoreStatusAsync(string fileName, CancellationToken ct)
+    {
+        EnsureConfigured();
+        var safeName = ValidateBackupFileName(fileName);
+        var unitName = $"dietoexpress-restore@{safeName}.service";
+        var psi = new ProcessStartInfo { FileName = "/usr/bin/systemctl", UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
+        psi.ArgumentList.Add("show"); psi.ArgumentList.Add("--no-page");
+        psi.ArgumentList.Add("--property=ActiveState"); psi.ArgumentList.Add("--property=SubState"); psi.ArgumentList.Add("--property=Result");
+        psi.ArgumentList.Add("--property=ExecMainStartTimestamp"); psi.ArgumentList.Add("--property=ExecMainExitTimestamp"); psi.ArgumentList.Add("--property=ExecMainStatus");
+        psi.ArgumentList.Add(unitName);
+        using var process = Process.Start(psi) ?? throw new InvalidOperationException("No se pudo consultar el estado de la restauración.");
+        var output = await process.StandardOutput.ReadToEndAsync(ct);
+        var error = await process.StandardError.ReadToEndAsync(ct);
+        await process.WaitForExitAsync(ct);
+        if (process.ExitCode != 0) throw new InvalidOperationException($"No se pudo consultar el estado de la restauración: {error.Trim()}");
+        var values = output.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => line.Split('=', 2)).Where(parts => parts.Length == 2).ToDictionary(parts => parts[0], parts => parts[1].Trim(), StringComparer.Ordinal);
+        var activeState = values.GetValueOrDefault("ActiveState", "unknown");
+        var subState = values.GetValueOrDefault("SubState", "unknown");
+        var result = values.GetValueOrDefault("Result", "unknown");
+        var startTimestamp = values.GetValueOrDefault("ExecMainStartTimestamp", "");
+        var exitTimestamp = values.GetValueOrDefault("ExecMainExitTimestamp", "");
+        var exitStatus = values.GetValueOrDefault("ExecMainStatus", "");
+        var completed = activeState == "inactive" && result == "success";
+        var failed = activeState == "failed" || (activeState == "inactive" && result != "success" && result != "unknown");
+        var running = activeState is "activating" or "active" || subState is "running" or "start";
+        var phase = failed ? "failed" : completed ? "completed" : running ? "restoring" : "starting";
+        return new DatabaseRestoreStatus(safeName, unitName, phase, activeState, subState, result, startTimestamp, exitTimestamp, exitStatus, completed, failed);
+    }
+
     public (string Path, string ContentType, string FileName) GetDump(string fileName)
     {
         EnsureConfigured();
@@ -183,3 +212,5 @@ public sealed class DatabaseBackupService
 }
 
 public sealed record DatabaseBackupInfo(string FileName, long SizeBytes, DateTime CreatedAtUtc);
+
+public sealed record DatabaseRestoreStatus(string FileName, string UnitName, string Phase, string ActiveState, string SubState, string Result, string StartTimestamp, string ExitTimestamp, string ExitStatus, bool Completed, bool Failed);
