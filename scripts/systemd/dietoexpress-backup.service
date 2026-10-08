@@ -9,5 +9,6 @@ User=joso
 Group=joso
 EnvironmentFile=-/etc/dietoexpress/dietoexpress.env
 Environment=DIETOEXPRESS_BACKUP_RETENTION=8
+# Este servicio solo ejecuta el backup como joso; no necesita privilegios de root.
 ExecStart=/opt/dietoexpress/scripts/dietoexpress-backup.sh
 UMask=0077
