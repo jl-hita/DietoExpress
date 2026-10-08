@@ -49,6 +49,10 @@ export class DirectoryService {
     );
   }
 
+  getReviews(slug: string): Observable<DirectoryReviewSummary> {
+    return this.http.get<DirectoryReviewSummary>(`${this.apiUrl}/directory/professionals/${encodeURIComponent(slug)}/reviews`);
+  }
+
   getBySlug(slug: string): Observable<DirectoryProfile> {
     return this.http.get<DirectoryProfile>(
       `${this.apiUrl}/directory/professionals/${encodeURIComponent(slug)}`
