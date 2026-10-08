@@ -16,6 +16,7 @@ export const routes: AppRoute[] = [
   { path: '', loadComponent: () => import('./componentes/landing/landing.component').then(m => m.LandingComponent), pathMatch: 'full', title: 'DietoExpress' },
   { path: 'setup', loadComponent: () => import('./componentes/setup/setup-wizard.component').then(m => m.SetupWizardComponent), canActivate: [SetupGuard], title: 'Inicialización del Sistema' },
   { path: 'login', loadComponent: () => import('./componentes/login/login.component').then(m => m.LoginComponent) },
+  { path: 'archived-support', loadComponent: () => import('./componentes/support/support.component').then(m => m.SupportComponent), title: 'Soporte de cuenta archivada' },
   { path: 'crear-usuario', loadComponent: () => import('./componentes/user-create/user-create.component').then(m => m.UserCreateComponent), title: 'Crear cuenta', showInMenu: false },
   { path: 'reset-pwd', loadComponent: () => import('./componentes/user-reset/user-reset.component').then(m => m.UserResetComponent), title: 'Crear usuario', showInMenu: false },
   { path: 'reset-password', loadComponent: () => import('./componentes/user-reset/user-reset.component').then(m => m.UserResetComponent), title: 'Restablecer contraseña', showInMenu: false },
