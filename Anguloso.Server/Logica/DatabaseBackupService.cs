@@ -58,6 +58,7 @@ public sealed class DatabaseBackupService
     {
         EnsureConfigured();
         var safeName = ValidateBackupFileName(fileName);
+        EnsureBackupExists(safeName);
         var result = await RunRestoreScriptAsync("--verify", safeName, ct);
         if (result.ExitCode != 0)
             throw new InvalidOperationException($"La verificación ha fallado: {result.Output}");
@@ -68,6 +69,7 @@ public sealed class DatabaseBackupService
     {
         EnsureConfigured();
         var safeName = ValidateBackupFileName(fileName);
+        EnsureBackupExists(safeName);
         var wrapper = configurationRestoreWrapper();
         var result = await RunRestoreScriptAsync("--restore", safeName, ct, wrapper);
         if (result.ExitCode != 0)
@@ -83,6 +85,12 @@ public sealed class DatabaseBackupService
         var path = Path.Combine(_backupDir, safeName);
         if (!File.Exists(path)) throw new FileNotFoundException("No se ha encontrado la copia solicitada.");
         return (path, "application/octet-stream", safeName);
+    }
+
+    private void EnsureBackupExists(string fileName)
+    {
+        var path = Path.Combine(_backupDir, fileName);
+        if (!File.Exists(path)) throw new FileNotFoundException("No se ha encontrado la copia solicitada.", path);
     }
 
     private string ValidateBackupFileName(string fileName)
