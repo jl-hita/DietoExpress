@@ -68,7 +68,8 @@ public sealed class CommercialCommunicationController : ControllerBase
         var tenant = await command.ExecuteScalarAsync(cancellationToken);
         if (tenant is null) return NotFound();
 
-        await _service.SetEmailPreferenceAsync(parsedClientId, Convert.ToInt32(tenant), request.EmailEnabled, cancellationToken);
+        var version = await _service.GetCurrentConsentVersionAsync(cancellationToken);
+        await _service.SetEmailPreferenceAsync(parsedClientId, Convert.ToInt32(tenant), request.EmailEnabled, "patient_portal", version, cancellationToken);
         return NoContent();
     }
 
@@ -84,6 +85,8 @@ public sealed class CommercialCommunicationController : ControllerBase
             ? "La dirección ha quedado excluida de las comunicaciones comerciales por email."
             : "El enlace de baja no es válido o ya ha sido utilizado.";
 
+        Response.Headers["Referrer-Policy"] = "no-referrer";
+        Response.Headers["Cache-Control"] = "no-store";
         return Content($"""
             <!doctype html>
             <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Darse de baja</title></head>
