@@ -11,6 +11,14 @@ DB_USER="${DIETOEXPRESS_DB_USER:-}"
 DB_HOST="${DIETOEXPRESS_DB_HOST:-127.0.0.1}"
 DB_PORT="${DIETOEXPRESS_DB_PORT:-5432}"
 BACKUP_SCRIPT="${DIETOEXPRESS_BACKUP_SCRIPT:-/opt/dietoexpress/scripts/dietoexpress-backup.sh}"
+MAINTENANCE_FILE="${DIETOEXPRESS_MAINTENANCE_FILE:-/var/lib/dietoexpress/maintenance.json}"
+
+# El aviso es externo a PostgreSQL y debe desaparecer tanto tras éxito como tras rollback.
+# El trap se ejecuta antes de que la unidad root vuelva a arrancar DietoExpress.
+clear_maintenance_notice() {
+  rm -f -- "$MAINTENANCE_FILE"
+}
+trap clear_maintenance_notice EXIT
 
 mode=""
 file=""

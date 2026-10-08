@@ -1,4 +1,5 @@
 import { RouterOutlet } from '@angular/router';
+import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Subscription, timer, of } from 'rxjs';
@@ -15,7 +16,7 @@ interface MaintenanceNotice {
   selector: 'app-root',
   templateUrl: './app.component.html',
   standalone: true,
-  imports: [RouterOutlet],
+  imports: [CommonModule, RouterOutlet],
   styleUrl: './app.component.css'
 })
 // El componente raíz coordina el estado global mínimo de la aplicación; la lógica de negocio permanece en servicios y componentes especializados.
