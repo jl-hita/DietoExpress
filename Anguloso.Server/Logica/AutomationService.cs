@@ -1975,11 +1975,7 @@ public sealed class AutomationService
         int maxAttempts = 3,
         CancellationToken cancellationToken = default)
     {
-        var optedIn = await new CommercialCommunicationService(new ConfigurationManager()).IsOptedInAsync(clientId, cancellationToken);
-        if (!optedIn)
-            return 0;
-
-        return await ScheduleRawActionAsync(
+        // La comprobación vinculante se realiza en el worker justo antes del envío; aquí solo se persiste el trabajo.
             tenantId,
             "commercial_email_patient",
             new CommercialEmailPatientAction(clientId, subject, htmlBody),
