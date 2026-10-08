@@ -124,11 +124,11 @@ public sealed class GoogleCalendarService
 
     public async Task SyncAllAsync(CancellationToken cancellationToken = default)
     {
-        var ids = await _db.google_calendar_connections.AsNoTracking().Select(x => new { x.user_id, x.tenant_id }).ToListAsync(cancellationToken);
+        var ids = await _db.google_calendar_connections.AsNoTracking().Select(x => new { x.user_id, x.tenant_id, x.google_account_email }).ToListAsync(cancellationToken);
         foreach (var item in ids)
         {
             try { await SyncUserAsync(item.user_id, item.tenant_id, cancellationToken); }
-            catch (Exception ex) { _logger.LogError(ex, "Error sincronizando Google Calendar para usuario {UserId}.", item.user_id); }
+            catch (Exception ex) { _logger.LogError(ex, "Error sincronizando Google Calendar para usuario {UserId} con email {GoogleAccountEmail}.", item.user_id, item.google_account_email); }
         }
     }
 
