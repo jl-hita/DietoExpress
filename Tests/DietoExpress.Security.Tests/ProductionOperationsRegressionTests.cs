@@ -79,9 +79,14 @@ public sealed class ProductionOperationsRegressionTests
         Assert.Contains("[HttpPost(\"{fileName}/verify\")]", controller);
         Assert.Contains("[HttpPost(\"{fileName}/restore\")]", controller);
         Assert.Contains("/usr/local/sbin/dietoexpress-restore-web", databaseBackupService);
-        Assert.Contains("databaseRestoreCountdownSeconds = 10", adminDashboard);
-        Assert.Contains("La restauración comenzará en", adminDashboard);
-        Assert.Contains("cancelDatabaseRestoreCountdown()", adminDashboard);
+        Assert.Contains("[HttpGet("{fileName}/restore-status")]", controller);
+        Assert.Contains("getDatabaseRestoreStatus", File.ReadAllText(Path.Combine(root, "anguloso.client", "src", "app", "servicios", "admin.service.ts")));
+        Assert.Contains("databaseRestoreElapsedSeconds", adminDashboard);
+        Assert.Contains("startDatabaseRestorePolling", adminDashboard);
+        Assert.Contains("getDatabaseRestoreStatus", adminDashboard);
+        Assert.DoesNotContain("databaseRestoreCountdownSeconds", adminDashboard);
+        Assert.DoesNotContain("La restauración comenzará en", adminDashboard);
+        Assert.DoesNotContain("cancelDatabaseRestoreCountdown", adminDashboard);
     }
 
     [Fact]
