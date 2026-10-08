@@ -15,6 +15,7 @@ public sealed class DatabaseBackupService
     private readonly string _dbUser;
     private readonly string _dbHost;
     private readonly string _dbPort;
+    private readonly string _restoreScript;
 
     public DatabaseBackupService(IConfiguration configuration)
     {
@@ -24,6 +25,7 @@ public sealed class DatabaseBackupService
         _dbUser = configuration["DIETOEXPRESS_DB_USER"] ?? Environment.GetEnvironmentVariable("DIETOEXPRESS_DB_USER") ?? string.Empty;
         _dbHost = configuration["DIETOEXPRESS_DB_HOST"] ?? Environment.GetEnvironmentVariable("DIETOEXPRESS_DB_HOST") ?? "127.0.0.1";
         _dbPort = configuration["DIETOEXPRESS_DB_PORT"] ?? Environment.GetEnvironmentVariable("DIETOEXPRESS_DB_PORT") ?? "5432";
+        _restoreScript = configuration["DIETOEXPRESS_RESTORE_SCRIPT"] ?? Environment.GetEnvironmentVariable("DIETOEXPRESS_RESTORE_SCRIPT") ?? Path.Combine(AppContext.BaseDirectory, "scripts", "dietoexpress-restore.sh");
     }
 
     public bool IsConfigured => !string.IsNullOrWhiteSpace(_backupDir) && (!string.IsNullOrWhiteSpace(_databaseUrl) || !string.IsNullOrWhiteSpace(_databaseName));
@@ -52,18 +54,89 @@ public sealed class DatabaseBackupService
         return latest;
     }
 
+    public async Task<string> VerifyAsync(string fileName, CancellationToken ct)
+    {
+        EnsureConfigured();
+        var safeName = ValidateBackupFileName(fileName);
+        var result = await RunRestoreScriptAsync("--verify", safeName, ct);
+        if (result.ExitCode != 0)
+            throw new InvalidOperationException($"La verificación ha fallado: {result.Output}");
+        return result.Output;
+    }
+
+    public async Task<string> RestoreAsync(string fileName, CancellationToken ct)
+    {
+        EnsureConfigured();
+        var safeName = ValidateBackupFileName(fileName);
+        var wrapper = configurationRestoreWrapper();
+        var result = await RunRestoreScriptAsync("--restore", safeName, ct, wrapper);
+        if (result.ExitCode != 0)
+            throw new InvalidOperationException($"La restauración ha fallado: {result.Output}");
+        return result.Output;
+    }
+
     public (string Path, string ContentType, string FileName) GetDump(string fileName)
     {
         EnsureConfigured();
-        var safeName = Path.GetFileName(fileName);
-        if (!safeName.Equals(fileName, StringComparison.Ordinal) ||
-            !safeName.StartsWith("dietoexpress-postgresql-", StringComparison.Ordinal) ||
-            !safeName.EndsWith(".dump", StringComparison.Ordinal))
-            throw new ArgumentException("Nombre de copia no válido.", nameof(fileName));
+        var safeName = ValidateBackupFileName(fileName);
 
         var path = Path.Combine(_backupDir, safeName);
         if (!File.Exists(path)) throw new FileNotFoundException("No se ha encontrado la copia solicitada.");
         return (path, "application/octet-stream", safeName);
+    }
+
+    private string ValidateBackupFileName(string fileName)
+    {
+        var safeName = Path.GetFileName(fileName ?? string.Empty);
+        if (!safeName.Equals(fileName, StringComparison.Ordinal) ||
+            !safeName.StartsWith("dietoexpress-postgresql-", StringComparison.Ordinal) ||
+            !safeName.EndsWith(".dump", StringComparison.Ordinal) ||
+            safeName.Any(ch => !(char.IsLetterOrDigit(ch) || ch is '-' or '_' or '.')))
+            throw new ArgumentException("Nombre de copia no válido.", nameof(fileName));
+
+        return safeName;
+    }
+
+    private string configurationRestoreWrapper()
+    {
+        var wrapper = Environment.GetEnvironmentVariable("DIETOEXPRESS_RESTORE_WRAPPER");
+        return string.IsNullOrWhiteSpace(wrapper) ? "/usr/local/sbin/dietoexpress-restore-web" : wrapper;
+    }
+
+    private async Task<(int ExitCode, string Output)> RunRestoreScriptAsync(string operation, string fileName, CancellationToken ct, string? wrapper = null)
+    {
+        var executable = wrapper ?? _restoreScript;
+        var psi = new ProcessStartInfo
+        {
+            FileName = wrapper is null ? "/usr/bin/env" : executable,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true
+        };
+
+        if (wrapper is null)
+        {
+            psi.ArgumentList.Add("bash");
+            psi.ArgumentList.Add(executable);
+        }
+        else
+        {
+            psi.ArgumentList.Add("--restore".Equals(operation, StringComparison.Ordinal) ? fileName : fileName);
+        }
+
+        if (wrapper is null)
+            psi.ArgumentList.Add(operation);
+        if (wrapper is null)
+            psi.ArgumentList.Add(fileName);
+        if (wrapper is not null)
+            psi.ArgumentList.Add("--confirm");
+
+        using var process = Process.Start(psi) ?? throw new InvalidOperationException("No se pudo iniciar la operación de restauración.");
+        var stdout = await process.StandardOutput.ReadToEndAsync(ct);
+        var stderr = await process.StandardError.ReadToEndAsync(ct);
+        await process.WaitForExitAsync(ct);
+        return (process.ExitCode, string.Join(Environment.NewLine, stdout, stderr).Trim());
     }
 
     private void EnsureConfigured()
