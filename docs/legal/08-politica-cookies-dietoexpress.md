@@ -1,44 +1,55 @@
 # Política de cookies de DietoExpress
 
-> **BORRADOR — PENDIENTE DE INVENTARIO REAL DE COOKIES/TECNOLOGÍAS Y REVISIÓN JURÍDICA**
->
-> No se debe publicar una tabla de cookies inventada. El contenido definitivo debe generarse a partir del inventario real de la aplicación, dominio, CDN, analítica, preferencias y terceros.
+> **Versión técnica preparada — pendiente de validación jurídica y comprobación final en producción.**
 
 ## 1. Objeto
 
-Esta política explica qué cookies y tecnologías similares utiliza DietoExpress, para qué finalidades y cómo puede gestionarlas el usuario.
+Esta política explica las cookies y tecnologías similares utilizadas por DietoExpress, su finalidad y la forma de gestionarlas.
 
-## 2. Inventario
+## 2. Cookies utilizadas
 
-Antes de publicar esta política deberá completarse una tabla real con:
+DietoExpress utiliza actualmente las siguientes cookies propias de sesión:
 
-| Cookie/tecnología | Proveedor | Finalidad | Tipo | Duración | Propia/tercero | Necesaria |
-|---|---|---|---|---|---|---|
-| [IDENTIFICAR] | [PROVEEDOR] | [FINALIDAD] | [TIPO] | [DURACIÓN] | [PROPIA/TERCERO] | [SÍ/NO] |
+| Cookie | Finalidad | Duración | Proveedor | Tipo |
+|---|---|---|---|---|
+| `dietoexpress_professional_session` | Mantener la sesión autenticada y aplicar autorización y seguridad | 3 horas | DietoExpress | Necesaria |
+| `dietoexpress_patient_session` | Mantener la sesión autenticada del portal de paciente | 8 horas | DietoExpress | Necesaria |
 
-No deberán declararse como cookies tecnologías que realmente no utilice DietoExpress.
+Estas cookies se configuran como `HttpOnly`, `Secure` y `SameSite=Strict`.
 
-## 3. Cookies necesarias
+No se utilizan cookies propias de publicidad ni de analítica de terceros en el código cliente auditado.
 
-Las cookies o mecanismos estrictamente necesarios para autenticación, seguridad, equilibrio técnico, sesión u otras funciones imprescindibles se documentarán como tales cuando corresponda.
+## 3. Tecnologías similares
 
-## 4. Cookies no necesarias
+El portal utiliza almacenamiento local para recordar las comidas completadas por el paciente. Es una función del propio portal, asociada al dispositivo/navegador, y no se utiliza para publicidad.
 
-Cualquier tecnología utilizada para analítica, publicidad, personalización no esencial u otras finalidades no estrictamente necesarias deberá analizarse de forma independiente y gestionarse mediante el mecanismo de consentimiento que corresponda.
+La analítica pública del embudo se registra server-side y no utiliza cookies ni almacenamiento del navegador para su deduplicación.
 
-## 5. Gestión
+## 4. Servicios y recursos de terceros
 
-La interfaz de preferencias deberá permitir aceptar, rechazar o configurar las categorías que legalmente deban ofrecerse.
+La aplicación puede utilizar recursos o integraciones de terceros, entre ellos Google Identity Services, Google Fonts, Google Material Icons, Google Calendar, Stripe y LiveKit.
 
-Retirar el consentimiento deberá ser tan sencillo como otorgarlo cuando el consentimiento sea la base utilizada.
+Cada integración deberá revisarse según el flujo real y su configuración efectiva. Esta política no debe presentar una integración como una cookie si el servicio no la coloca.
 
-## 6. Cambios
+## 5. Tecnologías no necesarias
 
-El inventario se revisará cuando se introduzcan nuevas librerías, analítica, publicidad, widgets o servicios de terceros.
+En la versión de código auditada no se ha identificado una categoría activa de cookies de publicidad o analítica que requiera un banner de consentimiento específico.
 
-## 7. Control de versión
+Si se incorpora una tecnología no estrictamente necesaria, su carga deberá quedar condicionada al mecanismo de consentimiento que corresponda y deberá actualizarse este inventario y la política antes de su publicación.
+
+## 6. Gestión y retirada
+
+Las cookies necesarias para autenticación y seguridad se utilizan para prestar las funciones solicitadas y no se ofrecen como una categoría opcional de consentimiento.
+
+Cuando DietoExpress incorpore tecnologías cuyo tratamiento dependa del consentimiento, el usuario podrá aceptar, rechazar o configurar las categorías correspondientes y retirar posteriormente su consentimiento de forma sencilla.
+
+## 7. Cambios
+
+El inventario se revisará cuando se introduzcan nuevas librerías, analítica, publicidad, widgets o servicios de terceros, y también cuando cambie la configuración de producción.
+
+## 8. Control de versión
 
 - Clave: `cookie_policy`
-- Versión inicial: 1
-- Estado: `draft`
-- Fecha efectiva: **[FECHA]**
+- Versión técnica: 2
+- Estado: `pending_legal_validation`
+- Fecha efectiva: pendiente de publicación definitiva.
