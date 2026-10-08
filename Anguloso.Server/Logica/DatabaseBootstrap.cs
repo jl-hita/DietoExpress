@@ -676,6 +676,8 @@ CREATE INDEX IF NOT EXISTS idx_public_funnel_events_appointment
             UpgradePrivacyOperationsSchemaV1(context, logger);
             UpgradeLegalGovernanceSchemaV1(context, logger);
             UpgradeSaaSSchema(context, logger);
+            // Las columnas/tablas de facturación deben estar listas antes de las migraciones SaaS posteriores.
+            BillingSchemaBootstrap.Initialize(context, logger);
             UpgradeSaaSSchemaV2(context, logger);
             UpgradeSaaSSchemaV3(context, logger);
             UpgradeSaaSSchemaV4(context, logger);
@@ -724,8 +726,6 @@ CREATE TABLE IF NOT EXISTS public_directory_reviews (
 CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
     ON public_directory_reviews(nutritionist_id, created_at DESC);
 ");
-            BillingSchemaBootstrap.Initialize(context, logger);
-
             VerifyCurrentSchema(context, logger);
 
             // Configuración inicial idempotente. No se sobrescriben valores existentes.
@@ -902,6 +902,13 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                 active BOOLEAN NOT NULL DEFAULT TRUE,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
+            -- La migración SaaS escribe estos campos antes de llegar al bootstrap completo de billing.
+            -- Repararlos aquí también cubre BBDD antiguas donde la tabla ya existía.
+            ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS stripe_product_id VARCHAR(255);
+            ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS stripe_monthly_price_id VARCHAR(255);
+            ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS stripe_yearly_price_id VARCHAR(255);
+            ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS stripe_additional_monthly_price_id VARCHAR(255);
+            ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS stripe_additional_yearly_price_id VARCHAR(255);
             CREATE TABLE IF NOT EXISTS subscription_plan_features (
                 id SERIAL PRIMARY KEY,
                 plan_id INTEGER NOT NULL REFERENCES subscription_plans(id) ON DELETE CASCADE,
