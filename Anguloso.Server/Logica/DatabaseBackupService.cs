@@ -108,7 +108,7 @@ public sealed class DatabaseBackupService
     private string configurationRestoreWrapper()
     {
         var wrapper = Environment.GetEnvironmentVariable("DIETOEXPRESS_RESTORE_WRAPPER");
-        return string.IsNullOrWhiteSpace(wrapper) ? "/opt/dietoexpress/scripts/dietoexpress-restore-web.sh" : wrapper;
+        return string.IsNullOrWhiteSpace(wrapper) ? "/usr/local/sbin/dietoexpress-restore-web" : wrapper;
     }
 
     private async Task<(int ExitCode, string Output)> RunRestoreScriptAsync(string operation, string fileName, CancellationToken ct, string? wrapper = null)
