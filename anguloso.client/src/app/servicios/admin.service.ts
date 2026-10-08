@@ -137,6 +137,13 @@ export interface AdminLogChunk {
   hasMore: boolean;
 }
 
+export interface AdminLogSearchResult {
+  date: string;
+  query: string;
+  count: number;
+  entries: string[];
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -193,6 +200,12 @@ export class AdminService {
     const params: any = {};
     if (date) params.date = date;
     return this.http.get<AdminLog>(`${this.adminUrl}/logs`, { params });
+  }
+
+  searchLog(date: string, query: string): Observable<AdminLogSearchResult> {
+    return this.http.get<AdminLogSearchResult>(`${this.adminUrl}/logs/search`, {
+      params: { date, query }
+    });
   }
 
   getLogChunk(date: string, endByte?: number): Observable<AdminLogChunk> {
