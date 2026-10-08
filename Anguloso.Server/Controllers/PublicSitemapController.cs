@@ -57,15 +57,6 @@ public class PublicSitemapController : ControllerBase
             .Select(g => "/nutricionistas/" + Slugify(g.Key.City) + "/" + Slugify(g.Key.Speciality));
         urls.AddRange(combinations);
 
-        // Solo indexamos combinaciones ciudad+especialidad con oferta suficiente para evitar páginas SEO vacías.
-        var combinations = citySpecialties
-            .SelectMany(x => x.Specialties.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Select(s => new { x.City, Speciality = s }))
-            .GroupBy(x => new { City = x.City.Trim(), Speciality = x.Speciality.Trim() }, StringComparerAnonymous.Instance)
-            .Where(g => g.Count() >= 3)
-            .Take(500)
-            .Select(g => "/nutricionistas/" + Slugify(g.Key.City) + "/" + Slugify(g.Key.Speciality));
-        urls.AddRange(combinations);
         urls.AddRange(profiles.Select(x => "/nutricionistas/" + Uri.EscapeDataString(x)));
 
         var xml = new System.Text.StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\"?><urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">");
