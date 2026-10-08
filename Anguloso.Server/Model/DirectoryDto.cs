@@ -18,6 +18,8 @@ public class DirectoryProfileDto
     public int RankingScore { get; set; }
     public bool IsVerified { get; set; }
     public int AvailableRuleCount { get; set; }
+    public double AverageRating { get; set; }
+    public int ReviewCount { get; set; }
 }
 
 public class DirectorySearchDto
