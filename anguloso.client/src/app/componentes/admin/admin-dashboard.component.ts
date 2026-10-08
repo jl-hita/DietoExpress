@@ -282,7 +282,17 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
           <p>Todavía no hay copias disponibles.</p>
         </div>
 
-        <div class="backup-list" *ngIf="databaseBackups.length">
+        <div *ngIf="databaseRestoreCountdownActive" class="restore-countdown">
+  <div class="restore-countdown-icon"><mat-icon>schedule</mat-icon></div>
+  <div class="restore-countdown-content">
+    <strong>Restauración programada</strong>
+    <span>La restauración comenzará en <b>{{ databaseRestoreCountdownSeconds }}</b> segundos.</span>
+    <small>Prevista a las {{ databaseRestoreScheduledAt | date:'HH:mm:ss' }}</small>
+  </div>
+  <button mat-stroked-button color="warn" type="button" (click)="cancelDatabaseRestoreCountdown()">Cancelar</button>
+</div>
+
+<div class="backup-list" *ngIf="databaseBackups.length">
           <div class="backup-row" *ngFor="let backup of databaseBackups">
             <div>
               <strong>{{ backup.fileName }}</strong>
@@ -467,6 +477,13 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
     .backup-row span { color:#64748b; font-size:12px; }
     .backup-warning { display:flex; align-items:flex-start; gap:10px; padding:12px 14px; border-radius:10px; background:#fffbeb; border:1px solid #fde68a; color:#92400e; }
     .backup-warning mat-icon { flex:none; }
+    .restore-countdown { display:flex; align-items:center; gap:14px; margin:0 0 16px; padding:16px; border:1px solid #fcd34d; border-radius:10px; background:#fffbeb; }
+    .restore-countdown-icon { display:grid; place-items:center; width:44px; height:44px; border-radius:50%; background:#fef3c7; color:#b45309; flex:none; }
+    .restore-countdown-content { flex:1; min-width:0; display:grid; gap:3px; }
+    .restore-countdown-content strong { color:#92400e; }
+    .restore-countdown-content span { color:#334155; }
+    .restore-countdown-content small { color:#64748b; }
+    @media (max-width: 768px) { .restore-countdown { align-items:flex-start; flex-wrap:wrap; } .restore-countdown button { margin-left:58px; } }
     .config-card { margin-top: 24px; }
     .video-usage-card {
       margin: 0 0 18px;
@@ -595,6 +612,10 @@ export class AdminDashboardComponent implements OnInit {
   databaseBackupConfigured = false;
   databaseBackupRunning = false;
   databaseBackupOperation = '';
+  databaseRestoreCountdownActive = false;
+  databaseRestoreCountdownSeconds = 0;
+  databaseRestoreScheduledAt?: Date;
+  private databaseRestoreCountdownTimer?: ReturnType<typeof setInterval>;
   displayedColumns = ['user', 'plan', 'status', 'expires', 'usage', 'lastLogin', 'actions'];
   configDisplayedColumns = ['id', 'nombre', 'valor'];
   configTabs = [{key:'PLATFORM',label:'Plataforma'},{key:'EMAIL',label:'Email'},{key:'GOOGLE',label:'Google / Calendario'},{key:'VIDEO',label:'Videollamadas'},{key:'FOOD',label:'Alimentos'},{key:'NOTIFICATIONS',label:'Notificaciones'},{key:'ADDRESS',label:'Direcciones'},{key:'OTHER',label:'Otros'}];
@@ -680,7 +701,7 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   restoreDatabaseBackup(backup: AdminDatabaseBackup): void {
-    if (this.databaseBackupOperation) return;
+    if (this.databaseBackupOperation || this.databaseRestoreCountdownActive) return;
     const confirmed = confirm(
       'ATENCIÓN: esta operación sustituirá la base de datos actual por la del backup seleccionado. ' +
       'Se creará automáticamente un backup del estado actual antes de restaurar y, si falla, se intentará hacer rollback. ¿Continuar?'
@@ -688,14 +709,49 @@ export class AdminDashboardComponent implements OnInit {
     if (!confirmed) return;
 
     this.databaseBackupOperation = backup.fileName;
+    this.databaseRestoreCountdownActive = true;
+    this.databaseRestoreCountdownSeconds = 10;
+    this.databaseRestoreScheduledAt = new Date(Date.now() + 10000);
+
+    this.databaseRestoreCountdownTimer = setInterval(() => {
+      this.databaseRestoreCountdownSeconds = Math.max(
+        0,
+        Math.ceil((this.databaseRestoreScheduledAt!.getTime() - Date.now()) / 1000)
+      );
+      if (this.databaseRestoreCountdownSeconds === 0) {
+        this.clearDatabaseRestoreCountdownTimer();
+        this.databaseRestoreCountdownActive = false;
+        this.startDatabaseRestore(backup);
+      }
+    }, 250);
+  }
+
+  cancelDatabaseRestoreCountdown(): void {
+    this.clearDatabaseRestoreCountdownTimer();
+    this.databaseRestoreCountdownActive = false;
+    this.databaseRestoreScheduledAt = undefined;
+    this.databaseBackupOperation = '';
+    this.snackBar.open('Restauración cancelada.', 'OK', { duration: 3000 });
+  }
+
+  private clearDatabaseRestoreCountdownTimer(): void {
+    if (this.databaseRestoreCountdownTimer) {
+      clearInterval(this.databaseRestoreCountdownTimer);
+      this.databaseRestoreCountdownTimer = undefined;
+    }
+  }
+
+  private startDatabaseRestore(backup: AdminDatabaseBackup): void {
     this.adminService.restoreDatabaseBackup(backup.fileName).subscribe({
       next: () => {
         this.databaseBackupOperation = '';
+        this.databaseRestoreScheduledAt = undefined;
         this.snackBar.open('Restauración iniciada. DietoExpress se reiniciará cuando termine el proceso.', 'OK', { duration: 8000 });
         this.loadDatabaseBackups();
       },
       error: err => {
         this.databaseBackupOperation = '';
+        this.databaseRestoreScheduledAt = undefined;
         const message = err?.error?.detail || err?.error?.title || 'No se pudo restaurar el backup.';
         this.snackBar.open(message, 'Cerrar', { duration: 8000 });
         this.loadDatabaseBackups();
