@@ -13,6 +13,7 @@ export interface DirectoryProfile {
   profileCompleteness: number;
   rankingScore: number;
   isVerified: boolean;
+  availableRuleCount: number;
 }
 
 
