@@ -1,0 +1,13 @@
+[Unit]
+Description=Backup semanal de PostgreSQL de DietoExpress
+After=postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=oneshot
+User=joso
+Group=joso
+EnvironmentFile=-/etc/dietoexpress/dietoexpress.env
+Environment=DIETOEXPRESS_BACKUP_RETENTION=8
+ExecStart=/opt/dietoexpress/scripts/dietoexpress-backup.sh
+UMask=0077
