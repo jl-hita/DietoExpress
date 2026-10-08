@@ -8,6 +8,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { forkJoin } from 'rxjs';
 import { LegalConfigurationService } from '../../servicios/legal-configuration.service';
 import { LegalReadiness, LegalService } from '../../servicios/legal.service';
 import { LegalDocumentGeneratorService, LegalGeneratedDocument } from '../../servicios/legal-document-generator.service';
@@ -114,6 +115,7 @@ import { LegalDocumentGeneratorService, LegalGeneratedDocument } from '../../ser
       <section class="generator">
         <h2>Generar borradores</h2>
         <p>Genera una nueva versión de cada plantilla con los datos actuales. Siempre se guarda como <strong>borrador</strong>; no se publica automáticamente.</p>
+        <div class="generator-actions"><button mat-raised-button color="primary" (click)="generateAll()" [disabled]="generating"><mat-icon>autorenew</mat-icon>{{ generating ? 'Generando...' : 'Generar todos los documentos aplicables' }}</button></div>
         <div class="template-grid">
           <button mat-stroked-button *ngFor="let template of templates" (click)="generate(template.key)" [disabled]="generating">
             <mat-icon>description</mat-icon>{{ template.key }}
@@ -132,7 +134,7 @@ import { LegalDocumentGeneratorService, LegalGeneratedDocument } from '../../ser
     </main>
   `,
   styles: [`
-    .page{padding:24px;display:grid;gap:18px;max-width:1100px}.page h1{margin:0}.page header p{color:#64748b}.notice{display:flex;gap:10px;padding:14px;border-radius:10px;background:#fff7ed;color:#9a3412}.readiness{border-left:4px solid #0f766e}.readiness-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}.readiness-grid>div{display:flex;align-items:center;gap:8px;padding:8px;border-radius:8px;background:#f8fafc}.readiness-grid>div.ready{color:#166534;background:#f0fdf4}.missing-config{margin:10px 0;padding:10px;border-radius:8px;background:#fff7ed;color:#9a3412}.readiness small{display:block;color:#64748b}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding-top:18px}.wide{grid-column:1/-1}.full{width:100%}.generator{padding:18px;border:1px solid #e2e8f0;border-radius:12px}.generator h2{margin:0 0 4px}.generator p{color:#64748b}.template-grid{display:flex;flex-wrap:wrap;gap:8px}.generated{margin-top:14px;padding:10px;border-radius:8px;background:#f8fafc}.documents{display:grid;gap:8px}.doc-row{display:flex;justify-content:space-between;gap:12px;padding:12px;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer}.doc-row small{display:block;color:#64748b}.pending{color:#b45309}.ready{color:#15803d}.editor textarea{width:100%;box-sizing:border-box;font:14px/1.5 monospace;padding:12px;border:1px solid #cbd5e1;border-radius:8px}.actions{display:flex;justify-content:flex-end}@media(max-width:700px){.readiness-grid{grid-template-columns:1fr}.grid{grid-template-columns:1fr}.wide{grid-column:auto}}
+    .page{padding:24px;display:grid;gap:18px;max-width:1100px}.page h1{margin:0}.page header p{color:#64748b}.notice{display:flex;gap:10px;padding:14px;border-radius:10px;background:#fff7ed;color:#9a3412}.readiness{border-left:4px solid #0f766e}.readiness-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}.readiness-grid>div{display:flex;align-items:center;gap:8px;padding:8px;border-radius:8px;background:#f8fafc}.readiness-grid>div.ready{color:#166534;background:#f0fdf4}.missing-config{margin:10px 0;padding:10px;border-radius:8px;background:#fff7ed;color:#9a3412}.readiness small{display:block;color:#64748b}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding-top:18px}.wide{grid-column:1/-1}.full{width:100%}.generator{padding:18px;border:1px solid #e2e8f0;border-radius:12px}.generator h2{margin:0 0 4px}.generator p{color:#64748b}.generator-actions{display:flex;justify-content:flex-start;margin:12px 0}.template-grid{display:flex;flex-wrap:wrap;gap:8px}.generated{margin-top:14px;padding:10px;border-radius:8px;background:#f8fafc}.documents{display:grid;gap:8px}.doc-row{display:flex;justify-content:space-between;gap:12px;padding:12px;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer}.doc-row small{display:block;color:#64748b}.pending{color:#b45309}.ready{color:#15803d}.editor textarea{width:100%;box-sizing:border-box;font:14px/1.5 monospace;padding:12px;border:1px solid #cbd5e1;border-radius:8px}.actions{display:flex;justify-content:flex-end}@media(max-width:700px){.readiness-grid{grid-template-columns:1fr}.grid{grid-template-columns:1fr}.wide{grid-column:auto}}
   `]
 })
 export class AdminLegalSettingsComponent implements OnInit {
@@ -174,6 +176,24 @@ export class AdminLegalSettingsComponent implements OnInit {
   openDocument(id:number): void { this.generator.get(id).subscribe({next:doc=>this.selectedDocument=doc,error:()=>this.snack.open('No se pudo abrir el documento.', 'Cerrar',{duration:4000})}); }
   saveDocument(): void { if(!this.selectedDocument?.content)return; this.generator.update(this.selectedDocument.id,this.selectedDocument.content).subscribe({next:()=>{this.snack.open('Borrador guardado.','Cerrar',{duration:2500});this.loadDocuments();},error:()=>this.snack.open('No se pudo guardar el borrador.','Cerrar',{duration:4000})}); }
   publishDocument(): void { if(!this.selectedDocument || this.selectedDocument.unresolved?.length)return; if(!confirm('¿Publicar esta versión como documento legal oficial?'))return; this.generator.publish(this.selectedDocument.id).subscribe({next:()=>{this.snack.open('Documento publicado.','Cerrar',{duration:3000});this.selectedDocument=null;this.loadDocuments();},error:()=>this.snack.open('No se pudo publicar el documento.','Cerrar',{duration:4000})}); }
+
+  generateAll(): void {
+    if (this.generating || !this.templates.length) return;
+    this.generating = true;
+    forkJoin(this.templates.map(template => this.generator.generate(template.key))).subscribe({
+      next: documents => {
+        this.generating = false;
+        this.lastGenerated = documents[documents.length - 1] ?? null;
+        this.loadDocuments();
+        this.snack.open('Se han generado ' + documents.length + ' borradores con la configuración actual.', 'Cerrar', { duration: 4000 });
+      },
+      error: () => {
+        this.generating = false;
+        this.loadDocuments();
+        this.snack.open('No se pudieron generar todos los documentos.', 'Cerrar', { duration: 5000 });
+      }
+    });
+  }
 
   generate(templateKey: string): void {
     if (this.generating) return;
