@@ -227,6 +227,9 @@ public sealed class AutomationWorker : BackgroundService
                 case "email_patient":
                     await ExecuteEmailPatientAsync(job, cancellationToken);
                     break;
+                case "commercial_email_patient":
+                    await ExecuteCommercialEmailPatientAsync(job, cancellationToken);
+                    break;
                 case "email_billing_contact":
                     await ExecuteBillingEmailAsync(job, cancellationToken);
                     break;
@@ -328,6 +331,39 @@ public sealed class AutomationWorker : BackgroundService
         var result = await emailServ.SendEmailAsync(email, action.Subject, action.HtmlBody, $"job:{job.Id}:email");
         if (!result.Exito)
             throw new InvalidOperationException(result.Mensaje);
+    }
+
+    private async Task ExecuteCommercialEmailPatientAsync(AutomationJob job, CancellationToken cancellationToken)
+    {
+        var action = AutomationJson.Deserialize<CommercialEmailPatientAction>(job.Payload)
+            ?? throw new InvalidOperationException("Payload inválido para commercial_email_patient.");
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var tenantCheck = new NpgsqlCommand("""
+            SELECT 1
+            FROM clients
+            WHERE id=@client AND tenant_id=@tenant AND archived_at IS NULL
+            LIMIT 1;
+            """, connection);
+        tenantCheck.Parameters.AddWithValue("client", action.ClientId);
+        tenantCheck.Parameters.AddWithValue("tenant", job.TenantId);
+        if (await tenantCheck.ExecuteScalarAsync(cancellationToken) is null)
+            return;
+
+        using var scope = _scopeFactory.CreateScope();
+        var commercial = scope.ServiceProvider.GetRequiredService<CommercialCommunicationService>();
+        var emailServ = scope.ServiceProvider.GetRequiredService<EmailServ>();
+        var sent = await commercial.SendCommercialEmailAsync(
+            emailServ,
+            action.ClientId,
+            action.Subject,
+            action.HtmlBody,
+            $"job:{job.Id}:commercial-email",
+            cancellationToken);
+
+        if (!sent)
+            throw new InvalidOperationException("El envío comercial no se ha realizado: el paciente no tiene consentimiento comercial vigente o no dispone de un email válido.");
     }
 
     private async Task ExecuteProfessionalEmailAsync(AutomationJob job, CancellationToken cancellationToken)

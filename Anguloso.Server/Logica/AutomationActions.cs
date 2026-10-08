@@ -37,3 +37,7 @@ public sealed class AutomationExecutionDto
     public long DurationMs { get; set; }
     public DateTime ExecutedAt { get; set; }
 }
+
+
+/// <summary>Envío explícitamente comercial: siempre se comprueba el consentimiento justo antes de enviar.</summary>
+public sealed record CommercialEmailPatientAction(int ClientId, string Subject, string HtmlBody);
