@@ -55,6 +55,14 @@ public sealed class AdminDatabaseBackupController : ControllerBase
         catch (InvalidOperationException ex) { return Problem(title: "No se pudo restaurar el backup", detail: ex.Message, statusCode: StatusCodes.Status500InternalServerError); }
     }
 
+    [HttpGet("{fileName}/restore-status")]
+    public async Task<IActionResult> RestoreStatus(string fileName, CancellationToken ct)
+    {
+        try { return Ok(await _backups.GetRestoreStatusAsync(fileName, ct)); }
+        catch (ArgumentException) { return BadRequest(); }
+        catch (InvalidOperationException ex) { return Problem(title: "No se pudo consultar la restauración", detail: ex.Message, statusCode: StatusCodes.Status503ServiceUnavailable); }
+    }
+
     [HttpGet("{fileName}")]
     public IActionResult Download(string fileName)
     {

@@ -129,6 +129,20 @@ export interface AdminDatabaseBackupsResponse {
   items: AdminDatabaseBackup[];
 }
 
+export interface AdminDatabaseRestoreStatus {
+  fileName: string;
+  unitName: string;
+  phase: 'starting' | 'restoring' | 'completed' | 'failed';
+  activeState: string;
+  subState: string;
+  result: string;
+  startTimestamp: string;
+  exitTimestamp: string;
+  exitStatus: string;
+  completed: boolean;
+  failed: boolean;
+}
+
 export interface AdminLogChunk {
   content: string;
   startByte: number;
@@ -202,9 +216,15 @@ export class AdminService {
     );
   }
 
-  restoreDatabaseBackup(fileName: string): Observable<{ fileName: string; restored: boolean; output: string }> {
-    return this.http.post<{ fileName: string; restored: boolean; output: string }>(
+  restoreDatabaseBackup(fileName: string): Observable<{ fileName: string; restored: boolean; started: boolean; output: string }> {
+    return this.http.post<{ fileName: string; restored: boolean; started: boolean; output: string }>(
       `${this.adminUrl}/database-backups/${encodeURIComponent(fileName)}/restore`, {}
+    );
+  }
+
+  getDatabaseRestoreStatus(fileName: string): Observable<AdminDatabaseRestoreStatus> {
+    return this.http.get<AdminDatabaseRestoreStatus>(
+      `${this.adminUrl}/database-backups/${encodeURIComponent(fileName)}/restore-status`
     );
   }
 
