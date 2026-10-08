@@ -1,9 +1,11 @@
 // Bootstrap/migraciones incrementales de la base de datos. Estas rutinas permiten actualizar instalaciones existentes sin depender de que el esquema haya sido creado desde cero, por lo que cada cambio debe ser idempotente.
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Anguloso.Server.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.Logging;
 
 namespace Anguloso.Server.Logica;
@@ -2886,6 +2888,51 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
         {
             logger.LogCritical("El bootstrap no pudo reconciliar el esquema. Faltan tablas: {MissingTables}", missing);
             throw new InvalidOperationException($"El esquema de DietoExpress está incompleto. Faltan tablas: {missing}");
+        }
+
+        // Verificar también las columnas reales de cada entidad EF, no solo la existencia
+        // de las tablas. Las tablas antiguas pueden existir con un esquema parcial.
+        var expectedColumns = context.Model.GetEntityTypes()
+            .SelectMany(entityType =>
+            {
+                var tableName = entityType.GetTableName();
+                if (string.IsNullOrWhiteSpace(tableName))
+                    return Enumerable.Empty<(string Schema, string Table, string Column)>();
+
+                var schemaName = entityType.GetSchema() ?? "public";
+                var storeObject = StoreObjectIdentifier.Table(tableName, schemaName);
+                return entityType.GetProperties()
+                    .Select(property => property.GetColumnName(storeObject))
+                    .Where(columnName => !string.IsNullOrWhiteSpace(columnName))
+                    .Select(columnName => (Schema: schemaName, Table: tableName, Column: columnName!));
+            })
+            .Distinct()
+            .ToArray();
+
+        if (expectedColumns.Length > 0)
+        {
+            static string SqlLiteral(string value) => value.Replace("'", "''", StringComparison.Ordinal);
+            var expectedValues = string.Join(",\\n", expectedColumns.Select(column =>
+                $"('{SqlLiteral(column.Schema)}', '{SqlLiteral(column.Table)}', '{SqlLiteral(column.Column)}')"));
+
+            var missingColumnsSql = $"""
+                SELECT string_agg(expected.table_name || '.' || expected.column_name, ', ' ORDER BY expected.table_name, expected.column_name) AS "Value"
+                FROM (VALUES {expectedValues}) AS expected(schema_name, table_name, column_name)
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM information_schema.columns actual
+                    WHERE actual.table_schema = expected.schema_name
+                      AND actual.table_name = expected.table_name
+                      AND actual.column_name = expected.column_name
+                );
+                """;
+
+            var missingColumns = context.Database.SqlQueryRaw<string>(missingColumnsSql).FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(missingColumns))
+            {
+                logger.LogCritical("El bootstrap no pudo reconciliar el esquema. Faltan columnas: {MissingColumns}", missingColumns);
+                throw new InvalidOperationException($"El esquema de DietoExpress está incompleto. Faltan columnas: {missingColumns}");
+            }
         }
 
         logger.LogInformation("Esquema de DietoExpress reconciliado y verificado correctamente.");
