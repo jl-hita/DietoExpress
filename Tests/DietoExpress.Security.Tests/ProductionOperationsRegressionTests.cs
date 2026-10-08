@@ -47,7 +47,29 @@ public sealed class ProductionOperationsRegressionTests
         Assert.Contains("--format=custom", script);
         Assert.Contains("sha256sum", script);
         Assert.Contains("umask 077", script);
+        Assert.Contains("DIETOEXPRESS_BACKUP_RETENTION", script);
+        Assert.Contains("tail -n +$((RETENTION + 1))", script);
         Assert.DoesNotContain("/opt/dietoexpress", script);
+    }
+
+    [Fact]
+    public void BackupAutomation_MustUseWeeklyTimerAndSafeRestoreBoundary()
+    {
+        var root = RepoRoot;
+        var backupService = File.ReadAllText(Path.Combine(root, "scripts", "systemd", "dietoexpress-backup.service"));
+        var backupTimer = File.ReadAllText(Path.Combine(root, "scripts", "systemd", "dietoexpress-backup.timer"));
+        var installer = File.ReadAllText(Path.Combine(root, "scripts", "install-dietoexpress-backup-automation.sh"));
+        var restoreWrapper = File.ReadAllText(Path.Combine(root, "scripts", "dietoexpress-restore-web.sh"));
+        var controller = File.ReadAllText(Path.Combine(root, "Anguloso.Server", "Controllers", "AdminDatabaseBackupController.cs"));
+
+        Assert.Contains("OnCalendar=Sun 02:00", backupTimer);
+        Assert.Contains("Persistent=true", backupTimer);
+        Assert.Contains("DIETOEXPRESS_BACKUP_RETENTION=8", backupService);
+        Assert.Contains("systemctl enable --now dietoexpress-backup.timer", installer);
+        Assert.Contains("systemd-run", restoreWrapper);
+        Assert.Contains("dietoexpress-restore.sh --restore", restoreWrapper);
+        Assert.Contains("[HttpPost("{fileName}/verify")]", controller);
+        Assert.Contains("[HttpPost("{fileName}/restore")]", controller);
     }
 
     [Fact]
