@@ -175,6 +175,66 @@ public class AdminUsersController : ControllerBase
     /// pueden pedir bloques anteriores mediante endByte. Esto evita descargar archivos
     /// de varios cientos de MB solo para abrir el visor.
     /// </summary>
+    /// <summary>
+    /// Busca en todas las entradas completas del log del día. Una coincidencia devuelve
+    /// la entrada Serilog íntegra, incluyendo excepciones y stack traces multilínea.
+    /// </summary>
+    [HttpGet("logs/search")]
+    public IActionResult SearchLog(
+        [FromQuery] string? date = null,
+        [FromQuery] string? query = null)
+    {
+        if (!TryParseLogDate(date, out var requestedDate, out var error))
+            return BadRequest(error);
+
+        var searchTerm = query?.Trim();
+        if (string.IsNullOrWhiteSpace(searchTerm))
+            return BadRequest("El texto de búsqueda es obligatorio.");
+        if (searchTerm.Length > 200)
+            return BadRequest("El texto de búsqueda no puede superar los 200 caracteres.");
+
+        var selected = GetLogFiles().FirstOrDefault(x => x.Date == requestedDate);
+        if (selected == default)
+            return NotFound("No existe ningún archivo de log para la fecha solicitada.");
+
+        var matches = new List<string>();
+        using var reader = new StreamReader(selected.Path, System.Text.Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+
+        var currentEntry = new System.Text.StringBuilder();
+        string? line;
+        while ((line = reader.ReadLine()) != null)
+        {
+            if (LogEntryHeaderRegex.IsMatch(line))
+            {
+                AddMatchingLogEntry(currentEntry, searchTerm, matches);
+                currentEntry.Clear();
+            }
+
+            if (currentEntry.Length > 0)
+                currentEntry.AppendLine();
+            currentEntry.Append(line);
+        }
+
+        AddMatchingLogEntry(currentEntry, searchTerm, matches);
+
+        return Ok(new
+        {
+            date = requestedDate.ToString("yyyy-MM-dd"),
+            query = searchTerm,
+            count = matches.Count,
+            entries = matches
+        });
+    }
+
+    private static void AddMatchingLogEntry(
+        System.Text.StringBuilder entry,
+        string searchTerm,
+        List<string> matches)
+    {
+        if (entry.Length > 0 && entry.ToString().Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+            matches.Add(entry.ToString());
+    }
+
     [HttpGet("logs/content")]
     public IActionResult GetLogContent(
         [FromQuery] string? date = null,

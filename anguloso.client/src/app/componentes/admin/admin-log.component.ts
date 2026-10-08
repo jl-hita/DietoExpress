@@ -3,13 +3,15 @@ import { Component, OnInit } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
+import { FormsModule } from '@angular/forms';
 import { MatSelectModule } from '@angular/material/select';
 import { AdminLog, AdminService } from '../../servicios/admin.service';
 
 @Component({
   selector: 'app-admin-log',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatCardModule, MatIconModule, MatSelectModule],
+  imports: [CommonModule, FormsModule, MatButtonModule, MatCardModule, MatIconModule, MatInputModule, MatSelectModule],
   template: `
     <div class="log-container">
       <div class="log-header">
@@ -27,9 +29,19 @@ import { AdminLog, AdminService } from '../../servicios/admin.service';
       <mat-card class="log-card">
         <div class="log-toolbar">
           <span>
-            {{ exists ? (hasMoreOlder ? 'Mostrando la parte más reciente del log' : 'Log completo cargado') : 'No hay log para este día' }}
+            {{ !exists ? 'No hay log para este día' : (searchActive ? (searchResultCount + ' entradas encontradas para «' + searchText + '»') : (hasMoreOlder ? 'Mostrando la parte más reciente del log' : 'Log completo cargado')) }}
           </span>
           <div class="log-actions">
+            <mat-form-field appearance="outline" class="search-filter">
+              <mat-label>Buscar en el log</mat-label>
+              <input matInput [(ngModel)]="searchText" (keyup.enter)="searchLog()" placeholder="Texto incluido en la entrada">
+              <button *ngIf="searchText" mat-icon-button matSuffix type="button" (click)="clearSearch()" aria-label="Limpiar búsqueda">
+                <mat-icon>close</mat-icon>
+              </button>
+            </mat-form-field>
+            <button mat-stroked-button (click)="searchLog()" [disabled]="loading || searching || !searchText.trim()">
+              <mat-icon>search</mat-icon> Buscar
+            </button>
             <mat-form-field appearance="outline" class="level-filter">
               <mat-label>Nivel</mat-label>
               <mat-select [(value)]="levelFilter">
@@ -39,7 +51,7 @@ import { AdminLog, AdminService } from '../../servicios/admin.service';
                 <mat-option value="error">Error</mat-option>
               </mat-select>
             </mat-form-field>
-            <button mat-stroked-button (click)="loadLog(selectedDate)" [disabled]="loading">
+            <button mat-stroked-button (click)="loadLog(selectedDate)" [disabled]="loading || searching">
               <mat-icon>refresh</mat-icon> Actualizar
             </button>
           </div>
@@ -56,7 +68,7 @@ import { AdminLog, AdminService } from '../../servicios/admin.service';
           </div>
 
           <ng-template #noMatches>
-            <div class="no-matches">No hay entradas que coincidan con el nivel seleccionado.</div>
+            <div class="no-matches">No hay entradas que coincidan con los filtros seleccionados.</div>
           </ng-template>
         </div>
 
@@ -76,7 +88,9 @@ import { AdminLog, AdminService } from '../../servicios/admin.service';
     .log-card { padding: 16px; border-radius: 12px; }
     .log-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 12px; color: #64748b; font-size: 13px; }
     .log-actions { display: flex; align-items: center; gap: 10px; }
+    .search-filter { width: 300px; }
     .level-filter { width: 150px; }
+    .search-filter ::ng-deep .mat-mdc-form-field-subscript-wrapper,
     .level-filter ::ng-deep .mat-mdc-form-field-subscript-wrapper { display: none; }
     .log-content { margin: 0; padding: 16px; max-height: calc(100vh - 230px); min-height: 300px; overflow: auto; background: #0f172a; color: #e2e8f0; border-radius: 8px; font: 12px/1.5 'Cascadia Mono', 'Consolas', monospace; text-align: left; }
     .log-entry { white-space: pre; min-height: 1.5em; padding: 0 4px; }
@@ -90,7 +104,7 @@ import { AdminLog, AdminService } from '../../servicios/admin.service';
       .date-navigation { align-self: center; }
       .log-toolbar { flex-direction: column; align-items: flex-start; }
       .log-actions { width: 100%; }
-      .level-filter { flex: 1; }
+      .search-filter, .level-filter { flex: 1; width: auto; }
     }
   `]
 })
@@ -106,6 +120,10 @@ export class AdminLogComponent implements OnInit {
   loading = false;
   loadingOlder = false;
   levelFilter: 'all' | 'info' | 'warning' | 'error' = 'all';
+  searchText = '';
+  searching = false;
+  searchActive = false;
+  searchResultCount = 0;
 
   private logEntries: string[] = [];
   private oldestLoadedByte = 0;
@@ -114,6 +132,34 @@ export class AdminLogComponent implements OnInit {
   get filteredLogEntries(): string[] {
     if (this.levelFilter === 'all') return this.logEntries;
     return this.logEntries.filter(entry => this.getLevel(entry) === this.levelFilter);
+  }
+
+  searchLog(): void {
+    const query = this.searchText.trim();
+    if (!query || this.searching) return;
+
+    this.searching = true;
+    this.adminService.searchLog(this.selectedDate, query).subscribe({
+      next: result => {
+        this.logEntries = result.entries;
+        this.searchResultCount = result.count;
+        this.searchActive = true;
+        this.oldestLoadedByte = 0;
+        this.hasMoreOlder = false;
+        this.searching = false;
+      },
+      error: err => {
+        console.error('Error al buscar en el log', err);
+        this.searching = false;
+      }
+    });
+  }
+
+  clearSearch(): void {
+    this.searchText = '';
+    this.searchActive = false;
+    this.searchResultCount = 0;
+    this.loadLog(this.selectedDate);
   }
 
   getLevel(entry: string): 'info' | 'warning' | 'error' | 'other' {
@@ -141,6 +187,8 @@ export class AdminLogComponent implements OnInit {
         this.logEntries = [];
         this.oldestLoadedByte = 0;
         this.hasMoreOlder = false;
+        this.searchActive = false;
+        this.searchResultCount = 0;
 
         if (!result.exists) {
           this.loading = false;
