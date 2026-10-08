@@ -31,6 +31,8 @@ public partial class angulosodbContext
             entity.Property(e => e.stripe_product_id).HasMaxLength(255);
             entity.Property(e => e.stripe_monthly_price_id).HasMaxLength(255);
             entity.Property(e => e.stripe_yearly_price_id).HasMaxLength(255);
+            entity.Property(e => e.stripe_additional_monthly_price_id).HasMaxLength(255);
+            entity.Property(e => e.stripe_additional_yearly_price_id).HasMaxLength(255);
         });
         modelBuilder.Entity<subscriptions>(entity =>
         {
