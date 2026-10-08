@@ -46,6 +46,7 @@ public sealed class CommercialCommunicationService
             disable.Parameters.AddWithValue("client", clientId);
             disable.Parameters.AddWithValue("tenant", tenantId);
             await disable.ExecuteNonQueryAsync(cancellationToken);
+            await RecordConsentHistoryAsync(connection, transaction, clientId, tenantId, false, consentVersion, source, cancellationToken);
         }
         else
         {
@@ -72,9 +73,33 @@ public sealed class CommercialCommunicationService
             enable.Parameters.AddWithValue("version", (object?)consentVersion ?? "commercial-communications-v1");
             enable.Parameters.AddWithValue("source", source);
             await enable.ExecuteNonQueryAsync(cancellationToken);
+            await RecordConsentHistoryAsync(connection, transaction, clientId, tenantId, true, consentVersion, source, cancellationToken);
         }
 
         await transaction.CommitAsync(cancellationToken);
+    }
+
+    private static async Task RecordConsentHistoryAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        int clientId,
+        int tenantId,
+        bool enabled,
+        string? version,
+        string source,
+        CancellationToken cancellationToken)
+    {
+        await using var history = new NpgsqlCommand("""
+            INSERT INTO patient_commercial_communication_consent_history
+                (client_id, tenant_id, email_enabled, consent_version, consent_source, occurred_at)
+            VALUES (@client,@tenant,@enabled,@version,@source,NOW());
+            """, connection, transaction);
+        history.Parameters.AddWithValue("client", clientId);
+        history.Parameters.AddWithValue("tenant", tenantId);
+        history.Parameters.AddWithValue("enabled", enabled);
+        history.Parameters.AddWithValue("version", (object?)version ?? DBNull.Value);
+        history.Parameters.AddWithValue("source", source);
+        await history.ExecuteNonQueryAsync(cancellationToken);
     }
 
     public async Task<string?> CreateUnsubscribeUrlAsync(int clientId, CancellationToken cancellationToken = default)
