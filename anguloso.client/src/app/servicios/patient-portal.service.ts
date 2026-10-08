@@ -298,6 +298,14 @@ export class PatientPortalService {
   getFollowupSettings(): Observable<FollowupSettings> { return this.http.get<FollowupSettings>(this.base + '/professional/automation/followup-settings'); }
   updateFollowupSettings(settings: FollowupSettings): Observable<void> { return this.http.put<void>(this.base + '/professional/automation/followup-settings', settings); }
 
+  getCommercialCommunicationPreference(): Observable<{ emailEnabled: boolean }> {
+    return this.http.get<{ emailEnabled: boolean }>(`${this.base}/commercial-communications/preferences`);
+  }
+
+  updateCommercialCommunicationPreference(emailEnabled: boolean): Observable<void> {
+    return this.http.put<void>(`${this.base}/commercial-communications/preferences`, { emailEnabled });
+  }
+
   getCommunicationPreferences(clientId: number): Observable<PatientCommunicationPreferences> { return this.http.get<PatientCommunicationPreferences>(`${this.base}/professional/automation/clients/${clientId}/communication-preferences`); }
   updateCommunicationPreferences(clientId: number, preferences: PatientCommunicationPreferences): Observable<void> { return this.http.put<void>(`${this.base}/professional/automation/clients/${clientId}/communication-preferences`, preferences); }
 }
