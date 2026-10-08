@@ -58,16 +58,22 @@ public sealed class ProductionOperationsRegressionTests
         var root = RepoRoot;
         var backupService = File.ReadAllText(Path.Combine(root, "scripts", "systemd", "dietoexpress-backup.service"));
         var backupTimer = File.ReadAllText(Path.Combine(root, "scripts", "systemd", "dietoexpress-backup.timer"));
-        var installer = File.ReadAllText(Path.Combine(root, "scripts", "install-dietoexpress-backup-automation.sh"));
+        var provisioning = File.ReadAllText(Path.Combine(root, "scripts", "provision-dietoexpress-backup-automation.sh"));
         var restoreWrapper = File.ReadAllText(Path.Combine(root, "scripts", "dietoexpress-restore-web.sh"));
+        var restoreUnit = File.ReadAllText(Path.Combine(root, "scripts", "systemd", "dietoexpress-restore@.service"));
+        var deploy = File.ReadAllText(Path.Combine(root, ".github", "workflows", "deploy.yml"));
         var controller = File.ReadAllText(Path.Combine(root, "Anguloso.Server", "Controllers", "AdminDatabaseBackupController.cs"));
 
         Assert.Contains("OnCalendar=Sun 02:00", backupTimer);
         Assert.Contains("Persistent=true", backupTimer);
         Assert.Contains("DIETOEXPRESS_BACKUP_RETENTION=8", backupService);
-        Assert.Contains("systemctl enable --now dietoexpress-backup.timer", installer);
-        Assert.Contains("systemd-run", restoreWrapper);
-        Assert.Contains("dietoexpress-restore.sh --restore", restoreWrapper);
+        Assert.Contains("systemctl enable --now dietoexpress-backup.timer", provisioning);
+        Assert.Contains("/usr/local/sbin/dietoexpress-restore-web", provisioning);
+        Assert.Contains("systemctl start --no-block", restoreWrapper);
+        Assert.Contains("runuser -u joso", restoreUnit);
+        Assert.Contains("ExecStopPost=/usr/bin/systemctl start dietoexpress.service", restoreUnit);
+        Assert.DoesNotContain("install-dietoexpress-backup-automation.sh", deploy);
+        Assert.DoesNotContain("sudo bash /opt/dietoexpress/scripts/", deploy);
         Assert.Contains("[HttpPost(\"{fileName}/verify\")]", controller);
         Assert.Contains("[HttpPost(\"{fileName}/restore\")]", controller);
     }

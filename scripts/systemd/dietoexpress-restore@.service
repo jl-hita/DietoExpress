@@ -1,0 +1,15 @@
+[Unit]
+Description=Restauración PostgreSQL de DietoExpress (%i)
+After=postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=oneshot
+TimeoutStartSec=0
+EnvironmentFile=-/etc/dietoexpress/dietoexpress.env
+# Solo el servicio root-owned controla el ciclo de vida de DietoExpress.
+ExecStartPre=/usr/bin/systemctl stop dietoexpress.service
+# El código de restore que vive en /opt se ejecuta explícitamente como joso.
+ExecStart=/usr/bin/runuser -u joso -- /bin/bash /opt/dietoexpress/scripts/dietoexpress-restore-user.sh --restore %i --confirm
+# Garantizamos que una restauración fallida no deje la aplicación parada.
+ExecStopPost=/usr/bin/systemctl start dietoexpress.service
