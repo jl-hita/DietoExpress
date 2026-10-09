@@ -1,9 +1,6 @@
 import { RouterOutlet } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Subscription, timer, of } from 'rxjs';
-import { catchError, switchMap } from 'rxjs/operators';
+import { Component } from '@angular/core';
 
 interface MaintenanceNotice {
   active: boolean;
@@ -20,24 +17,29 @@ interface MaintenanceNotice {
   styleUrl: './app.component.css'
 })
 // El componente raíz coordina el estado global mínimo de la aplicación; la lógica de negocio permanece en servicios y componentes especializados.
-export class AppComponent implements OnInit, OnDestroy {
+export class AppComponent {
   title = 'anguloso.client';
+
+  // Polling de /api/maintenance desactivado para evitar peticiones periódicas desde todos los clientes.
+  // El endpoint y MaintenanceNoticeService se conservan: DatabaseBackupService los utiliza para activar
+  // un aviso persistente durante las restauraciones, cuando la aplicación/base de datos pueden estar
+  // temporalmente indisponibles. Si se quiere volver a mostrar el banner en vivo, se puede reactivar
+  // aquí el sondeo y asignar el resultado a maintenanceNotice.
+  //
+  // private maintenanceSubscription?: Subscription;
+  // constructor(private http: HttpClient) {}
+  // ngOnInit(): void {
+  //   this.maintenanceSubscription = timer(0, 30000).pipe(
+  //     switchMap(() => this.http.get<MaintenanceNotice>('/api/maintenance')),
+  //     catchError(() => of<MaintenanceNotice>({ active: false, title: '', message: '', startedAtUtc: '' }))
+  //   ).subscribe(notice => {
+  //     this.maintenanceNotice = notice.active ? notice : undefined;
+  //   });
+  // }
+  // ngOnDestroy(): void {
+  //   this.maintenanceSubscription?.unsubscribe();
+  // }
+
+  // La propiedad se conserva para que la plantilla del banner siga siendo compatible si se reactiva el polling.
   maintenanceNotice?: MaintenanceNotice;
-  private maintenanceSubscription?: Subscription;
-
-  constructor(private http: HttpClient) {}
-
-  ngOnInit(): void {
-    this.maintenanceSubscription = // El estado de mantenimiento no requiere sondeo cada dos segundos; evitamos tráfico continuo.
-    timer(0, 30000).pipe(
-      switchMap(() => this.http.get<MaintenanceNotice>('/api/maintenance')),
-      catchError(() => of<MaintenanceNotice>({ active: false, title: '', message: '', startedAtUtc: '' }))
-    ).subscribe(notice => {
-      this.maintenanceNotice = notice.active ? notice : undefined;
-    });
-  }
-
-  ngOnDestroy(): void {
-    this.maintenanceSubscription?.unsubscribe();
-  }
 }
