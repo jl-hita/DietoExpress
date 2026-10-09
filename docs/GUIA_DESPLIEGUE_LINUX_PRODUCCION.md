@@ -134,6 +134,21 @@ AlertSpool es especialmente importante: ApplicationAlertService puede almacenar 
 
 La ubicación puede fijarse mediante DIETOEXPRESS_ALERT_SPOOL; en Linux, si no se define, el valor actual es /var/lib/dietoexpress/AlertSpool.
 
+
+El directorio raíz `/var/lib/dietoexpress` también contiene el estado del aviso de mantenimiento usado durante las operaciones de restauración de backups (`maintenance.json`). El servicio se ejecuta como `joso`, por lo que debe poder crear el archivo temporal `maintenance.json.tmp` en ese directorio. Este permiso se prepara **una sola vez en el servidor**, no desde GitHub Actions.
+
+Preparar o reparar los permisos (por ejemplo, si la restauración de un backup falla con `UnauthorizedAccessException` sobre `maintenance.json.tmp`):
+
+~~~bash
+sudo install -d -o joso -g joso -m 750 /var/lib/dietoexpress
+sudo chown joso:joso /var/lib/dietoexpress/maintenance.json \\
+  /var/lib/dietoexpress/maintenance.json.tmp 2>/dev/null || true
+sudo -u joso test -w /var/lib/dietoexpress \\
+  && echo "Directorio escribible por joso"
+~~~
+
+El mensaje `Directorio escribible por joso` confirma que el usuario del servicio puede escribir en el directorio. El `chown` sobre los dos archivos existentes es deliberadamente tolerante a que todavía no existan. No borrar `maintenance.json` manualmente durante una restauración o mientras una operación de mantenimiento esté activa.
+
 Los logs pueden fijarse mediante DIETOEXPRESS_LOG_PATH; el valor actual por defecto en Linux es /var/lib/dietoexpress/Logs.
 
 ---
