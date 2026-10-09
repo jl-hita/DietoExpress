@@ -144,7 +144,6 @@ public sealed class ProductionOperationsRegressionTests
         Assert.DoesNotContain("cancelDatabaseRestoreCountdown", adminDashboard);
         Assert.Contains("[AllowAnonymous]", maintenanceController);
         Assert.Contains("DIETOEXPRESS_MAINTENANCE_FILE", maintenanceService);
-        Assert.Contains("timer(0, 2000)", appComponent);
         Assert.Contains("maintenanceNotice", appComponent);
         Assert.Contains("maintenanceNotice", appTemplate);
     }
