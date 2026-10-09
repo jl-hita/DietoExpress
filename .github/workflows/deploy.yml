@@ -98,6 +98,8 @@ jobs:
             /opt/dietoexpress/scripts/dietoexpress-restore-web.sh \
             /opt/dietoexpress/scripts/dietoexpress-restore-user.sh \
             /opt/dietoexpress/scripts/dietoexpress-pg-restore-root.sh \
+            /opt/dietoexpress/scripts/dietoexpress-pg-backup-root.sh \
+            /opt/dietoexpress/scripts/dietoexpress-restore-post.sh \
             /opt/dietoexpress/scripts/provision-dietoexpress-backup-automation.sh
           mkdir -p /opt/dietoexpress/wwwroot
           cp -a /tmp/dietoexpress-frontend/. /opt/dietoexpress/wwwroot/
