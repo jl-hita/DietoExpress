@@ -37,26 +37,8 @@ public sealed class BroadcastMessagesController : ControllerBase
         if (audience is not ("nutritionists" or "clinics" or "professionals" or "clients"))
             return BadRequest(new { message = "Selecciona un público válido." });
 
-        // El esquema se crea de forma idempotente para que las instalaciones existentes no dependan de una migración manual.
-        await _context.Database.ExecuteSqlRawAsync(@"
-CREATE TABLE IF NOT EXISTS broadcast_messages (
-    id BIGSERIAL PRIMARY KEY,
-    title VARCHAR(200) NOT NULL,
-    body TEXT NOT NULL,
-    audience VARCHAR(32) NOT NULL,
-    created_by_user_id INTEGER NOT NULL REFERENCES users(id),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE TABLE IF NOT EXISTS broadcast_message_recipients (
-    id BIGSERIAL PRIMARY KEY,
-    message_id BIGINT NOT NULL REFERENCES broadcast_messages(id) ON DELETE CASCADE,
-    recipient_type VARCHAR(16) NOT NULL CHECK (recipient_type IN ('user', 'client')),
-    recipient_id INTEGER NOT NULL,
-    read_at TIMESTAMPTZ NULL,
-    UNIQUE(message_id, recipient_type, recipient_id)
-);
-CREATE INDEX IF NOT EXISTS ix_broadcast_recipients_inbox
-    ON broadcast_message_recipients(recipient_type, recipient_id, read_at);", cancellationToken);
+        // Crear cada objeto en un comando independiente evita incompatibilidades de Npgsql con comandos SQL múltiples.
+        await EnsureSchemaAsync(cancellationToken);
 
         var senderId = AuthHelpers.GetUserId(User);
         if (!senderId.HasValue) return Unauthorized();
@@ -144,21 +126,32 @@ WHERE message_id = {id} AND recipient_type = {recipientType} AND recipient_id = 
         return affected == 0 ? NotFound() : NoContent();
     }
 
-    private Task EnsureSchemaAsync(CancellationToken cancellationToken) =>
-        _context.Database.ExecuteSqlRawAsync(@"
+    private async Task EnsureSchemaAsync(CancellationToken cancellationToken)
+    {
+        await _context.Database.ExecuteSqlRawAsync(@"
 CREATE TABLE IF NOT EXISTS broadcast_messages (
-    id BIGSERIAL PRIMARY KEY, title VARCHAR(200) NOT NULL, body TEXT NOT NULL,
-    audience VARCHAR(32) NOT NULL, created_by_user_id INTEGER NOT NULL REFERENCES users(id),
+    id BIGSERIAL PRIMARY KEY,
+    title VARCHAR(200) NOT NULL,
+    body TEXT NOT NULL,
+    audience VARCHAR(32) NOT NULL,
+    created_by_user_id INTEGER NOT NULL REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+);", cancellationToken);
+
+        await _context.Database.ExecuteSqlRawAsync(@"
 CREATE TABLE IF NOT EXISTS broadcast_message_recipients (
-    id BIGSERIAL PRIMARY KEY, message_id BIGINT NOT NULL REFERENCES broadcast_messages(id) ON DELETE CASCADE,
+    id BIGSERIAL PRIMARY KEY,
+    message_id BIGINT NOT NULL REFERENCES broadcast_messages(id) ON DELETE CASCADE,
     recipient_type VARCHAR(16) NOT NULL CHECK (recipient_type IN ('user', 'client')),
-    recipient_id INTEGER NOT NULL, read_at TIMESTAMPTZ NULL,
+    recipient_id INTEGER NOT NULL,
+    read_at TIMESTAMPTZ NULL,
     UNIQUE(message_id, recipient_type, recipient_id)
-);
+);", cancellationToken);
+
+        await _context.Database.ExecuteSqlRawAsync(@"
 CREATE INDEX IF NOT EXISTS ix_broadcast_recipients_inbox
     ON broadcast_message_recipients(recipient_type, recipient_id, read_at);", cancellationToken);
+    }
 }
 
 public sealed class BroadcastMessageRequest
