@@ -42,6 +42,7 @@ public sealed class ProductionOperationsRegressionTests
         var root = RepoRoot;
         var script = File.ReadAllText(Path.Combine(root, "scripts", "dietoexpress-backup.sh"));
         var privilegedHelper = File.ReadAllText(Path.Combine(root, "scripts", "dietoexpress-pg-backup-root.sh"));
+        var privilegedCommands = string.Join(Environment.NewLine, privilegedHelper.Split('\n').Where(line => !line.TrimStart().StartsWith("#", StringComparison.Ordinal)));
 
         Assert.Contains("DIETOEXPRESS_BACKUP_DIR", script);
         Assert.Contains("ERROR: DIETOEXPRESS_BACKUP_DIR", script);
@@ -50,7 +51,7 @@ public sealed class ProductionOperationsRegressionTests
         Assert.Contains("--format=custom", privilegedHelper);
         Assert.Contains("--username=postgres", privilegedHelper);
         Assert.Contains("pg_dump", privilegedHelper);
-        Assert.DoesNotContain("--no-owner", privilegedHelper);
+        Assert.DoesNotContain("--no-owner", privilegedCommands);
         Assert.Contains("sha256sum", privilegedHelper);
         Assert.Contains("umask 077", privilegedHelper);
         Assert.Contains("DIETOEXPRESS_BACKUP_RETENTION", privilegedHelper);
@@ -72,6 +73,8 @@ public sealed class ProductionOperationsRegressionTests
         var restoreUser = File.ReadAllText(Path.Combine(root, "scripts", "dietoexpress-restore-user.sh"));
         var pgRestoreHelper = File.ReadAllText(Path.Combine(root, "scripts", "dietoexpress-pg-restore-root.sh"));
         var pgBackupHelper = File.ReadAllText(Path.Combine(root, "scripts", "dietoexpress-pg-backup-root.sh"));
+        var pgBackupCommands = string.Join(Environment.NewLine, pgBackupHelper.Split('\n').Where(line => !line.TrimStart().StartsWith("#", StringComparison.Ordinal)));
+        var pgRestoreCommands = string.Join(Environment.NewLine, pgRestoreHelper.Split('\n').Where(line => !line.TrimStart().StartsWith("#", StringComparison.Ordinal)));
         var deploy = File.ReadAllText(Path.Combine(root, ".github", "workflows", "deploy.yml"));
         var controller = File.ReadAllText(Path.Combine(root, "Anguloso.Server", "Controllers", "AdminDatabaseBackupController.cs"));
         var databaseBackupService = File.ReadAllText(Path.Combine(root, "Anguloso.Server", "Logica", "DatabaseBackupService.cs"));
@@ -106,8 +109,8 @@ public sealed class ProductionOperationsRegressionTests
         Assert.Contains("--backup-pre-restore", provisioning);
         Assert.Contains("flock 9", pgBackupHelper);
         Assert.Contains("flock 9", pgRestoreHelper);
-        Assert.DoesNotContain("--no-owner", pgBackupHelper);
-        Assert.DoesNotContain("--no-owner", pgRestoreHelper);
+        Assert.DoesNotContain("--no-owner", pgBackupCommands);
+        Assert.DoesNotContain("--no-owner", pgRestoreCommands);
         Assert.DoesNotContain("install-dietoexpress-backup-automation.sh", deploy);
         Assert.DoesNotContain("sudo bash /opt/dietoexpress/scripts/", deploy);
         Assert.Contains("[HttpPost(\"{fileName}/verify\")]", controller);
