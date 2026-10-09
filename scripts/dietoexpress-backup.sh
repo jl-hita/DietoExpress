@@ -1,75 +1,37 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Backup operativo: falla de forma explícita si no se ha configurado un destino.
-# Nunca escribe backups dentro del directorio de despliegue.
-
+# Orquestador sin privilegios. El helper root-owned ejecuta pg_dump como
+# postgres y conserva el almacén de copias fuera de cualquier ruta modificable
+# por el usuario de despliegue.
 BACKUP_DIR="${DIETOEXPRESS_BACKUP_DIR:-}"
-DATABASE_URL="${DIETOEXPRESS_DATABASE_URL:-}"
 DB_NAME="${DIETOEXPRESS_DATABASE:-}"
-DB_USER="${DIETOEXPRESS_DB_USER:-}"
-DB_HOST="${DIETOEXPRESS_DB_HOST:-127.0.0.1}"
-DB_PORT="${DIETOEXPRESS_DB_PORT:-5432}"
-INCLUDE_ENV="${DIETOEXPRESS_BACKUP_INCLUDE_ENV:-false}"
-RETENTION="${DIETOEXPRESS_BACKUP_RETENTION:-8}"
+BACKUP_HELPER="${DIETOEXPRESS_BACKUP_HELPER:-/usr/local/sbin/dietoexpress-pg-backup}"
+BACKUP_MODE="${DIETOEXPRESS_BACKUP_MODE:-normal}"
 
-if [[ -z "$BACKUP_DIR" ]]; then
-  echo "ERROR: DIETOEXPRESS_BACKUP_DIR no está configurado." >&2
+[[ -n "$BACKUP_DIR" ]] || { echo "ERROR: DIETOEXPRESS_BACKUP_DIR no está configurado." >&2; exit 1; }
+[[ -n "$DB_NAME" ]] || { echo "ERROR: DIETOEXPRESS_DATABASE es obligatorio para el backup privilegiado local." >&2; exit 1; }
+[[ -f "$BACKUP_HELPER" ]] || { echo "ERROR: falta el helper privilegiado $BACKUP_HELPER. Ejecuta el provisioning como root." >&2; exit 1; }
+[[ -d "$BACKUP_DIR" && ! -L "$BACKUP_DIR" && -r "$BACKUP_DIR" && -x "$BACKUP_DIR" ]] || {
+  echo "ERROR: el almacén root-owned no existe o no es accesible. Ejecuta el provisioning y revisa DIETOEXPRESS_BACKUP_DIR." >&2
+  exit 1
+}
+command -v sudo >/dev/null 2>&1 || { echo "ERROR: sudo no está disponible." >&2; exit 1; }
+
+case "$BACKUP_MODE" in
+  normal) helper_mode="--backup" ;;
+  pre-restore) helper_mode="--backup-pre-restore" ;;
+  *) echo "ERROR: DIETOEXPRESS_BACKUP_MODE debe ser normal o pre-restore." >&2; exit 1 ;;
+esac
+
+if ! backup_output="$(sudo -n "$BACKUP_HELPER" "$helper_mode")"; then
+  echo "ERROR: el helper privilegiado de backup ha fallado. Revisa sudoers y journalctl." >&2
   exit 1
 fi
+printf '%s\n' "$backup_output"
 
-if [[ -z "$DATABASE_URL" && -z "$DB_NAME" ]]; then
-  echo "ERROR: configure DIETOEXPRESS_DATABASE_URL o DIETOEXPRESS_DATABASE." >&2
+output="$(printf '%s\n' "$backup_output" | sed -n 's/^Backup creado: //p' | tail -n1)"
+[[ -n "$output" && -f "$output" && -r "$output" ]] || {
+  echo "ERROR: el helper no devolvió una copia existente y legible." >&2
   exit 1
-fi
-
-umask 077
-mkdir -p "$BACKUP_DIR"
-chmod 700 "$BACKUP_DIR"
-
-timestamp="$(date -u '+%Y%m%dT%H%M%SZ')"
-host="$(hostname -f 2>/dev/null || hostname)"
-output="$BACKUP_DIR/dietoexpress-postgresql-$timestamp.dump"
-manifest="$BACKUP_DIR/dietoexpress-postgresql-$timestamp.sha256"
-metadata="$BACKUP_DIR/dietoexpress-postgresql-$timestamp.txt"
-
-if [[ -n "$DATABASE_URL" ]]; then
-  pg_dump --format=custom --no-owner --file="$output" "$DATABASE_URL"
-else
-  pg_dump     --format=custom     --no-owner     --host="$DB_HOST"     --port="$DB_PORT"     --username="$DB_USER"     --file="$output"     "$DB_NAME"
-fi
-
-chmod 600 "$output"
-sha256sum "$output" > "$manifest"
-chmod 600 "$manifest"
-
-{
-  printf 'created_at_utc=%s\n' "$timestamp"
-  printf 'host=%s\n' "$host"
-  printf 'backup=%s\n' "$output"
-  printf 'size_bytes=%s\n' "$(stat -c '%s' "$output")"
-  printf 'sha256=%s\n' "$(cut -d ' ' -f1 "$manifest")"
-} > "$metadata"
-chmod 600 "$metadata"
-
-if [[ "$INCLUDE_ENV" == "true" ]]; then
-  if [[ ! -r /etc/dietoexpress/dietoexpress.env ]]; then
-    echo "ERROR: no se puede leer /etc/dietoexpress/dietoexpress.env." >&2
-    exit 1
-  fi
-  cp /etc/dietoexpress/dietoexpress.env "$BACKUP_DIR/dietoexpress-env-$timestamp"
-  chmod 600 "$BACKUP_DIR/dietoexpress-env-$timestamp"
-fi
-
-echo "Backup creado: $output"
-echo "Checksum: $manifest"
-
-# Mantiene solo las últimas N copias completas. Los sidecars se eliminan junto
-# con su dump para evitar dejar metadatos huérfanos.
-if [[ "$RETENTION" =~ ^[0-9]+$ ]] && (( RETENTION > 0 )); then
-  mapfile -t backups < <(find "$BACKUP_DIR" -maxdepth 1 -type f -name 'dietoexpress-postgresql-*.dump' -printf '%T@ %p\n' | sort -nr | tail -n +$((RETENTION + 1)) | cut -d' ' -f2-)
-  for old_backup in "${backups[@]}"; do
-    old_base="${old_backup%.dump}"
-    rm -f -- "$old_backup" "${old_base}.sha256" "${old_base}.txt"
-  done
-fi
+}

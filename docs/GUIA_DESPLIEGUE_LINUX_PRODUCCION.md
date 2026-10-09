@@ -1008,32 +1008,102 @@ Un crecimiento inesperado de AlertSpool puede indicar una caída de PostgreSQL o
 
 # 31. Backups
 
-Un servidor de producción no se considera terminado hasta disponer de recuperación probada.
+La instalación de producción necesita copias verificables y una restauración probada. La lectura y escritura privilegiadas de las copias se separa del usuario que ejecuta la aplicación.
 
-Backup PostgreSQL de ejemplo:
+Configurar en /etc/dietoexpress/dietoexpress.env:
 
-~~~bash
-pg_dump -Fc -d <DATABASE> -f /ruta/segura/dietoexpress-$(date +%F).dump
+~~~text
+DIETOEXPRESS_BACKUP_DIR=/var/lib/dietoexpress-backups
+DIETOEXPRESS_DATABASE=<DATABASE>
+DIETOEXPRESS_DB_PORT=5432
 ~~~
 
-El backup debe estar fuera del disco principal y, preferiblemente, fuera del propio proveedor.
+El almacén recomendado es /var/lib/dietoexpress-backups, propiedad de root, grupo joso y modo 0750. Los archivos de copia son root:joso con modo 0640: la aplicación puede listarlos/descargarlos, pero no modificarlos. No utilices /var/lib/dietoexpress/backups porque el directorio padre /var/lib/dietoexpress es escribible por joso para el aviso de mantenimiento; un usuario de despliegue no debe poder sustituir el archivo que posteriormente leerá pg_restore como PostgreSQL superuser.
 
-Respaldar, según política:
+## Migración del almacén anterior
 
-- PostgreSQL;
-- /etc/dietoexpress/dietoexpress.env;
-- configuración Nginx;
-- configuración systemd;
-- material de recuperación de Let's Encrypt;
-- Logs si deben conservarse;
-- AlertSpool si contiene datos pendientes;
-- cualquier nuevo almacenamiento persistente que aparezca.
+Conserva la carpeta anterior hasta verificar la migración. Primero crea el nuevo directorio y copia los dumps comprobando el checksum de origen. El siguiente bloque no elimina ni altera las copias antiguas:
 
-Los secretos de los backups deben estar cifrados.
+~~~bash
+sudo install -d -o root -g joso -m 0750 /var/lib/dietoexpress-backups
+sudo bash -c '
+set -euo pipefail
+src=/var/lib/dietoexpress/backups
+dst=/var/lib/dietoexpress-backups
+shopt -s nullglob
+for dump in "$src"/dietoexpress-postgresql-*.dump; do
+  name=$(basename "$dump")
+  manifest="${name%.dump}.sha256"
+  (cd "$src" && sha256sum -c "$manifest")
+  [[ ! -e "$dst/$name" ]] || { echo "Ya existe $dst/$name; se aborta para no sobrescribir." >&2; exit 1; }
+  install -o root -g joso -m 0640 "$dump" "$dst/$name"
+  (cd "$dst" && sha256sum "$name" > "$dst/${name%.dump}.sha256")
+  if [[ -f "$src/${name%.dump}.txt" ]]; then
+    size=$(stat -c "%s" "$dst/$name")
+    hash=$(sha256sum "$dst/$name" | cut -d" " -f1)
+    sed -e "s|^backup=.*|backup=$dst/$name|" \
+        -e "s|^size_bytes=.*|size_bytes=$size|" \
+        -e "s|^sha256=.*|sha256=$hash|" \
+        "$src/${name%.dump}.txt" > "$dst/${name%.dump}.txt.tmp"
+    install -o root -g joso -m 0640 "$dst/${name%.dump}.txt.tmp" "$dst/${name%.dump}.txt"
+    rm -f "$dst/${name%.dump}.txt.tmp"
+  fi
+done
+for env_backup in "$src"/dietoexpress-env-*; do
+  [[ -f "$env_backup" ]] || continue
+  name=$(basename "$env_backup")
+  [[ ! -e "$dst/$name" ]] || { echo "Ya existe $dst/$name; se aborta." >&2; exit 1; }
+  install -o root -g root -m 0600 "$env_backup" "$dst/$name"
+done
+'
+sudoedit /etc/dietoexpress/dietoexpress.env
+~~~
 
-Probar periódicamente una restauración en un servidor independiente.
+En el archivo, cambia únicamente DIETOEXPRESS_BACKUP_DIR a /var/lib/dietoexpress-backups y conserva los demás secretos/valores. Después ejecuta el provisioning descrito abajo y reinicia DietoExpress para recargar la configuración. Comprueba todos los checksums copiados; conserva el almacén antiguo hasta que la aplicación y la restauración hayan sido verificadas.
 
----
+## Provisioning de la infraestructura privilegiada
+
+Después de desplegar o actualizar los scripts privilegiados/unidades systemd, ejecutar como administrador:
+
+~~~bash
+sudo /opt/dietoexpress/scripts/provision-dietoexpress-backup-automation.sh
+sudo visudo -cf /etc/sudoers.d/dietoexpress-restore
+sudo systemctl restart dietoexpress.service
+sudo systemctl status dietoexpress-backup.timer --no-pager
+~~~
+
+El provisioning comprueba que ni el directorio ni sus ancestros sean modificables por joso. Es idempotente y debe repetirse después de cada cambio en helpers root-owned o unidades systemd; copiar archivos a /opt/dietoexpress no actualiza automáticamente las copias instaladas en /usr/local/sbin.
+
+## Creación de backups
+
+El servicio semanal corre como joso, pero dietoexpress-backup.sh delega pg_dump mediante reglas sudoers restringidas a dietoexpress-pg-backup --backup y --backup-pre-restore. El helper root-owned ejecuta pg_dump como postgres y publica el dump, checksum y metadatos en el almacén root-owned.
+
+Los dumps usan formato custom y conservan los propietarios originales; no se debe utilizar --no-owner. Comprueba:
+
+~~~bash
+systemctl status dietoexpress-backup.timer
+systemctl list-timers dietoexpress-backup.timer
+journalctl -u dietoexpress-backup.service --since "7 days ago" --no-pager
+ls -lh /var/lib/dietoexpress-backups/
+~~~
+
+La retención normal conserva las ocho últimas copias. Los snapshots automáticos previos a restauración llevan el sufijo -pre-restore y tienen retención separada (cuatro por defecto). Los snapshots manuales cuyo nombre contiene -pre- no se eliminan con la rotación normal.
+
+## Restauración y rollback
+
+La restauración pasa por dietoexpress-restore@.service. La unidad detiene el backend; el script de usuario verifica la copia y genera un snapshot previo mediante el mismo helper privilegiado. El helper root-owned vuelve a validar checksum/formato, copia el dump a un directorio temporal accesible a postgres y ejecuta pg_restore sin --no-owner, preservando los propietarios.
+
+Si falla la restauración solicitada, el script intenta rollback usando el snapshot previo. Si el rollback termina bien, systemd vuelve a iniciar DietoExpress aunque la operación quede marcada como fallida. Si también falla el rollback, la unidad deja el backend detenido y conserva el aviso de mantenimiento para evitar arrancar sobre una base potencialmente parcial.
+
+Comando manual autorizado:
+
+~~~bash
+sudo /usr/local/sbin/dietoexpress-restore-web dietoexpress-postgresql-XXXXXXXX.dump --confirm
+~~~
+
+Tras restaurar, revisar estado de la unidad, dietoexpress.service, logs y smoke tests. No lanzar otra restauración ni iniciar manualmente el backend si consta que falló también el rollback.
+
+Además de PostgreSQL, respalda según la política operativa /etc/dietoexpress/dietoexpress.env, configuración de Nginx y systemd, material de recuperación de Let's Encrypt, Logs si deben conservarse, AlertSpool si contiene datos pendientes y cualquier almacenamiento persistente nuevo. Cifra los backups que contengan secretos y conserva al menos una copia fuera del servidor/proveedor. Prueba periódicamente una restauración en una base o servidor independiente.
 
 # 32. Monitorización
 
@@ -1093,20 +1163,18 @@ Si falla únicamente el código y el esquema sigue siendo compatible:
 3. arrancar;
 4. verificar.
 
-Si la nueva versión ya cambió el esquema de forma incompatible, restaurar solo el binario no es suficiente.
-
-En ese caso:
+Si la versión nueva cambió el esquema de forma incompatible:
 
 1. detener servicio;
-2. restaurar backup PostgreSQL compatible;
-3. restaurar backend/frontend anterior;
-4. restaurar configuración si procede;
-5. arrancar;
-6. verificar.
+2. seleccionar y verificar un backup PostgreSQL compatible;
+3. restaurar el backend/frontend anterior;
+4. restaurar la base con dietoexpress-restore-web, que genera su propio snapshot previo y ejecuta pg_restore como postgres;
+5. comprobar propietarios, arranque y smoke tests;
+6. conservar el snapshot previo hasta completar la validación.
+
+Si también falla el rollback automático, la unidad mantiene el backend detenido y el aviso de mantenimiento. No reiniciar a ciegas ni borrar evidencia.
 
 Toda migración no reversible debe tener un procedimiento de rollback antes de entrar en producción.
-
----
 
 # 35. Recuperación completa de un servidor perdido
 

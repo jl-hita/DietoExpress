@@ -8,7 +8,7 @@ Type=oneshot
 User=joso
 Group=joso
 EnvironmentFile=-/etc/dietoexpress/dietoexpress.env
-Environment=DIETOEXPRESS_BACKUP_RETENTION=8
-# Este servicio solo ejecuta el backup como joso; no necesita privilegios de root.
+# El orquestador corre como joso. El helper root-owned gestiona publicación y
+# retención del almacén, y ejecuta pg_dump como el rol PostgreSQL postgres.
 ExecStart=/opt/dietoexpress/scripts/dietoexpress-backup.sh
 UMask=0077
