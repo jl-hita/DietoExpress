@@ -30,7 +30,7 @@ public sealed class DatabaseBackupService
         _maintenance = maintenance;
     }
 
-    public bool IsConfigured => !string.IsNullOrWhiteSpace(_backupDir) && (!string.IsNullOrWhiteSpace(_databaseUrl) || !string.IsNullOrWhiteSpace(_databaseName));
+    public bool IsConfigured => !string.IsNullOrWhiteSpace(_backupDir) && !string.IsNullOrWhiteSpace(_databaseName);
 
     public IReadOnlyList<DatabaseBackupInfo> List()
     {
