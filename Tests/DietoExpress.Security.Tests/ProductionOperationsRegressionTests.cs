@@ -53,9 +53,9 @@ public sealed class ProductionOperationsRegressionTests
         Assert.DoesNotContain("--no-owner", privilegedHelper);
         Assert.Contains("sha256sum", privilegedHelper);
         Assert.Contains("umask 077", privilegedHelper);
-        Assert.Contains("DIETOEXPRESS_BACKUP_RETENTION", script);
-        Assert.Contains("tail -n +$((RETENTION + 1))", script);
-        Assert.Contains("! -name '*-pre-*'", script);
+        Assert.Contains("DIETOEXPRESS_BACKUP_RETENTION", privilegedHelper);
+        Assert.Contains("tail -n +$((RETENTION + 1))", privilegedHelper);
+        Assert.Contains("! -name '*-pre-*'", privilegedHelper);
         Assert.DoesNotContain("/opt/dietoexpress", script);
     }
 
@@ -83,7 +83,7 @@ public sealed class ProductionOperationsRegressionTests
 
         Assert.Contains("OnCalendar=Sun 02:00", backupTimer);
         Assert.Contains("Persistent=true", backupTimer);
-        Assert.Contains("DIETOEXPRESS_BACKUP_RETENTION=8", backupSystemdService);
+        Assert.Contains("DIETOEXPRESS_BACKUP_RETENTION:-8", pgBackupHelper);
         Assert.Contains("systemctl enable --now dietoexpress-backup.timer", provisioning);
         Assert.Contains("/usr/local/sbin/dietoexpress-restore-web", provisioning);
         Assert.Contains("/usr/local/sbin/dietoexpress-pg-backup", provisioning);
@@ -96,6 +96,13 @@ public sealed class ProductionOperationsRegressionTests
         Assert.Contains("exit 20", restoreUser);
         Assert.Contains("exit 10", restoreUser);
         Assert.Contains("DIETOEXPRESS_BACKUP_MODE=pre-restore", restoreUser);
+        Assert.Contains("/var/lib/dietoexpress-backups", provisioning);
+        Assert.Contains("joso no debe poder modificar el almacén", pgRestoreHelper);
+        Assert.Contains("stat -c '%u' \"$source_file\"", pgRestoreHelper);
+        Assert.Contains("install -d -o root -g \"$BACKUP_GROUP\" -m 0750", pgBackupHelper);
+        Assert.Contains("published_dump=false", pgBackupHelper);
+        Assert.Contains("PRE_RETENTION", pgBackupHelper);
+
         Assert.Contains("--backup-pre-restore", provisioning);
         Assert.Contains("flock 9", pgBackupHelper);
         Assert.Contains("flock 9", pgRestoreHelper);

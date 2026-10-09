@@ -20,13 +20,34 @@ BACKUP_DIR="${DIETOEXPRESS_BACKUP_DIR:-}"
 DATABASE_NAME="${DIETOEXPRESS_DATABASE:-}"
 
 [[ -n "$BACKUP_DIR" && "$BACKUP_DIR" == /* && "$BACKUP_DIR" != "/" ]] || { echo "ERROR: DIETOEXPRESS_BACKUP_DIR debe ser una ruta absoluta válida." >&2; exit 1; }
+[[ "$(realpath -m -- "$BACKUP_DIR")" == "$BACKUP_DIR" ]] || { echo "ERROR: DIETOEXPRESS_BACKUP_DIR debe estar normalizado y no usar enlaces simbólicos." >&2; exit 1; }
 [[ -n "$DATABASE_NAME" ]] || { echo "ERROR: DIETOEXPRESS_DATABASE debe estar configurado para la restauración privilegiada." >&2; exit 1; }
-[[ ! -L "$BACKUP_DIR" ]] || { echo "ERROR: el directorio de backups no puede ser un enlace simbólico." >&2; exit 1; }
+[[ -d "$BACKUP_DIR" && ! -L "$BACKUP_DIR" ]] || { echo "ERROR: el almacén root-owned de backups no existe." >&2; exit 1; }
+
+candidate="$BACKUP_DIR"
+while [[ "$candidate" != "/" ]]; do
+  [[ ! -L "$candidate" ]] || { echo "ERROR: no se permiten enlaces simbólicos en la ruta de backups: $candidate" >&2; exit 1; }
+  candidate="$(dirname "$candidate")"
+done
+candidate="$(dirname "$BACKUP_DIR")"
+while [[ "$candidate" != "/" ]]; do
+  if runuser -u joso -- /usr/bin/test -w "$candidate"; then
+    echo "ERROR: $candidate es modificable por joso; el almacén privilegiado no es seguro." >&2
+    exit 1
+  fi
+  candidate="$(dirname "$candidate")"
+done
+if runuser -u joso -- /usr/bin/test -w "$BACKUP_DIR"; then
+  echo "ERROR: joso no debe poder modificar el almacén de backups." >&2
+  exit 1
+fi
 
 source_file="$BACKUP_DIR/$file"
 manifest="$BACKUP_DIR/${file%.dump}.sha256"
 [[ -f "$source_file" && ! -L "$source_file" ]] || { echo "ERROR: backup no encontrado o no válido: $source_file" >&2; exit 1; }
+[[ "$(stat -c '%u' "$source_file")" == "0" ]] || { echo "ERROR: el backup no es root-owned; migra y verifica el almacén antes de restaurar." >&2; exit 1; }
 [[ -f "$manifest" && ! -L "$manifest" ]] || { echo "ERROR: falta un manifiesto SHA-256 válido: $manifest" >&2; exit 1; }
+[[ "$(stat -c '%u' "$manifest")" == "0" ]] || { echo "ERROR: el manifiesto no es root-owned; migra y verifica el almacén antes de restaurar." >&2; exit 1; }
 
 # Admite manifiestos antiguos (ruta absoluta) y nuevos (nombre relativo),
 # pero nunca permite que el manifiesto solicite validar un archivo diferente.
