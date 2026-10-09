@@ -44,6 +44,12 @@ export class MessagesComponent implements OnInit, OnDestroy {
         this.selectedClientId = null;
       }
     });
+
+    // Las comunicaciones oficiales se consultan en paralelo y se incorporan al contador de la bandeja.
+    this.broadcastRefreshSubscription = interval(15000).pipe(
+      startWith(0),
+      switchMap(() => this.http.get<BroadcastInboxItem[]>('/api/broadcast-messages/inbox').pipe(catchError(() => of([]))))
+    ).subscribe(items => this.broadcastInbox = items || []);
   }
 
   // Cancelar el intervalo es importante para evitar peticiones y actualizaciones sobre un componente que ya no está en pantalla.
