@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Subscription, interval, startWith, switchMap, catchError, of } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
@@ -27,7 +28,7 @@ type ActiveTab = 'today' | 'shopping' | 'appointments' | 'progress' | 'messages'
   templateUrl: './patient-portal.component.html',
   styleUrls: ['./patient-portal.component.css']
 })
-export class PatientPortalComponent implements OnInit {
+export class PatientPortalComponent implements OnInit, OnDestroy {
   clientId?: number;
   /** True when the professional is previewing the portal instead of using the patient session. */
   isPreview = false;
@@ -68,6 +69,7 @@ export class PatientPortalComponent implements OnInit {
   broadcastMessages: PatientBroadcastMessage[] = [];
   broadcastMessagesLoading = false;
   broadcastMessagesError: string | null = null;
+  private broadcastRefreshSubscription?: Subscription;
   notificationsOpen = false;
   notificationsLoading = false;
   pushSupported = false;
@@ -96,6 +98,8 @@ export class PatientPortalComponent implements OnInit {
     private foodService: FoodService,
     private http: HttpClient
   ) {}
+
+  ngOnDestroy(): void { this.broadcastRefreshSubscription?.unsubscribe(); }
 
   // El portal puede entrar mediante sesión previa o token de acceso; después carga los datos clínicos y habilita las funciones del paciente.
   ngOnInit(): void {
@@ -216,6 +220,8 @@ export class PatientPortalComponent implements OnInit {
   }
 
   private resetPatientView(): void {
+    this.broadcastRefreshSubscription?.unsubscribe();
+    this.broadcastRefreshSubscription = undefined;
     this.profile = null;
     this.activeDiet = null;
     this.shoppingList = [];
@@ -259,7 +265,7 @@ export class PatientPortalComponent implements OnInit {
         if (!clientIdParam) {
           this.loadAppointments();
           this.loadNotifications();
-          this.loadBroadcastMessages();
+          this.startBroadcastPolling();
           this.loadCommercialPreference();
           this.loadDocuments();
           this.preparePushSupport();
@@ -585,6 +591,25 @@ export class PatientPortalComponent implements OnInit {
   /** Carga el buzón de comunicados globales, separado del chat privado. */
   get unreadBroadcastMessagesCount(): number {
     return this.broadcastMessages.filter(message => !message.readAt).length;
+  }
+
+  // Mantiene actualizado el contador del menú del paciente sin exigir que entre manualmente en la pestaña Mensajes.
+  private startBroadcastPolling(): void {
+    if (this.broadcastRefreshSubscription) return;
+    this.broadcastRefreshSubscription = interval(15000).pipe(
+      startWith(0),
+      switchMap(() => this.http.get<PatientBroadcastMessage[]>('/api/broadcast-messages/inbox').pipe(
+        catchError(() => {
+          this.broadcastMessagesError = 'No se han podido actualizar las comunicaciones.';
+          return of(null);
+        })
+      ))
+    ).subscribe(messages => {
+      if (messages === null) return;
+      this.broadcastMessages = messages || [];
+      this.broadcastMessagesLoading = false;
+      this.broadcastMessagesError = null;
+    });
   }
 
   loadBroadcastMessages(): void {
