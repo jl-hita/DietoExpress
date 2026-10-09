@@ -36,7 +36,7 @@ command -v sudo >/dev/null 2>&1 || { echo "ERROR: sudo no está disponible." >&2
 
 # La copia previa se crea por el mismo helper privilegiado que usan el timer y
 # el backup manual: pg_dump como postgres, más checksum y metadatos.
-pre_restore_output="$("$BACKUP_SCRIPT")"
+pre_restore_output="$(DIETOEXPRESS_BACKUP_MODE=pre-restore "$BACKUP_SCRIPT")"
 pre_restore_file="$(printf '%s\n' "$pre_restore_output" | sed -n 's/^Backup creado: //p' | tail -n1)"
 [[ -n "$pre_restore_file" && -f "$pre_restore_file" ]] || { echo "ERROR: no se pudo crear/verificar el backup pre-restauración." >&2; exit 1; }
 pre_restore_name="$(basename "$pre_restore_file")"

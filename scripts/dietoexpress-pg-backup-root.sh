@@ -5,7 +5,8 @@ export PATH
 umask 077
 
 [[ "$(id -u)" -eq 0 ]] || { echo "ERROR: este helper debe ejecutarse como root." >&2; exit 1; }
-[[ "$#" -eq 1 && "$1" == "--backup" ]] || { echo "ERROR: uso permitido: dietoexpress-pg-backup --backup" >&2; exit 2; }
+[[ "$#" -eq 1 && ( "$1" == "--backup" || "$1" == "--backup-pre-restore" ) ]] || { echo "ERROR: uso permitido: dietoexpress-pg-backup --backup o --backup-pre-restore" >&2; exit 2; }
+BACKUP_MODE="$1"
 
 ENV_FILE=/etc/dietoexpress/dietoexpress.env
 [[ -r "$ENV_FILE" ]] || { echo "ERROR: no se puede leer $ENV_FILE." >&2; exit 1; }
@@ -40,19 +41,29 @@ chmod 0700 "$tmp_dir"
 
 timestamp="$(date -u '+%Y%m%dT%H%M%SZ')"
 host="$(hostname -f 2>/dev/null || hostname)"
-file="dietoexpress-postgresql-$timestamp.dump"
-manifest_name="dietoexpress-postgresql-$timestamp.sha256"
-metadata_name="dietoexpress-postgresql-$timestamp.txt"
+suffix=""
+[[ "$BACKUP_MODE" == "--backup-pre-restore" ]] && suffix="-pre-restore"
+stem="dietoexpress-postgresql-$timestamp$suffix"
+file="$stem.dump"
+manifest_name="$stem.sha256"
+metadata_name="$stem.txt"
 dump_path="$BACKUP_DIR/$file"
 manifest_path="$BACKUP_DIR/$manifest_name"
 metadata_path="$BACKUP_DIR/$metadata_name"
 tmp_dump="$tmp_dir/$file"
 committed=false
+published_dump=false
+published_manifest=false
+published_metadata=false
 
 cleanup() {
   local rc=$?
+  # Solo borramos artefactos que este proceso consiguió crear. Si detectamos
+  # una colisión de timestamp, nunca eliminamos una copia que ya existía.
   if [[ "$committed" != true ]]; then
-    rm -f -- "$dump_path" "$manifest_path" "$metadata_path"
+    [[ "$published_dump" != true ]] || rm -f -- "$dump_path"
+    [[ "$published_manifest" != true ]] || rm -f -- "$manifest_path"
+    [[ "$published_metadata" != true ]] || rm -f -- "$metadata_path"
   fi
   rm -rf -- "$tmp_dir"
   return "$rc"
@@ -85,8 +96,11 @@ printf '%s  %s\n' "$sha256" "$file" > "$tmp_dir/$manifest_name"
 } > "$tmp_dir/$metadata_name"
 
 install -o "$BACKUP_OWNER" -g "$BACKUP_GROUP" -m 0600 "$tmp_dump" "$dump_path"
+published_dump=true
 install -o "$BACKUP_OWNER" -g "$BACKUP_GROUP" -m 0600 "$tmp_dir/$manifest_name" "$manifest_path"
+published_manifest=true
 install -o "$BACKUP_OWNER" -g "$BACKUP_GROUP" -m 0600 "$tmp_dir/$metadata_name" "$metadata_path"
+published_metadata=true
 (cd "$BACKUP_DIR" && sha256sum -c "$manifest_name")
 committed=true
 

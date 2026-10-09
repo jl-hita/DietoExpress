@@ -7,6 +7,7 @@ BACKUP_DIR="${DIETOEXPRESS_BACKUP_DIR:-}"
 DB_NAME="${DIETOEXPRESS_DATABASE:-}"
 BACKUP_HELPER="${DIETOEXPRESS_BACKUP_HELPER:-/usr/local/sbin/dietoexpress-pg-backup}"
 INCLUDE_ENV="${DIETOEXPRESS_BACKUP_INCLUDE_ENV:-false}"
+BACKUP_MODE="${DIETOEXPRESS_BACKUP_MODE:-normal}"
 RETENTION="${DIETOEXPRESS_BACKUP_RETENTION:-8}"
 
 [[ -n "$BACKUP_DIR" ]] || { echo "ERROR: DIETOEXPRESS_BACKUP_DIR no está configurado." >&2; exit 1; }
@@ -20,7 +21,13 @@ umask 077
 mkdir -p -- "$BACKUP_DIR"
 chmod 700 "$BACKUP_DIR"
 
-if ! backup_output="$(sudo -n "$BACKUP_HELPER" --backup)"; then
+case "$BACKUP_MODE" in
+  normal) helper_mode="--backup" ;;
+  pre-restore) helper_mode="--backup-pre-restore" ;;
+  *) echo "ERROR: DIETOEXPRESS_BACKUP_MODE debe ser normal o pre-restore." >&2; exit 1 ;;
+esac
+
+if ! backup_output="$(sudo -n "$BACKUP_HELPER" "$helper_mode")"; then
   echo "ERROR: el helper privilegiado de backup ha fallado. Revisa sudoers y journalctl." >&2
   exit 1
 fi
