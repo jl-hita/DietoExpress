@@ -68,18 +68,6 @@ jobs:
 
       # El cambio de versión se hace al final, después de que build y publish
       # hayan terminado correctamente.
-      - name: Preparar permisos de mantenimiento
-        run: |
-          # El aviso de mantenimiento se escribe desde el proceso web (usuario joso).
-          # Normalizamos el directorio y los posibles archivos previos sin truncar el aviso,
-          # para que una restauración no falle antes de invocar el wrapper privilegiado.
-          sudo install -d -o joso -g joso -m 750 /var/lib/dietoexpress
-          for path in /var/lib/dietoexpress/maintenance.json /var/lib/dietoexpress/maintenance.json.tmp; do
-            if sudo test -e "$path"; then
-              sudo chown joso:joso "$path"
-            fi
-          done
-
       - name: Desplegar backend
         run: |
           # Los logs son datos persistentes y están fuera del directorio de despliegue.
