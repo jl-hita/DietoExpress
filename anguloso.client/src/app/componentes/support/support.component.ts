@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
@@ -44,6 +45,13 @@ export class SupportComponent implements OnInit, OnDestroy {
   newPriority: SupportPriority = 'normal';
   newBody = '';
   creating = false;
+  broadcastTitle = '';
+  broadcastBody = '';
+  broadcastAudience = 'professionals';
+  broadcastSending = false;
+  broadcastResult = '';
+  broadcastError = '';
+  broadcastInbox: BroadcastInboxItem[] = [];
 
   readonly categories: { value: SupportCategory; label: string }[] = [
     { value: 'problem', label: 'Problema' },
@@ -71,7 +79,8 @@ export class SupportComponent implements OnInit, OnDestroy {
 
   constructor(
     private readonly support: SupportService,
-    private readonly auth: AuthService
+    private readonly auth: AuthService,
+    private readonly http: HttpClient
   ) {}
 
   get isSuperAdmin(): boolean {
@@ -79,7 +88,7 @@ export class SupportComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.loadTickets(); this.loadNotifications(); if(this.isSuperAdmin)this.support.getAssignees().subscribe(v=>this.assignees=v);
+    this.loadTickets(); this.loadNotifications(); this.loadBroadcastInbox(); if(this.isSuperAdmin)this.support.getAssignees().subscribe(v=>this.assignees=v);
   }
 
   ngOnDestroy(): void {
@@ -201,7 +210,48 @@ export class SupportComponent implements OnInit, OnDestroy {
     return this.categories.find(item => item.value === category)?.label ?? category;
   }
 
+
+  loadBroadcastInbox(): void {
+    this.http.get<BroadcastInboxItem[]>('/api/broadcast-messages/inbox').subscribe({
+      next: items => this.broadcastInbox = items || [],
+      error: () => this.broadcastError = 'No se ha podido cargar la bandeja de comunicaciones.'
+    });
+  }
+
+  sendBroadcast(): void {
+    if (!this.isSuperAdmin || this.broadcastSending || !this.broadcastTitle.trim() || !this.broadcastBody.trim()) return;
+    if (!confirm('¿Enviar esta comunicación a todos los destinatarios del público seleccionado?')) return;
+    this.broadcastSending = true;
+    this.broadcastError = '';
+    this.broadcastResult = '';
+    this.http.post<{ recipientCount: number }>('/api/broadcast-messages', {
+      title: this.broadcastTitle.trim(), body: this.broadcastBody.trim(), audience: this.broadcastAudience
+    }).subscribe({
+      next: result => {
+        this.broadcastSending = false;
+        this.broadcastResult = 'Comunicación enviada a ' + result.recipientCount + ' destinatarios.';
+        this.broadcastTitle = '';
+        this.broadcastBody = '';
+        this.loadBroadcastInbox();
+      },
+      error: err => {
+        this.broadcastSending = false;
+        this.broadcastError = err?.error?.message || 'No se ha podido enviar la comunicación.';
+      }
+    });
+  }
+
+  markBroadcastRead(item: BroadcastInboxItem): void {
+    if (item.readAt) return;
+    this.http.patch('/api/broadcast-messages/' + item.id + '/read', {}).subscribe({
+      next: () => item.readAt = new Date().toISOString()
+    });
+  }
+
   trackById(_: number, item: { id: number }): number {
     return item.id;
   }
 }
+
+
+export interface BroadcastInboxItem { id: number; title: string; body: string; audience: string; createdAt: string; readAt?: string | null; }
