@@ -28,7 +28,8 @@ export class AppComponent implements OnInit, OnDestroy {
   constructor(private http: HttpClient) {}
 
   ngOnInit(): void {
-    this.maintenanceSubscription = timer(0, 2000).pipe(
+    this.maintenanceSubscription = // El estado de mantenimiento no requiere sondeo cada dos segundos; evitamos tráfico continuo.
+    timer(0, 30000).pipe(
       switchMap(() => this.http.get<MaintenanceNotice>('/api/maintenance')),
       catchError(() => of<MaintenanceNotice>({ active: false, title: '', message: '', startedAtUtc: '' }))
     ).subscribe(notice => {
