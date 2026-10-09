@@ -43,6 +43,14 @@
              Link="scripts\dietoexpress-pg-restore-root.sh"
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\scripts\dietoexpress-pg-backup-root.sh"
+             Link="scripts/dietoexpress-pg-backup-root.sh"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\scripts\dietoexpress-restore-post.sh"
+             Link="scripts/dietoexpress-restore-post.sh"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
     <Content Include="..\scripts\provision-dietoexpress-backup-automation.sh"
              Link="scripts/provision-dietoexpress-backup-automation.sh"
              CopyToOutputDirectory="PreserveNewest"
