@@ -18,7 +18,7 @@ sudo /opt/dietoexpress/scripts/provision-dietoexpress-backup-automation.sh
 
 El provisioning instala helpers root-owned en /usr/local/sbin, unidades systemd y reglas sudoers restringidas. Es idempotente, pero debe volver a ejecutarse después de actualizar cualquiera de los helpers privilegiados o unidades systemd: el deploy a /opt/dietoexpress no actualiza las copias root-owned.
 
-El timer se ejecuta como joso. El script de backup invoca mediante sudo -n el helper dietoexpress-pg-backup, que ejecuta pg_dump como usuario PostgreSQL postgres. El helper publica dump, checksum y metadatos con propietario joso, para que la aplicación pueda listarlos y descargarlos sin dar acceso al usuario postgres al directorio privado de backups.
+El timer se ejecuta como joso. El script de backup invoca mediante sudo -n el helper dietoexpress-pg-backup con --backup para copias normales y --backup-pre-restore para el snapshot automático previo a una restauración; el helper ejecuta pg_dump como usuario PostgreSQL postgres. El helper publica dump, checksum y metadatos con propietario joso, para que la aplicación pueda listarlos y descargarlos sin dar acceso al usuario postgres al directorio privado de backups.
 
 Comprobaciones:
 
@@ -29,7 +29,7 @@ journalctl -u dietoexpress-backup.service --since "7 days ago" --no-pager
 sudo visudo -cf /etc/sudoers.d/dietoexpress-restore
 ~~~
 
-La retención por defecto conserva ocho backups operativos. Los snapshots con sufijo -pre-* se excluyen de la limpieza automática para proteger copias de emergencia.
+La retención por defecto conserva ocho backups operativos. Los snapshots automáticos previos a una restauración incluyen el sufijo -pre-restore; los snapshots con sufijo -pre-* se excluyen de la limpieza automática para proteger copias de emergencia.
 
 ## 3. Crear un backup desde SuperAdmin
 

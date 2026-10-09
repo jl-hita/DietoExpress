@@ -1032,7 +1032,7 @@ El provisioning es idempotente y debe repetirse después de cada cambio en los h
 
 ## Creación de backups
 
-El servicio semanal corre como joso, pero dietoexpress-backup.sh delega pg_dump mediante una regla sudoers restringida a dietoexpress-pg-backup --backup. El helper root-owned ejecuta pg_dump como postgres, prepara el fichero en un directorio temporal y publica dump, checksum y metadatos como joso.
+El servicio semanal corre como joso, pero dietoexpress-backup.sh delega pg_dump mediante reglas sudoers restringidas a dietoexpress-pg-backup --backup y --backup-pre-restore. El helper root-owned ejecuta pg_dump como postgres, prepara el fichero en un directorio temporal y publica dump, checksum y metadatos como joso.
 
 Los dumps se guardan en formato custom y preservan los propietarios; no usar pg_dump --no-owner. Comprueba:
 
@@ -1059,7 +1059,7 @@ sudo /usr/local/sbin/dietoexpress-restore-web dietoexpress-postgresql-XXXXXXXX.d
 
 Después de cualquier restauración, revisar estado de la unidad, dietoexpress.service, logs y smoke tests. No lanzar otra restauración ni iniciar manualmente el backend si consta que falló también el rollback; conservar backups y logs y hacer una recuperación controlada.
 
-Los backups incluyen datos sensibles. En producción, mantén una copia cifrada fuera del servidor/proveedor y restaura periódicamente en una base independiente antes de considerar probada la recuperación.
+Además de PostgreSQL, respalda según la política operativa: /etc/dietoexpress/dietoexpress.env, configuración de Nginx y systemd, material de recuperación de Let's Encrypt, Logs si deben conservarse, AlertSpool si contiene datos pendientes y cualquier almacenamiento persistente nuevo. Los backups con secretos deben cifrarse y almacenarse fuera del servidor/proveedor. Prueba periódicamente una restauración en una base o servidor independiente antes de considerar probada la recuperación.
 
 # 32. Monitorización
 
