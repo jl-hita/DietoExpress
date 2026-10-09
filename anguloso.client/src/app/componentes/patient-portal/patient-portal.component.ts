@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -64,6 +65,9 @@ export class PatientPortalComponent implements OnInit {
   appointmentSuccess: string | null = null;
 
   notifications: PatientNotification[] = [];
+  broadcastMessages: PatientBroadcastMessage[] = [];
+  broadcastMessagesLoading = false;
+  broadcastMessagesError: string | null = null;
   notificationsOpen = false;
   notificationsLoading = false;
   pushSupported = false;
@@ -89,7 +93,8 @@ export class PatientPortalComponent implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
     private portalService: PatientPortalService,
-    private foodService: FoodService
+    private foodService: FoodService,
+    private http: HttpClient
   ) {}
 
   // El portal puede entrar mediante sesión previa o token de acceso; después carga los datos clínicos y habilita las funciones del paciente.
@@ -230,6 +235,9 @@ export class PatientPortalComponent implements OnInit {
     this.documentsLoading = false;
     this.documentsError = null;
     this.notifications = [];
+    this.broadcastMessages = [];
+    this.broadcastMessagesLoading = false;
+    this.broadcastMessagesError = null;
     this.notificationsOpen = false;
     this.notificationsLoading = false;
     this.completedMeals = {};
@@ -251,6 +259,7 @@ export class PatientPortalComponent implements OnInit {
         if (!clientIdParam) {
           this.loadAppointments();
           this.loadNotifications();
+          this.loadBroadcastMessages();
           this.loadCommercialPreference();
           this.loadDocuments();
           this.preparePushSupport();
@@ -573,8 +582,34 @@ export class PatientPortalComponent implements OnInit {
     return Uint8Array.from([...raw].map(char => char.charCodeAt(0)));
   }
 
+  /** Carga el buzón de comunicados globales, separado del chat privado. */
+  loadBroadcastMessages(): void {
+    if (this.isPreview || this.showLogin) return;
+    this.broadcastMessagesLoading = true;
+    this.broadcastMessagesError = null;
+    this.http.get<PatientBroadcastMessage[]>('/api/broadcast-messages/inbox').subscribe({
+      next: messages => {
+        this.broadcastMessages = messages || [];
+        this.broadcastMessagesLoading = false;
+      },
+      error: () => {
+        this.broadcastMessagesLoading = false;
+        this.broadcastMessagesError = 'No se han podido cargar las comunicaciones. Inténtalo de nuevo.';
+      }
+    });
+  }
+
+  markBroadcastMessageRead(message: PatientBroadcastMessage): void {
+    if (message.readAt) return;
+    this.http.patch('/api/broadcast-messages/' + message.id + '/read', {}).subscribe({
+      next: () => message.readAt = new Date().toISOString(),
+      error: () => this.broadcastMessagesError = 'No se ha podido actualizar el estado de lectura.'
+    });
+  }
+
   setTab(tab: ActiveTab): void {
     this.activeTab = tab;
+    if (tab === 'messages' && !this.isPreview) this.loadBroadcastMessages();
   }
 
   /** Lleva al paciente al directorio público cuando ya no tiene un nutricionista asignado. */
@@ -760,4 +795,15 @@ export class PatientPortalComponent implements OnInit {
   getExchangeFoods(groupId?: number): any[] {
     return groupId ? (this.exchangeFoodsCache[groupId] || []) : [];
   }
+}
+
+
+/** Comunicación masiva asignada individualmente al paciente autenticado. */
+export interface PatientBroadcastMessage {
+  id: number;
+  title: string;
+  body: string;
+  audience: string;
+  createdAt: string;
+  readAt?: string | null;
 }
