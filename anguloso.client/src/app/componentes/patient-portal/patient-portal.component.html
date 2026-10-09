@@ -399,7 +399,10 @@
         <span>Compra</span>
       </button>
       <button type="button" class="nav-tab" [class.active]="activeTab === 'messages'" [attr.aria-current]="activeTab === 'messages' ? 'page' : null" aria-label="Ver mis mensajes" (click)="setTab('messages')">
-        <mat-icon>chat</mat-icon>
+        <span class="nav-icon-wrap">
+          <mat-icon>chat</mat-icon>
+          <span class="nav-badge" *ngIf="unreadBroadcastMessagesCount > 0">{{ unreadBroadcastMessagesCount > 99 ? '99+' : unreadBroadcastMessagesCount }}</span>
+        </span>
         <span>Mensajes</span>
       </button>
       <button type="button" class="nav-tab" [class.active]="activeTab === 'documents'" [attr.aria-current]="activeTab === 'documents' ? 'page' : null" aria-label="Ver mi documentación" (click)="openDocuments()">

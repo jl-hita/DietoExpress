@@ -583,6 +583,10 @@ export class PatientPortalComponent implements OnInit {
   }
 
   /** Carga el buzón de comunicados globales, separado del chat privado. */
+  get unreadBroadcastMessagesCount(): number {
+    return this.broadcastMessages.filter(message => !message.readAt).length;
+  }
+
   loadBroadcastMessages(): void {
     if (this.isPreview || this.showLogin) return;
     this.broadcastMessagesLoading = true;
