@@ -3,6 +3,7 @@ using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Anguloso.Server.Controllers;
 
@@ -67,11 +68,24 @@ public sealed class BroadcastMessagesController : ControllerBase
         }
 
         await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
-        var messageId = await _context.Database.SqlQueryRaw<long>(@"
+        // INSERT ... RETURNING no es SQL componible para EF SqlQueryRaw; ejecutarlo como comando
+        // ADO.NET evita que EF intente envolver la escritura en una consulta SELECT.
+        await using var command = _context.Database.GetDbConnection().CreateCommand();
+        command.Transaction = _context.Database.CurrentTransaction?.GetDbTransaction();
+        command.CommandText = @"
 INSERT INTO broadcast_messages(title, body, audience, created_by_user_id)
-VALUES ({0}, {1}, {2}, {3})
-RETURNING id AS ""Value"";", title, body, audience, senderId.Value)
-            .SingleAsync(cancellationToken);
+VALUES (@title, @body, @audience, @senderId)
+RETURNING id;";
+
+        AddParameter(command, "title", title);
+        AddParameter(command, "body", body);
+        AddParameter(command, "audience", audience);
+        AddParameter(command, "senderId", senderId.Value);
+
+        var insertedId = await command.ExecuteScalarAsync(cancellationToken);
+        if (insertedId is null || insertedId is DBNull)
+            throw new InvalidOperationException("No se pudo recuperar el identificador del mensaje enviado.");
+        var messageId = Convert.ToInt64(insertedId);
 
         foreach (var recipient in recipients.Distinct())
         {
@@ -124,6 +138,14 @@ LIMIT 100;", recipientType, recipientId.Value).ToListAsync(cancellationToken);
 UPDATE broadcast_message_recipients SET read_at = COALESCE(read_at, NOW())
 WHERE message_id = {id} AND recipient_type = {recipientType} AND recipient_id = {recipientId.Value};", cancellationToken);
         return affected == 0 ? NotFound() : NoContent();
+    }
+
+    private static void AddParameter(System.Data.Common.DbCommand command, string name, object value)
+    {
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = name;
+        parameter.Value = value;
+        command.Parameters.Add(parameter);
     }
 
     private async Task EnsureSchemaAsync(CancellationToken cancellationToken)
