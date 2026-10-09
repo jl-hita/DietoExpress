@@ -101,7 +101,8 @@ public sealed class ProductionOperationsRegressionTests
         Assert.Contains("DIETOEXPRESS_BACKUP_MODE=pre-restore", restoreUser);
         Assert.Contains("/var/lib/dietoexpress-backups", provisioning);
         Assert.Contains("joso no debe poder modificar el almacén", pgRestoreHelper);
-        Assert.Contains("stat -c '%u' \"$source_file\"", pgRestoreHelper);
+        Assert.Contains("stat -c '%u:%g:%a' \"$source_file\"", pgRestoreHelper);
+        Assert.Contains("stat -c '%u:%g:%a' \"$manifest\"", pgRestoreHelper);
         Assert.Contains("0:$BACKUP_GID:640", pgRestoreHelper);
         Assert.Contains("install -d -o root -g \"$BACKUP_GROUP\" -m 0750", pgBackupHelper);
         Assert.Contains("published_dump=false", pgBackupHelper);
