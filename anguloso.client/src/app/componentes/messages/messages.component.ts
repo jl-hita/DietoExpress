@@ -10,6 +10,8 @@ interface Conversation {
   conversationId: number; clientId: number; clientName: string; updatedAt: string; lastMessage: string; unreadCount: number;
 }
 
+interface BroadcastInboxItem { id: number; title: string; body: string; audience: string; createdAt: string; readAt?: string | null; }
+
 @Component({
   selector: 'app-messages',
   standalone: true,
@@ -20,10 +22,13 @@ interface Conversation {
 // El componente coordina la carga y actualización de conversaciones sin asumir autorización propia; el backend determina qué mensajes puede consultar el usuario.
 export class MessagesComponent implements OnInit, OnDestroy {
   conversations: Conversation[] = [];
+  broadcastInbox: BroadcastInboxItem[] = [];
   selectedClientId: number | null = null;
+  selectedBroadcastId: number | null = null;
   loading = true;
   error: string | null = null;
   private refreshSubscription?: Subscription;
+  private broadcastRefreshSubscription?: Subscription;
 
   constructor(private http: HttpClient, private router: Router) {}
 
@@ -42,15 +47,36 @@ export class MessagesComponent implements OnInit, OnDestroy {
   }
 
   // Cancelar el intervalo es importante para evitar peticiones y actualizaciones sobre un componente que ya no está en pantalla.
-  ngOnDestroy(): void { this.refreshSubscription?.unsubscribe(); }
+  ngOnDestroy(): void {
+    this.refreshSubscription?.unsubscribe();
+    this.broadcastRefreshSubscription?.unsubscribe();
+  }
 
-  select(conversation: Conversation): void { this.selectedClientId = conversation.clientId; }
+  select(conversation: Conversation): void {
+    this.selectedBroadcastId = null;
+    this.selectedClientId = conversation.clientId;
+  }
+
+  selectBroadcast(item: BroadcastInboxItem): void {
+    this.selectedClientId = null;
+    this.selectedBroadcastId = item.id;
+    if (item.readAt) return;
+    this.http.patch('/api/broadcast-messages/' + item.id + '/read', {}).subscribe({
+      next: () => item.readAt = new Date().toISOString()
+    });
+  }
+
+  get selectedBroadcast(): BroadcastInboxItem | undefined {
+    return this.broadcastInbox.find(item => item.id === this.selectedBroadcastId);
+  }
 
   openClient(): void {
     if (this.selectedClientId) this.router.navigate(['/clients', this.selectedClientId]);
   }
 
-  get totalUnread(): number { return this.conversations.reduce((sum, c) => sum + c.unreadCount, 0); }
+  get totalUnread(): number {
+    return this.conversations.reduce((sum, c) => sum + c.unreadCount, 0) + this.broadcastInbox.filter(item => !item.readAt).length;
+  }
 
   trackByClient(_: number, item: Conversation): number { return item.clientId; }
 }

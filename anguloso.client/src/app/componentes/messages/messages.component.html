@@ -1,14 +1,25 @@
 <section class="messages-page">
   <header class="page-header">
-    <div><h1>Mensajes</h1><p>Comunicación privada con tus pacientes</p></div>
+    <div><h1>Mensajes</h1><p>Conversaciones privadas y comunicaciones oficiales</p></div>
     <span class="unread-total" *ngIf="totalUnread">{{ totalUnread }} sin leer</span>
   </header>
   <div class="messages-layout">
     <aside class="conversation-list">
       <div class="list-loading" *ngIf="loading">Cargando conversaciones…</div>
-      <div class="list-empty" *ngIf="!loading && !conversations.length">
-        <mat-icon>forum</mat-icon><strong>No hay conversaciones</strong><span>Los mensajes de tus pacientes aparecerán aquí.</span>
+      <div class="list-empty" *ngIf="!loading && !conversations.length && !broadcastInbox.length">
+        <mat-icon>forum</mat-icon><strong>No hay conversaciones</strong><span>Tus conversaciones y comunicaciones oficiales aparecerán aquí.</span>
       </div>
+      <button class="conversation broadcast-conversation" type="button" *ngFor="let item of broadcastInbox" [class.selected]="selectedBroadcastId === item.id" [class.broadcast-unread]="!item.readAt" (click)="selectBroadcast(item)">
+        <div class="avatar broadcast-avatar"><mat-icon>campaign</mat-icon></div>
+        <div class="conversation-main">
+          <div class="conversation-name">{{ item.title }}</div>
+          <div class="conversation-preview">{{ item.body }}</div>
+        </div>
+        <div class="conversation-meta">
+          <small>{{ item.createdAt | date:'d MMM HH:mm' }}</small>
+          <b *ngIf="!item.readAt">Nuevo</b>
+        </div>
+      </button>
       <button class="conversation" type="button" *ngFor="let c of conversations; trackBy: trackByClient" [class.selected]="selectedClientId === c.clientId" (click)="select(c)">
         <div class="avatar">{{ c.clientName.charAt(0) }}</div>
         <div class="conversation-main">
@@ -22,9 +33,13 @@
       </button>
     </aside>
     <main class="conversation-detail">
-      <div class="detail-empty" *ngIf="!selectedClientId">
-        <mat-icon>chat</mat-icon><h2>Selecciona una conversación</h2><p>Elige un paciente para consultar o responder sus mensajes.</p>
+      <div class="detail-empty" *ngIf="!selectedClientId && !selectedBroadcastId">
+        <mat-icon>chat</mat-icon><h2>Selecciona un mensaje</h2><p>Elige una conversación o una comunicación oficial para leerla.</p>
       </div>
+      <article class="broadcast-detail" *ngIf="selectedBroadcast as item">
+        <div class="broadcast-detail-header"><mat-icon>campaign</mat-icon><div><h2>{{ item.title }}</h2><small>{{ item.createdAt | date:'medium' }} · DietoExpress</small></div></div>
+        <p class="broadcast-detail-body">{{ item.body }}</p>
+      </article>
       <ng-container *ngIf="selectedClientId">
         <div class="detail-toolbar">
           <button mat-icon-button type="button" (click)="openClient()" title="Abrir ficha del paciente"><mat-icon>person</mat-icon></button>

@@ -34,15 +34,6 @@
     <p class="error" *ngIf="broadcastError">{{ broadcastError }}</p>
   </mat-card>
 
-  <mat-card class="broadcast-inbox" *ngIf="!isSuperAdmin || broadcastInbox.length">
-    <mat-card-header><mat-card-title>Comunicaciones de DietoExpress</mat-card-title></mat-card-header>
-    <article class="broadcast-item" *ngFor="let item of broadcastInbox" [class.unread]="!item.readAt" (click)="markBroadcastRead(item)">
-      <div><strong>{{ item.title }}</strong><small>{{ item.createdAt | date:'medium' }}</small></div>
-      <p>{{ item.body }}</p>
-    </article>
-    <p class="empty" *ngIf="!broadcastInbox.length">No tienes comunicaciones nuevas.</p>
-  </mat-card>
-
   <div class="support-grid">
     <mat-card class="ticket-list">
       <mat-card-header>

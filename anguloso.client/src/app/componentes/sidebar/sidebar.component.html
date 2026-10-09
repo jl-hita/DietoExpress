@@ -47,7 +47,7 @@
     </div>
     <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount">
       <a mat-list-item routerLink="/messages" routerLinkActive="active-link" (click)="navigateAndClose()">
-        <mat-icon>chat</mat-icon><span>Mensajes</span>
+        <mat-icon>chat</mat-icon><span>Mensajes</span><span class="message-unread-badge" *ngIf="unreadMessagesCount > 0" aria-label="Mensajes sin leer">{{ unreadMessagesCount > 99 ? '99+' : unreadMessagesCount }}</span>
       </a>
     </div>
     <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount">
