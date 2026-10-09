@@ -76,6 +76,18 @@ public sealed class ProductionOperationsRegressionTests
     }
 
     [Fact]
+    public void BroadcastMessages_MustExecuteInsertReturningWithoutEfSqlComposition()
+    {
+        var controller = File.ReadAllText(Path.Combine(
+            RepoRoot, "Anguloso.Server", "Controllers", "BroadcastMessagesController.cs"));
+
+        Assert.Contains("command.ExecuteScalarAsync(cancellationToken)", controller);
+        Assert.Contains("RETURNING id;", controller);
+        Assert.Contains("command.Transaction = _context.Database.CurrentTransaction?.GetDbTransaction()", controller);
+        Assert.DoesNotContain("SqlQueryRaw<long>(@\"\nINSERT INTO broadcast_messages", controller);
+    }
+
+    [Fact]
     public void BackupAutomation_MustUseWeeklyTimerAndSafeRestoreBoundary()
     {
         var root = RepoRoot;
