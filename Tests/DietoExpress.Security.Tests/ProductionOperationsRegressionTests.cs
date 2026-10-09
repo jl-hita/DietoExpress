@@ -37,6 +37,21 @@ public sealed class ProductionOperationsRegressionTests
     }
 
     [Fact]
+    public void Deployment_MustPublishPrivilegedBackupHelpers()
+    {
+        var root = RepoRoot;
+        var project = File.ReadAllText(Path.Combine(root, "Anguloso.Server", "Anguloso.Server.csproj"));
+        var deploy = File.ReadAllText(Path.Combine(root, ".github", "workflows", "deploy.yml"));
+
+        // El deploy limpia /opt/dietoexpress; los helpers deben incluirse en dotnet publish
+        // y recibir permisos ejecutables, igual que el resto de scripts operativos.
+        Assert.Contains("dietoexpress-pg-backup-root.sh", project);
+        Assert.Contains("dietoexpress-restore-post.sh", project);
+        Assert.Contains("dietoexpress-pg-backup-root.sh", deploy);
+        Assert.Contains("dietoexpress-restore-post.sh", deploy);
+    }
+
+    [Fact]
     public void ProductionBackupScript_MustFailWithoutExplicitDestination()
     {
         var root = RepoRoot;
