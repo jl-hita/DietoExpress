@@ -18,6 +18,9 @@ ENV_FILE=/etc/dietoexpress/dietoexpress.env
 source "$ENV_FILE"
 BACKUP_DIR="${DIETOEXPRESS_BACKUP_DIR:-}"
 DATABASE_NAME="${DIETOEXPRESS_DATABASE:-}"
+BACKUP_GROUP="${DIETOEXPRESS_BACKUP_GROUP:-joso}"
+getent group "$BACKUP_GROUP" >/dev/null 2>&1 || { echo "ERROR: no existe el grupo de backups $BACKUP_GROUP." >&2; exit 1; }
+BACKUP_GID="$(getent group "$BACKUP_GROUP" | cut -d: -f3)"
 
 [[ -n "$BACKUP_DIR" && "$BACKUP_DIR" == /* && "$BACKUP_DIR" != "/" ]] || { echo "ERROR: DIETOEXPRESS_BACKUP_DIR debe ser una ruta absoluta válida." >&2; exit 1; }
 [[ "$(realpath -m -- "$BACKUP_DIR")" == "$BACKUP_DIR" ]] || { echo "ERROR: DIETOEXPRESS_BACKUP_DIR debe estar normalizado y no usar enlaces simbólicos." >&2; exit 1; }
@@ -45,9 +48,9 @@ fi
 source_file="$BACKUP_DIR/$file"
 manifest="$BACKUP_DIR/${file%.dump}.sha256"
 [[ -f "$source_file" && ! -L "$source_file" ]] || { echo "ERROR: backup no encontrado o no válido: $source_file" >&2; exit 1; }
-[[ "$(stat -c '%u' "$source_file")" == "0" ]] || { echo "ERROR: el backup no es root-owned; migra y verifica el almacén antes de restaurar." >&2; exit 1; }
+[[ "$(stat -c '%u:%g:%a' "$source_file")" == "0:$BACKUP_GID:640" ]] || { echo "ERROR: el backup debe ser root-owned, grupo $BACKUP_GROUP y modo 0640." >&2; exit 1; }
 [[ -f "$manifest" && ! -L "$manifest" ]] || { echo "ERROR: falta un manifiesto SHA-256 válido: $manifest" >&2; exit 1; }
-[[ "$(stat -c '%u' "$manifest")" == "0" ]] || { echo "ERROR: el manifiesto no es root-owned; migra y verifica el almacén antes de restaurar." >&2; exit 1; }
+[[ "$(stat -c '%u:%g:%a' "$manifest")" == "0:$BACKUP_GID:640" ]] || { echo "ERROR: el manifiesto debe ser root-owned, grupo $BACKUP_GROUP y modo 0640." >&2; exit 1; }
 
 # Admite manifiestos antiguos (ruta absoluta) y nuevos (nombre relativo),
 # pero nunca permite que el manifiesto solicite validar un archivo diferente.
