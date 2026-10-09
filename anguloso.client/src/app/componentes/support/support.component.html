@@ -24,7 +24,7 @@
         <input name="broadcastTitle" [(ngModel)]="broadcastTitle" maxlength="200" required>
       </label>
       <label>Mensaje
-        <textarea name="broadcastBody" [(ngModel)]="broadcastBody" rows="4" maxlength="10000" required></textarea>
+        <textarea class="broadcast-message-input" name="broadcastBody" [(ngModel)]="broadcastBody" rows="10" maxlength="10000" required aria-label="Mensaje de la comunicación masiva"></textarea>
       </label>
       <button mat-flat-button type="submit" [disabled]="broadcastSending || !broadcastTitle.trim() || !broadcastBody.trim()">
         {{ broadcastSending ? 'Enviando…' : 'Enviar comunicación' }}

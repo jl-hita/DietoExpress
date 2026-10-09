@@ -36,3 +36,8 @@
 }
 
 .notifications-card{margin-bottom:20px;padding:12px}.notification-item{display:block;width:100%;text-align:left;border:0;background:transparent;padding:10px;cursor:pointer}.audit-panel{margin:10px 0;padding:12px 0}.audit-panel>div{padding:8px 0;border-bottom:1px solid rgba(0,0,0,.08)}
+
+
+/* El mensaje masivo necesita espacio para redactar textos largos; el scroll queda dentro del campo. */
+.broadcast-form textarea.broadcast-message-input { display: block; width: 100%; box-sizing: border-box; min-height: 240px; max-height: 480px; padding: 12px; line-height: 1.5; resize: vertical; overflow-y: auto; white-space: pre-wrap; }
+.broadcast-form > label { display: flex; flex-direction: column; gap: 8px; }
