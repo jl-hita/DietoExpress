@@ -1046,3 +1046,68 @@
     width: 100%;
   }
 }
+
+
+/* Comunicaciones masivas: buzón oficial independiente del chat privado. */
+.broadcast-patient-panel {
+  margin: 0 0 24px;
+  padding: 20px;
+  border: 1px solid rgba(148, 163, 184, .28);
+  border-radius: 16px;
+  background: var(--surface, rgba(15, 23, 42, .28));
+}
+.broadcast-patient-heading,
+.broadcast-patient-message-meta {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+.broadcast-patient-heading h2 { margin: 4px 0 0; font-size: 1.15rem; }
+.broadcast-refresh,
+.broadcast-mark-read {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid rgba(148, 163, 184, .4);
+  border-radius: 9px;
+  padding: 8px 12px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.broadcast-refresh:disabled { opacity: .55; cursor: wait; }
+.broadcast-patient-message {
+  margin-top: 12px;
+  padding: 15px;
+  border: 1px solid rgba(148, 163, 184, .22);
+  border-radius: 12px;
+}
+.broadcast-patient-message.unread {
+  border-inline-start: 4px solid var(--primary-color, #64748b);
+  background: rgba(148, 163, 184, .08);
+}
+.broadcast-patient-message-meta strong { overflow-wrap: anywhere; }
+.broadcast-patient-message-meta time {
+  flex-shrink: 0;
+  font-size: .8rem;
+  opacity: .7;
+}
+.broadcast-patient-message > p { margin: 10px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.broadcast-mark-read { font-size: .85rem; }
+.broadcast-read-status,
+.broadcast-patient-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: .88rem;
+  opacity: .72;
+}
+.broadcast-read-status mat-icon { width: 18px; height: 18px; font-size: 18px; }
+.broadcast-patient-error { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; color: #b91c1c; }
+.broadcast-patient-error button { border: 0; background: transparent; color: inherit; text-decoration: underline; cursor: pointer; }
+@media (max-width: 600px) {
+  .broadcast-patient-panel { padding: 14px; }
+  .broadcast-patient-message-meta { flex-direction: column; gap: 5px; }
+}
