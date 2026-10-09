@@ -308,6 +308,36 @@
       [isPreview]="isPreview">
     </app-patient-progress>
     <main class="portal-content messages-content" *ngIf="activeTab === 'messages'">
+      <section class="broadcast-patient-panel" aria-labelledby="broadcast-patient-heading">
+        <div class="broadcast-patient-heading">
+          <div>
+            <span class="eyebrow">Avisos oficiales</span>
+            <h2 id="broadcast-patient-heading">Comunicaciones de DietoExpress</h2>
+          </div>
+          <button type="button" class="broadcast-refresh" (click)="loadBroadcastMessages()" [disabled]="broadcastMessagesLoading" aria-label="Actualizar comunicaciones">
+            <mat-icon>refresh</mat-icon>
+          </button>
+        </div>
+        <p *ngIf="broadcastMessagesLoading" class="broadcast-patient-state">Cargando comunicaciones…</p>
+        <div *ngIf="broadcastMessagesError" class="broadcast-patient-error" role="alert">
+          <span>{{ broadcastMessagesError }}</span>
+          <button type="button" (click)="loadBroadcastMessages()">Reintentar</button>
+        </div>
+        <p *ngIf="!broadcastMessagesLoading && !broadcastMessagesError && !broadcastMessages.length" class="broadcast-patient-state">
+          No tienes comunicaciones oficiales por el momento.
+        </p>
+        <article *ngFor="let message of broadcastMessages" class="broadcast-patient-message" [class.unread]="!message.readAt">
+          <div class="broadcast-patient-message-meta">
+            <strong>{{ message.title }}</strong>
+            <time [attr.datetime]="message.createdAt">{{ message.createdAt | date:'medium' }}</time>
+          </div>
+          <p>{{ message.body }}</p>
+          <button *ngIf="!message.readAt" type="button" class="broadcast-mark-read" (click)="markBroadcastMessageRead(message)">
+            Marcar como leído
+          </button>
+          <span *ngIf="message.readAt" class="broadcast-read-status"><mat-icon>done</mat-icon> Leído</span>
+        </article>
+      </section>
       <app-patient-chat [patientMode]="true"></app-patient-chat>
     </main>
 
