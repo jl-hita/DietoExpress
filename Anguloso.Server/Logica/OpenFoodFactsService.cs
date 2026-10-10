@@ -674,13 +674,18 @@ public class OpenFoodFactsService
 
             var existing = await dbContext.foods.FirstOrDefaultAsync(f => f.external_id == product.Code);
 
-            // Los alimentos locales son propiedad de su tenant y nunca deben ser
-            // modificados por la sincronización global de OpenFoodFacts/USDA.
-            // external_id es único globalmente, por lo que si un alimento local
-            // ya usa ese código debemos dejarlo intacto en lugar de sobrescribirlo.
-            if (existing != null && ((existing.source != null && existing.source.ToLower() == "local") || existing.tenant_id.HasValue))
+            // La sincronización externa solo administra sus propias fichas. Los alimentos locales,
+            // de clínica, BEDCA o de cualquier otra fuente no deben sobrescribirse por una colisión
+            // de external_id. Se permiten source nulos por compatibilidad con fichas externas antiguas.
+            bool sourceIsManagedByOff = existing == null ||
+                string.IsNullOrWhiteSpace(existing.source) ||
+                existing.source.Equals("openfoodfacts", StringComparison.OrdinalIgnoreCase);
+            if (existing != null &&
+                (existing.tenant_id.HasValue ||
+                 existing.source?.Equals("local", StringComparison.OrdinalIgnoreCase) == true ||
+                 !sourceIsManagedByOff))
             {
-                _logServ.LogInfo($"OpenFoodFacts: se omite la sincronización del alimento local {existing.id} para external_id '{product.Code}'.");
+                _logServ.LogInfo($"OpenFoodFacts: se omite la sincronización del alimento {existing.id} de origen '{existing.source}' para external_id '{product.Code}'.");
                 product.Id = existing.id;
                 return;
             }
