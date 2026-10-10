@@ -84,8 +84,6 @@ public sealed class AddressAutocompleteRegressionTests
         Assert.Contains("'ADDRESS_LOCATIONIQ_API_KEY', '__CONFIGURE_LOCATIONIQ_API_KEY__'", bootstrap);
         Assert.Contains("'ADDRESS_PRIMARY_PROVIDER', 'Geoapify'", bootstrap);
         Assert.Contains("'ADDRESS_FALLBACK_PROVIDER', 'LocationIQ'", bootstrap);
-        Assert.Contains("'ADDRESS_GEOAPIFY_API_KEY', '__CONFIGURE_GEOAPIFY_API_KEY__'", bootstrap);
-        Assert.Contains("'ADDRESS_LOCATIONIQ_API_KEY', '__CONFIGURE_LOCATIONIQ_API_KEY__'", bootstrap);
     }
 
     [Fact]
