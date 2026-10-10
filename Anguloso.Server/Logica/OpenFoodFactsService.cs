@@ -203,7 +203,7 @@ public class OpenFoodFactsService
         if (food.potassium_mg == null && source.Potassium_mg.HasValue) food.potassium_mg = source.Potassium_mg;
         if (food.zinc_mg == null && source.Zinc_mg.HasValue) food.zinc_mg = source.Zinc_mg;
     }
-    public async Task<List<OffProduct>> SearchProductsAsync(string query, string pais = "spain", string lang = "es")
+    public async Task<List<OffProduct>> SearchProductsAsync(string query, string pais = "spain", string lang = "es", bool onlyDietEligible = false)
     {
         var products = new List<OffProduct>();
         //_logServ.LogInfo($"query='{query}', pais='{pais}', lang='{lang}'");
@@ -222,6 +222,9 @@ public class OpenFoodFactsService
             
             if (!doc.RootElement.TryGetProperty("products", out var productsJson))
                 return products;
+
+            // Limita las consultas de enriquecimiento USDA por búsqueda, incluso si se descartan productos incompletos.
+            int usdaFallbackAttempts = 0;
 
             foreach (var p in productsJson.EnumerateArray().Take(20))
             {
@@ -252,8 +255,9 @@ public class OpenFoodFactsService
                 // Si nos faltan macros esenciales → fallback a USDA
                 //if (!HasEssentialNutrients(off.Nutriments) || string.IsNullOrEmpty(off.ServingSizeText) || off.ServingSize == null || string.IsNullOrEmpty(off.ServingSizeUnit))
                 //Si fallan macros, micros o serving size
-                if ((needMacros || needServing || needMicros) && products.Count < 5)
+                if ((needMacros || needServing || needMicros) && usdaFallbackAttempts < 5)
                 {
+                    usdaFallbackAttempts++;
                     _logServ.LogInfo($"USDA fallback for '{off.Product_name}' | macros:{needMacros} micros:{needMicros}");
 
                     var (fallbackNutrients, fallbackMicros, fallbackServing, servingSizeTextUSDA, foodCategory) = await GetNutrientsFromUsdaAsync(off.Product_name);
@@ -279,9 +283,16 @@ public class OpenFoodFactsService
                     }
                 }
 
-                //Comprueba si el producto está en la BBDD. Si no está -> lo guarda
-                await SaveFoodToDb(off);
+                // La importación programada solo publica alimentos completos y plausibles para el generador.
+                // Las búsquedas manuales mantienen su comportamiento histórico.
+                if (onlyDietEligible && !IsEligibleForDietGenerator(off))
+                {
+                    _logServ.LogInfo($"Food catalog import: se descarta '{off.Product_name}' por datos nutricionales incompletos o incoherentes.");
+                    continue;
+                }
 
+                // Comprueba si el producto está en la BBDD. Si no está, lo guarda.
+                await SaveFoodToDb(off);
                 products.Add(off);
             }
 
@@ -555,6 +566,45 @@ public class OpenFoodFactsService
         return n.EnergyKcal100g.HasValue && n.Proteins100g.HasValue && n.Carbohydrates100g.HasValue && n.Fat100g.HasValue;
     }
 
+    /// <summary>
+    /// Determina si un producto externo tiene los datos mínimos y plausibles para entrar
+    /// en el catálogo usado por el generador de dietas. Los resultados de búsquedas manuales
+    /// no usan este filtro para no alterar su comportamiento existente.
+    /// </summary>
+    public static bool IsEligibleForDietGenerator(OffProduct? product)
+    {
+        if (product == null ||
+            string.IsNullOrWhiteSpace(product.Code) ||
+            string.IsNullOrWhiteSpace(product.Product_name))
+            return false;
+
+        var nutrients = product.Nutriments;
+        if (nutrients == null ||
+            !IsPlausibleNutrient(nutrients.EnergyKcal100g, 900) ||
+            !IsPlausibleNutrient(nutrients.Proteins100g, 100) ||
+            !IsPlausibleNutrient(nutrients.Carbohydrates100g, 100) ||
+            !IsPlausibleNutrient(nutrients.Fat100g, 100))
+            return false;
+
+        // Un producto con todos los macros a cero suele ser agua/bebida sin aporte
+        // o una ficha incompleta: no añade variedad útil al generador.
+        if (nutrients.Proteins100g == 0 &&
+            nutrients.Carbohydrates100g == 0 &&
+            nutrients.Fat100g == 0)
+            return false;
+
+        return IsOptionalNutrientPlausible(nutrients.SaturatedFat100g, 100) &&
+               IsOptionalNutrientPlausible(nutrients.Sugars100g, 100) &&
+               IsOptionalNutrientPlausible(nutrients.Fiber100g, 100) &&
+               IsOptionalNutrientPlausible(nutrients.Salt100g, 100);
+    }
+
+    private static bool IsPlausibleNutrient(double? value, double maximum) =>
+        value.HasValue && double.IsFinite(value.Value) && value.Value >= 0 && value.Value <= maximum;
+
+    private static bool IsOptionalNutrientPlausible(double? value, double maximum) =>
+        !value.HasValue || (double.IsFinite(value.Value) && value.Value >= 0 && value.Value <= maximum);
+
     private static void MergeNutriments(OffNutriments target, OffNutriments source)
     {
         if (target.EnergyKcal100g == null) target.EnergyKcal100g = source.EnergyKcal100g;
@@ -624,13 +674,18 @@ public class OpenFoodFactsService
 
             var existing = await dbContext.foods.FirstOrDefaultAsync(f => f.external_id == product.Code);
 
-            // Los alimentos locales son propiedad de su tenant y nunca deben ser
-            // modificados por la sincronización global de OpenFoodFacts/USDA.
-            // external_id es único globalmente, por lo que si un alimento local
-            // ya usa ese código debemos dejarlo intacto en lugar de sobrescribirlo.
-            if (existing != null && ((existing.source != null && existing.source.ToLower() == "local") || existing.tenant_id.HasValue))
+            // La sincronización externa solo administra sus propias fichas. Los alimentos locales,
+            // de clínica, BEDCA o de cualquier otra fuente no deben sobrescribirse por una colisión
+            // de external_id. Se permiten source nulos por compatibilidad con fichas externas antiguas.
+            bool sourceIsManagedByOff = existing == null ||
+                string.IsNullOrWhiteSpace(existing.source) ||
+                existing.source.Equals("openfoodfacts", StringComparison.OrdinalIgnoreCase);
+            if (existing != null &&
+                (existing.tenant_id.HasValue ||
+                 existing.source?.Equals("local", StringComparison.OrdinalIgnoreCase) == true ||
+                 !sourceIsManagedByOff))
             {
-                _logServ.LogInfo($"OpenFoodFacts: se omite la sincronización del alimento local {existing.id} para external_id '{product.Code}'.");
+                _logServ.LogInfo($"OpenFoodFacts: se omite la sincronización del alimento {existing.id} de origen '{existing.source}' para external_id '{product.Code}'.");
                 product.Id = existing.id;
                 return;
             }
