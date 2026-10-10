@@ -50,7 +50,6 @@ public sealed class CriticalFlowRegressionTests
         Assert.Contains("clientId", clients);
         Assert.Contains("[Authorize(Policy = \"Professional\")]", diets);
         Assert.Contains("tenant_id", appointments);
-        Assert.Contains("tenant_id", appointments);
         Assert.Contains("nutritionist_id", appointments);
     }
 
