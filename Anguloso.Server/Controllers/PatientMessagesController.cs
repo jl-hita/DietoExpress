@@ -53,7 +53,7 @@ public class PatientMessagesController : ControllerBase
         var userId = AuthHelpers.GetUserId(User);
         var tenantId = AuthHelpers.GetTenantId(User);
         if (!userId.HasValue || !tenantId.HasValue) return Unauthorized();
-        return Ok(await GetProfessionalConversationsAsync(userId.Value, tenantId.Value));
+        return Ok(await GetProfessionalConversationsAsync(userId.Value, tenantId.Value, User.IsInRole("clinic_admin")));
     }
 
     [HttpGet("client/{clientId:int}")]
@@ -212,18 +212,20 @@ RETURNING id;";
             a.nutritionist.tenant_id == tenantId);
     }
 
-    private async Task<IReadOnlyList<ConversationSummaryDto>> GetProfessionalConversationsAsync(int userId, int tenantId)
+    private async Task<IReadOnlyList<ConversationSummaryDto>> GetProfessionalConversationsAsync(int userId, int tenantId, bool isClinicAdmin)
     {
         var rows = await _context.Database.SqlQueryRaw<ConversationSummaryRow>(@"
 SELECT c.id AS ""ConversationId"", c.client_id AS ""ClientId"", cl.full_name AS ""ClientName"",
        c.updated_at AS ""UpdatedAt"",
        COALESCE((SELECT body FROM patient_messages m WHERE m.conversation_id = c.id ORDER BY m.created_at DESC, m.id DESC LIMIT 1), '') AS ""LastMessage"",
-       COALESCE((SELECT COUNT(*)::int FROM patient_messages m WHERE m.conversation_id = c.id AND m.sender_client_id IS NOT NULL AND m.read_at IS NULL), 0) AS ""UnreadCount""
+       COALESCE((SELECT CAST(COUNT(*) AS INTEGER) FROM patient_messages m WHERE m.conversation_id = c.id AND m.sender_client_id IS NOT NULL AND m.read_at IS NULL), 0) AS ""UnreadCount""
 FROM patient_conversations c
 JOIN clients cl ON cl.id = c.client_id
-WHERE c.tenant_id = {0} AND cl.archived_at IS NULL
-  AND EXISTS (SELECT 1 FROM client_nutritionist_assignments a WHERE a.client_id = c.client_id AND a.nutritionist_id = {1} AND a.is_active)
-ORDER BY c.updated_at DESC;", tenantId, userId).ToListAsync();
+WHERE c.tenant_id = {0}
+  AND cl.tenant_id = {0}
+  AND cl.archived_at IS NULL
+  AND ({2} OR EXISTS (SELECT 1 FROM client_nutritionist_assignments a WHERE a.client_id = c.client_id AND a.nutritionist_id = {1} AND a.is_active AND a.nutritionist_id IN (SELECT id FROM users WHERE tenant_id = {0})))
+ORDER BY c.updated_at DESC;", tenantId, userId, isClinicAdmin).ToListAsync();
 
         return rows.Select(x => new ConversationSummaryDto {
             ConversationId = x.ConversationId, ClientId = x.ClientId, ClientName = x.ClientName,
