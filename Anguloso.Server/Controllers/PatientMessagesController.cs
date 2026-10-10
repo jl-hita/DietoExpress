@@ -218,11 +218,13 @@ RETURNING id;";
 SELECT c.id AS ""ConversationId"", c.client_id AS ""ClientId"", cl.full_name AS ""ClientName"",
        c.updated_at AS ""UpdatedAt"",
        COALESCE((SELECT body FROM patient_messages m WHERE m.conversation_id = c.id ORDER BY m.created_at DESC, m.id DESC LIMIT 1), '') AS ""LastMessage"",
-       COALESCE((SELECT COUNT(*)::int FROM patient_messages m WHERE m.conversation_id = c.id AND m.sender_client_id IS NOT NULL AND m.read_at IS NULL), 0) AS ""UnreadCount""
+       COALESCE((SELECT CAST(COUNT(*) AS INTEGER) FROM patient_messages m WHERE m.conversation_id = c.id AND m.sender_client_id IS NOT NULL AND m.read_at IS NULL), 0) AS ""UnreadCount""
 FROM patient_conversations c
 JOIN clients cl ON cl.id = c.client_id
-WHERE c.tenant_id = {0} AND cl.archived_at IS NULL
-  AND ({2} OR EXISTS (SELECT 1 FROM client_nutritionist_assignments a WHERE a.client_id = c.client_id AND a.nutritionist_id = {1} AND a.is_active))
+WHERE c.tenant_id = {0}
+  AND cl.tenant_id = {0}
+  AND cl.archived_at IS NULL
+  AND ({2} OR EXISTS (SELECT 1 FROM client_nutritionist_assignments a WHERE a.client_id = c.client_id AND a.nutritionist_id = {1} AND a.is_active AND a.nutritionist_id IN (SELECT id FROM users WHERE tenant_id = {0})))
 ORDER BY c.updated_at DESC;", tenantId, userId, isClinicAdmin).ToListAsync();
 
         return rows.Select(x => new ConversationSummaryDto {
