@@ -270,8 +270,26 @@ public sealed class GoogleCalendarService
             ["refresh_token"] = refresh,
             ["grant_type"] = "refresh_token"
         }), cancellationToken);
-        if (!response.IsSuccessStatusCode) throw new InvalidOperationException("No se pudo renovar el token de Google Calendar.");
-        var token = JsonSerializer.Deserialize<GoogleTokenResponse>(await response.Content.ReadAsStringAsync(cancellationToken))!;
+        var tokenBody = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            var googleError = TryReadGoogleOAuthError(tokenBody);
+            _logger.LogError(
+                "Google rechazó la renovación del token de Calendar para el usuario {UserId}, tenant {TenantId}. HTTP {StatusCode}. Error {ErrorCode}. Descripción: {ErrorDescription}.",
+                connection.user_id,
+                connection.tenant_id,
+                (int)response.StatusCode,
+                googleError.Error ?? "(no indicado)",
+                googleError.Description ?? "(no indicada)");
+
+            var errorDetails = string.IsNullOrWhiteSpace(googleError.Error)
+                ? $"HTTP {(int)response.StatusCode}"
+                : $"{googleError.Error}: {googleError.Description ?? "sin descripción"}";
+            throw new InvalidOperationException($"No se pudo renovar el token de Google Calendar ({errorDetails}).");
+        }
+
+        var token = JsonSerializer.Deserialize<GoogleTokenResponse>(tokenBody, JsonOptions)
+            ?? throw new InvalidOperationException("Google devolvió una respuesta de renovación de token no válida.");
         connection.access_token_encrypted = _protector.Protect(token.access_token);
         connection.access_token_expires_at = DateTime.UtcNow.AddSeconds(Math.Max(60, token.expires_in - 60));
         connection.updated_at = DateTime.UtcNow;
