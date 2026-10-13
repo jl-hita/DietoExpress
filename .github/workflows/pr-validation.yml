@@ -31,11 +31,16 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Angular install
         working-directory: anguloso.client
         run: npm install
+
+      - name: Angular legacy dependency report
+        working-directory: anguloso.client
+        run: |
+          npm ls inflight rimraf glob uuid --all || true
 
       - name: Angular dependency audit
         working-directory: anguloso.client
