@@ -26,6 +26,11 @@ jobs:
         with:
           node-version: 22
 
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
       - name: Preparar Angular
         working-directory: anguloso.client
         run: |
