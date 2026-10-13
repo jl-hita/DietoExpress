@@ -21,6 +21,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
       - name: Preparar Angular
         working-directory: anguloso.client
         run: |
@@ -38,8 +43,8 @@ jobs:
         run: |
           set -o pipefail
           audit_output="$(dotnet list Anguloso.Server/Anguloso.Server.csproj package --vulnerable --include-transitive)"
-          printf '%s\n' "$audit_output"
-          if printf '%s\n' "$audit_output" | grep -Eiq '>.*(High|Critical)'; then
+          printf '%s\\n' "$audit_output"
+          if printf '%s\\n' "$audit_output" | grep -Eiq '>.*(High|Critical)'; then
             echo "Se han detectado vulnerabilidades High/Critical en dependencias .NET."
             exit 1
           fi
@@ -53,7 +58,7 @@ jobs:
       - name: Publicar .NET
         run: |
           rm -rf /tmp/dietoexpress-publish
-          dotnet publish Anguloso.Server/Anguloso.Server.csproj             -c Release             --no-restore             --no-build             -o /tmp/dietoexpress-publish
+          dotnet publish Anguloso.Server/Anguloso.Server.csproj -c Release --no-restore --no-build -o /tmp/dietoexpress-publish
 
       # Preparamos todo antes de tocar la versión actualmente desplegada.
       - name: Preparar versión de backend
@@ -72,36 +77,23 @@ jobs:
       # hayan terminado correctamente.
       - name: Desplegar backend
         run: |
-          # Los logs son datos persistentes y están fuera del directorio de despliegue.
-          # El directorio /var/lib/dietoexpress/Logs se crea una sola vez en el servidor
-          # con permisos para joso; el despliegue no debe depender de sudo interactivo.
           test -d /var/lib/dietoexpress/Logs
           test -w /var/lib/dietoexpress/Logs
-
-          # El spool es almacenamiento persistente del servidor, igual que Logs.
-          # Se provisiona una sola vez fuera del despliegue; aquí solo verificamos que
-          # la aplicación pueda utilizarlo sin depender de sudo interactivo.
           test -d /var/lib/dietoexpress/AlertSpool
           test -w /var/lib/dietoexpress/AlertSpool
-
-          # Los documentos de pacientes y plantillas son almacenamiento persistente.
-          # Se provisionan una sola vez fuera del despliegue; aquí solo verificamos que
-          # la aplicación pueda utilizarlos sin depender de sudo interactivo.
           test -d /var/lib/dietoexpress/documents
           test -w /var/lib/dietoexpress/documents
 
           rm -rf /opt/dietoexpress/*
           cp -a /tmp/dietoexpress-backend/. /opt/dietoexpress/
-          # dotnet publish/cp no garantiza conservar bits ejecutables de los scripts operativos.
-          # Los restauramos explícitamente tras copiar la versión desplegada.
-          chmod 750 \
-            /opt/dietoexpress/scripts/dietoexpress-backup.sh \
-            /opt/dietoexpress/scripts/dietoexpress-restore.sh \
-            /opt/dietoexpress/scripts/dietoexpress-restore-web.sh \
-            /opt/dietoexpress/scripts/dietoexpress-restore-user.sh \
-            /opt/dietoexpress/scripts/dietoexpress-pg-restore-root.sh \
-            /opt/dietoexpress/scripts/dietoexpress-pg-backup-root.sh \
-            /opt/dietoexpress/scripts/dietoexpress-restore-post.sh \
+          chmod 750 \\
+            /opt/dietoexpress/scripts/dietoexpress-backup.sh \\
+            /opt/dietoexpress/scripts/dietoexpress-restore.sh \\
+            /opt/dietoexpress/scripts/dietoexpress-restore-web.sh \\
+            /opt/dietoexpress/scripts/dietoexpress-restore-user.sh \\
+            /opt/dietoexpress/scripts/dietoexpress-pg-restore-root.sh \\
+            /opt/dietoexpress/scripts/dietoexpress-pg-backup-root.sh \\
+            /opt/dietoexpress/scripts/dietoexpress-restore-post.sh \\
             /opt/dietoexpress/scripts/provision-dietoexpress-backup-automation.sh
           mkdir -p /opt/dietoexpress/wwwroot
           cp -a /tmp/dietoexpress-frontend/. /opt/dietoexpress/wwwroot/
@@ -116,61 +108,43 @@ jobs:
           sudo systemctl enable dietoexpress.service
           sudo systemctl restart dietoexpress.service
 
-      # Smoke test real sobre la instancia recién desplegada: verifica systemd, TLS/nginx,
-      # frontend estático y un endpoint público del backend contra la misma producción.
-      # Desde el propio servidor resolvemos el dominio contra loopback para evitar que
-      # el test dependa de hairpin NAT/ruteo externo; se mantiene TLS, SNI y nginx reales.
       - name: Smoke test producción
         run: |
           set -euo pipefail
-
-          # Tras un restart systemd puede marcar el servicio como activo antes de que
-          # Kestrel haya terminado de enlazar el puerto. Esperamos explícitamente a que
-          # nginx pueda servir la aplicación antes de declarar fallido el despliegue.
           for attempt in $(seq 1 12); do
-            # curl puede devolver 502 mientras Kestrel termina de arrancar.
-            # Guardamos la respuesta para que un fallo transitorio no aborte el bucle
-            # por set -e antes de poder reintentarlo.
-            if systemctl is-active --quiet dietoexpress.service && \
-              curl --fail --silent --show-error --max-time 5 \
-                --resolve jlhitap.duckdns.org:443:127.0.0.1 \
-                https://jlhitap.duckdns.org/ \
+            if systemctl is-active --quiet dietoexpress.service && \\
+              curl --fail --silent --show-error --max-time 5 \\
+                --resolve jlhitap.duckdns.org:443:127.0.0.1 \\
+                https://jlhitap.duckdns.org/ \\
                 > /tmp/dietoexpress-smoke-home.html 2>/tmp/dietoexpress-smoke-curl.err; then
               if grep -Fq "DietoExpress" /tmp/dietoexpress-smoke-home.html; then
                 break
               fi
             fi
-
             if [ "$attempt" -eq 12 ]; then
               echo "La aplicación no quedó disponible tras 60 segundos."
               systemctl status dietoexpress.service --no-pager || true
               journalctl -u dietoexpress.service -n 100 --no-pager || true
               exit 1
             fi
-
             sleep 5
           done
 
-          # El backend puede tardar un poco más que el frontend en quedar listo.
-          # Reintentamos también el endpoint público para no convertir un 502 transitorio
-          # posterior al arranque en un falso fallo de despliegue.
           for attempt in $(seq 1 12); do
-            if curl --fail --silent --show-error --max-time 5 \
-              --resolve jlhitap.duckdns.org:443:127.0.0.1 \
-              -H 'Accept: application/json' \
-              https://jlhitap.duckdns.org/api/directory/professionals \
+            if curl --fail --silent --show-error --max-time 5 \\
+              --resolve jlhitap.duckdns.org:443:127.0.0.1 \\
+              -H 'Accept: application/json' \\
+              https://jlhitap.duckdns.org/api/directory/professionals \\
               > /tmp/dietoexpress-smoke-directory.json; then
               if python3 -c 'import json; data=json.load(open("/tmp/dietoexpress-smoke-directory.json")); assert isinstance(data,list)'; then
                 break
               fi
             fi
-
             if [ "$attempt" -eq 12 ]; then
               echo "El endpoint de directorio no quedó disponible tras 60 segundos."
               systemctl status dietoexpress.service --no-pager || true
               journalctl -u dietoexpress.service -n 100 --no-pager || true
               exit 1
             fi
-
             sleep 5
           done
