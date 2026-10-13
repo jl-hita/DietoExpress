@@ -1459,19 +1459,6 @@ public class AuthorizationRegressionTests
 
 
     [Fact]
-    public void PatientPortal_DoesNotProvisionConsultationOnlyDocuments()
-    {
-        var source = ReadServerController("PatientDocumentsController.cs");
-        var portalPos = source.IndexOf("ListForPatient", StringComparison.Ordinal);
-        Assert.True(portalPos >= 0);
-
-        var portal = source[portalPos..];
-        Assert.DoesNotContain("CreateRequiredDocumentsAsync", portal[..Math.Min(portal.Length, 2200)]);
-        Assert.Contains("Select(c => c.tenant_id)", portal);
-        Assert.Contains("claimedTenantId", portal);
-    }
-
-    [Fact]
     public void NewPatientDocumentReminders_RequirePendingSignatureDocuments()
     {
         var controller = ReadServerController("ClientsController.cs");

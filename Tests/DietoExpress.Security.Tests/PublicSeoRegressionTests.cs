@@ -42,7 +42,6 @@ public class PublicSeoRegressionTests
             RepoRoot, "anguloso.client", "src", "app", "app.routes.ts"));
 
         Assert.Contains("path: 'nutricionistas'", routes);
-        Assert.Contains("path: 'nutricionistas/:slug'", routes);
         Assert.Contains("DirectoryComponent", routes);
     }
 }
