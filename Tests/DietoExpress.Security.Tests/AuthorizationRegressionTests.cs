@@ -815,9 +815,11 @@ public class AuthorizationRegressionTests
         var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "OpenFoodFactsService.cs"));
 
         Assert.Contains("f.external_id == product.Code", source);
-        Assert.Contains("existing.source.ToLower() == \"local\"", source);
+        Assert.Contains("sourceIsManagedByOff", source);
+        Assert.Contains("existing.source?.Equals(\"local\", StringComparison.OrdinalIgnoreCase) == true", source);
         Assert.Contains("existing.tenant_id.HasValue", source);
-        Assert.Contains("se omite la sincronización del alimento local", source);
+        Assert.Contains("!sourceIsManagedByOff", source);
+        Assert.Contains("se omite la sincronización del alimento", source);
         Assert.Contains("product.Id = existing.id", source);
     }
 
