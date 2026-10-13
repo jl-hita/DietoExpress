@@ -9,7 +9,9 @@ on:
 # Si llegan varios commits mientras se espera, se conserva el más reciente.
 concurrency:
   group: dietoexpress-production
-  cancel-in-progress: true
+  # Nunca interrumpir un despliegue que ya está modificando producción.
+  # GitHub conserva la ejecución activa y sustituye la pendiente por la más reciente.
+  cancel-in-progress: false
 
 jobs:
   deploy:

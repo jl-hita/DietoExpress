@@ -3,6 +3,7 @@ using Anguloso.Server.Model;
 using Anguloso.Server.Models;
 using Google.Apis.Http;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.RateLimiting;
@@ -30,6 +31,11 @@ public class Program
         Directory.CreateDirectory(pathLogs);
         builder.Host.UseSerilog((context, loggerConfiguration) => { loggerConfiguration.ReadFrom.Configuration(context.Configuration).Enrich.FromLogContext().WriteTo.Console().WriteTo.File(Path.Combine(pathLogs, "log-.txt"), rollingInterval: RollingInterval.Day, retainedFileCountLimit: null, shared: true); });
         builder.Services.AddCors(options => { options.AddPolicy("AllowAngularApp", policy => { var allowedOrigins = builder.Environment.IsDevelopment() ? new[] { "http://localhost:4200", "https://localhost:4200", "http://127.0.0.1:4200", "https://127.0.0.1:4200" } : builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>(); policy.WithOrigins(allowedOrigins).WithHeaders("Authorization", "Content-Type", "Accept").WithMethods("GET", "POST", "PUT", "PATCH", "DELETE"); }); });
+        // Nginx reenvía la IP original. ASP.NET Core solo acepta forwarded headers de proxies conocidos (loopback por defecto), evitando confiar en cabeceras arbitrarias de Internet.
+        builder.Services.Configure<ForwardedHeadersOptions>(options =>
+        {
+            options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        });
 // Add services to the container.
         builder.Services.AddSingleton<LogServ>();
         builder.Services.AddSingleton<ConfigServ>(sp => new ConfigServ(connectionString!, sp.GetRequiredService<LogServ>()));
@@ -204,6 +210,8 @@ builder.Services.AddScoped<SupportEnhancementService>();
             Log.Warning(ex, "No se pudo cargar el endpoint LiveKit para la política CSP.");
         }
 
+        // Debe ejecutarse antes del rate limiter para que las políticas por IP vean al cliente real detrás de Nginx.
+        app.UseForwardedHeaders();
         app.UseCors("AllowAngularApp");
         if (!app.Environment.IsDevelopment()) { app.UseHttpsRedirection(); app.Use(async (context, next) => { context.Response.Headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"; context.Response.Headers["X-Content-Type-Options"] = "nosniff"; context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin"; context.Response.Headers["Permissions-Policy"] = "camera=(self), microphone=(self), geolocation=()"; if (context.Request.Path.StartsWithSegments("/api")) { context.Response.Headers["Cache-Control"] = "no-store"; context.Response.Headers["Pragma"] = "no-cache"; } context.Response.Headers["Content-Security-Policy"] = $"default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; script-src 'self' https://accounts.google.com; connect-src 'self' https://accounts.google.com{liveKitCspSource}; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; frame-src https://accounts.google.com; upgrade-insecure-requests"; await next(); }); }
         app.UseDefaultFiles(); app.UseStaticFiles(); if (app.Environment.IsDevelopment()) { app.UseSwagger(); app.UseSwaggerUI(); } app.UseRateLimiter(); app.UseAuthentication(); app.UseAuthorization(); app.MapControllers(); if (!app.Environment.IsDevelopment()) app.MapFallbackToFile("/index.html");
