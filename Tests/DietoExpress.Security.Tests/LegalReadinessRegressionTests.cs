@@ -28,7 +28,9 @@ public sealed class LegalReadinessRegressionTests
         Assert.True(start >= 0 && end > start);
         var endpoint = source[start..end];
 
-        Assert.Contains("[Authorize(Policy = \"Professional\")]", source[..start]);
+        var endpointAttributes = source[Math.Max(0, start - 250)..start];
+        Assert.Contains("[HttpGet(\"readiness\")]", endpointAttributes);
+        Assert.Contains("[Authorize(Policy = \"Professional\")]", endpointAttributes);
         Assert.Contains("if (!User.IsInRole(\"superadmin\")) return Forbid();", endpoint);
         Assert.Contains("requiredDocuments", endpoint);
         Assert.Contains("requiredConfiguration", endpoint);
