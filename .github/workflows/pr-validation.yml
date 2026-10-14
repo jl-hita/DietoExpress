@@ -30,7 +30,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 22.22.3
 
       - name: Angular install
         working-directory: anguloso.client
@@ -73,6 +73,10 @@ jobs:
       - name: Angular build
         working-directory: anguloso.client
         run: npm run build
+
+      - name: Angular unit tests
+        working-directory: anguloso.client
+        run: npm test -- --watch=false --browsers=ChromeHeadless
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v6

@@ -6,7 +6,7 @@ import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatOptionModule } from '@angular/material/core';
-import { environment } from '../../environments/environments';
+import { environment } from '../../../environments/environments';
 
 interface Ingrediente {
   id?: number;           // Opcional, porque al crear uno nuevo todavía no tiene ID
@@ -19,16 +19,16 @@ interface Ingrediente {
   id_receta?: number;    // Opcional
 }
 
+interface MutationResponse { mensaje?: string; }
+
+// Documentación: este componente coordina estado local, validación y llamadas asíncronas; la vista solo refleja ese estado.
 @Component({
   selector: 'app-ingredientes',
-    standalone: true,
+  standalone: true,
   imports: [CommonModule, ReactiveFormsModule, MatSelectModule, MatFormFieldModule, MatOptionModule],
   templateUrl: './ingredientes.component.html',
   styleUrl: './ingredientes.component.css'
 })
-// Documentación: este componente coordina estado local, validación y llamadas asíncronas; la vista solo refleja ese estado.
-interface MutationResponse { mensaje?: string; }
-
 export class IngredientesComponent {
   ingredientes: Ingrediente[] = [];
   formIngrediente: FormGroup;
