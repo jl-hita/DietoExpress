@@ -11,6 +11,7 @@ public partial class google_calendar_connections
     public string? refresh_token_encrypted { get; set; }
     public DateTime access_token_expires_at { get; set; }
     public string? sync_token { get; set; }
+    public bool reauthorization_required { get; set; }
     public DateTime? last_synced_at { get; set; }
     public DateTime created_at { get; set; } = DateTime.UtcNow;
     public DateTime updated_at { get; set; } = DateTime.UtcNow;

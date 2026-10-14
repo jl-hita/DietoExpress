@@ -1069,11 +1069,13 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                 refresh_token_encrypted TEXT,
                 access_token_expires_at TIMESTAMPTZ NOT NULL,
                 sync_token TEXT,
+                reauthorization_required BOOLEAN NOT NULL DEFAULT FALSE,
                 last_synced_at TIMESTAMPTZ,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 CONSTRAINT uq_google_calendar_connection_user UNIQUE (tenant_id, user_id)
             );
+            ALTER TABLE google_calendar_connections ADD COLUMN IF NOT EXISTS reauthorization_required BOOLEAN NOT NULL DEFAULT FALSE;
             CREATE TABLE IF NOT EXISTS google_calendar_oauth_states (
                 id SERIAL PRIMARY KEY,
                 user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

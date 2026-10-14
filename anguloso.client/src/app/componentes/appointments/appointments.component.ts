@@ -21,7 +21,7 @@ export class AppointmentsComponent implements OnInit {
   saving = false;
   error: string | null = null;
   success: string | null = null;
-  googleCalendar: { connected: boolean; email: string; calendarId: string; lastSyncedAt?: string | null } | null = null;
+  googleCalendar: { connected: boolean; email: string; calendarId: string; lastSyncedAt?: string | null; reauthorizationRequired?: boolean } | null = null;
   calendarBusy = false;
 
   readonly days = [
@@ -65,7 +65,7 @@ export class AppointmentsComponent implements OnInit {
   // La sincronización invalida el estado visual local y vuelve a cargar citas/disponibilidad después de que el backend termine el proceso.
   syncGoogleCalendar(): void {
     this.calendarBusy = true; this.error = null;
-    this.portalService.syncGoogleCalendar().subscribe({ next: () => { this.calendarBusy = false; this.loadGoogleCalendar(); this.load(); this.success = 'Google Calendar sincronizado.'; }, error: err => { this.calendarBusy = false; this.error = err?.error?.detail || err?.error?.message || 'No hemos podido sincronizar Google Calendar.'; } });
+    this.portalService.syncGoogleCalendar().subscribe({ next: () => { this.calendarBusy = false; this.loadGoogleCalendar(); this.load(); this.success = 'Google Calendar sincronizado.'; }, error: err => { this.calendarBusy = false; this.error = err?.error?.detail || err?.error?.message || 'No hemos podido sincronizar Google Calendar.'; this.loadGoogleCalendar(); } });
   }
 
   disconnectGoogleCalendar(): void {

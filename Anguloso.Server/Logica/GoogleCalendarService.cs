@@ -93,7 +93,15 @@ public sealed class GoogleCalendarService
         existing.calendar_id = "primary";
         existing.access_token_encrypted = _protector.Protect(token.access_token);
         if (!string.IsNullOrWhiteSpace(token.refresh_token))
+        {
             existing.refresh_token_encrypted = _protector.Protect(token.refresh_token);
+            existing.reauthorization_required = false;
+        }
+        else if (existing.id == 0 && string.IsNullOrWhiteSpace(existing.refresh_token_encrypted))
+        {
+            // Una conexión nueva sin refresh token no puede mantener la sincronización en segundo plano.
+            existing.reauthorization_required = true;
+        }
         existing.access_token_expires_at = DateTime.UtcNow.AddSeconds(Math.Max(60, token.expires_in - 60));
         existing.sync_token = null;
         existing.updated_at = DateTime.UtcNow;
@@ -123,12 +131,12 @@ public sealed class GoogleCalendarService
     public async Task<GoogleCalendarConnectionDto?> GetConnectionAsync(int userId, int tenantId, CancellationToken cancellationToken = default)
     {
         return await _db.google_calendar_connections.AsNoTracking().Where(x => x.user_id == userId && x.tenant_id == tenantId)
-            .Select(x => new GoogleCalendarConnectionDto(true, x.google_account_email, x.calendar_id, x.last_synced_at)).SingleOrDefaultAsync(cancellationToken);
+            .Select(x => new GoogleCalendarConnectionDto(true, x.google_account_email, x.calendar_id, x.last_synced_at, x.reauthorization_required)).SingleOrDefaultAsync(cancellationToken);
     }
 
     public async Task SyncAllAsync(CancellationToken cancellationToken = default)
     {
-        var ids = await _db.google_calendar_connections.AsNoTracking().Select(x => new { x.user_id, x.tenant_id, x.google_account_email }).ToListAsync(cancellationToken);
+        var ids = await _db.google_calendar_connections.AsNoTracking().Where(x => !x.reauthorization_required).Select(x => new { x.user_id, x.tenant_id, x.google_account_email }).ToListAsync(cancellationToken);
         foreach (var item in ids)
         {
             try { await SyncUserAsync(item.user_id, item.tenant_id, cancellationToken); }
@@ -144,6 +152,8 @@ public sealed class GoogleCalendarService
     {
         var connection = await _db.google_calendar_connections.SingleOrDefaultAsync(x => x.user_id == userId && x.tenant_id == tenantId, cancellationToken);
         if (connection == null) return;
+        if (connection.reauthorization_required)
+            throw new GoogleCalendarReauthorizationRequiredException();
 
         var accessToken = await GetValidAccessTokenAsync(connection, cancellationToken);
         var events = await ListEventsAsync(accessToken, connection.calendar_id, connection.sync_token, cancellationToken);
@@ -260,7 +270,13 @@ public sealed class GoogleCalendarService
     {
         if (connection.access_token_expires_at > DateTime.UtcNow.AddMinutes(1))
             return _protector.Unprotect(connection.access_token_encrypted);
-        if (string.IsNullOrWhiteSpace(connection.refresh_token_encrypted)) throw new InvalidOperationException("La conexión de Google Calendar no tiene refresh token.");
+        if (string.IsNullOrWhiteSpace(connection.refresh_token_encrypted))
+        {
+            connection.reauthorization_required = true;
+            connection.updated_at = DateTime.UtcNow;
+            await _db.SaveChangesAsync(cancellationToken);
+            throw new GoogleCalendarReauthorizationRequiredException();
+        }
         var refresh = _protector.Unprotect(connection.refresh_token_encrypted);
         using var client = _httpClientFactory.CreateClient();
         using var response = await client.PostAsync("https://oauth2.googleapis.com/token", new FormUrlEncodedContent(new Dictionary<string,string>
@@ -281,6 +297,18 @@ public sealed class GoogleCalendarService
                 (int)response.StatusCode,
                 googleError.Error ?? "(no indicado)",
                 googleError.Description ?? "(no indicada)");
+
+            if (string.Equals(googleError.Error, "invalid_grant", StringComparison.OrdinalIgnoreCase))
+            {
+                connection.reauthorization_required = true;
+                connection.updated_at = DateTime.UtcNow;
+                await _db.SaveChangesAsync(cancellationToken);
+                _logger.LogWarning(
+                    "La conexión de Google Calendar del usuario {UserId}, tenant {TenantId} requiere una nueva autorización. Se excluirá de la sincronización automática hasta que vuelva a conectarse.",
+                    connection.user_id,
+                    connection.tenant_id);
+                throw new GoogleCalendarReauthorizationRequiredException();
+            }
 
             var errorDetails = string.IsNullOrWhiteSpace(googleError.Error)
                 ? $"HTTP {(int)response.StatusCode}"
@@ -433,5 +461,11 @@ public sealed class GoogleCalendarService
     private sealed class GoogleCalendarEvent { public string? Id { get; set; } public string? Status { get; set; } public string? Summary { get; set; } public string? ETag { get; set; } public GoogleCalendarEventDate? Start { get; set; } public GoogleCalendarEventDate? End { get; set; } public GoogleExtendedProperties? ExtendedProperties { get; set; } }
     private sealed class GoogleCalendarEventDate { public string? DateTime { get; set; } public string? Date { get; set; } }
     private sealed class GoogleExtendedProperties { [System.Text.Json.Serialization.JsonPropertyName("private")] public Dictionary<string,string>? Private_ { get; set; } }
-    public sealed record GoogleCalendarConnectionDto(bool Connected, string Email, string CalendarId, DateTime? LastSyncedAt);
+    public sealed class GoogleCalendarReauthorizationRequiredException : Exception
+    {
+        public GoogleCalendarReauthorizationRequiredException()
+            : base("Google Calendar necesita una nueva autorización. Vuelve a conectar tu cuenta.") { }
+    }
+
+    public sealed record GoogleCalendarConnectionDto(bool Connected, string Email, string CalendarId, DateTime? LastSyncedAt, bool ReauthorizationRequired = false);
 }
