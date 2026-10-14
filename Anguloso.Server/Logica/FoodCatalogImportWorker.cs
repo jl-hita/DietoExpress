@@ -4,13 +4,10 @@ namespace Anguloso.Server.Logica;
 
 /// <summary>
 /// Amplía gradualmente el catálogo global de alimentos sin cargar de trabajo a las APIs externas.
-/// Reutiliza el mismo proceso de normalización y persistencia que las búsquedas manuales,
-/// pero solo guarda fichas con macros esenciales completos y plausibles.
+/// Registra los alimentos insertados/actualizados y los errores con el máximo detalle útil.
 /// </summary>
 public sealed class FoodCatalogImportWorker : BackgroundService
 {
-    // Consultas cortas y centradas en alimentos habituales para planificación nutricional,
-    // evitando una descarga masiva indiscriminada del catálogo de productos envasados.
     private static readonly string[] SearchTerms =
     {
         "arroz integral", "lentejas", "garbanzos", "avena", "pollo",
@@ -41,7 +38,6 @@ public sealed class FoodCatalogImportWorker : BackgroundService
             return;
         }
 
-        // Valores configurables, con límites defensivos para evitar una frecuencia accidentalmente agresiva.
         var intervalHours = Math.Clamp(_configuration.GetValue<int?>("FoodCatalogImport:IntervalHours") ?? 24, 6, 168);
         var startupDelayMinutes = Math.Clamp(_configuration.GetValue<int?>("FoodCatalogImport:StartupDelayMinutes") ?? 2, 0, 60);
 
@@ -62,18 +58,29 @@ public sealed class FoodCatalogImportWorker : BackgroundService
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
-            // Parada normal del host: no se registra como error de sincronización.
+            _logger.LogInformation("Worker de catálogo de alimentos detenido.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogCritical(ex, "El worker de catálogo de alimentos terminó inesperadamente.");
+            throw;
         }
     }
 
     private async Task ImportDailyBatchAsync(CancellationToken stoppingToken)
     {
-        // El día UTC determina el par de términos. Si el proceso se reinicia, se repite
-        // como máximo el lote de ese día; la persistencia por código externo es idempotente.
+        var startedAt = DateTimeOffset.UtcNow;
         var firstIndex = (DateOnly.FromDateTime(DateTime.UtcNow).DayNumber * 2) % SearchTerms.Length;
+        var successfulTerms = 0;
+        var failedTerms = 0;
 
         using var scope = _scopeFactory.CreateScope();
         var foodService = scope.ServiceProvider.GetRequiredService<OpenFoodFactsService>();
+
+        _logger.LogInformation(
+            "Inicio de lote de importación de alimentos. Términos: '{FirstTerm}' y '{SecondTerm}'.",
+            SearchTerms[firstIndex],
+            SearchTerms[(firstIndex + 1) % SearchTerms.Length]);
 
         for (var i = 0; i < 2; i++)
         {
@@ -86,10 +93,12 @@ public sealed class FoodCatalogImportWorker : BackgroundService
                     term,
                     pais: "spain",
                     lang: "es",
-                    onlyDietEligible: true);
+                    onlyDietEligible: true,
+                    logImportDetails: true);
 
+                successfulTerms++;
                 _logger.LogInformation(
-                    "Importación incremental de alimentos para '{SearchTerm}': {EligibleCount} fichas aptas encontradas.",
+                    "Consulta de importación terminada para '{SearchTerm}'. Productos aptos procesados/devueltos: {EligibleCount}. Los INSERT/UPDATE y errores de persistencia se registran individualmente.",
                     term,
                     eligibleFoods.Count);
             }
@@ -99,14 +108,19 @@ public sealed class FoodCatalogImportWorker : BackgroundService
             }
             catch (Exception ex)
             {
-                // Un fallo de una categoría no impide procesar la segunda ni las ejecuciones futuras.
-                _logger.LogError(ex, "Error importando alimentos para el término '{SearchTerm}'.", term);
+                failedTerms++;
+                _logger.LogError(ex, "Fallo completo al importar el término '{SearchTerm}'. Tipo: {ExceptionType}; detalle: {ExceptionMessage}",
+                    term, ex.GetType().FullName, ex.Message);
             }
 
-            // Respeta una pausa entre consultas a Open Food Facts; USDA queda limitado
-            // internamente a cinco intentos de enriquecimiento por búsqueda.
             if (i == 0)
                 await Task.Delay(TimeSpan.FromSeconds(2), stoppingToken);
         }
+
+        _logger.LogInformation(
+            "Lote de importación finalizado en {ElapsedSeconds:F1} s. Consultas correctas: {SuccessfulTerms}; consultas con error no controlado: {FailedTerms}.",
+            (DateTimeOffset.UtcNow - startedAt).TotalSeconds,
+            successfulTerms,
+            failedTerms);
     }
 }
