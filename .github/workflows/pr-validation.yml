@@ -41,7 +41,32 @@ jobs:
         run: |
           npm ls inflight rimraf glob uuid --all || true
 
-      - name: Angular dependency audit
+      - name: Angular full dependency audit report
+        working-directory: anguloso.client
+        run: |
+          npm audit --json > npm-audit.json || true
+          node <<'NODE'
+          const fs = require('node:fs');
+          const audit = JSON.parse(fs.readFileSync('npm-audit.json', 'utf8'));
+          console.log('Vulnerabilities by severity:', JSON.stringify(audit.metadata?.vulnerabilities ?? {}, null, 2));
+          for (const [name, item] of Object.entries(audit.vulnerabilities ?? {})) {
+            console.log(JSON.stringify({
+              name,
+              severity: item.severity,
+              direct: item.isDirect,
+              range: item.range,
+              fixAvailable: item.fixAvailable,
+              via: item.via.map(v => typeof v === 'string' ? v : {
+                title: v.title,
+                url: v.url,
+                range: v.range,
+                severity: v.severity
+              })
+            }));
+          }
+          NODE
+
+      - name: Angular production dependency audit
         working-directory: anguloso.client
         run: npm audit --omit=dev --audit-level=high
 
