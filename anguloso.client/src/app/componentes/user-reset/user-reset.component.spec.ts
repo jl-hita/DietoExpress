@@ -8,7 +8,7 @@ describe('UserResetComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [UserResetComponent]
+      imports: [UserResetComponent]
     })
     .compileComponents();
 
