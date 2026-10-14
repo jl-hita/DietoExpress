@@ -30,7 +30,7 @@ public sealed class GoogleCalendarController : ControllerBase
     {
         var (userId, tenantId) = Identity();
         if (userId == null || tenantId == null) return Unauthorized();
-        return Ok(await _calendar.GetConnectionAsync(userId.Value, tenantId.Value, cancellationToken) ?? new GoogleCalendarService.GoogleCalendarConnectionDto(false, "", "primary", null));
+        return Ok(await _calendar.GetConnectionAsync(userId.Value, tenantId.Value, cancellationToken) ?? new GoogleCalendarService.GoogleCalendarConnectionDto(false, "", "primary", null, false));
     }
 
     [Authorize(Roles = "clinic_admin,nutritionist")]
@@ -94,6 +94,13 @@ public sealed class GoogleCalendarController : ControllerBase
         {
             await _calendar.SyncUserAsync(userId.Value, tenantId.Value, cancellationToken);
             return NoContent();
+        }
+        catch (GoogleCalendarService.GoogleCalendarReauthorizationRequiredException ex)
+        {
+            return Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Hay que volver a conectar Google Calendar");
         }
         catch (GoogleCalendarService.GoogleCalendarProviderException ex)
         {
