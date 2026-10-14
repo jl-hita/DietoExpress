@@ -21,6 +21,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Verify production .NET runtime before deployment
+        run: |
+          set -euo pipefail
+          if ! /usr/bin/dotnet --list-runtimes | grep -E '^Microsoft\.AspNetCore\.App 10\.'; then
+            echo "ERROR: /usr/bin/dotnet no tiene instalado Microsoft.AspNetCore.App 10.x. Instala el runtime de ASP.NET Core 10 en weirdfish antes de fusionar/desplegar esta migración. No se ha modificado producción."
+            exit 1
+          fi
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.x
+
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
