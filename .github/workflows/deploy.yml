@@ -31,6 +31,10 @@ jobs:
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v6
+        env:
+          # El runner self-hosted no puede escribir en /usr/share/dotnet.
+          # Instalamos el SDK en el directorio temporal escribible del runner.
+          DOTNET_INSTALL_DIR: ${{ runner.temp }}/.dotnet
         with:
           dotnet-version: 10.x
 
