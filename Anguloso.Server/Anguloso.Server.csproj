@@ -48,11 +48,11 @@
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="PreserveNewest" />
     <Content Include="..\scripts\dietoexpress-restore-post.sh"
-             Link="scripts/dietoexpress-restore-post.sh"
+             Link="scripts\dietoexpress-restore-post.sh"
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="PreserveNewest" />
     <Content Include="..\scripts\provision-dietoexpress-backup-automation.sh"
-             Link="scripts/provision-dietoexpress-backup-automation.sh"
+             Link="scripts\provision-dietoexpress-backup-automation.sh"
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="PreserveNewest" />
     <Content Include="..\scripts\systemd\*.service"
@@ -70,10 +70,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+    <PackageReference Include="BCrypt.Net-Next" Version="4.2.0" />
     <PackageReference Include="Google.Apis.Auth" Version="1.77.0" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.31" />
-    <PackageReference Include="Microsoft.AspNetCore.SpaProxy" Version="8.0.31" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.32" />
+    <PackageReference Include="Microsoft.AspNetCore.SpaProxy" Version="8.0.32" />
     <PackageReference Include="Microsoft.DotNet.Scaffolding.Shared" Version="8.0.23" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.31" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.31">
