@@ -203,7 +203,7 @@ public class OpenFoodFactsService
         if (food.potassium_mg == null && source.Potassium_mg.HasValue) food.potassium_mg = source.Potassium_mg;
         if (food.zinc_mg == null && source.Zinc_mg.HasValue) food.zinc_mg = source.Zinc_mg;
     }
-    public async Task<List<OffProduct>> SearchProductsAsync(string query, string pais = "spain", string lang = "es", bool onlyDietEligible = false)
+    public async Task<List<OffProduct>> SearchProductsAsync(string query, string pais = "spain", string lang = "es", bool onlyDietEligible = false, bool logImportDetails = false)
     {
         var products = new List<OffProduct>();
         //_logServ.LogInfo($"query='{query}', pais='{pais}', lang='{lang}'");
@@ -215,7 +215,16 @@ public class OpenFoodFactsService
             // Construir URL (cgi/search.pl es la recomendada para json)
             var url = $"cgi/search.pl?search_terms={Uri.EscapeDataString(query)}&tagtype_0=countries&tag_contains_0=contains&tag_0={Uri.EscapeDataString(pais)}&tagtype_1=languages&tag_contains_1=contains&tag_1={Uri.EscapeDataString(lang)}&fields={Uri.EscapeDataString(fields)}&page_size={nResultados}&json=1";
             var response = await _http.GetAsync(url);
-            response.EnsureSuccessStatusCode();
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorBody = await response.Content.ReadAsStringAsync();
+                if (logImportDetails)
+                {
+                    _logServ.LogError(
+                        $"Food catalog import: OpenFoodFacts respondió HTTP {(int)response.StatusCode} ({response.ReasonPhrase}) para el término '{query}'. URL: {response.RequestMessage?.RequestUri}. Respuesta: {TruncateForLog(errorBody, 4000)}");
+                }
+                response.EnsureSuccessStatusCode();
+            }
             var json = await response.Content.ReadAsStringAsync();
             using var doc = JsonDocument.Parse(json);
 
@@ -292,7 +301,7 @@ public class OpenFoodFactsService
                 }
 
                 // Comprueba si el producto está en la BBDD. Si no está, lo guarda.
-                await SaveFoodToDb(off);
+                await SaveFoodToDb(off, logImportDetails);
                 products.Add(off);
             }
 
@@ -300,9 +309,23 @@ public class OpenFoodFactsService
         }
         catch (Exception ex)
         {
-            _logServ.LogError($"Excepción en OpenFoodFactsService.SearchProductsAsync() => {ex.Message}");
+            if (logImportDetails)
+            {
+                _logServ.LogError(
+                    $"Food catalog import: excepción en SearchProductsAsync para el término '{query}'. Tipo: {ex.GetType().FullName}; mensaje: {ex.Message}; inner: {ex.InnerException?.Message ?? "(sin inner exception)"}; stack: {ex.StackTrace ?? "(sin stack trace)"}");
+            }
+            else
+            {
+                _logServ.LogError($"Excepción en OpenFoodFactsService.SearchProductsAsync() => {ex.Message}");
+            }
             return products;
         }
+    }
+
+    private static string TruncateForLog(string? value, int maxLength)
+    {
+        if (string.IsNullOrEmpty(value)) return "(respuesta vacía)";
+        return value.Length <= maxLength ? value : value[..maxLength] + "… [respuesta truncada]";
     }
 
     /*
@@ -659,7 +682,7 @@ public class OpenFoodFactsService
         return null;
     }
 
-    private async Task SaveFoodToDb(OffProduct product)
+    private async Task SaveFoodToDb(OffProduct product, bool logImportDetails = false)
     {
         try
         {
@@ -761,12 +784,25 @@ public class OpenFoodFactsService
             await dbContext.SaveChangesAsync();
             await transaction.CommitAsync();
             product.Id = food.id;
+
+            if (logImportDetails)
+            {
+                _logServ.LogInfo(
+                    $"Food catalog import: {(isNew ? "ALIMENTO INSERTADO" : "alimento externo actualizado")} | id:{food.id} | nombre:'{food.name}' | código OFF:'{product.Code}' | marca:'{food.brands ?? "(sin marca)"}' | categoría:'{food.category ?? "(sin categoría)"}' | kcal/100g:{food.kcal?.ToString(CultureInfo.InvariantCulture) ?? "null"} | proteínas/100g:{food.protein?.ToString(CultureInfo.InvariantCulture) ?? "null"} | hidratos/100g:{food.carbs?.ToString(CultureInfo.InvariantCulture) ?? "null"} | grasas/100g:{food.fat?.ToString(CultureInfo.InvariantCulture) ?? "null"}");
+            }
         }
         catch (Exception ex)
         {
-            _logServ.LogError(
-                $"Excepción en OpenFoodFactsService.SaveFoodToDb() => {ex.Message} => {ex.InnerException?.Message}"
-            );
+            if (logImportDetails)
+            {
+                _logServ.LogError(
+                    $"Food catalog import: ERROR guardando alimento | nombre:'{product.Product_name}' | código OFF:'{product.Code}' | tipo:{ex.GetType().FullName} | mensaje:{ex.Message} | inner:{ex.InnerException?.Message ?? "(sin inner exception)"} | stack:{ex.StackTrace ?? "(sin stack trace)"}");
+            }
+            else
+            {
+                _logServ.LogError(
+                    $"Excepción en OpenFoodFactsService.SaveFoodToDb() => {ex.Message} => {ex.InnerException?.Message}");
+            }
         }
     }
 
