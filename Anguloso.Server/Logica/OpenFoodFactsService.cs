@@ -318,6 +318,11 @@ public class OpenFoodFactsService
             {
                 _logServ.LogError($"Excepción en OpenFoodFactsService.SearchProductsAsync() => {ex.Message}");
             }
+
+            // El worker debe distinguir una consulta fallida de una búsqueda válida sin resultados.
+            if (logImportDetails)
+                throw;
+
             return products;
         }
     }
