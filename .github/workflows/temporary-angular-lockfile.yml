@@ -22,7 +22,9 @@ jobs:
           node-version: 22.22.3
       - name: Regenerate package-lock without lifecycle scripts
         working-directory: anguloso.client
-        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+        run: |
+          rm -f package-lock.json
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
       - name: Commit updated lockfile
         shell: bash
         run: |
