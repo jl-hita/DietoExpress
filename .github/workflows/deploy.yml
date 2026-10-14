@@ -66,6 +66,16 @@ jobs:
             exit 1
           fi
 
+      - name: Auditar dependencias del proyecto de tests
+        run: |
+          set -o pipefail
+          audit_output="$(dotnet list Tests/DietoExpress.Security.Tests/DietoExpress.Security.Tests.csproj package --vulnerable --include-transitive)"
+          printf '%s\n' "$audit_output"
+          if printf '%s\n' "$audit_output" | grep -Eiq '>.*(High|Critical)'; then
+            echo "Se han detectado vulnerabilidades High/Critical en dependencias del proyecto de tests."
+            exit 1
+          fi
+
       - name: Compilar .NET
         run: dotnet build Anguloso.Server/Anguloso.Server.csproj -c Release --no-restore
 
