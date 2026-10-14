@@ -35,7 +35,7 @@ jobs:
 
       - name: Angular install
         working-directory: anguloso.client
-        run: npm install
+        run: npm ci
 
       - name: Angular legacy dependency report
         working-directory: anguloso.client
