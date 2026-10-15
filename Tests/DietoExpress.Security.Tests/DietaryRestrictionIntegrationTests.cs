@@ -28,5 +28,9 @@ public sealed class DietaryRestrictionIntegrationTests
         Assert.Contains("DietaryRestrictionRules.IsFoodAllowed", validation);
         Assert.Contains("food.dietary_flags", validation);
         Assert.DoesNotContain(".Split(new[] { ',', ';', ' ' }", validation);
+
+        var offService = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "OpenFoodFactsService.cs"));
+        Assert.Contains("allergens_tags", offService);
+        Assert.Contains("food.allergen_tags = product.Allergens_tags", offService);
     }
 }

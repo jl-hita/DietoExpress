@@ -210,7 +210,7 @@ public class OpenFoodFactsService
 
         try
         {
-            string fields = "product_name,brands,nutriscore_grade,nutriments,code,categories,serving_size";
+            string fields = "product_name,brands,nutriscore_grade,nutriments,code,categories,serving_size,allergens_tags";
             int nResultados = 20;
             // Construir URL (cgi/search.pl es la recomendada para json)
             var url = $"cgi/search.pl?search_terms={Uri.EscapeDataString(query)}&tagtype_0=countries&tag_contains_0=contains&tag_0={Uri.EscapeDataString(pais)}&tagtype_1=languages&tag_contains_1=contains&tag_1={Uri.EscapeDataString(lang)}&fields={Uri.EscapeDataString(fields)}&page_size={nResultados}&json=1";
@@ -250,6 +250,7 @@ public class OpenFoodFactsService
                     ServingSizeText = servingSizeText,
                     ServingSize = servingSizeObject != null ? servingSizeObject.Value : null,
                     ServingSizeUnit = servingSizeObject != null ? servingSizeObject.Unit : null,
+                    Allergens_tags = GetStringArray(p, "allergens_tags"),
                     Nutriments = ExtractNutrimentsFromOffElement(p),
                     //Micronutrients = ExtractMicronutrientsFromOffElement(p) //Los sacamos de la USDA directamente
                     Micronutrients = new OffMicronutrients()
@@ -325,6 +326,19 @@ public class OpenFoodFactsService
 
             return products;
         }
+    }
+
+    private static string[]? GetStringArray(JsonElement element, string propertyName)
+    {
+        if (!element.TryGetProperty(propertyName, out var value) || value.ValueKind != JsonValueKind.Array)
+            return null;
+        return value.EnumerateArray()
+            .Where(item => item.ValueKind == JsonValueKind.String)
+            .Select(item => item.GetString())
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Select(item => item!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 
     private static string TruncateForLog(string? value, int maxLength)
@@ -733,6 +747,7 @@ public class OpenFoodFactsService
             food.brands = product.Brands;
             food.category = product.Category;
             food.nutriscore = NormalizeNutriscore(product.Nutriscore_grade);
+            food.allergen_tags = product.Allergens_tags?.Distinct(StringComparer.OrdinalIgnoreCase).ToArray() ?? food.allergen_tags;
 
             // =========================
             // Serving size

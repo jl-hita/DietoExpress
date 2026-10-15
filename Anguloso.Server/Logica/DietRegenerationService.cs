@@ -198,7 +198,7 @@ public sealed class DietRegenerationService
             client?.digestive_health?.fodmaps_intolerance == true);
 
     private static bool IsAllowed(foods food, HashSet<string> forbidden) =>
-        DietaryRestrictionRules.IsFoodAllowed(food.name, food.category, food.dietary_flags, forbidden);
+        DietaryRestrictionRules.IsFoodAllowed(food.name, food.category, (food.dietary_flags ?? Array.Empty<string>()).Concat(food.allergen_tags ?? Array.Empty<string>()), forbidden);
 
     private static bool IsCompatibleRole(foods food, meal_items source, string mealName)
     {

@@ -83,6 +83,9 @@ public partial class foods
 
     public string[] dietary_flags { get; set; } = Array.Empty<string>();
 
+    // null significa que la fuente no aporta datos; un array vacío indica que no declaró etiquetas.
+    public string[] allergen_tags { get; set; } = null!;
+
     public virtual tenants tenant { get; set; }
 
     public virtual users created_by_user { get; set; }
