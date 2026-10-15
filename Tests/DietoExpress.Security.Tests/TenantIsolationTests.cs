@@ -373,7 +373,7 @@ public class TenantIsolationTests
         var controller = new ClientDietsController(
             db,
             null!,
-            null!,
+            new DietValidationService(new SpecializationRulesService(db)),
             license.Object,
             null!);
 
