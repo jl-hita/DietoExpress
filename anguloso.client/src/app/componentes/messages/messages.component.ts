@@ -38,17 +38,18 @@ export class MessagesComponent implements OnInit, OnDestroy {
     // SuperAdmin no tiene tenant para chats privados; evita las llamadas que inevitablemente terminarían en 403.
     if (!this.authService.isSuperAdmin()) {
       this.refreshSubscription = interval(15000).pipe(
-      startWith(0),
-      switchMap(() => this.http.get<Conversation[]>('/api/messages/conversations').pipe(catchError(() => of([]))))
-    ).subscribe(items => {
-      this.conversations = items || [];
-      this.loading = false;
-      if (this.selectedClientId && !this.conversations.some(c => c.clientId === this.selectedClientId)) {
-        this.selectedClientId = null;
-      }
-    });
+        startWith(0),
+        switchMap(() => this.http.get<Conversation[]>('/api/messages/conversations').pipe(catchError(() => of([]))))
+      ).subscribe(items => {
+        this.conversations = items || [];
+        this.loading = false;
+        if (this.selectedClientId && !this.conversations.some(c => c.clientId === this.selectedClientId)) {
+          this.selectedClientId = null;
+        }
+      });
+    }
 
-    // Las comunicaciones oficiales se consultan en paralelo y se incorporan al contador de la bandeja.
+    // La bandeja de comunicaciones oficiales no requiere un tenant profesional.
     this.broadcastRefreshSubscription = interval(15000).pipe(
       startWith(0),
       switchMap(() => this.http.get<BroadcastInboxItem[]>('/api/broadcast-messages/inbox').pipe(catchError(() => of([]))))
