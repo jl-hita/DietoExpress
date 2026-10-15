@@ -1,3 +1,6 @@
+using Anguloso.Server.Model;
+using Anguloso.Server.Models;
+
 namespace Anguloso.Server.Logica;
 
 public static class ShoppingListRules
@@ -125,4 +128,70 @@ public static class ShoppingListRules
         double roundedGeneral = Math.Ceiling(grams / 25.0) * 25.0;
         return (roundedGeneral, $"{roundedGeneral:0} g");
     }
+    // Unifica el cálculo de cantidades para listas profesionales y del paciente.
+    public static List<ShoppingItemDto> BuildFoodItems(IEnumerable<(foods Food, double Grams)> foodAmounts)
+    {
+        return foodAmounts
+            .Where(x => x.Food != null && x.Grams > 0)
+            .GroupBy(x => new
+            {
+                FoodId = x.Food.id,
+                FoodName = x.Food.name ?? "Alimento",
+                Category = NormalizeCategory(x.Food.category, x.Food.name)
+            })
+            .Select(group =>
+            {
+                var totalGrams = Math.Round(group.Sum(x => x.Grams), 1);
+                var commercial = CalculateCommercialRounding(totalGrams, group.Key.FoodName, group.Key.Category);
+                var food = group.First().Food;
+                return new ShoppingItemDto
+                {
+                    FoodId = group.Key.FoodId,
+                    FoodName = group.Key.FoodName,
+                    Category = group.Key.Category,
+                    TotalGrams = totalGrams,
+                    RoundedGrams = commercial.roundedGrams,
+                    CommercialDescription = commercial.commercialDesc,
+                    AllergenTags = FormatAllergenTags(food.allergen_tags),
+                    AllergenDataAvailable = food.allergen_tags != null
+                };
+            })
+            .OrderBy(item => item.Category)
+            .ThenBy(item => item.FoodName)
+            .ToList();
+    }
+
+    public static List<string> FormatAllergenTags(IEnumerable<string>? tags)
+    {
+        if (tags == null) return new List<string>();
+        return tags.Where(tag => !string.IsNullOrWhiteSpace(tag))
+            .Select(tag =>
+            {
+                var value = tag.Trim().ToLowerInvariant();
+                if (value.Contains(':')) value = value[(value.IndexOf(':') + 1)..];
+                value = value.Replace('-', ' ').Replace('_', ' ');
+                return value switch
+                {
+                    "milk" or "dairy" or "lactose" => "leche/lácteos",
+                    "peanuts" or "peanut" => "cacahuetes",
+                    "nuts" or "tree nuts" or "nuts and derivatives" => "frutos de cáscara",
+                    "eggs" or "egg" => "huevos",
+                    "soybeans" or "soya" or "soy" => "soja",
+                    "gluten" or "wheat" or "rye" or "barley" => "gluten/cereales",
+                    "fish" => "pescado",
+                    "crustaceans" => "crustáceos",
+                    "molluscs" or "mollusks" => "moluscos",
+                    "sesame seeds" or "sesame" => "sésamo",
+                    "mustard" => "mostaza",
+                    "celery" => "apio",
+                    "lupin" or "lupine" => "altramuces",
+                    "sulphur dioxide and sulphites" or "sulfur dioxide and sulfites" or "sulfites" or "sulphites" => "sulfitos",
+                    _ => value
+                };
+            })
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(value => value)
+            .ToList();
+    }
+
 }

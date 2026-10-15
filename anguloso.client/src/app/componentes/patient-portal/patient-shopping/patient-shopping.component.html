@@ -73,7 +73,19 @@
           <mat-icon *ngIf="isChecked(cat.category + '_' + item.foodId)">check_box</mat-icon>
           <mat-icon *ngIf="!isChecked(cat.category + '_' + item.foodId)">check_box_outline_blank</mat-icon>
         </div>
-        <span class="item-name">{{ item.foodName }}</span>
+        <div class="item-copy" *ngIf="item.requiresAllergenCheck !== false">
+          <span class="item-name">{{ item.foodName }}</span>
+          <small class="item-allergen-note" *ngIf="item.allergenTags?.length">
+            Alérgenos declarados por la fuente: {{ item.allergenTags.join(', ') }}. Comprueba siempre la etiqueta del envase.
+          </small>
+          <small class="item-allergen-note" *ngIf="item.allergenDataAvailable && !item.allergenTags?.length">
+            La fuente no declara alérgenos; comprueba siempre la etiqueta del envase.
+          </small>
+          <small class="item-allergen-unknown" *ngIf="!item.allergenDataAvailable">
+            Sin información estructurada de alérgenos; comprueba la etiqueta del envase.
+          </small>
+        </div>
+        <span class="item-name" *ngIf="item.requiresAllergenCheck === false">{{ item.foodName }}</span>
         <span class="item-amount" [attr.title]="item.commercialDescription || ('Necesitas ' + item.totalGrams + ' g')">
           {{ item.commercialDescription || ('~' + (item.totalGrams | number:'1.0-0') + ' g') }}
         </span>
