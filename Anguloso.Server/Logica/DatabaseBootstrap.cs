@@ -1002,7 +1002,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                 completed_at TIMESTAMPTZ
             );
             -- Reconciliar instalaciones anteriores donde la tabla ya existía con un esquema parcial.
-            -- CREATE TABLE IF NOT EXISTS no añade columnas a una tabla existente.
+            -- La declaración de creación no añade columnas a una tabla existente.
             ALTER TABLE automation_jobs
                 ADD COLUMN IF NOT EXISTS event_id BIGINT REFERENCES automation_events(id) ON DELETE SET NULL,
                 ADD COLUMN IF NOT EXISTS action_type VARCHAR(120) NOT NULL DEFAULT 'unknown',
