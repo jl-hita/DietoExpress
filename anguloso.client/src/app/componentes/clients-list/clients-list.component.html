@@ -59,7 +59,7 @@
       <p class="subtitle">Gestiona expedientes clínicos, anamnesis, biometrías y dietas asignadas.</p>
     </div>
     <div class="header-actions">
-      <button mat-flat-button color="primary" class="action-btn"
+      <button *ngIf="!isSuperAdmin" mat-flat-button color="primary" class="action-btn"
               [disabled]="checkingCreatePermission || !canCreateClient"
               [matTooltip]="!canCreateClient ? createClientReason : 'Crear un nuevo paciente'"
               (click)="createNew()">
@@ -68,7 +68,9 @@
     </div>
   </div>
 
-  <div class="license-warning" *ngIf="!checkingCreatePermission && !canCreateClient">
+  <div class="license-warning" *ngIf="isSuperAdmin && showAllClients">SuperAdmin puede consultar el listado global en modo de solo lectura. Para editar un expediente debe hacerlo desde el tenant profesional correspondiente.</div>
+
+  <div class="license-warning" *ngIf="!isSuperAdmin && !checkingCreatePermission && !canCreateClient">
     <mat-icon>block</mat-icon>
     <div>
       <strong>No puedes crear nuevos pacientes</strong>
@@ -116,12 +118,14 @@
             <td class="text-muted">{{ c.phone || '—' }}</td>
             <td class="text-muted">{{ c.created_at ? (c.created_at | date:'dd/MM/yyyy') : '—' }}</td>
             <td class="actions-cell text-right" (click)="$event.stopPropagation()">
+              <ng-container *ngIf="!isSuperAdmin">
               <button mat-icon-button class="icon-btn edit-btn" (click)="editClient(c)" matTooltip="Ver Ficha y Biometrías">
                 <mat-icon>visibility</mat-icon>
               </button>
               <button mat-icon-button class="icon-btn delete-btn" (click)="deleteClient(c)" matTooltip="Eliminar Paciente">
                 <mat-icon>delete_outline</mat-icon>
               </button>
+              </ng-container>
             </td>
           </tr>
         </tbody>

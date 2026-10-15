@@ -6,13 +6,15 @@
       <p class="subtitle">Diseña menús personalizados, calcula macronutrientes y consulta listas de compra.</p>
     </div>
     <div class="header-actions">
-      <button mat-flat-button color="primary" class="action-btn" (click)="createNew()">
+      <button *ngIf="!isSuperAdmin" mat-flat-button color="primary" class="action-btn" (click)="createNew()">
         <mat-icon>add</mat-icon> Nueva Dieta
       </button>
     </div>
   </div>
 
   <!-- Tarjeta de Contenido / Tabla -->
+  <div class="license-warning" *ngIf="isSuperAdmin && showAllDiets">SuperAdmin puede consultar las dietas de todos los tenants en modo de solo lectura. Para editar o borrar una dieta, accede desde su tenant profesional.</div>
+
   <div class="table-card">
     <!-- Toolbar de Búsqueda y Contador -->
     <div class="table-toolbar">
@@ -82,7 +84,7 @@
               <span class="text-muted" *ngIf="d.targetFat == null">—</span>
             </td>
             <td class="text-muted">{{ d.createdAt ? (d.createdAt | date:'dd/MM/yyyy') : '—' }}</td>
-            <td class="actions-cell text-right">
+            <td class="actions-cell text-right">\n              <ng-container *ngIf="!isSuperAdmin">
               <button mat-icon-button class="icon-btn cart-btn" (click)="viewShoppingList(d)" matTooltip="Lista de la Compra">
                 <mat-icon>shopping_cart</mat-icon>
               </button>
@@ -95,6 +97,7 @@
               <button *ngIf="d.isMine" mat-icon-button class="icon-btn delete-btn" (click)="deleteDiet(d)" matTooltip="Eliminar">
                 <mat-icon>delete_outline</mat-icon>
               </button>
+              </ng-container>
             </td>
           </tr>
         </tbody>

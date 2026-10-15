@@ -1,5 +1,7 @@
 <div class="appointments-page">
-  <header class="page-header">
+  <div class="alert error" *ngIf="isSuperAdmin"><mat-icon>info</mat-icon>La agenda y la disponibilidad pertenecen a una clínica o nutricionista. SuperAdmin no tiene un tenant propio, así que no se consultan ni modifican citas desde esta vista.</div>
+
+  <header class="page-header" *ngIf="!isSuperAdmin">
     <div>
       <span class="eyebrow">AGENDA</span>
       <h1>Citas</h1>
@@ -8,12 +10,12 @@
     <div class="header-count"><strong>{{ upcoming.length }}</strong><span>próximas</span></div>
   </header>
 
-  <div class="alert success" *ngIf="success"><mat-icon>check_circle</mat-icon>{{ success }}</div>
-  <div class="alert error" *ngIf="error"><mat-icon>error_outline</mat-icon>{{ error }}<button type="button" (click)="load()">Reintentar</button></div>
+  <div class="alert success" *ngIf="!isSuperAdmin && success"><mat-icon>check_circle</mat-icon>{{ success }}</div>
+  <div class="alert error" *ngIf="!isSuperAdmin && error"><mat-icon>error_outline</mat-icon>{{ error }}<button type="button" (click)="load()">Reintentar</button></div>
 
-  <div class="loading" *ngIf="loading"><mat-spinner diameter="32"></mat-spinner><span>Cargando agenda...</span></div>
+  <div class="loading" *ngIf="!isSuperAdmin && loading"><mat-spinner diameter="32"></mat-spinner><span>Cargando agenda...</span></div>
 
-  <section class="card calendar-integration">
+  <section *ngIf="!isSuperAdmin" class="card calendar-integration">
     <div class="card-header">
       <div><mat-icon>sync</mat-icon><div><h2>Google Calendar</h2><p>Sincroniza tus citas y usa tus eventos externos para bloquear horarios.</p></div></div>
     </div>
@@ -38,8 +40,8 @@
 
 
 
-  <ng-container *ngIf="!loading">
-    <section class="card">
+  <ng-container *ngIf="!loading && !isSuperAdmin">
+    <section *ngIf="!isSuperAdmin" class="card">
       <div class="card-header">
         <div><mat-icon>event_available</mat-icon><div><h2>Disponibilidad semanal</h2><p>Los pacientes verán automáticamente estos horarios.</p></div></div>
       </div>

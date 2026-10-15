@@ -1,7 +1,9 @@
 <div class="settings-page">
   <div class="page-header"><div class="page-title-group"><mat-icon class="page-icon">description</mat-icon><div><h1 class="page-title">Documentación</h1><p class="page-subtitle">Gestiona las plantillas que se entregarán automáticamente a tus pacientes.</p></div></div></div>
 
-  <mat-card>
+  <p *ngIf="isSuperAdmin" style="padding:16px;border-left:4px solid #64748b;background:#f8fafc">Las plantillas de documentación pertenecen a cada tenant y requieren un contexto de clínica o nutricionista. Para evitar un 403 y no mezclar documentos entre clientes, esta vista no consulta ni modifica plantillas cuando se accede como SuperAdmin.</p>
+
+  <mat-card *ngIf="!isSuperAdmin">
     <mat-card-header><mat-card-title>Nueva plantilla</mat-card-title></mat-card-header>
     <mat-card-content>
       <div style="display:grid;gap:16px">
@@ -17,8 +19,8 @@
     </mat-card-content>
   </mat-card>
 
-  <mat-card style="margin-top:20px" *ngIf="loading"><mat-card-content><mat-spinner diameter="32"></mat-spinner></mat-card-content></mat-card>
-  <mat-card style="margin-top:20px" *ngIf="!loading">
+  <mat-card style="margin-top:20px" *ngIf="!isSuperAdmin && loading"><mat-card-content><mat-spinner diameter="32"></mat-spinner></mat-card-content></mat-card>
+  <mat-card style="margin-top:20px" *ngIf="!isSuperAdmin && !loading">
     <mat-card-header><mat-card-title>Plantillas existentes</mat-card-title></mat-card-header>
     <mat-card-content>
       <p *ngIf="!templates.length">Todavía no hay plantillas.</p>
@@ -28,5 +30,5 @@
       </div>
     </mat-card-content>
   </mat-card>
-  <p *ngIf="error" style="color:#b00020">{{ error }}</p>
+  <p *ngIf="!isSuperAdmin && error" style="color:#b00020">{{ error }}</p>
 </div>

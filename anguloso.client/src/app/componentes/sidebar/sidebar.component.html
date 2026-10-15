@@ -30,12 +30,12 @@
         <mat-icon>insights</mat-icon><span>Estadísticas</span>
       </a>
     </div>
-    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount">
+    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">
       <a mat-list-item routerLink="/clients" routerLinkActive="active-link" (click)="navigateAndClose()">
         <mat-icon>group</mat-icon><span>Clientes</span>
       </a>
     </div>
-    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount">
+    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">
       <a mat-list-item routerLink="/diets" routerLinkActive="active-link" (click)="navigateAndClose()">
         <mat-icon>restaurant</mat-icon><span>Dietas</span>
       </a>
@@ -45,22 +45,22 @@
         <mat-icon>support_agent</mat-icon><span>Soporte</span>
       </a>
     </div>
-    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount">
+    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">
       <a mat-list-item routerLink="/messages" routerLinkActive="active-link" (click)="navigateAndClose()">
         <mat-icon>chat</mat-icon><span>Mensajes</span><span class="message-unread-badge" *ngIf="unreadMessagesCount > 0" aria-label="Mensajes sin leer">{{ unreadMessagesCount > 99 ? '99+' : unreadMessagesCount }}</span>
       </a>
     </div>
-    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount">
+    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">
       <a mat-list-item routerLink="/appointments" routerLinkActive="active-link" (click)="navigateAndClose()">
         <mat-icon>event</mat-icon><span>Agenda y citas</span>
       </a>
     </div>
-    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount">
+    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">
       <a mat-list-item routerLink="/automations" routerLinkActive="active-link" (click)="navigateAndClose()">
         <mat-icon>auto_awesome</mat-icon><span>Automatizaciones</span>
       </a>
     </div>
-    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount">
+    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">
       <a mat-list-item routerLink="/documents" routerLinkActive="active-link" (click)="navigateAndClose()">
         <mat-icon>description</mat-icon><span>Documentación</span>
       </a>

@@ -9,6 +9,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { AuthService } from '../../servicios/auth.service';
 
 interface DocumentTemplate {
   id: number;
@@ -36,12 +37,17 @@ export class DocumentTemplatesComponent implements OnInit {
   loading = true;
   saving = false;
   error = '';
+  isSuperAdmin = false;
   selectedFile: File | null = null;
   form = { name: '', description: '', documentType: 'consent', requiredOnClientCreation: false, requiredBeforeConsultation: false, requiresSignature: true };
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private authService: AuthService) {}
 
-  ngOnInit(): void { this.load(); }
+  ngOnInit(): void {
+    this.isSuperAdmin = this.authService.isSuperAdmin();
+    if (!this.isSuperAdmin) this.load();
+    else this.loading = false;
+  }
 
   load(): void {
     this.loading = true;

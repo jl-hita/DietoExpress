@@ -15,6 +15,7 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { environment } from '../../../environments/environments';
 import { PatientPortalService, FollowupSettings } from '../../servicios/patient-portal.service';
+import { AuthService } from '../../servicios/auth.service';
 
 interface AutomationRule {
   ruleKey: string;
@@ -71,7 +72,8 @@ interface AutomationJob {
 
       <div *ngIf="loading" class="loading"><mat-spinner diameter="42"></mat-spinner></div>
 
-      <mat-tab-group *ngIf="!loading">
+      <p *ngIf="isSuperAdmin" class="scope-notice">Las automatizaciones y los seguimientos se configuran por tenant. SuperAdmin no tiene un tenant propio; esta vista evita ejecutar operaciones profesionales que devolverían 403.</p>
+      <mat-tab-group *ngIf="!loading && !isSuperAdmin">
         <mat-tab label="Reglas">
           <section class="section">
             <div class="section-intro">
@@ -229,6 +231,7 @@ interface AutomationJob {
     </div>
   `,
   styles: [`
+    .scope-notice { padding:16px; border-left:4px solid #64748b; background:#f8fafc; color:#334155; border-radius:6px; }
     .automation-page { width:100%; padding:32px 24px 48px; box-sizing:border-box; }
     .hero { display:flex; justify-content:space-between; align-items:flex-end; gap:20px; margin-bottom:24px; }
     .eyebrow { color:#0f766e; font-size:12px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; }
@@ -266,6 +269,7 @@ export class AutomationSettingsComponent implements OnInit {
   selectedTemplateKey = '';
   template: AutomationTemplate = this.emptyTemplate('');
   loading = true;
+  isSuperAdmin = false;
   jobsLoading = false;
   saving = false;
   followupSaving = false;
@@ -281,9 +285,13 @@ export class AutomationSettingsComponent implements OnInit {
     { key:'weight', label:'Peso' }
   ];
 
-  constructor(private http: HttpClient, private snack: MatSnackBar, private portalService: PatientPortalService) {}
+  constructor(private http: HttpClient, private snack: MatSnackBar, private portalService: PatientPortalService, private authService: AuthService) {}
 
-  ngOnInit(): void { this.reload(); this.loadFollowupSettings(); }
+  ngOnInit(): void {
+    this.isSuperAdmin = this.authService.isSuperAdmin();
+    if (this.isSuperAdmin) { this.loading = false; return; }
+    this.reload(); this.loadFollowupSettings();
+  }
 
   loadFollowupSettings(): void {
     this.portalService.getFollowupSettings().subscribe({
