@@ -401,6 +401,41 @@ public class DietController : ControllerBase
 
         if (diet == null) return NotFound();
 
+        // Una dieta asignada se vuelve a validar en servidor antes de persistir la edición manual.
+        // Se comprueban todas las asignaciones activas para no introducir incompatibilidades en pacientes vinculados.
+        var activeClientIds = await _context.client_diets.AsNoTracking()
+            .Where(cd => cd.diet_id == id && cd.is_active == true &&
+                (!cd.end_date.HasValue || cd.end_date.Value >= DateOnly.FromDateTime(DateTime.UtcNow)))
+            .Select(cd => cd.client_id)
+            .Distinct()
+            .ToListAsync();
+
+        var draftDiet = new DietDetailDto
+        {
+            Name = dto.Name,
+            TargetKcal = dto.TargetKcal,
+            TargetProtein = dto.TargetProtein,
+            TargetCarbs = dto.TargetCarbs,
+            TargetFat = dto.TargetFat,
+            Notes = dto.Notes,
+            IsShared = dto.IsShared,
+            IsTemplate = dto.IsTemplate,
+            Days = dto.Days
+        };
+        foreach (var activeClientId in activeClientIds)
+        {
+            var incompatibilities = await _validationService.ValidateDietDraftCompatibilityAsync(
+                activeClientId, draftDiet, _context, tenantId, userId.Value,
+                User.IsInRole("clinic_admin") || User.IsInRole("superadmin"));
+            if (incompatibilities.Any(w => string.Equals(w.Severity, "High", StringComparison.OrdinalIgnoreCase)))
+                return Conflict(new
+                {
+                    message = "La edición no se ha guardado porque introduce incompatibilidades alimentarias o alérgenos para un paciente asignado.",
+                    clientId = activeClientId,
+                    warnings = incompatibilities
+                });
+        }
+
         diet.name = dto.Name;
         diet.target_kcal = dto.TargetKcal;
         diet.target_protein = dto.TargetProtein;
@@ -441,6 +476,8 @@ public class DietController : ControllerBase
                             protein = itemDto.Protein,
                             carbs = itemDto.Carbs,
                             fat = itemDto.Fat,
+                            recipe_id = itemDto.RecipeId,
+                            recipe_servings = itemDto.RecipeServings,
                             exchange_group_id = itemDto.ExchangeGroupId,
                             exchange_count = itemDto.ExchangeCount
                         });

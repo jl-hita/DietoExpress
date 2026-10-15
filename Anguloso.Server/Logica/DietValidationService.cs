@@ -136,28 +136,27 @@ public class DietValidationService
         if (client == null) return new List<DietValidationResultDto>();
 
         var foodIds = new List<int>();
+        var recipeIds = new HashSet<int>();
         if (diet.diet_days != null)
         {
             foreach (var day in diet.diet_days)
+            foreach (var meal in day.meals ?? new List<meals>())
+            foreach (var item in meal.meal_items ?? new List<meal_items>())
             {
-                if (day.meals != null)
-                {
-                    foreach (var meal in day.meals)
-                    {
-                        if (meal.meal_items != null)
-                        {
-                            foreach (var item in meal.meal_items)
-                            {
-                                if (item.food_id.HasValue)
-                                {
-                                    foodIds.Add(item.food_id.Value);
-                                }
-                            }
-                        }
-                    }
-                }
+                if (item.food_id.HasValue) foodIds.Add(item.food_id.Value);
+                if (item.recipe_id.HasValue) recipeIds.Add(item.recipe_id.Value);
             }
         }
+
+        var recipeIngredients = await context.recipe_items.AsNoTracking()
+            .Include(ri => ri.food)
+            .Include(ri => ri.recipe)
+            .Where(ri => recipeIds.Contains(ri.recipe_id) &&
+                (!tenantId.HasValue || (ri.recipe != null && ri.recipe.tenant_id == tenantId.Value)))
+            .ToListAsync();
+        foodIds.AddRange(recipeIngredients.Select(ri => ri.food_id));
+        var recipeIngredientsByRecipe = recipeIngredients.GroupBy(ri => ri.recipe_id)
+            .ToDictionary(group => group.Key, group => group.ToList());
 
         var foodsMap = await context.foods
             .AsNoTracking()
@@ -171,7 +170,8 @@ public class DietValidationService
             ? await _specializationRulesService.GetFoodExclusionsAsync(clientId, tenantId.Value)
             : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var structuredSpecializationExclusions = tenantId.HasValue
-            ? await _specializationRulesService.GetExcludedFoodIdsAsync(clientId, tenantId.Value, foodsMap.Keys.ToArray())
+            ? await _specializationRulesService.GetExcludedFoodIdsAsync(
+                clientId, tenantId.Value, foodsMap.Keys.Concat(recipeIngredients.Select(ri => ri.food_id)).Distinct().ToArray())
             : new HashSet<int>();
 
         if (diet.diet_days == null) return warnings;
@@ -184,11 +184,15 @@ public class DietValidationService
                 if (meal.meal_items == null) continue;
                 foreach (var item in meal.meal_items)
                 {
-                    if (!item.food_id.HasValue || !foodsMap.TryGetValue(item.food_id.Value, out var food)) 
-                        continue;
+                    if (item.food_id.HasValue && foodsMap.TryGetValue(item.food_id.Value, out var food))
+                    {
+                        var foodWarnings = CheckFoodCompatibility(client, food, meal.name, day.day_index, specializationExclusions, structuredSpecializationExclusions);
+                        warnings.AddRange(foodWarnings);
+                    }
 
-                    var foodWarnings = CheckFoodCompatibility(client, food, meal.name, day.day_index, specializationExclusions, structuredSpecializationExclusions);
-                    warnings.AddRange(foodWarnings);
+                    if (item.recipe_id.HasValue && recipeIngredientsByRecipe.TryGetValue(item.recipe_id.Value, out var ingredients))
+                        AddRecipeIngredientWarnings(warnings, client, ingredients, meal.name, day.day_index,
+                            specializationExclusions, structuredSpecializationExclusions, tenantId, userId, canUseTenantLocalFoods);
                 }
             }
         }
@@ -210,28 +214,27 @@ public class DietValidationService
         if (client == null) return new List<DietValidationResultDto>();
 
         var foodIds = new List<int>();
+        var recipeIds = new HashSet<int>();
         if (dietDto.Days != null)
         {
             foreach (var day in dietDto.Days)
+            foreach (var meal in day.Meals ?? new List<MealDto>())
+            foreach (var item in meal.Items ?? new List<MealItemDto>())
             {
-                if (day.Meals != null)
-                {
-                    foreach (var meal in day.Meals)
-                    {
-                        if (meal.Items != null)
-                        {
-                            foreach (var item in meal.Items)
-                            {
-                                if (item.FoodId.HasValue)
-                                {
-                                    foodIds.Add(item.FoodId.Value);
-                                }
-                            }
-                        }
-                    }
-                }
+                if (item.FoodId.HasValue) foodIds.Add(item.FoodId.Value);
+                if (item.RecipeId.HasValue) recipeIds.Add(item.RecipeId.Value);
             }
         }
+
+        var recipeIngredients = await context.recipe_items.AsNoTracking()
+            .Include(ri => ri.food)
+            .Include(ri => ri.recipe)
+            .Where(ri => recipeIds.Contains(ri.recipe_id) &&
+                (!tenantId.HasValue || (ri.recipe != null && ri.recipe.tenant_id == tenantId.Value)))
+            .ToListAsync();
+        foodIds.AddRange(recipeIngredients.Select(ri => ri.food_id));
+        var recipeIngredientsByRecipe = recipeIngredients.GroupBy(ri => ri.recipe_id)
+            .ToDictionary(group => group.Key, group => group.ToList());
 
         var foodsMap = await context.foods
             .AsNoTracking()
@@ -245,7 +248,8 @@ public class DietValidationService
             ? await _specializationRulesService.GetFoodExclusionsAsync(clientId, tenantId.Value)
             : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var structuredSpecializationExclusions = tenantId.HasValue
-            ? await _specializationRulesService.GetExcludedFoodIdsAsync(clientId, tenantId.Value, foodsMap.Keys.ToArray())
+            ? await _specializationRulesService.GetExcludedFoodIdsAsync(
+                clientId, tenantId.Value, foodsMap.Keys.Concat(recipeIngredients.Select(ri => ri.food_id)).Distinct().ToArray())
             : new HashSet<int>();
 
         if (dietDto.Days == null) return warnings;
@@ -258,16 +262,55 @@ public class DietValidationService
                 if (meal.Items == null) continue;
                 foreach (var item in meal.Items)
                 {
-                    if (!item.FoodId.HasValue || !foodsMap.TryGetValue(item.FoodId.Value, out var food)) 
-                        continue;
+                    if (item.FoodId.HasValue && foodsMap.TryGetValue(item.FoodId.Value, out var food))
+                    {
+                        var foodWarnings = CheckFoodCompatibility(client, food, meal.Name, day.DayIndex, specializationExclusions, structuredSpecializationExclusions);
+                        warnings.AddRange(foodWarnings);
+                    }
 
-                    var foodWarnings = CheckFoodCompatibility(client, food, meal.Name, day.DayIndex, specializationExclusions, structuredSpecializationExclusions);
-                    warnings.AddRange(foodWarnings);
+                    if (item.RecipeId.HasValue && recipeIngredientsByRecipe.TryGetValue(item.RecipeId.Value, out var ingredients))
+                        AddRecipeIngredientWarnings(warnings, client, ingredients, meal.Name, day.DayIndex,
+                            specializationExclusions, structuredSpecializationExclusions, tenantId, userId, canUseTenantLocalFoods);
                 }
             }
         }
 
         return warnings;
+    }
+
+    private void AddRecipeIngredientWarnings(
+        List<DietValidationResultDto> warnings,
+        clients client,
+        IEnumerable<recipe_items> ingredients,
+        string mealName,
+        int dayIndex,
+        HashSet<string> specializationExclusions,
+        HashSet<int> structuredSpecializationExclusions,
+        int? tenantId,
+        int userId,
+        bool canUseTenantLocalFoods)
+    {
+        foreach (var ingredient in ingredients)
+        {
+            if (ingredient.food == null) continue;
+            var ingredientWarnings = CheckFoodCompatibility(client, ingredient.food, mealName, dayIndex,
+                specializationExclusions, structuredSpecializationExclusions);
+            var canExposeFood = (ingredient.food.source == null ||
+                !ingredient.food.source.Equals("local", StringComparison.OrdinalIgnoreCase)) ||
+                (tenantId.HasValue && ingredient.food.tenant_id == tenantId.Value &&
+                 (canUseTenantLocalFoods || ingredient.food.created_by_user_id == userId));
+
+            if (!canExposeFood)
+            {
+                foreach (var warning in ingredientWarnings)
+                {
+                    warning.FoodId = null;
+                    warning.FoodName = "Ingrediente de receta";
+                    warning.Message = "La receta contiene un ingrediente incompatible con las restricciones del paciente; los detalles del alimento no están disponibles para esta cuenta.";
+                }
+            }
+            warnings.AddRange(ingredientWarnings);
+        }
     }
 
     // Centraliza las reglas alimento-paciente y devuelve todas las incompatibilidades detectadas
