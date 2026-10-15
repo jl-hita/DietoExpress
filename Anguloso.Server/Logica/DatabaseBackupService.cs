@@ -125,14 +125,66 @@ public sealed class DatabaseBackupService
         return new DatabaseRestoreStatus(safeName, unitName, phase, activeState, subState, result, startTimestamp, exitTimestamp, exitStatus, completed, failed);
     }
 
-    public (string Path, string ContentType, string FileName) GetDump(string fileName)
+    public (Stream Content, string ContentType, string FileName) GetBundle(string fileName)
     {
         EnsureConfigured();
         var safeName = ValidateBackupFileName(fileName);
+        EnsureBackupExists(safeName);
+        if (!HasDocumentArchive(Path.Combine(_backupDir, safeName)))
+            throw new InvalidOperationException("La copia no contiene un archivo de documentos asociado y no puede descargarse como snapshot completo.");
 
-        var path = Path.Combine(_backupDir, safeName);
-        if (!File.Exists(path)) throw new FileNotFoundException("No se ha encontrado la copia solicitada.");
-        return (path, "application/octet-stream", safeName);
+        var stem = Path.GetFileNameWithoutExtension(safeName);
+        var suffix = stem["dietoexpress-postgresql-".Length..];
+        var documentsName = $"dietoexpress-documents-{suffix}.tar.gz";
+        var entries = new List<string>
+        {
+            safeName,
+            safeName[..^".dump".Length] + ".sha256",
+            documentsName,
+            documentsName + ".sha256"
+        };
+        var metadataName = safeName[..^".dump".Length] + ".txt";
+        if (File.Exists(Path.Combine(_backupDir, metadataName))) entries.Add(metadataName);
+        foreach (var entry in entries)
+            if (!File.Exists(Path.Combine(_backupDir, entry)))
+                throw new FileNotFoundException($"Falta un componente del snapshot: {entry}");
+
+        var temporaryBundle = Path.Combine(Path.GetTempPath(), $"dietoexpress-snapshot-{Guid.NewGuid():N}.tar.gz");
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = "/usr/bin/tar",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+            psi.ArgumentList.Add("--create");
+            psi.ArgumentList.Add("--gzip");
+            psi.ArgumentList.Add("--file");
+            psi.ArgumentList.Add(temporaryBundle);
+            psi.ArgumentList.Add("--directory");
+            psi.ArgumentList.Add(_backupDir);
+            foreach (var entry in entries) psi.ArgumentList.Add(entry);
+
+            using var process = Process.Start(psi) ?? throw new InvalidOperationException("No se pudo empaquetar el snapshot.");
+            var stdoutTask = process.StandardOutput.ReadToEndAsync();
+            var stderrTask = process.StandardError.ReadToEndAsync();
+            process.WaitForExit();
+            var stderr = stderrTask.GetAwaiter().GetResult();
+            _ = stdoutTask.GetAwaiter().GetResult();
+            if (process.ExitCode != 0)
+                throw new InvalidOperationException($"No se pudo empaquetar el snapshot: {stderr.Trim()}");
+
+            var stream = new FileStream(temporaryBundle, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, FileOptions.DeleteOnClose);
+            return (stream, "application/gzip", stem + "-completo.tar.gz");
+        }
+        catch
+        {
+            try { File.Delete(temporaryBundle); } catch { /* best-effort cleanup */ }
+            throw;
+        }
     }
 
     private bool HasDocumentArchive(string dumpPath)
