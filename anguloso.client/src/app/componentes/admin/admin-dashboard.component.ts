@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -15,6 +15,7 @@ import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTabsModule } from '@angular/material/tabs';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AdminService, AdminAlert, AdminConfig, AdminStats, AdminUser, AdminPlan, CreateAdminAccountDto, AdminVideoUsage, AdminDatabaseBackup, AdminDriveBackup } from '../../servicios/admin.service';
 import { EditLicenseDialogComponent } from './edit-license-dialog.component';
 import { ResetPasswordDialogComponent } from './reset-password-dialog.component';
@@ -41,6 +42,7 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
     MatDialogModule,
     MatSnackBarModule,
     MatTabsModule,
+    MatProgressSpinnerModule,
     RouterLink
   ],
   template: `
@@ -336,7 +338,11 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
             <h2><mat-icon>cloud_done</mat-icon> Copias cifradas de Google Drive</h2>
             <p class="section-subtitle">Snapshots completos externos con PostgreSQL y documentos. La restauración sustituye los datos actuales y crea una copia previa.</p>
           </div>
-          <button mat-stroked-button (click)="loadDriveDatabaseBackups()" [disabled]="driveBackupLoading || databaseRestoreRunning"><mat-icon>refresh</mat-icon> Actualizar</button>
+          <div *ngIf="driveBackupLoading" class="drive-backup-loading" role="status" aria-live="polite">
+            <mat-spinner diameter="24" aria-label="Comprobando copias de seguridad"></mat-spinner>
+            <span>Comprobando copias en Google Drive…</span>
+          </div>
+          <button *ngIf="!driveBackupLoading" mat-stroked-button (click)="loadDriveDatabaseBackups()" [disabled]="databaseRestoreRunning"><mat-icon>refresh</mat-icon> Actualizar</button>
         </div>
         <div *ngIf="driveBackupError" class="backup-warning"><mat-icon>warning_amber</mat-icon><span>{{ driveBackupError }}</span></div>
         <div *ngIf="!driveBackupLoading && !driveBackupError && driveDatabaseBackups.length === 0" class="empty-state backup-empty"><mat-icon>cloud_off</mat-icon><p>No hay snapshots completos disponibles en Google Drive.</p></div>
@@ -396,6 +402,8 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
     </div>
   `,
   styles: [`
+    .drive-backup-loading { display: flex; align-items: center; gap: 12px; min-height: 40px; color: #475569; font-size: 14px; }
+    .drive-backup-loading mat-spinner { flex: 0 0 auto; }
     .alerts-card { margin-bottom: 24px; padding: 20px; border-radius: 12px; border-left: 5px solid #dc2626; }
     .alerts-header { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; margin-bottom:14px; }
     .alerts-header h2 { margin:0; display:flex; align-items:center; gap:8px; font-size:20px; color:#991b1b; }
@@ -679,7 +687,8 @@ export class AdminDashboardComponent implements OnInit {
   constructor(
     public adminService: AdminService,
     private dialog: MatDialog,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -718,10 +727,22 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   loadDriveDatabaseBackups(): void {
-    this.driveBackupLoading = true; this.driveBackupError = '';
+    this.driveBackupLoading = true;
+    this.driveBackupError = '';
+    this.cdr.markForCheck();
+
     this.adminService.getDriveDatabaseBackups().subscribe({
-      next: result => { this.driveBackupLoading = false; this.driveDatabaseBackups = result.items || []; this.driveBackupError = result.configured ? '' : (result.error || 'Google Drive no está disponible o no está configurado.'); },
-      error: err => { this.driveBackupLoading = false; this.driveBackupError = err?.error?.detail || err?.error?.title || 'No se pudo consultar Google Drive.'; }
+      next: result => {
+        this.driveBackupLoading = false;
+        this.driveDatabaseBackups = result.items || [];
+        this.driveBackupError = result.configured ? '' : (result.error || 'Google Drive no está disponible o no está configurado.');
+        this.cdr.markForCheck();
+      },
+      error: err => {
+        this.driveBackupLoading = false;
+        this.driveBackupError = err?.error?.detail || err?.error?.title || 'No se pudo consultar Google Drive.';
+        this.cdr.markForCheck();
+      }
     });
   }
 
