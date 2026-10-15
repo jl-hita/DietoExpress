@@ -2,7 +2,7 @@
   <div class="header"><div><h1>Panel de clínica</h1><p>Gestiona nutricionistas, clientes y asignaciones.</p></div><button mat-stroked-button (click)="load()"><mat-icon>refresh</mat-icon> Actualizar</button></div>
   <div *ngIf="data" class="kpis">
     <mat-card><span>Plan</span><strong>{{data.license.planName}}</strong></mat-card>
-    <mat-card><span>Nutricionistas</span><strong>{{data.license?.nutritionists}} / {{contractedSeats}} puestos</strong></mat-card>
+    <mat-card><span>Nutricionistas</span><strong>{{data.license.nutritionists}} / {{contractedSeats}} puestos</strong></mat-card>
     <mat-card><span>Clientes</span><strong>{{data.license.clients}}{{data.license.maxTotalClients ? ' / '+data.license.maxTotalClients : ''}}</strong></mat-card>
     <mat-card><span>Máximo por nutricionista</span><strong>{{data.license.maxClientsPerNutritionist ?? '∞'}}</strong></mat-card>
     <mat-card><span>Citas de hoy</span><strong>{{data.todayAppointments}}</strong></mat-card>
@@ -23,10 +23,12 @@
       <input placeholder="Email de acceso" type="email" [(ngModel)]="newNutri.email">
       <button mat-flat-button color="primary" [disabled]="!newNutri.email" (click)="createNutri()">Crear e invitar</button>
     </div>
-    <p *ngIf="data.license?.nutritionistReplacementAvailableAt && (data.license?.nutritionists ?? 0) < contractedSeats"
+    <ng-container *ngIf="data?.license as license">
+    <p *ngIf="license.nutritionistReplacementAvailableAt && license.nutritionists < contractedSeats"
        style="margin:10px 0;color:#92400e">
       No puedes sustituir una baja todavía. La próxima plaza para una nueva alta estará disponible el
-      {{data.license?.nutritionistReplacementAvailableAt | date:'dd/MM/yyyy HH:mm'}}.
+      {{license.nutritionistReplacementAvailableAt | date:'dd/MM/yyyy HH:mm'}}.</p>
+    </ng-container>
     </p>
     <table mat-table [dataSource]="data?.nutritionists || []">
       <ng-container matColumnDef="name"><th mat-header-cell *matHeaderCellDef>Nutricionista</th><td mat-cell *matCellDef="let n">
