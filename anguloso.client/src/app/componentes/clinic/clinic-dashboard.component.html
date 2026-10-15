@@ -23,10 +23,10 @@
       <input placeholder="Email de acceso" type="email" [(ngModel)]="newNutri.email">
       <button mat-flat-button color="primary" [disabled]="!newNutri.email" (click)="createNutri()">Crear e invitar</button>
     </div>
-    <p *ngIf="data?.license?.nutritionistReplacementAvailableAt && (data?.license?.nutritionists ?? 0) < contractedSeats"
+    <p *ngIf="data.license.nutritionistReplacementAvailableAt && (data.license.nutritionists ?? 0) < contractedSeats"
        style="margin:10px 0;color:#92400e">
       No puedes sustituir una baja todavía. La próxima plaza para una nueva alta estará disponible el
-      {{data?.license?.nutritionistReplacementAvailableAt | date:'dd/MM/yyyy HH:mm'}}.
+      {{data.license.nutritionistReplacementAvailableAt | date:'dd/MM/yyyy HH:mm'}}.
     </p>
     <table mat-table [dataSource]="data?.nutritionists || []">
       <ng-container matColumnDef="name"><th mat-header-cell *matHeaderCellDef>Nutricionista</th><td mat-cell *matCellDef="let n">
@@ -48,7 +48,7 @@
   </mat-card>
   <mat-card class="card" *ngIf="data?.unassignedClientCount">
     <div style="display:flex;align-items:center;gap:10px;color:#92400e;background:#fef3c7;padding:12px;border-radius:8px">
-      <mat-icon>warning</mat-icon><strong>{{data?.unassignedClientCount}} paciente(s) están sin nutricionista asignado.</strong>
+      <mat-icon>warning</mat-icon><strong>{{data.unassignedClientCount}} paciente(s) están sin nutricionista asignado.</strong>
     </div>
   </mat-card>
   <mat-card class="card">
