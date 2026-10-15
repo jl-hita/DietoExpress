@@ -1,0 +1,17 @@
+[Unit]
+Description=Copia cifrada de snapshots completos de DietoExpress a Google Drive
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=joso
+Group=joso
+EnvironmentFile=-/etc/dietoexpress/dietoexpress.env
+Environment=RCLONE_CONFIG=/home/joso/.config/rclone/rclone.conf
+ExecStart=/opt/dietoexpress/scripts/dietoexpress-backup-google-drive.sh
+UMask=0077
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+NoNewPrivileges=true
