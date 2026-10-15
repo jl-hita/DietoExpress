@@ -80,6 +80,10 @@ read -r documents_expected documents_stored < "$documents_manifest" || { echo "E
 documents_actual="$(sha256sum "$documents_source" | awk '{print $1}')"
 [[ "$documents_actual" == "$documents_expected" ]] || { echo "ERROR: el checksum de documentos no coincide." >&2; exit 1; }
 /usr/bin/tar --list --gzip --file="$documents_source" >/dev/null
+if /usr/bin/tar --list --verbose --gzip --file="$documents_source" | awk 'substr($0, 1, 1) == "l" || substr($0, 1, 1) == "h" { bad = 1 } END { exit bad }'; then :; else
+  echo "ERROR: el archivo de documentos contiene enlaces simbólicos o duros no permitidos." >&2
+  exit 1
+fi
 while IFS= read -r archive_entry; do
   archive_entry="${archive_entry#./}"
   [[ "$archive_entry" != /* ]] || { echo "ERROR: el archivo de documentos contiene una ruta absoluta." >&2; exit 1; }
