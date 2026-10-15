@@ -133,14 +133,12 @@ public class DietGeneratorService
                     exclusions.Add(keyword);
             }
 
-            if (client.food_preferences != null && !string.IsNullOrWhiteSpace(client.food_preferences.allergies))
-                {
-                    var customAllergies = client.food_preferences.allergies
-                        .Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries)
-                        .Select(a => a.Trim().ToLowerInvariant())
-                        .Where(a => a.Length > 2);
-                    foreach (var a in customAllergies) exclusions.Add(a);
-                }
+            foreach (var term in DietaryRestrictionRules.BuildForbiddenTerms(
+                client.food_preferences?.allergies,
+                client.digestive_health?.gluten_intolerance == true,
+                client.digestive_health?.lactose_intolerance == true,
+                client.digestive_health?.fodmaps_intolerance == true))
+                exclusions.Add(term);
             }
         }
 
@@ -1600,7 +1598,10 @@ public class DietGeneratorService
         if (!exclusions.Any()) return false;
         var name = (food.name ?? "").ToLowerInvariant();
         var cat = (food.category ?? "").ToLowerInvariant();
-        return exclusions.Any(e => name.Contains(e) || cat.Contains(e));
+        // Mantener la compatibilidad con keywords históricas (p. ej. "lact") y añadir
+        // comparación estructurada para que el nombre comercial no pueda ocultar alérgenos.
+        return exclusions.Any(e => name.Contains(e) || cat.Contains(e)) ||
+            !DietaryRestrictionRules.IsFoodAllowed(food.name, food.category, food.dietary_flags, exclusions);
     }
 
     private void AddGlutenKeywords(HashSet<string> ex)

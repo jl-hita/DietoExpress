@@ -324,7 +324,9 @@ public class DietValidationService
         // 1. Lactose Check
         if (client.digestive_health?.lactose_intolerance == true)
         {
-            if (LactoseKeywords.Any(k => nameLower.Contains(k) || catLower.Contains(k)))
+            if (LactoseKeywords.Any(k => nameLower.Contains(k) || catLower.Contains(k)) ||
+                !DietaryRestrictionRules.IsFoodAllowed(food.name, food.category, food.dietary_flags,
+                    DietaryRestrictionRules.BuildForbiddenTerms(null, false, true, false)))
             {
                 list.Add(new DietValidationResultDto
                 {
@@ -342,7 +344,9 @@ public class DietValidationService
         // 2. Gluten Check
         if (client.digestive_health?.gluten_intolerance == true)
         {
-            if (GlutenKeywords.Any(k => nameLower.Contains(k) || catLower.Contains(k)))
+            if (GlutenKeywords.Any(k => nameLower.Contains(k) || catLower.Contains(k)) ||
+                !DietaryRestrictionRules.IsFoodAllowed(food.name, food.category, food.dietary_flags,
+                    DietaryRestrictionRules.BuildForbiddenTerms(null, true, false, false)))
             {
                 list.Add(new DietValidationResultDto
                 {
@@ -375,31 +379,22 @@ public class DietValidationService
             }
         }
 
-        // 4. Custom Allergies Check
-        if (client.food_preferences != null && !string.IsNullOrWhiteSpace(client.food_preferences.allergies))
+        // 4. Custom allergies: preserve compound declarations and inspect structured food flags.
+        var allergyTerms = DietaryRestrictionRules.BuildForbiddenTerms(
+            client.food_preferences?.allergies, false, false, false);
+        if (allergyTerms.Count > 0 &&
+            !DietaryRestrictionRules.IsFoodAllowed(food.name, food.category, food.dietary_flags, allergyTerms))
         {
-            var allergens = client.food_preferences.allergies
-                .Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(a => a.Trim().ToLowerInvariant())
-                .Where(a => a.Length > 2);
-
-            foreach (var allergen in allergens)
+            list.Add(new DietValidationResultDto
             {
-                if (nameLower.Contains(allergen) || catLower.Contains(allergen) || allergen.Contains(nameLower))
-                {
-                    list.Add(new DietValidationResultDto
-                    {
-                        FoodId = food.id,
-                        FoodName = food.name ?? string.Empty,
-                        MealName = mealName ?? string.Empty,
-                        DayIndex = dayIndex,
-                        AlertType = "Allergy",
-                        Severity = "High",
-                        Message = $"Alerta de Alergia: Coincidencia detectada con '{allergen}'."
-                    });
-                    break;
-                }
-            }
+                FoodId = food.id,
+                FoodName = food.name ?? string.Empty,
+                MealName = mealName ?? string.Empty,
+                DayIndex = dayIndex,
+                AlertType = "Allergy",
+                Severity = "High",
+                Message = "Alerta de alergia: el nombre, la categoría o las banderas estructuradas del alimento coinciden con una restricción declarada."
+            });
         }
 
         // 5. Interacciones Fármaco-Alimento (IFAF)
