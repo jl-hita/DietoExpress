@@ -61,6 +61,7 @@ for required in \
   "$APP_DIR/scripts/systemd/dietoexpress-backup.service" \
   "$APP_DIR/scripts/systemd/dietoexpress-backup.timer" \
   "$APP_DIR/scripts/dietoexpress-backup-google-drive.sh" \
+  "$APP_DIR/scripts/dietoexpress-backup-google-drive-restore.sh" \
   "$APP_DIR/scripts/systemd/dietoexpress-backup-drive.service" \
   "$APP_DIR/scripts/systemd/dietoexpress-backup-drive.timer" \
   "$APP_DIR/scripts/systemd/dietoexpress-restore@.service"; do
@@ -82,6 +83,7 @@ install -o root -g root -m 0755 "$APP_DIR/scripts/systemd/dietoexpress-restore@.
 install -o root -g root -m 0644 "$APP_DIR/scripts/systemd/dietoexpress-backup.service" "$SYSTEMD_DIR/dietoexpress-backup.service"
 install -o root -g root -m 0644 "$APP_DIR/scripts/systemd/dietoexpress-backup.timer" "$SYSTEMD_DIR/dietoexpress-backup.timer"
 install -o root -g "$BACKUP_GROUP" -m 0750 "$APP_DIR/scripts/dietoexpress-backup-google-drive.sh" "$ROOT_SBIN/dietoexpress-backup-google-drive"
+install -o root -g root -m 0750 "$APP_DIR/scripts/dietoexpress-backup-google-drive-restore.sh" "$ROOT_SBIN/dietoexpress-backup-google-drive-restore"
 install -o root -g root -m 0644 "$APP_DIR/scripts/systemd/dietoexpress-backup-drive.service" "$SYSTEMD_DIR/dietoexpress-backup-drive.service"
 install -o root -g root -m 0644 "$APP_DIR/scripts/systemd/dietoexpress-backup-drive.timer" "$SYSTEMD_DIR/dietoexpress-backup-drive.timer"
 
@@ -92,6 +94,7 @@ joso ALL=(root) NOPASSWD: /usr/local/sbin/dietoexpress-pg-backup ^--backup$
 joso ALL=(root) NOPASSWD: /usr/local/sbin/dietoexpress-pg-backup ^--backup-pre-restore$
 joso ALL=(root) NOPASSWD: /usr/local/sbin/dietoexpress-restore-web ^dietoexpress-postgresql-[A-Za-z0-9_.-]+\.dump --confirm$
 joso ALL=(root) NOPASSWD: /usr/local/sbin/dietoexpress-pg-restore ^--restore dietoexpress-postgresql-[A-Za-z0-9_.-]+\.dump --confirm$
+joso ALL=(root) NOPASSWD: /usr/local/sbin/dietoexpress-backup-google-drive-restore ^dietoexpress-postgresql-[A-Za-z0-9_.-]+-completo\\.tar\\.gz$
 EOF
 chown root:root "$SUDOERS_FILE"
 chmod 0440 "$SUDOERS_FILE"

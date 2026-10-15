@@ -45,6 +45,51 @@ public sealed class DatabaseBackupService
             .ToList();
     }
 
+    public async Task<IReadOnlyList<DriveDatabaseBackupInfo>> ListDriveAsync(CancellationToken ct)
+    {
+        EnsureConfigured();
+        var config = Environment.GetEnvironmentVariable("RCLONE_CONFIG") ?? "/home/joso/.config/rclone/rclone.conf";
+        if (!File.Exists(config)) throw new InvalidOperationException("No se encuentra la configuración de rclone para Google Drive.");
+        var psi = new ProcessStartInfo { FileName = "/usr/bin/rclone", UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
+        psi.ArgumentList.Add("--config"); psi.ArgumentList.Add(config); psi.ArgumentList.Add("lsjson"); psi.ArgumentList.Add("--files-only"); psi.ArgumentList.Add("--no-mimetype"); psi.ArgumentList.Add("gdrive-crypt:");
+        using var process = Process.Start(psi) ?? throw new InvalidOperationException("No se pudo consultar Google Drive.");
+        var stdoutTask = process.StandardOutput.ReadToEndAsync(ct); var stderrTask = process.StandardError.ReadToEndAsync(ct);
+        await process.WaitForExitAsync(ct);
+        var stdout = await stdoutTask; var stderr = await stderrTask;
+        if (process.ExitCode != 0) throw new InvalidOperationException("No se pudo consultar Google Drive: " + stderr.Trim());
+        using var document = System.Text.Json.JsonDocument.Parse(stdout);
+        var result = new List<DriveDatabaseBackupInfo>();
+        foreach (var item in document.RootElement.EnumerateArray())
+        {
+            if (!item.TryGetProperty("Name", out var nameElement)) continue;
+            var name = nameElement.GetString() ?? string.Empty;
+            if (!System.Text.RegularExpressions.Regex.IsMatch(name, @"^dietoexpress-postgresql-[A-Za-z0-9_.-]+-completo\.tar\.gz$", System.Text.RegularExpressions.RegexOptions.CultureInvariant)) continue;
+            var size = item.TryGetProperty("Size", out var sizeElement) && sizeElement.TryGetInt64(out var parsedSize) ? parsedSize : 0;
+            var created = item.TryGetProperty("ModTime", out var timeElement) && DateTimeOffset.TryParse(timeElement.GetString(), out var parsedTime) ? parsedTime.UtcDateTime : DateTime.MinValue;
+            result.Add(new DriveDatabaseBackupInfo(name, name[..^"-completo.tar.gz".Length] + ".dump", size, created));
+        }
+        return result.OrderByDescending(x => x.CreatedAtUtc).ToList();
+    }
+
+    public async Task<(string FileName, string Output)> RestoreFromDriveAsync(string archiveName, CancellationToken ct)
+    {
+        EnsureConfigured();
+        if (!System.Text.RegularExpressions.Regex.IsMatch(archiveName ?? string.Empty, @"^dietoexpress-postgresql-[A-Za-z0-9_.-]+-completo\.tar\.gz$", System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+            throw new ArgumentException("Nombre de paquete de Drive no válido.", nameof(archiveName));
+        var psi = new ProcessStartInfo { FileName = "/usr/bin/sudo", UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
+        psi.ArgumentList.Add("-n"); psi.ArgumentList.Add("/usr/local/sbin/dietoexpress-backup-google-drive-restore"); psi.ArgumentList.Add(archiveName);
+        using var process = Process.Start(psi) ?? throw new InvalidOperationException("No se pudo iniciar la importación del backup desde Drive.");
+        var stdoutTask = process.StandardOutput.ReadToEndAsync(ct); var stderrTask = process.StandardError.ReadToEndAsync(ct);
+        await process.WaitForExitAsync(ct);
+        var output = string.Join(Environment.NewLine, (await stdoutTask).Trim(), (await stderrTask).Trim()).Trim();
+        if (process.ExitCode != 0) throw new InvalidOperationException("No se pudo importar el backup de Google Drive: " + output);
+        var match = System.Text.RegularExpressions.Regex.Match(output, @"Backup importado: (dietoexpress-postgresql-[A-Za-z0-9_.-]+\.dump)");
+        if (!match.Success) throw new InvalidOperationException("El helper no confirmó el nombre de la copia importada.");
+        var fileName = match.Groups[1].Value;
+        var restoreOutput = await RestoreAsync(fileName, ct);
+        return (fileName, output + Environment.NewLine + restoreOutput);
+    }
+
     public async Task<DatabaseBackupInfo> CreateAsync(CancellationToken ct)
     {
         EnsureConfigured();
@@ -309,3 +354,5 @@ public sealed class DatabaseBackupService
 public sealed record DatabaseBackupInfo(string FileName, long SizeBytes, DateTime CreatedAtUtc);
 
 public sealed record DatabaseRestoreStatus(string FileName, string UnitName, string Phase, string ActiveState, string SubState, string Result, string StartTimestamp, string ExitTimestamp, string ExitStatus, bool Completed, bool Failed);
+
+public sealed record DriveDatabaseBackupInfo(string ArchiveName, string FileName, long SizeBytes, DateTime CreatedAtUtc);

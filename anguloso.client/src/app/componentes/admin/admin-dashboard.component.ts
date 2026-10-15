@@ -15,7 +15,7 @@ import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTabsModule } from '@angular/material/tabs';
-import { AdminService, AdminAlert, AdminConfig, AdminStats, AdminUser, AdminPlan, CreateAdminAccountDto, AdminVideoUsage, AdminDatabaseBackup } from '../../servicios/admin.service';
+import { AdminService, AdminAlert, AdminConfig, AdminStats, AdminUser, AdminPlan, CreateAdminAccountDto, AdminVideoUsage, AdminDatabaseBackup, AdminDriveBackup } from '../../servicios/admin.service';
 import { EditLicenseDialogComponent } from './edit-license-dialog.component';
 import { ResetPasswordDialogComponent } from './reset-password-dialog.component';
 import { CreateAdminAccountDialogComponent } from './create-admin-account-dialog.component';
@@ -330,6 +330,24 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
         </div>
       </mat-card>
 
+      <mat-card class="table-card backup-card">
+        <div class="section-header">
+          <div>
+            <h2><mat-icon>cloud_done</mat-icon> Copias cifradas de Google Drive</h2>
+            <p class="section-subtitle">Snapshots completos externos con PostgreSQL y documentos. La restauración sustituye los datos actuales y crea una copia previa.</p>
+          </div>
+          <button mat-stroked-button (click)="loadDriveDatabaseBackups()" [disabled]="driveBackupLoading || databaseRestoreRunning"><mat-icon>refresh</mat-icon> Actualizar</button>
+        </div>
+        <div *ngIf="driveBackupError" class="backup-warning"><mat-icon>warning_amber</mat-icon><span>{{ driveBackupError }}</span></div>
+        <div *ngIf="!driveBackupLoading && !driveBackupError && driveDatabaseBackups.length === 0" class="empty-state backup-empty"><mat-icon>cloud_off</mat-icon><p>No hay snapshots completos disponibles en Google Drive.</p></div>
+        <div class="backup-list" *ngIf="driveDatabaseBackups.length">
+          <div class="backup-row" *ngFor="let backup of driveDatabaseBackups">
+            <div><strong>{{ backup.archiveName }}</strong><span>{{ formatBackupSize(backup.sizeBytes) }} · {{ backup.createdAtUtc | date:'dd/MM/yyyy HH:mm':'UTC' }} UTC</span></div>
+            <div class="backup-actions"><button mat-stroked-button color="warn" (click)="restoreDatabaseBackupFromDrive(backup)" [disabled]="databaseBackupOperation === backup.archiveName || databaseRestoreRunning || !databaseBackupConfigured"><mat-icon>restore</mat-icon> Restaurar desde Drive</button></div>
+          </div>
+        </div>
+      </mat-card>
+
       <!-- Application Configuration -->
       <mat-card class="table-card config-card">
         <div class="section-header">
@@ -632,6 +650,9 @@ export class AdminDashboardComponent implements OnInit {
   configs: AdminConfig[] = [];
   videoUsage?: AdminVideoUsage;
   databaseBackups: AdminDatabaseBackup[] = [];
+  driveDatabaseBackups: AdminDriveBackup[] = [];
+  driveBackupLoading = false;
+  driveBackupError = '';
   databaseBackupConfigured = false;
   databaseBackupRunning = false;
   databaseBackupOperation = '';
@@ -679,6 +700,7 @@ export class AdminDashboardComponent implements OnInit {
     this.loadConfig();
     this.loadVideoUsage();
     this.loadDatabaseBackups();
+    this.loadDriveDatabaseBackups();
     this.adminService.getPlans().subscribe({
       next: plans => this.plans = plans.filter(p => p.active),
       error: () => this.snackBar.open('Error al cargar los planes.', 'Cerrar', { duration: 4000 })
@@ -692,6 +714,27 @@ export class AdminDashboardComponent implements OnInit {
         this.databaseBackups = result.items;
       },
       error: () => this.snackBar.open('No se pudo consultar el estado de las copias.', 'Cerrar', { duration: 4000 })
+    });
+  }
+
+  loadDriveDatabaseBackups(): void {
+    this.driveBackupLoading = true; this.driveBackupError = '';
+    this.adminService.getDriveDatabaseBackups().subscribe({
+      next: result => { this.driveBackupLoading = false; this.driveDatabaseBackups = result.items || []; this.driveBackupError = result.configured ? '' : (result.error || 'Google Drive no está disponible o no está configurado.'); },
+      error: err => { this.driveBackupLoading = false; this.driveBackupError = err?.error?.detail || err?.error?.title || 'No se pudo consultar Google Drive.'; }
+    });
+  }
+
+  restoreDatabaseBackupFromDrive(backup: AdminDriveBackup): void {
+    if (this.databaseBackupOperation || this.databaseRestoreRunning || !this.databaseBackupConfigured) return;
+    if (!confirm('ATENCIÓN: se descargará y verificará el snapshot cifrado de Google Drive y se sustituirán la base de datos y los documentos actuales. Antes se creará una copia local y, si falla, se intentará rollback. ¿Continuar?')) return;
+    this.databaseBackupOperation = backup.archiveName; this.databaseRestoreRunning = true; this.databaseRestoreCompleted = false; this.databaseRestoreFailed = false;
+    this.databaseRestoreElapsedSeconds = 0; this.databaseRestorePhaseLabel = 'Descargando y verificando desde Drive…'; this.databaseRestorePhaseMessage = 'Se está importando el paquete completo antes de iniciar la restauración.';
+    const startedAt = Date.now();
+    this.databaseRestoreTimer = setInterval(() => { this.databaseRestoreElapsedSeconds = Math.floor((Date.now() - startedAt) / 1000); }, 250);
+    this.adminService.restoreDriveDatabaseBackup(backup.archiveName).subscribe({
+      next: result => this.startDatabaseRestorePolling(result.fileName, startedAt),
+      error: err => { this.finishDatabaseRestore(false); const message = err?.error?.detail || err?.error?.title || 'No se pudo iniciar la restauración desde Google Drive.'; this.snackBar.open(message, 'Cerrar', { duration: 10000 }); }
     });
   }
 
