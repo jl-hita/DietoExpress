@@ -264,7 +264,7 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
         <div class="section-header">
           <div>
             <h2><mat-icon>backup</mat-icon> Copias de seguridad de PostgreSQL</h2>
-            <p class="section-subtitle">Backups manuales y semanales. Puedes verificar una copia o iniciar una restauración controlada.</p>
+            <p class="section-subtitle">Backups diarios automáticos y manuales. El tamaño mostrado suma la base de datos y los documentos (tamaño lógico); puedes verificar una copia o iniciar una restauración controlada.</p>
           </div>
           <button mat-flat-button color="primary" (click)="createDatabaseBackup()" [disabled]="databaseBackupRunning || !databaseBackupConfigured">
             <mat-icon>save</mat-icon>
