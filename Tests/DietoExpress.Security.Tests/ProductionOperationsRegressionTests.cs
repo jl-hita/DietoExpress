@@ -111,9 +111,9 @@ public sealed class ProductionOperationsRegressionTests
         var appComponent = File.ReadAllText(Path.Combine(root, "anguloso.client", "src", "app", "app.component.ts"));
         var appTemplate = File.ReadAllText(Path.Combine(root, "anguloso.client", "src", "app", "app.component.html"));
 
-        Assert.Contains("OnCalendar=Sun 02:00", backupTimer);
+        Assert.Contains("OnCalendar=*-*-* 02:00:00", backupTimer);
         Assert.Contains("Persistent=true", backupTimer);
-        Assert.Contains("DIETOEXPRESS_BACKUP_RETENTION:-8", pgBackupHelper);
+        Assert.Contains("DIETOEXPRESS_BACKUP_RETENTION:-14", pgBackupHelper);
         Assert.Contains("systemctl enable --now dietoexpress-backup.timer", provisioning);
         Assert.Contains("/usr/local/sbin/dietoexpress-restore-web", provisioning);
         Assert.Contains("/usr/local/sbin/dietoexpress-pg-backup", provisioning);
@@ -141,6 +141,8 @@ public sealed class ProductionOperationsRegressionTests
         Assert.Contains("--checksum", pgBackupHelper);
         Assert.Contains("--chown=root:", pgBackupHelper);
         Assert.Contains("documents_manifest_sha256=", pgBackupHelper);
+        Assert.Contains("documents_snapshot_type=", pgBackupHelper);
+        Assert.Contains("date +%u", pgBackupHelper);
         Assert.Contains("documents_file", pgRestoreCommands);
         Assert.Contains("runuser -u joso -- /usr/bin/rsync", pgRestoreCommands);
         Assert.Contains("no se inicia una restauración parcial", pgRestoreCommands);
