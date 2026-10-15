@@ -1,0 +1,11 @@
+[Unit]
+Description=Subida diaria cifrada de backups completos de DietoExpress a Google Drive
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+RandomizedDelaySec=10m
+Unit=dietoexpress-backup-drive.service
+
+[Install]
+WantedBy=timers.target
