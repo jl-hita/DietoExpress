@@ -5,6 +5,14 @@ set -euo pipefail
 # no ejecutan como root código que reside en /opt/dietoexpress.
 [[ "$(id -u)" -eq 0 ]] || { echo "ERROR: este provisioning debe ejecutarse como root." >&2; exit 1; }
 command -v rsync >/dev/null 2>&1 || { echo "ERROR: rsync es obligatorio para snapshots documentales incrementales; instálalo antes del provisioning." >&2; exit 1; }
+RCLONE_BIN="$(command -v rclone)" || { echo "ERROR: rclone es obligatorio para la copia cifrada a Google Drive; instálalo antes del provisioning." >&2; exit 1; }
+RCLONE_CONFIG=/home/joso/.config/rclone/rclone.conf
+[[ -f "$RCLONE_CONFIG" && ! -L "$RCLONE_CONFIG" ]] || { echo "ERROR: falta la configuración rclone de joso en $RCLONE_CONFIG." >&2; exit 1; }
+[[ "$(stat -c '%U:%G:%a' "$RCLONE_CONFIG")" == "joso:joso:600" ]] || { echo "ERROR: $RCLONE_CONFIG debe pertenecer a joso:joso y tener modo 0600." >&2; exit 1; }
+if ! runuser -u joso -- env RCLONE_CONFIG="$RCLONE_CONFIG" "$RCLONE_BIN" listremotes | grep -Fxq 'gdrive-crypt:'; then
+  echo "ERROR: no se encuentra el remote cifrado gdrive-crypt: en la configuración de rclone de joso." >&2
+  exit 1
+fi
 
 APP_DIR="${DIETOEXPRESS_APP_DIR:-/opt/dietoexpress}"
 SYSTEMD_DIR=/etc/systemd/system
@@ -50,6 +58,9 @@ for required in \
   "$APP_DIR/scripts/dietoexpress-restore-post.sh" \
   "$APP_DIR/scripts/systemd/dietoexpress-backup.service" \
   "$APP_DIR/scripts/systemd/dietoexpress-backup.timer" \
+  "$APP_DIR/scripts/dietoexpress-backup-google-drive.sh" \
+  "$APP_DIR/scripts/systemd/dietoexpress-backup-drive.service" \
+  "$APP_DIR/scripts/systemd/dietoexpress-backup-drive.timer" \
   "$APP_DIR/scripts/systemd/dietoexpress-restore@.service"; do
   [[ -f "$required" ]] || { echo "ERROR: falta el archivo requerido: $required" >&2; exit 1; }
 done
@@ -68,6 +79,9 @@ install -o root -g root -m 0750 "$APP_DIR/scripts/dietoexpress-restore-post.sh" 
 install -o root -g root -m 0755 "$APP_DIR/scripts/systemd/dietoexpress-restore@.service" "$SYSTEMD_DIR/dietoexpress-restore@.service"
 install -o root -g root -m 0644 "$APP_DIR/scripts/systemd/dietoexpress-backup.service" "$SYSTEMD_DIR/dietoexpress-backup.service"
 install -o root -g root -m 0644 "$APP_DIR/scripts/systemd/dietoexpress-backup.timer" "$SYSTEMD_DIR/dietoexpress-backup.timer"
+install -o root -g root -m 0750 "$APP_DIR/scripts/dietoexpress-backup-google-drive.sh" "$ROOT_SBIN/dietoexpress-backup-google-drive"
+install -o root -g root -m 0644 "$APP_DIR/scripts/systemd/dietoexpress-backup-drive.service" "$SYSTEMD_DIR/dietoexpress-backup-drive.service"
+install -o root -g root -m 0644 "$APP_DIR/scripts/systemd/dietoexpress-backup-drive.timer" "$SYSTEMD_DIR/dietoexpress-backup-drive.timer"
 
 cat > "$SUDOERS_FILE" <<'EOF'
 # joso solo puede invocar el helper de backup con modos fijos y los helpers de
@@ -83,7 +97,10 @@ visudo -cf "$SUDOERS_FILE"
 
 systemctl daemon-reload
 systemctl enable --now dietoexpress-backup.timer
+systemctl enable --now dietoexpress-backup-drive.timer
 
-echo "Provisioning de backups/restauración completado."
+echo "Provisioning de backups locales, copia cifrada a Drive y restauración completado."
 systemctl is-enabled dietoexpress-backup.timer
 systemctl is-active dietoexpress-backup.timer
+systemctl is-enabled dietoexpress-backup-drive.timer
+systemctl is-active dietoexpress-backup-drive.timer
