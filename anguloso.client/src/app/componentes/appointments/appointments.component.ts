@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
@@ -39,7 +39,7 @@ export class AppointmentsComponent implements OnInit {
   newSlot = 30;
   editingRuleId: number | null = null;
 
-  constructor(private portalService: PatientPortalService, private router: Router, private route: ActivatedRoute, private authService: AuthService) {}
+  constructor(private portalService: PatientPortalService, private router: Router, private route: ActivatedRoute, private authService: AuthService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
     this.isSuperAdmin = this.authService.isSuperAdmin();
@@ -88,7 +88,7 @@ export class AppointmentsComponent implements OnInit {
     const to = new Date();
     to.setDate(to.getDate() + 60);
     let pending = 2;
-    const done = () => { pending--; if (pending === 0) this.loading = false; };
+    const done = () => { pending--; if (pending === 0) { this.loading = false; this.cdr.detectChanges(); } };
 
     this.portalService.getProfessionalAppointments(from.toISOString(), to.toISOString()).subscribe({
       next: value => { this.appointments = value; done(); },
