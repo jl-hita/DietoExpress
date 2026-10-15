@@ -72,6 +72,12 @@ for dump_path in "${dumps[@]}"; do
   fi
 
   eligible=$((eligible + 1))
+  if find "$documents_path" -type l -print -quit | grep -q . ||
+     find "$documents_path" ! -type d ! -type f -print -quit | grep -q .; then
+    echo "ERROR: snapshot documental con enlaces simbólicos o archivos especiales: $documents_name" >&2
+    ((failed+=1))
+    continue
+  fi
   if ! (cd "$BACKUP_DIR" && sha256sum -c "$dump_manifest" >/dev/null) ||
      ! (cd "$documents_path" && sha256sum -c "$BACKUP_DIR/$documents_manifest" >/dev/null); then
     echo "ERROR: checksum inválido en $dump_name; no se sube." >&2
