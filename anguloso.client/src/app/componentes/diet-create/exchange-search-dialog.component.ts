@@ -13,7 +13,7 @@ import { FoodExchangeGroup } from '../../modelos/food-exchange-group';
     <h2 mat-dialog-title>Añadir Intercambio</h2>
     <mat-dialog-content>
       <p class="exchange-info">Selecciona un grupo de intercambio y el número de intercambios que deseas añadir a esta comida.</p>
-      <div *ngIf="!data.exchangeGroups?.length" class="exchange-empty">
+      <div *ngIf="!data.exchangeGroups.length" class="exchange-empty">
         No hay grupos de intercambio configurados todavía. El sistema los inicializará automáticamente al arrancar.
       </div>
 

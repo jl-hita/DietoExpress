@@ -279,7 +279,7 @@
                 *ngFor="let mealCtrl of getMeals(dIndex).controls; let mIndex = index"
                 [formGroupName]="mIndex"
                 class="meal-card"
-                [class.target-active]="targetMealForAdd.dIndex === dIndex && targetMealForAdd.mIndex === mIndex">
+                [class.target-active]="targetMealForAdd?.dIndex === dIndex && targetMealForAdd?.mIndex === mIndex">
                 
                 <!-- Cabecera de la comida -->
                 <div class="meal-card-header">
@@ -375,7 +375,7 @@
                   <button 
                     type="button" 
                     class="btn btn-outline-primary btn-sm btn-icon" 
-                    [class.active-search-target]="targetMealForAdd.dIndex === dIndex && targetMealForAdd.mIndex === mIndex"
+                    [class.active-search-target]="targetMealForAdd?.dIndex === dIndex && targetMealForAdd?.mIndex === mIndex"
                     (click)="selectSearchMeal(dIndex, mIndex)">
                     <mat-icon>search</mat-icon> Buscar y añadir alimentos
                   </button>
