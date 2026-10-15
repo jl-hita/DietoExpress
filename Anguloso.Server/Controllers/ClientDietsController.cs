@@ -801,39 +801,29 @@ public class ClientDietsController : ControllerBase
         if (!await UserCanAccessDietAsync(activeAssignment.diet_id, userId.Value))
             return NotFound("Diet definition not found.");
 
-        var mealItems = diet.diet_days.SelectMany(dd => dd.meals).SelectMany(m => m.meal_items).ToList();
-        var recipeIds = mealItems.Where(i => i.recipe_id.HasValue).Select(i => i.recipe_id!.Value).Distinct().ToList();
-        var recipeIngredients = await _context.recipe_items.AsNoTracking().Include(ri => ri.recipe)
-            .Where(ri => recipeIds.Contains(ri.recipe_id) && ri.recipe != null && ri.recipe.tenant_id == diet.tenant_id).ToListAsync();
-        var recipeIngredientsByRecipe = recipeIngredients.GroupBy(ri => ri.recipe_id).ToDictionary(g => g.Key, g => g.ToList());
-        var foodIds = mealItems.Where(i => i.food_id.HasValue).Select(i => i.food_id!.Value)
-            .Concat(recipeIngredients.Select(ri => ri.food_id)).Distinct().ToList();
+        var foodIds = diet.diet_days.SelectMany(dd => dd.meals).SelectMany(m => m.meal_items)
+            .Where(i => i.food_id.HasValue).Select(i => i.food_id!.Value).Distinct().ToList();
         var accessibleFoods = await _context.foods
             .Where(f => foodIds.Contains(f.id) &&
-                ((f.source == null || f.source.ToLower() != "local") || User.IsInRole("superadmin") ||
+                ((f.source == null || f.source.ToLower() != "local") ||
+                 User.IsInRole("superadmin") ||
                  (tenantId.HasValue && f.tenant_id == tenantId.Value && f.created_by_user_id == userId.Value) ||
                  (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value)))
             .ToDictionaryAsync(f => f.id);
 
-        var foodAmounts = new List<(foods Food, double Grams)>();
-        foreach (var item in mealItems)
-        {
-            if (item.food_id.HasValue && item.grams.HasValue && item.grams.Value > 0 &&
-                accessibleFoods.TryGetValue(item.food_id.Value, out var directFood))
-                foodAmounts.Add((directFood, (double)item.grams.Value));
-
-            if (!item.recipe_id.HasValue || !recipeIngredientsByRecipe.TryGetValue(item.recipe_id.Value, out var ingredients)) continue;
-            var servings = ingredients.FirstOrDefault()?.recipe?.servings ?? 1m;
-            if (servings <= 0) servings = 1m;
-            var servingsToUse = item.recipe_servings.GetValueOrDefault(1m);
-            if (servingsToUse <= 0) servingsToUse = 1m;
-            foreach (var ingredient in ingredients)
-                if (accessibleFoods.TryGetValue(ingredient.food_id, out var ingredientFood) && ingredient.grams > 0)
-                    foodAmounts.Add((ingredientFood, (double)(ingredient.grams / servings * servingsToUse)));
-        }
-
-        var shoppingItems = ShoppingListRules.BuildFoodItems(foodAmounts);
-        var grouped = shoppingItems
+        // Consolidar todos los meal_items con alimento concreto
+        var grouped = diet.diet_days
+            .SelectMany(dd => dd.meals)
+            .SelectMany(m => m.meal_items)
+            .Where(i => i.food_id.HasValue && accessibleFoods.ContainsKey(i.food_id.Value) && i.grams.HasValue)
+            .GroupBy(i => new { FoodId = i.food_id!.Value, FoodName = accessibleFoods[i.food_id.Value].name ?? "Desconocido", Category = accessibleFoods[i.food_id.Value].category ?? "Otros" })
+            .Select(g => new ShoppingItemDto
+            {
+                FoodId = g.Key.FoodId,
+                FoodName = g.Key.FoodName,
+                Category = g.Key.Category,
+                TotalGrams = Math.Round((double)g.Sum(i => i.grams!.Value), 0)
+            })
             .GroupBy(s => s.Category)
             .Select(catGroup => new ShoppingCategoryDto
             {
@@ -842,7 +832,7 @@ public class ClientDietsController : ControllerBase
             })
             .OrderBy(c => c.Category)
             .ToList();
-        return Ok(grouped);
 
+        return Ok(grouped);
     }
 }
