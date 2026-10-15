@@ -25,6 +25,8 @@ ENV_FILE=/etc/dietoexpress/dietoexpress.env
 source "$ENV_FILE"
 BACKUP_DIR="${DIETOEXPRESS_BACKUP_DIR:-}"
 BACKUP_GROUP="${DIETOEXPRESS_BACKUP_GROUP:-joso}"
+DRIVE_REMOTE="${DIETOEXPRESS_DRIVE_REMOTE:-gdrive-crypt:}"
+[[ "$DRIVE_REMOTE" == gdrive-crypt:* ]] || { echo "ERROR: DIETOEXPRESS_DRIVE_REMOTE debe usar exclusivamente el remote cifrado gdrive-crypt:." >&2; exit 1; }
 
 [[ -n "$BACKUP_DIR" && "$BACKUP_DIR" == /* && "$BACKUP_DIR" != "/" ]] || { echo "ERROR: DIETOEXPRESS_BACKUP_DIR debe ser una ruta absoluta válida." >&2; exit 1; }
 [[ "$(realpath -m -- "$BACKUP_DIR")" == "$BACKUP_DIR" ]] || { echo "ERROR: DIETOEXPRESS_BACKUP_DIR debe estar normalizado y no usar enlaces simbólicos." >&2; exit 1; }
