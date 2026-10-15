@@ -9,7 +9,7 @@ User=joso
 Group=joso
 EnvironmentFile=-/etc/dietoexpress/dietoexpress.env
 Environment=RCLONE_CONFIG=/home/joso/.config/rclone/rclone.conf
-ExecStart=/opt/dietoexpress/scripts/dietoexpress-backup-google-drive.sh
+ExecStart=/usr/local/sbin/dietoexpress-backup-google-drive
 UMask=0077
 PrivateTmp=true
 ProtectSystem=strict
