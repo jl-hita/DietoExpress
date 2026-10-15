@@ -116,13 +116,20 @@ cleanup() {
 }
 trap cleanup EXIT
 install -o postgres -g postgres -m 0600 "$source_file" "$tmp_file"
-/usr/bin/tar --extract --gzip --file="$documents_source" --directory="$documents_staging" --no-same-owner --no-same-permissions
-chown -R joso:joso "$documents_staging"
-chmod 0750 "$documents_staging"
+# El árbol de preparación pertenece a joso y la extracción/movimiento se hacen
+# como joso: el helper root nunca extrae contenido de un archivo en un directorio
+# modificable por la aplicación con privilegios elevados.
+chown joso:joso "$documents_staging"
+chmod 0700 "$documents_staging"
+runuser -u joso -- /usr/bin/tar --extract --gzip --file="$documents_source" --directory="$documents_staging" --no-same-owner --no-same-permissions
+runuser -u joso -- chmod 0750 "$documents_staging"
 [[ ! -e "$documents_previous" && ! -L "$documents_previous" ]] || { echo "ERROR: ya existe una ruta temporal de restauración documental." >&2; exit 1; }
-mv -- "$DOCUMENTS_DIR" "$documents_previous"
-if ! mv -- "$documents_staging" "$DOCUMENTS_DIR"; then
-  mv -- "$documents_previous" "$DOCUMENTS_DIR"
+if ! runuser -u joso -- mv -- "$DOCUMENTS_DIR" "$documents_previous"; then
+  echo "ERROR: no se pudo apartar el árbol documental actual como joso." >&2
+  exit 1
+fi
+if ! runuser -u joso -- mv -- "$documents_staging" "$DOCUMENTS_DIR"; then
+  runuser -u joso -- mv -- "$documents_previous" "$DOCUMENTS_DIR" || true
   echo "ERROR: no se pudo activar el árbol de documentos restaurado." >&2
   exit 1
 fi
