@@ -74,7 +74,8 @@ export class ClientsListComponent implements OnInit, OnDestroy {
     this.isSuperAdmin = this.authService.isSuperAdmin();
     this.showAllClients = this.isSuperAdmin;
     this.loadClients();
-    this.checkCreatePermission();
+    if (!this.isSuperAdmin) this.checkCreatePermission();
+    else { this.checkingCreatePermission = false; this.canCreateClient = false; this.createClientReason = 'La creación requiere seleccionar un tenant profesional.'; }
   }
 
   // La paginación y búsqueda se resuelven en el servidor; el componente adapta la respuesta al modelo visual sin mantener una copia completa de los clientes.
