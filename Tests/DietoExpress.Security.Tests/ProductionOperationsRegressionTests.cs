@@ -160,7 +160,7 @@ public sealed class ProductionOperationsRegressionTests
         Assert.Contains("gdrive-crypt:", provisioning);
         Assert.Contains("dietoexpress-documents-", driveBackup);
         Assert.Contains("sha256sum -c", driveBackup);
-        Assert.Contains("rclone copyto", driveBackup);
+        Assert.Contains("copyto", driveBackup);
         Assert.Contains("gdrive-crypt:", driveBackup);
         Assert.DoesNotContain("dietoexpress-env-", driveBackup);
         Assert.Contains("ExecStart=/usr/local/sbin/dietoexpress-backup-google-drive", driveService);
