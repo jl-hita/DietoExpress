@@ -49,6 +49,12 @@
           </div>
         </div>
 
+        <div *ngIf="clientId" role="note" aria-label="Aviso sobre verificación de alérgenos"
+             style="background: #fffbeb; border: 1px solid #fcd34d; border-left: 5px solid #d97706; border-radius: 6px; padding: 12px 14px; margin-bottom: 16px; color: #78350f; font-size: 13px; line-height: 1.45;">
+          <strong>Importante: verifica los alérgenos.</strong>
+          Los datos estructurados pueden estar incompletos o no reconocer todos los ingredientes. Revisa las alertas y la etiqueta del fabricante de cada alimento; no se puede confirmar la seguridad de un producto solo porque no aparezca una coincidencia.
+        </div>
+
         <div class="clinical-warnings-card" *ngIf="validationWarnings.length > 0" 
              style="background: #fff5f5; border: 1px solid #fecaca; border-left: 6px solid #ef4444; border-radius: 6px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.08);">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">

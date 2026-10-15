@@ -50,6 +50,12 @@ type KcalSource = 'default' | 'biometrics' | 'error';
           <span>Adaptando plan a: <strong>{{ data.clientName }}</strong> (se respetarán sus intolerancias y alergias clínicas)</span>
         </div>
 
+        <div *ngIf="data.clientId" role="note" aria-label="Aviso sobre verificación de alérgenos"
+             style="background: #fffbeb; border: 1px solid #fcd34d; border-left: 5px solid #d97706; border-radius: 6px; padding: 12px 14px; margin-bottom: 16px; color: #78350f; font-size: 13px; line-height: 1.45;">
+          <strong>Importante: verifica los alérgenos.</strong>
+          El motor filtra las incompatibilidades que puede identificar, pero las fuentes pueden omitir ingredientes o tener datos incompletos. Revisa las alertas y las etiquetas del fabricante antes de confirmar la dieta.
+        </div>
+
         <form [formGroup]="form" class="dialog-form" style="display: flex; flex-direction: column; gap: 12px;">
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
             <div style="display: flex; flex-direction: column; gap: 4px;">

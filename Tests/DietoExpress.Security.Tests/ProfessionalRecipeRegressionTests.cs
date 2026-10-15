@@ -18,6 +18,17 @@ public sealed class ProfessionalRecipeRegressionTests
         Assert.Contains("HasUnknownAllergenData", rules);
         Assert.Contains("Severity = \"Medium\"", validation);
     }
+    [Fact]
+    public void DietEditorAndGeneratorShowAllergenDataLimitationsForPatientDiets()
+    {
+        var editor = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "diet-create", "diet-create.component.html"));
+        var generator = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "diet-create", "diet-generator-dialog.component.ts"));
+        Assert.Contains("Aviso sobre verificación de alérgenos", editor);
+        Assert.Contains("datos estructurados pueden estar incompletos", editor);
+        Assert.Contains("Aviso sobre verificación de alérgenos", generator);
+        Assert.Contains("las fuentes pueden omitir ingredientes", generator);
+    }
+
     [Fact] public void DietEditorPreservesRecipeReferencesDuringValidationAndSave()
     {
         var model = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "modelos", "diet.ts"));
