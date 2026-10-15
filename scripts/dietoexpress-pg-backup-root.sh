@@ -172,7 +172,7 @@ if [[ "$INCLUDE_ENV" == "true" ]]; then
   install -o root -g root -m 0600 "$ENV_FILE" "$env_path"
   published_env=true
 fi
-(cd "$BACKUP_DIR" && sha256sum -c "$manifest_name" "$documents_manifest_name")
+(cd "$BACKUP_DIR" && sha256sum -c "$manifest_name" && sha256sum -c "$documents_manifest_name")
 committed=true
 
 echo "Backup creado: $dump_path"
