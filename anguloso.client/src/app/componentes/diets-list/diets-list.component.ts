@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { MATERIAL_IMPORTS } from '../../shared/material.imports';
@@ -37,7 +37,8 @@ export class DietsListComponent implements OnInit, OnDestroy {
     private router: Router,
     private snackBar: MatSnackBar,
     private dialog: MatDialog,
-    private authService: AuthService
+    private authService: AuthService,
+    private cdr: ChangeDetectorRef
   ) {}
 
 
@@ -60,6 +61,7 @@ export class DietsListComponent implements OnInit, OnDestroy {
         this.filtered = this.diets;
         this.pagedDiets = this.diets;
         this.loading = false;
+        this.cdr.detectChanges();
       },
       error: (err) => {
         this.loading = false;
@@ -70,6 +72,7 @@ export class DietsListComponent implements OnInit, OnDestroy {
         this.error = err?.status === 404
           ? 'El API de dietas no está disponible aún. Configure el backend.'
           : 'Error al cargar las dietas.';
+        this.cdr.detectChanges();
       }
     });
   }
