@@ -704,90 +704,55 @@ public class DietController : ControllerBase
         // sigue estando restringido a su creador/admin. No debemos filtrar el objeto food
         // directamente desde el Include porque eso permitiría revelar nombres de alimentos
         // locales a otros profesionales que solo tienen acceso a la dieta.
-        var foodIds = diet.diet_days
-            .SelectMany(dd => dd.meals)
-            .SelectMany(m => m.meal_items)
-            .Where(i => i.food_id.HasValue)
-            .Select(i => i.food_id!.Value)
-            .Distinct()
-            .ToList();
-
+        var allMealItems = diet.diet_days.Where(dd => dd.meals != null).SelectMany(dd => dd.meals)
+            .Where(m => m.meal_items != null).SelectMany(m => m.meal_items).ToList();
+        var recipeIds = allMealItems.Where(i => i.recipe_id.HasValue).Select(i => i.recipe_id!.Value).Distinct().ToList();
+        var recipeIngredients = await _context.recipe_items.AsNoTracking().Include(ri => ri.recipe)
+            .Where(ri => recipeIds.Contains(ri.recipe_id) && ri.recipe != null && ri.recipe.tenant_id == diet.tenant_id).ToListAsync();
+        var recipeIngredientsByRecipe = recipeIngredients.GroupBy(ri => ri.recipe_id).ToDictionary(g => g.Key, g => g.ToList());
+        var foodIds = allMealItems.Where(i => i.food_id.HasValue).Select(i => i.food_id!.Value)
+            .Concat(recipeIngredients.Select(ri => ri.food_id)).Distinct().ToList();
         var accessibleFoods = await _context.foods
             .Where(f => foodIds.Contains(f.id) &&
-                ((f.source == null || f.source.ToLower() != "local") ||
-                 User.IsInRole("superadmin") ||
+                ((f.source == null || f.source.ToLower() != "local") || User.IsInRole("superadmin") ||
                  (tenantId.HasValue && f.tenant_id == tenantId.Value && f.created_by_user_id == userId.Value) ||
                  (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value)))
             .ToDictionaryAsync(f => f.id);
 
-        // Desvincular los alimentos no accesibles para que las agrupaciones de abajo
-        // tampoco puedan exponerlos accidentalmente.
-        foreach (var item in diet.diet_days.SelectMany(dd => dd.meals).SelectMany(m => m.meal_items))
+        foreach (var item in allMealItems)
+            if (item.food_id.HasValue && !accessibleFoods.ContainsKey(item.food_id.Value)) item.food = null;
+
+        var foodAmounts = new List<(foods Food, double Grams)>();
+        foreach (var item in allMealItems)
         {
-            if (item.food_id.HasValue && !accessibleFoods.ContainsKey(item.food_id.Value))
-                item.food = null;
+            if (item.food_id.HasValue && item.grams.HasValue && item.grams.Value > 0 &&
+                accessibleFoods.TryGetValue(item.food_id.Value, out var directFood))
+                foodAmounts.Add((directFood, (double)item.grams.Value));
+
+            if (!item.recipe_id.HasValue || !recipeIngredientsByRecipe.TryGetValue(item.recipe_id.Value, out var ingredients)) continue;
+            var servings = ingredients.FirstOrDefault()?.recipe?.servings ?? 1m;
+            if (servings <= 0) servings = 1m;
+            var servingsToUse = item.recipe_servings.GetValueOrDefault(1m);
+            if (servingsToUse <= 0) servingsToUse = 1m;
+            foreach (var ingredient in ingredients)
+                if (accessibleFoods.TryGetValue(ingredient.food_id, out var ingredientFood) && ingredient.grams > 0)
+                    foodAmounts.Add((ingredientFood, (double)(ingredient.grams / servings * servingsToUse)));
         }
 
-        var items = new List<ShoppingItemDto>();
-
-        if (diet.diet_days != null)
+        var items = ShoppingListRules.BuildFoodItems(foodAmounts);
+        var exchangeGrouped = allMealItems
+            .Where(i => !i.food_id.HasValue && !i.recipe_id.HasValue && i.exchange_group != null && i.exchange_count.HasValue && i.exchange_count.Value > 0)
+            .GroupBy(i => new { GroupId = i.exchange_group!.id, GroupName = i.exchange_group!.name ?? "Grupo de Intercambio", Category = "Opciones Equivalentes (Intercambios)" });
+        foreach (var eg in exchangeGrouped)
         {
-            var allMealItems = diet.diet_days
-                .Where(dd => dd.meals != null)
-                .SelectMany(dd => dd.meals)
-                .Where(m => m.meal_items != null)
-                .SelectMany(m => m.meal_items)
-                .ToList();
-
-            // 1. Agrupar alimentos concretos
-            var foodGrouped = allMealItems
-                .Where(i => i.food != null && i.grams.HasValue && i.grams.Value > 0)
-                .GroupBy(i => new
-                {
-                    FoodId = i.food!.id,
-                    FoodName = i.food!.name ?? "Alimento",
-                    Category = ShoppingListRules.NormalizeCategory(i.food!.category, i.food!.name)
-                });
-
-            foreach (var g in foodGrouped)
+            double totalCount = Math.Round((double)eg.Sum(i => i.exchange_count!.Value), 1);
+            items.Add(new ShoppingItemDto
             {
-                double totalGrams = Math.Round((double)g.Sum(i => i.grams!.Value), 1);
-                var (roundedGrams, commercialDesc) = ShoppingListRules.CalculateCommercialRounding(totalGrams, g.Key.FoodName, g.Key.Category);
-
-                items.Add(new ShoppingItemDto
-                {
-                    FoodId = g.Key.FoodId,
-                    FoodName = g.Key.FoodName,
-                    Category = g.Key.Category,
-                    TotalGrams = totalGrams,
-                    RoundedGrams = roundedGrams,
-                    CommercialDescription = commercialDesc
-                });
-            }
-
-            // 2. Agrupar intercambios si existen
-            var exchangeGrouped = allMealItems
-                .Where(i => i.food == null && i.exchange_group != null && i.exchange_count.HasValue && i.exchange_count.Value > 0)
-                .GroupBy(i => new
-                {
-                    GroupId = i.exchange_group!.id,
-                    GroupName = i.exchange_group!.name ?? "Grupo de Intercambio",
-                    Category = "Opciones Equivalentes (Intercambios)"
-                });
-
-            foreach (var eg in exchangeGrouped)
-            {
-                double totalCount = Math.Round((double)eg.Sum(i => i.exchange_count!.Value), 1);
-                items.Add(new ShoppingItemDto
-                {
-                    FoodId = -eg.Key.GroupId,
-                    FoodName = eg.Key.GroupName,
-                    Category = eg.Key.Category,
-                    TotalGrams = totalCount,
-                    RoundedGrams = Math.Ceiling(totalCount),
-                    CommercialDescription = $"{totalCount} intercambio(s) semanal(es) (seleccionar alimento equivalente)"
-                });
-            }
+                FoodId = -eg.Key.GroupId, FoodName = eg.Key.GroupName, Category = eg.Key.Category,
+                TotalGrams = totalCount, RoundedGrams = Math.Ceiling(totalCount),
+                CommercialDescription = $"{totalCount} intercambio(s) semanal(es) (seleccionar alimento equivalente)",
+                AllergenDataAvailable = false, RequiresAllergenCheck = false
+            });
         }
 
         var result = items
