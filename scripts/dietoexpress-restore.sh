@@ -40,7 +40,26 @@ manifest="${path%.dump}.sha256"
 [[ -f "$manifest" && ! -L "$manifest" ]] || { echo "ERROR: falta el checksum $manifest" >&2; exit 1; }
 (cd "$BACKUP_DIR" && sha256sum -c "$(basename "$manifest")")
 pg_restore --list "$path" >/dev/null
-echo "Backup verificado: $path"
+
+stem="${file%.dump}"
+timestamp_part="${stem#dietoexpress-postgresql-}"
+documents_file="dietoexpress-documents-$timestamp_part.tar.gz"
+documents_path="$BACKUP_DIR/$documents_file"
+documents_manifest="$documents_path.sha256"
+[[ -f "$documents_path" && ! -L "$documents_path" ]] || { echo "ERROR: falta la copia de documentos asociada ($documents_file); no se permite una restauración parcial." >&2; exit 1; }
+[[ -f "$documents_manifest" && ! -L "$documents_manifest" ]] || { echo "ERROR: falta el checksum de documentos $documents_manifest." >&2; exit 1; }
+(cd "$BACKUP_DIR" && sha256sum -c "$(basename "$documents_manifest")")
+tar --list --gzip --file="$documents_path" >/dev/null
+if tar --list --verbose --gzip --file="$documents_path" | awk 'substr($0, 1, 1) == "l" || substr($0, 1, 1) == "h" { bad = 1 } END { exit bad }'; then :; else
+  echo "ERROR: la copia de documentos contiene enlaces no permitidos." >&2
+  exit 1
+fi
+while IFS= read -r archive_entry; do
+  archive_entry="${archive_entry#./}"
+  [[ "$archive_entry" != /* ]] || { echo "ERROR: ruta absoluta en el archivo de documentos." >&2; exit 1; }
+  case "/$archive_entry/" in */../*|*/..|../*) echo "ERROR: ruta no permitida en el archivo de documentos." >&2; exit 1 ;; esac
+done < <(tar --list --gzip --file="$documents_path")
+echo "Backup PostgreSQL y documentos verificado: $path"
 
 if [[ "$mode" == verify ]]; then
   echo "Preflight correcto. No se ha modificado la base de datos."
