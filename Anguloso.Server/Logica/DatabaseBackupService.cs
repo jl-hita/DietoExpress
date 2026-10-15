@@ -146,7 +146,7 @@ public sealed class DatabaseBackupService
         var metadataName = safeName[..^".dump".Length] + ".txt";
         if (File.Exists(Path.Combine(_backupDir, metadataName))) entries.Add(metadataName);
         foreach (var entry in entries)
-            if (!File.Exists(Path.Combine(_backupDir, entry)))
+            if (!(string.Equals(entry, documentsName, StringComparison.Ordinal) ? Directory.Exists(Path.Combine(_backupDir, entry)) : File.Exists(Path.Combine(_backupDir, entry))))
                 throw new FileNotFoundException($"Falta un componente del snapshot: {entry}");
 
         var temporaryBundle = Path.Combine(Path.GetTempPath(), $"dietoexpress-snapshot-{Guid.NewGuid():N}.tar.gz");
