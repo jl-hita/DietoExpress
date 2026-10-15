@@ -2530,8 +2530,11 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
         // para que las especializaciones no dependan exclusivamente de coincidencias de texto.
         context.Database.ExecuteSqlRaw(@"
             ALTER TABLE foods ADD COLUMN IF NOT EXISTS dietary_flags TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
+            ALTER TABLE foods ADD COLUMN IF NOT EXISTS allergen_tags TEXT[] NULL;
             CREATE INDEX IF NOT EXISTS idx_foods_dietary_flags_gin
                 ON foods USING GIN (dietary_flags);
+            CREATE INDEX IF NOT EXISTS idx_foods_allergen_tags_gin
+                ON foods USING GIN (allergen_tags);
 
             CREATE OR REPLACE FUNCTION classify_food_dietary_flags()
             RETURNS trigger AS $$

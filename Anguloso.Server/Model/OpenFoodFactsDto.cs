@@ -23,6 +23,7 @@ public class OffProduct
     public double? ServingSize { get; set; } // gramos
     public string? ServingSizeUnit { get; set; } // g, ml, etc.
     public string? ServingSizeText { get; set; } // “1 cup (195g)” opcional
+    public string[]? Allergens_tags { get; set; }
 
     public OffNutriments Nutriments { get; set; } = new OffNutriments();
     public OffMicronutrients Micronutrients { get; set; } = new();
@@ -39,6 +40,7 @@ public class OffProduct
         ServingSize = food.serving_size;
         ServingSizeUnit = food.serving_size_unit;
         ServingSizeText = food.serving_size_text;
+        Allergens_tags = food.allergen_tags?.ToArray();
 
         //Macros
         Nutriments.Fiber100g = food.fiber;
