@@ -84,6 +84,16 @@ for dump_path in "${dumps[@]}"; do
     ((failed+=1))
     continue
   fi
+  metadata_dump_hash="$(sed -n 's/^sha256=//p' "$BACKUP_DIR/$metadata" | head -n1)"
+  manifest_dump_hash="$(awk 'NR == 1 {print $1}' "$BACKUP_DIR/$dump_manifest")"
+  metadata_documents_hash="$(sed -n 's/^documents_manifest_sha256=//p' "$BACKUP_DIR/$metadata" | head -n1)"
+  actual_documents_hash="$(sha256sum "$BACKUP_DIR/$documents_manifest" | awk '{print $1}')"
+  if [[ -z "$metadata_dump_hash" || "$metadata_dump_hash" != "$manifest_dump_hash" ||
+        -z "$metadata_documents_hash" || "$metadata_documents_hash" != "$actual_documents_hash" ]]; then
+    echo "ERROR: los metadatos no coinciden con los manifiestos de $dump_name; no se sube." >&2
+    ((failed+=1))
+    continue
+  fi
 
   bundle_name="${stem}-completo.tar.gz"
   bundle_path="$tmp_dir/$bundle_name"
