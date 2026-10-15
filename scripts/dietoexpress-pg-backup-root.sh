@@ -139,6 +139,15 @@ runuser -u postgres -- /usr/bin/pg_dump \
 # ambos conjuntos como una sola unidad lógica.
 /usr/bin/tar --create --gzip --file="$tmp_documents" --directory="$DOCUMENTS_DIR" .
 /usr/bin/tar --list --gzip --file="$tmp_documents" >/dev/null
+if /usr/bin/tar --list --verbose --gzip --file="$tmp_documents" | awk 'substr($0, 1, 1) == "l" || substr($0, 1, 1) == "h" { bad = 1 } END { exit bad }'; then :; else
+  echo "ERROR: el archivo de documentos contiene enlaces simbólicos o duros no permitidos." >&2
+  exit 1
+fi
+while IFS= read -r archive_entry; do
+  archive_entry="${archive_entry#./}"
+  [[ "$archive_entry" != /* ]] || { echo "ERROR: ruta absoluta en el archivo de documentos." >&2; exit 1; }
+  case "/$archive_entry/" in */../*|*/..|../*) echo "ERROR: ruta no permitida en el archivo de documentos." >&2; exit 1 ;; esac
+done < <(/usr/bin/tar --list --gzip --file="$tmp_documents")
 /usr/bin/pg_restore --list "$tmp_dump" >/dev/null
 sha256="$(sha256sum "$tmp_dump" | awk '{print $1}')"
 size_bytes="$(stat -c '%s' "$tmp_dump")"
