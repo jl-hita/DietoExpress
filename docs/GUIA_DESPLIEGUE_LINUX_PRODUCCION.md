@@ -1020,13 +1020,15 @@ Configurar en /etc/dietoexpress/dietoexpress.env:
 DIETOEXPRESS_BACKUP_DIR=/var/lib/dietoexpress-backups
 DIETOEXPRESS_DATABASE=<DATABASE>
 DIETOEXPRESS_DB_PORT=5432
+DIETOEXPRESS_DOCUMENTS_PATH=/var/lib/dietoexpress/documents
+DIETOEXPRESS_DRIVE_REMOTE=gdrive-crypt:
 ~~~
 
-El almacén recomendado es /var/lib/dietoexpress-backups, propiedad de root, grupo joso y modo 0750. Los archivos de copia son root:joso con modo 0640: la aplicación puede listarlos/descargarlos, pero no modificarlos. No utilices /var/lib/dietoexpress/backups porque el directorio padre /var/lib/dietoexpress es escribible por joso para el aviso de mantenimiento; un usuario de despliegue no debe poder sustituir el archivo que posteriormente leerá pg_restore como PostgreSQL superuser.
+El almacén recomendado es /var/lib/dietoexpress-backups, propiedad de root, grupo joso y modo 0750. Los archivos de copia son root:joso con modo 0640: la aplicación puede listarlos/descargarlos, pero no modificarlos. No utilices /var/lib/dietoexpress/backups porque el directorio padre /var/lib/dietoexpress es escribible por joso para el aviso de mantenimiento; un usuario de despliegue no debe poder sustituir el archivo que posteriormente leerá pg_restore como PostgreSQL superuser. `DIETOEXPRESS_DOCUMENTS_PATH` debe apuntar exactamente al árbol documental usado por la aplicación; en una instalación estándar es `/var/lib/dietoexpress/documents`. Ese árbol debe ser persistente y escribible por joso.
 
 ## Migración del almacén anterior
 
-Conserva la carpeta anterior hasta verificar la migración. Primero crea el nuevo directorio y copia los dumps comprobando el checksum de origen. El siguiente bloque no elimina ni altera las copias antiguas:
+Conserva la carpeta anterior hasta verificar la migración. Primero crea el nuevo directorio y copia los dumps comprobando el checksum de origen. El siguiente bloque no elimina ni altera las copias antiguas. Importante: este procedimiento migra los artefactos antiguos de PostgreSQL, no crea retrospectivamente snapshots documentales. Las copias que no tengan `dietoexpress-documents-<timestamp>` y su manifiesto no se ofrecerán como restaurables en la aplicación; conserva el almacén antiguo hasta completar una prueba de recuperación.
 
 ~~~bash
 sudo install -d -o root -g joso -m 0750 /var/lib/dietoexpress-backups
@@ -1067,6 +1069,8 @@ En el archivo, cambia únicamente DIETOEXPRESS_BACKUP_DIR a /var/lib/dietoexpres
 
 ## Provisioning de la infraestructura privilegiada
 
+Antes del provisioning, instala `rsync` y `rclone`, y configura en `/home/joso/.config/rclone/rclone.conf` el remote cifrado `gdrive-crypt:` con propietario `joso:joso` y modo `0600`. La configuración no debe compartirse ni guardarse en Git. El detalle está en [BACKUPS_GOOGLE_DRIVE.md](BACKUPS_GOOGLE_DRIVE.md).
+
 Después de desplegar o actualizar los scripts privilegiados/unidades systemd, ejecutar como administrador:
 
 ~~~bash
@@ -1074,13 +1078,14 @@ sudo /opt/dietoexpress/scripts/provision-dietoexpress-backup-automation.sh
 sudo visudo -cf /etc/sudoers.d/dietoexpress-restore
 sudo systemctl restart dietoexpress.service
 sudo systemctl status dietoexpress-backup.timer --no-pager
+sudo systemctl status dietoexpress-backup-drive.timer --no-pager
 ~~~
 
 El provisioning comprueba que ni el directorio ni sus ancestros sean modificables por joso. Es idempotente y debe repetirse después de cada cambio en helpers root-owned o unidades systemd; copiar archivos a /opt/dietoexpress no actualiza automáticamente las copias instaladas en /usr/local/sbin.
 
 ## Creación de backups
 
-El servicio local corre diariamente como joso. PostgreSQL se vuelca completo cada día y el helper root-owned publica el dump, checksum, metadatos y una snapshot completa del árbol configurado por DIETOEXPRESS_DOCUMENTS_PATH. Las snapshots documentales reutilizan archivos idénticos mediante hard links locales con rsync; cada domingo se inicia una nueva base documental completa. La restauración valida y recupera PostgreSQL y documentos conjuntamente. 
+El servicio local corre diariamente como joso, alrededor de las 02:00. PostgreSQL se vuelca completo cada día y el helper root-owned publica el dump, checksum, metadatos y una snapshot completa del árbol configurado por `DIETOEXPRESS_DOCUMENTS_PATH`. Las snapshots documentales reutilizan archivos idénticos mediante hard links locales con `rsync`; cada domingo se inicia una nueva base documental completa. La restauración valida y recupera PostgreSQL y documentos conjuntamente. La subida externa se ejecuta en un servicio separado alrededor de las 03:00 y está descrita en [BACKUPS_GOOGLE_DRIVE.md](BACKUPS_GOOGLE_DRIVE.md).
 
 Los dumps usan formato custom y conservan los propietarios originales; no se debe utilizar --no-owner. Comprueba:
 
@@ -1091,7 +1096,7 @@ journalctl -u dietoexpress-backup.service --since "7 days ago" --no-pager
 ls -lh /var/lib/dietoexpress-backups/
 ~~~
 
-La retención local normal conserva catorce copias diarias completas. Los snapshots automáticos previos a restauración llevan el sufijo -pre-restore y tienen retención separada (cuatro por defecto). Los snapshots manuales cuyo nombre contiene -pre- no se eliminan con la rotación normal.
+La retención local normal conserva catorce copias diarias completas. Los snapshots automáticos previos a restauración llevan el sufijo `-pre-restore` y tienen retención separada (cuatro por defecto). Los snapshots manuales cuyo nombre contiene `-pre-` no se eliminan con la rotación normal.
 
 ## Restauración y rollback
 
