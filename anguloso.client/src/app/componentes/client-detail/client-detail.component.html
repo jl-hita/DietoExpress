@@ -140,7 +140,7 @@
         </button>
       </div>
 
-      <mat-list *ngIf="biometrics?.length">
+      <mat-list *ngIf="biometrics.length">
         <mat-list-item *ngFor="let b of biometrics">
           <div class="biometric-item">
             <div class="biometric-summary">
@@ -148,7 +148,7 @@
               <span class="bio-chip" *ngIf="b.weight">{{ b.weight }} kg</span>
               <span class="bio-chip accent" *ngIf="b.bmi">IMC: {{ b.bmi }}</span>
               <span class="bio-chip green" *ngIf="b.analysis?.fatMassPercentage">
-                {{ b.analysis?.fatMassPercentage }}% grasa
+                {{ b.analysis.fatMassPercentage }}% grasa
               </span>
             </div>
 
@@ -193,7 +193,7 @@
         </mat-list-item>
       </mat-list>
 
-      <div *ngIf="!biometrics?.length" class="no-data-msg">
+      <div *ngIf="!biometrics.length" class="no-data-msg">
         <mat-icon>monitor_weight</mat-icon>
         <p>No hay registros biométricos aún. Añade el primero.</p>
       </div>
@@ -299,12 +299,12 @@
     <mat-tab label="Análisis Antropométrico">
       <div class="analysis-container">
 
-        <div *ngIf="!biometrics?.length" class="no-data-msg">
+        <div *ngIf="!biometrics.length" class="no-data-msg">
           <mat-icon>biotech</mat-icon>
           <p>No hay registros biométricos. Añade uno en la pestaña "Biométricas".</p>
         </div>
 
-        <ng-container *ngIf="biometrics?.length">
+        <ng-container *ngIf="biometrics.length">
           <!-- Selector de registro -->
           <div class="analysis-selector-bar">
             <mat-icon class="selector-icon">event_note</mat-icon>
@@ -802,7 +802,7 @@
           </div>
         </ng-container>
 
-        <div *ngIf="!dietsHistory?.length" class="no-data-msg">
+        <div *ngIf="!dietsHistory.length" class="no-data-msg">
           <mat-icon>assignment</mat-icon>
           <p>No hay planes alimentarios asignados a este cliente.</p>
         </div>
