@@ -22,7 +22,7 @@ DATABASE_NAME="${DIETOEXPRESS_DATABASE:-}"
 DOCUMENTS_DIR="${DIETOEXPRESS_DOCUMENTS_PATH:-/var/lib/dietoexpress/documents}"
 DB_PORT="${DIETOEXPRESS_DB_PORT:-5432}"
 BACKUP_GROUP="${DIETOEXPRESS_BACKUP_GROUP:-joso}"
-RETENTION="${DIETOEXPRESS_BACKUP_RETENTION:-8}"
+RETENTION="${DIETOEXPRESS_BACKUP_RETENTION:-14}"
 PRE_RETENTION="${DIETOEXPRESS_BACKUP_PRE_RETENTION:-4}"
 INCLUDE_ENV="${DIETOEXPRESS_BACKUP_INCLUDE_ENV:-false}"
 
@@ -146,7 +146,14 @@ runuser -u postgres -- /usr/bin/pg_dump \
 install -d -o root -g "$BACKUP_GROUP" -m 0750 "$snapshot_staging"
 published_snapshot_staging=true
 previous_snapshot=""
+force_full=false
+# El backup normal del domingo abre una nueva base completa; los demás backups
+# diarios reutilizan inodos idénticos del snapshot completo anterior.
+if [[ "$BACKUP_MODE" == "--backup" && "$(date +%u)" == "7" ]]; then
+  force_full=true
+fi
 while IFS= read -r candidate_snapshot; do
+  [[ "$force_full" == true ]] && break
   candidate_manifest="$candidate_snapshot.sha256"
   if [[ -f "$candidate_manifest" && ! -L "$candidate_manifest" ]] &&
      [[ "$(stat -c '%u:%g:%a' "$candidate_snapshot")" == "0:$BACKUP_GID:750" ]] &&
@@ -182,6 +189,7 @@ printf '%s  %s\n' "$sha256" "$file" > "$tmp_dir/$manifest_name"
   printf 'documents_snapshot=%s\n' "$documents_name"
   printf 'documents_size_bytes=%s\n' "$documents_size_bytes"
   printf 'documents_manifest_sha256=%s\n' "$documents_sha256"
+  printf 'documents_snapshot_type=%s\n' "$([[ -n "$previous_snapshot" ]] && echo incremental || echo full)"
   printf 'documents_linked_from=%s\n' "${previous_snapshot:-none}"
 } > "$tmp_dir/$metadata_name"
 
