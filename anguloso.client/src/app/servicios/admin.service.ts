@@ -206,12 +206,12 @@ export class AdminService {
   }
 
   getDriveDatabaseBackups(): Observable<AdminDriveBackupsResponse> {
-    return this.http.get<AdminDriveBackupsResponse>(\`\${this.adminUrl}/database-backups/drive\`);
+    return this.http.get<AdminDriveBackupsResponse>(`${this.adminUrl}/database-backups/drive`);
   }
 
   restoreDriveDatabaseBackup(archiveName: string): Observable<{ fileName: string; restored: boolean; started: boolean; output: string }> {
     return this.http.post<{ fileName: string; restored: boolean; started: boolean; output: string }>(
-      \`\${this.adminUrl}/database-backups/drive/\${encodeURIComponent(archiveName)}/restore\`, {}
+      `${this.adminUrl}/database-backups/drive/${encodeURIComponent(archiveName)}/restore`, {}
     );
   }
 
