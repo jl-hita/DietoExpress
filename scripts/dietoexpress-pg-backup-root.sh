@@ -30,6 +30,10 @@ INCLUDE_ENV="${DIETOEXPRESS_BACKUP_INCLUDE_ENV:-false}"
 [[ -n "$DATABASE_NAME" ]] || { echo "ERROR: DIETOEXPRESS_DATABASE debe estar configurado en $ENV_FILE." >&2; exit 1; }
 [[ "$DOCUMENTS_DIR" == /* && "$DOCUMENTS_DIR" != "/" && "$(realpath -m -- "$DOCUMENTS_DIR")" == "$DOCUMENTS_DIR" ]] || { echo "ERROR: DIETOEXPRESS_DOCUMENTS_PATH debe ser una ruta absoluta normalizada." >&2; exit 1; }
 [[ -d "$DOCUMENTS_DIR" && ! -L "$DOCUMENTS_DIR" ]] || { echo "ERROR: no existe el directorio de documentos o es un enlace simbólico: $DOCUMENTS_DIR" >&2; exit 1; }
+if find "$DOCUMENTS_DIR" -type l -print -quit | grep -q .; then
+  echo "ERROR: el árbol de documentos contiene enlaces simbólicos; se rechaza para evitar escapes al restaurar." >&2
+  exit 1
+fi
 [[ "$DB_PORT" =~ ^[0-9]+$ ]] && (( DB_PORT >= 1 && DB_PORT <= 65535 )) || { echo "ERROR: DIETOEXPRESS_DB_PORT no es válido." >&2; exit 1; }
 getent group "$BACKUP_GROUP" >/dev/null 2>&1 || { echo "ERROR: no existe el grupo de backups $BACKUP_GROUP." >&2; exit 1; }
 
