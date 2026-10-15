@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, ViewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, Input, Output, EventEmitter, OnInit, OnDestroy, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -68,7 +68,7 @@ export class ClientsListComponent implements OnInit, OnDestroy {
   isSuperAdmin = false;
   private searchTimer?: ReturnType<typeof setTimeout>;
 
-  constructor(private router: Router, private clientService: ClientService, private authService: AuthService) { }
+  constructor(private router: Router, private clientService: ClientService, private authService: AuthService, private cdr: ChangeDetectorRef) { }
 
   ngOnInit(): void {
     this.isSuperAdmin = this.authService.isSuperAdmin();
@@ -96,6 +96,7 @@ export class ClientsListComponent implements OnInit, OnDestroy {
         this.filtered = this.clients;
         this.pagedClients = this.clients;
         this.loading = false;
+        this.cdr.detectChanges();
       },
       error: () => {
         this.clients = [];
@@ -103,6 +104,7 @@ export class ClientsListComponent implements OnInit, OnDestroy {
         this.pagedClients = [];
         this.totalCount = 0;
         this.loading = false;
+        this.cdr.detectChanges();
       }
     });
   }
