@@ -81,17 +81,17 @@ stem="dietoexpress-postgresql-$timestamp$suffix"
 file="$stem.dump"
 manifest_name="$stem.sha256"
 metadata_name="$stem.txt"
-documents_name="dietoexpress-documents-$timestamp$suffix.tar.gz"
-documents_manifest_name="dietoexpress-documents-$timestamp$suffix.tar.gz.sha256"
+documents_name="dietoexpress-documents-$timestamp$suffix"
+documents_manifest_name="$documents_name.sha256"
 dump_path="$BACKUP_DIR/$file"
 manifest_path="$BACKUP_DIR/$manifest_name"
 metadata_path="$BACKUP_DIR/$metadata_name"
 documents_path="$BACKUP_DIR/$documents_name"
 documents_manifest_path="$BACKUP_DIR/$documents_manifest_name"
+snapshot_staging="$BACKUP_DIR/.staging-$documents_name"
 env_suffix="$timestamp$suffix"
 env_path="$BACKUP_DIR/dietoexpress-env-$env_suffix"
 tmp_dump="$tmp_dir/$file"
-tmp_documents="$tmp_dir/$documents_name"
 tmp_documents_manifest="$tmp_dir/$documents_manifest_name"
 committed=false
 published_dump=false
@@ -99,6 +99,7 @@ published_manifest=false
 published_metadata=false
 published_documents=false
 published_documents_manifest=false
+published_snapshot_staging=false
 published_env=false
 
 cleanup() {
@@ -109,16 +110,17 @@ cleanup() {
     [[ "$published_dump" != true ]] || rm -f -- "$dump_path"
     [[ "$published_manifest" != true ]] || rm -f -- "$manifest_path"
     [[ "$published_metadata" != true ]] || rm -f -- "$metadata_path"
-    [[ "$published_documents" != true ]] || rm -f -- "$documents_path"
+    [[ "$published_documents" != true ]] || rm -rf -- "$documents_path"
     [[ "$published_documents_manifest" != true ]] || rm -f -- "$documents_manifest_path"
     [[ "$published_env" != true ]] || rm -f -- "$env_path"
   fi
+  [[ "$published_snapshot_staging" != true ]] || rm -rf -- "$snapshot_staging"
   rm -rf -- "$tmp_dir"
   return "$rc"
 }
 trap cleanup EXIT
 
-for final_path in "$dump_path" "$manifest_path" "$metadata_path" "$documents_path" "$documents_manifest_path"; do
+for final_path in "$dump_path" "$manifest_path" "$metadata_path" "$documents_path" "$documents_manifest_path" "$snapshot_staging"; do
   [[ ! -e "$final_path" && ! -L "$final_path" ]] || { echo "ERROR: ya existe un artefacto de backup con timestamp $timestamp." >&2; exit 1; }
 done
 if [[ "$INCLUDE_ENV" == "true" ]]; then
@@ -135,35 +137,49 @@ runuser -u postgres -- /usr/bin/pg_dump \
   --dbname="$DATABASE_NAME" \
   --file="$tmp_dump"
 
-# La copia de documentos comparte timestamp con PostgreSQL para poder restaurar
-# ambos conjuntos como una sola unidad lógica.
-/usr/bin/tar --create --gzip --file="$tmp_documents" --directory="$DOCUMENTS_DIR" .
-/usr/bin/tar --list --gzip --file="$tmp_documents" >/dev/null
-if /usr/bin/tar --list --verbose --gzip --file="$tmp_documents" | awk 'substr($0, 1, 1) == "l" || substr($0, 1, 1) == "h" { bad = 1 } END { exit bad }'; then :; else
-  echo "ERROR: el archivo de documentos contiene enlaces simbólicos o duros no permitidos." >&2
+# Snapshot documental completo y autocontenido por timestamp. rsync --link-dest
+# reutiliza los inodos de archivos idénticos de la última snapshot validada.
+# Los snapshots se guardan root-owned y sin permisos de escritura para joso:
+# así la aplicación no puede modificar retrospectivamente archivos hardlinkados.
+install -d -o root -g "$BACKUP_GROUP" -m 0750 "$snapshot_staging"
+published_snapshot_staging=true
+previous_snapshot=""
+while IFS= read -r candidate_snapshot; do
+  candidate_manifest="$candidate_snapshot.sha256"
+  if [[ -f "$candidate_manifest" && ! -L "$candidate_manifest" ]] &&
+     [[ "$(stat -c '%u:%g:%a' "$candidate_snapshot")" == "0:$BACKUP_GID:750" ]]; then
+    previous_snapshot="$candidate_snapshot"
+    break
+  fi
+done < <(find "$BACKUP_DIR" -mindepth 1 -maxdepth 1 -type d -name 'dietoexpress-documents-*' ! -name '.staging-*' -printf '%T@ %p\n' | sort -nr | cut -d' ' -f2-)
+rsync_args=(--archive --checksum --delete "--chown=root:$BACKUP_GROUP" --chmod=D750,F640)
+[[ -z "$previous_snapshot" ]] || rsync_args+=("--link-dest=$previous_snapshot")
+/usr/bin/rsync "${rsync_args[@]}" "$DOCUMENTS_DIR/" "$snapshot_staging/"
+if find "$snapshot_staging" -type l -print -quit | grep -q .; then
+  echo "ERROR: la snapshot documental contiene enlaces simbólicos; se rechaza." >&2
   exit 1
 fi
-while IFS= read -r archive_entry; do
-  archive_entry="${archive_entry#./}"
-  [[ "$archive_entry" != /* ]] || { echo "ERROR: ruta absoluta en el archivo de documentos." >&2; exit 1; }
-  case "/$archive_entry/" in */../*|*/..|../*) echo "ERROR: ruta no permitida en el archivo de documentos." >&2; exit 1 ;; esac
-done < <(/usr/bin/tar --list --gzip --file="$tmp_documents")
+if find "$snapshot_staging" ! -type d ! -type f -print -quit | grep -q .; then
+  echo "ERROR: la snapshot documental contiene archivos especiales no permitidos." >&2
+  exit 1
+fi
+(cd "$snapshot_staging" && find . -type f -print0 | sort -z | xargs -0 -r sha256sum) > "$tmp_documents_manifest"
 /usr/bin/pg_restore --list "$tmp_dump" >/dev/null
 sha256="$(sha256sum "$tmp_dump" | awk '{print $1}')"
 size_bytes="$(stat -c '%s' "$tmp_dump")"
-documents_sha256="$(sha256sum "$tmp_documents" | awk '{print $1}')"
-documents_size_bytes="$(stat -c '%s' "$tmp_documents")"
+documents_sha256="$(sha256sum "$tmp_documents_manifest" | awk '{print $1}')"
+documents_size_bytes="$(du -sb "$snapshot_staging" | awk '{print $1}')"
 printf '%s  %s\n' "$sha256" "$file" > "$tmp_dir/$manifest_name"
-printf '%s  %s\n' "$documents_sha256" "$documents_name" > "$tmp_documents_manifest"
 {
   printf 'created_at_utc=%s\n' "$timestamp"
   printf 'host=%s\n' "$host"
   printf 'backup=%s\n' "$dump_path"
   printf 'size_bytes=%s\n' "$size_bytes"
   printf 'sha256=%s\n' "$sha256"
-  printf 'documents_archive=%s\n' "$documents_name"
+  printf 'documents_snapshot=%s\n' "$documents_name"
   printf 'documents_size_bytes=%s\n' "$documents_size_bytes"
-  printf 'documents_sha256=%s\n' "$documents_sha256"
+  printf 'documents_manifest_sha256=%s\n' "$documents_sha256"
+  printf 'documents_linked_from=%s\n' "${previous_snapshot:-none}"
 } > "$tmp_dir/$metadata_name"
 
 # El almacén es root-owned y joso solo tiene lectura/travesía por grupo.
@@ -173,21 +189,24 @@ install -o root -g "$BACKUP_GROUP" -m 0640 "$tmp_dir/$manifest_name" "$manifest_
 published_manifest=true
 install -o root -g "$BACKUP_GROUP" -m 0640 "$tmp_dir/$metadata_name" "$metadata_path"
 published_metadata=true
-install -o root -g "$BACKUP_GROUP" -m 0640 "$tmp_documents" "$documents_path"
+mv -- "$snapshot_staging" "$documents_path"
 published_documents=true
+published_snapshot_staging=false
 install -o root -g "$BACKUP_GROUP" -m 0640 "$tmp_documents_manifest" "$documents_manifest_path"
 published_documents_manifest=true
 if [[ "$INCLUDE_ENV" == "true" ]]; then
   install -o root -g root -m 0600 "$ENV_FILE" "$env_path"
   published_env=true
 fi
-(cd "$BACKUP_DIR" && sha256sum -c "$manifest_name" && sha256sum -c "$documents_manifest_name")
+(cd "$BACKUP_DIR" && sha256sum -c "$manifest_name")
+(cd "$documents_path" && sha256sum -c "$documents_manifest_path")
 committed=true
 
 echo "Backup creado: $dump_path"
 echo "Checksum: $manifest_path"
-echo "Documentos: $documents_path"
-echo "Checksum documentos: $documents_manifest_path"
+echo "Snapshot documental: $documents_path"
+echo "Manifiesto documental: $documents_manifest_path"
+if [[ -n "$previous_snapshot" ]]; then echo "Reutilización de archivos idénticos mediante hard links: $previous_snapshot"; fi
 
 # La retención la hace root, porque joso no puede borrar ni reemplazar backups.
 # Las copias automáticas pre-restore tienen una retención independiente; las
@@ -202,8 +221,8 @@ if [[ "$RETENTION" =~ ^[0-9]+$ ]] && (( RETENTION > 0 )); then
     old_stem="$(basename "${old_backup%.dump}")"
     suffix_part="${old_stem#dietoexpress-postgresql-}"
     rm -f -- "$old_backup" "${old_backup%.dump}.sha256" "${old_backup%.dump}.txt" \
-      "$BACKUP_DIR/dietoexpress-documents-$suffix_part.tar.gz" \
-      "$BACKUP_DIR/dietoexpress-documents-$suffix_part.tar.gz.sha256" \
+      "$BACKUP_DIR/dietoexpress-documents-$suffix_part" \
+      "$BACKUP_DIR/dietoexpress-documents-$suffix_part.sha256" \
       "$BACKUP_DIR/dietoexpress-env-$suffix_part"
   done
 fi
