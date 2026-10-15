@@ -98,7 +98,7 @@ chmod 0750 "$tmp_dir"
 tmp_file="$tmp_dir/$file"
 documents_parent="$(dirname "$DOCUMENTS_DIR")"
 documents_staging="$(mktemp -d "$documents_parent/.dietoexpress-documents-restore.XXXXXX")"
-documents_previous="$documents_parent/.dietoexpress-documents-previous-$"
+documents_previous="$documents_parent/.dietoexpress-documents-previous-$$"
 documents_swapped=false
 cleanup() {
   local rc=$?
