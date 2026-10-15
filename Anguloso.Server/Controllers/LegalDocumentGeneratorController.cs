@@ -42,7 +42,7 @@ public sealed class LegalDocumentGeneratorController : ControllerBase
         if(!System.IO.File.Exists(path))return Problem("La plantilla legal no está disponible en el despliegue.");
         var template=await System.IO.File.ReadAllTextAsync(path,ct);
         var values=await ReadConfiguration(scope.Value.type,scope.Value.id,ct);
-        var rendered=Regex.Replace(template,@"\{\{([a-zA-Z0-9_.-]+)\}\}",m=>values.TryGetValue(m.Groups[1].Value,out var value)?value:m.Value);
+        var rendered=Regex.Replace(template,@"\{\{([a-zA-Z0-9_.-]+)\}\}",m=>values.TryGetValue(m.Groups[1].Value,out var value)&&!string.IsNullOrWhiteSpace(value)?value:m.Value);
         var pending=Regex.Matches(rendered,@"\{\{([a-zA-Z0-9_.-]+)\}\}").Select(m=>m.Groups[1].Value).Distinct().ToArray();
         var hash=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rendered))).ToLowerInvariant();
         await using var c=new NpgsqlConnection(ConnectionString);await c.OpenAsync(ct);
