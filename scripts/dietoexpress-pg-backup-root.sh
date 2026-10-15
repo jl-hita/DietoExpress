@@ -238,8 +238,8 @@ if [[ "$PRE_RETENTION" =~ ^[0-9]+$ ]] && (( PRE_RETENTION > 0 )); then
     old_stem="$(basename "${old_backup%.dump}")"
     suffix_part="${old_stem#dietoexpress-postgresql-}"
     rm -f -- "$old_backup" "${old_backup%.dump}.sha256" "${old_backup%.dump}.txt" \
-      "$BACKUP_DIR/dietoexpress-documents-$suffix_part.tar.gz" \
-      "$BACKUP_DIR/dietoexpress-documents-$suffix_part.tar.gz.sha256" \
+      "$BACKUP_DIR/dietoexpress-documents-$suffix_part" \
+      "$BACKUP_DIR/dietoexpress-documents-$suffix_part.sha256" \
       "$BACKUP_DIR/dietoexpress-env-$suffix_part"
   done
 fi
