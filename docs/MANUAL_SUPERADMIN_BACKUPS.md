@@ -14,9 +14,9 @@ No uses /var/lib/dietoexpress/backups: su directorio padre es escribible por jos
 
 Si el servidor aún guarda las copias en la ruta antigua, sigue primero la subsección "Migración del almacén anterior" de la guía de despliegue. Comprueba que cada checksum se valida en origen, copia dumps y metadatos a la nueva ruta como root, vuelve a generar los manifiestos para el nuevo directorio y actualiza DIETOEXPRESS_BACKUP_DIR en /etc/dietoexpress/dietoexpress.env. Conserva el directorio antiguo hasta que las copias migradas hayan pasado la verificación y una prueba de restauración aislada.
 
-## 3. Backups automáticos semanales
+## 3. Backups automáticos diarios e híbridos
 
-Producción utiliza un systemd timer que hace un backup cada domingo de madrugada, con retraso aleatorio.
+Producción utiliza un systemd timer diario a las 02:00, con retraso aleatorio de hasta 15 minutos. PostgreSQL se vuelca completo en cada ejecución. Los documentos se guardan como snapshots completos independientes, compartiendo mediante hard links los archivos idénticos entre días; el backup normal del domingo crea una nueva base documental sin reutilizar archivos del snapshot anterior. Esto limita el crecimiento y vuelve a leer el árbol documental completo semanalmente.
 
 La infraestructura privilegiada se provisiona desde el servidor, nunca desde GitHub Actions. Tras desplegar los scripts, el administrador debe ejecutar:
 
@@ -26,7 +26,7 @@ sudo /opt/dietoexpress/scripts/provision-dietoexpress-backup-automation.sh
 
 El provisioning instala helpers root-owned en /usr/local/sbin, unidades systemd y reglas sudoers restringidas. Es idempotente, pero debe volver a ejecutarse después de actualizar cualquiera de los helpers privilegiados o unidades systemd: el deploy a /opt/dietoexpress no actualiza las copias root-owned.
 
-El timer se ejecuta como joso. El script de backup invoca mediante sudo -n el helper dietoexpress-pg-backup con --backup para copias normales y --backup-pre-restore para el snapshot automático previo a una restauración; el helper ejecuta pg_dump como usuario PostgreSQL postgres. El helper publica el dump PostgreSQL, un snapshot documental y su manifiesto SHA-256 como root:joso. Los ficheros del snapshot tienen permisos 0640 y los directorios 0750: la aplicación puede leerlos, pero no modificarlos. Cada ejecución genera un snapshot con vista completa del árbol documental y usa `rsync --checksum --link-dest` contra el snapshot completo más reciente que haya superado la verificación. Los archivos idénticos comparten inodos entre snapshots; los modificados se guardan de nuevo y las eliminaciones solo desaparecen de snapshots posteriores. Como los ficheros compartidos son root-owned y no escribibles por joso, la aplicación no puede alterar copias anteriores. PostgreSQL se vuelca completo en cada ejecución. Todos los componentes comparten timestamp y la retención elimina el dump, el manifiesto y el snapshot asociado como una unidad.
+El timer se ejecuta como joso. El script de backup invoca mediante sudo -n el helper dietoexpress-pg-backup con --backup para copias normales y --backup-pre-restore para el snapshot automático previo a una restauración; el helper ejecuta pg_dump como usuario PostgreSQL postgres. El helper publica el dump PostgreSQL, un snapshot documental y su manifiesto SHA-256 como root:joso. Los ficheros del snapshot tienen permisos 0640 y los directorios 0750: la aplicación puede leerlos, pero no modificarlos. Cada ejecución genera un snapshot con vista completa del árbol documental y usa `rsync --checksum --link-dest` contra el snapshot completo más reciente que haya superado la verificación, salvo el backup normal del domingo, que inicia una nueva base completa. Los archivos idénticos comparten inodos entre snapshots; los modificados se guardan de nuevo y las eliminaciones solo desaparecen de snapshots posteriores. Como los ficheros compartidos son root-owned y no escribibles por joso, la aplicación no puede alterar copias anteriores. PostgreSQL se vuelca completo en cada ejecución. Todos los componentes comparten timestamp y la retención elimina el dump, el manifiesto y el snapshot asociado como una unidad.
 
 Los backups históricos que solo contienen PostgreSQL no se muestran como restaurables en SuperAdmin, porque no permiten recuperar los documentos en el mismo estado. Se conservan en disco hasta que se decida una política de retirada, pero no deben usarse para una restauración coordinada.
 
@@ -39,7 +39,7 @@ journalctl -u dietoexpress-backup.service --since "7 days ago" --no-pager
 sudo visudo -cf /etc/sudoers.d/dietoexpress-restore
 ~~~
 
-La retención por defecto conserva ocho backups normales. Los snapshots automáticos previos a una restauración incluyen el sufijo -pre-restore y tienen retención independiente de cuatro copias. Los snapshots manuales con sufijo -pre-* quedan excluidos de la rotación automática.
+La retención por defecto conserva catorce backups diarios normales (aproximadamente dos semanas). Los snapshots automáticos previos a una restauración incluyen el sufijo -pre-restore y tienen retención independiente de cuatro copias. Los snapshots manuales con sufijo -pre-* quedan excluidos de la rotación automática.
 
 ## 4. Crear un backup desde SuperAdmin
 
