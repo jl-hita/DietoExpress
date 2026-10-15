@@ -43,6 +43,7 @@ export class DietsListComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.isSuperAdmin = this.authService.isSuperAdmin();
+    this.showAllDiets = this.isSuperAdmin;
     this.loadDiets();
   }
 
