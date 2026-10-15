@@ -16,6 +16,21 @@ public sealed class AdminDatabaseBackupController : ControllerBase
     [HttpGet]
     public IActionResult List() => Ok(new { configured = _backups.IsConfigured, items = _backups.List() });
 
+    [HttpGet("drive")]
+    public async Task<IActionResult> ListDrive(CancellationToken ct)
+    {
+        try { return Ok(new { configured = true, items = await _backups.ListDriveAsync(ct) }); }
+        catch (InvalidOperationException ex) { return Ok(new { configured = false, items = Array.Empty<DriveDatabaseBackupInfo>(), error = ex.Message }); }
+    }
+
+    [HttpPost("drive/{archiveName}/restore")]
+    public async Task<IActionResult> RestoreFromDrive(string archiveName, CancellationToken ct)
+    {
+        try { var result = await _backups.RestoreFromDriveAsync(archiveName, ct); return Accepted(new { fileName = result.FileName, restored = false, started = true, output = result.Output }); }
+        catch (ArgumentException) { return BadRequest(); }
+        catch (InvalidOperationException ex) { return Problem(title: "No se pudo restaurar desde Google Drive", detail: ex.Message, statusCode: StatusCodes.Status500InternalServerError); }
+    }
+
     [HttpPost]
     public async Task<IActionResult> Create(CancellationToken ct)
     {

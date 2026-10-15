@@ -125,6 +125,20 @@ El servicio de subida **no borra archivos remotos**. Esto protege contra la elim
 
 6. Realizar la restauración únicamente mediante el procedimiento controlado documentado en [GUIA_DESPLIEGUE_LINUX_PRODUCCION.md](GUIA_DESPLIEGUE_LINUX_PRODUCCION.md) y [MANUAL_SUPERADMIN_BACKUPS.md](MANUAL_SUPERADMIN_BACKUPS.md). No ejecutar `pg_restore` directamente contra producción.
 
+## Restaurar directamente desde el panel SuperAdmin
+
+El panel muestra los snapshots completos locales y los paquetes cifrados disponibles en gdrive-crypt:. Para restaurar desde Drive, el servidor descarga el paquete y su checksum, valida SHA-256, estructura, manifiestos y formato de PostgreSQL, e importa los componentes sin sobrescribir copias locales existentes. Después inicia el mismo flujo de restauración controlada que los backups locales: backup previo, restauración de base de datos y documentos, y rollback si falla.
+
+Tras desplegar una versión que incluya esta función, ejecutar el provisioning como root para instalar el helper limitado y su regla sudoers:
+
+~~~bash
+sudo /opt/dietoexpress/scripts/provision-dietoexpress-backup-automation.sh
+sudo visudo -cf /etc/sudoers.d/dietoexpress-restore
+sudo restorecon -RFv /opt/dietoexpress /usr/local/sbin/dietoexpress-backup-google-drive-restore
+~~~
+
+El panel solo muestra paquetes completos con el patrón dietoexpress-postgresql-<timestamp>-completo.tar.gz. Si Drive no está disponible, la sección presenta el error y los backups locales siguen utilizables. La restauración reemplaza los datos actuales; revisar cuidadosamente el nombre y la fecha antes de confirmar.
+
 ## Seguridad y operación
 
 - No subir `/etc/dietoexpress/dietoexpress.env` al paquete ordinario de Drive.

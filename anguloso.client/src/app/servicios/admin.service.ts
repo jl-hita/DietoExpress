@@ -129,6 +129,9 @@ export interface AdminDatabaseBackupsResponse {
   items: AdminDatabaseBackup[];
 }
 
+export interface AdminDriveBackup { archiveName: string; fileName: string; sizeBytes: number; createdAtUtc: string; }
+export interface AdminDriveBackupsResponse { configured: boolean; items: AdminDriveBackup[]; error?: string; }
+
 export interface AdminDatabaseRestoreStatus {
   fileName: string;
   unitName: string;
@@ -200,6 +203,16 @@ export class AdminService {
 
   getDatabaseBackups(): Observable<AdminDatabaseBackupsResponse> {
     return this.http.get<AdminDatabaseBackupsResponse>(`${this.adminUrl}/database-backups`);
+  }
+
+  getDriveDatabaseBackups(): Observable<AdminDriveBackupsResponse> {
+    return this.http.get<AdminDriveBackupsResponse>(`${this.adminUrl}/database-backups/drive`);
+  }
+
+  restoreDriveDatabaseBackup(archiveName: string): Observable<{ fileName: string; restored: boolean; started: boolean; output: string }> {
+    return this.http.post<{ fileName: string; restored: boolean; started: boolean; output: string }>(
+      `${this.adminUrl}/database-backups/drive/${encodeURIComponent(archiveName)}/restore`, {}
+    );
   }
 
   createDatabaseBackup(): Observable<AdminDatabaseBackup> {
