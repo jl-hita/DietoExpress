@@ -13,5 +13,4 @@ ExecStart=/usr/local/sbin/dietoexpress-backup-google-drive
 UMask=0077
 PrivateTmp=true
 ProtectSystem=strict
-ProtectHome=read-only
 NoNewPrivileges=true
