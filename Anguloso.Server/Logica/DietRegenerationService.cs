@@ -190,28 +190,15 @@ public sealed class DietRegenerationService
         return response;
     }
 
-    private static HashSet<string> BuildForbiddenTerms(clients? client)
-    {
-        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        if (client?.food_preferences?.allergies is string allergies)
-            foreach (var x in Split(allergies)) result.Add(x);
-        if (client?.digestive_health?.gluten_intolerance == true) Add(result, "gluten", "trigo", "cebada", "centeno");
-        if (client?.digestive_health?.lactose_intolerance == true) Add(result, "lactosa", "leche", "nata", "suero");
-        if (client?.digestive_health?.fodmaps_intolerance == true) Add(result, "fodmap", "cebolla", "ajo");
-        return result;
-    }
+    private static HashSet<string> BuildForbiddenTerms(clients? client) =>
+        DietaryRestrictionRules.BuildForbiddenTerms(
+            client?.food_preferences?.allergies,
+            client?.digestive_health?.gluten_intolerance == true,
+            client?.digestive_health?.lactose_intolerance == true,
+            client?.digestive_health?.fodmaps_intolerance == true);
 
-    private static IEnumerable<string> Split(string value) =>
-        value.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries)
-            .Select(x => x.Trim().ToLowerInvariant()).Where(x => x.Length > 2);
-
-    private static void Add(HashSet<string> set, params string[] values) { foreach (var value in values) set.Add(value); }
-
-    private static bool IsAllowed(foods food, HashSet<string> forbidden)
-    {
-        var text = ((food.name ?? "") + " " + (food.category ?? "") + " " + string.Join(" ", food.dietary_flags ?? Array.Empty<string>())).ToLowerInvariant();
-        return !forbidden.Any(text.Contains);
-    }
+    private static bool IsAllowed(foods food, HashSet<string> forbidden) =>
+        DietaryRestrictionRules.IsFoodAllowed(food.name, food.category, food.dietary_flags, forbidden);
 
     private static bool IsCompatibleRole(foods food, meal_items source, string mealName)
     {
