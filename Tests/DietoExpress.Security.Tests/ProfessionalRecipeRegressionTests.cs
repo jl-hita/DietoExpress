@@ -16,5 +16,18 @@ public sealed class ProfessionalRecipeRegressionTests
         Assert.Contains("AllergenDataUnknown", validation);
         Assert.Contains("allergen_tags == null || !food.allergen_tags.Any()", validation);
     }
+    [Fact] public void DietEditorPreservesRecipeReferencesDuringValidationAndSave()
+    {
+        var model = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "modelos", "diet.ts"));
+        var editor = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "diet-create", "diet-create.component.ts"));
+        Assert.Contains("recipeId?: number", model);
+        Assert.Contains("recipeServings?: number", model);
+        Assert.Contains("recipeId: [item.recipeId ?? null]", editor);
+        Assert.Contains("recipeServings: [item.recipeServings ?? null]", editor);
+        Assert.Contains("recipeId: i.recipeId ?? null", editor);
+        Assert.Contains("recipeServings: i.recipeServings ?? null", editor);
+        Assert.Contains("recipeId: i.recipeId ?? undefined", editor);
+        Assert.Contains("recipeServings: i.recipeServings ?? undefined", editor);
+    }
     [Fact] public void DietMealItemsCarryRecipeProvenance(){var model=File.ReadAllText(Path.Combine(RepoRoot,"Anguloso.Server","Models","meal_items.cs"));var dto=File.ReadAllText(Path.Combine(RepoRoot,"Anguloso.Server","Model","DietDto.cs"));Assert.Contains("recipe_id",model);Assert.Contains("recipe_servings",model);Assert.Contains("RecipeId",dto);Assert.Contains("RecipeServings",dto);}
 }

@@ -206,7 +206,9 @@ export class DietCreateComponent implements OnInit {
     const isExchange = !!item.exchangeGroupId;
     return this.fb.group({
       foodId: [item.foodId ?? null],
-      foodName: [item.foodName || ''],
+      foodName: [item.foodName || item.recipeName || ''],
+      recipeId: [item.recipeId ?? null],
+      recipeServings: [item.recipeServings ?? null],
       grams: [item.grams ?? null, isExchange ? null : [Validators.required, Validators.min(1)]],
       // Base macros per 100g para poder recalcular:
       baseKcal: [item.baseKcal ?? (item.kcal && item.grams ? item.kcal / (item.grams / 100) : 0)],
@@ -544,6 +546,8 @@ export class DietCreateComponent implements OnInit {
           mealIndex: m.mealIndex,
           items: m.items.map((i: any) => ({
              foodId: i.foodId ?? undefined,
+             recipeId: i.recipeId ?? undefined,
+             recipeServings: i.recipeServings ?? undefined,
              grams: i.grams ?? undefined,
              kcal: i.kcal,
              protein: i.protein,
@@ -624,6 +628,8 @@ export class DietCreateComponent implements OnInit {
           mealIndex: m.mealIndex,
           items: m.items.map((i: any) => ({
              foodId: i.foodId ?? null,
+             recipeId: i.recipeId ?? null,
+             recipeServings: i.recipeServings ?? null,
              grams: i.grams ?? null,
              kcal: i.kcal,
              protein: i.protein,
