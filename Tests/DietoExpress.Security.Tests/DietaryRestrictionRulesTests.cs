@@ -86,6 +86,16 @@ public sealed class DietaryRestrictionRulesTests
     }
 
     [Fact]
+    public void HasUnknownAllergenData_DistinguishesUnknownFromDeclaredTags()
+    {
+        Assert.True(DietaryRestrictionRules.HasUnknownAllergenData("cacahuete", null));
+        Assert.True(DietaryRestrictionRules.HasUnknownAllergenData("frutos secos", Array.Empty<string>()));
+        Assert.False(DietaryRestrictionRules.HasUnknownAllergenData("soja", new[] { "en:soybeans" }));
+        Assert.False(DietaryRestrictionRules.HasUnknownAllergenData(null, null));
+        Assert.False(DietaryRestrictionRules.HasUnknownAllergenData(" ", null));
+    }
+
+    [Fact]
     public void BuildForbiddenTerms_AddsIntoleranceRules()
     {
         var terms = DietaryRestrictionRules.BuildForbiddenTerms(null, true, true, true);

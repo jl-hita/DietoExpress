@@ -162,22 +162,6 @@ public class DietValidationService
             : new HashSet<int>();
         var warnings = CheckFoodCompatibility(client, food, mealName, dayIndex, specializationExclusions, structuredExclusions);
 
-        // Si el paciente ha declarado alergias, la falta de datos estructurados no puede interpretarse como seguridad.
-        if (!string.IsNullOrWhiteSpace(client.food_preferences?.allergies) &&
-            (food.allergen_tags == null || !food.allergen_tags.Any()))
-        {
-            warnings.Add(new DietValidationResultDto
-            {
-                FoodId = food.id,
-                FoodName = food.name ?? string.Empty,
-                MealName = mealName,
-                DayIndex = dayIndex,
-                AlertType = "AllergenDataUnknown",
-                Severity = "High",
-                Message = "El alimento no tiene datos estructurados suficientes de alérgenos para verificar las alergias declaradas."
-            });
-        }
-
         return warnings;
     }
 
@@ -525,6 +509,21 @@ public class DietValidationService
                     }
                 }
             }
+        }
+
+        // La ausencia de etiquetas no confirma seguridad: advertir sin bloquear generación ni reequilibrado.
+        if (DietaryRestrictionRules.HasUnknownAllergenData(client.food_preferences?.allergies, food.allergen_tags))
+        {
+            list.Add(new DietValidationResultDto
+            {
+                FoodId = food.id,
+                FoodName = food.name ?? string.Empty,
+                MealName = mealName,
+                DayIndex = dayIndex,
+                AlertType = "AllergenDataUnknown",
+                Severity = "Medium",
+                Message = "No hay datos estructurados suficientes de alérgenos para verificar las alergias declaradas; comprueba la etiqueta del producto."
+            });
         }
 
         return list;
