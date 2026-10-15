@@ -32,7 +32,12 @@ pg_restore --list "$path" >/dev/null
 [[ -x "$BACKUP_SCRIPT" ]] || { echo "ERROR: no existe el script de backup ejecutable: $BACKUP_SCRIPT" >&2; exit 1; }
 # El helper es root:root; puede no ser ejecutable directamente por joso.
 [[ -f "$RESTORE_HELPER" ]] || { echo "ERROR: falta el helper privilegiado $RESTORE_HELPER. Ejecuta el provisioning como root." >&2; exit 1; }
+VERIFY_SCRIPT="${DIETOEXPRESS_RESTORE_VERIFY_SCRIPT:-/opt/dietoexpress/scripts/dietoexpress-restore.sh}"
+[[ -f "$VERIFY_SCRIPT" ]] || { echo "ERROR: falta el script de verificación $VERIFY_SCRIPT." >&2; exit 1; }
 command -v sudo >/dev/null 2>&1 || { echo "ERROR: sudo no está disponible." >&2; exit 1; }
+
+# Validar ambas partes del snapshot antes de crear la copia previa o tocar datos.
+bash "$VERIFY_SCRIPT" --verify "$file"
 
 # La copia previa se crea por el mismo helper privilegiado que usan el timer y
 # el backup manual: pg_dump como postgres, más checksum y metadatos.
