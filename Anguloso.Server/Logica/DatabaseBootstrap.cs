@@ -2614,8 +2614,15 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                 BEFORE INSERT OR UPDATE OF name, category ON foods
                 FOR EACH ROW EXECUTE FUNCTION classify_food_dietary_flags();
 
-            -- Recalcular las banderas existentes haciendo que el trigger ejecute la misma clasificación
-            -- que se aplicará automáticamente a los nuevos alimentos y a los cambios de nombre/categoría.
+            -- Recalcular una sola vez todas las filas para aplicar la nueva cobertura de alérgenos
+            -- sin repetir una actualización completa en cada arranque.
+            DO $
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'allergen-classification-v2') THEN
+                    UPDATE foods SET name = name;
+                    INSERT INTO schema_migrations(id) VALUES ('allergen-classification-v2') ON CONFLICT (id) DO NOTHING;
+                END IF;
+            END $;
             UPDATE foods SET name = name WHERE dietary_flags = ARRAY[]::TEXT[];
         ");
 
