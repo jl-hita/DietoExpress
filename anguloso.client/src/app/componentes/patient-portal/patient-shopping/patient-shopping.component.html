@@ -75,10 +75,10 @@
         </div>
         <div class="item-copy" *ngIf="item.requiresAllergenCheck !== false">
           <span class="item-name">{{ item.foodName }}</span>
-          <small class="item-allergen-note" *ngIf="item.allergenTags?.length">
+          <small class="item-allergen-note" *ngIf="item.allergenTags.length">
             Alérgenos declarados por la fuente: {{ item.allergenTags.join(', ') }}. Comprueba siempre la etiqueta del envase.
           </small>
-          <small class="item-allergen-note" *ngIf="item.allergenDataAvailable && !item.allergenTags?.length">
+          <small class="item-allergen-note" *ngIf="item.allergenDataAvailable && !item.allergenTags.length">
             La fuente no declara alérgenos; comprueba siempre la etiqueta del envase.
           </small>
           <small class="item-allergen-unknown" *ngIf="!item.allergenDataAvailable">
