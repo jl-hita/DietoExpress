@@ -40,7 +40,7 @@ public sealed class DatabaseBackupService
             // sin archivo documental asociado siguen en disco, pero no son coherentes
             // con la restauración coordinada y no deben presentarse como restaurables.
             .Where(HasDocumentSnapshot)
-            .Select(path => new DatabaseBackupInfo(Path.GetFileName(path), new FileInfo(path).Length, File.GetCreationTimeUtc(path)))
+            .Select(path => new DatabaseBackupInfo(Path.GetFileName(path), GetLogicalSnapshotSize(path), File.GetCreationTimeUtc(path)))
             .OrderByDescending(x => x.CreatedAtUtc)
             .ToList();
     }
@@ -185,6 +185,20 @@ public sealed class DatabaseBackupService
             try { File.Delete(temporaryBundle); } catch { /* best-effort cleanup */ }
             throw;
         }
+    }
+
+    private long GetLogicalSnapshotSize(string dumpPath)
+    {
+        var size = new FileInfo(dumpPath).Length;
+        var metadataPath = Path.ChangeExtension(dumpPath, ".txt");
+        if (!File.Exists(metadataPath)) return size;
+
+        const string prefix = "documents_size_bytes=";
+        var value = File.ReadLines(metadataPath)
+            .FirstOrDefault(line => line.StartsWith(prefix, StringComparison.Ordinal));
+        return value is not null && long.TryParse(value[prefix.Length..], out var documentsSize)
+            ? size + documentsSize
+            : size;
     }
 
     private bool HasDocumentSnapshot(string dumpPath)
