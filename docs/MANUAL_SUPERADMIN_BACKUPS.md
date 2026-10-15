@@ -28,6 +28,8 @@ El provisioning instala helpers root-owned en /usr/local/sbin, unidades systemd 
 
 El timer se ejecuta como joso. El script de backup invoca mediante sudo -n el helper dietoexpress-pg-backup con --backup para copias normales y --backup-pre-restore para el snapshot automático previo a una restauración; el helper ejecuta pg_dump como usuario PostgreSQL postgres. El helper publica dump PostgreSQL, archivo comprimido de documentos, checksums SHA-256 y metadatos como root:joso con permisos 0640, para que la aplicación pueda listarlos y descargarlos sin poder modificarlos ni dar acceso al usuario postgres al almacenamiento permanente. Todos los componentes comparten timestamp; la retención elimina el dump y su archivo de documentos como una unidad.
 
+Los backups históricos que solo contienen PostgreSQL no se muestran como restaurables en SuperAdmin, porque no permiten recuperar los documentos en el mismo estado. Se conservan en disco hasta que se decida una política de retirada, pero no deben usarse para una restauración coordinada.
+
 Comprobaciones:
 
 ~~~bash
