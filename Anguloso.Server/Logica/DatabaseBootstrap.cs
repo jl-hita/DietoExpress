@@ -2547,8 +2547,14 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                 IF text_to_classify ~* '(^|[^[:alnum:]])(carne|cerdo|jam[oó]n|embutido|salchicha|chorizo|pollo|pavo|ternera|vacuno|cordero|cabrito|conejo|buey|hamburguesa|bacon|tocino|salami|mortadela)($|[^[:alnum:]])' THEN
                     flags := array_append(flags, 'meat');
                 END IF;
-                IF text_to_classify ~* '(^|[^[:alnum:]])(pescado|at[uú]n|salm[oó]n|merluza|bacalao|sardina|caballa|dorada|lubina|trucha|anchoa|marisco|gamba|camar[oó]n|mejill[oó]n|almeja|calamar|pulpo|sepia)($|[^[:alnum:]])' THEN
+                IF text_to_classify ~* '(^|[^[:alnum:]])(pescado|at[uú]n|salm[oó]n|merluza|bacalao|sardina|caballa|dorada|lubina|trucha|anchoa|bonito|pez espada|rape|rodaballo)($|[^[:alnum:]])' THEN
                     flags := array_append(flags, 'fish');
+                END IF;
+                IF text_to_classify ~* '(^|[^[:alnum:]])(crust[aá]ceos?|gamba|gambas|camar[oó]n|langostino|langostinos|cangrejo|bogavante|langosta|cigala|percebe|krill|marisco)($|[^[:alnum:]])' THEN
+                    flags := array_append(flags, 'crustaceans');
+                END IF;
+                IF text_to_classify ~* '(^|[^[:alnum:]])(moluscos?|mejill[oó]n|almeja|calamar|pulpo|sepia|ostra|vieira|berberecho|navaja|caracol|b[ií]garo|marisco)($|[^[:alnum:]])' THEN
+                    flags := array_append(flags, 'molluscs');
                 END IF;
                 IF text_to_classify ~* '(^|[^[:alnum:]])(huevo|huevos|clara|yema|ovoproducto|mayonesa)($|[^[:alnum:]])' THEN
                     flags := array_append(flags, 'egg');
@@ -2577,10 +2583,28 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                 IF text_to_classify ~* '(^|[^[:alnum:]])(soja|soya|soy|tofu|tempeh|edamame)($|[^[:alnum:]])' THEN
                     flags := array_append(flags, 'soy');
                 END IF;
+                IF text_to_classify ~* '(^|[^[:alnum:]])(s[eé]samo|ajonjol[ií]|tahini|tah[ií]n)($|[^[:alnum:]])' THEN
+                    flags := array_append(flags, 'sesame');
+                END IF;
+                IF text_to_classify ~* '(^|[^[:alnum:]])(mostaza|mustard)($|[^[:alnum:]])' THEN
+                    flags := array_append(flags, 'mustard');
+                END IF;
+                IF text_to_classify ~* '(^|[^[:alnum:]])(apio|celery)($|[^[:alnum:]])' THEN
+                    flags := array_append(flags, 'celery');
+                END IF;
+                IF text_to_classify ~* '(^|[^[:alnum:]])(altramuz|altramuces|lupino|lupinos|lupin)($|[^[:alnum:]])' THEN
+                    flags := array_append(flags, 'lupin');
+                END IF;
+                IF text_to_classify ~* '(^|[^[:alnum:]])(sulfito|sulfitos|sulfites|sulphites|di[oó]xido de azufre|e22[0-8])($|[^[:alnum:]])' THEN
+                    flags := array_append(flags, 'sulfites');
+                END IF;
 
                 -- Solo las señales inequívocamente animales convierten el alimento en 'animal'.
                 -- Las flags de gluten, lactosa y alérgenos vegetales no deben hacerlo.
                 IF flags && ARRAY['meat','fish','egg','dairy','honey','gelatin']::TEXT[] THEN
+                    flags := array_append(flags, 'animal');
+                END IF;
+                IF flags && ARRAY['crustaceans','molluscs']::TEXT[] THEN
                     flags := array_append(flags, 'animal');
                 END IF;
                 NEW.dietary_flags := flags;
@@ -2593,8 +2617,15 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                 BEFORE INSERT OR UPDATE OF name, category ON foods
                 FOR EACH ROW EXECUTE FUNCTION classify_food_dietary_flags();
 
-            -- Recalcular las banderas existentes haciendo que el trigger ejecute la misma clasificación
-            -- que se aplicará automáticamente a los nuevos alimentos y a los cambios de nombre/categoría.
+            -- Recalcular una sola vez todas las filas para aplicar la nueva cobertura de alérgenos
+            -- sin repetir una actualización completa en cada arranque.
+            DO $allergen_migration$
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'allergen-classification-v2') THEN
+                    UPDATE foods SET name = name;
+                    INSERT INTO schema_migrations(id) VALUES ('allergen-classification-v2') ON CONFLICT (id) DO NOTHING;
+                END IF;
+            END $allergen_migration$;
             UPDATE foods SET name = name WHERE dietary_flags = ARRAY[]::TEXT[];
         ");
 

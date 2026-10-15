@@ -5,9 +5,6 @@ export interface ShoppingListItem {
   totalGrams: number;
   roundedGrams: number;
   commercialDescription: string;
-  allergenTags: string[];
-  allergenDataAvailable: boolean;
-  requiresAllergenCheck?: boolean;
 }
 
 export interface ShoppingListCategory {
