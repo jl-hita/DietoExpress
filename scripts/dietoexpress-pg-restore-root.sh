@@ -18,6 +18,7 @@ ENV_FILE=/etc/dietoexpress/dietoexpress.env
 source "$ENV_FILE"
 BACKUP_DIR="${DIETOEXPRESS_BACKUP_DIR:-}"
 DATABASE_NAME="${DIETOEXPRESS_DATABASE:-}"
+DOCUMENTS_DIR="${DIETOEXPRESS_DOCUMENTS_PATH:-/var/lib/dietoexpress/documents}"
 BACKUP_GROUP="${DIETOEXPRESS_BACKUP_GROUP:-joso}"
 getent group "$BACKUP_GROUP" >/dev/null 2>&1 || { echo "ERROR: no existe el grupo de backups $BACKUP_GROUP." >&2; exit 1; }
 BACKUP_GID="$(getent group "$BACKUP_GROUP" | cut -d: -f3)"
@@ -25,6 +26,8 @@ BACKUP_GID="$(getent group "$BACKUP_GROUP" | cut -d: -f3)"
 [[ -n "$BACKUP_DIR" && "$BACKUP_DIR" == /* && "$BACKUP_DIR" != "/" ]] || { echo "ERROR: DIETOEXPRESS_BACKUP_DIR debe ser una ruta absoluta válida." >&2; exit 1; }
 [[ "$(realpath -m -- "$BACKUP_DIR")" == "$BACKUP_DIR" ]] || { echo "ERROR: DIETOEXPRESS_BACKUP_DIR debe estar normalizado y no usar enlaces simbólicos." >&2; exit 1; }
 [[ -n "$DATABASE_NAME" ]] || { echo "ERROR: DIETOEXPRESS_DATABASE debe estar configurado para la restauración privilegiada." >&2; exit 1; }
+[[ "$DOCUMENTS_DIR" == /* && "$DOCUMENTS_DIR" != "/" && "$(realpath -m -- "$DOCUMENTS_DIR")" == "$DOCUMENTS_DIR" ]] || { echo "ERROR: DIETOEXPRESS_DOCUMENTS_PATH debe ser una ruta absoluta normalizada." >&2; exit 1; }
+[[ -d "$DOCUMENTS_DIR" && ! -L "$DOCUMENTS_DIR" ]] || { echo "ERROR: el directorio de documentos no existe o es un enlace simbólico: $DOCUMENTS_DIR" >&2; exit 1; }
 [[ -d "$BACKUP_DIR" && ! -L "$BACKUP_DIR" ]] || { echo "ERROR: el almacén root-owned de backups no existe." >&2; exit 1; }
 
 candidate="$BACKUP_DIR"
@@ -61,6 +64,34 @@ actual="$(sha256sum "$source_file" | awk '{print $1}')"
 [[ "$actual" == "$expected" ]] || { echo "ERROR: el checksum de $source_file no coincide." >&2; exit 1; }
 /usr/bin/pg_restore --list "$source_file" >/dev/null
 
+# Cada dump debe tener su snapshot documental completo y su manifiesto de inventario.
+stem="${file%.dump}"
+timestamp_part="${stem#dietoexpress-postgresql-}"
+documents_file="dietoexpress-documents-$timestamp_part"
+documents_source="$BACKUP_DIR/$documents_file"
+documents_manifest="$documents_source.sha256"
+[[ -d "$documents_source" && ! -L "$documents_source" ]] || { echo "ERROR: falta el snapshot documental asociado ($documents_file); no se inicia una restauración parcial." >&2; exit 1; }
+[[ "$(stat -c '%u:%g:%a' "$documents_source")" == "0:$BACKUP_GID:750" ]] || { echo "ERROR: el snapshot documental debe ser root-owned, grupo $BACKUP_GROUP y modo 0750." >&2; exit 1; }
+[[ -f "$documents_manifest" && ! -L "$documents_manifest" ]] || { echo "ERROR: falta el manifiesto de documentos $documents_manifest." >&2; exit 1; }
+[[ "$(stat -c '%u:%g:%a' "$documents_manifest")" == "0:$BACKUP_GID:640" ]] || { echo "ERROR: el manifiesto documental debe ser root-owned, grupo $BACKUP_GROUP y modo 0640." >&2; exit 1; }
+if find "$documents_source" -type l -print -quit | grep -q .; then
+  echo "ERROR: el snapshot documental contiene enlaces simbólicos." >&2
+  exit 1
+fi
+if find "$documents_source" ! -type d ! -type f -print -quit | grep -q .; then
+  echo "ERROR: el snapshot documental contiene archivos especiales no permitidos." >&2
+  exit 1
+fi
+if find "$documents_source" -type f ! -user root -print -quit | grep -q . ||
+   find "$documents_source" -type f ! -group "$BACKUP_GROUP" -print -quit | grep -q . ||
+   find "$documents_source" -type f ! -perm 0640 -print -quit | grep -q . ||
+   find "$documents_source" -type d ! -user root -print -quit | grep -q . ||
+   find "$documents_source" -type d ! -group "$BACKUP_GROUP" -print -quit | grep -q . ||
+   find "$documents_source" -type d ! -perm 0750 -print -quit | grep -q .; then
+  echo "ERROR: el snapshot documental tiene propietarios o permisos inesperados." >&2
+  exit 1
+fi
+(cd "$documents_source" && sha256sum -c "$documents_manifest")
 install -d -o root -g root -m 0755 /run/lock
 exec 9>/run/lock/dietoexpress-postgresql.lock
 flock 9
@@ -71,9 +102,51 @@ tmp_dir="$(mktemp -d /tmp/dietoexpress-restore.XXXXXX)"
 chown root:postgres "$tmp_dir"
 chmod 0750 "$tmp_dir"
 tmp_file="$tmp_dir/$file"
-cleanup() { rm -f -- "$tmp_file"; rm -rf -- "$tmp_dir"; }
+documents_parent="$(dirname "$DOCUMENTS_DIR")"
+documents_staging="$(mktemp -d "$documents_parent/.dietoexpress-documents-restore.XXXXXX")"
+documents_previous="$documents_parent/.dietoexpress-documents-previous-$$"
+documents_swapped=false
+restore_succeeded=false
+cleanup() {
+  local rc=$?
+  rm -f -- "$tmp_file"
+  rm -rf -- "$tmp_dir"
+  [[ ! -d "$documents_staging" ]] || rm -rf -- "$documents_staging"
+  if [[ -d "$documents_previous" ]]; then
+    if [[ "$restore_succeeded" == true ]]; then
+      rm -rf -- "$documents_previous"
+    else
+      # Reponer inmediatamente los documentos previos si falla pg_restore;
+      # el wrapper restaurará también el snapshot previo de PostgreSQL.
+      runuser -u joso -- rm -rf -- "$DOCUMENTS_DIR" || true
+      runuser -u joso -- mv -- "$documents_previous" "$DOCUMENTS_DIR" || {
+        echo "CRITICAL: no se pudieron recuperar los documentos previos desde $documents_previous." >&2
+        rc=20
+      }
+    fi
+  fi
+  return "$rc"
+}
 trap cleanup EXIT
 install -o postgres -g postgres -m 0600 "$source_file" "$tmp_file"
+# Copiar el snapshot inmutable al staging escribible por joso. No extraemos
+# archivos de un archivo comprimido ni modificamos los inodos hardlinkados.
+chown joso:joso "$documents_staging"
+chmod 0700 "$documents_staging"
+runuser -u joso -- /usr/bin/rsync --archive --checksum --delete "$documents_source/" "$documents_staging/"
+runuser -u joso -- chmod -R u+rwX,go-rwx "$documents_staging"
+[[ ! -e "$documents_previous" && ! -L "$documents_previous" ]] || { echo "ERROR: ya existe una ruta temporal de restauración documental." >&2; exit 1; }
+if ! runuser -u joso -- mv -- "$DOCUMENTS_DIR" "$documents_previous"; then
+  echo "ERROR: no se pudo apartar el árbol documental actual como joso." >&2
+  exit 1
+fi
+if ! runuser -u joso -- mv -- "$documents_staging" "$DOCUMENTS_DIR"; then
+  runuser -u joso -- mv -- "$documents_previous" "$DOCUMENTS_DIR" || true
+  echo "ERROR: no se pudo activar el árbol de documentos restaurado." >&2
+  exit 1
+fi
+documents_swapped=true
+echo "Archivos de documentos restaurados desde $documents_file."
 
 echo "Ejecutando pg_restore como usuario PostgreSQL postgres..."
 # Sin --no-owner: el archive conserva los owners originales de tablas/extensiones.
@@ -85,4 +158,5 @@ runuser -u postgres -- /usr/bin/pg_restore \
   --dbname="$DATABASE_NAME" \
   "$tmp_file"
 
+restore_succeeded=true
 echo "pg_restore privilegiado completado correctamente."

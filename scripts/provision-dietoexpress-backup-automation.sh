@@ -4,6 +4,7 @@ set -euo pipefail
 # Ejecutado como root, de forma idempotente. Los despliegues de GitHub Actions
 # no ejecutan como root código que reside en /opt/dietoexpress.
 [[ "$(id -u)" -eq 0 ]] || { echo "ERROR: este provisioning debe ejecutarse como root." >&2; exit 1; }
+command -v rsync >/dev/null 2>&1 || { echo "ERROR: rsync es obligatorio para snapshots documentales incrementales; instálalo antes del provisioning." >&2; exit 1; }
 
 APP_DIR="${DIETOEXPRESS_APP_DIR:-/opt/dietoexpress}"
 SYSTEMD_DIR=/etc/systemd/system

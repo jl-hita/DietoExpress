@@ -40,7 +40,24 @@ manifest="${path%.dump}.sha256"
 [[ -f "$manifest" && ! -L "$manifest" ]] || { echo "ERROR: falta el checksum $manifest" >&2; exit 1; }
 (cd "$BACKUP_DIR" && sha256sum -c "$(basename "$manifest")")
 pg_restore --list "$path" >/dev/null
-echo "Backup verificado: $path"
+
+stem="${file%.dump}"
+timestamp_part="${stem#dietoexpress-postgresql-}"
+documents_file="dietoexpress-documents-$timestamp_part"
+documents_path="$BACKUP_DIR/$documents_file"
+documents_manifest="$documents_path.sha256"
+[[ -d "$documents_path" && ! -L "$documents_path" ]] || { echo "ERROR: falta el snapshot documental asociado ($documents_file); no se permite una restauración parcial." >&2; exit 1; }
+[[ -f "$documents_manifest" && ! -L "$documents_manifest" ]] || { echo "ERROR: falta el manifiesto de documentos $documents_manifest." >&2; exit 1; }
+if find "$documents_path" -type l -print -quit | grep -q .; then
+  echo "ERROR: el snapshot documental contiene enlaces simbólicos." >&2
+  exit 1
+fi
+if find "$documents_path" ! -type d ! -type f -print -quit | grep -q .; then
+  echo "ERROR: el snapshot documental contiene archivos especiales no permitidos." >&2
+  exit 1
+fi
+(cd "$documents_path" && sha256sum -c "$documents_manifest")
+echo "Backup PostgreSQL y snapshot documental verificados: $path"
 
 if [[ "$mode" == verify ]]; then
   echo "Preflight correcto. No se ha modificado la base de datos."

@@ -1,5 +1,5 @@
 [Unit]
-Description=Backup semanal de PostgreSQL de DietoExpress
+Description=Backup diario de PostgreSQL y documentos de DietoExpress
 After=postgresql.service
 Wants=postgresql.service
 

@@ -68,8 +68,8 @@ public sealed class AdminDatabaseBackupController : ControllerBase
     {
         try
         {
-            var file = _backups.GetDump(fileName);
-            return PhysicalFile(file.Path, file.ContentType, file.FileName, enableRangeProcessing: true);
+            var file = _backups.GetBundle(fileName);
+            return File(file.Content, file.ContentType, file.FileName, enableRangeProcessing: true);
         }
         catch (FileNotFoundException) { return NotFound(); }
         catch (ArgumentException) { return BadRequest(); }
