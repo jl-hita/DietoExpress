@@ -400,19 +400,31 @@ public sealed class AutomationController : ControllerBase
         await connection.OpenAsync();
         // Todas las lecturas se filtran por tenant en SQL, no después de materializar resultados, para que una
         // futura modificación del DTO no pueda convertir accidentalmente la consulta en una fuga cross-tenant.
-        await using var command = new NpgsqlCommand("""
-            SELECT id, event_id, action_type, scheduled_at, status, attempts, max_attempts,
-                   last_error, created_at, updated_at, completed_at
-            FROM automation_jobs
-            WHERE tenant_id=@tenant
-              AND (@status IS NULL OR status=@status)
-            ORDER BY scheduled_at DESC, id DESC
-            LIMIT @limit;
-            """, connection);
+        var normalizedStatus = string.IsNullOrWhiteSpace(status) ? null : status.Trim().ToLowerInvariant();
+        // Evita el patrón "(@status IS NULL OR ...)" con parámetros nulos y mantiene un SQL sencillo
+        // tanto para la consulta general como para los filtros por estado.
+        var sql = normalizedStatus is null
+            ? """
+                SELECT id, event_id, action_type, scheduled_at, status, attempts, max_attempts,
+                       last_error, created_at, updated_at, completed_at
+                FROM automation_jobs
+                WHERE tenant_id=@tenant
+                ORDER BY scheduled_at DESC, id DESC
+                LIMIT @limit;
+                """
+            : """
+                SELECT id, event_id, action_type, scheduled_at, status, attempts, max_attempts,
+                       last_error, created_at, updated_at, completed_at
+                FROM automation_jobs
+                WHERE tenant_id=@tenant AND status=@status
+                ORDER BY scheduled_at DESC, id DESC
+                LIMIT @limit;
+                """;
+        await using var command = new NpgsqlCommand(sql, connection);
         command.Parameters.AddWithValue("tenant", _tenantContext.TenantId.Value);
-        // El estado se normaliza antes de consultar, pero no se concatena en SQL: sigue siendo un parámetro y no puede alterar la consulta.
-        command.Parameters.AddWithValue("status", (object?)status?.Trim().ToLowerInvariant() ?? DBNull.Value);
         command.Parameters.AddWithValue("limit", limit);
+        if (normalizedStatus is not null)
+            command.Parameters.AddWithValue("status", normalizedStatus);
 
         var rows = new List<object>();
         await using var reader = await command.ExecuteReaderAsync();

@@ -1001,6 +1001,22 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 completed_at TIMESTAMPTZ
             );
+            -- Reconciliar instalaciones anteriores donde la tabla ya existía con un esquema parcial.
+            -- CREATE TABLE IF NOT EXISTS no añade columnas a una tabla existente.
+            ALTER TABLE automation_jobs
+                ADD COLUMN IF NOT EXISTS event_id BIGINT REFERENCES automation_events(id) ON DELETE SET NULL,
+                ADD COLUMN IF NOT EXISTS action_type VARCHAR(120) NOT NULL DEFAULT 'unknown',
+                ADD COLUMN IF NOT EXISTS payload JSONB NOT NULL DEFAULT jsonb_build_object(),
+                ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0,
+                ADD COLUMN IF NOT EXISTS max_attempts INTEGER NOT NULL DEFAULT 5,
+                ADD COLUMN IF NOT EXISTS locked_at TIMESTAMPTZ,
+                ADD COLUMN IF NOT EXISTS last_error VARCHAR(4000),
+                ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(255),
+                ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
             CREATE TABLE IF NOT EXISTS automation_executions (
                 id BIGSERIAL PRIMARY KEY,
                 job_id BIGINT NOT NULL REFERENCES automation_jobs(id) ON DELETE CASCADE,
