@@ -21,15 +21,15 @@
     </div>
     <div class="calendar-status" *ngIf="googleCalendar?.connected; else calendarDisconnected">
       <div>
-        <strong *ngIf="!googleCalendar?.reauthorizationRequired">Conectado</strong>
-        <strong *ngIf="googleCalendar?.reauthorizationRequired">Hay que volver a autorizar Google Calendar</strong>
-        <span *ngIf="googleCalendar?.email">{{ googleCalendar?.email }}</span>
-        <span *ngIf="googleCalendar?.reauthorizationRequired">Google ha rechazado el token guardado. Vuelve a conectar la cuenta para reanudar la sincronización; tus citas y eventos guardados se conservan.</span>
-        <small *ngIf="!googleCalendar?.reauthorizationRequired && googleCalendar?.lastSyncedAt">Última sincronización: {{ formatDate(googleCalendar!.lastSyncedAt!) }} {{ formatTime(googleCalendar!.lastSyncedAt!) }}</small>
+        <strong *ngIf="!googleCalendar.reauthorizationRequired">Conectado</strong>
+        <strong *ngIf="googleCalendar.reauthorizationRequired">Hay que volver a autorizar Google Calendar</strong>
+        <span *ngIf="googleCalendar.email">{{ googleCalendar.email }}</span>
+        <span *ngIf="googleCalendar.reauthorizationRequired">Google ha rechazado el token guardado. Vuelve a conectar la cuenta para reanudar la sincronización; tus citas y eventos guardados se conservan.</span>
+        <small *ngIf="!googleCalendar.reauthorizationRequired && googleCalendar.lastSyncedAt">Última sincronización: {{ formatDate(googleCalendar!.lastSyncedAt!) }} {{ formatTime(googleCalendar!.lastSyncedAt!) }}</small>
       </div>
       <div class="actions">
-        <button *ngIf="googleCalendar?.reauthorizationRequired" type="button" class="primary small" (click)="connectGoogleCalendar()"><mat-icon>event</mat-icon> Volver a conectar</button>
-        <button *ngIf="!googleCalendar?.reauthorizationRequired" type="button" class="primary small" (click)="syncGoogleCalendar()" [disabled]="calendarBusy"><mat-icon>sync</mat-icon> Sincronizar</button>
+        <button *ngIf="googleCalendar.reauthorizationRequired" type="button" class="primary small" (click)="connectGoogleCalendar()"><mat-icon>event</mat-icon> Volver a conectar</button>
+        <button *ngIf="!googleCalendar.reauthorizationRequired" type="button" class="primary small" (click)="syncGoogleCalendar()" [disabled]="calendarBusy"><mat-icon>sync</mat-icon> Sincronizar</button>
         <button type="button" class="secondary small" (click)="disconnectGoogleCalendar()" [disabled]="calendarBusy">Desconectar</button>
       </div>
     </div>
