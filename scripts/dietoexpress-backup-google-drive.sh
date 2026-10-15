@@ -102,14 +102,25 @@ for dump_path in "${dumps[@]}"; do
   fi
   (cd "$tmp_dir" && sha256sum "$bundle_name" > "$bundle_name.sha256")
 
+  # Evitar una barra inicial cuando el remote apunta a su raíz (gdrive-crypt:).
+  if [[ "$DRIVE_REMOTE" == *: ]]; then
+    remote_bundle="${DRIVE_REMOTE}${bundle_name}"
+  else
+    remote_bundle="${DRIVE_REMOTE}/${bundle_name}"
+  fi
   # El destino debe ser el remote crypt, no el remote de Drive sin cifrar.
-  if ! "$RCLONE_BIN" copyto "$bundle_path" "$DRIVE_REMOTE/$bundle_name" \
+  if ! "$RCLONE_BIN" copyto "$bundle_path" "$remote_bundle" \
        --retries 3 --low-level-retries 10 --transfers 1 --checkers 4; then
     echo "ERROR: no se pudo subir $bundle_name a $DRIVE_REMOTE." >&2
     ((failed+=1))
     continue
   fi
-  if ! "$RCLONE_BIN" copyto "$bundle_checksum" "$DRIVE_REMOTE/$bundle_name.sha256" \
+  if [[ "$DRIVE_REMOTE" == *: ]]; then
+    remote_checksum="${DRIVE_REMOTE}${bundle_name}.sha256"
+  else
+    remote_checksum="${DRIVE_REMOTE}/${bundle_name}.sha256"
+  fi
+  if ! "$RCLONE_BIN" copyto "$bundle_checksum" "$remote_checksum" \
        --retries 3 --low-level-retries 10 --transfers 1 --checkers 4; then
     echo "ERROR: se subió $bundle_name, pero falló su checksum remoto." >&2
     ((failed+=1))
