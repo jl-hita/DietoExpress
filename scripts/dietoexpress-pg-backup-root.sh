@@ -36,6 +36,7 @@ if find "$DOCUMENTS_DIR" -type l -print -quit | grep -q .; then
 fi
 [[ "$DB_PORT" =~ ^[0-9]+$ ]] && (( DB_PORT >= 1 && DB_PORT <= 65535 )) || { echo "ERROR: DIETOEXPRESS_DB_PORT no es válido." >&2; exit 1; }
 getent group "$BACKUP_GROUP" >/dev/null 2>&1 || { echo "ERROR: no existe el grupo de backups $BACKUP_GROUP." >&2; exit 1; }
+BACKUP_GID="$(getent group "$BACKUP_GROUP" | cut -d: -f3)"
 
 # Ningún ancestro del directorio de copias puede ser modificable por joso.
 # En concreto, /var/lib/dietoexpress es escribible por el servicio y no debe
@@ -147,7 +148,8 @@ previous_snapshot=""
 while IFS= read -r candidate_snapshot; do
   candidate_manifest="$candidate_snapshot.sha256"
   if [[ -f "$candidate_manifest" && ! -L "$candidate_manifest" ]] &&
-     [[ "$(stat -c '%u:%g:%a' "$candidate_snapshot")" == "0:$BACKUP_GID:750" ]]; then
+     [[ "$(stat -c '%u:%g:%a' "$candidate_snapshot")" == "0:$BACKUP_GID:750" ]] &&
+     (cd "$candidate_snapshot" && sha256sum -c "$candidate_manifest" >/dev/null 2>&1); then
     previous_snapshot="$candidate_snapshot"
     break
   fi
