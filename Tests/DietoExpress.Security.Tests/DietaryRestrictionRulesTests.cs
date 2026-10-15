@@ -64,6 +64,27 @@ public sealed class DietaryRestrictionRulesTests
         Assert.False(DietaryRestrictionRules.IsFoodAllowed("Producto procesado", "Otros", new[] { foodFlag }, terms));
     }
 
+    [Theory]
+    [InlineData("cacahuete", "en:peanuts")]
+    [InlineData("frutos secos", "en:nuts")]
+    [InlineData("leche", "en:milk")]
+    [InlineData("huevo", "en:eggs")]
+    [InlineData("soja", "en:soybeans")]
+    [InlineData("gluten", "en:gluten")]
+    [InlineData("pescado", "en:fish")]
+    [InlineData("crustáceos", "en:crustaceans")]
+    [InlineData("moluscos", "en:molluscs")]
+    [InlineData("sésamo", "en:sesame")]
+    [InlineData("mostaza", "en:mustard")]
+    [InlineData("apio", "en:celery")]
+    [InlineData("altramuces", "en:lupin")]
+    [InlineData("sulfitos", "en:sulphites")]
+    public void IsFoodAllowed_RejectsOpenFoodFactsAllergenTags(string declaredAllergy, string allergenTag)
+    {
+        var terms = DietaryRestrictionRules.BuildForbiddenTerms(declaredAllergy, false, false, false);
+        Assert.False(DietaryRestrictionRules.IsFoodAllowed("Producto genérico", "Otros", new[] { allergenTag }, terms));
+    }
+
     [Fact]
     public void BuildForbiddenTerms_AddsIntoleranceRules()
     {
