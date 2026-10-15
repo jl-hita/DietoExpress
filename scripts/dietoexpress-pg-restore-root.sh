@@ -64,32 +64,34 @@ actual="$(sha256sum "$source_file" | awk '{print $1}')"
 [[ "$actual" == "$expected" ]] || { echo "ERROR: el checksum de $source_file no coincide." >&2; exit 1; }
 /usr/bin/pg_restore --list "$source_file" >/dev/null
 
-# Cada dump debe tener su archivo de documentos con el mismo timestamp. No se
-# permite restaurar solo PostgreSQL si falta la parte documental de la copia.
+# Cada dump debe tener su snapshot documental completo y su manifiesto de inventario.
 stem="${file%.dump}"
 timestamp_part="${stem#dietoexpress-postgresql-}"
-documents_file="dietoexpress-documents-$timestamp_part.tar.gz"
+documents_file="dietoexpress-documents-$timestamp_part"
 documents_source="$BACKUP_DIR/$documents_file"
 documents_manifest="$documents_source.sha256"
-[[ -f "$documents_source" && ! -L "$documents_source" ]] || { echo "ERROR: falta el archivo de documentos asociado ($documents_file); no se inicia una restauración parcial." >&2; exit 1; }
-[[ -f "$documents_manifest" && ! -L "$documents_manifest" ]] || { echo "ERROR: falta el checksum de documentos $documents_manifest." >&2; exit 1; }
-[[ "$(stat -c '%u:%g:%a' "$documents_source")" == "0:$BACKUP_GID:640" ]] || { echo "ERROR: el archivo de documentos debe ser root-owned, grupo $BACKUP_GROUP y modo 0640." >&2; exit 1; }
-[[ "$(stat -c '%u:%g:%a' "$documents_manifest")" == "0:$BACKUP_GID:640" ]] || { echo "ERROR: el checksum de documentos debe ser root-owned, grupo $BACKUP_GROUP y modo 0640." >&2; exit 1; }
-read -r documents_expected documents_stored < "$documents_manifest" || { echo "ERROR: checksum de documentos vacío o inválido." >&2; exit 1; }
-[[ "$documents_expected" =~ ^[[:xdigit:]]{64}$ && "$documents_stored" == "$documents_file" ]] || { echo "ERROR: manifiesto de documentos inválido." >&2; exit 1; }
-documents_actual="$(sha256sum "$documents_source" | awk '{print $1}')"
-[[ "$documents_actual" == "$documents_expected" ]] || { echo "ERROR: el checksum de documentos no coincide." >&2; exit 1; }
-/usr/bin/tar --list --gzip --file="$documents_source" >/dev/null
-if /usr/bin/tar --list --verbose --gzip --file="$documents_source" | awk 'substr($0, 1, 1) == "l" || substr($0, 1, 1) == "h" { bad = 1 } END { exit bad }'; then :; else
-  echo "ERROR: el archivo de documentos contiene enlaces simbólicos o duros no permitidos." >&2
+[[ -d "$documents_source" && ! -L "$documents_source" ]] || { echo "ERROR: falta el snapshot documental asociado ($documents_file); no se inicia una restauración parcial." >&2; exit 1; }
+[[ "$(stat -c '%u:%g:%a' "$documents_source")" == "0:$BACKUP_GID:750" ]] || { echo "ERROR: el snapshot documental debe ser root-owned, grupo $BACKUP_GROUP y modo 0750." >&2; exit 1; }
+[[ -f "$documents_manifest" && ! -L "$documents_manifest" ]] || { echo "ERROR: falta el manifiesto de documentos $documents_manifest." >&2; exit 1; }
+[[ "$(stat -c '%u:%g:%a' "$documents_manifest")" == "0:$BACKUP_GID:640" ]] || { echo "ERROR: el manifiesto documental debe ser root-owned, grupo $BACKUP_GROUP y modo 0640." >&2; exit 1; }
+if find "$documents_source" -type l -print -quit | grep -q .; then
+  echo "ERROR: el snapshot documental contiene enlaces simbólicos." >&2
   exit 1
 fi
-while IFS= read -r archive_entry; do
-  archive_entry="${archive_entry#./}"
-  [[ "$archive_entry" != /* ]] || { echo "ERROR: el archivo de documentos contiene una ruta absoluta." >&2; exit 1; }
-  case "/$archive_entry/" in */../*|*/..|../*) echo "ERROR: el archivo de documentos contiene una ruta no permitida." >&2; exit 1 ;; esac
-done < <(/usr/bin/tar --list --gzip --file="$documents_source")
-
+if find "$documents_source" ! -type d ! -type f -print -quit | grep -q .; then
+  echo "ERROR: el snapshot documental contiene archivos especiales no permitidos." >&2
+  exit 1
+fi
+if find "$documents_source" -type f ! -user root -print -quit | grep -q . ||
+   find "$documents_source" -type f ! -group "$BACKUP_GROUP" -print -quit | grep -q . ||
+   find "$documents_source" -type f ! -perm 0640 -print -quit | grep -q . ||
+   find "$documents_source" -type d ! -user root -print -quit | grep -q . ||
+   find "$documents_source" -type d ! -group "$BACKUP_GROUP" -print -quit | grep -q . ||
+   find "$documents_source" -type d ! -perm 0750 -print -quit | grep -q .; then
+  echo "ERROR: el snapshot documental tiene propietarios o permisos inesperados." >&2
+  exit 1
+fi
+(cd "$documents_source" && sha256sum -c "$documents_manifest")
 install -d -o root -g root -m 0755 /run/lock
 exec 9>/run/lock/dietoexpress-postgresql.lock
 flock 9
@@ -104,25 +106,35 @@ documents_parent="$(dirname "$DOCUMENTS_DIR")"
 documents_staging="$(mktemp -d "$documents_parent/.dietoexpress-documents-restore.XXXXXX")"
 documents_previous="$documents_parent/.dietoexpress-documents-previous-$$"
 documents_swapped=false
+restore_succeeded=false
 cleanup() {
   local rc=$?
   rm -f -- "$tmp_file"
   rm -rf -- "$tmp_dir"
   [[ ! -d "$documents_staging" ]] || rm -rf -- "$documents_staging"
-  # La copia anterior solo se conserva durante la operación. Si pg_restore falla,
-  # el wrapper restaura el snapshot pre-restore (incluidos los documentos).
-  [[ ! -d "$documents_previous" ]] || rm -rf -- "$documents_previous"
+  if [[ -d "$documents_previous" ]]; then
+    if [[ "$restore_succeeded" == true ]]; then
+      rm -rf -- "$documents_previous"
+    else
+      # Reponer inmediatamente los documentos previos si falla pg_restore;
+      # el wrapper restaurará también el snapshot previo de PostgreSQL.
+      runuser -u joso -- rm -rf -- "$DOCUMENTS_DIR" || true
+      runuser -u joso -- mv -- "$documents_previous" "$DOCUMENTS_DIR" || {
+        echo "CRITICAL: no se pudieron recuperar los documentos previos desde $documents_previous." >&2
+        rc=20
+      }
+    fi
+  fi
   return "$rc"
 }
 trap cleanup EXIT
 install -o postgres -g postgres -m 0600 "$source_file" "$tmp_file"
-# El árbol de preparación pertenece a joso y la extracción/movimiento se hacen
-# como joso: el helper root nunca extrae contenido de un archivo en un directorio
-# modificable por la aplicación con privilegios elevados.
+# Copiar el snapshot inmutable al staging escribible por joso. No extraemos
+# archivos de un archivo comprimido ni modificamos los inodos hardlinkados.
 chown joso:joso "$documents_staging"
 chmod 0700 "$documents_staging"
-runuser -u joso -- /usr/bin/tar --extract --gzip --file="$documents_source" --directory="$documents_staging" --no-same-owner --no-same-permissions
-runuser -u joso -- chmod 0750 "$documents_staging"
+runuser -u joso -- /usr/bin/rsync --archive --checksum --delete "$documents_source/" "$documents_staging/"
+runuser -u joso -- chmod -R u+rwX,go-rwx "$documents_staging"
 [[ ! -e "$documents_previous" && ! -L "$documents_previous" ]] || { echo "ERROR: ya existe una ruta temporal de restauración documental." >&2; exit 1; }
 if ! runuser -u joso -- mv -- "$DOCUMENTS_DIR" "$documents_previous"; then
   echo "ERROR: no se pudo apartar el árbol documental actual como joso." >&2
@@ -146,4 +158,5 @@ runuser -u postgres -- /usr/bin/pg_restore \
   --dbname="$DATABASE_NAME" \
   "$tmp_file"
 
+restore_succeeded=true
 echo "pg_restore privilegiado completado correctamente."
