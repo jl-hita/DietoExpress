@@ -39,7 +39,7 @@ public sealed class DatabaseBackupService
             // Solo se ofrecen para restauración snapshots completos. Los dumps antiguos
             // sin archivo documental asociado siguen en disco, pero no son coherentes
             // con la restauración coordinada y no deben presentarse como restaurables.
-            .Where(HasDocumentArchive)
+            .Where(HasDocumentSnapshot)
             .Select(path => new DatabaseBackupInfo(Path.GetFileName(path), new FileInfo(path).Length, File.GetCreationTimeUtc(path)))
             .OrderByDescending(x => x.CreatedAtUtc)
             .ToList();
@@ -130,12 +130,12 @@ public sealed class DatabaseBackupService
         EnsureConfigured();
         var safeName = ValidateBackupFileName(fileName);
         EnsureBackupExists(safeName);
-        if (!HasDocumentArchive(Path.Combine(_backupDir, safeName)))
-            throw new InvalidOperationException("La copia no contiene un archivo de documentos asociado y no puede descargarse como snapshot completo.");
+        if (!HasDocumentSnapshot(Path.Combine(_backupDir, safeName)))
+            throw new InvalidOperationException("La copia no contiene un snapshot documental asociado y no puede descargarse como snapshot completo.");
 
         var stem = Path.GetFileNameWithoutExtension(safeName);
         var suffix = stem["dietoexpress-postgresql-".Length..];
-        var documentsName = $"dietoexpress-documents-{suffix}.tar.gz";
+        var documentsName = $"dietoexpress-documents-{suffix}";
         var entries = new List<string>
         {
             safeName,
@@ -187,14 +187,15 @@ public sealed class DatabaseBackupService
         }
     }
 
-    private bool HasDocumentArchive(string dumpPath)
+    private bool HasDocumentSnapshot(string dumpPath)
     {
         const string prefix = "dietoexpress-postgresql-";
         var stem = Path.GetFileNameWithoutExtension(dumpPath);
         if (!stem.StartsWith(prefix, StringComparison.Ordinal)) return false;
         var suffix = stem[prefix.Length..];
-        var archive = Path.Combine(_backupDir, $"dietoexpress-documents-{suffix}.tar.gz");
-        return File.Exists(archive) && File.Exists(archive + ".sha256");
+        var snapshot = Path.Combine(_backupDir, $"dietoexpress-documents-{suffix}");
+        return Directory.Exists(snapshot) && !File.Exists(snapshot + ".incomplete") &&
+            File.Exists(snapshot + ".sha256");
     }
 
     private void EnsureBackupExists(string fileName)
