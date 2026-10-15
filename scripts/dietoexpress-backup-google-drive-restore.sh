@@ -7,22 +7,25 @@ BACKUP_DIR=/var/lib/dietoexpress-backups
 RCLONE_CONFIG=/home/joso/.config/rclone/rclone.conf
 [[ -d "$BACKUP_DIR" && -f "$RCLONE_CONFIG" && ! -L "$RCLONE_CONFIG" && "$(stat -c '%U:%G:%a' "$RCLONE_CONFIG")" == 'joso:joso:600' ]] || { echo 'Configuración local no válida' >&2; exit 1; }
 tmp="$(mktemp -d /var/tmp/dietoexpress-drive.XXXXXX)"
+trap 'rm -rf -- "$tmp"' EXIT
 runuser -u joso -- env RCLONE_CONFIG="$RCLONE_CONFIG" /usr/bin/rclone copyto "gdrive-crypt:$archive" "$tmp/$archive"
 runuser -u joso -- env RCLONE_CONFIG="$RCLONE_CONFIG" /usr/bin/rclone copyto "gdrive-crypt:$archive.sha256" "$tmp/$archive.sha256"
 (cd "$tmp" && sha256sum -c "$archive.sha256")
-python3 - "$tmp/$archive" <<'PY'
+python3 - "$tmp/$archive" "$archive" <<'PY'
 import sys,tarfile
 with tarfile.open(sys.argv[1],"r:gz") as t:
  names=set()
  for m in t.getmembers():
   n=m.name
-  if n.startswith('/') or '\\' in n or any(p in ('..','.') for p in n.rstrip('/').split('/')) or not (m.isfile() or m.isdir()): raise SystemExit('Paquete inseguro')
+  if n.startswith('/') or '\\' in n or any(p in ('','.','..') for p in n.rstrip('/').split('/')) or not (m.isfile() or m.isdir()): raise SystemExit('Paquete inseguro')
   names.add(n)
  dumps=[n for n in names if n.endswith('.dump')]
  if len(dumps)!=1: raise SystemExit('Dump no único')
+ expected_dump=sys.argv[2][:-len('-completo.tar.gz')]+'.dump'
+ if dumps[0]!=expected_dump: raise SystemExit('El dump no coincide con el nombre del paquete')
  stem=dumps[0][:-5]
  docs='dietoexpress-documents-'+stem.removeprefix('dietoexpress-postgresql-')
- expected={dumps[0],stem+'.sha256',stem+'.txt',docs,docs+'.sha256'}
+ expected={dumps[0],stem+'.sha256',stem+'.txt',docs,docs+'/',docs+'.sha256'}
  if not expected.issubset(names) or any(n not in expected and not n.startswith(docs+'/') for n in names): raise SystemExit('Componentes incorrectos')
 PY
 stage="$tmp/extracted"
@@ -48,4 +51,3 @@ chown -R "root:$group" "$BACKUP_DIR/$docs"
 find "$BACKUP_DIR/$docs" -type d -exec chmod 0750 {} +
 find "$BACKUP_DIR/$docs" -type f -exec chmod 0640 {} +
 echo "Backup importado: $dump"
-echo "Los datos temporales están en $tmp y deben eliminarse tras verificar la operación."

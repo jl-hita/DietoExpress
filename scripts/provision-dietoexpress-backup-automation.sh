@@ -94,7 +94,7 @@ joso ALL=(root) NOPASSWD: /usr/local/sbin/dietoexpress-pg-backup ^--backup$
 joso ALL=(root) NOPASSWD: /usr/local/sbin/dietoexpress-pg-backup ^--backup-pre-restore$
 joso ALL=(root) NOPASSWD: /usr/local/sbin/dietoexpress-restore-web ^dietoexpress-postgresql-[A-Za-z0-9_.-]+\.dump --confirm$
 joso ALL=(root) NOPASSWD: /usr/local/sbin/dietoexpress-pg-restore ^--restore dietoexpress-postgresql-[A-Za-z0-9_.-]+\.dump --confirm$
-joso ALL=(root) NOPASSWD: /usr/local/sbin/dietoexpress-backup-google-drive-restore ^dietoexpress-postgresql-[A-Za-z0-9_.-]+-completo\\.tar\\.gz$
+joso ALL=(root) NOPASSWD: /usr/local/sbin/dietoexpress-backup-google-drive-restore ^dietoexpress-postgresql-[A-Za-z0-9_.-]+-completo\.tar\.gz$
 EOF
 chown root:root "$SUDOERS_FILE"
 chmod 0440 "$SUDOERS_FILE"
