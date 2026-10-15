@@ -194,8 +194,7 @@ public sealed class DatabaseBackupService
         if (!stem.StartsWith(prefix, StringComparison.Ordinal)) return false;
         var suffix = stem[prefix.Length..];
         var snapshot = Path.Combine(_backupDir, $"dietoexpress-documents-{suffix}");
-        return Directory.Exists(snapshot) && !File.Exists(snapshot + ".incomplete") &&
-            File.Exists(snapshot + ".sha256");
+        return Directory.Exists(snapshot) && File.Exists(snapshot + ".sha256");
     }
 
     private void EnsureBackupExists(string fileName)
