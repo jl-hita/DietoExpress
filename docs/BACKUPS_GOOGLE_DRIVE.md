@@ -107,10 +107,10 @@ El servicio de subida **no borra archivos remotos**. Esto protege contra la elim
 2. Descargar el paquete y su checksum a un directorio temporal privado. Sustituir el nombre por uno listado en el remote:
 
    ~~~bash
-   mkdir -m 700 -p "$HOME/dietoexpress-drive-restore"
-   cd "$HOME/dietoexpress-drive-restore"
-   rclone copyto "gdrive-crypt:<PAQUETE>.tar.gz" "<PAQUETE>.tar.gz"
-   rclone copyto "gdrive-crypt:<PAQUETE>.tar.gz.sha256" "<PAQUETE>.tar.gz.sha256"
+   sudo install -d -o joso -g joso -m 0700 /home/joso/dietoexpress-drive-restore
+   cd /home/joso/dietoexpress-drive-restore
+   sudo -u joso env RCLONE_CONFIG=/home/joso/.config/rclone/rclone.conf rclone copyto "gdrive-crypt:<PAQUETE>.tar.gz" "<PAQUETE>.tar.gz"
+   sudo -u joso env RCLONE_CONFIG=/home/joso/.config/rclone/rclone.conf rclone copyto "gdrive-crypt:<PAQUETE>.tar.gz.sha256" "<PAQUETE>.tar.gz.sha256"
    sha256sum -c "<PAQUETE>.tar.gz.sha256"
    tar -tzf "<PAQUETE>.tar.gz"
    ~~~
