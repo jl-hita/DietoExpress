@@ -5,6 +5,7 @@ export PATH
 umask 077
 
 [[ "$(id -u)" -eq 0 ]] || { echo "ERROR: este helper debe ejecutarse como root." >&2; exit 1; }
+command -v rsync >/dev/null 2>&1 || { echo "ERROR: rsync es obligatorio para generar snapshots documentales." >&2; exit 1; }
 [[ "$#" -eq 1 && ( "$1" == "--backup" || "$1" == "--backup-pre-restore" ) ]] || {
   echo "ERROR: uso permitido: dietoexpress-pg-backup --backup o --backup-pre-restore" >&2
   exit 2
