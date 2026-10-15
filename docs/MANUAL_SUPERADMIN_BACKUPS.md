@@ -2,7 +2,7 @@
 
 ## 1. Objetivo
 
-El SuperAdmin puede consultar, crear y descargar copias PostgreSQL desde **Administración → Copias de seguridad de PostgreSQL**.
+El SuperAdmin puede consultar, crear y descargar snapshots completos desde **Administración → Copias de seguridad de PostgreSQL**. Cada snapshot incluye PostgreSQL y el árbol de archivos de documentos asociado, empaquetados juntos al descargarlo.
 
 Las copias contienen datos sensibles y deben tratarse como información protegida. La restauración de producción no se ejecuta en el proceso ASP.NET: la aplicación solicita una unidad systemd independiente que realiza la operación.
 
@@ -26,7 +26,7 @@ sudo /opt/dietoexpress/scripts/provision-dietoexpress-backup-automation.sh
 
 El provisioning instala helpers root-owned en /usr/local/sbin, unidades systemd y reglas sudoers restringidas. Es idempotente, pero debe volver a ejecutarse después de actualizar cualquiera de los helpers privilegiados o unidades systemd: el deploy a /opt/dietoexpress no actualiza las copias root-owned.
 
-El timer se ejecuta como joso. El script de backup invoca mediante sudo -n el helper dietoexpress-pg-backup con --backup para copias normales y --backup-pre-restore para el snapshot automático previo a una restauración; el helper ejecuta pg_dump como usuario PostgreSQL postgres. El helper publica dump, checksum y metadatos como root:joso con permisos 0640, para que la aplicación pueda listarlos y descargarlos sin poder modificarlos ni dar acceso al usuario postgres al almacenamiento permanente.
+El timer se ejecuta como joso. El script de backup invoca mediante sudo -n el helper dietoexpress-pg-backup con --backup para copias normales y --backup-pre-restore para el snapshot automático previo a una restauración; el helper ejecuta pg_dump como usuario PostgreSQL postgres. El helper publica dump PostgreSQL, archivo comprimido de documentos, checksums SHA-256 y metadatos como root:joso con permisos 0640, para que la aplicación pueda listarlos y descargarlos sin poder modificarlos ni dar acceso al usuario postgres al almacenamiento permanente. Todos los componentes comparten timestamp; la retención elimina el dump y su archivo de documentos como una unidad.
 
 Comprobaciones:
 
@@ -53,7 +53,7 @@ La retención por defecto conserva ocho backups normales. Los snapshots automát
 La configuración privilegiada toma como fuente de verdad /etc/dietoexpress/dietoexpress.env. Debe contener al menos:
 
 ~~~text
-DIETOEXPRESS_BACKUP_DIR=/var/lib/dietoexpress/backups
+DIETOEXPRESS_BACKUP_DIR=/var/lib/dietoexpress-backups
 DIETOEXPRESS_DATABASE=<NOMBRE_DE_LA_BASE>
 ~~~
 
@@ -75,7 +75,7 @@ Desde SuperAdmin puede usarse **Verificar** en la fila de la copia. En el servid
 /opt/dietoexpress/scripts/dietoexpress-restore.sh --verify dietoexpress-postgresql-XXXXXXXX.dump
 ~~~
 
-El preflight verifica nombre, existencia del manifiesto, checksum SHA-256 y formato del dump. No modifica la base de datos ni detiene DietoExpress.
+El preflight verifica el nombre, los checksums SHA-256 y el formato del dump y del archivo de documentos asociado. Rechaza archivos incompletos, rutas peligrosas y enlaces dentro del archivo documental. No modifica la base de datos ni detiene DietoExpress.
 
 ## 7. Restauración controlada de producción
 
@@ -91,10 +91,10 @@ La petición solicita una unidad dietoexpress-restore@...service. La unidad deti
 
 1. dietoexpress-backup.sh llama al helper root-owned de backup mediante sudo -n.
 2. El helper ejecuta pg_dump como postgres, conservando propietarios, y publica una copia previa con checksum verificado.
-3. El helper de restauración valida de nuevo nombre, manifiesto, checksum, formato y propiedad root-owned de los archivos.
-4. Copia el archivo temporalmente a un directorio privado de /tmp accesible a postgres, sin cambiar permisos del almacenamiento permanente.
+3. El helper de restauración valida de nuevo nombre, manifiestos, checksums, formato y propiedad root-owned tanto del dump como del archivo documental.
+4. Restaura los documentos en un directorio de preparación y sustituye el árbol documental existente; después copia el dump temporalmente a un directorio privado de /tmp accesible a postgres, sin cambiar permisos del almacén permanente.
 5. Ejecuta pg_restore como postgres sin --no-owner, de modo que las tablas vuelvan al propietario dietoexpress y las extensiones mantengan su propietario.
-6. Si la restauración objetivo falla, intenta recuperar automáticamente el snapshot previo usando el mismo helper.
+6. Si la restauración objetivo falla, intenta recuperar automáticamente el snapshot previo de PostgreSQL y documentos usando el mismo helper.
 
 Resultado del rollback:
 
@@ -136,7 +136,7 @@ La presencia de backups no demuestra que la recuperación esté probada. Realiza
 
 ## 11. Resumen operativo
 
-**Backup manual:** SuperAdmin → Administración → Copias de seguridad → Crear backup.
+**Backup manual:** SuperAdmin → Administración → Copias de seguridad → Crear backup. El archivo descargado `*-completo.tar.gz` contiene el dump, su checksum, metadatos y el archivo/checksum de documentos; debe conservarse como una unidad.
 
 **Verificación:** seleccionar la copia y pulsar **Verificar**, o utilizar --verify.
 
