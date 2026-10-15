@@ -12,8 +12,8 @@ RCLONE_BIN="${DIETOEXPRESS_RCLONE_BIN:-/usr/bin/rclone}"
   echo "ERROR: almacén local de backups no válido: $BACKUP_DIR" >&2
   exit 1
 }
-[[ "$DRIVE_REMOTE" =~ ^[A-Za-z0-9_.-]+:.*$ ]] || {
-  echo "ERROR: DIETOEXPRESS_DRIVE_REMOTE debe ser un remote rclone, por ejemplo gdrive-crypt:." >&2
+[[ "$DRIVE_REMOTE" =~ ^[A-Za-z0-9_.-]+:.*$ && "${DRIVE_REMOTE%%:*}" == "gdrive-crypt" ]] || {
+  echo "ERROR: DIETOEXPRESS_DRIVE_REMOTE debe apuntar al remote cifrado gdrive-crypt:, nunca al remote Drive sin cifrar." >&2
   exit 1
 }
 [[ -x "$RCLONE_BIN" ]] || { echo "ERROR: no existe rclone ejecutable: $RCLONE_BIN" >&2; exit 1; }
