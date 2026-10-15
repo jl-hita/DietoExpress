@@ -120,6 +120,67 @@ public class DietValidationService
         public string Message { get; set; } = string.Empty;
     }
 
+    // Valida un ingrediente candidato contra un paciente concreto antes de incorporarlo a una receta ya asignada.
+    public async Task<List<DietValidationResultDto>> ValidateFoodForClientAsync(
+        int clientId, int foodId, angulosodbContext context, int? tenantId, int userId,
+        bool canUseTenantLocalFoods, string mealName = "Receta", int dayIndex = 0)
+    {
+        var client = await context.clients
+            .Include(c => c.digestive_health)
+            .Include(c => c.food_preferences)
+            .Include(c => c.medical_history)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.id == clientId && (!tenantId.HasValue || c.tenant_id == tenantId.Value));
+        if (client == null)
+        {
+            return new List<DietValidationResultDto>
+            {
+                new() { FoodId = foodId, MealName = mealName, DayIndex = dayIndex, AlertType = "Validation", Severity = "High",
+                    Message = "No se pudo cargar el perfil del paciente para validar el ingrediente." }
+            };
+        }
+
+        var food = await context.foods.AsNoTracking()
+            .FirstOrDefaultAsync(f => f.id == foodId &&
+                ((f.source == null || f.source.ToLower() != "local") ||
+                 (tenantId.HasValue && f.tenant_id == tenantId.Value &&
+                  (canUseTenantLocalFoods || f.created_by_user_id == userId))));
+        if (food == null)
+        {
+            return new List<DietValidationResultDto>
+            {
+                new() { FoodId = foodId, MealName = mealName, DayIndex = dayIndex, AlertType = "Validation", Severity = "High",
+                    Message = "No se pudo verificar el ingrediente por su alcance de acceso." }
+            };
+        }
+
+        var specializationExclusions = tenantId.HasValue
+            ? await _specializationRulesService.GetFoodExclusionsAsync(clientId, tenantId.Value)
+            : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var structuredExclusions = tenantId.HasValue
+            ? await _specializationRulesService.GetExcludedFoodIdsAsync(clientId, tenantId.Value, new[] { foodId })
+            : new HashSet<int>();
+        var warnings = CheckFoodCompatibility(client, food, mealName, dayIndex, specializationExclusions, structuredExclusions);
+
+        // Si el paciente ha declarado alergias, la falta de datos estructurados no puede interpretarse como seguridad.
+        if (!string.IsNullOrWhiteSpace(client.food_preferences?.allergies) &&
+            (food.allergen_tags == null || !food.allergen_tags.Any()))
+        {
+            warnings.Add(new DietValidationResultDto
+            {
+                FoodId = food.id,
+                FoodName = food.name ?? string.Empty,
+                MealName = mealName,
+                DayIndex = dayIndex,
+                AlertType = "AllergenDataUnknown",
+                Severity = "High",
+                Message = "El alimento no tiene datos estructurados suficientes de alérgenos para verificar las alergias declaradas."
+            });
+        }
+
+        return warnings;
+    }
+
     // Valida una dieta ya persistida contra el perfil y las restricciones del paciente, incluyendo
     // reglas de alimentos y comprobaciones de acceso al tenant antes de devolver incompatibilidades.
     // La validación vuelve a cargar paciente y alimentos desde la BD para no confiar en datos

@@ -22,12 +22,14 @@ public class RecipesController : ControllerBase
     private readonly angulosodbContext _context;
     private readonly ILicenseService _licenseService;
     private readonly RecipeNutritionService _recipeNutritionService;
+    private readonly DietValidationService _dietValidationService;
 
-    public RecipesController(angulosodbContext context, ILicenseService licenseService, RecipeNutritionService recipeNutritionService)
+    public RecipesController(angulosodbContext context, ILicenseService licenseService, RecipeNutritionService recipeNutritionService, DietValidationService dietValidationService)
     {
         _context = context;
         _licenseService = licenseService;
         _recipeNutritionService = recipeNutritionService;
+        _dietValidationService = dietValidationService;
     }
 
     // Centraliza la regla de acceso a alimentos reutilizada al crear y modificar recetas.
@@ -175,22 +177,43 @@ public class RecipesController : ControllerBase
 
         if (recipe == null) return NotFound();
 
-        // Actualizar campos
+        // Validar accesibilidad y compatibilidad antes de alterar la receta o sus usos persistidos.
+        foreach (var ingDto in dto.Ingredients)
+        {
+            if (!await CanUseFoodAsync(ingDto.FoodId, userId.Value, tenantId))
+                return BadRequest($"El alimento con ID {ingDto.FoodId} no está disponible para esta cuenta.");
+        }
+
+        var existingFoodIds = recipe.recipe_items.Select(ri => ri.food_id).ToHashSet();
+        var newFoodIds = dto.Ingredients.Select(i => i.FoodId).Distinct()
+            .Where(foodId => !existingFoodIds.Contains(foodId)).ToList();
+        var compatibilityIssues = await ValidateNewIngredientsForActiveAssignmentsAsync(
+            recipe.id, newFoodIds, userId.Value, tenantId);
+        if (compatibilityIssues.Count > 0)
+            return Conflict(new
+            {
+                message = "No se puede modificar la receta: uno o más ingredientes nuevos son incompatibles o no se pueden verificar para pacientes con restricciones activas.",
+                issues = compatibilityIssues.Select(x => new
+                {
+                    clientId = x.ClientId,
+                    foodId = x.Warning.FoodId,
+                    alertType = x.Warning.AlertType,
+                    severity = x.Warning.Severity,
+                    message = x.Warning.Message
+                })
+            });
+
+        // Actualizar campos solo después de validar las nuevas asignaciones.
         recipe.name = dto.Name;
         recipe.instructions = dto.Instructions ?? "";
         recipe.servings = dto.Servings <= 0 ? 1 : dto.Servings;
         recipe.yield_grams = dto.YieldGrams;
 
-        // Limpiar ingredientes antiguos
         _context.recipe_items.RemoveRange(recipe.recipe_items);
         recipe.recipe_items.Clear();
 
-        // Agregar nuevos
         foreach (var ingDto in dto.Ingredients)
         {
-            if (!await CanUseFoodAsync(ingDto.FoodId, userId.Value, AuthHelpers.GetTenantId(User)))
-                return BadRequest($"El alimento con ID {ingDto.FoodId} no está disponible para esta cuenta.");
-
             recipe.recipe_items.Add(new recipe_items
             {
                 food_id = ingDto.FoodId,
@@ -219,6 +242,27 @@ public class RecipesController : ControllerBase
         if (!await CanUseFoodAsync(dto.ReplacementFoodId, userId.Value, tenantId)) return BadRequest("El alimento sustituto no está disponible para esta cuenta.");
         var replacement = await _context.foods.AsNoTracking().FirstOrDefaultAsync(f => f.id == dto.ReplacementFoodId);
         if (replacement == null) return NotFound("Alimento sustituto no encontrado.");
+
+        // Si el alimento no estaba ya en la receta, comprobar sus efectos en todas las asignaciones activas.
+        if (!recipe.recipe_items.Any(i => i.food_id == replacement.id))
+        {
+            var compatibilityIssues = await ValidateNewIngredientsForActiveAssignmentsAsync(
+                recipe.id, new[] { replacement.id }, userId.Value, tenantId);
+            if (compatibilityIssues.Count > 0)
+                return Conflict(new
+                {
+                    message = "No se puede sustituir el ingrediente: el alimento nuevo es incompatible o no se puede verificar para pacientes con restricciones activas.",
+                    issues = compatibilityIssues.Select(x => new
+                    {
+                        clientId = x.ClientId,
+                        foodId = x.Warning.FoodId,
+                        alertType = x.Warning.AlertType,
+                        severity = x.Warning.Severity,
+                        message = x.Warning.Message
+                    })
+                });
+        }
+
         var grams = ingredient.grams;
         if (dto.PreserveCalories && ingredient.food?.kcal > 0 && replacement.kcal > 0)
             grams = (decimal)Math.Clamp((double)grams * ingredient.food.kcal.Value / replacement.kcal.Value, 0.1, 10000);
@@ -229,6 +273,38 @@ public class RecipesController : ControllerBase
         var ids = refreshed.recipe_items.Select(i => i.food_id).Distinct().ToList();
         var foods = await _context.foods.Where(f => ids.Contains(f.id)).ToDictionaryAsync(f => f.id);
         return Ok(await _recipeNutritionService.BuildDetailAsync(refreshed, foods, HttpContext.RequestAborted));
+    }
+
+    // Valida solo ingredientes nuevos: una edición que no añade exposición no debe quedar bloqueada por alertas preexistentes.
+    private async Task<List<(int ClientId, DietValidationResultDto Warning)>> ValidateNewIngredientsForActiveAssignmentsAsync(
+        int recipeId, IEnumerable<int> candidateFoodIds, int userId, int? tenantId)
+    {
+        var foodIds = candidateFoodIds.Distinct().ToList();
+        var issues = new List<(int ClientId, DietValidationResultDto Warning)>();
+        if (!tenantId.HasValue || foodIds.Count == 0) return issues;
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var clientIds = await _context.client_diets.AsNoTracking()
+            .Where(cd => cd.is_active == true &&
+                cd.start_date <= today &&
+                (!cd.end_date.HasValue || cd.end_date.Value >= today) &&
+                cd.diet.tenant_id == tenantId.Value &&
+                cd.diet.diet_days.Any(day => day.meals.Any(meal =>
+                    meal.meal_items.Any(item => item.recipe_id == recipeId))))
+            .Select(cd => cd.client_id)
+            .Distinct()
+            .ToListAsync();
+
+        var canUseTenantLocalFoods = User.IsInRole("clinic_admin") || User.IsInRole("superadmin");
+        foreach (var clientId in clientIds)
+        foreach (var foodId in foodIds)
+        {
+            var warnings = await _dietValidationService.ValidateFoodForClientAsync(
+                clientId, foodId, _context, tenantId, userId, canUseTenantLocalFoods, "Receta", 0);
+            issues.AddRange(warnings.Select(warning => (ClientId: clientId, Warning: warning)));
+        }
+
+        return issues;
     }
 
     // DELETE: api/recipes/5
