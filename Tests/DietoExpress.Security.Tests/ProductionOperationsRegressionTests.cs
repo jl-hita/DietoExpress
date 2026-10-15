@@ -138,6 +138,7 @@ public sealed class ProductionOperationsRegressionTests
         Assert.Contains("documents_archive=", pgBackupHelper);
         Assert.Contains("dietoexpress-documents-", pgBackupHelper);
         Assert.Contains("documents_file", pgRestoreCommands);
+        Assert.Contains("runuser -u joso -- /usr/bin/tar", pgRestoreCommands);
         Assert.Contains("no se inicia una restauración parcial", pgRestoreCommands);
         Assert.Contains("DIETOEXPRESS_RESTORE_VERIFY_SCRIPT", restoreUser);
         Assert.Contains("GetBundle", databaseBackupService);
