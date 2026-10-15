@@ -36,6 +36,10 @@ public sealed class DatabaseBackupService
     {
         if (!Directory.Exists(_backupDir)) return [];
         return Directory.EnumerateFiles(_backupDir, "dietoexpress-postgresql-*.dump")
+            // Solo se ofrecen para restauración snapshots completos. Los dumps antiguos
+            // sin archivo documental asociado siguen en disco, pero no son coherentes
+            // con la restauración coordinada y no deben presentarse como restaurables.
+            .Where(HasDocumentArchive)
             .Select(path => new DatabaseBackupInfo(Path.GetFileName(path), new FileInfo(path).Length, File.GetCreationTimeUtc(path)))
             .OrderByDescending(x => x.CreatedAtUtc)
             .ToList();
@@ -129,6 +133,16 @@ public sealed class DatabaseBackupService
         var path = Path.Combine(_backupDir, safeName);
         if (!File.Exists(path)) throw new FileNotFoundException("No se ha encontrado la copia solicitada.");
         return (path, "application/octet-stream", safeName);
+    }
+
+    private bool HasDocumentArchive(string dumpPath)
+    {
+        const string prefix = "dietoexpress-postgresql-";
+        var stem = Path.GetFileNameWithoutExtension(dumpPath);
+        if (!stem.StartsWith(prefix, StringComparison.Ordinal)) return false;
+        var suffix = stem[prefix.Length..];
+        var archive = Path.Combine(_backupDir, $"dietoexpress-documents-{suffix}.tar.gz");
+        return File.Exists(archive) && File.Exists(archive + ".sha256");
     }
 
     private void EnsureBackupExists(string fileName)
