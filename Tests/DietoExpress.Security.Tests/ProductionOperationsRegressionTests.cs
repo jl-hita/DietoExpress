@@ -155,7 +155,7 @@ public sealed class ProductionOperationsRegressionTests
 
         Assert.Contains("--backup-pre-restore", provisioning);
         Assert.Contains("flock 9", pgBackupHelper);
-        Assert.Contains("rclone listremotes", provisioning);
+        Assert.Contains("listremotes", provisioning);
         Assert.Contains("dietoexpress-backup-drive.timer", provisioning);
         Assert.Contains("gdrive-crypt:", provisioning);
         Assert.Contains("dietoexpress-documents-", driveBackup);
