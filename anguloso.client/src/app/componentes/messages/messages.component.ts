@@ -5,6 +5,7 @@ import { Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { PatientChatComponent } from '../patient-chat/patient-chat.component';
 import { Subscription, interval, startWith, switchMap, catchError, of } from 'rxjs';
+import { AuthService } from '../../servicios/auth.service';
 
 interface Conversation {
   conversationId: number; clientId: number; clientName: string; updatedAt: string; lastMessage: string; unreadCount: number;
@@ -30,11 +31,13 @@ export class MessagesComponent implements OnInit, OnDestroy {
   private refreshSubscription?: Subscription;
   private broadcastRefreshSubscription?: Subscription;
 
-  constructor(private http: HttpClient, private router: Router) {}
+  constructor(private http: HttpClient, private router: Router, private authService: AuthService) {}
 
   // Se hace polling periódico porque la mensajería no depende de un canal WebSocket; cada ciclo vuelve a consultar solo el resumen de conversaciones.
   ngOnInit(): void {
-    this.refreshSubscription = interval(15000).pipe(
+    // SuperAdmin no tiene tenant para chats privados; evita las llamadas que inevitablemente terminarían en 403.
+    if (!this.authService.isSuperAdmin()) {
+      this.refreshSubscription = interval(15000).pipe(
       startWith(0),
       switchMap(() => this.http.get<Conversation[]>('/api/messages/conversations').pipe(catchError(() => of([]))))
     ).subscribe(items => {
