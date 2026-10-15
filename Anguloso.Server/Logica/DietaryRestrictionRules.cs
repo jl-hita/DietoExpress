@@ -66,6 +66,10 @@ public static class DietaryRestrictionRules
         return result;
     }
 
+    public static bool HasUnknownAllergenData(string? declaredAllergies, IEnumerable<string>? allergenTags) =>
+        !string.IsNullOrWhiteSpace(declaredAllergies) &&
+        (allergenTags == null || !allergenTags.Any());
+
     public static bool IsFoodAllowed(string? name, string? category, IEnumerable<string>? dietaryFlags, IEnumerable<string> forbiddenTerms)
     {
         var normalizedTerms = forbiddenTerms.Select(Normalize).Where(term => term.Length >= 3).Distinct().ToArray();

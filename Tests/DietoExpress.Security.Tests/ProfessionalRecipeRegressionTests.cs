@@ -14,7 +14,9 @@ public sealed class ProfessionalRecipeRegressionTests
         Assert.Contains("return Conflict", controller);
         Assert.Contains("cd.is_active == true", controller);
         Assert.Contains("AllergenDataUnknown", validation);
-        Assert.Contains("allergen_tags == null || !food.allergen_tags.Any()", validation);
+        var rules = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietaryRestrictionRules.cs"));
+        Assert.Contains("HasUnknownAllergenData", rules);
+        Assert.Contains("Severity = \"Medium\"", validation);
     }
     [Fact] public void DietEditorPreservesRecipeReferencesDuringValidationAndSave()
     {
