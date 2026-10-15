@@ -44,18 +44,20 @@ export class SidebarComponent implements OnInit, OnDestroy {
       this.profileService.getProfile().subscribe();
     }
 
-    // El contador reúne chats privados y comunicaciones oficiales; si un endpoint no está disponible para un rol, no bloquea el otro.
-    this.unreadMessagesSubscription = interval(15000).pipe(
-      startWith(0),
-      switchMap(() => forkJoin({
-        conversations: this.http.get<any[]>('/api/messages/conversations').pipe(catchError(() => of([]))),
-        broadcasts: this.http.get<any[]>('/api/broadcast-messages/inbox').pipe(catchError(() => of([])))
-      }))
-    ).subscribe(result => {
-      const unreadChats = (result.conversations || []).reduce((sum, item) => sum + Math.max(0, Number(item.unreadCount) || 0), 0);
-      const unreadBroadcasts = (result.broadcasts || []).filter(item => !item.readAt).length;
-      this.unreadMessagesCount = unreadChats + unreadBroadcasts;
-    });
+    // La bandeja de conversaciones es propia de cuentas profesionales; SuperAdmin no debe sondear endpoints de tenant y generar 403 periódicos.
+    if (this.isNutritionist || this.isClinic) {
+      this.unreadMessagesSubscription = interval(15000).pipe(
+        startWith(0),
+        switchMap(() => forkJoin({
+          conversations: this.http.get<any[]>('/api/messages/conversations').pipe(catchError(() => of([]))),
+          broadcasts: this.http.get<any[]>('/api/broadcast-messages/inbox').pipe(catchError(() => of([])))
+        }))
+      ).subscribe(result => {
+        const unreadChats = (result.conversations || []).reduce((sum, item) => sum + Math.max(0, Number(item.unreadCount) || 0), 0);
+        const unreadBroadcasts = (result.broadcasts || []).filter(item => !item.readAt).length;
+        this.unreadMessagesCount = unreadChats + unreadBroadcasts;
+      });
+    }
   }
 
   ngOnDestroy(): void { this.unreadMessagesSubscription?.unsubscribe(); }
@@ -89,7 +91,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   get isFreeAccount(): boolean {
-    return this.authService.getSubscriptionPlan() === 'free';
+    return (this.isNutritionist || this.isClinic) && this.authService.getSubscriptionPlan() === 'free';
   }
 
   get isTrial(): boolean { return this.license?.planCode === 'free' && !!this.license?.expiresAt; }
@@ -101,7 +103,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
   get isProfessionalAccount(): boolean {
     const plan = this.authService.getSubscriptionPlan();
-    return this.isSuperAdmin || plan === 'demo_nutri' || plan === 'nutri_full' || plan === 'clinic_full';
+    return (this.isNutritionist || this.isClinic)
+      && (plan === 'demo_nutri' || plan === 'nutri_full' || plan === 'clinic_full');
   }
 
   logout() {
