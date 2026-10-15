@@ -19,9 +19,11 @@ public sealed class RecipeNutritionService
         var totalCarbs = Sum(ingredients.Select(i => i.Carbs));
         var totalFat = Sum(ingredients.Select(i => i.Fat));
         var flags = ingredients.SelectMany(i => i.DietaryFlags).Where(f => !string.IsNullOrWhiteSpace(f)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(f => f).ToList();
+        var allergenTags = ingredients.SelectMany(i => i.AllergenTags).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(tag => tag).ToList();
+        var allergenDataAvailable = ingredients.Count > 0 && ingredients.All(i => i.AllergenDataAvailable);
         return Task.FromResult(new RecipeDetailDto {
             Id=recipe.id, Name=recipe.name, Instructions=recipe.instructions, CreatedAt=recipe.created_at, Servings=servings, YieldGrams=recipe.yield_grams,
-            Ingredients=ingredients, DietaryFlags=flags,
+            Ingredients=ingredients, DietaryFlags=flags, AllergenTags=allergenTags, AllergenDataAvailable=allergenDataAvailable,
             Nutrition=new RecipeNutritionDto {
                 TotalKcal=totalKcal, TotalProtein=totalProtein, TotalCarbs=totalCarbs, TotalFat=totalFat,
                 PerServingKcal=Divide(totalKcal,servings), PerServingProtein=Divide(totalProtein,servings), PerServingCarbs=Divide(totalCarbs,servings), PerServingFat=Divide(totalFat,servings)
@@ -50,7 +52,7 @@ public sealed class RecipeNutritionService
         await _context.SaveChangesAsync(cancellationToken);
     }
 
-    private static RecipeIngredientDto BuildIngredient(recipe_items item, foods food){var f=(double)item.grams/100.0;return new RecipeIngredientDto{FoodId=food.id,FoodName=food.name,Brands=food.brands,Grams=item.grams,Kcal=Scale(food.kcal,f),Protein=Scale(food.protein,f),Carbs=Scale(food.carbs,f),Fat=Scale(food.fat,f),DietaryFlags=(food.dietary_flags??Array.Empty<string>()).ToList()};}
+    private static RecipeIngredientDto BuildIngredient(recipe_items item, foods food){var f=(double)item.grams/100.0;return new RecipeIngredientDto{FoodId=food.id,FoodName=food.name,Brands=food.brands,Grams=item.grams,Kcal=Scale(food.kcal,f),Protein=Scale(food.protein,f),Carbs=Scale(food.carbs,f),Fat=Scale(food.fat,f),DietaryFlags=(food.dietary_flags??Array.Empty<string>()).ToList(),AllergenTags=ShoppingListRules.FormatAllergenTags(food.allergen_tags),AllergenDataAvailable=food.allergen_tags!=null};}
     private static double? Scale(double? v,double f)=>v.HasValue?Math.Round(v.Value*f,2):null;
     private static double? Sum(IEnumerable<double?> v){var x=v.Where(a=>a.HasValue).Select(a=>a!.Value).ToList();return x.Count==0?null:Math.Round(x.Sum(),2);}
     private static double? Divide(double? v,decimal d)=>v.HasValue&&d>0?Math.Round(v.Value/(double)d,2):null;

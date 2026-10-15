@@ -70,6 +70,9 @@ public class ShoppingItemDto
     public double TotalGrams { get; set; }
     public double RoundedGrams { get; set; }
     public string CommercialDescription { get; set; } = string.Empty;
+    public List<string> AllergenTags { get; set; } = new();
+    public bool AllergenDataAvailable { get; set; }
+    public bool RequiresAllergenCheck { get; set; } = true;
 }
 
 
