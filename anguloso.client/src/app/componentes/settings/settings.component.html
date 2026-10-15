@@ -231,8 +231,8 @@
             <div class="public-url" *ngIf="profile?.directorySlug">
               <mat-icon>link</mat-icon>
               <span>Tu perfil público:</span>
-              <a [href]="'/nutricionistas/' + profile?.directorySlug" target="_blank" rel="noopener">
-                /nutricionistas/{{ profile?.directorySlug }}
+              <a [href]="'/nutricionistas/' + profile.directorySlug" target="_blank" rel="noopener">
+                /nutricionistas/{{ profile.directorySlug }}
               </a>
             </div>
           </mat-card-content>
