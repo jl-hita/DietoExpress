@@ -9,7 +9,7 @@ export class ProfessionalRoleGuard implements CanActivate {
 
   canActivate(): boolean {
     const role = this.authService.getRole();
-    if (this.authService.isLoggedIn() && (role === 'nutritionist' || role === 'clinic_admin')) {
+    if (this.authService.isLoggedIn() && (role === 'nutritionist' || role === 'clinic_admin' || role === 'superadmin')) {
       return true;
     }
 
