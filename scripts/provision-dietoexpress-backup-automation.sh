@@ -79,7 +79,7 @@ install -o root -g root -m 0750 "$APP_DIR/scripts/dietoexpress-restore-post.sh" 
 install -o root -g root -m 0755 "$APP_DIR/scripts/systemd/dietoexpress-restore@.service" "$SYSTEMD_DIR/dietoexpress-restore@.service"
 install -o root -g root -m 0644 "$APP_DIR/scripts/systemd/dietoexpress-backup.service" "$SYSTEMD_DIR/dietoexpress-backup.service"
 install -o root -g root -m 0644 "$APP_DIR/scripts/systemd/dietoexpress-backup.timer" "$SYSTEMD_DIR/dietoexpress-backup.timer"
-install -o root -g root -m 0750 "$APP_DIR/scripts/dietoexpress-backup-google-drive.sh" "$ROOT_SBIN/dietoexpress-backup-google-drive"
+install -o root -g "$BACKUP_GROUP" -m 0750 "$APP_DIR/scripts/dietoexpress-backup-google-drive.sh" "$ROOT_SBIN/dietoexpress-backup-google-drive"
 install -o root -g root -m 0644 "$APP_DIR/scripts/systemd/dietoexpress-backup-drive.service" "$SYSTEMD_DIR/dietoexpress-backup-drive.service"
 install -o root -g root -m 0644 "$APP_DIR/scripts/systemd/dietoexpress-backup-drive.timer" "$SYSTEMD_DIR/dietoexpress-backup-drive.timer"
 
