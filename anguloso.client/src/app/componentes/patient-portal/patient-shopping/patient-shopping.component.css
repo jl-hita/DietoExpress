@@ -34,3 +34,21 @@
   .shopping-reset-btn span { display:none; }
   .shopping-reset-btn { padding:6px; }
 }
+
+
+.item-copy {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  gap: 0.2rem;
+}
+
+.item-allergen-note,
+.item-allergen-unknown {
+  display: block;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: #8a3d18;
+  white-space: normal;
+}
