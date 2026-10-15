@@ -285,22 +285,29 @@ public class ClientDietsController : ControllerBase
             if (dietToAssign == null)
                 return BadRequest("La dieta seleccionada no pertenece a la clínica del paciente.");
 
-            var compatibilityWarnings = await _validationService.ValidateDietCompatibilityAsync(
-                clientId,
-                dietToAssign,
-                _context,
-                validationTenantId,
-                userId.Value,
-                User.IsInRole("clinic_admin") || User.IsInRole("superadmin"));
-            var blockingWarnings = compatibilityWarnings.Where(w =>
-                string.Equals(w.Severity, "High", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(w.AlertType, "AllergenDataUnknown", StringComparison.OrdinalIgnoreCase)).ToList();
-            if (blockingWarnings.Count > 0)
-                return Conflict(new
-                {
-                    message = "No se puede asignar la dieta: contiene incompatibilidades clínicas o alérgenos que no pueden verificarse para este paciente.",
-                    warnings = blockingWarnings
-                });
+            var hasAssignableItems = dietToAssign.diet_days
+                .SelectMany(day => day.meals)
+                .SelectMany(meal => meal.meal_items)
+                .Any(item => item.food_id.HasValue || item.recipe_id.HasValue);
+            if (hasAssignableItems)
+            {
+                var compatibilityWarnings = await _validationService.ValidateDietCompatibilityAsync(
+                    clientId,
+                    dietToAssign,
+                    _context,
+                    validationTenantId,
+                    userId.Value,
+                    User.IsInRole("clinic_admin") || User.IsInRole("superadmin"));
+                var blockingWarnings = compatibilityWarnings.Where(w =>
+                    string.Equals(w.Severity, "High", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(w.AlertType, "AllergenDataUnknown", StringComparison.OrdinalIgnoreCase)).ToList();
+                if (blockingWarnings.Count > 0)
+                    return Conflict(new
+                    {
+                        message = "No se puede asignar la dieta: contiene incompatibilidades clínicas o alérgenos que no pueden verificarse para este paciente.",
+                        warnings = blockingWarnings
+                    });
+            }
 
             var activeDiets = await _context.client_diets
             .Include(cd => cd.diet)
