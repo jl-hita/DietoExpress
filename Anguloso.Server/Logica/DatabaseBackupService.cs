@@ -74,7 +74,7 @@ public sealed class DatabaseBackupService
     public async Task<(string FileName, string Output)> RestoreFromDriveAsync(string archiveName, CancellationToken ct)
     {
         EnsureConfigured();
-        if (!System.Text.RegularExpressions.Regex.IsMatch(archiveName ?? string.Empty, @"^dietoexpress-postgresql-[A-Za-z0-9_.-]+-completo\.tar\.gz$", System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+        if (string.IsNullOrWhiteSpace(archiveName) || !System.Text.RegularExpressions.Regex.IsMatch(archiveName, @"^dietoexpress-postgresql-[A-Za-z0-9_.-]+-completo\.tar\.gz$", System.Text.RegularExpressions.RegexOptions.CultureInvariant))
             throw new ArgumentException("Nombre de paquete de Drive no válido.", nameof(archiveName));
         var psi = new ProcessStartInfo { FileName = "/usr/bin/sudo", UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
         psi.ArgumentList.Add("-n"); psi.ArgumentList.Add("/usr/local/sbin/dietoexpress-backup-google-drive-restore"); psi.ArgumentList.Add(archiveName);

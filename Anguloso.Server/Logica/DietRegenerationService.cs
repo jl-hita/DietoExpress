@@ -84,7 +84,9 @@ public sealed class DietRegenerationService
             response.MealId = selectedMeal.id;
             response.MealItemId = item.id;
 
-            var replacement = allFoods.FirstOrDefault(f => f.id == request.ReplacementFoodId.Value);
+            if (request.ReplacementFoodId is not int replacementFoodId)
+                throw new ArgumentException("Debes indicar el alimento de sustitución.", nameof(request));
+            var replacement = allFoods.FirstOrDefault(f => f.id == replacementFoodId);
             if (replacement == null) throw new KeyNotFoundException("El alimento de sustitución no está disponible.");
             if (!IsAllowed(replacement, forbidden))
                 throw new InvalidOperationException("El alimento seleccionado es incompatible con las restricciones del paciente.");

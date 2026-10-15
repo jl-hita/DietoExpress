@@ -695,11 +695,12 @@ public class AppointmentsController : ControllerBase
                 .FirstAsync(HttpContext.RequestAborted);
         }
 
+        if (videoStartedAt is not DateTime startedAtUtc || appointment.video_expires_at is not DateTime videoExpiresAtUtc)
+            return Conflict(new { message = "No se ha podido determinar la vigencia de la consulta online." });
+
         var maxCallMinutes = Math.Clamp(_videoOptions.MaxCallDurationMinutes, 1, 240);
-        var callDeadline = videoStartedAt.Value.AddMinutes(maxCallMinutes);
-        var sessionExpiresAt = callDeadline < appointment.video_expires_at.Value
-            ? callDeadline
-            : appointment.video_expires_at.Value;
+        var callDeadline = startedAtUtc.AddMinutes(maxCallMinutes);
+        var sessionExpiresAt = callDeadline < videoExpiresAtUtc ? callDeadline : videoExpiresAtUtc;
         if (now >= sessionExpiresAt)
             return Conflict(new { message = "La duración máxima de la consulta online ya se ha alcanzado." });
 

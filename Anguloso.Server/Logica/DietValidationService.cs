@@ -518,7 +518,7 @@ public class DietValidationService
             {
                 FoodId = food.id,
                 FoodName = food.name ?? string.Empty,
-                MealName = mealName,
+                MealName = mealName ?? string.Empty,
                 DayIndex = dayIndex,
                 AlertType = "AllergenDataUnknown",
                 Severity = "Medium",

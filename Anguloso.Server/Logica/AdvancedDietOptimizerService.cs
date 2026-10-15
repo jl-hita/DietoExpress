@@ -85,7 +85,7 @@ public sealed class AdvancedDietOptimizerService
                             .Where(f => f.id != source.id)
                             .Where(f => SameRole(role, meal.Name, f))
                             .Where(f => IsProfessionalReplacement(role, f))
-                            .Where(f => !meal.Items.Any(i => i.FoodId == f.id))
+                            .Where(f => meal.Items?.Any(i => i.FoodId == f.id) != true)
                             .OrderBy(f => CalculateFoodQualityPenalty(f, role))
                             .ThenBy(f => NutrientDistance(f, source))
                             .Take(12)
