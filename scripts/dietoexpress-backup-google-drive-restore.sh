@@ -25,8 +25,8 @@ with tarfile.open(sys.argv[1],"r:gz") as t:
  if dumps[0]!=expected_dump: raise SystemExit('El dump no coincide con el nombre del paquete')
  stem=dumps[0][:-5]
  docs='dietoexpress-documents-'+stem.removeprefix('dietoexpress-postgresql-')
- expected={dumps[0],stem+'.sha256',stem+'.txt',docs,docs+'/',docs+'.sha256'}
- if not expected.issubset(names) or any(n not in expected and not n.startswith(docs+'/') for n in names): raise SystemExit('Componentes incorrectos')
+ required={dumps[0],stem+'.sha256',stem+'.txt',docs+'.sha256'}
+ if not required.issubset(names) or not (docs in names or docs+'/' in names) or any(n not in required and n!=docs and n!=docs+'/' and not n.startswith(docs+'/') for n in names): raise SystemExit('Componentes incorrectos')
 PY
 stage="$tmp/extracted"
 install -d -o root -g root -m 0700 "$stage"
