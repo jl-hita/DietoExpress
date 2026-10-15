@@ -119,6 +119,9 @@ export interface MealItem {
 
   // Solo en la respuesta del detalle
   foodName?: string;
+  recipeId?: number;
+  recipeName?: string;
+  recipeServings?: number;
 
   // Sistema de Intercambios
   exchangeGroupId?: number;
