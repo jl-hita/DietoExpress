@@ -72,6 +72,7 @@ export class ClientsListComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.isSuperAdmin = this.authService.isSuperAdmin();
+    this.showAllClients = this.isSuperAdmin;
     this.loadClients();
     this.checkCreatePermission();
   }
