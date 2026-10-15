@@ -13,10 +13,10 @@ public static class DietaryRestrictionRules
     private static readonly Dictionary<string, string[]> AllergenAliases = new(StringComparer.Ordinal)
     {
         ["cacahuete"] = new[] { "cacahuete", "cacahuetes", "cacahuete", "peanut", "peanuts", "peanut allergy" },
-        ["frutos secos"] = new[] { "frutos secos", "fruto seco", "tree nut", "tree nuts", "almendra", "almendras", "avellana", "avellanas", "nuez", "nueces", "anacardo", "anacardos", "pistacho", "pistachos", "nuez pecana", "macadamia" },
+        ["frutos secos"] = new[] { "frutos secos", "fruto seco", "nut", "nuts", "tree nut", "tree nuts", "hazelnut", "hazelnuts", "almond", "almonds", "walnut", "walnuts", "cashew", "cashews", "pecan", "pecans", "pistachio", "pistachios", "brazil nut", "brazil nuts", "macadamia", "almendra", "almendras", "avellana", "avellanas", "nuez", "nueces", "anacardo", "anacardos", "pistacho", "pistachos", "nuez pecana" },
         ["leche"] = new[] { "leche", "lacteos", "lacteo", "milk", "dairy", "dairy allergy", "lactosa", "lactose" },
         ["huevo"] = new[] { "huevo", "huevos", "egg", "eggs" },
-        ["soja"] = new[] { "soja", "soya", "soy", "soybean" },
+        ["soja"] = new[] { "soja", "soya", "soy", "soybean", "soybeans" },
         ["gluten"] = new[] { "gluten", "trigo", "centeno", "cebada", "espelta", "wheat", "rye", "barley" },
         ["pescado"] = new[] { "pescado", "fish" },
         ["crustaceos"] = new[] { "crustaceos", "crustaceo", "crustacean", "crustaceans" },
