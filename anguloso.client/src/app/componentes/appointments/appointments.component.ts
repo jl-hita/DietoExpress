@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { forkJoin } from 'rxjs';
 import { PatientAppointment, PatientPortalService, AvailabilityRule } from '../../servicios/patient-portal.service';
+import { AuthService } from '../../servicios/auth.service';
 
 @Component({
   selector: 'app-appointments',
@@ -23,6 +24,7 @@ export class AppointmentsComponent implements OnInit {
   success: string | null = null;
   googleCalendar: { connected: boolean; email: string; calendarId: string; lastSyncedAt?: string | null; reauthorizationRequired?: boolean } | null = null;
   calendarBusy = false;
+  isSuperAdmin = false;
 
   readonly days = [
     { value: 1, label: 'Lunes' }, { value: 2, label: 'Martes' },
@@ -37,9 +39,11 @@ export class AppointmentsComponent implements OnInit {
   newSlot = 30;
   editingRuleId: number | null = null;
 
-  constructor(private portalService: PatientPortalService, private router: Router, private route: ActivatedRoute) {}
+  constructor(private portalService: PatientPortalService, private router: Router, private route: ActivatedRoute, private authService: AuthService) {}
 
   ngOnInit(): void {
+    this.isSuperAdmin = this.authService.isSuperAdmin();
+    if (this.isSuperAdmin) { this.loading = false; return; }
     this.handleGoogleCalendarResult();
     this.load();
     this.loadGoogleCalendar();
