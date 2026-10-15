@@ -18,6 +18,7 @@ source "$ENV_FILE"
 
 BACKUP_DIR="${DIETOEXPRESS_BACKUP_DIR:-}"
 DATABASE_NAME="${DIETOEXPRESS_DATABASE:-}"
+DOCUMENTS_DIR="${DIETOEXPRESS_DOCUMENTS_PATH:-/var/lib/dietoexpress/documents}"
 DB_PORT="${DIETOEXPRESS_DB_PORT:-5432}"
 BACKUP_GROUP="${DIETOEXPRESS_BACKUP_GROUP:-joso}"
 RETENTION="${DIETOEXPRESS_BACKUP_RETENTION:-8}"
@@ -27,6 +28,8 @@ INCLUDE_ENV="${DIETOEXPRESS_BACKUP_INCLUDE_ENV:-false}"
 [[ -n "$BACKUP_DIR" && "$BACKUP_DIR" == /* && "$BACKUP_DIR" != "/" ]] || { echo "ERROR: DIETOEXPRESS_BACKUP_DIR debe ser una ruta absoluta válida." >&2; exit 1; }
 [[ "$(realpath -m -- "$BACKUP_DIR")" == "$BACKUP_DIR" ]] || { echo "ERROR: DIETOEXPRESS_BACKUP_DIR debe estar normalizado y no usar enlaces simbólicos." >&2; exit 1; }
 [[ -n "$DATABASE_NAME" ]] || { echo "ERROR: DIETOEXPRESS_DATABASE debe estar configurado en $ENV_FILE." >&2; exit 1; }
+[[ "$DOCUMENTS_DIR" == /* && "$DOCUMENTS_DIR" != "/" && "$(realpath -m -- "$DOCUMENTS_DIR")" == "$DOCUMENTS_DIR" ]] || { echo "ERROR: DIETOEXPRESS_DOCUMENTS_PATH debe ser una ruta absoluta normalizada." >&2; exit 1; }
+[[ -d "$DOCUMENTS_DIR" && ! -L "$DOCUMENTS_DIR" ]] || { echo "ERROR: no existe el directorio de documentos o es un enlace simbólico: $DOCUMENTS_DIR" >&2; exit 1; }
 [[ "$DB_PORT" =~ ^[0-9]+$ ]] && (( DB_PORT >= 1 && DB_PORT <= 65535 )) || { echo "ERROR: DIETOEXPRESS_DB_PORT no es válido." >&2; exit 1; }
 getent group "$BACKUP_GROUP" >/dev/null 2>&1 || { echo "ERROR: no existe el grupo de backups $BACKUP_GROUP." >&2; exit 1; }
 
@@ -74,16 +77,24 @@ stem="dietoexpress-postgresql-$timestamp$suffix"
 file="$stem.dump"
 manifest_name="$stem.sha256"
 metadata_name="$stem.txt"
+documents_name="dietoexpress-documents-$timestamp$suffix.tar.gz"
+documents_manifest_name="dietoexpress-documents-$timestamp$suffix.tar.gz.sha256"
 dump_path="$BACKUP_DIR/$file"
 manifest_path="$BACKUP_DIR/$manifest_name"
 metadata_path="$BACKUP_DIR/$metadata_name"
+documents_path="$BACKUP_DIR/$documents_name"
+documents_manifest_path="$BACKUP_DIR/$documents_manifest_name"
 env_suffix="$timestamp$suffix"
 env_path="$BACKUP_DIR/dietoexpress-env-$env_suffix"
 tmp_dump="$tmp_dir/$file"
+tmp_documents="$tmp_dir/$documents_name"
+tmp_documents_manifest="$tmp_dir/$documents_manifest_name"
 committed=false
 published_dump=false
 published_manifest=false
 published_metadata=false
+published_documents=false
+published_documents_manifest=false
 published_env=false
 
 cleanup() {
@@ -94,6 +105,8 @@ cleanup() {
     [[ "$published_dump" != true ]] || rm -f -- "$dump_path"
     [[ "$published_manifest" != true ]] || rm -f -- "$manifest_path"
     [[ "$published_metadata" != true ]] || rm -f -- "$metadata_path"
+    [[ "$published_documents" != true ]] || rm -f -- "$documents_path"
+    [[ "$published_documents_manifest" != true ]] || rm -f -- "$documents_manifest_path"
     [[ "$published_env" != true ]] || rm -f -- "$env_path"
   fi
   rm -rf -- "$tmp_dir"
@@ -101,7 +114,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-for final_path in "$dump_path" "$manifest_path" "$metadata_path"; do
+for final_path in "$dump_path" "$manifest_path" "$metadata_path" "$documents_path" "$documents_manifest_path"; do
   [[ ! -e "$final_path" && ! -L "$final_path" ]] || { echo "ERROR: ya existe un artefacto de backup con timestamp $timestamp." >&2; exit 1; }
 done
 if [[ "$INCLUDE_ENV" == "true" ]]; then
@@ -118,16 +131,26 @@ runuser -u postgres -- /usr/bin/pg_dump \
   --dbname="$DATABASE_NAME" \
   --file="$tmp_dump"
 
+# La copia de documentos comparte timestamp con PostgreSQL para poder restaurar
+# ambos conjuntos como una sola unidad lógica.
+/usr/bin/tar --create --gzip --file="$tmp_documents" --directory="$DOCUMENTS_DIR" .
+/usr/bin/tar --list --gzip --file="$tmp_documents" >/dev/null
 /usr/bin/pg_restore --list "$tmp_dump" >/dev/null
 sha256="$(sha256sum "$tmp_dump" | awk '{print $1}')"
 size_bytes="$(stat -c '%s' "$tmp_dump")"
+documents_sha256="$(sha256sum "$tmp_documents" | awk '{print $1}')"
+documents_size_bytes="$(stat -c '%s' "$tmp_documents")"
 printf '%s  %s\n' "$sha256" "$file" > "$tmp_dir/$manifest_name"
+printf '%s  %s\n' "$documents_sha256" "$documents_name" > "$tmp_documents_manifest"
 {
   printf 'created_at_utc=%s\n' "$timestamp"
   printf 'host=%s\n' "$host"
   printf 'backup=%s\n' "$dump_path"
   printf 'size_bytes=%s\n' "$size_bytes"
   printf 'sha256=%s\n' "$sha256"
+  printf 'documents_archive=%s\n' "$documents_name"
+  printf 'documents_size_bytes=%s\n' "$documents_size_bytes"
+  printf 'documents_sha256=%s\n' "$documents_sha256"
 } > "$tmp_dir/$metadata_name"
 
 # El almacén es root-owned y joso solo tiene lectura/travesía por grupo.
@@ -137,15 +160,21 @@ install -o root -g "$BACKUP_GROUP" -m 0640 "$tmp_dir/$manifest_name" "$manifest_
 published_manifest=true
 install -o root -g "$BACKUP_GROUP" -m 0640 "$tmp_dir/$metadata_name" "$metadata_path"
 published_metadata=true
+install -o root -g "$BACKUP_GROUP" -m 0640 "$tmp_documents" "$documents_path"
+published_documents=true
+install -o root -g "$BACKUP_GROUP" -m 0640 "$tmp_documents_manifest" "$documents_manifest_path"
+published_documents_manifest=true
 if [[ "$INCLUDE_ENV" == "true" ]]; then
   install -o root -g root -m 0600 "$ENV_FILE" "$env_path"
   published_env=true
 fi
-(cd "$BACKUP_DIR" && sha256sum -c "$manifest_name")
+(cd "$BACKUP_DIR" && sha256sum -c "$manifest_name" "$documents_manifest_name")
 committed=true
 
 echo "Backup creado: $dump_path"
 echo "Checksum: $manifest_path"
+echo "Documentos: $documents_path"
+echo "Checksum documentos: $documents_manifest_path"
 
 # La retención la hace root, porque joso no puede borrar ni reemplazar backups.
 # Las copias automáticas pre-restore tienen una retención independiente; las
@@ -160,6 +189,8 @@ if [[ "$RETENTION" =~ ^[0-9]+$ ]] && (( RETENTION > 0 )); then
     old_stem="$(basename "${old_backup%.dump}")"
     suffix_part="${old_stem#dietoexpress-postgresql-}"
     rm -f -- "$old_backup" "${old_backup%.dump}.sha256" "${old_backup%.dump}.txt" \
+      "$BACKUP_DIR/dietoexpress-documents-$suffix_part.tar.gz" \
+      "$BACKUP_DIR/dietoexpress-documents-$suffix_part.tar.gz.sha256" \
       "$BACKUP_DIR/dietoexpress-env-$suffix_part"
   done
 fi
@@ -173,6 +204,8 @@ if [[ "$PRE_RETENTION" =~ ^[0-9]+$ ]] && (( PRE_RETENTION > 0 )); then
     old_stem="$(basename "${old_backup%.dump}")"
     suffix_part="${old_stem#dietoexpress-postgresql-}"
     rm -f -- "$old_backup" "${old_backup%.dump}.sha256" "${old_backup%.dump}.txt" \
+      "$BACKUP_DIR/dietoexpress-documents-$suffix_part.tar.gz" \
+      "$BACKUP_DIR/dietoexpress-documents-$suffix_part.tar.gz.sha256" \
       "$BACKUP_DIR/dietoexpress-env-$suffix_part"
   done
 fi
