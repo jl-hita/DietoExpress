@@ -139,6 +139,12 @@ La aplicación se despliega actualmente sobre Linux mediante servicios systemd y
 
 Para producción se recomienda utilizar variables de entorno y secretos fuera del repositorio.
 
+## Documentación operativa
+
+- [Guía de despliegue Linux de producción](docs/GUIA_DESPLIEGUE_LINUX_PRODUCCION.md): instalación, configuración, actualización y recuperación del servidor.
+- [Manual SuperAdmin de copias de seguridad](docs/MANUAL_SUPERADMIN_BACKUPS.md): creación, verificación y restauración coordinada de PostgreSQL y documentos.
+- [Backups cifrados en Google Drive](docs/BACKUPS_GOOGLE_DRIVE.md): configuración de `rclone`, subida automática de snapshots completos y recuperación desde Drive.
+
 ## Calidad y seguridad
 
 El proyecto incorpora validaciones automáticas en CI/CD que incluyen:

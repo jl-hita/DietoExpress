@@ -19,6 +19,7 @@ Rutas de producción actuales:
 | /var/www/dietoexpress | Frontend servido por Nginx | No |
 | /var/lib/dietoexpress/Logs | Logs de aplicación | Sí |
 | /var/lib/dietoexpress/AlertSpool | Cola persistente de alertas | Sí |
+| /var/lib/dietoexpress/documents | Documentos y PDF persistentes (pacientes, profesionales y administración) | Sí |
 | /etc/dietoexpress/dietoexpress.env | Secretos/configuración del servicio | Sí, respaldar de forma segura |
 
 La aplicación actual se ejecuta como el usuario joso y el servicio es dietoexpress.service.
@@ -119,6 +120,7 @@ Crear AlertSpool:
 
 ~~~bash
 sudo install -d -o joso -g joso -m 750 /var/lib/dietoexpress/AlertSpool
+sudo install -d -o joso -g joso -m 750 /var/lib/dietoexpress/documents
 ~~~
 
 Probar:
@@ -126,6 +128,7 @@ Probar:
 ~~~bash
 ls -ld /var/lib/dietoexpress/AlertSpool
 sudo -u joso sh -c 'touch /var/lib/dietoexpress/AlertSpool/.write-test && rm /var/lib/dietoexpress/AlertSpool/.write-test'
+sudo -u joso sh -c 'touch /var/lib/dietoexpress/documents/.write-test && rm /var/lib/dietoexpress/documents/.write-test'
 ~~~
 
 **Nunca crear estos directorios con mkdir desde el workflow de despliegue.** Se provisionan una sola vez en el servidor. El workflow solo comprueba que existan y sean escribibles.
@@ -328,6 +331,7 @@ Jwt__Audience=Anguloso.Client
 Cors__AllowedOrigins__0=https://<DOMINIO>
 DIETOEXPRESS_LOG_PATH=/var/lib/dietoexpress/Logs
 DIETOEXPRESS_ALERT_SPOOL=/var/lib/dietoexpress/AlertSpool
+DIETOEXPRESS_DOCUMENTS_PATH=/var/lib/dietoexpress/documents
 ASPNETCORE_ENVIRONMENT=Production
 Geoapify__ApiKey=<GEOAPIFY_API_KEY>
 LocationIQ__ApiKey=<LOCATIONIQ_API_KEY>
@@ -1016,13 +1020,15 @@ Configurar en /etc/dietoexpress/dietoexpress.env:
 DIETOEXPRESS_BACKUP_DIR=/var/lib/dietoexpress-backups
 DIETOEXPRESS_DATABASE=<DATABASE>
 DIETOEXPRESS_DB_PORT=5432
+DIETOEXPRESS_DOCUMENTS_PATH=/var/lib/dietoexpress/documents
+DIETOEXPRESS_DRIVE_REMOTE=gdrive-crypt:
 ~~~
 
-El almacén recomendado es /var/lib/dietoexpress-backups, propiedad de root, grupo joso y modo 0750. Los archivos de copia son root:joso con modo 0640: la aplicación puede listarlos/descargarlos, pero no modificarlos. No utilices /var/lib/dietoexpress/backups porque el directorio padre /var/lib/dietoexpress es escribible por joso para el aviso de mantenimiento; un usuario de despliegue no debe poder sustituir el archivo que posteriormente leerá pg_restore como PostgreSQL superuser.
+El almacén recomendado es /var/lib/dietoexpress-backups, propiedad de root, grupo joso y modo 0750. Los archivos de copia son root:joso con modo 0640: la aplicación puede listarlos/descargarlos, pero no modificarlos. No utilices /var/lib/dietoexpress/backups porque el directorio padre /var/lib/dietoexpress es escribible por joso para el aviso de mantenimiento; un usuario de despliegue no debe poder sustituir el archivo que posteriormente leerá pg_restore como PostgreSQL superuser. `DIETOEXPRESS_DOCUMENTS_PATH` debe apuntar exactamente al árbol documental usado por la aplicación; en una instalación estándar es `/var/lib/dietoexpress/documents`. Ese árbol debe ser persistente y escribible por joso.
 
 ## Migración del almacén anterior
 
-Conserva la carpeta anterior hasta verificar la migración. Primero crea el nuevo directorio y copia los dumps comprobando el checksum de origen. El siguiente bloque no elimina ni altera las copias antiguas:
+Conserva la carpeta anterior hasta verificar la migración. Primero crea el nuevo directorio y copia los dumps comprobando el checksum de origen. El siguiente bloque no elimina ni altera las copias antiguas. Importante: este procedimiento migra los artefactos antiguos de PostgreSQL, no crea retrospectivamente snapshots documentales. Las copias que no tengan `dietoexpress-documents-<timestamp>` y su manifiesto no se ofrecerán como restaurables en la aplicación; conserva el almacén antiguo hasta completar una prueba de recuperación.
 
 ~~~bash
 sudo install -d -o root -g joso -m 0750 /var/lib/dietoexpress-backups
@@ -1063,6 +1069,8 @@ En el archivo, cambia únicamente DIETOEXPRESS_BACKUP_DIR a /var/lib/dietoexpres
 
 ## Provisioning de la infraestructura privilegiada
 
+Antes del provisioning, instala `rsync` y `rclone`, y configura en `/home/joso/.config/rclone/rclone.conf` el remote cifrado `gdrive-crypt:` con propietario `joso:joso` y modo `0600`. La configuración no debe compartirse ni guardarse en Git. El detalle está en [BACKUPS_GOOGLE_DRIVE.md](BACKUPS_GOOGLE_DRIVE.md).
+
 Después de desplegar o actualizar los scripts privilegiados/unidades systemd, ejecutar como administrador:
 
 ~~~bash
@@ -1070,13 +1078,14 @@ sudo /opt/dietoexpress/scripts/provision-dietoexpress-backup-automation.sh
 sudo visudo -cf /etc/sudoers.d/dietoexpress-restore
 sudo systemctl restart dietoexpress.service
 sudo systemctl status dietoexpress-backup.timer --no-pager
+sudo systemctl status dietoexpress-backup-drive.timer --no-pager
 ~~~
 
 El provisioning comprueba que ni el directorio ni sus ancestros sean modificables por joso. Es idempotente y debe repetirse después de cada cambio en helpers root-owned o unidades systemd; copiar archivos a /opt/dietoexpress no actualiza automáticamente las copias instaladas en /usr/local/sbin.
 
 ## Creación de backups
 
-El servicio semanal corre como joso, pero dietoexpress-backup.sh delega pg_dump mediante reglas sudoers restringidas a dietoexpress-pg-backup --backup y --backup-pre-restore. El helper root-owned ejecuta pg_dump como postgres y publica el dump, checksum y metadatos en el almacén root-owned.
+El servicio local corre diariamente como joso, alrededor de las 02:00. PostgreSQL se vuelca completo cada día y el helper root-owned publica el dump, checksum, metadatos y una snapshot completa del árbol configurado por `DIETOEXPRESS_DOCUMENTS_PATH`. Las snapshots documentales reutilizan archivos idénticos mediante hard links locales con `rsync`; cada domingo se inicia una nueva base documental completa. La restauración valida y recupera PostgreSQL y documentos conjuntamente. La subida externa se ejecuta en un servicio separado alrededor de las 03:00 y está descrita en [BACKUPS_GOOGLE_DRIVE.md](BACKUPS_GOOGLE_DRIVE.md).
 
 Los dumps usan formato custom y conservan los propietarios originales; no se debe utilizar --no-owner. Comprueba:
 
@@ -1087,11 +1096,11 @@ journalctl -u dietoexpress-backup.service --since "7 days ago" --no-pager
 ls -lh /var/lib/dietoexpress-backups/
 ~~~
 
-La retención normal conserva las ocho últimas copias. Los snapshots automáticos previos a restauración llevan el sufijo -pre-restore y tienen retención separada (cuatro por defecto). Los snapshots manuales cuyo nombre contiene -pre- no se eliminan con la rotación normal.
+La retención local normal conserva catorce copias diarias completas. Los snapshots automáticos previos a restauración llevan el sufijo `-pre-restore` y tienen retención separada (cuatro por defecto). Los snapshots manuales cuyo nombre contiene `-pre-` no se eliminan con la rotación normal.
 
 ## Restauración y rollback
 
-La restauración pasa por dietoexpress-restore@.service. La unidad detiene el backend; el script de usuario verifica la copia y genera un snapshot previo mediante el mismo helper privilegiado. El helper root-owned vuelve a validar checksum/formato, copia el dump a un directorio temporal accesible a postgres y ejecuta pg_restore sin --no-owner, preservando los propietarios.
+La restauración pasa por dietoexpress-restore@.service. La unidad detiene el backend; el script de usuario verifica el dump y el manifiesto documental y genera un snapshot previo coordinado mediante el mismo helper privilegiado. El helper root-owned valida checksums, formato, inventario, tipos de archivo y permisos; prepara y sustituye los documentos y ejecuta pg_restore sin --no-owner, preservando los propietarios. Si la restauración falla, se intenta recuperar conjuntamente la base de datos y los documentos previos.
 
 Si falla la restauración solicitada, el script intenta rollback usando el snapshot previo. Si el rollback termina bien, systemd vuelve a iniciar DietoExpress aunque la operación quede marcada como fallida. Si también falla el rollback, la unidad deja el backend detenido y conserva el aviso de mantenimiento para evitar arrancar sobre una base potencialmente parcial.
 
@@ -1103,7 +1112,9 @@ sudo /usr/local/sbin/dietoexpress-restore-web dietoexpress-postgresql-XXXXXXXX.d
 
 Tras restaurar, revisar estado de la unidad, dietoexpress.service, logs y smoke tests. No lanzar otra restauración ni iniciar manualmente el backend si consta que falló también el rollback.
 
-Además de PostgreSQL, respalda según la política operativa /etc/dietoexpress/dietoexpress.env, configuración de Nginx y systemd, material de recuperación de Let's Encrypt, Logs si deben conservarse, AlertSpool si contiene datos pendientes y cualquier almacenamiento persistente nuevo. Cifra los backups que contengan secretos y conserva al menos una copia fuera del servidor/proveedor. Prueba periódicamente una restauración en una base o servidor independiente.
+La copia cifrada a Google Drive está descrita en [BACKUPS_GOOGLE_DRIVE.md](BACKUPS_GOOGLE_DRIVE.md). El servicio de Drive sube paquetes completos con PostgreSQL y documentos al remote cifrado `gdrive-crypt:`; no sube `dietoexpress.env` ni elimina copias remotas. Las copias históricas que solo contienen PostgreSQL se omiten porque no permiten restauración coordinada.
+
+Además de estos snapshots, respalda según la política operativa /etc/dietoexpress/dietoexpress.env, configuración de Nginx y systemd y material de recuperación de Let's Encrypt. La configuración de producción contiene secretos y debe cifrarse y custodiarse por separado; nunca se incorpora al paquete de backup ordinario. Prueba periódicamente una restauración en una base o servidor independiente.
 
 # 32. Monitorización
 

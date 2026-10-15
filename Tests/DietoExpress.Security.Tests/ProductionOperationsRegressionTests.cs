@@ -88,12 +88,15 @@ public sealed class ProductionOperationsRegressionTests
     }
 
     [Fact]
-    public void BackupAutomation_MustUseWeeklyTimerAndSafeRestoreBoundary()
+    public void BackupAutomation_MustUseDailyHybridSnapshotsAndSafeRestoreBoundary()
     {
         var root = RepoRoot;
         var backupSystemdService = File.ReadAllText(Path.Combine(root, "scripts", "systemd", "dietoexpress-backup.service"));
         var backupTimer = File.ReadAllText(Path.Combine(root, "scripts", "systemd", "dietoexpress-backup.timer"));
         var provisioning = File.ReadAllText(Path.Combine(root, "scripts", "provision-dietoexpress-backup-automation.sh"));
+        var driveBackup = File.ReadAllText(Path.Combine(root, "scripts", "dietoexpress-backup-google-drive.sh"));
+        var driveService = File.ReadAllText(Path.Combine(root, "scripts", "systemd", "dietoexpress-backup-drive.service"));
+        var driveTimer = File.ReadAllText(Path.Combine(root, "scripts", "systemd", "dietoexpress-backup-drive.timer"));
         var restoreWrapper = File.ReadAllText(Path.Combine(root, "scripts", "dietoexpress-restore-web.sh"));
         var restoreUnit = File.ReadAllText(Path.Combine(root, "scripts", "systemd", "dietoexpress-restore@.service"));
         var restorePost = File.ReadAllText(Path.Combine(root, "scripts", "dietoexpress-restore-post.sh"));
@@ -152,6 +155,16 @@ public sealed class ProductionOperationsRegressionTests
 
         Assert.Contains("--backup-pre-restore", provisioning);
         Assert.Contains("flock 9", pgBackupHelper);
+        Assert.Contains("listremotes", provisioning);
+        Assert.Contains("dietoexpress-backup-drive.timer", provisioning);
+        Assert.Contains("gdrive-crypt:", provisioning);
+        Assert.Contains("dietoexpress-documents-", driveBackup);
+        Assert.Contains("sha256sum -c", driveBackup);
+        Assert.Contains("copyto", driveBackup);
+        Assert.Contains("gdrive-crypt:", driveBackup);
+        Assert.DoesNotContain("dietoexpress-env-", driveBackup);
+        Assert.Contains("ExecStart=/usr/local/sbin/dietoexpress-backup-google-drive", driveService);
+        Assert.Contains("OnCalendar=*-*-* 03:00:00", driveTimer);
         Assert.Contains("flock 9", pgRestoreHelper);
         Assert.DoesNotContain("--no-owner", pgBackupCommands);
         Assert.DoesNotContain("--no-owner", pgRestoreCommands);

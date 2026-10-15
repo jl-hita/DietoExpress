@@ -6,13 +6,15 @@ El SuperAdmin puede consultar, crear y descargar snapshots completos desde **Adm
 
 Las copias contienen datos sensibles y deben tratarse como información protegida. La restauración de producción no se ejecuta en el proceso ASP.NET: la aplicación solicita una unidad systemd independiente que realiza la operación.
 
+La copia externa cifrada se automatiza mediante `rclone` y el remote `gdrive-crypt:`; cada paquete remoto incluye PostgreSQL y los documentos en un único snapshot. Consulta [BACKUPS_GOOGLE_DRIVE.md](BACKUPS_GOOGLE_DRIVE.md) para instalar, verificar y recuperar desde Google Drive. La subida remota no borra copias de Drive.
+
 ## 2. Almacén root-owned y migración inicial
 
 El almacén recomendado es /var/lib/dietoexpress-backups, propiedad root, grupo joso y permisos 0750. Los dumps, manifiestos y metadatos son root:joso con permisos 0640. De esta forma joso puede listarlos/descargarlos, pero no cambiar el dump ni su checksum antes de que el helper los restaure como PostgreSQL superuser.
 
 No uses /var/lib/dietoexpress/backups: su directorio padre es escribible por joso para el aviso de mantenimiento, por lo que no constituye una frontera segura para archivos que abrirá pg_restore como postgres.
 
-Si el servidor aún guarda las copias en la ruta antigua, sigue primero la subsección "Migración del almacén anterior" de la guía de despliegue. Comprueba que cada checksum se valida en origen, copia dumps y metadatos a la nueva ruta como root, vuelve a generar los manifiestos para el nuevo directorio y actualiza DIETOEXPRESS_BACKUP_DIR en /etc/dietoexpress/dietoexpress.env. Conserva el directorio antiguo hasta que las copias migradas hayan pasado la verificación y una prueba de restauración aislada.
+Si el servidor aún guarda las copias en la ruta antigua, sigue primero la subsección "Migración del almacén anterior" de la guía de despliegue. Comprueba que cada checksum se valida en origen, copia dumps y metadatos a la nueva ruta como root, vuelve a generar los manifiestos para el nuevo directorio y actualiza DIETOEXPRESS_BACKUP_DIR en /etc/dietoexpress/dietoexpress.env. Las copias históricas que no tengan snapshot documental asociado no se consideran restaurables como conjunto. Conserva el directorio antiguo hasta que las copias migradas hayan pasado la verificación y una prueba de restauración aislada.
 
 ## 3. Backups automáticos diarios e híbridos
 
