@@ -135,14 +135,18 @@ public sealed class ProductionOperationsRegressionTests
         Assert.Contains("published_dump=false", pgBackupHelper);
         Assert.Contains("PRE_RETENTION", pgBackupHelper);
         Assert.Contains("DIETOEXPRESS_DOCUMENTS_PATH", pgBackupHelper);
-        Assert.Contains("documents_archive=", pgBackupHelper);
+        Assert.Contains("documents_snapshot=", pgBackupHelper);
         Assert.Contains("dietoexpress-documents-", pgBackupHelper);
+        Assert.Contains("--link-dest=", pgBackupHelper);
+        Assert.Contains("--checksum", pgBackupHelper);
+        Assert.Contains("--chown=root:", pgBackupHelper);
+        Assert.Contains("documents_manifest_sha256=", pgBackupHelper);
         Assert.Contains("documents_file", pgRestoreCommands);
-        Assert.Contains("runuser -u joso -- /usr/bin/tar", pgRestoreCommands);
+        Assert.Contains("runuser -u joso -- /usr/bin/rsync", pgRestoreCommands);
         Assert.Contains("no se inicia una restauración parcial", pgRestoreCommands);
         Assert.Contains("DIETOEXPRESS_RESTORE_VERIFY_SCRIPT", restoreUser);
         Assert.Contains("GetBundle", databaseBackupService);
-        Assert.Contains("HasDocumentArchive", databaseBackupService);
+        Assert.Contains("HasDocumentSnapshot", databaseBackupService);
 
         Assert.Contains("--backup-pre-restore", provisioning);
         Assert.Contains("flock 9", pgBackupHelper);
