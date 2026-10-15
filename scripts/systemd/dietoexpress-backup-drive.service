@@ -13,4 +13,5 @@ ExecStart=/usr/local/sbin/dietoexpress-backup-google-drive
 UMask=0077
 PrivateTmp=true
 ProtectSystem=strict
+ReadWritePaths=/home/joso/.config/rclone
 NoNewPrivileges=true
