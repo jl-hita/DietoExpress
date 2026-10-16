@@ -6,7 +6,7 @@
   </div>
 </div>
 
-<div class="http-diagnostics-tools">
+<div *ngIf="authService.isSuperAdmin()" class="http-diagnostics-tools">
   <button type="button" class="http-diagnostics-toggle" (click)="httpDiagnosticsOpen = !httpDiagnosticsOpen">
     Diagnóstico HTTP · {{ httpDiagnostics.length }}
   </button>

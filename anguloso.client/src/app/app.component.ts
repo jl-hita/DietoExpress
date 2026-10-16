@@ -37,6 +37,8 @@ export class AppComponent {
 
   @HostListener('window:dieto-http-cd-log', ['$event'])
   onHttpDiagnostic(event: Event): void {
+    // Los diagnósticos contienen rutas y detalles técnicos: solo se recopilan para soporte superadmin.
+    if (!this.authService.isSuperAdmin()) return;
     const customEvent = event as CustomEvent<HttpDiagnosticEntry>;
     if (!customEvent.detail) return;
     this.httpDiagnostics = [...this.httpDiagnostics, customEvent.detail].slice(-this.maxDiagnosticEntries);
