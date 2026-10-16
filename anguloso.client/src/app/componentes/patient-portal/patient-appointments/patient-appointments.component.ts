@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy} from '@angular/core';
+import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -24,33 +24,51 @@ export class PatientAppointmentsComponent {
 
   @Output() refresh = new EventEmitter<void>();
   @Output() request = new EventEmitter<{ slot: AppointmentSlot; modality: 'in_person' | 'online' }>();
-  selectedModality: 'in_person' | 'online' = 'in_person';
+  private readonly selectedModalityState = signal<'in_person' | 'online'>('in_person');
+  get selectedModality(): 'in_person' | 'online' { return this.selectedModalityState(); }
+  set selectedModality(value: 'in_person' | 'online') { this.selectedModalityState.set(value); }
+
+  // Los mapas de entrada se mantienen mutables por compatibilidad con ngModel.
   reviewRatings: Record<number, number> = {};
   reviewComments: Record<number, string> = {};
-  reviewSubmitting: Record<number, boolean> = {};
-  reviewMessages: Record<number, string> = {};
-  reviewErrors: Record<number, string> = {};
+
+  private readonly reviewSubmittingState = signal<Record<number, boolean>>({});
+  get reviewSubmitting(): Record<number, boolean> { return this.reviewSubmittingState(); }
+  set reviewSubmitting(value: Record<number, boolean>) { this.reviewSubmittingState.set(value); }
+
+  private readonly reviewMessagesState = signal<Record<number, string>>({});
+  get reviewMessages(): Record<number, string> { return this.reviewMessagesState(); }
+  set reviewMessages(value: Record<number, string>) { this.reviewMessagesState.set(value); }
+
+  private readonly reviewErrorsState = signal<Record<number, string>>({});
+  get reviewErrors(): Record<number, string> { return this.reviewErrorsState(); }
+  set reviewErrors(value: Record<number, string>) { this.reviewErrorsState.set(value); }
 
   constructor(private readonly portalService: PatientPortalService) {}
   @Output() cancel = new EventEmitter<PatientAppointment>();
   @Output() joinVideo = new EventEmitter<PatientAppointment>();
 
-  calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-  selectedAvailabilityDate: string | null = null;
+  private readonly calendarMonthState = signal(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  get calendarMonth(): Date { return this.calendarMonthState(); }
+  set calendarMonth(value: Date) { this.calendarMonthState.set(value); }
+
+  private readonly selectedAvailabilityDateState = signal<string | null>(null);
+  get selectedAvailabilityDate(): string | null { return this.selectedAvailabilityDateState(); }
+  set selectedAvailabilityDate(value: string | null) { this.selectedAvailabilityDateState.set(value); }
 
   submitReview(appointment: PatientAppointment): void {
     const rating = this.reviewRatings[appointment.id] || 0;
     if (rating < 1 || rating > 5 || this.reviewSubmitting[appointment.id]) return;
-    this.reviewSubmitting[appointment.id] = true;
-    this.reviewErrors[appointment.id] = '';
+    this.reviewSubmitting = { ...this.reviewSubmitting, [appointment.id]: true };
+    this.reviewErrors = { ...this.reviewErrors, [appointment.id]: '' };
     this.portalService.submitDirectoryReview(appointment.id, rating, this.reviewComments[appointment.id] || '').subscribe({
       next: result => {
-        this.reviewSubmitting[appointment.id] = false;
-        this.reviewMessages[appointment.id] = result.message || 'Gracias por tu valoración.';
+        this.reviewSubmitting = { ...this.reviewSubmitting, [appointment.id]: false };
+        this.reviewMessages = { ...this.reviewMessages, [appointment.id]: result.message || 'Gracias por tu valoración.' };
       },
       error: err => {
-        this.reviewSubmitting[appointment.id] = false;
-        this.reviewErrors[appointment.id] = err?.error?.message || 'No hemos podido guardar la valoración.';
+        this.reviewSubmitting = { ...this.reviewSubmitting, [appointment.id]: false };
+        this.reviewErrors = { ...this.reviewErrors, [appointment.id]: err?.error?.message || 'No hemos podido guardar la valoración.' };
       }
     });
   }
