@@ -78,4 +78,33 @@ public sealed class SupportRegressionTests
         Assert.Contains("BeginTransactionAsync()", service);
         Assert.Contains("await transaction.CommitAsync()", service);
     }
+    [Fact]
+    public void ErrorReportingMiddleware_UsesSafeProblemDetailsAndCorrelationId()
+    {
+        var middleware = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Middleware", "ErrorHandlingMiddleware.cs"));
+        var program = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Program.cs"));
+
+        Assert.Contains("X-Correlation-ID", middleware);
+        Assert.Contains("application/problem+json", middleware);
+        Assert.Contains("INTERNAL_ERROR", middleware);
+        Assert.Contains("CorrelationId={CorrelationId}", middleware);
+        Assert.DoesNotContain("exception.Message", middleware);
+        Assert.Contains("app.UseMiddleware<ErrorHandlingMiddleware>();", program);
+    }
+
+    [Fact]
+    public void ErrorReportTicket_UsesExistingSupportApiAndDoesNotAttachPayloads()
+    {
+        var reporting = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "servicios", "error-reporting.service.ts"));
+        var banner = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "error-report-banner", "error-report-banner.component.ts"));
+        var support = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "servicios", "support.service.ts"));
+
+        Assert.Contains("error.status < 500", reporting);
+        Assert.Contains("requestUrl.split('?')[0]", reporting);
+        Assert.Contains("this.support.createTicket", banner);
+        Assert.Contains("category: 'problem'", banner);
+        Assert.Contains("this.http.post<{ id: number }>(this.base + '/tickets', request)", support);
+        Assert.DoesNotContain("error.error", banner);
+    }
+
 }
