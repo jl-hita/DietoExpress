@@ -41,12 +41,23 @@ public sealed class AddressAutocompleteController : ControllerBase
         }
         catch (InvalidOperationException)
         {
-            return StatusCode(StatusCodes.Status503ServiceUnavailable, "El servicio de direcciones no está configurado correctamente.");
+            return ProviderUnavailable("El servicio de direcciones no está configurado correctamente.");
         }
         catch (HttpRequestException)
         {
-            return StatusCode(StatusCodes.Status503ServiceUnavailable, "El servicio de direcciones no está disponible temporalmente.");
+            return ProviderUnavailable("El servicio de direcciones no está disponible temporalmente.");
         }
+    }
+
+    private ObjectResult ProviderUnavailable(string message)
+    {
+        var result = StatusCode(StatusCodes.Status503ServiceUnavailable, new
+        {
+            message,
+            code = "ADDRESS_PROVIDER_UNAVAILABLE",
+            reportable = true
+        });
+        return (ObjectResult)result;
     }
 
     private static AddressSuggestionDto Map(AddressAutocompleteService.AddressSuggestion suggestion) =>

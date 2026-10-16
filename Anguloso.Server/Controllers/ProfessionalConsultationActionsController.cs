@@ -123,11 +123,11 @@ public sealed class ProfessionalConsultationActionsController : ControllerBase
             }
             catch (InvalidOperationException)
             {
-                return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = "Las consultas online no están disponibles en este momento." });
+                return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = "Las consultas online no están disponibles en este momento.", code = "VIDEO_PROVIDER_UNAVAILABLE", reportable = true });
             }
             catch (HttpRequestException)
             {
-                return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = "No se ha podido preparar la sala de la consulta online." });
+                return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = "No se ha podido preparar la sala de la consulta online.", code = "VIDEO_PROVIDER_UNAVAILABLE", reportable = true });
             }
         }
 
