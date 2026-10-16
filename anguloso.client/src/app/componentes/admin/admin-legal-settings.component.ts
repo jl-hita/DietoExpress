@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, ChangeDetectionStrategy} from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, signal} from '@angular/core';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -140,13 +140,28 @@ import { LegalDocumentGeneratorService, LegalGeneratedDocument } from '../../ser
 })
 export class AdminLegalSettingsComponent implements OnInit {
   form: FormGroup;
-  saving = false;
-  generating = false;
-  templates: { key: string; file: string }[] = [];
-  lastGenerated: LegalGeneratedDocument | null = null;
-  documents: LegalGeneratedDocument[] = [];
-  readiness: LegalReadiness | null = null;
-  selectedDocument: LegalGeneratedDocument | null = null;
+  private readonly savingSignal = signal(false);
+  private readonly generatingSignal = signal(false);
+  private readonly templatesSignal = signal<{ key: string; file: string }[]>([]);
+  private readonly lastGeneratedSignal = signal<LegalGeneratedDocument | null>(null);
+  private readonly documentsSignal = signal<LegalGeneratedDocument[]>([]);
+  private readonly readinessSignal = signal<LegalReadiness | null>(null);
+  private readonly selectedDocumentSignal = signal<LegalGeneratedDocument | null>(null);
+
+  get saving(): boolean { return this.savingSignal(); }
+  set saving(value: boolean) { this.savingSignal.set(value); }
+  get generating(): boolean { return this.generatingSignal(); }
+  set generating(value: boolean) { this.generatingSignal.set(value); }
+  get templates(): { key: string; file: string }[] { return this.templatesSignal(); }
+  set templates(value: { key: string; file: string }[]) { this.templatesSignal.set(value); }
+  get lastGenerated(): LegalGeneratedDocument | null { return this.lastGeneratedSignal(); }
+  set lastGenerated(value: LegalGeneratedDocument | null) { this.lastGeneratedSignal.set(value); }
+  get documents(): LegalGeneratedDocument[] { return this.documentsSignal(); }
+  set documents(value: LegalGeneratedDocument[]) { this.documentsSignal.set(value); }
+  get readiness(): LegalReadiness | null { return this.readinessSignal(); }
+  set readiness(value: LegalReadiness | null) { this.readinessSignal.set(value); }
+  get selectedDocument(): LegalGeneratedDocument | null { return this.selectedDocumentSignal(); }
+  set selectedDocument(value: LegalGeneratedDocument | null) { this.selectedDocumentSignal.set(value); }
 
   /** Ayuda contextual por campo: orienta al administrador sin sustituir la revisión jurídica. */
   readonly fieldHelp: Record<string, string> = {
