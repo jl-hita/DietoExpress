@@ -39,10 +39,15 @@ public sealed class GoogleCalendarController : ControllerBase
     {
         if (!_calendar.IsConfigured)
         {
-            var problem = Problem("Google Calendar no está configurado en el servidor.", statusCode: 503);
+            var problem = new ProblemDetails
+            {
+                Title = "Google Calendar no está configurado",
+                Detail = "Google Calendar no está configurado en el servidor.",
+                Status = StatusCodes.Status503ServiceUnavailable
+            };
             problem.Extensions["code"] = "GOOGLE_CALENDAR_NOT_CONFIGURED";
             problem.Extensions["reportable"] = true;
-            return problem;
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, problem);
         }
         var (userId, tenantId) = Identity();
         if (userId == null || tenantId == null) return Unauthorized();
@@ -116,13 +121,15 @@ public sealed class GoogleCalendarController : ControllerBase
                 tenantId.Value,
                 (int)ex.StatusCode);
 
-            var problem = Problem(
-                detail: "Google Calendar no ha podido completar la sincronización. Revisa la configuración de la integración e inténtalo de nuevo.",
-                statusCode: StatusCodes.Status502BadGateway,
-                title: "No se pudo sincronizar Google Calendar");
+            var problem = new ProblemDetails
+            {
+                Title = "No se pudo sincronizar Google Calendar",
+                Detail = "Google Calendar no ha podido completar la sincronización. Revisa la configuración de la integración e inténtalo de nuevo.",
+                Status = StatusCodes.Status502BadGateway
+            };
             problem.Extensions["code"] = "GOOGLE_CALENDAR_PROVIDER_ERROR";
             problem.Extensions["reportable"] = true;
-            return problem;
+            return StatusCode(StatusCodes.Status502BadGateway, problem);
         }
     }
 
