@@ -36,7 +36,6 @@ export class AppComponent {
 
   @HostListener('window:dieto-http-cd-log', ['$event'])
   onHttpDiagnostic(event: Event): void {
-    if (!this.authService.isSuperAdmin()) return;
     const customEvent = event as CustomEvent<HttpDiagnosticEntry>;
     if (!customEvent.detail) return;
     this.httpDiagnostics = [...this.httpDiagnostics, customEvent.detail].slice(-this.maxDiagnosticEntries);
