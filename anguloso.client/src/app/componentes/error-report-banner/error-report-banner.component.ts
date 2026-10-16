@@ -55,7 +55,7 @@ export class ErrorReportBannerComponent {
       error.correlationId ? 'Identificador de correlación: ' + error.correlationId : 'Identificador de correlación: no disponible',
       '',
       'No se han adjuntado cuerpos de petición/respuesta ni datos de formularios.'
-    ].join('\\n');
+    ].join('\n');
     this.support.createTicket({
       subject: 'Error de aplicación ' + error.id,
       category: 'problem',
