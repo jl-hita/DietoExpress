@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, ChangeDetectionStrategy} from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, signal} from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -97,13 +97,53 @@ import { LegalConfigurationService } from '../../servicios/legal-configuration.s
   `]
 })
 export class LegalDashboardComponent implements OnInit {
-  documents: LegalGeneratedDocument[] = [];
-  ratCount=0; openRisks=0; openRequests=0; openIncidents=0; eipdDecision='pending';
-  configMissing=0; technicalStatus:'ready'|'review'|'pending'='pending';
-  pendingDocs: LegalGeneratedDocument[] = [];
-  pending = 0;
-  templates: {key:string; file:string}[] = [];
-  generating = false;
+  private readonly documentsState = signal<LegalGeneratedDocument[]>([]);
+  get documents(): LegalGeneratedDocument[] { return this.documentsState(); }
+  set documents(value: LegalGeneratedDocument[]) { this.documentsState.set(value); }
+
+  private readonly ratCountState = signal(0);
+  get ratCount(): number { return this.ratCountState(); }
+  set ratCount(value: number) { this.ratCountState.set(value); }
+
+  private readonly openRisksState = signal(0);
+  get openRisks(): number { return this.openRisksState(); }
+  set openRisks(value: number) { this.openRisksState.set(value); }
+
+  private readonly openRequestsState = signal(0);
+  get openRequests(): number { return this.openRequestsState(); }
+  set openRequests(value: number) { this.openRequestsState.set(value); }
+
+  private readonly openIncidentsState = signal(0);
+  get openIncidents(): number { return this.openIncidentsState(); }
+  set openIncidents(value: number) { this.openIncidentsState.set(value); }
+
+  private readonly eipdDecisionState = signal('pending');
+  get eipdDecision(): string { return this.eipdDecisionState(); }
+  set eipdDecision(value: string) { this.eipdDecisionState.set(value); }
+
+  private readonly configMissingState = signal(0);
+  get configMissing(): number { return this.configMissingState(); }
+  set configMissing(value: number) { this.configMissingState.set(value); }
+
+  private readonly technicalStatusState = signal<'ready'|'review'|'pending'>('pending');
+  get technicalStatus(): 'ready'|'review'|'pending' { return this.technicalStatusState(); }
+  set technicalStatus(value: 'ready'|'review'|'pending') { this.technicalStatusState.set(value); }
+
+  private readonly pendingDocsState = signal<LegalGeneratedDocument[]>([]);
+  get pendingDocs(): LegalGeneratedDocument[] { return this.pendingDocsState(); }
+  set pendingDocs(value: LegalGeneratedDocument[]) { this.pendingDocsState.set(value); }
+
+  private readonly pendingState = signal(0);
+  get pending(): number { return this.pendingState(); }
+  set pending(value: number) { this.pendingState.set(value); }
+
+  private readonly templatesState = signal<{key:string; file:string}[]>([]);
+  get templates(): {key:string; file:string}[] { return this.templatesState(); }
+  set templates(value: {key:string; file:string}[]) { this.templatesState.set(value); }
+
+  private readonly generatingState = signal(false);
+  get generating(): boolean { return this.generatingState(); }
+  set generating(value: boolean) { this.generatingState.set(value); }
 
   constructor(private generator: LegalDocumentGeneratorService, private governance: LegalGovernanceService, private evidence: LegalEvidenceService, private config: LegalConfigurationService) {}
 
@@ -121,7 +161,6 @@ export class LegalDashboardComponent implements OnInit {
     this.governance.listEipd().subscribe({next:x=>{this.eipdDecision=x.length ? x[0].decision : 'pending';this.updateStatus();}});
     this.evidence.requests().subscribe({next:x=>{this.openRequests=x.filter(a=>!['resolved','rejected','cancelled'].includes(a.status)).length;this.updateStatus();}});
     this.evidence.incidents().subscribe({next:x=>{this.openIncidents=x.filter(a=>!['closed','false_positive'].includes(a.status)).length;this.updateStatus();}});
-    this.evidence.incidents().subscribe({next:x=>this.openIncidents=x.filter(a=>!['closed','false_positive'].includes(a.status)).length});
   }
 
   updateStatus(): void {
