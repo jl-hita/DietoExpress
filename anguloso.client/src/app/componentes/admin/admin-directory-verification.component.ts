@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, ChangeDetectionStrategy} from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, signal} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -82,7 +82,10 @@ import { AdminService, DirectoryVerificationItem } from '../../servicios/admin.s
   `]
 })
 export class AdminDirectoryVerificationComponent implements OnInit {
-  items: DirectoryVerificationItem[] = [];
+  private readonly itemsSignal = signal<DirectoryVerificationItem[]>([]);
+
+  get items(): DirectoryVerificationItem[] { return this.itemsSignal(); }
+  set items(value: DirectoryVerificationItem[]) { this.itemsSignal.set(value); }
   columns = ['professional', 'profile', 'status', 'actions'];
   statusFilter = '';
 
