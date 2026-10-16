@@ -34,6 +34,12 @@ jobs:
         working-directory: anguloso.client
         run: npm uninstall @types/jasmine jasmine-core karma karma-chrome-launcher karma-coverage karma-jasmine karma-jasmine-html-reporter
 
+      - name: Replace unpatched braces dependency with guarded compatibility fork
+        working-directory: anguloso.client
+        run: |
+          npm pkg set 'overrides.braces=npm:@dieub/braces-depth-guard@3.0.3-pn.3'
+          npm install
+
       - name: Switch Angular test builder to Vitest
         working-directory: anguloso.client
         run: |
