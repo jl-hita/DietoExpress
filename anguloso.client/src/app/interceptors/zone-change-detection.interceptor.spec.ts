@@ -2,12 +2,14 @@ import { HttpClient, provideHttpClient, withInterceptors } from '@angular/common
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { NgZone } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { AuthService } from '../servicios/auth.service';
 import { zoneChangeDetectionInterceptor } from './zone-change-detection.interceptor';
 
 describe('zoneChangeDetectionInterceptor', () => {
   let http: HttpClient;
   let httpTesting: HttpTestingController;
   let zone: NgZone;
+  let auth: AuthService;
 
   beforeEach(() => {
     spyOn(console, 'info');
@@ -21,6 +23,7 @@ describe('zoneChangeDetectionInterceptor', () => {
     http = TestBed.inject(HttpClient);
     httpTesting = TestBed.inject(HttpTestingController);
     zone = TestBed.inject(NgZone);
+    auth = TestBed.inject(AuthService);
   });
 
   afterEach(() => httpTesting.verify());
@@ -39,6 +42,23 @@ describe('zoneChangeDetectionInterceptor', () => {
 
     expect(nextInAngularZone).toBeTrue();
     expect(completeInAngularZone).toBeTrue();
+  });
+
+  it('does not emit diagnostic logs for non-superadmin sessions', () => {
+    http.get('/api/zone-check').subscribe();
+    httpTesting.expectOne('/api/zone-check').flush({ ok: true });
+
+    expect(console.info).not.toHaveBeenCalled();
+    expect(console.debug).not.toHaveBeenCalled();
+  });
+
+  it('emits diagnostic logs for superadmin sessions', () => {
+    auth.login({ username: 'admin', role: 'superadmin' });
+    http.get('/api/zone-check').subscribe();
+    httpTesting.expectOne('/api/zone-check').flush({ ok: true });
+
+    expect(console.info).toHaveBeenCalled();
+    expect(console.debug).toHaveBeenCalled();
   });
 
   it('delivers HTTP errors inside Angular zone', () => {
