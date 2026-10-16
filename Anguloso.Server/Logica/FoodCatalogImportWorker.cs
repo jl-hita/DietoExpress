@@ -19,6 +19,9 @@ public sealed class FoodCatalogImportWorker : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<FoodCatalogImportWorker> _logger;
     private readonly IConfiguration _configuration;
+    // Los términos que fallan se vuelven a priorizar en el siguiente lote.
+    // Si el proceso se reinicia, el calendario rotatorio sigue recorriendo todos los términos.
+    private readonly Queue<string> _pendingRetryTerms = new();
 
     public FoodCatalogImportWorker(
         IServiceScopeFactory scopeFactory,
@@ -73,19 +76,32 @@ public sealed class FoodCatalogImportWorker : BackgroundService
         var firstIndex = (DateOnly.FromDateTime(DateTime.UtcNow).DayNumber * 2) % SearchTerms.Length;
         var successfulTerms = 0;
         var failedTerms = 0;
+        var batchTerms = new List<string>(capacity: 2);
+
+        // Reintentar primero los términos fallidos antes de avanzar el catálogo.
+        while (_pendingRetryTerms.Count > 0 && batchTerms.Count < 2)
+            batchTerms.Add(_pendingRetryTerms.Dequeue());
+
+        for (var offset = 0; batchTerms.Count < 2 && offset < SearchTerms.Length; offset++)
+        {
+            var candidate = SearchTerms[(firstIndex + offset) % SearchTerms.Length];
+            if (!batchTerms.Contains(candidate, StringComparer.OrdinalIgnoreCase))
+                batchTerms.Add(candidate);
+        }
 
         using var scope = _scopeFactory.CreateScope();
         var foodService = scope.ServiceProvider.GetRequiredService<OpenFoodFactsService>();
 
         _logger.LogInformation(
-            "Inicio de lote de importación de alimentos. Términos: '{FirstTerm}' y '{SecondTerm}'.",
-            SearchTerms[firstIndex],
-            SearchTerms[(firstIndex + 1) % SearchTerms.Length]);
+            "Inicio de lote de importación de alimentos. Términos priorizados: '{FirstTerm}' y '{SecondTerm}'. Pendientes al inicio: {PendingCount}.",
+            batchTerms[0],
+            batchTerms[1],
+            _pendingRetryTerms.Count);
 
-        for (var i = 0; i < 2; i++)
+        for (var i = 0; i < batchTerms.Count; i++)
         {
             stoppingToken.ThrowIfCancellationRequested();
-            var term = SearchTerms[(firstIndex + i) % SearchTerms.Length];
+            var term = batchTerms[i];
 
             try
             {
@@ -94,7 +110,8 @@ public sealed class FoodCatalogImportWorker : BackgroundService
                     pais: "spain",
                     lang: "es",
                     onlyDietEligible: true,
-                    logImportDetails: true);
+                    logImportDetails: true,
+                    cancellationToken: stoppingToken);
 
                 successfulTerms++;
                 _logger.LogInformation(
@@ -109,8 +126,10 @@ public sealed class FoodCatalogImportWorker : BackgroundService
             catch (Exception ex)
             {
                 failedTerms++;
-                _logger.LogError(ex, "Fallo completo al importar el término '{SearchTerm}'. Tipo: {ExceptionType}; detalle: {ExceptionMessage}",
-                    term, ex.GetType().FullName, ex.Message);
+                if (!_pendingRetryTerms.Contains(term, StringComparer.OrdinalIgnoreCase))
+                    _pendingRetryTerms.Enqueue(term);
+                _logger.LogError(ex, "Fallo completo al importar el término '{SearchTerm}'. Se priorizará en el siguiente lote. Pendientes: {PendingCount}. Tipo: {ExceptionType}; detalle: {ExceptionMessage}",
+                    term, _pendingRetryTerms.Count, ex.GetType().FullName, ex.Message);
             }
 
             if (i == 0)
