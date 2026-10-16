@@ -138,4 +138,21 @@ public sealed class AutomationExternalEffectsRegressionTests
         Assert.Contains("SendEventAsync(accessToken, connection.calendar_id, eventId, payload", calendar);
     }
 
+
+    [Fact]
+    public void StripeTransportFailuresAreReportableAndClinicSeatChangesUseTheSameSafeProblem()
+    {
+        var stripe = ReadServerSource("Anguloso.Server/Logica/StripeBillingService.cs");
+        var billing = ReadServerSource("Anguloso.Server/Controllers/BillingController.cs");
+        var clinic = ReadServerSource("Anguloso.Server/Controllers/ClinicController.cs");
+
+        Assert.Contains("catch (HttpRequestException ex)", stripe);
+        Assert.Contains("catch (TaskCanceledException ex)", stripe);
+        Assert.Contains("throw new StripeBillingProviderException(ex)", stripe);
+        Assert.Contains("response.Dispose()", stripe);
+        Assert.Contains("catch (StripeBillingProviderException) { return StripeProviderProblem(); }", billing);
+        Assert.Contains("catch (StripeBillingProviderException) { return StripeProviderProblem(); }", clinic);
+        Assert.Contains("details.Extensions[\"code\"] = \"STRIPE_PROVIDER_ERROR\"", clinic);
+        Assert.Contains("details.Extensions[\"reportable\"] = true", clinic);
+    }
 }

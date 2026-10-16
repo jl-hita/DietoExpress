@@ -538,7 +538,7 @@ public sealed class StripeBillingService : IStripeBillingService
 
     private async Task<HttpResponseMessage> SendStripeAsync(HttpMethod method, string path, Dictionary<string, string>? form = null, string? idempotencyKey = null)
     {
-        var request = new HttpRequestMessage(method, $"https://api.stripe.com{path}");
+        using var request = new HttpRequestMessage(method, $"https://api.stripe.com{path}");
         if (!string.IsNullOrWhiteSpace(idempotencyKey))
             request.Headers.TryAddWithoutValidation("Idempotency-Key", idempotencyKey);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", GetSecretKey());
@@ -546,7 +546,23 @@ public sealed class StripeBillingService : IStripeBillingService
         if (form != null)
             request.Content = new FormUrlEncodedContent(form);
 
-        var response = await _http.SendAsync(request);
+        HttpResponseMessage response;
+        try
+        {
+            response = await _http.SendAsync(request);
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogWarning(ex, "No se pudo conectar con Stripe para una operación de billing. Método {Method}, ruta {Path}", method.Method, path);
+            throw new StripeBillingProviderException(ex);
+        }
+        catch (TaskCanceledException ex)
+        {
+            // Stripe HttpClient no recibe un token de cancelación de la petición HTTP entrante;
+            // aquí una cancelación suele indicar timeout del proveedor.
+            _logger.LogWarning(ex, "Timeout al contactar con Stripe para una operación de billing. Método {Method}, ruta {Path}", method.Method, path);
+            throw new StripeBillingProviderException(ex);
+        }
 
         if (!response.IsSuccessStatusCode)
         {
@@ -554,9 +570,18 @@ public sealed class StripeBillingService : IStripeBillingService
             // Nunca lo devolvemos al cliente autenticado: solo registramos el código HTTP.
             _logger.LogWarning("Stripe rechazó una operación de billing. HTTP {StatusCode}, método {Method}, ruta {Path}",
                 (int)response.StatusCode, method.Method, path);
-            throw new InvalidOperationException("Stripe no ha podido completar la operación solicitada. Inténtalo de nuevo o revisa la configuración de facturación.");
+            response.Dispose();
+            throw new StripeBillingProviderException();
         }
 
         return response;
     }
+}
+
+
+/// <summary>Fallo devuelto por el proveedor de pagos Stripe.</summary>
+public sealed class StripeBillingProviderException : Exception
+{
+    public StripeBillingProviderException() : base("Stripe no ha podido completar la operación solicitada.") { }
+    public StripeBillingProviderException(Exception innerException) : base("Stripe no ha podido completar la operación solicitada.", innerException) { }
 }

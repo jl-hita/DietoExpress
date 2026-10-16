@@ -57,7 +57,22 @@ public class ClinicController : ControllerBase
             return Ok(new { message = "Capacidad profesional actualizada correctamente.", license = updated });
         }
         catch (ArgumentException ex) { return BadRequest(ex.Message); }
+        catch (StripeBillingProviderException) { return StripeProviderProblem(); }
         catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+    }
+
+    private ObjectResult StripeProviderProblem()
+    {
+        var result = Problem(
+            detail: "El proveedor de pagos no ha podido completar la operación. Puedes reintentarlo y, si persiste, informar a soporte.",
+            statusCode: StatusCodes.Status502BadGateway,
+            title: "No se pudo actualizar la facturación de la clínica");
+        if (result.Value is ProblemDetails details)
+        {
+            details.Extensions["code"] = "STRIPE_PROVIDER_ERROR";
+            details.Extensions["reportable"] = true;
+        }
+        return result;
     }
 
     [HttpGet("dashboard")]
