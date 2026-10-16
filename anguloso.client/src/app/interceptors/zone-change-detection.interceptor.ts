@@ -2,6 +2,7 @@ import { HttpEvent, HttpInterceptorFn, HttpResponse } from '@angular/common/http
 import { NgZone, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { AuthService } from '../servicios/auth.service';
+import { ErrorReportingService } from '../servicios/error-reporting.service';
 
 let diagnosticRequestId = 0;
 
@@ -26,6 +27,7 @@ function diagnosticLog(enabled: boolean, level: DiagnosticLevel, message: string
 export const zoneChangeDetectionInterceptor: HttpInterceptorFn = (request, next) => {
   const zone = inject(NgZone);
   const authService = inject(AuthService);
+  const errorReporting = inject(ErrorReportingService);
   const diagnosticsEnabled = (): boolean => authService.isSuperAdmin();
   const requestId = ++diagnosticRequestId;
   const safeUrl = request.url.split('?')[0];
@@ -63,6 +65,7 @@ export const zoneChangeDetectionInterceptor: HttpInterceptorFn = (request, next)
         });
       },
       error: error => {
+        errorReporting.captureHttpError(error, request.url);
         diagnosticLog(diagnosticsEnabled(), 'error', `${label} HTTP stream error`, {
           elapsedMs: Date.now() - startedAt,
           inAngularZone: NgZone.isInAngularZone(),

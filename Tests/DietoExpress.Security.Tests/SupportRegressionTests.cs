@@ -1,3 +1,6 @@
+using Anguloso.Server.Middleware;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace DietoExpress.Security.Tests;
@@ -51,9 +54,9 @@ public sealed class SupportRegressionTests
     {
         var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "SupportController.cs"));
 
-        Assert.Contains("[Authorize(Roles = \"nutritionist,clinic_admin,superadmin\")]", controller);
-        Assert.Contains("[Authorize(Roles = \"superadmin\")]", controller);
-        Assert.Contains("if (User.IsInRole(\"superadmin\")) return Forbid();", controller);
+        Assert.Contains(@"[Authorize(Roles = ""nutritionist,clinic_admin,superadmin"")]", controller);
+        Assert.Contains(@"[Authorize(Roles = ""superadmin"")]", controller);
+        Assert.Contains(@"if (User.IsInRole(""superadmin"")) return Forbid();", controller);
     }
 
     [Fact]
@@ -77,5 +80,44 @@ public sealed class SupportRegressionTests
         Assert.Contains("support_messages(ticket_id, author_user_id, body, is_internal)", service);
         Assert.Contains("BeginTransactionAsync()", service);
         Assert.Contains("await transaction.CommitAsync()", service);
+    }
+
+    [Fact]
+    public async Task ErrorHandlingMiddleware_ReturnsSafeProblemJsonAndCorrelationId()
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Path = "/api/test";
+        context.Response.Body = new MemoryStream();
+        var middleware = new ErrorHandlingMiddleware(
+            _ => throw new InvalidOperationException("secret database details"),
+            NullLogger<ErrorHandlingMiddleware>.Instance);
+
+        await middleware.InvokeAsync(context);
+
+        context.Response.Body.Position = 0;
+        var responseBody = await new StreamReader(context.Response.Body).ReadToEndAsync();
+
+        Assert.Equal(StatusCodes.Status500InternalServerError, context.Response.StatusCode);
+        Assert.Equal("application/problem+json", context.Response.ContentType);
+        Assert.Equal(context.TraceIdentifier, context.Response.Headers["X-Correlation-ID"].ToString());
+        Assert.Contains("\"status\":500", responseBody);
+        Assert.Contains("\"code\":\"INTERNAL_ERROR\"", responseBody);
+        Assert.Contains("\"correlationId\":", responseBody);
+        Assert.DoesNotContain("secret database details", responseBody);
+    }
+
+    [Fact]
+    public void ErrorReportTicket_UsesExistingSupportApiAndDoesNotAttachPayloads()
+    {
+        var reporting = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "servicios", "error-reporting.service.ts"));
+        var banner = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "error-report-banner", "error-report-banner.component.ts"));
+        var support = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "servicios", "support.service.ts"));
+
+        Assert.Contains("error.status < 500", reporting);
+        Assert.Contains("requestUrl.split('?')[0]", reporting);
+        Assert.Contains("this.support.createTicket", banner);
+        Assert.Contains("category: 'problem'", banner);
+        Assert.Contains("this.http.post<{ id: number }>(this.base + '/tickets', request)", support);
+        Assert.DoesNotContain("error.error", banner);
     }
 }

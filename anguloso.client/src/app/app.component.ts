@@ -2,6 +2,7 @@ import { RouterOutlet } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { Component, HostListener, inject, ChangeDetectionStrategy} from '@angular/core';
 import { AuthService } from './servicios/auth.service';
+import { ErrorReportBannerComponent } from './componentes/error-report-banner/error-report-banner.component';
 
 interface MaintenanceNotice {
   active: boolean;
@@ -22,7 +23,7 @@ interface HttpDiagnosticEntry {
   selector: 'app-root',
   templateUrl: './app.component.html',
   standalone: true,
-  imports: [CommonModule, RouterOutlet],
+  imports: [CommonModule, RouterOutlet, ErrorReportBannerComponent],
   styleUrl: './app.component.css'
 })
 // El componente raíz coordina el estado global mínimo de la aplicación; la lógica de negocio permanece en servicios y componentes especializados.
