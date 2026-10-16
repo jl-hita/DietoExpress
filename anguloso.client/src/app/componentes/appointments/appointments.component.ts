@@ -17,14 +17,35 @@ import { AuthService } from '../../servicios/auth.service';
   styleUrl: './appointments.component.css'
 })
 export class AppointmentsComponent implements OnInit {
-  appointments: PatientAppointment[] = [];
-  availability: AvailabilityRule[] = [];
+  private readonly appointmentsState = signal<PatientAppointment[]>([]);
+  get appointments(): PatientAppointment[] { return this.appointmentsState(); }
+  set appointments(value: PatientAppointment[]) { this.appointmentsState.set(value); }
+
+  private readonly availabilityState = signal<AvailabilityRule[]>([]);
+  get availability(): AvailabilityRule[] { return this.availabilityState(); }
+  set availability(value: AvailabilityRule[]) { this.availabilityState.set(value); }
+
   readonly loading = signal(true);
-  saving = false;
-  error: string | null = null;
-  success: string | null = null;
-  googleCalendar: { connected: boolean; email: string; calendarId: string; lastSyncedAt?: string | null; reauthorizationRequired?: boolean } | null = null;
-  calendarBusy = false;
+
+  private readonly savingState = signal(false);
+  get saving(): boolean { return this.savingState(); }
+  set saving(value: boolean) { this.savingState.set(value); }
+
+  private readonly errorState = signal<string | null>(null);
+  get error(): string | null { return this.errorState(); }
+  set error(value: string | null) { this.errorState.set(value); }
+
+  private readonly successState = signal<string | null>(null);
+  get success(): string | null { return this.successState(); }
+  set success(value: string | null) { this.successState.set(value); }
+
+  private readonly googleCalendarState = signal<{ connected: boolean; email: string; calendarId: string; lastSyncedAt?: string | null; reauthorizationRequired?: boolean } | null>(null);
+  get googleCalendar(): { connected: boolean; email: string; calendarId: string; lastSyncedAt?: string | null; reauthorizationRequired?: boolean } | null { return this.googleCalendarState(); }
+  set googleCalendar(value: { connected: boolean; email: string; calendarId: string; lastSyncedAt?: string | null; reauthorizationRequired?: boolean } | null) { this.googleCalendarState.set(value); }
+
+  private readonly calendarBusyState = signal(false);
+  get calendarBusy(): boolean { return this.calendarBusyState(); }
+  set calendarBusy(value: boolean) { this.calendarBusyState.set(value); }
   isSuperAdmin = false;
 
   readonly days = [
