@@ -18,7 +18,6 @@ export const zoneChangeDetectionInterceptor: HttpInterceptorFn = (request, next)
 
   console.info(`${label} start`, {
     inAngularZone: NgZone.isInAngularZone(),
-    appStable: appRef.isStable
   });
 
   const notify = (kind: string, callback: () => void): void => {
@@ -41,7 +40,7 @@ export const zoneChangeDetectionInterceptor: HttpInterceptorFn = (request, next)
           appRef.tick();
           console.debug(`${label} change-detection tick end`, {
             elapsedMs: Date.now() - startedAt,
-            appStable: appRef.isStable
+            appStableObservable: 'ApplicationRef.isStable is an Observable'
           });
         } catch (error) {
           console.error(`${label} change-detection tick failed after ${kind}`, error);
