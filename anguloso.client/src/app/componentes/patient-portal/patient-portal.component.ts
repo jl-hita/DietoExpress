@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, ChangeDetectionStrategy} from '@angular/core';
+import { Component, OnDestroy, OnInit, ChangeDetectionStrategy, signal} from '@angular/core';
 import { Subscription, interval, startWith, switchMap, catchError, of } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -30,67 +30,204 @@ type ActiveTab = 'today' | 'shopping' | 'appointments' | 'progress' | 'messages'
   styleUrls: ['./patient-portal.component.css']
 })
 export class PatientPortalComponent implements OnInit, OnDestroy {
-  clientId?: number;
-  /** True when the professional is previewing the portal instead of using the patient session. */
-  isPreview = false;
-  profile: any = null;
-  activeDiet: any = null;
-  shoppingList: PatientShoppingCategory[] = [];
-  shoppingItemCount = 0;
-  checkedShoppingItemCount = 0;
-  loading = true;
-  authError: string | null = null;
-  showLogin = false;
-  portalDataError: string | null = null;
-  dietDataError: string | null = null;
-  shoppingDataError: string | null = null;
-  dietLoading = false;
-  shoppingLoading = false;
-  documents: PatientDocument[] = [];
-  documentsLoading = false;
-  documentsError: string | null = null;
+  // Los estados que dependen de respuestas HTTP, APIs del navegador o callbacks asíncronos
+  // se respaldan en signals; los getters/setters conservan los nombres de la plantilla.
 
-  // Login form model (PIN/phone)
+  private readonly clientIdState = signal<number | undefined>(undefined);
+  get clientId(): number | undefined { return this.clientIdState(); }
+  set clientId(value: number | undefined) { this.clientIdState.set(value); }
+
+  private readonly isPreviewState = signal(false);
+  get isPreview(): boolean { return this.isPreviewState(); }
+  set isPreview(value: boolean) { this.isPreviewState.set(value); }
+
+  private readonly profileState = signal<any>(null);
+  get profile(): any { return this.profileState(); }
+  set profile(value: any) { this.profileState.set(value); }
+
+  private readonly activeDietState = signal<any>(null);
+  get activeDiet(): any { return this.activeDietState(); }
+  set activeDiet(value: any) { this.activeDietState.set(value); }
+
+  private readonly shoppingListState = signal<PatientShoppingCategory[]>([]);
+  get shoppingList(): PatientShoppingCategory[] { return this.shoppingListState(); }
+  set shoppingList(value: PatientShoppingCategory[]) { this.shoppingListState.set(value); }
+
+  private readonly shoppingItemCountState = signal(0);
+  get shoppingItemCount(): number { return this.shoppingItemCountState(); }
+  set shoppingItemCount(value: number) { this.shoppingItemCountState.set(value); }
+
+  private readonly checkedShoppingItemCountState = signal(0);
+  get checkedShoppingItemCount(): number { return this.checkedShoppingItemCountState(); }
+  set checkedShoppingItemCount(value: number) { this.checkedShoppingItemCountState.set(value); }
+
+  private readonly loadingState = signal(true);
+  get loading(): boolean { return this.loadingState(); }
+  set loading(value: boolean) { this.loadingState.set(value); }
+
+  private readonly authErrorState = signal<string | null>(null);
+  get authError(): string | null { return this.authErrorState(); }
+  set authError(value: string | null) { this.authErrorState.set(value); }
+
+  private readonly showLoginState = signal(false);
+  get showLogin(): boolean { return this.showLoginState(); }
+  set showLogin(value: boolean) { this.showLoginState.set(value); }
+
+  private readonly portalDataErrorState = signal<string | null>(null);
+  get portalDataError(): string | null { return this.portalDataErrorState(); }
+  set portalDataError(value: string | null) { this.portalDataErrorState.set(value); }
+
+  private readonly dietDataErrorState = signal<string | null>(null);
+  get dietDataError(): string | null { return this.dietDataErrorState(); }
+  set dietDataError(value: string | null) { this.dietDataErrorState.set(value); }
+
+  private readonly shoppingDataErrorState = signal<string | null>(null);
+  get shoppingDataError(): string | null { return this.shoppingDataErrorState(); }
+  set shoppingDataError(value: string | null) { this.shoppingDataErrorState.set(value); }
+
+  private readonly dietLoadingState = signal(false);
+  get dietLoading(): boolean { return this.dietLoadingState(); }
+  set dietLoading(value: boolean) { this.dietLoadingState.set(value); }
+
+  private readonly shoppingLoadingState = signal(false);
+  get shoppingLoading(): boolean { return this.shoppingLoadingState(); }
+  set shoppingLoading(value: boolean) { this.shoppingLoadingState.set(value); }
+
+  private readonly documentsState = signal<PatientDocument[]>([]);
+  get documents(): PatientDocument[] { return this.documentsState(); }
+  set documents(value: PatientDocument[]) { this.documentsState.set(value); }
+
+  private readonly documentsLoadingState = signal(false);
+  get documentsLoading(): boolean { return this.documentsLoadingState(); }
+  set documentsLoading(value: boolean) { this.documentsLoadingState.set(value); }
+
+  private readonly documentsErrorState = signal<string | null>(null);
+  get documentsError(): string | null { return this.documentsErrorState(); }
+  set documentsError(value: string | null) { this.documentsErrorState.set(value); }
+
+  // Login form models stay as ordinary fields because they are edited directly with ngModel.
   emailOrPhone = '';
   passcode = '';
-  submittingLogin = false;
-  requestingAccessLink = false;
-  accessLinkMessage: string | null = null;
-  accessLinkError: string | null = null;
 
-  appointments: PatientAppointment[] = [];
-  appointmentSlots: AppointmentSlot[] = [];
-  appointmentsLoading = false;
-  appointmentSlotsLoading = false;
-  appointmentError: string | null = null;
-  appointmentBooking = false;
-  appointmentSuccess: string | null = null;
+  private readonly submittingLoginState = signal(false);
+  get submittingLogin(): boolean { return this.submittingLoginState(); }
+  set submittingLogin(value: boolean) { this.submittingLoginState.set(value); }
 
-  notifications: PatientNotification[] = [];
-  broadcastMessages: PatientBroadcastMessage[] = [];
-  broadcastMessagesLoading = false;
-  broadcastMessagesError: string | null = null;
+  private readonly requestingAccessLinkState = signal(false);
+  get requestingAccessLink(): boolean { return this.requestingAccessLinkState(); }
+  set requestingAccessLink(value: boolean) { this.requestingAccessLinkState.set(value); }
+
+  private readonly accessLinkMessageState = signal<string | null>(null);
+  get accessLinkMessage(): string | null { return this.accessLinkMessageState(); }
+  set accessLinkMessage(value: string | null) { this.accessLinkMessageState.set(value); }
+
+  private readonly accessLinkErrorState = signal<string | null>(null);
+  get accessLinkError(): string | null { return this.accessLinkErrorState(); }
+  set accessLinkError(value: string | null) { this.accessLinkErrorState.set(value); }
+
+  private readonly appointmentsState = signal<PatientAppointment[]>([]);
+  get appointments(): PatientAppointment[] { return this.appointmentsState(); }
+  set appointments(value: PatientAppointment[]) { this.appointmentsState.set(value); }
+
+  private readonly appointmentSlotsState = signal<AppointmentSlot[]>([]);
+  get appointmentSlots(): AppointmentSlot[] { return this.appointmentSlotsState(); }
+  set appointmentSlots(value: AppointmentSlot[]) { this.appointmentSlotsState.set(value); }
+
+  private readonly appointmentsLoadingState = signal(false);
+  get appointmentsLoading(): boolean { return this.appointmentsLoadingState(); }
+  set appointmentsLoading(value: boolean) { this.appointmentsLoadingState.set(value); }
+
+  private readonly appointmentSlotsLoadingState = signal(false);
+  get appointmentSlotsLoading(): boolean { return this.appointmentSlotsLoadingState(); }
+  set appointmentSlotsLoading(value: boolean) { this.appointmentSlotsLoadingState.set(value); }
+
+  private readonly appointmentErrorState = signal<string | null>(null);
+  get appointmentError(): string | null { return this.appointmentErrorState(); }
+  set appointmentError(value: string | null) { this.appointmentErrorState.set(value); }
+
+  private readonly appointmentBookingState = signal(false);
+  get appointmentBooking(): boolean { return this.appointmentBookingState(); }
+  set appointmentBooking(value: boolean) { this.appointmentBookingState.set(value); }
+
+  private readonly appointmentSuccessState = signal<string | null>(null);
+  get appointmentSuccess(): string | null { return this.appointmentSuccessState(); }
+  set appointmentSuccess(value: string | null) { this.appointmentSuccessState.set(value); }
+
+  private readonly notificationsState = signal<PatientNotification[]>([]);
+  get notifications(): PatientNotification[] { return this.notificationsState(); }
+  set notifications(value: PatientNotification[]) { this.notificationsState.set(value); }
+
+  private readonly broadcastMessagesState = signal<PatientBroadcastMessage[]>([]);
+  get broadcastMessages(): PatientBroadcastMessage[] { return this.broadcastMessagesState(); }
+  set broadcastMessages(value: PatientBroadcastMessage[]) { this.broadcastMessagesState.set(value); }
+
+  private readonly broadcastMessagesLoadingState = signal(false);
+  get broadcastMessagesLoading(): boolean { return this.broadcastMessagesLoadingState(); }
+  set broadcastMessagesLoading(value: boolean) { this.broadcastMessagesLoadingState.set(value); }
+
+  private readonly broadcastMessagesErrorState = signal<string | null>(null);
+  get broadcastMessagesError(): string | null { return this.broadcastMessagesErrorState(); }
+  set broadcastMessagesError(value: string | null) { this.broadcastMessagesErrorState.set(value); }
+
   private broadcastRefreshSubscription?: Subscription;
-  notificationsOpen = false;
-  notificationsLoading = false;
-  pushSupported = false;
-  pushEnabled = false;
-  pushBusy = false;
-  commercialEmailEnabled = false;
-  commercialPreferenceLoaded = false;
-  commercialPreferenceSaving = false;
-  commercialPreferenceMessage: string | null = null;
-  pushMessage: string | null = null;
+
+  private readonly notificationsOpenState = signal(false);
+  get notificationsOpen(): boolean { return this.notificationsOpenState(); }
+  set notificationsOpen(value: boolean) { this.notificationsOpenState.set(value); }
+
+  private readonly notificationsLoadingState = signal(false);
+  get notificationsLoading(): boolean { return this.notificationsLoadingState(); }
+  set notificationsLoading(value: boolean) { this.notificationsLoadingState.set(value); }
+
+  private readonly pushSupportedState = signal(false);
+  get pushSupported(): boolean { return this.pushSupportedState(); }
+  set pushSupported(value: boolean) { this.pushSupportedState.set(value); }
+
+  private readonly pushEnabledState = signal(false);
+  get pushEnabled(): boolean { return this.pushEnabledState(); }
+  set pushEnabled(value: boolean) { this.pushEnabledState.set(value); }
+
+  private readonly pushBusyState = signal(false);
+  get pushBusy(): boolean { return this.pushBusyState(); }
+  set pushBusy(value: boolean) { this.pushBusyState.set(value); }
+
+  private readonly commercialEmailEnabledState = signal(false);
+  get commercialEmailEnabled(): boolean { return this.commercialEmailEnabledState(); }
+  set commercialEmailEnabled(value: boolean) { this.commercialEmailEnabledState.set(value); }
+
+  private readonly commercialPreferenceLoadedState = signal(false);
+  get commercialPreferenceLoaded(): boolean { return this.commercialPreferenceLoadedState(); }
+  set commercialPreferenceLoaded(value: boolean) { this.commercialPreferenceLoadedState.set(value); }
+
+  private readonly commercialPreferenceSavingState = signal(false);
+  get commercialPreferenceSaving(): boolean { return this.commercialPreferenceSavingState(); }
+  set commercialPreferenceSaving(value: boolean) { this.commercialPreferenceSavingState.set(value); }
+
+  private readonly commercialPreferenceMessageState = signal<string | null>(null);
+  get commercialPreferenceMessage(): string | null { return this.commercialPreferenceMessageState(); }
+  set commercialPreferenceMessage(value: string | null) { this.commercialPreferenceMessageState.set(value); }
+
+  private readonly pushMessageState = signal<string | null>(null);
+  get pushMessage(): string | null { return this.pushMessageState(); }
+  set pushMessage(value: string | null) { this.pushMessageState.set(value); }
 
   activeTab: ActiveTab = 'today';
   today = new Date();
 
   // Equivalencias de intercambios expandidas
   expandedExchangeId: string | null = null;
-  exchangeFoodsCache: Record<number, any[]> = {};
-  exchangeLoading = false;
 
-  completedMeals: Record<string, boolean> = {};
+  private readonly exchangeFoodsCacheState = signal<Record<number, any[]>>({});
+  get exchangeFoodsCache(): Record<number, any[]> { return this.exchangeFoodsCacheState(); }
+  set exchangeFoodsCache(value: Record<number, any[]>) { this.exchangeFoodsCacheState.set(value); }
+
+  private readonly exchangeLoadingState = signal(false);
+  get exchangeLoading(): boolean { return this.exchangeLoadingState(); }
+  set exchangeLoading(value: boolean) { this.exchangeLoadingState.set(value); }
+
+  private readonly completedMealsState = signal<Record<string, boolean>>({});
+  get completedMeals(): Record<string, boolean> { return this.completedMealsState(); }
+  set completedMeals(value: Record<string, boolean>) { this.completedMealsState.set(value); }
 
   constructor(
     private route: ActivatedRoute,
@@ -687,7 +824,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
 
   toggleMealCompleted(meal: any): void {
     const key = this.mealKey(meal);
-    this.completedMeals[key] = !this.completedMeals[key];
+    this.completedMeals = { ...this.completedMeals, [key]: !this.completedMeals[key] };
     this.saveCompletedMeals();
   }
 
@@ -816,7 +953,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
       this.exchangeLoading = true;
       this.foodService.getFoodsInExchangeGroup(groupId).subscribe({
         next: (foods) => {
-          this.exchangeFoodsCache[groupId] = foods || [];
+          this.exchangeFoodsCache = { ...this.exchangeFoodsCache, [groupId]: foods || [] };
           this.exchangeLoading = false;
         },
         error: () => {
