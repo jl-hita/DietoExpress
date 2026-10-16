@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -7,7 +7,8 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { LegalGovernanceService, LegalRatActivity, LegalRiskAssessment, LegalEipdDecision } from '../../servicios/legal-governance.service';
 
-@Component({selector:'app-legal-governance',standalone:true,imports:[CommonModule,FormsModule,MatButtonModule,MatCardModule,MatFormFieldModule,MatInputModule],template:`
+@Component({
+  changeDetection: ChangeDetectionStrategy.Eager,selector:'app-legal-governance',standalone:true,imports:[CommonModule,FormsModule,MatButtonModule,MatCardModule,MatFormFieldModule,MatInputModule],template:`
 <section class="grid">
  <mat-card><mat-card-header><mat-card-title>Registro de Actividades de Tratamiento</mat-card-title></mat-card-header><mat-card-content>
   <div class="row" *ngFor="let a of rat"><strong>{{a.name}}</strong><span>{{a.role}} · {{a.status}}</span></div>

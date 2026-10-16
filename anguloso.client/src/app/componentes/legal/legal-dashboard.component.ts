@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy} from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -13,6 +13,7 @@ import { LegalEvidenceService } from '../../servicios/legal-evidence.service';
 import { LegalConfigurationService } from '../../servicios/legal-configuration.service';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-legal-dashboard',
   standalone: true,
   imports: [CommonModule, MatButtonModule, MatCardModule, MatIconModule, MatTabsModule, LegalSettingsComponent, LegalGovernanceComponent, LegalEvidenceComponent],

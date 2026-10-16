@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, OnInit, OnDestroy } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, OnDestroy, ChangeDetectionStrategy} from '@angular/core';
 import { Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { MATERIAL_IMPORTS } from '../../shared/material.imports';
@@ -9,6 +9,7 @@ import { DietShoppingListDialogComponent } from './diet-shopping-list-dialog.com
 import { AuthService } from '../../servicios/auth.service';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-diets-list',
   standalone: true,
   imports: [MATERIAL_IMPORTS],

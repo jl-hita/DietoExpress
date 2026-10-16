@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy} from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -9,6 +9,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { AdminLog, AdminService } from '../../servicios/admin.service';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-admin-log',
   standalone: true,
   imports: [CommonModule, FormsModule, MatButtonModule, MatCardModule, MatIconModule, MatInputModule, MatSelectModule],

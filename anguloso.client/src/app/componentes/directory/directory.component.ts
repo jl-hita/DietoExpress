@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -9,6 +9,7 @@ import { PublicSeoService } from '../../servicios/public-seo.service';
 import { PublicFunnelAnalyticsService } from '../../servicios/public-funnel-analytics.service';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-directory',
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink, MatButtonModule],

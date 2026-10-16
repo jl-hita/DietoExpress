@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy} from '@angular/core';
 import { FormBuilder, FormGroup, FormArray, Validators, AbstractControl, FormControl } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
@@ -19,6 +19,7 @@ import { CdkDragDrop, CdkDropList, CdkDrag, CdkDragHandle, CdkDropListGroup } fr
 
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-diet-create',
   standalone: true,
   imports: [MATERIAL_IMPORTS, CdkDropList, CdkDrag, CdkDragHandle, CdkDropListGroup],

@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -11,6 +11,7 @@ import { AddressService } from '../../servicios/address.service';
 import { AddressSuggestion } from '../../modelos/address';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-address-autocomplete',
   standalone: true,
   imports: [

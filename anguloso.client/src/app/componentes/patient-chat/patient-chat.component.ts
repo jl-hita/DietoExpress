@@ -1,5 +1,5 @@
 import { CommonModule, DatePipe } from '@angular/common';
-import { Component, Input, OnChanges, SimpleChanges, OnInit } from '@angular/core';
+import { Component, Input, OnChanges, SimpleChanges, OnInit, ChangeDetectionStrategy} from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -8,6 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
 interface ChatMessage { id: number; senderType: 'patient' | 'professional'; senderId?: number | null; body: string; createdAt: string; readAt?: string | null; }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-patient-chat',
   standalone: true,
   imports: [CommonModule, FormsModule, DatePipe, MatIconModule],

@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -13,6 +13,7 @@ import { FoodProduct } from '../../modelos/food-product';
 import { environment } from '../../../environments/environments';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-crear-receta',
   templateUrl: './crear-receta.component.html',
   styleUrls: ['./crear-receta.component.css'],

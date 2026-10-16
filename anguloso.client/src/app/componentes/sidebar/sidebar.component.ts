@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, OnDestroy, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, OnDestroy, OnInit, Output, ChangeDetectionStrategy} from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Subscription, interval, startWith, switchMap, catchError, forkJoin, of } from 'rxjs';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
@@ -11,6 +11,7 @@ import { ProfileService } from '../../servicios/profile.service';
 import { LicenseService, LicenseStatus } from '../../servicios/license.service';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-sidebar',
   standalone: true,
   imports: [CommonModule, RouterLink, RouterLinkActive, MatListModule, MatIconModule],

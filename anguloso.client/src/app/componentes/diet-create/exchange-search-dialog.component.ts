@@ -1,4 +1,4 @@
-import { Component, Inject } from '@angular/core';
+import { Component, Inject, ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
@@ -6,6 +6,7 @@ import { MATERIAL_IMPORTS } from '../../shared/material.imports';
 import { FoodExchangeGroup } from '../../modelos/food-exchange-group';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-exchange-search-dialog',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, MATERIAL_IMPORTS],

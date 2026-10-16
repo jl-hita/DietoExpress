@@ -1,5 +1,5 @@
 import { CommonModule, DatePipe } from '@angular/common';
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy} from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
@@ -14,6 +14,7 @@ interface Conversation {
 interface BroadcastInboxItem { id: number; title: string; body: string; audience: string; createdAt: string; readAt?: string | null; }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-messages',
   standalone: true,
   imports: [CommonModule, DatePipe, MatIconModule, PatientChatComponent],

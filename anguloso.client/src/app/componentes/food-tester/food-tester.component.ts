@@ -1,9 +1,10 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy} from '@angular/core';
 import { FoodService } from '../../servicios/food.service';
 import { FoodProduct } from '../../modelos/food-product';
 import { finalize } from 'rxjs';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-food-tester',
   
   templateUrl: './food-tester.component.html',

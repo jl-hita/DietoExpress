@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -8,6 +8,7 @@ export type PatientShoppingItem = ShoppingListItem;
 export type PatientShoppingCategory = ShoppingListCategory;
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-patient-shopping',
   standalone: true,
   imports: [CommonModule, DecimalPipe, MatIconModule, MatProgressSpinnerModule],

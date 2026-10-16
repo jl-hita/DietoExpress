@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -8,6 +8,7 @@ import { PatientPortalService } from '../../servicios/patient-portal.service';
 type ConnectionState = 'connecting' | 'waiting' | 'connected' | 'reconnecting' | 'disconnected' | 'finalized' | 'error';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-video-consultation',
   standalone: true,
   imports: [CommonModule, MatIconModule],

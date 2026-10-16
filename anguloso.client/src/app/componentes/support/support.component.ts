@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, ChangeDetectionStrategy} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
@@ -15,6 +15,7 @@ import { AuthService } from '../../servicios/auth.service';
 import { SupportCategory, SupportPriority, SupportService, SupportStatus, SupportTicket, SupportTicketSummary } from '../../servicios/support.service';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-support',
   standalone: true,
   imports: [

@@ -1,10 +1,11 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy} from '@angular/core';
 import { MatCardModule } from '@angular/material/card';
 import { LegalDocumentGeneratorService, LegalGeneratedDocument } from '../../servicios/legal-document-generator.service';
 import { LegalEvidenceService, LegalAcceptanceEvidence, PrivacyRequestEvidence, PrivacyIncidentEvidence } from '../../servicios/legal-evidence.service';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
  selector:'app-legal-evidence',standalone:true,imports:[CommonModule,MatCardModule],
  template:`
  <section class="grid">

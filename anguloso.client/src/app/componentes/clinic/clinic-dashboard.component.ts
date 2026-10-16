@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -11,7 +11,8 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { NutritionistDeactivationDialogComponent } from './nutritionist-deactivation-dialog.component';
 import { ClinicService, ClinicDashboard } from '../../servicios/clinic.service';
-@Component({selector:'app-clinic-dashboard',standalone:true,imports:[CommonModule,FormsModule,MatCardModule,MatButtonModule,MatIconModule,MatTableModule,MatFormFieldModule,MatSelectModule,MatSnackBarModule,MatDialogModule],templateUrl:'./clinic-dashboard.component.html',styleUrls:['./clinic-dashboard.component.css']})
+@Component({
+  changeDetection: ChangeDetectionStrategy.Eager,selector:'app-clinic-dashboard',standalone:true,imports:[CommonModule,FormsModule,MatCardModule,MatButtonModule,MatIconModule,MatTableModule,MatFormFieldModule,MatSelectModule,MatSnackBarModule,MatDialogModule],templateUrl:'./clinic-dashboard.component.html',styleUrls:['./clinic-dashboard.component.css']})
 export class ClinicDashboardComponent implements OnInit {
  data?:ClinicDashboard; showCreate=false; newNutri:any={fullName:'',email:''};
  constructor(private clinic:ClinicService,private snack:MatSnackBar,private dialog:MatDialog){}

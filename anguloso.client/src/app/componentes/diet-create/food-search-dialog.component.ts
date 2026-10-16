@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { MatDialogRef } from '@angular/material/dialog';
@@ -9,6 +9,7 @@ import { FoodService } from '../../servicios/food.service';
 import { FoodProduct } from '../../modelos/food-product';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-food-search-dialog',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, FormsModule, MATERIAL_IMPORTS],

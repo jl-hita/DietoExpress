@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, signal, ChangeDetectionStrategy} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -7,6 +7,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ProfessionalStatistics, ProfessionalStatisticsService } from '../../servicios/professional-statistics.service';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector:'app-statistics',
   standalone:true,
   imports:[CommonModule,FormsModule,MatCardModule,MatIconModule,MatProgressSpinnerModule],

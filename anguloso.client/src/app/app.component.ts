@@ -1,6 +1,6 @@
 import { RouterOutlet } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { Component, HostListener, inject } from '@angular/core';
+import { Component, HostListener, inject, ChangeDetectionStrategy} from '@angular/core';
 import { AuthService } from './servicios/auth.service';
 
 interface MaintenanceNotice {
@@ -18,6 +18,7 @@ interface HttpDiagnosticEntry {
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-root',
   templateUrl: './app.component.html',
   standalone: true,

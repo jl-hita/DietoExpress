@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
@@ -26,6 +26,7 @@ interface OnboardingStep {
 // Documentación: este componente concentra el checklist de activación profesional sin duplicar los formularios existentes.
 // Cada paso refleja datos ya persistidos por los módulos correspondientes; el onboarding no mantiene un segundo estado de configuración.
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-onboarding',
   standalone: true,
   imports: [
