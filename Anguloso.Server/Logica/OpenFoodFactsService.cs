@@ -203,7 +203,71 @@ public class OpenFoodFactsService
         if (food.potassium_mg == null && source.Potassium_mg.HasValue) food.potassium_mg = source.Potassium_mg;
         if (food.zinc_mg == null && source.Zinc_mg.HasValue) food.zinc_mg = source.Zinc_mg;
     }
-    public async Task<List<OffProduct>> SearchProductsAsync(string query, string pais = "spain", string lang = "es", bool onlyDietEligible = false, bool logImportDetails = false)
+    private async Task<HttpResponseMessage> GetSearchResponseWithRetryAsync(
+        string url,
+        string query,
+        bool logImportDetails,
+        CancellationToken cancellationToken)
+    {
+        const int maxAttempts = 4; // Petición inicial + hasta tres reintentos.
+        for (var attempt = 1; ; attempt++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                var response = await _http.GetAsync(url, cancellationToken);
+                var transientStatus = response.StatusCode is
+                    System.Net.HttpStatusCode.RequestTimeout or
+                    System.Net.HttpStatusCode.TooManyRequests or
+                    System.Net.HttpStatusCode.InternalServerError or
+                    System.Net.HttpStatusCode.BadGateway or
+                    System.Net.HttpStatusCode.ServiceUnavailable or
+                    System.Net.HttpStatusCode.GatewayTimeout;
+
+                if (!transientStatus || attempt >= maxAttempts)
+                    return response;
+
+                var delay = GetRetryDelay(response, attempt);
+                if (logImportDetails)
+                    _logServ.LogInfo($"Food catalog import: OpenFoodFacts devolvió HTTP {(int)response.StatusCode} para '{query}'. Reintento {attempt}/{maxAttempts - 1} en {delay.TotalSeconds:F1} s.");
+
+                response.Dispose();
+                await Task.Delay(delay, cancellationToken);
+            }
+            catch (HttpRequestException ex) when (attempt < maxAttempts && !cancellationToken.IsCancellationRequested)
+            {
+                var delay = GetRetryDelay(null, attempt);
+                if (logImportDetails)
+                    _logServ.LogInfo($"Food catalog import: error de red temporal para '{query}' ({ex.Message}). Reintento {attempt}/{maxAttempts - 1} en {delay.TotalSeconds:F1} s.");
+                await Task.Delay(delay, cancellationToken);
+            }
+            catch (TaskCanceledException ex) when (attempt < maxAttempts && !cancellationToken.IsCancellationRequested)
+            {
+                var delay = GetRetryDelay(null, attempt);
+                if (logImportDetails)
+                    _logServ.LogInfo($"Food catalog import: tiempo de espera agotado para '{query}' ({ex.Message}). Reintento {attempt}/{maxAttempts - 1} en {delay.TotalSeconds:F1} s.");
+                await Task.Delay(delay, cancellationToken);
+            }
+        }
+    }
+
+    private static TimeSpan GetRetryDelay(HttpResponseMessage? response, int attempt)
+    {
+        var retryAfter = response?.Headers.RetryAfter;
+        if (retryAfter?.Delta is TimeSpan delta && delta >= TimeSpan.Zero)
+            return delta > TimeSpan.FromMinutes(2) ? TimeSpan.FromMinutes(2) : delta;
+        if (retryAfter?.Date is DateTimeOffset date)
+        {
+            var untilDate = date - DateTimeOffset.UtcNow;
+            if (untilDate < TimeSpan.Zero) return TimeSpan.Zero;
+            return untilDate > TimeSpan.FromMinutes(2) ? TimeSpan.FromMinutes(2) : untilDate;
+        }
+
+        // Backoff exponencial con jitter para evitar que varios procesos reintenten a la vez.
+        return TimeSpan.FromSeconds(Math.Pow(2, attempt) + Random.Shared.NextDouble());
+    }
+
+    public async Task<List<OffProduct>> SearchProductsAsync(string query, string pais = "spain", string lang = "es", bool onlyDietEligible = false, bool logImportDetails = false, CancellationToken cancellationToken = default)
     {
         var products = new List<OffProduct>();
         //_logServ.LogInfo($"query='{query}', pais='{pais}', lang='{lang}'");
@@ -214,7 +278,7 @@ public class OpenFoodFactsService
             int nResultados = 20;
             // Construir URL (cgi/search.pl es la recomendada para json)
             var url = $"cgi/search.pl?search_terms={Uri.EscapeDataString(query)}&tagtype_0=countries&tag_contains_0=contains&tag_0={Uri.EscapeDataString(pais)}&tagtype_1=languages&tag_contains_1=contains&tag_1={Uri.EscapeDataString(lang)}&fields={Uri.EscapeDataString(fields)}&page_size={nResultados}&json=1";
-            var response = await _http.GetAsync(url);
+            using var response = await GetSearchResponseWithRetryAsync(url, query, logImportDetails, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
                 var errorBody = await response.Content.ReadAsStringAsync();
