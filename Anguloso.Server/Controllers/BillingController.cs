@@ -96,6 +96,10 @@ public sealed class BillingController : ControllerBase
         {
             return BadRequest(ex.Message);
         }
+        catch (StripeBillingProviderException)
+        {
+            return StripeProviderProblem();
+        }
         catch (InvalidOperationException ex)
         {
             return BadRequest(ex.Message);
@@ -149,6 +153,7 @@ public sealed class BillingController : ControllerBase
             return Ok(new { message = "Cambio de suscripción solicitado correctamente." });
         }
         catch (ArgumentException ex) { return BadRequest(ex.Message); }
+        catch (StripeBillingProviderException) { return StripeProviderProblem(); }
         catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
     }
 
@@ -168,6 +173,7 @@ public sealed class BillingController : ControllerBase
             await _stripe.CancelRenewalAsync(_tenantContext.TenantId.Value);
             return Ok(new { message = "La renovación se cancelará al finalizar el periodo actual." });
         }
+        catch (StripeBillingProviderException) { return StripeProviderProblem(); }
         catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
     }
 
@@ -187,7 +193,19 @@ public sealed class BillingController : ControllerBase
             await _stripe.ReactivateRenewalAsync(_tenantContext.TenantId.Value);
             return Ok(new { message = "La renovación ha sido reactivada." });
         }
+        catch (StripeBillingProviderException) { return StripeProviderProblem(); }
         catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+    }
+
+    private ObjectResult StripeProviderProblem()
+    {
+        var result = Problem(detail: "El proveedor de pagos no ha podido completar la operación. Puedes reintentarlo y, si persiste, informar a soporte.", statusCode: StatusCodes.Status502BadGateway, title: "No se pudo completar la operación de facturación");
+        if (result.Value is ProblemDetails details)
+        {
+            details.Extensions["code"] = "STRIPE_PROVIDER_ERROR";
+            details.Extensions["reportable"] = true;
+        }
+        return result;
     }
 
     private async Task<bool> HasAcceptedCurrentSaasTermsAsync()

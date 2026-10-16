@@ -554,9 +554,16 @@ public sealed class StripeBillingService : IStripeBillingService
             // Nunca lo devolvemos al cliente autenticado: solo registramos el código HTTP.
             _logger.LogWarning("Stripe rechazó una operación de billing. HTTP {StatusCode}, método {Method}, ruta {Path}",
                 (int)response.StatusCode, method.Method, path);
-            throw new InvalidOperationException("Stripe no ha podido completar la operación solicitada. Inténtalo de nuevo o revisa la configuración de facturación.");
+            throw new StripeBillingProviderException();
         }
 
         return response;
     }
+}
+
+
+/// <summary>Fallo devuelto por el proveedor de pagos Stripe.</summary>
+public sealed class StripeBillingProviderException : Exception
+{
+    public StripeBillingProviderException() : base("Stripe no ha podido completar la operación solicitada.") { }
 }
