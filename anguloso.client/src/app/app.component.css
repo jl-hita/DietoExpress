@@ -48,6 +48,95 @@ table {
   line-height: 1.35;
 }
 
+.http-diagnostics-tools {
+  position: fixed;
+  right: 8px;
+  bottom: 8px;
+  z-index: 10000;
+  font-family: system-ui, sans-serif;
+}
+
+.http-diagnostics-toggle {
+  padding: 10px 12px;
+  border: 1px solid #64748b;
+  border-radius: 8px;
+  background: #172033;
+  color: white;
+  font-size: 12px;
+  box-shadow: 0 2px 10px #0004;
+}
+
+.http-diagnostics-panel {
+  position: fixed;
+  inset: auto 8px 54px 8px;
+  max-height: 70dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #64748b;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #0f172a;
+  box-shadow: 0 4px 24px #0005;
+}
+
+.http-diagnostics-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px;
+  background: #e2e8f0;
+}
+
+.http-diagnostics-header div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.http-diagnostics-header button {
+  padding: 6px 8px;
+}
+
+.http-diagnostics-help {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  border-bottom: 1px solid #cbd5e1;
+}
+
+.http-diagnostics-list {
+  overflow: auto;
+  padding: 8px;
+  overscroll-behavior: contain;
+}
+
+.http-diagnostics-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 4px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.http-diagnostics-entry.error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.http-diagnostics-time {
+  color: #475569;
+  font-size: 11px;
+}
+
+.http-diagnostics-entry code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+
 @media (max-width: 640px) {
   .maintenance-banner {
     align-items: flex-start;
