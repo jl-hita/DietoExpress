@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { SupportService } from '../../servicios/support.service';
-import { ErrorReportingService } from '../../servicios/error-reporting.service';
+import { ErrorReportingService, ReportableApplicationError } from '../../servicios/error-reporting.service';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -40,7 +40,7 @@ export class ErrorReportBannerComponent {
   readonly sending = signal(false);
   readonly failure = signal('');
 
-  createTicket(error: NonNullable<ErrorReportingService['currentError']> extends never ? never : import('../../servicios/error-reporting.service').ReportableApplicationError): void {
+  createTicket(error: ReportableApplicationError): void {
     if (this.sending()) return;
     this.sending.set(true);
     this.failure.set('');
