@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectionStrategy, signal} from '@angular/core';
+import { Component, OnDestroy, OnInit, ChangeDetectionStrategy, signal} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -647,7 +647,7 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
   `]
 })
 // Documentación: este componente coordina estado de interfaz y operaciones asíncronas que deben mantenerse alineadas con la API.
-export class AdminDashboardComponent implements OnInit {
+export class AdminDashboardComponent implements OnInit, OnDestroy {
   // Los resultados HTTP se mantienen en signals internos y exponen getters/setters
   // para conservar la API de propiedades usada por la plantilla y los métodos existentes.
   private readonly alertsState = signal<AdminAlert[]>([]);
@@ -726,6 +726,14 @@ export class AdminDashboardComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadData();
+  }
+
+  ngOnDestroy(): void {
+    if (this.databaseRestoreTimer) clearInterval(this.databaseRestoreTimer);
+    if (this.databaseRestorePollTimer) clearInterval(this.databaseRestorePollTimer);
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    for (const timer of this.configTimers.values()) clearTimeout(timer);
+    this.configTimers.clear();
   }
 
   // El panel combina métricas, usuarios, configuración y planes; cada bloque se carga independientemente para que un fallo parcial no inutilice toda la pantalla.
