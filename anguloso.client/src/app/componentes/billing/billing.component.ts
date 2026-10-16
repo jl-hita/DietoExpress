@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, ChangeDetectionStrategy} from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -315,19 +315,43 @@ import { LegalAcceptance, LegalDocument, LegalService } from '../../servicios/le
   `]
 })
 export class BillingComponent implements OnInit {
-  plans: BillingPlan[] = [];
-  license: LicenseStatus | null = null;
+  private readonly plansState = signal<BillingPlan[]>([]);
+  get plans(): BillingPlan[] { return this.plansState(); }
+  set plans(value: BillingPlan[]) { this.plansState.set(value); }
+  private readonly licenseState = signal<LicenseStatus | null>(null);
+  get license(): LicenseStatus | null { return this.licenseState(); }
+  set license(value: LicenseStatus | null) { this.licenseState.set(value); }
   billingInterval: 'monthly' | 'yearly' = 'monthly';
-  loading = true;
-  actionLoading = false;
-  selectedPlanCode: string | null = null;
-  checkoutResult: 'success' | 'cancelled' | null = null;
-  expiredNotice = false;
-  isSuperAdmin = false;
-  legalDocuments: LegalDocument[] = [];
-  termsAccepted = false;
-  legalLoading = true;
-  legalAccepting = false;
+  private readonly loadingState = signal<boolean>(true);
+  get loading(): boolean { return this.loadingState(); }
+  set loading(value: boolean) { this.loadingState.set(value); }
+  private readonly actionLoadingState = signal<boolean>(false);
+  get actionLoading(): boolean { return this.actionLoadingState(); }
+  set actionLoading(value: boolean) { this.actionLoadingState.set(value); }
+  private readonly selectedPlanCodeState = signal<string | null>(null);
+  get selectedPlanCode(): string | null { return this.selectedPlanCodeState(); }
+  set selectedPlanCode(value: string | null) { this.selectedPlanCodeState.set(value); }
+  private readonly checkoutResultState = signal<'success' | 'cancelled' | null>(null);
+  get checkoutResult(): 'success' | 'cancelled' | null { return this.checkoutResultState(); }
+  set checkoutResult(value: 'success' | 'cancelled' | null) { this.checkoutResultState.set(value); }
+  private readonly expiredNoticeState = signal<boolean>(false);
+  get expiredNotice(): boolean { return this.expiredNoticeState(); }
+  set expiredNotice(value: boolean) { this.expiredNoticeState.set(value); }
+  private readonly isSuperAdminState = signal<boolean>(false);
+  get isSuperAdmin(): boolean { return this.isSuperAdminState(); }
+  set isSuperAdmin(value: boolean) { this.isSuperAdminState.set(value); }
+  private readonly legalDocumentsState = signal<LegalDocument[]>([]);
+  get legalDocuments(): LegalDocument[] { return this.legalDocumentsState(); }
+  set legalDocuments(value: LegalDocument[]) { this.legalDocumentsState.set(value); }
+  private readonly termsAcceptedState = signal<boolean>(false);
+  get termsAccepted(): boolean { return this.termsAcceptedState(); }
+  set termsAccepted(value: boolean) { this.termsAcceptedState.set(value); }
+  private readonly legalLoadingState = signal<boolean>(true);
+  get legalLoading(): boolean { return this.legalLoadingState(); }
+  set legalLoading(value: boolean) { this.legalLoadingState.set(value); }
+  private readonly legalAcceptingState = signal<boolean>(false);
+  get legalAccepting(): boolean { return this.legalAcceptingState(); }
+  set legalAccepting(value: boolean) { this.legalAcceptingState.set(value); }
 
   constructor(
     private billingService: BillingService,

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, ChangeDetectionStrategy} from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -113,7 +113,9 @@ import { LegalConfigurationService } from '../../servicios/legal-configuration.s
 })
 export class LegalSettingsComponent implements OnInit {
   form: FormGroup;
-  saving = false;
+  private readonly savingState = signal<boolean>(false);
+  get saving(): boolean { return this.savingState(); }
+  set saving(value: boolean) { this.savingState.set(value); }
   isClinic = false;
 
   constructor(

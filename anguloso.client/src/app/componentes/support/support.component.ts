@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Component, OnDestroy, OnInit, ChangeDetectionStrategy} from '@angular/core';
+import { Component, OnDestroy, OnInit, ChangeDetectionStrategy, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
@@ -26,12 +26,28 @@ import { SupportCategory, SupportPriority, SupportService, SupportStatus, Suppor
   styleUrls: ['./support.component.css']
 })
 export class SupportComponent implements OnInit, OnDestroy {
-  tickets: SupportTicketSummary[] = [];
-  selected: SupportTicket | null = null;
-  notifications:any[]=[]; notificationCount=0;
-  loading = false;
-  saving = false;
-  error = '';
+  private readonly ticketsState = signal<SupportTicketSummary[]>([]);
+  get tickets(): SupportTicketSummary[] { return this.ticketsState(); }
+  set tickets(value: SupportTicketSummary[]) { this.ticketsState.set(value); }
+  private readonly selectedState = signal<SupportTicket | null>(null);
+  get selected(): SupportTicket | null { return this.selectedState(); }
+  set selected(value: SupportTicket | null) { this.selectedState.set(value); }
+  private readonly notificationsState = signal<any[]>([]);
+  get notifications(): any[] { return this.notificationsState(); }
+  set notifications(value: any[]) { this.notificationsState.set(value); }
+
+  private readonly notificationCountState = signal<number>(0);
+  get notificationCount(): number { return this.notificationCountState(); }
+  set notificationCount(value: number) { this.notificationCountState.set(value); }
+  private readonly loadingState = signal<boolean>(false);
+  get loading(): boolean { return this.loadingState(); }
+  set loading(value: boolean) { this.loadingState.set(value); }
+  private readonly savingState = signal<boolean>(false);
+  get saving(): boolean { return this.savingState(); }
+  set saving(value: boolean) { this.savingState.set(value); }
+  private readonly errorState = signal<string>('');
+  get error(): string { return this.errorState(); }
+  set error(value: string) { this.errorState.set(value); }
   reply = '';
   internal = false;
 
@@ -39,19 +55,33 @@ export class SupportComponent implements OnInit, OnDestroy {
   categoryFilter = '';
   priorityFilter = '';
   searchFilter=''; assignedFilter:number|null=null; fromFilter=''; toFilter='';
-  assignees:{id:number;name:string}[]=[]; auditEntries:any[]=[];
+  private readonly assigneesState = signal<{id:number;name:string}[]>([]);
+  get assignees(): {id:number;name:string}[] { return this.assigneesState(); }
+  set assignees(value: {id:number;name:string}[]) { this.assigneesState.set(value); }
+
+  private readonly auditEntriesState = signal<any[]>([]);
+  get auditEntries(): any[] { return this.auditEntriesState(); }
+  set auditEntries(value: any[]) { this.auditEntriesState.set(value); }
 
   newSubject = '';
   newCategory: SupportCategory = 'question';
   newPriority: SupportPriority = 'normal';
   newBody = '';
-  creating = false;
+  private readonly creatingState = signal<boolean>(false);
+  get creating(): boolean { return this.creatingState(); }
+  set creating(value: boolean) { this.creatingState.set(value); }
   broadcastTitle = '';
   broadcastBody = '';
   broadcastAudience = 'professionals';
-  broadcastSending = false;
-  broadcastResult = '';
-  broadcastError = '';
+  private readonly broadcastSendingState = signal<boolean>(false);
+  get broadcastSending(): boolean { return this.broadcastSendingState(); }
+  set broadcastSending(value: boolean) { this.broadcastSendingState.set(value); }
+  private readonly broadcastResultState = signal<string>('');
+  get broadcastResult(): string { return this.broadcastResultState(); }
+  set broadcastResult(value: string) { this.broadcastResultState.set(value); }
+  private readonly broadcastErrorState = signal<string>('');
+  get broadcastError(): string { return this.broadcastErrorState(); }
+  set broadcastError(value: string) { this.broadcastErrorState.set(value); }
 
   readonly categories: { value: SupportCategory; label: string }[] = [
     { value: 'problem', label: 'Problema' },
