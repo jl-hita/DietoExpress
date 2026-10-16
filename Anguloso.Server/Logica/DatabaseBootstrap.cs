@@ -1217,7 +1217,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
 
         var alreadyApplied = context.Database
             .SqlQueryRaw<int>("SELECT 1 AS \"Value\" FROM schema_migrations WHERE id = 'saas-v1' LIMIT 1")
-            .FirstOrDefault() == 1;
+            .SingleOrDefault() == 1;
 
         if (alreadyApplied)
         {
@@ -2934,7 +2934,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
 
         var missing = context.Database
             .SqlQueryRaw<string>(sql)
-            .FirstOrDefault();
+            .SingleOrDefault();
 
         if (!string.IsNullOrWhiteSpace(missing))
         {
@@ -2979,7 +2979,8 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                 )
                 """;
 
-            var missingColumns = context.Database.SqlQueryRaw<string>(missingColumnsSql).FirstOrDefault();
+            var missingColumns = context.Database.SqlQueryRaw<string>(missingColumnsSql)
+            .SingleOrDefault();
             if (!string.IsNullOrWhiteSpace(missingColumns))
             {
                 logger.LogCritical("El bootstrap no pudo reconciliar el esquema. Faltan columnas: {MissingColumns}", missingColumns);
