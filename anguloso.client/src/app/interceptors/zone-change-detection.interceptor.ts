@@ -42,9 +42,9 @@ export const zoneChangeDetectionInterceptor: HttpInterceptorFn = (request, next)
         diagnosticLog('debug', `${label} delivered ${kind}`, {
           inAngularZone: NgZone.isInAngularZone()
         });
-      } catch {
+      } catch (error) {
         diagnosticLog('error', `${label} downstream observer threw during ${kind}`);
-        throw new Error(`Downstream observer threw during HTTP diagnostic event: ${kind}`);
+        throw error;
       } finally {
         try {
           diagnosticLog('debug', `${label} change-detection tick begin`);
@@ -52,9 +52,9 @@ export const zoneChangeDetectionInterceptor: HttpInterceptorFn = (request, next)
           diagnosticLog('debug', `${label} change-detection tick end`, {
             elapsedMs: Date.now() - startedAt
           });
-        } catch {
+        } catch (error) {
           diagnosticLog('error', `${label} change-detection tick failed after ${kind}`);
-          throw new Error(`Change-detection tick failed after HTTP diagnostic event: ${kind}`);
+          throw error;
         }
       }
     });
@@ -79,11 +79,11 @@ export const zoneChangeDetectionInterceptor: HttpInterceptorFn = (request, next)
 
         notify(event instanceof HttpResponse ? `response ${event.status}` : `event ${event.type}`, () => observer.next(event));
       },
-      error: () => {
+      error: error => {
         diagnosticLog('error', `${label} HTTP stream error`, {
           elapsedMs: Date.now() - startedAt
         });
-        notify('error', () => observer.error(new Error('HTTP request failed; see Network panel for status')));
+        notify('error', () => observer.error(error));
       },
       complete: () => {
         diagnosticLog('info', `${label} HTTP stream complete`, {
