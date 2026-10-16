@@ -4,6 +4,18 @@ import { Observable } from 'rxjs';
 
 let diagnosticRequestId = 0;
 
+type DiagnosticLevel = 'info' | 'debug' | 'error';
+
+/** Emits metadata only: never request/response bodies or query strings. */
+function diagnosticLog(level: DiagnosticLevel, message: string, details?: Record<string, unknown>): void {
+  console[level](message, details ?? '');
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('dieto-http-cd-log', {
+      detail: { time: new Date().toLocaleTimeString(), level, message, details }
+    }));
+  }
+}
+
 /**
  * Temporary diagnostics for the global HTTP/change-detection issue.
  * Logs transport events, delivery to the application, and the subsequent
@@ -13,54 +25,53 @@ export const zoneChangeDetectionInterceptor: HttpInterceptorFn = (request, next)
   const zone = inject(NgZone);
   const appRef = inject(ApplicationRef);
   const requestId = ++diagnosticRequestId;
-  const label = `[HTTP-CD #${requestId}] ${request.method} ${request.url}`;
+  const safeUrl = request.url.split('?')[0];
+  const label = `[HTTP-CD #${requestId}] ${request.method} ${safeUrl}`;
   const startedAt = Date.now();
 
-  console.info(`${label} start`, {
-    inAngularZone: NgZone.isInAngularZone(),
-  });
+  diagnosticLog('info', `${label} start`, { inAngularZone: NgZone.isInAngularZone() });
 
   const notify = (kind: string, callback: () => void): void => {
-    console.debug(`${label} deliver ${kind}`, {
+    diagnosticLog('debug', `${label} deliver ${kind}`, {
       inAngularZoneBefore: NgZone.isInAngularZone()
     });
 
     zone.run(() => {
       try {
         callback();
-        console.debug(`${label} delivered ${kind}`, {
+        diagnosticLog('debug', `${label} delivered ${kind}`, {
           inAngularZone: NgZone.isInAngularZone()
         });
-      } catch (error) {
-        console.error(`${label} downstream observer threw during ${kind}`, error);
-        throw error;
+      } catch {
+        diagnosticLog('error', `${label} downstream observer threw during ${kind}`);
+        throw new Error(`Downstream observer threw during HTTP diagnostic event: ${kind}`);
       } finally {
         try {
-          console.debug(`${label} change-detection tick begin`);
+          diagnosticLog('debug', `${label} change-detection tick begin`);
           appRef.tick();
-          console.debug(`${label} change-detection tick end`, {
+          diagnosticLog('debug', `${label} change-detection tick end`, {
             elapsedMs: Date.now() - startedAt
           });
-        } catch (error) {
-          console.error(`${label} change-detection tick failed after ${kind}`, error);
-          throw error;
+        } catch {
+          diagnosticLog('error', `${label} change-detection tick failed after ${kind}`);
+          throw new Error(`Change-detection tick failed after HTTP diagnostic event: ${kind}`);
         }
       }
     });
   };
 
   return new Observable<HttpEvent<unknown>>(observer => {
-    console.debug(`${label} subscribing to HTTP event stream`);
+    diagnosticLog('debug', `${label} subscribing to HTTP event stream`);
 
     const subscription = next(request).subscribe({
       next: event => {
         if (event instanceof HttpResponse) {
-          console.info(`${label} response`, {
+          diagnosticLog('info', `${label} response`, {
             status: event.status,
             elapsedMs: Date.now() - startedAt
           });
         } else {
-          console.debug(`${label} HTTP event`, {
+          diagnosticLog('debug', `${label} HTTP event`, {
             type: event.type,
             elapsedMs: Date.now() - startedAt
           });
@@ -68,15 +79,14 @@ export const zoneChangeDetectionInterceptor: HttpInterceptorFn = (request, next)
 
         notify(event instanceof HttpResponse ? `response ${event.status}` : `event ${event.type}`, () => observer.next(event));
       },
-      error: error => {
-        console.error(`${label} HTTP stream error`, {
-          elapsedMs: Date.now() - startedAt,
-          error
+      error: () => {
+        diagnosticLog('error', `${label} HTTP stream error`, {
+          elapsedMs: Date.now() - startedAt
         });
-        notify('error', () => observer.error(error));
+        notify('error', () => observer.error(new Error('HTTP request failed; see Network panel for status')));
       },
       complete: () => {
-        console.info(`${label} HTTP stream complete`, {
+        diagnosticLog('info', `${label} HTTP stream complete`, {
           elapsedMs: Date.now() - startedAt
         });
         notify('complete', () => observer.complete());
@@ -84,7 +94,7 @@ export const zoneChangeDetectionInterceptor: HttpInterceptorFn = (request, next)
     });
 
     return () => {
-      console.debug(`${label} subscription teardown`, {
+      diagnosticLog('debug', `${label} subscription teardown`, {
         closed: subscription.closed,
         elapsedMs: Date.now() - startedAt
       });
