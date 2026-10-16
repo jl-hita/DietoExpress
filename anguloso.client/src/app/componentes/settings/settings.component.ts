@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ChangeDetectionStrategy} from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Subject, Subscription } from 'rxjs';
@@ -48,16 +48,37 @@ import { MatAutocompleteModule } from '@angular/material/autocomplete';
 // La pantalla de ajustes separa la edición local del envío persistente para evitar mostrar como guardado un cambio que el backend haya rechazado.
 export class SettingsComponent implements OnInit, OnDestroy {
   form!: FormGroup;
-  loading = false;
-  saving = false;
-  saveState: 'idle' | 'saving' | 'saved' | 'error' = 'idle';
+
+  // Los estados actualizados desde HTTP y FileReader son signals para notificar explícitamente a la vista.
+  private readonly loadingState = signal(false);
+  get loading(): boolean { return this.loadingState(); }
+  set loading(value: boolean) { this.loadingState.set(value); }
+
+  private readonly savingState = signal(false);
+  get saving(): boolean { return this.savingState(); }
+  set saving(value: boolean) { this.savingState.set(value); }
+
+  private readonly saveStateValue = signal<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  get saveState(): 'idle' | 'saving' | 'saved' | 'error' { return this.saveStateValue(); }
+  set saveState(value: 'idle' | 'saving' | 'saved' | 'error') { this.saveStateValue.set(value); }
+
   private saveChanges$ = new Subject<void>();
   private saveSubscription?: Subscription;
   private formChangesSubscription?: Subscription;
-  logoPreview: string | null = null;
-  profile: Profile | null = null;
+
+  private readonly logoPreviewState = signal<string | null>(null);
+  get logoPreview(): string | null { return this.logoPreviewState(); }
+  set logoPreview(value: string | null) { this.logoPreviewState.set(value); }
+
+  private readonly profileState = signal<Profile | null>(null);
+  get profile(): Profile | null { return this.profileState(); }
+  set profile(value: Profile | null) { this.profileState.set(value); }
+
   passwordForm!: FormGroup;
-  passwordSaving = false;
+
+  private readonly passwordSavingState = signal(false);
+  get passwordSaving(): boolean { return this.passwordSavingState(); }
+  set passwordSaving(value: boolean) { this.passwordSavingState.set(value); }
 
   readonly provinces = [
     'Álava', 'Albacete', 'Alicante', 'Almería', 'Asturias', 'Ávila', 'Badajoz', 'Barcelona',
