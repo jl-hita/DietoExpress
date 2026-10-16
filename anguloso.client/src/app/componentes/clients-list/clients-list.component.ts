@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, Input, Output, EventEmitter, OnInit, OnDestroy, ViewChild, ChangeDetectionStrategy} from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, ViewChild, ChangeDetectionStrategy, signal} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -45,7 +45,11 @@ export interface ClientItem {
 // Documentación: este componente coordina estado de interfaz y operaciones asíncronas que deben mantenerse alineadas con la API.
 export class ClientsListComponent implements OnInit, OnDestroy {
   @Input() clients: ClientItem[] = [];
-  @Input() loading: boolean = false;
+  private readonly loadingState = signal(false);
+
+  @Input()
+  get loading(): boolean { return this.loadingState(); }
+  set loading(value: boolean) { this.loadingState.set(value); }
 
   @Output() clientSelected = new EventEmitter<ClientItem>();
   @Output() create = new EventEmitter<void>();
@@ -69,7 +73,7 @@ export class ClientsListComponent implements OnInit, OnDestroy {
   isSuperAdmin = false;
   private searchTimer?: ReturnType<typeof setTimeout>;
 
-  constructor(private router: Router, private clientService: ClientService, private authService: AuthService, private cdr: ChangeDetectorRef) { }
+  constructor(private router: Router, private clientService: ClientService, private authService: AuthService) { }
 
   ngOnInit(): void {
     this.isSuperAdmin = this.authService.isSuperAdmin();
@@ -97,7 +101,7 @@ export class ClientsListComponent implements OnInit, OnDestroy {
         this.filtered = this.clients;
         this.pagedClients = this.clients;
         this.loading = false;
-        this.cdr.detectChanges();
+
       },
       error: () => {
         this.clients = [];
@@ -105,7 +109,7 @@ export class ClientsListComponent implements OnInit, OnDestroy {
         this.pagedClients = [];
         this.totalCount = 0;
         this.loading = false;
-        this.cdr.detectChanges();
+
       }
     });
   }
