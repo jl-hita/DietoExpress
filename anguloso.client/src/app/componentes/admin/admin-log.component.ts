@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -9,6 +9,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { AdminLog, AdminService } from '../../servicios/admin.service';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-admin-log',
   standalone: true,
   imports: [CommonModule, FormsModule, MatButtonModule, MatCardModule, MatIconModule, MatInputModule, MatSelectModule],
@@ -114,20 +115,46 @@ import { AdminLog, AdminService } from '../../servicios/admin.service';
 export class AdminLogComponent implements OnInit {
   // La carga histórica se activa automáticamente al alcanzar el inicio del visor.
   selectedDate = this.toDateString(new Date());
-  previousDate?: string;
-  nextDate?: string;
-  exists = false;
-  loading = false;
-  loadingOlder = false;
+  private readonly previousDateState = signal<string | undefined>(undefined);
+  get previousDate(): string | undefined { return this.previousDateState(); }
+  set previousDate(value: string | undefined) { this.previousDateState.set(value); }
+
+  private readonly nextDateState = signal<string | undefined>(undefined);
+  get nextDate(): string | undefined { return this.nextDateState(); }
+  set nextDate(value: string | undefined) { this.nextDateState.set(value); }
+
+  private readonly existsState = signal(false);
+  get exists(): boolean { return this.existsState(); }
+  set exists(value: boolean) { this.existsState.set(value); }
+
+  private readonly loadingState = signal(false);
+  get loading(): boolean { return this.loadingState(); }
+  set loading(value: boolean) { this.loadingState.set(value); }
+
+  private readonly loadingOlderState = signal(false);
+  get loadingOlder(): boolean { return this.loadingOlderState(); }
+  set loadingOlder(value: boolean) { this.loadingOlderState.set(value); }
   levelFilter: 'all' | 'info' | 'warning' | 'error' = 'all';
   searchText = '';
-  searching = false;
-  searchActive = false;
-  searchResultCount = 0;
+  private readonly searchingState = signal(false);
+  get searching(): boolean { return this.searchingState(); }
+  set searching(value: boolean) { this.searchingState.set(value); }
 
-  private logEntries: string[] = [];
+  private readonly searchActiveState = signal(false);
+  get searchActive(): boolean { return this.searchActiveState(); }
+  set searchActive(value: boolean) { this.searchActiveState.set(value); }
+
+  private readonly searchResultCountState = signal(0);
+  get searchResultCount(): number { return this.searchResultCountState(); }
+  set searchResultCount(value: number) { this.searchResultCountState.set(value); }
+
+  private readonly logEntriesState = signal<string[]>([]);
+  private get logEntries(): string[] { return this.logEntriesState(); }
+  private set logEntries(value: string[]) { this.logEntriesState.set(value); }
   private oldestLoadedByte = 0;
-  hasMoreOlder = false;
+  private readonly hasMoreOlderState = signal(false);
+  get hasMoreOlder(): boolean { return this.hasMoreOlderState(); }
+  set hasMoreOlder(value: boolean) { this.hasMoreOlderState.set(value); }
 
   get filteredLogEntries(): string[] {
     if (this.levelFilter === 'all') return this.logEntries;

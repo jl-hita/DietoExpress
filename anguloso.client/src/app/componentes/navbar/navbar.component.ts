@@ -1,13 +1,14 @@
 import { CommonModule } from '@angular/common';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy} from '@angular/core';
 import { Router } from '@angular/router';
 import { AppRoute } from '../../app.routes';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { AuthService } from '../../servicios/auth.service';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-menu',
   templateUrl: './navbar.component.html',
   styleUrls: ['./navbar.component.css'],

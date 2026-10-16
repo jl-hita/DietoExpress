@@ -1,15 +1,26 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, signal} from '@angular/core';
 import { CommonModule } from '@angular/common'; import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card'; import { MatButtonModule } from '@angular/material/button'; import { MatIconModule } from '@angular/material/icon'; import { MatFormFieldModule } from '@angular/material/form-field'; import { MatInputModule } from '@angular/material/input'; import { MatCheckboxModule } from '@angular/material/checkbox'; import { MatSlideToggleModule } from '@angular/material/slide-toggle'; import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { AdminService, AdminPlan } from '../../servicios/admin.service';
-@Component({selector:'app-admin-plans',standalone:true,imports:[CommonModule,FormsModule,MatCardModule,MatButtonModule,MatIconModule,MatFormFieldModule,MatInputModule,MatCheckboxModule,MatSlideToggleModule,MatSnackBarModule],templateUrl:'./admin-plans.component.html',styleUrls:['./admin-plans.component.css']})
+@Component({
+  changeDetection: ChangeDetectionStrategy.Eager,selector:'app-admin-plans',standalone:true,imports:[CommonModule,FormsModule,MatCardModule,MatButtonModule,MatIconModule,MatFormFieldModule,MatInputModule,MatCheckboxModule,MatSlideToggleModule,MatSnackBarModule],templateUrl:'./admin-plans.component.html',styleUrls:['./admin-plans.component.css']})
 // Documentación: este componente coordina estado de interfaz y operaciones asíncronas que deben mantenerse alineadas con la API.
 export class AdminPlansComponent implements OnInit, OnDestroy {
   plans: AdminPlan[] = [];
   private timers = new Map<number, ReturnType<typeof setTimeout>>();
   private savingIds = new Set<number>();
   private pendingIds = new Set<number>();
-  saveState = new Map<number, 'idle' | 'pending' | 'saving' | 'saved' | 'error'>();
+  private readonly saveStateSignal = signal(new Map<number, 'idle' | 'pending' | 'saving' | 'saved' | 'error'>());
+  get saveState(): Map<number, 'idle' | 'pending' | 'saving' | 'saved' | 'error'> { return this.saveStateSignal(); }
+  set saveState(value: Map<number, 'idle' | 'pending' | 'saving' | 'saved' | 'error'>) { this.saveStateSignal.set(value); }
+
+  private setPlanSaveState(id: number, state: 'idle' | 'pending' | 'saving' | 'saved' | 'error'): void {
+    this.saveStateSignal.update(current => {
+      const next = new Map(current);
+      next.set(id, state);
+      return next;
+    });
+  }
 
   constructor(private admin: AdminService, private snack: MatSnackBar) {}
 
@@ -19,14 +30,14 @@ export class AdminPlansComponent implements OnInit, OnDestroy {
     this.admin.getPlans().subscribe({
       next: p => {
         this.plans = p;
-        p.forEach(plan => this.saveState.set(plan.id, 'saved'));
+        p.forEach(plan => this.setPlanSaveState(plan.id, 'saved'));
       },
       error: () => this.snack.open('No se pudieron cargar los planes', 'Cerrar', {duration:3000})
     });
   }
 
   scheduleSave(p: AdminPlan, immediate = false): void {
-    this.saveState.set(p.id, 'pending');
+    this.setPlanSaveState(p.id, 'pending');
     const previous = this.timers.get(p.id);
     if (previous) clearTimeout(previous);
     const delay = immediate ? 0 : 700;
@@ -40,12 +51,12 @@ export class AdminPlansComponent implements OnInit, OnDestroy {
   save(p: AdminPlan): void {
     if (this.savingIds.has(p.id)) {
       this.pendingIds.add(p.id);
-      this.saveState.set(p.id, 'pending');
+      this.setPlanSaveState(p.id, 'pending');
       return;
     }
 
     this.savingIds.add(p.id);
-    this.saveState.set(p.id, 'saving');
+    this.setPlanSaveState(p.id, 'saving');
     const dto = {
       name:p.name,
       description:p.description,
@@ -64,23 +75,23 @@ export class AdminPlansComponent implements OnInit, OnDestroy {
           if (this.pendingIds.delete(p.id)) {
             this.scheduleSave(p, true);
           } else {
-            this.saveState.set(p.id, 'saved');
+            this.setPlanSaveState(p.id, 'saved');
           }
         },
         error: () => {
           this.savingIds.delete(p.id);
-          this.saveState.set(p.id, 'error');
+          this.setPlanSaveState(p.id, 'error');
         }
       }),
       error: () => {
         this.savingIds.delete(p.id);
-        this.saveState.set(p.id, 'error');
+        this.setPlanSaveState(p.id, 'error');
       }
     });
   }
 
   status(p: AdminPlan): string {
-    const state = this.saveState.get(p.id) || 'idle';
+    const state = this.saveStateSignal().get(p.id) || 'idle';
     return state === 'saving' ? 'Guardando...' :
       state === 'pending' ? 'Pendiente...' :
       state === 'error' ? '⚠ Error al guardar' :

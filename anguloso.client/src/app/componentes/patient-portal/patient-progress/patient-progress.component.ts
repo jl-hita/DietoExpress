@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { PatientCheckinHistoryComponent } from '../patient-checkin-history/patient-checkin-history.component';
@@ -14,6 +14,7 @@ interface PatientWeightEntry {
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-patient-progress',
   standalone: true,
   imports: [CommonModule, MatIconModule, PatientCheckinHistoryComponent],

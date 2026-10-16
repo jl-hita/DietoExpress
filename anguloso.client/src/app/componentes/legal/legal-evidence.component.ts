@@ -1,10 +1,11 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, signal} from '@angular/core';
 import { MatCardModule } from '@angular/material/card';
 import { LegalDocumentGeneratorService, LegalGeneratedDocument } from '../../servicios/legal-document-generator.service';
 import { LegalEvidenceService, LegalAcceptanceEvidence, PrivacyRequestEvidence, PrivacyIncidentEvidence } from '../../servicios/legal-evidence.service';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
  selector:'app-legal-evidence',standalone:true,imports:[CommonModule,MatCardModule],
  template:`
  <section class="grid">
@@ -28,7 +29,21 @@ import { LegalEvidenceService, LegalAcceptanceEvidence, PrivacyRequestEvidence, 
  styles:[`.grid{display:grid;gap:14px;padding:20px 0}.row{display:flex;justify-content:space-between;gap:16px;padding:11px 0;border-bottom:1px solid #e2e8f0}.row div{min-width:0}.row span{font-size:12px;word-break:break-all}.row small{display:block;color:#64748b;margin-top:3px}p{color:#64748b}@media(max-width:800px){.row{display:grid}}`]
 })
 export class LegalEvidenceComponent implements OnInit {
- documents:LegalGeneratedDocument[]=[];acceptances:LegalAcceptanceEvidence[]=[];requests:PrivacyRequestEvidence[]=[];incidents:PrivacyIncidentEvidence[]=[];
+ private readonly documentsState = signal<LegalGeneratedDocument[]>([]);
+ get documents(): LegalGeneratedDocument[] { return this.documentsState(); }
+ set documents(value: LegalGeneratedDocument[]) { this.documentsState.set(value); }
+
+ private readonly acceptancesState = signal<LegalAcceptanceEvidence[]>([]);
+ get acceptances(): LegalAcceptanceEvidence[] { return this.acceptancesState(); }
+ set acceptances(value: LegalAcceptanceEvidence[]) { this.acceptancesState.set(value); }
+
+ private readonly requestsState = signal<PrivacyRequestEvidence[]>([]);
+ get requests(): PrivacyRequestEvidence[] { return this.requestsState(); }
+ set requests(value: PrivacyRequestEvidence[]) { this.requestsState.set(value); }
+
+ private readonly incidentsState = signal<PrivacyIncidentEvidence[]>([]);
+ get incidents(): PrivacyIncidentEvidence[] { return this.incidentsState(); }
+ set incidents(value: PrivacyIncidentEvidence[]) { this.incidentsState.set(value); }
  constructor(private generator:LegalDocumentGeneratorService,private api:LegalEvidenceService){}
  ngOnInit(){this.generator.list().subscribe(x=>this.documents=x);this.api.acceptances().subscribe(x=>this.acceptances=x);this.api.requests().subscribe(x=>this.requests=x);this.api.incidents().subscribe(x=>this.incidents=x);}
 }

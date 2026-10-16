@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy} from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../servicios/auth.service';
 import { HttpBackend, HttpClient } from '@angular/common/http';
@@ -14,6 +14,7 @@ interface LoginRequestToken {
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-confirmar-email',
     standalone: true,
   imports: [CommonModule, MatSnackBarModule, MatProgressSpinnerModule],

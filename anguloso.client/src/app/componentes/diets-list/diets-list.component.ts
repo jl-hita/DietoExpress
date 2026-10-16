@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { MATERIAL_IMPORTS } from '../../shared/material.imports';
@@ -9,6 +9,7 @@ import { DietShoppingListDialogComponent } from './diet-shopping-list-dialog.com
 import { AuthService } from '../../servicios/auth.service';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-diets-list',
   standalone: true,
   imports: [MATERIAL_IMPORTS],
@@ -17,19 +18,46 @@ import { AuthService } from '../../servicios/auth.service';
 })
 // La lista coordina carga, filtros y acciones sobre dietas; los cambios de estado se reflejan después de confirmar la operación en el backend.
 export class DietsListComponent implements OnInit, OnDestroy {
-  diets: DietListItem[] = [];
-  loading = false;
-  error: string | null = null;
+  private readonly dietsState = signal<DietListItem[]>([]);
+  get diets(): DietListItem[] { return this.dietsState(); }
+  set diets(value: DietListItem[]) { this.dietsState.set(value); }
 
-  searchTerm = '';
-  filtered: DietListItem[] = [];
-  pagedDiets: DietListItem[] = [];
+  readonly loading = signal(false);
+  readonly error = signal<string | null>(null);
+
+  private readonly searchTermState = signal('');
+  get searchTerm(): string { return this.searchTermState(); }
+  set searchTerm(value: string) { this.searchTermState.set(value); }
+
+  private readonly filteredState = signal<DietListItem[]>([]);
+  get filtered(): DietListItem[] { return this.filteredState(); }
+  set filtered(value: DietListItem[]) { this.filteredState.set(value); }
+
+  private readonly pagedDietsState = signal<DietListItem[]>([]);
+  get pagedDiets(): DietListItem[] { return this.pagedDietsState(); }
+  set pagedDiets(value: DietListItem[]) { this.pagedDietsState.set(value); }
+
   pageSize = 10;
-  currentPage = 1;
-  totalPages = 1;
-  totalCount = 0;
-  showAllDiets = false;
-  isSuperAdmin = false;
+
+  private readonly currentPageState = signal(1);
+  get currentPage(): number { return this.currentPageState(); }
+  set currentPage(value: number) { this.currentPageState.set(value); }
+
+  private readonly totalPagesState = signal(1);
+  get totalPages(): number { return this.totalPagesState(); }
+  set totalPages(value: number) { this.totalPagesState.set(value); }
+
+  private readonly totalCountState = signal(0);
+  get totalCount(): number { return this.totalCountState(); }
+  set totalCount(value: number) { this.totalCountState.set(value); }
+
+  private readonly showAllDietsState = signal(false);
+  get showAllDiets(): boolean { return this.showAllDietsState(); }
+  set showAllDiets(value: boolean) { this.showAllDietsState.set(value); }
+
+  private readonly isSuperAdminState = signal(false);
+  get isSuperAdmin(): boolean { return this.isSuperAdminState(); }
+  set isSuperAdmin(value: boolean) { this.isSuperAdminState.set(value); }
   private searchTimer?: ReturnType<typeof setTimeout>;
 
   constructor(
@@ -37,8 +65,7 @@ export class DietsListComponent implements OnInit, OnDestroy {
     private router: Router,
     private snackBar: MatSnackBar,
     private dialog: MatDialog,
-    private authService: AuthService,
-    private cdr: ChangeDetectorRef
+    private authService: AuthService
   ) {}
 
 
@@ -50,8 +77,8 @@ export class DietsListComponent implements OnInit, OnDestroy {
 
   // La paginación y búsqueda se envían al servidor; el frontend conserva únicamente la página actual y calcula su representación visual.
   loadDiets(): void {
-    this.loading = true;
-    this.error = null;
+    this.loading.set(true);
+    this.error.set(null);
     this.dietService.getDiets(this.currentPage, this.pageSize, this.searchTerm, this.showAllDiets && this.isSuperAdmin).subscribe({
       next: (result) => {
         this.diets = result.items || [];
@@ -60,19 +87,17 @@ export class DietsListComponent implements OnInit, OnDestroy {
         this.totalPages = Math.max(1, Math.ceil(this.totalCount / this.pageSize));
         this.filtered = this.diets;
         this.pagedDiets = this.diets;
-        this.loading = false;
-        this.cdr.detectChanges();
+        this.loading.set(false);
       },
       error: (err) => {
-        this.loading = false;
+        this.loading.set(false);
         this.diets = [];
         this.filtered = [];
         this.pagedDiets = [];
         this.totalCount = 0;
-        this.error = err?.status === 404
+        this.error.set(err?.status === 404
           ? 'El API de dietas no está disponible aún. Configure el backend.'
-          : 'Error al cargar las dietas.';
-        this.cdr.detectChanges();
+          : 'Error al cargar las dietas.');
       }
     });
   }

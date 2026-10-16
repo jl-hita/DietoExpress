@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -9,6 +9,7 @@ import { PublicSeoService } from '../../servicios/public-seo.service';
 import { PublicFunnelAnalyticsService } from '../../servicios/public-funnel-analytics.service';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-directory',
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink, MatButtonModule],
@@ -22,18 +23,53 @@ export class DirectoryComponent implements OnInit {
   online = false;
   goal = '';
   availableOnly = false;
-  profiles: DirectoryProfile[] = [];
-  profile: DirectoryProfile | null = null;
-  loading = false;
-  error = '';
-  availability: PublicAvailabilitySlot[] = [];
-  reviewSummary: DirectoryReviewSummary | null = null;
-  availabilityLoading = false;
-  availabilityError = '';
-  selectedSlot: PublicAvailabilitySlot | null = null;
-  bookingSubmitting = false;
-  bookingError = '';
-  bookingSuccess: string | null = null;
+  private readonly profilesState = signal<DirectoryProfile[]>([]);
+  get profiles(): DirectoryProfile[] { return this.profilesState(); }
+  set profiles(value: DirectoryProfile[]) { this.profilesState.set(value); }
+
+  private readonly profileState = signal<DirectoryProfile | null>(null);
+  get profile(): DirectoryProfile | null { return this.profileState(); }
+  set profile(value: DirectoryProfile | null) { this.profileState.set(value); }
+
+  private readonly loadingState = signal(false);
+  get loading(): boolean { return this.loadingState(); }
+  set loading(value: boolean) { this.loadingState.set(value); }
+
+  private readonly errorState = signal('');
+  get error(): string { return this.errorState(); }
+  set error(value: string) { this.errorState.set(value); }
+
+  private readonly availabilityState = signal<PublicAvailabilitySlot[]>([]);
+  get availability(): PublicAvailabilitySlot[] { return this.availabilityState(); }
+  set availability(value: PublicAvailabilitySlot[]) { this.availabilityState.set(value); }
+
+  private readonly reviewSummaryState = signal<DirectoryReviewSummary | null>(null);
+  get reviewSummary(): DirectoryReviewSummary | null { return this.reviewSummaryState(); }
+  set reviewSummary(value: DirectoryReviewSummary | null) { this.reviewSummaryState.set(value); }
+
+  private readonly availabilityLoadingState = signal(false);
+  get availabilityLoading(): boolean { return this.availabilityLoadingState(); }
+  set availabilityLoading(value: boolean) { this.availabilityLoadingState.set(value); }
+
+  private readonly availabilityErrorState = signal('');
+  get availabilityError(): string { return this.availabilityErrorState(); }
+  set availabilityError(value: string) { this.availabilityErrorState.set(value); }
+
+  private readonly selectedSlotState = signal<PublicAvailabilitySlot | null>(null);
+  get selectedSlot(): PublicAvailabilitySlot | null { return this.selectedSlotState(); }
+  set selectedSlot(value: PublicAvailabilitySlot | null) { this.selectedSlotState.set(value); }
+
+  private readonly bookingSubmittingState = signal(false);
+  get bookingSubmitting(): boolean { return this.bookingSubmittingState(); }
+  set bookingSubmitting(value: boolean) { this.bookingSubmittingState.set(value); }
+
+  private readonly bookingErrorState = signal('');
+  get bookingError(): string { return this.bookingErrorState(); }
+  set bookingError(value: string) { this.bookingErrorState.set(value); }
+
+  private readonly bookingSuccessState = signal<string | null>(null);
+  get bookingSuccess(): string | null { return this.bookingSuccessState(); }
+  set bookingSuccess(value: string | null) { this.bookingSuccessState.set(value); }
   bookingFullName = '';
   bookingEmail = '';
   bookingPhone = '';

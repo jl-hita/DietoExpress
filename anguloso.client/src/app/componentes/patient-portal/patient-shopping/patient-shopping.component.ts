@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, ChangeDetectionStrategy, signal} from '@angular/core';
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -8,6 +8,7 @@ export type PatientShoppingItem = ShoppingListItem;
 export type PatientShoppingCategory = ShoppingListCategory;
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-patient-shopping',
   standalone: true,
   imports: [CommonModule, DecimalPipe, MatIconModule, MatProgressSpinnerModule],
@@ -25,7 +26,10 @@ export class PatientShoppingComponent implements OnInit, OnChanges {
   @Output() backToToday = new EventEmitter<void>();
   @Output() countsChange = new EventEmitter<{ total: number; checked: number }>();
 
-  checkedItems: Record<string, boolean> = {};
+  private readonly checkedItemsState = signal<Record<string, boolean>>({});
+
+  get checkedItems(): Record<string, boolean> { return this.checkedItemsState(); }
+  set checkedItems(value: Record<string, boolean>) { this.checkedItemsState.set(value); }
 
   ngOnInit(): void {
     this.loadCheckedItems();
@@ -72,7 +76,7 @@ export class PatientShoppingComponent implements OnInit, OnChanges {
   }
 
   toggleItem(key: string): void {
-    this.checkedItems[key] = !this.checkedItems[key];
+    this.checkedItems = { ...this.checkedItems, [key]: !this.checkedItems[key] };
     this.saveCheckedItems();
     this.emitCounts();
   }

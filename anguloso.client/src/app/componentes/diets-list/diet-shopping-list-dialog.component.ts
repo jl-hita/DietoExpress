@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy, signal} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MAT_DIALOG_DATA, MatDialogRef, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -14,6 +14,7 @@ export interface DietShoppingListDialogData {
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-diet-shopping-list-dialog',
   standalone: true,
   imports: [
@@ -213,8 +214,13 @@ export interface DietShoppingListDialogData {
 })
 // Documentación: este componente coordina estado local, validación y llamadas asíncronas; la vista solo refleja ese estado.
 export class DietShoppingListDialogComponent implements OnInit {
-  loading = true;
-  categories: ShoppingListCategory[] = [];
+  private readonly loadingState = signal(true);
+  get loading(): boolean { return this.loadingState(); }
+  set loading(value: boolean) { this.loadingState.set(value); }
+
+  private readonly categoriesState = signal<ShoppingListCategory[]>([]);
+  get categories(): ShoppingListCategory[] { return this.categoriesState(); }
+  set categories(value: ShoppingListCategory[]) { this.categoriesState.set(value); }
 
   constructor(
     private dietService: DietService,

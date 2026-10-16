@@ -1,10 +1,11 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { PatientNotificationsComponent } from '../patient-notifications/patient-notifications.component';
 import { PatientNotification } from '../../../servicios/patient-portal.service';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-patient-header',
   standalone: true,
   imports: [CommonModule, MatIconModule, PatientNotificationsComponent],

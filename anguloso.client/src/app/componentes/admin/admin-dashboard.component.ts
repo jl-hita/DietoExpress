@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, ChangeDetectionStrategy, signal} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -24,6 +24,7 @@ import { DeleteAccountDialogComponent } from './delete-account-dialog.component'
 import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.component';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-admin-dashboard',
   standalone: true,
   imports: [
@@ -646,21 +647,54 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
   `]
 })
 // Documentación: este componente coordina estado de interfaz y operaciones asíncronas que deben mantenerse alineadas con la API.
-export class AdminDashboardComponent implements OnInit {
-  alerts: AdminAlert[] = [];
+export class AdminDashboardComponent implements OnInit, OnDestroy {
+  // Los resultados HTTP se mantienen en signals internos y exponen getters/setters
+  // para conservar la API de propiedades usada por la plantilla y los métodos existentes.
+  private readonly alertsState = signal<AdminAlert[]>([]);
+  get alerts(): AdminAlert[] { return this.alertsState(); }
+  set alerts(value: AdminAlert[]) { this.alertsState.set(value); }
+
   resolvingAlertIds = new Set<number>();
-  stats?: AdminStats;
-  plans: AdminPlan[] = [];
-  users: AdminUser[] = [];
-  totalUsers = 0;
+
+  private readonly statsState = signal<AdminStats | undefined>(undefined);
+  get stats(): AdminStats | undefined { return this.statsState(); }
+  set stats(value: AdminStats | undefined) { this.statsState.set(value); }
+
+  private readonly plansState = signal<AdminPlan[]>([]);
+  get plans(): AdminPlan[] { return this.plansState(); }
+  set plans(value: AdminPlan[]) { this.plansState.set(value); }
+
+  private readonly usersState = signal<AdminUser[]>([]);
+  get users(): AdminUser[] { return this.usersState(); }
+  set users(value: AdminUser[]) { this.usersState.set(value); }
+
+  private readonly totalUsersState = signal(0);
+  get totalUsers(): number { return this.totalUsersState(); }
+  set totalUsers(value: number) { this.totalUsersState.set(value); }
+
   userPage = 1;
   userPageSize = 25;
-  configs: AdminConfig[] = [];
-  videoUsage?: AdminVideoUsage;
-  databaseBackups: AdminDatabaseBackup[] = [];
-  driveDatabaseBackups: AdminDriveBackup[] = [];
-  driveBackupLoading = false;
-  driveBackupError = '';
+
+  private readonly configsState = signal<AdminConfig[]>([]);
+  get configs(): AdminConfig[] { return this.configsState(); }
+  set configs(value: AdminConfig[]) { this.configsState.set(value); }
+
+  private readonly videoUsageState = signal<AdminVideoUsage | undefined>(undefined);
+  get videoUsage(): AdminVideoUsage | undefined { return this.videoUsageState(); }
+  set videoUsage(value: AdminVideoUsage | undefined) { this.videoUsageState.set(value); }
+
+  private readonly databaseBackupsState = signal<AdminDatabaseBackup[]>([]);
+  get databaseBackups(): AdminDatabaseBackup[] { return this.databaseBackupsState(); }
+  set databaseBackups(value: AdminDatabaseBackup[]) { this.databaseBackupsState.set(value); }
+  private readonly driveDatabaseBackupsState = signal<AdminDriveBackup[]>([]);
+  get driveDatabaseBackups(): AdminDriveBackup[] { return this.driveDatabaseBackupsState(); }
+  set driveDatabaseBackups(value: AdminDriveBackup[]) { this.driveDatabaseBackupsState.set(value); }
+  private readonly driveBackupLoadingState = signal(false);
+  get driveBackupLoading(): boolean { return this.driveBackupLoadingState(); }
+  set driveBackupLoading(value: boolean) { this.driveBackupLoadingState.set(value); }
+  private readonly driveBackupErrorState = signal('');
+  get driveBackupError(): string { return this.driveBackupErrorState(); }
+  set driveBackupError(value: string) { this.driveBackupErrorState.set(value); }
   databaseBackupConfigured = false;
   databaseBackupRunning = false;
   databaseBackupOperation = '';
@@ -687,12 +721,19 @@ export class AdminDashboardComponent implements OnInit {
   constructor(
     public adminService: AdminService,
     private dialog: MatDialog,
-    private snackBar: MatSnackBar,
-    private cdr: ChangeDetectorRef
+    private snackBar: MatSnackBar
   ) {}
 
   ngOnInit(): void {
     this.loadData();
+  }
+
+  ngOnDestroy(): void {
+    if (this.databaseRestoreTimer) clearInterval(this.databaseRestoreTimer);
+    if (this.databaseRestorePollTimer) clearInterval(this.databaseRestorePollTimer);
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    for (const timer of this.configTimers.values()) clearTimeout(timer);
+    this.configTimers.clear();
   }
 
   // El panel combina métricas, usuarios, configuración y planes; cada bloque se carga independientemente para que un fallo parcial no inutilice toda la pantalla.
@@ -729,19 +770,15 @@ export class AdminDashboardComponent implements OnInit {
   loadDriveDatabaseBackups(): void {
     this.driveBackupLoading = true;
     this.driveBackupError = '';
-    this.cdr.markForCheck();
-
     this.adminService.getDriveDatabaseBackups().subscribe({
       next: result => {
         this.driveBackupLoading = false;
         this.driveDatabaseBackups = result.items || [];
         this.driveBackupError = result.configured ? '' : (result.error || 'Google Drive no está disponible o no está configurado.');
-        this.cdr.markForCheck();
       },
       error: err => {
         this.driveBackupLoading = false;
         this.driveBackupError = err?.error?.detail || err?.error?.title || 'No se pudo consultar Google Drive.';
-        this.cdr.markForCheck();
       }
     });
   }

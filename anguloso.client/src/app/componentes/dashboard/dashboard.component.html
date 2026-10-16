@@ -1,12 +1,12 @@
 <main class="dashboard" aria-labelledby="dashboard-title">
-  <ng-container *ngIf="loading">
+  <ng-container *ngIf="loading()">
     <div class="loading" role="status" aria-live="polite">
       <mat-spinner diameter="42"></mat-spinner>
       <span>Cargando tu jornada…</span>
     </div>
   </ng-container>
 
-  <ng-container *ngIf="!loading && data">
+  <ng-container *ngIf="!loading() && data() as data">
     <header class="hero">
       <div>
         <span class="eyebrow">DIETOEXPRESS</span>
@@ -129,9 +129,9 @@
     </section>
   </ng-container>
 
-  <div class="error" *ngIf="error" role="alert">
+  <div class="error" *ngIf="error()" role="alert">
     <mat-icon aria-hidden="true">error_outline</mat-icon>
-    <span>{{error}}</span>
+    <span>{{error()}}</span>
     <button mat-button type="button" (click)="reload()">Reintentar</button>
   </div>
 </main>

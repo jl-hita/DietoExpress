@@ -1,5 +1,5 @@
 import { CommonModule, DatePipe } from '@angular/common';
-import { Component, Input, OnChanges, SimpleChanges, OnInit } from '@angular/core';
+import { Component, Input, OnChanges, SimpleChanges, OnInit, ChangeDetectionStrategy, signal} from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -8,6 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
 interface ChatMessage { id: number; senderType: 'patient' | 'professional'; senderId?: number | null; body: string; createdAt: string; readAt?: string | null; }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-patient-chat',
   standalone: true,
   imports: [CommonModule, FormsModule, DatePipe, MatIconModule],
@@ -18,11 +19,23 @@ interface ChatMessage { id: number; senderType: 'patient' | 'professional'; send
 export class PatientChatComponent implements OnChanges, OnInit {
   @Input() clientId?: number;
   @Input() patientMode = false;
-  messages: ChatMessage[] = [];
+  private readonly messagesState = signal<ChatMessage[]>([]);
+  get messages(): ChatMessage[] { return this.messagesState(); }
+  set messages(value: ChatMessage[]) { this.messagesState.set(value); }
+
   draft = '';
-  loading = false;
-  sending = false;
-  error: string | null = null;
+
+  private readonly loadingState = signal(false);
+  get loading(): boolean { return this.loadingState(); }
+  set loading(value: boolean) { this.loadingState.set(value); }
+
+  private readonly sendingState = signal(false);
+  get sending(): boolean { return this.sendingState(); }
+  set sending(value: boolean) { this.sendingState.set(value); }
+
+  private readonly errorState = signal<string | null>(null);
+  get error(): string | null { return this.errorState(); }
+  set error(value: string | null) { this.errorState.set(value); }
 
   constructor(private http: HttpClient, private route: ActivatedRoute) {}
 

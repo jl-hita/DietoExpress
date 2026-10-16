@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal} from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -23,6 +23,7 @@ interface MutationResponse { mensaje?: string; }
 
 // Documentación: este componente coordina estado local, validación y llamadas asíncronas; la vista solo refleja ese estado.
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-ingredientes',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, MatSelectModule, MatFormFieldModule, MatOptionModule],
@@ -30,10 +31,16 @@ interface MutationResponse { mensaje?: string; }
   styleUrl: './ingredientes.component.css'
 })
 export class IngredientesComponent {
-  ingredientes: Ingrediente[] = [];
+  private readonly ingredientesState = signal<Ingrediente[]>([]);
+  get ingredientes(): Ingrediente[] { return this.ingredientesState(); }
+  set ingredientes(value: Ingrediente[]) { this.ingredientesState.set(value); }
   formIngrediente: FormGroup;
-  cargando = false;
-  mensaje = '';
+  private readonly cargandoState = signal(false);
+  get cargando(): boolean { return this.cargandoState(); }
+  set cargando(value: boolean) { this.cargandoState.set(value); }
+  private readonly mensajeState = signal('');
+  get mensaje(): string { return this.mensajeState(); }
+  set mensaje(value: string) { this.mensajeState.set(value); }
 
   unidades = [
     { value: 'ud', label: 'Unidades' },
@@ -95,9 +102,10 @@ export class IngredientesComponent {
 
   marcarComprado(ing: Ingrediente) {
     // Aquí luego llamarás al endpoint correspondiente
-    ing.comprado = !ing.comprado;
+    const updated = { ...ing, comprado: !ing.comprado };
+    this.ingredientes = this.ingredientes.map(item => item === ing ? updated : item);
 
-    this.http.put<MutationResponse>(`${this.apiUrl}/marcarCompradoIngredientes`, ing).subscribe({
+    this.http.put<MutationResponse>(`${this.apiUrl}/marcarCompradoIngredientes`, updated).subscribe({
       next: (res: MutationResponse) => {
         this.mensaje = res.mensaje || 'Ingrediente guardado';
         this.formIngrediente.reset({ cantidad: 1, unidad: 'ud' });

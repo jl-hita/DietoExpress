@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, Input, Output, EventEmitter, OnInit, OnDestroy, ViewChild } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, ViewChild, ChangeDetectionStrategy, signal} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -23,6 +23,7 @@ export interface ClientItem {
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-clients-list',
   standalone: true,
   imports: [
@@ -43,8 +44,15 @@ export interface ClientItem {
 })
 // Documentación: este componente coordina estado de interfaz y operaciones asíncronas que deben mantenerse alineadas con la API.
 export class ClientsListComponent implements OnInit, OnDestroy {
-  @Input() clients: ClientItem[] = [];
-  @Input() loading: boolean = false;
+  private readonly clientsState = signal<ClientItem[]>([]);
+  @Input()
+  get clients(): ClientItem[] { return this.clientsState(); }
+  set clients(value: ClientItem[]) { this.clientsState.set(value); }
+
+  private readonly loadingState = signal(false);
+  @Input()
+  get loading(): boolean { return this.loadingState(); }
+  set loading(value: boolean) { this.loadingState.set(value); }
 
   @Output() clientSelected = new EventEmitter<ClientItem>();
   @Output() create = new EventEmitter<void>();
@@ -53,22 +61,58 @@ export class ClientsListComponent implements OnInit, OnDestroy {
 
   @ViewChild(MatPaginator) paginator!: MatPaginator;
 
-  searchTerm: string = '';
-  filtered: ClientItem[] = [];
-  pagedClients: ClientItem[] = [];
-  totalCount = 0;
-  pageSize = 10;              // tamaño de página por defecto
-  currentPage = 1;            // página actual (1-based)
-  totalPages = 1;
-  selected: ClientItem | null = null;
-  canCreateClient = true;
-  createClientReason = '';
-  checkingCreatePermission = true;
-  showAllClients = false;
-  isSuperAdmin = false;
+  private readonly searchTermState = signal('');
+  get searchTerm(): string { return this.searchTermState(); }
+  set searchTerm(value: string) { this.searchTermState.set(value); }
+
+  private readonly filteredState = signal<ClientItem[]>([]);
+  get filtered(): ClientItem[] { return this.filteredState(); }
+  set filtered(value: ClientItem[]) { this.filteredState.set(value); }
+
+  private readonly pagedClientsState = signal<ClientItem[]>([]);
+  get pagedClients(): ClientItem[] { return this.pagedClientsState(); }
+  set pagedClients(value: ClientItem[]) { this.pagedClientsState.set(value); }
+
+  private readonly totalCountState = signal(0);
+  get totalCount(): number { return this.totalCountState(); }
+  set totalCount(value: number) { this.totalCountState.set(value); }
+
+  pageSize = 10;
+
+  private readonly currentPageState = signal(1);
+  get currentPage(): number { return this.currentPageState(); }
+  set currentPage(value: number) { this.currentPageState.set(value); }
+
+  private readonly totalPagesState = signal(1);
+  get totalPages(): number { return this.totalPagesState(); }
+  set totalPages(value: number) { this.totalPagesState.set(value); }
+
+  private readonly selectedState = signal<ClientItem | null>(null);
+  get selected(): ClientItem | null { return this.selectedState(); }
+  set selected(value: ClientItem | null) { this.selectedState.set(value); }
+
+  private readonly canCreateClientState = signal(true);
+  get canCreateClient(): boolean { return this.canCreateClientState(); }
+  set canCreateClient(value: boolean) { this.canCreateClientState.set(value); }
+
+  private readonly createClientReasonState = signal('');
+  get createClientReason(): string { return this.createClientReasonState(); }
+  set createClientReason(value: string) { this.createClientReasonState.set(value); }
+
+  private readonly checkingCreatePermissionState = signal(true);
+  get checkingCreatePermission(): boolean { return this.checkingCreatePermissionState(); }
+  set checkingCreatePermission(value: boolean) { this.checkingCreatePermissionState.set(value); }
+
+  private readonly showAllClientsState = signal(false);
+  get showAllClients(): boolean { return this.showAllClientsState(); }
+  set showAllClients(value: boolean) { this.showAllClientsState.set(value); }
+
+  private readonly isSuperAdminState = signal(false);
+  get isSuperAdmin(): boolean { return this.isSuperAdminState(); }
+  set isSuperAdmin(value: boolean) { this.isSuperAdminState.set(value); }
   private searchTimer?: ReturnType<typeof setTimeout>;
 
-  constructor(private router: Router, private clientService: ClientService, private authService: AuthService, private cdr: ChangeDetectorRef) { }
+  constructor(private router: Router, private clientService: ClientService, private authService: AuthService) { }
 
   ngOnInit(): void {
     this.isSuperAdmin = this.authService.isSuperAdmin();
@@ -96,7 +140,7 @@ export class ClientsListComponent implements OnInit, OnDestroy {
         this.filtered = this.clients;
         this.pagedClients = this.clients;
         this.loading = false;
-        this.cdr.detectChanges();
+
       },
       error: () => {
         this.clients = [];
@@ -104,7 +148,7 @@ export class ClientsListComponent implements OnInit, OnDestroy {
         this.pagedClients = [];
         this.totalCount = 0;
         this.loading = false;
-        this.cdr.detectChanges();
+
       }
     });
   }

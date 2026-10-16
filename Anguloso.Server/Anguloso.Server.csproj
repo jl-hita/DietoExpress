@@ -93,6 +93,23 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="10.0.0" />
+    <!-- Alinea las herramientas de Roslyn y elimina el conflicto transitivo entre 4.14 y 5.0. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Features" Version="5.0.0">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.CodeAnalysis.Features" Version="5.0.0">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.CodeAnalysis.Scripting.Common" Version="5.0.0">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <!-- Versiones parcheadas para la alerta GHSA-g4vj-cjjj-v7hg. -->
+    <PackageReference Include="NuGet.Packaging" Version="6.12.5">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="NuGet.Protocol" Version="6.12.5">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
     <!-- Corrige CVE-2026-84008 arrastrada transitivamente por las herramientas de scaffolding. -->
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />

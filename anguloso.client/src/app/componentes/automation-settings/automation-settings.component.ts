@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, signal} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -50,6 +50,7 @@ interface AutomationJob {
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-automation-settings',
   standalone: true,
   imports: [
@@ -263,16 +264,32 @@ interface AutomationJob {
 })
 export class AutomationSettingsComponent implements OnInit {
   private readonly base = environment.apiUrl;
-  rules: AutomationRule[] = [];
-  templates: AutomationTemplate[] = [];
-  jobs: AutomationJob[] = [];
+  private readonly rulesSignal = signal<AutomationRule[]>([]);
+  private readonly templatesSignal = signal<AutomationTemplate[]>([]);
+  private readonly jobsSignal = signal<AutomationJob[]>([]);
+  private readonly loadingSignal = signal(true);
+  private readonly jobsLoadingSignal = signal(false);
+  private readonly savingSignal = signal(false);
+  private readonly followupSavingSignal = signal(false);
+
+  get rules(): AutomationRule[] { return this.rulesSignal(); }
+  set rules(value: AutomationRule[]) { this.rulesSignal.set(value); }
+  get templates(): AutomationTemplate[] { return this.templatesSignal(); }
+  set templates(value: AutomationTemplate[]) { this.templatesSignal.set(value); }
+  get jobs(): AutomationJob[] { return this.jobsSignal(); }
+  set jobs(value: AutomationJob[]) { this.jobsSignal.set(value); }
+  get loading(): boolean { return this.loadingSignal(); }
+  set loading(value: boolean) { this.loadingSignal.set(value); }
+  get jobsLoading(): boolean { return this.jobsLoadingSignal(); }
+  set jobsLoading(value: boolean) { this.jobsLoadingSignal.set(value); }
+  get saving(): boolean { return this.savingSignal(); }
+  set saving(value: boolean) { this.savingSignal.set(value); }
+  get followupSaving(): boolean { return this.followupSavingSignal(); }
+  set followupSaving(value: boolean) { this.followupSavingSignal.set(value); }
+
   selectedTemplateKey = '';
   template: AutomationTemplate = this.emptyTemplate('');
-  loading = true;
   isSuperAdmin = false;
-  jobsLoading = false;
-  saving = false;
-  followupSaving = false;
   followupSettings: FollowupSettings = {
     selectedMetrics: ['adherence','hunger','energy','sleep_quality','sleep_hours','training','weight'],
     periodWeeks: 4,
@@ -383,8 +400,9 @@ export class AutomationSettingsComponent implements OnInit {
     this.http.put(`${this.base}/professional/automation/templates/${encodeURIComponent(this.selectedTemplateKey)}`, this.template).subscribe({
       next: () => {
         const index = this.templates.findIndex(x => x.ruleKey === this.selectedTemplateKey);
-        if (index >= 0) this.templates[index] = { ...this.template };
-        else this.templates.push({ ...this.template });
+        this.templates = index >= 0
+          ? this.templates.map((item, i) => i === index ? { ...this.template } : item)
+          : [...this.templates, { ...this.template }];
         this.saving = false;
         this.snack.open('Plantilla guardada.', 'Cerrar', { duration: 1800 });
       },
@@ -394,7 +412,10 @@ export class AutomationSettingsComponent implements OnInit {
 
   cancelJob(job: AutomationJob): void {
     this.http.post(`${this.base}/professional/automation/jobs/${job.id}/cancel`, { reason: 'Cancelado desde la configuración de automatizaciones' }).subscribe({
-      next: () => { job.status = 'cancelled'; this.snack.open('Trabajo cancelado.', 'Cerrar', { duration: 1800 }); },
+      next: () => {
+        this.jobs = this.jobs.map(item => item.id === job.id ? { ...item, status: 'cancelled' } : item);
+        this.snack.open('Trabajo cancelado.', 'Cerrar', { duration: 1800 });
+      },
       error: () => this.snack.open('No se ha podido cancelar el trabajo.', 'Cerrar', { duration: 3000 })
     });
   }

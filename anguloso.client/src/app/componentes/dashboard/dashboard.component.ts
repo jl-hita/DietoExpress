@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -8,6 +8,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ProfessionalDashboard, ProfessionalDashboardService, DashboardAppointment, DashboardTask } from '../../servicios/professional-dashboard.service';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector:'app-dashboard',
   standalone:true,
   imports:[CommonModule,MatCardModule,MatIconModule,MatButtonModule,MatProgressSpinnerModule],
@@ -15,19 +16,19 @@ import { ProfessionalDashboard, ProfessionalDashboardService, DashboardAppointme
   styleUrl:'./dashboard.component.css'
 })
 export class DashboardComponent implements OnInit {
-  data:ProfessionalDashboard|null=null;
-  loading=true;
-  error:string|null=null;
-  constructor(private service:ProfessionalDashboardService, private router:Router, private cdr:ChangeDetectorRef){}
+  readonly data = signal<ProfessionalDashboard | null>(null);
+  readonly loading = signal(true);
+  readonly error = signal<string | null>(null);
+  constructor(private service:ProfessionalDashboardService, private router:Router){}
 
   ngOnInit():void { this.reload(); }
 
   reload():void {
-    this.loading=true;
-    this.error=null;
+    this.loading.set(true);
+    this.error.set(null);
     this.service.get().subscribe({
-      next:d=>{this.data=d;this.loading=false;this.cdr.detectChanges();},
-      error:e=>{this.error=e?.error?.message||'No hemos podido cargar tu dashboard.';this.loading=false;this.cdr.detectChanges();}
+      next:d=>{this.data.set(d);this.loading.set(false);},
+      error:e=>{this.error.set(e?.error?.message||'No hemos podido cargar tu dashboard.');this.loading.set(false);}
     });
   }
 

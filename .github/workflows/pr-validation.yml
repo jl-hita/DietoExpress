@@ -65,6 +65,7 @@ jobs:
             }));
           }
           NODE
+          npm audit --audit-level=high
 
       - name: Angular production dependency audit
         working-directory: anguloso.client
@@ -76,7 +77,7 @@ jobs:
 
       - name: Angular unit tests
         working-directory: anguloso.client
-        run: npm test -- --watch=false --browsers=ChromeHeadless
+        run: npm test -- --watch=false
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v6

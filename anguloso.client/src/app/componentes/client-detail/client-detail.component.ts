@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, signal} from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ClientService } from '../../servicios/client.service';
 import { FoodService } from '../../servicios/food.service';
@@ -34,6 +34,7 @@ import { Subscription } from 'rxjs';
 import { debounceTime, filter, switchMap } from 'rxjs/operators';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-client-detail',
   templateUrl: './client-detail.component.html',
   styleUrls: ['./client-detail.component.css'],
@@ -62,60 +63,102 @@ import { debounceTime, filter, switchMap } from 'rxjs/operators';
 })
 export class ClientDetailComponent implements OnInit, OnDestroy {
   clientId?: number;
-  client?: ClientDetail;
-  loading = false;
-  clientSaveState: 'idle' | 'saving' | 'saved' | 'error' = 'idle';
+  private readonly clientState = signal<ClientDetail | undefined>(undefined);
+  get client(): ClientDetail | undefined { return this.clientState(); }
+  set client(value: ClientDetail | undefined) { this.clientState.set(value); }
+  private readonly loadingState = signal(false);
+  get loading(): boolean { return this.loadingState(); }
+  set loading(value: boolean) { this.loadingState.set(value); }
+  private readonly clientSaveStateState = signal<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  get clientSaveState(): 'idle' | 'saving' | 'saved' | 'error' { return this.clientSaveStateState(); }
+  set clientSaveState(value: 'idle' | 'saving' | 'saved' | 'error') { this.clientSaveStateState.set(value); }
   private clientAutosaveSubscription?: Subscription;
   private biometricAutosaveSubscription?: Subscription;
-  biometricSaveState: 'idle' | 'saving' | 'saved' | 'error' = 'idle';
+  private readonly biometricSaveStateState = signal<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  get biometricSaveState(): 'idle' | 'saving' | 'saved' | 'error' { return this.biometricSaveStateState(); }
+  set biometricSaveState(value: 'idle' | 'saving' | 'saved' | 'error') { this.biometricSaveStateState.set(value); }
 
   clientForm!: FormGroup;
-  biometrics: Biometric[] = [];
+  private readonly biometricsState = signal<Biometric[]>([]);
+  get biometrics(): Biometric[] { return this.biometricsState(); }
+  set biometrics(value: Biometric[]) { this.biometricsState.set(value); }
   showBiometricForm = false;
   biometricForm!: FormGroup;
   editingBiometricId: number | null = null;
 
-  evolutionData: Biometric[] = [];
+  private readonly evolutionDataState = signal<Biometric[]>([]);
+  get evolutionData(): Biometric[] { return this.evolutionDataState(); }
+  set evolutionData(value: Biometric[]) { this.evolutionDataState.set(value); }
   selectedMetric = 'weight';
   chart: Chart | null = null;
   weightChart: Chart | null = null;
   bodyFatChart: Chart | null = null;
   checkinChart: Chart | null = null;
-  checkins: PatientCheckin[] = [];
+  private readonly checkinsState = signal<PatientCheckin[]>([]);
+  get checkins(): PatientCheckin[] { return this.checkinsState(); }
+  set checkins(value: PatientCheckin[]) { this.checkinsState.set(value); }
   selectedFollowupMetric = 'adherence';
   followupSettings: FollowupSettings = {
     selectedMetrics: ['adherence','hunger','energy','sleep_quality','sleep_hours','training','weight'],
     periodWeeks: 4,
     thresholds: {}
   };
-  dietsHistory: ClientDiet[] = [];
-  energyReq: any = null;
+  private readonly dietsHistoryState = signal<ClientDiet[]>([]);
+  get dietsHistory(): ClientDiet[] { return this.dietsHistoryState(); }
+  set dietsHistory(value: ClientDiet[]) { this.dietsHistoryState.set(value); }
+  private readonly energyReqState = signal<any>(null);
+  get energyReq(): any { return this.energyReqState(); }
+  set energyReq(value: any) { this.energyReqState.set(value); }
   selectedActivity = 'Moderado';
-  energyErrorMessage = '';
+  private readonly energyErrorMessageState = signal('');
+  get energyErrorMessage(): string { return this.energyErrorMessageState(); }
+  set energyErrorMessage(value: string) { this.energyErrorMessageState.set(value); }
 
   // Análisis antropométrico
   selectedAnalysisBiometricId: number | null = null;
   showAdvancedSkinfolds = false;
 
   // Exchange group interactive viewer: itemKey -> { foods, selectedFoodId }
-  exchangeFoodsCache: { [key: string]: FoodInExchangeGroup[] } = {};
-  exchangeSelectedFood: { [key: string]: number | null } = {};
+  private readonly exchangeFoodsCacheState = signal<{ [key: string]: FoodInExchangeGroup[] }>({});
+  get exchangeFoodsCache(): { [key: string]: FoodInExchangeGroup[] } { return this.exchangeFoodsCacheState(); }
+  set exchangeFoodsCache(value: { [key: string]: FoodInExchangeGroup[] }) { this.exchangeFoodsCacheState.set(value); }
+  private readonly exchangeSelectedFoodState = signal<{ [key: string]: number | null }>({});
+  get exchangeSelectedFood(): { [key: string]: number | null } { return this.exchangeSelectedFoodState(); }
+  set exchangeSelectedFood(value: { [key: string]: number | null }) { this.exchangeSelectedFoodState.set(value); }
 
   // Portal del Paciente
-  portalAccess: ClientPortalAccess | null = null;
-  loadingPortalAccess = false;
-  regeneratingToken = false;
-  settingPasscode = false;
+  private readonly portalAccessState = signal<ClientPortalAccess | null>(null);
+  get portalAccess(): ClientPortalAccess | null { return this.portalAccessState(); }
+  set portalAccess(value: ClientPortalAccess | null) { this.portalAccessState.set(value); }
+  private readonly loadingPortalAccessState = signal(false);
+  get loadingPortalAccess(): boolean { return this.loadingPortalAccessState(); }
+  set loadingPortalAccess(value: boolean) { this.loadingPortalAccessState.set(value); }
+  private readonly regeneratingTokenState = signal(false);
+  get regeneratingToken(): boolean { return this.regeneratingTokenState(); }
+  set regeneratingToken(value: boolean) { this.regeneratingTokenState.set(value); }
+  private readonly settingPasscodeState = signal(false);
+  get settingPasscode(): boolean { return this.settingPasscodeState(); }
+  set settingPasscode(value: boolean) { this.settingPasscodeState.set(value); }
   newPasscode = '';
   communicationPreferences = { inAppEnabled: true, emailEnabled: true, pushEnabled: true };
   savingCommunicationPreferences = false;
 
   // Documentación del paciente
-  patientDocuments: PatientDocument[] = [];
-  documentSummary: ProfessionalDocumentSummary = { total: 0, required: 0, accepted: 0, pending: 0, active: 0, allRequiredComplete: true };
-  loadingDocuments = false;
-  documentAudit: Record<number, PatientDocumentAuditEvent[]> = {};
-  loadingDocumentAudit: Record<number, boolean> = {};
+  private readonly patientDocumentsState = signal<PatientDocument[]>([]);
+  get patientDocuments(): PatientDocument[] { return this.patientDocumentsState(); }
+  set patientDocuments(value: PatientDocument[]) { this.patientDocumentsState.set(value); }
+  private readonly documentSummaryState = signal<ProfessionalDocumentSummary>({ total: 0, required: 0, accepted: 0, pending: 0, active: 0, allRequiredComplete: true });
+  get documentSummary(): ProfessionalDocumentSummary { return this.documentSummaryState(); }
+  set documentSummary(value: ProfessionalDocumentSummary) { this.documentSummaryState.set(value); }
+  private readonly loadingDocumentsState = signal(false);
+  get loadingDocuments(): boolean { return this.loadingDocumentsState(); }
+  set loadingDocuments(value: boolean) { this.loadingDocumentsState.set(value); }
+  private readonly documentAuditState = signal<Record<number, PatientDocumentAuditEvent[]>>({});
+  get documentAudit(): Record<number, PatientDocumentAuditEvent[]> { return this.documentAuditState(); }
+  set documentAudit(value: Record<number, PatientDocumentAuditEvent[]>) { this.documentAuditState.set(value); }
+  private readonly loadingDocumentAuditState = signal<Record<number, boolean>>({});
+  get loadingDocumentAudit(): Record<number, boolean> { return this.loadingDocumentAuditState(); }
+  set loadingDocumentAudit(value: Record<number, boolean>) { this.loadingDocumentAuditState.set(value); }
 
   constructor(
     private fb: FormBuilder,
@@ -292,11 +335,11 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
       return;
     }
     if (!this.clientId) return;
-    this.loadingDocumentAudit[doc.id] = true;
+    this.loadingDocumentAudit = { ...this.loadingDocumentAudit, [doc.id]: true };
     this.portalService.getProfessionalDocumentAudit(this.clientId, doc.id).subscribe({
-      next: events => this.documentAudit[doc.id] = events,
+      next: events => this.documentAudit = { ...this.documentAudit, [doc.id]: events },
       error: () => this.snack.open('No se ha podido cargar el historial del documento', 'Cerrar', { duration: 3000 }),
-      complete: () => this.loadingDocumentAudit[doc.id] = false
+      complete: () => this.loadingDocumentAudit = { ...this.loadingDocumentAudit, [doc.id]: false }
     });
   }
 
@@ -694,9 +737,9 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     if (this.exchangeFoodsCache[key]) return; // already loaded
     this.foodService.getFoodsInExchangeGroup(groupId).subscribe({
       next: (foods) => {
-        this.exchangeFoodsCache[key] = foods;
+        this.exchangeFoodsCache = { ...this.exchangeFoodsCache, [key]: foods };
         if (foods.length > 0 && this.exchangeSelectedFood[key] == null) {
-          this.exchangeSelectedFood[key] = foods[0].id;
+          this.exchangeSelectedFood = { ...this.exchangeSelectedFood, [key]: foods[0].id };
         }
       },
       error: () => console.warn('No se pudieron cargar alimentos del grupo', groupId)
@@ -1247,7 +1290,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     this.portalService.setClientPasscode(this.clientId, passcode).subscribe({
       next: () => {
         this.settingPasscode = false;
-        if (this.portalAccess) this.portalAccess.hasPasscode = true;
+        if (this.portalAccess) this.portalAccess = { ...this.portalAccess, hasPasscode: true };
         this.newPasscode = '';
         this.snack.open('PIN de acceso actualizado correctamente', 'Cerrar', { duration: 3000 });
       },

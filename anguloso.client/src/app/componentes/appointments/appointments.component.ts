@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
@@ -9,6 +9,7 @@ import { PatientAppointment, PatientPortalService, AvailabilityRule } from '../.
 import { AuthService } from '../../servicios/auth.service';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-appointments',
   standalone: true,
   imports: [CommonModule, FormsModule, MatIconModule, MatProgressSpinnerModule],
@@ -16,14 +17,35 @@ import { AuthService } from '../../servicios/auth.service';
   styleUrl: './appointments.component.css'
 })
 export class AppointmentsComponent implements OnInit {
-  appointments: PatientAppointment[] = [];
-  availability: AvailabilityRule[] = [];
-  loading = true;
-  saving = false;
-  error: string | null = null;
-  success: string | null = null;
-  googleCalendar: { connected: boolean; email: string; calendarId: string; lastSyncedAt?: string | null; reauthorizationRequired?: boolean } | null = null;
-  calendarBusy = false;
+  private readonly appointmentsState = signal<PatientAppointment[]>([]);
+  get appointments(): PatientAppointment[] { return this.appointmentsState(); }
+  set appointments(value: PatientAppointment[]) { this.appointmentsState.set(value); }
+
+  private readonly availabilityState = signal<AvailabilityRule[]>([]);
+  get availability(): AvailabilityRule[] { return this.availabilityState(); }
+  set availability(value: AvailabilityRule[]) { this.availabilityState.set(value); }
+
+  readonly loading = signal(true);
+
+  private readonly savingState = signal(false);
+  get saving(): boolean { return this.savingState(); }
+  set saving(value: boolean) { this.savingState.set(value); }
+
+  private readonly errorState = signal<string | null>(null);
+  get error(): string | null { return this.errorState(); }
+  set error(value: string | null) { this.errorState.set(value); }
+
+  private readonly successState = signal<string | null>(null);
+  get success(): string | null { return this.successState(); }
+  set success(value: string | null) { this.successState.set(value); }
+
+  private readonly googleCalendarState = signal<{ connected: boolean; email: string; calendarId: string; lastSyncedAt?: string | null; reauthorizationRequired?: boolean } | null>(null);
+  get googleCalendar(): { connected: boolean; email: string; calendarId: string; lastSyncedAt?: string | null; reauthorizationRequired?: boolean } | null { return this.googleCalendarState(); }
+  set googleCalendar(value: { connected: boolean; email: string; calendarId: string; lastSyncedAt?: string | null; reauthorizationRequired?: boolean } | null) { this.googleCalendarState.set(value); }
+
+  private readonly calendarBusyState = signal(false);
+  get calendarBusy(): boolean { return this.calendarBusyState(); }
+  set calendarBusy(value: boolean) { this.calendarBusyState.set(value); }
   isSuperAdmin = false;
 
   readonly days = [
@@ -39,11 +61,11 @@ export class AppointmentsComponent implements OnInit {
   newSlot = 30;
   editingRuleId: number | null = null;
 
-  constructor(private portalService: PatientPortalService, private router: Router, private route: ActivatedRoute, private authService: AuthService, private cdr: ChangeDetectorRef) {}
+  constructor(private portalService: PatientPortalService, private router: Router, private route: ActivatedRoute, private authService: AuthService) {}
 
   ngOnInit(): void {
     this.isSuperAdmin = this.authService.isSuperAdmin();
-    if (this.isSuperAdmin) { this.loading = false; return; }
+    if (this.isSuperAdmin) { this.loading.set(false); return; }
     this.handleGoogleCalendarResult();
     this.load();
     this.loadGoogleCalendar();
@@ -81,14 +103,14 @@ export class AppointmentsComponent implements OnInit {
   // Se cargan en paralelo citas y disponibilidad para que el calendario profesional quede operativo aunque una colección tarde más que la otra.
   // Ambas colecciones se solicitan en paralelo; el indicador global solo desaparece cuando han terminado las dos peticiones.
   load(): void {
-    this.loading = true;
+    this.loading.set(true);
     this.error = null;
     const from = new Date();
     from.setDate(from.getDate() - 90);
     const to = new Date();
     to.setDate(to.getDate() + 60);
     let pending = 2;
-    const done = () => { pending--; if (pending === 0) { this.loading = false; this.cdr.detectChanges(); } };
+    const done = () => { pending--; if (pending === 0) this.loading.set(false); };
 
     this.portalService.getProfessionalAppointments(from.toISOString(), to.toISOString()).subscribe({
       next: value => { this.appointments = value; done(); },

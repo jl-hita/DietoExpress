@@ -1,10 +1,11 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, signal} from '@angular/core';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { LegalDocument, LegalService } from '../../servicios/legal.service';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-legal-documents',
   standalone: true,
   imports: [CommonModule, MatCardModule, MatIconModule],
@@ -50,8 +51,13 @@ import { LegalDocument, LegalService } from '../../servicios/legal.service';
   `]
 })
 export class LegalDocumentsComponent implements OnInit {
-  documents: LegalDocument[] = [];
-  loading = true;
+  private readonly documentsState = signal<LegalDocument[]>([]);
+  get documents(): LegalDocument[] { return this.documentsState(); }
+  set documents(value: LegalDocument[]) { this.documentsState.set(value); }
+
+  private readonly loadingState = signal(true);
+  get loading(): boolean { return this.loadingState(); }
+  set loading(value: boolean) { this.loadingState.set(value); }
 
   constructor(private legalService: LegalService) {}
 

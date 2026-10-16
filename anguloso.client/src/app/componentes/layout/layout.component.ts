@@ -1,5 +1,5 @@
 // layout.component.ts
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy} from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { SidebarComponent } from '../sidebar/sidebar.component';
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -7,6 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-layout',
   standalone: true,
   imports: [RouterOutlet, SidebarComponent, MatToolbarModule, MatIconModule, MatButtonModule],

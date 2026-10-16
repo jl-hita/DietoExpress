@@ -1,14 +1,16 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy, DestroyRef, inject, signal} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { MatDialogRef } from '@angular/material/dialog';
 import { debounceTime, distinctUntilChanged, switchMap, finalize } from 'rxjs/operators';
 import { of } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MATERIAL_IMPORTS } from '../../shared/material.imports';
 import { FoodService } from '../../servicios/food.service';
 import { FoodProduct } from '../../modelos/food-product';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-food-search-dialog',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, FormsModule, MATERIAL_IMPORTS],
@@ -57,11 +59,20 @@ import { FoodProduct } from '../../modelos/food-product';
 })
 // La búsqueda combina el catálogo local con el servicio externo cuando procede, manteniendo el resultado adaptado al formulario de dieta.
 export class FoodSearchDialogComponent {
+  private readonly destroyRef = inject(DestroyRef);
   searchCtrl: any;
-  results: any[] = []; 
-  loading = false;
-  
-  selectedFood: any | null = null;
+
+  private readonly resultsState = signal<any[]>([]);
+  get results(): any[] { return this.resultsState(); }
+  set results(value: any[]) { this.resultsState.set(value); }
+
+  private readonly loadingState = signal(false);
+  get loading(): boolean { return this.loadingState(); }
+  set loading(value: boolean) { this.loadingState.set(value); }
+
+  private readonly selectedFoodState = signal<any | null>(null);
+  get selectedFood(): any | null { return this.selectedFoodState(); }
+  set selectedFood(value: any | null) { this.selectedFoodState.set(value); }
   grams: number = 100;
 
   constructor(
@@ -84,7 +95,8 @@ export class FoodSearchDialogComponent {
         return this.foodSvc.searchFoods(term).pipe(
           finalize(() => this.loading = false)
         );
-      })
+      }),
+      takeUntilDestroyed(this.destroyRef)
     ).subscribe((res: any) => {
       this.results = res || [];
     });

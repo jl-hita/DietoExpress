@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, DestroyRef, inject, signal} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatDialogRef, MatDialogModule } from '@angular/material/dialog';
@@ -9,8 +9,10 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environments';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-recipe-picker-dialog',
   standalone: true,
   imports: [
@@ -113,10 +115,24 @@ import { environment } from '../../../environments/environments';
 })
 // El selector mantiene separada la búsqueda de recetas de su incorporación al formulario padre para no mezclar estado temporal y estado de la dieta.
 export class RecipePickerDialogComponent implements OnInit {
-  recipes: any[] = [];
-  filteredRecipes: any[] = [];
-  selectedRecipe: any | null = null;
-  loading = true;
+  private readonly destroyRef = inject(DestroyRef);
+
+  private readonly recipesState = signal<any[]>([]);
+  get recipes(): any[] { return this.recipesState(); }
+  set recipes(value: any[]) { this.recipesState.set(value); }
+
+  private readonly filteredRecipesState = signal<any[]>([]);
+  get filteredRecipes(): any[] { return this.filteredRecipesState(); }
+  set filteredRecipes(value: any[]) { this.filteredRecipesState.set(value); }
+
+  private readonly selectedRecipeState = signal<any | null>(null);
+  get selectedRecipe(): any | null { return this.selectedRecipeState(); }
+  set selectedRecipe(value: any | null) { this.selectedRecipeState.set(value); }
+
+  private readonly loadingState = signal(true);
+  get loading(): boolean { return this.loadingState(); }
+  set loading(value: boolean) { this.loadingState.set(value); }
+
   searchCtrl = new FormControl('');
 
   constructor(
@@ -137,7 +153,7 @@ export class RecipePickerDialogComponent implements OnInit {
       }
     });
 
-    this.searchCtrl.valueChanges.subscribe((term) => {
+    this.searchCtrl.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((term) => {
       const q = (term || '').toLowerCase().trim();
       this.filteredRecipes = this.recipes.filter(r => (r.name || '').toLowerCase().includes(q));
     });

@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy} from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { DietService } from '../../servicios/diet.service';
@@ -22,6 +22,7 @@ export interface DietValidationResult {
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-diet-select-dialog',
   standalone: true,
   imports: [MATERIAL_IMPORTS, MatNativeDateModule],
