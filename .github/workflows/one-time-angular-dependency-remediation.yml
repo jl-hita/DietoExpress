@@ -61,6 +61,23 @@ jobs:
         working-directory: anguloso.client
         run: npx ng g @schematics/angular:refactor-jasmine-vitest --project=anguloso.client --add-imports --verbose
 
+      - name: Correct service mock types after automated refactor
+        working-directory: anguloso.client
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const fixes = [
+            ['src/app/componentes/dashboard/dashboard.component.spec.ts', 'MockedObject<ProfessionalDashboardService>'],
+            ['src/app/componentes/statistics/statistics.component.spec.ts', 'MockedObject<ProfessionalStatisticsService>']
+          ];
+          for (const [path, oldType] of fixes) {
+            let source = fs.readFileSync(path, 'utf8');
+            if (!source.includes(oldType)) throw new Error(`Expected generated mock type not found in ${path}`);
+            source = source.replace(oldType, '{ get: ReturnType<typeof vi.fn> }');
+            fs.writeFileSync(path, source);
+          }
+          NODE
+
       - name: Remove obsolete Karma configuration
         run: rm -f anguloso.client/karma.conf.js anguloso.client/src/test.ts
 
