@@ -37,7 +37,18 @@ public sealed class GoogleCalendarController : ControllerBase
     [HttpGet("connect")]
     public async Task<IActionResult> Connect(CancellationToken cancellationToken)
     {
-        if (!_calendar.IsConfigured) return Problem("Google Calendar no está configurado en el servidor.", statusCode: 503);
+        if (!_calendar.IsConfigured)
+        {
+            var problem = new ProblemDetails
+            {
+                Title = "Google Calendar no está configurado",
+                Detail = "Google Calendar no está configurado en el servidor.",
+                Status = StatusCodes.Status503ServiceUnavailable
+            };
+            problem.Extensions["code"] = "GOOGLE_CALENDAR_NOT_CONFIGURED";
+            problem.Extensions["reportable"] = true;
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, problem);
+        }
         var (userId, tenantId) = Identity();
         if (userId == null || tenantId == null) return Unauthorized();
         var raw = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
@@ -110,10 +121,15 @@ public sealed class GoogleCalendarController : ControllerBase
                 tenantId.Value,
                 (int)ex.StatusCode);
 
-            return Problem(
-                detail: "Google Calendar no ha podido completar la sincronización. Revisa la configuración de la integración e inténtalo de nuevo.",
-                statusCode: StatusCodes.Status502BadGateway,
-                title: "No se pudo sincronizar Google Calendar");
+            var problem = new ProblemDetails
+            {
+                Title = "No se pudo sincronizar Google Calendar",
+                Detail = "Google Calendar no ha podido completar la sincronización. Revisa la configuración de la integración e inténtalo de nuevo.",
+                Status = StatusCodes.Status502BadGateway
+            };
+            problem.Extensions["code"] = "GOOGLE_CALENDAR_PROVIDER_ERROR";
+            problem.Extensions["reportable"] = true;
+            return StatusCode(StatusCodes.Status502BadGateway, problem);
         }
     }
 

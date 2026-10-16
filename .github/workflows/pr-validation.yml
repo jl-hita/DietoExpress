@@ -34,7 +34,9 @@ jobs:
 
       - name: Angular install
         working-directory: anguloso.client
-        run: npm ci
+        # Angular tests use Vitest; Karma is only an unused optional peer of @angular/build.
+        # Omitting peer packages avoids installing Karma's deprecated glob/rimraf/inflight chain.
+        run: npm ci --omit=peer
 
       - name: Angular legacy dependency report
         working-directory: anguloso.client

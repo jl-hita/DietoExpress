@@ -157,6 +157,20 @@ public sealed class AutomationExternalEffectsRegressionTests
     }
 
     [Fact]
+    public void GoogleCalendarProviderFailuresAreSafeAndExplicitlyReportable()
+    {
+        var service = ReadServerSource("Anguloso.Server/Logica/GoogleCalendarService.cs");
+        var controller = ReadServerSource("Anguloso.Server/Controllers/GoogleCalendarController.cs");
+
+        Assert.Contains("GOOGLE_CALENDAR_PROVIDER_ERROR", controller);
+        Assert.Contains("GOOGLE_CALENDAR_NOT_CONFIGURED", controller);
+        Assert.Contains("problem.Extensions[\"reportable\"] = true", controller);
+        Assert.Contains("throw new GoogleCalendarProviderException(\"lectura de eventos\", response.StatusCode)", service);
+        Assert.Contains("throw new GoogleCalendarProviderException(\"renovación del token\", response.StatusCode)", service);
+        Assert.DoesNotContain("Respuesta: {ResponseBody}", service);
+    }
+
+    [Fact]
     public void AddressAndVideoProviderOutagesAreExplicitlyReportable()
     {
         var address = ReadServerSource("Anguloso.Server/Controllers/AddressAutocompleteController.cs");
