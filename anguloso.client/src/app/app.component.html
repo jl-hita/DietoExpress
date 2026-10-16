@@ -6,7 +6,7 @@
   </div>
 </div>
 
-<div class="http-diagnostics-tools">
+<div *ngIf="authService.isSuperAdmin()" class="http-diagnostics-tools">
   <button type="button" class="http-diagnostics-toggle" (click)="httpDiagnosticsOpen = !httpDiagnosticsOpen">
     Diagnóstico HTTP · {{ httpDiagnostics.length }}
   </button>
@@ -19,7 +19,7 @@
         <button type="button" (click)="httpDiagnosticsOpen = false">Cerrar</button>
       </div>
     </header>
-    <p class="http-diagnostics-help">Abre Estadísticas y reproduce el problema. Después pulsa Copiar y pega aquí el registro.</p>
+    <p class="http-diagnostics-help">Herramienta interna de diagnóstico. Reproduce el problema y copia el registro para soporte técnico.</p>
     <div class="http-diagnostics-list" aria-live="polite">
       <div *ngFor="let entry of httpDiagnostics" class="http-diagnostics-entry" [class.error]="entry.level === 'error'">
         <span class="http-diagnostics-time">{{ entry.time }}</span>
