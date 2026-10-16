@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Anguloso.Server.Middleware;
@@ -8,6 +9,7 @@ namespace Anguloso.Server.Middleware;
 /// </summary>
 public sealed class ErrorHandlingMiddleware
 {
+    private static readonly JsonSerializerOptions ProblemJsonOptions = new(JsonSerializerDefaults.Web);
     private readonly RequestDelegate _next;
     private readonly ILogger<ErrorHandlingMiddleware> _logger;
 
@@ -51,7 +53,13 @@ public sealed class ErrorHandlingMiddleware
             problem.Extensions["correlationId"] = correlationId;
             problem.Extensions["reportable"] = true;
 
-            await context.Response.WriteAsJsonAsync(problem);
+            // WriteAsJsonAsync establece application/json por defecto. Serializar directamente
+            // conserva el media type RFC 9457 y usa nombres JSON camelCase.
+            await JsonSerializer.SerializeAsync(
+                context.Response.Body,
+                problem,
+                ProblemJsonOptions,
+                context.RequestAborted);
         }
     }
 }
