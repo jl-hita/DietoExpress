@@ -184,4 +184,19 @@ public sealed class AutomationExternalEffectsRegressionTests
         Assert.Contains("reportable = true", appointments);
         Assert.Contains("reportable = true", consultation);
     }
+    [Fact]
+    public void FoodBarcodeProviderFailuresAreSafelyReportable()
+    {
+        var controller = ReadServerSource("Anguloso.Server/Controllers/FoodController.cs");
+
+        Assert.Contains("FOOD_PROVIDER_ERROR", controller);
+        Assert.Contains("StatusCodes.Status502BadGateway", controller);
+        Assert.Contains("details.Extensions[\"reportable\"] = true", controller);
+        Assert.Contains("catch (HttpRequestException)", controller);
+        Assert.Contains("catch (TaskCanceledException)", controller);
+        Assert.Contains("catch (System.Text.Json.JsonException)", controller);
+        Assert.DoesNotContain("GetProductByBarcodeAsync(code);\n        if (p == null) return NotFound();", controller);
+    }
+
+
 }
