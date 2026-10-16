@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, ChangeDetectionStrategy} from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, ChangeDetectionStrategy, signal} from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -18,9 +18,63 @@ type ConnectionState = 'connecting' | 'waiting' | 'connected' | 'reconnecting' |
 export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
   @ViewChild('localVideo', { static: true }) localVideoElementRef!: ElementRef<HTMLVideoElement>;
   @ViewChild('remoteContainer', { static: true }) remoteContainer!: ElementRef<HTMLDivElement>;
-  loading = true; connecting = false; connected = false; error = '';
-  microphoneEnabled = true; cameraEnabled = true; quotaWarning = ''; callTimeWarning = ''; remainingSeconds = 0;
-  connectionState: ConnectionState = 'connecting'; remoteParticipantCount = 0; canFinalize = false; finalizing = false; maxCallDurationMinutes = 60;
+  // LiveKit y el temporizador pueden notificar cambios desde callbacks externos a Angular.
+  // Los signals mantienen la vista reactiva sin alterar los nombres usados por la plantilla.
+  private readonly loadingState = signal(true);
+  get loading(): boolean { return this.loadingState(); }
+  set loading(value: boolean) { this.loadingState.set(value); }
+
+  private readonly connectingState = signal(false);
+  get connecting(): boolean { return this.connectingState(); }
+  set connecting(value: boolean) { this.connectingState.set(value); }
+
+  private readonly connectedState = signal(false);
+  get connected(): boolean { return this.connectedState(); }
+  set connected(value: boolean) { this.connectedState.set(value); }
+
+  private readonly errorState = signal('');
+  get error(): string { return this.errorState(); }
+  set error(value: string) { this.errorState.set(value); }
+
+  private readonly microphoneEnabledState = signal(true);
+  get microphoneEnabled(): boolean { return this.microphoneEnabledState(); }
+  set microphoneEnabled(value: boolean) { this.microphoneEnabledState.set(value); }
+
+  private readonly cameraEnabledState = signal(true);
+  get cameraEnabled(): boolean { return this.cameraEnabledState(); }
+  set cameraEnabled(value: boolean) { this.cameraEnabledState.set(value); }
+
+  private readonly quotaWarningState = signal('');
+  get quotaWarning(): string { return this.quotaWarningState(); }
+  set quotaWarning(value: string) { this.quotaWarningState.set(value); }
+
+  private readonly callTimeWarningState = signal('');
+  get callTimeWarning(): string { return this.callTimeWarningState(); }
+  set callTimeWarning(value: string) { this.callTimeWarningState.set(value); }
+
+  private readonly remainingSecondsState = signal(0);
+  get remainingSeconds(): number { return this.remainingSecondsState(); }
+  set remainingSeconds(value: number) { this.remainingSecondsState.set(value); }
+
+  private readonly connectionStateState = signal<ConnectionState>('connecting');
+  get connectionState(): ConnectionState { return this.connectionStateState(); }
+  set connectionState(value: ConnectionState) { this.connectionStateState.set(value); }
+
+  private readonly remoteParticipantCountState = signal(0);
+  get remoteParticipantCount(): number { return this.remoteParticipantCountState(); }
+  set remoteParticipantCount(value: number) { this.remoteParticipantCountState.set(value); }
+
+  private readonly canFinalizeState = signal(false);
+  get canFinalize(): boolean { return this.canFinalizeState(); }
+  set canFinalize(value: boolean) { this.canFinalizeState.set(value); }
+
+  private readonly finalizingState = signal(false);
+  get finalizing(): boolean { return this.finalizingState(); }
+  set finalizing(value: boolean) { this.finalizingState.set(value); }
+
+  private readonly maxCallDurationMinutesState = signal(60);
+  get maxCallDurationMinutes(): number { return this.maxCallDurationMinutesState(); }
+  set maxCallDurationMinutes(value: number) { this.maxCallDurationMinutesState.set(value); }
   private callTimer?: ReturnType<typeof setInterval>; private manualDisconnect = false; private room?: Room; private appointmentId = 0;
   localAudio?: LocalAudioTrack; localVideoTrack?: LocalVideoTrack; private readonly remoteElements = new Map<string, HTMLElement>();
 
