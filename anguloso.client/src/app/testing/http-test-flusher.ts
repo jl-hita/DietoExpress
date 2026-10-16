@@ -1,7 +1,11 @@
 import { HttpTestingController } from '@angular/common/http/testing';
 import { ComponentFixture } from '@angular/core/testing';
 
-/** Responde a las peticiones de arranque en los smoke tests para que nunca alcancen el servidor Karma. */
+/**
+ * Responde únicamente a las peticiones de arranque conocidas en los smoke tests.
+ * Una ruta nueva debe declararse explícitamente: devolver {} a cualquier URL
+ * oculta peticiones sin stub y puede hacer que errores de configuración pasen inadvertidos.
+ */
 export function flushPendingHttpRequests(httpTesting: HttpTestingController, fixture: ComponentFixture<any>): void {
   for (let attempt = 0; attempt < 5; attempt++) {
     const pending = httpTesting.match(() => true);
@@ -24,7 +28,9 @@ export function flushPendingHttpRequests(httpTesting: HttpTestingController, fix
       } else if (url.includes('/auth/refreshSession')) {
         request.flush({ username: 'test', role: 'nutritionist' });
       } else {
-        request.flush({});
+        throw new Error(
+          `Unexpected HTTP request in smoke test: ${request.request.method} ${url}. Add an explicit response to flushPendingHttpRequests().`
+        );
       }
     }
 
