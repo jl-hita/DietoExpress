@@ -15,7 +15,7 @@ describe('ErrorReportingService', () => {
     vi.useRealTimers();
   });
 
-  it('captures only server errors from the application API and strips query strings', () => {
+  it('captures server errors and strips query strings', () => {
     const error = new HttpErrorResponse({
       status: 500,
       statusText: 'Internal Server Error',
@@ -33,12 +33,26 @@ describe('ErrorReportingService', () => {
     expect(service.currentError()?.path).not.toContain('?');
   });
 
-  it('does not capture client errors or support endpoint failures', () => {
-    service.captureHttpError(new HttpErrorResponse({ status: 400 }), '/api/clients');
+  it('does not capture ordinary 4xx errors or support endpoint failures', () => {
+    service.captureHttpError(new HttpErrorResponse({ status: 400, error: { reportable: false } }), '/api/clients');
     expect(service.currentError()).toBeNull();
 
     service.captureHttpError(new HttpErrorResponse({ status: 503 }), '/api/support/tickets');
     expect(service.currentError()).toBeNull();
+  });
+
+  it('captures a 4xx domain error only when the API explicitly marks it reportable', () => {
+    service.captureHttpError(new HttpErrorResponse({
+      status: 409,
+      error: { code: 'CLIENT_CONFLICT', reportable: true, detail: 'private server detail' }
+    }), '/api/clients/42?returnUrl=private');
+
+    expect(service.currentError()).toMatchObject({
+      code: 'CLIENT_CONFLICT',
+      status: 409,
+      path: '/api/clients/42',
+      message: expect.not.stringContaining('private server detail')
+    });
   });
 
   it('deduplicates the same status and path for 30 seconds', () => {
