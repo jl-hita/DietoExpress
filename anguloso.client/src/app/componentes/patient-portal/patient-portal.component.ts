@@ -169,6 +169,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
   get broadcastMessagesError(): string | null { return this.broadcastMessagesErrorState(); }
   set broadcastMessagesError(value: string | null) { this.broadcastMessagesErrorState.set(value); }
 
+  private routeQuerySubscription?: Subscription;
   private broadcastRefreshSubscription?: Subscription;
 
   private readonly notificationsOpenState = signal(false);
@@ -237,11 +238,14 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
     private http: HttpClient
   ) {}
 
-  ngOnDestroy(): void { this.broadcastRefreshSubscription?.unsubscribe(); }
+  ngOnDestroy(): void {
+    this.routeQuerySubscription?.unsubscribe();
+    this.broadcastRefreshSubscription?.unsubscribe();
+  }
 
   // El portal puede entrar mediante sesión previa o token de acceso; después carga los datos clínicos y habilita las funciones del paciente.
   ngOnInit(): void {
-    this.route.queryParams.subscribe(params => {
+    this.routeQuerySubscription = this.route.queryParams.subscribe(params => {
       const token = params['token'];
       const clientIdParam = params['clientId'] ? +params['clientId'] : undefined;
 

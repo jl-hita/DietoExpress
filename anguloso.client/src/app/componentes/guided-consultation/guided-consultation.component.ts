@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, ChangeDetectionStrategy} from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, signal} from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -288,30 +288,62 @@ interface GuidedConsultationResponse {
   `]
 })
 export class GuidedConsultationComponent implements OnInit {
-  loading = true;
-  taskCreating = false;
-  completing = false;
-  data: GuidedConsultationResponse | null = null;
-  consultation: any = null;
-  followupHistory: PatientCheckin[] = [];
+  private readonly loadingState = signal(true);
+  get loading(): boolean { return this.loadingState(); }
+  set loading(value: boolean) { this.loadingState.set(value); }
+  private readonly taskCreatingState = signal(false);
+  get taskCreating(): boolean { return this.taskCreatingState(); }
+  set taskCreating(value: boolean) { this.taskCreatingState.set(value); }
+  private readonly completingState = signal(false);
+  get completing(): boolean { return this.completingState(); }
+  set completing(value: boolean) { this.completingState.set(value); }
+  private readonly dataState = signal<GuidedConsultationResponse | null>(null);
+  get data(): GuidedConsultationResponse | null { return this.dataState(); }
+  set data(value: GuidedConsultationResponse | null) { this.dataState.set(value); }
+  private readonly consultationState = signal<any>(null);
+  get consultation(): any { return this.consultationState(); }
+  set consultation(value: any) { this.consultationState.set(value); }
+  private readonly followupHistoryState = signal<PatientCheckin[]>([]);
+  get followupHistory(): PatientCheckin[] { return this.followupHistoryState(); }
+  set followupHistory(value: PatientCheckin[]) { this.followupHistoryState.set(value); }
   goalsText = '';
   educationText = '';
   clinicalNotes = '';
   decisionSummary = '';
   actionsSummary = '';
   nextConsultationPlan = '';
-  clinicalSaveState: 'idle' | 'saving' | 'saved' | 'error' = 'idle';
-  activeDiet: any = null;
-  pendingTasks: any[] = [];
-  nextAppointment: PatientAppointment | null = null;
-  preConsultationSignals: any[] = [];
-  previousAppointment: any = null;
-  preConsultationTasks: any[] = [];
-  consultationSlots: AppointmentSlot[] = [];
+  private readonly clinicalSaveStateState = signal<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  get clinicalSaveState(): 'idle' | 'saving' | 'saved' | 'error' { return this.clinicalSaveStateState(); }
+  set clinicalSaveState(value: 'idle' | 'saving' | 'saved' | 'error') { this.clinicalSaveStateState.set(value); }
+  private readonly activeDietState = signal<any>(null);
+  get activeDiet(): any { return this.activeDietState(); }
+  set activeDiet(value: any) { this.activeDietState.set(value); }
+  private readonly pendingTasksState = signal<any[]>([]);
+  get pendingTasks(): any[] { return this.pendingTasksState(); }
+  set pendingTasks(value: any[]) { this.pendingTasksState.set(value); }
+  private readonly nextAppointmentState = signal<PatientAppointment | null>(null);
+  get nextAppointment(): PatientAppointment | null { return this.nextAppointmentState(); }
+  set nextAppointment(value: PatientAppointment | null) { this.nextAppointmentState.set(value); }
+  private readonly preConsultationSignalsState = signal<any[]>([]);
+  get preConsultationSignals(): any[] { return this.preConsultationSignalsState(); }
+  set preConsultationSignals(value: any[]) { this.preConsultationSignalsState.set(value); }
+  private readonly previousAppointmentState = signal<any>(null);
+  get previousAppointment(): any { return this.previousAppointmentState(); }
+  set previousAppointment(value: any) { this.previousAppointmentState.set(value); }
+  private readonly preConsultationTasksState = signal<any[]>([]);
+  get preConsultationTasks(): any[] { return this.preConsultationTasksState(); }
+  set preConsultationTasks(value: any[]) { this.preConsultationTasksState.set(value); }
+  private readonly consultationSlotsState = signal<AppointmentSlot[]>([]);
+  get consultationSlots(): AppointmentSlot[] { return this.consultationSlotsState(); }
+  set consultationSlots(value: AppointmentSlot[]) { this.consultationSlotsState.set(value); }
   slotDuration = 30;
   selectedSlot: string | null = null;
-  slotsLoading = false;
-  bookingAppointment = false;
+  private readonly slotsLoadingState = signal(false);
+  get slotsLoading(): boolean { return this.slotsLoadingState(); }
+  set slotsLoading(value: boolean) { this.slotsLoadingState.set(value); }
+  private readonly bookingAppointmentState = signal(false);
+  get bookingAppointment(): boolean { return this.bookingAppointmentState(); }
+  set bookingAppointment(value: boolean) { this.bookingAppointmentState.set(value); }
   taskTitle = '';
   taskDescription = '';
   taskPriority = 'normal';
@@ -321,9 +353,15 @@ export class GuidedConsultationComponent implements OnInit {
   quickDietProtein: number | null = null;
   quickDietCarbs: number | null = null;
   quickDietFat: number | null = null;
-  creatingDiet = false;
-  currentStep = 'summary';
-  stepIndex = 0;
+  private readonly creatingDietState = signal(false);
+  get creatingDiet(): boolean { return this.creatingDietState(); }
+  set creatingDiet(value: boolean) { this.creatingDietState.set(value); }
+  private readonly currentStepState = signal('summary');
+  get currentStep(): string { return this.currentStepState(); }
+  set currentStep(value: string) { this.currentStepState.set(value); }
+  private readonly stepIndexState = signal(0);
+  get stepIndex(): number { return this.stepIndexState(); }
+  set stepIndex(value: number) { this.stepIndexState.set(value); }
 
   get isFirstConsultation(): boolean {
     return this.data?.suggestedConsultationType === 'first' || this.consultation?.consultationType === 'first';

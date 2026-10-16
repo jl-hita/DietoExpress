@@ -76,7 +76,15 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
   get maxCallDurationMinutes(): number { return this.maxCallDurationMinutesState(); }
   set maxCallDurationMinutes(value: number) { this.maxCallDurationMinutesState.set(value); }
   private callTimer?: ReturnType<typeof setInterval>; private manualDisconnect = false; private room?: Room; private appointmentId = 0;
-  localAudio?: LocalAudioTrack; localVideoTrack?: LocalVideoTrack; private readonly remoteElements = new Map<string, HTMLElement>();
+  private readonly localAudioState = signal<LocalAudioTrack | undefined>(undefined);
+  get localAudio(): LocalAudioTrack | undefined { return this.localAudioState(); }
+  set localAudio(value: LocalAudioTrack | undefined) { this.localAudioState.set(value); }
+
+  private readonly localVideoTrackState = signal<LocalVideoTrack | undefined>(undefined);
+  get localVideoTrack(): LocalVideoTrack | undefined { return this.localVideoTrackState(); }
+  set localVideoTrack(value: LocalVideoTrack | undefined) { this.localVideoTrackState.set(value); }
+
+  private readonly remoteElements = new Map<string, HTMLElement>();
 
   constructor(private readonly route: ActivatedRoute, private readonly router: Router, private readonly portalService: PatientPortalService, private readonly location: Location) {}
 
