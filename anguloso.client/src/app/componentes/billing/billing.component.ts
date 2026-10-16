@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, ChangeDetectionStrategy, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, ChangeDetectionStrategy, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -314,7 +314,24 @@ import { LegalAcceptance, LegalDocument, LegalService } from '../../servicios/le
     }
   `]
 })
-export class BillingComponent implements OnInit {
+export class BillingComponent implements OnInit, OnDestroy {
+  private destroyed = false;
+  private readonly pendingTimeouts = new Set<ReturnType<typeof setTimeout>>();
+
+  ngOnDestroy(): void {
+    this.destroyed = true;
+    for (const timer of this.pendingTimeouts) clearTimeout(timer);
+    this.pendingTimeouts.clear();
+  }
+
+  private scheduleTimeout(callback: () => void, delayMs: number): void {
+    if (this.destroyed) return;
+    const timer = setTimeout(() => {
+      this.pendingTimeouts.delete(timer);
+      if (!this.destroyed) callback();
+    }, delayMs);
+    this.pendingTimeouts.add(timer);
+  }
   private readonly plansState = signal<BillingPlan[]>([]);
   get plans(): BillingPlan[] { return this.plansState(); }
   set plans(value: BillingPlan[]) { this.plansState.set(value); }
@@ -556,14 +573,16 @@ export class BillingComponent implements OnInit {
   }
 
   private waitForCheckoutActivation(attempt: number): void {
-    if (attempt >= 10) return;
+    if (this.destroyed || attempt >= 10) return;
 
-    setTimeout(() => {
+    this.scheduleTimeout(() => {
       this.licenseService.getLicense().subscribe({
         next: license => {
+          if (this.destroyed) return;
           if (license.planCode !== 'free' && license.status === 'active') {
             this.authService.refreshSession().subscribe({
               next: session => {
+                if (this.destroyed) return;
                 this.authService.login(session);
                 window.location.reload();
               },
@@ -579,12 +598,15 @@ export class BillingComponent implements OnInit {
   }
 
   private refreshSubscriptionAfterStripeChange(expectedCancelAtPeriodEnd: boolean): void {
+    if (this.destroyed) return;
     let attempts = 0;
 
     const poll = () => {
+      if (this.destroyed) return;
       attempts++;
       this.licenseService.getLicense().subscribe({
         next: license => {
+          if (this.destroyed) return;
           this.license = license;
           if (license.billingInterval) this.billingInterval = license.billingInterval;
 
@@ -593,14 +615,15 @@ export class BillingComponent implements OnInit {
             return;
           }
 
-          setTimeout(poll, 1000);
+          this.scheduleTimeout(poll, 1000);
         },
         error: () => {
+          if (this.destroyed) return;
           if (attempts >= 5) {
             this.actionLoading = false;
             return;
           }
-          setTimeout(poll, 1000);
+          this.scheduleTimeout(poll, 1000);
         }
       });
     };
