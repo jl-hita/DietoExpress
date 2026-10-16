@@ -18,10 +18,11 @@ function diagnosticLog(level: DiagnosticLevel, message: string, details?: Record
 
 /**
  * Observes both transport events and their delivery to downstream subscribers.
- * It deliberately does not invoke ApplicationRef.tick() or alter the zone.
+ * Each downstream notification is delivered inside Angular's zone so ordinary component fields
+ * updated by existing HttpClient subscriptions still trigger change detection.
  */
 export const zoneChangeDetectionInterceptor: HttpInterceptorFn = (request, next) => {
-  inject(NgZone);
+  const zone = inject(NgZone);
   const requestId = ++diagnosticRequestId;
   const safeUrl = request.url.split('?')[0];
   const label = `[HTTP-CD #${requestId}] ${request.method} ${safeUrl}`;
@@ -50,7 +51,7 @@ export const zoneChangeDetectionInterceptor: HttpInterceptorFn = (request, next)
           eventType: event instanceof HttpResponse ? 'response' : event.type,
           inAngularZone: NgZone.isInAngularZone()
         });
-        observer.next(event);
+        zone.run(() => observer.next(event));
         diagnosticLog('debug', `${label} downstream notification returned`, {
           elapsedMs: Date.now() - startedAt,
           inAngularZone: NgZone.isInAngularZone(),
@@ -63,14 +64,14 @@ export const zoneChangeDetectionInterceptor: HttpInterceptorFn = (request, next)
           inAngularZone: NgZone.isInAngularZone(),
           errorName: error instanceof Error ? error.name : typeof error
         });
-        observer.error(error);
+        zone.run(() => observer.error(error));
       },
       complete: () => {
         diagnosticLog('debug', `${label} HTTP stream complete`, {
           elapsedMs: Date.now() - startedAt,
           inAngularZone: NgZone.isInAngularZone()
         });
-        observer.complete();
+        zone.run(() => observer.complete());
       }
     });
 
