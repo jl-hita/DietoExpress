@@ -13,7 +13,7 @@
   <div class="alert success" *ngIf="!isSuperAdmin && success"><mat-icon>check_circle</mat-icon>{{ success }}</div>
   <div class="alert error" *ngIf="!isSuperAdmin && error"><mat-icon>error_outline</mat-icon>{{ error }}<button type="button" (click)="load()">Reintentar</button></div>
 
-  <div class="loading()" *ngIf="!isSuperAdmin && loading()"><mat-spinner diameter="32"></mat-spinner><span>Cargando agenda...</span></div>
+  <div class="loading" *ngIf="!isSuperAdmin && loading()"><mat-spinner diameter="32"></mat-spinner><span>Cargando agenda...</span></div>
 
   <section *ngIf="!isSuperAdmin" class="card calendar-integration">
     <div class="card-header">
