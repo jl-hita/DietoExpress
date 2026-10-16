@@ -6,16 +6,16 @@
       <p>Actividad y evolución del periodo seleccionado.</p>
     </div>
     <div class="filters">
-      <label>Desde <input type="date" [(ngModel)]="from"></label>
-      <label>Hasta <input type="date" [(ngModel)]="to"></label>
+      <label>Desde <input type="date" [ngModel]="from()" (ngModelChange)="from.set($event)"></label>
+      <label>Hasta <input type="date" [ngModel]="to()" (ngModelChange)="to.set($event)"></label>
       <button type="button" (click)="reload()">Actualizar</button>
     </div>
   </header>
 
-  <div class="error" *ngIf="error"><mat-icon>error_outline</mat-icon>{{error}}</div>
-  <div class="loading" *ngIf="loading"><mat-spinner diameter="40"></mat-spinner><span>Cargando estadísticas…</span></div>
+  <div class="error" *ngIf="error()"><mat-icon>error_outline</mat-icon>{{error()}}</div>
+  <div class="loading" *ngIf="loading()"><mat-spinner diameter="40"></mat-spinner><span>Cargando estadísticas…</span></div>
 
-  <ng-container *ngIf="!loading && data">
+  <ng-container *ngIf="!loading() && data() as data">
     <section class="cards">
       <mat-card><mat-icon>group</mat-icon><strong>{{data.activePatients}}</strong><span>Pacientes activos</span></mat-card>
       <mat-card><mat-icon>person_add</mat-icon><strong>{{data.newPatients}}</strong><span>Nuevos en el periodo</span></mat-card>
