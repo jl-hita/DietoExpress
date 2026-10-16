@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectionStrategy} from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, signal} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -14,7 +14,10 @@ import { ClinicService, ClinicDashboard } from '../../servicios/clinic.service';
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,selector:'app-clinic-dashboard',standalone:true,imports:[CommonModule,FormsModule,MatCardModule,MatButtonModule,MatIconModule,MatTableModule,MatFormFieldModule,MatSelectModule,MatSnackBarModule,MatDialogModule],templateUrl:'./clinic-dashboard.component.html',styleUrls:['./clinic-dashboard.component.css']})
 export class ClinicDashboardComponent implements OnInit {
- data?:ClinicDashboard; showCreate=false; newNutri:any={fullName:'',email:''};
+ private readonly dataState = signal<ClinicDashboard | undefined>(undefined);
+ get data(): ClinicDashboard | undefined { return this.dataState(); }
+ set data(value: ClinicDashboard | undefined) { this.dataState.set(value); }
+ showCreate=false; newNutri:any={fullName:'',email:''};
  constructor(private clinic:ClinicService,private snack:MatSnackBar,private dialog:MatDialog){}
  // La creación depende simultáneamente del estado de la suscripción, el cupo contratado, el periodo de sustitución y la funcionalidad habilitada.
  get contractedSeats():number {
