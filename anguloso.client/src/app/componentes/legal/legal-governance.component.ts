@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, ChangeDetectionStrategy} from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, signal} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -41,7 +41,17 @@ import { LegalGovernanceService, LegalRatActivity, LegalRiskAssessment, LegalEip
  </mat-card-content></mat-card>
 </section>`,styles:[`.grid{display:grid;gap:16px;padding:20px 0}.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}.row{display:flex;justify-content:space-between;gap:12px;padding:10px;border-bottom:1px solid #e2e8f0}.row span{color:#64748b}@media(max-width:800px){.form{grid-template-columns:1fr}.row{display:grid}}`]})
 export class LegalGovernanceComponent implements OnInit {
- rat:LegalRatActivity[]=[];risks:LegalRiskAssessment[]=[];eipd:LegalEipdDecision[]=[];
+ private readonly ratState = signal<LegalRatActivity[]>([]);
+ get rat(): LegalRatActivity[] { return this.ratState(); }
+ set rat(value: LegalRatActivity[]) { this.ratState.set(value); }
+
+ private readonly risksState = signal<LegalRiskAssessment[]>([]);
+ get risks(): LegalRiskAssessment[] { return this.risksState(); }
+ set risks(value: LegalRiskAssessment[]) { this.risksState.set(value); }
+
+ private readonly eipdState = signal<LegalEipdDecision[]>([]);
+ get eipd(): LegalEipdDecision[] { return this.eipdState(); }
+ set eipd(value: LegalEipdDecision[]) { this.eipdState.set(value); }
  newRat:any={name:'',purpose:'',role:'controller',legalBasis:'',dataCategories:'',retention:'',status:'draft'};
  newRisk:any={name:'',riskDescription:'',likelihood:1,impact:1,measures:'',status:'open'};
  newEipd:any={decision:'pending',justification:'',additionalMeasures:'',documentReference:''};
