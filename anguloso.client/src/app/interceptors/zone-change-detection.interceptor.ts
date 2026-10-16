@@ -6,6 +6,20 @@ let diagnosticRequestId = 0;
 
 type DiagnosticLevel = 'info' | 'debug' | 'error';
 
+function describeError(error: unknown): Record<string, unknown> {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    };
+  }
+
+  return {
+    value: typeof error === 'string' ? error : String(error)
+  };
+}
+
 /** Emits metadata only: never request/response bodies or query strings. */
 function diagnosticLog(level: DiagnosticLevel, message: string, details?: Record<string, unknown>): void {
   console[level](message, details ?? '');
@@ -43,19 +57,19 @@ export const zoneChangeDetectionInterceptor: HttpInterceptorFn = (request, next)
           inAngularZone: NgZone.isInAngularZone()
         });
       } catch (error) {
-        diagnosticLog('error', `${label} downstream observer threw during ${kind}`);
+        diagnosticLog('error', `${label} downstream observer threw during ${kind}`, describeError(error));
         throw error;
-      } finally {
-        try {
-          diagnosticLog('debug', `${label} change-detection tick begin`);
-          appRef.tick();
-          diagnosticLog('debug', `${label} change-detection tick end`, {
-            elapsedMs: Date.now() - startedAt
-          });
-        } catch (error) {
-          diagnosticLog('error', `${label} change-detection tick failed after ${kind}`);
-          throw error;
-        }
+      }
+
+      try {
+        diagnosticLog('debug', `${label} change-detection tick begin`);
+        appRef.tick();
+        diagnosticLog('debug', `${label} change-detection tick end`, {
+          elapsedMs: Date.now() - startedAt
+        });
+      } catch (error) {
+        diagnosticLog('error', `${label} change-detection tick failed after ${kind}`, describeError(error));
+        throw error;
       }
     });
   };
@@ -81,7 +95,8 @@ export const zoneChangeDetectionInterceptor: HttpInterceptorFn = (request, next)
       },
       error: error => {
         diagnosticLog('error', `${label} HTTP stream error`, {
-          elapsedMs: Date.now() - startedAt
+          elapsedMs: Date.now() - startedAt,
+          ...describeError(error)
         });
         notify('error', () => observer.error(error));
       },
