@@ -48,10 +48,12 @@
 }
 
 .brand-icon {
-  font-size: 24px;
-  width: 24px;
-  height: 24px;
-  color: #0d9488;
+  display: block;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  object-fit: contain;
+  border-radius: 6px;
 }
 
 .brand-title {
