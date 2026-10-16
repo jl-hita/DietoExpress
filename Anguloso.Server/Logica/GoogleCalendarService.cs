@@ -365,13 +365,12 @@ public sealed class GoogleCalendarService
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
         if (!response.IsSuccessStatusCode)
         {
-            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            // No registrar el cuerpo de Google: puede contener datos personales del evento.
             _logger.LogError(
-                "Google Calendar rechazó la lectura de un evento. HTTP {StatusCode}. CalendarId {CalendarId}. EventId {EventId}. Respuesta: {ResponseBody}",
+                "Google Calendar rechazó la lectura de un evento. HTTP {StatusCode}. CalendarId {CalendarId}. EventId {EventId}.",
                 (int)response.StatusCode,
                 calendarId,
-                eventId,
-                body);
+                eventId);
             throw new GoogleCalendarProviderException("lectura de un evento", response.StatusCode);
         }
         return JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken)).RootElement.Clone();
@@ -389,13 +388,12 @@ public sealed class GoogleCalendarService
         using var response = await client.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
-            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            // No registrar el cuerpo de Google: puede contener datos personales del evento.
             _logger.LogError(
-                "Google Calendar rechazó la escritura de un evento. HTTP {StatusCode}. CalendarId {CalendarId}. EventId {EventId}. Respuesta: {ResponseBody}",
+                "Google Calendar rechazó la escritura de un evento. HTTP {StatusCode}. CalendarId {CalendarId}. EventId {EventId}.",
                 (int)response.StatusCode,
                 calendarId,
-                eventId,
-                body);
+                eventId);
             throw new GoogleCalendarProviderException("escritura de un evento", response.StatusCode);
         }
     }
