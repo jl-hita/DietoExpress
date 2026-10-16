@@ -1,6 +1,6 @@
 import { HttpEvent, HttpInterceptorFn, HttpResponse } from '@angular/common/http';
 import { NgZone, inject } from '@angular/core';
-import { tap } from 'rxjs/operators';
+import { Observable } from 'rxjs';
 
 let diagnosticRequestId = 0;
 
@@ -17,14 +17,11 @@ function diagnosticLog(level: DiagnosticLevel, message: string, details?: Record
 }
 
 /**
- * Temporary HTTP diagnostics for the global view-loading issue.
- * This interceptor observes transport events only. It deliberately does not
- * invoke ApplicationRef.tick() or wrap observer callbacks: Angular owns its
- * normal change-detection lifecycle and a forced tick can fail with NG0101
- * when a tick is already in progress.
+ * Observes both transport events and their delivery to downstream subscribers.
+ * It deliberately does not invoke ApplicationRef.tick() or alter the zone.
  */
 export const zoneChangeDetectionInterceptor: HttpInterceptorFn = (request, next) => {
-  inject(NgZone); // Keep the zone runtime initialized, but do not force a CD pass.
+  inject(NgZone);
   const requestId = ++diagnosticRequestId;
   const safeUrl = request.url.split('?')[0];
   const label = `[HTTP-CD #${requestId}] ${request.method} ${safeUrl}`;
@@ -32,8 +29,8 @@ export const zoneChangeDetectionInterceptor: HttpInterceptorFn = (request, next)
 
   diagnosticLog('info', `${label} start`, { inAngularZone: NgZone.isInAngularZone() });
 
-  return next(request).pipe(
-    tap({
+  return new Observable<HttpEvent<unknown>>(observer => {
+    const subscription = next(request).subscribe({
       next: event => {
         if (event instanceof HttpResponse) {
           diagnosticLog('info', `${label} response`, {
@@ -48,19 +45,35 @@ export const zoneChangeDetectionInterceptor: HttpInterceptorFn = (request, next)
             inAngularZone: NgZone.isInAngularZone()
           });
         }
-      },
-      error: () => {
-        diagnosticLog('error', `${label} HTTP stream error`, {
-          elapsedMs: Date.now() - startedAt,
+
+        diagnosticLog('debug', `${label} downstream notification begin`, {
+          eventType: event instanceof HttpResponse ? 'response' : event.type,
           inAngularZone: NgZone.isInAngularZone()
         });
+        observer.next(event);
+        diagnosticLog('debug', `${label} downstream notification returned`, {
+          elapsedMs: Date.now() - startedAt,
+          inAngularZone: NgZone.isInAngularZone(),
+          observerClosed: observer.closed
+        });
+      },
+      error: error => {
+        diagnosticLog('error', `${label} HTTP stream error`, {
+          elapsedMs: Date.now() - startedAt,
+          inAngularZone: NgZone.isInAngularZone(),
+          errorName: error instanceof Error ? error.name : typeof error
+        });
+        observer.error(error);
       },
       complete: () => {
         diagnosticLog('debug', `${label} HTTP stream complete`, {
           elapsedMs: Date.now() - startedAt,
           inAngularZone: NgZone.isInAngularZone()
         });
+        observer.complete();
       }
-    })
-  );
+    });
+
+    return () => subscription.unsubscribe();
+  });
 };
