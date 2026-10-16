@@ -12,7 +12,7 @@ import { ErrorReportingService, ReportableApplicationError } from '../../servici
     <section *ngIf="errors.currentError() as error" class="error-report" role="alert" aria-live="assertive">
       <div class="error-report-copy">
         <strong>{{ error.message }}</strong>
-        <span>Referencia {{ error.id }} · HTTP {{ error.status }}</span>
+        <span>Referencia {{ error.id }} · {{ error.status ? 'HTTP ' + error.status : 'Error del cliente' }}</span>
         <span *ngIf="failure()">{{ failure() }}</span>
       </div>
       <div class="error-report-actions">
@@ -51,7 +51,7 @@ export class ErrorReportBannerComponent {
       'Código: ' + error.code,
       'Fecha UTC: ' + error.occurredAt,
       'Módulo/ruta: ' + error.path,
-      'Estado HTTP: ' + error.status,
+      'Estado: ' + (error.status ? 'HTTP ' + error.status : 'error del cliente'),
       error.correlationId ? 'Identificador de correlación: ' + error.correlationId : 'Identificador de correlación: no disponible',
       '',
       'No se han adjuntado cuerpos de petición/respuesta ni datos de formularios.'

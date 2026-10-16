@@ -55,6 +55,24 @@ describe('ErrorReportingService', () => {
     });
   });
 
+  it('captures client runtime errors without exposing the exception message', () => {
+    service.captureClientError(new Error('private user data in exception'), '/clients/42?token=private#section');
+
+    expect(service.currentError()).toMatchObject({
+      code: 'CLIENT_RUNTIME_ERROR',
+      status: 0,
+      path: '/clients/42',
+      message: 'Se ha producido un error inesperado en la aplicación.'
+    });
+    expect(service.currentError()?.message).not.toContain('private user data');
+  });
+
+  it('does not capture HTTP errors through the client runtime handler', () => {
+    service.captureClientError(new HttpErrorResponse({ status: 500 }), '/clients');
+
+    expect(service.currentError()).toBeNull();
+  });
+
   it('deduplicates the same status and path for 30 seconds', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-10-16T12:00:00.000Z'));

@@ -66,6 +66,31 @@ export class ErrorReportingService {
     });
   }
 
+  /**
+   * Captura errores JavaScript no controlados sin conservar el mensaje de excepción,
+   * que puede contener datos internos o del usuario. Los errores HTTP se procesan en el interceptor.
+   */
+  captureClientError(error: unknown, currentPath: string): void {
+    if (error instanceof HttpErrorResponse) return;
+
+    const path = currentPath.split('?')[0].split('#')[0] || '/';
+    const fingerprint = 'CLIENT_RUNTIME_ERROR:' + path;
+    const now = Date.now();
+    if (fingerprint === this.lastFingerprint && now - this.lastCapturedAt < 30_000) return;
+
+    this.lastFingerprint = fingerprint;
+    this.lastCapturedAt = now;
+    this.sequence += 1;
+    this.currentError.set({
+      id: 'DEX-' + now.toString(36).toUpperCase() + '-' + this.sequence.toString(36).toUpperCase(),
+      code: 'CLIENT_RUNTIME_ERROR',
+      message: 'Se ha producido un error inesperado en la aplicación.',
+      occurredAt: new Date(now).toISOString(),
+      status: 0,
+      path
+    });
+  }
+
   dismiss(): void {
     this.currentError.set(null);
   }
