@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, OnDestroy, OnInit, Output, ChangeDetectionStrategy} from '@angular/core';
+import { Component, DestroyRef, EventEmitter, OnDestroy, OnInit, Output, ChangeDetectionStrategy, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { HttpClient } from '@angular/common/http';
 import { Subscription, interval, startWith, switchMap, catchError, forkJoin, of } from 'rxjs';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
@@ -20,6 +21,8 @@ import { LicenseService, LicenseStatus } from '../../servicios/license.service';
 })
 // El menú deriva sus opciones del contexto actual del usuario para ocultar rutas que no son relevantes, sin sustituir la autorización del servidor.
 export class SidebarComponent implements OnInit, OnDestroy {
+  private readonly destroyRef = inject(DestroyRef);
+
   @Output() closeMenu = new EventEmitter<void>();
 
   profile: Profile | null = null;
@@ -37,7 +40,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
   ) { }
 
   ngOnInit(): void {
-    this.profileService.profile$.subscribe(profile => {
+    this.profileService.profile$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(profile => {
       this.profile = profile;
     });
 
