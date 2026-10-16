@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -14,44 +14,51 @@ import { ProfessionalStatistics, ProfessionalStatisticsService } from '../../ser
   styleUrl:'./statistics.component.css'
 })
 export class StatisticsComponent implements OnInit {
-  data:ProfessionalStatistics|null=null;
-  loading=true;
-  error:string|null=null;
-  from='';
-  to='';
+  readonly data = signal<ProfessionalStatistics | null>(null);
+  readonly loading = signal(true);
+  readonly error = signal<string | null>(null);
+  readonly from = signal('');
+  readonly to = signal('');
 
   constructor(private service:ProfessionalStatisticsService) {}
 
   ngOnInit():void {
     const today=new Date();
-    this.to=this.isoDate(today);
+    this.to.set(this.isoDate(today));
     const start=new Date(today);
     start.setDate(start.getDate()-29);
-    this.from=this.isoDate(start);
+    this.from.set(this.isoDate(start));
     this.reload();
   }
 
   reload():void {
-    if (!this.from || !this.to) return;
-    this.loading=true;
-    this.error=null;
-    this.service.get(this.from,this.to).subscribe({
-      next:data=>{this.data=data;this.loading=false;},
-      error:err=>{this.error=err?.error?.message||'No hemos podido cargar las estadísticas.';this.loading=false;}
+    const from = this.from();
+    const to = this.to();
+    if (!from || !to) return;
+    this.loading.set(true);
+    this.error.set(null);
+    this.service.get(from, to).subscribe({
+      next: data => { this.data.set(data); this.loading.set(false); },
+      error: err => {
+        this.error.set(err?.error?.message || 'No hemos podido cargar las estadísticas.');
+        this.loading.set(false);
+      }
     });
   }
 
   noShowRate():number {
-    const total=(this.data?.completedAppointments||0)+(this.data?.noShowAppointments||0);
-    return total ? ((this.data?.noShowAppointments||0)/total)*100 : 0;
+    const data = this.data();
+    const total = (data?.completedAppointments || 0) + (data?.noShowAppointments || 0);
+    return total ? ((data?.noShowAppointments || 0) / total) * 100 : 0;
   }
 
   reviewRate():number {
-    return this.data?.checkins ? ((this.data.reviewedCheckins/this.data.checkins)*100) : 0;
+    const data = this.data();
+    return data?.checkins ? (data.reviewedCheckins / data.checkins) * 100 : 0;
   }
 
   maxSeriesValue(key:'newPatients'|'completedAppointments'|'checkins'):number {
-    return Math.max(1,...(this.data?.series||[]).map(x=>x[key]));
+    return Math.max(1, ...(this.data()?.series || []).map(x => x[key]));
   }
 
   barHeight(value:number,key:'newPatients'|'completedAppointments'|'checkins'):string {
