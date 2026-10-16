@@ -152,7 +152,7 @@ public sealed class AutomationExternalEffectsRegressionTests
         Assert.Contains("response.Dispose()", stripe);
         Assert.Contains("catch (StripeBillingProviderException) { return StripeProviderProblem(); }", billing);
         Assert.Contains("catch (StripeBillingProviderException) { return StripeProviderProblem(); }", clinic);
-        Assert.Contains('details.Extensions["code"] = "STRIPE_PROVIDER_ERROR"', clinic);
-        Assert.Contains('details.Extensions["reportable"] = true', clinic);
+        Assert.Contains("details.Extensions[\"code\"] = \"STRIPE_PROVIDER_ERROR\"", clinic);
+        Assert.Contains("details.Extensions[\"reportable\"] = true", clinic);
     }
 }

@@ -582,5 +582,6 @@ public sealed class StripeBillingService : IStripeBillingService
 /// <summary>Fallo devuelto por el proveedor de pagos Stripe.</summary>
 public sealed class StripeBillingProviderException : Exception
 {
-    public StripeBillingProviderException() : base("Stripe no ha podido completar la operación solicitada.") { }\n    public StripeBillingProviderException(Exception innerException) : base("Stripe no ha podido completar la operación solicitada.", innerException) { }
+    public StripeBillingProviderException() : base("Stripe no ha podido completar la operación solicitada.") { }
+    public StripeBillingProviderException(Exception innerException) : base("Stripe no ha podido completar la operación solicitada.", innerException) { }
 }
