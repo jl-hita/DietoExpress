@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectionStrategy} from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, DestroyRef, inject, signal} from '@angular/core';
 import { FormBuilder, FormGroup, FormArray, Validators, AbstractControl, FormControl } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
@@ -15,6 +15,7 @@ import { RecipePickerDialogComponent } from './recipe-picker-dialog.component';
 import { DietShoppingListDialogComponent } from '../diets-list/diet-shopping-list-dialog.component';
 import { debounceTime, distinctUntilChanged, switchMap, finalize } from 'rxjs/operators';
 import { of } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CdkDragDrop, CdkDropList, CdkDrag, CdkDragHandle, CdkDropListGroup } from '@angular/cdk/drag-drop';
 
 
@@ -27,23 +28,40 @@ import { CdkDragDrop, CdkDropList, CdkDrag, CdkDragHandle, CdkDropListGroup } fr
   styleUrls: ['./diet-create.component.css']
 })
 export class DietCreateComponent implements OnInit {
+  private readonly destroyRef = inject(DestroyRef);
   form: FormGroup;
   isEdit = false;
   dietId: number | null = null;
-  loading = false;
-  saving = false;
-  exchangeGroups: FoodExchangeGroup[] = [];
+  private readonly loadingState = signal(false);
+  get loading(): boolean { return this.loadingState(); }
+  set loading(value: boolean) { this.loadingState.set(value); }
+  private readonly savingState = signal(false);
+  get saving(): boolean { return this.savingState(); }
+  set saving(value: boolean) { this.savingState.set(value); }
+  private readonly exchangeGroupsState = signal<FoodExchangeGroup[]>([]);
+  get exchangeGroups(): FoodExchangeGroup[] { return this.exchangeGroupsState(); }
+  set exchangeGroups(value: FoodExchangeGroup[]) { this.exchangeGroupsState.set(value); }
 
   // Client context for live clinical validation
-  clientId: number | null = null;
-  clientName: string | null = null;
-  validationWarnings: any[] = [];
+  private readonly clientIdState = signal<number | null>(null);
+  get clientId(): number | null { return this.clientIdState(); }
+  set clientId(value: number | null) { this.clientIdState.set(value); }
+  private readonly clientNameState = signal<string | null>(null);
+  get clientName(): string | null { return this.clientNameState(); }
+  set clientName(value: string | null) { this.clientNameState.set(value); }
+  private readonly validationWarningsState = signal<any[]>([]);
+  get validationWarnings(): any[] { return this.validationWarningsState(); }
+  set validationWarnings(value: any[]) { this.validationWarningsState.set(value); }
 
   // Visual Editor Properties
   activeDayIndex = 0;
   searchCtrl: FormControl;
-  searchResults: any[] = [];
-  searchLoading = false;
+  private readonly searchResultsState = signal<any[]>([]);
+  get searchResults(): any[] { return this.searchResultsState(); }
+  set searchResults(value: any[]) { this.searchResultsState.set(value); }
+  private readonly searchLoadingState = signal(false);
+  get searchLoading(): boolean { return this.searchLoadingState(); }
+  set searchLoading(value: boolean) { this.searchLoadingState.set(value); }
   selectedFoodForAdd: any | null = null;
   gramsToAdd = 100;
   targetMealForAdd: { dIndex: number, mIndex: number } | null = null;
@@ -105,7 +123,8 @@ export class DietCreateComponent implements OnInit {
         return this.foodService.searchFoods(term).pipe(
           finalize(() => this.searchLoading = false)
         );
-      })
+      }),
+      takeUntilDestroyed(this.destroyRef)
     ).subscribe({
       next: (res: any) => {
         this.searchResults = res || [];
@@ -170,7 +189,7 @@ export class DietCreateComponent implements OnInit {
     }
 
     // Suscribirse a queryParams para detectar el cliente en contexto
-    this.route.queryParams.subscribe(params => {
+    this.route.queryParams.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
       if (params['clientId']) {
         this.clientId = +params['clientId'];
         this.loadClientName();
@@ -180,7 +199,8 @@ export class DietCreateComponent implements OnInit {
     // Suscribirse a los cambios del formulario para validación clínica en tiempo real
     this.form.valueChanges.pipe(
       debounceTime(500),
-      distinctUntilChanged()
+      distinctUntilChanged(),
+      takeUntilDestroyed(this.destroyRef)
     ).subscribe(() => {
       this.validateDraftDiet();
     });
