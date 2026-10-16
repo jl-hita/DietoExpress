@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, OnInit, ChangeDetectionStrategy} from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, signal} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -659,9 +659,15 @@ export class AdminDashboardComponent implements OnInit {
   configs: AdminConfig[] = [];
   videoUsage?: AdminVideoUsage;
   databaseBackups: AdminDatabaseBackup[] = [];
-  driveDatabaseBackups: AdminDriveBackup[] = [];
-  driveBackupLoading = false;
-  driveBackupError = '';
+  private readonly driveDatabaseBackupsState = signal<AdminDriveBackup[]>([]);
+  get driveDatabaseBackups(): AdminDriveBackup[] { return this.driveDatabaseBackupsState(); }
+  set driveDatabaseBackups(value: AdminDriveBackup[]) { this.driveDatabaseBackupsState.set(value); }
+  private readonly driveBackupLoadingState = signal(false);
+  get driveBackupLoading(): boolean { return this.driveBackupLoadingState(); }
+  set driveBackupLoading(value: boolean) { this.driveBackupLoadingState.set(value); }
+  private readonly driveBackupErrorState = signal('');
+  get driveBackupError(): string { return this.driveBackupErrorState(); }
+  set driveBackupError(value: string) { this.driveBackupErrorState.set(value); }
   databaseBackupConfigured = false;
   databaseBackupRunning = false;
   databaseBackupOperation = '';
@@ -688,8 +694,7 @@ export class AdminDashboardComponent implements OnInit {
   constructor(
     public adminService: AdminService,
     private dialog: MatDialog,
-    private snackBar: MatSnackBar,
-    private cdr: ChangeDetectorRef
+    private snackBar: MatSnackBar
   ) {}
 
   ngOnInit(): void {
@@ -730,19 +735,15 @@ export class AdminDashboardComponent implements OnInit {
   loadDriveDatabaseBackups(): void {
     this.driveBackupLoading = true;
     this.driveBackupError = '';
-    this.cdr.markForCheck();
-
     this.adminService.getDriveDatabaseBackups().subscribe({
       next: result => {
         this.driveBackupLoading = false;
         this.driveDatabaseBackups = result.items || [];
         this.driveBackupError = result.configured ? '' : (result.error || 'Google Drive no está disponible o no está configurado.');
-        this.cdr.markForCheck();
       },
       error: err => {
         this.driveBackupLoading = false;
         this.driveBackupError = err?.error?.detail || err?.error?.title || 'No se pudo consultar Google Drive.';
-        this.cdr.markForCheck();
       }
     });
   }
