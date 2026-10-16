@@ -1,6 +1,7 @@
 import { RouterOutlet } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { Component, HostListener } from '@angular/core';
+import { Component, HostListener, inject } from '@angular/core';
+import { AuthService } from './servicios/auth.service';
 
 interface MaintenanceNotice {
   active: boolean;
@@ -27,6 +28,7 @@ interface HttpDiagnosticEntry {
 export class AppComponent {
   title = 'anguloso.client';
   maintenanceNotice?: MaintenanceNotice;
+  readonly authService = inject(AuthService);
 
   httpDiagnosticsOpen = false;
   httpDiagnostics: HttpDiagnosticEntry[] = [];
@@ -34,6 +36,7 @@ export class AppComponent {
 
   @HostListener('window:dieto-http-cd-log', ['$event'])
   onHttpDiagnostic(event: Event): void {
+    if (!this.authService.isSuperAdmin()) return;
     const customEvent = event as CustomEvent<HttpDiagnosticEntry>;
     if (!customEvent.detail) return;
     this.httpDiagnostics = [...this.httpDiagnostics, customEvent.detail].slice(-this.maxDiagnosticEntries);
