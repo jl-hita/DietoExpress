@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, OnInit, OnDestroy, ChangeDetectionStrategy} from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { MATERIAL_IMPORTS } from '../../shared/material.imports';
@@ -19,8 +19,8 @@ import { AuthService } from '../../servicios/auth.service';
 // La lista coordina carga, filtros y acciones sobre dietas; los cambios de estado se reflejan después de confirmar la operación en el backend.
 export class DietsListComponent implements OnInit, OnDestroy {
   diets: DietListItem[] = [];
-  loading = false;
-  error: string | null = null;
+  readonly loading = signal(false);
+  readonly error = signal<string | null>(null);
 
   searchTerm = '';
   filtered: DietListItem[] = [];
@@ -38,8 +38,7 @@ export class DietsListComponent implements OnInit, OnDestroy {
     private router: Router,
     private snackBar: MatSnackBar,
     private dialog: MatDialog,
-    private authService: AuthService,
-    private cdr: ChangeDetectorRef
+    private authService: AuthService
   ) {}
 
 
@@ -51,8 +50,8 @@ export class DietsListComponent implements OnInit, OnDestroy {
 
   // La paginación y búsqueda se envían al servidor; el frontend conserva únicamente la página actual y calcula su representación visual.
   loadDiets(): void {
-    this.loading = true;
-    this.error = null;
+    this.loading.set(true);
+    this.error.set(null);
     this.dietService.getDiets(this.currentPage, this.pageSize, this.searchTerm, this.showAllDiets && this.isSuperAdmin).subscribe({
       next: (result) => {
         this.diets = result.items || [];
@@ -61,19 +60,17 @@ export class DietsListComponent implements OnInit, OnDestroy {
         this.totalPages = Math.max(1, Math.ceil(this.totalCount / this.pageSize));
         this.filtered = this.diets;
         this.pagedDiets = this.diets;
-        this.loading = false;
-        this.cdr.detectChanges();
+        this.loading.set(false);
       },
       error: (err) => {
-        this.loading = false;
+        this.loading.set(false);
         this.diets = [];
         this.filtered = [];
         this.pagedDiets = [];
         this.totalCount = 0;
-        this.error = err?.status === 404
+        this.error.set(err?.status === 404
           ? 'El API de dietas no está disponible aún. Configure el backend.'
-          : 'Error al cargar las dietas.';
-        this.cdr.detectChanges();
+          : 'Error al cargar las dietas.');
       }
     });
   }

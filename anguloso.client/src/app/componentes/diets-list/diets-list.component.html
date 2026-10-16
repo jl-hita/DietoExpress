@@ -34,12 +34,12 @@
 
     <!-- Tabla de Dietas -->
     <div class="table-wrapper">
-      <div *ngIf="error" class="error-box">
+      <div *ngIf="error()" class="error-box">
         <mat-icon>error_outline</mat-icon>
-        <span>{{ error }}</span>
+        <span>{{ error() }}</span>
       </div>
 
-      <table class="styled-table" *ngIf="!loading && !error && pagedDiets.length > 0">
+      <table class="styled-table" *ngIf="!loading() && !error && pagedDiets.length > 0">
         <thead>
           <tr>
             <th>Nombre del Plan</th>
@@ -104,12 +104,12 @@
       </table>
 
       <!-- Estado de Carga -->
-      <div *ngIf="loading" class="loading-box">
+      <div *ngIf="loading()" class="loading()-box">
         <mat-progress-spinner mode="indeterminate" diameter="40"></mat-progress-spinner>
       </div>
 
       <!-- Estado Vacío -->
-      <div *ngIf="!loading && !error && pagedDiets.length === 0" class="empty-box">
+      <div *ngIf="!loading() && !error && pagedDiets.length === 0" class="empty-box">
         <mat-icon class="empty-icon">menu_book</mat-icon>
         <p class="empty-title">No hay dietas registradas</p>
         <p class="empty-sub">Crea una nueva dieta haciendo clic en "Nueva Dieta" para empezar.</p>
