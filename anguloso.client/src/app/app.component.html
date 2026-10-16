@@ -6,6 +6,30 @@
   </div>
 </div>
 
+<div class="http-diagnostics-tools">
+  <button type="button" class="http-diagnostics-toggle" (click)="httpDiagnosticsOpen = !httpDiagnosticsOpen">
+    Diagnóstico HTTP · {{ httpDiagnostics.length }}
+  </button>
+  <section *ngIf="httpDiagnosticsOpen" class="http-diagnostics-panel" aria-label="Diagnóstico HTTP">
+    <header class="http-diagnostics-header">
+      <strong>Diagnóstico HTTP / Angular</strong>
+      <div>
+        <button type="button" (click)="copyHttpDiagnostics()">Copiar</button>
+        <button type="button" (click)="clearHttpDiagnostics()">Limpiar</button>
+        <button type="button" (click)="httpDiagnosticsOpen = false">Cerrar</button>
+      </div>
+    </header>
+    <p class="http-diagnostics-help">Abre Estadísticas y reproduce el problema. Después pulsa Copiar y pega aquí el registro.</p>
+    <div class="http-diagnostics-list" aria-live="polite">
+      <div *ngFor="let entry of httpDiagnostics" class="http-diagnostics-entry" [class.error]="entry.level === 'error'">
+        <span class="http-diagnostics-time">{{ entry.time }}</span>
+        <code>{{ entry.message }}<ng-container *ngIf="entry.details"> {{ entry.details | json }}</ng-container></code>
+      </div>
+      <p *ngIf="httpDiagnostics.length === 0">Aún no hay eventos. Navega a la vista que falla.</p>
+    </div>
+  </section>
+</div>
+
 <!--<h1>{{ title }}</h1>-->
 <!--<app-menu></app-menu>-->
 <router-outlet></router-outlet>
