@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit, ChangeDetectionStrategy} from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy, signal} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogRef, MatDialogModule } from '@angular/material/dialog';
@@ -197,9 +197,17 @@ type KcalSource = 'default' | 'biometrics' | 'error';
 // El diálogo encapsula la generación de dietas y su estado asíncrono para evitar que el componente principal gestione directamente el proceso.
 export class DietGeneratorDialogComponent implements OnInit {
   form: FormGroup;
-  generating = false;
-  errorMessage = '';
-  kcalSource: KcalSource = 'default';
+  private readonly generatingState = signal(false);
+  get generating(): boolean { return this.generatingState(); }
+  set generating(value: boolean) { this.generatingState.set(value); }
+
+  private readonly errorMessageState = signal('');
+  get errorMessage(): string { return this.errorMessageState(); }
+  set errorMessage(value: string) { this.errorMessageState.set(value); }
+
+  private readonly kcalSourceState = signal<KcalSource>('default');
+  get kcalSource(): KcalSource { return this.kcalSourceState(); }
+  set kcalSource(value: KcalSource) { this.kcalSourceState.set(value); }
 
   constructor(
     private fb: FormBuilder,
