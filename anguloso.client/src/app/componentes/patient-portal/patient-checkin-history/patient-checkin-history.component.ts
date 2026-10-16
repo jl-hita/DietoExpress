@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, OnChanges, SimpleChanges, ChangeDetectionStrategy} from '@angular/core';
+import { Component, Input, OnInit, OnChanges, SimpleChanges, ChangeDetectionStrategy, signal} from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { PatientCheckin, PatientPortalService } from '../../../servicios/patient-portal.service';
@@ -13,7 +13,9 @@ import { PatientCheckin, PatientPortalService } from '../../../servicios/patient
 })
 export class PatientCheckinHistoryComponent implements OnInit, OnChanges {
   @Input() enabled = true;
-  checkinHistory: PatientCheckin[] = [];
+  private readonly checkinHistoryState = signal<PatientCheckin[]>([]);
+  get checkinHistory(): PatientCheckin[] { return this.checkinHistoryState(); }
+  set checkinHistory(value: PatientCheckin[]) { this.checkinHistoryState.set(value); }
 
   constructor(private portalService: PatientPortalService) {}
 
