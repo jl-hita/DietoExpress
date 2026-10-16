@@ -18,19 +18,46 @@ import { AuthService } from '../../servicios/auth.service';
 })
 // La lista coordina carga, filtros y acciones sobre dietas; los cambios de estado se reflejan después de confirmar la operación en el backend.
 export class DietsListComponent implements OnInit, OnDestroy {
-  diets: DietListItem[] = [];
+  private readonly dietsState = signal<DietListItem[]>([]);
+  get diets(): DietListItem[] { return this.dietsState(); }
+  set diets(value: DietListItem[]) { this.dietsState.set(value); }
+
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
 
-  searchTerm = '';
-  filtered: DietListItem[] = [];
-  pagedDiets: DietListItem[] = [];
+  private readonly searchTermState = signal('');
+  get searchTerm(): string { return this.searchTermState(); }
+  set searchTerm(value: string) { this.searchTermState.set(value); }
+
+  private readonly filteredState = signal<DietListItem[]>([]);
+  get filtered(): DietListItem[] { return this.filteredState(); }
+  set filtered(value: DietListItem[]) { this.filteredState.set(value); }
+
+  private readonly pagedDietsState = signal<DietListItem[]>([]);
+  get pagedDiets(): DietListItem[] { return this.pagedDietsState(); }
+  set pagedDiets(value: DietListItem[]) { this.pagedDietsState.set(value); }
+
   pageSize = 10;
-  currentPage = 1;
-  totalPages = 1;
-  totalCount = 0;
-  showAllDiets = false;
-  isSuperAdmin = false;
+
+  private readonly currentPageState = signal(1);
+  get currentPage(): number { return this.currentPageState(); }
+  set currentPage(value: number) { this.currentPageState.set(value); }
+
+  private readonly totalPagesState = signal(1);
+  get totalPages(): number { return this.totalPagesState(); }
+  set totalPages(value: number) { this.totalPagesState.set(value); }
+
+  private readonly totalCountState = signal(0);
+  get totalCount(): number { return this.totalCountState(); }
+  set totalCount(value: number) { this.totalCountState.set(value); }
+
+  private readonly showAllDietsState = signal(false);
+  get showAllDiets(): boolean { return this.showAllDietsState(); }
+  set showAllDiets(value: boolean) { this.showAllDietsState.set(value); }
+
+  private readonly isSuperAdminState = signal(false);
+  get isSuperAdmin(): boolean { return this.isSuperAdminState(); }
+  set isSuperAdmin(value: boolean) { this.isSuperAdminState.set(value); }
   private searchTimer?: ReturnType<typeof setTimeout>;
 
   constructor(
