@@ -648,17 +648,44 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
 })
 // Documentación: este componente coordina estado de interfaz y operaciones asíncronas que deben mantenerse alineadas con la API.
 export class AdminDashboardComponent implements OnInit {
-  alerts: AdminAlert[] = [];
+  // Los resultados HTTP se mantienen en signals internos y exponen getters/setters
+  // para conservar la API de propiedades usada por la plantilla y los métodos existentes.
+  private readonly alertsState = signal<AdminAlert[]>([]);
+  get alerts(): AdminAlert[] { return this.alertsState(); }
+  set alerts(value: AdminAlert[]) { this.alertsState.set(value); }
+
   resolvingAlertIds = new Set<number>();
-  stats?: AdminStats;
-  plans: AdminPlan[] = [];
-  users: AdminUser[] = [];
-  totalUsers = 0;
+
+  private readonly statsState = signal<AdminStats | undefined>(undefined);
+  get stats(): AdminStats | undefined { return this.statsState(); }
+  set stats(value: AdminStats | undefined) { this.statsState.set(value); }
+
+  private readonly plansState = signal<AdminPlan[]>([]);
+  get plans(): AdminPlan[] { return this.plansState(); }
+  set plans(value: AdminPlan[]) { this.plansState.set(value); }
+
+  private readonly usersState = signal<AdminUser[]>([]);
+  get users(): AdminUser[] { return this.usersState(); }
+  set users(value: AdminUser[]) { this.usersState.set(value); }
+
+  private readonly totalUsersState = signal(0);
+  get totalUsers(): number { return this.totalUsersState(); }
+  set totalUsers(value: number) { this.totalUsersState.set(value); }
+
   userPage = 1;
   userPageSize = 25;
-  configs: AdminConfig[] = [];
-  videoUsage?: AdminVideoUsage;
-  databaseBackups: AdminDatabaseBackup[] = [];
+
+  private readonly configsState = signal<AdminConfig[]>([]);
+  get configs(): AdminConfig[] { return this.configsState(); }
+  set configs(value: AdminConfig[]) { this.configsState.set(value); }
+
+  private readonly videoUsageState = signal<AdminVideoUsage | undefined>(undefined);
+  get videoUsage(): AdminVideoUsage | undefined { return this.videoUsageState(); }
+  set videoUsage(value: AdminVideoUsage | undefined) { this.videoUsageState.set(value); }
+
+  private readonly databaseBackupsState = signal<AdminDatabaseBackup[]>([]);
+  get databaseBackups(): AdminDatabaseBackup[] { return this.databaseBackupsState(); }
+  set databaseBackups(value: AdminDatabaseBackup[]) { this.databaseBackupsState.set(value); }
   private readonly driveDatabaseBackupsState = signal<AdminDriveBackup[]>([]);
   get driveDatabaseBackups(): AdminDriveBackup[] { return this.driveDatabaseBackupsState(); }
   set driveDatabaseBackups(value: AdminDriveBackup[]) { this.driveDatabaseBackupsState.set(value); }
