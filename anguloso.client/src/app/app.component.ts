@@ -1,12 +1,19 @@
 import { RouterOutlet } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
+import { Component, HostListener } from '@angular/core';
 
 interface MaintenanceNotice {
   active: boolean;
   title: string;
   message: string;
   startedAtUtc: string;
+}
+
+interface HttpDiagnosticEntry {
+  time: string;
+  level: 'info' | 'debug' | 'error';
+  message: string;
+  details?: Record<string, unknown>;
 }
 
 @Component({
@@ -19,27 +26,32 @@ interface MaintenanceNotice {
 // El componente raíz coordina el estado global mínimo de la aplicación; la lógica de negocio permanece en servicios y componentes especializados.
 export class AppComponent {
   title = 'anguloso.client';
-
-  // Polling de /api/maintenance desactivado para evitar peticiones periódicas desde todos los clientes.
-  // El endpoint y MaintenanceNoticeService se conservan: DatabaseBackupService los utiliza para activar
-  // un aviso persistente durante las restauraciones, cuando la aplicación/base de datos pueden estar
-  // temporalmente indisponibles. Si se quiere volver a mostrar el banner en vivo, se puede reactivar
-  // aquí el sondeo y asignar el resultado a maintenanceNotice.
-  //
-  // private maintenanceSubscription?: Subscription;
-  // constructor(private http: HttpClient) {}
-  // ngOnInit(): void {
-  //   this.maintenanceSubscription = timer(0, 30000).pipe(
-  //     switchMap(() => this.http.get<MaintenanceNotice>('/api/maintenance')),
-  //     catchError(() => of<MaintenanceNotice>({ active: false, title: '', message: '', startedAtUtc: '' }))
-  //   ).subscribe(notice => {
-  //     this.maintenanceNotice = notice.active ? notice : undefined;
-  //   });
-  // }
-  // ngOnDestroy(): void {
-  //   this.maintenanceSubscription?.unsubscribe();
-  // }
-
-  // La propiedad se conserva para que la plantilla del banner siga siendo compatible si se reactiva el polling.
   maintenanceNotice?: MaintenanceNotice;
+
+  httpDiagnosticsOpen = false;
+  httpDiagnostics: HttpDiagnosticEntry[] = [];
+  private readonly maxDiagnosticEntries = 250;
+
+  @HostListener('window:dieto-http-cd-log', ['$event'])
+  onHttpDiagnostic(event: Event): void {
+    const customEvent = event as CustomEvent<HttpDiagnosticEntry>;
+    if (!customEvent.detail) return;
+    this.httpDiagnostics = [...this.httpDiagnostics, customEvent.detail].slice(-this.maxDiagnosticEntries);
+  }
+
+  clearHttpDiagnostics(): void {
+    this.httpDiagnostics = [];
+  }
+
+  async copyHttpDiagnostics(): Promise<void> {
+    const text = this.httpDiagnostics.map(entry => {
+      const details = entry.details ? ` ${JSON.stringify(entry.details)}` : '';
+      return `[${entry.time}] ${entry.message}${details}`;
+    }).join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // La lista permanece visible para poder seleccionarla y copiarla manualmente.
+    }
+  }
 }
