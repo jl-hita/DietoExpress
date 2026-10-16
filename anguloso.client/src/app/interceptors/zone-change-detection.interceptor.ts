@@ -6,6 +6,13 @@ let diagnosticRequestId = 0;
 
 type DiagnosticLevel = 'info' | 'debug' | 'error';
 
+function describeError(error: unknown): Record<string, unknown> {
+  if (error instanceof Error) {
+    return { name: error.name, message: error.message, stack: error.stack };
+  }
+  return { value: String(error) };
+}
+
 /** Emits metadata only: never request/response bodies or query strings. */
 function diagnosticLog(level: DiagnosticLevel, message: string, details?: Record<string, unknown>): void {
   console[level](message, details ?? '');
@@ -36,6 +43,9 @@ export const zoneChangeDetectionInterceptor: HttpInterceptorFn = (request, next)
       inAngularZoneBefore: NgZone.isInAngularZone()
     });
 
+    let callbackFailed = false;
+    let callbackError: unknown;
+
     zone.run(() => {
       try {
         callback();
@@ -43,21 +53,29 @@ export const zoneChangeDetectionInterceptor: HttpInterceptorFn = (request, next)
           inAngularZone: NgZone.isInAngularZone()
         });
       } catch (error) {
-        diagnosticLog('error', `${label} downstream observer threw during ${kind}`);
-        throw error;
-      } finally {
-        try {
-          diagnosticLog('debug', `${label} change-detection tick begin`);
-          appRef.tick();
-          diagnosticLog('debug', `${label} change-detection tick end`, {
-            elapsedMs: Date.now() - startedAt
-          });
-        } catch (error) {
-          diagnosticLog('error', `${label} change-detection tick failed after ${kind}`);
-          throw error;
+        callbackFailed = true;
+        callbackError = error;
+        diagnosticLog('error', `${label} downstream observer threw during ${kind}`, describeError(error));
+      }
+
+      try {
+        diagnosticLog('debug', `${label} change-detection tick begin`);
+        appRef.tick();
+        diagnosticLog('debug', `${label} change-detection tick end`, {
+          elapsedMs: Date.now() - startedAt
+        });
+      } catch (error) {
+        diagnosticLog('error', `${label} change-detection tick failed after ${kind}`, describeError(error));
+        if (!callbackFailed) {
+          callbackFailed = true;
+          callbackError = error;
         }
       }
     });
+
+    if (callbackFailed) {
+      throw callbackError;
+    }
   };
 
   return new Observable<HttpEvent<unknown>>(observer => {
