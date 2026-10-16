@@ -39,8 +39,7 @@ export const zoneChangeDetectionInterceptor: HttpInterceptorFn = (request, next)
           console.debug(`${label} change-detection tick begin`);
           appRef.tick();
           console.debug(`${label} change-detection tick end`, {
-            elapsedMs: Date.now() - startedAt,
-            appStableObservable: 'ApplicationRef.isStable is an Observable'
+            elapsedMs: Date.now() - startedAt
           });
         } catch (error) {
           console.error(`${label} change-detection tick failed after ${kind}`, error);
