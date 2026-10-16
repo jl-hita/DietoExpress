@@ -51,7 +51,7 @@ public sealed class ErrorHandlingMiddleware
             problem.Extensions["correlationId"] = correlationId;
             problem.Extensions["reportable"] = true;
 
-            await context.Response.WriteAsJsonAsync(problem, contentType: "application/problem+json");
+            await context.Response.WriteAsJsonAsync(problem);
         }
     }
 }
