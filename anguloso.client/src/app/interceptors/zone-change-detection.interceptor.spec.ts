@@ -10,6 +10,8 @@ describe('zoneChangeDetectionInterceptor', () => {
   let zone: NgZone;
 
   beforeEach(() => {
+    spyOn(console, 'info');
+    spyOn(console, 'debug');
     TestBed.configureTestingModule({
       providers: [
         provideHttpClient(withInterceptors([zoneChangeDetectionInterceptor])),
@@ -40,6 +42,7 @@ describe('zoneChangeDetectionInterceptor', () => {
   });
 
   it('delivers HTTP errors inside Angular zone', () => {
+    spyOn(console, 'error');
     let errorInAngularZone = false;
 
     http.get('/api/zone-check').subscribe({
