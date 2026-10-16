@@ -155,4 +155,19 @@ public sealed class AutomationExternalEffectsRegressionTests
         Assert.Contains("details.Extensions[\"code\"] = \"STRIPE_PROVIDER_ERROR\"", clinic);
         Assert.Contains("details.Extensions[\"reportable\"] = true", clinic);
     }
+
+    [Fact]
+    public void AddressAndVideoProviderOutagesAreExplicitlyReportable()
+    {
+        var address = ReadServerSource("Anguloso.Server/Controllers/AddressAutocompleteController.cs");
+        var appointments = ReadServerSource("Anguloso.Server/Controllers/AppointmentsController.cs");
+        var consultation = ReadServerSource("Anguloso.Server/Controllers/ProfessionalConsultationActionsController.cs");
+
+        Assert.Contains("ADDRESS_PROVIDER_UNAVAILABLE", address);
+        Assert.Contains("VIDEO_PROVIDER_UNAVAILABLE", appointments);
+        Assert.Contains("VIDEO_PROVIDER_UNAVAILABLE", consultation);
+        Assert.Contains("reportable = true", address);
+        Assert.Contains("reportable = true", appointments);
+        Assert.Contains("reportable = true", consultation);
+    }
 }
