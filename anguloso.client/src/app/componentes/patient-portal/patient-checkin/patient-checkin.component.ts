@@ -16,20 +16,61 @@ import { PatientCheckin, PatientCheckinRequest, PatientPortalService } from '../
 export class PatientCheckinComponent implements OnInit, OnChanges {
   @Input() enabled = true;
 
-  currentCheckin: PatientCheckin | null = null;
-  checkinLoading = false;
-  checkinSaving = false;
-  checkinError: string | null = null;
-  checkinSuccess = false;
-  checkinWeight: number | null = null;
-  checkinAdherence: number | null = null;
-  checkinHunger: number | null = null;
-  checkinEnergy: number | null = null;
-  checkinSleepQuality: number | null = null;
-  checkinSleepHours: number | null = null;
-  checkinTraining: number | null = null;
-  checkinDifficulties = '';
-  checkinNotes = '';
+  private readonly currentCheckinState = signal<PatientCheckin | null>(null);
+  get currentCheckin(): PatientCheckin | null { return this.currentCheckinState(); }
+  set currentCheckin(value: PatientCheckin | null) { this.currentCheckinState.set(value); }
+
+  private readonly checkinLoadingState = signal(false);
+  get checkinLoading(): boolean { return this.checkinLoadingState(); }
+  set checkinLoading(value: boolean) { this.checkinLoadingState.set(value); }
+
+  private readonly checkinSavingState = signal(false);
+  get checkinSaving(): boolean { return this.checkinSavingState(); }
+  set checkinSaving(value: boolean) { this.checkinSavingState.set(value); }
+
+  private readonly checkinErrorState = signal<string | null>(null);
+  get checkinError(): string | null { return this.checkinErrorState(); }
+  set checkinError(value: string | null) { this.checkinErrorState.set(value); }
+
+  private readonly checkinSuccessState = signal(false);
+  get checkinSuccess(): boolean { return this.checkinSuccessState(); }
+  set checkinSuccess(value: boolean) { this.checkinSuccessState.set(value); }
+
+  private readonly checkinWeightState = signal<number | null>(null);
+  get checkinWeight(): number | null { return this.checkinWeightState(); }
+  set checkinWeight(value: number | null) { this.checkinWeightState.set(value); }
+
+  private readonly checkinAdherenceState = signal<number | null>(null);
+  get checkinAdherence(): number | null { return this.checkinAdherenceState(); }
+  set checkinAdherence(value: number | null) { this.checkinAdherenceState.set(value); }
+
+  private readonly checkinHungerState = signal<number | null>(null);
+  get checkinHunger(): number | null { return this.checkinHungerState(); }
+  set checkinHunger(value: number | null) { this.checkinHungerState.set(value); }
+
+  private readonly checkinEnergyState = signal<number | null>(null);
+  get checkinEnergy(): number | null { return this.checkinEnergyState(); }
+  set checkinEnergy(value: number | null) { this.checkinEnergyState.set(value); }
+
+  private readonly checkinSleepQualityState = signal<number | null>(null);
+  get checkinSleepQuality(): number | null { return this.checkinSleepQualityState(); }
+  set checkinSleepQuality(value: number | null) { this.checkinSleepQualityState.set(value); }
+
+  private readonly checkinSleepHoursState = signal<number | null>(null);
+  get checkinSleepHours(): number | null { return this.checkinSleepHoursState(); }
+  set checkinSleepHours(value: number | null) { this.checkinSleepHoursState.set(value); }
+
+  private readonly checkinTrainingState = signal<number | null>(null);
+  get checkinTraining(): number | null { return this.checkinTrainingState(); }
+  set checkinTraining(value: number | null) { this.checkinTrainingState.set(value); }
+
+  private readonly checkinDifficultiesState = signal('');
+  get checkinDifficulties(): string { return this.checkinDifficultiesState(); }
+  set checkinDifficulties(value: string) { this.checkinDifficultiesState.set(value); }
+
+  private readonly checkinNotesState = signal('');
+  get checkinNotes(): string { return this.checkinNotesState(); }
+  set checkinNotes(value: string) { this.checkinNotesState.set(value); }
 
   constructor(private portalService: PatientPortalService) {}
 
