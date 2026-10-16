@@ -1,5 +1,5 @@
 import { CommonModule, DatePipe } from '@angular/common';
-import { Component, OnInit, OnDestroy, ChangeDetectionStrategy} from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, signal} from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
@@ -23,12 +23,20 @@ interface BroadcastInboxItem { id: number; title: string; body: string; audience
 })
 // El componente coordina la carga y actualización de conversaciones sin asumir autorización propia; el backend determina qué mensajes puede consultar el usuario.
 export class MessagesComponent implements OnInit, OnDestroy {
-  conversations: Conversation[] = [];
-  broadcastInbox: BroadcastInboxItem[] = [];
+  private readonly conversationsState = signal<Conversation[]>([]);
+  get conversations(): Conversation[] { return this.conversationsState(); }
+  set conversations(value: Conversation[]) { this.conversationsState.set(value); }
+  private readonly broadcastInboxState = signal<BroadcastInboxItem[]>([]);
+  get broadcastInbox(): BroadcastInboxItem[] { return this.broadcastInboxState(); }
+  set broadcastInbox(value: BroadcastInboxItem[]) { this.broadcastInboxState.set(value); }
   selectedClientId: number | null = null;
   selectedBroadcastId: number | null = null;
-  loading = true;
-  error: string | null = null;
+  private readonly loadingState = signal(true);
+  get loading(): boolean { return this.loadingState(); }
+  set loading(value: boolean) { this.loadingState.set(value); }
+  private readonly errorState = signal<string | null>(null);
+  get error(): string | null { return this.errorState(); }
+  set error(value: string | null) { this.errorState.set(value); }
   private refreshSubscription?: Subscription;
   private broadcastRefreshSubscription?: Subscription;
 
