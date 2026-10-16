@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, ChangeDetectionStrategy} from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, signal} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatButtonModule } from '@angular/material/button';
@@ -34,10 +34,19 @@ interface DocumentTemplate {
   imports: [CommonModule, FormsModule, MatButtonModule, MatCardModule, MatCheckboxModule, MatIconModule, MatInputModule, MatSelectModule, MatProgressSpinnerModule]
 })
 export class DocumentTemplatesComponent implements OnInit {
-  templates: DocumentTemplate[] = [];
-  loading = true;
+  private readonly templatesState = signal<DocumentTemplate[]>([]);
+  get templates(): DocumentTemplate[] { return this.templatesState(); }
+  set templates(value: DocumentTemplate[]) { this.templatesState.set(value); }
+
+  private readonly loadingState = signal(true);
+  get loading(): boolean { return this.loadingState(); }
+  set loading(value: boolean) { this.loadingState.set(value); }
+
   saving = false;
-  error = '';
+
+  private readonly errorState = signal('');
+  get error(): string { return this.errorState(); }
+  set error(value: string) { this.errorState.set(value); }
   isSuperAdmin = false;
   selectedFile: File | null = null;
   form = { name: '', description: '', documentType: 'consent', requiredOnClientCreation: false, requiredBeforeConsultation: false, requiresSignature: true };
