@@ -1,5 +1,9 @@
 using Anguloso.Server.Middleware;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Abstractions;
+using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -104,6 +108,28 @@ public sealed class SupportRegressionTests
         Assert.Contains("\"code\":\"INTERNAL_ERROR\"", responseBody);
         Assert.Contains("\"correlationId\":", responseBody);
         Assert.DoesNotContain("secret database details", responseBody);
+    }
+
+    [Fact]
+    public async Task ApiServerErrorFilter_NormalizesExplicitServerErrors()
+    {
+        var httpContext = new DefaultHttpContext();
+        httpContext.Request.Path = "/api/test";
+        var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
+        IList<IFilterMetadata> filters = new List<IFilterMetadata>();
+        var context = new ResultExecutingContext(actionContext, filters, new StatusCodeResult(503), new object());
+        var filter = new ApiServerErrorResultFilter(NullLogger<ApiServerErrorResultFilter>.Instance);
+
+        await filter.OnResultExecutionAsync(context, () =>
+            Task.FromResult(new ResultExecutedContext(actionContext, filters, context.Result, new object())));
+
+        var normalized = Assert.IsType<ObjectResult>(context.Result);
+        Assert.Equal(503, normalized.StatusCode);
+        var problem = Assert.IsType<ProblemDetails>(normalized.Value);
+        Assert.Equal("SERVICE_UNAVAILABLE", problem.Extensions["code"]);
+        Assert.Equal(context.HttpContext.TraceIdentifier, problem.Extensions["correlationId"]);
+        Assert.Equal(context.HttpContext.TraceIdentifier, context.HttpContext.Response.Headers["X-Correlation-ID"].ToString());
+        Assert.Equal(true, problem.Extensions["reportable"]);
     }
 
     [Fact]
