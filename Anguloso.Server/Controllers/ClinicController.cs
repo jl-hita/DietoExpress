@@ -75,6 +75,21 @@ public class ClinicController : ControllerBase
         return result;
     }
 
+
+    private ObjectResult EmailProviderProblem()
+    {
+        var result = Problem(
+            detail: "No se ha podido enviar la invitación por email. La cuenta no se ha creado. Inténtalo de nuevo más tarde.",
+            statusCode: StatusCodes.Status502BadGateway,
+            title: "No se pudo enviar la invitación por email");
+        if (result.Value is ProblemDetails details)
+        {
+            details.Extensions["code"] = "EMAIL_PROVIDER_ERROR";
+            details.Extensions["reportable"] = true;
+        }
+        return result;
+    }
+
     [HttpGet("dashboard")]
     [Authorize(Roles="clinic_admin")]
     // El dashboard agrega información del tenant autenticado para que las métricas nunca dependan de un tenant enviado por el cliente.
@@ -281,7 +296,7 @@ public class ClinicController : ControllerBase
                    <p>El enlace caduca en 24 horas y solo puede utilizarse una vez.</p>");
 
             if (!emailResult.Exito)
-                return StatusCode(StatusCodes.Status502BadGateway, new { message = "No se pudo enviar la invitación por email. La cuenta no se ha creado.", detail = emailResult.Mensaje });
+                return EmailProviderProblem();
 
             await transaction.CommitAsync();
 

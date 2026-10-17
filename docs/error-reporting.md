@@ -32,6 +32,11 @@ La consulta de productos por código de barras convierte fallos de transporte, t
 La búsqueda combina el catálogo local con OpenFoodFacts y, cuando corresponde, USDA. Los errores de transporte, timeout o JSON inválido de proveedores externos se propagan al controlador y se convierten en HTTP 502 con `FOOD_PROVIDER_ERROR` y `reportable=true`; no se presentan como una búsqueda válida sin resultados. Los fallos no relacionados con proveedores conservan el manejo existente.
 
 
+## Correo transaccional
+
+Los fallos al enviar invitaciones de nutricionistas de clínica y enlaces de acceso al portal de pacientes devuelven HTTP 502 con `code=EMAIL_PROVIDER_ERROR` y `reportable=true`. La respuesta pública contiene un mensaje genérico y no expone el detalle del proveedor de correo; el detalle técnico queda en los registros internos.
+
 ## Generación de dietas
 
 Los fallos inesperados al generar una dieta devuelven HTTP 500 con `code=DIET_GENERATION_ERROR` y `reportable=true`. La respuesta incluye una referencia de soporte, pero no el mensaje ni el stack trace de la excepción. Los errores esperados de validación siguen siendo respuestas de dominio y no se convierten automáticamente en tickets.
+
