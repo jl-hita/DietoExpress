@@ -45,3 +45,8 @@ Los fallos inesperados al generar una dieta devuelven HTTP 500 con `code=DIET_GE
 ## Zonas horarias de usuario
 
 Cada cuenta profesional puede guardar una zona horaria IANA desde Ajustes → Preferencias. La preferencia se almacena en `users.time_zone_id` y se valida en el servidor; la zona del servidor nunca determina la zona del usuario. Si aún no se ha elegido una, se usa la zona del navegador como valor inicial. Los tickets mantienen siempre la fecha UTC para buscar logs y añaden hora local, offset de esa fecha e identificador IANA, incluidos los cambios estacionales.
+
+
+## Zona horaria de la agenda
+
+La disponibilidad semanal del profesional se interpreta en la zona horaria guardada en su perfil. Las citas se almacenan y comparan en UTC; la disponibilidad pública y la reserva validan el horario local usando la zona del profesional, no la del servidor ni una zona fija de Madrid. Si el perfil no tiene una zona válida, se conserva Madrid como valor de compatibilidad.

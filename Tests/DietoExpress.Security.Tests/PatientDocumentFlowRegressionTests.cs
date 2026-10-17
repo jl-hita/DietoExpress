@@ -47,7 +47,8 @@ public sealed class PatientDocumentFlowRegressionTests
         Assert.Contains("pa.starts_at >= @from AND pa.starts_at < @to", source);
         Assert.Contains("pa.status IN ('requested','confirmed')", source);
         Assert.Contains("pa.nutritionist_id=@user", source);
-        Assert.Contains("GetMadridTimeZone()", source);
+        Assert.Contains("GetTimeZoneOrMadrid(professionalTimeZoneId)", source);
+        Assert.Contains("TimeZoneId = a.nutritionist.time_zone_id", source);
     }
 
     [Fact]

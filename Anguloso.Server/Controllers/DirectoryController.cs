@@ -217,7 +217,7 @@ public class DirectoryController : ControllerBase
             .Where(u => u.archived_at == null &&
                         u.directory_enabled == true &&
                         u.directory_slug == normalized)
-            .Select(u => new { u.id, u.tenant_id, u.full_name, u.online_consultations })
+            .Select(u => new { u.id, u.tenant_id, u.full_name, u.online_consultations, u.time_zone_id })
             .FirstOrDefaultAsync();
 
         if (professional == null || !professional.tenant_id.HasValue)
@@ -236,7 +236,7 @@ public class DirectoryController : ControllerBase
         await using var transaction = await _context.Database.BeginTransactionAsync();
         await _appointmentConcurrency.LockAsync(professional.tenant_id.Value, professional.id);
 
-        var local = TimeZoneInfo.ConvertTimeFromUtc(startsUtc, GetMadridTimeZone());
+        var local = TimeZoneInfo.ConvertTimeFromUtc(startsUtc, GetTimeZoneOrMadrid(professional.time_zone_id));
         var day = (int)local.DayOfWeek;
         var time = TimeOnly.FromDateTime(local);
         var validRule = await _context.nutritionist_availability.AsNoTracking()
@@ -468,7 +468,7 @@ public class DirectoryController : ControllerBase
             .Where(u => u.archived_at == null &&
                         u.directory_enabled == true &&
                         u.directory_slug == normalized)
-            .Select(u => new { u.id, u.tenant_id, u.full_name })
+            .Select(u => new { u.id, u.tenant_id, u.full_name, u.time_zone_id })
             .FirstOrDefaultAsync();
 
         if (professional == null || !professional.tenant_id.HasValue)
@@ -491,7 +491,7 @@ public class DirectoryController : ControllerBase
             .Select(a => new { a.starts_at, a.ends_at })
             .ToListAsync();
 
-        var localZone = GetMadridTimeZone();
+        var localZone = GetTimeZoneOrMadrid(professional.time_zone_id);
         var localStart = TimeZoneInfo.ConvertTimeFromUtc(from, localZone).Date;
         var slots = new List<AppointmentSlotDto>();
 
@@ -642,6 +642,17 @@ public class DirectoryController : ControllerBase
         if (profile.AverageRating >= 4.5) score += 20;
         else if (profile.AverageRating >= 4.0) score += 10;
         return score;
+    }
+
+    private static TimeZoneInfo GetTimeZoneOrMadrid(string? timeZoneId)
+    {
+        if (!string.IsNullOrWhiteSpace(timeZoneId))
+        {
+            try { return TimeZoneInfo.FindSystemTimeZoneById(timeZoneId); }
+            catch (TimeZoneNotFoundException) { }
+            catch (InvalidTimeZoneException) { }
+        }
+        return GetMadridTimeZone();
     }
 
     private static TimeZoneInfo GetMadridTimeZone()

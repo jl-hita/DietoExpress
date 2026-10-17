@@ -56,10 +56,14 @@ public class AppointmentsController : ControllerBase
         var assignment = await _context.client_nutritionist_assignments.AsNoTracking()
             .Where(a => a.client_id == client.id && a.is_active && a.nutritionist.tenant_id == client.tenant_id)
             .OrderByDescending(a => a.assigned_at)
-            .Select(a => new { a.nutritionist_id, NutritionistName = a.nutritionist.full_name, OnlineConsultationsAvailable = a.nutritionist.online_consultations == true })
+            .Select(a => new { a.nutritionist_id, NutritionistName = a.nutritionist.full_name, TimeZoneId = a.nutritionist.time_zone_id, OnlineConsultationsAvailable = a.nutritionist.online_consultations == true })
             .FirstOrDefaultAsync();
         var nutritionistId = assignment?.nutritionist_id ?? client.user_id;
         if (nutritionistId == null) return Ok(Array.Empty<AppointmentSlotDto>());
+        var professionalTimeZoneId = assignment?.TimeZoneId ?? await _context.users.AsNoTracking()
+            .Where(u => u.id == nutritionistId.Value && u.tenant_id == client.tenant_id)
+            .Select(u => u.time_zone_id)
+            .FirstOrDefaultAsync();
         var onlineConsultationsAvailable = assignment?.OnlineConsultationsAvailable ?? await _context.users.AsNoTracking().AnyAsync(u => u.id == nutritionistId.Value && u.tenant_id == client.tenant_id && u.online_consultations == true);
 
         // La disponibilidad se almacena en hora local; los huecos se generan en esa zona
@@ -78,7 +82,7 @@ public class AppointmentsController : ControllerBase
             .ToListAsync();
 
         var slots = new List<AppointmentSlotDto>();
-        var localZone = GetMadridTimeZone();
+        var localZone = GetTimeZoneOrMadrid(professionalTimeZoneId);
         var localStart = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, localZone).Date;
 
         for (var day = localStart; day <= localStart.AddDays(days); day = day.AddDays(1))
@@ -924,6 +928,17 @@ public class AppointmentsController : ControllerBase
         NutritionistId = a.nutritionist_id, NutritionistName = a.nutritionist != null ? a.nutritionist.full_name : "Nutricionista",
         Modality = a.modality, VideoProvider = a.video_provider, VideoRoomUrl = a.video_room_url, VideoExpiresAt = a.video_expires_at
     };
+
+    private static TimeZoneInfo GetTimeZoneOrMadrid(string? timeZoneId)
+    {
+        if (!string.IsNullOrWhiteSpace(timeZoneId))
+        {
+            try { return TimeZoneInfo.FindSystemTimeZoneById(timeZoneId); }
+            catch (TimeZoneNotFoundException) { }
+            catch (InvalidTimeZoneException) { }
+        }
+        return GetMadridTimeZone();
+    }
 
     private static TimeZoneInfo GetMadridTimeZone()
     {
