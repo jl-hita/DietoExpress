@@ -32,8 +32,8 @@ describe('ErrorReportingService', () => {
     });
     expect(service.currentError()?.path).not.toContain('?');
     expect(service.currentError()?.path).not.toContain('42');
-    expect(service.currentError()?.occurredAt).toMatch(/^\\d{4}-\\d{2}-\\d{2}T.*Z$/);
-    expect(service.currentError()?.occurredAtLocal).toMatch(/^[^ ]+[+-]\\d{2}:\\d{2}( \\(.+\\))?$/);
+    expect(service.currentError()?.occurredAt).toMatch(/^\d{4}-\d{2}-\d{2}T.*Z$/);
+    expect(service.currentError()?.occurredAtLocal).toMatch(/^[^ ]+[+-]\d{2}:\d{2}( \\(.+\\))?$/);
   });
 
   it('does not capture ordinary 4xx errors or support endpoint failures', () => {
@@ -56,7 +56,7 @@ describe('ErrorReportingService', () => {
   it('rejects malformed correlation IDs', () => {
     service.captureHttpError(new HttpErrorResponse({
       status: 500,
-      headers: new HttpHeaders({ 'X-Correlation-ID': 'trace\\nprivate' }),
+      headers: new HttpHeaders({ 'X-Correlation-ID': 'trace\nprivate' }),
       error: { correlationId: 'safe-fallback' }
     }), '/api/clients');
 
