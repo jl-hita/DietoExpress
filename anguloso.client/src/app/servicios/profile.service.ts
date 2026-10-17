@@ -4,6 +4,7 @@ import { Observable, BehaviorSubject } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { environment } from '../../environments/environments';
 import { Profile, UpdateProfile } from '../modelos/profile';
+import { TimeZonePreferenceService } from './time-zone-preference.service';
 
 @Injectable({ providedIn: 'root' })
 // Mantiene el perfil en memoria para que distintas vistas compartan el mismo estado sin repetir consultas al backend.
@@ -12,11 +13,11 @@ export class ProfileService {
   private profileSubject = new BehaviorSubject<Profile | null>(null);
   readonly profile$ = this.profileSubject.asObservable();
 
-  constructor(private http: HttpClient) { }
+  constructor(private http: HttpClient, private timeZones: TimeZonePreferenceService) { }
 
   getProfile(): Observable<Profile> {
     return this.http.get<Profile>(`${this.base}/profile`).pipe(
-      tap(profile => this.profileSubject.next(profile))
+      tap(profile => { this.profileSubject.next(profile); this.timeZones.setTimeZoneId(profile.timeZoneId); })
     );
   }
 
