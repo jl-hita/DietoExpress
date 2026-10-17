@@ -344,17 +344,19 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * El portal usa localStorage únicamente para el estado funcional de comidas completadas.
-   * Se limpia al cerrar sesión para evitar que un dispositivo compartido conserve datos
-   * funcionales asociados al paciente.
+   * Limpia los estados funcionales del paciente guardados en localStorage
+   * (comidas completadas y checks de la lista de la compra) al cerrar sesión,
+   * para evitar que persistan en un dispositivo compartido.
    */
   private clearLocalPatientState(clientId?: number): void {
     if (!clientId) return;
-    const prefix = `completed_meals_${clientId}_`;
+    const completedMealsPrefix = `completed_meals_${clientId}_`;
+    const shoppingChecksKey = `shopping_${clientId}`;
     try {
+      localStorage.removeItem(shoppingChecksKey);
       for (let index = localStorage.length - 1; index >= 0; index--) {
         const key = localStorage.key(index);
-        if (key?.startsWith(prefix)) localStorage.removeItem(key);
+        if (key?.startsWith(completedMealsPrefix)) localStorage.removeItem(key);
       }
     } catch {
       // El portal sigue funcionando aunque el navegador no permita modificar localStorage.

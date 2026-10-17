@@ -22,7 +22,7 @@ No se utilizan cookies propias de publicidad ni de analítica de terceros en el 
 
 ## 3. Tecnologías similares
 
-El portal utiliza almacenamiento local para recordar las comidas completadas por el paciente. Es una función del propio portal, asociada al dispositivo/navegador, y no se utiliza para publicidad.
+El portal utiliza `localStorage` para recordar las comidas completadas del día (`completed_meals_<clientId>_<date>`) y las casillas marcadas de la lista de la compra (`shopping_<clientId>`). Son estados funcionales del portal, no tecnologías publicitarias; se eliminan al cerrar sesión del paciente.
 
 La analítica pública del embudo se registra server-side y no utiliza cookies ni almacenamiento del navegador para su deduplicación.
 

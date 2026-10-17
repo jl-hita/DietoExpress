@@ -54,6 +54,23 @@ public class CookieTechnologyInventoryRegressionTests
     }
 
     [Fact]
+    public void PatientPortalLogout_ClearsKnownFunctionalStorage()
+    {
+        var portal = File.ReadAllText(Path.Combine(
+            RepoRoot,
+            "anguloso.client",
+            "src",
+            "app",
+            "componentes",
+            "patient-portal",
+            "patient-portal.component.ts"));
+
+        Assert.Contains("const completedMealsPrefix = `completed_meals_${clientId}_`;", portal);
+        Assert.Contains("const shoppingChecksKey = `shopping_${clientId}`;", portal);
+        Assert.Contains("localStorage.removeItem(shoppingChecksKey)", portal);
+    }
+
+    [Fact]
     public void ClientInventory_DocumentsOnlyKnownBrowserStorage()
     {
         var inventory = File.ReadAllText(Path.Combine(
@@ -64,7 +81,7 @@ public class CookieTechnologyInventoryRegressionTests
 
         Assert.Contains("dietoexpress_professional_session", inventory);
         Assert.Contains("dietoexpress_patient_session", inventory);
-        Assert.Contains("completed_meals_<clientId>_<date>", inventory);
+        Assert.Contains("completed_meals_<clientId>_<date>", inventory);\n        Assert.Contains("shopping_<clientId>", inventory);
         Assert.Contains("Google Identity Services", inventory);
         Assert.DoesNotContain("[IDENTIFICAR]", inventory, StringComparison.OrdinalIgnoreCase);
     }

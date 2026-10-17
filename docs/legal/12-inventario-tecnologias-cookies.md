@@ -15,10 +15,10 @@ Ambas cookies se emiten con `HttpOnly`, `Secure`, `SameSite=Strict` y `Path=/`. 
 
 | Tecnología | Clave/patrón | Finalidad | Alcance | Necesidad |
 |---|---|---|---|---|
-| localStorage | `completed_meals_<clientId>_<date>` | Recordar comidas completadas en el portal | Navegador/dispositivo | Funcional |
-| sessionStorage | — | Ya no se utiliza para analítica pública | — | — |
+| localStorage | `completed_meals_<clientId>_<date>` | Recordar comidas completadas del día | Navegador/dispositivo | Funcional |
+| localStorage | `shopping_<clientId>` | Recordar las casillas marcadas de la lista de la compra | Navegador/dispositivo | Funcional |\n| sessionStorage | — | Ya no se utiliza para analítica pública | — | — |
 
-El estado de comidas es funcional y no contiene una cookie. Al cerrar sesión del paciente se eliminan las claves locales de comidas asociadas a ese paciente para evitar que queden datos funcionales en un dispositivo compartido.
+Ambas entradas son estados funcionales, no cookies, y no se usan para publicidad. Al cerrar sesión se eliminan las claves `completed_meals_<clientId>_...` y `shopping_<clientId>` asociadas al paciente, para evitar que queden estados funcionales en un dispositivo compartido.
 
 ## 3. Analítica pública
 
@@ -49,7 +49,7 @@ Con el código auditado:
 - No hay un SDK de analítica publicitaria/tercera cargado en el cliente.
 - Las fuentes Outfit y los iconos Material se sirven localmente; Google Identity Services se carga de forma diferida en login y creación de cuenta, no en la página pública inicial.
 - Se ha eliminado el uso de `sessionStorage` para deduplicar analítica pública, evitando convertir esa deduplicación en una tecnología de almacenamiento del navegador.
-- El almacenamiento local restante es funcional para el portal de paciente y se limpia al cerrar sesión.
+- El almacenamiento local restante es funcional para el portal de paciente: comidas completadas y casillas de la lista de la compra. Ambos se limpian al cerrar sesión.
 
 En una prueba manual de producción en incógnito limpio, la landing no tenía `g_state`; la cookie apareció al abrir el login, antes de pulsar el botón de Google. La documentación oficial de Google identifica `g_state` como una cookie de Google Identity Services para conservar el estado de cierre de sesión y la asocia a One Tap o inicio de sesión automático. El código actual solo inicializa GIS y renderiza el botón; no se encontró una llamada explícita a `google.accounts.id.prompt()`, `disableAutoSelect()` ni configuración de inicio automático. El resultado acota el disparador a la carga/inicialización asociada al login, pero no identifica la operación exacta. La necesidad/consentimiento siguen pendientes.
 
