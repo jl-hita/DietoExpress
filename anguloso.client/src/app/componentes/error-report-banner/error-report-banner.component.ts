@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { AuthService } from '../../servicios/auth.service';
 import { SupportService } from '../../servicios/support.service';
 import { ErrorReportingService, ReportableApplicationError } from '../../servicios/error-reporting.service';
 
@@ -9,7 +10,7 @@ import { ErrorReportingService, ReportableApplicationError } from '../../servici
   standalone: true,
   imports: [CommonModule],
   template: `
-    <section *ngIf="errors.currentError() as error" class="error-report" role="alert" aria-live="assertive">
+    <section *ngIf="!auth.isSuperAdmin() && errors.currentError() as error" class="error-report" role="alert" aria-live="assertive">
       <div class="error-report-copy">
         <strong>{{ error.message }}</strong>
         <span>Referencia {{ error.id }} · {{ error.status ? 'HTTP ' + error.status : 'Error del cliente' }}</span>
@@ -36,12 +37,13 @@ import { ErrorReportingService, ReportableApplicationError } from '../../servici
 })
 export class ErrorReportBannerComponent {
   readonly errors = inject(ErrorReportingService);
+  readonly auth = inject(AuthService);
   private readonly support = inject(SupportService);
   readonly sending = signal(false);
   readonly failure = signal('');
 
   createTicket(error: ReportableApplicationError): void {
-    if (this.sending()) return;
+    if (this.auth.isSuperAdmin() || this.sending()) return;
     this.sending.set(true);
     this.failure.set('');
     const body = [
