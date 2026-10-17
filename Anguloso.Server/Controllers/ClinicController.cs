@@ -96,6 +96,7 @@ public class ClinicController : ControllerBase
     public async Task<IActionResult> Dashboard()
     {
         var tenantId=AuthHelpers.GetTenantId(User); if(!tenantId.HasValue) return BadRequest("El usuario no pertenece a una clínica.");
+        var userId = AuthHelpers.GetUserId(User);
         if(!await _license.CanUseFeatureAsync(tenantId,"CLINIC_DASHBOARD")) return Forbid();
         var license=await _license.GetLicenseAsync(tenantId); var users=await _context.users.AsNoTracking().Where(u=>u.tenant_id==tenantId && u.archived_at==null && u.role=="nutritionist").OrderBy(u=>u.id).Take(500).Select(u=>new { u.id,u.full_name,u.username,u.email,u.role,u.last_login,clientCount=_context.clients.Count(c=>c.tenant_id==tenantId&&c.archived_at==null&&c.user_id==u.id)}).ToListAsync();
         var clients=await _context.clients.AsNoTracking().Where(c=>c.tenant_id==tenantId&&c.archived_at==null).OrderBy(c=>c.full_name).Take(1000).Select(c=>new {c.id,c.full_name,c.email,c.phone,nutritionistId=c.user_id,nutritionistName=_context.users.Where(u=>u.id==c.user_id && u.tenant_id==tenantId).Select(u=>u.full_name).FirstOrDefault()}).ToListAsync();
@@ -104,9 +105,9 @@ public class ClinicController : ControllerBase
         // Indicadores operativos compartidos conceptualmente con el dashboard profesional:
         // siempre se calculan dentro del tenant y con la misma fuente de datos de citas,
         // mensajes y documentación, pero agregados para toda la clínica.
-        var madrid = GetMadridTimeZone();
-        var localToday = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, madrid).Date;
-        var todayStart = TimeZoneInfo.ConvertTimeToUtc(localToday, madrid);
+        var clinicTimeZone = userId.HasValue ? await UserTimeZoneResolver.ForUserAsync(_context, userId.Value) : UserTimeZoneResolver.Resolve(null);
+        var localToday = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, clinicTimeZone).Date;
+        var todayStart = TimeZoneInfo.ConvertTimeToUtc(localToday, clinicTimeZone);
         var tomorrowStart = todayStart.AddDays(1);
 
         // Estas tablas son módulos SQL adicionales y no forman parte del modelo EF generado.
@@ -310,8 +311,6 @@ public class ClinicController : ControllerBase
         }
     }
 
-    private static TimeZoneInfo GetMadridTimeZone() =>
-        TimeZoneInfo.FindSystemTimeZoneById(OperatingSystem.IsWindows() ? "Romance Standard Time" : "Europe/Madrid");
 
     private static string HashSecurityToken(string token) =>
         Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(token)));

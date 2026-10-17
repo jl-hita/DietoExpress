@@ -78,7 +78,7 @@ public class AppointmentsController : ControllerBase
             .ToListAsync();
 
         var slots = new List<AppointmentSlotDto>();
-        var localZone = GetMadridTimeZone();
+        var localZone = await UserTimeZoneResolver.ForUserAsync(_context, nutritionistId.Value);
         var localStart = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, localZone).Date;
 
         for (var day = localStart; day <= localStart.AddDays(days); day = day.AddDays(1))
@@ -256,7 +256,8 @@ public class AppointmentsController : ControllerBase
             }
         }
 
-        var localStart = TimeZoneInfo.ConvertTimeFromUtc(appointment.starts_at, GetMadridTimeZone());
+        var appointmentZone = await UserTimeZoneResolver.ForUserAsync(_context, appointment.nutritionist_id);
+        var localStart = TimeZoneInfo.ConvertTimeFromUtc(appointment.starts_at, appointmentZone);
         var dateText = localStart.ToString("dddd, d 'de' MMMM 'a las' HH:mm", new System.Globalization.CultureInfo("es-ES"));
         await _notifications.CreateForPatientAsync(
             appointment.tenant_id,
@@ -585,7 +586,8 @@ public class AppointmentsController : ControllerBase
         {
             var safeName = System.Net.WebUtility.HtmlEncode(appointment.client.full_name ?? "Paciente");
             var safeNutritionist = System.Net.WebUtility.HtmlEncode(appointment.nutritionist.full_name ?? "tu nutricionista");
-            var localStart = TimeZoneInfo.ConvertTimeFromUtc(appointment.starts_at, GetMadridTimeZone());
+            var appointmentZone = await UserTimeZoneResolver.ForUserAsync(_context, appointment.nutritionist_id);
+        var localStart = TimeZoneInfo.ConvertTimeFromUtc(appointment.starts_at, appointmentZone);
             var dateText = localStart.ToString("dddd, d 'de' MMMM 'a las' HH:mm", new System.Globalization.CultureInfo("es-ES"));
 
             await _notifications.CreateForPatientAsync(
@@ -614,7 +616,8 @@ public class AppointmentsController : ControllerBase
         }
         else if (requestedStatus == "confirmed" && previousStatus != "confirmed")
         {
-            var localStart = TimeZoneInfo.ConvertTimeFromUtc(appointment.starts_at, GetMadridTimeZone());
+            var appointmentZone = await UserTimeZoneResolver.ForUserAsync(_context, appointment.nutritionist_id);
+        var localStart = TimeZoneInfo.ConvertTimeFromUtc(appointment.starts_at, appointmentZone);
             var dateText = localStart.ToString("dddd, d 'de' MMMM 'a las' HH:mm", new System.Globalization.CultureInfo("es-ES"));
 
             await _notifications.CreateForPatientAsync(
@@ -874,7 +877,7 @@ public class AppointmentsController : ControllerBase
                         a.starts_at > now && (a.status == "requested" || a.status == "confirmed"))
             .Select(a => new { a.starts_at, a.ends_at })
             .ToListAsync();
-        var zone = GetMadridTimeZone();
+        var zone = await UserTimeZoneResolver.ForUserAsync(_context, rule.nutritionist_id);
         return appointments.Any(a =>
         {
             var local = TimeZoneInfo.ConvertTimeFromUtc(a.starts_at, zone);
@@ -899,7 +902,7 @@ public class AppointmentsController : ControllerBase
 
     private async Task<bool> IsAvailableSlotAsync(int tenantId, int nutritionistId, DateTime startsUtc, DateTime endsUtc)
     {
-        var zone = GetMadridTimeZone();
+        var zone = await UserTimeZoneResolver.ForUserAsync(_context, nutritionistId);
         var local = TimeZoneInfo.ConvertTimeFromUtc(startsUtc, zone);
         var duration = (int)(endsUtc - startsUtc).TotalMinutes;
         if (duration <= 0) return false;
@@ -925,9 +928,4 @@ public class AppointmentsController : ControllerBase
         Modality = a.modality, VideoProvider = a.video_provider, VideoRoomUrl = a.video_room_url, VideoExpiresAt = a.video_expires_at
     };
 
-    private static TimeZoneInfo GetMadridTimeZone()
-    {
-        try { return TimeZoneInfo.FindSystemTimeZoneById("Europe/Madrid"); }
-        catch { return TimeZoneInfo.FindSystemTimeZoneById("Romance Standard Time"); }
-    }
 }

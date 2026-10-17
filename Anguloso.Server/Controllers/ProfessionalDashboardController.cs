@@ -1,3 +1,4 @@
+using Anguloso.Server.Logica;
 using Anguloso.Server.Logica.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,8 +12,13 @@ namespace Anguloso.Server.Controllers;
 public sealed class ProfessionalDashboardController : ControllerBase
 {
     private readonly IConfiguration _configuration;
+    private readonly angulosodbContext _context;
 
-    public ProfessionalDashboardController(IConfiguration configuration) => _configuration = configuration;
+    public ProfessionalDashboardController(IConfiguration configuration, angulosodbContext context)
+    {
+        _configuration = configuration;
+        _context = context;
+    }
 
     [HttpGet]
     public async Task<ActionResult<ProfessionalDashboardDto>> Get()
@@ -259,9 +265,9 @@ public sealed class ProfessionalDashboardController : ControllerBase
         {
             command.Parameters.AddWithValue("tenant", tenantId.Value);
             command.Parameters.AddWithValue("user", userId.Value);
-            var madrid = GetMadridTimeZone();
-            var localToday = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, madrid).Date;
-            var fromUtc = TimeZoneInfo.ConvertTimeToUtc(localToday, madrid);
+            var userTimeZone = await UserTimeZoneResolver.ForUserAsync(_context, userId.Value);
+            var localToday = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, userTimeZone).Date;
+            var fromUtc = TimeZoneInfo.ConvertTimeToUtc(localToday, userTimeZone);
             command.Parameters.AddWithValue("from", fromUtc);
             command.Parameters.AddWithValue("to", fromUtc.AddDays(1));
             await using var reader = await command.ExecuteReaderAsync();
@@ -330,9 +336,9 @@ public sealed class ProfessionalDashboardController : ControllerBase
         {
             command.Parameters.AddWithValue("tenant", tenantId.Value);
             command.Parameters.AddWithValue("user", userId.Value);
-            var madrid = GetMadridTimeZone();
-            var localToday = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, madrid).Date;
-            var fromUtc = TimeZoneInfo.ConvertTimeToUtc(localToday.AddDays(1), madrid);
+            var userTimeZone = await UserTimeZoneResolver.ForUserAsync(_context, userId.Value);
+            var localToday = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, userTimeZone).Date;
+            var fromUtc = TimeZoneInfo.ConvertTimeToUtc(localToday.AddDays(1), userTimeZone);
             command.Parameters.AddWithValue("from", fromUtc);
             command.Parameters.AddWithValue("to", fromUtc.AddDays(7));
             await using var reader = await command.ExecuteReaderAsync();
@@ -407,8 +413,6 @@ public sealed class ProfessionalDashboardController : ControllerBase
         return Ok(result);
     }
 
-    private static TimeZoneInfo GetMadridTimeZone() =>
-        TimeZoneInfo.FindSystemTimeZoneById(OperatingSystem.IsWindows() ? "Romance Standard Time" : "Europe/Madrid");
 }
 
 public sealed class ProfessionalDashboardDto

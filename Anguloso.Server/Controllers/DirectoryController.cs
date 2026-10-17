@@ -236,7 +236,8 @@ public class DirectoryController : ControllerBase
         await using var transaction = await _context.Database.BeginTransactionAsync();
         await _appointmentConcurrency.LockAsync(professional.tenant_id.Value, professional.id);
 
-        var local = TimeZoneInfo.ConvertTimeFromUtc(startsUtc, GetMadridTimeZone());
+        var professionalZone = await UserTimeZoneResolver.ForUserAsync(_context, professional.id);
+        var local = TimeZoneInfo.ConvertTimeFromUtc(startsUtc, professionalZone);
         var day = (int)local.DayOfWeek;
         var time = TimeOnly.FromDateTime(local);
         var validRule = await _context.nutritionist_availability.AsNoTracking()
@@ -491,7 +492,7 @@ public class DirectoryController : ControllerBase
             .Select(a => new { a.starts_at, a.ends_at })
             .ToListAsync();
 
-        var localZone = GetMadridTimeZone();
+        var localZone = await UserTimeZoneResolver.ForUserAsync(_context, professional.id);
         var localStart = TimeZoneInfo.ConvertTimeFromUtc(from, localZone).Date;
         var slots = new List<AppointmentSlotDto>();
 
@@ -644,10 +645,5 @@ public class DirectoryController : ControllerBase
         return score;
     }
 
-    private static TimeZoneInfo GetMadridTimeZone()
-    {
-        try { return TimeZoneInfo.FindSystemTimeZoneById("Europe/Madrid"); }
-        catch { return TimeZoneInfo.FindSystemTimeZoneById("Romance Standard Time"); }
-    }
 
 }
