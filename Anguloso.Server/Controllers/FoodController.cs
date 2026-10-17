@@ -84,10 +84,25 @@ public class FoodController : ControllerBase
         var results = await _openFood.SearchProductsAsync(query, pais, lang);
         */
 
-        //Esta línea busca en la BBDD local antes de buscar en OFF + USDA (hace las dos cosas en un mismo método)
-        var results = await _openFood.SearchAsync(query, userName);
-
-        return Ok(results);
+        // Esta búsqueda combina catálogo local y proveedores externos. Un fallo externo
+        // debe conservarse como error reportable en vez de parecer una búsqueda sin resultados.
+        try
+        {
+            var results = await _openFood.SearchAsync(query, userName);
+            return Ok(results);
+        }
+        catch (HttpRequestException)
+        {
+            return FoodProviderProblem();
+        }
+        catch (TaskCanceledException)
+        {
+            return FoodProviderProblem();
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return FoodProviderProblem();
+        }
     }
 
     // GET: api/foods/{id}

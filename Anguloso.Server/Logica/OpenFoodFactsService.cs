@@ -135,7 +135,19 @@ public class OpenFoodFactsService
             //Si solo queremos devolver la consulta debemos usar esta línea
             //return offResults;
         }
-        catch(Exception ex)
+        catch (HttpRequestException)
+        {
+            throw;
+        }
+        catch (TaskCanceledException)
+        {
+            throw;
+        }
+        catch (JsonException)
+        {
+            throw;
+        }
+        catch (Exception ex)
         {
             _logServ.LogError($"Excepción en OpenFoodFactsService.SearchAsync() => {ex.Message}");
             return new List<OffProduct>();
@@ -384,8 +396,9 @@ public class OpenFoodFactsService
                 _logServ.LogError($"Excepción en OpenFoodFactsService.SearchProductsAsync() => {ex.Message}");
             }
 
-            // El worker debe distinguir una consulta fallida de una búsqueda válida sin resultados.
-            if (logImportDetails)
+            // Los fallos del proveedor no deben convertirse en una lista vacía:
+            // el controlador debe devolver un error reportable y la búsqueda manual mostrarlo.
+            if (ex is HttpRequestException or TaskCanceledException or JsonException || logImportDetails)
                 throw;
 
             return products;
