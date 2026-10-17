@@ -53,6 +53,7 @@ export class ErrorReportBannerComponent {
       'Código: ' + error.code,
       'Fecha UTC: ' + error.occurredAt,
       'Fecha local (con zona horaria): ' + error.occurredAtLocal,
+      'Zona horaria IANA: ' + error.timeZoneId,
       'Módulo/ruta: ' + error.path,
       'Estado: ' + (error.status ? 'HTTP ' + error.status : 'error del cliente'),
       error.correlationId ? 'Identificador de correlación: ' + error.correlationId : 'Identificador de correlación: no disponible',
