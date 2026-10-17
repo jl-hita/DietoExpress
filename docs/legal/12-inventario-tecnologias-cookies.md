@@ -32,16 +32,20 @@ El inventario distingue los recursos servidos localmente de las integraciones de
 
 - **Outfit** y **Material Icons** se sirven desde activos estáticos del propio sitio; no se espera una conexión del navegador a Google Fonts ni a `fonts.gstatic.com` para estos recursos.
 - Google Identity Services (`accounts.google.com/gsi/client`) se carga de forma diferida al entrar en las pantallas de inicio de sesión y crear cuenta, no desde la página pública inicial.
-- En producción se observó `g_state` con dominio `jlhitap.duckdns.org`, ruta `/` y expiración aproximada de seis meses; `HttpOnly`, `Secure` y `SameSite` aparecían vacíos. Google documenta que Google Identity Services usa `g_state` para almacenar el estado de cierre de sesión. La cookie se observó tras abrir el login, pero aún no se ha determinado con certeza el disparador exacto en la configuración actual.
+- En producción se observó `g_state` con dominio `jlhitap.duckdns.org`, ruta `/` y expiración aproximada de seis meses; `HttpOnly`, `Secure` y `SameSite` aparecían vacíos. Google documenta que `g_state` almacena el estado de cierre de sesión y se establece cuando se usa One Tap o el inicio de sesión automático. Sin embargo, el código auditado de DietoExpress solo inicializa GIS y renderiza un botón; no se han localizado `google.accounts.id.prompt()`, `data-auto_select`, `disableAutoSelect()` ni un flujo de redirección de GIS. La cookie se observó tras abrir el login, pero no se ha identificado qué la dispara. Esta discrepancia debe permanecer explícita: no se puede concluir ni que la cookie sea necesaria ni que deba eliminarse sin una comprobación dirigida en producción.
 
-Además existen integraciones funcionales con Google Calendar, Stripe y LiveKit que deben revisarse según el flujo concreto en el que se utilicen. Su existencia no implica por sí sola que DietoExpress coloque una cookie no necesaria.
+- **Google Calendar:** flujo OAuth de redirección a Google; el backend intercambia el código y conserva los tokens. No se ha encontrado un SDK de Calendar embebido en el navegador.
+- **Stripe Checkout:** el backend crea una sesión de Checkout y devuelve su URL; el frontend navega a esa URL. El servicio no envía `ui_mode`, por lo que se aplica el modo alojado por defecto documentado por Stripe. No se ha localizado Stripe.js/Elements en el cliente de DietoExpress.
+- **LiveKit:** el componente `video-consultation` se carga mediante ruta diferida. Al entrar en esa pantalla, el frontend pide al backend un token y conecta con el servidor LiveKit; no se ha identificado una carga de LiveKit desde la landing pública.
+
+La existencia de estas integraciones no implica por sí sola que DietoExpress coloque cookies no necesarias; las cookies y el almacenamiento que use cada proveedor deben verificarse en su flujo real.
 
 ## 5. Resultado técnico actual
 
 Con el código auditado:
 
 - Se han identificado **dos cookies propias de sesión**, ambas necesarias para las áreas autenticadas.
-- La cookie `g_state` observada pertenece a la integración de Google Identity Services y usa el dominio del sitio; su necesidad y posible requisito de consentimiento siguen pendientes de evaluación.
+- La cookie `g_state` observada coincide con el nombre documentado por Google Identity Services y usa el dominio del sitio; el disparador no concuerda con las llamadas encontradas en el código y su necesidad/requisito de consentimiento siguen pendientes.
 - No hay un SDK de analítica publicitaria/tercera cargado en el cliente.
 - Las fuentes Outfit y los iconos Material se sirven localmente; Google Identity Services se carga de forma diferida en login y creación de cuenta, no en la página pública inicial.
 - Se ha eliminado el uso de `sessionStorage` para deduplicar analítica pública, evitando convertir esa deduplicación en una tecnología de almacenamiento del navegador.
