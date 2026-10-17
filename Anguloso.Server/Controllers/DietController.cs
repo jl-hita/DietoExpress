@@ -632,7 +632,9 @@ public class DietController : ControllerBase
             return StatusCode(500, new
             {
                 message = "El generador no ha podido completar la dieta por un error interno.",
-                detail = $"Referencia {reference}. Revisa los parámetros y vuelve a intentarlo; si persiste, facilita esta referencia al administrador."
+                detail = $"Referencia {reference}. Revisa los parámetros y vuelve a intentarlo; si persiste, facilita esta referencia al administrador.",
+                code = "DIET_GENERATION_ERROR",
+                reportable = true
             });
         }
     }

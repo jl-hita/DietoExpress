@@ -217,4 +217,20 @@ public sealed class AutomationExternalEffectsRegressionTests
     }
 
 
+    [Fact]
+    public void UnexpectedDietGenerationFailuresAreReportableWithoutExposingExceptionDetails()
+    {
+        var controller = ReadServerSource("Anguloso.Server/Controllers/DietController.cs");
+        var actionStart = controller.IndexOf("GenerateAutomatedDiet", StringComparison.Ordinal);
+        var catchStart = controller.IndexOf("catch (Exception ex)", actionStart, StringComparison.Ordinal);
+        Assert.True(actionStart >= 0 && catchStart >= 0, "Debe existir el manejo de fallos inesperados de generación.");
+
+        var errorBlock = controller.Substring(catchStart, Math.Min(900, controller.Length - catchStart));
+        Assert.Contains("StatusCode(500", errorBlock);
+        Assert.Contains("code = \"DIET_GENERATION_ERROR\"", errorBlock);
+        Assert.Contains("reportable = true", errorBlock);
+        Assert.Contains("Referencia {reference}", errorBlock);
+        Assert.DoesNotContain("ex.Message", errorBlock);
+    }
+
 }
