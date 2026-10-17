@@ -587,7 +587,7 @@ public class AppointmentsController : ControllerBase
             var safeName = System.Net.WebUtility.HtmlEncode(appointment.client.full_name ?? "Paciente");
             var safeNutritionist = System.Net.WebUtility.HtmlEncode(appointment.nutritionist.full_name ?? "tu nutricionista");
             var appointmentZone = await UserTimeZoneResolver.ForUserAsync(_context, appointment.nutritionist_id);
-        var localStart = TimeZoneInfo.ConvertTimeFromUtc(appointment.starts_at, appointmentZone);
+            var localStart = TimeZoneInfo.ConvertTimeFromUtc(appointment.starts_at, appointmentZone);
             var dateText = localStart.ToString("dddd, d 'de' MMMM 'a las' HH:mm", new System.Globalization.CultureInfo("es-ES"));
 
             await _notifications.CreateForPatientAsync(
