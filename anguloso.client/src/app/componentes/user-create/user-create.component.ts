@@ -12,6 +12,8 @@ import { AuthService } from '../../servicios/auth.service';
 import { environment } from '../../../environments/environments';
 import { LegalDocument, LegalService } from '../../servicios/legal.service';
 
+declare const google: any;
+
 interface Usuario {
   username: string;
   fullName?: string;
