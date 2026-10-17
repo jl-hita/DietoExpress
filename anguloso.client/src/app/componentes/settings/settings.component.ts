@@ -93,7 +93,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
     'Vizcaya', 'Zamora', 'Zaragoza'
   ];
   filteredProvinces = [...this.provinces];
-  readonly timeZoneOptions = TIME_ZONE_OPTIONS;
+  readonly timeZoneOptions = [...TIME_ZONE_OPTIONS];
 
   constructor(
     private fb: FormBuilder,
@@ -104,6 +104,11 @@ export class SettingsComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    const browserZone = this.timeZones.detectBrowserTimeZone();
+    if (!this.timeZoneOptions.some(zone => zone.id === browserZone)) {
+      this.timeZoneOptions.unshift({ id: browserZone, label: 'Zona detectada en este dispositivo' });
+    }
+
     this.passwordForm = this.fb.group({
       oldPassword: ['', [Validators.required]],
       newPassword: ['', [Validators.required, Validators.minLength(12)]],
