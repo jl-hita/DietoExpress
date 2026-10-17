@@ -50,6 +50,8 @@ public partial class users
 
     public string lang { get; set; }
 
+    public string? time_zone_id { get; set; }
+
     public string clinic_name { get; set; }
 
     public string clinic_address { get; set; }

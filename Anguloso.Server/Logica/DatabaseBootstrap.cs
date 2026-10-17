@@ -705,6 +705,7 @@ CREATE INDEX IF NOT EXISTS idx_public_funnel_events_appointment
             UpgradeClientAddressSchemaV1(context, logger);
             UpgradeDirectorySchemaV1(context, logger);
             UpgradeDirectorySchemaV2(context, logger);
+            UpgradeUserTimeZoneSchemaV1(context, logger);
             UpgradeSpecializationsSchemaV1(context, logger);
             UpgradeConfigurationNamingV1(context, logger);
             UpgradeVideoProviderSchemaV1(context, logger);
@@ -2367,6 +2368,14 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
         logger.LogInformation("Migración de directorio directory-v2 aplicada/comprobada correctamente.");
     }
 
+
+    /// <summary>Guarda la zona horaria IANA preferida por usuario, independiente de la zona del servidor.</summary>
+    public static void UpgradeUserTimeZoneSchemaV1(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"ALTER TABLE users ADD COLUMN IF NOT EXISTS time_zone_id VARCHAR(100);");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('user-time-zone-v1') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración de preferencias de zona horaria user-time-zone-v1 aplicada/comprobada correctamente.");
+    }
 
     /// <summary>Habilita la comparación de texto del directorio sin distinguir tildes.</summary>
     public static void UpgradeDirectorySchemaV2(angulosodbContext context, ILogger logger)

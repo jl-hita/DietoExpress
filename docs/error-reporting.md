@@ -40,3 +40,8 @@ Los fallos al enviar invitaciones de nutricionistas de clínica y enlaces de acc
 
 Los fallos inesperados al generar una dieta devuelven HTTP 500 con `code=DIET_GENERATION_ERROR` y `reportable=true`. La respuesta incluye una referencia de soporte, pero no el mensaje ni el stack trace de la excepción. Los errores esperados de validación siguen siendo respuestas de dominio y no se convierten automáticamente en tickets.
 
+
+
+## Zonas horarias de usuario
+
+Cada cuenta profesional puede guardar una zona horaria IANA desde Ajustes → Preferencias. La preferencia se almacena en `users.time_zone_id` y se valida en el servidor; la zona del servidor nunca determina la zona del usuario. Si aún no se ha elegido una, se usa la zona del navegador como valor inicial. Los tickets mantienen siempre la fecha UTC para buscar logs y añaden hora local, offset de esa fecha e identificador IANA, incluidos los cambios estacionales.

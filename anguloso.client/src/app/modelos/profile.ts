@@ -13,6 +13,7 @@ export interface Profile {
   directoryBio?: string;
   directorySpecialties?: string;
   directorySlug?: string;
+  timeZoneId?: string;
 }
 
 export interface UpdateProfile {
@@ -27,4 +28,5 @@ export interface UpdateProfile {
   directoryProvince?: string;
   directoryBio?: string;
   directorySpecialties?: string;
+  timeZoneId?: string;
 }

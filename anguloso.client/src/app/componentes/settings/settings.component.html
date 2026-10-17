@@ -239,6 +239,26 @@
         </mat-card>
       </mat-tab>
 
+      <mat-tab label="Preferencias">
+        <mat-card class="settings-card">
+          <mat-card-header>
+            <mat-icon mat-card-avatar class="section-icon">schedule</mat-icon>
+            <mat-card-title>Zona horaria</mat-card-title>
+            <mat-card-subtitle>Las fechas y horas deben seguir tu zona horaria, no la del servidor.</mat-card-subtitle>
+          </mat-card-header>
+          <mat-divider></mat-divider>
+          <mat-card-content class="card-content">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Mi zona horaria</mat-label>
+              <mat-select formControlName="timeZoneId">
+                <mat-option *ngFor="let zone of timeZoneOptions" [value]="zone.id">{{ zone.label }} — {{ zone.id }}</mat-option>
+              </mat-select>
+              <mat-hint>Se guarda en tu cuenta y se usa para la hora local de los tickets. Los logs técnicos conservan UTC.</mat-hint>
+            </mat-form-field>
+            <p class="field-hint">El desfase horario y los cambios estacionales se calculan según la zona IANA elegida.</p>
+          </mat-card-content>
+        </mat-card>
+      </mat-tab>
     </mat-tab-group>
     </form>
   </ng-container>
