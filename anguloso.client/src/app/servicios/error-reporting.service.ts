@@ -36,7 +36,7 @@ export class ErrorReportingService {
     const explicitlyReportable = error.status >= 400 && error.status < 500 && problem?.reportable === true;
     if (!isServerError && !explicitlyReportable) return;
 
-    const path = requestUrl.split('?')[0];
+    const path = this.sanitizePath(requestUrl);
     const fingerprint = error.status + ':' + path;
     const now = Date.now();
     if (fingerprint === this.lastFingerprint && now - this.lastCapturedAt < 30_000) return;
@@ -73,7 +73,7 @@ export class ErrorReportingService {
   captureClientError(error: unknown, currentPath: string): void {
     if (error instanceof HttpErrorResponse) return;
 
-    const path = currentPath.split('?')[0].split('#')[0] || '/';
+    const path = this.sanitizePath(currentPath);
     const fingerprint = 'CLIENT_RUNTIME_ERROR:' + path;
     const now = Date.now();
     if (fingerprint === this.lastFingerprint && now - this.lastCapturedAt < 30_000) return;
@@ -93,6 +93,11 @@ export class ErrorReportingService {
 
   dismiss(): void {
     this.currentError.set(null);
+  }
+
+  private sanitizePath(value: string): string {
+    const path = value.split('?')[0].split('#')[0] || '/';
+    return path.replace(/\/(?:\d+|[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})(?=\/|$)/gi, '/:id');
   }
 
   private getProblemMetadata(value: unknown): ApiProblemMetadata | undefined {

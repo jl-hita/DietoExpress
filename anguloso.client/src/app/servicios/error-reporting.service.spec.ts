@@ -27,10 +27,11 @@ describe('ErrorReportingService', () => {
     expect(service.currentError()).toMatchObject({
       code: 'SERVER_ERROR',
       status: 500,
-      path: '/api/clients/42',
+      path: '/api/clients/:id',
       correlationId: 'trace-123'
     });
     expect(service.currentError()?.path).not.toContain('?');
+    expect(service.currentError()?.path).not.toContain('42');
   });
 
   it('does not capture ordinary 4xx errors or support endpoint failures', () => {
@@ -50,7 +51,7 @@ describe('ErrorReportingService', () => {
     expect(service.currentError()).toMatchObject({
       code: 'CLIENT_CONFLICT',
       status: 409,
-      path: '/api/clients/42',
+      path: '/api/clients/:id',
       message: expect.not.stringContaining('private server detail')
     });
   });
@@ -61,7 +62,7 @@ describe('ErrorReportingService', () => {
     expect(service.currentError()).toMatchObject({
       code: 'CLIENT_RUNTIME_ERROR',
       status: 0,
-      path: '/clients/42',
+      path: '/clients/:id',
       message: 'Se ha producido un error inesperado en la aplicación.'
     });
     expect(service.currentError()?.message).not.toContain('private user data');
@@ -71,6 +72,18 @@ describe('ErrorReportingService', () => {
     service.captureClientError(new HttpErrorResponse({ status: 500 }), '/clients');
 
     expect(service.currentError()).toBeNull();
+  });
+
+
+  it('redacts numeric and UUID resource identifiers from paths', () => {
+    service.captureHttpError(
+      new HttpErrorResponse({ status: 500 }),
+      '/api/clients/42/diets/550e8400-e29b-41d4-a716-446655440000?include=private'
+    );
+
+    expect(service.currentError()?.path).toBe('/api/clients/:id/diets/:id');
+    expect(service.currentError()?.path).not.toContain('42');
+    expect(service.currentError()?.path).not.toContain('550e8400');
   });
 
   it('deduplicates the same status and path for 30 seconds', () => {

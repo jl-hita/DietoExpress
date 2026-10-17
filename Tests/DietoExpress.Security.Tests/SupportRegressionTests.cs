@@ -114,7 +114,8 @@ public sealed class SupportRegressionTests
         var support = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "servicios", "support.service.ts"));
 
         Assert.Contains("error.status < 500", reporting);
-        Assert.Contains("requestUrl.split('?')[0]", reporting);
+        Assert.Contains("this.sanitizePath(requestUrl)", reporting);
+        Assert.Contains("path.replace(", reporting);
         Assert.Contains("this.support.createTicket", banner);
         Assert.Contains("category: 'problem'", banner);
         Assert.Contains("this.http.post<{ id: number }>(this.base + '/tickets', request)", support);

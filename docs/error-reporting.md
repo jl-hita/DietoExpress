@@ -11,7 +11,7 @@
 
 Las excepciones no controladas se devuelven como `application/problem+json` con un mensaje seguro, `code=INTERNAL_ERROR`, `correlationId` y cabecera `X-Correlation-ID`. Un filtro global normaliza también las respuestas HTTP 5xx explícitas de los controladores, asignando códigos estables (`INTERNAL_ERROR` o `SERVICE_UNAVAILABLE`) y `reportable=true`. La cabecera de correlación se expone en CORS para que Angular pueda leerla en los orígenes permitidos.
 
-Angular captura errores HTTP 5xx de rutas propias de la API, errores 4xx únicamente cuando la API los marca explícitamente con `reportable=true` y errores JavaScript no controlados. Para los errores de cliente solo guarda código genérico y ruta actual; nunca el mensaje original de la excepción. Las validaciones normales y los errores de las propias rutas de soporte no generan el aviso. No se incluyen cuerpos de petición/respuesta ni parámetros de consulta.
+Angular captura errores HTTP 5xx de rutas propias de la API, errores 4xx únicamente cuando la API los marca explícitamente con `reportable=true` y errores JavaScript no controlados. Para los errores de cliente solo guarda código genérico y ruta actual; nunca el mensaje original de la excepción. Las validaciones normales y los errores de las propias rutas de soporte no generan el aviso. No se incluyen cuerpos de petición/respuesta ni parámetros de consulta. Los identificadores numéricos y UUID de los segmentos de ruta se sustituyen por `:id` antes de mostrar el aviso o crear el ticket.
 
 ## Componente reutilizable (fase 3)
 
