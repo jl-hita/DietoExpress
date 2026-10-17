@@ -34,7 +34,7 @@ Cada integración deberá revisarse según el flujo real y su configuración efe
 
 ## 5. Tecnologías no necesarias
 
-No se ha identificado un SDK de analítica publicitaria en el cliente. Sin embargo, en una prueba manual de producción anterior a estos cambios se observaron cookies con dominio de Google en incógnito antes de iniciar sesión. Esa observación no demuestra qué solicitud las estableció ni resuelve por sí sola si se requiere consentimiento.
+No se ha identificado un SDK de analítica publicitaria en el cliente. En producción se observaron cookies de Google y una cookie `g_state` bajo el dominio de DietoExpress tras abrir el login. Google documenta que Google Identity Services utiliza `g_state` para recordar el estado de cierre de sesión; la clasificación de necesidad/consentimiento sigue pendiente porque el código actual no invoca explícitamente One Tap ni el inicio de sesión automático.
 
 La decisión sobre un banner queda pendiente de repetir las pruebas en producción tras estos cambios, revisar las integraciones de terceros por flujo y completar la validación jurídica. Si se determina que una tecnología requiere consentimiento, su carga deberá bloquearse hasta obtenerlo y se actualizarán el inventario y esta política.
 
