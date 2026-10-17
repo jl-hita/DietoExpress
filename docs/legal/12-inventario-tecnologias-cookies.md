@@ -43,7 +43,7 @@ Con el código auditado:
 - Se han identificado **dos cookies propias de sesión**, ambas necesarias para las áreas autenticadas.
 - La cookie `g_state` observada pertenece a la integración de Google Identity Services y usa el dominio del sitio; su necesidad y posible requisito de consentimiento siguen pendientes de evaluación.
 - No hay un SDK de analítica publicitaria/tercera cargado en el cliente.
-- Las fuentes Outfit y los iconos Material se sirven localmente; Google Identity Services se carga solo en el flujo de acceso.
+- Las fuentes Outfit y los iconos Material se sirven localmente; Google Identity Services se carga de forma diferida en login y creación de cuenta, no en la página pública inicial.
 - Se ha eliminado el uso de `sessionStorage` para deduplicar analítica pública, evitando convertir esa deduplicación en una tecnología de almacenamiento del navegador.
 - El almacenamiento local restante es funcional para el portal de paciente y se limpia al cerrar sesión.
 
