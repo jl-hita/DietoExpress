@@ -8,6 +8,7 @@ import { ProfileService } from '../../servicios/profile.service';
 import { AuthService } from '../../servicios/auth.service';
 import { Profile } from '../../modelos/profile';
 import { AddressSuggestion } from '../../modelos/address';
+import { TIME_ZONE_OPTIONS, TimeZonePreferenceService } from '../../servicios/time-zone-preference.service';
 import { AddressAutocompleteComponent } from '../address-autocomplete/address-autocomplete.component';
 
 // Angular Material
@@ -21,6 +22,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { MatSelectModule } from '@angular/material/select';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -41,6 +43,7 @@ import { MatAutocompleteModule } from '@angular/material/autocomplete';
     MatTabsModule,
     MatSlideToggleModule,
     MatAutocompleteModule,
+    MatSelectModule,
     AddressAutocompleteComponent
   ]
 })
@@ -90,12 +93,14 @@ export class SettingsComponent implements OnInit, OnDestroy {
     'Vizcaya', 'Zamora', 'Zaragoza'
   ];
   filteredProvinces = [...this.provinces];
+  readonly timeZoneOptions = TIME_ZONE_OPTIONS;
 
   constructor(
     private fb: FormBuilder,
     private profileService: ProfileService,
     private authService: AuthService,
-    private snack: MatSnackBar
+    private snack: MatSnackBar,
+    private timeZones: TimeZonePreferenceService
   ) {}
 
   ngOnInit(): void {
@@ -116,7 +121,8 @@ export class SettingsComponent implements OnInit, OnDestroy {
       directoryCity: [''],
       directoryProvince: [''],
       directoryBio: ['', Validators.maxLength(2000)],
-      directorySpecialties: ['', Validators.maxLength(500)]
+      directorySpecialties: ['', Validators.maxLength(500)],
+      timeZoneId: [this.timeZones.detectBrowserTimeZone(), Validators.required]
     });
 
     this.loading = true;
@@ -154,12 +160,17 @@ export class SettingsComponent implements OnInit, OnDestroy {
           directoryCity: data.directoryCity ?? '',
           directoryProvince: data.directoryProvince ?? '',
           directoryBio: data.directoryBio ?? '',
-          directorySpecialties: data.directorySpecialties ?? ''
+          directorySpecialties: data.directorySpecialties ?? '',
+          timeZoneId: data.timeZoneId || this.timeZones.detectBrowserTimeZone()
         });
         if (data.clinicLogo) {
           this.logoPreview = data.clinicLogo;
         }
-        this.formChangesSubscription = this.form.valueChanges.subscribe(() => this.saveChanges$.next());
+        this.timeZones.setTimeZoneId(data.timeZoneId || this.timeZones.detectBrowserTimeZone());
+        this.formChangesSubscription = this.form.valueChanges.subscribe(() => {
+          this.timeZones.setTimeZoneId(this.form.get('timeZoneId')?.value);
+          this.saveChanges$.next();
+        });
         this.loading = false;
         this.saveState = 'saved';
       },
