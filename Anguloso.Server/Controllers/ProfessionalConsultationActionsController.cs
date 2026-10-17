@@ -59,8 +59,7 @@ public sealed class ProfessionalConsultationActionsController : ControllerBase
             .Select(a => new { a.starts_at, a.ends_at })
             .ToListAsync();
 
-        var zone = TimeZoneInfo.FindSystemTimeZoneById(
-            OperatingSystem.IsWindows() ? "Romance Standard Time" : "Europe/Madrid");
+        var zone = await UserTimeZoneResolver.ForUserAsync(_db, context.NutritionistId);
         var localStart = TimeZoneInfo.ConvertTimeFromUtc(from, zone).Date;
         var slots = new List<object>();
 
@@ -182,8 +181,7 @@ public sealed class ProfessionalConsultationActionsController : ControllerBase
 
     private async Task<bool> IsAvailableAsync(ClientContext context, DateTime startsAt, DateTime endsAt)
     {
-        var zone = TimeZoneInfo.FindSystemTimeZoneById(
-            OperatingSystem.IsWindows() ? "Romance Standard Time" : "Europe/Madrid");
+        var zone = await UserTimeZoneResolver.ForUserAsync(_db, context.NutritionistId);
         var local = TimeZoneInfo.ConvertTimeFromUtc(startsAt, zone);
         var day = await _db.nutritionist_availability.AsNoTracking()
             .FirstOrDefaultAsync(a => a.tenant_id == context.TenantId &&
