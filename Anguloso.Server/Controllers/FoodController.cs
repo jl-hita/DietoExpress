@@ -34,9 +34,24 @@ public class FoodController : ControllerBase
         if (string.IsNullOrWhiteSpace(code) || !System.Text.RegularExpressions.Regex.IsMatch(code, @"^\d{8,14}$"))
             return BadRequest("El código de barras no es válido.");
 
-        var p = await _openFood.GetProductByBarcodeAsync(code);
-        if (p == null) return NotFound();
-        return Ok(p);
+        try
+        {
+            var p = await _openFood.GetProductByBarcodeAsync(code);
+            if (p == null) return NotFound();
+            return Ok(p);
+        }
+        catch (HttpRequestException)
+        {
+            return FoodProviderProblem();
+        }
+        catch (TaskCanceledException)
+        {
+            return FoodProviderProblem();
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return FoodProviderProblem();
+        }
     }
 
     [HttpGet("search/{query}")]
@@ -221,6 +236,21 @@ public class FoodController : ControllerBase
         {
             return BadRequest(ex.Message);
         }
+    }
+
+    private ObjectResult FoodProviderProblem()
+    {
+        var result = Problem(
+            detail: "El catálogo externo de alimentos no está disponible temporalmente. Inténtalo de nuevo más tarde.",
+            statusCode: StatusCodes.Status502BadGateway,
+            title: "No se pudo consultar el proveedor de alimentos");
+        if (result.Value is ProblemDetails details)
+        {
+            details.Extensions["code"] = "FOOD_PROVIDER_ERROR";
+            details.Extensions["reportable"] = true;
+        }
+
+        return result;
     }
 
     private static string[] NormalizeDietaryFlags(IEnumerable<string>? flags)

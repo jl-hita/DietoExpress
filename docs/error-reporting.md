@@ -20,3 +20,8 @@ El componente global `app-error-report-banner` muestra una notificación con ide
 ## Siguiente fase
 
 La infraestructura ya permite que los controladores marquen errores de dominio concretos con códigos estables y `reportable=true`. La migración debe hacerse módulo a módulo, distinguiendo fallos que requieren soporte de validaciones esperadas y permisos, sin convertir indiscriminadamente todos los 4xx en tickets.
+
+
+## Catálogo externo de alimentos
+
+La consulta de productos por código de barras convierte fallos de transporte, timeout o respuesta JSON inválida de OpenFoodFacts en HTTP 502 con `code=FOOD_PROVIDER_ERROR` y `reportable=true`. El mensaje público es genérico: no incluye la respuesta del proveedor ni datos internos. Un código de barras válido sin producto sigue devolviendo 404 y no debe generar un ticket.
