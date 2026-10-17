@@ -1,4 +1,4 @@
-import { CommonModule, DatePipe } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, signal} from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { PatientChatComponent } from '../patient-chat/patient-chat.component';
 import { Subscription, interval, startWith, switchMap, catchError, of } from 'rxjs';
 import { AuthService } from '../../servicios/auth.service';
+import { TimeZonePreferenceService } from '../../servicios/time-zone-preference.service';
 
 interface Conversation {
   conversationId: number; clientId: number; clientName: string; updatedAt: string; lastMessage: string; unreadCount: number;
@@ -17,7 +18,7 @@ interface BroadcastInboxItem { id: number; title: string; body: string; audience
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-messages',
   standalone: true,
-  imports: [CommonModule, DatePipe, MatIconModule, PatientChatComponent],
+  imports: [CommonModule, MatIconModule, PatientChatComponent],
   templateUrl: './messages.component.html',
   styleUrls: ['./messages.component.css']
 })
@@ -40,7 +41,7 @@ export class MessagesComponent implements OnInit, OnDestroy {
   private refreshSubscription?: Subscription;
   private broadcastRefreshSubscription?: Subscription;
 
-  constructor(private http: HttpClient, private router: Router, private authService: AuthService) {}
+  constructor(private http: HttpClient, private router: Router, private authService: AuthService, private timeZones: TimeZonePreferenceService) {}
 
   // Se hace polling periódico porque la mensajería no depende de un canal WebSocket; cada ciclo vuelve a consultar solo el resumen de conversaciones.
   ngOnInit(): void {
@@ -96,6 +97,10 @@ export class MessagesComponent implements OnInit, OnDestroy {
   get totalUnread(): number {
     return this.conversations.reduce((sum, c) => sum + c.unreadCount, 0) + this.broadcastInbox.filter(item => !item.readAt).length;
   }
+
+  formatCompactDate(value: string): string { return this.timeZones.formatInPreferredZone(value, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); }
+
+  formatMediumDate(value: string): string { return this.timeZones.formatInPreferredZone(value, { dateStyle: 'medium', timeStyle: 'short' }); }
 
   trackByClient(_: number, item: Conversation): number { return item.clientId; }
 }

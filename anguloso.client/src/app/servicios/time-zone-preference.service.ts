@@ -39,6 +39,12 @@ export class TimeZonePreferenceService {
     try { new Intl.DateTimeFormat('en', { timeZone: candidate }); this.zoneState.set(candidate); }
     catch { this.zoneState.set(this.detectBrowserTimeZone()); }
   }
+  formatInPreferredZone(value: string | Date, options: Intl.DateTimeFormatOptions, locale = 'es-ES'): string {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return new Intl.DateTimeFormat(locale, { ...options, timeZone: this.zoneState() }).format(date);
+  }
+
   formatLocalTimestamp(date: Date): string {
     const zone = this.zoneState();
     const parts = new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).formatToParts(date);
