@@ -28,7 +28,7 @@ No se han localizado en el cliente referencias a Google Analytics, Google Tag Ma
 
 ## 4. Recursos de terceros que deben figurar en la revisión de privacidad
 
-El cliente carga actualmente recursos de terceros que **no deben confundirse automáticamente con cookies**:
+El inventario distingue los recursos servidos localmente de las integraciones de terceros; ninguno debe confundirse automáticamente con una cookie:
 
 - **Outfit** y **Material Icons** se sirven desde activos estáticos del propio sitio; no se espera una conexión del navegador a Google Fonts ni a `fonts.gstatic.com` para estos recursos.
 - Google Identity Services (`accounts.google.com/gsi/client`) se carga de forma diferida al entrar en la pantalla de inicio de sesión, no desde la página pública inicial.
