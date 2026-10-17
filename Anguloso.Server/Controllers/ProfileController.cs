@@ -48,7 +48,8 @@ public class ProfileController : ControllerBase
             DirectoryBio = user.directory_bio ?? string.Empty,
             DirectorySpecialties = user.directory_specialties ?? string.Empty,
             DirectorySlug = user.directory_slug ?? string.Empty,
-            DirectoryPublicationStatus = user.directory_publication_status ?? "draft"
+            DirectoryPublicationStatus = user.directory_publication_status ?? "draft",
+            TimeZoneId = user.time_zone_id ?? string.Empty
         };
 
         return Ok(dto);
@@ -65,6 +66,14 @@ public class ProfileController : ControllerBase
         var user = await _context.users.FirstOrDefaultAsync(u => u.id == userId.Value);
         if (user == null) return NotFound("Usuario no encontrado.");
 
+        var requestedTimeZone = string.IsNullOrWhiteSpace(dto.TimeZoneId) ? null : dto.TimeZoneId.Trim();
+        if (requestedTimeZone != null)
+        {
+            try { _ = TimeZoneInfo.FindSystemTimeZoneById(requestedTimeZone); }
+            catch (TimeZoneNotFoundException) { return BadRequest(new { code = "INVALID_TIME_ZONE", message = "La zona horaria seleccionada no es válida." }); }
+            catch (InvalidTimeZoneException) { return BadRequest(new { code = "INVALID_TIME_ZONE", message = "La zona horaria seleccionada no es válida." }); }
+        }
+        user.time_zone_id = requestedTimeZone;
         user.full_name = dto.FullName ?? user.full_name;
         user.clinic_name = dto.ClinicName;
         user.clinic_address = dto.ClinicAddress;
