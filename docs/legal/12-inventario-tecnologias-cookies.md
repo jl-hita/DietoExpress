@@ -41,13 +41,13 @@ Además existen integraciones funcionales con Google Calendar, Stripe y LiveKit 
 Con el código auditado:
 
 - Se han identificado **dos cookies propias de sesión**, ambas necesarias para las áreas autenticadas.
-- No se ha identificado una cookie propia no necesaria.
+- La cookie `g_state` observada pertenece a la integración de Google Identity Services y usa el dominio del sitio; su necesidad y posible requisito de consentimiento siguen pendientes de evaluación.
 - No hay un SDK de analítica publicitaria/tercera cargado en el cliente.
 - Las fuentes Outfit y los iconos Material se sirven localmente; Google Identity Services se carga solo en el flujo de acceso.
 - Se ha eliminado el uso de `sessionStorage` para deduplicar analítica pública, evitando convertir esa deduplicación en una tecnología de almacenamiento del navegador.
 - El almacenamiento local restante es funcional para el portal de paciente y se limpia al cerrar sesión.
 
-En la prueba manual de producción realizada antes de estos cambios se observaron cookies con dominio de Google en una sesión de incógnito antes de iniciar sesión, al mismo tiempo que la página cargaba Google Identity Services y recursos de fuentes. La observación no permite atribuir esas cookies a una solicitud concreta ni determinar por sí sola si la integración las originó.
+En la auditoría manual de producción se observaron cookies de Google y, después de abrir el login, una cookie `g_state` bajo el dominio de DietoExpress. La documentación oficial de Google identifica `g_state` como una cookie de Google Identity Services para conservar el estado de cierre de sesión. En el código actual no se encontró una llamada explícita a One Tap (`google.accounts.id.prompt`) ni a `disableAutoSelect`; queda pendiente determinar por qué se activa en esta configuración concreta y clasificar su necesidad/consentimiento.
 
 **La decisión sobre la necesidad de un banner de consentimiento queda pendiente** de repetir la prueba tras desplegar estos cambios, revisar los flujos de Google/Stripe/LiveKit y completar la validación jurídica. No se debe concluir que el banner es innecesario únicamente porque no haya analítica publicitaria en el cliente.
 
@@ -56,8 +56,8 @@ En la prueba manual de producción realizada antes de estos cambios se observaro
 Antes de marcar el punto legal como definitivamente cerrado hay que comprobar en el dominio de producción, con un navegador limpio:
 
 1. Confirmar que la página pública ya no solicita `fonts.googleapis.com` ni `fonts.gstatic.com` y que las fuentes/iconos se renderizan correctamente.
-2. Confirmar que `accounts.google.com/gsi/client` no se solicita en la página pública y sí al abrir el login; probar el inicio de sesión con Google.
-3. Repetir el inventario de cookies antes y después de login en incógnito limpio y revisar atributos `Secure`, `HttpOnly`, `SameSite`, dominio, ruta y expiración.
+2. Confirmar que `accounts.google.com/gsi/client` no se solicita en la página pública y sí al abrir las pantallas de login y crear cuenta; probar el inicio de sesión con Google.
+3. Repetir el inventario de cookies antes y después de abrir login y crear cuenta en incógnito limpio y revisar atributos `Secure`, `HttpOnly`, `SameSite`, dominio, ruta y expiración.
 4. Revisar localStorage/sessionStorage/IndexedDB y los flujos de Google Calendar, Stripe y LiveKit.
 5. Completar la validación jurídica antes de decidir si hace falta banner y publicar una versión definitiva de la política.
 
