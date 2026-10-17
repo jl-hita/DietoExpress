@@ -27,15 +27,15 @@ La analítica pública del embudo se registra server-side y no utiliza cookies n
 
 ## 4. Servicios y recursos de terceros
 
-La aplicación puede utilizar recursos o integraciones de terceros, entre ellos Google Identity Services, Google Fonts, Google Material Icons, Google Calendar, Stripe y LiveKit.
+Outfit y Material Icons se sirven desde activos estáticos del propio sitio, sin cargar Google Fonts ni Material Icons desde servidores de Google. Google Identity Services se carga de forma diferida únicamente en la pantalla de inicio de sesión. Google Calendar, Stripe y LiveKit pueden intervenir en sus flujos funcionales específicos; cada uno debe revisarse en el contexto en que se active.
 
 Cada integración deberá revisarse según el flujo real y su configuración efectiva. Esta política no debe presentar una integración como una cookie si el servicio no la coloca.
 
 ## 5. Tecnologías no necesarias
 
-En la versión de código auditada no se ha identificado una categoría activa de cookies de publicidad o analítica que requiera un banner de consentimiento específico.
+No se ha identificado un SDK de analítica publicitaria en el cliente. Sin embargo, en una prueba manual de producción anterior a estos cambios se observaron cookies con dominio de Google en incógnito antes de iniciar sesión. Esa observación no demuestra qué solicitud las estableció ni resuelve por sí sola si se requiere consentimiento.
 
-Si se incorpora una tecnología no estrictamente necesaria, su carga deberá quedar condicionada al mecanismo de consentimiento que corresponda y deberá actualizarse este inventario y la política antes de su publicación.
+La decisión sobre un banner queda pendiente de repetir las pruebas en producción tras estos cambios, revisar las integraciones de terceros por flujo y completar la validación jurídica. Si se determina que una tecnología requiere consentimiento, su carga deberá bloquearse hasta obtenerlo y se actualizarán el inventario y esta política.
 
 ## 6. Gestión y retirada
 
@@ -53,3 +53,4 @@ El inventario se revisará cuando se introduzcan nuevas librerías, analítica, 
 - Versión técnica: 2
 - Estado: `pending_legal_validation`
 - Fecha efectiva: pendiente de publicación definitiva.
+- Pendiente: repetir pruebas de terceros/cookies en producción y resolver jurídicamente si procede banner de consentimiento.

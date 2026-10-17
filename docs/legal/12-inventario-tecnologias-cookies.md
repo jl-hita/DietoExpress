@@ -28,11 +28,10 @@ No se han localizado en el cliente referencias a Google Analytics, Google Tag Ma
 
 ## 4. Recursos de terceros que deben figurar en la revisión de privacidad
 
-El cliente carga actualmente recursos de terceros que **no deben confundirse automáticamente con cookies**:
+El inventario distingue los recursos servidos localmente de las integraciones de terceros; ninguno debe confundirse automáticamente con una cookie:
 
-- Google Fonts (fuentes Inter/Outfit).
-- Google Material Icons.
-- Google Identity Services (`accounts.google.com/gsi/client`) para el acceso con Google.
+- **Outfit** y **Material Icons** se sirven desde activos estáticos del propio sitio; no se espera una conexión del navegador a Google Fonts ni a `fonts.gstatic.com` para estos recursos.
+- Google Identity Services (`accounts.google.com/gsi/client`) se carga de forma diferida al entrar en la pantalla de inicio de sesión, no desde la página pública inicial.
 
 Además existen integraciones funcionales con Google Calendar, Stripe y LiveKit que deben revisarse según el flujo concreto en el que se utilicen. Su existencia no implica por sí sola que DietoExpress coloque una cookie no necesaria.
 
@@ -43,20 +42,23 @@ Con el código auditado:
 - Se han identificado **dos cookies propias de sesión**, ambas necesarias para las áreas autenticadas.
 - No se ha identificado una cookie propia no necesaria.
 - No hay un SDK de analítica publicitaria/tercera cargado en el cliente.
+- Las fuentes Outfit y los iconos Material se sirven localmente; Google Identity Services se carga solo en el flujo de acceso.
 - Se ha eliminado el uso de `sessionStorage` para deduplicar analítica pública, evitando convertir esa deduplicación en una tecnología de almacenamiento del navegador.
 - El almacenamiento local restante es funcional para el portal de paciente y se limpia al cerrar sesión.
 
-Por tanto, **no se justifica actualmente un banner de consentimiento para una categoría de analítica/publicidad que no existe en el código auditado**. Si se incorpora una tecnología no estrictamente necesaria, deberá añadirse al inventario y bloquearse hasta disponer del mecanismo de consentimiento correspondiente.
+En la prueba manual de producción realizada antes de estos cambios se observaron cookies con dominio de Google en una sesión de incógnito antes de iniciar sesión, al mismo tiempo que la página cargaba Google Identity Services y recursos de fuentes. La observación no permite atribuir esas cookies a una solicitud concreta ni determinar por sí sola si la integración las originó.
+
+**La decisión sobre la necesidad de un banner de consentimiento queda pendiente** de repetir la prueba tras desplegar estos cambios, revisar los flujos de Google/Stripe/LiveKit y completar la validación jurídica. No se debe concluir que el banner es innecesario únicamente porque no haya analítica publicitaria en el cliente.
 
 ## 6. Verificación pendiente de producción
 
 Antes de marcar el punto legal como definitivamente cerrado hay que comprobar en el dominio de producción, con un navegador limpio:
 
-1. Cookies antes y después del login.
-2. Atributos `Secure`, `HttpOnly`, `SameSite`, dominio, ruta y expiración.
-3. localStorage/sessionStorage/IndexedDB.
-4. Peticiones y recursos de terceros.
-5. Comportamiento de Google, Stripe y LiveKit en los flujos en los que se activan.
+1. Confirmar que la página pública ya no solicita `fonts.googleapis.com` ni `fonts.gstatic.com` y que las fuentes/iconos se renderizan correctamente.
+2. Confirmar que `accounts.google.com/gsi/client` no se solicita en la página pública y sí al abrir el login; probar el inicio de sesión con Google.
+3. Repetir el inventario de cookies antes y después de login en incógnito limpio y revisar atributos `Secure`, `HttpOnly`, `SameSite`, dominio, ruta y expiración.
+4. Revisar localStorage/sessionStorage/IndexedDB y los flujos de Google Calendar, Stripe y LiveKit.
+5. Completar la validación jurídica antes de decidir si hace falta banner y publicar una versión definitiva de la política.
 
 Esta comprobación es una validación de despliegue, no una razón para inventar cookies en la política.
 

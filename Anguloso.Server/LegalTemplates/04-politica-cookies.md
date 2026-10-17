@@ -25,6 +25,8 @@ Las tecnologías que requieran consentimiento se activarán únicamente después
 
 ## 5. Terceros
 
+Outfit y Material Icons se sirven desde activos estáticos del propio sitio. Google Identity Services se carga únicamente en la pantalla de inicio de sesión. Google Calendar, Stripe y LiveKit pueden intervenir en flujos funcionales concretos.
+
 Servicios y terceros que pueden intervenir:  
 {{platform.cookie_third_parties}}
 

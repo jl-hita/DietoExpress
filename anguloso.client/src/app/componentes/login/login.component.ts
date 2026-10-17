@@ -50,21 +50,55 @@ export class LoginComponent {
   ngAfterViewInit(): void {
     this.http.get<{ clientId: string }>(`${this.baseUrl}/auth/google-client-id`).subscribe({
       next: (res) => {
-        this.googleClientId = res.clientId;
-        google.accounts.id.initialize({
-          client_id: res.clientId,
-          callback: (response: any) => this.handleCredentialResponse(response)
-        });
+        if (!res.clientId) {
+          this.snackBar.open('El acceso con Google no está configurado', 'Cerrar', { duration: 4000 });
+          return;
+        }
 
-        google.accounts.id.renderButton(
-          document.getElementById("googleBtn"),
-          { theme: "outline", size: "large" }
-        );
+        this.googleClientId = res.clientId;
+        this.loadGoogleIdentityScript().then(() => {
+          google.accounts.id.initialize({
+            client_id: res.clientId,
+            callback: (response: any) => this.handleCredentialResponse(response)
+          });
+
+          const button = document.getElementById('googleBtn');
+          if (button) {
+            google.accounts.id.renderButton(button, { theme: 'outline', size: 'large' });
+          }
+        }).catch((err) => {
+          console.error('No se pudo cargar Google Identity Services', err);
+          this.snackBar.open('No se pudo cargar el acceso con Google', 'Cerrar', { duration: 4000 });
+        });
       },
       error: (err) => {
         console.error('No se pudo cargar la configuración de Google', err);
         this.snackBar.open('No se pudo cargar la configuración de Google', 'Cerrar', { duration: 4000 });
       }
+    });
+  }
+
+  private loadGoogleIdentityScript(): Promise<void> {
+    if (typeof google !== 'undefined' && google?.accounts?.id) {
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve, reject) => {
+      let script = document.querySelector<HTMLScriptElement>('script[data-google-identity="true"]');
+      if (script) {
+        script.addEventListener('load', () => resolve(), { once: true });
+        script.addEventListener('error', () => reject(new Error('Google Identity Services no disponible')), { once: true });
+        return;
+      }
+
+      script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      script.dataset['googleIdentity'] = 'true';
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('Google Identity Services no disponible'));
+      document.head.appendChild(script);
     });
   }
 
