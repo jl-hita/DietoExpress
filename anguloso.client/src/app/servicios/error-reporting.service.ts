@@ -97,7 +97,7 @@ export class ErrorReportingService {
 
   private sanitizePath(value: string): string {
     const path = value.split('?')[0].split('#')[0] || '/';
-    return path.replace(/\\/(?:\\d+|[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})(?=\\/|$)/gi, '/:id');
+    return path.replace(/\/(?:\d+|[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})(?=\/|$)/gi, '/:id');
   }
 
   private getProblemMetadata(value: unknown): ApiProblemMetadata | undefined {
