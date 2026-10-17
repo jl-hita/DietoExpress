@@ -96,7 +96,8 @@ export class ErrorReportingService {
       code: 'CLIENT_RUNTIME_ERROR',
       message: 'Se ha producido un error inesperado en la aplicación.',
       occurredAt: new Date(now).toISOString(),
-      occurredAtLocal: this.formatLocalTimestamp(new Date(now)),
+      occurredAtLocal: this.timeZones.formatLocalTimestamp(new Date(now)),
+      timeZoneId: this.timeZones.timeZoneId(),
       status: 0,
       path
     });
