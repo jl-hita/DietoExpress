@@ -17,7 +17,7 @@ Inventario y clasificación de tecnologías no esenciales:
 
 ## 3. Tecnologías necesarias
 
-Las tecnologías estrictamente necesarias para proporcionar una funcionalidad solicitada, mantener una sesión, garantizar la seguridad o recordar una configuración esencial podrán utilizarse en la medida necesaria para esas finalidades.
+Las tecnologías estrictamente necesarias para proporcionar una funcionalidad solicitada, mantener una sesión, garantizar la seguridad o recordar una configuración esencial podrán utilizarse en la medida necesaria para esas finalidades. El portal de paciente también guarda localmente estados funcionales —comidas completadas y casillas marcadas de la lista de la compra— y los elimina al cerrar sesión.
 
 ## 4. Tecnologías no esenciales
 
@@ -25,7 +25,7 @@ Las tecnologías que requieran consentimiento se activarán únicamente después
 
 ## 5. Terceros
 
-Outfit y Material Icons se sirven desde activos estáticos del propio sitio. Google Identity Services se carga en las pantallas de inicio de sesión y creación de cuenta. En producción se ha observado la cookie `g_state` asociada a esta integración; su finalidad documentada es conservar el estado de cierre de sesión. Su clasificación de necesidad/consentimiento debe revisarse según el flujo y la configuración efectivos. Google Calendar, Stripe y LiveKit pueden intervenir en flujos funcionales concretos.
+Outfit y Material Icons se sirven desde activos estáticos del propio sitio. Google Identity Services se carga en las pantallas de inicio de sesión y creación de cuenta. En producción se ha observado la cookie `g_state` asociada a esta integración; su finalidad documentada es conservar el estado de cierre de sesión. Su clasificación de necesidad/consentimiento debe revisarse según el flujo y la configuración efectivos. Google Calendar, Stripe y LiveKit pueden intervenir en flujos funcionales concretos. El service worker propio `/sw.js` gestiona notificaciones Web Push; se registra al activar expresamente los avisos y requiere permiso del navegador.
 
 Servicios y terceros que pueden intervenir:  
 {{platform.cookie_third_parties}}

@@ -54,6 +54,52 @@ public class CookieTechnologyInventoryRegressionTests
     }
 
     [Fact]
+    public void PatientPortalLogout_ClearsKnownFunctionalStorage()
+    {
+        var portal = File.ReadAllText(Path.Combine(
+            RepoRoot,
+            "anguloso.client",
+            "src",
+            "app",
+            "componentes",
+            "patient-portal",
+            "patient-portal.component.ts"));
+
+        Assert.Contains("const completedMealsPrefix = `completed_meals_${clientId}_`;", portal);
+        Assert.Contains("const shoppingChecksKey = `shopping_${clientId}`;", portal);
+        Assert.Contains("localStorage.removeItem(shoppingChecksKey)", portal);
+    }
+
+    [Fact]
+    public void PatientPortal_RegistersPushWorkerOnlyAfterExplicitOptIn()
+    {
+        var portal = File.ReadAllText(Path.Combine(
+            RepoRoot,
+            "anguloso.client",
+            "src",
+            "app",
+            "componentes",
+            "patient-portal",
+            "patient-portal.component.ts"));
+
+        var prepareStart = portal.IndexOf("preparePushSupport(): void", StringComparison.Ordinal);
+        var enableStart = portal.IndexOf("async enablePushNotifications(): Promise<void>", StringComparison.Ordinal);
+        Assert.True(prepareStart >= 0);
+        Assert.True(enableStart > prepareStart);
+
+        var detectionMethod = portal.Substring(prepareStart, enableStart - prepareStart);
+        Assert.Contains("navigator.serviceWorker.getRegistration()", detectionMethod);
+        Assert.DoesNotContain("navigator.serviceWorker.register('/sw.js')", detectionMethod);
+        Assert.Contains("pushManager.getSubscription()", detectionMethod);
+
+        var optInMethod = portal.Substring(enableStart);
+        var permissionCall = optInMethod.IndexOf("Notification.requestPermission()", StringComparison.Ordinal);
+        var registerCall = optInMethod.IndexOf("navigator.serviceWorker.register('/sw.js')", StringComparison.Ordinal);
+        Assert.True(permissionCall >= 0);
+        Assert.True(registerCall > permissionCall);
+    }
+
+    [Fact]
     public void ClientInventory_DocumentsOnlyKnownBrowserStorage()
     {
         var inventory = File.ReadAllText(Path.Combine(
@@ -65,6 +111,7 @@ public class CookieTechnologyInventoryRegressionTests
         Assert.Contains("dietoexpress_professional_session", inventory);
         Assert.Contains("dietoexpress_patient_session", inventory);
         Assert.Contains("completed_meals_<clientId>_<date>", inventory);
+        Assert.Contains("shopping_<clientId>", inventory);
         Assert.Contains("Google Identity Services", inventory);
         Assert.DoesNotContain("[IDENTIFICAR]", inventory, StringComparison.OrdinalIgnoreCase);
     }

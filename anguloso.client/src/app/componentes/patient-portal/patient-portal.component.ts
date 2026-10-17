@@ -344,17 +344,19 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * El portal usa localStorage únicamente para el estado funcional de comidas completadas.
-   * Se limpia al cerrar sesión para evitar que un dispositivo compartido conserve datos
-   * funcionales asociados al paciente.
+   * Limpia los estados funcionales del paciente guardados en localStorage
+   * (comidas completadas y checks de la lista de la compra) al cerrar sesión,
+   * para evitar que persistan en un dispositivo compartido.
    */
   private clearLocalPatientState(clientId?: number): void {
     if (!clientId) return;
-    const prefix = `completed_meals_${clientId}_`;
+    const completedMealsPrefix = `completed_meals_${clientId}_`;
+    const shoppingChecksKey = `shopping_${clientId}`;
     try {
+      localStorage.removeItem(shoppingChecksKey);
       for (let index = localStorage.length - 1; index >= 0; index--) {
         const key = localStorage.key(index);
-        if (key?.startsWith(prefix)) localStorage.removeItem(key);
+        if (key?.startsWith(completedMealsPrefix)) localStorage.removeItem(key);
       }
     } catch {
       // El portal sigue funcionando aunque el navegador no permita modificar localStorage.
@@ -670,8 +672,8 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
       'serviceWorker' in navigator &&
       'PushManager' in window;
     if (!this.pushSupported) return;
-    navigator.serviceWorker.register('/sw.js').then(registration => {
-      this.pushEnabled = !!registration.pushManager;
+    navigator.serviceWorker.getRegistration().then(async registration => {
+      this.pushEnabled = !!(await registration?.pushManager.getSubscription());
     }).catch(() => this.pushEnabled = false);
   }
 
@@ -693,6 +695,8 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
         return;
       }
 
+      // El registro persistente solo se crea tras la acción explícita y con permiso concedido.
+      await navigator.serviceWorker.register('/sw.js');
       const registration = await navigator.serviceWorker.ready;
       let subscription = await registration.pushManager.getSubscription();
       if (!subscription) {

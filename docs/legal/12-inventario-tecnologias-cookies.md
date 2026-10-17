@@ -15,10 +15,11 @@ Ambas cookies se emiten con `HttpOnly`, `Secure`, `SameSite=Strict` y `Path=/`. 
 
 | Tecnología | Clave/patrón | Finalidad | Alcance | Necesidad |
 |---|---|---|---|---|
-| localStorage | `completed_meals_<clientId>_<date>` | Recordar comidas completadas en el portal | Navegador/dispositivo | Funcional |
+| localStorage | `completed_meals_<clientId>_<date>` | Recordar comidas completadas del día | Navegador/dispositivo | Funcional |
+| localStorage | `shopping_<clientId>` | Recordar las casillas marcadas de la lista de la compra | Navegador/dispositivo | Funcional |
 | sessionStorage | — | Ya no se utiliza para analítica pública | — | — |
 
-El estado de comidas es funcional y no contiene una cookie. Al cerrar sesión del paciente se eliminan las claves locales de comidas asociadas a ese paciente para evitar que queden datos funcionales en un dispositivo compartido.
+Ambas entradas son estados funcionales, no cookies, y no se usan para publicidad. Al cerrar sesión se eliminan las claves `completed_meals_<clientId>_...` y `shopping_<clientId>` asociadas al paciente, para evitar que queden estados funcionales en un dispositivo compartido.
 
 ## 3. Analítica pública
 
@@ -31,12 +32,13 @@ No se han localizado en el cliente referencias a Google Analytics, Google Tag Ma
 El inventario distingue los recursos servidos localmente de las integraciones de terceros; ninguno debe confundirse automáticamente con una cookie:
 
 - **Outfit** y **Material Icons** se sirven desde activos estáticos del propio sitio; no se espera una conexión del navegador a Google Fonts ni a `fonts.gstatic.com` para estos recursos.
-- Google Identity Services (`accounts.google.com/gsi/client`) se carga de forma diferida al entrar en las pantallas de inicio de sesión y crear cuenta, no desde la página pública inicial.
-- En producción se observó `g_state` con dominio `jlhitap.duckdns.org`, ruta `/` y expiración aproximada de seis meses; `HttpOnly`, `Secure` y `SameSite` aparecían vacíos. Google documenta que `g_state` almacena el estado de cierre de sesión y se establece cuando se usa One Tap o el inicio de sesión automático. Sin embargo, el código auditado de DietoExpress solo inicializa GIS y renderiza un botón; no se han localizado `google.accounts.id.prompt()`, `data-auto_select`, `disableAutoSelect()` ni un flujo de redirección de GIS. Una prueba manual posterior en incógnito limpio acotó el momento: la landing pública no tenía `g_state`, pero la cookie apareció al abrir el login y antes de pulsar el botón de Google. Esto apunta a la carga/inicialización asociada a la pantalla, sin demostrar cuál de esos pasos la crea. La discrepancia con la documentación de Google permanece: el código solo inicializa GIS y renderiza el botón, sin llamadas explícitas a One Tap o inicio de sesión automático. No se puede concluir ni que la cookie sea necesaria ni que deba eliminarse sin aislar técnicamente el desencadenante.
+- Google Identity Services (`accounts.google.com/gsi/client`) se carga de forma diferida al entrar en las pantallas de inicio de sesión y crear cuenta, no desde la página pública inicial. En producción se observó `g_state` en el dominio de DietoExpress, con una expiración aproximada de seis meses; `HttpOnly`, `Secure` y `SameSite` aparecían vacíos.
+- **Prueba de aislamiento de `g_state`:** en incógnito limpio, la landing pública no creó la cookie; cargar solo el script GIS tampoco. En una prueba controlada sobre la landing, tras obtener el client ID y cargar GIS, ejecutar `google.accounts.id.initialize(...)` sí la creó, sin ejecutar `renderButton()`, llamar a `prompt()` ni pulsar un botón. En las rutas de login/registro la aplicación ejecuta esa inicialización. Google documenta `g_state` como estado de cierre de sesión de GIS, pero no se ha demostrado con esta prueba si tiene otros usos en esta configuración. La clasificación como estrictamente necesaria o sujeta a consentimiento permanece pendiente de validación jurídica.
 
 - **Google Calendar:** flujo OAuth de redirección a Google; el backend intercambia el código y conserva los tokens. No se ha encontrado un SDK de Calendar embebido en el navegador.
 - **Stripe Checkout:** el backend crea una sesión de Checkout y devuelve su URL; el frontend navega a esa URL. El servicio no envía `ui_mode`, por lo que se aplica el modo alojado por defecto documentado por Stripe. No se ha localizado Stripe.js/Elements en el cliente de DietoExpress.
 - **LiveKit:** el componente `video-consultation` se carga mediante ruta diferida. Al entrar en esa pantalla, el frontend pide al backend un token y conecta con el servidor LiveKit; no se ha identificado una carga de LiveKit desde la landing pública.
+- **Web Push:** `/sw.js` se sirve desde el mismo origen y el worker solo maneja eventos `push` y `notificationclick`; no usa `Cache API` ni `IndexedDB` en el código revisado. El portal consulta si ya existe un registro/suscripción, pero solo crea el registro persistente del worker dentro de la acción explícita «Activar avisos», después de conceder permiso. La suscripción se envía al backend de DietoExpress.
 
 La existencia de estas integraciones no implica por sí sola que DietoExpress coloque cookies no necesarias; las cookies y el almacenamiento que use cada proveedor deben verificarse en su flujo real.
 
@@ -45,13 +47,14 @@ La existencia de estas integraciones no implica por sí sola que DietoExpress co
 Con el código auditado:
 
 - Se han identificado **dos cookies propias de sesión**, ambas necesarias para las áreas autenticadas.
-- La cookie `g_state` observada coincide con el nombre documentado por Google Identity Services y usa el dominio del sitio; el disparador no concuerda con las llamadas encontradas en el código y su necesidad/requisito de consentimiento siguen pendientes.
+- La cookie `g_state` observada está asociada a Google Identity Services. Las pruebas aisladas indican que se crea al ejecutar `google.accounts.id.initialize(...)`, no solo al descargar el script ni al renderizar el botón. Su necesidad y régimen de consentimiento siguen pendientes; el dato técnico no basta por sí solo para concluir que haga falta un banner ni para descartarlo.
 - No hay un SDK de analítica publicitaria/tercera cargado en el cliente.
 - Las fuentes Outfit y los iconos Material se sirven localmente; Google Identity Services se carga de forma diferida en login y creación de cuenta, no en la página pública inicial.
 - Se ha eliminado el uso de `sessionStorage` para deduplicar analítica pública, evitando convertir esa deduplicación en una tecnología de almacenamiento del navegador.
-- El almacenamiento local restante es funcional para el portal de paciente y se limpia al cerrar sesión.
+- El almacenamiento local restante es funcional para el portal de paciente: comidas completadas y casillas de la lista de la compra. Ambos se limpian al cerrar sesión.
+- El service worker Web Push se registra tras una acción explícita para activar avisos; el estado «activado» depende de que exista una suscripción real, no solo de que el navegador exponga `PushManager`.
 
-En una prueba manual de producción en incógnito limpio, la landing no tenía `g_state`; la cookie apareció al abrir el login, antes de pulsar el botón de Google. La documentación oficial de Google identifica `g_state` como una cookie de Google Identity Services para conservar el estado de cierre de sesión y la asocia a One Tap o inicio de sesión automático. El código actual solo inicializa GIS y renderiza el botón; no se encontró una llamada explícita a `google.accounts.id.prompt()`, `disableAutoSelect()` ni configuración de inicio automático. El resultado acota el disparador a la carga/inicialización asociada al login, pero no identifica la operación exacta. La necesidad/consentimiento siguen pendientes.
+Las pruebas manuales en incógnito limpio mostraron que la landing pública no tenía `g_state` y que descargar solo el script GIS tampoco la creaba. En una prueba controlada, obtener el client ID, cargar GIS y ejecutar `google.accounts.id.initialize(...)` sí creó la cookie, sin renderizar ni pulsar el botón ni invocar `prompt()`. Esto es compatible con la observación de que la cookie aparece al abrir el login, porque la aplicación inicializa GIS en esa ruta. Google documenta `g_state` como parte del estado de cierre de sesión de GIS y la relaciona con One Tap o el inicio de sesión automático; la prueba no demuestra por sí sola todos sus usos ni resuelve su clasificación jurídica. La necesidad/consentimiento siguen pendientes.
 
 **La decisión sobre la necesidad de un banner de consentimiento queda pendiente** de repetir la prueba tras desplegar estos cambios, revisar los flujos de Google/Stripe/LiveKit y completar la validación jurídica. No se debe concluir que el banner es innecesario únicamente porque no haya analítica publicitaria en el cliente.
 
@@ -61,8 +64,8 @@ Antes de marcar el punto legal como definitivamente cerrado hay que comprobar en
 
 1. Confirmar que la página pública ya no solicita `fonts.googleapis.com` ni `fonts.gstatic.com` y que las fuentes/iconos se renderizan correctamente.
 2. Confirmar que `accounts.google.com/gsi/client` no se solicita en la página pública y sí al abrir las pantallas de login y crear cuenta; probar el inicio de sesión con Google.
-3. Repetir el inventario de cookies antes y después de abrir login y crear cuenta en incógnito limpio y revisar atributos `Secure`, `HttpOnly`, `SameSite`, dominio, ruta y expiración.
-4. Revisar localStorage/sessionStorage/IndexedDB y los flujos de Google Calendar, Stripe y LiveKit.
+3. Repetir el inventario de cookies antes y después de abrir login y crear cuenta en incógnito limpio; comparar carga del script, `initialize()` y renderizado del botón por separado; revisar atributos `Secure`, `HttpOnly`, `SameSite`, dominio, ruta y expiración.
+4. Revisar localStorage/sessionStorage/IndexedDB y los flujos de Google Calendar, Stripe, LiveKit y Web Push. Confirmar en navegador limpio que `/sw.js` no se registra al abrir el portal y sí al activar avisos, con permiso concedido.
 5. Completar la validación jurídica antes de decidir si hace falta banner y publicar una versión definitiva de la política.
 
 Esta comprobación es una validación de despliegue, no una razón para inventar cookies en la política.
