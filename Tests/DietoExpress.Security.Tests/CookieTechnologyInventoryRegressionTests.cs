@@ -81,7 +81,8 @@ public class CookieTechnologyInventoryRegressionTests
 
         Assert.Contains("dietoexpress_professional_session", inventory);
         Assert.Contains("dietoexpress_patient_session", inventory);
-        Assert.Contains("completed_meals_<clientId>_<date>", inventory);\n        Assert.Contains("shopping_<clientId>", inventory);
+        Assert.Contains("completed_meals_<clientId>_<date>", inventory);
+        Assert.Contains("shopping_<clientId>", inventory);
         Assert.Contains("Google Identity Services", inventory);
         Assert.DoesNotContain("[IDENTIFICAR]", inventory, StringComparison.OrdinalIgnoreCase);
     }

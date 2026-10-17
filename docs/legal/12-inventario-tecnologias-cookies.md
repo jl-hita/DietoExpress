@@ -16,7 +16,8 @@ Ambas cookies se emiten con `HttpOnly`, `Secure`, `SameSite=Strict` y `Path=/`. 
 | Tecnología | Clave/patrón | Finalidad | Alcance | Necesidad |
 |---|---|---|---|---|
 | localStorage | `completed_meals_<clientId>_<date>` | Recordar comidas completadas del día | Navegador/dispositivo | Funcional |
-| localStorage | `shopping_<clientId>` | Recordar las casillas marcadas de la lista de la compra | Navegador/dispositivo | Funcional |\n| sessionStorage | — | Ya no se utiliza para analítica pública | — | — |
+| localStorage | `shopping_<clientId>` | Recordar las casillas marcadas de la lista de la compra | Navegador/dispositivo | Funcional |
+| sessionStorage | — | Ya no se utiliza para analítica pública | — | — |
 
 Ambas entradas son estados funcionales, no cookies, y no se usan para publicidad. Al cerrar sesión se eliminan las claves `completed_meals_<clientId>_...` y `shopping_<clientId>` asociadas al paciente, para evitar que queden estados funcionales en un dispositivo compartido.
 
