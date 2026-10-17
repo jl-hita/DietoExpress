@@ -59,6 +59,17 @@
         </button>
       </form>
 
+      <div class="signup-google">
+        <div class="divider"><span>o crea tu cuenta con</span></div>
+        <div class="google-legal" *ngIf="currentTerms">
+          <label>
+            <input type="checkbox" [(ngModel)]="googleTermsAccepted" [ngModelOptions]="{standalone: true}">
+            <span>Acepto las <a routerLink="/legal" target="_blank">condiciones de contratación</a> vigentes para crear una cuenta con Google.</span>
+          </label>
+        </div>
+        <div class="boton-centrado"><div id="googleSignupBtn"></div></div>
+      </div>
+
       <p class="switch">¿Ya tienes cuenta? <a routerLink="/login">Iniciar sesión</a></p>
     </ng-container>
 

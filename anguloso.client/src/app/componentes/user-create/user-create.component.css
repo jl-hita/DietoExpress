@@ -27,3 +27,12 @@ form { display:flex; flex-direction:column; gap:8px; }
 .created-state .small { font-size:13px; margin-top:8px; }
 .created-state button { height:46px; margin-top:24px; border-radius:11px; font-weight:700; }
 @media(max-width:480px){.signup-shell{padding:20px 12px}.signup-card{padding:28px 20px;}.signup-brand{margin-bottom:18px;}}
+
+.signup-google { margin-top:22px; display:flex; flex-direction:column; gap:12px; }
+.divider { display:flex; align-items:center; gap:12px; color:#9aa9a7; font-size:12px; margin:3px 0; }
+.divider:before,.divider:after { content:''; flex:1; height:1px; background:#e5ecea; }
+.google-legal { color:#647572; font-size:12px; line-height:1.5; }
+.google-legal label { display:flex; align-items:flex-start; gap:9px; }
+.google-legal input { margin-top:3px; flex:0 0 auto; }
+.google-legal a { color:#0d9488; }
+.boton-centrado { display:flex; justify-content:center; min-height:42px; }

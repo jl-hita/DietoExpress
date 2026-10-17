@@ -14,8 +14,9 @@ DietoExpress utiliza actualmente las siguientes cookies propias de sesión:
 |---|---|---|---|---|
 | `dietoexpress_professional_session` | Mantener la sesión autenticada y aplicar autorización y seguridad | 3 horas | DietoExpress | Necesaria |
 | `dietoexpress_patient_session` | Mantener la sesión autenticada del portal de paciente | 8 horas | DietoExpress | Necesaria |
+| `g_state` | Estado de cierre de sesión de Google Identity Services | Aproximadamente 6 meses en la observación de producción | Google Identity Services; cookie en el dominio de DietoExpress | Pendiente de evaluación de necesidad/consentimiento |
 
-Estas cookies se configuran como `HttpOnly`, `Secure` y `SameSite=Strict`.
+Las dos cookies propias de sesión de DietoExpress se configuran como `HttpOnly`, `Secure` y `SameSite=Strict`. En producción también se observó `g_state` en el dominio de DietoExpress, con `Path=/` y expiración aproximada de seis meses; sus atributos `HttpOnly`, `Secure` y `SameSite` aparecían vacíos en DevTools. Google documenta que Google Identity Services utiliza esta cookie para recordar el estado de cierre de sesión. Su clasificación jurídica queda pendiente de evaluar el flujo y la configuración efectiva.
 
 No se utilizan cookies propias de publicidad ni de analítica de terceros en el código cliente auditado.
 
@@ -33,7 +34,7 @@ Cada integración deberá revisarse según el flujo real y su configuración efe
 
 ## 5. Tecnologías no necesarias
 
-No se ha identificado un SDK de analítica publicitaria en el cliente. Sin embargo, en una prueba manual de producción anterior a estos cambios se observaron cookies con dominio de Google en incógnito antes de iniciar sesión. Esa observación no demuestra qué solicitud las estableció ni resuelve por sí sola si se requiere consentimiento.
+No se ha identificado un SDK de analítica publicitaria en el cliente. En producción se observaron cookies de Google y una cookie `g_state` bajo el dominio de DietoExpress tras abrir el login. Google documenta que Google Identity Services utiliza `g_state` para recordar el estado de cierre de sesión; la clasificación de necesidad/consentimiento sigue pendiente porque el código actual no invoca explícitamente One Tap ni el inicio de sesión automático.
 
 La decisión sobre un banner queda pendiente de repetir las pruebas en producción tras estos cambios, revisar las integraciones de terceros por flujo y completar la validación jurídica. Si se determina que una tecnología requiere consentimiento, su carga deberá bloquearse hasta obtenerlo y se actualizarán el inventario y esta política.
 
