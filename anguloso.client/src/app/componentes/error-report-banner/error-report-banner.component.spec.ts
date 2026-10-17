@@ -9,12 +9,12 @@ import { ErrorReportingService } from '../../servicios/error-reporting.service';
 
 describe('ErrorReportBannerComponent', () => {
   let fixture: ComponentFixture<ErrorReportBannerComponent>;
-  let auth: { isSuperAdmin: ReturnType<typeof vi.fn> };
+  let auth: { isLoggedIn: ReturnType<typeof vi.fn>; isSuperAdmin: ReturnType<typeof vi.fn> };
   let support: { createTicket: ReturnType<typeof vi.fn> };
   let errors: ErrorReportingService;
 
   beforeEach(() => {
-    auth = { isSuperAdmin: vi.fn().mockReturnValue(false) };
+    auth = { isLoggedIn: vi.fn().mockReturnValue(true), isSuperAdmin: vi.fn().mockReturnValue(false) };
     support = { createTicket: vi.fn().mockReturnValue(of({ id: 42 })) };
     vi.spyOn(window, 'alert').mockImplementation(() => undefined);
     TestBed.configureTestingModule({
@@ -62,6 +62,15 @@ describe('ErrorReportBannerComponent', () => {
 
   it('does not show an action that the superadmin API role is forbidden to use', () => {
     auth.isSuperAdmin.mockReturnValue(true);
+    captureError();
+
+    expect(fixture.nativeElement.textContent).not.toContain('Informar a soporte');
+    expect(support.createTicket).not.toHaveBeenCalled();
+  });
+
+
+  it('does not offer ticket creation when no professional session is authenticated', () => {
+    auth.isLoggedIn.mockReturnValue(false);
     captureError();
 
     expect(fixture.nativeElement.textContent).not.toContain('Informar a soporte');
