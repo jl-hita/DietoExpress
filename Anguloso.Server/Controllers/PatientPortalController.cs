@@ -175,6 +175,7 @@ public class PatientPortalController : ControllerBase
         );
 
         if (!emailResult.Exito)
+        {
             var problem = Problem(
                 detail: "No se ha podido enviar el enlace de acceso. Inténtalo de nuevo más tarde.",
                 statusCode: StatusCodes.Status502BadGateway,
@@ -185,6 +186,7 @@ public class PatientPortalController : ControllerBase
                 details.Extensions["reportable"] = true;
             }
             return problem;
+        }
 
         return Ok(new { message = "Si el email corresponde a un paciente, recibirás un nuevo enlace de acceso." });
     }
