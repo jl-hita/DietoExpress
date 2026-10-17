@@ -25,7 +25,7 @@ Las tecnologías que requieran consentimiento se activarán únicamente después
 
 ## 5. Terceros
 
-Outfit y Material Icons se sirven desde activos estáticos del propio sitio. Google Identity Services se carga en las pantallas de inicio de sesión y creación de cuenta. En producción se ha observado la cookie `g_state` asociada a esta integración; su finalidad documentada es conservar el estado de cierre de sesión. Su clasificación de necesidad/consentimiento debe revisarse según el flujo y la configuración efectivos. Google Calendar, Stripe y LiveKit pueden intervenir en flujos funcionales concretos.
+Outfit y Material Icons se sirven desde activos estáticos del propio sitio. Google Identity Services se carga en las pantallas de inicio de sesión y creación de cuenta. En producción se ha observado la cookie `g_state` asociada a esa integración. Una prueba controlada indica que la crea la llamada `google.accounts.id.initialize(...)`, no la mera descarga del script; se desconoce si tiene otros usos en la configuración empleada. Su clasificación como tecnología estrictamente necesaria o sujeta a consentimiento queda pendiente de validación jurídica. Google Calendar, Stripe y LiveKit pueden intervenir en flujos funcionales concretos.
 
 Servicios y terceros que pueden intervenir:  
 {{platform.cookie_third_parties}}

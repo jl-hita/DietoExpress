@@ -16,7 +16,7 @@ DietoExpress utiliza actualmente las siguientes cookies propias de sesión:
 | `dietoexpress_patient_session` | Mantener la sesión autenticada del portal de paciente | 8 horas | DietoExpress | Necesaria |
 | `g_state` | Estado de cierre de sesión de Google Identity Services | Aproximadamente 6 meses en la observación de producción | Google Identity Services; cookie en el dominio de DietoExpress | Pendiente de evaluación de necesidad/consentimiento |
 
-Las dos cookies propias de sesión de DietoExpress se configuran como `HttpOnly`, `Secure` y `SameSite=Strict`. En producción también se observó `g_state` en el dominio de DietoExpress, con `Path=/` y expiración aproximada de seis meses; sus atributos `HttpOnly`, `Secure` y `SameSite` aparecían vacíos en DevTools. Google documenta que Google Identity Services utiliza esta cookie para recordar el estado de cierre de sesión. Su clasificación jurídica queda pendiente de evaluar el flujo y la configuración efectiva.
+Las dos cookies propias de sesión de DietoExpress se configuran como `HttpOnly`, `Secure` y `SameSite=Strict`. En producción también se observó `g_state` en el dominio de DietoExpress, con `Path=/` y expiración aproximada de seis meses; sus atributos `HttpOnly`, `Secure` y `SameSite` aparecían vacíos en DevTools. Google describe `g_state` como parte del estado de Google Identity Services relacionado con el cierre de sesión. La evidencia manual más reciente apunta a que se crea al inicializar GIS; su clasificación como tecnología estrictamente necesaria sigue pendiente de validación jurídica.
 
 No se utilizan cookies propias de publicidad ni de analítica de terceros en el código cliente auditado.
 
@@ -34,7 +34,7 @@ Cada integración deberá revisarse según el flujo real y su configuración efe
 
 ## 5. Tecnologías no necesarias
 
-No se ha identificado un SDK de analítica publicitaria en el cliente. En una prueba manual de producción en incógnito limpio, la landing pública no tenía `g_state`; la cookie apareció al abrir la pantalla de login, antes de pulsar el botón de Google. Esto acota el desencadenante a la carga/inicialización asociada a esa pantalla, pero no distingue cuál de esos pasos la crea. Google documenta que `g_state` se establece al usar One Tap o el inicio de sesión automático, mientras que el código auditado solo inicializa Google Identity Services y renderiza el botón, sin invocar explícitamente esos flujos. La discrepancia y la clasificación de necesidad/consentimiento siguen pendientes.
+No se ha identificado un SDK de analítica publicitaria en el cliente. En pruebas manuales comparativas con un navegador incógnito limpio, la landing pública no creó `g_state` y cargar únicamente el script GIS tampoco. En una prueba controlada, solicitar el client ID, cargar GIS y ejecutar `google.accounts.id.initialize(...)` hizo que apareciera `g_state`, sin renderizar el botón, invocar `prompt()` ni pulsarlo. La evidencia acota el desencadenante a la inicialización de GIS, pero no demuestra por sí sola todos los usos de la cookie ni su calificación jurídica.
 
 La decisión sobre un banner queda pendiente de repetir las pruebas en producción tras estos cambios, revisar las integraciones de terceros por flujo y completar la validación jurídica. Si se determina que una tecnología requiere consentimiento, su carga deberá bloquearse hasta obtenerlo y se actualizarán el inventario y esta política.
 
