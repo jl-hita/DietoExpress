@@ -25,3 +25,8 @@ La infraestructura ya permite que los controladores marquen errores de dominio c
 ## Catálogo externo de alimentos
 
 La consulta de productos por código de barras convierte fallos de transporte, timeout o respuesta JSON inválida de OpenFoodFacts en HTTP 502 con `code=FOOD_PROVIDER_ERROR` y `reportable=true`. El mensaje público es genérico: no incluye la respuesta del proveedor ni datos internos. Un código de barras válido sin producto sigue devolviendo 404 y no debe generar un ticket.
+
+
+## Búsqueda de alimentos
+
+La búsqueda combina el catálogo local con OpenFoodFacts y, cuando corresponde, USDA. Los errores de transporte, timeout o JSON inválido de proveedores externos se propagan al controlador y se convierten en HTTP 502 con `FOOD_PROVIDER_ERROR` y `reportable=true`; no se presentan como una búsqueda válida sin resultados. Los fallos no relacionados con proveedores conservan el manejo existente.

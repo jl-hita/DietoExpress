@@ -199,4 +199,22 @@ public sealed class AutomationExternalEffectsRegressionTests
     }
 
 
+    [Fact]
+    public void FoodSearchProviderFailuresAreReportableInsteadOfEmptyResults()
+    {
+        var controller = ReadServerSource("Anguloso.Server/Controllers/FoodController.cs");
+        var service = ReadServerSource("Anguloso.Server/Logica/OpenFoodFactsService.cs");
+
+        Assert.Contains("[HttpGet(\"search/{query}\")]", controller);
+        Assert.Contains("catch (HttpRequestException)", controller);
+        Assert.Contains("catch (TaskCanceledException)", controller);
+        Assert.Contains("catch (System.Text.Json.JsonException)", controller);
+        Assert.Contains("return FoodProviderProblem();", controller);
+        Assert.Contains("ex is HttpRequestException or TaskCanceledException or JsonException", service);
+        Assert.Contains("catch (HttpRequestException)", service);
+        Assert.Contains("catch (TaskCanceledException)", service);
+        Assert.Contains("catch (JsonException)", service);
+    }
+
+
 }
