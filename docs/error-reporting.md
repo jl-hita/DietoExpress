@@ -15,7 +15,7 @@ Angular captura errores HTTP 5xx de rutas propias de la API, errores 4xx únicam
 
 ## Componente reutilizable (fase 3)
 
-El componente global `app-error-report-banner` muestra una notificación con identificador, estado HTTP y acción para crear un ticket. Reutiliza el endpoint de soporte existente, con categoría `problem`, prioridad alta para errores 5xx y prioridad normal para errores de dominio reportables. El ticket contiene metadatos técnicos depurados, nunca tokens, parámetros de consulta, datos de formularios ni respuestas del servidor.
+El componente global `app-error-report-banner` muestra una notificación con identificador, estado HTTP y acción para crear un ticket. Reutiliza el endpoint de soporte existente, con categoría `problem`, prioridad alta para errores 5xx y prioridad normal para errores de dominio reportables. El ticket contiene metadatos técnicos depurados, nunca tokens, parámetros de consulta, datos de formularios ni respuestas del servidor. La acción de crear tickets solo se muestra a los roles que pueden crear tickets; SuperAdmin no ve una acción que la API rechazaría.
 
 ## Siguiente fase
 
