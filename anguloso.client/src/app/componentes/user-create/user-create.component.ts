@@ -1,5 +1,5 @@
 import { Component, ChangeDetectionStrategy} from '@angular/core';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
@@ -35,7 +35,7 @@ interface LoginRequest {
   templateUrl: './user-create.component.html',
   styleUrls: ['./user-create.component.css'],
     standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, MatSnackBarModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, RouterLink, MatSnackBarModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule],
 })
 // La creación de usuarios separa validación de formulario, selección de permisos y envío para evitar enviar estados parciales al backend.
 export class UserCreateComponent {
