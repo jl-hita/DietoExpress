@@ -217,4 +217,21 @@ public sealed class AutomationExternalEffectsRegressionTests
     }
 
 
+    [Fact]
+    public void TransactionalEmailProviderFailuresAreReportableAndDoNotExposeProviderDetails()
+    {
+        var clinic = ReadServerSource("Anguloso.Server/Controllers/ClinicController.cs");
+        var portal = ReadServerSource("Anguloso.Server/Controllers/PatientPortalController.cs");
+
+        Assert.Contains("return EmailProviderProblem();", clinic);
+        Assert.Contains("EMAIL_PROVIDER_ERROR", clinic);
+        Assert.Contains("details.Extensions[\"reportable\"] = true", clinic);
+        Assert.DoesNotContain("detail = emailResult.Mensaje", clinic);
+
+        Assert.Contains("StatusCodes.Status502BadGateway", portal);
+        Assert.Contains("EMAIL_PROVIDER_ERROR", portal);
+        Assert.Contains("details.Extensions[\"reportable\"] = true", portal);
+        Assert.DoesNotContain("StatusCode(500, new { message = \"No hemos podido enviar el enlace de acceso.", portal);
+    }
+
 }
