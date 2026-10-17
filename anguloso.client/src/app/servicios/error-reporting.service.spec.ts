@@ -51,7 +51,7 @@ describe('ErrorReportingService', () => {
     expect(service.currentError()).toMatchObject({
       code: 'CLIENT_CONFLICT',
       status: 409,
-      path: '/api/clients/42',
+      path: '/api/clients/:id',
       message: expect.not.stringContaining('private server detail')
     });
   });
