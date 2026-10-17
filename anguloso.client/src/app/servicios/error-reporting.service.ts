@@ -6,6 +6,7 @@ export interface ReportableApplicationError {
   code: string;
   message: string;
   occurredAt: string;
+  occurredAtLocal: string;
   status: number;
   path: string;
   correlationId?: string;
@@ -14,6 +15,7 @@ export interface ReportableApplicationError {
 interface ApiProblemMetadata {
   code?: unknown;
   reportable?: unknown;
+  correlationId?: unknown;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -44,7 +46,9 @@ export class ErrorReportingService {
     this.lastFingerprint = fingerprint;
     this.lastCapturedAt = now;
     this.sequence += 1;
-    const correlationId = error.headers?.get('X-Correlation-ID') ?? undefined;
+    const correlationId = this.getSafeCorrelationId(
+      error.headers?.get('X-Correlation-ID') ?? problem?.correlationId
+    );
     const code = typeof problem?.code === 'string' && /^[A-Z][A-Z0-9_]{0,63}$/.test(problem.code)
       ? problem.code
       : error.status === 503 ? 'SERVICE_UNAVAILABLE'
@@ -60,6 +64,7 @@ export class ErrorReportingService {
           ? 'No se ha podido completar la operación.'
           : 'La operación no se ha podido completar. Puedes informar a soporte si crees que se trata de un error.',
       occurredAt: new Date(now).toISOString(),
+      occurredAtLocal: this.formatLocalTimestamp(new Date(now)),
       status: error.status,
       path,
       ...(correlationId ? { correlationId } : {})
@@ -86,6 +91,7 @@ export class ErrorReportingService {
       code: 'CLIENT_RUNTIME_ERROR',
       message: 'Se ha producido un error inesperado en la aplicación.',
       occurredAt: new Date(now).toISOString(),
+      occurredAtLocal: this.formatLocalTimestamp(new Date(now)),
       status: 0,
       path
     });
@@ -98,6 +104,24 @@ export class ErrorReportingService {
   private sanitizePath(value: string): string {
     const path = value.split('?')[0].split('#')[0] || '/';
     return path.replace(/\/(?:\d+|[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})(?=\/|$)/gi, '/:id');
+  }
+
+  private formatLocalTimestamp(date: Date): string {
+    const offsetMinutes = -date.getTimezoneOffset();
+    const sign = offsetMinutes >= 0 ? '+' : '-';
+    const absoluteOffset = Math.abs(offsetMinutes);
+    const hours = Math.floor(absoluteOffset / 60).toString().padStart(2, '0');
+    const minutes = (absoluteOffset % 60).toString().padStart(2, '0');
+    const localDateTime = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
+      .toISOString().slice(0, -1);
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return `${localDateTime}${sign}${hours}:${minutes}${timeZone ? ` (${timeZone})` : ''}`;
+  }
+
+  private getSafeCorrelationId(value: unknown): string | undefined {
+    return typeof value === 'string' && /^[A-Za-z0-9._:-]{1,128}$/.test(value)
+      ? value
+      : undefined;
   }
 
   private getProblemMetadata(value: unknown): ApiProblemMetadata | undefined {
