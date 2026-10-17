@@ -14,8 +14,9 @@ DietoExpress utiliza actualmente las siguientes cookies propias de sesión:
 |---|---|---|---|---|
 | `dietoexpress_professional_session` | Mantener la sesión autenticada y aplicar autorización y seguridad | 3 horas | DietoExpress | Necesaria |
 | `dietoexpress_patient_session` | Mantener la sesión autenticada del portal de paciente | 8 horas | DietoExpress | Necesaria |
+| `g_state` | Estado de cierre de sesión de Google Identity Services | Aproximadamente 6 meses en la observación de producción | Google Identity Services; cookie en el dominio de DietoExpress | Pendiente de evaluación de necesidad/consentimiento |
 
-Estas cookies se configuran como `HttpOnly`, `Secure` y `SameSite=Strict`.
+Las dos cookies propias de sesión de DietoExpress se configuran como `HttpOnly`, `Secure` y `SameSite=Strict`. En producción también se observó `g_state` en el dominio de DietoExpress, con `Path=/` y expiración aproximada de seis meses; sus atributos `HttpOnly`, `Secure` y `SameSite` aparecían vacíos en DevTools. Google documenta que Google Identity Services utiliza esta cookie para recordar el estado de cierre de sesión. Su clasificación jurídica queda pendiente de evaluar el flujo y la configuración efectiva.
 
 No se utilizan cookies propias de publicidad ni de analítica de terceros en el código cliente auditado.
 
