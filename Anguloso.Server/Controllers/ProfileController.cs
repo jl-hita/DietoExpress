@@ -66,7 +66,9 @@ public class ProfileController : ControllerBase
         var user = await _context.users.FirstOrDefaultAsync(u => u.id == userId.Value);
         if (user == null) return NotFound("Usuario no encontrado.");
 
-        var requestedTimeZone = string.IsNullOrWhiteSpace(dto.TimeZoneId) ? null : dto.TimeZoneId.Trim();
+        var requestedTimeZone = dto.TimeZoneId is null
+            ? user.time_zone_id
+            : string.IsNullOrWhiteSpace(dto.TimeZoneId) ? null : dto.TimeZoneId.Trim();
         if (requestedTimeZone != null)
         {
             try { _ = TimeZoneInfo.FindSystemTimeZoneById(requestedTimeZone); }

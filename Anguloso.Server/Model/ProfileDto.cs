@@ -19,7 +19,7 @@ public class ProfileDto
     [StringLength(500)] public string DirectorySpecialties { get; set; } = string.Empty;
     public string DirectorySlug { get; set; } = string.Empty;
     public string DirectoryPublicationStatus { get; set; } = "draft";
-    [StringLength(100)] public string TimeZoneId { get; set; } = string.Empty;
+    [StringLength(100)] public string? TimeZoneId { get; set; }
 }
 
 public class UpdateProfileDto
