@@ -28,7 +28,7 @@ La analítica pública del embudo se registra server-side y no utiliza cookies n
 
 ## 4. Servicios y recursos de terceros
 
-Outfit y Material Icons se sirven desde activos estáticos del propio sitio, sin cargar Google Fonts ni Material Icons desde servidores de Google. Google Identity Services se carga de forma diferida únicamente en la pantalla de inicio de sesión. Google Calendar, Stripe y LiveKit pueden intervenir en sus flujos funcionales específicos; cada uno debe revisarse en el contexto en que se active.
+Outfit y Material Icons se sirven desde activos estáticos del propio sitio, sin cargar Google Fonts ni Material Icons desde servidores de Google. Google Identity Services se carga de forma diferida en las pantallas de inicio de sesión y creación de cuenta, no desde la página pública inicial. Google Calendar, Stripe y LiveKit pueden intervenir en sus flujos funcionales específicos; cada uno debe revisarse en el contexto en que se active.
 
 Cada integración deberá revisarse según el flujo real y su configuración efectiva. Esta política no debe presentar una integración como una cookie si el servicio no la coloca.
 
