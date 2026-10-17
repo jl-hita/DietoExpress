@@ -16,7 +16,7 @@
           <div class="conversation-preview">{{ item.body }}</div>
         </div>
         <div class="conversation-meta">
-          <small>{{ item.createdAt | date:'d MMM HH:mm' }}</small>
+          <small>{{ formatCompactDate(item.createdAt) }}</small>
           <b *ngIf="!item.readAt">Nuevo</b>
         </div>
       </button>
@@ -27,7 +27,7 @@
           <div class="conversation-preview">{{ c.lastMessage || 'Sin mensajes' }}</div>
         </div>
         <div class="conversation-meta">
-          <small>{{ c.updatedAt | date:'d MMM HH:mm' }}</small>
+          <small>{{ formatCompactDate(c.updatedAt) }}</small>
           <b *ngIf="c.unreadCount">{{ c.unreadCount }}</b>
         </div>
       </button>
@@ -37,7 +37,7 @@
         <mat-icon>chat</mat-icon><h2>Selecciona un mensaje</h2><p>Elige una conversación o una comunicación oficial para leerla.</p>
       </div>
       <article class="broadcast-detail" *ngIf="selectedBroadcast as item">
-        <div class="broadcast-detail-header"><mat-icon>campaign</mat-icon><div><h2>{{ item.title }}</h2><small>{{ item.createdAt | date:'medium' }} · DietoExpress</small></div></div>
+        <div class="broadcast-detail-header"><mat-icon>campaign</mat-icon><div><h2>{{ item.title }}</h2><small>{{ formatMediumDate(item.createdAt) }} · DietoExpress</small></div></div>
         <p class="broadcast-detail-body">{{ item.body }}</p>
       </article>
       <ng-container *ngIf="selectedClientId">

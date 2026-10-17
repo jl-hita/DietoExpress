@@ -7,6 +7,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { forkJoin } from 'rxjs';
 import { PatientAppointment, PatientPortalService, AvailabilityRule } from '../../servicios/patient-portal.service';
 import { AuthService } from '../../servicios/auth.service';
+import { TimeZonePreferenceService } from '../../servicios/time-zone-preference.service';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -61,7 +62,7 @@ export class AppointmentsComponent implements OnInit {
   newSlot = 30;
   editingRuleId: number | null = null;
 
-  constructor(private portalService: PatientPortalService, private router: Router, private route: ActivatedRoute, private authService: AuthService) {}
+  constructor(private portalService: PatientPortalService, private router: Router, private route: ActivatedRoute, private authService: AuthService, private timeZones: TimeZonePreferenceService) {}
 
   ngOnInit(): void {
     this.isSuperAdmin = this.authService.isSuperAdmin();
@@ -263,11 +264,11 @@ export class AppointmentsComponent implements OnInit {
   }
 
   formatDate(value: string): string {
-    return new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(value));
+    return this.timeZones.formatInPreferredZone(value, { weekday: 'long', day: 'numeric', month: 'long' });
   }
 
   formatTime(value: string): string {
-    return new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' }).format(new Date(value));
+    return this.timeZones.formatInPreferredZone(value, { hour: '2-digit', minute: '2-digit' });
   }
 
   dayLabel(day: number): string {

@@ -4,6 +4,7 @@ import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatIconModule } from '@angular/material/icon';
+import { TimeZonePreferenceService } from '../../servicios/time-zone-preference.service';
 
 interface ChatMessage { id: number; senderType: 'patient' | 'professional'; senderId?: number | null; body: string; createdAt: string; readAt?: string | null; }
 
@@ -11,7 +12,7 @@ interface ChatMessage { id: number; senderType: 'patient' | 'professional'; send
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-patient-chat',
   standalone: true,
-  imports: [CommonModule, FormsModule, DatePipe, MatIconModule],
+  imports: [CommonModule, FormsModule, MatIconModule],
   templateUrl: './patient-chat.component.html',
   styleUrls: ['./patient-chat.component.css']
 })
@@ -37,7 +38,7 @@ export class PatientChatComponent implements OnChanges, OnInit {
   get error(): string | null { return this.errorState(); }
   set error(value: string | null) { this.errorState.set(value); }
 
-  constructor(private http: HttpClient, private route: ActivatedRoute) {}
+  constructor(private http: HttpClient, private route: ActivatedRoute, private timeZones: TimeZonePreferenceService) {}
 
   // En modo profesional el cliente puede venir de la ruta; en modo paciente la identidad ya la resuelve el backend a partir de la sesión/token.
   ngOnInit(): void {
@@ -72,6 +73,8 @@ export class PatientChatComponent implements OnChanges, OnInit {
       error: err => { this.sending = false; this.error = err.error?.message || 'No se ha podido enviar el mensaje.'; }
     });
   }
+
+  formatMessageDate(value: string): string { return this.timeZones.formatInPreferredZone(value, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); }
 
   onKeydown(event: KeyboardEvent): void { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); this.send(); } }
 

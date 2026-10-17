@@ -11,7 +11,7 @@
       <span>{{ patientMode ? 'Escribe a tu nutricionista cuando lo necesites.' : 'Envía un mensaje al paciente.' }}</span>
     </div>
     <div class="message-row" *ngFor="let message of messages" [class.mine]="(patientMode && message.senderType === 'patient') || (!patientMode && message.senderType === 'professional')">
-      <div class="message-bubble"><div class="message-text">{{ message.body }}</div><small>{{ message.createdAt | date:'d MMM, HH:mm' }}</small></div>
+      <div class="message-bubble"><div class="message-text">{{ message.body }}</div><small>{{ formatMessageDate(message.createdAt) }}</small></div>
     </div>
   </div>
   <footer class="chat-composer">
