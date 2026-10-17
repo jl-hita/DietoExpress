@@ -10,7 +10,7 @@ import { ErrorReportingService, ReportableApplicationError } from '../../servici
   standalone: true,
   imports: [CommonModule],
   template: `
-    <section *ngIf="!auth.isSuperAdmin() && errors.currentError() as error" class="error-report" role="alert" aria-live="assertive">
+    <section *ngIf="auth.isLoggedIn() && !auth.isSuperAdmin() && errors.currentError() as error" class="error-report" role="alert" aria-live="assertive">
       <div class="error-report-copy">
         <strong>{{ error.message }}</strong>
         <span>Referencia {{ error.id }} · {{ error.status ? 'HTTP ' + error.status : 'Error del cliente' }}</span>
@@ -43,7 +43,7 @@ export class ErrorReportBannerComponent {
   readonly failure = signal('');
 
   createTicket(error: ReportableApplicationError): void {
-    if (this.auth.isSuperAdmin() || this.sending()) return;
+    if (!this.auth.isLoggedIn() || this.auth.isSuperAdmin() || this.sending()) return;
     this.sending.set(true);
     this.failure.set('');
     const body = [
