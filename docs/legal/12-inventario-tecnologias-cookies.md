@@ -31,7 +31,8 @@ No se han localizado en el cliente referencias a Google Analytics, Google Tag Ma
 El inventario distingue los recursos servidos localmente de las integraciones de terceros; ninguno debe confundirse automáticamente con una cookie:
 
 - **Outfit** y **Material Icons** se sirven desde activos estáticos del propio sitio; no se espera una conexión del navegador a Google Fonts ni a `fonts.gstatic.com` para estos recursos.
-- Google Identity Services (`accounts.google.com/gsi/client`) se carga de forma diferida al entrar en la pantalla de inicio de sesión, no desde la página pública inicial.
+- Google Identity Services (`accounts.google.com/gsi/client`) se carga de forma diferida al entrar en las pantallas de inicio de sesión y crear cuenta, no desde la página pública inicial.
+- En producción se observó `g_state` con dominio `jlhitap.duckdns.org`, ruta `/` y expiración aproximada de seis meses; `HttpOnly`, `Secure` y `SameSite` aparecían vacíos. Google documenta que Google Identity Services usa `g_state` para almacenar el estado de cierre de sesión. La cookie se observó tras abrir el login, pero aún no se ha determinado con certeza el disparador exacto en la configuración actual.
 
 Además existen integraciones funcionales con Google Calendar, Stripe y LiveKit que deben revisarse según el flujo concreto en el que se utilicen. Su existencia no implica por sí sola que DietoExpress coloque una cookie no necesaria.
 
