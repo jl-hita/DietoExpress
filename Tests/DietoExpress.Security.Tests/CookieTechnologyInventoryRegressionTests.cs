@@ -71,6 +71,35 @@ public class CookieTechnologyInventoryRegressionTests
     }
 
     [Fact]
+    public void PatientPortal_RegistersPushWorkerOnlyAfterExplicitOptIn()
+    {
+        var portal = File.ReadAllText(Path.Combine(
+            RepoRoot,
+            "anguloso.client",
+            "src",
+            "app",
+            "componentes",
+            "patient-portal",
+            "patient-portal.component.ts"));
+
+        var prepareStart = portal.IndexOf("preparePushSupport(): void", StringComparison.Ordinal);
+        var enableStart = portal.IndexOf("async enablePushNotifications(): Promise<void>", StringComparison.Ordinal);
+        Assert.True(prepareStart >= 0);
+        Assert.True(enableStart > prepareStart);
+
+        var detectionMethod = portal.Substring(prepareStart, enableStart - prepareStart);
+        Assert.Contains("navigator.serviceWorker.getRegistration()", detectionMethod);
+        Assert.DoesNotContain("navigator.serviceWorker.register('/sw.js')", detectionMethod);
+        Assert.Contains("pushManager.getSubscription()", detectionMethod);
+
+        var optInMethod = portal.Substring(enableStart);
+        var permissionCall = optInMethod.IndexOf("Notification.requestPermission()", StringComparison.Ordinal);
+        var registerCall = optInMethod.IndexOf("navigator.serviceWorker.register('/sw.js')", StringComparison.Ordinal);
+        Assert.True(permissionCall >= 0);
+        Assert.True(registerCall > permissionCall);
+    }
+
+    [Fact]
     public void ClientInventory_DocumentsOnlyKnownBrowserStorage()
     {
         var inventory = File.ReadAllText(Path.Combine(

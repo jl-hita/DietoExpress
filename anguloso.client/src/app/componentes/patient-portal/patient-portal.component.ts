@@ -672,8 +672,8 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
       'serviceWorker' in navigator &&
       'PushManager' in window;
     if (!this.pushSupported) return;
-    navigator.serviceWorker.register('/sw.js').then(registration => {
-      this.pushEnabled = !!registration.pushManager;
+    navigator.serviceWorker.getRegistration().then(async registration => {
+      this.pushEnabled = !!(await registration?.pushManager.getSubscription());
     }).catch(() => this.pushEnabled = false);
   }
 
@@ -695,6 +695,8 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
         return;
       }
 
+      // El registro persistente solo se crea tras la acción explícita y con permiso concedido.
+      await navigator.serviceWorker.register('/sw.js');
       const registration = await navigator.serviceWorker.ready;
       let subscription = await registration.pushManager.getSubscription();
       if (!subscription) {

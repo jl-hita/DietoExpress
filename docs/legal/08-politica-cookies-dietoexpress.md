@@ -24,6 +24,8 @@ No se utilizan cookies propias de publicidad ni de analítica de terceros en el 
 
 El portal utiliza `localStorage` para recordar las comidas completadas del día (`completed_meals_<clientId>_<date>`) y las casillas marcadas de la lista de la compra (`shopping_<clientId>`). Son estados funcionales del portal, no tecnologías publicitarias; se eliminan al cerrar sesión del paciente.
 
+El *service worker* de notificaciones se registra al activar manualmente los avisos; la suscripción Web Push se crea después de conceder el permiso del navegador. No se registra automáticamente al abrir el portal de paciente.
+
 La analítica pública del embudo se registra server-side y no utiliza cookies ni almacenamiento del navegador para su deduplicación.
 
 ## 4. Servicios y recursos de terceros

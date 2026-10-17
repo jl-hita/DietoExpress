@@ -38,6 +38,7 @@ El inventario distingue los recursos servidos localmente de las integraciones de
 - **Google Calendar:** flujo OAuth de redirección a Google; el backend intercambia el código y conserva los tokens. No se ha encontrado un SDK de Calendar embebido en el navegador.
 - **Stripe Checkout:** el backend crea una sesión de Checkout y devuelve su URL; el frontend navega a esa URL. El servicio no envía `ui_mode`, por lo que se aplica el modo alojado por defecto documentado por Stripe. No se ha localizado Stripe.js/Elements en el cliente de DietoExpress.
 - **LiveKit:** el componente `video-consultation` se carga mediante ruta diferida. Al entrar en esa pantalla, el frontend pide al backend un token y conecta con el servidor LiveKit; no se ha identificado una carga de LiveKit desde la landing pública.
+- **Web Push:** `/sw.js` se sirve desde el mismo origen y el worker solo maneja eventos `push` y `notificationclick`; no usa `Cache API` ni `IndexedDB` en el código revisado. El portal consulta si ya existe un registro/suscripción, pero solo crea el registro persistente del worker dentro de la acción explícita «Activar avisos», después de conceder permiso. La suscripción se envía al backend de DietoExpress.
 
 La existencia de estas integraciones no implica por sí sola que DietoExpress coloque cookies no necesarias; las cookies y el almacenamiento que use cada proveedor deben verificarse en su flujo real.
 
@@ -51,6 +52,7 @@ Con el código auditado:
 - Las fuentes Outfit y los iconos Material se sirven localmente; Google Identity Services se carga de forma diferida en login y creación de cuenta, no en la página pública inicial.
 - Se ha eliminado el uso de `sessionStorage` para deduplicar analítica pública, evitando convertir esa deduplicación en una tecnología de almacenamiento del navegador.
 - El almacenamiento local restante es funcional para el portal de paciente: comidas completadas y casillas de la lista de la compra. Ambos se limpian al cerrar sesión.
+- El service worker Web Push se registra tras una acción explícita para activar avisos; el estado «activado» depende de que exista una suscripción real, no solo de que el navegador exponga `PushManager`.
 
 En una prueba manual de producción en incógnito limpio, la landing no tenía `g_state`; la cookie apareció al abrir el login, antes de pulsar el botón de Google. La documentación oficial de Google identifica `g_state` como una cookie de Google Identity Services para conservar el estado de cierre de sesión y la asocia a One Tap o inicio de sesión automático. El código actual solo inicializa GIS y renderiza el botón; no se encontró una llamada explícita a `google.accounts.id.prompt()`, `disableAutoSelect()` ni configuración de inicio automático. El resultado acota el disparador a la carga/inicialización asociada al login, pero no identifica la operación exacta. La necesidad/consentimiento siguen pendientes.
 
@@ -63,7 +65,7 @@ Antes de marcar el punto legal como definitivamente cerrado hay que comprobar en
 1. Confirmar que la página pública ya no solicita `fonts.googleapis.com` ni `fonts.gstatic.com` y que las fuentes/iconos se renderizan correctamente.
 2. Confirmar que `accounts.google.com/gsi/client` no se solicita en la página pública y sí al abrir las pantallas de login y crear cuenta; probar el inicio de sesión con Google.
 3. Repetir el inventario de cookies antes y después de abrir login y crear cuenta en incógnito limpio; comparar carga del script, `initialize()` y renderizado del botón por separado; revisar atributos `Secure`, `HttpOnly`, `SameSite`, dominio, ruta y expiración.
-4. Revisar localStorage/sessionStorage/IndexedDB y los flujos de Google Calendar, Stripe y LiveKit.
+4. Revisar localStorage/sessionStorage/IndexedDB y los flujos de Google Calendar, Stripe, LiveKit y Web Push. Confirmar en navegador limpio que `/sw.js` no se registra al abrir el portal y sí al activar avisos, con permiso concedido.
 5. Completar la validación jurídica antes de decidir si hace falta banner y publicar una versión definitiva de la política.
 
 Esta comprobación es una validación de despliegue, no una razón para inventar cookies en la política.
