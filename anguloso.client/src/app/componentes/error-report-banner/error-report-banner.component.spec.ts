@@ -55,6 +55,9 @@ describe('ErrorReportBannerComponent', () => {
     expect(ticket.body).toContain('VIDEO_PROVIDER_UNAVAILABLE');
     expect(ticket.body).toContain('/api/appointments/online');
     expect(ticket.body).toContain('trace-safe-123');
+    expect(ticket.body).toContain('Fecha UTC: ');
+    expect(ticket.body).toContain('Fecha local (con zona horaria): ');
+    expect(ticket.body).toMatch(/Fecha UTC: \\d{4}-\\d{2}-\\d{2}T[^\\n]+Z/);
     expect(ticket.body).not.toContain('private');
     expect(ticket.body).not.toContain('sensitive provider payload');
     expect(errors.currentError()).toBeNull();

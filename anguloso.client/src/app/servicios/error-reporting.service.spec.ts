@@ -32,6 +32,8 @@ describe('ErrorReportingService', () => {
     });
     expect(service.currentError()?.path).not.toContain('?');
     expect(service.currentError()?.path).not.toContain('42');
+    expect(service.currentError()?.occurredAt).toMatch(/^\\d{4}-\\d{2}-\\d{2}T.*Z$/);
+    expect(service.currentError()?.occurredAtLocal).toMatch(/^[^ ]+[+-]\\d{2}:\\d{2}( \\(.+\\))?$/);
   });
 
   it('does not capture ordinary 4xx errors or support endpoint failures', () => {
@@ -40,6 +42,25 @@ describe('ErrorReportingService', () => {
 
     service.captureHttpError(new HttpErrorResponse({ status: 503 }), '/api/support/tickets');
     expect(service.currentError()).toBeNull();
+  });
+
+  it('uses a safe correlation ID from ProblemDetails when the response header is absent', () => {
+    service.captureHttpError(new HttpErrorResponse({
+      status: 500,
+      error: { code: 'INTERNAL_ERROR', correlationId: 'trace-from-body:123' }
+    }), '/api/clients');
+
+    expect(service.currentError()?.correlationId).toBe('trace-from-body:123');
+  });
+
+  it('rejects malformed correlation IDs', () => {
+    service.captureHttpError(new HttpErrorResponse({
+      status: 500,
+      headers: new HttpHeaders({ 'X-Correlation-ID': 'trace\\nprivate' }),
+      error: { correlationId: 'safe-fallback' }
+    }), '/api/clients');
+
+    expect(service.currentError()?.correlationId).toBeUndefined();
   });
 
   it('captures a 4xx domain error only when the API explicitly marks it reportable', () => {
