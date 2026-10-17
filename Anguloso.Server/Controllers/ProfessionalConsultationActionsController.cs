@@ -73,7 +73,7 @@ public sealed class ProfessionalConsultationActionsController : ControllerBase
                      localTime = localTime.AddMinutes(rule.slot_minutes))
                 {
                     var localDateTime = day.Add(localTime.ToTimeSpan());
-                    var utc = TimeZoneInfo.ConvertTimeToUtc(localDateTime, zone);
+                    if (!UserTimeZoneResolver.TryConvertLocalToUtc(localDateTime, zone, out var utc)) continue;
                     var endUtc = utc.AddMinutes(durationMinutes);
                     if (utc <= from.AddMinutes(5) || utc >= to) continue;
                     if (appointments.Any(a => a.starts_at < endUtc && a.ends_at > utc)) continue;
