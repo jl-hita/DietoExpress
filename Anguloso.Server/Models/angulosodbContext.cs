@@ -268,6 +268,9 @@ public partial class angulosodbContext : DbContext
             entity.Property(e => e.grams_per_exchange).HasPrecision(6, 2);
             entity.Property(e => e.dietary_flags).HasColumnType("text[]").HasDefaultValueSql("ARRAY[]::text[]");
             entity.Property(e => e.allergen_tags).HasColumnType("text[]");
+            entity.Property(e => e.traces_tags).HasColumnType("text[]");
+            entity.Property(e => e.allergen_data_status).HasMaxLength(20).HasDefaultValue("unknown");
+            entity.Property(e => e.allergen_data_source).HasMaxLength(50);
 
             entity.HasIndex(e => e.tenant_id, "idx_foods_tenant_id");
             entity.HasIndex(e => e.created_by_user_id, "idx_foods_created_by_user_id");
