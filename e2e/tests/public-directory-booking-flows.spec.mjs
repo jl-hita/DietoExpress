@@ -73,14 +73,14 @@ async function openProfile(page) {
   await page.goto('/nutricionistas/' + slug);
   await expect(page.getByRole('heading', { name: 'Profesional E2E de Prueba' })).toBeVisible();
   await expect(page.locator('.availability')).toBeVisible();
-  await expect(page.getByRole('button', { name: /Seleccionar/ }).first()).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator('.calendar-day.available').first()).toBeVisible({ timeout: 10_000 });
 }
 
 async function chooseSlot(page) {
   const day = page.locator('.calendar-day.available').first();
   await expect(day).toBeVisible();
   await day.click();
-  await page.getByRole('button', { name: /Seleccionar/ }).first().click();
+  await page.locator('.day-slots button[aria-label^="Seleccionar "]').first().click();
   await expect(page.locator('.booking-form')).toBeVisible();
 }
 
