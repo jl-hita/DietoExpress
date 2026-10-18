@@ -70,6 +70,11 @@
         <mat-icon>workspace_premium</mat-icon><span>Suscripción</span>
       </a>
     </div>
+    <div class="menu-item" *ngIf="isNutritionist || isClinic">
+      <a mat-list-item routerLink="/directory-profile" routerLinkActive="active-link" (click)="navigateAndClose()">
+        <mat-icon>public</mat-icon><span>{{ isClinic ? 'Directorio de la clínica' : 'Publicar mi perfil' }}</span>
+      </a>
+    </div>
     <div class="menu-item">
       <a mat-list-item routerLink="/settings" routerLinkActive="active-link" (click)="navigateAndClose()">
         <mat-icon>settings</mat-icon><span>Ajustes</span>
@@ -78,6 +83,16 @@
     <div class="menu-item" *ngIf="!isSuperAdmin && (isProfessionalAccount || isFreeAccount)">
       <a mat-list-item routerLink="/legal-manage" routerLinkActive="active-link" (click)="navigateAndClose()">
         <mat-icon>gavel</mat-icon><span>Legal</span>
+      </a>
+    </div>
+    <div class="menu-item superadmin-item" *ngIf="isSuperAdmin">
+      <a mat-list-item routerLink="/admin/directory-verification" routerLinkActive="active-link" (click)="navigateAndClose()">
+        <mat-icon>fact_check</mat-icon><span>Verificación del directorio</span><span class="message-unread-badge" *ngIf="directoryReviewCount > 0" aria-label="Revisiones del directorio pendientes">{{ directoryReviewCount > 99 ? '99+' : directoryReviewCount }}</span>
+      </a>
+    </div>
+    <div class="menu-item superadmin-item" *ngIf="isSuperAdmin">
+      <a mat-list-item routerLink="/admin/directory-verification/review" routerLinkActive="active-link" (click)="navigateAndClose()">
+        <mat-icon>description</mat-icon><span>Revisión documental</span>
       </a>
     </div>
     <div class="menu-item superadmin-item" *ngIf="isSuperAdmin">

@@ -78,7 +78,7 @@ public class AdminDirectoryVerificationController : ControllerBase
         if (status == "published" && user.directory_enabled != true)
             return BadRequest("No se puede publicar una ficha que el profesional ha desactivado.");
 
-        if (status is "verified" or "published")
+        if (status == "verified")
         {
             var evidenceCount = await _context.Database.SqlQueryRaw<int>("""
                 SELECT COUNT(*)::integer AS "Value"
@@ -97,15 +97,15 @@ public class AdminDirectoryVerificationController : ControllerBase
             if (evidenceCount < 2 || approvedTypes is null ||
                 !approvedTypes.Contains("identity", StringComparison.OrdinalIgnoreCase) ||
                 !approvedTypes.Contains("qualification", StringComparison.OrdinalIgnoreCase))
-                return BadRequest("Para verificar o publicar la ficha deben estar aprobadas las evidencias de identidad y titulación.");
+                return BadRequest("Para obtener la insignia de profesional verificado deben estar aprobadas las evidencias de identidad y titulación.");
         }
 
-        if (status is "verified" or "published")
+        if (status == "verified")
         {
             user.directory_verified_at ??= DateTime.UtcNow;
             user.directory_verified_by_user_id = AuthHelpers.GetUserId(User);
         }
-        else if (status is "draft" or "rejected")
+        else
         {
             user.directory_verified_at = null;
             user.directory_verified_by_user_id = null;

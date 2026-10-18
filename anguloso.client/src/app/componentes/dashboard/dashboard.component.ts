@@ -6,6 +6,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ProfessionalDashboard, ProfessionalDashboardService, DashboardAppointment, DashboardTask } from '../../servicios/professional-dashboard.service';
+import { Profile } from '../../modelos/profile';
+import { ProfileService } from '../../servicios/profile.service';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -19,9 +21,27 @@ export class DashboardComponent implements OnInit {
   readonly data = signal<ProfessionalDashboard | null>(null);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
-  constructor(private service:ProfessionalDashboardService, private router:Router){}
+  readonly profile = signal<Profile | null>(null);
+  constructor(private service:ProfessionalDashboardService, private router:Router, private profileService:ProfileService){}
 
-  ngOnInit():void { this.reload(); }
+  ngOnInit():void {
+    this.reload();
+    this.profileService.getProfile().subscribe({ next: p => this.profile.set(p), error: () => this.profile.set(null) });
+  }
+
+  get directoryMissingFields(): string[] {
+    const p = this.profile();
+    if (!p) return [];
+    const missing: string[] = [];
+    if (!p.fullName?.trim()) missing.push('tu nombre profesional completo');
+    if (!p.directoryCity?.trim()) missing.push('la ciudad o municipio');
+    if (!p.directoryProvince?.trim()) missing.push('la provincia');
+    if (!p.directorySpecialties?.trim()) missing.push('tus especialidades');
+    if (!p.directoryBio?.trim()) missing.push('una presentación profesional');
+    return missing;
+  }
+
+  openDirectorySettings(): void { this.router.navigate(['/settings'], { queryParams: { tab: 'directorio' } }); }
 
   reload():void {
     this.loading.set(true);

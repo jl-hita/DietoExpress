@@ -13,15 +13,17 @@
       <div class="page-title-group">
         <mat-icon class="page-icon">tune</mat-icon>
         <div>
-          <h1 class="page-title">Ajustes de la Clínica</h1>
-          <p class="page-subtitle">La información aquí configurada aparecerá en los PDF de dietas generados para tus pacientes.</p>
+          <h1 class="page-title">{{ directoryOnly ? (isNutritionist ? 'Publicar mi perfil profesional' : 'Información de la clínica en el directorio') : 'Ajustes de la Clínica' }}</h1>
+          <p class="page-subtitle" *ngIf="directoryOnly && isNutritionist">Completa los datos que verán los pacientes. Puedes publicar sin aportar documentación y solicitar la verificación profesional de forma opcional.</p>
+          <p class="page-subtitle" *ngIf="directoryOnly && !isNutritionist">Consulta cómo se muestra la información de tu clínica en los perfiles públicos de DietoExpress.</p>
+          <p class="page-subtitle" *ngIf="!directoryOnly">La información aquí configurada aparecerá en los PDF de dietas generados para tus pacientes.</p>
         </div>
       </div>
     </div>
 
     <form [formGroup]="form" class="settings-form">
-    <mat-tab-group>
-      <mat-tab label="Perfil">
+    <mat-tab-group [selectedIndex]="directoryOnly ? 0 : selectedSettingsTab" (selectedIndexChange)="selectedSettingsTab = $event">
+      <mat-tab label="Perfil" *ngIf="!directoryOnly">
 
       <!-- ─── TARJETA: Datos personales ───────────────────────── -->
       <mat-card class="settings-card">
@@ -102,6 +104,7 @@
         </mat-card-header>
         <mat-divider></mat-divider>
         <mat-card-content class="card-content">
+          <p class="directory-clinic-notice" *ngIf="form.get('directoryEnabled')?.value">Si quieres que el nombre de tu consulta aparezca en tu perfil público, completa este campo. La dirección y el teléfono se usan para la gestión interna y no se mostrarán en el directorio.</p>
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Nombre de la clínica</mat-label>
             <mat-icon matPrefix>business</mat-icon>
@@ -176,19 +179,60 @@
 
       </mat-tab>
 
-      <mat-tab label="Directorio">
+      <mat-tab [label]="directoryOnly ? 'Mi perfil público' : 'Directorio'">
         <mat-card class="settings-card directory-card">
           <mat-card-header>
             <mat-icon mat-card-avatar class="section-icon">public</mat-icon>
-            <mat-card-title>Perfil público</mat-card-title>
-            <mat-card-subtitle>Haz que nuevos pacientes puedan encontrarte desde el directorio de DietoExpress.</mat-card-subtitle>
+            <mat-card-title>{{ isNutritionist ? 'Haz que nuevos pacientes te encuentren' : 'Cómo aparece tu clínica en el directorio' }}</mat-card-title>
+            <mat-card-subtitle>{{ isNutritionist ? 'Activa y completa tu ficha pública en el directorio de DietoExpress.' : 'Información sobre la presencia de la clínica en los perfiles profesionales.' }}</mat-card-subtitle>
           </mat-card-header>
           <mat-divider></mat-divider>
           <mat-card-content class="card-content">
+            <div class="directory-publication-notice" *ngIf="!isNutritionist" role="status">
+              <h3><mat-icon>info</mat-icon> Directorio de DietoExpress</h3>
+              <p>Actualmente el directorio público muestra perfiles individuales de nutricionistas, no fichas independientes de clínicas. Para que el nombre de la consulta aparezca en una ficha publicada, el nutricionista debe incluirlo en el campo «Nombre de la clínica» de su propia página «Publicar mi perfil».</p>
+            </div>
+            <ng-container *ngIf="isNutritionist">
             <mat-slide-toggle formControlName="directoryEnabled">
               Mostrar mi perfil en el directorio
             </mat-slide-toggle>
-            <p class="directory-help">Solo se publican los datos de esta sección y la información profesional básica. Tu email, teléfono privado y datos de pacientes nunca se muestran.</p>
+            <p class="directory-help">Solo se publican los datos profesionales que completes en esta página y el nombre de la consulta si lo indicas. Tu email, dirección, teléfono de contacto y datos de pacientes no se muestran en el directorio.</p>
+            <p class="directory-help">La publicación es gratuita y voluntaria. Puedes aparecer en el directorio sin enviar documentos. La insignia «Profesional verificado» es opcional y solo se concede tras revisar y aprobar la documentación.</p>
+
+            <div class="directory-publication-notice" role="status">
+              <h3><mat-icon>fact_check</mat-icon> Publicación y verificación opcional</h3>
+              <p>Completa el nombre profesional, ciudad o municipio, provincia, especialidades y una presentación clara de tu experiencia y del tipo de pacientes que atiendes. Si quieres que aparezca el nombre de tu consulta, rellena el campo «Nombre de la clínica o consulta» de esta misma página. La dirección y el teléfono de contacto no se muestran como datos públicos.</p>
+              <p>Si quieres solicitar la insignia «Profesional verificado», aporta voluntariamente <strong>un documento de identidad</strong> (DNI/NIE o equivalente) y <strong>un título oficial que acredite tu cualificación profesional</strong>. Se admiten PDF, JPG o PNG de hasta 20 MB. La documentación se revisa de forma privada y no se muestra en tu perfil. No necesitas aportar estos documentos para publicar.</p>
+              <div class="evidence-upload-row">
+                <div class="evidence-upload-item">
+                  <strong>Documento de identidad</strong>
+                  <span>DNI/NIE o documento identificativo equivalente. PDF, JPG o PNG; máximo 20 MB.</span>
+                  <input #identityFile type="file" style="display:none" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" (change)="uploadDirectoryEvidence($event, 'identity')" />
+                  <small *ngFor="let item of directoryEvidence" [hidden]="item.evidenceType !== 'identity'">{{ item.originalFileName }} — {{ evidenceStatusLabel(item.status) }}<span *ngIf="item.reviewNote"> · {{ item.reviewNote }}</span></small>
+                  <button mat-stroked-button type="button" (click)="identityFile.click()" [disabled]="evidenceUploading !== null">{{ evidenceUploading === 'identity' ? 'Enviando…' : 'Aportar identidad' }}</button>
+                </div>
+                <div class="evidence-upload-item">
+                  <strong>Titulación profesional</strong>
+                  <span>Título oficial relacionado con tu cualificación profesional. PDF, JPG o PNG; máximo 20 MB.</span>
+                  <input #qualificationFile type="file" style="display:none" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" (change)="uploadDirectoryEvidence($event, 'qualification')" />
+                  <small *ngFor="let item of directoryEvidence" [hidden]="item.evidenceType !== 'qualification'">{{ item.originalFileName }} — {{ evidenceStatusLabel(item.status) }}<span *ngIf="item.reviewNote"> · {{ item.reviewNote }}</span></small>
+                  <button mat-stroked-button type="button" (click)="qualificationFile.click()" [disabled]="evidenceUploading !== null">{{ evidenceUploading === 'qualification' ? 'Enviando…' : 'Aportar titulación' }}</button>
+                </div>
+              </div>
+            </div>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Nombre completo del profesional</mat-label>
+              <mat-icon matPrefix>badge</mat-icon>
+              <input matInput formControlName="fullName" placeholder="Ej: María García López">
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Nombre de la clínica o consulta (opcional)</mat-label>
+              <mat-icon matPrefix>business</mat-icon>
+              <input matInput formControlName="clinicName" placeholder="Ej: Centro de Nutrición Saludable">
+              <mat-hint>Este nombre puede mostrarse en tu perfil público. No introduzcas aquí dirección ni teléfono.</mat-hint>
+            </mat-form-field>
 
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Ciudad o municipio</mat-label>
@@ -235,11 +279,12 @@
                 /nutricionistas/{{ profile.directorySlug }}
               </a>
             </div>
+            </ng-container>
           </mat-card-content>
         </mat-card>
       </mat-tab>
 
-      <mat-tab label="Preferencias">
+      <mat-tab label="Preferencias" *ngIf="!directoryOnly">
         <mat-card class="settings-card">
           <mat-card-header>
             <mat-icon mat-card-avatar class="section-icon">schedule</mat-icon>

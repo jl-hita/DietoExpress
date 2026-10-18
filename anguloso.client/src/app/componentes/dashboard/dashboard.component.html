@@ -18,6 +18,17 @@
       </button>
     </header>
 
+    <section class="directory-guidance" *ngIf="profile()?.directoryEnabled && directoryMissingFields.length > 0" aria-labelledby="directory-guidance-title">
+      <div class="directory-guidance-icon"><mat-icon aria-hidden="true">public</mat-icon></div>
+      <div class="directory-guidance-content">
+        <h2 id="directory-guidance-title">Publica tu perfil en el directorio</h2>
+        <p>Completa los datos públicos para que los pacientes puedan encontrarte. Puedes publicar tu perfil sin aportar documentación; si quieres obtener la insignia de profesional verificado, podrás enviar documentación para su revisión.</p>
+        <p *ngIf="directoryMissingFields.length">Todavía falta: <strong>{{ directoryMissingFields.join(', ') }}.</strong></p>
+        <p *ngIf="!directoryMissingFields.length">Los datos básicos están completos. Ya puedes publicar tu perfil; la verificación documental es opcional.</p>
+        <button mat-flat-button color="primary" type="button" (click)="openDirectorySettings()">Completar mi perfil</button>
+      </div>
+    </section>
+
     <section class="cards" aria-label="Resumen">
       <button mat-card type="button" class="metric" (click)="openAppointments()" aria-label="Ver citas de hoy">
         <mat-icon aria-hidden="true">event</mat-icon><strong>{{data.todayAppointments.length}}</strong><span>Citas hoy</span>

@@ -51,6 +51,7 @@ export const routes: AppRoute[] = [
       { path: 'diets/:id', loadComponent: () => import('./componentes/diet-create/diet-create.component').then(m => m.DietCreateComponent), canActivate: [SubscriptionGuard, ProfessionalRoleGuard], title: 'Editar dieta' },
       { path: 'onboarding', loadComponent: () => import('./componentes/onboarding/onboarding.component').then(m => m.OnboardingComponent), title: 'Bienvenido a DietoExpress' },
       { path: 'settings', loadComponent: () => import('./componentes/settings/settings.component').then(m => m.SettingsComponent), title: 'Ajustes' },
+      { path: 'directory-profile', loadComponent: () => import('./componentes/settings/settings.component').then(m => m.SettingsComponent), title: 'Publicar mi perfil' },
       { path: 'legal-manage', loadComponent: () => import('./componentes/legal/legal-dashboard.component').then(m => m.LegalDashboardComponent), canActivate: [SubscriptionGuard], title: 'Legal' },
       { path: 'documents', loadComponent: () => import('./componentes/document-templates/document-templates.component').then(m => m.DocumentTemplatesComponent), canActivate: [SubscriptionGuard, ProfessionalRoleGuard], title: 'Documentación' },
       { path: 'automations', loadComponent: () => import('./componentes/automation-settings/automation-settings.component').then(m => m.AutomationSettingsComponent), canActivate: [SubscriptionGuard, ProfessionalRoleGuard], title: 'Automatizaciones' },

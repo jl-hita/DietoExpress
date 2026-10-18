@@ -28,6 +28,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
   profile: Profile | null = null;
   license: LicenseStatus | null = null;
   unreadMessagesCount = 0;
+  directoryReviewCount = 0;
   private unreadMessagesSubscription?: Subscription;
   readonly defaultProfileImage = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"%3E%3Ccircle cx="24" cy="24" r="24" fill="%23e0e0e0"/%3E%3Ccircle cx="24" cy="18" r="8" fill="%23909090"/%3E%3Cpath d="M10 40c2-8 9-12 14-12s12 4 14 12" fill="%23909090"/%3E%3C/svg%3E';
 
@@ -49,7 +50,15 @@ export class SidebarComponent implements OnInit, OnDestroy {
     }
 
     // La bandeja de conversaciones es propia de cuentas profesionales; SuperAdmin no debe sondear endpoints de tenant y generar 403 periódicos.
-    if (this.isNutritionist || this.isClinic) {
+    if (this.isSuperAdmin) {
+      this.unreadMessagesSubscription = interval(60000).pipe(
+        startWith(0),
+        switchMap(() => forkJoin({
+          profiles: this.http.get<any[]>('/api/admin/directory-verification').pipe(catchError(() => of([]))),
+          evidence: this.http.get<any[]>('/api/directory-verification/evidence/admin?status=pending').pipe(catchError(() => of([])))
+        }))
+      ).subscribe(result => { this.directoryReviewCount = result.profiles.filter((item: any) => item.publicationStatus === 'pending' || item.publicationStatus === 'draft').length + result.evidence.length; });
+    } else if (this.isNutritionist || this.isClinic) {
       this.unreadMessagesSubscription = interval(15000).pipe(
         startWith(0),
         switchMap(() => forkJoin({

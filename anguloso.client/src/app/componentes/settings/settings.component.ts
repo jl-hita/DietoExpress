@@ -1,4 +1,6 @@
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { ActivatedRoute } from '@angular/router';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Subject, Subscription } from 'rxjs';
@@ -50,6 +52,9 @@ import { MatSelectModule } from '@angular/material/select';
 // Documentación: este componente coordina estado local, validación y llamadas asíncronas; la vista solo refleja ese estado.
 // La pantalla de ajustes separa la edición local del envío persistente para evitar mostrar como guardado un cambio que el backend haya rechazado.
 export class SettingsComponent implements OnInit, OnDestroy {
+  directoryOnly = false;
+
+  get isNutritionist(): boolean { return this.authService.getRole() === 'nutritionist'; }
   form!: FormGroup;
 
   // Los estados actualizados desde HTTP y FileReader son signals para notificar explícitamente a la vista.
@@ -94,16 +99,23 @@ export class SettingsComponent implements OnInit, OnDestroy {
   ];
   filteredProvinces = [...this.provinces];
   readonly timeZoneOptions = [...TIME_ZONE_OPTIONS];
+  directoryEvidence: any[] = [];
+  evidenceUploading: 'identity' | 'qualification' | null = null;
+  selectedSettingsTab = 0;
 
   constructor(
     private fb: FormBuilder,
     private profileService: ProfileService,
     private authService: AuthService,
     private snack: MatSnackBar,
-    private timeZones: TimeZonePreferenceService
+    private timeZones: TimeZonePreferenceService,
+    private http: HttpClient,
+    private route: ActivatedRoute
   ) {}
 
   ngOnInit(): void {
+    this.directoryOnly = this.route.snapshot.routeConfig?.path === 'directory-profile';
+    this.route.queryParamMap.subscribe(params => { this.selectedSettingsTab = params.get('tab') === 'directorio' ? 1 : 0; });
     const browserZone = this.timeZones.detectBrowserTimeZone();
     if (!this.timeZoneOptions.some(zone => zone.id === browserZone)) {
       this.timeZoneOptions.unshift({ id: browserZone, label: 'Zona detectada en este dispositivo' });
@@ -154,6 +166,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
     this.profileService.getProfile().subscribe({
       next: (data) => {
         this.profile = data;
+        this.loadDirectoryEvidence();
         this.form.patchValue({
           fullName: data.fullName ?? '',
           clinicName: data.clinicName ?? '',
@@ -184,6 +197,51 @@ export class SettingsComponent implements OnInit, OnDestroy {
         this.loading = false;
       }
     });
+  }
+
+  loadDirectoryEvidence(): void {
+    this.http.get<any[]>('/api/directory-verification/evidence/mine').subscribe({
+      next: items => this.directoryEvidence = items || [],
+      error: () => this.directoryEvidence = []
+    });
+  }
+
+  uploadDirectoryEvidence(event: Event, evidenceType: 'identity' | 'qualification'): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    if (file.size > 20 * 1024 * 1024) {
+      this.snack.open('El archivo no puede superar los 20 MB.', 'Cerrar', { duration: 4000 });
+      input.value = '';
+      return;
+    }
+    if (!['application/pdf', 'image/jpeg', 'image/png'].includes(file.type)) {
+      this.snack.open('Solo se admiten archivos PDF, JPG o PNG.', 'Cerrar', { duration: 4000 });
+      input.value = '';
+      return;
+    }
+    const body = new FormData();
+    body.append('file', file);
+    body.append('evidenceType', evidenceType);
+    this.evidenceUploading = evidenceType;
+    this.http.post('/api/directory-verification/evidence/mine', body).subscribe({
+      next: () => {
+        this.evidenceUploading = null;
+        input.value = '';
+        this.snack.open('Documento enviado para revisión.', 'Cerrar', { duration: 3500 });
+        this.loadDirectoryEvidence();
+        this.profileService.getProfile().subscribe({ next: profile => this.profile = profile });
+      },
+      error: err => {
+        this.evidenceUploading = null;
+        input.value = '';
+        this.snack.open(err?.error || 'No se pudo enviar el documento.', 'Cerrar', { duration: 5000 });
+      }
+    });
+  }
+
+  evidenceStatusLabel(status: string): string {
+    return ({ pending: 'Pendiente de revisión', approved: 'Aprobado', rejected: 'Rechazado' } as Record<string, string>)[status] ?? status;
   }
 
   onClinicAddressSelected(suggestion: AddressSuggestion): void {

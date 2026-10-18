@@ -51,7 +51,7 @@ public class DirectoryController : ControllerBase
     public async Task<ActionResult<IEnumerable<DirectoryProfileDto>>> Search([FromQuery] DirectorySearchDto filter)
     {
         var query = _context.users.AsNoTracking()
-            .Where(u => u.archived_at == null && u.role == "nutritionist" && u.directory_enabled == true && u.directory_publication_status == "published");
+            .Where(u => u.archived_at == null && u.role == "nutritionist" && u.directory_enabled == true && (u.directory_publication_status == "published" || u.directory_publication_status == "verified"));
 
         if (!string.IsNullOrWhiteSpace(filter.City))
             query = query.Where(u => u.directory_city != null && EF.Functions.ILike(u.directory_city, $"%{filter.City.Trim()}%"));
@@ -103,7 +103,7 @@ public class DirectoryController : ControllerBase
                 PublicBio = u.directory_bio ?? string.Empty,
                 Specialties = u.directory_specialties ?? string.Empty,
                 OnlineConsultations = u.online_consultations ?? false,
-                IsVerified = u.directory_publication_status == "published"
+                IsVerified = u.directory_publication_status == "verified"
             }).ToListAsync();
 
         var ids = profiles.Select(p => p.NutritionistId).ToArray();
@@ -147,7 +147,7 @@ public class DirectoryController : ControllerBase
     {
         var normalized = slug.Trim().ToLowerInvariant();
         var profile = await _context.users.AsNoTracking()
-            .Where(u => u.archived_at == null && u.role == "nutritionist" && u.directory_enabled == true && u.directory_publication_status == "published" && u.directory_slug == normalized)
+            .Where(u => u.archived_at == null && u.role == "nutritionist" && u.directory_enabled == true && (u.directory_publication_status == "published" || u.directory_publication_status == "verified") && u.directory_slug == normalized)
             .Select(u => new DirectoryProfileDto
             {
                 NutritionistId = u.id,
@@ -162,7 +162,7 @@ public class DirectoryController : ControllerBase
                 PublicBio = u.directory_bio ?? string.Empty,
                 Specialties = u.directory_specialties ?? string.Empty,
                 OnlineConsultations = u.online_consultations ?? false,
-                IsVerified = u.directory_publication_status == "published"
+                IsVerified = u.directory_publication_status == "verified"
             }).FirstOrDefaultAsync();
 
         if (profile == null)
@@ -216,6 +216,7 @@ public class DirectoryController : ControllerBase
         var professional = await _context.users.AsNoTracking()
             .Where(u => u.archived_at == null &&
                         u.directory_enabled == true &&
+                        (u.directory_publication_status == "published" || u.directory_publication_status == "verified") &&
                         u.directory_slug == normalized)
             .Select(u => new { u.id, u.tenant_id, u.full_name, u.online_consultations })
             .FirstOrDefaultAsync();
@@ -468,6 +469,7 @@ public class DirectoryController : ControllerBase
         var professional = await _context.users.AsNoTracking()
             .Where(u => u.archived_at == null &&
                         u.directory_enabled == true &&
+                        (u.directory_publication_status == "published" || u.directory_publication_status == "verified") &&
                         u.directory_slug == normalized)
             .Select(u => new { u.id, u.tenant_id, u.full_name })
             .FirstOrDefaultAsync();
@@ -539,7 +541,7 @@ public class DirectoryController : ControllerBase
         var normalized = slug.Trim().ToLowerInvariant();
         var professional = await _context.users.AsNoTracking()
             .Where(u => u.archived_at == null && u.role == "nutritionist" &&
-                        u.directory_enabled == true && u.directory_publication_status == "published" &&
+                        u.directory_enabled == true && (u.directory_publication_status == "published" || u.directory_publication_status == "verified") &&
                         u.directory_slug == normalized)
             .Select(u => u.id)
             .FirstOrDefaultAsync();
