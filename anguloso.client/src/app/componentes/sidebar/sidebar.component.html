@@ -70,6 +70,11 @@
         <mat-icon>workspace_premium</mat-icon><span>Suscripción</span>
       </a>
     </div>
+    <div class="menu-item" *ngIf="isNutritionist || isClinic">
+      <a mat-list-item routerLink="/directory-profile" routerLinkActive="active-link" (click)="navigateAndClose()">
+        <mat-icon>public</mat-icon><span>Publicar mi perfil</span>
+      </a>
+    </div>
     <div class="menu-item">
       <a mat-list-item routerLink="/settings" routerLinkActive="active-link" (click)="navigateAndClose()">
         <mat-icon>settings</mat-icon><span>Ajustes</span>
