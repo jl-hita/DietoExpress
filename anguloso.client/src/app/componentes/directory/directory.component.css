@@ -312,3 +312,69 @@
 }
 
 .directory-page .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+
+/* Skeletons del directorio: misma geometría que las tarjetas reales y sin hover interactivo. */
+.directory-loading {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  margin: 0 0 20px;
+}
+.profile-card-skeleton {
+  min-height: 156px;
+  cursor: progress;
+  pointer-events: none;
+}
+.profile-card-skeleton:hover {
+  transform: none;
+  border-color: #e1eae3;
+  box-shadow: 0 8px 28px rgba(24,64,45,.045);
+}
+.skeleton-avatar {
+  flex: 0 0 94px;
+  width: 94px;
+  height: 94px;
+  border-radius: 18px;
+}
+.skeleton-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 11px;
+  padding-top: 3px;
+}
+.skeleton-line {
+  width: min(100%, 230px);
+  height: 11px;
+}
+.skeleton-line-title {
+  width: min(82%, 270px);
+  height: 18px;
+  margin-bottom: 3px;
+}
+.skeleton-line-short { width: min(58%, 180px); }
+.skeleton-pill {
+  width: 104px;
+  height: 25px;
+  margin-top: 3px;
+  border-radius: 999px;
+}
+@media (max-width: 900px) {
+  .directory-loading { grid-template-columns: 1fr; }
+}
+@media (max-width: 620px) {
+  .profile-card-skeleton { min-height: 124px; }
+  .skeleton-avatar {
+    flex-basis: 64px;
+    width: 64px;
+    height: 64px;
+    border-radius: 13px;
+  }
+  .skeleton-content { gap: 9px; }
+  .skeleton-line-title { height: 16px; }
+  .skeleton-pill { height: 22px; width: 92px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after { animation: none; }
+}
