@@ -180,7 +180,7 @@ export class PatientPortalService {
     });
   }
 
-  createConsultationAppointment(request: { clientId: number; startsAt: string; durationMinutes: number; notes?: string | null }): Observable<PatientAppointment> {
+  createConsultationAppointment(request: { clientId: number; startsAt: string; durationMinutes: number; notes?: string | null; modality?: string }): Observable<PatientAppointment> {
     return this.http.post<PatientAppointment>(this.base + '/professional/consultation-actions/appointment', request);
   }
 
@@ -192,6 +192,10 @@ export class PatientPortalService {
     priority?: string;
   }): Observable<{ id: number }> {
     return this.http.post<{ id: number }>(this.base + '/professional/tasks', request);
+  }
+
+  getClients(search = '', page = 1, pageSize = 100): Observable<any> {
+    return this.http.get<any>(this.base + '/clients', { params: { search, page: String(page), pageSize: String(pageSize) } });
   }
 
   getProfessionalAppointments(from?: string, to?: string): Observable<PatientAppointment[]> {
