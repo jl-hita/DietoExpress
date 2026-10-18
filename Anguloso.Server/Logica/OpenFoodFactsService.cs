@@ -836,9 +836,11 @@ public class OpenFoodFactsService
                 food.allergen_tags, product.Allergens_tags);
             food.traces_tags = DietaryRestrictionRules.MergeKnownAllergenTags(
                 food.traces_tags, product.Traces_tags);
-            food.allergen_data_status = hasIncomingAllergenTags || hasIncomingTraceTags
+            food.allergen_data_status = hasIncomingAllergenTags && hasIncomingTraceTags
                 ? "reported"
-                : hadKnownAllergenData ? "stale" : "unknown";
+                : hasIncomingAllergenTags || hasIncomingTraceTags
+                    ? "partial"
+                    : hadKnownAllergenData ? "stale" : "unknown";
             food.allergen_data_source = hasIncomingAllergenTags || hasIncomingTraceTags
                 ? "openfoodfacts"
                 : food.allergen_data_source;
