@@ -164,7 +164,7 @@ public sealed class StripeBillingService : IStripeBillingService
             var candidate = await _context.Database.SqlQueryRaw<CouponCheckoutInfo>("""
                 SELECT id AS "Id", discount_percent AS "DiscountPercent",
                        allowed_plan_codes AS "AllowedPlanCodes", allowed_intervals AS "AllowedIntervals",
-                       starts_at AS "StartsAt", expires_at AS "ExpiresAt", is_active AS "IsActive"
+                       starts_at AS "StartsAt", expires_at AS "ExpiresAt", (is_active AND COALESCE((SELECT ca.is_active FROM billing_coupon_campaigns ca WHERE ca.id = billing_coupons.campaign_id), TRUE)) AS "IsActive"
                 FROM billing_coupons
                 WHERE UPPER(BTRIM(code)) = {0}
                 LIMIT 1
