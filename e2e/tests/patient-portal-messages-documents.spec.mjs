@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 // API interceptada en todos los casos: no se accede a mensajes ni documentos reales.
-async function mockPortal(page, { messages = [], documents = [], failFirstDocuments = false } = {}) {
+async function mockPortal(page, { messages = [], documents = [], failDocumentTabLoad = false } = {}) {
   const calls = [];
   let documentGets = 0;
   await page.route('**/api/**', async route => {
@@ -15,7 +15,7 @@ async function mockPortal(page, { messages = [], documents = [], failFirstDocume
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 321, fullName: 'Paciente E2E Ficticio', hasActiveDiet: false, clinicName: 'Clínica E2E' }) });
     } else if (url.pathname.endsWith('/portal/documents') && method === 'GET') {
       documentGets++;
-      if (failFirstDocuments && documentGets === 1) {
+      if (failDocumentTabLoad && documentGets === 2) {
         await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ message: 'Documentación temporalmente no disponible.' }) });
       } else {
         await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(documents) });
@@ -77,12 +77,12 @@ test.describe('P1 — mensajes y documentación del portal del paciente', () => 
   });
 
   test('un fallo al cargar documentos se muestra y permite reintentar', async ({ page }) => {
-    const calls = await mockPortal(page, { failFirstDocuments: true, documents: [] });
+    const calls = await mockPortal(page, { failDocumentTabLoad: true, documents: [] });
     await loginByPin(page);
     await page.getByRole('button', { name: 'Ver mi documentación', exact: true }).click();
     await expect(page.getByText('Documentación temporalmente no disponible.')).toBeVisible();
     await page.getByRole('button', { name: 'Reintentar documentación' }).click();
     await expect(page.getByRole('heading', { name: 'No tienes documentos todavía' })).toBeVisible();
-    expect(calls.filter(call => call.path.endsWith('/portal/documents') && call.method === 'GET')).toHaveLength(2);
+    expect(calls.filter(call => call.path.endsWith('/portal/documents') && call.method === 'GET')).toHaveLength(3);
   });
 });
