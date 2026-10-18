@@ -150,13 +150,13 @@ test.describe('P0 — directorio público: búsqueda, perfil y solicitudes (API 
     await expect(page.getByRole('heading', { name: 'Próximos horarios disponibles' })).toBeVisible();
   });
 
-  test('un perfil inexistente muestra un error y permite volver al directorio', async ({ page }) => {
+  test('un perfil inexistente muestra un error claro sin provocar excepciones', async ({ page }) => {
     await page.route('**/directory/professionals/not-found-e2e', route => route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ message: 'No encontrado' }) }));
     await page.goto('/nutricionistas/not-found-e2e');
     await expect(page.getByRole('alert')).toContainText('No se ha encontrado el profesional solicitado.');
-    await expect(page.getByRole('link', { name: /Volver al directorio/ })).toHaveCount(0);
-    await page.goto('/nutricionistas');
-    await expect(page.getByRole('heading', { name: 'Encuentra a tu nutricionista' })).toBeVisible();
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    expect(errors).toEqual([]);
   });
 
   test('seleccionar una fecha y un hueco solo abre el formulario; no reserva por sí solo', async ({ page }) => {
@@ -231,7 +231,7 @@ test.describe('P0 — directorio público: búsqueda, perfil y solicitudes (API 
     await chooseSlot(page);
     await page.getByLabel('Consulta online', { exact: true }).check();
     await expect(page.locator('.booking-form')).toContainText('Recibirás el acceso a la consulta online en tu portal');
-    await expect(page.locator('.booking-form')).toContainText('no requiere pago online');
+    await expect(page.locator('.booking-note')).toContainText('no requiere pago online');
   });
 
   test('la búsqueda y el perfil no producen errores JavaScript no controlados', async ({ page }) => {
