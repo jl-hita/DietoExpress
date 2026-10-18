@@ -255,7 +255,10 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
         // Modo vista previa nutricionista si hay sesión iniciada
         this.clientId = clientIdParam;
         this.loadData(clientIdParam);
-      } else {
+      } else if (!this.clientId) {
+        // Al consumir un enlace mágico se elimina el token de la URL.
+        // La navegación actualiza queryParams; no debe volver a mostrar el login
+        // si la autenticación ya ha establecido clientId.
         this.loading = false;
         this.showLogin = true;
       }
