@@ -37,7 +37,7 @@ public sealed class DietaryRestrictionIntegrationTests
 
         var offService = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "OpenFoodFactsService.cs"));
         Assert.Contains("allergens_tags", offService);
-        Assert.Contains("product.Allergens_tags is { Length: > 0 }", offService);
+        Assert.Contains("DietaryRestrictionRules.MergeKnownAllergenTags", offService);
 
         var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
         Assert.Contains("allergen-classification-v2", bootstrap);
