@@ -59,6 +59,8 @@ test.describe('P0 — recorrido completo de consulta guiada', () => {
     const scheduleManually = async (daysAhead) => {
       await page.goto('/appointments');
       await expect(page.getByRole('heading', { name: 'Agendar cita manualmente' })).toBeVisible();
+      await page.getByLabel('Buscar paciente').fill(patientName);
+      await page.getByRole('button', { name: 'Buscar' }).click();
       await expect(page.getByLabel('Paciente para la cita')).toContainText(patientName, { timeout: 15_000 });
       await page.getByLabel('Paciente para la cita').selectOption({ label: patientName });
       await page.getByLabel('Fecha y hora de la cita').fill(localDateTime(daysAhead, 21, 15));
