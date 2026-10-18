@@ -74,8 +74,17 @@ public sealed class StripeBillingService : IStripeBillingService
             .FirstOrDefaultAsync(a => a.tenant_id == tenantId &&
                                       (a.status == "creating" || a.status == "pending"));
 
+        var normalizedCouponCode = string.IsNullOrWhiteSpace(couponCode) ? null : couponCode.Trim().ToUpperInvariant();
+        if (normalizedCouponCode != null &&
+            (normalizedCouponCode.Length > 64 || normalizedCouponCode.Any(ch => !char.IsAsciiLetterOrDigit(ch) && ch != '-')))
+            throw new ArgumentException("El código promocional no tiene un formato válido.", nameof(couponCode));
+
         if (pendingAttempt != null && pendingAttempt.expires_at > DateTime.UtcNow)
         {
+            if (!string.Equals(pendingAttempt.coupon_code, normalizedCouponCode, StringComparison.Ordinal))
+                throw new InvalidOperationException("Ya existe un checkout pendiente para esta cuenta. Completa o deja caducar ese checkout antes de cambiar el cupón.");
+            if (pendingAttempt.status == "creating")
+                throw new InvalidOperationException("El checkout anterior todavía se está preparando. Vuelve a intentarlo en unos segundos.");
             await transaction.CommitAsync();
 
             if (pendingAttempt.status == "pending" && !string.IsNullOrWhiteSpace(pendingAttempt.checkout_url))
@@ -138,6 +147,86 @@ public sealed class StripeBillingService : IStripeBillingService
             await _context.SaveChangesAsync();
         }
 
+        long? couponRedemptionId = null;
+        string? stripeCouponId = null;
+        long? couponId = null;
+        if (normalizedCouponCode != null)
+        {
+            if (!userId.HasValue)
+                throw new InvalidOperationException("No se ha podido identificar al usuario para reservar el cupón.");
+
+            await _context.Database.ExecuteSqlRawAsync("""
+                UPDATE billing_coupon_redemptions
+                SET status = 'released'
+                WHERE status = 'reserved' AND reserved_until IS NOT NULL AND reserved_until < NOW()
+                """);
+
+            var candidate = await _context.Database.SqlQueryRaw<CouponCheckoutInfo>("""
+                SELECT id AS "Id", discount_percent AS "DiscountPercent",
+                       allowed_plan_codes AS "AllowedPlanCodes", allowed_intervals AS "AllowedIntervals",
+                       starts_at AS "StartsAt", expires_at AS "ExpiresAt", is_active AS "IsActive"
+                FROM billing_coupons
+                WHERE UPPER(BTRIM(code)) = {0}
+                LIMIT 1
+                """, normalizedCouponCode).SingleOrDefaultAsync();
+
+            if (candidate == null || !candidate.IsActive)
+                throw new InvalidOperationException("El código promocional no existe o no está activo.");
+
+            await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", candidate.Id);
+            var coupon = await _context.Database.SqlQueryRaw<CouponCheckoutInfo>("""
+                SELECT id AS "Id", discount_percent AS "DiscountPercent",
+                       allowed_plan_codes AS "AllowedPlanCodes", allowed_intervals AS "AllowedIntervals",
+                       starts_at AS "StartsAt", expires_at AS "ExpiresAt", is_active AS "IsActive"
+                FROM billing_coupons
+                WHERE id = {0}
+                LIMIT 1
+                """, candidate.Id).SingleAsync();
+
+            var now = DateTimeOffset.UtcNow;
+            if (!coupon.IsActive || (coupon.StartsAt.HasValue && coupon.StartsAt > now) ||
+                (coupon.ExpiresAt.HasValue && coupon.ExpiresAt <= now))
+                throw new InvalidOperationException("El código promocional todavía no es válido o ha caducado.");
+            if (!coupon.AllowedPlanCodes.Contains(plan.code) || !coupon.AllowedIntervals.Contains(billingInterval))
+                throw new InvalidOperationException("El código promocional no es válido para este plan o periodo de facturación.");
+
+            var alreadyRedeemed = await _context.Database.SqlQueryRaw<bool>("""
+                SELECT EXISTS (
+                    SELECT 1 FROM billing_coupon_redemptions
+                    WHERE coupon_id = {0} AND status IN ('reserved','redeemed')
+                ) AS "Value"
+                """, coupon.Id).SingleAsync();
+            if (alreadyRedeemed)
+                throw new InvalidOperationException("El código promocional ya se ha utilizado o está reservado en otra contratación.");
+
+            couponId = coupon.Id;
+            couponRedemptionId = await _context.Database.SqlQueryRaw<long>("""
+                INSERT INTO billing_coupon_redemptions
+                    (coupon_id, tenant_id, user_id, status, reserved_until)
+                VALUES ({0}, {1}, {2}, 'reserved', {3})
+                RETURNING id AS "Value"
+                """, coupon.Id, tenantId, userId.Value, DateTime.UtcNow.AddHours(24)).SingleAsync();
+
+            using var stripeCouponResponse = await SendStripeAsync(HttpMethod.Post, "/v1/coupons",
+                new Dictionary<string, string>
+                {
+                    ["duration"] = "once",
+                    ["percent_off"] = coupon.DiscountPercent.ToString(CultureInfo.InvariantCulture),
+                    ["name"] = $"DietoExpress {coupon.DiscountPercent}% first invoice"
+                },
+                $"dietoexpress-coupon-redemption-{couponRedemptionId.Value}");
+            using var stripeCouponJson = JsonDocument.Parse(await stripeCouponResponse.Content.ReadAsStringAsync());
+            stripeCouponId = stripeCouponJson.RootElement.GetProperty("id").GetString();
+            if (string.IsNullOrWhiteSpace(stripeCouponId))
+                throw new InvalidOperationException("Stripe no devolvió un identificador de cupón válido.");
+
+            await _context.Database.ExecuteSqlInterpolatedAsync($"""
+                UPDATE billing_coupon_redemptions
+                SET stripe_coupon_id = {stripeCouponId}
+                WHERE id = {couponRedemptionId.Value}
+                """);
+        }
+
         var form = new Dictionary<string, string>
         {
             ["mode"] = "subscription",
@@ -151,6 +240,12 @@ public sealed class StripeBillingService : IStripeBillingService
             ["metadata[plan_code]"] = plan.code,
             ["metadata[billing_interval]"] = billingInterval
         };
+        if (stripeCouponId != null && couponId.HasValue && couponRedemptionId.HasValue)
+        {
+            form["discounts[0][coupon]"] = stripeCouponId;
+            form["metadata[coupon_id]"] = couponId.Value.ToString(CultureInfo.InvariantCulture);
+            form["metadata[coupon_redemption_id]"] = couponRedemptionId.Value.ToString(CultureInfo.InvariantCulture);
+        }
 
         if (!string.IsNullOrWhiteSpace(tenant.contact_email))
             form["customer_email"] = tenant.contact_email;
@@ -168,6 +263,7 @@ public sealed class StripeBillingService : IStripeBillingService
             tenant_id = tenantId,
             plan_id = plan.id,
             billing_interval = billingInterval,
+            coupon_code = normalizedCouponCode,
             idempotency_key = idempotencyKey,
             checkout_url = string.Empty,
             status = "creating",
@@ -177,6 +273,14 @@ public sealed class StripeBillingService : IStripeBillingService
 
         _context.billing_checkout_attempts.Add(attempt);
         await _context.SaveChangesAsync();
+        if (couponRedemptionId.HasValue)
+        {
+            await _context.Database.ExecuteSqlInterpolatedAsync($"""
+                UPDATE billing_coupon_redemptions
+                SET checkout_attempt_id = {attempt.id}
+                WHERE id = {couponRedemptionId.Value}
+                """);
+        }
         await transaction.CommitAsync();
 
         using var response = await SendStripeAsync(HttpMethod.Post, "/v1/checkout/sessions", form, idempotencyKey);
@@ -199,6 +303,14 @@ public sealed class StripeBillingService : IStripeBillingService
         persisted.completed_at = null;
 
         await _context.SaveChangesAsync();
+        if (couponRedemptionId.HasValue)
+        {
+            await _context.Database.ExecuteSqlInterpolatedAsync($"""
+                UPDATE billing_coupon_redemptions
+                SET stripe_checkout_session_id = {checkoutSessionId}
+                WHERE id = {couponRedemptionId.Value}
+                """);
+        }
         await completionTransaction.CommitAsync();
         return url;
     }
@@ -472,6 +584,9 @@ public sealed class StripeBillingService : IStripeBillingService
 
         await transaction.CommitAsync();
     }
+
+    private sealed record CouponCheckoutInfo(long Id, int DiscountPercent, string[] AllowedPlanCodes,
+        string[] AllowedIntervals, DateTimeOffset? StartsAt, DateTimeOffset? ExpiresAt, bool IsActive);
 
     private static string CreateCheckoutIdempotencyKey(int tenantId, int planId, string billingInterval, Guid attemptId)
     {
