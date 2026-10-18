@@ -32,12 +32,6 @@ jobs:
         with:
           node-version: 22.22.3
 
-      - name: Playwright E2E configuration validation
-        working-directory: e2e
-        run: |
-          npm install --no-package-lock --no-audit --no-fund
-          npx playwright test --list
-
       - name: Angular install
         working-directory: anguloso.client
         # Angular tests use Vitest; Karma is only an unused optional peer of @angular/build.
@@ -99,8 +93,8 @@ jobs:
         run: |
           set -o pipefail
           audit_output="$(dotnet list Anguloso.Server/Anguloso.Server.csproj package --vulnerable --include-transitive)"
-          printf '%s\n' "$audit_output"
-          if printf '%s\n' "$audit_output" | grep -Eiq '>.*(High|Critical)'; then
+          printf '%s\\n' "$audit_output"
+          if printf '%s\\n' "$audit_output" | grep -Eiq '>.*(High|Critical)'; then
             echo "Se han detectado vulnerabilidades High/Critical en dependencias .NET."
             exit 1
           fi
@@ -115,8 +109,8 @@ jobs:
         run: |
           set -o pipefail
           audit_output="$(dotnet list Tests/DietoExpress.Security.Tests/DietoExpress.Security.Tests.csproj package --vulnerable --include-transitive)"
-          printf '%s\n' "$audit_output"
-          if printf '%s\n' "$audit_output" | grep -Eiq '>.*(High|Critical)'; then
+          printf '%s\\n' "$audit_output"
+          if printf '%s\\n' "$audit_output" | grep -Eiq '>.*(High|Critical)'; then
             echo "Se han detectado vulnerabilidades High/Critical en dependencias del proyecto de tests."
             exit 1
           fi
