@@ -74,20 +74,12 @@ public sealed class FoodSubstitutionService
         if (forbiddenTerms.Count > 0)
         {
             candidates = candidates
-                .Where(f =>
-                {
-                    var allergenTags = (f.allergen_tags ?? Array.Empty<string>())
-                        .Concat(f.traces_tags ?? Array.Empty<string>())
-                        .ToArray();
-                    return DietaryRestrictionRules.IsFoodAllowed(
-                               f.name, f.category,
-                               (f.dietary_flags ?? Array.Empty<string>())
-                                   .Concat(f.allergen_tags ?? Array.Empty<string>())
-                                   .Concat(f.traces_tags ?? Array.Empty<string>()),
-                               forbiddenTerms) &&
-                           !DietaryRestrictionRules.HasUnknownAllergenData(
-                               allergies, allergenTags, f.allergen_data_status);
-                })
+                .Where(f => DietaryRestrictionRules.IsFoodAllowed(
+                    f.name, f.category,
+                    (f.dietary_flags ?? Array.Empty<string>())
+                        .Concat(f.allergen_tags ?? Array.Empty<string>())
+                        .Concat(f.traces_tags ?? Array.Empty<string>()),
+                    forbiddenTerms))
                 .ToList();
         }
 

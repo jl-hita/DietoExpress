@@ -88,7 +88,7 @@ public sealed class DietRegenerationService
                 throw new ArgumentException("Debes indicar el alimento de sustitución.", nameof(request));
             var replacement = allFoods.FirstOrDefault(f => f.id == replacementFoodId);
             if (replacement == null) throw new KeyNotFoundException("El alimento de sustitución no está disponible.");
-            if (!IsAllowedForClient(replacement, forbidden, client))
+            if (!IsAllowed(replacement, forbidden))
                 throw new InvalidOperationException("El alimento seleccionado es incompatible con las restricciones del paciente.");
 
             var previous = Snapshot(item);
@@ -112,7 +112,7 @@ public sealed class DietRegenerationService
             var mealUsed = selectedMeal.meal_items.Where(i => i.food_id.HasValue).Select(i => i.food_id!.Value).ToHashSet();
             foreach (var item in selectedMeal.meal_items)
             {
-                var candidates = allFoods.Where(f => IsAllowedForClient(f, forbidden, client) && IsCompatibleRole(f, item, selectedMeal.name))
+                var candidates = allFoods.Where(f => IsAllowed(f, forbidden) && IsCompatibleRole(f, item, selectedMeal.name))
                     .Where(f => !request.PreserveWeeklyVariety || !usedFoodIds.Contains(f.id) || mealUsed.Contains(f.id))
                     .OrderBy(f => CandidateScore(f, item, usedFoodIds, mealUsed))
                     .Take(20)
@@ -198,13 +198,6 @@ public sealed class DietRegenerationService
             client?.digestive_health?.gluten_intolerance == true,
             client?.digestive_health?.lactose_intolerance == true,
             client?.digestive_health?.fodmaps_intolerance == true);
-
-    private static bool IsAllowedForClient(foods food, HashSet<string> forbidden, clients? client) =>
-        IsAllowed(food, forbidden) &&
-        !DietaryRestrictionRules.HasUnknownAllergenData(
-            client?.food_preferences?.allergies,
-            (food.allergen_tags ?? Array.Empty<string>()).Concat(food.traces_tags ?? Array.Empty<string>()),
-            food.allergen_data_status);
 
     private static bool IsAllowed(foods food, HashSet<string> forbidden) =>
         DietaryRestrictionRules.IsFoodAllowed(food.name, food.category, (food.dietary_flags ?? Array.Empty<string>()).Concat(food.allergen_tags ?? Array.Empty<string>()).Concat(food.traces_tags ?? Array.Empty<string>()), forbidden);
