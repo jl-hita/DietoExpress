@@ -22,7 +22,7 @@
     </div>
 
     <form [formGroup]="form" class="settings-form">
-    <mat-tab-group [selectedIndex]="directoryOnly ? 0 : selectedSettingsTab" (selectedIndexChange)="selectedSettingsTab = $event">
+    <mat-tab-group>
       <mat-tab label="Perfil" *ngIf="!directoryOnly">
 
       <!-- ─── TARJETA: Datos personales ───────────────────────── -->
@@ -179,7 +179,7 @@
 
       </mat-tab>
 
-      <mat-tab [label]="directoryOnly ? 'Mi perfil público' : 'Directorio'">
+      <mat-tab label="Mi perfil público" *ngIf="directoryOnly">
         <mat-card class="settings-card directory-card">
           <mat-card-header>
             <mat-icon mat-card-avatar class="section-icon">public</mat-icon>
