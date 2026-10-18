@@ -1,0 +1,54 @@
+name: Playwright E2E
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dietoexpress-playwright-e2e
+  cancel-in-progress: false
+
+jobs:
+  browser-tests:
+    name: Browser checks (non-destructive)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CI: true
+      E2E_BASE_URL: ${{ vars.E2E_BASE_URL || 'https://jlhitap.duckdns.org' }}
+      E2E_USERNAME: ${{ secrets.E2E_USERNAME }}
+      E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22.22.3
+
+      - name: Install Playwright test runner
+        working-directory: e2e
+        run: npm install --no-package-lock --no-audit --no-fund
+
+      - name: Install Chromium
+        working-directory: e2e
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser checks
+        working-directory: e2e
+        run: npm test
+
+      - name: Upload Playwright report and traces
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: playwright-e2e-results
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
