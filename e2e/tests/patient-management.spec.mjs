@@ -36,6 +36,46 @@ test.describe('P1 — gestión de pacientes desde la interfaz', () => {
     }
   });
 
+
+  test('cancelar el archivado conserva el expediente; confirmarlo lo archiva', async ({ page }) => {
+    await page.goto('/clients/nuevo');
+    await page.getByRole('heading', { name: 'Nuevo Cliente' }).waitFor();
+    await page.getByLabel('Nombre completo').fill(patientName);
+    await page.getByLabel('Email').fill(`e2e-${Date.now()}@invalid.example`);
+    await page.getByLabel('Notas').fill('Paciente ficticio para comprobar confirmaciones destructivas de Playwright.');
+    await page.getByRole('button', { name: 'Crear cliente' }).click();
+    await expect(page).toHaveURL(/\\/clients\\/\\d+(?:[/?#]|$)/, { timeout: 20_000 });
+    patientId = Number(page.url().match(/\\/clients\\/(\\d+)/)?.[1]);
+    expect(patientId).toBeGreaterThan(0);
+
+    await page.goto('/clients');
+    const search = page.getByPlaceholder('Buscar por nombre, email o teléfono...');
+    await search.fill(patientName);
+    const row = page.locator('tr').filter({ hasText: patientName });
+    await expect(row).toBeVisible({ timeout: 15_000 });
+    const archiveButton = page.getByRole('button', { name: `Archivar expediente de ${patientName}` });
+
+    let deleteRequests = 0;
+    page.on('request', request => {
+      if (request.method() === 'DELETE' && new URL(request.url()).pathname.endsWith(`/api/clients/${patientId}`)) deleteRequests++;
+    });
+    page.once('dialog', dialog => dialog.dismiss());
+    await archiveButton.click();
+    await expect(row).toBeVisible();
+    await page.waitForTimeout(300);
+    expect(deleteRequests, 'Cancelar no debe enviar la petición de archivado').toBe(0);
+
+    page.once('dialog', dialog => dialog.accept());
+    const archiveResponse = page.waitForResponse(response =>
+      response.request().method() === 'DELETE' &&
+      new URL(response.url()).pathname.endsWith(`/api/clients/${patientId}`));
+    await archiveButton.click();
+    const response = await archiveResponse;
+    expect([200, 204].includes(response.status()), 'El archivado confirmado debe completarse').toBe(true);
+    await expect(row).toHaveCount(0, { timeout: 15_000 });
+    patientId = 0;
+  });
+
   test('crear un paciente, abrir su ficha y verificar los datos guardados', async ({ page }) => {
     await page.goto('/clients/nuevo');
     await expect(page.getByRole('heading', { name: 'Nuevo Cliente' })).toBeVisible();
