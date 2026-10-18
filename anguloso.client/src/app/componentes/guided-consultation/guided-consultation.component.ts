@@ -274,7 +274,7 @@ interface GuidedConsultationResponse {
                 <button mat-stroked-button type="button" (click)="openPatientMessages()"><mat-icon>chat</mat-icon> Mensajes</button>
               </div>
             </div>
-            <button mat-flat-button color="primary" type="button" (click)="completeConsultation()" [disabled]="consultation?.status === 'completed' || completing">
+            <button mat-flat-button color="primary" type="button" (click)="completeConsultation()" [disabled]="consultation?.status === 'completed' || completing || clinicalSaveState === 'saving'">
               <mat-icon>{{ completing ? 'hourglass_top' : 'check' }}</mat-icon>
               {{ completing ? 'Cerrando…' : 'Cerrar consulta' }}
             </button>
@@ -322,6 +322,7 @@ export class GuidedConsultationComponent implements OnInit {
   decisionSummary = '';
   actionsSummary = '';
   nextConsultationPlan = '';
+  private clinicalSaveQueued = false;
   private readonly clinicalSaveStateState = signal<'idle' | 'saving' | 'saved' | 'error'>('idle');
   get clinicalSaveState(): 'idle' | 'saving' | 'saved' | 'error' { return this.clinicalSaveStateState(); }
   set clinicalSaveState(value: 'idle' | 'saving' | 'saved' | 'error') { this.clinicalSaveStateState.set(value); }
@@ -499,11 +500,9 @@ export class GuidedConsultationComponent implements OnInit {
     });
   }
 
-  saveClinicalProgress(): void {
-    if (!this.consultation || !this.data || this.clinicalSaveState === 'saving') return;
-    this.clinicalSaveState = 'saving';
-    const progress = {
-      ...(this.consultation.progress || {}),
+  private buildClinicalProgress(): Record<string, unknown> {
+    return {
+      ...(this.consultation?.progress || {}),
       goals: this.goalsText.trim(),
       education: this.educationText.trim(),
       clinicalNotes: this.clinicalNotes.trim(),
@@ -511,16 +510,35 @@ export class GuidedConsultationComponent implements OnInit {
       actionsSummary: this.actionsSummary.trim(),
       nextConsultationPlan: this.nextConsultationPlan.trim()
     };
+  }
+
+  private flushQueuedClinicalSave(): void {
+    if (!this.clinicalSaveQueued) return;
+    this.clinicalSaveQueued = false;
+    this.saveClinicalProgress();
+  }
+
+  saveClinicalProgress(): void {
+    if (!this.consultation || !this.data || this.consultation.status === 'completed') return;
+    if (this.clinicalSaveState === 'saving') {
+      this.clinicalSaveQueued = true;
+      return;
+    }
+    this.clinicalSaveState = 'saving';
     this.portalService.updateGuidedConsultationProgress(this.data.appointment.id, {
       currentStep: this.currentStep,
       completedSteps: this.consultation.completedSteps || [],
-      progress
+      progress: this.buildClinicalProgress()
     }).subscribe({
       next: value => {
         this.consultation = value;
         this.clinicalSaveState = 'saved';
+        this.flushQueuedClinicalSave();
       },
-      error: () => this.clinicalSaveState = 'error'
+      error: () => {
+        this.clinicalSaveState = 'error';
+        this.flushQueuedClinicalSave();
+      }
     });
   }
 
@@ -573,7 +591,7 @@ export class GuidedConsultationComponent implements OnInit {
     this.portalService.updateGuidedConsultationProgress(this.data.appointment.id, {
       currentStep: step,
       completedSteps,
-      progress: this.consultation.progress || {}
+      progress: this.buildClinicalProgress()
     }).subscribe({
       next: value => {
         this.consultation = value;
