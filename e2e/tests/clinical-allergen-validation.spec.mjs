@@ -95,6 +95,11 @@ test.describe('P0 — validación clínica de alérgenos (fixtures aislados)', (
       const response = await api.delete(new URL('/api/foods/' + foodId, baseURL).toString());
       expect([204, 404].includes(response.status()), 'El alimento temporal E2E debe eliminarse al finalizar la prueba').toBe(true);
     }
+    if (clientId > 0) {
+      const archiveResponse = await api.delete(new URL('/api/clients/' + clientId, baseURL).toString());
+      expect([204, 404].includes(archiveResponse.status()), 'La ficha ficticia E2E debe archivarse al finalizar').toBe(true);
+      clientId = 0;
+    }
     createdDietIds = [];
     createdFoodIds = [];
   });
@@ -156,8 +161,9 @@ test.describe('P0 — validación clínica de alérgenos (fixtures aislados)', (
           explainGeneration: false
         }
       });
-      expect(response.status(), 'La generación clínica debe completar una dieta válida').toBe(200);
-      const generated = await response.json();
+      const generationBody = await response.text();
+      expect(response.status(), 'La generación clínica debe completar una dieta válida. Respuesta API: ' + generationBody).toBe(200);
+      const generated = JSON.parse(generationBody);
       const generatedFoodIds = (generated.days ?? generated.Days ?? []).flatMap(day =>
         (day.meals ?? day.Meals ?? []).flatMap(meal =>
           (meal.items ?? meal.Items ?? []).map(item => Number(item.foodId ?? item.FoodId))
