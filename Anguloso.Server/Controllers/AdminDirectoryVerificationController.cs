@@ -97,7 +97,7 @@ public class AdminDirectoryVerificationController : ControllerBase
             if (evidenceCount < 2 || approvedTypes is null ||
                 !approvedTypes.Contains("identity", StringComparison.OrdinalIgnoreCase) ||
                 !approvedTypes.Contains("qualification", StringComparison.OrdinalIgnoreCase))
-                return BadRequest("Para verificar o publicar la ficha deben estar aprobadas las evidencias de identidad y titulación.");
+                return BadRequest("Para obtener la insignia de profesional verificado deben estar aprobadas las evidencias de identidad y titulación.");
         }
 
         if (status == "verified")
@@ -105,7 +105,7 @@ public class AdminDirectoryVerificationController : ControllerBase
             user.directory_verified_at ??= DateTime.UtcNow;
             user.directory_verified_by_user_id = AuthHelpers.GetUserId(User);
         }
-        else if (status is "draft" or "rejected")
+        else
         {
             user.directory_verified_at = null;
             user.directory_verified_by_user_id = null;
