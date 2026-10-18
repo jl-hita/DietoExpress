@@ -22,9 +22,10 @@ public sealed class RecipeNutritionService
         var allergenTags = ingredients.SelectMany(i => i.AllergenTags).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(tag => tag).ToList();
         var traceTags = ingredients.SelectMany(i => i.TraceTags).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(tag => tag).ToList();
         var allergenDataAvailable = ingredients.Count > 0 && ingredients.All(i => i.AllergenDataAvailable);
+        var allergenDataStatus = ingredients.Count == 0 ? "unknown" : ingredients.All(i => i.AllergenDataStatus == "reported") ? "reported" : ingredients.Any(i => i.AllergenDataStatus == "unknown") ? "unknown" : "partial";
         return Task.FromResult(new RecipeDetailDto {
             Id=recipe.id, Name=recipe.name, Instructions=recipe.instructions, CreatedAt=recipe.created_at, Servings=servings, YieldGrams=recipe.yield_grams,
-            Ingredients=ingredients, DietaryFlags=flags, AllergenTags=allergenTags, TraceTags=traceTags, AllergenDataAvailable=allergenDataAvailable,
+            Ingredients=ingredients, DietaryFlags=flags, AllergenTags=allergenTags, TraceTags=traceTags, AllergenDataStatus=allergenDataStatus, AllergenDataAvailable=allergenDataAvailable,
             Nutrition=new RecipeNutritionDto {
                 TotalKcal=totalKcal, TotalProtein=totalProtein, TotalCarbs=totalCarbs, TotalFat=totalFat,
                 PerServingKcal=Divide(totalKcal,servings), PerServingProtein=Divide(totalProtein,servings), PerServingCarbs=Divide(totalCarbs,servings), PerServingFat=Divide(totalFat,servings)
@@ -53,7 +54,7 @@ public sealed class RecipeNutritionService
         await _context.SaveChangesAsync(cancellationToken);
     }
 
-    private static RecipeIngredientDto BuildIngredient(recipe_items item, foods food){var f=(double)item.grams/100.0;return new RecipeIngredientDto{FoodId=food.id,FoodName=food.name,Brands=food.brands,Grams=item.grams,Kcal=Scale(food.kcal,f),Protein=Scale(food.protein,f),Carbs=Scale(food.carbs,f),Fat=Scale(food.fat,f),DietaryFlags=(food.dietary_flags??Array.Empty<string>()).ToList(),AllergenTags=ShoppingListRules.FormatAllergenTags(food.allergen_tags),TraceTags=ShoppingListRules.FormatAllergenTags(food.traces_tags),AllergenDataAvailable=DietaryRestrictionRules.HasKnownAllergenTags((food.allergen_tags ?? Array.Empty<string>()).Concat(food.traces_tags ?? Array.Empty<string>()))};}
+    private static RecipeIngredientDto BuildIngredient(recipe_items item, foods food){var f=(double)item.grams/100.0;return new RecipeIngredientDto{FoodId=food.id,FoodName=food.name,Brands=food.brands,Grams=item.grams,Kcal=Scale(food.kcal,f),Protein=Scale(food.protein,f),Carbs=Scale(food.carbs,f),Fat=Scale(food.fat,f),DietaryFlags=(food.dietary_flags??Array.Empty<string>()).ToList(),AllergenTags=ShoppingListRules.FormatAllergenTags(food.allergen_tags),TraceTags=ShoppingListRules.FormatAllergenTags(food.traces_tags),AllergenDataStatus=food.allergen_data_status??"unknown",AllergenDataAvailable=DietaryRestrictionRules.HasKnownAllergenTags((food.allergen_tags ?? Array.Empty<string>()).Concat(food.traces_tags ?? Array.Empty<string>()))};}
     private static double? Scale(double? v,double f)=>v.HasValue?Math.Round(v.Value*f,2):null;
     private static double? Sum(IEnumerable<double?> v){var x=v.Where(a=>a.HasValue).Select(a=>a!.Value).ToList();return x.Count==0?null:Math.Round(x.Sum(),2);}
     private static double? Divide(double? v,decimal d)=>v.HasValue&&d>0?Math.Round(v.Value/(double)d,2):null;
