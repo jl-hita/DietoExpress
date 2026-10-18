@@ -10,6 +10,8 @@ on:
 
 permissions:
   contents: read
+  actions: read
+  issues: write
 
 concurrency:
   group: dietoexpress-playwright-e2e
@@ -48,6 +50,25 @@ jobs:
             echo "Esta invocación UTC no corresponde a las 02:00 locales; no se ejecutarán pruebas."
           fi
 
+      - name: Detectar si sigue pendiente la revisión visual inicial
+        id: baseline
+        if: github.event_name != 'schedule' || steps.schedule.outputs.run_e2e == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          comments="$(curl --fail --silent --show-error \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/issues/4/comments?per_page=100")"
+          if printf '%s' "$comments" | python3 -c 'import json,sys; data=json.load(sys.stdin); marker="<!-- E2E_VISUAL_BASELINE_PASSED -->"; sys.exit(0 if any(marker in (item.get("body") or "") for item in data) else 1)'; then
+            echo "run_visual_baseline=false" >> "$GITHUB_OUTPUT"
+            echo "La revisión visual/documental inicial ya pasó; no se repite."
+          else
+            echo "run_visual_baseline=true" >> "$GITHUB_OUTPUT"
+            echo "Se ejecutará la revisión visual/documental inicial."
+          fi
+
       - name: Checkout
         if: github.event_name != 'schedule' || steps.schedule.outputs.run_e2e == 'true'
         uses: actions/checkout@v7
@@ -69,9 +90,34 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run complete Playwright suite
+        id: tests
         if: github.event_name != 'schedule' || steps.schedule.outputs.run_e2e == 'true'
         working-directory: e2e
+        env:
+          E2E_RUN_VISUAL_BASELINE: ${{ steps.baseline.outputs.run_visual_baseline }}
         run: npx playwright test
+
+      - name: Registrar revisión visual/documental completada
+        if: success() && steps.baseline.outputs.run_visual_baseline == 'true' && (github.event_name != 'schedule' || steps.schedule.outputs.run_e2e == 'true')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          body="<!-- E2E_VISUAL_BASELINE_PASSED -->
+
+          **Revisión inicial visual/documental Playwright superada.** Directorio escritorio/móvil (skeletons, vacío y error) y contrato de marca/UTF-8 de PDFs y emails verificados. Evidencias y capturas: [ejecución Playwright]($RUN_URL). Esta batería inicial no se repite en semanas posteriores salvo fallo o cambio relevante."
+          curl --fail --silent --show-error -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/issues/4/comments" \
+            -d "$(python3 -c 'import json,os; print(json.dumps({"body": os.environ["BODY"]}))')" \
+            || exit 1
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          BODY: <!-- E2E_VISUAL_BASELINE_PASSED -->
+
+**Revisión inicial visual/documental Playwright superada.** Directorio escritorio/móvil (skeletons, vacío y error) y contrato de marca/UTF-8 de PDFs y emails verificados. Evidencias y capturas: [ejecución Playwright](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}). Esta batería inicial no se repite en semanas posteriores salvo fallo o cambio relevante.
 
       - name: Upload Playwright report and traces
         if: always() && (github.event_name != 'schedule' || steps.schedule.outputs.run_e2e == 'true')
