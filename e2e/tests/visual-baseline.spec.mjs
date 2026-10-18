@@ -98,7 +98,6 @@ test('la plantilla HTML real de email se renderiza con acentos y teal corporativ
   expect(templateEnd).toBeGreaterThan(templateStart);
   const sampleBody = '<h1>Prueba de DietoExpress</h1><p>Miércoles, sábado, calorías, proteínas, nutrición y piñón.</p>';
   const html = emailSource.slice(templateStart + 'return $@"'.length, templateEnd).replaceAll('""', '"').replace('{htmlBody}', sampleBody);
-  expect(match, 'Debe existir el wrapper HTML de email').not.toBeNull();
   expect(html).toContain('charset="utf-8"');
   expect(html).toContain('#0d9488');
   expect(html).toContain('Miércoles');
@@ -116,8 +115,8 @@ test('la plantilla HTML real de email se renderiza con acentos y teal corporativ
 });
 
 test('PDF de dieta generado por la API: MIME, cabecera y evidencia para revisión visual', async ({ page }, testInfo) => {
-  test.skip(!process.env.E2E_USERNAME || !process.env.E2E_PASSWORD,
-    'Se requieren credenciales E2E profesionales para generar un PDF con datos ficticios.');
+  expect(process.env.E2E_USERNAME, 'Falta E2E_USERNAME para la prueba real de PDF').toBeTruthy();
+  expect(process.env.E2E_PASSWORD, 'Falta E2E_PASSWORD para la prueba real de PDF').toBeTruthy();
   test.setTimeout(120_000);
 
   const clientName = `ZZZ E2E PDF ${new Date().toISOString().replace(/[:.]/g, '-')}`;
