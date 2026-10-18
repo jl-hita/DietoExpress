@@ -116,7 +116,7 @@ test.describe('P0 — validación clínica de alérgenos (fixtures aislados)', (
     await test.step('alérgeno incompatible', async () => {
       const warnings = await validateDraft(page, createdFoodIds[0]);
       expect(warnings).toEqual(expect.arrayContaining([
-        expect.objectContaining({ foodId: createdFoodIds[0], alertType: 'Allergy', message: expect.stringMatching(/\\S/) })
+        expect.objectContaining({ foodId: createdFoodIds[0], alertType: 'Allergy', message: expect.stringMatching(/\S/) })
       ]));
       expect(JSON.stringify(warnings)).toMatch(/al[eé]rgia|allerg/i);
     });
@@ -124,7 +124,7 @@ test.describe('P0 — validación clínica de alérgenos (fixtures aislados)', (
     await test.step('trazas incompatibles', async () => {
       const warnings = await validateDraft(page, createdFoodIds[1]);
       expect(warnings).toEqual(expect.arrayContaining([
-        expect.objectContaining({ foodId: createdFoodIds[1], alertType: 'Allergy', message: expect.stringMatching(/\\S/) })
+        expect.objectContaining({ foodId: createdFoodIds[1], alertType: 'Allergy', message: expect.stringMatching(/\S/) })
       ]));
       expect(JSON.stringify(warnings)).toMatch(/al[eé]rgia|allerg/i);
     });
@@ -132,7 +132,7 @@ test.describe('P0 — validación clínica de alérgenos (fixtures aislados)', (
     await test.step('metadatos desconocidos', async () => {
       const warnings = await validateDraft(page, createdFoodIds[2]);
       expect(warnings).toEqual(expect.arrayContaining([
-        expect.objectContaining({ foodId: createdFoodIds[2], alertType: 'AllergenDataUnknown', message: expect.stringMatching(/\\S/) })
+        expect.objectContaining({ foodId: createdFoodIds[2], alertType: 'AllergenDataUnknown', message: expect.stringMatching(/\S/) })
       ]));
       expect(JSON.stringify(warnings)).toMatch(/desconocid|incomplet|unknown|allergen|al[eé]rgen/i);
     });
