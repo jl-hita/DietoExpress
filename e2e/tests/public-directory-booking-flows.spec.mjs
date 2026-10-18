@@ -71,7 +71,7 @@ async function mockDirectory(page, { profiles = [apiProfile], availability = [fu
 
 async function openProfile(page) {
   await page.goto('/nutricionistas/' + slug);
-  await expect(page.getByRole('heading', { name: 'Profesional E2E de Prueba' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Profesional E2E de Prueba', exact: true })).toBeVisible();
   await expect(page.locator('.availability')).toBeVisible();
   await expect(page.locator('.calendar-day.available').first()).toBeVisible({ timeout: 10_000 });
 }
