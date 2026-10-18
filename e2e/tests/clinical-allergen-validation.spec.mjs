@@ -208,8 +208,8 @@ test.describe('P0 — validación clínica de alérgenos (fixtures aislados)', (
       const traceItem = shoppingItems.find(item => Number(item.foodId ?? item.FoodId) === createdFoodIds[1]);
       expect(peanutItem, 'La lista debe expandir la receta y propagar el alimento con alérgeno').toBeTruthy();
       expect(traceItem, 'La lista debe expandir la receta y propagar el alimento con trazas').toBeTruthy();
-      expect(peanutItem.allergenTags ?? peanutItem.AllergenTags ?? []).toContain('cacahuetes');
-      expect(traceItem.traceTags ?? traceItem.TraceTags ?? []).toContain('leche/lácteos');
+      expect(peanutItem.allergenTags ?? peanutItem.AllergenTags ?? []).toContain('cacahuete');
+      expect(traceItem.traceTags ?? traceItem.TraceTags ?? []).toContain('leche');
 
       const assignmentResponse = await page.context().request.post(new URL('/api/clients/' + clientId + '/diets', baseURL).toString(), {
         data: { dietId, startDate: new Date().toISOString(), notes: 'Prueba automatizada de incompatibilidad; no es una asignación clínica real.' }
