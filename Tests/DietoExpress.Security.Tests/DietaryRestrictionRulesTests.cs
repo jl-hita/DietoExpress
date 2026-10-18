@@ -137,6 +137,15 @@ public sealed class DietaryRestrictionRulesTests
     }
 
     [Fact]
+    public void HasKnownAllergenTags_RequiresAtLeastOneNonBlankTag()
+    {
+        Assert.False(DietaryRestrictionRules.HasKnownAllergenTags(null));
+        Assert.False(DietaryRestrictionRules.HasKnownAllergenTags(Array.Empty<string>()));
+        Assert.False(DietaryRestrictionRules.HasKnownAllergenTags(new[] { " ", "" }));
+        Assert.True(DietaryRestrictionRules.HasKnownAllergenTags(new[] { "en:milk" }));
+    }
+
+    [Fact]
     public void HasUnknownAllergenData_DistinguishesUnknownFromDeclaredTags()
     {
         Assert.True(DietaryRestrictionRules.HasUnknownAllergenData("cacahuete", null));
