@@ -71,16 +71,16 @@ async function mockDirectory(page, { profiles = [apiProfile], availability = [fu
 
 async function openProfile(page) {
   await page.goto('/nutricionistas/' + slug);
-  await expect(page.getByRole('heading', { name: 'Profesional E2E de Prueba' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Profesional E2E de Prueba', exact: true })).toBeVisible();
   await expect(page.locator('.availability')).toBeVisible();
-  await expect(page.getByRole('button', { name: /Seleccionar/ }).first()).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator('.calendar-day.available').first()).toBeVisible({ timeout: 10_000 });
 }
 
 async function chooseSlot(page) {
   const day = page.locator('.calendar-day.available').first();
   await expect(day).toBeVisible();
   await day.click();
-  await page.getByRole('button', { name: /Seleccionar/ }).first().click();
+  await page.locator('.day-slots button[aria-label^="Seleccionar "]').first().click();
   await expect(page.locator('.booking-form')).toBeVisible();
 }
 
@@ -151,11 +151,11 @@ test.describe('P0 — directorio público: búsqueda, perfil y solicitudes (API 
   });
 
   test('un perfil inexistente muestra un error claro sin provocar excepciones', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
     await page.route('**/directory/professionals/not-found-e2e', route => route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ message: 'No encontrado' }) }));
     await page.goto('/nutricionistas/not-found-e2e');
     await expect(page.getByRole('alert')).toContainText('No se ha encontrado el profesional solicitado.');
-    const errors = [];
-    page.on('pageerror', error => errors.push(error.message));
     expect(errors).toEqual([]);
   });
 
