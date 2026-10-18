@@ -13,8 +13,9 @@
       <div class="page-title-group">
         <mat-icon class="page-icon">tune</mat-icon>
         <div>
-          <h1 class="page-title">{{ directoryOnly ? 'Publicar mi perfil profesional' : 'Ajustes de la Clínica' }}</h1>
-          <p class="page-subtitle" *ngIf="directoryOnly">Completa aquí los datos que verán los pacientes en el directorio y aporta la documentación necesaria para verificar tu perfil.</p>
+          <h1 class="page-title">{{ directoryOnly ? (isNutritionist ? 'Publicar mi perfil profesional' : 'Información de la clínica en el directorio') : 'Ajustes de la Clínica' }}</h1>
+          <p class="page-subtitle" *ngIf="directoryOnly && isNutritionist">Completa aquí los datos que verán los pacientes en el directorio y aporta la documentación necesaria para verificar tu perfil.</p>
+          <p class="page-subtitle" *ngIf="directoryOnly && !isNutritionist">Consulta cómo se muestra la información de tu clínica en los perfiles públicos de DietoExpress.</p>
           <p class="page-subtitle" *ngIf="!directoryOnly">La información aquí configurada aparecerá en los PDF de dietas generados para tus pacientes.</p>
         </div>
       </div>
@@ -187,6 +188,11 @@
           </mat-card-header>
           <mat-divider></mat-divider>
           <mat-card-content class="card-content">
+            <div class="directory-publication-notice" *ngIf="!isNutritionist" role="status">
+              <h3><mat-icon>info</mat-icon> Directorio de DietoExpress</h3>
+              <p>Actualmente el directorio público muestra perfiles individuales de nutricionistas, no fichas independientes de clínicas. Para que el nombre de la consulta aparezca en una ficha publicada, el nutricionista debe incluirlo en el campo «Nombre de la clínica» de su propia página «Publicar mi perfil».</p>
+            </div>
+            <ng-container *ngIf="isNutritionist">
             <mat-slide-toggle formControlName="directoryEnabled">
               Mostrar mi perfil en el directorio
             </mat-slide-toggle>
@@ -214,6 +220,19 @@
                 </div>
               </div>
             </div>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Nombre completo del profesional</mat-label>
+              <mat-icon matPrefix>badge</mat-icon>
+              <input matInput formControlName="fullName" placeholder="Ej: María García López">
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Nombre de la clínica o consulta (opcional)</mat-label>
+              <mat-icon matPrefix>business</mat-icon>
+              <input matInput formControlName="clinicName" placeholder="Ej: Centro de Nutrición Saludable">
+              <mat-hint>Este nombre puede mostrarse en tu perfil público. No introduzcas aquí dirección ni teléfono.</mat-hint>
+            </mat-form-field>
 
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Ciudad o municipio</mat-label>
@@ -260,6 +279,7 @@
                 /nutricionistas/{{ profile.directorySlug }}
               </a>
             </div>
+            </ng-container>
           </mat-card-content>
         </mat-card>
       </mat-tab>
