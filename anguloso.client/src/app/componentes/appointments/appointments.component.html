@@ -80,6 +80,10 @@
         <div><mat-icon>event</mat-icon><div><h2>Agendar cita manualmente</h2><p>Para pacientes con los que ya has acordado una visita. No requiere que el hueco esté dentro del horario público.</p></div></div>
       </div>
       <div class="add-rule">
+        <label>Buscar paciente
+          <input [(ngModel)]="manualClientSearch" aria-label="Buscar paciente" placeholder="Nombre del paciente">
+        </label>
+        <button type="button" class="secondary" (click)="loadManualClients()">Buscar</button>
         <label>Paciente
           <select [(ngModel)]="manualClientId" aria-label="Paciente para la cita">
             <option [ngValue]="null">Selecciona un paciente</option>
