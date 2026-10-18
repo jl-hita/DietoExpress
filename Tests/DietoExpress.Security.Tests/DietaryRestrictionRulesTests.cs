@@ -16,6 +16,34 @@ public sealed class DietaryRestrictionRulesTests
     }
 
     [Fact]
+    public void BuildForbiddenTerms_DoesNotMatchAliasesInsideUnrelatedWords()
+    {
+        var terms = DietaryRestrictionRules.BuildForbiddenTerms("nutrition advice", false, false, false);
+        Assert.Contains("nutrition advice", terms);
+        Assert.DoesNotContain("almendras", terms);
+        Assert.DoesNotContain("tree nuts", terms);
+    }
+
+    [Fact]
+    public void BuildForbiddenTerms_RecognizesMultipleAllergensInOneCompoundDeclaration()
+    {
+        var terms = DietaryRestrictionRules.BuildForbiddenTerms("almond milk", false, false, false);
+        Assert.Contains("almonds", terms);
+        Assert.Contains("tree nuts", terms);
+        Assert.Contains("lactosa", terms);
+        Assert.Contains("leche", terms);
+    }
+
+    [Theory]
+    [InlineData("frutos secos; leche", "frutos secos")]
+    [InlineData("soja|mostaza", "mostaza")]
+    public void BuildForbiddenTerms_UsesDeclarationSeparatorsWithoutSplittingPhrases(string allergies, string expected)
+    {
+        var terms = DietaryRestrictionRules.BuildForbiddenTerms(allergies, false, false, false);
+        Assert.Contains(expected, terms);
+    }
+
+    [Fact]
     public void BuildForbiddenTerms_DoesNotSplitCompoundAllergyIntoIndividualWords()
     {
         var terms = DietaryRestrictionRules.BuildForbiddenTerms("frutos secos", false, false, false);
