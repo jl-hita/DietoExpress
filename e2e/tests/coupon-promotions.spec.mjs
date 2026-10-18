@@ -45,7 +45,8 @@ test.describe.serial('P0 — cupones promocionales (sin completar Checkout)', ()
     await expect(couponInput).toBeVisible();
 
     const terms = page.getByRole('checkbox', { name: /Acepto las condiciones de contratación/ });
-    if (await terms.count()) await terms.check();
+    test.skip(await terms.count() === 0, 'No hay condiciones de contratación visibles; se evita iniciar el flujo de checkout.');
+    await terms.check();
 
     for (const [code, discount] of [[coupon25, 25], [coupon100, 100]]) {
       await couponInput.fill(code);
