@@ -20,7 +20,6 @@ jobs:
       E2E_BASE_URL: ${{ vars.E2E_BASE_URL || 'https://jlhitap.duckdns.org' }}
       E2E_USERNAME: ${{ secrets.E2E_USERNAME }}
       E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
-      E2E_CLINICAL_CLIENT_ID: ${{ vars.E2E_CLINICAL_CLIENT_ID }}
       E2E_ALLERGEN_FOOD_ID: ${{ vars.E2E_ALLERGEN_FOOD_ID }}
       E2E_TRACE_FOOD_ID: ${{ vars.E2E_TRACE_FOOD_ID }}
       E2E_UNKNOWN_ALLERGEN_FOOD_ID: ${{ vars.E2E_UNKNOWN_ALLERGEN_FOOD_ID }}
