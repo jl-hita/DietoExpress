@@ -70,7 +70,7 @@ public class DietPdfService
                         col.Item().BorderBottom(1).BorderColor("#3f51b5").PaddingBottom(4).Text("PLAN ALIMENTARIO SEMANAL")
                             .Bold().FontSize(13).FontColor("#3f51b5");
 
-                        // DÃ­as de la dieta
+                        // Días de la dieta
                         if (diet.diet_days != null)
                         {
                             foreach (var day in diet.diet_days.OrderBy(d => d.day_index))
@@ -82,14 +82,14 @@ public class DietPdfService
                         // Resumen de macros de la dieta
                         col.Item().Element(c => ComposeMacroSummary(c, diet));
 
-                        // Tabla de equivalencias (nueva pÃ¡gina)
+                        // Tabla de equivalencias (nueva página)
                         if (exchangeFoods.Any())
                         {
                             col.Item().PageBreak();
                             col.Item().Element(c => ComposeEquivalenceTable(c, exchangeFoods));
                         }
 
-                        // Lista de la compra consolidada (nueva pÃ¡gina)
+                        // Lista de la compra consolidada (nueva página)
                         col.Item().PageBreak();
                         col.Item().Element(c => ComposeShoppingList(c, diet));
                     });
@@ -217,16 +217,16 @@ public class DietPdfService
 
     private void ComposeDay(IContainer container, diet_days day)
     {
-        var dayNames = new[] { "Lunes", "Martes", "MiÃ©rcoles", "Jueves", "Viernes", "SÃ¡bado", "Domingo" };
+        var dayNames = new[] { "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo" };
         var dayName = day.day_index >= 0 && day.day_index < dayNames.Length
             ? dayNames[day.day_index]
-            : $"DÃ­a {day.day_index + 1}";
+            : $"Día {day.day_index + 1}";
 
         container.Column(col =>
         {
             col.Spacing(6);
 
-            // TÃ­tulo del dÃ­a
+            // Título del día
             col.Item().Background("#3f51b5").Padding(6).Text(dayName.ToUpper())
                 .Bold().FontSize(11).FontColor(Colors.White);
 
@@ -399,8 +399,8 @@ public class DietPdfService
             col.Item().Row(row =>
             {
                 row.Spacing(8);
-                MacroCard(row.RelativeItem(), "CalorÃ­as", $"{diet.target_kcal:F0}", "kcal", "#e53935");
-                MacroCard(row.RelativeItem(), "ProteÃ­nas", $"{diet.target_protein:F1}", "g", "#43a047");
+                MacroCard(row.RelativeItem(), "Calorías", $"{diet.target_kcal:F0}", "kcal", "#e53935");
+                MacroCard(row.RelativeItem(), "Proteínas", $"{diet.target_protein:F1}", "g", "#43a047");
                 MacroCard(row.RelativeItem(), "Carbohidratos", $"{diet.target_carbs:F1}", "g", "#fb8c00");
                 MacroCard(row.RelativeItem(), "Grasas", $"{diet.target_fat:F1}", "g", "#1e88e5");
             });
