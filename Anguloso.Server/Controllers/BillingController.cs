@@ -88,7 +88,9 @@ public sealed class BillingController : ControllerBase
                 request.PlanCode.Trim().ToLowerInvariant(),
                 request.BillingInterval.Trim().ToLowerInvariant(),
                 BuildFrontendUrl("/billing?checkout=success"),
-                BuildFrontendUrl("/billing?checkout=cancelled"));
+                BuildFrontendUrl("/billing?checkout=cancelled"),
+                request.CouponCode,
+                AuthHelpers.GetUserId(User));
 
             return Ok(new { url });
         }
@@ -956,7 +958,8 @@ public sealed record CheckoutRequest(
     string PlanCode,
     string BillingInterval,
     string SuccessUrl,
-    string CancelUrl);
+    string CancelUrl,
+    string? CouponCode = null);
 
 public sealed record ChangeSubscriptionRequest(
     string PlanCode,
