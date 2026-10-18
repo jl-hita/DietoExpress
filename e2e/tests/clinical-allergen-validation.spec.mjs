@@ -6,6 +6,7 @@ const baseURL = process.env.E2E_BASE_URL || 'https://jlhitap.duckdns.org';
 const testPatientName = 'ZZZ E2E — paciente ficticio alérgenos';
 let clientId = 0;
 let createdFoodIds = [];
+let createdDietIds = [];
 
 test.describe('P0 — validación clínica de alérgenos (fixtures aislados)', () => {
   test.beforeEach(async ({ page }) => {
@@ -47,19 +48,20 @@ test.describe('P0 — validación clínica de alérgenos (fixtures aislados)', (
     }
 
     createdFoodIds = [];
+    createdDietIds = [];
     for (const fixture of [
-      { name: 'ZZZ E2E alimento temporal A', allergenTags: ['cacahuete'], tracesTags: [], allergenDataStatus: 'reported' },
-      { name: 'ZZZ E2E alimento temporal B', allergenTags: [], tracesTags: ['leche'], allergenDataStatus: 'reported' },
-      { name: 'ZZZ E2E alimento temporal C', allergenTags: [], tracesTags: [], allergenDataStatus: 'unknown' }
+      { name: 'Pollo E2E temporal A', category: 'Carnes', kcal: 100, protein: 20, carbs: 0, fat: 2, allergenTags: ['cacahuete'], tracesTags: [], allergenDataStatus: 'reported' },
+      { name: 'Arroz E2E temporal B', category: 'Cereales', kcal: 130, protein: 3, carbs: 28, fat: 1, allergenTags: [], tracesTags: ['leche'], allergenDataStatus: 'reported' },
+      { name: 'Patata E2E temporal C', category: 'Tubérculos', kcal: 80, protein: 2, carbs: 18, fat: 0, allergenTags: [], tracesTags: [], allergenDataStatus: 'unknown' }
     ]) {
       const response = await api.post(new URL('/api/foods', baseURL).toString(), {
         data: {
           name: fixture.name,
-          category: 'E2E — fixture temporal',
-          kcal: 100,
-          protein: 5,
-          carbs: 10,
-          fat: 2,
+          category: fixture.category,
+          kcal: fixture.kcal,
+          protein: fixture.protein,
+          carbs: fixture.carbs,
+          fat: fixture.fat,
           defaultGrams: 100,
           allergenTags: fixture.allergenTags,
           tracesTags: fixture.tracesTags,
@@ -81,10 +83,19 @@ test.describe('P0 — validación clínica de alérgenos (fixtures aislados)', (
 
   test.afterEach(async ({ page }) => {
     const api = page.context().request;
+    for (const dietId of [...createdDietIds].reverse()) {
+      const clearResponse = await api.put(new URL('/api/dietas/' + dietId, baseURL).toString(), {
+        data: { name: 'ZZZ E2E dieta temporal', targetKcal: 1800, days: [] }
+      });
+      expect([204, 404].includes(clearResponse.status()), 'La dieta temporal debe vaciarse antes de archivarse').toBe(true);
+      const deleteResponse = await api.delete(new URL('/api/dietas/' + dietId, baseURL).toString());
+      expect([204, 404].includes(deleteResponse.status()), 'La dieta temporal E2E debe archivarse al finalizar').toBe(true);
+    }
     for (const foodId of [...createdFoodIds].reverse()) {
       const response = await api.delete(new URL('/api/foods/' + foodId, baseURL).toString());
       expect([204, 404].includes(response.status()), 'El alimento temporal E2E debe eliminarse al finalizar la prueba').toBe(true);
     }
+    createdDietIds = [];
     createdFoodIds = [];
   });
 
