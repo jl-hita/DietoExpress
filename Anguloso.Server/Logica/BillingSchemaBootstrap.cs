@@ -212,6 +212,67 @@ public static class BillingSchemaBootstrap
                 ON fiscal_records(submission_status);
         ");
 
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS billing_coupon_campaigns (
+                id BIGSERIAL PRIMARY KEY,
+                name VARCHAR(120) NOT NULL,
+                discount_percent INTEGER NOT NULL CHECK (discount_percent BETWEEN 1 AND 100),
+                allowed_plan_codes TEXT[] NOT NULL DEFAULT ARRAY['nutri_full','clinic_full']::TEXT[],
+                allowed_intervals TEXT[] NOT NULL DEFAULT ARRAY['monthly','yearly']::TEXT[],
+                starts_at TIMESTAMPTZ,
+                expires_at TIMESTAMPTZ,
+                is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                requested_codes INTEGER NOT NULL CHECK (requested_codes BETWEEN 1 AND 10000),
+                created_by_user_id INTEGER,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CHECK (expires_at IS NULL OR starts_at IS NULL OR expires_at > starts_at)
+            );
+
+            CREATE TABLE IF NOT EXISTS billing_coupons (
+                id BIGSERIAL PRIMARY KEY,
+                campaign_id BIGINT REFERENCES billing_coupon_campaigns(id) ON DELETE CASCADE,
+                code VARCHAR(64) NOT NULL,
+                discount_percent INTEGER NOT NULL CHECK (discount_percent BETWEEN 1 AND 100),
+                allowed_plan_codes TEXT[] NOT NULL DEFAULT ARRAY['nutri_full','clinic_full']::TEXT[],
+                allowed_intervals TEXT[] NOT NULL DEFAULT ARRAY['monthly','yearly']::TEXT[],
+                starts_at TIMESTAMPTZ,
+                expires_at TIMESTAMPTZ,
+                is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                created_by_user_id INTEGER,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CHECK (expires_at IS NULL OR starts_at IS NULL OR expires_at > starts_at)
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_billing_coupons_code_normalized
+                ON billing_coupons(UPPER(BTRIM(code)));
+            CREATE INDEX IF NOT EXISTS idx_billing_coupons_campaign
+                ON billing_coupons(campaign_id);
+
+            CREATE TABLE IF NOT EXISTS billing_coupon_redemptions (
+                id BIGSERIAL PRIMARY KEY,
+                coupon_id BIGINT NOT NULL REFERENCES billing_coupons(id) ON DELETE RESTRICT,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE RESTRICT,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+                checkout_attempt_id BIGINT REFERENCES billing_checkout_attempts(id) ON DELETE SET NULL,
+                stripe_checkout_session_id VARCHAR(255),
+                stripe_coupon_id VARCHAR(255),
+                stripe_subscription_id VARCHAR(255),
+                stripe_invoice_id VARCHAR(255),
+                status VARCHAR(20) NOT NULL CHECK (status IN ('reserved','redeemed','released','failed')),
+                reserved_until TIMESTAMPTZ,
+                reserved_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                redeemed_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_billing_coupon_active_redemption
+                ON billing_coupon_redemptions(coupon_id)
+                WHERE status IN ('reserved','redeemed');
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_billing_coupon_tenant_redeemed
+                ON billing_coupon_redemptions(coupon_id, tenant_id)
+                WHERE status = 'redeemed';
+            CREATE INDEX IF NOT EXISTS idx_billing_coupon_redemptions_tenant
+                ON billing_coupon_redemptions(tenant_id, created_at DESC);
+        ");
+
         logger.LogInformation("Esquema de billing/fiscal verificado correctamente.");
     }
 }
