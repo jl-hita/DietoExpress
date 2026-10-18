@@ -56,6 +56,7 @@ interface GuidedConsultationResponse {
         </div>
         <div class="header-actions">
           <button mat-flat-button color="primary" type="button" *ngIf="data.appointment.modality === 'online' && consultation?.status !== 'completed'" (click)="openOnlineConsultation()"><mat-icon>videocam</mat-icon> Entrar en consulta online</button>
+          <button mat-stroked-button type="button" *ngIf="consultation?.status !== 'completed'" (click)="toggleQuickMode()"><mat-icon>{{ quickMode ? 'view_agenda' : 'bolt' }}</mat-icon>{{ quickMode ? 'Flujo completo' : 'Consulta rápida' }}</button>
           <span class="status" [class.completed]="consultation?.status === 'completed'">
             {{ consultation?.status === 'completed' ? 'Completada' : 'En curso' }}
           </span>
@@ -65,7 +66,7 @@ interface GuidedConsultationResponse {
 
       <div class="flow-layout">
         <aside class="stepper">
-          <button type="button" *ngFor="let step of steps; let i = index"
+          <button type="button" *ngFor="let step of visibleSteps; let i = index"
             [class.active]="step.key === currentStep"
             [class.done]="isCompleted(step.key)"
             (click)="goToStep(step.key)">
@@ -161,7 +162,8 @@ interface GuidedConsultationResponse {
                 <textarea rows="5" [(ngModel)]="decisionSummary" (blur)="saveClinicalProgress()" placeholder="Decisiones tomadas, ajustes aprobados y acuerdos con el paciente…"></textarea>
               </label>
               <label>Acciones y tareas acordadas
-                <textarea rows="5" [(ngModel)]="actionsSummary" (blur)="saveClinicalProgress()" placeholder="Qué se hará, quién lo hará y qué debe quedar resuelto…"></textarea>
+                <textarea rows="5" [(ngModel)]="actionsSummary" (blur)="saveClinicalProgress()" placeholder="Una acción por línea. Al cerrar la consulta, cada línea se convertirá en una tarea pendiente…"></textarea>
+                <small>Al cerrar, las líneas no vacías se crearán como tareas abiertas del paciente. Puedes escribir una acción por línea o usar viñetas.</small>
               </label>
               <label>Observaciones clínicas
                 <textarea rows="5" [(ngModel)]="clinicalNotes" (blur)="saveClinicalProgress()" placeholder="Observaciones relevantes de la consulta…"></textarea>
@@ -264,6 +266,14 @@ interface GuidedConsultationResponse {
 
           <section class="card close-card" *ngIf="currentStep === 'close'">
             <div class="card-title"><mat-icon>check_circle</mat-icon><div><h2>Cerrar consulta</h2><p>Al cerrar se marca la consulta como completada y, si procede, la cita como completada.</p></div></div>
+            <div class="quick-form">
+              <h3>Acciones posteriores</h3>
+              <p>Al cerrar se generarán las tareas a partir de las acciones acordadas. Después puedes revisar la ficha, la documentación y los mensajes del paciente.</p>
+              <div class="actions">
+                <button mat-stroked-button type="button" (click)="openPatient()"><mat-icon>folder_open</mat-icon> Ficha y documentación</button>
+                <button mat-stroked-button type="button" (click)="openPatientMessages()"><mat-icon>chat</mat-icon> Mensajes</button>
+              </div>
+            </div>
             <button mat-flat-button color="primary" type="button" (click)="completeConsultation()" [disabled]="consultation?.status === 'completed' || completing">
               <mat-icon>{{ completing ? 'hourglass_top' : 'check' }}</mat-icon>
               {{ completing ? 'Cerrando…' : 'Cerrar consulta' }}
@@ -272,7 +282,7 @@ interface GuidedConsultationResponse {
 
           <footer class="navigation">
             <button mat-stroked-button type="button" (click)="previousStep()" [disabled]="stepIndex === 0"><mat-icon>arrow_back</mat-icon> Anterior</button>
-            <button mat-flat-button color="primary" type="button" (click)="nextStep()" *ngIf="stepIndex < steps.length - 1">
+            <button mat-flat-button color="primary" type="button" (click)="nextStep()" *ngIf="stepIndex < visibleSteps.length - 1">
               {{ isCompleted(currentStep) ? 'Siguiente' : 'Marcar paso y continuar' }} <mat-icon>arrow_forward</mat-icon>
             </button>
             <button mat-stroked-button type="button" *ngIf="stepIndex === steps.length - 1" (click)="goToStep('summary')"><mat-icon>replay</mat-icon> Volver al resumen</button>
@@ -337,6 +347,12 @@ export class GuidedConsultationComponent implements OnInit {
   get consultationSlots(): AppointmentSlot[] { return this.consultationSlotsState(); }
   set consultationSlots(value: AppointmentSlot[]) { this.consultationSlotsState.set(value); }
   slotDuration = 30;
+  quickMode = false;
+  get visibleSteps(): ConsultationStep[] {
+    if (!this.quickMode) return this.steps;
+    const quickKeys = new Set(['summary', 'goals', 'diet', 'tasks', 'close']);
+    return this.steps.filter(step => quickKeys.has(step.key));
+  }
   selectedSlot: string | null = null;
   private readonly slotsLoadingState = signal(false);
   get slotsLoading(): boolean { return this.slotsLoadingState(); }
@@ -415,6 +431,7 @@ export class GuidedConsultationComponent implements OnInit {
           if (this.stepIndex < 0) this.stepIndex = 0;
           this.currentStep = this.steps[this.stepIndex].key;
           this.loading = false;
+          if (this.currentStep === 'next_appointment') this.loadConsultationSlots();
         } else {
           this.portalService.startGuidedConsultation(appointmentId, value.suggestedConsultationType).subscribe({
             next: consultation => {
@@ -511,26 +528,39 @@ export class GuidedConsultationComponent implements OnInit {
     return !!this.consultation?.completedSteps?.includes(step);
   }
 
+  toggleQuickMode(): void {
+    this.quickMode = !this.quickMode;
+    if (!this.visibleSteps.some(step => step.key === this.currentStep)) {
+      this.currentStep = 'summary';
+      this.stepIndex = 0;
+      this.saveProgress();
+    } else {
+      this.stepIndex = this.visibleSteps.findIndex(step => step.key === this.currentStep);
+    }
+  }
+
   goToStep(step: string): void {
-    const index = this.steps.findIndex(x => x.key === step);
+    const index = this.visibleSteps.findIndex(x => x.key === step);
     if (index < 0) return;
     this.stepIndex = index;
-    this.currentStep = this.steps[index].key;
+    this.currentStep = this.visibleSteps[index].key;
     this.saveProgress();
+    if (step === 'next_appointment' && !this.consultationSlots.length && !this.slotsLoading) this.loadConsultationSlots();
   }
 
   nextStep(): void {
-    if (!this.consultation || this.stepIndex >= this.steps.length - 1) return;
+    if (!this.consultation || this.stepIndex >= this.visibleSteps.length - 1) return;
     const completed = new Set<string>(this.consultation.completedSteps || []);
     completed.add(this.currentStep);
-    const next = this.steps[this.stepIndex + 1].key;
+    const next = this.visibleSteps[this.stepIndex + 1].key;
     this.persistProgress(next, [...completed]);
+    if (next === 'next_appointment' && !this.consultationSlots.length && !this.slotsLoading) this.loadConsultationSlots();
   }
 
   previousStep(): void {
     if (this.stepIndex <= 0) return;
     this.stepIndex--;
-    this.currentStep = this.steps[this.stepIndex].key;
+    this.currentStep = this.visibleSteps[this.stepIndex].key;
     this.saveProgress();
   }
 
@@ -548,7 +578,7 @@ export class GuidedConsultationComponent implements OnInit {
       next: value => {
         this.consultation = value;
         this.currentStep = value.currentStep;
-        this.stepIndex = Math.max(0, this.steps.findIndex(x => x.key === value.currentStep));
+        this.stepIndex = Math.max(0, this.visibleSteps.findIndex(x => x.key === value.currentStep));
       },
       error: () => this.snack.open('No se ha podido guardar el progreso de la consulta.', 'Cerrar', { duration: 3000 })
     });
@@ -574,6 +604,7 @@ export class GuidedConsultationComponent implements OnInit {
       next: () => {
         this.taskCreating = false;
         this.snack.open('Tarea de seguimiento creada.', 'Cerrar', { duration: 1800 });
+        this.loadConsultationContext();
       },
       error: err => {
         this.taskCreating = false;
@@ -692,6 +723,11 @@ export class GuidedConsultationComponent implements OnInit {
 
   openPatient(): void {
     this.router.navigate(['/clients', this.data?.appointment.clientId]);
+  }
+
+  openPatientMessages(): void {
+    const clientId = this.data?.appointment.clientId;
+    if (clientId) this.router.navigate(['/clients', clientId, 'messages']);
   }
 
   openPatientDiet(): void {
