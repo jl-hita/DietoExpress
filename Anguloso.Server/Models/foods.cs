@@ -86,6 +86,14 @@ public partial class foods
     // null significa que la fuente no aporta datos; un array vacío indica que no declaró etiquetas.
     public string[] allergen_tags { get; set; } = null!;
 
+    // Trazas potenciales declaradas por la fuente; nunca se mezclan con alérgenos confirmados.
+    public string[] traces_tags { get; set; } = null!;
+
+    // Calidad y procedencia específica de la información sobre alérgenos.
+    public string allergen_data_status { get; set; } = "unknown";
+    public string allergen_data_source { get; set; }
+    public DateTime? allergen_data_checked_at { get; set; }
+
     public virtual tenants tenant { get; set; }
 
     public virtual users created_by_user { get; set; }
