@@ -93,8 +93,10 @@ public static class DietaryRestrictionRules
     public static bool HasUnknownAllergenData(string? declaredAllergies, IEnumerable<string>? allergenTags, string? dataStatus)
     {
         if (string.IsNullOrWhiteSpace(declaredAllergies)) return false;
-        if (!string.Equals(dataStatus, "reported", StringComparison.OrdinalIgnoreCase)) return true;
-        return !HasKnownAllergenTags(allergenTags);
+        // "reported" means the source completed its allergen declaration; an empty tag list
+        // can therefore mean that no allergens/traces were declared, not missing data.
+        // Unknown, incomplete, or stale records remain unknown for allergic patients.
+        return !string.Equals(dataStatus, "reported", StringComparison.OrdinalIgnoreCase);
     }
 
     public static bool IsFoodAllowed(string? name, string? category, IEnumerable<string>? dietaryFlags, IEnumerable<string> forbiddenTerms)
