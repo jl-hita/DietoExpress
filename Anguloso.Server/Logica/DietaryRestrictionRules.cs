@@ -68,6 +68,22 @@ public static class DietaryRestrictionRules
         return result;
     }
 
+    public static string[]? MergeKnownAllergenTags(IEnumerable<string>? existingTags, IEnumerable<string>? incomingTags)
+    {
+        var incoming = incomingTags?
+            .Where(tag => !string.IsNullOrWhiteSpace(tag))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (incoming is { Length: > 0 }) return incoming;
+
+        // Empty/missing provider data is unknown, not a declaration that known allergens disappeared.
+        var existing = existingTags?
+            .Where(tag => !string.IsNullOrWhiteSpace(tag))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        return existing is { Length: > 0 } ? existing : existingTags?.ToArray();
+    }
+
     public static bool HasUnknownAllergenData(string? declaredAllergies, IEnumerable<string>? allergenTags) =>
         !string.IsNullOrWhiteSpace(declaredAllergies) &&
         (allergenTags == null || !allergenTags.Any());
