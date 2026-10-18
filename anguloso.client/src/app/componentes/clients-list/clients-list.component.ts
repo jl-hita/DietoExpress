@@ -10,6 +10,7 @@ import { MatPaginator, MatPaginatorModule, PageEvent } from '@angular/material/p
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 import { ClientService } from '../../servicios/client.service';
 import { AuthService } from '../../servicios/auth.service';
@@ -38,6 +39,7 @@ export interface ClientItem {
     MatProgressSpinnerModule,
     MatTooltipModule,
     MatCheckboxModule,
+    MatSnackBarModule,
   ],
   templateUrl: './clients-list.component.html',
   styleUrls: ['./clients-list.component.css']
@@ -49,6 +51,11 @@ export class ClientsListComponent implements OnInit, OnDestroy {
   get clients(): ClientItem[] { return this.clientsState(); }
   set clients(value: ClientItem[]) { this.clientsState.set(value); }
 
+  private readonly loadErrorState = signal<string | null>(null);
+  get loadError(): string | null { return this.loadErrorState(); }
+  private readonly deletingClientIdState = signal<number | null>(null);
+  get deletingClientId(): number | null { return this.deletingClientIdState(); }
+
   private readonly loadingState = signal(false);
   @Input()
   get loading(): boolean { return this.loadingState(); }
@@ -57,7 +64,6 @@ export class ClientsListComponent implements OnInit, OnDestroy {
   @Output() clientSelected = new EventEmitter<ClientItem>();
   @Output() create = new EventEmitter<void>();
   @Output() edit = new EventEmitter<ClientItem>();
-  @Output() remove = new EventEmitter<ClientItem>();
 
   @ViewChild(MatPaginator) paginator!: MatPaginator;
 
@@ -112,7 +118,7 @@ export class ClientsListComponent implements OnInit, OnDestroy {
   set isSuperAdmin(value: boolean) { this.isSuperAdminState.set(value); }
   private searchTimer?: ReturnType<typeof setTimeout>;
 
-  constructor(private router: Router, private clientService: ClientService, private authService: AuthService) { }
+  constructor(private router: Router, private clientService: ClientService, private authService: AuthService, private snackBar: MatSnackBar) { }
 
   ngOnInit(): void {
     this.isSuperAdmin = this.authService.isSuperAdmin();
@@ -125,6 +131,7 @@ export class ClientsListComponent implements OnInit, OnDestroy {
   // La paginación y búsqueda se resuelven en el servidor; el componente adapta la respuesta al modelo visual sin mantener una copia completa de los clientes.
   loadClients(): void {
     this.loading = true;
+    this.loadErrorState.set(null);
     const page = this.paginator ? this.paginator.pageIndex + 1 : this.currentPage;
     this.clientService.getClients(page, this.pageSize, this.searchTerm, this.showAllClients && this.isSuperAdmin).subscribe({
       next: result => {
@@ -143,12 +150,8 @@ export class ClientsListComponent implements OnInit, OnDestroy {
 
       },
       error: () => {
-        this.clients = [];
-        this.filtered = [];
-        this.pagedClients = [];
-        this.totalCount = 0;
+        this.loadErrorState.set('No se ha podido cargar la lista de pacientes. Comprueba la conexión e inténtalo de nuevo.');
         this.loading = false;
-
       }
     });
   }
@@ -266,5 +269,28 @@ export class ClientsListComponent implements OnInit, OnDestroy {
     this.edit.emit(c);
     this.router.navigate(['/clients', c.id]);
   }
-  deleteClient(c: ClientItem) { this.remove.emit(c); }
+  isDeletingClient(id: number): boolean { return this.deletingClientIdState() === id; }
+
+  deleteClient(c: ClientItem): void {
+    if (this.isSuperAdmin || this.deletingClientIdState() !== null) return;
+    const confirmed = confirm(
+      `¿Archivar el expediente de ${c.name}? Se revocará su acceso al portal y se desactivarán sus asignaciones profesionales. El expediente se conservará; no se eliminará físicamente.`
+    );
+    if (!confirmed) return;
+
+    this.deletingClientIdState.set(c.id);
+    this.clientService.deleteClient(c.id).subscribe({
+      next: () => {
+        this.deletingClientIdState.set(null);
+        this.snackBar.open('Expediente archivado. Se ha revocado el acceso al portal.', 'Cerrar', { duration: 4000 });
+        this.loadClients();
+      },
+      error: err => {
+        this.deletingClientIdState.set(null);
+        const message = err?.error?.message || (typeof err?.error === 'string' ? err.error : null)
+          || 'No se ha podido archivar el expediente. No se han aplicado cambios.';
+        this.snackBar.open(message, 'Cerrar', { duration: 5000 });
+      }
+    });
+  }
 }

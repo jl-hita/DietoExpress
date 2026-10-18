@@ -3,10 +3,11 @@
     <div><h1>Mensajes</h1><p>Conversaciones privadas y comunicaciones oficiales</p></div>
     <span class="unread-total" *ngIf="totalUnread">{{ totalUnread }} sin leer</span>
   </header>
+  <p class="status error" *ngIf="error" role="alert">{{ error }}</p>
   <div class="messages-layout">
     <aside class="conversation-list">
-      <div class="list-loading" *ngIf="loading">Cargando conversaciones…</div>
-      <div class="list-empty" *ngIf="!loading && !conversations.length && !broadcastInbox.length">
+      <div class="list-loading" *ngIf="loading || broadcastLoading" role="status" aria-live="polite">Cargando mensajes…</div>
+      <div class="list-empty" *ngIf="!loading && !broadcastLoading && !error && !conversations.length && !broadcastInbox.length" role="status">
         <mat-icon>forum</mat-icon><strong>No hay conversaciones</strong><span>Tus conversaciones y comunicaciones oficiales aparecerán aquí.</span>
       </div>
       <button class="conversation broadcast-conversation" type="button" *ngFor="let item of broadcastInbox" [class.selected]="selectedBroadcastId === item.id" [class.broadcast-unread]="!item.readAt" (click)="selectBroadcast(item)">

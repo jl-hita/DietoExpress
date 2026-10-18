@@ -35,9 +35,13 @@ export class MessagesComponent implements OnInit, OnDestroy {
   private readonly loadingState = signal(true);
   get loading(): boolean { return this.loadingState(); }
   set loading(value: boolean) { this.loadingState.set(value); }
-  private readonly errorState = signal<string | null>(null);
-  get error(): string | null { return this.errorState(); }
-  set error(value: string | null) { this.errorState.set(value); }
+  private readonly broadcastLoadingState = signal(true);
+  get broadcastLoading(): boolean { return this.broadcastLoadingState(); }
+  private readonly conversationErrorState = signal<string | null>(null);
+  private readonly broadcastErrorState = signal<string | null>(null);
+  get error(): string | null {
+    return [this.conversationErrorState(), this.broadcastErrorState()].filter(Boolean).join(' ') || null;
+  }
   private refreshSubscription?: Subscription;
   private broadcastRefreshSubscription?: Subscription;
 
@@ -49,21 +53,37 @@ export class MessagesComponent implements OnInit, OnDestroy {
     if (!this.authService.isSuperAdmin()) {
       this.refreshSubscription = interval(15000).pipe(
         startWith(0),
-        switchMap(() => this.http.get<Conversation[]>('/api/messages/conversations').pipe(catchError(() => of([]))))
+        switchMap(() => this.http.get<Conversation[]>('/api/messages/conversations').pipe(catchError(() => {
+          this.conversationErrorState.set('No se han podido cargar las conversaciones privadas. Se volverá a intentar automáticamente.');
+          return of(null);
+        })))
       ).subscribe(items => {
-        this.conversations = items || [];
         this.loading = false;
+        if (items === null) return;
+        this.conversationErrorState.set(null);
+        this.conversations = items || [];
         if (this.selectedClientId && !this.conversations.some(c => c.clientId === this.selectedClientId)) {
           this.selectedClientId = null;
         }
       });
+    } else {
+      // SuperAdmin no consulta conversaciones privadas, pero sí puede leer comunicaciones oficiales.
+      this.loading = false;
     }
 
     // La bandeja de comunicaciones oficiales no requiere un tenant profesional.
     this.broadcastRefreshSubscription = interval(15000).pipe(
       startWith(0),
-      switchMap(() => this.http.get<BroadcastInboxItem[]>('/api/broadcast-messages/inbox').pipe(catchError(() => of([]))))
-    ).subscribe(items => this.broadcastInbox = items || []);
+      switchMap(() => this.http.get<BroadcastInboxItem[]>('/api/broadcast-messages/inbox').pipe(catchError(() => {
+        this.broadcastErrorState.set('No se han podido cargar las comunicaciones oficiales. Se volverá a intentar automáticamente.');
+        return of(null);
+      })))
+    ).subscribe(items => {
+      this.broadcastLoadingState.set(false);
+      if (items === null) return;
+      this.broadcastErrorState.set(null);
+      this.broadcastInbox = items || [];
+    });
   }
 
   // Cancelar el intervalo es importante para evitar peticiones y actualizaciones sobre un componente que ya no está en pantalla.
