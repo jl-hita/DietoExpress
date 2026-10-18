@@ -72,6 +72,7 @@ public class ShoppingItemDto
     public string CommercialDescription { get; set; } = string.Empty;
     public List<string> AllergenTags { get; set; } = new();
     public List<string> TraceTags { get; set; } = new();
+    public string AllergenDataStatus { get; set; } = "unknown";
     public bool AllergenDataAvailable { get; set; }
     public bool RequiresAllergenCheck { get; set; } = true;
 }
