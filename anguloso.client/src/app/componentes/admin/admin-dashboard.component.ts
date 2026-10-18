@@ -79,6 +79,9 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
         <button mat-stroked-button color="primary" routerLink="/admin/legal">
           <mat-icon>gavel</mat-icon> Legal
         </button>
+        <button mat-stroked-button color="primary" routerLink="/admin/coupons">
+          <mat-icon>local_offer</mat-icon> Cupones
+        </button>
         <button mat-stroked-button color="primary" (click)="loadData()">
           <mat-icon>refresh</mat-icon> Actualizar
         </button>
