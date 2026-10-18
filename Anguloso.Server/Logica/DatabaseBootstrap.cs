@@ -2659,7 +2659,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
             ALTER TABLE foods ADD COLUMN IF NOT EXISTS allergen_data_status VARCHAR(20) NOT NULL DEFAULT 'unknown';
             ALTER TABLE foods ADD COLUMN IF NOT EXISTS allergen_data_source VARCHAR(50);
             ALTER TABLE foods ADD COLUMN IF NOT EXISTS allergen_data_checked_at TIMESTAMPTZ;
-            UPDATE foods SET allergen_data_status = 'reported'
+            UPDATE foods SET allergen_data_status = 'partial'
                 WHERE allergen_data_status = 'unknown'
                   AND (COALESCE(array_length(allergen_tags, 1), 0) > 0
                     OR COALESCE(array_length(traces_tags, 1), 0) > 0);
