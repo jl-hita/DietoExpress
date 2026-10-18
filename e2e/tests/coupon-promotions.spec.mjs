@@ -30,7 +30,7 @@ test.describe.serial('P0 — cupones promocionales (sin completar Checkout)', ()
       await page.getByLabel('Plan', { exact: true }).first().selectOption('nutri_full');
       await page.getByLabel('Facturación', { exact: true }).first().selectOption('monthly');
       await page.getByRole('button', { name: 'Crear código' }).click();
-      await expect(page.getByRole('status').or(page.locator('body')).filter({ hasText: /Cupón creado/i }).first()).toContainText(/Cupón creado/i, { timeout: 10_000 });
+      await expect(page.getByText('Cupón creado.', { exact: true })).toBeVisible({ timeout: 10_000 });
       await expect(page.getByText(code, { exact: true })).toBeVisible();
     }
   });
