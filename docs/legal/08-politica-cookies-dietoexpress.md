@@ -1,6 +1,6 @@
 # Política de cookies de DietoExpress
 
-> **Versión técnica preparada — pendiente de validación jurídica y comprobación final en producción.**
+> **Versión técnica preparada — validación manual de producción completada el 18/10/2026; pendiente de cierre jurídico.**
 
 ## 1. Objeto
 
@@ -38,7 +38,7 @@ Cada integración deberá revisarse según el flujo real y su configuración efe
 
 No se ha identificado un SDK de analítica publicitaria en el cliente. En pruebas manuales comparativas con un navegador incógnito limpio, la landing pública no creó `g_state` y cargar únicamente el script GIS tampoco. En una prueba controlada, solicitar el client ID, cargar GIS y ejecutar `google.accounts.id.initialize(...)` hizo que apareciera `g_state`, sin renderizar el botón, invocar `prompt()` ni pulsarlo. La evidencia acota el desencadenante a la inicialización de GIS, pero no demuestra por sí sola todos los usos de la cookie ni su calificación jurídica.
 
-La decisión sobre un banner queda pendiente de repetir las pruebas en producción tras estos cambios, revisar las integraciones de terceros por flujo y completar la validación jurídica. Si se determina que una tecnología requiere consentimiento, su carga deberá bloquearse hasta obtenerlo y se actualizarán el inventario y esta política.
+Las comprobaciones manuales de producción se completaron el 18/10/2026: la landing limpia no carga GIS ni muestra `g_state`; login/registro cargan GIS y el inicio de sesión con Google funciona; la limpieza del almacenamiento local al cerrar sesión, la activación voluntaria de Web Push y los flujos de Google Calendar, Stripe Checkout y LiveKit se verificaron correctamente. La decisión sobre el banner sigue pendiente de resolver la clasificación de `g_state` y completar la validación jurídica. Si se determina que una tecnología requiere consentimiento, su carga deberá bloquearse hasta obtenerlo y se actualizarán el inventario y esta política.
 
 ## 6. Gestión y retirada
 
@@ -56,4 +56,5 @@ El inventario se revisará cuando se introduzcan nuevas librerías, analítica, 
 - Versión técnica: 2
 - Estado: `pending_legal_validation`
 - Fecha efectiva: pendiente de publicación definitiva.
-- Pendiente: repetir pruebas de terceros/cookies en producción y resolver jurídicamente si procede banner de consentimiento.
+- Completado: pruebas manuales de terceros/cookies en producción el 18/10/2026.
+- Pendiente: resolver jurídicamente la clasificación de `g_state` y decidir si procede un banner de consentimiento.
