@@ -21,6 +21,7 @@ export interface CheckoutRequest {
   billingInterval: 'monthly' | 'yearly';
   successUrl: string;
   cancelUrl: string;
+  couponCode?: string;
 }
 
 @Injectable({
@@ -38,6 +39,13 @@ export class BillingService {
 
   createCheckout(request: CheckoutRequest): Observable<{ url: string }> {
     return this.http.post<{ url: string }>(`${this.baseUrl}/checkout`, request);
+  }
+
+  validateCoupon(request: { code: string; planCode: string; billingInterval: 'monthly' | 'yearly' }): Observable<{
+    valid: boolean; code: string; discountPercent: number; originalAmount: number;
+    discountAmount: number; initialAmount: number; appliesToFirstInvoiceOnly: boolean;
+  }> {
+    return this.http.post<any>(`${this.baseUrl}/coupons/validate`, request);
   }
 
   cancelRenewal(): Observable<{ message: string }> {

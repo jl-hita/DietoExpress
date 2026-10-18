@@ -25,6 +25,8 @@ jobs:
       E2E_BASE_URL: ${{ vars.E2E_BASE_URL || 'https://jlhitap.duckdns.org' }}
       E2E_USERNAME: ${{ secrets.E2E_USERNAME }}
       E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+      E2E_SUPERADMIN_USERNAME: ${{ secrets.E2E_SUPERADMIN_USERNAME }}
+      E2E_SUPERADMIN_PASSWORD: ${{ secrets.E2E_SUPERADMIN_PASSWORD }}
 
     steps:
       - name: Seleccionar ejecución de las 02:00 de Madrid

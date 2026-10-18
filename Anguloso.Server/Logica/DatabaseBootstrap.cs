@@ -2942,6 +2942,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                     'directory_verification_evidence','support_tickets','support_messages',
                     'support_notifications','support_ticket_audit','billing_checkout_attempts',
                     'subscription_payments','payment_events','invoices','invoice_lines','fiscal_records',
+                    'billing_coupon_campaigns','billing_coupons','billing_coupon_redemptions',
                     'patient_commercial_communication_preferences',
                     'patient_commercial_communication_consent_history','food_favorites'
                 ]) AS required_table

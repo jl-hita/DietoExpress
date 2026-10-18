@@ -867,7 +867,7 @@ public class AuthorizationRegressionTests
         Assert.Contains("new subscriptions", source);
         Assert.Contains("payment_provider = \"stripe\"", source);
         Assert.Contains("provider_subscription_id = subscriptionId", source);
-        Assert.Contains("status = paymentStatus == \"paid\" ? \"active\" : \"past_due\"", source);
+        Assert.Contains("paymentStatus is \"paid\" or \"no_payment_required\" ? \"active\" : \"past_due\"", source);
     }
 
     [Fact]

@@ -21,6 +21,7 @@ public partial class angulosodbContext
         modelBuilder.Entity<billing_checkout_attempts>(entity =>
         {
             entity.Property(e => e.billing_interval).HasMaxLength(20).IsRequired();
+            entity.Property(e => e.coupon_code).HasMaxLength(64);
             entity.Property(e => e.idempotency_key).HasMaxLength(255).IsRequired();
             entity.Property(e => e.stripe_session_id).HasMaxLength(255);
             entity.Property(e => e.checkout_url).IsRequired(false);

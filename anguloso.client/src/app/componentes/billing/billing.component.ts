@@ -176,6 +176,14 @@ import { LegalAcceptance, LegalDocument, LegalService } from '../../servicios/le
             </div>
           </div>
 
+          <div class="coupon-entry" *ngIf="!currentPaidPlan">
+            <label for="billing-coupon">Código promocional (opcional)</label>
+            <input id="billing-coupon" type="text" maxlength="64" autocomplete="off"
+              [value]="couponCode" (input)="couponCode = $any($event.target).value"
+              placeholder="Introduce tu código">
+            <p>El descuento se aplica únicamente a la primera factura.</p>
+          </div>
+
           <div class="plans-grid">
             <mat-card *ngFor="let plan of availablePlans" class="plan-card" [class.featured]="plan.code === 'nutri_full'">
               <div class="featured-label" *ngIf="plan.code === 'nutri_full'">Para nutricionistas</div>
@@ -272,6 +280,10 @@ import { LegalAcceptance, LegalDocument, LegalService } from '../../servicios/le
     .scheduled-cancellation { display: flex; align-items: center; gap: 9px; margin-top: 20px; padding: 12px 14px; background: #fffbeb; color: #92400e; border-radius: 9px; font-size: 13px; }
     .scheduled-cancellation mat-icon { flex-shrink: 0; }
     .current-actions { display: flex; justify-content: flex-end; margin-top: 20px; }
+    .coupon-entry { display: grid; grid-template-columns: minmax(180px, 320px) auto; gap: 6px 12px; align-items: center; margin: 0 0 20px; }
+    .coupon-entry label { color: #334155; font-size: 13px; font-weight: 600; }
+    .coupon-entry input { width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 8px; padding: 11px 12px; font: inherit; text-transform: uppercase; }
+    .coupon-entry p { grid-column: 1 / -1; margin: 0; color: #64748b; font-size: 12px; }
     .plans-section { margin-top: 34px; }
     .section-heading { display: flex; justify-content: space-between; align-items: end; gap: 20px; margin-bottom: 18px; }
     .section-heading h2 { margin: 0; color: #0f172a; font-size: 22px; }
@@ -339,6 +351,7 @@ export class BillingComponent implements OnInit, OnDestroy {
   get license(): LicenseStatus | null { return this.licenseState(); }
   set license(value: LicenseStatus | null) { this.licenseState.set(value); }
   billingInterval: 'monthly' | 'yearly' = 'monthly';
+  couponCode = '';
   private readonly loadingState = signal<boolean>(true);
   get loading(): boolean { return this.loadingState(); }
   set loading(value: boolean) { this.loadingState.set(value); }
@@ -545,6 +558,36 @@ export class BillingComponent implements OnInit, OnDestroy {
       this.snackBar.open('Antes de contratar debes leer y aceptar las condiciones de contratación vigentes.', 'Cerrar', { duration: 6000 });
       return;
     }
+
+    const code = this.couponCode.trim().toUpperCase();
+    if (code) {
+      this.actionLoading = true;
+      this.selectedPlanCode = plan.code;
+      this.billingService.validateCoupon({
+        code,
+        planCode: plan.code,
+        billingInterval: this.billingInterval
+      }).subscribe({
+        next: preview => {
+          this.actionLoading = false;
+          this.selectedPlanCode = null;
+          const period = this.billingInterval === 'yearly' ? 'año' : 'mes';
+          const message = `Cupón ${preview.code}: descuento del ${preview.discountPercent} % en la primera factura.\\n\\nPrecio inicial: ${preview.originalAmount.toFixed(2)} €/${period}\\nDescuento: −${preview.discountAmount.toFixed(2)} €\\nImporte inicial: ${preview.initialAmount.toFixed(2)} €\\n\\nLas siguientes facturas se cobrarán al precio normal. ¿Continuar?`;
+          if (window.confirm(message)) this.createStripeCheckout(plan, code);
+        },
+        error: err => {
+          this.actionLoading = false;
+          this.selectedPlanCode = null;
+          this.showError(err, 'El cupón no es válido para este plan o periodo.');
+        }
+      });
+      return;
+    }
+
+    this.createStripeCheckout(plan);
+  }
+
+  private createStripeCheckout(plan: BillingPlan, couponCode?: string): void {
     this.actionLoading = true;
     this.selectedPlanCode = plan.code;
 
@@ -553,7 +596,8 @@ export class BillingComponent implements OnInit, OnDestroy {
       planCode: plan.code,
       billingInterval: this.billingInterval,
       successUrl: `${origin}/billing?checkout=success`,
-      cancelUrl: `${origin}/billing?checkout=cancelled`
+      cancelUrl: `${origin}/billing?checkout=cancelled`,
+      ...(couponCode ? { couponCode } : {})
     }).subscribe({
       next: response => {
         if (!response?.url) {

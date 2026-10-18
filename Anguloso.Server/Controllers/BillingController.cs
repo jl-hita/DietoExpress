@@ -88,7 +88,9 @@ public sealed class BillingController : ControllerBase
                 request.PlanCode.Trim().ToLowerInvariant(),
                 request.BillingInterval.Trim().ToLowerInvariant(),
                 BuildFrontendUrl("/billing?checkout=success"),
-                BuildFrontendUrl("/billing?checkout=cancelled"));
+                BuildFrontendUrl("/billing?checkout=cancelled"),
+                request.CouponCode,
+                AuthHelpers.GetUserId(User));
 
             return Ok(new { url });
         }
@@ -407,7 +409,7 @@ public sealed class BillingController : ControllerBase
                         tenant_id = tenantId.Value,
                         plan_id = planId.Value,
                         contracted_nutritionists = plan.code == "clinic_full" ? plan.max_nutritionists : null,
-                        status = paymentStatus == "paid" ? "active" : "past_due",
+                        status = paymentStatus is "paid" or "no_payment_required" ? "active" : "past_due",
                         started_at = DateTime.UtcNow,
                         billing_interval = interval,
                         amount = interval == "yearly" ? plan.yearly_price : plan.monthly_price,
@@ -449,7 +451,7 @@ public sealed class BillingController : ControllerBase
                 subscription.payment_provider = "stripe";
                 subscription.provider_customer_id = customerId;
                 subscription.provider_subscription_id = subscriptionId;
-                subscription.status = paymentStatus == "paid" ? "active" : "past_due";
+                subscription.status = paymentStatus is "paid" or "no_payment_required" ? "active" : "past_due";
                 subscription.started_at = DateTime.UtcNow;
                 subscription.expires_at = null;
                 subscription.cancelled_at = null;
@@ -464,6 +466,19 @@ public sealed class BillingController : ControllerBase
                     subscription.last_stripe_event_id = eventId;
                 }
                 subscription.updated_at = DateTime.UtcNow;
+
+                var couponRedemptionMetadata = ReadMetadata(data, "coupon_redemption_id");
+                if (long.TryParse(couponRedemptionMetadata, out var couponRedemptionId))
+                {
+                    await _context.Database.ExecuteSqlInterpolatedAsync($"""
+                        UPDATE billing_coupon_redemptions
+                        SET status = 'redeemed', redeemed_at = COALESCE(redeemed_at, NOW()),
+                            stripe_checkout_session_id = {ReadString(data, "id")},
+                            stripe_subscription_id = {subscriptionId}
+                        WHERE id = {couponRedemptionId} AND tenant_id = {tenantId.Value}
+                          AND status IN ('reserved','redeemed')
+                        """);
+                }
 
                 {
                     subscription.amount = interval == "yearly" ? plan.yearly_price : plan.monthly_price;
@@ -500,6 +515,20 @@ public sealed class BillingController : ControllerBase
                     })
                 });
 
+                break;
+            }
+
+            case "checkout.session.expired":
+            {
+                var redemptionMetadata = ReadMetadata(data, "coupon_redemption_id");
+                if (long.TryParse(redemptionMetadata, out var redemptionId))
+                {
+                    await _context.Database.ExecuteSqlInterpolatedAsync($"""
+                        UPDATE billing_coupon_redemptions
+                        SET status = 'released'
+                        WHERE id = {redemptionId} AND status = 'reserved'
+                        """);
+                }
                 break;
             }
 
@@ -956,7 +985,8 @@ public sealed record CheckoutRequest(
     string PlanCode,
     string BillingInterval,
     string SuccessUrl,
-    string CancelUrl);
+    string CancelUrl,
+    string? CouponCode = null);
 
 public sealed record ChangeSubscriptionRequest(
     string PlanCode,
