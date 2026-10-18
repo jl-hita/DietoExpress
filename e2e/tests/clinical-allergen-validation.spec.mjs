@@ -3,24 +3,22 @@ import { test, expect } from '@playwright/test';
 const username = process.env.E2E_USERNAME;
 const password = process.env.E2E_PASSWORD;
 const baseURL = process.env.E2E_BASE_URL || 'https://jlhitap.duckdns.org';
-const clientId = Number(process.env.E2E_CLINICAL_CLIENT_ID || 0);
+let clientId = 0;
+const testPatientName = 'ZZZ E2E — paciente ficticio alérgenos';
 const allergenFoodId = Number(process.env.E2E_ALLERGEN_FOOD_ID || 0);
 const traceFoodId = Number(process.env.E2E_TRACE_FOOD_ID || 0);
 const unknownFoodId = Number(process.env.E2E_UNKNOWN_ALLERGEN_FOOD_ID || 0);
 
 /*
- * Read-only clinical checks. Configure these IDs to point only to:
- * - a dedicated fictional patient with the relevant allergy in their food preferences;
- * - existing catalogue foods whose allergen/trace/quality metadata has been reviewed.
- *
- * This suite sends draft diets to the validation endpoint; it does not save diets,
- * regenerate meals, alter foods, or modify the patient. Do not point it at a real patient.
+ * The suite automatically creates or reuses one dedicated fictional patient and sets
+ * their allergy profile. It sends draft diets to the validation endpoint and does not
+ * save diets or change catalogue foods. Food IDs must refer to reviewed test fixtures.
  */
 test.describe('P0 — validación clínica de alérgenos (solo borradores)', () => {
   test.beforeAll(() => {
-    const configuredIds = [clientId, allergenFoodId, traceFoodId, unknownFoodId];
+    const configuredIds = [allergenFoodId, traceFoodId, unknownFoodId];
     const ready = Boolean(username && password) && configuredIds.every(id => Number.isSafeInteger(id) && id > 0);
-    test.skip(!ready, 'Configura credenciales E2E y los cuatro IDs de la ficha ficticia/alimentos de prueba para habilitar las comprobaciones clínicas.');
+    test.skip(!ready, 'Configura credenciales E2E y tres IDs de alimentos de prueba revisados para habilitar las comprobaciones clínicas.');
     expect(new Set([allergenFoodId, traceFoodId, unknownFoodId]).size,
       'Los tres IDs deben identificar alimentos distintos y revisados, no reutilizar el mismo alimento para escenarios diferentes.'
     ).toBe(3);
@@ -28,11 +26,11 @@ test.describe('P0 — validación clínica de alérgenos (solo borradores)', () 
 
   test.beforeEach(async ({ page }) => {
     test.skip(
-      !username || !password || !Number.isSafeInteger(clientId) || clientId <= 0 ||
+      !username || !password ||
       !Number.isSafeInteger(allergenFoodId) || allergenFoodId <= 0 ||
       !Number.isSafeInteger(traceFoodId) || traceFoodId <= 0 ||
       !Number.isSafeInteger(unknownFoodId) || unknownFoodId <= 0,
-      'Configura credenciales E2E y los cuatro IDs de la ficha ficticia/alimentos de prueba para habilitar las comprobaciones clínicas.'
+      'Configura credenciales E2E y tres IDs de alimentos de prueba revisados para habilitar las comprobaciones clínicas.'
     );
 
     await page.goto('/login');
@@ -41,6 +39,26 @@ test.describe('P0 — validación clínica de alérgenos (solo borradores)', () 
     await page.getByRole('button', { name: 'Iniciar sesión' }).click();
     await expect(page).not.toHaveURL(/\/login(?:[/?#]|$)/, { timeout: 20_000 });
   });
+
+    // Reutiliza una ficha ficticia dedicada para no crear un paciente nuevo en cada ejecución.
+    const api = page.context().request;
+    const listResponse = await api.get(new URL('/api/clients?search=' + encodeURIComponent(testPatientName) + '&page=1&pageSize=100', baseURL).toString());
+    expect(listResponse.ok(), 'Debe poder consultarse la lista de pacientes para preparar el fixture E2E').toBeTruthy();
+    const listing = await listResponse.json();
+    const patients = Array.isArray(listing) ? listing : (listing.items || []);
+    const existing = patients.find(patient => (patient.fullName ?? patient.FullName) === testPatientName);
+
+    if (existing) {
+      clientId = Number(existing.id ?? existing.Id);
+      const updateResponse = await api.put(new URL('/api/clients/' + clientId, baseURL).toString(), { data: { fullName: testPatientName, foodPreferences: { allergies: 'cacahuete, leche' } } });
+      expect(updateResponse.ok(), 'Debe poder prepararse la alergia de la ficha ficticia E2E').toBeTruthy();
+    } else {
+      const createResponse = await api.post(new URL('/api/clients', baseURL).toString(), { data: { fullName: testPatientName, email: 'e2e-allergen-test@invalid.example', notes: 'Ficha ficticia reservada para pruebas automatizadas de alérgenos. No usar como paciente real.', country: 'España', foodPreferences: { allergies: 'cacahuete, leche' } } });
+      expect(createResponse.ok(), 'Debe poder crearse la ficha ficticia E2E mediante el endpoint normal de la aplicación').toBeTruthy();
+      const created = await createResponse.json();
+      clientId = Number(created.id ?? created.Id);
+      expect(Number.isSafeInteger(clientId) && clientId > 0, 'La API debe devolver el ID de la ficha ficticia creada').toBe(true);
+    }
 
   async function validateDraft(page, foodId) {
     const response = await page.context().request.post(new URL('/api/dietas/validate', baseURL).toString(), {
