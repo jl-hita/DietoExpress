@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 
 const username = process.env.E2E_USERNAME;
 const password = process.env.E2E_PASSWORD;
+const baseURL = process.env.E2E_BASE_URL || 'https://jlhitap.duckdns.org';
 const clientId = Number(process.env.E2E_CLINICAL_CLIENT_ID || 0);
 const allergenFoodId = Number(process.env.E2E_ALLERGEN_FOOD_ID || 0);
 const traceFoodId = Number(process.env.E2E_TRACE_FOOD_ID || 0);
@@ -33,7 +34,7 @@ test.describe('P0 — validación clínica de alérgenos (solo borradores)', () 
   });
 
   async function validateDraft(page, foodId) {
-    const response = await page.context().request.post('/api/dietas/validate', {
+    const response = await page.context().request.post(new URL('/api/dietas/validate', baseURL).toString(), {
       data: {
         clientId,
         diet: {
