@@ -15,7 +15,7 @@ test.describe('P0 — validación clínica de alérgenos (fixtures aislados)', (
     await page.getByLabel('Email o usuario').fill(username);
     await page.getByLabel('Contraseña').fill(password);
     await page.getByRole('button', { name: 'Iniciar sesión' }).click();
-    await expect(page).not.toHaveURL(/\\/login(?:[/?#]|$)/, { timeout: 20_000 });
+    await expect(page).not.toHaveURL(new RegExp('/login(?:[/?#]|$)'), { timeout: 20_000 });
 
     const api = page.context().request;
     const listResponse = await api.get(new URL('/api/clients?search=' + encodeURIComponent(testPatientName) + '&page=1&pageSize=100', baseURL).toString());
@@ -112,7 +112,7 @@ test.describe('P0 — validación clínica de alérgenos (fixtures aislados)', (
   test('un alimento con alérgeno incompatible genera una alerta vinculada al alimento', async ({ page }) => {
     const warnings = await validateDraft(page, createdFoodIds[0]);
     expect(warnings).toEqual(expect.arrayContaining([
-      expect.objectContaining({ foodId: createdFoodIds[0], alertType: expect.stringMatching(/\\S/), message: expect.stringMatching(/\\S/) })
+      expect.objectContaining({ foodId: createdFoodIds[0], alertType: expect.stringMatching(/\S/), message: expect.stringMatching(/\S/) })
     ]));
     expect(JSON.stringify(warnings)).toMatch(/al[eé]rgen|allergen|alergia/i);
   });
@@ -120,7 +120,7 @@ test.describe('P0 — validación clínica de alérgenos (fixtures aislados)', (
   test('un alimento con trazas incompatibles genera una alerta vinculada al alimento', async ({ page }) => {
     const warnings = await validateDraft(page, createdFoodIds[1]);
     expect(warnings).toEqual(expect.arrayContaining([
-      expect.objectContaining({ foodId: createdFoodIds[1], alertType: expect.stringMatching(/\\S/), message: expect.stringMatching(/\\S/) })
+      expect.objectContaining({ foodId: createdFoodIds[1], alertType: expect.stringMatching(/\S/), message: expect.stringMatching(/\S/) })
     ]));
     expect(JSON.stringify(warnings)).toMatch(/traza|trace|al[eé]rgen|allergen/i);
   });
@@ -128,7 +128,7 @@ test.describe('P0 — validación clínica de alérgenos (fixtures aislados)', (
   test('los metadatos desconocidos no se aceptan silenciosamente cuando el paciente declara alergias', async ({ page }) => {
     const warnings = await validateDraft(page, createdFoodIds[2]);
     expect(warnings).toEqual(expect.arrayContaining([
-      expect.objectContaining({ foodId: createdFoodIds[2], alertType: expect.stringMatching(/\\S/), message: expect.stringMatching(/\\S/) })
+      expect.objectContaining({ foodId: createdFoodIds[2], alertType: expect.stringMatching(/\S/), message: expect.stringMatching(/\S/) })
     ]));
     expect(JSON.stringify(warnings)).toMatch(/desconocid|incomplet|unknown|allergen|al[eé]rgen/i);
   });
