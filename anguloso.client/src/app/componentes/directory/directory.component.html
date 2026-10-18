@@ -60,7 +60,7 @@
         <label class="filter-option"><input type="checkbox" [(ngModel)]="availableOnly" /><span class="custom-check">✓</span><span>Con disponibilidad</span></label>
         <label class="filter-option"><input type="checkbox" [(ngModel)]="online" /><span class="custom-check">✓</span><span>Consulta online</span></label>
       </div>
-      <button mat-flat-button class="search-button" type="button" (click)="search()"><span>Buscar profesionales</span><span aria-hidden="true">→</span></button>
+      <button mat-flat-button class="search-button" type="button" (click)="search()" [disabled]="loading" [attr.aria-busy]="loading"><span>Buscar profesionales</span><span aria-hidden="true">→</span></button>
     </div>
   </section>
 
@@ -76,9 +76,9 @@
       </div>
     </article>
   </section>
-  <p *ngIf="error" class="status error" role="alert">{{ error }}</p>
+  <p *ngIf="error" class="status error" role="alert" aria-live="assertive">{{ error }}</p>
 
-  <p *ngIf="!profile && !loading && !error && !profiles.length" class="empty-state">No hemos encontrado profesionales con esos criterios. Prueba a ampliar la zona, quitar filtros o seleccionar consulta online.</p>
+  <p *ngIf="!profile && !loading && !error && !profiles.length" class="empty-state" role="status">No hemos encontrado profesionales con esos criterios. Prueba a ampliar la zona, quitar filtros o seleccionar consulta online.</p>
 
   <section *ngIf="!profile && !loading && !error && profiles.length" class="results">
     <article *ngFor="let item of profiles" class="profile-card">
@@ -127,9 +127,9 @@
 
     <section class="availability" aria-labelledby="availability-title">
       <h3 id="availability-title">Próximos horarios disponibles</h3>
-      <p *ngIf="availabilityLoading" class="status">Consultando disponibilidad...</p>
-      <p *ngIf="availabilityError" class="status error">{{ availabilityError }}</p>
-      <p *ngIf="!availabilityLoading && !availabilityError && !availability.length" class="status">
+      <p *ngIf="availabilityLoading" class="status" role="status" aria-live="polite">Consultando disponibilidad...</p>
+      <p *ngIf="availabilityError" class="status error" role="alert">{{ availabilityError }}</p>
+      <p *ngIf="!availabilityLoading && !availabilityError && !availability.length" class="status" role="status">
         En este momento no hay horarios publicados.
       </p>
       <!-- La selección no reserva el hueco todavía; solo abre el formulario. -->
@@ -225,7 +225,7 @@
                     placeholder="No incluyas aquí información médica o especialmente sensible."></textarea>
         </div>
 
-        <p *ngIf="bookingError" class="status error" role="alert">{{ bookingError }}</p>
+        <p *ngIf="bookingError" class="status error" role="alert" aria-live="assertive">{{ bookingError }}</p>
 
         <div class="booking-actions">
           <button mat-button type="button" (click)="clearSelectedSlot()" [disabled]="bookingSubmitting">Cancelar</button>
