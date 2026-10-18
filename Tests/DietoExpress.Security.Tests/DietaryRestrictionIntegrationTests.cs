@@ -53,5 +53,11 @@ public sealed class DietaryRestrictionIntegrationTests
         var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
         Assert.Contains("allergen-classification-v2", bootstrap);
         Assert.Contains("allergen-traces-quality-v1", bootstrap);
+        var shoppingDto = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Model", "PatientPortalDto.cs"));
+        var recipeDto = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Model", "RecipeDto.cs"));
+        Assert.Contains("TraceTags", shoppingDto);
+        Assert.Contains("AllergenDataStatus", shoppingDto);
+        Assert.Contains("TraceTags", recipeDto);
+        Assert.Contains("AllergenDataStatus", recipeDto);
     }
 }
