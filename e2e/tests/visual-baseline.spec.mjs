@@ -176,6 +176,7 @@ test('PDF de dieta generado por la API: MIME, cabecera y evidencia para revisió
     const baseURL = process.env.E2E_BASE_URL || 'https://jlhitap.duckdns.org';
     const api = page.context().request;
     if (assignmentId && clientId) {
+      await api.post(new URL(`/api/clients/${clientId}/diets/${assignmentId}/deactivate`, baseURL).toString()).catch(() => {});
       await api.delete(new URL(`/api/clients/${clientId}/diets/${assignmentId}`, baseURL).toString()).catch(() => {});
     }
     if (dietId) await api.delete(new URL(`/api/dietas/${dietId}`, baseURL).toString()).catch(() => {});
