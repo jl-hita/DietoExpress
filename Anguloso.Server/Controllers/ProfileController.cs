@@ -76,11 +76,6 @@ public class ProfileController : ControllerBase
             catch (InvalidTimeZoneException) { return BadRequest(new { code = "INVALID_TIME_ZONE", message = "La zona horaria seleccionada no es válida." }); }
         }
         user.time_zone_id = requestedTimeZone;
-        user.full_name = dto.FullName ?? user.full_name;
-        user.clinic_name = dto.ClinicName;
-        user.clinic_address = dto.ClinicAddress;
-        user.clinic_phone = dto.ClinicPhone;
-        user.clinic_logo = dto.ClinicLogo;
         var requestedDirectoryEnabled = dto.DirectoryEnabled;
         var publicProfileChanged = requestedDirectoryEnabled != (user.directory_enabled ?? false)
             || !string.Equals(user.full_name, dto.FullName ?? user.full_name, StringComparison.Ordinal)
@@ -91,6 +86,11 @@ public class ProfileController : ControllerBase
             || !string.Equals(user.directory_bio, string.IsNullOrWhiteSpace(dto.DirectoryBio) ? null : dto.DirectoryBio.Trim(), StringComparison.Ordinal)
             || !string.Equals(user.directory_specialties, string.IsNullOrWhiteSpace(dto.DirectorySpecialties) ? null : dto.DirectorySpecialties.Trim(), StringComparison.Ordinal)
             || dto.OnlineConsultations != (user.online_consultations ?? false);
+        user.full_name = dto.FullName ?? user.full_name;
+        user.clinic_name = dto.ClinicName;
+        user.clinic_address = dto.ClinicAddress;
+        user.clinic_phone = dto.ClinicPhone;
+        user.clinic_logo = dto.ClinicLogo;
         user.directory_enabled = requestedDirectoryEnabled;
         user.online_consultations = dto.OnlineConsultations;
         user.directory_city = string.IsNullOrWhiteSpace(dto.DirectoryCity) ? null : dto.DirectoryCity.Trim();
@@ -109,9 +109,25 @@ public class ProfileController : ControllerBase
         }
 
         if (!requestedDirectoryEnabled)
+        {
             user.directory_publication_status = "draft";
-        else if (publicProfileChanged && user.directory_publication_status != "pending")
-            user.directory_publication_status = "pending";
+            user.directory_verified_at = null;
+            user.directory_verified_by_user_id = null;
+        }
+        else
+        {
+            // Publicar no requiere documentación ni aprobación manual. La verificación es una insignia aparte.
+            if (publicProfileChanged && user.directory_publication_status == "verified")
+            {
+                user.directory_publication_status = "published";
+                user.directory_verified_at = null;
+                user.directory_verified_by_user_id = null;
+            }
+            else if (user.directory_publication_status is not ("verified" or "published"))
+            {
+                user.directory_publication_status = "published";
+            }
+        }
 
         await _context.SaveChangesAsync();
         return Ok(new ProfileDto
