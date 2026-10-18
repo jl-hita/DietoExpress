@@ -58,9 +58,9 @@ jobs:
           # Horario normal: 00:00 UTC equivale a 02:00 CEST; 01:00 UTC a 02:00 CET.
           # Cambio de primavera: 02:00 local no existe, así que se usa 03:00 local ese domingo.
           # Cambio de otoño: 02:00 ocurre dos veces; solo se ejecuta la primera (CEST).
-          if [[ "$local_offset" == "+0200" && "$SCHEDULE_CRON" == "0 0 * * 0" ]] ||
-             [[ "$local_offset" == "+0100" && "$SCHEDULE_CRON" == "0 1 * * 0" && ! ( "$local_month" == "10" && "$last_sunday_of_month" == "true" ) ]] ||
-             [[ "$local_offset" == "+0200" && "$SCHEDULE_CRON" == "0 1 * * 0" && "$local_month" == "03" && "$last_sunday_of_month" == "true" ]]; then
+          if [[ "$SCHEDULE_CRON" == "0 0 * * 0" && ( "$local_offset" == "+0200" || ( "$local_month" == "10" && "$last_sunday_of_month" == "true" ) ) ]] ||
+             [[ "$SCHEDULE_CRON" == "0 1 * * 0" && "$local_offset" == "+0100" && ! ( "$local_month" == "10" && "$last_sunday_of_month" == "true" ) ]] ||
+             [[ "$SCHEDULE_CRON" == "0 1 * * 0" && "$local_month" == "03" && "$last_sunday_of_month" == "true" ]]; then
             echo "run_e2e=true" >> "$GITHUB_OUTPUT"
             if [[ "$local_month" == "03" && "$local_weekday" == "7" && "$local_day" -ge 25 && "$SCHEDULE_CRON" == "0 1 * * 0" ]]; then
               echo "Cambio horario de primavera: esta ejecución es la alternativa de las 03:00 locales."
