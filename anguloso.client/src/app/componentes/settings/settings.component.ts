@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { ActivatedRoute } from '@angular/router';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Subject, Subscription } from 'rxjs';
@@ -97,6 +98,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
   readonly timeZoneOptions = [...TIME_ZONE_OPTIONS];
   directoryEvidence: any[] = [];
   evidenceUploading: 'identity' | 'qualification' | null = null;
+  selectedSettingsTab = 0;
 
   constructor(
     private fb: FormBuilder,
@@ -104,10 +106,12 @@ export class SettingsComponent implements OnInit, OnDestroy {
     private authService: AuthService,
     private snack: MatSnackBar,
     private timeZones: TimeZonePreferenceService,
-    private http: HttpClient
+    private http: HttpClient,
+    private route: ActivatedRoute
   ) {}
 
   ngOnInit(): void {
+    this.route.queryParamMap.subscribe(params => { this.selectedSettingsTab = params.get('tab') === 'directorio' ? 1 : 0; });
     const browserZone = this.timeZones.detectBrowserTimeZone();
     if (!this.timeZoneOptions.some(zone => zone.id === browserZone)) {
       this.timeZoneOptions.unshift({ id: browserZone, label: 'Zona detectada en este dispositivo' });
