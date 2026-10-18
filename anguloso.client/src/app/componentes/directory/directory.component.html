@@ -1,44 +1,66 @@
-<main class="directory-page">
+<main class="directory-page" [class.profile-page]="profile">
   <header class="directory-header">
-    <a routerLink="/" class="brand">DietoExpress</a>
-    <h1 *ngIf="!profile">Directorio de nutricionistas</h1>
-    <h1 *ngIf="profile">Perfil profesional</h1>
+    <a routerLink="/" class="brand" aria-label="DietoExpress, ir al inicio"><span class="brand-mark">d</span><span>DietoExpress</span></a>
+    <span class="header-note" *ngIf="!profile">Encuentra el profesional que encaja contigo</span>
+    <span class="header-note" *ngIf="profile">Tu próximo paso hacia una mejor alimentación</span>
   </header>
 
-  <section *ngIf="!profile" class="search-panel">
-    <div class="field">
-      <label for="city">Ciudad</label>
-      <input id="city" type="text" [(ngModel)]="city" placeholder="Valencia, Alicante..." />
+  <section *ngIf="!profile" class="directory-hero">
+    <div class="hero-copy">
+      <span class="eyebrow"><span class="eyebrow-dot"></span> TU BIENESTAR, A TU RITMO</span>
+      <h1>Encuentra a tu <span>nutricionista</span></h1>
+      <p>Profesionales de la nutrición para tus objetivos, tu estilo de vida y tus necesidades. Busca con calma y elige con confianza.</p>
+      <div class="hero-points">
+        <span><span class="point-check">✓</span> Perfiles profesionales</span>
+        <span><span class="point-check">✓</span> Consulta presencial u online</span>
+      </div>
+    </div>
+    <div class="hero-decoration" aria-hidden="true">
+      <div class="hero-orbit orbit-one"></div><div class="hero-orbit orbit-two"></div>
+      <div class="hero-leaf">✳</div>
+      <div class="hero-floating-card"><span class="floating-icon">♡</span><span><strong>Tu salud</strong><small>Empieza por ti</small></span></div>
+    </div>
+  </section>
+
+  <section *ngIf="!profile" class="search-panel" aria-labelledby="search-title">
+    <div class="search-heading">
+      <div><span class="search-kicker">DIRECTORIO PROFESIONAL</span><h2 id="search-title">¿Qué estás buscando?</h2></div>
+      <p>Afina la búsqueda con los filtros que te interesen.</p>
+    </div>
+    <div class="search-fields">
+      <div class="field">
+        <label for="city"><span class="field-icon">⌖</span> Ciudad o municipio</label>
+        <input id="city" type="text" [(ngModel)]="city" placeholder="Ej. Valencia" autocomplete="address-level2" />
+      </div>
+
+      <div class="field">
+        <label for="province"><span class="field-icon">↗</span> Provincia</label>
+        <input id="province" type="text" [(ngModel)]="province" placeholder="Cualquier provincia" autocomplete="address-level1" />
+      </div>
+
+      <div class="field">
+        <label for="speciality"><span class="field-icon">✳</span> Especialidad</label>
+        <input id="speciality" type="text" [(ngModel)]="speciality" placeholder="Ej. nutrición deportiva" />
+      </div>
+
+      <div class="field">
+        <label for="goal"><span class="field-icon">◎</span> Tu objetivo</label>
+        <select id="goal" [(ngModel)]="goal">
+          <option value="">Todos los objetivos</option>
+          <option value="pérdida de peso">Pérdida de peso</option>
+          <option value="nutrición deportiva">Nutrición deportiva</option>
+          <option value="obesidad">Obesidad</option>
+        </select>
+      </div>
     </div>
 
-    <div class="field">
-      <label for="province">Provincia</label>
-      <input id="province" type="text" [(ngModel)]="province" placeholder="Valencia, Alicante..." />
+    <div class="search-footer">
+      <div class="filter-toggles">
+        <label class="filter-option"><input type="checkbox" [(ngModel)]="availableOnly" /><span class="custom-check">✓</span><span>Con disponibilidad</span></label>
+        <label class="filter-option"><input type="checkbox" [(ngModel)]="online" /><span class="custom-check">✓</span><span>Consulta online</span></label>
+      </div>
+      <button mat-flat-button class="search-button" type="button" (click)="search()"><span>Buscar profesionales</span><span aria-hidden="true">→</span></button>
     </div>
-
-    <div class="field">
-      <label for="speciality">Especialidad</label>
-      <input id="speciality" type="text" [(ngModel)]="speciality" placeholder="Nutrición deportiva..." />
-    </div>
-
-    <div class="field">
-      <label for="goal">Objetivo</label>
-      <select id="goal" [(ngModel)]="goal">
-        <option value="">Cualquier objetivo</option>
-        <option value="pérdida de peso">Pérdida de peso</option>
-        <option value="nutrición deportiva">Nutrición deportiva</option>
-        <option value="obesidad">Obesidad</option>
-      </select>
-    </div>
-
-    <label class="online-filter">
-      <input type="checkbox" [(ngModel)]="availableOnly" />
-      Solo con disponibilidad
-      <input type="checkbox" [(ngModel)]="online" />
-      Consulta online
-    </label>
-
-    <button mat-flat-button type="button" (click)="search()">Buscar</button>
   </section>
 
   <p *ngIf="loading" class="status">Cargando...</p>
