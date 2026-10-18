@@ -85,6 +85,19 @@ jobs:
         if: github.event_name != 'schedule' || steps.schedule.outputs.run_e2e == 'true'
         uses: actions/checkout@v7
 
+      - name: Verificar credenciales E2E obligatorias
+        if: github.event_name != 'schedule' || steps.schedule.outputs.run_e2e == 'true'
+        shell: bash
+        run: |
+          missing=0
+          for name in E2E_USERNAME E2E_PASSWORD E2E_SUPERADMIN_USERNAME E2E_SUPERADMIN_PASSWORD; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Falta el secreto obligatorio $name; se aborta para evitar que flujos críticos queden como skipped."
+              missing=1
+            fi
+          done
+          exit "$missing"
+
       - name: Setup Node
         if: github.event_name != 'schedule' || steps.schedule.outputs.run_e2e == 'true'
         uses: actions/setup-node@v7
