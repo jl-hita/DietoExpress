@@ -292,3 +292,5 @@
 .evidence-upload-item span,.evidence-upload-item small{font-size:13px;line-height:1.45;overflow-wrap:anywhere}
 .evidence-upload-item input[type=file]{max-width:100%;font-size:12px}
 @media(max-width:700px){.evidence-upload-row{grid-template-columns:1fr}.directory-publication-notice{padding:14px}}
+
+.directory-clinic-notice{padding:10px 12px;border-left:3px solid #0d9488;background:#f0fdfa;color:#115e59;font-size:13px;line-height:1.5}
