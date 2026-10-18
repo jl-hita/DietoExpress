@@ -60,7 +60,7 @@ test.describe('P0 — recorrido completo de consulta guiada', () => {
       await page.goto('/appointments');
       await expect(page.getByRole('heading', { name: 'Agendar cita manualmente' })).toBeVisible();
       await expect(page.getByLabel('Paciente para la cita')).toContainText(patientName, { timeout: 15_000 });
-      await page.getByLabel('Paciente para la cita').selectOption(String(patientId));
+      await page.getByLabel('Paciente para la cita').selectOption({ label: patientName });
       await page.getByLabel('Fecha y hora de la cita').fill(localDateTime(daysAhead, 21, 15));
       await page.getByLabel('Duración de la cita').selectOption('30');
       await page.getByLabel('Modalidad de la cita').selectOption('in_person');
@@ -79,7 +79,8 @@ test.describe('P0 — recorrido completo de consulta guiada', () => {
     await page.getByLabel('Decisiones clínicas y acuerdos').fill('Se acuerda una revisión de hábitos en la próxima visita.');
     await page.getByLabel('Acciones y tareas acordadas').fill('Registrar desayunos durante siete días\nRevisar el registro en el seguimiento');
     await page.getByLabel('Observaciones clínicas').fill('Consulta inicial E2E; datos ficticios.');
-    await page.getByRole('button', { name: /Cerrar/ }).last().click();
+    await page.locator('.stepper button').filter({ hasText: 'Cerrar' }).click();
+    await expect(page.getByRole('button', { name: 'Cerrar consulta' })).toBeEnabled({ timeout: 15_000 });
     page.once('dialog', dialog => dialog.accept());
     await page.getByRole('button', { name: 'Cerrar consulta' }).click();
     await expect(page.getByText('Completada')).toBeVisible({ timeout: 15_000 });
@@ -93,7 +94,7 @@ test.describe('P0 — recorrido completo de consulta guiada', () => {
 
     await page.getByRole('button', { name: 'Agenda' }).click();
     await scheduleManually(11);
-    await expect(page.getByText('Consulta de seguimiento')).toBeVisible();
+    await expect(page.getByText('Seguimiento', { exact: false })).toBeVisible();
     await page.getByRole('button', { name: /Objetivos/ }).first().click();
     await expect(page.getByRole('heading', { name: 'Cambios y objetivos' })).toBeVisible();
     await page.getByLabel('Objetivos y cambios acordados').fill('Revisar adherencia y dificultades del periodo.');
