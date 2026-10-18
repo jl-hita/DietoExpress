@@ -137,7 +137,7 @@ test('PDF de dieta generado por la API: MIME, cabecera y evidencia para revisió
     await page.getByLabel('Notas').fill('Ficha ficticia temporal para verificar la generación PDF.');
     await page.getByRole('button', { name: 'Crear cliente' }).click();
     await expect(page).toHaveURL(/\\/clients\\/\\d+(?:[/?#]|$)/, { timeout: 20_000 });
-    clientId = Number(page.url().match(/\\/clients\\/(\\d+)/)?.[1]);
+    clientId = Number(new URL(page.url()).pathname.match(/^\/clients\/(\d+)$/)?.[1]);
     expect(clientId).toBeGreaterThan(0);
 
     await page.goto('/diets/nuevo');
