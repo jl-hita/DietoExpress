@@ -53,6 +53,8 @@ import { MatSelectModule } from '@angular/material/select';
 // La pantalla de ajustes separa la edición local del envío persistente para evitar mostrar como guardado un cambio que el backend haya rechazado.
 export class SettingsComponent implements OnInit, OnDestroy {
   directoryOnly = false;
+
+  get isNutritionist(): boolean { return this.authService.getRole() === 'nutritionist'; }
   form!: FormGroup;
 
   // Los estados actualizados desde HTTP y FileReader son signals para notificar explícitamente a la vista.
