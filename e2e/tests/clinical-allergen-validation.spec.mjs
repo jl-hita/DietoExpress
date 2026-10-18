@@ -7,6 +7,7 @@ const testPatientName = 'ZZZ E2E — paciente ficticio alérgenos';
 let clientId = 0;
 let createdFoodIds = [];
 let createdDietIds = [];
+let createdRecipeIds = [];
 
 test.describe('P0 — validación clínica de alérgenos (fixtures aislados)', () => {
   test.beforeEach(async ({ page }) => {
@@ -49,6 +50,7 @@ test.describe('P0 — validación clínica de alérgenos (fixtures aislados)', (
 
     createdFoodIds = [];
     createdDietIds = [];
+    createdRecipeIds = [];
     for (const fixture of [
       { name: 'Pollo E2E temporal A', category: 'Carnes', kcal: 100, protein: 20, carbs: 0, fat: 2, allergenTags: ['cacahuete'], tracesTags: [], allergenDataStatus: 'reported' },
       { name: 'Arroz E2E temporal B', category: 'Cereales', kcal: 130, protein: 3, carbs: 28, fat: 1, allergenTags: [], tracesTags: ['leche'], allergenDataStatus: 'reported' },
@@ -90,6 +92,10 @@ test.describe('P0 — validación clínica de alérgenos (fixtures aislados)', (
       expect([204, 404].includes(clearResponse.status()), 'La dieta temporal debe vaciarse antes de archivarse').toBe(true);
       const deleteResponse = await api.delete(new URL('/api/dietas/' + dietId, baseURL).toString());
       expect([204, 404].includes(deleteResponse.status()), 'La dieta temporal E2E debe archivarse al finalizar').toBe(true);
+    }
+    for (const recipeId of [...createdRecipeIds].reverse()) {
+      const response = await api.delete(new URL('/api/recipes/' + recipeId, baseURL).toString());
+      expect([204, 404].includes(response.status()), 'La receta temporal E2E debe eliminarse al finalizar la prueba').toBe(true);
     }
     for (const foodId of [...createdFoodIds].reverse()) {
       const response = await api.delete(new URL('/api/foods/' + foodId, baseURL).toString());
@@ -143,6 +149,74 @@ test.describe('P0 — validación clínica de alérgenos (fixtures aislados)', (
         expect.objectContaining({ foodId: createdFoodIds[1], alertType: 'Allergy', message: expect.stringMatching(/\S/) })
       ]));
       expect(JSON.stringify(warnings)).toMatch(/al[eé]rgia|allerg/i);
+    });
+
+    await test.step('receta y lista de compra propagan alérgenos y trazas; asignación incompatible se bloquea', async () => {
+      const recipeResponse = await page.context().request.post(new URL('/api/recipes', baseURL).toString(), {
+        data: {
+          name: 'ZZZ E2E receta temporal alérgenos',
+          instructions: 'Fixture automatizado; no usar clínicamente.',
+          servings: 1,
+          ingredients: [
+            { foodId: createdFoodIds[0], grams: 100 },
+            { foodId: createdFoodIds[1], grams: 100 }
+          ]
+        }
+      });
+      expect(recipeResponse.status(), 'Debe crearse la receta temporal para probar propagación clínica').toBe(201);
+      const recipe = await recipeResponse.json();
+      const recipeId = Number(recipe.id ?? recipe.Id);
+      expect(Number.isSafeInteger(recipeId) && recipeId > 0).toBe(true);
+      createdRecipeIds.push(recipeId);
+
+      const recipeDetailResponse = await page.context().request.get(new URL('/api/recipes/' + recipeId, baseURL).toString());
+      expect(recipeDetailResponse.status()).toBe(200);
+      const recipeDetail = await recipeDetailResponse.json();
+      expect(recipeDetail.allergenTags ?? recipeDetail.AllergenTags ?? []).toContain('cacahuete');
+      expect(recipeDetail.traceTags ?? recipeDetail.TraceTags ?? []).toContain('leche');
+      const ingredients = recipeDetail.ingredients ?? recipeDetail.Ingredients ?? [];
+      expect(ingredients.map(item => Number(item.foodId ?? item.FoodId))).toEqual(
+        expect.arrayContaining([createdFoodIds[0], createdFoodIds[1]])
+      );
+
+      const dietResponse = await page.context().request.post(new URL('/api/dietas', baseURL).toString(), {
+        data: {
+          name: 'ZZZ E2E dieta temporal con receta',
+          targetKcal: 1800,
+          days: [{
+            dayIndex: 0,
+            meals: [{
+              name: 'Comida principal',
+              mealIndex: 0,
+              items: [{ recipeId, recipeServings: 1, grams: 100 }]
+            }]
+          }]
+        }
+      });
+      expect(dietResponse.status(), 'Debe poder crearse una dieta temporal no asignada que use la receta').toBe(201);
+      const diet = await dietResponse.json();
+      const dietId = Number(diet.id ?? diet.Id);
+      expect(Number.isSafeInteger(dietId) && dietId > 0).toBe(true);
+      createdDietIds.push(dietId);
+
+      const shoppingResponse = await page.context().request.get(new URL('/api/dietas/' + dietId + '/shopping-list', baseURL).toString());
+      expect(shoppingResponse.status()).toBe(200);
+      const categories = await shoppingResponse.json();
+      const shoppingItems = (Array.isArray(categories) ? categories : []).flatMap(category =>
+        category.items ?? category.Items ?? []);
+      const peanutItem = shoppingItems.find(item => Number(item.foodId ?? item.FoodId) === createdFoodIds[0]);
+      const traceItem = shoppingItems.find(item => Number(item.foodId ?? item.FoodId) === createdFoodIds[1]);
+      expect(peanutItem, 'La lista debe expandir la receta y propagar el alimento con alérgeno').toBeTruthy();
+      expect(traceItem, 'La lista debe expandir la receta y propagar el alimento con trazas').toBeTruthy();
+      expect(peanutItem.allergenTags ?? peanutItem.AllergenTags ?? []).toContain('cacahuetes');
+      expect(traceItem.traceTags ?? traceItem.TraceTags ?? []).toContain('leche/lácteos');
+
+      const assignmentResponse = await page.context().request.post(new URL('/api/clients/' + clientId + '/diets', baseURL).toString(), {
+        data: { dietId, startDate: new Date().toISOString(), notes: 'Prueba automatizada de incompatibilidad; no es una asignación clínica real.' }
+      });
+      expect(assignmentResponse.status(), 'No debe asignarse una dieta cuya receta contiene alérgeno y trazas incompatibles').toBe(409);
+      const assignmentBody = await assignmentResponse.json();
+      expect(JSON.stringify(assignmentBody)).toMatch(/incompatibil|al[eé]rg|allergen|cacahuete|leche/i);
     });
 
     await test.step('generación excluye alérgenos y trazas conocidos; datos desconocidos generan avisos', async () => {
