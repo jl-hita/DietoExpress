@@ -140,6 +140,101 @@ test.describe('P0 — validación clínica de alérgenos (fixtures aislados)', (
       expect(JSON.stringify(warnings)).toMatch(/al[eé]rgia|allerg/i);
     });
 
+    await test.step('generación excluye alimentos incompatibles y datos desconocidos', async () => {
+      const response = await page.context().request.post(new URL('/api/dietas/generate', baseURL).toString(), {
+        data: {
+          clientId,
+          targetKcal: 1800,
+          numberOfDays: 1,
+          mealsPerDay: 3,
+          dietType: 'Equilibrada',
+          useRecipes: false,
+          enableGlobalOptimization: false,
+          enableDietTherapyRules: false,
+          enableAutomaticEnergyEstimate: false,
+          useExchangeGroups: false,
+          explainGeneration: false
+        }
+      });
+      expect(response.status(), 'La generación clínica debe completar una dieta válida').toBe(200);
+      const generated = await response.json();
+      const generatedFoodIds = (generated.days ?? generated.Days ?? []).flatMap(day =>
+        (day.meals ?? day.Meals ?? []).flatMap(meal =>
+          (meal.items ?? meal.Items ?? []).map(item => Number(item.foodId ?? item.FoodId))
+            .filter(id => Number.isSafeInteger(id) && id > 0)));
+      for (const forbiddenFoodId of createdFoodIds) {
+        expect(generatedFoodIds, 'La dieta generada no debe incorporar alimentos incompatibles o no verificables').not.toContain(forbiddenFoodId);
+      }
+    });
+
+    await test.step('sugerencias de sustitución respetan restricciones del paciente', async () => {
+      for (const sourceId of [createdFoodIds[0], createdFoodIds[1]]) {
+        const url = new URL('/api/foods/' + sourceId + '/substitutions', baseURL);
+        url.searchParams.set('target', 'balanced');
+        url.searchParams.set('limit', '50');
+        url.searchParams.set('clientId', String(clientId));
+        const response = await page.context().request.get(url.toString());
+        expect(response.status(), 'Las sugerencias deben respetar el contexto clínico').toBe(200);
+        const suggestions = await response.json();
+        expect(Array.isArray(suggestions)).toBe(true);
+        for (const forbiddenFoodId of createdFoodIds) {
+          if (forbiddenFoodId !== sourceId) {
+            expect(suggestions.map(item => Number(item.id ?? item.Id))).not.toContain(forbiddenFoodId);
+          }
+        }
+      }
+    });
+
+    await test.step('regeneración no selecciona alimentos incompatibles ni datos desconocidos', async () => {
+      const createResponse = await page.context().request.post(new URL('/api/dietas', baseURL).toString(), {
+        data: {
+          name: 'ZZZ E2E dieta temporal',
+          targetKcal: 1800,
+          days: [{
+            dayIndex: 0,
+            meals: [{
+              name: 'Comida principal',
+              mealIndex: 0,
+              items: [{ foodId: null, grams: 100, kcal: 600, protein: 30, carbs: 60, fat: 12 }]
+            }]
+          }]
+        }
+      });
+      expect(createResponse.status(), 'Debe poder crearse una dieta temporal no asignada').toBe(201);
+      const createdDiet = await createResponse.json();
+      const dietId = Number(createdDiet.id ?? createdDiet.Id);
+      expect(Number.isSafeInteger(dietId) && dietId > 0).toBe(true);
+      createdDietIds.push(dietId);
+
+      const detailResponse = await page.context().request.get(new URL('/api/dietas/' + dietId, baseURL).toString());
+      expect(detailResponse.status()).toBe(200);
+      const detail = await detailResponse.json();
+      const days = detail.days ?? detail.Days ?? [];
+      const meals = days[0]?.meals ?? days[0]?.Meals ?? [];
+      const mealId = Number(meals[0]?.id ?? meals[0]?.Id);
+      expect(Number.isSafeInteger(mealId) && mealId > 0, 'La dieta temporal debe devolver el ID de la comida').toBe(true);
+
+      const regenerateResponse = await page.context().request.post(new URL('/api/dietas/' + dietId + '/regenerate', baseURL).toString(), {
+        data: { operation: 'regenerate-meal', mealId, clientId, preserveNutritionTargets: false, preserveWeeklyVariety: false }
+      });
+      expect(regenerateResponse.status(), 'La regeneración clínica debe completarse').toBe(200);
+      const regenerated = await regenerateResponse.json();
+      expect(regenerated.success ?? regenerated.Success).toBe(true);
+
+      const afterResponse = await page.context().request.get(new URL('/api/dietas/' + dietId, baseURL).toString());
+      expect(afterResponse.status()).toBe(200);
+      const after = await afterResponse.json();
+      const afterDays = after.days ?? after.Days ?? [];
+      const regeneratedFoodIds = afterDays.flatMap(day =>
+        (day.meals ?? day.Meals ?? []).flatMap(meal =>
+          (meal.items ?? meal.Items ?? []).map(item => Number(item.foodId ?? item.FoodId))
+            .filter(id => Number.isSafeInteger(id) && id > 0)));
+      for (const forbiddenFoodId of createdFoodIds) {
+        expect(regeneratedFoodIds, 'La comida regenerada no debe incorporar alimentos incompatibles o no verificables').not.toContain(forbiddenFoodId);
+      }
+      expect(regeneratedFoodIds.length, 'La regeneración debe elegir al menos un alimento compatible').toBeGreaterThan(0);
+    });
+
     await test.step('metadatos desconocidos', async () => {
       const warnings = await validateDraft(page, createdFoodIds[2]);
       expect(warnings).toEqual(expect.arrayContaining([
