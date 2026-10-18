@@ -52,6 +52,7 @@ import { MatSelectModule } from '@angular/material/select';
 // Documentación: este componente coordina estado local, validación y llamadas asíncronas; la vista solo refleja ese estado.
 // La pantalla de ajustes separa la edición local del envío persistente para evitar mostrar como guardado un cambio que el backend haya rechazado.
 export class SettingsComponent implements OnInit, OnDestroy {
+  directoryOnly = false;
   form!: FormGroup;
 
   // Los estados actualizados desde HTTP y FileReader son signals para notificar explícitamente a la vista.
@@ -111,6 +112,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    this.directoryOnly = this.route.snapshot.routeConfig?.path === 'directory-profile';
     this.route.queryParamMap.subscribe(params => { this.selectedSettingsTab = params.get('tab') === 'directorio' ? 1 : 0; });
     const browserZone = this.timeZones.detectBrowserTimeZone();
     if (!this.timeZoneOptions.some(zone => zone.id === browserZone)) {
