@@ -14,7 +14,7 @@
         <mat-icon class="page-icon">tune</mat-icon>
         <div>
           <h1 class="page-title">{{ directoryOnly ? (isNutritionist ? 'Publicar mi perfil profesional' : 'Información de la clínica en el directorio') : 'Ajustes de la Clínica' }}</h1>
-          <p class="page-subtitle" *ngIf="directoryOnly && isNutritionist">Completa aquí los datos que verán los pacientes en el directorio y aporta la documentación necesaria para verificar tu perfil.</p>
+          <p class="page-subtitle" *ngIf="directoryOnly && isNutritionist">Completa los datos que verán los pacientes. Puedes publicar sin aportar documentación y solicitar la verificación profesional de forma opcional.</p>
           <p class="page-subtitle" *ngIf="directoryOnly && !isNutritionist">Consulta cómo se muestra la información de tu clínica en los perfiles públicos de DietoExpress.</p>
           <p class="page-subtitle" *ngIf="!directoryOnly">La información aquí configurada aparecerá en los PDF de dietas generados para tus pacientes.</p>
         </div>
@@ -197,12 +197,12 @@
               Mostrar mi perfil en el directorio
             </mat-slide-toggle>
             <p class="directory-help">Solo se publican los datos profesionales que completes en esta página y el nombre de la consulta si lo indicas. Tu email, dirección, teléfono de contacto y datos de pacientes no se muestran en el directorio.</p>
-            <p class="directory-help">La publicación es gratuita y voluntaria. Activar la opción no publica el perfil automáticamente: primero debes completar la información y enviar los documentos de verificación.</p>
+            <p class="directory-help">La publicación es gratuita y voluntaria. Puedes aparecer en el directorio sin enviar documentos. La insignia «Profesional verificado» es opcional y solo se concede tras revisar y aprobar la documentación.</p>
 
             <div class="directory-publication-notice" role="status">
-              <h3><mat-icon>fact_check</mat-icon> Qué necesitas para publicar tu perfil</h3>
+              <h3><mat-icon>fact_check</mat-icon> Publicación y verificación opcional</h3>
               <p>Completa el nombre profesional, ciudad o municipio, provincia, especialidades y una presentación clara de tu experiencia y del tipo de pacientes que atiendes. Si quieres que aparezca el nombre de tu consulta, rellena el campo «Nombre de la clínica o consulta» de esta misma página. La dirección y el teléfono de contacto no se muestran como datos públicos.</p>
-              <p>Para verificar tu perfil, aporta <strong>un documento de identidad</strong> (DNI/NIE o equivalente) y <strong>un título oficial que acredite tu cualificación profesional en nutrición/dietética</strong>. Sube documentos legibles, completos y vigentes cuando corresponda, en PDF, JPG o PNG de hasta 20 MB cada uno. La ficha no será visible hasta que ambos documentos se aprueben y el equipo publique el perfil. Si se rechaza alguno, revisa la nota del equipo y vuelve a enviarlo.</p>
+              <p>Si quieres solicitar la insignia «Profesional verificado», aporta voluntariamente <strong>un documento de identidad</strong> (DNI/NIE o equivalente) y <strong>un título oficial que acredite tu cualificación profesional</strong>. Se admiten PDF, JPG o PNG de hasta 20 MB. La documentación se revisa de forma privada y no se muestra en tu perfil. No necesitas aportar estos documentos para publicar.</p>
               <div class="evidence-upload-row">
                 <div class="evidence-upload-item">
                   <strong>Documento de identidad</strong>
