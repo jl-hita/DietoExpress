@@ -102,6 +102,7 @@
         </mat-card-header>
         <mat-divider></mat-divider>
         <mat-card-content class="card-content">
+          <p class="directory-clinic-notice" *ngIf="form.get('directoryEnabled')?.value">Si quieres que el nombre de tu consulta aparezca en tu perfil público, completa este campo. La dirección y el teléfono se usan para la gestión interna y no se mostrarán en el directorio.</p>
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Nombre de la clínica</mat-label>
             <mat-icon matPrefix>business</mat-icon>
@@ -198,14 +199,14 @@
                 <div class="evidence-upload-item">
                   <strong>Documento de identidad</strong>
                   <span>DNI/NIE o documento identificativo equivalente. PDF, JPG o PNG; máximo 20 MB.</span>
-                  <input #identityFile type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" (change)="uploadDirectoryEvidence($event, 'identity')" />
+                  <input #identityFile type="file" style="display:none" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" (change)="uploadDirectoryEvidence($event, 'identity')" />
                   <small *ngFor="let item of directoryEvidence" [hidden]="item.evidenceType !== 'identity'">{{ item.originalFileName }} — {{ evidenceStatusLabel(item.status) }}<span *ngIf="item.reviewNote"> · {{ item.reviewNote }}</span></small>
                   <button mat-stroked-button type="button" (click)="identityFile.click()" [disabled]="evidenceUploading !== null">{{ evidenceUploading === 'identity' ? 'Enviando…' : 'Aportar identidad' }}</button>
                 </div>
                 <div class="evidence-upload-item">
                   <strong>Titulación profesional</strong>
                   <span>Título oficial relacionado con tu cualificación profesional. PDF, JPG o PNG; máximo 20 MB.</span>
-                  <input #qualificationFile type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" (change)="uploadDirectoryEvidence($event, 'qualification')" />
+                  <input #qualificationFile type="file" style="display:none" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" (change)="uploadDirectoryEvidence($event, 'qualification')" />
                   <small *ngFor="let item of directoryEvidence" [hidden]="item.evidenceType !== 'qualification'">{{ item.originalFileName }} — {{ evidenceStatusLabel(item.status) }}<span *ngIf="item.reviewNote"> · {{ item.reviewNote }}</span></small>
                   <button mat-stroked-button type="button" (click)="qualificationFile.click()" [disabled]="evidenceUploading !== null">{{ evidenceUploading === 'qualification' ? 'Enviando…' : 'Aportar titulación' }}</button>
                 </div>
