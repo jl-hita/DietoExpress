@@ -81,6 +81,16 @@
       </a>
     </div>
     <div class="menu-item superadmin-item" *ngIf="isSuperAdmin">
+      <a mat-list-item routerLink="/admin/directory-verification" routerLinkActive="active-link" (click)="navigateAndClose()">
+        <mat-icon>fact_check</mat-icon><span>Verificación del directorio</span><span class="message-unread-badge" *ngIf="directoryReviewCount > 0" aria-label="Revisiones del directorio pendientes">{{ directoryReviewCount > 99 ? '99+' : directoryReviewCount }}</span>
+      </a>
+    </div>
+    <div class="menu-item superadmin-item" *ngIf="isSuperAdmin">
+      <a mat-list-item routerLink="/admin/directory-verification/review" routerLinkActive="active-link" (click)="navigateAndClose()">
+        <mat-icon>description</mat-icon><span>Revisión documental</span>
+      </a>
+    </div>
+    <div class="menu-item superadmin-item" *ngIf="isSuperAdmin">
       <a mat-list-item routerLink="/admin/legal" routerLinkActive="active-link" (click)="navigateAndClose()">
         <mat-icon>gavel</mat-icon><span>Legal</span>
       </a>
