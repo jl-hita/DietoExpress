@@ -67,7 +67,7 @@
   <p *ngIf="loading" class="status">Cargando...</p>
   <p *ngIf="error" class="status error">{{ error }}</p>
 
-  <p *ngIf="!loading && !error && !profiles.length" class="empty-state">No hemos encontrado profesionales con esos criterios. Prueba a ampliar la zona, quitar filtros o seleccionar consulta online.</p>
+  <p *ngIf="!profile && !loading && !error && !profiles.length" class="empty-state">No hemos encontrado profesionales con esos criterios. Prueba a ampliar la zona, quitar filtros o seleccionar consulta online.</p>
 
   <section *ngIf="!profile && !loading && !error && profiles.length" class="results">
     <article *ngFor="let item of profiles" class="profile-card">

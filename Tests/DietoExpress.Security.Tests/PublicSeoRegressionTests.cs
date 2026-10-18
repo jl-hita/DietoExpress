@@ -36,6 +36,15 @@ public class PublicSeoRegressionTests
     }
 
     [Fact]
+    public void PublicProfile_DoesNotShowDirectoryEmptyState()
+    {
+        var template = File.ReadAllText(Path.Combine(
+            RepoRoot, "anguloso.client", "src", "app", "componentes", "directory", "directory.component.html"));
+
+        Assert.Contains("*ngIf=\"!profile && !loading && !error && !profiles.length\" class=\"empty-state\"", template);
+    }
+
+    [Fact]
     public void PublicDirectory_RoutesRemainPublicAndProfileUsesSlug()
     {
         var routes = File.ReadAllText(Path.Combine(
