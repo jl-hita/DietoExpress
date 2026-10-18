@@ -47,13 +47,29 @@ jobs:
           # Se usa la expresión que disparó el workflow, no la hora de inicio
           # del runner, porque GitHub puede retrasar una ejecución programada.
           local_offset="$(TZ=Europe/Madrid date +%z)"
+          local_month="$(TZ=Europe/Madrid date +%m)"
+          local_day="$(TZ=Europe/Madrid date +%d)"
+          local_weekday="$(TZ=Europe/Madrid date +%u)" # 1=lunes, 7=domingo
+          last_sunday_of_month=false
+          if [[ "$local_day" -ge 25 && "$local_weekday" == "7" ]]; then
+            last_sunday_of_month=true
+          fi
+
+          # Horario normal: 00:00 UTC equivale a 02:00 CEST; 01:00 UTC a 02:00 CET.
+          # Cambio de primavera: 02:00 local no existe, así que se usa 03:00 local ese domingo.
+          # Cambio de otoño: 02:00 ocurre dos veces; solo se ejecuta la primera (CEST).
           if [[ "$local_offset" == "+0200" && "$SCHEDULE_CRON" == "0 0 * * 0" ]] ||
-             [[ "$local_offset" == "+0100" && "$SCHEDULE_CRON" == "0 1 * * 0" ]]; then
+             [[ "$local_offset" == "+0100" && "$SCHEDULE_CRON" == "0 1 * * 0" && ! ( "$local_month" == "10" && "$last_sunday_of_month" == "true" ) ]] ||
+             [[ "$local_offset" == "+0200" && "$SCHEDULE_CRON" == "0 1 * * 0" && "$local_month" == "03" && "$last_sunday_of_month" == "true" ]]; then
             echo "run_e2e=true" >> "$GITHUB_OUTPUT"
-            echo "Esta invocación corresponde a las 02:00 de Europe/Madrid."
+            if [[ "$local_month" == "03" && "$local_weekday" == "7" && "$local_day" -ge 25 && "$SCHEDULE_CRON" == "0 1 * * 0" ]]; then
+              echo "Cambio horario de primavera: esta ejecución es la alternativa de las 03:00 locales."
+            else
+              echo "Esta invocación corresponde a la ejecución semanal de Europe/Madrid."
+            fi
           else
             echo "run_e2e=false" >> "$GITHUB_OUTPUT"
-            echo "Esta invocación UTC no corresponde a las 02:00 locales; no se ejecutarán pruebas."
+            echo "Esta invocación UTC no es la elegida para la ejecución semanal de Europe/Madrid; se omite."
           fi
 
       - name: Detectar si sigue pendiente la revisión visual inicial
