@@ -46,13 +46,15 @@ public sealed class AdminCouponsController : ControllerBase
         var userId = GetUserId();
         try
         {
-            var id = await _context.Database.SqlQueryRaw<long>("""
+            await _context.Database.ExecuteSqlInterpolatedAsync($"""
                 INSERT INTO billing_coupons
                     (code, discount_percent, allowed_plan_codes, allowed_intervals, starts_at, expires_at, created_by_user_id)
-                VALUES ({0}, {1}, {2}, {3}, {4}, {5}, {6})
-                RETURNING id AS "Value"
-                """, code, request.DiscountPercent, request.AllowedPlanCodes, request.AllowedIntervals,
-                request.StartsAt, request.ExpiresAt, userId).SingleAsync(cancellationToken);
+                VALUES ({code}, {request.DiscountPercent}, {request.AllowedPlanCodes}, {request.AllowedIntervals},
+                        {request.StartsAt}, {request.ExpiresAt}, {userId})
+                """, cancellationToken);
+            var id = await _context.Database.SqlQueryRaw<long>("""
+                SELECT currval(pg_get_serial_sequence('billing_coupons', 'id')) AS "Value"
+                """).SingleAsync(cancellationToken);
             return CreatedAtAction(nameof(List), new { id }, new { id, code, request.DiscountPercent });
         }
         catch (DbUpdateException) { return Conflict("Ya existe un cupón con ese código."); }
@@ -72,13 +74,15 @@ public sealed class AdminCouponsController : ControllerBase
 
         var userId = GetUserId();
         await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
-        var campaignId = await _context.Database.SqlQueryRaw<long>("""
+        await _context.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO billing_coupon_campaigns
                 (name, discount_percent, allowed_plan_codes, allowed_intervals, starts_at, expires_at, requested_codes, created_by_user_id)
-            VALUES ({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7})
-            RETURNING id AS "Value"
-            """, name, request.DiscountPercent, request.AllowedPlanCodes, request.AllowedIntervals,
-            request.StartsAt, request.ExpiresAt, request.CodeCount, userId).SingleAsync(cancellationToken);
+            VALUES ({name}, {request.DiscountPercent}, {request.AllowedPlanCodes}, {request.AllowedIntervals},
+                    {request.StartsAt}, {request.ExpiresAt}, {request.CodeCount}, {userId})
+            """, cancellationToken);
+        var campaignId = await _context.Database.SqlQueryRaw<long>("""
+            SELECT currval(pg_get_serial_sequence('billing_coupon_campaigns', 'id')) AS "Value"
+            """).SingleAsync(cancellationToken);
 
         var codes = new List<string>(request.CodeCount);
         for (var i = 0; i < request.CodeCount; i++)
