@@ -153,7 +153,7 @@ public static class ShoppingListRules
                     RoundedGrams = commercial.roundedGrams,
                     CommercialDescription = commercial.commercialDesc,
                     AllergenTags = FormatAllergenTags(food.allergen_tags),
-                    AllergenDataAvailable = food.allergen_tags != null
+                    AllergenDataAvailable = DietaryRestrictionRules.HasKnownAllergenTags(food.allergen_tags)
                 };
             })
             .OrderBy(item => item.Category)
