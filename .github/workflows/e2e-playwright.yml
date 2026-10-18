@@ -2,6 +2,8 @@ name: Playwright E2E
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
 
 permissions:
   contents: read
@@ -20,9 +22,6 @@ jobs:
       E2E_BASE_URL: ${{ vars.E2E_BASE_URL || 'https://jlhitap.duckdns.org' }}
       E2E_USERNAME: ${{ secrets.E2E_USERNAME }}
       E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
-      E2E_ALLERGEN_FOOD_ID: ${{ vars.E2E_ALLERGEN_FOOD_ID }}
-      E2E_TRACE_FOOD_ID: ${{ vars.E2E_TRACE_FOOD_ID }}
-      E2E_UNKNOWN_ALLERGEN_FOOD_ID: ${{ vars.E2E_UNKNOWN_ALLERGEN_FOOD_ID }}
 
     steps:
       - name: Checkout
@@ -40,6 +39,10 @@ jobs:
       - name: Install Chromium
         working-directory: e2e
         run: npx playwright install --with-deps chromium
+
+      - name: Allow production deployment to finish
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: sleep 240
 
       - name: Run browser checks
         working-directory: e2e
