@@ -137,6 +137,20 @@ public sealed class DietaryRestrictionRulesTests
     }
 
     [Fact]
+    public void MergeKnownAllergenTags_CanPreserveTraceTagsIndependentlyFromAllergens()
+    {
+        var allergens = DietaryRestrictionRules.MergeKnownAllergenTags(
+            new[] { "en:milk" }, Array.Empty<string>());
+        var traces = DietaryRestrictionRules.MergeKnownAllergenTags(
+            new[] { "en:peanuts" }, Array.Empty<string>());
+
+        Assert.Equal(new[] { "en:milk" }, allergens);
+        Assert.Equal(new[] { "en:peanuts" }, traces);
+        Assert.DoesNotContain("en:peanuts", allergens!);
+        Assert.DoesNotContain("en:milk", traces!);
+    }
+
+    [Fact]
     public void HasKnownAllergenTags_RequiresAtLeastOneNonBlankTag()
     {
         Assert.False(DietaryRestrictionRules.HasKnownAllergenTags(null));
