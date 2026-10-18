@@ -63,5 +63,32 @@ test.describe('P1 — gestión de dietas desde la interfaz', () => {
     expect(detailResponse.ok(), 'La ficha de la dieta debe poder recuperarse').toBeTruthy();
     const detail = await detailResponse.json();
     expect(detail.name ?? detail.Name).toBe(dietName);
+
+    // Comprobar ambos caminos del diálogo nativo sin afectar a datos preexistentes:
+    // la dieta creada por esta prueba se elimina al confirmar; cancelar no muta el backend.
+    await page.goto('/diets');
+    const search = page.getByPlaceholder('Buscar por nombre de dieta...');
+    await search.fill(dietName);
+    const row = page.locator('tr').filter({ hasText: dietName });
+    await expect(row).toBeVisible({ timeout: 15_000 });
+    let deleteRequests = 0;
+    page.on('request', request => {
+      if (request.method() === 'DELETE' && new URL(request.url()).pathname.endsWith(`/api/dietas/${dietId}`)) deleteRequests++;
+    });
+
+    page.once('dialog', dialog => dialog.dismiss());
+    await row.locator('button.delete-btn').click();
+    await expect(row).toBeVisible();
+    await page.waitForTimeout(300);
+    expect(deleteRequests, 'Cancelar debe conservar la dieta sin enviar DELETE').toBe(0);
+
+    page.once('dialog', dialog => dialog.accept());
+    const deleteResponsePromise = page.waitForResponse(response =>
+      response.request().method() === 'DELETE' &&
+      new URL(response.url()).pathname.endsWith(`/api/dietas/${dietId}`));
+    await row.locator('button.delete-btn').click();
+    const deleteResponse = await deleteResponsePromise;
+    expect([200, 204].includes(deleteResponse.status()), 'Confirmar debe eliminar la dieta de prueba').toBe(true);
+    dietId = 0;
   });
 });

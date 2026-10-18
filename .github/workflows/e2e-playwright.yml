@@ -7,9 +7,17 @@ on:
     - cron: '0 0 * * 0'
     - cron: '0 1 * * 0'
   workflow_dispatch:
+    inputs:
+      rerun_visual_baseline:
+        description: "Repetir la revisión visual/documental inicial tras cambios relevantes"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
+  actions: read
+  issues: write
 
 concurrency:
   group: dietoexpress-playwright-e2e
@@ -48,6 +56,31 @@ jobs:
             echo "Esta invocación UTC no corresponde a las 02:00 locales; no se ejecutarán pruebas."
           fi
 
+      - name: Detectar si sigue pendiente la revisión visual inicial
+        id: baseline
+        if: github.event_name != 'schedule' || steps.schedule.outputs.run_e2e == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FORCE_BASELINE: ${{ inputs.rerun_visual_baseline }}
+        run: |
+          if [[ "$FORCE_BASELINE" == "true" ]]; then
+            echo "run_visual_baseline=true" >> "$GITHUB_OUTPUT"
+            echo "La revisión visual/documental se ha solicitado explícitamente."
+            exit 0
+          fi
+          comments="$(curl --fail --silent --show-error \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/issues/4/comments?per_page=100")"
+          if printf '%s' "$comments" | python3 -c 'import json,sys; data=json.load(sys.stdin); marker="<!-- E2E_VISUAL_BASELINE_PASSED -->"; sys.exit(0 if any(marker in (item.get("body") or "") for item in data) else 1)'; then
+            echo "run_visual_baseline=false" >> "$GITHUB_OUTPUT"
+            echo "La revisión visual/documental inicial ya pasó; no se repite."
+          else
+            echo "run_visual_baseline=true" >> "$GITHUB_OUTPUT"
+            echo "Se ejecutará la revisión visual/documental inicial."
+          fi
+
       - name: Checkout
         if: github.event_name != 'schedule' || steps.schedule.outputs.run_e2e == 'true'
         uses: actions/checkout@v7
@@ -59,18 +92,59 @@ jobs:
           node-version: 22.22.3
 
       - name: Install Playwright test runner
+        id: install
         if: github.event_name != 'schedule' || steps.schedule.outputs.run_e2e == 'true'
         working-directory: e2e
         run: npm install --no-package-lock --no-audit --no-fund
 
       - name: Install Chromium
+        id: chromium
         if: github.event_name != 'schedule' || steps.schedule.outputs.run_e2e == 'true'
         working-directory: e2e
         run: npx playwright install --with-deps chromium
 
-      - name: Run complete Playwright suite
-        if: github.event_name != 'schedule' || steps.schedule.outputs.run_e2e == 'true'
+      - name: Run one-time visual/document baseline
+        id: baseline_tests
+        if: steps.baseline.outputs.run_visual_baseline == 'true' && (github.event_name != 'schedule' || steps.schedule.outputs.run_e2e == 'true')
         working-directory: e2e
+        env:
+          E2E_RUN_VISUAL_BASELINE: 'true'
+        run: npx playwright test tests/visual-baseline.spec.mjs
+
+      - name: Upload visual baseline evidence
+        id: baseline_evidence
+        if: always() && steps.baseline.outputs.run_visual_baseline == 'true' && (github.event_name != 'schedule' || steps.schedule.outputs.run_e2e == 'true')
+        uses: actions/upload-artifact@v6
+        with:
+          name: playwright-visual-baseline-evidence
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Registrar revisión visual/documental completada
+        if: steps.baseline_tests.outcome == 'success' && steps.baseline_evidence.outcome == 'success' && steps.baseline.outputs.run_visual_baseline == 'true' && (github.event_name != 'schedule' || steps.schedule.outputs.run_e2e == 'true')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BODY: |
+            <!-- E2E_VISUAL_BASELINE_PASSED -->
+
+            **Revisión inicial visual/documental Playwright superada.** Las pruebas específicas del baseline pasaron y sus evidencias se subieron correctamente: directorio escritorio/móvil (skeletons, vacío y error), plantilla HTML de email renderizada y PDF generado con datos ficticios adjunto. [Evidencias de la ejecución](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}). No se repite en semanas posteriores salvo fallo o cambio relevante.
+        run: |
+          payload="$(python3 -c 'import json,os; print(json.dumps({"body": os.environ["BODY"]}))')"
+          curl --fail --silent --show-error -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/issues/4/comments" \
+            -d "$payload"
+
+      - name: Run complete Playwright suite
+        id: tests
+        if: always() && steps.install.outcome == 'success' && steps.chromium.outcome == 'success' && (github.event_name != 'schedule' || steps.schedule.outputs.run_e2e == 'true')
+        working-directory: e2e
+        env:
+          E2E_RUN_VISUAL_BASELINE: 'false'
         run: npx playwright test
 
       - name: Upload Playwright report and traces
@@ -83,3 +157,4 @@ jobs:
             e2e/test-results/
           if-no-files-found: ignore
           retention-days: 14
+

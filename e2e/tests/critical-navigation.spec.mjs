@@ -45,6 +45,22 @@ test.describe('P1 — recorridos principales y fronteras de acceso', () => {
       expect(response.status(), `La ruta ${path} no debe devolver error HTTP`).toBeLessThan(400);
       await expect(page.locator('body')).not.toBeEmpty();
       await expect(page.locator('body')).toContainText(/DietoExpress|paciente|dieta|suscripci[oó]n|cita|agenda/i);
+
+      const timing = await page.evaluate(() => {
+        const navigation = performance.getEntriesByType('navigation')[0];
+        const paint = performance.getEntriesByType('paint').find(entry => entry.name === 'first-contentful-paint');
+        return {
+          domContentLoadedMs: navigation?.domContentLoadedEventEnd ?? 0,
+          loadEventMs: navigation?.loadEventEnd ?? 0,
+          firstContentfulPaintMs: paint?.startTime ?? 0,
+        };
+      });
+      expect(timing.domContentLoadedMs, `${path}: DOM listo en menos de 10 s`).toBeGreaterThan(0);
+      expect(timing.domContentLoadedMs, `${path}: DOM listo en menos de 10 s`).toBeLessThan(10_000);
+      expect(timing.loadEventMs, `${path}: evento load en menos de 15 s`).toBeLessThan(15_000);
+      if (timing.firstContentfulPaintMs > 0) {
+        expect(timing.firstContentfulPaintMs, `${path}: primer contenido en menos de 5 s`).toBeLessThan(5_000);
+      }
     }
 
     expect(uncaughtErrors, 'Las pantallas esenciales no deben lanzar excepciones JavaScript').toEqual([]);
