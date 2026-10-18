@@ -161,6 +161,11 @@ public class FoodController : ControllerBase
             exchange_group_id = dto.ExchangeGroupId,
             grams_per_exchange = dto.GramsPerExchange,
             dietary_flags = NormalizeDietaryFlags(dto.DietaryFlags),
+            allergen_tags = NormalizeDietaryFlags(dto.AllergenTags),
+            traces_tags = NormalizeDietaryFlags(dto.TracesTags),
+            allergen_data_status = NormalizeAllergenDataStatus(dto.AllergenDataStatus),
+            allergen_data_source = dto.AllergenDataSource,
+            allergen_data_checked_at = dto.AllergenDataCheckedAt,
             created_at = DateTime.UtcNow,
             last_synced_at = DateTime.UtcNow
         };
@@ -213,6 +218,12 @@ public class FoodController : ControllerBase
         food.exchange_group_id = dto.ExchangeGroupId;
         food.grams_per_exchange = dto.GramsPerExchange;
         food.dietary_flags = NormalizeDietaryFlags(dto.DietaryFlags);
+        // Mantener los metadatos existentes si un cliente antiguo no envía estos campos.
+        if (dto.AllergenTags != null) food.allergen_tags = NormalizeDietaryFlags(dto.AllergenTags);
+        if (dto.TracesTags != null) food.traces_tags = NormalizeDietaryFlags(dto.TracesTags);
+        if (dto.AllergenDataStatus != null) food.allergen_data_status = NormalizeAllergenDataStatus(dto.AllergenDataStatus);
+        if (dto.AllergenDataSource != null) food.allergen_data_source = dto.AllergenDataSource;
+        if (dto.AllergenDataCheckedAt.HasValue) food.allergen_data_checked_at = dto.AllergenDataCheckedAt;
         food.last_synced_at = DateTime.UtcNow;
 
         await _dbContext.SaveChangesAsync();
@@ -266,6 +277,12 @@ public class FoodController : ControllerBase
         }
 
         return result;
+    }
+
+    private static string NormalizeAllergenDataStatus(string? status)
+    {
+        var normalized = status?.Trim().ToLowerInvariant();
+        return normalized is "reported" or "incomplete" or "stale" ? normalized : "unknown";
     }
 
     private static string[] NormalizeDietaryFlags(IEnumerable<string>? flags)

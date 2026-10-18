@@ -2,6 +2,8 @@ name: Playwright E2E
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
 
 permissions:
   contents: read
@@ -37,6 +39,10 @@ jobs:
       - name: Install Chromium
         working-directory: e2e
         run: npx playwright install --with-deps chromium
+
+      - name: Allow production deployment to finish
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: sleep 240
 
       - name: Run browser checks
         working-directory: e2e
