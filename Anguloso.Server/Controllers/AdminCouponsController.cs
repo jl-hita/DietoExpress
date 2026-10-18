@@ -44,6 +44,7 @@ public sealed class AdminCouponsController : ControllerBase
         if (request.StartsAt.HasValue && request.ExpiresAt.HasValue && request.ExpiresAt <= request.StartsAt)
             return BadRequest("La fecha de caducidad debe ser posterior al inicio.");
         var userId = GetUserId();
+        await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
         try
         {
             await _context.Database.ExecuteSqlInterpolatedAsync($"""
@@ -55,10 +56,11 @@ public sealed class AdminCouponsController : ControllerBase
             var id = await _context.Database.SqlQueryRaw<long>("""
                 SELECT currval(pg_get_serial_sequence('billing_coupons', 'id')) AS "Value"
                 """).SingleAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
             return CreatedAtAction(nameof(List), new { id }, new { id, code, request.DiscountPercent });
         }
         catch (DbUpdateException) { return Conflict("Ya existe un cupón con ese código."); }
-        catch (Exception ex) when (ex.InnerException is Npgsql.PostgresException pg && pg.SqlState == "23505")
+        catch (Npgsql.PostgresException ex) when (ex.SqlState == "23505")
         { return Conflict("Ya existe un cupón con ese código."); }
     }
 
