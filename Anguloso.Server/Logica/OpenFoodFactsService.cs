@@ -824,7 +824,11 @@ public class OpenFoodFactsService
             food.brands = product.Brands;
             food.category = product.Category;
             food.nutriscore = NormalizeNutriscore(product.Nutriscore_grade);
-            food.allergen_tags = product.Allergens_tags?.Distinct(StringComparer.OrdinalIgnoreCase).ToArray() ?? food.allergen_tags;
+            // An empty/missing OFF array is not proof that the product has no allergens. Preserve
+            // previously known tags; keep null/empty for new products so validation marks data unknown.
+            food.allergen_tags = product.Allergens_tags is { Length: > 0 }
+                ? product.Allergens_tags.Distinct(StringComparer.OrdinalIgnoreCase).ToArray()
+                : food.allergen_tags;
 
             // =========================
             // Serving size
