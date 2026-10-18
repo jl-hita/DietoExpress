@@ -49,3 +49,13 @@ test.describe('P1 — validación local de la consulta online', () => {
     await expect(page.getByRole('button', { name: 'Reintentar conexión' })).toBeVisible();
   });
 });
+
+test.describe('P0 — rutas profesionales y administrativas sin sesión', () => {
+  for (const route of ['/appointments', '/clients', '/diets', '/messages', '/documents', '/admin', '/admin/coupons', '/admin/legal']) {
+    test(`redirige ${route} al acceso cuando no hay sesión`, async ({ page }) => {
+      await page.goto(route);
+      await expect(page).toHaveURL(/\\/login(?:[/?#]|$)/, { timeout: 10_000 });
+      await expect(page.getByRole('heading', { name: 'Inicia sesión' })).toBeVisible();
+    });
+  }
+});
