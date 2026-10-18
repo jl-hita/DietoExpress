@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 // Baseline only: the workflow enables this file until one successful run has
-// uploaded the playwright-visual-baseline-passed marker artifact.
+// recorded the E2E_VISUAL_BASELINE_PASSED marker in roadmap issue #4.
 test.skip(process.env.E2E_RUN_VISUAL_BASELINE !== 'true',
   'La revisión visual/documental inicial ya pasó; se repite solo tras fallo o cambio relevante.');
 
