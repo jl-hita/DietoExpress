@@ -20,7 +20,11 @@ public sealed class FoodSubstitutionService
         string target,
         IReadOnlyCollection<string>? excludedFlags,
         int limit,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? allergies = null,
+        bool glutenIntolerance = false,
+        bool lactoseIntolerance = false,
+        bool fodmapsIntolerance = false)
     {
         var source = await _context.foods.AsNoTracking()
             .Where(f => f.id == foodId)
@@ -49,7 +53,8 @@ public sealed class FoodSubstitutionService
             .Select(f => new
             {
                 f.id, f.name, f.brands, f.category, f.kcal, f.protein, f.carbs, f.fat,
-                f.default_grams, f.exchange_group_id, f.dietary_flags
+                f.default_grams, f.exchange_group_id, f.dietary_flags,
+                f.allergen_tags, f.traces_tags, f.allergen_data_status
             })
             .Take(500)
             .ToListAsync(cancellationToken);
@@ -57,8 +62,32 @@ public sealed class FoodSubstitutionService
         if (excluded.Count > 0)
         {
             candidates = candidates
-                .Where(f => f.dietary_flags == null ||
-                            !f.dietary_flags.Any(flag => excluded.Contains(flag)))
+                .Where(f => !(f.dietary_flags ?? Array.Empty<string>())
+                    .Concat(f.allergen_tags ?? Array.Empty<string>())
+                    .Concat(f.traces_tags ?? Array.Empty<string>())
+                    .Any(flag => excluded.Contains(flag)))
+                .ToList();
+        }
+
+        var forbiddenTerms = DietaryRestrictionRules.BuildForbiddenTerms(
+            allergies, glutenIntolerance, lactoseIntolerance, fodmapsIntolerance);
+        if (forbiddenTerms.Count > 0)
+        {
+            candidates = candidates
+                .Where(f =>
+                {
+                    var allergenTags = (f.allergen_tags ?? Array.Empty<string>())
+                        .Concat(f.traces_tags ?? Array.Empty<string>())
+                        .ToArray();
+                    return DietaryRestrictionRules.IsFoodAllowed(
+                               f.name, f.category,
+                               (f.dietary_flags ?? Array.Empty<string>())
+                                   .Concat(f.allergen_tags ?? Array.Empty<string>())
+                                   .Concat(f.traces_tags ?? Array.Empty<string>()),
+                               forbiddenTerms) &&
+                           !DietaryRestrictionRules.HasUnknownAllergenData(
+                               allergies, allergenTags, f.allergen_data_status);
+                })
                 .ToList();
         }
 
