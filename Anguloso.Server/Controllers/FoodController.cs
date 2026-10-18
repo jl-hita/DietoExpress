@@ -218,11 +218,12 @@ public class FoodController : ControllerBase
         food.exchange_group_id = dto.ExchangeGroupId;
         food.grams_per_exchange = dto.GramsPerExchange;
         food.dietary_flags = NormalizeDietaryFlags(dto.DietaryFlags);
-        food.allergen_tags = NormalizeDietaryFlags(dto.AllergenTags);
-        food.traces_tags = NormalizeDietaryFlags(dto.TracesTags);
-        food.allergen_data_status = NormalizeAllergenDataStatus(dto.AllergenDataStatus);
-        food.allergen_data_source = dto.AllergenDataSource;
-        food.allergen_data_checked_at = dto.AllergenDataCheckedAt;
+        // Mantener los metadatos existentes si un cliente antiguo no envía estos campos.
+        if (dto.AllergenTags != null) food.allergen_tags = NormalizeDietaryFlags(dto.AllergenTags);
+        if (dto.TracesTags != null) food.traces_tags = NormalizeDietaryFlags(dto.TracesTags);
+        if (dto.AllergenDataStatus != null) food.allergen_data_status = NormalizeAllergenDataStatus(dto.AllergenDataStatus);
+        if (dto.AllergenDataSource != null) food.allergen_data_source = dto.AllergenDataSource;
+        if (dto.AllergenDataCheckedAt.HasValue) food.allergen_data_checked_at = dto.AllergenDataCheckedAt;
         food.last_synced_at = DateTime.UtcNow;
 
         await _dbContext.SaveChangesAsync();
