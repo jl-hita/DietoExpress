@@ -151,11 +151,11 @@ test.describe('P0 — directorio público: búsqueda, perfil y solicitudes (API 
   });
 
   test('un perfil inexistente muestra un error claro sin provocar excepciones', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
     await page.route('**/directory/professionals/not-found-e2e', route => route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ message: 'No encontrado' }) }));
     await page.goto('/nutricionistas/not-found-e2e');
     await expect(page.getByRole('alert')).toContainText('No se ha encontrado el profesional solicitado.');
-    const errors = [];
-    page.on('pageerror', error => errors.push(error.message));
     expect(errors).toEqual([]);
   });
 
