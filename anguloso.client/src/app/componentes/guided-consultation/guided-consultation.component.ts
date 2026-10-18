@@ -56,6 +56,7 @@ interface GuidedConsultationResponse {
         </div>
         <div class="header-actions">
           <button mat-flat-button color="primary" type="button" *ngIf="data.appointment.modality === 'online' && consultation?.status !== 'completed'" (click)="openOnlineConsultation()"><mat-icon>videocam</mat-icon> Entrar en consulta online</button>
+          <button mat-stroked-button type="button" *ngIf="consultation?.status !== 'completed'" (click)="toggleQuickMode()"><mat-icon>{{ quickMode ? 'view_agenda' : 'bolt' }}</mat-icon>{{ quickMode ? 'Flujo completo' : 'Consulta rápida' }}</button>
           <span class="status" [class.completed]="consultation?.status === 'completed'">
             {{ consultation?.status === 'completed' ? 'Completada' : 'En curso' }}
           </span>
@@ -65,7 +66,7 @@ interface GuidedConsultationResponse {
 
       <div class="flow-layout">
         <aside class="stepper">
-          <button type="button" *ngFor="let step of steps; let i = index"
+          <button type="button" *ngFor="let step of visibleSteps; let i = index"
             [class.active]="step.key === currentStep"
             [class.done]="isCompleted(step.key)"
             (click)="goToStep(step.key)">
@@ -95,6 +96,11 @@ interface GuidedConsultationResponse {
             <div class="signal-panel" *ngIf="preConsultationSignals.length">
               <h3>Señales para revisar</h3>
               <div class="signal-list"><span *ngFor="let signal of preConsultationSignals">{{ signal.label }}<b *ngIf="signal.value !== null && signal.value !== undefined">{{ signal.value }}</b></span></div>
+              <div class="recommendations" *ngIf="contextualRecommendations.length">
+                <h4>Ideas para abordar con el paciente</h4>
+                <ul><li *ngFor="let recommendation of contextualRecommendations">{{ recommendation }}</li></ul>
+                <button mat-stroked-button type="button" (click)="openPatientMessages()"><mat-icon>chat</mat-icon> Abrir conversación</button>
+              </div>
             </div>
             <div class="pre-summary" *ngIf="!isFirstConsultation && (previousAppointment || preConsultationTasks.length)">
               <div class="summary-card" *ngIf="previousAppointment"><span>Consulta anterior</span><strong>{{ previousAppointment.starts_at | date:'dd/MM/yyyy' }}</strong><small>{{ previousAppointment.professional_notes || 'Sin notas registradas.' }}</small></div>
@@ -161,7 +167,8 @@ interface GuidedConsultationResponse {
                 <textarea rows="5" [(ngModel)]="decisionSummary" (blur)="saveClinicalProgress()" placeholder="Decisiones tomadas, ajustes aprobados y acuerdos con el paciente…"></textarea>
               </label>
               <label>Acciones y tareas acordadas
-                <textarea rows="5" [(ngModel)]="actionsSummary" (blur)="saveClinicalProgress()" placeholder="Qué se hará, quién lo hará y qué debe quedar resuelto…"></textarea>
+                <textarea rows="5" [(ngModel)]="actionsSummary" (blur)="saveClinicalProgress()" placeholder="Una acción por línea. Al cerrar la consulta, cada línea se convertirá en una tarea pendiente…"></textarea>
+                <small>Al cerrar, las líneas no vacías se crearán como tareas abiertas del paciente. Puedes escribir una acción por línea o usar viñetas.</small>
               </label>
               <label>Observaciones clínicas
                 <textarea rows="5" [(ngModel)]="clinicalNotes" (blur)="saveClinicalProgress()" placeholder="Observaciones relevantes de la consulta…"></textarea>
@@ -206,6 +213,10 @@ interface GuidedConsultationResponse {
             </div>
             <small class="save-state" *ngIf="clinicalSaveState === 'saving'">Guardando…</small>
             <small class="save-state saved" *ngIf="clinicalSaveState === 'saved'">Guardado</small>
+            <div class="actions" *ngIf="clinicalSaveState === 'error'">
+              <small class="save-state">No se han guardado los cambios.</small>
+              <button mat-stroked-button type="button" (click)="saveClinicalProgress()">Reintentar guardado</button>
+            </div>
           </section>
 
           <section class="card" *ngIf="currentStep === 'tasks'">
@@ -264,7 +275,19 @@ interface GuidedConsultationResponse {
 
           <section class="card close-card" *ngIf="currentStep === 'close'">
             <div class="card-title"><mat-icon>check_circle</mat-icon><div><h2>Cerrar consulta</h2><p>Al cerrar se marca la consulta como completada y, si procede, la cita como completada.</p></div></div>
-            <button mat-flat-button color="primary" type="button" (click)="completeConsultation()" [disabled]="consultation?.status === 'completed' || completing">
+            <div class="quick-form">
+              <h3>Acciones posteriores</h3>
+              <div class="actions" *ngIf="clinicalSaveState === 'error'">
+                <span class="save-state">Hay cambios sin guardar. Reintenta el guardado antes de cerrar.</span>
+                <button mat-stroked-button type="button" (click)="saveClinicalProgress()">Reintentar guardado</button>
+              </div>
+              <p>Al cerrar se generarán las tareas a partir de las acciones acordadas. Después puedes revisar la ficha, la documentación y los mensajes del paciente.</p>
+              <div class="actions">
+                <button mat-stroked-button type="button" (click)="openPatient()"><mat-icon>folder_open</mat-icon> Ficha y documentación</button>
+                <button mat-stroked-button type="button" (click)="openPatientMessages()"><mat-icon>chat</mat-icon> Mensajes</button>
+              </div>
+            </div>
+            <button mat-flat-button color="primary" type="button" (click)="completeConsultation()" [disabled]="consultation?.status === 'completed' || completing || clinicalSaveState === 'saving' || clinicalSaveState === 'error'">
               <mat-icon>{{ completing ? 'hourglass_top' : 'check' }}</mat-icon>
               {{ completing ? 'Cerrando…' : 'Cerrar consulta' }}
             </button>
@@ -272,10 +295,10 @@ interface GuidedConsultationResponse {
 
           <footer class="navigation">
             <button mat-stroked-button type="button" (click)="previousStep()" [disabled]="stepIndex === 0"><mat-icon>arrow_back</mat-icon> Anterior</button>
-            <button mat-flat-button color="primary" type="button" (click)="nextStep()" *ngIf="stepIndex < steps.length - 1">
+            <button mat-flat-button color="primary" type="button" (click)="nextStep()" *ngIf="stepIndex < visibleSteps.length - 1">
               {{ isCompleted(currentStep) ? 'Siguiente' : 'Marcar paso y continuar' }} <mat-icon>arrow_forward</mat-icon>
             </button>
-            <button mat-stroked-button type="button" *ngIf="stepIndex === steps.length - 1" (click)="goToStep('summary')"><mat-icon>replay</mat-icon> Volver al resumen</button>
+            <button mat-stroked-button type="button" *ngIf="stepIndex === visibleSteps.length - 1" (click)="goToStep('summary')"><mat-icon>replay</mat-icon> Volver al resumen</button>
           </footer>
         </main>
       </div>
@@ -284,7 +307,7 @@ interface GuidedConsultationResponse {
     <div class="loading" *ngIf="loading"><mat-spinner diameter="40"></mat-spinner><span>Preparando consulta…</span></div>
   `,
   styles: [`
-    .consultation-page{width:100%;padding:28px 24px 44px;box-sizing:border-box}.consultation-header{display:flex;justify-content:space-between;gap:20px;align-items:flex-end;margin-bottom:22px}.eyebrow{font-size:11px;font-weight:800;letter-spacing:1.2px;color:#0f766e}.consultation-header h1{margin:5px 0 4px;font-size:30px;color:#0f172a}.consultation-header p{margin:0;color:#64748b}.header-actions{display:flex;align-items:center;gap:12px}.status{padding:7px 11px;border-radius:999px;background:#fef3c7;color:#92400e;font-size:12px;font-weight:700}.status.completed{background:#dcfce7;color:#166534}.flow-layout{display:grid;grid-template-columns:280px minmax(0,1fr);gap:20px;align-items:start}.stepper{position:sticky;top:18px;display:grid;gap:6px}.stepper button{border:1px solid transparent;background:#f8fafc;border-radius:11px;padding:10px;text-align:left;display:flex;gap:10px;align-items:center;cursor:pointer}.stepper button.active{background:#ecfeff;border-color:#99f6e4}.stepper button.done{background:#f0fdf4}.step-number{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#e2e8f0;color:#475569;font-size:12px;font-weight:700;flex:none}.stepper button.active .step-number{background:#0f766e;color:#fff}.stepper button.done .step-number{background:#16a34a;color:#fff}.stepper strong{display:block;font-size:12px;color:#0f172a}.stepper small{display:block;color:#64748b;font-size:10px;margin-top:2px}.step-content{min-width:0}.card{background:#fff;border:1px solid #e2e8f0;border-radius:15px;padding:22px;min-height:270px;box-sizing:border-box}.card-title{display:flex;gap:12px;align-items:flex-start;margin-bottom:20px}.card-title>mat-icon{color:#0f766e}.card-title h2{margin:0 0 4px;font-size:20px;color:#0f172a}.card-title p{margin:0;color:#64748b;font-size:12px}.summary-grid,.metric-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.history-table{border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin:14px 0}.history-row{display:grid;grid-template-columns:1.2fr repeat(4,1fr);gap:8px;padding:10px 12px;border-top:1px solid #e2e8f0;font-size:12px;color:#334155}.history-head{border-top:0;background:#f8fafc;font-weight:700;color:#64748b}.task-list{display:grid;gap:8px;margin-bottom:16px}.pre-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}.summary-card{padding:14px;border:1px solid #e2e8f0;border-radius:11px;background:#fff;display:grid;gap:5px}.summary-card span{font-size:11px;color:#64748b}.summary-card strong{font-size:16px;color:#0f172a}.summary-card small{font-size:11px;color:#64748b}.mode-banner{display:flex;gap:10px;align-items:flex-start;padding:14px;border:1px solid #cbd5e1;border-radius:11px;background:#f8fafc;margin-bottom:16px}.mode-banner>mat-icon{color:#0f766e}.mode-banner strong{display:block;font-size:13px;color:#0f172a}.mode-banner span{display:block;margin-top:3px;font-size:12px;color:#64748b;line-height:1.45}.mode-banner.followup{background:#eff6ff;border-color:#bfdbfe}.mode-banner.followup>mat-icon{color:#2563eb}.signal-panel{margin-bottom:18px;padding:15px;border:1px solid #fed7aa;border-radius:11px;background:#fff7ed}.signal-panel h3{margin:0 0 10px;font-size:14px}.signal-list{display:flex;flex-wrap:wrap;gap:8px}.signal-list span{padding:7px 10px;border-radius:999px;background:#ffedd5;font-size:12px;color:#9a3412}.signal-list b{margin-left:4px}.quick-form{margin-top:18px;padding:15px;border:1px solid #e2e8f0;border-radius:11px;background:#f8fafc}.quick-form h3{margin:0 0 12px;font-size:14px;color:#0f172a}.inline-fields{display:flex;gap:12px;flex-wrap:wrap}.inline-fields label{flex:1;min-width:130px;display:grid;gap:6px;font-size:11px;font-weight:700;color:#334155}.inline-fields input,.inline-fields select{box-sizing:border-box;width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:9px;background:#fff;font:inherit}.slot-status{align-self:end;padding:10px;color:#64748b;font-size:12px}.slot-list{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.slot-list button{border:1px solid #cbd5e1;background:#fff;border-radius:9px;padding:9px 11px;cursor:pointer;color:#334155}.slot-list button.selected{border-color:#0f766e;background:#ecfeff;color:#0f766e;font-weight:700}.task-item{display:flex;justify-content:space-between;gap:12px;padding:12px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc}.task-item strong{display:block;font-size:13px;color:#0f172a}.task-item small{display:block;margin-top:3px;color:#64748b;font-size:11px}.task-item>span{font-size:10px;font-weight:800;text-transform:uppercase;color:#0f766e}.form-grid{display:grid;gap:16px}.form-grid label{display:grid;gap:7px;font-size:12px;font-weight:700;color:#334155}.form-grid textarea{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:10px;padding:12px;font:inherit;font-weight:400;resize:vertical;min-height:90px}.save-state{display:block;margin-top:8px;color:#64748b}.save-state.saved{color:#15803d}.change-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.change-grid span{padding:7px 10px;border-radius:999px;background:#ecfeff;color:#0f766e;font-size:11px;font-weight:700}.summary-grid>div,.metric-grid>div{padding:14px;border-radius:10px;background:#f8fafc}.summary-grid span,.metric-grid span{display:block;color:#64748b;font-size:11px}.summary-grid strong,.metric-grid strong{display:block;margin-top:4px;color:#0f172a;font-size:14px}.helper{padding:14px;border-radius:10px;background:#f8fafc;color:#64748b;font-size:13px;line-height:1.5;margin-bottom:15px}.placeholder{min-height:130px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#94a3b8;text-align:center}.placeholder mat-icon{font-size:38px;width:38px;height:38px}.actions{display:flex;align-items:center;gap:12px;margin-top:18px}.reviewed{display:flex;align-items:center;gap:6px;color:#15803d;font-size:12px}.navigation{display:flex;justify-content:space-between;gap:10px;margin-top:16px}.empty{min-height:120px;display:flex;align-items:center;justify-content:center;gap:8px;color:#94a3b8}.loading{min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#64748b}@media(max-width:850px){.consultation-page{padding:20px 14px 36px}.consultation-header{align-items:stretch;flex-direction:column}.header-actions{justify-content:space-between}.flow-layout{grid-template-columns:1fr}.stepper{position:static;display:flex;overflow:auto;padding-bottom:3px}.stepper button{min-width:190px}.summary-grid,.metric-grid{grid-template-columns:1fr}.history-row{grid-template-columns:1fr 1fr}.history-head{display:none}}
+    .consultation-page{width:100%;padding:28px 24px 44px;box-sizing:border-box}.consultation-header{display:flex;justify-content:space-between;gap:20px;align-items:flex-end;margin-bottom:22px}.eyebrow{font-size:11px;font-weight:800;letter-spacing:1.2px;color:#0f766e}.consultation-header h1{margin:5px 0 4px;font-size:30px;color:#0f172a}.consultation-header p{margin:0;color:#64748b}.header-actions{display:flex;align-items:center;gap:12px}.status{padding:7px 11px;border-radius:999px;background:#fef3c7;color:#92400e;font-size:12px;font-weight:700}.status.completed{background:#dcfce7;color:#166534}.flow-layout{display:grid;grid-template-columns:280px minmax(0,1fr);gap:20px;align-items:start}.stepper{position:sticky;top:18px;display:grid;gap:6px}.stepper button{border:1px solid transparent;background:#f8fafc;border-radius:11px;padding:10px;text-align:left;display:flex;gap:10px;align-items:center;cursor:pointer}.stepper button.active{background:#ecfeff;border-color:#99f6e4}.stepper button.done{background:#f0fdf4}.step-number{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#e2e8f0;color:#475569;font-size:12px;font-weight:700;flex:none}.stepper button.active .step-number{background:#0f766e;color:#fff}.stepper button.done .step-number{background:#16a34a;color:#fff}.stepper strong{display:block;font-size:12px;color:#0f172a}.stepper small{display:block;color:#64748b;font-size:10px;margin-top:2px}.step-content{min-width:0}.card{background:#fff;border:1px solid #e2e8f0;border-radius:15px;padding:22px;min-height:270px;box-sizing:border-box}.card-title{display:flex;gap:12px;align-items:flex-start;margin-bottom:20px}.card-title>mat-icon{color:#0f766e}.card-title h2{margin:0 0 4px;font-size:20px;color:#0f172a}.card-title p{margin:0;color:#64748b;font-size:12px}.summary-grid,.metric-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.history-table{border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin:14px 0}.history-row{display:grid;grid-template-columns:1.2fr repeat(4,1fr);gap:8px;padding:10px 12px;border-top:1px solid #e2e8f0;font-size:12px;color:#334155}.history-head{border-top:0;background:#f8fafc;font-weight:700;color:#64748b}.task-list{display:grid;gap:8px;margin-bottom:16px}.pre-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}.summary-card{padding:14px;border:1px solid #e2e8f0;border-radius:11px;background:#fff;display:grid;gap:5px}.summary-card span{font-size:11px;color:#64748b}.summary-card strong{font-size:16px;color:#0f172a}.summary-card small{font-size:11px;color:#64748b}.mode-banner{display:flex;gap:10px;align-items:flex-start;padding:14px;border:1px solid #cbd5e1;border-radius:11px;background:#f8fafc;margin-bottom:16px}.mode-banner>mat-icon{color:#0f766e}.mode-banner strong{display:block;font-size:13px;color:#0f172a}.mode-banner span{display:block;margin-top:3px;font-size:12px;color:#64748b;line-height:1.45}.mode-banner.followup{background:#eff6ff;border-color:#bfdbfe}.mode-banner.followup>mat-icon{color:#2563eb}.signal-panel{margin-bottom:18px;padding:15px;border:1px solid #fed7aa;border-radius:11px;background:#fff7ed}.signal-panel h3{margin:0 0 10px;font-size:14px}.signal-list{display:flex;flex-wrap:wrap;gap:8px}.signal-list span{padding:7px 10px;border-radius:999px;background:#ffedd5;font-size:12px;color:#9a3412}.signal-list b{margin-left:4px}.recommendations{margin-top:14px;padding-top:12px;border-top:1px solid #fed7aa}.recommendations h4{margin:0 0 8px;font-size:12px;color:#7c2d12}.recommendations ul{margin:0 0 12px;padding-left:20px;color:#7c2d12;font-size:12px;line-height:1.6}.quick-form{margin-top:18px;padding:15px;border:1px solid #e2e8f0;border-radius:11px;background:#f8fafc}.quick-form h3{margin:0 0 12px;font-size:14px;color:#0f172a}.inline-fields{display:flex;gap:12px;flex-wrap:wrap}.inline-fields label{flex:1;min-width:130px;display:grid;gap:6px;font-size:11px;font-weight:700;color:#334155}.inline-fields input,.inline-fields select{box-sizing:border-box;width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:9px;background:#fff;font:inherit}.slot-status{align-self:end;padding:10px;color:#64748b;font-size:12px}.slot-list{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.slot-list button{border:1px solid #cbd5e1;background:#fff;border-radius:9px;padding:9px 11px;cursor:pointer;color:#334155}.slot-list button.selected{border-color:#0f766e;background:#ecfeff;color:#0f766e;font-weight:700}.task-item{display:flex;justify-content:space-between;gap:12px;padding:12px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc}.task-item strong{display:block;font-size:13px;color:#0f172a}.task-item small{display:block;margin-top:3px;color:#64748b;font-size:11px}.task-item>span{font-size:10px;font-weight:800;text-transform:uppercase;color:#0f766e}.form-grid{display:grid;gap:16px}.form-grid label{display:grid;gap:7px;font-size:12px;font-weight:700;color:#334155}.form-grid textarea{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:10px;padding:12px;font:inherit;font-weight:400;resize:vertical;min-height:90px}.save-state{display:block;margin-top:8px;color:#64748b}.save-state.saved{color:#15803d}.change-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.change-grid span{padding:7px 10px;border-radius:999px;background:#ecfeff;color:#0f766e;font-size:11px;font-weight:700}.summary-grid>div,.metric-grid>div{padding:14px;border-radius:10px;background:#f8fafc}.summary-grid span,.metric-grid span{display:block;color:#64748b;font-size:11px}.summary-grid strong,.metric-grid strong{display:block;margin-top:4px;color:#0f172a;font-size:14px}.helper{padding:14px;border-radius:10px;background:#f8fafc;color:#64748b;font-size:13px;line-height:1.5;margin-bottom:15px}.placeholder{min-height:130px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#94a3b8;text-align:center}.placeholder mat-icon{font-size:38px;width:38px;height:38px}.actions{display:flex;align-items:center;gap:12px;margin-top:18px}.reviewed{display:flex;align-items:center;gap:6px;color:#15803d;font-size:12px}.navigation{display:flex;justify-content:space-between;gap:10px;margin-top:16px}.empty{min-height:120px;display:flex;align-items:center;justify-content:center;gap:8px;color:#94a3b8}.loading{min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#64748b}@media(max-width:850px){.consultation-page{padding:20px 14px 36px}.consultation-header{align-items:stretch;flex-direction:column}.header-actions{justify-content:space-between}.flow-layout{grid-template-columns:1fr}.stepper{position:static;display:flex;overflow:auto;padding-bottom:3px}.stepper button{min-width:190px}.summary-grid,.metric-grid{grid-template-columns:1fr}.history-row{grid-template-columns:1fr 1fr}.history-head{display:none}}
   `]
 })
 export class GuidedConsultationComponent implements OnInit {
@@ -312,6 +335,7 @@ export class GuidedConsultationComponent implements OnInit {
   decisionSummary = '';
   actionsSummary = '';
   nextConsultationPlan = '';
+  private clinicalSaveQueued = false;
   private readonly clinicalSaveStateState = signal<'idle' | 'saving' | 'saved' | 'error'>('idle');
   get clinicalSaveState(): 'idle' | 'saving' | 'saved' | 'error' { return this.clinicalSaveStateState(); }
   set clinicalSaveState(value: 'idle' | 'saving' | 'saved' | 'error') { this.clinicalSaveStateState.set(value); }
@@ -337,6 +361,12 @@ export class GuidedConsultationComponent implements OnInit {
   get consultationSlots(): AppointmentSlot[] { return this.consultationSlotsState(); }
   set consultationSlots(value: AppointmentSlot[]) { this.consultationSlotsState.set(value); }
   slotDuration = 30;
+  quickMode = false;
+  get visibleSteps(): ConsultationStep[] {
+    if (!this.quickMode) return this.steps;
+    const quickKeys = new Set(['summary', 'goals', 'diet', 'tasks', 'close']);
+    return this.steps.filter(step => quickKeys.has(step.key));
+  }
   selectedSlot: string | null = null;
   private readonly slotsLoadingState = signal(false);
   get slotsLoading(): boolean { return this.slotsLoadingState(); }
@@ -365,6 +395,20 @@ export class GuidedConsultationComponent implements OnInit {
 
   get isFirstConsultation(): boolean {
     return this.data?.suggestedConsultationType === 'first' || this.consultation?.consultationType === 'first';
+  }
+
+  get contextualRecommendations(): string[] {
+    const recommendations: Record<string, string> = {
+      adherence_low: 'Explorar barreras prácticas y acordar un cambio pequeño y realista.',
+      hunger_high: 'Revisar saciedad, distribución de comidas y tolerancia al plan actual.',
+      energy_low: 'Preguntar por descanso, rutina, ingesta y cambios recientes antes de ajustar el plan.',
+      sleep_quality_low: 'Explorar factores que estén afectando al descanso y acordar qué conviene revisar.',
+      sleep_hours_low: 'Revisar horarios y duración del sueño, sin atribuir la causa de antemano.',
+      training_low: 'Comprobar cambios en actividad, recuperación y objetivos de movimiento.'
+    };
+    return (this.preConsultationSignals || [])
+      .map(signal => recommendations[signal.code])
+      .filter((value): value is string => !!value);
   }
 
   get latestBiometric(): any | null {
@@ -415,6 +459,7 @@ export class GuidedConsultationComponent implements OnInit {
           if (this.stepIndex < 0) this.stepIndex = 0;
           this.currentStep = this.steps[this.stepIndex].key;
           this.loading = false;
+          if (this.currentStep === 'next_appointment') this.loadConsultationSlots();
         } else {
           this.portalService.startGuidedConsultation(appointmentId, value.suggestedConsultationType).subscribe({
             next: consultation => {
@@ -482,11 +527,9 @@ export class GuidedConsultationComponent implements OnInit {
     });
   }
 
-  saveClinicalProgress(): void {
-    if (!this.consultation || !this.data || this.clinicalSaveState === 'saving') return;
-    this.clinicalSaveState = 'saving';
-    const progress = {
-      ...(this.consultation.progress || {}),
+  private buildClinicalProgress(): Record<string, unknown> {
+    return {
+      ...(this.consultation?.progress || {}),
       goals: this.goalsText.trim(),
       education: this.educationText.trim(),
       clinicalNotes: this.clinicalNotes.trim(),
@@ -494,16 +537,35 @@ export class GuidedConsultationComponent implements OnInit {
       actionsSummary: this.actionsSummary.trim(),
       nextConsultationPlan: this.nextConsultationPlan.trim()
     };
+  }
+
+  private flushQueuedClinicalSave(): void {
+    if (!this.clinicalSaveQueued) return;
+    this.clinicalSaveQueued = false;
+    this.saveClinicalProgress();
+  }
+
+  saveClinicalProgress(): void {
+    if (!this.consultation || !this.data || this.consultation.status === 'completed') return;
+    if (this.clinicalSaveState === 'saving') {
+      this.clinicalSaveQueued = true;
+      return;
+    }
+    this.clinicalSaveState = 'saving';
     this.portalService.updateGuidedConsultationProgress(this.data.appointment.id, {
       currentStep: this.currentStep,
       completedSteps: this.consultation.completedSteps || [],
-      progress
+      progress: this.buildClinicalProgress()
     }).subscribe({
       next: value => {
         this.consultation = value;
         this.clinicalSaveState = 'saved';
+        this.flushQueuedClinicalSave();
       },
-      error: () => this.clinicalSaveState = 'error'
+      error: () => {
+        this.clinicalSaveState = 'error';
+        this.flushQueuedClinicalSave();
+      }
     });
   }
 
@@ -511,26 +573,39 @@ export class GuidedConsultationComponent implements OnInit {
     return !!this.consultation?.completedSteps?.includes(step);
   }
 
+  toggleQuickMode(): void {
+    this.quickMode = !this.quickMode;
+    if (!this.visibleSteps.some(step => step.key === this.currentStep)) {
+      this.currentStep = 'summary';
+      this.stepIndex = 0;
+      this.saveProgress();
+    } else {
+      this.stepIndex = this.visibleSteps.findIndex(step => step.key === this.currentStep);
+    }
+  }
+
   goToStep(step: string): void {
-    const index = this.steps.findIndex(x => x.key === step);
+    const index = this.visibleSteps.findIndex(x => x.key === step);
     if (index < 0) return;
     this.stepIndex = index;
-    this.currentStep = this.steps[index].key;
+    this.currentStep = this.visibleSteps[index].key;
     this.saveProgress();
+    if (step === 'next_appointment' && !this.consultationSlots.length && !this.slotsLoading) this.loadConsultationSlots();
   }
 
   nextStep(): void {
-    if (!this.consultation || this.stepIndex >= this.steps.length - 1) return;
+    if (!this.consultation || this.stepIndex >= this.visibleSteps.length - 1) return;
     const completed = new Set<string>(this.consultation.completedSteps || []);
     completed.add(this.currentStep);
-    const next = this.steps[this.stepIndex + 1].key;
+    const next = this.visibleSteps[this.stepIndex + 1].key;
     this.persistProgress(next, [...completed]);
+    if (next === 'next_appointment' && !this.consultationSlots.length && !this.slotsLoading) this.loadConsultationSlots();
   }
 
   previousStep(): void {
     if (this.stepIndex <= 0) return;
     this.stepIndex--;
-    this.currentStep = this.steps[this.stepIndex].key;
+    this.currentStep = this.visibleSteps[this.stepIndex].key;
     this.saveProgress();
   }
 
@@ -543,12 +618,12 @@ export class GuidedConsultationComponent implements OnInit {
     this.portalService.updateGuidedConsultationProgress(this.data.appointment.id, {
       currentStep: step,
       completedSteps,
-      progress: this.consultation.progress || {}
+      progress: this.buildClinicalProgress()
     }).subscribe({
       next: value => {
         this.consultation = value;
         this.currentStep = value.currentStep;
-        this.stepIndex = Math.max(0, this.steps.findIndex(x => x.key === value.currentStep));
+        this.stepIndex = Math.max(0, this.visibleSteps.findIndex(x => x.key === value.currentStep));
       },
       error: () => this.snack.open('No se ha podido guardar el progreso de la consulta.', 'Cerrar', { duration: 3000 })
     });
@@ -574,6 +649,7 @@ export class GuidedConsultationComponent implements OnInit {
       next: () => {
         this.taskCreating = false;
         this.snack.open('Tarea de seguimiento creada.', 'Cerrar', { duration: 1800 });
+        this.loadConsultationContext();
       },
       error: err => {
         this.taskCreating = false;
@@ -692,6 +768,11 @@ export class GuidedConsultationComponent implements OnInit {
 
   openPatient(): void {
     this.router.navigate(['/clients', this.data?.appointment.clientId]);
+  }
+
+  openPatientMessages(): void {
+    const clientId = this.data?.appointment.clientId;
+    if (clientId) this.router.navigate(['/clients', clientId, 'messages']);
   }
 
   openPatientDiet(): void {

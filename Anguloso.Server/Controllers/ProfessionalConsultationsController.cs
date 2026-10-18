@@ -294,7 +294,7 @@ public sealed class ProfessionalConsultationsController : ControllerBase
                 actions_summary=NULLIF(@actions,''),
                 next_consultation_plan=NULLIF(@next_plan,''),
                 updated_at=NOW()
-            WHERE tenant_id=@tenant AND appointment_id=@appointment;
+            WHERE tenant_id=@tenant AND appointment_id=@appointment AND status='in_progress';
             """, connection);
         command.Parameters.AddWithValue("tenant", appointment.TenantId);
         command.Parameters.AddWithValue("appointment", appointmentId);
@@ -315,7 +315,13 @@ public sealed class ProfessionalConsultationsController : ControllerBase
         command.Parameters.AddWithValue("next_plan", nextPlan.Trim().Length > 4000 ? nextPlan.Trim()[..4000] : nextPlan.Trim());
 
         var affected = await command.ExecuteNonQueryAsync();
-        if (affected == 0) return NotFound();
+        if (affected == 0)
+        {
+            var existingConsultation = await ReadConsultationAsync(appointmentId, appointment.TenantId);
+            return existingConsultation == null
+                ? NotFound()
+                : Conflict(new { message = "La consulta ya está cerrada y no admite cambios." });
+        }
 
         await _auditLogService.LogAccessAsync(
             "CONSULTATION_PROGRESS", "professional_consultations", appointmentId.ToString(), appointment.ClientId,
@@ -349,6 +355,48 @@ public sealed class ProfessionalConsultationsController : ControllerBase
         {
             await transaction.RollbackAsync();
             return Conflict(new { message = "La consulta no está en curso o ya ha sido cerrada." });
+        }
+
+        // Las líneas de "Acciones y tareas acordadas" se convierten en tareas abiertas
+        // dentro de la misma transacción que cierra la consulta. La clave idempotente
+        // evita duplicados si el cierre se reintenta.
+        await using (var actionsCommand = new NpgsqlCommand("""
+            SELECT actions_summary FROM professional_consultations
+            WHERE tenant_id=@tenant AND appointment_id=@appointment;
+            """, connection, transaction))
+        {
+            actionsCommand.Parameters.AddWithValue("tenant", appointment.TenantId);
+            actionsCommand.Parameters.AddWithValue("appointment", appointmentId);
+            var actionsValue = await actionsCommand.ExecuteScalarAsync();
+            var actionsText = actionsValue as string;
+            if (!string.IsNullOrWhiteSpace(actionsText))
+            {
+                var actions = actionsText.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(line => System.Text.RegularExpressions.Regex.Replace(line, @"^\s*(?:[-*•]+|\d+[.)])\s*", "").Trim())
+                    .Where(line => line.Length > 0)
+                    .Take(20)
+                    .ToArray();
+
+                for (var index = 0; index < actions.Length; index++)
+                {
+                    var title = actions[index].Length > 250 ? actions[index][..250] : actions[index];
+                    await using var taskCommand = new NpgsqlCommand("""
+                        INSERT INTO professional_tasks
+                            (tenant_id, client_id, assigned_user_id, title, description, due_at, priority, status, source, idempotency_key, created_at)
+                        VALUES
+                            (@tenant, @client, @user, @title, @description, NULL, 'normal', 'open', 'guided_consultation', @key, NOW())
+                        ON CONFLICT (tenant_id, idempotency_key) WHERE idempotency_key IS NOT NULL
+                        DO NOTHING;
+                        """, connection, transaction);
+                    taskCommand.Parameters.AddWithValue("tenant", appointment.TenantId);
+                    taskCommand.Parameters.AddWithValue("client", appointment.ClientId);
+                    taskCommand.Parameters.AddWithValue("user", appointment.NutritionistId);
+                    taskCommand.Parameters.AddWithValue("title", title);
+                    taskCommand.Parameters.AddWithValue("description", "Acción acordada al cerrar la consulta " + appointmentId + ".");
+                    taskCommand.Parameters.AddWithValue("key", $"consultation:{appointmentId}:action:{index}");
+                    await taskCommand.ExecuteNonQueryAsync();
+                }
+            }
         }
 
         await using var appointmentCommand = new NpgsqlCommand("""
