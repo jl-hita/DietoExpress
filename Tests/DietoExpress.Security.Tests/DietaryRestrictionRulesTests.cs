@@ -167,7 +167,7 @@ public sealed class DietaryRestrictionRulesTests
     public void HasUnknownAllergenData_UsesOpenFoodFactsCompletenessStatus(string status, bool expected)
     {
         Assert.Equal(expected, DietaryRestrictionRules.HasUnknownAllergenData(
-            "cacahuete", new[] { "en:peanuts" }, status, "openfoodfacts"));
+            "cacahuete", new[] { "en:peanuts" }, status));
     }
 
     [Fact]
