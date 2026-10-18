@@ -18,6 +18,17 @@
       </button>
     </header>
 
+    <section class="directory-guidance" *ngIf="profile()?.directoryEnabled" aria-labelledby="directory-guidance-title">
+      <div class="directory-guidance-icon"><mat-icon aria-hidden="true">public</mat-icon></div>
+      <div class="directory-guidance-content">
+        <h2 id="directory-guidance-title">Publica tu perfil en el directorio</h2>
+        <p>Para que los pacientes puedan encontrarte, completa los datos públicos y aporta los documentos de verificación. La ficha solo se publicará cuando el equipo de DietoExpress revise y apruebe tu identidad y titulación.</p>
+        <p *ngIf="directoryMissingFields.length">Todavía falta: <strong>{{ directoryMissingFields.join(', ') }}.</strong></p>
+        <p *ngIf="!directoryMissingFields.length">Los datos básicos del perfil están completos. Comprueba que has aportado un documento de identidad y un título oficial relacionado con tu cualificación profesional; ambos deben ser aprobados.</p>
+        <button mat-flat-button color="primary" type="button" (click)="openDirectorySettings()">Completar perfil y documentación</button>
+      </div>
+    </section>
+
     <section class="cards" aria-label="Resumen">
       <button mat-card type="button" class="metric" (click)="openAppointments()" aria-label="Ver citas de hoy">
         <mat-icon aria-hidden="true">event</mat-icon><strong>{{data.todayAppointments.length}}</strong><span>Citas hoy</span>
