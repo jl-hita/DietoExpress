@@ -3,61 +3,86 @@ import { test, expect } from '@playwright/test';
 const username = process.env.E2E_USERNAME;
 const password = process.env.E2E_PASSWORD;
 const baseURL = process.env.E2E_BASE_URL || 'https://jlhitap.duckdns.org';
-let clientId = 0;
 const testPatientName = 'ZZZ E2E — paciente ficticio alérgenos';
-const allergenFoodId = Number(process.env.E2E_ALLERGEN_FOOD_ID || 0);
-const traceFoodId = Number(process.env.E2E_TRACE_FOOD_ID || 0);
-const unknownFoodId = Number(process.env.E2E_UNKNOWN_ALLERGEN_FOOD_ID || 0);
+let clientId = 0;
+let createdFoodIds = [];
 
-/*
- * The suite automatically creates or reuses one dedicated fictional patient and sets
- * their allergy profile. It sends draft diets to the validation endpoint and does not
- * save diets or change catalogue foods. Food IDs must refer to reviewed test fixtures.
- */
-test.describe('P0 — validación clínica de alérgenos (solo borradores)', () => {
-  test.beforeAll(() => {
-    const configuredIds = [allergenFoodId, traceFoodId, unknownFoodId];
-    const ready = Boolean(username && password) && configuredIds.every(id => Number.isSafeInteger(id) && id > 0);
-    test.skip(!ready, 'Configura credenciales E2E y tres IDs de alimentos de prueba revisados para habilitar las comprobaciones clínicas.');
-    expect(new Set([allergenFoodId, traceFoodId, unknownFoodId]).size,
-      'Los tres IDs deben identificar alimentos distintos y revisados, no reutilizar el mismo alimento para escenarios diferentes.'
-    ).toBe(3);
-  });
-
+test.describe('P0 — validación clínica de alérgenos (fixtures aislados)', () => {
   test.beforeEach(async ({ page }) => {
-    test.skip(
-      !username || !password ||
-      !Number.isSafeInteger(allergenFoodId) || allergenFoodId <= 0 ||
-      !Number.isSafeInteger(traceFoodId) || traceFoodId <= 0 ||
-      !Number.isSafeInteger(unknownFoodId) || unknownFoodId <= 0,
-      'Configura credenciales E2E y tres IDs de alimentos de prueba revisados para habilitar las comprobaciones clínicas.'
-    );
+    test.skip(!username || !password, 'Configura E2E_USERNAME y E2E_PASSWORD para ejecutar las pruebas clínicas.');
 
     await page.goto('/login');
     await page.getByLabel('Email o usuario').fill(username);
     await page.getByLabel('Contraseña').fill(password);
     await page.getByRole('button', { name: 'Iniciar sesión' }).click();
-    await expect(page).not.toHaveURL(/\/login(?:[/?#]|$)/, { timeout: 20_000 });
+    await expect(page).not.toHaveURL(/\\/login(?:[/?#]|$)/, { timeout: 20_000 });
 
-    // Reutiliza una ficha ficticia dedicada para no crear un paciente nuevo en cada ejecución.
     const api = page.context().request;
     const listResponse = await api.get(new URL('/api/clients?search=' + encodeURIComponent(testPatientName) + '&page=1&pageSize=100', baseURL).toString());
-    expect(listResponse.ok(), 'Debe poder consultarse la lista de pacientes para preparar el fixture E2E').toBeTruthy();
+    expect(listResponse.ok(), 'Debe poder buscarse la ficha ficticia E2E').toBeTruthy();
     const listing = await listResponse.json();
-    const patients = Array.isArray(listing) ? listing : (listing.items || []);
+    const patients = Array.isArray(listing) ? listing : (listing.items || listing.Items || []);
     const existing = patients.find(patient => (patient.fullName ?? patient.FullName) === testPatientName);
 
     if (existing) {
       clientId = Number(existing.id ?? existing.Id);
-      const updateResponse = await api.put(new URL('/api/clients/' + clientId, baseURL).toString(), { data: { fullName: testPatientName, foodPreferences: { allergies: 'cacahuete, leche' } } });
-      expect(updateResponse.ok(), 'Debe poder prepararse la alergia de la ficha ficticia E2E').toBeTruthy();
+      const updateResponse = await api.put(new URL('/api/clients/' + clientId, baseURL).toString(), {
+        data: { fullName: testPatientName, foodPreferences: { allergies: 'cacahuete, leche' } }
+      });
+      expect(updateResponse.ok(), 'Debe poder fijarse la alergia en la ficha ficticia').toBeTruthy();
     } else {
-      const createResponse = await api.post(new URL('/api/clients', baseURL).toString(), { data: { fullName: testPatientName, email: 'e2e-allergen-test@invalid.example', notes: 'Ficha ficticia reservada para pruebas automatizadas de alérgenos. No usar como paciente real.', country: 'España', foodPreferences: { allergies: 'cacahuete, leche' } } });
-      expect(createResponse.ok(), 'Debe poder crearse la ficha ficticia E2E mediante el endpoint normal de la aplicación').toBeTruthy();
+      const createResponse = await api.post(new URL('/api/clients', baseURL).toString(), {
+        data: {
+          fullName: testPatientName,
+          email: 'e2e-allergen-test@invalid.example',
+          notes: 'Paciente ficticio persistente para pruebas automatizadas de alérgenos.',
+          country: 'España',
+          foodPreferences: { allergies: 'cacahuete, leche' }
+        }
+      });
+      expect(createResponse.ok(), 'Debe poder crearse la ficha ficticia mediante el flujo normal de la aplicación').toBeTruthy();
       const created = await createResponse.json();
       clientId = Number(created.id ?? created.Id);
-      expect(Number.isSafeInteger(clientId) && clientId > 0, 'La API debe devolver el ID de la ficha ficticia creada').toBe(true);
+      expect(Number.isSafeInteger(clientId) && clientId > 0, 'La API debe devolver el ID de la ficha ficticia').toBe(true);
     }
+
+    createdFoodIds = [];
+    for (const fixture of [
+      { name: 'ZZZ E2E alimento alérgeno cacahuete', allergenTags: ['cacahuete'], tracesTags: [], allergenDataStatus: 'reported' },
+      { name: 'ZZZ E2E alimento trazas leche', allergenTags: [], tracesTags: ['leche'], allergenDataStatus: 'reported' },
+      { name: 'ZZZ E2E alimento alérgenos desconocidos', allergenTags: [], tracesTags: [], allergenDataStatus: 'unknown' }
+    ]) {
+      const response = await api.post(new URL('/api/foods', baseURL).toString(), {
+        data: {
+          name: fixture.name,
+          category: 'E2E — fixture temporal',
+          kcal: 100,
+          protein: 5,
+          carbs: 10,
+          fat: 2,
+          defaultGrams: 100,
+          allergenTags: fixture.allergenTags,
+          tracesTags: fixture.tracesTags,
+          allergenDataStatus: fixture.allergenDataStatus,
+          allergenDataSource: 'e2e-test',
+          allergenDataCheckedAt: fixture.allergenDataStatus === 'reported' ? new Date().toISOString() : null
+        }
+      });
+      expect(response.ok(), 'Debe poder crearse un alimento local aislado con metadatos de alérgenos').toBeTruthy();
+      const food = await response.json();
+      const foodId = Number(food.id ?? food.Id);
+      expect(Number.isSafeInteger(foodId) && foodId > 0, 'La API debe devolver el ID del alimento de prueba').toBe(true);
+      createdFoodIds.push(foodId);
+    }
+  });
+
+  test.afterEach(async ({ page }) => {
+    const api = page.context().request;
+    for (const foodId of [...createdFoodIds].reverse()) {
+      const response = await api.delete(new URL('/api/foods/' + foodId, baseURL).toString());
+      expect([204, 404].includes(response.status()), 'El alimento temporal E2E debe eliminarse al finalizar la prueba').toBe(true);
+    }
+    createdFoodIds = [];
   });
 
   async function validateDraft(page, foodId) {
@@ -78,7 +103,6 @@ test.describe('P0 — validación clínica de alérgenos (solo borradores)', () 
         }
       }
     });
-
     expect(response.status(), 'La validación clínica debe responder correctamente').toBe(200);
     const warnings = await response.json();
     expect(Array.isArray(warnings), 'La API debe devolver una lista de alertas').toBe(true);
@@ -86,37 +110,25 @@ test.describe('P0 — validación clínica de alérgenos (solo borradores)', () 
   }
 
   test('un alimento con alérgeno incompatible genera una alerta vinculada al alimento', async ({ page }) => {
-    const warnings = await validateDraft(page, allergenFoodId);
+    const warnings = await validateDraft(page, createdFoodIds[0]);
     expect(warnings).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        foodId: allergenFoodId,
-        alertType: expect.stringMatching(/\S/),
-        message: expect.stringMatching(/\S/)
-      })
+      expect.objectContaining({ foodId: createdFoodIds[0], alertType: expect.stringMatching(/\\S/), message: expect.stringMatching(/\\S/) })
     ]));
     expect(JSON.stringify(warnings)).toMatch(/al[eé]rgen|allergen|alergia/i);
   });
 
   test('un alimento con trazas incompatibles genera una alerta vinculada al alimento', async ({ page }) => {
-    const warnings = await validateDraft(page, traceFoodId);
+    const warnings = await validateDraft(page, createdFoodIds[1]);
     expect(warnings).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        foodId: traceFoodId,
-        alertType: expect.any(String),
-        message: expect.any(String)
-      })
+      expect.objectContaining({ foodId: createdFoodIds[1], alertType: expect.stringMatching(/\\S/), message: expect.stringMatching(/\\S/) })
     ]));
     expect(JSON.stringify(warnings)).toMatch(/traza|trace|al[eé]rgen|allergen/i);
   });
 
   test('los metadatos desconocidos no se aceptan silenciosamente cuando el paciente declara alergias', async ({ page }) => {
-    const warnings = await validateDraft(page, unknownFoodId);
+    const warnings = await validateDraft(page, createdFoodIds[2]);
     expect(warnings).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        foodId: unknownFoodId,
-        alertType: expect.any(String),
-        message: expect.any(String)
-      })
+      expect.objectContaining({ foodId: createdFoodIds[2], alertType: expect.stringMatching(/\\S/), message: expect.stringMatching(/\\S/) })
     ]));
     expect(JSON.stringify(warnings)).toMatch(/desconocid|incomplet|unknown|allergen|al[eé]rgen/i);
   });
