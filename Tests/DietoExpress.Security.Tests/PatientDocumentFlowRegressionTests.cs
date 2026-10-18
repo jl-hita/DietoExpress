@@ -343,4 +343,42 @@ public sealed class PatientDocumentFlowRegressionTests
         Assert.Contains("Reintentar", template);
     }
 
+
+    [Fact]
+    public void GuidedConsultationProgressMustRejectUpdatesAfterClosure()
+    {
+        var source = ReadServerSource("Anguloso.Server/Controllers/ProfessionalConsultationsController.cs");
+        var updateStart = source.IndexOf("public async Task<IActionResult> UpdateProgress");
+        var completeStart = source.IndexOf("public async Task<IActionResult> Complete", updateStart);
+        Assert.True(updateStart >= 0 && completeStart > updateStart);
+        var updateMethod = source[updateStart..completeStart];
+        Assert.Contains("AND status='in_progress'", updateMethod);
+        Assert.Contains("La consulta ya está cerrada", updateMethod);
+    }
+
+    [Fact]
+    public void GuidedConsultationCloseMustCreateIdempotentTasksFromAgreedActions()
+    {
+        var source = ReadServerSource("Anguloso.Server/Controllers/ProfessionalConsultationsController.cs");
+        var completeStart = source.IndexOf("public async Task<IActionResult> Complete");
+        var methodEnd = source.IndexOf("private async Task<AuthorizedAppointment?>", completeStart);
+        Assert.True(completeStart >= 0 && methodEnd > completeStart);
+        var method = source[completeStart..methodEnd];
+        Assert.Contains("actions_summary", method);
+        Assert.Contains("guided_consultation", method);
+        Assert.Contains("consultation:{appointmentId}:action:{index}", method);
+        Assert.Contains("ON CONFLICT (tenant_id, idempotency_key)", method);
+    }
+
+    [Fact]
+    public void GuidedConsultationMustOfferQuickModeAndPreserveQueuedAutosaves()
+    {
+        var source = ReadServerSource("anguloso.client/src/app/componentes/guided-consultation/guided-consultation.component.ts");
+        Assert.Contains("toggleQuickMode()", source);
+        Assert.Contains("get visibleSteps()", source);
+        Assert.Contains("clinicalSaveQueued", source);
+        Assert.Contains("buildClinicalProgress()", source);
+        Assert.Contains("this.loadConsultationSlots()", source);
+        Assert.Contains("openPatientMessages()", source);
+    }
 }
