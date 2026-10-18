@@ -54,10 +54,10 @@ export class SidebarComponent implements OnInit, OnDestroy {
       this.unreadMessagesSubscription = interval(60000).pipe(
         startWith(0),
         switchMap(() => forkJoin({
-          profiles: this.http.get<any[]>('/api/admin/directory-verification?status=pending').pipe(catchError(() => of([]))),
+          profiles: this.http.get<any[]>('/api/admin/directory-verification').pipe(catchError(() => of([]))),
           evidence: this.http.get<any[]>('/api/directory-verification/evidence/admin?status=pending').pipe(catchError(() => of([])))
         }))
-      ).subscribe(result => { this.directoryReviewCount = result.profiles.length + result.evidence.length; });
+      ).subscribe(result => { this.directoryReviewCount = result.profiles.filter((item: any) => item.publicationStatus === 'pending' || item.publicationStatus === 'draft').length + result.evidence.length; });
     } else if (this.isNutritionist || this.isClinic) {
       this.unreadMessagesSubscription = interval(15000).pipe(
         startWith(0),
