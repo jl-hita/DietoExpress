@@ -91,6 +91,8 @@ public static class BillingSchemaBootstrap
             ALTER TABLE billing_checkout_attempts
                 ALTER COLUMN checkout_url DROP NOT NULL;
 
+            ALTER TABLE billing_checkout_attempts ADD COLUMN IF NOT EXISTS coupon_code VARCHAR(64);
+
             CREATE UNIQUE INDEX IF NOT EXISTS idx_billing_checkout_pending_tenant
                 ON billing_checkout_attempts(tenant_id)
                 WHERE status IN ('creating', 'pending');
