@@ -2654,6 +2654,19 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
             UPDATE foods SET name = name WHERE dietary_flags = ARRAY[]::TEXT[];
         ");
 
+        context.Database.ExecuteSqlRaw(@"
+            ALTER TABLE foods ADD COLUMN IF NOT EXISTS traces_tags TEXT[];
+            ALTER TABLE foods ADD COLUMN IF NOT EXISTS allergen_data_status VARCHAR(20) NOT NULL DEFAULT 'unknown';
+            ALTER TABLE foods ADD COLUMN IF NOT EXISTS allergen_data_source VARCHAR(50);
+            ALTER TABLE foods ADD COLUMN IF NOT EXISTS allergen_data_checked_at TIMESTAMPTZ;
+            UPDATE foods SET allergen_data_status = 'reported'
+                WHERE allergen_data_status = 'unknown'
+                  AND (COALESCE(array_length(allergen_tags, 1), 0) > 0
+                    OR COALESCE(array_length(traces_tags, 1), 0) > 0);
+            INSERT INTO schema_migrations(id) VALUES ('allergen-traces-quality-v1') ON CONFLICT (id) DO NOTHING;
+        ");
+        logger.LogInformation("Migración allergen-traces-quality-v1 aplicada correctamente.");
+
         context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('specializations-v1') ON CONFLICT (id) DO NOTHING;");
         logger.LogInformation("Migración de especializaciones specializations-v1 aplicada correctamente.");
     }
