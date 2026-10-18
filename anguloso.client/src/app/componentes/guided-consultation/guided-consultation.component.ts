@@ -208,6 +208,10 @@ interface GuidedConsultationResponse {
             </div>
             <small class="save-state" *ngIf="clinicalSaveState === 'saving'">Guardando…</small>
             <small class="save-state saved" *ngIf="clinicalSaveState === 'saved'">Guardado</small>
+            <div class="actions" *ngIf="clinicalSaveState === 'error'">
+              <small class="save-state">No se han guardado los cambios.</small>
+              <button mat-stroked-button type="button" (click)="saveClinicalProgress()">Reintentar guardado</button>
+            </div>
           </section>
 
           <section class="card" *ngIf="currentStep === 'tasks'">
@@ -268,13 +272,17 @@ interface GuidedConsultationResponse {
             <div class="card-title"><mat-icon>check_circle</mat-icon><div><h2>Cerrar consulta</h2><p>Al cerrar se marca la consulta como completada y, si procede, la cita como completada.</p></div></div>
             <div class="quick-form">
               <h3>Acciones posteriores</h3>
+              <div class="actions" *ngIf="clinicalSaveState === 'error'">
+                <span class="save-state">Hay cambios sin guardar. Reintenta el guardado antes de cerrar.</span>
+                <button mat-stroked-button type="button" (click)="saveClinicalProgress()">Reintentar guardado</button>
+              </div>
               <p>Al cerrar se generarán las tareas a partir de las acciones acordadas. Después puedes revisar la ficha, la documentación y los mensajes del paciente.</p>
               <div class="actions">
                 <button mat-stroked-button type="button" (click)="openPatient()"><mat-icon>folder_open</mat-icon> Ficha y documentación</button>
                 <button mat-stroked-button type="button" (click)="openPatientMessages()"><mat-icon>chat</mat-icon> Mensajes</button>
               </div>
             </div>
-            <button mat-flat-button color="primary" type="button" (click)="completeConsultation()" [disabled]="consultation?.status === 'completed' || completing || clinicalSaveState === 'saving'">
+            <button mat-flat-button color="primary" type="button" (click)="completeConsultation()" [disabled]="consultation?.status === 'completed' || completing || clinicalSaveState === 'saving' || clinicalSaveState === 'error'">
               <mat-icon>{{ completing ? 'hourglass_top' : 'check' }}</mat-icon>
               {{ completing ? 'Cerrando…' : 'Cerrar consulta' }}
             </button>
@@ -285,7 +293,7 @@ interface GuidedConsultationResponse {
             <button mat-flat-button color="primary" type="button" (click)="nextStep()" *ngIf="stepIndex < visibleSteps.length - 1">
               {{ isCompleted(currentStep) ? 'Siguiente' : 'Marcar paso y continuar' }} <mat-icon>arrow_forward</mat-icon>
             </button>
-            <button mat-stroked-button type="button" *ngIf="stepIndex === steps.length - 1" (click)="goToStep('summary')"><mat-icon>replay</mat-icon> Volver al resumen</button>
+            <button mat-stroked-button type="button" *ngIf="stepIndex === visibleSteps.length - 1" (click)="goToStep('summary')"><mat-icon>replay</mat-icon> Volver al resumen</button>
           </footer>
         </main>
       </div>
