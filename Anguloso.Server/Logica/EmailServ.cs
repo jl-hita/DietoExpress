@@ -28,11 +28,6 @@ public class EmailServ
         _logServ = logServ;
     }
 
-    // SMTP se configura externamente; las credenciales nunca forman parte del código ni de la respuesta al cliente.
-    // El Message-ID determinista permite a los servidores/proveedores que implementan deduplicación SMTP reconocer
-    // reenvíos del mismo efecto tras una caída del worker entre el envío y el marcado del job como completado.
-    // SMTP no ofrece una garantía universal de exactly-once: la ventana de caída después de aceptar el mensaje
-    // por el servidor SMTP sigue siendo intrínsecamente ambigua y debe considerarse at-least-once.
     // Las plantillas de negocio son fragmentos HTML; este contenedor común aplica una presentación
     // coherente y adaptable en clientes de correo sin depender de hojas de estilo externas.
     private static string BuildHtmlEmail(string htmlBody)
@@ -66,6 +61,11 @@ public class EmailServ
 </html>";
     }
 
+    // SMTP se configura externamente; las credenciales nunca forman parte del código ni de la respuesta al cliente.
+    // El Message-ID determinista permite a los servidores/proveedores que implementan deduplicación SMTP reconocer
+    // reenvíos del mismo efecto tras una caída del worker entre el envío y el marcado del job como completado.
+    // SMTP no ofrece una garantía universal de exactly-once: la ventana de caída después de aceptar el mensaje
+    // por el servidor SMTP sigue siendo intrínsecamente ambigua y debe considerarse at-least-once.
     public async Task<BoolMensaje> SendEmailAsync(string to, string subject, string htmlBody, string? idempotencyKey = null)
     {
         try
