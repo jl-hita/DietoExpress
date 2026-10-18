@@ -44,7 +44,7 @@ test.describe('P1 — gestión de pacientes desde la interfaz', () => {
     await page.getByLabel('Email').fill(`e2e-${Date.now()}@invalid.example`);
     await page.getByLabel('Notas').fill('Paciente ficticio para comprobar confirmaciones destructivas de Playwright.');
     await page.getByRole('button', { name: 'Crear cliente' }).click();
-    await expect(page).toHaveURL(/\\/clients\\/\\d+(?:[/?#]|$)/, { timeout: 20_000 });
+    await expect(page).toHaveURL(new RegExp('/clients/[0-9]+(?:[/?#]|$)'), { timeout: 20_000 });
     patientId = Number(new URL(page.url()).pathname.match(/^\/clients\/(\d+)$/)?.[1]);
     expect(patientId).toBeGreaterThan(0);
 
@@ -86,7 +86,7 @@ test.describe('P1 — gestión de pacientes desde la interfaz', () => {
     await page.getByLabel('Notas').fill('Registro ficticio creado automáticamente por Playwright; archivar al finalizar.');
     await page.getByRole('button', { name: 'Crear cliente' }).click();
 
-    await expect(page).toHaveURL(/\/clients\/\d+(?:[/?#]|$)/, { timeout: 20_000 });
+    await expect(page).toHaveURL(new RegExp('/clients/[0-9]+(?:[/?#]|$)'), { timeout: 20_000 });
     const match = page.url().match(/\/clients\/(\d+)/);
     expect(match, 'La aplicación debe navegar a la ficha creada').not.toBeNull();
     patientId = Number(match[1]);
