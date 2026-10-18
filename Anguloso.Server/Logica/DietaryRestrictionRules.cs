@@ -12,7 +12,7 @@ public static class DietaryRestrictionRules
 {
     private static readonly Dictionary<string, string[]> AllergenAliases = new(StringComparer.Ordinal)
     {
-        ["cacahuete"] = new[] { "cacahuete", "cacahuetes", "cacahuete", "peanut", "peanuts", "peanut allergy" },
+        ["cacahuete"] = new[] { "cacahuete", "cacahuetes", "peanut", "peanuts", "peanut allergy" },
         ["frutos secos"] = new[] { "frutos secos", "fruto seco", "nut", "nuts", "tree nut", "tree nuts", "hazelnut", "hazelnuts", "almond", "almonds", "walnut", "walnuts", "cashew", "cashews", "pecan", "pecans", "pistachio", "pistachios", "brazil nut", "brazil nuts", "macadamia", "almendra", "almendras", "avellana", "avellanas", "nuez", "nueces", "anacardo", "anacardos", "pistacho", "pistachos", "nuez pecana" },
         ["leche"] = new[] { "leche", "lacteos", "lacteo", "milk", "dairy", "dairy allergy", "lactosa", "lactose" },
         ["huevo"] = new[] { "huevo", "huevos", "egg", "eggs" },
@@ -42,21 +42,23 @@ public static class DietaryRestrictionRules
     public static HashSet<string> BuildForbiddenTerms(string? allergies, bool glutenIntolerance, bool lactoseIntolerance, bool fodmapsIntolerance)
     {
         var result = new HashSet<string>(StringComparer.Ordinal);
-        // Commas, semicolons and line breaks delimit declarations; spaces are part of a term
-        // (e.g. "frutos secos") and must never split a multiword allergy.
+        // Only declaration separators split allergies. Spaces remain part of each phrase.
         foreach (var raw in Regex.Split(allergies ?? string.Empty, @"[,;|\r\n]+"))
         {
             var term = Normalize(raw);
             if (term.Length < 3) continue;
             result.Add(term);
+
+            // Match complete words/phrases, not arbitrary substrings (e.g. "nut" in
+            // "nutrition"). Do not stop at the first group: "almond milk" may describe both.
             foreach (var pair in AllergenAliases)
             {
-                if (Normalize(pair.Key) == term || pair.Value.Any(alias => Normalize(alias) == term || term.Contains(Normalize(alias), StringComparison.Ordinal)))
-                {
-                    foreach (var alias in pair.Value) result.Add(Normalize(alias));
-                    if (pair.Key == "frutos secos") result.Add("tree nut");
-                    break;
-                }
+                var matchesGroup = ContainsPhrase(term, Normalize(pair.Key)) ||
+                    pair.Value.Any(alias => ContainsPhrase(term, Normalize(alias)));
+                if (!matchesGroup) continue;
+
+                foreach (var alias in pair.Value) result.Add(Normalize(alias));
+                if (pair.Key == "frutos secos") result.Add("tree nut");
             }
         }
 
@@ -66,9 +68,27 @@ public static class DietaryRestrictionRules
         return result;
     }
 
+    public static string[]? MergeKnownAllergenTags(IEnumerable<string>? existingTags, IEnumerable<string>? incomingTags)
+    {
+        var incoming = incomingTags?
+            .Where(tag => !string.IsNullOrWhiteSpace(tag))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (incoming is { Length: > 0 }) return incoming;
+
+        // Empty/missing provider data is unknown, not a declaration that known allergens disappeared.
+        var existing = existingTags?
+            .Where(tag => !string.IsNullOrWhiteSpace(tag))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        return existing is { Length: > 0 } ? existing : existingTags?.ToArray();
+    }
+
+    public static bool HasKnownAllergenTags(IEnumerable<string>? allergenTags) =>
+        allergenTags?.Any(tag => !string.IsNullOrWhiteSpace(tag)) == true;
+
     public static bool HasUnknownAllergenData(string? declaredAllergies, IEnumerable<string>? allergenTags) =>
-        !string.IsNullOrWhiteSpace(declaredAllergies) &&
-        (allergenTags == null || !allergenTags.Any());
+        !string.IsNullOrWhiteSpace(declaredAllergies) && !HasKnownAllergenTags(allergenTags);
 
     public static bool IsFoodAllowed(string? name, string? category, IEnumerable<string>? dietaryFlags, IEnumerable<string> forbiddenTerms)
     {
@@ -103,6 +123,7 @@ public static class DietaryRestrictionRules
     }
 
     private static bool ContainsPhrase(string text, string phrase) =>
+        !string.IsNullOrWhiteSpace(phrase) &&
         (" " + text + " ").Contains(" " + phrase + " ", StringComparison.Ordinal);
 
     private static void AddAliases(HashSet<string> target, string key)

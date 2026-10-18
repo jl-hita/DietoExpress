@@ -824,7 +824,9 @@ public class OpenFoodFactsService
             food.brands = product.Brands;
             food.category = product.Category;
             food.nutriscore = NormalizeNutriscore(product.Nutriscore_grade);
-            food.allergen_tags = product.Allergens_tags?.Distinct(StringComparer.OrdinalIgnoreCase).ToArray() ?? food.allergen_tags;
+            // Empty/missing OFF data is not proof that previously known allergens disappeared.
+            food.allergen_tags = DietaryRestrictionRules.MergeKnownAllergenTags(
+                food.allergen_tags, product.Allergens_tags);
 
             // =========================
             // Serving size

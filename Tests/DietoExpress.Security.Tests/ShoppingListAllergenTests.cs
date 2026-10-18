@@ -41,6 +41,17 @@ public sealed class ShoppingListAllergenTests
 
         var result = ShoppingListRules.BuildFoodItems(new[] { (food, 80d) });
         Assert.False(Assert.Single(result).AllergenDataAvailable);
+
+        var emptyTagsFood = new foods
+        {
+            id = 44,
+            name = "Alimento con etiquetas vacías",
+            category = "Otros",
+            dietary_flags = Array.Empty<string>(),
+            allergen_tags = Array.Empty<string>()
+        };
+        var emptyTagsResult = ShoppingListRules.BuildFoodItems(new[] { (emptyTagsFood, 80d) });
+        Assert.False(Assert.Single(emptyTagsResult).AllergenDataAvailable);
     }
 
     [Fact]

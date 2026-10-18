@@ -16,6 +16,34 @@ public sealed class DietaryRestrictionRulesTests
     }
 
     [Fact]
+    public void BuildForbiddenTerms_DoesNotMatchAliasesInsideUnrelatedWords()
+    {
+        var terms = DietaryRestrictionRules.BuildForbiddenTerms("nutrition advice", false, false, false);
+        Assert.Contains("nutrition advice", terms);
+        Assert.DoesNotContain("almendras", terms);
+        Assert.DoesNotContain("tree nuts", terms);
+    }
+
+    [Fact]
+    public void BuildForbiddenTerms_RecognizesMultipleAllergensInOneCompoundDeclaration()
+    {
+        var terms = DietaryRestrictionRules.BuildForbiddenTerms("almond milk", false, false, false);
+        Assert.Contains("almonds", terms);
+        Assert.Contains("tree nuts", terms);
+        Assert.Contains("lactosa", terms);
+        Assert.Contains("leche", terms);
+    }
+
+    [Theory]
+    [InlineData("frutos secos; leche", "frutos secos")]
+    [InlineData("soja|mostaza", "mostaza")]
+    public void BuildForbiddenTerms_UsesDeclarationSeparatorsWithoutSplittingPhrases(string allergies, string expected)
+    {
+        var terms = DietaryRestrictionRules.BuildForbiddenTerms(allergies, false, false, false);
+        Assert.Contains(expected, terms);
+    }
+
+    [Fact]
     public void BuildForbiddenTerms_DoesNotSplitCompoundAllergyIntoIndividualWords()
     {
         var terms = DietaryRestrictionRules.BuildForbiddenTerms("frutos secos", false, false, false);
@@ -83,6 +111,38 @@ public sealed class DietaryRestrictionRulesTests
     {
         var terms = DietaryRestrictionRules.BuildForbiddenTerms(declaredAllergy, false, false, false);
         Assert.False(DietaryRestrictionRules.IsFoodAllowed("Producto genérico", "Otros", new[] { allergenTag }, terms));
+    }
+
+    [Fact]
+    public void MergeKnownAllergenTags_DoesNotEraseKnownTagsWhenProviderReturnsNoTags()
+    {
+        var merged = DietaryRestrictionRules.MergeKnownAllergenTags(
+            new[] { "en:milk", "en:peanuts" }, Array.Empty<string>());
+        Assert.Equal(new[] { "en:milk", "en:peanuts" }, merged);
+    }
+
+    [Fact]
+    public void MergeKnownAllergenTags_LeavesNewFoodUnknownWhenProviderHasNoTags()
+    {
+        Assert.Null(DietaryRestrictionRules.MergeKnownAllergenTags(null, null));
+        Assert.Null(DietaryRestrictionRules.MergeKnownAllergenTags(null, Array.Empty<string>()));
+    }
+
+    [Fact]
+    public void MergeKnownAllergenTags_UsesNonEmptyIncomingTagsAndDeduplicates()
+    {
+        var merged = DietaryRestrictionRules.MergeKnownAllergenTags(
+            new[] { "en:milk" }, new[] { "en:peanuts", "en:PEANUTS" });
+        Assert.Equal(new[] { "en:peanuts" }, merged);
+    }
+
+    [Fact]
+    public void HasKnownAllergenTags_RequiresAtLeastOneNonBlankTag()
+    {
+        Assert.False(DietaryRestrictionRules.HasKnownAllergenTags(null));
+        Assert.False(DietaryRestrictionRules.HasKnownAllergenTags(Array.Empty<string>()));
+        Assert.False(DietaryRestrictionRules.HasKnownAllergenTags(new[] { " ", "" }));
+        Assert.True(DietaryRestrictionRules.HasKnownAllergenTags(new[] { "en:milk" }));
     }
 
     [Fact]
