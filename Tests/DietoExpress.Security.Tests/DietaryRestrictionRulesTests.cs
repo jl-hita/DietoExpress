@@ -159,6 +159,17 @@ public sealed class DietaryRestrictionRulesTests
         Assert.True(DietaryRestrictionRules.HasKnownAllergenTags(new[] { "en:milk" }));
     }
 
+    [Theory]
+    [InlineData("partial", true)]
+    [InlineData("stale", true)]
+    [InlineData("unknown", true)]
+    [InlineData("reported", false)]
+    public void HasUnknownAllergenData_UsesOpenFoodFactsCompletenessStatus(string status, bool expected)
+    {
+        Assert.Equal(expected, DietaryRestrictionRules.HasUnknownAllergenData(
+            "cacahuete", new[] { "en:peanuts" }, status, "openfoodfacts"));
+    }
+
     [Fact]
     public void HasUnknownAllergenData_DistinguishesUnknownFromDeclaredTags()
     {
