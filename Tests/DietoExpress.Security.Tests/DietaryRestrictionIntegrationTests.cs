@@ -35,6 +35,11 @@ public sealed class DietaryRestrictionIntegrationTests
         Assert.Contains("food.allergen_tags", regeneration);
         Assert.DoesNotContain(".Split(new[] { ',', ';', ' ' }", validation);
 
+        var shopping = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "ShoppingListRules.cs"));
+        var recipeNutrition = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "RecipeNutritionService.cs"));
+        Assert.Contains("DietaryRestrictionRules.HasKnownAllergenTags(food.allergen_tags)", shopping);
+        Assert.Contains("DietaryRestrictionRules.HasKnownAllergenTags(food.allergen_tags)", recipeNutrition);
+
         var offService = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "OpenFoodFactsService.cs"));
         Assert.Contains("allergens_tags", offService);
         Assert.Contains("DietaryRestrictionRules.MergeKnownAllergenTags", offService);
