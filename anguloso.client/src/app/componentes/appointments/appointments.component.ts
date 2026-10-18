@@ -57,6 +57,7 @@ export class AppointmentsComponent implements OnInit {
   ];
 
   manualClients: any[] = [];
+  manualClientSearch = '';
   manualClientId: number | null = null;
   manualStartsAt = '';
   manualDuration = 30;
@@ -127,7 +128,11 @@ export class AppointmentsComponent implements OnInit {
       next: value => { this.availability = value; done(); },
       error: err => { this.error = err?.error?.message || 'No hemos podido cargar la disponibilidad.'; done(); }
     });
-    this.portalService.getClients('', 1, 100).subscribe({
+    this.loadManualClients();
+  }
+
+  loadManualClients(): void {
+    this.portalService.getClients(this.manualClientSearch.trim(), 1, 100).subscribe({
       next: value => { this.manualClients = Array.isArray(value) ? value : (value?.items || value?.Items || []); },
       error: () => { this.manualClients = []; }
     });
