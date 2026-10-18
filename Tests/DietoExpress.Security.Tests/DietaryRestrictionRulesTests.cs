@@ -171,6 +171,14 @@ public sealed class DietaryRestrictionRulesTests
     }
 
     [Fact]
+    public void HasUnknownAllergenData_AllowsCompleteDeclarationWithNoAllergenTags()
+    {
+        Assert.False(DietaryRestrictionRules.HasUnknownAllergenData("cacahuete, leche", Array.Empty<string>(), "reported"));
+        Assert.True(DietaryRestrictionRules.HasUnknownAllergenData("cacahuete, leche", Array.Empty<string>(), "partial"));
+        Assert.True(DietaryRestrictionRules.HasUnknownAllergenData("cacahuete, leche", Array.Empty<string>(), "unknown"));
+    }
+
+    [Fact]
     public void HasUnknownAllergenData_DistinguishesUnknownFromDeclaredTags()
     {
         Assert.True(DietaryRestrictionRules.HasUnknownAllergenData("cacahuete", null));
