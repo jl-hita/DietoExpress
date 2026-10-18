@@ -114,6 +114,29 @@ public sealed class DietaryRestrictionRulesTests
     }
 
     [Fact]
+    public void MergeKnownAllergenTags_DoesNotEraseKnownTagsWhenProviderReturnsNoTags()
+    {
+        var merged = DietaryRestrictionRules.MergeKnownAllergenTags(
+            new[] { "en:milk", "en:peanuts" }, Array.Empty<string>());
+        Assert.Equal(new[] { "en:milk", "en:peanuts" }, merged);
+    }
+
+    [Fact]
+    public void MergeKnownAllergenTags_LeavesNewFoodUnknownWhenProviderHasNoTags()
+    {
+        Assert.Null(DietaryRestrictionRules.MergeKnownAllergenTags(null, null));
+        Assert.Null(DietaryRestrictionRules.MergeKnownAllergenTags(null, Array.Empty<string>()));
+    }
+
+    [Fact]
+    public void MergeKnownAllergenTags_UsesNonEmptyIncomingTagsAndDeduplicates()
+    {
+        var merged = DietaryRestrictionRules.MergeKnownAllergenTags(
+            new[] { "en:milk" }, new[] { "en:peanuts", "en:PEANUTS" });
+        Assert.Equal(new[] { "en:peanuts" }, merged);
+    }
+
+    [Fact]
     public void HasUnknownAllergenData_DistinguishesUnknownFromDeclaredTags()
     {
         Assert.True(DietaryRestrictionRules.HasUnknownAllergenData("cacahuete", null));
