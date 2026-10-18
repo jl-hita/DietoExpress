@@ -134,7 +134,10 @@ public class DirectoryVerificationEvidenceController : ControllerBase
             var id = Convert.ToInt64(await insert.ExecuteScalarAsync(ct));
             await tx.CommitAsync(ct);
 
-            user.directory_publication_status = "pending";
+            // Aportar documentación es voluntario: no debe bloquear ni retirar el perfil público.
+            // Si se modifica la evidencia de un perfil verificado, retiramos la insignia hasta revisarla.
+            if (user.directory_publication_status == "verified")
+                user.directory_publication_status = "published";
             user.directory_verified_at = null;
             user.directory_verified_by_user_id = null;
             await _context.SaveChangesAsync(ct);
