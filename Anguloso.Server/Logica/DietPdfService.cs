@@ -100,7 +100,7 @@ public class DietPdfService
                 {
                     text.Span("Documento generado el ").FontColor("#888888").FontSize(8);
                     text.Span(DateTime.Now.ToString("dd/MM/yyyy")).FontColor("#888888").FontSize(8);
-                    text.Span("  |  PÃ¡gina ").FontColor("#888888").FontSize(8);
+                    text.Span("  |  Página ").FontColor("#888888").FontSize(8);
                     text.CurrentPageNumber().FontColor("#888888").FontSize(8);
                     text.Span(" de ").FontColor("#888888").FontSize(8);
                     text.TotalPages().FontColor("#888888").FontSize(8);
