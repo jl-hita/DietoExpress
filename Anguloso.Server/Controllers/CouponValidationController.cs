@@ -43,7 +43,7 @@ public sealed class CouponValidationController : ControllerBase
         var coupon = await _context.Database.SqlQueryRaw<CouponValidationRow>("""
             SELECT c.id AS "Id", c.discount_percent AS "DiscountPercent",
                    c.allowed_plan_codes AS "AllowedPlanCodes", c.allowed_intervals AS "AllowedIntervals",
-                   c.starts_at AS "StartsAt", c.expires_at AS "ExpiresAt", c.is_active AS "IsActive",
+                   c.starts_at AS "StartsAt", c.expires_at AS "ExpiresAt", (c.is_active AND COALESCE((SELECT ca.is_active FROM billing_coupon_campaigns ca WHERE ca.id = c.campaign_id), TRUE)) AS "IsActive",
                    EXISTS (
                        SELECT 1 FROM billing_coupon_redemptions r
                        WHERE r.coupon_id = c.id AND r.status IN ('reserved','redeemed')
