@@ -56,17 +56,24 @@ Con el código auditado:
 
 Las pruebas manuales en incógnito limpio mostraron que la landing pública no tenía `g_state` y que descargar solo el script GIS tampoco la creaba. En una prueba controlada, obtener el client ID, cargar GIS y ejecutar `google.accounts.id.initialize(...)` sí creó la cookie, sin renderizar ni pulsar el botón ni invocar `prompt()`. Esto es compatible con la observación de que la cookie aparece al abrir el login, porque la aplicación inicializa GIS en esa ruta. Google documenta `g_state` como parte del estado de cierre de sesión de GIS y la relaciona con One Tap o el inicio de sesión automático; la prueba no demuestra por sí sola todos sus usos ni resuelve su clasificación jurídica. La necesidad/consentimiento siguen pendientes.
 
-**La decisión sobre la necesidad de un banner de consentimiento queda pendiente** de repetir la prueba tras desplegar estos cambios, revisar los flujos de Google/Stripe/LiveKit y completar la validación jurídica. No se debe concluir que el banner es innecesario únicamente porque no haya analítica publicitaria en el cliente.
+**Las pruebas manuales de producción se completaron el 18/10/2026** después del despliegue: landing pública sin carga de GIS ni `g_state` en sesión limpia; GIS y autenticación Google operativos en login/registro; datos funcionales de `localStorage` limpiados al cerrar sesión; `/sw.js` registrado solo tras activar los avisos, con suscripción push real; redirección OAuth de Google Calendar, Checkout alojado por Stripe y carga de LiveKit bajo demanda comprobados. No se detectaron fallos en estas comprobaciones.
 
-## 6. Verificación pendiente de producción
+**La decisión sobre la necesidad de un banner sigue pendiente** de resolver la clasificación jurídica de `g_state`. No se debe concluir que el banner es innecesario únicamente porque no haya analítica publicitaria en el cliente.
 
-Antes de marcar el punto legal como definitivamente cerrado hay que comprobar en el dominio de producción, con un navegador limpio:
+## 6. Verificación técnica de producción — completada el 18/10/2026
 
-1. Confirmar que la página pública ya no solicita `fonts.googleapis.com` ni `fonts.gstatic.com` y que las fuentes/iconos se renderizan correctamente.
-2. Confirmar que `accounts.google.com/gsi/client` no se solicita en la página pública y sí al abrir las pantallas de login y crear cuenta; probar el inicio de sesión con Google.
-3. Repetir el inventario de cookies antes y después de abrir login y crear cuenta en incógnito limpio; comparar carga del script, `initialize()` y renderizado del botón por separado; revisar atributos `Secure`, `HttpOnly`, `SameSite`, dominio, ruta y expiración.
-4. Revisar localStorage/sessionStorage/IndexedDB y los flujos de Google Calendar, Stripe, LiveKit y Web Push. Confirmar en navegador limpio que `/sw.js` no se registra al abrir el portal y sí al activar avisos, con permiso concedido.
-5. Completar la validación jurídica antes de decidir si hace falta banner y publicar una versión definitiva de la política.
+Las comprobaciones manuales se ejecutaron tras el despliegue en producción y se comunicaron como correctas:
+
+1. La landing pública en una sesión de incógnito limpia no solicitó `fonts.googleapis.com`, `fonts.gstatic.com` ni el script `accounts.google.com/gsi/client`, y no presentó `g_state`.
+2. Login y creación de cuenta cargaron GIS; el inicio de sesión con Google completó correctamente.
+3. Se comprobó el comportamiento de `g_state` durante la carga/inicialización de GIS en el flujo de autenticación. Se mantienen registrados los atributos observados y la discrepancia con la documentación de Google; la clasificación jurídica no se deduce de la prueba técnica.
+4. Los estados `completed_meals_<clientId>_...` y `shopping_<clientId>` se eliminaron al cerrar sesión del paciente.
+5. Web Push no registró `/sw.js` antes de la acción de activación; tras conceder permiso y activar los avisos, el registro y la suscripción real funcionaron.
+6. Google Calendar, Stripe Checkout alojado y LiveKit bajo demanda se comprobaron en sus flujos correspondientes, sin finalizar una compra real ni usar una consulta clínica real.
+
+## 7. Pendiente jurídico
+
+Antes de cerrar definitivamente el punto de cookies, debe evaluarse la clasificación de `g_state`: Google documenta la cookie como estado de cierre de sesión relacionada con One Tap/inicio de sesión automático, mientras que DietoExpress utiliza el botón de acceso normal y no invoca esos flujos de manera explícita. No se ha determinado todavía si su uso efectivo entra en la excepción de estricta necesidad del artículo 22.2 LSSI. La decisión sobre el banner queda condicionada a esa clasificación y a la validación jurídica final.
 
 Esta comprobación es una validación de despliegue, no una razón para inventar cookies en la política.
 
