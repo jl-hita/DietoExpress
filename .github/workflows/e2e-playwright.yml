@@ -1,9 +1,8 @@
 name: Playwright E2E semanal
 
 on:
-  # GitHub Actions usa UTC. Las dos horas cubren las 02:00 locales de
-  # Europe/Madrid tanto en horario de invierno como de verano; un paso
-  # inicial deja continuar solo a la ejecución que corresponda.
+  # GitHub Actions programa en UTC. Estas dos invocaciones cubren las 02:00
+  # de Europe/Madrid en invierno y verano; el primer paso filtra la correcta.
   schedule:
     - cron: '0 0 * * 0'
     - cron: '0 1 * * 0'
@@ -51,8 +50,6 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: 22.22.3
-          cache: npm
-          cache-dependency-path: e2e/package.json
 
       - name: Install Playwright test runner
         if: github.event_name != 'schedule' || steps.schedule.outputs.run_e2e == 'true'
@@ -63,10 +60,6 @@ jobs:
         if: github.event_name != 'schedule' || steps.schedule.outputs.run_e2e == 'true'
         working-directory: e2e
         run: npx playwright install --with-deps chromium
-
-      - name: Allow production deployment to finish
-        if: github.event_name == 'workflow_dispatch'
-        run: sleep 240
 
       - name: Run complete Playwright suite
         if: github.event_name != 'schedule' || steps.schedule.outputs.run_e2e == 'true'
