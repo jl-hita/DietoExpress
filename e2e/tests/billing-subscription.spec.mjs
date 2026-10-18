@@ -46,7 +46,7 @@ test.describe('P0 — validación de cupón antes de contratar', () => {
     await page.getByLabel('Email o usuario').fill(username);
     await page.getByLabel('Contraseña').fill(password);
     await page.getByRole('button', { name: 'Iniciar sesión' }).click();
-    await expect(page).not.toHaveURL(/\\/login(?:[/?#]|$)/, { timeout: 20_000 });
+    await expect(page).not.toHaveURL(/\/login(?:[/?#]|$)/, { timeout: 20_000 });
 
     await page.goto('/billing');
     const couponInput = page.locator('#billing-coupon');
@@ -63,7 +63,7 @@ test.describe('P0 — validación de cupón antes de contratar', () => {
     await page.getByRole('button', { name: /Continuar con el pago/ }).first().click();
 
     await expect(page.getByText(/cup[oó]n no es v[aá]lido|no es v[aá]lido para este plan|cup[oó]n/i).last()).toBeVisible({ timeout: 15_000 });
-    await expect(page).toHaveURL(/\\/billing(?:[?#]|$)/);
+    await expect(page).toHaveURL(/\/billing(?:[?#]|$)/);
     await expect(couponInput).toHaveValue(invalidCode);
   });
 });
