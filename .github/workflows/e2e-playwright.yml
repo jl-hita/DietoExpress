@@ -7,6 +7,12 @@ on:
     - cron: '0 0 * * 0'
     - cron: '0 1 * * 0'
   workflow_dispatch:
+    inputs:
+      rerun_visual_baseline:
+        description: "Repetir la revisión visual/documental inicial tras cambios relevantes"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -56,7 +62,13 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          FORCE_BASELINE: ${{ inputs.rerun_visual_baseline }}
         run: |
+          if [[ "$FORCE_BASELINE" == "true" ]]; then
+            echo "run_visual_baseline=true" >> "$GITHUB_OUTPUT"
+            echo "La revisión visual/documental se ha solicitado explícitamente."
+            exit 0
+          fi
           comments="$(curl --fail --silent --show-error \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
