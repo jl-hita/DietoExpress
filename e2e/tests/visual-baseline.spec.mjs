@@ -92,10 +92,13 @@ test('contrato de marca documental: PDFs y emails conservan UTF-8, acentos y tea
 
 test('la plantilla HTML real de email se renderiza con acentos y teal corporativo', async ({ page }, testInfo) => {
   const emailSource = await readFile(resolve(process.cwd(), '..', 'Anguloso.Server/Logica/EmailServ.cs'), 'utf8');
-  const match = emailSource.match(/return \$@"([\\s\\S]*?)";/);
-  expect(match, 'Debe existir el wrapper HTML de email').not.toBeNull();
+  const templateStart = emailSource.indexOf('return $@"');
+  const templateEnd = emailSource.indexOf('";', templateStart);
+  expect(templateStart).toBeGreaterThanOrEqual(0);
+  expect(templateEnd).toBeGreaterThan(templateStart);
   const sampleBody = '<h1>Prueba de DietoExpress</h1><p>Miércoles, sábado, calorías, proteínas, nutrición y piñón.</p>';
-  const html = match[1].replace(/""/g, '"').replace('{htmlBody}', sampleBody);
+  const html = emailSource.slice(templateStart + 'return $@"'.length, templateEnd).replaceAll('""', '"').replace('{htmlBody}', sampleBody);
+  expect(match, 'Debe existir el wrapper HTML de email').not.toBeNull();
   expect(html).toContain('charset="utf-8"');
   expect(html).toContain('#0d9488');
   expect(html).toContain('Miércoles');
@@ -128,7 +131,7 @@ test('PDF de dieta generado por la API: MIME, cabecera y evidencia para revisió
     await page.getByLabel('Email o usuario').fill(process.env.E2E_USERNAME);
     await page.getByLabel('Contraseña').fill(process.env.E2E_PASSWORD);
     await page.getByRole('button', { name: 'Iniciar sesión' }).click();
-    await expect(page).not.toHaveURL(/\\/login(?:[/?#]|$)/, { timeout: 20_000 });
+    await expect(page).not.toHaveURL(new RegExp('/login(?:[/?#]|$)'), { timeout: 20_000 });
 
     await page.goto('/clients/nuevo');
     await page.getByRole('heading', { name: 'Nuevo Cliente' }).waitFor();
@@ -136,7 +139,7 @@ test('PDF de dieta generado por la API: MIME, cabecera y evidencia para revisió
     await page.getByLabel('Email').fill(`e2e-pdf-${Date.now()}@invalid.example`);
     await page.getByLabel('Notas').fill('Ficha ficticia temporal para verificar la generación PDF.');
     await page.getByRole('button', { name: 'Crear cliente' }).click();
-    await expect(page).toHaveURL(/\\/clients\\/\\d+(?:[/?#]|$)/, { timeout: 20_000 });
+    await expect(page).toHaveURL(new RegExp('/clients/[0-9]+(?:[/?#]|$)'), { timeout: 20_000 });
     clientId = Number(new URL(page.url()).pathname.match(/^\/clients\/(\d+)$/)?.[1]);
     expect(clientId).toBeGreaterThan(0);
 
@@ -144,7 +147,7 @@ test('PDF de dieta generado por la API: MIME, cabecera y evidencia para revisió
     await expect(page.getByRole('heading', { name: 'Nueva Dieta' })).toBeVisible();
     await page.getByPlaceholder('Escribe el nombre de la dieta...').fill(dietName);
     await page.getByRole('button', { name: /Crear Dieta/ }).click();
-    await expect(page).toHaveURL(/\\/diets(?:[/?#]|$)/, { timeout: 20_000 });
+    await expect(page).toHaveURL(new RegExp('/diets(?:[/?#]|$)'), { timeout: 20_000 });
 
     const listResponse = await page.context().request.get(new URL('/api/dietas?search=' + encodeURIComponent(dietName) + '&page=1&pageSize=100', process.env.E2E_BASE_URL || 'https://jlhitap.duckdns.org').toString());
     expect(listResponse.ok()).toBeTruthy();
