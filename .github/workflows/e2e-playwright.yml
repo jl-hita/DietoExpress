@@ -31,11 +31,16 @@ jobs:
         id: schedule
         if: github.event_name == 'schedule'
         shell: bash
+        env:
+          SCHEDULE_CRON: ${{ github.event.schedule }}
         run: |
-          local_hour="$(TZ=Europe/Madrid date +%H)"
-          if [[ "$local_hour" == "02" ]]; then
+          # Se usa la expresión que disparó el workflow, no la hora de inicio
+          # del runner, porque GitHub puede retrasar una ejecución programada.
+          local_offset="$(TZ=Europe/Madrid date +%z)"
+          if [[ "$local_offset" == "+0200" && "$SCHEDULE_CRON" == "0 0 * * 0" ]] ||
+             [[ "$local_offset" == "+0100" && "$SCHEDULE_CRON" == "0 1 * * 0" ]]; then
             echo "run_e2e=true" >> "$GITHUB_OUTPUT"
-            echo "Se ejecuta la batería semanal a las 02:00 de Europe/Madrid."
+            echo "Esta invocación corresponde a las 02:00 de Europe/Madrid."
           else
             echo "run_e2e=false" >> "$GITHUB_OUTPUT"
             echo "Esta invocación UTC no corresponde a las 02:00 locales; no se ejecutarán pruebas."
