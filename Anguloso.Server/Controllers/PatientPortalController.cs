@@ -124,7 +124,7 @@ public class PatientPortalController : ControllerBase
         var professional = await _context.users.AsNoTracking()
             .Where(u => u.id == appointment.nutritionist_id && u.tenant_id == appointment.tenant_id &&
                         u.role == "nutritionist" && u.directory_enabled == true &&
-                        u.directory_publication_status == "published")
+                        (u.directory_publication_status == "published" || u.directory_publication_status == "verified"))
             .Select(u => u.id)
             .SingleOrDefaultAsync();
         if (professional == 0) return BadRequest(new { message = "El profesional no está disponible en el directorio." });
