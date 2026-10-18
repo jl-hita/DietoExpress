@@ -56,6 +56,13 @@ export class AppointmentsComponent implements OnInit {
     { value: 0, label: 'Domingo' }
   ];
 
+  manualClients: any[] = [];
+  manualClientSearch = '';
+  manualClientId: number | null = null;
+  manualStartsAt = '';
+  manualDuration = 30;
+  manualModality = 'in_person';
+  manualNotes = '';
   newDay = 1;
   newStart = '09:00';
   newEnd = '14:00';
@@ -120,6 +127,44 @@ export class AppointmentsComponent implements OnInit {
     this.portalService.getAvailability().subscribe({
       next: value => { this.availability = value; done(); },
       error: err => { this.error = err?.error?.message || 'No hemos podido cargar la disponibilidad.'; done(); }
+    });
+    this.loadManualClients();
+  }
+
+  loadManualClients(): void {
+    this.portalService.getClients(this.manualClientSearch.trim(), 1, 100).subscribe({
+      next: value => { this.manualClients = Array.isArray(value) ? value : (value?.items || value?.Items || []); },
+      error: () => { this.manualClients = []; }
+    });
+  }
+
+  createManualAppointment(): void {
+    this.error = null; this.success = null;
+    if (!this.manualClientId || !this.manualStartsAt) {
+      this.error = 'Selecciona un paciente y una fecha y hora.';
+      return;
+    }
+    const startsAt = new Date(this.manualStartsAt);
+    if (!Number.isFinite(startsAt.getTime()) || startsAt.getTime() <= Date.now() + 5 * 60_000) {
+      this.error = 'La cita debe ser posterior a los próximos cinco minutos.';
+      return;
+    }
+    this.saving = true;
+    this.portalService.createConsultationAppointment({
+      clientId: Number(this.manualClientId),
+      startsAt: startsAt.toISOString(),
+      durationMinutes: Number(this.manualDuration),
+      notes: this.manualNotes.trim() || null,
+      modality: this.manualModality
+    }).subscribe({
+      next: appointment => {
+        const selectedClient = this.manualClients.find(client => Number(client.id ?? client.Id) === Number(this.manualClientId));
+        this.appointments = [...this.appointments, { ...appointment, clientName: selectedClient?.fullName ?? selectedClient?.FullName ?? null }].sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+        this.success = 'Cita creada y confirmada. La disponibilidad semanal solo afecta a las reservas públicas.';
+        this.manualNotes = '';
+        this.saving = false;
+      },
+      error: err => { this.error = err?.error?.message || 'No hemos podido crear la cita.'; this.saving = false; }
     });
   }
 

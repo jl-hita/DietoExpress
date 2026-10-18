@@ -75,6 +75,39 @@
       </div>
     </section>
 
+    <section class="card manual-booking">
+      <div class="card-header">
+        <div><mat-icon>event</mat-icon><div><h2>Agendar cita manualmente</h2><p>Para pacientes con los que ya has acordado una visita. No requiere que el hueco esté dentro del horario público.</p></div></div>
+      </div>
+      <div class="add-rule">
+        <label>Buscar paciente
+          <input [(ngModel)]="manualClientSearch" aria-label="Buscar paciente" placeholder="Nombre del paciente">
+        </label>
+        <button type="button" class="secondary" (click)="loadManualClients()">Buscar</button>
+        <label>Paciente
+          <select [(ngModel)]="manualClientId" aria-label="Paciente para la cita">
+            <option [ngValue]="null">Selecciona un paciente</option>
+            <option *ngFor="let client of manualClients" [ngValue]="client.id ?? client.Id">{{ client.fullName ?? client.FullName }}</option>
+          </select>
+        </label>
+        <label>Fecha y hora de la cita
+          <input type="datetime-local" [(ngModel)]="manualStartsAt" aria-label="Fecha y hora de la cita">
+        </label>
+        <label>Duración
+          <select [(ngModel)]="manualDuration" aria-label="Duración de la cita">
+            <option [ngValue]="15">15 min</option><option [ngValue]="30">30 min</option><option [ngValue]="45">45 min</option><option [ngValue]="60">60 min</option><option [ngValue]="90">90 min</option><option [ngValue]="120">120 min</option>
+          </select>
+        </label>
+        <label>Modalidad
+          <select [(ngModel)]="manualModality" aria-label="Modalidad de la cita"><option value="in_person">Presencial</option><option value="online">Online</option></select>
+        </label>
+        <label>Notas para la cita
+          <input [(ngModel)]="manualNotes" aria-label="Notas para la cita" placeholder="Opcional">
+        </label>
+        <button type="button" class="primary" (click)="createManualAppointment()" [disabled]="saving || !manualClientId || !manualStartsAt"><mat-icon>event_available</mat-icon> Crear cita confirmada</button>
+      </div>
+    </section>
+
     <section class="card">
       <div class="card-header">
         <div><mat-icon>calendar_month</mat-icon><div><h2>Próximas citas</h2><p>Gestiona las solicitudes y el estado de cada consulta.</p></div></div>

@@ -104,8 +104,10 @@ public sealed class ProfessionalConsultationActionsController : ControllerBase
             return BadRequest(new { message = "La fecha debe ser futura y estar expresada en UTC." });
 
         var endsAt = request.StartsAt.AddMinutes(request.DurationMinutes);
-        if (!await IsAvailableAsync(context, request.StartsAt, endsAt))
-            return Conflict(new { message = "Ese hueco ya no está disponible. Actualiza los horarios." });
+        // La disponibilidad semanal limita las reservas públicas, no la agenda privada del profesional.
+        // Las citas manuales pueden pactarse fuera de horario, pero nunca solaparse con otra cita.
+        if (await HasAppointmentOverlapAsync(context, request.StartsAt, endsAt))
+            return Conflict(new { message = "Ese horario ya está ocupado por otra cita." });
         if (await _googleCalendar.IsBlockedAsync(context.NutritionistId, context.TenantId, request.StartsAt, endsAt))
             return Conflict(new { message = "Ese horario está ocupado en el calendario externo." });
 
@@ -179,20 +181,9 @@ public sealed class ProfessionalConsultationActionsController : ControllerBase
         });
     }
 
-    private async Task<bool> IsAvailableAsync(ClientContext context, DateTime startsAt, DateTime endsAt)
+    private Task<bool> HasAppointmentOverlapAsync(ClientContext context, DateTime startsAt, DateTime endsAt)
     {
-        var zone = await UserTimeZoneResolver.ForUserAsync(_db, context.NutritionistId);
-        var local = TimeZoneInfo.ConvertTimeFromUtc(startsAt, zone);
-        var day = await _db.nutritionist_availability.AsNoTracking()
-            .FirstOrDefaultAsync(a => a.tenant_id == context.TenantId &&
-                                      a.nutritionist_id == context.NutritionistId &&
-                                      a.day_of_week == (int)local.DayOfWeek &&
-                                      a.is_active &&
-                                      a.start_time <= TimeOnly.FromDateTime(local) &&
-                                      a.end_time >= TimeOnly.FromDateTime(local.AddMinutes((endsAt - startsAt).TotalMinutes)));
-        if (day == null) return false;
-
-        return !await _db.patient_appointments.AnyAsync(a =>
+        return _db.patient_appointments.AsNoTracking().AnyAsync(a =>
             a.tenant_id == context.TenantId && a.nutritionist_id == context.NutritionistId &&
             (a.status == "requested" || a.status == "confirmed") &&
             a.starts_at < endsAt && a.ends_at > startsAt);
