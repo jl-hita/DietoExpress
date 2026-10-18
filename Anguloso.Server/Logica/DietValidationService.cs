@@ -512,7 +512,7 @@ public class DietValidationService
         }
 
         // La ausencia de etiquetas no confirma seguridad: advertir sin bloquear generación ni reequilibrado.
-        if (DietaryRestrictionRules.HasUnknownAllergenData(client.food_preferences?.allergies, (food.allergen_tags ?? Array.Empty<string>()).Concat(food.traces_tags ?? Array.Empty<string>()), food.allergen_data_status, food.allergen_data_source))
+        if (DietaryRestrictionRules.HasUnknownAllergenData(client.food_preferences?.allergies, (food.allergen_tags ?? Array.Empty<string>()).Concat(food.traces_tags ?? Array.Empty<string>()), food.allergen_data_status))
         {
             list.Add(new DietValidationResultDto
             {
