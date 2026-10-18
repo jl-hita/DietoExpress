@@ -25,7 +25,7 @@ public class PublicSitemapController : ControllerBase
         var baseUrl = (_configuration["PLATFORM_FRONTEND_URL"] ?? $"{Request.Scheme}://{Request.Host}").TrimEnd('/');
         var published = _context.users.AsNoTracking().Where(u =>
             u.archived_at == null && u.role == "nutritionist" &&
-            u.directory_enabled == true && u.directory_publication_status == "published");
+            u.directory_enabled == true && (u.directory_publication_status == "published" || u.directory_publication_status == "verified"));
 
         var profiles = await published.Where(u => u.directory_slug != null && u.directory_slug != "")
             .Select(u => u.directory_slug!).Take(5000).ToListAsync(ct);
