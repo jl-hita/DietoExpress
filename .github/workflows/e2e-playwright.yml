@@ -97,6 +97,17 @@ jobs:
           E2E_RUN_VISUAL_BASELINE: ${{ steps.baseline.outputs.run_visual_baseline }}
         run: npx playwright test
 
+      - name: Upload Playwright report and traces
+        if: always() && (github.event_name != 'schedule' || steps.schedule.outputs.run_e2e == 'true')
+        uses: actions/upload-artifact@v6
+        with:
+          name: playwright-e2e-results
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Registrar revisión visual/documental completada
         if: success() && steps.baseline.outputs.run_visual_baseline == 'true' && (github.event_name != 'schedule' || steps.schedule.outputs.run_e2e == 'true')
         env:
@@ -113,13 +124,3 @@ jobs:
             "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/issues/4/comments" \
             -d "$payload"
 
-      - name: Upload Playwright report and traces
-        if: always() && (github.event_name != 'schedule' || steps.schedule.outputs.run_e2e == 'true')
-        uses: actions/upload-artifact@v6
-        with:
-          name: playwright-e2e-results
-          path: |
-            e2e/playwright-report/
-            e2e/test-results/
-          if-no-files-found: ignore
-          retention-days: 14
