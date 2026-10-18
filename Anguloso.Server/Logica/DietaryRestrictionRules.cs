@@ -90,12 +90,10 @@ public static class DietaryRestrictionRules
     public static bool HasUnknownAllergenData(string? declaredAllergies, IEnumerable<string>? allergenTags) =>
         !string.IsNullOrWhiteSpace(declaredAllergies) && !HasKnownAllergenTags(allergenTags);
 
-    public static bool HasUnknownAllergenData(string? declaredAllergies, IEnumerable<string>? allergenTags, string? dataStatus, string? dataSource)
+    public static bool HasUnknownAllergenData(string? declaredAllergies, IEnumerable<string>? allergenTags, string? dataStatus)
     {
         if (string.IsNullOrWhiteSpace(declaredAllergies)) return false;
-        if (string.Equals(dataSource, "openfoodfacts", StringComparison.OrdinalIgnoreCase) &&
-            !string.Equals(dataStatus, "reported", StringComparison.OrdinalIgnoreCase))
-            return true;
+        if (!string.Equals(dataStatus, "reported", StringComparison.OrdinalIgnoreCase)) return true;
         return !HasKnownAllergenTags(allergenTags);
     }
 
