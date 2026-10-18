@@ -67,8 +67,8 @@ public class DietPdfService
                         col.Item().Element(c => ComposePatientInfo(c, client, diet, assignment));
 
                         // Separador
-                        col.Item().BorderBottom(1).BorderColor("#3f51b5").PaddingBottom(4).Text("PLAN ALIMENTARIO SEMANAL")
-                            .Bold().FontSize(13).FontColor("#3f51b5");
+                        col.Item().BorderBottom(1).BorderColor("#0d9488").PaddingBottom(4).Text("PLAN ALIMENTARIO SEMANAL")
+                            .Bold().FontSize(13).FontColor("#0d9488");
 
                         // Días de la dieta
                         if (diet.diet_days != null)
@@ -152,7 +152,7 @@ public class DietPdfService
                         ? $"Consulta de {nutritionist.full_name}" 
                         : "Consulta de Nutrición Profesional";
                         
-                    col.Item().Text(clinicName).Bold().FontSize(18).FontColor("#3f51b5");
+                    col.Item().Text(clinicName).Bold().FontSize(18).FontColor("#0d9488");
                     col.Item().Text(clinicSub).FontSize(10).FontColor("#666666");
                     
                     if (nutritionist != null)
@@ -174,13 +174,13 @@ public class DietPdfService
             // Right part: PLAN NUTRICIONAL badge
             row.ConstantItem(140).AlignRight().Column(col =>
             {
-                col.Item().Background("#3f51b5").Padding(8).AlignCenter().Text("PLAN NUTRICIONAL")
+                col.Item().Background("#0d9488").Padding(8).AlignCenter().Text("PLAN NUTRICIONAL")
                     .Bold().FontSize(12).FontColor(Colors.White);
             });
             });
 
             // Línea divisoria
-            header.Item().BorderBottom(2).BorderColor("#3f51b5");
+            header.Item().BorderBottom(2).BorderColor("#0d9488");
         });
     }
 
@@ -189,7 +189,7 @@ public class DietPdfService
         container.Background("#f5f7ff").Padding(12).Column(col =>
         {
             col.Spacing(4);
-            col.Item().Text("DATOS DEL PACIENTE").Bold().FontSize(10).FontColor("#3f51b5");
+            col.Item().Text("DATOS DEL PACIENTE").Bold().FontSize(10).FontColor("#0d9488");
 
             col.Item().Row(row =>
             {
@@ -227,7 +227,7 @@ public class DietPdfService
             col.Spacing(6);
 
             // Título del día
-            col.Item().Background("#3f51b5").Padding(6).Text(dayName.ToUpper())
+            col.Item().Background("#0d9488").Padding(6).Text(dayName.ToUpper())
                 .Bold().FontSize(11).FontColor(Colors.White);
 
             // Comidas del día
@@ -324,7 +324,7 @@ public class DietPdfService
 
             // Nombre de la comida
             col.Item().BorderLeft(3).BorderColor("#7986cb").PaddingLeft(8)
-                .Text(meal.name).SemiBold().FontSize(10).FontColor("#3f51b5");
+                .Text(meal.name).SemiBold().FontSize(10).FontColor("#0d9488");
 
             if (items.Any())
             {
@@ -344,12 +344,12 @@ public class DietPdfService
                     // Cabecera de la tabla
                     table.Header(header =>
                     {
-                        header.Cell().Background("#e8eaf6").Padding(3).Text("Alimento").Bold().FontSize(8).FontColor("#3f51b5");
-                        header.Cell().Background("#e8eaf6").Padding(3).AlignRight().Text("Gramos").Bold().FontSize(8).FontColor("#3f51b5");
-                        header.Cell().Background("#e8eaf6").Padding(3).AlignRight().Text("Kcal").Bold().FontSize(8).FontColor("#3f51b5");
-                        header.Cell().Background("#e8eaf6").Padding(3).AlignRight().Text("Prot.").Bold().FontSize(8).FontColor("#3f51b5");
-                        header.Cell().Background("#e8eaf6").Padding(3).AlignRight().Text("Carb.").Bold().FontSize(8).FontColor("#3f51b5");
-                        header.Cell().Background("#e8eaf6").Padding(3).AlignRight().Text("Grasas").Bold().FontSize(8).FontColor("#3f51b5");
+                        header.Cell().Background("#f0fdfa").Padding(3).Text("Alimento").Bold().FontSize(8).FontColor("#0d9488");
+                        header.Cell().Background("#f0fdfa").Padding(3).AlignRight().Text("Gramos").Bold().FontSize(8).FontColor("#0d9488");
+                        header.Cell().Background("#f0fdfa").Padding(3).AlignRight().Text("Kcal").Bold().FontSize(8).FontColor("#0d9488");
+                        header.Cell().Background("#f0fdfa").Padding(3).AlignRight().Text("Prot.").Bold().FontSize(8).FontColor("#0d9488");
+                        header.Cell().Background("#f0fdfa").Padding(3).AlignRight().Text("Carb.").Bold().FontSize(8).FontColor("#0d9488");
+                        header.Cell().Background("#f0fdfa").Padding(3).AlignRight().Text("Grasas").Bold().FontSize(8).FontColor("#0d9488");
                     });
 
                     // Filas de alimentos
@@ -368,12 +368,12 @@ public class DietPdfService
                     }
 
                     // Fila de totales
-                    table.Cell().BorderTop(1).BorderColor("#c5cae9").Padding(3).Text("TOTAL").Bold().FontSize(8).FontColor("#3f51b5");
-                    table.Cell().BorderTop(1).BorderColor("#c5cae9").Padding(3).AlignRight().Text("").FontSize(8);
-                    table.Cell().BorderTop(1).BorderColor("#c5cae9").Padding(3).AlignRight().Text($"{totalKcal:F0}").Bold().FontSize(8).FontColor("#3f51b5");
-                    table.Cell().BorderTop(1).BorderColor("#c5cae9").Padding(3).AlignRight().Text($"{totalProtein:F1}").Bold().FontSize(8).FontColor("#3f51b5");
-                    table.Cell().BorderTop(1).BorderColor("#c5cae9").Padding(3).AlignRight().Text($"{totalCarbs:F1}").Bold().FontSize(8).FontColor("#3f51b5");
-                    table.Cell().BorderTop(1).BorderColor("#c5cae9").Padding(3).AlignRight().Text($"{totalFat:F1}").Bold().FontSize(8).FontColor("#3f51b5");
+                    table.Cell().BorderTop(1).BorderColor("#99f6e4").Padding(3).Text("TOTAL").Bold().FontSize(8).FontColor("#0d9488");
+                    table.Cell().BorderTop(1).BorderColor("#99f6e4").Padding(3).AlignRight().Text("").FontSize(8);
+                    table.Cell().BorderTop(1).BorderColor("#99f6e4").Padding(3).AlignRight().Text($"{totalKcal:F0}").Bold().FontSize(8).FontColor("#0d9488");
+                    table.Cell().BorderTop(1).BorderColor("#99f6e4").Padding(3).AlignRight().Text($"{totalProtein:F1}").Bold().FontSize(8).FontColor("#0d9488");
+                    table.Cell().BorderTop(1).BorderColor("#99f6e4").Padding(3).AlignRight().Text($"{totalCarbs:F1}").Bold().FontSize(8).FontColor("#0d9488");
+                    table.Cell().BorderTop(1).BorderColor("#99f6e4").Padding(3).AlignRight().Text($"{totalFat:F1}").Bold().FontSize(8).FontColor("#0d9488");
                 });
             }
             else
@@ -393,8 +393,8 @@ public class DietPdfService
         {
             col.Spacing(6);
 
-            col.Item().BorderBottom(1).BorderColor("#3f51b5").PaddingBottom(4)
-                .Text("OBJETIVOS NUTRICIONALES DIARIOS").Bold().FontSize(11).FontColor("#3f51b5");
+            col.Item().BorderBottom(1).BorderColor("#0d9488").PaddingBottom(4)
+                .Text("OBJETIVOS NUTRICIONALES DIARIOS").Bold().FontSize(11).FontColor("#0d9488");
 
             col.Item().Row(row =>
             {
@@ -431,7 +431,7 @@ public class DietPdfService
         container.Column(col =>
         {
             col.Spacing(10);
-            col.Item().Text("TABLA DE EQUIVALENCIAS DE INTERCAMBIOS").Bold().FontSize(14).FontColor("#3f51b5");
+            col.Item().Text("TABLA DE EQUIVALENCIAS DE INTERCAMBIOS").Bold().FontSize(14).FontColor("#0d9488");
             col.Item().Text("Use esta tabla para cambiar un alimento por otro equivalente de su mismo grupo. Las cantidades mostradas corresponden a 1 INTERCAMBIO.").FontSize(9).Italic().FontColor("#555555");
 
             // Agrupar por grupo permite imprimir una sola referencia nutricional del intercambio y después listar sus alimentos equivalentes.
@@ -449,10 +449,10 @@ public class DietPdfService
 
                 table.Header(header =>
                 {
-                    header.Cell().Background("#e8eaf6").Padding(4).Text("Grupo").Bold().FontSize(9).FontColor("#3f51b5");
-                    header.Cell().Background("#e8eaf6").Padding(4).Text("Alimento").Bold().FontSize(9).FontColor("#3f51b5");
-                    header.Cell().Background("#e8eaf6").Padding(4).AlignRight().Text("Cantidad").Bold().FontSize(9).FontColor("#3f51b5");
-                    header.Cell().Background("#e8eaf6").Padding(4).Text("Macros (Carb / Prot / Gras / Kcal)").Bold().FontSize(9).FontColor("#3f51b5");
+                    header.Cell().Background("#f0fdfa").Padding(4).Text("Grupo").Bold().FontSize(9).FontColor("#0d9488");
+                    header.Cell().Background("#f0fdfa").Padding(4).Text("Alimento").Bold().FontSize(9).FontColor("#0d9488");
+                    header.Cell().Background("#f0fdfa").Padding(4).AlignRight().Text("Cantidad").Bold().FontSize(9).FontColor("#0d9488");
+                    header.Cell().Background("#f0fdfa").Padding(4).Text("Macros (Carb / Prot / Gras / Kcal)").Bold().FontSize(9).FontColor("#0d9488");
                 });
 
                 foreach (var group in groupedFoods)
@@ -541,7 +541,7 @@ public class DietPdfService
         {
             col.Spacing(12);
 
-            col.Item().Text("LISTA DE LA COMPRA SEMANAL").Bold().FontSize(14).FontColor("#3f51b5");
+            col.Item().Text("LISTA DE LA COMPRA SEMANAL").Bold().FontSize(14).FontColor("#0d9488");
             col.Item().Text("A continuación se muestra un resumen consolidado de todos los alimentos e intercambios planificados para la semana, agrupados por categorías.").FontSize(9).Italic().FontColor("#555555");
 
             if (!shoppingItems.Any())
@@ -561,8 +561,8 @@ public class DietPdfService
                 col.Item().Column(catCol =>
                 {
                     catCol.Spacing(4);
-                    catCol.Item().Background("#f5f7ff").Padding(4).BorderBottom(1).BorderColor("#3f51b5")
-                        .Text(group.Key.ToUpper()).Bold().FontSize(9).FontColor("#3f51b5");
+                    catCol.Item().Background("#f5f7ff").Padding(4).BorderBottom(1).BorderColor("#0d9488")
+                        .Text(group.Key.ToUpper()).Bold().FontSize(9).FontColor("#0d9488");
 
                     foreach (var item in group.OrderBy(i => i.Name))
                     {

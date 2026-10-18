@@ -103,7 +103,7 @@ public class ConsultationPdfService
                         col.Spacing(12);
 
                         col.Item().Text($"INFORME DE CONSULTA · {consultationDate:dd/MM/yyyy}")
-                            .Bold().FontSize(16).FontColor("#3f51b5");
+                            .Bold().FontSize(16).FontColor("#0d9488");
 
                         col.Item().Element(c => ComposePatientSummary(c, client, nutritionist));
 
@@ -139,7 +139,7 @@ public class ConsultationPdfService
                 row.RelativeItem().Column(col =>
                 {
                     col.Item().Text(nutritionist?.clinic_name ?? "DietoExpress")
-                        .Bold().FontSize(15).FontColor("#3f51b5");
+                        .Bold().FontSize(15).FontColor("#0d9488");
                     if (!string.IsNullOrWhiteSpace(nutritionist?.clinic_address))
                         col.Item().Text(nutritionist.clinic_address).FontSize(8);
                     if (!string.IsNullOrWhiteSpace(nutritionist?.clinic_phone))
@@ -148,13 +148,13 @@ public class ConsultationPdfService
 
                 row.ConstantItem(150).AlignRight().Column(col =>
                 {
-                    col.Item().Text("INFORME CLÍNICO").Bold().FontSize(11).FontColor("#3f51b5");
+                    col.Item().Text("INFORME CLÍNICO").Bold().FontSize(11).FontColor("#0d9488");
                     if (!string.IsNullOrWhiteSpace(nutritionist?.full_name))
                         col.Item().Text(nutritionist.full_name).FontSize(8);
                 });
             });
 
-            header.Item().BorderBottom(2).BorderColor("#3f51b5");
+            header.Item().BorderBottom(2).BorderColor("#0d9488");
         });
     }
 
@@ -162,7 +162,7 @@ public class ConsultationPdfService
     {
         container.Border(1).BorderColor("#d9dce3").Padding(10).Column(col =>
         {
-            col.Item().Text("DATOS DE LA CONSULTA").Bold().FontSize(11).FontColor("#3f51b5");
+            col.Item().Text("DATOS DE LA CONSULTA").Bold().FontSize(11).FontColor("#0d9488");
             col.Item().Table(table =>
             {
                 table.ColumnsDefinition(columns =>
@@ -183,7 +183,7 @@ public class ConsultationPdfService
     {
         container.Column(col =>
         {
-            col.Item().Text("MEDICIONES DEL DÍA").Bold().FontSize(11).FontColor("#3f51b5");
+            col.Item().Text("MEDICIONES DEL DÍA").Bold().FontSize(11).FontColor("#0d9488");
 
             if (measurements.Count == 0)
             {
@@ -231,7 +231,7 @@ public class ConsultationPdfService
     {
         container.Column(col =>
         {
-            col.Item().Text("EVOLUCIÓN HISTÓRICA").Bold().FontSize(11).FontColor("#3f51b5");
+            col.Item().Text("EVOLUCIÓN HISTÓRICA").Bold().FontSize(11).FontColor("#0d9488");
 
             if (evolution.Count == 0)
             {
@@ -254,11 +254,11 @@ public class ConsultationPdfService
 
                 table.Header(header =>
                 {
-                    header.Cell().Background("#eef1f8").Padding(4).Text("Fecha").Bold();
-                    header.Cell().Background("#eef1f8").Padding(4).Text("Peso").Bold();
-                    header.Cell().Background("#eef1f8").Padding(4).Text("% grasa").Bold();
-                    header.Cell().Background("#eef1f8").Padding(4).Text("M. muscular").Bold();
-                    header.Cell().Background("#eef1f8").Padding(4).Text("Cintura").Bold();
+                    header.Cell().Background("#f0fdfa").Padding(4).Text("Fecha").Bold();
+                    header.Cell().Background("#f0fdfa").Padding(4).Text("Peso").Bold();
+                    header.Cell().Background("#f0fdfa").Padding(4).Text("% grasa").Bold();
+                    header.Cell().Background("#f0fdfa").Padding(4).Text("M. muscular").Bold();
+                    header.Cell().Background("#f0fdfa").Padding(4).Text("Cintura").Bold();
                 });
 
                 foreach (var b in rows)
@@ -296,7 +296,7 @@ public class ConsultationPdfService
     {
         container.Column(col =>
         {
-            col.Item().Text("ACTIVIDAD DIETÉTICA DEL DÍA").Bold().FontSize(11).FontColor("#3f51b5");
+            col.Item().Text("ACTIVIDAD DIETÉTICA DEL DÍA").Bold().FontSize(11).FontColor("#0d9488");
 
             if (dietsCreated.Count == 0 && dietsAssigned.Count == 0)
             {
