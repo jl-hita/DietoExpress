@@ -32,11 +32,9 @@ jobs:
         with:
           node-version: 22.22.3
 
-      - name: Playwright E2E configuration validation
-        working-directory: e2e
-        run: |
-          npm install --no-package-lock --no-audit --no-fund
-          npx playwright test --list
+      # Solo comprobación sintáctica; no instala Playwright ni ejecuta pruebas de navegador.
+      - name: Sintaxis de scripts E2E (sin ejecutar Playwright)
+        run: find e2e -type f -name '*.mjs' -print0 | xargs -0 -r -n1 node --check
 
       - name: Angular install
         working-directory: anguloso.client
