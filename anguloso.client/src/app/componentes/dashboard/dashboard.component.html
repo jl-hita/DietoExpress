@@ -18,7 +18,7 @@
       </button>
     </header>
 
-    <section class="directory-guidance" *ngIf="profile()?.directoryEnabled" aria-labelledby="directory-guidance-title">
+    <section class="directory-guidance" *ngIf="profile()?.directoryEnabled && directoryMissingFields.length > 0" aria-labelledby="directory-guidance-title">
       <div class="directory-guidance-icon"><mat-icon aria-hidden="true">public</mat-icon></div>
       <div class="directory-guidance-content">
         <h2 id="directory-guidance-title">Publica tu perfil en el directorio</h2>
