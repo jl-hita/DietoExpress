@@ -48,9 +48,9 @@ test.describe('P0 — validación clínica de alérgenos (fixtures aislados)', (
 
     createdFoodIds = [];
     for (const fixture of [
-      { name: 'ZZZ E2E alimento alérgeno cacahuete', allergenTags: ['cacahuete'], tracesTags: [], allergenDataStatus: 'reported' },
-      { name: 'ZZZ E2E alimento trazas leche', allergenTags: [], tracesTags: ['leche'], allergenDataStatus: 'reported' },
-      { name: 'ZZZ E2E alimento alérgenos desconocidos', allergenTags: [], tracesTags: [], allergenDataStatus: 'unknown' }
+      { name: 'ZZZ E2E alimento temporal A', allergenTags: ['cacahuete'], tracesTags: [], allergenDataStatus: 'reported' },
+      { name: 'ZZZ E2E alimento temporal B', allergenTags: [], tracesTags: ['leche'], allergenDataStatus: 'reported' },
+      { name: 'ZZZ E2E alimento temporal C', allergenTags: [], tracesTags: [], allergenDataStatus: 'unknown' }
     ]) {
       const response = await api.post(new URL('/api/foods', baseURL).toString(), {
         data: {
