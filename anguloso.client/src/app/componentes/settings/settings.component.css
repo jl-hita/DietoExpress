@@ -282,3 +282,13 @@
 
 
 .field-hint { margin: -4px 0 12px; color: #64748b; font-size: 12px; line-height: 1.4; }
+
+.directory-publication-notice{margin:20px 0;padding:18px;border:1px solid #f0c36d;border-left:5px solid #d97706;border-radius:10px;background:#fffbeb;color:#78350f}
+.directory-publication-notice h3{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:17px}
+.directory-publication-notice h3 mat-icon{color:#b45309}
+.directory-publication-notice p{line-height:1.55}
+.evidence-upload-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:16px}
+.evidence-upload-item{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:14px;border:1px solid #e5c98c;border-radius:8px;background:#fff}
+.evidence-upload-item span,.evidence-upload-item small{font-size:13px;line-height:1.45;overflow-wrap:anywhere}
+.evidence-upload-item input[type=file]{max-width:100%;font-size:12px}
+@media(max-width:700px){.evidence-upload-row{grid-template-columns:1fr}.directory-publication-notice{padding:14px}}
