@@ -72,6 +72,9 @@ test.describe('P0 — validación clínica de alérgenos (fixtures aislados)', (
       const food = await response.json();
       const foodId = Number(food.id ?? food.Id);
       expect(Number.isSafeInteger(foodId) && foodId > 0, 'La API debe devolver el ID del alimento de prueba').toBe(true);
+      expect(food.allergen_tags ?? food.allergenTags ?? food.AllergenTags ?? []).toEqual(fixture.allergenTags);
+      expect(food.traces_tags ?? food.tracesTags ?? food.TracesTags ?? []).toEqual(fixture.tracesTags);
+      expect(food.allergen_data_status ?? food.allergenDataStatus ?? food.AllergenDataStatus).toBe(fixture.allergenDataStatus);
       createdFoodIds.push(foodId);
     }
   });
@@ -122,7 +125,8 @@ test.describe('P0 — validación clínica de alérgenos (fixtures aislados)', (
     expect(warnings).toEqual(expect.arrayContaining([
       expect.objectContaining({ foodId: createdFoodIds[1], alertType: expect.stringMatching(/\S/), message: expect.stringMatching(/\S/) })
     ]));
-    expect(JSON.stringify(warnings)).toMatch(/traza|trace|al[eé]rgen|allergen/i);
+    expect(warnings).toEqual(expect.arrayContaining([expect.objectContaining({ foodId: createdFoodIds[1], alertType: 'Allergy' })]));
+    expect(JSON.stringify(warnings)).toMatch(/al[eé]rgia|allerg/i);
   });
 
   test('los metadatos desconocidos no se aceptan silenciosamente cuando el paciente declara alergias', async ({ page }) => {
