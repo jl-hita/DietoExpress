@@ -13,15 +13,16 @@
       <div class="page-title-group">
         <mat-icon class="page-icon">tune</mat-icon>
         <div>
-          <h1 class="page-title">Ajustes de la Clínica</h1>
-          <p class="page-subtitle">La información aquí configurada aparecerá en los PDF de dietas generados para tus pacientes.</p>
+          <h1 class="page-title">{{ directoryOnly ? 'Publicar mi perfil profesional' : 'Ajustes de la Clínica' }}</h1>
+          <p class="page-subtitle" *ngIf="directoryOnly">Completa aquí los datos que verán los pacientes en el directorio y aporta la documentación necesaria para verificar tu perfil.</p>
+          <p class="page-subtitle" *ngIf="!directoryOnly">La información aquí configurada aparecerá en los PDF de dietas generados para tus pacientes.</p>
         </div>
       </div>
     </div>
 
     <form [formGroup]="form" class="settings-form">
-    <mat-tab-group [selectedIndex]="selectedSettingsTab" (selectedIndexChange)="selectedSettingsTab = $event">
-      <mat-tab label="Perfil">
+    <mat-tab-group [selectedIndex]="directoryOnly ? 0 : selectedSettingsTab" (selectedIndexChange)="selectedSettingsTab = $event">
+      <mat-tab label="Perfil" *ngIf="!directoryOnly">
 
       <!-- ─── TARJETA: Datos personales ───────────────────────── -->
       <mat-card class="settings-card">
@@ -177,24 +178,25 @@
 
       </mat-tab>
 
-      <mat-tab label="Directorio">
+      <mat-tab [label]="directoryOnly ? 'Mi perfil público' : 'Directorio'">
         <mat-card class="settings-card directory-card">
           <mat-card-header>
             <mat-icon mat-card-avatar class="section-icon">public</mat-icon>
-            <mat-card-title>Perfil público</mat-card-title>
-            <mat-card-subtitle>Haz que nuevos pacientes puedan encontrarte desde el directorio de DietoExpress.</mat-card-subtitle>
+            <mat-card-title>Haz que nuevos pacientes te encuentren</mat-card-title>
+            <mat-card-subtitle>Activa y completa tu ficha pública en el directorio de DietoExpress.</mat-card-subtitle>
           </mat-card-header>
           <mat-divider></mat-divider>
           <mat-card-content class="card-content">
             <mat-slide-toggle formControlName="directoryEnabled">
               Mostrar mi perfil en el directorio
             </mat-slide-toggle>
-            <p class="directory-help">Solo se publican los datos de esta sección y la información profesional básica. Tu email, teléfono privado y datos de pacientes nunca se muestran.</p>
+            <p class="directory-help">Solo se publican los datos profesionales que completes en esta página y el nombre de la consulta si lo indicas. Tu email, dirección, teléfono de contacto y datos de pacientes no se muestran en el directorio.</p>
+            <p class="directory-help">La publicación es gratuita y voluntaria. Activar la opción no publica el perfil automáticamente: primero debes completar la información y enviar los documentos de verificación.</p>
 
             <div class="directory-publication-notice" *ngIf="form.get('directoryEnabled')?.value" role="status">
               <h3><mat-icon>fact_check</mat-icon> Qué necesitas para publicar tu perfil</h3>
-              <p>Completa tu nombre profesional, ciudad o municipio, provincia, especialidades y presentación pública. Si quieres que aparezca el nombre de tu consulta, indícalo en la sección «Datos de la Clínica» de la pestaña Perfil. La dirección y el teléfono de contacto no se muestran como datos públicos.</p>
-              <p>También debes aportar <strong>un documento de identidad</strong> y <strong>un título oficial que acredite tu cualificación profesional</strong>. La ficha no será visible hasta que ambos documentos se aprueben y el equipo publique el perfil.</p>
+              <p>Completa el nombre profesional, ciudad o municipio, provincia, especialidades y una presentación clara de tu experiencia y del tipo de pacientes que atiendes. Si quieres que aparezca el nombre de tu consulta, indícalo en Ajustes → Perfil → Datos de la Clínica. La dirección y el teléfono de contacto no se muestran como datos públicos.</p>
+              <p>Para verificar tu perfil, aporta <strong>un documento de identidad</strong> (DNI/NIE o equivalente) y <strong>un título oficial que acredite tu cualificación profesional en nutrición/dietética</strong>. Sube documentos legibles, completos y vigentes cuando corresponda, en PDF, JPG o PNG de hasta 20 MB cada uno. La ficha no será visible hasta que ambos documentos se aprueben y el equipo publique el perfil. Si se rechaza alguno, revisa la nota del equipo y vuelve a enviarlo.</p>
               <div class="evidence-upload-row">
                 <div class="evidence-upload-item">
                   <strong>Documento de identidad</strong>
@@ -262,7 +264,7 @@
         </mat-card>
       </mat-tab>
 
-      <mat-tab label="Preferencias">
+      <mat-tab label="Preferencias" *ngIf="!directoryOnly">
         <mat-card class="settings-card">
           <mat-card-header>
             <mat-icon mat-card-avatar class="section-icon">schedule</mat-icon>
