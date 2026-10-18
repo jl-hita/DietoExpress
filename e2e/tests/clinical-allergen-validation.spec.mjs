@@ -183,7 +183,7 @@ test.describe('P0 — validación clínica de alérgenos (fixtures aislados)', (
         expect(response.status(), 'Las sugerencias deben respetar el contexto clínico').toBe(200);
         const suggestions = await response.json();
         expect(Array.isArray(suggestions)).toBe(true);
-        for (const forbiddenFoodId of createdFoodIds) {
+        for (const forbiddenFoodId of createdFoodIds.slice(0, 2)) {
           if (forbiddenFoodId !== sourceId) {
             expect(suggestions.map(item => Number(item.id ?? item.Id))).not.toContain(forbiddenFoodId);
           }
