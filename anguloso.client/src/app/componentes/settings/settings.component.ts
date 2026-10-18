@@ -101,7 +101,6 @@ export class SettingsComponent implements OnInit, OnDestroy {
   readonly timeZoneOptions = [...TIME_ZONE_OPTIONS];
   directoryEvidence: any[] = [];
   evidenceUploading: 'identity' | 'qualification' | null = null;
-  selectedSettingsTab = 0;
 
   constructor(
     private fb: FormBuilder,
@@ -115,7 +114,6 @@ export class SettingsComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.directoryOnly = this.route.snapshot.routeConfig?.path === 'directory-profile';
-    this.route.queryParamMap.subscribe(params => { this.selectedSettingsTab = params.get('tab') === 'directorio' ? 1 : 0; });
     const browserZone = this.timeZones.detectBrowserTimeZone();
     if (!this.timeZoneOptions.some(zone => zone.id === browserZone)) {
       this.timeZoneOptions.unshift({ id: browserZone, label: 'Zona detectada en este dispositivo' });

@@ -45,6 +45,18 @@ public class PublicSeoRegressionTests
     }
 
     [Fact]
+    public void DirectorySettings_AreOnlyShownOnDedicatedPage()
+    {
+        var template = File.ReadAllText(Path.Combine(
+            RepoRoot, "anguloso.client", "src", "app", "componentes", "settings", "settings.component.html"));
+        var component = File.ReadAllText(Path.Combine(
+            RepoRoot, "anguloso.client", "src", "app", "componentes", "settings", "settings.component.ts"));
+
+        Assert.Contains("<mat-tab label=\"Mi perfil público\" *ngIf=\"directoryOnly\">", template);
+        Assert.DoesNotContain("selectedSettingsTab", component);
+    }
+
+    [Fact]
     public void PublicDirectory_RoutesRemainPublicAndProfileUsesSlug()
     {
         var routes = File.ReadAllText(Path.Combine(
