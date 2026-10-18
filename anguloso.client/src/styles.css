@@ -235,3 +235,56 @@ button, a, input, select, textarea { touch-action: manipulation; }
 .autosave-status.error {
   color: #b91c1c;
 }
+
+/* UX 1.0 — fundamentos transversales: foco visible, estados y movimiento accesibles. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--primary-teal, #0d9488) 72%, white);
+  outline-offset: 3px;
+}
+:where(button, input, select, textarea):disabled,
+:where(button, input, select, textarea)[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: .62;
+}
+[aria-busy="true"] { cursor: progress; }
+:where([role="alert"], .app-error, .status.error) {
+  color: #991b1b;
+}
+:where(.app-error, .app-empty-state, .app-status) {
+  padding: 1rem;
+  border: 1px solid var(--slate-200, #e2e8f0);
+  border-radius: var(--radius-md, 12px);
+  background: #fff;
+}
+:where(.app-error, .status.error) {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+:where(.app-empty-state) { color: var(--slate-700, #334155); }
+.skeleton {
+  display: block;
+  overflow: hidden;
+  position: relative;
+  background: #e9efed;
+  border-radius: 8px;
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.72), transparent);
+  animation: ux-skeleton-shimmer 1.35s ease-in-out infinite;
+}
+@keyframes ux-skeleton-shimmer {
+  100% { transform: translateX(100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
+

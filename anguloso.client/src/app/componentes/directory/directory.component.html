@@ -64,8 +64,19 @@
     </div>
   </section>
 
-  <p *ngIf="loading" class="status">Cargando...</p>
-  <p *ngIf="error" class="status error">{{ error }}</p>
+  <section *ngIf="loading" class="directory-loading" aria-label="Cargando profesionales" aria-live="polite" role="status">
+    <span class="visually-hidden">Cargando profesionales…</span>
+    <article *ngFor="let placeholder of [1, 2, 3]" class="profile-card profile-card-skeleton" aria-hidden="true">
+      <div class="skeleton skeleton-avatar"></div>
+      <div class="profile-content skeleton-content">
+        <span class="skeleton skeleton-line skeleton-line-title"></span>
+        <span class="skeleton skeleton-line"></span>
+        <span class="skeleton skeleton-line skeleton-line-short"></span>
+        <span class="skeleton skeleton-pill"></span>
+      </div>
+    </article>
+  </section>
+  <p *ngIf="error" class="status error" role="alert">{{ error }}</p>
 
   <p *ngIf="!profile && !loading && !error && !profiles.length" class="empty-state">No hemos encontrado profesionales con esos criterios. Prueba a ampliar la zona, quitar filtros o seleccionar consulta online.</p>
 
