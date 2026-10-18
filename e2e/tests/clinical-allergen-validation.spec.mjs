@@ -38,7 +38,6 @@ test.describe('P0 — validación clínica de alérgenos (solo borradores)', () 
     await page.getByLabel('Contraseña').fill(password);
     await page.getByRole('button', { name: 'Iniciar sesión' }).click();
     await expect(page).not.toHaveURL(/\/login(?:[/?#]|$)/, { timeout: 20_000 });
-  });
 
     // Reutiliza una ficha ficticia dedicada para no crear un paciente nuevo en cada ejecución.
     const api = page.context().request;
@@ -59,6 +58,7 @@ test.describe('P0 — validación clínica de alérgenos (solo borradores)', () 
       clientId = Number(created.id ?? created.Id);
       expect(Number.isSafeInteger(clientId) && clientId > 0, 'La API debe devolver el ID de la ficha ficticia creada').toBe(true);
     }
+  });
 
   async function validateDraft(page, foodId) {
     const response = await page.context().request.post(new URL('/api/dietas/validate', baseURL).toString(), {
