@@ -17,6 +17,15 @@ const unknownFoodId = Number(process.env.E2E_UNKNOWN_ALLERGEN_FOOD_ID || 0);
  * regenerate meals, alter foods, or modify the patient. Do not point it at a real patient.
  */
 test.describe('P0 — validación clínica de alérgenos (solo borradores)', () => {
+  test.beforeAll(() => {
+    const configuredIds = [clientId, allergenFoodId, traceFoodId, unknownFoodId];
+    const ready = Boolean(username && password) && configuredIds.every(id => Number.isSafeInteger(id) && id > 0);
+    test.skip(!ready, 'Configura credenciales E2E y los cuatro IDs de la ficha ficticia/alimentos de prueba para habilitar las comprobaciones clínicas.');
+    expect(new Set([allergenFoodId, traceFoodId, unknownFoodId]).size,
+      'Los tres IDs deben identificar alimentos distintos y revisados, no reutilizar el mismo alimento para escenarios diferentes.'
+    ).toBe(3);
+  });
+
   test.beforeEach(async ({ page }) => {
     test.skip(
       !username || !password || !Number.isSafeInteger(clientId) || clientId <= 0 ||
@@ -53,7 +62,9 @@ test.describe('P0 — validación clínica de alérgenos (solo borradores)', () 
     });
 
     expect(response.status(), 'La validación clínica debe responder correctamente').toBe(200);
-    return response.json();
+    const warnings = await response.json();
+    expect(Array.isArray(warnings), 'La API debe devolver una lista de alertas').toBe(true);
+    return warnings;
   }
 
   test('un alimento con alérgeno incompatible genera una alerta vinculada al alimento', async ({ page }) => {
@@ -61,8 +72,8 @@ test.describe('P0 — validación clínica de alérgenos (solo borradores)', () 
     expect(warnings).toEqual(expect.arrayContaining([
       expect.objectContaining({
         foodId: allergenFoodId,
-        alertType: expect.any(String),
-        message: expect.any(String)
+        alertType: expect.stringMatching(/\S/),
+        message: expect.stringMatching(/\S/)
       })
     ]));
     expect(JSON.stringify(warnings)).toMatch(/al[eé]rgen|allergen|alergia/i);
