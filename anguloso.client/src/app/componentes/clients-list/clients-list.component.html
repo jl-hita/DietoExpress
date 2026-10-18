@@ -17,11 +17,13 @@
       </div>
     </div>
 
-    <div *ngIf="loading" class="center">
+    <div *ngIf="loading" class="center" role="status" aria-live="polite">
       <mat-progress-spinner mode="indeterminate"></mat-progress-spinner>
     </div>
 
-    <mat-list *ngIf="!loading && pagedClients.length > 0">
+    <p *ngIf="loadError" class="status error" role="alert">{{ loadError }} <button mat-button type="button" (click)="loadClients()">Reintentar</button></p>
+
+    <mat-list *ngIf="!loading && !loadError && pagedClients.length > 0">
       <mat-list-item *ngFor="let c of pagedClients; let i = index"
                      (click)="selectClient(c)"
                      [class.selected]="selected?.id === c.id">
@@ -32,14 +34,14 @@
           <button mat-icon-button matTooltip="Editar" (click)="editClient(c); $event.stopPropagation();">
             <mat-icon>edit</mat-icon>
           </button>
-          <button mat-icon-button color="warn" matTooltip="Eliminar" (click)="deleteClient(c); $event.stopPropagation();">
+          <button *ngIf="!isSuperAdmin" mat-icon-button color="warn" matTooltip="Archivar paciente" [attr.aria-label]="'Archivar expediente de ' + c.name" [disabled]="deletingClientId !== null" (click)="deleteClient(c); $event.stopPropagation();">
             <mat-icon>delete</mat-icon>
           </button>
         </div>
       </mat-list-item>
     </mat-list>
 
-    <div *ngIf="!loading && pagedClients.length === 0" class="empty">
+    <div *ngIf="!loading && !loadError && pagedClients.length === 0" class="empty" role="status">
       <p>No hay clientes que coincidan. Prueba otro término.</p>
     </div>
 
@@ -98,7 +100,7 @@
 
     <!-- Tabla de Clientes -->
     <div class="table-wrapper">
-      <table class="styled-table" *ngIf="!loading && pagedClients.length > 0">
+      <table class="styled-table" *ngIf="!loading && !loadError && pagedClients.length > 0">
         <thead>
           <tr>
             <th>Paciente</th>
@@ -122,7 +124,7 @@
               <button mat-icon-button class="icon-btn edit-btn" (click)="editClient(c)" matTooltip="Ver Ficha y Biometrías">
                 <mat-icon>visibility</mat-icon>
               </button>
-              <button mat-icon-button class="icon-btn delete-btn" (click)="deleteClient(c)" matTooltip="Eliminar Paciente">
+              <button mat-icon-button class="icon-btn delete-btn" [attr.aria-label]="'Archivar expediente de ' + c.name" [disabled]="deletingClientId !== null" (click)="deleteClient(c)" matTooltip="Archivar paciente">
                 <mat-icon>delete_outline</mat-icon>
               </button>
               </ng-container>
@@ -132,12 +134,12 @@
       </table>
 
       <!-- Estado de Carga -->
-      <div *ngIf="loading" class="loading-box">
+      <div *ngIf="loading" class="loading-box" role="status" aria-live="polite">
         <mat-progress-spinner mode="indeterminate" diameter="40"></mat-progress-spinner>
       </div>
 
       <!-- Estado Vacío -->
-      <div *ngIf="!loading && pagedClients.length === 0" class="empty-box">
+      <div *ngIf="!loading && !loadError && pagedClients.length === 0" class="empty-box" role="status">
         <mat-icon class="empty-icon">person_search</mat-icon>
         <p class="empty-title">No se encontraron pacientes</p>
         <p class="empty-sub">Prueba con otro término de búsqueda o crea un nuevo paciente.</p>
