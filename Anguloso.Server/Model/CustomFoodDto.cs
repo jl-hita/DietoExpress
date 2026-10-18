@@ -44,4 +44,19 @@ public class CustomFoodDto
 
     /// <summary>Etiquetas dietéticas estructuradas usadas por restricciones, alérgenos y sustituciones.</summary>
     public string[]? DietaryFlags { get; set; }
+
+    /// <summary>Alérgenos declarados por el fabricante/proveedor.</summary>
+    public string[]? AllergenTags { get; set; }
+
+    /// <summary>Posibles trazas de alérgenos.</summary>
+    public string[]? TracesTags { get; set; }
+
+    /// <summary>Calidad de los datos: reported, incomplete, stale o unknown.</summary>
+    [MaxLength(20)]
+    public string? AllergenDataStatus { get; set; }
+
+    [MaxLength(50)]
+    public string? AllergenDataSource { get; set; }
+
+    public DateTime? AllergenDataCheckedAt { get; set; }
 }
