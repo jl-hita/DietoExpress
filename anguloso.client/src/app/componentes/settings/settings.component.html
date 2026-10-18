@@ -190,6 +190,28 @@
             </mat-slide-toggle>
             <p class="directory-help">Solo se publican los datos de esta sección y la información profesional básica. Tu email, teléfono privado y datos de pacientes nunca se muestran.</p>
 
+            <div class="directory-publication-notice" *ngIf="form.get('directoryEnabled')?.value" role="status">
+              <h3><mat-icon>fact_check</mat-icon> Qué necesitas para publicar tu perfil</h3>
+              <p>Completa tu nombre profesional, ciudad o municipio, provincia, especialidades y presentación pública. Si quieres que aparezca el nombre de tu consulta, indícalo en la sección «Datos de la Clínica» de la pestaña Perfil. La dirección y el teléfono de contacto no se muestran como datos públicos.</p>
+              <p>También debes aportar <strong>un documento de identidad</strong> y <strong>un título oficial que acredite tu cualificación profesional</strong>. La ficha no será visible hasta que ambos documentos se aprueben y el equipo publique el perfil.</p>
+              <div class="evidence-upload-row">
+                <div class="evidence-upload-item">
+                  <strong>Documento de identidad</strong>
+                  <span>DNI/NIE o documento identificativo equivalente. PDF, JPG o PNG; máximo 20 MB.</span>
+                  <input #identityFile type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" (change)="uploadDirectoryEvidence($event, 'identity')" />
+                  <small *ngFor="let item of directoryEvidence" [hidden]="item.evidenceType !== 'identity'">{{ item.originalFileName }} — {{ evidenceStatusLabel(item.status) }}<span *ngIf="item.reviewNote"> · {{ item.reviewNote }}</span></small>
+                  <button mat-stroked-button type="button" (click)="identityFile.click()" [disabled]="evidenceUploading !== null">{{ evidenceUploading === 'identity' ? 'Enviando…' : 'Aportar identidad' }}</button>
+                </div>
+                <div class="evidence-upload-item">
+                  <strong>Titulación profesional</strong>
+                  <span>Título oficial relacionado con tu cualificación profesional. PDF, JPG o PNG; máximo 20 MB.</span>
+                  <input #qualificationFile type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" (change)="uploadDirectoryEvidence($event, 'qualification')" />
+                  <small *ngFor="let item of directoryEvidence" [hidden]="item.evidenceType !== 'qualification'">{{ item.originalFileName }} — {{ evidenceStatusLabel(item.status) }}<span *ngIf="item.reviewNote"> · {{ item.reviewNote }}</span></small>
+                  <button mat-stroked-button type="button" (click)="qualificationFile.click()" [disabled]="evidenceUploading !== null">{{ evidenceUploading === 'qualification' ? 'Enviando…' : 'Aportar titulación' }}</button>
+                </div>
+              </div>
+            </div>
+
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Ciudad o municipio</mat-label>
               <mat-icon matPrefix>location_city</mat-icon>
