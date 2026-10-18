@@ -451,7 +451,7 @@ public sealed class BillingController : ControllerBase
                 subscription.payment_provider = "stripe";
                 subscription.provider_customer_id = customerId;
                 subscription.provider_subscription_id = subscriptionId;
-                subscription.status = paymentStatus == "paid" ? "active" : "past_due";
+                subscription.status = paymentStatus is "paid" or "no_payment_required" ? "active" : "past_due";
                 subscription.started_at = DateTime.UtcNow;
                 subscription.expires_at = null;
                 subscription.cancelled_at = null;
