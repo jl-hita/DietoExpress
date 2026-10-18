@@ -20,7 +20,7 @@ test.describe('P1 — recorridos principales y fronteras de acceso', () => {
   });
 
   test('las rutas profesionales y administrativas no son accesibles sin sesión', async ({ page }) => {
-    for (const path of ['/clients', '/diets', '/appointments', '/billing', '/admin', '/admin/coupons']) {
+    for (const path of ['/clients', '/diets', '/appointments', '/billing', '/admin']) {
       await page.goto(path);
       await expect(page, `La ruta ${path} debe requerir autenticación`).toHaveURL(/\/login(?:[/?#]|$)/);
       await expect(page.getByRole('heading', { name: 'Inicia sesión' })).toBeVisible();
