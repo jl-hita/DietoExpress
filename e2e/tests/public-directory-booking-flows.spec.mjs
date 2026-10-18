@@ -106,7 +106,7 @@ test.describe('P0 — directorio público: búsqueda, perfil y solicitudes (API 
     await page.getByLabel('Especialidad').fill('Nutrición deportiva');
     await page.getByLabel('Tu objetivo').selectOption({ label: 'Nutrición deportiva' });
     await page.getByText('Con disponibilidad').click();
-    await page.getByText('Consulta online').click();
+    await page.getByLabel('Consulta online', { exact: true }).check();
     await page.getByRole('button', { name: /Buscar profesionales/ }).click();
     await expect.poll(() => requests.searches.some(item => item.query.city === 'Valencia' && item.query.province === 'Valencia' && item.query.speciality === 'Nutrición deportiva' && item.query.goal === 'nutrición deportiva' && item.query.online === 'true' && item.query.availableOnly === 'true')).toBe(true);
     await expect(page.locator('.results .profile-card')).toHaveCount(1);
@@ -183,11 +183,11 @@ test.describe('P0 — directorio público: búsqueda, perfil y solicitudes (API 
     await openProfile(page);
     await chooseSlot(page);
     await page.getByRole('button', { name: 'Solicitar cita' }).click();
-    await expect(page.locator('#booking-name')).toHaveJSProperty('validity.valueMissing', true);
+    expect(await page.locator('#booking-name').evaluate(element => element.validity.valueMissing)).toBe(true);
     await page.locator('#booking-name').fill('Paciente E2E Ficticio');
     await page.locator('#booking-email').fill('no-es-un-email');
     await page.getByRole('button', { name: 'Solicitar cita' }).click();
-    await expect(page.locator('#booking-email')).toHaveJSProperty('validity.typeMismatch', true);
+    expect(await page.locator('#booking-email').evaluate(element => element.validity.typeMismatch)).toBe(true);
     expect(requests.bookings).toHaveLength(0);
   });
 
