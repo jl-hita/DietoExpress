@@ -32,6 +32,10 @@ jobs:
         with:
           node-version: 22.22.3
 
+      # Solo comprobación sintáctica; no instala Playwright ni ejecuta pruebas de navegador.
+      - name: Sintaxis de scripts E2E (sin ejecutar Playwright)
+        run: find e2e -type f -name '*.mjs' -print0 | xargs -0 -r -n1 node --check
+
       - name: Angular install
         working-directory: anguloso.client
         # Angular tests use Vitest; Karma is only an unused optional peer of @angular/build.
