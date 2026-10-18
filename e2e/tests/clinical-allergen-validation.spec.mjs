@@ -149,16 +149,12 @@ test.describe('P0 — validación clínica de alérgenos (fixtures aislados)', (
       const response = await page.context().request.post(new URL('/api/dietas/generate', baseURL).toString(), {
         data: {
           clientId,
-          targetKcal: 1800,
+          targetKcal: 2000,
           numberOfDays: 1,
-          mealsPerDay: 3,
-          dietType: 'Equilibrada',
-          useRecipes: false,
-          enableGlobalOptimization: false,
-          enableDietTherapyRules: false,
-          enableAutomaticEnergyEstimate: false,
-          useExchangeGroups: false,
-          explainGeneration: false
+          mealsPerDay: 5,
+          dietType: 'Equilibrada'
+          // El resto de opciones usa los valores de producción para que la prueba
+          // compruebe el flujo real de generación, incluido el optimizador y las recetas.
         }
       });
       const generationBody = await response.text();
