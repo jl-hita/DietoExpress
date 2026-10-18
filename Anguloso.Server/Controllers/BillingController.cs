@@ -409,7 +409,7 @@ public sealed class BillingController : ControllerBase
                         tenant_id = tenantId.Value,
                         plan_id = planId.Value,
                         contracted_nutritionists = plan.code == "clinic_full" ? plan.max_nutritionists : null,
-                        status = paymentStatus == "paid" ? "active" : "past_due",
+                        status = paymentStatus is "paid" or "no_payment_required" ? "active" : "past_due",
                         started_at = DateTime.UtcNow,
                         billing_interval = interval,
                         amount = interval == "yearly" ? plan.yearly_price : plan.monthly_price,
@@ -467,6 +467,19 @@ public sealed class BillingController : ControllerBase
                 }
                 subscription.updated_at = DateTime.UtcNow;
 
+                var couponRedemptionMetadata = ReadMetadata(data, "coupon_redemption_id");
+                if (long.TryParse(couponRedemptionMetadata, out var couponRedemptionId))
+                {
+                    await _context.Database.ExecuteSqlInterpolatedAsync($"""
+                        UPDATE billing_coupon_redemptions
+                        SET status = 'redeemed', redeemed_at = COALESCE(redeemed_at, NOW()),
+                            stripe_checkout_session_id = {ReadString(data, "id")},
+                            stripe_subscription_id = {subscriptionId}
+                        WHERE id = {couponRedemptionId} AND tenant_id = {tenantId.Value}
+                          AND status IN ('reserved','redeemed')
+                        """);
+                }
+
                 {
                     subscription.amount = interval == "yearly" ? plan.yearly_price : plan.monthly_price;
                     subscription.currency = "eur";
@@ -502,6 +515,20 @@ public sealed class BillingController : ControllerBase
                     })
                 });
 
+                break;
+            }
+
+            case "checkout.session.expired":
+            {
+                var redemptionMetadata = ReadMetadata(data, "coupon_redemption_id");
+                if (long.TryParse(redemptionMetadata, out var redemptionId))
+                {
+                    await _context.Database.ExecuteSqlInterpolatedAsync($"""
+                        UPDATE billing_coupon_redemptions
+                        SET status = 'released'
+                        WHERE id = {redemptionId} AND status = 'reserved'
+                        """);
+                }
                 break;
             }
 
