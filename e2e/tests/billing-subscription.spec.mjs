@@ -54,9 +54,8 @@ test.describe('P0 — validación de cupón antes de contratar', () => {
     await expect(couponInput).toBeVisible();
 
     const terms = page.getByRole('checkbox', { name: /Acepto las condiciones de contratación/ });
-    if (await terms.count()) {
-      await terms.check();
-    }
+    test.skip(await terms.count() === 0, 'No hay condiciones de contratación visibles para aceptar; no se puede probar checkout con seguridad.');
+    await terms.check();
 
     const invalidCode = `E2E_INVALID_${Date.now()}`;
     await couponInput.fill(invalidCode);
