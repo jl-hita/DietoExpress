@@ -413,7 +413,7 @@ public class DietValidationService
         if (client.digestive_health?.lactose_intolerance == true)
         {
             if (LactoseKeywords.Any(k => nameLower.Contains(k) || catLower.Contains(k)) ||
-                !DietaryRestrictionRules.IsFoodAllowed(food.name, food.category, (food.dietary_flags ?? Array.Empty<string>()).Concat(food.allergen_tags ?? Array.Empty<string>()),
+                !DietaryRestrictionRules.IsFoodAllowed(food.name, food.category, (food.dietary_flags ?? Array.Empty<string>()).Concat(food.allergen_tags ?? Array.Empty<string>()).Concat(food.traces_tags ?? Array.Empty<string>()),
                     DietaryRestrictionRules.BuildForbiddenTerms(null, false, true, false)))
             {
                 list.Add(new DietValidationResultDto
@@ -433,7 +433,7 @@ public class DietValidationService
         if (client.digestive_health?.gluten_intolerance == true)
         {
             if (GlutenKeywords.Any(k => nameLower.Contains(k) || catLower.Contains(k)) ||
-                !DietaryRestrictionRules.IsFoodAllowed(food.name, food.category, (food.dietary_flags ?? Array.Empty<string>()).Concat(food.allergen_tags ?? Array.Empty<string>()),
+                !DietaryRestrictionRules.IsFoodAllowed(food.name, food.category, (food.dietary_flags ?? Array.Empty<string>()).Concat(food.allergen_tags ?? Array.Empty<string>()).Concat(food.traces_tags ?? Array.Empty<string>()),
                     DietaryRestrictionRules.BuildForbiddenTerms(null, true, false, false)))
             {
                 list.Add(new DietValidationResultDto
@@ -471,7 +471,7 @@ public class DietValidationService
         var allergyTerms = DietaryRestrictionRules.BuildForbiddenTerms(
             client.food_preferences?.allergies, false, false, false);
         if (allergyTerms.Count > 0 &&
-            !DietaryRestrictionRules.IsFoodAllowed(food.name, food.category, (food.dietary_flags ?? Array.Empty<string>()).Concat(food.allergen_tags ?? Array.Empty<string>()), allergyTerms))
+            !DietaryRestrictionRules.IsFoodAllowed(food.name, food.category, (food.dietary_flags ?? Array.Empty<string>()).Concat(food.allergen_tags ?? Array.Empty<string>()).Concat(food.traces_tags ?? Array.Empty<string>()), allergyTerms))
         {
             list.Add(new DietValidationResultDto
             {
@@ -512,7 +512,7 @@ public class DietValidationService
         }
 
         // La ausencia de etiquetas no confirma seguridad: advertir sin bloquear generación ni reequilibrado.
-        if (DietaryRestrictionRules.HasUnknownAllergenData(client.food_preferences?.allergies, food.allergen_tags))
+        if (DietaryRestrictionRules.HasUnknownAllergenData(client.food_preferences?.allergies, (food.allergen_tags ?? Array.Empty<string>()).Concat(food.traces_tags ?? Array.Empty<string>()), food.allergen_data_status))
         {
             list.Add(new DietValidationResultDto
             {

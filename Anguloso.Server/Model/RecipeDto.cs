@@ -19,6 +19,8 @@ public class RecipeDetailDto : RecipeListDto
     public RecipeNutritionDto Nutrition { get; set; } = new();
     public List<string> DietaryFlags { get; set; } = new();
     public List<string> AllergenTags { get; set; } = new();
+    public List<string> TraceTags { get; set; } = new();
+    public string AllergenDataStatus { get; set; } = "unknown";
     public bool AllergenDataAvailable { get; set; }
     public List<RecipeIngredientDto> Ingredients { get; set; } = new();
 }
@@ -49,6 +51,8 @@ public class RecipeIngredientDto
     public double? Fat { get; set; }
     public List<string> DietaryFlags { get; set; } = new();
     public List<string> AllergenTags { get; set; } = new();
+    public List<string> TraceTags { get; set; } = new();
+    public string AllergenDataStatus { get; set; } = "unknown";
     public bool AllergenDataAvailable { get; set; }
 }
 

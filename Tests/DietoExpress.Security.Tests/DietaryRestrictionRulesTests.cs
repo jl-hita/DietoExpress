@@ -137,12 +137,37 @@ public sealed class DietaryRestrictionRulesTests
     }
 
     [Fact]
+    public void MergeKnownAllergenTags_CanPreserveTraceTagsIndependentlyFromAllergens()
+    {
+        var allergens = DietaryRestrictionRules.MergeKnownAllergenTags(
+            new[] { "en:milk" }, Array.Empty<string>());
+        var traces = DietaryRestrictionRules.MergeKnownAllergenTags(
+            new[] { "en:peanuts" }, Array.Empty<string>());
+
+        Assert.Equal(new[] { "en:milk" }, allergens);
+        Assert.Equal(new[] { "en:peanuts" }, traces);
+        Assert.DoesNotContain("en:peanuts", allergens!);
+        Assert.DoesNotContain("en:milk", traces!);
+    }
+
+    [Fact]
     public void HasKnownAllergenTags_RequiresAtLeastOneNonBlankTag()
     {
         Assert.False(DietaryRestrictionRules.HasKnownAllergenTags(null));
         Assert.False(DietaryRestrictionRules.HasKnownAllergenTags(Array.Empty<string>()));
         Assert.False(DietaryRestrictionRules.HasKnownAllergenTags(new[] { " ", "" }));
         Assert.True(DietaryRestrictionRules.HasKnownAllergenTags(new[] { "en:milk" }));
+    }
+
+    [Theory]
+    [InlineData("partial", true)]
+    [InlineData("stale", true)]
+    [InlineData("unknown", true)]
+    [InlineData("reported", false)]
+    public void HasUnknownAllergenData_UsesOpenFoodFactsCompletenessStatus(string status, bool expected)
+    {
+        Assert.Equal(expected, DietaryRestrictionRules.HasUnknownAllergenData(
+            "cacahuete", new[] { "en:peanuts" }, status));
     }
 
     [Fact]

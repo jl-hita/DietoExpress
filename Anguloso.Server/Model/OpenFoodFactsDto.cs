@@ -24,6 +24,10 @@ public class OffProduct
     public string? ServingSizeUnit { get; set; } // g, ml, etc.
     public string? ServingSizeText { get; set; } // “1 cup (195g)” opcional
     public string[]? Allergens_tags { get; set; }
+    public string[]? Traces_tags { get; set; }
+    public string? Allergen_data_status { get; set; }
+    public string? Allergen_data_source { get; set; }
+    public DateTime? Allergen_data_checked_at { get; set; }
 
     public OffNutriments Nutriments { get; set; } = new OffNutriments();
     public OffMicronutrients Micronutrients { get; set; } = new();
@@ -41,6 +45,10 @@ public class OffProduct
         ServingSizeUnit = food.serving_size_unit;
         ServingSizeText = food.serving_size_text;
         Allergens_tags = food.allergen_tags?.ToArray();
+        Traces_tags = food.traces_tags?.ToArray();
+        Allergen_data_status = food.allergen_data_status;
+        Allergen_data_source = food.allergen_data_source;
+        Allergen_data_checked_at = food.allergen_data_checked_at;
 
         //Macros
         Nutriments.Fiber100g = food.fiber;

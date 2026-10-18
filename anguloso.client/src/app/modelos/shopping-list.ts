@@ -6,6 +6,8 @@ export interface ShoppingListItem {
   roundedGrams: number;
   commercialDescription: string;
   allergenTags: string[];
+  traceTags: string[];
+  allergenDataStatus: string;
   allergenDataAvailable: boolean;
   requiresAllergenCheck?: boolean;
 }

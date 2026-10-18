@@ -1602,7 +1602,7 @@ public class DietGeneratorService
         // Mantener la compatibilidad con keywords históricas (p. ej. "lact") y añadir
         // comparación estructurada para que el nombre comercial no pueda ocultar alérgenos.
         return exclusions.Any(e => name.Contains(e) || cat.Contains(e)) ||
-            !DietaryRestrictionRules.IsFoodAllowed(food.name, food.category, (food.dietary_flags ?? Array.Empty<string>()).Concat(food.allergen_tags ?? Array.Empty<string>()), exclusions);
+            !DietaryRestrictionRules.IsFoodAllowed(food.name, food.category, (food.dietary_flags ?? Array.Empty<string>()).Concat(food.allergen_tags ?? Array.Empty<string>()).Concat(food.traces_tags ?? Array.Empty<string>()), exclusions);
     }
 
     private void AddGlutenKeywords(HashSet<string> ex)

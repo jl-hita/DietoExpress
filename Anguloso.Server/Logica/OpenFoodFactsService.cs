@@ -286,7 +286,7 @@ public class OpenFoodFactsService
 
         try
         {
-            string fields = "product_name,brands,nutriscore_grade,nutriments,code,categories,serving_size,allergens_tags";
+            string fields = "product_name,brands,nutriscore_grade,nutriments,code,categories,serving_size,allergens_tags,traces_tags";
             int nResultados = 20;
             // Construir URL (cgi/search.pl es la recomendada para json)
             var url = $"cgi/search.pl?search_terms={Uri.EscapeDataString(query)}&tagtype_0=countries&tag_contains_0=contains&tag_0={Uri.EscapeDataString(pais)}&tagtype_1=languages&tag_contains_1=contains&tag_1={Uri.EscapeDataString(lang)}&fields={Uri.EscapeDataString(fields)}&page_size={nResultados}&json=1";
@@ -327,6 +327,7 @@ public class OpenFoodFactsService
                     ServingSize = servingSizeObject != null ? servingSizeObject.Value : null,
                     ServingSizeUnit = servingSizeObject != null ? servingSizeObject.Unit : null,
                     Allergens_tags = GetStringArray(p, "allergens_tags"),
+                    Traces_tags = GetStringArray(p, "traces_tags"),
                     Nutriments = ExtractNutrimentsFromOffElement(p),
                     //Micronutrients = ExtractMicronutrientsFromOffElement(p) //Los sacamos de la USDA directamente
                     Micronutrients = new OffMicronutrients()
@@ -825,8 +826,25 @@ public class OpenFoodFactsService
             food.category = product.Category;
             food.nutriscore = NormalizeNutriscore(product.Nutriscore_grade);
             // Empty/missing OFF data is not proof that previously known allergens disappeared.
+            var hasIncomingAllergenTags = DietaryRestrictionRules.HasKnownAllergenTags(product.Allergens_tags);
+            var hasIncomingTraceTags = DietaryRestrictionRules.HasKnownAllergenTags(product.Traces_tags);
+            var hadKnownAllergenData = DietaryRestrictionRules.HasKnownAllergenTags(food.allergen_tags) ||
+                DietaryRestrictionRules.HasKnownAllergenTags(food.traces_tags);
+
+            // Alérgenos y trazas permanecen separados. Una respuesta vacía no borra datos conocidos.
             food.allergen_tags = DietaryRestrictionRules.MergeKnownAllergenTags(
                 food.allergen_tags, product.Allergens_tags);
+            food.traces_tags = DietaryRestrictionRules.MergeKnownAllergenTags(
+                food.traces_tags, product.Traces_tags);
+            food.allergen_data_status = hasIncomingAllergenTags && hasIncomingTraceTags
+                ? "reported"
+                : hasIncomingAllergenTags || hasIncomingTraceTags
+                    ? "partial"
+                    : hadKnownAllergenData ? "stale" : "unknown";
+            food.allergen_data_source = hasIncomingAllergenTags || hasIncomingTraceTags
+                ? "openfoodfacts"
+                : food.allergen_data_source;
+            food.allergen_data_checked_at = DateTime.UtcNow;
 
             // =========================
             // Serving size
