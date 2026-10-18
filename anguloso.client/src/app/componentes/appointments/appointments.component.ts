@@ -153,7 +153,8 @@ export class AppointmentsComponent implements OnInit {
       modality: this.manualModality
     }).subscribe({
       next: appointment => {
-        this.appointments = [...this.appointments, appointment].sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+        const selectedClient = this.manualClients.find(client => Number(client.id ?? client.Id) === Number(this.manualClientId));
+        this.appointments = [...this.appointments, { ...appointment, clientName: selectedClient?.fullName ?? selectedClient?.FullName ?? null }].sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
         this.success = 'Cita creada y confirmada. La disponibilidad semanal solo afecta a las reservas públicas.';
         this.manualNotes = '';
         this.saving = false;
