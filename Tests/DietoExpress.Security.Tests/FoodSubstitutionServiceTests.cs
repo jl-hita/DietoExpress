@@ -67,6 +67,27 @@ public class FoodSubstitutionServiceTests
     }
 
     [Fact]
+    public async Task SuggestAsync_ExcludesAllergensTracesAndUnknownMetadataForAllergicClient()
+    {
+        await using var db = CreateContext();
+        db.foods.AddRange(
+            new foods { id = 1, name = "Fuente segura", kcal = 100, protein = 10, carbs = 10, fat = 2, source = "global", dietary_flags = Array.Empty<string>(), allergen_tags = Array.Empty<string>(), traces_tags = Array.Empty<string>(), allergen_data_status = "reported" },
+            new foods { id = 2, name = "Candidato con alérgeno", kcal = 100, protein = 10, carbs = 10, fat = 2, source = "global", dietary_flags = Array.Empty<string>(), allergen_tags = new[] { "cacahuete" }, traces_tags = Array.Empty<string>(), allergen_data_status = "reported" },
+            new foods { id = 3, name = "Candidato con trazas", kcal = 100, protein = 10, carbs = 10, fat = 2, source = "global", dietary_flags = Array.Empty<string>(), allergen_tags = Array.Empty<string>(), traces_tags = new[] { "leche" }, allergen_data_status = "reported" },
+            new foods { id = 4, name = "Candidato sin datos verificables", kcal = 100, protein = 10, carbs = 10, fat = 2, source = "global", dietary_flags = Array.Empty<string>(), allergen_tags = Array.Empty<string>(), traces_tags = Array.Empty<string>(), allergen_data_status = "unknown" },
+            new foods { id = 5, name = "Candidato seguro verificado", kcal = 101, protein = 10, carbs = 10, fat = 2, source = "global", dietary_flags = Array.Empty<string>(), allergen_tags = new[] { "huevo" }, traces_tags = Array.Empty<string>(), allergen_data_status = "reported" });
+        await db.SaveChangesAsync();
+
+        var result = await new FoodSubstitutionService(db)
+            .SuggestAsync(1, null, true, "kcal", null, 10, default, "cacahuete, leche");
+
+        Assert.DoesNotContain(result, x => x.Id == 2);
+        Assert.DoesNotContain(result, x => x.Id == 3);
+        Assert.DoesNotContain(result, x => x.Id == 4);
+        Assert.Contains(result, x => x.Id == 5);
+    }
+
+    [Fact]
     public async Task SuggestAsync_RejectsUnknownTarget()
     {
         await using var db = CreateContext();
