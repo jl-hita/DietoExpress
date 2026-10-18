@@ -90,7 +90,7 @@ public class AppointmentsController : ControllerBase
                 for (var localTime = rule.start_time; localTime.AddMinutes(rule.slot_minutes) <= rule.end_time; localTime = localTime.AddMinutes(rule.slot_minutes))
                 {
                     var localDateTime = day.Add(localTime.ToTimeSpan());
-                    var utc = TimeZoneInfo.ConvertTimeToUtc(localDateTime, localZone);
+                    if (!UserTimeZoneResolver.TryConvertLocalToUtc(localDateTime, localZone, out var utc)) continue;
                     var endUtc = utc.AddMinutes(rule.slot_minutes);
                     if (utc <= from || utc >= to) continue;
                     if (appointments.Any(a => a.starts_at < endUtc && a.ends_at > utc)) continue;

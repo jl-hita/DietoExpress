@@ -510,7 +510,7 @@ public class DirectoryController : ControllerBase
                      localTime = localTime.AddMinutes(rule.slot_minutes))
                 {
                     var localDateTime = day.Add(localTime.ToTimeSpan());
-                    var utc = TimeZoneInfo.ConvertTimeToUtc(localDateTime, localZone);
+                    if (!UserTimeZoneResolver.TryConvertLocalToUtc(localDateTime, localZone, out var utc)) continue;
                     var endUtc = utc.AddMinutes(rule.slot_minutes);
 
                     if (utc <= from || utc >= to)
