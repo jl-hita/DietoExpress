@@ -19,7 +19,7 @@ public class PublicDirectoryVerificationRegressionTests
     }
 
     [Fact]
-    public void PublicDirectory_ExposesOnlyPublishedProfiles()
+    public void PublicDirectory_ExposesPublishedAndVerifiedProfiles()
     {
         var source = Read("Anguloso.Server/Controllers/DirectoryController.cs");
 
@@ -29,7 +29,7 @@ public class PublicDirectoryVerificationRegressionTests
     }
 
     [Fact]
-    public void ProfessionalDirectoryChanges_ReturnToPendingReview()
+    public void ProfessionalDirectoryChangesDoNotRequireManualReview()
     {
         var source = Read("Anguloso.Server/Controllers/ProfileController.cs");
 
