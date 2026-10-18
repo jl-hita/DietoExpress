@@ -84,9 +84,11 @@ public static class DietaryRestrictionRules
         return existing is { Length: > 0 } ? existing : existingTags?.ToArray();
     }
 
+    public static bool HasKnownAllergenTags(IEnumerable<string>? allergenTags) =>
+        allergenTags?.Any(tag => !string.IsNullOrWhiteSpace(tag)) == true;
+
     public static bool HasUnknownAllergenData(string? declaredAllergies, IEnumerable<string>? allergenTags) =>
-        !string.IsNullOrWhiteSpace(declaredAllergies) &&
-        (allergenTags == null || !allergenTags.Any());
+        !string.IsNullOrWhiteSpace(declaredAllergies) && !HasKnownAllergenTags(allergenTags);
 
     public static bool IsFoodAllowed(string? name, string? category, IEnumerable<string>? dietaryFlags, IEnumerable<string> forbiddenTerms)
     {
