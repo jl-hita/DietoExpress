@@ -83,8 +83,8 @@ public sealed class StripeBillingService : IStripeBillingService
         {
             if (!string.Equals(pendingAttempt.coupon_code, normalizedCouponCode, StringComparison.Ordinal))
                 throw new InvalidOperationException("Ya existe un checkout pendiente para esta cuenta. Completa o deja caducar ese checkout antes de cambiar el cupón.");
-            if (pendingAttempt.status == "creating")
-                throw new InvalidOperationException("El checkout anterior todavía se está preparando. Vuelve a intentarlo en unos segundos.");
+            if (pendingAttempt.status == "creating" && normalizedCouponCode != null)
+                throw new InvalidOperationException("El checkout con cupón anterior todavía se está preparando. Vuelve a intentarlo en unos segundos.");
             await transaction.CommitAsync();
 
             if (pendingAttempt.status == "pending" && !string.IsNullOrWhiteSpace(pendingAttempt.checkout_url))
