@@ -200,12 +200,14 @@ public sealed class StripeBillingService : IStripeBillingService
                 throw new InvalidOperationException("El código promocional ya se ha utilizado o está reservado en otra contratación.");
 
             couponId = coupon.Id;
-            couponRedemptionId = await _context.Database.SqlQueryRaw<long>("""
+            await _context.Database.ExecuteSqlInterpolatedAsync($"""
                 INSERT INTO billing_coupon_redemptions
                     (coupon_id, tenant_id, user_id, status, reserved_until)
-                VALUES ({0}, {1}, {2}, 'reserved', {3})
-                RETURNING id AS "Value"
-                """, coupon.Id, tenantId, userId.Value, DateTime.UtcNow.AddHours(24)).SingleAsync();
+                VALUES ({coupon.Id}, {tenantId}, {userId.Value}, 'reserved', {DateTime.UtcNow.AddHours(24)})
+                """);
+            couponRedemptionId = await _context.Database.SqlQueryRaw<long>("""
+                SELECT currval(pg_get_serial_sequence('billing_coupon_redemptions', 'id')) AS "Value"
+                """).SingleAsync();
 
             using var stripeCouponResponse = await SendStripeAsync(HttpMethod.Post, "/v1/coupons",
                 new Dictionary<string, string>
