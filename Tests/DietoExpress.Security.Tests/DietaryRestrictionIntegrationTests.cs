@@ -25,14 +25,17 @@ public sealed class DietaryRestrictionIntegrationTests
         Assert.Contains("DietaryRestrictionRules.BuildForbiddenTerms", generator);
         Assert.Contains("food.dietary_flags", generator);
         Assert.Contains("food.allergen_tags", generator);
+        Assert.Contains("food.traces_tags", generator);
         Assert.Contains("DietaryRestrictionRules.IsFoodAllowed", generator);
         Assert.Contains("DietaryRestrictionRules.BuildForbiddenTerms", validation);
         Assert.Contains("DietaryRestrictionRules.IsFoodAllowed", validation);
         Assert.Contains("food.dietary_flags", validation);
         Assert.Contains("food.allergen_tags", validation);
+        Assert.Contains("food.traces_tags", validation);
         Assert.Contains("DietaryRestrictionRules.BuildForbiddenTerms", regeneration);
         Assert.Contains("DietaryRestrictionRules.IsFoodAllowed", regeneration);
         Assert.Contains("food.allergen_tags", regeneration);
+        Assert.Contains("food.traces_tags", regeneration);
         Assert.DoesNotContain(".Split(new[] { ',', ';', ' ' }", validation);
 
         var shopping = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "ShoppingListRules.cs"));
