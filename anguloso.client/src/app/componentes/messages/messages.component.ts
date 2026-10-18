@@ -35,6 +35,8 @@ export class MessagesComponent implements OnInit, OnDestroy {
   private readonly loadingState = signal(true);
   get loading(): boolean { return this.loadingState(); }
   set loading(value: boolean) { this.loadingState.set(value); }
+  private readonly broadcastLoadingState = signal(true);
+  get broadcastLoading(): boolean { return this.broadcastLoadingState(); }
   private readonly conversationErrorState = signal<string | null>(null);
   private readonly broadcastErrorState = signal<string | null>(null);
   get error(): string | null {
@@ -77,6 +79,7 @@ export class MessagesComponent implements OnInit, OnDestroy {
         return of(null);
       })))
     ).subscribe(items => {
+      this.broadcastLoadingState.set(false);
       if (items === null) return;
       this.broadcastErrorState.set(null);
       this.broadcastInbox = items || [];
