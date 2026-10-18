@@ -380,5 +380,7 @@ public sealed class PatientDocumentFlowRegressionTests
         Assert.Contains("buildClinicalProgress()", source);
         Assert.Contains("this.loadConsultationSlots()", source);
         Assert.Contains("openPatientMessages()", source);
+        Assert.Contains("get contextualRecommendations()", source);
+        Assert.Contains("adherence_low", source);
     }
 }
