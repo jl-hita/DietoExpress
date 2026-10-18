@@ -101,23 +101,17 @@ jobs:
         if: success() && steps.baseline.outputs.run_visual_baseline == 'true' && (github.event_name != 'schedule' || steps.schedule.outputs.run_e2e == 'true')
         env:
           GH_TOKEN: ${{ github.token }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          body="<!-- E2E_VISUAL_BASELINE_PASSED -->
+          BODY: |
+            <!-- E2E_VISUAL_BASELINE_PASSED -->
 
-          **Revisión inicial visual/documental Playwright superada.** Directorio escritorio/móvil (skeletons, vacío y error) y contrato de marca/UTF-8 de PDFs y emails verificados. Evidencias y capturas: [ejecución Playwright]($RUN_URL). Esta batería inicial no se repite en semanas posteriores salvo fallo o cambio relevante."
+            **Revisión inicial visual/documental Playwright superada.** Directorio escritorio/móvil (skeletons, vacío y error) y contrato de marca/UTF-8 de PDFs y emails verificados. Evidencias y capturas: [ejecución Playwright](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}). Esta batería inicial no se repite en semanas posteriores salvo fallo o cambio relevante.
+        run: |
+          payload="$(python3 -c 'import json,os; print(json.dumps({"body": os.environ["BODY"]}))')"
           curl --fail --silent --show-error -X POST \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/issues/4/comments" \
-            -d "$(python3 -c 'import json,os; print(json.dumps({"body": os.environ["BODY"]}))')" \
-            || exit 1
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          BODY: <!-- E2E_VISUAL_BASELINE_PASSED -->
-
-**Revisión inicial visual/documental Playwright superada.** Directorio escritorio/móvil (skeletons, vacío y error) y contrato de marca/UTF-8 de PDFs y emails verificados. Evidencias y capturas: [ejecución Playwright](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}). Esta batería inicial no se repite en semanas posteriores salvo fallo o cambio relevante.
+            -d "$payload"
 
       - name: Upload Playwright report and traces
         if: always() && (github.event_name != 'schedule' || steps.schedule.outputs.run_e2e == 'true')
