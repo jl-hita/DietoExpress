@@ -1,6 +1,6 @@
 <main class="directory-page" [class.profile-page]="profile">
   <header class="directory-header">
-    <a routerLink="/" class="brand" aria-label="DietoExpress, ir al inicio"><span class="brand-mark">d</span><span>DietoExpress</span></a>
+    <a routerLink="/" class="brand" aria-label="DietoExpress, ir al inicio"><img src="/favicon.svg" alt="" aria-hidden="true" width="36" height="36" style="display:block;flex:none" /><span>DietoExpress</span></a>
     <span class="header-note" *ngIf="!profile">Encuentra el profesional que encaja contigo</span>
     <span class="header-note" *ngIf="profile">Tu próximo paso hacia una mejor alimentación</span>
     <h1 *ngIf="profile" class="visually-hidden">Perfil profesional: {{ profile.fullName }}</h1>
