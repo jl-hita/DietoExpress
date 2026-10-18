@@ -237,6 +237,7 @@ public class FoodController : ControllerBase
         [FromQuery] string target = "balanced",
         [FromQuery] string[]? excludeFlags = null,
         [FromQuery] int limit = 10,
+        [FromQuery] int? clientId = null,
         CancellationToken cancellationToken = default)
     {
         var tenantId = AuthHelpers.GetTenantId(User);
@@ -252,10 +253,35 @@ public class FoodController : ControllerBase
 
         if (!visibleFood) return NotFound();
 
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId == null) return Unauthorized();
+
+        clients? restrictionClient = null;
+        if (clientId.HasValue)
+        {
+            restrictionClient = await _dbContext.clients
+                .AsNoTracking()
+                .Include(c => c.food_preferences)
+                .Include(c => c.digestive_health)
+                .FirstOrDefaultAsync(c => c.id == clientId.Value && c.archived_at == null &&
+                    (User.IsInRole("superadmin") ||
+                     (tenantId.HasValue && c.tenant_id == tenantId.Value &&
+                      (c.user_id == userId.Value ||
+                       _dbContext.client_nutritionist_assignments.Any(a =>
+                           a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active) ||
+                       User.IsInRole("clinic_admin")))), cancellationToken);
+
+            if (restrictionClient == null) return NotFound("Cliente no encontrado o no pertenece al usuario.");
+        }
+
         try
         {
             var result = await _foodSubstitutionService.SuggestAsync(
-                id, tenantId, User.IsInRole("superadmin"), target, excludeFlags, limit, cancellationToken);
+                id, tenantId, User.IsInRole("superadmin"), target, excludeFlags, limit, cancellationToken,
+                restrictionClient?.food_preferences?.allergies,
+                restrictionClient?.digestive_health?.gluten_intolerance == true,
+                restrictionClient?.digestive_health?.lactose_intolerance == true,
+                restrictionClient?.digestive_health?.fodmaps_intolerance == true);
             return Ok(result);
         }
         catch (ArgumentException ex)
