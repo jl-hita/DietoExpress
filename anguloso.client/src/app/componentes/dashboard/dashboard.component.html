@@ -22,10 +22,10 @@
       <div class="directory-guidance-icon"><mat-icon aria-hidden="true">public</mat-icon></div>
       <div class="directory-guidance-content">
         <h2 id="directory-guidance-title">Publica tu perfil en el directorio</h2>
-        <p>Para que los pacientes puedan encontrarte, completa los datos públicos y aporta los documentos de verificación. La ficha solo se publicará cuando el equipo de DietoExpress revise y apruebe tu identidad y titulación.</p>
+        <p>Completa los datos públicos para que los pacientes puedan encontrarte. Puedes publicar tu perfil sin aportar documentación; si quieres obtener la insignia de profesional verificado, podrás enviar documentación para su revisión.</p>
         <p *ngIf="directoryMissingFields.length">Todavía falta: <strong>{{ directoryMissingFields.join(', ') }}.</strong></p>
-        <p *ngIf="!directoryMissingFields.length">Los datos básicos del perfil están completos. Comprueba que has aportado un documento de identidad y un título oficial relacionado con tu cualificación profesional; ambos deben ser aprobados.</p>
-        <button mat-flat-button color="primary" type="button" (click)="openDirectorySettings()">Completar perfil y documentación</button>
+        <p *ngIf="!directoryMissingFields.length">Los datos básicos están completos. Ya puedes publicar tu perfil; la verificación documental es opcional.</p>
+        <button mat-flat-button color="primary" type="button" (click)="openDirectorySettings()">Completar mi perfil</button>
       </div>
     </section>
 
