@@ -10,7 +10,7 @@ namespace Anguloso.Server.Logica;
 
 public interface IStripeBillingService
 {
-    Task<string> CreateCheckoutSessionAsync(int tenantId, string planCode, string billingInterval, string successUrl, string cancelUrl);
+    Task<string> CreateCheckoutSessionAsync(int tenantId, string planCode, string billingInterval, string successUrl, string cancelUrl, string? couponCode = null, int? userId = null);
     Task ChangeSubscriptionAsync(int tenantId, string planCode, string billingInterval);
     Task CancelRenewalAsync(int tenantId);
     Task ReactivateRenewalAsync(int tenantId);
@@ -40,7 +40,9 @@ public sealed class StripeBillingService : IStripeBillingService
         string planCode,
         string billingInterval,
         string successUrl,
-        string cancelUrl)
+        string cancelUrl,
+        string? couponCode = null,
+        int? userId = null)
     {
         if (billingInterval is not ("monthly" or "yearly"))
             throw new ArgumentException("El intervalo debe ser monthly o yearly.", nameof(billingInterval));
