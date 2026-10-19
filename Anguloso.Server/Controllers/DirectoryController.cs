@@ -277,8 +277,19 @@ public class DirectoryController : ControllerBase
             .Select(u => new { u.id, u.tenant_id })
             .FirstOrDefaultAsync();
         if (professional == null || !professional.tenant_id.HasValue) return Forbid();
+
+        var interestCount = await _context.Database.SqlQueryRaw<long>(
+            @"SELECT COUNT(*) AS ""Value"" FROM public_directory_interests
+              WHERE tenant_id = {0} AND nutritionist_id = {1}",
+            professional.tenant_id.Value, professional.id).SingleAsync();
+
         if (!await HasActiveLicenseAsync(professional.tenant_id))
-            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Los datos personales de las solicitudes se desbloquean cuando la licencia está activa." });
+            return Ok(new
+            {
+                canViewDetails = false,
+                count = interestCount,
+                message = "Tienes personas interesadas en tu perfil. Sus datos personales seguirán protegidos hasta que tu licencia esté activa."
+            });
 
         var interests = await _context.Database.SqlQueryRaw<PublicDirectoryInterestRow>(
             @"SELECT id AS ""Id"", full_name AS ""FullName"", email AS ""Email"",
@@ -294,7 +305,7 @@ public class DirectoryController : ControllerBase
             WHERE tenant_id = {professional.tenant_id.Value} AND nutritionist_id = {professional.id}
               AND viewed_at IS NULL");
 
-        return Ok(interests);
+        return Ok(new { canViewDetails = true, count = interestCount, interests });
     }
 
     private async Task<bool> HasActiveLicenseAsync(int? tenantId)
