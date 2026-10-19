@@ -401,7 +401,7 @@
       <button type="button" class="nav-tab" [class.active]="activeTab === 'messages'" [attr.aria-current]="activeTab === 'messages' ? 'page' : null" aria-label="Ver mis mensajes" (click)="setTab('messages')">
         <span class="nav-icon-wrap">
           <mat-icon>chat</mat-icon>
-          <span class="nav-badge" *ngIf="unreadBroadcastMessagesCount > 0">{{ unreadBroadcastMessagesCount > 99 ? '99+' : unreadBroadcastMessagesCount }}</span>
+          <span class="nav-badge" *ngIf="unreadMessagesCount > 0">{{ unreadMessagesCount > 99 ? '99+' : unreadMessagesCount }}</span>
         </span>
         <span>Mensajes</span>
       </button>
