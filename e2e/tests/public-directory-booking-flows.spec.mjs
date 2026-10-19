@@ -188,11 +188,11 @@ test.describe('P0 — directorio público: búsqueda, perfil y solicitudes (API 
     await openProfile(page);
     await chooseSlot(page);
     await page.getByRole('button', { name: 'Solicitar cita' }).click();
-    expect(await page.locator('#booking-name').evaluate(element => element.validity.valueMissing)).toBe(true);
-    await page.locator('#booking-name').fill('Paciente E2E Ficticio');
-    await page.locator('#booking-email').fill('no-es-un-email');
+    expect(await page.getByLabel('Nombre completo').evaluate(element => element.validity.valueMissing)).toBe(true);
+    await page.getByLabel('Nombre completo').fill('Paciente E2E Ficticio');
+    await page.getByLabel('Email', { exact: true }).fill('no-es-un-email');
     await page.getByRole('button', { name: 'Solicitar cita' }).click();
-    expect(await page.locator('#booking-email').evaluate(element => element.validity.typeMismatch)).toBe(true);
+    expect(await page.getByLabel('Email', { exact: true }).evaluate(element => element.validity.typeMismatch)).toBe(true);
     expect(requests.bookings).toHaveLength(0);
   });
 
