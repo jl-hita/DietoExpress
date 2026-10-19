@@ -85,6 +85,7 @@ interface CouponRow {
 
       <p *ngIf="message" class="message" role="status">{{ message }}</p>
       <p *ngIf="loading">Cargando cupones…</p>
+      <p *ngIf="listError" class="message" role="alert">{{ listError }}</p>
       <section class="panel" *ngIf="!loading">
         <h2>Códigos existentes (máximo 500)</h2>
         <div class="table-wrap">
@@ -129,6 +130,7 @@ export class AdminCouponsComponent implements OnInit {
   loading = false;
   saving = false;
   message = '';
+  listError = '';
   code = '';
   discount = 50;
   plans = 'both';
@@ -156,9 +158,13 @@ export class AdminCouponsComponent implements OnInit {
 
   load(): void {
     this.loading = true;
+    this.listError = '';
     this.http.get<CouponRow[]>('/api/admin/coupons').subscribe({
       next: rows => { this.coupons = rows; this.loading = false; },
-      error: error => { this.loading = false; this.message = this.errorMessage(error); }
+      error: error => {
+        this.loading = false;
+        this.listError = 'No se ha podido actualizar el listado: ' + this.errorMessage(error);
+      }
     });
   }
 

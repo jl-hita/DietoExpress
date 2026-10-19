@@ -745,18 +745,38 @@ export class GuidedConsultationComponent implements OnInit {
   }
 
   completeConsultation(): void {
-    if (!this.data || this.completing || this.consultation?.status === 'completed') return;
+    if (!this.data || !this.consultation || this.completing || this.consultation.status === 'completed') return;
     if (!confirm('¿Cerrar esta consulta? Se registrará como completada y no se podrá continuar editándola como consulta en curso.')) return;
+
+    // Persistir explícitamente el estado clínico antes del cierre. Los guardados disparados
+    // por blur y por la navegación del stepper son asíncronos; cerrar en paralelo podía
+    // convertir una consulta en completada antes de que actionsSummary llegara al servidor,
+    // perdiendo las tareas acordadas.
     this.completing = true;
-    this.portalService.completeGuidedConsultation(this.data.appointment.id).subscribe({
-      next: consultation => {
-        this.completing = false;
-        this.consultation = consultation;
-        this.snack.open('Consulta cerrada correctamente.', 'Cerrar', { duration: 2000 });
+    this.portalService.updateGuidedConsultationProgress(this.data.appointment.id, {
+      currentStep: this.currentStep,
+      completedSteps: this.consultation.completedSteps || [],
+      progress: this.buildClinicalProgress()
+    }).subscribe({
+      next: savedConsultation => {
+        this.consultation = savedConsultation;
+        this.portalService.completeGuidedConsultation(this.data!.appointment.id).subscribe({
+          next: consultation => {
+            this.completing = false;
+            this.consultation = consultation;
+            this.clinicalSaveState = 'saved';
+            this.snack.open('Consulta cerrada correctamente.', 'Cerrar', { duration: 2000 });
+          },
+          error: err => {
+            this.completing = false;
+            this.snack.open(err?.error?.message || 'No se ha podido cerrar la consulta.', 'Cerrar', { duration: 3500 });
+          }
+        });
       },
       error: err => {
         this.completing = false;
-        this.snack.open(err?.error?.message || 'No se ha podido cerrar la consulta.', 'Cerrar', { duration: 3500 });
+        this.clinicalSaveState = 'error';
+        this.snack.open(err?.error?.message || 'No se han podido guardar los acuerdos de la consulta; no se ha cerrado.', 'Cerrar', { duration: 4500 });
       }
     });
   }

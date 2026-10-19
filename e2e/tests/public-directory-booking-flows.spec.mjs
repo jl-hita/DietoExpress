@@ -32,12 +32,12 @@ function futureSlot(daysAhead = 10, hour = 11) {
 }
 
 async function mockDirectory(page, { profiles = [apiProfile], availability = [futureSlot()], bookingStatus = 201, bookingError = null } = {}) {
-  const requests = { searches: [], bookings: [] };
+  const requests = { searches: [], bookings: [], availability: [] };
   await page.route('**/directory/professionals**', async route => {
     const request = route.request();
     const url = new URL(request.url());
     const path = url.pathname;
-    if (request.method() === 'POST' && path.endsWith('/appointments')) {
+    if (request.method() === 'POST' && /\/appointments\/?$/.test(path)) {
       const payload = request.postDataJSON();
       requests.bookings.push({ url: request.url(), payload });
       if (bookingError) {
@@ -47,15 +47,16 @@ async function mockDirectory(page, { profiles = [apiProfile], availability = [fu
       }
       return;
     }
-    if (path.endsWith('/availability')) {
+    if (/\/availability\/?$/.test(path)) {
+      requests.availability.push({ url: request.url(), count: availability.length });
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(availability) });
       return;
     }
-    if (path.endsWith('/reviews')) {
+    if (/\/reviews\/?$/.test(path)) {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ averageRating: 5, reviewCount: 1, reviews: [{ id: 1, rating: 5, comment: 'Atención excelente', createdAt: new Date().toISOString(), verified: true }] }) });
       return;
     }
-    if (path.endsWith('/' + slug)) {
+    if (path.endsWith('/' + slug) || path.endsWith('/' + slug + '/')) {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(apiProfile) });
       return;
     }
