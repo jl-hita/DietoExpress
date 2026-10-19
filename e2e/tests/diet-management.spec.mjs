@@ -16,13 +16,11 @@ test.describe('P1 — gestión de dietas desde la interfaz', () => {
     await page.goto('/login');
     await page.getByLabel('Email o usuario').fill(username);
     await page.getByLabel('Contraseña').fill(password);
-    try {
-      await page.getByRole('button', { name: 'Iniciar sesión' }).click();
-    } finally {
-      // Limpiar incluso si el click falla; las trazas están desactivadas en estos tests.
-      await page.locator('input[type="password"]').evaluateAll(inputs => inputs.forEach(input => { input.value = ''; }));
-    }
+    await page.getByRole('button', { name: 'Iniciar sesión' }).click();
+    // No borrar la contraseña hasta que termine la autenticación: vaciarla inmediatamente
+    // después del click puede competir con la serialización del formulario.
     await expect(page).not.toHaveURL(/\/login(?:[/?#]|$)/, { timeout: 20_000 });
+    await page.locator('input[type="password"]').evaluateAll(inputs => inputs.forEach(input => { input.value = ''; }));
   });
 
   test.afterEach(async ({ page }) => {
