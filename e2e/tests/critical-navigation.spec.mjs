@@ -39,9 +39,12 @@ test.describe('P1 — recorridos principales y fronteras de acceso', () => {
     await page.goto('/login');
     await page.getByLabel('Email o usuario').fill(username);
     await page.getByLabel('Contraseña').fill(password);
-    await page.getByRole('button', { name: 'Iniciar sesión' }).click();
-    // Limpiar el campo del DOM antes de que un fallo posterior genere capturas/contexto.
-    await page.locator('input[type="password"]').evaluateAll(inputs => inputs.forEach(input => { input.value = ''; }));
+    try {
+      await page.getByRole('button', { name: 'Iniciar sesión' }).click();
+    } finally {
+      // Limpiar incluso si el click falla; las trazas están desactivadas en estos tests.
+      await page.locator('input[type="password"]').evaluateAll(inputs => inputs.forEach(input => { input.value = ''; }));
+    }
     await expect(page).not.toHaveURL(/\/login(?:[/?#]|$)/, { timeout: 20_000 });
 
     for (const path of ['/dashboard', '/clients', '/diets', '/appointments', '/billing']) {
