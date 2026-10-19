@@ -1330,6 +1330,18 @@ public class DietGeneratorService
 
     #region Clasificación de Pools de Alimentos
 
+    private static bool IsRecognizedVegetableName(string? name)
+    {
+        var normalized = NormalizeFoodTerm(name ?? string.Empty);
+        return new[] { "tomate", "lechuga", "espinaca", "calabacin", "berenjena", "brocoli",
+            "zanahoria", "pepino", "pimiento", "judia verde", "champiñon", "calabaza",
+            "cebolla", "puerro", "coliflor", "esparrago" }.Any(normalized.Contains);
+    }
+
+    private static bool IsMainProteinName(string? name) =>
+        new[] { "pollo", "pavo", "ternera", "cerdo", "conejo", "atun", "salmon", "merluza", "bacalao", "dorada", "lubina", "sardina", "caballa", "gamba", "tofu", "tempeh" }
+            .Any(NormalizeFoodTerm(name ?? string.Empty).Contains);
+
     private class FoodPools
     {
         public List<foods> Proteins { get; set; } = new();
@@ -1352,7 +1364,7 @@ public class DietGeneratorService
                 "Fruit" => Fruits,
                 "DairyOrEgg" => DairyAndEggs,
                 "BreakfastCarb" => BreakfastCarbs,
-                "SnackProtein" => DairyAndEggs.ToList(),
+                "SnackProtein" => DairyAndEggs.Where(f => !DietGeneratorService.IsMainProteinName(f.name)).ToList(),
                 "SnackCarb" => BreakfastCarbs.Concat(Carbs).ToList(),
                 "SnackFruit" => Fruits,
                 "FruitOrNuts" => Fruits.Concat(Nuts).ToList(),
@@ -1419,8 +1431,11 @@ public class DietGeneratorService
                 pools.Nuts.Add(f);
             }
             // Verduras y Hortalizas comunes
-            else if (cat.Contains("verdura") || cat.Contains("hortaliz") || name.Contains("tomate") || name.Contains("lechuga") || name.Contains("espinaca") || name.Contains("calabacín") || name.Contains("berenjena") || name.Contains("brócoli") || name.Contains("zanahoria") || name.Contains("pepino") || name.Contains("pimiento") || name.Contains("judías verdes") || name.Contains("champiñon"))
+            else if (IsRecognizedVegetableName(name))
             {
+                // El pool debe usar el mismo criterio semántico que la validación final.
+                // La categoría "verdura" por sí sola no garantiza que el nombre del alimento
+                // sea reconocible para el validador y provocaba rechazos aleatorios de comidas.
                 pools.Vegetables.Add(f);
             }
             // Frutas comunes
