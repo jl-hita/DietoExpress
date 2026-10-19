@@ -1364,7 +1364,7 @@ public class DietGeneratorService
                 "Fruit" => Fruits,
                 "DairyOrEgg" => DairyAndEggs,
                 "BreakfastCarb" => BreakfastCarbs,
-                "SnackProtein" => DairyAndEggs.Where(f => !IsMainProteinName(f.name)).ToList(),
+                "SnackProtein" => DairyAndEggs.Where(f => !DietGeneratorService.IsMainProteinName(f.name)).ToList(),
                 "SnackCarb" => BreakfastCarbs.Concat(Carbs).ToList(),
                 "SnackFruit" => Fruits,
                 "FruitOrNuts" => Fruits.Concat(Nuts).ToList(),
