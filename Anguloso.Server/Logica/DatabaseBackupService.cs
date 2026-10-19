@@ -53,9 +53,32 @@ public sealed class DatabaseBackupService
         var psi = new ProcessStartInfo { FileName = "/usr/bin/rclone", UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
         psi.ArgumentList.Add("--config"); psi.ArgumentList.Add(config); psi.ArgumentList.Add("lsjson"); psi.ArgumentList.Add("--files-only"); psi.ArgumentList.Add("--no-mimetype"); psi.ArgumentList.Add("gdrive-crypt:");
         using var process = Process.Start(psi) ?? throw new InvalidOperationException("No se pudo consultar Google Drive.");
-        var stdoutTask = process.StandardOutput.ReadToEndAsync(ct); var stderrTask = process.StandardError.ReadToEndAsync(ct);
-        await process.WaitForExitAsync(ct);
-        var stdout = await stdoutTask; var stderr = await stderrTask;
+        // No vincular ReadToEndAsync al token HTTP: si el cliente cancela la petición,
+        // hay que terminar rclone y recoger sus streams para no dejar procesos huérfanos.
+        var stdoutTask = process.StandardOutput.ReadToEndAsync();
+        var stderrTask = process.StandardError.ReadToEndAsync();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var linkedToken = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token);
+        try
+        {
+            await process.WaitForExitAsync(linkedToken.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            try
+            {
+                if (!process.HasExited) process.Kill(entireProcessTree: true);
+            }
+            catch (InvalidOperationException) { }
+            await process.WaitForExitAsync(CancellationToken.None);
+            _ = await stdoutTask;
+            _ = await stderrTask;
+            if (ct.IsCancellationRequested) throw;
+            throw new TimeoutException("La consulta a Google Drive superó el límite de 30 segundos.");
+        }
+
+        var stdout = await stdoutTask;
+        var stderr = await stderrTask;
         if (process.ExitCode != 0) throw new InvalidOperationException("No se pudo consultar Google Drive: " + stderr.Trim());
         using var document = System.Text.Json.JsonDocument.Parse(stdout);
         var result = new List<DriveDatabaseBackupInfo>();
