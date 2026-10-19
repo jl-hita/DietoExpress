@@ -1,5 +1,9 @@
 import { test, expect } from '@playwright/test';
 
+// Las fixtures de disponibilidad se calculan en Node; fijar la zona horaria del navegador
+// evita que un slot cercano a medianoche cambie de día entre el fixture y el calendario.
+test.use({ timezoneId: 'UTC' });
+
 // Estas pruebas ejercitan la UI real del directorio con respuestas API aisladas.
 // No crean reservas reales, no envían correos y no alteran datos de producción.
 const slug = 'e2e-profesional-fixture';
