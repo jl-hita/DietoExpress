@@ -73,7 +73,7 @@ public sealed class VideoQuotaService
             .SqlQueryRaw<int>(
                 @"SELECT COALESCE(SUM(participant_minutes), 0)::int AS ""Value""
                   FROM video_usage_reservations
-                  WHERE nutritionist_id = {0} AND period_start = {1};",
+                  WHERE nutritionist_id = {0} AND period_start = {1}",
                 nutritionistId, periodStart.Date)
             .SingleAsync(cancellationToken);
 
@@ -81,7 +81,7 @@ public sealed class VideoQuotaService
             .SqlQueryRaw<int>(
                 @"SELECT COALESCE(SUM(participant_minutes), 0)::int AS ""Value""
                   FROM video_usage_reservations
-                  WHERE period_start = {0};",
+                  WHERE period_start = {0}",
                 periodStart.Date)
             .SingleAsync(cancellationToken);
 
