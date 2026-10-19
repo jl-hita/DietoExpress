@@ -80,7 +80,7 @@ async function chooseSlot(page) {
   const day = page.locator('.calendar-day.available').first();
   await expect(day).toBeVisible();
   await day.click();
-  await page.locator('.day-slots button[aria-label^="Seleccionar "]').first().click();
+  await page.locator('.day-slots .slot-list .slot').first().click();
   await expect(page.locator('.booking-form')).toBeVisible();
 }
 
