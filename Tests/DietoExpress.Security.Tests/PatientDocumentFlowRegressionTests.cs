@@ -386,6 +386,20 @@ public sealed class PatientDocumentFlowRegressionTests
     }
 
     [Fact]
+    public void GuidedAnamnesisMustUseStructuredPatientFieldsAndSaveBeforeNavigation()
+    {
+        var source = ReadServerSource("anguloso.client/src/app/componentes/guided-consultation/guided-consultation.component.ts");
+
+        Assert.Contains("profile.foodPreferences!.allergies", source);
+        Assert.Contains("this.clientService.updateClient(client.id, payload)", source);
+        Assert.Contains("this.clientService.createBiometric(clientId", source);
+        Assert.Contains("this.savePatientClinicalProfile(() => this.saveClinicalProgress", source);
+        Assert.Contains("this.router.navigate(['/clients', clientId])", source);
+        Assert.Contains("No se ha podido guardar el expediente clínico", source);
+        Assert.Contains("Toma de datos antropométricos de esta consulta", source);
+    }
+
+    [Fact]
     public void GuidedConsultationMustOfferQuickModeAndPreserveQueuedAutosaves()
     {
         var source = ReadServerSource("anguloso.client/src/app/componentes/guided-consultation/guided-consultation.component.ts");
