@@ -548,6 +548,7 @@ CREATE INDEX IF NOT EXISTS idx_patient_push_deliveries_status
                     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                     notified_at TIMESTAMPTZ,
                     viewed_at TIMESTAMPTZ,
+                    consent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                     CONSTRAINT ck_public_directory_interests_name CHECK (char_length(trim(full_name)) >= 2),
                     CONSTRAINT ck_public_directory_interests_email CHECK (char_length(trim(email)) >= 3)
                 );
