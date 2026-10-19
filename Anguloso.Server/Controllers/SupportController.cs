@@ -19,6 +19,11 @@ public sealed class SupportController : ControllerBase
 
     public SupportController(SupportService support, SupportEnhancementService enhancements){_support=support;_enhancements=enhancements;}
 
+    [HttpGet("tickets/new-count")]
+    [Authorize(Roles = "superadmin")]
+    public async Task<ActionResult<int>> NewTicketCount()
+        => Ok(await _support.GetNewTicketCountAsync());
+
     [HttpGet("tickets")]
     public async Task<ActionResult<IReadOnlyList<SupportTicketSummaryDto>>> GetTickets(
         [FromQuery] string? status = null,
