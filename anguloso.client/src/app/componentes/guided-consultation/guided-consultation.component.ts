@@ -71,6 +71,7 @@ interface GuidedConsultationResponse {
           <button type="button" *ngFor="let step of visibleSteps; let i = index"
             [class.active]="step.key === currentStep"
             [class.done]="isCompleted(step.key)"
+            [disabled]="navigationPending || savingProgress"
             (click)="goToStep(step.key)">
             <span class="step-number"><mat-icon *ngIf="isCompleted(step.key)">check</mat-icon><span *ngIf="!isCompleted(step.key)">{{ i + 1 }}</span></span>
             <span><strong>{{ step.label }}</strong><small>{{ step.description }}</small></span>
@@ -395,8 +396,8 @@ interface GuidedConsultationResponse {
           </section>
 
           <footer class="navigation">
-            <button mat-stroked-button type="button" (click)="previousStep()" [disabled]="stepIndex === 0"><mat-icon>arrow_back</mat-icon> Anterior</button>
-            <button mat-flat-button color="primary" type="button" (click)="nextStep()" *ngIf="stepIndex < visibleSteps.length - 1" [disabled]="savingProgress">
+            <button mat-stroked-button type="button" (click)="previousStep()" [disabled]="stepIndex === 0 || navigationPending || savingProgress"><mat-icon>arrow_back</mat-icon> Anterior</button>
+            <button mat-flat-button color="primary" type="button" (click)="nextStep()" *ngIf="stepIndex < visibleSteps.length - 1" [disabled]="savingProgress || navigationPending">
               {{ isCompleted(currentStep) ? 'Siguiente' : 'Marcar paso y continuar' }} <mat-icon>arrow_forward</mat-icon>
             </button>
             <button mat-stroked-button type="button" *ngIf="stepIndex === visibleSteps.length - 1" (click)="goToStep(visibleSteps[0].key)"><mat-icon>replay</mat-icon> Volver al inicio</button>
@@ -455,6 +456,7 @@ export class GuidedConsultationComponent implements OnInit {
   sendingPortalLink = false;
   portalLinkSent = false;
   savingProgress = false;
+  navigationPending = false;
   goalsText = '';
   educationText = '';
   clinicalNotes = '';
@@ -715,6 +717,7 @@ export class GuidedConsultationComponent implements OnInit {
         this.patientProfileLoading = false;
         this.patientProfileSaveState = 'error';
         this.patientProfileSaveCallbacks = [];
+        this.navigationPending = false;
         if (this.completing) this.completing = false;
         this.snack.open('No se ha podido cargar el expediente clínico. No introduzcas datos hasta reintentar la carga.', 'Cerrar', { duration: 4500 });
       }
@@ -767,6 +770,7 @@ export class GuidedConsultationComponent implements OnInit {
         this.patientProfileSaveQueued = false;
         this.patientProfileSaveState = 'error';
         this.patientProfileSaveCallbacks = [];
+        this.navigationPending = false;
         if (this.completing) this.completing = false;
         this.snack.open(err?.error?.message || 'No se ha podido guardar el expediente clínico. No se ha cambiado de paso.', 'Cerrar', { duration: 4500 });
       }
@@ -842,6 +846,7 @@ export class GuidedConsultationComponent implements OnInit {
         }
         this.clinicalSaveState = 'error';
         this.clinicalSaveCallbacks = [];
+        this.navigationPending = false;
         if (this.completing) this.completing = false;
         this.snack.open(err?.error?.message || 'No se ha podido guardar el progreso de la consulta.', 'Cerrar', { duration: 4000 });
       }
@@ -865,31 +870,37 @@ export class GuidedConsultationComponent implements OnInit {
 
   goToStep(step: string): void {
     const index = this.visibleSteps.findIndex(x => x.key === step);
-    if (index < 0 || this.savingProgress) return;
+    if (index < 0 || this.savingProgress || this.navigationPending) return;
+    this.navigationPending = true;
     this.savePatientClinicalProfile(() => this.saveClinicalProgress(() => {
       this.stepIndex = index;
       this.currentStep = this.visibleSteps[index].key;
+      this.navigationPending = false;
       this.saveProgress();
       if (step === 'next_appointment' && !this.consultationSlots.length && !this.slotsLoading) this.loadConsultationSlots();
     }));
   }
 
   nextStep(): void {
-    if (!this.consultation || this.stepIndex >= this.visibleSteps.length - 1 || this.savingProgress) return;
+    if (!this.consultation || this.stepIndex >= this.visibleSteps.length - 1 || this.savingProgress || this.navigationPending) return;
     const completed = new Set<string>(this.consultation.completedSteps || []);
     completed.add(this.currentStep);
     const next = this.visibleSteps[this.stepIndex + 1].key;
+    this.navigationPending = true;
     this.savePatientClinicalProfile(() => this.saveClinicalProgress(() => {
+      this.navigationPending = false;
       this.persistProgress(next, [...completed]);
       if (next === 'next_appointment' && !this.consultationSlots.length && !this.slotsLoading) this.loadConsultationSlots();
     }));
   }
 
   previousStep(): void {
-    if (this.stepIndex <= 0 || this.savingProgress) return;
+    if (this.stepIndex <= 0 || this.savingProgress || this.navigationPending) return;
+    this.navigationPending = true;
     this.savePatientClinicalProfile(() => this.saveClinicalProgress(() => {
       this.stepIndex--;
       this.currentStep = this.visibleSteps[this.stepIndex].key;
+      this.navigationPending = false;
       this.saveProgress();
     }));
   }
@@ -1112,9 +1123,13 @@ export class GuidedConsultationComponent implements OnInit {
 
   openPatient(): void {
     const clientId = this.data?.appointment.clientId;
-    if (!clientId || this.savingProgress) return;
+    if (!clientId || this.savingProgress || this.navigationPending) return;
+    this.navigationPending = true;
     this.savePatientClinicalProfile(() => {
-      this.saveClinicalProgress(() => this.router.navigate(['/clients', clientId]));
+      this.saveClinicalProgress(() => {
+        this.navigationPending = false;
+        this.router.navigate(['/clients', clientId]);
+      });
     });
   }
 
