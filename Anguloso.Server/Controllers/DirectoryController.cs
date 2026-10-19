@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 using Anguloso.Server.Logica;
 using Microsoft.EntityFrameworkCore;
 
@@ -165,6 +166,12 @@ public class DirectoryController : ControllerBase
                 IsVerified = u.directory_publication_status == "verified"
             }).FirstOrDefaultAsync();
 
+        if (profile != null)
+        {
+            var tenantId = await _context.users.AsNoTracking().Where(u => u.id == profile.NutritionistId).Select(u => u.tenant_id).FirstOrDefaultAsync();
+            profile.CanAcceptAppointments = await HasActiveLicenseAsync(tenantId);
+        }
+
         if (profile == null)
             return NotFound();
 
@@ -182,6 +189,115 @@ public class DirectoryController : ControllerBase
             + Math.Min(profile.ReviewCount * 2, 10)
             + (profile.AverageRating >= 4.5 ? 20 : profile.AverageRating >= 4.0 ? 10 : 0);
         return Ok(profile);
+    }
+
+    [AllowAnonymous]
+    [EnableRateLimiting("auth")]
+    [HttpPost("professionals/{slug}/interest")]
+    public async Task<IActionResult> SubmitInterest(string slug, [FromBody] PublicDirectoryInterestRequestDto request)
+    {
+        var normalized = slug.Trim().ToLowerInvariant();
+        var fullName = request.FullName?.Trim() ?? string.Empty;
+        var email = request.Email?.Trim().ToLowerInvariant() ?? string.Empty;
+        var phone = request.Phone?.Trim();
+        var message = request.Message?.Trim();
+
+        if (fullName.Length is < 2 or > 200)
+            return BadRequest(new { message = "El nombre debe tener entre 2 y 200 caracteres." });
+        if (email.Length > 254 || !new EmailAddressAttribute().IsValid(email))
+            return BadRequest(new { message = "El email no es válido." });
+        if (phone?.Length > 50 || message?.Length > 500)
+            return BadRequest(new { message = "El teléfono o el comentario superan la longitud permitida." });
+
+        var professional = await _context.users.AsNoTracking()
+            .Where(u => u.archived_at == null && u.role == "nutritionist" &&
+                        u.directory_enabled == true &&
+                        (u.directory_publication_status == "published" || u.directory_publication_status == "verified") &&
+                        u.directory_slug == normalized)
+            .Select(u => new { u.id, u.tenant_id, u.email, u.full_name })
+            .FirstOrDefaultAsync();
+
+        if (professional == null || !professional.tenant_id.HasValue) return NotFound();
+        if (await HasActiveLicenseAsync(professional.tenant_id))
+            return Conflict(new { message = "Este profesional ya puede recibir solicitudes de cita. Actualiza el perfil e inténtalo de nuevo." });
+
+        await _context.Database.ExecuteSqlInterpolatedAsync($@"
+            INSERT INTO public_directory_interests
+                (tenant_id, nutritionist_id, full_name, email, phone, message)
+            VALUES
+                ({professional.tenant_id.Value}, {professional.id}, {fullName}, {email},
+                 {phone}, {message})");
+
+        // El aviso informa de que existe interés, sin incluir datos personales mientras la licencia siga inactiva.
+        if (!string.IsNullOrWhiteSpace(professional.email))
+        {
+            try
+            {
+                await _emailServ.SendEmailAsync(
+                    professional.email,
+                    "Nueva persona interesada en tu perfil de DietoExpress",
+                    "<p>Una persona ha mostrado interés en tu perfil público de DietoExpress.</p>" +
+                    "<p>Por protección de datos, sus datos de contacto permanecerán bloqueados mientras tu licencia no esté activa.</p>" +
+                    "<p>Cuando reactives tu licencia podrás revisar y gestionar las solicitudes pendientes desde DietoExpress.</p>");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "No se pudo enviar el aviso de nueva solicitud de interés al nutricionista {NutritionistId}.", professional.id);
+            }
+        }
+
+        return Ok(new { received = true, message = "Hemos registrado tu interés. Este profesional no puede aceptar citas ahora mismo; no se ha reservado ningún horario." });
+    }
+
+    [Authorize(Policy = "Professional")]
+    [HttpGet("my/interests")]
+    public async Task<IActionResult> GetMyInterests()
+    {
+        if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+            return Unauthorized();
+
+        var professional = await _context.users.AsNoTracking()
+            .Where(u => u.id == userId && u.role == "nutritionist" && u.archived_at == null)
+            .Select(u => new { u.id, u.tenant_id })
+            .FirstOrDefaultAsync();
+        if (professional == null || !professional.tenant_id.HasValue) return Forbid();
+        if (!await HasActiveLicenseAsync(professional.tenant_id))
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Los datos personales de las solicitudes se desbloquean cuando la licencia está activa." });
+
+        var interests = await _context.Database.SqlQueryRaw<PublicDirectoryInterestRow>(
+            @"SELECT id AS ""Id"", full_name AS ""FullName"", email AS ""Email"",
+                     phone AS ""Phone"", message AS ""Message"", created_at AS ""CreatedAt"",
+                     viewed_at AS ""ViewedAt""
+              FROM public_directory_interests
+              WHERE tenant_id = {0} AND nutritionist_id = {1}
+              ORDER BY created_at DESC
+              LIMIT 100", professional.tenant_id.Value, professional.id).ToListAsync();
+
+        await _context.Database.ExecuteSqlInterpolatedAsync($@"
+            UPDATE public_directory_interests SET viewed_at = NOW()
+            WHERE tenant_id = {professional.tenant_id.Value} AND nutritionist_id = {professional.id}
+              AND viewed_at IS NULL");
+
+        return Ok(interests);
+    }
+
+    private async Task<bool> HasActiveLicenseAsync(int? tenantId)
+    {
+        if (!tenantId.HasValue) return false;
+        var license = await _licenseService.GetLicenseAsync(tenantId);
+        return license != null && string.Equals(license.Status, "active", StringComparison.OrdinalIgnoreCase)
+            && (!license.ExpiresAt.HasValue || license.ExpiresAt.Value > DateTime.UtcNow);
+    }
+
+    private sealed class PublicDirectoryInterestRow
+    {
+        public long Id { get; set; }
+        public string FullName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string? Phone { get; set; }
+        public string? Message { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime? ViewedAt { get; set; }
     }
 
     [AllowAnonymous]
@@ -476,6 +592,8 @@ public class DirectoryController : ControllerBase
 
         if (professional == null || !professional.tenant_id.HasValue)
             return NotFound();
+        if (!await HasActiveLicenseAsync(professional.tenant_id))
+            return Ok(Array.Empty<AppointmentSlotDto>());
 
         var availability = await _context.nutritionist_availability.AsNoTracking()
             .Where(a => a.tenant_id == professional.tenant_id.Value &&
