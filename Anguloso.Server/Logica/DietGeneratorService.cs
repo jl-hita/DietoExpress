@@ -1330,6 +1330,10 @@ public class DietGeneratorService
 
     #region Clasificación de Pools de Alimentos
 
+    private static bool IsMainProteinName(string? name) =>
+        new[] { "pollo", "pavo", "ternera", "cerdo", "conejo", "atun", "salmon", "merluza", "bacalao", "dorada", "lubina", "sardina", "caballa", "gamba", "tofu", "tempeh" }
+            .Any(NormalizeFoodTerm(name ?? string.Empty).Contains);
+
     private class FoodPools
     {
         public List<foods> Proteins { get; set; } = new();
@@ -1352,7 +1356,7 @@ public class DietGeneratorService
                 "Fruit" => Fruits,
                 "DairyOrEgg" => DairyAndEggs,
                 "BreakfastCarb" => BreakfastCarbs,
-                "SnackProtein" => DairyAndEggs.ToList(),
+                "SnackProtein" => DairyAndEggs.Where(f => !IsMainProteinName(f.name)).ToList(),
                 "SnackCarb" => BreakfastCarbs.Concat(Carbs).ToList(),
                 "SnackFruit" => Fruits,
                 "FruitOrNuts" => Fruits.Concat(Nuts).ToList(),
