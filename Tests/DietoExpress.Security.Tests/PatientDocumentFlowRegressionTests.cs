@@ -483,4 +483,17 @@ public sealed class PatientDocumentFlowRegressionTests
         Assert.Contains("unreadBroadcastMessagesCount + this.patientUnreadMessagesCount", portal);
         Assert.Contains("*ngIf=\"unreadMessagesCount > 0\"", template);
     }
+
+    [Fact]
+    public void OnlineBookingFailureMustBeDiagnosableWithoutChangingInPersonBookings()
+    {
+        var controller = ReadServerSource("Anguloso.Server/Controllers/ProfessionalConsultationActionsController.cs");
+        var email = ReadServerSource("Anguloso.Server/Logica/EmailServ.cs");
+
+        Assert.Contains("if (modality == \"online\")", controller);
+        Assert.Contains("LogError(ex, \"El proveedor de vídeo no está disponible", controller);
+        Assert.Contains("VIDEO_PROVIDER_UNAVAILABLE", controller);
+        Assert.Contains("EMAIL_SMTP_USERNAME", email);
+        Assert.Contains("EMAIL_SMTP_PASSWORD", email);
+    }
 }
