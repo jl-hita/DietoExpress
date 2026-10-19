@@ -198,6 +198,13 @@ public class AuthorizationRegressionTests
         var auth = ReadServerController("AuthController.cs");
         Assert.Contains("[EnableRateLimiting(\"auth\")]", auth);
 
+        // Cada ruta conserva su propio límite de intentos: refresh/logout y el acceso
+        // al portal no deben agotar el presupuesto de login de todas las cuentas detrás
+        // de una misma IP compartida (p. ej., clínicas o runners E2E).
+        var program = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Program.cs"));
+        Assert.Contains("httpContext.Request.Path.Value?.ToLowerInvariant()", program);
+        Assert.Contains("PermitLimit = 10, Window = TimeSpan.FromMinutes(1)", program);
+
         var portal = ReadServerController("PatientPortalController.cs");
         var portalAuthPos = portal.IndexOf("HttpPost(\"auth\")", StringComparison.Ordinal);
         Assert.True(portalAuthPos >= 0);
