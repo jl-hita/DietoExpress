@@ -517,6 +517,11 @@ public class DietGeneratorService
                             ReplaceItemForGenerator(item, yogurtFood, yogurtGrams);
                     }
 
+                    // La optimización semanal puede cambiar cantidades después del reequilibrado.
+                    // Reaplicar los límites culinarios al final evita que una merienda salga
+                    // con cantidades imposibles (p. ej. una tortilla de 35 g cuando el mínimo es 50 g).
+                    var culinaryBounds = GetCulinaryBounds(meal.Name, item);
+                    item.Grams = (decimal)Math.Clamp((double)(item.Grams ?? 0), culinaryBounds.Min, culinaryBounds.Max);
                     normalizedItems.Add(item);
                 }
 
