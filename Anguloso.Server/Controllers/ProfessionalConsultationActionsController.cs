@@ -179,7 +179,7 @@ public sealed class ProfessionalConsultationActionsController : ControllerBase
             .Where(c => c.id == appointment.client_id && c.tenant_id == appointment.tenant_id)
             .Select(c => new { c.email, c.full_name })
             .FirstOrDefaultAsync();
-        if (!string.IsNullOrWhiteSpace(patient?.email))
+        if (patient is not null && !string.IsNullOrWhiteSpace(patient.email))
         {
             try
             {
