@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 // Estas pruebas introducen credenciales reales de GitHub Secrets: no guardar trazas DOM que puedan contenerlas.
 test.use({ trace: 'off' });
 
+const baseURL = process.env.E2E_BASE_URL || 'https://jlhitap.duckdns.org';
 const professionalUsername = process.env.E2E_USERNAME;
 const professionalPassword = process.env.E2E_PASSWORD;
 const adminUsername = process.env.E2E_SUPERADMIN_USERNAME;
