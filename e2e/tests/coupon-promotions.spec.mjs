@@ -16,13 +16,10 @@ async function login(page, username, password) {
   await page.goto('/login');
   await page.getByLabel('Email o usuario').fill(username);
   await page.getByLabel('Contraseña').fill(password);
-  try {
-      await page.getByRole('button', { name: 'Iniciar sesión' }).click();
-    } finally {
-      // Limpiar incluso si el click falla; las trazas están desactivadas en estos tests.
-      await page.locator('input[type="password"]').evaluateAll(inputs => inputs.forEach(input => { input.value = ''; }));
-    }
+  await page.getByRole('button', { name: 'Iniciar sesión' }).click();
   await expect(page).not.toHaveURL(/\/login(?:[/?#]|$)/, { timeout: 20_000 });
+  // Limpiar después de autenticar, no en paralelo con el envío del formulario.
+  await page.locator('input[type="password"]').evaluateAll(inputs => inputs.forEach(input => { input.value = ''; }));
 }
 
 test.describe.serial('P0 — cupones promocionales (sin completar Checkout)', () => {
