@@ -120,6 +120,12 @@ public class EmailServ
                 catch (Exception ex)
                 {
                     _logServ.LogError($"Error SMTP al enviar email a {to}: {ex.GetType().Name}: {ex.Message}");
+                    if (ex.Message.Contains("authenticate", StringComparison.OrdinalIgnoreCase)
+                        || ex.Message.Contains("5.7.0", StringComparison.OrdinalIgnoreCase)
+                        || ex.Message.Contains("5.7.1", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _logServ.LogWarning("El servidor SMTP ha rechazado el envío por autenticación. Comprueba EMAIL_SMTP_USERNAME, EMAIL_SMTP_PASSWORD, host/puerto/TLS y que SMTP AUTH esté habilitado en el proveedor. No se han registrado las credenciales.");
+                    }
                     return new BoolMensaje
                     {
                         Exito = false,
