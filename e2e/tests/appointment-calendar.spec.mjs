@@ -1,5 +1,8 @@
 import { test, expect } from '@playwright/test';
 
+// Estas pruebas introducen credenciales reales de GitHub Secrets: no guardar trazas DOM que puedan contenerlas.
+test.use({ trace: 'off' });
+
 const username = process.env.E2E_USERNAME;
 const password = process.env.E2E_PASSWORD;
 let createdInterval = null;
@@ -12,6 +15,8 @@ test.describe('P1 — agenda y disponibilidad semanal', () => {
     await page.getByLabel('Email o usuario').fill(username);
     await page.getByLabel('Contraseña').fill(password);
     await page.getByRole('button', { name: 'Iniciar sesión' }).click();
+    // Limpiar el campo del DOM antes de que un fallo posterior genere capturas/contexto.
+    await page.locator('input[type="password"]').evaluateAll(inputs => inputs.forEach(input => { input.value = ''; }));
     await expect(page).not.toHaveURL(/\/login(?:[/?#]|$)/, { timeout: 20_000 });
     await page.goto('/appointments');
     await expect(page.locator('body')).toContainText(/Citas|SuperAdmin/);
