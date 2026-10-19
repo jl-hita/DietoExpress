@@ -82,7 +82,7 @@ test.describe('P0 — citas del paciente: reservar y cancelar', () => {
     const calls = await mockPortal(page, { appointments: [futureAppointment()] , slots: [] });
     await loginByPin(page);
     await openAppointments(page);
-    await expect(page.getByText('Pendiente de confirmación')).toBeVisible();
+    await expect(page.locator('.appointment-item').getByText('Pendiente de confirmación').first()).toBeVisible();
     page.once('dialog', dialog => dialog.accept());
     await page.locator('.appointment-item-actions button.appointment-cancel').click();
     await expect(page.locator('.appointment-success')).toContainText('Cita cancelada.');
@@ -96,7 +96,7 @@ test.describe('P0 — citas del paciente: reservar y cancelar', () => {
     await openAppointments(page);
     page.once('dialog', dialog => dialog.dismiss());
     await page.locator('.appointment-item-actions button.appointment-cancel').click();
-    await expect(page.getByText('Pendiente de confirmación')).toBeVisible();
+    await expect(page.locator('.appointment-item').getByText('Pendiente de confirmación').first()).toBeVisible();
     expect(calls.some(call => call.path.endsWith('/appointments/44/cancel') && call.method === 'POST')).toBe(false);
   });
 });

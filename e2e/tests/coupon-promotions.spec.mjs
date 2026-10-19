@@ -1,5 +1,8 @@
 import { test, expect } from '@playwright/test';
 
+// Estas pruebas introducen credenciales reales de GitHub Secrets: no guardar trazas DOM que puedan contenerlas.
+test.use({ trace: 'off' });
+
 const professionalUsername = process.env.E2E_USERNAME;
 const professionalPassword = process.env.E2E_PASSWORD;
 const adminUsername = process.env.E2E_SUPERADMIN_USERNAME;
@@ -13,7 +16,12 @@ async function login(page, username, password) {
   await page.goto('/login');
   await page.getByLabel('Email o usuario').fill(username);
   await page.getByLabel('Contraseña').fill(password);
-  await page.getByRole('button', { name: 'Iniciar sesión' }).click();
+  try {
+      await page.getByRole('button', { name: 'Iniciar sesión' }).click();
+    } finally {
+      // Limpiar incluso si el click falla; las trazas están desactivadas en estos tests.
+      await page.locator('input[type="password"]').evaluateAll(inputs => inputs.forEach(input => { input.value = ''; }));
+    }
   await expect(page).not.toHaveURL(/\/login(?:[/?#]|$)/, { timeout: 20_000 });
 }
 
@@ -27,8 +35,8 @@ test.describe.serial('P0 — cupones promocionales (sin completar Checkout)', ()
     for (const [code, discount] of [[coupon25, 25], [coupon100, 100]]) {
       await page.getByLabel('Código', { exact: true }).fill(code);
       await page.getByLabel(/Descuento/).first().fill(String(discount));
-      await page.getByLabel('Plan', { exact: true }).first().selectOption('nutri_full');
-      await page.getByLabel('Facturación', { exact: true }).first().selectOption('monthly');
+      await page.locator('.coupon-admin .panel').first().locator('select').nth(0).selectOption('nutri_full');
+      await page.locator('.coupon-admin .panel').first().locator('select').nth(1).selectOption('monthly');
       await page.getByRole('button', { name: 'Crear código' }).click();
       await expect(page.getByText('Cupón creado.', { exact: true })).toBeVisible({ timeout: 10_000 });
       await expect(page.getByText(code, { exact: true })).toBeVisible();

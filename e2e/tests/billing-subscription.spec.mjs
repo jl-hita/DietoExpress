@@ -1,5 +1,8 @@
 import { test, expect } from '@playwright/test';
 
+// Estas pruebas introducen credenciales reales de GitHub Secrets: no guardar trazas DOM que puedan contenerlas.
+test.use({ trace: 'off' });
+
 const username = process.env.E2E_USERNAME;
 const password = process.env.E2E_PASSWORD;
 
@@ -10,7 +13,12 @@ test.describe('P1 — facturación sin iniciar cargos', () => {
     await page.goto('/login');
     await page.getByLabel('Email o usuario').fill(username);
     await page.getByLabel('Contraseña').fill(password);
-    await page.getByRole('button', { name: 'Iniciar sesión' }).click();
+    try {
+      await page.getByRole('button', { name: 'Iniciar sesión' }).click();
+    } finally {
+      // Limpiar incluso si el click falla; las trazas están desactivadas en estos tests.
+      await page.locator('input[type="password"]').evaluateAll(inputs => inputs.forEach(input => { input.value = ''; }));
+    }
     await expect(page).not.toHaveURL(/\/login(?:[/?#]|$)/, { timeout: 20_000 });
 
     await page.goto('/billing');
@@ -45,7 +53,12 @@ test.describe('P0 — validación de cupón antes de contratar', () => {
     await page.goto('/login');
     await page.getByLabel('Email o usuario').fill(username);
     await page.getByLabel('Contraseña').fill(password);
-    await page.getByRole('button', { name: 'Iniciar sesión' }).click();
+    try {
+      await page.getByRole('button', { name: 'Iniciar sesión' }).click();
+    } finally {
+      // Limpiar incluso si el click falla; las trazas están desactivadas en estos tests.
+      await page.locator('input[type="password"]').evaluateAll(inputs => inputs.forEach(input => { input.value = ''; }));
+    }
     await expect(page).not.toHaveURL(/\/login(?:[/?#]|$)/, { timeout: 20_000 });
 
     await page.goto('/billing');

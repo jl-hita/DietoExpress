@@ -580,6 +580,8 @@ public class AuthController : ControllerBase
     }
 
     //Login con google
+    // Este dato público de configuración no debe consumir el límite de intentos de inicio de sesión.
+    [DisableRateLimiting]
     [HttpGet("google-client-id")]
     [AllowAnonymous]
     public IActionResult GetGoogleClientId()

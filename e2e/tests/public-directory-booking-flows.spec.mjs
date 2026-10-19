@@ -80,7 +80,7 @@ async function chooseSlot(page) {
   const day = page.locator('.calendar-day.available').first();
   await expect(day).toBeVisible();
   await day.click();
-  await page.locator('.day-slots button[aria-label^="Seleccionar "]').first().click();
+  await page.locator('.day-slots .slot-list .slot').first().click();
   await expect(page.locator('.booking-form')).toBeVisible();
 }
 
@@ -106,7 +106,7 @@ test.describe('P0 — directorio público: búsqueda, perfil y solicitudes (API 
     await page.getByLabel('Especialidad').fill('Nutrición deportiva');
     await page.getByLabel('Tu objetivo').selectOption({ label: 'Nutrición deportiva' });
     await page.getByText('Con disponibilidad').click();
-    await page.getByLabel('Consulta online', { exact: true }).check();
+    await page.locator('.filter-option').filter({ hasText: 'Consulta online' }).click();
     await page.getByRole('button', { name: /Buscar profesionales/ }).click();
     await expect.poll(() => requests.searches.some(item => item.query.city === 'Valencia' && item.query.province === 'Valencia' && item.query.speciality === 'Nutrición deportiva' && item.query.goal === 'nutrición deportiva' && item.query.online === 'true' && item.query.availableOnly === 'true')).toBe(true);
     await expect(page.locator('.results .profile-card')).toHaveCount(1);
@@ -199,7 +199,7 @@ test.describe('P0 — directorio público: búsqueda, perfil y solicitudes (API 
     await page.getByLabel('Email', { exact: true }).fill('E2E-BOOKING@INVALID.EXAMPLE');
     await page.getByLabel('Teléfono').fill('600000000');
     await page.getByLabel('Comentario').fill('Prueba automatizada ficticia');
-    await page.getByLabel('Consulta online', { exact: true }).check();
+    await page.locator('.booking-modality label').filter({ hasText: 'Consulta online' }).click();
     await page.getByRole('button', { name: 'Solicitar cita' }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Solicitud enviada' })).toBeVisible();
     expect(requests.bookings).toHaveLength(1);
@@ -229,7 +229,7 @@ test.describe('P0 — directorio público: búsqueda, perfil y solicitudes (API 
     await mockDirectory(page);
     await openProfile(page);
     await chooseSlot(page);
-    await page.getByLabel('Consulta online', { exact: true }).check();
+    await page.locator('.booking-modality label').filter({ hasText: 'Consulta online' }).click();
     await expect(page.locator('.booking-form')).toContainText('Recibirás el acceso a la consulta online en tu portal');
     await expect(page.locator('.booking-note')).toContainText('no requiere pago online');
   });

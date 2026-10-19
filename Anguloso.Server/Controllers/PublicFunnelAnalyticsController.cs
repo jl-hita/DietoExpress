@@ -20,7 +20,7 @@ public sealed class PublicFunnelAnalyticsController : ControllerBase
 
     [AllowAnonymous]
     [HttpPost("events")]
-    [EnableRateLimiting("auth")]
+    [EnableRateLimiting("public-analytics")]
     public async Task<IActionResult> Track([FromBody] PublicFunnelEventRequest request, CancellationToken cancellationToken)
     {
         if (request.EventName is not ("directory_view" or "profile_view" or "booking_started"))
