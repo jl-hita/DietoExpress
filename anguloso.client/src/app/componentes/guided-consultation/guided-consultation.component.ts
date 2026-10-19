@@ -731,6 +731,7 @@ export class GuidedConsultationComponent implements OnInit {
     if (!client || !this.data) {
       if (this.patientProfileSaveState === 'error') {
         this.patientProfileSaveCallbacks = [];
+        this.navigationPending = false;
         if (this.completing) this.completing = false;
         return;
       }
