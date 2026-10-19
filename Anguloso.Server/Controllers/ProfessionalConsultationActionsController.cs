@@ -122,13 +122,17 @@ public sealed class ProfessionalConsultationActionsController : ControllerBase
                     endsAt,
                     HttpContext.RequestAborted);
             }
-            catch (InvalidOperationException)
+            catch (InvalidOperationException ex)
             {
-                return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = "Las consultas online no están disponibles en este momento.", code = "VIDEO_PROVIDER_UNAVAILABLE", reportable = true });
+                HttpContext.RequestServices.GetRequiredService<ILogger<ProfessionalConsultationActionsController>>()
+                    .LogError(ex, "El proveedor de vídeo no está disponible al crear una cita online para el cliente {ClientId} del tenant {TenantId}.", request.ClientId, context.TenantId);
+                return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = "Las consultas online no están disponibles en este momento. Puedes elegir modalidad presencial o intentarlo más tarde.", code = "VIDEO_PROVIDER_UNAVAILABLE", reportable = true });
             }
-            catch (HttpRequestException)
+            catch (HttpRequestException ex)
             {
-                return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = "No se ha podido preparar la sala de la consulta online.", code = "VIDEO_PROVIDER_UNAVAILABLE", reportable = true });
+                HttpContext.RequestServices.GetRequiredService<ILogger<ProfessionalConsultationActionsController>>()
+                    .LogError(ex, "Falló la petición al proveedor de vídeo al crear una cita online para el cliente {ClientId} del tenant {TenantId}.", request.ClientId, context.TenantId);
+                return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = "No se ha podido preparar la sala de la consulta online. Puedes elegir modalidad presencial o intentarlo más tarde.", code = "VIDEO_PROVIDER_UNAVAILABLE", reportable = true });
             }
         }
 
