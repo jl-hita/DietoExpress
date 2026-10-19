@@ -291,7 +291,7 @@ public class DirectoryController : ControllerBase
 
         var interests = await _context.Database.SqlQueryRaw<PublicDirectoryInterestRow>(
             @"SELECT id AS ""Id"", full_name AS ""FullName"", email AS ""Email"",
-                     phone AS ""Phone"", message AS ""Message"", created_at AS ""CreatedAt"",
+                     phone AS ""Phone"", created_at AS ""CreatedAt"",
                      viewed_at AS ""ViewedAt""
               FROM public_directory_interests
               WHERE tenant_id = {0} AND nutritionist_id = {1}
@@ -320,7 +320,6 @@ public class DirectoryController : ControllerBase
         public string FullName { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public string? Phone { get; set; }
-        public string? Message { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? ViewedAt { get; set; }
     }
