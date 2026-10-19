@@ -116,4 +116,16 @@ public sealed class DatabaseBootstrapRegressionTests
         Assert.True(missing.Length == 0,
             $"El contrato de verificación no incluye estas tablas: {string.Join(", ", missing)}");
     }
+    [Fact]
+    public void PublicDirectoryInterestRetention_DeletesPersonalDataAfterNinetyDays()
+    {
+        var worker = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "PublicDirectoryInterestRetentionWorker.cs"));
+        var program = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Program.cs"));
+
+        Assert.Contains("TimeSpan.FromDays(90)", worker);
+        Assert.Contains("DELETE FROM public_directory_interests", worker);
+        Assert.Contains("WHERE created_at < {cutoff}", worker);
+        Assert.Contains("AddHostedService<PublicDirectoryInterestRetentionWorker>()", program);
+    }
+
 }
