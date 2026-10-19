@@ -44,7 +44,7 @@ public sealed class AutomationExternalEffectsRegressionTests
 
         Assert.Contains("client.UseDefaultCredentials = false", source);
         Assert.Contains("client.Credentials = new NetworkCredential(smtpUser, smtpPwd)", source);
-        Assert.Contains("la configuración se lee de la tabla config", source);
+        Assert.Contains("La configuración se lee de la tabla config", source);
         Assert.DoesNotContain("Comprueba EMAIL_SMTP_USERNAME", source);
     }
 
