@@ -214,14 +214,13 @@ public class DirectoryController : ControllerBase
         var fullName = request.FullName?.Trim() ?? string.Empty;
         var email = request.Email?.Trim().ToLowerInvariant() ?? string.Empty;
         var phone = request.Phone?.Trim();
-        var message = request.Message?.Trim();
 
         if (fullName.Length is < 2 or > 200)
             return BadRequest(new { message = "El nombre debe tener entre 2 y 200 caracteres." });
         if (email.Length > 254 || !new EmailAddressAttribute().IsValid(email))
             return BadRequest(new { message = "El email no es válido." });
-        if (phone?.Length > 50 || message?.Length > 500)
-            return BadRequest(new { message = "El teléfono o el comentario superan la longitud permitida." });
+        if (phone?.Length > 50)
+            return BadRequest(new { message = "El teléfono no puede superar los 50 caracteres." });
         if (!request.ConsentToContact)
             return BadRequest(new { message = "Debes aceptar el tratamiento de tus datos para enviar la solicitud de interés." });
 
@@ -239,10 +238,9 @@ public class DirectoryController : ControllerBase
 
         await _context.Database.ExecuteSqlInterpolatedAsync($@"
             INSERT INTO public_directory_interests
-                (tenant_id, nutritionist_id, full_name, email, phone, message)
+                (tenant_id, nutritionist_id, full_name, email, phone)
             VALUES
-                ({professional.tenant_id.Value}, {professional.id}, {fullName}, {email},
-                 {phone}, {message})");
+                ({professional.tenant_id.Value}, {professional.id}, {fullName}, {email}, {phone})");
 
         // El aviso informa de que existe interés, sin incluir datos personales mientras la licencia siga inactiva.
         if (!string.IsNullOrWhiteSpace(professional.email))
