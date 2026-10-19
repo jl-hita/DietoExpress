@@ -12,6 +12,17 @@ public sealed class SupportService
             ?? throw new InvalidOperationException("DefaultConnection no está configurada.");
     }
 
+    // Tickets abiertos aún no atendidos: alimenta el contador de novedades del menú SuperAdmin.
+    public async Task<int> GetNewTicketCountAsync()
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand(
+            "SELECT COUNT(*)::int FROM support_tickets WHERE status='open';",
+            connection);
+        return Convert.ToInt32(await command.ExecuteScalarAsync());
+    }
+
     public async Task<IReadOnlyList<SupportTicketSummaryDto>> GetTicketsAsync(
         int userId, int? tenantId, bool isSuperAdmin, string? status, string? category, string? priority,
         string? search, int? assignedToUserId, DateTime? from, DateTime? to, int? filterTenantId)
