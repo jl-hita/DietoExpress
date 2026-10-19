@@ -171,6 +171,10 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
 
   private routeQuerySubscription?: Subscription;
   private broadcastRefreshSubscription?: Subscription;
+  private patientUnreadRefreshSubscription?: Subscription;
+  private patientUnreadMessagesCountState = signal(0);
+  get patientUnreadMessagesCount(): number { return this.patientUnreadMessagesCountState(); }
+  set patientUnreadMessagesCount(value: number) { this.patientUnreadMessagesCountState.set(value); }
 
   private readonly notificationsOpenState = signal(false);
   get notificationsOpen(): boolean { return this.notificationsOpenState(); }
@@ -241,6 +245,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.routeQuerySubscription?.unsubscribe();
     this.broadcastRefreshSubscription?.unsubscribe();
+    this.patientUnreadRefreshSubscription?.unsubscribe();
   }
 
   // El portal puede entrar mediante sesión previa o token de acceso; después carga los datos clínicos y habilita las funciones del paciente.
@@ -369,6 +374,9 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
   private resetPatientView(): void {
     this.broadcastRefreshSubscription?.unsubscribe();
     this.broadcastRefreshSubscription = undefined;
+    this.patientUnreadRefreshSubscription?.unsubscribe();
+    this.patientUnreadRefreshSubscription = undefined;
+    this.patientUnreadMessagesCount = 0;
     this.profile = null;
     this.activeDiet = null;
     this.shoppingList = [];
@@ -413,6 +421,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
           this.loadAppointments();
           this.loadNotifications();
           this.startBroadcastPolling();
+          this.startPatientUnreadMessagesPolling();
           this.loadCommercialPreference();
           this.loadDocuments();
           this.preparePushSupport();
@@ -759,6 +768,20 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
   /** Carga el buzón de comunicados globales, separado del chat privado. */
   get unreadBroadcastMessagesCount(): number {
     return this.broadcastMessages.filter(message => !message.readAt).length;
+  }
+
+  get unreadMessagesCount(): number {
+    return this.unreadBroadcastMessagesCount + this.patientUnreadMessagesCount;
+  }
+
+  private startPatientUnreadMessagesPolling(): void {
+    if (this.patientUnreadRefreshSubscription || this.isPreview) return;
+    this.patientUnreadRefreshSubscription = interval(15000).pipe(
+      startWith(0),
+      switchMap(() => this.http.get<number>('/api/messages/patient/unread-count').pipe(
+        catchError(() => of(0))
+      ))
+    ).subscribe(count => this.patientUnreadMessagesCount = Math.max(0, Number(count) || 0));
   }
 
   // Mantiene actualizado el contador del menú del paciente sin exigir que entre manualmente en la pestaña Mensajes.

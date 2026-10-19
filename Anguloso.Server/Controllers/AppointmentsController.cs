@@ -271,6 +271,22 @@ public class AppointmentsController : ControllerBase
     }
 
     [Authorize(Roles = "clinic_admin,nutritionist")]
+    [HttpGet("professional/pending-count")]
+    public async Task<ActionResult<int>> GetProfessionalPendingAppointmentCount()
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        var tenantId = AuthHelpers.GetTenantId(User);
+        if (userId == null || tenantId == null) return Unauthorized();
+
+        var query = _context.patient_appointments.AsNoTracking()
+            .Where(a => a.tenant_id == tenantId.Value && a.status == "requested");
+        if (!User.IsInRole("clinic_admin"))
+            query = query.Where(a => a.nutritionist_id == userId.Value);
+
+        return Ok(await query.CountAsync());
+    }
+
+    [Authorize(Roles = "clinic_admin,nutritionist")]
     [HttpGet("professional")]
     public async Task<ActionResult<IEnumerable<AppointmentDto>>> GetProfessionalAppointments([FromQuery] DateTime? from, [FromQuery] DateTime? to)
     {

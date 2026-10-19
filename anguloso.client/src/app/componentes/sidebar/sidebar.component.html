@@ -42,7 +42,7 @@
     </div>
     <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isClinic || isSuperAdmin">
       <a mat-list-item routerLink="/support" routerLinkActive="active-link" (click)="navigateAndClose()">
-        <mat-icon>support_agent</mat-icon><span>Soporte</span>
+        <mat-icon>support_agent</mat-icon><span>Soporte</span><span class="message-unread-badge" *ngIf="isSuperAdmin && newSupportTicketsCount > 0" aria-label="Tickets nuevos sin atender">{{ newSupportTicketsCount > 99 ? '99+' : newSupportTicketsCount }}</span>
       </a>
     </div>
     <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">
@@ -57,7 +57,7 @@
     </div>
     <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">
       <a mat-list-item routerLink="/appointments" routerLinkActive="active-link" (click)="navigateAndClose()">
-        <mat-icon>event</mat-icon><span>Agenda y citas</span>
+        <mat-icon>event</mat-icon><span>Agenda y citas</span><span class="message-unread-badge" *ngIf="pendingAppointmentsCount > 0" aria-label="Solicitudes de cita pendientes">{{ pendingAppointmentsCount > 99 ? '99+' : pendingAppointmentsCount }}</span>
       </a>
     </div>
     <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">

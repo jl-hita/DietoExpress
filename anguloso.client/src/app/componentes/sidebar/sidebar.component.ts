@@ -29,6 +29,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
   license: LicenseStatus | null = null;
   unreadMessagesCount = 0;
   directoryReviewCount = 0;
+  newSupportTicketsCount = 0;
+  pendingAppointmentsCount = 0;
   private unreadMessagesSubscription?: Subscription;
   readonly defaultProfileImage = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"%3E%3Ccircle cx="24" cy="24" r="24" fill="%23e0e0e0"/%3E%3Ccircle cx="24" cy="18" r="8" fill="%23909090"/%3E%3Cpath d="M10 40c2-8 9-12 14-12s12 4 14 12" fill="%23909090"/%3E%3C/svg%3E';
 
@@ -51,24 +53,32 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
     // La bandeja de conversaciones es propia de cuentas profesionales; SuperAdmin no debe sondear endpoints de tenant y generar 403 periódicos.
     if (this.isSuperAdmin) {
-      this.unreadMessagesSubscription = interval(60000).pipe(
+      this.unreadMessagesSubscription = interval(30000).pipe(
         startWith(0),
         switchMap(() => forkJoin({
           profiles: this.http.get<any[]>('/api/admin/directory-verification').pipe(catchError(() => of([]))),
-          evidence: this.http.get<any[]>('/api/directory-verification/evidence/admin?status=pending').pipe(catchError(() => of([])))
+          evidence: this.http.get<any[]>('/api/directory-verification/evidence/admin?status=pending').pipe(catchError(() => of([]))),
+          tickets: this.http.get<number>('/api/support/tickets/new-count').pipe(catchError(() => of(0))),
+          broadcasts: this.http.get<any[]>('/api/broadcast-messages/inbox').pipe(catchError(() => of([])))
         }))
-      ).subscribe(result => { this.directoryReviewCount = result.profiles.filter((item: any) => item.publicationStatus === 'pending' || item.publicationStatus === 'draft').length + result.evidence.length; });
+      ).subscribe(result => {
+        this.directoryReviewCount = result.profiles.filter((item: any) => item.publicationStatus === 'pending' || item.publicationStatus === 'draft').length + result.evidence.length;
+        this.newSupportTicketsCount = Math.max(0, Number(result.tickets) || 0);
+        this.unreadMessagesCount = (result.broadcasts || []).filter((item: any) => !item.readAt).length;
+      });
     } else if (this.isNutritionist || this.isClinic) {
       this.unreadMessagesSubscription = interval(15000).pipe(
         startWith(0),
         switchMap(() => forkJoin({
           conversations: this.http.get<any[]>('/api/messages/conversations').pipe(catchError(() => of([]))),
-          broadcasts: this.http.get<any[]>('/api/broadcast-messages/inbox').pipe(catchError(() => of([])))
+          broadcasts: this.http.get<any[]>('/api/broadcast-messages/inbox').pipe(catchError(() => of([]))),
+          appointments: this.http.get<number>('/api/appointments/professional/pending-count').pipe(catchError(() => of(0)))
         }))
       ).subscribe(result => {
         const unreadChats = (result.conversations || []).reduce((sum, item) => sum + Math.max(0, Number(item.unreadCount) || 0), 0);
-        const unreadBroadcasts = (result.broadcasts || []).filter(item => !item.readAt).length;
+        const unreadBroadcasts = (result.broadcasts || []).filter((item: any) => !item.readAt).length;
         this.unreadMessagesCount = unreadChats + unreadBroadcasts;
+        this.pendingAppointmentsCount = Math.max(0, Number(result.appointments) || 0);
       });
     }
   }
