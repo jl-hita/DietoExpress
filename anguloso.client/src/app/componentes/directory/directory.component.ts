@@ -263,7 +263,13 @@ export class DirectoryComponent implements OnInit {
       },
       error: error => {
         this.bookingSubmitting = false;
-        this.bookingError = error?.error?.message || 'No se ha podido enviar la solicitud. El horario puede haber sido reservado por otra persona.';
+        const responseError = error?.error;
+        const serverMessage = typeof responseError === 'string'
+          ? responseError
+          : responseError?.message;
+        this.bookingError = typeof serverMessage === 'string' && serverMessage.trim()
+          ? serverMessage
+          : 'No se ha podido enviar la solicitud. El horario puede haber sido reservado por otra persona.';
         this.loadAvailability(this.profile!.slug);
       }
     });

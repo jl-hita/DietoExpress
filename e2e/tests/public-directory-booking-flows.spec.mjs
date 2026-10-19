@@ -35,7 +35,7 @@ function futureSlot(daysAhead = 10, hour = 11) {
   return { startsAt: start.toISOString(), endsAt: end.toISOString(), nutritionistId: 999, nutritionistName: apiProfile.fullName };
 }
 
-async function mockDirectory(page, { profiles = [apiProfile], availability = [futureSlot()], bookingStatus = 201, bookingError = null } = {}) {
+async function mockDirectory(page, { profiles = [apiProfile], availability = [futureSlot()], bookingStatus = 201, bookingError = null, bookingErrorStatus = 409, bookingErrorContentType = 'application/json' } = {}) {
   const requests = { searches: [], bookings: [], availability: [] };
   await page.route('**/directory/professionals**', async route => {
     const request = route.request();
@@ -45,7 +45,11 @@ async function mockDirectory(page, { profiles = [apiProfile], availability = [fu
       const payload = request.postDataJSON();
       requests.bookings.push({ url: request.url(), payload });
       if (bookingError) {
-        await route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ message: bookingError }) });
+        await route.fulfill({
+          status: bookingErrorStatus,
+          contentType: bookingErrorContentType,
+          body: bookingErrorContentType.includes('application/json') ? JSON.stringify({ message: bookingError }) : bookingError
+        });
       } else {
         await route.fulfill({ status: bookingStatus, contentType: 'application/json', body: JSON.stringify({ startsAt: payload.startsAt, endsAt: new Date(new Date(payload.startsAt).getTime() + payload.durationMinutes * 60_000).toISOString(), status: 'pending', nutritionistName: apiProfile.fullName }) });
       }
@@ -231,6 +235,21 @@ test.describe('P0 — directorio público: búsqueda, perfil y solicitudes (API 
     await page.getByLabel('Email', { exact: true }).fill('e2e-conflict@invalid.example');
     await page.getByRole('button', { name: 'Solicitar cita' }).click();
     await expect(page.getByRole('alert')).toContainText('El horario ya no está disponible.');
+    await expect(page.locator('.booking-form')).toBeVisible();
+  });
+
+  test('un error 400 de validación devuelto como texto se muestra al usuario', async ({ page }) => {
+    await mockDirectory(page, {
+      bookingError: 'La licencia ha caducado.',
+      bookingErrorStatus: 400,
+      bookingErrorContentType: 'text/plain'
+    });
+    await openProfile(page);
+    await chooseSlot(page);
+    await page.getByLabel('Nombre completo').fill('Paciente E2E Ficticio');
+    await page.getByLabel('Email', { exact: true }).fill('e2e-expired-license@invalid.example');
+    await page.getByRole('button', { name: 'Solicitar cita' }).click();
+    await expect(page.getByRole('alert')).toContainText('La licencia ha caducado.');
     await expect(page.locator('.booking-form')).toBeVisible();
   });
 
