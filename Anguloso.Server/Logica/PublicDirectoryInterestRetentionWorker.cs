@@ -1,3 +1,5 @@
+using Anguloso.Server.Models;
+
 namespace Anguloso.Server.Logica;
 
 /// <summary>
