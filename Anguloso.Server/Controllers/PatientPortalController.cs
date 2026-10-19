@@ -499,6 +499,46 @@ public class PatientPortalController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPost("~/api/clients/{clientId:int}/portal-access/send-link")]
+    [Authorize(Policy = "Professional")]
+    public async Task<IActionResult> SendClientPortalAccessLink(int clientId)
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId == null) return Unauthorized();
+
+        var client = await _context.clients
+            .Include(c => c.user)
+            .FirstOrDefaultAsync(c => c.id == clientId && c.archived_at == null &&
+                (User.IsInRole("superadmin") ||
+                 (AuthHelpers.GetTenantId(User).HasValue && c.tenant_id == AuthHelpers.GetTenantId(User)!.Value &&
+                  (User.IsInRole("clinic_admin") ||
+                   c.user_id == userId.Value ||
+                   _context.client_nutritionist_assignments.Any(a => a.client_id == c.id && a.nutritionist_id == userId.Value && a.is_active)))));
+        if (client == null) return NotFound("Cliente no encontrado.");
+        if (string.IsNullOrWhiteSpace(client.email))
+            return BadRequest(new { message = "El paciente no tiene una dirección de email registrada." });
+
+        var portalTenantId = client.tenant_id ?? client.user?.tenant_id;
+        if (!await _licenseService.CanUseFeatureAsync(portalTenantId, "CLIENT_PORTAL"))
+            return Forbid();
+
+        var accessLink = await _portalAccessService.CreateAccessLinkAsync(client.id, HttpContext.RequestAborted);
+        if (accessLink == null)
+            return BadRequest(new { message = "No se ha podido generar el enlace de acceso al portal." });
+
+        var safeName = System.Net.WebUtility.HtmlEncode(client.full_name ?? "Paciente");
+        var safeLink = System.Net.WebUtility.HtmlEncode(accessLink);
+        var emailResult = await _emailServ.SendEmailAsync(
+            client.email,
+            "Tu acceso al portal de DietoExpress",
+            $"<h2>Hola, {safeName}</h2><p>Tu nutricionista te ha facilitado el acceso a tu portal de paciente de DietoExpress.</p><p><a href='{safeLink}'>Acceder a mi portal</a></p><p>Este enlace es personal, de un solo uso y caduca en 24 horas.</p><p>Si necesitas ayuda, contacta con tu nutricionista.</p>");
+
+        if (!emailResult.Exito)
+            return StatusCode(StatusCodes.Status502BadGateway, new { message = "No se ha podido enviar el enlace por email. Puedes reintentarlo desde la consulta." });
+
+        return Ok(new { message = "Enlace del portal enviado al email del paciente." });
+    }
+
     [HttpGet("~/api/clients/{clientId:int}/portal-access")]
     [Authorize(Policy = "Professional")]
     public async Task<ActionResult<ClientPortalAccessDto>> GetClientPortalAccess(int clientId)

@@ -386,6 +386,36 @@ public sealed class PatientDocumentFlowRegressionTests
     }
 
     [Fact]
+    public void GuidedAnamnesisMustUseStructuredPatientFieldsAndSaveBeforeNavigation()
+    {
+        var source = ReadServerSource("anguloso.client/src/app/componentes/guided-consultation/guided-consultation.component.ts");
+
+        Assert.Contains("profile.foodPreferences!.allergies", source);
+        Assert.Contains("this.clientService.updateClient(client.id, payload)", source);
+        Assert.Contains("this.clientService.createBiometric(clientId", source);
+        Assert.Contains("this.savePatientClinicalProfile(() => this.saveClinicalProgress", source);
+        Assert.Contains("this.router.navigate(['/clients', clientId])", source);
+        Assert.Contains("No se ha podido guardar el expediente clínico", source);
+        Assert.Contains("Toma de datos antropométricos de esta consulta", source);
+    }
+
+    [Fact]
+    public void CompletedGuidedConsultationMustOfferPdfAndPortalEmailActions()
+    {
+        var client = ReadServerSource("anguloso.client/src/app/componentes/guided-consultation/guided-consultation.component.ts");
+        var service = ReadServerSource("anguloso.client/src/app/servicios/patient-portal.service.ts");
+        var controller = ReadServerSource("Anguloso.Server/Controllers/PatientPortalController.cs");
+
+        Assert.Contains("consultation?.status === 'completed'", client);
+        Assert.Contains("downloadConsultationPdf()", client);
+        Assert.Contains("sendPortalAccessLink()", client);
+        Assert.Contains("sendClientPortalAccessLink(clientId", service);
+        Assert.Contains("portal-access/send-link", controller);
+        Assert.Contains("CanUseFeatureAsync(portalTenantId, \"CLIENT_PORTAL\")", controller);
+        Assert.Contains("_emailServ.SendEmailAsync", controller);
+    }
+
+    [Fact]
     public void GuidedConsultationMustOfferQuickModeAndPreserveQueuedAutosaves()
     {
         var source = ReadServerSource("anguloso.client/src/app/componentes/guided-consultation/guided-consultation.component.ts");
