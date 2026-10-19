@@ -428,4 +428,28 @@ public sealed class PatientDocumentFlowRegressionTests
         Assert.Contains("get contextualRecommendations()", source);
         Assert.Contains("adherence_low", source);
     }
+
+    [Fact]
+    public void TeleconsultationConsentMustNotBlockInPersonConsultations()
+    {
+        var controller = ReadServerSource("Anguloso.Server/Controllers/ProfessionalConsultationsController.cs");
+        var service = ReadServerSource("Anguloso.Server/Logica/PatientDocumentService.cs");
+        var seeder = ReadServerSource("Anguloso.Server/Logica/PatientDocumentTemplateSeeder.cs");
+
+        Assert.Contains("var isTeleconsultation =", controller);
+        Assert.Contains("LOWER(dt.document_type) <> 'teleconsultation' OR @isTeleconsultation", service);
+        Assert.Contains("is_required_before_consultation=@requiredConsultation", seeder);
+        Assert.Contains("definition.RequiredBeforeConsultation", seeder);
+    }
+
+    [Fact]
+    public void PatientMustOpenDocumentBeforeAcceptingIt()
+    {
+        var controller = ReadServerSource("Anguloso.Server/Controllers/PatientDocumentsController.cs");
+        var portal = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "patient-portal", "patient-documents", "patient-documents.component.html"));
+
+        Assert.Contains("viewed_at AS \"ViewedAt\"", controller);
+        Assert.Contains("Abre el documento y revísalo antes de registrar tu aceptación.", controller);
+        Assert.Contains("[disabled]=" + "\"!doc.viewedAt\"", portal);
+    }
 }
