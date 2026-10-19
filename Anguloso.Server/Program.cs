@@ -41,7 +41,7 @@ public class Program
 // Add services to the container.
         builder.Services.AddSingleton<LogServ>();
         builder.Services.AddSingleton<ConfigServ>(sp => new ConfigServ(connectionString!, sp.GetRequiredService<LogServ>()));
-        builder.Services.AddSingleton<EmailServ>(sp => new EmailServ(sp.GetRequiredService<ConfigServ>(), sp.GetRequiredService<LogServ>()));
+        builder.Services.AddSingleton<EmailServ>(sp => new EmailServ(sp.GetRequiredService<ConfigServ>(), sp.GetRequiredService<LogServ>(), sp.GetRequiredService<IHttpContextAccessor>()));
         builder.Services.AddSingleton<NotificationService>();
         builder.Services.AddSingleton<MaintenanceNoticeService>();
         builder.Services.AddScoped<RecipeNutritionService>();

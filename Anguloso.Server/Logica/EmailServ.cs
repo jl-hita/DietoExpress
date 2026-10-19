@@ -2,6 +2,7 @@ using Anguloso.Server.Model;
 using System.Net;
 using System.Net.Mail;
 using System.Security.Cryptography;
+using System.Security.Claims;
 using System.Text;
 
 namespace Anguloso.Server.Logica;
@@ -21,12 +22,31 @@ public class EmailServ
 {
     private readonly ConfigServ _configServ;
     private readonly LogServ _logServ;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public EmailServ(ConfigServ configServ, LogServ logServ)
+    public EmailServ(ConfigServ configServ, LogServ logServ, IHttpContextAccessor httpContextAccessor)
     {
         _configServ = configServ;
         _logServ = logServ;
+        _httpContextAccessor = httpContextAccessor;
     }
+
+    private string GetEmailActor()
+    {
+        var user = _httpContextAccessor.HttpContext?.User;
+        if (user?.Identity?.IsAuthenticated != true)
+            return "sistema/proceso en segundo plano";
+
+        var userId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? "ID desconocido";
+        var userName = user.Identity?.Name;
+        var role = user.FindFirstValue(ClaimTypes.Role) ?? "rol desconocido";
+        return string.IsNullOrWhiteSpace(userName)
+            ? $"usuario ID {userId}, rol {role}"
+            : $"usuario ID {userId} ({userName}), rol {role}";
+    }
+
+    private static string SafeLogValue(string? value) =>
+        (value ?? string.Empty).Replace("\r", " ").Replace("\n", " ");
 
     // Las plantillas de negocio son fragmentos HTML; este contenedor común aplica una presentación
     // coherente y adaptable en clientes de correo sin depender de hojas de estilo externas.
@@ -68,6 +88,12 @@ public class EmailServ
     // por el servidor SMTP sigue siendo intrínsecamente ambigua y debe considerarse at-least-once.
     public async Task<BoolMensaje> SendEmailAsync(string to, string subject, string htmlBody, string? idempotencyKey = null)
     {
+        var actor = GetEmailActor();
+        var safeSubject = SafeLogValue(subject);
+        var safeRecipient = SafeLogValue(to);
+
+        _logServ.LogInfo($"Solicitud de envío de email: asunto \"{safeSubject}\", destinatario {safeRecipient}, actor {actor}.");
+
         try
         {
             string smtpSever = _configServ.GetConfigString("smtpServer") ?? throw new Exception("smtpServer no configurado");
@@ -78,7 +104,7 @@ public class EmailServ
             string smtpUser = _configServ.GetConfigString("smtpUser") ?? throw new Exception("smtpUser no configurado");
             string smtpPwd = _configServ.GetConfigString("smtpPwd") ?? throw new Exception("smtpPwd no configurado");
 
-            _logServ.LogInfo($"Preparando envío SMTP a {to} usando {smtpSever}:{smtpPort}.");
+            _logServ.LogInfo($"Conectando con SMTP {smtpSever}:{smtpPort} para el email con asunto \"{safeSubject}\" a {safeRecipient}, solicitado por {actor}.");
 
             using (var client = new SmtpClient(smtpSever, smtpPort))
             {
@@ -109,7 +135,7 @@ public class EmailServ
                 {
                     await client.SendMailAsync(mail);
 
-                    _logServ.LogInfo($"Email enviado a {to} con Message-ID {messageId}");
+                    _logServ.LogInfo($"SMTP aceptó el email: asunto \"{safeSubject}\", destinatario {safeRecipient}, actor {actor}, Message-ID {messageId}. Esto confirma la aceptación SMTP, no la entrega en bandeja de entrada.");
 
                     return new BoolMensaje
                     {
@@ -119,7 +145,7 @@ public class EmailServ
                 }
                 catch (Exception ex)
                 {
-                    _logServ.LogError($"Error SMTP al enviar email a {to}: {ex.GetType().Name}: {ex.Message}");
+                    _logServ.LogError($"Error SMTP al enviar email: asunto \"{safeSubject}\", destinatario {safeRecipient}, actor {actor}: {ex.GetType().Name}: {ex.Message}");
                     if (ex.Message.Contains("authenticate", StringComparison.OrdinalIgnoreCase)
                         || ex.Message.Contains("5.7.0", StringComparison.OrdinalIgnoreCase)
                         || ex.Message.Contains("5.7.1", StringComparison.OrdinalIgnoreCase))
@@ -136,7 +162,7 @@ public class EmailServ
         }
         catch (Exception ex)
         {
-            _logServ.LogError($"Error preparando email para {to}: {ex.GetType().Name}: {ex.Message}");
+            _logServ.LogError($"Error preparando email: asunto \"{safeSubject}\", destinatario {safeRecipient}, actor {actor}: {ex.GetType().Name}: {ex.Message}");
             return new BoolMensaje
             {
                 Exito = false,
