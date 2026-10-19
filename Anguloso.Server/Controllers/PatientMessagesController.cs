@@ -24,6 +24,23 @@ public class PatientMessagesController : ControllerBase
         _emailServ = emailServ;
     }
 
+    [HttpGet("patient/unread-count")]
+    [Authorize(Roles = "patient")]
+    public async Task<ActionResult<int>> GetPatientUnreadCount()
+    {
+        var clientId = await ResolvePatientIdAsync();
+        if (clientId == null) return Unauthorized();
+
+        var count = await _context.Database.SqlQueryRaw<int>(@"
+SELECT COUNT(*)::int AS ""Value""
+FROM patient_messages m
+JOIN patient_conversations c ON c.id = m.conversation_id
+WHERE c.client_id = {0}
+  AND m.sender_user_id IS NOT NULL
+  AND m.read_at IS NULL;", clientId.Value).SingleAsync();
+        return Ok(count);
+    }
+
     [HttpGet("patient")]
     [Authorize(Roles = "patient")]
     // El portal del paciente solo puede leer mensajes asociados a su propia identidad y tenant.
