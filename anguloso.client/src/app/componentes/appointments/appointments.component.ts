@@ -169,8 +169,15 @@ export class AppointmentsComponent implements OnInit {
   }
 
   get upcoming(): PatientAppointment[] {
-    return this.appointments.filter(a => a.startsAt && new Date(a.startsAt).getTime() >= Date.now() && a.status !== 'cancelled')
-      .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+    const now = Date.now();
+    // Mantener en "Próximas citas" las citas cuyo intervalo todavía no ha terminado.
+    // Comparar solo startsAt mandaba una cita en curso al historial y ocultaba sus acciones.
+    return this.appointments.filter(a =>
+      a.startsAt &&
+      a.endsAt &&
+      new Date(a.endsAt).getTime() > now &&
+      (a.status === 'requested' || a.status === 'confirmed')
+    ).sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
   }
 
   get history(): PatientAppointment[] {
