@@ -31,7 +31,6 @@ interface DirectoryInterest {
         <p><strong>{{ interest.fullName }}</strong></p>
         <p><a [href]="'mailto:' + interest.email">{{ interest.email }}</a></p>
         <p *ngIf="interest.phone"><a [href]="'tel:' + interest.phone">{{ interest.phone }}</a></p>
-        <p *ngIf="interest.message">{{ interest.message }}</p>
         <small>Solicitud recibida el {{ interest.createdAt | date:'d MMM yyyy, HH:mm' }}</small>
       </article>
     </section>
