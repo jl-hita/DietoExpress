@@ -180,9 +180,13 @@ public sealed class ProfessionalConsultationsController : ControllerBase
             includeAllRequired: false,
             cancellationToken: HttpContext.RequestAborted);
 
+        var isTeleconsultation = string.Equals(appointment.Modality, "online", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(appointment.Modality, "teleconsultation", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(appointment.Modality, "video", StringComparison.OrdinalIgnoreCase);
         var pendingDocuments = await _patientDocumentService.GetPendingSignatureDocumentsBeforeConsultationAsync(
             appointment.TenantId,
             appointment.ClientId,
+            isTeleconsultation,
             HttpContext.RequestAborted);
 
         if (pendingDocuments.Count > 0)

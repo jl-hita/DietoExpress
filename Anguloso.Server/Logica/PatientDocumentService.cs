@@ -226,7 +226,7 @@ public sealed class PatientDocumentService
         return result;
     }
 
-    public async Task<IReadOnlyList<string>> GetPendingSignatureDocumentsBeforeConsultationAsync(int tenantId, int clientId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<string>> GetPendingSignatureDocumentsBeforeConsultationAsync(int tenantId, int clientId, bool isTeleconsultation = false, CancellationToken cancellationToken = default)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
@@ -242,10 +242,12 @@ public sealed class PatientDocumentService
               AND pd.status='pending'
               AND dt.is_active=true
               AND dt.is_required_before_consultation=true
+              AND (LOWER(dt.document_type) <> 'teleconsultation' OR @isTeleconsultation)
             ORDER BY pd.created_at, pd.id;
             """, connection);
         command.Parameters.AddWithValue("tenant", tenantId);
         command.Parameters.AddWithValue("client", clientId);
+        command.Parameters.AddWithValue("isTeleconsultation", isTeleconsultation);
         var result = new List<string>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken)) result.Add(reader.GetString(0));

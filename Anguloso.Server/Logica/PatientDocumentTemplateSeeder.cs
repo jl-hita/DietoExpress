@@ -78,17 +78,24 @@ public sealed class PatientDocumentTemplateSeeder
                 if (!File.Exists(source))
                     continue;
 
-                await using var existsCommand = new NpgsqlCommand("""
-                    SELECT 1
-                    FROM document_templates
+                // Actualiza flags de las plantillas ya sembradas para corregir tenants existentes.
+                await using var updateExisting = new NpgsqlCommand("""
+                    UPDATE document_templates
+                    SET is_required_on_client_creation=@requiredCreation,
+                        requires_signature=@requires,
+                        is_required_before_consultation=@requiredConsultation,
+                        updated_at=NOW()
                     WHERE tenant_id=@tenant
                       AND LOWER(name)=LOWER(@name)
-                      AND version=1
-                    LIMIT 1;
+                      AND version=1;
                     """, connection, transaction);
-                existsCommand.Parameters.AddWithValue("tenant", tenantId);
-                existsCommand.Parameters.AddWithValue("name", definition.Name);
-                if (await existsCommand.ExecuteScalarAsync(cancellationToken) != null)
+                updateExisting.Parameters.AddWithValue("tenant", tenantId);
+                updateExisting.Parameters.AddWithValue("name", definition.Name);
+                updateExisting.Parameters.AddWithValue("requiredCreation", definition.RequiredOnCreation);
+                updateExisting.Parameters.AddWithValue("requires", definition.RequiresSignature);
+                updateExisting.Parameters.AddWithValue("requiredConsultation", definition.RequiredBeforeConsultation);
+                var updated = await updateExisting.ExecuteNonQueryAsync(cancellationToken);
+                if (updated > 0)
                     continue;
 
                 var storageKey = $"{tenantId}/templates/{Guid.NewGuid():N}.pdf";
