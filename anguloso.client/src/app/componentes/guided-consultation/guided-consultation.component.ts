@@ -362,8 +362,12 @@ interface GuidedConsultationResponse {
             <div class="quick-form">
               <h3>Acciones posteriores</h3>
               <div class="actions" *ngIf="clinicalSaveState === 'error'">
-                <span class="save-state">Hay cambios sin guardar. Reintenta el guardado antes de cerrar.</span>
+                <span class="save-state">Hay cambios de la consulta sin guardar. Reintenta antes de cerrar.</span>
                 <button mat-stroked-button type="button" (click)="saveClinicalProgress()">Reintentar guardado</button>
+              </div>
+              <div class="actions" *ngIf="patientProfileSaveState === 'error' && clinicalProfile">
+                <span class="save-state">Hay cambios del expediente sin guardar.</span>
+                <button mat-stroked-button type="button" (click)="savePatientClinicalProfile()">Reintentar expediente</button>
               </div>
               <p>Al cerrar se generarán las tareas a partir de las acciones acordadas. Después puedes revisar la ficha, la documentación y los mensajes del paciente.</p>
               <div class="actions">
@@ -371,7 +375,7 @@ interface GuidedConsultationResponse {
                 <button mat-stroked-button type="button" (click)="openPatientMessages()"><mat-icon>chat</mat-icon> Mensajes</button>
               </div>
             </div>
-            <button mat-flat-button color="primary" type="button" (click)="completeConsultation()" [disabled]="consultation?.status === 'completed' || completing || clinicalSaveState === 'saving' || clinicalSaveState === 'error'">
+            <button mat-flat-button color="primary" type="button" (click)="completeConsultation()" [disabled]="consultation?.status === 'completed' || completing || patientProfileLoading || patientProfileSaving || clinicalSaveState === 'saving' || clinicalSaveState === 'error' || patientProfileSaveState === 'error'">
               <mat-icon>{{ completing ? 'hourglass_top' : 'check' }}</mat-icon>
               {{ completing ? 'Cerrando…' : 'Cerrar consulta' }}
             </button>
@@ -708,6 +712,7 @@ export class GuidedConsultationComponent implements OnInit {
     if (!client || !this.data) {
       if (this.patientProfileSaveState === 'error') {
         this.patientProfileSaveCallbacks = [];
+        if (this.completing) this.completing = false;
         return;
       }
       const callbacks = this.patientProfileSaveCallbacks.splice(0);
