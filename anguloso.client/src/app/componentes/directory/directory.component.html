@@ -90,7 +90,7 @@
         <span *ngIf="item.onlineConsultations" class="badge">Consulta online</span>
         <span *ngIf="item.isVerified" class="badge verified">Perfil verificado</span>
         <p *ngIf="item.specialtyList.length" class="specialty-tags"><span *ngFor="let specialty of item.specialtyList">{{ specialty }}</span></p>
-        <p class="profile-quality">Perfil {{ item.profileCompleteness }}% completo · {{ item.availableRuleCount ? "Agenda activa" : "Sin agenda publicada" }}</p>
+        <p class="profile-quality">Perfil {{ item.profileCompleteness }}% completo · {{ !item.canAcceptAppointments ? "No acepta citas temporalmente" : (item.availableRuleCount ? "Agenda activa" : "Sin agenda publicada") }}</p>
         <p *ngIf="item.reviewCount" class="profile-rating">★ {{ item.averageRating.toFixed(1) }}/5 · {{ item.reviewCount }} valoración{{ item.reviewCount === 1 ? '' : 'es' }}</p>
         <a mat-button [routerLink]="['/nutricionistas', item.slug]" (click)="trackProfileClick(item.slug)">Ver perfil y disponibilidad</a>
       </div>
