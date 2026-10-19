@@ -13,6 +13,8 @@ async function mockPortal(page, { messages = [], documents = [], failDocumentTab
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ clientId: 321, fullName: 'Paciente E2E Ficticio' }) });
     } else if (url.pathname.endsWith('/portal/profile') && method === 'GET') {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 321, fullName: 'Paciente E2E Ficticio', hasActiveDiet: false, clinicName: 'Clínica E2E' }) });
+    } else if (url.pathname.endsWith('/portal/documents/44') && method === 'GET') {
+      await route.fulfill({ status: 200, contentType: 'application/pdf', body: '%PDF-1.4\nE2E fixture' });
     } else if (url.pathname.endsWith('/portal/documents') && method === 'GET') {
       documentGets++;
       if (failDocumentTabLoad && documentGets === 2) {
@@ -71,6 +73,9 @@ test.describe('P1 — mensajes y documentación del portal del paciente', () => 
     await expect(page.getByRole('heading', { name: 'Documentación' })).toBeVisible();
     await expect(page.getByText('Consentimiento E2E')).toBeVisible();
     await expect(page.getByText('Pendiente de firma/aceptación')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Aceptar documento' })).toBeDisabled();
+    await page.getByRole('button', { name: 'Leer documento' }).click();
+    await expect(page.getByRole('button', { name: 'Aceptar documento' })).toBeEnabled();
     await page.getByRole('button', { name: 'Aceptar documento' }).click();
     await expect(page.getByText('Aceptado')).toBeVisible();
     expect(calls.some(call => call.path.endsWith('/portal/documents/44/accept') && call.method === 'POST')).toBe(true);
