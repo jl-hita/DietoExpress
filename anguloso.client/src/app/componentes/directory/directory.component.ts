@@ -74,6 +74,7 @@ export class DirectoryComponent implements OnInit {
   bookingEmail = '';
   bookingPhone = '';
   bookingNotes = '';
+  interestConsent = false;
   bookingModality: 'in_person' | 'online' = 'in_person';
   calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   selectedAvailabilityDate: string | null = null;
@@ -271,6 +272,42 @@ export class DirectoryComponent implements OnInit {
           ? serverMessage
           : 'No se ha podido enviar la solicitud. El horario puede haber sido reservado por otra persona.';
         this.loadAvailability(this.profile!.slug);
+      }
+    });
+  }
+
+  submitInterest(): void {
+    if (!this.profile || this.profile.canAcceptAppointments || this.bookingSubmitting) return;
+    const fullName = this.bookingFullName.trim();
+    const email = this.bookingEmail.trim().toLowerCase();
+    const phone = this.bookingPhone.trim();
+    const message = this.bookingNotes.trim();
+    if (!fullName || !email) { this.bookingError = 'El nombre y el email son obligatorios.'; return; }
+    if (!this.interestConsent) { this.bookingError = 'Debes aceptar el tratamiento de tus datos para enviar la solicitud.'; return; }
+    if (message.length > 500) { this.bookingError = 'El comentario no puede superar los 500 caracteres.'; return; }
+
+    this.bookingSubmitting = true;
+    this.bookingError = '';
+    this.bookingSuccess = null;
+    this.directoryService.submitInterest(this.profile.slug, {
+      fullName, email, phone: phone || undefined, message: message || undefined, consentToContact: this.interestConsent
+    }).subscribe({
+      next: result => {
+        this.bookingSuccess = result.message;
+        this.bookingSubmitting = false;
+        this.bookingFullName = '';
+        this.bookingEmail = '';
+        this.bookingPhone = '';
+        this.bookingNotes = '';
+        this.interestConsent = false;
+      },
+      error: error => {
+        this.bookingSubmitting = false;
+        const responseError = error?.error;
+        const serverMessage = typeof responseError === 'string' ? responseError : responseError?.message;
+        this.bookingError = typeof serverMessage === 'string' && serverMessage.trim()
+          ? serverMessage
+          : 'No se ha podido registrar tu interés. Inténtalo de nuevo más tarde.';
       }
     });
   }
