@@ -81,8 +81,7 @@ public sealed class PatientDocumentTemplateSeeder
                 // Actualiza flags de las plantillas ya sembradas para corregir tenants existentes.
                 await using var updateExisting = new NpgsqlCommand("""
                     UPDATE document_templates
-                    SET is_active=true,
-                        is_required_on_client_creation=@requiredCreation,
+                    SET is_required_on_client_creation=@requiredCreation,
                         requires_signature=@requires,
                         is_required_before_consultation=@requiredConsultation,
                         updated_at=NOW()
