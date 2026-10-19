@@ -44,9 +44,18 @@ test.describe.serial('P0 — cupones promocionales (sin completar Checkout)', ()
       const createResponse = await createResponsePromise;
       const responseBody = await createResponse.text();
       expect(createResponse.ok(), `El API de cupones respondió ${createResponse.status()}: ${responseBody}`).toBeTruthy();
-      // La respuesta 2xx confirma la creación; comprobar la persistencia en el listado evita
-      // acoplar el test a un mensaje transitorio que puede desaparecer durante load().
-      await expect(page.locator('tbody tr').filter({ hasText: code })).toBeVisible({ timeout: 15_000 });
+      const created = JSON.parse(responseBody);
+      expect(created.code, 'La API debe devolver el código normalizado que acaba de crear').toBe(code);
+
+      // Comprobar persistencia directamente antes de atribuir un fallo al formulario.
+      // El componente refresca la lista al terminar el POST; el botón Actualizar fuerza
+      // una segunda lectura explícita para que el test no dependa de esa carrera de UI.
+      const listResponse = await page.request.get(new URL('/api/admin/coupons', baseURL).toString());
+      expect(listResponse.ok(), `El listado de cupones respondió ${listResponse.status()}`).toBeTruthy();
+      const rows = await listResponse.json();
+      expect(rows.some(coupon => coupon.code === code), 'El cupón creado debe persistir en el listado de la API').toBe(true);
+      await page.getByRole('button', { name: 'Actualizar' }).click();
+      await expect(page.locator('.coupon-admin tbody tr').filter({ hasText: code })).toBeVisible({ timeout: 15_000 });
     }
   });
 
