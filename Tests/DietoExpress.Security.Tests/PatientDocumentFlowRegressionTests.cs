@@ -400,6 +400,22 @@ public sealed class PatientDocumentFlowRegressionTests
     }
 
     [Fact]
+    public void CompletedGuidedConsultationMustOfferPdfAndPortalEmailActions()
+    {
+        var client = ReadServerSource("anguloso.client/src/app/componentes/guided-consultation/guided-consultation.component.ts");
+        var service = ReadServerSource("anguloso.client/src/app/servicios/patient-portal.service.ts");
+        var controller = ReadServerSource("Anguloso.Server/Controllers/PatientPortalController.cs");
+
+        Assert.Contains("consultation?.status === 'completed'", client);
+        Assert.Contains("downloadConsultationPdf()", client);
+        Assert.Contains("sendPortalAccessLink()", client);
+        Assert.Contains("sendClientPortalAccessLink(clientId", service);
+        Assert.Contains("portal-access/send-link", controller);
+        Assert.Contains("CanUseFeatureAsync(portalTenantId, \"CLIENT_PORTAL\")", controller);
+        Assert.Contains("EmailServ.SendEmailAsync", controller);
+    }
+
+    [Fact]
     public void GuidedConsultationMustOfferQuickModeAndPreserveQueuedAutosaves()
     {
         var source = ReadServerSource("anguloso.client/src/app/componentes/guided-consultation/guided-consultation.component.ts");
