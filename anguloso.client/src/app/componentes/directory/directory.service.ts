@@ -49,7 +49,7 @@ export class DirectoryService {
     );
   }
 
-  submitInterest(slug: string, request: { fullName: string; email: string; phone?: string; message?: string; consentToContact: boolean }): Observable<{ received: boolean; message: string }> {
+  submitInterest(slug: string, request: { fullName: string; email: string; phone?: string; consentToContact: boolean }): Observable<{ received: boolean; message: string }> {
     return this.http.post<{ received: boolean; message: string }>(
       `${this.apiUrl}/directory/professionals/${encodeURIComponent(slug)}/interest`,
       request
