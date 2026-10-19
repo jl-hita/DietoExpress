@@ -672,6 +672,8 @@ export class GuidedConsultationComponent implements OnInit {
       error: () => {
         this.patientProfileLoading = false;
         this.patientProfileSaveState = 'error';
+        this.patientProfileSaveCallbacks = [];
+        if (this.completing) this.completing = false;
         this.snack.open('No se ha podido cargar el expediente clínico. No introduzcas datos hasta reintentar la carga.', 'Cerrar', { duration: 4500 });
       }
     });
