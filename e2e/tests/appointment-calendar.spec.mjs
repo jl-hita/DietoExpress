@@ -73,7 +73,7 @@ test.describe('P1 — agenda y disponibilidad semanal', () => {
     await page.getByLabel('Día', { exact: true }).selectOption({ label: 'Sábado' });
     await page.getByLabel('Hora de inicio').fill(start);
     await page.getByLabel('Hora de fin').fill(end);
-    await page.getByLabel('Duración').selectOption({ label: '15 min' });
+    await page.getByLabel('Duración', { exact: true }).selectOption({ label: '15 min' });
     await page.getByRole('button', { name: 'Añadir', exact: true }).click();
 
     await expect(page.getByText('Disponibilidad guardada.')).toBeVisible({ timeout: 15_000 });
