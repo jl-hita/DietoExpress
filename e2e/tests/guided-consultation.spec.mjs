@@ -73,7 +73,7 @@ test.describe('P0 — recorrido completo de consulta guiada', () => {
       await expect(page.getByLabel('Paciente para la cita')).toContainText(patientName, { timeout: 15_000 });
       await page.getByLabel('Paciente para la cita').selectOption({ label: patientName });
       await page.getByLabel('Fecha y hora de la cita').fill(localDateTime(daysAhead, 21, 15));
-      await page.getByLabel('Duración de la cita').selectOption('30');
+      await page.getByLabel('Duración de la cita').selectOption({ label: '30 min' });
       await page.getByLabel('Modalidad de la cita').selectOption('in_person');
       await page.getByRole('button', { name: 'Crear cita confirmada' }).click();
       await expect(page.getByText('Cita creada y confirmada. La disponibilidad semanal solo afecta a las reservas públicas.')).toBeVisible({ timeout: 15_000 });

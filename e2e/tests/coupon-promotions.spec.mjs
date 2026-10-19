@@ -42,7 +42,11 @@ test.describe.serial('P0 — cupones promocionales (sin completar Checkout)', ()
       await page.locator('.coupon-admin .panel').first().locator('select').nth(0).selectOption('nutri_full');
       await page.locator('.coupon-admin .panel').first().locator('select').nth(1).selectOption('monthly');
       await page.getByRole('button', { name: 'Crear código' }).click();
-      await expect(page.getByText('Cupón creado.', { exact: true })).toBeVisible({ timeout: 10_000 });
+      const statusMessage = page.locator('.coupon-admin .message[role="status"]');
+      // Esperar la respuesta real del servidor y mostrar su error concreto si el alta falla.
+      await expect.poll(async () => (await statusMessage.textContent())?.trim() ?? '', { timeout: 15_000 })
+        .not.toBe('');
+      await expect(statusMessage).toHaveText('Cupón creado.');
       await expect(page.getByText(code, { exact: true })).toBeVisible();
     }
   });
