@@ -722,6 +722,7 @@ export class GuidedConsultationComponent implements OnInit {
         this.patientProfileSaveQueued = false;
         this.patientProfileSaveState = 'error';
         this.patientProfileSaveCallbacks = [];
+        if (this.completing) this.completing = false;
         this.snack.open(err?.error?.message || 'No se ha podido guardar el expediente clínico. No se ha cambiado de paso.', 'Cerrar', { duration: 4500 });
       }
     });
@@ -796,6 +797,7 @@ export class GuidedConsultationComponent implements OnInit {
         }
         this.clinicalSaveState = 'error';
         this.clinicalSaveCallbacks = [];
+        if (this.completing) this.completing = false;
         this.snack.open(err?.error?.message || 'No se ha podido guardar el progreso de la consulta.', 'Cerrar', { duration: 4000 });
       }
     });
@@ -999,37 +1001,23 @@ export class GuidedConsultationComponent implements OnInit {
     if (!this.data || !this.consultation || this.completing || this.consultation.status === 'completed') return;
     if (!confirm('¿Cerrar esta consulta? Se registrará como completada y no se podrá continuar editándola como consulta en curso.')) return;
 
-    // Persistir explícitamente el estado clínico antes del cierre. Los guardados disparados
-    // por blur y por la navegación del stepper son asíncronos; cerrar en paralelo podía
-    // convertir una consulta en completada antes de que actionsSummary llegara al servidor,
-    // perdiendo las tareas acordadas.
+    // Cierra solo después de confirmar que tanto el expediente clínico del paciente
+    // como el progreso de la consulta se han guardado correctamente.
     this.completing = true;
-    this.portalService.updateGuidedConsultationProgress(this.data.appointment.id, {
-      currentStep: this.currentStep,
-      completedSteps: this.consultation.completedSteps || [],
-      progress: this.buildClinicalProgress()
-    }).subscribe({
-      next: savedConsultation => {
-        this.consultation = savedConsultation;
-        this.portalService.completeGuidedConsultation(this.data!.appointment.id).subscribe({
-          next: consultation => {
-            this.completing = false;
-            this.consultation = consultation;
-            this.clinicalSaveState = 'saved';
-            this.snack.open('Consulta cerrada correctamente.', 'Cerrar', { duration: 2000 });
-          },
-          error: err => {
-            this.completing = false;
-            this.snack.open(err?.error?.message || 'No se ha podido cerrar la consulta.', 'Cerrar', { duration: 3500 });
-          }
-        });
-      },
-      error: err => {
-        this.completing = false;
-        this.clinicalSaveState = 'error';
-        this.snack.open(err?.error?.message || 'No se han podido guardar los acuerdos de la consulta; no se ha cerrado.', 'Cerrar', { duration: 4500 });
-      }
-    });
+    this.savePatientClinicalProfile(() => this.saveClinicalProgress(() => {
+      this.portalService.completeGuidedConsultation(this.data!.appointment.id).subscribe({
+        next: consultation => {
+          this.completing = false;
+          this.consultation = consultation;
+          this.clinicalSaveState = 'saved';
+          this.snack.open('Consulta cerrada correctamente.', 'Cerrar', { duration: 2000 });
+        },
+        error: err => {
+          this.completing = false;
+          this.snack.open(err?.error?.message || 'No se ha podido cerrar la consulta.', 'Cerrar', { duration: 3500 });
+        }
+      });
+    }));
   }
 
   openOnlineConsultation(): void {
