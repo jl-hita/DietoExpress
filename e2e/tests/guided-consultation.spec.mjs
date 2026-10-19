@@ -25,13 +25,11 @@ test.describe('P0 — recorrido completo de consulta guiada', () => {
     await page.goto('/login');
     await page.getByLabel('Email o usuario').fill(username);
     await page.getByLabel('Contraseña').fill(password);
-    try {
-      await page.getByRole('button', { name: 'Iniciar sesión' }).click();
-    } finally {
-      // Limpiar incluso si el click falla; las trazas están desactivadas en estos tests.
-      await page.locator('input[type="password"]').evaluateAll(inputs => inputs.forEach(input => { input.value = ''; }));
-    }
+    await page.getByRole('button', { name: 'Iniciar sesión' }).click();
+    // No borrar la contraseña hasta que termine la autenticación: vaciarla inmediatamente
+    // después del click puede competir con la serialización del formulario.
     await expect(page).not.toHaveURL(/\/login(?:[/?#]|$)/, { timeout: 20_000 });
+    await page.locator('input[type="password"]').evaluateAll(inputs => inputs.forEach(input => { input.value = ''; }));
   });
 
   test.afterEach(async ({ page }) => {
@@ -80,7 +78,7 @@ test.describe('P0 — recorrido completo de consulta guiada', () => {
       const appointmentCard = page.locator('.appointment').filter({ hasText: patientName }).filter({ has: page.getByRole('button', { name: 'Iniciar consulta' }) }).first();
       await expect(appointmentCard).toBeVisible({ timeout: 15_000 });
       await appointmentCard.getByRole('button', { name: 'Iniciar consulta' }).click();
-      await expect(page.getByText('CONSULTA GUIADA')).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByText('CONSULTA GUIADA', { exact: true })).toBeVisible({ timeout: 20_000 });
       await expect(page.getByRole('heading', { name: patientName })).toBeVisible();
     };
 
