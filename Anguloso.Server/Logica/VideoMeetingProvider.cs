@@ -143,6 +143,15 @@ public sealed class LiveKitVideoMeetingProvider : IVideoMeetingProvider
         }
         catch (Exception ex)
         {
+            // Si la sala nunca llegó a crearse (por ejemplo, se cancela una cita antes
+            // de iniciar la videollamada), LiveKit responde que no existe. Es un estado
+            // final válido para esta limpieza y no debe aparecer como fallo operativo.
+            if (ex.Message.Contains("requested room does not exist", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogDebug("No se elimina la sala {RoomName} porque LiveKit confirma que no existe.", roomName);
+                return;
+            }
+
             // La eliminación es best-effort: la autorización de DietoExpress ya puede
             // haber sido revocada y LiveKit también expira las salas inactivas.
             _logger.LogWarning(ex, "LiveKit no pudo eliminar la sala {RoomName}.", roomName);
