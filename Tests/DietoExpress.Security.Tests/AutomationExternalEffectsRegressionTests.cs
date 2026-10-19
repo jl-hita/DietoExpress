@@ -38,6 +38,27 @@ public sealed class AutomationExternalEffectsRegressionTests
     }
 
     [Fact]
+    public void SmtpAuthenticationMustUseExplicitConfiguredCredentialsAndCorrectDiagnostics()
+    {
+        var source = ReadServerSource("Anguloso.Server/Logica/EmailServ.cs");
+
+        Assert.Contains("client.UseDefaultCredentials = false", source);
+        Assert.Contains("client.Credentials = new NetworkCredential(smtpUser, smtpPwd)", source);
+        Assert.Contains("la configuración se lee de la tabla config", source);
+        Assert.DoesNotContain("Comprueba EMAIL_SMTP_USERNAME", source);
+    }
+
+    [Fact]
+    public void MissingLiveKitRoomMustBeHandledAsExpectedCleanup()
+    {
+        var source = ReadServerSource("Anguloso.Server/Logica/VideoMeetingProvider.cs");
+
+        Assert.Contains("requested room does not exist", source);
+        Assert.Contains("_logger.LogDebug", source);
+        Assert.Contains("_logger.LogWarning(ex, \"LiveKit no pudo eliminar la sala {RoomName}.\"", source);
+    }
+
+    [Fact]
     public void AutomationWorkerMustKeepDatabaseActionsIdempotentBeforeCompletion()
     {
         var source = ReadServerSource("Anguloso.Server/Logica/AutomationWorker.cs");
