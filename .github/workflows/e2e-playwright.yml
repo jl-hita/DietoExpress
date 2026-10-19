@@ -27,7 +27,7 @@ jobs:
   browser-tests:
     name: Batería E2E completa (semanal)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     env:
       CI: true
       E2E_BASE_URL: ${{ vars.E2E_BASE_URL || 'https://jlhitap.duckdns.org' }}
@@ -100,6 +100,41 @@ jobs:
       - name: Checkout
         if: github.event_name != 'schedule' || steps.schedule.outputs.run_e2e == 'true'
         uses: actions/checkout@v7
+
+      # El E2E navega por producción, no por una compilación local. Esperar al despliegue
+      # del mismo SHA evita validar bundles/API de la versión anterior inmediatamente tras un merge.
+      - name: Esperar al despliegue de este commit en producción
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TARGET_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          deadline=$((SECONDS + 2400))
+          while (( SECONDS < deadline )); do
+            runs="$(gh run list --repo "$GH_REPO" --workflow deploy.yml --commit "$TARGET_SHA" --json databaseId,status,conclusion --limit 10)"
+            run_id="$(printf '%s' "$runs" | jq -r '.[0].databaseId // empty')"
+            status="$(printf '%s' "$runs" | jq -r '.[0].status // empty')"
+            conclusion="$(printf '%s' "$runs" | jq -r '.[0].conclusion // empty')"
+            if [[ -z "$run_id" ]]; then
+              echo "Aún no aparece el despliegue para $TARGET_SHA; esperando a que GitHub lo registre."
+            elif [[ "$status" == "completed" ]]; then
+              if [[ "$conclusion" == "success" ]]; then
+                echo "El despliegue $run_id del commit $TARGET_SHA ha terminado correctamente."
+                exit 0
+              fi
+              echo "::error::El despliegue $run_id terminó con conclusión '$conclusion'; no se ejecutará E2E contra una versión anterior."
+              gh run view "$run_id" --repo "$GH_REPO" --log-failed || true
+              exit 1
+            else
+              echo "Despliegue $run_id en estado '$status'; se comprobará de nuevo en 30 segundos."
+            fi
+            sleep 30
+          done
+          echo "::error::Tiempo de espera agotado esperando el despliegue de $TARGET_SHA."
+          exit 1
 
       - name: Verificar credenciales E2E obligatorias
         if: github.event_name != 'schedule' || steps.schedule.outputs.run_e2e == 'true'
