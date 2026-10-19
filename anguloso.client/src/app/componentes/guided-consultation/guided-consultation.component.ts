@@ -96,7 +96,9 @@ interface GuidedConsultationResponse {
                 </div>
                 <label>Otras patologías y antecedentes<textarea rows="3" [(ngModel)]="profile.medicalHistory!.otherPathologies" (blur)="savePatientClinicalProfile()" placeholder="Patologías diagnosticadas, antecedentes relevantes…"></textarea></label>
                 <label>Cirugías e intervenciones<textarea rows="2" [(ngModel)]="profile.medicalHistory!.surgeries" (blur)="savePatientClinicalProfile()" placeholder="Cirugías relevantes y fechas, si se conocen…"></textarea></label>
-                <label>Medicación habitual y suplementos<textarea rows="3" [(ngModel)]="profile.medicalHistory!.routineMedication" (blur)="savePatientClinicalProfile()" placeholder="Medicamento/suplemento, dosis y frecuencia si están confirmadas…"></textarea></label>
+                <label>Medicación habitual<textarea rows="2" [(ngModel)]="profile.medicalHistory!.routineMedication" (blur)="savePatientClinicalProfile()" placeholder="Medicamento, dosis y frecuencia si están confirmadas…"></textarea></label>
+                <label>Suplementos nutricionales y deportivos<textarea rows="2" [(ngModel)]="supplementsText" (blur)="saveClinicalProgress()" placeholder="Suplemento, dosis, frecuencia y motivo de uso…"></textarea></label>
+                <label>Antecedentes familiares relevantes<textarea rows="2" [(ngModel)]="familyHistoryText" (blur)="saveClinicalProgress()" placeholder="Antecedentes familiares relevantes para la valoración…"></textarea></label>
               </div>
               <div class="clinical-section allergy-section">
                 <h3><mat-icon>warning</mat-icon> Alergias alimentarias — dato crítico para generar dietas</h3>
@@ -110,9 +112,11 @@ interface GuidedConsultationResponse {
                   <label class="check-field"><input type="checkbox" [(ngModel)]="profile.digestiveHealth!.lactoseIntolerance" (blur)="savePatientClinicalProfile()"> Intolerancia a la lactosa</label>
                   <label class="check-field"><input type="checkbox" [(ngModel)]="profile.digestiveHealth!.fodmapsIntolerance" (blur)="savePatientClinicalProfile()"> Sensibilidad a FODMAP</label>
                 </div>
-                <label>Otras intolerancias y restricciones alimentarias<textarea rows="3" [(ngModel)]="profile.digestiveHealth!.otherIntolerances" (blur)="savePatientClinicalProfile()" placeholder="Otras intolerancias confirmadas…"></textarea></label>
+                <label>Otras intolerancias<textarea rows="2" [(ngModel)]="profile.digestiveHealth!.otherIntolerances" (blur)="savePatientClinicalProfile()" placeholder="Otras intolerancias confirmadas…"></textarea></label>
+                <label>Restricciones alimentarias y patrón elegido<textarea rows="2" [(ngModel)]="dietaryRestrictionsText" (blur)="saveClinicalProgress()" placeholder="Vegetariana/vegana, exclusiones médicas, religiosas, culturales o éticas y otras restricciones acordadas…"></textarea></label>
                 <label>Síntomas digestivos y observaciones<textarea rows="3" [(ngModel)]="profile.digestiveHealth!.notes" (blur)="savePatientClinicalProfile()" placeholder="Hinchazón, reflujo, dolor, síntomas y circunstancias…"></textarea></label>
-                <label>Preferencias, exclusiones y alimentos rechazados<textarea rows="2" [(ngModel)]="profile.foodPreferences!.dislikedFoods" (blur)="savePatientClinicalProfile()" placeholder="Alimentos que no consume o desea excluir…"></textarea></label>
+                <label>Alimentos preferidos<textarea rows="2" [(ngModel)]="profile.foodPreferences!.preferredFoods" (blur)="savePatientClinicalProfile()" placeholder="Alimentos que le gustan y quiere incluir…"></textarea></label>
+                <label>Alimentos rechazados<textarea rows="2" [(ngModel)]="profile.foodPreferences!.dislikedFoods" (blur)="savePatientClinicalProfile()" placeholder="Alimentos que no consume o desea excluir…"></textarea></label>
               </div>
               <div class="clinical-section">
                 <h3>Hábitos y contexto</h3>
@@ -130,7 +134,8 @@ interface GuidedConsultationResponse {
                 <h3>Historia ponderal y objetivo de la consulta</h3>
                 <label>Historial de peso y cambios recientes<textarea rows="3" [(ngModel)]="weightHistoryText" (blur)="saveClinicalProgress()" placeholder="Evolución del peso, cambios involuntarios, dietas previas y contexto…"></textarea></label>
                 <label>Actividad física<textarea rows="2" [(ngModel)]="activityHistoryText" (blur)="saveClinicalProgress()" placeholder="Actividad habitual, trabajo, entrenamientos, limitaciones…"></textarea></label>
-                <label>Motivo, expectativas y prioridades del paciente<textarea rows="3" [(ngModel)]="anamnesisText" (blur)="saveClinicalProgress()" placeholder="Motivo de consulta, expectativas y barreras identificadas…"></textarea></label>
+                <label>Motivo de consulta<textarea rows="2" [(ngModel)]="anamnesisText" (blur)="saveClinicalProgress()" placeholder="Motivo por el que solicita atención nutricional…"></textarea></label>
+                <label>Expectativas y prioridades del paciente<textarea rows="2" [(ngModel)]="expectationsText" (blur)="saveClinicalProgress()" placeholder="Qué espera conseguir, prioridades y barreras identificadas…"></textarea></label>
               </div>
               <div class="actions">
                 <span class="save-state" [class.saved]="patientProfileSaveState === 'saved'">{{ patientProfileSaveState === 'saving' ? 'Guardando expediente…' : patientProfileSaveState === 'saved' ? 'Expediente guardado' : patientProfileSaveState === 'error' ? 'Error al guardar el expediente' : 'Los cambios se guardan al salir de cada campo y antes de avanzar.' }}</span>
@@ -411,6 +416,10 @@ export class GuidedConsultationComponent implements OnInit {
   anamnesisText = '';
   weightHistoryText = '';
   activityHistoryText = '';
+  dietaryRestrictionsText = '';
+  supplementsText = '';
+  familyHistoryText = '';
+  expectationsText = '';
   clinicalProfile: ClientDetail | null = null;
   patientProfileLoading = false;
   patientProfileSaving = false;
@@ -598,6 +607,10 @@ export class GuidedConsultationComponent implements OnInit {
     this.anamnesisText = typeof progress.anamnesis === 'string' ? progress.anamnesis : '';
     this.weightHistoryText = typeof progress.weightHistory === 'string' ? progress.weightHistory : '';
     this.activityHistoryText = typeof progress.activityHistory === 'string' ? progress.activityHistory : '';
+    this.dietaryRestrictionsText = typeof progress.dietaryRestrictions === 'string' ? progress.dietaryRestrictions : '';
+    this.supplementsText = typeof progress.supplements === 'string' ? progress.supplements : '';
+    this.familyHistoryText = typeof progress.familyHistory === 'string' ? progress.familyHistory : '';
+    this.expectationsText = typeof progress.expectations === 'string' ? progress.expectations : '';
     this.goalsText = typeof progress.goals === 'string' ? progress.goals : '';
     this.educationText = typeof progress.education === 'string' ? progress.education : '';
     this.clinicalNotes = typeof progress.clinicalNotes === 'string' ? progress.clinicalNotes : '';
@@ -648,6 +661,10 @@ export class GuidedConsultationComponent implements OnInit {
       anamnesis: this.anamnesisText.trim(),
       weightHistory: this.weightHistoryText.trim(),
       activityHistory: this.activityHistoryText.trim(),
+      dietaryRestrictions: this.dietaryRestrictionsText.trim(),
+      supplements: this.supplementsText.trim(),
+      familyHistory: this.familyHistoryText.trim(),
+      expectations: this.expectationsText.trim(),
       goals: this.goalsText.trim(),
       education: this.educationText.trim(),
       clinicalNotes: this.clinicalNotes.trim(),
