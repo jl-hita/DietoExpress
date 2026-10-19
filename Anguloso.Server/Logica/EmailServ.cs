@@ -109,6 +109,8 @@ public class EmailServ
             using (var client = new SmtpClient(smtpSever, smtpPort))
             {
                 client.EnableSsl = smtpEnableSsl;
+                // Evita que la autenticación dependa de credenciales del proceso o de la cuenta del servicio.
+                client.UseDefaultCredentials = false;
                 client.Credentials = new NetworkCredential(smtpUser, smtpPwd);
 
                 var mail = new MailMessage
@@ -150,7 +152,8 @@ public class EmailServ
                         || ex.Message.Contains("5.7.0", StringComparison.OrdinalIgnoreCase)
                         || ex.Message.Contains("5.7.1", StringComparison.OrdinalIgnoreCase))
                     {
-                        _logServ.LogWarning("El servidor SMTP ha rechazado el envío por autenticación. Comprueba EMAIL_SMTP_USERNAME, EMAIL_SMTP_PASSWORD, host/puerto/TLS y que SMTP AUTH esté habilitado en el proveedor. No se han registrado las credenciales.");
+                        _logServ.LogWarning(
+                            "El servidor SMTP ha rechazado el envío por autenticación. La configuración se lee de la tabla config (EMAIL_SMTP_USERNAME y EMAIL_SMTP_PASSWORD, además de servidor, puerto y TLS). Comprueba que esas claves estén configuradas y que SMTP AUTH esté habilitado en el proveedor; no se han registrado sus valores.");
                     }
                     return new BoolMensaje
                     {
