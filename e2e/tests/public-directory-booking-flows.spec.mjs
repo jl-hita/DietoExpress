@@ -159,6 +159,17 @@ test.describe('P0 — directorio público: búsqueda, perfil y solicitudes (API 
     await expect(page.getByRole('heading', { name: 'Próximos horarios disponibles' })).toBeVisible();
   });
 
+  test('un solo clic en un día disponible muestra sus horarios inmediatamente', async ({ page }) => {
+    await mockDirectory(page);
+    await openProfile(page);
+
+    const day = page.locator('.calendar-day.available').first();
+    await day.click();
+
+    await expect(day).toHaveClass(/selected/, { timeout: 5_000 });
+    await expect(page.locator('.day-slots .slot-list .slot').first()).toBeVisible({ timeout: 5_000 });
+  });
+
   test('un perfil inexistente muestra un error claro sin provocar excepciones', async ({ page }) => {
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
