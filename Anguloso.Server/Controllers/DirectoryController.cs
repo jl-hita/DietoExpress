@@ -208,6 +208,8 @@ public class DirectoryController : ControllerBase
             return BadRequest(new { message = "El email no es válido." });
         if (phone?.Length > 50 || message?.Length > 500)
             return BadRequest(new { message = "El teléfono o el comentario superan la longitud permitida." });
+        if (!request.ConsentToContact)
+            return BadRequest(new { message = "Debes aceptar el tratamiento de tus datos para enviar la solicitud de interés." });
 
         var professional = await _context.users.AsNoTracking()
             .Where(u => u.archived_at == null && u.role == "nutritionist" &&
@@ -339,6 +341,8 @@ public class DirectoryController : ControllerBase
 
         if (professional == null || !professional.tenant_id.HasValue)
             return NotFound();
+        if (!await HasActiveLicenseAsync(professional.tenant_id))
+            return Conflict(new { message = "Este profesional no puede aceptar citas en este momento. Puedes enviar una solicitud de interés desde su perfil." });
         if (requestedModality == "online" && professional.online_consultations != true)
             return BadRequest(new { message = "Este profesional no tiene habilitadas las consultas online." });
 
