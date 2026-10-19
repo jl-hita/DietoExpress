@@ -49,6 +49,13 @@ export class DirectoryService {
     );
   }
 
+  submitInterest(slug: string, request: { fullName: string; email: string; phone?: string; message?: string; consentToContact: boolean }): Observable<{ received: boolean; message: string }> {
+    return this.http.post<{ received: boolean; message: string }>(
+      `${this.apiUrl}/directory/professionals/${encodeURIComponent(slug)}/interest`,
+      request
+    );
+  }
+
   getReviews(slug: string): Observable<DirectoryReviewSummary> {
     return this.http.get<DirectoryReviewSummary>(`${this.apiUrl}/directory/professionals/${encodeURIComponent(slug)}/reviews`);
   }
