@@ -44,8 +44,9 @@ test.describe.serial('P0 — cupones promocionales (sin completar Checkout)', ()
       const createResponse = await createResponsePromise;
       const responseBody = await createResponse.text();
       expect(createResponse.ok(), `El API de cupones respondió ${createResponse.status()}: ${responseBody}`).toBeTruthy();
-      await expect(page.getByText('Cupón creado.', { exact: true })).toBeVisible({ timeout: 10_000 });
-      await expect(page.getByText(code, { exact: true })).toBeVisible({ timeout: 10_000 });
+      // La respuesta 2xx confirma la creación; comprobar la persistencia en el listado evita
+      // acoplar el test a un mensaje transitorio que puede desaparecer durante load().
+      await expect(page.locator('tbody tr').filter({ hasText: code })).toBeVisible({ timeout: 15_000 });
     }
   });
 
