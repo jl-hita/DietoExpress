@@ -73,7 +73,6 @@ export class DirectoryComponent implements OnInit {
   bookingFullName = '';
   bookingEmail = '';
   bookingPhone = '';
-  bookingNotes = '';
   interestConsent = false;
   bookingModality: 'in_person' | 'online' = 'in_person';
   calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -281,16 +280,14 @@ export class DirectoryComponent implements OnInit {
     const fullName = this.bookingFullName.trim();
     const email = this.bookingEmail.trim().toLowerCase();
     const phone = this.bookingPhone.trim();
-    const message = this.bookingNotes.trim();
     if (!fullName || !email) { this.bookingError = 'El nombre y el email son obligatorios.'; return; }
     if (!this.interestConsent) { this.bookingError = 'Debes aceptar el tratamiento de tus datos para enviar la solicitud.'; return; }
-    if (message.length > 500) { this.bookingError = 'El comentario no puede superar los 500 caracteres.'; return; }
 
     this.bookingSubmitting = true;
     this.bookingError = '';
     this.bookingSuccess = null;
     this.directoryService.submitInterest(this.profile.slug, {
-      fullName, email, phone: phone || undefined, message: message || undefined, consentToContact: this.interestConsent
+      fullName, email, phone: phone || undefined, consentToContact: this.interestConsent
     }).subscribe({
       next: result => {
         this.bookingSuccess = result.message;
@@ -298,7 +295,6 @@ export class DirectoryComponent implements OnInit {
         this.bookingFullName = '';
         this.bookingEmail = '';
         this.bookingPhone = '';
-        this.bookingNotes = '';
         this.interestConsent = false;
       },
       error: error => {
