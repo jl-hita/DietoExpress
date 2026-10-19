@@ -330,6 +330,8 @@ public class AuthorizationRegressionTests
         Assert.Contains("Role = \"DairyOrEgg\"", template);
         Assert.Contains("Role = \"SnackProtein\"", template);
         Assert.Contains("Role = \"Fruit\"", template);
+        Assert.Contains("\"SnackProtein\" => DairyAndEggs.Where(f => !DietGeneratorService.IsMainProteinName(f.name)).ToList()", source);
+        Assert.Contains("IsRecognizedVegetableName(name)", source);
 
         var buildStart = source.IndexOf("private List<MealItemDto> BuildAndOptimizeMeal", StringComparison.Ordinal);
         Assert.True(buildStart >= 0);
