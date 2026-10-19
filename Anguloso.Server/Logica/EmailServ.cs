@@ -46,7 +46,7 @@ public class EmailServ
     }
 
     private static string SafeLogValue(string? value) =>
-        (value ?? string.Empty).Replace("\\r", " ").Replace("\\n", " ");
+        (value ?? string.Empty).Replace("\r", " ").Replace("\n", " ");
 
     // Las plantillas de negocio son fragmentos HTML; este contenedor común aplica una presentación
     // coherente y adaptable en clientes de correo sin depender de hojas de estilo externas.
