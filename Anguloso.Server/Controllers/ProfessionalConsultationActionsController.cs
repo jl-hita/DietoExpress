@@ -14,6 +14,7 @@ namespace Anguloso.Server.Controllers;
 public sealed class ProfessionalConsultationActionsController : ControllerBase
 {
     private readonly angulosodbContext _db;
+    private readonly EmailServ _emailServ;
     private readonly ITenantContextService _tenantContext;
     private readonly GoogleCalendarService _googleCalendar;
     private readonly AutomationService _automation;
@@ -21,12 +22,14 @@ public sealed class ProfessionalConsultationActionsController : ControllerBase
 
     public ProfessionalConsultationActionsController(
         angulosodbContext db,
+        EmailServ emailServ,
         ITenantContextService tenantContext,
         GoogleCalendarService googleCalendar,
         AutomationService automation,
         IVideoMeetingProvider videoMeetings)
     {
         _db = db;
+        _emailServ = emailServ;
         _tenantContext = tenantContext;
         _googleCalendar = googleCalendar;
         _automation = automation;
@@ -168,6 +171,44 @@ public sealed class ProfessionalConsultationActionsController : ControllerBase
         {
             HttpContext.RequestServices.GetRequiredService<ILogger<ProfessionalConsultationActionsController>>()
                 .LogError(ex, "No se pudo registrar la automatización de confirmación de la cita {AppointmentId}.", appointment.id);
+        }
+
+        // Las citas creadas manualmente nacen confirmadas; no pasan por UpdateStatus,
+        // así que enviamos aquí el mismo aviso por email que recibe una cita confirmada.
+        var patient = await _db.clients.AsNoTracking()
+            .Where(c => c.id == appointment.client_id && c.tenant_id == appointment.tenant_id)
+            .Select(c => new { c.email, c.full_name })
+            .FirstOrDefaultAsync();
+        if (!string.IsNullOrWhiteSpace(patient?.email))
+        {
+            try
+            {
+                var zone = await UserTimeZoneResolver.ForUserAsync(_db, appointment.nutritionist_id);
+                var localStart = TimeZoneInfo.ConvertTimeFromUtc(appointment.starts_at, zone);
+                var dateText = localStart.ToString("dddd, d 'de' MMMM 'a las' HH:mm", new System.Globalization.CultureInfo("es-ES"));
+                var safeName = System.Net.WebUtility.HtmlEncode(patient.full_name ?? "Paciente");
+                var safeNutritionist = System.Net.WebUtility.HtmlEncode(
+                    await _db.users.AsNoTracking()
+                        .Where(u => u.id == appointment.nutritionist_id && u.tenant_id == appointment.tenant_id)
+                        .Select(u => u.full_name)
+                        .FirstOrDefaultAsync() ?? "tu nutricionista");
+                var modalityText = modality == "online" ? "online" : "presencial";
+                var emailResult = await _emailServ.SendEmailAsync(
+                    patient.email,
+                    "Tu cita ha sido confirmada",
+                    $"<h2>Hola, {safeName}</h2><p>{safeNutritionist} ha agendado y confirmado tu cita para el {dateText}.</p><p>Modalidad: {modalityText}.</p><p>Puedes consultar los detalles desde tu portal de paciente.</p>",
+                    $"appointment:{appointment.id}:confirmed");
+                if (!emailResult.Exito)
+                {
+                    HttpContext.RequestServices.GetRequiredService<ILogger<ProfessionalConsultationActionsController>>()
+                        .LogWarning("No se pudo enviar el email de confirmación de la cita manual {AppointmentId} al paciente {ClientId}.", appointment.id, appointment.client_id);
+                }
+            }
+            catch (Exception ex)
+            {
+                HttpContext.RequestServices.GetRequiredService<ILogger<ProfessionalConsultationActionsController>>()
+                    .LogWarning(ex, "No se pudo enviar el email de confirmación de la cita manual {AppointmentId} al paciente {ClientId}.", appointment.id, appointment.client_id);
+            }
         }
 
         return Ok(new
