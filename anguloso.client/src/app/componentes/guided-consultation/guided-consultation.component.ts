@@ -82,6 +82,10 @@ interface GuidedConsultationResponse {
             <div class="card-title"><mat-icon>clinical_notes</mat-icon><div><h2>Anamnesis y toma de datos inicial</h2><p>Primer paso de la primera consulta: conocer la situación clínica, los antecedentes y el contexto del paciente antes de definir objetivos o dieta.</p></div></div>
             <div class="mode-banner"><mat-icon>medical_information</mat-icon><div><strong>Revisión clínica inicial</strong><span>Comprueba antecedentes y patologías, medicación y suplementos, alergias e intolerancias, restricciones alimentarias, síntomas digestivos, historial ponderal, hábitos, actividad física y expectativas. Registra solo la información pertinente y confirmada con el paciente.</span></div></div>
             <div *ngIf="patientProfileLoading" class="helper">Cargando el expediente clínico del paciente…</div>
+            <div *ngIf="patientProfileSaveState === 'error' && !clinicalProfile" class="helper">
+              No se ha podido cargar el expediente clínico. Para evitar perder o sobrescribir datos, vuelve a intentarlo antes de continuar.
+              <button mat-stroked-button type="button" (click)="loadPatientClinicalProfile()">Reintentar carga</button>
+            </div>
             <div class="form-grid" *ngIf="clinicalProfile as profile">
               <div class="clinical-section">
                 <h3>Antecedentes y patologías</h3>
@@ -653,7 +657,7 @@ export class GuidedConsultationComponent implements OnInit {
     };
   }
 
-  private loadPatientClinicalProfile(): void {
+  loadPatientClinicalProfile(): void {
     const clientId = this.data?.appointment.clientId;
     if (!clientId) return;
     this.patientProfileLoading = true;
@@ -667,6 +671,7 @@ export class GuidedConsultationComponent implements OnInit {
           lifestyleHistory: { workSchedule: '', sleepHabits: '', waterConsumption: '', alcoholConsumption: '', tobaccoConsumption: '', ...(client.lifestyleHistory || {}) }
         };
         this.patientProfileLoading = false;
+        this.patientProfileSaveState = 'idle';
         if (this.patientProfileSaveCallbacks.length) this.savePatientClinicalProfile();
       },
       error: () => {
