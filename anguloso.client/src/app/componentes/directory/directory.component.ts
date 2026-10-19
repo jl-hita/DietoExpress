@@ -73,6 +73,7 @@ export class DirectoryComponent implements OnInit {
   bookingFullName = '';
   bookingEmail = '';
   bookingPhone = '';
+  bookingNotes = '';
   interestConsent = false;
   bookingModality: 'in_person' | 'online' = 'in_person';
   calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
