@@ -37,7 +37,7 @@ export const routes: AppRoute[] = [
     children: [
       { path: 'dashboard', loadComponent: () => import('./componentes/dashboard/dashboard.component').then(m => m.DashboardComponent), canActivate: [SubscriptionGuard], title: 'Dashboard' },
       { path: 'clients', loadComponent: () => import('./componentes/clients-list/clients-list.component').then(m => m.ClientsListComponent), canActivate: [SubscriptionGuard, ProfessionalRoleGuard] },
-      { path: 'directory-interests', loadComponent: () => import('./componentes/directory-interests/directory-interests.component').then(m => m.DirectoryInterestsComponent), canActivate: [SubscriptionGuard, ProfessionalRoleGuard], title: 'Personas interesadas', showInMenu: true },
+      { path: 'directory-interests', loadComponent: () => import('./componentes/directory-interests/directory-interests.component').then(m => m.DirectoryInterestsComponent), canActivate: [SubscriptionGuard, ProfessionalRoleGuard], title: 'Personas interesadas' },
       { path: 'appointments', loadComponent: () => import('./componentes/appointments/appointments.component').then(m => m.AppointmentsComponent), canActivate: [SubscriptionGuard, ProfessionalRoleGuard], title: 'Agenda y citas' },
       { path: 'appointments/:appointmentId/consultation', loadComponent: () => import('./componentes/guided-consultation/guided-consultation.component').then(m => m.GuidedConsultationComponent), canActivate: [SubscriptionGuard, ProfessionalRoleGuard], title: 'Consulta guiada' },
       { path: 'support', loadComponent: () => import('./componentes/support/support.component').then(m => m.SupportComponent), title: 'Soporte' },
