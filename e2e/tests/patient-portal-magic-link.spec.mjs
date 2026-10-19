@@ -25,7 +25,7 @@ test.describe('P0 — acceso al portal mediante enlace mágico', () => {
 
     await expect(page).toHaveURL(/\/patient(?:[?#]|$)/, { timeout: 15_000 });
     await expect(page.locator('.patient-login-screen')).toHaveCount(0, { timeout: 15_000 });
-    await expect(page.locator('.portal-content')).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('.portal-content').first()).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('app-patient-header')).toBeVisible();
     expect(calls.some(call => call.path.endsWith('/portal/auth') && call.method === 'POST')).toBe(true);
     expect(calls.some(call => call.path.endsWith('/portal/profile') && call.method === 'GET')).toBe(true);
