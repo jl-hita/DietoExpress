@@ -2945,7 +2945,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                     'diets','client_diets','diet_days','meals','meal_items','recipes','recipe_items',
                     'medical_history','digestive_health','food_preferences','lifestyle_history','config',
                     'external_api_usage','patient_conversations','patient_messages','audit_logs',
-                    'public_funnel_events','patient_appointments','nutritionist_availability',
+                    'public_funnel_events','public_directory_interests','patient_appointments','nutritionist_availability',
                     'document_templates','patient_documents','patient_document_events',
                     'subscription_plans','subscription_plan_features','subscriptions','subscription_events',
                     'client_nutritionist_assignments','automation_events','automation_jobs',
