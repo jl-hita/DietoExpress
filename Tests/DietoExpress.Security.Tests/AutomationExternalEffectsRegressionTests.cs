@@ -49,6 +49,20 @@ public sealed class AutomationExternalEffectsRegressionTests
     }
 
     [Fact]
+    public void ManuallyScheduledProfessionalAppointmentsMustEmailThePatient()
+    {
+        var source = ReadServerSource("Anguloso.Server/Controllers/ProfessionalConsultationActionsController.cs");
+
+        Assert.Contains("private readonly EmailServ _emailServ", source);
+        Assert.Contains("_emailServ.SendEmailAsync(", source);
+        Assert.Contains("appointment.client_id", source);
+        Assert.Contains("patient.email", source);
+        Assert.Contains("Tu cita ha sido confirmada", source);
+        Assert.Contains("appointment:{appointment.id}:confirmed", source);
+        Assert.Contains("No se pudo enviar el email de confirmación de la cita manual", source);
+    }
+
+    [Fact]
     public void MissingLiveKitRoomMustBeHandledAsExpectedCleanup()
     {
         var source = ReadServerSource("Anguloso.Server/Logica/VideoMeetingProvider.cs");
