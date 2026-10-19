@@ -412,7 +412,7 @@ public sealed class PatientDocumentFlowRegressionTests
         Assert.Contains("sendClientPortalAccessLink(clientId", service);
         Assert.Contains("portal-access/send-link", controller);
         Assert.Contains("CanUseFeatureAsync(portalTenantId, \"CLIENT_PORTAL\")", controller);
-        Assert.Contains("EmailServ.SendEmailAsync", controller);
+        Assert.Contains("_emailServ.SendEmailAsync", controller);
     }
 
     [Fact]
