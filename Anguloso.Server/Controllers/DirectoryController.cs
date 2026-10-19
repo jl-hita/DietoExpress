@@ -108,6 +108,14 @@ public class DirectoryController : ControllerBase
             }).ToListAsync();
 
         var ids = profiles.Select(p => p.NutritionistId).ToArray();
+        var tenantByNutritionist = await _context.users.AsNoTracking()
+            .Where(u => ids.Contains(u.id))
+            .Select(u => new { u.id, u.tenant_id })
+            .ToDictionaryAsync(u => u.id, u => u.tenant_id);
+        var activeLicenseByTenant = new Dictionary<int, bool>();
+        foreach (var tenantId in tenantByNutritionist.Values.Where(id => id.HasValue).Select(id => id!.Value).Distinct())
+            activeLicenseByTenant[tenantId] = await HasActiveLicenseAsync(tenantId);
+
         var availabilityCounts = await _context.nutritionist_availability.AsNoTracking()
             .Where(a => ids.Contains(a.nutritionist_id) && a.is_active)
             .GroupBy(a => a.nutritionist_id)
@@ -127,6 +135,8 @@ public class DirectoryController : ControllerBase
 
         foreach (var profile in profiles)
         {
+            var tenantId = tenantByNutritionist.GetValueOrDefault(profile.NutritionistId);
+            profile.CanAcceptAppointments = tenantId.HasValue && activeLicenseByTenant.GetValueOrDefault(tenantId.Value);
             profile.SpecialtyList = SplitSpecialties(profile.Specialties);
             var review = reviewSummaries.GetValueOrDefault(profile.NutritionistId);
             profile.AverageRating = Math.Round(review.Item1, 1);
@@ -136,7 +146,11 @@ public class DirectoryController : ControllerBase
             profile.RankingScore = CalculateRankingScore(profile, filter);
         }
 
-        return Ok(profiles
+        var visibleProfiles = filter.AvailableOnly == true
+            ? profiles.Where(p => p.CanAcceptAppointments && p.AvailableRuleCount > 0)
+            : profiles;
+
+        return Ok(visibleProfiles
             .OrderByDescending(p => p.RankingScore)
             .ThenBy(p => p.FullName)
             .ToList());
