@@ -123,9 +123,15 @@ public sealed class DatabaseBootstrapRegressionTests
         var program = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Program.cs"));
 
         Assert.Contains("TimeSpan.FromDays(90)", worker);
+        Assert.Contains("TimeSpan.FromHours(24)", worker);
         Assert.Contains("DELETE FROM public_directory_interests", worker);
         Assert.Contains("WHERE created_at < {cutoff}", worker);
         Assert.Contains("AddHostedService<PublicDirectoryInterestRetentionWorker>()", program);
+
+        var initialSweep = worker.IndexOf("await DeleteExpiredRequestsAsync(stoppingToken);", StringComparison.Ordinal);
+        var timer = worker.IndexOf("new PeriodicTimer(SweepInterval)", StringComparison.Ordinal);
+        Assert.True(initialSweep >= 0 && timer > initialSweep,
+            "La retención debe ejecutarse al arrancar y después programar las comprobaciones periódicas.");
     }
 
 }
