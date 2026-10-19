@@ -386,8 +386,8 @@ interface GuidedConsultationResponse {
                 <button mat-flat-button color="primary" type="button" (click)="downloadConsultationPdf()" [disabled]="downloadingConsultationPdf">
                   <mat-icon>picture_as_pdf</mat-icon>{{ downloadingConsultationPdf ? 'Generando PDF…' : 'Descargar informe PDF' }}
                 </button>
-                <button mat-stroked-button type="button" (click)="sendPortalAccessLink()" [disabled]="sendingPortalLink || !clinicalProfile?.email">
-                  <mat-icon>mail</mat-icon>{{ sendingPortalLink ? 'Enviando enlace…' : 'Enviar acceso al portal por email' }}
+                <button mat-stroked-button type="button" (click)="sendPortalAccessLink()" [disabled]="sendingPortalLink || portalLinkSent || !clinicalProfile?.email">
+                  <mat-icon>{{ portalLinkSent ? 'check_circle' : 'mail' }}</mat-icon>{{ sendingPortalLink ? 'Enviando enlace…' : portalLinkSent ? 'Enlace enviado' : 'Enviar acceso al portal por email' }}
                 </button>
               </div>
               <small *ngIf="!clinicalProfile?.email">Añade un email a la ficha del paciente para poder enviarle el enlace.</small>
@@ -453,6 +453,7 @@ export class GuidedConsultationComponent implements OnInit {
   savingBaseline = false;
   downloadingConsultationPdf = false;
   sendingPortalLink = false;
+  portalLinkSent = false;
   savingProgress = false;
   goalsText = '';
   educationText = '';
@@ -1071,6 +1072,7 @@ export class GuidedConsultationComponent implements OnInit {
     this.portalService.sendClientPortalAccessLink(clientId).subscribe({
       next: result => {
         this.sendingPortalLink = false;
+        this.portalLinkSent = true;
         this.snack.open(result.message || 'Enlace del portal enviado al paciente.', 'Cerrar', { duration: 3500 });
       },
       error: err => {
