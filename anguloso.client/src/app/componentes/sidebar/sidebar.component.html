@@ -50,6 +50,11 @@
         <mat-icon>chat</mat-icon><span>Mensajes</span><span class="message-unread-badge" *ngIf="unreadMessagesCount > 0" aria-label="Mensajes sin leer">{{ unreadMessagesCount > 99 ? '99+' : unreadMessagesCount }}</span>
       </a>
     </div>
+    <div class="menu-item" *ngIf="isNutritionist">
+      <a mat-list-item routerLink="/directory-interests" routerLinkActive="active-link" (click)="navigateAndClose()">
+        <mat-icon>person_search</mat-icon><span>Personas interesadas</span>
+      </a>
+    </div>
     <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">
       <a mat-list-item routerLink="/appointments" routerLinkActive="active-link" (click)="navigateAndClose()">
         <mat-icon>event</mat-icon><span>Agenda y citas</span>
