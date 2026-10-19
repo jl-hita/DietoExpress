@@ -142,10 +142,6 @@
           <label for="interest-phone">Teléfono <span>(opcional)</span></label>
           <input id="interest-phone" name="interestPhone" type="tel" maxlength="50" [(ngModel)]="bookingPhone" autocomplete="tel" />
         </div>
-        <div class="field">
-          <label for="interest-message">Comentario <span>(opcional)</span></label>
-          <textarea id="interest-message" name="interestMessage" maxlength="500" [(ngModel)]="bookingNotes" placeholder="No incluyas información médica o especialmente sensible."></textarea>
-        </div>
         <label class="filter-option">
           <input type="checkbox" name="interestConsent" [(ngModel)]="interestConsent" required />
           <span class="custom-check">✓</span>
