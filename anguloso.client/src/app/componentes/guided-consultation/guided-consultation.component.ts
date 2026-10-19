@@ -130,7 +130,7 @@ interface GuidedConsultationResponse {
               </div>
               <div class="actions">
                 <span class="save-state" [class.saved]="patientProfileSaveState === 'saved'">{{ patientProfileSaveState === 'saving' ? 'Guardando expediente…' : patientProfileSaveState === 'saved' ? 'Expediente guardado' : patientProfileSaveState === 'error' ? 'Error al guardar el expediente' : 'Los cambios se guardan al salir de cada campo y antes de avanzar.' }}</span>
-                <button mat-stroked-button type="button" (click)="openPatient()" [disabled]="patientProfileSaving || savingProgress"><mat-icon>folder_open</mat-icon> Abrir ficha y documentación</button>
+                <button mat-stroked-button type="button" (click)="openPatient()" [disabled]="savingProgress"><mat-icon>folder_open</mat-icon> Abrir ficha y documentación</button>
               </div>
             </div>
           </section>
@@ -666,6 +666,7 @@ export class GuidedConsultationComponent implements OnInit {
           lifestyleHistory: { workSchedule: '', sleepHabits: '', waterConsumption: '', alcoholConsumption: '', tobaccoConsumption: '', ...(client.lifestyleHistory || {}) }
         };
         this.patientProfileLoading = false;
+        if (this.patientProfileSaveCallbacks.length) this.savePatientClinicalProfile();
       },
       error: () => {
         this.patientProfileLoading = false;
@@ -678,6 +679,7 @@ export class GuidedConsultationComponent implements OnInit {
   savePatientClinicalProfile(onSaved?: () => void): void {
     const client = this.clinicalProfile;
     if (onSaved) this.patientProfileSaveCallbacks.push(onSaved);
+    if (this.patientProfileLoading) return;
     if (!client || !this.data) {
       const callbacks = this.patientProfileSaveCallbacks.splice(0);
       callbacks.forEach(callback => callback());
@@ -799,7 +801,7 @@ export class GuidedConsultationComponent implements OnInit {
 
   goToStep(step: string): void {
     const index = this.visibleSteps.findIndex(x => x.key === step);
-    if (index < 0 || this.patientProfileSaving || this.savingProgress) return;
+    if (index < 0 || this.savingProgress) return;
     this.savePatientClinicalProfile(() => {
       this.stepIndex = index;
       this.currentStep = this.visibleSteps[index].key;
@@ -809,7 +811,7 @@ export class GuidedConsultationComponent implements OnInit {
   }
 
   nextStep(): void {
-    if (!this.consultation || this.stepIndex >= this.visibleSteps.length - 1 || this.patientProfileSaving || this.savingProgress) return;
+    if (!this.consultation || this.stepIndex >= this.visibleSteps.length - 1 || this.savingProgress) return;
     const completed = new Set<string>(this.consultation.completedSteps || []);
     completed.add(this.currentStep);
     const next = this.visibleSteps[this.stepIndex + 1].key;
@@ -820,7 +822,7 @@ export class GuidedConsultationComponent implements OnInit {
   }
 
   previousStep(): void {
-    if (this.stepIndex <= 0 || this.patientProfileSaving || this.savingProgress) return;
+    if (this.stepIndex <= 0 || this.savingProgress) return;
     this.savePatientClinicalProfile(() => {
       this.stepIndex--;
       this.currentStep = this.visibleSteps[this.stepIndex].key;
@@ -1020,10 +1022,19 @@ export class GuidedConsultationComponent implements OnInit {
 
   openPatient(): void {
     const clientId = this.data?.appointment.clientId;
-    if (!clientId || this.patientProfileSaving || this.savingProgress) return;
+    if (!clientId || this.savingProgress) return;
     this.savePatientClinicalProfile(() => {
-      this.saveClinicalProgress();
-      this.router.navigate(['/clients', clientId]);
+      this.portalService.updateGuidedConsultationProgress(clientId === this.data?.appointment.clientId ? this.data.appointment.id : 0, {
+        currentStep: this.currentStep,
+        completedSteps: this.consultation?.completedSteps || [],
+        progress: this.buildClinicalProgress()
+      }).subscribe({
+        next: value => {
+          this.consultation = value;
+          this.router.navigate(['/clients', clientId]);
+        },
+        error: err => this.snack.open(err?.error?.message || 'No se ha podido guardar la consulta; permanece en esta pantalla.', 'Cerrar', { duration: 4500 })
+      });
     });
   }
 
