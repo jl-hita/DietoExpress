@@ -245,6 +245,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.routeQuerySubscription?.unsubscribe();
     this.broadcastRefreshSubscription?.unsubscribe();
+    this.patientUnreadRefreshSubscription?.unsubscribe();
   }
 
   // El portal puede entrar mediante sesión previa o token de acceso; después carga los datos clínicos y habilita las funciones del paciente.
