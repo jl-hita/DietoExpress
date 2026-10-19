@@ -76,7 +76,9 @@ export class DirectoryComponent implements OnInit {
   bookingNotes = '';
   bookingModality: 'in_person' | 'online' = 'in_person';
   calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-  selectedAvailabilityDate: string | null = null;
+  private readonly selectedAvailabilityDateState = signal<string | null>(null);
+  get selectedAvailabilityDate(): string | null { return this.selectedAvailabilityDateState(); }
+  set selectedAvailabilityDate(value: string | null) { this.selectedAvailabilityDateState.set(value); }
 
   constructor(
     private readonly route: ActivatedRoute,
@@ -117,9 +119,11 @@ export class DirectoryComponent implements OnInit {
     });
   }
 
-  // Materializa los huecos del día seleccionado. Evita reevaluar un getter dependiente
-  // de fecha/zonas horarias varias veces durante el mismo ciclo de detección de cambios.
-  selectedDateSlots: PublicAvailabilitySlot[] = [];
+  // El calendario y la lista de horas dependen de este estado. Mantenerlo como signal
+  // garantiza que Angular refresque la lista en el mismo clic que selecciona el día.
+  private readonly selectedDateSlotsState = signal<PublicAvailabilitySlot[]>([]);
+  get selectedDateSlots(): PublicAvailabilitySlot[] { return this.selectedDateSlotsState(); }
+  set selectedDateSlots(value: PublicAvailabilitySlot[]) { this.selectedDateSlotsState.set(value); }
 
   get canGoToPreviousMonth(): boolean {
     return this.calendarMonth > new Date(new Date().getFullYear(), new Date().getMonth(), 1);
