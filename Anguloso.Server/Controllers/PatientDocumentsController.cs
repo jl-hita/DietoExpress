@@ -271,7 +271,8 @@ public class PatientDocumentsController : ControllerBase
 
         var documentSnapshot = await _context.Database.SqlQueryRaw<DocumentAcceptanceSnapshot>(
             """
-            SELECT version AS "Version", sha256 AS "Sha256", status AS "Status"
+            SELECT version AS "Version", sha256 AS "Sha256", status AS "Status",
+                   viewed_at AS "ViewedAt"
             FROM patient_documents
             WHERE id = {0} AND client_id = {1} AND tenant_id = {2}
               AND revoked_at IS NULL AND requires_signature = true
@@ -280,6 +281,9 @@ public class PatientDocumentsController : ControllerBase
             documentId, clientId.Value, tenantId.Value).SingleOrDefaultAsync();
 
         if (documentSnapshot == null) return NotFound();
+        if (string.Equals(documentSnapshot.Status, "pending", StringComparison.OrdinalIgnoreCase)
+            && !documentSnapshot.ViewedAt.HasValue)
+            return Conflict(new { message = "Abre el documento y revísalo antes de registrar tu aceptación." });
 
         var affected = await _context.Database.ExecuteSqlInterpolatedAsync($"""
             UPDATE patient_documents
@@ -474,6 +478,7 @@ public class PatientDocumentsController : ControllerBase
         public int Version { get; set; }
         public string Sha256 { get; set; } = "";
         public string Status { get; set; } = "";
+        public DateTime? ViewedAt { get; set; }
     }
 
     private sealed class DocumentSummaryDto
