@@ -9,7 +9,7 @@ const baseURL = process.env.E2E_BASE_URL || 'https://jlhitap.duckdns.org';
 const patientName = `ZZZ E2E consulta guiada ${new Date().toISOString().replace(/[:.]/g, '-')}`;
 let patientId = 0;
 
-function localDateTime(daysAhead, hour = 21, minute = (Date.now() % 50) + 5) {
+function localDateTime(daysAhead, hour = 21, minute = 0) {
   const date = new Date();
   date.setDate(date.getDate() + daysAhead);
   date.setHours(hour, minute, 0, 0);
@@ -70,17 +70,30 @@ test.describe('P0 — recorrido completo de consulta guiada', () => {
       await page.getByRole('button', { name: 'Buscar' }).click();
       await expect(page.getByLabel('Paciente para la cita')).toContainText(patientName, { timeout: 15_000 });
       await page.getByLabel('Paciente para la cita').selectOption({ label: patientName });
-      // Evitar colisiones con citas de ejecuciones anteriores: mantener una hora fuera del horario público,
-      // pero variar el minuto entre ejecuciones semanales/manuales.
-      await page.getByLabel('Fecha y hora de la cita').fill(localDateTime(daysAhead, 2));
+      // Los minutos aleatorios no evitan solapamientos: una cita de 30 minutos puede
+      // colisionar con otra ya existente. Probar huecos alejados y reintentar solo ante
+      // el conflicto esperado, manteniendo siempre la cita fuera del horario público.
       await page.getByLabel('Duración de la cita').selectOption({ label: '30 min' });
       await page.getByLabel('Modalidad de la cita').selectOption('in_person');
-      const appointmentResponsePromise = page.waitForResponse(response =>
-        response.request().method() === 'POST' && new URL(response.url()).pathname.endsWith('/professional/consultation-actions/appointment'));
-      await page.getByRole('button', { name: 'Crear cita confirmada' }).click();
-      const appointmentResponse = await appointmentResponsePromise;
-      const appointmentResponseBody = await appointmentResponse.text();
-      expect(appointmentResponse.ok(), `El API de cita manual respondió ${appointmentResponse.status()}: ${appointmentResponseBody}`).toBeTruthy();
+      const candidateHours = [1, 4, 7, 22];
+      let appointmentCreated = false;
+      let lastConflict = '';
+      for (let attempt = 0; attempt < 12 && !appointmentCreated; attempt++) {
+        const candidateDate = localDateTime(daysAhead + Math.floor(attempt / candidateHours.length), candidateHours[attempt % candidateHours.length], 0);
+        await page.getByLabel('Fecha y hora de la cita').fill(candidateDate);
+        const appointmentResponsePromise = page.waitForResponse(response =>
+          response.request().method() === 'POST' && new URL(response.url()).pathname.endsWith('/professional/consultation-actions/appointment'));
+        await page.getByRole('button', { name: 'Crear cita confirmada' }).click();
+        const appointmentResponse = await appointmentResponsePromise;
+        const appointmentResponseBody = await appointmentResponse.text();
+        if (appointmentResponse.status() === 409 && /horario.*ocupado|ya está ocupado/i.test(appointmentResponseBody)) {
+          lastConflict = appointmentResponseBody;
+          continue;
+        }
+        expect(appointmentResponse.ok(), `El API de cita manual respondió ${appointmentResponse.status()}: ${appointmentResponseBody}`).toBeTruthy();
+        appointmentCreated = true;
+      }
+      expect(appointmentCreated, `No se encontró un hueco libre tras 12 intentos. Último conflicto: ${lastConflict}`).toBe(true);
       await expect(page.getByText('Cita creada y confirmada. La disponibilidad semanal solo afecta a las reservas públicas.')).toBeVisible({ timeout: 15_000 });
       const appointmentCard = page.locator('.appointment').filter({ hasText: patientName }).filter({ has: page.getByRole('button', { name: 'Iniciar consulta' }) }).first();
       await expect(appointmentCard).toBeVisible({ timeout: 15_000 });
