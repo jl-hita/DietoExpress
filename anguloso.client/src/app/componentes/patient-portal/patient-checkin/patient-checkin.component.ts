@@ -1,6 +1,6 @@
 import { Component, Input, OnChanges, OnInit, SimpleChanges, ChangeDetectionStrategy, signal} from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, NgForm } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { PatientCheckin, PatientCheckinRequest, PatientPortalService } from '../../../servicios/patient-portal.service';
@@ -102,7 +102,14 @@ export class PatientCheckinComponent implements OnInit, OnChanges {
     });
   }
 
-  saveCurrentCheckin(): void {
+  saveCurrentCheckin(form: NgForm): void {
+    // FormsModule desactiva la validación nativa del navegador (novalidate).
+    // Validar antes de llamar a la API para no guardar pesos/valores fuera de rango.
+    if (form.invalid) {
+      form.form.markAllAsTouched();
+      return;
+    }
+
     this.checkinSaving = true;
     this.checkinError = null;
     this.checkinSuccess = false;
