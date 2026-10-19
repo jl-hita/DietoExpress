@@ -24,7 +24,8 @@ const apiProfile = {
   isVerified: true,
   availableRuleCount: 1,
   averageRating: 5,
-  reviewCount: 1
+  reviewCount: 1,
+  canAcceptAppointments: true
 };
 
 function futureSlot(daysAhead = 10, hour = 11) {
@@ -35,12 +36,17 @@ function futureSlot(daysAhead = 10, hour = 11) {
   return { startsAt: start.toISOString(), endsAt: end.toISOString(), nutritionistId: 999, nutritionistName: apiProfile.fullName };
 }
 
-async function mockDirectory(page, { profiles = [apiProfile], availability = [futureSlot()], bookingStatus = 201, bookingError = null, bookingErrorStatus = 409, bookingErrorContentType = 'application/json' } = {}) {
-  const requests = { searches: [], bookings: [], availability: [] };
+async function mockDirectory(page, { profiles = [apiProfile], profile = apiProfile, availability = [futureSlot()], bookingStatus = 201, bookingError = null, bookingErrorStatus = 409, bookingErrorContentType = 'application/json', interestResponse = { received: true, message: 'Hemos registrado tu interés. Este profesional no puede aceptar citas ahora mismo; no se ha reservado ningún horario.' } } = {}) {
+  const requests = { searches: [], bookings: [], availability: [], interests: [] };
   await page.route('**/directory/professionals**', async route => {
     const request = route.request();
     const url = new URL(request.url());
     const path = url.pathname;
+    if (request.method() === 'POST' && /interest\/?$/.test(path)) {
+      requests.interests.push(request.postDataJSON());
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(interestResponse) });
+      return;
+    }
     if (request.method() === 'POST' && /\/appointments\/?$/.test(path)) {
       const payload = request.postDataJSON();
       requests.bookings.push({ url: request.url(), payload });
@@ -65,7 +71,7 @@ async function mockDirectory(page, { profiles = [apiProfile], availability = [fu
       return;
     }
     if (path.endsWith('/' + slug) || path.endsWith('/' + slug + '/')) {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(apiProfile) });
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(profile) });
       return;
     }
     if (path.endsWith('/not-found-e2e')) {
@@ -236,6 +242,23 @@ test.describe('P0 — directorio público: búsqueda, perfil y solicitudes (API 
     await page.getByRole('button', { name: 'Solicitar cita' }).click();
     await expect(page.getByRole('alert')).toContainText('El horario ya no está disponible.');
     await expect(page.locator('.booking-form')).toBeVisible();
+  });
+
+  test('un perfil con licencia inactiva permite mostrar interés sin reservar ni revelar datos al profesional', async ({ page }) => {
+    const expiredProfile = { ...apiProfile, canAcceptAppointments: false };
+    const requests = await mockDirectory(page, { profile: expiredProfile, availability: [] });
+    await page.goto('/nutricionistas/' + slug);
+    await expect(page.getByRole('heading', { name: 'Profesional E2E de Prueba', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Este profesional no acepta citas temporalmente' })).toBeVisible();
+    await expect(page.locator('.calendar-day')).toHaveCount(0);
+    await page.getByLabel('Nombre completo', { exact: true }).fill('Persona Interesada E2E');
+    await page.getByLabel('Email', { exact: true }).fill('interes-e2e@invalid.example');
+    await page.getByRole('checkbox').check();
+    await page.getByRole('button', { name: 'Avisarme si puede atenderme' }).click();
+    await expect(page.getByRole('status')).toContainText('no se ha reservado ningún horario');
+    expect(requests.interests).toHaveLength(1);
+    expect(requests.interests[0]).toMatchObject({ fullName: 'Persona Interesada E2E', email: 'interes-e2e@invalid.example', consentToContact: true });
+    expect(requests.bookings).toHaveLength(0);
   });
 
   test('un error 400 de validación devuelto como texto se muestra al usuario', async ({ page }) => {
