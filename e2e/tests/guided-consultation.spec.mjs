@@ -9,7 +9,7 @@ const baseURL = process.env.E2E_BASE_URL || 'https://jlhitap.duckdns.org';
 const patientName = `ZZZ E2E consulta guiada ${new Date().toISOString().replace(/[:.]/g, '-')}`;
 let patientId = 0;
 
-function localDateTime(daysAhead, hour = 21, minute = 15) {
+function localDateTime(daysAhead, hour = 21, minute = (Date.now() % 50) + 5) {
   const date = new Date();
   date.setDate(date.getDate() + daysAhead);
   date.setHours(hour, minute, 0, 0);
@@ -70,7 +70,9 @@ test.describe('P0 — recorrido completo de consulta guiada', () => {
       await page.getByRole('button', { name: 'Buscar' }).click();
       await expect(page.getByLabel('Paciente para la cita')).toContainText(patientName, { timeout: 15_000 });
       await page.getByLabel('Paciente para la cita').selectOption({ label: patientName });
-      await page.getByLabel('Fecha y hora de la cita').fill(localDateTime(daysAhead, 2, 15));
+      // Evitar colisiones con citas de ejecuciones anteriores: mantener una hora fuera del horario público,
+      // pero variar el minuto entre ejecuciones semanales/manuales.
+      await page.getByLabel('Fecha y hora de la cita').fill(localDateTime(daysAhead, 2));
       await page.getByLabel('Duración de la cita').selectOption({ label: '30 min' });
       await page.getByLabel('Modalidad de la cita').selectOption('in_person');
       const appointmentResponsePromise = page.waitForResponse(response =>
