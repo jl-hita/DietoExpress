@@ -99,7 +99,8 @@ test.describe('P1 — gestión de pacientes desde la interfaz', () => {
     expect(match, 'La aplicación debe navegar a la ficha creada').not.toBeNull();
     patientId = Number(match[1]);
 
-    await expect(page.locator('body')).toContainText(patientName);
+    // El nombre se muestra en un input editable, no como texto del documento.
+    await expect(page.getByLabel('Nombre completo')).toHaveValue(patientName);
     const apiResponse = await page.context().request.get(new URL('/api/clients/' + patientId, baseURL).toString());
     expect(apiResponse.ok(), 'La ficha creada debe persistir en la API').toBeTruthy();
     const patient = await apiResponse.json();
