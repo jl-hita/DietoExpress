@@ -452,4 +452,35 @@ public sealed class PatientDocumentFlowRegressionTests
         Assert.Contains("Abre el documento y revísalo antes de registrar tu aceptación.", controller);
         Assert.Contains("[disabled]=" + "\"!doc.viewedAt\"", portal);
     }
+
+    [Fact]
+    public void SidebarMustShowSuperAdminTicketAndProfessionalAppointmentBadges()
+    {
+        var sidebar = ReadServerSource("anguloso.client/src/app/componentes/sidebar/sidebar.component.ts");
+        var template = ReadServerSource("anguloso.client/src/app/componentes/sidebar/sidebar.component.html");
+        var supportController = ReadServerSource("Anguloso.Server/Controllers/SupportController.cs");
+        var supportService = ReadServerSource("Anguloso.Server/Logica/SupportService.cs");
+        var appointments = ReadServerSource("Anguloso.Server/Controllers/AppointmentsController.cs");
+
+        Assert.Contains("/api/support/tickets/new-count", sidebar);
+        Assert.Contains("newSupportTicketsCount > 0", template);
+        Assert.Contains("status='open'", supportService);
+        Assert.Contains("GetProfessionalPendingAppointmentCount", appointments);
+        Assert.Contains("pendingAppointmentsCount > 0", template);
+        Assert.Contains("tickets/new-count", supportController);
+    }
+
+    [Fact]
+    public void PatientMessagesBadgeMustIncludeUnreadPrivateMessagesAndBroadcasts()
+    {
+        var controller = ReadServerSource("Anguloso.Server/Controllers/PatientMessagesController.cs");
+        var portal = ReadServerSource("anguloso.client/src/app/componentes/patient-portal/patient-portal.component.ts");
+        var template = ReadServerSource("anguloso.client/src/app/componentes/patient-portal/patient-portal.component.html");
+
+        Assert.Contains("patient/unread-count", controller);
+        Assert.Contains("m.sender_user_id IS NOT NULL", controller);
+        Assert.Contains("startPatientUnreadMessagesPolling()", portal);
+        Assert.Contains("unreadBroadcastMessagesCount + this.patientUnreadMessagesCount", portal);
+        Assert.Contains("*ngIf=\"unreadMessagesCount > 0\"", template);
+    }
 }
