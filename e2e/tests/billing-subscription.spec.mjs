@@ -42,7 +42,15 @@ test.describe('P1 — facturación sin iniciar cargos', () => {
     await expect(monthly).toHaveClass(/selected/);
 
     // Intencionadamente no pulsa botones de compra ni crea sesiones de Stripe.
-    await expect(page.getByRole('button', { name: /Continuar con el pago/ }).first()).toBeVisible();
+    // En una suscripción de pago, la etiqueta cambia a la acción de cambio de plan;
+    // y si ya se tiene el plan máximo, la UI muestra .no-upgrade en vez de botones.
+    await expect(page.locator('.plans-section, .no-upgrade').first()).toBeVisible();
+    const planActions = page.locator('.checkout-button');
+    if (await planActions.count()) {
+      await expect(planActions.first()).toBeVisible();
+    } else {
+      await expect(page.locator('.no-upgrade')).toBeVisible();
+    }
   });
 });
 
