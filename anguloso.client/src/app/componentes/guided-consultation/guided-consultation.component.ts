@@ -429,6 +429,7 @@ export class GuidedConsultationComponent implements OnInit {
   actionsSummary = '';
   nextConsultationPlan = '';
   private clinicalSaveQueued = false;
+  private clinicalSaveCallbacks: Array<() => void> = [];
   private readonly clinicalSaveStateState = signal<'idle' | 'saving' | 'saved' | 'error'>('idle');
   get clinicalSaveState(): 'idle' | 'saving' | 'saved' | 'error' { return this.clinicalSaveStateState(); }
   set clinicalSaveState(value: 'idle' | 'saving' | 'saved' | 'error') { this.clinicalSaveStateState.set(value); }
@@ -681,6 +682,10 @@ export class GuidedConsultationComponent implements OnInit {
     if (onSaved) this.patientProfileSaveCallbacks.push(onSaved);
     if (this.patientProfileLoading) return;
     if (!client || !this.data) {
+      if (this.patientProfileSaveState === 'error') {
+        this.patientProfileSaveCallbacks = [];
+        return;
+      }
       const callbacks = this.patientProfileSaveCallbacks.splice(0);
       callbacks.forEach(callback => callback());
       return;
@@ -760,7 +765,8 @@ export class GuidedConsultationComponent implements OnInit {
     this.saveClinicalProgress();
   }
 
-  saveClinicalProgress(): void {
+  saveClinicalProgress(onSaved?: () => void): void {
+    if (onSaved) this.clinicalSaveCallbacks.push(onSaved);
     if (!this.consultation || !this.data || this.consultation.status === 'completed') return;
     if (this.clinicalSaveState === 'saving') {
       this.clinicalSaveQueued = true;
@@ -775,11 +781,22 @@ export class GuidedConsultationComponent implements OnInit {
       next: value => {
         this.consultation = value;
         this.clinicalSaveState = 'saved';
-        this.flushQueuedClinicalSave();
+        if (this.clinicalSaveQueued) {
+          this.flushQueuedClinicalSave();
+          return;
+        }
+        const callbacks = this.clinicalSaveCallbacks.splice(0);
+        callbacks.forEach(callback => callback());
       },
-      error: () => {
+      error: err => {
+        if (this.clinicalSaveQueued) {
+          this.clinicalSaveState = 'idle';
+          this.flushQueuedClinicalSave();
+          return;
+        }
         this.clinicalSaveState = 'error';
-        this.flushQueuedClinicalSave();
+        this.clinicalSaveCallbacks = [];
+        this.snack.open(err?.error?.message || 'No se ha podido guardar el progreso de la consulta.', 'Cerrar', { duration: 4000 });
       }
     });
   }
@@ -802,12 +819,12 @@ export class GuidedConsultationComponent implements OnInit {
   goToStep(step: string): void {
     const index = this.visibleSteps.findIndex(x => x.key === step);
     if (index < 0 || this.savingProgress) return;
-    this.savePatientClinicalProfile(() => {
+    this.savePatientClinicalProfile(() => this.saveClinicalProgress(() => {
       this.stepIndex = index;
       this.currentStep = this.visibleSteps[index].key;
       this.saveProgress();
       if (step === 'next_appointment' && !this.consultationSlots.length && !this.slotsLoading) this.loadConsultationSlots();
-    });
+    }));
   }
 
   nextStep(): void {
@@ -815,19 +832,19 @@ export class GuidedConsultationComponent implements OnInit {
     const completed = new Set<string>(this.consultation.completedSteps || []);
     completed.add(this.currentStep);
     const next = this.visibleSteps[this.stepIndex + 1].key;
-    this.savePatientClinicalProfile(() => {
+    this.savePatientClinicalProfile(() => this.saveClinicalProgress(() => {
       this.persistProgress(next, [...completed]);
       if (next === 'next_appointment' && !this.consultationSlots.length && !this.slotsLoading) this.loadConsultationSlots();
-    });
+    }));
   }
 
   previousStep(): void {
     if (this.stepIndex <= 0 || this.savingProgress) return;
-    this.savePatientClinicalProfile(() => {
+    this.savePatientClinicalProfile(() => this.saveClinicalProgress(() => {
       this.stepIndex--;
       this.currentStep = this.visibleSteps[this.stepIndex].key;
       this.saveProgress();
-    });
+    }));
   }
 
   private saveProgress(): void {
@@ -1024,17 +1041,7 @@ export class GuidedConsultationComponent implements OnInit {
     const clientId = this.data?.appointment.clientId;
     if (!clientId || this.savingProgress) return;
     this.savePatientClinicalProfile(() => {
-      this.portalService.updateGuidedConsultationProgress(clientId === this.data?.appointment.clientId ? this.data.appointment.id : 0, {
-        currentStep: this.currentStep,
-        completedSteps: this.consultation?.completedSteps || [],
-        progress: this.buildClinicalProgress()
-      }).subscribe({
-        next: value => {
-          this.consultation = value;
-          this.router.navigate(['/clients', clientId]);
-        },
-        error: err => this.snack.open(err?.error?.message || 'No se ha podido guardar la consulta; permanece en esta pantalla.', 'Cerrar', { duration: 4500 })
-      });
+      this.saveClinicalProgress(() => this.router.navigate(['/clients', clientId]));
     });
   }
 
