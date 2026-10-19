@@ -65,7 +65,7 @@ public sealed class VideoQuotaService
                 @"SELECT appointment_id AS ""AppointmentId"", participant_minutes AS ""ParticipantMinutes""
                   FROM video_usage_reservations
                   WHERE appointment_id = {0}
-                  LIMIT 1;",
+                  LIMIT 1",
                 appointmentId)
             .SingleOrDefaultAsync(cancellationToken);
 
