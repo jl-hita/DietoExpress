@@ -38,13 +38,14 @@ test.describe.serial('P0 — cupones promocionales (sin completar Checkout)', ()
       await page.getByLabel(/Descuento/).first().fill(String(discount));
       await page.locator('.coupon-admin .panel').first().locator('select').nth(0).selectOption('nutri_full');
       await page.locator('.coupon-admin .panel').first().locator('select').nth(1).selectOption('monthly');
+      const createResponsePromise = page.waitForResponse(response =>
+        response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/admin/coupons');
       await page.getByRole('button', { name: 'Crear código' }).click();
-      const statusMessage = page.locator('.coupon-admin .message[role="status"]');
-      // Esperar la respuesta real del servidor y mostrar su error concreto si el alta falla.
-      await expect.poll(async () => (await statusMessage.textContent())?.trim() ?? '', { timeout: 15_000 })
-        .not.toBe('');
-      await expect(statusMessage).toHaveText('Cupón creado.');
-      await expect(page.getByText(code, { exact: true })).toBeVisible();
+      const createResponse = await createResponsePromise;
+      const responseBody = await createResponse.text();
+      expect(createResponse.ok(), `El API de cupones respondió ${createResponse.status()}: ${responseBody}`).toBeTruthy();
+      await expect(page.getByText('Cupón creado.', { exact: true })).toBeVisible({ timeout: 10_000 });
+      await expect(page.getByText(code, { exact: true })).toBeVisible({ timeout: 10_000 });
     }
   });
 

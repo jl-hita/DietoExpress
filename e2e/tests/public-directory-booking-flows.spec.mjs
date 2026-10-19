@@ -80,7 +80,11 @@ async function chooseSlot(page) {
   const day = page.locator('.calendar-day.available').first();
   await expect(day).toBeVisible();
   await day.click();
-  await page.locator('.day-slots .slot-list .slot').first().click();
+  // Wait for Angular to commit the selected date before querying the conditional slot list.
+  await expect(day).toHaveClass(/selected/, { timeout: 5_000 });
+  const firstSlot = page.locator('.day-slots .slot-list .slot').first();
+  await expect(firstSlot).toBeVisible({ timeout: 5_000 });
+  await firstSlot.click();
   await expect(page.locator('.booking-form')).toBeVisible();
 }
 

@@ -70,10 +70,15 @@ test.describe('P0 — recorrido completo de consulta guiada', () => {
       await page.getByRole('button', { name: 'Buscar' }).click();
       await expect(page.getByLabel('Paciente para la cita')).toContainText(patientName, { timeout: 15_000 });
       await page.getByLabel('Paciente para la cita').selectOption({ label: patientName });
-      await page.getByLabel('Fecha y hora de la cita').fill(localDateTime(daysAhead, 21, 15));
+      await page.getByLabel('Fecha y hora de la cita').fill(localDateTime(daysAhead, 2, 15));
       await page.getByLabel('Duración de la cita').selectOption({ label: '30 min' });
       await page.getByLabel('Modalidad de la cita').selectOption('in_person');
+      const appointmentResponsePromise = page.waitForResponse(response =>
+        response.request().method() === 'POST' && new URL(response.url()).pathname.endsWith('/professional/consultation-actions/appointment'));
       await page.getByRole('button', { name: 'Crear cita confirmada' }).click();
+      const appointmentResponse = await appointmentResponsePromise;
+      const appointmentResponseBody = await appointmentResponse.text();
+      expect(appointmentResponse.ok(), `El API de cita manual respondió ${appointmentResponse.status()}: ${appointmentResponseBody}`).toBeTruthy();
       await expect(page.getByText('Cita creada y confirmada. La disponibilidad semanal solo afecta a las reservas públicas.')).toBeVisible({ timeout: 15_000 });
       const appointmentCard = page.locator('.appointment').filter({ hasText: patientName }).filter({ has: page.getByRole('button', { name: 'Iniciar consulta' }) }).first();
       await expect(appointmentCard).toBeVisible({ timeout: 15_000 });
