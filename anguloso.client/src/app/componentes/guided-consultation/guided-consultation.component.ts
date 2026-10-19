@@ -8,6 +8,8 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { FormsModule } from '@angular/forms';
 import { PatientCheckin, PatientPortalService, PatientAppointment, AppointmentSlot } from '../../servicios/patient-portal.service';
 import { DietService } from '../../servicios/diet.service';
+import { ClientService } from '../../servicios/client.service';
+import { ClientDetail } from '../../modelos/client';
 
 interface ConsultationStep {
   key: string;
@@ -79,14 +81,57 @@ interface GuidedConsultationResponse {
           <section class="card" *ngIf="currentStep === 'anamnesis'">
             <div class="card-title"><mat-icon>clinical_notes</mat-icon><div><h2>Anamnesis y toma de datos inicial</h2><p>Primer paso de la primera consulta: conocer la situación clínica, los antecedentes y el contexto del paciente antes de definir objetivos o dieta.</p></div></div>
             <div class="mode-banner"><mat-icon>medical_information</mat-icon><div><strong>Revisión clínica inicial</strong><span>Comprueba antecedentes y patologías, medicación y suplementos, alergias e intolerancias, restricciones alimentarias, síntomas digestivos, historial ponderal, hábitos, actividad física y expectativas. Registra solo la información pertinente y confirmada con el paciente.</span></div></div>
-            <div class="form-grid">
-              <label>Datos de anamnesis y toma de datos
-                <textarea rows="10" [(ngModel)]="anamnesisText" (blur)="saveClinicalProgress()" placeholder="Motivo de consulta; antecedentes y patologías; medicación/suplementos; alergias e intolerancias; síntomas; historial de peso; hábitos y horarios; actividad física; contexto y barreras; otra información relevante…"></textarea>
-                <small>Este registro queda guardado en el progreso de la consulta. Los datos identificativos y la documentación del paciente se gestionan desde su ficha.</small>
-              </label>
-            </div>
-            <div class="actions">
-              <button mat-stroked-button type="button" (click)="openPatient()"><mat-icon>folder_open</mat-icon> Abrir ficha y documentación</button>
+            <div *ngIf="patientProfileLoading" class="helper">Cargando el expediente clínico del paciente…</div>
+            <div class="form-grid" *ngIf="clinicalProfile as profile">
+              <div class="clinical-section">
+                <h3>Antecedentes y patologías</h3>
+                <div class="inline-fields">
+                  <label class="check-field"><input type="checkbox" [(ngModel)]="profile.medicalHistory!.diabetes" (blur)="savePatientClinicalProfile()"> Diabetes</label>
+                  <label class="check-field"><input type="checkbox" [(ngModel)]="profile.medicalHistory!.hypertension" (blur)="savePatientClinicalProfile()"> Hipertensión</label>
+                  <label class="check-field"><input type="checkbox" [(ngModel)]="profile.medicalHistory!.hypothyroidism" (blur)="savePatientClinicalProfile()"> Hipotiroidismo</label>
+                </div>
+                <label>Otras patologías y antecedentes<textarea rows="3" [(ngModel)]="profile.medicalHistory!.otherPathologies" (blur)="savePatientClinicalProfile()" placeholder="Patologías diagnosticadas, antecedentes relevantes…"></textarea></label>
+                <label>Cirugías e intervenciones<textarea rows="2" [(ngModel)]="profile.medicalHistory!.surgeries" (blur)="savePatientClinicalProfile()" placeholder="Cirugías relevantes y fechas, si se conocen…"></textarea></label>
+                <label>Medicación habitual y suplementos<textarea rows="3" [(ngModel)]="profile.medicalHistory!.routineMedication" (blur)="savePatientClinicalProfile()" placeholder="Medicamento/suplemento, dosis y frecuencia si están confirmadas…"></textarea></label>
+              </div>
+              <div class="clinical-section allergy-section">
+                <h3><mat-icon>warning</mat-icon> Alergias alimentarias — dato crítico para generar dietas</h3>
+                <label>Alergias confirmadas<textarea rows="3" [(ngModel)]="profile.foodPreferences!.allergies" (blur)="savePatientClinicalProfile()" placeholder="Alimento o ingrediente, reacción conocida y gravedad si se conoce. Escribe «No conocidas» solo si se ha confirmado con el paciente."></textarea></label>
+                <small>Se guarda en el expediente del paciente, en el campo que consulta el validador de dietas. No indiques que no existen alergias si no se ha preguntado.</small>
+              </div>
+              <div class="clinical-section">
+                <h3>Digestión, intolerancias y restricciones</h3>
+                <div class="inline-fields">
+                  <label class="check-field"><input type="checkbox" [(ngModel)]="profile.digestiveHealth!.glutenIntolerance" (blur)="savePatientClinicalProfile()"> Intolerancia al gluten</label>
+                  <label class="check-field"><input type="checkbox" [(ngModel)]="profile.digestiveHealth!.lactoseIntolerance" (blur)="savePatientClinicalProfile()"> Intolerancia a la lactosa</label>
+                  <label class="check-field"><input type="checkbox" [(ngModel)]="profile.digestiveHealth!.fodmapsIntolerance" (blur)="savePatientClinicalProfile()"> Sensibilidad a FODMAP</label>
+                </div>
+                <label>Otras intolerancias y restricciones alimentarias<textarea rows="3" [(ngModel)]="profile.digestiveHealth!.otherIntolerances" (blur)="savePatientClinicalProfile()" placeholder="Otras intolerancias confirmadas…"></textarea></label>
+                <label>Síntomas digestivos y observaciones<textarea rows="3" [(ngModel)]="profile.digestiveHealth!.notes" (blur)="savePatientClinicalProfile()" placeholder="Hinchazón, reflujo, dolor, síntomas y circunstancias…"></textarea></label>
+                <label>Preferencias, exclusiones y alimentos rechazados<textarea rows="2" [(ngModel)]="profile.foodPreferences!.dislikedFoods" (blur)="savePatientClinicalProfile()" placeholder="Alimentos que no consume o desea excluir…"></textarea></label>
+              </div>
+              <div class="clinical-section">
+                <h3>Hábitos y contexto</h3>
+                <label>Horarios laborales y comidas<textarea rows="2" [(ngModel)]="profile.lifestyleHistory!.workSchedule" (blur)="savePatientClinicalProfile()" placeholder="Turnos, horarios de comidas y disponibilidad…"></textarea></label>
+                <div class="inline-fields">
+                  <label>Sueño<input [(ngModel)]="profile.lifestyleHistory!.sleepHabits" (blur)="savePatientClinicalProfile()" placeholder="Horas y calidad"></label>
+                  <label>Agua<input [(ngModel)]="profile.lifestyleHistory!.waterConsumption" (blur)="savePatientClinicalProfile()" placeholder="Consumo diario aproximado"></label>
+                </div>
+                <div class="inline-fields">
+                  <label>Alcohol<input [(ngModel)]="profile.lifestyleHistory!.alcoholConsumption" (blur)="savePatientClinicalProfile()" placeholder="Frecuencia/cantidad"></label>
+                  <label>Tabaco<input [(ngModel)]="profile.lifestyleHistory!.tobaccoConsumption" (blur)="savePatientClinicalProfile()" placeholder="Frecuencia"></label>
+                </div>
+              </div>
+              <div class="clinical-section">
+                <h3>Historia ponderal y objetivo de la consulta</h3>
+                <label>Historial de peso y cambios recientes<textarea rows="3" [(ngModel)]="weightHistoryText" (blur)="saveClinicalProgress()" placeholder="Evolución del peso, cambios involuntarios, dietas previas y contexto…"></textarea></label>
+                <label>Actividad física<textarea rows="2" [(ngModel)]="activityHistoryText" (blur)="saveClinicalProgress()" placeholder="Actividad habitual, trabajo, entrenamientos, limitaciones…"></textarea></label>
+                <label>Motivo, expectativas y prioridades del paciente<textarea rows="3" [(ngModel)]="anamnesisText" (blur)="saveClinicalProgress()" placeholder="Motivo de consulta, expectativas y barreras identificadas…"></textarea></label>
+              </div>
+              <div class="actions">
+                <span class="save-state" [class.saved]="patientProfileSaveState === 'saved'">{{ patientProfileSaveState === 'saving' ? 'Guardando expediente…' : patientProfileSaveState === 'saved' ? 'Expediente guardado' : patientProfileSaveState === 'error' ? 'Error al guardar el expediente' : 'Los cambios se guardan al salir de cada campo y antes de avanzar.' }}</span>
+                <button mat-stroked-button type="button" (click)="openPatient()" [disabled]="patientProfileSaving || savingProgress"><mat-icon>folder_open</mat-icon> Abrir ficha y documentación</button>
+              </div>
             </div>
           </section>
 
@@ -136,6 +181,22 @@ interface GuidedConsultationResponse {
               </div>
             </div>
             <div class="empty" *ngIf="!followupHistory.length"><mat-icon>timeline</mat-icon><span>{{ isFirstConsultation ? 'No hay datos previos: utiliza la consulta para establecer la línea de base.' : 'No hay histórico de check-ins.' }}</span></div>
+            <div class="quick-form" *ngIf="isFirstConsultation">
+              <h3>Toma de datos antropométricos de esta consulta</h3>
+              <p class="helper">Registra las mediciones disponibles hoy. No hace falta rellenarlas todas; se guardan en el historial antropométrico del paciente.</p>
+              <div class="inline-fields">
+                <label>Fecha de medición<input type="date" [(ngModel)]="baselineMeasurementDate"></label>
+                <label>Peso (kg)<input type="number" min="1" max="500" step="0.1" [(ngModel)]="baselineWeight"></label>
+                <label>Altura (cm)<input type="number" min="50" max="250" step="0.1" [(ngModel)]="baselineHeight"></label>
+              </div>
+              <div class="inline-fields">
+                <label>Cintura (cm)<input type="number" min="20" max="300" step="0.1" [(ngModel)]="baselineWaist"></label>
+                <label>Cadera (cm)<input type="number" min="20" max="300" step="0.1" [(ngModel)]="baselineHip"></label>
+                <label>Grasa corporal (%)<input type="number" min="1" max="80" step="0.1" [(ngModel)]="baselineBodyFat"></label>
+              </div>
+              <label>Observaciones de la medición<input [(ngModel)]="baselineNotes" placeholder="Condiciones de medición, dispositivo o incidencias"></label>
+              <div class="actions"><button mat-flat-button color="primary" type="button" (click)="saveBaselineMeasurements()" [disabled]="savingBaseline"><mat-icon>save</mat-icon>{{ savingBaseline ? 'Guardando mediciones…' : 'Guardar toma de datos' }}</button></div>
+            </div>
             <div class="quick-form" *ngIf="latestBiometric">
               <h3>Última valoración antropométrica</h3>
               <div class="metric-grid">
@@ -321,7 +382,7 @@ interface GuidedConsultationResponse {
     <div class="loading" *ngIf="loading"><mat-spinner diameter="40"></mat-spinner><span>Preparando consulta…</span></div>
   `,
   styles: [`
-    .consultation-page{width:100%;padding:28px 24px 44px;box-sizing:border-box}.consultation-header{display:flex;justify-content:space-between;gap:20px;align-items:flex-end;margin-bottom:22px}.eyebrow{font-size:11px;font-weight:800;letter-spacing:1.2px;color:#0f766e}.consultation-header h1{margin:5px 0 4px;font-size:30px;color:#0f172a}.consultation-header p{margin:0;color:#64748b}.header-actions{display:flex;align-items:center;gap:12px}.status{padding:7px 11px;border-radius:999px;background:#fef3c7;color:#92400e;font-size:12px;font-weight:700}.status.completed{background:#dcfce7;color:#166534}.flow-layout{display:grid;grid-template-columns:280px minmax(0,1fr);gap:20px;align-items:start}.stepper{position:sticky;top:18px;display:grid;gap:6px}.stepper button{border:1px solid transparent;background:#f8fafc;border-radius:11px;padding:10px;text-align:left;display:flex;gap:10px;align-items:center;cursor:pointer}.stepper button.active{background:#ecfeff;border-color:#99f6e4}.stepper button.done{background:#f0fdf4}.step-number{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#e2e8f0;color:#475569;font-size:12px;font-weight:700;flex:none}.stepper button.active .step-number{background:#0f766e;color:#fff}.stepper button.done .step-number{background:#16a34a;color:#fff}.stepper strong{display:block;font-size:12px;color:#0f172a}.stepper small{display:block;color:#64748b;font-size:10px;margin-top:2px}.step-content{min-width:0}.card{background:#fff;border:1px solid #e2e8f0;border-radius:15px;padding:22px;min-height:270px;box-sizing:border-box}.card-title{display:flex;gap:12px;align-items:flex-start;margin-bottom:20px}.card-title>mat-icon{color:#0f766e}.card-title h2{margin:0 0 4px;font-size:20px;color:#0f172a}.card-title p{margin:0;color:#64748b;font-size:12px}.summary-grid,.metric-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.history-table{border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin:14px 0}.history-row{display:grid;grid-template-columns:1.2fr repeat(4,1fr);gap:8px;padding:10px 12px;border-top:1px solid #e2e8f0;font-size:12px;color:#334155}.history-head{border-top:0;background:#f8fafc;font-weight:700;color:#64748b}.task-list{display:grid;gap:8px;margin-bottom:16px}.pre-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}.summary-card{padding:14px;border:1px solid #e2e8f0;border-radius:11px;background:#fff;display:grid;gap:5px}.summary-card span{font-size:11px;color:#64748b}.summary-card strong{font-size:16px;color:#0f172a}.summary-card small{font-size:11px;color:#64748b}.mode-banner{display:flex;gap:10px;align-items:flex-start;padding:14px;border:1px solid #cbd5e1;border-radius:11px;background:#f8fafc;margin-bottom:16px}.mode-banner>mat-icon{color:#0f766e}.mode-banner strong{display:block;font-size:13px;color:#0f172a}.mode-banner span{display:block;margin-top:3px;font-size:12px;color:#64748b;line-height:1.45}.mode-banner.followup{background:#eff6ff;border-color:#bfdbfe}.mode-banner.followup>mat-icon{color:#2563eb}.signal-panel{margin-bottom:18px;padding:15px;border:1px solid #fed7aa;border-radius:11px;background:#fff7ed}.signal-panel h3{margin:0 0 10px;font-size:14px}.signal-list{display:flex;flex-wrap:wrap;gap:8px}.signal-list span{padding:7px 10px;border-radius:999px;background:#ffedd5;font-size:12px;color:#9a3412}.signal-list b{margin-left:4px}.recommendations{margin-top:14px;padding-top:12px;border-top:1px solid #fed7aa}.recommendations h4{margin:0 0 8px;font-size:12px;color:#7c2d12}.recommendations ul{margin:0 0 12px;padding-left:20px;color:#7c2d12;font-size:12px;line-height:1.6}.quick-form{margin-top:18px;padding:15px;border:1px solid #e2e8f0;border-radius:11px;background:#f8fafc}.quick-form h3{margin:0 0 12px;font-size:14px;color:#0f172a}.inline-fields{display:flex;gap:12px;flex-wrap:wrap}.inline-fields label{flex:1;min-width:130px;display:grid;gap:6px;font-size:11px;font-weight:700;color:#334155}.inline-fields input,.inline-fields select{box-sizing:border-box;width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:9px;background:#fff;font:inherit}.slot-status{align-self:end;padding:10px;color:#64748b;font-size:12px}.slot-list{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.slot-list button{border:1px solid #cbd5e1;background:#fff;border-radius:9px;padding:9px 11px;cursor:pointer;color:#334155}.slot-list button.selected{border-color:#0f766e;background:#ecfeff;color:#0f766e;font-weight:700}.task-item{display:flex;justify-content:space-between;gap:12px;padding:12px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc}.task-item strong{display:block;font-size:13px;color:#0f172a}.task-item small{display:block;margin-top:3px;color:#64748b;font-size:11px}.task-item>span{font-size:10px;font-weight:800;text-transform:uppercase;color:#0f766e}.form-grid{display:grid;gap:16px}.form-grid label{display:grid;gap:7px;font-size:12px;font-weight:700;color:#334155}.form-grid textarea{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:10px;padding:12px;font:inherit;font-weight:400;resize:vertical;min-height:90px}.save-state{display:block;margin-top:8px;color:#64748b}.save-state.saved{color:#15803d}.change-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.change-grid span{padding:7px 10px;border-radius:999px;background:#ecfeff;color:#0f766e;font-size:11px;font-weight:700}.summary-grid>div,.metric-grid>div{padding:14px;border-radius:10px;background:#f8fafc}.summary-grid span,.metric-grid span{display:block;color:#64748b;font-size:11px}.summary-grid strong,.metric-grid strong{display:block;margin-top:4px;color:#0f172a;font-size:14px}.helper{padding:14px;border-radius:10px;background:#f8fafc;color:#64748b;font-size:13px;line-height:1.5;margin-bottom:15px}.placeholder{min-height:130px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#94a3b8;text-align:center}.placeholder mat-icon{font-size:38px;width:38px;height:38px}.actions{display:flex;align-items:center;gap:12px;margin-top:18px}.reviewed{display:flex;align-items:center;gap:6px;color:#15803d;font-size:12px}.navigation{display:flex;justify-content:space-between;gap:10px;margin-top:16px}.empty{min-height:120px;display:flex;align-items:center;justify-content:center;gap:8px;color:#94a3b8}.loading{min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#64748b}@media(max-width:850px){.consultation-page{padding:20px 14px 36px}.consultation-header{align-items:stretch;flex-direction:column}.header-actions{justify-content:space-between}.flow-layout{grid-template-columns:1fr}.stepper{position:static;display:flex;overflow:auto;padding-bottom:3px}.stepper button{min-width:190px}.summary-grid,.metric-grid{grid-template-columns:1fr}.history-row{grid-template-columns:1fr 1fr}.history-head{display:none}}
+    .consultation-page{width:100%;padding:28px 24px 44px;box-sizing:border-box}.consultation-header{display:flex;justify-content:space-between;gap:20px;align-items:flex-end;margin-bottom:22px}.eyebrow{font-size:11px;font-weight:800;letter-spacing:1.2px;color:#0f766e}.consultation-header h1{margin:5px 0 4px;font-size:30px;color:#0f172a}.consultation-header p{margin:0;color:#64748b}.header-actions{display:flex;align-items:center;gap:12px}.status{padding:7px 11px;border-radius:999px;background:#fef3c7;color:#92400e;font-size:12px;font-weight:700}.status.completed{background:#dcfce7;color:#166534}.flow-layout{display:grid;grid-template-columns:280px minmax(0,1fr);gap:20px;align-items:start}.stepper{position:sticky;top:18px;display:grid;gap:6px}.stepper button{border:1px solid transparent;background:#f8fafc;border-radius:11px;padding:10px;text-align:left;display:flex;gap:10px;align-items:center;cursor:pointer}.stepper button.active{background:#ecfeff;border-color:#99f6e4}.stepper button.done{background:#f0fdf4}.step-number{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#e2e8f0;color:#475569;font-size:12px;font-weight:700;flex:none}.stepper button.active .step-number{background:#0f766e;color:#fff}.stepper button.done .step-number{background:#16a34a;color:#fff}.stepper strong{display:block;font-size:12px;color:#0f172a}.stepper small{display:block;color:#64748b;font-size:10px;margin-top:2px}.step-content{min-width:0}.card{background:#fff;border:1px solid #e2e8f0;border-radius:15px;padding:22px;min-height:270px;box-sizing:border-box}.card-title{display:flex;gap:12px;align-items:flex-start;margin-bottom:20px}.card-title>mat-icon{color:#0f766e}.card-title h2{margin:0 0 4px;font-size:20px;color:#0f172a}.card-title p{margin:0;color:#64748b;font-size:12px}.summary-grid,.metric-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.history-table{border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin:14px 0}.history-row{display:grid;grid-template-columns:1.2fr repeat(4,1fr);gap:8px;padding:10px 12px;border-top:1px solid #e2e8f0;font-size:12px;color:#334155}.history-head{border-top:0;background:#f8fafc;font-weight:700;color:#64748b}.task-list{display:grid;gap:8px;margin-bottom:16px}.pre-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}.summary-card{padding:14px;border:1px solid #e2e8f0;border-radius:11px;background:#fff;display:grid;gap:5px}.summary-card span{font-size:11px;color:#64748b}.summary-card strong{font-size:16px;color:#0f172a}.summary-card small{font-size:11px;color:#64748b}.mode-banner{display:flex;gap:10px;align-items:flex-start;padding:14px;border:1px solid #cbd5e1;border-radius:11px;background:#f8fafc;margin-bottom:16px}.mode-banner>mat-icon{color:#0f766e}.mode-banner strong{display:block;font-size:13px;color:#0f172a}.mode-banner span{display:block;margin-top:3px;font-size:12px;color:#64748b;line-height:1.45}.mode-banner.followup{background:#eff6ff;border-color:#bfdbfe}.mode-banner.followup>mat-icon{color:#2563eb}.signal-panel{margin-bottom:18px;padding:15px;border:1px solid #fed7aa;border-radius:11px;background:#fff7ed}.signal-panel h3{margin:0 0 10px;font-size:14px}.signal-list{display:flex;flex-wrap:wrap;gap:8px}.signal-list span{padding:7px 10px;border-radius:999px;background:#ffedd5;font-size:12px;color:#9a3412}.signal-list b{margin-left:4px}.recommendations{margin-top:14px;padding-top:12px;border-top:1px solid #fed7aa}.recommendations h4{margin:0 0 8px;font-size:12px;color:#7c2d12}.recommendations ul{margin:0 0 12px;padding-left:20px;color:#7c2d12;font-size:12px;line-height:1.6}.quick-form{margin-top:18px;padding:15px;border:1px solid #e2e8f0;border-radius:11px;background:#f8fafc}.quick-form h3{margin:0 0 12px;font-size:14px;color:#0f172a}.inline-fields{display:flex;gap:12px;flex-wrap:wrap}.inline-fields label{flex:1;min-width:130px;display:grid;gap:6px;font-size:11px;font-weight:700;color:#334155}.inline-fields input,.inline-fields select{box-sizing:border-box;width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:9px;background:#fff;font:inherit}.slot-status{align-self:end;padding:10px;color:#64748b;font-size:12px}.slot-list{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.slot-list button{border:1px solid #cbd5e1;background:#fff;border-radius:9px;padding:9px 11px;cursor:pointer;color:#334155}.slot-list button.selected{border-color:#0f766e;background:#ecfeff;color:#0f766e;font-weight:700}.task-item{display:flex;justify-content:space-between;gap:12px;padding:12px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc}.task-item strong{display:block;font-size:13px;color:#0f172a}.task-item small{display:block;margin-top:3px;color:#64748b;font-size:11px}.task-item>span{font-size:10px;font-weight:800;text-transform:uppercase;color:#0f766e}.form-grid{display:grid;gap:16px}.form-grid label{display:grid;gap:7px;font-size:12px;font-weight:700;color:#334155}.clinical-section{display:grid;gap:12px;padding:16px;border:1px solid #e2e8f0;border-radius:12px;background:#fbfdff}.clinical-section h3{display:flex;align-items:center;gap:8px;margin:0;color:#0f172a;font-size:14px}.clinical-section h3 mat-icon{color:#b45309}.clinical-section textarea,.clinical-section input:not([type=checkbox]){width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:10px;font:inherit;font-weight:400}.clinical-section small{color:#92400e;line-height:1.5}.clinical-section.allergy-section{border-color:#fca5a5;background:#fff7f7}.clinical-section.allergy-section h3{color:#991b1b}.check-field{display:flex!important;align-items:center;gap:8px!important;min-width:150px}.form-grid textarea{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:10px;padding:12px;font:inherit;font-weight:400;resize:vertical;min-height:90px}.save-state{display:block;margin-top:8px;color:#64748b}.save-state.saved{color:#15803d}.change-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.change-grid span{padding:7px 10px;border-radius:999px;background:#ecfeff;color:#0f766e;font-size:11px;font-weight:700}.summary-grid>div,.metric-grid>div{padding:14px;border-radius:10px;background:#f8fafc}.summary-grid span,.metric-grid span{display:block;color:#64748b;font-size:11px}.summary-grid strong,.metric-grid strong{display:block;margin-top:4px;color:#0f172a;font-size:14px}.helper{padding:14px;border-radius:10px;background:#f8fafc;color:#64748b;font-size:13px;line-height:1.5;margin-bottom:15px}.placeholder{min-height:130px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#94a3b8;text-align:center}.placeholder mat-icon{font-size:38px;width:38px;height:38px}.actions{display:flex;align-items:center;gap:12px;margin-top:18px}.reviewed{display:flex;align-items:center;gap:6px;color:#15803d;font-size:12px}.navigation{display:flex;justify-content:space-between;gap:10px;margin-top:16px}.empty{min-height:120px;display:flex;align-items:center;justify-content:center;gap:8px;color:#94a3b8}.loading{min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#64748b}@media(max-width:850px){.consultation-page{padding:20px 14px 36px}.consultation-header{align-items:stretch;flex-direction:column}.header-actions{justify-content:space-between}.flow-layout{grid-template-columns:1fr}.stepper{position:static;display:flex;overflow:auto;padding-bottom:3px}.stepper button{min-width:190px}.summary-grid,.metric-grid{grid-template-columns:1fr}.history-row{grid-template-columns:1fr 1fr}.history-head{display:none}}
   `]
 })
 export class GuidedConsultationComponent implements OnInit {
@@ -344,6 +405,22 @@ export class GuidedConsultationComponent implements OnInit {
   get followupHistory(): PatientCheckin[] { return this.followupHistoryState(); }
   set followupHistory(value: PatientCheckin[]) { this.followupHistoryState.set(value); }
   anamnesisText = '';
+  weightHistoryText = '';
+  activityHistoryText = '';
+  clinicalProfile: ClientDetail | null = null;
+  patientProfileLoading = false;
+  patientProfileSaving = false;
+  patientProfileSaveState: 'idle' | 'saving' | 'saved' | 'error' = 'idle';
+  private patientProfileSaveQueued = false;
+  private patientProfileSaveCallbacks: Array<() => void> = [];
+  baselineMeasurementDate = new Date().toISOString().slice(0, 10);
+  baselineWeight: number | null = null;
+  baselineHeight: number | null = null;
+  baselineWaist: number | null = null;
+  baselineHip: number | null = null;
+  baselineBodyFat: number | null = null;
+  baselineNotes = '';
+  savingBaseline = false;
   savingProgress = false;
   goalsText = '';
   educationText = '';
@@ -458,6 +535,7 @@ export class GuidedConsultationComponent implements OnInit {
     private router: Router,
     private portalService: PatientPortalService,
     private dietService: DietService,
+    private clientService: ClientService,
     private snack: MatSnackBar
   ) {}
 
@@ -469,6 +547,7 @@ export class GuidedConsultationComponent implements OnInit {
       next: value => {
         this.data = value;
         this.consultation = value.consultation;
+        this.loadPatientClinicalProfile();
         this.loadClinicalProgress();
         this.loadFollowupHistory();
         this.loadConsultationContext();
@@ -512,6 +591,8 @@ export class GuidedConsultationComponent implements OnInit {
     const progress = this.consultation?.progress;
     if (!progress || typeof progress !== 'object') return;
     this.anamnesisText = typeof progress.anamnesis === 'string' ? progress.anamnesis : '';
+    this.weightHistoryText = typeof progress.weightHistory === 'string' ? progress.weightHistory : '';
+    this.activityHistoryText = typeof progress.activityHistory === 'string' ? progress.activityHistory : '';
     this.goalsText = typeof progress.goals === 'string' ? progress.goals : '';
     this.educationText = typeof progress.education === 'string' ? progress.education : '';
     this.clinicalNotes = typeof progress.clinicalNotes === 'string' ? progress.clinicalNotes : '';
@@ -560,6 +641,8 @@ export class GuidedConsultationComponent implements OnInit {
     return {
       ...(this.consultation?.progress || {}),
       anamnesis: this.anamnesisText.trim(),
+      weightHistory: this.weightHistoryText.trim(),
+      activityHistory: this.activityHistoryText.trim(),
       goals: this.goalsText.trim(),
       education: this.educationText.trim(),
       clinicalNotes: this.clinicalNotes.trim(),
@@ -567,6 +650,106 @@ export class GuidedConsultationComponent implements OnInit {
       actionsSummary: this.actionsSummary.trim(),
       nextConsultationPlan: this.nextConsultationPlan.trim()
     };
+  }
+
+  private loadPatientClinicalProfile(): void {
+    const clientId = this.data?.appointment.clientId;
+    if (!clientId) return;
+    this.patientProfileLoading = true;
+    this.clientService.getClient(clientId).subscribe({
+      next: client => {
+        this.clinicalProfile = {
+          ...client,
+          medicalHistory: { diabetes: false, hypertension: false, hypothyroidism: false, surgeries: '', routineMedication: '', otherPathologies: '', ...(client.medicalHistory || {}) },
+          digestiveHealth: { intestinalHabits: '', bloating: false, heartburn: false, glutenIntolerance: false, lactoseIntolerance: false, fodmapsIntolerance: false, otherIntolerances: '', notes: '', ...(client.digestiveHealth || {}) },
+          foodPreferences: { preferredFoods: '', dislikedFoods: '', allergies: '', ...(client.foodPreferences || {}) },
+          lifestyleHistory: { workSchedule: '', sleepHabits: '', waterConsumption: '', alcoholConsumption: '', tobaccoConsumption: '', ...(client.lifestyleHistory || {}) }
+        };
+        this.patientProfileLoading = false;
+      },
+      error: () => {
+        this.patientProfileLoading = false;
+        this.patientProfileSaveState = 'error';
+        this.snack.open('No se ha podido cargar el expediente clínico. No introduzcas datos hasta reintentar la carga.', 'Cerrar', { duration: 4500 });
+      }
+    });
+  }
+
+  savePatientClinicalProfile(onSaved?: () => void): void {
+    const client = this.clinicalProfile;
+    if (onSaved) this.patientProfileSaveCallbacks.push(onSaved);
+    if (!client || !this.data) {
+      const callbacks = this.patientProfileSaveCallbacks.splice(0);
+      callbacks.forEach(callback => callback());
+      return;
+    }
+    if (this.patientProfileSaving) {
+      this.patientProfileSaveQueued = true;
+      return;
+    }
+    this.patientProfileSaving = true;
+    this.patientProfileSaveState = 'saving';
+    const payload = {
+      fullName: client.fullName, email: client.email, phone: client.phone,
+      address: client.address, postalCode: client.postalCode, city: client.city,
+      province: client.province, country: client.country, latitude: client.latitude,
+      longitude: client.longitude, gender: client.gender, birthDate: client.birthDate,
+      notes: client.notes, medicalHistory: client.medicalHistory,
+      digestiveHealth: client.digestiveHealth, foodPreferences: client.foodPreferences,
+      lifestyleHistory: client.lifestyleHistory
+    };
+    this.clientService.updateClient(client.id, payload).subscribe({
+      next: () => {
+        this.patientProfileSaving = false;
+        if (this.patientProfileSaveQueued) {
+          this.patientProfileSaveQueued = false;
+          this.savePatientClinicalProfile();
+          return;
+        }
+        this.patientProfileSaveState = 'saved';
+        const callbacks = this.patientProfileSaveCallbacks.splice(0);
+        callbacks.forEach(callback => callback());
+      },
+      error: err => {
+        this.patientProfileSaving = false;
+        this.patientProfileSaveQueued = false;
+        this.patientProfileSaveState = 'error';
+        this.patientProfileSaveCallbacks = [];
+        this.snack.open(err?.error?.message || 'No se ha podido guardar el expediente clínico. No se ha cambiado de paso.', 'Cerrar', { duration: 4500 });
+      }
+    });
+  }
+
+  saveBaselineMeasurements(): void {
+    const clientId = this.data?.appointment.clientId;
+    if (!clientId || this.savingBaseline) return;
+    const values = [this.baselineWeight, this.baselineHeight, this.baselineWaist, this.baselineHip, this.baselineBodyFat];
+    if (values.every(value => value === null || value === undefined || Number.isNaN(value))) {
+      this.snack.open('Introduce al menos una medición antes de guardar.', 'Cerrar', { duration: 3000 });
+      return;
+    }
+    this.savingBaseline = true;
+    this.clientService.createBiometric(clientId, {
+      measurementDate: this.baselineMeasurementDate,
+      weight: this.baselineWeight,
+      height: this.baselineHeight,
+      waist: this.baselineWaist,
+      hip: this.baselineHip,
+      bodyFat: this.baselineBodyFat,
+      notes: this.baselineNotes.trim()
+    }).subscribe({
+      next: () => {
+        this.savingBaseline = false;
+        this.snack.open('Toma de datos guardada en el historial del paciente.', 'Cerrar', { duration: 2500 });
+        this.baselineWeight = null; this.baselineHeight = null; this.baselineWaist = null;
+        this.baselineHip = null; this.baselineBodyFat = null; this.baselineNotes = '';
+        this.loadConsultationContext();
+      },
+      error: err => {
+        this.savingBaseline = false;
+        this.snack.open(err?.error?.message || 'No se han podido guardar las mediciones.', 'Cerrar', { duration: 4000 });
+      }
+    });
   }
 
   private flushQueuedClinicalSave(): void {
@@ -616,27 +799,33 @@ export class GuidedConsultationComponent implements OnInit {
 
   goToStep(step: string): void {
     const index = this.visibleSteps.findIndex(x => x.key === step);
-    if (index < 0) return;
-    this.stepIndex = index;
-    this.currentStep = this.visibleSteps[index].key;
-    this.saveProgress();
-    if (step === 'next_appointment' && !this.consultationSlots.length && !this.slotsLoading) this.loadConsultationSlots();
+    if (index < 0 || this.patientProfileSaving || this.savingProgress) return;
+    this.savePatientClinicalProfile(() => {
+      this.stepIndex = index;
+      this.currentStep = this.visibleSteps[index].key;
+      this.saveProgress();
+      if (step === 'next_appointment' && !this.consultationSlots.length && !this.slotsLoading) this.loadConsultationSlots();
+    });
   }
 
   nextStep(): void {
-    if (!this.consultation || this.stepIndex >= this.visibleSteps.length - 1) return;
+    if (!this.consultation || this.stepIndex >= this.visibleSteps.length - 1 || this.patientProfileSaving || this.savingProgress) return;
     const completed = new Set<string>(this.consultation.completedSteps || []);
     completed.add(this.currentStep);
     const next = this.visibleSteps[this.stepIndex + 1].key;
-    this.persistProgress(next, [...completed]);
-    if (next === 'next_appointment' && !this.consultationSlots.length && !this.slotsLoading) this.loadConsultationSlots();
+    this.savePatientClinicalProfile(() => {
+      this.persistProgress(next, [...completed]);
+      if (next === 'next_appointment' && !this.consultationSlots.length && !this.slotsLoading) this.loadConsultationSlots();
+    });
   }
 
   previousStep(): void {
-    if (this.stepIndex <= 0) return;
-    this.stepIndex--;
-    this.currentStep = this.visibleSteps[this.stepIndex].key;
-    this.saveProgress();
+    if (this.stepIndex <= 0 || this.patientProfileSaving || this.savingProgress) return;
+    this.savePatientClinicalProfile(() => {
+      this.stepIndex--;
+      this.currentStep = this.visibleSteps[this.stepIndex].key;
+      this.saveProgress();
+    });
   }
 
   private saveProgress(): void {
@@ -830,7 +1019,12 @@ export class GuidedConsultationComponent implements OnInit {
   }
 
   openPatient(): void {
-    this.router.navigate(['/clients', this.data?.appointment.clientId]);
+    const clientId = this.data?.appointment.clientId;
+    if (!clientId || this.patientProfileSaving || this.savingProgress) return;
+    this.savePatientClinicalProfile(() => {
+      this.saveClinicalProgress();
+      this.router.navigate(['/clients', clientId]);
+    });
   }
 
   openPatientMessages(): void {
