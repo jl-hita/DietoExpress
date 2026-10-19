@@ -19,12 +19,13 @@
         <strong>{{ doc.name }}</strong>
         <span>Versión {{ doc.version }} · {{ doc.createdAt | date:'d MMM yyyy' }}</span>
         <span class="appointment-status" *ngIf="doc.requiresSignature && doc.status === 'pending'">Pendiente de firma/aceptación</span>
+        <span class="appointment-status" *ngIf="doc.requiresSignature && doc.status === 'pending' && !doc.viewedAt">Abre y revisa el PDF antes de aceptar</span>
         <span class="appointment-status" *ngIf="doc.status === 'signed'">Aceptado</span>
         <span class="appointment-status" *ngIf="!doc.requiresSignature && doc.status !== 'signed'">Disponible</span>
       </div>
       <div class="document-actions">
-        <button type="button" class="appointment-cancel" (click)="download.emit(doc)">Abrir PDF</button>
-        <button type="button" class="appointment-cancel" *ngIf="doc.requiresSignature && doc.status === 'pending'" (click)="accept.emit(doc)">Aceptar documento</button>
+        <button type="button" class="appointment-cancel" (click)="download.emit(doc)">{{ doc.viewedAt ? 'Volver a abrir PDF' : 'Leer documento' }}</button>
+        <button type="button" class="appointment-cancel" *ngIf="doc.requiresSignature && doc.status === 'pending'" [disabled]="!doc.viewedAt" (click)="accept.emit(doc)">Aceptar documento</button>
       </div>
     </article>
   </section>
