@@ -606,7 +606,7 @@ export class GuidedConsultationComponent implements OnInit {
   toggleQuickMode(): void {
     this.quickMode = !this.quickMode;
     if (!this.visibleSteps.some(step => step.key === this.currentStep)) {
-      this.currentStep = 'summary';
+      this.currentStep = this.visibleSteps[0]?.key || 'summary';
       this.stepIndex = 0;
       this.saveProgress();
     } else {
