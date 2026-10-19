@@ -229,7 +229,7 @@ test.describe('P0 — directorio público: búsqueda, perfil y solicitudes (API 
     await mockDirectory(page);
     await openProfile(page);
     await chooseSlot(page);
-    await page.getByLabel('Consulta online', { exact: true }).check();
+    await page.locator('.booking-modality label').filter({ hasText: 'Consulta online' }).click();
     await expect(page.locator('.booking-form')).toContainText('Recibirás el acceso a la consulta online en tu portal');
     await expect(page.locator('.booking-note')).toContainText('no requiere pago online');
   });
