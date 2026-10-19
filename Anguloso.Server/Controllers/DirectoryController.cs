@@ -323,7 +323,7 @@ public class DirectoryController : ControllerBase
             var licenseCheck = await _licenseService.CanCreateClientAsync(
                 professional.tenant_id.Value, professional.id);
             if (!licenseCheck.Allowed)
-                return BadRequest(licenseCheck.Reason);
+                return BadRequest(new { message = licenseCheck.Reason ?? "No se puede crear el paciente con la licencia actual." });
 
             client = new clients
             {
