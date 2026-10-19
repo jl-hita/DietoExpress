@@ -117,9 +117,9 @@ export class DirectoryComponent implements OnInit {
     });
   }
 
-  get selectedDateSlots(): PublicAvailabilitySlot[] {
-    return this.selectedAvailabilityDate ? this.slotsForDate(this.selectedAvailabilityDate) : [];
-  }
+  // Materializa los huecos del día seleccionado. Evita reevaluar un getter dependiente
+  // de fecha/zonas horarias varias veces durante el mismo ciclo de detección de cambios.
+  selectedDateSlots: PublicAvailabilitySlot[] = [];
 
   get canGoToPreviousMonth(): boolean {
     return this.calendarMonth > new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -135,6 +135,7 @@ export class DirectoryComponent implements OnInit {
     if (!this.canGoToPreviousMonth) return;
     this.calendarMonth = new Date(this.calendarMonth.getFullYear(), this.calendarMonth.getMonth() - 1, 1);
     this.selectedAvailabilityDate = null;
+    this.selectedDateSlots = [];
     this.selectedSlot = null;
   }
 
@@ -142,12 +143,15 @@ export class DirectoryComponent implements OnInit {
     if (!this.canGoToNextMonth) return;
     this.calendarMonth = new Date(this.calendarMonth.getFullYear(), this.calendarMonth.getMonth() + 1, 1);
     this.selectedAvailabilityDate = null;
+    this.selectedDateSlots = [];
     this.selectedSlot = null;
   }
 
   selectAvailabilityDate(key: string): void {
-    if (!this.slotsForDate(key).length) return;
+    const slots = this.slotsForDate(key);
+    if (!slots.length) return;
     this.selectedAvailabilityDate = key;
+    this.selectedDateSlots = slots;
     this.selectedSlot = null;
     this.bookingError = '';
   }
@@ -221,10 +225,11 @@ export class DirectoryComponent implements OnInit {
           this.calendarMonth = new Date(first.getFullYear(), first.getMonth(), 1);
         }
         this.selectedAvailabilityDate = null;
+        this.selectedDateSlots = [];
         this.selectedSlot = null;
         this.availabilityLoading = false;
       },
-      error: () => { this.availability = []; this.availabilityError = 'No se ha podido consultar la disponibilidad.'; this.availabilityLoading = false; }
+      error: () => { this.availability = []; this.selectedAvailabilityDate = null; this.selectedDateSlots = []; this.availabilityError = 'No se ha podido consultar la disponibilidad.'; this.availabilityLoading = false; }
     });
   }
 

@@ -62,7 +62,8 @@ test.describe('P0 — recorrido completo de consulta guiada', () => {
     await expect(page).toHaveURL(/\/clients\/\d+(?:[/?#]|$)/, { timeout: 20_000 });
     patientId = Number(page.url().match(/\/clients\/(\d+)/)?.[1]);
     expect(patientId).toBeGreaterThan(0);
-    await expect(page.locator('body')).toContainText(patientName);
+    // La ficha presenta el nombre en un control de formulario editable.
+    await expect(page.getByLabel('Nombre completo')).toHaveValue(patientName);
 
     const scheduleManually = async (daysAhead) => {
       await page.goto('/appointments');

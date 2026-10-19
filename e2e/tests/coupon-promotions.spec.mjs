@@ -29,7 +29,11 @@ test.describe.serial('P0 — cupones promocionales (sin completar Checkout)', ()
   test('SuperAdmin crea cupones de 25 % y 100 % para nutri_full mensual', async ({ page }) => {
     test.skip(!adminUsername || !adminPassword, 'Configura E2E_SUPERADMIN_USERNAME y E2E_SUPERADMIN_PASSWORD.');
     await login(page, adminUsername, adminPassword);
-    await page.goto('/admin/coupons');
+    // La sesión se mantiene en memoria durante la navegación SPA; una navegación completa
+    // puede forzar la restauración de la cookie y competir con el guard de SuperAdmin.
+    await expect(page).toHaveURL(/\/admin(?:[/?#]|$)/, { timeout: 20_000 });
+    await page.getByRole('button', { name: /Cupones/ }).click();
+    await expect(page).toHaveURL(/\/admin\/coupons(?:[?#]|$)/, { timeout: 10_000 });
     await expect(page.getByRole('heading', { name: /cupones/i }).first()).toBeVisible();
 
     for (const [code, discount] of [[coupon25, 25], [coupon100, 100]]) {
