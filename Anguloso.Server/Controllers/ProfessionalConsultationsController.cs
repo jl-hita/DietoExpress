@@ -16,7 +16,7 @@ public sealed class ProfessionalConsultationsController : ControllerBase
 {
     private static readonly HashSet<string> AllowedSteps = new(StringComparer.OrdinalIgnoreCase)
     {
-        "summary", "evolution", "checkin", "goals", "diet", "education", "tasks", "next_appointment", "close"
+        "anamnesis", "summary", "evolution", "checkin", "goals", "diet", "education", "tasks", "next_appointment", "close"
     };
 
     private static readonly HashSet<string> AllowedTypes = new(StringComparer.OrdinalIgnoreCase)
@@ -250,7 +250,7 @@ public sealed class ProfessionalConsultationsController : ControllerBase
         await using var command = new NpgsqlCommand("""
             INSERT INTO professional_consultations
                 (tenant_id, appointment_id, client_id, professional_id, consultation_type, status, current_step, progress, completed_steps)
-            VALUES (@tenant,@appointment,@client,@professional,@type,'in_progress','summary','{}'::jsonb,'[]'::jsonb)
+            VALUES (@tenant,@appointment,@client,@professional,@type,'in_progress',@initial_step,'{}'::jsonb,'[]'::jsonb)
             ON CONFLICT (tenant_id, appointment_id) DO NOTHING;
             """, connection);
         command.Parameters.AddWithValue("tenant", appointment.TenantId);
@@ -258,6 +258,7 @@ public sealed class ProfessionalConsultationsController : ControllerBase
         command.Parameters.AddWithValue("client", appointment.ClientId);
         command.Parameters.AddWithValue("professional", appointment.NutritionistId);
         command.Parameters.AddWithValue("type", consultationType);
+        command.Parameters.AddWithValue("initial_step", consultationType == "first" ? "anamnesis" : "summary");
         await command.ExecuteNonQueryAsync();
 
         await _auditLogService.LogAccessAsync(
@@ -343,7 +344,7 @@ public sealed class ProfessionalConsultationsController : ControllerBase
         await using var command = new NpgsqlCommand("""
             UPDATE professional_consultations
             SET status='completed', current_step='close',
-                completed_steps='["summary","evolution","checkin","goals","diet","education","tasks","next_appointment","close"]'::jsonb,
+                completed_steps='["anamnesis","summary","evolution","checkin","goals","diet","education","tasks","next_appointment","close"]'::jsonb,
                 completed_at=NOW(), updated_at=NOW()
             WHERE tenant_id=@tenant AND appointment_id=@appointment AND status='in_progress';
             """, connection, transaction);
