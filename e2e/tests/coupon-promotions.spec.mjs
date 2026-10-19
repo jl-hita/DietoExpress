@@ -32,8 +32,8 @@ test.describe.serial('P0 — cupones promocionales (sin completar Checkout)', ()
     for (const [code, discount] of [[coupon25, 25], [coupon100, 100]]) {
       await page.getByLabel('Código', { exact: true }).fill(code);
       await page.getByLabel(/Descuento/).first().fill(String(discount));
-      await page.getByLabel('Plan', { exact: true }).first().selectOption('nutri_full');
-      await page.getByLabel('Facturación', { exact: true }).first().selectOption('monthly');
+      await page.locator('.coupon-admin .panel').first().locator('select').nth(0).selectOption('nutri_full');
+      await page.locator('.coupon-admin .panel').first().locator('select').nth(1).selectOption('monthly');
       await page.getByRole('button', { name: 'Crear código' }).click();
       await expect(page.getByText('Cupón creado.', { exact: true })).toBeVisible({ timeout: 10_000 });
       await expect(page.getByText(code, { exact: true })).toBeVisible();
