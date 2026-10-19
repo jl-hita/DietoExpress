@@ -593,12 +593,18 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
   downloadDocument(doc: PatientDocument): void {
     this.portalService.downloadMyDocument(doc.id).subscribe({
       next: blob => {
+        // Abrir el PDF en el navegador permite leerlo sin descargarlo ni imprimirlo.
         const url = URL.createObjectURL(blob);
-        const link = globalThis.document.createElement('a');
-        link.href = url;
-        link.download = doc.originalFileName || doc.name + '.pdf';
-        link.click();
-        URL.revokeObjectURL(url);
+        const opened = window.open(url, '_blank');
+        if (!opened) {
+          // Alternativa cuando el navegador bloquea las ventanas emergentes.
+          const link = globalThis.document.createElement('a');
+          link.href = url;
+          link.download = doc.originalFileName || doc.name + '.pdf';
+          link.click();
+        }
+        doc.viewedAt = new Date().toISOString();
+        window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
       },
       error: err => this.documentsError = err?.error?.message || 'No hemos podido descargar el documento.'
     });
