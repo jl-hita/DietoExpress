@@ -240,16 +240,16 @@ test.describe('P0 — directorio público: búsqueda, perfil y solicitudes (API 
 
   test('un error 400 de validación devuelto como texto se muestra al usuario', async ({ page }) => {
     await mockDirectory(page, {
-      bookingError: 'Se ha alcanzado el límite total de clientes de la licencia.',
+      bookingError: 'La licencia ha caducado.',
       bookingErrorStatus: 400,
       bookingErrorContentType: 'text/plain'
     });
     await openProfile(page);
     await chooseSlot(page);
     await page.getByLabel('Nombre completo').fill('Paciente E2E Ficticio');
-    await page.getByLabel('Email', { exact: true }).fill('e2e-limit@invalid.example');
+    await page.getByLabel('Email', { exact: true }).fill('e2e-expired-license@invalid.example');
     await page.getByRole('button', { name: 'Solicitar cita' }).click();
-    await expect(page.getByRole('alert')).toContainText('Se ha alcanzado el límite total de clientes de la licencia.');
+    await expect(page.getByRole('alert')).toContainText('La licencia ha caducado.');
     await expect(page.locator('.booking-form')).toBeVisible();
   });
 
