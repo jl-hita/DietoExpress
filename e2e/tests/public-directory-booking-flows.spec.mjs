@@ -56,7 +56,7 @@ async function mockDirectory(page, { profiles = [apiProfile], availability = [fu
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ averageRating: 5, reviewCount: 1, reviews: [{ id: 1, rating: 5, comment: 'Atención excelente', createdAt: new Date().toISOString(), verified: true }] }) });
       return;
     }
-    if (new RegExp('/' + slug + '/?
+    if (path.endsWith('/' + slug) || path.endsWith('/' + slug + '/')) {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(apiProfile) });
       return;
     }
