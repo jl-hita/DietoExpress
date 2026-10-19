@@ -17,6 +17,7 @@ public class DirectoryProfileDto
     public int ProfileCompleteness { get; set; }
     public int RankingScore { get; set; }
     public bool IsVerified { get; set; }
+    public bool CanAcceptAppointments { get; set; } = true;
     public int AvailableRuleCount { get; set; }
     public double AverageRating { get; set; }
     public int ReviewCount { get; set; }

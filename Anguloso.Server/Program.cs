@@ -82,6 +82,7 @@ builder.Services.AddScoped<SupportEnhancementService>();
         builder.Services.AddScoped<VideoQuotaService>();
         builder.Services.AddScoped<LiveKitAnalyticsService>();
         builder.Services.AddHostedService<GoogleCalendarWorker>();
+        builder.Services.AddHostedService<PublicDirectoryInterestRetentionWorker>();
         builder.Services.AddHostedService<AutomationWorker>();
         builder.Services.AddHostedService<FoodCatalogImportWorker>();
         builder.Services.AddHttpClient<IStripeBillingService, StripeBillingService>();

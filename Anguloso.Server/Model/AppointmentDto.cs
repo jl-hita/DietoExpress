@@ -91,3 +91,12 @@ public class UpdateAppointmentStatusRequestDto
     public string? Status { get; set; }
     public string? ProfessionalNotes { get; set; }
 }
+
+/// <summary>Contacto de una persona interesada cuando el profesional no puede aceptar citas.</summary>
+public class PublicDirectoryInterestRequestDto
+{
+    public string FullName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string? Phone { get; set; }
+    public bool ConsentToContact { get; set; }
+}

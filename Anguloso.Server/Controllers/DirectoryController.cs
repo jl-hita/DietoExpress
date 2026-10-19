@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 using Anguloso.Server.Logica;
 using Microsoft.EntityFrameworkCore;
 
@@ -107,6 +108,14 @@ public class DirectoryController : ControllerBase
             }).ToListAsync();
 
         var ids = profiles.Select(p => p.NutritionistId).ToArray();
+        var tenantByNutritionist = await _context.users.AsNoTracking()
+            .Where(u => ids.Contains(u.id))
+            .Select(u => new { u.id, u.tenant_id })
+            .ToDictionaryAsync(u => u.id, u => u.tenant_id);
+        var activeLicenseByTenant = new Dictionary<int, bool>();
+        foreach (var tenantId in tenantByNutritionist.Values.Where(id => id.HasValue).Select(id => id!.Value).Distinct())
+            activeLicenseByTenant[tenantId] = await HasActiveLicenseAsync(tenantId);
+
         var availabilityCounts = await _context.nutritionist_availability.AsNoTracking()
             .Where(a => ids.Contains(a.nutritionist_id) && a.is_active)
             .GroupBy(a => a.nutritionist_id)
@@ -126,6 +135,8 @@ public class DirectoryController : ControllerBase
 
         foreach (var profile in profiles)
         {
+            var tenantId = tenantByNutritionist.GetValueOrDefault(profile.NutritionistId);
+            profile.CanAcceptAppointments = tenantId.HasValue && activeLicenseByTenant.GetValueOrDefault(tenantId.Value);
             profile.SpecialtyList = SplitSpecialties(profile.Specialties);
             var review = reviewSummaries.GetValueOrDefault(profile.NutritionistId);
             profile.AverageRating = Math.Round(review.Item1, 1);
@@ -135,7 +146,11 @@ public class DirectoryController : ControllerBase
             profile.RankingScore = CalculateRankingScore(profile, filter);
         }
 
-        return Ok(profiles
+        var visibleProfiles = filter.AvailableOnly == true
+            ? profiles.Where(p => p.CanAcceptAppointments && p.AvailableRuleCount > 0)
+            : profiles;
+
+        return Ok(visibleProfiles
             .OrderByDescending(p => p.RankingScore)
             .ThenBy(p => p.FullName)
             .ToList());
@@ -165,6 +180,12 @@ public class DirectoryController : ControllerBase
                 IsVerified = u.directory_publication_status == "verified"
             }).FirstOrDefaultAsync();
 
+        if (profile != null)
+        {
+            var tenantId = await _context.users.AsNoTracking().Where(u => u.id == profile.NutritionistId).Select(u => u.tenant_id).FirstOrDefaultAsync();
+            profile.CanAcceptAppointments = await HasActiveLicenseAsync(tenantId);
+        }
+
         if (profile == null)
             return NotFound();
 
@@ -182,6 +203,125 @@ public class DirectoryController : ControllerBase
             + Math.Min(profile.ReviewCount * 2, 10)
             + (profile.AverageRating >= 4.5 ? 20 : profile.AverageRating >= 4.0 ? 10 : 0);
         return Ok(profile);
+    }
+
+    [AllowAnonymous]
+    [EnableRateLimiting("auth")]
+    [HttpPost("professionals/{slug}/interest")]
+    public async Task<IActionResult> SubmitInterest(string slug, [FromBody] PublicDirectoryInterestRequestDto request)
+    {
+        var normalized = slug.Trim().ToLowerInvariant();
+        var fullName = request.FullName?.Trim() ?? string.Empty;
+        var email = request.Email?.Trim().ToLowerInvariant() ?? string.Empty;
+        var phone = request.Phone?.Trim();
+
+        if (fullName.Length is < 2 or > 200)
+            return BadRequest(new { message = "El nombre debe tener entre 2 y 200 caracteres." });
+        if (email.Length > 254 || !new EmailAddressAttribute().IsValid(email))
+            return BadRequest(new { message = "El email no es válido." });
+        if (phone?.Length > 50)
+            return BadRequest(new { message = "El teléfono no puede superar los 50 caracteres." });
+        if (!request.ConsentToContact)
+            return BadRequest(new { message = "Debes aceptar el tratamiento de tus datos para enviar la solicitud de interés." });
+
+        var professional = await _context.users.AsNoTracking()
+            .Where(u => u.archived_at == null && u.role == "nutritionist" &&
+                        u.directory_enabled == true &&
+                        (u.directory_publication_status == "published" || u.directory_publication_status == "verified") &&
+                        u.directory_slug == normalized)
+            .Select(u => new { u.id, u.tenant_id, u.email, u.full_name })
+            .FirstOrDefaultAsync();
+
+        if (professional == null || !professional.tenant_id.HasValue) return NotFound();
+        if (await HasActiveLicenseAsync(professional.tenant_id))
+            return Conflict(new { message = "Este profesional ya puede recibir solicitudes de cita. Actualiza el perfil e inténtalo de nuevo." });
+
+        await _context.Database.ExecuteSqlInterpolatedAsync($@"
+            INSERT INTO public_directory_interests
+                (tenant_id, nutritionist_id, full_name, email, phone)
+            VALUES
+                ({professional.tenant_id.Value}, {professional.id}, {fullName}, {email}, {phone})");
+
+        // El aviso informa de que existe interés, sin incluir datos personales mientras la licencia siga inactiva.
+        if (!string.IsNullOrWhiteSpace(professional.email))
+        {
+            try
+            {
+                await _emailServ.SendEmailAsync(
+                    professional.email,
+                    "Nueva persona interesada en tu perfil de DietoExpress",
+                    "<p>Una persona ha mostrado interés en tu perfil público de DietoExpress.</p>" +
+                    "<p>Por protección de datos, sus datos de contacto permanecerán bloqueados mientras tu licencia no esté activa.</p>" +
+                    "<p>Cuando reactives tu licencia podrás revisar y gestionar las solicitudes pendientes desde DietoExpress.</p>");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "No se pudo enviar el aviso de nueva solicitud de interés al nutricionista {NutritionistId}.", professional.id);
+            }
+        }
+
+        return Ok(new { received = true, message = "Hemos registrado tu interés. Este profesional no puede aceptar citas ahora mismo; no se ha reservado ningún horario." });
+    }
+
+    [Authorize(Policy = "Professional")]
+    [HttpGet("my/interests")]
+    public async Task<IActionResult> GetMyInterests()
+    {
+        if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+            return Unauthorized();
+
+        var professional = await _context.users.AsNoTracking()
+            .Where(u => u.id == userId && u.role == "nutritionist" && u.archived_at == null)
+            .Select(u => new { u.id, u.tenant_id })
+            .FirstOrDefaultAsync();
+        if (professional == null || !professional.tenant_id.HasValue) return Forbid();
+
+        var interestCount = await _context.Database.SqlQueryRaw<long>(
+            @"SELECT COUNT(*) AS ""Value"" FROM public_directory_interests
+              WHERE tenant_id = {0} AND nutritionist_id = {1}",
+            professional.tenant_id.Value, professional.id).SingleAsync();
+
+        if (!await HasActiveLicenseAsync(professional.tenant_id))
+            return Ok(new
+            {
+                canViewDetails = false,
+                count = interestCount,
+                message = "Tienes personas interesadas en tu perfil. Sus datos personales seguirán protegidos hasta que tu licencia esté activa."
+            });
+
+        var interests = await _context.Database.SqlQueryRaw<PublicDirectoryInterestRow>(
+            @"SELECT id AS ""Id"", full_name AS ""FullName"", email AS ""Email"",
+                     phone AS ""Phone"", created_at AS ""CreatedAt"",
+                     viewed_at AS ""ViewedAt""
+              FROM public_directory_interests
+              WHERE tenant_id = {0} AND nutritionist_id = {1}
+              ORDER BY created_at DESC
+              LIMIT 100", professional.tenant_id.Value, professional.id).ToListAsync();
+
+        await _context.Database.ExecuteSqlInterpolatedAsync($@"
+            UPDATE public_directory_interests SET viewed_at = NOW()
+            WHERE tenant_id = {professional.tenant_id.Value} AND nutritionist_id = {professional.id}
+              AND viewed_at IS NULL");
+
+        return Ok(new { canViewDetails = true, count = interestCount, interests });
+    }
+
+    private async Task<bool> HasActiveLicenseAsync(int? tenantId)
+    {
+        if (!tenantId.HasValue) return false;
+        var license = await _licenseService.GetLicenseAsync(tenantId);
+        return license != null && string.Equals(license.Status, "active", StringComparison.OrdinalIgnoreCase)
+            && (!license.ExpiresAt.HasValue || license.ExpiresAt.Value > DateTime.UtcNow);
+    }
+
+    private sealed class PublicDirectoryInterestRow
+    {
+        public long Id { get; set; }
+        public string FullName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string? Phone { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime? ViewedAt { get; set; }
     }
 
     [AllowAnonymous]
@@ -223,6 +363,8 @@ public class DirectoryController : ControllerBase
 
         if (professional == null || !professional.tenant_id.HasValue)
             return NotFound();
+        if (!await HasActiveLicenseAsync(professional.tenant_id))
+            return Conflict(new { message = "Este profesional no puede aceptar citas en este momento. Puedes enviar una solicitud de interés desde su perfil." });
         if (requestedModality == "online" && professional.online_consultations != true)
             return BadRequest(new { message = "Este profesional no tiene habilitadas las consultas online." });
 
@@ -476,6 +618,8 @@ public class DirectoryController : ControllerBase
 
         if (professional == null || !professional.tenant_id.HasValue)
             return NotFound();
+        if (!await HasActiveLicenseAsync(professional.tenant_id))
+            return Ok(Array.Empty<AppointmentSlotDto>());
 
         var availability = await _context.nutritionist_availability.AsNoTracking()
             .Where(a => a.tenant_id == professional.tenant_id.Value &&

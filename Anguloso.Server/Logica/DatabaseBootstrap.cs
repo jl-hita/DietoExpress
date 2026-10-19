@@ -536,6 +536,25 @@ CREATE INDEX IF NOT EXISTS idx_patient_push_deliveries_status
                 CREATE INDEX IF NOT EXISTS idx_nutritionist_availability_lookup
                     ON nutritionist_availability(tenant_id, nutritionist_id, day_of_week, is_active);
 
+                -- Solicitudes de interés: los datos personales solo se entregan al profesional cuando su licencia esté activa.
+                CREATE TABLE IF NOT EXISTS public_directory_interests (
+                    id BIGSERIAL PRIMARY KEY,
+                    tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                    nutritionist_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    full_name VARCHAR(200) NOT NULL,
+                    email VARCHAR(254) NOT NULL,
+                    phone VARCHAR(50),
+                    message VARCHAR(500),
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    notified_at TIMESTAMPTZ,
+                    viewed_at TIMESTAMPTZ,
+                    consent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    CONSTRAINT ck_public_directory_interests_name CHECK (char_length(trim(full_name)) >= 2),
+                    CONSTRAINT ck_public_directory_interests_email CHECK (char_length(trim(email)) >= 3)
+                );
+                CREATE INDEX IF NOT EXISTS idx_public_directory_interests_nutritionist_created
+                    ON public_directory_interests(nutritionist_id, created_at DESC);
+
                 CREATE TABLE IF NOT EXISTS public_funnel_events (
     id BIGSERIAL PRIMARY KEY,
     event_name VARCHAR(40) NOT NULL,
@@ -2926,7 +2945,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                     'diets','client_diets','diet_days','meals','meal_items','recipes','recipe_items',
                     'medical_history','digestive_health','food_preferences','lifestyle_history','config',
                     'external_api_usage','patient_conversations','patient_messages','audit_logs',
-                    'public_funnel_events','patient_appointments','nutritionist_availability',
+                    'public_funnel_events','public_directory_interests','patient_appointments','nutritionist_availability',
                     'document_templates','patient_documents','patient_document_events',
                     'subscription_plans','subscription_plan_features','subscriptions','subscription_events',
                     'client_nutritionist_assignments','automation_events','automation_jobs',

@@ -90,7 +90,7 @@
         <span *ngIf="item.onlineConsultations" class="badge">Consulta online</span>
         <span *ngIf="item.isVerified" class="badge verified">Perfil verificado</span>
         <p *ngIf="item.specialtyList.length" class="specialty-tags"><span *ngFor="let specialty of item.specialtyList">{{ specialty }}</span></p>
-        <p class="profile-quality">Perfil {{ item.profileCompleteness }}% completo · {{ item.availableRuleCount ? "Agenda activa" : "Sin agenda publicada" }}</p>
+        <p class="profile-quality">Perfil {{ item.profileCompleteness }}% completo · {{ !item.canAcceptAppointments ? "No acepta citas temporalmente" : (item.availableRuleCount ? "Agenda activa" : "Sin agenda publicada") }}</p>
         <p *ngIf="item.reviewCount" class="profile-rating">★ {{ item.averageRating.toFixed(1) }}/5 · {{ item.reviewCount }} valoración{{ item.reviewCount === 1 ? '' : 'es' }}</p>
         <a mat-button [routerLink]="['/nutricionistas', item.slug]" (click)="trackProfileClick(item.slug)">Ver perfil y disponibilidad</a>
       </div>
@@ -125,7 +125,37 @@
       </article>
     </section>
 
-    <section class="availability" aria-labelledby="availability-title">
+    <section *ngIf="!profile.canAcceptAppointments" class="availability" aria-labelledby="interest-title">
+      <h3 id="interest-title">Este profesional no acepta citas temporalmente</h3>
+      <p class="booking-note">Su licencia no está activa en este momento. No puedes reservar una cita ahora. Si quieres, puedes dejar tus datos para que DietoExpress le avise de tu interés; el profesional no podrá ver tus datos personales hasta que reactive su licencia. No se está reservando ningún horario.</p>
+      <form class="booking-form" (ngSubmit)="submitInterest()">
+        <h4>Dejar una solicitud de interés</h4>
+        <div class="field">
+          <label for="interest-name">Nombre completo</label>
+          <input id="interest-name" name="interestName" type="text" maxlength="200" [(ngModel)]="bookingFullName" required autocomplete="name" />
+        </div>
+        <div class="field">
+          <label for="interest-email">Email</label>
+          <input id="interest-email" name="interestEmail" type="email" maxlength="254" [(ngModel)]="bookingEmail" required autocomplete="email" />
+        </div>
+        <div class="field">
+          <label for="interest-phone">Teléfono <span>(opcional)</span></label>
+          <input id="interest-phone" name="interestPhone" type="tel" maxlength="50" [(ngModel)]="bookingPhone" autocomplete="tel" />
+        </div>
+        <label class="filter-option">
+          <input type="checkbox" name="interestConsent" [(ngModel)]="interestConsent" required />
+          <span class="custom-check">✓</span>
+          <span>Autorizo a DietoExpress a conservar estos datos y comunicárselos a este profesional cuando pueda atender solicitudes, para que contacte conmigo.</span>
+        </label>
+        <p *ngIf="bookingError" class="status error" role="alert" aria-live="assertive">{{ bookingError }}</p>
+        <p *ngIf="bookingSuccess" class="booking-success" role="status">{{ bookingSuccess }}</p>
+        <div class="booking-actions">
+          <button mat-flat-button type="submit" [disabled]="bookingSubmitting || !interestConsent">{{ bookingSubmitting ? 'Enviando...' : 'Avisarme si puede atenderme' }}</button>
+        </div>
+      </form>
+    </section>
+
+    <section *ngIf="profile.canAcceptAppointments" class="availability" aria-labelledby="availability-title">
       <h3 id="availability-title">Próximos horarios disponibles</h3>
       <p *ngIf="availabilityLoading" class="status" role="status" aria-live="polite">Consultando disponibilidad...</p>
       <p *ngIf="availabilityError" class="status error" role="alert">{{ availabilityError }}</p>
