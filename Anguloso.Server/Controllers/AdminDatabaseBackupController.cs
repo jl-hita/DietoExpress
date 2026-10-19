@@ -21,6 +21,7 @@ public sealed class AdminDatabaseBackupController : ControllerBase
     {
         try { return Ok(new { configured = true, items = await _backups.ListDriveAsync(ct) }); }
         catch (InvalidOperationException ex) { return Ok(new { configured = false, items = Array.Empty<DriveDatabaseBackupInfo>(), error = ex.Message }); }
+        catch (TimeoutException ex) { return Problem(title: "Google Drive no ha respondido a tiempo", detail: ex.Message, statusCode: StatusCodes.Status503ServiceUnavailable); }
     }
 
     [HttpPost("drive/{archiveName}/restore")]
