@@ -536,6 +536,24 @@ CREATE INDEX IF NOT EXISTS idx_patient_push_deliveries_status
                 CREATE INDEX IF NOT EXISTS idx_nutritionist_availability_lookup
                     ON nutritionist_availability(tenant_id, nutritionist_id, day_of_week, is_active);
 
+                -- Solicitudes de interés: los datos personales solo se entregan al profesional cuando su licencia esté activa.
+                CREATE TABLE IF NOT EXISTS public_directory_interests (
+                    id BIGSERIAL PRIMARY KEY,
+                    tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                    nutritionist_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    full_name VARCHAR(200) NOT NULL,
+                    email VARCHAR(254) NOT NULL,
+                    phone VARCHAR(50),
+                    message VARCHAR(500),
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    notified_at TIMESTAMPTZ,
+                    viewed_at TIMESTAMPTZ,
+                    CONSTRAINT ck_public_directory_interests_name CHECK (char_length(trim(full_name)) >= 2),
+                    CONSTRAINT ck_public_directory_interests_email CHECK (char_length(trim(email)) >= 3)
+                );
+                CREATE INDEX IF NOT EXISTS idx_public_directory_interests_nutritionist_created
+                    ON public_directory_interests(nutritionist_id, created_at DESC);
+
                 CREATE TABLE IF NOT EXISTS public_funnel_events (
     id BIGSERIAL PRIMARY KEY,
     event_name VARCHAR(40) NOT NULL,
