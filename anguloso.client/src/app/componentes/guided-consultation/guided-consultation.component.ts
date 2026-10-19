@@ -76,6 +76,20 @@ interface GuidedConsultationResponse {
         </aside>
 
         <main class="step-content">
+          <section class="card" *ngIf="currentStep === 'anamnesis'">
+            <div class="card-title"><mat-icon>clinical_notes</mat-icon><div><h2>Anamnesis y toma de datos inicial</h2><p>Primer paso de la primera consulta: conocer la situación clínica, los antecedentes y el contexto del paciente antes de definir objetivos o dieta.</p></div></div>
+            <div class="mode-banner"><mat-icon>medical_information</mat-icon><div><strong>Revisión clínica inicial</strong><span>Comprueba antecedentes y patologías, medicación y suplementos, alergias e intolerancias, restricciones alimentarias, síntomas digestivos, historial ponderal, hábitos, actividad física y expectativas. Registra solo la información pertinente y confirmada con el paciente.</span></div></div>
+            <div class="form-grid">
+              <label>Datos de anamnesis y toma de datos
+                <textarea rows="10" [(ngModel)]="anamnesisText" (blur)="saveClinicalProgress()" placeholder="Motivo de consulta; antecedentes y patologías; medicación/suplementos; alergias e intolerancias; síntomas; historial de peso; hábitos y horarios; actividad física; contexto y barreras; otra información relevante…"></textarea>
+                <small>Este registro queda guardado en el progreso de la consulta. Los datos identificativos y la documentación del paciente se gestionan desde su ficha.</small>
+              </label>
+            </div>
+            <div class="actions">
+              <button mat-stroked-button type="button" (click)="openPatient()"><mat-icon>folder_open</mat-icon> Abrir ficha y documentación</button>
+            </div>
+          </section>
+
           <section class="card" *ngIf="currentStep === 'summary'">
             <div class="card-title"><mat-icon>person</mat-icon><div><h2>{{ isFirstConsultation ? 'Preparación de la primera consulta' : 'Resumen del seguimiento' }}</h2><p>{{ isFirstConsultation ? 'Contexto inicial para establecer la línea de base y los objetivos del paciente.' : 'Información disponible antes de empezar la revisión clínica.' }}</p></div></div>
             <div class="mode-banner" [class.followup]="!isFirstConsultation">
@@ -295,10 +309,10 @@ interface GuidedConsultationResponse {
 
           <footer class="navigation">
             <button mat-stroked-button type="button" (click)="previousStep()" [disabled]="stepIndex === 0"><mat-icon>arrow_back</mat-icon> Anterior</button>
-            <button mat-flat-button color="primary" type="button" (click)="nextStep()" *ngIf="stepIndex < visibleSteps.length - 1">
+            <button mat-flat-button color="primary" type="button" (click)="nextStep()" *ngIf="stepIndex < visibleSteps.length - 1" [disabled]="savingProgress">
               {{ isCompleted(currentStep) ? 'Siguiente' : 'Marcar paso y continuar' }} <mat-icon>arrow_forward</mat-icon>
             </button>
-            <button mat-stroked-button type="button" *ngIf="stepIndex === visibleSteps.length - 1" (click)="goToStep('summary')"><mat-icon>replay</mat-icon> Volver al resumen</button>
+            <button mat-stroked-button type="button" *ngIf="stepIndex === visibleSteps.length - 1" (click)="goToStep(visibleSteps[0].key)"><mat-icon>replay</mat-icon> Volver al inicio</button>
           </footer>
         </main>
       </div>
@@ -329,6 +343,8 @@ export class GuidedConsultationComponent implements OnInit {
   private readonly followupHistoryState = signal<PatientCheckin[]>([]);
   get followupHistory(): PatientCheckin[] { return this.followupHistoryState(); }
   set followupHistory(value: PatientCheckin[]) { this.followupHistoryState.set(value); }
+  anamnesisText = '';
+  savingProgress = false;
   goalsText = '';
   educationText = '';
   clinicalNotes = '';
@@ -363,9 +379,14 @@ export class GuidedConsultationComponent implements OnInit {
   slotDuration = 30;
   quickMode = false;
   get visibleSteps(): ConsultationStep[] {
-    if (!this.quickMode) return this.steps;
-    const quickKeys = new Set(['summary', 'goals', 'diet', 'tasks', 'close']);
-    return this.steps.filter(step => quickKeys.has(step.key));
+    const firstConsultationOrder = ['anamnesis', 'evolution', 'checkin', 'goals', 'diet', 'education', 'tasks', 'next_appointment', 'close'];
+    const followUpOrder = ['summary', 'evolution', 'checkin', 'goals', 'diet', 'education', 'tasks', 'next_appointment', 'close'];
+    const quickFirstOrder = ['anamnesis', 'goals', 'diet', 'tasks', 'close'];
+    const quickFollowUpOrder = ['summary', 'goals', 'diet', 'tasks', 'close'];
+    const order = this.quickMode
+      ? (this.isFirstConsultation ? quickFirstOrder : quickFollowUpOrder)
+      : (this.isFirstConsultation ? firstConsultationOrder : followUpOrder);
+    return order.map(key => this.steps.find(step => step.key === key)).filter((step): step is ConsultationStep => !!step);
   }
   selectedSlot: string | null = null;
   private readonly slotsLoadingState = signal(false);
@@ -420,7 +441,8 @@ export class GuidedConsultationComponent implements OnInit {
   }
 
   readonly steps: ConsultationStep[] = [
-    { key:'summary', label:'Resumen', icon:'person', description:'Contexto del paciente' },
+    { key:'anamnesis', label:'Anamnesis', icon:'clinical_notes', description:'Datos e historia inicial' },
+    { key:'summary', label:'Resumen', icon:'person', description:'Contexto previo del seguimiento' },
     { key:'evolution', label:'Evolución', icon:'show_chart', description:'Cambios recientes' },
     { key:'checkin', label:'Check-in', icon:'fact_check', description:'Adherencia y señales' },
     { key:'goals', label:'Objetivos', icon:'flag', description:'Cambios y objetivos' },
@@ -454,17 +476,23 @@ export class GuidedConsultationComponent implements OnInit {
         this.previousAppointment = value.previousAppointment ?? null;
         this.preConsultationTasks = value.openTasks ?? [];
         if (this.consultation) {
-          this.currentStep = this.consultation.currentStep || 'summary';
-          this.stepIndex = this.steps.findIndex(x => x.key === this.currentStep);
-          if (this.stepIndex < 0) this.stepIndex = 0;
-          this.currentStep = this.steps[this.stepIndex].key;
+          const storedStep = this.consultation.currentStep || 'summary';
+          this.currentStep = this.isFirstConsultation && storedStep === 'summary' && !(this.consultation.completedSteps || []).includes('summary')
+            ? 'anamnesis'
+            : storedStep;
+          this.stepIndex = Math.max(0, this.visibleSteps.findIndex(x => x.key === this.currentStep));
+          this.currentStep = this.visibleSteps[this.stepIndex]?.key || this.visibleSteps[0].key;
           this.loading = false;
+          if (this.currentStep !== storedStep) this.saveProgress();
           if (this.currentStep === 'next_appointment') this.loadConsultationSlots();
         } else {
           this.portalService.startGuidedConsultation(appointmentId, value.suggestedConsultationType).subscribe({
             next: consultation => {
               this.consultation = consultation;
+              this.currentStep = this.isFirstConsultation ? 'anamnesis' : (consultation.currentStep || 'summary');
+              this.stepIndex = Math.max(0, this.visibleSteps.findIndex(x => x.key === this.currentStep));
               this.loading = false;
+              if (this.currentStep !== consultation.currentStep) this.saveProgress();
             },
             error: err => {
               this.loading = false;
@@ -483,6 +511,7 @@ export class GuidedConsultationComponent implements OnInit {
   loadClinicalProgress(): void {
     const progress = this.consultation?.progress;
     if (!progress || typeof progress !== 'object') return;
+    this.anamnesisText = typeof progress.anamnesis === 'string' ? progress.anamnesis : '';
     this.goalsText = typeof progress.goals === 'string' ? progress.goals : '';
     this.educationText = typeof progress.education === 'string' ? progress.education : '';
     this.clinicalNotes = typeof progress.clinicalNotes === 'string' ? progress.clinicalNotes : '';
@@ -530,6 +559,7 @@ export class GuidedConsultationComponent implements OnInit {
   private buildClinicalProgress(): Record<string, unknown> {
     return {
       ...(this.consultation?.progress || {}),
+      anamnesis: this.anamnesisText.trim(),
       goals: this.goalsText.trim(),
       education: this.educationText.trim(),
       clinicalNotes: this.clinicalNotes.trim(),
@@ -576,7 +606,7 @@ export class GuidedConsultationComponent implements OnInit {
   toggleQuickMode(): void {
     this.quickMode = !this.quickMode;
     if (!this.visibleSteps.some(step => step.key === this.currentStep)) {
-      this.currentStep = 'summary';
+      this.currentStep = this.visibleSteps[0]?.key || 'summary';
       this.stepIndex = 0;
       this.saveProgress();
     } else {
@@ -614,7 +644,13 @@ export class GuidedConsultationComponent implements OnInit {
   }
 
   private persistProgress(step: string, completedSteps: string[]): void {
-    if (!this.consultation || !this.data) return;
+    if (!this.consultation || !this.data || this.savingProgress) return;
+    const previousStep = this.currentStep;
+    this.savingProgress = true;
+    // Navegación optimista: la interfaz responde inmediatamente, pero revierte el paso
+    // si el servidor rechaza el guardado y muestra el error al profesional.
+    this.currentStep = step;
+    this.stepIndex = Math.max(0, this.visibleSteps.findIndex(x => x.key === step));
     this.portalService.updateGuidedConsultationProgress(this.data.appointment.id, {
       currentStep: step,
       completedSteps,
@@ -622,10 +658,17 @@ export class GuidedConsultationComponent implements OnInit {
     }).subscribe({
       next: value => {
         this.consultation = value;
-        this.currentStep = value.currentStep;
-        this.stepIndex = Math.max(0, this.visibleSteps.findIndex(x => x.key === value.currentStep));
+        const persistedStep = this.visibleSteps.some(x => x.key === value.currentStep) ? value.currentStep : step;
+        this.currentStep = persistedStep;
+        this.stepIndex = Math.max(0, this.visibleSteps.findIndex(x => x.key === persistedStep));
+        this.savingProgress = false;
       },
-      error: () => this.snack.open('No se ha podido guardar el progreso de la consulta.', 'Cerrar', { duration: 3000 })
+      error: err => {
+        this.currentStep = previousStep;
+        this.stepIndex = Math.max(0, this.visibleSteps.findIndex(x => x.key === previousStep));
+        this.savingProgress = false;
+        this.snack.open(err?.error?.message || 'No se ha podido guardar el progreso. El paso anterior se ha mantenido.', 'Cerrar', { duration: 4000 });
+      }
     });
   }
 

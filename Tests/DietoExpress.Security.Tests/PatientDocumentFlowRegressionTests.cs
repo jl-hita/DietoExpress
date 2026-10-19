@@ -371,6 +371,21 @@ public sealed class PatientDocumentFlowRegressionTests
     }
 
     [Fact]
+    public void FirstGuidedConsultationMustStartWithAnamnesisAndPersistItsProgress()
+    {
+        var client = ReadServerSource("anguloso.client/src/app/componentes/guided-consultation/guided-consultation.component.ts");
+        var server = ReadServerSource("Anguloso.Server/Controllers/ProfessionalConsultationsController.cs");
+
+        Assert.Contains("firstConsultationOrder = ['anamnesis'", client);
+        Assert.Contains("currentStep === 'anamnesis'", client);
+        Assert.Contains("anamnesis: this.anamnesisText.trim()", client);
+        Assert.Contains("this.currentStep = this.isFirstConsultation ? 'anamnesis'", client);
+        Assert.Contains("\"anamnesis\"", server);
+        Assert.Contains("consultationType == \"first\" ? \"anamnesis\" : \"summary\"", server);
+        Assert.Contains("No se ha podido guardar el progreso", client);
+    }
+
+    [Fact]
     public void GuidedConsultationMustOfferQuickModeAndPreserveQueuedAutosaves()
     {
         var source = ReadServerSource("anguloso.client/src/app/componentes/guided-consultation/guided-consultation.component.ts");
