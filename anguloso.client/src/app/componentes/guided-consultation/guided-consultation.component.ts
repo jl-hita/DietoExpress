@@ -379,6 +379,19 @@ interface GuidedConsultationResponse {
               <mat-icon>{{ completing ? 'hourglass_top' : 'check' }}</mat-icon>
               {{ completing ? 'Cerrando…' : 'Cerrar consulta' }}
             </button>
+            <div class="quick-form" *ngIf="consultation?.status === 'completed'">
+              <h3>Consulta finalizada</h3>
+              <p>Entrega el informe y facilita el acceso al portal sin salir de esta pantalla.</p>
+              <div class="actions">
+                <button mat-flat-button color="primary" type="button" (click)="downloadConsultationPdf()" [disabled]="downloadingConsultationPdf">
+                  <mat-icon>picture_as_pdf</mat-icon>{{ downloadingConsultationPdf ? 'Generando PDF…' : 'Descargar informe PDF' }}
+                </button>
+                <button mat-stroked-button type="button" (click)="sendPortalAccessLink()" [disabled]="sendingPortalLink || !clinicalProfile?.email">
+                  <mat-icon>mail</mat-icon>{{ sendingPortalLink ? 'Enviando enlace…' : 'Enviar acceso al portal por email' }}
+                </button>
+              </div>
+              <small *ngIf="!clinicalProfile?.email">Añade un email a la ficha del paciente para poder enviarle el enlace.</small>
+            </div>
           </section>
 
           <footer class="navigation">
@@ -438,6 +451,8 @@ export class GuidedConsultationComponent implements OnInit {
   baselineBodyFat: number | null = null;
   baselineNotes = '';
   savingBaseline = false;
+  downloadingConsultationPdf = false;
+  sendingPortalLink = false;
   savingProgress = false;
   goalsText = '';
   educationText = '';
@@ -1022,6 +1037,45 @@ export class GuidedConsultationComponent implements OnInit {
       error: err => {
         this.creatingDiet = false;
         this.snack.open(err?.error?.message || 'No se ha podido crear la dieta.', 'Cerrar', { duration: 3500 });
+      }
+    });
+  }
+
+  downloadConsultationPdf(): void {
+    const clientId = this.data?.appointment.clientId;
+    if (!clientId || this.downloadingConsultationPdf) return;
+    const date = (this.data?.appointment.startsAt || new Date().toISOString()).slice(0, 10);
+    this.downloadingConsultationPdf = true;
+    this.clientService.downloadConsultationPdf(clientId, date).subscribe({
+      next: blob => {
+        this.downloadingConsultationPdf = false;
+        const url = window.URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        const clientName = (this.data?.appointment.clientName || 'Paciente').replace(/\\s+/g, '_');
+        anchor.download = `Informe_Consulta_${clientName}_${date}.pdf`;
+        anchor.click();
+        window.URL.revokeObjectURL(url);
+      },
+      error: err => {
+        this.downloadingConsultationPdf = false;
+        this.snack.open(err?.error?.message || 'No se ha podido generar el PDF de la consulta.', 'Cerrar', { duration: 4000 });
+      }
+    });
+  }
+
+  sendPortalAccessLink(): void {
+    const clientId = this.data?.appointment.clientId;
+    if (!clientId || this.sendingPortalLink || !this.clinicalProfile?.email) return;
+    this.sendingPortalLink = true;
+    this.portalService.sendClientPortalAccessLink(clientId).subscribe({
+      next: result => {
+        this.sendingPortalLink = false;
+        this.snack.open(result.message || 'Enlace del portal enviado al paciente.', 'Cerrar', { duration: 3500 });
+      },
+      error: err => {
+        this.sendingPortalLink = false;
+        this.snack.open(err?.error?.message || 'No se ha podido enviar el enlace al portal.', 'Cerrar', { duration: 4500 });
       }
     });
   }
