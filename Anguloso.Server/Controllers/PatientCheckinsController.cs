@@ -21,6 +21,19 @@ public class PatientCheckinsController : ControllerBase
         _automationService = automationService;
     }
 
+    [HttpGet("eligibility")]
+    public async Task<IActionResult> GetEligibility()
+    {
+        if (!TryGetClientId(out var clientId)) return Unauthorized();
+        var eligible = await _db.patient_appointments.AsNoTracking()
+            .AnyAsync(a => a.client_id == clientId && a.status == "completed");
+        return Ok(new
+        {
+            eligible,
+            message = eligible ? null : "La revisión semanal estará disponible después de tu primera consulta."
+        });
+    }
+
     [HttpGet("current")]
     public async Task<ActionResult<object>> GetCurrent()
     {
@@ -66,13 +79,18 @@ public class PatientCheckinsController : ControllerBase
         var tenantId = client.tenant_id ?? client.UserTenantId;
         if (!tenantId.HasValue) return BadRequest(new { message = "El paciente no tiene una organización asociada." });
 
+        var hasCompletedConsultation = await _db.patient_appointments.AsNoTracking()
+            .AnyAsync(a => a.client_id == clientId && a.tenant_id == tenantId.Value && a.status == "completed");
+        if (!hasCompletedConsultation)
+            return Conflict(new { message = "La revisión semanal estará disponible después de tu primera consulta." });
+
         var weekStart = GetWeekStart(DateOnly.FromDateTime(DateTime.UtcNow));
-        var item = await _db.patient_checkins.SingleOrDefaultAsync(x => x.client_id == clientId && x.week_start == weekStart);
-        if (item == null)
-        {
-            item = new patient_checkins { client_id = clientId, tenant_id = tenantId.Value, week_start = weekStart };
-            _db.patient_checkins.Add(item);
-        }
+        var alreadySubmitted = await _db.patient_checkins.AsNoTracking()
+            .AnyAsync(x => x.client_id == clientId && x.tenant_id == tenantId.Value && x.week_start == weekStart);
+        if (alreadySubmitted)
+            return Conflict(new { message = "Ya has enviado tu revisión semanal. Podrás rellenarla de nuevo la próxima semana." });
+
+        var item = new patient_checkins { client_id = clientId, tenant_id = tenantId.Value, week_start = weekStart };
         item.submitted_at = DateTime.UtcNow;
         item.weight = request.weight;
         item.adherence = request.adherence;
@@ -83,7 +101,17 @@ public class PatientCheckinsController : ControllerBase
         item.training = request.training;
         item.difficulties = request.difficulties?.Trim();
         item.notes = request.notes?.Trim();
-        await _db.SaveChangesAsync();
+        _db.patient_checkins.Add(item);
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateException)
+        {
+            // La restricción única (cliente, semana) protege también frente a dos envíos simultáneos.
+            _db.Entry(item).State = EntityState.Detached;
+            return Conflict(new { message = "Ya has enviado tu revisión semanal. Podrás rellenarla de nuevo la próxima semana." });
+        }
 
         var nutritionistId = await _db.client_nutritionist_assignments.AsNoTracking()
             .Where(a => a.client_id == clientId && a.is_active && a.nutritionist.tenant_id == tenantId.Value)
