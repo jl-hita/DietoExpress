@@ -144,3 +144,6 @@ table {
     font-size: 13px;
   }
 }
+
+
+.professional-push-banner{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;padding:8px 16px;background:#eef6ff;color:#17365d;font-size:13px;border-bottom:1px solid #c9def5}.professional-push-banner button{border:0;border-radius:8px;padding:7px 12px;background:#1d4ed8;color:#fff;font-weight:600;cursor:pointer}.professional-push-banner button:disabled{opacity:.6;cursor:wait}.professional-push-banner small{flex-basis:100%;text-align:center}

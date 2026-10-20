@@ -177,6 +177,18 @@ CREATE TABLE IF NOT EXISTS patient_push_subscriptions (
 );
 CREATE INDEX IF NOT EXISTS idx_patient_push_subscriptions_client
   ON patient_push_subscriptions(client_id);
+CREATE TABLE IF NOT EXISTS professional_push_subscriptions (
+  id BIGSERIAL PRIMARY KEY,
+  tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  endpoint VARCHAR(2000) NOT NULL UNIQUE,
+  p256dh VARCHAR(500) NOT NULL,
+  auth VARCHAR(500) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_professional_push_subscriptions_user
+  ON professional_push_subscriptions(tenant_id,user_id);
 CREATE TABLE IF NOT EXISTS patient_push_deliveries (
   id BIGSERIAL PRIMARY KEY,
   tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -521,6 +533,21 @@ CREATE INDEX IF NOT EXISTS idx_patient_push_deliveries_status
                     ON patient_appointments(tenant_id, nutritionist_id, starts_at);
                 CREATE INDEX IF NOT EXISTS idx_patient_appointments_client_starts
                     ON patient_appointments(client_id, starts_at DESC);
+
+                CREATE TABLE IF NOT EXISTS appointment_reminder_deliveries (
+                  appointment_id INTEGER PRIMARY KEY REFERENCES patient_appointments(id) ON DELETE CASCADE,
+                  tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                  client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                  nutritionist_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                  scheduled_for TIMESTAMPTZ NOT NULL,
+                  status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                  last_error TEXT,
+                  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                  completed_at TIMESTAMPTZ
+                );
+                CREATE INDEX IF NOT EXISTS idx_appointment_reminder_deliveries_status
+                  ON appointment_reminder_deliveries(status,scheduled_for);
 
                 CREATE TABLE IF NOT EXISTS nutritionist_availability (
                     id SERIAL PRIMARY KEY,
@@ -3128,7 +3155,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
             FROM (
                 SELECT unnest(ARRAY[
                     'tenants','users','clients','patient_notifications','patient_push_subscriptions',
-                    'patient_push_deliveries','biometrics','food_exchange_groups','food_sources','foods',
+                    'professional_push_subscriptions','appointment_reminder_deliveries','patient_push_deliveries','biometrics','food_exchange_groups','food_sources','foods',
                     'diets','client_diets','diet_days','meals','meal_items','recipes','recipe_items',
                     'medical_history','digestive_health','food_preferences','lifestyle_history','config',
                     'external_api_usage','patient_conversations','patient_messages','audit_logs',
