@@ -750,6 +750,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
 ");
             UpgradeTrainingPeriodizationSchemaV1(context, logger);
             UpgradeTrainingPeriodizationSchemaV2(context, logger);
+            UpgradeTrainingPeriodizationSchemaV3(context, logger);
 
             VerifyCurrentSchema(context, logger);
 
@@ -3056,6 +3057,52 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
             INSERT INTO schema_migrations(id) VALUES ('training-periodization-v2-management-mode') ON CONFLICT (id) DO NOTHING;
         ");
         logger.LogInformation("Esquema de gestión de periodización deportiva actualizado.");
+    }
+
+
+    /// <summary>Optional mesocycle/microcycle hierarchy for structured training plans.</summary>
+    public static void UpgradeTrainingPeriodizationSchemaV3(angulosodbContext context, ILogger logger)
+    {
+        if (context.Database.SqlQueryRaw<bool>("SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'training-periodization-v3-cycles') AS \\"Value\\"").Single())
+            return;
+
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS training_mesocycles (
+                id SERIAL PRIMARY KEY,
+                plan_id INTEGER NOT NULL REFERENCES training_plans(id) ON DELETE CASCADE,
+                name VARCHAR(160) NOT NULL,
+                sequence_number INTEGER NOT NULL,
+                start_date DATE NOT NULL,
+                end_date DATE NULL,
+                objective VARCHAR(500) NULL,
+                notes TEXT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT ck_training_mesocycles_sequence CHECK (sequence_number > 0),
+                CONSTRAINT ck_training_mesocycles_dates CHECK (end_date IS NULL OR end_date >= start_date),
+                CONSTRAINT uq_training_mesocycles_plan_sequence UNIQUE(plan_id, sequence_number)
+            );
+            CREATE INDEX IF NOT EXISTS idx_training_mesocycles_plan_dates ON training_mesocycles(plan_id, start_date, sequence_number);
+
+            CREATE TABLE IF NOT EXISTS training_microcycles (
+                id SERIAL PRIMARY KEY,
+                mesocycle_id INTEGER NOT NULL REFERENCES training_mesocycles(id) ON DELETE CASCADE,
+                name VARCHAR(160) NOT NULL,
+                sequence_number INTEGER NOT NULL,
+                start_date DATE NOT NULL,
+                end_date DATE NULL,
+                focus VARCHAR(500) NULL,
+                notes TEXT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT ck_training_microcycles_sequence CHECK (sequence_number > 0),
+                CONSTRAINT ck_training_microcycles_dates CHECK (end_date IS NULL OR end_date >= start_date),
+                CONSTRAINT uq_training_microcycles_mesocycle_sequence UNIQUE(mesocycle_id, sequence_number)
+            );
+            CREATE INDEX IF NOT EXISTS idx_training_microcycles_meso_dates ON training_microcycles(mesocycle_id, start_date, sequence_number);
+            INSERT INTO schema_migrations(id) VALUES ('training-periodization-v3-cycles') ON CONFLICT (id) DO NOTHING;
+        ");
+        logger.LogInformation("Jerarquía de mesociclos y microciclos de entrenamiento inicializada.");
     }
 
     private static void VerifyCurrentSchema(angulosodbContext context, ILogger logger)
