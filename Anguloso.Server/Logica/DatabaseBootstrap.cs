@@ -751,6 +751,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
             UpgradeTrainingPeriodizationSchemaV1(context, logger);
             UpgradeTrainingPeriodizationSchemaV2(context, logger);
             UpgradeTrainingPeriodizationSchemaV3(context, logger);
+            UpgradeTrainingPeriodizationSchemaV4(context, logger);
 
             VerifyCurrentSchema(context, logger);
 
@@ -3103,6 +3104,19 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
             INSERT INTO schema_migrations(id) VALUES ('training-periodization-v3-cycles') ON CONFLICT (id) DO NOTHING;
         ");
         logger.LogInformation("Jerarquía de mesociclos y microciclos de entrenamiento inicializada.");
+    }
+
+    /// <summary>Adds richer exercise prescriptions without changing existing sessions.</summary>
+    public static void UpgradeTrainingPeriodizationSchemaV4(angulosodbContext context, ILogger logger)
+    {
+        if (context.Database.SqlQueryRaw<bool>("SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'training-periodization-v4-exercise-prescription') AS ""Value""").Single())
+            return;
+
+        context.Database.ExecuteSqlRaw(@"
+            ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS exercise_prescription TEXT NULL;
+            INSERT INTO schema_migrations(id) VALUES ('training-periodization-v4-exercise-prescription') ON CONFLICT (id) DO NOTHING;
+        ");
+        logger.LogInformation("Prescripción detallada de ejercicios de entrenamiento inicializada.");
     }
 
     private static void VerifyCurrentSchema(angulosodbContext context, ILogger logger)
