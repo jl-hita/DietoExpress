@@ -88,8 +88,7 @@ public sealed class ProfessionalPushService
         if (subscriptions.Count == 0) return;
         var webPush = new WebPushClient();
         var vapid = new VapidDetails(subject, publicKey, privateKey);
-        var localTime = startsAtUtc.ToString("HH:mm 'UTC'");
-        var json = JsonSerializer.Serialize(new { title = "Cita en 15 minutos", body = $"Tienes una cita con {clientName} a las {localTime}.", url = $"/appointments" });
+        var json = JsonSerializer.Serialize(new { title = "Cita en 15 minutos", body = "Tienes una cita en 15 minutos. Consulta tu agenda.", url = "/appointments" });
         foreach (var item in subscriptions)
         {
             try
