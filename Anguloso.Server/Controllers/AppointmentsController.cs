@@ -19,6 +19,7 @@ public class AppointmentsController : ControllerBase
     private readonly angulosodbContext _context;
     private readonly EmailServ _emailServ;
     private readonly AppointmentEmailService _appointmentEmailService;
+    private readonly PatientPortalEmailService _patientPortalEmailService;
     private readonly NotificationService _notifications;
     private readonly AutomationService _automationService;
     private readonly GoogleCalendarService _googleCalendar;
@@ -28,11 +29,12 @@ public class AppointmentsController : ControllerBase
     private readonly LiveKitVideoOptions _videoOptions;
     private readonly IAuditLogService _audit;
 
-    public AppointmentsController(angulosodbContext context, EmailServ emailServ, AppointmentEmailService appointmentEmailService, NotificationService notifications, AutomationService automationService, GoogleCalendarService googleCalendar, AppointmentConcurrencyService appointmentConcurrency, IVideoMeetingProvider videoMeetings, VideoQuotaService videoQuota, LiveKitVideoOptions videoOptions, IAuditLogService audit)
+    public AppointmentsController(angulosodbContext context, EmailServ emailServ, AppointmentEmailService appointmentEmailService, PatientPortalEmailService patientPortalEmailService, NotificationService notifications, AutomationService automationService, GoogleCalendarService googleCalendar, AppointmentConcurrencyService appointmentConcurrency, IVideoMeetingProvider videoMeetings, VideoQuotaService videoQuota, LiveKitVideoOptions videoOptions, IAuditLogService audit)
     {
         _context = context;
         _emailServ = emailServ;
         _appointmentEmailService = appointmentEmailService;
+        _patientPortalEmailService = patientPortalEmailService;
         _notifications = notifications;
         _automationService = automationService;
         _googleCalendar = googleCalendar;
@@ -620,10 +622,17 @@ public class AppointmentsController : ControllerBase
             {
                 try
                 {
-                    await _emailServ.SendEmailAsync(
-                        appointment.client.email,
+                    var cancellationBody = $"<h2>Hola, {safeName}</h2><p>{safeNutritionist} ha cancelado la cita que tenías prevista para el {dateText}.</p><p>Puedes entrar en tu portal de paciente para consultar tus próximas citas y reservar otro horario disponible.</p>";
+                    var portalEmailResult = await _patientPortalEmailService.SendAsync(
+                        appointment.client_id,
                         "Tu cita ha sido cancelada",
-                        $"<h2>Hola, {safeName}</h2><p>{safeNutritionist} ha cancelado la cita que tenías prevista para el {dateText}.</p><p>Puedes entrar en tu portal de paciente para consultar tus próximas citas y reservar otro horario disponible.</p>");
+                        cancellationBody,
+                        $"appointment:{appointment.id}:cancelled",
+                        HttpContext.RequestAborted,
+                        DateTime.SpecifyKind(appointment.ends_at, DateTimeKind.Utc).AddHours(24));
+                    if (!portalEmailResult.Exito)
+                        HttpContext.RequestServices.GetRequiredService<ILogger<AppointmentsController>>()
+                            .LogWarning("No se pudo enviar el email de cancelación de la cita {AppointmentId}: {Reason}", appointment.id, portalEmailResult.Mensaje);
                 }
                 catch (Exception ex)
                 {
