@@ -109,7 +109,7 @@ export class TrainingPeriodizationComponent implements OnInit {
       this.profile = profile;
       if (!profile) { this.loading = false; return; }
       this.trainingManagementMode = this.readTrainingMode(profile.notes);
-      this.profile.notes = this.cleanTrainingNotes(profile.notes);
+      this.profile = { ...profile, notes: this.cleanTrainingNotes(profile.notes) };
       if (!profile.enabled) { this.loading = false; return; }
       this.http.get<TrainingPlan[]>(`/api/training/clients/${this.clientId}/plans`).subscribe({
         next: plans => { this.plans = plans; this.sessionDrafts = {}; for (const p of plans) this.sessionDrafts[p.id] = { date: new Date().toISOString().slice(0,10), title: '', type: 'general', duration: null }; this.loadSessions(plans); this.loading = false; },
