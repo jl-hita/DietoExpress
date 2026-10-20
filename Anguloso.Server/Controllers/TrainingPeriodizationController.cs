@@ -130,6 +130,7 @@ public sealed class TrainingPeriodizationController : ControllerBase
             LEFT JOIN training_session_records r ON r.session_id = s.id AND r.client_id = f.client_id
             WHERE p.id = @planId AND f.enabled = TRUE
               AND s.scheduled_date >= CURRENT_DATE - INTERVAL '11 weeks'
+              AND s.scheduled_date <= CURRENT_DATE
             GROUP BY date_trunc('week', s.scheduled_date)::date
             ORDER BY week_start
             """, ("planId", planId));
