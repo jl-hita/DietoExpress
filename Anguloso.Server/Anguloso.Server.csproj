@@ -104,10 +104,10 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <!-- Versiones parcheadas para la alerta GHSA-g4vj-cjjj-v7hg. -->
-    <PackageReference Include="NuGet.Packaging" Version="6.12.5">
+    <PackageReference Include="NuGet.Packaging" Version="7.9.0">
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="NuGet.Protocol" Version="6.12.5">
+    <PackageReference Include="NuGet.Protocol" Version="7.9.0">
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
