@@ -108,11 +108,10 @@ test.describe('MVP de periodización deportiva', () => {
     await page.locator(`input[name="sessionDuration${plan.id}"]`).fill('60');
     await page.locator(`input[name="sessionIntensity${plan.id}"]`).fill('RPE 7 - técnica controlada');
     await page.locator(`textarea[name="sessionInstructions${plan.id}"]`).fill('Calentamiento, tres bloques principales y vuelta a la calma.');
-    await page.locator(`textarea[name="sessionExercises${plan.id}"]`).fill('Sentadilla · 3 × 8 · descanso 2 min · RPE 7\\nPeso muerto rumano · 3 × 10 · descanso 90 s');
+    await page.locator(`textarea[name="sessionExercises${plan.id}"]`).fill('Sentadilla · 3 × 8 · descanso 2 min · RPE 7\nPeso muerto rumano · 3 × 10 · descanso 90 s');
     await page.getByRole('button', { name: /Añadir sesión/ }).click();
     await expect(page.locator('.week-session').filter({ hasText: sessionTitle })).toBeVisible();
     await expect(page.locator('.week-summary')).toContainText('60 min');
-    await expect(page.locator('.week-session').filter({ hasText: sessionTitle })).toContainText('Sentadilla · 3 × 8 · descanso 2 min · RPE 7');
     const trendResponse = await api.get(apiUrl(`/api/training/plans/${plan.id}/load-trend`));
     expect(trendResponse.ok(), 'Debe consultar la tendencia de carga del plan').toBeTruthy();
     expect(Array.isArray(await trendResponse.json())).toBe(true);
@@ -121,6 +120,7 @@ test.describe('MVP de periodización deportiva', () => {
     await expect(sessionCard).toBeVisible();
     await expect(sessionCard).toContainText('RPE 7 - técnica controlada');
     await expect(sessionCard).toContainText('Calentamiento, tres bloques principales y vuelta a la calma.');
+    await expect(sessionCard).toContainText('Sentadilla · 3 × 8 · descanso 2 min · RPE 7');
 
     await sessionCard.getByRole('button', { name: 'Editar' }).click();
     await sessionCard.locator('input[name^="editSessionTitle"]').fill('Sesión E2E fuerza editada');
