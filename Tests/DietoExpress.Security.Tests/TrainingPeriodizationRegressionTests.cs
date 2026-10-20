@@ -57,6 +57,7 @@ public sealed class TrainingPeriodizationRegressionTests
         var directoryUi = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "directory", "directory.component.html"));
         var consultation = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "guided-consultation", "guided-consultation.component.ts"));
         var trainingUi = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "training-periodization", "training-periodization.component.ts"));
+        var portalUi = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "patient-portal", "patient-portal.component.ts"));
 
         Assert.Contains("directory_sports_training", userModel);
         Assert.Contains("directory_sports_training BOOLEAN NOT NULL DEFAULT FALSE", bootstrap);
