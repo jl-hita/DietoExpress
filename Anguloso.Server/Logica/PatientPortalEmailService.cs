@@ -52,7 +52,7 @@ public sealed class PatientPortalEmailService
         var safeLink = System.Net.WebUtility.HtmlEncode(accessLink);
         var bodyWithPortalLink = htmlBody +
             $"<p><a href='{safeLink}'>Acceder al portal de paciente</a></p>" +
-            "<p>Este enlace es personal y de un solo uso.</p>";
+            "<p>Este enlace es personal y puedes utilizarlo tantas veces como necesites mientras siga vigente.</p>";
 
         try
         {
