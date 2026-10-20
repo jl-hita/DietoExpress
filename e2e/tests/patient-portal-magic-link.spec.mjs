@@ -43,4 +43,47 @@ test.describe('P0 — acceso al portal mediante enlace mágico', () => {
     await expect(page.locator('.portal-content')).toHaveCount(0);
     await expect(page.locator('app-patient-header')).toHaveCount(0);
   });
+
+  test('el consentimiento comercial permite reintentar, aceptar y retirar la elección', async ({ page }) => {
+    let preferenceReads = 0;
+    const savedChoices = [];
+    await page.route('**/api/**', async route => {
+      const request = route.request();
+      const url = new URL(request.url());
+      if (url.pathname.endsWith('/portal/auth')) {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ clientId: 321, fullName: 'Paciente E2E Ficticio' }) });
+      } else if (url.pathname.endsWith('/portal/profile')) {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 321, fullName: 'Paciente E2E Ficticio', hasActiveDiet: false, clinicName: 'Clínica E2E' }) });
+      } else if (url.pathname.endsWith('/commercial-communications/preferences') && request.method() === 'GET') {
+        preferenceReads++;
+        if (preferenceReads === 1) {
+          await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ message: 'Servicio temporalmente no disponible' }) });
+        } else {
+          await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ emailEnabled: false, hasDecision: false }) });
+        }
+      } else if (url.pathname.endsWith('/commercial-communications/preferences') && request.method() === 'PUT') {
+        savedChoices.push(request.postDataJSON());
+        await route.fulfill({ status: 204, body: '' });
+      } else if (url.pathname.endsWith('/portal/push/vapid-public-key')) {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ publicKey: '' }) });
+      } else {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+      }
+    });
+
+    await page.goto('/patient?token=e2e-consent-retry-token');
+    await expect(page.getByRole('alert')).toContainText('No hemos podido consultar tu preferencia comercial');
+    await page.getByRole('button', { name: 'Reintentar' }).click();
+    await expect(page.getByRole('heading', { name: 'Tu elección sobre comunicaciones comerciales' })).toBeVisible();
+    await page.getByRole('button', { name: 'Aceptar comunicaciones' }).click();
+    await expect(page.getByText('Comunicaciones comerciales:', { exact: false })).toContainText('aceptadas');
+    await expect(page.getByRole('heading', { name: 'Tu elección sobre comunicaciones comerciales' })).toHaveCount(0);
+    expect(savedChoices).toEqual([{ emailEnabled: true }]);
+
+    await page.getByRole('button', { name: 'Cambiar preferencia' }).click();
+    await page.getByLabel('Quiero recibir comunicaciones comerciales por email').uncheck();
+    await page.getByRole('button', { name: 'Guardar preferencia' }).click();
+    await expect(page.getByText('Comunicaciones comerciales:', { exact: false })).toContainText('rechazadas');
+    expect(savedChoices).toEqual([{ emailEnabled: true }, { emailEnabled: false }]);
+  });
 });
