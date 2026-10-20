@@ -10,6 +10,7 @@ El módulo deportivo es **opt-in por cliente**. Los clientes de nutrición no re
 - Objetivos de resistencia, fuerza, hipertrofia, pérdida de peso, salud y condición física general; nivel de experiencia y modelo de periodización configurable.
 - Creación y edición segura de sesiones con fecha, tipo, duración estimada, intensidad/zona objetivo e instrucciones; la fecha debe permanecer dentro del plan.
 - Editor visual de sesiones con tarjetas por fecha, iconografía por tipo, estados programada/realizada, resumen de duración real y desviación respecto a lo previsto; edición en contexto sin perder el registro de realización.
+- Calendario semanal con navegación entre semanas, retorno a la semana actual, siete columnas por día, acceso rápido para editar/registrar sesiones y resumen semanal de sesiones programadas, minutos planificados y sesiones completadas; vista de lista alternativa para editar en detalle.
 - Registro de duración real y RPE separado de la prescripción.
 - Jerarquía de periodización con mesociclos dentro del plan y microciclos dentro de cada mesociclo, con creación, edición, reordenación, objetivo/enfoque, fechas y notas.
 - Borrado seguro: no se permite eliminar un mesociclo que aún contenga microciclos; se deben eliminar explícitamente antes. Las fechas se validan contra el periodo del padre y se rechazan solapamientos entre ciclos hermanos.
