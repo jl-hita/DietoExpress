@@ -1,5 +1,6 @@
 using System.Data;
 using System.Security.Claims;
+using Anguloso.Server.Logica;
 using Anguloso.Server.Logica.Utils;
 using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -19,8 +20,13 @@ namespace Anguloso.Server.Controllers;
 public sealed class TrainingPeriodizationController : ControllerBase
 {
     private readonly angulosodbContext _context;
+    private readonly EmailServ _emailServ;
 
-    public TrainingPeriodizationController(angulosodbContext context) => _context = context;
+    public TrainingPeriodizationController(angulosodbContext context, EmailServ emailServ)
+    {
+        _context = context;
+        _emailServ = emailServ;
+    }
 
     [HttpGet("clients/{clientId:int}/profile")]
     public async Task<IActionResult> GetProfile(int clientId, CancellationToken cancellationToken)
