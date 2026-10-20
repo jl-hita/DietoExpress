@@ -664,6 +664,10 @@ public sealed class TrainingPeriodizationController : ControllerBase
     private NpgsqlCommand Command(string sql, (string Name, object? Value) first, NpgsqlTransaction transaction) =>
         CreateCommand(sql, transaction, first);
 
+    private NpgsqlCommand Command(string sql, (string Name, object? Value) first, (string Name, object? Value) second,
+        (string Name, object? Value) third, NpgsqlTransaction transaction) =>
+        CreateCommand(sql, transaction, first, second, third);
+
     private NpgsqlCommand CreateCommand(string sql, NpgsqlTransaction? transaction, params (string Name, object? Value)[] parameters)
     {
         var connection = (NpgsqlConnection)_context.Database.GetDbConnection();
