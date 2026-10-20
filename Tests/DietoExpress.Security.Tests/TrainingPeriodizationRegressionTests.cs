@@ -81,5 +81,7 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("Mesociclos", trainingUi);
         Assert.Contains("Añadir microciclo", trainingUi);
         Assert.Contains("Invitaciones de colaboración", trainingUi);
+        Assert.Contains("training-invitations", File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "app.routes.ts")));
+        Assert.Contains("No tienes invitaciones pendientes", trainingUi);
     }
 }
