@@ -211,13 +211,19 @@ public sealed class TrainingPeriodizationController : ControllerBase
             WHERE id = @planId AND @startDate >= start_date
               AND (end_date IS NULL OR @startDate <= end_date)
               AND (end_date IS NULL OR @endDate IS NULL OR @endDate <= end_date)
+              AND NOT EXISTS (
+                  SELECT 1 FROM training_mesocycles existing
+                  WHERE existing.plan_id = training_plans.id
+                    AND existing.start_date <= COALESCE(@endDate, 'infinity'::date)
+                    AND COALESCE(existing.end_date, 'infinity'::date) >= @startDate
+              )
             RETURNING id
             """, ("planId", planId), ("name", request.Name.Trim()), ("sequence", request.SequenceNumber),
             ("startDate", request.StartDate), ("endDate", request.EndDate), ("objective", request.Objective), ("notes", request.Notes));
         try
         {
             var id = await command.ExecuteScalarAsync(cancellationToken);
-            return id is null ? Conflict(new { message = "Las fechas del mesociclo deben estar dentro del periodo del plan." }) : CreatedAtAction(nameof(GetMesocycles), new { planId }, new { id = Convert.ToInt32(id), request.Name, request.SequenceNumber });
+            return id is null ? Conflict(new { message = "Las fechas del mesociclo deben estar dentro del plan y no solaparse con otro mesociclo." }) : CreatedAtAction(nameof(GetMesocycles), new { planId }, new { id = Convert.ToInt32(id), request.Name, request.SequenceNumber });
         }
         catch (PostgresException ex) when (ex.SqlState == "23505")
         {
@@ -263,13 +269,19 @@ public sealed class TrainingPeriodizationController : ControllerBase
             WHERE id = @mesocycleId AND @startDate >= start_date
               AND (end_date IS NULL OR @startDate <= end_date)
               AND (end_date IS NULL OR @endDate IS NULL OR @endDate <= end_date)
+              AND NOT EXISTS (
+                  SELECT 1 FROM training_microcycles existing
+                  WHERE existing.mesocycle_id = training_mesocycles.id
+                    AND existing.start_date <= COALESCE(@endDate, 'infinity'::date)
+                    AND COALESCE(existing.end_date, 'infinity'::date) >= @startDate
+              )
             RETURNING id
             """, ("mesocycleId", mesocycleId), ("name", request.Name.Trim()), ("sequence", request.SequenceNumber),
             ("startDate", request.StartDate), ("endDate", request.EndDate), ("focus", request.Focus), ("notes", request.Notes));
         try
         {
             var id = await command.ExecuteScalarAsync(cancellationToken);
-            return id is null ? Conflict(new { message = "Las fechas del microciclo deben estar dentro del periodo del mesociclo." }) : CreatedAtAction(nameof(GetMicrocycles), new { mesocycleId }, new { id = Convert.ToInt32(id), request.Name, request.SequenceNumber });
+            return id is null ? Conflict(new { message = "Las fechas del microciclo deben estar dentro del mesociclo y no solaparse con otro microciclo." }) : CreatedAtAction(nameof(GetMicrocycles), new { mesocycleId }, new { id = Convert.ToInt32(id), request.Name, request.SequenceNumber });
         }
         catch (PostgresException ex) when (ex.SqlState == "23505")
         {
