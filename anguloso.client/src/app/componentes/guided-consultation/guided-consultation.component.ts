@@ -735,8 +735,11 @@ export class GuidedConsultationComponent implements OnInit {
     this.http.get<any>(`/api/training/clients/${clientId}/profile`).subscribe({
       next: profile => {
         this.trainingProfileNotes = profile?.notes ?? null;
-        const match = String(this.trainingProfileNotes ?? '').match(/\\[\\[training-management-mode:(none|self|collaboration)\\]\\]/);
-        this.trainingManagementMode = (match?.[1] as 'none' | 'self' | 'collaboration') || (profile?.enabled ? 'self' : 'none');
+        const savedNotes = String(this.trainingProfileNotes ?? '');
+        this.trainingManagementMode = savedNotes.includes('[[training-management-mode:collaboration]]') ? 'collaboration'
+          : savedNotes.includes('[[training-management-mode:self]]') ? 'self'
+          : savedNotes.includes('[[training-management-mode:none]]') ? 'none'
+          : (profile?.enabled ? 'self' : 'none');
       },
       error: () => { this.trainingManagementMode = 'none'; this.trainingProfileNotes = null; }
     });
@@ -748,7 +751,7 @@ export class GuidedConsultationComponent implements OnInit {
     this.trainingModeSaving = true;
     this.trainingModeSaveState = 'idle';
     const marker = `[[training-management-mode:${this.trainingManagementMode}]]`;
-    const existing = String(this.trainingProfileNotes ?? '').replace(/\\s*\\[\\[training-management-mode:(none|self|collaboration)\\]\\]/g, '').trim();
+    const existing = String(this.trainingProfileNotes ?? '').split(' ').filter(token => !token.startsWith('[[training-management-mode:')).join(' ').trim();
     const notes = [existing, marker].filter(Boolean).join(' ');
     this.http.put<any>(`/api/training/clients/${clientId}/profile`, {
       enabled: this.trainingManagementMode !== 'none',
