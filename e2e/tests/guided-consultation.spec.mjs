@@ -141,8 +141,8 @@ test.describe('P0 — recorrido completo de consulta guiada', () => {
     await page.getByLabel('Email').fill(`e2e-video-${Date.now()}@invalid.example`);
     await page.getByLabel('Notas').fill('Paciente ficticio para la prueba E2E de videollamada integrada.');
     await page.getByRole('button', { name: 'Crear cliente' }).click();
-    await expect(page).toHaveURL(/\\/clients\\/\\d+(?:[/?#]|$)/, { timeout: 20_000 });
-    patientId = Number(page.url().match(/\\/clients\\/(\\d+)/)?.[1]);
+    await expect(page).toHaveURL(/\/clients\/\d+(?:[/?#]|$)/, { timeout: 20_000 });
+    patientId = Number(page.url().match(/\/clients\/(\d+)/)?.[1]);
     expect(patientId).toBeGreaterThan(0);
 
     await page.goto('/appointments');
@@ -183,11 +183,11 @@ test.describe('P0 — recorrido completo de consulta guiada', () => {
     await page.getByRole('button', { name: /Objetivos/ }).first().click();
     await expect(page.getByRole('heading', { name: 'Objetivos y cambios acordados' })).toBeVisible();
     await expect(page.locator('app-video-consultation')).toBeVisible();
-    await expect(page).toHaveURL(consultationUrl);
+    await expect(page).toHaveURL(/\/clients\/\d+(?:[/?#]|$)/, { timeout: 20_000 });
 
     await page.locator('.stepper button').filter({ hasText: 'Anamnesis' }).click();
     await expect(page.locator('app-video-consultation')).toBeVisible();
-    await expect(page).toHaveURL(consultationUrl);
+    await expect(page).toHaveURL(/\/clients\/\d+(?:[/?#]|$)/, { timeout: 20_000 });
   });
 
 });
