@@ -78,7 +78,7 @@
           <small class="item-allergen-note" *ngIf="item.allergenTags.length">
             Alérgenos declarados: {{ item.allergenTags.join(', ') }}. Comprueba siempre la etiqueta del envase.
           </small>
-          <small class="item-allergen-note" *ngIf="item.traceTags?.length">
+          <small class="item-allergen-note" *ngIf="item.traceTags.length">
             La fuente declara posibles trazas de: {{ item.traceTags.join(', ') }}. Comprueba siempre la etiqueta del envase.
           </small>
           <small class="item-allergen-unknown" *ngIf="item.allergenDataStatus !== 'reported'">
