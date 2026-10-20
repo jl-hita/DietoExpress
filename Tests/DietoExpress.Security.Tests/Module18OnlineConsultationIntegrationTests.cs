@@ -28,6 +28,9 @@ public sealed class Module18OnlineConsultationIntegrationTests
         Assert.Contains("[appointmentIdInput]=\"data.appointment.id\"",g);
         Assert.Contains("@Input() embedded = false",v);
         Assert.Contains("@Input() appointmentIdInput",v);
+        Assert.Contains("@Input() appointmentStartsAtInput",v);
+        Assert.Contains("15 * 60 * 1000",v);
+        Assert.Contains("compactVideo",v);
         Assert.Contains("[class.embedded]=\"embedded\"",h);
         Assert.Contains("if (this.embedded) return",v);
     }
