@@ -748,6 +748,8 @@ CREATE TABLE IF NOT EXISTS public_directory_reviews (
 CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
     ON public_directory_reviews(nutritionist_id, created_at DESC);
 ");
+            UpgradeTrainingPeriodizationSchemaV1(context, logger);
+
             VerifyCurrentSchema(context, logger);
 
             // Configuración inicial idempotente. No se sobrescriben valores existentes.
@@ -2931,6 +2933,108 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
     }
 
 
+
+    /// <summary>
+    /// Esquema opcional de planificación deportiva. No se crean perfiles para clientes existentes:
+    /// el módulo solo se activa cuando un profesional lo solicita expresamente.
+    /// </summary>
+    public static void UpgradeTrainingPeriodizationSchemaV1(angulosodbContext context, ILogger logger)
+    {
+        const string migrationId = "training-periodization-v1";
+        if (context.Database.SqlQueryRaw<bool>("SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'training-periodization-v1') AS \"Value\"").Single())
+            return;
+
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS training_profiles (
+                id SERIAL PRIMARY KEY,
+                client_id INTEGER NOT NULL UNIQUE REFERENCES clients(id) ON DELETE CASCADE,
+                tenant_id INTEGER NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                primary_goal VARCHAR(80) NOT NULL DEFAULT 'general_fitness',
+                experience_level VARCHAR(40) NOT NULL DEFAULT 'beginner',
+                notes TEXT NULL,
+                created_by_user_id INTEGER NULL REFERENCES users(id) ON DELETE SET NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT ck_training_profiles_goal CHECK (primary_goal IN ('endurance','strength','hypertrophy','weight_loss','health','general_fitness','other')),
+                CONSTRAINT ck_training_profiles_experience CHECK (experience_level IN ('beginner','intermediate','advanced','unknown'))
+            );
+            CREATE INDEX IF NOT EXISTS idx_training_profiles_tenant_enabled ON training_profiles(tenant_id, enabled);
+
+            CREATE TABLE IF NOT EXISTS training_plans (
+                id SERIAL PRIMARY KEY,
+                profile_id INTEGER NOT NULL REFERENCES training_profiles(id) ON DELETE CASCADE,
+                name VARCHAR(160) NOT NULL,
+                periodization_model VARCHAR(40) NOT NULL DEFAULT 'custom',
+                start_date DATE NOT NULL,
+                end_date DATE NULL,
+                status VARCHAR(20) NOT NULL DEFAULT 'draft',
+                version INTEGER NOT NULL DEFAULT 1,
+                notes TEXT NULL,
+                created_by_user_id INTEGER NOT NULL REFERENCES users(id),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT ck_training_plans_model CHECK (periodization_model IN ('linear','undulating','block','reverse','continuous_competition','autoregulatory','custom')),
+                CONSTRAINT ck_training_plans_status CHECK (status IN ('draft','active','paused','completed','cancelled')),
+                CONSTRAINT ck_training_plans_dates CHECK (end_date IS NULL OR end_date >= start_date)
+            );
+            CREATE INDEX IF NOT EXISTS idx_training_plans_profile_dates ON training_plans(profile_id, start_date DESC);
+
+            CREATE TABLE IF NOT EXISTS training_sessions (
+                id SERIAL PRIMARY KEY,
+                plan_id INTEGER NOT NULL REFERENCES training_plans(id) ON DELETE CASCADE,
+                scheduled_date DATE NOT NULL,
+                title VARCHAR(160) NOT NULL,
+                session_type VARCHAR(40) NOT NULL DEFAULT 'general',
+                duration_minutes INTEGER NULL,
+                intensity_target VARCHAR(120) NULL,
+                instructions TEXT NULL,
+                status VARCHAR(20) NOT NULL DEFAULT 'planned',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT ck_training_sessions_duration CHECK (duration_minutes IS NULL OR duration_minutes BETWEEN 1 AND 1440),
+                CONSTRAINT ck_training_sessions_type CHECK (session_type IN ('endurance','strength','mobility','recovery','health','general','other')),
+                CONSTRAINT ck_training_sessions_status CHECK (status IN ('planned','completed','skipped','modified'))
+            );
+            CREATE INDEX IF NOT EXISTS idx_training_sessions_plan_date ON training_sessions(plan_id, scheduled_date, id);
+
+            CREATE TABLE IF NOT EXISTS training_session_records (
+                id BIGSERIAL PRIMARY KEY,
+                session_id INTEGER NOT NULL REFERENCES training_sessions(id) ON DELETE CASCADE,
+                client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                completed_at TIMESTAMPTZ NULL,
+                actual_duration_minutes INTEGER NULL,
+                session_rpe NUMERIC(3,1) NULL,
+                notes TEXT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT ck_training_record_duration CHECK (actual_duration_minutes IS NULL OR actual_duration_minutes BETWEEN 1 AND 1440),
+                CONSTRAINT ck_training_record_rpe CHECK (session_rpe IS NULL OR session_rpe BETWEEN 0 AND 10),
+                CONSTRAINT uq_training_record_session_client UNIQUE(session_id, client_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_training_records_client_date ON training_session_records(client_id, completed_at DESC);
+
+            CREATE TABLE IF NOT EXISTS training_collaborations (
+                id SERIAL PRIMARY KEY,
+                client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                professional_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                tenant_id INTEGER NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                access_scope VARCHAR(30) NOT NULL DEFAULT 'training',
+                status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                invited_by_user_id INTEGER NOT NULL REFERENCES users(id),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                accepted_at TIMESTAMPTZ NULL,
+                revoked_at TIMESTAMPTZ NULL,
+                CONSTRAINT ck_training_collaboration_scope CHECK (access_scope IN ('training','training_nutrition_context')),
+                CONSTRAINT ck_training_collaboration_status CHECK (status IN ('pending','active','revoked')),
+                CONSTRAINT uq_training_collaboration_client_professional UNIQUE(client_id, professional_user_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_training_collaborations_professional ON training_collaborations(professional_user_id, status);
+            INSERT INTO schema_migrations(id) VALUES ('training-periodization-v1') ON CONFLICT (id) DO NOTHING;
+        ");
+        logger.LogInformation("Esquema opcional de periodización deportiva inicializado.");
+    }
+
     private static void VerifyCurrentSchema(angulosodbContext context, ILogger logger)
     {
         // Contrato mínimo de tablas: si alguna falta después de todas las reconciliaciones,
@@ -2963,7 +3067,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                     'subscription_payments','payment_events','invoices','invoice_lines','fiscal_records',
                     'billing_coupon_campaigns','billing_coupons','billing_coupon_redemptions',
                     'patient_commercial_communication_preferences',
-                    'patient_commercial_communication_consent_history','food_favorites'
+                    'patient_commercial_communication_consent_history','food_favorites','training_profiles','training_plans','training_sessions','training_session_records','training_collaborations'
                 ]) AS required_table
             ) required
             WHERE NOT EXISTS (
