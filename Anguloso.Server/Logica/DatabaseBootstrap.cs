@@ -3109,7 +3109,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
     /// <summary>Adds richer exercise prescriptions without changing existing sessions.</summary>
     public static void UpgradeTrainingPeriodizationSchemaV4(angulosodbContext context, ILogger logger)
     {
-        if (context.Database.SqlQueryRaw<bool>("SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'training-periodization-v4-exercise-prescription') AS ""Value""").Single())
+        if (context.Database.SqlQueryRaw<bool>("SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'training-periodization-v4-exercise-prescription') AS \"Value\"").Single())
             return;
 
         context.Database.ExecuteSqlRaw(@"
