@@ -246,3 +246,14 @@ button:disabled {
     height: min(48vh, 460px);
   }
 }
+
+
+.video-page.embedded.compact-video .room {
+  height: 180px;
+}
+
+@media (max-width: 1200px) {
+  .video-page.embedded.compact-video .room {
+    height: 150px;
+  }
+}
