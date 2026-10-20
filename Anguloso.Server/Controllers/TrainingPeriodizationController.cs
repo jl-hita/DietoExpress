@@ -26,6 +26,7 @@ public sealed class TrainingPeriodizationController : ControllerBase
     public async Task<IActionResult> GetProfile(int clientId, CancellationToken cancellationToken)
     {
         if (!await CanAccessClient(clientId, cancellationToken)) return NotFound();
+        var canManage = await CanManageClient(clientId, cancellationToken);
         await using var command = Command("""
             SELECT id, client_id, enabled, primary_goal, experience_level, management_mode, notes, created_at, updated_at
             FROM training_profiles WHERE client_id = @clientId
@@ -33,7 +34,7 @@ public sealed class TrainingPeriodizationController : ControllerBase
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         if (!await reader.ReadAsync(cancellationToken)) return NotFound(new { enabled = false });
         return Ok(new TrainingProfileDto(reader.GetInt32(0), reader.GetInt32(1), reader.GetBoolean(2), reader.GetString(3), reader.GetString(4), reader.GetString(5),
-            reader.IsDBNull(6) ? null : reader.GetString(6), reader.GetDateTime(7), reader.GetDateTime(8), await CanManageClient(clientId, cancellationToken)));
+            reader.IsDBNull(6) ? null : reader.GetString(6), reader.GetDateTime(7), reader.GetDateTime(8), canManage));
     }
 
     [HttpPut("clients/{clientId:int}/profile")]
