@@ -178,8 +178,9 @@ export class TrainingPeriodizationComponent implements OnInit {
     const routeId = this.route.snapshot.paramMap.get('id');
     if (routeId === null) {
       this.clientId = 0;
-      this.loadInvitations();
-      this.loading = false;
+      this.http.get<TrainingInvitation[]>('/api/training/collaborations/invitations')
+        .pipe(catchError(() => of([] as TrainingInvitation[])))
+        .subscribe(items => { this.invitations = items; this.loading = false; });
       return;
     }
     this.clientId = Number(routeId);
