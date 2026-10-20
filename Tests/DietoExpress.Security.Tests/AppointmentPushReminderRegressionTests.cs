@@ -29,6 +29,8 @@ public sealed class AppointmentPushReminderRegressionTests
         Assert.Contains("appointment_reminder_deliveries", worker);
         Assert.Contains("appointment-reminder:{item.Id}:patient", worker);
         Assert.Contains("CREATE TABLE IF NOT EXISTS appointment_reminder_deliveries", schema);
+        Assert.Contains("GetClinicAdminIdsAsync(item.TenantId, ct)", worker);
+        Assert.Contains("role=\'clinic_admin\'", worker);
     }
 
     [Fact]
