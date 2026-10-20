@@ -190,8 +190,8 @@ interface TrainingInvitation {
                     <span class="week-session-meta">{{ session.durationMinutes || '—' }} min · {{ sessionTypeLabel(session.sessionType) }}</span>
                     <span class="week-session-status">{{ session.completedAt ? '✓ Realizada' : '○ Programada' }}</span>
                     <div class="week-session-actions">
-                      <button *ngIf="current.canManage" type="button" (click)="beginEditSession(session)" [disabled]="saving" [attr.aria-label]="'Editar ' + session.title">Editar</button>
-                      <button *ngIf="current.canManage" type="button" (click)="openRecord(session)" [disabled]="saving">{{ session.completedAt ? 'Registro' : 'Realizar' }}</button>
+                      <button *ngIf="current.canManage" type="button" (click)="editSessionFromCalendar(session)" [disabled]="saving" [attr.aria-label]="'Editar ' + session.title">Editar</button>
+                      <button *ngIf="current.canManage" type="button" (click)="recordSessionFromCalendar(session)" [disabled]="saving">{{ session.completedAt ? 'Registro' : 'Realizar' }}</button>
                     </div>
                   </article>
                 </article>
@@ -568,6 +568,16 @@ export class TrainingPeriodizationComponent implements OnInit {
 
   weekCompletedCount(planId: number, plan: TrainingPlan): number {
     return this.weekSessions(planId, plan).filter(session => !!session.completedAt).length;
+  }
+
+  editSessionFromCalendar(session: TrainingSession): void {
+    this.setSessionView(session.planId, 'list');
+    this.beginEditSession(session);
+  }
+
+  recordSessionFromCalendar(session: TrainingSession): void {
+    this.setSessionView(session.planId, 'list');
+    this.openRecord(session);
   }
 
   beginEditSession(session: TrainingSession): void {
