@@ -79,6 +79,18 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("training_microcycles", bootstrap);
         Assert.Contains("CreateMesocycle", controller);
         Assert.Contains("CreateMicrocycle", controller);
+        Assert.Contains("[HttpPut(\"mesocycles/{mesocycleId:int}\")]", controller);
+        Assert.Contains("[HttpDelete(\"mesocycles/{mesocycleId:int}\")]", controller);
+        Assert.Contains("[HttpPost(\"plans/{planId:int}/mesocycles/reorder\")]", controller);
+        Assert.Contains("[HttpPut(\"microcycles/{microcycleId:int}\")]", controller);
+        Assert.Contains("[HttpDelete(\"microcycles/{microcycleId:int}\")]", controller);
+        Assert.Contains("[HttpPost(\"mesocycles/{mesocycleId:int}/microcycles/reorder\")]", controller);
+        Assert.Contains("No se puede borrar un mesociclo que contiene microciclos", controller);
+        Assert.Contains("await CanManageClient(clientId.Value, cancellationToken)", controller);
+        Assert.Contains("c.tenant_id IS NOT NULL", controller);
+        Assert.Contains("beginEditMesocycle", trainingUi);
+        Assert.Contains("moveMesocycle", trainingUi);
+        Assert.Contains("deleteMicrocycle", trainingUi);
         Assert.Contains("existing.start_date <= COALESCE(@endDate, 'infinity'::date)", controller);
         Assert.Contains("COALESCE(existing.end_date, 'infinity'::date) >= @startDate", controller);
         Assert.Contains("Mesociclos", trainingUi);
