@@ -1111,3 +1111,20 @@
   .broadcast-patient-panel { padding: 14px; }
   .broadcast-patient-message-meta { flex-direction: column; gap: 5px; }
 }
+
+
+.home-video-access-card { display:flex; align-items:center; gap:14px; margin:0 0 18px; padding:16px; border:1px solid rgba(45,212,191,.38); border-radius:16px; background:linear-gradient(135deg,rgba(13,148,136,.16),rgba(30,41,59,.96)); box-shadow:0 8px 24px rgba(2,6,23,.22); }
+.home-video-access-icon { display:flex; align-items:center; justify-content:center; flex-shrink:0; width:44px; height:44px; border-radius:12px; background:rgba(20,184,166,.15); color:#5eead4; }
+.home-video-access-copy { flex:1; min-width:0; }
+.home-video-access-copy .eyebrow { color:#5eead4; }
+.home-video-access-copy h3 { margin:3px 0 5px; color:#f8fafc; font-size:14px; font-weight:700; text-transform:capitalize; }
+.home-video-access-copy p { margin:0; color:#cbd5e1; font-size:12px; line-height:1.45; }
+.home-video-access-copy p strong { color:#fef08a; }
+.home-video-access-button { display:inline-flex; align-items:center; justify-content:center; gap:6px; flex-shrink:0; max-width:210px; padding:10px 12px; border:0; border-radius:10px; background:#0d9488; color:#fff; font-size:12px; font-weight:700; cursor:pointer; }
+.home-video-access-button:disabled { background:#334155; color:#cbd5e1; cursor:not-allowed; }
+.home-video-access-button mat-icon { font-size:18px; width:18px; height:18px; }
+@media (max-width:560px) {
+  .home-video-access-card { align-items:flex-start; flex-wrap:wrap; gap:10px; padding:13px; }
+  .home-video-access-copy { flex:1 1 calc(100% - 56px); }
+  .home-video-access-button { width:100%; max-width:none; }
+}
