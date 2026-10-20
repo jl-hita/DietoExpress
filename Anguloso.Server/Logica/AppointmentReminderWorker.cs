@@ -82,7 +82,10 @@ public sealed class AppointmentReminderWorker : BackgroundService
                 await using var command = new NpgsqlCommand("""
                     INSERT INTO appointment_reminder_deliveries(appointment_id,tenant_id,client_id,nutritionist_id,scheduled_for,status,created_at,updated_at)
                     VALUES(@id,@tenant,@client,@nutritionist,@starts,'processing',NOW(),NOW())
-                    ON CONFLICT(appointment_id) DO UPDATE SET status='processing',updated_at=NOW(),last_error=NULL\n                    WHERE appointment_reminder_deliveries.status IN ('partial','processing')\n                      AND appointment_reminder_deliveries.updated_at < NOW() - INTERVAL '2 minutes'\n                    RETURNING appointment_id;
+                    ON CONFLICT(appointment_id) DO UPDATE SET status='processing',updated_at=NOW(),last_error=NULL
+                    WHERE appointment_reminder_deliveries.status IN ('partial','processing')
+                      AND appointment_reminder_deliveries.updated_at < NOW() - INTERVAL '2 minutes'
+                    RETURNING appointment_id;
                     """, connection);
                 command.Parameters.AddWithValue("id", item.Id);
                 command.Parameters.AddWithValue("tenant", item.TenantId);
