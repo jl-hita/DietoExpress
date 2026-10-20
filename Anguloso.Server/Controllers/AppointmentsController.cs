@@ -678,11 +678,14 @@ public class AppointmentsController : ControllerBase
         if (userId == null || tenantId == null) return Unauthorized();
 
         var appointment = await _context.patient_appointments.AsNoTracking()
+            .Include(a => a.client)
             .FirstOrDefaultAsync(a => a.id == id && a.tenant_id == tenantId.Value);
         if (appointment == null) return NotFound();
         if (!User.IsInRole("clinic_admin") && appointment.nutritionist_id != userId.Value) return Forbid();
         if (appointment.status is not ("requested" or "confirmed") || appointment.ends_at <= DateTime.UtcNow)
             return BadRequest(new { message = "Solo se puede reenviar el email de una cita futura pendiente o confirmada." });
+        if (string.IsNullOrWhiteSpace(appointment.client.email))
+            return BadRequest(new { message = "El paciente no tiene una dirección de email registrada." });
 
         var result = await _appointmentEmailService.SendAppointmentEmailAsync(
             appointment.id,
