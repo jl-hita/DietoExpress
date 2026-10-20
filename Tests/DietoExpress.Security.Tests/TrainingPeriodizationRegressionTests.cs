@@ -30,6 +30,12 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("ON CONFLICT(session_id, client_id)", controller);
         Assert.Contains("CanAccessClientInternal", controller);
         Assert.Contains("NOT @manage AND EXISTS (", controller);
+        Assert.Contains("InviteCollaborator", controller);
+        Assert.Contains("AcceptCollaboration", controller);
+        Assert.Contains("RevokeCollaboration", controller);
+        Assert.Contains("GetMyInvitations", controller);
+        Assert.Contains("NOT @manage AND EXISTS (", controller);
+        Assert.Contains("training_collaborations", controller);
         Assert.Contains("tc.status = 'active'", controller);
         Assert.Contains("Activar para este cliente", ui);
         Assert.Contains("Desactivar módulo", ui);
@@ -67,5 +73,13 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("Guardar realización", trainingUi);
         Assert.DoesNotContain("window.prompt", trainingUi);
         Assert.Contains("UpgradeTrainingPeriodizationSchemaV2(context, logger)", bootstrap);
+        Assert.Contains("UpgradeTrainingPeriodizationSchemaV3(context, logger)", bootstrap);
+        Assert.Contains("training_mesocycles", bootstrap);
+        Assert.Contains("training_microcycles", bootstrap);
+        Assert.Contains("CreateMesocycle", controller);
+        Assert.Contains("CreateMicrocycle", controller);
+        Assert.Contains("Mesociclos", trainingUi);
+        Assert.Contains("Añadir microciclo", trainingUi);
+        Assert.Contains("Invitaciones de colaboración", trainingUi);
     }
 }
