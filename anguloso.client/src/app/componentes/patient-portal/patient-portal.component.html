@@ -99,6 +99,29 @@
         </button>
       </section>
 
+      <section class="home-video-access-card" *ngIf="!isPreview && nextOnlineAppointment as onlineAppointment">
+        <div class="home-video-access-icon"><mat-icon>videocam</mat-icon></div>
+        <div class="home-video-access-copy">
+          <span class="eyebrow">Tu próxima consulta online</span>
+          <h3>{{ onlineAppointment.startsAt | date:'EEEE d MMMM' }} · {{ onlineAppointment.startsAt | date:'HH:mm' }}</h3>
+          <p *ngIf="homeVideoAccessState(onlineAppointment) === 'waiting'">
+            La sala se abrirá 15 minutos antes de la cita. Faltan <strong>{{ homeVideoAccessCountdown(onlineAppointment) }}</strong>.
+          </p>
+          <p *ngIf="homeVideoAccessState(onlineAppointment) === 'available'">Ya puedes acceder a tu videollamada.</p>
+          <p *ngIf="homeVideoAccessState(onlineAppointment) === 'expired'">La ventana de acceso a esta consulta ha finalizado.</p>
+        </div>
+        <button type="button" class="home-video-access-button"
+                (click)="joinVideoAppointment(onlineAppointment)"
+                [disabled]="appointmentBooking || homeVideoAccessState(onlineAppointment) !== 'available'">
+          <mat-icon>videocam</mat-icon>
+          <ng-container [ngSwitch]="homeVideoAccessState(onlineAppointment)">
+            <span *ngSwitchCase="'waiting'">Disponible en {{ homeVideoAccessCountdown(onlineAppointment) }}</span>
+            <span *ngSwitchCase="'expired'">Acceso finalizado</span>
+            <span *ngSwitchDefault>Entrar en consulta</span>
+          </ng-container>
+        </button>
+      </section>
+
       <div class="day-hero">
         <div class="day-title">
           <div class="day-title-icon"><mat-icon>today</mat-icon></div>
