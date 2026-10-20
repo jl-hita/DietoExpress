@@ -378,28 +378,55 @@
       (accept)="acceptDocument($event)">
     </app-patient-documents>
 
-    <section class="portal-content" *ngIf="!isPreview && !showLogin" style="padding-top:0;">
-      <div style="margin-top:18px;padding:18px;border:1px solid rgba(148,163,184,.25);border-radius:14px;background:rgba(15,23,42,.35);">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <mat-icon>campaign</mat-icon>
+    <section class="commercial-consent-area" *ngIf="!isPreview && !showLogin && (!commercialPreferenceDecided || commercialPreferenceEditing || activeTab === 'today')"
+             aria-labelledby="commercial-consent-title">
+      <div class="commercial-consent-card" *ngIf="!commercialPreferenceDecided || commercialPreferenceEditing">
+        <div class="commercial-consent-heading">
+          <mat-icon aria-hidden="true">campaign</mat-icon>
           <div>
-            <strong>Comunicaciones comerciales</strong>
-            <p style="margin:4px 0;color:#94a3b8;font-size:13px;">
-              Puedes aceptar o retirar en cualquier momento las comunicaciones comerciales por email.
-              Esto no afecta a las comunicaciones asistenciales necesarias para tu atención.
-            </p>
+            <h2 id="commercial-consent-title">{{ commercialPreferenceDecided ? 'Preferencias comerciales' : 'Tu elección sobre comunicaciones comerciales' }}</h2>
+            <p>Es opcional recibir ofertas y novedades por email. Tu elección no afecta a las citas ni a las comunicaciones necesarias para tu atención.</p>
           </div>
         </div>
-        <label style="display:flex;align-items:center;gap:10px;margin-top:12px;">
-          <input type="checkbox" [(ngModel)]="commercialEmailEnabled" [disabled]="commercialPreferenceSaving || !commercialPreferenceLoaded">
-          <span>Quiero recibir comunicaciones comerciales por email</span>
-        </label>
-        <div style="display:flex;align-items:center;gap:12px;margin-top:12px;">
-          <button type="button" class="btn-portal-primary" (click)="updateCommercialPreference()" [disabled]="commercialPreferenceSaving || !commercialPreferenceLoaded">
-            {{ commercialPreferenceSaving ? 'Guardando...' : 'Guardar preferencia' }}
-          </button>
-          <span *ngIf="commercialPreferenceMessage" style="font-size:13px;color:#94a3b8;">{{ commercialPreferenceMessage }}</span>
+
+        <p *ngIf="!commercialPreferenceLoaded && !commercialPreferenceMessage" class="commercial-consent-feedback" role="status">
+          Consultando tu preferencia…
+        </p>
+        <div *ngIf="commercialPreferenceMessage && !commercialPreferenceLoaded" class="commercial-consent-feedback is-error" role="alert">
+          <span>{{ commercialPreferenceMessage }}</span>
+          <button type="button" class="btn-portal-secondary" (click)="loadCommercialPreference()">Reintentar</button>
         </div>
+
+        <div *ngIf="commercialPreferenceLoaded && !commercialPreferenceDecided && !commercialPreferenceEditing" class="commercial-consent-actions">
+          <button type="button" class="btn-portal-primary" (click)="chooseCommercialPreference(true)" [disabled]="commercialPreferenceSaving">
+            {{ commercialPreferenceSaving ? 'Guardando…' : 'Aceptar comunicaciones' }}
+          </button>
+          <button type="button" class="btn-portal-secondary" (click)="chooseCommercialPreference(false)" [disabled]="commercialPreferenceSaving">
+            Rechazar
+          </button>
+        </div>
+
+        <div *ngIf="commercialPreferenceLoaded && commercialPreferenceEditing" class="commercial-consent-edit">
+          <label for="commercial-email-enabled">
+            <input id="commercial-email-enabled" type="checkbox" [(ngModel)]="commercialEmailEnabled" [disabled]="commercialPreferenceSaving">
+            <span>Quiero recibir comunicaciones comerciales por email</span>
+          </label>
+          <div class="commercial-consent-actions">
+            <button type="button" class="btn-portal-primary" (click)="updateCommercialPreference()" [disabled]="commercialPreferenceSaving">
+              {{ commercialPreferenceSaving ? 'Guardando…' : 'Guardar preferencia' }}
+            </button>
+            <button type="button" class="btn-portal-secondary" (click)="cancelCommercialPreferenceEdit()" [disabled]="commercialPreferenceSaving">Cancelar</button>
+          </div>
+        </div>
+
+        <p *ngIf="commercialPreferenceMessage && commercialPreferenceLoaded" class="commercial-consent-feedback" role="status" aria-live="polite">
+          {{ commercialPreferenceMessage }}
+        </p>
+      </div>
+
+      <div class="commercial-consent-summary" *ngIf="commercialPreferenceDecided && !commercialPreferenceEditing && activeTab === 'today'">
+        <span><mat-icon aria-hidden="true">campaign</mat-icon> Comunicaciones comerciales: <strong>{{ commercialEmailEnabled ? 'aceptadas' : 'rechazadas' }}</strong></span>
+        <button type="button" class="btn-portal-secondary" (click)="editCommercialPreference()">Cambiar preferencia</button>
       </div>
     </section>
 
