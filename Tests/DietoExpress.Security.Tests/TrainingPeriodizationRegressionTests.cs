@@ -119,6 +119,7 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("UpgradeTrainingPeriodizationSchemaV4(context, logger)", bootstrap);
         Assert.Contains("GetLoadTrend", controller);
         Assert.Contains("load-trend", trainingUi);
+        Assert.Contains("exportSessions", trainingUi);
         Assert.Contains("exercisePrescription", trainingUi);
         Assert.Contains("exercisePrescription", portalUi);
         Assert.Contains("editSessionFromCalendar(session)", trainingUi);
