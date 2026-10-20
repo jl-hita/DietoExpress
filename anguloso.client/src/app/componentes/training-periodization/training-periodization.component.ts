@@ -64,10 +64,10 @@ interface TrainingInvitation {
         </section>
         <section class="panel" *ngIf="current.enabled && current.canManage && trainingManagementMode === 'collaboration'">
           <h2>Colaboración con otro profesional</h2>
-          <p>Invita a un profesional registrado en la misma clínica. Hasta que acepte, no tendrá acceso; al aceptar podrá consultar el entrenamiento, pero no modificarlo.</p>
+          <p>Busca por el correo de un profesional registrado en la misma clínica. La invitación quedará disponible en su área de invitaciones de DietoExpress; el aviso por correo automático aún no está integrado. Al aceptar podrá consultar el entrenamiento, pero no modificarlo.</p>
           <form class="invite-form" (ngSubmit)="inviteCollaborator()">
             <label>Correo del profesional<input type="email" name="collaboratorEmail" [(ngModel)]="collaboratorEmail" required maxlength="254" placeholder="profesional@clinica.es" /></label>
-            <button type="submit" [disabled]="saving">Enviar invitación</button>
+            <button type="submit" [disabled]="saving">Crear invitación</button>
           </form>
           <p *ngIf="collaborations.length === 0" class="muted">Todavía no hay invitaciones ni colaboradores para este expediente.</p>
           <div *ngFor="let collaboration of collaborations" class="collaboration-row">
