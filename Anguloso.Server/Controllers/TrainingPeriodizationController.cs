@@ -108,6 +108,38 @@ public sealed class TrainingPeriodizationController : ControllerBase
         return CreatedAtAction(nameof(GetPlans), new { clientId }, new { id = Convert.ToInt32(id), request.Name, request.PeriodizationModel, request.StartDate, request.EndDate, status = "draft", version = 1 });
     }
 
+    [HttpGet("plans/{planId:int}/load-trend")]
+    public async Task<IActionResult> GetLoadTrend(int planId, CancellationToken cancellationToken)
+    {
+        if (!await CanAccessPlan(planId, cancellationToken)) return NotFound();
+        await using var command = Command("""
+            SELECT date_trunc('week', s.scheduled_date)::date AS week_start,
+                   COUNT(r.id) AS completed_sessions,
+                   COALESCE(SUM(s.duration_minutes), 0) AS planned_minutes,
+                   COALESCE(SUM(r.actual_duration_minutes), 0) AS actual_minutes,
+                   COALESCE(SUM(r.actual_duration_minutes * r.session_rpe), 0) AS load_score
+            FROM training_sessions s
+            JOIN training_plans p ON p.id = s.plan_id
+            JOIN training_profiles f ON f.id = p.profile_id
+            LEFT JOIN training_session_records r ON r.session_id = s.id AND r.client_id = f.client_id
+            WHERE p.id = @planId AND f.enabled = TRUE
+              AND s.scheduled_date >= CURRENT_DATE - INTERVAL '11 weeks'
+            GROUP BY date_trunc('week', s.scheduled_date)::date
+            ORDER BY week_start
+            """, ("planId", planId));
+        var items = new List<object>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+            items.Add(new {
+                weekStart = reader.GetFieldValue<DateOnly>(0),
+                completedSessions = reader.GetInt64(1),
+                plannedMinutes = reader.GetInt64(2),
+                actualMinutes = reader.GetInt64(3),
+                loadScore = reader.GetDecimal(4)
+            });
+        return Ok(items);
+    }
+
     [HttpGet("plans/{planId:int}/sessions")]
     public async Task<IActionResult> GetSessions(int planId, CancellationToken cancellationToken)
     {
