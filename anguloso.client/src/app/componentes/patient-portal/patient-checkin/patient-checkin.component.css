@@ -33,3 +33,8 @@
 .portal-inline-error,.portal-inline-loading { font-family:inherit; }
 @media (max-width:700px) { .weekly-checkin { margin-left:16px; margin-right:16px; } .checkin-grid { grid-template-columns:1fr; } }
 @media (max-width:560px) { .weekly-checkin { margin-left:12px; margin-right:12px; padding:15px; border-radius:16px; } .weekly-checkin-header { gap:9px; } .weekly-checkin-icon { flex-basis:36px; width:36px; height:36px; } .checkin-footer { align-items:stretch; flex-direction:column; } .checkin-saved,.checkin-last { margin-right:0; } .checkin-save-btn { width:100%; } }
+
+.checkin-first-consult { margin:16px 0; padding:20px; border:1px solid #334155; border-radius:14px; background:#1e293b; color:#cbd5e1; text-align:center; }
+.checkin-first-consult mat-icon { color:#2dd4bf; }
+.checkin-already-submitted { display:flex; align-items:flex-start; gap:8px; padding:12px; margin-bottom:14px; border:1px solid rgba(45,212,191,.3); border-radius:10px; background:rgba(20,184,166,.08); color:#99f6e4; font-size:13px; line-height:1.45; }
+.checkin-already-submitted mat-icon { flex-shrink:0; }
