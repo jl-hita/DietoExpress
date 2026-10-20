@@ -29,6 +29,9 @@ public sealed class Module18OnlineConsultationIntegrationTests
         Assert.Contains("@Input() embedded = false",v);
         Assert.Contains("@Input() appointmentIdInput",v);
         Assert.Contains("@Input() appointmentStartsAtInput",v);
+        Assert.Contains("@Output() closeEmbedded",v);
+        Assert.Contains("(closeEmbedded)=\"videoPanelVisible = false\"",g);
+        Assert.Contains("videoPanelVisible = true",g);
         Assert.Contains("15 * 60 * 1000",v);
         Assert.Contains("compactVideo",v);
         Assert.Contains("[class.embedded]=\"embedded\"",h);
