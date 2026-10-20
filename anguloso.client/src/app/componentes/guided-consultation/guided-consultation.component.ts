@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, ChangeDetectionStrategy, signal} from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -85,6 +86,20 @@ interface GuidedConsultationResponse {
           <section class="card" *ngIf="currentStep === 'anamnesis'">
             <div class="card-title"><mat-icon>clinical_notes</mat-icon><div><h2>Anamnesis y toma de datos inicial</h2><p>Primer paso de la primera consulta: conocer la situación clínica, los antecedentes y el contexto del paciente antes de definir objetivos o dieta.</p></div></div>
             <div class="mode-banner"><mat-icon>medical_information</mat-icon><div><strong>Revisión clínica inicial</strong><span>Comprueba antecedentes y patologías, medicación y suplementos, alergias e intolerancias, restricciones alimentarias, síntomas digestivos, historial ponderal, hábitos, actividad física y expectativas. Registra solo la información pertinente y confirmada con el paciente.</span></div></div>
+            <div class="clinical-section training-intake" *ngIf="isFirstConsultation">
+              <h3><mat-icon>fitness_center</mat-icon> Gestión del entrenamiento</h3>
+              <p>Decide si este expediente incluirá planificación deportiva. Puedes cambiarlo más adelante desde el expediente del cliente.</p>
+              <label>¿Cómo se gestionará el entrenamiento?
+                <select [(ngModel)]="trainingManagementMode" (ngModelChange)="saveTrainingManagementMode()" [disabled]="trainingModeSaving">
+                  <option value="none">No, solo seguimiento nutricional</option>
+                  <option value="self">Sí, llevaré yo su planificación deportiva</option>
+                  <option value="collaboration">Sí, en colaboración con otro profesional</option>
+                </select>
+              </label>
+              <small *ngIf="trainingModeSaving">Guardando decisión…</small>
+              <small class="save-state saved" *ngIf="trainingModeSaveState === 'saved'">Decisión guardada; podrás modificarla más adelante.</small>
+              <small class="save-state" *ngIf="trainingModeSaveState === 'error'">No se ha podido guardar. Comprueba la conexión e inténtalo de nuevo.</small>
+            </div>
             <div *ngIf="patientProfileLoading" class="helper">Cargando el expediente clínico del paciente…</div>
             <div *ngIf="patientProfileSaveState === 'error' && !clinicalProfile" class="helper">
               No se ha podido cargar el expediente clínico. Para evitar perder o sobrescribir datos, vuelve a intentarlo antes de continuar.
@@ -450,6 +465,10 @@ export class GuidedConsultationComponent implements OnInit {
   familyHistoryText = '';
   expectationsText = '';
   clinicalProfile: ClientDetail | null = null;
+  trainingManagementMode: 'none' | 'self' | 'collaboration' = 'none';
+  trainingModeSaving = false;
+  trainingModeSaveState: 'idle' | 'saved' | 'error' = 'idle';
+  private trainingProfileNotes: string | null = null;
   patientProfileLoading = false;
   patientProfileSaving = false;
   patientProfileSaveState: 'idle' | 'saving' | 'saved' | 'error' = 'idle';
@@ -584,6 +603,7 @@ export class GuidedConsultationComponent implements OnInit {
     private portalService: PatientPortalService,
     private dietService: DietService,
     private clientService: ClientService,
+    private http: HttpClient,
     private snack: MatSnackBar
   ) {}
 
@@ -595,6 +615,7 @@ export class GuidedConsultationComponent implements OnInit {
       next: value => {
         this.data = value;
         this.consultation = value.consultation;
+        this.loadTrainingManagementMode();
         this.loadPatientClinicalProfile();
         this.loadClinicalProgress();
         this.loadFollowupHistory();
@@ -706,6 +727,46 @@ export class GuidedConsultationComponent implements OnInit {
       actionsSummary: this.actionsSummary.trim(),
       nextConsultationPlan: this.nextConsultationPlan.trim()
     };
+  }
+
+  loadTrainingManagementMode(): void {
+    const clientId = this.data?.appointment.clientId;
+    if (!clientId) return;
+    this.http.get<any>(`/api/training/clients/${clientId}/profile`).subscribe({
+      next: profile => {
+        this.trainingProfileNotes = profile?.notes ?? null;
+        const match = String(this.trainingProfileNotes ?? '').match(/\\[\\[training-management-mode:(none|self|collaboration)\\]\\]/);
+        this.trainingManagementMode = (match?.[1] as 'none' | 'self' | 'collaboration') || (profile?.enabled ? 'self' : 'none');
+      },
+      error: () => { this.trainingManagementMode = 'none'; this.trainingProfileNotes = null; }
+    });
+  }
+
+  saveTrainingManagementMode(): void {
+    const clientId = this.data?.appointment.clientId;
+    if (!clientId || this.trainingModeSaving) return;
+    this.trainingModeSaving = true;
+    this.trainingModeSaveState = 'idle';
+    const marker = `[[training-management-mode:${this.trainingManagementMode}]]`;
+    const existing = String(this.trainingProfileNotes ?? '').replace(/\\s*\\[\\[training-management-mode:(none|self|collaboration)\\]\\]/g, '').trim();
+    const notes = [existing, marker].filter(Boolean).join(' ');
+    this.http.put<any>(`/api/training/clients/${clientId}/profile`, {
+      enabled: this.trainingManagementMode !== 'none',
+      primaryGoal: 'general_fitness',
+      experienceLevel: 'unknown',
+      notes
+    }).subscribe({
+      next: profile => {
+        this.trainingProfileNotes = profile?.notes ?? notes;
+        this.trainingModeSaving = false;
+        this.trainingModeSaveState = 'saved';
+      },
+      error: () => {
+        this.trainingModeSaving = false;
+        this.trainingModeSaveState = 'error';
+        this.snack.open('No se ha podido guardar la decisión sobre entrenamiento.', 'Cerrar', { duration: 4000 });
+      }
+    });
   }
 
   loadPatientClinicalProfile(): void {

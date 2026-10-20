@@ -2372,6 +2372,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
         context.Database.ExecuteSqlRaw(@"
             ALTER TABLE users ADD COLUMN IF NOT EXISTS directory_enabled BOOLEAN NOT NULL DEFAULT FALSE;
             ALTER TABLE users ADD COLUMN IF NOT EXISTS online_consultations BOOLEAN NOT NULL DEFAULT FALSE;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS directory_sports_training BOOLEAN NOT NULL DEFAULT FALSE;
             ALTER TABLE users ADD COLUMN IF NOT EXISTS directory_city VARCHAR(120);
             ALTER TABLE users ADD COLUMN IF NOT EXISTS directory_province VARCHAR(120);
             ALTER TABLE users ADD COLUMN IF NOT EXISTS directory_bio VARCHAR(2000);

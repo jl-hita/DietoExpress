@@ -104,6 +104,7 @@ public class DirectoryController : ControllerBase
                 PublicBio = u.directory_bio ?? string.Empty,
                 Specialties = u.directory_specialties ?? string.Empty,
                 OnlineConsultations = u.online_consultations ?? false,
+                OffersSportsTraining = u.directory_sports_training ?? false,
                 IsVerified = u.directory_publication_status == "verified"
             }).ToListAsync();
 
@@ -177,6 +178,7 @@ public class DirectoryController : ControllerBase
                 PublicBio = u.directory_bio ?? string.Empty,
                 Specialties = u.directory_specialties ?? string.Empty,
                 OnlineConsultations = u.online_consultations ?? false,
+                OffersSportsTraining = u.directory_sports_training ?? false,
                 IsVerified = u.directory_publication_status == "verified"
             }).FirstOrDefaultAsync();
 

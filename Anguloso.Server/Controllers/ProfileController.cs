@@ -43,6 +43,7 @@ public class ProfileController : ControllerBase
             ClinicLogo = user.clinic_logo,
             DirectoryEnabled = user.directory_enabled ?? false,
             OnlineConsultations = user.online_consultations ?? false,
+            DirectorySportsTraining = user.directory_sports_training ?? false,
             DirectoryCity = user.directory_city ?? string.Empty,
             DirectoryProvince = user.directory_province ?? string.Empty,
             DirectoryBio = user.directory_bio ?? string.Empty,
@@ -85,7 +86,8 @@ public class ProfileController : ControllerBase
             || !string.Equals(user.directory_province, string.IsNullOrWhiteSpace(dto.DirectoryProvince) ? null : dto.DirectoryProvince.Trim(), StringComparison.Ordinal)
             || !string.Equals(user.directory_bio, string.IsNullOrWhiteSpace(dto.DirectoryBio) ? null : dto.DirectoryBio.Trim(), StringComparison.Ordinal)
             || !string.Equals(user.directory_specialties, string.IsNullOrWhiteSpace(dto.DirectorySpecialties) ? null : dto.DirectorySpecialties.Trim(), StringComparison.Ordinal)
-            || dto.OnlineConsultations != (user.online_consultations ?? false);
+            || dto.OnlineConsultations != (user.online_consultations ?? false)
+            || dto.DirectorySportsTraining != (user.directory_sports_training ?? false);
         user.full_name = dto.FullName ?? user.full_name;
         user.clinic_name = dto.ClinicName;
         user.clinic_address = dto.ClinicAddress;
@@ -93,6 +95,7 @@ public class ProfileController : ControllerBase
         user.clinic_logo = dto.ClinicLogo;
         user.directory_enabled = requestedDirectoryEnabled;
         user.online_consultations = dto.OnlineConsultations;
+        user.directory_sports_training = dto.DirectorySportsTraining;
         user.directory_city = string.IsNullOrWhiteSpace(dto.DirectoryCity) ? null : dto.DirectoryCity.Trim();
         user.directory_province = string.IsNullOrWhiteSpace(dto.DirectoryProvince) ? null : dto.DirectoryProvince.Trim();
         user.directory_bio = string.IsNullOrWhiteSpace(dto.DirectoryBio) ? null : dto.DirectoryBio.Trim();
@@ -135,7 +138,7 @@ public class ProfileController : ControllerBase
             Username = user.username, Email = user.email, FullName = user.full_name,
             ClinicName = user.clinic_name, ClinicAddress = user.clinic_address, ClinicPhone = user.clinic_phone,
             ClinicLogo = user.clinic_logo, DirectoryEnabled = user.directory_enabled ?? false,
-            OnlineConsultations = user.online_consultations ?? false, DirectoryCity = user.directory_city ?? string.Empty,
+            OnlineConsultations = user.online_consultations ?? false, DirectorySportsTraining = user.directory_sports_training ?? false, DirectoryCity = user.directory_city ?? string.Empty,
             DirectoryProvince = user.directory_province ?? string.Empty, DirectoryBio = user.directory_bio ?? string.Empty, DirectorySpecialties = user.directory_specialties ?? string.Empty,
             DirectorySlug = user.directory_slug ?? string.Empty,
             DirectoryPublicationStatus = user.directory_publication_status ?? "draft"

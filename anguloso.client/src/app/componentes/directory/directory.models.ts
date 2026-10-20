@@ -9,6 +9,7 @@ export interface DirectoryProfile {
   publicBio: string;
   specialties: string;
   onlineConsultations: boolean;
+  offersSportsTraining: boolean;
   specialtyList: string[];
   profileCompleteness: number;
   rankingScore: number;
