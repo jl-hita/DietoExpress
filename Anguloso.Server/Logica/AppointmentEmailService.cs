@@ -74,7 +74,7 @@ public sealed class AppointmentEmailService
         var subject = appointment.status == "confirmed" ? "Tu cita ha sido confirmada" : "Información de tu cita";
         var videoText = appointment.modality == "online"
             ? appointment.status == "confirmed"
-                ? "<p>Para la videollamada, entra en tu portal desde 15 minutos antes y hasta 24 horas después de la hora prevista de finalización. Encontrarás allí el botón para acceder a la consulta online.</p>"
+                ? "<p>La videollamada estará disponible desde 15 minutos antes de la hora prevista de inicio y hasta 15 minutos después de la hora prevista de finalización. La duración máxima de la consulta sigue estando limitada por las condiciones del servicio.</p>"
                 : "<p>La cita es online. Cuando se confirme, podrás acceder a la videollamada desde tu portal de paciente.</p>"
             : string.Empty;
 
