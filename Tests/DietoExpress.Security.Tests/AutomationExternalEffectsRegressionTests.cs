@@ -49,17 +49,20 @@ public sealed class AutomationExternalEffectsRegressionTests
     }
 
     [Fact]
-    public void ManuallyScheduledProfessionalAppointmentsMustEmailThePatient()
+    public void ManuallyScheduledProfessionalAppointmentsMustEmailThePatientWithPortalAccess()
     {
-        var source = ReadServerSource("Anguloso.Server/Controllers/ProfessionalConsultationActionsController.cs");
+        var controller = ReadServerSource("Anguloso.Server/Controllers/ProfessionalConsultationActionsController.cs");
+        var emailService = ReadServerSource("Anguloso.Server/Logica/AppointmentEmailService.cs");
 
-        Assert.Contains("private readonly EmailServ _emailServ", source);
-        Assert.Contains("_emailServ.SendEmailAsync(", source);
-        Assert.Contains("appointment.client_id", source);
-        Assert.Contains("patient.email", source);
-        Assert.Contains("Tu cita ha sido confirmada", source);
-        Assert.Contains("appointment:{appointment.id}:confirmed", source);
-        Assert.Contains("No se pudo enviar el email de confirmación de la cita manual", source);
+        Assert.Contains("private readonly AppointmentEmailService _appointmentEmailService", controller);
+        Assert.Contains("_appointmentEmailService.SendAppointmentEmailAsync(", controller);
+        Assert.Contains("appointment.client_id", controller);
+        Assert.Contains("appointment.client.email", emailService);
+        Assert.Contains("Tu cita ha sido confirmada", emailService);
+        Assert.Contains("appointment:{appointment.id}:confirmed", controller);
+        Assert.Contains("No se pudo enviar el email de confirmación de la cita manual", controller);
+        Assert.Contains("CreateAccessLinkAsync(", emailService);
+        Assert.Contains("24 horas después de la hora prevista de finalización", emailService);
     }
 
     [Fact]
