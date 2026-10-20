@@ -37,4 +37,26 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("f.client_id = @clientId AND f.enabled = TRUE", portalController);
         Assert.Contains("/api/portal/training/sessions", portalUi);
     }
+
+    [Fact]
+    public void TrainingOffer_IsPublicAndConsultationChoiceCanBeChanged()
+    {
+        var userModel = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Models", "users.cs"));
+        var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
+        var directoryController = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "DirectoryController.cs"));
+        var settings = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "settings", "settings.component.html"));
+        var directoryUi = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "directory", "directory.component.html"));
+        var consultation = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "guided-consultation", "guided-consultation.component.ts"));
+        var trainingUi = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "training-periodization", "training-periodization.component.ts"));
+
+        Assert.Contains("directory_sports_training", userModel);
+        Assert.Contains("directory_sports_training BOOLEAN NOT NULL DEFAULT FALSE", bootstrap);
+        Assert.Contains("OffersSportsTraining = u.directory_sports_training ?? false", directoryController);
+        Assert.Contains("directorySportsTraining", settings);
+        Assert.Contains("item.offersSportsTraining", directoryUi);
+        Assert.Contains("trainingManagementMode", consultation);
+        Assert.Contains("collaboration", consultation);
+        Assert.Contains("Gestión del entrenamiento", trainingUi);
+        Assert.Contains("readTrainingMode", trainingUi);
+    }
 }

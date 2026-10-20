@@ -100,6 +100,9 @@ test.describe('P0 — recorrido completo de consulta guiada', () => {
       await appointmentCard.getByRole('button', { name: 'Iniciar consulta' }).click();
       await expect(page.getByText('CONSULTA GUIADA', { exact: true })).toBeVisible({ timeout: 20_000 });
       await expect(page.getByRole('heading', { name: patientName })).toBeVisible();
+      await expect(page.getByLabel('¿Cómo se gestionará el entrenamiento?')).toBeVisible();
+      await page.getByLabel('¿Cómo se gestionará el entrenamiento?').selectOption('self');
+      await expect(page.getByText('Decisión guardada; podrás modificarla más adelante.', { exact: true })).toBeVisible({ timeout: 10_000 });
     };
 
     await scheduleManually(8);
