@@ -51,7 +51,7 @@ public sealed class AppointmentReminderWorker : BackgroundService
                 FROM patient_appointments a
                 JOIN clients c ON c.id=a.client_id AND c.tenant_id=a.tenant_id
                 WHERE a.status='confirmed'
-                  AND a.starts_at > NOW() + INTERVAL '13 minutes'
+                  AND a.starts_at > NOW()
                   AND a.starts_at <= NOW() + INTERVAL '15 minutes 30 seconds'
                   AND c.archived_at IS NULL
                   AND (NOT EXISTS (SELECT 1 FROM appointment_reminder_deliveries d WHERE d.appointment_id=a.id)\n                       OR EXISTS (SELECT 1 FROM appointment_reminder_deliveries d WHERE d.appointment_id=a.id AND d.status IN ('partial','processing') AND d.updated_at < NOW() - INTERVAL '2 minutes'))
