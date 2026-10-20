@@ -299,8 +299,8 @@ public sealed class TrainingPeriodizationController : ControllerBase
         if (!await CanManageClient(clientId, cancellationToken)) return NotFound();
         if (string.IsNullOrWhiteSpace(request.Email) || request.Email.Trim().Length > 254)
             return BadRequest(new { message = "Introduce el correo electrónico del profesional invitado." });
-        if (request.AccessScope is not (null or "training" or "training_nutrition_context"))
-            return BadRequest(new { message = "El alcance de colaboración no es válido." });
+        if (request.AccessScope is not (null or "training"))
+            return BadRequest(new { message = "Por ahora solo está disponible el acceso de consulta al entrenamiento." });
 
         await using var findProfessional = Command("""
             SELECT id FROM users
@@ -389,6 +389,7 @@ public sealed class TrainingPeriodizationController : ControllerBase
             JOIN clients c ON c.id = tc.client_id
             JOIN users u ON u.id = tc.invited_by_user_id
             WHERE tc.professional_user_id = @professionalId AND tc.status = 'pending' AND c.archived_at IS NULL
+              AND tc.tenant_id IS NOT DISTINCT FROM (SELECT u.tenant_id FROM users u WHERE u.id = @professionalId)
             ORDER BY tc.created_at DESC
             """, ("professionalId", professionalId.Value));
         var items = new List<object>();
