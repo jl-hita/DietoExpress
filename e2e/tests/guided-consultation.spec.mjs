@@ -183,11 +183,17 @@ test.describe('P0 — recorrido completo de consulta guiada', () => {
     await page.getByRole('button', { name: /Objetivos/ }).first().click();
     await expect(page.getByRole('heading', { name: 'Objetivos y cambios acordados' })).toBeVisible();
     await expect(page.locator('app-video-consultation')).toBeVisible();
-    await expect(page).toHaveURL(/\/clients\/\d+(?:[/?#]|$)/, { timeout: 20_000 });
+    await expect(page).toHaveURL(consultationUrl);
 
     await page.locator('.stepper button').filter({ hasText: 'Anamnesis' }).click();
     await expect(page.locator('app-video-consultation')).toBeVisible();
-    await expect(page).toHaveURL(/\/clients\/\d+(?:[/?#]|$)/, { timeout: 20_000 });
+    await expect(page).toHaveURL(consultationUrl);
+
+    await page.locator('app-video-consultation').getByRole('button', { name: 'Cerrar vídeo' }).click();
+    await expect(page.locator('app-video-consultation')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Mostrar videollamada' }).click();
+    await expect(page.locator('app-video-consultation')).toBeVisible();
+    await expect(page.getByText('Acceso aún no disponible')).toBeVisible();
   });
 
 });
