@@ -170,3 +170,79 @@ button:disabled {
 .call-time-warning span { color: #7c2d12; }
 
 .connection-banner{margin:0 1rem 1rem;padding:.75rem 1rem;border-radius:.65rem;background:#1f2937;display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}.connection-banner.connected{border:1px solid #166534}.connection-banner.warning{border:1px solid #a16207}.connection-dot{width:.65rem;height:.65rem;border-radius:50%;background:#9ca3af;flex:0 0 auto}.connection-banner.connected .connection-dot{background:#22c55e}.connection-banner.warning .connection-dot{background:#f59e0b}.connection-banner button{margin-left:auto}.finalize-button{background:#166534;color:#fff}.finalized-card{text-align:center}.finalized-card button{margin-top:1rem}
+
+
+/* Modo integrado en la consulta guiada: mantiene LiveKit en una columna lateral. */
+:host(.embedded) {
+  min-height: 0;
+  height: fit-content;
+  background: transparent;
+  color: #fff;
+  position: sticky;
+  top: 12px;
+  align-self: start;
+}
+
+.video-page.embedded {
+  min-height: 0;
+  border: 1px solid #1f2937;
+  border-radius: .85rem;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .12);
+}
+
+.video-page.embedded .connection-banner {
+  margin: .5rem .65rem 0;
+  padding: .6rem .75rem;
+  font-size: .8rem;
+}
+
+.video-page.embedded .room {
+  flex: 0 0 auto;
+  min-height: 0;
+  height: min(55vh, 520px);
+  padding: .5rem;
+}
+
+.video-page.embedded .remote-stage {
+  inset: .5rem;
+  border-radius: .55rem;
+}
+
+.video-page.embedded .local-stage {
+  width: min(38%, 180px);
+  right: 1rem;
+  bottom: 1rem;
+}
+
+.video-page.embedded .controls {
+  gap: .4rem;
+  padding: .65rem;
+}
+
+.video-page.embedded .controls button {
+  padding: .55rem .65rem;
+  font-size: .75rem;
+}
+
+.video-page.embedded .quota-warning,
+.video-page.embedded .call-time-warning {
+  margin: .5rem .65rem 0;
+  padding: .6rem .7rem;
+  font-size: .8rem;
+}
+
+.video-page.embedded .state-card {
+  margin: .75rem;
+  padding: 1rem;
+}
+
+@media (max-width: 1200px) {
+  :host(.embedded) {
+    position: static;
+    order: -1;
+  }
+  .video-page.embedded .room {
+    height: min(48vh, 460px);
+  }
+}
