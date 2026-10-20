@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 // El portal y el seguimiento se prueban con respuestas API ficticias.
-async function mockPortal(page, { saveError = null } = {}) {
+async function mockPortal(page, { saveError = null, eligible = true } = {}) {
   const saves = [];
   await page.route('**/api/**', async route => {
     const request = route.request();
@@ -11,6 +11,8 @@ async function mockPortal(page, { saveError = null } = {}) {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ clientId: 321, fullName: 'Paciente E2E Ficticio' }) });
     } else if (url.pathname.endsWith('/portal/profile') && method === 'GET') {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 321, fullName: 'Paciente E2E Ficticio', hasActiveDiet: false }) });
+    } else if (url.pathname.endsWith('/portal/check-ins/eligibility') && method === 'GET') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ eligible, message: eligible ? null : 'La revisión semanal estará disponible después de tu primera consulta.' }) });
     } else if (url.pathname.endsWith('/portal/check-ins/current') && method === 'GET') {
       await route.fulfill({ status: 200, contentType: 'application/json', body: 'null' });
     } else if (url.pathname.endsWith('/portal/check-ins') && method === 'POST') {
@@ -55,6 +57,15 @@ test.describe('P1 — seguimiento semanal del paciente', () => {
     await expect(page.locator('.checkin-saved')).toContainText('Revisión guardada');
     expect(saves).toHaveLength(1);
     expect(saves[0]).toMatchObject({ weight: 82.5, adherence: 80, hunger: 4, energy: 7, difficulties: 'Semana de prueba ficticia' });
+  });
+
+
+  test('no solicita revisión semanal antes de la primera consulta realizada', async ({ page }) => {
+    await mockPortal(page, { eligible: false });
+    await loginByPin(page);
+    await expect(page.locator('.checkin-first-consult')).toContainText('después de tu primera consulta');
+    await expect(page.locator('.weekly-checkin')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Guardar revisión' })).toHaveCount(0);
   });
 
   test('la validación HTML impide guardar un peso fuera del rango permitido', async ({ page }) => {
