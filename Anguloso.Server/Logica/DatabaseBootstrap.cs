@@ -2944,7 +2944,6 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
     /// </summary>
     public static void UpgradeTrainingPeriodizationSchemaV1(angulosodbContext context, ILogger logger)
     {
-        const string migrationId = "training-periodization-v1";
         if (context.Database.SqlQueryRaw<bool>("SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'training-periodization-v1') AS \"Value\"").Single())
             return;
 
