@@ -468,7 +468,6 @@ export class GuidedConsultationComponent implements OnInit {
   trainingManagementMode: 'none' | 'self' | 'collaboration' = 'none';
   trainingModeSaving = false;
   trainingModeSaveState: 'idle' | 'saved' | 'error' = 'idle';
-  private trainingProfileNotes: string | null = null;
   private trainingPrimaryGoal = 'general_fitness';
   private trainingExperienceLevel = 'unknown';
   patientProfileLoading = false;
@@ -736,16 +735,11 @@ export class GuidedConsultationComponent implements OnInit {
     if (!clientId) return;
     this.http.get<any>(`/api/training/clients/${clientId}/profile`).subscribe({
       next: profile => {
-        this.trainingProfileNotes = profile?.notes ?? null;
         this.trainingPrimaryGoal = profile?.primaryGoal ?? 'general_fitness';
         this.trainingExperienceLevel = profile?.experienceLevel ?? 'unknown';
-        const savedNotes = String(this.trainingProfileNotes ?? '');
-        this.trainingManagementMode = savedNotes.includes('[[training-management-mode:collaboration]]') ? 'collaboration'
-          : savedNotes.includes('[[training-management-mode:self]]') ? 'self'
-          : savedNotes.includes('[[training-management-mode:none]]') ? 'none'
-          : (profile?.enabled ? 'self' : 'none');
+        this.trainingManagementMode = profile?.managementMode ?? (profile?.enabled ? 'self' : 'none');
       },
-      error: () => { this.trainingManagementMode = 'none'; this.trainingProfileNotes = null; this.trainingPrimaryGoal = 'general_fitness'; this.trainingExperienceLevel = 'unknown'; }
+      error: () => { this.trainingManagementMode = 'none'; this.trainingPrimaryGoal = 'general_fitness'; this.trainingExperienceLevel = 'unknown'; }
     });
   }
 
@@ -754,17 +748,13 @@ export class GuidedConsultationComponent implements OnInit {
     if (!clientId || this.trainingModeSaving) return;
     this.trainingModeSaving = true;
     this.trainingModeSaveState = 'idle';
-    const marker = `[[training-management-mode:${this.trainingManagementMode}]]`;
-    const existing = String(this.trainingProfileNotes ?? '').split(' ').filter(token => !token.startsWith('[[training-management-mode:')).join(' ').trim();
-    const notes = [existing, marker].filter(Boolean).join(' ');
     this.http.put<any>(`/api/training/clients/${clientId}/profile`, {
       enabled: this.trainingManagementMode !== 'none',
       primaryGoal: this.trainingPrimaryGoal,
       experienceLevel: this.trainingExperienceLevel,
-      notes
+      managementMode: this.trainingManagementMode
     }).subscribe({
       next: profile => {
-        this.trainingProfileNotes = profile?.notes ?? notes;
         this.trainingPrimaryGoal = profile?.primaryGoal ?? this.trainingPrimaryGoal;
         this.trainingExperienceLevel = profile?.experienceLevel ?? this.trainingExperienceLevel;
         this.trainingModeSaving = false;

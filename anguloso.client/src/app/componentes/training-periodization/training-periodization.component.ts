@@ -6,7 +6,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { catchError, forkJoin, of } from 'rxjs';
 
 interface TrainingProfile {
-  id: number; clientId: number; enabled: boolean; primaryGoal: string; experienceLevel: string; notes?: string | null;
+  id: number; clientId: number; enabled: boolean; primaryGoal: string; experienceLevel: string; managementMode: 'none' | 'self' | 'collaboration'; notes?: string | null;
 }
 interface TrainingPlan {
   id: number; name: string; periodizationModel: string; startDate: string; endDate?: string | null; status: string; version: number; notes?: string | null;
@@ -108,8 +108,7 @@ export class TrainingPeriodizationComponent implements OnInit {
     this.http.get<TrainingProfile>(`/api/training/clients/${this.clientId}/profile`).pipe(catchError(() => of(null))).subscribe(profile => {
       this.profile = profile;
       if (!profile) { this.loading = false; return; }
-      this.trainingManagementMode = this.readTrainingMode(profile.notes);
-      this.profile = { ...profile, notes: this.cleanTrainingNotes(profile.notes) };
+      this.trainingManagementMode = profile.managementMode ?? (profile.enabled ? 'self' : 'none');
       if (!profile.enabled) { this.loading = false; return; }
       this.http.get<TrainingPlan[]>(`/api/training/clients/${this.clientId}/plans`).subscribe({
         next: plans => { this.plans = plans; this.sessionDrafts = {}; for (const p of plans) this.sessionDrafts[p.id] = { date: new Date().toISOString().slice(0,10), title: '', type: 'general', duration: null }; this.loadSessions(plans); this.loading = false; },
@@ -126,7 +125,7 @@ export class TrainingPeriodizationComponent implements OnInit {
   }
 
   activate(): void {
-    this.profile = { id: 0, clientId: this.clientId, enabled: true, primaryGoal: 'general_fitness', experienceLevel: 'beginner', notes: '' };
+    this.profile = { id: 0, clientId: this.clientId, enabled: true, primaryGoal: 'general_fitness', experienceLevel: 'beginner', managementMode: 'self', notes: '' };
     this.saveProfile();
   }
 
@@ -135,25 +134,11 @@ export class TrainingPeriodizationComponent implements OnInit {
   saveProfile(): void {
     if (!this.profile) return;
     this.saving = true; this.error = '';
-    const visibleNotes = this.cleanTrainingNotes(this.profile.notes);
-    const payload = { ...this.profile, notes: [visibleNotes, `[[training-management-mode:${this.trainingManagementMode}]]`].filter(Boolean).join(' ') };
+    const payload = { ...this.profile, managementMode: this.trainingManagementMode };
     this.http.put<TrainingProfile>(`/api/training/clients/${this.clientId}/profile`, payload).subscribe({
-      next: p => { this.trainingManagementMode = this.readTrainingMode(p.notes); this.profile = { ...p, notes: this.cleanTrainingNotes(p.notes) }; this.saving = false; this.load(); },
+      next: p => { this.trainingManagementMode = p.managementMode ?? this.trainingManagementMode; this.profile = p; this.saving = false; this.load(); },
       error: e => { this.error = e?.error?.message || 'No se pudo guardar el perfil deportivo.'; this.saving = false; }
     });
-  }
-
-  private readTrainingMode(notes?: string | null): 'none' | 'self' | 'collaboration' {
-    const value = String(notes ?? '');
-    if (value.includes('[[training-management-mode:collaboration]]')) return 'collaboration';
-    if (value.includes('[[training-management-mode:none]]')) return 'none';
-    return 'self';
-  }
-
-  private cleanTrainingNotes(notes?: string | null): string {
-    return String(notes ?? '').split(' ')
-      .filter(token => !token.startsWith('[[training-management-mode:'))
-      .join(' ').trim();
   }
 
   createPlan(): void {

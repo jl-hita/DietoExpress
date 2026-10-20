@@ -55,8 +55,11 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("directorySportsTraining", settings);
         Assert.Contains("item.offersSportsTraining", directoryUi);
         Assert.Contains("trainingManagementMode", consultation);
+        Assert.Contains("managementMode: this.trainingManagementMode", consultation);
+        Assert.Contains("management_mode VARCHAR(20) NOT NULL DEFAULT 'self'", bootstrap);
+        Assert.Contains("management_mode = EXCLUDED.management_mode", File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs")));
         Assert.Contains("collaboration", consultation);
         Assert.Contains("Gestión del entrenamiento", trainingUi);
-        Assert.Contains("readTrainingMode", trainingUi);
+        Assert.Contains("managementMode: this.trainingManagementMode", trainingUi);
     }
 }

@@ -749,6 +749,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
     ON public_directory_reviews(nutritionist_id, created_at DESC);
 ");
             UpgradeTrainingPeriodizationSchemaV1(context, logger);
+            UpgradeTrainingPeriodizationSchemaV2(context, logger);
 
             VerifyCurrentSchema(context, logger);
 
@@ -3034,6 +3035,28 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
             INSERT INTO schema_migrations(id) VALUES ('training-periodization-v1') ON CONFLICT (id) DO NOTHING;
         ");
         logger.LogInformation("Esquema opcional de periodización deportiva inicializado.");
+    }
+
+    /// <summary>Persist the training management choice independently from user-authored notes.</summary>
+    public static void UpgradeTrainingPeriodizationSchemaV2(angulosodbContext context, ILogger logger)
+    {
+        const string migrationId = "training-periodization-v2-management-mode";
+        if (context.Database.SqlQueryRaw<bool>("SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'training-periodization-v2-management-mode') AS \"Value\"").Single())
+            return;
+
+        context.Database.ExecuteSqlRaw(@"
+            ALTER TABLE training_profiles
+                ADD COLUMN IF NOT EXISTS management_mode VARCHAR(20) NOT NULL DEFAULT 'self';
+            DO $
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_training_profiles_management_mode') THEN
+                    ALTER TABLE training_profiles ADD CONSTRAINT ck_training_profiles_management_mode
+                        CHECK (management_mode IN ('none','self','collaboration'));
+                END IF;
+            END $;
+            INSERT INTO schema_migrations(id) VALUES ('training-periodization-v2-management-mode') ON CONFLICT (id) DO NOTHING;
+        ");
+        logger.LogInformation("Esquema de gestión de periodización deportiva actualizado.");
     }
 
     private static void VerifyCurrentSchema(angulosodbContext context, ILogger logger)

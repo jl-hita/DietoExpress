@@ -27,13 +27,13 @@ public sealed class TrainingPeriodizationController : ControllerBase
     {
         if (!await CanAccessClient(clientId, cancellationToken)) return NotFound();
         await using var command = Command("""
-            SELECT id, client_id, enabled, primary_goal, experience_level, notes, created_at, updated_at
+            SELECT id, client_id, enabled, primary_goal, experience_level, management_mode, notes, created_at, updated_at
             FROM training_profiles WHERE client_id = @clientId
             """, ("clientId", clientId));
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         if (!await reader.ReadAsync(cancellationToken)) return NotFound(new { enabled = false });
-        return Ok(new TrainingProfileDto(reader.GetInt32(0), reader.GetInt32(1), reader.GetBoolean(2), reader.GetString(3), reader.GetString(4),
-            reader.IsDBNull(5) ? null : reader.GetString(5), reader.GetDateTime(6), reader.GetDateTime(7)));
+        return Ok(new TrainingProfileDto(reader.GetInt32(0), reader.GetInt32(1), reader.GetBoolean(2), reader.GetString(3), reader.GetString(4), reader.GetString(5),
+            reader.IsDBNull(6) ? null : reader.GetString(6), reader.GetDateTime(7), reader.GetDateTime(8)));
     }
 
     [HttpPut("clients/{clientId:int}/profile")]
@@ -46,17 +46,20 @@ public sealed class TrainingPeriodizationController : ControllerBase
             return BadRequest(new { message = "El objetivo deportivo no es válido." });
         if (request.ExperienceLevel is not ("beginner" or "intermediate" or "advanced" or "unknown"))
             return BadRequest(new { message = "El nivel de experiencia no es válido." });
+        var managementMode = request.ManagementMode ?? "self";
+        if (managementMode is not ("none" or "self" or "collaboration"))
+            return BadRequest(new { message = "La modalidad de gestión del entrenamiento no es válida." });
 
         await using var command = Command("""
-            INSERT INTO training_profiles(client_id, tenant_id, enabled, primary_goal, experience_level, notes, created_by_user_id)
-            SELECT c.id, c.tenant_id, @enabled, @goal, @experience, @notes, @userId
+            INSERT INTO training_profiles(client_id, tenant_id, enabled, primary_goal, experience_level, management_mode, notes, created_by_user_id)
+            SELECT c.id, c.tenant_id, @enabled, @goal, @experience, @managementMode, @notes, @userId
             FROM clients c WHERE c.id = @clientId AND c.archived_at IS NULL
             ON CONFLICT(client_id) DO UPDATE SET enabled = EXCLUDED.enabled,
                 primary_goal = EXCLUDED.primary_goal, experience_level = EXCLUDED.experience_level,
-                notes = EXCLUDED.notes, updated_at = NOW()
-            RETURNING id, client_id, enabled, primary_goal, experience_level, notes, created_at, updated_at
+                management_mode = EXCLUDED.management_mode, notes = EXCLUDED.notes, updated_at = NOW()
+            RETURNING id, client_id, enabled, primary_goal, experience_level, management_mode, notes, created_at, updated_at
             """, ("clientId", clientId), ("enabled", request.Enabled), ("goal", request.PrimaryGoal),
-            ("experience", request.ExperienceLevel), ("notes", request.Notes), ("userId", userId.Value));
+            ("experience", request.ExperienceLevel), ("managementMode", managementMode), ("notes", request.Notes), ("userId", userId.Value));
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         if (!await reader.ReadAsync(cancellationToken)) return NotFound();
         var profile = new TrainingProfileDto(reader.GetInt32(0), reader.GetInt32(1), reader.GetBoolean(2), reader.GetString(3), reader.GetString(4),
@@ -234,8 +237,8 @@ public sealed class TrainingPeriodizationController : ControllerBase
     }
 }
 
-public sealed record TrainingProfileDto(int Id, int ClientId, bool Enabled, string PrimaryGoal, string ExperienceLevel, string? Notes, DateTime CreatedAt, DateTime UpdatedAt);
-public sealed record UpdateTrainingProfileRequest(bool Enabled, string PrimaryGoal, string ExperienceLevel, string? Notes);
+public sealed record TrainingProfileDto(int Id, int ClientId, bool Enabled, string PrimaryGoal, string ExperienceLevel, string ManagementMode, string? Notes, DateTime CreatedAt, DateTime UpdatedAt);
+public sealed record UpdateTrainingProfileRequest(bool Enabled, string PrimaryGoal, string ExperienceLevel, string? Notes, string? ManagementMode = null);
 public sealed record CreateTrainingPlanRequest(string Name, string PeriodizationModel, DateOnly StartDate, DateOnly? EndDate, string? Notes);
 public sealed record TrainingPlanDto(int Id, string Name, string PeriodizationModel, DateOnly StartDate, DateOnly? EndDate, string Status, int Version, string? Notes);
 public sealed record CreateTrainingSessionRequest(DateOnly ScheduledDate, string Title, string SessionType, int? DurationMinutes, string? IntensityTarget, string? Instructions);
