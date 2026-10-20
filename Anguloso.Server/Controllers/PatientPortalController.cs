@@ -516,7 +516,7 @@ public class PatientPortalController : ControllerBase
         var emailResult = await _emailServ.SendEmailAsync(
             client.email,
             "Tu acceso al portal de DietoExpress",
-            $"<h2>Hola, {safeName}</h2><p>Tu nutricionista te ha facilitado el acceso a tu portal de paciente de DietoExpress.</p><p><a href='{safeLink}'>Acceder a mi portal</a></p><p>Este enlace es personal, de un solo uso y caduca en 24 horas.</p><p>Si necesitas ayuda, contacta con tu nutricionista.</p>");
+            $"<h2>Hola, {safeName}</h2><p>Tu nutricionista te ha facilitado el acceso a tu portal de paciente de DietoExpress.</p><p><a href='{safeLink}'>Acceder a mi portal</a></p><p>Este enlace es personal, caduca en 24 horas y puedes utilizarlo tantas veces como necesites durante ese plazo.</p><p>Si necesitas ayuda, contacta con tu nutricionista.</p>");
 
         if (!emailResult.Exito)
             return StatusCode(StatusCodes.Status502BadGateway, new { message = "No se ha podido enviar el enlace por email. Puedes reintentarlo desde la consulta." });
