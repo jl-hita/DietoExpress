@@ -33,7 +33,7 @@ public sealed class TrainingPortalController : ControllerBase
 
         await using var command = Command("""
             SELECT s.id, s.plan_id, s.scheduled_date, s.title, s.session_type, s.duration_minutes, s.intensity_target, s.instructions, s.status,
-                   r.completed_at, r.actual_duration_minutes, r.session_rpe, r.notes
+                   r.completed_at, r.actual_duration_minutes, r.session_rpe, r.notes, s.exercise_prescription
             FROM training_sessions s
             JOIN training_plans p ON p.id = s.plan_id
             JOIN training_profiles f ON f.id = p.profile_id
@@ -55,7 +55,8 @@ public sealed class TrainingPortalController : ControllerBase
                 completedAt = reader.IsDBNull(9) ? (DateTime?)null : reader.GetDateTime(9),
                 actualDurationMinutes = reader.IsDBNull(10) ? (int?)null : reader.GetInt32(10),
                 sessionRpe = reader.IsDBNull(11) ? (decimal?)null : reader.GetDecimal(11),
-                recordNotes = reader.IsDBNull(12) ? null : reader.GetString(12)
+                recordNotes = reader.IsDBNull(12) ? null : reader.GetString(12),
+                exercisePrescription = reader.IsDBNull(13) ? null : reader.GetString(13)
             });
         }
         return Ok(new { enabled = true, sessions });
