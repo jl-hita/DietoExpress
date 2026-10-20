@@ -12,9 +12,9 @@ Este PR introduce la primera vertical funcional del módulo deportivo como **fun
 - Registro separado de prescripción y ejecución para no sobrescribir lo previsto al registrar lo realizado.
 
 ## Alcance pendiente de fases posteriores
-- Portal del deportista para registrar sesiones con identidad de paciente (este primer flujo de registro es desde la vista profesional).
+- Portal del deportista para consultar sesiones y registrar duración real/RPE usando su propia sesión autenticada.
 - Flujo de invitación y aceptación de entrenadores, onboarding de rol entrenador y guardas de navegación correspondientes.
 - Bloques/mesociclos/microciclos editables, editor avanzado de ejercicios y métricas específicas de potencia/ritmo/zonas.
 - Sincronización contextual con el generador de dietas, dashboards de tendencias, importaciones de dispositivos y alertas configurables.
 
-El módulo es opcional por cliente, pero esta primera entrega no activa ni prescribe actividad física automáticamente.
+El módulo es opcional por cliente, pero esta primera entrega no activa ni prescribe actividad física automáticamente. La pestaña deportiva del portal solo aparece si el perfil está activado por el profesional.

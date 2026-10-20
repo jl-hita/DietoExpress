@@ -31,5 +31,10 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("CanAccessClientInternal", controller);
         Assert.Contains("Activar para este cliente", ui);
         Assert.Contains("Desactivar módulo", ui);
+        var portalController = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPortalController.cs"));
+        var portalUi = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "patient-portal", "patient-portal.component.ts"));
+        Assert.Contains("[Authorize(Roles = \"patient\")]", portalController);
+        Assert.Contains("f.client_id = @clientId AND f.enabled = TRUE", portalController);
+        Assert.Contains("/api/portal/training/sessions", portalUi);
     }
 }
