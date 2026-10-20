@@ -40,7 +40,8 @@ public sealed class AppointmentPushReminderRegressionTests
         var ui = Read("anguloso.client/src/app/app.component.ts");
 
         Assert.Contains("push-subscriptions", patientController);
-        Assert.Contains("api/professional/push/subscriptions", professionalController);
+        Assert.Contains('Route("api/professional/push")', professionalController);
+        Assert.Contains('HttpPost("subscriptions")', professionalController);
         Assert.Contains("professional_push_subscriptions", professionalService);
         Assert.Contains("enableProfessionalPush()", ui);
         Assert.Contains("navigator.serviceWorker.register('/sw.js')", ui);
