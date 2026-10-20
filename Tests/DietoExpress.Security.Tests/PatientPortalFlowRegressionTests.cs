@@ -54,11 +54,15 @@ public sealed class PatientPortalFlowRegressionTests
     {
         var component = Read("anguloso.client/src/app/componentes/patient-portal/patient-appointments/patient-appointments.component.ts");
         var template = Read("anguloso.client/src/app/componentes/patient-portal/patient-appointments/patient-appointments.component.html");
+        var dashboard = Read("anguloso.client/src/app/componentes/patient-portal/patient-portal.component.html");
+        var dashboardComponent = Read("anguloso.client/src/app/componentes/patient-portal/patient-portal.component.ts");
 
         Assert.Contains("videoAccessCountdown", component);
         Assert.Contains("new Date(appointment.startsAt).getTime() - 15 * 60_000", component);
         Assert.Contains("videoAccessState(appointment) !== 'available'", template);
         Assert.Contains("Disponible en {{ videoAccessCountdown(appointment) }}", template);
         Assert.Contains("El botón se activará 15 minutos antes de la cita.", template);
+        Assert.Contains("home-video-access-card", dashboard);
+        Assert.Contains("homeVideoAccessCountdown", dashboardComponent);
     }
 }
