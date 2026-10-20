@@ -15,11 +15,15 @@ public class AdminUsersController : ControllerBase
 {
     private readonly angulosodbContext _context;
     private readonly IAuditLogService _audit;
+    private readonly EmailServ _emailServ;
+    private readonly ConfigServ _configServ;
 
-    public AdminUsersController(angulosodbContext context, IAuditLogService audit)
+    public AdminUsersController(angulosodbContext context, IAuditLogService audit, EmailServ emailServ, ConfigServ configServ)
     {
         _context = context;
         _audit = audit;
+        _emailServ = emailServ;
+        _configServ = configServ;
     }
 
     /// <summary>
@@ -80,6 +84,33 @@ public class AdminUsersController : ControllerBase
                 message = analytics.Message
             }
         });
+    }
+
+    [HttpPost("config/test-email")]
+    public async Task<IActionResult> TestEmailConfiguration()
+    {
+        var destination = _configServ.GetConfigString("smtpFromEmail")?.Trim();
+        if (string.IsNullOrWhiteSpace(destination))
+            return BadRequest(new { message = "EMAIL_SMTP_FROM_EMAIL no está configurado." });
+
+        try
+        {
+            destination = new System.Net.Mail.MailAddress(destination).Address;
+        }
+        catch (FormatException)
+        {
+            return BadRequest(new { message = "EMAIL_SMTP_FROM_EMAIL no contiene una dirección válida." });
+        }
+
+        var result = await _emailServ.SendEmailAsync(
+            destination,
+            "Prueba de configuración SMTP de DietoExpress",
+            "<h2>Prueba de correo correcta</h2><p>Este mensaje confirma que DietoExpress ha podido enviar un correo de prueba usando la configuración SMTP actual.</p>");
+
+        if (!result.Exito)
+            return StatusCode(StatusCodes.Status502BadGateway, new { message = "No se pudo enviar el correo de prueba. Revisa el log del servidor para consultar el diagnóstico SMTP." });
+
+        return Ok(new { message = $"Correo de prueba aceptado por SMTP para {destination}. Comprueba la bandeja de entrada y la carpeta de spam." });
     }
 
     [HttpGet("config")]

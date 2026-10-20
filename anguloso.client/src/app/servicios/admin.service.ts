@@ -199,6 +199,10 @@ export class AdminService {
     return this.http.put<AdminConfig>(`${this.adminUrl}/config/${id}`, { valor });
   }
 
+  testEmailConfiguration(): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.adminUrl}/config/test-email`, {});
+  }
+
   getVideoUsage(): Observable<AdminVideoUsage> { return this.http.get<AdminVideoUsage>(`${this.adminUrl}/video-usage`); }
 
   getDatabaseBackups(): Observable<AdminDatabaseBackupsResponse> {

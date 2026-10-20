@@ -399,6 +399,19 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
                 </mat-card>
               </div>
               <div *ngIf="configsFor(tab.key).length === 0" class="empty-state"><mat-icon>settings_off</mat-icon><p>No hay configuración en esta categoría.</p></div>
+              <div class="email-test-actions" *ngIf="tab.key === 'EMAIL'">
+                <div class="email-test-copy">
+                  <strong>Probar envío de correo</strong>
+                  <span>Envía un mensaje de prueba a la dirección configurada en EMAIL_SMTP_FROM_EMAIL.</span>
+                </div>
+                <button mat-flat-button color="primary" type="button"
+                        (click)="testEmailConfiguration()"
+                        [disabled]="emailTestRunning || isEmailConfigSaving()">
+                  <mat-spinner *ngIf="emailTestRunning" diameter="18"></mat-spinner>
+                  <mat-icon *ngIf="!emailTestRunning">outgoing_mail</mat-icon>
+                  {{ emailTestRunning ? 'Enviando prueba…' : 'Enviar email de prueba' }}
+                </button>
+              </div>
             </div>
           </mat-tab>
         </mat-tab-group>
@@ -406,6 +419,10 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
     </div>
   `,
   styles: [`
+    .email-test-actions { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-top:18px; padding:16px; border:1px solid #cbd5e1; border-radius:10px; background:#f8fafc; }
+    .email-test-copy { display:grid; gap:4px; min-width:0; }
+    .email-test-copy span { color:#64748b; font-size:13px; }
+    .email-test-actions button { display:inline-flex; align-items:center; gap:8px; }
     .drive-backup-loading { display: flex; align-items: center; gap: 12px; min-height: 40px; color: #475569; font-size: 14px; }
     .drive-backup-loading mat-spinner { flex: 0 0 auto; }
     .alerts-card { margin-bottom: 24px; padding: 20px; border-radius: 12px; border-left: 5px solid #dc2626; }
@@ -923,6 +940,32 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.adminService.getVideoUsage().subscribe({
       next: usage => this.videoUsage = usage,
       error: err => console.error('Error fetching LiveKit usage', err)
+    });
+  }
+
+  emailTestRunning = false;
+
+  isEmailConfigSaving(): boolean {
+    return this.configs.some(config =>
+      config.categoria === 'EMAIL' &&
+      (config.saveState === 'pending' || config.saveState === 'saving' || (config as AdminConfig & { saving?: boolean }).saving === true)
+    );
+  }
+
+  testEmailConfiguration(): void {
+    if (this.emailTestRunning || this.isEmailConfigSaving()) return;
+
+    this.emailTestRunning = true;
+    this.adminService.testEmailConfiguration().subscribe({
+      next: result => {
+        this.emailTestRunning = false;
+        this.snackBar.open(result.message || 'El correo de prueba se ha enviado.', 'Cerrar', { duration: 7000 });
+      },
+      error: err => {
+        this.emailTestRunning = false;
+        const message = err?.error?.message || err?.error?.detail || 'No se pudo enviar el correo de prueba. Revisa los logs del servidor.';
+        this.snackBar.open(message, 'Cerrar', { duration: 8000 });
+      }
     });
   }
 
