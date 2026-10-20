@@ -231,6 +231,94 @@ public sealed class TrainingPeriodizationController : ControllerBase
         }
     }
 
+    [HttpPut("mesocycles/{mesocycleId:int}")]
+    public async Task<IActionResult> UpdateMesocycle(int mesocycleId, [FromBody] CreateTrainingMesocycleRequest request, CancellationToken cancellationToken)
+    {
+        var planId = await GetMesocyclePlanId(mesocycleId, cancellationToken);
+        if (!planId.HasValue || !await CanManagePlan(planId.Value, cancellationToken)) return NotFound();
+        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Trim().Length > 160 || request.SequenceNumber < 1)
+            return BadRequest(new { message = "El nombre y el número de secuencia del mesociclo son obligatorios y válidos." });
+        if (request.EndDate.HasValue && request.EndDate.Value < request.StartDate)
+            return BadRequest(new { message = "La fecha final no puede ser anterior a la inicial." });
+        await using var command = Command("""
+            UPDATE training_mesocycles m
+            SET name = @name, sequence_number = @sequence, start_date = @startDate, end_date = @endDate,
+                objective = @objective, notes = @notes, updated_at = NOW()
+            FROM training_plans p
+            WHERE m.id = @id AND p.id = m.plan_id
+              AND @startDate >= p.start_date
+              AND (p.end_date IS NULL OR @startDate <= p.end_date)
+              AND (p.end_date IS NULL OR @endDate IS NULL OR @endDate <= p.end_date)
+              AND NOT EXISTS (
+                  SELECT 1 FROM training_mesocycles other
+                  WHERE other.plan_id = m.plan_id AND other.id <> m.id
+                    AND other.start_date <= COALESCE(@endDate, 'infinity'::date)
+                    AND COALESCE(other.end_date, 'infinity'::date) >= @startDate
+              )
+            RETURNING m.id
+            """, ("id", mesocycleId), ("name", request.Name.Trim()), ("sequence", request.SequenceNumber),
+            ("startDate", request.StartDate), ("endDate", request.EndDate), ("objective", request.Objective), ("notes", request.Notes));
+        try
+        {
+            var updated = await command.ExecuteScalarAsync(cancellationToken);
+            return updated is null ? Conflict(new { message = "Las fechas deben encajar en el plan y no solaparse con otros mesociclos." }) : NoContent();
+        }
+        catch (PostgresException ex) when (ex.SqlState == "23505")
+        {
+            return Conflict(new { message = "Ese número de secuencia ya está asignado a otro mesociclo." });
+        }
+    }
+
+    [HttpDelete("mesocycles/{mesocycleId:int}")]
+    public async Task<IActionResult> DeleteMesocycle(int mesocycleId, CancellationToken cancellationToken)
+    {
+        var planId = await GetMesocyclePlanId(mesocycleId, cancellationToken);
+        if (!planId.HasValue || !await CanManagePlan(planId.Value, cancellationToken)) return NotFound();
+        await using var command = Command("""
+            DELETE FROM training_mesocycles m
+            WHERE m.id = @id
+              AND NOT EXISTS (SELECT 1 FROM training_microcycles c WHERE c.mesocycle_id = m.id)
+            RETURNING m.id
+            """, ("id", mesocycleId));
+        var deleted = await command.ExecuteScalarAsync(cancellationToken);
+        if (deleted is not null) return NoContent();
+        await using var exists = Command("SELECT EXISTS(SELECT 1 FROM training_mesocycles WHERE id = @id)", ("id", mesocycleId));
+        return Convert.ToBoolean(await exists.ExecuteScalarAsync(cancellationToken))
+            ? Conflict(new { message = "No se puede borrar un mesociclo que contiene microciclos. Elimínalos primero." })
+            : NotFound();
+    }
+
+    [HttpPost("plans/{planId:int}/mesocycles/reorder")]
+    public async Task<IActionResult> ReorderMesocycles(int planId, [FromBody] ReorderTrainingCyclesRequest request, CancellationToken cancellationToken)
+    {
+        if (!await CanManagePlan(planId, cancellationToken)) return NotFound();
+        if (request.OrderedIds is null || request.OrderedIds.Length == 0 || request.OrderedIds.Distinct().Count() != request.OrderedIds.Length)
+            return BadRequest(new { message = "La lista de mesociclos debe contener identificadores únicos." });
+        await using var countCommand = Command("SELECT COUNT(*) FROM training_mesocycles WHERE plan_id = @planId AND id = ANY(@ids)", ("planId", planId), ("ids", request.OrderedIds));
+        var matched = Convert.ToInt32(await countCommand.ExecuteScalarAsync(cancellationToken));
+        await using var totalCommand = Command("SELECT COUNT(*) FROM training_mesocycles WHERE plan_id = @planId", ("planId", planId));
+        var total = Convert.ToInt32(await totalCommand.ExecuteScalarAsync(cancellationToken));
+        if (matched != total || request.OrderedIds.Length != total)
+            return BadRequest(new { message = "La lista debe incluir todos los mesociclos del plan exactamente una vez." });
+        var connection = (NpgsqlConnection)_context.Database.GetDbConnection();
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await using (var shift = Command("UPDATE training_mesocycles SET sequence_number = sequence_number + 100000 WHERE plan_id = @planId", ("planId", planId), transaction))
+                await shift.ExecuteNonQueryAsync(cancellationToken);
+            for (var i = 0; i < request.OrderedIds.Length; i++)
+                await using (var update = Command("UPDATE training_mesocycles SET sequence_number = @sequence, updated_at = NOW() WHERE plan_id = @planId AND id = @id", ("sequence", i + 1), ("planId", planId), ("id", request.OrderedIds[i]), transaction))
+                    await update.ExecuteNonQueryAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return NoContent();
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
     [HttpGet("mesocycles/{mesocycleId:int}/microcycles")]
     public async Task<IActionResult> GetMicrocycles(int mesocycleId, CancellationToken cancellationToken)
     {
@@ -286,6 +374,91 @@ public sealed class TrainingPeriodizationController : ControllerBase
         catch (PostgresException ex) when (ex.SqlState == "23505")
         {
             return Conflict(new { message = "Ya existe un microciclo con ese número dentro del mesociclo." });
+        }
+    }
+
+    [HttpPut("microcycles/{microcycleId:int}")]
+    public async Task<IActionResult> UpdateMicrocycle(int microcycleId, [FromBody] CreateTrainingMicrocycleRequest request, CancellationToken cancellationToken)
+    {
+        var mesocycleId = await _context.Database.SqlQueryRaw<int?>(
+            """SELECT mesocycle_id AS "Value" FROM training_microcycles WHERE id = {0}""", microcycleId).SingleOrDefaultAsync(cancellationToken);
+        if (!mesocycleId.HasValue) return NotFound();
+        var planId = await GetMesocyclePlanId(mesocycleId.Value, cancellationToken);
+        if (!planId.HasValue || !await CanManagePlan(planId.Value, cancellationToken)) return NotFound();
+        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Trim().Length > 160 || request.SequenceNumber < 1)
+            return BadRequest(new { message = "El nombre y el número de secuencia del microciclo son obligatorios y válidos." });
+        if (request.EndDate.HasValue && request.EndDate.Value < request.StartDate)
+            return BadRequest(new { message = "La fecha final no puede ser anterior a la inicial." });
+        await using var command = Command("""
+            UPDATE training_microcycles m
+            SET name = @name, sequence_number = @sequence, start_date = @startDate, end_date = @endDate,
+                focus = @focus, notes = @notes, updated_at = NOW()
+            FROM training_mesocycles parent
+            WHERE m.id = @id AND parent.id = m.mesocycle_id
+              AND @startDate >= parent.start_date
+              AND (parent.end_date IS NULL OR @startDate <= parent.end_date)
+              AND (parent.end_date IS NULL OR @endDate IS NULL OR @endDate <= parent.end_date)
+              AND NOT EXISTS (
+                  SELECT 1 FROM training_microcycles other
+                  WHERE other.mesocycle_id = m.mesocycle_id AND other.id <> m.id
+                    AND other.start_date <= COALESCE(@endDate, 'infinity'::date)
+                    AND COALESCE(other.end_date, 'infinity'::date) >= @startDate
+              )
+            RETURNING m.id
+            """, ("id", microcycleId), ("name", request.Name.Trim()), ("sequence", request.SequenceNumber),
+            ("startDate", request.StartDate), ("endDate", request.EndDate), ("focus", request.Focus), ("notes", request.Notes));
+        try
+        {
+            var updated = await command.ExecuteScalarAsync(cancellationToken);
+            return updated is null ? Conflict(new { message = "Las fechas deben encajar en el mesociclo y no solaparse con otros microciclos." }) : NoContent();
+        }
+        catch (PostgresException ex) when (ex.SqlState == "23505")
+        {
+            return Conflict(new { message = "Ese número de secuencia ya está asignado a otro microciclo." });
+        }
+    }
+
+    [HttpDelete("microcycles/{microcycleId:int}")]
+    public async Task<IActionResult> DeleteMicrocycle(int microcycleId, CancellationToken cancellationToken)
+    {
+        var mesocycleId = await _context.Database.SqlQueryRaw<int?>(
+            """SELECT mesocycle_id AS "Value" FROM training_microcycles WHERE id = {0}""", microcycleId).SingleOrDefaultAsync(cancellationToken);
+        if (!mesocycleId.HasValue) return NotFound();
+        var planId = await GetMesocyclePlanId(mesocycleId.Value, cancellationToken);
+        if (!planId.HasValue || !await CanManagePlan(planId.Value, cancellationToken)) return NotFound();
+        await using var command = Command("DELETE FROM training_microcycles WHERE id = @id RETURNING id", ("id", microcycleId));
+        return await command.ExecuteScalarAsync(cancellationToken) is null ? NotFound() : NoContent();
+    }
+
+    [HttpPost("mesocycles/{mesocycleId:int}/microcycles/reorder")]
+    public async Task<IActionResult> ReorderMicrocycles(int mesocycleId, [FromBody] ReorderTrainingCyclesRequest request, CancellationToken cancellationToken)
+    {
+        var planId = await GetMesocyclePlanId(mesocycleId, cancellationToken);
+        if (!planId.HasValue || !await CanManagePlan(planId.Value, cancellationToken)) return NotFound();
+        if (request.OrderedIds is null || request.OrderedIds.Length == 0 || request.OrderedIds.Distinct().Count() != request.OrderedIds.Length)
+            return BadRequest(new { message = "La lista de microciclos debe contener identificadores únicos." });
+        await using var countCommand = Command("SELECT COUNT(*) FROM training_microcycles WHERE mesocycle_id = @parentId AND id = ANY(@ids)", ("parentId", mesocycleId), ("ids", request.OrderedIds));
+        var matched = Convert.ToInt32(await countCommand.ExecuteScalarAsync(cancellationToken));
+        await using var totalCommand = Command("SELECT COUNT(*) FROM training_microcycles WHERE mesocycle_id = @parentId", ("parentId", mesocycleId));
+        var total = Convert.ToInt32(await totalCommand.ExecuteScalarAsync(cancellationToken));
+        if (matched != total || request.OrderedIds.Length != total)
+            return BadRequest(new { message = "La lista debe incluir todos los microciclos del mesociclo exactamente una vez." });
+        var connection = (NpgsqlConnection)_context.Database.GetDbConnection();
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await using (var shift = Command("UPDATE training_microcycles SET sequence_number = sequence_number + 100000 WHERE mesocycle_id = @parentId", ("parentId", mesocycleId), transaction))
+                await shift.ExecuteNonQueryAsync(cancellationToken);
+            for (var i = 0; i < request.OrderedIds.Length; i++)
+                await using (var update = Command("UPDATE training_microcycles SET sequence_number = @sequence, updated_at = NOW() WHERE mesocycle_id = @parentId AND id = @id", ("sequence", i + 1), ("parentId", mesocycleId), ("id", request.OrderedIds[i]), transaction))
+                    await update.ExecuteNonQueryAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return NoContent();
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
         }
     }
 
@@ -476,12 +649,21 @@ public sealed class TrainingPeriodizationController : ControllerBase
             """SELECT f.client_id AS "Value" FROM training_sessions s JOIN training_plans p ON p.id = s.plan_id JOIN training_profiles f ON f.id = p.profile_id WHERE s.id = {0}""", sessionId)
             .SingleOrDefaultAsync(cancellationToken);
 
-    private NpgsqlCommand Command(string sql, params (string Name, object? Value)[] parameters)
+    private NpgsqlCommand Command(string sql, params (string Name, object? Value)[] parameters) => CreateCommand(sql, null, parameters);
+
+    private NpgsqlCommand Command(string sql, (string Name, object? Value) first, (string Name, object? Value) second, NpgsqlTransaction transaction) =>
+        CreateCommand(sql, transaction, first, second);
+
+    private NpgsqlCommand Command(string sql, (string Name, object? Value) first, NpgsqlTransaction transaction) =>
+        CreateCommand(sql, transaction, first);
+
+    private NpgsqlCommand CreateCommand(string sql, NpgsqlTransaction? transaction, params (string Name, object? Value)[] parameters)
     {
         var connection = (NpgsqlConnection)_context.Database.GetDbConnection();
         if (connection.State != ConnectionState.Open) connection.Open();
         var command = connection.CreateCommand();
         command.CommandText = sql;
+        if (transaction is not null) command.Transaction = transaction;
         foreach (var (name, value) in parameters)
         {
             var parameter = command.CreateParameter();
@@ -507,4 +689,5 @@ public sealed record TrainingCollaborationDto(int Id, int ProfessionalUserId, st
 public sealed record CreateTrainingMesocycleRequest(string Name, int SequenceNumber, DateOnly StartDate, DateOnly? EndDate, string? Objective, string? Notes);
 public sealed record TrainingMesocycleDto(int Id, int PlanId, string Name, int SequenceNumber, DateOnly StartDate, DateOnly? EndDate, string? Objective, string? Notes);
 public sealed record CreateTrainingMicrocycleRequest(string Name, int SequenceNumber, DateOnly StartDate, DateOnly? EndDate, string? Focus, string? Notes);
+public sealed record ReorderTrainingCyclesRequest(int[] OrderedIds);
 public sealed record TrainingMicrocycleDto(int Id, int MesocycleId, string Name, int SequenceNumber, DateOnly StartDate, DateOnly? EndDate, string? Focus, string? Notes);
