@@ -74,27 +74,8 @@ public class PatientPortalController : ControllerBase
         var portalTenantId = client.tenant_id ?? client.user?.tenant_id;
         if (!await _licenseService.CanUseFeatureAsync(portalTenantId, "CLIENT_PORTAL")) return Forbid();
 
-        // Consumo atómico del enlace mágico: dos peticiones concurrentes no pueden
-        // reutilizar el mismo token para crear dos sesiones.
-        if (!string.IsNullOrWhiteSpace(request.Token))
-        {
-            var consumed = await _context.clients
-                .Where(c => c.id == client.id &&
-                            c.access_token == PatientPortalAccessService.HashAccessToken(request.Token) &&
-                            c.access_token_expires_at.HasValue &&
-                            c.access_token_expires_at > DateTime.UtcNow)
-                .ExecuteUpdateAsync(setters => setters
-                    .SetProperty(c => c.access_token, (string?)null)
-                    .SetProperty(c => c.access_token_expires_at, (DateTime?)null));
-
-            if (consumed != 1)
-                return Unauthorized("Enlace de acceso no válido o ya utilizado.");
-
-            // Sincronizamos la entidad EF rastreada para que SaveChanges no
-            // vuelva a escribir el token consumido en la base de datos.
-            client.access_token = null;
-            client.access_token_expires_at = null;
-        }
+        // El enlace mágico es reutilizable hasta access_token_expires_at. No se consume al iniciar sesión:
+        // el hash permanece en la base de datos para que el paciente pueda volver a entrar desde el mismo email.
 
         client.last_portal_access = DateTime.UtcNow;
         await _context.SaveChangesAsync();
@@ -175,7 +156,7 @@ public class PatientPortalController : ControllerBase
         var emailResult = await _emailServ.SendEmailAsync(
             client.email!,
             "Tu enlace de acceso a DietoExpress",
-            $"<h2>Hola, {safeName}</h2><p>Has solicitado un nuevo enlace para acceder a tu portal de paciente.</p><p><a href='{safeLink}'>Acceder a mi portal</a></p><p>El enlace caduca en 24 horas y solo puede utilizarse una vez.</p><p>Si no has solicitado este acceso, puedes ignorar este mensaje.</p>"
+            $"<h2>Hola, {safeName}</h2><p>Has solicitado un nuevo enlace para acceder a tu portal de paciente.</p><p><a href='{safeLink}'>Acceder a mi portal</a></p><p>El enlace caduca en 24 horas y puedes utilizarlo tantas veces como necesites durante ese plazo.</p><p>Si no has solicitado este acceso, puedes ignorar este mensaje.</p>"
         );
 
         if (!emailResult.Exito)
