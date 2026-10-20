@@ -256,6 +256,12 @@ public sealed class TrainingPeriodizationController : ControllerBase
               AND (p.end_date IS NULL OR @startDate <= p.end_date)
               AND (p.end_date IS NULL OR @endDate IS NULL OR @endDate <= p.end_date)
               AND NOT EXISTS (
+                  SELECT 1 FROM training_microcycles child
+                  WHERE child.mesocycle_id = m.id
+                    AND (child.start_date < @startDate OR
+                         (@endDate IS NOT NULL AND (child.start_date > @endDate OR child.end_date IS NULL OR child.end_date > @endDate)))
+              )
+              AND NOT EXISTS (
                   SELECT 1 FROM training_mesocycles other
                   WHERE other.plan_id = m.plan_id AND other.id <> m.id
                     AND other.start_date <= COALESCE(@endDate, 'infinity'::date)
