@@ -487,7 +487,7 @@ export class TrainingPeriodizationComponent implements OnInit {
     forkJoin(plans.map(p => this.http.get<TrainingSession[]>(`/api/training/plans/${p.id}/sessions`).pipe(catchError(() => of([] as TrainingSession[]))))).subscribe(items => {
       plans.forEach((p, i) => this.sessions[p.id] = items[i]);
       for (const plan of plans) {
-        this.http.get<TrainingLoadWeek[]>(\`/api/training/plans/\${plan.id}/load-trend\`)
+        this.http.get<TrainingLoadWeek[]>(`/api/training/plans/${plan.id}/load-trend`)
           .pipe(catchError(() => of([] as TrainingLoadWeek[])))
           .subscribe(weeks => this.loadTrends[plan.id] = weeks);
       }
