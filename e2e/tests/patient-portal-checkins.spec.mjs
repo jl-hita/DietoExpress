@@ -57,6 +57,8 @@ test.describe('P1 — seguimiento semanal del paciente', () => {
     await page.getByRole('button', { name: 'Guardar revisión' }).click();
     await expect(page.locator('.checkin-saved')).toContainText('Revisión guardada');
     expect(saves).toHaveLength(1);
+    await expect(page.getByRole('button', { name: 'Guardar revisión' })).toHaveCount(0);
+    await expect(page.locator('.checkin-already-submitted')).toContainText('Podrás rellenarla de nuevo la próxima semana');
     expect(saves[0]).toMatchObject({ weight: 82.5, adherence: 80, hunger: 4, energy: 7, difficulties: 'Semana de prueba ficticia' });
   });
 
