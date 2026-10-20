@@ -3063,7 +3063,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
     /// <summary>Optional mesocycle/microcycle hierarchy for structured training plans.</summary>
     public static void UpgradeTrainingPeriodizationSchemaV3(angulosodbContext context, ILogger logger)
     {
-        if (context.Database.SqlQueryRaw<bool>("SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'training-periodization-v3-cycles') AS \\"Value\\"").Single())
+        if (context.Database.SqlQueryRaw<bool>("SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE undefined").Single())
             return;
 
         context.Database.ExecuteSqlRaw(@"
