@@ -27,4 +27,4 @@
 - Verificar la entrega real de push/email en un entorno configurado; el registro de un job o la aceptación SMTP no garantizan recepción en bandeja.
 - Repasar visualmente todas las pantallas del portal en dispositivos móviles y escritorio con datos reales de prueba. Playwright con APIs simuladas verifica los estados y flujos, pero no sustituye esta prueba manual.
 
-No se han fusionado cambios ni desplegado a producción.
+Este documento registra el alcance de la auditoría; no sustituye la validación operativa ni la revisión de la CI.
