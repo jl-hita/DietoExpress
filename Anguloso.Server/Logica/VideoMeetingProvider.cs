@@ -75,14 +75,19 @@ public sealed class LiveKitVideoMeetingProvider : IVideoMeetingProvider
         // La identidad de la sala es deliberadamente opaca: no incluye paciente,
         // tenant, email ni siquiera el identificador de la cita.
         var roomName = $"dieto-{Guid.NewGuid():N}";
-        var expiry = endsAtUtc.AddMinutes(Math.Clamp(_options.RoomExpiryMinutesAfterAppointment, 5, 1440));
+        var expiryMinutes = Math.Max(1440, Math.Clamp(_options.RoomExpiryMinutesAfterAppointment, 5, 2880));
+        var expiry = endsAtUtc.AddMinutes(expiryMinutes);
+        var emptyTimeoutSeconds = (uint)Math.Clamp(
+            (long)Math.Ceiling((expiry - DateTime.UtcNow).TotalSeconds),
+            60L,
+            (long)int.MaxValue);
 
         try
         {
             await _rooms.CreateRoom(new CreateRoomRequest
             {
                 Name = roomName,
-                EmptyTimeout = (uint)Math.Clamp(_options.EmptyRoomTimeoutSeconds, 60, 3600)
+                EmptyTimeout = Math.Max(emptyTimeoutSeconds, (uint)Math.Clamp(_options.EmptyRoomTimeoutSeconds, 60, 3600))
             });
         }
         catch (Exception ex)
