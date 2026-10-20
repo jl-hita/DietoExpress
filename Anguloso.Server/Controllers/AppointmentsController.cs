@@ -18,6 +18,7 @@ public class AppointmentsController : ControllerBase
 
     private readonly angulosodbContext _context;
     private readonly EmailServ _emailServ;
+    private readonly AppointmentEmailService _appointmentEmailService;
     private readonly NotificationService _notifications;
     private readonly AutomationService _automationService;
     private readonly GoogleCalendarService _googleCalendar;
@@ -27,10 +28,11 @@ public class AppointmentsController : ControllerBase
     private readonly LiveKitVideoOptions _videoOptions;
     private readonly IAuditLogService _audit;
 
-    public AppointmentsController(angulosodbContext context, EmailServ emailServ, NotificationService notifications, AutomationService automationService, GoogleCalendarService googleCalendar, AppointmentConcurrencyService appointmentConcurrency, IVideoMeetingProvider videoMeetings, VideoQuotaService videoQuota, LiveKitVideoOptions videoOptions, IAuditLogService audit)
+    public AppointmentsController(angulosodbContext context, EmailServ emailServ, AppointmentEmailService appointmentEmailService, NotificationService notifications, AutomationService automationService, GoogleCalendarService googleCalendar, AppointmentConcurrencyService appointmentConcurrency, IVideoMeetingProvider videoMeetings, VideoQuotaService videoQuota, LiveKitVideoOptions videoOptions, IAuditLogService audit)
     {
         _context = context;
         _emailServ = emailServ;
+        _appointmentEmailService = appointmentEmailService;
         _notifications = notifications;
         _automationService = automationService;
         _googleCalendar = googleCalendar;
@@ -648,10 +650,13 @@ public class AppointmentsController : ControllerBase
             {
                 try
                 {
-                    await _emailServ.SendEmailAsync(
-                        appointment.client.email,
-                        "Tu cita ha sido confirmada",
-                        $"<h2>Hola, {System.Net.WebUtility.HtmlEncode(appointment.client.full_name ?? "Paciente")}</h2><p>Tu nutricionista ha confirmado la cita prevista para el {dateText}.</p><p>Puedes consultar todos los detalles desde tu portal de paciente.</p>");
+                    var emailResult = await _appointmentEmailService.SendAppointmentEmailAsync(
+                        appointment.id,
+                        $"appointment:{appointment.id}:confirmed",
+                        HttpContext.RequestAborted);
+                    if (!emailResult.Success)
+                        HttpContext.RequestServices.GetRequiredService<ILogger<AppointmentsController>>()
+                            .LogWarning("No se pudo enviar el email de confirmación de la cita {AppointmentId}: {Reason}", appointment.id, emailResult.Message);
                 }
                 catch (Exception ex)
                 {
@@ -662,6 +667,30 @@ public class AppointmentsController : ControllerBase
         }
 
         return Ok(await ToDtoQuery(appointment.id));
+    }
+
+    [Authorize(Roles = "clinic_admin,nutritionist")]
+    [HttpPost("{id:int}/send-email")]
+    public async Task<IActionResult> ResendAppointmentEmail(int id)
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        var tenantId = AuthHelpers.GetTenantId(User);
+        if (userId == null || tenantId == null) return Unauthorized();
+
+        var appointment = await _context.patient_appointments.AsNoTracking()
+            .FirstOrDefaultAsync(a => a.id == id && a.tenant_id == tenantId.Value);
+        if (appointment == null) return NotFound();
+        if (!User.IsInRole("clinic_admin") && appointment.nutritionist_id != userId.Value) return Forbid();
+        if (appointment.status is not ("requested" or "confirmed") || appointment.ends_at <= DateTime.UtcNow)
+            return BadRequest(new { message = "Solo se puede reenviar el email de una cita futura pendiente o confirmada." });
+
+        var result = await _appointmentEmailService.SendAppointmentEmailAsync(
+            appointment.id,
+            cancellationToken: HttpContext.RequestAborted);
+        if (!result.Success)
+            return StatusCode(StatusCodes.Status502BadGateway, new { message = result.Message });
+
+        return Ok(new { message = result.Message });
     }
 
     [Authorize(Roles = "patient,nutritionist")]
