@@ -191,7 +191,7 @@ export class TrainingPeriodizationComponent implements OnInit {
     if (!d?.name.trim() || !d.startDate || !Number.isInteger(d.sequence) || d.sequence < 1) return;
     this.saving = true; this.error = '';
     this.http.post(`/api/training/plans/${plan.id}/mesocycles`, { name: d.name.trim(), sequenceNumber: d.sequence, startDate: d.startDate, endDate: d.endDate || null, objective: d.objective.trim() || null, notes: null }).subscribe({
-      next: () => { d.name = ''; d.objective = ''; this.saving = false; this.load(); },
+      next: () => { d.name = ''; d.objective = ''; d.sequence += 1; this.saving = false; this.load(); },
       error: e => { this.error = e?.error?.message || 'No se pudo crear el mesociclo.'; this.saving = false; }
     });
   }
@@ -201,7 +201,7 @@ export class TrainingPeriodizationComponent implements OnInit {
     if (!d?.name.trim() || !d.startDate || !Number.isInteger(d.sequence) || d.sequence < 1) return;
     this.saving = true; this.error = '';
     this.http.post(`/api/training/mesocycles/${meso.id}/microcycles`, { name: d.name.trim(), sequenceNumber: d.sequence, startDate: d.startDate, endDate: d.endDate || null, focus: d.focus.trim() || null, notes: null }).subscribe({
-      next: () => { d.name = ''; d.focus = ''; this.saving = false; this.http.get<TrainingMicrocycle[]>(`/api/training/mesocycles/${meso.id}/microcycles`).subscribe({ next: rows => this.microcycles[meso.id] = rows, error: () => this.error = 'El microciclo se guardó, pero no se pudo actualizar la lista.' }); },
+      next: () => { d.name = ''; d.focus = ''; d.sequence += 1; this.saving = false; this.http.get<TrainingMicrocycle[]>(`/api/training/mesocycles/${meso.id}/microcycles`).subscribe({ next: rows => this.microcycles[meso.id] = rows, error: () => this.error = 'El microciclo se guardó, pero no se pudo actualizar la lista.' }); },
       error: e => { this.error = e?.error?.message || 'No se pudo crear el microciclo.'; this.saving = false; }
     });
   }
