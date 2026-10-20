@@ -717,9 +717,8 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
     this.portalService.getCommercialCommunicationPreference().subscribe({
       next: value => {
         this.commercialEmailEnabled = !!value?.emailEnabled;
-        // Older/mock responses without hasDecision are treated as an existing preference.
-        // The API now reports this explicitly so a default false is not mistaken for a rejection.
-        this.commercialPreferenceDecided = value?.hasDecision ?? true;
+        // Missing state is not proof of a prior choice: show the explicit consent prompt.
+        this.commercialPreferenceDecided = value?.hasDecision === true;
         this.commercialPreferenceLoaded = true;
         this.commercialPreferenceEditing = false;
       },
