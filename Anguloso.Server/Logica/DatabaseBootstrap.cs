@@ -775,6 +775,11 @@ CREATE TABLE IF NOT EXISTS public_directory_reviews (
 CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
     ON public_directory_reviews(nutritionist_id, created_at DESC);
 ");
+            UpgradeTrainingPeriodizationSchemaV1(context, logger);
+            UpgradeTrainingPeriodizationSchemaV2(context, logger);
+            UpgradeTrainingPeriodizationSchemaV3(context, logger);
+            UpgradeTrainingPeriodizationSchemaV4(context, logger);
+
             VerifyCurrentSchema(context, logger);
 
             // Configuración inicial idempotente. No se sobrescriben valores existentes.
@@ -2397,6 +2402,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
         context.Database.ExecuteSqlRaw(@"
             ALTER TABLE users ADD COLUMN IF NOT EXISTS directory_enabled BOOLEAN NOT NULL DEFAULT FALSE;
             ALTER TABLE users ADD COLUMN IF NOT EXISTS online_consultations BOOLEAN NOT NULL DEFAULT FALSE;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS directory_sports_training BOOLEAN NOT NULL DEFAULT FALSE;
             ALTER TABLE users ADD COLUMN IF NOT EXISTS directory_city VARCHAR(120);
             ALTER TABLE users ADD COLUMN IF NOT EXISTS directory_province VARCHAR(120);
             ALTER TABLE users ADD COLUMN IF NOT EXISTS directory_bio VARCHAR(2000);
@@ -2958,6 +2964,187 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
     }
 
 
+
+    /// <summary>
+    /// Esquema opcional de planificación deportiva. No se crean perfiles para clientes existentes:
+    /// el módulo solo se activa cuando un profesional lo solicita expresamente.
+    /// </summary>
+    public static void UpgradeTrainingPeriodizationSchemaV1(angulosodbContext context, ILogger logger)
+    {
+        if (context.Database.SqlQueryRaw<bool>("SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'training-periodization-v1') AS \"Value\"").Single())
+            return;
+
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS training_profiles (
+                id SERIAL PRIMARY KEY,
+                client_id INTEGER NOT NULL UNIQUE REFERENCES clients(id) ON DELETE CASCADE,
+                tenant_id INTEGER NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                primary_goal VARCHAR(80) NOT NULL DEFAULT 'general_fitness',
+                experience_level VARCHAR(40) NOT NULL DEFAULT 'beginner',
+                notes TEXT NULL,
+                created_by_user_id INTEGER NULL REFERENCES users(id) ON DELETE SET NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT ck_training_profiles_goal CHECK (primary_goal IN ('endurance','strength','hypertrophy','weight_loss','health','general_fitness','other')),
+                CONSTRAINT ck_training_profiles_experience CHECK (experience_level IN ('beginner','intermediate','advanced','unknown'))
+            );
+            CREATE INDEX IF NOT EXISTS idx_training_profiles_tenant_enabled ON training_profiles(tenant_id, enabled);
+
+            CREATE TABLE IF NOT EXISTS training_plans (
+                id SERIAL PRIMARY KEY,
+                profile_id INTEGER NOT NULL REFERENCES training_profiles(id) ON DELETE CASCADE,
+                name VARCHAR(160) NOT NULL,
+                periodization_model VARCHAR(40) NOT NULL DEFAULT 'custom',
+                start_date DATE NOT NULL,
+                end_date DATE NULL,
+                status VARCHAR(20) NOT NULL DEFAULT 'draft',
+                version INTEGER NOT NULL DEFAULT 1,
+                notes TEXT NULL,
+                created_by_user_id INTEGER NOT NULL REFERENCES users(id),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT ck_training_plans_model CHECK (periodization_model IN ('linear','undulating','block','reverse','continuous_competition','autoregulatory','custom')),
+                CONSTRAINT ck_training_plans_status CHECK (status IN ('draft','active','paused','completed','cancelled')),
+                CONSTRAINT ck_training_plans_dates CHECK (end_date IS NULL OR end_date >= start_date)
+            );
+            CREATE INDEX IF NOT EXISTS idx_training_plans_profile_dates ON training_plans(profile_id, start_date DESC);
+
+            CREATE TABLE IF NOT EXISTS training_sessions (
+                id SERIAL PRIMARY KEY,
+                plan_id INTEGER NOT NULL REFERENCES training_plans(id) ON DELETE CASCADE,
+                scheduled_date DATE NOT NULL,
+                title VARCHAR(160) NOT NULL,
+                session_type VARCHAR(40) NOT NULL DEFAULT 'general',
+                duration_minutes INTEGER NULL,
+                intensity_target VARCHAR(120) NULL,
+                instructions TEXT NULL,
+                status VARCHAR(20) NOT NULL DEFAULT 'planned',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT ck_training_sessions_duration CHECK (duration_minutes IS NULL OR duration_minutes BETWEEN 1 AND 1440),
+                CONSTRAINT ck_training_sessions_type CHECK (session_type IN ('endurance','strength','mobility','recovery','health','general','other')),
+                CONSTRAINT ck_training_sessions_status CHECK (status IN ('planned','completed','skipped','modified'))
+            );
+            CREATE INDEX IF NOT EXISTS idx_training_sessions_plan_date ON training_sessions(plan_id, scheduled_date, id);
+
+            CREATE TABLE IF NOT EXISTS training_session_records (
+                id BIGSERIAL PRIMARY KEY,
+                session_id INTEGER NOT NULL REFERENCES training_sessions(id) ON DELETE CASCADE,
+                client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                completed_at TIMESTAMPTZ NULL,
+                actual_duration_minutes INTEGER NULL,
+                session_rpe NUMERIC(3,1) NULL,
+                notes TEXT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT ck_training_record_duration CHECK (actual_duration_minutes IS NULL OR actual_duration_minutes BETWEEN 1 AND 1440),
+                CONSTRAINT ck_training_record_rpe CHECK (session_rpe IS NULL OR session_rpe BETWEEN 0 AND 10),
+                CONSTRAINT uq_training_record_session_client UNIQUE(session_id, client_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_training_records_client_date ON training_session_records(client_id, completed_at DESC);
+
+            CREATE TABLE IF NOT EXISTS training_collaborations (
+                id SERIAL PRIMARY KEY,
+                client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                professional_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                tenant_id INTEGER NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                access_scope VARCHAR(30) NOT NULL DEFAULT 'training',
+                status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                invited_by_user_id INTEGER NOT NULL REFERENCES users(id),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                accepted_at TIMESTAMPTZ NULL,
+                revoked_at TIMESTAMPTZ NULL,
+                CONSTRAINT ck_training_collaboration_scope CHECK (access_scope IN ('training','training_nutrition_context')),
+                CONSTRAINT ck_training_collaboration_status CHECK (status IN ('pending','active','revoked')),
+                CONSTRAINT uq_training_collaboration_client_professional UNIQUE(client_id, professional_user_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_training_collaborations_professional ON training_collaborations(professional_user_id, status);
+            INSERT INTO schema_migrations(id) VALUES ('training-periodization-v1') ON CONFLICT (id) DO NOTHING;
+        ");
+        logger.LogInformation("Esquema opcional de periodización deportiva inicializado.");
+    }
+
+    /// <summary>Persist the training management choice independently from user-authored notes.</summary>
+    public static void UpgradeTrainingPeriodizationSchemaV2(angulosodbContext context, ILogger logger)
+    {
+        if (context.Database.SqlQueryRaw<bool>("SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'training-periodization-v2-management-mode') AS \"Value\"").Single())
+            return;
+
+        context.Database.ExecuteSqlRaw(@"
+            ALTER TABLE training_profiles
+                ADD COLUMN IF NOT EXISTS management_mode VARCHAR(20) NOT NULL DEFAULT 'self';
+            DO $training_management_mode$
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_training_profiles_management_mode') THEN
+                    ALTER TABLE training_profiles ADD CONSTRAINT ck_training_profiles_management_mode
+                        CHECK (management_mode IN ('none','self','collaboration'));
+                END IF;
+            END $training_management_mode$;
+            INSERT INTO schema_migrations(id) VALUES ('training-periodization-v2-management-mode') ON CONFLICT (id) DO NOTHING;
+        ");
+        logger.LogInformation("Esquema de gestión de periodización deportiva actualizado.");
+    }
+
+
+    /// <summary>Optional mesocycle/microcycle hierarchy for structured training plans.</summary>
+    public static void UpgradeTrainingPeriodizationSchemaV3(angulosodbContext context, ILogger logger)
+    {
+        if (context.Database.SqlQueryRaw<bool>("SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'training-periodization-v3-cycles') AS \"Value\"").Single())
+            return;
+
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS training_mesocycles (
+                id SERIAL PRIMARY KEY,
+                plan_id INTEGER NOT NULL REFERENCES training_plans(id) ON DELETE CASCADE,
+                name VARCHAR(160) NOT NULL,
+                sequence_number INTEGER NOT NULL,
+                start_date DATE NOT NULL,
+                end_date DATE NULL,
+                objective VARCHAR(500) NULL,
+                notes TEXT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT ck_training_mesocycles_sequence CHECK (sequence_number > 0),
+                CONSTRAINT ck_training_mesocycles_dates CHECK (end_date IS NULL OR end_date >= start_date),
+                CONSTRAINT uq_training_mesocycles_plan_sequence UNIQUE(plan_id, sequence_number)
+            );
+            CREATE INDEX IF NOT EXISTS idx_training_mesocycles_plan_dates ON training_mesocycles(plan_id, start_date, sequence_number);
+
+            CREATE TABLE IF NOT EXISTS training_microcycles (
+                id SERIAL PRIMARY KEY,
+                mesocycle_id INTEGER NOT NULL REFERENCES training_mesocycles(id) ON DELETE CASCADE,
+                name VARCHAR(160) NOT NULL,
+                sequence_number INTEGER NOT NULL,
+                start_date DATE NOT NULL,
+                end_date DATE NULL,
+                focus VARCHAR(500) NULL,
+                notes TEXT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT ck_training_microcycles_sequence CHECK (sequence_number > 0),
+                CONSTRAINT ck_training_microcycles_dates CHECK (end_date IS NULL OR end_date >= start_date),
+                CONSTRAINT uq_training_microcycles_mesocycle_sequence UNIQUE(mesocycle_id, sequence_number)
+            );
+            CREATE INDEX IF NOT EXISTS idx_training_microcycles_meso_dates ON training_microcycles(mesocycle_id, start_date, sequence_number);
+            INSERT INTO schema_migrations(id) VALUES ('training-periodization-v3-cycles') ON CONFLICT (id) DO NOTHING;
+        ");
+        logger.LogInformation("Jerarquía de mesociclos y microciclos de entrenamiento inicializada.");
+    }
+
+    /// <summary>Adds richer exercise prescriptions without changing existing sessions.</summary>
+    public static void UpgradeTrainingPeriodizationSchemaV4(angulosodbContext context, ILogger logger)
+    {
+        if (context.Database.SqlQueryRaw<bool>("SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'training-periodization-v4-exercise-prescription') AS \"Value\"").Single())
+            return;
+
+        context.Database.ExecuteSqlRaw(@"
+            ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS exercise_prescription TEXT NULL;
+            INSERT INTO schema_migrations(id) VALUES ('training-periodization-v4-exercise-prescription') ON CONFLICT (id) DO NOTHING;
+        ");
+        logger.LogInformation("Prescripción detallada de ejercicios de entrenamiento inicializada.");
+    }
+
     private static void VerifyCurrentSchema(angulosodbContext context, ILogger logger)
     {
         // Contrato mínimo de tablas: si alguna falta después de todas las reconciliaciones,
@@ -2967,8 +3154,8 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
             SELECT string_agg(required_table, ', ' ORDER BY required_table) AS "Value"
             FROM (
                 SELECT unnest(ARRAY[
-                    'tenants','users','clients','patient_notifications','patient_push_subscriptions','professional_push_subscriptions','appointment_reminder_deliveries',
-                    'patient_push_deliveries','biometrics','food_exchange_groups','food_sources','foods',
+                    'tenants','users','clients','patient_notifications','patient_push_subscriptions',
+                    'professional_push_subscriptions','appointment_reminder_deliveries','patient_push_deliveries','biometrics','food_exchange_groups','food_sources','foods',
                     'diets','client_diets','diet_days','meals','meal_items','recipes','recipe_items',
                     'medical_history','digestive_health','food_preferences','lifestyle_history','config',
                     'external_api_usage','patient_conversations','patient_messages','audit_logs',
@@ -2984,13 +3171,13 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                     'legal_eipd_decisions','professional_followup_settings','professional_consultations',
                     'patient_checkins','specializations','tenant_specializations','client_specializations',
                     'client_specialization_profiles','specialization_rules','video_usage_reservations',
-                    'schema_migrations','system_alerts','public_directory_reviews',
+                    'schema_migrations','system_alerts','public_directory_reviews','training_mesocycles','training_microcycles',
                     'directory_verification_evidence','support_tickets','support_messages',
                     'support_notifications','support_ticket_audit','billing_checkout_attempts',
                     'subscription_payments','payment_events','invoices','invoice_lines','fiscal_records',
                     'billing_coupon_campaigns','billing_coupons','billing_coupon_redemptions',
                     'patient_commercial_communication_preferences',
-                    'patient_commercial_communication_consent_history','food_favorites'
+                    'patient_commercial_communication_consent_history','food_favorites','training_profiles','training_plans','training_sessions','training_session_records','training_collaborations'
                 ]) AS required_table
             ) required
             WHERE NOT EXISTS (
