@@ -178,7 +178,7 @@ jobs:
       - name: Upload visual baseline evidence
         id: baseline_evidence
         if: always() && steps.baseline.outputs.run_visual_baseline == 'true' && (github.event_name != 'schedule' || steps.schedule.outputs.run_e2e == 'true')
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-visual-baseline-evidence
           path: |
@@ -213,7 +213,7 @@ jobs:
 
       - name: Upload Playwright report and traces
         if: always() && (github.event_name != 'schedule' || steps.schedule.outputs.run_e2e == 'true')
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-e2e-results
           path: |
