@@ -14,8 +14,9 @@ interface TrainingPlan {
 interface TrainingSession {
   id: number; planId: number; scheduledDate: string; title: string; sessionType: string; durationMinutes?: number | null;
   intensityTarget?: string | null; instructions?: string | null; status: string; completedAt?: string | null;
-  actualDurationMinutes?: number | null; sessionRpe?: number | null; recordNotes?: string | null;
+  actualDurationMinutes?: number | null; sessionRpe?: number | null; recordNotes?: string | null; exercisePrescription?: string | null;
 }
+interface TrainingLoadWeek { weekStart: string; completedSessions: number; plannedMinutes: number; actualMinutes: number; loadScore: number; }
 interface TrainingMesocycle { id: number; planId: number; name: string; sequenceNumber: number; startDate: string; endDate?: string | null; objective?: string | null; notes?: string | null; }
 interface TrainingMicrocycle { id: number; mesocycleId: number; name: string; sequenceNumber: number; startDate: string; endDate?: string | null; focus?: string | null; notes?: string | null; }
 interface TrainingCollaboration {
@@ -163,6 +164,17 @@ interface TrainingInvitation {
                 <div><p class="eyebrow">TRABAJO DIARIO</p><h4>Calendario de entrenamiento</h4><p>Planifica la semana de un vistazo y entra en cada sesión para ajustar sus detalles.</p></div>
                 <span class="session-count">{{ sessions[plan.id]?.length || 0 }} sesiones</span>
               </div>
+              <section *ngIf="loadTrends[plan.id]?.length" class="load-trend" style="margin:16px 0;padding:14px;border:1px solid #e2e8f0;border-radius:12px">
+                <h5 style="margin:0 0 4px">Evolución de carga · últimas semanas</h5>
+                <p style="margin:0 0 10px;color:#64748b;font-size:13px">Carga orientativa = minutos realizados × RPE. Es descriptiva, no una recomendación automática.</p>
+                <div style="display:flex;align-items:flex-end;gap:10px;overflow-x:auto;min-height:130px;padding:8px 0">
+                  <div *ngFor="let week of loadTrends[plan.id]" [title]="(week.weekStart | date:'d MMM') + ': ' + week.loadScore + ' puntos de carga'" style="min-width:42px;display:flex;flex-direction:column;align-items:center;gap:4px">
+                    <strong style="font-size:12px">{{ week.loadScore | number:'1.0-0' }}</strong>
+                    <span [style.height.px]="trendBarPixels(plan.id, week.loadScore)" style="display:block;width:24px;min-height:2px;background:#0d9488;border-radius:5px 5px 0 0"></span>
+                    <small>{{ week.weekStart | date:'d/M' }}</small>
+                  </div>
+                </div>
+              </section>
               <div class="calendar-toolbar">
                 <div class="view-switch" role="group" aria-label="Vista de sesiones">
                   <button type="button" [class.active]="sessionViews[plan.id] !== 'list'" (click)="setSessionView(plan.id, 'week')">▦ Semana</button>
@@ -206,6 +218,7 @@ interface TrainingInvitation {
                   <label>Duración estimada (min)<input type="number" name="sessionDuration{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].duration" min="1" max="1440" placeholder="60" /></label>
                   <label>Intensidad / zona objetivo<input name="sessionIntensity{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].intensity" maxlength="120" placeholder="Ej. RPE 7 · Z2 · ritmo cómodo" /></label>
                   <label class="session-editor-wide">Instrucciones<textarea name="sessionInstructions{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].instructions" rows="2" maxlength="4000" placeholder="Calentamiento, bloques principales, pausas y vuelta a la calma…"></textarea></label>
+                  <label class="session-editor-wide">Prescripción de ejercicios<textarea name="sessionExercises{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].exercisePrescription" rows="3" maxlength="6000" placeholder="Sentadilla · 3 × 8 · descanso 2 min · RPE 7&#10;Peso muerto rumano · 3 × 10 · descanso 90 s"></textarea><small>Indica ejercicio, series, repeticiones, descanso y observaciones. Puedes anotar ritmo o potencia en la zona objetivo.</small></label>
                 </div>
                 <div class="editor-footer"><span>La fecha debe estar dentro del periodo del plan.</span><button type="submit" [disabled]="saving || !sessionDrafts[plan.id].title.trim()">＋ Añadir sesión</button></div>
               </form>
@@ -220,6 +233,7 @@ interface TrainingInvitation {
                       <button *ngIf="current.canManage" type="button" class="secondary session-edit-button" (click)="beginEditSession(session)" [disabled]="saving">{{ editingSessionId === session.id ? 'Cerrar edición' : 'Editar' }}</button>
                     </div>
                     <p *ngIf="session.instructions" class="session-instructions">{{ session.instructions }}</p>
+                    <div *ngIf="session.exercisePrescription" class="exercise-prescription"><strong>Ejercicios, series y descansos</strong><p style="white-space:pre-line">{{ session.exercisePrescription }}</p></div>
                     <div *ngIf="session.completedAt" class="completion-summary"><span class="completion-check">✓</span><span><strong>Realización registrada</strong><small>{{ session.actualDurationMinutes || '—' }} min reales · RPE {{ session.sessionRpe ?? '—' }} / 10</small></span><span *ngIf="session.durationMinutes && session.actualDurationMinutes" class="duration-delta">{{ session.actualDurationMinutes - session.durationMinutes > 0 ? '+' : '' }}{{ session.actualDurationMinutes - session.durationMinutes }} min</span></div>
                     <form *ngIf="current.canManage && editingSessionId === session.id && sessionEditDraft as edit" class="session-edit-form" (ngSubmit)="saveSession(session)">
                       <div class="session-editor-grid">
@@ -229,6 +243,7 @@ interface TrainingInvitation {
                         <label>Duración (min)<input type="number" name="editSessionDuration{{session.id}}" [(ngModel)]="edit.duration" min="1" max="1440" required /></label>
                         <label>Intensidad / zona<input name="editSessionIntensity{{session.id}}" [(ngModel)]="edit.intensity" maxlength="120" /></label>
                         <label class="session-editor-wide">Instrucciones<textarea name="editSessionInstructions{{session.id}}" [(ngModel)]="edit.instructions" rows="3" maxlength="4000"></textarea></label>
+                        <label class="session-editor-wide">Prescripción de ejercicios<textarea name="editSessionExercises{{session.id}}" [(ngModel)]="edit.exercisePrescription" rows="4" maxlength="6000" placeholder="Ejercicio · series × repeticiones · descanso · notas"></textarea></label>
                       </div>
                       <div class="editor-footer"><span>Los registros de realización se conservan al editar.</span><div><button type="button" class="secondary" (click)="editingSessionId = null; sessionEditDraft = null">Cancelar</button> <button type="submit" [disabled]="saving">Guardar cambios</button></div></div>
                     </form>
@@ -261,7 +276,7 @@ export class TrainingPeriodizationComponent implements OnInit {
   error = '';
   recordingSessionId: number | null = null;
   editingSessionId: number | null = null;
-  sessionEditDraft: { date: string; title: string; type: string; duration: number | null; intensity: string; instructions: string } | null = null;
+  sessionEditDraft: { date: string; title: string; type: string; duration: number | null; intensity: string; instructions: string; exercisePrescription: string } | null = null;
   recordDrafts: Record<number, { duration: number | null; rpe: number | null; notes: string }> = {};
   collaborations: TrainingCollaboration[] = [];
   invitations: TrainingInvitation[] = [];
@@ -279,9 +294,10 @@ export class TrainingPeriodizationComponent implements OnInit {
   trainingManagementMode: 'none' | 'self' | 'collaboration' = 'self';
   plans: TrainingPlan[] = [];
   sessions: Record<number, TrainingSession[]> = {};
+  loadTrends: Record<number, TrainingLoadWeek[]> = {};
   sessionViews: Record<number, 'week' | 'list'> = {};
   weekOffsets: Record<number, number> = {};
-  sessionDrafts: Record<number, { date: string; title: string; type: string; duration: number | null; intensity: string; instructions: string }> = {};
+  sessionDrafts: Record<number, { date: string; title: string; type: string; duration: number | null; intensity: string; instructions: string; exercisePrescription: string }> = {};
   planName = '';
   periodizationModel = 'custom';
   startDate = new Date().toISOString().slice(0, 10);
@@ -448,7 +464,7 @@ export class TrainingPeriodizationComponent implements OnInit {
       else this.collaborations = [];
       if (!profile.enabled) { this.loading = false; return; }
       this.http.get<TrainingPlan[]>(`/api/training/clients/${this.clientId}/plans`).subscribe({
-        next: plans => { this.plans = plans; this.sessionDrafts = {}; for (const p of plans) this.sessionDrafts[p.id] = { date: this.defaultSessionDate(p), title: '', type: 'strength', duration: 60, intensity: '', instructions: '' }; this.loadSessions(plans); this.loading = false; },
+        next: plans => { this.plans = plans; this.sessionDrafts = {}; for (const p of plans) this.sessionDrafts[p.id] = { date: this.defaultSessionDate(p), title: '', type: 'strength', duration: 60, intensity: '', instructions: '', exercisePrescription: '' }; this.loadSessions(plans); this.loading = false; },
         error: () => { this.error = 'No se pudieron cargar los planes.'; this.loading = false; }
       });
     });
@@ -468,6 +484,11 @@ export class TrainingPeriodizationComponent implements OnInit {
     }
     forkJoin(plans.map(p => this.http.get<TrainingSession[]>(`/api/training/plans/${p.id}/sessions`).pipe(catchError(() => of([] as TrainingSession[]))))).subscribe(items => {
       plans.forEach((p, i) => this.sessions[p.id] = items[i]);
+      for (const plan of plans) {
+        this.http.get<TrainingLoadWeek[]>(\`/api/training/plans/\${plan.id}/load-trend\`)
+          .pipe(catchError(() => of([] as TrainingLoadWeek[])))
+          .subscribe(weeks => this.loadTrends[plan.id] = weeks);
+      }
     });
   }
 
@@ -501,10 +522,15 @@ export class TrainingPeriodizationComponent implements OnInit {
     const draft = this.sessionDrafts[plan.id];
     if (!draft?.title.trim() || !draft.date) return;
     this.saving = true; this.error = '';
-    this.http.post(`/api/training/plans/${plan.id}/sessions`, { scheduledDate: draft.date, title: draft.title.trim(), sessionType: draft.type, durationMinutes: draft.duration, intensityTarget: draft.intensity.trim() || null, instructions: draft.instructions.trim() || null }).subscribe({
-      next: () => { draft.title = ''; draft.intensity = ''; draft.instructions = ''; this.saving = false; this.refreshSessions(plan.id); },
+    this.http.post(`/api/training/plans/${plan.id}/sessions`, { scheduledDate: draft.date, title: draft.title.trim(), sessionType: draft.type, durationMinutes: draft.duration, intensityTarget: draft.intensity.trim() || null, instructions: draft.instructions.trim() || null, exercisePrescription: draft.exercisePrescription.trim() || null }).subscribe({
+      next: () => { draft.title = ''; draft.intensity = ''; draft.instructions = ''; draft.exercisePrescription = ''; this.saving = false; this.refreshSessions(plan.id); },
       error: e => { this.error = e?.error?.message || 'No se pudo crear la sesión.'; this.saving = false; }
     });
+  }
+
+  trendBarPixels(planId: number, score: number): number {
+    const maximum = Math.max(1, ...(this.loadTrends[planId] ?? []).map(item => item.loadScore));
+    return score <= 0 ? 2 : Math.max(4, Math.round(score / maximum * 92));
   }
 
   setSessionView(planId: number, view: 'week' | 'list'): void {
@@ -585,7 +611,7 @@ export class TrainingPeriodizationComponent implements OnInit {
     this.editingSessionId = session.id;
     this.recordingSessionId = null;
     this.sessionEditDraft = { date: session.scheduledDate, title: session.title, type: session.sessionType,
-      duration: session.durationMinutes ?? 60, intensity: session.intensityTarget ?? '', instructions: session.instructions ?? '' };
+      duration: session.durationMinutes ?? 60, intensity: session.intensityTarget ?? '', instructions: session.instructions ?? '', exercisePrescription: session.exercisePrescription ?? '' };
   }
 
   saveSession(session: TrainingSession): void {
@@ -596,7 +622,7 @@ export class TrainingPeriodizationComponent implements OnInit {
     }
     this.saving = true; this.error = '';
     this.http.put(`/api/training/sessions/${session.id}`, { scheduledDate: d.date, title: d.title.trim(), sessionType: d.type,
-      durationMinutes: d.duration, intensityTarget: d.intensity.trim() || null, instructions: d.instructions.trim() || null }).subscribe({
+      durationMinutes: d.duration, intensityTarget: d.intensity.trim() || null, instructions: d.instructions.trim() || null, exercisePrescription: d.exercisePrescription.trim() || null }).subscribe({
       next: () => { this.editingSessionId = null; this.sessionEditDraft = null; this.saving = false; this.refreshSessions(session.planId); },
       error: e => { this.error = e?.error?.message || 'No se pudo actualizar la sesión.'; this.saving = false; }
     });
