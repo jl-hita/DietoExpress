@@ -107,8 +107,8 @@ interface TrainingInvitation {
               <article *ngFor="let meso of mesocycles[plan.id]" class="mesocycle-card">
                 <ng-container *ngIf="editingMesocycleId !== meso.id; else editMesocycleForm">
                   <div class="section-heading"><strong>{{ meso.sequenceNumber }}. {{ meso.name }}</strong><div class="cycle-actions" *ngIf="current.canManage">
-                    <button type="button" class="secondary" (click)="moveMesocycle(plan, meso, -1)" [disabled]="saving || mesocycles[plan.id][0]?.id === meso.id" aria-label="Subir mesociclo">↑</button>
-                    <button type="button" class="secondary" (click)="moveMesocycle(plan, meso, 1)" [disabled]="saving || mesocycles[plan.id][mesocycles[plan.id].length - 1]?.id === meso.id" aria-label="Bajar mesociclo">↓</button>
+                    <button type="button" class="secondary" (click)="moveMesocycle(plan, meso, -1)" [disabled]="saving || mesocycles[plan.id]?.[0]?.id === meso.id" aria-label="Subir mesociclo">↑</button>
+                    <button type="button" class="secondary" (click)="moveMesocycle(plan, meso, 1)" [disabled]="saving || mesocycles[plan.id]?.[mesocycles[plan.id].length - 1]?.id === meso.id" aria-label="Bajar mesociclo">↓</button>
                     <button type="button" class="secondary" (click)="beginEditMesocycle(meso)" [disabled]="saving">Editar</button>
                     <button type="button" class="secondary" (click)="deleteMesocycle(meso)" [disabled]="saving">Eliminar</button>
                   </div></div>
