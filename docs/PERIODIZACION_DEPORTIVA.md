@@ -8,7 +8,9 @@ El módulo deportivo es **opt-in por cliente**. Los clientes de nutrición no re
 - En la anamnesis inicial se puede elegir entre solo nutrición, planificación a cargo del profesional o colaboración. La elección se guarda en un campo específico y se puede modificar desde el expediente; no se mezcla con las notas libres.
 - El profesional puede anunciar en el directorio que ofrece planificación deportiva. Es un distintivo informativo independiente de la activación por cliente.
 - Objetivos de resistencia, fuerza, hipertrofia, pérdida de peso, salud y condición física general; nivel de experiencia y modelo de periodización configurable.
-- Creación de planes y sesiones; registro de duración real y RPE separado de la prescripción.
+- Creación y edición segura de sesiones con fecha, tipo, duración estimada, intensidad/zona objetivo e instrucciones; la fecha debe permanecer dentro del plan.
+- Editor visual de sesiones con tarjetas por fecha, iconografía por tipo, estados programada/realizada, resumen de duración real y desviación respecto a lo previsto; edición en contexto sin perder el registro de realización.
+- Registro de duración real y RPE separado de la prescripción.
 - Jerarquía de periodización con mesociclos dentro del plan y microciclos dentro de cada mesociclo, con creación, edición, reordenación, objetivo/enfoque, fechas y notas.
 - Borrado seguro: no se permite eliminar un mesociclo que aún contenga microciclos; se deben eliminar explícitamente antes. Las fechas se validan contra el periodo del padre y se rechazan solapamientos entre ciclos hermanos.
 - Las sesiones se validan contra el periodo del plan; el orden se actualiza de forma transaccional para no dejar secuencias parciales si falla la operación.
