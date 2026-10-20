@@ -60,7 +60,7 @@ public class PatientCheckinsController : ControllerBase
     }
 
     [HttpPost]
-    // Un check-in es único por paciente y semana; guardar de nuevo actualiza el registro existente.
+    // Cada paciente puede enviar una sola revisión semanal; los duplicados se rechazan en API y base de datos.
     public async Task<ActionResult<object>> Save([FromBody] PatientCheckinRequest request)
     {
         if (!TryGetClientId(out var clientId)) return Unauthorized();
