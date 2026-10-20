@@ -1,3 +1,4 @@
+using Anguloso.Server.Model;
 using Anguloso.Server.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Globalization;
