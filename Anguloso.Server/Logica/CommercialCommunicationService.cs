@@ -1,3 +1,4 @@
+using Anguloso.Server.Model;
 using System.Security.Cryptography;
 using System.Text;
 using Npgsql;
