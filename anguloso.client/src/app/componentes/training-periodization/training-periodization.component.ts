@@ -170,7 +170,7 @@ interface TrainingInvitation {
                 </div>
                 <div *ngIf="sessionViews[plan.id] !== 'list'" class="week-navigation">
                   <button type="button" class="secondary" (click)="shiftWeek(plan, -1)" aria-label="Semana anterior">←</button>
-                  <strong>{{ weekDays(plan)[0].date | date:'d MMM' }} – {{ weekDays(plan)[6].date | date:'d MMM y' }}</strong>
+                  <strong>{{ weekDays(plan)[0]?.date | date:'d MMM' }} – {{ weekDays(plan)[6]?.date | date:'d MMM y' }}</strong>
                   <button type="button" class="secondary" (click)="shiftWeek(plan, 1)" aria-label="Semana siguiente">→</button>
                   <button type="button" class="secondary" (click)="goToCurrentWeek(plan)">Semana actual</button>
                 </div>
