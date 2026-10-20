@@ -1295,7 +1295,7 @@ public class AuthorizationRegressionTests
     }
 
     [Fact]
-    public void PatientMagicLinks_ConsumeTheStoredHashAndNeverCompareRawTokenToHash()
+    public void PatientMagicLinks_CompareStoredHashAndNeverCompareRawTokenToHash()
     {
         var source = ReadServerController("PatientPortalController.cs");
 
