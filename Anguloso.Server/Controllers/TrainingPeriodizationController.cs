@@ -202,6 +202,8 @@ public sealed class TrainingPeriodizationController : ControllerBase
         if (!await CanManageClient(clientId, cancellationToken)) return NotFound();
         if (string.IsNullOrWhiteSpace(request.Email) || request.Email.Trim().Length > 254)
             return BadRequest(new { message = "Introduce el correo electrónico del profesional invitado." });
+        if (request.AccessScope is not (null or "training" or "training_nutrition_context"))
+            return BadRequest(new { message = "El alcance de colaboración no es válido." });
 
         await using var findProfessional = Command("""
             SELECT id FROM users
@@ -220,7 +222,7 @@ public sealed class TrainingPeriodizationController : ControllerBase
             SELECT c.id, @professionalId, c.tenant_id, @scope, 'pending', @inviterId, NOW(), NULL, NULL
             FROM clients c
             WHERE c.id = @clientId AND c.archived_at IS NULL
-              AND (c.tenant_id IS NULL OR c.tenant_id = (SELECT u.tenant_id FROM users u WHERE u.id = @professionalId))
+              AND c.tenant_id IS NOT DISTINCT FROM (SELECT u.tenant_id FROM users u WHERE u.id = @professionalId)
             ON CONFLICT(client_id, professional_user_id) DO UPDATE SET
                 tenant_id = EXCLUDED.tenant_id, access_scope = EXCLUDED.access_scope,
                 status = 'pending', invited_by_user_id = EXCLUDED.invited_by_user_id,
@@ -249,7 +251,7 @@ public sealed class TrainingPeriodizationController : ControllerBase
               AND EXISTS (
                   SELECT 1 FROM clients c
                   WHERE c.id = training_collaborations.client_id AND c.archived_at IS NULL
-                    AND (training_collaborations.tenant_id IS NULL OR training_collaborations.tenant_id = (SELECT u.tenant_id FROM users u WHERE u.id = @professionalId))
+                    AND training_collaborations.tenant_id IS NOT DISTINCT FROM (SELECT u.tenant_id FROM users u WHERE u.id = @professionalId)
               )
             RETURNING id, client_id
             """, ("id", collaborationId), ("professionalId", professionalId.Value));
