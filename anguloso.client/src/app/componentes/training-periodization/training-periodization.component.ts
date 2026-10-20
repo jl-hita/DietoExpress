@@ -67,7 +67,13 @@ interface TrainingSession {
             <div *ngIf="sessions[plan.id]?.length" class="session-list">
               <div *ngFor="let session of sessions[plan.id]" class="session-row">
                 <div><strong>{{ session.scheduledDate | date:'mediumDate' }} · {{ session.title }}</strong><p>{{ session.durationMinutes || '—' }} min <span *ngIf="session.intensityTarget">· {{ session.intensityTarget }}</span></p><p *ngIf="session.completedAt" class="muted">Registrada: {{ session.actualDurationMinutes || '—' }} min · RPE {{ session.sessionRpe ?? '—' }}</p></div>
-                <button type="button" class="secondary" (click)="record(session)" [disabled]="saving">Registrar realización</button>
+                <button type="button" class="secondary" (click)="openRecord(session)" [disabled]="saving">{{ recordingSessionId === session.id ? 'Cerrar registro' : (session.completedAt ? 'Editar registro' : 'Registrar realización') }}</button>
+                <form *ngIf="recordingSessionId === session.id" class="record-form" (ngSubmit)="record(session)">
+                  <label>Duración real (min)<input type="number" [(ngModel)]="recordDrafts[session.id].duration" name="actualDuration{{session.id}}" min="1" max="1440" required /></label>
+                  <label>Esfuerzo percibido (RPE)<input type="number" [(ngModel)]="recordDrafts[session.id].rpe" name="actualRpe{{session.id}}" min="0" max="10" step="0.5" required /></label>
+                  <label>Notas<textarea [(ngModel)]="recordDrafts[session.id].notes" name="recordNotes{{session.id}}" rows="2" maxlength="2000" placeholder="Cómo te has encontrado, ajustes realizados…"></textarea></label>
+                  <button type="submit" [disabled]="saving">Guardar realización</button>
+                </form>
               </div>
             </div>
           </article>
@@ -76,7 +82,7 @@ interface TrainingSession {
     </main>
   `,
   styles: [`
-    :host{display:block;color:var(--text-color,#202124)}.training-page{max-width:1100px;margin:0 auto;padding:24px;display:grid;gap:18px}.back-link{color:var(--primary-color,#3657a6);text-decoration:none}header h1{margin:.2rem 0 .4rem;font-size:clamp(1.6rem,3vw,2.2rem)}header p{margin:.3rem 0}.eyebrow{font-size:.75rem;font-weight:700;letter-spacing:.08em;color:var(--primary-color,#3657a6)}.panel,.plan-card{border:1px solid var(--border-color,#ddd);border-radius:14px;padding:20px;background:var(--surface-color,#fff)}.panel h2,.plan-card h3{margin-top:0}.section-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.section-heading p,.plan-card p{color:var(--secondary-text-color,#666);margin:.4rem 0}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:16px 0}.form-grid label,.session-form label{display:grid;gap:6px;font-weight:600;font-size:.9rem}.form-grid .full{grid-column:1/-1}.form-grid input,.form-grid select,.form-grid textarea,.session-form input,.session-form select{width:100%;box-sizing:border-box;border:1px solid #b9bec7;border-radius:8px;padding:10px;font:inherit;background:transparent;color:inherit}.session-form{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin:16px 0}.session-form label{flex:1 1 135px}.session-form button{flex:0 0 auto}button{border:0;border-radius:8px;padding:10px 14px;background:var(--primary-color,#3657a6);color:white;font:inherit;font-weight:600;cursor:pointer}button:disabled{opacity:.55;cursor:wait}button.secondary{background:transparent;border:1px solid #9aa0a6;color:inherit}.plan-card{margin-top:14px}.status{font-size:.8rem;border-radius:20px;background:#eef2ff;padding:5px 10px}.session-list{border-top:1px solid #ddd;margin-top:14px}.session-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid #eee}.session-row p{margin:.3rem 0}.muted{color:#777}.error{color:#a21d24}@media(max-width:650px){.training-page{padding:14px}.form-grid{grid-template-columns:1fr}.form-grid .full{grid-column:auto}.section-heading,.session-row{flex-direction:column;align-items:stretch}.session-form button{width:100%}}
+    :host{display:block;color:var(--text-color,#202124)}.training-page{max-width:1100px;margin:0 auto;padding:24px;display:grid;gap:18px}.back-link{color:var(--primary-color,#3657a6);text-decoration:none}header h1{margin:.2rem 0 .4rem;font-size:clamp(1.6rem,3vw,2.2rem)}header p{margin:.3rem 0}.eyebrow{font-size:.75rem;font-weight:700;letter-spacing:.08em;color:var(--primary-color,#3657a6)}.panel,.plan-card{border:1px solid var(--border-color,#ddd);border-radius:14px;padding:20px;background:var(--surface-color,#fff)}.panel h2,.plan-card h3{margin-top:0}.section-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.section-heading p,.plan-card p{color:var(--secondary-text-color,#666);margin:.4rem 0}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:16px 0}.form-grid label,.session-form label{display:grid;gap:6px;font-weight:600;font-size:.9rem}.form-grid .full{grid-column:1/-1}.form-grid input,.form-grid select,.form-grid textarea,.session-form input,.session-form select{width:100%;box-sizing:border-box;border:1px solid #b9bec7;border-radius:8px;padding:10px;font:inherit;background:transparent;color:inherit}.session-form{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin:16px 0}.session-form label{flex:1 1 135px}.record-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px;padding:14px;border-radius:10px;background:var(--surface-container,#f6f7f9)}.record-form label{display:grid;gap:6px;font-size:.88rem;font-weight:600}.record-form label:nth-child(3){grid-column:1/-1}.record-form input,.record-form textarea{box-sizing:border-box;width:100%;border:1px solid #b9bec7;border-radius:8px;padding:9px;font:inherit;background:var(--surface-color,#fff);color:inherit}.record-form button{justify-self:start}.session-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start;padding:12px 0;border-top:1px solid var(--border-color,#ddd)}.session-form button{flex:0 0 auto}button{border:0;border-radius:8px;padding:10px 14px;background:var(--primary-color,#3657a6);color:white;font:inherit;font-weight:600;cursor:pointer}button:disabled{opacity:.55;cursor:wait}button.secondary{background:transparent;border:1px solid #9aa0a6;color:inherit}.plan-card{margin-top:14px}.status{font-size:.8rem;border-radius:20px;background:#eef2ff;padding:5px 10px}.session-list{border-top:1px solid #ddd;margin-top:14px}.session-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid #eee}.session-row p{margin:.3rem 0}.muted{color:#777}.error{color:#a21d24}@media(max-width:650px){.training-page{padding:14px}.form-grid{grid-template-columns:1fr}.form-grid .full{grid-column:auto}.section-heading,.session-row{flex-direction:column;align-items:stretch}.session-form button{width:100%}}
   `]
 })
 export class TrainingPeriodizationComponent implements OnInit {
@@ -84,6 +90,8 @@ export class TrainingPeriodizationComponent implements OnInit {
   loading = true;
   saving = false;
   error = '';
+  recordingSessionId: number | null = null;
+  recordDrafts: Record<number, { duration: number | null; rpe: number | null; notes: string }> = {};
   profile: TrainingProfile | null = null;
   trainingManagementMode: 'none' | 'self' | 'collaboration' = 'self';
   plans: TrainingPlan[] = [];
@@ -129,12 +137,12 @@ export class TrainingPeriodizationComponent implements OnInit {
     this.saveProfile();
   }
 
-  toggleEnabled(): void { if (!this.profile) return; this.profile.enabled = !this.profile.enabled; this.saveProfile(); }
+  toggleEnabled(): void { if (!this.profile) return; this.trainingManagementMode = this.profile.enabled ? 'none' : 'self'; this.profile.enabled = this.trainingManagementMode !== 'none'; this.saveProfile(); }
 
   saveProfile(): void {
     if (!this.profile) return;
     this.saving = true; this.error = '';
-    const payload = { ...this.profile, managementMode: this.trainingManagementMode };
+    const payload = { ...this.profile, enabled: this.trainingManagementMode !== 'none', managementMode: this.trainingManagementMode };
     this.http.put<TrainingProfile>(`/api/training/clients/${this.clientId}/profile`, payload).subscribe({
       next: p => { this.trainingManagementMode = p.managementMode ?? this.trainingManagementMode; this.profile = p; this.saving = false; this.load(); },
       error: e => { this.error = e?.error?.message || 'No se pudo guardar el perfil deportivo.'; this.saving = false; }
@@ -160,16 +168,38 @@ export class TrainingPeriodizationComponent implements OnInit {
     });
   }
 
+  openRecord(session: TrainingSession): void {
+    if (this.recordingSessionId === session.id) { this.recordingSessionId = null; return; }
+    this.recordingSessionId = session.id;
+    this.recordDrafts[session.id] = {
+      duration: session.actualDurationMinutes ?? session.durationMinutes ?? null,
+      rpe: session.sessionRpe ?? 5,
+      notes: session.recordNotes ?? ''
+    };
+  }
+
   record(session: TrainingSession): void {
-    const duration = window.prompt('Duración realizada en minutos', String(session.durationMinutes || ''));
-    if (duration === null) return;
-    const rpe = window.prompt('Esfuerzo percibido (RPE de 0 a 10)', '5');
-    if (rpe === null) return;
-    const actualDuration = Number(duration); const sessionRpe = Number(rpe);
-    if (!Number.isFinite(actualDuration) || actualDuration < 1 || actualDuration > 1440 || !Number.isFinite(sessionRpe) || sessionRpe < 0 || sessionRpe > 10) { this.error = 'Introduce una duración válida y un RPE entre 0 y 10.'; return; }
+    const draft = this.recordDrafts[session.id];
+    if (!draft || !Number.isFinite(draft.duration) || draft.duration === null || draft.duration < 1 || draft.duration > 1440
+      || !Number.isFinite(draft.rpe) || draft.rpe === null || draft.rpe < 0 || draft.rpe > 10) {
+      this.error = 'Introduce una duración entre 1 y 1440 minutos y un RPE entre 0 y 10.';
+      return;
+    }
     this.saving = true; this.error = '';
-    this.http.post(`/api/training/sessions/${session.id}/record`, { completedAt: new Date().toISOString(), actualDurationMinutes: actualDuration, sessionRpe, notes: null }).subscribe({
-      next: () => { this.saving = false; this.http.get<TrainingSession[]>(`/api/training/plans/${session.planId}/sessions`).subscribe(rows => this.sessions[session.planId] = rows); },
+    this.http.post(`/api/training/sessions/${session.id}/record`, {
+      completedAt: new Date().toISOString(),
+      actualDurationMinutes: draft.duration,
+      sessionRpe: draft.rpe,
+      notes: draft.notes.trim() || null
+    }).subscribe({
+      next: () => {
+        this.saving = false;
+        this.recordingSessionId = null;
+        this.http.get<TrainingSession[]>(`/api/training/plans/${session.planId}/sessions`).subscribe({
+          next: rows => this.sessions[session.planId] = rows,
+          error: () => this.error = 'La realización se guardó, pero no se pudo actualizar la lista. Recarga la página.'
+        });
+      },
       error: e => { this.error = e?.error?.message || 'No se pudo registrar la sesión.'; this.saving = false; }
     });
   }

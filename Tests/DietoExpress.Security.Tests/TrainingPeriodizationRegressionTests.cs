@@ -61,5 +61,9 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("collaboration", consultation);
         Assert.Contains("Gestión del entrenamiento", trainingUi);
         Assert.Contains("managementMode: this.trainingManagementMode", trainingUi);
+        Assert.Contains("record-form", trainingUi);
+        Assert.Contains("Guardar realización", trainingUi);
+        Assert.DoesNotContain("window.prompt", trainingUi);
+        Assert.Contains("UpgradeTrainingPeriodizationSchemaV2(context, logger)", bootstrap);
     }
 }
