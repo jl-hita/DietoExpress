@@ -1,3 +1,4 @@
+using Anguloso.Server.Model;
 using System.Security.Cryptography;
 using System.Text;
 using Npgsql;
@@ -8,12 +9,14 @@ public sealed class CommercialCommunicationService
 {
     private readonly IConfiguration _configuration;
     private readonly string _connectionString;
+    private readonly PatientPortalEmailService _patientPortalEmailService;
 
-    public CommercialCommunicationService(IConfiguration configuration)
+    public CommercialCommunicationService(IConfiguration configuration, PatientPortalEmailService patientPortalEmailService)
     {
         _configuration = configuration;
         _connectionString = configuration.GetConnectionString("DefaultConnection")
             ?? throw new InvalidOperationException("DefaultConnection no está configurada.");
+        _patientPortalEmailService = patientPortalEmailService;
     }
 
     public async Task<bool> IsOptedInAsync(int clientId, CancellationToken cancellationToken = default)
@@ -185,7 +188,18 @@ public sealed class CommercialCommunicationService
               Las comunicaciones asistenciales necesarias no se ven afectadas.
             </p>
             """;
-        var result = await emailServ.SendEmailAsync(email, subject, htmlBody + footer, idempotencyKey);
+        var completeBody = htmlBody + footer;
+        BoolMensaje result;
+        if ((subject + " " + completeBody).Contains("portal", StringComparison.OrdinalIgnoreCase) &&
+            !completeBody.Contains("/patient?token=", StringComparison.OrdinalIgnoreCase))
+        {
+            result = await _patientPortalEmailService.SendAsync(
+                clientId, subject, completeBody, idempotencyKey, cancellationToken);
+        }
+        else
+        {
+            result = await emailServ.SendEmailAsync(email, subject, completeBody, idempotencyKey);
+        }
         return result.Exito;
     }
 

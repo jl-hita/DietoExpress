@@ -48,6 +48,7 @@ export class AppointmentsComponent implements OnInit {
   get calendarBusy(): boolean { return this.calendarBusyState(); }
   set calendarBusy(value: boolean) { this.calendarBusyState.set(value); }
   isSuperAdmin = false;
+  resendingAppointmentId: number | null = null;
 
   readonly days = [
     { value: 1, label: 'Lunes' }, { value: 2, label: 'Martes' },
@@ -297,6 +298,23 @@ export class AppointmentsComponent implements OnInit {
         this.success = 'Cita actualizada.';
       },
       error: err => this.error = err?.error?.message || 'No hemos podido actualizar la cita.'
+    });
+  }
+
+  resendAppointmentEmail(appointment: PatientAppointment): void {
+    if (this.resendingAppointmentId !== null) return;
+    this.error = null;
+    this.success = null;
+    this.resendingAppointmentId = appointment.id;
+    this.portalService.resendAppointmentEmail(appointment.id).subscribe({
+      next: result => {
+        this.success = result?.message || 'Email reenviado al paciente.';
+        this.resendingAppointmentId = null;
+      },
+      error: err => {
+        this.error = err?.error?.message || 'No se ha podido reenviar el email al paciente.';
+        this.resendingAppointmentId = null;
+      }
     });
   }
 

@@ -21,7 +21,7 @@ public sealed class PatientPortalAccessService
         _configServ = configServ;
     }
 
-    public async Task<string?> CreateAccessLinkAsync(int clientId, CancellationToken cancellationToken = default)
+    public async Task<string?> CreateAccessLinkAsync(int clientId, CancellationToken cancellationToken = default, DateTime? expiresAtUtc = null)
     {
         var client = await _context.clients
             .Where(c => c.id == clientId && c.archived_at == null && c.email != null)
@@ -32,7 +32,8 @@ public sealed class PatientPortalAccessService
 
         var rawToken = GenerateUrlSafeToken();
         client.access_token = HashAccessToken(rawToken);
-        client.access_token_expires_at = DateTime.UtcNow.AddHours(24);
+        var expiry = expiresAtUtc ?? DateTime.UtcNow.AddHours(24);
+        client.access_token_expires_at = DateTime.SpecifyKind(expiry, DateTimeKind.Utc);
         client.portal_token_version++;
 
         await _context.SaveChangesAsync(cancellationToken);

@@ -120,6 +120,10 @@
           <span class="status" [class]="'status ' + item.status">{{ statusLabel(item.status) }}</span>
           <div class="actions">
             <button *ngIf="item.status === 'requested'" type="button" class="primary small" (click)="changeStatus(item, 'confirmed')">Confirmar</button>
+            <button type="button" class="secondary small" (click)="resendAppointmentEmail(item)" [disabled]="resendingAppointmentId !== null" [attr.aria-busy]="resendingAppointmentId === item.id">
+              <mat-icon>{{ resendingAppointmentId === item.id ? 'hourglass_top' : 'mail' }}</mat-icon>
+              {{ resendingAppointmentId === item.id ? 'Enviando…' : 'Reenviar email' }}
+            </button>
             <button *ngIf="item.status === 'requested' || item.status === 'confirmed'" type="button" class="secondary small" (click)="changeStatus(item, 'cancelled')">Cancelar</button>
             <button *ngIf="item.status === 'confirmed'" type="button" class="primary small" (click)="startConsultation(item)"><mat-icon>play_arrow</mat-icon> Iniciar consulta</button>
             <button *ngIf="item.status === 'confirmed' && item.modality === 'online'" type="button" class="secondary small" (click)="joinVideoAppointment(item)"><mat-icon>videocam</mat-icon> Entrar online</button>

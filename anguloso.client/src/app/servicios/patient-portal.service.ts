@@ -230,6 +230,10 @@ export class PatientPortalService {
     });
   }
 
+  resendAppointmentEmail(id: number): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(this.base + '/appointments/' + id + '/send-email', {});
+  }
+
   getGoogleCalendarStatus(): Observable<GoogleCalendarStatus> { return this.http.get<GoogleCalendarStatus>(this.base + '/google-calendar/status'); }
   connectGoogleCalendar(): void { window.location.href = this.base + '/google-calendar/connect'; }
   disconnectGoogleCalendar(): Observable<void> { return this.http.post<void>(this.base + '/google-calendar/disconnect', {}); }

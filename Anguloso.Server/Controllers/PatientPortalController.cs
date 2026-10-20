@@ -67,6 +67,10 @@ public class PatientPortalController : ControllerBase
         }
         else return BadRequest("Debes proporcionar un enlace de acceso o tus credenciales.");
 
+        var sessionExpiresAtUtc = !string.IsNullOrWhiteSpace(request.Token) && client.access_token_expires_at.HasValue
+            ? DateTime.SpecifyKind(client.access_token_expires_at.Value, DateTimeKind.Utc)
+            : DateTime.UtcNow.AddHours(8);
+
         var portalTenantId = client.tenant_id ?? client.user?.tenant_id;
         if (!await _licenseService.CanUseFeatureAsync(portalTenantId, "CLIENT_PORTAL")) return Forbid();
 
@@ -94,8 +98,8 @@ public class PatientPortalController : ControllerBase
 
         client.last_portal_access = DateTime.UtcNow;
         await _context.SaveChangesAsync();
-        var jwt = GeneratePatientJwt(client);
-        SetPatientSessionCookie(jwt);
+        var jwt = GeneratePatientJwt(client, sessionExpiresAtUtc);
+        SetPatientSessionCookie(jwt, sessionExpiresAtUtc);
 
         return Ok(new PatientAuthResponseDto
         {
@@ -638,7 +642,7 @@ public class PatientPortalController : ControllerBase
         return null;
     }
 
-    private string GeneratePatientJwt(clients client)
+    private string GeneratePatientJwt(clients client, DateTime expiresAtUtc)
     {
         var tokenHandler = new JwtSecurityTokenHandler();
         var key = Encoding.UTF8.GetBytes(_config["Jwt:Key"]!);
@@ -655,7 +659,7 @@ public class PatientPortalController : ControllerBase
             Issuer = _config["Jwt:Issuer"],
             Audience = _config["Jwt:Audience"],
             Subject = new ClaimsIdentity(claims),
-            Expires = DateTime.UtcNow.AddHours(8),
+            Expires = expiresAtUtc,
             SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
         };
         var token = tokenHandler.CreateToken(tokenDescriptor);
@@ -687,15 +691,15 @@ public class PatientPortalController : ControllerBase
         return NoContent();
     }
 
-    private void SetPatientSessionCookie(string jwt)
+    private void SetPatientSessionCookie(string jwt, DateTime expiresAtUtc)
     {
         Response.Cookies.Append("dietoexpress_patient_session", jwt, new CookieOptions
         {
             HttpOnly = true,
             Secure = true,
             SameSite = SameSiteMode.Strict,
-            Expires = DateTimeOffset.UtcNow.AddHours(8),
-            MaxAge = TimeSpan.FromHours(8),
+            Expires = new DateTimeOffset(expiresAtUtc),
+            MaxAge = expiresAtUtc - DateTime.UtcNow,
             Path = "/"
         });
     }
