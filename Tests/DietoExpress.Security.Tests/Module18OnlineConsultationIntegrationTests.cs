@@ -24,11 +24,11 @@ public sealed class Module18OnlineConsultationIntegrationTests
         var h=Read("anguloso.client/src/app/componentes/video-consultation/video-consultation.component.html");
         Assert.Contains("VideoConsultationComponent",g);
         Assert.Contains("<app-video-consultation",g);
-        Assert.Contains("[embedded]=\\\"true\\\"",g);
-        Assert.Contains("[appointmentIdInput]=\\\"data.appointment.id\\\"",g);
+        Assert.Contains("[embedded]=\"true\"",g);
+        Assert.Contains("[appointmentIdInput]=\"data.appointment.id\"",g);
         Assert.Contains("@Input() embedded = false",v);
         Assert.Contains("@Input() appointmentIdInput",v);
-        Assert.Contains("[class.embedded]=\\\"embedded\\\"",h);
+        Assert.Contains("[class.embedded]=\"embedded\"",h);
         Assert.Contains("if (this.embedded) return",v);
     }
 
