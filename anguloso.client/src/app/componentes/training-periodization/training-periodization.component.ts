@@ -37,6 +37,7 @@ interface TrainingInvitation {
       <header><div><p class="eyebrow">MÓDULO OPCIONAL</p><h1>{{ clientId > 0 ? 'Planificación deportiva' : 'Invitaciones de entrenamiento' }}</h1><p *ngIf="clientId > 0">Actívala solo para clientes que quieran trabajar objetivos de actividad física o entrenamiento.</p></div></header>
       <p *ngIf="loading" role="status">Cargando planificación…</p>
       <p *ngIf="error" class="error" role="alert">{{ error }}</p>
+      <p *ngIf="notice" class="success" role="status">{{ notice }}</p>
       <p *ngIf="acceptedClientId" role="status">Colaboración aceptada. <a [routerLink]="['/clients', acceptedClientId, 'training']">Abrir el entrenamiento</a></p>
       <section *ngIf="clientId === 0 && !invitations.length && !loading" class="panel">
         <h2>No tienes invitaciones pendientes</h2>
@@ -274,6 +275,7 @@ export class TrainingPeriodizationComponent implements OnInit {
   loading = true;
   saving = false;
   error = '';
+  notice = '';
   recordingSessionId: number | null = null;
   editingSessionId: number | null = null;
   sessionEditDraft: { date: string; title: string; type: string; duration: number | null; intensity: string; instructions: string; exercisePrescription: string } | null = null;
@@ -431,9 +433,9 @@ export class TrainingPeriodizationComponent implements OnInit {
     const email = this.collaboratorEmail.trim();
     if (!email) return;
     this.saving = true; this.error = '';
-    this.http.post('/api/training/clients/' + this.clientId + '/collaborations', { email, accessScope: 'training' }).subscribe({
-      next: () => { this.collaboratorEmail = ''; this.saving = false; this.loadCollaborations(); },
-      error: e => { this.error = e?.error?.message || 'No se pudo enviar la invitación.'; this.saving = false; }
+    this.http.post<{ emailSent: boolean; message: string }>('/api/training/clients/' + this.clientId + '/collaborations', { email, accessScope: 'training' }).subscribe({
+      next: response => { this.collaboratorEmail = ''; this.notice = response.message; this.saving = false; this.loadCollaborations(); },
+      error: e => { this.error = e?.error?.message || 'No se pudo crear la invitación.'; this.saving = false; }
     });
   }
 
