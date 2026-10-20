@@ -51,7 +51,7 @@ builder.Services.AddScoped<SupportEnhancementService>();
         builder.Services.AddScoped<CommercialCommunicationService>();
         // El servicio comparte la lógica de publicación entre peticiones y el worker; el worker separado procesa los jobs sin bloquear las peticiones HTTP.
         builder.Services.AddSingleton<AutomationService>();
-        builder.Services.AddScoped<PatientPortalAccessService>(); builder.Services.AddScoped<AppointmentEmailService>(); builder.Services.AddScoped<PatientDocumentService>(); builder.Services.AddSingleton<PatientDocumentTemplateSeeder>(); builder.Services.AddScoped<PrivacyOperationsService>(); builder.Services.AddScoped<LegalGovernanceService>();
+        builder.Services.AddScoped<PatientPortalAccessService>(); builder.Services.AddScoped<PatientPortalEmailService>(); builder.Services.AddScoped<AppointmentEmailService>(); builder.Services.AddScoped<PatientDocumentService>(); builder.Services.AddSingleton<PatientDocumentTemplateSeeder>(); builder.Services.AddScoped<PrivacyOperationsService>(); builder.Services.AddScoped<LegalGovernanceService>();
         builder.Services.AddDataProtection();
         builder.Services.AddHttpClient();
 
