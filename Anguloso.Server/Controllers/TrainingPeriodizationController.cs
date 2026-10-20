@@ -141,12 +141,17 @@ public sealed class TrainingPeriodizationController : ControllerBase
             return BadRequest(new { message = "El tipo de sesión no es válido." });
         await using var command = Command("""
             INSERT INTO training_sessions(plan_id, scheduled_date, title, session_type, duration_minutes, intensity_target, instructions)
-            VALUES (@planId, @date, @title, @type, @duration, @intensity, @instructions)
+            SELECT id, @date, @title, @type, @duration, @intensity, @instructions
+            FROM training_plans
+            WHERE id = @planId AND @date >= start_date
+              AND (end_date IS NULL OR @date <= end_date)
             RETURNING id
             """, ("planId", planId), ("date", request.ScheduledDate), ("title", request.Title.Trim()), ("type", request.SessionType),
             ("duration", request.DurationMinutes), ("intensity", request.IntensityTarget), ("instructions", request.Instructions));
         var id = await command.ExecuteScalarAsync(cancellationToken);
-        return CreatedAtAction(nameof(GetSessions), new { planId }, new { id = Convert.ToInt32(id), request.ScheduledDate, request.Title, request.SessionType, request.DurationMinutes, status = "planned" });
+        return id is null
+            ? Conflict(new { message = "La fecha de la sesión debe estar dentro del periodo del plan." })
+            : CreatedAtAction(nameof(GetSessions), new { planId }, new { id = Convert.ToInt32(id), request.ScheduledDate, request.Title, request.SessionType, request.DurationMinutes, status = "planned" });
     }
 
     [HttpPost("sessions/{sessionId:int}/record")]
