@@ -3,6 +3,7 @@ using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using System.Security.Claims;
 
 namespace Anguloso.Server.Controllers;
@@ -106,7 +107,7 @@ public class PatientCheckinsController : ControllerBase
         {
             await _db.SaveChangesAsync();
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException postgres && postgres.SqlState == PostgresErrorCodes.UniqueViolation)
         {
             // La restricción única (cliente, semana) protege también frente a dos envíos simultáneos.
             _db.Entry(item).State = EntityState.Detached;
