@@ -100,6 +100,29 @@ test.describe('MVP de periodización deportiva', () => {
     await expect(page.locator('.plan-card > .cycle-section > .mesocycle-card').filter({ hasText: 'Mesociclo E2E A' })).toBeVisible();
     await expect(page.locator('li').filter({ hasText: 'Microciclo E2E 1' })).toBeVisible();
 
+    const sessionTitle = 'Sesión E2E fuerza visual';
+    await page.locator(`input[name="sessionTitle${plan.id}"]`).fill(sessionTitle);
+    await page.locator(`input[name="sessionDate${plan.id}"]`).fill(start);
+    await page.locator(`select[name="sessionType${plan.id}"]`).selectOption('strength');
+    await page.locator(`input[name="sessionDuration${plan.id}"]`).fill('60');
+    await page.locator(`input[name="sessionIntensity${plan.id}"]`).fill('RPE 7 - técnica controlada');
+    await page.locator(`textarea[name="sessionInstructions${plan.id}"]`).fill('Calentamiento, tres bloques principales y vuelta a la calma.');
+    await page.getByRole('button', { name: /Añadir sesión/ }).click();
+    let sessionCard = page.locator('.session-card').filter({ hasText: sessionTitle });
+    await expect(sessionCard).toBeVisible();
+    await expect(sessionCard).toContainText('RPE 7 - técnica controlada');
+    await expect(sessionCard).toContainText('Calentamiento, tres bloques principales y vuelta a la calma.');
+
+    await sessionCard.getByRole('button', { name: 'Editar' }).click();
+    await sessionCard.locator('input[name^="editSessionTitle"]').fill('Sesión E2E fuerza editada');
+    await sessionCard.locator('input[name^="editSessionIntensity"]').fill('RPE 8 - progresión');
+    await sessionCard.locator('textarea[name^="editSessionInstructions"]').fill('Versión actualizada de las instrucciones.');
+    await sessionCard.getByRole('button', { name: 'Guardar cambios' }).click();
+    sessionCard = page.locator('.session-card').filter({ hasText: 'Sesión E2E fuerza editada' });
+    await expect(sessionCard).toBeVisible();
+    await expect(sessionCard).toContainText('RPE 8 - progresión');
+    await expect(sessionCard).toContainText('Versión actualizada de las instrucciones.');
+
     const mesocycles = page.locator('.plan-card > .cycle-section > .mesocycle-card');
     const firstMeso = mesocycles.first();
     await firstMeso.getByRole('button', { name: 'Editar' }).click();
