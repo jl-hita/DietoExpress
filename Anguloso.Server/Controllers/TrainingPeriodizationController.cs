@@ -192,11 +192,15 @@ public sealed class TrainingPeriodizationController : ControllerBase
                       c.tenant_id = (SELECT u.tenant_id FROM users u WHERE u.id = @userId)
                       AND (@clinicAdmin OR c.user_id = @userId
                            OR EXISTS (SELECT 1 FROM client_nutritionist_assignments a WHERE a.client_id = c.id AND a.nutritionist_id = @userId AND a.is_active)
-                           OR EXISTS (SELECT 1 FROM training_collaborations tc WHERE tc.client_id = c.id AND tc.professional_user_id = @userId AND tc.status = 'active')
+                           OR (NOT @manage AND EXISTS (
+                               SELECT 1 FROM training_collaborations tc
+                               WHERE tc.client_id = c.id AND tc.professional_user_id = @userId
+                                 AND tc.status = 'active'
+                           ))
                       )
                   ))
             )
-            """, ("clientId", clientId), ("userId", userId.Value), ("superAdmin", superAdmin), ("clinicAdmin", clinicAdmin));
+            """, ("clientId", clientId), ("userId", userId.Value), ("superAdmin", superAdmin), ("clinicAdmin", clinicAdmin), ("manage", manage));
         return Convert.ToBoolean(await command.ExecuteScalarAsync(cancellationToken));
     }
 
