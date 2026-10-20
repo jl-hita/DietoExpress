@@ -43,6 +43,7 @@ public class Program
         builder.Services.AddSingleton<ConfigServ>(sp => new ConfigServ(connectionString!, sp.GetRequiredService<LogServ>()));
         builder.Services.AddSingleton<EmailServ>(sp => new EmailServ(sp.GetRequiredService<ConfigServ>(), sp.GetRequiredService<LogServ>(), sp.GetRequiredService<IHttpContextAccessor>()));
         builder.Services.AddSingleton<NotificationService>();
+        builder.Services.AddSingleton<ProfessionalPushService>();
         builder.Services.AddSingleton<MaintenanceNoticeService>();
         builder.Services.AddScoped<RecipeNutritionService>();
 builder.Services.AddScoped<SupportEnhancementService>();
@@ -84,6 +85,7 @@ builder.Services.AddScoped<SupportEnhancementService>();
         builder.Services.AddHostedService<GoogleCalendarWorker>();
         builder.Services.AddHostedService<PublicDirectoryInterestRetentionWorker>();
         builder.Services.AddHostedService<AutomationWorker>();
+        builder.Services.AddHostedService<AppointmentReminderWorker>();
         builder.Services.AddHostedService<FoodCatalogImportWorker>();
         builder.Services.AddHttpClient<IStripeBillingService, StripeBillingService>();
         builder.Services.AddHttpClient<OpenFoodFactsService>().AddTypedClient((httpClient, sp) => new OpenFoodFactsService(httpClient, connectionString!, sp.GetRequiredService<LogServ>(), sp.GetRequiredService<ConfigServ>()));
