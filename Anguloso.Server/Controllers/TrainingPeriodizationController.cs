@@ -146,7 +146,7 @@ public sealed class TrainingPeriodizationController : ControllerBase
         if (!await CanAccessPlan(planId, cancellationToken)) return NotFound();
         await using var command = Command("""
             SELECT s.id, s.plan_id, s.scheduled_date, s.title, s.session_type, s.duration_minutes, s.intensity_target, s.instructions, s.status,
-                   r.completed_at, r.actual_duration_minutes, r.session_rpe, r.notes
+                   r.completed_at, r.actual_duration_minutes, r.session_rpe, r.notes, s.exercise_prescription
             FROM training_sessions s JOIN training_plans p ON p.id = s.plan_id
             JOIN training_profiles f ON f.id = p.profile_id
             LEFT JOIN training_session_records r ON r.session_id = s.id AND r.client_id = f.client_id
@@ -159,7 +159,8 @@ public sealed class TrainingPeriodizationController : ControllerBase
             items.Add(new TrainingSessionDto(reader.GetInt32(0), reader.GetInt32(1), reader.GetFieldValue<DateOnly>(2), reader.GetString(3), reader.GetString(4),
                 reader.IsDBNull(5) ? null : reader.GetInt32(5), reader.IsDBNull(6) ? null : reader.GetString(6), reader.IsDBNull(7) ? null : reader.GetString(7),
                 reader.GetString(8), reader.IsDBNull(9) ? null : reader.GetDateTime(9), reader.IsDBNull(10) ? null : reader.GetInt32(10),
-                reader.IsDBNull(11) ? null : reader.GetDecimal(11), reader.IsDBNull(12) ? null : reader.GetString(12)));
+                reader.IsDBNull(11) ? null : reader.GetDecimal(11), reader.IsDBNull(12) ? null : reader.GetString(12),
+                reader.IsDBNull(13) ? null : reader.GetString(13)));
         return Ok(items);
     }
 
@@ -169,17 +170,18 @@ public sealed class TrainingPeriodizationController : ControllerBase
         if (!await CanManagePlan(planId, cancellationToken)) return NotFound();
         if (string.IsNullOrWhiteSpace(request.Title) || request.Title.Trim().Length > 160) return BadRequest(new { message = "El nombre de la sesión es obligatorio (máximo 160 caracteres)." });
         if (request.DurationMinutes is < 1 or > 1440) return BadRequest(new { message = "La duración debe estar entre 1 y 1440 minutos." });
+        if (request.ExercisePrescription?.Length > 6000) return BadRequest(new { message = "La prescripción de ejercicios admite hasta 6000 caracteres." });
         if (request.SessionType is not ("endurance" or "strength" or "mobility" or "recovery" or "health" or "general" or "other"))
             return BadRequest(new { message = "El tipo de sesión no es válido." });
         await using var command = Command("""
-            INSERT INTO training_sessions(plan_id, scheduled_date, title, session_type, duration_minutes, intensity_target, instructions)
-            SELECT id, @date, @title, @type, @duration, @intensity, @instructions
+            INSERT INTO training_sessions(plan_id, scheduled_date, title, session_type, duration_minutes, intensity_target, instructions, exercise_prescription)
+            SELECT id, @date, @title, @type, @duration, @intensity, @instructions, @exercisePrescription
             FROM training_plans
             WHERE id = @planId AND @date >= start_date
               AND (end_date IS NULL OR @date <= end_date)
             RETURNING id
             """, ("planId", planId), ("date", request.ScheduledDate), ("title", request.Title.Trim()), ("type", request.SessionType),
-            ("duration", request.DurationMinutes), ("intensity", request.IntensityTarget), ("instructions", request.Instructions));
+            ("duration", request.DurationMinutes), ("intensity", request.IntensityTarget), ("instructions", request.Instructions), ("exercisePrescription", request.ExercisePrescription?.Trim()));
         var id = await command.ExecuteScalarAsync(cancellationToken);
         return id is null
             ? Conflict(new { message = "La fecha de la sesión debe estar dentro del periodo del plan." })
@@ -197,20 +199,20 @@ public sealed class TrainingPeriodizationController : ControllerBase
             return BadRequest(new { message = "La duración debe estar entre 1 y 1440 minutos." });
         if (request.SessionType is not ("endurance" or "strength" or "mobility" or "recovery" or "health" or "general" or "other"))
             return BadRequest(new { message = "El tipo de sesión no es válido." });
-        if (request.IntensityTarget?.Length > 120 || request.Instructions?.Length > 4000)
+        if (request.IntensityTarget?.Length > 120 || request.Instructions?.Length > 4000 || request.ExercisePrescription?.Length > 6000)
             return BadRequest(new { message = "La intensidad admite 120 caracteres y las instrucciones 4000." });
 
         await using var command = Command("""
             UPDATE training_sessions s
             SET scheduled_date = @date, title = @title, session_type = @type, duration_minutes = @duration,
-                intensity_target = @intensity, instructions = @instructions, updated_at = NOW()
+                intensity_target = @intensity, instructions = @instructions, exercise_prescription = @exercisePrescription, updated_at = NOW()
             FROM training_plans p JOIN training_profiles f ON f.id = p.profile_id
             WHERE s.plan_id = p.id AND s.id = @sessionId AND f.enabled = TRUE
               AND @date >= p.start_date AND (p.end_date IS NULL OR @date <= p.end_date)
             RETURNING s.id
             """, ("sessionId", sessionId), ("date", request.ScheduledDate), ("title", request.Title.Trim()),
             ("type", request.SessionType), ("duration", request.DurationMinutes), ("intensity", request.IntensityTarget?.Trim()),
-            ("instructions", request.Instructions?.Trim()));
+            ("instructions", request.Instructions?.Trim()), ("exercisePrescription", request.ExercisePrescription?.Trim()));
         var id = await command.ExecuteScalarAsync(cancellationToken);
         return id is null
             ? Conflict(new { message = "La fecha de la sesión debe estar dentro del periodo del plan." })
@@ -806,9 +808,9 @@ public sealed record TrainingProfileDto(int Id, int ClientId, bool Enabled, stri
 public sealed record UpdateTrainingProfileRequest(bool Enabled, string PrimaryGoal, string ExperienceLevel, string? Notes, string? ManagementMode = null);
 public sealed record CreateTrainingPlanRequest(string Name, string PeriodizationModel, DateOnly StartDate, DateOnly? EndDate, string? Notes);
 public sealed record TrainingPlanDto(int Id, string Name, string PeriodizationModel, DateOnly StartDate, DateOnly? EndDate, string Status, int Version, string? Notes);
-public sealed record CreateTrainingSessionRequest(DateOnly ScheduledDate, string Title, string SessionType, int? DurationMinutes, string? IntensityTarget, string? Instructions);
+public sealed record CreateTrainingSessionRequest(DateOnly ScheduledDate, string Title, string SessionType, int? DurationMinutes, string? IntensityTarget, string? Instructions, string? ExercisePrescription = null);
 public sealed record RecordTrainingSessionRequest(DateTime? CompletedAt, int? ActualDurationMinutes, decimal? SessionRpe, string? Notes);
-public sealed record TrainingSessionDto(int Id, int PlanId, DateOnly ScheduledDate, string Title, string SessionType, int? DurationMinutes, string? IntensityTarget, string? Instructions, string Status, DateTime? CompletedAt, int? ActualDurationMinutes, decimal? SessionRpe, string? RecordNotes);
+public sealed record TrainingSessionDto(int Id, int PlanId, DateOnly ScheduledDate, string Title, string SessionType, int? DurationMinutes, string? IntensityTarget, string? Instructions, string Status, DateTime? CompletedAt, int? ActualDurationMinutes, decimal? SessionRpe, string? RecordNotes, string? ExercisePrescription = null);
 public sealed record InviteTrainingCollaboratorRequest(string Email, string? AccessScope = "training");
 public sealed record TrainingCollaborationDto(int Id, int ProfessionalUserId, string ProfessionalName, string Email, string AccessScope, string Status, DateTime CreatedAt, DateTime? AcceptedAt, DateTime? RevokedAt);
 
