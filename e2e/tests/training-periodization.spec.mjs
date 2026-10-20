@@ -112,6 +112,9 @@ test.describe('MVP de periodización deportiva', () => {
     await page.getByRole('button', { name: /Añadir sesión/ }).click();
     await expect(page.locator('.week-session').filter({ hasText: sessionTitle })).toBeVisible();
     await expect(page.locator('.week-summary')).toContainText('60 min');
+    const csvDownload = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Exportar CSV' }).click();
+    expect((await csvDownload).suggestedFilename()).toMatch(/dietoexpress-entrenamiento-.*\.csv/);
     const trendResponse = await api.get(apiUrl(`/api/training/plans/${plan.id}/load-trend`));
     expect(trendResponse.ok(), 'Debe consultar la tendencia de carga del plan').toBeTruthy();
     expect(Array.isArray(await trendResponse.json())).toBe(true);
