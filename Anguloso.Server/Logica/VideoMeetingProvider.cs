@@ -75,8 +75,9 @@ public sealed class LiveKitVideoMeetingProvider : IVideoMeetingProvider
         // La identidad de la sala es deliberadamente opaca: no incluye paciente,
         // tenant, email ni siquiera el identificador de la cita.
         var roomName = $"dieto-{Guid.NewGuid():N}";
-        var expiryMinutes = Math.Max(1440, Math.Clamp(_options.RoomExpiryMinutesAfterAppointment, 5, 2880));
-        var expiry = endsAtUtc.AddMinutes(expiryMinutes);
+        // La sala externa solo debe seguir disponible hasta 15 minutos después del final previsto.
+        // La validez del enlace al portal del paciente es independiente de esta ventana.
+        var expiry = endsAtUtc.AddMinutes(15);
         var emptyTimeoutSeconds = (uint)Math.Clamp(
             (long)Math.Ceiling((expiry - DateTime.UtcNow).TotalSeconds),
             60L,
