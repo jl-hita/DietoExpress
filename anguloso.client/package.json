@@ -37,6 +37,9 @@
     "vitest": "^5.0.5"
   },
   "overrides": {
-    "braces": "npm:@dieub/braces-depth-guard@3.0.3-pn.3"
+    "braces": "npm:@dieub/braces-depth-guard@3.0.3-pn.3",
+    "@angular/build": {
+      "vite": "8.3.3"
+    }
   }
 }
