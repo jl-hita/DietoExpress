@@ -5,7 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { createLocalAudioTrack, createLocalVideoTrack, LocalAudioTrack, LocalVideoTrack, RemoteTrack, RemoteTrackPublication, RemoteParticipant, Room, RoomEvent, Track } from 'livekit-client';
 import { PatientPortalService } from '../../servicios/patient-portal.service';
 
-type ConnectionState = 'connecting' | 'waiting' | 'connected' | 'reconnecting' | 'disconnected' | 'finalized' | 'error';
+type ConnectionState = 'scheduled' | 'connecting' | 'waiting' | 'connected' | 'reconnecting' | 'disconnected' | 'finalized' | 'error';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -19,6 +19,8 @@ type ConnectionState = 'connecting' | 'waiting' | 'connected' | 'reconnecting' |
 export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
   @Input() embedded = false;
   @Input() appointmentIdInput: number | null = null;
+  @Input() appointmentStartsAtInput: string | null = null;
+  compactVideo = false;
   @ViewChild('localVideo', { static: true }) localVideoElementRef!: ElementRef<HTMLVideoElement>;
   @ViewChild('remoteContainer', { static: true }) remoteContainer!: ElementRef<HTMLDivElement>;
   // LiveKit y el temporizador pueden notificar cambios desde callbacks externos a Angular.
@@ -78,7 +80,7 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
   private readonly maxCallDurationMinutesState = signal(60);
   get maxCallDurationMinutes(): number { return this.maxCallDurationMinutesState(); }
   set maxCallDurationMinutes(value: number) { this.maxCallDurationMinutesState.set(value); }
-  private callTimer?: ReturnType<typeof setInterval>; private manualDisconnect = false; private room?: Room; private appointmentId = 0;
+  private callTimer?: ReturnType<typeof setInterval>; private accessWindowTimer?: ReturnType<typeof setInterval>; private manualDisconnect = false; private room?: Room; private appointmentId = 0;
   private readonly localAudioState = signal<LocalAudioTrack | undefined>(undefined);
   get localAudio(): LocalAudioTrack | undefined { return this.localAudioState(); }
   set localAudio(value: LocalAudioTrack | undefined) { this.localAudioState.set(value); }
@@ -94,11 +96,25 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
   ngAfterViewInit(): void {
     const rawId = this.appointmentIdInput ?? this.route.snapshot.paramMap.get('appointmentId'); this.appointmentId = Number(rawId);
     if (!Number.isInteger(this.appointmentId) || this.appointmentId <= 0) { this.loading = false; this.connectionState = 'error'; this.error = 'La cita de consulta online no es válida.'; return; }
+    const startsAt = this.appointmentStartsAtInput ? new Date(this.appointmentStartsAtInput).getTime() : Number.NaN;
+    const opensAt = startsAt - 15 * 60 * 1000;
+    if (this.embedded && Number.isFinite(startsAt) && Date.now() < opensAt) {
+      this.loading = false;
+      this.connectionState = 'scheduled';
+      this.accessWindowTimer = setInterval(() => {
+        if (Date.now() >= opensAt) {
+          if (this.accessWindowTimer) clearInterval(this.accessWindowTimer);
+          this.accessWindowTimer = undefined;
+          void this.connect();
+        }
+      }, 15000);
+      return;
+    }
     void this.connect();
   }
 
   get connectionStateLabel(): string {
-    return ({ connecting:'Conectando', waiting:'Esperando al otro participante', connected:'Conectado', reconnecting:'Reconectando', disconnected:'Conexión perdida', finalized:'Consulta finalizada', error:'Error de conexión' } as Record<ConnectionState,string>)[this.connectionState];
+    return ({ scheduled:'Acceso aún no disponible', connecting:'Conectando', waiting:'Esperando al otro participante', connected:'Conectado', reconnecting:'Reconectando', disconnected:'Conexión perdida', finalized:'Consulta finalizada', error:'Error de conexión' } as Record<ConnectionState,string>)[this.connectionState];
   }
 
   connect(): void {
@@ -179,5 +195,5 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
     const wrapper=document.createElement('div');wrapper.className='remote-participant';wrapper.dataset['participant']=participant.identity;wrapper.dataset['track']=publication.trackSid||'';wrapper.appendChild(element);this.remoteContainer.nativeElement.appendChild(wrapper);this.remoteElements.set(publication.trackSid||participant.identity,wrapper);this.remoteParticipantCount=this.room?.remoteParticipants.size??this.remoteParticipantCount;this.connectionState='connected';
   }
   private detachRemoteTrack(track:RemoteTrack):void{track.detach().forEach(element=>element.remove());}
-  ngOnDestroy():void{if(this.callTimer)clearInterval(this.callTimer);this.manualDisconnect=true;this.localAudio?.stop();this.localVideoTrack?.stop();void this.room?.disconnect();this.remoteElements.clear();}
+  ngOnDestroy():void{if(this.callTimer)clearInterval(this.callTimer);if(this.accessWindowTimer)clearInterval(this.accessWindowTimer);this.manualDisconnect=true;this.localAudio?.stop();this.localVideoTrack?.stop();void this.room?.disconnect();this.remoteElements.clear();}
 }
