@@ -17,14 +17,19 @@ public sealed class Module18OnlineConsultationIntegrationTests
     private static string Read(string p) => File.ReadAllText(Path.Combine(Root, p));
 
     [Fact]
-    public void GuidedFlowMustLaunchOnlineVideoAndReturn()
+    public void GuidedFlowKeepsOnlineVideoEmbeddedAndPersistent()
     {
         var g=Read("anguloso.client/src/app/componentes/guided-consultation/guided-consultation.component.ts");
         var v=Read("anguloso.client/src/app/componentes/video-consultation/video-consultation.component.ts");
-        Assert.Contains("data.appointment.modality === 'online'",g);
-        Assert.Contains("openOnlineConsultation()",g);
-        Assert.Contains("returnUrl: this.router.url",g);
-        Assert.Contains("navigateByUrl(returnUrl)",v);
+        var h=Read("anguloso.client/src/app/componentes/video-consultation/video-consultation.component.html");
+        Assert.Contains("VideoConsultationComponent",g);
+        Assert.Contains("<app-video-consultation",g);
+        Assert.Contains("[embedded]=\\\"true\\\"",g);
+        Assert.Contains("[appointmentIdInput]=\\\"data.appointment.id\\\"",g);
+        Assert.Contains("@Input() embedded = false",v);
+        Assert.Contains("@Input() appointmentIdInput",v);
+        Assert.Contains("[class.embedded]=\\\"embedded\\\"",h);
+        Assert.Contains("if (this.embedded) return",v);
     }
 
     [Fact]
