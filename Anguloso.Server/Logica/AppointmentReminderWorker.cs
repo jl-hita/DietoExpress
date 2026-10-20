@@ -54,7 +54,7 @@ public sealed class AppointmentReminderWorker : BackgroundService
                   AND a.starts_at > NOW() + INTERVAL '13 minutes'
                   AND a.starts_at <= NOW() + INTERVAL '15 minutes 30 seconds'
                   AND c.archived_at IS NULL
-                  AND NOT EXISTS (SELECT 1 FROM appointment_reminder_deliveries d WHERE d.appointment_id=a.id)
+                  AND (NOT EXISTS (SELECT 1 FROM appointment_reminder_deliveries d WHERE d.appointment_id=a.id)\n                       OR EXISTS (SELECT 1 FROM appointment_reminder_deliveries d WHERE d.appointment_id=a.id AND d.status IN ('partial','processing') AND d.updated_at < NOW() - INTERVAL '2 minutes'))
                 ORDER BY a.starts_at
                 LIMIT 100
                 FOR UPDATE OF a SKIP LOCKED;
@@ -75,7 +75,7 @@ public sealed class AppointmentReminderWorker : BackgroundService
                 await using var command = new NpgsqlCommand("""
                     INSERT INTO appointment_reminder_deliveries(appointment_id,tenant_id,client_id,nutritionist_id,scheduled_for,status,created_at,updated_at)
                     VALUES(@id,@tenant,@client,@nutritionist,@starts,'processing',NOW(),NOW())
-                    ON CONFLICT(appointment_id) DO NOTHING RETURNING appointment_id;
+                    ON CONFLICT(appointment_id) DO UPDATE SET status='processing',updated_at=NOW(),last_error=NULL\n                    WHERE appointment_reminder_deliveries.status IN ('partial','processing')\n                      AND appointment_reminder_deliveries.updated_at < NOW() - INTERVAL '2 minutes'\n                    RETURNING appointment_id;
                     """, connection);
                 command.Parameters.AddWithValue("id", item.Id);
                 command.Parameters.AddWithValue("tenant", item.TenantId);
@@ -92,7 +92,7 @@ public sealed class AppointmentReminderWorker : BackgroundService
                 using var scope = _scopeFactory.CreateScope();
                 var notifications = scope.ServiceProvider.GetRequiredService<NotificationService>();
                 await notifications.CreateForPatientAsync(item.TenantId, item.ClientId, "appointment_reminder",
-                    "Tu cita es en 15 minutos", $"Recuerda que tienes una cita a las {item.StartsAtUtc:HH:mm} UTC.",
+                    "Tu cita es en 15 minutos", "Recuerda que tu cita comienza dentro de unos 15 minutos.",
                     "/patient?tab=appointments", true, $"appointment-reminder:{item.Id}:patient");
                 patientSent = true;
                 var professionalPush = scope.ServiceProvider.GetRequiredService<ProfessionalPushService>();
