@@ -114,5 +114,8 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("setSessionView(plan.id, 'list')", trainingUi);
         Assert.Contains("weekPlannedMinutes", trainingUi);
         Assert.Contains("weekCompletedCount", trainingUi);
+        Assert.Contains("editSessionFromCalendar(session)", trainingUi);
+        Assert.Contains("recordSessionFromCalendar(session)", trainingUi);
+        Assert.Contains("this.setSessionView(session.planId, 'list')", trainingUi);
     }
 }
