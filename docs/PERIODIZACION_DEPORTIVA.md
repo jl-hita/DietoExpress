@@ -14,6 +14,7 @@ El módulo deportivo es **opt-in por cliente**. Los clientes de nutrición no re
 - Registro de duración real y RPE separado de la prescripción.
 - Prescripción de ejercicios con series, repeticiones, descansos y observaciones, visible tanto al profesional como al paciente desde su portal.
 - Tendencia descriptiva de carga de las últimas 12 semanas por plan, calculada como duración real × RPE, sin generar recomendaciones automáticas.
+- Exportación CSV de sesiones planificadas y realizadas para análisis externo e intercambio con hojas de cálculo o herramientas deportivas.
 - Jerarquía de periodización con mesociclos dentro del plan y microciclos dentro de cada mesociclo, con creación, edición, reordenación, objetivo/enfoque, fechas y notas.
 - Borrado seguro: no se permite eliminar un mesociclo que aún contenga microciclos; se deben eliminar explícitamente antes. Las fechas se validan contra el periodo del padre y se rechazan solapamientos entre ciclos hermanos.
 - Las sesiones se validan contra el periodo del plan; el orden se actualiza de forma transaccional para no dejar secuencias parciales si falla la operación.
