@@ -629,7 +629,9 @@ public class AppointmentsController : ControllerBase
                         cancellationBody,
                         $"appointment:{appointment.id}:cancelled",
                         HttpContext.RequestAborted,
-                        DateTime.SpecifyKind(appointment.ends_at, DateTimeKind.Utc).AddHours(24));
+                        (DateTime.SpecifyKind(appointment.ends_at, DateTimeKind.Utc).AddHours(24) > DateTime.UtcNow.AddHours(24)
+                            ? DateTime.SpecifyKind(appointment.ends_at, DateTimeKind.Utc).AddHours(24)
+                            : DateTime.UtcNow.AddHours(24)));
                     if (!portalEmailResult.Exito)
                         HttpContext.RequestServices.GetRequiredService<ILogger<AppointmentsController>>()
                             .LogWarning("No se pudo enviar el email de cancelación de la cita {AppointmentId}: {Reason}", appointment.id, portalEmailResult.Mensaje);
