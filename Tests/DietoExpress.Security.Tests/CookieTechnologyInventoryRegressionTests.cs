@@ -34,7 +34,9 @@ public class CookieTechnologyInventoryRegressionTests
         Assert.Contains("HttpOnly = true", patient);
         Assert.Contains("Secure = true", patient);
         Assert.Contains("SameSite = SameSiteMode.Strict", patient);
-        Assert.Contains("Expires = DateTimeOffset.UtcNow.AddHours(8)", patient);
+        Assert.Contains("Expires = new DateTimeOffset(expiresAtUtc)", patient);
+        Assert.Contains("MaxAge = expiresAtUtc - DateTime.UtcNow", patient);
+        Assert.Contains(": DateTime.UtcNow.AddHours(8)", patient);
     }
 
     [Fact]
