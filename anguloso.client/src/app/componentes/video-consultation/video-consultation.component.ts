@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, Input, OnDestroy, ViewChild, ChangeDetectionStrategy, signal} from '@angular/core';
+import { AfterViewInit, Component, ElementRef, EventEmitter, Input, OnDestroy, Output, ViewChild, ChangeDetectionStrategy, signal} from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -20,6 +20,7 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
   @Input() embedded = false;
   @Input() appointmentIdInput: number | null = null;
   @Input() appointmentStartsAtInput: string | null = null;
+  @Output() closeEmbedded = new EventEmitter<void>();
   compactVideo = false;
   @ViewChild('localVideo', { static: true }) localVideoElementRef!: ElementRef<HTMLVideoElement>;
   @ViewChild('remoteContainer', { static: true }) remoteContainer!: ElementRef<HTMLDivElement>;
@@ -188,7 +189,7 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-  leave():void{if(this.callTimer)clearInterval(this.callTimer);if(this.accessWindowTimer)clearInterval(this.accessWindowTimer);this.accessWindowTimer=undefined;this.manualDisconnect=true;void this.room?.disconnect();this.localAudio?.stop();this.localVideoTrack?.stop();this.localAudio=undefined;this.localVideoTrack=undefined;this.connectionState=this.connectionState==='finalized'?'finalized':'disconnected';this.returnToConsultation();}
+  leave():void{if(this.callTimer)clearInterval(this.callTimer);if(this.accessWindowTimer)clearInterval(this.accessWindowTimer);this.accessWindowTimer=undefined;this.manualDisconnect=true;void this.room?.disconnect();this.localAudio?.stop();this.localVideoTrack?.stop();this.localAudio=undefined;this.localVideoTrack=undefined;this.connectionState=this.connectionState==='finalized'?'finalized':'disconnected';if(this.embedded){this.closeEmbedded.emit();return;}this.returnToConsultation();}
   private recordVideoEvent(event:'connected'|'reconnecting'|'reconnected'|'disconnected'|'failed'):void{this.portalService.recordVideoEvent(this.appointmentId,event).subscribe({error:()=>undefined});}
   private attachRemoteTrack(track:RemoteTrack,publication:RemoteTrackPublication,participant:RemoteParticipant):void{
     if(track.kind!==Track.Kind.Video&&track.kind!==Track.Kind.Audio)return;const element=track.attach();element.autoplay=true;element.setAttribute('playsinline','true');element.classList.add(track.kind===Track.Kind.Video?'remote-video':'remote-audio');
