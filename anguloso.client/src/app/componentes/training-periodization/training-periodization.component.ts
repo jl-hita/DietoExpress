@@ -32,11 +32,15 @@ interface TrainingInvitation {
   imports: [CommonModule, FormsModule, RouterLink],
   template: `
     <main class="training-page">
-      <a class="back-link" [routerLink]="['/clients', clientId]">← Volver al expediente</a>
-      <header><div><p class="eyebrow">MÓDULO OPCIONAL</p><h1>Planificación deportiva</h1><p>Actívala solo para clientes que quieran trabajar objetivos de actividad física o entrenamiento.</p></div></header>
+      <a *ngIf="clientId > 0" class="back-link" [routerLink]="['/clients', clientId]">← Volver al expediente</a>
+      <header><div><p class="eyebrow">MÓDULO OPCIONAL</p><h1>{{ clientId > 0 ? 'Planificación deportiva' : 'Invitaciones de entrenamiento' }}</h1><p *ngIf="clientId > 0">Actívala solo para clientes que quieran trabajar objetivos de actividad física o entrenamiento.</p></div></header>
       <p *ngIf="loading" role="status">Cargando planificación…</p>
       <p *ngIf="error" class="error" role="alert">{{ error }}</p>
       <p *ngIf="acceptedClientId" role="status">Colaboración aceptada. <a [routerLink]="['/clients', acceptedClientId, 'training']">Abrir el entrenamiento</a></p>
+      <section *ngIf="clientId === 0 && !invitations.length && !loading" class="panel">
+        <h2>No tienes invitaciones pendientes</h2>
+        <p>Cuando otro profesional te invite a colaborar en un plan deportivo, aparecerá aquí.</p>
+      </section>
       <section *ngIf="invitations.length" class="panel">
         <h2>Invitaciones de colaboración</h2>
         <p>Revisa las solicitudes de acceso al entrenamiento de otros profesionales. Solo tendrás acceso de lectura.</p>
@@ -45,7 +49,7 @@ interface TrainingInvitation {
           <button type="button" (click)="acceptInvitation(invitation)" [disabled]="saving">Aceptar invitación</button>
         </article>
       </section>
-      <section *ngIf="!loading && !profile" class="panel">
+      <section *ngIf="clientId > 0 && !loading && !profile" class="panel">
         <h2>Este cliente no utiliza el módulo deportivo</h2>
         <p>La planificación deportiva es opcional. Activarla no modifica el plan nutricional ni obliga al cliente a entrenar.</p>
         <button type="button" (click)="activate()" [disabled]="saving">Activar para este cliente</button>
@@ -171,7 +175,14 @@ export class TrainingPeriodizationComponent implements OnInit {
   constructor(private route: ActivatedRoute, private http: HttpClient) {}
 
   ngOnInit(): void {
-    this.clientId = Number(this.route.snapshot.paramMap.get('id'));
+    const routeId = this.route.snapshot.paramMap.get('id');
+    if (routeId === null) {
+      this.clientId = 0;
+      this.loadInvitations();
+      this.loading = false;
+      return;
+    }
+    this.clientId = Number(routeId);
     if (!Number.isInteger(this.clientId) || this.clientId < 1) { this.error = 'Identificador de cliente no válido.'; this.loading = false; return; }
     this.loadInvitations();
     this.load();
