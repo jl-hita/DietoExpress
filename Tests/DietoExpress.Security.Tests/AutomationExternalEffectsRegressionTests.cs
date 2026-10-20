@@ -62,7 +62,7 @@ public sealed class AutomationExternalEffectsRegressionTests
         Assert.Contains("appointment:{appointment.id}:confirmed", controller);
         Assert.Contains("No se pudo enviar el email de confirmación de la cita manual", controller);
         Assert.Contains("CreateAccessLinkAsync(", emailService);
-        Assert.Contains("24 horas después de la hora prevista de finalización", emailService);
+        Assert.Contains("24 horas después de la finalización prevista de la cita", emailService);
     }
 
     [Fact]
