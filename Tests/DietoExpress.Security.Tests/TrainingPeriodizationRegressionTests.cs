@@ -98,5 +98,13 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("Invitaciones de colaboración", trainingUi);
         Assert.Contains("training-invitations", File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "app.routes.ts")));
         Assert.Contains("No tienes invitaciones pendientes", trainingUi);
+        Assert.Contains("[HttpPut(\"sessions/{sessionId:int}\")]", controller);
+        Assert.Contains("await CanManageClient(clientId.Value, cancellationToken)", controller);
+        Assert.Contains("La fecha de la sesión debe estar dentro del periodo del plan.", controller);
+        Assert.Contains("session-workspace", trainingUi);
+        Assert.Contains("session-editor-grid", trainingUi);
+        Assert.Contains("beginEditSession", trainingUi);
+        Assert.Contains("saveSession", trainingUi);
+        Assert.Contains("Instrucciones", trainingUi);
     }
 }
