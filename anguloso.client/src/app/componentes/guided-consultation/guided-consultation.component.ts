@@ -409,7 +409,8 @@ interface GuidedConsultationResponse {
       <app-video-consultation
         *ngIf="data.appointment.modality === 'online' && consultation?.status !== 'completed'"
         [embedded]="true"
-        [appointmentIdInput]="data.appointment.id">
+        [appointmentIdInput]="data.appointment.id"
+        [appointmentStartsAtInput]="data.appointment.startsAt">
       </app-video-consultation>
       </div>
     </div>
