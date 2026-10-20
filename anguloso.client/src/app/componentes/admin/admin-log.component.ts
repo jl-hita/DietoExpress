@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, ChangeDetectionStrategy, signal } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, signal, ElementRef, ViewChild } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -58,7 +58,7 @@ import { AdminLog, AdminService } from '../../servicios/admin.service';
           </div>
         </div>
 
-        <div *ngIf="exists" class="log-content" (scroll)="onLogScroll($event)">
+        <div #logContent *ngIf="exists" class="log-content" (scroll)="onLogScroll($event)">
 
           <div *ngIf="filteredLogEntries.length; else noMatches">
             <div
@@ -81,19 +81,19 @@ import { AdminLog, AdminService } from '../../servicios/admin.service';
     </div>
   `,
   styles: [`
-    .log-container { padding: 24px; width: 100%; margin: 0; font-family: 'Roboto', sans-serif; }
+    .log-container { box-sizing: border-box; padding: 24px; width: 100%; max-width: 100%; min-width: 0; margin: 0; font-family: 'Roboto', sans-serif; }
     .log-header { display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 20px; }
     h1 { margin: 0; color: #0f172a; font-size: 26px; }
     .log-header p { margin: 4px 0 0; color: #64748b; font-size: 14px; }
     .date-navigation { display: flex; align-items: center; gap: 12px; white-space: nowrap; }
-    .log-card { padding: 16px; border-radius: 12px; }
+    .log-card { box-sizing: border-box; min-width: 0; padding: 16px; border-radius: 12px; }
     .log-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 12px; color: #64748b; font-size: 13px; }
-    .log-actions { display: flex; align-items: center; gap: 10px; }
+    .log-actions { display: flex; align-items: center; gap: 10px; min-width: 0; flex-wrap: wrap; }
     .search-filter { width: 300px; }
     .level-filter { width: 150px; }
     .search-filter ::ng-deep .mat-mdc-form-field-subscript-wrapper,
     .level-filter ::ng-deep .mat-mdc-form-field-subscript-wrapper { display: none; }
-    .log-content { margin: 0; padding: 16px; max-height: calc(100vh - 230px); min-height: 300px; overflow: auto; background: #0f172a; color: #e2e8f0; border-radius: 8px; font: 12px/1.5 'Cascadia Mono', 'Consolas', monospace; text-align: left; }
+    .log-content { box-sizing: border-box; width: 100%; min-width: 0; margin: 0; padding: 12px; height: min(68vh, 900px); min-height: 220px; overflow: auto; overscroll-behavior: contain; background: #0f172a; color: #e2e8f0; border-radius: 8px; font: 12px/1.5 'Cascadia Mono', 'Consolas', monospace; text-align: left; }
     .log-entry { white-space: pre; min-height: 1.5em; padding: 0 4px; }
     .warning-line { background: #78350f; color: #fff; }
     .error-line { background: #7f1d1d; color: #fff; }
@@ -101,11 +101,18 @@ import { AdminLog, AdminService } from '../../servicios/admin.service';
     .empty-state { min-height: 300px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #94a3b8; }
     .empty-state mat-icon { font-size: 48px; width: 48px; height: 48px; }
     @media (max-width: 700px) {
-      .log-header { flex-direction: column; align-items: flex-start; }
-      .date-navigation { align-self: center; }
-      .log-toolbar { flex-direction: column; align-items: flex-start; }
-      .log-actions { width: 100%; }
-      .search-filter, .level-filter { flex: 1; width: auto; }
+      .log-container { padding: 12px; }
+      .log-header { flex-direction: column; align-items: stretch; gap: 12px; margin-bottom: 12px; }
+      h1 { font-size: 22px; }
+      .date-navigation { align-self: stretch; justify-content: center; gap: 20px; }
+      .log-card { padding: 10px; }
+      .log-toolbar { flex-direction: column; align-items: stretch; gap: 10px; }
+      .log-actions { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+      .search-filter { grid-column: 1 / -1; width: 100%; }
+      .level-filter { width: 100%; min-width: 0; }
+      .log-actions button { min-width: 0; }
+      .log-content { height: 62vh; min-height: 180px; padding: 8px; font-size: 11px; overflow-x: hidden; }
+      .log-entry { white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
     }
   `]
 })
@@ -113,6 +120,7 @@ import { AdminLog, AdminService } from '../../servicios/admin.service';
 // archivos de log enormes en el navegador. El filtro se aplica a la entrada Serilog completa,
 // incluyendo excepciones y stack traces multilínea.
 export class AdminLogComponent implements OnInit {
+  @ViewChild('logContent') private logContent?: ElementRef<HTMLElement>;
   // La carga histórica se activa automáticamente al alcanzar el inicio del visor.
   selectedDate = this.toDateString(new Date());
   private readonly previousDateState = signal<string | undefined>(undefined);
@@ -228,6 +236,11 @@ export class AdminLogComponent implements OnInit {
             this.oldestLoadedByte = chunk.startByte;
             this.hasMoreOlder = chunk.hasMore;
             this.loading = false;
+            // El backend devuelve el tramo final del archivo; situar la vista en las últimas entradas.
+            setTimeout(() => {
+              const element = this.logContent?.nativeElement;
+              if (element) element.scrollTop = element.scrollHeight;
+            });
           },
           error: err => {
             console.error('Error al cargar el contenido del log', err);
