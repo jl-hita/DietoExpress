@@ -177,6 +177,32 @@ CREATE TABLE IF NOT EXISTS patient_push_subscriptions (
 );
 CREATE INDEX IF NOT EXISTS idx_patient_push_subscriptions_client
   ON patient_push_subscriptions(client_id);
+CREATE TABLE IF NOT EXISTS professional_push_subscriptions (
+  id BIGSERIAL PRIMARY KEY,
+  tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  endpoint VARCHAR(2000) NOT NULL UNIQUE,
+  p256dh VARCHAR(500) NOT NULL,
+  auth VARCHAR(500) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_professional_push_subscriptions_user
+  ON professional_push_subscriptions(tenant_id,user_id);
+CREATE TABLE IF NOT EXISTS appointment_reminder_deliveries (
+  appointment_id INTEGER PRIMARY KEY REFERENCES patient_appointments(id) ON DELETE CASCADE,
+  tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  nutritionist_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  scheduled_for TIMESTAMPTZ NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'pending',
+  last_error TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  completed_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_appointment_reminder_deliveries_status
+  ON appointment_reminder_deliveries(status,scheduled_for);
 CREATE TABLE IF NOT EXISTS patient_push_deliveries (
   id BIGSERIAL PRIMARY KEY,
   tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
