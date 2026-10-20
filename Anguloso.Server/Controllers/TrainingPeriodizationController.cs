@@ -173,6 +173,103 @@ public sealed class TrainingPeriodizationController : ControllerBase
     }
 
 
+
+    [HttpGet("plans/{planId:int}/mesocycles")]
+    public async Task<IActionResult> GetMesocycles(int planId, CancellationToken cancellationToken)
+    {
+        if (!await CanAccessPlan(planId, cancellationToken)) return NotFound();
+        await using var command = Command("""
+            SELECT id, plan_id, name, sequence_number, start_date, end_date, objective, notes
+            FROM training_mesocycles WHERE plan_id = @planId
+            ORDER BY sequence_number, start_date, id
+            """, ("planId", planId));
+        var items = new List<TrainingMesocycleDto>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+            items.Add(new TrainingMesocycleDto(reader.GetInt32(0), reader.GetInt32(1), reader.GetString(2), reader.GetInt32(3),
+                reader.GetFieldValue<DateOnly>(4), reader.IsDBNull(5) ? null : reader.GetFieldValue<DateOnly>(5),
+                reader.IsDBNull(6) ? null : reader.GetString(6), reader.IsDBNull(7) ? null : reader.GetString(7)));
+        return Ok(items);
+    }
+
+    [HttpPost("plans/{planId:int}/mesocycles")]
+    public async Task<IActionResult> CreateMesocycle(int planId, [FromBody] CreateTrainingMesocycleRequest request, CancellationToken cancellationToken)
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId is null) return Unauthorized();
+        if (!await CanManagePlan(planId, cancellationToken)) return NotFound();
+        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Trim().Length > 160)
+            return BadRequest(new { message = "El nombre del mesociclo es obligatorio (máximo 160 caracteres)." });
+        if (request.SequenceNumber < 1) return BadRequest(new { message = "El número de mesociclo debe ser positivo." });
+        if (request.EndDate.HasValue && request.EndDate.Value < request.StartDate)
+            return BadRequest(new { message = "La fecha final no puede ser anterior a la inicial." });
+        await using var command = Command("""
+            INSERT INTO training_mesocycles(plan_id, name, sequence_number, start_date, end_date, objective, notes)
+            SELECT id, @name, @sequence, @startDate, @endDate, @objective, @notes
+            FROM training_plans WHERE id = @planId
+            RETURNING id
+            """, ("planId", planId), ("name", request.Name.Trim()), ("sequence", request.SequenceNumber),
+            ("startDate", request.StartDate), ("endDate", request.EndDate), ("objective", request.Objective), ("notes", request.Notes));
+        try
+        {
+            var id = await command.ExecuteScalarAsync(cancellationToken);
+            return id is null ? NotFound() : CreatedAtAction(nameof(GetMesocycles), new { planId }, new { id = Convert.ToInt32(id), request.Name, request.SequenceNumber });
+        }
+        catch (PostgresException ex) when (ex.SqlState == "23505")
+        {
+            return Conflict(new { message = "Ya existe un mesociclo con ese número dentro del plan." });
+        }
+    }
+
+    [HttpGet("mesocycles/{mesocycleId:int}/microcycles")]
+    public async Task<IActionResult> GetMicrocycles(int mesocycleId, CancellationToken cancellationToken)
+    {
+        var planId = await GetMesocyclePlanId(mesocycleId, cancellationToken);
+        if (!planId.HasValue || !await CanAccessPlan(planId.Value, cancellationToken)) return NotFound();
+        await using var command = Command("""
+            SELECT id, mesocycle_id, name, sequence_number, start_date, end_date, focus, notes
+            FROM training_microcycles WHERE mesocycle_id = @mesocycleId
+            ORDER BY sequence_number, start_date, id
+            """, ("mesocycleId", mesocycleId));
+        var items = new List<TrainingMicrocycleDto>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+            items.Add(new TrainingMicrocycleDto(reader.GetInt32(0), reader.GetInt32(1), reader.GetString(2), reader.GetInt32(3),
+                reader.GetFieldValue<DateOnly>(4), reader.IsDBNull(5) ? null : reader.GetFieldValue<DateOnly>(5),
+                reader.IsDBNull(6) ? null : reader.GetString(6), reader.IsDBNull(7) ? null : reader.GetString(7)));
+        return Ok(items);
+    }
+
+    [HttpPost("mesocycles/{mesocycleId:int}/microcycles")]
+    public async Task<IActionResult> CreateMicrocycle(int mesocycleId, [FromBody] CreateTrainingMicrocycleRequest request, CancellationToken cancellationToken)
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId is null) return Unauthorized();
+        var planId = await GetMesocyclePlanId(mesocycleId, cancellationToken);
+        if (!planId.HasValue || !await CanManagePlan(planId.Value, cancellationToken)) return NotFound();
+        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Trim().Length > 160)
+            return BadRequest(new { message = "El nombre del microciclo es obligatorio (máximo 160 caracteres)." });
+        if (request.SequenceNumber < 1) return BadRequest(new { message = "El número de microciclo debe ser positivo." });
+        if (request.EndDate.HasValue && request.EndDate.Value < request.StartDate)
+            return BadRequest(new { message = "La fecha final no puede ser anterior a la inicial." });
+        await using var command = Command("""
+            INSERT INTO training_microcycles(mesocycle_id, name, sequence_number, start_date, end_date, focus, notes)
+            SELECT id, @name, @sequence, @startDate, @endDate, @focus, @notes
+            FROM training_mesocycles WHERE id = @mesocycleId
+            RETURNING id
+            """, ("mesocycleId", mesocycleId), ("name", request.Name.Trim()), ("sequence", request.SequenceNumber),
+            ("startDate", request.StartDate), ("endDate", request.EndDate), ("focus", request.Focus), ("notes", request.Notes));
+        try
+        {
+            var id = await command.ExecuteScalarAsync(cancellationToken);
+            return id is null ? NotFound() : CreatedAtAction(nameof(GetMicrocycles), new { mesocycleId }, new { id = Convert.ToInt32(id), request.Name, request.SequenceNumber });
+        }
+        catch (PostgresException ex) when (ex.SqlState == "23505")
+        {
+            return Conflict(new { message = "Ya existe un microciclo con ese número dentro del mesociclo." });
+        }
+    }
+
     [HttpGet("clients/{clientId:int}/collaborations")]
     public async Task<IActionResult> GetCollaborations(int clientId, CancellationToken cancellationToken)
     {
@@ -348,6 +445,12 @@ public sealed class TrainingPeriodizationController : ControllerBase
         return clientId.HasValue && await CanAccessClientInternal(clientId.Value, manage, cancellationToken);
     }
 
+
+    private async Task<int?> GetMesocyclePlanId(int mesocycleId, CancellationToken cancellationToken) =>
+        await _context.Database.SqlQueryRaw<int?>(
+            """SELECT plan_id AS "Value" FROM training_mesocycles WHERE id = {0}""", mesocycleId)
+            .SingleOrDefaultAsync(cancellationToken);
+
     private async Task<int?> GetSessionClientId(int sessionId, CancellationToken cancellationToken) =>
         await _context.Database.SqlQueryRaw<int?>(
             """SELECT f.client_id AS "Value" FROM training_sessions s JOIN training_plans p ON p.id = s.plan_id JOIN training_profiles f ON f.id = p.profile_id WHERE s.id = {0}""", sessionId)
@@ -379,3 +482,7 @@ public sealed record CreateTrainingSessionRequest(DateOnly ScheduledDate, string
 public sealed record RecordTrainingSessionRequest(DateTime? CompletedAt, int? ActualDurationMinutes, decimal? SessionRpe, string? Notes);
 public sealed record TrainingSessionDto(int Id, int PlanId, DateOnly ScheduledDate, string Title, string SessionType, int? DurationMinutes, string? IntensityTarget, string? Instructions, string Status, DateTime? CompletedAt, int? ActualDurationMinutes, decimal? SessionRpe, string? RecordNotes);
 \npublic sealed record InviteTrainingCollaboratorRequest(string Email, string? AccessScope = "training");\npublic sealed record TrainingCollaborationDto(int Id, int ProfessionalUserId, string ProfessionalName, string Email, string AccessScope, string Status, DateTime CreatedAt, DateTime? AcceptedAt, DateTime? RevokedAt);\n
+public sealed record CreateTrainingMesocycleRequest(string Name, int SequenceNumber, DateOnly StartDate, DateOnly? EndDate, string? Objective, string? Notes);
+public sealed record TrainingMesocycleDto(int Id, int PlanId, string Name, int SequenceNumber, DateOnly StartDate, DateOnly? EndDate, string? Objective, string? Notes);
+public sealed record CreateTrainingMicrocycleRequest(string Name, int SequenceNumber, DateOnly StartDate, DateOnly? EndDate, string? Focus, string? Notes);
+public sealed record TrainingMicrocycleDto(int Id, int MesocycleId, string Name, int SequenceNumber, DateOnly StartDate, DateOnly? EndDate, string? Focus, string? Notes);
