@@ -51,6 +51,7 @@ public sealed class TrainingPeriodizationRegressionTests
     {
         var userModel = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Models", "users.cs"));
         var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
+        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs"));
         var directoryController = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "DirectoryController.cs"));
         var settings = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "settings", "settings.component.html"));
         var directoryUi = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "directory", "directory.component.html"));
@@ -65,7 +66,7 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("trainingManagementMode", consultation);
         Assert.Contains("managementMode: this.trainingManagementMode", consultation);
         Assert.Contains("management_mode VARCHAR(20) NOT NULL DEFAULT 'self'", bootstrap);
-        Assert.Contains("management_mode = EXCLUDED.management_mode", File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs")));
+        Assert.Contains("management_mode = EXCLUDED.management_mode", controller);
         Assert.Contains("collaboration", consultation);
         Assert.Contains("Gestión del entrenamiento", trainingUi);
         Assert.Contains("managementMode: this.trainingManagementMode", trainingUi);
@@ -78,6 +79,8 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("training_microcycles", bootstrap);
         Assert.Contains("CreateMesocycle", controller);
         Assert.Contains("CreateMicrocycle", controller);
+        Assert.Contains("existing.start_date <= COALESCE(@endDate, 'infinity'::date)", controller);
+        Assert.Contains("COALESCE(existing.end_date, 'infinity'::date) >= @startDate", controller);
         Assert.Contains("Mesociclos", trainingUi);
         Assert.Contains("Añadir microciclo", trainingUi);
         Assert.Contains("Invitaciones de colaboración", trainingUi);
