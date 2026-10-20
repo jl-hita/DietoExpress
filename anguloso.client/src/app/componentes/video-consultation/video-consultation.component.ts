@@ -13,7 +13,8 @@ type ConnectionState = 'connecting' | 'waiting' | 'connected' | 'reconnecting' |
   standalone: true,
   imports: [CommonModule, MatIconModule],
   templateUrl: './video-consultation.component.html',
-  styleUrls: ['./video-consultation.component.css']
+  styleUrls: ['./video-consultation.component.css'],
+  host: { '[class.embedded]': 'embedded' }
 })
 export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
   @Input() embedded = false;
