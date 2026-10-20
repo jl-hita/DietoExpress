@@ -1,4 +1,11 @@
 <app-error-report-banner></app-error-report-banner>
+<div *ngIf="canEnableProfessionalPush" class="professional-push-banner" role="region" aria-label="Recordatorios de citas">
+  <span>Recibe avisos push 15 minutos antes de tus citas.</span>
+  <button type="button" (click)="enableProfessionalPush()" [disabled]="professionalPushBusy">
+    {{ professionalPushBusy ? 'Activando…' : 'Activar avisos' }}
+  </button>
+  <small *ngIf="professionalPushMessage" aria-live="polite">{{ professionalPushMessage }}</small>
+</div>
 <div *ngIf="maintenanceNotice" class="maintenance-banner" role="alert" aria-live="assertive">
   <div class="maintenance-banner-icon" aria-hidden="true">⚠</div>
   <div class="maintenance-banner-content">
