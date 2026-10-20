@@ -28,6 +28,7 @@ interface TrainingPortalSession {
   durationMinutes?: number | null;
   intensityTarget?: string | null;
   instructions?: string | null;
+  exercisePrescription?: string | null;
   completedAt?: string | null;
   actualDurationMinutes?: number | null;
   sessionRpe?: number | null;
