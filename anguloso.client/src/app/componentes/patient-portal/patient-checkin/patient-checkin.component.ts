@@ -16,6 +16,10 @@ import { PatientCheckin, PatientCheckinRequest, PatientPortalService } from '../
 export class PatientCheckinComponent implements OnInit, OnChanges {
   @Input() enabled = true;
 
+  checkinEligible = false;
+  eligibilityLoading = false;
+  eligibilityError: string | null = null;
+
   private readonly currentCheckinState = signal<PatientCheckin | null>(null);
   get currentCheckin(): PatientCheckin | null { return this.currentCheckinState(); }
   set currentCheckin(value: PatientCheckin | null) { this.currentCheckinState.set(value); }
@@ -75,16 +79,39 @@ export class PatientCheckinComponent implements OnInit, OnChanges {
   constructor(private portalService: PatientPortalService) {}
 
   ngOnInit(): void {
-    if (this.enabled) this.loadCurrentCheckin();
+    if (this.enabled) this.loadEligibility();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['enabled']?.currentValue === true && changes['enabled'].previousValue === false) {
-      this.loadCurrentCheckin();
+      this.loadEligibility();
     }
   }
 
+  loadEligibility(): void {
+    if (!this.enabled || this.eligibilityLoading) return;
+    this.eligibilityLoading = true;
+    this.eligibilityError = null;
+    this.portalService.getCheckinEligibility().subscribe({
+      next: result => {
+        this.checkinEligible = !!result?.eligible;
+        this.eligibilityLoading = false;
+        if (this.checkinEligible) this.loadCurrentCheckin();
+        else {
+          this.currentCheckin = null;
+          this.checkinLoading = false;
+        }
+      },
+      error: err => {
+        this.eligibilityLoading = false;
+        this.checkinEligible = false;
+        this.eligibilityError = err?.error?.message || 'No hemos podido comprobar si ya puedes rellenar la revisión semanal.';
+      }
+    });
+  }
+
   loadCurrentCheckin(): void {
+    if (!this.enabled || !this.checkinEligible) return;
     this.checkinLoading = true;
     this.checkinError = null;
     this.checkinSuccess = false;
@@ -103,6 +130,7 @@ export class PatientCheckinComponent implements OnInit, OnChanges {
   }
 
   saveCurrentCheckin(form: NgForm): void {
+    if (!this.checkinEligible || this.currentCheckin) return;
     // FormsModule desactiva la validación nativa del navegador (novalidate).
     // Validar antes de llamar a la API para no guardar pesos/valores fuera de rango.
     if (form.invalid) {
