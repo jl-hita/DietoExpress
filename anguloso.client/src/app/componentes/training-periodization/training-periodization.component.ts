@@ -16,6 +16,13 @@ interface TrainingSession {
   intensityTarget?: string | null; instructions?: string | null; status: string; completedAt?: string | null;
   actualDurationMinutes?: number | null; sessionRpe?: number | null; recordNotes?: string | null;
 }
+interface TrainingCollaboration {
+  id: number; professionalUserId?: number; professionalName?: string; email?: string; accessScope: string;
+  status: string; createdAt: string; acceptedAt?: string | null; revokedAt?: string | null;
+}
+interface TrainingInvitation {
+  id: number; clientId: number; clientName: string; accessScope: string; createdAt: string; invitedBy: string;
+}
 
 @Component({
   selector: 'app-training-periodization',
@@ -27,6 +34,14 @@ interface TrainingSession {
       <header><div><p class="eyebrow">MÓDULO OPCIONAL</p><h1>Planificación deportiva</h1><p>Actívala solo para clientes que quieran trabajar objetivos de actividad física o entrenamiento.</p></div></header>
       <p *ngIf="loading" role="status">Cargando planificación…</p>
       <p *ngIf="error" class="error" role="alert">{{ error }}</p>
+      <section *ngIf="invitations.length" class="panel">
+        <h2>Invitaciones de colaboración</h2>
+        <p>Revisa las solicitudes de acceso al entrenamiento de otros profesionales. Solo tendrás acceso de lectura.</p>
+        <article *ngFor="let invitation of invitations" class="collaboration-row">
+          <div><strong>{{ invitation.clientName }}</strong><p>Invita: {{ invitation.invitedBy }} · {{ invitation.createdAt | date:'mediumDate' }}</p></div>
+          <button type="button" (click)="acceptInvitation(invitation)" [disabled]="saving">Aceptar invitación</button>
+        </article>
+      </section>
       <section *ngIf="!loading && !profile" class="panel">
         <h2>Este cliente no utiliza el módulo deportivo</h2>
         <p>La planificación deportiva es opcional. Activarla no modifica el plan nutricional ni obliga al cliente a entrenar.</p>
@@ -42,6 +57,19 @@ interface TrainingSession {
             <label class="full">Notas<textarea [(ngModel)]="current.notes" name="notes" rows="2"></textarea></label>
           </div>
           <button type="button" (click)="saveProfile()" [disabled]="saving">Guardar perfil</button>
+        </section>
+        <section class="panel" *ngIf="current.enabled && trainingManagementMode === 'collaboration'">
+          <h2>Colaboración con otro profesional</h2>
+          <p>Invita a un profesional registrado en la misma clínica. Hasta que acepte, no tendrá acceso; al aceptar podrá consultar el entrenamiento, pero no modificarlo.</p>
+          <form class="invite-form" (ngSubmit)="inviteCollaborator()">
+            <label>Correo del profesional<input type="email" name="collaboratorEmail" [(ngModel)]="collaboratorEmail" required maxlength="254" placeholder="profesional@clinica.es" /></label>
+            <button type="submit" [disabled]="saving">Enviar invitación</button>
+          </form>
+          <p *ngIf="collaborations.length === 0" class="muted">Todavía no hay invitaciones ni colaboradores para este expediente.</p>
+          <div *ngFor="let collaboration of collaborations" class="collaboration-row">
+            <div><strong>{{ collaboration.professionalName }}</strong><p>{{ collaboration.email }} · <span class="status">{{ collaboration.status === 'active' ? 'Activa · solo lectura' : collaboration.status === 'pending' ? 'Pendiente de aceptación' : 'Revocada' }}</span></p></div>
+            <button *ngIf="collaboration.status !== 'revoked'" type="button" class="secondary" (click)="revokeCollaboration(collaboration)" [disabled]="saving">Revocar acceso</button>
+          </div>
         </section>
         <section class="panel" *ngIf="current.enabled">
           <h2>Planes de entrenamiento</h2>
@@ -82,7 +110,7 @@ interface TrainingSession {
     </main>
   `,
   styles: [`
-    :host{display:block;color:var(--text-color,#202124)}.training-page{max-width:1100px;margin:0 auto;padding:24px;display:grid;gap:18px}.back-link{color:var(--primary-color,#3657a6);text-decoration:none}header h1{margin:.2rem 0 .4rem;font-size:clamp(1.6rem,3vw,2.2rem)}header p{margin:.3rem 0}.eyebrow{font-size:.75rem;font-weight:700;letter-spacing:.08em;color:var(--primary-color,#3657a6)}.panel,.plan-card{border:1px solid var(--border-color,#ddd);border-radius:14px;padding:20px;background:var(--surface-color,#fff)}.panel h2,.plan-card h3{margin-top:0}.section-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.section-heading p,.plan-card p{color:var(--secondary-text-color,#666);margin:.4rem 0}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:16px 0}.form-grid label,.session-form label{display:grid;gap:6px;font-weight:600;font-size:.9rem}.form-grid .full{grid-column:1/-1}.form-grid input,.form-grid select,.form-grid textarea,.session-form input,.session-form select{width:100%;box-sizing:border-box;border:1px solid #b9bec7;border-radius:8px;padding:10px;font:inherit;background:transparent;color:inherit}.session-form{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin:16px 0}.session-form label{flex:1 1 135px}.record-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px;padding:14px;border-radius:10px;background:var(--surface-container,#f6f7f9)}.record-form label{display:grid;gap:6px;font-size:.88rem;font-weight:600}.record-form label:nth-child(3){grid-column:1/-1}.record-form input,.record-form textarea{box-sizing:border-box;width:100%;border:1px solid #b9bec7;border-radius:8px;padding:9px;font:inherit;background:var(--surface-color,#fff);color:inherit}.record-form button{justify-self:start}.session-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start;padding:12px 0;border-top:1px solid var(--border-color,#ddd)}.session-form button{flex:0 0 auto}button{border:0;border-radius:8px;padding:10px 14px;background:var(--primary-color,#3657a6);color:white;font:inherit;font-weight:600;cursor:pointer}button:disabled{opacity:.55;cursor:wait}button.secondary{background:transparent;border:1px solid #9aa0a6;color:inherit}.plan-card{margin-top:14px}.status{font-size:.8rem;border-radius:20px;background:#eef2ff;padding:5px 10px}.session-list{border-top:1px solid #ddd;margin-top:14px}.session-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start;padding:12px 0;border-bottom:1px solid #eee}.record-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px;padding:14px;border-radius:10px;background:var(--surface-container,#f6f7f9)}.record-form label{display:grid;gap:6px;font-size:.88rem;font-weight:600}.record-form label:nth-child(3){grid-column:1/-1}.record-form input,.record-form textarea{box-sizing:border-box;width:100%;border:1px solid #b9bec7;border-radius:8px;padding:9px;font:inherit;background:var(--surface-color,#fff);color:inherit}.record-form button{justify-self:start}.session-row p{margin:.3rem 0}.muted{color:#777}.error{color:#a21d24}@media(max-width:650px){.training-page{padding:14px}.form-grid{grid-template-columns:1fr}.form-grid .full{grid-column:auto}.section-heading{flex-direction:column;align-items:stretch}.session-row{grid-template-columns:1fr}.record-form{grid-template-columns:1fr}.record-form label:nth-child(3){grid-column:auto}.session-form button{width:100%}}
+    :host{display:block;color:var(--text-color,#202124)}.training-page{max-width:1100px;margin:0 auto;padding:24px;display:grid;gap:18px}.back-link{color:var(--primary-color,#3657a6);text-decoration:none}header h1{margin:.2rem 0 .4rem;font-size:clamp(1.6rem,3vw,2.2rem)}header p{margin:.3rem 0}.eyebrow{font-size:.75rem;font-weight:700;letter-spacing:.08em;color:var(--primary-color,#3657a6)}.panel,.plan-card{border:1px solid var(--border-color,#ddd);border-radius:14px;padding:20px;background:var(--surface-color,#fff)}.panel h2,.plan-card h3{margin-top:0}.section-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.section-heading p,.plan-card p{color:var(--secondary-text-color,#666);margin:.4rem 0}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:16px 0}.form-grid label,.session-form label{display:grid;gap:6px;font-weight:600;font-size:.9rem}.form-grid .full{grid-column:1/-1}.form-grid input,.form-grid select,.form-grid textarea,.session-form input,.session-form select{width:100%;box-sizing:border-box;border:1px solid #b9bec7;border-radius:8px;padding:10px;font:inherit;background:transparent;color:inherit}.invite-form{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin:14px 0}.invite-form label{display:grid;gap:6px;flex:1 1 240px;font-size:.9rem;font-weight:600}.invite-form input{box-sizing:border-box;width:100%;border:1px solid #b9bec7;border-radius:8px;padding:10px;font:inherit;background:transparent;color:inherit}.collaboration-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--border-color,#ddd)}.collaboration-row p{margin:.35rem 0;color:var(--secondary-text-color,#666)}.session-form{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin:16px 0}.session-form label{flex:1 1 135px}.record-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px;padding:14px;border-radius:10px;background:var(--surface-container,#f6f7f9)}.record-form label{display:grid;gap:6px;font-size:.88rem;font-weight:600}.record-form label:nth-child(3){grid-column:1/-1}.record-form input,.record-form textarea{box-sizing:border-box;width:100%;border:1px solid #b9bec7;border-radius:8px;padding:9px;font:inherit;background:var(--surface-color,#fff);color:inherit}.record-form button{justify-self:start}.session-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start;padding:12px 0;border-top:1px solid var(--border-color,#ddd)}.session-form button{flex:0 0 auto}button{border:0;border-radius:8px;padding:10px 14px;background:var(--primary-color,#3657a6);color:white;font:inherit;font-weight:600;cursor:pointer}button:disabled{opacity:.55;cursor:wait}button.secondary{background:transparent;border:1px solid #9aa0a6;color:inherit}.plan-card{margin-top:14px}.status{font-size:.8rem;border-radius:20px;background:#eef2ff;padding:5px 10px}.session-list{border-top:1px solid #ddd;margin-top:14px}.session-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start;padding:12px 0;border-bottom:1px solid #eee}.record-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px;padding:14px;border-radius:10px;background:var(--surface-container,#f6f7f9)}.record-form label{display:grid;gap:6px;font-size:.88rem;font-weight:600}.record-form label:nth-child(3){grid-column:1/-1}.record-form input,.record-form textarea{box-sizing:border-box;width:100%;border:1px solid #b9bec7;border-radius:8px;padding:9px;font:inherit;background:var(--surface-color,#fff);color:inherit}.record-form button{justify-self:start}.session-row p{margin:.3rem 0}.muted{color:#777}.error{color:#a21d24}@media(max-width:650px){.training-page{padding:14px}.collaboration-row{align-items:stretch;flex-direction:column}.invite-form button{width:100%}.form-grid{grid-template-columns:1fr}.form-grid .full{grid-column:auto}.section-heading{flex-direction:column;align-items:stretch}.session-row{grid-template-columns:1fr}.record-form{grid-template-columns:1fr}.record-form label:nth-child(3){grid-column:auto}.session-form button{width:100%}}
   `]
 })
 export class TrainingPeriodizationComponent implements OnInit {
@@ -92,6 +120,9 @@ export class TrainingPeriodizationComponent implements OnInit {
   error = '';
   recordingSessionId: number | null = null;
   recordDrafts: Record<number, { duration: number | null; rpe: number | null; notes: string }> = {};
+  collaborations: TrainingCollaboration[] = [];
+  invitations: TrainingInvitation[] = [];
+  collaboratorEmail = '';
   profile: TrainingProfile | null = null;
   trainingManagementMode: 'none' | 'self' | 'collaboration' = 'self';
   plans: TrainingPlan[] = [];
@@ -108,7 +139,46 @@ export class TrainingPeriodizationComponent implements OnInit {
   ngOnInit(): void {
     this.clientId = Number(this.route.snapshot.paramMap.get('id'));
     if (!Number.isInteger(this.clientId) || this.clientId < 1) { this.error = 'Identificador de cliente no válido.'; this.loading = false; return; }
+    this.loadInvitations();
     this.load();
+  }
+
+  loadInvitations(): void {
+    this.http.get<TrainingInvitation[]>('/api/training/collaborations/invitations').pipe(catchError(() => of([] as TrainingInvitation[])))
+      .subscribe(items => this.invitations = items);
+  }
+
+  loadCollaborations(): void {
+    this.http.get<TrainingCollaboration[]>(`/api/training/clients/${this.clientId}/collaborations`)
+      .pipe(catchError(() => of([] as TrainingCollaboration[])))
+      .subscribe(items => this.collaborations = items);
+  }
+
+  inviteCollaborator(): void {
+    const email = this.collaboratorEmail.trim();
+    if (!email) return;
+    this.saving = true; this.error = '';
+    this.http.post('/api/training/clients/' + this.clientId + '/collaborations', { email, accessScope: 'training' }).subscribe({
+      next: () => { this.collaboratorEmail = ''; this.saving = false; this.loadCollaborations(); },
+      error: e => { this.error = e?.error?.message || 'No se pudo enviar la invitación.'; this.saving = false; }
+    });
+  }
+
+  acceptInvitation(invitation: TrainingInvitation): void {
+    this.saving = true; this.error = '';
+    this.http.post(`/api/training/collaborations/${invitation.id}/accept`, {}).subscribe({
+      next: () => { this.saving = false; this.invitations = this.invitations.filter(x => x.id !== invitation.id); },
+      error: e => { this.error = e?.error?.message || 'No se pudo aceptar la invitación.'; this.saving = false; }
+    });
+  }
+
+  revokeCollaboration(collaboration: TrainingCollaboration): void {
+    if (!confirm('¿Revocar el acceso de este profesional al entrenamiento?')) return;
+    this.saving = true; this.error = '';
+    this.http.post(`/api/training/collaborations/${collaboration.id}/revoke`, {}).subscribe({
+      next: () => { this.saving = false; this.loadCollaborations(); },
+      error: e => { this.error = e?.error?.message || 'No se pudo revocar la colaboración.'; this.saving = false; }
+    });
   }
 
   load(): void {
@@ -117,6 +187,8 @@ export class TrainingPeriodizationComponent implements OnInit {
       this.profile = profile;
       if (!profile) { this.loading = false; return; }
       this.trainingManagementMode = profile.managementMode ?? (profile.enabled ? 'self' : 'none');
+      if (profile.enabled && this.trainingManagementMode === 'collaboration') this.loadCollaborations();
+      else this.collaborations = [];
       if (!profile.enabled) { this.loading = false; return; }
       this.http.get<TrainingPlan[]>(`/api/training/clients/${this.clientId}/plans`).subscribe({
         next: plans => { this.plans = plans; this.sessionDrafts = {}; for (const p of plans) this.sessionDrafts[p.id] = { date: new Date().toISOString().slice(0,10), title: '', type: 'general', duration: null }; this.loadSessions(plans); this.loading = false; },
@@ -144,7 +216,7 @@ export class TrainingPeriodizationComponent implements OnInit {
     this.saving = true; this.error = '';
     const payload = { ...this.profile, enabled: this.trainingManagementMode !== 'none', managementMode: this.trainingManagementMode };
     this.http.put<TrainingProfile>(`/api/training/clients/${this.clientId}/profile`, payload).subscribe({
-      next: p => { this.trainingManagementMode = p.managementMode ?? this.trainingManagementMode; this.profile = p; this.saving = false; this.load(); },
+      next: p => { this.trainingManagementMode = p.managementMode ?? this.trainingManagementMode; this.profile = p; this.saving = false; this.load(); if (this.trainingManagementMode === 'collaboration') this.loadCollaborations(); },
       error: e => { this.error = e?.error?.message || 'No se pudo guardar el perfil deportivo.'; this.saving = false; }
     });
   }
