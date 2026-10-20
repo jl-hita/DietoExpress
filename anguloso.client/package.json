@@ -39,7 +39,8 @@
   "overrides": {
     "braces": "npm:@dieub/braces-depth-guard@3.0.3-pn.3",
     "@angular/build": {
-      "vite": "8.3.3"
+      "vite": "8.3.3",
+      "rolldown": "1.2.8"
     }
   }
 }
