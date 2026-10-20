@@ -577,13 +577,45 @@ public sealed class TrainingPeriodizationController : ControllerBase
             RETURNING id, status
             """, ("clientId", clientId), ("professionalId", professionalId), ("scope", request.AccessScope ?? "training"),
             ("inviterId", inviterId.Value));
-        var result = await command.ExecuteReaderAsync(cancellationToken);
-        await using (result)
+        int collaborationId;
+        string status;
+        await using (var result = await command.ExecuteReaderAsync(cancellationToken))
         {
             if (!await result.ReadAsync(cancellationToken))
                 return BadRequest(new { message = "El profesional debe pertenecer a la misma clínica para colaborar en este expediente." });
-            return Ok(new { id = result.GetInt32(0), status = result.GetString(1), message = "Invitación creada. El profesional debe aceptarla para acceder al entrenamiento." });
+            collaborationId = result.GetInt32(0);
+            status = result.GetString(1);
         }
+
+        // El correo es una notificación complementaria: un fallo SMTP no invalida la invitación persistida.
+        string? inviteeEmail;
+        await using (var emailCommand = Command("""
+            SELECT u.email
+            FROM training_collaborations tc
+            JOIN users u ON u.id = tc.professional_user_id
+            WHERE tc.id = @id
+            """, ("id", collaborationId)))
+            inviteeEmail = Convert.ToString(await emailCommand.ExecuteScalarAsync(cancellationToken));
+
+        var emailSent = false;
+        if (!string.IsNullOrWhiteSpace(inviteeEmail))
+        {
+            var emailResult = await _emailServ.SendEmailAsync(
+                inviteeEmail,
+                "Invitación para colaborar en un plan deportivo · DietoExpress",
+                "<p>Has recibido una invitación para consultar un plan de entrenamiento en DietoExpress.</p><p>Inicia sesión en tu cuenta y abre <strong>Invitaciones de entrenamiento</strong> para revisar y aceptar la solicitud.</p><p>El acceso es de solo lectura y queda limitado al ámbito autorizado de la clínica.</p>",
+                $"training-collaboration-{collaborationId}");
+            emailSent = emailResult.Exito;
+        }
+
+        return Ok(new {
+            id = collaborationId,
+            status,
+            emailSent,
+            message = emailSent
+                ? "Invitación creada y solicitud de correo aceptada por el servidor SMTP. El profesional debe aceptarla para acceder."
+                : "Invitación creada, pero no se pudo enviar el aviso por correo. El profesional puede encontrarla dentro de DietoExpress."
+        });
     }
 
     [HttpPost("collaborations/{collaborationId:int}/accept")]
