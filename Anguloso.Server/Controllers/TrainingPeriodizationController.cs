@@ -155,7 +155,8 @@ public sealed class TrainingPeriodizationController : ControllerBase
         var userId = AuthHelpers.GetUserId(User);
         if (userId is null) return Unauthorized();
         var clientId = await GetSessionClientId(sessionId, cancellationToken);
-        if (!clientId.HasValue || !await CanAccessClient(clientId.Value, cancellationToken)) return NotFound();
+        // Los colaboradores tienen acceso de consulta: solo el profesional responsable puede modificar registros.
+        if (!clientId.HasValue || !await CanManageClient(clientId.Value, cancellationToken)) return NotFound();
         if (request.ActualDurationMinutes is < 1 or > 1440 || request.SessionRpe is < 0 or > 10)
             return BadRequest(new { message = "La duración debe ser positiva y el RPE debe estar entre 0 y 10." });
         await using var command = Command("""
@@ -511,7 +512,8 @@ public sealed class TrainingPeriodizationController : ControllerBase
             SELECT c.id, @professionalId, c.tenant_id, @scope, 'pending', @inviterId, NOW(), NULL, NULL
             FROM clients c
             WHERE c.id = @clientId AND c.archived_at IS NULL
-              AND c.tenant_id IS NOT DISTINCT FROM (SELECT u.tenant_id FROM users u WHERE u.id = @professionalId)
+              AND c.tenant_id IS NOT NULL
+              AND c.tenant_id = (SELECT u.tenant_id FROM users u WHERE u.id = @professionalId)
             ON CONFLICT(client_id, professional_user_id) DO UPDATE SET
                 tenant_id = EXCLUDED.tenant_id, access_scope = EXCLUDED.access_scope,
                 status = 'pending', invited_by_user_id = EXCLUDED.invited_by_user_id,
