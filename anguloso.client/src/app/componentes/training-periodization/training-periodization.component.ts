@@ -163,7 +163,7 @@ interface TrainingInvitation {
             <section class="session-workspace">
               <div class="session-workspace-heading">
                 <div><p class="eyebrow">TRABAJO DIARIO</p><h4>Calendario de entrenamiento</h4><p>Planifica la semana de un vistazo y entra en cada sesión para ajustar sus detalles.</p></div>
-                <span class="session-count">{{ sessions[plan.id]?.length || 0 }} sesiones</span>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="session-count">{{ sessions[plan.id]?.length || 0 }} sesiones</span><button type="button" class="secondary" (click)="exportSessions(plan)" [disabled]="!sessions[plan.id]?.length">Exportar CSV</button></div>
               </div>
               <section *ngIf="loadTrends[plan.id]?.length" class="load-trend" style="margin:16px 0;padding:14px;border:1px solid #e2e8f0;border-radius:12px">
                 <h5 style="margin:0 0 4px">Evolución de carga · últimas semanas</h5>
@@ -217,7 +217,7 @@ interface TrainingInvitation {
                   <label>Fecha<input type="date" name="sessionDate{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].date" [min]="plan.startDate" [max]="plan.endDate || null" required /></label>
                   <label>Tipo de entrenamiento<select name="sessionType{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].type"><option value="endurance">Resistencia</option><option value="strength">Fuerza</option><option value="mobility">Movilidad</option><option value="recovery">Recuperación</option><option value="health">Salud</option><option value="general">General</option><option value="other">Otro</option></select></label>
                   <label>Duración estimada (min)<input type="number" name="sessionDuration{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].duration" min="1" max="1440" placeholder="60" /></label>
-                  <label>Intensidad / zona objetivo<input name="sessionIntensity{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].intensity" maxlength="120" placeholder="Ej. RPE 7 · Z2 · ritmo cómodo" /></label>
+                  <label>Intensidad / zona objetivo<input name="sessionIntensity{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].intensity" maxlength="120" placeholder="Ej. RPE 7 · Z2 · 250 W · 5:00/km" /></label>
                   <label class="session-editor-wide">Instrucciones<textarea name="sessionInstructions{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].instructions" rows="2" maxlength="4000" placeholder="Calentamiento, bloques principales, pausas y vuelta a la calma…"></textarea></label>
                   <label class="session-editor-wide">Prescripción de ejercicios<textarea name="sessionExercises{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].exercisePrescription" rows="3" maxlength="6000" placeholder="Sentadilla · 3 × 8 · descanso 2 min · RPE 7&#10;Peso muerto rumano · 3 × 10 · descanso 90 s"></textarea><small>Indica ejercicio, series, repeticiones, descanso y observaciones. Puedes anotar ritmo o potencia en la zona objetivo.</small></label>
                 </div>
@@ -528,6 +528,25 @@ export class TrainingPeriodizationComponent implements OnInit {
       next: () => { draft.title = ''; draft.intensity = ''; draft.instructions = ''; draft.exercisePrescription = ''; this.saving = false; this.refreshSessions(plan.id); },
       error: e => { this.error = e?.error?.message || 'No se pudo crear la sesión.'; this.saving = false; }
     });
+  }
+
+  exportSessions(plan: TrainingPlan): void {
+    const rows = this.sessions[plan.id] ?? [];
+    if (!rows.length) return;
+    const headers = ['Fecha', 'Sesión', 'Tipo', 'Minutos previstos', 'Zona objetivo', 'Instrucciones', 'Ejercicios y series', 'Realizada en', 'Minutos reales', 'RPE', 'Notas'];
+    const cell = (value: unknown) => '"' + String(value ?? '').replace(/"/g, '""').replace(/\r?\n/g, ' ') + '"';
+    const lines = [headers, ...rows.map(session => [
+      session.scheduledDate, session.title, this.sessionTypeLabel(session.sessionType), session.durationMinutes,
+      session.intensityTarget, session.instructions, session.exercisePrescription, session.completedAt,
+      session.actualDurationMinutes, session.sessionRpe, session.recordNotes
+    ])].map(row => row.map(cell).join(';'));
+    const blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'dietoexpress-entrenamiento-' + plan.id + '.csv';
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   trendBarPixels(planId: number, score: number): number {
