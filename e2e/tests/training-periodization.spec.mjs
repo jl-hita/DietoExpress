@@ -97,15 +97,15 @@ test.describe('MVP de periodización deportiva', () => {
 
     await page.goto(`/clients/${patientId}/training`);
     await expect(page.getByRole('heading', { name: 'Planes de entrenamiento' })).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText('Mesociclo E2E A', { exact: true })).toBeVisible();
-    await expect(page.getByText('Microciclo E2E 1', { exact: true })).toBeVisible();
+    await expect(page.locator('.plan-card > .cycle-section > .mesocycle-card').filter({ hasText: 'Mesociclo E2E A' })).toBeVisible();
+    await expect(page.locator('li').filter({ hasText: 'Microciclo E2E 1' })).toBeVisible();
 
     const mesocycles = page.locator('.plan-card > .cycle-section > .mesocycle-card');
     const firstMeso = mesocycles.first();
     await firstMeso.getByRole('button', { name: 'Editar' }).click();
     await page.locator(`input[name="editMesoName${meso1.id}"]`).fill('Mesociclo E2E A editado');
     await firstMeso.getByRole('button', { name: 'Guardar cambios' }).click();
-    await expect(page.getByText('Mesociclo E2E A editado', { exact: true })).toBeVisible();
+    await expect(page.locator('.plan-card > .cycle-section > .mesocycle-card').filter({ hasText: 'Mesociclo E2E A editado' })).toBeVisible();
 
     const currentFirst = page.locator('.plan-card > .cycle-section > .mesocycle-card').first();
     await currentFirst.getByRole('button', { name: 'Bajar mesociclo' }).click();
@@ -120,17 +120,17 @@ test.describe('MVP de periodización deportiva', () => {
       const microRow = page.locator('li').filter({ hasText: microName }).first();
       page.once('dialog', dialog => dialog.accept());
       await microRow.getByRole('button', { name: 'Eliminar' }).click();
-      await expect(page.getByText(microName, { exact: true })).toHaveCount(0);
+      await expect(page.locator('li').filter({ hasText: microName })).toHaveCount(0);
     }
 
     const mesoToDelete = page.locator('.plan-card > .cycle-section > .mesocycle-card').filter({ hasText: 'Mesociclo E2E A editado' }).first();
     page.once('dialog', dialog => dialog.accept());
     await mesoToDelete.getByRole('button', { name: 'Eliminar' }).click();
-    await expect(page.getByText('Mesociclo E2E A editado', { exact: true })).toHaveCount(0);
+    await expect(page.locator('.plan-card > .cycle-section > .mesocycle-card').filter({ hasText: 'Mesociclo E2E A editado' })).toHaveCount(0);
 
     const finalMeso = page.locator('.plan-card > .cycle-section > .mesocycle-card').filter({ hasText: 'Mesociclo E2E B' }).first();
     page.once('dialog', dialog => dialog.accept());
     await finalMeso.getByRole('button', { name: 'Eliminar' }).click();
-    await expect(page.getByText('Mesociclo E2E B', { exact: true })).toHaveCount(0);
+    await expect(page.locator('.plan-card > .cycle-section > .mesocycle-card').filter({ hasText: 'Mesociclo E2E B' })).toHaveCount(0);
   });
 });
