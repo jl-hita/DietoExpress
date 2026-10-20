@@ -101,8 +101,6 @@ test.describe('MVP de periodización deportiva', () => {
     await expect(page.locator('li').filter({ hasText: 'Microciclo E2E 1' })).toBeVisible();
     await expect(page.locator('.week-grid')).toBeVisible();
     await expect(page.locator('.week-summary')).toContainText('sesiones esta semana');
-    await page.getByRole('button', { name: 'Semana actual' }).click();
-
     const sessionTitle = 'Sesión E2E fuerza visual';
     await page.locator(`input[name="sessionTitle${plan.id}"]`).fill(sessionTitle);
     await page.locator(`input[name="sessionDate${plan.id}"]`).fill(start);
