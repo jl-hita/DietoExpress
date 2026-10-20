@@ -133,4 +133,67 @@ test.describe('P0 — recorrido completo de consulta guiada', () => {
     await page.getByRole('button', { name: 'Cerrar consulta' }).click();
     await expect(page.getByText('Completada')).toBeVisible({ timeout: 15_000 });
   });
+
+  test('la videollamada online permanece integrada al cambiar de paso y espera su ventana de acceso', async ({ page }) => {
+    await page.goto('/clients/nuevo');
+    await expect(page.getByRole('heading', { name: 'Nuevo Cliente' })).toBeVisible();
+    await page.getByLabel('Nombre completo').fill(patientName);
+    await page.getByLabel('Email').fill(`e2e-video-${Date.now()}@invalid.example`);
+    await page.getByLabel('Notas').fill('Paciente ficticio para la prueba E2E de videollamada integrada.');
+    await page.getByRole('button', { name: 'Crear cliente' }).click();
+    await expect(page).toHaveURL(/\/clients\/\d+(?:[/?#]|$)/, { timeout: 20_000 });
+    patientId = Number(page.url().match(/\/clients\/(\d+)/)?.[1]);
+    expect(patientId).toBeGreaterThan(0);
+
+    await page.goto('/appointments');
+    await expect(page.getByRole('heading', { name: 'Agendar cita manualmente' })).toBeVisible();
+    await page.getByLabel('Buscar paciente').fill(patientName);
+    await page.getByRole('button', { name: 'Buscar' }).click();
+    await expect(page.getByLabel('Paciente para la cita')).toContainText(patientName, { timeout: 15_000 });
+    await page.getByLabel('Paciente para la cita').selectOption({ label: patientName });
+    await page.getByLabel('Duración de la cita').selectOption({ label: '30 min' });
+    await page.getByLabel('Modalidad de la cita').selectOption('online');
+
+    let appointmentCreated = false;
+    for (let attempt = 0; attempt < 12 && !appointmentCreated; attempt++) {
+      const candidateDate = localDateTime(8 + Math.floor(attempt / 4), [1, 7, 22, 23][attempt % 4], 0);
+      await page.getByLabel('Fecha y hora de la cita').fill(candidateDate);
+      const responsePromise = page.waitForResponse(response =>
+        response.request().method() === 'POST' &&
+        new URL(response.url()).pathname.endsWith('/professional/consultation-actions/appointment'));
+      await page.getByRole('button', { name: 'Crear cita confirmada' }).click();
+      const response = await responsePromise;
+      const body = await response.text();
+      if (response.status() === 409 && /horario.*ocupado|ya está ocupado/i.test(body)) continue;
+      expect(response.ok(), `El API de cita online respondió ${response.status()}: ${body}`).toBeTruthy();
+      appointmentCreated = true;
+    }
+    expect(appointmentCreated, 'Debe poder encontrarse un hueco para la cita online E2E').toBe(true);
+    await expect(page.getByText('Cita creada y confirmada. La disponibilidad semanal solo afecta a las reservas públicas.')).toBeVisible({ timeout: 15_000 });
+    const appointmentCard = page.locator('.appointment').filter({ hasText: patientName }).filter({ has: page.getByRole('button', { name: 'Iniciar consulta' }) }).first();
+    await expect(appointmentCard).toBeVisible({ timeout: 15_000 });
+    await appointmentCard.getByRole('button', { name: 'Iniciar consulta' }).click();
+
+    await expect(page.getByText('CONSULTA GUIADA', { exact: true })).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('app-video-consultation')).toBeVisible();
+    await expect(page.getByText('Videollamada integrada')).toBeVisible();
+    await expect(page.getByText('Acceso aún no disponible')).toBeVisible();
+    const consultationUrl = page.url();
+
+    await page.getByRole('button', { name: /Objetivos/ }).first().click();
+    await expect(page.getByRole('heading', { name: 'Objetivos y cambios acordados' })).toBeVisible();
+    await expect(page.locator('app-video-consultation')).toBeVisible();
+    await expect(page).toHaveURL(consultationUrl);
+
+    await page.locator('.stepper button').filter({ hasText: 'Anamnesis' }).click();
+    await expect(page.locator('app-video-consultation')).toBeVisible();
+    await expect(page).toHaveURL(consultationUrl);
+
+    await page.locator('app-video-consultation').getByRole('button', { name: 'Cerrar vídeo' }).click();
+    await expect(page.locator('app-video-consultation')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Mostrar videollamada' }).click();
+    await expect(page.locator('app-video-consultation')).toBeVisible();
+    await expect(page.getByText('Acceso aún no disponible')).toBeVisible();
+  });
+
 });
