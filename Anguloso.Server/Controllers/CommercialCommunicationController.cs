@@ -25,34 +25,31 @@ public sealed class CommercialCommunicationController : ControllerBase
     [Authorize]
     public async Task<IActionResult> GetPreferences(CancellationToken cancellationToken)
     {
-        var userId = AuthHelpers.GetUserId(User);
         var clientId = User.FindFirst("clientId")?.Value;
-        if (!int.TryParse(clientId, out var parsedClientId) || !userId.HasValue || !User.IsInRole("patient"))
+        if (!int.TryParse(clientId, out var parsedClientId) || !User.IsInRole("patient"))
             return Forbid();
 
         await using var connection = new NpgsqlConnection(ConnectionString);
         await connection.OpenAsync(cancellationToken);
         await using var command = new NpgsqlCommand("""
-            SELECT c.id, c.tenant_id, COALESCE(p.email_enabled,false)
+            SELECT c.id, c.tenant_id, COALESCE(p.email_enabled,false), (p.client_id IS NOT NULL)
             FROM clients c
             LEFT JOIN patient_commercial_communication_preferences p ON p.client_id=c.id
-            WHERE c.id=@client AND c.user_id=@user AND c.archived_at IS NULL
+            WHERE c.id=@client AND c.archived_at IS NULL
             LIMIT 1;
             """, connection);
         command.Parameters.AddWithValue("client", parsedClientId);
-        command.Parameters.AddWithValue("user", userId.Value);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         if (!await reader.ReadAsync(cancellationToken)) return NotFound();
-        return Ok(new { emailEnabled = reader.GetBoolean(2) });
+        return Ok(new { emailEnabled = reader.GetBoolean(2), hasDecision = reader.GetBoolean(3) });
     }
 
     [HttpPut("preferences")]
     [Authorize]
     public async Task<IActionResult> UpdatePreferences([FromBody] PreferenceRequest request, CancellationToken cancellationToken)
     {
-        var userId = AuthHelpers.GetUserId(User);
         var clientId = User.FindFirst("clientId")?.Value;
-        if (!int.TryParse(clientId, out var parsedClientId) || !userId.HasValue || !User.IsInRole("patient"))
+        if (!int.TryParse(clientId, out var parsedClientId) || !User.IsInRole("patient"))
             return Forbid();
 
         await using var connection = new NpgsqlConnection(ConnectionString);
