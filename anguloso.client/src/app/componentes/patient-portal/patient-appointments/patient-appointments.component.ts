@@ -1,4 +1,5 @@
-import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy, signal } from '@angular/core';
+import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy, signal, OnDestroy } from '@angular/core';
+import { Subscription, interval } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -13,7 +14,11 @@ import { AppointmentSlot, PatientAppointment, PatientPortalService } from '../..
   templateUrl: './patient-appointments.component.html',
   styleUrls: ['./patient-appointments.component.css']
 })
-export class PatientAppointmentsComponent {
+export class PatientAppointmentsComponent implements OnDestroy {
+  private readonly nowMsState = signal(Date.now());
+  private readonly clockSubscription: Subscription;
+  get nowMs(): number { return this.nowMsState(); }
+
   @Input() slots: AppointmentSlot[] = [];
   @Input() upcomingAppointments: PatientAppointment[] = [];
   @Input() pastAppointments: PatientAppointment[] = [];
@@ -44,7 +49,36 @@ export class PatientAppointmentsComponent {
   get reviewErrors(): Record<number, string> { return this.reviewErrorsState(); }
   set reviewErrors(value: Record<number, string>) { this.reviewErrorsState.set(value); }
 
-  constructor(private readonly portalService: PatientPortalService) {}
+  constructor(private readonly portalService: PatientPortalService) {
+    this.clockSubscription = interval(15_000).subscribe(() => this.nowMsState.set(Date.now()));
+  }
+
+  ngOnDestroy(): void { this.clockSubscription.unsubscribe(); }
+
+  videoAccessState(appointment: PatientAppointment): 'waiting' | 'available' | 'expired' {
+    const now = this.nowMs;
+    const availableFrom = new Date(appointment.startsAt).getTime() - 15 * 60_000;
+    const expiresAt = appointment.videoExpiresAt
+      ? new Date(appointment.videoExpiresAt).getTime()
+      : new Date(appointment.endsAt).getTime() + 15 * 60_000;
+    if (now < availableFrom) return 'waiting';
+    if (!Number.isFinite(expiresAt) || now >= expiresAt) return 'expired';
+    return 'available';
+  }
+
+  videoAccessCountdown(appointment: PatientAppointment): string {
+    const availableFrom = new Date(appointment.startsAt).getTime() - 15 * 60_000;
+    let totalMinutes = Math.max(0, Math.ceil((availableFrom - this.nowMs) / 60_000));
+    const days = Math.floor(totalMinutes / 1440);
+    totalMinutes -= days * 1440;
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes - hours * 60;
+    const parts: string[] = [];
+    if (days) parts.push(`${days} ${days === 1 ? 'día' : 'días'}`);
+    if (hours) parts.push(`${hours} ${hours === 1 ? 'hora' : 'horas'}`);
+    if (minutes || parts.length === 0) parts.push(`${minutes} ${minutes === 1 ? 'minuto' : 'minutos'}`);
+    return parts.join(', ').replace(/, ([^,]*)$/, ' y $1');
+  }
   @Output() cancel = new EventEmitter<PatientAppointment>();
   @Output() joinVideo = new EventEmitter<PatientAppointment>();
 

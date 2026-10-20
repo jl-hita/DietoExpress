@@ -83,7 +83,7 @@ public sealed class AppointmentEmailService
 <p>Modalidad: {modalityText}.</p>
 <p><a href='{safeLink}'>Acceder al portal de paciente</a></p>
 {videoText}
-<p>Este enlace personal es de un solo uso y caduca, como mínimo, 24 horas después de la finalización prevista de la cita. Si vuelves a necesitar acceso, solicita a tu nutricionista que te reenvíe el email.</p>";
+<p>Este enlace personal puede utilizarse tantas veces como necesites y caduca, como mínimo, 24 horas después de la finalización prevista de la cita. Guarda este email para volver a acceder al portal.</p>";
 
         BoolMensaje result;
         try

@@ -219,6 +219,10 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
   activeTab: ActiveTab = 'today';
   today = new Date();
 
+  private readonly portalClockState = signal(Date.now());
+  private readonly portalClockSubscription: Subscription;
+  get portalClockNow(): number { return this.portalClockState(); }
+
   // Equivalencias de intercambios expandidas
   expandedExchangeId: string | null = null;
 
@@ -240,12 +244,15 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
     private portalService: PatientPortalService,
     private foodService: FoodService,
     private http: HttpClient
-  ) {}
+  ) {
+    this.portalClockSubscription = interval(15_000).subscribe(() => this.portalClockState.set(Date.now()));
+  }
 
   ngOnDestroy(): void {
     this.routeQuerySubscription?.unsubscribe();
     this.broadcastRefreshSubscription?.unsubscribe();
     this.patientUnreadRefreshSubscription?.unsubscribe();
+    this.portalClockSubscription.unsubscribe();
   }
 
   // El portal puede entrar mediante sesión previa o token de acceso; después carga los datos clínicos y habilita las funciones del paciente.
@@ -565,6 +572,39 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
         this.appointmentError = err?.error?.message || 'No hemos podido cancelar la cita.';
       }
     });
+  }
+
+  get nextOnlineAppointment(): PatientAppointment | null {
+    const now = this.portalClockNow;
+    return this.appointments
+      .filter(a => a.status === 'confirmed' && a.modality === 'online' &&
+        new Date(a.endsAt).getTime() + 15 * 60_000 > now)
+      .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())[0] ?? null;
+  }
+
+  homeVideoAccessState(appointment: PatientAppointment): 'waiting' | 'available' | 'expired' {
+    const now = this.portalClockNow;
+    const availableFrom = new Date(appointment.startsAt).getTime() - 15 * 60_000;
+    const expiresAt = appointment.videoExpiresAt
+      ? new Date(appointment.videoExpiresAt).getTime()
+      : new Date(appointment.endsAt).getTime() + 15 * 60_000;
+    if (now < availableFrom) return 'waiting';
+    if (!Number.isFinite(expiresAt) || now >= expiresAt) return 'expired';
+    return 'available';
+  }
+
+  homeVideoAccessCountdown(appointment: PatientAppointment): string {
+    const availableFrom = new Date(appointment.startsAt).getTime() - 15 * 60_000;
+    let totalMinutes = Math.max(0, Math.ceil((availableFrom - this.portalClockNow) / 60_000));
+    const days = Math.floor(totalMinutes / 1440);
+    totalMinutes -= days * 1440;
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes - hours * 60;
+    const parts: string[] = [];
+    if (days) parts.push(`${days} ${days === 1 ? 'día' : 'días'}`);
+    if (hours) parts.push(`${hours} ${hours === 1 ? 'hora' : 'horas'}`);
+    if (minutes || parts.length === 0) parts.push(`${minutes} ${minutes === 1 ? 'minuto' : 'minutos'}`);
+    return parts.join(', ').replace(/, ([^,]*)$/, ' y $1');
   }
 
   get upcomingAppointments(): PatientAppointment[] {

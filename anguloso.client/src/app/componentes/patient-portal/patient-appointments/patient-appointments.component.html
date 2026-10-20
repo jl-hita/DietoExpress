@@ -120,12 +120,20 @@
         </span>
       </div>
       <div class="appointment-item-actions">
-        <button *ngIf="appointment.modality === 'online' && appointment.status === 'confirmed'"
-                type="button" class="appointment-video"
-                (click)="joinVideo.emit(appointment)" [disabled]="booking">
-          <mat-icon>videocam</mat-icon>
-          Entrar en consulta
-        </button>
+        <div *ngIf="appointment.modality === 'online' && appointment.status === 'confirmed'" class="appointment-video-access">
+          <button type="button" class="appointment-video"
+                  (click)="joinVideo.emit(appointment)"
+                  [disabled]="booking || videoAccessState(appointment) !== 'available'"
+                  [attr.aria-label]="videoAccessState(appointment) === 'waiting' ? 'La consulta online estará disponible en ' + videoAccessCountdown(appointment) : videoAccessState(appointment) === 'expired' ? 'La ventana de acceso a la consulta ha finalizado' : 'Entrar en consulta online'">
+            <mat-icon>videocam</mat-icon>
+            <ng-container [ngSwitch]="videoAccessState(appointment)">
+              <span *ngSwitchCase="'waiting'">Disponible en {{ videoAccessCountdown(appointment) }}</span>
+              <span *ngSwitchCase="'expired'">Ventana de acceso finalizada</span>
+              <span *ngSwitchDefault>Entrar en consulta</span>
+            </ng-container>
+          </button>
+          <small *ngIf="videoAccessState(appointment) === 'waiting'">El botón se activará 15 minutos antes de la cita.</small>
+        </div>
         <button type="button" class="appointment-cancel" (click)="cancel.emit(appointment)" [disabled]="booking">
           Cancelar
         </button>

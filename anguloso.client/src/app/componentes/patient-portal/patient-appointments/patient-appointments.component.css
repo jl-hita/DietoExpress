@@ -37,3 +37,9 @@
   .calendar-grid,.calendar-weekdays { gap:2px; }
   .calendar-day { min-height:54px; padding:5px; border-radius:7px; }
 }
+
+/* La videollamada permanece visible antes de abrirse para que el paciente sepa dónde entrar. */
+.appointment-video-access { display:flex; flex-direction:column; align-items:flex-start; gap:5px; min-width:0; }
+.appointment-video-access small { color:#94a3b8; font-size:11px; line-height:1.35; max-width:240px; }
+.appointment-video:disabled { opacity:.72; cursor:not-allowed; filter:saturate(.65); }
+.appointment-video-access .appointment-video { display:inline-flex; align-items:center; justify-content:center; gap:6px; white-space:normal; text-align:center; }

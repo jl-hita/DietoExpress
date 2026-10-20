@@ -272,6 +272,7 @@ export class PatientPortalService {
   getVapidPublicKey(): Observable<{ publicKey: string }> { return this.http.get<{ publicKey: string }>(this.base + '/portal/push/vapid-public-key'); }
   registerPushSubscription(subscription: { endpoint: string; p256dh: string; auth: string }): Observable<void> { return this.http.post<void>(this.base + '/portal/push-subscriptions', subscription); }
 
+  getCheckinEligibility(): Observable<{ eligible: boolean; message?: string | null }> { return this.http.get<{ eligible: boolean; message?: string | null }>(`${this.base}/portal/check-ins/eligibility`); }
   getCurrentCheckin(): Observable<PatientCheckin | null> { return this.http.get<PatientCheckin | null>(`${this.base}/portal/check-ins/current`); }
   getCheckinHistory(): Observable<PatientCheckin[]> { return this.http.get<PatientCheckin[]>(`${this.base}/portal/check-ins`); }
   getCheckins(clientId: number): Observable<PatientCheckin[]> {

@@ -563,7 +563,7 @@ public class DirectoryController : ControllerBase
                         $"<p>Hemos recibido tu solicitud de cita con {System.Net.WebUtility.HtmlEncode(professional.full_name ?? "tu nutricionista")}.</p>" +
                         $"<p>Antes de la consulta puedes completar tus datos y la documentación desde tu portal:</p>" +
                         $"<p><a href='{safeLink}'>Acceder a mi portal</a></p>" +
-                        "<p>Este enlace caduca en 24 horas y solo puede utilizarse una vez.</p>");
+                        "<p>Este enlace es personal, caduca en 24 horas y puedes utilizarlo tantas veces como necesites durante ese plazo.</p>");
                 }
             }
             catch (Exception ex)
