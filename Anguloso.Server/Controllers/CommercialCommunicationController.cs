@@ -1,5 +1,4 @@
 using Anguloso.Server.Logica;
-using Anguloso.Server.Logica.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Npgsql;
@@ -57,11 +56,10 @@ public sealed class CommercialCommunicationController : ControllerBase
         await using var command = new NpgsqlCommand("""
             SELECT tenant_id
             FROM clients
-            WHERE id=@client AND user_id=@user AND archived_at IS NULL
+            WHERE id=@client AND archived_at IS NULL
             LIMIT 1;
             """, connection);
         command.Parameters.AddWithValue("client", parsedClientId);
-        command.Parameters.AddWithValue("user", userId.Value);
         var tenant = await command.ExecuteScalarAsync(cancellationToken);
         if (tenant is null) return NotFound();
 
