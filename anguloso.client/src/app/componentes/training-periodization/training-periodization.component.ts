@@ -38,6 +38,7 @@ interface TrainingSession {
           <div class="form-grid">
             <label>Objetivo principal<select [(ngModel)]="current.primaryGoal" name="primaryGoal"><option value="endurance">Resistencia</option><option value="strength">Fuerza</option><option value="hypertrophy">Hipertrofia</option><option value="weight_loss">Pérdida de peso</option><option value="health">Salud</option><option value="general_fitness">Condición física general</option><option value="other">Otro</option></select></label>
             <label>Experiencia<select [(ngModel)]="current.experienceLevel" name="experience"><option value="beginner">Principiante</option><option value="intermediate">Intermedio</option><option value="advanced">Avanzado</option><option value="unknown">Sin evaluar</option></select></label>
+            <label>Gestión del entrenamiento<select [(ngModel)]="trainingManagementMode" name="trainingManagementMode"><option value="self">Lo llevo yo</option><option value="collaboration">En colaboración con otro profesional</option><option value="none">Solo seguimiento nutricional</option></select></label>
             <label class="full">Notas<textarea [(ngModel)]="current.notes" name="notes" rows="2"></textarea></label>
           </div>
           <button type="button" (click)="saveProfile()" [disabled]="saving">Guardar perfil</button>
@@ -84,6 +85,7 @@ export class TrainingPeriodizationComponent implements OnInit {
   saving = false;
   error = '';
   profile: TrainingProfile | null = null;
+  trainingManagementMode: 'none' | 'self' | 'collaboration' = 'self';
   plans: TrainingPlan[] = [];
   sessions: Record<number, TrainingSession[]> = {};
   sessionDrafts: Record<number, { date: string; title: string; type: string; duration: number | null }> = {};
@@ -106,6 +108,8 @@ export class TrainingPeriodizationComponent implements OnInit {
     this.http.get<TrainingProfile>(`/api/training/clients/${this.clientId}/profile`).pipe(catchError(() => of(null))).subscribe(profile => {
       this.profile = profile;
       if (!profile) { this.loading = false; return; }
+      this.trainingManagementMode = this.readTrainingMode(profile.notes);
+      this.profile.notes = this.cleanTrainingNotes(profile.notes);
       if (!profile.enabled) { this.loading = false; return; }
       this.http.get<TrainingPlan[]>(`/api/training/clients/${this.clientId}/plans`).subscribe({
         next: plans => { this.plans = plans; this.sessionDrafts = {}; for (const p of plans) this.sessionDrafts[p.id] = { date: new Date().toISOString().slice(0,10), title: '', type: 'general', duration: null }; this.loadSessions(plans); this.loading = false; },
@@ -131,10 +135,25 @@ export class TrainingPeriodizationComponent implements OnInit {
   saveProfile(): void {
     if (!this.profile) return;
     this.saving = true; this.error = '';
-    this.http.put<TrainingProfile>(`/api/training/clients/${this.clientId}/profile`, this.profile).subscribe({
-      next: p => { this.profile = p; this.saving = false; this.load(); },
+    const visibleNotes = this.cleanTrainingNotes(this.profile.notes);
+    const payload = { ...this.profile, notes: [visibleNotes, `[[training-management-mode:${this.trainingManagementMode}]]`].filter(Boolean).join(' ') };
+    this.http.put<TrainingProfile>(`/api/training/clients/${this.clientId}/profile`, payload).subscribe({
+      next: p => { this.trainingManagementMode = this.readTrainingMode(p.notes); this.profile = { ...p, notes: this.cleanTrainingNotes(p.notes) }; this.saving = false; this.load(); },
       error: e => { this.error = e?.error?.message || 'No se pudo guardar el perfil deportivo.'; this.saving = false; }
     });
+  }
+
+  private readTrainingMode(notes?: string | null): 'none' | 'self' | 'collaboration' {
+    const value = String(notes ?? '');
+    if (value.includes('[[training-management-mode:collaboration]]')) return 'collaboration';
+    if (value.includes('[[training-management-mode:none]]')) return 'none';
+    return 'self';
+  }
+
+  private cleanTrainingNotes(notes?: string | null): string {
+    return String(notes ?? '').split(' ')
+      .filter(token => !token.startsWith('[[training-management-mode:'))
+      .join(' ').trim();
   }
 
   createPlan(): void {
