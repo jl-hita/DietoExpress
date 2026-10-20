@@ -66,6 +66,22 @@ public sealed class AutomationExternalEffectsRegressionTests
     }
 
     [Fact]
+    public void PatientEmailsThatMentionPortalMustIncludeAValidPortalLink()
+    {
+        var portalEmailService = ReadServerSource("Anguloso.Server/Logica/PatientPortalEmailService.cs");
+        var appointments = ReadServerSource("Anguloso.Server/Controllers/AppointmentsController.cs");
+        var worker = ReadServerSource("Anguloso.Server/Logica/AutomationWorker.cs");
+        var commercial = ReadServerSource("Anguloso.Server/Logica/CommercialCommunicationService.cs");
+
+        Assert.Contains("Acceder al portal de paciente", portalEmailService);
+        Assert.Contains("_patientPortalEmailService.SendAsync(", appointments);
+        Assert.Contains("MentionsPatientPortal(action.Subject, action.HtmlBody)", worker);
+        Assert.Contains("_patientPortalEmailService.SendAsync(", commercial);
+        Assert.Contains("RestorePreviousAccessAsync", portalEmailService);
+        Assert.Contains("appointment.ends_at", appointments);
+    }
+
+    [Fact]
     public void MissingLiveKitRoomMustBeHandledAsExpectedCleanup()
     {
         var source = ReadServerSource("Anguloso.Server/Logica/VideoMeetingProvider.cs");
