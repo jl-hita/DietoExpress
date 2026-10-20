@@ -9,15 +9,17 @@ El módulo deportivo es **opt-in por cliente**. Los clientes de nutrición no re
 - El profesional puede anunciar en el directorio que ofrece planificación deportiva. Es un distintivo informativo independiente de la activación por cliente.
 - Objetivos de resistencia, fuerza, hipertrofia, pérdida de peso, salud y condición física general; nivel de experiencia y modelo de periodización configurable.
 - Creación de planes y sesiones; registro de duración real y RPE separado de la prescripción.
-- Jerarquía inicial de periodización con mesociclos dentro del plan y microciclos dentro de cada mesociclo, con secuencia, fechas, objetivo/enfoque y notas.
+- Jerarquía de periodización con mesociclos dentro del plan y microciclos dentro de cada mesociclo, con creación, edición, reordenación, objetivo/enfoque, fechas y notas.
+- Borrado seguro: no se permite eliminar un mesociclo que aún contenga microciclos; se deben eliminar explícitamente antes. Las fechas se validan contra el periodo del padre y se rechazan solapamientos entre ciclos hermanos.
+- Las sesiones se validan contra el periodo del plan; el orden se actualiza de forma transaccional para no dejar secuencias parciales si falla la operación.
 - Flujo básico de colaboración: crear una invitación identificando por correo a un profesional de la misma clínica, consultar estado, aceptar invitaciones y revocar acceso. La colaboración activa tiene acceso de consulta y no puede gestionar el plan.
 - Comprobaciones de acceso del backend basadas en relación profesional-cliente, asignación, tenant, administrador de clínica/superadministrador y colaboración activa.
 - Pestaña deportiva opcional en el portal del paciente, con consulta de sesiones y registro de duración/RPE mediante la sesión autenticada del propio paciente.
 
 ## Límites conocidos y siguientes fases
-- El flujo de colaboración requiere pruebas integrales con cuentas reales de dos profesionales, especialmente para comprobar límites entre clínicas y los casos de revocación. La invitación se muestra dentro de DietoExpress; todavía no envía un email automático al profesional invitado.
+- El flujo de colaboración requiere pruebas integrales con cuentas reales de dos profesionales, especialmente para comprobar límites entre clínicas y los casos de revocación. La invitación se muestra dentro de DietoExpress; todavía no envía un email automático al profesional invitado. Las cuentas sin tenant de clínica no se pueden invitar como colaboradoras.
 - Falta un onboarding específico de entrenador y una definición final de permisos granulares para profesionales externos.
-- Los mesociclos/microciclos ya se pueden crear y consultar; faltan edición, reordenación, borrado seguro y validación de solapamientos/encaje de fechas.
+- Queda probar en entorno real los recorridos de edición/reordenación/borrado y reforzar pruebas E2E del módulo.
 - Quedan el editor avanzado de ejercicios, zonas de potencia/ritmo, tendencias, integraciones con dispositivos y sincronización contextual con la nutrición.
 
 El módulo no prescribe actividad automáticamente ni modifica dietas. La decisión de anunciar el servicio, la decisión por cliente y el estado de colaboración son conceptos distintos.
