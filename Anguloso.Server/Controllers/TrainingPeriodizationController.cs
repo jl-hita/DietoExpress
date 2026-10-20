@@ -154,6 +154,37 @@ public sealed class TrainingPeriodizationController : ControllerBase
             : CreatedAtAction(nameof(GetSessions), new { planId }, new { id = Convert.ToInt32(id), request.ScheduledDate, request.Title, request.SessionType, request.DurationMinutes, status = "planned" });
     }
 
+    [HttpPut("sessions/{sessionId:int}")]
+    public async Task<IActionResult> UpdateSession(int sessionId, [FromBody] CreateTrainingSessionRequest request, CancellationToken cancellationToken)
+    {
+        var clientId = await GetSessionClientId(sessionId, cancellationToken);
+        if (!clientId.HasValue || !await CanManageClient(clientId.Value, cancellationToken)) return NotFound();
+        if (string.IsNullOrWhiteSpace(request.Title) || request.Title.Trim().Length > 160)
+            return BadRequest(new { message = "El nombre de la sesión es obligatorio (máximo 160 caracteres)." });
+        if (request.DurationMinutes is < 1 or > 1440)
+            return BadRequest(new { message = "La duración debe estar entre 1 y 1440 minutos." });
+        if (request.SessionType is not ("endurance" or "strength" or "mobility" or "recovery" or "health" or "general" or "other"))
+            return BadRequest(new { message = "El tipo de sesión no es válido." });
+        if (request.IntensityTarget?.Length > 120 || request.Instructions?.Length > 4000)
+            return BadRequest(new { message = "La intensidad admite 120 caracteres y las instrucciones 4000." });
+
+        await using var command = Command("""
+            UPDATE training_sessions s
+            SET scheduled_date = @date, title = @title, session_type = @type, duration_minutes = @duration,
+                intensity_target = @intensity, instructions = @instructions, updated_at = NOW()
+            FROM training_plans p JOIN training_profiles f ON f.id = p.profile_id
+            WHERE s.plan_id = p.id AND s.id = @sessionId AND f.enabled = TRUE
+              AND @date >= p.start_date AND (p.end_date IS NULL OR @date <= p.end_date)
+            RETURNING s.id
+            """, ("sessionId", sessionId), ("date", request.ScheduledDate), ("title", request.Title.Trim()),
+            ("type", request.SessionType), ("duration", request.DurationMinutes), ("intensity", request.IntensityTarget?.Trim()),
+            ("instructions", request.Instructions?.Trim()));
+        var id = await command.ExecuteScalarAsync(cancellationToken);
+        return id is null
+            ? Conflict(new { message = "La fecha de la sesión debe estar dentro del periodo del plan." })
+            : Ok(new { id = Convert.ToInt32(id), clientId = clientId.Value, message = "Sesión actualizada." });
+    }
+
     [HttpPost("sessions/{sessionId:int}/record")]
     public async Task<IActionResult> RecordSession(int sessionId, [FromBody] RecordTrainingSessionRequest request, CancellationToken cancellationToken)
     {
