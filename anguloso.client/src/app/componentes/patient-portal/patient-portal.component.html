@@ -412,6 +412,7 @@
         <span class="eyebrow">{{ session.scheduledDate | date:'fullDate' }}</span><h3>{{ session.title }}</h3>
         <p>{{ session.durationMinutes || 'Duración libre' }} min <span *ngIf="session.intensityTarget">· {{ session.intensityTarget }}</span></p>
         <p *ngIf="session.instructions">{{ session.instructions }}</p>
+        <div *ngIf="session.exercisePrescription" style="margin:12px 0;padding:12px;border-radius:10px;background:#f0fdfa;border:1px solid #ccfbf1"><strong>Ejercicios, series y descansos</strong><p style="white-space:pre-line;margin:6px 0 0">{{ session.exercisePrescription }}</p></div>
         <p *ngIf="session.completedAt" class="muted">Último registro: {{ session.actualDurationMinutes || '—' }} min · RPE {{ session.sessionRpe ?? '—' }}</p>
         <div class="form-group"><label [for]="'training-duration-' + session.id">Duración realizada (minutos)</label><input [id]="'training-duration-' + session.id" type="number" min="1" max="1440" [(ngModel)]="trainingInputs[session.id].duration" /></div>
         <div class="form-group"><label [for]="'training-rpe-' + session.id">Esfuerzo percibido (0–10)</label><input [id]="'training-rpe-' + session.id" type="number" min="0" max="10" step="0.5" [(ngModel)]="trainingInputs[session.id].rpe" /></div>
