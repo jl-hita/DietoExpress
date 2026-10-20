@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, ChangeDetectionStrategy, signal} from '@angular/core';
+import { AfterViewInit, Component, ElementRef, Input, OnDestroy, ViewChild, ChangeDetectionStrategy, signal} from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -16,6 +16,8 @@ type ConnectionState = 'connecting' | 'waiting' | 'connected' | 'reconnecting' |
   styleUrls: ['./video-consultation.component.css']
 })
 export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
+  @Input() embedded = false;
+  @Input() appointmentIdInput: number | null = null;
   @ViewChild('localVideo', { static: true }) localVideoElementRef!: ElementRef<HTMLVideoElement>;
   @ViewChild('remoteContainer', { static: true }) remoteContainer!: ElementRef<HTMLDivElement>;
   // LiveKit y el temporizador pueden notificar cambios desde callbacks externos a Angular.
@@ -89,7 +91,7 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
   constructor(private readonly route: ActivatedRoute, private readonly router: Router, private readonly portalService: PatientPortalService, private readonly location: Location) {}
 
   ngAfterViewInit(): void {
-    const rawId = this.route.snapshot.paramMap.get('appointmentId'); this.appointmentId = Number(rawId);
+    const rawId = this.appointmentIdInput ?? this.route.snapshot.paramMap.get('appointmentId'); this.appointmentId = Number(rawId);
     if (!Number.isInteger(this.appointmentId) || this.appointmentId <= 0) { this.loading = false; this.connectionState = 'error'; this.error = 'La cita de consulta online no es válida.'; return; }
     void this.connect();
   }
@@ -153,6 +155,7 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
     return value && value.startsWith('/appointments/') && value.includes('/consultation') ? value : null;
   }
   private returnToConsultation(): void {
+    if (this.embedded) return;
     const returnUrl = this.getReturnUrl();
     if (returnUrl) { void this.router.navigateByUrl(returnUrl); return; }
     this.location.back();
@@ -163,12 +166,12 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
     if(!confirm('¿Finalizar la consulta online y marcar la cita como completada?'))return;
     this.finalizing=true;
     this.portalService.finishVideoConsultation(this.appointmentId).subscribe({
-      next:()=>{this.connectionState='finalized';this.connected=false;this.manualDisconnect=true;if(this.callTimer)clearInterval(this.callTimer);void this.room?.disconnect();this.finalizing=false;this.returnToConsultation();},
+      next:()=>{this.connectionState='finalized';this.connected=false;this.manualDisconnect=true;if(this.callTimer)clearInterval(this.callTimer);void this.room?.disconnect();this.localAudio?.stop();this.localVideoTrack?.stop();this.finalizing=false;this.returnToConsultation();},
       error:err=>{this.error=err?.error?.message||'No hemos podido finalizar la consulta.';this.finalizing=false;}
     });
   }
 
-  leave():void{if(this.callTimer)clearInterval(this.callTimer);this.manualDisconnect=true;void this.room?.disconnect();this.connectionState=this.connectionState==='finalized'?'finalized':'disconnected';this.returnToConsultation();}
+  leave():void{if(this.callTimer)clearInterval(this.callTimer);this.manualDisconnect=true;void this.room?.disconnect();this.localAudio?.stop();this.localVideoTrack?.stop();this.localAudio=undefined;this.localVideoTrack=undefined;this.connectionState=this.connectionState==='finalized'?'finalized':'disconnected';this.returnToConsultation();}
   private recordVideoEvent(event:'connected'|'reconnecting'|'reconnected'|'disconnected'|'failed'):void{this.portalService.recordVideoEvent(this.appointmentId,event).subscribe({error:()=>undefined});}
   private attachRemoteTrack(track:RemoteTrack,publication:RemoteTrackPublication,participant:RemoteParticipant):void{
     if(track.kind!==Track.Kind.Video&&track.kind!==Track.Kind.Audio)return;const element=track.attach();element.autoplay=true;element.setAttribute('playsinline','true');element.classList.add(track.kind===Track.Kind.Video?'remote-video':'remote-audio');
