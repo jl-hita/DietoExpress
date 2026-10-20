@@ -36,6 +36,7 @@ interface TrainingInvitation {
       <header><div><p class="eyebrow">MÓDULO OPCIONAL</p><h1>Planificación deportiva</h1><p>Actívala solo para clientes que quieran trabajar objetivos de actividad física o entrenamiento.</p></div></header>
       <p *ngIf="loading" role="status">Cargando planificación…</p>
       <p *ngIf="error" class="error" role="alert">{{ error }}</p>
+      <p *ngIf="acceptedClientId" role="status">Colaboración aceptada. <a [routerLink]="['/clients', acceptedClientId, 'training']">Abrir el entrenamiento</a></p>
       <section *ngIf="invitations.length" class="panel">
         <h2>Invitaciones de colaboración</h2>
         <p>Revisa las solicitudes de acceso al entrenamiento de otros profesionales. Solo tendrás acceso de lectura.</p>
@@ -155,6 +156,7 @@ export class TrainingPeriodizationComponent implements OnInit {
   mesocycleDrafts: Record<number, { name: string; sequence: number; startDate: string; endDate: string; objective: string }> = {};
   microcycleDrafts: Record<number, { name: string; sequence: number; startDate: string; endDate: string; focus: string }> = {};
   collaboratorEmail = '';
+  acceptedClientId: number | null = null;
   profile: TrainingProfile | null = null;
   trainingManagementMode: 'none' | 'self' | 'collaboration' = 'self';
   plans: TrainingPlan[] = [];
@@ -220,7 +222,7 @@ export class TrainingPeriodizationComponent implements OnInit {
   acceptInvitation(invitation: TrainingInvitation): void {
     this.saving = true; this.error = '';
     this.http.post(`/api/training/collaborations/${invitation.id}/accept`, {}).subscribe({
-      next: () => { this.saving = false; this.invitations = this.invitations.filter(x => x.id !== invitation.id); },
+      next: () => { this.saving = false; this.acceptedClientId = invitation.clientId; this.invitations = this.invitations.filter(x => x.id !== invitation.id); },
       error: e => { this.error = e?.error?.message || 'No se pudo aceptar la invitación.'; this.saving = false; }
     });
   }
