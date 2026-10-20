@@ -106,7 +106,11 @@ public sealed class AppointmentReminderWorker : BackgroundService
                     "/patient?tab=appointments", true, $"appointment-reminder:{item.Id}:patient");
                 patientSent = true;
                 var professionalPush = scope.ServiceProvider.GetRequiredService<ProfessionalPushService>();
+                // Avisar al nutricionista asignado y a los administradores de la clínica que hayan activado push.
+                // El servicio no envía nada a usuarios sin suscripción registrada.
                 await professionalPush.SendAppointmentReminderAsync(item.TenantId, item.NutritionistId, item.Id, item.ClientName, item.StartsAtUtc, ct);
+                foreach (var clinicAdminId in await GetClinicAdminIdsAsync(item.TenantId, ct))
+                    await professionalPush.SendAppointmentReminderAsync(item.TenantId, clinicAdminId, item.Id, item.ClientName, item.StartsAtUtc, ct);
                 professionalSent = true;
             }
             catch (Exception ex) { _logger.LogError(ex, "No se pudo completar el recordatorio de la cita {AppointmentId}.", item.Id); }
@@ -126,6 +130,19 @@ public sealed class AppointmentReminderWorker : BackgroundService
                 await command.ExecuteNonQueryAsync(ct);
             }
         }
+    }
+
+    private async Task<List<int>> GetClinicAdminIdsAsync(int tenantId, CancellationToken ct)
+    {
+        var ids = new List<int>();
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(ct);
+        await using var command = new NpgsqlCommand(
+            "SELECT id FROM users WHERE tenant_id=@tenant AND role='clinic_admin';", connection);
+        command.Parameters.AddWithValue("tenant", tenantId);
+        await using var reader = await command.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct)) ids.Add(reader.GetInt32(0));
+        return ids;
     }
 
     private sealed record Reminder(int Id, int TenantId, int ClientId, int NutritionistId, string ClientName, DateTime StartsAtUtc);
