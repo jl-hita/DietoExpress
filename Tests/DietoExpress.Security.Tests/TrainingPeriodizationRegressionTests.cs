@@ -29,6 +29,8 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("training_collaborations", bootstrap);
         Assert.Contains("ON CONFLICT(session_id, client_id)", controller);
         Assert.Contains("CanAccessClientInternal", controller);
+        Assert.Contains("NOT @manage AND EXISTS (", controller);
+        Assert.Contains("tc.status = 'active'", controller);
         Assert.Contains("Activar para este cliente", ui);
         Assert.Contains("Desactivar módulo", ui);
         var portalController = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPortalController.cs"));
