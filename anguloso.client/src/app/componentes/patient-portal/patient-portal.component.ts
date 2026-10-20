@@ -19,6 +19,21 @@ import { PatientShoppingCategory, PatientShoppingComponent } from './patient-sho
 import { PatientHeaderComponent } from './patient-header/patient-header.component';
 import { PatientDocumentsComponent } from './patient-documents/patient-documents.component';
 
+interface TrainingPortalSession {
+  id: number;
+  planId: number;
+  scheduledDate: string;
+  title: string;
+  sessionType: string;
+  durationMinutes?: number | null;
+  intensityTarget?: string | null;
+  instructions?: string | null;
+  completedAt?: string | null;
+  actualDurationMinutes?: number | null;
+  sessionRpe?: number | null;
+  recordNotes?: string | null;
+}
+
 type ActiveTab = 'today' | 'shopping' | 'appointments' | 'progress' | 'messages' | 'documents' | 'training';
 
 @Component({
@@ -37,7 +52,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
   trainingLoading = false;
   trainingSaving = false;
   trainingError = '';
-  trainingSessions: Array<{ id: number; planId: number; scheduledDate: string; title: string; sessionType: string; durationMinutes?: number | null; intensityTarget?: string | null; instructions?: string | null; completedAt?: string | null; actualDurationMinutes?: number | null; sessionRpe?: number | null; recordNotes?: string | null }> = [];
+  trainingSessions: TrainingPortalSession[] = [];
   trainingInputs: Record<number, { duration: number | null; rpe: number | null; notes: string }> = {};
 
   private readonly clientIdState = signal<number | undefined>(undefined);
@@ -1031,8 +1046,8 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
   /** Consulta el módulo deportivo solo para la sesión autenticada del paciente. */
   loadTrainingSessions(): void {
     this.trainingLoading = true;
-    this.http.get<{ enabled: boolean; sessions: typeof this.trainingSessions }>('/api/portal/training/sessions').pipe(
-      catchError(() => of({ enabled: false, sessions: [] as typeof this.trainingSessions }))
+    this.http.get<{ enabled: boolean; sessions: TrainingPortalSession[] }>('/api/portal/training/sessions').pipe(
+      catchError(() => of({ enabled: false, sessions: [] as TrainingPortalSession[] }))
     ).subscribe(result => {
       this.trainingEnabled = !!result.enabled;
       this.trainingSessions = result.sessions || [];
@@ -1048,7 +1063,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
     });
   }
 
-  recordTrainingSession(session: typeof this.trainingSessions[number]): void {
+  recordTrainingSession(session: TrainingPortalSession): void {
     const input = this.trainingInputs[session.id];
     if (!input || !Number.isFinite(Number(input.duration)) || Number(input.duration) < 1 || Number(input.duration) > 1440
         || !Number.isFinite(Number(input.rpe)) || Number(input.rpe) < 0 || Number(input.rpe) > 10) {
