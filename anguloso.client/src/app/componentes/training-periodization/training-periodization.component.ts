@@ -6,7 +6,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { catchError, forkJoin, of } from 'rxjs';
 
 interface TrainingProfile {
-  id: number; clientId: number; enabled: boolean; primaryGoal: string; experienceLevel: string; managementMode: 'none' | 'self' | 'collaboration'; notes?: string | null;
+  id: number; clientId: number; enabled: boolean; primaryGoal: string; experienceLevel: string; managementMode: 'none' | 'self' | 'collaboration'; notes?: string | null; canManage?: boolean;
 }
 interface TrainingPlan {
   id: number; name: string; periodizationModel: string; startDate: string; endDate?: string | null; status: string; version: number; notes?: string | null;
@@ -51,16 +51,17 @@ interface TrainingInvitation {
       </section>
       <ng-container *ngIf="profile as current">
         <section class="panel">
-          <div class="section-heading"><div><h2>Perfil deportivo</h2><p>El expediente nutricional permanece disponible aunque desactives este módulo.</p></div><button type="button" class="secondary" (click)="toggleEnabled()" [disabled]="saving">{{ current.enabled ? 'Desactivar módulo' : 'Reactivar módulo' }}</button></div>
+          <div class="section-heading"><div><h2>Perfil deportivo</h2><p>El expediente nutricional permanece disponible aunque desactives este módulo.</p></div><button *ngIf="current.canManage" type="button" class="secondary" (click)="toggleEnabled()" [disabled]="saving">{{ current.enabled ? 'Desactivar módulo' : 'Reactivar módulo' }}</button></div>
           <div class="form-grid">
             <label>Objetivo principal<select [(ngModel)]="current.primaryGoal" name="primaryGoal"><option value="endurance">Resistencia</option><option value="strength">Fuerza</option><option value="hypertrophy">Hipertrofia</option><option value="weight_loss">Pérdida de peso</option><option value="health">Salud</option><option value="general_fitness">Condición física general</option><option value="other">Otro</option></select></label>
             <label>Experiencia<select [(ngModel)]="current.experienceLevel" name="experience"><option value="beginner">Principiante</option><option value="intermediate">Intermedio</option><option value="advanced">Avanzado</option><option value="unknown">Sin evaluar</option></select></label>
             <label>Gestión del entrenamiento<select [(ngModel)]="trainingManagementMode" name="trainingManagementMode"><option value="self">Lo llevo yo</option><option value="collaboration">En colaboración con otro profesional</option><option value="none">Solo seguimiento nutricional</option></select></label>
             <label class="full">Notas<textarea [(ngModel)]="current.notes" name="notes" rows="2"></textarea></label>
           </div>
-          <button type="button" (click)="saveProfile()" [disabled]="saving">Guardar perfil</button>
+          <button *ngIf="current.canManage" type="button" (click)="saveProfile()" [disabled]="saving">Guardar perfil</button>
+          <p *ngIf="!current.canManage" class="muted">Acceso de colaboración: puedes consultar el plan, pero no modificarlo.</p>
         </section>
-        <section class="panel" *ngIf="current.enabled && trainingManagementMode === 'collaboration'">
+        <section class="panel" *ngIf="current.enabled && current.canManage && trainingManagementMode === 'collaboration'">
           <h2>Colaboración con otro profesional</h2>
           <p>Invita a un profesional registrado en la misma clínica. Hasta que acepte, no tendrá acceso; al aceptar podrá consultar el entrenamiento, pero no modificarlo.</p>
           <form class="invite-form" (ngSubmit)="inviteCollaborator()">
@@ -89,7 +90,7 @@ interface TrainingInvitation {
             <p *ngIf="plan.notes">{{ plan.notes }}</p>
             <section class="cycle-section">
               <h4>Mesociclos</h4>
-              <form class="cycle-form" (ngSubmit)="createMesocycle(plan)">
+              <form *ngIf="current.canManage" class="cycle-form" (ngSubmit)="createMesocycle(plan)">
                 <label>Nombre<input name="mesoName{{plan.id}}" [(ngModel)]="mesocycleDrafts[plan.id].name" required maxlength="160" /></label>
                 <label>N.º<input type="number" name="mesoSeq{{plan.id}}" [(ngModel)]="mesocycleDrafts[plan.id].sequence" required min="1" /></label>
                 <label>Inicio<input type="date" name="mesoStart{{plan.id}}" [(ngModel)]="mesocycleDrafts[plan.id].startDate" required /></label>
@@ -101,7 +102,7 @@ interface TrainingInvitation {
               <article *ngFor="let meso of mesocycles[plan.id]" class="mesocycle-card">
                 <strong>{{ meso.sequenceNumber }}. {{ meso.name }}</strong><p>{{ meso.startDate | date:'mediumDate' }} <span *ngIf="meso.endDate">— {{ meso.endDate | date:'mediumDate' }}</span></p>
                 <p *ngIf="meso.objective">{{ meso.objective }}</p>
-                <form class="cycle-form" (ngSubmit)="createMicrocycle(meso)">
+                <form *ngIf="current.canManage" class="cycle-form" (ngSubmit)="createMicrocycle(meso)">
                   <label>Nombre<input name="microName{{meso.id}}" [(ngModel)]="microcycleDrafts[meso.id].name" required maxlength="160" /></label>
                   <label>N.º<input type="number" name="microSeq{{meso.id}}" [(ngModel)]="microcycleDrafts[meso.id].sequence" required min="1" /></label>
                   <label>Inicio<input type="date" name="microStart{{meso.id}}" [(ngModel)]="microcycleDrafts[meso.id].startDate" required /></label>
@@ -112,7 +113,7 @@ interface TrainingInvitation {
                 <ul *ngIf="microcycles[meso.id]?.length"><li *ngFor="let micro of microcycles[meso.id]"><strong>{{ micro.sequenceNumber }}. {{ micro.name }}</strong> · {{ micro.startDate | date:'mediumDate' }}<span *ngIf="micro.endDate"> — {{ micro.endDate | date:'mediumDate' }}</span><span *ngIf="micro.focus"> · {{ micro.focus }}</span></li></ul>
               </article>
             </section>
-            <form (ngSubmit)="createSession(plan)" class="session-form">
+            <form *ngIf="current.canManage" (ngSubmit)="createSession(plan)" class="session-form">
               <label>Fecha<input type="date" name="sessionDate{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].date" required /></label>
               <label>Sesión<input name="sessionTitle{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].title" maxlength="160" placeholder="Ej. Fuerza tren inferior" required /></label>
               <label>Tipo<select name="sessionType{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].type"><option value="endurance">Resistencia</option><option value="strength">Fuerza</option><option value="mobility">Movilidad</option><option value="recovery">Recuperación</option><option value="health">Salud</option><option value="general">General</option><option value="other">Otro</option></select></label>
@@ -122,8 +123,8 @@ interface TrainingInvitation {
             <div *ngIf="sessions[plan.id]?.length" class="session-list">
               <div *ngFor="let session of sessions[plan.id]" class="session-row">
                 <div><strong>{{ session.scheduledDate | date:'mediumDate' }} · {{ session.title }}</strong><p>{{ session.durationMinutes || '—' }} min <span *ngIf="session.intensityTarget">· {{ session.intensityTarget }}</span></p><p *ngIf="session.completedAt" class="muted">Registrada: {{ session.actualDurationMinutes || '—' }} min · RPE {{ session.sessionRpe ?? '—' }}</p></div>
-                <button type="button" class="secondary" (click)="openRecord(session)" [disabled]="saving">{{ recordingSessionId === session.id ? 'Cerrar registro' : (session.completedAt ? 'Editar registro' : 'Registrar realización') }}</button>
-                <form *ngIf="recordingSessionId === session.id" class="record-form" (ngSubmit)="record(session)">
+                <button *ngIf="current.canManage" type="button" class="secondary" (click)="openRecord(session)" [disabled]="saving">{{ recordingSessionId === session.id ? 'Cerrar registro' : (session.completedAt ? 'Editar registro' : 'Registrar realización') }}</button>
+                <form *ngIf="current.canManage && recordingSessionId === session.id" class="record-form" (ngSubmit)="record(session)">
                   <label>Duración real (min)<input type="number" [(ngModel)]="recordDrafts[session.id].duration" name="actualDuration{{session.id}}" min="1" max="1440" required /></label>
                   <label>Esfuerzo percibido (RPE)<input type="number" [(ngModel)]="recordDrafts[session.id].rpe" name="actualRpe{{session.id}}" min="0" max="10" step="0.5" required /></label>
                   <label>Notas<textarea [(ngModel)]="recordDrafts[session.id].notes" name="recordNotes{{session.id}}" rows="2" maxlength="2000" placeholder="Cómo te has encontrado, ajustes realizados…"></textarea></label>
