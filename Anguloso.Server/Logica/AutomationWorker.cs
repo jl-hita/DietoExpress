@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Anguloso.Server.Model;
 using Npgsql;
 using NpgsqlTypes;
 
@@ -299,6 +300,13 @@ public sealed class AutomationWorker : BackgroundService
             $"job:{job.Id}:patient-notification");
     }
 
+    private static bool MentionsPatientPortal(string subject, string htmlBody)
+    {
+        var content = subject + " " + htmlBody;
+        return content.Contains("portal", StringComparison.OrdinalIgnoreCase) ||
+               content.Contains("/patient?tab=", StringComparison.OrdinalIgnoreCase);
+    }
+
     private async Task ExecuteEmailPatientAsync(AutomationJob job, CancellationToken cancellationToken)
     {
         var action = AutomationJson.Deserialize<EmailPatientAction>(job.Payload)
@@ -328,7 +336,22 @@ public sealed class AutomationWorker : BackgroundService
 
         using var scope = _scopeFactory.CreateScope();
         var emailServ = scope.ServiceProvider.GetRequiredService<EmailServ>();
-        var result = await emailServ.SendEmailAsync(email, action.Subject, action.HtmlBody, $"job:{job.Id}:email");
+        BoolMensaje result;
+        if (MentionsPatientPortal(action.Subject, action.HtmlBody) &&
+            !action.HtmlBody.Contains("/patient?token=", StringComparison.OrdinalIgnoreCase))
+        {
+            var portalEmail = scope.ServiceProvider.GetRequiredService<PatientPortalEmailService>();
+            result = await portalEmail.SendAsync(
+                action.ClientId,
+                action.Subject,
+                action.HtmlBody,
+                $"job:{job.Id}:email",
+                cancellationToken);
+        }
+        else
+        {
+            result = await emailServ.SendEmailAsync(email, action.Subject, action.HtmlBody, $"job:{job.Id}:email");
+        }
         if (!result.Exito)
             throw new InvalidOperationException(result.Mensaje);
     }
