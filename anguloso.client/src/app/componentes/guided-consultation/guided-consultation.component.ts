@@ -58,6 +58,7 @@ interface GuidedConsultationResponse {
           <p>{{ data.suggestedConsultationType === 'first' ? 'Primera consulta' : 'Seguimiento' }} · {{ data.appointment.startsAt | date:'dd/MM/yyyy HH:mm' }}</p>
         </div>
         <div class="header-actions">
+          <button mat-stroked-button type="button" *ngIf="data.appointment.modality === 'online' && consultation?.status !== 'completed' && !videoPanelVisible" (click)="videoPanelVisible = true"><mat-icon>videocam</mat-icon> Mostrar videollamada</button>
           <span class="online-consultation-badge" *ngIf="data.appointment.modality === 'online' && consultation?.status !== 'completed'"><mat-icon>videocam</mat-icon> Videollamada integrada</span>
           <button mat-stroked-button type="button" *ngIf="consultation?.status !== 'completed'" (click)="toggleQuickMode()"><mat-icon>{{ quickMode ? 'view_agenda' : 'bolt' }}</mat-icon>{{ quickMode ? 'Flujo completo' : 'Consulta rápida' }}</button>
           <span class="status" [class.completed]="consultation?.status === 'completed'">
@@ -407,8 +408,9 @@ interface GuidedConsultationResponse {
         </main>
       </div>
       <app-video-consultation
-        *ngIf="data.appointment.modality === 'online' && consultation?.status !== 'completed'"
+        *ngIf="data.appointment.modality === 'online' && consultation?.status !== 'completed' && videoPanelVisible"
         [embedded]="true"
+        (closeEmbedded)="videoPanelVisible = false"
         [appointmentIdInput]="data.appointment.id"
         [appointmentStartsAtInput]="data.appointment.startsAt">
       </app-video-consultation>
@@ -510,6 +512,7 @@ export class GuidedConsultationComponent implements OnInit {
       : (this.isFirstConsultation ? firstConsultationOrder : followUpOrder);
     return order.map(key => this.steps.find(step => step.key === key)).filter((step): step is ConsultationStep => !!step);
   }
+  videoPanelVisible = true;
   selectedSlot: string | null = null;
   private readonly slotsLoadingState = signal(false);
   get slotsLoading(): boolean { return this.slotsLoadingState(); }
