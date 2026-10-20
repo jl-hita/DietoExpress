@@ -13,6 +13,7 @@ public class ProfileDto
     [StringLength(1_000_000)] public string ClinicLogo { get; set; } = string.Empty;
     public bool DirectoryEnabled { get; set; }
     public bool OnlineConsultations { get; set; }
+    public bool DirectorySportsTraining { get; set; }
     [StringLength(120)] public string DirectoryCity { get; set; } = string.Empty;
     [StringLength(120)] public string DirectoryProvince { get; set; } = string.Empty;
     [StringLength(2000)] public string DirectoryBio { get; set; } = string.Empty;
@@ -31,6 +32,7 @@ public class UpdateProfileDto
     [StringLength(1_000_000)] public string ClinicLogo { get; set; } = string.Empty;
     public bool DirectoryEnabled { get; set; }
     public bool OnlineConsultations { get; set; }
+    public bool DirectorySportsTraining { get; set; }
     [StringLength(120)] public string DirectoryCity { get; set; } = string.Empty;
     [StringLength(120)] public string DirectoryProvince { get; set; } = string.Empty;
     [StringLength(2000)] public string DirectoryBio { get; set; } = string.Empty;

@@ -403,6 +403,24 @@
       </div>
     </section>
 
+    <main class="portal-content" *ngIf="activeTab === 'training' && trainingEnabled">
+      <section class="day-hero"><div class="day-title"><div class="day-title-icon"><mat-icon>fitness_center</mat-icon></div><div><span class="eyebrow">Tu planificación deportiva</span><h2>Entrenamientos</h2><span>Registra lo que has realizado para que tus profesionales puedan revisar tu evolución.</span></div></div></section>
+      <div class="portal-inline-error" *ngIf="trainingError" role="alert"><mat-icon>error_outline</mat-icon><span>{{ trainingError }}</span></div>
+      <div class="loading-screen" *ngIf="trainingLoading"><mat-spinner diameter="36"></mat-spinner><p>Cargando entrenamientos…</p></div>
+      <div class="empty-state" *ngIf="!trainingLoading && trainingSessions.length === 0"><mat-icon>event_busy</mat-icon><h3>No hay sesiones programadas</h3><p>Cuando tu profesional añada sesiones, aparecerán aquí.</p></div>
+      <article class="summary-card" *ngFor="let session of trainingSessions" style="display:block;margin-bottom:14px;padding:18px;">
+        <span class="eyebrow">{{ session.scheduledDate | date:'fullDate' }}</span><h3>{{ session.title }}</h3>
+        <p>{{ session.durationMinutes || 'Duración libre' }} min <span *ngIf="session.intensityTarget">· {{ session.intensityTarget }}</span></p>
+        <p *ngIf="session.instructions">{{ session.instructions }}</p>
+        <div *ngIf="session.exercisePrescription" style="margin:12px 0;padding:12px;border-radius:10px;background:#f0fdfa;border:1px solid #ccfbf1"><strong>Ejercicios, series y descansos</strong><p style="white-space:pre-line;margin:6px 0 0">{{ session.exercisePrescription }}</p></div>
+        <p *ngIf="session.completedAt" class="muted">Último registro: {{ session.actualDurationMinutes || '—' }} min · RPE {{ session.sessionRpe ?? '—' }}</p>
+        <div class="form-group"><label [for]="'training-duration-' + session.id">Duración realizada (minutos)</label><input [id]="'training-duration-' + session.id" type="number" min="1" max="1440" [(ngModel)]="trainingInputs[session.id].duration" /></div>
+        <div class="form-group"><label [for]="'training-rpe-' + session.id">Esfuerzo percibido (0–10)</label><input [id]="'training-rpe-' + session.id" type="number" min="0" max="10" step="0.5" [(ngModel)]="trainingInputs[session.id].rpe" /></div>
+        <div class="form-group"><label [for]="'training-notes-' + session.id">Notas (opcional)</label><textarea [id]="'training-notes-' + session.id" rows="2" [(ngModel)]="trainingInputs[session.id].notes"></textarea></div>
+        <button type="button" class="btn-portal-primary" (click)="recordTrainingSession(session)" [disabled]="trainingSaving">{{ trainingSaving ? 'Guardando…' : 'Guardar registro' }}</button>
+      </article>
+    </main>
+
     <nav class="bottom-nav">
       <button type="button" class="nav-tab" [class.active]="activeTab === 'today'" [attr.aria-current]="activeTab === 'today' ? 'page' : null" aria-label="Ver plan de hoy" (click)="setTab('today')">
         <mat-icon>restaurant_menu</mat-icon>
@@ -431,6 +449,9 @@
       <button type="button" class="nav-tab" [class.active]="activeTab === 'documents'" [attr.aria-current]="activeTab === 'documents' ? 'page' : null" aria-label="Ver mi documentación" (click)="openDocuments()">
         <mat-icon>description</mat-icon>
         <span>Docs</span>
+      </button>
+      <button *ngIf="trainingEnabled" type="button" class="nav-tab" [class.active]="activeTab === 'training'" [attr.aria-current]="activeTab === 'training' ? 'page' : null" aria-label="Ver mis entrenamientos" (click)="setTab('training')">
+        <mat-icon>fitness_center</mat-icon><span>Entreno</span>
       </button>
       <button type="button" class="nav-tab" [class.active]="activeTab === 'progress'" [attr.aria-current]="activeTab === 'progress' ? 'page' : null" aria-label="Ver mi progreso" (click)="setTab('progress')">
         <mat-icon>trending_up</mat-icon>

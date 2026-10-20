@@ -64,6 +64,7 @@ public partial class users
     // Campos opcionales del directorio público; se mantienen aquí para que EF pueda consultar y persistir el perfil.
     public bool? directory_enabled { get; set; }
     public bool? online_consultations { get; set; }
+    public bool? directory_sports_training { get; set; }
     public string directory_city { get; set; }
     public string directory_province { get; set; }
     public string directory_bio { get; set; }

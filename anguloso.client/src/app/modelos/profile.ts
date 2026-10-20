@@ -8,6 +8,7 @@ export interface Profile {
   clinicLogo?: string;
   directoryEnabled?: boolean;
   onlineConsultations?: boolean;
+  directorySportsTraining?: boolean;
   directoryCity?: string;
   directoryProvince?: string;
   directoryBio?: string;
@@ -24,6 +25,7 @@ export interface UpdateProfile {
   clinicLogo?: string;
   directoryEnabled?: boolean;
   onlineConsultations?: boolean;
+  directorySportsTraining?: boolean;
   directoryCity?: string;
   directoryProvince?: string;
   directoryBio?: string;

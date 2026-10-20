@@ -88,6 +88,7 @@
         <p *ngIf="item.clinicName">{{ item.clinicName }}</p>
         <p *ngIf="item.city || item.province">{{ item.city }}<span *ngIf="item.city && item.province">, </span>{{ item.province }}</p>
         <span *ngIf="item.onlineConsultations" class="badge">Consulta online</span>
+        <span *ngIf="item.offersSportsTraining" class="badge">Planificación deportiva</span>
         <span *ngIf="item.isVerified" class="badge verified">Perfil verificado</span>
         <p *ngIf="item.specialtyList.length" class="specialty-tags"><span *ngFor="let specialty of item.specialtyList">{{ specialty }}</span></p>
         <p class="profile-quality">Perfil {{ item.profileCompleteness }}% completo · {{ !item.canAcceptAppointments ? "No acepta citas temporalmente" : (item.availableRuleCount ? "Agenda activa" : "Sin agenda publicada") }}</p>
@@ -104,6 +105,7 @@
     <p *ngIf="profile.clinicName">{{ profile.clinicName }}</p>
     <p *ngIf="profile.city || profile.province">{{ profile.city }}<span *ngIf="profile.city && profile.province">, </span>{{ profile.province }}</p>
     <span *ngIf="profile.onlineConsultations" class="badge">Consulta online</span>
+    <span *ngIf="profile.offersSportsTraining" class="badge">Planificación deportiva</span>
     <span *ngIf="profile.isVerified" class="badge verified">Perfil verificado</span>
     <button mat-button type="button" (click)="shareProfile()">Compartir perfil</button>
     <p *ngIf="profile.specialtyList.length" class="specialty-tags"><span *ngFor="let specialty of profile.specialtyList">{{ specialty }}</span></p>

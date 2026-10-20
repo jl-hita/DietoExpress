@@ -63,6 +63,9 @@
     </div>
 
     <div class="actions client-actions" aria-label="Acciones del paciente">
+      <a *ngIf="clientId" mat-stroked-button color="primary" [routerLink]="['/clients', clientId, 'training']" title="Planificación deportiva opcional del cliente">
+        <mat-icon>fitness_center</mat-icon> Planificación deportiva
+      </a>
       <a *ngIf="clientId" mat-stroked-button color="primary" [routerLink]="['/clients', clientId, 'specializations']" title="Configurar especializaciones del paciente">
         <mat-icon>tune</mat-icon> Especializaciones
       </a>

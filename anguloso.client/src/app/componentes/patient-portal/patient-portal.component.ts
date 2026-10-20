@@ -19,7 +19,23 @@ import { PatientShoppingCategory, PatientShoppingComponent } from './patient-sho
 import { PatientHeaderComponent } from './patient-header/patient-header.component';
 import { PatientDocumentsComponent } from './patient-documents/patient-documents.component';
 
-type ActiveTab = 'today' | 'shopping' | 'appointments' | 'progress' | 'messages' | 'documents';
+interface TrainingPortalSession {
+  id: number;
+  planId: number;
+  scheduledDate: string;
+  title: string;
+  sessionType: string;
+  durationMinutes?: number | null;
+  intensityTarget?: string | null;
+  instructions?: string | null;
+  exercisePrescription?: string | null;
+  completedAt?: string | null;
+  actualDurationMinutes?: number | null;
+  sessionRpe?: number | null;
+  recordNotes?: string | null;
+}
+
+type ActiveTab = 'today' | 'shopping' | 'appointments' | 'progress' | 'messages' | 'documents' | 'training';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -32,6 +48,13 @@ type ActiveTab = 'today' | 'shopping' | 'appointments' | 'progress' | 'messages'
 export class PatientPortalComponent implements OnInit, OnDestroy {
   // Los estados que dependen de respuestas HTTP, APIs del navegador o callbacks asíncronos
   // se respaldan en signals; los getters/setters conservan los nombres de la plantilla.
+
+  trainingEnabled = false;
+  trainingLoading = false;
+  trainingSaving = false;
+  trainingError = '';
+  trainingSessions: TrainingPortalSession[] = [];
+  trainingInputs: Record<number, { duration: number | null; rpe: number | null; notes: string }> = {};
 
   private readonly clientIdState = signal<number | undefined>(undefined);
   get clientId(): number | undefined { return this.clientIdState(); }
@@ -422,6 +445,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
         this.profile = p;
         this.portalDataError = null;
         if (p.id) this.clientId = p.id;
+        if (!clientIdParam) this.loadTrainingSessions();
         this.loadCompletedMeals();
         // La vista previa del profesional usa clientId y no tiene sesión de paciente.
         if (!clientIdParam) {
@@ -1018,6 +1042,46 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
     const max = Math.max(...history.map((h: any) => h.weight));
     if (max === min) return 60;
     return Math.round(((weight - min) / (max - min)) * 85 + 15);
+  }
+
+  /** Consulta el módulo deportivo solo para la sesión autenticada del paciente. */
+  loadTrainingSessions(): void {
+    this.trainingLoading = true;
+    this.http.get<{ enabled: boolean; sessions: TrainingPortalSession[] }>('/api/portal/training/sessions').pipe(
+      catchError(() => of({ enabled: false, sessions: [] as TrainingPortalSession[] }))
+    ).subscribe(result => {
+      this.trainingEnabled = !!result.enabled;
+      this.trainingSessions = result.sessions || [];
+      this.trainingInputs = {};
+      for (const session of this.trainingSessions) {
+        this.trainingInputs[session.id] = {
+          duration: session.actualDurationMinutes ?? session.durationMinutes ?? null,
+          rpe: session.sessionRpe ?? 5,
+          notes: session.recordNotes ?? ''
+        };
+      }
+      this.trainingLoading = false;
+    });
+  }
+
+  recordTrainingSession(session: TrainingPortalSession): void {
+    const input = this.trainingInputs[session.id];
+    if (!input || !Number.isFinite(Number(input.duration)) || Number(input.duration) < 1 || Number(input.duration) > 1440
+        || !Number.isFinite(Number(input.rpe)) || Number(input.rpe) < 0 || Number(input.rpe) > 10) {
+      this.trainingError = 'Indica una duración válida y un esfuerzo percibido entre 0 y 10.';
+      return;
+    }
+    this.trainingSaving = true;
+    this.trainingError = '';
+    this.http.post('/api/portal/training/sessions/' + session.id + '/record', {
+      completedAt: new Date().toISOString(),
+      actualDurationMinutes: Number(input.duration),
+      sessionRpe: Number(input.rpe),
+      notes: input.notes || null
+    }).subscribe({
+      next: () => { this.trainingSaving = false; this.loadTrainingSessions(); },
+      error: error => { this.trainingSaving = false; this.trainingError = error?.error?.message || 'No se pudo guardar el entrenamiento.'; }
+    });
   }
 
   get hasShoppingItems(): boolean {
