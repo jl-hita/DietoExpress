@@ -41,17 +41,18 @@ public sealed class PatientPortalEmailService
         var previousExpiry = client.access_token_expires_at;
         var previousTokenVersion = client.portal_token_version;
 
+        var effectiveExpiry = expiresAtUtc ?? DateTime.UtcNow.AddHours(24);
         var accessLink = await _portalAccess.CreateAccessLinkAsync(
             clientId,
             cancellationToken,
-            expiresAtUtc ?? DateTime.UtcNow.AddHours(24));
+            effectiveExpiry);
         if (string.IsNullOrWhiteSpace(accessLink))
             return new BoolMensaje { Exito = false, Mensaje = "No se ha podido generar el enlace de acceso al portal." };
 
         var safeLink = System.Net.WebUtility.HtmlEncode(accessLink);
         var bodyWithPortalLink = htmlBody +
             $"<p><a href='{safeLink}'>Acceder al portal de paciente</a></p>" +
-            "<p>Este enlace personal es de un solo uso y caduca en 24 horas, salvo que se indique una fecha posterior.</p>";
+            "<p>Este enlace es personal y de un solo uso.</p>";
 
         try
         {
