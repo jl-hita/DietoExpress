@@ -61,7 +61,14 @@ public sealed class Module18OnlineConsultationIntegrationTests
         Assert.Contains("online:room-ready:patient:",s);
         Assert.Contains("online:waiting:patient:",s);
         Assert.Contains("online:waiting:professional:",s);
+        Assert.Contains("online:joined:patient:",s);
+        Assert.Contains("online:joined:professional:",s);
+        Assert.Contains("online_consultation.patient_joined",s);
+        Assert.Contains("online_consultation.professional_joined",s);
+        Assert.Contains("El paciente se ha unido a la videollamada",s);
+        Assert.Contains("Tu nutricionista se ha unido",s);
         Assert.Contains("online_consultation.room_available.patient",s);
+        Assert.Contains("$\"video:{appointment.id}:connected:{(User.IsInRole(\"patient\") ? \"patient\" : \"professional\")}\"",a);
     }
 
     [Fact]

@@ -59,6 +59,8 @@ public sealed class AutomationService
                 "documents.completed" => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"]),
                 "online_consultation.room_available.patient" => new AutomationRuleConfig(true, null, "patient", ["in_app", "push"]),
                 "online_consultation.room_available.professional" => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"]),
+                "online_consultation.patient_joined" => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"]),
+                "online_consultation.professional_joined" => new AutomationRuleConfig(true, null, "patient", ["in_app", "push"]),
                 "online_consultation.patient_waiting" => new AutomationRuleConfig(true, 5, "patient", ["in_app", "push"]),
                 "online_consultation.professional_waiting" => new AutomationRuleConfig(true, 5, "assigned_professional", ["in_app"]),
                 _ => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"])
@@ -277,6 +279,8 @@ public sealed class AutomationService
         if (idempotencyKey?.StartsWith("documents:completed:", StringComparison.Ordinal) == true) return "documents.completed";
         if (idempotencyKey?.StartsWith("online:room-ready:patient:", StringComparison.Ordinal) == true) return "online_consultation.room_available.patient";
         if (idempotencyKey?.StartsWith("online:room-ready:professional:", StringComparison.Ordinal) == true) return "online_consultation.room_available.professional";
+        if (idempotencyKey?.StartsWith("online:joined:patient:", StringComparison.Ordinal) == true) return "online_consultation.patient_joined";
+        if (idempotencyKey?.StartsWith("online:joined:professional:", StringComparison.Ordinal) == true) return "online_consultation.professional_joined";
         if (idempotencyKey?.StartsWith("online:waiting:patient:", StringComparison.Ordinal) == true) return "online_consultation.patient_waiting";
         if (idempotencyKey?.StartsWith("online:waiting:professional:", StringComparison.Ordinal) == true) return "online_consultation.professional_waiting";
         if (idempotencyKey?.EndsWith(":reminder-24h", StringComparison.Ordinal) == true) return "appointment.reminder.24h";
@@ -760,23 +764,42 @@ public sealed class AutomationService
                 {
                     var payload = AutomationJson.Deserialize<VideoParticipantConnectedPayload>(evt.Payload)
                         ?? throw new InvalidOperationException("Payload inválido para video.participant.connected.");
-                    var oppositeRole = string.Equals(payload.ParticipantRole, "patient", StringComparison.OrdinalIgnoreCase) ? "professional" : "patient";
+                    var participantIsPatient = string.Equals(payload.ParticipantRole, "patient", StringComparison.OrdinalIgnoreCase);
+                    var participantRole = participantIsPatient ? "patient" : "professional";
+                    var oppositeRole = participantIsPatient ? "professional" : "patient";
+
+                    // Si el segundo participante llega, invalida el recordatorio que esperaba al primero.
                     await CancelPendingJobsByIdempotencyPrefixAsync(evt.TenantId, $"online:waiting:{oppositeRole}:{payload.AppointmentId}:", cancellationToken);
-                    if (string.Equals(payload.ParticipantRole, "patient", StringComparison.OrdinalIgnoreCase))
+
+                    if (participantIsPatient)
                     {
+                        // Aviso inmediato al profesional; la clave estable evita duplicados por reconexiones.
+                        await ScheduleActionAsync(evt.TenantId, "create_professional_task",
+                            new CreateTaskAction(payload.ClientId, payload.NutritionistId, "El paciente se ha unido a la videollamada",
+                                "El paciente ya está en la sala de consulta online.", null, "high", "video_consultation"),
+                            DateTime.UtcNow, evt.Id, $"online:joined:patient:{payload.AppointmentId}", cancellationToken: cancellationToken);
+
+                        // Si el profesional aún no ha entrado, se avisa al paciente tras cinco minutos.
                         await ScheduleActionAsync(evt.TenantId, "notify_patient",
-                            new NotifyPatientAction(payload.ClientId, "online_professional_waiting", "Tu nutricionista todavía no ha entrado",
-                                "La sala está abierta y tu nutricionista todavía no se ha conectado. Puedes permanecer en la sala o volver a intentarlo.",
+                            new NotifyPatientAction(payload.ClientId, "online_patient_waiting", "Tu nutricionista todavía no ha entrado",
+                                "La sala está abierta. Puedes permanecer en ella o volver a intentarlo mientras tu nutricionista se conecta.",
                                 $"/video-consultation/{payload.AppointmentId}"),
-                            DateTime.UtcNow.AddMinutes(5), evt.Id, $"online:waiting:professional:{payload.AppointmentId}:{evt.Id}", cancellationToken: cancellationToken);
+                            DateTime.UtcNow.AddMinutes(5), evt.Id, $"online:waiting:patient:{payload.AppointmentId}:{evt.Id}", cancellationToken: cancellationToken);
                     }
                     else
                     {
+                        // El paciente recibe aviso in-app/push de que el profesional ya está en la sala.
                         await ScheduleActionAsync(evt.TenantId, "notify_patient",
-                            new NotifyPatientAction(payload.ClientId, "online_patient_waiting", "El paciente todavía no ha entrado",
-                                "La sala está abierta y el paciente todavía no se ha conectado. Puedes permanecer en la sala mientras esperas.",
+                            new NotifyPatientAction(payload.ClientId, "online_professional_joined", "Tu nutricionista se ha unido",
+                                "Tu nutricionista ya está en la sala de consulta online. Puedes entrar en la videollamada.",
                                 $"/video-consultation/{payload.AppointmentId}"),
-                            DateTime.UtcNow.AddMinutes(5), evt.Id, $"online:waiting:patient:{payload.AppointmentId}:{evt.Id}", cancellationToken: cancellationToken);
+                            DateTime.UtcNow, evt.Id, $"online:joined:professional:{payload.AppointmentId}", cancellationToken: cancellationToken);
+
+                        // Si el paciente no entra, se crea un recordatorio para el profesional después de cinco minutos.
+                        await ScheduleActionAsync(evt.TenantId, "create_professional_task",
+                            new CreateTaskAction(payload.ClientId, payload.NutritionistId, "El paciente todavía no ha entrado",
+                                "La sala está abierta y el paciente aún no se ha conectado.", DateTime.UtcNow.AddMinutes(5), "normal", "video_consultation"),
+                            DateTime.UtcNow.AddMinutes(5), evt.Id, $"online:waiting:professional:{payload.AppointmentId}:{evt.Id}", cancellationToken: cancellationToken);
                     }
                     break;
                 }

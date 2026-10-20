@@ -227,6 +227,14 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
   get commercialPreferenceLoaded(): boolean { return this.commercialPreferenceLoadedState(); }
   set commercialPreferenceLoaded(value: boolean) { this.commercialPreferenceLoadedState.set(value); }
 
+  private readonly commercialPreferenceDecidedState = signal(false);
+  get commercialPreferenceDecided(): boolean { return this.commercialPreferenceDecidedState(); }
+  set commercialPreferenceDecided(value: boolean) { this.commercialPreferenceDecidedState.set(value); }
+
+  private readonly commercialPreferenceEditingState = signal(false);
+  get commercialPreferenceEditing(): boolean { return this.commercialPreferenceEditingState(); }
+  set commercialPreferenceEditing(value: boolean) { this.commercialPreferenceEditingState.set(value); }
+
   private readonly commercialPreferenceSavingState = signal(false);
   get commercialPreferenceSaving(): boolean { return this.commercialPreferenceSavingState(); }
   set commercialPreferenceSaving(value: boolean) { this.commercialPreferenceSavingState.set(value); }
@@ -704,31 +712,57 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
   }
 
   loadCommercialPreference(): void {
-    if (this.isPreview || this.commercialPreferenceLoaded) return;
+    if (this.isPreview || this.commercialPreferenceLoaded || this.commercialPreferenceSaving) return;
+    this.commercialPreferenceMessage = null;
     this.portalService.getCommercialCommunicationPreference().subscribe({
       next: value => {
         this.commercialEmailEnabled = !!value?.emailEnabled;
+        // Missing state is not proof of a prior choice: show the explicit consent prompt.
+        this.commercialPreferenceDecided = value?.hasDecision === true;
         this.commercialPreferenceLoaded = true;
+        this.commercialPreferenceEditing = false;
       },
-      error: () => this.commercialPreferenceMessage = 'No hemos podido cargar tus preferencias comerciales.'
+      error: err => {
+        this.commercialPreferenceLoaded = false;
+        this.commercialPreferenceMessage = err?.error?.message || 'No hemos podido consultar tu preferencia comercial. Puedes reintentarlo; el resto del portal sigue disponible.';
+      }
     });
   }
 
+  chooseCommercialPreference(emailEnabled: boolean): void {
+    if (!this.commercialPreferenceLoaded || this.commercialPreferenceSaving) return;
+    this.commercialEmailEnabled = emailEnabled;
+    this.updateCommercialPreference();
+  }
+
+  editCommercialPreference(): void {
+    if (!this.commercialPreferenceLoaded || this.commercialPreferenceSaving) return;
+    this.commercialPreferenceMessage = null;
+    this.commercialPreferenceEditing = true;
+  }
+
+  cancelCommercialPreferenceEdit(): void {
+    this.commercialPreferenceEditing = false;
+    this.commercialPreferenceMessage = null;
+  }
+
   updateCommercialPreference(): void {
-    if (this.isPreview || this.commercialPreferenceSaving) return;
+    if (this.isPreview || !this.commercialPreferenceLoaded || this.commercialPreferenceSaving) return;
     this.commercialPreferenceSaving = true;
     this.commercialPreferenceMessage = null;
     this.portalService.updateCommercialCommunicationPreference(this.commercialEmailEnabled).subscribe({
       next: () => {
         this.commercialPreferenceSaving = false;
         this.commercialPreferenceLoaded = true;
+        this.commercialPreferenceDecided = true;
+        this.commercialPreferenceEditing = false;
         this.commercialPreferenceMessage = this.commercialEmailEnabled
-          ? 'Has activado las comunicaciones comerciales por email.'
-          : 'Has desactivado las comunicaciones comerciales por email.';
+          ? 'Has aceptado las comunicaciones comerciales por email.'
+          : 'Has rechazado las comunicaciones comerciales por email.';
       },
       error: err => {
         this.commercialPreferenceSaving = false;
-        this.commercialPreferenceMessage = err?.error?.message || 'No hemos podido guardar la preferencia.';
+        this.commercialPreferenceMessage = err?.error?.message || 'No hemos podido guardar tu elección. Comprueba la conexión e inténtalo de nuevo.';
       }
     });
   }

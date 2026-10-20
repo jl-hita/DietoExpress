@@ -864,7 +864,7 @@ public class AppointmentsController : ControllerBase
                     appointment.tenant_id, "video.participant.connected", "video_consultation", appointment.id.ToString(),
                     new AutomationService.VideoParticipantConnectedPayload(appointment.id, appointment.client_id, appointment.nutritionist_id,
                         User.IsInRole("patient") ? "patient" : "professional"),
-                    $"video:{appointment.id}:connected:{(User.IsInRole("patient") ? "patient" : "professional")}:{DateTime.UtcNow:yyyyMMddHHmmssfff}");
+                    $"video:{appointment.id}:connected:{(User.IsInRole("patient") ? "patient" : "professional")}");
             }
             catch (Exception ex)
             {

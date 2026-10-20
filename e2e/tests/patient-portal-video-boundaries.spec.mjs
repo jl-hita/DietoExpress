@@ -30,6 +30,25 @@ test.describe('P0 — límites de acceso del portal del paciente', () => {
 });
 
 test.describe('P1 — validación local de la consulta online', () => {
+  test('una autorización de videollamada fallida muestra un error comprensible y permite reintentar', async ({ page }) => {
+    let attempts = 0;
+    await page.route('**/api/appointments/77/video-access', async route => {
+      attempts++;
+      await route.fulfill({
+        status: 409,
+        contentType: 'application/json',
+        body: JSON.stringify({ message: 'La sala estará disponible 15 minutos antes de la cita.' })
+      });
+    });
+
+    await page.goto('/video-consultation/77');
+    await expect(page.getByRole('heading', { name: 'No se puede iniciar o recuperar la consulta' })).toBeVisible();
+    await expect(page.getByText('La sala estará disponible 15 minutos antes de la cita.')).toBeVisible();
+    await page.getByRole('button', { name: 'Reintentar conexión' }).click();
+    await expect.poll(() => attempts).toBe(2);
+    await expect(page.getByRole('heading', { name: 'No se puede iniciar o recuperar la consulta' })).toBeVisible();
+  });
+
   test('un identificador de cita inválido no solicita acceso a LiveKit ni abre una sala', async ({ page }) => {
     let videoAccessRequests = 0;
     page.on('request', request => {

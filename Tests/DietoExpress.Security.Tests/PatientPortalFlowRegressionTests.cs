@@ -65,4 +65,17 @@ public sealed class PatientPortalFlowRegressionTests
         Assert.Contains("home-video-access-card", dashboard);
         Assert.Contains("homeVideoAccessCountdown", dashboardComponent);
     }
+
+    [Fact]
+    public void PatientCommercialConsentUsesPatientIdentityAndDistinguishesNoChoiceFromRejection()
+    {
+        var controller = Read("Anguloso.Server/Controllers/CommercialCommunicationController.cs");
+        Assert.Contains("User.FindFirst(\"clientId\")", controller);
+        Assert.Contains("User.IsInRole(\"patient\")", controller);
+        Assert.DoesNotContain("AuthHelpers.GetUserId(User)", controller);
+        Assert.DoesNotContain("c.user_id=@user", controller);
+        Assert.Contains("(p.client_id IS NOT NULL)", controller);
+        Assert.Contains("hasDecision = reader.GetBoolean(3)", controller);
+        Assert.Contains("_service.SetEmailPreferenceAsync(parsedClientId", controller);
+    }
 }
