@@ -310,12 +310,14 @@ public sealed class TrainingPeriodizationController : ControllerBase
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         try
         {
-            await using (var shift = Command("WITH sequence_offset AS (
+            await using (var shift = Command("""
+                WITH sequence_offset AS (
                     SELECT COALESCE(MAX(sequence_number), 0) + COUNT(*) + 1 AS amount
                     FROM training_mesocycles WHERE plan_id = @planId
                 )
-                UPDATE training_mesocycles m SET sequence_number = m.sequence_number + offset.amount
-                FROM sequence_offset WHERE m.plan_id = @planId", ("planId", planId), transaction))
+                UPDATE training_mesocycles m SET sequence_number = m.sequence_number + sequence_offset.amount
+                FROM sequence_offset WHERE m.plan_id = @planId
+                """, ("planId", planId), transaction))
                 await shift.ExecuteNonQueryAsync(cancellationToken);
             for (var i = 0; i < request.OrderedIds.Length; i++)
                 await using (var update = Command("UPDATE training_mesocycles SET sequence_number = @sequence, updated_at = NOW() WHERE plan_id = @planId AND id = @id", ("sequence", i + 1), ("planId", planId), ("id", request.OrderedIds[i]), transaction))
@@ -458,12 +460,14 @@ public sealed class TrainingPeriodizationController : ControllerBase
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         try
         {
-            await using (var shift = Command("WITH sequence_offset AS (
+            await using (var shift = Command("""
+                WITH sequence_offset AS (
                     SELECT COALESCE(MAX(sequence_number), 0) + COUNT(*) + 1 AS amount
                     FROM training_microcycles WHERE mesocycle_id = @parentId
                 )
-                UPDATE training_microcycles m SET sequence_number = m.sequence_number + offset.amount
-                FROM sequence_offset WHERE m.mesocycle_id = @parentId", ("parentId", mesocycleId), transaction))
+                UPDATE training_microcycles m SET sequence_number = m.sequence_number + sequence_offset.amount
+                FROM sequence_offset WHERE m.mesocycle_id = @parentId
+                """, ("parentId", mesocycleId), transaction))
                 await shift.ExecuteNonQueryAsync(cancellationToken);
             for (var i = 0; i < request.OrderedIds.Length; i++)
                 await using (var update = Command("UPDATE training_microcycles SET sequence_number = @sequence, updated_at = NOW() WHERE mesocycle_id = @parentId AND id = @id", ("sequence", i + 1), ("parentId", mesocycleId), ("id", request.OrderedIds[i]), transaction))
