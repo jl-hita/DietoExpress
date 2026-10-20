@@ -99,6 +99,9 @@ test.describe('MVP de periodización deportiva', () => {
     await expect(page.getByRole('heading', { name: 'Planes de entrenamiento' })).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('.plan-card > .cycle-section > .mesocycle-card').filter({ hasText: 'Mesociclo E2E A' })).toBeVisible();
     await expect(page.locator('li').filter({ hasText: 'Microciclo E2E 1' })).toBeVisible();
+    await expect(page.locator('.week-grid')).toBeVisible();
+    await expect(page.locator('.week-summary')).toContainText('sesiones esta semana');
+    await page.getByRole('button', { name: 'Semana actual' }).click();
 
     const sessionTitle = 'Sesión E2E fuerza visual';
     await page.locator(`input[name="sessionTitle${plan.id}"]`).fill(sessionTitle);
@@ -108,6 +111,9 @@ test.describe('MVP de periodización deportiva', () => {
     await page.locator(`input[name="sessionIntensity${plan.id}"]`).fill('RPE 7 - técnica controlada');
     await page.locator(`textarea[name="sessionInstructions${plan.id}"]`).fill('Calentamiento, tres bloques principales y vuelta a la calma.');
     await page.getByRole('button', { name: /Añadir sesión/ }).click();
+    await expect(page.locator('.week-session').filter({ hasText: sessionTitle })).toBeVisible();
+    await expect(page.locator('.week-summary')).toContainText('60 min');
+    await page.getByRole('button', { name: /Lista/ }).click();
     let sessionCard = page.locator('.session-card').filter({ hasText: sessionTitle });
     await expect(sessionCard).toBeVisible();
     await expect(sessionCard).toContainText('RPE 7 - técnica controlada');
