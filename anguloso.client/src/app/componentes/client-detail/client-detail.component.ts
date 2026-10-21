@@ -1049,6 +1049,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
       next: () => {
         goal.status = status;
         goal.updatedAt = new Date().toISOString();
+        if (this.followupGoalHistory[goal.id]) this.loadFollowupGoalHistory(goal);
         this.snack.open(status === 'completed' ? 'Objetivo completado' : status === 'paused' ? 'Objetivo pausado' : 'Objetivo reactivado', 'Cerrar', { duration: 1800 });
       },
       error: err => this.snack.open(err?.error?.message || 'No se ha podido actualizar el objetivo', 'Cerrar', { duration: 3000 })
