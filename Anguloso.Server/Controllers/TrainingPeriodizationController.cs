@@ -29,6 +29,87 @@ public sealed class TrainingPeriodizationController : ControllerBase
         _emailServ = emailServ;
     }
 
+
+    [HttpGet("session-templates")]
+    public async Task<IActionResult> GetSessionTemplates(CancellationToken cancellationToken)
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId is null) return Unauthorized();
+        var superAdmin = User.IsInRole("superadmin");
+        var clinicAdmin = User.IsInRole("clinic_admin");
+        await using var command = Command("""
+            SELECT id, name, session_type, duration_minutes, intensity_target, instructions,
+                   exercise_prescription, created_at
+            FROM training_session_templates
+            WHERE (@superAdmin OR tenant_id IS NOT DISTINCT FROM (SELECT tenant_id FROM users WHERE id = @userId))
+              AND (@superAdmin OR @clinicAdmin OR created_by_user_id = @userId)
+            ORDER BY updated_at DESC, id DESC
+            """, ("userId", userId.Value), ("superAdmin", superAdmin), ("clinicAdmin", clinicAdmin));
+        var items = new List<object>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+            items.Add(new {
+                id = reader.GetInt64(0), name = reader.GetString(1), sessionType = reader.GetString(2),
+                durationMinutes = reader.IsDBNull(3) ? (int?)null : reader.GetInt32(3),
+                intensityTarget = reader.IsDBNull(4) ? null : reader.GetString(4),
+                instructions = reader.IsDBNull(5) ? null : reader.GetString(5),
+                exercisePrescription = reader.IsDBNull(6) ? null : reader.GetString(6),
+                createdAt = reader.GetDateTime(7)
+            });
+        return Ok(items);
+    }
+
+    [HttpPost("session-templates")]
+    public async Task<IActionResult> SaveSessionTemplate([FromBody] SaveTrainingSessionTemplateRequest request, CancellationToken cancellationToken)
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId is null) return Unauthorized();
+        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Trim().Length > 160)
+            return BadRequest(new { message = "El nombre de la plantilla debe tener entre 1 y 160 caracteres." });
+        if (request.SessionType is not ("endurance" or "strength" or "mobility" or "recovery" or "health" or "general" or "other"))
+            return BadRequest(new { message = "El tipo de sesión no es válido." });
+        if (request.DurationMinutes is < 1 or > 1440)
+            return BadRequest(new { message = "La duración debe estar entre 1 y 1440 minutos." });
+        if (request.IntensityTarget?.Length > 120 || request.Instructions?.Length > 4000 || request.ExercisePrescription?.Length > 6000)
+            return BadRequest(new { message = "La intensidad admite 120 caracteres, las instrucciones 4000 y la prescripción 6000." });
+
+        var superAdmin = User.IsInRole("superadmin");
+        var clinicAdmin = User.IsInRole("clinic_admin");
+        await using var command = Command("""
+            INSERT INTO training_session_templates(tenant_id, created_by_user_id, name, session_type, duration_minutes,
+                intensity_target, instructions, exercise_prescription)
+            SELECT tenant_id, @userId, @name, @type, @duration, @intensity, @instructions, @prescription
+            FROM users WHERE id = @userId
+            RETURNING id
+            """, ("userId", userId.Value), ("name", request.Name.Trim()), ("type", request.SessionType),
+            ("duration", request.DurationMinutes), ("intensity", request.IntensityTarget?.Trim()),
+            ("instructions", request.Instructions?.Trim()), ("prescription", request.ExercisePrescription?.Trim()));
+        var id = await command.ExecuteScalarAsync(cancellationToken);
+        if (id is null) return NotFound();
+        return Ok(new {
+            id = Convert.ToInt64(id), name = request.Name.Trim(), sessionType = request.SessionType,
+            durationMinutes = request.DurationMinutes, intensityTarget = request.IntensityTarget,
+            instructions = request.Instructions, exercisePrescription = request.ExercisePrescription
+        });
+    }
+
+    [HttpDelete("session-templates/{templateId:long}")]
+    public async Task<IActionResult> DeleteSessionTemplate(long templateId, CancellationToken cancellationToken)
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId is null) return Unauthorized();
+        await using var command = Command("""
+            DELETE FROM training_session_templates
+            WHERE id = @id
+              AND (@superAdmin OR tenant_id IS NOT DISTINCT FROM (SELECT tenant_id FROM users WHERE id = @userId))
+              AND (@superAdmin OR @clinicAdmin OR created_by_user_id = @userId)
+            RETURNING id
+            """, ("id", templateId), ("userId", userId.Value),
+            ("superAdmin", User.IsInRole("superadmin")), ("clinicAdmin", User.IsInRole("clinic_admin")));
+        var id = await command.ExecuteScalarAsync(cancellationToken);
+        return id is null ? NotFound() : NoContent();
+    }
+
     [HttpGet("templates")]
     public async Task<IActionResult> GetTemplates(CancellationToken cancellationToken)
     {
@@ -1023,6 +1104,7 @@ public sealed record TrainingMesocycleDto(int Id, int PlanId, string Name, int S
 public sealed record CreateTrainingMicrocycleRequest(string Name, int SequenceNumber, DateOnly StartDate, DateOnly? EndDate, string? Focus, string? Notes);
 public sealed record ReorderTrainingCyclesRequest(int[] OrderedIds);
 public sealed record SaveTrainingTemplateRequest(string Name);
+public sealed record SaveTrainingSessionTemplateRequest(string Name, string SessionType, int? DurationMinutes, string? IntensityTarget, string? Instructions, string? ExercisePrescription);
 public sealed record ApplyTrainingTemplateRequest(string Name, DateOnly StartDate);
 public sealed record TrainingTemplateSession(DateOnly ScheduledDate, string Title, string SessionType, int? DurationMinutes,
     string? IntensityTarget, string? Instructions, string? ExercisePrescription);
