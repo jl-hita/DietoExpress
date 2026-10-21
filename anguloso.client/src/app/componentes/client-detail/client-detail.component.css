@@ -1270,3 +1270,25 @@
 .followup-barrier-chips { display: flex; flex-wrap: wrap; gap: 7px; }
 .followup-barrier-chips span { padding: 6px 9px; border-radius: 999px; background: #e0f2fe; color: #075985; font-size: 11px; font-weight: 600; }
 @media print { .followup-barrier-summary { break-inside: avoid; } }
+
+.followup-goal-phase-editor { display:flex; align-items:center; justify-content:space-between; gap:10px; color:#475569; font-size:11px; font-weight:600; }
+.followup-goal-phase-editor select { max-width:190px; min-width:0; padding:7px 9px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; color:#334155; font:inherit; font-weight:500; }
+.followup-goal-progress-history { display:flex; flex-direction:column; gap:7px; padding-top:8px; border-top:1px solid #e2e8f0; }
+.followup-goal-progress-history > strong { color:#475569; font-size:11px; }
+.followup-goal-progress-history > div { display:flex; flex-wrap:wrap; gap:6px; }
+.followup-goal-progress-history span { padding:5px 7px; border-radius:6px; background:#f1f5f9; color:#475569; font-size:10px; font-variant-numeric:tabular-nums; }
+.followup-goal-history { display:flex; flex-direction:column; gap:9px; margin-top:10px; padding:12px; border-radius:9px; background:#f8fafc; }
+.followup-goal-history > strong { color:#334155; font-size:12px; }
+.followup-goal-history > span { color:#64748b; font-size:11px; }
+.followup-goal-history > p { margin:0; color:#64748b; font-size:11px; }
+.followup-goal-event { display:grid; grid-template-columns:115px 1fr; gap:8px; padding-bottom:7px; border-bottom:1px solid #e2e8f0; }
+.followup-goal-event:last-of-type { padding-bottom:0; border-bottom:0; }
+.followup-goal-event > span { color:#64748b; font-size:10px; }
+.followup-goal-event > div { display:flex; flex-direction:column; gap:3px; }
+.followup-goal-event > div > strong { color:#334155; font-size:11px; }
+.followup-goal-event small { color:#64748b; font-size:10px; overflow-wrap:anywhere; }
+@media(max-width:560px) {
+  .followup-goal-phase-editor { align-items:flex-start; flex-direction:column; }
+  .followup-goal-phase-editor select { width:100%; max-width:none; }
+  .followup-goal-event { grid-template-columns:1fr; gap:3px; }
+}
