@@ -1080,6 +1080,13 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     return labels[phase] ?? phase;
   }
 
+  hasFollowupMetricData(): boolean {
+    return this.checkins.some(checkin =>
+      [checkin.adherence, checkin.hunger, checkin.energy, checkin.sleep_quality,
+       checkin.sleep_hours, checkin.training, checkin.weight]
+        .some(value => typeof value === 'number' && Number.isFinite(value)));
+  }
+
   getFollowupPeriodComparison() {
     return compareFollowupPeriods(this.checkins, this.followupSettings.periodWeeks);
   }
