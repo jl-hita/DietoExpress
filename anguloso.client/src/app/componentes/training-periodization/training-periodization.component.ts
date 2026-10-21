@@ -40,7 +40,7 @@ interface TrainingInvitation {
       <p *ngIf="notice" class="success" role="status">{{ notice }}</p>
       <p *ngIf="acceptedClientId" role="status">Colaboración aceptada. <a [routerLink]="['/clients', acceptedClientId, 'training']">Abrir el entrenamiento</a></p>
       <section *ngIf="clientId === 0 && !invitations.length && !loading" class="panel">
-        <h2>Empieza desde la ficha de un cliente</h2>
+        <h2>No tienes invitaciones pendientes</h2>
         <p>Aquí aparecerán las invitaciones de colaboración pendientes. Para crear un plan de entrenamiento o revisar el de un cliente, abre su ficha y entra en «Planificación deportiva».</p>
         <a class="back-link" routerLink="/clients">Ir a clientes →</a>
       </section>
