@@ -17,6 +17,7 @@ public partial class patient_checkins
     public double? sleep_hours { get; set; }
     public int? training { get; set; }
     public string? difficulties { get; set; }
+    public string[] barriers { get; set; } = Array.Empty<string>();
     public string? notes { get; set; }
     public DateTime? reviewed_at { get; set; }
     public int? reviewed_by_user_id { get; set; }
