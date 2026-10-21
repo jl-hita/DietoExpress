@@ -37,7 +37,7 @@ FROM patient_messages m
 JOIN patient_conversations c ON c.id = m.conversation_id
 WHERE c.client_id = {0}
   AND m.sender_user_id IS NOT NULL
-  AND m.read_at IS NULL;", clientId.Value).SingleAsync();
+  AND m.read_at IS NULL", clientId.Value).SingleAsync();
         return Ok(count);
     }
 
