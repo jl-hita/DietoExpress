@@ -91,7 +91,33 @@ public sealed class TrainingPeriodizationController : ControllerBase
                     reader.IsDBNull(5) ? null : reader.GetString(5), reader.IsDBNull(6) ? null : reader.GetString(6)));
         }
 
-        var payload = JsonSerializer.Serialize(new TrainingTemplatePayload(planName, model, startDate, endDate, notes, sessions), new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        var mesocycles = new List<TrainingTemplateMesocycle>();
+        await using (var mesoCommand = Command("""
+            SELECT id, name, sequence_number, start_date, end_date, objective, notes
+            FROM training_mesocycles WHERE plan_id = @planId ORDER BY sequence_number, id
+            """, ("planId", planId)))
+        await using (var reader = await mesoCommand.ExecuteReaderAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+                mesocycles.Add(new TrainingTemplateMesocycle(reader.GetInt32(0), reader.GetString(1), reader.GetInt32(2),
+                    reader.GetFieldValue<DateOnly>(3), reader.IsDBNull(4) ? null : reader.GetFieldValue<DateOnly>(4),
+                    reader.IsDBNull(5) ? null : reader.GetString(5), reader.IsDBNull(6) ? null : reader.GetString(6), new List<TrainingTemplateMicrocycle>()));
+        }
+        foreach (var meso in mesocycles)
+        {
+            await using var microCommand = Command("""
+                SELECT name, sequence_number, start_date, end_date, focus, notes
+                FROM training_microcycles WHERE mesocycle_id = @mesocycleId ORDER BY sequence_number, id
+                """, ("mesocycleId", meso.Id));
+            await using var reader = await microCommand.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+                meso.Microcycles.Add(new TrainingTemplateMicrocycle(reader.GetString(0), reader.GetInt32(1),
+                    reader.GetFieldValue<DateOnly>(2), reader.IsDBNull(3) ? null : reader.GetFieldValue<DateOnly>(3),
+                    reader.IsDBNull(4) ? null : reader.GetString(4), reader.IsDBNull(5) ? null : reader.GetString(5)));
+        }
+
+        var payload = JsonSerializer.Serialize(new TrainingTemplatePayload(planName, model, startDate, endDate, notes, sessions, mesocycles),
+            new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
         await using var save = Command("""
             INSERT INTO training_plan_templates(tenant_id, created_by_user_id, name, periodization_model, notes, template_data)
             VALUES (@tenantId, @userId, @name, @model, @notes, CAST(@payload AS jsonb))
@@ -158,7 +184,30 @@ public sealed class TrainingPeriodizationController : ControllerBase
                 ("prescription", session.ExercisePrescription));
             await insertSession.ExecuteNonQueryAsync(cancellationToken);
         }
-        return Ok(new { id = newPlanId, name = request.Name.Trim(), copiedSessions = template.Sessions.Count });
+        foreach (var meso in template.Mesocycles)
+        {
+            var mesoStart = request.StartDate.AddDays(meso.StartDate.DayNumber - template.StartDate.DayNumber);
+            var mesoEnd = meso.EndDate.HasValue ? request.StartDate.AddDays(meso.EndDate.Value.DayNumber - template.StartDate.DayNumber) : (DateOnly?)null;
+            await using var insertMeso = Command("""
+                INSERT INTO training_mesocycles(plan_id, name, sequence_number, start_date, end_date, objective, notes)
+                VALUES (@planId, @name, @sequence, @startDate, @endDate, @objective, @notes)
+                RETURNING id
+                """, ("planId", newPlanId), ("name", meso.Name), ("sequence", meso.SequenceNumber),
+                ("startDate", mesoStart), ("endDate", mesoEnd), ("objective", meso.Objective), ("notes", meso.Notes));
+            var newMesoId = Convert.ToInt32(await insertMeso.ExecuteScalarAsync(cancellationToken));
+            foreach (var micro in meso.Microcycles)
+            {
+                var microStart = request.StartDate.AddDays(micro.StartDate.DayNumber - template.StartDate.DayNumber);
+                var microEnd = micro.EndDate.HasValue ? request.StartDate.AddDays(micro.EndDate.Value.DayNumber - template.StartDate.DayNumber) : (DateOnly?)null;
+                await using var insertMicro = Command("""
+                    INSERT INTO training_microcycles(mesocycle_id, name, sequence_number, start_date, end_date, focus, notes)
+                    VALUES (@mesocycleId, @name, @sequence, @startDate, @endDate, @focus, @notes)
+                    """, ("mesocycleId", newMesoId), ("name", micro.Name), ("sequence", micro.SequenceNumber),
+                    ("startDate", microStart), ("endDate", microEnd), ("focus", micro.Focus), ("notes", micro.Notes));
+                await insertMicro.ExecuteNonQueryAsync(cancellationToken);
+            }
+        }
+        return Ok(new { id = newPlanId, name = request.Name.Trim(), copiedSessions = template.Sessions.Count, copiedMesocycles = template.Mesocycles.Count });
     }
 
     [HttpGet("clients/{clientId:int}/profile")]
@@ -978,6 +1027,10 @@ public sealed record ApplyTrainingTemplateRequest(string Name, DateOnly StartDat
 public sealed record TrainingTemplateSession(DateOnly ScheduledDate, string Title, string SessionType, int? DurationMinutes,
     string? IntensityTarget, string? Instructions, string? ExercisePrescription);
 public sealed record TrainingTemplatePayload(string Name, string PeriodizationModel, DateOnly StartDate, DateOnly? EndDate,
-    string? Notes, List<TrainingTemplateSession> Sessions);
+    string? Notes, List<TrainingTemplateSession> Sessions, List<TrainingTemplateMesocycle> Mesocycles);
+public sealed record TrainingTemplateMesocycle(int Id, string Name, int SequenceNumber, DateOnly StartDate, DateOnly? EndDate,
+    string? Objective, string? Notes, List<TrainingTemplateMicrocycle> Microcycles);
+public sealed record TrainingTemplateMicrocycle(string Name, int SequenceNumber, DateOnly StartDate, DateOnly? EndDate,
+    string? Focus, string? Notes);
 
 public sealed record TrainingMicrocycleDto(int Id, int MesocycleId, string Name, int SequenceNumber, DateOnly StartDate, DateOnly? EndDate, string? Focus, string? Notes);
