@@ -32,6 +32,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCardModule } from '@angular/material/card';
 import { PatientCheckin, PatientPortalService, ClientPortalAccess, FollowupSettings, PatientDocument, ProfessionalDocumentSummary, PatientDocumentAuditEvent } from '../../servicios/patient-portal.service';
 import { Subscription } from 'rxjs';
+import { compareFollowupPeriods, countMissedCheckinWeeks, detectPersistentFollowupSignals } from '../../servicios/adherence-analytics';
 import { debounceTime, filter, switchMap } from 'rxjs/operators';
 
 @Component({
@@ -923,12 +924,13 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
       }
     };
 
-    compare('Adherencia', latest.adherence, previous?.adherence, { low: 5, drop: 2 }, '/10');
-    compare('Hambre', latest.hunger, previous?.hunger, { high: 8, rise: 2 }, '/10');
-    compare('Energía', latest.energy, previous?.energy, { low: 4, drop: 2 }, '/10');
-    compare('Calidad del sueño', latest.sleep_quality, previous?.sleep_quality, { low: 4, drop: 2 }, '/10');
-    compare('Horas de sueño', latest.sleep_hours, previous?.sleep_hours, { low: 6, drop: 1.5 }, ' h');
-    compare('Entrenamiento', latest.training, previous?.training, { low: 2, drop: 3 }, '/10');
+    // La adherencia se almacena en porcentaje (0–100), no en una escala de 0–10.
+    compare('Adherencia', latest.adherence, previous?.adherence, this.followupRule('adherence', { low: 60, drop: 15 }), '%');
+    compare('Hambre', latest.hunger, previous?.hunger, this.followupRule('hunger', { high: 8, rise: 2 }), '/10');
+    compare('Energía', latest.energy, previous?.energy, this.followupRule('energy', { low: 4, drop: 2 }), '/10');
+    compare('Calidad del sueño', latest.sleep_quality, previous?.sleep_quality, this.followupRule('sleep_quality', { low: 4, drop: 2 }), '/10');
+    compare('Horas de sueño', latest.sleep_hours, previous?.sleep_hours, this.followupRule('sleep_hours', { low: 6, drop: 1.5 }), ' h');
+    compare('Entrenamiento', latest.training, previous?.training, this.followupRule('training', { low: 2, drop: 3 }), '/10');
 
     if (latest.weight != null && previous?.weight != null && previous.weight > 0) {
       const percentage = ((latest.weight - previous.weight) / previous.weight) * 100;
@@ -958,7 +960,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
       const first = valid[0];
       const last = valid[valid.length - 1];
       const delta = last - first;
-      if (Math.abs(delta) < (suffix === ' h' ? 1 : 1.5)) return;
+      if (Math.abs(delta) < (suffix === ' h' ? 1 : suffix === '%' ? 15 : 1.5)) return;
       trends.push({
         label,
         icon: delta > 0 ? 'trending_up' : 'trending_down',
@@ -966,7 +968,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
       });
     };
 
-    addTrend('Adherencia', ordered.map(c => c.adherence), '/10');
+    addTrend('Adherencia', ordered.map(c => c.adherence), '%');
     addTrend('Hambre', ordered.map(c => c.hunger), '/10');
     addTrend('Energía', ordered.map(c => c.energy), '/10');
     addTrend('Sueño', ordered.map(c => c.sleep_quality), '/10');
@@ -975,6 +977,29 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     addTrend('Peso', ordered.map(c => c.weight), ' kg');
 
     return trends.slice(0, 4);
+  }
+
+  getFollowupPeriodComparison() {
+    return compareFollowupPeriods(this.checkins, this.followupSettings.periodWeeks);
+  }
+
+  getPersistentFollowupSignals() {
+    return detectPersistentFollowupSignals(this.checkins);
+  }
+
+  getMissedCheckinWeeks(): number {
+    return countMissedCheckinWeeks(this.checkins);
+  }
+
+  formatFollowupMetric(value: number | null, unit: string): string {
+    if (value === null) return 'Sin datos suficientes';
+    const formatted = Number(value.toFixed(unit === '%' ? 0 : 1)).toLocaleString('es-ES');
+    return unit === '%' ? `${formatted}%` : `${formatted}${unit}`;
+  }
+
+  printFollowupReport(): void {
+    // La vista de impresión reutiliza el resumen visible y evita generar un documento con datos distintos de la pantalla.
+    globalThis.window.print();
   }
 
   loadFollowupSettings(): void {
