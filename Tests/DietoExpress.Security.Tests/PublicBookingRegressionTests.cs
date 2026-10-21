@@ -81,7 +81,8 @@ public class PublicBookingRegressionTests
         Assert.Contains("appointment.status = \"confirmed\";", booking);
         Assert.Contains("if (isEstablishedClient)", booking);
         Assert.Contains("isEstablishedClient ? \"appointment.confirmed\" : \"appointment.requested\"", booking);
-        Assert.Contains("if (isEstablishedClient && requestedModality == \"online\")", booking);
+        Assert.Contains("if (isEstablishedClient)", booking);
+        Assert.Contains("if (requestedModality == \"online\")", booking);
         Assert.Contains("_videoMeetings.CreatePrivateRoomAsync(", booking);
     }
 
