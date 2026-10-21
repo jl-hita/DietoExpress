@@ -77,7 +77,9 @@ public class PublicBookingRegressionTests
         var booking = source[bookingStart..bookingEnd];
         Assert.Contains("a.client_id == client.id", booking);
         Assert.Contains("a.status == \"completed\"", booking);
-        Assert.Contains("status = isEstablishedClient ? \"confirmed\" : \"requested\"", booking);
+        Assert.Contains("status = \"requested\"", booking);
+        Assert.Contains("appointment.status = \"confirmed\";", booking);
+        Assert.Contains("if (isEstablishedClient)", booking);
         Assert.Contains("isEstablishedClient ? \"appointment.confirmed\" : \"appointment.requested\"", booking);
         Assert.Contains("if (isEstablishedClient && requestedModality == \"online\")", booking);
         Assert.Contains("_videoMeetings.CreatePrivateRoomAsync(", booking);
