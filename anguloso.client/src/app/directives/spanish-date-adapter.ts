@@ -5,8 +5,8 @@ import { parseDateDisplay } from './date-input.directive';
 /** Native DateAdapter that always displays and parses datepicker input as DD/MM/YYYY. */
 @Injectable()
 export class SpanishDateAdapter extends NativeDateAdapter {
-  override parse(value: unknown, parseFormat?: unknown): Date | null {
-    if (typeof value !== 'string') return super.parse(value, parseFormat);
+  override parse(value: unknown): Date | null {
+    if (typeof value !== 'string') return super.parse(value);
     const input = value.trim();
     if (!input) return null;
     const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(input);
