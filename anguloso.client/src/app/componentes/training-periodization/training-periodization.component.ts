@@ -459,21 +459,71 @@ export class TrainingPeriodizationComponent implements OnInit {
   }
 
   load(): void {
-    this.loading = true; this.loadFailed = false; this.error = '';
+    this.loading = true;
+    this.loadFailed = false;
+    this.error = '';
+    this.profile = null;
+
     this.http.get<TrainingProfile>(`/api/training/clients/${this.clientId}/profile`).pipe(
       timeout({ first: 15000 }),
-      catchError(() => { this.loadFailed = true; this.error = 'No se pudo cargar el perfil deportivo. Comprueba la conexión y vuelve a intentarlo.'; return of(null); })
-    ).subscribe(profile => {
-      this.profile = profile;
-      if (!profile) { this.loading = false; return; }
-      this.trainingManagementMode = profile.managementMode ?? (profile.enabled ? 'self' : 'none');
-      if (profile.enabled && this.trainingManagementMode === 'collaboration') this.loadCollaborations();
-      else this.collaborations = [];
-      if (!profile.enabled) { this.loading = false; return; }
-      this.http.get<TrainingPlan[]>(`/api/training/clients/${this.clientId}/plans`).pipe(timeout({ first: 15000 })).subscribe({
-        next: plans => { this.plans = plans; this.sessionDrafts = {}; for (const p of plans) this.sessionDrafts[p.id] = { date: this.defaultSessionDate(p), title: '', type: 'strength', duration: 60, intensity: '', instructions: '', exercisePrescription: '' }; this.loadSessions(plans); this.loading = false; },
-        error: () => { this.error = 'No se pudieron cargar los planes.'; this.loading = false; }
-      });
+      catchError(() => {
+        this.loadFailed = true;
+        this.error = 'No se pudo cargar el perfil deportivo. Comprueba la conexión y vuelve a intentarlo.';
+        return of(null);
+      })
+    ).subscribe({
+      next: profile => {
+        this.profile = profile;
+        if (!profile) {
+          this.loading = false;
+          return;
+        }
+
+        this.trainingManagementMode = profile.managementMode ?? (profile.enabled ? 'self' : 'none');
+        if (profile.enabled && this.trainingManagementMode === 'collaboration') this.loadCollaborations();
+        else this.collaborations = [];
+
+        if (!profile.enabled) {
+          this.loading = false;
+          return;
+        }
+
+        this.loading = true;
+        this.http.get<TrainingPlan[]>(`/api/training/clients/${this.clientId}/plans`).pipe(
+          timeout({ first: 15000 }),
+          catchError(() => {
+            this.error = 'No se pudieron cargar los planes. Comprueba la conexión y vuelve a intentarlo.';
+            return of(null);
+          })
+        ).subscribe(plans => {
+          if (plans === null) {
+            this.loading = false;
+            return;
+          }
+
+          this.plans = plans;
+          this.sessionDrafts = {};
+          for (const plan of plans) {
+            this.sessionDrafts[plan.id] = {
+              date: this.defaultSessionDate(plan),
+              title: '',
+              type: 'strength',
+              duration: 60,
+              intensity: '',
+              instructions: '',
+              exercisePrescription: ''
+            };
+          }
+          this.loadSessions(plans);
+          this.loading = false;
+        });
+      },
+      error: () => {
+        // Defensive fallback: no terminal HTTP/RxJS path should leave the view spinning.
+        this.loadFailed = true;
+        this.error = 'No se pudo cargar la planificación deportiva. Recarga la página y vuelve a intentarlo.';
+        this.loading = false;
+      }
     });
   }
 
