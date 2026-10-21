@@ -21,6 +21,21 @@ public static class TrainingTemplatesSchema
             );
             CREATE INDEX IF NOT EXISTS idx_training_plan_templates_tenant_owner
                 ON training_plan_templates(tenant_id, created_by_user_id, updated_at DESC);
+            CREATE TABLE IF NOT EXISTS training_session_templates (
+                id BIGSERIAL PRIMARY KEY,
+                tenant_id INTEGER REFERENCES tenants(id) ON DELETE CASCADE,
+                created_by_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                name VARCHAR(160) NOT NULL,
+                session_type VARCHAR(30) NOT NULL CHECK (session_type IN ('endurance','strength','mobility','recovery','health','general','other')),
+                duration_minutes INTEGER CHECK (duration_minutes IS NULL OR duration_minutes BETWEEN 1 AND 1440),
+                intensity_target VARCHAR(120),
+                instructions VARCHAR(4000),
+                exercise_prescription VARCHAR(6000),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS idx_training_session_templates_tenant_owner
+                ON training_session_templates(tenant_id, created_by_user_id, updated_at DESC);
             """);
     }
 }
