@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { catchError, forkJoin, of } from 'rxjs';
+import { catchError, forkJoin, of, timeout } from 'rxjs';
 
 interface TrainingProfile {
   id: number; clientId: number; enabled: boolean; primaryGoal: string; experienceLevel: string; managementMode: 'none' | 'self' | 'collaboration'; notes?: string | null; canManage?: boolean;
@@ -52,7 +52,7 @@ interface TrainingInvitation {
           <button type="button" (click)="acceptInvitation(invitation)" [disabled]="saving">Aceptar invitación</button>
         </article>
       </section>
-      <section *ngIf="clientId > 0 && !loading && !profile" class="panel">
+      <section *ngIf="clientId > 0 && !loading && !profile && !loadFailed" class="panel">
         <h2>Este cliente no utiliza el módulo deportivo</h2>
         <p>La planificación deportiva es opcional. Activarla no modifica el plan nutricional ni obliga al cliente a entrenar.</p>
         <button type="button" (click)="activate()" [disabled]="saving">Activar para este cliente</button>
@@ -274,6 +274,7 @@ interface TrainingInvitation {
 export class TrainingPeriodizationComponent implements OnInit {
   clientId = 0;
   loading = true;
+  loadFailed = false;
   saving = false;
   error = '';
   notice = '';
@@ -458,15 +459,18 @@ export class TrainingPeriodizationComponent implements OnInit {
   }
 
   load(): void {
-    this.loading = true; this.error = '';
-    this.http.get<TrainingProfile>(`/api/training/clients/${this.clientId}/profile`).pipe(catchError(() => of(null))).subscribe(profile => {
+    this.loading = true; this.loadFailed = false; this.error = '';
+    this.http.get<TrainingProfile>(`/api/training/clients/${this.clientId}/profile`).pipe(
+      timeout({ first: 15000 }),
+      catchError(() => { this.loadFailed = true; this.error = 'No se pudo cargar el perfil deportivo. Comprueba la conexión y vuelve a intentarlo.'; return of(null); })
+    ).subscribe(profile => {
       this.profile = profile;
       if (!profile) { this.loading = false; return; }
       this.trainingManagementMode = profile.managementMode ?? (profile.enabled ? 'self' : 'none');
       if (profile.enabled && this.trainingManagementMode === 'collaboration') this.loadCollaborations();
       else this.collaborations = [];
       if (!profile.enabled) { this.loading = false; return; }
-      this.http.get<TrainingPlan[]>(`/api/training/clients/${this.clientId}/plans`).subscribe({
+      this.http.get<TrainingPlan[]>(`/api/training/clients/${this.clientId}/plans`).pipe(timeout({ first: 15000 })).subscribe({
         next: plans => { this.plans = plans; this.sessionDrafts = {}; for (const p of plans) this.sessionDrafts[p.id] = { date: this.defaultSessionDate(p), title: '', type: 'strength', duration: 60, intensity: '', instructions: '', exercisePrescription: '' }; this.loadSessions(plans); this.loading = false; },
         error: () => { this.error = 'No se pudieron cargar los planes.'; this.loading = false; }
       });
