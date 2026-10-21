@@ -660,7 +660,7 @@
               <div class="followup-goal-main">
                 <div class="followup-goal-title-row"><strong>{{ goal.title }}</strong><span class="followup-goal-status" [class.status-completed]="goal.status === 'completed'" [class.status-paused]="goal.status === 'paused'">{{ goal.status === 'active' ? 'Activo' : goal.status === 'paused' ? 'Pausado' : 'Completado' }}</span></div>
                 <div class="followup-goal-meta">{{ getGoalPhaseLabel(goal.phase) }} · {{ getGoalMetricLabel(goal.metricKey) }} · Objetivo: {{ goal.targetValue }}{{ goal.unit }}</div>
-                <div class="followup-goal-meta">Inicio: {{ goal.startDate | date:'dd/MM/yyyy' }}<span *ngIf="goal.targetDate"> · Fecha objetivo: {{ goal.targetDate | date:'dd/MM/yyyy' }}</span></div>
+                <div class="followup-goal-meta">Inicio: {{ formatDateOnly(goal.startDate) }}<span *ngIf="goal.targetDate"> · Fecha objetivo: {{ formatDateOnly(goal.targetDate) }}</span></div>
                 <p *ngIf="goal.notes" class="followup-goal-notes">{{ goal.notes }}</p>
                 <div class="followup-goal-progress"><span>Último dato registrado:</span><strong>{{ getGoalMetricValue(goal) === null ? 'Sin datos' : (getGoalMetricValue(goal) + goal.unit) }}</strong></div>
               </div>
