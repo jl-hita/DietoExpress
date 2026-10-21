@@ -1109,3 +1109,82 @@
     padding-top: 12px;
   }
 }
+
+
+/* Seguimiento avanzado determinista */
+.followup-period-comparison,
+.followup-persistent-signals {
+  margin: 18px 0;
+  padding: 18px;
+  border: 1px solid #dbe4ee;
+  border-radius: 14px;
+  background: #fff;
+}
+.followup-period-heading,
+.followup-trends-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.followup-period-heading > div,
+.followup-trends-header > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.followup-period-heading strong,
+.followup-trends-header strong { color: #0f172a; font-size: 15px; }
+.followup-period-heading span,
+.followup-trends-header span { color: #64748b; font-size: 12px; line-height: 1.5; }
+.followup-period-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+}
+.followup-period-metric {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.followup-period-metric .metric-label { color: #475569; font-size: 12px; font-weight: 600; }
+.followup-period-metric > strong { color: #0f172a; font-size: 22px; line-height: 1.3; }
+.followup-period-metric small,
+.followup-period-metric .period-previous { color: #64748b; font-size: 11px; line-height: 1.45; }
+.followup-period-metric .period-difference { display: flex; align-items: center; gap: 5px; color: #334155; font-size: 12px; font-weight: 600; }
+.followup-period-metric .period-difference mat-icon { width: 16px; height: 16px; font-size: 16px; }
+.followup-period-metric.no-comparison { background: #fff; }
+.followup-missed-checkins {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 14px 0;
+  padding: 14px 16px;
+  border: 1px solid #f3d4a4;
+  border-radius: 10px;
+  background: #fff8eb;
+  color: #854d0e;
+}
+.followup-missed-checkins mat-icon { flex: 0 0 auto; }
+.followup-missed-checkins div { display: flex; flex-direction: column; gap: 4px; }
+.followup-missed-checkins span { font-size: 12px; line-height: 1.5; }
+.followup-persistent-signals .followup-trend.attention { color: #9a3412; }
+@media print {
+  body * { visibility: hidden; }
+  .followup-evolution, .followup-evolution * { visibility: visible; }
+  .followup-evolution { position: absolute; inset: 0; width: 100%; }
+  .followup-evolution button, .followup-evolution .chart-wrapper { display: none !important; }
+  .followup-period-comparison, .followup-persistent-signals { break-inside: avoid; }
+}
+@media (max-width: 640px) {
+  .followup-period-comparison { padding: 12px; }
+  .followup-period-grid { grid-template-columns: 1fr; }
+  .followup-period-heading button { width: 100%; }
+}
