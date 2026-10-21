@@ -68,6 +68,11 @@ export class PatientCheckinComponent implements OnInit, OnChanges {
   get checkinTraining(): number | null { return this.checkinTrainingState(); }
   set checkinTraining(value: number | null) { this.checkinTrainingState.set(value); }
 
+  barrierOptions: { time: boolean; hunger: boolean; social: boolean; cooking: boolean; budget: boolean; planning: boolean; cravings: boolean; emotions: boolean; travel: boolean; other: boolean } = {
+    time: false, hunger: false, social: false, cooking: false, budget: false,
+    planning: false, cravings: false, emotions: false, travel: false, other: false
+  };
+
   private readonly checkinDifficultiesState = signal('');
   get checkinDifficulties(): string { return this.checkinDifficultiesState(); }
   set checkinDifficulties(value: string) { this.checkinDifficultiesState.set(value); }
@@ -151,6 +156,7 @@ export class PatientCheckinComponent implements OnInit, OnChanges {
       sleep_hours: this.checkinSleepHours,
       training: this.checkinTraining,
       difficulties: this.checkinDifficulties.trim() || null,
+      barriers: this.getSelectedBarriers(),
       notes: this.checkinNotes.trim() || null
     };
 
@@ -168,6 +174,10 @@ export class PatientCheckinComponent implements OnInit, OnChanges {
     });
   }
 
+  getSelectedBarriers(): string[] {
+    return Object.entries(this.barrierOptions).filter(([, selected]) => selected).map(([key]) => key);
+  }
+
   private applyCheckin(checkin: PatientCheckin): void {
     this.checkinWeight = checkin.weight ?? null;
     this.checkinAdherence = checkin.adherence ?? null;
@@ -177,6 +187,9 @@ export class PatientCheckinComponent implements OnInit, OnChanges {
     this.checkinSleepHours = checkin.sleep_hours ?? null;
     this.checkinTraining = checkin.training ?? null;
     this.checkinDifficulties = checkin.difficulties ?? '';
+    const selected = new Set(checkin.barriers ?? []);
+    const keys = Object.keys(this.barrierOptions) as Array<keyof typeof this.barrierOptions>;
+    for (const key of keys) this.barrierOptions[key] = selected.has(key);
     this.checkinNotes = checkin.notes ?? '';
   }
 }

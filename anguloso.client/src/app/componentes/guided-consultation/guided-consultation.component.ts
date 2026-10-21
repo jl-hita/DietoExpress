@@ -204,7 +204,7 @@ interface GuidedConsultationResponse {
               <div class="history-row" *ngFor="let checkin of followupHistory.slice(-6).reverse()">
                 <span>{{ checkin.submitted_at | date:'dd/MM/yyyy' }}</span>
                 <span>{{ checkin.weight ?? '—' }} kg</span>
-                <span>{{ checkin.adherence ?? '—' }}/10</span>
+                <span>{{ checkin.adherence ?? '—' }}%</span>
                 <span>{{ checkin.hunger ?? '—' }}/10</span>
                 <span>{{ checkin.energy ?? '—' }}/10</span>
               </div>
@@ -247,12 +247,23 @@ interface GuidedConsultationResponse {
           <section class="card" *ngIf="currentStep === 'checkin'">
             <div class="card-title"><mat-icon>fact_check</mat-icon><div><h2>{{ isFirstConsultation ? 'Datos iniciales' : 'Check-in y adherencia' }}</h2><p>{{ isFirstConsultation ? 'Utiliza los datos disponibles para establecer la situación de partida; el portal puede aportar nuevos check-ins posteriormente.' : 'Últimos datos estructurados comunicados por el paciente.' }}</p></div></div>
             <div *ngIf="data.latestCheckin; else noCheckin" class="metric-grid">
-              <div><span>Adherencia</span><strong>{{ data.latestCheckin.adherence ?? '—' }}/10</strong></div>
+              <div><span>Adherencia</span><strong>{{ data.latestCheckin.adherence ?? '—' }}%</strong></div>
               <div><span>Hambre</span><strong>{{ data.latestCheckin.hunger ?? '—' }}/10</strong></div>
               <div><span>Energía</span><strong>{{ data.latestCheckin.energy ?? '—' }}/10</strong></div>
               <div><span>Sueño</span><strong>{{ data.latestCheckin.sleep_quality ?? '—' }}/10 · {{ data.latestCheckin.sleep_hours ?? '—' }} h</strong></div>
               <div><span>Entrenamiento</span><strong>{{ data.latestCheckin.training ?? '—' }}/10</strong></div>
               <div><span>Peso</span><strong>{{ data.latestCheckin.weight ?? '—' }} kg</strong></div>
+            </div>
+            <div class="mode-banner followup" *ngIf="data.latestCheckin?.barriers?.length">
+              <mat-icon>report_problem</mat-icon>
+              <div><strong>Barreras comunicadas por el paciente</strong>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
+                  <span *ngFor="let barrier of data.latestCheckin.barriers" style="display:inline-block;padding:5px 8px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-size:11px">{{ getBarrierLabel(barrier) }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="mode-banner followup" *ngIf="data.latestCheckin?.difficulties">
+              <mat-icon>chat</mat-icon><div><strong>Comentario del paciente</strong><span>{{ data.latestCheckin.difficulties }}</span></div>
             </div>
             <ng-template #noCheckin><div class="empty"><mat-icon>assignment_late</mat-icon><span>No hay check-in registrado.</span></div></ng-template>
             <div class="actions" *ngIf="data.latestCheckin">
@@ -1010,6 +1021,16 @@ export class GuidedConsultationComponent implements OnInit {
         this.snack.open(err?.error?.message || 'No se ha podido guardar el progreso. El paso anterior se ha mantenido.', 'Cerrar', { duration: 4000 });
       }
     });
+  }
+
+  getBarrierLabel(key: string): string {
+    const labels: Record<string, string> = {
+      time: 'Falta de tiempo', hunger: 'Hambre o poca saciedad', social: 'Comidas sociales',
+      cooking: 'Dificultad para cocinar', budget: 'Presupuesto / compra', planning: 'Organización',
+      cravings: 'Antojos o picoteo', emotions: 'Estrés o emociones', travel: 'Viajes / comer fuera',
+      other: 'Otra dificultad'
+    };
+    return labels[key] ?? key;
   }
 
   reviewCheckin(): void {

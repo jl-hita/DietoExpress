@@ -52,6 +52,21 @@
       <label class="checkin-field"><span>Horas de sueño <small>(h)</small></span><input type="number" name="checkinSleepHours" [(ngModel)]="checkinSleepHours" min="0" max="24" step="0.5" inputmode="decimal" placeholder="Ej. 7,5" [disabled]="!!currentCheckin || checkinSaving" /></label>
       <label class="checkin-field"><span>Actividad / entrenamiento <small>(0–10)</small></span><input type="number" name="checkinTraining" [(ngModel)]="checkinTraining" min="0" max="10" step="1" inputmode="numeric" placeholder="Ej. 6" [disabled]="!!currentCheckin || checkinSaving" /></label>
     </div>
+    <fieldset class="checkin-barriers" [disabled]="!!currentCheckin || checkinSaving">
+      <legend>¿Qué te ha dificultado seguir el plan? <small>(puedes marcar varias)</small></legend>
+      <div class="checkin-barrier-options">
+        <label><input type="checkbox" name="barrier-time" [(ngModel)]="barrierOptions.time" [ngModelOptions]="{standalone: true}" /> Falta de tiempo</label>
+        <label><input type="checkbox" name="barrier-hunger" [(ngModel)]="barrierOptions.hunger" [ngModelOptions]="{standalone: true}" /> Hambre o poca saciedad</label>
+        <label><input type="checkbox" name="barrier-social" [(ngModel)]="barrierOptions.social" [ngModelOptions]="{standalone: true}" /> Comidas sociales</label>
+        <label><input type="checkbox" name="barrier-cooking" [(ngModel)]="barrierOptions.cooking" [ngModelOptions]="{standalone: true}" /> Dificultad para cocinar</label>
+        <label><input type="checkbox" name="barrier-budget" [(ngModel)]="barrierOptions.budget" [ngModelOptions]="{standalone: true}" /> Presupuesto / compra</label>
+        <label><input type="checkbox" name="barrier-planning" [(ngModel)]="barrierOptions.planning" [ngModelOptions]="{standalone: true}" /> Organización o planificación</label>
+        <label><input type="checkbox" name="barrier-cravings" [(ngModel)]="barrierOptions.cravings" [ngModelOptions]="{standalone: true}" /> Antojos o picoteo</label>
+        <label><input type="checkbox" name="barrier-emotions" [(ngModel)]="barrierOptions.emotions" [ngModelOptions]="{standalone: true}" /> Estrés o emociones</label>
+        <label><input type="checkbox" name="barrier-travel" [(ngModel)]="barrierOptions.travel" [ngModelOptions]="{standalone: true}" /> Viajes / comer fuera</label>
+        <label><input type="checkbox" name="barrier-other" [(ngModel)]="barrierOptions.other" [ngModelOptions]="{standalone: true}" /> Otra dificultad</label>
+      </div>
+    </fieldset>
     <label class="checkin-field checkin-field-full"><span>Dificultades o incidencias</span><textarea name="checkinDifficulties" [(ngModel)]="checkinDifficulties" rows="2" maxlength="1000" placeholder="¿Ha habido algún problema para seguir el plan?" [disabled]="!!currentCheckin || checkinSaving"></textarea></label>
     <label class="checkin-field checkin-field-full"><span>Comentario para tu nutricionista <small>(opcional)</small></span><textarea name="checkinNotes" [(ngModel)]="checkinNotes" rows="2" maxlength="2000" placeholder="Cualquier cosa que quieras comentar..." [disabled]="!!currentCheckin || checkinSaving"></textarea></label>
     <div class="checkin-footer">

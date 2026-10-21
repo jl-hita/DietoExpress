@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, type MockedObject, vi } from "vitest";
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Subject } from 'rxjs';
+import { of, Subject } from 'rxjs';
 import { ProfessionalDashboard, ProfessionalDashboardService } from '../../servicios/professional-dashboard.service';
 import { DashboardComponent } from './dashboard.component';
 
 describe('DashboardComponent (signal state)', () => {
     let fixture: ComponentFixture<DashboardComponent>;
     let response: Subject<ProfessionalDashboard>;
-    let service: { get: ReturnType<typeof vi.fn> };
+    let service: { get: ReturnType<typeof vi.fn>; getFollowupAttention: ReturnType<typeof vi.fn> };
 
     const dashboard: ProfessionalDashboard = {
         openTaskCount: 0, overdueTaskCount: 0, unreadMessageCount: 0,
@@ -21,7 +21,8 @@ describe('DashboardComponent (signal state)', () => {
     beforeEach(async () => {
         response = new Subject<ProfessionalDashboard>();
         service = {
-            get: vi.fn().mockName("ProfessionalDashboardService.get")
+            get: vi.fn().mockName("ProfessionalDashboardService.get"),
+            getFollowupAttention: vi.fn().mockName("ProfessionalDashboardService.getFollowupAttention").mockReturnValue(of([]))
         };
         service.get.mockReturnValue(response.asObservable());
         await TestBed.configureTestingModule({

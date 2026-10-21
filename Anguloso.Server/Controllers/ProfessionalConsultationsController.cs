@@ -60,7 +60,7 @@ public sealed class ProfessionalConsultationsController : ControllerBase
             .Select(c => new
             {
                 c.id, c.submitted_at, c.weight, c.adherence, c.hunger, c.energy,
-                c.sleep_quality, c.sleep_hours, c.training, c.difficulties, c.notes, c.reviewed_at
+                c.sleep_quality, c.sleep_hours, c.training, c.difficulties, c.barriers, c.notes, c.reviewed_at
             })
             .FirstOrDefaultAsync();
 

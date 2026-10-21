@@ -747,6 +747,8 @@ CREATE INDEX IF NOT EXISTS idx_public_funnel_events_appointment
             UpgradeAutomationSchemaV9(context, logger);
             UpgradeAutomationSchemaV10(context, logger);
             UpgradeAutomationSchemaV11(context, logger);
+            UpgradeFollowupGoalsSchemaV1(context, logger);
+            UpgradePatientCheckinBarriersSchemaV1(context, logger);
             UpgradeGoogleCalendarSchemaV1(context, logger);
             UpgradeOnlineConsultationSchemaV1(context, logger);
             UpgradeClientAddressSchemaV1(context, logger);
@@ -2291,6 +2293,49 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
         logger.LogInformation("Migración de consulta guiada automation-v11-consultation-clinical-summary aplicada correctamente.");
     }
 
+    /// <summary>Objetivos y fases de seguimiento deterministas, aislados por paciente, profesional y tenant.</summary>
+    public static void UpgradeFollowupGoalsSchemaV1(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS professional_followup_goals (
+                id SERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                professional_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                title VARCHAR(160) NOT NULL,
+                metric_key VARCHAR(32) NOT NULL,
+                target_value NUMERIC(10,2) NOT NULL,
+                unit VARCHAR(24) NOT NULL,
+                phase VARCHAR(24) NOT NULL DEFAULT 'building',
+                start_date DATE NOT NULL DEFAULT CURRENT_DATE,
+                target_date DATE,
+                status VARCHAR(16) NOT NULL DEFAULT 'active',
+                notes VARCHAR(1000),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT ck_followup_goal_metric CHECK (metric_key IN ('adherence','hunger','energy','sleep_quality','sleep_hours','training','weight')),
+                CONSTRAINT ck_followup_goal_phase CHECK (phase IN ('baseline','building','maintenance','review')),
+                CONSTRAINT ck_followup_goal_status CHECK (status IN ('active','completed','paused')),
+                CONSTRAINT ck_followup_goal_dates CHECK (target_date IS NULL OR target_date >= start_date)
+            );
+            CREATE INDEX IF NOT EXISTS idx_followup_goals_client_status
+                ON professional_followup_goals(tenant_id, client_id, professional_user_id, status, target_date);
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('followup-goals-v1') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración followup-goals-v1 aplicada correctamente.");
+    }
+
+    /// <summary>Amplía los check-ins con barreras estructuradas seleccionadas por el paciente.</summary>
+    public static void UpgradePatientCheckinBarriersSchemaV1(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            ALTER TABLE patient_checkins
+                ADD COLUMN IF NOT EXISTS barriers TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('patient-checkin-barriers-v1') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración patient-checkin-barriers-v1 aplicada correctamente.");
+    }
+
     /// <summary>Integración OAuth y sincronización bidireccional con Google Calendar.</summary>
     public static void UpgradeGoogleCalendarSchemaV1(angulosodbContext context, ILogger logger)
     {
@@ -3169,6 +3214,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                     'google_calendar_oauth_states','external_calendar_events','legal_configuration',
                     'legal_documents','legal_acceptances','privacy_requests','privacy_incidents',
                     'legal_generated_documents','legal_rat_activities','legal_risk_assessments',
+                    'professional_followup_goals',
                     'legal_eipd_decisions','professional_followup_settings','professional_consultations',
                     'patient_checkins','specializations','tenant_specializations','client_specializations',
                     'client_specialization_profiles','specialization_rules','video_usage_reservations',

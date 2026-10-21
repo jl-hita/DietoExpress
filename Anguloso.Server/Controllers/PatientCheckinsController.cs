@@ -15,6 +15,10 @@ public class PatientCheckinsController : ControllerBase
 {
     private readonly angulosodbContext _db;
     private readonly AutomationService _automationService;
+    private static readonly HashSet<string> AllowedBarriers = new(StringComparer.Ordinal)
+    {
+        "time", "hunger", "social", "cooking", "budget", "planning", "cravings", "emotions", "travel", "other"
+    };
 
     public PatientCheckinsController(angulosodbContext db, AutomationService automationService)
     {
@@ -42,7 +46,7 @@ public class PatientCheckinsController : ControllerBase
         var weekStart = GetWeekStart(DateOnly.FromDateTime(DateTime.UtcNow));
         var item = await _db.patient_checkins.AsNoTracking()
             .Where(x => x.client_id == clientId && x.week_start == weekStart)
-            .Select(x => new { x.id, x.week_start, x.submitted_at, x.weight, x.adherence, x.hunger, x.energy, x.sleep_quality, x.sleep_hours, x.training, x.difficulties, x.notes })
+            .Select(x => new { x.id, x.week_start, x.submitted_at, x.weight, x.adherence, x.hunger, x.energy, x.sleep_quality, x.sleep_hours, x.training, x.difficulties, x.barriers, x.notes })
             .SingleOrDefaultAsync();
         return Ok(item);
     }
@@ -54,7 +58,7 @@ public class PatientCheckinsController : ControllerBase
         var items = await _db.patient_checkins.AsNoTracking()
             .Where(x => x.client_id == clientId)
             .OrderByDescending(x => x.week_start)
-            .Select(x => new { x.id, x.week_start, x.submitted_at, x.weight, x.adherence, x.hunger, x.difficulties, x.notes })
+            .Select(x => new { x.id, x.week_start, x.submitted_at, x.weight, x.adherence, x.hunger, x.difficulties, x.barriers, x.notes })
             .ToListAsync();
         return Ok(items);
     }
@@ -73,6 +77,8 @@ public class PatientCheckinsController : ControllerBase
         if (request.training is < 0 or > 10) return BadRequest(new { message = "El nivel de entrenamiento debe estar entre 0 y 10." });
         if (request.weight is <= 0 or > 500) return BadRequest(new { message = "El valor de peso no es válido." });
         if (request.difficulties?.Length > 1000) return BadRequest(new { message = "Las dificultades no pueden superar los 1000 caracteres." });
+        if (request.barriers?.Length > 10 || request.barriers?.Any(x => !AllowedBarriers.Contains(x)) == true)
+            return BadRequest(new { message = "Selecciona únicamente barreras de seguimiento válidas (máximo 10)." });
         if (request.notes?.Length > 2000) return BadRequest(new { message = "El comentario no puede superar los 2000 caracteres." });
 
         var client = await _db.clients.AsNoTracking().Where(x => x.id == clientId && x.archived_at == null).Select(x => new { x.id, x.tenant_id, UserTenantId = x.user != null ? x.user.tenant_id : null }).SingleOrDefaultAsync();
@@ -101,6 +107,7 @@ public class PatientCheckinsController : ControllerBase
         item.sleep_hours = request.sleep_hours;
         item.training = request.training;
         item.difficulties = request.difficulties?.Trim();
+        item.barriers = request.barriers?.Distinct().ToArray() ?? Array.Empty<string>();
         item.notes = request.notes?.Trim();
         _db.patient_checkins.Add(item);
         try
@@ -139,7 +146,7 @@ public class PatientCheckinsController : ControllerBase
                 .LogError(ex, "No se pudo registrar la automatización del check-in {CheckinId}.", item.id);
         }
 
-        return Ok(new { item.id, item.week_start, item.submitted_at, item.weight, item.adherence, item.hunger, item.difficulties, item.notes });
+        return Ok(new { item.id, item.week_start, item.submitted_at, item.weight, item.adherence, item.hunger, item.difficulties, item.barriers, item.notes });
     }
 
     private bool TryGetClientId(out int clientId) => int.TryParse(User.FindFirstValue("clientId"), out clientId);
@@ -160,6 +167,7 @@ public class PatientCheckinsController : ControllerBase
         public double? sleep_hours { get; set; }
         public int? training { get; set; }
         public string? difficulties { get; set; }
+        public string[]? barriers { get; set; }
         public string? notes { get; set; }
     }
 }

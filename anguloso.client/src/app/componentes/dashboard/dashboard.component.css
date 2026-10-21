@@ -8,3 +8,14 @@
 .directory-guidance-icon{display:flex;align-items:center;justify-content:center;flex:0 0 42px;height:42px;border-radius:50%;background:#fef3c7;color:#92400e}
 .directory-guidance-content{min-width:0;flex:1}.directory-guidance h2{font-size:18px;margin:0 0 8px}.directory-guidance p{margin:6px 0;line-height:1.5}.directory-guidance button{margin-top:8px}
 @media(max-width:600px){.directory-guidance{padding:14px;gap:10px}.directory-guidance-icon{flex-basis:34px;height:34px}}
+
+.attention-loading{display:flex;align-items:center;gap:10px;padding:18px 0;color:#64748b;font-size:12px}
+.attention-row{display:flex;align-items:flex-start;gap:12px;padding:14px 0;border-bottom:1px solid #e2e8f0}
+.attention-row:last-of-type{border-bottom:0}
+.attention-patient{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.attention-patient>strong{color:#0f172a;font-size:13px;overflow-wrap:anywhere}
+.attention-patient>span{color:#64748b;font-size:11px}
+.attention-signals{margin:5px 0 0;padding-left:18px;color:#9a3412;font-size:11px;line-height:1.5}
+.attention-priority{flex:none;padding:5px 8px;border-radius:999px;background:#fef3c7;color:#92400e;font-size:10px;font-weight:700}
+.attention-priority.priority-high{background:#fee2e2;color:#991b1b}
+@media(max-width:560px){.attention-row{flex-wrap:wrap}.attention-patient{flex-basis:calc(100% - 4px)}.attention-priority{margin-right:auto}}

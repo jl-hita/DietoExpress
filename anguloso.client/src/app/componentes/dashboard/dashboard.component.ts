@@ -5,7 +5,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { ProfessionalDashboard, ProfessionalDashboardService, DashboardAppointment, DashboardTask } from '../../servicios/professional-dashboard.service';
+import { ProfessionalDashboard, ProfessionalDashboardService, DashboardAppointment, DashboardTask, DashboardFollowupAttention } from '../../servicios/professional-dashboard.service';
 import { Profile } from '../../modelos/profile';
 import { ProfileService } from '../../servicios/profile.service';
 
@@ -22,6 +22,9 @@ export class DashboardComponent implements OnInit {
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
   readonly profile = signal<Profile | null>(null);
+  readonly followupAttention = signal<DashboardFollowupAttention[]>([]);
+  readonly followupAttentionLoading = signal(true);
+  readonly followupAttentionError = signal(false);
   constructor(private service:ProfessionalDashboardService, private router:Router, private profileService:ProfileService){}
 
   ngOnInit():void {
@@ -44,11 +47,21 @@ export class DashboardComponent implements OnInit {
   openDirectorySettings(): void { this.router.navigate(['/settings'], { queryParams: { tab: 'directorio' } }); }
 
   reload():void {
+    this.reloadFollowupAttention();
     this.loading.set(true);
     this.error.set(null);
     this.service.get().subscribe({
       next:d=>{this.data.set(d);this.loading.set(false);},
       error:e=>{this.error.set(e?.error?.message||'No hemos podido cargar tu dashboard.');this.loading.set(false);}
+    });
+  }
+
+  reloadFollowupAttention(): void {
+    this.followupAttentionLoading.set(true);
+    this.followupAttentionError.set(false);
+    this.service.getFollowupAttention().subscribe({
+      next: items => { this.followupAttention.set(items); this.followupAttentionLoading.set(false); },
+      error: () => { this.followupAttention.set([]); this.followupAttentionError.set(true); this.followupAttentionLoading.set(false); }
     });
   }
 

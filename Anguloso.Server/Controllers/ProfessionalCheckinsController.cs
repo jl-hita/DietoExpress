@@ -71,6 +71,7 @@ public sealed class ProfessionalCheckinsController : ControllerBase
                 SleepHours = c.sleep_hours,
                 Training = c.training,
                 Difficulties = c.difficulties,
+                Barriers = c.barriers,
                 Notes = c.notes,
                 ReviewedAt = c.reviewed_at,
                 ReviewedByUserId = c.reviewed_by_user_id
@@ -78,6 +79,131 @@ public sealed class ProfessionalCheckinsController : ControllerBase
             .ToListAsync();
 
         return Ok(result);
+    }
+
+    [HttpGet("attention")]
+    // Panel global de atención: solo muestra patrones repetidos o semanas completas sin check-in, con reglas deterministas.
+    public async Task<ActionResult<IReadOnlyList<FollowupAttentionDto>>> GetAttention([FromQuery] int limit = 8)
+    {
+        if (!_tenantContext.TenantId.HasValue || !_tenantContext.UserId.HasValue)
+            return BadRequest(new { message = "La cuenta no tiene organización o usuario." });
+        limit = Math.Clamp(limit, 1, 30);
+
+        var rows = new List<AttentionCheckinRow>();
+        await using (var connection = new NpgsqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+        {
+            await connection.OpenAsync();
+            await using var command = new NpgsqlCommand("""
+                WITH ranked AS (
+                    SELECT c.id, c.client_id, cl.full_name, c.week_start, c.submitted_at,
+                           c.adherence, c.hunger, c.energy, c.sleep_quality, c.reviewed_at,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY c.client_id
+                               ORDER BY c.week_start DESC, c.submitted_at DESC
+                           ) AS row_number
+                    FROM patient_checkins c
+                    JOIN clients cl ON cl.id=c.client_id
+                    WHERE c.tenant_id=@tenant AND cl.archived_at IS NULL
+                      AND EXISTS (
+                          SELECT 1 FROM client_nutritionist_assignments a
+                          WHERE a.client_id=c.client_id
+                            AND a.nutritionist_id=@user AND a.is_active
+                      )
+                )
+                SELECT id, client_id, full_name, week_start, submitted_at,
+                       adherence, hunger, energy, sleep_quality, reviewed_at
+                FROM ranked
+                WHERE row_number <= 4
+                ORDER BY client_id, week_start ASC, submitted_at ASC;
+                """, connection);
+            command.Parameters.AddWithValue("tenant", _tenantContext.TenantId.Value);
+            command.Parameters.AddWithValue("user", _tenantContext.UserId.Value);
+            await using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                rows.Add(new AttentionCheckinRow(
+                    reader.GetInt32(0), reader.GetInt32(1), reader.GetString(2),
+                    reader.GetFieldValue<DateOnly>(3), reader.GetDateTime(4),
+                    reader.IsDBNull(5) ? null : reader.GetInt32(5),
+                    reader.IsDBNull(6) ? null : reader.GetInt32(6),
+                    reader.IsDBNull(7) ? null : reader.GetInt32(7),
+                    reader.IsDBNull(8) ? null : reader.GetInt32(8),
+                    reader.IsDBNull(9) ? null : reader.GetDateTime(9)));
+            }
+        }
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var currentWeekStart = today.AddDays(-(((int)today.DayOfWeek + 6) % 7));
+        var attention = new List<FollowupAttentionDto>();
+        foreach (var group in rows.GroupBy(row => row.ClientId))
+        {
+            var history = group.OrderBy(row => row.WeekStart).ThenBy(row => row.SubmittedAt).ToArray();
+            if (history.Length == 0) continue;
+            var latest = history[^1];
+            var previous = history.Length > 1 ? history[^2] : null;
+            var signals = new List<string>();
+            var missedWeeks = Math.Max(0, (currentWeekStart.DayNumber - latest.WeekStart.DayNumber) / 7 - 1);
+            if (missedWeeks > 0)
+                signals.Add($"Sin check-in en {missedWeeks} semana(s) completa(s)");
+
+            if (latest.Adherence.HasValue && previous?.Adherence.HasValue == true &&
+                latest.Adherence.Value <= 60 && previous.Adherence.Value <= 60)
+                signals.Add($"Adherencia baja en dos revisiones ({previous.Adherence}% y {latest.Adherence}%)");
+
+            if (latest.Hunger.HasValue && previous?.Hunger.HasValue == true &&
+                latest.Hunger.Value >= 8 && previous.Hunger.Value >= 8)
+                signals.Add($"Hambre alta en dos revisiones ({previous.Hunger}/10 y {latest.Hunger}/10)");
+
+            if (latest.Energy.HasValue && previous?.Energy.HasValue == true &&
+                latest.Energy.Value <= 4 && previous.Energy.Value <= 4)
+                signals.Add($"Energía baja en dos revisiones ({previous.Energy}/10 y {latest.Energy}/10)");
+
+            if (latest.SleepQuality.HasValue && previous?.SleepQuality.HasValue == true &&
+                latest.SleepQuality.Value <= 4 && previous.SleepQuality.Value <= 4)
+                signals.Add($"Calidad del sueño baja en dos revisiones ({previous.SleepQuality}/10 y {latest.SleepQuality}/10)");
+
+            if (history.Length >= 3)
+            {
+                var lastThree = history.TakeLast(3).ToArray();
+                if (lastThree.All(x => x.Adherence.HasValue) &&
+                    lastThree[0].Adherence!.Value > lastThree[1].Adherence!.Value &&
+                    lastThree[1].Adherence!.Value > lastThree[2].Adherence!.Value &&
+                    lastThree[0].Adherence!.Value - lastThree[2].Adherence!.Value >= 15)
+                    signals.Add($"Adherencia en descenso durante tres revisiones ({lastThree[0].Adherence}% → {lastThree[2].Adherence}%)");
+            }
+
+            if (signals.Count == 0) continue;
+            attention.Add(new FollowupAttentionDto
+            {
+                ClientId = latest.ClientId,
+                ClientName = latest.ClientName,
+                LastCheckinAt = latest.SubmittedAt,
+                LastWeekStart = latest.WeekStart,
+                Signals = signals,
+                Priority = signals.Count >= 2 || latest.Adherence <= 40 ? "high" : "normal"
+            });
+        }
+
+        return Ok(attention
+            .OrderByDescending(item => item.Priority == "high")
+            .ThenByDescending(item => item.Signals.Count)
+            .ThenByDescending(item => item.LastCheckinAt)
+            .Take(limit)
+            .ToList());
+    }
+
+    private sealed record AttentionCheckinRow(
+        int Id, int ClientId, string ClientName, DateOnly WeekStart, DateTime SubmittedAt,
+        int? Adherence, int? Hunger, int? Energy, int? SleepQuality, DateTime? ReviewedAt);
+
+    public sealed class FollowupAttentionDto
+    {
+        public int ClientId { get; set; }
+        public string ClientName { get; set; } = "";
+        public DateTime LastCheckinAt { get; set; }
+        public DateOnly LastWeekStart { get; set; }
+        public List<string> Signals { get; set; } = new();
+        public string Priority { get; set; } = "normal";
     }
 
     [HttpPost("{id:int}/follow-up-task")]
@@ -99,7 +225,7 @@ public sealed class ProfessionalCheckinsController : ControllerBase
             .Take(4)
             .Select(c => new
             {
-                c.id, c.client_id, c.weight, c.adherence, c.hunger, c.energy,
+                c.id, c.client_id, c.week_start, c.weight, c.adherence, c.hunger, c.energy,
                 c.sleep_quality, c.sleep_hours, c.training, c.submitted_at,
                 ClientName = c.client.full_name
             })
@@ -170,12 +296,50 @@ public sealed class ProfessionalCheckinsController : ControllerBase
             }
         }
 
-        Compare("adherence", "Adherencia", latest.adherence, previous?.adherence, defaultLow: 5, defaultDelta: 2);
+        // La API almacena adherencia como porcentaje (0–100), a diferencia de las escalas 0–10 del resto de métricas.
+        Compare("adherence", "Adherencia (%)", latest.adherence, previous?.adherence, defaultLow: 60, defaultDelta: 15);
         Compare("hunger", "Hambre", latest.hunger, previous?.hunger, defaultHigh: 8, defaultDelta: 2);
         Compare("energy", "Energía", latest.energy, previous?.energy, defaultLow: 4, defaultDelta: 2);
         Compare("sleep_quality", "Calidad del sueño", latest.sleep_quality, previous?.sleep_quality, defaultLow: 4, defaultDelta: 2);
         Compare("sleep_hours", "Horas de sueño", latest.sleep_hours, previous?.sleep_hours, defaultLow: 6, defaultDelta: 1.5);
         Compare("training", "Entrenamiento", latest.training, previous?.training, defaultLow: 2, defaultDelta: 3);
+
+        var third = checkins.Where(c => c.id != id)
+            .OrderByDescending(c => c.submitted_at)
+            .Skip(1)
+            .FirstOrDefault();
+        if (selectedMetrics.Contains("adherence") && latest.adherence.HasValue &&
+            previous?.adherence.HasValue == true && third?.adherence.HasValue == true &&
+            third.adherence.Value > previous.adherence.Value &&
+            previous.adherence.Value > latest.adherence.Value &&
+            third.adherence.Value - latest.adherence.Value >= 15)
+            signals.Add($"Adherencia en descenso persistente: {third.adherence}% → {previous.adherence}% → {latest.adherence}%");
+
+        if (selectedMetrics.Contains("hunger") && latest.hunger.HasValue &&
+            previous?.hunger.HasValue == true && third?.hunger.HasValue == true &&
+            third.hunger.Value < previous.hunger.Value &&
+            previous.hunger.Value < latest.hunger.Value &&
+            latest.hunger.Value - third.hunger.Value >= 2)
+            signals.Add($"Hambre en aumento persistente: {third.hunger}/10 → {previous.hunger}/10 → {latest.hunger}/10");
+
+        if (selectedMetrics.Contains("energy") && latest.energy.HasValue &&
+            previous?.energy.HasValue == true && third?.energy.HasValue == true &&
+            third.energy.Value > previous.energy.Value &&
+            previous.energy.Value > latest.energy.Value &&
+            third.energy.Value - latest.energy.Value >= 2)
+            signals.Add($"Energía en descenso persistente: {third.energy}/10 → {previous.energy}/10 → {latest.energy}/10");
+
+        if (selectedMetrics.Contains("sleep_quality") && latest.sleep_quality.HasValue &&
+            previous?.sleep_quality.HasValue == true && third?.sleep_quality.HasValue == true &&
+            third.sleep_quality.Value > previous.sleep_quality.Value &&
+            previous.sleep_quality.Value > latest.sleep_quality.Value &&
+            third.sleep_quality.Value - latest.sleep_quality.Value >= 2)
+            signals.Add($"Calidad del sueño en descenso persistente: {third.sleep_quality}/10 → {previous.sleep_quality}/10 → {latest.sleep_quality}/10");
+
+        var currentWeekStart = DateOnly.FromDateTime(DateTime.UtcNow);
+        currentWeekStart = currentWeekStart.AddDays(-(((int)currentWeekStart.DayOfWeek + 6) % 7));
+        var missedWeeks = Math.Max(0, (currentWeekStart.DayNumber - latest.week_start.DayNumber) / 7 - 1);
+        if (missedWeeks > 0) signals.Add($"Sin check-in en {missedWeeks} semana(s) completa(s)");
 
         if (selectedMetrics.Contains("weight") && latest.weight.HasValue && previous?.weight.HasValue == true && previous.weight.Value > 0)
         {
@@ -264,6 +428,7 @@ public sealed class ProfessionalCheckinsController : ControllerBase
         public double? SleepHours { get; set; }
         public int? Training { get; set; }
         public string? Difficulties { get; set; }
+        public string[]? Barriers { get; set; }
         public string? Notes { get; set; }
         public DateTime? ReviewedAt { get; set; }
         public int? ReviewedByUserId { get; set; }

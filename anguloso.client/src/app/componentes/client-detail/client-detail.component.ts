@@ -30,8 +30,9 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCardModule } from '@angular/material/card';
-import { PatientCheckin, PatientPortalService, ClientPortalAccess, FollowupSettings, PatientDocument, ProfessionalDocumentSummary, PatientDocumentAuditEvent } from '../../servicios/patient-portal.service';
+import { PatientCheckin, PatientPortalService, ClientPortalAccess, FollowupSettings, FollowupGoal, PatientDocument, ProfessionalDocumentSummary, PatientDocumentAuditEvent } from '../../servicios/patient-portal.service';
 import { Subscription } from 'rxjs';
+import { compareFollowupPeriods, countMissedCheckinWeeks, detectPersistentFollowupSignals } from '../../servicios/adherence-analytics';
 import { debounceTime, filter, switchMap } from 'rxjs/operators';
 
 @Component({
@@ -99,6 +100,16 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
   private readonly checkinsState = signal<PatientCheckin[]>([]);
   get checkins(): PatientCheckin[] { return this.checkinsState(); }
   set checkins(value: PatientCheckin[]) { this.checkinsState.set(value); }
+  followupGoals: FollowupGoal[] = [];
+  loadingFollowupGoals = false;
+  savingFollowupGoal = false;
+  followupGoalTitle = '';
+  followupGoalMetric = 'adherence';
+  followupGoalTarget: number | null = 80;
+  followupGoalPhase: 'baseline' | 'building' | 'maintenance' | 'review' = 'building';
+  followupGoalStartDate = this.localDateInput();
+  followupGoalTargetDate = '';
+  followupGoalNotes = '';
   selectedFollowupMetric = 'adherence';
   followupSettings: FollowupSettings = {
     selectedMetrics: ['adherence','hunger','energy','sleep_quality','sleep_hours','training','weight'],
@@ -198,6 +209,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
       this.loadCommunicationPreferences();
       this.loadPatientCheckins();
       this.loadFollowupSettings();
+      this.loadFollowupGoals();
       this.loadPatientDocuments();
     }
   }
@@ -923,12 +935,13 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
       }
     };
 
-    compare('Adherencia', latest.adherence, previous?.adherence, { low: 5, drop: 2 }, '/10');
-    compare('Hambre', latest.hunger, previous?.hunger, { high: 8, rise: 2 }, '/10');
-    compare('Energía', latest.energy, previous?.energy, { low: 4, drop: 2 }, '/10');
-    compare('Calidad del sueño', latest.sleep_quality, previous?.sleep_quality, { low: 4, drop: 2 }, '/10');
-    compare('Horas de sueño', latest.sleep_hours, previous?.sleep_hours, { low: 6, drop: 1.5 }, ' h');
-    compare('Entrenamiento', latest.training, previous?.training, { low: 2, drop: 3 }, '/10');
+    // La adherencia se almacena en porcentaje (0–100), no en una escala de 0–10.
+    compare('Adherencia', latest.adherence, previous?.adherence, this.followupRule('adherence', { low: 60, drop: 15 }), '%');
+    compare('Hambre', latest.hunger, previous?.hunger, this.followupRule('hunger', { high: 8, rise: 2 }), '/10');
+    compare('Energía', latest.energy, previous?.energy, this.followupRule('energy', { low: 4, drop: 2 }), '/10');
+    compare('Calidad del sueño', latest.sleep_quality, previous?.sleep_quality, this.followupRule('sleep_quality', { low: 4, drop: 2 }), '/10');
+    compare('Horas de sueño', latest.sleep_hours, previous?.sleep_hours, this.followupRule('sleep_hours', { low: 6, drop: 1.5 }), ' h');
+    compare('Entrenamiento', latest.training, previous?.training, this.followupRule('training', { low: 2, drop: 3 }), '/10');
 
     if (latest.weight != null && previous?.weight != null && previous.weight > 0) {
       const percentage = ((latest.weight - previous.weight) / previous.weight) * 100;
@@ -958,7 +971,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
       const first = valid[0];
       const last = valid[valid.length - 1];
       const delta = last - first;
-      if (Math.abs(delta) < (suffix === ' h' ? 1 : 1.5)) return;
+      if (Math.abs(delta) < (suffix === ' h' ? 1 : suffix === '%' ? 15 : 1.5)) return;
       trends.push({
         label,
         icon: delta > 0 ? 'trending_up' : 'trending_down',
@@ -966,7 +979,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
       });
     };
 
-    addTrend('Adherencia', ordered.map(c => c.adherence), '/10');
+    addTrend('Adherencia', ordered.map(c => c.adherence), '%');
     addTrend('Hambre', ordered.map(c => c.hunger), '/10');
     addTrend('Energía', ordered.map(c => c.energy), '/10');
     addTrend('Sueño', ordered.map(c => c.sleep_quality), '/10');
@@ -975,6 +988,138 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     addTrend('Peso', ordered.map(c => c.weight), ' kg');
 
     return trends.slice(0, 4);
+  }
+
+  private localDateInput(): string {
+    const date = new Date();
+    const offset = date.getTimezoneOffset();
+    return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 10);
+  }
+
+  loadFollowupGoals(): void {
+    if (!this.clientId) return;
+    this.loadingFollowupGoals = true;
+    this.portalService.getFollowupGoals(this.clientId).subscribe({
+      next: goals => this.followupGoals = goals,
+      error: () => {
+        this.loadingFollowupGoals = false;
+        this.snack.open('No se han podido cargar los objetivos de seguimiento', 'Cerrar', { duration: 3000 });
+      },
+      complete: () => this.loadingFollowupGoals = false
+    });
+  }
+
+  createFollowupGoal(): void {
+    if (!this.clientId || this.savingFollowupGoal || !this.followupGoalTitle.trim() ||
+        this.followupGoalTarget === null || !Number.isFinite(this.followupGoalTarget)) return;
+    if (this.followupGoalTargetDate && this.followupGoalTargetDate < this.followupGoalStartDate) {
+      this.snack.open('La fecha objetivo no puede ser anterior al inicio', 'Cerrar', { duration: 2500 });
+      return;
+    }
+    this.savingFollowupGoal = true;
+    this.portalService.createFollowupGoal({
+      clientId: this.clientId,
+      title: this.followupGoalTitle.trim(),
+      metricKey: this.followupGoalMetric,
+      targetValue: this.followupGoalTarget,
+      phase: this.followupGoalPhase,
+      startDate: this.followupGoalStartDate,
+      targetDate: this.followupGoalTargetDate || null,
+      notes: this.followupGoalNotes.trim() || null
+    }).subscribe({
+      next: () => {
+        this.followupGoalTitle = '';
+        this.followupGoalNotes = '';
+        this.followupGoalTargetDate = '';
+        this.loadFollowupGoals();
+        this.snack.open('Objetivo de seguimiento guardado', 'Cerrar', { duration: 1800 });
+      },
+      error: err => {
+        this.savingFollowupGoal = false;
+        this.snack.open(err?.error?.message || 'No se ha podido guardar el objetivo', 'Cerrar', { duration: 3000 });
+      },
+      complete: () => this.savingFollowupGoal = false
+    });
+  }
+
+  updateFollowupGoalStatus(goal: FollowupGoal, status: 'active' | 'paused' | 'completed'): void {
+    this.portalService.updateFollowupGoalStatus(goal.id, status).subscribe({
+      next: () => {
+        goal.status = status;
+        goal.updatedAt = new Date().toISOString();
+        this.snack.open(status === 'completed' ? 'Objetivo completado' : status === 'paused' ? 'Objetivo pausado' : 'Objetivo reactivado', 'Cerrar', { duration: 1800 });
+      },
+      error: err => this.snack.open(err?.error?.message || 'No se ha podido actualizar el objetivo', 'Cerrar', { duration: 3000 })
+    });
+  }
+
+  getGoalMetricValue(goal: FollowupGoal): number | null {
+    const latest = [...this.checkins].sort((a, b) =>
+      new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime())[0];
+    if (!latest) return null;
+    const values: Record<string, number | null | undefined> = {
+      adherence: latest.adherence, hunger: latest.hunger, energy: latest.energy,
+      sleep_quality: latest.sleep_quality, sleep_hours: latest.sleep_hours,
+      training: latest.training, weight: latest.weight
+    };
+    const value = values[goal.metricKey];
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
+  }
+
+  getGoalMetricLabel(metric: string): string {
+    const labels: Record<string, string> = {
+      adherence: 'Adherencia', hunger: 'Hambre', energy: 'Energía',
+      sleep_quality: 'Calidad del sueño', sleep_hours: 'Horas de sueño',
+      training: 'Actividad/entrenamiento', weight: 'Peso'
+    };
+    return labels[metric] ?? metric;
+  }
+
+  getGoalPhaseLabel(phase: string): string {
+    const labels: Record<string, string> = { baseline: 'Evaluación inicial', building: 'Construcción de hábitos', maintenance: 'Mantenimiento', review: 'Revisión' };
+    return labels[phase] ?? phase;
+  }
+
+  getLatestCheckinBarriers(): string[] {
+    const latest = [...this.checkins].sort((a, b) =>
+      new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime())[0];
+    const labels: Record<string, string> = {
+      time: 'Falta de tiempo', hunger: 'Hambre o poca saciedad', social: 'Comidas sociales',
+      cooking: 'Dificultad para cocinar', budget: 'Presupuesto / compra', planning: 'Organización',
+      cravings: 'Antojos o picoteo', emotions: 'Estrés o emociones', travel: 'Viajes / comer fuera',
+      other: 'Otra dificultad'
+    };
+    return (latest?.barriers ?? []).map(key => labels[key] ?? key);
+  }
+
+  hasFollowupMetricData(): boolean {
+    return this.checkins.some(checkin =>
+      [checkin.adherence, checkin.hunger, checkin.energy, checkin.sleep_quality,
+       checkin.sleep_hours, checkin.training, checkin.weight]
+        .some(value => typeof value === 'number' && Number.isFinite(value)));
+  }
+
+  getFollowupPeriodComparison() {
+    return compareFollowupPeriods(this.checkins, this.followupSettings.periodWeeks);
+  }
+
+  getPersistentFollowupSignals() {
+    return detectPersistentFollowupSignals(this.checkins);
+  }
+
+  getMissedCheckinWeeks(): number {
+    return countMissedCheckinWeeks(this.checkins);
+  }
+
+  formatFollowupMetric(value: number | null, unit: string): string {
+    if (value === null) return 'Sin datos suficientes';
+    const formatted = Number(value.toFixed(unit === '%' ? 0 : 1)).toLocaleString('es-ES');
+    return unit === '%' ? `${formatted}%` : `${formatted}${unit}`;
+  }
+
+  printFollowupReport(): void {
+    // La vista de impresión reutiliza el resumen visible y evita generar un documento con datos distintos de la pantalla.
+    globalThis.window.print();
   }
 
   loadFollowupSettings(): void {
@@ -1008,7 +1153,8 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
   createFollowUpTask(): void {
     const checkin = [...this.checkins]
       .sort((a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime())[0] ?? null;
-    if (!checkin || !this.getFollowupAlerts().length || this.followupTaskCreating) return;
+    const hasActionableSignals = this.getFollowupAlerts().length > 0 || this.getPersistentFollowupSignals().length > 0 || this.getMissedCheckinWeeks() > 0;
+    if (!checkin || !hasActionableSignals || this.followupTaskCreating) return;
 
     this.followupTaskCreating = true;
     this.portalService.createFollowUpTask(checkin.id).subscribe({
