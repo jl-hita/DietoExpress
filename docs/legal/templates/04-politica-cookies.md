@@ -14,7 +14,7 @@ DietoExpress utiliza actualmente las siguientes cookies propias de sesión:
 | Cookie | Finalidad | Duración | Tipo |
 |---|---|---|---|
 | `dietoexpress_professional_session` | Sesión autenticada del profesional | 3 horas | Necesaria |
-| `dietoexpress_patient_session` | Sesión autenticada del paciente | 8 horas | Necesaria |
+| `dietoexpress_patient_session` | Sesión autenticada del paciente | 30 días desde el último inicio de sesión; revocable al cerrar sesión | Necesaria |
 
 Estas cookies se configuran como `HttpOnly`, `Secure` y `SameSite=Strict`.
 

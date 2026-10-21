@@ -7,7 +7,7 @@ Este documento refleja el inventario que puede verificarse en el código actual 
 | Cookie | Proveedor | Finalidad | Duración | Propia/tercero | Necesaria |
 |---|---|---|---|---|---|
 | `dietoexpress_professional_session` | DietoExpress | Sesión autenticada del profesional, seguridad y autorización | 3 horas | Propia | Sí, para las áreas autenticadas |
-| `dietoexpress_patient_session` | DietoExpress | Sesión autenticada del paciente, seguridad y autorización | 8 horas | Propia | Sí, para el portal autenticado |
+| `dietoexpress_patient_session` | DietoExpress | Sesión autenticada del paciente, seguridad y autorización | 30 días desde el último inicio de sesión; revocable al cerrar sesión | Propia | Sí, para el portal autenticado |
 
 Ambas cookies se emiten con `HttpOnly`, `Secure`, `SameSite=Strict` y `Path=/`. No se utilizan para registrar preferencias comerciales.
 
