@@ -1080,6 +1080,18 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     return labels[phase] ?? phase;
   }
 
+  getLatestCheckinBarriers(): string[] {
+    const latest = [...this.checkins].sort((a, b) =>
+      new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime())[0];
+    const labels: Record<string, string> = {
+      time: 'Falta de tiempo', hunger: 'Hambre o poca saciedad', social: 'Comidas sociales',
+      cooking: 'Dificultad para cocinar', budget: 'Presupuesto / compra', planning: 'Organización',
+      cravings: 'Antojos o picoteo', emotions: 'Estrés o emociones', travel: 'Viajes / comer fuera',
+      other: 'Otra dificultad'
+    };
+    return (latest?.barriers ?? []).map(key => labels[key] ?? key);
+  }
+
   hasFollowupMetricData(): boolean {
     return this.checkins.some(checkin =>
       [checkin.adherence, checkin.hunger, checkin.energy, checkin.sleep_quality,
