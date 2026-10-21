@@ -16,6 +16,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { RouterLink } from '@angular/router';
 import { DietSelectDialogComponent } from './diet-select-dialog.component';
 import { BioimpedanceImportDialogComponent } from './bioimpedance-import-dialog.component';
+import { DateInputDirective } from '../../directives/date-input.directive';
 
 // Angular Material
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -57,7 +58,8 @@ import { debounceTime, filter, switchMap } from 'rxjs/operators';
     MatCardModule,
     MatDialogModule,
     RouterLink,
-    AddressAutocompleteComponent
+    AddressAutocompleteComponent,
+    DateInputDirective
   ],
   standalone: true
 })
@@ -297,7 +299,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     });
   }
 
-  /** Normaliza una fecha ISO/DateTime a yyyy-MM-dd para inputs type="date". */
+  /** Normaliza una fecha ISO/DateTime a yyyy-MM-dd para inputs type="text" appDateInput. */
   toDateInputValue(value?: string | null): string {
     if (!value) return '';
     return value.slice(0, 10);
