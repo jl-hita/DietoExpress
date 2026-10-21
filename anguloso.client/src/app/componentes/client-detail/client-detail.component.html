@@ -708,6 +708,10 @@
             <mat-icon>event_busy</mat-icon>
             <div><strong>Hay revisiones semanales pendientes</strong><span>No consta check-in en {{ getMissedCheckinWeeks() }} semana(s) completa(s). La ausencia de datos no se interpreta como falta de adherencia.</span></div>
           </div>
+          <div class="followup-barrier-summary" *ngIf="getLatestCheckinBarriers().length">
+            <strong>Barreras comunicadas en la última revisión</strong>
+            <div class="followup-barrier-chips"><span *ngFor="let barrier of getLatestCheckinBarriers()">{{ barrier }}</span></div>
+          </div>
           <div class="followup-persistent-signals" *ngIf="getPersistentFollowupSignals().length">
             <div class="followup-trends-header">
               <div><strong>Tendencias persistentes</strong><span>Reglas deterministas aplicadas a tres registros válidos consecutivos</span></div>
