@@ -38,7 +38,22 @@ public sealed class TrainingPeriodizationController : ControllerBase
             FROM training_profiles WHERE client_id = @clientId
             """, ("clientId", clientId));
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        if (!await reader.ReadAsync(cancellationToken)) return NotFound(new { enabled = false });
+        if (!await reader.ReadAsync(cancellationToken))
+        {
+            // No tener perfil todavía es un estado normal: el profesional puede activar
+            // la planificación desde esta misma pantalla. No debe tratarse como un 404.
+            return Ok(new
+            {
+                id = 0,
+                clientId,
+                enabled = false,
+                primaryGoal = "general_fitness",
+                experienceLevel = "beginner",
+                managementMode = "none",
+                notes = (string?)null,
+                canManage
+            });
+        }
         return Ok(new TrainingProfileDto(reader.GetInt32(0), reader.GetInt32(1), reader.GetBoolean(2), reader.GetString(3), reader.GetString(4), reader.GetString(5),
             reader.IsDBNull(6) ? null : reader.GetString(6), reader.GetDateTime(7), reader.GetDateTime(8), canManage));
     }
