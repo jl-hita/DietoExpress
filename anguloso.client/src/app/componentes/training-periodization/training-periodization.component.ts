@@ -26,6 +26,18 @@ interface TrainingCollaboration {
 interface TrainingInvitation {
   id: number; clientId: number; clientName: string; accessScope: string; createdAt: string; invitedBy: string;
 }
+interface RepDbExercise {
+  id?: string;
+  name_es?: string;
+  equipment?: string;
+  body_part?: string;
+  category?: string;
+  goals?: string[];
+  primary_muscles?: string[];
+  instructions_es?: string[];
+  description_es?: string;
+  images?: { flat?: { start?: string; main?: string; peak?: string } };
+}
 
 @Component({
   selector: 'app-training-periodization',
@@ -213,6 +225,32 @@ interface TrainingInvitation {
               <p *ngIf="!sessions[plan.id]?.length && sessionViews[plan.id] !== 'list'" class="session-empty">Tu calendario está vacío. Programa una sesión para empezar; aparecerá automáticamente en su día.</p>
               <form *ngIf="current.canManage" (ngSubmit)="createSession(plan)" class="session-editor">
                 <div class="editor-title"><span class="editor-icon">＋</span><div><strong>Programar sesión</strong><p>Añade una sesión al calendario de este plan.</p></div></div>
+                <section class="exercise-library" aria-label="Biblioteca de ejercicios">
+                  <div class="section-heading"><div><p class="eyebrow">BIBLIOTECA</p><h5>Construye la sesión</h5><p>Busca ejercicios, filtra por objetivo o material y añádelos con un toque.</p></div><span class="session-count">{{ filteredExercises.length }} ejercicios</span></div>
+                  <div class="exercise-filters">
+                    <label>Buscar ejercicio<input name="exerciseSearch{{plan.id}}" [(ngModel)]="exerciseSearch" placeholder="Ej. sentadilla, remo, movilidad…" /></label>
+                    <label>Objetivo<select name="exerciseGoal{{plan.id}}" [(ngModel)]="exerciseGoalFilter"><option value="all">Todos</option><option value="strength">Fuerza</option><option value="endurance">Resistencia</option><option value="mobility">Movilidad</option><option value="core">Core</option></select></label>
+                    <label>Material<select name="exerciseEquipment{{plan.id}}" [(ngModel)]="exerciseEquipmentFilter"><option value="all">Todo el material</option><option value="bodyweight">Peso corporal</option><option value="dumbbell">Mancuernas</option><option value="barbell">Barra</option><option value="machine">Máquina</option><option value="band">Bandas</option><option value="cardio">Cardio</option></select></label>
+                  </div>
+                  <div class="exercise-results">
+                    <article *ngFor="let exercise of filteredExercises" class="exercise-result">
+                      <img *ngIf="exercise.imageUrl" class="exercise-thumb" [src]="exercise.imageUrl" [alt]="'Ilustración de ' + exercise.name" loading="lazy" />
+                      <div><strong>{{ exercise.name }}</strong><p>{{ exercise.muscles }} · {{ exercise.equipmentLabel }}</p><small>{{ exercise.instructions }}</small><small *ngIf="exercise.source === 'repdb'" class="exercise-source">Biblioteca RepDB</small></div>
+                      <button type="button" class="secondary" (click)="addExerciseToDraft(plan.id, exercise)" [disabled]="saving">＋ Añadir</button>
+                    </article>
+                    <p class="exercise-attribution">Ilustraciones y datos ampliados: <a href="https://repdb.co" target="_blank" rel="noopener noreferrer">Exercise data by RepDB (repdb.co)</a>. Los ejercicios importados se cargan desde su catálogo público; si no está disponible, se mantiene la biblioteca básica.</p>
+                    <p *ngIf="!filteredExercises.length" class="muted">No hay ejercicios con esos filtros. Prueba otra búsqueda.</p>
+                  </div>
+                  <div class="session-tools">
+                    <label>Reutilizar sesión guardada<select name="sessionTemplate{{plan.id}}" [(ngModel)]="templateSessionId"><option [ngValue]="null">Elegir sesión como plantilla…</option><option *ngFor="let saved of sessions[plan.id]" [ngValue]="saved.id">{{ saved.title }} · {{ saved.scheduledDate | date:'shortDate' }}</option></select></label>
+                    <button type="button" class="secondary" (click)="applySessionTemplate(plan)" [disabled]="!templateSessionId">Usar como plantilla</button>
+                    <label>Generación asistida<select name="generatorGoal{{plan.id}}" [(ngModel)]="generatorGoal"><option value="strength">Fuerza general</option><option value="hypertrophy">Hipertrofia</option><option value="endurance">Resistencia</option><option value="mobility">Movilidad y recuperación</option><option value="general">Condición física general</option></select></label>
+                    <label>Nivel<select name="generatorLevel{{plan.id}}" [(ngModel)]="generatorLevel"><option value="beginner">Principiante</option><option value="intermediate">Intermedio</option><option value="advanced">Avanzado</option></select></label>
+                    <label>Material disponible<select name="generatorEquipment{{plan.id}}" [(ngModel)]="generatorEquipment"><option value="mixed">Variado</option><option value="bodyweight">Solo peso corporal</option><option value="dumbbell">Mancuernas</option><option value="barbell">Barra y discos</option><option value="band">Bandas elásticas</option><option value="cardio">Cardio</option></select></label>
+                    <button type="button" (click)="generateSessionDraft(plan)" [disabled]="saving">✦ Proponer sesión</button>
+                  </div>
+                  <p class="muted">La propuesta es un borrador editable, no una prescripción clínica ni una recomendación automática de carga. Revísala antes de guardarla.</p>
+                </section>
                 <div class="session-editor-grid">
                   <label>Nombre de la sesión<input name="sessionTitle{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].title" maxlength="160" placeholder="Ej. Fuerza de tren inferior" required /></label>
                   <label>Fecha<input type="date" name="sessionDate{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].date" [min]="plan.startDate" [max]="plan.endDate || null" required /></label>
@@ -268,6 +306,7 @@ interface TrainingInvitation {
     </main>
   `,
   styles: [`
+    .exercise-library{margin:14px 0;padding:16px;border:1px solid var(--border-color,#d8dee8);border-radius:12px;background:var(--surface-color,#fff)}.exercise-library h5{font-size:1.05rem;margin:0}.exercise-filters{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin:12px 0}.exercise-filters label,.session-tools label{display:grid;gap:5px;font-size:.85rem;font-weight:600}.exercise-filters input,.exercise-filters select,.session-tools select{min-width:0;width:100%;box-sizing:border-box;border:1px solid #b9bec7;border-radius:8px;padding:9px;font:inherit;background:var(--surface-color,#fff);color:inherit}.exercise-thumb{width:76px;height:76px;object-fit:contain;border-radius:10px;background:#f4f6f8;flex:0 0 76px}.exercise-source{display:block;color:var(--secondary-text-color,#666);font-size:.75rem;margin-top:4px}.exercise-attribution{font-size:.78rem;color:var(--secondary-text-color,#666);margin:8px 0 0}.exercise-attribution a{color:var(--primary-color,#3657a6)}.exercise-results{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;max-height:310px;overflow:auto}.exercise-result{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px;border:1px solid var(--border-color,#e1e5eb);border-radius:9px}.exercise-result strong{font-size:.9rem}.exercise-result p,.exercise-result small{display:block;margin:3px 0;color:var(--secondary-text-color,#64748b);font-size:.78rem}.exercise-result button{white-space:nowrap}.session-tools{display:grid;grid-template-columns:minmax(0,2fr) auto minmax(0,1.5fr) minmax(0,1fr) minmax(0,1.5fr) auto;align-items:end;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border-color,#e1e5eb)}@media(max-width:850px){.exercise-filters{grid-template-columns:1fr 1fr}.exercise-filters label:first-child{grid-column:1/-1}.exercise-results{grid-template-columns:1fr}.session-tools{grid-template-columns:1fr 1fr}}@media(max-width:560px){.exercise-filters,.session-tools{grid-template-columns:1fr}.session-tools label:first-child{grid-column:auto}.exercise-result{align-items:flex-start}.exercise-library{padding:12px}}
     :host{display:block;color:var(--text-color,#202124)}.cycle-actions{display:flex;gap:6px;flex-wrap:wrap}.cycle-actions button{padding:5px 9px}.training-page{max-width:1100px;margin:0 auto;padding:24px;display:grid;gap:18px}.back-link{color:var(--primary-color,#3657a6);text-decoration:none}header h1{margin:.2rem 0 .4rem;font-size:clamp(1.6rem,3vw,2.2rem)}header p{margin:.3rem 0}.eyebrow{font-size:.75rem;font-weight:700;letter-spacing:.08em;color:var(--primary-color,#3657a6)}.panel,.plan-card{border:1px solid var(--border-color,#ddd);border-radius:14px;padding:20px;background:var(--surface-color,#fff)}.panel h2,.plan-card h3{margin-top:0}.section-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.section-heading p,.plan-card p{color:var(--secondary-text-color,#666);margin:.4rem 0}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:16px 0}.form-grid label,.session-form label{display:grid;gap:6px;font-weight:600;font-size:.9rem}.form-grid .full{grid-column:1/-1}.form-grid input,.form-grid select,.form-grid textarea,.session-form input,.session-form select{width:100%;box-sizing:border-box;border:1px solid #b9bec7;border-radius:8px;padding:10px;font:inherit;background:transparent;color:inherit}.cycle-section{margin:16px 0;padding:14px;border:1px solid var(--border-color,#ddd);border-radius:10px}.cycle-section h4{margin:.2rem 0 .8rem}.cycle-form{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-items:end;margin:12px 0}.cycle-form label{display:grid;gap:6px;font-size:.86rem;font-weight:600}.cycle-form input{box-sizing:border-box;width:100%;border:1px solid #b9bec7;border-radius:8px;padding:9px;font:inherit;background:transparent;color:inherit}.cycle-wide{grid-column:span 2}.mesocycle-card{padding:12px 0;border-top:1px solid var(--border-color,#ddd)}.invite-form{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin:14px 0}.invite-form label{display:grid;gap:6px;flex:1 1 240px;font-size:.9rem;font-weight:600}.invite-form input{box-sizing:border-box;width:100%;border:1px solid #b9bec7;border-radius:8px;padding:10px;font:inherit;background:transparent;color:inherit}.collaboration-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--border-color,#ddd)}.collaboration-row p{margin:.35rem 0;color:var(--secondary-text-color,#666)}.calendar-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:14px 0}.view-switch{display:flex;gap:3px;padding:4px;border:1px solid var(--border-color,#ddd);border-radius:11px;background:var(--surface-container,#f3f4f8)}.view-switch button{border:0;background:transparent;color:inherit;border-radius:8px;padding:8px 12px;font-weight:700;cursor:pointer}.view-switch button.active{background:var(--surface-color,#fff);color:var(--primary-color,#3657a6);box-shadow:0 1px 4px #00000012}.week-navigation{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.week-navigation strong{font-size:.9rem;min-width:150px;text-align:center}.week-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0}.week-summary>div{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--border-color,#e0e3e9);border-radius:11px;background:var(--surface-color,#fff)}.week-summary>div>span:last-child{display:grid;gap:3px}.week-summary strong{font-size:1.05rem}.week-summary small{font-size:.76rem;color:var(--secondary-text-color,#666)}.summary-dot{width:10px;height:10px;border-radius:50%;flex:0 0 10px}.planned-dot{background:#6b7ed1}.minutes-dot{background:#d29b3c}.completed-dot{background:#36876a}.week-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px;align-items:stretch;margin:14px 0}.week-day{min-width:0;min-height:125px;padding:8px;border:1px solid var(--border-color,#e0e3e9);border-radius:11px;background:var(--surface-color,#fff)}.week-day.today{border:2px solid var(--primary-color,#3657a6);padding:7px;background:color-mix(in srgb,var(--primary-color,#3657a6) 4%,var(--surface-color,#fff))}.week-day-heading{display:flex;align-items:center;justify-content:space-between;gap:4px;padding-bottom:8px;border-bottom:1px solid var(--border-color,#e7e8ed)}.week-day-heading span{text-transform:uppercase;font-size:.68rem;letter-spacing:.04em;color:var(--secondary-text-color,#666);font-weight:800}.week-day-heading strong{display:grid;place-items:center;width:27px;height:27px;border-radius:50%;font-size:.9rem}.week-day.today .week-day-heading strong{background:var(--primary-color,#3657a6);color:white}.week-day-empty{display:grid;place-items:center;min-height:65px;color:var(--secondary-text-color,#a3a6ad)}.week-session{display:grid;gap:5px;margin-top:8px;padding:8px 7px;border-radius:8px;background:#f0f1ff;border-left:3px solid #6b7ed1;color:#262c45;font-size:.75rem;overflow-wrap:anywhere}.week-strength{background:#f0eaff;border-left-color:#8c67c2}.week-endurance{background:#e5f5ed;border-left-color:#3d9a70}.week-mobility{background:#e3f4f8;border-left-color:#3d91a6}.week-recovery{background:#eeedfa;border-left-color:#8075bb}.week-health{background:#ffedf1;border-left-color:#d26b85}.week-session-done{opacity:.78;border-left-color:#36876a}.week-session-type{font-size:1rem;font-weight:800}.week-session>strong{font-size:.78rem;line-height:1.25}.week-session-meta,.week-session-status{font-size:.68rem;line-height:1.3}.week-session-status{font-weight:750}.week-session-actions{display:grid;grid-template-columns:1fr;gap:4px;margin-top:3px}.week-session-actions button{border:1px solid #c7cbd7;border-radius:6px;background:#ffffffb8;padding:5px 3px;color:#333;font-size:.68rem;font-weight:750;cursor:pointer}.session-workspace{margin-top:24px;padding-top:20px;border-top:1px solid var(--border-color,#ddd)}.session-workspace-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}.session-workspace-heading h4{font-size:1.25rem;margin:.15rem 0}.session-workspace-heading p:not(.eyebrow){margin:.35rem 0;color:var(--secondary-text-color,#666)}.session-count{white-space:nowrap;border:1px solid var(--border-color,#ddd);border-radius:99px;padding:6px 11px;font-size:.8rem;font-weight:700}.session-editor{padding:18px;border:1px solid var(--border-color,#d6dce8);border-radius:14px;background:linear-gradient(135deg,var(--surface-container,#f7f8fc),var(--surface-color,#fff));margin:14px 0 18px}.editor-title{display:flex;align-items:center;gap:12px;margin-bottom:16px}.editor-title strong{font-size:1rem}.editor-title p{margin:3px 0 0;color:var(--secondary-text-color,#666);font-size:.88rem}.editor-icon{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:var(--primary-color,#3657a6);color:#fff;font-size:1.5rem}.session-editor-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.session-editor-grid label{display:grid;gap:6px;font-size:.87rem;font-weight:650}.session-editor-grid input,.session-editor-grid select,.session-editor-grid textarea{box-sizing:border-box;width:100%;border:1px solid #b9bec7;border-radius:9px;padding:10px 11px;font:inherit;background:var(--surface-color,#fff);color:inherit;min-width:0}.session-editor-grid input:focus,.session-editor-grid select:focus,.session-editor-grid textarea:focus{outline:2px solid color-mix(in srgb,var(--primary-color,#3657a6) 30%,transparent);outline-offset:1px}.session-editor-wide{grid-column:1/-1}.editor-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:15px}.editor-footer>span{font-size:.78rem;color:var(--secondary-text-color,#666)}.session-empty{padding:20px;border:1px dashed var(--border-color,#c9ced8);border-radius:12px;color:var(--secondary-text-color,#666);text-align:center}.session-list{display:grid;gap:10px;margin-top:14px}.session-card{display:grid;grid-template-columns:58px minmax(0,1fr);gap:14px;padding:16px;border:1px solid var(--border-color,#dfe2e8);border-radius:14px;background:var(--surface-color,#fff);transition:border-color .15s,box-shadow .15s}.session-card:hover{border-color:color-mix(in srgb,var(--primary-color,#3657a6) 45%,var(--border-color,#ddd));box-shadow:0 4px 18px #0000000a}.session-completed{border-left:4px solid #36876a}.session-date-rail{display:flex;flex-direction:column;align-items:center;justify-content:center;align-self:start;min-height:58px;border-radius:11px;background:var(--surface-container,#f2f4f8);color:var(--primary-color,#3657a6)}.session-date-rail strong{font-size:1.35rem;line-height:1.2}.session-date-rail span{text-transform:uppercase;font-size:.7rem;font-weight:800;letter-spacing:.06em}.session-card-main{min-width:0}.session-card-top{display:flex;align-items:center;gap:11px}.session-type-icon{flex:0 0 38px;width:38px;height:38px;display:grid;place-items:center;border-radius:11px;background:#e9edff;color:#334b9b;font-size:1.25rem;font-weight:800}.type-endurance{background:#e2f3ec;color:#176b4b}.type-strength{background:#eee8ff;color:#6841a5}.type-mobility{background:#e1f3f8;color:#17677b}.type-recovery{background:#e9e8f8;color:#514b94}.type-health{background:#ffe8ee;color:#a23c5a}.session-title-block{flex:1;min-width:0}.session-title-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.session-title-line h5{margin:0;font-size:1rem;line-height:1.35}.session-title-block p{margin:5px 0 0;font-size:.83rem;color:var(--secondary-text-color,#666)}.session-status{font-size:.72rem;font-weight:750;border-radius:99px;padding:4px 8px;background:#edf0f5;color:#555}.session-status.done{background:#dff3e9;color:#176b4b}.session-edit-button{flex:0 0 auto}.session-instructions{white-space:pre-line;margin:12px 0 0;padding:11px 13px;border-radius:9px;background:var(--surface-container,#f5f6f9);font-size:.88rem;line-height:1.5}.completion-summary{display:flex;align-items:center;gap:9px;margin-top:12px;padding:10px 12px;border-radius:10px;background:#edf8f2}.completion-check{display:grid;place-items:center;width:27px;height:27px;border-radius:50%;background:#36876a;color:white;font-weight:800}.completion-summary>span:nth-child(2){display:grid;gap:2px;flex:1}.completion-summary strong{font-size:.82rem;color:#205e46}.completion-summary small{font-size:.78rem;color:#39715b}.duration-delta{font-size:.78rem;font-weight:750;color:#39715b}.session-card-actions{display:flex;justify-content:flex-end;margin-top:10px}.session-edit-form{margin-top:14px;padding:14px;border-radius:11px;border:1px solid var(--border-color,#d8dce5);background:var(--surface-container,#f6f7fa)}.session-edit-form .editor-footer{align-items:center}.session-editor-grid textarea{resize:vertical}.record-form{grid-template-columns:repeat(2,minmax(0,1fr))}.record-form .record-notes{grid-column:1/-1}.record-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px;padding:14px;border-radius:10px;background:var(--surface-container,#f6f7f9)}.record-form label{display:grid;gap:6px;font-size:.88rem;font-weight:600}.record-form label:nth-child(3){grid-column:1/-1}.record-form input,.record-form textarea{box-sizing:border-box;width:100%;border:1px solid #b9bec7;border-radius:8px;padding:9px;font:inherit;background:var(--surface-color,#fff);color:inherit}.record-form button{justify-self:start}.session-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start;padding:12px 0;border-top:1px solid var(--border-color,#ddd)}.session-form button{flex:0 0 auto}button{border:0;border-radius:8px;padding:10px 14px;background:var(--primary-color,#3657a6);color:white;font:inherit;font-weight:600;cursor:pointer}button:disabled{opacity:.55;cursor:wait}button.secondary{background:transparent;border:1px solid #9aa0a6;color:inherit}.plan-card{margin-top:14px}.status{font-size:.8rem;border-radius:20px;background:#eef2ff;padding:5px 10px}.session-list{border-top:1px solid #ddd;margin-top:14px}.session-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start;padding:12px 0;border-bottom:1px solid #eee}.record-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px;padding:14px;border-radius:10px;background:var(--surface-container,#f6f7f9)}.record-form label{display:grid;gap:6px;font-size:.88rem;font-weight:600}.record-form label:nth-child(3){grid-column:1/-1}.record-form input,.record-form textarea{box-sizing:border-box;width:100%;border:1px solid #b9bec7;border-radius:8px;padding:9px;font:inherit;background:var(--surface-color,#fff);color:inherit}.record-form button{justify-self:start}.session-row p{margin:.3rem 0}.muted{color:#777}.error{color:#a21d24}@media(max-width:650px){.training-page{padding:14px}.collaboration-row{align-items:stretch;flex-direction:column}.cycle-form{grid-template-columns:repeat(2,minmax(0,1fr))}.cycle-wide{grid-column:1/-1}.cycle-form button{grid-column:1/-1}.invite-form button{width:100%}.form-grid{grid-template-columns:1fr}.form-grid .full{grid-column:auto}.section-heading{flex-direction:column;align-items:stretch}.week-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.week-summary{grid-template-columns:1fr}.week-summary>div{padding:10px}.week-day{min-height:100px}.week-navigation{width:100%;justify-content:space-between}.week-navigation strong{min-width:0;flex:1}.session-editor-grid{grid-template-columns:1fr}.session-editor-wide{grid-column:auto}.editor-footer{align-items:stretch;flex-direction:column}.editor-footer button{width:100%}.session-workspace-heading{align-items:flex-start}.session-card{grid-template-columns:42px minmax(0,1fr);gap:10px;padding:11px}.session-date-rail{min-height:48px}.session-date-rail strong{font-size:1.1rem}.session-type-icon{width:32px;height:32px;flex-basis:32px}.session-card-top{align-items:flex-start;flex-wrap:wrap}.session-edit-button{margin-left:auto}.session-title-block{flex-basis:calc(100% - 48px)}.session-card-actions{justify-content:stretch}.session-card-actions button{width:100%}.record-form{grid-template-columns:1fr}.record-form .record-notes{grid-column:auto}.record-form button{width:100%}.session-edit-form .editor-footer>div{display:grid;gap:8px}.session-edit-form .editor-footer button{width:100%}.cycle-actions{width:100%}}
   `]
 })
@@ -302,6 +341,40 @@ export class TrainingPeriodizationComponent implements OnInit {
   sessionViews: Record<number, 'week' | 'list'> = {};
   weekOffsets: Record<number, number> = {};
   sessionDrafts: Record<number, { date: string; title: string; type: string; duration: number | null; intensity: string; instructions: string; exercisePrescription: string }> = {};
+  exerciseSearch = '';
+  exerciseGoalFilter = 'all';
+  exerciseEquipmentFilter = 'all';
+  templateSessionId: number | null = null;
+  generatorGoal = 'strength';
+  generatorLevel = 'beginner';
+  generatorEquipment = 'mixed';
+  exerciseCatalog: Array<{ id: string; name: string; muscles: string; goal: string; equipment: string; equipmentLabel: string; instructions: string; prescription: string; imageUrl?: string; source?: string }> = [
+    { id:'squat', name:'Sentadilla', muscles:'Cuádriceps y glúteos', goal:'strength', equipment:'bodyweight', equipmentLabel:'Peso corporal', instructions:'Mantén el tronco estable y las rodillas alineadas con los pies.', prescription:'Sentadilla · 3 × 8–12 · descanso 90 s' },
+    { id:'goblet-squat', name:'Sentadilla goblet', muscles:'Cuádriceps y glúteos', goal:'strength', equipment:'dumbbell', equipmentLabel:'Mancuerna', instructions:'Sujeta la mancuerna cerca del pecho y controla la bajada.', prescription:'Sentadilla goblet · 3 × 8–12 · descanso 90 s' },
+    { id:'deadlift', name:'Peso muerto', muscles:'Cadena posterior', goal:'strength', equipment:'barbell', equipmentLabel:'Barra', instructions:'Bisagra de cadera, carga próxima al cuerpo y espalda neutra.', prescription:'Peso muerto · 3 × 5–8 · descanso 2–3 min' },
+    { id:'rdl', name:'Peso muerto rumano', muscles:'Isquiotibiales y glúteos', goal:'strength', equipment:'dumbbell', equipmentLabel:'Mancuernas', instructions:'Lleva la cadera atrás y detén el recorrido antes de perder posición.', prescription:'Peso muerto rumano · 3 × 8–10 · descanso 90 s' },
+    { id:'pushup', name:'Flexiones', muscles:'Pecho, hombro y tríceps', goal:'strength', equipment:'bodyweight', equipmentLabel:'Peso corporal', instructions:'Mantén el cuerpo alineado; adapta la inclinación al nivel.', prescription:'Flexiones · 3 × 6–12 · descanso 60–90 s' },
+    { id:'bench', name:'Press de banca', muscles:'Pectoral y tríceps', goal:'strength', equipment:'barbell', equipmentLabel:'Barra', instructions:'Controla la bajada y evita rebotes sobre el pecho.', prescription:'Press de banca · 3 × 6–10 · descanso 2 min' },
+    { id:'row', name:'Remo con mancuerna', muscles:'Espalda y bíceps', goal:'strength', equipment:'dumbbell', equipmentLabel:'Mancuerna', instructions:'Evita girar el tronco y lleva el codo hacia la cadera.', prescription:'Remo con mancuerna · 3 × 8–12 por lado · descanso 90 s' },
+    { id:'band-row', name:'Remo con banda', muscles:'Espalda y bíceps', goal:'strength', equipment:'band', equipmentLabel:'Banda elástica', instructions:'Mantén hombros bajos y controla el retorno.', prescription:'Remo con banda · 3 × 12–15 · descanso 60 s' },
+    { id:'plank', name:'Plancha frontal', muscles:'Core', goal:'core', equipment:'bodyweight', equipmentLabel:'Peso corporal', instructions:'Mantén pelvis neutra y respira sin perder la posición.', prescription:'Plancha frontal · 3 × 20–40 s · descanso 45–60 s' },
+    { id:'dead-bug', name:'Dead bug', muscles:'Core y control motor', goal:'core', equipment:'bodyweight', equipmentLabel:'Peso corporal', instructions:'Extiende brazo y pierna contrarios sin arquear la zona lumbar.', prescription:'Dead bug · 3 × 8 por lado · descanso 45 s' },
+    { id:'lunge', name:'Zancadas', muscles:'Piernas y estabilidad', goal:'strength', equipment:'bodyweight', equipmentLabel:'Peso corporal', instructions:'Da un paso estable y controla la rodilla durante el descenso.', prescription:'Zancadas · 3 × 8 por lado · descanso 60–90 s' },
+    { id:'shoulder-press', name:'Press de hombros', muscles:'Hombros y tríceps', goal:'strength', equipment:'dumbbell', equipmentLabel:'Mancuernas', instructions:'Evita compensar arqueando la espalda.', prescription:'Press de hombros · 3 × 8–12 · descanso 90 s' },
+    { id:'bike', name:'Bicicleta estática', muscles:'Sistema cardiovascular', goal:'endurance', equipment:'cardio', equipmentLabel:'Cardio', instructions:'Ajusta resistencia para mantener la intensidad prevista.', prescription:'Bicicleta · 10–20 min · intensidad conversacional' },
+    { id:'walk', name:'Caminata rápida', muscles:'Sistema cardiovascular', goal:'endurance', equipment:'cardio', equipmentLabel:'Sin material', instructions:'Ritmo vivo que permita hablar en frases completas.', prescription:'Caminata rápida · 15–30 min · intensidad moderada' },
+    { id:'mobility-hip', name:'Movilidad de cadera', muscles:'Cadera', goal:'mobility', equipment:'bodyweight', equipmentLabel:'Peso corporal', instructions:'Recorrido cómodo, lento y sin dolor.', prescription:'Movilidad de cadera · 2 × 8 por lado · controlada' },
+    { id:'band-pullapart', name:'Aperturas con banda', muscles:'Espalda alta y hombros', goal:'strength', equipment:'band', equipmentLabel:'Banda elástica', instructions:'Mantén costillas controladas y separa la banda sin encoger hombros.', prescription:'Aperturas con banda · 3 × 12–15 · descanso 45–60 s' },
+    { id:'leg-press', name:'Prensa de piernas', muscles:'Cuádriceps y glúteos', goal:'strength', equipment:'machine', equipmentLabel:'Máquina', instructions:'No bloquees las rodillas y usa un recorrido que controles.', prescription:'Prensa de piernas · 3 × 10–12 · descanso 90 s' }
+  ];
+  get filteredExercises() {
+    const query = this.exerciseSearch.trim().toLocaleLowerCase('es');
+    return this.exerciseCatalog.filter(exercise =>
+      (!query || (exercise.name + ' ' + exercise.muscles + ' ' + exercise.instructions).toLocaleLowerCase('es').includes(query)) &&
+      (this.exerciseGoalFilter === 'all' || exercise.goal === this.exerciseGoalFilter) &&
+      (this.exerciseEquipmentFilter === 'all' || exercise.equipment === this.exerciseEquipmentFilter));
+  }
+
   planName = '';
   periodizationModel = 'custom';
   startDate = new Date().toISOString().slice(0, 10);
@@ -311,6 +384,7 @@ export class TrainingPeriodizationComponent implements OnInit {
   constructor(private route: ActivatedRoute, private http: HttpClient, private changeDetector: ChangeDetectorRef) {}
 
   ngOnInit(): void {
+    this.loadExpandedExerciseCatalog();
     const routeId = this.route.snapshot.paramMap.get('id');
     if (routeId === null) {
       this.clientId = 0;
@@ -323,6 +397,53 @@ export class TrainingPeriodizationComponent implements OnInit {
     if (!Number.isInteger(this.clientId) || this.clientId < 1) { this.error = 'Identificador de cliente no válido.'; this.loading = false; return; }
     this.loadInvitations();
     this.load();
+  }
+
+  private loadExpandedExerciseCatalog(): void {
+    // RepDB permite el uso comercial dentro de la aplicación con atribución visible.
+    // No se copia el catálogo completo al repositorio ni se expone como descarga masiva.
+    this.http.get<{ exercises?: RepDbExercise[] }>('https://exercise-dataset.com/exercises.json')
+      .pipe(timeout(12000), catchError(() => of({ exercises: [] })))
+      .subscribe(data => {
+        const imported = (data.exercises ?? []).filter((item): item is RepDbExercise & { id: string; name_es: string } =>
+          typeof item.id === 'string' && typeof item.name_es === 'string' && !!item.name_es.trim())
+          .map(item => {
+            const equipmentRaw = String(item.equipment ?? '').toLocaleLowerCase('es');
+            const bodyPart = String(item.body_part ?? '').toLocaleLowerCase('es');
+            const category = String(item.category ?? '').toLocaleLowerCase('es');
+            const goals = Array.isArray(item.goals) ? item.goals.join(' ').toLocaleLowerCase('es') : '';
+            const muscles = Array.isArray(item.primary_muscles) ? item.primary_muscles.join(', ').replace(/[-_]/g, ' ') : bodyPart.replace(/[-_]/g, ' ');
+            const goal = /endurance|cardio|aerobic/.test(goals + ' ' + category) ? 'endurance'
+              : /mobility|stretch|flexib/.test(goals + ' ' + category) ? 'mobility'
+              : /core|abdom|oblique/.test(bodyPart + ' ' + muscles) ? 'core' : 'strength';
+            const equipment = /bike|treadmill|elliptical|cardio/.test(equipmentRaw + ' ' + category) ? 'cardio'
+              : /band|resistance-band/.test(equipmentRaw) ? 'band'
+              : /barbell|ez-bar|weight-plate/.test(equipmentRaw) ? 'barbell'
+              : /dumbbell|kettlebell|medicine-ball/.test(equipmentRaw) ? 'dumbbell'
+              : /bodyweight|body-weight|none|no-equipment/.test(equipmentRaw) || !equipmentRaw ? 'bodyweight'
+              : /machine|cable|smith/.test(equipmentRaw) ? 'machine' : 'machine';
+            const equipmentLabel = equipmentRaw ? equipmentRaw.replace(/[-_]/g, ' ') : 'Peso corporal';
+            const instructions = Array.isArray(item.instructions_es) ? item.instructions_es.join(' ') :
+              (typeof item.description_es === 'string' ? item.description_es : 'Realiza el movimiento con control y dentro de un rango cómodo.');
+            const imagePath = item.images?.flat?.start ?? item.images?.flat?.main ?? item.images?.flat?.peak;
+            const prescription = goal === 'endurance' ? item.name_es + ' · 10–20 min · intensidad ajustable'
+              : goal === 'mobility' ? item.name_es + ' · 2 × 8–12 repeticiones controladas'
+              : item.name_es + ' · 3 × 8–12 · ajustar carga y descanso';
+            return {
+              id: 'repdb-' + item.id, name: item.name_es, muscles: muscles || 'Grupo muscular según ficha',
+              goal, equipment, equipmentLabel: equipmentLabel.charAt(0).toLocaleUpperCase('es') + equipmentLabel.slice(1),
+              instructions, prescription,
+              imageUrl: typeof imagePath === 'string' ? 'https://exercise-dataset.com/' + imagePath.replace(/^\//, '') : undefined,
+              source: 'repdb'
+            };
+          });
+        if (imported.length) {
+          const curated = this.exerciseCatalog.filter(item => !item.id.startsWith('repdb-'));
+          const seen = new Set(imported.map(item => item.name.toLocaleLowerCase('es')));
+          this.exerciseCatalog = [...imported, ...curated.filter(item => !seen.has(item.name.toLocaleLowerCase('es')))];
+          this.changeDetector.markForCheck();
+        }
+      });
   }
 
   loadInvitations(): void {
@@ -579,6 +700,64 @@ export class TrainingPeriodizationComponent implements OnInit {
       next: () => { this.planName = ''; this.endDate = ''; this.planNotes = ''; this.saving = false; this.load(); },
       error: e => { this.error = e?.error?.message || 'No se pudo crear el plan.'; this.saving = false; }
     });
+  }
+
+  addExerciseToDraft(planId: number, exercise: typeof this.exerciseCatalog[number]): void {
+    const draft = this.sessionDrafts[planId];
+    if (!draft) return;
+    const lines = draft.exercisePrescription.trim() ? draft.exercisePrescription.split(/\\r?\\n/).map(line => line.trim()).filter(Boolean) : [];
+    if (lines.some(line => line.toLocaleLowerCase('es').startsWith(exercise.name.toLocaleLowerCase('es')))) {
+      this.notice = 'Ese ejercicio ya está incluido en la sesión.';
+      return;
+    }
+    draft.exercisePrescription = [...lines, exercise.prescription].join('\\n');
+    this.notice = exercise.name + ' añadido a la sesión.';
+  }
+
+  applySessionTemplate(plan: TrainingPlan): void {
+    const saved = (this.sessions[plan.id] ?? []).find(item => item.id === this.templateSessionId);
+    const draft = this.sessionDrafts[plan.id];
+    if (!saved || !draft) return;
+    draft.type = saved.sessionType;
+    draft.duration = saved.durationMinutes ?? 60;
+    draft.intensity = saved.intensityTarget ?? '';
+    draft.instructions = saved.instructions ?? '';
+    draft.exercisePrescription = saved.exercisePrescription ?? '';
+    this.notice = 'Se ha copiado la estructura de «' + saved.title + '». Ajusta fecha y nombre antes de guardarla.';
+  }
+
+  generateSessionDraft(plan: TrainingPlan): void {
+    const draft = this.sessionDrafts[plan.id];
+    if (!draft) return;
+    const level = this.generatorLevel;
+    const equipment = this.generatorEquipment;
+    const available = this.exerciseCatalog.filter(item => equipment === 'mixed' || item.equipment === equipment);
+    let selected: typeof this.exerciseCatalog[number][] = [];
+    if (this.generatorGoal === 'endurance') {
+      selected = available.filter(item => item.goal === 'endurance').slice(0, level === 'beginner' ? 2 : 3);
+      draft.type = 'endurance';
+      draft.intensity = level === 'beginner' ? 'RPE 3–5 · ritmo conversacional' : 'RPE 5–7 · ajustar al objetivo del plan';
+    } else if (this.generatorGoal === 'mobility') {
+      selected = available.filter(item => item.goal === 'mobility' || item.goal === 'core').slice(0, 4);
+      draft.type = 'mobility';
+      draft.intensity = 'RPE 2–4 · rango cómodo, sin dolor';
+    } else {
+      selected = available.filter(item => item.goal === 'strength' || item.goal === 'core')
+        .slice(0, level === 'beginner' ? 4 : level === 'intermediate' ? 5 : 6);
+      draft.type = 'strength';
+      draft.intensity = level === 'beginner' ? 'RPE 5–6 · dejar 3–4 repeticiones en reserva' : level === 'intermediate' ? 'RPE 6–8 · dejar 2–3 repeticiones en reserva' : 'RPE 7–8 · autorregular y mantener técnica';
+    }
+    if (!selected.length) { this.error = 'No hay ejercicios compatibles con ese objetivo y material. Prueba «Variado» u otro filtro.'; return; }
+    draft.exercisePrescription = selected.map(item => {
+      if (this.generatorGoal === 'hypertrophy' && item.goal === 'strength') return item.name + ' · 3 × 8–12 · descanso 60–120 s';
+      if (level === 'beginner' && item.goal === 'strength') return item.name + ' · 2 × 8–10 · descanso 90 s';
+      if (level === 'advanced' && item.goal === 'strength') return item.name + ' · 4 × 6–10 · descanso 90–150 s';
+      return item.prescription;
+    }).join('\\n');
+    draft.instructions = 'Borrador para nivel ' + (level === 'beginner' ? 'principiante' : level === 'intermediate' ? 'intermedio' : 'avanzado') +
+      '. Incluye calentamiento progresivo y vuelta a la calma. Ajusta ejercicios, volumen y esfuerzo al historial, disponibilidad y tolerancia del cliente.';
+    if (!draft.duration) draft.duration = this.generatorGoal === 'endurance' ? 30 : 45;
+    this.notice = 'Borrador de sesión preparado. Revísalo y personalízalo antes de guardarlo.';
   }
 
   createSession(plan: TrainingPlan): void {
