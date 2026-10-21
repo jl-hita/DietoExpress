@@ -26,6 +26,18 @@ interface TrainingCollaboration {
 interface TrainingInvitation {
   id: number; clientId: number; clientName: string; accessScope: string; createdAt: string; invitedBy: string;
 }
+interface RepDbExercise {
+  id?: string;
+  name_es?: string;
+  equipment?: string;
+  body_part?: string;
+  category?: string;
+  goals?: string[];
+  primary_muscles?: string[];
+  instructions_es?: string[];
+  description_es?: string;
+  images?: { flat?: { start?: string; main?: string; peak?: string } };
+}
 
 @Component({
   selector: 'app-training-periodization',
@@ -390,11 +402,11 @@ export class TrainingPeriodizationComponent implements OnInit {
   private loadExpandedExerciseCatalog(): void {
     // RepDB permite el uso comercial dentro de la aplicación con atribución visible.
     // No se copia el catálogo completo al repositorio ni se expone como descarga masiva.
-    this.http.get<{ exercises?: Array<Record<string, any>> }>('https://exercise-dataset.com/exercises.json')
+    this.http.get<{ exercises?: RepDbExercise[] }>('https://exercise-dataset.com/exercises.json')
       .pipe(timeout(12000), catchError(() => of({ exercises: [] })))
       .subscribe(data => {
-        const imported = (data.exercises ?? []).filter(item =>
-          typeof item.id === 'string' && typeof item.name_es === 'string' && item.name_es.trim())
+        const imported = (data.exercises ?? []).filter((item): item is RepDbExercise & { id: string; name_es: string } =>
+          typeof item.id === 'string' && typeof item.name_es === 'string' && !!item.name_es.trim())
           .map(item => {
             const equipmentRaw = String(item.equipment ?? '').toLocaleLowerCase('es');
             const bodyPart = String(item.body_part ?? '').toLocaleLowerCase('es');
