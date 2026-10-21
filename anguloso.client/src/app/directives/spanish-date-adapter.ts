@@ -17,7 +17,7 @@ export class SpanishDateAdapter extends NativeDateAdapter {
     return this.isValid(date) ? date : null;
   }
 
-  override format(date: Date, displayFormat: object): string {
+  override format(date: Date, displayFormat: Object): string {
     if (!this.isValid(date)) return '';
     const format = displayFormat as Intl.DateTimeFormatOptions;
     if (format.year === 'numeric' && format.month === 'numeric' && format.day === 'numeric') {
