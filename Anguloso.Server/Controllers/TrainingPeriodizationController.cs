@@ -38,10 +38,8 @@ public sealed class TrainingPeriodizationController : ControllerBase
         var clinicAdmin = User.IsInRole("clinic_admin");
         await using var command = Command("""
             SELECT t.id, t.name, t.periodization_model, t.notes, t.created_at,
-                   COALESCE(jsonb_array_length(t.template_data->'sessions'), 0) AS session_count,
-                   u.display_name
+                   COALESCE(jsonb_array_length(t.template_data->'sessions'), 0) AS session_count
             FROM training_plan_templates t
-            JOIN users u ON u.id = t.created_by_user_id
             WHERE (@superAdmin OR t.tenant_id = (SELECT tenant_id FROM users WHERE id = @userId))
               AND (@superAdmin OR @clinicAdmin OR t.created_by_user_id = @userId)
             ORDER BY t.updated_at DESC, t.id DESC
@@ -51,7 +49,7 @@ public sealed class TrainingPeriodizationController : ControllerBase
         while (await reader.ReadAsync(cancellationToken))
             items.Add(new { id = reader.GetInt64(0), name = reader.GetString(1), periodizationModel = reader.GetString(2),
                 notes = reader.IsDBNull(3) ? null : reader.GetString(3), createdAt = reader.GetDateTime(4),
-                sessionCount = reader.GetInt32(5), createdBy = reader.IsDBNull(6) ? "Profesional" : reader.GetString(6) });
+                sessionCount = reader.GetInt32(5) });
         return Ok(items);
     }
 
