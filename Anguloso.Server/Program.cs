@@ -109,15 +109,16 @@ builder.Services.AddScoped<SupportEnhancementService>();
                     var pathValue = path.Value ?? string.Empty;
                     // The patient session is an HttpOnly cookie, not a bearer token.
                     // Read it for every patient-facing API route, not only /api/portal.
-                    // Keep the route check specific so a browser holding both sessions
-                    // still uses the professional cookie for professional appointment/broadcast actions.
+                    // Use an explicit header on shared broadcast routes so simultaneous patient and
+                    // professional sessions cannot silently select the wrong identity.
                     var isPatientEndpoint =
                         path.StartsWithSegments("/api/portal") ||
                         path.StartsWithSegments("/api/commercial-communications/preferences") ||
                         path.StartsWithSegments("/api/messages/patient") ||
-                        string.Equals(pathValue, "/api/broadcast-messages/inbox", StringComparison.OrdinalIgnoreCase) ||
-                        (path.StartsWithSegments("/api/broadcast-messages") &&
-                         pathValue.EndsWith("/read", StringComparison.OrdinalIgnoreCase)) ||
+                        ((string.Equals(pathValue, "/api/broadcast-messages/inbox", StringComparison.OrdinalIgnoreCase) ||
+                          path.StartsWithSegments("/api/broadcast-messages") &&
+                          pathValue.EndsWith("/read", StringComparison.OrdinalIgnoreCase)) &&
+                         string.Equals(context.Request.Headers["X-DietoExpress-Patient-Portal"].ToString(), "1", StringComparison.Ordinal)) ||
                         (HttpMethods.IsGet(method) &&
                          (string.Equals(pathValue, "/api/appointments/mine", StringComparison.OrdinalIgnoreCase) ||
                           string.Equals(pathValue, "/api/appointments/slots", StringComparison.OrdinalIgnoreCase) ||
