@@ -100,7 +100,47 @@ builder.Services.AddScoped<SupportEnhancementService>();
             options.TokenValidationParameters = new TokenValidationParameters { ValidateIssuer = true, ValidateAudience = true, ValidateLifetime = true, ValidateIssuerSigningKey = true, ValidIssuer = jwtIssuer, ValidAudience = jwtAudience, IssuerSigningKey = new SymmetricSecurityKey(keyBytes), NameClaimType = ClaimTypes.Name };
             options.Events = new JwtBearerEvents
             {
-                OnMessageReceived = context => { if (string.IsNullOrWhiteSpace(context.Token)) { if (context.Request.Path.StartsWithSegments("/api/portal") && context.Request.Cookies.TryGetValue("dietoexpress_patient_session", out var patientCookie)) context.Token = patientCookie; else if (context.Request.Cookies.TryGetValue("dietoexpress_professional_session", out var professionalCookie)) context.Token = professionalCookie; } return Task.CompletedTask; },
+                OnMessageReceived = context =>
+                {
+                    if (!string.IsNullOrWhiteSpace(context.Token)) return Task.CompletedTask;
+
+                    var path = context.Request.Path;
+                    var method = context.Request.Method;
+                    var pathValue = path.Value ?? string.Empty;
+                    // The patient session is an HttpOnly cookie, not a bearer token.
+                    // Read it for every patient-facing API route, not only /api/portal.
+                    // Keep the route check specific so a browser holding both sessions
+                    // still uses the professional cookie for professional appointment/broadcast actions.
+                    var isPatientEndpoint =
+                        path.StartsWithSegments("/api/portal") ||
+                        path.StartsWithSegments("/api/commercial-communications/preferences") ||
+                        path.StartsWithSegments("/api/messages/patient") ||
+                        string.Equals(pathValue, "/api/broadcast-messages/inbox", StringComparison.OrdinalIgnoreCase) ||
+                        (path.StartsWithSegments("/api/broadcast-messages") &&
+                         pathValue.EndsWith("/read", StringComparison.OrdinalIgnoreCase)) ||
+                        (HttpMethods.IsGet(method) &&
+                         (string.Equals(pathValue, "/api/appointments/mine", StringComparison.OrdinalIgnoreCase) ||
+                          string.Equals(pathValue, "/api/appointments/slots", StringComparison.OrdinalIgnoreCase))) ||
+                        (HttpMethods.IsPost(method) &&
+                         (string.Equals(pathValue, "/api/appointments", StringComparison.OrdinalIgnoreCase) ||
+                          path.StartsWithSegments("/api/appointments") &&
+                          (pathValue.EndsWith("/cancel", StringComparison.OrdinalIgnoreCase) ||
+                           pathValue.EndsWith("/video-access", StringComparison.OrdinalIgnoreCase) ||
+                           pathValue.EndsWith("/video-event", StringComparison.OrdinalIgnoreCase) ||
+                           pathValue.EndsWith("/video-finish", StringComparison.OrdinalIgnoreCase))));
+
+                    if (isPatientEndpoint &&
+                        context.Request.Cookies.TryGetValue("dietoexpress_patient_session", out var patientCookie))
+                    {
+                        context.Token = patientCookie;
+                    }
+                    else if (context.Request.Cookies.TryGetValue("dietoexpress_professional_session", out var professionalCookie))
+                    {
+                        context.Token = professionalCookie;
+                    }
+
+                    return Task.CompletedTask;
+                },
                 OnTokenValidated = async context =>
                 {
                     if (context.Principal?.IsInRole("patient") == true)
