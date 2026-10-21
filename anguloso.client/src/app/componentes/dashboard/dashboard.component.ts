@@ -24,6 +24,7 @@ export class DashboardComponent implements OnInit {
   readonly profile = signal<Profile | null>(null);
   readonly followupAttention = signal<DashboardFollowupAttention[]>([]);
   readonly followupAttentionLoading = signal(true);
+  readonly followupAttentionError = signal(false);
   constructor(private service:ProfessionalDashboardService, private router:Router, private profileService:ProfileService){}
 
   ngOnInit():void {
@@ -57,9 +58,10 @@ export class DashboardComponent implements OnInit {
 
   reloadFollowupAttention(): void {
     this.followupAttentionLoading.set(true);
+    this.followupAttentionError.set(false);
     this.service.getFollowupAttention().subscribe({
       next: items => { this.followupAttention.set(items); this.followupAttentionLoading.set(false); },
-      error: () => { this.followupAttention.set([]); this.followupAttentionLoading.set(false); }
+      error: () => { this.followupAttention.set([]); this.followupAttentionError.set(true); this.followupAttentionLoading.set(false); }
     });
   }
 
