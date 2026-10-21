@@ -101,6 +101,18 @@ test.describe('MVP de periodización deportiva', () => {
     await expect(page.locator('li').filter({ hasText: 'Microciclo E2E 1' })).toBeVisible();
     await expect(page.locator('.week-grid')).toBeVisible();
     await expect(page.locator('.week-summary')).toContainText('sesiones esta semana');
+    await expect(page.getByRole('heading', { name: 'Construye la sesión' })).toBeVisible();
+    await expect(page.locator('.exercise-result')).not.toHaveCount(0);
+    await page.locator(`input[name="exerciseSearch${plan.id}"]`).fill('sentadilla');
+    await expect(page.locator('.exercise-result').filter({ hasText: 'Sentadilla' })).toBeVisible();
+    await page.locator('.exercise-result').filter({ hasText: 'Sentadilla' }).getByRole('button', { name: /Añadir/ }).click();
+    await expect(page.locator(`textarea[name="sessionExercises${plan.id}"]`)).toContainText('Sentadilla');
+    await page.locator(`input[name="exerciseSearch${plan.id}"]`).fill('');
+    await page.locator(`select[name="generatorGoal${plan.id}"]`).selectOption('strength');
+    await page.locator(`select[name="generatorLevel${plan.id}"]`).selectOption('beginner');
+    await page.locator(`select[name="generatorEquipment${plan.id}"]`).selectOption('mixed');
+    await page.getByRole('button', { name: '✦ Proponer sesión' }).click();
+    await expect(page.locator(`textarea[name="sessionExercises${plan.id}"]`)).not.toBeEmpty();
     const sessionTitle = 'Sesión E2E fuerza visual';
     await page.locator(`input[name="sessionTitle${plan.id}"]`).fill(sessionTitle);
     await page.locator(`input[name="sessionDate${plan.id}"]`).fill(start);
