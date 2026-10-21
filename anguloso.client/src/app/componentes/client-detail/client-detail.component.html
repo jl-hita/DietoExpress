@@ -43,7 +43,7 @@
 
     <mat-form-field appearance="outline" class="full-width">
       <mat-label>Fecha de nacimiento</mat-label>
-      <input matInput type="date" formControlName="birthDate" />
+      <input matInput type="text" appDateInput formControlName="birthDate" />
     </mat-form-field>
 
     <mat-form-field appearance="outline" class="full-width">
@@ -209,7 +209,7 @@
           <!-- Datos básicos -->
           <div class="form-section-label">Datos generales</div>
           <div class="two-col">
-            <mat-form-field appearance="outline"><mat-label>Fecha</mat-label><input matInput type="date" formControlName="measurementDate" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Fecha</mat-label><input matInput type="text" appDateInput formControlName="measurementDate" /></mat-form-field>
             <mat-form-field appearance="outline"><mat-label>Peso (kg)</mat-label><input matInput type="number" step="0.1" formControlName="weight" /></mat-form-field>
           </div>
           <div class="two-col">
