@@ -112,17 +112,6 @@ test.describe('MVP de periodización deportiva', () => {
     expect(template, 'La plantilla guardada debe aparecer en la biblioteca').toBeTruthy();
     expect(template.sessionCount).toBe(1);
 
-    const copiedPlanResponse = await api.post(apiUrl(`/api/training/clients/${patientId}/plans/from-template/${template.id}`), {
-      data: { name: 'Plan creado desde plantilla E2E', startDate: datePlusDays(120) }
-    });
-    expect(copiedPlanResponse.ok(), 'Debe crearse un plan independiente desde la plantilla').toBeTruthy();
-    const copiedPlan = await copiedPlanResponse.json();
-    expect(copiedPlan.copiedSessions).toBe(1);
-    expect(copiedPlan.copiedMesocycles).toBe(2);
-    const copiedSessionsResponse = await api.get(apiUrl(`/api/training/plans/${copiedPlan.id}/sessions`));
-    expect(copiedSessionsResponse.ok()).toBeTruthy();
-    expect(await copiedSessionsResponse.json()).toHaveLength(1);
-
     await page.goto(`/clients/${patientId}/training`);
     await expect(page.getByRole('heading', { name: 'Planes de entrenamiento' })).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('.plan-card > .cycle-section > .mesocycle-card').filter({ hasText: 'Mesociclo E2E A' })).toBeVisible();
@@ -207,5 +196,16 @@ test.describe('MVP de periodización deportiva', () => {
     page.once('dialog', dialog => dialog.accept());
     await finalMeso.getByRole('button', { name: 'Eliminar' }).click();
     await expect(page.locator('.plan-card > .cycle-section > .mesocycle-card').filter({ hasText: 'Mesociclo E2E B' })).toHaveCount(0);
+
+    const copiedPlanResponse = await api.post(apiUrl(`/api/training/clients/${patientId}/plans/from-template/${template.id}`), {
+      data: { name: 'Plan creado desde plantilla E2E', startDate: datePlusDays(120) }
+    });
+    expect(copiedPlanResponse.ok(), 'Debe crearse un plan independiente desde la plantilla').toBeTruthy();
+    const copiedPlan = await copiedPlanResponse.json();
+    expect(copiedPlan.copiedSessions).toBe(1);
+    expect(copiedPlan.copiedMesocycles).toBe(2);
+    const copiedSessionsResponse = await api.get(apiUrl(`/api/training/plans/${copiedPlan.id}/sessions`));
+    expect(copiedSessionsResponse.ok()).toBeTruthy();
+    expect(await copiedSessionsResponse.json()).toHaveLength(1);
   });
 });
