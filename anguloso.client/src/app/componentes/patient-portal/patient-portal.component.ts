@@ -193,6 +193,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
   set broadcastMessagesError(value: string | null) { this.broadcastMessagesErrorState.set(value); }
 
   private routeQuerySubscription?: Subscription;
+  private readonly patientPortalHeaders = { 'X-DietoExpress-Patient-Portal': '1' };
   private broadcastRefreshSubscription?: Subscription;
   private patientUnreadRefreshSubscription?: Subscription;
   private patientUnreadMessagesCountState = signal(0);
@@ -895,7 +896,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
     if (this.broadcastRefreshSubscription) return;
     this.broadcastRefreshSubscription = interval(15000).pipe(
       startWith(0),
-      switchMap(() => this.http.get<PatientBroadcastMessage[]>('/api/broadcast-messages/inbox').pipe(
+      switchMap(() => this.http.get<PatientBroadcastMessage[]>('/api/broadcast-messages/inbox', { headers: this.patientPortalHeaders }).pipe(
         catchError(() => {
           this.broadcastMessagesError = 'No se han podido actualizar las comunicaciones.';
           return of(null);
@@ -913,7 +914,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
     if (this.isPreview || this.showLogin) return;
     this.broadcastMessagesLoading = true;
     this.broadcastMessagesError = null;
-    this.http.get<PatientBroadcastMessage[]>('/api/broadcast-messages/inbox').subscribe({
+    this.http.get<PatientBroadcastMessage[]>('/api/broadcast-messages/inbox', { headers: this.patientPortalHeaders }).subscribe({
       next: messages => {
         this.broadcastMessages = messages || [];
         this.broadcastMessagesLoading = false;
@@ -927,7 +928,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
 
   markBroadcastMessageRead(message: PatientBroadcastMessage): void {
     if (message.readAt) return;
-    this.http.patch('/api/broadcast-messages/' + message.id + '/read', {}).subscribe({
+    this.http.patch('/api/broadcast-messages/' + message.id + '/read', {}, { headers: this.patientPortalHeaders }).subscribe({
       next: () => message.readAt = new Date().toISOString(),
       error: () => this.broadcastMessagesError = 'No se ha podido actualizar el estado de lectura.'
     });
