@@ -28,7 +28,6 @@ export class DashboardComponent implements OnInit {
 
   ngOnInit():void {
     this.reload();
-    this.reloadFollowupAttention();
     this.profileService.getProfile().subscribe({ next: p => this.profile.set(p), error: () => this.profile.set(null) });
   }
 
