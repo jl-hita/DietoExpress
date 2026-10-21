@@ -36,7 +36,8 @@ public class CookieTechnologyInventoryRegressionTests
         Assert.Contains("SameSite = SameSiteMode.Strict", patient);
         Assert.Contains("Expires = new DateTimeOffset(expiresAtUtc)", patient);
         Assert.Contains("MaxAge = expiresAtUtc - DateTime.UtcNow", patient);
-        Assert.Contains(": DateTime.UtcNow.AddHours(8)", patient);
+        Assert.Contains("var sessionExpiresAtUtc = DateTime.UtcNow.AddDays(30);", patient);
+        Assert.Contains("MaxAge = expiresAtUtc - DateTime.UtcNow", patient);
     }
 
     [Fact]
@@ -118,3 +119,5 @@ public class CookieTechnologyInventoryRegressionTests
         Assert.DoesNotContain("[IDENTIFICAR]", inventory, StringComparison.OrdinalIgnoreCase);
     }
 }
+
+
