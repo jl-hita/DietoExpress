@@ -1055,11 +1055,12 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     });
   }
 
-  updateFollowupGoalPhase(goal: FollowupGoal, phase: 'baseline' | 'building' | 'maintenance' | 'review'): void {
-    if (goal.phase === phase) return;
-    this.portalService.updateFollowupGoalPhase(goal.id, phase).subscribe({
+  updateFollowupGoalPhase(goal: FollowupGoal, phase: string): void {
+    if (!['baseline', 'building', 'maintenance', 'review'].includes(phase) || goal.phase === phase) return;
+    const validPhase = phase as 'baseline' | 'building' | 'maintenance' | 'review';
+    this.portalService.updateFollowupGoalPhase(goal.id, validPhase).subscribe({
       next: () => {
-        goal.phase = phase;
+        goal.phase = validPhase;
         this.snack.open('Fase de seguimiento actualizada', 'Cerrar', { duration: 1800 });
         if (this.followupGoalHistory[goal.id]) this.loadFollowupGoalHistory(goal);
       },
