@@ -51,7 +51,7 @@ test.describe('P1 — gestión de pacientes desde la interfaz', () => {
     await page.getByLabel('Notas').fill('Paciente ficticio para comprobar confirmaciones destructivas de Playwright.');
     await page.getByRole('button', { name: 'Crear cliente' }).click();
     await expect(page).toHaveURL(new RegExp('/clients/[0-9]+(?:[/?#]|$)'), { timeout: 20_000 });
-    patientId = Number(new URL(page.url()).pathname.match(/^\/clients\/(\d+)$/)?.[1]);
+    patientId = Number(new URL(page.url()).pathname.split('/').filter(Boolean).pop());
     expect(patientId).toBeGreaterThan(0);
 
     await page.goto('/clients');
