@@ -75,6 +75,12 @@ test.describe('MVP de periodización deportiva', () => {
     expect(planResponse.ok(), 'Debe crearse el plan deportivo').toBeTruthy();
     const plan = await planResponse.json();
 
+    const sessionResponse = await api.post(apiUrl(`/api/training/plans/${plan.id}/sessions`), {
+      data: { scheduledDate: start, title: 'Sesión plantilla E2E', sessionType: 'strength', durationMinutes: 45,
+        intensityTarget: 'Moderada', instructions: 'Sesión reutilizable', exercisePrescription: 'Sentadilla · 3 × 8' }
+    });
+    expect(sessionResponse.ok(), 'Debe crearse una sesión que pueda guardarse en una plantilla').toBeTruthy();
+
     const meso1Response = await api.post(apiUrl(`/api/training/plans/${plan.id}/mesocycles`), {
       data: { name: 'Mesociclo E2E A', sequenceNumber: 1, startDate: start, endDate: datePlusDays(13), objective: 'Base', notes: null }
     });
@@ -94,6 +100,28 @@ test.describe('MVP de periodización deportiva', () => {
       data: { name: 'Microciclo E2E 2', sequenceNumber: 2, startDate: datePlusDays(7), endDate: datePlusDays(13), focus: 'Carga', notes: null }
     });
     expect(micro2Response.ok(), 'Debe crearse el segundo microciclo sin solapamiento').toBeTruthy();
+
+    const saveTemplateResponse = await api.post(apiUrl(`/api/training/plans/${plan.id}/templates`), {
+      data: { name: 'Plantilla E2E reutilizable' }
+    });
+    expect(saveTemplateResponse.ok(), 'Debe guardarse un plan como plantilla reutilizable').toBeTruthy();
+    const templatesResponse = await api.get(apiUrl('/api/training/templates'));
+    expect(templatesResponse.ok(), 'Debe poder consultarse la biblioteca de plantillas').toBeTruthy();
+    const templates = await templatesResponse.json();
+    const template = templates.find(item => item.name === 'Plantilla E2E reutilizable');
+    expect(template, 'La plantilla guardada debe aparecer en la biblioteca').toBeTruthy();
+    expect(template.sessionCount).toBe(1);
+
+    const copiedPlanResponse = await api.post(apiUrl(`/api/training/clients/${patientId}/plans/from-template/${template.id}`), {
+      data: { name: 'Plan creado desde plantilla E2E', startDate: datePlusDays(120) }
+    });
+    expect(copiedPlanResponse.ok(), 'Debe crearse un plan independiente desde la plantilla').toBeTruthy();
+    const copiedPlan = await copiedPlanResponse.json();
+    expect(copiedPlan.copiedSessions).toBe(1);
+    expect(copiedPlan.copiedMesocycles).toBe(2);
+    const copiedSessionsResponse = await api.get(apiUrl(`/api/training/plans/${copiedPlan.id}/sessions`));
+    expect(copiedSessionsResponse.ok()).toBeTruthy();
+    expect(await copiedSessionsResponse.json()).toHaveLength(1);
 
     await page.goto(`/clients/${patientId}/training`);
     await expect(page.getByRole('heading', { name: 'Planes de entrenamiento' })).toBeVisible({ timeout: 15_000 });
