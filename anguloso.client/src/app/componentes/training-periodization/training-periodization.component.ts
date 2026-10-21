@@ -543,12 +543,12 @@ export class TrainingPeriodizationComponent implements OnInit {
 
   addExerciseToStandaloneDraft(exercise: typeof this.exerciseCatalog[number]): void {
     const draft = this.standaloneSessionTemplateDraft;
-    const lines = draft.exercisePrescription.trim() ? draft.exercisePrescription.split(/\\r?\\n/).map(line => line.trim()).filter(Boolean) : [];
+    const lines = draft.exercisePrescription.trim() ? draft.exercisePrescription.split(/\r?\n/).map(line => line.trim()).filter(Boolean) : [];
     if (lines.some(line => line.toLocaleLowerCase('es').startsWith(exercise.name.toLocaleLowerCase('es')))) {
       this.notice = 'Ese ejercicio ya está incluido en la plantilla.';
       return;
     }
-    draft.exercisePrescription = [...lines, this.buildExercisePrescription(exercise, this.standaloneExerciseSets, this.standaloneExerciseReps, this.standaloneExerciseRest).join('\\n');
+    draft.exercisePrescription = [...lines, this.buildExercisePrescription(exercise, this.standaloneExerciseSets, this.standaloneExerciseReps, this.standaloneExerciseRest)].join('\n');
     if (!draft.instructions.trim()) draft.instructions = exercise.instructions;
     this.notice = exercise.name + ' añadido a la plantilla.';
   }
@@ -1011,12 +1011,12 @@ export class TrainingPeriodizationComponent implements OnInit {
   addExerciseToDraft(planId: number, exercise: typeof this.exerciseCatalog[number]): void {
     const draft = this.sessionDrafts[planId];
     if (!draft) return;
-    const lines = draft.exercisePrescription.trim() ? draft.exercisePrescription.split(/\\r?\\n/).map(line => line.trim()).filter(Boolean) : [];
+    const lines = draft.exercisePrescription.trim() ? draft.exercisePrescription.split(/\r?\n/).map(line => line.trim()).filter(Boolean) : [];
     if (lines.some(line => line.toLocaleLowerCase('es').startsWith(exercise.name.toLocaleLowerCase('es')))) {
       this.notice = 'Ese ejercicio ya está incluido en la sesión.';
       return;
     }
-    draft.exercisePrescription = [...lines, this.buildExercisePrescription(exercise, this.sessionExerciseSets, this.sessionExerciseReps, this.sessionExerciseRest).join('\\n');
+    draft.exercisePrescription = [...lines, this.buildExercisePrescription(exercise, this.sessionExerciseSets, this.sessionExerciseReps, this.sessionExerciseRest)].join('\n');
     this.notice = exercise.name + ' añadido a la sesión.';
   }
 
