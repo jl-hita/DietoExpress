@@ -88,6 +88,7 @@ interface RepDbExercise {
               <label>Buscar<input name="standaloneExerciseSearch" [(ngModel)]="exerciseSearch" placeholder="Ej. sentadilla, remo, movilidad…" /></label>
               <label>Objetivo<select name="standaloneExerciseGoal" [(ngModel)]="exerciseGoalFilter"><option value="all">Todos</option><option value="strength">Fuerza</option><option value="endurance">Resistencia</option><option value="mobility">Movilidad</option><option value="core">Core</option></select></label>
               <label>Material<select name="standaloneExerciseEquipment" [(ngModel)]="exerciseEquipmentFilter"><option value="all">Todo el material</option><option value="bodyweight">Peso corporal</option><option value="dumbbell">Mancuernas</option><option value="barbell">Barra</option><option value="machine">Máquina</option><option value="band">Bandas</option><option value="cardio">Cardio</option></select></label>
+              <label>Grupo muscular<select name="standaloneExerciseMuscle" [(ngModel)]="exerciseMuscleFilter"><option value="all">Todos los grupos</option><option *ngFor="let muscle of exerciseMuscleGroups" [ngValue]="muscle">{{ muscle }}</option></select></label>
             </div>
             <div class="prescription-quick-settings" aria-label="Prescripción para el próximo ejercicio">
               <label>Series<input type="number" name="standaloneExerciseSets" [(ngModel)]="standaloneExerciseSets" min="1" max="20" /></label>
@@ -317,6 +318,7 @@ interface RepDbExercise {
                     <label>Buscar ejercicio<input name="exerciseSearch{{plan.id}}" [(ngModel)]="exerciseSearch" placeholder="Ej. sentadilla, remo, movilidad…" /></label>
                     <label>Objetivo<select name="exerciseGoal{{plan.id}}" [(ngModel)]="exerciseGoalFilter"><option value="all">Todos</option><option value="strength">Fuerza</option><option value="endurance">Resistencia</option><option value="mobility">Movilidad</option><option value="core">Core</option></select></label>
                     <label>Material<select name="exerciseEquipment{{plan.id}}" [(ngModel)]="exerciseEquipmentFilter"><option value="all">Todo el material</option><option value="bodyweight">Peso corporal</option><option value="dumbbell">Mancuernas</option><option value="barbell">Barra</option><option value="machine">Máquina</option><option value="band">Bandas</option><option value="cardio">Cardio</option></select></label>
+                    <label>Grupo muscular<select name="exerciseMuscle{{plan.id}}" [(ngModel)]="exerciseMuscleFilter"><option value="all">Todos los grupos</option><option *ngFor="let muscle of exerciseMuscleGroups" [ngValue]="muscle">{{ muscle }}</option></select></label>
                   </div>
                   <div class="prescription-quick-settings" aria-label="Prescripción para el próximo ejercicio">
                     <label>Series<input type="number" name="sessionExerciseSets{{plan.id}}" [(ngModel)]="sessionExerciseSets" min="1" max="20" /></label>
@@ -448,6 +450,7 @@ export class TrainingPeriodizationComponent implements OnInit {
   exerciseSearch = '';
   exerciseGoalFilter = 'all';
   exerciseEquipmentFilter = 'all';
+  exerciseMuscleFilter = 'all';
   standaloneExerciseSets = 3;
   standaloneExerciseReps = '8–12';
   standaloneExerciseRest = '90 s';
@@ -477,12 +480,31 @@ export class TrainingPeriodizationComponent implements OnInit {
     { id:'band-pullapart', name:'Aperturas con banda', muscles:'Espalda alta y hombros', goal:'strength', equipment:'band', equipmentLabel:'Banda elástica', instructions:'Mantén costillas controladas y separa la banda sin encoger hombros.', prescription:'Aperturas con banda · 3 × 12–15 · descanso 45–60 s' },
     { id:'leg-press', name:'Prensa de piernas', muscles:'Cuádriceps y glúteos', goal:'strength', equipment:'machine', equipmentLabel:'Máquina', instructions:'No bloquees las rodillas y usa un recorrido que controles.', prescription:'Prensa de piernas · 3 × 10–12 · descanso 90 s' }
   ];
+  private exerciseMuscleLabels(muscles: string): string[] {
+    return muscles.split(/,|\s+y\s+|\s+and\s+|\s*\/\s*/i)
+      .map(muscle => muscle.trim())
+      .filter(muscle => muscle && !/^grupo muscular según ficha$/i.test(muscle));
+  }
+
+  get exerciseMuscleGroups(): string[] {
+    const labels = new Map<string, string>();
+    for (const exercise of this.exerciseCatalog) {
+      for (const muscle of this.exerciseMuscleLabels(exercise.muscles)) {
+        const key = muscle.toLocaleLowerCase('es');
+        if (!labels.has(key)) labels.set(key, muscle);
+      }
+    }
+    return [...labels.values()].sort((a, b) => a.localeCompare(b, 'es'));
+  }
+
   get filteredExercises() {
     const query = this.exerciseSearch.trim().toLocaleLowerCase('es');
+    const selectedMuscle = this.exerciseMuscleFilter.toLocaleLowerCase('es');
     return this.exerciseCatalog.filter(exercise =>
       (!query || (exercise.name + ' ' + exercise.muscles + ' ' + exercise.instructions).toLocaleLowerCase('es').includes(query)) &&
       (this.exerciseGoalFilter === 'all' || exercise.goal === this.exerciseGoalFilter) &&
-      (this.exerciseEquipmentFilter === 'all' || exercise.equipment === this.exerciseEquipmentFilter));
+      (this.exerciseEquipmentFilter === 'all' || exercise.equipment === this.exerciseEquipmentFilter) &&
+      (selectedMuscle === 'all' || this.exerciseMuscleLabels(exercise.muscles).some(muscle => muscle.toLocaleLowerCase('es') === selectedMuscle)));
   }
 
   planName = '';
