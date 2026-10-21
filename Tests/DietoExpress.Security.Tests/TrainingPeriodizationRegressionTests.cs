@@ -29,6 +29,10 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("training_collaborations", bootstrap);
         Assert.Contains("ON CONFLICT(session_id, client_id)", controller);
         Assert.Contains("CanAccessClientInternal", controller);
+        Assert.Contains("No tener perfil todavía es un estado normal", controller);
+        Assert.Contains("managementMode = \"none\"", controller);
+        Assert.Contains("timeout({ first: 15000 })", ui);
+        Assert.Contains("No se pudieron cargar los planes. Comprueba la conexión y vuelve a intentarlo.", ui);
         Assert.Contains("NOT @manage AND EXISTS (", controller);
         Assert.Contains("InviteCollaborator", controller);
         Assert.Contains("AcceptCollaboration", controller);
