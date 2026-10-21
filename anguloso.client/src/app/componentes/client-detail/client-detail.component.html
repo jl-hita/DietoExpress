@@ -613,6 +613,48 @@
         </div>
 
         <div class="followup-evolution" *ngIf="checkins.length">
+          <div class="followup-period-comparison">
+            <div class="followup-period-heading">
+              <div>
+                <strong>Comparativa de períodos</strong>
+                <span>Promedio de los últimos {{ followupSettings.periodWeeks }} check-ins frente a los anteriores. Solo se comparan datos registrados.</span>
+              </div>
+              <button mat-stroked-button type="button" (click)="printFollowupReport()">
+                <mat-icon>print</mat-icon> Imprimir informe
+              </button>
+            </div>
+            <div class="followup-period-grid">
+              <article class="followup-period-metric" *ngFor="let metric of getFollowupPeriodComparison()" [class.no-comparison]="metric.previousCount === 0">
+                <span class="metric-label">{{ metric.label }}</span>
+                <strong>{{ formatFollowupMetric(metric.currentAverage, metric.unit) }}</strong>
+                <small>Período actual · {{ metric.currentCount }} dato(s)</small>
+                <div class="period-previous" *ngIf="metric.previousCount > 0">
+                  Anterior: {{ formatFollowupMetric(metric.previousAverage, metric.unit) }} · {{ metric.previousCount }} dato(s)
+                </div>
+                <div class="period-difference" *ngIf="metric.difference !== null">
+                  <mat-icon>{{ metric.difference > 0 ? 'trending_up' : metric.difference < 0 ? 'trending_down' : 'trending_flat' }}</mat-icon>
+                  Diferencia: {{ metric.difference > 0 ? '+' : '' }}{{ metric.difference | number:'1.0-1' }}{{ metric.unit }}
+                </div>
+                <div class="period-previous" *ngIf="metric.previousCount === 0">Aún no hay datos del período anterior para comparar.</div>
+              </article>
+            </div>
+          </div>
+          <div class="followup-missed-checkins" *ngIf="getMissedCheckinWeeks() > 0">
+            <mat-icon>event_busy</mat-icon>
+            <div><strong>Hay revisiones semanales pendientes</strong><span>No consta check-in en {{ getMissedCheckinWeeks() }} semana(s) completa(s). La ausencia de datos no se interpreta como falta de adherencia.</span></div>
+          </div>
+          <div class="followup-persistent-signals" *ngIf="getPersistentFollowupSignals().length">
+            <div class="followup-trends-header">
+              <div><strong>Tendencias persistentes</strong><span>Reglas deterministas aplicadas a tres registros válidos consecutivos</span></div>
+              <mat-icon>rule</mat-icon>
+            </div>
+            <div class="followup-trend-list">
+              <div class="followup-trend attention" *ngFor="let signal of getPersistentFollowupSignals()">
+                <mat-icon>priority_high</mat-icon>
+                <span><strong>{{ signal.label }} · {{ signal.message }}</strong><br>{{ signal.evidence }}</span>
+              </div>
+            </div>
+          </div>
           <div class="followup-summary" *ngIf="getFollowupAlerts().length">
             <div class="followup-summary-header">
               <div>
