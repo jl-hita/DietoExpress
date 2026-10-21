@@ -1,5 +1,6 @@
 using System.Data;
 using System.Security.Claims;
+using System.Text.Json;
 using Anguloso.Server.Logica;
 using Anguloso.Server.Logica.Utils;
 using Anguloso.Server.Models;
@@ -26,6 +27,140 @@ public sealed class TrainingPeriodizationController : ControllerBase
     {
         _context = context;
         _emailServ = emailServ;
+    }
+
+    [HttpGet("templates")]
+    public async Task<IActionResult> GetTemplates(CancellationToken cancellationToken)
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId is null) return Unauthorized();
+        var superAdmin = User.IsInRole("superadmin");
+        var clinicAdmin = User.IsInRole("clinic_admin");
+        await using var command = Command("""
+            SELECT t.id, t.name, t.periodization_model, t.notes, t.created_at,
+                   COALESCE(jsonb_array_length(t.template_data->'sessions'), 0) AS session_count,
+                   u.display_name
+            FROM training_plan_templates t
+            JOIN users u ON u.id = t.created_by_user_id
+            WHERE (@superAdmin OR t.tenant_id = (SELECT tenant_id FROM users WHERE id = @userId))
+              AND (@superAdmin OR @clinicAdmin OR t.created_by_user_id = @userId)
+            ORDER BY t.updated_at DESC, t.id DESC
+            """, ("userId", userId.Value), ("superAdmin", superAdmin), ("clinicAdmin", clinicAdmin));
+        var items = new List<object>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+            items.Add(new { id = reader.GetInt64(0), name = reader.GetString(1), periodizationModel = reader.GetString(2),
+                notes = reader.IsDBNull(3) ? null : reader.GetString(3), createdAt = reader.GetDateTime(4),
+                sessionCount = reader.GetInt32(5), createdBy = reader.IsDBNull(6) ? "Profesional" : reader.GetString(6) });
+        return Ok(items);
+    }
+
+    [HttpPost("plans/{planId:int}/templates")]
+    public async Task<IActionResult> SavePlanAsTemplate(int planId, [FromBody] SaveTrainingTemplateRequest request, CancellationToken cancellationToken)
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId is null) return Unauthorized();
+        if (!await CanManagePlan(planId, cancellationToken)) return NotFound();
+        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Trim().Length > 160)
+            return BadRequest(new { message = "El nombre de la plantilla debe tener entre 1 y 160 caracteres." });
+
+        await using var planCommand = Command("""
+            SELECT p.name, p.periodization_model, p.start_date, p.end_date, p.notes, c.tenant_id
+            FROM training_plans p
+            JOIN training_profiles f ON f.id = p.profile_id
+            JOIN clients c ON c.id = f.client_id
+            WHERE p.id = @planId
+            """, ("planId", planId));
+        string planName, model; DateOnly startDate; DateOnly? endDate; string? notes; int tenantId;
+        await using (var reader = await planCommand.ExecuteReaderAsync(cancellationToken))
+        {
+            if (!await reader.ReadAsync(cancellationToken)) return NotFound();
+            planName = reader.GetString(0); model = reader.GetString(1); startDate = reader.GetFieldValue<DateOnly>(2);
+            endDate = reader.IsDBNull(3) ? null : reader.GetFieldValue<DateOnly>(3);
+            notes = reader.IsDBNull(4) ? null : reader.GetString(4); tenantId = reader.GetInt32(5);
+        }
+
+        var sessions = new List<TrainingTemplateSession>();
+        await using (var sessionsCommand = Command("""
+            SELECT scheduled_date, title, session_type, duration_minutes, intensity_target, instructions, exercise_prescription
+            FROM training_sessions WHERE plan_id = @planId ORDER BY scheduled_date, id
+            """, ("planId", planId)))
+        await using (var reader = await sessionsCommand.ExecuteReaderAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+                sessions.Add(new TrainingTemplateSession(reader.GetFieldValue<DateOnly>(0), reader.GetString(1), reader.GetString(2),
+                    reader.IsDBNull(3) ? null : reader.GetInt32(3), reader.IsDBNull(4) ? null : reader.GetString(4),
+                    reader.IsDBNull(5) ? null : reader.GetString(5), reader.IsDBNull(6) ? null : reader.GetString(6)));
+        }
+
+        var payload = JsonSerializer.Serialize(new TrainingTemplatePayload(planName, model, startDate, endDate, notes, sessions));
+        await using var save = Command("""
+            INSERT INTO training_plan_templates(tenant_id, created_by_user_id, name, periodization_model, notes, template_data)
+            VALUES (@tenantId, @userId, @name, @model, @notes, CAST(@payload AS jsonb))
+            RETURNING id
+            """, ("tenantId", tenantId), ("userId", userId.Value), ("name", request.Name.Trim()),
+            ("model", model), ("notes", notes), ("payload", payload));
+        var id = Convert.ToInt64(await save.ExecuteScalarAsync(cancellationToken));
+        return Ok(new { id, name = request.Name.Trim(), periodizationModel = model, sessionCount = sessions.Count });
+    }
+
+    [HttpPost("clients/{clientId:int}/plans/from-template/{templateId:long}")]
+    public async Task<IActionResult> CreatePlanFromTemplate(int clientId, long templateId, [FromBody] ApplyTrainingTemplateRequest request, CancellationToken cancellationToken)
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId is null) return Unauthorized();
+        if (!await CanManageClient(clientId, cancellationToken)) return NotFound();
+        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Trim().Length > 160)
+            return BadRequest(new { message = "El nombre del plan debe tener entre 1 y 160 caracteres." });
+
+        var tenantId = await _context.Database.SqlQueryRaw<int?>(
+            """SELECT tenant_id AS "Value" FROM clients WHERE id = {0} AND archived_at IS NULL""", clientId)
+            .SingleOrDefaultAsync(cancellationToken);
+        if (!tenantId.HasValue) return NotFound();
+
+        var superAdmin = User.IsInRole("superadmin");
+        var clinicAdmin = User.IsInRole("clinic_admin");
+        await using var templateCommand = Command("""
+            SELECT template_data::text FROM training_plan_templates
+            WHERE id = @templateId AND (@superAdmin OR tenant_id = @tenantId)
+              AND (@superAdmin OR @clinicAdmin OR created_by_user_id = @userId)
+            """, ("templateId", templateId), ("tenantId", tenantId.Value), ("userId", userId.Value),
+            ("superAdmin", superAdmin), ("clinicAdmin", clinicAdmin));
+        var raw = await templateCommand.ExecuteScalarAsync(cancellationToken) as string;
+        if (string.IsNullOrWhiteSpace(raw)) return NotFound();
+        var template = JsonSerializer.Deserialize<TrainingTemplatePayload>(raw, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        if (template is null) return BadRequest(new { message = "La plantilla no tiene un formato válido." });
+
+        if (template.Sessions.Any(x => x.SessionType is not ("endurance" or "strength" or "mobility" or "recovery" or "health" or "general" or "other")))
+            return BadRequest(new { message = "La plantilla contiene un tipo de sesión no válido." });
+
+        await using var createPlan = Command("""
+            INSERT INTO training_plans(profile_id, name, periodization_model, start_date, end_date, status, notes, created_by_user_id)
+            SELECT f.id, @name, @model, @startDate,
+                   CASE WHEN @endDate IS NULL THEN NULL ELSE @startDate + (@endDate - @templateStartDate) END,
+                   'draft', @notes, @userId
+            FROM training_profiles f
+            WHERE f.client_id = @clientId AND f.enabled = TRUE
+            RETURNING id
+            """, ("clientId", clientId), ("name", request.Name.Trim()), ("model", template.PeriodizationModel),
+            ("startDate", request.StartDate), ("endDate", template.EndDate), ("templateStartDate", template.StartDate),
+            ("notes", template.Notes), ("userId", userId.Value));
+        var planIdValue = await createPlan.ExecuteScalarAsync(cancellationToken);
+        if (planIdValue is null) return Conflict(new { message = "Activa primero la planificación deportiva para este cliente." });
+        var newPlanId = Convert.ToInt32(planIdValue);
+
+        foreach (var session in template.Sessions)
+        {
+            var scheduledDate = request.StartDate.AddDays(session.ScheduledDate.DayNumber - template.StartDate.DayNumber);
+            await using var insertSession = Command("""
+                INSERT INTO training_sessions(plan_id, scheduled_date, title, session_type, duration_minutes, intensity_target, instructions, exercise_prescription)
+                VALUES (@planId, @date, @title, @type, @duration, @intensity, @instructions, @prescription)
+                """, ("planId", newPlanId), ("date", scheduledDate), ("title", session.Title), ("type", session.SessionType),
+                ("duration", session.DurationMinutes), ("intensity", session.IntensityTarget), ("instructions", session.Instructions),
+                ("prescription", session.ExercisePrescription));
+            await insertSession.ExecuteNonQueryAsync(cancellationToken);
+        }
+        return Ok(new { id = newPlanId, name = request.Name.Trim(), copiedSessions = template.Sessions.Count });
     }
 
     [HttpGet("clients/{clientId:int}/profile")]
@@ -840,4 +975,11 @@ public sealed record CreateTrainingMesocycleRequest(string Name, int SequenceNum
 public sealed record TrainingMesocycleDto(int Id, int PlanId, string Name, int SequenceNumber, DateOnly StartDate, DateOnly? EndDate, string? Objective, string? Notes);
 public sealed record CreateTrainingMicrocycleRequest(string Name, int SequenceNumber, DateOnly StartDate, DateOnly? EndDate, string? Focus, string? Notes);
 public sealed record ReorderTrainingCyclesRequest(int[] OrderedIds);
+public sealed record SaveTrainingTemplateRequest(string Name);
+public sealed record ApplyTrainingTemplateRequest(string Name, DateOnly StartDate);
+public sealed record TrainingTemplateSession(DateOnly ScheduledDate, string Title, string SessionType, int? DurationMinutes,
+    string? IntensityTarget, string? Instructions, string? ExercisePrescription);
+public sealed record TrainingTemplatePayload(string Name, string PeriodizationModel, DateOnly StartDate, DateOnly? EndDate,
+    string? Notes, List<TrainingTemplateSession> Sessions);
+
 public sealed record TrainingMicrocycleDto(int Id, int MesocycleId, string Name, int SequenceNumber, DateOnly StartDate, DateOnly? EndDate, string? Focus, string? Notes);
