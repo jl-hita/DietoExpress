@@ -34,14 +34,15 @@ interface TrainingInvitation {
   template: `
     <main class="training-page">
       <a *ngIf="clientId > 0" class="back-link" [routerLink]="['/clients', clientId]">← Volver al expediente</a>
-      <header><div><p class="eyebrow">MÓDULO OPCIONAL</p><h1>{{ clientId > 0 ? 'Planificación deportiva' : 'Invitaciones de entrenamiento' }}</h1><p *ngIf="clientId > 0">Actívala solo para clientes que quieran trabajar objetivos de actividad física o entrenamiento.</p></div></header>
+      <header><div><p class="eyebrow">MÓDULO OPCIONAL</p><h1>{{ clientId > 0 ? 'Planificación deportiva' : 'Entrenamientos y colaboraciones' }}</h1><p *ngIf="clientId > 0">Actívala solo para clientes que quieran trabajar objetivos de actividad física o entrenamiento.</p><p *ngIf="clientId === 0">Gestiona las invitaciones de colaboración. Para crear o consultar un plan, entra en la ficha del cliente y abre su sección de planificación deportiva.</p></div></header>
       <p *ngIf="loading" role="status">Cargando planificación…</p>
       <p *ngIf="error" class="error" role="alert">{{ error }}</p>
       <p *ngIf="notice" class="success" role="status">{{ notice }}</p>
       <p *ngIf="acceptedClientId" role="status">Colaboración aceptada. <a [routerLink]="['/clients', acceptedClientId, 'training']">Abrir el entrenamiento</a></p>
       <section *ngIf="clientId === 0 && !invitations.length && !loading" class="panel">
-        <h2>No tienes invitaciones pendientes</h2>
-        <p>Cuando otro profesional te invite a colaborar en un plan deportivo, aparecerá aquí.</p>
+        <h2>Empieza desde la ficha de un cliente</h2>
+        <p>Aquí aparecerán las invitaciones de colaboración pendientes. Para crear un plan de entrenamiento o revisar el de un cliente, abre su ficha y entra en «Planificación deportiva».</p>
+        <a class="back-link" routerLink="/clients">Ir a clientes →</a>
       </section>
       <section *ngIf="invitations.length" class="panel">
         <h2>Invitaciones de colaboración</h2>
