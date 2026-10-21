@@ -6,8 +6,8 @@
       <p>Actividad y evolución del periodo seleccionado.</p>
     </div>
     <div class="filters">
-      <label>Desde <input type="date" [ngModel]="from()" (ngModelChange)="from.set($event)"></label>
-      <label>Hasta <input type="date" [ngModel]="to()" (ngModelChange)="to.set($event)"></label>
+      <label>Desde <input type="text" appDateInput [ngModel]="from()" (ngModelChange)="from.set($event)"></label>
+      <label>Hasta <input type="text" appDateInput [ngModel]="to()" (ngModelChange)="to.set($event)"></label>
       <button type="button" (click)="reload()">Actualizar</button>
     </div>
   </header>
