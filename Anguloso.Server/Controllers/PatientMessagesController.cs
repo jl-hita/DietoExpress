@@ -274,28 +274,31 @@ ORDER BY c.updated_at DESC;", tenantId, userId, isClinicAdmin).ToListAsync();
 
         var existing = nutritionistId.HasValue
             ? await _context.Database.SqlQueryRaw<long>(
-                @"SELECT id AS ""Value"" FROM patient_conversations WHERE client_id = {0} AND assigned_nutritionist_id = {1} AND closed_at IS NULL LIMIT 1;",
+                @"SELECT id AS ""Value"" FROM patient_conversations WHERE client_id = {0} AND assigned_nutritionist_id = {1} AND closed_at IS NULL LIMIT 1",
                 clientId, nutritionistId.Value).FirstOrDefaultAsync()
             : await _context.Database.SqlQueryRaw<long>(
-                @"SELECT id AS ""Value"" FROM patient_conversations WHERE client_id = {0} AND assigned_nutritionist_id IS NULL AND closed_at IS NULL LIMIT 1;",
+                @"SELECT id AS ""Value"" FROM patient_conversations WHERE client_id = {0} AND assigned_nutritionist_id IS NULL AND closed_at IS NULL LIMIT 1",
                 clientId).FirstOrDefaultAsync();
         if (existing != 0) return new ConversationRef(existing, client.tenant_id.Value);
 
         try
         {
-            var id = nutritionistId.HasValue
+            // ToListAsync ejecuta INSERT ... RETURNING sin que EF Core intente envolverlo
+            // en una subconsulta (operación no composable en PostgreSQL).
+            var insertedIds = nutritionistId.HasValue
                 ? await _context.Database.SqlQueryRaw<long>(
                     @"INSERT INTO patient_conversations(tenant_id, client_id, assigned_nutritionist_id) VALUES ({0}, {1}, {2}) RETURNING id;",
-                    client.tenant_id.Value, clientId, nutritionistId.Value).FirstAsync()
+                    client.tenant_id.Value, clientId, nutritionistId.Value).ToListAsync()
                 : await _context.Database.SqlQueryRaw<long>(
                     @"INSERT INTO patient_conversations(tenant_id, client_id) VALUES ({0}, {1}) RETURNING id;",
-                    client.tenant_id.Value, clientId).FirstAsync();
+                    client.tenant_id.Value, clientId).ToListAsync();
+            var id = insertedIds.Single();
             return new ConversationRef(id, client.tenant_id.Value);
         }
         catch (PostgresException ex) when (ex.SqlState == "23505")
         {
             var id = await _context.Database.SqlQueryRaw<long>(
-                @"SELECT id AS ""Value"" FROM patient_conversations WHERE client_id = {0} AND closed_at IS NULL LIMIT 1;",
+                @"SELECT id AS ""Value"" FROM patient_conversations WHERE client_id = {0} AND closed_at IS NULL LIMIT 1",
                 clientId).FirstAsync();
             return new ConversationRef(id, client.tenant_id.Value);
         }
