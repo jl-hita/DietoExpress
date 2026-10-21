@@ -6,7 +6,7 @@ async function mockPortalApi(page) {
   await page.route('**/api/**', async route => {
     const request = route.request();
     const url = new URL(request.url());
-    calls.push({ path: url.pathname, method: request.method(), body: request.postDataJSON?.() });
+    calls.push({ path: url.pathname, method: request.method(), body: request.postDataJSON?.(), headers: request.headers() });
     if (url.pathname.endsWith('/portal/auth') && request.method() === 'POST') {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ clientId: 321, fullName: 'Paciente E2E Ficticio' }) });
     } else if (url.pathname.endsWith('/portal/profile')) {
@@ -68,6 +68,7 @@ test.describe('P0 — portal autenticado del paciente', () => {
     await expect.poll(() => calls.some(call => call.path.endsWith('/appointments/mine') && call.method === 'GET')).toBe(true);
     await expect.poll(() => calls.some(call => call.path.endsWith('/commercial-communications/preferences') && call.method === 'GET')).toBe(true);
     await expect.poll(() => calls.some(call => call.path.endsWith('/broadcast-messages/inbox') && call.method === 'GET')).toBe(true);
+    expect(calls.find(call => call.path.endsWith('/broadcast-messages/inbox') && call.method === 'GET')?.headers['x-dietoexpress-patient-portal']).toBe('1');
 
     await page.getByRole('button', { name: 'Ver mis mensajes', exact: true }).click();
     await expect(page.locator('app-patient-chat')).toBeVisible();
