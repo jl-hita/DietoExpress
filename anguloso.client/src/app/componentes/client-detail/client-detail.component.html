@@ -661,13 +661,35 @@
                 <div class="followup-goal-title-row"><strong>{{ goal.title }}</strong><span class="followup-goal-status" [class.status-completed]="goal.status === 'completed'" [class.status-paused]="goal.status === 'paused'">{{ goal.status === 'active' ? 'Activo' : goal.status === 'paused' ? 'Pausado' : 'Completado' }}</span></div>
                 <div class="followup-goal-meta">{{ getGoalPhaseLabel(goal.phase) }} · {{ getGoalMetricLabel(goal.metricKey) }} · Objetivo: {{ goal.targetValue }}{{ goal.unit }}</div>
                 <div class="followup-goal-meta">Inicio: {{ formatDateOnly(goal.startDate) }}<span *ngIf="goal.targetDate"> · Fecha objetivo: {{ formatDateOnly(goal.targetDate) }}</span></div>
+                <label class="followup-goal-phase-editor">Fase actual
+                  <select [ngModel]="goal.phase" (ngModelChange)="updateFollowupGoalPhase(goal, $event)" [ngModelOptions]="{standalone: true}" [disabled]="goal.status === 'completed'">
+                    <option value="baseline">Evaluación inicial</option>
+                    <option value="building">Construcción de hábitos</option>
+                    <option value="maintenance">Mantenimiento</option>
+                    <option value="review">Revisión</option>
+                  </select>
+                </label>
                 <p *ngIf="goal.notes" class="followup-goal-notes">{{ goal.notes }}</p>
                 <div class="followup-goal-progress"><span>Último dato registrado:</span><strong>{{ getGoalMetricValue(goal) === null ? 'Sin datos' : (getGoalMetricValue(goal) + goal.unit) }}</strong></div>
+                <div class="followup-goal-progress-history" *ngIf="getGoalMetricHistory(goal).length">
+                  <strong>Evolución registrada</strong>
+                  <div><span *ngFor="let point of getGoalMetricHistory(goal)">{{ formatDateOnly(point.weekStart) }}: {{ point.value }}{{ goal.unit }}</span></div>
+                </div>
               </div>
-              <div class="followup-goal-actions" *ngIf="goal.status !== 'completed'">
+              <div class="followup-goal-actions">
+                <button mat-stroked-button type="button" (click)="toggleFollowupGoalHistory(goal)"><mat-icon>history</mat-icon> {{ followupGoalHistory[goal.id] ? 'Ocultar historial' : 'Historial' }}</button>
                 <button mat-stroked-button type="button" *ngIf="goal.status === 'active'" (click)="updateFollowupGoalStatus(goal, 'paused')">Pausar</button>
                 <button mat-stroked-button type="button" *ngIf="goal.status === 'paused'" (click)="updateFollowupGoalStatus(goal, 'active')">Reactivar</button>
-                <button mat-flat-button color="primary" type="button" (click)="updateFollowupGoalStatus(goal, 'completed')">Completar</button>
+                <button mat-flat-button color="primary" type="button" *ngIf="goal.status !== 'completed'" (click)="updateFollowupGoalStatus(goal, 'completed')">Completar</button>
+              </div>
+              <div class="followup-goal-history" *ngIf="loadingFollowupGoalHistory[goal.id]"><mat-spinner diameter="18"></mat-spinner><span>Cargando historial…</span></div>
+              <div class="followup-goal-history" *ngIf="followupGoalHistory[goal.id] as events">
+                <strong>Historial de cambios</strong>
+                <div class="followup-goal-event" *ngFor="let event of events">
+                  <span>{{ event.occurredAt | date:'dd/MM/yyyy HH:mm' }}</span>
+                  <div><strong>{{ getGoalEventLabel(event.eventType) }}</strong><small *ngIf="event.previousValue || event.newValue">{{ event.previousValue || '—' }} → {{ event.newValue || '—' }}</small></div>
+                </div>
+                <p *ngIf="!events.length">No hay cambios registrados.</p>
               </div>
             </article>
           </div>

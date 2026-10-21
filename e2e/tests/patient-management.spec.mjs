@@ -140,9 +140,22 @@ test.describe('P1 — gestión de pacientes desde la interfaz', () => {
     expect(goals).toHaveLength(1);
     expect(goals[0]).toMatchObject({ id: created.id, title: 'Adherencia semanal de prueba', metricKey: 'adherence', targetValue: 80, unit: '%', phase: 'building', status: 'active' });
 
+    const historyUrl = new URL(`/api/professional/followup-goals/${patientId}/${created.id}/history`, baseURL).toString();
+    const createdHistory = await api.get(historyUrl);
+    expect(createdHistory.ok()).toBeTruthy();
+    expect((await createdHistory.json()).some(event => event.eventType === 'created')).toBeTruthy();
+
+    const phaseUpdate = await api.put(new URL(`/api/professional/followup-goals/${created.id}/phase`, baseURL).toString(), { data: { phase: 'maintenance' } });
+    expect(phaseUpdate.status()).toBe(204);
+    const phaseHistory = await api.get(historyUrl);
+    expect((await phaseHistory.json()).some(event => event.eventType === 'phase_changed' && event.previousValue === 'building' && event.newValue === 'maintenance')).toBeTruthy();
+
     const update = await api.put(new URL(`/api/professional/followup-goals/${created.id}/status`, baseURL).toString(), { data: { status: 'completed' } });
     expect(update.status()).toBe(204);
     const completed = await api.get(new URL(`/api/professional/followup-goals/${patientId}`, baseURL).toString());
-    expect((await completed.json())[0].status).toBe('completed');
+    expect((await completed.json())[0]).toMatchObject({ status: 'completed', phase: 'maintenance' });
+    const finalHistory = await api.get(historyUrl);
+    const events = await finalHistory.json();
+    expect(events.some(event => event.eventType === 'status_changed' && event.previousValue === 'active' && event.newValue === 'completed')).toBeTruthy();
   });
 });

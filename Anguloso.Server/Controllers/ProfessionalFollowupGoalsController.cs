@@ -74,6 +74,7 @@ public sealed class ProfessionalFollowupGoalsController : ControllerBase
         await using var connection = new NpgsqlConnection(_configuration.GetConnectionString("DefaultConnection"));
         await connection.OpenAsync();
         if (!await CanAccessClientAsync(connection, tenantId, userId, request.ClientId)) return NotFound();
+        await using var transaction = await connection.BeginTransactionAsync();
 
         await using var command = new NpgsqlCommand("""
             INSERT INTO professional_followup_goals
@@ -81,7 +82,7 @@ public sealed class ProfessionalFollowupGoalsController : ControllerBase
                  phase, start_date, target_date, status, notes)
             VALUES (@tenant,@client,@user,@title,@metric,@target,@unit,@phase,@start,@end,'active',@notes)
             RETURNING id;
-            """, connection);
+            """, connection, transaction);
         command.Parameters.AddWithValue("tenant", tenantId);
         command.Parameters.AddWithValue("client", request.ClientId);
         command.Parameters.AddWithValue("user", userId);
@@ -100,7 +101,101 @@ public sealed class ProfessionalFollowupGoalsController : ControllerBase
             Value = string.IsNullOrWhiteSpace(request.Notes) ? DBNull.Value : request.Notes.Trim()
         });
         var id = (int)(await command.ExecuteScalarAsync() ?? 0);
+        await InsertEventAsync(connection, transaction, id, tenantId, request.ClientId, userId, "created", null,
+            $"{request.Title.Trim()} · objetivo {request.TargetValue}{unit} · fase {phase} · estado active");
+        await transaction.CommitAsync();
         return CreatedAtAction(nameof(Get), new { clientId = request.ClientId }, new { id });
+    }
+
+    [HttpGet("{clientId:int}/{goalId:int}/history")]
+    public async Task<IActionResult> GetHistory(int clientId, int goalId)
+    {
+        if (!TryGetContext(out var tenantId, out var userId)) return BadRequest(new { message = "La cuenta no tiene organización o usuario." });
+        await using var connection = new NpgsqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        await connection.OpenAsync();
+        if (!await CanAccessClientAsync(connection, tenantId, userId, clientId)) return NotFound();
+
+        await using var command = new NpgsqlCommand("""
+            SELECT e.id, e.event_type, e.previous_value, e.new_value, e.occurred_at
+            FROM professional_followup_goal_events e
+            JOIN professional_followup_goals g ON g.id=e.goal_id
+            WHERE e.goal_id=@goal AND e.client_id=@client AND e.tenant_id=@tenant
+              AND e.professional_user_id=@user AND g.tenant_id=@tenant
+              AND g.client_id=@client AND g.professional_user_id=@user
+            ORDER BY e.occurred_at DESC, e.id DESC;
+            """, connection);
+        command.Parameters.AddWithValue("goal", goalId);
+        command.Parameters.AddWithValue("client", clientId);
+        command.Parameters.AddWithValue("tenant", tenantId);
+        command.Parameters.AddWithValue("user", userId);
+        var events = new List<FollowupGoalEventDto>();
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            events.Add(new FollowupGoalEventDto
+            {
+                Id = reader.GetInt64(0),
+                EventType = reader.GetString(1),
+                PreviousValue = reader.IsDBNull(2) ? null : reader.GetString(2),
+                NewValue = reader.IsDBNull(3) ? null : reader.GetString(3),
+                OccurredAt = reader.GetDateTime(4)
+            });
+        }
+        return Ok(events);
+    }
+
+    [HttpPut("{id:int}/phase")]
+    public async Task<IActionResult> UpdatePhase(int id, [FromBody] UpdateFollowupGoalPhaseRequest request)
+    {
+        if (!TryGetContext(out var tenantId, out var userId)) return BadRequest(new { message = "La cuenta no tiene organización o usuario." });
+        if (request == null || !TryPhase(request.Phase, out var phase))
+            return BadRequest(new { message = "Selecciona una fase válida." });
+
+        await using var connection = new NpgsqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        await connection.OpenAsync();
+        await using var transaction = await connection.BeginTransactionAsync();
+        string? previousPhase;
+        int clientId;
+        await using (var select = new NpgsqlCommand("""
+            SELECT g.phase, g.client_id
+            FROM professional_followup_goals g
+            WHERE g.id=@id AND g.tenant_id=@tenant AND g.professional_user_id=@user
+              AND EXISTS (
+                SELECT 1 FROM clients c WHERE c.id=g.client_id AND c.tenant_id=@tenant AND c.archived_at IS NULL
+                  AND EXISTS (SELECT 1 FROM client_nutritionist_assignments a
+                    WHERE a.client_id=c.id AND a.nutritionist_id=@user AND a.is_active)
+              )
+            FOR UPDATE;
+            """, connection, transaction))
+        {
+            select.Parameters.AddWithValue("id", id);
+            select.Parameters.AddWithValue("tenant", tenantId);
+            select.Parameters.AddWithValue("user", userId);
+            await using var reader = await select.ExecuteReaderAsync();
+            if (!await reader.ReadAsync()) return NotFound();
+            previousPhase = reader.GetString(0);
+            clientId = reader.GetInt32(1);
+        }
+
+        if (string.Equals(previousPhase, phase, StringComparison.Ordinal))
+        {
+            await transaction.CommitAsync();
+            return NoContent();
+        }
+        await using (var update = new NpgsqlCommand("""
+            UPDATE professional_followup_goals SET phase=@phase, updated_at=NOW()
+            WHERE id=@id AND tenant_id=@tenant AND professional_user_id=@user;
+            """, connection, transaction))
+        {
+            update.Parameters.AddWithValue("phase", phase);
+            update.Parameters.AddWithValue("id", id);
+            update.Parameters.AddWithValue("tenant", tenantId);
+            update.Parameters.AddWithValue("user", userId);
+            await update.ExecuteNonQueryAsync();
+        }
+        await InsertEventAsync(connection, transaction, id, tenantId, clientId, userId, "phase_changed", previousPhase, phase);
+        await transaction.CommitAsync();
+        return NoContent();
     }
 
     [HttpPut("{id:int}/status")]
@@ -112,25 +207,68 @@ public sealed class ProfessionalFollowupGoalsController : ControllerBase
 
         await using var connection = new NpgsqlConnection(_configuration.GetConnectionString("DefaultConnection"));
         await connection.OpenAsync();
-        await using var command = new NpgsqlCommand("""
-            UPDATE professional_followup_goals g
-            SET status=@status, updated_at=NOW()
+        await using var transaction = await connection.BeginTransactionAsync();
+        string? previousStatus;
+        int clientId;
+        await using (var select = new NpgsqlCommand("""
+            SELECT g.status, g.client_id
+            FROM professional_followup_goals g
             WHERE g.id=@id AND g.tenant_id=@tenant AND g.professional_user_id=@user
               AND EXISTS (
-                SELECT 1 FROM clients c
-                WHERE c.id=g.client_id AND c.tenant_id=@tenant AND c.archived_at IS NULL
-                  AND EXISTS (
-                    SELECT 1 FROM client_nutritionist_assignments a
-                    WHERE a.client_id=c.id AND a.nutritionist_id=@user AND a.is_active
-                  )
-              );
-            """, connection);
-        command.Parameters.AddWithValue("status", request.Status);
-        command.Parameters.AddWithValue("id", id);
+                SELECT 1 FROM clients c WHERE c.id=g.client_id AND c.tenant_id=@tenant AND c.archived_at IS NULL
+                  AND EXISTS (SELECT 1 FROM client_nutritionist_assignments a
+                    WHERE a.client_id=c.id AND a.nutritionist_id=@user AND a.is_active)
+              )
+            FOR UPDATE;
+            """, connection, transaction))
+        {
+            select.Parameters.AddWithValue("id", id);
+            select.Parameters.AddWithValue("tenant", tenantId);
+            select.Parameters.AddWithValue("user", userId);
+            await using var reader = await select.ExecuteReaderAsync();
+            if (!await reader.ReadAsync()) return NotFound();
+            previousStatus = reader.GetString(0);
+            clientId = reader.GetInt32(1);
+        }
+
+        if (string.Equals(previousStatus, request.Status, StringComparison.Ordinal))
+        {
+            await transaction.CommitAsync();
+            return NoContent();
+        }
+        await using (var update = new NpgsqlCommand("""
+            UPDATE professional_followup_goals SET status=@status, updated_at=NOW()
+            WHERE id=@id AND tenant_id=@tenant AND professional_user_id=@user;
+            """, connection, transaction))
+        {
+            update.Parameters.AddWithValue("status", request.Status);
+            update.Parameters.AddWithValue("id", id);
+            update.Parameters.AddWithValue("tenant", tenantId);
+            update.Parameters.AddWithValue("user", userId);
+            await update.ExecuteNonQueryAsync();
+        }
+        await InsertEventAsync(connection, transaction, id, tenantId, clientId, userId, "status_changed", previousStatus, request.Status);
+        await transaction.CommitAsync();
+        return NoContent();
+    }
+
+    private static async Task InsertEventAsync(
+        NpgsqlConnection connection, NpgsqlTransaction transaction, int goalId, int tenantId, int clientId,
+        int userId, string eventType, string? previousValue, string? newValue)
+    {
+        await using var command = new NpgsqlCommand("""
+            INSERT INTO professional_followup_goal_events
+                (goal_id, tenant_id, client_id, professional_user_id, event_type, previous_value, new_value)
+            VALUES (@goal,@tenant,@client,@user,@event,@previous,@next);
+            """, connection, transaction);
+        command.Parameters.AddWithValue("goal", goalId);
         command.Parameters.AddWithValue("tenant", tenantId);
+        command.Parameters.AddWithValue("client", clientId);
         command.Parameters.AddWithValue("user", userId);
-        var changed = await command.ExecuteNonQueryAsync();
-        return changed == 0 ? NotFound() : NoContent();
+        command.Parameters.AddWithValue("event", eventType);
+        command.Parameters.Add(new NpgsqlParameter("previous", NpgsqlTypes.NpgsqlDbType.Varchar) { Value = (object?)previousValue ?? DBNull.Value });
+        command.Parameters.Add(new NpgsqlParameter("next", NpgsqlTypes.NpgsqlDbType.Varchar) { Value = (object?)newValue ?? DBNull.Value });
+        await command.ExecuteNonQueryAsync();
     }
 
     private bool TryGetContext(out int tenantId, out int userId)
@@ -195,6 +333,20 @@ public sealed class ProfessionalFollowupGoalsController : ControllerBase
         public DateOnly StartDate { get; set; } = DateOnly.FromDateTime(DateTime.UtcNow);
         public DateOnly? TargetDate { get; set; }
         public string? Notes { get; set; }
+    }
+
+    public sealed class UpdateFollowupGoalPhaseRequest
+    {
+        public string Phase { get; set; } = "";
+    }
+
+    public sealed class FollowupGoalEventDto
+    {
+        public long Id { get; set; }
+        public string EventType { get; set; } = "";
+        public string? PreviousValue { get; set; }
+        public string? NewValue { get; set; }
+        public DateTime OccurredAt { get; set; }
     }
 
     public sealed class UpdateFollowupGoalStatusRequest

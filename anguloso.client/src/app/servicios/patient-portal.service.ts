@@ -124,6 +124,14 @@ export interface FollowupGoal {
   updatedAt: string;
 }
 
+export interface FollowupGoalEvent {
+  id: number;
+  eventType: 'created' | 'phase_changed' | 'status_changed' | 'target_changed' | string;
+  previousValue?: string | null;
+  newValue?: string | null;
+  occurredAt: string;
+}
+
 export interface CreateFollowupGoalRequest {
   clientId: number;
   title: string;
@@ -341,6 +349,14 @@ export class PatientPortalService {
 
   createFollowupGoal(request: CreateFollowupGoalRequest): Observable<{ id: number }> {
     return this.http.post<{ id: number }>(`${this.base}/professional/followup-goals`, request);
+  }
+
+  updateFollowupGoalPhase(id: number, phase: 'baseline' | 'building' | 'maintenance' | 'review'): Observable<void> {
+    return this.http.put<void>(`${this.base}/professional/followup-goals/${id}/phase`, { phase });
+  }
+
+  getFollowupGoalHistory(clientId: number, goalId: number): Observable<FollowupGoalEvent[]> {
+    return this.http.get<FollowupGoalEvent[]>(`${this.base}/professional/followup-goals/${clientId}/${goalId}/history`);
   }
 
   updateFollowupGoalStatus(id: number, status: 'active' | 'paused' | 'completed'): Observable<void> {
