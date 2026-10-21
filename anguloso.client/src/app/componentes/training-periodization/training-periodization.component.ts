@@ -487,6 +487,7 @@ export class TrainingPeriodizationComponent implements OnInit {
 
         if (!profile.enabled) {
           this.loading = false;
+          this.changeDetector.detectChanges();
           return;
         }
 
