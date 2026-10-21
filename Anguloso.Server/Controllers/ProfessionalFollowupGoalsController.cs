@@ -91,8 +91,14 @@ public sealed class ProfessionalFollowupGoalsController : ControllerBase
         command.Parameters.AddWithValue("unit", unit);
         command.Parameters.AddWithValue("phase", phase);
         command.Parameters.AddWithValue("start", request.StartDate);
-        command.Parameters.AddWithValue("end", (object?)request.TargetDate ?? DBNull.Value);
-        command.Parameters.AddWithValue("notes", (object?)request.Notes?.Trim() ?? DBNull.Value);
+        command.Parameters.Add(new NpgsqlParameter("end", NpgsqlTypes.NpgsqlDbType.Date)
+        {
+            Value = request.TargetDate.HasValue ? request.TargetDate.Value : DBNull.Value
+        });
+        command.Parameters.Add(new NpgsqlParameter("notes", NpgsqlTypes.NpgsqlDbType.Varchar)
+        {
+            Value = string.IsNullOrWhiteSpace(request.Notes) ? DBNull.Value : request.Notes.Trim()
+        });
         var id = (int)(await command.ExecuteScalarAsync() ?? 0);
         return CreatedAtAction(nameof(Get), new { clientId = request.ClientId }, new { id });
     }
