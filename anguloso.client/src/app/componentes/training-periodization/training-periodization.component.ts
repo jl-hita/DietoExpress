@@ -54,7 +54,7 @@ interface RepDbExercise {
     <main class="training-page">
       <a *ngIf="clientId > 0" class="back-link" [routerLink]="['/clients', clientId]">← Volver al expediente</a>
       <header><div><p class="eyebrow">MÓDULO OPCIONAL</p><h1>{{ clientId > 0 ? 'Planificación deportiva' : 'Entrenamientos y colaboraciones' }}</h1><p *ngIf="clientId > 0">Actívala solo para clientes que quieran trabajar objetivos de actividad física o entrenamiento.</p><p *ngIf="clientId === 0">Gestiona las invitaciones de colaboración. Para crear o consultar un plan, entra en la ficha del cliente y abre su sección de planificación deportiva.</p></div></header>
-      <p *ngIf="loading" role="status">Cargando planificación…</p>
+      <p *ngIf="loading" role="status">{{ clientId > 0 ? 'Cargando planificación…' : 'Cargando invitaciones…' }}</p>
       <p *ngIf="error" class="error" role="alert">{{ error }}</p>
       <p *ngIf="notice" class="success" role="status">{{ notice }}</p>
       <p *ngIf="acceptedClientId" role="status">Colaboración aceptada. <a [routerLink]="['/clients', acceptedClientId, 'training']">Abrir el entrenamiento</a></p>
@@ -439,9 +439,27 @@ export class TrainingPeriodizationComponent implements OnInit {
     const routeId = this.route.snapshot.paramMap.get('id');
     if (routeId === null) {
       this.clientId = 0;
-      this.http.get<TrainingInvitation[]>('/api/training/collaborations/invitations')
-        .pipe(catchError(() => of([] as TrainingInvitation[])))
-        .subscribe(items => { this.invitations = items; this.loading = false; });
+      this.http.get<TrainingInvitation[]>('/api/training/collaborations/invitations').pipe(
+        timeout({ first: 12000 }),
+        catchError(() => {
+          this.error = 'No se pudieron cargar las invitaciones de entrenamiento. Comprueba la conexión y vuelve a intentarlo.';
+          this.loadFailed = true;
+          return of([] as TrainingInvitation[]);
+        })
+      ).subscribe({
+        next: items => {
+          this.invitations = items;
+          this.loading = false;
+          this.changeDetector.detectChanges();
+        },
+        error: () => {
+          // Keep a final safety net for any unexpected RxJS error.
+          this.error = 'No se pudieron cargar las invitaciones de entrenamiento.';
+          this.loadFailed = true;
+          this.loading = false;
+          this.changeDetector.detectChanges();
+        }
+      });
       return;
     }
     this.clientId = Number(routeId);
