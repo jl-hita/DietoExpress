@@ -188,7 +188,8 @@ export class PatientCheckinComponent implements OnInit, OnChanges {
     this.checkinTraining = checkin.training ?? null;
     this.checkinDifficulties = checkin.difficulties ?? '';
     const selected = new Set(checkin.barriers ?? []);
-    for (const key of Object.keys(this.barrierOptions)) this.barrierOptions[key] = selected.has(key);
+    const keys = Object.keys(this.barrierOptions) as Array<keyof typeof this.barrierOptions>;
+    for (const key of keys) this.barrierOptions[key] = selected.has(key);
     this.checkinNotes = checkin.notes ?? '';
   }
 }
