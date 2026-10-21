@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { catchError, forkJoin, of, timeout } from 'rxjs';
@@ -308,7 +308,7 @@ export class TrainingPeriodizationComponent implements OnInit {
   endDate = '';
   planNotes = '';
 
-  constructor(private route: ActivatedRoute, private http: HttpClient) {}
+  constructor(private route: ActivatedRoute, private http: HttpClient, private changeDetector: ChangeDetectorRef) {}
 
   ngOnInit(): void {
     const routeId = this.route.snapshot.paramMap.get('id');
@@ -474,8 +474,10 @@ export class TrainingPeriodizationComponent implements OnInit {
     ).subscribe({
       next: profile => {
         this.profile = profile;
+        this.changeDetector.detectChanges();
         if (!profile) {
           this.loading = false;
+          this.changeDetector.detectChanges();
           return;
         }
 
@@ -485,6 +487,7 @@ export class TrainingPeriodizationComponent implements OnInit {
 
         if (!profile.enabled) {
           this.loading = false;
+          this.changeDetector.detectChanges();
           return;
         }
 
@@ -498,6 +501,7 @@ export class TrainingPeriodizationComponent implements OnInit {
         ).subscribe(plans => {
           if (plans === null) {
             this.loading = false;
+            this.changeDetector.detectChanges();
             return;
           }
 
@@ -516,6 +520,7 @@ export class TrainingPeriodizationComponent implements OnInit {
           }
           this.loadSessions(plans);
           this.loading = false;
+          this.changeDetector.detectChanges();
         });
       },
       error: () => {
@@ -523,6 +528,7 @@ export class TrainingPeriodizationComponent implements OnInit {
         this.loadFailed = true;
         this.error = 'No se pudo cargar la planificación deportiva. Recarga la página y vuelve a intentarlo.';
         this.loading = false;
+        this.changeDetector.detectChanges();
       }
     });
   }
