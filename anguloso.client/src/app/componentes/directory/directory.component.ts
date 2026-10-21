@@ -261,8 +261,11 @@ export class DirectoryComponent implements OnInit {
       fullName, email, phone: phone || undefined, patientNotes: notes || undefined,
       modality: this.bookingModality
     }).subscribe({
-      next: () => {
-        this.bookingSuccess = 'Solicitud enviada para el ' + this.formatSlot(this.selectedSlot!) + '. El profesional deberá confirmarla.';
+      next: response => {
+        const slotLabel = this.formatSlot(this.selectedSlot!);
+        this.bookingSuccess = response.status === 'confirmed'
+          ? 'Cita confirmada para el ' + slotLabel + '. Tu reserva está lista.'
+          : 'Solicitud enviada para el ' + slotLabel + '. El profesional deberá confirmarla.';
         this.bookingSubmitting = false; this.selectedSlot = null; this.bookingNotes = ''; this.bookingModality = 'in_person';
         this.loadAvailability(this.profile!.slug);
       },

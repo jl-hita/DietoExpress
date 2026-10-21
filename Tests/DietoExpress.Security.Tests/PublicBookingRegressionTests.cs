@@ -64,6 +64,29 @@ public class PublicBookingRegressionTests
     }
 
     [Fact]
+    public void PublicBooking_AutoConfirmsOnlyClientsWithCompletedAppointments()
+    {
+        var source = File.ReadAllText(Path.Combine(
+            RepoRoot, "Anguloso.Server", "Controllers", "DirectoryController.cs"));
+        var bookingStart = source.IndexOf(
+            "public async Task<ActionResult<PublicAppointmentConfirmationDto>> RequestPublicAppointment",
+            StringComparison.Ordinal);
+        var bookingEnd = source.IndexOf("[AllowAnonymous]", bookingStart + 1, StringComparison.Ordinal);
+        Assert.True(bookingStart >= 0 && bookingEnd > bookingStart);
+
+        var booking = source[bookingStart..bookingEnd];
+        Assert.Contains("a.client_id == client.id", booking);
+        Assert.Contains("a.status == \"completed\"", booking);
+        Assert.Contains("status = \"requested\"", booking);
+        Assert.Contains("appointment.status = \"confirmed\";", booking);
+        Assert.Contains("if (isEstablishedClient)", booking);
+        Assert.Contains("isEstablishedClient ? \"appointment.confirmed\" : \"appointment.requested\"", booking);
+        Assert.Contains("if (isEstablishedClient)", booking);
+        Assert.Contains("if (requestedModality == \"online\")", booking);
+        Assert.Contains("_videoMeetings.CreatePrivateRoomAsync(", booking);
+    }
+
+    [Fact]
     public void PublicBooking_UsesTheSamePortalAccessTokenServiceAsPortalRecovery()
     {
         var accessService = File.ReadAllText(Path.Combine(
