@@ -67,9 +67,10 @@ public class PatientPortalController : ControllerBase
         }
         else return BadRequest("Debes proporcionar un enlace de acceso o tus credenciales.");
 
-        var sessionExpiresAtUtc = !string.IsNullOrWhiteSpace(request.Token) && client.access_token_expires_at.HasValue
-            ? DateTime.SpecifyKind(client.access_token_expires_at.Value, DateTimeKind.Utc)
-            : DateTime.UtcNow.AddHours(8);
+        // El enlace mágico solo limita el intercambio inicial por una sesión. Una vez autenticado,
+        // el paciente conserva su sesión durante 30 días; la versión de token permite revocarla
+        // al cerrar sesión, cambiar el PIN o regenerar el enlace de acceso.
+        var sessionExpiresAtUtc = DateTime.UtcNow.AddDays(30);
 
         var portalTenantId = client.tenant_id ?? client.user?.tenant_id;
         if (!await _licenseService.CanUseFeatureAsync(portalTenantId, "CLIENT_PORTAL")) return Forbid();
