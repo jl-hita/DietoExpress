@@ -154,7 +154,11 @@ public class AuthorizationRegressionTests
     public void JwtCookieSelection_AllowsProfessionalAndPatientSessionsToCoexist()
     {
         var program = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Program.cs"));
-        Assert.Contains("context.Request.Path.StartsWithSegments(\"/api/portal\")", program);
+        Assert.Contains("path.StartsWithSegments(\"/api/portal\")", program);
+        Assert.Contains("path.StartsWithSegments(\"/api/messages/patient\")", program);
+        Assert.Contains("path.StartsWithSegments(\"/api/commercial-communications/preferences\")", program);
+        Assert.Contains("\"/api/appointments/mine\"", program);
+        Assert.Contains("\"/api/broadcast-messages/inbox\"", program);
         Assert.Contains("dietoexpress_patient_session", program);
         Assert.Contains("dietoexpress_professional_session", program);
     }
