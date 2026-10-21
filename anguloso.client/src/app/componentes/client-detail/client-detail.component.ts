@@ -1001,7 +1001,10 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     this.loadingFollowupGoals = true;
     this.portalService.getFollowupGoals(this.clientId).subscribe({
       next: goals => this.followupGoals = goals,
-      error: () => this.snack.open('No se han podido cargar los objetivos de seguimiento', 'Cerrar', { duration: 3000 }),
+      error: () => {
+        this.loadingFollowupGoals = false;
+        this.snack.open('No se han podido cargar los objetivos de seguimiento', 'Cerrar', { duration: 3000 });
+      },
       complete: () => this.loadingFollowupGoals = false
     });
   }
@@ -1031,7 +1034,10 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
         this.loadFollowupGoals();
         this.snack.open('Objetivo de seguimiento guardado', 'Cerrar', { duration: 1800 });
       },
-      error: err => this.snack.open(err?.error?.message || 'No se ha podido guardar el objetivo', 'Cerrar', { duration: 3000 }),
+      error: err => {
+        this.savingFollowupGoal = false;
+        this.snack.open(err?.error?.message || 'No se ha podido guardar el objetivo', 'Cerrar', { duration: 3000 });
+      },
       complete: () => this.savingFollowupGoal = false
     });
   }
