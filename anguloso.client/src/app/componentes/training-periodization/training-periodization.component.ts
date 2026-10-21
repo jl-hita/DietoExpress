@@ -400,7 +400,6 @@ export class TrainingPeriodizationComponent implements OnInit {
             const bodyPart = String(item.body_part ?? '').toLocaleLowerCase('es');
             const category = String(item.category ?? '').toLocaleLowerCase('es');
             const goals = Array.isArray(item.goals) ? item.goals.join(' ').toLocaleLowerCase('es') : '';
-            const tags = Array.isArray(item.tags) ? item.tags.join(' ').toLocaleLowerCase('es') : '';
             const muscles = Array.isArray(item.primary_muscles) ? item.primary_muscles.join(', ').replace(/[-_]/g, ' ') : bodyPart.replace(/[-_]/g, ' ');
             const goal = /endurance|cardio|aerobic/.test(goals + ' ' + category) ? 'endurance'
               : /mobility|stretch|flexib/.test(goals + ' ' + category) ? 'mobility'
