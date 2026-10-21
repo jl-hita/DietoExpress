@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 export interface DashboardCheckin { id:number; clientId:number; clientName:string; submittedAt:string; }
+export interface DashboardFollowupAttention { clientId:number; clientName:string; lastCheckinAt:string; lastWeekStart:string; signals:string[]; priority:'high'|'normal'|string; }
 export interface DashboardAppointment { id:number; clientId:number; clientName:string; startsAt:string; endsAt:string; status:string; }
 export interface DashboardPendingClient { clientId:number; clientName:string; pendingCount:number; }
 export interface DashboardPendingDataClient { clientId:number; clientName:string; missingFields:string; }
@@ -31,4 +32,5 @@ export interface ProfessionalDashboard {
 export class ProfessionalDashboardService {
   constructor(private http:HttpClient){}
   get():Observable<ProfessionalDashboard>{ return this.http.get<ProfessionalDashboard>('/api/professional/dashboard'); }
+  getFollowupAttention(limit = 8):Observable<DashboardFollowupAttention[]> { return this.http.get<DashboardFollowupAttention[]>('/api/professional/check-ins/attention', { params: { limit: limit.toString() } }); }
 }
