@@ -1264,3 +1264,9 @@
 .followup-no-checkins strong { color: #0f172a; font-size: 13px; }
 .followup-no-checkins span { font-size: 12px; line-height: 1.55; }
 @media print { .followup-no-checkins { display: none !important; } }
+
+.followup-barrier-summary { margin: 14px 0; padding: 14px 16px; border: 1px solid #cbd5e1; border-radius: 10px; background: #f8fafc; }
+.followup-barrier-summary > strong { display: block; margin-bottom: 10px; color: #334155; font-size: 12px; }
+.followup-barrier-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+.followup-barrier-chips span { padding: 6px 9px; border-radius: 999px; background: #e0f2fe; color: #075985; font-size: 11px; font-weight: 600; }
+@media print { .followup-barrier-summary { break-inside: avoid; } }
