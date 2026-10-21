@@ -159,6 +159,7 @@ public class AuthorizationRegressionTests
         Assert.Contains("path.StartsWithSegments(\"/api/commercial-communications/preferences\")", program);
         Assert.Contains("\"/api/appointments/mine\"", program);
         Assert.Contains("\"/api/broadcast-messages/inbox\"", program);
+        Assert.Contains("X-DietoExpress-Patient-Portal", program);
         Assert.Contains("dietoexpress_patient_session", program);
         Assert.Contains("dietoexpress_professional_session", program);
     }
