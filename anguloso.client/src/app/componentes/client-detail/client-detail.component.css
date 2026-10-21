@@ -1247,3 +1247,20 @@
 @media print {
   .followup-goals-panel { display: none !important; }
 }
+
+.followup-no-checkins {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 18px 0;
+  padding: 18px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #475569;
+}
+.followup-no-checkins > mat-icon { flex: 0 0 auto; color: #0f766e; }
+.followup-no-checkins > div { display: flex; flex-direction: column; gap: 5px; }
+.followup-no-checkins strong { color: #0f172a; font-size: 13px; }
+.followup-no-checkins span { font-size: 12px; line-height: 1.55; }
+@media print { .followup-no-checkins { display: none !important; } }
