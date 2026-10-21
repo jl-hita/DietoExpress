@@ -61,6 +61,34 @@ test.describe('P0 — portal autenticado del paciente', () => {
     }
   });
 
+  test('al entrar solicita citas, comunicaciones y preferencia comercial; el chat carga al abrirlo', async ({ page }) => {
+    const calls = await mockPortalApi(page);
+    await loginByPin(page);
+
+    await expect.poll(() => calls.some(call => call.path.endsWith('/appointments/mine') && call.method === 'GET')).toBe(true);
+    await expect.poll(() => calls.some(call => call.path.endsWith('/commercial-communications/preferences') && call.method === 'GET')).toBe(true);
+    await expect.poll(() => calls.some(call => call.path.endsWith('/broadcast-messages/inbox') && call.method === 'GET')).toBe(true);
+
+    await page.getByRole('button', { name: 'Ver mis mensajes', exact: true }).click();
+    await expect(page.locator('app-patient-chat')).toBeVisible();
+    await expect.poll(() => calls.some(call => call.path.endsWith('/messages/patient') && call.method === 'GET')).toBe(true);
+  });
+
+  test('el contenido largo puede desplazarse hasta quedar por encima de la navegación fija', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 600 });
+    await mockPortalApi(page);
+    await loginByPin(page);
+    await page.getByRole('button', { name: 'Ver mis mensajes', exact: true }).click();
+
+    await expect(page.locator('app-patient-chat')).toBeVisible();
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    const composer = await page.locator('.chat-composer').boundingBox();
+    const nav = await page.locator('.bottom-nav').boundingBox();
+    expect(composer).not.toBeNull();
+    expect(nav).not.toBeNull();
+    expect(composer.y + composer.height).toBeLessThanOrEqual(nav.y + 1);
+  });
+
   test('cerrar sesión oculta inmediatamente el contenido del portal y vuelve al acceso', async ({ page }) => {
     const calls = await mockPortalApi(page);
     await loginByPin(page);
