@@ -170,7 +170,8 @@ public sealed class ProfessionalCheckinsController : ControllerBase
             }
         }
 
-        Compare("adherence", "Adherencia", latest.adherence, previous?.adherence, defaultLow: 5, defaultDelta: 2);
+        // La API almacena adherencia como porcentaje (0–100), a diferencia de las escalas 0–10 del resto de métricas.
+        Compare("adherence", "Adherencia (%)", latest.adherence, previous?.adherence, defaultLow: 60, defaultDelta: 15);
         Compare("hunger", "Hambre", latest.hunger, previous?.hunger, defaultHigh: 8, defaultDelta: 2);
         Compare("energy", "Energía", latest.energy, previous?.energy, defaultLow: 4, defaultDelta: 2);
         Compare("sleep_quality", "Calidad del sueño", latest.sleep_quality, previous?.sleep_quality, defaultLow: 4, defaultDelta: 2);
