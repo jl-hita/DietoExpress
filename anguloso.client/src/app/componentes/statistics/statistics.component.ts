@@ -5,12 +5,13 @@ import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ProfessionalStatistics, ProfessionalStatisticsService } from '../../servicios/professional-statistics.service';
+import { DateInputDirective } from '../../directives/date-input.directive';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
   selector:'app-statistics',
   standalone:true,
-  imports:[CommonModule,FormsModule,MatCardModule,MatIconModule,MatProgressSpinnerModule],
+  imports:[CommonModule,FormsModule,MatCardModule,MatIconModule,MatProgressSpinnerModule,DateInputDirective],
   templateUrl:'./statistics.component.html',
   styleUrl:'./statistics.component.css'
 })
