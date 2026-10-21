@@ -105,4 +105,43 @@ test.describe('P1 — gestión de pacientes desde la interfaz', () => {
     expect(patient.fullName ?? patient.FullName).toBe(patientName);
     expect(patient.notes ?? patient.Notes).toContain('Playwright');
   });
+
+  test('crear, consultar y completar un objetivo de adherencia del paciente', async ({ page }) => {
+    await page.goto('/clients/nuevo');
+    await page.getByRole('heading', { name: 'Nuevo Cliente' }).waitFor();
+    await page.getByLabel('Nombre completo').fill(patientName);
+    await page.getByLabel('Email').fill(`e2e-${Date.now()}@invalid.example`);
+    await page.getByLabel('Notas').fill('Paciente ficticio para prueba E2E de objetivos de adherencia.');
+    await page.getByRole('button', { name: 'Crear cliente' }).click();
+    await expect(page).toHaveURL(new RegExp('/clients/[0-9]+(?:[/?#]|$)'), { timeout: 20_000 });
+    patientId = Number(new URL(page.url()).pathname.match(/^\\/clients\\/(\\d+)$/)?.[1]);
+    expect(patientId).toBeGreaterThan(0);
+
+    const api = page.context().request;
+    const create = await api.post(new URL('/api/professional/followup-goals', baseURL).toString(), {
+      data: {
+        clientId: patientId,
+        title: 'Adherencia semanal de prueba',
+        metricKey: 'adherence',
+        targetValue: 80,
+        phase: 'building',
+        startDate: new Date().toISOString().slice(0, 10),
+        notes: 'Objetivo ficticio; se elimina al archivar el paciente.'
+      }
+    });
+    expect(create.status(), 'El profesional asignado debe poder crear el objetivo').toBe(201);
+    const created = await create.json();
+    expect(created.id).toBeGreaterThan(0);
+
+    const list = await api.get(new URL(`/api/professional/followup-goals/${patientId}`, baseURL).toString());
+    expect(list.ok()).toBeTruthy();
+    const goals = await list.json();
+    expect(goals).toHaveLength(1);
+    expect(goals[0]).toMatchObject({ id: created.id, title: 'Adherencia semanal de prueba', metricKey: 'adherence', targetValue: 80, unit: '%', phase: 'building', status: 'active' });
+
+    const update = await api.put(new URL(`/api/professional/followup-goals/${created.id}/status`, baseURL).toString(), { data: { status: 'completed' } });
+    expect(update.status()).toBe(204);
+    const completed = await api.get(new URL(`/api/professional/followup-goals/${patientId}`, baseURL).toString());
+    expect((await completed.json())[0].status).toBe('completed');
+  });
 });
