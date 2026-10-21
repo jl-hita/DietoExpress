@@ -23,6 +23,7 @@ public class DirectoryController : ControllerBase
     private readonly PatientPortalAccessService _portalAccessService;
     private readonly ILogger<DirectoryController> _logger;
     private readonly IPublicFunnelAnalyticsService _funnelAnalytics;
+    private readonly IVideoMeetingProvider _videoMeetings;
 
     public DirectoryController(
         angulosodbContext context,
@@ -33,7 +34,8 @@ public class DirectoryController : ControllerBase
         EmailServ emailServ,
         PatientPortalAccessService portalAccessService,
         ILogger<DirectoryController> logger,
-        IPublicFunnelAnalyticsService funnelAnalytics)
+        IPublicFunnelAnalyticsService funnelAnalytics,
+        IVideoMeetingProvider videoMeetings)
     {
         _context = context;
         _licenseService = licenseService;
@@ -44,6 +46,7 @@ public class DirectoryController : ControllerBase
         _portalAccessService = portalAccessService;
         _logger = logger;
         _funnelAnalytics = funnelAnalytics;
+        _videoMeetings = videoMeetings;
     }
 
     // Solo los profesionales que activan expresamente la visibilidad salen al directorio público.
