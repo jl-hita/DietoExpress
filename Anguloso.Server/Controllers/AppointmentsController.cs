@@ -112,13 +112,17 @@ public class AppointmentsController : ControllerBase
     {
         var clientId = GetPatientClientId();
         if (clientId == null) return Unauthorized();
+        // Load the related entities explicitly before mapping. The patient endpoint
+        // must return the same appointment details as the professional view without
+        // relying on lazy-loading or a client-side projection over an unloaded entity.
         var items = await _context.patient_appointments.AsNoTracking()
+            .Include(a => a.client)
+            .Include(a => a.nutritionist)
             .Where(a => a.client_id == clientId.Value)
             .OrderByDescending(a => a.starts_at)
             .Take(100)
-            .Select(a => ToDto(a))
             .ToListAsync();
-        return Ok(items);
+        return Ok(items.Select(ToDto).ToList());
     }
 
     [Authorize(Roles = "patient")]
