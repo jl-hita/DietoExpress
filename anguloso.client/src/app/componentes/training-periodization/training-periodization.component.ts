@@ -773,22 +773,36 @@ export class TrainingPeriodizationComponent implements OnInit {
             return;
           }
 
-          this.plans = plans;
-          this.sessionDrafts = {};
-          for (const plan of plans) {
-            this.sessionDrafts[plan.id] = {
-              date: this.defaultSessionDate(plan),
-              title: '',
-              type: 'strength',
-              duration: 60,
-              intensity: '',
-              instructions: '',
-              exercisePrescription: ''
-            };
+          try {
+            this.plans = plans;
+            this.sessionDrafts = {};
+            for (const plan of plans) {
+              this.sessionDrafts[plan.id] = {
+                date: this.defaultSessionDate(plan),
+                title: '',
+                type: 'strength',
+                duration: 60,
+                intensity: '',
+                instructions: '',
+                exercisePrescription: ''
+              };
+            }
+          } catch {
+            // A malformed plan must not leave the whole screen stuck on its loading state.
+            this.error = 'La planificación se ha recibido, pero no se han podido preparar todos sus datos. Recarga e inténtalo de nuevo.';
+            this.loadFailed = true;
+          } finally {
+            // The main plan list is the critical path. Session details and trends are loaded
+            // independently and must never keep the entire screen behind the loading message.
+            this.loading = false;
+            this.changeDetector.detectChanges();
           }
-          this.loadSessions(plans);
-          this.loading = false;
-          this.changeDetector.detectChanges();
+
+          try {
+            this.loadSessions(plans);
+          } catch {
+            this.error = this.error || 'La planificación se ha cargado, pero algunos detalles de las sesiones no están disponibles.';
+          }
         });
       },
       error: () => {
