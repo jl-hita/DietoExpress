@@ -78,8 +78,9 @@ export class DateInputDirective implements ControlValueAccessor, Validator {
       : null;
   }
 
-  @HostListener('input', ['$event.target.value'])
-  handleInput(value: string): void {
+  @HostListener('input', ['$event'])
+  handleInput(event: Event): void {
+    const value = (event.target as HTMLInputElement | null)?.value ?? '';
     this.currentValue = value;
     const canonical = parseDateDisplay(value);
     if (canonical !== null) this.onChange(canonical);
