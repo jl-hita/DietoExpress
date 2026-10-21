@@ -766,7 +766,7 @@
             <div><strong>Seguimiento semanal</strong><span>Evolución de adherencia, hábitos y percepción del paciente</span></div>
             <div class="followup-actions">
               <button mat-stroked-button type="button"
-                *ngIf="getFollowupAlerts().length"
+                *ngIf="getFollowupAlerts().length || getPersistentFollowupSignals().length || getMissedCheckinWeeks() > 0"
                 [disabled]="followupTaskCreating"
                 (click)="createFollowUpTask()">
                 <mat-icon>{{ followupTaskCreating ? 'hourglass_top' : 'task_alt' }}</mat-icon>
