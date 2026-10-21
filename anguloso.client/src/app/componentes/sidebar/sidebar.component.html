@@ -25,34 +25,9 @@
         <mat-icon>dashboard</mat-icon><span>Inicio</span>
       </a>
     </div>
-    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isClinic || isSuperAdmin">
-      <a mat-list-item routerLink="/statistics" routerLinkActive="active-link" (click)="navigateAndClose()">
-        <mat-icon>insights</mat-icon><span>Estadísticas</span>
-      </a>
-    </div>
     <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">
       <a mat-list-item routerLink="/clients" routerLinkActive="active-link" (click)="navigateAndClose()">
         <mat-icon>group</mat-icon><span>Clientes</span>
-      </a>
-    </div>
-    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">
-      <a mat-list-item routerLink="/diets" routerLinkActive="active-link" (click)="navigateAndClose()">
-        <mat-icon>restaurant</mat-icon><span>Dietas</span>
-      </a>
-    </div>
-    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isClinic || isSuperAdmin">
-      <a mat-list-item routerLink="/support" routerLinkActive="active-link" (click)="navigateAndClose()">
-        <mat-icon>support_agent</mat-icon><span>Soporte</span><span class="message-unread-badge" *ngIf="isSuperAdmin && newSupportTicketsCount > 0" aria-label="Tickets nuevos sin atender">{{ newSupportTicketsCount > 99 ? '99+' : newSupportTicketsCount }}</span>
-      </a>
-    </div>
-    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">
-      <a mat-list-item routerLink="/messages" routerLinkActive="active-link" (click)="navigateAndClose()">
-        <mat-icon>chat</mat-icon><span>Mensajes</span><span class="message-unread-badge" *ngIf="unreadMessagesCount > 0" aria-label="Mensajes sin leer">{{ unreadMessagesCount > 99 ? '99+' : unreadMessagesCount }}</span>
-      </a>
-    </div>
-    <div class="menu-item" *ngIf="isNutritionist">
-      <a mat-list-item routerLink="/directory-interests" routerLinkActive="active-link" (click)="navigateAndClose()">
-        <mat-icon>person_search</mat-icon><span>Personas interesadas</span>
       </a>
     </div>
     <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">
@@ -61,8 +36,18 @@
       </a>
     </div>
     <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">
-      <a mat-list-item routerLink="/automations" routerLinkActive="active-link" (click)="navigateAndClose()">
-        <mat-icon>auto_awesome</mat-icon><span>Automatizaciones</span>
+      <a mat-list-item routerLink="/diets" routerLinkActive="active-link" (click)="navigateAndClose()">
+        <mat-icon>restaurant</mat-icon><span>Dietas</span>
+      </a>
+    </div>
+    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount">
+      <a mat-list-item routerLink="/training-invitations" routerLinkActive="active-link" (click)="navigateAndClose()">
+        <mat-icon>fitness_center</mat-icon><span>Entrenamientos</span>
+      </a>
+    </div>
+    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">
+      <a mat-list-item routerLink="/messages" routerLinkActive="active-link" (click)="navigateAndClose()">
+        <mat-icon>chat</mat-icon><span>Mensajes</span><span class="message-unread-badge" *ngIf="unreadMessagesCount > 0" aria-label="Mensajes sin leer">{{ unreadMessagesCount > 99 ? '99+' : unreadMessagesCount }}</span>
       </a>
     </div>
     <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">
@@ -70,9 +55,19 @@
         <mat-icon>description</mat-icon><span>Documentación</span>
       </a>
     </div>
-    <div class="menu-item">
-      <a mat-list-item routerLink="/billing" routerLinkActive="active-link" (click)="navigateAndClose()">
-        <mat-icon>workspace_premium</mat-icon><span>Suscripción</span>
+    <div class="menu-item" *ngIf="isNutritionist">
+      <a mat-list-item routerLink="/directory-interests" routerLinkActive="active-link" (click)="navigateAndClose()">
+        <mat-icon>person_search</mat-icon><span>Personas interesadas</span>
+      </a>
+    </div>
+    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isClinic || isSuperAdmin">
+      <a mat-list-item routerLink="/statistics" routerLinkActive="active-link" (click)="navigateAndClose()">
+        <mat-icon>insights</mat-icon><span>Estadísticas</span>
+      </a>
+    </div>
+    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">
+      <a mat-list-item routerLink="/automations" routerLinkActive="active-link" (click)="navigateAndClose()">
+        <mat-icon>auto_awesome</mat-icon><span>Automatizaciones</span>
       </a>
     </div>
     <div class="menu-item" *ngIf="isNutritionist || isClinic">
@@ -80,9 +75,19 @@
         <mat-icon>public</mat-icon><span>{{ isClinic ? 'Directorio de la clínica' : 'Publicar mi perfil' }}</span>
       </a>
     </div>
+    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isClinic || isSuperAdmin">
+      <a mat-list-item routerLink="/support" routerLinkActive="active-link" (click)="navigateAndClose()">
+        <mat-icon>support_agent</mat-icon><span>Soporte</span><span class="message-unread-badge" *ngIf="isSuperAdmin && newSupportTicketsCount > 0" aria-label="Tickets nuevos sin atender">{{ newSupportTicketsCount > 99 ? '99+' : newSupportTicketsCount }}</span>
+      </a>
+    </div>
     <div class="menu-item">
       <a mat-list-item routerLink="/settings" routerLinkActive="active-link" (click)="navigateAndClose()">
         <mat-icon>settings</mat-icon><span>Ajustes</span>
+      </a>
+    </div>
+    <div class="menu-item">
+      <a mat-list-item routerLink="/billing" routerLinkActive="active-link" (click)="navigateAndClose()">
+        <mat-icon>workspace_premium</mat-icon><span>Suscripción</span>
       </a>
     </div>
     <div class="menu-item" *ngIf="!isSuperAdmin && (isProfessionalAccount || isFreeAccount)">
