@@ -257,7 +257,6 @@ interface GuidedConsultationResponse {
             <div class="mode-banner followup" *ngIf="data.latestCheckin?.barriers?.length">
               <mat-icon>report_problem</mat-icon>
               <div><strong>Barreras comunicadas por el paciente</strong>
-                <span>{{ data.latestCheckin.barriers.map ? '' : '' }}</span>
                 <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
                   <span *ngFor="let barrier of data.latestCheckin.barriers" style="display:inline-block;padding:5px 8px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-size:11px">{{ getBarrierLabel(barrier) }}</span>
                 </div>
