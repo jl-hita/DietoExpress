@@ -7,6 +7,7 @@ const password = process.env.E2E_PASSWORD;
 const baseURL = process.env.E2E_BASE_URL || 'https://jlhitap.duckdns.org';
 const patientName = `ZZZ E2E periodización ${new Date().toISOString().replace(/[:.]/g, '-')}`;
 let patientId = 0;
+let sessionTemplateId = 0;
 
 function datePlusDays(days) {
   const date = new Date();
@@ -34,6 +35,11 @@ test.describe('MVP de periodización deportiva', () => {
 
   test.afterEach(async ({ page }) => {
     const api = page.context().request;
+    if (sessionTemplateId > 0) {
+      const response = await api.delete(apiUrl('/api/training/session-templates/' + sessionTemplateId));
+      expect([200, 204, 404].includes(response.status()), 'La plantilla de sesión E2E debe poder eliminarse al terminar').toBe(true);
+      sessionTemplateId = 0;
+    }
     if (!patientId) {
       const response = await api.get(apiUrl('/api/clients?search=' + encodeURIComponent(patientName) + '&page=1&pageSize=100'));
       if (response.ok()) {
@@ -81,6 +87,18 @@ test.describe('MVP de periodización deportiva', () => {
     });
     expect(sessionResponse.ok(), 'Debe crearse una sesión que pueda guardarse en una plantilla').toBeTruthy();
 
+    const saveSessionTemplateResponse = await api.post(apiUrl('/api/training/session-templates'), {
+      data: { name: 'Plantilla sesión gimnasio E2E', sessionType: 'strength', durationMinutes: 45,
+        intensityTarget: 'RPE 7', instructions: 'Calentamiento y bloques principales', exercisePrescription: 'Sentadilla · 3 × 8 · descanso 2 min' }
+    });
+    expect(saveSessionTemplateResponse.ok(), 'Debe guardarse una plantilla de sesión independiente').toBeTruthy();
+    const savedSessionTemplate = await saveSessionTemplateResponse.json();
+    sessionTemplateId = Number(savedSessionTemplate.id);
+    expect(sessionTemplateId).toBeGreaterThan(0);
+    const sessionTemplatesResponse = await api.get(apiUrl('/api/training/session-templates'));
+    expect(sessionTemplatesResponse.ok(), 'Debe consultarse la biblioteca de sesiones').toBeTruthy();
+    expect((await sessionTemplatesResponse.json()).some(item => item.id === sessionTemplateId), 'La plantilla de sesión debe aparecer en la biblioteca').toBe(true);
+
     const meso1Response = await api.post(apiUrl(`/api/training/plans/${plan.id}/mesocycles`), {
       data: { name: 'Mesociclo E2E A', sequenceNumber: 1, startDate: start, endDate: datePlusDays(13), objective: 'Base', notes: null }
     });
@@ -119,6 +137,12 @@ test.describe('MVP de periodización deportiva', () => {
     await expect(page.locator('.week-grid')).toBeVisible();
     await expect(page.locator('.week-summary')).toContainText('sesiones esta semana');
     await expect(page.getByRole('heading', { name: 'Construye la sesión' })).toBeVisible();
+    const savedTemplateSelect = page.locator(`select[name="savedSessionTemplate${plan.id}"]`);
+    await expect(savedTemplateSelect.locator('option')).toContainText('Plantilla sesión gimnasio E2E');
+    await savedTemplateSelect.selectOption(String(sessionTemplateId));
+    await page.getByRole('button', { name: 'Aplicar', exact: true }).click();
+    await expect(page.locator(`input[name="sessionTitle${plan.id}"]`)).toHaveValue('Plantilla sesión gimnasio E2E');
+    await expect(page.locator(`textarea[name="sessionExercises${plan.id}"]`)).toContainText('Sentadilla');
     await expect(page.locator('.exercise-result')).not.toHaveCount(0);
     await page.locator(`input[name="exerciseSearch${plan.id}"]`).fill('sentadilla');
     await expect(page.locator('.exercise-result').filter({ hasText: 'Sentadilla' })).toBeVisible();
