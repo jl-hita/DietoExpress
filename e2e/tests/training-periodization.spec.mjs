@@ -105,7 +105,7 @@ test.describe('MVP de periodización deportiva', () => {
     await expect(page.locator('.exercise-result')).not.toHaveCount(0);
     await page.locator(`input[name="exerciseSearch${plan.id}"]`).fill('sentadilla');
     await expect(page.locator('.exercise-result').filter({ hasText: 'Sentadilla' })).toBeVisible();
-    await page.locator('.exercise-result').filter({ hasText: 'Sentadilla' }).getByRole('button', { name: /Añadir/ }).click();
+    await page.locator('.exercise-result').filter({ has: page.getByText('Sentadilla', { exact: true }) }).getByRole('button', { name: /Añadir/ }).click();
     await expect(page.locator(`textarea[name="sessionExercises${plan.id}"]`)).toContainText('Sentadilla');
     await page.locator(`input[name="exerciseSearch${plan.id}"]`).fill('');
     await page.locator(`select[name="generatorGoal${plan.id}"]`).selectOption('strength');
