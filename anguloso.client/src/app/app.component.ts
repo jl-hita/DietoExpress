@@ -1,7 +1,7 @@
 import { RouterOutlet } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
-import { Component, HostListener, inject, ChangeDetectionStrategy} from '@angular/core';
+import { Component, HostListener, inject, ChangeDetectionStrategy } from '@angular/core';
 import { AuthService } from './servicios/auth.service';
 import { ErrorReportBannerComponent } from './componentes/error-report-banner/error-report-banner.component';
 
@@ -44,18 +44,32 @@ export class AppComponent {
     if (!this.canEnableProfessionalPush || this.professionalPushBusy) return;
     this.professionalPushBusy = true;
     this.professionalPushMessage = '';
+    let stage: 'permission' | 'configuration' | 'service-worker' | 'subscription' | 'registration' = 'permission';
+
     try {
-      if (await Notification.requestPermission() !== 'granted') {
-        this.professionalPushMessage = 'Permite las notificaciones en el navegador para recibir recordatorios.';
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        this.professionalPushMessage = permission === 'denied'
+          ? 'El navegador ha bloqueado los avisos. Cambia el permiso de notificaciones de este sitio en los ajustes del navegador y vuelve a intentarlo.'
+          : 'No se ha concedido permiso para enviar avisos.';
         return;
       }
+
+      stage = 'configuration';
       const key = await this.http.get<{ publicKey: string }>('/api/professional/push/vapid-public-key').toPromise();
       if (!key?.publicKey) {
-        this.professionalPushMessage = 'Las notificaciones push no están configuradas todavía.';
+        this.professionalPushMessage = 'Las notificaciones push no están configuradas en el servidor. Contacta con soporte.';
         return;
       }
-      await navigator.serviceWorker.register('/sw.js');
+
+      stage = 'service-worker';
+      const worker = await navigator.serviceWorker.register('/sw.js');
       const registration = await navigator.serviceWorker.ready;
+      if (!registration.active && !worker.active && !worker.waiting) {
+        throw new Error('El service worker no ha quedado activo');
+      }
+
+      stage = 'subscription';
       let subscription = await registration.pushManager.getSubscription();
       if (!subscription) {
         const padding = '='.repeat((4 - key.publicKey.length % 4) % 4);
@@ -64,12 +78,31 @@ export class AppComponent {
         for (let i = 0; i < raw.length; i++) applicationServerKey[i] = raw.charCodeAt(i);
         subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey });
       }
+
       const json = subscription.toJSON();
-      if (!json.endpoint || !json.keys?.['p256dh'] || !json.keys?.['auth']) throw new Error('Suscripción incompleta');
-      await this.http.post('/api/professional/push/subscriptions', { endpoint: json.endpoint, p256dh: json.keys['p256dh'], auth: json.keys['auth'] }).toPromise();
+      if (!json.endpoint || !json.keys?.['p256dh'] || !json.keys?.['auth']) {
+        throw new Error('La suscripción push devuelta por el navegador está incompleta');
+      }
+
+      stage = 'registration';
+      await this.http.post('/api/professional/push/subscriptions', {
+        endpoint: json.endpoint,
+        p256dh: json.keys['p256dh'],
+        auth: json.keys['auth']
+      }).toPromise();
+
       this.professionalPushMessage = 'Avisos de cita activados en este navegador.';
-    } catch {
-      this.professionalPushMessage = 'No se han podido activar los avisos. Comprueba los permisos del navegador e inténtalo de nuevo.';
+    } catch (error) {
+      // Registrar etapa y error técnico para diagnosticar sin mostrar detalles internos al usuario.
+      console.error('[DietoExpress] No se pudo activar Web Push.', { stage, error });
+      const messages = {
+        permission: 'No se ha podido comprobar el permiso de notificaciones del navegador.',
+        configuration: 'No se ha podido consultar la configuración de avisos del servidor. Recarga la página y vuelve a intentarlo.',
+        'service-worker': 'No se ha podido iniciar el componente de avisos del navegador. Comprueba que el sitio está abierto mediante HTTPS y vuelve a intentarlo.',
+        subscription: 'El navegador no ha podido crear la suscripción push. Comprueba los permisos de notificaciones del sitio y vuelve a intentarlo.',
+        registration: 'El navegador ha creado la suscripción, pero DietoExpress no ha podido guardarla. Recarga la página y vuelve a intentarlo.'
+      };
+      this.professionalPushMessage = messages[stage];
     } finally {
       this.professionalPushBusy = false;
     }
