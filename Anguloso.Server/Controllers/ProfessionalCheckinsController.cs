@@ -225,7 +225,7 @@ public sealed class ProfessionalCheckinsController : ControllerBase
             .Take(4)
             .Select(c => new
             {
-                c.id, c.client_id, c.weight, c.adherence, c.hunger, c.energy,
+                c.id, c.client_id, c.week_start, c.weight, c.adherence, c.hunger, c.energy,
                 c.sleep_quality, c.sleep_hours, c.training, c.submitted_at,
                 ClientName = c.client.full_name
             })
@@ -303,6 +303,43 @@ public sealed class ProfessionalCheckinsController : ControllerBase
         Compare("sleep_quality", "Calidad del sueño", latest.sleep_quality, previous?.sleep_quality, defaultLow: 4, defaultDelta: 2);
         Compare("sleep_hours", "Horas de sueño", latest.sleep_hours, previous?.sleep_hours, defaultLow: 6, defaultDelta: 1.5);
         Compare("training", "Entrenamiento", latest.training, previous?.training, defaultLow: 2, defaultDelta: 3);
+
+        var third = checkins.Where(c => c.id != id)
+            .OrderByDescending(c => c.submitted_at)
+            .Skip(1)
+            .FirstOrDefault();
+        if (selectedMetrics.Contains("adherence") && latest.adherence.HasValue &&
+            previous?.adherence.HasValue == true && third?.adherence.HasValue == true &&
+            third.adherence.Value > previous.adherence.Value &&
+            previous.adherence.Value > latest.adherence.Value &&
+            third.adherence.Value - latest.adherence.Value >= 15)
+            signals.Add($"Adherencia en descenso persistente: {third.adherence}% → {previous.adherence}% → {latest.adherence}%");
+
+        if (selectedMetrics.Contains("hunger") && latest.hunger.HasValue &&
+            previous?.hunger.HasValue == true && third?.hunger.HasValue == true &&
+            third.hunger.Value < previous.hunger.Value &&
+            previous.hunger.Value < latest.hunger.Value &&
+            latest.hunger.Value - third.hunger.Value >= 2)
+            signals.Add($"Hambre en aumento persistente: {third.hunger}/10 → {previous.hunger}/10 → {latest.hunger}/10");
+
+        if (selectedMetrics.Contains("energy") && latest.energy.HasValue &&
+            previous?.energy.HasValue == true && third?.energy.HasValue == true &&
+            third.energy.Value > previous.energy.Value &&
+            previous.energy.Value > latest.energy.Value &&
+            third.energy.Value - latest.energy.Value >= 2)
+            signals.Add($"Energía en descenso persistente: {third.energy}/10 → {previous.energy}/10 → {latest.energy}/10");
+
+        if (selectedMetrics.Contains("sleep_quality") && latest.sleep_quality.HasValue &&
+            previous?.sleep_quality.HasValue == true && third?.sleep_quality.HasValue == true &&
+            third.sleep_quality.Value > previous.sleep_quality.Value &&
+            previous.sleep_quality.Value > latest.sleep_quality.Value &&
+            third.sleep_quality.Value - latest.sleep_quality.Value >= 2)
+            signals.Add($"Calidad del sueño en descenso persistente: {third.sleep_quality}/10 → {previous.sleep_quality}/10 → {latest.sleep_quality}/10");
+
+        var currentWeekStart = DateOnly.FromDateTime(DateTime.UtcNow);
+        currentWeekStart = currentWeekStart.AddDays(-(((int)currentWeekStart.DayOfWeek + 6) % 7));
+        var missedWeeks = Math.Max(0, (currentWeekStart.DayNumber - latest.week_start.DayNumber) / 7 - 1);
+        if (missedWeeks > 0) signals.Add($"Sin check-in en {missedWeeks} semana(s) completa(s)");
 
         if (selectedMetrics.Contains("weight") && latest.weight.HasValue && previous?.weight.HasValue == true && previous.weight.Value > 0)
         {
