@@ -7,6 +7,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { AdminUser, UpdateLicenseDto } from '../../servicios/admin.service';
+import { DateInputDirective } from '../../directives/date-input.directive';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -19,7 +20,8 @@ import { AdminUser, UpdateLicenseDto } from '../../servicios/admin.service';
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
-    MatButtonModule
+    MatButtonModule,
+    DateInputDirective
   ],
   template: `
     <h2 mat-dialog-title>Gestionar Licencia: {{ data.username }}</h2>
@@ -52,8 +54,8 @@ import { AdminUser, UpdateLicenseDto } from '../../servicios/admin.service';
       </mat-form-field>
 
       <mat-form-field appearance="outline" class="full-width">
-        <mat-label>Fecha de Expiración de Licencia (AAAA-MM-DD)</mat-label>
-        <input matInput type="date" [ngModel]="formattedExpiryDate" (ngModelChange)="onDateChange($event)" />
+        <mat-label>Fecha de expiración de licencia (DD/MM/AAAA)</mat-label>
+        <input matInput type="text" appDateInput [ngModel]="formattedExpiryDate" (ngModelChange)="onDateChange($event)" />
       </mat-form-field>
     </mat-dialog-content>
 
