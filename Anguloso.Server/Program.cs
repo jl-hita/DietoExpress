@@ -221,7 +221,42 @@ builder.Services.AddScoped<SupportEnhancementService>();
         app.UseCors("AllowAngularApp");
         app.UseMiddleware<ErrorHandlingMiddleware>();
         if (!app.Environment.IsDevelopment()) { app.UseHttpsRedirection(); app.Use(async (context, next) => { context.Response.Headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"; context.Response.Headers["X-Content-Type-Options"] = "nosniff"; context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin"; context.Response.Headers["Permissions-Policy"] = "camera=(self), microphone=(self), geolocation=()"; if (context.Request.Path.StartsWithSegments("/api")) { context.Response.Headers["Cache-Control"] = "no-store"; context.Response.Headers["Pragma"] = "no-cache"; } context.Response.Headers["Content-Security-Policy"] = $"default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; script-src 'self' https://accounts.google.com; connect-src 'self' https://accounts.google.com{liveKitCspSource}; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; frame-src https://accounts.google.com; upgrade-insecure-requests"; await next(); }); }
-        app.UseDefaultFiles(); app.UseStaticFiles(); if (app.Environment.IsDevelopment()) { app.UseSwagger(); app.UseSwaggerUI(); } app.UseRateLimiter(); app.UseAuthentication(); app.UseAuthorization(); app.MapControllers(); if (!app.Environment.IsDevelopment()) app.MapFallbackToFile("/index.html");
+        app.UseDefaultFiles(); app.UseStaticFiles(); if (app.Environment.IsDevelopment()) { app.UseSwagger(); app.UseSwaggerUI(); } app.UseRateLimiter(); app.UseAuthentication(); app.UseAuthorization(); app.MapControllers();
+
+// Endpoints públicos de salud para monitorización externa. No revelan detalles de infraestructura.
+app.MapGet("/health/live", () => Results.Ok(new { status = "ok" }))
+    .AllowAnonymous()
+    .WithName("HealthLive");
+
+async Task<IResult> CheckDatabaseHealth(IServiceProvider services, CancellationToken requestAborted)
+{
+    try
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(requestAborted);
+        timeout.CancelAfter(TimeSpan.FromSeconds(3));
+        var db = services.GetRequiredService<angulosodbContext>();
+        var canConnect = await db.Database.CanConnectAsync(timeout.Token);
+        return canConnect
+            ? Results.Ok(new { status = "ok", database = "ok" })
+            : Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+    }
+    catch
+    {
+        return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+    }
+}
+
+app.MapGet("/health/db", (IServiceProvider services, CancellationToken ct) =>
+    CheckDatabaseHealth(services, ct))
+    .AllowAnonymous()
+    .WithName("HealthDatabase");
+
+app.MapGet("/health/ready", (IServiceProvider services, CancellationToken ct) =>
+    CheckDatabaseHealth(services, ct))
+    .AllowAnonymous()
+    .WithName("HealthReady");
+
+if (!app.Environment.IsDevelopment()) app.MapFallbackToFile("/index.html");
         try { app.Run(); } finally { Log.CloseAndFlush(); }
     }
 }
