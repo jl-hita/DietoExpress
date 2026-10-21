@@ -91,7 +91,7 @@ public sealed class TrainingPeriodizationController : ControllerBase
                     reader.IsDBNull(5) ? null : reader.GetString(5), reader.IsDBNull(6) ? null : reader.GetString(6)));
         }
 
-        var payload = JsonSerializer.Serialize(new TrainingTemplatePayload(planName, model, startDate, endDate, notes, sessions));
+        var payload = JsonSerializer.Serialize(new TrainingTemplatePayload(planName, model, startDate, endDate, notes, sessions), new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
         await using var save = Command("""
             INSERT INTO training_plan_templates(tenant_id, created_by_user_id, name, periodization_model, notes, template_data)
             VALUES (@tenantId, @userId, @name, @model, @notes, CAST(@payload AS jsonb))
