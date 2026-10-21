@@ -120,7 +120,9 @@ builder.Services.AddScoped<SupportEnhancementService>();
                          pathValue.EndsWith("/read", StringComparison.OrdinalIgnoreCase)) ||
                         (HttpMethods.IsGet(method) &&
                          (string.Equals(pathValue, "/api/appointments/mine", StringComparison.OrdinalIgnoreCase) ||
-                          string.Equals(pathValue, "/api/appointments/slots", StringComparison.OrdinalIgnoreCase))) ||
+                          string.Equals(pathValue, "/api/appointments/slots", StringComparison.OrdinalIgnoreCase) ||
+                          path.StartsWithSegments("/api/appointments") &&
+                          pathValue.EndsWith("/video-access", StringComparison.OrdinalIgnoreCase))) ||
                         (HttpMethods.IsPost(method) &&
                          (string.Equals(pathValue, "/api/appointments", StringComparison.OrdinalIgnoreCase) ||
                           path.StartsWithSegments("/api/appointments") &&
