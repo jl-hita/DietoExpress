@@ -612,6 +612,67 @@
           </div>
         </div>
 
+        <section class="followup-goals-panel" *ngIf="clientId">
+          <div class="followup-period-heading">
+            <div><strong>Objetivos y fases de seguimiento</strong><span>Define metas observables, revisa el dato más reciente y registra si el objetivo sigue activo.</span></div>
+          </div>
+          <form class="followup-goal-form" (ngSubmit)="createFollowupGoal()">
+            <label class="goal-field goal-title-field">Objetivo
+              <input name="followupGoalTitle" [(ngModel)]="followupGoalTitle" [ngModelOptions]="{standalone: true}" maxlength="160" required placeholder="Ej. Mejorar la adherencia semanal" />
+            </label>
+            <label class="goal-field">Métrica
+              <select name="followupGoalMetric" [(ngModel)]="followupGoalMetric" [ngModelOptions]="{standalone: true}">
+                <option value="adherence">Adherencia (%)</option>
+                <option value="hunger">Hambre (0–10)</option>
+                <option value="energy">Energía (0–10)</option>
+                <option value="sleep_quality">Calidad del sueño (0–10)</option>
+                <option value="sleep_hours">Horas de sueño</option>
+                <option value="training">Actividad/entrenamiento (0–10)</option>
+                <option value="weight">Peso (kg)</option>
+              </select>
+            </label>
+            <label class="goal-field">Valor objetivo
+              <input name="followupGoalTarget" type="number" [(ngModel)]="followupGoalTarget" [ngModelOptions]="{standalone: true}" [min]="followupGoalMetric === 'weight' ? 0.1 : 0" [max]="followupGoalMetric === 'adherence' ? 100 : followupGoalMetric === 'sleep_hours' ? 24 : followupGoalMetric === 'weight' ? 500 : 10" step="0.1" required />
+            </label>
+            <label class="goal-field">Fase
+              <select name="followupGoalPhase" [(ngModel)]="followupGoalPhase" [ngModelOptions]="{standalone: true}">
+                <option value="baseline">Evaluación inicial</option>
+                <option value="building">Construcción de hábitos</option>
+                <option value="maintenance">Mantenimiento</option>
+                <option value="review">Revisión</option>
+              </select>
+            </label>
+            <label class="goal-field">Fecha de inicio
+              <input name="followupGoalStartDate" type="date" [(ngModel)]="followupGoalStartDate" [ngModelOptions]="{standalone: true}" required />
+            </label>
+            <label class="goal-field">Fecha objetivo (opcional)
+              <input name="followupGoalTargetDate" type="date" [(ngModel)]="followupGoalTargetDate" [ngModelOptions]="{standalone: true}" [min]="followupGoalStartDate" />
+            </label>
+            <label class="goal-field goal-title-field">Notas / barreras a trabajar
+              <textarea name="followupGoalNotes" [(ngModel)]="followupGoalNotes" [ngModelOptions]="{standalone: true}" maxlength="1000" rows="2" placeholder="Contexto, obstáculos y acciones acordadas"></textarea>
+            </label>
+            <div class="goal-form-actions"><button mat-flat-button color="primary" type="submit" [disabled]="savingFollowupGoal || !followupGoalTitle.trim() || followupGoalTarget === null"><mat-icon>{{ savingFollowupGoal ? 'hourglass_top' : 'add_task' }}</mat-icon>{{ savingFollowupGoal ? 'Guardando…' : 'Añadir objetivo' }}</button></div>
+          </form>
+          <div *ngIf="loadingFollowupGoals" class="followup-goal-empty">Cargando objetivos…</div>
+          <div *ngIf="!loadingFollowupGoals && !followupGoals.length" class="followup-goal-empty">Todavía no hay objetivos registrados. Puedes crear uno arriba; quedará guardado en el expediente.</div>
+          <div class="followup-goal-list" *ngIf="followupGoals.length">
+            <article class="followup-goal-card" *ngFor="let goal of followupGoals" [class.goal-completed]="goal.status === 'completed'">
+              <div class="followup-goal-main">
+                <div class="followup-goal-title-row"><strong>{{ goal.title }}</strong><span class="followup-goal-status" [class.status-completed]="goal.status === 'completed'" [class.status-paused]="goal.status === 'paused'">{{ goal.status === 'active' ? 'Activo' : goal.status === 'paused' ? 'Pausado' : 'Completado' }}</span></div>
+                <div class="followup-goal-meta">{{ getGoalPhaseLabel(goal.phase) }} · {{ getGoalMetricLabel(goal.metricKey) }} · Objetivo: {{ goal.targetValue }}{{ goal.unit }}</div>
+                <div class="followup-goal-meta">Inicio: {{ goal.startDate | date:'dd/MM/yyyy' }}<span *ngIf="goal.targetDate"> · Fecha objetivo: {{ goal.targetDate | date:'dd/MM/yyyy' }}</span></div>
+                <p *ngIf="goal.notes" class="followup-goal-notes">{{ goal.notes }}</p>
+                <div class="followup-goal-progress"><span>Último dato registrado:</span><strong>{{ getGoalMetricValue(goal) === null ? 'Sin datos' : (getGoalMetricValue(goal) + goal.unit) }}</strong></div>
+              </div>
+              <div class="followup-goal-actions" *ngIf="goal.status !== 'completed'">
+                <button mat-stroked-button type="button" *ngIf="goal.status === 'active'" (click)="updateFollowupGoalStatus(goal, 'paused')">Pausar</button>
+                <button mat-stroked-button type="button" *ngIf="goal.status === 'paused'" (click)="updateFollowupGoalStatus(goal, 'active')">Reactivar</button>
+                <button mat-flat-button color="primary" type="button" (click)="updateFollowupGoalStatus(goal, 'completed')">Completar</button>
+              </div>
+            </article>
+          </div>
+        </section>
+
         <div class="followup-evolution" *ngIf="checkins.length">
           <div class="followup-period-comparison">
             <div class="followup-period-heading">
