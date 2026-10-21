@@ -93,6 +93,25 @@
       </mat-card>
 
       <mat-card>
+        <mat-card-header><mat-card-title>Pacientes que requieren atención</mat-card-title></mat-card-header>
+        <mat-card-content>
+          <div class="attention-loading" *ngIf="followupAttentionLoading()">
+            <mat-spinner diameter="22"></mat-spinner><span>Revisando tendencias y check-ins pendientes…</span>
+          </div>
+          <div class="attention-row" *ngFor="let patient of followupAttention()">
+            <div class="attention-patient">
+              <strong>{{ patient.clientName }}</strong>
+              <span>Última revisión: {{ patient.lastCheckinAt | date:'dd/MM/yyyy' }}</span>
+              <ul class="attention-signals"><li *ngFor="let signal of patient.signals">{{ signal }}</li></ul>
+            </div>
+            <span class="attention-priority" [class.priority-high]="patient.priority === 'high'">{{ patient.priority === 'high' ? 'Prioridad alta' : 'Revisar' }}</span>
+            <button mat-button type="button" (click)="openClient(patient.clientId)">Abrir ficha</button>
+          </div>
+          <p class="empty" *ngIf="!followupAttentionLoading() && !followupAttention().length">No se han detectado patrones persistentes ni semanas completas sin revisión con los datos disponibles.</p>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card>
         <mat-card-header><mat-card-title>Check-ins por revisar</mat-card-title><button mat-button type="button" class="header-action" (click)="openCheckins()" *ngIf="data.pendingCheckinCount">Ver pacientes</button></mat-card-header>
         <mat-card-content>
           <div class="row" *ngFor="let c of data.pendingCheckins">
