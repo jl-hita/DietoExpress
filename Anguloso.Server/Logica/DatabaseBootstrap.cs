@@ -3202,6 +3202,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                     'google_calendar_oauth_states','external_calendar_events','legal_configuration',
                     'legal_documents','legal_acceptances','privacy_requests','privacy_incidents',
                     'legal_generated_documents','legal_rat_activities','legal_risk_assessments',
+                    'professional_followup_goals',
                     'legal_eipd_decisions','professional_followup_settings','professional_consultations',
                     'patient_checkins','specializations','tenant_specializations','client_specializations',
                     'client_specialization_profiles','specialization_rules','video_usage_reservations',
