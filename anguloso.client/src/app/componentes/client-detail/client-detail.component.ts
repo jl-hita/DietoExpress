@@ -1153,7 +1153,8 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
   createFollowUpTask(): void {
     const checkin = [...this.checkins]
       .sort((a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime())[0] ?? null;
-    if (!checkin || !this.getFollowupAlerts().length || this.followupTaskCreating) return;
+    const hasActionableSignals = this.getFollowupAlerts().length > 0 || this.getPersistentFollowupSignals().length > 0 || this.getMissedCheckinWeeks() > 0;
+    if (!checkin || !hasActionableSignals || this.followupTaskCreating) return;
 
     this.followupTaskCreating = true;
     this.portalService.createFollowUpTask(checkin.id).subscribe({
