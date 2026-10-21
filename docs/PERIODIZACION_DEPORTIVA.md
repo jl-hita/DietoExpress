@@ -33,3 +33,11 @@ El módulo deportivo es **opt-in por cliente**. Los clientes de nutrición no re
 - La tendencia de carga es descriptiva. Quedan integraciones con dispositivos/plataformas externas y sincronización contextual con la nutrición; requieren seleccionar proveedores, definir permisos de consentimiento y probar credenciales/API reales antes de habilitarlas.
 
 El módulo no prescribe actividad automáticamente ni modifica dietas. La decisión de anunciar el servicio, la decisión por cliente y el estado de colaboración son conceptos distintos.
+
+
+## Plantillas reutilizables
+
+- Desde un plan de un cliente, el profesional puede guardarlo como plantilla con nombre propio.
+- La biblioteca se muestra en la página Entrenamientos y en la ficha de planificación deportiva, aislada por tenant y por autor (los administradores de clínica pueden consultar las plantillas de su tenant).
+- Crear un plan desde una plantilla genera una copia independiente y desplaza las fechas al nuevo inicio. Copia las sesiones, prescripción de ejercicios, mesociclos y microciclos; no modifica el original ni copia registros de actividad real del paciente.
+- Las plantillas se guardan en PostgreSQL, por lo que persisten entre sesiones y dispositivos.
