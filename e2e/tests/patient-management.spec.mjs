@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 // Estas pruebas introducen credenciales reales de GitHub Secrets: no guardar trazas DOM que puedan contenerlas.
+// Los objetivos de seguimiento se verifican aquí mediante la API autenticada y quedan cubiertos en la ejecución E2E semanal.
 test.use({ trace: 'off' });
 
 const username = process.env.E2E_USERNAME;
