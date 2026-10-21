@@ -1158,3 +1158,38 @@
   .commercial-consent-feedback { align-items:stretch; flex-direction:column; }
   .commercial-consent-summary { align-items:stretch; flex-direction:column; }
 }
+
+
+/* Portal resiliente: el documento crece con el contenido y deja espacio real
+   para que la navegación fija no tape el último control de ninguna sección. */
+:host {
+  display: block;
+  height: auto;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
+.patient-app {
+  height: auto;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: visible;
+  box-sizing: border-box;
+}
+
+.patient-app:has(.bottom-nav) {
+  padding-bottom: calc(92px + env(safe-area-inset-bottom));
+}
+
+.portal-content {
+  flex: 0 0 auto;
+  min-height: 0;
+  overflow: visible;
+  padding-bottom: 24px;
+}
+
+.bottom-nav {
+  padding-bottom: env(safe-area-inset-bottom);
+}
