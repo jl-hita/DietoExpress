@@ -68,7 +68,7 @@ export class PatientCheckinComponent implements OnInit, OnChanges {
   get checkinTraining(): number | null { return this.checkinTrainingState(); }
   set checkinTraining(value: number | null) { this.checkinTrainingState.set(value); }
 
-  barrierOptions: Record<string, boolean> = {
+  barrierOptions: { time: boolean; hunger: boolean; social: boolean; cooking: boolean; budget: boolean; planning: boolean; cravings: boolean; emotions: boolean; travel: boolean; other: boolean } = {
     time: false, hunger: false, social: false, cooking: false, budget: false,
     planning: false, cravings: false, emotions: false, travel: false, other: false
   };
