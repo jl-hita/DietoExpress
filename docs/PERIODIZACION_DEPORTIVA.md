@@ -25,8 +25,10 @@ El módulo deportivo es **opt-in por cliente**. Los clientes de nutrición no re
 ## Límites conocidos y siguientes fases
 - El flujo de colaboración requiere pruebas integrales con cuentas reales de dos profesionales, especialmente para comprobar límites entre clínicas y los casos de revocación. Las invitaciones envían un aviso por correo a través del servicio SMTP existente; un fallo de email no invalida la invitación interna. Las cuentas sin tenant de clínica no se pueden invitar como colaboradoras.
 - Falta un onboarding específico de entrenador y una definición final de permisos granulares para profesionales externos.
-- Queda probar en entorno real los recorridos de edición/reordenación/borrado y reforzar pruebas E2E del módulo.
-- La prescripción de ejercicios inicial permite detallar series, repeticiones, descansos y notas; un editor avanzado con catálogos de ejercicios, progresiones y plantillas queda como siguiente iteración.
+- Queda probar en entorno real los recorridos de edición/reordenación/borrado y reforzar pruebas E2E del módulo. La biblioteca actual es una base curada inicial, no un catálogo exhaustivo ni multimedia; quedan pendientes imágenes/vídeos, más filtros anatómicos, variantes y progresiones explícitas.
+- Biblioteca inicial de ejercicios integrada en el editor de sesiones, con búsqueda por texto y filtros por objetivo/material; permite añadir ejercicios directamente a la prescripción y evita duplicados evidentes.
+- Generación asistida determinista de borradores para fuerza, hipertrofia, resistencia y movilidad, ajustada por nivel y material seleccionado. No es una prescripción clínica automática: el profesional debe revisar y personalizar cada propuesta.
+- Reutilización de sesiones guardadas como plantillas: copia tipo, duración, intensidad, instrucciones y ejercicios de una sesión existente del mismo plan. La plantilla queda basada en una sesión persistida, sin una entidad de plantillas independiente.
 - Las zonas de potencia/ritmo se pueden indicar de forma libre en el campo de zona objetivo; queda pendiente la configuración estructurada por deporte y disciplina.
 - La tendencia de carga es descriptiva. Quedan integraciones con dispositivos/plataformas externas y sincronización contextual con la nutrición; requieren seleccionar proveedores, definir permisos de consentimiento y probar credenciales/API reales antes de habilitarlas.
 
