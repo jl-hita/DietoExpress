@@ -511,51 +511,59 @@ public class DirectoryController : ControllerBase
             nutritionist_id = professional.id,
             starts_at = startsUtc,
             ends_at = endsUtc,
-            status = isEstablishedClient ? "confirmed" : "requested",
+            status = "requested",
             modality = requestedModality,
             patient_notes = notes
         };
 
-        // La confirmación automática debe tener las mismas garantías que una confirmación manual:
-        // si es online, preparar la sala privada antes de confirmar la cita.
-        if (isEstablishedClient && requestedModality == "online")
-        {
-            try
-            {
-                var videoRoom = await _videoMeetings.CreatePrivateRoomAsync(
-                    $"appointment-{appointment.id}",
-                    appointment.starts_at,
-                    appointment.ends_at,
-                    HttpContext.RequestAborted);
-                appointment.video_provider = videoRoom.Provider;
-                appointment.video_room_name = videoRoom.RoomName;
-                appointment.video_room_url = videoRoom.RoomUrl;
-                appointment.video_expires_at = videoRoom.ExpiresAtUtc;
-            }
-            catch (InvalidOperationException)
-            {
-                return StatusCode(StatusCodes.Status503ServiceUnavailable, new
-                {
-                    message = "Las consultas online no están disponibles en este momento.",
-                    code = "VIDEO_PROVIDER_UNAVAILABLE",
-                    reportable = true
-                });
-            }
-            catch (HttpRequestException)
-            {
-                return StatusCode(StatusCodes.Status503ServiceUnavailable, new
-                {
-                    message = "No se ha podido preparar la sala de la consulta online.",
-                    code = "VIDEO_PROVIDER_UNAVAILABLE",
-                    reportable = true
-                });
-            }
-        }
-
         _context.patient_appointments.Add(appointment);
         try
         {
+            // Persistir dentro de la transacción para obtener el ID antes de crear una sala
+            // de vídeo cuyo nombre debe ser único y estable para esta cita.
             await _context.SaveChangesAsync();
+
+            if (isEstablishedClient)
+            {
+                if (requestedModality == "online")
+                {
+                    try
+                    {
+                        var videoRoom = await _videoMeetings.CreatePrivateRoomAsync(
+                            $"appointment-{appointment.id}",
+                            appointment.starts_at,
+                            appointment.ends_at,
+                            HttpContext.RequestAborted);
+                        appointment.video_provider = videoRoom.Provider;
+                        appointment.video_room_name = videoRoom.RoomName;
+                        appointment.video_room_url = videoRoom.RoomUrl;
+                        appointment.video_expires_at = videoRoom.ExpiresAtUtc;
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+                        {
+                            message = "Las consultas online no están disponibles en este momento.",
+                            code = "VIDEO_PROVIDER_UNAVAILABLE",
+                            reportable = true
+                        });
+                    }
+                    catch (HttpRequestException)
+                    {
+                        return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+                        {
+                            message = "No se ha podido preparar la sala de la consulta online.",
+                            code = "VIDEO_PROVIDER_UNAVAILABLE",
+                            reportable = true
+                        });
+                    }
+                }
+
+                appointment.status = "confirmed";
+                appointment.updated_at = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+            }
+
             await transaction.CommitAsync();
         }
         catch
