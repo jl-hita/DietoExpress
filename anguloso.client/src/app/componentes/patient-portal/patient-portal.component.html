@@ -297,7 +297,7 @@
       [booking]="appointmentBooking"
       [error]="appointmentError"
       [success]="appointmentSuccess"
-      (refresh)="loadAppointmentSlots()"
+      (refresh)="refreshAppointments()"
       (request)="requestAppointment($event)"
       (cancel)="cancelAppointment($event)"
       (joinVideo)="joinVideoAppointment($event)">

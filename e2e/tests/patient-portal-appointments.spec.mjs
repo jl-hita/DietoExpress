@@ -13,8 +13,9 @@ function futureAppointment(id = 44, status = 'requested') {
   return { id, ...slot, clientId: 321, clientName: 'Paciente E2E Ficticio', status, modality: 'in_person', professionalNotes: null };
 }
 
-async function mockPortal(page, { appointments = [], slots = [futureSlot()], bookingError = null } = {}) {
+async function mockPortal(page, { appointments = [], slots = [futureSlot()], bookingError = null, appointmentsErrorOnce = false } = {}) {
   const calls = [];
+  let appointmentsFailed = false;
   await page.route('**/api/**', async route => {
     const request = route.request();
     const url = new URL(request.url());
@@ -27,7 +28,12 @@ async function mockPortal(page, { appointments = [], slots = [futureSlot()], boo
     } else if (url.pathname.endsWith('/appointments/slots') && method === 'GET') {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(slots) });
     } else if (url.pathname.endsWith('/appointments/mine') && method === 'GET') {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(appointments) });
+      if (appointmentsErrorOnce && !appointmentsFailed) {
+        appointmentsFailed = true;
+        await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ message: 'Error temporal al consultar las citas.' }) });
+      } else {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(appointments) });
+      }
     } else if (url.pathname.endsWith('/appointments') && method === 'POST') {
       if (bookingError) {
         await route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ message: bookingError }) });
@@ -63,6 +69,17 @@ async function openAppointments(page) {
 }
 
 test.describe('P0 — citas del paciente: reservar y cancelar', () => {
+
+  test('reintentar desde el error recupera tanto las citas como los horarios', async ({ page }) => {
+    await mockPortal(page, { appointments: [futureAppointment(81, 'confirmed')], slots: [], appointmentsErrorOnce: true });
+    await loginByPin(page);
+    await openAppointments(page);
+    await expect(page.locator('.portal-inline-error')).toContainText('Error temporal al consultar las citas.');
+    await page.locator('.portal-inline-error button[aria-label="Actualizar horarios"]').click();
+    await expect(page.locator('.appointment-item')).toContainText('Confirmada', { timeout: 10_000 });
+    await expect(page.locator('.portal-inline-error')).toHaveCount(0);
+  });
+
   test('solicita una cita online y refleja el estado pendiente de confirmación', async ({ page }) => {
     const calls = await mockPortal(page);
     await loginByPin(page);

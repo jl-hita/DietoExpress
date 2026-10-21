@@ -560,6 +560,14 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
     if (!this.appointments.length && !this.appointmentsLoading) this.loadAppointments();
   }
 
+  refreshAppointments(): void {
+    // A single retry must refresh both the calendar availability and the patient's
+    // actual appointments. Previously the error banner only retried available slots,
+    // leaving a failed /appointments/mine request permanently empty.
+    this.loadAppointmentSlots();
+    this.loadAppointments();
+  }
+
   requestAppointment(selection: { slot: AppointmentSlot; modality: 'in_person' | 'online' }): void {
     const slot = selection.slot;
     if (this.appointmentBooking) return;
