@@ -58,7 +58,7 @@ public class PatientCheckinsController : ControllerBase
         var items = await _db.patient_checkins.AsNoTracking()
             .Where(x => x.client_id == clientId)
             .OrderByDescending(x => x.week_start)
-            .Select(x => new { x.id, x.week_start, x.submitted_at, x.weight, x.adherence, x.hunger, x.difficulties, x.notes })
+            .Select(x => new { x.id, x.week_start, x.submitted_at, x.weight, x.adherence, x.hunger, x.difficulties, x.barriers, x.notes })
             .ToListAsync();
         return Ok(items);
     }
@@ -146,7 +146,7 @@ public class PatientCheckinsController : ControllerBase
                 .LogError(ex, "No se pudo registrar la automatización del check-in {CheckinId}.", item.id);
         }
 
-        return Ok(new { item.id, item.week_start, item.submitted_at, item.weight, item.adherence, item.hunger, item.difficulties, item.notes });
+        return Ok(new { item.id, item.week_start, item.submitted_at, item.weight, item.adherence, item.hunger, item.difficulties, item.barriers, item.notes });
     }
 
     private bool TryGetClientId(out int clientId) => int.TryParse(User.FindFirstValue("clientId"), out clientId);
