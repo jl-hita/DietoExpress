@@ -18,7 +18,7 @@ public sealed class PatientPortalFlowRegressionTests
     private static string Read(string path) => File.ReadAllText(Path.Combine(RepoRoot, path));
 
     [Fact]
-    public void PatientMagicLinkCanBeReusedUntilItsExpiry()
+    public void PatientMagicLinkExpiryIsIndependentFromPersistentSession()
     {
         var controller = Read("Anguloso.Server/Controllers/PatientPortalController.cs");
         var start = controller.IndexOf("public async Task<ActionResult<PatientAuthResponseDto>> Authenticate", StringComparison.Ordinal);
@@ -30,7 +30,9 @@ public sealed class PatientPortalFlowRegressionTests
         Assert.Contains("c.access_token_expires_at > DateTime.UtcNow", auth);
         Assert.DoesNotContain("ExecuteUpdateAsync", auth);
         Assert.DoesNotContain("SetProperty(c => c.access_token, (string?)null)", auth);
-        Assert.Contains("client.access_token_expires_at", auth);
+        Assert.Contains("var sessionExpiresAtUtc = DateTime.UtcNow.AddDays(30);", auth);
+        Assert.Contains("SetPatientSessionCookie(jwt, sessionExpiresAtUtc)", auth);
+        Assert.DoesNotContain("var sessionExpiresAtUtc = !string.IsNullOrWhiteSpace(request.Token)", auth);
     }
 
     [Fact]
