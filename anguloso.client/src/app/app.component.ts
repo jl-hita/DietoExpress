@@ -41,8 +41,13 @@ export class AppComponent implements OnInit {
   }
 
   private async restoreProfessionalPushState(): Promise<void> {
-    if (!this.canEnableProfessionalPush || Notification.permission !== 'granted') return;
     try {
+      // El componente raíz puede inicializarse antes de que el guard haya restaurado
+      // la sesión desde la cookie HttpOnly. Esperar aquí evita abandonar la comprobación
+      // cuando getRole() todavía devuelve null durante una recarga.
+      const authenticated = await this.authService.restoreSession().toPromise();
+      if (!authenticated || !this.canEnableProfessionalPush || Notification.permission !== 'granted') return;
+
       const registration = await navigator.serviceWorker.getRegistration('/');
       const subscription = await registration?.pushManager.getSubscription();
       if (!subscription) return;
