@@ -109,6 +109,32 @@ export interface ProfessionalTask {
   completedAt?: string | null;
 }
 
+export interface FollowupGoal {
+  id: number;
+  title: string;
+  metricKey: string;
+  targetValue: number;
+  unit: string;
+  phase: 'baseline' | 'building' | 'maintenance' | 'review' | string;
+  startDate: string;
+  targetDate?: string | null;
+  status: 'active' | 'paused' | 'completed' | string;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateFollowupGoalRequest {
+  clientId: number;
+  title: string;
+  metricKey: string;
+  targetValue: number;
+  phase: 'baseline' | 'building' | 'maintenance' | 'review';
+  startDate: string;
+  targetDate?: string | null;
+  notes?: string | null;
+}
+
 export interface FollowupSettings {
   selectedMetrics: string[];
   periodWeeks: number;
@@ -307,6 +333,18 @@ export class PatientPortalService {
 
   completeGuidedConsultation(appointmentId: number): Observable<any> {
     return this.http.post<any>(`${this.base}/professional/consultations/appointment/${appointmentId}/complete`, {});
+  }
+
+  getFollowupGoals(clientId: number): Observable<FollowupGoal[]> {
+    return this.http.get<FollowupGoal[]>(`${this.base}/professional/followup-goals/${clientId}`);
+  }
+
+  createFollowupGoal(request: CreateFollowupGoalRequest): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${this.base}/professional/followup-goals`, request);
+  }
+
+  updateFollowupGoalStatus(id: number, status: 'active' | 'paused' | 'completed'): Observable<void> {
+    return this.http.put<void>(`${this.base}/professional/followup-goals/${id}/status`, { status });
   }
 
   getFollowupSettings(): Observable<FollowupSettings> { return this.http.get<FollowupSettings>(this.base + '/professional/automation/followup-settings'); }
