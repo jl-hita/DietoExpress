@@ -5,7 +5,8 @@ import { DietService } from '../../servicios/diet.service';
 import { ClientService } from '../../servicios/client.service';
 import { DietListItem } from '../../modelos/diet';
 import { MATERIAL_IMPORTS } from '../../shared/material.imports';
-import { MatNativeDateModule } from '@angular/material/core';
+import { DateAdapter, MAT_DATE_LOCALE, MatNativeDateModule } from '@angular/material/core';
+import { SpanishDateAdapter } from '../../directives/spanish-date-adapter';
 
 export interface DietSelectDialogData {
   clientId: number;
@@ -25,6 +26,10 @@ export interface DietValidationResult {
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-diet-select-dialog',
   standalone: true,
+  providers: [
+    { provide: DateAdapter, useClass: SpanishDateAdapter },
+    { provide: MAT_DATE_LOCALE, useValue: 'es-ES' }
+  ],
   imports: [MATERIAL_IMPORTS, MatNativeDateModule],
   template: `
     <h2 mat-dialog-title>Asignar Plan Nutricional</h2>
