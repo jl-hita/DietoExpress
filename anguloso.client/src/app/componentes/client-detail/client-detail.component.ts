@@ -30,7 +30,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCardModule } from '@angular/material/card';
-import { PatientCheckin, PatientPortalService, ClientPortalAccess, FollowupSettings, FollowupGoal, PatientDocument, ProfessionalDocumentSummary, PatientDocumentAuditEvent } from '../../servicios/patient-portal.service';
+import { PatientCheckin, PatientPortalService, ClientPortalAccess, FollowupSettings, FollowupGoal, FollowupGoalEvent, PatientDocument, ProfessionalDocumentSummary, PatientDocumentAuditEvent } from '../../servicios/patient-portal.service';
 import { Subscription } from 'rxjs';
 import { compareFollowupPeriods, countMissedCheckinWeeks, detectPersistentFollowupSignals } from '../../servicios/adherence-analytics';
 import { debounceTime, filter, switchMap } from 'rxjs/operators';
@@ -101,6 +101,8 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
   get checkins(): PatientCheckin[] { return this.checkinsState(); }
   set checkins(value: PatientCheckin[]) { this.checkinsState.set(value); }
   followupGoals: FollowupGoal[] = [];
+  followupGoalHistory: Record<number, FollowupGoalEvent[]> = {};
+  loadingFollowupGoalHistory: Record<number, boolean> = {};
   loadingFollowupGoals = false;
   savingFollowupGoal = false;
   followupGoalTitle = '';
@@ -1051,6 +1053,65 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
       },
       error: err => this.snack.open(err?.error?.message || 'No se ha podido actualizar el objetivo', 'Cerrar', { duration: 3000 })
     });
+  }
+
+  updateFollowupGoalPhase(goal: FollowupGoal, phase: 'baseline' | 'building' | 'maintenance' | 'review'): void {
+    if (goal.phase === phase) return;
+    this.portalService.updateFollowupGoalPhase(goal.id, phase).subscribe({
+      next: () => {
+        goal.phase = phase;
+        this.snack.open('Fase de seguimiento actualizada', 'Cerrar', { duration: 1800 });
+        if (this.followupGoalHistory[goal.id]) this.loadFollowupGoalHistory(goal);
+      },
+      error: err => this.snack.open(err?.error?.message || 'No se ha podido actualizar la fase', 'Cerrar', { duration: 3000 })
+    });
+  }
+
+  toggleFollowupGoalHistory(goal: FollowupGoal): void {
+    if (this.followupGoalHistory[goal.id]) {
+      const next = { ...this.followupGoalHistory };
+      delete next[goal.id];
+      this.followupGoalHistory = next;
+      return;
+    }
+    this.loadFollowupGoalHistory(goal);
+  }
+
+  loadFollowupGoalHistory(goal: FollowupGoal): void {
+    if (!this.clientId) return;
+    this.loadingFollowupGoalHistory = { ...this.loadingFollowupGoalHistory, [goal.id]: true };
+    this.portalService.getFollowupGoalHistory(this.clientId, goal.id).subscribe({
+      next: events => {
+        this.followupGoalHistory = { ...this.followupGoalHistory, [goal.id]: events };
+        this.loadingFollowupGoalHistory = { ...this.loadingFollowupGoalHistory, [goal.id]: false };
+      },
+      error: err => {
+        this.loadingFollowupGoalHistory = { ...this.loadingFollowupGoalHistory, [goal.id]: false };
+        this.snack.open(err?.error?.message || 'No se ha podido cargar el historial del objetivo', 'Cerrar', { duration: 3000 });
+      }
+    });
+  }
+
+  getGoalMetricHistory(goal: FollowupGoal): Array<{ weekStart: string; value: number }> {
+    const ordered = [...this.checkins].sort((a, b) =>
+      a.week_start.localeCompare(b.week_start) || new Date(a.submitted_at).getTime() - new Date(b.submitted_at).getTime());
+    return ordered.map(checkin => {
+      const values: Record<string, number | null | undefined> = {
+        adherence: checkin.adherence, hunger: checkin.hunger, energy: checkin.energy,
+        sleep_quality: checkin.sleep_quality, sleep_hours: checkin.sleep_hours,
+        training: checkin.training, weight: checkin.weight
+      };
+      const value = values[goal.metricKey];
+      return { weekStart: checkin.week_start, value: typeof value === 'number' && Number.isFinite(value) ? value : null };
+    }).filter((item): item is { weekStart: string; value: number } => item.value !== null).slice(-6);
+  }
+
+  getGoalEventLabel(eventType: string): string {
+    const labels: Record<string, string> = {
+      created: 'Objetivo creado', phase_changed: 'Fase modificada',
+      status_changed: 'Estado modificado', target_changed: 'Objetivo modificado'
+    };
+    return labels[eventType] ?? eventType;
   }
 
   getGoalMetricValue(goal: FollowupGoal): number | null {
