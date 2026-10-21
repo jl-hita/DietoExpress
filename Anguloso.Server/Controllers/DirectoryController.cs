@@ -494,6 +494,13 @@ public class DirectoryController : ControllerBase
             });
         }
 
+        // Un cliente solo se considera establecido si ya tiene una cita marcada como completada.
+        // Tener ficha o una reserva previa pendiente/cancelada no basta para saltarse la aceptación.
+        var isEstablishedClient = await _context.patient_appointments.AsNoTracking().AnyAsync(a =>
+            a.tenant_id == professional.tenant_id.Value &&
+            a.client_id == client.id &&
+            a.status == "completed");
+
         var appointment = new patient_appointments
         {
             tenant_id = professional.tenant_id.Value,
@@ -501,13 +508,68 @@ public class DirectoryController : ControllerBase
             nutritionist_id = professional.id,
             starts_at = startsUtc,
             ends_at = endsUtc,
-            status = "requested",
+            status = isEstablishedClient ? "confirmed" : "requested",
             modality = requestedModality,
             patient_notes = notes
         };
+
+        // La confirmación automática debe tener las mismas garantías que una confirmación manual:
+        // si es online, preparar la sala privada antes de confirmar la cita.
+        if (isEstablishedClient && requestedModality == "online")
+        {
+            try
+            {
+                var videoRoom = await _videoMeetings.CreatePrivateRoomAsync(
+                    $"appointment-{appointment.id}",
+                    appointment.starts_at,
+                    appointment.ends_at,
+                    HttpContext.RequestAborted);
+                appointment.video_provider = videoRoom.Provider;
+                appointment.video_room_name = videoRoom.RoomName;
+                appointment.video_room_url = videoRoom.RoomUrl;
+                appointment.video_expires_at = videoRoom.ExpiresAtUtc;
+            }
+            catch (InvalidOperationException)
+            {
+                return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+                {
+                    message = "Las consultas online no están disponibles en este momento.",
+                    code = "VIDEO_PROVIDER_UNAVAILABLE",
+                    reportable = true
+                });
+            }
+            catch (HttpRequestException)
+            {
+                return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+                {
+                    message = "No se ha podido preparar la sala de la consulta online.",
+                    code = "VIDEO_PROVIDER_UNAVAILABLE",
+                    reportable = true
+                });
+            }
+        }
+
         _context.patient_appointments.Add(appointment);
-        await _context.SaveChangesAsync();
-        await transaction.CommitAsync();
+        try
+        {
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+        }
+        catch
+        {
+            if (!string.IsNullOrWhiteSpace(appointment.video_room_name))
+            {
+                try
+                {
+                    await _videoMeetings.DeleteRoomAsync(appointment.video_room_name, CancellationToken.None);
+                }
+                catch (Exception cleanupEx)
+                {
+                    _logger.LogError(cleanupEx, "No se pudo eliminar la sala de vídeo huérfana de la cita pública {AppointmentId}.", appointment.id);
+                }
+            }
+            throw;
+        }
 
         try
         {
@@ -574,20 +636,21 @@ public class DirectoryController : ControllerBase
             }
         }
 
+        var appointmentEvent = isEstablishedClient ? "appointment.confirmed" : "appointment.requested";
         try
         {
             await _automationService.PublishEventAsync(
                 appointment.tenant_id,
-                "appointment.requested",
+                appointmentEvent,
                 "appointment",
                 appointment.id.ToString(),
                 new AutomationService.AppointmentStatusPayload(
-                    appointment.id, appointment.client_id, appointment.nutritionist_id, appointment.starts_at),
-                $"appointment:{appointment.id}:requested");
+                    appointment.id, appointment.client_id, appointment.nutritionist_id, appointment.starts_at, appointment.modality),
+                $"appointment:{appointment.id}:{appointmentEvent}");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "No se pudo registrar la automatización de reserva pública {AppointmentId}.", appointment.id);
+            _logger.LogError(ex, "No se pudo registrar la automatización {EventType} de reserva pública {AppointmentId}.", appointmentEvent, appointment.id);
         }
 
         return Ok(new PublicAppointmentConfirmationDto
