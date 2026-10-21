@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { MAT_DATE_LOCALE, NativeDateAdapter } from '@angular/material/core';
+import { NativeDateAdapter } from '@angular/material/core';
 import { parseDateDisplay } from './date-input.directive';
 
 /** Native DateAdapter that always displays and parses datepicker input as DD/MM/YYYY. */
