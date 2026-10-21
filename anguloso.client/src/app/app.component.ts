@@ -1,7 +1,7 @@
 import { RouterOutlet } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
-import { Component, HostListener, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, HostListener, inject, ChangeDetectionStrategy, OnInit } from '@angular/core';
 import { AuthService } from './servicios/auth.service';
 import { ErrorReportBannerComponent } from './componentes/error-report-banner/error-report-banner.component';
 
@@ -28,12 +28,38 @@ interface HttpDiagnosticEntry {
   styleUrl: './app.component.css'
 })
 // El componente raíz coordina el estado global mínimo de la aplicación; la lógica de negocio permanece en servicios y componentes especializados.
-export class AppComponent {
+export class AppComponent implements OnInit {
   professionalPushBusy = false;
+  professionalPushActivated = false;
   professionalPushMessage = '';
   professionalPushSupported = typeof window !== 'undefined' && 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
 
   constructor(private readonly http: HttpClient) {}
+
+  ngOnInit(): void {
+    void this.restoreProfessionalPushState();
+  }
+
+  private async restoreProfessionalPushState(): Promise<void> {
+    if (!this.canEnableProfessionalPush || Notification.permission !== 'granted') return;
+    try {
+      const registration = await navigator.serviceWorker.getRegistration('/');
+      const subscription = await registration?.pushManager.getSubscription();
+      if (!subscription) return;
+      const json = subscription.toJSON();
+      if (!json.endpoint || !json.keys?.['p256dh'] || !json.keys?.['auth']) return;
+      // Reconciliar la suscripción del navegador con el servidor también cubre sesiones
+      // en las que el navegador conservó la suscripción pero la interfaz se recargó.
+      await this.http.post('/api/professional/push/subscriptions', {
+        endpoint: json.endpoint,
+        p256dh: json.keys['p256dh'],
+        auth: json.keys['auth']
+      }).toPromise();
+      this.professionalPushActivated = true;
+    } catch (error) {
+      console.warn('[DietoExpress] No se pudo restaurar el estado de Web Push.', error);
+    }
+  }
 
   get canEnableProfessionalPush(): boolean {
     const role = this.authService.getRole();
@@ -91,6 +117,7 @@ export class AppComponent {
         auth: json.keys['auth']
       }).toPromise();
 
+      this.professionalPushActivated = true;
       this.professionalPushMessage = 'Avisos de cita activados en este navegador.';
     } catch (error) {
       // Registrar etapa y error técnico para diagnosticar sin mostrar detalles internos al usuario.
