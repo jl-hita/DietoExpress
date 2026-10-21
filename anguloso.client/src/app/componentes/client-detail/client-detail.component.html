@@ -673,6 +673,10 @@
           </div>
         </section>
 
+        <div class="followup-no-checkins" *ngIf="!checkins.length">
+          <mat-icon>fact_check</mat-icon>
+          <div><strong>Aún no hay revisiones semanales</strong><span>Cuando el paciente envíe su primer check-in, aparecerán aquí las comparativas, tendencias y alertas explicables. No se interpretan datos ausentes como incumplimiento.</span></div>
+        </div>
         <div class="followup-evolution" *ngIf="checkins.length">
           <div class="followup-period-comparison">
             <div class="followup-period-heading">
@@ -731,12 +735,16 @@
               </div>
             </div>
           </div>
-          <div class="followup-summary followup-summary-ok" *ngIf="!getFollowupAlerts().length">
+          <div class="followup-summary followup-summary-ok" *ngIf="hasFollowupMetricData() && !getFollowupAlerts().length">
             <mat-icon>check_circle</mat-icon>
             <div>
               <strong>Seguimiento estable</strong>
               <span>No se han detectado cambios relevantes con los datos disponibles.</span>
             </div>
+          </div>
+          <div class="followup-summary" *ngIf="!hasFollowupMetricData()">
+            <mat-icon>info</mat-icon>
+            <div><strong>Datos insuficientes para valorar la adherencia</strong><span>Hay revisiones registradas, pero faltan mediciones numéricas para comparar períodos. No se considera que el seguimiento esté estable.</span></div>
           </div>
           <div class="followup-trends" *ngIf="getFollowupTrends().length">
             <div class="followup-trends-header">
