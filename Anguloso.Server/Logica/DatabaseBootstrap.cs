@@ -717,6 +717,7 @@ CREATE INDEX IF NOT EXISTS idx_public_funnel_events_appointment
             // Las rutinas históricas conservan sus marcadores para actualizar instalaciones antiguas;
             // el DDL actual debe seguir siendo idempotente para poder reparar esquemas incompletos.
             LegalCommunicationsSchema.Initialize(context);
+            TrainingTemplatesSchema.Initialize(context);
             UpgradeDocumentTemplateSchemaV1(context, logger);
             UpgradeLegalComplianceSchemaV1(context, logger);
             UpgradeLegalConfigurationSchemaV1(context, logger);
