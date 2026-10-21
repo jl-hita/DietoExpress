@@ -748,6 +748,7 @@ CREATE INDEX IF NOT EXISTS idx_public_funnel_events_appointment
             UpgradeAutomationSchemaV10(context, logger);
             UpgradeAutomationSchemaV11(context, logger);
             UpgradeFollowupGoalsSchemaV1(context, logger);
+            UpgradeFollowupGoalHistorySchemaV1(context, logger);
             UpgradePatientCheckinBarriersSchemaV1(context, logger);
             UpgradeGoogleCalendarSchemaV1(context, logger);
             UpgradeOnlineConsultationSchemaV1(context, logger);
@@ -2325,6 +2326,29 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
         logger.LogInformation("Migración followup-goals-v1 aplicada correctamente.");
     }
 
+    /// <summary>Registra de forma auditable los cambios de fase, estado y progreso de objetivos de seguimiento.</summary>
+    public static void UpgradeFollowupGoalHistorySchemaV1(angulosodbContext context, ILogger logger)
+    {
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS professional_followup_goal_events (
+                id BIGSERIAL PRIMARY KEY,
+                goal_id INTEGER NOT NULL REFERENCES professional_followup_goals(id) ON DELETE CASCADE,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                professional_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                event_type VARCHAR(32) NOT NULL,
+                previous_value VARCHAR(1000),
+                new_value VARCHAR(1000),
+                occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT ck_followup_goal_event_type CHECK (event_type IN ('created','phase_changed','status_changed','target_changed'))
+            );
+            CREATE INDEX IF NOT EXISTS idx_followup_goal_events_history
+                ON professional_followup_goal_events(tenant_id, client_id, goal_id, occurred_at DESC);
+        ");
+        context.Database.ExecuteSqlRaw("INSERT INTO schema_migrations(id) VALUES ('followup-goal-history-v1') ON CONFLICT (id) DO NOTHING;");
+        logger.LogInformation("Migración followup-goal-history-v1 aplicada correctamente.");
+    }
+
     /// <summary>Amplía los check-ins con barreras estructuradas seleccionadas por el paciente.</summary>
     public static void UpgradePatientCheckinBarriersSchemaV1(angulosodbContext context, ILogger logger)
     {
@@ -3214,7 +3238,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                     'google_calendar_oauth_states','external_calendar_events','legal_configuration',
                     'legal_documents','legal_acceptances','privacy_requests','privacy_incidents',
                     'legal_generated_documents','legal_rat_activities','legal_risk_assessments',
-                    'professional_followup_goals',
+                    'professional_followup_goals','professional_followup_goal_events',
                     'legal_eipd_decisions','professional_followup_settings','professional_consultations',
                     'patient_checkins','specializations','tenant_specializations','client_specializations',
                     'client_specialization_profiles','specialization_rules','video_usage_reservations',
