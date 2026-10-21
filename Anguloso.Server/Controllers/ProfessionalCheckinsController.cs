@@ -71,6 +71,7 @@ public sealed class ProfessionalCheckinsController : ControllerBase
                 SleepHours = c.sleep_hours,
                 Training = c.training,
                 Difficulties = c.difficulties,
+                Barriers = c.barriers,
                 Notes = c.notes,
                 ReviewedAt = c.reviewed_at,
                 ReviewedByUserId = c.reviewed_by_user_id
@@ -265,6 +266,7 @@ public sealed class ProfessionalCheckinsController : ControllerBase
         public double? SleepHours { get; set; }
         public int? Training { get; set; }
         public string? Difficulties { get; set; }
+        public string[]? Barriers { get; set; }
         public string? Notes { get; set; }
         public DateTime? ReviewedAt { get; set; }
         public int? ReviewedByUserId { get; set; }
