@@ -30,7 +30,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCardModule } from '@angular/material/card';
-import { PatientCheckin, PatientPortalService, ClientPortalAccess, FollowupSettings, PatientDocument, ProfessionalDocumentSummary, PatientDocumentAuditEvent } from '../../servicios/patient-portal.service';
+import { PatientCheckin, PatientPortalService, ClientPortalAccess, FollowupSettings, FollowupGoal, PatientDocument, ProfessionalDocumentSummary, PatientDocumentAuditEvent } from '../../servicios/patient-portal.service';
 import { Subscription } from 'rxjs';
 import { compareFollowupPeriods, countMissedCheckinWeeks, detectPersistentFollowupSignals } from '../../servicios/adherence-analytics';
 import { debounceTime, filter, switchMap } from 'rxjs/operators';
@@ -100,6 +100,16 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
   private readonly checkinsState = signal<PatientCheckin[]>([]);
   get checkins(): PatientCheckin[] { return this.checkinsState(); }
   set checkins(value: PatientCheckin[]) { this.checkinsState.set(value); }
+  followupGoals: FollowupGoal[] = [];
+  loadingFollowupGoals = false;
+  savingFollowupGoal = false;
+  followupGoalTitle = '';
+  followupGoalMetric = 'adherence';
+  followupGoalTarget: number | null = 80;
+  followupGoalPhase: 'baseline' | 'building' | 'maintenance' | 'review' = 'building';
+  followupGoalStartDate = this.localDateInput();
+  followupGoalTargetDate = '';
+  followupGoalNotes = '';
   selectedFollowupMetric = 'adherence';
   followupSettings: FollowupSettings = {
     selectedMetrics: ['adherence','hunger','energy','sleep_quality','sleep_hours','training','weight'],
@@ -199,6 +209,7 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
       this.loadCommunicationPreferences();
       this.loadPatientCheckins();
       this.loadFollowupSettings();
+      this.loadFollowupGoals();
       this.loadPatientDocuments();
     }
   }
@@ -977,6 +988,90 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     addTrend('Peso', ordered.map(c => c.weight), ' kg');
 
     return trends.slice(0, 4);
+  }
+
+  private localDateInput(): string {
+    const date = new Date();
+    const offset = date.getTimezoneOffset();
+    return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 10);
+  }
+
+  loadFollowupGoals(): void {
+    if (!this.clientId) return;
+    this.loadingFollowupGoals = true;
+    this.portalService.getFollowupGoals(this.clientId).subscribe({
+      next: goals => this.followupGoals = goals,
+      error: () => this.snack.open('No se han podido cargar los objetivos de seguimiento', 'Cerrar', { duration: 3000 }),
+      complete: () => this.loadingFollowupGoals = false
+    });
+  }
+
+  createFollowupGoal(): void {
+    if (!this.clientId || this.savingFollowupGoal || !this.followupGoalTitle.trim() ||
+        this.followupGoalTarget === null || !Number.isFinite(this.followupGoalTarget)) return;
+    if (this.followupGoalTargetDate && this.followupGoalTargetDate < this.followupGoalStartDate) {
+      this.snack.open('La fecha objetivo no puede ser anterior al inicio', 'Cerrar', { duration: 2500 });
+      return;
+    }
+    this.savingFollowupGoal = true;
+    this.portalService.createFollowupGoal({
+      clientId: this.clientId,
+      title: this.followupGoalTitle.trim(),
+      metricKey: this.followupGoalMetric,
+      targetValue: this.followupGoalTarget,
+      phase: this.followupGoalPhase,
+      startDate: this.followupGoalStartDate,
+      targetDate: this.followupGoalTargetDate || null,
+      notes: this.followupGoalNotes.trim() || null
+    }).subscribe({
+      next: () => {
+        this.followupGoalTitle = '';
+        this.followupGoalNotes = '';
+        this.followupGoalTargetDate = '';
+        this.loadFollowupGoals();
+        this.snack.open('Objetivo de seguimiento guardado', 'Cerrar', { duration: 1800 });
+      },
+      error: err => this.snack.open(err?.error?.message || 'No se ha podido guardar el objetivo', 'Cerrar', { duration: 3000 }),
+      complete: () => this.savingFollowupGoal = false
+    });
+  }
+
+  updateFollowupGoalStatus(goal: FollowupGoal, status: 'active' | 'paused' | 'completed'): void {
+    this.portalService.updateFollowupGoalStatus(goal.id, status).subscribe({
+      next: () => {
+        goal.status = status;
+        goal.updatedAt = new Date().toISOString();
+        this.snack.open(status === 'completed' ? 'Objetivo completado' : status === 'paused' ? 'Objetivo pausado' : 'Objetivo reactivado', 'Cerrar', { duration: 1800 });
+      },
+      error: err => this.snack.open(err?.error?.message || 'No se ha podido actualizar el objetivo', 'Cerrar', { duration: 3000 })
+    });
+  }
+
+  getGoalMetricValue(goal: FollowupGoal): number | null {
+    const latest = [...this.checkins].sort((a, b) =>
+      new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime())[0];
+    if (!latest) return null;
+    const values: Record<string, number | null | undefined> = {
+      adherence: latest.adherence, hunger: latest.hunger, energy: latest.energy,
+      sleep_quality: latest.sleep_quality, sleep_hours: latest.sleep_hours,
+      training: latest.training, weight: latest.weight
+    };
+    const value = values[goal.metricKey];
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
+  }
+
+  getGoalMetricLabel(metric: string): string {
+    const labels: Record<string, string> = {
+      adherence: 'Adherencia', hunger: 'Hambre', energy: 'Energía',
+      sleep_quality: 'Calidad del sueño', sleep_hours: 'Horas de sueño',
+      training: 'Actividad/entrenamiento', weight: 'Peso'
+    };
+    return labels[metric] ?? metric;
+  }
+
+  getGoalPhaseLabel(phase: string): string {
+    const labels: Record<string, string> = { baseline: 'Evaluación inicial', building: 'Construcción de hábitos', maintenance: 'Mantenimiento', review: 'Revisión' };
+    return labels[phase] ?? phase;
   }
 
   getFollowupPeriodComparison() {
