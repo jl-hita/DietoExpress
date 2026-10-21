@@ -14,7 +14,7 @@ public static class TrainingTemplatesSchema
                 name VARCHAR(160) NOT NULL,
                 periodization_model VARCHAR(40) NOT NULL DEFAULT 'custom',
                 notes VARCHAR(2000),
-                template_data JSONB NOT NULL DEFAULT '{}'::jsonb,
+                template_data JSONB NOT NULL DEFAULT '{{}}'::jsonb,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 CONSTRAINT ck_training_template_model CHECK (periodization_model IN ('linear','undulating','block','reverse','continuous_competition','autoregulatory','custom'))
