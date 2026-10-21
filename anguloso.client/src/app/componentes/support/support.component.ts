@@ -13,6 +13,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AuthService } from '../../servicios/auth.service';
 import { SupportCategory, SupportPriority, SupportService, SupportStatus, SupportTicket, SupportTicketSummary } from '../../servicios/support.service';
+import { DateInputDirective } from '../../directives/date-input.directive';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -20,7 +21,7 @@ import { SupportCategory, SupportPriority, SupportService, SupportStatus, Suppor
   standalone: true,
   imports: [
     CommonModule, FormsModule, MatButtonModule, MatCardModule, MatCheckboxModule, MatFormFieldModule,
-    MatIconModule, MatInputModule, MatSelectModule, MatProgressSpinnerModule
+    MatIconModule, MatInputModule, MatSelectModule, MatProgressSpinnerModule, DateInputDirective
   ],
   templateUrl: './support.component.html',
   styleUrls: ['./support.component.css']

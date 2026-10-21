@@ -56,8 +56,8 @@
           </mat-select>
         </mat-form-field>
         <mat-form-field appearance="outline"><mat-label>Buscar</mat-label><input matInput [(ngModel)]="searchFilter" (keyup.enter)="loadTickets()" placeholder="Asunto o mensaje"></mat-form-field>
-        <mat-form-field appearance="outline"><mat-label>Desde</mat-label><input matInput type="date" [(ngModel)]="fromFilter"></mat-form-field>
-        <mat-form-field appearance="outline"><mat-label>Hasta</mat-label><input matInput type="date" [(ngModel)]="toFilter"></mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>Desde</mat-label><input matInput type="text" appDateInput [(ngModel)]="fromFilter"></mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>Hasta</mat-label><input matInput type="text" appDateInput [(ngModel)]="toFilter"></mat-form-field>
         <mat-form-field appearance="outline" *ngIf="isSuperAdmin"><mat-label>Asignado a</mat-label><mat-select [(ngModel)]="assignedFilter"><mat-option [value]="null">Todos</mat-option><mat-option *ngFor="let a of assignees" [value]="a.id">{{a.name}}</mat-option></mat-select></mat-form-field>
         <mat-form-field appearance="outline">
           <mat-label>Categoría</mat-label>

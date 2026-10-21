@@ -7,12 +7,13 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { AdminPlan, CreateAdminAccountDto } from '../../servicios/admin.service';
+import { DateInputDirective } from '../../directives/date-input.directive';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-create-admin-account-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule],
+  imports: [CommonModule, FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, DateInputDirective],
   template: `
     <h2 mat-dialog-title>Crear cuenta</h2>
     <mat-dialog-content class="dialog-content">
@@ -108,7 +109,7 @@ import { AdminPlan, CreateAdminAccountDto } from '../../servicios/admin.service'
 
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>Vencimiento de licencia</mat-label>
-        <input matInput type="date" [(ngModel)]="expiryDate">
+        <input matInput type="text" appDateInput [(ngModel)]="expiryDate">
         <mat-hint>Si se deja vacío, un plan con periodo de prueba usa automáticamente sus días de prueba.</mat-hint>
       </mat-form-field>
     </mat-dialog-content>

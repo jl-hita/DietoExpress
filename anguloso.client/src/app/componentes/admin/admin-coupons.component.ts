@@ -1,6 +1,8 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { DateInputDirective } from '../../directives/date-input.directive';
 
 interface CouponRow {
   id: number;
@@ -20,7 +22,7 @@ interface CouponRow {
 @Component({
   standalone: true,
   selector: 'app-admin-coupons',
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule, DateInputDirective],
   template: `
     <main class="coupon-admin">
       <header>
@@ -51,7 +53,7 @@ interface CouponRow {
               <option value="yearly">Solo anual</option>
             </select>
           </label>
-          <label>Caduca (opcional) <input type="date" [value]="expiresAt" (input)="expiresAt = valueOf($event)"></label>
+          <label>Caduca (opcional) <input type="text" appDateInput name="expiresAt" [(ngModel)]="expiresAt"></label>
         </div>
         <button type="button" (click)="createIndividual()" [disabled]="saving">Crear código</button>
       </section>
@@ -76,7 +78,7 @@ interface CouponRow {
               <option value="yearly">Solo anual</option>
             </select>
           </label>
-          <label>Caduca (opcional) <input type="date" [value]="campaignExpiresAt" (input)="campaignExpiresAt = valueOf($event)"></label>
+          <label>Caduca (opcional) <input type="text" appDateInput name="campaignExpiresAt" [(ngModel)]="campaignExpiresAt"></label>
         </div>
         <button type="button" (click)="createCampaign()" [disabled]="saving">Generar códigos</button>
         <p *ngIf="generatedCodes.length" class="success">Se han generado {{ generatedCodes.length }} códigos. Cópialos ahora; se muestran también en el listado.</p>

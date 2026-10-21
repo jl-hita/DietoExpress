@@ -12,6 +12,7 @@ import { DietService } from '../../servicios/diet.service';
 import { ClientService } from '../../servicios/client.service';
 import { ClientDetail } from '../../modelos/client';
 import { VideoConsultationComponent } from '../video-consultation/video-consultation.component';
+import { DateInputDirective } from '../../directives/date-input.directive';
 
 interface ConsultationStep {
   key: string;
@@ -49,7 +50,7 @@ interface GuidedConsultationResponse {
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-guided-consultation',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule, MatSnackBarModule, VideoConsultationComponent],
+  imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule, MatSnackBarModule, VideoConsultationComponent, DateInputDirective],
   template: `
     <div class="consultation-page" *ngIf="!loading && data">
       <header class="consultation-header">
@@ -213,7 +214,7 @@ interface GuidedConsultationResponse {
               <h3>Toma de datos antropométricos de esta consulta</h3>
               <p class="helper">Registra las mediciones disponibles hoy. No hace falta rellenarlas todas; se guardan en el historial antropométrico del paciente.</p>
               <div class="inline-fields">
-                <label>Fecha de medición<input type="date" [(ngModel)]="baselineMeasurementDate"></label>
+                <label>Fecha de medición<input type="text" appDateInput [(ngModel)]="baselineMeasurementDate"></label>
                 <label>Peso (kg)<input type="number" min="1" max="500" step="0.1" [(ngModel)]="baselineWeight"></label>
                 <label>Altura (cm)<input type="number" min="50" max="250" step="0.1" [(ngModel)]="baselineHeight"></label>
               </div>
@@ -342,7 +343,7 @@ interface GuidedConsultationResponse {
                 <label>Descripción<textarea rows="3" [(ngModel)]="taskDescription" maxlength="2000"></textarea></label>
                 <div class="inline-fields">
                   <label>Prioridad<select [(ngModel)]="taskPriority"><option value="low">Baja</option><option value="normal">Normal</option><option value="high">Alta</option></select></label>
-                  <label>Fecha límite<input type="date" [(ngModel)]="taskDueAt"></label>
+                  <label>Fecha límite<input type="text" appDateInput [(ngModel)]="taskDueAt"></label>
                 </div>
               </div>
               <button mat-flat-button color="primary" type="button" (click)="createManualTask()" [disabled]="!taskTitle.trim() || taskCreating">

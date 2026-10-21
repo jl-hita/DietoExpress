@@ -5,7 +5,8 @@ import { CommonModule } from '@angular/common';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { MatOptionModule, MatNativeDateModule } from '@angular/material/core';
+import { DateAdapter, MAT_DATE_LOCALE, MatOptionModule, MatNativeDateModule } from '@angular/material/core';
+import { SpanishDateAdapter } from '../../directives/spanish-date-adapter';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -19,6 +20,10 @@ import { ClientService } from '../../servicios/client.service';
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-client-create',
   standalone: true,
+  providers: [
+    { provide: DateAdapter, useClass: SpanishDateAdapter },
+    { provide: MAT_DATE_LOCALE, useValue: 'es-ES' }
+  ],
   imports: [CommonModule, ReactiveFormsModule, MatSnackBarModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatOptionModule, MatDatepickerModule, MatNativeDateModule, MatButtonModule, MatIconModule, AddressAutocompleteComponent],
   templateUrl: './client-create.component.html',
   styleUrl: './client-create.component.css'
