@@ -633,9 +633,11 @@ public class DirectoryController : ControllerBase
                     var safeLink = System.Net.WebUtility.HtmlEncode(accessLink);
                     await _emailServ.SendEmailAsync(
                         client.email!,
-                        "Tu reserva en DietoExpress",
+                        appointment.status == "confirmed" ? "Tu cita está confirmada en DietoExpress" : "Tu reserva en DietoExpress",
                         $"<h2>Hola, {safeName}</h2>" +
-                        $"<p>Hemos recibido tu solicitud de cita con {System.Net.WebUtility.HtmlEncode(professional.full_name ?? "tu nutricionista")}.</p>" +
+                        (appointment.status == "confirmed"
+                            ? $"<p>Tu cita con {System.Net.WebUtility.HtmlEncode(professional.full_name ?? "tu nutricionista")} está confirmada.</p>"
+                            : $"<p>Hemos recibido tu solicitud de cita con {System.Net.WebUtility.HtmlEncode(professional.full_name ?? "tu nutricionista")}.</p>") +
                         $"<p>Antes de la consulta puedes completar tus datos y la documentación desde tu portal:</p>" +
                         $"<p><a href='{safeLink}'>Acceder a mi portal</a></p>" +
                         "<p>Este enlace es personal, caduca en 24 horas y puedes utilizarlo tantas veces como necesites durante ese plazo.</p>");
