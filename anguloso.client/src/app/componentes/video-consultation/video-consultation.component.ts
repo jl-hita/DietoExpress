@@ -22,8 +22,8 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
   @Input() appointmentStartsAtInput: string | null = null;
   @Output() closeEmbedded = new EventEmitter<void>();
   compactVideo = false;
-  @ViewChild('localVideo', { static: true }) localVideoElementRef!: ElementRef<HTMLVideoElement>;
-  @ViewChild('remoteContainer', { static: true }) remoteContainer!: ElementRef<HTMLDivElement>;
+  @ViewChild('localVideo') localVideoElementRef?: ElementRef<HTMLVideoElement>;
+  @ViewChild('remoteContainer') remoteContainer?: ElementRef<HTMLDivElement>;
   // LiveKit y el temporizador pueden notificar cambios desde callbacks externos a Angular.
   // Los signals mantienen la vista reactiva sin alterar los nombres usados por la plantilla.
   private readonly loadingState = signal(true);
@@ -147,7 +147,9 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
         .on(RoomEvent.Disconnected, () => { if(this.manualDisconnect||this.connectionState==='finalized') return; this.connected=false; this.connectionState='disconnected'; this.recordVideoEvent('disconnected'); });
       await this.room.connect(serverUrl, token);
       this.remoteParticipantCount=this.room.remoteParticipants.size;
-      try { this.localVideoTrack=await createLocalVideoTrack(); await this.room.localParticipant.publishTrack(this.localVideoTrack); this.localVideoTrack.attach(this.localVideoElementRef.nativeElement); } catch { this.cameraEnabled=false; }
+      try { this.localVideoTrack=await createLocalVideoTrack(); await this.room.localParticipant.publishTrack(this.localVideoTrack); const localVideoElement = this.localVideoElementRef?.nativeElement;
+        if (!localVideoElement) throw new Error('No se ha podido preparar el vídeo local. Vuelve a intentarlo.');
+        this.localVideoTrack.attach(localVideoElement); } catch { this.cameraEnabled=false; }
       try { this.localAudio=await createLocalAudioTrack(); await this.room.localParticipant.publishTrack(this.localAudio); } catch { this.microphoneEnabled=false; }
       this.connected=true; this.connectionState=this.remoteParticipantCount>0?'connected':'waiting'; this.recordVideoEvent('connected');
     } catch(err:any) {
@@ -193,7 +195,14 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
   private recordVideoEvent(event:'connected'|'reconnecting'|'reconnected'|'disconnected'|'failed'):void{this.portalService.recordVideoEvent(this.appointmentId,event).subscribe({error:()=>undefined});}
   private attachRemoteTrack(track:RemoteTrack,publication:RemoteTrackPublication,participant:RemoteParticipant):void{
     if(track.kind!==Track.Kind.Video&&track.kind!==Track.Kind.Audio)return;const element=track.attach();element.autoplay=true;element.setAttribute('playsinline','true');element.classList.add(track.kind===Track.Kind.Video?'remote-video':'remote-audio');
-    const wrapper=document.createElement('div');wrapper.className='remote-participant';wrapper.dataset['participant']=participant.identity;wrapper.dataset['track']=publication.trackSid||'';wrapper.appendChild(element);this.remoteContainer.nativeElement.appendChild(wrapper);this.remoteElements.set(publication.trackSid||participant.identity,wrapper);this.remoteParticipantCount=this.room?.remoteParticipants.size??this.remoteParticipantCount;this.connectionState='connected';
+    const container = this.remoteContainer?.nativeElement;
+    if (!container) {
+      // La pista puede llegar mientras Angular está cambiando la vista (p. ej. al mostrar un error).
+      // Evitamos que un ViewChild aún no disponible rompa toda la consulta.
+      track.detach().forEach(node => node.remove());
+      return;
+    }
+    const wrapper=document.createElement('div');wrapper.className='remote-participant';wrapper.dataset['participant']=participant.identity;wrapper.dataset['track']=publication.trackSid||'';wrapper.appendChild(element);container.appendChild(wrapper);this.remoteElements.set(publication.trackSid||participant.identity,wrapper);this.remoteParticipantCount=this.room?.remoteParticipants.size??this.remoteParticipantCount;this.connectionState='connected';
   }
   private detachRemoteTrack(track:RemoteTrack):void{track.detach().forEach(element=>element.remove());}
   ngOnDestroy():void{if(this.callTimer)clearInterval(this.callTimer);if(this.accessWindowTimer)clearInterval(this.accessWindowTimer);this.manualDisconnect=true;this.localAudio?.stop();this.localVideoTrack?.stop();void this.room?.disconnect();this.remoteElements.clear();}
