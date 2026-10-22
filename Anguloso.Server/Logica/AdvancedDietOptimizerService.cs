@@ -330,7 +330,7 @@ public sealed class AdvancedDietOptimizerService
             ("frutos_secos", Math.Max(1, (int)Math.Ceiling(diet.Days.Count * weekly.GetValueOrDefault("frutos_secos", 4.0 / 7.0))))
         };
         if (DietSemanticValidationService.IsFoodCompatibleWithDietType("Pescado", request.DietType, "Pescado"))
-            familyTargets.Add(("pescado_marisco", Math.Max(1, (int)Math.Ceiling(diet.Days.Count * weekly.GetValueOrDefault("pescado_marisco", 2.0 / 7.0))));
+            familyTargets.Add(("pescado_marisco", Math.Max(1, (int)Math.Ceiling(diet.Days.Count * weekly.GetValueOrDefault("pescado_marisco", 2.0 / 7.0)))));
         foreach (var (family, target) in familyTargets)
         {
             for (var i = 0; i < target; i++)
