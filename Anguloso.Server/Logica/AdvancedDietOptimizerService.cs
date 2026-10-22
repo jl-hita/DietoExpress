@@ -275,7 +275,7 @@ public sealed class AdvancedDietOptimizerService
         var duplicateMeals = signatures.Count - signatures.Distinct(StringComparer.OrdinalIgnoreCase).Count();
         var repeatedFoods = days.SelectMany(d => d.Meals).SelectMany(m => m.Items).Where(i => i.FoodId.HasValue).GroupBy(i => i.FoodId!.Value).Sum(g => Math.Max(0, g.Count() - request.MaxWeeklyFoodRepetitions));
         var familyCounts = days.SelectMany(d => d.Meals).SelectMany(m => m.Items).Where(i => i.FoodId.HasValue && foodMap.ContainsKey(i.FoodId.Value)).GroupBy(i => GetFamily(foodMap[i.FoodId!.Value])).ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
-        var frequencyPenalty = FrequencyPenalty(familyCounts, days.Count, therapyProfile);
+        var frequencyPenalty = FrequencyPenalty(familyCounts, days.Count, therapyProfile, request.DietType);
         var therapyPenalty = CalculateTherapyNutrientPenalty(days, foodMap, therapyProfile);
         var shopping = CalculateShoppingMetrics(diet);
         return dailyError * 1000 + duplicateMeals * 7 + repeatedFoods * 1.5 + frequencyPenalty * 5 + therapyPenalty * 8 + Math.Max(0, shopping.UniqueFoods - request.ShoppingVarietyThreshold) * 0.20;
