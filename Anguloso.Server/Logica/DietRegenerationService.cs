@@ -110,7 +110,7 @@ public sealed class DietRegenerationService
                 throw new ArgumentException("Debes indicar el alimento de sustitución.", nameof(request));
             var replacement = allFoods.FirstOrDefault(f => f.id == replacementFoodId);
             if (replacement == null) throw new KeyNotFoundException("El alimento de sustitución no está disponible.");
-            if (specializationExcludedFoodIds.Contains(replacement.id) || !IsAllowed(replacement, forbidden) || !DietSemanticValidationService.IsFoodCompatibleWithDietType(replacement.name, dietType, replacement.category, replacement.carbs, replacement.fat))
+            if (specializationExcludedFoodIds.Contains(replacement.id) || !IsAllowedForClient(replacement, forbidden, client) || !DietSemanticValidationService.IsFoodCompatibleWithDietType(replacement.name, dietType, replacement.category, replacement.carbs, replacement.fat))
                 throw new InvalidOperationException("El alimento seleccionado es incompatible con las restricciones del paciente o las reglas de especialización.");
 
             var previous = Snapshot(item);
@@ -134,7 +134,7 @@ public sealed class DietRegenerationService
             var mealUsed = selectedMeal.meal_items.Where(i => i.food_id.HasValue).Select(i => i.food_id!.Value).ToHashSet();
             foreach (var item in selectedMeal.meal_items)
             {
-                var candidates = allFoods.Where(f => (!item.food_id.HasValue || f.id != item.food_id.Value) && !specializationExcludedFoodIds.Contains(f.id) && IsAllowed(f, forbidden) && DietSemanticValidationService.IsFoodCompatibleWithDietType(f.name, dietType, f.category, f.carbs, f.fat) && IsCompatibleRole(f, item, selectedMeal.name))
+                var candidates = allFoods.Where(f => (!item.food_id.HasValue || f.id != item.food_id.Value) && !specializationExcludedFoodIds.Contains(f.id) && IsAllowedForClient(f, forbidden, client) && DietSemanticValidationService.IsFoodCompatibleWithDietType(f.name, dietType, f.category, f.carbs, f.fat) && IsCompatibleRole(f, item, selectedMeal.name))
                     .Where(f => !request.PreserveWeeklyVariety || !usedFoodIds.Contains(f.id) || mealUsed.Contains(f.id))
                     .OrderBy(f => CandidateScore(f, item, usedFoodIds, mealUsed))
                     .Take(20)
@@ -257,6 +257,20 @@ public sealed class DietRegenerationService
 
     private static bool IsAllowed(foods food, HashSet<string> forbidden) =>
         DietaryRestrictionRules.IsFoodAllowed(food.name, food.category, (food.dietary_flags ?? Array.Empty<string>()).Concat(food.allergen_tags ?? Array.Empty<string>()).Concat(food.traces_tags ?? Array.Empty<string>()), forbidden);
+
+    private static bool IsAllowedForClient(foods food, HashSet<string> forbidden, clients? client)
+    {
+        if (!IsAllowed(food, forbidden)) return false;
+
+        var allergenAndTraceTags = (food.allergen_tags ?? Array.Empty<string>())
+            .Concat(food.traces_tags ?? Array.Empty<string>());
+        // La regeneración no debe eludir el bloqueo de asignación: si el paciente ha declarado
+        // alergias, los metadatos desconocidos/incompletos no se consideran una confirmación de seguridad.
+        return !DietaryRestrictionRules.HasUnknownAllergenData(
+            client?.food_preferences?.allergies,
+            allergenAndTraceTags,
+            food.allergen_data_status);
+    }
 
     private static bool IsCompatibleRole(foods food, meal_items source, string mealName)
     {
