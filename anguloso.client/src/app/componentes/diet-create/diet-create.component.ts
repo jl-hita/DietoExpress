@@ -32,6 +32,7 @@ export class DietCreateComponent implements OnInit {
   form: FormGroup;
   isEdit = false;
   dietId: number | null = null;
+  private excludedFoodKeywords: string[] = [];
   private readonly loadingState = signal(false);
   get loading(): boolean { return this.loadingState(); }
   set loading(value: boolean) { this.loadingState.set(value); }
@@ -142,6 +143,7 @@ export class DietCreateComponent implements OnInit {
       this.loading = true;
       this.dietService.getDiet(this.dietId).subscribe({
         next: (d) => {
+          this.excludedFoodKeywords = [...(d.excludedFoodKeywords ?? [])];
           this.form.patchValue({
             name: d.name,
             targetKcal: d.targetKcal ?? null,
@@ -557,6 +559,7 @@ export class DietCreateComponent implements OnInit {
       targetCarbs: raw.targetCarbs ?? undefined,
       targetFat: raw.targetFat ?? undefined,
       notes: raw.notes || undefined,
+      excludedFoodKeywords: [...this.excludedFoodKeywords],
       isShared: !!raw.isShared,
       isTemplate: !!raw.isTemplate,
       ...(this.clientId && !this.isEdit ? { clientId: this.clientId } : {}),
@@ -692,6 +695,9 @@ export class DietCreateComponent implements OnInit {
   }
 
   applyGeneratedDiet(d: any): void {
+    this.excludedFoodKeywords = Array.isArray(d.excludedFoodKeywords)
+      ? d.excludedFoodKeywords.filter((keyword: unknown): keyword is string => typeof keyword === 'string' && keyword.trim().length > 0).map((keyword: string) => keyword.trim())
+      : [];
     this.form.patchValue({
       name: d.name,
       targetKcal: d.targetKcal ?? null,
