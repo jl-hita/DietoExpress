@@ -153,7 +153,7 @@ public sealed class DietGeneratorRegressionTests
 
         Assert.Contains("ApplyRecipeCandidatesAsync", source);
         Assert.Contains("x.Ingredients.Count == x.Recipe.recipe_items.Count", source);
-        Assert.Contains("x.Ingredients.All(i => foodMap.ContainsKey(i.food_id))", source);
+        Assert.Contains("x.Ingredients.All(i => foodMap.ContainsKey(i.food_id) && DietSemanticValidationService.IsFoodCompatibleWithDietType", source);
         Assert.Contains("request.UseRecipes", source);
     }
 
