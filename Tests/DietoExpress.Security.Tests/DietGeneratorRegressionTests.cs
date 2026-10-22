@@ -444,4 +444,11 @@ public sealed class DietGeneratorRegressionTests
         Assert.False(DietSemanticValidationService.IsFoodCompatibleWithDietType(
             "Dátil", "Cetogenica", null, carbsPer100g: 60, fatPer100g: 0));
     }
+
+    [Fact]
+    public void DietTypeCompatibilityAlsoUsesFoodCategoryForHiddenAnimalProducts()
+    {
+        Assert.False(DietSemanticValidationService.IsFoodCompatibleWithDietType("Producto procesado", "Vegana", "Lácteos"));
+        Assert.False(DietSemanticValidationService.IsFoodCompatibleWithDietType("Producto procesado", "Vegetariana", "Pescado"));
+    }
 }
