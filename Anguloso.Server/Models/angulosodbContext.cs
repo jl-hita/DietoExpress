@@ -194,6 +194,10 @@ public partial class angulosodbContext : DbContext
             entity.Property(e => e.name)
                 .IsRequired()
                 .HasMaxLength(200);
+            entity.Property(e => e.diet_type)
+                .IsRequired()
+                .HasMaxLength(50)
+                .HasDefaultValue("Equilibrada");
             entity.Property(e => e.excluded_food_keywords)
                 .HasColumnType("jsonb")
                 .HasDefaultValueSql("'[]'::jsonb");
