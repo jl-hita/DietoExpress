@@ -1020,6 +1020,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
             ALTER TABLE clients ADD COLUMN IF NOT EXISTS onboarding_consent_version VARCHAR(40);
             ALTER TABLE clients ALTER COLUMN user_id DROP NOT NULL;
             ALTER TABLE diets ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+            ALTER TABLE diets ADD COLUMN IF NOT EXISTS excluded_food_keywords JSONB NOT NULL DEFAULT '[]'::jsonb;
             ALTER TABLE recipes ADD COLUMN IF NOT EXISTS tenant_id INTEGER REFERENCES tenants(id);
 
             CREATE INDEX IF NOT EXISTS idx_users_archived_at ON users(archived_at);
