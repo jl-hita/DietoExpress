@@ -340,7 +340,7 @@ public sealed class DietSemanticValidationService
     private static bool IsRareOil(string? name) { var n = Normalize(name ?? string.Empty); return IsOil(n) && !n.Contains("aceite de oliva") && !n.Contains("aceite de girasol"); }
     private static bool IsOil(string? name) => Normalize(name ?? string.Empty).StartsWith("aceite ");
     private static bool IsFruit(string? name) => new[] { "manzana","naranja","pera","mandarina","platano","fresa","kiwi","melocoton","melon","sandia","uva","albaricoque","ciruela","fruta fresca","fruta" }.Any(Normalize(name ?? string.Empty).Contains);
-    private static bool IsVegetable(string? name) => new[] { "tomate","lechuga","espinaca","calabacin","berenjena","brocoli","zanahoria","pepino","pimiento","judia verde","champiñon","calabaza","cebolla","puerro","coliflor","esparrago" }.Any(Normalize(name ?? string.Empty).Contains);
+    private static bool IsVegetable(string? name) => new[] { "tomate","lechuga","espinaca","calabacin","berenjena","brocoli","zanahoria","pepino","pimiento","judia verde","champinon","calabaza","cebolla","puerro","coliflor","esparrago" }.Any(Normalize(name ?? string.Empty).Contains);
     private static bool IsCarb(string? name) => new[] { "arroz","pasta","patata","boniato","pan","avena","quinoa","cuscus","tostada","cereal" }.Any(Normalize(name ?? string.Empty).Contains);
     private static bool IsLegumeName(string? name) => new[] { "lenteja","garbanzo","alubia","judia","guisante" }.Any(Normalize(name ?? string.Empty).Contains);
     private static bool IsMainProteinName(string? name) => new[] { "pollo","pavo","ternera","cerdo","conejo","atun","salmon","merluza","bacalao","dorada","lubina","sardina","caballa","gamba","tofu","tempeh" }.Any(Normalize(name ?? string.Empty).Contains);
