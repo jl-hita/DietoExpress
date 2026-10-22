@@ -164,6 +164,7 @@ public class DietController : ControllerBase
             TargetCarbs = d.target_carbs,
             TargetFat = d.target_fat,
             Notes = d.notes,
+            ExcludedFoodKeywords = DeserializeExcludedFoodKeywords(d.excluded_food_keywords),
             CreatedAt = d.created_at,
             IsShared = d.is_shared,
             IsTemplate = d.is_template,
@@ -201,6 +202,23 @@ public class DietController : ControllerBase
     }
 
     // Los límites evitan cargas excesivas y mantienen acotado el tamaño de cada dieta recibida por API.
+    private static List<string> DeserializeExcludedFoodKeywords(string? json)
+    {
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<List<string>>(json ?? "[]")?
+                .Where(keyword => !string.IsNullOrWhiteSpace(keyword))
+                .Select(keyword => keyword.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(100)
+                .ToList() ?? new List<string>();
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return new List<string>();
+        }
+    }
+
     private static string? ValidateDietPayload(string? name, string? notes, ICollection<DietDayDto>? days)
     {
         if (string.IsNullOrWhiteSpace(name)) return "El nombre de la dieta es obligatorio.";
@@ -228,6 +246,9 @@ public class DietController : ControllerBase
 
         var validationError = ValidateDietPayload(dto.Name, dto.Notes, dto.Days);
         if (validationError != null) return BadRequest(validationError);
+        if (dto.ExcludedFoodKeywords == null || dto.ExcludedFoodKeywords.Count > 100 ||
+            dto.ExcludedFoodKeywords.Any(k => k == null || k.Length > 100))
+            return BadRequest("La lista de exclusiones no puede superar 100 términos de hasta 100 caracteres.");
 
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
@@ -282,6 +303,7 @@ public class DietController : ControllerBase
                 target_carbs = dto.TargetCarbs,
                 target_fat = dto.TargetFat,
                 notes = dto.Notes ?? "",
+                excluded_food_keywords = System.Text.Json.JsonSerializer.Serialize(dto.ExcludedFoodKeywords),
                 is_shared = dto.IsShared && await _licenseService.CanUseFeatureAsync(AuthHelpers.GetTenantId(User), "SHARED_DIETS"),
                 is_template = dto.IsTemplate,
                 created_at = DateTime.UtcNow
@@ -384,6 +406,9 @@ public class DietController : ControllerBase
 
         var validationError = ValidateDietPayload(dto.Name, dto.Notes, dto.Days);
         if (validationError != null) return BadRequest(validationError);
+        if (dto.ExcludedFoodKeywords == null || dto.ExcludedFoodKeywords.Count > 100 ||
+            dto.ExcludedFoodKeywords.Any(k => k == null || k.Length > 100))
+            return BadRequest("La lista de exclusiones no puede superar 100 términos de hasta 100 caracteres.");
 
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
@@ -442,6 +467,7 @@ public class DietController : ControllerBase
         diet.target_carbs = dto.TargetCarbs;
         diet.target_fat = dto.TargetFat;
         diet.notes = dto.Notes ?? diet.notes ?? "";
+        diet.excluded_food_keywords = System.Text.Json.JsonSerializer.Serialize(dto.ExcludedFoodKeywords);
         if (dto.IsShared && !await _licenseService.CanUseFeatureAsync(tenantId, "SHARED_DIETS"))
             return Forbid();
         if (dto.IsTemplate && !await _licenseService.CanUseFeatureAsync(tenantId, "DIET_TEMPLATES"))
