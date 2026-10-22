@@ -71,6 +71,7 @@ public sealed class DietRegenerationService
             : null;
 
         var forbidden = BuildForbiddenTerms(client);
+        forbidden.UnionWith(ReadPersistedExplicitExclusions(diet.excluded_food_keywords));
         var specializationExcludedFoodIds = new HashSet<int>();
         if (client != null && tenantId.HasValue)
         {
@@ -214,6 +215,23 @@ public sealed class DietRegenerationService
             client?.digestive_health?.gluten_intolerance == true,
             client?.digestive_health?.lactose_intolerance == true,
             client?.digestive_health?.fodmaps_intolerance == true);
+
+    private static HashSet<string> ReadPersistedExplicitExclusions(string? json)
+    {
+        try
+        {
+            return (System.Text.Json.JsonSerializer.Deserialize<List<string>>(json ?? "[]") ?? new List<string>())
+                .Where(keyword => !string.IsNullOrWhiteSpace(keyword))
+                .Select(keyword => keyword.Trim())
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            // La columna tiene un default JSON válido; ante datos antiguos o corruptos no
+            // se detiene la regeneración, pero las restricciones clínicas se siguen aplicando.
+            return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        }
+    }
 
     private static bool IsAllowed(foods food, HashSet<string> forbidden) =>
         DietaryRestrictionRules.IsFoodAllowed(food.name, food.category, (food.dietary_flags ?? Array.Empty<string>()).Concat(food.allergen_tags ?? Array.Empty<string>()).Concat(food.traces_tags ?? Array.Empty<string>()), forbidden);
