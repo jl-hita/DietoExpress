@@ -1,3 +1,6 @@
+using System.Reflection;
+using Anguloso.Server.Logica;
+using Anguloso.Server.Model;
 using Xunit;
 
 namespace DietoExpress.Security.Tests;
@@ -337,5 +340,47 @@ public sealed class DietGeneratorRegressionTests
 
         Assert.Contains("request.ExcludedFoodKeywords", generator);
         Assert.Contains("exclusions.Add(kw.Trim())", generator);
+    }
+
+    [Theory]
+    [InlineData("Nutrition bar", "nut", false)]
+    [InlineData("Nut bar", "nut", true)]
+    [InlineData("BEBIDA DE SOJA", " soja ", true)]
+    [InlineData("Sopa de verduras", "soja", false)]
+    [InlineData("Café con leche", "LECHE", true)]
+    public void Generator_ExplicitExclusionsUseNormalizedWholeTerms(string foodName, string keyword, bool expectedExcluded)
+    {
+        Assert.Equal(expectedExcluded, InvokeIsExcluded(foodName, "Alimentos", keyword));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("\\t")]
+    public void Generator_IgnoresEmptyExplicitExclusionKeywords(string keyword)
+    {
+        Assert.False(InvokeIsExcluded("Nutrition bar", "Alimentos", keyword));
+    }
+
+    [Fact]
+    public void Generator_PreservesLegacyLactPrefixExclusion()
+    {
+        Assert.True(InvokeIsExcluded("Yogur sin lactosa", "Lácteos", "lact"));
+    }
+
+    private static bool InvokeIsExcluded(string foodName, string category, params string[] keywords)
+    {
+        // IsExcluded is intentionally tested directly: this exercises the production
+        // matching path rather than asserting that particular source strings exist.
+        var service = new DietGeneratorService(null!, null!, null!);
+        var food = new foods { name = foodName, category = category };
+        var method = typeof(DietGeneratorService).GetMethod(
+            "IsExcluded", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("No se encontró DietGeneratorService.IsExcluded.");
+        return (bool)(method.Invoke(service, new object[]
+        {
+            food,
+            keywords.ToHashSet(StringComparer.OrdinalIgnoreCase)
+        }) ?? throw new InvalidOperationException("IsExcluded no devolvió un resultado."));
     }
 }
