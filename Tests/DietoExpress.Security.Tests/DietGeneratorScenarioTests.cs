@@ -113,7 +113,7 @@ public sealed class DietGeneratorScenarioTests
             {
                 id = 1,
                 client_id = 1,
-                allergies = "cacahuete"
+                allergies = "cacahuete, frutos secos"
             },
             digestive_health = new digestive_health
             {
@@ -133,16 +133,16 @@ public sealed class DietGeneratorScenarioTests
         var diet = await generator.GenerateDietAsync(new GenerateDietRequestDto
         {
             ClientId = client.id,
-            NumberOfDays = 3,
+            NumberOfDays = 1,
             MealsPerDay = 5,
             TargetKcal = 1800,
             TargetProtein = 90,
-            TargetCarbs = 230,
+            TargetCarbs = 225,
             TargetFat = 60,
             DietType = "Equilibrada",
             ExcludedFoodKeywords = new List<string> { " Plátano " },
             UseRecipes = false,
-            EnableGlobalOptimization = false,
+            EnableGlobalOptimization = true,
             EnableDietTherapyRules = false,
             EnableAutomaticEnergyEstimate = false,
             MaxWeeklyFoodRepetitions = 10,
