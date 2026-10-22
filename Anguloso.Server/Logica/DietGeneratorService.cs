@@ -443,7 +443,7 @@ public class DietGeneratorService
             }
             catch (InvalidOperationException ex)
             {
-                _logger?.LogWarning("Diet generation phase SemanticValidation failed; Attempt={Attempt}; ExceptionType={ExceptionType}", attempt + 1, ex.GetType().Name);
+                _logger?.LogWarning(ex, "Diet generation phase SemanticValidation failed; Attempt={Attempt}; ExceptionType={ExceptionType}; ValidationFailure={ValidationFailure}", attempt + 1, ex.GetType().Name, ex.Message);
                 if (attempt == maxGenerationAttempts - 1)
                     throw new InvalidOperationException(
                         $"No se ha podido generar una dieta válida tras {maxGenerationAttempts} intentos. Último motivo: {ex.Message}",
