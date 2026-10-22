@@ -275,122 +275,144 @@ public class DietGeneratorService
             }
         }
 
-        var weeklyUsageCount = new Dictionary<int, int>();
-        var weeklyRoleFamilyUsage = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        var weeklyMealSignatures = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var daysList = new List<DietDayDto>();
-        var rnd = new Random();
+        DietDetailDto? advancedDiet = null;
+        InvalidOperationException? lastValidationError = null;
 
-        for (int dayIndex = 0; dayIndex < request.NumberOfDays; dayIndex++)
+        // La selección inicial contiene aleatoriedad para dar variedad. Si un menú concreto no
+        // alcanza los márgenes operativos, se vuelve a generar con otra selección antes de fallar.
+        // No se relajan restricciones ni tolerancias: cada intento debe superar la misma validación.
+        const int maxGenerationAttempts = 3;
+        for (var attempt = 0; attempt < maxGenerationAttempts; attempt++)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            var todayMeals = new List<MealDto>();
-            var dayUsedFoodIds = new HashSet<int>();
+            var weeklyUsageCount = new Dictionary<int, int>();
+            var weeklyRoleFamilyUsage = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var weeklyMealSignatures = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var daysList = new List<DietDayDto>();
+            var rnd = new Random();
 
-            for (int mIndex = 0; mIndex < mealSplits.Count; mIndex++)
+            for (int dayIndex = 0; dayIndex < request.NumberOfDays; dayIndex++)
             {
-                var split = mealSplits[mIndex];
-                double mealTargetKcal = targetKcal * split.KcalPct;
-                double mealTargetP = targetProtein * split.KcalPct;
-                double mealTargetC = targetCarbs * split.KcalPct;
-                double mealTargetF = targetFat * split.KcalPct;
+                cancellationToken.ThrowIfCancellationRequested();
+                var todayMeals = new List<MealDto>();
+                var dayUsedFoodIds = new HashSet<int>();
 
-                var mealItems = BuildAndOptimizeMeal(
-                    split.MealName,
-                    mealTargetKcal,
-                    mealTargetP,
-                    mealTargetC,
-                    mealTargetF,
-                    foodPools,
-                    weeklyUsageCount,
-                    dayUsedFoodIds,
-                    preferredFoods,
-                    dislikedFoods,
-                    adherenceBoost,
-                    weeklyRoleFamilyUsage,
-                    weeklyMealSignatures,
-                    rnd
-                );
-
-                todayMeals.Add(new MealDto
+                for (int mIndex = 0; mIndex < mealSplits.Count; mIndex++)
                 {
-                    Name = split.MealName,
-                    MealIndex = mIndex,
-                    Items = mealItems
+                    var split = mealSplits[mIndex];
+                    double mealTargetKcal = targetKcal * split.KcalPct;
+                    double mealTargetP = targetProtein * split.KcalPct;
+                    double mealTargetC = targetCarbs * split.KcalPct;
+                    double mealTargetF = targetFat * split.KcalPct;
+
+                    var mealItems = BuildAndOptimizeMeal(
+                        split.MealName,
+                        mealTargetKcal,
+                        mealTargetP,
+                        mealTargetC,
+                        mealTargetF,
+                        foodPools,
+                        weeklyUsageCount,
+                        dayUsedFoodIds,
+                        preferredFoods,
+                        dislikedFoods,
+                        adherenceBoost,
+                        weeklyRoleFamilyUsage,
+                        weeklyMealSignatures,
+                        rnd);
+
+                    todayMeals.Add(new MealDto
+                    {
+                        Name = split.MealName,
+                        MealIndex = mIndex,
+                        Items = mealItems
+                    });
+                }
+
+                // Normalización final del día para calibración de Kcal y macros.
+                RebalanceDay(todayMeals, targetKcal, targetProtein, targetCarbs, targetFat);
+                daysList.Add(new DietDayDto
+                {
+                    DayIndex = dayIndex,
+                    Meals = todayMeals
                 });
             }
 
-            // Normalización final del día para calibración exacta de Kcal y Macros
-            RebalanceDay(todayMeals, targetKcal, targetProtein, targetCarbs, targetFat);
-
-            daysList.Add(new DietDayDto
+            var candidateDiet = new DietDetailDto
             {
-                DayIndex = dayIndex,
-                Meals = todayMeals
-            });
+                Name = $"Plan {request.DietType} ({Math.Round(targetKcal)} kcal)",
+                TargetKcal = (decimal)Math.Round(targetKcal),
+                TargetProtein = (decimal)Math.Round(targetProtein),
+                TargetCarbs = (decimal)Math.Round(targetCarbs),
+                TargetFat = (decimal)Math.Round(targetFat),
+                Notes = $"Plan generado automáticamente por el motor experto el {DateTime.Now:dd/MM/yyyy}. {request.MealsPerDay} comidas al día." +
+                    (request.ExplainGeneration && dietTherapyProfile != null && dietTherapyProfile.Rules.Count > 0 ? " Reglas aplicadas: " + string.Join(" ", dietTherapyProfile.Rules) : string.Empty) +
+                    (clinicalGuidance.Count > 0 ? " Especializaciones activas: " + string.Join(" ", clinicalGuidance) : string.Empty) +
+                    (preferredFoods.Count > 0 ? " Preferencias alimentarias del paciente aplicadas como criterio de adherencia." : string.Empty) +
+                    (recentAdherence.HasValue ? $" Adherencia reciente considerada: {Math.Round(recentAdherence.Value, 1)}/10." : string.Empty),
+                Days = daysList
+            };
+
+            // Fase global posterior: recetas, frecuencias, compras, diversidad y sustituciones
+            // compiten sobre la semana completa y vuelven a equilibrar cada día después.
+            if (request.EnableGlobalOptimization)
+            {
+                await _advancedDietOptimizer.OptimizeWeeklyPlanAsync(
+                    candidateDiet,
+                    request,
+                    allowedFoods,
+                    tenantId,
+                    targetKcal,
+                    targetProtein,
+                    targetCarbs,
+                    targetFat,
+                    dietTherapyProfile,
+                    cancellationToken);
+            }
+
+            // Ninguna fase posterior puede reintroducir cantidades culinarias inválidas.
+            NormalizeGeneratedPlan(candidateDiet, allowedFoods, request.MealsPerDay, request.DietType);
+
+            try
+            {
+                await _semanticValidationService.ValidateOrThrowAsync(
+                    candidateDiet,
+                    request,
+                    allowedFoods,
+                    _context,
+                    tenantId,
+                    userId,
+                    canUseTenantLocalFoods,
+                    cancellationToken);
+
+                advancedDiet = candidateDiet;
+                lastValidationError = null;
+                break;
+            }
+            catch (InvalidOperationException ex)
+            {
+                lastValidationError = ex;
+                if (attempt == maxGenerationAttempts - 1)
+                    throw new InvalidOperationException(
+                        $"No se ha podido generar una dieta válida tras {maxGenerationAttempts} intentos. Último motivo: {ex.Message}",
+                        ex);
+            }
         }
 
-        var advancedDiet = new DietDetailDto
-        {
-            Name = $"Plan {request.DietType} ({Math.Round(targetKcal)} kcal)",
-            TargetKcal = (decimal)Math.Round(targetKcal),
-            TargetProtein = (decimal)Math.Round(targetProtein),
-            TargetCarbs = (decimal)Math.Round(targetCarbs),
-            TargetFat = (decimal)Math.Round(targetFat),
-            Notes = $"Plan generado automáticamente por el motor experto el {DateTime.Now:dd/MM/yyyy}. {request.MealsPerDay} comidas al día." +
-                (request.ExplainGeneration && dietTherapyProfile != null && dietTherapyProfile.Rules.Count > 0 ? " Reglas aplicadas: " + string.Join(" ", dietTherapyProfile.Rules) : string.Empty) +
-                (clinicalGuidance.Count > 0 ? " Especializaciones activas: " + string.Join(" ", clinicalGuidance) : string.Empty) +
-                (preferredFoods.Count > 0 ? " Preferencias alimentarias del paciente aplicadas como criterio de adherencia." : string.Empty) +
-                (recentAdherence.HasValue ? $" Adherencia reciente considerada: {Math.Round(recentAdherence.Value, 1)}/10." : string.Empty),
-            Days = daysList
-        };
-
-        // Fase global posterior: recetas, frecuencias, compras, diversidad y sustituciones
-        // compiten sobre la semana completa y vuelven a equilibrar cada día después.
-        if (request.EnableGlobalOptimization)
-        {
-            await _advancedDietOptimizer.OptimizeWeeklyPlanAsync(
-                advancedDiet,
-                request,
-                allowedFoods,
-                tenantId,
-                targetKcal,
-                targetProtein,
-                targetCarbs,
-                targetFat,
-                dietTherapyProfile,
-                cancellationToken);
-        }
-
-        // Postcondición culinaria: ninguna fase posterior puede volver a introducir
-        // cantidades cero, aceites no habituales o productos preparados que el generador
-        // no usaría en una pauta profesional.
-        NormalizeGeneratedPlan(advancedDiet, allowedFoods, request.MealsPerDay, request.DietType);
-
-        // Última barrera: una dieta matemáticamente correcta pero culinariamente absurda no puede salir del motor.
-        await _semanticValidationService.ValidateOrThrowAsync(
-            advancedDiet,
-            request,
-            allowedFoods,
-            _context,
-            tenantId,
-            userId,
-            canUseTenantLocalFoods,
-            cancellationToken);
-
+        var validatedDiet = advancedDiet
+            ?? throw new InvalidOperationException("No se ha podido generar una dieta válida.");
         // Persistir las exclusiones explícitas en el resultado para que sobrevivan al
         // guardado de la dieta y se apliquen también en futuras regeneraciones.
-        advancedDiet.DietType = request.DietType;
-        advancedDiet.ExcludedFoodKeywords = (request.ExcludedFoodKeywords ?? new List<string>())
+        validatedDiet.DietType = request.DietType;
+        validatedDiet.ExcludedFoodKeywords = (request.ExcludedFoodKeywords ?? new List<string>())
             .Where(keyword => !string.IsNullOrWhiteSpace(keyword))
             .Select(keyword => keyword.Trim())
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         // Calcular resumen diario de micronutrientes y % CDR para cada día generado
-        PopulateDailyMicronutrients(advancedDiet, allowedFoods);
+        PopulateDailyMicronutrients(validatedDiet, allowedFoods);
 
-        return advancedDiet;
+        return validatedDiet;
     }
 
     public static void PopulateDailyMicronutrients(DietDetailDto diet, IReadOnlyCollection<foods> allowedFoods)
