@@ -236,6 +236,27 @@ public sealed class DietSemanticValidationService
         }
     }
 
+    public static bool IsFoodCompatibleWithDietType(string? foodName, string? dietType)
+    {
+        var type = Normalize(dietType ?? string.Empty);
+        var food = Normalize(foodName ?? string.Empty);
+        var vegan = type.Contains("vegana");
+        var vegetarian = type.Contains("vegetariana") && !vegan;
+        var keto = type.Contains("cetogen");
+        var lowCarb = type.Contains("baja") && type.Contains("carb");
+
+        if (vegan && IsAnimalFood(food)) return false;
+        if (vegetarian && IsVegetarianForbiddenFood(food)) return false;
+        if (keto && IsKetoForbiddenCarb(food)) return false;
+        if (lowCarb && IsLowCarbForbiddenStaple(food)) return false;
+        return true;
+    }
+
+    private static bool IsVegetarianForbiddenFood(string food) =>
+        new[] { "carne", "pollo", "pavo", "ternera", "cerdo", "conejo", "cordero", "pescado",
+                "atun", "salmon", "merluza", "bacalao", "sardina", "caballa", "marisco", "gamba" }
+            .Any(food.Contains);
+
     private static void ValidateDietTypeSemantics(List<string> errors, DietDetailDto diet, string dietType)
     {
         var type = Normalize(dietType);
@@ -250,8 +271,10 @@ public sealed class DietSemanticValidationService
         {
             var food = Normalize(item.FoodName ?? string.Empty);
 
-            if ((vegan || vegetarian) && IsAnimalFood(food))
-                errors.Add($"Día {day.DayIndex + 1}, {meal.Name}: «{item.FoodName}» no es compatible con una pauta {(vegan ? "vegana" : "vegetariana")}.");
+            if (vegan && IsAnimalFood(food))
+                errors.Add($"Día {day.DayIndex + 1}, {meal.Name}: «{item.FoodName}» no es compatible con una pauta vegana.");
+            if (vegetarian && IsVegetarianForbiddenFood(food))
+                errors.Add($"Día {day.DayIndex + 1}, {meal.Name}: «{item.FoodName}» no es compatible con una pauta vegetariana.");
 
             if (keto && IsKetoForbiddenCarb(food))
                 errors.Add($"Día {day.DayIndex + 1}, {meal.Name}: «{item.FoodName}» es incompatible con la estructura de una pauta cetogénica.");
