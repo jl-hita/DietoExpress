@@ -145,7 +145,8 @@ public sealed class DietRegenerationService
                         .OrderBy(f => CandidateScore(f, item, usedFoodIds, mealUsed)).Take(20).ToList();
 
                 var candidate = candidates.FirstOrDefault();
-                if (candidate == null) continue;
+                if (candidate == null)
+                    throw new InvalidOperationException("No hay un alimento alternativo compatible para regenerar esta comida. No se ha guardado ningún cambio.");
                 Replace(item, candidate, Math.Max(5, (double)(item.grams ?? 100)));
                 mealUsed.Add(candidate.id);
             }
@@ -172,7 +173,8 @@ public sealed class DietRegenerationService
                         candidates = allFoods.Where(f => !specializationExcludedFoodIds.Contains(f.id) && IsAllowed(f, forbidden) && DietSemanticValidationService.IsFoodCompatibleWithDietType(f.name, dietType, f.category, f.carbs, f.fat) && IsCompatibleRole(f, item, meal.name))
                             .OrderBy(f => CandidateScore(f, item, usedFoodIds, mealUsed)).Take(15).ToList();
                     var candidate = candidates.FirstOrDefault();
-                    if (candidate == null) continue;
+                    if (candidate == null)
+                        throw new InvalidOperationException("No hay un alimento alternativo compatible para regenerar este día. No se ha guardado ningún cambio.");
                     Replace(item, candidate, Math.Max(5, (double)(item.grams ?? 100)));
                     mealUsed.Add(candidate.id);
                 }
