@@ -235,7 +235,7 @@ public class DietGeneratorService
         if (allowedFoods.Count == 0)
         {
             throw new InvalidOperationException(
-                "No queda ningún alimento compatible con las restricciones clínicas, el tipo de dieta y las exclusiones seleccionadas. Reduce las exclusiones o revisa las intolerancias/alergias del paciente.");
+                "No queda ningún alimento compatible con las restricciones clínicas, el tipo de dieta y las exclusiones seleccionadas. Reduce las exclusiones o revisa las intolerancias/alergias del paciente. Si hay alergias declaradas, comprueba que el catálogo tenga la declaración de alérgenos completa.");
         }
 
         var foodPools = CategorizeFoods(allowedFoods, request.DietType);
