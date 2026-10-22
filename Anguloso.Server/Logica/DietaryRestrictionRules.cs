@@ -101,7 +101,7 @@ public static class DietaryRestrictionRules
 
     public static bool IsFoodAllowed(string? name, string? category, IEnumerable<string>? dietaryFlags, IEnumerable<string> forbiddenTerms)
     {
-        var normalizedTerms = forbiddenTerms.Select(Normalize).Where(term => term.Length >= 3).Distinct().ToArray();
+        var normalizedTerms = forbiddenTerms.Select(Normalize).Where(term => term.Length >= 2).Distinct().ToArray();
         var text = Normalize(string.Join(" ", new[] { name, category }.Where(value => !string.IsNullOrWhiteSpace(value))
             .Concat(dietaryFlags ?? Array.Empty<string>())));
 
