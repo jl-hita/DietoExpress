@@ -453,7 +453,7 @@ public sealed class DietGeneratorRegressionTests
     }
 
     [Fact]
-    public void OptimizerDoesNotPenalizeMissingFishInVegetarianMenus()
+    public void OptimizerDoesNotPenalizeUnavailableOrDietIncompatibleFoodFrequencies()
     {
         var method = typeof(AdvancedDietOptimizerService).GetMethod(
             "FrequencyPenalty", BindingFlags.Static | BindingFlags.NonPublic)
@@ -465,13 +465,29 @@ public sealed class DietGeneratorRegressionTests
             ["legumbre"] = 3,
             ["frutos_secos"] = 4
         };
+        var availableFoods = new[]
+        {
+            FrequencyFood(1, "Manzana", "Fruta", 52, 0.3, 14, 0.2),
+            FrequencyFood(2, "Tomate", "Verduras", 18, 0.9, 3.9, 0.2),
+            FrequencyFood(3, "Garbanzos cocidos", "Legumbres", 164, 8.9, 27.4, 2.6),
+            FrequencyFood(4, "Almendras", "Frutos secos", 579, 21, 22, 50),
+            FrequencyFood(5, "Merluza", "Pescado", 86, 18, 0, 1.5)
+        };
 
-        var balancedPenalty = (double)(method.Invoke(null, new object?[] { counts, 7, null, "Equilibrada" }) ?? 0);
-        var veganPenalty = (double)(method.Invoke(null, new object?[] { counts, 7, null, "Vegana" }) ?? 0);
-        var vegetarianPenalty = (double)(method.Invoke(null, new object?[] { counts, 7, null, "Vegetariana" }) ?? 0);
+        double Penalty(string dietType, IEnumerable<foods> catalog) =>
+            (double)(method.Invoke(null, new object?[] { counts, 7, null, dietType, catalog }) ?? 0);
 
-        Assert.Equal(0, veganPenalty);
-        Assert.Equal(0, vegetarianPenalty);
+        var balancedPenalty = Penalty("Equilibrada", availableFoods);
+        var veganPenalty = Penalty("Vegana", availableFoods);
+        var vegetarianPenalty = Penalty("Vegetariana", availableFoods);
+        var narrowCatalogPenalty = Penalty("Equilibrada", availableFoods.Where(food => food.id != 5));
+
+        Assert.Equal(0d, veganPenalty);
+        Assert.Equal(0d, vegetarianPenalty);
+        Assert.Equal(0d, narrowCatalogPenalty);
         Assert.True(balancedPenalty > veganPenalty);
     }
+
+    private static foods FrequencyFood(int id, string name, string category, double kcal, double protein, double carbs, double fat) =>
+        new() { id = id, name = name, category = category, kcal = kcal, protein = protein, carbs = carbs, fat = fat, source = "BEDCA" };
 }
