@@ -49,7 +49,7 @@ public sealed class DietaryRestrictionIntegrationTests
         Assert.Contains("ADD COLUMN IF NOT EXISTS excluded_food_keywords JSONB", databaseBootstrap);
         Assert.Contains("ADD COLUMN IF NOT EXISTS diet_type VARCHAR(50)", databaseBootstrap);
         Assert.Contains("diet_type = dto.DietType.Trim()", dietController);
-        Assert.Contains("DietType = d.diet_type", dietController);
+        Assert.Contains("ResolveStoredDietType(d.diet_type, d.name)", dietController);
         Assert.Contains("ResolveDietType(diet)", regeneration);
         Assert.Contains("IsFoodCompatibleWithDietType", regeneration);
         Assert.DoesNotContain("HasUnknownAllergenDataForClient", generator);
