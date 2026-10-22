@@ -275,6 +275,28 @@ public class DietController : ControllerBase
         if (!tenantId.HasValue) return BadRequest("El usuario no pertenece a una clínica.");
         var tenantIdValue = tenantId.Value;
 
+        var draftForExclusionValidation = new DietDetailDto
+        {
+            Name = dto.Name,
+            TargetKcal = dto.TargetKcal,
+            TargetProtein = dto.TargetProtein,
+            TargetCarbs = dto.TargetCarbs,
+            TargetFat = dto.TargetFat,
+            Notes = dto.Notes,
+            DietType = dto.DietType,
+            Days = dto.Days,
+            ExcludedFoodKeywords = dto.ExcludedFoodKeywords
+        };
+        var explicitExclusionWarnings = await _validationService.ValidateExplicitDietExclusionsAsync(
+            draftForExclusionValidation, _context, tenantId, userId.Value,
+            User.IsInRole("clinic_admin") || User.IsInRole("superadmin"));
+        if (explicitExclusionWarnings.Any(w => string.Equals(w.Severity, "High", StringComparison.OrdinalIgnoreCase)))
+            return Conflict(new
+            {
+                message = "La dieta no se ha creado porque contiene alimentos incompatibles con sus exclusiones explícitas.",
+                warnings = explicitExclusionWarnings
+            });
+
         // La creación y eventual asignación de la dieta forman una unidad: si falla cualquiera de las validaciones o escrituras posteriores, no queda una dieta huérfana ni una asignación parcial.
         await using var transaction = await _context.Database.BeginTransactionAsync();
 
