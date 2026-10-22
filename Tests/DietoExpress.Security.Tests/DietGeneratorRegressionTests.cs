@@ -318,6 +318,18 @@ public sealed class DietGeneratorRegressionTests
 
 
     [Fact]
+    public void Generator_ValidatesRecipeIngredientsAsPartOfTheMeal()
+    {
+        var semantic = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietSemanticValidationService.cs"));
+        var optimizer = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "AdvancedDietOptimizerService.cs"));
+
+        Assert.Contains("var recipeMap = new Dictionary<int, recipes>()", semantic);
+        Assert.Contains("var semanticFoods = directFoods.Concat(recipeFoods).ToList()", semantic);
+        Assert.Contains("semanticFoods.Any(food => IsVegetable(food.name, food.category))", semantic);
+        Assert.Contains("RecipeHasRequiredMealStructure(x.Ingredients, request.DietType)", optimizer);
+    }
+
+    [Fact]
     public void Generator_CentralizesClinicalSafetyInTheFinalSemanticGate()
     {
         var semantic = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietSemanticValidationService.cs"));
