@@ -21,6 +21,10 @@ public sealed class DietaryRestrictionIntegrationTests
         var generator = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
         var validation = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietValidationService.cs"));
         var regeneration = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietRegenerationService.cs"));
+        var dietController = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "DietController.cs"));
+        var dietDto = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Model", "DietDto.cs"));
+        var dietEntity = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Models", "diets.cs"));
+        var databaseBootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
 
         Assert.Contains("DietaryRestrictionRules.BuildForbiddenTerms", generator);
         Assert.Contains("food.dietary_flags", generator);
@@ -37,6 +41,12 @@ public sealed class DietaryRestrictionIntegrationTests
         Assert.Contains("_specializationRulesService.GetFoodExclusionsAsync", regeneration);
         Assert.Contains("_specializationRulesService.GetExcludedFoodIdsAsync", regeneration);
         Assert.Contains("specializationExcludedFoodIds.Contains(f.id)", regeneration);
+        Assert.Contains("ReadPersistedExplicitExclusions(diet.excluded_food_keywords)", regeneration);
+        Assert.Contains("ExcludedFoodKeywords", dietDto);
+        Assert.Contains("excluded_food_keywords", dietEntity);
+        Assert.Contains("excluded_food_keywords = System.Text.Json.JsonSerializer.Serialize(dto.ExcludedFoodKeywords)", dietController);
+        Assert.Contains("DeserializeExcludedFoodKeywords(d.excluded_food_keywords)", dietController);
+        Assert.Contains("ADD COLUMN IF NOT EXISTS excluded_food_keywords JSONB", databaseBootstrap);
         Assert.DoesNotContain("HasUnknownAllergenDataForClient", generator);
         Assert.DoesNotContain("IsAllowedForClient", regeneration);
         var substitutions = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "FoodSubstitutionService.cs"));
