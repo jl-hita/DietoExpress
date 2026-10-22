@@ -345,6 +345,11 @@ public sealed class DietRegenerationService
     private static void Replace(meal_items item, foods food, double grams)
     {
         item.food_id = food.id;
+        // A recipe component cannot keep recipe metadata after it becomes a single food.
+        // Otherwise the persisted item can reference both a recipe and a food at once.
+        item.recipe_id = null;
+        item.recipe_servings = null;
+        item.exchange_count = null;
         item.grams = (decimal)Math.Round(Math.Clamp(grams, 5, 350), 0);
         var ratio = (double)item.grams.Value / 100;
         item.kcal = (decimal)Math.Round((food.kcal ?? 0) * ratio, 1);
