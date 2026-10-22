@@ -11,8 +11,15 @@ namespace Anguloso.Server.Logica;
 public sealed class DietRegenerationService
 {
     private readonly angulosodbContext _context;
+    private readonly SpecializationRulesService _specializationRulesService;
 
-    public DietRegenerationService(angulosodbContext context) => _context = context;
+    public DietRegenerationService(
+        angulosodbContext context,
+        SpecializationRulesService specializationRulesService)
+    {
+        _context = context;
+        _specializationRulesService = specializationRulesService;
+    }
 
     public async Task<DietRegenerationResponseDto> RegenerateAsync(
         int dietId,
@@ -64,6 +71,15 @@ public sealed class DietRegenerationService
             : null;
 
         var forbidden = BuildForbiddenTerms(client);
+        var specializationExcludedFoodIds = new HashSet<int>();
+        if (client != null && tenantId.HasValue)
+        {
+            forbidden.UnionWith(await _specializationRulesService.GetFoodExclusionsAsync(
+                client.id, tenantId.Value, cancellationToken));
+            specializationExcludedFoodIds = await _specializationRulesService.GetExcludedFoodIdsAsync(
+                client.id, tenantId.Value, allFoods.Select(f => f.id).ToArray(), cancellationToken);
+        }
+
         var usedFoodIds = diet.diet_days.SelectMany(d => d.meals).SelectMany(m => m.meal_items)
             .Where(i => i.food_id.HasValue).Select(i => i.food_id!.Value).ToHashSet();
 
@@ -88,8 +104,8 @@ public sealed class DietRegenerationService
                 throw new ArgumentException("Debes indicar el alimento de sustitución.", nameof(request));
             var replacement = allFoods.FirstOrDefault(f => f.id == replacementFoodId);
             if (replacement == null) throw new KeyNotFoundException("El alimento de sustitución no está disponible.");
-            if (!IsAllowed(replacement, forbidden))
-                throw new InvalidOperationException("El alimento seleccionado es incompatible con las restricciones del paciente.");
+            if (specializationExcludedFoodIds.Contains(replacement.id) || !IsAllowed(replacement, forbidden))
+                throw new InvalidOperationException("El alimento seleccionado es incompatible con las restricciones del paciente o las reglas de especialización.");
 
             var previous = Snapshot(item);
             if (request.PreserveWeeklyVariety && usedFoodIds.Contains(replacement.id) && replacement.id != item.food_id)
@@ -112,14 +128,14 @@ public sealed class DietRegenerationService
             var mealUsed = selectedMeal.meal_items.Where(i => i.food_id.HasValue).Select(i => i.food_id!.Value).ToHashSet();
             foreach (var item in selectedMeal.meal_items)
             {
-                var candidates = allFoods.Where(f => IsAllowed(f, forbidden) && IsCompatibleRole(f, item, selectedMeal.name))
+                var candidates = allFoods.Where(f => !specializationExcludedFoodIds.Contains(f.id) && IsAllowed(f, forbidden) && IsCompatibleRole(f, item, selectedMeal.name))
                     .Where(f => !request.PreserveWeeklyVariety || !usedFoodIds.Contains(f.id) || mealUsed.Contains(f.id))
                     .OrderBy(f => CandidateScore(f, item, usedFoodIds, mealUsed))
                     .Take(20)
                     .ToList();
 
                 if (candidates.Count == 0)
-                    candidates = allFoods.Where(f => IsAllowed(f, forbidden) && IsCompatibleRole(f, item, selectedMeal.name))
+                    candidates = allFoods.Where(f => !specializationExcludedFoodIds.Contains(f.id) && IsAllowed(f, forbidden) && IsCompatibleRole(f, item, selectedMeal.name))
                         .OrderBy(f => CandidateScore(f, item, usedFoodIds, mealUsed)).Take(20).ToList();
 
                 var candidate = candidates.FirstOrDefault();
@@ -143,11 +159,11 @@ public sealed class DietRegenerationService
                 var mealUsed = meal.meal_items.Where(i => i.food_id.HasValue).Select(i => i.food_id!.Value).ToHashSet();
                 foreach (var item in meal.meal_items)
                 {
-                    var candidates = allFoods.Where(f => IsAllowed(f, forbidden) && IsCompatibleRole(f, item, meal.name))
+                    var candidates = allFoods.Where(f => !specializationExcludedFoodIds.Contains(f.id) && IsAllowed(f, forbidden) && IsCompatibleRole(f, item, meal.name))
                         .Where(f => !request.PreserveWeeklyVariety || !usedFoodIds.Contains(f.id) || mealUsed.Contains(f.id))
                         .OrderBy(f => CandidateScore(f, item, usedFoodIds, mealUsed)).Take(15).ToList();
                     if (candidates.Count == 0)
-                        candidates = allFoods.Where(f => IsAllowed(f, forbidden) && IsCompatibleRole(f, item, meal.name))
+                        candidates = allFoods.Where(f => !specializationExcludedFoodIds.Contains(f.id) && IsAllowed(f, forbidden) && IsCompatibleRole(f, item, meal.name))
                             .OrderBy(f => CandidateScore(f, item, usedFoodIds, mealUsed)).Take(15).ToList();
                     var candidate = candidates.FirstOrDefault();
                     if (candidate == null) continue;
