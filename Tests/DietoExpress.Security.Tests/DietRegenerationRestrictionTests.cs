@@ -184,6 +184,79 @@ public sealed class DietRegenerationRestrictionTests
     [Theory]
     [InlineData("regenerate-meal")]
     [InlineData("regenerate-day")]
+    public async Task Regeneration_DoesNotReintroducePersistedExplicitExclusions(string operation)
+    {
+        var options = new DbContextOptionsBuilder<angulosodbContext>()
+            .UseInMemoryDatabase($"diet-regeneration-explicit-exclusion-{Guid.NewGuid():N}")
+            .ConfigureWarnings(warnings => warnings.Ignore(InMemoryEventId.TransactionIgnoredWarning))
+            .Options;
+
+        await using var context = new angulosodbContext(options);
+        context.foods.AddRange(
+            Food(1, "Tofu firme", "Proteínas vegetales", 144, 17, 3, 9),
+            Food(2, "Tempeh natural", "Proteínas vegetales", 193, 20, 8, 11),
+            Food(3, "Pechuga de pollo", "Carne", 165, 31, 0, 3.6));
+
+        var item = new meal_items
+        {
+            id = 1,
+            meal_id = 1,
+            food_id = 1,
+            grams = 100,
+            kcal = 144,
+            protein = 17,
+            carbs = 3,
+            fat = 9
+        };
+        var meal = new meals { id = 1, diet_day_id = 1, name = "Comida", meal_index = 0 };
+        meal.meal_items.Add(item);
+        var day = new diet_days { id = 1, diet_id = 1, day_index = 0 };
+        day.meals.Add(meal);
+        var diet = new diets
+        {
+            id = 1,
+            name = "Plan de prueba",
+            user_id = null,
+            tenant_id = null,
+            target_kcal = 2000,
+            target_protein = 100,
+            target_carbs = 250,
+            target_fat = 67,
+            notes = "",
+            excluded_food_keywords = "[\"Tempeh\"]",
+            diet_type = "Equilibrada"
+        };
+        diet.diet_days.Add(day);
+        context.diets.Add(diet);
+        await context.SaveChangesAsync();
+
+        var service = new DietRegenerationService(context, new SpecializationRulesService(context));
+        var request = new DietRegenerationRequestDto
+        {
+            Operation = operation,
+            MealId = operation == "regenerate-meal" ? meal.id : null,
+            DayId = operation == "regenerate-day" ? day.id : null,
+            PreserveNutritionTargets = false,
+            PreserveWeeklyVariety = false
+        };
+
+        var response = await service.RegenerateAsync(
+            dietId: diet.id,
+            request: request,
+            userId: 1,
+            tenantId: null,
+            isSuperAdmin: true,
+            canUseTenantLocalFoods: false);
+
+        Assert.True(response.Success || response.RolledBack);
+        Assert.NotEqual(2, item.food_id);
+        Assert.DoesNotContain("Tempeh", response.NewFoodName ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+    }
+
+
+    [Theory]
+    [InlineData("regenerate-meal")]
+    [InlineData("regenerate-day")]
     public async Task Regeneration_FailsWithoutAlternativeInsteadOfReportingSuccess(string operation)
     {
         var options = new DbContextOptionsBuilder<angulosodbContext>()
