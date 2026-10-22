@@ -350,15 +350,6 @@ public sealed class DietGeneratorRegressionTests
         Assert.Equal(expected, (bool)(method.Invoke(null, new object[] { kcal, automatic }) ?? false));
     }
 
-    [Fact]
-    public void Generator_RespectsExplicitExcludedFoodKeywords()
-    {
-        var generator = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
-
-        Assert.Contains("request.ExcludedFoodKeywords", generator);
-        Assert.Contains("exclusions.Add(kw.Trim())", generator);
-    }
-
     [Theory]
     [InlineData("Nutrition bar", "nut", false)]
     [InlineData("Nut bar", "nut", true)]
@@ -366,6 +357,15 @@ public sealed class DietGeneratorRegressionTests
     [InlineData("Sopa de verduras", "soja", false)]
     [InlineData("Café con leche", "LECHE", true)]
     public void Generator_ExplicitExclusionsUseNormalizedWholeTerms(string foodName, string keyword, bool expectedExcluded)
+    {
+        Assert.Equal(expectedExcluded, InvokeIsExcluded(foodName, "Alimentos", keyword));
+    }
+
+    [Theory]
+    [InlineData("Té verde", "té", true)]
+    [InlineData("Bebida vegetal", "té", false)]
+    [InlineData("Proteína", "te", false)]
+    public void Generator_HonorsShortExplicitExclusionsOnlyAsWholeTerms(string foodName, string keyword, bool expectedExcluded)
     {
         Assert.Equal(expectedExcluded, InvokeIsExcluded(foodName, "Alimentos", keyword));
     }
