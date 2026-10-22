@@ -21,6 +21,7 @@ public class DietListDto
 
 public class DietDetailDto : DietListDto 
 { 
+    public List<string> ExcludedFoodKeywords { get; set; } = new();
     public ICollection<DietDayDto> Days { get; set; } = new List<DietDayDto>();
 }
 
@@ -39,6 +40,7 @@ public class CreateDietDto
 
     // Si se informa, la dieta se crea y se asigna al paciente en la misma transacción.
     public int? ClientId { get; set; }
+    public List<string> ExcludedFoodKeywords { get; set; } = new();
 
     public ICollection<DietDayDto> Days { get; set; } = new List<DietDayDto>();
 }
@@ -55,6 +57,7 @@ public class UpdateDietDto
     public string? Notes { get; set; }
     public bool IsShared { get; set; } = false;
     public bool IsTemplate { get; set; } = false;
+    public List<string> ExcludedFoodKeywords { get; set; } = new();
 
     public ICollection<DietDayDto> Days { get; set; } = new List<DietDayDto>();
 }
