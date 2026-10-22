@@ -10,10 +10,13 @@ public sealed class FoodCatalogImportWorker : BackgroundService
 {
     private static readonly string[] SearchTerms =
     {
-        "arroz integral", "lentejas", "garbanzos", "avena", "pollo",
-        "pavo", "merluza", "salmón", "huevo", "yogur natural",
-        "leche", "manzana", "plátano", "patata", "tomate",
-        "espinacas", "almendras", "pan integral", "pasta integral", "aceite de oliva"
+        "arroz integral", "lentejas", "garbanzos", "avena", "pollo", "pavo",
+        "merluza", "salmón", "huevo", "yogur natural", "leche", "manzana",
+        "plátano", "patata", "tomate", "espinacas", "almendras", "pan integral",
+        "pasta integral", "aceite de oliva", "quinoa", "tofu", "queso fresco",
+        "brócoli", "zanahoria", "calabacín", "atún", "sardinas", "nueces",
+        "bebida de soja", "judías blancas", "boniato", "champiñones", "kéfir",
+        "pimiento rojo", "aguacate", "pan de centeno", "cuscús", "requesón"
     };
 
     private readonly IServiceScopeFactory _scopeFactory;
@@ -45,7 +48,7 @@ public sealed class FoodCatalogImportWorker : BackgroundService
         var startupDelayMinutes = Math.Clamp(_configuration.GetValue<int?>("FoodCatalogImport:StartupDelayMinutes") ?? 2, 0, 60);
 
         _logger.LogInformation(
-            "Worker de catálogo de alimentos iniciado. Intervalo: {IntervalHours} h; 2 consultas por ejecución.",
+            "Worker de catálogo de alimentos iniciado. Intervalo: {IntervalHours} h; 4 consultas por ejecución.",
             intervalHours);
 
         try
@@ -73,16 +76,16 @@ public sealed class FoodCatalogImportWorker : BackgroundService
     private async Task ImportDailyBatchAsync(CancellationToken stoppingToken)
     {
         var startedAt = DateTimeOffset.UtcNow;
-        var firstIndex = (DateOnly.FromDateTime(DateTime.UtcNow).DayNumber * 2) % SearchTerms.Length;
+        var firstIndex = (DateOnly.FromDateTime(DateTime.UtcNow).DayNumber * 4) % SearchTerms.Length;
         var successfulTerms = 0;
         var failedTerms = 0;
-        var batchTerms = new List<string>(capacity: 2);
+        var batchTerms = new List<string>(capacity: 4);
 
         // Reintentar primero los términos fallidos antes de avanzar el catálogo.
-        while (_pendingRetryTerms.Count > 0 && batchTerms.Count < 2)
+        while (_pendingRetryTerms.Count > 0 && batchTerms.Count < 4)
             batchTerms.Add(_pendingRetryTerms.Dequeue());
 
-        for (var offset = 0; batchTerms.Count < 2 && offset < SearchTerms.Length; offset++)
+        for (var offset = 0; batchTerms.Count < 4 && offset < SearchTerms.Length; offset++)
         {
             var candidate = SearchTerms[(firstIndex + offset) % SearchTerms.Length];
             if (!batchTerms.Contains(candidate, StringComparer.OrdinalIgnoreCase))
@@ -93,9 +96,8 @@ public sealed class FoodCatalogImportWorker : BackgroundService
         var foodService = scope.ServiceProvider.GetRequiredService<OpenFoodFactsService>();
 
         _logger.LogInformation(
-            "Inicio de lote de importación de alimentos. Términos priorizados: '{FirstTerm}' y '{SecondTerm}'. Pendientes al inicio: {PendingCount}.",
-            batchTerms[0],
-            batchTerms[1],
+            "Inicio de lote de importación de alimentos. Términos priorizados: {SearchTerms}. Pendientes al inicio: {PendingCount}.",
+            string.Join(", ", batchTerms),
             _pendingRetryTerms.Count);
 
         for (var i = 0; i < batchTerms.Count; i++)
