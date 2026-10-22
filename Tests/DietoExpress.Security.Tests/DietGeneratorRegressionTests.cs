@@ -330,4 +330,12 @@ public sealed class DietGeneratorRegressionTests
         Assert.Contains("canUseTenantLocalFoods", generator);
     }
 
+    [Fact]
+    public void Generator_RespectsExplicitExcludedFoodKeywords()
+    {
+        var generator = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
+
+        Assert.Contains("request.ExcludedFoodKeywords", generator);
+        Assert.Contains("exclusions.Add(kw.Trim())", generator);
+    }
 }

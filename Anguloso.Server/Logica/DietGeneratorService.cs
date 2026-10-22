@@ -126,19 +126,29 @@ public class DietGeneratorService
                 if (client.digestive_health?.fodmaps_intolerance == true)
                     AddFodmapKeywords(exclusions);
                 if (tenantId.HasValue)
-            {
-                var specializationExclusions = await _specializationRulesService.GetFoodExclusionsAsync(
-                    client.id, tenantId.Value, cancellationToken);
-                foreach (var keyword in specializationExclusions)
-                    exclusions.Add(keyword);
-            }
+                {
+                    var specializationExclusions = await _specializationRulesService.GetFoodExclusionsAsync(
+                        client.id, tenantId.Value, cancellationToken);
+                    foreach (var keyword in specializationExclusions)
+                        exclusions.Add(keyword);
+                }
 
-            foreach (var term in DietaryRestrictionRules.BuildForbiddenTerms(
-                client.food_preferences?.allergies,
-                client.digestive_health?.gluten_intolerance == true,
-                client.digestive_health?.lactose_intolerance == true,
-                client.digestive_health?.fodmaps_intolerance == true))
-                exclusions.Add(term);
+                foreach (var term in DietaryRestrictionRules.BuildForbiddenTerms(
+                    client.food_preferences?.allergies,
+                    client.digestive_health?.gluten_intolerance == true,
+                    client.digestive_health?.lactose_intolerance == true,
+                    client.digestive_health?.fodmaps_intolerance == true))
+                    exclusions.Add(term);
+            }
+        }
+
+        // Incorporar exclusiones directas solicitadas por el profesional en la petición
+        if (request.ExcludedFoodKeywords != null && request.ExcludedFoodKeywords.Count > 0)
+        {
+            foreach (var kw in request.ExcludedFoodKeywords)
+            {
+                if (!string.IsNullOrWhiteSpace(kw))
+                    exclusions.Add(kw.Trim());
             }
         }
 
