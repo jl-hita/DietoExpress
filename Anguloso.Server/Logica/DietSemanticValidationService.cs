@@ -380,9 +380,9 @@ public sealed class DietSemanticValidationService
 
     private static bool IsStapleFood(foods food) { var n = Normalize(food.name ?? string.Empty); return IsOil(n) || n.Contains("sal") || n.Contains("agua"); }
     private static bool IsRareOil(string? name) { var n = Normalize(name ?? string.Empty); return IsOil(n) && !n.Contains("aceite de oliva") && !n.Contains("aceite de girasol"); }
-    private static bool IsOil(string? name) => Normalize(name ?? string.Empty).StartsWith("aceite ");
+    internal static bool IsOil(string? name) => Normalize(name ?? string.Empty).StartsWith("aceite ");
     private static bool IsFruit(string? name) => new[] { "manzana","naranja","pera","mandarina","platano","fresa","kiwi","melocoton","melon","sandia","uva","albaricoque","ciruela","fruta fresca","fruta" }.Any(Normalize(name ?? string.Empty).Contains);
-    private static bool IsVegetable(string? name, string? category = null)
+    internal static bool IsVegetable(string? name, string? category = null)
     {
         var normalizedName = Normalize(name ?? string.Empty);
         var normalizedCategory = Normalize(category ?? string.Empty);
@@ -393,8 +393,8 @@ public sealed class DietSemanticValidationService
                 "col rizada", "canonigo", "rucula", "endibia", "nabo", "rabanito", "remolacha",
                 "seta", "setas", "hongo", "cardo" }.Any(normalizedName.Contains);
     }
-    private static bool IsCarb(string? name) => new[] { "arroz","pasta","patata","boniato","pan","avena","quinoa","cuscus","tostada","cereal" }.Any(Normalize(name ?? string.Empty).Contains);
-    private static bool IsLegumeName(string? name)
+    internal static bool IsCarb(string? name) => new[] { "arroz","pasta","patata","boniato","pan","avena","quinoa","cuscus","tostada","cereal" }.Any(Normalize(name ?? string.Empty).Contains);
+    internal static bool IsLegumeName(string? name)
     {
         var normalized = Normalize(name ?? string.Empty);
         // La judía verde es una hortaliza, no una legumbre seca; evitar que "judía"
@@ -403,10 +403,10 @@ public sealed class DietSemanticValidationService
         return new[] { "lenteja", "garbanzo", "alubia", "judia", "guisante" }
             .Any(normalized.Contains);
     }
-    private static bool IsMainProteinName(string? name) => new[] { "pollo","pavo","ternera","cerdo","conejo","atun","salmon","merluza","bacalao","dorada","lubina","sardina","caballa","gamba","tofu","tempeh" }.Any(Normalize(name ?? string.Empty).Contains);
-    private static bool IsFattyProtein(string? name) => new[] { "salmon","sardina","caballa","aguacate" }.Any(Normalize(name ?? string.Empty).Contains);
-    private static bool IsEgg(string? name) => new[] { "huevo", "clara", "tortilla" }.Any(Normalize(name ?? string.Empty).Contains);
-    private static bool IsNut(string? name) => new[] { "nuez","almendra","avellana","anacardo","pistacho" }.Any(Normalize(name ?? string.Empty).Contains);
+    internal static bool IsMainProteinName(string? name) => new[] { "pollo","pavo","ternera","cerdo","conejo","atun","salmon","merluza","bacalao","dorada","lubina","sardina","caballa","gamba","tofu","tempeh" }.Any(Normalize(name ?? string.Empty).Contains);
+    internal static bool IsFattyProtein(string? name) => new[] { "salmon","sardina","caballa","aguacate" }.Any(Normalize(name ?? string.Empty).Contains);
+    internal static bool IsEgg(string? name) => new[] { "huevo", "clara", "tortilla" }.Any(Normalize(name ?? string.Empty).Contains);
+    internal static bool IsNut(string? name) => new[] { "nuez","almendra","avellana","anacardo","pistacho" }.Any(Normalize(name ?? string.Empty).Contains);
     private static bool IsBreakfastCarb(string? name) => new[] { "avena","pan","tostada","copos","cereal" }.Any(Normalize(name ?? string.Empty).Contains);
     private static bool IsSnackProtein(string? name) => new[] { "yogur","leche","kefir","queso","huevo","clara" }.Any(Normalize(name ?? string.Empty).Contains);
     private static bool IsRawOrDry(string? name) { var n = Normalize(name ?? string.Empty); return n.Contains("seca") || n.Contains("seco") || n.Contains("cruda") || n.Contains("crudo"); }
