@@ -165,7 +165,7 @@ public class DietController : ControllerBase
             TargetFat = d.target_fat,
             Notes = d.notes,
             ExcludedFoodKeywords = DeserializeExcludedFoodKeywords(d.excluded_food_keywords),
-            DietType = d.diet_type ?? "Equilibrada",
+            DietType = ResolveStoredDietType(d.diet_type, d.name),
             CreatedAt = d.created_at,
             IsShared = d.is_shared,
             IsTemplate = d.is_template,
@@ -203,6 +203,21 @@ public class DietController : ControllerBase
     }
 
     // Los límites evitan cargas excesivas y mantienen acotado el tamaño de cada dieta recibida por API.
+    private static string ResolveStoredDietType(string? stored, string? dietName)
+    {
+        if (!string.IsNullOrWhiteSpace(stored) &&
+            !string.Equals(stored, "Equilibrada", StringComparison.OrdinalIgnoreCase))
+            return stored.Trim();
+
+        // Compatibilidad con dietas generadas antes de persistir DietType como campo propio.
+        var name = dietName ?? string.Empty;
+        foreach (var known in new[] { "Vegana", "Vegetariana", "Cetogenica", "BajaCarbos", "AltaProteina" })
+            if (name.Contains(known, StringComparison.OrdinalIgnoreCase))
+                return known;
+
+        return string.IsNullOrWhiteSpace(stored) ? "Equilibrada" : stored.Trim();
+    }
+
     private static List<string> DeserializeExcludedFoodKeywords(string? json)
     {
         try
