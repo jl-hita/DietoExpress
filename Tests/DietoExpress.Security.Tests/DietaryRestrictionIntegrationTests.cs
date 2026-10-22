@@ -34,6 +34,9 @@ public sealed class DietaryRestrictionIntegrationTests
         Assert.Contains("food.traces_tags", validation);
         Assert.Contains("DietaryRestrictionRules.BuildForbiddenTerms", regeneration);
         Assert.Contains("DietaryRestrictionRules.IsFoodAllowed", regeneration);
+        Assert.Contains("_specializationRulesService.GetFoodExclusionsAsync", regeneration);
+        Assert.Contains("_specializationRulesService.GetExcludedFoodIdsAsync", regeneration);
+        Assert.Contains("specializationExcludedFoodIds.Contains(f.id)", regeneration);
         Assert.DoesNotContain("HasUnknownAllergenDataForClient", generator);
         Assert.DoesNotContain("IsAllowedForClient", regeneration);
         var substitutions = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "FoodSubstitutionService.cs"));
