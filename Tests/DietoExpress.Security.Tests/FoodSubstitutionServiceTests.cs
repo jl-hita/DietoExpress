@@ -67,7 +67,7 @@ public class FoodSubstitutionServiceTests
     }
 
     [Fact]
-    public async Task SuggestAsync_ExcludesKnownAllergensAndTracesButKeepsUnknownMetadataCandidate()
+    public async Task SuggestAsync_ExcludesKnownAllergensTracesAndUnknownMetadataForAllergicPatients()
     {
         await using var db = CreateContext();
         db.foods.AddRange(
@@ -83,8 +83,12 @@ public class FoodSubstitutionServiceTests
 
         Assert.DoesNotContain(result, x => x.Id == 2);
         Assert.DoesNotContain(result, x => x.Id == 3);
-        Assert.Contains(result, x => x.Id == 4);
+        Assert.DoesNotContain(result, x => x.Id == 4);
         Assert.Contains(result, x => x.Id == 5);
+
+        var withoutDeclaredAllergies = await new FoodSubstitutionService(db)
+            .SuggestAsync(1, null, true, "kcal", null, 10);
+        Assert.Contains(withoutDeclaredAllergies, x => x.Id == 4);
     }
 
     [Fact]

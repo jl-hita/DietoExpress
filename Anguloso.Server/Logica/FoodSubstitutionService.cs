@@ -83,6 +83,16 @@ public sealed class FoodSubstitutionService
                 .ToList();
         }
 
+        if (!string.IsNullOrWhiteSpace(allergies))
+        {
+            candidates = candidates
+                .Where(food => !DietaryRestrictionRules.HasUnknownAllergenData(
+                    allergies,
+                    (food.allergen_tags ?? Array.Empty<string>()).Concat(food.traces_tags ?? Array.Empty<string>()),
+                    food.allergen_data_status))
+                .ToList();
+        }
+
         static double Distance(double? a, double? b)
         {
             if (!a.HasValue || !b.HasValue) return 1.0;

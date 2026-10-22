@@ -102,6 +102,8 @@ public sealed class DietGeneratorScenarioTests
         var catalog = CreateCatalog();
         foreach (var food in catalog)
             food.allergen_data_status = "reported";
+        var unknownAllergenFood = catalog.Single(food => food.name == "Tempeh natural");
+        unknownAllergenFood.allergen_data_status = "unknown";
         var peanutTaggedFood = catalog.Single(food => food.name == "Tofu firme");
         peanutTaggedFood.allergen_tags = new[] { "en:peanuts" };
         peanutTaggedFood.allergen_data_status = "reported";
@@ -155,6 +157,7 @@ public sealed class DietGeneratorScenarioTests
         var items = diet.Days.SelectMany(day => day.Meals).SelectMany(meal => meal.Items).ToList();
         Assert.NotEmpty(items);
         Assert.DoesNotContain(items, item => item.FoodName == "Tofu firme");
+        Assert.DoesNotContain(items, item => item.FoodName == "Tempeh natural");
         Assert.DoesNotContain(items, item =>
         {
             var name = DietaryRestrictionRules.Normalize(item.FoodName);

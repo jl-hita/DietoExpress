@@ -79,8 +79,10 @@ public sealed class DietRegenerationRestrictionTests
     }
 
 
-    [Fact]
-    public async Task ReplaceFood_UsesAssignedPatientsRestrictionsWhenClientIdIsOmitted()
+    [Theory]
+    [InlineData(2)] // Coincide con la alergia declarada.
+    [InlineData(3)] // Los datos de alérgenos no están verificados.
+    public async Task ReplaceFood_UsesAssignedPatientsRestrictionsWhenClientIdIsOmitted(int replacementFoodId)
     {
         var options = new DbContextOptionsBuilder<angulosodbContext>()
             .UseInMemoryDatabase($"diet-regeneration-assigned-client-{Guid.NewGuid():N}")
@@ -90,7 +92,9 @@ public sealed class DietRegenerationRestrictionTests
         await using var context = new angulosodbContext(options);
         context.foods.AddRange(
             Food(1, "Tofu firme", "Proteínas vegetales", 144, 17, 3, 9),
-            Food(2, "Bebida de soja", "Bebidas", 33, 3.3, 0.7, 1.8));
+            Food(2, "Bebida de soja", "Bebidas", 33, 3.3, 0.7, 1.8),
+            Food(3, "Pechuga de pollo", "Carne", 165, 31, 0, 3.6));
+        context.foods.Local.Single(food => food.id == 3).allergen_data_status = "unknown";
         var client = new clients
         {
             id = 1,
@@ -165,7 +169,7 @@ public sealed class DietRegenerationRestrictionTests
         {
             Operation = "replace-food",
             MealItemId = item.id,
-            ReplacementFoodId = 2,
+            ReplacementFoodId = replacementFoodId,
             PreserveWeeklyVariety = false
         };
 
@@ -332,6 +336,7 @@ public sealed class DietRegenerationRestrictionTests
             protein = protein,
             carbs = carbs,
             fat = fat,
-            source = "BEDCA"
+            source = "BEDCA",
+            allergen_data_status = "reported"
         };
 }

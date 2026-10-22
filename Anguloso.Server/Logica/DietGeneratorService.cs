@@ -215,14 +215,16 @@ public class DietGeneratorService
         var allowedFoods = allFoods
             .Where(f => IsCommonFood(f)
                 && !structuredSpecializationExclusions.Contains(f.id)
-                && !IsExcluded(f, exclusions))
+                && !IsExcluded(f, exclusions)
+                && HasKnownAllergenDataForClient(f, client))
             .ToList();
         if (allowedFoods.Count < 20)
         {
             // Fallback si la lista común es muy restrictiva
             allowedFoods = allFoods
                 .Where(f => !structuredSpecializationExclusions.Contains(f.id)
-                    && !IsExcluded(f, exclusions))
+                    && !IsExcluded(f, exclusions)
+                    && HasKnownAllergenDataForClient(f, client))
                 .ToList();
         }
 
@@ -1661,6 +1663,12 @@ public class DietGeneratorService
         return terms.Any(term => name.Contains(term, StringComparison.OrdinalIgnoreCase) ||
                                  category.Contains(term, StringComparison.OrdinalIgnoreCase));
     }
+
+    private static bool HasKnownAllergenDataForClient(foods food, clients? client) =>
+        !DietaryRestrictionRules.HasUnknownAllergenData(
+            client?.food_preferences?.allergies,
+            (food.allergen_tags ?? Array.Empty<string>()).Concat(food.traces_tags ?? Array.Empty<string>()),
+            food.allergen_data_status);
 
     private bool IsExcluded(foods food, HashSet<string> exclusions)
     {

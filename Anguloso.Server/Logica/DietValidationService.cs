@@ -610,8 +610,8 @@ public class DietValidationService
                 MealName = mealName ?? string.Empty,
                 DayIndex = dayIndex,
                 AlertType = "AllergenDataUnknown",
-                Severity = "Medium",
-                Message = "No hay datos estructurados suficientes de alérgenos para verificar las alergias declaradas; comprueba la etiqueta del producto."
+                Severity = "High",
+                Message = "No se puede confirmar la compatibilidad con las alergias declaradas porque faltan datos de alérgenos verificados."
             });
         }
 

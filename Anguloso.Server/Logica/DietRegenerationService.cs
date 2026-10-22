@@ -108,6 +108,10 @@ public sealed class DietRegenerationService
                 client.id, tenantId.Value, allFoods.Select(f => f.id).ToArray(), cancellationToken));
         }
         forbidden.UnionWith(ReadPersistedExplicitExclusions(diet.excluded_food_keywords));
+        var allergenMetadataExcludedFoodIds = allFoods
+            .Where(food => !HasKnownAllergenDataForClients(food, restrictionClients))
+            .Select(food => food.id)
+            .ToHashSet();
 
         var usedFoodIds = diet.diet_days.SelectMany(d => d.meals).SelectMany(m => m.meal_items)
             .Where(i => i.food_id.HasValue).Select(i => i.food_id!.Value).ToHashSet();
@@ -133,7 +137,7 @@ public sealed class DietRegenerationService
                 throw new ArgumentException("Debes indicar el alimento de sustitución.", nameof(request));
             var replacement = allFoods.FirstOrDefault(f => f.id == replacementFoodId);
             if (replacement == null) throw new KeyNotFoundException("El alimento de sustitución no está disponible.");
-            if (specializationExcludedFoodIds.Contains(replacement.id) || !IsAllowed(replacement, forbidden) || !DietSemanticValidationService.IsFoodCompatibleWithDietType(replacement.name, dietType, replacement.category, replacement.carbs, replacement.fat))
+            if (specializationExcludedFoodIds.Contains(replacement.id) || allergenMetadataExcludedFoodIds.Contains(replacement.id) || !IsAllowed(replacement, forbidden) || !DietSemanticValidationService.IsFoodCompatibleWithDietType(replacement.name, dietType, replacement.category, replacement.carbs, replacement.fat))
                 throw new InvalidOperationException("El alimento seleccionado es incompatible con las restricciones del paciente o las reglas de especialización.");
 
             var previous = Snapshot(item);
@@ -157,14 +161,14 @@ public sealed class DietRegenerationService
             var mealUsed = selectedMeal.meal_items.Where(i => i.food_id.HasValue).Select(i => i.food_id!.Value).ToHashSet();
             foreach (var item in selectedMeal.meal_items)
             {
-                var candidates = allFoods.Where(f => (!item.food_id.HasValue || f.id != item.food_id.Value) && !specializationExcludedFoodIds.Contains(f.id) && IsAllowed(f, forbidden) && DietSemanticValidationService.IsFoodCompatibleWithDietType(f.name, dietType, f.category, f.carbs, f.fat) && IsCompatibleRole(f, item, selectedMeal.name))
+                var candidates = allFoods.Where(f => (!item.food_id.HasValue || f.id != item.food_id.Value) && !specializationExcludedFoodIds.Contains(f.id) && !allergenMetadataExcludedFoodIds.Contains(f.id) && IsAllowed(f, forbidden) && DietSemanticValidationService.IsFoodCompatibleWithDietType(f.name, dietType, f.category, f.carbs, f.fat) && IsCompatibleRole(f, item, selectedMeal.name))
                     .Where(f => !request.PreserveWeeklyVariety || !usedFoodIds.Contains(f.id) || mealUsed.Contains(f.id))
                     .OrderBy(f => CandidateScore(f, item, usedFoodIds, mealUsed))
                     .Take(20)
                     .ToList();
 
                 if (candidates.Count == 0)
-                    candidates = allFoods.Where(f => (!item.food_id.HasValue || f.id != item.food_id.Value) && !specializationExcludedFoodIds.Contains(f.id) && IsAllowed(f, forbidden) && DietSemanticValidationService.IsFoodCompatibleWithDietType(f.name, dietType, f.category, f.carbs, f.fat) && IsCompatibleRole(f, item, selectedMeal.name))
+                    candidates = allFoods.Where(f => (!item.food_id.HasValue || f.id != item.food_id.Value) && !specializationExcludedFoodIds.Contains(f.id) && !allergenMetadataExcludedFoodIds.Contains(f.id) && IsAllowed(f, forbidden) && DietSemanticValidationService.IsFoodCompatibleWithDietType(f.name, dietType, f.category, f.carbs, f.fat) && IsCompatibleRole(f, item, selectedMeal.name))
                         .OrderBy(f => CandidateScore(f, item, usedFoodIds, mealUsed)).Take(20).ToList();
 
                 var candidate = candidates.FirstOrDefault();
@@ -189,11 +193,11 @@ public sealed class DietRegenerationService
                 var mealUsed = meal.meal_items.Where(i => i.food_id.HasValue).Select(i => i.food_id!.Value).ToHashSet();
                 foreach (var item in meal.meal_items)
                 {
-                    var candidates = allFoods.Where(f => (!item.food_id.HasValue || f.id != item.food_id.Value) && !specializationExcludedFoodIds.Contains(f.id) && IsAllowed(f, forbidden) && DietSemanticValidationService.IsFoodCompatibleWithDietType(f.name, dietType, f.category, f.carbs, f.fat) && IsCompatibleRole(f, item, meal.name))
+                    var candidates = allFoods.Where(f => (!item.food_id.HasValue || f.id != item.food_id.Value) && !specializationExcludedFoodIds.Contains(f.id) && !allergenMetadataExcludedFoodIds.Contains(f.id) && IsAllowed(f, forbidden) && DietSemanticValidationService.IsFoodCompatibleWithDietType(f.name, dietType, f.category, f.carbs, f.fat) && IsCompatibleRole(f, item, meal.name))
                         .Where(f => !request.PreserveWeeklyVariety || !usedFoodIds.Contains(f.id) || mealUsed.Contains(f.id))
                         .OrderBy(f => CandidateScore(f, item, usedFoodIds, mealUsed)).Take(15).ToList();
                     if (candidates.Count == 0)
-                        candidates = allFoods.Where(f => (!item.food_id.HasValue || f.id != item.food_id.Value) && !specializationExcludedFoodIds.Contains(f.id) && IsAllowed(f, forbidden) && DietSemanticValidationService.IsFoodCompatibleWithDietType(f.name, dietType, f.category, f.carbs, f.fat) && IsCompatibleRole(f, item, meal.name))
+                        candidates = allFoods.Where(f => (!item.food_id.HasValue || f.id != item.food_id.Value) && !specializationExcludedFoodIds.Contains(f.id) && !allergenMetadataExcludedFoodIds.Contains(f.id) && IsAllowed(f, forbidden) && DietSemanticValidationService.IsFoodCompatibleWithDietType(f.name, dietType, f.category, f.carbs, f.fat) && IsCompatibleRole(f, item, meal.name))
                             .OrderBy(f => CandidateScore(f, item, usedFoodIds, mealUsed)).Take(15).ToList();
                     var candidate = candidates.FirstOrDefault();
                     if (candidate == null)
@@ -253,6 +257,12 @@ public sealed class DietRegenerationService
                 return known;
         return string.IsNullOrWhiteSpace(stored) ? "Equilibrada" : stored;
     }
+
+    private static bool HasKnownAllergenDataForClients(foods food, IReadOnlyCollection<clients> clients) =>
+        clients.All(client => !DietaryRestrictionRules.HasUnknownAllergenData(
+            client.food_preferences?.allergies,
+            (food.allergen_tags ?? Array.Empty<string>()).Concat(food.traces_tags ?? Array.Empty<string>()),
+            food.allergen_data_status));
 
     private static HashSet<string> BuildForbiddenTerms(clients? client) =>
         DietaryRestrictionRules.BuildForbiddenTerms(
