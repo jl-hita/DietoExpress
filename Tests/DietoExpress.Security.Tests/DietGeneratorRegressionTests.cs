@@ -356,7 +356,7 @@ public sealed class DietGeneratorRegressionTests
     [Theory]
     [InlineData("")]
     [InlineData(" ")]
-    [InlineData("\\t")]
+    [InlineData("\t")]
     public void Generator_IgnoresEmptyExplicitExclusionKeywords(string keyword)
     {
         Assert.False(InvokeIsExcluded("Nutrition bar", "Alimentos", keyword));
