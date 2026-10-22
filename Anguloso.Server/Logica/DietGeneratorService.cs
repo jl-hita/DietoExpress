@@ -380,6 +380,7 @@ public class DietGeneratorService
 
         // Persistir las exclusiones explícitas en el resultado para que sobrevivan al
         // guardado de la dieta y se apliquen también en futuras regeneraciones.
+        advancedDiet.DietType = request.DietType;
         advancedDiet.ExcludedFoodKeywords = (request.ExcludedFoodKeywords ?? new List<string>())
             .Where(keyword => !string.IsNullOrWhiteSpace(keyword))
             .Select(keyword => keyword.Trim())
