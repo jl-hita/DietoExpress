@@ -75,7 +75,7 @@ public sealed class DietAllergenMetadataValidationTests
             clientId: 1,
             dietDto: draft,
             context: context,
-            tenantId: 5,
+            tenantId: null,
             userId: 1,
             canUseTenantLocalFoods: false);
 
