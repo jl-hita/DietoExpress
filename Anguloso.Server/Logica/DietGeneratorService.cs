@@ -1627,13 +1627,26 @@ public class DietGeneratorService
 
     private bool IsExcluded(foods food, HashSet<string> exclusions)
     {
-        if (!exclusions.Any()) return false;
-        var name = (food.name ?? "").ToLowerInvariant();
-        var cat = (food.category ?? "").ToLowerInvariant();
-        // Mantener la compatibilidad con keywords históricas (p. ej. "lact") y añadir
-        // comparación estructurada para que el nombre comercial no pueda ocultar alérgenos.
-        return exclusions.Any(e => name.Contains(e) || cat.Contains(e)) ||
-            !DietaryRestrictionRules.IsFoodAllowed(food.name, food.category, (food.dietary_flags ?? Array.Empty<string>()).Concat(food.allergen_tags ?? Array.Empty<string>()).Concat(food.traces_tags ?? Array.Empty<string>()), exclusions);
+        if (exclusions == null || exclusions.Count == 0) return false;
+
+        // "lact" es una keyword histórica usada como prefijo deliberado para cubrir
+        // variantes como lactosa/lactato. No extender esa semántica de subcadena a
+        // todas las exclusiones: "nut" no debe excluir "nutrition", por ejemplo.
+        var name = food.name ?? string.Empty;
+        var category = food.category ?? string.Empty;
+        var legacyLactPrefix = exclusions.Any(term =>
+            string.Equals(term?.Trim(), "lact", StringComparison.OrdinalIgnoreCase)) &&
+            (name.Contains("lact", StringComparison.OrdinalIgnoreCase) ||
+             category.Contains("lact", StringComparison.OrdinalIgnoreCase));
+
+        return legacyLactPrefix ||
+            !DietaryRestrictionRules.IsFoodAllowed(
+                food.name,
+                food.category,
+                (food.dietary_flags ?? Array.Empty<string>())
+                    .Concat(food.allergen_tags ?? Array.Empty<string>())
+                    .Concat(food.traces_tags ?? Array.Empty<string>()),
+                exclusions);
     }
 
     private void AddGlutenKeywords(HashSet<string> ex)
