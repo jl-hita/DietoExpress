@@ -58,6 +58,8 @@ public sealed class DietGeneratorScenarioTests
         Assert.NotEmpty(items);
         Assert.DoesNotContain(items, item =>
             DietaryRestrictionRules.Normalize(item.FoodName).Contains("platano", StringComparison.Ordinal));
+        Assert.DoesNotContain(items, item => item.FoodName == "Fruta sin datos");
+        Assert.DoesNotContain(items, item => item.FoodName == "Fruta con macros negativos");
         Assert.All(items, item =>
         {
             Assert.True((item.Grams ?? 0) > 0);
@@ -138,6 +140,28 @@ public sealed class DietGeneratorScenarioTests
         Add("Fresa", "Fruta", 32, 0.7, 7.7, 0.3);
         Add("Kiwi", "Fruta", 61, 1.1, 14.7, 0.5);
         Add("Melon", "Fruta", 34, 0.8, 8.2, 0.2);
+        catalog.Add(new foods
+        {
+            id = id++,
+            name = "Fruta sin datos",
+            category = "Fruta",
+            kcal = 50,
+            protein = null,
+            carbs = null,
+            fat = null,
+            source = "BEDCA"
+        });
+        catalog.Add(new foods
+        {
+            id = id++,
+            name = "Fruta con macros negativos",
+            category = "Fruta",
+            kcal = 50,
+            protein = -1,
+            carbs = 10,
+            fat = 1,
+            source = "BEDCA"
+        });
 
         Add("Aceite de oliva", "Aceites", 884, 0, 0, 100);
         Add("Almendras", "Frutos secos", 579, 21, 22, 50);
