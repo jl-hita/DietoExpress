@@ -394,4 +394,20 @@ public sealed class DietGeneratorRegressionTests
         Assert.Contains("foreach (var entry in mealSnapshot)", optimizer);
         Assert.Contains("RestoreItem(entry.Item, entry.Snapshot)", optimizer);
     }
+
+    [Fact]
+    public void GeneratorAndRegenerationRequireCompleteNonNegativeMacrosForAutomaticFoodCandidates()
+    {
+        var generator = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
+        var regeneration = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietRegenerationService.cs"));
+        var optimizer = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "AdvancedDietOptimizerService.cs"));
+
+        foreach (var source in new[] { generator, regeneration, optimizer })
+        {
+            Assert.Contains("f.protein.HasValue", source);
+            Assert.Contains("f.carbs.HasValue", source);
+            Assert.Contains("f.fat.HasValue", source);
+            Assert.Contains(".Value >= 0", source);
+        }
+    }
 }
