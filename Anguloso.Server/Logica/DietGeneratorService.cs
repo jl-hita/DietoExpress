@@ -276,7 +276,6 @@ public class DietGeneratorService
         }
 
         DietDetailDto? advancedDiet = null;
-        InvalidOperationException? lastValidationError = null;
 
         // La selección inicial contiene aleatoriedad para dar variedad. Si un menú concreto no
         // alcanza los márgenes operativos, se vuelve a generar con otra selección antes de fallar.
@@ -385,12 +384,10 @@ public class DietGeneratorService
                     cancellationToken);
 
                 advancedDiet = candidateDiet;
-                lastValidationError = null;
                 break;
             }
             catch (InvalidOperationException ex)
             {
-                lastValidationError = ex;
                 if (attempt == maxGenerationAttempts - 1)
                     throw new InvalidOperationException(
                         $"No se ha podido generar una dieta válida tras {maxGenerationAttempts} intentos. Último motivo: {ex.Message}",
