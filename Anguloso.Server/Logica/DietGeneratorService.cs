@@ -588,11 +588,9 @@ public class DietGeneratorService
 
     private static void ReplaceItemForGenerator(MealItemDto item, foods food, double grams)
     {
-        var g = food.serving_size.HasValue && food.serving_size.Value > 0 &&
-                string.Equals(food.serving_size_unit, "g", StringComparison.OrdinalIgnoreCase) &&
-                NormalizeFoodTerm(food.name ?? string.Empty).Contains("yogur")
-            ? food.serving_size.Value
-            : grams;
+        // La cantidad solicitada por el normalizador/llamador es la autoridad culinaria.
+        // serving_size describe el envase del catálogo (p. ej. 100 g), no la ración objetivo.
+        var g = grams;
         g = Math.Clamp(g, 5, 350);
         var ratio = g / 100.0;
         item.FoodId = food.id;
