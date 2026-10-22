@@ -26,6 +26,8 @@ public partial class diets
 
     public string notes { get; set; }
 
+    public string excluded_food_keywords { get; set; } = "[]";
+
     public DateTime? created_at { get; set; }
 
     public int? user_id { get; set; }
