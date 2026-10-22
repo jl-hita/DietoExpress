@@ -281,7 +281,7 @@ public sealed class AdvancedDietOptimizerService
         return dailyError * 1000 + duplicateMeals * 7 + repeatedFoods * 1.5 + frequencyPenalty * 5 + therapyPenalty * 8 + Math.Max(0, shopping.UniqueFoods - request.ShoppingVarietyThreshold) * 0.20;
     }
 
-    private static double FrequencyPenalty(Dictionary<string, int> counts, int days, DietTherapyProfile? therapyProfile)
+    private static double FrequencyPenalty(Dictionary<string, int> counts, int days, DietTherapyProfile? therapyProfile, string dietType)
     {
         var weekly = therapyProfile?.FrequencyTargets ?? new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase) { ["fruta"] = 1, ["verdura"] = 2, ["legumbre"] = 3.0 / 7.0, ["pescado_marisco"] = 2.0 / 7.0, ["frutos_secos"] = 4.0 / 7.0 };
         var targets = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
@@ -289,9 +289,11 @@ public sealed class AdvancedDietOptimizerService
             ["fruta"] = Math.Max(1, (int)Math.Ceiling(days * weekly.GetValueOrDefault("fruta"))),
             ["verdura"] = Math.Max(2, (int)Math.Ceiling(days * weekly.GetValueOrDefault("verdura"))),
             ["legumbre"] = Math.Max(1, (int)Math.Ceiling(days * weekly.GetValueOrDefault("legumbre"))),
-            ["pescado_marisco"] = Math.Max(1, (int)Math.Ceiling(days * weekly.GetValueOrDefault("pescado_marisco"))),
             ["frutos_secos"] = Math.Max(1, (int)Math.Ceiling(days * weekly.GetValueOrDefault("frutos_secos")))
         };
+        if (DietSemanticValidationService.IsFoodCompatibleWithDietType("Pescado", dietType, "Pescado"))
+            targets["pescado_marisco"] = Math.Max(1, (int)Math.Ceiling(days * weekly.GetValueOrDefault("pescado_marisco")));
+
         return targets.Sum(target => Math.Max(0, target.Value - counts.GetValueOrDefault(target.Key)) * 2.0);
     }
 
@@ -320,7 +322,15 @@ public sealed class AdvancedDietOptimizerService
     private static void RepairWeeklyFrequencies(DietDetailDto diet, IReadOnlyCollection<foods> candidates, double targetKcal, double targetProtein, double targetCarbs, double targetFat, GenerateDietRequestDto request, DietTherapyProfile? therapyProfile = null)
     {
         var weekly = therapyProfile?.FrequencyTargets ?? new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
-        var familyTargets = new[] { ("fruta", Math.Max(1, (int)Math.Ceiling(diet.Days.Count * weekly.GetValueOrDefault("fruta", 1)))), ("verdura", Math.Max(2, (int)Math.Ceiling(diet.Days.Count * weekly.GetValueOrDefault("verdura", 2)))), ("legumbre", Math.Max(1, (int)Math.Ceiling(diet.Days.Count * weekly.GetValueOrDefault("legumbre", 3.0 / 7.0)))), ("pescado_marisco", Math.Max(1, (int)Math.Ceiling(diet.Days.Count * weekly.GetValueOrDefault("pescado_marisco", 2.0 / 7.0)))) };
+        var familyTargets = new List<(string Family, int Target)>
+        {
+            ("fruta", Math.Max(1, (int)Math.Ceiling(diet.Days.Count * weekly.GetValueOrDefault("fruta", 1)))),
+            ("verdura", Math.Max(2, (int)Math.Ceiling(diet.Days.Count * weekly.GetValueOrDefault("verdura", 2)))),
+            ("legumbre", Math.Max(1, (int)Math.Ceiling(diet.Days.Count * weekly.GetValueOrDefault("legumbre", 3.0 / 7.0)))),
+            ("frutos_secos", Math.Max(1, (int)Math.Ceiling(diet.Days.Count * weekly.GetValueOrDefault("frutos_secos", 4.0 / 7.0))))
+        };
+        if (DietSemanticValidationService.IsFoodCompatibleWithDietType("Pescado", request.DietType, "Pescado"))
+            familyTargets.Add(("pescado_marisco", Math.Max(1, (int)Math.Ceiling(diet.Days.Count * weekly.GetValueOrDefault("pescado_marisco", 2.0 / 7.0))));
         foreach (var (family, target) in familyTargets)
         {
             for (var i = 0; i < target; i++)
