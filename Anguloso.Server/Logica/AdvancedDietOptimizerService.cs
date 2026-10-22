@@ -95,7 +95,12 @@ public sealed class AdvancedDietOptimizerService
                         {
                             cancellationToken.ThrowIfCancellationRequested();
 
-                            var snapshot = CloneItem(item);
+                            // RebalanceMeal mutates quantities of every item in the meal.
+                            // Snapshot the whole meal so a rejected candidate cannot leave
+                            // unrelated items with quantities from a failed optimization trial.
+                            var mealSnapshot = meal.Items
+                                .Select(mealItem => (Item: mealItem, Snapshot: CloneItem(mealItem)))
+                                .ToList();
                             ReplaceItem(item, candidate, (double)(item.Grams ?? 0));
 
                             RebalanceMeal(meal, mealTarget, targetProtein * MealShare(meal.Name, request.MealsPerDay),
@@ -112,7 +117,8 @@ public sealed class AdvancedDietOptimizerService
                                 break;
                             }
 
-                            RestoreItem(item, snapshot);
+                            foreach (var entry in mealSnapshot)
+                                RestoreItem(entry.Item, entry.Snapshot);
                         }
                     }
                 }
