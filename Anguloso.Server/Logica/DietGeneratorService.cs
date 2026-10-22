@@ -374,6 +374,14 @@ public class DietGeneratorService
             canUseTenantLocalFoods,
             cancellationToken);
 
+        // Persistir las exclusiones explícitas en el resultado para que sobrevivan al
+        // guardado de la dieta y se apliquen también en futuras regeneraciones.
+        advancedDiet.ExcludedFoodKeywords = (request.ExcludedFoodKeywords ?? new List<string>())
+            .Where(keyword => !string.IsNullOrWhiteSpace(keyword))
+            .Select(keyword => keyword.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
         // Calcular resumen diario de micronutrientes y % CDR para cada día generado
         PopulateDailyMicronutrients(advancedDiet, allowedFoods);
 
