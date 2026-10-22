@@ -62,6 +62,7 @@ public sealed class DietRegenerationService
                 ((f.source == null || f.source.ToLower() != "local") ||
                  isSuperAdmin ||
                  (tenantId.HasValue && f.tenant_id == tenantId.Value && (canUseTenantLocalFoods || f.created_by_user_id == userId))))
+            .OrderBy(f => f.id)
             .Include(f => f.exchange_group)
             .Take(5000)
             .ToListAsync(cancellationToken);
