@@ -47,6 +47,11 @@ public sealed class DietaryRestrictionIntegrationTests
         Assert.Contains("excluded_food_keywords = System.Text.Json.JsonSerializer.Serialize(dto.ExcludedFoodKeywords)", dietController);
         Assert.Contains("DeserializeExcludedFoodKeywords(d.excluded_food_keywords)", dietController);
         Assert.Contains("ADD COLUMN IF NOT EXISTS excluded_food_keywords JSONB", databaseBootstrap);
+        Assert.Contains("ADD COLUMN IF NOT EXISTS diet_type VARCHAR(50)", databaseBootstrap);
+        Assert.Contains("diet_type = dto.DietType.Trim()", dietController);
+        Assert.Contains("DietType = d.diet_type", dietController);
+        Assert.Contains("ResolveDietType(diet)", regeneration);
+        Assert.Contains("IsFoodCompatibleWithDietType", regeneration);
         Assert.DoesNotContain("HasUnknownAllergenDataForClient", generator);
         Assert.DoesNotContain("IsAllowedForClient", regeneration);
         var substitutions = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "FoodSubstitutionService.cs"));
