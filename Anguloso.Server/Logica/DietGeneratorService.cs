@@ -535,7 +535,9 @@ public class DietGeneratorService
                         if (yogurtUsedInMeal)
                             continue;
                         yogurtUsedInMeal = true;
-                        var yogurtGrams = standardYogurt?.serving_size > 0 ? standardYogurt.serving_size.Value : 125;
+                        // La validación semántica final exige una ración estándar de 125 g de yogur.
+                        // No usar serving_size aquí: describe el envase del catálogo y puede ser 100 g.
+                        const double yogurtGrams = 125;
                         var yogurtFood = foodsById.GetValueOrDefault(item.FoodId ?? 0) ?? standardYogurt;
                         if (item.Grams.HasValue && yogurtFood != null)
                             ReplaceItemForGenerator(item, yogurtFood, yogurtGrams);
