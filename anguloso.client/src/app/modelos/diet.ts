@@ -23,7 +23,7 @@ export interface DietListItem {
 export interface DietDetail extends DietListItem {
   excludedFoodKeywords?: string[];
   dietType?: string;
-  days?: DietDay[]
+  days?: DietDay[];
 }
 
 /** POST /api/dietas  (equivale a CreateDietDto) */
@@ -40,7 +40,7 @@ export interface CreateDietRequest {
   clientId?: number;
   excludedFoodKeywords?: string[];
   dietType?: string;
-  days?: DietDay[]
+  days?: DietDay[];
 }
 
 /** PUT /api/dietas/{id}  (equivale a UpdateDietDto) */
@@ -55,7 +55,7 @@ export interface UpdateDietRequest {
   isTemplate?: boolean;
   excludedFoodKeywords?: string[];
   dietType?: string;
-  days?: DietDay[]
+  days?: DietDay[];
 }
 
 // ─── Alias de compatibilidad (usado en componentes anteriores) ───────────────
