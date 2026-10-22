@@ -62,6 +62,9 @@ public sealed class DietGeneratorScenarioTests
             DietaryRestrictionRules.Normalize(item.FoodName).Contains("platano", StringComparison.Ordinal));
         Assert.DoesNotContain(items, item => item.FoodName == "Fruta sin datos");
         Assert.DoesNotContain(items, item => item.FoodName == "Fruta con macros negativos");
+        Assert.DoesNotContain(items, item => item.FoodName == "Filete genérico");
+        if (dietType == "Vegana")
+            Assert.DoesNotContain(items, item => item.FoodName == "Producto lácteo");
         Assert.All(items, item =>
         {
             Assert.True((item.Grams ?? 0) > 0);
@@ -171,6 +174,8 @@ public sealed class DietGeneratorScenarioTests
         Add("Queso fresco", "Lácteos", 98, 12, 3, 4);
         Add("Aceite de oliva", "Aceites", 884, 0, 0, 100);
         Add("Almendras", "Frutos secos", 579, 21, 22, 50);
+        Add("Filete genérico", "Pescado", 120, 20, 0, 4);
+        Add("Producto lácteo", "Lácteos", 100, 5, 5, 5);
 
         return catalog;
     }
