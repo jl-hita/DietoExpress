@@ -334,6 +334,21 @@ public sealed class DietGeneratorRegressionTests
         Assert.Contains("canUseTenantLocalFoods", generator);
     }
 
+
+    [Theory]
+    [InlineData(0, true, true)]
+    [InlineData(0, false, false)]
+    [InlineData(499, true, false)]
+    [InlineData(500, false, true)]
+    [InlineData(10000, false, true)]
+    [InlineData(10001, true, false)]
+    public void GenerationKcalValidation_AllowsZeroOnlyForAutomaticEstimation(double kcal, bool automatic, bool expected)
+    {
+        var method = typeof(DietController).GetMethod("IsValidTargetKcal", BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("No se encontró la validación de kcal del endpoint.");
+        Assert.Equal(expected, (bool)(method.Invoke(null, new object[] { kcal, automatic }) ?? false));
+    }
+
     [Fact]
     public void Generator_RespectsExplicitExcludedFoodKeywords()
     {
