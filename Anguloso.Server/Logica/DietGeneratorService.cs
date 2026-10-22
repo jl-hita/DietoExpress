@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -6,6 +7,7 @@ using System.Text.Json;
 using Anguloso.Server.Model;
 using Anguloso.Server.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Anguloso.Server.Logica;
 
@@ -16,20 +18,29 @@ public class DietGeneratorService
     private readonly AdvancedDietOptimizerService _advancedDietOptimizer;
     private readonly DietTherapyRuleEngine _dietTherapyRuleEngine;
     private readonly DietSemanticValidationService _semanticValidationService;
+    private readonly ILogger<DietGeneratorService>? _logger;
 
-    public DietGeneratorService(angulosodbContext context, SpecializationRulesService specializationRulesService, DietSemanticValidationService semanticValidationService)
+    public DietGeneratorService(angulosodbContext context, SpecializationRulesService specializationRulesService, DietSemanticValidationService semanticValidationService, ILogger<DietGeneratorService>? logger = null)
     {
         _context = context;
         _specializationRulesService = specializationRulesService;
         _advancedDietOptimizer = new AdvancedDietOptimizerService(context);
         _dietTherapyRuleEngine = new DietTherapyRuleEngine();
         _semanticValidationService = semanticValidationService;
+        _logger = logger;
     }
 
     // La generación construye una dieta a partir de objetivos nutricionales, alimentos permitidos
     // y restricciones del paciente; los filtros de tenant se aplican antes de optimizar las cantidades.
     public async Task<DietDetailDto> GenerateDietAsync(GenerateDietRequestDto request, int? tenantId, int userId, bool canUseTenantLocalFoods, CancellationToken cancellationToken = default)
     {
+        var generationTimer = Stopwatch.StartNew();
+        var profileTimer = Stopwatch.StartNew();
+        var profileElapsedMs = 0L;
+        var foodsLoadElapsedMs = 0L;
+        var foodFilteringElapsedMs = 0L;
+        var generationAttemptCount = 0;
+
         // 1. Resolver cliente y especializaciones antes de fijar los objetivos automáticos.
         var hasExplicitKcal = request.TargetKcal > 0;
         double targetKcal = hasExplicitKcal ? request.TargetKcal : 2000;
@@ -155,6 +166,9 @@ public class DietGeneratorService
             }
         }
 
+        profileElapsedMs = profileTimer.ElapsedMilliseconds;
+        _logger?.LogInformation("Diet generation phase ProfileResolution completed in {ElapsedMs} ms; HasClient={HasClient}; AutomaticEnergy={AutomaticEnergy}", profileElapsedMs, client != null, request.EnableAutomaticEnergyEstimate);
+
         // Incorporar exclusiones directas solicitadas por el profesional en la petición
         if (request.ExcludedFoodKeywords != null && request.ExcludedFoodKeywords.Count > 0)
         {
@@ -194,6 +208,7 @@ public class DietGeneratorService
         // No debemos traer toda la tabla a memoria: el catálogo puede crecer mucho
         // con las sincronizaciones de USDA/OpenFoodFacts y bloquear la generación.
         const int maxFoodsToLoad = 5000;
+        var foodsLoadTimer = Stopwatch.StartNew();
         // La expresión debe ser completamente traducible por EF Core. No podemos invocar
         // UserCanUseTenantLocalFood dentro del Where porque EF no puede traducir métodos CLR
         // arbitrarios a SQL. La regla de visibilidad se expresa aquí con propiedades y valores
@@ -213,7 +228,10 @@ public class DietGeneratorService
             .Include(f => f.exchange_group)
             .Take(maxFoodsToLoad)
             .ToListAsync(cancellationToken);
+        foodsLoadElapsedMs = foodsLoadTimer.ElapsedMilliseconds;
+        _logger?.LogInformation("Diet generation phase FoodCatalogLoad completed in {ElapsedMs} ms; LoadedFoods={LoadedFoods}; Limit={Limit}", foodsLoadElapsedMs, allFoods.Count, maxFoodsToLoad);
 
+        var foodFilteringTimer = Stopwatch.StartNew();
         // Las reglas estructuradas por atributos tienen prioridad sobre las coincidencias de texto.
         // Esto evita depender de que el nombre comercial del alimento contenga una palabra concreta.
         var structuredSpecializationExclusions = tenantId.HasValue && request.ClientId.HasValue
@@ -240,6 +258,9 @@ public class DietGeneratorService
                     && HasKnownAllergenDataForClient(f, client))
                 .ToList();
         }
+
+        foodFilteringElapsedMs = foodFilteringTimer.ElapsedMilliseconds;
+        _logger?.LogInformation("Diet generation phase FoodFiltering completed in {ElapsedMs} ms; AllowedFoods={AllowedFoods}; ExclusionTerms={ExclusionTerms}", foodFilteringElapsedMs, allowedFoods.Count, exclusions.Count);
 
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -302,6 +323,8 @@ public class DietGeneratorService
         const int maxGenerationAttempts = 3;
         for (var attempt = 0; attempt < maxGenerationAttempts; attempt++)
         {
+            generationAttemptCount = attempt + 1;
+            var attemptBuildTimer = Stopwatch.StartNew();
             var weeklyUsageCount = new Dictionary<int, int>();
             var weeklyRoleFamilyUsage = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             var weeklyMealSignatures = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -355,6 +378,8 @@ public class DietGeneratorService
                 });
             }
 
+            _logger?.LogInformation("Diet generation phase BasePlanBuild completed in {ElapsedMs} ms; Attempt={Attempt}; Days={Days}; MealsPerDay={MealsPerDay}", attemptBuildTimer.ElapsedMilliseconds, attempt + 1, request.NumberOfDays, request.MealsPerDay);
+
             var candidateDiet = new DietDetailDto
             {
                 Name = $"Plan {request.DietType} ({Math.Round(targetKcal)} kcal)",
@@ -374,6 +399,7 @@ public class DietGeneratorService
             // compiten sobre la semana completa y vuelven a equilibrar cada día después.
             if (request.EnableGlobalOptimization)
             {
+                var optimizationTimer = Stopwatch.StartNew();
                 await _advancedDietOptimizer.OptimizeWeeklyPlanAsync(
                     candidateDiet,
                     request,
@@ -385,6 +411,7 @@ public class DietGeneratorService
                     targetFat,
                     dietTherapyProfile,
                     cancellationToken);
+                _logger?.LogInformation("Diet generation phase WeeklyOptimization completed in {ElapsedMs} ms; Attempt={Attempt}; Days={Days}; AllowedFoods={AllowedFoods}", optimizationTimer.ElapsedMilliseconds, attempt + 1, candidateDiet.Days.Count, allowedFoods.Count);
             }
 
             // Ninguna fase posterior puede reintroducir cantidades culinarias inválidas.
@@ -392,6 +419,7 @@ public class DietGeneratorService
 
             try
             {
+                var validationTimer = Stopwatch.StartNew();
                 await _semanticValidationService.ValidateOrThrowAsync(
                     candidateDiet,
                     request,
@@ -402,11 +430,13 @@ public class DietGeneratorService
                     canUseTenantLocalFoods,
                     cancellationToken);
 
+                _logger?.LogInformation("Diet generation phase SemanticValidation completed in {ElapsedMs} ms; Attempt={Attempt}; Result=Valid", validationTimer.ElapsedMilliseconds, attempt + 1);
                 advancedDiet = candidateDiet;
                 break;
             }
             catch (InvalidOperationException ex)
             {
+                _logger?.LogWarning("Diet generation phase SemanticValidation failed; Attempt={Attempt}; ExceptionType={ExceptionType}", attempt + 1, ex.GetType().Name);
                 if (attempt == maxGenerationAttempts - 1)
                     throw new InvalidOperationException(
                         $"No se ha podido generar una dieta válida tras {maxGenerationAttempts} intentos. Último motivo: {ex.Message}",
@@ -426,7 +456,12 @@ public class DietGeneratorService
             .ToList();
 
         // Calcular resumen diario de micronutrientes y % CDR para cada día generado
+        var micronutrientTimer = Stopwatch.StartNew();
         PopulateDailyMicronutrients(validatedDiet, allowedFoods);
+        _logger?.LogInformation("Diet generation phase MicronutrientSummary completed in {ElapsedMs} ms; Days={Days}", micronutrientTimer.ElapsedMilliseconds, validatedDiet.Days.Count);
+
+        generationTimer.Stop();
+        _logger?.LogInformation("Diet generation completed in {ElapsedMs} ms; DietType={DietType}; Days={Days}; MealsPerDay={MealsPerDay}; LoadedFoods={LoadedFoods}; AllowedFoods={AllowedFoods}; GlobalOptimization={GlobalOptimization}; Attempts={Attempts}; ProfileMs={ProfileMs}; FoodLoadMs={FoodLoadMs}; FoodFilteringMs={FoodFilteringMs}", generationTimer.ElapsedMilliseconds, request.DietType, request.NumberOfDays, request.MealsPerDay, allFoods.Count, allowedFoods.Count, request.EnableGlobalOptimization, generationAttemptCount, profileElapsedMs, foodsLoadElapsedMs, foodFilteringElapsedMs);
 
         return validatedDiet;
     }
