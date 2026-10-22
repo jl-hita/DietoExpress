@@ -309,11 +309,38 @@ public class AppointmentsController : ControllerBase
         if ((end - start).TotalDays > 365)
             return BadRequest(new { message = "El intervalo de consulta no puede superar un año." });
 
-        var query = _context.patient_appointments.AsNoTracking().Where(a => a.tenant_id == tenantId && a.starts_at < end && a.ends_at > start);
+        var query = _context.patient_appointments.AsNoTracking()
+            .Include(a => a.client)
+            .Include(a => a.nutritionist)
+            .Where(a => a.tenant_id == tenantId && a.starts_at < end && a.ends_at > start);
         if (!User.IsInRole("clinic_admin"))
             query = query.Where(a => a.nutritionist_id == userId.Value);
 
-        return Ok(await query.OrderBy(a => a.starts_at).Take(500).Select(a => ToDto(a)).ToListAsync());
+        var appointments = await query.OrderBy(a => a.starts_at).Take(500).ToListAsync();
+
+        // Los datos de contacto son información personal adicional: solo se incluyen
+        // en la vista profesional si el usuario tiene un plan de pago activo.
+        var account = await _context.users.AsNoTracking()
+            .Where(u => u.id == userId.Value && u.tenant_id == tenantId.Value)
+            .Select(u => new { u.subscription_plan, u.subscription_status })
+            .FirstOrDefaultAsync();
+        var canViewRequesterContact = account != null
+            && !string.IsNullOrWhiteSpace(account.subscription_plan)
+            && !string.Equals(account.subscription_plan, "free", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(account.subscription_status, "active", StringComparison.OrdinalIgnoreCase);
+
+        var result = appointments.Select(ToDto).ToList();
+        if (canViewRequesterContact)
+        {
+            foreach (var item in result)
+            {
+                var appointment = appointments.First(a => a.id == item.Id);
+                item.ClientEmail = appointment.client?.email;
+                item.ClientPhone = appointment.client?.phone;
+            }
+        }
+
+        return Ok(result);
     }
 
     [Authorize(Roles = "clinic_admin,nutritionist")]
