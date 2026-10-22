@@ -44,8 +44,8 @@ public sealed class DietRegenerationRestrictionTests
         {
             id = 1,
             name = "Plan Vegana",
-            user_id = 1,
-            tenant_id = 1,
+            user_id = null,
+            tenant_id = null,
             target_kcal = 2000,
             target_protein = 100,
             target_carbs = 250,
@@ -71,7 +71,7 @@ public sealed class DietRegenerationRestrictionTests
             dietId: diet.id,
             request: request,
             userId: 1,
-            tenantId: 1,
+            tenantId: null,
             isSuperAdmin: true,
             canUseTenantLocalFoods: false));
 
