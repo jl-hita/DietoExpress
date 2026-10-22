@@ -36,17 +36,18 @@ public sealed class DietSemanticValidationService
         var errors = ValidateStructure(diet, request, allowedFoods);
         var foodMap = allowedFoods.GroupBy(f => f.id).ToDictionary(g => g.Key, g => g.First());
 
+        var recipeMap = new Dictionary<int, recipes>();
         var recipeIds = diet.Days.SelectMany(d => d.Meals).SelectMany(m => m.Items)
             .Where(i => i.RecipeId.HasValue).Select(i => i.RecipeId!.Value).Distinct().ToArray();
 
         if (recipeIds.Length > 0)
         {
-            var recipes = await context.recipes.AsNoTracking().Include(r => r.recipe_items).ThenInclude(i => i.food)
+            recipeMap = await context.recipes.AsNoTracking().Include(r => r.recipe_items).ThenInclude(i => i.food)
                 .Where(r => recipeIds.Contains(r.id)).ToDictionaryAsync(r => r.id, cancellationToken);
 
             foreach (var item in diet.Days.SelectMany(d => d.Meals).SelectMany(m => m.Items).Where(i => i.RecipeId.HasValue))
             {
-                if (!recipes.TryGetValue(item.RecipeId!.Value, out var recipe))
+                if (!recipeMap.TryGetValue(item.RecipeId!.Value, out var recipe))
                 {
                     errors.Add($"La receta {item.RecipeId.Value} no existe.");
                     continue;
@@ -88,7 +89,7 @@ public sealed class DietSemanticValidationService
                 ValidateFoodItem(errors, day.DayIndex, meal, item, food);
             }
 
-            ValidateMealSemantics(errors, day.DayIndex, meal, request.DietType, foodMap);
+            ValidateMealSemantics(errors, day.DayIndex, meal, request.DietType, foodMap, recipeMap);
         }
 
         foreach (var pair in weeklyFoodUses)
@@ -146,10 +147,21 @@ public sealed class DietSemanticValidationService
         return errors;
     }
 
-    private static void ValidateMealSemantics(List<string> errors, int dayIndex, MealDto meal, string dietType, IReadOnlyDictionary<int, foods> foodMap)
+    private static void ValidateMealSemantics(List<string> errors, int dayIndex, MealDto meal, string dietType, IReadOnlyDictionary<int, foods> foodMap, IReadOnlyDictionary<int, recipes> recipeMap)
     {
         var name = Normalize(meal.Name);
         var items = meal.Items.Where(i => (i.Grams ?? 0) > 0).ToList();
+        // Las recetas se representan como un único MealItemDto sin FoodId. Para validar la
+        // estructura real de la comida hay que inspeccionar también sus ingredientes.
+        var recipeFoods = items.Where(i => i.RecipeId.HasValue)
+            .SelectMany(i => recipeMap.TryGetValue(i.RecipeId!.Value, out var recipe)
+                ? recipe.recipe_items.Where(ri => ri.food != null && ri.grams > 0).Select(ri => ri.food)
+                : Enumerable.Empty<foods>())
+            .ToList();
+        var directFoods = items.Where(i => i.FoodId.HasValue)
+            .Select(i => foodMap.TryGetValue(i.FoodId!.Value, out var food) ? food : null)
+            .Where(food => food != null).Cast<foods>();
+        var semanticFoods = directFoods.Concat(recipeFoods).ToList();
         if (items.Count == 0) { errors.Add($"Día {dayIndex + 1}, {meal.Name}: comida vacía."); return; }
 
         if (items.GroupBy(i => i.FoodId ?? -i.RecipeId.GetValueOrDefault()).Any(g => g.Key != 0 && g.Count() > 1))
@@ -158,12 +170,12 @@ public sealed class DietSemanticValidationService
         var small = name.Contains("desayuno") || name.Contains("media") || name.Contains("merienda");
         if (small)
         {
-            if (items.Any(i => i.FoodId.HasValue && IsMainProteinName(i.FoodName)))
+            if (semanticFoods.Any(food => IsMainProteinName(food.name)))
                 errors.Add($"Día {dayIndex + 1}, {meal.Name}: una ingesta pequeña contiene carne o pescado como proteína principal.");
-            if (items.Any(i => i.FoodId.HasValue && IsLegumeName(i.FoodName)) &&
-                !items.Any(i => i.FoodId.HasValue && IsBreakfastCarb(i.FoodName)))
+            if (semanticFoods.Any(food => IsLegumeName(food.name)) &&
+                !semanticFoods.Any(food => IsBreakfastCarb(food.name)))
                 errors.Add($"Día {dayIndex + 1}, {meal.Name}: las legumbres no pueden sustituir al carbohidrato de una ingesta pequeña.");
-            if (!items.Any(i => i.FoodId.HasValue && (IsBreakfastCarb(i.FoodName) || IsSnackProtein(i.FoodName) || IsNut(i.FoodName) || IsFruit(i.FoodName))))
+            if (!semanticFoods.Any(food => IsBreakfastCarb(food.name) || IsSnackProtein(food.name) || IsNut(food.name) || IsFruit(food.name)))
                 errors.Add($"Día {dayIndex + 1}, {meal.Name}: falta un componente principal de desayuno/colación.");
             return;
         }
@@ -171,10 +183,10 @@ public sealed class DietSemanticValidationService
         var type = Normalize(dietType);
         var keto = type.Contains("cetogen");
         var lowCarb = type.Contains("baja") && type.Contains("carb");
-        var hasProtein = items.Any(i => i.FoodId.HasValue && (IsMainProteinName(i.FoodName) || IsEgg(i.FoodName) || IsLegumeName(i.FoodName)));
-        var hasVegetable = items.Any(i => i.FoodId.HasValue && foodMap.TryGetValue(i.FoodId.Value, out var food) && IsVegetable(food.name, food.category));
-        var hasCarb = items.Any(i => i.FoodId.HasValue && (IsCarb(i.FoodName) || IsLegumeName(i.FoodName)));
-        var hasFat = items.Any(i => i.FoodId.HasValue && (IsOil(i.FoodName) || IsNut(i.FoodName) || IsFattyProtein(i.FoodName)));
+        var hasProtein = semanticFoods.Any(food => IsMainProteinName(food.name) || IsEgg(food.name) || IsLegumeName(food.name));
+        var hasVegetable = semanticFoods.Any(food => IsVegetable(food.name, food.category));
+        var hasCarb = semanticFoods.Any(food => IsCarb(food.name) || IsLegumeName(food.name));
+        var hasFat = semanticFoods.Any(food => IsOil(food.name) || IsNut(food.name) || IsFattyProtein(food.name));
 
         if (!hasProtein) errors.Add($"Día {dayIndex + 1}, {meal.Name}: comida principal sin fuente proteica reconocible.");
         if (!hasVegetable) errors.Add($"Día {dayIndex + 1}, {meal.Name}: comida principal sin verdura/hortaliza reconocible.");
