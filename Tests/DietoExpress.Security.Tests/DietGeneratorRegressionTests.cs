@@ -390,7 +390,7 @@ public sealed class DietGeneratorRegressionTests
     {
         var optimizer = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "AdvancedDietOptimizerService.cs"));
 
-        Assert.Contains("var mealSnapshot = meal.Items", optimizer);
+        Assert.Contains("var mealSnapshot = originalItems", optimizer);
         Assert.Contains("foreach (var entry in mealSnapshot)", optimizer);
         Assert.Contains("RestoreItem(entry.Item, entry.Snapshot)", optimizer);
     }
