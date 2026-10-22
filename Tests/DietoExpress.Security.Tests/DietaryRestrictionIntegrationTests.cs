@@ -52,6 +52,8 @@ public sealed class DietaryRestrictionIntegrationTests
         Assert.Contains("ResolveStoredDietType(d.diet_type, d.name)", dietController);
         Assert.Contains("ResolveDietType(diet)", regeneration);
         Assert.Contains("IsFoodCompatibleWithDietType", regeneration);
+        Assert.Contains("item.recipe_id = null", regeneration);
+        Assert.Contains("item.recipe_servings = null", regeneration);
         Assert.DoesNotContain("HasUnknownAllergenDataForClient", generator);
         Assert.DoesNotContain("IsAllowedForClient", regeneration);
         var substitutions = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "FoodSubstitutionService.cs"));
