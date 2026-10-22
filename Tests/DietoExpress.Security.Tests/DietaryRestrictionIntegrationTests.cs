@@ -45,6 +45,8 @@ public sealed class DietaryRestrictionIntegrationTests
         Assert.Contains("ExcludedFoodKeywords", dietDto);
         Assert.Contains("excluded_food_keywords", dietEntity);
         Assert.Contains("excluded_food_keywords = System.Text.Json.JsonSerializer.Serialize(dto.ExcludedFoodKeywords)", dietController);
+        Assert.Contains("ValidateExplicitDietExclusionsAsync", dietController);
+        Assert.Contains("ExcludedFoodKeywords = dto.ExcludedFoodKeywords", dietController);
         Assert.Contains("DeserializeExcludedFoodKeywords(d.excluded_food_keywords)", dietController);
         Assert.Contains("ADD COLUMN IF NOT EXISTS excluded_food_keywords JSONB", databaseBootstrap);
         Assert.Contains("ADD COLUMN IF NOT EXISTS diet_type VARCHAR(50)", databaseBootstrap);
