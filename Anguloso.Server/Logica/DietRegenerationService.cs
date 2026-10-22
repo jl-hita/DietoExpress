@@ -112,6 +112,9 @@ public sealed class DietRegenerationService
             .Where(food => !HasKnownAllergenDataForClients(food, restrictionClients))
             .Select(food => food.id)
             .ToHashSet();
+        var allergenMetadataWarning = allergenMetadataExcludedFoodIds.Count > 0
+            ? " Se han descartado alimentos sin datos de alérgenos verificados para pacientes con alergias declaradas."
+            : string.Empty;
 
         var usedFoodIds = diet.diet_days.SelectMany(d => d.meals).SelectMany(m => m.meal_items)
             .Where(i => i.food_id.HasValue).Select(i => i.food_id!.Value).ToHashSet();
@@ -138,7 +141,7 @@ public sealed class DietRegenerationService
             var replacement = allFoods.FirstOrDefault(f => f.id == replacementFoodId);
             if (replacement == null) throw new KeyNotFoundException("El alimento de sustitución no está disponible.");
             if (specializationExcludedFoodIds.Contains(replacement.id) || allergenMetadataExcludedFoodIds.Contains(replacement.id) || !IsAllowed(replacement, forbidden) || !DietSemanticValidationService.IsFoodCompatibleWithDietType(replacement.name, dietType, replacement.category, replacement.carbs, replacement.fat))
-                throw new InvalidOperationException("El alimento seleccionado es incompatible con las restricciones del paciente o las reglas de especialización.");
+                throw new InvalidOperationException("El alimento seleccionado es incompatible con las restricciones del paciente, las reglas de especialización o no tiene datos de alérgenos verificados para alergias declaradas.");
 
             var previous = Snapshot(item);
             if (request.PreserveWeeklyVariety && usedFoodIds.Contains(replacement.id) && replacement.id != item.food_id)
@@ -173,7 +176,7 @@ public sealed class DietRegenerationService
 
                 var candidate = candidates.FirstOrDefault();
                 if (candidate == null)
-                    throw new InvalidOperationException("No hay un alimento alternativo compatible para regenerar esta comida. No se ha guardado ningún cambio.");
+                    throw new InvalidOperationException("No hay un alimento alternativo compatible para regenerar esta comida. No se ha guardado ningún cambio." + allergenMetadataWarning);
                 Replace(item, candidate, Math.Max(5, (double)(item.grams ?? 100)));
                 mealUsed.Add(candidate.id);
             }
@@ -201,7 +204,7 @@ public sealed class DietRegenerationService
                             .OrderBy(f => CandidateScore(f, item, usedFoodIds, mealUsed)).Take(15).ToList();
                     var candidate = candidates.FirstOrDefault();
                     if (candidate == null)
-                        throw new InvalidOperationException("No hay un alimento alternativo compatible para regenerar este día. No se ha guardado ningún cambio.");
+                        throw new InvalidOperationException("No hay un alimento alternativo compatible para regenerar este día. No se ha guardado ningún cambio." + allergenMetadataWarning);
                     Replace(item, candidate, Math.Max(5, (double)(item.grams ?? 100)));
                     mealUsed.Add(candidate.id);
                 }

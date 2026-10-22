@@ -234,8 +234,12 @@ public class DietGeneratorService
         // buscar candidatos adecuados a cada franja y repartir el uso de alimentos entre días.
         if (allowedFoods.Count == 0)
         {
+            var allergenVerificationHint = !string.IsNullOrWhiteSpace(client?.food_preferences?.allergies)
+                ? " Para proteger al paciente, se han descartado alimentos sin datos de alérgenos verificados; revisa el catálogo antes de volver a generar."
+                : string.Empty;
             throw new InvalidOperationException(
-                "No queda ningún alimento compatible con las restricciones clínicas, el tipo de dieta y las exclusiones seleccionadas. Reduce las exclusiones o revisa las intolerancias/alergias del paciente.");
+                "No queda ningún alimento compatible con las restricciones clínicas, el tipo de dieta y las exclusiones seleccionadas. Reduce las exclusiones o revisa las intolerancias/alergias del paciente." +
+                allergenVerificationHint);
         }
 
         var foodPools = CategorizeFoods(allowedFoods, request.DietType);

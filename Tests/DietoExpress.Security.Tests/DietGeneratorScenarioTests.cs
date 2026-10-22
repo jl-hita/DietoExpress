@@ -92,6 +92,64 @@ public sealed class DietGeneratorScenarioTests
 
 
     [Fact]
+    public async Task MultiDayGeneration_FailsClosedWhenAllergenDataIsUnverified()
+    {
+        var options = new DbContextOptionsBuilder<angulosodbContext>()
+            .UseInMemoryDatabase($"diet-generator-unverified-allergens-{Guid.NewGuid():N}")
+            .Options;
+
+        await using var context = new angulosodbContext(options);
+        var catalog = CreateCatalog();
+        foreach (var food in catalog)
+            food.allergen_data_status = "unknown";
+        context.foods.AddRange(catalog);
+        context.clients.Add(new clients
+        {
+            id = 1,
+            full_name = "Paciente de prueba",
+            food_preferences = new food_preferences
+            {
+                id = 1,
+                client_id = 1,
+                allergies = "cacahuete",
+                preferred_foods = "",
+                disliked_foods = ""
+            }
+        });
+        await context.SaveChangesAsync();
+
+        var specializationRules = new SpecializationRulesService(context);
+        var generator = new DietGeneratorService(
+            context,
+            specializationRules,
+            new DietSemanticValidationService(new DietValidationService(specializationRules)));
+        var request = new GenerateDietRequestDto
+        {
+            NumberOfDays = 1,
+            MealsPerDay = 3,
+            TargetKcal = 2000,
+            TargetProtein = 100,
+            TargetCarbs = 250,
+            TargetFat = 67,
+            DietType = "Equilibrada",
+            ClientId = 1,
+            UseRecipes = false,
+            EnableGlobalOptimization = false,
+            EnableDietTherapyRules = false,
+            EnableAutomaticEnergyEstimate = false,
+            MaxWeeklyFoodRepetitions = 10,
+            ShoppingVarietyThreshold = 100
+        };
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            generator.GenerateDietAsync(request, tenantId: null, userId: 1, canUseTenantLocalFoods: false));
+
+        Assert.Contains("No queda ningún alimento compatible", exception.Message);
+        Assert.Contains("alérgenos verificados", exception.Message);
+    }
+
+
+    [Fact]
     public async Task MultiDayGeneration_RespectsPatientAllergiesAndIntolerances()
     {
         var options = new DbContextOptionsBuilder<angulosodbContext>()
