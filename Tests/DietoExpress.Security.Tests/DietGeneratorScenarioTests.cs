@@ -163,6 +163,10 @@ public sealed class DietGeneratorScenarioTests
             source = "BEDCA"
         });
 
+        Add("Huevo", "Huevos", 143, 13, 1.1, 10);
+        Add("Yogur natural", "Lácteos", 61, 3.5, 4.7, 3.3);
+        Add("Leche semidesnatada", "Lácteos", 46, 3.2, 4.8, 1.6);
+        Add("Queso fresco", "Lácteos", 98, 12, 3, 4);
         Add("Aceite de oliva", "Aceites", 884, 0, 0, 100);
         Add("Almendras", "Frutos secos", 579, 21, 22, 50);
 
