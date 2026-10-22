@@ -43,6 +43,8 @@ export interface PatientAppointment {
   professionalNotes?: string | null;
   clientId: number;
   clientName?: string | null;
+  clientEmail?: string | null;
+  clientPhone?: string | null;
   nutritionistId: number;
   nutritionistName?: string | null;
   modality?: string;

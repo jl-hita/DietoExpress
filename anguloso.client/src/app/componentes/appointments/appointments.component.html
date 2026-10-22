@@ -116,7 +116,13 @@
       <div class="appointment-list" *ngIf="upcoming.length; else noAppointments">
         <article class="appointment" *ngFor="let item of upcoming">
           <div class="date-block"><strong>{{ formatDate(item.startsAt) }}</strong><span>{{ formatTime(item.startsAt) }}</span></div>
-          <div class="patient"><strong>{{ item.clientName || 'Paciente' }}</strong><span *ngIf="item.modality === 'online'"><mat-icon>videocam</mat-icon> Consulta online</span><span *ngIf="item.patientNotes">{{ item.patientNotes }}</span></div>
+          <div class="patient">
+            <strong>{{ item.clientName || 'Paciente' }}</strong>
+            <span *ngIf="item.clientEmail"><mat-icon>mail</mat-icon><a [href]="'mailto:' + item.clientEmail">{{ item.clientEmail }}</a></span>
+            <span *ngIf="item.clientPhone"><mat-icon>phone</mat-icon><a [href]="'tel:' + item.clientPhone">{{ item.clientPhone }}</a></span>
+            <span *ngIf="item.modality === 'online'"><mat-icon>videocam</mat-icon> Consulta online</span>
+            <span *ngIf="item.patientNotes">{{ item.patientNotes }}</span>
+          </div>
           <span class="status" [class]="'status ' + item.status">{{ statusLabel(item.status) }}</span>
           <div class="actions">
             <button *ngIf="item.status === 'requested'" type="button" class="primary small" (click)="changeStatus(item, 'confirmed')">Confirmar</button>

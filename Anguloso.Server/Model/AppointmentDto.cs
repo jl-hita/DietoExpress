@@ -55,6 +55,9 @@ public class AppointmentDto
     public string? ProfessionalNotes { get; set; }
     public int ClientId { get; set; }
     public string? ClientName { get; set; }
+    /// <summary>Contacto del solicitante, visible solo en la vista profesional cuando la suscripción de pago está activa.</summary>
+    public string? ClientEmail { get; set; }
+    public string? ClientPhone { get; set; }
     public int NutritionistId { get; set; }
     public string? NutritionistName { get; set; }
     public string Modality { get; set; } = "in_person";
