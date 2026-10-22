@@ -467,8 +467,21 @@ public class DietController : ControllerBase
             DietType = dto.DietType,
             IsShared = dto.IsShared,
             IsTemplate = dto.IsTemplate,
-            Days = dto.Days
+            Days = dto.Days,
+            ExcludedFoodKeywords = dto.ExcludedFoodKeywords
         };
+
+        // Las exclusiones de la propia dieta se aplican incluso si aún no tiene pacientes asignados.
+        var explicitExclusionWarnings = await _validationService.ValidateExplicitDietExclusionsAsync(
+            draftDiet, _context, tenantId, userId.Value,
+            User.IsInRole("clinic_admin") || User.IsInRole("superadmin"));
+        if (explicitExclusionWarnings.Any(w => string.Equals(w.Severity, "High", StringComparison.OrdinalIgnoreCase)))
+            return Conflict(new
+            {
+                message = "La edición no se ha guardado porque contiene alimentos incompatibles con las exclusiones explícitas de la dieta.",
+                warnings = explicitExclusionWarnings
+            });
+
         foreach (var activeClientId in activeClientIds)
         {
             var incompatibilities = await _validationService.ValidateDietDraftCompatibilityAsync(
