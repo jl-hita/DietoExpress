@@ -272,7 +272,7 @@ public sealed class DietRegenerationRestrictionTests
 
         Assert.True(response.Success);
         Assert.Equal(3, item.food_id);
-        Assert.DoesNotEqual(2, item.food_id);
+        Assert.NotEqual(2, item.food_id);
     }
 
     private static foods Food(int id, string name, string category, double kcal, double protein, double carbs, double fat) =>
