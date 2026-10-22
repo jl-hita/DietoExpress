@@ -236,10 +236,10 @@ public sealed class DietSemanticValidationService
         }
     }
 
-    public static bool IsFoodCompatibleWithDietType(string? foodName, string? dietType)
+    public static bool IsFoodCompatibleWithDietType(string? foodName, string? dietType, string? category = null)
     {
         var type = Normalize(dietType ?? string.Empty);
-        var food = Normalize(foodName ?? string.Empty);
+        var food = Normalize($"{foodName ?? string.Empty} {category ?? string.Empty}");
         var vegan = type.Contains("vegana");
         var vegetarian = type.Contains("vegetariana") && !vegan;
         var keto = type.Contains("cetogen");
