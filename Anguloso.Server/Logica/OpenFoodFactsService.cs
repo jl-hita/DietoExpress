@@ -287,7 +287,7 @@ public class OpenFoodFactsService
         try
         {
             string fields = "product_name,brands,nutriscore_grade,nutriments,code,categories,serving_size,allergens_tags,traces_tags";
-            int nResultados = 20;
+            int nResultados = onlyDietEligible ? 40 : 20;
             // Construir URL (cgi/search.pl es la recomendada para json)
             var url = $"cgi/search.pl?search_terms={Uri.EscapeDataString(query)}&tagtype_0=countries&tag_contains_0=contains&tag_0={Uri.EscapeDataString(pais)}&tagtype_1=languages&tag_contains_1=contains&tag_1={Uri.EscapeDataString(lang)}&fields={Uri.EscapeDataString(fields)}&page_size={nResultados}&json=1";
             using var response = await GetSearchResponseWithRetryAsync(url, query, logImportDetails, cancellationToken);
@@ -311,7 +311,7 @@ public class OpenFoodFactsService
             // Limita las consultas de enriquecimiento USDA por búsqueda, incluso si se descartan productos incompletos.
             int usdaFallbackAttempts = 0;
 
-            foreach (var p in productsJson.EnumerateArray().Take(20))
+            foreach (var p in productsJson.EnumerateArray().Take(nResultados))
             {
                 string servingSizeText = GetString(p, "serving_size");
                 ServingSizeObject? servingSizeObject = ExtractServingSizeGrams(servingSizeText);

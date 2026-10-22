@@ -439,7 +439,7 @@ public sealed class DietGeneratorRegressionTests
             "IsVegetable", BindingFlags.Static | BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("No se encontró DietSemanticValidationService.IsVegetable.");
 
-        Assert.True((bool)(method.Invoke(null, new object?[] { "Champiñón" }) ?? false));
+        Assert.True((bool)(method.Invoke(null, new object?[] { "Champiñón", null }) ?? false));
     }
 
     [Theory]
