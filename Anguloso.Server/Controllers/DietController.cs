@@ -674,7 +674,8 @@ public class DietController : ControllerBase
             return BadRequest("Los macronutrientes objetivo deben estar entre 0 y 2000 gramos.");
         if (string.IsNullOrWhiteSpace(request.DietType) || request.DietType.Length > 50)
             return BadRequest("El tipo de dieta no es válido.");
-        if (request.ExcludedFoodKeywords.Count > 100 || request.ExcludedFoodKeywords.Any(k => k == null || k.Length > 100))
+        if (request.ExcludedFoodKeywords == null || request.ExcludedFoodKeywords.Count > 100 ||
+            request.ExcludedFoodKeywords.Any(k => k == null || k.Length > 100))
             return BadRequest("La lista de exclusiones no puede superar 100 términos de hasta 100 caracteres.");
 
         if (request.ClientId.HasValue)
