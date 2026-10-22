@@ -90,6 +90,80 @@ public sealed class DietGeneratorScenarioTests
         }
     }
 
+
+    [Fact]
+    public async Task MultiDayGeneration_RespectsPatientAllergiesAndIntolerances()
+    {
+        var options = new DbContextOptionsBuilder<angulosodbContext>()
+            .UseInMemoryDatabase($"diet-generator-clinical-{Guid.NewGuid():N}")
+            .Options;
+
+        await using var context = new angulosodbContext(options);
+        var catalog = CreateCatalog();
+        var peanutTaggedFood = catalog.Single(food => food.name == "Tofu firme");
+        peanutTaggedFood.allergen_tags = new[] { "en:peanuts" };
+        peanutTaggedFood.allergen_data_status = "reported";
+        context.foods.AddRange(catalog);
+
+        var client = new clients
+        {
+            id = 1,
+            full_name = "Paciente de prueba",
+            food_preferences = new food_preferences
+            {
+                id = 1,
+                client_id = 1,
+                allergies = "cacahuete"
+            },
+            digestive_health = new digestive_health
+            {
+                id = 1,
+                client_id = 1,
+                lactose_intolerance = true
+            }
+        };
+        context.clients.Add(client);
+        await context.SaveChangesAsync();
+
+        var specializationRules = new SpecializationRulesService(context);
+        var validation = new DietValidationService(specializationRules);
+        var semanticValidation = new DietSemanticValidationService(validation);
+        var generator = new DietGeneratorService(context, specializationRules, semanticValidation);
+
+        var diet = await generator.GenerateDietAsync(new GenerateDietRequestDto
+        {
+            ClientId = client.id,
+            NumberOfDays = 3,
+            MealsPerDay = 3,
+            TargetKcal = 2000,
+            TargetProtein = 100,
+            TargetCarbs = 250,
+            TargetFat = 67,
+            DietType = "Equilibrada",
+            ExcludedFoodKeywords = new List<string> { " Plátano " },
+            UseRecipes = false,
+            EnableGlobalOptimization = false,
+            EnableDietTherapyRules = false,
+            EnableAutomaticEnergyEstimate = false,
+            MaxWeeklyFoodRepetitions = 10,
+            ShoppingVarietyThreshold = 100
+        }, tenantId: null, userId: 1, canUseTenantLocalFoods: false);
+
+        var items = diet.Days.SelectMany(day => day.Meals).SelectMany(meal => meal.Items).ToList();
+        Assert.NotEmpty(items);
+        Assert.DoesNotContain(items, item => item.FoodName == "Tofu firme");
+        Assert.DoesNotContain(items, item =>
+        {
+            var name = DietaryRestrictionRules.Normalize(item.FoodName);
+            return name.Contains("yogur", StringComparison.Ordinal) ||
+                   name.Contains("leche", StringComparison.Ordinal) ||
+                   name.Contains("queso", StringComparison.Ordinal) ||
+                   name.Contains("almendra", StringComparison.Ordinal);
+        });
+        Assert.DoesNotContain(items, item =>
+            DietaryRestrictionRules.Normalize(item.FoodName).Contains("platano", StringComparison.Ordinal));
+    }
+
     private static List<foods> CreateCatalog()
     {
         var catalog = new List<foods>();
