@@ -326,7 +326,7 @@ public class AppointmentsController : ControllerBase
             .FirstOrDefaultAsync();
         var canViewRequesterContact = account != null
             && !string.IsNullOrWhiteSpace(account.subscription_plan)
-            && !string.Equals(account.subscription_plan, "free", StringComparison.OrdinalIgnoreCase)
+            && !new[] { "free", "demo_nutri", "trial_nutri" }.Contains(account.subscription_plan, StringComparer.OrdinalIgnoreCase)
             && string.Equals(account.subscription_status, "active", StringComparison.OrdinalIgnoreCase);
 
         var result = appointments.Select(ToDto).ToList();
