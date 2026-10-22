@@ -1,6 +1,7 @@
 using System.Reflection;
 using Anguloso.Server.Logica;
 using Anguloso.Server.Model;
+using Anguloso.Server.Models;
 using Xunit;
 
 namespace DietoExpress.Security.Tests;
