@@ -605,6 +605,17 @@ public class DietController : ControllerBase
         }
     }
 
+    private static bool IsValidTargetKcal(double targetKcal, bool enableAutomaticEnergyEstimate)
+    {
+        if (double.IsNaN(targetKcal) || double.IsInfinity(targetKcal) ||
+            targetKcal < 0 || targetKcal > 10000)
+            return false;
+
+        return targetKcal == 0
+            ? enableAutomaticEnergyEstimate
+            : targetKcal >= 500;
+    }
+
     // POST: api/dietas/generate
     // Genera un plan de dieta estructurado de forma determinista
     [HttpPost("generate")]
@@ -620,9 +631,8 @@ public class DietController : ControllerBase
             return BadRequest("El número de días debe estar entre 1 y 14.");
         if (request.MealsPerDay < 3 || request.MealsPerDay > 5)
             return BadRequest("El número de comidas por día debe estar entre 3 y 5.");
-        if (double.IsNaN(request.TargetKcal) || double.IsInfinity(request.TargetKcal) ||
-            request.TargetKcal < 500 || request.TargetKcal > 10000)
-            return BadRequest("Las calorías objetivo deben estar entre 500 y 10000.");
+        if (!IsValidTargetKcal(request.TargetKcal, request.EnableAutomaticEnergyEstimate))
+            return BadRequest("Las calorías objetivo deben estar entre 500 y 10000, o ser 0 para estimación automática.");
         if ((request.TargetProtein.HasValue && (double.IsNaN(request.TargetProtein.Value) || double.IsInfinity(request.TargetProtein.Value) || request.TargetProtein.Value < 0 || request.TargetProtein.Value > 2000)) ||
             (request.TargetCarbs.HasValue && (double.IsNaN(request.TargetCarbs.Value) || double.IsInfinity(request.TargetCarbs.Value) || request.TargetCarbs.Value < 0 || request.TargetCarbs.Value > 2000)) ||
             (request.TargetFat.HasValue && (double.IsNaN(request.TargetFat.Value) || double.IsInfinity(request.TargetFat.Value) || request.TargetFat.Value < 0 || request.TargetFat.Value > 2000)))
