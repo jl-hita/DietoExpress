@@ -188,7 +188,11 @@ public class DietGeneratorService
         var canUseAnyTenantLocalFood = tenantId.HasValue && canUseTenantLocalFoods;
         var allFoods = await _context.foods
             .AsNoTracking()
-            .Where(f => f.kcal.HasValue && f.kcal > 0 && f.name != null &&
+            .Where(f => f.kcal.HasValue && f.kcal > 0 &&
+                f.protein.HasValue && f.protein.Value >= 0 &&
+                f.carbs.HasValue && f.carbs.Value >= 0 &&
+                f.fat.HasValue && f.fat.Value >= 0 &&
+                f.name != null &&
                 ((f.source == null || f.source.ToLower() != "local") ||
                  (tenantId.HasValue && f.tenant_id == tenantId.Value &&
                   (canUseAnyTenantLocalFood || f.created_by_user_id == userId))))
