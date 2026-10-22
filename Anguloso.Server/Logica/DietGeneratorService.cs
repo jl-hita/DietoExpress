@@ -1410,6 +1410,10 @@ public class DietGeneratorService
 
         foreach (var f in all)
         {
+            if (!DietSemanticValidationService.IsFoodCompatibleWithDietType(
+                f.name, dietType, f.category, f.carbs, f.fat))
+                continue;
+
             var name = (f.name ?? "").ToLowerInvariant();
             var cat = (f.category ?? "").ToLowerInvariant();
             double p = f.protein ?? 0;
