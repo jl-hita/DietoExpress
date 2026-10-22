@@ -437,4 +437,11 @@ public sealed class DietGeneratorRegressionTests
     {
         Assert.Equal(expected, DietSemanticValidationService.IsFoodCompatibleWithDietType(foodName, dietType));
     }
+
+    [Fact]
+    public void OptimizerRejectsHighCarbohydrateFoodsForKetogenicDiets()
+    {
+        Assert.False(DietSemanticValidationService.IsFoodCompatibleWithDietType(
+            "Dátil", "Cetogenica", null, carbsPer100g: 60, fatPer100g: 0));
+    }
 }
