@@ -388,8 +388,7 @@ public sealed class DietSemanticValidationService
         // La judía verde es una hortaliza, no una legumbre seca; evitar que "judía"
         // por sí sola dispare las reglas de legumbres y de formato seco/crudo.
         if (normalized.Contains("judia verde")) return false;
-        return new[] { "lenteja", "garbanzo", "alubia", "judia blanca", "judia pinta",
-            "judia roja", "judia negra", "judion", "guisante seco", "guisantes secos" }
+        return new[] { "lenteja", "garbanzo", "alubia", "judia", "guisante" }
             .Any(normalized.Contains);
     }
     private static bool IsMainProteinName(string? name) => new[] { "pollo","pavo","ternera","cerdo","conejo","atun","salmon","merluza","bacalao","dorada","lubina","sardina","caballa","gamba","tofu","tempeh" }.Any(Normalize(name ?? string.Empty).Contains);
