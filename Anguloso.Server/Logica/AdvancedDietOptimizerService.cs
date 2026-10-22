@@ -275,24 +275,49 @@ public sealed class AdvancedDietOptimizerService
         var duplicateMeals = signatures.Count - signatures.Distinct(StringComparer.OrdinalIgnoreCase).Count();
         var repeatedFoods = days.SelectMany(d => d.Meals).SelectMany(m => m.Items).Where(i => i.FoodId.HasValue).GroupBy(i => i.FoodId!.Value).Sum(g => Math.Max(0, g.Count() - request.MaxWeeklyFoodRepetitions));
         var familyCounts = days.SelectMany(d => d.Meals).SelectMany(m => m.Items).Where(i => i.FoodId.HasValue && foodMap.ContainsKey(i.FoodId.Value)).GroupBy(i => GetFamily(foodMap[i.FoodId!.Value])).ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
-        var frequencyPenalty = FrequencyPenalty(familyCounts, days.Count, therapyProfile, request.DietType);
+        var frequencyPenalty = FrequencyPenalty(familyCounts, days.Count, therapyProfile, request.DietType, foodMap.Values);
         var therapyPenalty = CalculateTherapyNutrientPenalty(days, foodMap, therapyProfile);
         var shopping = CalculateShoppingMetrics(diet);
         return dailyError * 1000 + duplicateMeals * 7 + repeatedFoods * 1.5 + frequencyPenalty * 5 + therapyPenalty * 8 + Math.Max(0, shopping.UniqueFoods - request.ShoppingVarietyThreshold) * 0.20;
     }
 
-    private static double FrequencyPenalty(Dictionary<string, int> counts, int days, DietTherapyProfile? therapyProfile, string dietType)
+    private static double FrequencyPenalty(
+        Dictionary<string, int> counts,
+        int days,
+        DietTherapyProfile? therapyProfile,
+        string dietType,
+        IEnumerable<foods> availableFoods)
     {
-        var weekly = therapyProfile?.FrequencyTargets ?? new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase) { ["fruta"] = 1, ["verdura"] = 2, ["legumbre"] = 3.0 / 7.0, ["pescado_marisco"] = 2.0 / 7.0, ["frutos_secos"] = 4.0 / 7.0 };
-        var targets = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+        var weekly = therapyProfile?.FrequencyTargets ?? new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)
         {
-            ["fruta"] = Math.Max(1, (int)Math.Ceiling(days * weekly.GetValueOrDefault("fruta"))),
-            ["verdura"] = Math.Max(2, (int)Math.Ceiling(days * weekly.GetValueOrDefault("verdura"))),
-            ["legumbre"] = Math.Max(1, (int)Math.Ceiling(days * weekly.GetValueOrDefault("legumbre"))),
-            ["frutos_secos"] = Math.Max(1, (int)Math.Ceiling(days * weekly.GetValueOrDefault("frutos_secos")))
+            ["fruta"] = 1,
+            ["verdura"] = 2,
+            ["legumbre"] = 3.0 / 7.0,
+            ["pescado_marisco"] = 2.0 / 7.0,
+            ["frutos_secos"] = 4.0 / 7.0
         };
-        if (DietSemanticValidationService.IsFoodCompatibleWithDietType("Pescado", dietType, "Pescado"))
-            targets["pescado_marisco"] = Math.Max(1, (int)Math.Ceiling(days * weekly.GetValueOrDefault("pescado_marisco")));
+        // No penalizar objetivos de frecuencia que el catálogo permitido no puede cumplir
+        // (por ejemplo pescado en una dieta vegana o frutos secos con alergia declarada).
+        var availableFamilies = availableFoods
+            .Where(IsOptimizerFood)
+            .Where(IsProfessionalAutomaticFood)
+            .Where(food => DietSemanticValidationService.IsFoodCompatibleWithDietType(
+                food.name, dietType, food.category, food.carbs, food.fat))
+            .Select(GetFamily)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var targets = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        void AddTarget(string family, int minimum, double defaultWeekly)
+        {
+            if (availableFamilies.Contains(family))
+                targets[family] = Math.Max(minimum, (int)Math.Ceiling(days * weekly.GetValueOrDefault(family, defaultWeekly)));
+        }
+
+        AddTarget("fruta", 1, 1);
+        AddTarget("verdura", 2, 2);
+        AddTarget("legumbre", 1, 3.0 / 7.0);
+        AddTarget("frutos_secos", 1, 4.0 / 7.0);
+        AddTarget("pescado_marisco", 1, 2.0 / 7.0);
 
         return targets.Sum(target => Math.Max(0, target.Value - counts.GetValueOrDefault(target.Key)) * 2.0);
     }
