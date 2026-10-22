@@ -415,4 +415,14 @@ public sealed class DietGeneratorRegressionTests
         Assert.Contains("food.fat.HasValue", optimizer);
         Assert.Contains(".Value >= 0", optimizer);
     }
+
+    [Fact]
+    public void SemanticValidation_RecognizesMushroomsAfterAccentNormalization()
+    {
+        var method = typeof(DietSemanticValidationService).GetMethod(
+            "IsVegetable", BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("No se encontró DietSemanticValidationService.IsVegetable.");
+
+        Assert.True((bool)(method.Invoke(null, new object?[] { "Champiñón" }) ?? false));
+    }
 }
