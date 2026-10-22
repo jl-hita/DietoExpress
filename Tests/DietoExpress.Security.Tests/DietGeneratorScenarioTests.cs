@@ -36,8 +36,8 @@ public sealed class DietGeneratorScenarioTests
             MealsPerDay = 3,
             TargetKcal = 2000,
             TargetProtein = 100,
-            TargetCarbs = 230,
-            TargetFat = 65,
+            TargetCarbs = 250,
+            TargetFat = 67,
             DietType = dietType,
             ExcludedFoodKeywords = new List<string> { " Plátano " },
             UseRecipes = false,
@@ -70,8 +70,16 @@ public sealed class DietGeneratorScenarioTests
 
         foreach (var day in diet.Days)
         {
-            var kcal = day.Meals.SelectMany(meal => meal.Items).Sum(item => (double)(item.Kcal ?? 0));
+            var dayItems = day.Meals.SelectMany(meal => meal.Items).ToList();
+            var kcal = dayItems.Sum(item => (double)(item.Kcal ?? 0));
+            var protein = dayItems.Sum(item => (double)(item.Protein ?? 0));
+            var carbs = dayItems.Sum(item => (double)(item.Carbs ?? 0));
+            var fat = dayItems.Sum(item => (double)(item.Fat ?? 0));
+
             Assert.InRange(Math.Abs(kcal - 2000) / 2000, 0, 0.15);
+            Assert.InRange(Math.Abs(protein - 100) / 100, 0, 0.20);
+            Assert.InRange(Math.Abs(carbs - 250) / 250, 0, 0.20);
+            Assert.InRange(Math.Abs(fat - 67) / 67, 0, 0.20);
         }
     }
 
