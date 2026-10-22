@@ -5,6 +5,7 @@ import { MAT_DIALOG_DATA, MatDialogRef, MatDialogModule } from '@angular/materia
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -30,6 +31,7 @@ type KcalSource = 'default' | 'biometrics' | 'error';
     MatButtonModule,
     MatFormFieldModule,
     MatInputModule,
+    MatCheckboxModule,
     MatSelectModule,
     MatIconModule,
     MatProgressSpinnerModule
@@ -58,14 +60,21 @@ type KcalSource = 'default' | 'biometrics' | 'error';
         </div>
 
         <form [formGroup]="form" class="dialog-form" style="display: flex; flex-direction: column; gap: 12px;">
+          <mat-checkbox *ngIf="data.clientId" formControlName="autoEnergy">
+            Calcular automáticamente según el perfil energético del paciente
+          </mat-checkbox>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
             <div style="display: flex; flex-direction: column; gap: 4px;">
-              <mat-form-field appearance="outline">
+              <mat-form-field *ngIf="!form.get('autoEnergy')?.value" appearance="outline">
                 <mat-label>Calorías diarias (kcal)</mat-label>
-                <input matInput type="number" formControlName="targetKcal" min="1000" max="5000" />
+                <input matInput type="number" formControlName="targetKcal" min="800" max="5000" />
               </mat-form-field>
+              <div *ngIf="form.get('autoEnergy')?.value" role="note"
+                   style="border: 1px solid #93c5fd; border-radius: 6px; padding: 12px; color: #1e40af; font-size: 13px; line-height: 1.45;">
+                El servidor calculará el objetivo energético con las biometrías disponibles y el perfil del paciente, aplicando el déficit, el ritmo semanal y el mínimo configurados. Revisa el resultado antes de confirmar la dieta.
+              </div>
               <!-- Badge de origen de kcal -->
-              <div *ngIf="data.clientId">
+              <div *ngIf="data.clientId && !form.get('autoEnergy')?.value">
                 <span *ngIf="kcalSource === 'biometrics'"
                   style="font-size: 11px; color: #16a34a; display: flex; align-items: center; gap: 4px; margin-top: -8px;">
                   <mat-icon style="font-size: 14px; width: 14px; height: 14px;">verified</mat-icon>
@@ -218,6 +227,7 @@ export class DietGeneratorDialogComponent implements OnInit {
   ) {
     this.form = this.fb.group({
       targetKcal: [data.defaultKcal || 2000, [Validators.required, Validators.min(800)]],
+      autoEnergy: [!!data.clientId],
       dietType: ['Equilibrada', Validators.required],
       mealsPerDay: [5, Validators.required],
       numberOfDays: [7, Validators.required],
@@ -260,7 +270,9 @@ export class DietGeneratorDialogComponent implements OnInit {
       : [];
 
     const payload = {
-      targetKcal: raw.targetKcal,
+      targetKcal: raw.autoEnergy ? 0 : raw.targetKcal,
+      enableAutomaticEnergyEstimate: !!raw.autoEnergy,
+      enableDietTherapyRules: true,
       dietType: raw.dietType,
       mealsPerDay: raw.mealsPerDay,
       numberOfDays: raw.numberOfDays,

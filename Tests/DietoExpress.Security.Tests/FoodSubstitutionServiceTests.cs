@@ -50,6 +50,60 @@ public class FoodSubstitutionServiceTests
     }
 
     [Fact]
+    public async Task SuggestAsync_FiltersUnverifiedAllergenRowsBeforeCandidateLimit()
+    {
+        await using var db = CreateContext();
+        db.foods.Add(new foods
+        {
+            id = 1,
+            name = "Fuente segura",
+            kcal = 100,
+            protein = 10,
+            carbs = 10,
+            fat = 2,
+            source = "global",
+            dietary_flags = Array.Empty<string>(),
+            allergen_tags = Array.Empty<string>(),
+            traces_tags = Array.Empty<string>(),
+            allergen_data_status = "reported"
+        });
+        db.foods.AddRange(Enumerable.Range(2, 500).Select(id => new foods
+        {
+            id = id,
+            name = $"Alimento sin verificar {id}",
+            kcal = 100,
+            protein = 10,
+            carbs = 10,
+            fat = 2,
+            source = "global",
+            dietary_flags = Array.Empty<string>(),
+            allergen_tags = Array.Empty<string>(),
+            traces_tags = Array.Empty<string>(),
+            allergen_data_status = "unknown"
+        }));
+        db.foods.Add(new foods
+        {
+            id = 502,
+            name = "Candidato verificado",
+            kcal = 101,
+            protein = 10,
+            carbs = 10,
+            fat = 2,
+            source = "global",
+            dietary_flags = Array.Empty<string>(),
+            allergen_tags = Array.Empty<string>(),
+            traces_tags = Array.Empty<string>(),
+            allergen_data_status = "reported"
+        });
+        await db.SaveChangesAsync();
+
+        var result = await new FoodSubstitutionService(db)
+            .SuggestAsync(1, null, true, "kcal", null, 10, default, "cacahuete");
+
+        Assert.Contains(result, candidate => candidate.Id == 502);
+    }
+
+    [Fact]
     public async Task SuggestAsync_EnforcesTenantIsolationForLocalFoods()
     {
         await using var db = CreateContext();
@@ -67,7 +121,7 @@ public class FoodSubstitutionServiceTests
     }
 
     [Fact]
-    public async Task SuggestAsync_ExcludesKnownAllergensAndTracesButKeepsUnknownMetadataCandidate()
+    public async Task SuggestAsync_ExcludesKnownAllergensTracesAndUnknownMetadataForAllergicPatients()
     {
         await using var db = CreateContext();
         db.foods.AddRange(
@@ -83,8 +137,12 @@ public class FoodSubstitutionServiceTests
 
         Assert.DoesNotContain(result, x => x.Id == 2);
         Assert.DoesNotContain(result, x => x.Id == 3);
-        Assert.Contains(result, x => x.Id == 4);
+        Assert.DoesNotContain(result, x => x.Id == 4);
         Assert.Contains(result, x => x.Id == 5);
+
+        var withoutDeclaredAllergies = await new FoodSubstitutionService(db)
+            .SuggestAsync(1, null, true, "kcal", null, 10);
+        Assert.Contains(withoutDeclaredAllergies, x => x.Id == 4);
     }
 
     [Fact]

@@ -236,6 +236,33 @@ public sealed class DietSemanticValidationService
         }
     }
 
+    public static bool IsFoodCompatibleWithDietType(
+        string? foodName,
+        string? dietType,
+        string? category = null,
+        double? carbsPer100g = null,
+        double? fatPer100g = null)
+    {
+        var type = Normalize(dietType ?? string.Empty);
+        var food = Normalize($"{foodName ?? string.Empty} {category ?? string.Empty}");
+        var vegan = type.Contains("vegana");
+        var vegetarian = type.Contains("vegetariana") && !vegan;
+        var keto = type.Contains("cetogen");
+        var lowCarb = type.Contains("baja") && type.Contains("carb");
+
+        if (vegan && IsAnimalFood(food)) return false;
+        if (vegetarian && IsVegetarianForbiddenFood(food)) return false;
+        if (keto && IsKetoForbiddenCarb(food)) return false;
+        if (keto && carbsPer100g is double carbs && fatPer100g is double fat && carbs > 10 && carbs > fat) return false;
+        if (lowCarb && IsLowCarbForbiddenStaple(food)) return false;
+        return true;
+    }
+
+    private static bool IsVegetarianForbiddenFood(string food) =>
+        new[] { "carne", "pollo", "pavo", "ternera", "cerdo", "conejo", "cordero", "pescado",
+                "atun", "salmon", "merluza", "bacalao", "sardina", "caballa", "marisco", "gamba" }
+            .Any(food.Contains);
+
     private static void ValidateDietTypeSemantics(List<string> errors, DietDetailDto diet, string dietType)
     {
         var type = Normalize(dietType);
@@ -250,8 +277,10 @@ public sealed class DietSemanticValidationService
         {
             var food = Normalize(item.FoodName ?? string.Empty);
 
-            if ((vegan || vegetarian) && IsAnimalFood(food))
-                errors.Add($"Día {day.DayIndex + 1}, {meal.Name}: «{item.FoodName}» no es compatible con una pauta {(vegan ? "vegana" : "vegetariana")}.");
+            if (vegan && IsAnimalFood(food))
+                errors.Add($"Día {day.DayIndex + 1}, {meal.Name}: «{item.FoodName}» no es compatible con una pauta vegana.");
+            if (vegetarian && IsVegetarianForbiddenFood(food))
+                errors.Add($"Día {day.DayIndex + 1}, {meal.Name}: «{item.FoodName}» no es compatible con una pauta vegetariana.");
 
             if (keto && IsKetoForbiddenCarb(food))
                 errors.Add($"Día {day.DayIndex + 1}, {meal.Name}: «{item.FoodName}» es incompatible con la estructura de una pauta cetogénica.");
@@ -273,7 +302,7 @@ public sealed class DietSemanticValidationService
     private static bool IsAnimalFood(string food) =>
         new[] { "carne", "pollo", "pavo", "ternera", "cerdo", "conejo", "cordero", "pescado",
                 "atun", "salmon", "merluza", "bacalao", "sardina", "caballa", "marisco", "gamba",
-                "huevo", "clara", "leche", "yogur", "queso", "kefir", "mantequilla", "miel",
+                "huevo", "clara", "leche", "yogur", "queso", "kefir", "lacteo", "mantequilla", "miel",
                 "gelatina" }.Any(food.Contains);
 
     private static bool IsKetoForbiddenCarb(string food) =>
@@ -340,7 +369,7 @@ public sealed class DietSemanticValidationService
     private static bool IsRareOil(string? name) { var n = Normalize(name ?? string.Empty); return IsOil(n) && !n.Contains("aceite de oliva") && !n.Contains("aceite de girasol"); }
     private static bool IsOil(string? name) => Normalize(name ?? string.Empty).StartsWith("aceite ");
     private static bool IsFruit(string? name) => new[] { "manzana","naranja","pera","mandarina","platano","fresa","kiwi","melocoton","melon","sandia","uva","albaricoque","ciruela","fruta fresca","fruta" }.Any(Normalize(name ?? string.Empty).Contains);
-    private static bool IsVegetable(string? name) => new[] { "tomate","lechuga","espinaca","calabacin","berenjena","brocoli","zanahoria","pepino","pimiento","judia verde","champiñon","calabaza","cebolla","puerro","coliflor","esparrago" }.Any(Normalize(name ?? string.Empty).Contains);
+    private static bool IsVegetable(string? name) => new[] { "tomate","lechuga","espinaca","calabacin","berenjena","brocoli","zanahoria","pepino","pimiento","judia verde","champinon","calabaza","cebolla","puerro","coliflor","esparrago" }.Any(Normalize(name ?? string.Empty).Contains);
     private static bool IsCarb(string? name) => new[] { "arroz","pasta","patata","boniato","pan","avena","quinoa","cuscus","tostada","cereal" }.Any(Normalize(name ?? string.Empty).Contains);
     private static bool IsLegumeName(string? name) => new[] { "lenteja","garbanzo","alubia","judia","guisante" }.Any(Normalize(name ?? string.Empty).Contains);
     private static bool IsMainProteinName(string? name) => new[] { "pollo","pavo","ternera","cerdo","conejo","atun","salmon","merluza","bacalao","dorada","lubina","sardina","caballa","gamba","tofu","tempeh" }.Any(Normalize(name ?? string.Empty).Contains);

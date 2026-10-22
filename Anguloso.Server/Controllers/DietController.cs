@@ -164,6 +164,8 @@ public class DietController : ControllerBase
             TargetCarbs = d.target_carbs,
             TargetFat = d.target_fat,
             Notes = d.notes,
+            ExcludedFoodKeywords = DeserializeExcludedFoodKeywords(d.excluded_food_keywords),
+            DietType = ResolveStoredDietType(d.diet_type, d.name),
             CreatedAt = d.created_at,
             IsShared = d.is_shared,
             IsTemplate = d.is_template,
@@ -201,6 +203,38 @@ public class DietController : ControllerBase
     }
 
     // Los límites evitan cargas excesivas y mantienen acotado el tamaño de cada dieta recibida por API.
+    private static string ResolveStoredDietType(string? stored, string? dietName)
+    {
+        if (!string.IsNullOrWhiteSpace(stored) &&
+            !string.Equals(stored, "Equilibrada", StringComparison.OrdinalIgnoreCase))
+            return stored.Trim();
+
+        // Compatibilidad con dietas generadas antes de persistir DietType como campo propio.
+        var name = dietName ?? string.Empty;
+        foreach (var known in new[] { "Vegana", "Vegetariana", "Cetogenica", "BajaCarbos", "AltaProteina" })
+            if (name.Contains(known, StringComparison.OrdinalIgnoreCase))
+                return known;
+
+        return string.IsNullOrWhiteSpace(stored) ? "Equilibrada" : stored.Trim();
+    }
+
+    private static List<string> DeserializeExcludedFoodKeywords(string? json)
+    {
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<List<string>>(json ?? "[]")?
+                .Where(keyword => !string.IsNullOrWhiteSpace(keyword))
+                .Select(keyword => keyword.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(100)
+                .ToList() ?? new List<string>();
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return new List<string>();
+        }
+    }
+
     private static string? ValidateDietPayload(string? name, string? notes, ICollection<DietDayDto>? days)
     {
         if (string.IsNullOrWhiteSpace(name)) return "El nombre de la dieta es obligatorio.";
@@ -228,6 +262,11 @@ public class DietController : ControllerBase
 
         var validationError = ValidateDietPayload(dto.Name, dto.Notes, dto.Days);
         if (validationError != null) return BadRequest(validationError);
+        if (dto.ExcludedFoodKeywords == null || dto.ExcludedFoodKeywords.Count > 100 ||
+            dto.ExcludedFoodKeywords.Any(k => k == null || k.Length > 100))
+            return BadRequest("La lista de exclusiones no puede superar 100 términos de hasta 100 caracteres.");
+        if (string.IsNullOrWhiteSpace(dto.DietType) || dto.DietType.Length > 50)
+            return BadRequest("El tipo de dieta no es válido.");
 
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
@@ -235,6 +274,28 @@ public class DietController : ControllerBase
         var tenantId = AuthHelpers.GetTenantId(User);
         if (!tenantId.HasValue) return BadRequest("El usuario no pertenece a una clínica.");
         var tenantIdValue = tenantId.Value;
+
+        var draftForExclusionValidation = new DietDetailDto
+        {
+            Name = dto.Name,
+            TargetKcal = dto.TargetKcal,
+            TargetProtein = dto.TargetProtein,
+            TargetCarbs = dto.TargetCarbs,
+            TargetFat = dto.TargetFat,
+            Notes = dto.Notes,
+            DietType = dto.DietType,
+            Days = dto.Days,
+            ExcludedFoodKeywords = dto.ExcludedFoodKeywords
+        };
+        var explicitExclusionWarnings = await _validationService.ValidateExplicitDietExclusionsAsync(
+            draftForExclusionValidation, _context, tenantId, userId.Value,
+            User.IsInRole("clinic_admin") || User.IsInRole("superadmin"));
+        if (explicitExclusionWarnings.Any(w => string.Equals(w.Severity, "High", StringComparison.OrdinalIgnoreCase)))
+            return Conflict(new
+            {
+                message = "La dieta no se ha creado porque contiene alimentos incompatibles con sus exclusiones explícitas.",
+                warnings = explicitExclusionWarnings
+            });
 
         // La creación y eventual asignación de la dieta forman una unidad: si falla cualquiera de las validaciones o escrituras posteriores, no queda una dieta huérfana ni una asignación parcial.
         await using var transaction = await _context.Database.BeginTransactionAsync();
@@ -282,6 +343,8 @@ public class DietController : ControllerBase
                 target_carbs = dto.TargetCarbs,
                 target_fat = dto.TargetFat,
                 notes = dto.Notes ?? "",
+                excluded_food_keywords = System.Text.Json.JsonSerializer.Serialize(dto.ExcludedFoodKeywords),
+                diet_type = dto.DietType.Trim(),
                 is_shared = dto.IsShared && await _licenseService.CanUseFeatureAsync(AuthHelpers.GetTenantId(User), "SHARED_DIETS"),
                 is_template = dto.IsTemplate,
                 created_at = DateTime.UtcNow
@@ -384,6 +447,11 @@ public class DietController : ControllerBase
 
         var validationError = ValidateDietPayload(dto.Name, dto.Notes, dto.Days);
         if (validationError != null) return BadRequest(validationError);
+        if (dto.ExcludedFoodKeywords == null || dto.ExcludedFoodKeywords.Count > 100 ||
+            dto.ExcludedFoodKeywords.Any(k => k == null || k.Length > 100))
+            return BadRequest("La lista de exclusiones no puede superar 100 términos de hasta 100 caracteres.");
+        if (string.IsNullOrWhiteSpace(dto.DietType) || dto.DietType.Length > 50)
+            return BadRequest("El tipo de dieta no es válido.");
 
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
@@ -418,10 +486,24 @@ public class DietController : ControllerBase
             TargetCarbs = dto.TargetCarbs,
             TargetFat = dto.TargetFat,
             Notes = dto.Notes,
+            DietType = dto.DietType,
             IsShared = dto.IsShared,
             IsTemplate = dto.IsTemplate,
-            Days = dto.Days
+            Days = dto.Days,
+            ExcludedFoodKeywords = dto.ExcludedFoodKeywords
         };
+
+        // Las exclusiones de la propia dieta se aplican incluso si aún no tiene pacientes asignados.
+        var explicitExclusionWarnings = await _validationService.ValidateExplicitDietExclusionsAsync(
+            draftDiet, _context, tenantId, userId.Value,
+            User.IsInRole("clinic_admin") || User.IsInRole("superadmin"));
+        if (explicitExclusionWarnings.Any(w => string.Equals(w.Severity, "High", StringComparison.OrdinalIgnoreCase)))
+            return Conflict(new
+            {
+                message = "La edición no se ha guardado porque contiene alimentos incompatibles con las exclusiones explícitas de la dieta.",
+                warnings = explicitExclusionWarnings
+            });
+
         foreach (var activeClientId in activeClientIds)
         {
             var incompatibilities = await _validationService.ValidateDietDraftCompatibilityAsync(
@@ -442,6 +524,8 @@ public class DietController : ControllerBase
         diet.target_carbs = dto.TargetCarbs;
         diet.target_fat = dto.TargetFat;
         diet.notes = dto.Notes ?? diet.notes ?? "";
+        diet.excluded_food_keywords = System.Text.Json.JsonSerializer.Serialize(dto.ExcludedFoodKeywords);
+        diet.diet_type = dto.DietType.Trim();
         if (dto.IsShared && !await _licenseService.CanUseFeatureAsync(tenantId, "SHARED_DIETS"))
             return Forbid();
         if (dto.IsTemplate && !await _licenseService.CanUseFeatureAsync(tenantId, "DIET_TEMPLATES"))
@@ -556,6 +640,17 @@ public class DietController : ControllerBase
         }
     }
 
+    private static bool IsValidTargetKcal(double targetKcal, bool enableAutomaticEnergyEstimate)
+    {
+        if (double.IsNaN(targetKcal) || double.IsInfinity(targetKcal) ||
+            targetKcal < 0 || targetKcal > 10000)
+            return false;
+
+        return targetKcal == 0
+            ? enableAutomaticEnergyEstimate
+            : targetKcal >= 500;
+    }
+
     // POST: api/dietas/generate
     // Genera un plan de dieta estructurado de forma determinista
     [HttpPost("generate")]
@@ -571,16 +666,16 @@ public class DietController : ControllerBase
             return BadRequest("El número de días debe estar entre 1 y 14.");
         if (request.MealsPerDay < 3 || request.MealsPerDay > 5)
             return BadRequest("El número de comidas por día debe estar entre 3 y 5.");
-        if (double.IsNaN(request.TargetKcal) || double.IsInfinity(request.TargetKcal) ||
-            request.TargetKcal < 500 || request.TargetKcal > 10000)
-            return BadRequest("Las calorías objetivo deben estar entre 500 y 10000.");
+        if (!IsValidTargetKcal(request.TargetKcal, request.EnableAutomaticEnergyEstimate))
+            return BadRequest("Las calorías objetivo deben estar entre 500 y 10000, o ser 0 para estimación automática.");
         if ((request.TargetProtein.HasValue && (double.IsNaN(request.TargetProtein.Value) || double.IsInfinity(request.TargetProtein.Value) || request.TargetProtein.Value < 0 || request.TargetProtein.Value > 2000)) ||
             (request.TargetCarbs.HasValue && (double.IsNaN(request.TargetCarbs.Value) || double.IsInfinity(request.TargetCarbs.Value) || request.TargetCarbs.Value < 0 || request.TargetCarbs.Value > 2000)) ||
             (request.TargetFat.HasValue && (double.IsNaN(request.TargetFat.Value) || double.IsInfinity(request.TargetFat.Value) || request.TargetFat.Value < 0 || request.TargetFat.Value > 2000)))
             return BadRequest("Los macronutrientes objetivo deben estar entre 0 y 2000 gramos.");
         if (string.IsNullOrWhiteSpace(request.DietType) || request.DietType.Length > 50)
             return BadRequest("El tipo de dieta no es válido.");
-        if (request.ExcludedFoodKeywords.Count > 100 || request.ExcludedFoodKeywords.Any(k => k == null || k.Length > 100))
+        if (request.ExcludedFoodKeywords == null || request.ExcludedFoodKeywords.Count > 100 ||
+            request.ExcludedFoodKeywords.Any(k => k == null || k.Length > 100))
             return BadRequest("La lista de exclusiones no puede superar 100 términos de hasta 100 caracteres.");
 
         if (request.ClientId.HasValue)

@@ -41,6 +41,8 @@ public sealed class FoodSubstitutionService
             excludedFlags ?? Array.Empty<string>(),
             StringComparer.OrdinalIgnoreCase);
 
+        var hasDeclaredAllergies = !string.IsNullOrWhiteSpace(allergies);
+
         // Keep the database query provider-agnostic. The InMemory provider cannot
         // translate Contains inside Any over the mapped string array.
         var candidates = await _context.foods.AsNoTracking()
@@ -50,6 +52,8 @@ public sealed class FoodSubstitutionService
                  isSuperAdmin ||
                  (tenantId.HasValue && f.tenant_id == tenantId.Value)))
             .Where(f => f.kcal != null || f.protein != null || f.carbs != null || f.fat != null)
+            .Where(f => !hasDeclaredAllergies || f.allergen_data_status == "reported")
+            .OrderBy(f => f.id)
             .Select(f => new
             {
                 f.id, f.name, f.brands, f.category, f.kcal, f.protein, f.carbs, f.fat,
@@ -80,6 +84,16 @@ public sealed class FoodSubstitutionService
                         .Concat(f.allergen_tags ?? Array.Empty<string>())
                         .Concat(f.traces_tags ?? Array.Empty<string>()),
                     forbiddenTerms))
+                .ToList();
+        }
+
+        if (!string.IsNullOrWhiteSpace(allergies))
+        {
+            candidates = candidates
+                .Where(food => !DietaryRestrictionRules.HasUnknownAllergenData(
+                    allergies,
+                    (food.allergen_tags ?? Array.Empty<string>()).Concat(food.traces_tags ?? Array.Empty<string>()),
+                    food.allergen_data_status))
                 .ToList();
         }
 

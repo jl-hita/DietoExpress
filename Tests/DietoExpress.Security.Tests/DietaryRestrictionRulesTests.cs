@@ -199,4 +199,12 @@ public sealed class DietaryRestrictionRulesTests
         Assert.Contains("leche", terms);
         Assert.Contains("cebolla", terms);
     }
+    [Fact]
+    public void IsFoodAllowed_PreservesLegacyLactPrefixWithoutBroadSubstringMatching()
+    {
+        var terms = new[] { "lact" };
+        Assert.False(DietaryRestrictionRules.IsFoodAllowed("Yogur sin lactosa", "Lácteos", Array.Empty<string>(), terms));
+        Assert.True(DietaryRestrictionRules.IsFoodAllowed("Nutrition bar", "Alimentos", Array.Empty<string>(), new[] { "nut" }));
+    }
+
 }
