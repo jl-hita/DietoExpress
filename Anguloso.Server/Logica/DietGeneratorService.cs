@@ -1437,9 +1437,11 @@ public class DietGeneratorService
     private static bool IsRecognizedVegetableName(string? name)
     {
         var normalized = NormalizeFoodTerm(name ?? string.Empty);
-        return new[] { "tomate", "lechuga", "espinaca", "calabacin", "berenjena", "brocoli",
-            "zanahoria", "pepino", "pimiento", "judia verde", "champinon", "calabaza",
-            "cebolla", "puerro", "coliflor", "esparrago" }.Any(normalized.Contains);
+        return new[] { "tomate", "lechuga", "espinaca", "acelga", "calabacin", "berenjena", "brocoli",
+            "zanahoria", "pepino", "pimiento", "judia verde", "champinon", "calabaza", "cebolla",
+            "puerro", "coliflor", "esparrago", "alcachofa", "apio", "repollo", "col lombarda",
+            "col rizada", "canonigo", "rucula", "endibia", "nabo", "rabanito", "remolacha",
+            "seta", "setas", "hongo", "cardo" }.Any(normalized.Contains);
     }
 
     private static bool IsMainProteinName(string? name) =>
@@ -1539,11 +1541,11 @@ public class DietGeneratorService
                 pools.Nuts.Add(f);
             }
             // Verduras y Hortalizas comunes
-            else if (IsRecognizedVegetableName(name))
+            else if (cat.Contains("verdura") || cat.Contains("hortal") || IsRecognizedVegetableName(name))
             {
-                // El pool debe usar el mismo criterio semántico que la validación final.
-                // La categoría "verdura" por sí sola no garantiza que el nombre del alimento
-                // sea reconocible para el validador y provocaba rechazos aleatorios de comidas.
+                // La validación final reconoce tanto nombres habituales como la categoría
+                // del catálogo. Esto evita que una hortaliza válida quede fuera del pool
+                // solo porque su nombre no está en una lista cerrada.
                 pools.Vegetables.Add(f);
             }
             // Frutas comunes
