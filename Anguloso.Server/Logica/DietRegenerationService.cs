@@ -66,25 +66,47 @@ public sealed class DietRegenerationService
             .Take(5000)
             .ToListAsync(cancellationToken);
 
-        var client = request.ClientId is int clientId
-            ? await _context.clients.AsNoTracking()
+        // Las restricciones no dependen de que el cliente venga en el payload: una dieta asignada
+        // debe seguir siendo segura aunque el consumidor omita ClientId. Si hay varios pacientes
+        // activos, se aplica la unión de sus restricciones para no perjudicar a ninguno.
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var assignedClientIds = await _context.client_diets.AsNoTracking()
+            .Where(assignment => assignment.diet_id == diet.id && assignment.is_active == true &&
+                (!assignment.end_date.HasValue || assignment.end_date.Value >= today))
+            .Select(assignment => assignment.client_id)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+        var restrictionClientIds = assignedClientIds.ToHashSet();
+        if (request.ClientId.HasValue)
+            restrictionClientIds.Add(request.ClientId.Value);
+
+        var restrictionClients = restrictionClientIds.Count == 0
+            ? new List<clients>()
+            : await _context.clients.AsNoTracking()
                 .Include(c => c.food_preferences)
                 .Include(c => c.digestive_health)
-                .FirstOrDefaultAsync(c => c.id == clientId && c.archived_at == null &&
-                    (isSuperAdmin || (tenantId.HasValue && c.tenant_id == tenantId.Value)), cancellationToken)
-            : null;
+                .Where(c => restrictionClientIds.Contains(c.id) && c.archived_at == null &&
+                    (isSuperAdmin || (tenantId.HasValue && c.tenant_id == tenantId.Value)))
+                .ToListAsync(cancellationToken);
+
+        if (request.ClientId.HasValue && restrictionClients.All(c => c.id != request.ClientId.Value))
+            throw new KeyNotFoundException("El cliente indicado no existe o no pertenece a esta clínica.");
 
         var dietType = ResolveDietType(diet);
-        var forbidden = BuildForbiddenTerms(client);
-        forbidden.UnionWith(ReadPersistedExplicitExclusions(diet.excluded_food_keywords));
+        var forbidden = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var specializationExcludedFoodIds = new HashSet<int>();
-        if (client != null && tenantId.HasValue)
+        foreach (var client in restrictionClients)
         {
+            forbidden.UnionWith(BuildForbiddenTerms(client));
+            if (!tenantId.HasValue)
+                continue;
+
             forbidden.UnionWith(await _specializationRulesService.GetFoodExclusionsAsync(
                 client.id, tenantId.Value, cancellationToken));
-            specializationExcludedFoodIds = await _specializationRulesService.GetExcludedFoodIdsAsync(
-                client.id, tenantId.Value, allFoods.Select(f => f.id).ToArray(), cancellationToken);
+            specializationExcludedFoodIds.UnionWith(await _specializationRulesService.GetExcludedFoodIdsAsync(
+                client.id, tenantId.Value, allFoods.Select(f => f.id).ToArray(), cancellationToken));
         }
+        forbidden.UnionWith(ReadPersistedExplicitExclusions(diet.excluded_food_keywords));
 
         var usedFoodIds = diet.diet_days.SelectMany(d => d.meals).SelectMany(m => m.meal_items)
             .Where(i => i.food_id.HasValue).Select(i => i.food_id!.Value).ToHashSet();
