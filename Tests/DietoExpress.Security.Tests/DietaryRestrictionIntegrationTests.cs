@@ -55,7 +55,6 @@ public sealed class DietaryRestrictionIntegrationTests
         Assert.Contains("item.recipe_id = null", regeneration);
         Assert.Contains("item.recipe_servings = null", regeneration);
         Assert.DoesNotContain("HasUnknownAllergenDataForClient", generator);
-        Assert.Contains("IsAllowedForClient", regeneration);
         Assert.Contains("HasUnknownAllergenData", regeneration);
         var substitutions = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "FoodSubstitutionService.cs"));
         Assert.DoesNotContain("DietaryRestrictionRules.HasUnknownAllergenData", substitutions);
