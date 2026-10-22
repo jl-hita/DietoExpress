@@ -215,16 +215,14 @@ public class DietGeneratorService
         var allowedFoods = allFoods
             .Where(f => IsCommonFood(f)
                 && !structuredSpecializationExclusions.Contains(f.id)
-                && !IsExcluded(f, exclusions)
-                && HasUsableAllergenDeclarationForClient(f, client))
+                && !IsExcluded(f, exclusions))
             .ToList();
         if (allowedFoods.Count < 20)
         {
             // Fallback si la lista común es muy restrictiva
             allowedFoods = allFoods
                 .Where(f => !structuredSpecializationExclusions.Contains(f.id)
-                    && !IsExcluded(f, exclusions)
-                    && HasUsableAllergenDeclarationForClient(f, client))
+                    && !IsExcluded(f, exclusions))
                 .ToList();
         }
 
@@ -235,7 +233,7 @@ public class DietGeneratorService
         if (allowedFoods.Count == 0)
         {
             throw new InvalidOperationException(
-                "No queda ningún alimento compatible con las restricciones clínicas, el tipo de dieta y las exclusiones seleccionadas. Reduce las exclusiones o revisa las intolerancias/alergias del paciente. Si hay alergias declaradas, comprueba que el catálogo tenga la declaración de alérgenos completa.");
+                "No queda ningún alimento compatible con las restricciones clínicas, el tipo de dieta y las exclusiones seleccionadas. Reduce las exclusiones o revisa las intolerancias/alergias del paciente.");
         }
 
         var foodPools = CategorizeFoods(allowedFoods, request.DietType);
@@ -1662,17 +1660,6 @@ public class DietGeneratorService
 
         return terms.Any(term => name.Contains(term, StringComparison.OrdinalIgnoreCase) ||
                                  category.Contains(term, StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static bool HasUsableAllergenDeclarationForClient(foods food, clients? client)
-    {
-        if (string.IsNullOrWhiteSpace(client?.food_preferences?.allergies))
-            return true;
-
-        return !DietaryRestrictionRules.HasUnknownAllergenData(
-            client.food_preferences.allergies,
-            (food.allergen_tags ?? Array.Empty<string>()).Concat(food.traces_tags ?? Array.Empty<string>()),
-            food.allergen_data_status);
     }
 
     private bool IsExcluded(foods food, HashSet<string> exclusions)
