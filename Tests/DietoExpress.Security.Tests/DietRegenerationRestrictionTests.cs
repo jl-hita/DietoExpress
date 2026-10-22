@@ -147,8 +147,10 @@ public sealed class DietRegenerationRestrictionTests
     }
 
 
-    [Fact]
-    public async Task RegenerateMeal_RejectsUnknownAllergenDataForPatientWithDeclaredAllergies()
+    [Theory]
+    [InlineData("regenerate-meal")]
+    [InlineData("regenerate-day")]
+    public async Task Regeneration_RejectsUnknownAllergenDataForPatientWithDeclaredAllergies(string operation)
     {
         var options = new DbContextOptionsBuilder<angulosodbContext>()
             .UseInMemoryDatabase($"diet-regeneration-allergen-{Guid.NewGuid():N}")
@@ -201,8 +203,9 @@ public sealed class DietRegenerationRestrictionTests
             dietId: diet.id,
             request: new DietRegenerationRequestDto
             {
-                Operation = "regenerate-meal",
-                MealId = meal.id,
+                Operation = operation,
+                MealId = operation == "regenerate-meal" ? meal.id : null,
+                DayId = operation == "regenerate-day" ? day.id : null,
                 ClientId = client.id,
                 PreserveWeeklyVariety = false
             },
