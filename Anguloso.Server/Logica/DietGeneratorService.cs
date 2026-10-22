@@ -400,18 +400,25 @@ public class DietGeneratorService
             if (request.EnableGlobalOptimization)
             {
                 var optimizationTimer = Stopwatch.StartNew();
-                await _advancedDietOptimizer.OptimizeWeeklyPlanAsync(
-                    candidateDiet,
-                    request,
-                    allowedFoods,
-                    tenantId,
-                    targetKcal,
-                    targetProtein,
-                    targetCarbs,
-                    targetFat,
-                    dietTherapyProfile,
-                    cancellationToken);
-                _logger?.LogInformation("Diet generation phase WeeklyOptimization completed in {ElapsedMs} ms; Attempt={Attempt}; Days={Days}; AllowedFoods={AllowedFoods}", optimizationTimer.ElapsedMilliseconds, attempt + 1, candidateDiet.Days.Count, allowedFoods.Count);
+                try
+                {
+                    await _advancedDietOptimizer.OptimizeWeeklyPlanAsync(
+                        candidateDiet,
+                        request,
+                        allowedFoods,
+                        tenantId,
+                        targetKcal,
+                        targetProtein,
+                        targetCarbs,
+                        targetFat,
+                        dietTherapyProfile,
+                        cancellationToken);
+                }
+                finally
+                {
+                    // También registra el tiempo cuando el cliente cancela y el token interrumpe la optimización.
+                    _logger?.LogInformation("Diet generation phase WeeklyOptimization ended after {ElapsedMs} ms; Attempt={Attempt}; Days={Days}; AllowedFoods={AllowedFoods}; CancellationRequested={CancellationRequested}", optimizationTimer.ElapsedMilliseconds, attempt + 1, candidateDiet.Days.Count, allowedFoods.Count, cancellationToken.IsCancellationRequested);
+                }
             }
 
             // Ninguna fase posterior puede reintroducir cantidades culinarias inválidas.
