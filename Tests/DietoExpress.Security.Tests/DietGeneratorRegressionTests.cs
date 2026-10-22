@@ -425,4 +425,16 @@ public sealed class DietGeneratorRegressionTests
 
         Assert.True((bool)(method.Invoke(null, new object?[] { "Champiñón" }) ?? false));
     }
+
+    [Theory]
+    [InlineData("Pollo", "Vegetariana", false)]
+    [InlineData("Yogur natural", "Vegetariana", true)]
+    [InlineData("Yogur natural", "Vegana", false)]
+    [InlineData("Arroz blanco", "Cetogenica", false)]
+    [InlineData("Pasta", "BajaCarbos", false)]
+    [InlineData("Calabacín", "Vegana", true)]
+    public void OptimizerDietTypeCompatibilityMatchesGeneratorRules(string foodName, string dietType, bool expected)
+    {
+        Assert.Equal(expected, DietSemanticValidationService.IsFoodCompatibleWithDietType(foodName, dietType));
+    }
 }
