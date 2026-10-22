@@ -1,0 +1,93 @@
+using Anguloso.Server.Logica;
+using Anguloso.Server.Model;
+using Anguloso.Server.Models;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Xunit;
+
+namespace DietoExpress.Security.Tests;
+
+public sealed class DietRegenerationRestrictionTests
+{
+    [Theory]
+    [InlineData(2)] // Alimento excluido explícitamente en la dieta persistida.
+    [InlineData(3)] // Alimento incompatible con una dieta vegana.
+    public async Task ReplaceFood_RejectsPersistedExclusionsAndDietTypeViolations(int replacementFoodId)
+    {
+        var options = new DbContextOptionsBuilder<angulosodbContext>()
+            .UseInMemoryDatabase($"diet-regeneration-{Guid.NewGuid():N}")
+            .ConfigureWarnings(warnings => warnings.Ignore(InMemoryEventId.TransactionIgnoredWarning))
+            .Options;
+
+        await using var context = new angulosodbContext(options);
+        context.foods.AddRange(
+            Food(1, "Tofu firme", "Proteínas vegetales", 144, 17, 3, 9),
+            Food(2, "Plátano", "Fruta", 89, 1.1, 22.8, 0.3),
+            Food(3, "Pollo", "Carne", 165, 31, 0, 3.6));
+
+        var item = new meal_items
+        {
+            id = 1,
+            meal_id = 1,
+            food_id = 1,
+            grams = 100,
+            kcal = 144,
+            protein = 17,
+            carbs = 3,
+            fat = 9
+        };
+        var meal = new meals { id = 1, diet_day_id = 1, name = "Comida", meal_index = 0 };
+        meal.meal_items.Add(item);
+        var day = new diet_days { id = 1, diet_id = 1, day_index = 0 };
+        day.meals.Add(meal);
+        var diet = new diets
+        {
+            id = 1,
+            name = "Plan Vegana",
+            user_id = 1,
+            tenant_id = 1,
+            target_kcal = 2000,
+            target_protein = 100,
+            target_carbs = 250,
+            target_fat = 67,
+            notes = "",
+            excluded_food_keywords = "[\"Plátano\"]",
+            diet_type = "Vegana"
+        };
+        diet.diet_days.Add(day);
+        context.diets.Add(diet);
+        await context.SaveChangesAsync();
+
+        var service = new DietRegenerationService(context, new SpecializationRulesService(context));
+        var request = new DietRegenerationRequestDto
+        {
+            Operation = "replace-food",
+            MealItemId = item.id,
+            ReplacementFoodId = replacementFoodId,
+            PreserveWeeklyVariety = false
+        };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.RegenerateAsync(
+            dietId: diet.id,
+            request: request,
+            userId: 1,
+            tenantId: 1,
+            isSuperAdmin: true,
+            canUseTenantLocalFoods: false));
+
+        Assert.Equal(1, item.food_id);
+    }
+
+    private static foods Food(int id, string name, string category, double kcal, double protein, double carbs, double fat) =>
+        new()
+        {
+            id = id,
+            name = name,
+            category = category,
+            kcal = kcal,
+            protein = protein,
+            carbs = carbs,
+            fat = fat,
+            source = "BEDCA"
+        };
+}
