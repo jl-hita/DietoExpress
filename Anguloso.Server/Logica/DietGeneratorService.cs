@@ -365,7 +365,7 @@ public class DietGeneratorService
         // Postcondición culinaria: ninguna fase posterior puede volver a introducir
         // cantidades cero, aceites no habituales o productos preparados que el generador
         // no usaría en una pauta profesional.
-        NormalizeGeneratedPlan(advancedDiet, allowedFoods, request.MealsPerDay);
+        NormalizeGeneratedPlan(advancedDiet, allowedFoods, request.MealsPerDay, request.DietType);
 
         // Última barrera: una dieta matemáticamente correcta pero culinariamente absurda no puede salir del motor.
         await _semanticValidationService.ValidateOrThrowAsync(
@@ -479,11 +479,12 @@ public class DietGeneratorService
         }
     }
 
-    private static void NormalizeGeneratedPlan(DietDetailDto diet, IReadOnlyCollection<foods> allowedFoods, int mealsPerDay)
+    private static void NormalizeGeneratedPlan(DietDetailDto diet, IReadOnlyCollection<foods> allowedFoods, int mealsPerDay, string dietType)
     {
         var foodsById = allowedFoods.GroupBy(f => f.id).ToDictionary(g => g.Key, g => g.First());
         var standardYogurt = allowedFoods
             .Where(IsProfessionalAutomaticFoodForGenerator)
+            .Where(f => DietSemanticValidationService.IsFoodCompatibleWithDietType(f.name, dietType, f.category, f.carbs, f.fat))
             .Where(f => NormalizeFoodTerm(f.name ?? string.Empty).StartsWith("yogur") &&
                         !NormalizeFoodTerm(f.name ?? string.Empty).Contains("con ") &&
                         !NormalizeFoodTerm(f.name ?? string.Empty).Contains("azucar"))
