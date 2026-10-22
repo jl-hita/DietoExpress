@@ -108,6 +108,9 @@ public static class DietaryRestrictionRules
         foreach (var term in normalizedTerms)
         {
             if (ContainsPhrase(text, term)) return false;
+            // Preserve the legacy lactose-prefix keyword used by the generator, but keep
+            // all other exclusions on whole-word/whole-phrase boundaries.
+            if (term == "lact" && text.Contains("lact", StringComparison.Ordinal)) return false;
             // Structured flags can use canonical identifiers such as tree_nut, peanut_allergy or dairy.
             if (FlagMatches(term, dietaryFlags)) return false;
         }

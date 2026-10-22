@@ -51,6 +51,7 @@ public sealed class AdvancedDietOptimizerService
         var candidates = allowedFoods
             .Where(IsOptimizerFood)
             .Where(IsProfessionalAutomaticFood)
+            .Where(f => DietSemanticValidationService.IsFoodCompatibleWithDietType(f.name, request.DietType, f.category, f.carbs, f.fat))
             .Take(2500)
             .ToList();
 
@@ -95,7 +96,12 @@ public sealed class AdvancedDietOptimizerService
                         {
                             cancellationToken.ThrowIfCancellationRequested();
 
-                            var snapshot = CloneItem(item);
+                            // RebalanceMeal mutates quantities of every item in the meal.
+                            // Snapshot the whole meal so a rejected candidate cannot leave
+                            // unrelated items with quantities from a failed optimization trial.
+                            var mealSnapshot = originalItems
+                                .Select(mealItem => (Item: mealItem, Snapshot: CloneItem(mealItem)))
+                                .ToList();
                             ReplaceItem(item, candidate, (double)(item.Grams ?? 0));
 
                             RebalanceMeal(meal, mealTarget, targetProtein * MealShare(meal.Name, request.MealsPerDay),
@@ -112,7 +118,8 @@ public sealed class AdvancedDietOptimizerService
                                 break;
                             }
 
-                            RestoreItem(item, snapshot);
+                            foreach (var entry in mealSnapshot)
+                                RestoreItem(entry.Item, entry.Snapshot);
                         }
                     }
                 }
@@ -171,6 +178,7 @@ public sealed class AdvancedDietOptimizerService
             var candidate = allowedFoods
                 .Where(IsOptimizerFood)
                 .Where(IsProfessionalAutomaticFood)
+                .Where(f => DietSemanticValidationService.IsFoodCompatibleWithDietType(f.name, request.DietType, f.category, f.carbs, f.fat))
                 .Where(f => f.id != source.id && SameRole(role, meal.Name, f))
                 .Where(f => IsProfessionalReplacement(role, f))
                 .OrderBy(f => NutrientDistance(f, source))
@@ -233,7 +241,7 @@ public sealed class AdvancedDietOptimizerService
                     })
                     .Where(x => x.Ingredients.Count >= 2
                              && x.Ingredients.Count == x.Recipe.recipe_items.Count
-                             && x.Ingredients.All(i => foodMap.ContainsKey(i.food_id)))
+                             && x.Ingredients.All(i => foodMap.ContainsKey(i.food_id) && DietSemanticValidationService.IsFoodCompatibleWithDietType(i.food.name, request.DietType, i.food.category, i.food.carbs, i.food.fat)))
                     .Select(x => new
                     {
                         x.Recipe,
@@ -267,23 +275,50 @@ public sealed class AdvancedDietOptimizerService
         var duplicateMeals = signatures.Count - signatures.Distinct(StringComparer.OrdinalIgnoreCase).Count();
         var repeatedFoods = days.SelectMany(d => d.Meals).SelectMany(m => m.Items).Where(i => i.FoodId.HasValue).GroupBy(i => i.FoodId!.Value).Sum(g => Math.Max(0, g.Count() - request.MaxWeeklyFoodRepetitions));
         var familyCounts = days.SelectMany(d => d.Meals).SelectMany(m => m.Items).Where(i => i.FoodId.HasValue && foodMap.ContainsKey(i.FoodId.Value)).GroupBy(i => GetFamily(foodMap[i.FoodId!.Value])).ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
-        var frequencyPenalty = FrequencyPenalty(familyCounts, days.Count, therapyProfile);
+        var frequencyPenalty = FrequencyPenalty(familyCounts, days.Count, therapyProfile, request.DietType, foodMap.Values);
         var therapyPenalty = CalculateTherapyNutrientPenalty(days, foodMap, therapyProfile);
         var shopping = CalculateShoppingMetrics(diet);
         return dailyError * 1000 + duplicateMeals * 7 + repeatedFoods * 1.5 + frequencyPenalty * 5 + therapyPenalty * 8 + Math.Max(0, shopping.UniqueFoods - request.ShoppingVarietyThreshold) * 0.20;
     }
 
-    private static double FrequencyPenalty(Dictionary<string, int> counts, int days, DietTherapyProfile? therapyProfile)
+    private static double FrequencyPenalty(
+        Dictionary<string, int> counts,
+        int days,
+        DietTherapyProfile? therapyProfile,
+        string dietType,
+        IEnumerable<foods> availableFoods)
     {
-        var weekly = therapyProfile?.FrequencyTargets ?? new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase) { ["fruta"] = 1, ["verdura"] = 2, ["legumbre"] = 3.0 / 7.0, ["pescado_marisco"] = 2.0 / 7.0, ["frutos_secos"] = 4.0 / 7.0 };
-        var targets = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+        var weekly = therapyProfile?.FrequencyTargets ?? new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)
         {
-            ["fruta"] = Math.Max(1, (int)Math.Ceiling(days * weekly.GetValueOrDefault("fruta"))),
-            ["verdura"] = Math.Max(2, (int)Math.Ceiling(days * weekly.GetValueOrDefault("verdura"))),
-            ["legumbre"] = Math.Max(1, (int)Math.Ceiling(days * weekly.GetValueOrDefault("legumbre"))),
-            ["pescado_marisco"] = Math.Max(1, (int)Math.Ceiling(days * weekly.GetValueOrDefault("pescado_marisco"))),
-            ["frutos_secos"] = Math.Max(1, (int)Math.Ceiling(days * weekly.GetValueOrDefault("frutos_secos")))
+            ["fruta"] = 1,
+            ["verdura"] = 2,
+            ["legumbre"] = 3.0 / 7.0,
+            ["pescado_marisco"] = 2.0 / 7.0,
+            ["frutos_secos"] = 4.0 / 7.0
         };
+        // No penalizar objetivos de frecuencia que el catálogo permitido no puede cumplir
+        // (por ejemplo pescado en una dieta vegana o frutos secos con alergia declarada).
+        var availableFamilies = availableFoods
+            .Where(IsOptimizerFood)
+            .Where(IsProfessionalAutomaticFood)
+            .Where(food => DietSemanticValidationService.IsFoodCompatibleWithDietType(
+                food.name, dietType, food.category, food.carbs, food.fat))
+            .Select(GetFamily)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var targets = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        void AddTarget(string family, int minimum, double defaultWeekly)
+        {
+            if (availableFamilies.Contains(family))
+                targets[family] = Math.Max(minimum, (int)Math.Ceiling(days * weekly.GetValueOrDefault(family, defaultWeekly)));
+        }
+
+        AddTarget("fruta", 1, 1);
+        AddTarget("verdura", 2, 2);
+        AddTarget("legumbre", 1, 3.0 / 7.0);
+        AddTarget("frutos_secos", 1, 4.0 / 7.0);
+        AddTarget("pescado_marisco", 1, 2.0 / 7.0);
+
         return targets.Sum(target => Math.Max(0, target.Value - counts.GetValueOrDefault(target.Key)) * 2.0);
     }
 
@@ -312,7 +347,15 @@ public sealed class AdvancedDietOptimizerService
     private static void RepairWeeklyFrequencies(DietDetailDto diet, IReadOnlyCollection<foods> candidates, double targetKcal, double targetProtein, double targetCarbs, double targetFat, GenerateDietRequestDto request, DietTherapyProfile? therapyProfile = null)
     {
         var weekly = therapyProfile?.FrequencyTargets ?? new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
-        var familyTargets = new[] { ("fruta", Math.Max(1, (int)Math.Ceiling(diet.Days.Count * weekly.GetValueOrDefault("fruta", 1)))), ("verdura", Math.Max(2, (int)Math.Ceiling(diet.Days.Count * weekly.GetValueOrDefault("verdura", 2)))), ("legumbre", Math.Max(1, (int)Math.Ceiling(diet.Days.Count * weekly.GetValueOrDefault("legumbre", 3.0 / 7.0)))), ("pescado_marisco", Math.Max(1, (int)Math.Ceiling(diet.Days.Count * weekly.GetValueOrDefault("pescado_marisco", 2.0 / 7.0)))) };
+        var familyTargets = new List<(string Family, int Target)>
+        {
+            ("fruta", Math.Max(1, (int)Math.Ceiling(diet.Days.Count * weekly.GetValueOrDefault("fruta", 1)))),
+            ("verdura", Math.Max(2, (int)Math.Ceiling(diet.Days.Count * weekly.GetValueOrDefault("verdura", 2)))),
+            ("legumbre", Math.Max(1, (int)Math.Ceiling(diet.Days.Count * weekly.GetValueOrDefault("legumbre", 3.0 / 7.0)))),
+            ("frutos_secos", Math.Max(1, (int)Math.Ceiling(diet.Days.Count * weekly.GetValueOrDefault("frutos_secos", 4.0 / 7.0))))
+        };
+        if (DietSemanticValidationService.IsFoodCompatibleWithDietType("Pescado", request.DietType, "Pescado"))
+            familyTargets.Add(("pescado_marisco", Math.Max(1, (int)Math.Ceiling(diet.Days.Count * weekly.GetValueOrDefault("pescado_marisco", 2.0 / 7.0)))));
         foreach (var (family, target) in familyTargets)
         {
             for (var i = 0; i < target; i++)
@@ -409,7 +452,7 @@ public sealed class AdvancedDietOptimizerService
         }
 
         if (food.StartsWith("aceite ") || food == "aceite") return (5, 18);
-        if (food.Contains("tomate") || food.Contains("lechuga") || food.Contains("espinaca") || food.Contains("calabacin") || food.Contains("berenjena") || food.Contains("brocoli") || food.Contains("zanahoria") || food.Contains("pepino") || food.Contains("pimiento") || food.Contains("judia verde") || food.Contains("champiñon") || food.Contains("calabaza")) return (100, 250);
+        if (food.Contains("tomate") || food.Contains("lechuga") || food.Contains("espinaca") || food.Contains("calabacin") || food.Contains("berenjena") || food.Contains("brocoli") || food.Contains("zanahoria") || food.Contains("pepino") || food.Contains("pimiento") || food.Contains("judia verde") || food.Contains("champinon") || food.Contains("calabaza")) return (100, 250);
         if (food.Contains("arroz") || food.Contains("pasta") || food.Contains("patata") || food.Contains("boniato") || food.Contains("pan") || food.Contains("avena") || food.Contains("quinoa") || food.Contains("lenteja") || food.Contains("garbanzo") || food.Contains("alubia") || food.Contains("guisante") || food.Contains("cuscus") || food.Contains("tostada")) return (50, 180);
         if (food.Contains("pollo") || food.Contains("pavo") || food.Contains("ternera") || food.Contains("cerdo") || food.Contains("conejo") || food.Contains("atun") || food.Contains("salmon") || food.Contains("merluza") || food.Contains("bacalao") || food.Contains("dorada") || food.Contains("lubina") || food.Contains("sardina") || food.Contains("caballa") || food.Contains("gamba") || food.Contains("tofu") || food.Contains("tempeh") || food.Contains("huevo") || food.Contains("clara")) return (100, 220);
         return (20, 250);
@@ -537,7 +580,12 @@ public sealed class AdvancedDietOptimizerService
         return Math.Max(0, nutrientDistance - exchangeBonus);
     }
 
-    private static bool IsOptimizerFood(foods food) => food.kcal.HasValue && food.kcal > 0 && !string.IsNullOrWhiteSpace(food.name);
+    private static bool IsOptimizerFood(foods food) =>
+        food.kcal.HasValue && food.kcal > 0 &&
+        food.protein.HasValue && food.protein.Value >= 0 &&
+        food.carbs.HasValue && food.carbs.Value >= 0 &&
+        food.fat.HasValue && food.fat.Value >= 0 &&
+        !string.IsNullOrWhiteSpace(food.name);
 
     private static string NormalizeFoodTerm(string value)
     {
@@ -615,7 +663,7 @@ public sealed class AdvancedDietOptimizerService
 
         bool isVegetable = c.Contains("verdura") || c.Contains("hortal") ||
             new[] { "tomate","lechuga","espinaca","calabacin","berenjena","brocoli","zanahoria",
-                    "pepino","pimiento","judia verde","champiñon","calabaza" }.Any(n.Contains);
+                    "pepino","pimiento","judia verde","champinon","calabaza" }.Any(n.Contains);
 
         bool isFruit = c.Contains("fruta") ||
             new[] { "manzana","platano","naranja","pera","fresa","kiwi","mandarina","sandia",

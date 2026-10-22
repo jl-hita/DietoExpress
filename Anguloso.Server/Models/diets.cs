@@ -26,6 +26,10 @@ public partial class diets
 
     public string notes { get; set; }
 
+    public string excluded_food_keywords { get; set; } = "[]";
+
+    public string diet_type { get; set; } = "Equilibrada";
+
     public DateTime? created_at { get; set; }
 
     public int? user_id { get; set; }

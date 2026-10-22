@@ -947,7 +947,7 @@ public class AuthorizationRegressionTests
 
         Assert.Contains("request.NumberOfDays < 1 || request.NumberOfDays > 14", source);
         Assert.Contains("request.MealsPerDay < 3 || request.MealsPerDay > 5", source);
-        Assert.Contains("request.TargetKcal < 500 || request.TargetKcal > 10000", source);
+        Assert.Contains("IsValidTargetKcal(request.TargetKcal, request.EnableAutomaticEnergyEstimate)", source);
         Assert.Contains("request.ExcludedFoodKeywords.Count > 100", source);
         Assert.Contains("double.IsNaN", source);
         Assert.Contains("double.IsInfinity", source);

@@ -1,3 +1,8 @@
+using System.Reflection;
+using Anguloso.Server.Controllers;
+using Anguloso.Server.Logica;
+using Anguloso.Server.Model;
+using Anguloso.Server.Models;
 using Xunit;
 
 namespace DietoExpress.Security.Tests;
@@ -149,7 +154,7 @@ public sealed class DietGeneratorRegressionTests
 
         Assert.Contains("ApplyRecipeCandidatesAsync", source);
         Assert.Contains("x.Ingredients.Count == x.Recipe.recipe_items.Count", source);
-        Assert.Contains("x.Ingredients.All(i => foodMap.ContainsKey(i.food_id))", source);
+        Assert.Contains("x.Ingredients.All(i => foodMap.ContainsKey(i.food_id) && DietSemanticValidationService.IsFoodCompatibleWithDietType", source);
         Assert.Contains("request.UseRecipes", source);
     }
 
@@ -330,6 +335,21 @@ public sealed class DietGeneratorRegressionTests
         Assert.Contains("canUseTenantLocalFoods", generator);
     }
 
+
+    [Theory]
+    [InlineData(0, true, true)]
+    [InlineData(0, false, false)]
+    [InlineData(499, true, false)]
+    [InlineData(500, false, true)]
+    [InlineData(10000, false, true)]
+    [InlineData(10001, true, false)]
+    public void GenerationKcalValidation_AllowsZeroOnlyForAutomaticEstimation(double kcal, bool automatic, bool expected)
+    {
+        var method = typeof(DietController).GetMethod("IsValidTargetKcal", BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("No se encontró la validación de kcal del endpoint.");
+        Assert.Equal(expected, (bool)(method.Invoke(null, new object[] { kcal, automatic }) ?? false));
+    }
+
     [Fact]
     public void Generator_RespectsExplicitExcludedFoodKeywords()
     {
@@ -338,4 +358,152 @@ public sealed class DietGeneratorRegressionTests
         Assert.Contains("request.ExcludedFoodKeywords", generator);
         Assert.Contains("exclusions.Add(kw.Trim())", generator);
     }
+
+    [Theory]
+    [InlineData("Nutrition bar", "nut", false)]
+    [InlineData("Nut bar", "nut", true)]
+    [InlineData("BEBIDA DE SOJA", " soja ", true)]
+    [InlineData("Sopa de verduras", "soja", false)]
+    [InlineData("Café con leche", "LECHE", true)]
+    public void Generator_ExplicitExclusionsUseNormalizedWholeTerms(string foodName, string keyword, bool expectedExcluded)
+    {
+        Assert.Equal(expectedExcluded, InvokeIsExcluded(foodName, "Alimentos", keyword));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("\t")]
+    public void Generator_IgnoresEmptyExplicitExclusionKeywords(string keyword)
+    {
+        Assert.False(InvokeIsExcluded("Nutrition bar", "Alimentos", keyword));
+    }
+
+    [Fact]
+    public void Generator_PreservesLegacyLactPrefixExclusion()
+    {
+        Assert.True(InvokeIsExcluded("Yogur sin lactosa", "Lácteos", "lact"));
+    }
+
+    private static bool InvokeIsExcluded(string foodName, string category, params string[] keywords)
+    {
+        // IsExcluded is intentionally tested directly: this exercises the production
+        // matching path rather than asserting that particular source strings exist.
+        var service = new DietGeneratorService(null!, null!, null!);
+        var food = new foods { name = foodName, category = category };
+        var method = typeof(DietGeneratorService).GetMethod(
+            "IsExcluded", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("No se encontró DietGeneratorService.IsExcluded.");
+        return (bool)(method.Invoke(service, new object[]
+        {
+            food,
+            keywords.ToHashSet(StringComparer.OrdinalIgnoreCase)
+        }) ?? throw new InvalidOperationException("IsExcluded no devolvió un resultado."));
+    }
+
+    [Fact]
+    public void Optimizer_RestoresWholeMealAfterRejectedCandidate()
+    {
+        var optimizer = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "AdvancedDietOptimizerService.cs"));
+
+        Assert.Contains("var mealSnapshot = originalItems", optimizer);
+        Assert.Contains("foreach (var entry in mealSnapshot)", optimizer);
+        Assert.Contains("RestoreItem(entry.Item, entry.Snapshot)", optimizer);
+    }
+
+    [Fact]
+    public void GeneratorAndRegenerationRequireCompleteNonNegativeMacrosForAutomaticFoodCandidates()
+    {
+        var generator = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
+        var regeneration = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietRegenerationService.cs"));
+        var optimizer = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "AdvancedDietOptimizerService.cs"));
+
+        foreach (var source in new[] { generator, regeneration })
+        {
+            Assert.Contains("f.protein.HasValue", source);
+            Assert.Contains("f.carbs.HasValue", source);
+            Assert.Contains("f.fat.HasValue", source);
+            Assert.Contains(".Value >= 0", source);
+        }
+
+        Assert.Contains("food.protein.HasValue", optimizer);
+        Assert.Contains("food.carbs.HasValue", optimizer);
+        Assert.Contains("food.fat.HasValue", optimizer);
+        Assert.Contains(".Value >= 0", optimizer);
+    }
+
+    [Fact]
+    public void SemanticValidation_RecognizesMushroomsAfterAccentNormalization()
+    {
+        var method = typeof(DietSemanticValidationService).GetMethod(
+            "IsVegetable", BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("No se encontró DietSemanticValidationService.IsVegetable.");
+
+        Assert.True((bool)(method.Invoke(null, new object?[] { "Champiñón" }) ?? false));
+    }
+
+    [Theory]
+    [InlineData("Pollo", "Vegetariana", false)]
+    [InlineData("Yogur natural", "Vegetariana", true)]
+    [InlineData("Yogur natural", "Vegana", false)]
+    [InlineData("Arroz blanco", "Cetogenica", false)]
+    [InlineData("Pasta", "BajaCarbos", false)]
+    [InlineData("Calabacín", "Vegana", true)]
+    public void OptimizerDietTypeCompatibilityMatchesGeneratorRules(string foodName, string dietType, bool expected)
+    {
+        Assert.Equal(expected, DietSemanticValidationService.IsFoodCompatibleWithDietType(foodName, dietType));
+    }
+
+    [Fact]
+    public void OptimizerRejectsHighCarbohydrateFoodsForKetogenicDiets()
+    {
+        Assert.False(DietSemanticValidationService.IsFoodCompatibleWithDietType(
+            "Dátil", "Cetogenica", null, carbsPer100g: 60, fatPer100g: 0));
+    }
+
+    [Fact]
+    public void DietTypeCompatibilityAlsoUsesFoodCategoryForHiddenAnimalProducts()
+    {
+        Assert.False(DietSemanticValidationService.IsFoodCompatibleWithDietType("Producto procesado", "Vegana", "Lácteos"));
+        Assert.False(DietSemanticValidationService.IsFoodCompatibleWithDietType("Producto procesado", "Vegetariana", "Pescado"));
+    }
+
+    [Fact]
+    public void OptimizerDoesNotPenalizeUnavailableOrDietIncompatibleFoodFrequencies()
+    {
+        var method = typeof(AdvancedDietOptimizerService).GetMethod(
+            "FrequencyPenalty", BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("No se encontró FrequencyPenalty.");
+        var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["fruta"] = 7,
+            ["verdura"] = 14,
+            ["legumbre"] = 3,
+            ["frutos_secos"] = 4
+        };
+        var availableFoods = new[]
+        {
+            FrequencyFood(1, "Manzana", "Fruta", 52, 0.3, 14, 0.2),
+            FrequencyFood(2, "Tomate", "Verduras", 18, 0.9, 3.9, 0.2),
+            FrequencyFood(3, "Garbanzos cocidos", "Legumbres", 164, 8.9, 27.4, 2.6),
+            FrequencyFood(4, "Almendras", "Frutos secos", 579, 21, 22, 50),
+            FrequencyFood(5, "Merluza", "Pescado", 86, 18, 0, 1.5)
+        };
+
+        double Penalty(string dietType, IEnumerable<foods> catalog) =>
+            (double)(method.Invoke(null, new object?[] { counts, 7, null, dietType, catalog }) ?? 0);
+
+        var balancedPenalty = Penalty("Equilibrada", availableFoods);
+        var veganPenalty = Penalty("Vegana", availableFoods);
+        var vegetarianPenalty = Penalty("Vegetariana", availableFoods);
+        var narrowCatalogPenalty = Penalty("Equilibrada", availableFoods.Where(food => food.id != 5));
+
+        Assert.Equal(0d, veganPenalty);
+        Assert.Equal(0d, vegetarianPenalty);
+        Assert.Equal(0d, narrowCatalogPenalty);
+        Assert.True(balancedPenalty > veganPenalty);
+    }
+
+    private static foods FrequencyFood(int id, string name, string category, double kcal, double protein, double carbs, double fat) =>
+        new() { id = id, name = name, category = category, kcal = kcal, protein = protein, carbs = carbs, fat = fat, source = "BEDCA" };
 }

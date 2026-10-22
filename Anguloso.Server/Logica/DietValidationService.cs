@@ -323,6 +323,95 @@ public class DietValidationService
         return warnings;
     }
 
+    public async Task<List<DietValidationResultDto>> ValidateExplicitDietExclusionsAsync(
+        DietDetailDto dietDto,
+        angulosodbContext context,
+        int? tenantId,
+        int userId,
+        bool canUseTenantLocalFoods)
+    {
+        var terms = (dietDto.ExcludedFoodKeywords ?? new List<string>())
+            .Where(term => !string.IsNullOrWhiteSpace(term))
+            .Select(term => term.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (terms.Count == 0 || dietDto.Days == null)
+            return new List<DietValidationResultDto>();
+
+        var foodIds = new HashSet<int>();
+        var recipeIds = new HashSet<int>();
+        foreach (var day in dietDto.Days)
+        foreach (var meal in day.Meals ?? new List<MealDto>())
+        foreach (var item in meal.Items ?? new List<MealItemDto>())
+        {
+            if (item.FoodId.HasValue) foodIds.Add(item.FoodId.Value);
+            if (item.RecipeId.HasValue) recipeIds.Add(item.RecipeId.Value);
+        }
+
+        if (foodIds.Count == 0 && recipeIds.Count == 0)
+            return new List<DietValidationResultDto>();
+
+        var foodsById = await context.foods.AsNoTracking()
+            .Where(food => foodIds.Contains(food.id) &&
+                ((food.source == null || food.source.ToLower() != "local") ||
+                 (tenantId.HasValue && food.tenant_id == tenantId.Value &&
+                  (canUseTenantLocalFoods || food.created_by_user_id == userId))))
+            .ToDictionaryAsync(food => food.id);
+        var recipeIngredients = await context.recipe_items.AsNoTracking()
+            .Include(item => item.food)
+            .Include(item => item.recipe)
+            .Where(item => recipeIds.Contains(item.recipe_id) &&
+                (!tenantId.HasValue || (item.recipe != null && item.recipe.tenant_id == tenantId.Value)))
+            .ToListAsync();
+
+        var violations = new List<DietValidationResultDto>();
+        void CheckExcludedFood(foods food, string mealName, int dayIndex, bool fromRecipe)
+        {
+            if (DietaryRestrictionRules.IsFoodAllowed(
+                food.name,
+                food.category,
+                (food.dietary_flags ?? Array.Empty<string>())
+                    .Concat(food.allergen_tags ?? Array.Empty<string>())
+                    .Concat(food.traces_tags ?? Array.Empty<string>()),
+                terms))
+                return;
+
+            var canExposeFood = (food.source == null ||
+                !food.source.Equals("local", StringComparison.OrdinalIgnoreCase)) ||
+                (tenantId.HasValue && food.tenant_id == tenantId.Value &&
+                 (canUseTenantLocalFoods || food.created_by_user_id == userId));
+            violations.Add(new DietValidationResultDto
+            {
+                FoodId = canExposeFood ? food.id : null,
+                FoodName = canExposeFood ? food.name ?? string.Empty : (fromRecipe ? "Ingrediente de receta" : "Alimento"),
+                MealName = mealName ?? string.Empty,
+                DayIndex = dayIndex,
+                AlertType = "ExplicitExclusion",
+                Severity = "High",
+                Message = "La dieta contiene un alimento que coincide con una exclusión explícita configurada para esta dieta."
+            });
+        }
+
+        foreach (var day in dietDto.Days)
+        foreach (var meal in day.Meals ?? new List<MealDto>())
+        foreach (var item in meal.Items ?? new List<MealItemDto>())
+        {
+            if (item.FoodId.HasValue && foodsById.TryGetValue(item.FoodId.Value, out var food))
+                CheckExcludedFood(food, meal.Name, day.DayIndex, false);
+
+            if (item.RecipeId.HasValue)
+            {
+                foreach (var ingredient in recipeIngredients.Where(ingredient => ingredient.recipe_id == item.RecipeId.Value))
+                {
+                    if (ingredient.food != null)
+                        CheckExcludedFood(ingredient.food, meal.Name, day.DayIndex, true);
+                }
+            }
+        }
+
+        return violations;
+    }
+
     private void AddRecipeIngredientWarnings(
         List<DietValidationResultDto> warnings,
         clients client,

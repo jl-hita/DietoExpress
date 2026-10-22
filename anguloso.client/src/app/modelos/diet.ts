@@ -21,6 +21,8 @@ export interface DietListItem {
 
 /** GET /api/dietas/{id}  → incluye árbol de días/comidas (equivale a DietDetailDto) */
 export interface DietDetail extends DietListItem {
+  excludedFoodKeywords?: string[];
+  dietType?: string;
   days?: DietDay[];
 }
 
@@ -36,6 +38,8 @@ export interface CreateDietRequest {
   isTemplate?: boolean;
   /** Contexto opcional: crea la dieta y la asigna al cliente en el backend. */
   clientId?: number;
+  excludedFoodKeywords?: string[];
+  dietType?: string;
   days?: DietDay[];
 }
 
@@ -49,6 +53,8 @@ export interface UpdateDietRequest {
   notes?: string;
   isShared?: boolean;
   isTemplate?: boolean;
+  excludedFoodKeywords?: string[];
+  dietType?: string;
   days?: DietDay[];
 }
 
