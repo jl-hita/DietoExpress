@@ -218,6 +218,63 @@ public sealed class DietRegenerationRestrictionTests
         Assert.Equal(1, item.food_id);
     }
 
+
+    [Theory]
+    [InlineData("regenerate-meal")]
+    [InlineData("regenerate-day")]
+    public async Task Regeneration_NeverReintroducesPersistedExplicitExclusions(string operation)
+    {
+        var options = new DbContextOptionsBuilder<angulosodbContext>()
+            .UseInMemoryDatabase($"diet-regeneration-exclusion-{Guid.NewGuid():N}")
+            .ConfigureWarnings(warnings => warnings.Ignore(InMemoryEventId.TransactionIgnoredWarning))
+            .Options;
+
+        await using var context = new angulosodbContext(options);
+        context.foods.AddRange(
+            Food(1, "Tofu firme", "Proteínas vegetales", 144, 17, 3, 9),
+            Food(2, "Proteína vegetal con cacahuete", "Proteínas vegetales", 150, 18, 5, 8),
+            Food(3, "Tempeh natural", "Proteínas vegetales", 193, 20, 8, 11));
+
+        var item = new meal_items
+        {
+            id = 1, meal_id = 1, food_id = 1, grams = 100,
+            kcal = 144, protein = 17, carbs = 3, fat = 9
+        };
+        var meal = new meals { id = 1, diet_day_id = 1, name = "Comida", meal_index = 0 };
+        meal.meal_items.Add(item);
+        var day = new diet_days { id = 1, diet_id = 1, day_index = 0 };
+        day.meals.Add(meal);
+        var diet = new diets
+        {
+            id = 1, name = "Plan vegano", user_id = null, tenant_id = null,
+            target_kcal = 2000, target_protein = 100, target_carbs = 250, target_fat = 67,
+            notes = "", excluded_food_keywords = "[\"cacahuete\"]", diet_type = "Vegana"
+        };
+        diet.diet_days.Add(day);
+        context.diets.Add(diet);
+        await context.SaveChangesAsync();
+
+        var service = new DietRegenerationService(context, new SpecializationRulesService(context));
+        var response = await service.RegenerateAsync(
+            dietId: diet.id,
+            request: new DietRegenerationRequestDto
+            {
+                Operation = operation,
+                MealId = operation == "regenerate-meal" ? meal.id : null,
+                DayId = operation == "regenerate-day" ? day.id : null,
+                PreserveNutritionTargets = false,
+                PreserveWeeklyVariety = false
+            },
+            userId: 1,
+            tenantId: null,
+            isSuperAdmin: true,
+            canUseTenantLocalFoods: false);
+
+        Assert.True(response.Success);
+        Assert.Equal(3, item.food_id);
+        Assert.DoesNotContain("cacahuete", item.food_id == 2 ? "cacahuete" : "tempeh", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static foods Food(int id, string name, string category, double kcal, double protein, double carbs, double fat) =>
         new()
         {
