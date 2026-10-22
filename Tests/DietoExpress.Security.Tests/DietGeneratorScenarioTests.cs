@@ -231,7 +231,7 @@ public sealed class DietGeneratorScenarioTests
     [Theory]
     [InlineData(15, 0.5, 2500, null, 2125)] // El déficit porcentual es el límite más conservador.
     [InlineData(15, 0.2, 2500, null, 2280)] // El ritmo semanal limita el déficit.
-    [InlineData(20, 1.5, 2500, 2300, 2300)] // Nunca se baja del mínimo configurado.
+    [InlineData(20, 1.5, 2500, 2300d, 2300)] // Nunca se baja del mínimo configurado.
     [InlineData(0, 0.5, 2500, null, 2500)] // Déficit porcentual cero significa mantenimiento.
     public void WeightManagementEnergyTarget_RespectsDeficitRateAndMinimum(
         double deficitPercent,
