@@ -384,4 +384,14 @@ public sealed class DietGeneratorRegressionTests
             keywords.ToHashSet(StringComparer.OrdinalIgnoreCase)
         }) ?? throw new InvalidOperationException("IsExcluded no devolvió un resultado."));
     }
+
+    [Fact]
+    public void Optimizer_RestoresWholeMealAfterRejectedCandidate()
+    {
+        var optimizer = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "AdvancedDietOptimizerService.cs"));
+
+        Assert.Contains("var mealSnapshot = meal.Items", optimizer);
+        Assert.Contains("foreach (var entry in mealSnapshot)", optimizer);
+        Assert.Contains("RestoreItem(entry.Item, entry.Snapshot)", optimizer);
+    }
 }
