@@ -64,6 +64,7 @@ public sealed class DietExplicitExclusionValidationTests
         await context.SaveChangesAsync();
 
         var draft = Draft();
+        draft.Days.Single().Meals.Single().Items.Add(new MealItemDto { RecipeId = recipe.id });
         draft.ExcludedFoodKeywords.Add("soja");
 
         var service = new DietValidationService(new SpecializationRulesService(context));
