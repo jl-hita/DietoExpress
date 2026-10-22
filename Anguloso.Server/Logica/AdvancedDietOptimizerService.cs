@@ -98,7 +98,7 @@ public sealed class AdvancedDietOptimizerService
                             // RebalanceMeal mutates quantities of every item in the meal.
                             // Snapshot the whole meal so a rejected candidate cannot leave
                             // unrelated items with quantities from a failed optimization trial.
-                            var mealSnapshot = meal.Items
+                            var mealSnapshot = originalItems
                                 .Select(mealItem => (Item: mealItem, Snapshot: CloneItem(mealItem)))
                                 .ToList();
                             ReplaceItem(item, candidate, (double)(item.Grams ?? 0));
