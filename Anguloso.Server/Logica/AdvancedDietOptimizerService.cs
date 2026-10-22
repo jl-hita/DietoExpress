@@ -543,7 +543,12 @@ public sealed class AdvancedDietOptimizerService
         return Math.Max(0, nutrientDistance - exchangeBonus);
     }
 
-    private static bool IsOptimizerFood(foods food) => food.kcal.HasValue && food.kcal > 0 && !string.IsNullOrWhiteSpace(food.name);
+    private static bool IsOptimizerFood(foods food) =>
+        food.kcal.HasValue && food.kcal > 0 &&
+        food.protein.HasValue && food.protein.Value >= 0 &&
+        food.carbs.HasValue && food.carbs.Value >= 0 &&
+        food.fat.HasValue && food.fat.Value >= 0 &&
+        !string.IsNullOrWhiteSpace(food.name);
 
     private static string NormalizeFoodTerm(string value)
     {
