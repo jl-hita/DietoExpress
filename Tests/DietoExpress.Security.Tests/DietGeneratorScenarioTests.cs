@@ -138,7 +138,7 @@ public sealed class DietGeneratorScenarioTests
             NumberOfDays = 1,
             MealsPerDay = 5,
             TargetKcal = 1700,
-            TargetProtein = 60,
+            TargetProtein = 45,
             TargetCarbs = 225,
             TargetFat = 60,
             DietType = "Equilibrada",
