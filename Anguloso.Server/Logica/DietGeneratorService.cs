@@ -117,6 +117,19 @@ public class DietGeneratorService
                         client.id, tenantId.Value, "sports_nutrition", cancellationToken);
                     weightProfile = await _specializationRulesService.GetClientSpecializationProfileAsync(
                         client.id, tenantId.Value, "weight_management", cancellationToken);
+
+                    // El objetivo automático incorpora el perfil de control de peso cuando existe.
+                    // La energía de mantenimiento se estima sin aplicar un déficit genérico adicional.
+                    if (!hasExplicitKcal && request.EnableAutomaticEnergyEstimate && weightProfile.HasValue)
+                    {
+                        var maintenanceKcal = DietTherapyRuleEngine.EstimateEnergy(
+                            client, latestBiometrics, "Equilibrada", targetKcal);
+                        targetKcal = DietTherapyRuleEngine.ApplyWeightManagementTarget(
+                            maintenanceKcal,
+                            GetProfileDouble(weightProfile, "deficitPercent"),
+                            GetProfileDouble(weightProfile, "targetRateKgPerWeek"),
+                            GetProfileDouble(weightProfile, "minimumKcal"));
+                    }
                 }
 
                 if (client.digestive_health?.gluten_intolerance == true)

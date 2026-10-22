@@ -80,6 +80,35 @@ public sealed class DietTherapyRuleEngine
         return profile;
     }
 
+    /// <summary>
+    /// Aplica el déficit configurado sin exceder el ritmo de pérdida semanal indicado.
+    /// La conversión usa una aproximación operativa de 7.700 kcal/kg; el resultado siempre
+    /// respeta el mínimo configurado y debe ser revisado por el profesional.
+    /// </summary>
+    public static double ApplyWeightManagementTarget(
+        double maintenanceKcal,
+        double? deficitPercent,
+        double? targetRateKgPerWeek,
+        double? minimumKcal)
+    {
+        if (!double.IsFinite(maintenanceKcal) || maintenanceKcal <= 0)
+            maintenanceKcal = 2000;
+
+        var percent = Math.Clamp(deficitPercent ?? 15, 0, 20);
+        var percentDeficit = maintenanceKcal * percent / 100.0;
+        var rate = targetRateKgPerWeek.GetValueOrDefault();
+        var rateDeficit = double.IsFinite(rate) && rate > 0
+            ? rate * 7700.0 / 7.0
+            : double.PositiveInfinity;
+
+        // Aplicar el más conservador de los dos límites: déficit porcentual y ritmo objetivo.
+        var target = maintenanceKcal - Math.Min(percentDeficit, rateDeficit);
+        if (minimumKcal.HasValue && double.IsFinite(minimumKcal.Value) && minimumKcal.Value > 0)
+            target = Math.Max(target, minimumKcal.Value);
+
+        return Math.Round(Math.Clamp(target, 800, 5000), MidpointRounding.AwayFromZero);
+    }
+
     public static double EstimateEnergy(
         clients client,
         biometrics? biometric,

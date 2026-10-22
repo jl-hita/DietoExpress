@@ -228,6 +228,23 @@ public sealed class DietGeneratorScenarioTests
             DietaryRestrictionRules.Normalize(item.FoodName).Contains("platano", StringComparison.Ordinal));
     }
 
+    [Theory]
+    [InlineData(15, 0.5, 2500, null, 2125)] // El déficit porcentual es el límite más conservador.
+    [InlineData(15, 0.2, 2500, null, 2280)] // El ritmo semanal limita el déficit.
+    [InlineData(20, 1.5, 2500, 2300, 2300)] // Nunca se baja del mínimo configurado.
+    [InlineData(0, 0.5, 2500, null, 2500)] // Déficit porcentual cero significa mantenimiento.
+    public void WeightManagementEnergyTarget_RespectsDeficitRateAndMinimum(
+        double deficitPercent,
+        double targetRateKgPerWeek,
+        double maintenanceKcal,
+        double? minimumKcal,
+        double expectedKcal)
+    {
+        var actual = DietTherapyRuleEngine.ApplyWeightManagementTarget(
+            maintenanceKcal, deficitPercent, targetRateKgPerWeek, minimumKcal);
+        Assert.Equal(expectedKcal, actual);
+    }
+
     private static List<foods> CreateCatalog()
     {
         var catalog = new List<foods>();
