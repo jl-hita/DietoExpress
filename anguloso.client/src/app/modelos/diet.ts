@@ -22,7 +22,8 @@ export interface DietListItem {
 /** GET /api/dietas/{id}  → incluye árbol de días/comidas (equivale a DietDetailDto) */
 export interface DietDetail extends DietListItem {
   excludedFoodKeywords?: string[];
-  days?: DietDay[];
+  dietType?: string;
+  days?: DietDay[]
 }
 
 /** POST /api/dietas  (equivale a CreateDietDto) */
@@ -38,7 +39,8 @@ export interface CreateDietRequest {
   /** Contexto opcional: crea la dieta y la asigna al cliente en el backend. */
   clientId?: number;
   excludedFoodKeywords?: string[];
-  days?: DietDay[];
+  dietType?: string;
+  days?: DietDay[]
 }
 
 /** PUT /api/dietas/{id}  (equivale a UpdateDietDto) */
@@ -52,7 +54,8 @@ export interface UpdateDietRequest {
   isShared?: boolean;
   isTemplate?: boolean;
   excludedFoodKeywords?: string[];
-  days?: DietDay[];
+  dietType?: string;
+  days?: DietDay[]
 }
 
 // ─── Alias de compatibilidad (usado en componentes anteriores) ───────────────
