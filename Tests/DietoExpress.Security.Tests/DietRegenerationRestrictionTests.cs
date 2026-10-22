@@ -165,6 +165,7 @@ public sealed class DietRegenerationRestrictionTests
         var client = new clients
         {
             id = 1,
+            full_name = "Paciente de prueba",
             archived_at = null,
             tenant_id = null,
             food_preferences = new food_preferences
