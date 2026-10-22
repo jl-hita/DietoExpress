@@ -189,6 +189,8 @@ public sealed class DietGeneratorScenarioTests
         }
 
         Add("Tofu firme", "Proteínas vegetales", 144, 17, 3, 9);
+        Add("Pechuga de pollo", "Carnes", 165, 31, 0, 3.6);
+        Add("Merluza", "Pescados", 86, 18, 0, 2);
         Add("Tempeh natural", "Proteínas vegetales", 193, 20, 8, 11);
         Add("Arroz integral cocido", "Cereales", 123, 2.7, 25.6, 1);
         Add("Pasta integral cocida", "Cereales", 150, 5.5, 30, 1);
