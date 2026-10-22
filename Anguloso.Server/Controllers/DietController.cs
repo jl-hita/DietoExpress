@@ -165,6 +165,7 @@ public class DietController : ControllerBase
             TargetFat = d.target_fat,
             Notes = d.notes,
             ExcludedFoodKeywords = DeserializeExcludedFoodKeywords(d.excluded_food_keywords),
+            DietType = d.diet_type ?? "Equilibrada",
             CreatedAt = d.created_at,
             IsShared = d.is_shared,
             IsTemplate = d.is_template,
@@ -249,6 +250,8 @@ public class DietController : ControllerBase
         if (dto.ExcludedFoodKeywords == null || dto.ExcludedFoodKeywords.Count > 100 ||
             dto.ExcludedFoodKeywords.Any(k => k == null || k.Length > 100))
             return BadRequest("La lista de exclusiones no puede superar 100 términos de hasta 100 caracteres.");
+        if (string.IsNullOrWhiteSpace(dto.DietType) || dto.DietType.Length > 50)
+            return BadRequest("El tipo de dieta no es válido.");
 
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
@@ -304,6 +307,7 @@ public class DietController : ControllerBase
                 target_fat = dto.TargetFat,
                 notes = dto.Notes ?? "",
                 excluded_food_keywords = System.Text.Json.JsonSerializer.Serialize(dto.ExcludedFoodKeywords),
+                diet_type = dto.DietType.Trim(),
                 is_shared = dto.IsShared && await _licenseService.CanUseFeatureAsync(AuthHelpers.GetTenantId(User), "SHARED_DIETS"),
                 is_template = dto.IsTemplate,
                 created_at = DateTime.UtcNow
@@ -409,6 +413,8 @@ public class DietController : ControllerBase
         if (dto.ExcludedFoodKeywords == null || dto.ExcludedFoodKeywords.Count > 100 ||
             dto.ExcludedFoodKeywords.Any(k => k == null || k.Length > 100))
             return BadRequest("La lista de exclusiones no puede superar 100 términos de hasta 100 caracteres.");
+        if (string.IsNullOrWhiteSpace(dto.DietType) || dto.DietType.Length > 50)
+            return BadRequest("El tipo de dieta no es válido.");
 
         var userId = AuthHelpers.GetUserId(User);
         if (userId == null) return Unauthorized();
@@ -443,6 +449,7 @@ public class DietController : ControllerBase
             TargetCarbs = dto.TargetCarbs,
             TargetFat = dto.TargetFat,
             Notes = dto.Notes,
+            DietType = dto.DietType,
             IsShared = dto.IsShared,
             IsTemplate = dto.IsTemplate,
             Days = dto.Days
@@ -468,6 +475,7 @@ public class DietController : ControllerBase
         diet.target_fat = dto.TargetFat;
         diet.notes = dto.Notes ?? diet.notes ?? "";
         diet.excluded_food_keywords = System.Text.Json.JsonSerializer.Serialize(dto.ExcludedFoodKeywords);
+        diet.diet_type = dto.DietType.Trim();
         if (dto.IsShared && !await _licenseService.CanUseFeatureAsync(tenantId, "SHARED_DIETS"))
             return Forbid();
         if (dto.IsTemplate && !await _licenseService.CanUseFeatureAsync(tenantId, "DIET_TEMPLATES"))
