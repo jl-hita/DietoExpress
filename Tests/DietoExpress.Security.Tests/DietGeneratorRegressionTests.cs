@@ -451,4 +451,27 @@ public sealed class DietGeneratorRegressionTests
         Assert.False(DietSemanticValidationService.IsFoodCompatibleWithDietType("Producto procesado", "Vegana", "Lácteos"));
         Assert.False(DietSemanticValidationService.IsFoodCompatibleWithDietType("Producto procesado", "Vegetariana", "Pescado"));
     }
+
+    [Fact]
+    public void OptimizerDoesNotPenalizeMissingFishInVegetarianMenus()
+    {
+        var method = typeof(AdvancedDietOptimizerService).GetMethod(
+            "FrequencyPenalty", BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("No se encontró FrequencyPenalty.");
+        var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["fruta"] = 7,
+            ["verdura"] = 14,
+            ["legumbre"] = 3,
+            ["frutos_secos"] = 4
+        };
+
+        var balancedPenalty = (double)(method.Invoke(null, new object?[] { counts, 7, null, "Equilibrada" }) ?? 0);
+        var veganPenalty = (double)(method.Invoke(null, new object?[] { counts, 7, null, "Vegana" }) ?? 0);
+        var vegetarianPenalty = (double)(method.Invoke(null, new object?[] { counts, 7, null, "Vegetariana" }) ?? 0);
+
+        Assert.Equal(0, veganPenalty);
+        Assert.Equal(0, vegetarianPenalty);
+        Assert.True(balancedPenalty > veganPenalty);
+    }
 }
