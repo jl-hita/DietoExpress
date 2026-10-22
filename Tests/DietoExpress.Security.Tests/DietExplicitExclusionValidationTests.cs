@@ -74,7 +74,7 @@ public sealed class DietExplicitExclusionValidationTests
         var warning = Assert.Single(warnings);
         Assert.Equal("ExplicitExclusion", warning.AlertType);
         Assert.Equal("High", warning.Severity);
-        Assert.Equal("Ingrediente de receta", warning.FoodName);
+        Assert.Equal("Bebida de soja", warning.FoodName);
     }
 
     private static DietDetailDto Draft(params int[] foodIds) => new()
