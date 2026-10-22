@@ -402,12 +402,17 @@ public sealed class DietGeneratorRegressionTests
         var regeneration = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietRegenerationService.cs"));
         var optimizer = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "AdvancedDietOptimizerService.cs"));
 
-        foreach (var source in new[] { generator, regeneration, optimizer })
+        foreach (var source in new[] { generator, regeneration })
         {
             Assert.Contains("f.protein.HasValue", source);
             Assert.Contains("f.carbs.HasValue", source);
             Assert.Contains("f.fat.HasValue", source);
             Assert.Contains(".Value >= 0", source);
         }
+
+        Assert.Contains("food.protein.HasValue", optimizer);
+        Assert.Contains("food.carbs.HasValue", optimizer);
+        Assert.Contains("food.fat.HasValue", optimizer);
+        Assert.Contains(".Value >= 0", optimizer);
     }
 }
