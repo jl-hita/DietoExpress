@@ -132,16 +132,16 @@ public sealed class DietGeneratorScenarioTests
         var semanticValidation = new DietSemanticValidationService(validation);
         var generator = new DietGeneratorService(context, specializationRules, semanticValidation);
 
-        // Objetivos deterministas adaptados al catálogo pequeño del fixture; no evalúan una prescripción clínica.
+        // Solo se fija la energía; los macros quedan sin objetivo explícito para que este escenario mida restricciones, no prescripción nutricional.
         var diet = await generator.GenerateDietAsync(new GenerateDietRequestDto
         {
             ClientId = client.id,
             NumberOfDays = 1,
             MealsPerDay = 5,
             TargetKcal = 1400,
-            TargetProtein = 20,
-            TargetCarbs = 180,
-            TargetFat = 60,
+            TargetProtein = 0,
+            TargetCarbs = 0,
+            TargetFat = 0,
             DietType = "Equilibrada",
             ExcludedFoodKeywords = new List<string> { " Plátano " },
             UseRecipes = false,
