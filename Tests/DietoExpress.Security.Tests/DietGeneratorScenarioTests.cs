@@ -13,9 +13,11 @@ namespace DietoExpress.Security.Tests;
 public sealed class DietGeneratorScenarioTests
 {
     [Theory]
-    [InlineData("Vegana")]
-    [InlineData("Vegetariana")]
-    public async Task MultiDayGeneration_RespectsDietTypeAndExplicitExclusions(string dietType)
+    [InlineData("Vegana", true)]
+    [InlineData("Vegana", false)]
+    [InlineData("Vegetariana", true)]
+    [InlineData("Vegetariana", false)]
+    public async Task MultiDayGeneration_RespectsDietTypeAndExplicitExclusions(string dietType, bool enableGlobalOptimization)
     {
         var options = new DbContextOptionsBuilder<angulosodbContext>()
             .UseInMemoryDatabase($"diet-generator-{Guid.NewGuid():N}")
@@ -41,7 +43,7 @@ public sealed class DietGeneratorScenarioTests
             DietType = dietType,
             ExcludedFoodKeywords = new List<string> { " Plátano " },
             UseRecipes = false,
-            EnableGlobalOptimization = true,
+            EnableGlobalOptimization = enableGlobalOptimization,
             EnableDietTherapyRules = false,
             EnableAutomaticEnergyEstimate = false,
             MaxWeeklyFoodRepetitions = 10,
