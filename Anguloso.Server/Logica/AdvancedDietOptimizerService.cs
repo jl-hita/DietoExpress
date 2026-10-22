@@ -415,7 +415,7 @@ public sealed class AdvancedDietOptimizerService
         }
 
         if (food.StartsWith("aceite ") || food == "aceite") return (5, 18);
-        if (food.Contains("tomate") || food.Contains("lechuga") || food.Contains("espinaca") || food.Contains("calabacin") || food.Contains("berenjena") || food.Contains("brocoli") || food.Contains("zanahoria") || food.Contains("pepino") || food.Contains("pimiento") || food.Contains("judia verde") || food.Contains("champiñon") || food.Contains("calabaza")) return (100, 250);
+        if (food.Contains("tomate") || food.Contains("lechuga") || food.Contains("espinaca") || food.Contains("calabacin") || food.Contains("berenjena") || food.Contains("brocoli") || food.Contains("zanahoria") || food.Contains("pepino") || food.Contains("pimiento") || food.Contains("judia verde") || food.Contains("champinon") || food.Contains("calabaza")) return (100, 250);
         if (food.Contains("arroz") || food.Contains("pasta") || food.Contains("patata") || food.Contains("boniato") || food.Contains("pan") || food.Contains("avena") || food.Contains("quinoa") || food.Contains("lenteja") || food.Contains("garbanzo") || food.Contains("alubia") || food.Contains("guisante") || food.Contains("cuscus") || food.Contains("tostada")) return (50, 180);
         if (food.Contains("pollo") || food.Contains("pavo") || food.Contains("ternera") || food.Contains("cerdo") || food.Contains("conejo") || food.Contains("atun") || food.Contains("salmon") || food.Contains("merluza") || food.Contains("bacalao") || food.Contains("dorada") || food.Contains("lubina") || food.Contains("sardina") || food.Contains("caballa") || food.Contains("gamba") || food.Contains("tofu") || food.Contains("tempeh") || food.Contains("huevo") || food.Contains("clara")) return (100, 220);
         return (20, 250);
@@ -626,7 +626,7 @@ public sealed class AdvancedDietOptimizerService
 
         bool isVegetable = c.Contains("verdura") || c.Contains("hortal") ||
             new[] { "tomate","lechuga","espinaca","calabacin","berenjena","brocoli","zanahoria",
-                    "pepino","pimiento","judia verde","champiñon","calabaza" }.Any(n.Contains);
+                    "pepino","pimiento","judia verde","champinon","calabaza" }.Any(n.Contains);
 
         bool isFruit = c.Contains("fruta") ||
             new[] { "manzana","platano","naranja","pera","fresa","kiwi","mandarina","sandia",
