@@ -236,7 +236,12 @@ public sealed class DietSemanticValidationService
         }
     }
 
-    public static bool IsFoodCompatibleWithDietType(string? foodName, string? dietType, string? category = null)
+    public static bool IsFoodCompatibleWithDietType(
+        string? foodName,
+        string? dietType,
+        string? category = null,
+        double? carbsPer100g = null,
+        double? fatPer100g = null)
     {
         var type = Normalize(dietType ?? string.Empty);
         var food = Normalize($"{foodName ?? string.Empty} {category ?? string.Empty}");
@@ -248,6 +253,7 @@ public sealed class DietSemanticValidationService
         if (vegan && IsAnimalFood(food)) return false;
         if (vegetarian && IsVegetarianForbiddenFood(food)) return false;
         if (keto && IsKetoForbiddenCarb(food)) return false;
+        if (keto && carbsPer100g is double carbs && fatPer100g is double fat && carbs > 10 && carbs > fat) return false;
         if (lowCarb && IsLowCarbForbiddenStaple(food)) return false;
         return true;
     }
