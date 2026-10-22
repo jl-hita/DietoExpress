@@ -352,7 +352,10 @@ public class DietValidationService
             return new List<DietValidationResultDto>();
 
         var foodsById = await context.foods.AsNoTracking()
-            .Where(food => foodIds.Contains(food.id))
+            .Where(food => foodIds.Contains(food.id) &&
+                ((food.source == null || food.source.ToLower() != "local") ||
+                 (tenantId.HasValue && food.tenant_id == tenantId.Value &&
+                  (canUseTenantLocalFoods || food.created_by_user_id == userId))))
             .ToDictionaryAsync(food => food.id);
         var recipeIngredients = await context.recipe_items.AsNoTracking()
             .Include(item => item.food)
