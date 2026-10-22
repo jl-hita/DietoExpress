@@ -302,7 +302,7 @@ public sealed class DietSemanticValidationService
     private static bool IsAnimalFood(string food) =>
         new[] { "carne", "pollo", "pavo", "ternera", "cerdo", "conejo", "cordero", "pescado",
                 "atun", "salmon", "merluza", "bacalao", "sardina", "caballa", "marisco", "gamba",
-                "huevo", "clara", "leche", "yogur", "queso", "kefir", "mantequilla", "miel",
+                "huevo", "clara", "leche", "yogur", "queso", "kefir", "lacteo", "mantequilla", "miel",
                 "gelatina" }.Any(food.Contains);
 
     private static bool IsKetoForbiddenCarb(string food) =>
