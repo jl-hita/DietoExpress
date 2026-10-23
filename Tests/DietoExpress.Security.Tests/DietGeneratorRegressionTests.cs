@@ -600,6 +600,24 @@ public sealed class DietGeneratorRegressionTests
         Assert.Contains("if (meal.Items == null || meal.Items.Any(item => item.RecipeId.HasValue))", optimizer);
     }
 
+    [Fact]
+    public void BaseGeneratorUsesTheSameCulinaryBoundsAsFinalValidation()
+    {
+        var generator = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietGeneratorService.cs"));
+        Assert.Contains("=> DietSemanticValidationService.GetCulinaryBounds(mealName, item.FoodName);", generator);
+    }
+
+    [Fact]
+    public void OptimizerRepairsMissingMainMealProteinAndRemovesMainProteinsFromSmallMeals()
+    {
+        var optimizer = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "AdvancedDietOptimizerService.cs"));
+        Assert.Contains("foreach (var item in meal.Items.ToList())", optimizer);
+        Assert.Contains("meal.Items.Remove(item)", optimizer);
+        Assert.Contains("var hasProtein = current.Any(f =>", optimizer);
+        Assert.Contains("if (!hasProtein)", optimizer);
+        Assert.Contains("DietSemanticValidationService.IsSnackProtein(f.name)", optimizer);
+    }
+
     private static foods FrequencyFood(int id, string name, string category, double kcal, double protein, double carbs, double fat) =>
         new() { id = id, name = name, category = category, kcal = kcal, protein = protein, carbs = carbs, fat = fat, source = "BEDCA" };
 }

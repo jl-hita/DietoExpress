@@ -381,7 +381,7 @@ public sealed class DietSemanticValidationService
     private static bool IsStapleFood(foods food) { var n = Normalize(food.name ?? string.Empty); return IsOil(n) || n.Contains("sal") || n.Contains("agua"); }
     private static bool IsRareOil(string? name) { var n = Normalize(name ?? string.Empty); return IsOil(n) && !n.Contains("aceite de oliva") && !n.Contains("aceite de girasol"); }
     internal static bool IsOil(string? name) => Normalize(name ?? string.Empty).StartsWith("aceite ");
-    private static bool IsFruit(string? name) => new[] { "manzana","naranja","pera","mandarina","platano","fresa","kiwi","melocoton","melon","sandia","uva","albaricoque","ciruela","fruta fresca","fruta" }.Any(Normalize(name ?? string.Empty).Contains);
+    internal static bool IsFruit(string? name) => new[] { "manzana","naranja","pera","mandarina","platano","fresa","kiwi","melocoton","melon","sandia","uva","albaricoque","ciruela","fruta fresca","fruta" }.Any(Normalize(name ?? string.Empty).Contains);
     internal static bool IsVegetable(string? name, string? category = null)
     {
         var normalizedName = Normalize(name ?? string.Empty);
@@ -414,7 +414,7 @@ public sealed class DietSemanticValidationService
     internal static bool IsEgg(string? name) => new[] { "huevo", "clara", "tortilla" }.Any(Normalize(name ?? string.Empty).Contains);
     internal static bool IsNut(string? name) => new[] { "nuez","almendra","avellana","anacardo","pistacho" }.Any(Normalize(name ?? string.Empty).Contains);
     public static bool IsBreakfastCarb(string? name) => new[] { "avena","pan","tostada","copos","cereal" }.Any(Normalize(name ?? string.Empty).Contains);
-    private static bool IsSnackProtein(string? name) => new[] { "yogur","leche","kefir","queso","huevo","clara" }.Any(Normalize(name ?? string.Empty).Contains);
+    internal static bool IsSnackProtein(string? name) => new[] { "yogur","leche","kefir","queso","huevo","clara" }.Any(Normalize(name ?? string.Empty).Contains);
     private static bool IsRawOrDry(string? name) { var n = Normalize(name ?? string.Empty); return n.Contains("seca") || n.Contains("seco") || n.Contains("cruda") || n.Contains("crudo"); }
     private static bool IsHighGlycemicHeuristic(foods food) { var n = Normalize(food.name ?? string.Empty); return n.Contains("pan blanco") || n.Contains("pan de molde blanco") || n.Contains("arroz blanco") || n.Contains("arroz inflado") || n.Contains("pure de patata") || n.Contains("patata instantanea"); }
     private static string Normalize(string value)
