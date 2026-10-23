@@ -357,6 +357,8 @@ public sealed class AdvancedDietOptimizerService
         foreach (var meal in day.Meals)
         {
             meal.Items ??= new List<MealItemDto>();
+            // Las recetas completas ya se filtran por estructura al incorporarse; no duplicar ingredientes alrededor de ellas.
+            if (meal.Items.Any(i => i.RecipeId.HasValue)) continue;
             var name = NormalizeFoodTerm(meal.Name);
             var smallMeal = name.Contains("desayuno") || name.Contains("media") || name.Contains("merienda");
             var currentFoods = meal.Items
