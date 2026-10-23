@@ -393,8 +393,8 @@ public sealed class AdvancedDietOptimizerService
 
     private static void RepairMealSemanticStructure(DietDetailDto diet, IReadOnlyCollection<foods> candidates, IReadOnlyDictionary<int, foods> foodMap, string dietType)
     {
-        // La optimización por macros no garantiza por sí sola que cada plato tenga
-        // los componentes culinarios mínimos exigidos por la barrera semántica final.
+        // La optimización de macros no garantiza por sí sola la estructura exigida por
+        // la validación final. Reparar los componentes antes del último reequilibrado.
         var type = NormalizeFoodTerm(dietType);
         var lowCarb = type.Contains("cetogen") || (type.Contains("baja") && type.Contains("carb"));
 
@@ -402,11 +402,13 @@ public sealed class AdvancedDietOptimizerService
         foreach (var meal in day.Meals)
         {
             meal.Items ??= new List<MealItemDto>();
-            // Las recetas completas ya se filtran por estructura al incorporarse; no duplicar ingredientes alrededor de ellas.
+            // Las recetas se validan por sus ingredientes y no se alteran aquí.
             if (meal.Items.Any(i => i.RecipeId.HasValue)) continue;
+
             var name = NormalizeFoodTerm(meal.Name);
             var smallMeal = name.Contains("desayuno") || name.Contains("media") || name.Contains("merienda");
-            var currentFoods = meal.Items
+
+            List<foods> CurrentFoods() => meal.Items
                 .Where(i => i.FoodId.HasValue && foodMap.ContainsKey(i.FoodId.Value))
                 .Select(i => foodMap[i.FoodId!.Value])
                 .ToList();
@@ -419,39 +421,74 @@ public sealed class AdvancedDietOptimizerService
 
             if (smallMeal)
             {
-                // La validación final solo reconoce fuentes de hidratos propias de desayuno
-                // por nombre; una legumbre puede contar como carbohidrato nutricional, pero no
-                // sustituye pan/avena/cereales en una ingesta pequeña.
+                // Carne/pescado y las proteínas principales equivalentes no deben ocupar
+                // el papel proteico de una ingesta pequeña.
+                meal.Items.RemoveAll(item => item.FoodId.HasValue
+                    && foodMap.TryGetValue(item.FoodId.Value, out var food)
+                    && DietSemanticValidationService.IsMainProteinName(food.name));
+
+                var currentFoods = CurrentFoods();
                 var hasBreakfastCarb = currentFoods.Any(f =>
                     !DietSemanticValidationService.IsLegumeName(f.name)
                     && DietSemanticValidationService.IsBreakfastCarb(f.name));
+
                 if (currentFoods.Any(f => DietSemanticValidationService.IsLegumeName(f.name)) && !hasBreakfastCarb)
                 {
                     var carb = Pick(f => !DietSemanticValidationService.IsLegumeName(f.name)
                         && DietSemanticValidationService.IsBreakfastCarb(f.name));
                     if (carb != null) meal.Items.Add(ToMealItem(carb, 50));
                 }
+
+                currentFoods = CurrentFoods();
+                var hasSnackComponent = currentFoods.Any(f =>
+                    DietSemanticValidationService.IsBreakfastCarb(f.name)
+                    || DietSemanticValidationService.IsSnackProtein(f.name)
+                    || DietSemanticValidationService.IsNut(f.name)
+                    || DietSemanticValidationService.IsFruit(f.name));
+
+                if (!hasSnackComponent)
+                {
+                    var snack = Pick(f => DietSemanticValidationService.IsSnackProtein(f.name)
+                        && !DietSemanticValidationService.IsMainProteinName(f.name))
+                        ?? Pick(f => DietSemanticValidationService.IsBreakfastCarb(f.name))
+                        ?? Pick(f => DietSemanticValidationService.IsFruit(f.name))
+                        ?? Pick(f => DietSemanticValidationService.IsNut(f.name));
+                    if (snack != null) meal.Items.Add(ToMealItem(snack, 100));
+                }
+
                 continue;
             }
 
-            var hasVegetable = currentFoods.Any(f => DietSemanticValidationService.IsVegetable(f.name, f.category));
-            if (!hasVegetable)
+            var current = CurrentFoods();
+            if (!current.Any(f => DietSemanticValidationService.IsVegetable(f.name, f.category)))
             {
                 var vegetable = Pick(f => DietSemanticValidationService.IsVegetable(f.name, f.category));
                 if (vegetable != null) meal.Items.Add(ToMealItem(vegetable, 100));
             }
 
-            if (!lowCarb)
+            current = CurrentFoods();
+            if (!lowCarb && !current.Any(f =>
+                DietSemanticValidationService.IsCarb(f.name, f.category)
+                || DietSemanticValidationService.IsLegumeName(f.name)))
             {
-                var hasCarb = currentFoods.Any(f =>
-                    DietSemanticValidationService.IsCarb(f.name, f.category)
+                var carb = Pick(f => DietSemanticValidationService.IsCarb(f.name, f.category)
+                    && !DietSemanticValidationService.IsLegumeName(f.name));
+                if (carb != null) meal.Items.Add(ToMealItem(carb, 60));
+            }
+
+            // Reparación ausente hasta ahora: una comida principal sin proteína podía
+            // superar la fase de optimización y ser rechazada únicamente al final.
+            current = CurrentFoods();
+            var hasProtein = current.Any(f =>
+                DietSemanticValidationService.IsMainProteinName(f.name)
+                || DietSemanticValidationService.IsEgg(f.name)
+                || DietSemanticValidationService.IsLegumeName(f.name));
+            if (!hasProtein)
+            {
+                var protein = Pick(f => DietSemanticValidationService.IsMainProteinName(f.name)
+                    || DietSemanticValidationService.IsEgg(f.name)
                     || DietSemanticValidationService.IsLegumeName(f.name));
-                if (!hasCarb)
-                {
-                    var carb = Pick(f => DietSemanticValidationService.IsCarb(f.name, f.category)
-                        && !DietSemanticValidationService.IsLegumeName(f.name));
-                    if (carb != null) meal.Items.Add(ToMealItem(carb, 60));
-                }
+                if (protein != null) meal.Items.Add(ToMealItem(protein, 100));
             }
         }
     }
