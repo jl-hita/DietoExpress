@@ -531,6 +531,24 @@ public sealed class DietGeneratorRegressionTests
     }
 
     [Theory]
+    [InlineData("Acelga, cruda", 100d, 250d)]
+    [InlineData("Tortilla De Patatas Con Cebolla", 100d, 250d)]
+    [InlineData("Arroz blanco", 50d, 180d)]
+    public void SemanticValidation_UsesCulinaryBoundsForFoodAndDishNames(string foodName, double expectedMin, double expectedMax)
+    {
+        var bounds = DietSemanticValidationService.GetCulinaryBounds("Comida", foodName);
+        Assert.Equal(expectedMin, bounds.Min);
+        Assert.Equal(expectedMax, bounds.Max);
+    }
+
+    [Fact]
+    public void OptimizerUsesTheSameCulinaryBoundsAsFinalValidation()
+    {
+        var optimizer = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "AdvancedDietOptimizerService.cs"));
+        Assert.Contains("=> DietSemanticValidationService.GetCulinaryBounds(mealName, item.FoodName);", optimizer);
+    }
+
+    [Theory]
     [InlineData("Garbanzos cocidos", false)]
     [InlineData("Garbanzos con espinacas", false)]
     [InlineData("Pan integral", true)]
