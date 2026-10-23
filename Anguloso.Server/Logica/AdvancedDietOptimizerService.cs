@@ -423,9 +423,14 @@ public sealed class AdvancedDietOptimizerService
             {
                 // Carne/pescado y las proteínas principales equivalentes no deben ocupar
                 // el papel proteico de una ingesta pequeña.
-                meal.Items.RemoveAll(item => item.FoodId.HasValue
-                    && foodMap.TryGetValue(item.FoodId.Value, out var food)
-                    && DietSemanticValidationService.IsMainProteinName(food.name));
+                foreach (var item in meal.Items.ToList())
+                {
+                    if (!item.FoodId.HasValue || !foodMap.TryGetValue(item.FoodId.Value, out var food))
+                        continue;
+
+                    if (DietSemanticValidationService.IsMainProteinName(food.name))
+                        meal.Items.Remove(item);
+                }
 
                 var currentFoods = CurrentFoods();
                 var hasBreakfastCarb = currentFoods.Any(f =>
