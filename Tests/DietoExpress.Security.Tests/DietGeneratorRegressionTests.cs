@@ -546,10 +546,13 @@ public sealed class DietGeneratorRegressionTests
     {
         var optimizer = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "AdvancedDietOptimizerService.cs"));
 
-        Assert.Contains("!DietSemanticValidationService.IsLegumeName(f.name)", optimizer);
-        Assert.Contains("DietSemanticValidationService.IsBreakfastCarb(f.name)", optimizer);
-        Assert.DoesNotContain("DietSemanticValidationService.IsCarb(f.name, f.category));", optimizer.Substring(
-            optimizer.IndexOf("var hasBreakfastCarb", StringComparison.Ordinal)));
+        var start = optimizer.IndexOf("var hasBreakfastCarb", StringComparison.Ordinal);
+        var end = optimizer.IndexOf("if (currentFoods.Any", start, StringComparison.Ordinal);
+        Assert.True(start >= 0 && end > start);
+        var breakfastCarbCheck = optimizer[start..end];
+        Assert.Contains("!DietSemanticValidationService.IsLegumeName(f.name)", breakfastCarbCheck);
+        Assert.Contains("DietSemanticValidationService.IsBreakfastCarb(f.name)", breakfastCarbCheck);
+        Assert.DoesNotContain("IsCarb(", breakfastCarbCheck);
     }
 
     [Theory]
