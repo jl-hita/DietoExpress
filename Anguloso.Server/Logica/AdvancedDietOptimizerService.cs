@@ -132,6 +132,7 @@ public sealed class AdvancedDietOptimizerService
         // Repair final de frecuencias: si una frecuencia positiva está claramente por debajo
         // del objetivo, se intenta reemplazar el alimento menos útil de una comida compatible.
         RepairWeeklyFrequencies(diet, candidates, targetKcal, targetProtein, targetCarbs, targetFat, request, therapyProfile);
+        RepairDuplicateLegumeComponents(diet, foodMap);
         RepairMealSemanticStructure(diet, candidates, foodMap, request.DietType);
 
         // El último reequilibrado se hace sobre cada día, porque las sustituciones inteligentes
@@ -344,6 +345,49 @@ public sealed class AdvancedDietOptimizerService
             }
         }
         return Math.Max(0, penalty / Math.Max(1, items.Count));
+    }
+
+    private static void RepairDuplicateLegumeComponents(DietDetailDto diet, IReadOnlyDictionary<int, foods> foodMap)
+    {
+        // Evita combinar dos entradas del catálogo que representan la misma legumbre
+        // (p. ej. "Garbanzos" y "Garbanzos con espinacas") en una única comida.
+        // Se omiten recetas completas porque sus ingredientes se validan por separado.
+        foreach (var meal in diet.Days.SelectMany(day => day.Meals))
+        {
+            if (meal.Items == null || meal.Items.Any(item => item.RecipeId.HasValue))
+                continue;
+
+            var duplicateGroups = meal.Items
+                .Where(item => item.FoodId.HasValue && foodMap.ContainsKey(item.FoodId.Value))
+                .Select(item => new { Item = item, Food = foodMap[item.FoodId!.Value], Core = GetLegumeCoreName(foodMap[item.FoodId!.Value].name) })
+                .Where(entry => entry.Core != null)
+                .GroupBy(entry => entry.Core!, StringComparer.OrdinalIgnoreCase)
+                .Where(group => group.Count() > 1);
+
+            foreach (var group in duplicateGroups)
+            {
+                // Conserva la entrada más descriptiva, que suele ser el plato compuesto,
+                // y elimina la legumbre genérica añadida como componente independiente.
+                var keep = group
+                    .OrderByDescending(entry => NormalizeFoodTerm(entry.Food.name ?? string.Empty).Length)
+                    .ThenByDescending(entry => entry.Item.Grams ?? 0)
+                    .First();
+                foreach (var duplicate in group.Where(entry => !ReferenceEquals(entry.Item, keep.Item)))
+                    meal.Items.Remove(duplicate.Item);
+            }
+        }
+    }
+
+    private static string? GetLegumeCoreName(string? foodName)
+    {
+        var name = NormalizeFoodTerm(foodName ?? string.Empty);
+        if (name.Contains("garbanzo")) return "garbanzo";
+        if (name.Contains("lenteja")) return "lenteja";
+        if (name.Contains("alubia") || name.Contains("judia") || name.Contains("frijol") || name.Contains("poroto")) return "judia";
+        if (name.Contains("guisante") || name.Contains("arveja")) return "guisante";
+        if (name.Contains("soja") || name.Contains("soya")) return "soja";
+        if (name.Contains("haba")) return "haba";
+        return null;
     }
 
     private static void RepairMealSemanticStructure(DietDetailDto diet, IReadOnlyCollection<foods> candidates, IReadOnlyDictionary<int, foods> foodMap, string dietType)
