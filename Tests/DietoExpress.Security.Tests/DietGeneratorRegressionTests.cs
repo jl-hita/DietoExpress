@@ -531,6 +531,31 @@ public sealed class DietGeneratorRegressionTests
     }
 
     [Theory]
+    [InlineData("Garbanzos cocidos", false)]
+    [InlineData("Garbanzos con espinacas", false)]
+    [InlineData("Pan integral", true)]
+    [InlineData("Avena", true)]
+    [InlineData("Arroz blanco", false)]
+    public void SemanticValidation_OnlyRecognizesAppropriateBreakfastCarbohydrates(string foodName, bool expected)
+    {
+        Assert.Equal(expected, DietSemanticValidationService.IsBreakfastCarb(foodName));
+    }
+
+    [Fact]
+    public void OptimizerDoesNotMistakeLegumesForBreakfastCarbohydratesWhenRepairingSnacks()
+    {
+        var optimizer = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "AdvancedDietOptimizerService.cs"));
+
+        var start = optimizer.IndexOf("var hasBreakfastCarb", StringComparison.Ordinal);
+        var end = optimizer.IndexOf("if (currentFoods.Any", start, StringComparison.Ordinal);
+        Assert.True(start >= 0 && end > start);
+        var breakfastCarbCheck = optimizer[start..end];
+        Assert.Contains("!DietSemanticValidationService.IsLegumeName(f.name)", breakfastCarbCheck);
+        Assert.Contains("DietSemanticValidationService.IsBreakfastCarb(f.name)", breakfastCarbCheck);
+        Assert.DoesNotContain("IsCarb(", breakfastCarbCheck);
+    }
+
+    [Theory]
     [InlineData("Garbanzos cocidos", "garbanzo")]
     [InlineData("Garbanzos con espinacas", "garbanzo")]
     [InlineData("Lentejas estofadas", "lenteja")]

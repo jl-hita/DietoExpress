@@ -413,7 +413,7 @@ public sealed class DietSemanticValidationService
     internal static bool IsFattyProtein(string? name) => new[] { "salmon","sardina","caballa","aguacate" }.Any(Normalize(name ?? string.Empty).Contains);
     internal static bool IsEgg(string? name) => new[] { "huevo", "clara", "tortilla" }.Any(Normalize(name ?? string.Empty).Contains);
     internal static bool IsNut(string? name) => new[] { "nuez","almendra","avellana","anacardo","pistacho" }.Any(Normalize(name ?? string.Empty).Contains);
-    private static bool IsBreakfastCarb(string? name) => new[] { "avena","pan","tostada","copos","cereal" }.Any(Normalize(name ?? string.Empty).Contains);
+    public static bool IsBreakfastCarb(string? name) => new[] { "avena","pan","tostada","copos","cereal" }.Any(Normalize(name ?? string.Empty).Contains);
     private static bool IsSnackProtein(string? name) => new[] { "yogur","leche","kefir","queso","huevo","clara" }.Any(Normalize(name ?? string.Empty).Contains);
     private static bool IsRawOrDry(string? name) { var n = Normalize(name ?? string.Empty); return n.Contains("seca") || n.Contains("seco") || n.Contains("cruda") || n.Contains("crudo"); }
     private static bool IsHighGlycemicHeuristic(foods food) { var n = Normalize(food.name ?? string.Empty); return n.Contains("pan blanco") || n.Contains("pan de molde blanco") || n.Contains("arroz blanco") || n.Contains("arroz inflado") || n.Contains("pure de patata") || n.Contains("patata instantanea"); }
