@@ -132,6 +132,7 @@ public sealed class AdvancedDietOptimizerService
         // Repair final de frecuencias: si una frecuencia positiva está claramente por debajo
         // del objetivo, se intenta reemplazar el alimento menos útil de una comida compatible.
         RepairWeeklyFrequencies(diet, candidates, targetKcal, targetProtein, targetCarbs, targetFat, request, therapyProfile);
+        RepairMealSemanticStructure(diet, candidates, foodMap, request.DietType);
 
         // El último reequilibrado se hace sobre cada día, porque las sustituciones inteligentes
         // deben conservar los objetivos diarios aunque hayan cambiado densidades nutricionales.
@@ -343,6 +344,70 @@ public sealed class AdvancedDietOptimizerService
             }
         }
         return Math.Max(0, penalty / Math.Max(1, items.Count));
+    }
+
+    private static void RepairMealSemanticStructure(DietDetailDto diet, IReadOnlyCollection<foods> candidates, IReadOnlyDictionary<int, foods> foodMap, string dietType)
+    {
+        // La optimización por macros no garantiza por sí sola que cada plato tenga
+        // los componentes culinarios mínimos exigidos por la barrera semántica final.
+        var type = NormalizeFoodTerm(dietType);
+        var lowCarb = type.Contains("cetogen") || (type.Contains("baja") && type.Contains("carb"));
+
+        foreach (var day in diet.Days)
+        foreach (var meal in day.Meals)
+        {
+            meal.Items ??= new List<MealItemDto>();
+            // Las recetas completas ya se filtran por estructura al incorporarse; no duplicar ingredientes alrededor de ellas.
+            if (meal.Items.Any(i => i.RecipeId.HasValue)) continue;
+            var name = NormalizeFoodTerm(meal.Name);
+            var smallMeal = name.Contains("desayuno") || name.Contains("media") || name.Contains("merienda");
+            var currentFoods = meal.Items
+                .Where(i => i.FoodId.HasValue && foodMap.ContainsKey(i.FoodId.Value))
+                .Select(i => foodMap[i.FoodId!.Value])
+                .ToList();
+
+            foods? Pick(Func<foods, bool> predicate) => candidates
+                .Where(predicate)
+                .Where(f => !meal.Items.Any(i => i.FoodId == f.id))
+                .OrderBy(f => f.name)
+                .FirstOrDefault();
+
+            if (smallMeal)
+            {
+                var hasBreakfastCarb = currentFoods.Any(f =>
+                    new[] { "avena", "pan", "tostada", "copos", "cereal" }
+                        .Any(NormalizeFoodTerm(f.name ?? string.Empty).Contains)
+                    || DietSemanticValidationService.IsCarb(f.name, f.category));
+                if (currentFoods.Any(f => DietSemanticValidationService.IsLegumeName(f.name)) && !hasBreakfastCarb)
+                {
+                    var carb = Pick(f => InferRole(meal.Name, f) == "breakfast_carb"
+                        || (DietSemanticValidationService.IsCarb(f.name, f.category)
+                            && !DietSemanticValidationService.IsLegumeName(f.name)));
+                    if (carb != null) meal.Items.Add(ToMealItem(carb, 50));
+                }
+                continue;
+            }
+
+            var hasVegetable = currentFoods.Any(f => DietSemanticValidationService.IsVegetable(f.name, f.category));
+            if (!hasVegetable)
+            {
+                var vegetable = Pick(f => DietSemanticValidationService.IsVegetable(f.name, f.category));
+                if (vegetable != null) meal.Items.Add(ToMealItem(vegetable, 100));
+            }
+
+            if (!lowCarb)
+            {
+                var hasCarb = currentFoods.Any(f =>
+                    DietSemanticValidationService.IsCarb(f.name, f.category)
+                    || DietSemanticValidationService.IsLegumeName(f.name));
+                if (!hasCarb)
+                {
+                    var carb = Pick(f => DietSemanticValidationService.IsCarb(f.name, f.category)
+                        && !DietSemanticValidationService.IsLegumeName(f.name));
+                    if (carb != null) meal.Items.Add(ToMealItem(carb, 60));
+                }
+            }
+        }
     }
 
     private static void RepairWeeklyFrequencies(DietDetailDto diet, IReadOnlyCollection<foods> candidates, double targetKcal, double targetProtein, double targetCarbs, double targetFat, GenerateDietRequestDto request, DietTherapyProfile? therapyProfile = null)

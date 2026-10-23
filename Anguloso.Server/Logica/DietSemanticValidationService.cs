@@ -185,7 +185,7 @@ public sealed class DietSemanticValidationService
         var lowCarb = type.Contains("baja") && type.Contains("carb");
         var hasProtein = semanticFoods.Any(food => IsMainProteinName(food.name) || IsEgg(food.name) || IsLegumeName(food.name));
         var hasVegetable = semanticFoods.Any(food => IsVegetable(food.name, food.category));
-        var hasCarb = semanticFoods.Any(food => IsCarb(food.name) || IsLegumeName(food.name));
+        var hasCarb = semanticFoods.Any(food => IsCarb(food.name, food.category) || IsLegumeName(food.name));
         var hasFat = semanticFoods.Any(food => IsOil(food.name) || IsNut(food.name) || IsFattyProtein(food.name));
 
         if (!hasProtein) errors.Add($"Día {dayIndex + 1}, {meal.Name}: comida principal sin fuente proteica reconocible.");
@@ -393,7 +393,13 @@ public sealed class DietSemanticValidationService
                 "col rizada", "canonigo", "rucula", "endibia", "nabo", "rabanito", "remolacha",
                 "seta", "setas", "hongo", "cardo" }.Any(normalizedName.Contains);
     }
-    internal static bool IsCarb(string? name) => new[] { "arroz","pasta","patata","boniato","pan","avena","quinoa","cuscus","tostada","cereal" }.Any(Normalize(name ?? string.Empty).Contains);
+    internal static bool IsCarb(string? name, string? category = null)
+    {
+        var normalizedName = Normalize(name ?? string.Empty);
+        var normalizedCategory = Normalize(category ?? string.Empty);
+        return new[] { "arroz", "pasta", "patata", "boniato", "pan", "avena", "quinoa", "cuscus", "tostada", "cereal", "maiz", "trigo", "cebada", "centeno", "mijo", "sorgo", "tapioca", "yuca" }.Any(normalizedName.Contains)
+            || new[] { "cereal", "cereales", "arroz", "pasta", "tuberculo", "panificacion", "pan y derivados" }.Any(normalizedCategory.Contains);
+    }
     internal static bool IsLegumeName(string? name)
     {
         var normalized = Normalize(name ?? string.Empty);

@@ -330,6 +330,20 @@ public sealed class DietGeneratorRegressionTests
     }
 
     [Fact]
+    public void Generator_RepairsMissingMealComponentsBeforeFinalValidation()
+    {
+        var semantic = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietSemanticValidationService.cs"));
+        var optimizer = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "AdvancedDietOptimizerService.cs"));
+
+        Assert.Contains("internal static bool IsCarb(string? name, string? category = null)", semantic);
+        Assert.Contains("normalizedCategory.Contains", semantic);
+        Assert.Contains("RepairMealSemanticStructure(diet, candidates, foodMap, request.DietType)", optimizer);
+        Assert.Contains("DietSemanticValidationService.IsVegetable(f.name, f.category)", optimizer);
+        Assert.Contains("DietSemanticValidationService.IsCarb(f.name, f.category)", optimizer);
+        Assert.Contains("currentFoods.Any(f => DietSemanticValidationService.IsLegumeName(f.name)) && !hasBreakfastCarb", optimizer);
+    }
+
+    [Fact]
     public void Generator_CentralizesClinicalSafetyInTheFinalSemanticGate()
     {
         var semantic = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietSemanticValidationService.cs"));
