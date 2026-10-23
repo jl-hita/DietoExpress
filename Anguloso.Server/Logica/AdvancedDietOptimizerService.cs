@@ -419,15 +419,16 @@ public sealed class AdvancedDietOptimizerService
 
             if (smallMeal)
             {
+                // La validación final solo reconoce fuentes de hidratos propias de desayuno
+                // por nombre; una legumbre puede contar como carbohidrato nutricional, pero no
+                // sustituye pan/avena/cereales en una ingesta pequeña.
                 var hasBreakfastCarb = currentFoods.Any(f =>
-                    new[] { "avena", "pan", "tostada", "copos", "cereal" }
-                        .Any(NormalizeFoodTerm(f.name ?? string.Empty).Contains)
-                    || DietSemanticValidationService.IsCarb(f.name, f.category));
+                    !DietSemanticValidationService.IsLegumeName(f.name)
+                    && DietSemanticValidationService.IsBreakfastCarb(f.name));
                 if (currentFoods.Any(f => DietSemanticValidationService.IsLegumeName(f.name)) && !hasBreakfastCarb)
                 {
-                    var carb = Pick(f => InferRole(meal.Name, f) == "breakfast_carb"
-                        || (DietSemanticValidationService.IsCarb(f.name, f.category)
-                            && !DietSemanticValidationService.IsLegumeName(f.name)));
+                    var carb = Pick(f => !DietSemanticValidationService.IsLegumeName(f.name)
+                        && DietSemanticValidationService.IsBreakfastCarb(f.name));
                     if (carb != null) meal.Items.Add(ToMealItem(carb, 50));
                 }
                 continue;
