@@ -611,7 +611,8 @@ public sealed class DietGeneratorRegressionTests
     public void OptimizerRepairsMissingMainMealProteinAndRemovesMainProteinsFromSmallMeals()
     {
         var optimizer = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "AdvancedDietOptimizerService.cs"));
-        Assert.Contains("meal.Items.RemoveAll(item => item.FoodId.HasValue", optimizer);
+        Assert.Contains("foreach (var item in meal.Items.ToList())", optimizer);
+        Assert.Contains("meal.Items.Remove(item)", optimizer);
         Assert.Contains("var hasProtein = current.Any(f =>", optimizer);
         Assert.Contains("if (!hasProtein)", optimizer);
         Assert.Contains("DietSemanticValidationService.IsSnackProtein(f.name)", optimizer);
