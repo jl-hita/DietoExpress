@@ -318,6 +318,18 @@ public sealed class DietGeneratorRegressionTests
 
 
     [Fact]
+    public void Generator_ValidatesRecipeIngredientsAsPartOfTheMeal()
+    {
+        var semantic = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietSemanticValidationService.cs"));
+        var optimizer = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "AdvancedDietOptimizerService.cs"));
+
+        Assert.Contains("var recipeMap = new Dictionary<int, recipes>()", semantic);
+        Assert.Contains("var semanticFoods = directFoods.Concat(recipeFoods).ToList()", semantic);
+        Assert.Contains("semanticFoods.Any(food => IsVegetable(food.name, food.category))", semantic);
+        Assert.Contains("RecipeHasRequiredMealStructure(x.Ingredients, request.DietType)", optimizer);
+    }
+
+    [Fact]
     public void Generator_CentralizesClinicalSafetyInTheFinalSemanticGate()
     {
         var semantic = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DietSemanticValidationService.cs"));
@@ -327,8 +339,8 @@ public sealed class DietGeneratorRegressionTests
         Assert.Contains("StringComparison.OrdinalIgnoreCase", semantic);
         Assert.Contains("ValidatePatientTherapySemanticsAsync", semantic);
         Assert.Contains("ValidateDietTypeSemantics", semantic);
-        Assert.Contains("IsLegumeName(i.FoodName)", semantic);
-        Assert.Contains("IsFruit(i.FoodName)", semantic);
+        Assert.Contains("semanticFoods.Any(food => IsLegumeName(food.name))", semantic);
+        Assert.Contains("IsFruit(food.name)", semantic);
         Assert.Contains("IsAnimalFood", semantic);
         Assert.Contains("IsKetoForbiddenCarb", semantic);
         Assert.DoesNotContain("_dietValidationService", generator);

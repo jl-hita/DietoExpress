@@ -241,7 +241,8 @@ public sealed class AdvancedDietOptimizerService
                     })
                     .Where(x => x.Ingredients.Count >= 2
                              && x.Ingredients.Count == x.Recipe.recipe_items.Count
-                             && x.Ingredients.All(i => foodMap.ContainsKey(i.food_id) && DietSemanticValidationService.IsFoodCompatibleWithDietType(i.food.name, request.DietType, i.food.category, i.food.carbs, i.food.fat)))
+                             && x.Ingredients.All(i => foodMap.ContainsKey(i.food_id) && DietSemanticValidationService.IsFoodCompatibleWithDietType(i.food.name, request.DietType, i.food.category, i.food.carbs, i.food.fat))
+                             && RecipeHasRequiredMealStructure(x.Ingredients, request.DietType))
                     .Select(x => new
                     {
                         x.Recipe,
@@ -520,6 +521,27 @@ public sealed class AdvancedDietOptimizerService
         var item = new MealItemDto();
         ReplaceItem(item, food, grams);
         return item;
+    }
+
+    private static bool RecipeHasRequiredMealStructure(IEnumerable<recipe_items> ingredients, string dietType)
+    {
+        var foods = ingredients.Where(i => i.food != null && i.grams > 0).Select(i => i.food).ToList();
+        var hasProtein = foods.Any(f => DietSemanticValidationService.IsMainProteinName(f.name)
+            || DietSemanticValidationService.IsEgg(f.name)
+            || DietSemanticValidationService.IsLegumeName(f.name));
+        var hasVegetable = foods.Any(f => DietSemanticValidationService.IsVegetable(f.name, f.category));
+        var normalizedType = dietType.Normalize(System.Text.NormalizationForm.FormD);
+        var keto = normalizedType.Contains("cetogen", StringComparison.OrdinalIgnoreCase);
+        var lowCarb = normalizedType.Contains("baja", StringComparison.OrdinalIgnoreCase)
+            && normalizedType.Contains("carb", StringComparison.OrdinalIgnoreCase);
+        var hasCarb = foods.Any(f => DietSemanticValidationService.IsCarb(f.name)
+            || DietSemanticValidationService.IsLegumeName(f.name));
+        var hasFat = foods.Any(f => DietSemanticValidationService.IsOil(f.name)
+            || DietSemanticValidationService.IsNut(f.name)
+            || DietSemanticValidationService.IsFattyProtein(f.name));
+
+        // Una receta sustituye la comida completa: debe contener sus componentes esenciales.
+        return hasProtein && hasVegetable && ((keto || lowCarb) ? hasFat : hasCarb);
     }
 
     private static MealItemDto ToRecipeMealItem(recipes recipe, IEnumerable<recipe_items> ingredients, double scale)

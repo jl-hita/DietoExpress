@@ -36,17 +36,18 @@ public sealed class DietSemanticValidationService
         var errors = ValidateStructure(diet, request, allowedFoods);
         var foodMap = allowedFoods.GroupBy(f => f.id).ToDictionary(g => g.Key, g => g.First());
 
+        var recipeMap = new Dictionary<int, recipes>();
         var recipeIds = diet.Days.SelectMany(d => d.Meals).SelectMany(m => m.Items)
             .Where(i => i.RecipeId.HasValue).Select(i => i.RecipeId!.Value).Distinct().ToArray();
 
         if (recipeIds.Length > 0)
         {
-            var recipes = await context.recipes.AsNoTracking().Include(r => r.recipe_items).ThenInclude(i => i.food)
+            recipeMap = await context.recipes.AsNoTracking().Include(r => r.recipe_items).ThenInclude(i => i.food)
                 .Where(r => recipeIds.Contains(r.id)).ToDictionaryAsync(r => r.id, cancellationToken);
 
             foreach (var item in diet.Days.SelectMany(d => d.Meals).SelectMany(m => m.Items).Where(i => i.RecipeId.HasValue))
             {
-                if (!recipes.TryGetValue(item.RecipeId!.Value, out var recipe))
+                if (!recipeMap.TryGetValue(item.RecipeId!.Value, out var recipe))
                 {
                     errors.Add($"La receta {item.RecipeId.Value} no existe.");
                     continue;
@@ -88,7 +89,7 @@ public sealed class DietSemanticValidationService
                 ValidateFoodItem(errors, day.DayIndex, meal, item, food);
             }
 
-            ValidateMealSemantics(errors, day.DayIndex, meal, request.DietType, foodMap);
+            ValidateMealSemantics(errors, day.DayIndex, meal, request.DietType, foodMap, recipeMap);
         }
 
         foreach (var pair in weeklyFoodUses)
@@ -146,10 +147,21 @@ public sealed class DietSemanticValidationService
         return errors;
     }
 
-    private static void ValidateMealSemantics(List<string> errors, int dayIndex, MealDto meal, string dietType, IReadOnlyDictionary<int, foods> foodMap)
+    private static void ValidateMealSemantics(List<string> errors, int dayIndex, MealDto meal, string dietType, IReadOnlyDictionary<int, foods> foodMap, IReadOnlyDictionary<int, recipes> recipeMap)
     {
         var name = Normalize(meal.Name);
         var items = meal.Items.Where(i => (i.Grams ?? 0) > 0).ToList();
+        // Las recetas se representan como un único MealItemDto sin FoodId. Para validar la
+        // estructura real de la comida hay que inspeccionar también sus ingredientes.
+        var recipeFoods = items.Where(i => i.RecipeId.HasValue)
+            .SelectMany(i => recipeMap.TryGetValue(i.RecipeId!.Value, out var recipe)
+                ? recipe.recipe_items.Where(ri => ri.food != null && ri.grams > 0).Select(ri => ri.food)
+                : Enumerable.Empty<foods>())
+            .ToList();
+        var directFoods = items.Where(i => i.FoodId.HasValue)
+            .Select(i => foodMap.TryGetValue(i.FoodId!.Value, out var food) ? food : null)
+            .Where(food => food != null).Cast<foods>();
+        var semanticFoods = directFoods.Concat(recipeFoods).ToList();
         if (items.Count == 0) { errors.Add($"Día {dayIndex + 1}, {meal.Name}: comida vacía."); return; }
 
         if (items.GroupBy(i => i.FoodId ?? -i.RecipeId.GetValueOrDefault()).Any(g => g.Key != 0 && g.Count() > 1))
@@ -158,12 +170,12 @@ public sealed class DietSemanticValidationService
         var small = name.Contains("desayuno") || name.Contains("media") || name.Contains("merienda");
         if (small)
         {
-            if (items.Any(i => i.FoodId.HasValue && IsMainProteinName(i.FoodName)))
+            if (semanticFoods.Any(food => IsMainProteinName(food.name)))
                 errors.Add($"Día {dayIndex + 1}, {meal.Name}: una ingesta pequeña contiene carne o pescado como proteína principal.");
-            if (items.Any(i => i.FoodId.HasValue && IsLegumeName(i.FoodName)) &&
-                !items.Any(i => i.FoodId.HasValue && IsBreakfastCarb(i.FoodName)))
+            if (semanticFoods.Any(food => IsLegumeName(food.name)) &&
+                !semanticFoods.Any(food => IsBreakfastCarb(food.name)))
                 errors.Add($"Día {dayIndex + 1}, {meal.Name}: las legumbres no pueden sustituir al carbohidrato de una ingesta pequeña.");
-            if (!items.Any(i => i.FoodId.HasValue && (IsBreakfastCarb(i.FoodName) || IsSnackProtein(i.FoodName) || IsNut(i.FoodName) || IsFruit(i.FoodName))))
+            if (!semanticFoods.Any(food => IsBreakfastCarb(food.name) || IsSnackProtein(food.name) || IsNut(food.name) || IsFruit(food.name)))
                 errors.Add($"Día {dayIndex + 1}, {meal.Name}: falta un componente principal de desayuno/colación.");
             return;
         }
@@ -171,10 +183,10 @@ public sealed class DietSemanticValidationService
         var type = Normalize(dietType);
         var keto = type.Contains("cetogen");
         var lowCarb = type.Contains("baja") && type.Contains("carb");
-        var hasProtein = items.Any(i => i.FoodId.HasValue && (IsMainProteinName(i.FoodName) || IsEgg(i.FoodName) || IsLegumeName(i.FoodName)));
-        var hasVegetable = items.Any(i => i.FoodId.HasValue && foodMap.TryGetValue(i.FoodId.Value, out var food) && IsVegetable(food.name, food.category));
-        var hasCarb = items.Any(i => i.FoodId.HasValue && (IsCarb(i.FoodName) || IsLegumeName(i.FoodName)));
-        var hasFat = items.Any(i => i.FoodId.HasValue && (IsOil(i.FoodName) || IsNut(i.FoodName) || IsFattyProtein(i.FoodName)));
+        var hasProtein = semanticFoods.Any(food => IsMainProteinName(food.name) || IsEgg(food.name) || IsLegumeName(food.name));
+        var hasVegetable = semanticFoods.Any(food => IsVegetable(food.name, food.category));
+        var hasCarb = semanticFoods.Any(food => IsCarb(food.name) || IsLegumeName(food.name));
+        var hasFat = semanticFoods.Any(food => IsOil(food.name) || IsNut(food.name) || IsFattyProtein(food.name));
 
         if (!hasProtein) errors.Add($"Día {dayIndex + 1}, {meal.Name}: comida principal sin fuente proteica reconocible.");
         if (!hasVegetable) errors.Add($"Día {dayIndex + 1}, {meal.Name}: comida principal sin verdura/hortaliza reconocible.");
@@ -368,9 +380,9 @@ public sealed class DietSemanticValidationService
 
     private static bool IsStapleFood(foods food) { var n = Normalize(food.name ?? string.Empty); return IsOil(n) || n.Contains("sal") || n.Contains("agua"); }
     private static bool IsRareOil(string? name) { var n = Normalize(name ?? string.Empty); return IsOil(n) && !n.Contains("aceite de oliva") && !n.Contains("aceite de girasol"); }
-    private static bool IsOil(string? name) => Normalize(name ?? string.Empty).StartsWith("aceite ");
+    internal static bool IsOil(string? name) => Normalize(name ?? string.Empty).StartsWith("aceite ");
     private static bool IsFruit(string? name) => new[] { "manzana","naranja","pera","mandarina","platano","fresa","kiwi","melocoton","melon","sandia","uva","albaricoque","ciruela","fruta fresca","fruta" }.Any(Normalize(name ?? string.Empty).Contains);
-    private static bool IsVegetable(string? name, string? category = null)
+    internal static bool IsVegetable(string? name, string? category = null)
     {
         var normalizedName = Normalize(name ?? string.Empty);
         var normalizedCategory = Normalize(category ?? string.Empty);
@@ -381,8 +393,8 @@ public sealed class DietSemanticValidationService
                 "col rizada", "canonigo", "rucula", "endibia", "nabo", "rabanito", "remolacha",
                 "seta", "setas", "hongo", "cardo" }.Any(normalizedName.Contains);
     }
-    private static bool IsCarb(string? name) => new[] { "arroz","pasta","patata","boniato","pan","avena","quinoa","cuscus","tostada","cereal" }.Any(Normalize(name ?? string.Empty).Contains);
-    private static bool IsLegumeName(string? name)
+    internal static bool IsCarb(string? name) => new[] { "arroz","pasta","patata","boniato","pan","avena","quinoa","cuscus","tostada","cereal" }.Any(Normalize(name ?? string.Empty).Contains);
+    internal static bool IsLegumeName(string? name)
     {
         var normalized = Normalize(name ?? string.Empty);
         // La judía verde es una hortaliza, no una legumbre seca; evitar que "judía"
@@ -391,10 +403,10 @@ public sealed class DietSemanticValidationService
         return new[] { "lenteja", "garbanzo", "alubia", "judia", "guisante" }
             .Any(normalized.Contains);
     }
-    private static bool IsMainProteinName(string? name) => new[] { "pollo","pavo","ternera","cerdo","conejo","atun","salmon","merluza","bacalao","dorada","lubina","sardina","caballa","gamba","tofu","tempeh" }.Any(Normalize(name ?? string.Empty).Contains);
-    private static bool IsFattyProtein(string? name) => new[] { "salmon","sardina","caballa","aguacate" }.Any(Normalize(name ?? string.Empty).Contains);
-    private static bool IsEgg(string? name) => new[] { "huevo", "clara", "tortilla" }.Any(Normalize(name ?? string.Empty).Contains);
-    private static bool IsNut(string? name) => new[] { "nuez","almendra","avellana","anacardo","pistacho" }.Any(Normalize(name ?? string.Empty).Contains);
+    internal static bool IsMainProteinName(string? name) => new[] { "pollo","pavo","ternera","cerdo","conejo","atun","salmon","merluza","bacalao","dorada","lubina","sardina","caballa","gamba","tofu","tempeh" }.Any(Normalize(name ?? string.Empty).Contains);
+    internal static bool IsFattyProtein(string? name) => new[] { "salmon","sardina","caballa","aguacate" }.Any(Normalize(name ?? string.Empty).Contains);
+    internal static bool IsEgg(string? name) => new[] { "huevo", "clara", "tortilla" }.Any(Normalize(name ?? string.Empty).Contains);
+    internal static bool IsNut(string? name) => new[] { "nuez","almendra","avellana","anacardo","pistacho" }.Any(Normalize(name ?? string.Empty).Contains);
     private static bool IsBreakfastCarb(string? name) => new[] { "avena","pan","tostada","copos","cereal" }.Any(Normalize(name ?? string.Empty).Contains);
     private static bool IsSnackProtein(string? name) => new[] { "yogur","leche","kefir","queso","huevo","clara" }.Any(Normalize(name ?? string.Empty).Contains);
     private static bool IsRawOrDry(string? name) { var n = Normalize(name ?? string.Empty); return n.Contains("seca") || n.Contains("seco") || n.Contains("cruda") || n.Contains("crudo"); }
