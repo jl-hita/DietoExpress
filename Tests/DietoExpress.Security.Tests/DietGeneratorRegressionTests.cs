@@ -340,7 +340,7 @@ public sealed class DietGeneratorRegressionTests
         Assert.Contains("ValidatePatientTherapySemanticsAsync", semantic);
         Assert.Contains("ValidateDietTypeSemantics", semantic);
         Assert.Contains("semanticFoods.Any(food => IsLegumeName(food.name))", semantic);
-        Assert.Contains("IsFruit(i.FoodName)", semantic);
+        Assert.Contains("IsFruit(food.name)", semantic);
         Assert.Contains("IsAnimalFood", semantic);
         Assert.Contains("IsKetoForbiddenCarb", semantic);
         Assert.DoesNotContain("_dietValidationService", generator);
