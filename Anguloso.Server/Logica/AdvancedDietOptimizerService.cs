@@ -362,7 +362,8 @@ public sealed class AdvancedDietOptimizerService
                 .Select(item => new { Item = item, Food = foodMap[item.FoodId!.Value], Core = GetLegumeCoreName(foodMap[item.FoodId!.Value].name) })
                 .Where(entry => entry.Core != null)
                 .GroupBy(entry => entry.Core!, StringComparer.OrdinalIgnoreCase)
-                .Where(group => group.Count() > 1);
+                .Where(group => group.Count() > 1)
+                .ToList();
 
             foreach (var group in duplicateGroups)
             {
