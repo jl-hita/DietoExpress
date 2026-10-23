@@ -530,6 +530,33 @@ public sealed class DietGeneratorRegressionTests
         Assert.True(balancedPenalty > veganPenalty);
     }
 
+    [Theory]
+    [InlineData("Garbanzos cocidos", "garbanzo")]
+    [InlineData("Garbanzos con espinacas", "garbanzo")]
+    [InlineData("Lentejas estofadas", "lenteja")]
+    [InlineData("Judías blancas cocidas", "judia")]
+    [InlineData("Guisantes", "guisante")]
+    [InlineData("Arroz integral", null)]
+    public void OptimizerRecognizesDuplicateLegumeCoreWithoutTreatingOtherFoodsAsLegumes(string foodName, string? expected)
+    {
+        var method = typeof(AdvancedDietOptimizerService).GetMethod(
+            "GetLegumeCoreName", BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("No se encontró GetLegumeCoreName.");
+
+        Assert.Equal(expected, method.Invoke(null, new object?[] { foodName }));
+    }
+
+    [Fact]
+    public void OptimizerRepairsDuplicateLegumeComponentsBeforeFinalRebalance()
+    {
+        var optimizer = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "AdvancedDietOptimizerService.cs"));
+
+        Assert.Contains("RepairDuplicateLegumeComponents(diet, foodMap)", optimizer);
+        Assert.Contains("GetLegumeCoreName", optimizer);
+        Assert.Contains("meal.Items.Remove(duplicate.Item)", optimizer);
+        Assert.Contains("if (meal.Items == null || meal.Items.Any(item => item.RecipeId.HasValue))", optimizer);
+    }
+
     private static foods FrequencyFood(int id, string name, string category, double kcal, double protein, double carbs, double fat) =>
         new() { id = id, name = name, category = category, kcal = kcal, protein = protein, carbs = carbs, fat = fat, source = "BEDCA" };
 }
