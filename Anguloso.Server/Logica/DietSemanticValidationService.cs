@@ -350,7 +350,7 @@ public sealed class DietSemanticValidationService
     }
 
     private static double RelativeError(double actual, double target) => target <= 0 ? 0 : Math.Abs(actual - target) / target;
-    private static (double Min, double Max) GetCulinaryBounds(string mealName, string? foodName)
+    internal static (double Min, double Max) GetCulinaryBounds(string mealName, string? foodName)
     {
         var meal = Normalize(mealName); var food = Normalize(foodName ?? string.Empty);
         var small = meal.Contains("desayuno") || meal.Contains("media") || meal.Contains("merienda");
