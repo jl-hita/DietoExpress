@@ -132,7 +132,7 @@ public sealed class AdvancedDietOptimizerService
         // Repair final de frecuencias: si una frecuencia positiva está claramente por debajo
         // del objetivo, se intenta reemplazar el alimento menos útil de una comida compatible.
         RepairWeeklyFrequencies(diet, candidates, targetKcal, targetProtein, targetCarbs, targetFat, request, therapyProfile);
-        RepairMealSemanticStructure(diet, candidates, request.DietType);
+        RepairMealSemanticStructure(diet, candidates, foodMap, request.DietType);
 
         // El último reequilibrado se hace sobre cada día, porque las sustituciones inteligentes
         // deben conservar los objetivos diarios aunque hayan cambiado densidades nutricionales.
@@ -346,11 +346,10 @@ public sealed class AdvancedDietOptimizerService
         return Math.Max(0, penalty / Math.Max(1, items.Count));
     }
 
-    private static void RepairMealSemanticStructure(DietDetailDto diet, IReadOnlyCollection<foods> candidates, string dietType)
+    private static void RepairMealSemanticStructure(DietDetailDto diet, IReadOnlyCollection<foods> candidates, IReadOnlyDictionary<int, foods> foodMap, string dietType)
     {
         // La optimización por macros no garantiza por sí sola que cada plato tenga
         // los componentes culinarios mínimos exigidos por la barrera semántica final.
-        var foodMap = candidates.GroupBy(f => f.id).ToDictionary(g => g.Key, g => g.First());
         var type = NormalizeFoodTerm(dietType);
         var lowCarb = type.Contains("cetogen") || (type.Contains("baja") && type.Contains("carb"));
 
