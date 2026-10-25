@@ -207,6 +207,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
   private readonly patientPortalHeaders = { 'X-DietoExpress-Patient-Portal': '1' };
   private broadcastRefreshSubscription?: Subscription;
   private patientUnreadRefreshSubscription?: Subscription;
+  private nutritionistTransferRefreshSubscription?: Subscription;
   private patientUnreadMessagesCountState = signal(0);
   get patientUnreadMessagesCount(): number { return this.patientUnreadMessagesCountState(); }
   set patientUnreadMessagesCount(value: number) { this.patientUnreadMessagesCountState.set(value); }
@@ -295,6 +296,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
     this.routeQuerySubscription?.unsubscribe();
     this.broadcastRefreshSubscription?.unsubscribe();
     this.patientUnreadRefreshSubscription?.unsubscribe();
+    this.nutritionistTransferRefreshSubscription?.unsubscribe();
     this.portalClockSubscription.unsubscribe();
   }
 
@@ -967,6 +969,9 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
       error: () => this.nutritionistRelationship = null
     });
     this.loadNutritionistTransfer();
+    if (!this.nutritionistTransferRefreshSubscription) {
+      this.nutritionistTransferRefreshSubscription = interval(30_000).subscribe(() => this.loadNutritionistTransfer());
+    }
   }
 
   loadNutritionistTransfer(): void {
