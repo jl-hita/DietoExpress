@@ -322,6 +322,7 @@
     <app-patient-appointments
       *ngIf="activeTab === 'appointments'"
       [slots]="appointmentSlots"
+      [hasAssignedNutritionist]="nutritionistRelationship?.hasAssignedNutritionist ?? !!profile?.nutritionistName"
       [upcomingAppointments]="upcomingAppointments"
       [pastAppointments]="pastAppointments"
       [loading]="appointmentSlotsLoading"
@@ -329,6 +330,7 @@
       [error]="appointmentError"
       [success]="appointmentSuccess"
       (refresh)="refreshAppointments()"
+      (findNutritionist)="findNutritionist()"
       (request)="requestAppointment($event)"
       (cancel)="cancelAppointment($event)"
       (joinVideo)="joinVideoAppointment($event)">
