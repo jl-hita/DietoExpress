@@ -28,7 +28,8 @@ public sealed class IdempotencyMiddleware
     public async Task InvokeAsync(HttpContext context, angulosodbContext db)
     {
         var request = context.Request;
-        if (!IsWriteMethod(request.Method) ||
+        if (context.GetEndpoint()?.Metadata.GetMetadata<IdempotentAttribute>() is null ||
+            !IsWriteMethod(request.Method) ||
             !request.Headers.TryGetValue("Idempotency-Key", out var values) ||
             values.Count != 1)
         {
