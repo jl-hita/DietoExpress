@@ -102,7 +102,8 @@ public sealed class IdempotencyMiddleware
                 var storedFingerprint = reader.GetString(0);
                 var status = reader.GetInt32(1);
                 var contentType = reader.IsDBNull(2) ? null : reader.GetString(2);
-                var location = reader.IsDBNull(3) ? null : reader.GetString(3);\n                var body = reader.IsDBNull(4) ? Array.Empty<byte>() : (byte[])reader[4];
+                var location = reader.IsDBNull(3) ? null : reader.GetString(3);
+                var body = reader.IsDBNull(4) ? Array.Empty<byte>() : (byte[])reader[4];
                 await reader.CloseAsync();
 
                 if (!CryptographicOperations.FixedTimeEquals(
@@ -121,6 +122,8 @@ public sealed class IdempotencyMiddleware
                 context.Response.StatusCode = status;
                 if (!string.IsNullOrWhiteSpace(contentType))
                     context.Response.ContentType = contentType;
+                if (!string.IsNullOrWhiteSpace(location))
+                    context.Response.Headers.Location = location;
                 context.Response.Headers["Idempotency-Replayed"] = "true";
                 if (body.Length > 0)
                     await context.Response.Body.WriteAsync(body, context.RequestAborted);
@@ -140,14 +143,16 @@ public sealed class IdempotencyMiddleware
                 var responseBody = responseBuffer.ToArray();
                 await using var insert = new NpgsqlCommand("""
                     INSERT INTO api_idempotency_records
-                        (scope_key, idempotency_key, request_hash, response_status, response_content_type, response_body, created_at)
-                    VALUES (@scope, @key, @hash, @status, @content_type, @body, NOW())
+                        (scope_key, idempotency_key, request_hash, response_status, response_content_type, response_location, response_body, created_at)
+                    VALUES (@scope, @key, @hash, @status, @content_type, @location, @body, NOW())
                     """, connection, pgTransaction);
                 insert.Parameters.AddWithValue("scope", scope);
                 insert.Parameters.AddWithValue("key", key);
                 insert.Parameters.AddWithValue("hash", fingerprint);
                 insert.Parameters.AddWithValue("status", context.Response.StatusCode);
                 insert.Parameters.AddWithValue("content_type", (object?)context.Response.ContentType ?? DBNull.Value);
+                var locationHeader = context.Response.Headers.Location.ToString();
+                insert.Parameters.AddWithValue("location", (object?)locationHeader is { Length: > 0 } ? locationHeader : DBNull.Value);
                 insert.Parameters.AddWithValue("body", responseBody);
                 await insert.ExecuteNonQueryAsync(context.RequestAborted);
                 await transaction.CommitAsync(context.RequestAborted);
