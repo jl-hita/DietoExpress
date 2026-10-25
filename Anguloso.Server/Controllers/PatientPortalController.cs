@@ -700,11 +700,14 @@ public class PatientPortalController : ControllerBase
             if (existing > 0)
                 return Conflict(new { message = "Ya tienes una solicitud de reasignación pendiente." });
 
-            await _context.Database.ExecuteSqlInterpolatedAsync($@"
+            var inserted = await _context.Database.ExecuteSqlInterpolatedAsync($@"
                 INSERT INTO patient_nutritionist_change_requests
                     (tenant_id, client_id, current_nutritionist_id, request_type, reason)
                 VALUES
-                    ({client.tenant_id.Value}, {client.id}, {currentNutritionistId.Value}, 'clinic_reassignment', {reason})");
+                    ({client.tenant_id.Value}, {client.id}, {currentNutritionistId}, 'clinic_reassignment', {reason})
+                ON CONFLICT DO NOTHING");
+            if (inserted == 0)
+                return Conflict(new { message = "Ya tienes una solicitud de reasignación pendiente." });
 
             var clinicAdmins = await _context.users.AsNoTracking()
                 .Where(u => u.tenant_id == client.tenant_id && u.role == "clinic_admin" && u.archived_at == null && u.email != null && u.email != "")
