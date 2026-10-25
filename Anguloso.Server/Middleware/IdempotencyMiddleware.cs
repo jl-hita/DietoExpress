@@ -90,20 +90,12 @@ public sealed class IdempotencyMiddleware
             await lockCommand.ExecuteNonQueryAsync(context.RequestAborted);
         }
 
-        // Mantener una ventana de reintento finita evita que la tabla crezca sin límite.
-        await using (var cleanup = new NpgsqlCommand("""
-            DELETE FROM api_idempotency_records
-            WHERE created_at < NOW() - INTERVAL '30 days'
-            """, connection, pgTransaction))
-        {
-            await cleanup.ExecuteNonQueryAsync(context.RequestAborted);
-        }
+        // Las claves no caducan automáticamente: una outbox offline puede reintentarse semanas o meses después.
 
         await using (var lookup = new NpgsqlCommand("""
             SELECT request_hash, response_status, response_content_type, response_location, response_body
             FROM api_idempotency_records
             WHERE scope_key = @scope AND idempotency_key = @key
-              AND created_at >= NOW() - INTERVAL '30 days'
             """, connection, pgTransaction))
         {
             lookup.Parameters.AddWithValue("scope", scope);
