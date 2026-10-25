@@ -684,9 +684,6 @@ public class PatientPortalController : ControllerBase
             .Select(a => new { NutritionistId = (int?)a.nutritionist_id, Name = a.nutritionist.full_name, Email = a.nutritionist.email })
             .FirstOrDefaultAsync();
         var currentNutritionistId = assignment?.NutritionistId ?? client.user_id;
-        if (!currentNutritionistId.HasValue)
-            return Conflict(new { message = "Ya no tienes un nutricionista asignado. Puedes buscar uno en el directorio." });
-
         var license = await _licenseService.GetLicenseAsync(client.tenant_id);
         var isClinic = string.Equals(license?.PlanCode, "clinic_full", StringComparison.OrdinalIgnoreCase);
 
@@ -735,6 +732,9 @@ public class PatientPortalController : ControllerBase
 
             return Accepted(new { message = "Solicitud enviada a la clínica. Mantendrás tu nutricionista actual hasta que se gestione la reasignación.", pending = true });
         }
+
+        if (!currentNutritionistId.HasValue)
+            return Conflict(new { message = "Ya no tienes un nutricionista asignado. Puedes buscar uno en el directorio." });
 
         await using var transaction = await _context.Database.BeginTransactionAsync();
         await _context.Database.ExecuteSqlInterpolatedAsync($@"
