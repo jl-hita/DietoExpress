@@ -358,7 +358,28 @@ public sealed class AutomationService
         var result = await command.ExecuteScalarAsync(cancellationToken);
         if (result is null)
         {
+            // El evento ya existe. Se vuelve a cargar y a ejecutar el tramo idempotente de reglas:
+            // si el proceso anterior cayó tras confirmar el evento pero antes de programar sus jobs,
+            // el reintento de la outbox puede reparar esa ventana sin duplicar tareas.
+            await using var lookup = new NpgsqlCommand("""
+                SELECT id, event_type, aggregate_type, aggregate_id, payload::text, occurred_at
+                FROM automation_events
+                WHERE tenant_id=@tenant AND idempotency_key=@key
+                LIMIT 1;
+                """, connection, tx);
+            lookup.Parameters.AddWithValue("tenant", tenantId);
+            lookup.Parameters.AddWithValue("key", idempotencyKey);
+            await using var reader = await lookup.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken))
+                throw new InvalidOperationException("El evento duplicado no se pudo recuperar.");
+            var existingEvent = new AutomationEvent(
+                reader.GetInt64(0), tenantId, reader.GetString(1), reader.GetString(2),
+                reader.IsDBNull(3) ? null : reader.GetString(3),
+                reader.GetString(4), reader.GetDateTime(5));
+            await reader.CloseAsync();
             await tx.CommitAsync(cancellationToken);
+            await UpdatePatientLifecycleFromEventAsync(existingEvent, cancellationToken);
+            await ScheduleBuiltInRulesAsync(existingEvent, cancellationToken);
             return null;
         }
 
