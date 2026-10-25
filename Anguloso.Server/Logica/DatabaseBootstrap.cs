@@ -56,10 +56,12 @@ CREATE TABLE IF NOT EXISTS api_idempotency_records (
     request_hash CHAR(64) NOT NULL,
     response_status INTEGER NOT NULL,
     response_content_type VARCHAR(250),
+    response_location TEXT,
     response_body BYTEA NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT uq_api_idempotency_scope_key UNIQUE (scope_key, idempotency_key)
 );
+ALTER TABLE api_idempotency_records ADD COLUMN IF NOT EXISTS response_location TEXT;
 CREATE INDEX IF NOT EXISTS idx_api_idempotency_created_at
     ON api_idempotency_records(created_at);
 ");
