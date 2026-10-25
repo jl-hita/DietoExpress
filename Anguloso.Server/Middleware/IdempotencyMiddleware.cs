@@ -88,7 +88,7 @@ public sealed class IdempotencyMiddleware
         }
 
         await using (var lookup = new NpgsqlCommand("""
-            SELECT request_hash, response_status, response_content_type, response_body
+            SELECT request_hash, response_status, response_content_type, response_location, response_body
             FROM api_idempotency_records
             WHERE scope_key = @scope AND idempotency_key = @key
               AND created_at >= NOW() - INTERVAL '30 days'
@@ -102,7 +102,7 @@ public sealed class IdempotencyMiddleware
                 var storedFingerprint = reader.GetString(0);
                 var status = reader.GetInt32(1);
                 var contentType = reader.IsDBNull(2) ? null : reader.GetString(2);
-                var body = reader.IsDBNull(3) ? Array.Empty<byte>() : (byte[])reader[3];
+                var location = reader.IsDBNull(3) ? null : reader.GetString(3);\n                var body = reader.IsDBNull(4) ? Array.Empty<byte>() : (byte[])reader[4];
                 await reader.CloseAsync();
 
                 if (!CryptographicOperations.FixedTimeEquals(
