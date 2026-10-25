@@ -122,16 +122,16 @@ builder.Services.AddScoped<SupportEnhancementService>();
                          string.Equals(context.Request.Headers["X-DietoExpress-Patient-Portal"].ToString(), "1", StringComparison.Ordinal)) ||
                         (HttpMethods.IsGet(method) &&
                          (string.Equals(pathValue, "/api/appointments/mine", StringComparison.OrdinalIgnoreCase) ||
-                          string.Equals(pathValue, "/api/appointments/slots", StringComparison.OrdinalIgnoreCase) ||
-                          path.StartsWithSegments("/api/appointments") &&
-                          pathValue.EndsWith("/video-access", StringComparison.OrdinalIgnoreCase))) ||
+                          string.Equals(pathValue, "/api/appointments/slots", StringComparison.OrdinalIgnoreCase))) ||
+                        ((HttpMethods.IsGet(method) || HttpMethods.IsPost(method)) &&
+                         path.StartsWithSegments("/api/appointments") &&
+                         (pathValue.EndsWith("/video-access", StringComparison.OrdinalIgnoreCase) ||
+                          pathValue.EndsWith("/video-event", StringComparison.OrdinalIgnoreCase) ||
+                          pathValue.EndsWith("/video-finish", StringComparison.OrdinalIgnoreCase) ||
+                          pathValue.EndsWith("/cancel", StringComparison.OrdinalIgnoreCase)) &&
+                         string.Equals(context.Request.Headers["X-DietoExpress-Patient-Portal"].ToString(), "1", StringComparison.Ordinal)) ||
                         (HttpMethods.IsPost(method) &&
-                         (string.Equals(pathValue, "/api/appointments", StringComparison.OrdinalIgnoreCase) ||
-                          path.StartsWithSegments("/api/appointments") &&
-                          (pathValue.EndsWith("/cancel", StringComparison.OrdinalIgnoreCase) ||
-                           pathValue.EndsWith("/video-access", StringComparison.OrdinalIgnoreCase) ||
-                           pathValue.EndsWith("/video-event", StringComparison.OrdinalIgnoreCase) ||
-                           pathValue.EndsWith("/video-finish", StringComparison.OrdinalIgnoreCase))));
+                         string.Equals(pathValue, "/api/appointments", StringComparison.OrdinalIgnoreCase));
 
                     if (isPatientEndpoint &&
                         context.Request.Cookies.TryGetValue("dietoexpress_patient_session", out var patientCookie))
