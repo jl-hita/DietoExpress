@@ -263,9 +263,11 @@ export class DirectoryComponent implements OnInit {
     }).subscribe({
       next: response => {
         const slotLabel = this.formatSlot(this.selectedSlot!);
-        this.bookingSuccess = response.status === 'confirmed'
-          ? 'Cita confirmada para el ' + slotLabel + '. Tu reserva está lista.'
-          : 'Solicitud enviada para el ' + slotLabel + '. El profesional deberá confirmarla.';
+        this.bookingSuccess = response.isNutritionistChange
+          ? 'Solicitud de cambio enviada para el ' + slotLabel + '. Tu nutricionista actual y tu historial se mantienen hasta que el profesional acepte y confirmes expresamente la transferencia.'
+          : response.status === 'confirmed'
+            ? 'Cita confirmada para el ' + slotLabel + '. Tu reserva está lista.'
+            : 'Solicitud enviada para el ' + slotLabel + '. El profesional deberá confirmarla.';
         this.bookingSubmitting = false; this.selectedSlot = null; this.bookingNotes = ''; this.bookingModality = 'in_person';
         this.loadAvailability(this.profile!.slug);
       },
