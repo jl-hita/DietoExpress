@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -77,8 +78,10 @@ public sealed class IdempotencyMiddleware
         var scope = $"{subject}\n{request.Method.ToUpperInvariant()}\n{request.PathBase}{request.Path}{request.QueryString}";
         var fingerprintInput = Encoding.UTF8.GetBytes(scope + "\n" + (request.ContentType ?? string.Empty) + "\n" + Convert.ToBase64String(requestBody));
         var fingerprint = Convert.ToHexString(SHA256.HashData(fingerprintInput));
-        var scopeHash = SHA256.HashData(Encoding.UTF8.GetBytes(scope + "\n" + key));
-        var lockKey = BitConverter.ToInt64(scopeHash, 0);
+        // Persist only a digest of the scope: URLs/query strings can contain personal data and can exceed index limits.
+        var scopeKey = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(scope)));
+        var scopeHash = SHA256.HashData(Encoding.UTF8.GetBytes(scopeKey + "\n" + key));
+        var lockKey = BinaryPrimitives.ReadInt64BigEndian(scopeHash);
 
         await using var transaction = await db.Database.BeginTransactionAsync(context.RequestAborted);
         var connection = (NpgsqlConnection)db.Database.GetDbConnection();
@@ -98,7 +101,7 @@ public sealed class IdempotencyMiddleware
             WHERE scope_key = @scope AND idempotency_key = @key
             """, connection, pgTransaction))
         {
-            lookup.Parameters.AddWithValue("scope", scope);
+            lookup.Parameters.AddWithValue("scope", scopeKey);
             lookup.Parameters.AddWithValue("key", key);
             await using var reader = await lookup.ExecuteReaderAsync(context.RequestAborted);
             if (await reader.ReadAsync(context.RequestAborted))
@@ -150,7 +153,7 @@ public sealed class IdempotencyMiddleware
                         (scope_key, idempotency_key, request_hash, response_status, response_content_type, response_location, response_body, created_at)
                     VALUES (@scope, @key, @hash, @status, @content_type, @location, @body, NOW())
                     """, connection, pgTransaction);
-                insert.Parameters.AddWithValue("scope", scope);
+                insert.Parameters.AddWithValue("scope", scopeKey);
                 insert.Parameters.AddWithValue("key", key);
                 insert.Parameters.AddWithValue("hash", fingerprint);
                 insert.Parameters.AddWithValue("status", context.Response.StatusCode);
