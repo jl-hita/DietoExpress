@@ -123,7 +123,7 @@ public sealed class IdempotencyMiddleware
                 if (!string.IsNullOrWhiteSpace(contentType))
                     context.Response.ContentType = contentType;
                 if (!string.IsNullOrWhiteSpace(location))
-                    context.Response.Headers.Location = location;
+                    context.Response.Headers["Location"] = location;
                 context.Response.Headers["Idempotency-Replayed"] = "true";
                 if (body.Length > 0)
                     await context.Response.Body.WriteAsync(body, context.RequestAborted);
@@ -151,8 +151,8 @@ public sealed class IdempotencyMiddleware
                 insert.Parameters.AddWithValue("hash", fingerprint);
                 insert.Parameters.AddWithValue("status", context.Response.StatusCode);
                 insert.Parameters.AddWithValue("content_type", (object?)context.Response.ContentType ?? DBNull.Value);
-                var locationHeader = context.Response.Headers.Location.ToString();
-                insert.Parameters.AddWithValue("location", (object?)locationHeader is { Length: > 0 } ? locationHeader : DBNull.Value);
+                var locationHeader = context.Response.Headers["Location"].ToString();
+                insert.Parameters.AddWithValue("location", locationHeader.Length > 0 ? locationHeader : DBNull.Value);
                 insert.Parameters.AddWithValue("body", responseBody);
                 await insert.ExecuteNonQueryAsync(context.RequestAborted);
                 await transaction.CommitAsync(context.RequestAborted);
