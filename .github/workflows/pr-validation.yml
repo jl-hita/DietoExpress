@@ -18,6 +18,22 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: dietoexpress_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d dietoexpress_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DIETOEXPRESS_IDEMPOTENCY_TEST_CONNECTION: Host=localhost;Port=5432;Database=dietoexpress_test;Username=postgres;Password=postgres
 
     steps:
       - name: Checkout
