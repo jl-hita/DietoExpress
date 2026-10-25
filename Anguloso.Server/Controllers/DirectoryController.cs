@@ -430,13 +430,45 @@ public class DirectoryController : ControllerBase
         if (await _googleCalendar.IsBlockedAsync(professional.id, professional.tenant_id.Value, startsUtc, endsUtc))
             return Conflict(new { message = "Ese horario está ocupado en el calendario externo del nutricionista." });
 
-        var existing = await _context.clients
+        var patientChangeClientId = 0;
+        var isAuthenticatedPatientChange = User.IsInRole("patient") &&
+            int.TryParse(User.FindFirstValue("clientId"), out patientChangeClientId);
+        clients? authenticatedPatientClient = null;
+        int? sourceNutritionistId = null;
+        int? sourceTenantId = null;
+        if (isAuthenticatedPatientChange)
+        {
+            authenticatedPatientClient = await _context.clients
+                .FirstOrDefaultAsync(c => c.id == patientChangeClientId && c.archived_at == null);
+            if (authenticatedPatientClient == null || !authenticatedPatientClient.tenant_id.HasValue)
+                return Unauthorized(new { message = "No se ha podido validar tu sesión de paciente." });
+            sourceTenantId = authenticatedPatientClient.tenant_id.Value;
+            sourceNutritionistId = await _context.client_nutritionist_assignments.AsNoTracking()
+                .Where(a => a.client_id == authenticatedPatientClient.id && a.is_active)
+                .OrderByDescending(a => a.assigned_at)
+                .Select(a => (int?)a.nutritionist_id)
+                .FirstOrDefaultAsync();
+            if (!sourceNutritionistId.HasValue || sourceNutritionistId.Value == professional.id)
+                return Conflict(new { message = "No tienes una relación activa que cambiar a este profesional." });
+            var existingTransfer = await _context.Database.SqlQueryRaw<int>(
+                @"SELECT COUNT(*)::integer AS ""Value"" FROM patient_nutritionist_transfer_workflows
+                  WHERE client_id = {0} AND status IN ('pending_professional','awaiting_patient_confirmation')",
+                authenticatedPatientClient.id).SingleAsync();
+            if (existingTransfer > 0)
+                return Conflict(new { message = "Ya tienes un cambio de nutricionista pendiente." });
+        }
+
+        var existing = isAuthenticatedPatientChange ? null : await _context.clients
             .FirstOrDefaultAsync(c => c.tenant_id == professional.tenant_id.Value &&
                                       c.archived_at == null &&
                                       c.email.ToLower() == email);
 
         clients client;
-        if (existing != null)
+        if (isAuthenticatedPatientChange)
+        {
+            client = authenticatedPatientClient!;
+        }
+        else if (existing != null)
         {
             var activeAssignment = await _context.client_nutritionist_assignments
                 .FirstOrDefaultAsync(a => a.client_id == existing.id && a.is_active);
@@ -499,7 +531,7 @@ public class DirectoryController : ControllerBase
 
         // Un cliente solo se considera establecido si ya tiene una cita marcada como completada.
         // Tener ficha o una reserva previa pendiente/cancelada no basta para saltarse la aceptación.
-        var isEstablishedClient = await _context.patient_appointments.AsNoTracking().AnyAsync(a =>
+        var isEstablishedClient = !isAuthenticatedPatientChange && await _context.patient_appointments.AsNoTracking().AnyAsync(a =>
             a.tenant_id == professional.tenant_id.Value &&
             a.client_id == client.id &&
             a.status == "completed");
@@ -522,6 +554,17 @@ public class DirectoryController : ControllerBase
             // Persistir dentro de la transacción para obtener el ID antes de crear una sala
             // de vídeo cuyo nombre debe ser único y estable para esta cita.
             await _context.SaveChangesAsync();
+
+            if (isAuthenticatedPatientChange)
+            {
+                await _context.Database.ExecuteSqlInterpolatedAsync($@"
+                    INSERT INTO patient_nutritionist_transfer_workflows
+                        (source_tenant_id, target_tenant_id, client_id, source_nutritionist_id,
+                         target_nutritionist_id, appointment_id, status)
+                    VALUES
+                        ({sourceTenantId!.Value}, {professional.tenant_id.Value}, {client.id},
+                         {sourceNutritionistId!.Value}, {professional.id}, {appointment.id}, 'pending_professional')");
+            }
 
             if (isEstablishedClient)
             {
@@ -668,6 +711,8 @@ public class DirectoryController : ControllerBase
 
         return Ok(new PublicAppointmentConfirmationDto
         {
+            AppointmentId = appointment.id,
+            IsNutritionistChange = isAuthenticatedPatientChange,
             StartsAt = appointment.starts_at,
             EndsAt = appointment.ends_at,
             Status = appointment.status,
