@@ -1,6 +1,8 @@
 using Anguloso.Server.Logica;
 using Anguloso.Server.Models;
 using Anguloso.Server.Logica.Utils;
+using Anguloso.Server.Middleware;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -71,6 +73,7 @@ public class AdminAlertsController : ControllerBase
     /// Marca una incidencia como revisada. La incidencia permanece en el historial técnico.
     /// </summary>
     [HttpPost("{id:long}/resolve")]
+    [Idempotent]
     public async Task<IActionResult> ResolveAlert(long id)
     {
         var userId = AuthHelpers.GetUserId(User);
@@ -79,6 +82,7 @@ public class AdminAlertsController : ControllerBase
 
         var connection = _context.Database.GetDbConnection();
         await using var command = connection.CreateCommand();
+        command.Transaction = _context.Database.CurrentTransaction?.GetDbTransaction();
         command.CommandText = @"
             UPDATE system_alerts
             SET resolved_at = NOW(), resolved_by_user_id = @user_id
