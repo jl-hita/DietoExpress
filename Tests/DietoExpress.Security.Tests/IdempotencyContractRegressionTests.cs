@@ -23,6 +23,8 @@ public class IdempotencyContractRegressionTests
         var middleware = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Middleware", "IdempotencyMiddleware.cs"));
         var biometrics = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "BiometricsController.cs"));
         var checkins = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "PatientCheckinsController.cs"));
+        var food = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "FoodController.cs"));
+        var profile = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "ProfileController.cs"));
         var portal = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "PatientPortalController.cs"));
         var plans = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "AdminPlansController.cs"));
         var recipes = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "RecipesController.cs"));
@@ -30,7 +32,9 @@ public class IdempotencyContractRegressionTests
         Assert.Contains("GetMetadata<IdempotentAttribute>() is null", middleware);
         Assert.Contains("IsWriteMethod(request.Method)", middleware);
         Assert.Contains("[Idempotent]", biometrics);
-        Assert.Contains("[Idempotent]", checkins);
+        Assert.DoesNotContain("[Idempotent]", checkins);
+        Assert.Contains("[Idempotent]", food);
+        Assert.Contains("[Idempotent]", profile);
         Assert.Contains("[Idempotent]", portal);
         Assert.Contains("[Idempotent]", plans);
         Assert.Contains("[Idempotent]", recipes);
