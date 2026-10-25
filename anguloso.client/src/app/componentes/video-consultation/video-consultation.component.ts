@@ -121,7 +121,8 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
   connect(): void {
     this.loading = true; this.connecting = true; this.error = ''; this.connectionState = 'connecting'; this.manualDisconnect = false;
     if (this.room) { this.manualDisconnect = true; void this.room.disconnect(); this.room = undefined; this.manualDisconnect = false; }
-    this.portalService.getVideoAccess(this.appointmentId).subscribe({
+    const patientPortal = this.route.snapshot.queryParamMap.get('portal') === 'patient';
+    this.portalService.getVideoAccess(this.appointmentId, patientPortal).subscribe({
       next: access => {
         this.canFinalize = !!access.canFinalize; this.maxCallDurationMinutes = access.maxCallDurationMinutes || 60;
         if (access.quota?.critical) this.quotaWarning = 'La cuota de videollamadas está en nivel crítico. La consulta actual está autorizada, pero nuevas consultas podrían quedar bloqueadas.';
