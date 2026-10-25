@@ -91,6 +91,7 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
   set localVideoTrack(value: LocalVideoTrack | undefined) { this.localVideoTrackState.set(value); }
 
   private readonly remoteElements = new Map<string, HTMLElement>();
+  private patientPortalSession = false;
 
   constructor(private readonly route: ActivatedRoute, private readonly router: Router, private readonly portalService: PatientPortalService, private readonly location: Location) {}
 
@@ -121,7 +122,8 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
   connect(): void {
     this.loading = true; this.connecting = true; this.error = ''; this.connectionState = 'connecting'; this.manualDisconnect = false;
     if (this.room) { this.manualDisconnect = true; void this.room.disconnect(); this.room = undefined; this.manualDisconnect = false; }
-    this.portalService.getVideoAccess(this.appointmentId).subscribe({
+    this.patientPortalSession = this.route.snapshot.queryParamMap.get('portal') === 'patient';
+    this.portalService.getVideoAccess(this.appointmentId, this.patientPortalSession).subscribe({
       next: access => {
         this.canFinalize = !!access.canFinalize; this.maxCallDurationMinutes = access.maxCallDurationMinutes || 60;
         if (access.quota?.critical) this.quotaWarning = 'La cuota de videollamadas está en nivel crítico. La consulta actual está autorizada, pero nuevas consultas podrían quedar bloqueadas.';
@@ -185,14 +187,14 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
     if(!this.canFinalize||this.finalizing||this.connectionState==='finalized')return;
     if(!confirm('¿Finalizar la consulta online y marcar la cita como completada?'))return;
     this.finalizing=true;
-    this.portalService.finishVideoConsultation(this.appointmentId).subscribe({
+    this.portalService.finishVideoConsultation(this.appointmentId, this.patientPortalSession).subscribe({
       next:()=>{this.connectionState='finalized';this.connected=false;this.manualDisconnect=true;if(this.callTimer)clearInterval(this.callTimer);void this.room?.disconnect();this.localAudio?.stop();this.localVideoTrack?.stop();this.finalizing=false;this.returnToConsultation();},
       error:err=>{this.error=err?.error?.message||'No hemos podido finalizar la consulta.';this.finalizing=false;}
     });
   }
 
   leave():void{if(this.callTimer)clearInterval(this.callTimer);if(this.accessWindowTimer)clearInterval(this.accessWindowTimer);this.accessWindowTimer=undefined;this.manualDisconnect=true;void this.room?.disconnect();this.localAudio?.stop();this.localVideoTrack?.stop();this.localAudio=undefined;this.localVideoTrack=undefined;this.connectionState=this.connectionState==='finalized'?'finalized':'disconnected';if(this.embedded){this.closeEmbedded.emit();return;}this.returnToConsultation();}
-  private recordVideoEvent(event:'connected'|'reconnecting'|'reconnected'|'disconnected'|'failed'):void{this.portalService.recordVideoEvent(this.appointmentId,event).subscribe({error:()=>undefined});}
+  private recordVideoEvent(event:'connected'|'reconnecting'|'reconnected'|'disconnected'|'failed'):void{this.portalService.recordVideoEvent(this.appointmentId,event,this.patientPortalSession).subscribe({error:()=>undefined});}
   private attachRemoteTrack(track:RemoteTrack,publication:RemoteTrackPublication,participant:RemoteParticipant):void{
     if(track.kind!==Track.Kind.Video&&track.kind!==Track.Kind.Audio)return;const element=track.attach();element.autoplay=true;element.setAttribute('playsinline','true');element.classList.add(track.kind===Track.Kind.Video?'remote-video':'remote-audio');
     const container = this.remoteContainer?.nativeElement;

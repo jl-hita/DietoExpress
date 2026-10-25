@@ -32,7 +32,7 @@ public class Program
         string pathLogs = builder.Configuration["DIETOEXPRESS_LOG_PATH"] ?? (OperatingSystem.IsWindows() ? Path.Combine(builder.Environment.ContentRootPath, "Logs") : "/var/lib/dietoexpress/Logs");
         Directory.CreateDirectory(pathLogs);
         builder.Host.UseSerilog((context, loggerConfiguration) => { loggerConfiguration.ReadFrom.Configuration(context.Configuration).MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", LogEventLevel.Warning).MinimumLevel.Override("Npgsql.Command", LogEventLevel.Warning).MinimumLevel.Override("Microsoft.AspNetCore.Hosting.Diagnostics", LogEventLevel.Warning).MinimumLevel.Override("Microsoft.AspNetCore.Routing.EndpointMiddleware", LogEventLevel.Warning).MinimumLevel.Override("Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker", LogEventLevel.Warning).MinimumLevel.Override("Microsoft.AspNetCore.Mvc.Infrastructure.ObjectResultExecutor", LogEventLevel.Warning).Enrich.FromLogContext().WriteTo.Console().WriteTo.File(Path.Combine(pathLogs, "log-.txt"), rollingInterval: RollingInterval.Day, retainedFileCountLimit: null, shared: true); });
-        builder.Services.AddCors(options => { options.AddPolicy("AllowAngularApp", policy => { var allowedOrigins = builder.Environment.IsDevelopment() ? new[] { "http://localhost:4200", "https://localhost:4200", "http://127.0.0.1:4200", "https://127.0.0.1:4200" } : builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>(); policy.WithOrigins(allowedOrigins).WithHeaders("Authorization", "Content-Type", "Accept", "Idempotency-Key").WithExposedHeaders("X-Correlation-ID", "Idempotency-Replayed").WithMethods("GET", "POST", "PUT", "PATCH", "DELETE"); }); });
+        builder.Services.AddCors(options => { options.AddPolicy("AllowAngularApp", policy => { var allowedOrigins = builder.Environment.IsDevelopment() ? new[] { "http://localhost:4200", "https://localhost:4200", "http://127.0.0.1:4200", "https://127.0.0.1:4200" } : builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>(); policy.WithOrigins(allowedOrigins).WithHeaders("Authorization", "Content-Type", "Accept", "Idempotency-Key", "X-DietoExpress-Patient-Portal").WithExposedHeaders("X-Correlation-ID", "Idempotency-Replayed").WithMethods("GET", "POST", "PUT", "PATCH", "DELETE"); }); });
         // Nginx reenvía la IP original. ASP.NET Core solo acepta forwarded headers de proxies conocidos (loopback por defecto), evitando confiar en cabeceras arbitrarias de Internet.
         builder.Services.Configure<ForwardedHeadersOptions>(options =>
         {
@@ -122,16 +122,16 @@ builder.Services.AddScoped<SupportEnhancementService>();
                          string.Equals(context.Request.Headers["X-DietoExpress-Patient-Portal"].ToString(), "1", StringComparison.Ordinal)) ||
                         (HttpMethods.IsGet(method) &&
                          (string.Equals(pathValue, "/api/appointments/mine", StringComparison.OrdinalIgnoreCase) ||
-                          string.Equals(pathValue, "/api/appointments/slots", StringComparison.OrdinalIgnoreCase) ||
-                          path.StartsWithSegments("/api/appointments") &&
-                          pathValue.EndsWith("/video-access", StringComparison.OrdinalIgnoreCase))) ||
+                          string.Equals(pathValue, "/api/appointments/slots", StringComparison.OrdinalIgnoreCase))) ||
+                        ((HttpMethods.IsGet(method) || HttpMethods.IsPost(method)) &&
+                         path.StartsWithSegments("/api/appointments") &&
+                         (pathValue.EndsWith("/video-access", StringComparison.OrdinalIgnoreCase) ||
+                          pathValue.EndsWith("/video-event", StringComparison.OrdinalIgnoreCase) ||
+                          pathValue.EndsWith("/video-finish", StringComparison.OrdinalIgnoreCase) ||
+                          pathValue.EndsWith("/cancel", StringComparison.OrdinalIgnoreCase)) &&
+                         string.Equals(context.Request.Headers["X-DietoExpress-Patient-Portal"].ToString(), "1", StringComparison.Ordinal)) ||
                         (HttpMethods.IsPost(method) &&
-                         (string.Equals(pathValue, "/api/appointments", StringComparison.OrdinalIgnoreCase) ||
-                          path.StartsWithSegments("/api/appointments") &&
-                          (pathValue.EndsWith("/cancel", StringComparison.OrdinalIgnoreCase) ||
-                           pathValue.EndsWith("/video-access", StringComparison.OrdinalIgnoreCase) ||
-                           pathValue.EndsWith("/video-event", StringComparison.OrdinalIgnoreCase) ||
-                           pathValue.EndsWith("/video-finish", StringComparison.OrdinalIgnoreCase))));
+                         string.Equals(pathValue, "/api/appointments", StringComparison.OrdinalIgnoreCase));
 
                     if (isPatientEndpoint &&
                         context.Request.Cookies.TryGetValue("dietoexpress_patient_session", out var patientCookie))

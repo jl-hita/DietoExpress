@@ -182,26 +182,32 @@ export class PatientPortalService {
     return this.http.post<PatientAppointment>(this.base + '/appointments', { startsAt, durationMinutes, patientNotes, modality });
   }
 
-  getVideoAccess(id: number): Observable<any> {
-    return this.http.get<any>(this.base + '/appointments/' + id + '/video-access');
+  getVideoAccess(id: number, patientPortal = false): Observable<any> {
+    const headers: Record<string, string> = patientPortal ? { 'X-DietoExpress-Patient-Portal': '1' } : {};
+    return this.http.get<any>(this.base + '/appointments/' + id + '/video-access', { headers });
   }
 
-  recordVideoEvent(id: number, event: 'connected' | 'reconnecting' | 'reconnected' | 'disconnected' | 'failed'): Observable<void> {
-    return this.http.post<void>(this.base + '/appointments/' + id + '/video-event', { event });
+  recordVideoEvent(id: number, event: 'connected' | 'reconnecting' | 'reconnected' | 'disconnected' | 'failed', patientPortal = false): Observable<void> {
+    const headers: Record<string, string> = patientPortal ? { 'X-DietoExpress-Patient-Portal': '1' } : {};
+    return this.http.post<void>(this.base + '/appointments/' + id + '/video-event', { event }, { headers });
   }
 
-  finishVideoConsultation(id: number): Observable<PatientAppointment> {
-    return this.http.post<PatientAppointment>(this.base + '/appointments/' + id + '/video-finish', {});
+  finishVideoConsultation(id: number, patientPortal = false): Observable<PatientAppointment> {
+    const headers: Record<string, string> = patientPortal ? { 'X-DietoExpress-Patient-Portal': '1' } : {};
+    return this.http.post<PatientAppointment>(this.base + '/appointments/' + id + '/video-finish', {}, { headers });
   }
 
-  openVideoAccess(id: number, onError?: (error: any) => void): void {
+  openVideoAccess(id: number, onError?: (error: any) => void, patientPortal = false): void {
     // La consulta se abre dentro de la aplicación para conservar navegación, sesión y estados de conexión.
-    try { window.location.assign(new URL('/video-consultation/' + id, window.location.origin).toString()); }
-    catch (error) { onError?.(error); }
+    try {
+      const url = new URL('/video-consultation/' + id, window.location.origin);
+      if (patientPortal) url.searchParams.set('portal', 'patient');
+      window.location.assign(url.toString());
+    } catch (error) { onError?.(error); }
   }
 
   cancelAppointment(id: number): Observable<void> {
-    return this.http.post<void>(this.base + '/appointments/' + id + '/cancel', {});
+    return this.http.post<void>(this.base + '/appointments/' + id + '/cancel', {}, { headers: { 'X-DietoExpress-Patient-Portal': '1' } });
   }
 
   getProfessionalTasks(status = 'open', limit = 100): Observable<ProfessionalTask[]> {

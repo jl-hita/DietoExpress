@@ -160,6 +160,10 @@ public class AuthorizationRegressionTests
         Assert.Contains("\"/api/appointments/mine\"", program);
         Assert.Contains("\"/api/broadcast-messages/inbox\"", program);
         Assert.Contains("X-DietoExpress-Patient-Portal", program);
+        Assert.Contains("WithHeaders(\"Authorization\", \"Content-Type\", \"Accept\", \"Idempotency-Key\", \"X-DietoExpress-Patient-Portal\")", program);
+        Assert.Contains("pathValue.EndsWith(\"/video-access\", StringComparison.OrdinalIgnoreCase)", program);
+        Assert.Contains("getVideoAccess(id: number, patientPortal = false)", File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "servicios", "patient-portal.service.ts")));
+        Assert.Contains("this.patientPortalSession = this.route.snapshot.queryParamMap.get('portal') === 'patient';", File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "video-consultation", "video-consultation.component.ts")));
         Assert.Contains("dietoexpress_patient_session", program);
         Assert.Contains("dietoexpress_professional_session", program);
     }
