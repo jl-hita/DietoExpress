@@ -2,8 +2,8 @@
   <div class="appointments-hero">
     <div>
       <span class="eyebrow">Citas</span>
-      <h2>Reserva una cita con tu nutricionista</h2>
-      <p>Elige uno de los horarios disponibles. La cita quedará pendiente de confirmación.</p>
+      <h2>{{ hasAssignedNutritionist ? 'Reserva una cita con tu nutricionista' : 'Encuentra un nutricionista' }}</h2>
+      <p>{{ hasAssignedNutritionist ? 'Elige un horario disponible de tu profesional asignado. La cita quedará pendiente de confirmación.' : 'Busca un profesional en el directorio para consultar sus horarios y solicitar una primera cita.' }}</p>
     </div>
     <mat-icon>event</mat-icon>
   </div>
@@ -24,7 +24,7 @@
     <span>{{ success }}</span>
   </div>
 
-  <section class="appointment-card">
+  <section class="appointment-card" *ngIf="hasAssignedNutritionist">
     <div class="appointment-card-header">
       <div>
         <h3>Próximos horarios</h3>
@@ -97,6 +97,18 @@
       <mat-icon>event_busy</mat-icon>
       <h3>No hay horarios disponibles</h3>
       <p>Tu nutricionista todavía no ha configurado disponibilidad para las próximas semanas.</p>
+    </div>
+  </section>
+
+  <section class="appointment-card" *ngIf="!hasAssignedNutritionist">
+    <div class="empty-state">
+      <mat-icon>person_search</mat-icon>
+      <h3>Sin nutricionista asignado</h3>
+      <p>Puedes seguir usando tu portal. Busca un profesional para continuar tu seguimiento y reservar una consulta.</p>
+      <button type="button" class="empty-state-action" (click)="findNutritionist.emit()">
+        <mat-icon>search</mat-icon>
+        Buscar nutricionista
+      </button>
     </div>
   </section>
 
