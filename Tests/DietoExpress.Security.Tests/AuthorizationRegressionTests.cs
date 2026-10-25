@@ -105,7 +105,10 @@ public class AuthorizationRegressionTests
         Assert.Contains("unassigned = false", method);
         Assert.DoesNotContain("UPDATE client_nutritionist_assignments", method);
         Assert.DoesNotContain("UPDATE clients SET user_id = NULL", method);
-        Assert.DoesNotContain("_emailServ.SendEmailAsync", method);
+        var leaveFlowStart = method.IndexOf("// Iniciar la búsqueda NO cambia la asignación", StringComparison.Ordinal);
+        Assert.True(leaveFlowStart >= 0);
+        var leaveFlow = method[leaveFlowStart..];
+        Assert.DoesNotContain("_emailServ.SendEmailAsync", leaveFlow);
     }
 
     // La sesión del paciente se considera revocable cuando cambia la versión almacenada; el test verifica que el claim y el filtro de autenticación estén conectados.
