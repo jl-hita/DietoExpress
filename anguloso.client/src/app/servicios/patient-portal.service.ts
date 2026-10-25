@@ -6,6 +6,14 @@ import { ShoppingListCategory } from '../modelos/shopping-list';
 
 export interface PatientAuthRequest { token?: string; emailOrPhone?: string; passcode?: string; }
 export interface PatientAuthResponse { token?: string; clientId: number; fullName: string; clinicName?: string; clinicLogo?: string; }
+export interface PatientNutritionistRelationship {
+  hasAssignedNutritionist: boolean;
+  nutritionistId?: number | null;
+  nutritionistName?: string | null;
+  isClinic: boolean;
+  hasPendingClinicReassignment: boolean;
+}
+export interface PatientNutritionistChangeResponse { message: string; pending?: boolean; unassigned?: boolean; }
 export interface ClientPortalAccess { clientId: number; accessToken: string; magicLink: string; hasPasscode: boolean; lastPortalAccess?: string; }
 
 export interface AppointmentSlot {
@@ -176,6 +184,14 @@ export class PatientPortalService {
 
   getMyAppointments(): Observable<PatientAppointment[]> {
     return this.http.get<PatientAppointment[]>(this.base + '/appointments/mine');
+  }
+
+  getNutritionistRelationship(): Observable<PatientNutritionistRelationship> {
+    return this.http.get<PatientNutritionistRelationship>(this.base + '/portal/nutritionist-relationship');
+  }
+
+  requestNutritionistChange(type: 'leave_and_find_new' | 'clinic_reassignment', reason?: string): Observable<PatientNutritionistChangeResponse> {
+    return this.http.post<PatientNutritionistChangeResponse>(this.base + '/portal/nutritionist-change-requests', { type, reason });
   }
 
   requestAppointment(startsAt: string, durationMinutes = 30, patientNotes?: string | null, modality = 'in_person'): Observable<PatientAppointment> {
