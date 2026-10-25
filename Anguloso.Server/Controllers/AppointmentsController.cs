@@ -552,6 +552,24 @@ public class AppointmentsController : ControllerBase
             throw;
         }
 
+        // La aceptación del nuevo profesional no transfiere la relación: queda a la
+        // espera de que el paciente confirme y consienta la transferencia.
+        if (requestedStatus == "confirmed" && previousStatus == "requested")
+        {
+            await _context.Database.ExecuteSqlInterpolatedAsync($@"
+                UPDATE patient_nutritionist_transfer_workflows
+                SET status = 'awaiting_patient_confirmation'
+                WHERE appointment_id = {appointment.id} AND status = 'pending_professional'");
+        }
+        else if (requestedStatus == "cancelled" && previousStatus is "requested" or "confirmed")
+        {
+            await _context.Database.ExecuteSqlInterpolatedAsync($@"
+                UPDATE patient_nutritionist_transfer_workflows
+                SET status = 'rejected', resolved_at = NOW()
+                WHERE appointment_id = {appointment.id}
+                  AND status IN ('pending_professional','awaiting_patient_confirmation')");
+        }
+
         if ((requestedStatus == "confirmed" && previousStatus != "confirmed") ||
             (requestedStatus == "cancelled" && previousStatus != "cancelled") ||
             (requestedStatus == "no_show" && previousStatus != "no_show"))

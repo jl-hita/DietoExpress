@@ -23,7 +23,9 @@ public class CreateAppointmentRequestDto
 
 public class PublicAppointmentConfirmationDto
 {
-    public DateTime StartsAt { get; set; }
+    public int AppointmentId { get; set; }
+    public bool IsNutritionistChange { get; set; }
+    public DateTime StartsAt { get; set;}
     public DateTime EndsAt { get; set; }
     public string Status { get; set; } = string.Empty;
     public string NutritionistName { get; set; } = string.Empty;

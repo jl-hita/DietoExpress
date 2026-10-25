@@ -14,6 +14,16 @@ export interface PatientNutritionistRelationship {
   hasPendingClinicReassignment: boolean;
 }
 export interface PatientNutritionistChangeResponse { message: string; pending?: boolean; unassigned?: boolean; }
+export interface PatientNutritionistTransfer {
+  pending: boolean;
+  id?: number;
+  status?: string;
+  appointmentId?: number;
+  appointmentStartsAt?: string;
+  nutritionistName?: string;
+  createdAt?: string;
+  requiresPatientConfirmation?: boolean;
+}
 export interface ClientPortalAccess { clientId: number; accessToken: string; magicLink: string; hasPasscode: boolean; lastPortalAccess?: string; }
 
 export interface AppointmentSlot {
@@ -192,6 +202,18 @@ export class PatientPortalService {
 
   requestNutritionistChange(type: 'leave_and_find_new' | 'clinic_reassignment', reason?: string): Observable<PatientNutritionistChangeResponse> {
     return this.http.post<PatientNutritionistChangeResponse>(this.base + '/portal/nutritionist-change-requests', { type, reason });
+  }
+
+  getNutritionistTransfer(): Observable<PatientNutritionistTransfer> {
+    return this.http.get<PatientNutritionistTransfer>(this.base + '/portal/nutritionist-transfer');
+  }
+
+  confirmNutritionistTransfer(id: number, consentToHistoryTransfer: boolean): Observable<{ completed: boolean; message: string }> {
+    return this.http.post<{ completed: boolean; message: string }>(this.base + '/portal/nutritionist-transfer/' + id + '/confirm', { consentToHistoryTransfer });
+  }
+
+  cancelNutritionistTransfer(id: number): Observable<{ cancelled: boolean; message: string }> {
+    return this.http.post<{ cancelled: boolean; message: string }>(this.base + '/portal/nutritionist-transfer/' + id + '/cancel', {});
   }
 
   requestAppointment(startsAt: string, durationMinutes = 30, patientNotes?: string | null, modality = 'in_person'): Observable<PatientAppointment> {
