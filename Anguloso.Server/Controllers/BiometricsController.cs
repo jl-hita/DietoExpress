@@ -160,6 +160,7 @@ public class BiometricsController : ControllerBase
 
     // PUT: api/clients/{clientId}/biometrics/{id}
     [HttpPut("{id:int}")]
+    [Idempotent]
     // La actualización reutiliza la autorización por paciente y reemplaza los valores enviados.
     public async Task<IActionResult> Update(int clientId, int id, [FromBody] UpdateBiometricDto dto)
     {
@@ -212,6 +213,7 @@ public class BiometricsController : ControllerBase
 
     // DELETE: api/clients/{clientId}/biometrics/{id}
     [HttpDelete("{id:int}")]
+    [Idempotent]
     // El borrado requiere acceso al paciente y a la medición dentro del mismo tenant.
     public async Task<IActionResult> Delete(int clientId, int id)
     {
