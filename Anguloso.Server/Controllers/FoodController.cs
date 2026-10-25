@@ -2,6 +2,7 @@ using Anguloso.Server.Logica;
 using Anguloso.Server.Model;
 using Anguloso.Server.Models;
 using Anguloso.Server.Logica.Utils;
+using Anguloso.Server.Middleware;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -124,6 +125,7 @@ public class FoodController : ControllerBase
 
     // POST: api/foods
     [HttpPost]
+    [Idempotent]
     [Authorize(Policy = "Professional")] // Solo profesionales logueados pueden crear alimentos
     // El tenant y el usuario se obtienen siempre de los claims, nunca del payload, para evitar suplantación.
     public async Task<IActionResult> CreateCustomFood([FromBody] CustomFoodDto dto)
@@ -178,6 +180,7 @@ public class FoodController : ControllerBase
 
     // PUT: api/foods/{id}
     [HttpPut("{id:int}")]
+    [Idempotent]
     [Authorize(Policy = "Professional")]
     public async Task<IActionResult> UpdateCustomFood(int id, [FromBody] CustomFoodDto dto)
     {
@@ -324,6 +327,7 @@ public class FoodController : ControllerBase
 
     // DELETE: api/foods/{id}
     [HttpDelete("{id:int}")]
+    [Idempotent]
     [Authorize(Policy = "Professional")]
     // Antes de borrar se comprueba si el alimento está referenciado por una dieta para no romper datos existentes.
     public async Task<IActionResult> DeleteCustomFood(int id)
@@ -375,6 +379,7 @@ public class FoodController : ControllerBase
     }
 
     [HttpPost("{id:int}/favorite")]
+    [Idempotent]
     [Authorize(Policy = "Professional")]
     public async Task<IActionResult> AddFavorite(int id)
     {
@@ -402,6 +407,7 @@ public class FoodController : ControllerBase
     }
 
     [HttpDelete("{id:int}/favorite")]
+    [Idempotent]
     [Authorize(Policy = "Professional")]
     public async Task<IActionResult> RemoveFavorite(int id)
     {

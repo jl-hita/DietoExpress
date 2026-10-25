@@ -1,4 +1,5 @@
 using Anguloso.Server.Logica;
+using Anguloso.Server.Middleware;
 using Anguloso.Server.Logica.Utils;
 using Anguloso.Server.Model;
 using Anguloso.Server.Models;
@@ -103,6 +104,7 @@ public class BiometricsController : ControllerBase
 
     // POST: api/clients/{clientId}/biometrics
     [HttpPost]
+    [Idempotent]
     // Las mediciones nuevas se validan antes de persistirlas para rechazar valores no finitos y cargas excesivas.
     public async Task<ActionResult> Create(int clientId, [FromBody] CreateBiometricDto dto)
     {
@@ -158,6 +160,7 @@ public class BiometricsController : ControllerBase
 
     // PUT: api/clients/{clientId}/biometrics/{id}
     [HttpPut("{id:int}")]
+    [Idempotent]
     // La actualización reutiliza la autorización por paciente y reemplaza los valores enviados.
     public async Task<IActionResult> Update(int clientId, int id, [FromBody] UpdateBiometricDto dto)
     {
@@ -210,6 +213,7 @@ public class BiometricsController : ControllerBase
 
     // DELETE: api/clients/{clientId}/biometrics/{id}
     [HttpDelete("{id:int}")]
+    [Idempotent]
     // El borrado requiere acceso al paciente y a la medición dentro del mismo tenant.
     public async Task<IActionResult> Delete(int clientId, int id)
     {
@@ -327,6 +331,7 @@ public class BiometricsController : ControllerBase
     // POST: api/clients/{clientId}/biometrics/import/confirm
     [EnableRateLimiting("expensive")]
     [HttpPost("import/confirm")]
+    [Idempotent]
     // La confirmación procesa un lote acotado y actualiza por fecha, evitando duplicar mediciones del mismo día.
     public async Task<ActionResult> ConfirmImport(int clientId, [FromBody] ConfirmImportBiometricsDto dto)
     {

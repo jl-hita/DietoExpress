@@ -2,6 +2,7 @@ using Anguloso.Server.Logica;
 using Anguloso.Server.Logica.Utils;
 using Anguloso.Server.Model;
 using Anguloso.Server.Models;
+using Anguloso.Server.Middleware;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -104,6 +105,7 @@ public class RecipesController : ControllerBase
 
     // POST: api/recipes
     [HttpPost]
+    [Idempotent]
     // La validación de cada ingrediente se hace contra el tenant actual antes de persistir la receta.
     public async Task<ActionResult<RecipeListDto>> CreateRecipe([FromBody] CreateRecipeDto dto)
     {
@@ -155,6 +157,7 @@ public class RecipesController : ControllerBase
 
     // PUT: api/recipes/5
     [HttpPut("{id:int}")]
+    [Idempotent]
     public async Task<IActionResult> UpdateRecipe(int id, [FromBody] CreateRecipeDto dto)
     {
         var userId = AuthHelpers.GetUserId(User);
@@ -227,6 +230,7 @@ public class RecipesController : ControllerBase
 
     // Sustituye un ingrediente y recalcula automáticamente nutrición, restricciones y usos en dietas.
     [HttpPost("{id:int}/substitute")]
+    [Idempotent]
     public async Task<ActionResult<RecipeDetailDto>> SubstituteIngredient(int id, [FromBody] SubstituteRecipeIngredientDto dto)
     {
         var userId = AuthHelpers.GetUserId(User);
@@ -308,6 +312,7 @@ public class RecipesController : ControllerBase
 
     // DELETE: api/recipes/5
     [HttpDelete("{id:int}")]
+    [Idempotent]
     public async Task<IActionResult> DeleteRecipe(int id)
     {
         var userId = AuthHelpers.GetUserId(User);

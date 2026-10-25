@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Anguloso.Server.Logica;
+using Anguloso.Server.Middleware;
 using Anguloso.Server.Logica.Utils;
 using Anguloso.Server.Model;
 using Anguloso.Server.Models;
@@ -92,6 +93,7 @@ public class PatientPortalController : ControllerBase
 
     [Authorize]
     [HttpPost("reviews")]
+    [Idempotent]
     public async Task<IActionResult> SubmitDirectoryReview([FromBody] DirectoryReviewRequestDto request)
     {
         if (!(User.IsInRole("patient"))) return Forbid();

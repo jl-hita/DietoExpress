@@ -41,6 +41,9 @@
     "@angular/build": {
       "vite": "8.3.3",
       "rolldown": "1.2.8"
-    }
+    },
+    "body-parser": "1.20.9",
+    "fast-uri": "3.1.9",
+    "zod": "4.6.7"
   }
 }
