@@ -219,7 +219,6 @@ public class PatientPortalController : ControllerBase
 
     [HttpPost("onboarding")]
     [Authorize]
-    [Idempotent]
     public async Task<IActionResult> SaveOnboarding([FromBody] PatientOnboardingRequestDto request)
     {
         var clientId = ResolveAuthorizedClientId();
