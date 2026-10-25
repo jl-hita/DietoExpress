@@ -1,5 +1,4 @@
 using Anguloso.Server.Logica;
-using Anguloso.Server.Middleware;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -17,7 +16,6 @@ public sealed class PrivacyOperationsController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<PrivacyRequestDto>>> Requests(CancellationToken ct) => Ok(await _service.ListRequestsAsync(ct));
 
     [HttpPost("requests")]
-    [Idempotent]
     public async Task<IActionResult> CreateRequest([FromBody] CreatePrivacyRequest request, CancellationToken ct)
     {
         try { return Ok(new { id = await _service.CreateRequestAsync(request, ct) }); }
@@ -26,7 +24,6 @@ public sealed class PrivacyOperationsController : ControllerBase
     }
 
     [HttpPatch("requests/{id:long}")]
-    [Idempotent]
     public async Task<IActionResult> UpdateRequest(long id, [FromBody] UpdatePrivacyRequest request, CancellationToken ct)
         => await _service.UpdateRequestAsync(id, request, ct) ? NoContent() : NotFound();
 
@@ -45,7 +42,6 @@ public sealed class PrivacyOperationsController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<PrivacyIncidentDto>>> Incidents(CancellationToken ct) => Ok(await _service.ListIncidentsAsync(ct));
 
     [HttpPost("incidents")]
-    [Idempotent]
     public async Task<IActionResult> CreateIncident([FromBody] CreatePrivacyIncident request, CancellationToken ct)
     {
         try { return Ok(new { id = await _service.CreateIncidentAsync(request, ct) }); }
@@ -53,7 +49,6 @@ public sealed class PrivacyOperationsController : ControllerBase
     }
 
     [HttpPatch("incidents/{id:long}")]
-    [Idempotent]
     public async Task<IActionResult> UpdateIncident(long id, [FromBody] UpdatePrivacyIncident request, CancellationToken ct)
         => await _service.UpdateIncidentAsync(id, request, ct) ? NoContent() : NotFound();
 }
