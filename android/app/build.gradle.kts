@@ -15,7 +15,7 @@ android {
         versionName = "0.1.0"
 
         // Evita fijar una URL de desarrollo o credenciales en el código.
-        buildConfigField("String", "API_BASE_URL", "\"https://jlhitap.duckdns.org/api\"")
+        buildConfigField("String", "API_BASE_URL", "\"${providers.gradleProperty("dietoexpressApiBaseUrl").orElse("https://jlhitap.duckdns.org/api").get()}\"")
     }
 
     buildFeatures {
