@@ -267,27 +267,28 @@ ORDER BY c.updated_at DESC;", tenantId, userId, isClinicAdmin).ToListAsync();
                 clientId).FirstOrDefaultAsync();
         if (existing != 0) return new ConversationRef(existing, client.tenant_id.Value);
 
-        try
-        {
-            // ToListAsync ejecuta INSERT ... RETURNING sin que EF Core intente envolverlo
-            // en una subconsulta (operación no composable en PostgreSQL).
-            var insertedIds = nutritionistId.HasValue
-                ? await _context.Database.SqlQueryRaw<long>(
-                    @"INSERT INTO patient_conversations(tenant_id, client_id, assigned_nutritionist_id) VALUES ({0}, {1}, {2}) RETURNING id;",
-                    client.tenant_id.Value, clientId, nutritionistId.Value).ToListAsync()
-                : await _context.Database.SqlQueryRaw<long>(
-                    @"INSERT INTO patient_conversations(tenant_id, client_id) VALUES ({0}, {1}) RETURNING id;",
-                    client.tenant_id.Value, clientId).ToListAsync();
-            var id = insertedIds.Single();
-            return new ConversationRef(id, client.tenant_id.Value);
-        }
-        catch (PostgresException ex) when (ex.SqlState == "23505")
-        {
-            var id = await _context.Database.SqlQueryRaw<long>(
-                @"SELECT id AS ""Value"" FROM patient_conversations WHERE client_id = {0} AND closed_at IS NULL LIMIT 1",
-                clientId).FirstAsync();
-            return new ConversationRef(id, client.tenant_id.Value);
-        }
+        // ON CONFLICT evita dejar abortada la transacción si dos peticiones crean la conversación a la vez.
+        // ToListAsync ejecuta INSERT ... RETURNING sin que EF Core lo envuelva en una subconsulta no componible.
+        var insertedIds = nutritionistId.HasValue
+            ? await _context.Database.SqlQueryRaw<long>(
+                @"INSERT INTO patient_conversations(tenant_id, client_id, assigned_nutritionist_id) VALUES ({0}, {1}, {2}) ON CONFLICT DO NOTHING RETURNING id;",
+                client.tenant_id.Value, clientId, nutritionistId.Value).ToListAsync()
+            : await _context.Database.SqlQueryRaw<long>(
+                @"INSERT INTO patient_conversations(tenant_id, client_id) VALUES ({0}, {1}) ON CONFLICT DO NOTHING RETURNING id;",
+                client.tenant_id.Value, clientId).ToListAsync();
+        if (insertedIds.Count == 1)
+            return new ConversationRef(insertedIds[0], client.tenant_id.Value);
+
+        var raced = nutritionistId.HasValue
+            ? await _context.Database.SqlQueryRaw<long>(
+                @"SELECT id AS ""Value"" FROM patient_conversations WHERE client_id = {0} AND assigned_nutritionist_id = {1} AND closed_at IS NULL LIMIT 1",
+                clientId, nutritionistId.Value).FirstOrDefaultAsync()
+            : await _context.Database.SqlQueryRaw<long>(
+                @"SELECT id AS ""Value"" FROM patient_conversations WHERE client_id = {0} AND assigned_nutritionist_id IS NULL AND closed_at IS NULL LIMIT 1",
+                clientId).FirstOrDefaultAsync();
+        if (raced == 0)
+            throw new InvalidOperationException("No se pudo crear ni recuperar la conversación del paciente.");
+        return new ConversationRef(raced, client.tenant_id.Value);
     }
 
     private async Task<IReadOnlyList<MessageDto>> ReadMessagesAsync(long conversationId, int clientId)
