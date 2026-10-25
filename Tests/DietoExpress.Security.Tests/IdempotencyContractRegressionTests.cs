@@ -23,11 +23,18 @@ public class IdempotencyContractRegressionTests
         var middleware = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Middleware", "IdempotencyMiddleware.cs"));
         var biometrics = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "BiometricsController.cs"));
         var checkins = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "PatientCheckinsController.cs"));
+        var portal = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "PatientPortalController.cs"));
+        var plans = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "AdminPlansController.cs"));
+        var recipes = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "RecipesController.cs"));
 
         Assert.Contains("GetMetadata<IdempotentAttribute>() is null", middleware);
         Assert.Contains("IsWriteMethod(request.Method)", middleware);
         Assert.Contains("[Idempotent]", biometrics);
         Assert.Contains("[Idempotent]", checkins);
+        Assert.Contains("[Idempotent]", portal);
+        Assert.Contains("[Idempotent]", plans);
+        Assert.Contains("[Idempotent]", recipes);
+        Assert.Contains("TryGetValue(\"Idempotency-Key\"", middleware);
         Assert.Contains("Idempotency-Key", middleware);
     }
 
@@ -44,6 +51,7 @@ public class IdempotencyContractRegressionTests
         Assert.Contains("uq_api_idempotency_scope_key", bootstrap);
         Assert.Contains("BeginTransactionAsync", middleware);
         Assert.Contains("CommitAsync", middleware);
+        Assert.DoesNotContain("created_at >= NOW()", middleware);
     }
 
     [Fact]
