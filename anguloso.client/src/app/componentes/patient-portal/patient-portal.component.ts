@@ -593,7 +593,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
   joinVideoAppointment(appointment: PatientAppointment): void {
     this.portalService.openVideoAccess(appointment.id, err => {
       this.appointmentError = err?.error?.message || 'No hemos podido abrir la consulta online. Comprueba que la cita esté dentro de su ventana de acceso.';
-    });
+    }, true);
   }
 
   cancelAppointment(appointment: PatientAppointment): void {
