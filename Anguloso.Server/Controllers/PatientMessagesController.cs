@@ -5,6 +5,7 @@ using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Npgsql;
 
 namespace Anguloso.Server.Controllers;
@@ -54,6 +55,7 @@ WHERE c.client_id = {0}
     }
 
     [HttpPost("patient")]
+    [Idempotent]
     [Authorize(Roles = "patient")]
     // El mensaje entrante se valida contra la conversación antes de persistir contenido enviado por el paciente.
     public async Task<IActionResult> SendPatientMessage([FromBody] SendMessageRequest request)
@@ -91,6 +93,7 @@ WHERE c.client_id = {0}
     }
 
     [HttpPost("client/{clientId:int}")]
+    [Idempotent]
     [Authorize(Roles = "clinic_admin,nutritionist")]
     // El profesional solo puede escribir en conversaciones cuyo paciente tiene acceso dentro de su tenant.
     public async Task<IActionResult> SendProfessionalMessage(int clientId, [FromBody] SendMessageRequest request)
@@ -155,13 +158,19 @@ WHERE conversation_id = {conversation.Id}
             .FirstOrDefaultAsync();
         if (client?.tenant_id == null) return NotFound();
 
+        // La fila del mensaje y su efecto pendiente deben confirmarse juntos. Si el middleware
+        // ya inició la transacción idempotente, se reutiliza; sin cabecera se abre una local.
+        await using var ownedTransaction = _context.Database.CurrentTransaction is null
+            ? await _context.Database.BeginTransactionAsync()
+            : null;
         var conversation = await GetOrCreateConversationAsync(clientId, senderUserId);
         long messageId;
-        await using var connection = _context.Database.GetDbConnection();
+        var connection = _context.Database.GetDbConnection();
         if (connection.State != System.Data.ConnectionState.Open) await connection.OpenAsync();
 
         await using (var command = connection.CreateCommand())
         {
+            command.Transaction = _context.Database.CurrentTransaction?.GetDbTransaction();
             command.CommandText = @"
 INSERT INTO patient_messages
 (conversation_id, tenant_id, client_id, sender_user_id, sender_client_id, body, created_at)
@@ -178,39 +187,18 @@ RETURNING id;";
 
         await _context.Database.ExecuteSqlInterpolatedAsync($@"UPDATE patient_conversations SET updated_at = NOW() WHERE id = {conversation.Id};");
 
-        if (senderUserId.HasValue)
-        {
-            await _notifications.CreateForPatientAsync(
-                client.tenant_id.Value, clientId, "message",
-                "Nuevo mensaje de tu nutricionista",
-                body.Length > 180 ? body[..180] + "…" : body,
-                "/patient?tab=messages");
-        }
-        else
-        {
-            var assignment = await _context.client_nutritionist_assignments.AsNoTracking()
-                .Where(a => a.client_id == clientId && a.is_active && a.nutritionist.tenant_id == client.tenant_id.Value)
-                .Select(a => new { a.nutritionist_id, a.nutritionist.email, a.nutritionist.full_name })
-                .FirstOrDefaultAsync();
-
-            if (assignment?.email != null)
+        await TransactionalOutbox.EnqueueAsync(
+            _context, client.tenant_id.Value, "patient_message_created",
+            new
             {
-                try
-                {
-                    var safePatient = System.Net.WebUtility.HtmlEncode(client.full_name ?? "Paciente");
-                    var safeBody = System.Net.WebUtility.HtmlEncode(body);
-                    await _emailServ.SendEmailAsync(
-                        assignment.email,
-                        $"Nuevo mensaje de {client.full_name ?? "tu paciente"}",
-                        $"<h2>Nuevo mensaje de {safePatient}</h2><p>{safeBody}</p><p>Entra en DietoExpress para responder al paciente.</p>");
-                }
-                catch (Exception ex)
-                {
-                    HttpContext.RequestServices.GetRequiredService<ILogger<PatientMessagesController>>()
-                        .LogWarning(ex, "No se pudo enviar el aviso de nuevo mensaje del paciente {ClientId}.", clientId);
-                }
-            }
-        }
+                ClientId = clientId,
+                SenderUserId = senderUserId,
+                PatientName = client.full_name ?? "Paciente",
+                Body = body
+            },
+            $"message:{messageId}:created");
+
+        if (ownedTransaction is not null) await ownedTransaction.CommitAsync();
 
         return Ok(new { id = messageId });
     }
