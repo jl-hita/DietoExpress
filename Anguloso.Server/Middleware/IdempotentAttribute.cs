@@ -5,4 +5,4 @@ namespace Anguloso.Server.Middleware;
 /// Apply only after reviewing its database and external side effects.
 /// </summary>
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = true)]
-public sealed class IdempotentAttribute : Attribute;
+public sealed class IdempotentAttribute : Attribute { }
