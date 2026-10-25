@@ -17,23 +17,35 @@ public sealed class IdempotencyMiddleware
 {
     private const int MaxKeyLength = 200;
     private readonly RequestDelegate _next;
-    private readonly ILogger<IdempotencyMiddleware> _logger;
-
-    public IdempotencyMiddleware(RequestDelegate next, ILogger<IdempotencyMiddleware> logger)
+    public IdempotencyMiddleware(RequestDelegate next)
     {
         _next = next;
-        _logger = logger;
     }
 
     public async Task InvokeAsync(HttpContext context, angulosodbContext db)
     {
         var request = context.Request;
         if (context.GetEndpoint()?.Metadata.GetMetadata<IdempotentAttribute>() is null ||
-            !IsWriteMethod(request.Method) ||
-            !request.Headers.TryGetValue("Idempotency-Key", out var values) ||
-            values.Count != 1)
+            !IsWriteMethod(request.Method))
         {
             await _next(context);
+            return;
+        }
+
+        if (!request.Headers.TryGetValue("Idempotency-Key", out var values))
+        {
+            await _next(context);
+            return;
+        }
+
+        if (values.Count != 1)
+        {
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            await context.Response.WriteAsJsonAsync(new
+            {
+                error = "invalid_idempotency_key",
+                message = "La cabecera Idempotency-Key debe aparecer una sola vez."
+            });
             return;
         }
 
@@ -63,9 +75,9 @@ public sealed class IdempotencyMiddleware
             ?? context.User.FindFirstValue("sub")
             ?? "anonymous";
         var scope = $"{subject}\n{request.Method.ToUpperInvariant()}\n{request.PathBase}{request.Path}{request.QueryString}";
-        var fingerprintInput = Encoding.UTF8.GetBytes(scope + "\n" + Convert.ToBase64String(requestBody));
+        var fingerprintInput = Encoding.UTF8.GetBytes(scope + "\n" + (request.ContentType ?? string.Empty) + "\n" + Convert.ToBase64String(requestBody));
         var fingerprint = Convert.ToHexString(SHA256.HashData(fingerprintInput));
-        var scopeHash = SHA256.HashData(Encoding.UTF8.GetBytes(scope + "\\n" + key));
+        var scopeHash = SHA256.HashData(Encoding.UTF8.GetBytes(scope + "\n" + key));
         var lockKey = BitConverter.ToInt64(scopeHash, 0);
 
         await using var transaction = await db.Database.BeginTransactionAsync(context.RequestAborted);
