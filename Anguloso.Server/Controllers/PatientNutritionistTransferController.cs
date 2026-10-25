@@ -189,10 +189,12 @@ public sealed class PatientNutritionistTransferController : ControllerBase
         {
             try
             {
-                await _email.SendEmailAsync(
+                var emailResult = await _email.SendEmailAsync(
                     oldProfessional.email,
                     "Cambio de nutricionista confirmado",
                     $"<p>El paciente ha confirmado el cambio a otro profesional y ha consentido la transferencia de su historial.</p><p>El historial se ha transferido a la nueva clínica. No es necesaria ninguna acción por tu parte.</p>");
+                if (!emailResult.Exito)
+                    _logger.LogWarning("La transferencia del paciente {ClientId} se completó, pero el proveedor rechazó el aviso al nutricionista anterior.", workflow.ClientId);
             }
             catch (Exception ex)
             {
