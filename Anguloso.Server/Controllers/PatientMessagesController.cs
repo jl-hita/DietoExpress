@@ -17,7 +17,9 @@ public class PatientMessagesController : ControllerBase
 {
     private readonly angulosodbContext _context;
 
-    public PatientMessagesController(angulosodbContext context)
+    // Se conserva la firma del constructor para compatibilidad con los tests y consumidores internos.
+    // Los efectos secundarios ya no se ejecutan en el controlador: los procesa TransactionalOutboxWorker.
+    public PatientMessagesController(angulosodbContext context, NotificationService notifications, EmailServ emailServ)
     {
         _context = context;
     }
