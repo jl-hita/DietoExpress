@@ -1,4 +1,5 @@
 using Anguloso.Server.Logica;
+using Anguloso.Server.Middleware;
 using Anguloso.Server.Logica.Utils;
 using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -125,6 +126,7 @@ WHERE conversation_id = {conversation.Id}
     }
 
     [HttpPatch("patient/read")]
+    [Idempotent]
     [Authorize(Roles = "patient")]
     // El estado de lectura del paciente se actualiza exclusivamente sobre mensajes que le pertenecen.
     public async Task<IActionResult> MarkPatientMessagesRead()
