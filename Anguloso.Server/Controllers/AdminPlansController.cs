@@ -1,4 +1,5 @@
 using Anguloso.Server.Models;
+using Anguloso.Server.Middleware;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -30,6 +31,7 @@ public class AdminPlansController : ControllerBase
     }
 
     [HttpPost]
+    [Idempotent]
     public async Task<IActionResult> Create([FromBody] PlanRequest r)
     {
         if (string.IsNullOrWhiteSpace(r.Code) || string.IsNullOrWhiteSpace(r.Name))
@@ -68,6 +70,7 @@ public class AdminPlansController : ControllerBase
     }
 
     [HttpPut("{id:int}")]
+    [Idempotent]
     public async Task<IActionResult> Update(int id, [FromBody] PlanRequest r)
     {
         if (!IsValidPlanLimits(r) || string.IsNullOrWhiteSpace(r.Name) || r.Name.Trim().Length > 100 || r.Description?.Length > 2000)
@@ -100,6 +103,7 @@ public class AdminPlansController : ControllerBase
     }
 
     [HttpPut("{id:int}/features")]
+    [Idempotent]
     public async Task<IActionResult> Features(int id, [FromBody] List<FeatureRequest> features)
     {
         if (features == null || features.Count > 100)
