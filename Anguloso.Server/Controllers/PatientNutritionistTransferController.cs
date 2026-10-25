@@ -170,9 +170,9 @@ public sealed class PatientNutritionistTransferController : ControllerBase
                 WHERE id = {workflow.Id} AND status = 'awaiting_patient_confirmation'");
 
             await _context.Database.ExecuteSqlInterpolatedAsync($@"
-                INSERT INTO audit_logs (tenant_id, user_id, action, entity_type, entity_id, details, created_at)
-                VALUES ({workflow.TargetTenantId}, NULL, 'PATIENT_HISTORY_TRANSFER_CONSENT',
-                        'client', {workflow.ClientId.ToString()}, 'Explicit patient consent recorded for nutritionist change', NOW())");
+                INSERT INTO audit_logs (tenant_id, user_id, user_role, action, entity_name, entity_id, client_id, details, created_at)
+                VALUES ({workflow.TargetTenantId}, NULL, 'patient', 'PATIENT_HISTORY_TRANSFER_CONSENT',
+                        'client', {workflow.ClientId.ToString()}, {workflow.ClientId}, 'Consentimiento explícito para cambio de nutricionista y transferencia de historial', NOW())");
             await transaction.CommitAsync();
         }
         catch (Exception ex)
