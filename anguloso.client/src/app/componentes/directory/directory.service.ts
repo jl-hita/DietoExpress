@@ -42,8 +42,8 @@ export class DirectoryService {
       patientNotes?: string;
       modality?: 'in_person' | 'online';
     }
-  ): Observable<{ startsAt: string; endsAt: string; status: string; nutritionistName: string; modality?: string }> {
-    return this.http.post<{ startsAt: string; endsAt: string; status: string; nutritionistName: string; modality?: string }>(
+  ): Observable<{ appointmentId: number; isNutritionistChange: boolean; startsAt: string; endsAt: string; status: string; nutritionistName: string; modality?: string }> {
+    return this.http.post<{ appointmentId: number; isNutritionistChange: boolean; startsAt: string; endsAt: string; status: string; nutritionistName: string; modality?: string }>(
       this.apiUrl + '/directory/professionals/' + encodeURIComponent(slug) + '/appointments',
       request
     );
