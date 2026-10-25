@@ -10,7 +10,7 @@ import { PatientPortalService } from '../../servicios/patient-portal.service';
 import { FoodService } from '../../servicios/food.service';
 import { SumPipe } from '../../shared/pipes/sum.pipe';
 import { PatientChatComponent } from '../patient-chat/patient-chat.component';
-import { AppointmentSlot, PatientAppointment, PatientNotification, PatientDocument, PatientNutritionistRelationship } from '../../servicios/patient-portal.service';
+import { AppointmentSlot, PatientAppointment, PatientNotification, PatientDocument, PatientNutritionistRelationship, PatientNutritionistTransfer } from '../../servicios/patient-portal.service';
 import { PatientCheckinComponent } from './patient-checkin/patient-checkin.component';
 import { PatientAppointmentsComponent } from './patient-appointments/patient-appointments.component';
 import { PatientProgressComponent } from './patient-progress/patient-progress.component';
@@ -177,6 +177,11 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
   set appointmentSuccess(value: string | null) { this.appointmentSuccessState.set(value); }
 
   nutritionistRelationship: PatientNutritionistRelationship | null = null;
+  nutritionistTransfer: PatientNutritionistTransfer | null = null;
+  nutritionistTransferConsent = false;
+  nutritionistTransferBusy = false;
+  nutritionistTransferMessage: string | null = null;
+  nutritionistTransferError: string | null = null;
   nutritionistChangeBusy = false;
   nutritionistChangeMessage: string | null = null;
   nutritionistChangeError: string | null = null;
@@ -960,6 +965,58 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
     this.portalService.getNutritionistRelationship().subscribe({
       next: relationship => this.nutritionistRelationship = relationship,
       error: () => this.nutritionistRelationship = null
+    });
+    this.loadNutritionistTransfer();
+  }
+
+  loadNutritionistTransfer(): void {
+    this.portalService.getNutritionistTransfer().subscribe({
+      next: transfer => this.nutritionistTransfer = transfer?.pending ? transfer : null,
+      error: () => this.nutritionistTransfer = null
+    });
+  }
+
+  confirmNutritionistTransfer(): void {
+    const transfer = this.nutritionistTransfer;
+    if (!transfer?.id || !transfer.requiresPatientConfirmation || !this.nutritionistTransferConsent || this.nutritionistTransferBusy) return;
+    this.nutritionistTransferBusy = true;
+    this.nutritionistTransferError = null;
+    this.nutritionistTransferMessage = null;
+    this.portalService.confirmNutritionistTransfer(transfer.id, true).subscribe({
+      next: result => {
+        this.nutritionistTransferBusy = false;
+        this.nutritionistTransfer = null;
+        this.nutritionistTransferConsent = false;
+        this.nutritionistTransferMessage = result.message;
+        this.loadNutritionistRelationship();
+        this.loadAppointments();
+        this.loadData();
+      },
+      error: err => {
+        this.nutritionistTransferBusy = false;
+        this.nutritionistTransferError = err?.error?.message || 'No se ha podido completar la transferencia. Tu relación actual se mantiene.';
+      }
+    });
+  }
+
+  cancelNutritionistTransfer(): void {
+    const transfer = this.nutritionistTransfer;
+    if (!transfer?.id || this.nutritionistTransferBusy) return;
+    this.nutritionistTransferBusy = true;
+    this.nutritionistTransferError = null;
+    this.portalService.cancelNutritionistTransfer(transfer.id).subscribe({
+      next: result => {
+        this.nutritionistTransferBusy = false;
+        this.nutritionistTransfer = null;
+        this.nutritionistTransferConsent = false;
+        this.nutritionistTransferMessage = result.message;
+        this.loadNutritionistRelationship();
+        this.loadAppointments();
+      },
+      error: err => {
+        this.nutritionistTransferBusy = false;
+        this.nutritionistTransferError = err?.error?.message || 'No se ha podido cancelar el cambio.';
+      }
     });
   }
 
