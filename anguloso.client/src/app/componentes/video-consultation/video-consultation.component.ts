@@ -182,7 +182,8 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
   private async refreshAudioInputDevices(): Promise<void> {
     if (!navigator.mediaDevices?.enumerateDevices) return;
     try {
-      const devices = (await navigator.mediaDevices.enumerateDevices()).filter(device => device.kind === 'audioinput');
+      // LiveKit filtra los dispositivos virtuales "dummy" y normaliza el dispositivo predeterminado.
+      const devices = await Room.getLocalDevices('audioinput', false);
       this.audioInputDevices = devices;
       const activeDeviceId = this.localAudio?.mediaStreamTrack.getSettings().deviceId;
       if (activeDeviceId && devices.some(device => device.deviceId === activeDeviceId)) {
