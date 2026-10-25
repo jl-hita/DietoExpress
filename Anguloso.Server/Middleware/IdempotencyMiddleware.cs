@@ -65,7 +65,7 @@ public sealed class IdempotencyMiddleware
         var scope = $"{subject}\n{request.Method.ToUpperInvariant()}\n{request.PathBase}{request.Path}{request.QueryString}";
         var fingerprintInput = Encoding.UTF8.GetBytes(scope + "\n" + Convert.ToBase64String(requestBody));
         var fingerprint = Convert.ToHexString(SHA256.HashData(fingerprintInput));
-        var scopeHash = SHA256.HashData(Encoding.UTF8.GetBytes(scope));
+        var scopeHash = SHA256.HashData(Encoding.UTF8.GetBytes(scope + "\\n" + key));
         var lockKey = BitConverter.ToInt64(scopeHash, 0);
 
         await using var transaction = await db.Database.BeginTransactionAsync(context.RequestAborted);
