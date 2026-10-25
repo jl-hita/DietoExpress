@@ -55,6 +55,11 @@ export class PatientAppointmentsComponent implements OnDestroy {
 
   ngOnDestroy(): void { this.clockSubscription.unsubscribe(); }
 
+  appointmentStatusLabel(appointment: PatientAppointment): string {
+    if (appointment.status === 'requested' && new Date(appointment.endsAt).getTime() <= this.nowMs) return 'Caducada';
+    return ({ requested: 'Pendiente de confirmación', confirmed: 'Confirmada', cancelled: 'Cancelada', completed: 'Completada', no_show: 'No asistió' } as Record<string, string>)[appointment.status] || appointment.status;
+  }
+
   videoAccessState(appointment: PatientAppointment): 'waiting' | 'available' | 'expired' {
     const now = this.nowMs;
     const availableFrom = new Date(appointment.startsAt).getTime() - 15 * 60_000;
