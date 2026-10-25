@@ -10,7 +10,7 @@ import { PatientPortalService } from '../../servicios/patient-portal.service';
 import { FoodService } from '../../servicios/food.service';
 import { SumPipe } from '../../shared/pipes/sum.pipe';
 import { PatientChatComponent } from '../patient-chat/patient-chat.component';
-import { AppointmentSlot, PatientAppointment, PatientNotification, PatientDocument } from '../../servicios/patient-portal.service';
+import { AppointmentSlot, PatientAppointment, PatientNotification, PatientDocument, PatientNutritionistRelationship } from '../../servicios/patient-portal.service';
 import { PatientCheckinComponent } from './patient-checkin/patient-checkin.component';
 import { PatientAppointmentsComponent } from './patient-appointments/patient-appointments.component';
 import { PatientProgressComponent } from './patient-progress/patient-progress.component';
@@ -175,6 +175,12 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
   private readonly appointmentSuccessState = signal<string | null>(null);
   get appointmentSuccess(): string | null { return this.appointmentSuccessState(); }
   set appointmentSuccess(value: string | null) { this.appointmentSuccessState.set(value); }
+
+  nutritionistRelationship: PatientNutritionistRelationship | null = null;
+  nutritionistChangeBusy = false;
+  nutritionistChangeMessage: string | null = null;
+  nutritionistChangeError: string | null = null;
+  nutritionistChangeReason = '';
 
   private readonly notificationsState = signal<PatientNotification[]>([]);
   get notifications(): PatientNotification[] { return this.notificationsState(); }
@@ -431,6 +437,11 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
     this.appointmentError = null;
     this.appointmentBooking = false;
     this.appointmentSuccess = null;
+    this.nutritionistRelationship = null;
+    this.nutritionistChangeBusy = false;
+    this.nutritionistChangeMessage = null;
+    this.nutritionistChangeError = null;
+    this.nutritionistChangeReason = '';
     this.documents = [];
     this.documentsLoading = false;
     this.documentsError = null;
@@ -458,6 +469,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
         this.loadCompletedMeals();
         // La vista previa del profesional usa clientId y no tiene sesión de paciente.
         if (!clientIdParam) {
+          this.loadNutritionistRelationship();
           this.loadAppointments();
           this.loadNotifications();
           this.startBroadcastPolling();
@@ -942,6 +954,57 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
   /** Lleva al paciente al directorio público cuando ya no tiene un nutricionista asignado. */
   findNutritionist(): void {
     this.router.navigate(['/nutricionistas']);
+  }
+
+  loadNutritionistRelationship(): void {
+    this.portalService.getNutritionistRelationship().subscribe({
+      next: relationship => this.nutritionistRelationship = relationship,
+      error: () => this.nutritionistRelationship = null
+    });
+  }
+
+  requestClinicReassignment(): void {
+    if (this.nutritionistChangeBusy || this.nutritionistRelationship?.hasPendingClinicReassignment) return;
+    this.nutritionistChangeBusy = true;
+    this.nutritionistChangeError = null;
+    this.nutritionistChangeMessage = null;
+    this.portalService.requestNutritionistChange('clinic_reassignment', this.nutritionistChangeReason.trim() || undefined).subscribe({
+      next: response => {
+        this.nutritionistChangeBusy = false;
+        this.nutritionistRelationship = { ...this.nutritionistRelationship!, hasPendingClinicReassignment: true };
+        this.nutritionistChangeReason = '';
+        this.nutritionistChangeMessage = response.message || 'Solicitud enviada a la clínica.';
+      },
+      error: err => {
+        this.nutritionistChangeBusy = false;
+        this.nutritionistChangeError = err?.error?.message || 'No hemos podido enviar la solicitud. Inténtalo de nuevo.';
+      }
+    });
+  }
+
+  leaveNutritionistAndFindNew(): void {
+    if (this.nutritionistChangeBusy || this.nutritionistRelationship?.hasPendingClinicReassignment) return;
+    const confirmed = window.confirm('¿Quieres dejar de estar asignado a tu nutricionista actual? Se conservarán tu historial y tus citas anteriores, pero las nuevas reservas se harán con otro profesional.');
+    if (!confirmed) return;
+    this.nutritionistChangeBusy = true;
+    this.nutritionistChangeError = null;
+    this.nutritionistChangeMessage = null;
+    this.portalService.requestNutritionistChange('leave_and_find_new').subscribe({
+      next: response => {
+        this.nutritionistChangeBusy = false;
+        this.nutritionistRelationship = {
+          hasAssignedNutritionist: false,
+          isClinic: this.nutritionistRelationship?.isClinic ?? false,
+          hasPendingClinicReassignment: false
+        };
+        this.nutritionistChangeMessage = response.message || 'Ya puedes buscar otro nutricionista.';
+        this.findNutritionist();
+      },
+      error: err => {
+        this.nutritionistChangeBusy = false;
+        this.nutritionistChangeError = err?.error?.message || 'No hemos podido cambiar tu asignación. Inténtalo de nuevo.';
+      }
+    });
   }
 
 

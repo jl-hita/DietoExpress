@@ -20,6 +20,7 @@ export class PatientAppointmentsComponent implements OnDestroy {
   get nowMs(): number { return this.nowMsState(); }
 
   @Input() slots: AppointmentSlot[] = [];
+  @Input() hasAssignedNutritionist = true;
   @Input() upcomingAppointments: PatientAppointment[] = [];
   @Input() pastAppointments: PatientAppointment[] = [];
   @Input() loading = false;
@@ -28,6 +29,7 @@ export class PatientAppointmentsComponent implements OnDestroy {
   @Input() success: string | null = null;
 
   @Output() refresh = new EventEmitter<void>();
+  @Output() findNutritionist = new EventEmitter<void>();
   @Output() request = new EventEmitter<{ slot: AppointmentSlot; modality: 'in_person' | 'online' }>();
   private readonly selectedModalityState = signal<'in_person' | 'online'>('in_person');
   get selectedModality(): 'in_person' | 'online' { return this.selectedModalityState(); }

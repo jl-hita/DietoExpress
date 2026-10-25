@@ -71,6 +71,30 @@ CREATE INDEX IF NOT EXISTS idx_integration_outbox_pending
     ON integration_outbox(status, available_at, id);
 ");
 
+        // Solicitudes de reasignación de nutricionista iniciadas desde el portal del paciente.
+        context.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS patient_nutritionist_change_requests (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id INTEGER NOT NULL,
+    client_id INTEGER NOT NULL,
+    current_nutritionist_id INTEGER,
+    request_type VARCHAR(40) NOT NULL,
+    reason VARCHAR(1000),
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    resolved_at TIMESTAMPTZ,
+    resolved_by_user_id INTEGER,
+    resolution_notes VARCHAR(1000),
+    CONSTRAINT ck_patient_nutritionist_change_type CHECK (request_type IN ('clinic_reassignment')),
+    CONSTRAINT ck_patient_nutritionist_change_status CHECK (status IN ('pending','approved','rejected','cancelled'))
+);
+CREATE INDEX IF NOT EXISTS idx_patient_nutritionist_change_tenant_status
+    ON patient_nutritionist_change_requests(tenant_id, status, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_patient_nutritionist_change_pending_client
+    ON patient_nutritionist_change_requests(client_id)
+    WHERE status = 'pending';
+");
+
         // Registro persistente de claves de idempotencia. La respuesta se confirma en la misma
         // transacción que los cambios de negocio cuando la petición opta por Idempotency-Key.
         context.Database.ExecuteSqlRaw(@"
@@ -3289,7 +3313,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                     'legal_eipd_decisions','professional_followup_settings','professional_consultations',
                     'patient_checkins','specializations','tenant_specializations','client_specializations',
                     'client_specialization_profiles','specialization_rules','video_usage_reservations',
-                    'schema_migrations','api_idempotency_records','integration_outbox','system_alerts','public_directory_reviews','training_mesocycles','training_microcycles',
+                    'schema_migrations','api_idempotency_records','integration_outbox','system_alerts','public_directory_reviews','patient_nutritionist_change_requests','training_mesocycles','training_microcycles',
                     'directory_verification_evidence','support_tickets','support_messages',
                     'support_notifications','support_ticket_audit','billing_checkout_attempts',
                     'subscription_payments','payment_events','invoices','invoice_lines','fiscal_records',

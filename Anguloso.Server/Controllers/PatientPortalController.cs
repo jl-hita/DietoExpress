@@ -14,6 +14,12 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace Anguloso.Server.Controllers;
 
+public sealed class PatientNutritionistChangeRequestDto
+{
+    public string Type { get; set; } = string.Empty;
+    public string? Reason { get; set; }
+}
+
 [Route("api/portal")]
 [ApiController]
 public class PatientPortalController : ControllerBase
@@ -318,6 +324,11 @@ public class PatientPortalController : ControllerBase
             .FirstOrDefaultAsync(c => c.id == clientId.Value && c.archived_at == null);
         if (client == null) return NotFound();
         var latestBio = client.biometrics.OrderByDescending(b => b.measurement_date).FirstOrDefault();
+        var activeNutritionistName = await _context.client_nutritionist_assignments.AsNoTracking()
+            .Where(a => a.client_id == client.id && a.is_active && a.nutritionist.tenant_id == client.tenant_id)
+            .OrderByDescending(a => a.assigned_at)
+            .Select(a => a.nutritionist.full_name)
+            .FirstOrDefaultAsync();
         // La dieta activa se vuelve a filtrar por tenant a nivel de consulta para evitar que
         // una asignación válida del paciente pueda cruzarse con datos de otra clínica.
         var activeDietAssignment = await _context.client_diets
@@ -343,7 +354,7 @@ public class PatientPortalController : ControllerBase
             HasActiveDiet = activeDietAssignment != null, ActiveDietAssignmentId = activeDietAssignment?.id,
             ActiveDietStartDate = activeDietAssignment?.start_date.ToDateTime(TimeOnly.MinValue), WeightHistory = weightHistory,
             ClinicName = client.user?.clinic_name, ClinicPhone = client.user?.clinic_phone, ClinicLogo = client.user?.clinic_logo,
-            NutritionistName = client.user?.full_name
+            NutritionistName = activeNutritionistName ?? client.user?.full_name
         });
     }
 
@@ -602,6 +613,161 @@ public class PatientPortalController : ControllerBase
         client.portal_token_version++;
         await _context.SaveChangesAsync();
         return Ok(new { message = "Código de acceso asignado con éxito." });
+    }
+
+    [HttpGet("nutritionist-relationship")]
+    [Authorize(Roles = "patient")]
+    public async Task<IActionResult> GetNutritionistRelationship()
+    {
+        var clientId = ResolveAuthorizedClientId();
+        if (clientId == null) return Unauthorized();
+        if (!await PortalFeatureAllowedAsync(clientId.Value)) return Forbid();
+
+        var client = await _context.clients.AsNoTracking()
+            .Where(c => c.id == clientId.Value && c.archived_at == null)
+            .Select(c => new { c.id, c.tenant_id, c.user_id })
+            .SingleOrDefaultAsync();
+        if (client == null || !client.tenant_id.HasValue) return NotFound();
+
+        var assignment = await _context.client_nutritionist_assignments.AsNoTracking()
+            .Where(a => a.client_id == client.id && a.is_active && a.nutritionist.tenant_id == client.tenant_id)
+            .OrderByDescending(a => a.assigned_at)
+            .Select(a => new { NutritionistId = (int?)a.nutritionist_id, Name = a.nutritionist.full_name })
+            .FirstOrDefaultAsync();
+        var nutritionistId = assignment?.NutritionistId ?? client.user_id;
+        var nutritionistName = assignment?.Name;
+        if (nutritionistId.HasValue && string.IsNullOrWhiteSpace(nutritionistName))
+            nutritionistName = await _context.users.AsNoTracking()
+                .Where(u => u.id == nutritionistId.Value && u.tenant_id == client.tenant_id && u.role == "nutritionist")
+                .Select(u => u.full_name).FirstOrDefaultAsync();
+
+        var license = await _licenseService.GetLicenseAsync(client.tenant_id);
+        var isClinic = string.Equals(license?.PlanCode, "clinic_full", StringComparison.OrdinalIgnoreCase);
+        var pending = isClinic && await _context.Database.SqlQueryRaw<int>(
+            @"SELECT COUNT(*)::integer AS ""Value""
+              FROM patient_nutritionist_change_requests
+              WHERE tenant_id = {0} AND client_id = {1} AND request_type = 'clinic_reassignment' AND status = 'pending'",
+            client.tenant_id.Value, client.id).SingleAsync() > 0;
+
+        return Ok(new
+        {
+            hasAssignedNutritionist = nutritionistId.HasValue && !string.IsNullOrWhiteSpace(nutritionistName),
+            nutritionistId,
+            nutritionistName,
+            isClinic,
+            hasPendingClinicReassignment = pending
+        });
+    }
+
+    [HttpPost("nutritionist-change-requests")]
+    [Authorize(Roles = "patient")]
+    public async Task<IActionResult> RequestNutritionistChange([FromBody] PatientNutritionistChangeRequestDto request)
+    {
+        var clientId = ResolveAuthorizedClientId();
+        if (clientId == null) return Unauthorized();
+        if (!await PortalFeatureAllowedAsync(clientId.Value)) return Forbid();
+        if (request == null || request.Type is not ("leave_and_find_new" or "clinic_reassignment"))
+            return BadRequest(new { message = "El tipo de solicitud no es válido." });
+        var reason = request.Reason?.Trim();
+        if (reason?.Length > 1000)
+            return BadRequest(new { message = "El motivo no puede superar los 1000 caracteres." });
+
+        var client = await _context.clients
+            .Where(c => c.id == clientId.Value && c.archived_at == null)
+            .Select(c => new { c.id, c.tenant_id, c.user_id, c.full_name })
+            .SingleOrDefaultAsync();
+        if (client == null || !client.tenant_id.HasValue) return NotFound();
+
+        var assignment = await _context.client_nutritionist_assignments
+            .Where(a => a.client_id == client.id && a.is_active && a.nutritionist.tenant_id == client.tenant_id)
+            .OrderByDescending(a => a.assigned_at)
+            .Select(a => new { NutritionistId = (int?)a.nutritionist_id, Name = a.nutritionist.full_name, Email = a.nutritionist.email })
+            .FirstOrDefaultAsync();
+        var currentNutritionistId = assignment?.NutritionistId ?? client.user_id;
+        var license = await _licenseService.GetLicenseAsync(client.tenant_id);
+        var isClinic = string.Equals(license?.PlanCode, "clinic_full", StringComparison.OrdinalIgnoreCase);
+
+        if (request.Type == "clinic_reassignment")
+        {
+            if (!isClinic)
+                return BadRequest(new { message = "La reasignación dentro de una clínica solo está disponible para pacientes de clínicas." });
+
+            var existing = await _context.Database.SqlQueryRaw<int>(
+                @"SELECT COUNT(*)::integer AS ""Value""
+                  FROM patient_nutritionist_change_requests
+                  WHERE tenant_id = {0} AND client_id = {1} AND request_type = 'clinic_reassignment' AND status = 'pending'",
+                client.tenant_id.Value, client.id).SingleAsync();
+            if (existing > 0)
+                return Conflict(new { message = "Ya tienes una solicitud de reasignación pendiente." });
+
+            var inserted = await _context.Database.ExecuteSqlInterpolatedAsync($@"
+                INSERT INTO patient_nutritionist_change_requests
+                    (tenant_id, client_id, current_nutritionist_id, request_type, reason)
+                VALUES
+                    ({client.tenant_id.Value}, {client.id}, {currentNutritionistId}, 'clinic_reassignment', {reason})
+                ON CONFLICT DO NOTHING");
+            if (inserted == 0)
+                return Conflict(new { message = "Ya tienes una solicitud de reasignación pendiente." });
+
+            var clinicAdmins = await _context.users.AsNoTracking()
+                .Where(u => u.tenant_id == client.tenant_id && u.role == "clinic_admin" && u.archived_at == null && u.email != null && u.email != "")
+                .Select(u => u.email!)
+                .Distinct()
+                .ToListAsync();
+            foreach (var email in clinicAdmins)
+            {
+                try
+                {
+                    await _emailServ.SendEmailAsync(
+                        email,
+                        "Solicitud de reasignación de nutricionista",
+                        $"<p>El paciente <strong>{System.Net.WebUtility.HtmlEncode(client.full_name ?? "Paciente")}</strong> ha solicitado cambiar de nutricionista dentro de la clínica.</p>" +
+                        $"<p>Profesional actual: {System.Net.WebUtility.HtmlEncode(assignment?.Name ?? "No disponible")}.</p>" +
+                        (string.IsNullOrWhiteSpace(reason) ? string.Empty : $"<p>Motivo: {System.Net.WebUtility.HtmlEncode(reason)}</p>") +
+                        "<p>Revisa la asignación del paciente desde la gestión de la clínica.</p>");
+                }
+                catch (Exception ex)
+                {
+                    HttpContext.RequestServices.GetRequiredService<ILogger<PatientPortalController>>()
+                        .LogWarning(ex, "No se pudo notificar la solicitud de reasignación de la clínica {TenantId}.", client.tenant_id.Value);
+                }
+            }
+
+            return Accepted(new { message = "Solicitud enviada a la clínica. Mantendrás tu nutricionista actual hasta que se gestione la reasignación.", pending = true });
+        }
+
+        if (!currentNutritionistId.HasValue)
+            return Conflict(new { message = "Ya no tienes un nutricionista asignado. Puedes buscar uno en el directorio." });
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        await _context.Database.ExecuteSqlInterpolatedAsync($@"
+            UPDATE client_nutritionist_assignments
+            SET is_active = FALSE, unassigned_at = NOW()
+            WHERE client_id = {client.id} AND is_active = TRUE");
+        await _context.Database.ExecuteSqlInterpolatedAsync($@"
+            UPDATE clients SET user_id = NULL
+            WHERE id = {client.id} AND tenant_id = {client.tenant_id.Value}
+              AND user_id = {currentNutritionistId.Value}");
+        await transaction.CommitAsync();
+
+        if (!string.IsNullOrWhiteSpace(assignment?.Email))
+        {
+            try
+            {
+                await _emailServ.SendEmailAsync(
+                    assignment.Email,
+                    "El paciente ha solicitado continuar con otro nutricionista",
+                    $"<p>El paciente <strong>{System.Net.WebUtility.HtmlEncode(client.full_name ?? "Paciente")}</strong> ha solicitado dejar de estar asignado a tu perfil y buscar otro profesional en DietoExpress.</p>" +
+                    "<p>La relación se ha desactivado desde el portal del paciente. El historial y las citas anteriores se conservan.</p>");
+            }
+            catch (Exception ex)
+            {
+                HttpContext.RequestServices.GetRequiredService<ILogger<PatientPortalController>>()
+                    .LogWarning(ex, "No se pudo notificar el cambio de nutricionista para el paciente {ClientId}.", client.id);
+            }
+        }
+
+        return Ok(new { message = "Tu asignación se ha cerrado. Puedes buscar otro nutricionista en el directorio.", unassigned = true });
     }
 
     private async Task<bool> PortalFeatureAllowedAsync(int clientId)
