@@ -120,7 +120,7 @@
           <p class="appointment-success" *ngIf="nutritionistChangeMessage">{{ nutritionistChangeMessage }}</p>
         </div>
         <div class="unassigned-nutritionist-actions">
-          <button type="button" class="unassigned-nutritionist-action" (click)="leaveNutritionistAndFindNew()" [disabled]="nutritionistChangeBusy">
+          <button type="button" class="unassigned-nutritionist-action" (click)="leaveNutritionistAndFindNew()" [disabled]="nutritionistChangeBusy || nutritionistRelationship?.hasPendingClinicReassignment">
             Buscar otro nutricionista
             <mat-icon>arrow_forward</mat-icon>
           </button>
