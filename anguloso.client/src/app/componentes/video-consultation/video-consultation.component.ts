@@ -46,6 +46,18 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
   get microphoneEnabled(): boolean { return this.microphoneEnabledState(); }
   set microphoneEnabled(value: boolean) { this.microphoneEnabledState.set(value); }
 
+  private readonly audioInputDevicesState = signal<MediaDeviceInfo[]>([]);
+  get audioInputDevices(): MediaDeviceInfo[] { return this.audioInputDevicesState(); }
+  set audioInputDevices(value: MediaDeviceInfo[]) { this.audioInputDevicesState.set(value); }
+
+  private readonly selectedAudioInputIdState = signal('');
+  get selectedAudioInputId(): string { return this.selectedAudioInputIdState(); }
+  set selectedAudioInputId(value: string) { this.selectedAudioInputIdState.set(value); }
+
+  private readonly microphoneDeviceErrorState = signal('');
+  get microphoneDeviceError(): string { return this.microphoneDeviceErrorState(); }
+  set microphoneDeviceError(value: string) { this.microphoneDeviceErrorState.set(value); }
+
   private readonly cameraEnabledState = signal(true);
   get cameraEnabled(): boolean { return this.cameraEnabledState(); }
   set cameraEnabled(value: boolean) { this.cameraEnabledState.set(value); }
@@ -92,6 +104,7 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
 
   private readonly remoteElements = new Map<string, HTMLElement>();
   private patientPortalSession = false;
+  private readonly handleAudioDeviceChange = (): void => { void this.refreshAudioInputDevices(); };
 
   constructor(private readonly route: ActivatedRoute, private readonly router: Router, private readonly portalService: PatientPortalService, private readonly location: Location) {}
 
@@ -152,11 +165,53 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
       try { this.localVideoTrack=await createLocalVideoTrack(); await this.room.localParticipant.publishTrack(this.localVideoTrack); const localVideoElement = this.localVideoElementRef?.nativeElement;
         if (!localVideoElement) throw new Error('No se ha podido preparar el vídeo local. Vuelve a intentarlo.');
         this.localVideoTrack.attach(localVideoElement); } catch { this.cameraEnabled=false; }
-      try { this.localAudio=await createLocalAudioTrack(); await this.room.localParticipant.publishTrack(this.localAudio); } catch { this.microphoneEnabled=false; }
+      try {
+        this.localAudio = await createLocalAudioTrack();
+        await this.room.localParticipant.publishTrack(this.localAudio);
+        await this.refreshAudioInputDevices();
+        navigator.mediaDevices?.addEventListener?.('devicechange', this.handleAudioDeviceChange);
+      } catch {
+        this.microphoneEnabled = false;
+      }
       this.connected=true; this.connectionState=this.remoteParticipantCount>0?'connected':'waiting'; this.recordVideoEvent('connected');
     } catch(err:any) {
       this.error=err?.message||'No hemos podido conectar con la consulta online.'; this.connectionState='error'; this.connected=false; this.recordVideoEvent('failed'); await this.room?.disconnect();
     } finally { this.connecting=false; this.loading=false; }
+  }
+
+  private async refreshAudioInputDevices(): Promise<void> {
+    if (!navigator.mediaDevices?.enumerateDevices) return;
+    try {
+      const devices = (await navigator.mediaDevices.enumerateDevices()).filter(device => device.kind === 'audioinput');
+      this.audioInputDevices = devices;
+      const activeDeviceId = this.localAudio?.mediaStreamTrack.getSettings().deviceId;
+      if (activeDeviceId && devices.some(device => device.deviceId === activeDeviceId)) {
+        this.selectedAudioInputId = activeDeviceId;
+      } else if (!this.selectedAudioInputId && devices.length) {
+        this.selectedAudioInputId = devices[0].deviceId;
+      }
+      if (this.selectedAudioInputId && !devices.some(device => device.deviceId === this.selectedAudioInputId)) {
+        this.microphoneDeviceError = 'El micrófono seleccionado ya no está disponible. Elige otro dispositivo.';
+      } else {
+        this.microphoneDeviceError = '';
+      }
+    } catch {
+      this.microphoneDeviceError = 'No se ha podido consultar la lista de micrófonos. Comprueba los permisos del navegador.';
+    }
+  }
+
+  async selectMicrophone(deviceId: string): Promise<void> {
+    if (!deviceId || !this.room || deviceId === this.selectedAudioInputId) return;
+    this.microphoneDeviceError = '';
+    try {
+      const switched = await this.room.switchActiveDevice('audioinput', deviceId, true);
+      if (!switched) throw new Error('El navegador no ha podido activar ese dispositivo.');
+      this.selectedAudioInputId = deviceId;
+      this.microphoneEnabled = true;
+    } catch {
+      this.microphoneDeviceError = 'No se ha podido cambiar de micrófono. Comprueba los permisos del navegador y vuelve a intentarlo.';
+      await this.refreshAudioInputDevices();
+    }
   }
 
   async toggleMicrophone(): Promise<void> { if(!this.room||!this.localAudio)return; const enabled=!this.microphoneEnabled; try{await this.room.localParticipant.setMicrophoneEnabled(enabled);this.microphoneEnabled=enabled;}catch{/* Conservamos el estado visual anterior si LiveKit no puede cambiar el dispositivo. */} }
@@ -207,5 +262,5 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
     const wrapper=document.createElement('div');wrapper.className='remote-participant';wrapper.dataset['participant']=participant.identity;wrapper.dataset['track']=publication.trackSid||'';wrapper.appendChild(element);container.appendChild(wrapper);this.remoteElements.set(publication.trackSid||participant.identity,wrapper);this.remoteParticipantCount=this.room?.remoteParticipants.size??this.remoteParticipantCount;this.connectionState='connected';
   }
   private detachRemoteTrack(track:RemoteTrack):void{track.detach().forEach(element=>element.remove());}
-  ngOnDestroy():void{if(this.callTimer)clearInterval(this.callTimer);if(this.accessWindowTimer)clearInterval(this.accessWindowTimer);this.manualDisconnect=true;this.localAudio?.stop();this.localVideoTrack?.stop();void this.room?.disconnect();this.remoteElements.clear();}
+  ngOnDestroy():void{if(this.callTimer)clearInterval(this.callTimer);if(this.accessWindowTimer)clearInterval(this.accessWindowTimer);navigator.mediaDevices?.removeEventListener?.('devicechange', this.handleAudioDeviceChange);this.manualDisconnect=true;this.localAudio?.stop();this.localVideoTrack?.stop();void this.room?.disconnect();this.remoteElements.clear();}
 }
