@@ -1,4 +1,5 @@
 using Anguloso.Server.Logica.Utils;
+using Anguloso.Server.Middleware;
 using Anguloso.Server.Model;
 using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -59,6 +60,7 @@ public class ProfileController : ControllerBase
     // PUT: api/profile
     // Solo se modifican los datos de perfil permitidos; identidad, rol y credenciales no forman parte de este endpoint.
     [HttpPut]
+    [Idempotent]
     public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileDto dto)
     {
         var userId = AuthHelpers.GetUserId(User);
