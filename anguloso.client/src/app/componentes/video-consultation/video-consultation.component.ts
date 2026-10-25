@@ -194,7 +194,7 @@ export class VideoConsultationComponent implements AfterViewInit, OnDestroy {
   }
 
   leave():void{if(this.callTimer)clearInterval(this.callTimer);if(this.accessWindowTimer)clearInterval(this.accessWindowTimer);this.accessWindowTimer=undefined;this.manualDisconnect=true;void this.room?.disconnect();this.localAudio?.stop();this.localVideoTrack?.stop();this.localAudio=undefined;this.localVideoTrack=undefined;this.connectionState=this.connectionState==='finalized'?'finalized':'disconnected';if(this.embedded){this.closeEmbedded.emit();return;}this.returnToConsultation();}
-  private recordVideoEvent(event:'connected'|'reconnecting'|'reconnected'|'disconnected'|'failed'):void{this.portalService.recordVideoEvent(this.appointmentId,event).subscribe({error:()=>undefined});}
+  private recordVideoEvent(event:'connected'|'reconnecting'|'reconnected'|'disconnected'|'failed'):void{this.portalService.recordVideoEvent(this.appointmentId,event,this.patientPortalSession).subscribe({error:()=>undefined});}
   private attachRemoteTrack(track:RemoteTrack,publication:RemoteTrackPublication,participant:RemoteParticipant):void{
     if(track.kind!==Track.Kind.Video&&track.kind!==Track.Kind.Audio)return;const element=track.attach();element.autoplay=true;element.setAttribute('playsinline','true');element.classList.add(track.kind===Track.Kind.Video?'remote-video':'remote-audio');
     const container = this.remoteContainer?.nativeElement;
