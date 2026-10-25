@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Anguloso.Server.Logica;
+using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
 namespace Anguloso.Server.Logica;
