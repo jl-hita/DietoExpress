@@ -1,5 +1,4 @@
 using Anguloso.Server.Logica;
-using Anguloso.Server.Middleware;
 using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -65,7 +64,6 @@ public class PatientCheckinsController : ControllerBase
     }
 
     [HttpPost]
-    [Idempotent]
     // Cada paciente puede enviar una sola revisión semanal; los duplicados se rechazan en API y base de datos.
     public async Task<ActionResult<object>> Save([FromBody] PatientCheckinRequest request)
     {
