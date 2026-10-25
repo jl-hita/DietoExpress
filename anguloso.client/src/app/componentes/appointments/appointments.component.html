@@ -123,7 +123,7 @@
             <span *ngIf="item.modality === 'online'"><mat-icon>videocam</mat-icon> Consulta online</span>
             <span *ngIf="item.patientNotes">{{ item.patientNotes }}</span>
           </div>
-          <span class="status" [class]="'status ' + item.status">{{ statusLabel(item.status) }}</span>
+          <span class="status" [class]="'status ' + item.status">{{ statusLabel(item.status, item.endsAt) }}</span>
           <div class="actions">
             <button *ngIf="item.status === 'requested'" type="button" class="primary small" (click)="changeStatus(item, 'confirmed')">Confirmar</button>
             <button type="button" class="secondary small" (click)="resendAppointmentEmail(item)" [disabled]="resendingAppointmentId !== null" [attr.aria-busy]="resendingAppointmentId === item.id">
@@ -151,7 +151,7 @@
         <article class="appointment history-row" *ngFor="let item of history.slice(0, 20)">
           <div class="date-block"><strong>{{ formatDate(item.startsAt) }}</strong><span>{{ formatTime(item.startsAt) }}</span></div>
           <div class="patient"><strong>{{ item.clientName || 'Paciente' }}</strong><span *ngIf="item.professionalNotes">{{ item.professionalNotes }}</span></div>
-          <span class="status" [class]="'status ' + item.status">{{ statusLabel(item.status) }}</span>
+          <span class="status" [class]="'status ' + item.status">{{ statusLabel(item.status, item.endsAt) }}</span>
           <div></div>
         </article>
       </div>
