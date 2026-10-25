@@ -25,6 +25,7 @@ public class IdempotencyContractRegressionTests
         var checkins = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "PatientCheckinsController.cs"));
         var food = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "FoodController.cs"));
         var profile = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "ProfileController.cs"));
+        var alerts = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "AdminAlertsController.cs"));
         var portal = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "PatientPortalController.cs"));
         var plans = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "AdminPlansController.cs"));
         var recipes = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "RecipesController.cs"));
@@ -35,6 +36,8 @@ public class IdempotencyContractRegressionTests
         Assert.DoesNotContain("[Idempotent]", checkins);
         Assert.Contains("[Idempotent]", food);
         Assert.Contains("[Idempotent]", profile);
+        Assert.Contains("[Idempotent]", alerts);
+        Assert.Contains("CurrentTransaction?.GetDbTransaction()", alerts);
         Assert.Contains("[Idempotent]", portal);
         Assert.Contains("[Idempotent]", plans);
         Assert.Contains("[Idempotent]", recipes);
