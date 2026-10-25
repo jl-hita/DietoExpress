@@ -1,4 +1,5 @@
 using Anguloso.Server.Logica;
+using Anguloso.Server.Middleware;
 using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,16 +15,14 @@ namespace Anguloso.Server.Controllers;
 public class PatientCheckinsController : ControllerBase
 {
     private readonly angulosodbContext _db;
-    private readonly AutomationService _automationService;
     private static readonly HashSet<string> AllowedBarriers = new(StringComparer.Ordinal)
     {
         "time", "hunger", "social", "cooking", "budget", "planning", "cravings", "emotions", "travel", "other"
     };
 
-    public PatientCheckinsController(angulosodbContext db, AutomationService automationService)
+    public PatientCheckinsController(angulosodbContext db)
     {
         _db = db;
-        _automationService = automationService;
     }
 
     [HttpGet("eligibility")]
@@ -64,6 +63,7 @@ public class PatientCheckinsController : ControllerBase
     }
 
     [HttpPost]
+    [Idempotent]
     // Cada paciente puede enviar una sola revisión semanal; los duplicados se rechazan en API y base de datos.
     public async Task<ActionResult<object>> Save([FromBody] PatientCheckinRequest request)
     {
@@ -97,6 +97,12 @@ public class PatientCheckinsController : ControllerBase
         if (alreadySubmitted)
             return Conflict(new { message = "Ya has enviado tu revisión semanal. Podrás rellenarla de nuevo la próxima semana." });
 
+        var nutritionistId = await _db.client_nutritionist_assignments.AsNoTracking()
+            .Where(a => a.client_id == clientId && a.is_active && a.nutritionist.tenant_id == tenantId.Value)
+            .OrderByDescending(a => a.assigned_at)
+            .Select(a => (int?)a.nutritionist_id)
+            .FirstOrDefaultAsync();
+
         var item = new patient_checkins { client_id = clientId, tenant_id = tenantId.Value, week_start = weekStart };
         item.submitted_at = DateTime.UtcNow;
         item.weight = request.weight;
@@ -109,6 +115,12 @@ public class PatientCheckinsController : ControllerBase
         item.difficulties = request.difficulties?.Trim();
         item.barriers = request.barriers?.Distinct().ToArray() ?? Array.Empty<string>();
         item.notes = request.notes?.Trim();
+
+        // Si el middleware de idempotencia ya abrió una transacción, la reutilizamos; sin cabecera
+        // el endpoint conserva igualmente la atomicidad entre el check-in y el evento pendiente.
+        await using var ownedTransaction = _db.Database.CurrentTransaction is null
+            ? await _db.Database.BeginTransactionAsync()
+            : null;
         _db.patient_checkins.Add(item);
         try
         {
@@ -116,35 +128,23 @@ public class PatientCheckinsController : ControllerBase
         }
         catch (DbUpdateException ex) when (ex.InnerException is PostgresException postgres && postgres.SqlState == PostgresErrorCodes.UniqueViolation)
         {
-            // La restricción única (cliente, semana) protege también frente a dos envíos simultáneos.
+            if (ownedTransaction is not null) await ownedTransaction.RollbackAsync();
             _db.Entry(item).State = EntityState.Detached;
             return Conflict(new { message = "Ya has enviado tu revisión semanal. Podrás rellenarla de nuevo la próxima semana." });
         }
 
-        var nutritionistId = await _db.client_nutritionist_assignments.AsNoTracking()
-            .Where(a => a.client_id == clientId && a.is_active && a.nutritionist.tenant_id == tenantId.Value)
-            .OrderByDescending(a => a.assigned_at)
-            .Select(a => (int?)a.nutritionist_id)
-            .FirstOrDefaultAsync();
+        await TransactionalOutbox.EnqueueAsync(
+            _db, tenantId.Value, "patient_checkin_submitted",
+            new
+            {
+                ClientId = clientId,
+                NutritionistId = nutritionistId,
+                CheckinId = item.id,
+                SubmittedAtTicks = item.submitted_at.Ticks
+            },
+            $"checkin:{item.id}:submitted:{item.submitted_at.Ticks}");
 
-        // El evento de automatización se publica después de guardar el check-in. Un fallo del motor no invalida el dato clínico.
-        // La clave incluye el momento de envío porque un mismo check-in puede actualizarse durante la semana y cada envío
-        // debe poder disparar la revisión correspondiente sin crear duplicados del mismo envío.
-        try
-        {
-            await _automationService.PublishEventAsync(
-                tenantId.Value,
-                "patient.checkin.submitted",
-                "patient_checkin",
-                item.id.ToString(),
-                new AutomationService.CheckinSubmittedPayload(clientId, nutritionistId),
-                $"checkin:{item.id}:submitted:{item.submitted_at.Ticks}");
-        }
-        catch (Exception ex)
-        {
-            HttpContext.RequestServices.GetRequiredService<ILogger<PatientCheckinsController>>()
-                .LogError(ex, "No se pudo registrar la automatización del check-in {CheckinId}.", item.id);
-        }
+        if (ownedTransaction is not null) await ownedTransaction.CommitAsync();
 
         return Ok(new { item.id, item.week_start, item.submitted_at, item.weight, item.adherence, item.hunger, item.difficulties, item.barriers, item.notes });
     }

@@ -46,6 +46,31 @@ public static class DatabaseBootstrap
             );
         ");
 
+        // Outbox transaccional para efectos externos: el cambio de negocio y el evento pendiente se confirman juntos.
+        context.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS integration_outbox (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id INTEGER NOT NULL,
+    event_type VARCHAR(100) NOT NULL,
+    payload JSONB NOT NULL,
+    idempotency_key VARCHAR(255) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    attempts INTEGER NOT NULL DEFAULT 0,
+    max_attempts INTEGER NOT NULL DEFAULT 10,
+    available_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    locked_at TIMESTAMPTZ,
+    processed_at TIMESTAMPTZ,
+    last_error TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT ck_integration_outbox_status CHECK (status IN ('pending','processing','completed','failed')),
+    CONSTRAINT ck_integration_outbox_attempts CHECK (attempts >= 0 AND max_attempts BETWEEN 1 AND 20),
+    CONSTRAINT uq_integration_outbox_tenant_key UNIQUE (tenant_id, idempotency_key)
+);
+CREATE INDEX IF NOT EXISTS idx_integration_outbox_pending
+    ON integration_outbox(status, available_at, id);
+");
+
         // Registro persistente de claves de idempotencia. La respuesta se confirma en la misma
         // transacción que los cambios de negocio cuando la petición opta por Idempotency-Key.
         context.Database.ExecuteSqlRaw(@"
@@ -3264,7 +3289,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                     'legal_eipd_decisions','professional_followup_settings','professional_consultations',
                     'patient_checkins','specializations','tenant_specializations','client_specializations',
                     'client_specialization_profiles','specialization_rules','video_usage_reservations',
-                    'schema_migrations','api_idempotency_records','system_alerts','public_directory_reviews','training_mesocycles','training_microcycles',
+                    'schema_migrations','api_idempotency_records','integration_outbox','system_alerts','public_directory_reviews','training_mesocycles','training_microcycles',
                     'directory_verification_evidence','support_tickets','support_messages',
                     'support_notifications','support_ticket_audit','billing_checkout_attempts',
                     'subscription_payments','payment_events','invoices','invoice_lines','fiscal_records',

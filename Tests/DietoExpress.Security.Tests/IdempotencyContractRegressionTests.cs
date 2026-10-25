@@ -34,7 +34,7 @@ public class IdempotencyContractRegressionTests
         Assert.Contains("GetMetadata<IdempotentAttribute>() is null", middleware);
         Assert.Contains("IsWriteMethod(request.Method)", middleware);
         Assert.Contains("[Idempotent]", biometrics);
-        Assert.DoesNotContain("[Idempotent]", checkins);
+        Assert.Contains("[Idempotent]", checkins);
         Assert.Contains("[Idempotent]", food);
         Assert.Contains("[Idempotent]", profile);
         Assert.Contains("[Idempotent]", alerts);
@@ -46,6 +46,29 @@ public class IdempotencyContractRegressionTests
         Assert.Contains("[HttpPatch(\"patient/read\")]", messages);
         Assert.Contains("TryGetValue(\"Idempotency-Key\"", middleware);
         Assert.Contains("Idempotency-Key", middleware);
+    }
+
+    [Fact]
+    public void TransactionalOutbox_AtomicallyQueuesMessagesAndCheckinAutomation()
+    {
+        var outbox = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "TransactionalOutboxWorker.cs"));
+        var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
+        var messages = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "PatientMessagesController.cs"));
+        var checkins = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "PatientCheckinsController.cs"));
+        var program = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Program.cs"));
+
+        Assert.Contains("CREATE TABLE IF NOT EXISTS integration_outbox", bootstrap);
+        Assert.Contains("uq_integration_outbox_tenant_key", bootstrap);
+        Assert.Contains("ON CONFLICT (tenant_id, idempotency_key) DO NOTHING", outbox);
+        Assert.Contains("patient_message_created", messages);
+        Assert.Contains("patient_checkin_submitted", checkins);
+        Assert.Contains("command.Transaction = _context.Database.CurrentTransaction?.GetDbTransaction()", messages);
+        Assert.Contains("CurrentTransaction is null", messages);
+        Assert.Contains("CurrentTransaction is null", checkins);
+        Assert.Contains("AddHostedService<TransactionalOutboxWorker>()", program);
+        Assert.Contains("FOR UPDATE SKIP LOCKED", outbox);
+        Assert.Contains("outbox:{job.Id}:patient-notification", outbox);
+        Assert.Contains("outbox:{job.Id}:professional-email", outbox);
     }
 
     [Fact]

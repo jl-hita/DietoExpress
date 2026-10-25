@@ -5,6 +5,7 @@ using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Npgsql;
 
 namespace Anguloso.Server.Controllers;
@@ -15,14 +16,12 @@ namespace Anguloso.Server.Controllers;
 public class PatientMessagesController : ControllerBase
 {
     private readonly angulosodbContext _context;
-    private readonly NotificationService _notifications;
-    private readonly EmailServ _emailServ;
 
+    // Se conserva la firma del constructor para compatibilidad con los tests y consumidores internos.
+    // Los efectos secundarios ya no se ejecutan en el controlador: los procesa TransactionalOutboxWorker.
     public PatientMessagesController(angulosodbContext context, NotificationService notifications, EmailServ emailServ)
     {
         _context = context;
-        _notifications = notifications;
-        _emailServ = emailServ;
     }
 
     [HttpGet("patient/unread-count")]
@@ -54,6 +53,7 @@ WHERE c.client_id = {0}
     }
 
     [HttpPost("patient")]
+    [Idempotent]
     [Authorize(Roles = "patient")]
     // El mensaje entrante se valida contra la conversación antes de persistir contenido enviado por el paciente.
     public async Task<IActionResult> SendPatientMessage([FromBody] SendMessageRequest request)
@@ -91,6 +91,7 @@ WHERE c.client_id = {0}
     }
 
     [HttpPost("client/{clientId:int}")]
+    [Idempotent]
     [Authorize(Roles = "clinic_admin,nutritionist")]
     // El profesional solo puede escribir en conversaciones cuyo paciente tiene acceso dentro de su tenant.
     public async Task<IActionResult> SendProfessionalMessage(int clientId, [FromBody] SendMessageRequest request)
@@ -155,13 +156,19 @@ WHERE conversation_id = {conversation.Id}
             .FirstOrDefaultAsync();
         if (client?.tenant_id == null) return NotFound();
 
+        // La fila del mensaje y su efecto pendiente deben confirmarse juntos. Si el middleware
+        // ya inició la transacción idempotente, se reutiliza; sin cabecera se abre una local.
+        await using var ownedTransaction = _context.Database.CurrentTransaction is null
+            ? await _context.Database.BeginTransactionAsync()
+            : null;
         var conversation = await GetOrCreateConversationAsync(clientId, senderUserId);
         long messageId;
-        await using var connection = _context.Database.GetDbConnection();
+        var connection = _context.Database.GetDbConnection();
         if (connection.State != System.Data.ConnectionState.Open) await connection.OpenAsync();
 
         await using (var command = connection.CreateCommand())
         {
+            command.Transaction = _context.Database.CurrentTransaction?.GetDbTransaction();
             command.CommandText = @"
 INSERT INTO patient_messages
 (conversation_id, tenant_id, client_id, sender_user_id, sender_client_id, body, created_at)
@@ -178,39 +185,18 @@ RETURNING id;";
 
         await _context.Database.ExecuteSqlInterpolatedAsync($@"UPDATE patient_conversations SET updated_at = NOW() WHERE id = {conversation.Id};");
 
-        if (senderUserId.HasValue)
-        {
-            await _notifications.CreateForPatientAsync(
-                client.tenant_id.Value, clientId, "message",
-                "Nuevo mensaje de tu nutricionista",
-                body.Length > 180 ? body[..180] + "…" : body,
-                "/patient?tab=messages");
-        }
-        else
-        {
-            var assignment = await _context.client_nutritionist_assignments.AsNoTracking()
-                .Where(a => a.client_id == clientId && a.is_active && a.nutritionist.tenant_id == client.tenant_id.Value)
-                .Select(a => new { a.nutritionist_id, a.nutritionist.email, a.nutritionist.full_name })
-                .FirstOrDefaultAsync();
-
-            if (assignment?.email != null)
+        await TransactionalOutbox.EnqueueAsync(
+            _context, client.tenant_id.Value, "patient_message_created",
+            new
             {
-                try
-                {
-                    var safePatient = System.Net.WebUtility.HtmlEncode(client.full_name ?? "Paciente");
-                    var safeBody = System.Net.WebUtility.HtmlEncode(body);
-                    await _emailServ.SendEmailAsync(
-                        assignment.email,
-                        $"Nuevo mensaje de {client.full_name ?? "tu paciente"}",
-                        $"<h2>Nuevo mensaje de {safePatient}</h2><p>{safeBody}</p><p>Entra en DietoExpress para responder al paciente.</p>");
-                }
-                catch (Exception ex)
-                {
-                    HttpContext.RequestServices.GetRequiredService<ILogger<PatientMessagesController>>()
-                        .LogWarning(ex, "No se pudo enviar el aviso de nuevo mensaje del paciente {ClientId}.", clientId);
-                }
-            }
-        }
+                ClientId = clientId,
+                SenderUserId = senderUserId,
+                PatientName = client.full_name ?? "Paciente",
+                Body = body
+            },
+            $"message:{messageId}:created");
+
+        if (ownedTransaction is not null) await ownedTransaction.CommitAsync();
 
         return Ok(new { id = messageId });
     }
@@ -283,27 +269,28 @@ ORDER BY c.updated_at DESC;", tenantId, userId, isClinicAdmin).ToListAsync();
                 clientId).FirstOrDefaultAsync();
         if (existing != 0) return new ConversationRef(existing, client.tenant_id.Value);
 
-        try
-        {
-            // ToListAsync ejecuta INSERT ... RETURNING sin que EF Core intente envolverlo
-            // en una subconsulta (operación no composable en PostgreSQL).
-            var insertedIds = nutritionistId.HasValue
-                ? await _context.Database.SqlQueryRaw<long>(
-                    @"INSERT INTO patient_conversations(tenant_id, client_id, assigned_nutritionist_id) VALUES ({0}, {1}, {2}) RETURNING id;",
-                    client.tenant_id.Value, clientId, nutritionistId.Value).ToListAsync()
-                : await _context.Database.SqlQueryRaw<long>(
-                    @"INSERT INTO patient_conversations(tenant_id, client_id) VALUES ({0}, {1}) RETURNING id;",
-                    client.tenant_id.Value, clientId).ToListAsync();
-            var id = insertedIds.Single();
-            return new ConversationRef(id, client.tenant_id.Value);
-        }
-        catch (PostgresException ex) when (ex.SqlState == "23505")
-        {
-            var id = await _context.Database.SqlQueryRaw<long>(
-                @"SELECT id AS ""Value"" FROM patient_conversations WHERE client_id = {0} AND closed_at IS NULL LIMIT 1",
-                clientId).FirstAsync();
-            return new ConversationRef(id, client.tenant_id.Value);
-        }
+        // ON CONFLICT evita dejar abortada la transacción si dos peticiones crean la conversación a la vez.
+        // ToListAsync ejecuta INSERT ... RETURNING sin que EF Core lo envuelva en una subconsulta no componible.
+        var insertedIds = nutritionistId.HasValue
+            ? await _context.Database.SqlQueryRaw<long>(
+                @"INSERT INTO patient_conversations(tenant_id, client_id, assigned_nutritionist_id) VALUES ({0}, {1}, {2}) ON CONFLICT DO NOTHING RETURNING id;",
+                client.tenant_id.Value, clientId, nutritionistId.Value).ToListAsync()
+            : await _context.Database.SqlQueryRaw<long>(
+                @"INSERT INTO patient_conversations(tenant_id, client_id) VALUES ({0}, {1}) ON CONFLICT DO NOTHING RETURNING id;",
+                client.tenant_id.Value, clientId).ToListAsync();
+        if (insertedIds.Count == 1)
+            return new ConversationRef(insertedIds[0], client.tenant_id.Value);
+
+        var raced = nutritionistId.HasValue
+            ? await _context.Database.SqlQueryRaw<long>(
+                @"SELECT id AS ""Value"" FROM patient_conversations WHERE client_id = {0} AND assigned_nutritionist_id = {1} AND closed_at IS NULL LIMIT 1",
+                clientId, nutritionistId.Value).FirstOrDefaultAsync()
+            : await _context.Database.SqlQueryRaw<long>(
+                @"SELECT id AS ""Value"" FROM patient_conversations WHERE client_id = {0} AND assigned_nutritionist_id IS NULL AND closed_at IS NULL LIMIT 1",
+                clientId).FirstOrDefaultAsync();
+        if (raced == 0)
+            throw new InvalidOperationException("No se pudo crear ni recuperar la conversación del paciente.");
+        return new ConversationRef(raced, client.tenant_id.Value);
     }
 
     private async Task<IReadOnlyList<MessageDto>> ReadMessagesAsync(long conversationId, int clientId)
