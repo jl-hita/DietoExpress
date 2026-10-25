@@ -46,6 +46,31 @@ public static class DatabaseBootstrap
             );
         ");
 
+        // Outbox transaccional para efectos externos: el cambio de negocio y el evento pendiente se confirman juntos.
+        context.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS integration_outbox (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    event_type VARCHAR(100) NOT NULL,
+    payload JSONB NOT NULL,
+    idempotency_key VARCHAR(255) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    attempts INTEGER NOT NULL DEFAULT 0,
+    max_attempts INTEGER NOT NULL DEFAULT 10,
+    available_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    locked_at TIMESTAMPTZ,
+    processed_at TIMESTAMPTZ,
+    last_error TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT ck_integration_outbox_status CHECK (status IN ('pending','processing','completed','failed')),
+    CONSTRAINT ck_integration_outbox_attempts CHECK (attempts >= 0 AND max_attempts BETWEEN 1 AND 20),
+    CONSTRAINT uq_integration_outbox_tenant_key UNIQUE (tenant_id, idempotency_key)
+);
+CREATE INDEX IF NOT EXISTS idx_integration_outbox_pending
+    ON integration_outbox(status, available_at, id);
+");
+
         // Registro persistente de claves de idempotencia. La respuesta se confirma en la misma
         // transacción que los cambios de negocio cuando la petición opta por Idempotency-Key.
         context.Database.ExecuteSqlRaw(@"
