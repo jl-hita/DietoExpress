@@ -110,6 +110,8 @@ public sealed class PatientNutritionistTransferController : ControllerBase
               FOR UPDATE", id, clientId.Value).SingleOrDefaultAsync();
 
         if (workflow == null) return NotFound();
+        if (workflow.Status == "confirmed")
+            return Ok(new { completed = true, message = "El cambio y la transferencia ya se habían completado." });
         if (workflow.Status != "awaiting_patient_confirmation")
             return Conflict(new { message = "Solo puedes confirmar el cambio después de que el nuevo profesional acepte la cita." });
 
@@ -214,6 +216,8 @@ public sealed class PatientNutritionistTransferController : ControllerBase
               FROM patient_nutritionist_transfer_workflows WHERE id = {0} AND client_id = {1}",
             id, clientId.Value).SingleOrDefaultAsync();
         if (workflow == null) return NotFound();
+        if (workflow.Status == "cancelled")
+            return Ok(new { cancelled = true, message = "El cambio ya estaba cancelado. Mantienes tu nutricionista actual y tu historial." });
         if (workflow.Status is not ("pending_professional" or "awaiting_patient_confirmation"))
             return Conflict(new { message = "Este cambio ya se ha resuelto y no se puede cancelar." });
 
