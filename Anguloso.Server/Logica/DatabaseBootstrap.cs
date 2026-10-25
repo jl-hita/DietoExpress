@@ -71,6 +71,30 @@ CREATE INDEX IF NOT EXISTS idx_integration_outbox_pending
     ON integration_outbox(status, available_at, id);
 ");
 
+        // Solicitudes de reasignación de nutricionista iniciadas desde el portal del paciente.
+        context.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS patient_nutritionist_change_requests (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    current_nutritionist_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    request_type VARCHAR(40) NOT NULL,
+    reason VARCHAR(1000),
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    resolved_at TIMESTAMPTZ,
+    resolved_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    resolution_notes VARCHAR(1000),
+    CONSTRAINT ck_patient_nutritionist_change_type CHECK (request_type IN ('clinic_reassignment')),
+    CONSTRAINT ck_patient_nutritionist_change_status CHECK (status IN ('pending','approved','rejected','cancelled'))
+);
+CREATE INDEX IF NOT EXISTS idx_patient_nutritionist_change_tenant_status
+    ON patient_nutritionist_change_requests(tenant_id, status, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_patient_nutritionist_change_pending_client
+    ON patient_nutritionist_change_requests(client_id)
+    WHERE status = 'pending';
+");
+
         // Registro persistente de claves de idempotencia. La respuesta se confirma en la misma
         // transacción que los cambios de negocio cuando la petición opta por Idempotency-Key.
         context.Database.ExecuteSqlRaw(@"
