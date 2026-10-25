@@ -95,8 +95,32 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_patient_nutritionist_change_pending_client
     WHERE status = 'pending';
 ");
 
-        // Registro persistente de claves de idempotencia. La respuesta se confirma en la misma
-        // transacción que los cambios de negocio cuando la petición opta por Idempotency-Key.
+        // Flujo persistente de cambio de nutricionista. La relación actual se mantiene
+        // hasta que el profesional acepte y el paciente consienta expresamente.
+        context.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS patient_nutritionist_transfer_workflows (
+    id BIGSERIAL PRIMARY KEY,
+    source_tenant_id INTEGER NOT NULL,
+    target_tenant_id INTEGER NOT NULL,
+    client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    source_nutritionist_id INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    target_nutritionist_id INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    appointment_id INTEGER NOT NULL UNIQUE REFERENCES patient_appointments(id) ON DELETE CASCADE,
+    status VARCHAR(32) NOT NULL DEFAULT 'pending_professional',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    consent_at TIMESTAMPTZ,
+    resolved_at TIMESTAMPTZ,
+    CONSTRAINT ck_patient_nutritionist_transfer_status CHECK
+      (status IN ('pending_professional','awaiting_patient_confirmation','confirmed','rejected','cancelled'))
+);
+CREATE INDEX IF NOT EXISTS idx_patient_nutritionist_transfer_client_status
+    ON patient_nutritionist_transfer_workflows(client_id, status, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_patient_nutritionist_transfer_pending_client
+    ON patient_nutritionist_transfer_workflows(client_id)
+    WHERE status IN ('pending_professional','awaiting_patient_confirmation');
+");
+
+        // Registro persistente de claves de idempotencia.
         context.Database.ExecuteSqlRaw(@"
 CREATE TABLE IF NOT EXISTS api_idempotency_records (
     id BIGSERIAL PRIMARY KEY,
