@@ -983,7 +983,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
   }
 
   leaveNutritionistAndFindNew(): void {
-    if (this.nutritionistChangeBusy) return;
+    if (this.nutritionistChangeBusy || this.nutritionistRelationship?.hasPendingClinicReassignment) return;
     const confirmed = window.confirm('¿Quieres dejar de estar asignado a tu nutricionista actual? Se conservarán tu historial y tus citas anteriores, pero las nuevas reservas se harán con otro profesional.');
     if (!confirmed) return;
     this.nutritionistChangeBusy = true;
