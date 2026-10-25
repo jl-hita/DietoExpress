@@ -1,4 +1,5 @@
 using Anguloso.Server.Logica;
+using Anguloso.Server.Middleware;
 using Anguloso.Server.Logica.Utils;
 using Anguloso.Server.Model;
 using Anguloso.Server.Models;
@@ -103,6 +104,7 @@ public class BiometricsController : ControllerBase
 
     // POST: api/clients/{clientId}/biometrics
     [HttpPost]
+    [Idempotent]
     // Las mediciones nuevas se validan antes de persistirlas para rechazar valores no finitos y cargas excesivas.
     public async Task<ActionResult> Create(int clientId, [FromBody] CreateBiometricDto dto)
     {
@@ -327,6 +329,7 @@ public class BiometricsController : ControllerBase
     // POST: api/clients/{clientId}/biometrics/import/confirm
     [EnableRateLimiting("expensive")]
     [HttpPost("import/confirm")]
+    [Idempotent]
     // La confirmación procesa un lote acotado y actualiza por fecha, evitando duplicar mediciones del mismo día.
     public async Task<ActionResult> ConfirmImport(int clientId, [FromBody] ConfirmImportBiometricsDto dto)
     {
