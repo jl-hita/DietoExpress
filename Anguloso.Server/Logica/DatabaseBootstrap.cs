@@ -46,6 +46,24 @@ public static class DatabaseBootstrap
             );
         ");
 
+        // Registro persistente de claves de idempotencia. La respuesta se confirma en la misma
+        // transacción que los cambios de negocio cuando la petición opta por Idempotency-Key.
+        context.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS api_idempotency_records (
+    id BIGSERIAL PRIMARY KEY,
+    scope_key TEXT NOT NULL,
+    idempotency_key VARCHAR(200) NOT NULL,
+    request_hash CHAR(64) NOT NULL,
+    response_status INTEGER NOT NULL,
+    response_content_type VARCHAR(250),
+    response_body BYTEA NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_api_idempotency_scope_key UNIQUE (scope_key, idempotency_key)
+);
+CREATE INDEX IF NOT EXISTS idx_api_idempotency_created_at
+    ON api_idempotency_records(created_at);
+");
+
         // El registro de incidencias forma parte del bootstrap para que los fallos de cualquier
         // fase posterior puedan persistirse sin depender de DDL en Program.cs.
         context.Database.ExecuteSqlRaw(@"
