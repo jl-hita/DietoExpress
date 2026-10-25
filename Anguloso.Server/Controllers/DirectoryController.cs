@@ -446,10 +446,11 @@ public class DirectoryController : ControllerBase
                 return Unauthorized(new { message = "No se ha podido validar tu sesión de paciente." });
             sourceTenantId = authenticatedPatientClient.tenant_id.Value;
             sourceNutritionistId = await _context.client_nutritionist_assignments.AsNoTracking()
-                .Where(a => a.client_id == authenticatedPatientClient.id && a.is_active)
+                .Where(a => a.client_id == authenticatedPatientClient.id && a.is_active &&
+                            a.nutritionist.tenant_id == sourceTenantId.Value)
                 .OrderByDescending(a => a.assigned_at)
                 .Select(a => (int?)a.nutritionist_id)
-                .FirstOrDefaultAsync();
+                .FirstOrDefaultAsync() ?? authenticatedPatientClient.user_id;
             if (!sourceNutritionistId.HasValue || sourceNutritionistId.Value == professional.id)
                 return Conflict(new { message = "No tienes una relación activa que cambiar a este profesional." });
             var existingTransfer = await _context.Database.SqlQueryRaw<int>(
