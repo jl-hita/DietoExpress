@@ -324,6 +324,11 @@ public class PatientPortalController : ControllerBase
             .FirstOrDefaultAsync(c => c.id == clientId.Value && c.archived_at == null);
         if (client == null) return NotFound();
         var latestBio = client.biometrics.OrderByDescending(b => b.measurement_date).FirstOrDefault();
+        var activeNutritionistName = await _context.client_nutritionist_assignments.AsNoTracking()
+            .Where(a => a.client_id == client.id && a.is_active && a.nutritionist.tenant_id == client.tenant_id)
+            .OrderByDescending(a => a.assigned_at)
+            .Select(a => a.nutritionist.full_name)
+            .FirstOrDefaultAsync();
         // La dieta activa se vuelve a filtrar por tenant a nivel de consulta para evitar que
         // una asignación válida del paciente pueda cruzarse con datos de otra clínica.
         var activeDietAssignment = await _context.client_diets
@@ -349,7 +354,7 @@ public class PatientPortalController : ControllerBase
             HasActiveDiet = activeDietAssignment != null, ActiveDietAssignmentId = activeDietAssignment?.id,
             ActiveDietStartDate = activeDietAssignment?.start_date.ToDateTime(TimeOnly.MinValue), WeightHistory = weightHistory,
             ClinicName = client.user?.clinic_name, ClinicPhone = client.user?.clinic_phone, ClinicLogo = client.user?.clinic_logo,
-            NutritionistName = client.user?.full_name
+            NutritionistName = activeNutritionistName ?? client.user?.full_name
         });
     }
 
