@@ -183,17 +183,17 @@ export class PatientPortalService {
   }
 
   getVideoAccess(id: number, patientPortal = false): Observable<any> {
-    const headers = patientPortal ? { 'X-DietoExpress-Patient-Portal': '1' } : {};
+    const headers: Record<string, string> = patientPortal ? { 'X-DietoExpress-Patient-Portal': '1' } : {};
     return this.http.get<any>(this.base + '/appointments/' + id + '/video-access', { headers });
   }
 
   recordVideoEvent(id: number, event: 'connected' | 'reconnecting' | 'reconnected' | 'disconnected' | 'failed', patientPortal = false): Observable<void> {
-    const headers = patientPortal ? { 'X-DietoExpress-Patient-Portal': '1' } : {};
+    const headers: Record<string, string> = patientPortal ? { 'X-DietoExpress-Patient-Portal': '1' } : {};
     return this.http.post<void>(this.base + '/appointments/' + id + '/video-event', { event }, { headers });
   }
 
   finishVideoConsultation(id: number, patientPortal = false): Observable<PatientAppointment> {
-    const headers = patientPortal ? { 'X-DietoExpress-Patient-Portal': '1' } : {};
+    const headers: Record<string, string> = patientPortal ? { 'X-DietoExpress-Patient-Portal': '1' } : {};
     return this.http.post<PatientAppointment>(this.base + '/appointments/' + id + '/video-finish', {}, { headers });
   }
 
