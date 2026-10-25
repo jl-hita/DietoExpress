@@ -16,14 +16,10 @@ namespace Anguloso.Server.Controllers;
 public class PatientMessagesController : ControllerBase
 {
     private readonly angulosodbContext _context;
-    private readonly NotificationService _notifications;
-    private readonly EmailServ _emailServ;
 
-    public PatientMessagesController(angulosodbContext context, NotificationService notifications, EmailServ emailServ)
+    public PatientMessagesController(angulosodbContext context)
     {
         _context = context;
-        _notifications = notifications;
-        _emailServ = emailServ;
     }
 
     [HttpGet("patient/unread-count")]
