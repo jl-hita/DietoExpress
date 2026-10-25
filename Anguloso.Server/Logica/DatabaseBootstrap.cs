@@ -3337,7 +3337,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                     'legal_eipd_decisions','professional_followup_settings','professional_consultations',
                     'patient_checkins','specializations','tenant_specializations','client_specializations',
                     'client_specialization_profiles','specialization_rules','video_usage_reservations',
-                    'schema_migrations','api_idempotency_records','integration_outbox','system_alerts','public_directory_reviews','patient_nutritionist_change_requests','training_mesocycles','training_microcycles',
+                    'schema_migrations','api_idempotency_records','integration_outbox','system_alerts','public_directory_reviews','patient_nutritionist_change_requests','patient_nutritionist_transfer_workflows','training_mesocycles','training_microcycles',
                     'directory_verification_evidence','support_tickets','support_messages',
                     'support_notifications','support_ticket_audit','billing_checkout_attempts',
                     'subscription_payments','payment_events','invoices','invoice_lines','fiscal_records',
