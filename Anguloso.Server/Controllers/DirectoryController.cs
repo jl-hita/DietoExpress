@@ -431,8 +431,10 @@ public class DirectoryController : ControllerBase
             return Conflict(new { message = "Ese horario está ocupado en el calendario externo del nutricionista." });
 
         var patientChangeClientId = 0;
-        var isAuthenticatedPatientChange = User.IsInRole("patient") &&
-            int.TryParse(User.FindFirstValue("clientId"), out patientChangeClientId);
+        var isPatientSession = User.IsInRole("patient");
+        if (isPatientSession && !int.TryParse(User.FindFirstValue("clientId"), out patientChangeClientId))
+            return Unauthorized(new { message = "No se ha podido validar tu sesión de paciente." });
+        var isAuthenticatedPatientChange = isPatientSession;
         clients? authenticatedPatientClient = null;
         int? sourceNutritionistId = null;
         int? sourceTenantId = null;
