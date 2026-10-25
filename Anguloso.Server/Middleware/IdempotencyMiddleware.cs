@@ -75,7 +75,14 @@ public sealed class IdempotencyMiddleware
         var subject = context.User.FindFirstValue(ClaimTypes.NameIdentifier)
             ?? context.User.FindFirstValue("sub")
             ?? "anonymous";
-        var scope = $"{subject}\n{request.Method.ToUpperInvariant()}\n{request.PathBase}{request.Path}{request.QueryString}";
+        var tenant = context.User.FindFirstValue("tenant_id")
+            ?? context.User.FindFirstValue("tenantId")
+            ?? context.User.FindFirstValue("tenant")
+            ?? string.Empty;
+        var clientId = context.User.FindFirstValue("clientId")
+            ?? context.User.FindFirstValue("client_id")
+            ?? string.Empty;
+        var scope = $"{subject}\n{tenant}\n{clientId}\n{request.Method.ToUpperInvariant()}\n{request.PathBase}{request.Path}{request.QueryString}";
         var fingerprintInput = Encoding.UTF8.GetBytes(scope + "\n" + (request.ContentType ?? string.Empty) + "\n" + Convert.ToBase64String(requestBody));
         var fingerprint = Convert.ToHexString(SHA256.HashData(fingerprintInput));
         // Persist only a digest of the scope: URLs/query strings can contain personal data and can exceed index limits.
