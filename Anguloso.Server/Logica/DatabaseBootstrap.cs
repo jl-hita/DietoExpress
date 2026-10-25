@@ -50,7 +50,7 @@ public static class DatabaseBootstrap
         context.Database.ExecuteSqlRaw(@"
 CREATE TABLE IF NOT EXISTS integration_outbox (
     id BIGSERIAL PRIMARY KEY,
-    tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    tenant_id INTEGER NOT NULL,
     event_type VARCHAR(100) NOT NULL,
     payload JSONB NOT NULL,
     idempotency_key VARCHAR(255) NOT NULL,
