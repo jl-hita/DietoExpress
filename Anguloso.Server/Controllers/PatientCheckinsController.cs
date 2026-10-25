@@ -15,16 +15,14 @@ namespace Anguloso.Server.Controllers;
 public class PatientCheckinsController : ControllerBase
 {
     private readonly angulosodbContext _db;
-    private readonly AutomationService _automationService;
     private static readonly HashSet<string> AllowedBarriers = new(StringComparer.Ordinal)
     {
         "time", "hunger", "social", "cooking", "budget", "planning", "cravings", "emotions", "travel", "other"
     };
 
-    public PatientCheckinsController(angulosodbContext db, AutomationService automationService)
+    public PatientCheckinsController(angulosodbContext db)
     {
         _db = db;
-        _automationService = automationService;
     }
 
     [HttpGet("eligibility")]
