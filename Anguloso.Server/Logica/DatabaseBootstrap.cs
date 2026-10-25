@@ -75,15 +75,15 @@ CREATE INDEX IF NOT EXISTS idx_integration_outbox_pending
         context.Database.ExecuteSqlRaw(@"
 CREATE TABLE IF NOT EXISTS patient_nutritionist_change_requests (
     id BIGSERIAL PRIMARY KEY,
-    tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
-    current_nutritionist_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    tenant_id INTEGER NOT NULL,
+    client_id INTEGER NOT NULL,
+    current_nutritionist_id INTEGER,
     request_type VARCHAR(40) NOT NULL,
     reason VARCHAR(1000),
     status VARCHAR(20) NOT NULL DEFAULT 'pending',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     resolved_at TIMESTAMPTZ,
-    resolved_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    resolved_by_user_id INTEGER,
     resolution_notes VARCHAR(1000),
     CONSTRAINT ck_patient_nutritionist_change_type CHECK (request_type IN ('clinic_reassignment')),
     CONSTRAINT ck_patient_nutritionist_change_status CHECK (status IN ('pending','approved','rejected','cancelled'))
