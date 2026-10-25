@@ -345,7 +345,12 @@ export class AppointmentsComponent implements OnInit {
     return this.days.find(d => d.value === day)?.label || '';
   }
 
-  statusLabel(status: string): string {
+  statusLabel(status: string, endsAt?: string): string {
+    // Una solicitud sin confirmar que ya ha pasado no debe quedarse eternamente como pendiente.
+    // No inferimos una ausencia: no_show solo se muestra cuando el profesional la registra.
+    if (status === 'requested' && endsAt && Number.isFinite(new Date(endsAt).getTime()) && new Date(endsAt).getTime() <= Date.now()) {
+      return 'Caducada';
+    }
     return ({ requested: 'Pendiente', confirmed: 'Confirmada', cancelled: 'Cancelada', completed: 'Completada', no_show: 'No asistió' } as Record<string, string>)[status] || status;
   }
 }
