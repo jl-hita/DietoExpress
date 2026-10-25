@@ -114,6 +114,9 @@ builder.Services.AddScoped<SupportEnhancementService>();
                     // professional sessions cannot silently select the wrong identity.
                     var isPatientEndpoint =
                         path.StartsWithSegments("/api/portal") ||
+                        (HttpMethods.IsPost(method) &&
+                         path.StartsWithSegments("/api/directory/professionals") &&
+                         pathValue.EndsWith("/appointments", StringComparison.OrdinalIgnoreCase)) ||
                         path.StartsWithSegments("/api/commercial-communications/preferences") ||
                         path.StartsWithSegments("/api/messages/patient") ||
                         ((string.Equals(pathValue, "/api/broadcast-messages/inbox", StringComparison.OrdinalIgnoreCase) ||
