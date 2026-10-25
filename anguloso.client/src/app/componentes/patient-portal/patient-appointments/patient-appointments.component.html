@@ -155,7 +155,7 @@
       </div>
       <div class="appointment-item-info">
         <strong>{{ appointment.nutritionistName || 'Tu nutricionista' }}</strong>
-        <span class="appointment-status">{{ appointment.status === 'cancelled' ? 'Cancelada' : appointment.status === 'completed' ? 'Completada' : appointment.status === 'no_show' ? 'No asistida' : appointment.status }}</span>
+        <span class="appointment-status">{{ appointmentStatusLabel(appointment) }}</span>
       </div>
     </article>
     <article class="appointment-item appointment-review" *ngFor="let appointment of (pastAppointments | slice:0:10)">
