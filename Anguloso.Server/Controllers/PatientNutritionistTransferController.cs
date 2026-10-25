@@ -35,7 +35,7 @@ public sealed class PatientNutritionistTransferController : ControllerBase
         }
     }
 
-    private sealed class TransferStatusRow
+    public sealed class TransferStatusRow
     {
         public long Id { get; set; }
         public string Status { get; set; } = "";
@@ -45,7 +45,7 @@ public sealed class PatientNutritionistTransferController : ControllerBase
         public DateTime CreatedAt { get; set; }
     }
 
-    private sealed class TransferRow
+    public sealed class TransferRow
     {
         public long Id { get; set; }
         public int SourceTenantId { get; set; }
