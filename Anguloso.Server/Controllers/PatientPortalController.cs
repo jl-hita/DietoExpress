@@ -739,35 +739,15 @@ public class PatientPortalController : ControllerBase
         if (!currentNutritionistId.HasValue)
             return Conflict(new { message = "Ya no tienes un nutricionista asignado. Puedes buscar uno en el directorio." });
 
-        await using var transaction = await _context.Database.BeginTransactionAsync();
-        await _context.Database.ExecuteSqlInterpolatedAsync($@"
-            UPDATE client_nutritionist_assignments
-            SET is_active = FALSE, unassigned_at = NOW()
-            WHERE client_id = {client.id} AND is_active = TRUE");
-        await _context.Database.ExecuteSqlInterpolatedAsync($@"
-            UPDATE clients SET user_id = NULL
-            WHERE id = {client.id} AND tenant_id = {client.tenant_id.Value}
-              AND user_id = {currentNutritionistId.Value}");
-        await transaction.CommitAsync();
-
-        if (!string.IsNullOrWhiteSpace(assignment?.Email))
+        // Iniciar la búsqueda NO cambia la asignación ni notifica al profesional.
+        // El paciente debe elegir otro profesional, reservar y confirmar expresamente
+        // el cambio antes de cerrar la relación actual.
+        return Accepted(new
         {
-            try
-            {
-                await _emailServ.SendEmailAsync(
-                    assignment.Email,
-                    "El paciente ha solicitado continuar con otro nutricionista",
-                    $"<p>El paciente <strong>{System.Net.WebUtility.HtmlEncode(client.full_name ?? "Paciente")}</strong> ha solicitado dejar de estar asignado a tu perfil y buscar otro profesional en DietoExpress.</p>" +
-                    "<p>La relación se ha desactivado desde el portal del paciente. El historial y las citas anteriores se conservan.</p>");
-            }
-            catch (Exception ex)
-            {
-                HttpContext.RequestServices.GetRequiredService<ILogger<PatientPortalController>>()
-                    .LogWarning(ex, "No se pudo notificar el cambio de nutricionista para el paciente {ClientId}.", client.id);
-            }
-        }
-
-        return Ok(new { message = "Tu asignación se ha cerrado. Puedes buscar otro nutricionista en el directorio.", unassigned = true });
+            message = "Puedes buscar otro nutricionista. Tu asignación actual y tus citas siguen intactas hasta que confirmes el cambio definitivo.",
+            pending = true,
+            unassigned = false
+        });
     }
 
     private async Task<bool> PortalFeatureAllowedAsync(int clientId)

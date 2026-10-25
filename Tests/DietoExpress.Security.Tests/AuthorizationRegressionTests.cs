@@ -92,6 +92,25 @@ public class AuthorizationRegressionTests
         Assert.DoesNotContain("localStorage.setItem('patient", portal);
     }
 
+    [Fact]
+    public void PatientNutritionistChange_DoesNotUnassignOrNotifyBeforeFinalConfirmation()
+    {
+        var source = ReadServerController("PatientPortalController.cs");
+        var start = source.IndexOf("public async Task<IActionResult> RequestNutritionistChange", StringComparison.Ordinal);
+        var end = source.IndexOf("private async Task<bool> PortalFeatureAllowedAsync", start, StringComparison.Ordinal);
+
+        Assert.True(start >= 0 && end > start);
+        var method = source[start..end];
+        Assert.Contains("Tu asignación actual y tus citas siguen intactas", method);
+        Assert.Contains("unassigned = false", method);
+        Assert.DoesNotContain("UPDATE client_nutritionist_assignments", method);
+        Assert.DoesNotContain("UPDATE clients SET user_id = NULL", method);
+        var leaveFlowStart = method.IndexOf("// Iniciar la búsqueda NO cambia la asignación", StringComparison.Ordinal);
+        Assert.True(leaveFlowStart >= 0);
+        var leaveFlow = method[leaveFlowStart..];
+        Assert.DoesNotContain("_emailServ.SendEmailAsync", leaveFlow);
+    }
+
     // La sesión del paciente se considera revocable cuando cambia la versión almacenada; el test verifica que el claim y el filtro de autenticación estén conectados.
     [Fact]
     public void PatientSessions_AreRevocableByPortalTokenVersion()

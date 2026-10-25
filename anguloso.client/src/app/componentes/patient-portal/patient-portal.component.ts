@@ -984,25 +984,20 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
 
   leaveNutritionistAndFindNew(): void {
     if (this.nutritionistChangeBusy || this.nutritionistRelationship?.hasPendingClinicReassignment) return;
-    const confirmed = window.confirm('¿Quieres dejar de estar asignado a tu nutricionista actual? Se conservarán tu historial y tus citas anteriores, pero las nuevas reservas se harán con otro profesional.');
-    if (!confirmed) return;
     this.nutritionistChangeBusy = true;
     this.nutritionistChangeError = null;
     this.nutritionistChangeMessage = null;
     this.portalService.requestNutritionistChange('leave_and_find_new').subscribe({
       next: response => {
         this.nutritionistChangeBusy = false;
-        this.nutritionistRelationship = {
-          hasAssignedNutritionist: false,
-          isClinic: this.nutritionistRelationship?.isClinic ?? false,
-          hasPendingClinicReassignment: false
-        };
-        this.nutritionistChangeMessage = response.message || 'Ya puedes buscar otro nutricionista.';
+        // La búsqueda no finaliza el cambio: mantener la relación actual hasta que
+        // el paciente reserve con el nuevo profesional y confirme expresamente.
+        this.nutritionistChangeMessage = response.message || 'Puedes buscar otro nutricionista; tu asignación actual sigue activa.';
         this.findNutritionist();
       },
       error: err => {
         this.nutritionistChangeBusy = false;
-        this.nutritionistChangeError = err?.error?.message || 'No hemos podido cambiar tu asignación. Inténtalo de nuevo.';
+        this.nutritionistChangeError = err?.error?.message || 'No hemos podido iniciar la búsqueda. Inténtalo de nuevo.';
       }
     });
   }
