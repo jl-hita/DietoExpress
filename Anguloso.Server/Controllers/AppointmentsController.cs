@@ -561,12 +561,13 @@ public class AppointmentsController : ControllerBase
                 SET status = 'awaiting_patient_confirmation'
                 WHERE appointment_id = {appointment.id} AND status = 'pending_professional'");
         }
-        else if (requestedStatus == "cancelled" && previousStatus == "requested")
+        else if (requestedStatus == "cancelled" && previousStatus is "requested" or "confirmed")
         {
             await _context.Database.ExecuteSqlInterpolatedAsync($@"
                 UPDATE patient_nutritionist_transfer_workflows
                 SET status = 'rejected', resolved_at = NOW()
-                WHERE appointment_id = {appointment.id} AND status = 'pending_professional'");
+                WHERE appointment_id = {appointment.id}
+                  AND status IN ('pending_professional','awaiting_patient_confirmation')");
         }
 
         if ((requestedStatus == "confirmed" && previousStatus != "confirmed") ||
