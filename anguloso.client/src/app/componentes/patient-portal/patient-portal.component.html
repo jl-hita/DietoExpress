@@ -109,6 +109,32 @@
         </div>
       </section>
 
+      <section class="unassigned-nutritionist-card nutritionist-transfer-card" *ngIf="!isPreview && nutritionistTransfer?.pending">
+        <div class="unassigned-nutritionist-icon"><mat-icon>sync_alt</mat-icon></div>
+        <div class="unassigned-nutritionist-copy">
+          <span class="eyebrow">Cambio de nutricionista</span>
+          <strong *ngIf="nutritionistTransfer.status === 'pending_professional'">Solicitud enviada a {{ nutritionistTransfer.nutritionistName }}</strong>
+          <strong *ngIf="nutritionistTransfer.requiresPatientConfirmation">El nuevo profesional ha aceptado</strong>
+          <p *ngIf="nutritionistTransfer.status === 'pending_professional'">Tu solicitud de cita está pendiente. Tu nutricionista actual, tus citas y tu historial no han cambiado.</p>
+          <p *ngIf="nutritionistTransfer.requiresPatientConfirmation">Si confirmas, se transferirá tu historial al nuevo profesional y se hará efectivo el cambio. Hasta que confirmes, tu relación actual se mantiene.</p>
+          <label *ngIf="nutritionistTransfer.requiresPatientConfirmation" class="history-transfer-consent">
+            <input type="checkbox" [(ngModel)]="nutritionistTransferConsent" [disabled]="nutritionistTransferBusy" />
+            He leído y consiento expresamente que DietoExpress transfiera mi historial al nuevo nutricionista.
+          </label>
+          <p class="portal-inline-error" *ngIf="nutritionistTransferError" role="alert">{{ nutritionistTransferError }}</p>
+          <p class="appointment-success" *ngIf="nutritionistTransferMessage" role="status">{{ nutritionistTransferMessage }}</p>
+        </div>
+        <div class="unassigned-nutritionist-actions">
+          <button *ngIf="nutritionistTransfer.requiresPatientConfirmation" type="button" class="unassigned-nutritionist-action"
+                  (click)="confirmNutritionistTransfer()" [disabled]="nutritionistTransferBusy || !nutritionistTransferConsent">
+            {{ nutritionistTransferBusy ? 'Procesando…' : 'Confirmar cambio y transferir historial' }}
+          </button>
+          <button type="button" class="unassigned-nutritionist-action" (click)="cancelNutritionistTransfer()" [disabled]="nutritionistTransferBusy">
+            Cancelar cambio
+          </button>
+        </div>
+      </section>
+
       <section class="unassigned-nutritionist-card" *ngIf="!isPreview && nutritionistRelationship?.hasAssignedNutritionist">
         <div class="unassigned-nutritionist-icon"><mat-icon>manage_accounts</mat-icon></div>
         <div class="unassigned-nutritionist-copy">
