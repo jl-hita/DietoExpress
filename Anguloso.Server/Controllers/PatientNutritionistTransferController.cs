@@ -143,11 +143,13 @@ public sealed class PatientNutritionistTransferController : ControllerBase
 
             foreach (var table in tables)
             {
-                // PostgreSQL formats this identifier from information_schema with %I;
-                // all data values remain parameters. Concatenation avoids EF1002's false positive.
+                // EF1003 is suppressed only for this statement: PostgreSQL format('%I.%I')
+                // quotes the identifier from information_schema; data values remain parameters.
+#pragma warning disable EF1003
                 await _context.Database.ExecuteSqlRawAsync(
                     "UPDATE " + table + " SET tenant_id = {0} WHERE client_id = {1} AND tenant_id = {2}",
                     workflow.TargetTenantId, workflow.ClientId, workflow.SourceTenantId);
+#pragma warning restore EF1003
             }
 
             var clientUpdated = await _context.Database.ExecuteSqlInterpolatedAsync($@"
