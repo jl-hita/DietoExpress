@@ -302,7 +302,7 @@ La versión debe coincidir con el TargetFramework actual del proyecto.
 
 # 11. Node.js / Angular
 
-El frontend actual utiliza Angular 20 y TypeScript 5.8.x.
+El frontend actual utiliza Angular 20 y TypeScript 5.8.x. El workflow de despliegue utiliza Node.js 22.22.3; mantener esa versión alineada con CI cuando se compile en el servidor.
 
 Si CI compila Angular en otro runner, Node.js no es necesario en el servidor de producción.
 
@@ -1309,7 +1309,7 @@ La documentación de infraestructura debe evolucionar junto con el código.
 
 # 38. Estado de referencia actual
 
-- Backend: ASP.NET Core .NET 8.
+- Backend: ASP.NET Core .NET 10 (SDK de CI fijado en 10.0.401; runtime de producción `Microsoft.AspNetCore.App 10.x`).
 - Frontend: Angular 20.
 - Base de datos: PostgreSQL.
 - Proxy: Nginx.
