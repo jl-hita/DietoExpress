@@ -29,6 +29,7 @@ public sealed class PatientPushNotificationRegressionTests
         Assert.Contains("ON CONFLICT (token) DO UPDATE", controller);
         Assert.Contains("DELETE FROM patient_push_tokens WHERE client_id =", controller);
         Assert.Contains("token.Length > 4096", controller);
+        Assert.Contains("portal_token_version = EXCLUDED.portal_token_version", controller);
     }
 
     [Fact]
@@ -43,6 +44,9 @@ public sealed class PatientPushNotificationRegressionTests
         Assert.Contains("https://fcm.googleapis.com/v1/projects/", service);
         Assert.Contains("Tienes un nuevo mensaje de tu profesional.", service);
         Assert.Contains("patient_push_tokens", bootstrap);
+        Assert.Contains("p.portal_token_version = c.portal_token_version", service);
+        Assert.Contains("data = new { title, body, target }", service);
+        Assert.DoesNotContain("notification = new { title, body }", service);
         Assert.Contains("await ownedTransaction.CommitAsync()", messages);
         Assert.Contains("NotifyPatientOfNewMessageAsync", messages);
         Assert.DoesNotContain("LogInformation(.*token", service);
