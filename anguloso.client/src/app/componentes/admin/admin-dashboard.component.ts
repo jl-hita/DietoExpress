@@ -73,6 +73,7 @@ import { DeactivateAccountDialogComponent } from './deactivate-account-dialog.co
           <h1>Panel de Control de SuperAdministrador</h1>
           <p class="subtitle">Supervisa nutricionistas registrados, licencias activas y métricas de uso de la plataforma.</p>
         </div>
+        <button mat-stroked-button color="primary" routerLink="/admin/patients"><mat-icon>manage_accounts</mat-icon> Gestionar pacientes</button>
         <button mat-flat-button color="primary" (click)="openCreateAccount()">
           <mat-icon>person_add</mat-icon> Crear cuenta
         </button>
