@@ -204,6 +204,21 @@ public class AppointmentsController : ControllerBase
             "Tu solicitud de cita se ha enviado correctamente. Recibirás una notificación cuando tu nutricionista la confirme.",
             "/patient?tab=appointments");
 
+        // Aviso inmediato al profesional: la solicitud requiere revisar y confirmar la cita.
+        try
+        {
+            var professionalPush = HttpContext.RequestServices.GetService<ProfessionalPushService>();
+            if (professionalPush != null)
+                await professionalPush.SendNotificationAsync(appointment.tenant_id, appointment.nutritionist_id,
+                    "Nueva solicitud de cita", "Un paciente ha solicitado una cita. Abre tu agenda para revisarla.",
+                    "/appointments", HttpContext.RequestAborted);
+        }
+        catch (Exception ex)
+        {
+            HttpContext.RequestServices.GetRequiredService<ILogger<AppointmentsController>>()
+                .LogWarning(ex, "No se pudo enviar el push de nueva solicitud para la cita {AppointmentId}.", appointment.id);
+        }
+
         try
         {
             await _automationService.PublishEventAsync(
@@ -583,6 +598,22 @@ public class AppointmentsController : ControllerBase
             };
             if (eventType != null)
             {
+                if (requestedStatus == "confirmed")
+                {
+                    try
+                    {
+                        var patientPush = HttpContext.RequestServices.GetService<PatientPushService>();
+                        if (patientPush != null)
+                            await patientPush.SendToClientAsync(appointment.client_id, "Cita confirmada",
+                                "Tu nutricionista ha confirmado tu cita. Consulta la fecha y los detalles en DietoExpress.",
+                                "appointments", $"appointment:{appointment.id}:confirmed", HttpContext.RequestAborted);
+                    }
+                    catch (Exception ex)
+                    {
+                        HttpContext.RequestServices.GetRequiredService<ILogger<AppointmentsController>>()
+                            .LogWarning(ex, "No se pudo enviar el push de confirmación para la cita {AppointmentId}.", appointment.id);
+                    }
+                }
                 try
                 {
                     await _automationService.PublishEventAsync(
