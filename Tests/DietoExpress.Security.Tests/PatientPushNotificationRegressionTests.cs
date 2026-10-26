@@ -46,7 +46,8 @@ public sealed class PatientPushNotificationRegressionTests
         Assert.Contains("Tienes un nuevo mensaje de tu profesional.", service);
         Assert.Contains("patient_push_tokens", bootstrap);
         Assert.Contains("p.portal_token_version = c.portal_token_version", service);
-        Assert.Contains("data = new { title, body, target }", service);
+        Assert.Contains("notification_id = notificationId", service);
+        Assert.Contains("patient-message:{messageId}", service);
         Assert.DoesNotContain("notification = new { title, body }", service);
         Assert.Contains("await ownedTransaction.CommitAsync()", messages);
         Assert.Contains("NotifyPatientOfNewMessageAsync", messages);
