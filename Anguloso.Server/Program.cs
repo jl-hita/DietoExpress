@@ -29,6 +29,7 @@ public class Program
         string entorno = builder.Environment.ContentRootPath;
         var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
         builder.Services.AddDbContext<angulosodbContext>(options => options.UseNpgsql(connectionString));
+        builder.Services.AddHttpClient<PatientPushService>();
         string pathLogs = builder.Configuration["DIETOEXPRESS_LOG_PATH"] ?? (OperatingSystem.IsWindows() ? Path.Combine(builder.Environment.ContentRootPath, "Logs") : "/var/lib/dietoexpress/Logs");
         Directory.CreateDirectory(pathLogs);
         builder.Host.UseSerilog((context, loggerConfiguration) => { loggerConfiguration.ReadFrom.Configuration(context.Configuration).MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", LogEventLevel.Warning).MinimumLevel.Override("Npgsql.Command", LogEventLevel.Warning).MinimumLevel.Override("Microsoft.AspNetCore.Hosting.Diagnostics", LogEventLevel.Warning).MinimumLevel.Override("Microsoft.AspNetCore.Routing.EndpointMiddleware", LogEventLevel.Warning).MinimumLevel.Override("Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker", LogEventLevel.Warning).MinimumLevel.Override("Microsoft.AspNetCore.Mvc.Infrastructure.ObjectResultExecutor", LogEventLevel.Warning).Enrich.FromLogContext().WriteTo.Console().WriteTo.File(Path.Combine(pathLogs, "log-.txt"), rollingInterval: RollingInterval.Day, retainedFileCountLimit: null, shared: true); });
