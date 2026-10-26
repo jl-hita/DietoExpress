@@ -52,7 +52,8 @@ public sealed class AppointmentDayReminderWorker : BackgroundService
                   AND a.starts_at <= NOW() + INTERVAL '24 hours 1 minute'
                   AND NOT EXISTS (
                     SELECT 1 FROM appointment_day_reminder_deliveries d
-                    WHERE d.appointment_id=a.id AND d.status='sent')
+                    WHERE d.appointment_id=a.id
+                      AND (d.status='sent' OR (d.status IN ('processing','partial') AND d.updated_at >= NOW() - INTERVAL '2 minutes')))
                 ORDER BY a.starts_at
                 LIMIT 100
                 FOR UPDATE OF a SKIP LOCKED;
@@ -73,7 +74,7 @@ public sealed class AppointmentDayReminderWorker : BackgroundService
                     INSERT INTO appointment_day_reminder_deliveries(appointment_id,tenant_id,client_id,scheduled_for,status,created_at,updated_at)
                     VALUES(@id,@tenant,@client,@starts,'processing',NOW(),NOW())
                     ON CONFLICT(appointment_id) DO UPDATE SET status='processing',updated_at=NOW(),last_error=NULL
-                    WHERE appointment_day_reminder_deliveries.status='partial'
+                    WHERE appointment_day_reminder_deliveries.status IN ('partial','processing')
                       AND appointment_day_reminder_deliveries.updated_at < NOW() - INTERVAL '2 minutes'
                     RETURNING appointment_id;
                     """, connection);
@@ -96,6 +97,11 @@ public sealed class AppointmentDayReminderWorker : BackgroundService
                 await push.SendToClientAsync(item.ClientId, "Mañana tienes una cita",
                     "Te recordamos que tienes una cita mañana. Consulta la hora y los detalles en DietoExpress.",
                     "appointments", $"appointment-reminder-24h:{item.Id}:patient", ct);
+                var professionalPush = scope.ServiceProvider.GetRequiredService<ProfessionalPushService>();
+                await professionalPush.SendNotificationAsync(item.TenantId,
+                    await GetNutritionistIdAsync(item.Id, ct),
+                    "Cita mañana", "Tienes una cita mañana. Consulta tu agenda en DietoExpress.",
+                    "/appointments", ct);
                 sent = true;
             }
             catch (Exception ex)
@@ -115,6 +121,16 @@ public sealed class AppointmentDayReminderWorker : BackgroundService
             update.Parameters.AddWithValue("id", item.Id);
             await update.ExecuteNonQueryAsync(ct);
         }
+    }
+
+    private async Task<int> GetNutritionistIdAsync(int appointmentId, CancellationToken ct)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(ct);
+        await using var command = new NpgsqlCommand("SELECT nutritionist_id FROM patient_appointments WHERE id=@id;", connection);
+        command.Parameters.AddWithValue("id", appointmentId);
+        var value = await command.ExecuteScalarAsync(ct);
+        return value is null ? throw new InvalidOperationException("No se encontró el profesional de la cita.") : Convert.ToInt32(value);
     }
 
     private sealed record Reminder(int Id, int TenantId, int ClientId, DateTime StartsAtUtc);
