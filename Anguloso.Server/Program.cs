@@ -88,6 +88,7 @@ builder.Services.AddScoped<SupportEnhancementService>();
         builder.Services.AddHostedService<AutomationWorker>();
         builder.Services.AddHostedService<TransactionalOutboxWorker>();
         builder.Services.AddHostedService<AppointmentReminderWorker>();
+        builder.Services.AddHostedService<AppointmentDayReminderWorker>();
         builder.Services.AddHostedService<FoodCatalogImportWorker>();
         builder.Services.AddHttpClient<IStripeBillingService, StripeBillingService>();
         builder.Services.AddHttpClient<OpenFoodFactsService>().AddTypedClient((httpClient, sp) => new OpenFoodFactsService(httpClient, connectionString!, sp.GetRequiredService<LogServ>(), sp.GetRequiredService<ConfigServ>()));
