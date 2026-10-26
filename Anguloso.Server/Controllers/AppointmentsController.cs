@@ -706,6 +706,19 @@ public class AppointmentsController : ControllerBase
                 $"Tu nutricionista ha confirmado tu cita del {dateText}.",
                 "/patient?tab=appointments");
 
+            try
+            {
+                var patientPush = HttpContext.RequestServices.GetService<PatientPushService>();
+                if (patientPush != null)
+                    await patientPush.SendToClientAsync(appointment.client_id, "Cita confirmada",
+                        $"Tu nutricionista ha confirmado tu cita del {dateText}.", "appointments", HttpContext.RequestAborted);
+            }
+            catch (Exception ex)
+            {
+                HttpContext.RequestServices.GetRequiredService<ILogger<AppointmentsController>>()
+                    .LogWarning(ex, "No se pudo enviar el aviso push de confirmación de la cita {AppointmentId}.", appointment.id);
+            }
+
             if (!string.IsNullOrWhiteSpace(appointment.client.email))
             {
                 try
