@@ -24,6 +24,18 @@ Rutas de producción actuales:
 
 La aplicación actual se ejecuta como el usuario joso y el servicio es dietoexpress.service.
 
+
+---
+
+# Aplicación Android del portal del paciente
+
+La app Android se mantiene en el repositorio independiente [jl-hita/DietoExpress.Android](https://github.com/jl-hita/DietoExpress.Android). Su configuración local, Firebase Cloud Messaging, URL de API, firma estable, secretos de GitHub Actions y checklist de distribución están documentados en [docs/ANDROID_SETUP.md](https://github.com/jl-hita/DietoExpress.Android/blob/main/docs/ANDROID_SETUP.md). La configuración de credenciales FCM del servidor está detallada en [docs/P1_PUSH_NOTIFICATIONS.md](P1_PUSH_NOTIFICATIONS.md); el JSON de cuenta de servicio debe permanecer fuera de Git, en una ruta protegida legible por `joso`.
+
+Antes de desplegar cambios del backend que afecten endpoints, DTO, cookies/sesión, permisos, códigos HTTP, fechas o reglas de negocio, revisar obligatoriamente su impacto en Android y registrarlo en el PR conforme a la guía de compatibilidad de API del repositorio Android. Compilar el backend y pasar su CI no garantiza que una versión instalada de Android siga siendo compatible.
+
+La app actual utiliza el identificador Android `com.dietoexpress.mobile`, Firebase Cloud Messaging y el backend HTTPS. La firma estable debe conservarse entre actualizaciones; no generar una clave nueva por compilación. La app todavía tiene validaciones manuales pendientes y no debe considerarse publicable solo porque compile.
+
+
 ---
 
 # 2. Datos que hay que preparar antes de instalar
@@ -54,13 +66,22 @@ Los valores reales y secretos **no deben almacenarse en este documento ni en Git
 
 Actualizar el sistema:
 
+Debian/Ubuntu:
+
 ~~~bash
 sudo apt update
 sudo apt full-upgrade -y
 sudo reboot
 ~~~
 
-Los nombres de paquetes pueden variar entre Debian/Ubuntu, Fedora/RHEL u otra distribución.
+Fedora (como el servidor actual `weirdfish`):
+
+~~~bash
+sudo dnf upgrade --refresh -y
+sudo reboot
+~~~
+
+Los nombres de paquetes y los pasos de inicialización pueden variar entre distribuciones.
 
 Configurar hora:
 
@@ -208,9 +229,25 @@ No cerrar la única sesión hasta haber probado el acceso alternativo.
 
 Instalar una versión soportada:
 
+Debian/Ubuntu:
+
 ~~~bash
 sudo apt install -y postgresql postgresql-contrib
 sudo systemctl enable --now postgresql
+~~~
+
+Fedora:
+
+~~~bash
+sudo dnf install -y postgresql-server postgresql-contrib
+# Solo si el clúster aún no está inicializado:
+sudo postgresql-setup --initdb
+sudo systemctl enable --now postgresql
+~~~
+
+En ambas distribuciones, comprobar el servicio y la versión:
+
+~~~bash
 sudo systemctl status postgresql
 sudo -u postgres psql -c 'SELECT version();'
 ~~~
@@ -271,7 +308,7 @@ Antes de cualquier actualización de producción debe hacerse un backup PostgreS
 
 # 10. .NET
 
-El proyecto actual utiliza .NET 8.
+El proyecto actual utiliza ASP.NET Core / .NET 10. El workflow de despliegue fija el SDK 10.0.401 y exige que el servidor tenga instalado el runtime `Microsoft.AspNetCore.App 10.x`. Antes de cambiar de versión, alinea el `TargetFramework`, el SDK de CI y el runtime del servidor; el workflow falla antes de reemplazar la versión desplegada si no encuentra el runtime requerido.
 
 Si el servidor únicamente recibe artefactos publicados, basta el runtime correspondiente.
 
@@ -290,7 +327,7 @@ La versión debe coincidir con el TargetFramework actual del proyecto.
 
 # 11. Node.js / Angular
 
-El frontend actual utiliza Angular 20 y TypeScript 5.8.x.
+El frontend actual utiliza Angular 20 y TypeScript 5.8.x. El workflow de despliegue utiliza Node.js 22.22.3; mantener esa versión alineada con CI cuando se compile en el servidor.
 
 Si CI compila Angular en otro runner, Node.js no es necesario en el servidor de producción.
 
@@ -332,6 +369,9 @@ Cors__AllowedOrigins__0=https://<DOMINIO>
 DIETOEXPRESS_LOG_PATH=/var/lib/dietoexpress/Logs
 DIETOEXPRESS_ALERT_SPOOL=/var/lib/dietoexpress/AlertSpool
 DIETOEXPRESS_DOCUMENTS_PATH=/var/lib/dietoexpress/documents
+# Opcional: notificaciones push FCM para la app Android
+DIETOEXPRESS_FCM_PROJECT_ID=<FIREBASE_PROJECT_ID>
+DIETOEXPRESS_FCM_SERVICE_ACCOUNT_PATH=/etc/dietoexpress/fcm-service-account.json
 ASPNETCORE_ENVIRONMENT=Production
 Geoapify__ApiKey=<GEOAPIFY_API_KEY>
 LocationIQ__ApiKey=<LOCATIONIQ_API_KEY>
@@ -623,8 +663,21 @@ La aplicación utiliza la base local como fuente de estado operativo y sincroniz
 
 Instalar:
 
+Debian/Ubuntu:
+
 ~~~bash
 sudo apt install -y nginx
+~~~
+
+Fedora:
+
+~~~bash
+sudo dnf install -y nginx
+~~~
+
+En ambas distribuciones:
+
+~~~bash
 sudo systemctl enable --now nginx
 sudo systemctl status nginx
 ~~~
@@ -1297,7 +1350,7 @@ La documentación de infraestructura debe evolucionar junto con el código.
 
 # 38. Estado de referencia actual
 
-- Backend: ASP.NET Core .NET 8.
+- Backend: ASP.NET Core .NET 10 (SDK de CI fijado en 10.0.401; runtime de producción `Microsoft.AspNetCore.App 10.x`).
 - Frontend: Angular 20.
 - Base de datos: PostgreSQL.
 - Proxy: Nginx.
