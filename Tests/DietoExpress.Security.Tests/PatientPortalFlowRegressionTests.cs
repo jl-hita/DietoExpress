@@ -52,6 +52,25 @@ public sealed class PatientPortalFlowRegressionTests
     }
 
     [Fact]
+    public void PatientBiometricHistoryIsScopedAndDoesNotExposeClinicalNotes()
+    {
+        var controller = Read("Anguloso.Server/Controllers/PatientPortalController.cs");
+        var start = controller.IndexOf("[Authorize]\n    [HttpGet(\"biometrics\")]", StringComparison.Ordinal);
+        var end = controller.IndexOf("[HttpGet(\"diet\")]", start, StringComparison.Ordinal);
+        Assert.True(start >= 0 && end > start);
+        var endpoint = controller[start..end];
+
+        Assert.Contains("[Authorize]", endpoint);
+        Assert.Contains("[HttpGet(\"biometrics\")]", endpoint);
+        Assert.Contains("ResolveAuthorizedClientId()", endpoint);
+        Assert.Contains("PortalFeatureAllowedAsync(clientId.Value)", endpoint);
+        Assert.Contains("Where(b => b.client_id == clientId.Value)", endpoint);
+        Assert.Contains(".Take(120)", endpoint);
+        Assert.DoesNotContain("Notes =", endpoint);
+        Assert.DoesNotContain("Analysis =", endpoint);
+    }
+
+    [Fact]
     public void OnlineAppointmentShowsCountdownBeforeVideoAccessOpens()
     {
         var component = Read("anguloso.client/src/app/componentes/patient-portal/patient-appointments/patient-appointments.component.ts");

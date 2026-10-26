@@ -26,6 +26,18 @@ public sealed class PatientPushTokenRequestDto
     public string Platform { get; set; } = "android";
 }
 
+public sealed class PatientBiometricHistoryDto
+{
+    public DateOnly Date { get; set; }
+    public double? Weight { get; set; }
+    public double? Height { get; set; }
+    public double? BodyFat { get; set; }
+    public double? MuscleMass { get; set; }
+    public double? VisceralFat { get; set; }
+    public double? Waist { get; set; }
+    public double? Hip { get; set; }
+}
+
 [Route("api/portal")]
 [ApiController]
 public class PatientPortalController : ControllerBase
@@ -362,6 +374,43 @@ public class PatientPortalController : ControllerBase
             ClinicName = client.user?.clinic_name, ClinicPhone = client.user?.clinic_phone, ClinicLogo = client.user?.clinic_logo,
             NutritionistName = activeNutritionistName ?? client.user?.full_name
         });
+    }
+
+    [Authorize]
+    [HttpGet("biometrics")]
+    public async Task<ActionResult<List<PatientBiometricHistoryDto>>> GetMyBiometricHistory()
+    {
+        var clientId = ResolveAuthorizedClientId();
+        if (clientId == null) return Unauthorized();
+        if (!await PortalFeatureAllowedAsync(clientId.Value)) return Forbid();
+
+        var clientExists = await _context.clients.AsNoTracking()
+            .AnyAsync(c => c.id == clientId.Value && c.archived_at == null);
+        if (!clientExists) return NotFound();
+
+        // Only return the patient's own measurement series and only fields needed by progress charts.
+        // Clinical notes and professional analysis are intentionally excluded from this portal DTO.
+        var measurements = await _context.biometrics.AsNoTracking()
+            .Where(b => b.client_id == clientId.Value)
+            .OrderByDescending(b => b.measurement_date)
+            .ThenByDescending(b => b.id)
+            .Take(120)
+            .OrderBy(b => b.measurement_date)
+            .ThenBy(b => b.id)
+            .Select(b => new PatientBiometricHistoryDto
+            {
+                Date = b.measurement_date,
+                Weight = b.weight,
+                Height = b.height,
+                BodyFat = b.body_fat,
+                MuscleMass = b.muscle_mass,
+                VisceralFat = b.visceral_fat,
+                Waist = b.waist,
+                Hip = b.hip
+            })
+            .ToListAsync();
+
+        return Ok(measurements);
     }
 
     [HttpGet("diet")]
