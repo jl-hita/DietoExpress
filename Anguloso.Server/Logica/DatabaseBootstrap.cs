@@ -3337,7 +3337,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
             SELECT string_agg(required_table, ', ' ORDER BY required_table) AS "Value"
             FROM (
                 SELECT unnest(ARRAY[
-                    'tenants','users','clients','patient_notifications','patient_push_subscriptions',
+                    'tenants','users','clients','patient_notifications','patient_push_subscriptions','patient_push_tokens',
                     'professional_push_subscriptions','appointment_reminder_deliveries','patient_push_deliveries','biometrics','food_exchange_groups','food_sources','foods',
                     'diets','client_diets','diet_days','meals','meal_items','recipes','recipe_items',
                     'medical_history','digestive_health','food_preferences','lifestyle_history','config',
