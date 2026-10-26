@@ -79,9 +79,12 @@ CREATE TABLE IF NOT EXISTS patient_push_tokens (
     client_id INTEGER NOT NULL,
     token VARCHAR(4096) NOT NULL UNIQUE,
     platform VARCHAR(20) NOT NULL DEFAULT 'android',
+    portal_token_version INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE patient_push_tokens
+    ADD COLUMN IF NOT EXISTS portal_token_version INTEGER NOT NULL DEFAULT 0;
 CREATE INDEX IF NOT EXISTS idx_patient_push_tokens_client
     ON patient_push_tokens(client_id);
 ");
