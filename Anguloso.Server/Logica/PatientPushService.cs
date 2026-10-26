@@ -20,7 +20,7 @@ public sealed class PatientPushService(
 {
     private const string MessagingScope = "https://www.googleapis.com/auth/firebase.messaging";
 
-    public async Task NotifyPatientOfNewMessageAsync(int clientId, int messageId, CancellationToken cancellationToken = default)
+    public async Task NotifyPatientOfNewMessageAsync(int clientId, long messageId, CancellationToken cancellationToken = default)
     {
         await SendToClientAsync(clientId, "Nuevo mensaje", "Tienes un nuevo mensaje de tu profesional.",
             "messages", $"patient-message:{messageId}", cancellationToken);
@@ -64,8 +64,9 @@ public sealed class PatientPushService(
         string accessToken;
         try
         {
-            var credential = GoogleCredential.FromJson(serviceAccountJson).CreateScoped(MessagingScope);
-            accessToken = await credential.GetAccessTokenForRequestAsync(cancellationToken: cancellationToken);
+            var serviceAccount = CredentialFactory.FromJson<ServiceAccountCredential>(serviceAccountJson);
+            var credential = serviceAccount.ToGoogleCredential().CreateScoped(MessagingScope);
+            accessToken = await ((ITokenAccess)credential).GetAccessTokenForRequestAsync(cancellationToken: cancellationToken);
         }
         catch (Exception ex)
         {
