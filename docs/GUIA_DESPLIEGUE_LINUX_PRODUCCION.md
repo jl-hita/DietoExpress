@@ -29,7 +29,7 @@ La aplicación actual se ejecuta como el usuario joso y el servicio es dietoexpr
 
 # Aplicación Android del portal del paciente
 
-La app Android se mantiene en el repositorio independiente [jl-hita/DietoExpress.Android](https://github.com/jl-hita/DietoExpress.Android). Su configuración local, Firebase Cloud Messaging, URL de API, firma estable, secretos de GitHub Actions y checklist de distribución están documentados en [docs/ANDROID_SETUP.md](https://github.com/jl-hita/DietoExpress.Android/blob/main/docs/ANDROID_SETUP.md).
+La app Android se mantiene en el repositorio independiente [jl-hita/DietoExpress.Android](https://github.com/jl-hita/DietoExpress.Android). Su configuración local, Firebase Cloud Messaging, URL de API, firma estable, secretos de GitHub Actions y checklist de distribución están documentados en [docs/ANDROID_SETUP.md](https://github.com/jl-hita/DietoExpress.Android/blob/main/docs/ANDROID_SETUP.md). La configuración de credenciales FCM del servidor está detallada en [docs/P1_PUSH_NOTIFICATIONS.md](P1_PUSH_NOTIFICATIONS.md); el JSON de cuenta de servicio debe permanecer fuera de Git, en una ruta protegida legible por `joso`.
 
 Antes de desplegar cambios del backend que afecten endpoints, DTO, cookies/sesión, permisos, códigos HTTP, fechas o reglas de negocio, revisar obligatoriamente su impacto en Android y registrarlo en el PR conforme a la guía de compatibilidad de API del repositorio Android. Compilar el backend y pasar su CI no garantiza que una versión instalada de Android siga siendo compatible.
 
@@ -369,6 +369,9 @@ Cors__AllowedOrigins__0=https://<DOMINIO>
 DIETOEXPRESS_LOG_PATH=/var/lib/dietoexpress/Logs
 DIETOEXPRESS_ALERT_SPOOL=/var/lib/dietoexpress/AlertSpool
 DIETOEXPRESS_DOCUMENTS_PATH=/var/lib/dietoexpress/documents
+# Opcional: notificaciones push FCM para la app Android
+DIETOEXPRESS_FCM_PROJECT_ID=<FIREBASE_PROJECT_ID>
+DIETOEXPRESS_FCM_SERVICE_ACCOUNT_PATH=/etc/dietoexpress/fcm-service-account.json
 ASPNETCORE_ENVIRONMENT=Production
 Geoapify__ApiKey=<GEOAPIFY_API_KEY>
 LocationIQ__ApiKey=<LOCATIONIQ_API_KEY>
