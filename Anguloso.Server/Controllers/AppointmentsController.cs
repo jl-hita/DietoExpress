@@ -672,7 +672,8 @@ public class AppointmentsController : ControllerBase
                 var patientPush = HttpContext.RequestServices.GetService<PatientPushService>();
                 if (patientPush != null)
                     await patientPush.SendToClientAsync(appointment.client_id, "Cita cancelada",
-                        "Tu nutricionista ha cancelado una cita. Abre DietoExpress para consultar los detalles.", "appointments", HttpContext.RequestAborted);
+                        "Tu nutricionista ha cancelado una cita. Abre DietoExpress para consultar los detalles.", "appointments",
+                        $"appointment:{appointment.id}:cancelled", HttpContext.RequestAborted);
             }
             catch (Exception ex)
             {
@@ -724,7 +725,8 @@ public class AppointmentsController : ControllerBase
                 var patientPush = HttpContext.RequestServices.GetService<PatientPushService>();
                 if (patientPush != null)
                     await patientPush.SendToClientAsync(appointment.client_id, "Cita confirmada",
-                        $"Tu nutricionista ha confirmado tu cita del {dateText}.", "appointments", HttpContext.RequestAborted);
+                        $"Tu nutricionista ha confirmado tu cita del {dateText}.", "appointments",
+                        $"appointment:{appointment.id}:confirmed", HttpContext.RequestAborted);
             }
             catch (Exception ex)
             {
