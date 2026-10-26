@@ -660,6 +660,21 @@ CREATE INDEX IF NOT EXISTS idx_patient_push_deliveries_status
                 CREATE INDEX IF NOT EXISTS idx_appointment_reminder_deliveries_status
                   ON appointment_reminder_deliveries(status,scheduled_for);
 
+                -- Ledger independiente: cada cita puede tener recordatorio de 15 minutos y de 24 horas.
+                CREATE TABLE IF NOT EXISTS appointment_day_reminder_deliveries (
+                  appointment_id INTEGER PRIMARY KEY REFERENCES patient_appointments(id) ON DELETE CASCADE,
+                  tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                  client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                  scheduled_for TIMESTAMPTZ NOT NULL,
+                  status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                  last_error TEXT,
+                  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                  completed_at TIMESTAMPTZ
+                );
+                CREATE INDEX IF NOT EXISTS idx_appointment_day_reminder_status
+                  ON appointment_day_reminder_deliveries(status,scheduled_for);
+
                 CREATE TABLE IF NOT EXISTS nutritionist_availability (
                     id SERIAL PRIMARY KEY,
                     tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
