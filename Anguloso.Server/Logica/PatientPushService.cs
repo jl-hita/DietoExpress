@@ -84,6 +84,7 @@ public sealed class PatientPushService(
                     message = new
                     {
                         token,
+                        android = new { priority = "HIGH" },
                         // Data-only payload lets Android build a notification with a safe
                         // PendingIntent that opens the relevant portal section.
                         data = new { title, body, target }
