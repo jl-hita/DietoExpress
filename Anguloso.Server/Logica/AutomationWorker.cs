@@ -301,6 +301,17 @@ public sealed class AutomationWorker : BackgroundService
             action.ActionUrl,
             action.SendPush,
             $"job:{job.Id}:patient-notification");
+        if (action.SendPush)
+        {
+            var push = scope.ServiceProvider.GetRequiredService<PatientPushService>();
+            var target = action.ActionUrl?.Contains("messages", StringComparison.OrdinalIgnoreCase) == true
+                ? "messages"
+                : action.ActionUrl?.Contains("appointments", StringComparison.OrdinalIgnoreCase) == true
+                    ? "appointments"
+                    : "home";
+            await push.SendToClientAsync(action.ClientId, action.Title, action.Message, target,
+                $"job:{job.Id}:patient-notification", cancellationToken);
+        }
     }
 
     private async Task ExecuteProfessionalPushAsync(AutomationJob job, CancellationToken cancellationToken)
