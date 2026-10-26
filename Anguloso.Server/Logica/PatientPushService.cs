@@ -34,6 +34,17 @@ public sealed class PatientPushService(
     {
         var projectId = configuration["DIETOEXPRESS_FCM_PROJECT_ID"];
         var serviceAccountJson = configuration["DIETOEXPRESS_FCM_SERVICE_ACCOUNT_JSON"];
+        var serviceAccountPath = configuration["DIETOEXPRESS_FCM_SERVICE_ACCOUNT_PATH"];
+        if (string.IsNullOrWhiteSpace(serviceAccountJson) &&
+            !string.IsNullOrWhiteSpace(serviceAccountPath) && File.Exists(serviceAccountPath))
+        {
+            try { serviceAccountJson = await File.ReadAllTextAsync(serviceAccountPath, cancellationToken); }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "No se pudo leer el archivo de credenciales FCM configurado.");
+                return;
+            }
+        }
         if (string.IsNullOrWhiteSpace(projectId) || string.IsNullOrWhiteSpace(serviceAccountJson))
         {
             logger.LogDebug("FCM no está configurado; se omite el envío push al paciente {ClientId}.", clientId);
