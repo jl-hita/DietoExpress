@@ -52,7 +52,10 @@ public sealed class PatientPushService(
         }
 
         var tokens = await context.Database.SqlQueryRaw<string>(
-            @"SELECT token AS ""Value"" FROM patient_push_tokens WHERE client_id = {0}", clientId)
+            @"SELECT p.token AS ""Value""
+              FROM patient_push_tokens p
+              JOIN clients c ON c.id = p.client_id AND c.archived_at IS NULL
+              WHERE p.client_id = {0} AND p.portal_token_version = c.portal_token_version", clientId)
             .ToListAsync(cancellationToken);
         if (tokens.Count == 0) return;
 
