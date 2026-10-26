@@ -41,7 +41,7 @@ public sealed class AutomationService
             {
                 "patient.checkin.reviewed" => new AutomationRuleConfig(true, null, "patient", ["in_app", "push"]),
                 "appointment.completed" => new AutomationRuleConfig(true, null, "both", ["in_app", "push"]),
-                "appointment.requested" => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app", "push"]),
+                "appointment.requested" => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"]),
                 "appointment.reminder.24h" => new AutomationRuleConfig(true, null, "patient", ["in_app", "push"]),
                 "appointment.reminder.2h" => new AutomationRuleConfig(true, null, "patient", ["in_app", "push"]),
                 "onboarding.info.reminder" => new AutomationRuleConfig(true, null, "patient", ["in_app", "push"]),
