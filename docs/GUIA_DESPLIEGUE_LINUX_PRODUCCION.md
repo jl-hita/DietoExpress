@@ -66,13 +66,22 @@ Los valores reales y secretos **no deben almacenarse en este documento ni en Git
 
 Actualizar el sistema:
 
+Debian/Ubuntu:
+
 ~~~bash
 sudo apt update
 sudo apt full-upgrade -y
 sudo reboot
 ~~~
 
-Los nombres de paquetes pueden variar entre Debian/Ubuntu, Fedora/RHEL u otra distribución.
+Fedora (como el servidor actual `weirdfish`):
+
+~~~bash
+sudo dnf upgrade --refresh -y
+sudo reboot
+~~~
+
+Los nombres de paquetes y los pasos de inicialización pueden variar entre distribuciones.
 
 Configurar hora:
 
@@ -220,9 +229,25 @@ No cerrar la única sesión hasta haber probado el acceso alternativo.
 
 Instalar una versión soportada:
 
+Debian/Ubuntu:
+
 ~~~bash
 sudo apt install -y postgresql postgresql-contrib
 sudo systemctl enable --now postgresql
+~~~
+
+Fedora:
+
+~~~bash
+sudo dnf install -y postgresql-server postgresql-contrib
+# Solo si el clúster aún no está inicializado:
+sudo postgresql-setup --initdb
+sudo systemctl enable --now postgresql
+~~~
+
+En ambas distribuciones, comprobar el servicio y la versión:
+
+~~~bash
 sudo systemctl status postgresql
 sudo -u postgres psql -c 'SELECT version();'
 ~~~
@@ -635,8 +660,21 @@ La aplicación utiliza la base local como fuente de estado operativo y sincroniz
 
 Instalar:
 
+Debian/Ubuntu:
+
 ~~~bash
 sudo apt install -y nginx
+~~~
+
+Fedora:
+
+~~~bash
+sudo dnf install -y nginx
+~~~
+
+En ambas distribuciones:
+
+~~~bash
 sudo systemctl enable --now nginx
 sudo systemctl status nginx
 ~~~
