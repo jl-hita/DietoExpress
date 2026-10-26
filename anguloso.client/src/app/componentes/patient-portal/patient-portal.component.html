@@ -98,9 +98,9 @@
             Buscar nutricionista
             <mat-icon>arrow_forward</mat-icon>
           </button>
-          <textarea *ngIf="nutritionistRelationship.isClinic" [(ngModel)]="nutritionistChangeReason" maxlength="1000" rows="2" placeholder="Motivo de la reasignación (opcional)" aria-label="Motivo de la reasignación"></textarea>
-          <button *ngIf="nutritionistRelationship.isClinic" type="button" class="unassigned-nutritionist-action" (click)="requestClinicReassignment()" [disabled]="nutritionistChangeBusy || nutritionistRelationship.hasPendingClinicReassignment">
-            {{ nutritionistChangeBusy ? 'Enviando…' : nutritionistRelationship.hasPendingClinicReassignment ? 'Reasignación solicitada' : 'Solicitar reasignación en la clínica' }}
+          <textarea *ngIf="nutritionistRelationship?.isClinic" [(ngModel)]="nutritionistChangeReason" maxlength="1000" rows="2" placeholder="Motivo de la reasignación (opcional)" aria-label="Motivo de la reasignación"></textarea>
+          <button *ngIf="nutritionistRelationship?.isClinic" type="button" class="unassigned-nutritionist-action" (click)="requestClinicReassignment()" [disabled]="nutritionistChangeBusy || nutritionistRelationship?.hasPendingClinicReassignment">
+            {{ nutritionistChangeBusy ? 'Enviando…' : nutritionistRelationship?.hasPendingClinicReassignment ? 'Reasignación solicitada' : 'Solicitar reasignación en la clínica' }}
           </button>
         </div>
         <div class="unassigned-nutritionist-copy" *ngIf="nutritionistChangeError || nutritionistChangeMessage">
@@ -348,7 +348,7 @@
     <app-patient-appointments
       *ngIf="activeTab === 'appointments'"
       [slots]="appointmentSlots"
-      [hasAssignedNutritionist]="nutritionistRelationship.hasAssignedNutritionist ?? !!profile?.nutritionistName"
+      [hasAssignedNutritionist]="nutritionistRelationship?.hasAssignedNutritionist ?? !!profile?.nutritionistName"
       [upcomingAppointments]="upcomingAppointments"
       [pastAppointments]="pastAppointments"
       [loading]="appointmentSlotsLoading"
