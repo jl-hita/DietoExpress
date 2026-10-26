@@ -71,6 +71,21 @@ CREATE INDEX IF NOT EXISTS idx_integration_outbox_pending
     ON integration_outbox(status, available_at, id);
 ");
 
+        // Tokens FCM asociados a la cuenta paciente; el token es único para evitar
+        // que una reinstalación o un cambio de cuenta duplique destinatarios.
+        context.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS patient_push_tokens (
+    id BIGSERIAL PRIMARY KEY,
+    client_id INTEGER NOT NULL,
+    token VARCHAR(4096) NOT NULL UNIQUE,
+    platform VARCHAR(20) NOT NULL DEFAULT 'android',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_patient_push_tokens_client
+    ON patient_push_tokens(client_id);
+");
+
         // Solicitudes de reasignación de nutricionista iniciadas desde el portal del paciente.
         context.Database.ExecuteSqlRaw(@"
 CREATE TABLE IF NOT EXISTS patient_nutritionist_change_requests (
