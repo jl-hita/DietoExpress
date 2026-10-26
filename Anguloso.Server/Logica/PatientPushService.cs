@@ -53,6 +53,15 @@ public sealed class PatientPushService(
             return;
         }
 
+        var pushEnabled = await context.Database.SqlQueryRaw<bool>(
+            @"SELECT COALESCE(
+                  (SELECT pref.push_enabled FROM patient_communication_preferences pref
+                   WHERE pref.tenant_id=c.tenant_id AND pref.client_id=c.id LIMIT 1), TRUE) AS ""Value""
+              FROM clients c
+              WHERE c.id={0} AND c.archived_at IS NULL", clientId)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (!pushEnabled) return;
+
         var tokens = await context.Database.SqlQueryRaw<string>(
             @"SELECT p.token AS ""Value""
               FROM patient_push_tokens p
