@@ -39,7 +39,7 @@ public sealed class AdminPatientPrivacyRegressionTests
     public void PatientErasure_RequiresExplicitConfirmationAndDisclosesRetainedRecords()
     {
         var source = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "AdminPatientsController.cs"));
-        Assert.Contains("request.ConfirmId != id || request.ConfirmText != \"ELIMINAR\"", source);
+        Assert.Contains("request?.ConfirmId != id || request.ConfirmText != \"ELIMINAR\"", source);
         Assert.Contains("client.full_name = \"Cuenta eliminada\"", source);
         Assert.Contains("no declara suprimidos los datos clínicos", source);
     }
