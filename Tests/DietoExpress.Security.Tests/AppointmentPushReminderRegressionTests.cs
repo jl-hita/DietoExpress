@@ -82,6 +82,8 @@ public sealed class AppointmentPushReminderRegressionTests
         Assert.Contains("record ProfessionalPushAction", actions);
         Assert.Contains("\"appointment.requested\" => new AutomationRuleConfig(true, null, \"assigned_professional\", [\"in_app\"])", automation);
         Assert.Contains("Nueva solicitud de cita", Read("Anguloso.Server/Controllers/AppointmentsController.cs"));
+        Assert.Contains("NotifyTrainingPlanAssignedAsync", Read("Anguloso.Server/Controllers/TrainingPeriodizationController.cs"));
+        Assert.Contains("training-plan:{planId}:assigned", Read("Anguloso.Server/Controllers/TrainingPeriodizationController.cs"));
     }
 
     [Fact]
