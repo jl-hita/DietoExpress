@@ -25,7 +25,7 @@ public sealed class PatientPushNotificationRegressionTests
         var revoke = controller.IndexOf("RevokePushToken", StringComparison.Ordinal);
 
         Assert.True(register >= 0 && revoke > register);
-        Assert.Contains("[Authorize(Roles = \"patient\")]", controller[register - 120..register]);
+        Assert.Contains("[Authorize(Roles = \"patient\")]", controller[(register - 120)..register]);
         Assert.Contains("ON CONFLICT (token) DO UPDATE", controller);
         Assert.Contains("DELETE FROM patient_push_tokens WHERE client_id =", controller);
         Assert.Contains("token.Length > 4096", controller);
