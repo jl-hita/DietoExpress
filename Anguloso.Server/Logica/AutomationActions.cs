@@ -41,3 +41,6 @@ public sealed class AutomationExecutionDto
 
 /// <summary>Envío explícitamente comercial: siempre se comprueba el consentimiento justo antes de enviar.</summary>
 public sealed record CommercialEmailPatientAction(int ClientId, string Subject, string HtmlBody);
+
+/// <summary>Push de evento destinado a una cuenta profesional.</summary>
+public sealed record ProfessionalPushAction(int UserId, string Title, string Body, string Url);
