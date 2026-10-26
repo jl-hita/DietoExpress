@@ -55,7 +55,7 @@ public sealed class PatientPortalFlowRegressionTests
     public void PatientBiometricHistoryIsScopedAndDoesNotExposeClinicalNotes()
     {
         var controller = Read("Anguloso.Server/Controllers/PatientPortalController.cs");
-        var start = controller.IndexOf("public async Task<ActionResult<List<PatientBiometricHistoryDto>>> GetMyBiometricHistory", StringComparison.Ordinal);
+        var start = controller.IndexOf("[Authorize]\n    [HttpGet(\"biometrics\")]", StringComparison.Ordinal);
         var end = controller.IndexOf("[HttpGet(\"diet\")]", start, StringComparison.Ordinal);
         Assert.True(start >= 0 && end > start);
         var endpoint = controller[start..end];
