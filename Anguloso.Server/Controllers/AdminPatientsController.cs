@@ -91,7 +91,7 @@ public sealed class AdminPatientsController : ControllerBase
 
         var client = await _context.clients.FirstOrDefaultAsync(c => c.id == id, ct);
         if (client == null) return NotFound();
-        if (client.archived_at == null && client.full_name == "Cuenta eliminada")
+        if (client.full_name == "Cuenta eliminada" && client.email.EndsWith("@privacy.invalid", StringComparison.OrdinalIgnoreCase))
             return Conflict("La cuenta ya está anonimizada.");
 
         await using var tx = await _context.Database.BeginTransactionAsync(ct);
