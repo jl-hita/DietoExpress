@@ -348,7 +348,7 @@
     <app-patient-appointments
       *ngIf="activeTab === 'appointments'"
       [slots]="appointmentSlots"
-      [hasAssignedNutritionist]="nutritionistRelationship?.hasAssignedNutritionist"
+      [hasAssignedNutritionist]="!!nutritionistRelationship?.hasAssignedNutritionist"
       [upcomingAppointments]="upcomingAppointments"
       [pastAppointments]="pastAppointments"
       [loading]="appointmentSlotsLoading"
