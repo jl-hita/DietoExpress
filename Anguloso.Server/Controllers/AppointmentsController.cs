@@ -602,6 +602,10 @@ public class AppointmentsController : ControllerBase
                 {
                     try
                     {
+                        await _notifications.CreateForPatientAsync(appointment.tenant_id, appointment.client_id,
+                            "appointment_confirmed", "Cita confirmada",
+                            "Tu nutricionista ha confirmado tu cita. Consulta la fecha y los detalles en DietoExpress.",
+                            "/patient?tab=appointments", true, $"appointment:{appointment.id}:confirmed:patient");
                         var patientPush = HttpContext.RequestServices.GetService<PatientPushService>();
                         if (patientPush != null)
                             await patientPush.SendToClientAsync(appointment.client_id, "Cita confirmada",
