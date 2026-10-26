@@ -66,7 +66,7 @@ interface RepDbExercise {
           <div><strong>{{ template.name }}</strong><p>{{ modelLabel(template.periodizationModel) }} · {{ template.sessionCount }} sesiones · {{ template.createdAt | date:'mediumDate' }}</p><small *ngIf="template.notes">{{ template.notes }}</small></div>
           <span class="template-chip">Reutilizable</span>
         </article>
-        <form *ngIf="clientId > 0 && profile?.enabled && profile?.canManage && trainingTemplates.length" class="form-grid template-apply" (ngSubmit)="createPlanFromTemplate()">
+        <form *ngIf="clientId > 0 && profile?.enabled && profile.canManage && trainingTemplates.length" class="form-grid template-apply" (ngSubmit)="createPlanFromTemplate()">
           <h3 class="full">Crear un plan a partir de una plantilla</h3>
           <label>Plantilla<select name="selectedTrainingTemplate" [(ngModel)]="selectedTemplateId" required><option [ngValue]="null" disabled>Selecciona una plantilla</option><option *ngFor="let template of trainingTemplates" [ngValue]="template.id">{{ template.name }} · {{ template.sessionCount }} sesiones</option></select></label>
           <label>Nombre del nuevo plan<input name="templatePlanName" [(ngModel)]="templatePlanName" required maxlength="160" placeholder="Ej. Fuerza · bloque inicial" /></label>
