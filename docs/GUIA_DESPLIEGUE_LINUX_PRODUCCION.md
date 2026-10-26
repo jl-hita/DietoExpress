@@ -24,6 +24,18 @@ Rutas de producción actuales:
 
 La aplicación actual se ejecuta como el usuario joso y el servicio es dietoexpress.service.
 
+
+---
+
+# Aplicación Android del portal del paciente
+
+La app Android se mantiene en el repositorio independiente [jl-hita/DietoExpress.Android](https://github.com/jl-hita/DietoExpress.Android). Su configuración local, Firebase Cloud Messaging, URL de API, firma estable, secretos de GitHub Actions y checklist de distribución están documentados en [docs/ANDROID_SETUP.md](https://github.com/jl-hita/DietoExpress.Android/blob/main/docs/ANDROID_SETUP.md).
+
+Antes de desplegar cambios del backend que afecten endpoints, DTO, cookies/sesión, permisos, códigos HTTP, fechas o reglas de negocio, revisar obligatoriamente su impacto en Android y registrarlo en el PR conforme a la guía de compatibilidad de API del repositorio Android. Compilar el backend y pasar su CI no garantiza que una versión instalada de Android siga siendo compatible.
+
+La app actual utiliza el identificador Android `com.dietoexpress.mobile`, Firebase Cloud Messaging y el backend HTTPS. La firma estable debe conservarse entre actualizaciones; no generar una clave nueva por compilación. La app todavía tiene validaciones manuales pendientes y no debe considerarse publicable solo porque compile.
+
+
 ---
 
 # 2. Datos que hay que preparar antes de instalar
@@ -271,7 +283,7 @@ Antes de cualquier actualización de producción debe hacerse un backup PostgreS
 
 # 10. .NET
 
-El proyecto actual utiliza .NET 8.
+El proyecto actual utiliza ASP.NET Core / .NET 10. El workflow de despliegue fija el SDK 10.0.401 y exige que el servidor tenga instalado el runtime `Microsoft.AspNetCore.App 10.x`. Antes de cambiar de versión, alinea el `TargetFramework`, el SDK de CI y el runtime del servidor; el workflow falla antes de reemplazar la versión desplegada si no encuentra el runtime requerido.
 
 Si el servidor únicamente recibe artefactos publicados, basta el runtime correspondiente.
 
