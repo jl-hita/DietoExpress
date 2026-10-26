@@ -20,6 +20,12 @@ public sealed class PatientNutritionistChangeRequestDto
     public string? Reason { get; set; }
 }
 
+public sealed class PatientPushTokenRequestDto
+{
+    public string Token { get; set; } = string.Empty;
+    public string Platform { get; set; } = "android";
+}
+
 [Route("api/portal")]
 [ApiController]
 public class PatientPortalController : ControllerBase
@@ -794,6 +800,43 @@ public class PatientPortalController : ControllerBase
         };
         var token = tokenHandler.CreateToken(tokenDescriptor);
         return tokenHandler.WriteToken(token);
+    }
+
+    [HttpPost("push-tokens")]
+    [Authorize(Roles = "patient")]
+    public async Task<IActionResult> RegisterPushToken([FromBody] PatientPushTokenRequestDto request)
+    {
+        var clientId = AuthHelpers.GetClientId(User);
+        var token = request?.Token?.Trim();
+        if (!clientId.HasValue) return Unauthorized();
+        if (string.IsNullOrWhiteSpace(token) || token.Length > 4096)
+            return BadRequest(new { message = "El token de notificaciones no es válido." });
+        if (!string.Equals(request.Platform, "android", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { message = "La plataforma no es compatible." });
+
+        await _context.Database.ExecuteSqlInterpolatedAsync($@"
+INSERT INTO patient_push_tokens (client_id, token, platform, created_at, last_seen_at)
+VALUES ({clientId.Value}, {token}, 'android', NOW(), NOW())
+ON CONFLICT (token) DO UPDATE
+SET client_id = EXCLUDED.client_id,
+    platform = EXCLUDED.platform,
+    last_seen_at = NOW();");
+        return NoContent();
+    }
+
+    [HttpPost("push-tokens/revoke")]
+    [Authorize(Roles = "patient")]
+    public async Task<IActionResult> RevokePushToken([FromBody] PatientPushTokenRequestDto request)
+    {
+        var clientId = AuthHelpers.GetClientId(User);
+        var token = request?.Token?.Trim();
+        if (!clientId.HasValue) return Unauthorized();
+        if (string.IsNullOrWhiteSpace(token) || token.Length > 4096)
+            return BadRequest(new { message = "El token de notificaciones no es válido." });
+
+        await _context.Database.ExecuteSqlInterpolatedAsync(
+            $@"DELETE FROM patient_push_tokens WHERE client_id = {clientId.Value} AND token = {token}");
+        return NoContent();
     }
 
     [HttpPost("logout")]
