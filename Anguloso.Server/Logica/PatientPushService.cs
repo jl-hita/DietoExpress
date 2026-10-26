@@ -20,9 +20,10 @@ public sealed class PatientPushService(
 {
     private const string MessagingScope = "https://www.googleapis.com/auth/firebase.messaging";
 
-    public async Task NotifyPatientOfNewMessageAsync(int clientId, CancellationToken cancellationToken = default)
+    public async Task NotifyPatientOfNewMessageAsync(int clientId, int messageId, CancellationToken cancellationToken = default)
     {
-        await SendToClientAsync(clientId, "Nuevo mensaje", "Tienes un nuevo mensaje de tu profesional.", "messages", cancellationToken);
+        await SendToClientAsync(clientId, "Nuevo mensaje", "Tienes un nuevo mensaje de tu profesional.",
+            "messages", $"patient-message:{messageId}", cancellationToken);
     }
 
     public async Task SendToClientAsync(
@@ -30,6 +31,7 @@ public sealed class PatientPushService(
         string title,
         string body,
         string target,
+        string notificationId,
         CancellationToken cancellationToken = default)
     {
         var projectId = configuration["DIETOEXPRESS_FCM_PROJECT_ID"];
@@ -87,7 +89,7 @@ public sealed class PatientPushService(
                         android = new { priority = "HIGH" },
                         // Data-only payload lets Android build a notification with a safe
                         // PendingIntent that opens the relevant portal section.
-                        data = new { title, body, target }
+                        data = new { title, body, target, notification_id = notificationId }
                     }
                 });
 
