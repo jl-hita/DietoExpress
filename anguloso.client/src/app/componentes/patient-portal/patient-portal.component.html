@@ -98,9 +98,9 @@
             Buscar nutricionista
             <mat-icon>arrow_forward</mat-icon>
           </button>
-          <textarea *ngIf="nutritionistRelationship?.isClinic" [(ngModel)]="nutritionistChangeReason" maxlength="1000" rows="2" placeholder="Motivo de la reasignación (opcional)" aria-label="Motivo de la reasignación"></textarea>
-          <button *ngIf="nutritionistRelationship?.isClinic" type="button" class="unassigned-nutritionist-action" (click)="requestClinicReassignment()" [disabled]="nutritionistChangeBusy || nutritionistRelationship?.hasPendingClinicReassignment">
-            {{ nutritionistChangeBusy ? 'Enviando…' : nutritionistRelationship?.hasPendingClinicReassignment ? 'Reasignación solicitada' : 'Solicitar reasignación en la clínica' }}
+          <textarea *ngIf="(nutritionistRelationship && nutritionistRelationship.isClinic)" [(ngModel)]="nutritionistChangeReason" maxlength="1000" rows="2" placeholder="Motivo de la reasignación (opcional)" aria-label="Motivo de la reasignación"></textarea>
+          <button *ngIf="(nutritionistRelationship && nutritionistRelationship.isClinic)" type="button" class="unassigned-nutritionist-action" (click)="requestClinicReassignment()" [disabled]="nutritionistChangeBusy || (nutritionistRelationship && nutritionistRelationship.hasPendingClinicReassignment)">
+            {{ nutritionistChangeBusy ? 'Enviando…' : (nutritionistRelationship && nutritionistRelationship.hasPendingClinicReassignment) ? 'Reasignación solicitada' : 'Solicitar reasignación en la clínica' }}
           </button>
         </div>
         <div class="unassigned-nutritionist-copy" *ngIf="nutritionistChangeError || nutritionistChangeMessage">
@@ -139,19 +139,19 @@
         <div class="unassigned-nutritionist-icon"><mat-icon>manage_accounts</mat-icon></div>
         <div class="unassigned-nutritionist-copy">
           <span class="eyebrow">Tu profesional</span>
-          <strong>{{ nutritionistRelationship?.nutritionistName || profile?.nutritionistName || 'Nutricionista asignado' }}</strong>
+          <strong>{{ nutritionistRelationship.nutritionistName || profile?.nutritionistName || 'Nutricionista asignado' }}</strong>
           <p>Si quieres cambiar, puedes buscar otro profesional. Si perteneces a una clínica, también puedes pedir que te asignen otro nutricionista de esa misma clínica.</p>
-          <textarea *ngIf="nutritionistRelationship?.isClinic" [(ngModel)]="nutritionistChangeReason" maxlength="1000" rows="2" placeholder="Motivo de la reasignación (opcional)" aria-label="Motivo de la reasignación"></textarea>
+          <textarea *ngIf="nutritionistRelationship.isClinic" [(ngModel)]="nutritionistChangeReason" maxlength="1000" rows="2" placeholder="Motivo de la reasignación (opcional)" aria-label="Motivo de la reasignación"></textarea>
           <p class="portal-inline-error" *ngIf="nutritionistChangeError">{{ nutritionistChangeError }}</p>
           <p class="appointment-success" *ngIf="nutritionistChangeMessage">{{ nutritionistChangeMessage }}</p>
         </div>
         <div class="unassigned-nutritionist-actions">
-          <button type="button" class="unassigned-nutritionist-action" (click)="leaveNutritionistAndFindNew()" [disabled]="nutritionistChangeBusy || nutritionistRelationship?.hasPendingClinicReassignment">
+          <button type="button" class="unassigned-nutritionist-action" (click)="leaveNutritionistAndFindNew()" [disabled]="nutritionistChangeBusy || nutritionistRelationship.hasPendingClinicReassignment">
             Buscar otro nutricionista
             <mat-icon>arrow_forward</mat-icon>
           </button>
-          <button *ngIf="nutritionistRelationship?.isClinic" type="button" class="unassigned-nutritionist-action" (click)="requestClinicReassignment()" [disabled]="nutritionistChangeBusy || nutritionistRelationship?.hasPendingClinicReassignment">
-            {{ nutritionistChangeBusy ? 'Enviando…' : nutritionistRelationship?.hasPendingClinicReassignment ? 'Reasignación solicitada' : 'Solicitar reasignación en la clínica' }}
+          <button *ngIf="nutritionistRelationship.isClinic" type="button" class="unassigned-nutritionist-action" (click)="requestClinicReassignment()" [disabled]="nutritionistChangeBusy || nutritionistRelationship.hasPendingClinicReassignment">
+            {{ nutritionistChangeBusy ? 'Enviando…' : nutritionistRelationship.hasPendingClinicReassignment ? 'Reasignación solicitada' : 'Solicitar reasignación en la clínica' }}
           </button>
         </div>
       </section>
@@ -348,7 +348,7 @@
     <app-patient-appointments
       *ngIf="activeTab === 'appointments'"
       [slots]="appointmentSlots"
-      [hasAssignedNutritionist]="nutritionistRelationship?.hasAssignedNutritionist ?? !!profile?.nutritionistName"
+      [hasAssignedNutritionist]="!!nutritionistRelationship?.hasAssignedNutritionist"
       [upcomingAppointments]="upcomingAppointments"
       [pastAppointments]="pastAppointments"
       [loading]="appointmentSlotsLoading"

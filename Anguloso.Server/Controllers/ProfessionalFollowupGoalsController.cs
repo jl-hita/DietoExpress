@@ -298,7 +298,8 @@ public sealed class ProfessionalFollowupGoalsController : ControllerBase
 
     private static bool TryMetric(string metric, decimal target, out string unit)
     {
-        unit = metric?.Trim().ToLowerInvariant() switch
+        var normalizedMetric = metric?.Trim().ToLowerInvariant() ?? string.Empty;
+        unit = normalizedMetric switch
         {
             "adherence" => "%",
             "hunger" or "energy" or "sleep_quality" or "training" => "/10",
@@ -307,7 +308,7 @@ public sealed class ProfessionalFollowupGoalsController : ControllerBase
             _ => ""
         };
         if (unit.Length == 0) return false;
-        return metric.Trim().ToLowerInvariant() switch
+        return normalizedMetric switch
         {
             "adherence" => target is >= 0 and <= 100,
             "hunger" or "energy" or "sleep_quality" or "training" => target is >= 0 and <= 10,

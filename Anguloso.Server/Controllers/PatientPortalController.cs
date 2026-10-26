@@ -860,7 +860,7 @@ public class PatientPortalController : ControllerBase
         if (!clientId.HasValue) return Unauthorized();
         if (string.IsNullOrWhiteSpace(token) || token.Length > 4096)
             return BadRequest(new { message = "El token de notificaciones no es válido." });
-        if (!string.Equals(request.Platform, "android", StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(request?.Platform, "android", StringComparison.OrdinalIgnoreCase))
             return BadRequest(new { message = "La plataforma no es compatible." });
 
         await _context.Database.ExecuteSqlInterpolatedAsync($@"
