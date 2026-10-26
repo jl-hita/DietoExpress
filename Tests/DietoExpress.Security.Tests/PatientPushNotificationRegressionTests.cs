@@ -38,6 +38,7 @@ public sealed class PatientPushNotificationRegressionTests
         var service = Read("Anguloso.Server/Logica/PatientPushService.cs");
         var messages = Read("Anguloso.Server/Controllers/PatientMessagesController.cs");
         var bootstrap = Read("Anguloso.Server/Logica/DatabaseBootstrap.cs");
+        var appointments = Read("Anguloso.Server/Controllers/AppointmentsController.cs");
 
         Assert.Contains("DIETOEXPRESS_FCM_PROJECT_ID", service);
         Assert.Contains("DIETOEXPRESS_FCM_SERVICE_ACCOUNT_PATH", service);
@@ -49,6 +50,8 @@ public sealed class PatientPushNotificationRegressionTests
         Assert.DoesNotContain("notification = new { title, body }", service);
         Assert.Contains("await ownedTransaction.CommitAsync()", messages);
         Assert.Contains("NotifyPatientOfNewMessageAsync", messages);
+        Assert.Contains("Cita cancelada", appointments);
+        Assert.Contains("Tu cita es en 15 minutos", Read("Anguloso.Server/Logica/AppointmentReminderWorker.cs"));
         Assert.DoesNotContain("LogInformation(.*token", service);
     }
 }
