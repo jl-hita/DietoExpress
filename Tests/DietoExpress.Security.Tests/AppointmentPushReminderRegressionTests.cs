@@ -50,6 +50,40 @@ public sealed class AppointmentPushReminderRegressionTests
     }
 
     [Fact]
+    public void TwentyFourHourReminderMustBeHostedAndUseItsOwnDurableIdempotencyLedger()
+    {
+        var program = Read("Anguloso.Server/Program.cs");
+        var worker = Read("Anguloso.Server/Logica/AppointmentDayReminderWorker.cs");
+        var schema = Read("Anguloso.Server/Logica/DatabaseBootstrap.cs");
+
+        Assert.Contains("AddHostedService<AppointmentDayReminderWorker>()", program);
+        Assert.Contains("INTERVAL '23 hours 45 minutes'", worker);
+        Assert.Contains("appointment_day_reminder_deliveries", worker);
+        Assert.Contains("appointment-reminder-24h:{item.Id}:patient", worker);
+        Assert.Contains("CREATE TABLE IF NOT EXISTS appointment_day_reminder_deliveries", schema);
+        Assert.Contains("SendToClientAsync", worker);
+        Assert.Contains("SendNotificationAsync", worker);
+    }
+
+    [Fact]
+    public void EventPushesMustRespectPatientPreferencesAndSupportProfessionalAutomation()
+    {
+        var patientPush = Read("Anguloso.Server/Logica/PatientPushService.cs");
+        var professionalPush = Read("Anguloso.Server/Logica/ProfessionalPushService.cs");
+        var automation = Read("Anguloso.Server/Logica/AutomationService.cs");
+        var worker = Read("Anguloso.Server/Logica/AutomationWorker.cs");
+        var actions = Read("Anguloso.Server/Logica/AutomationActions.cs");
+
+        Assert.Contains("patient_communication_preferences", patientPush);
+        Assert.Contains("pref.push_enabled", patientPush);
+        Assert.Contains("SendNotificationAsync", professionalPush);
+        Assert.Contains("new ProfessionalPushAction", automation);
+        Assert.Contains("case \"push_professional\"", worker);
+        Assert.Contains("record ProfessionalPushAction", actions);
+        Assert.Contains("\"appointment.requested\" => new AutomationRuleConfig(true, null, \"assigned_professional\", [\"in_app\", \"push\"])", automation);
+    }
+
+    [Fact]
     public void ProfessionalPushSubscriptionsMustBeScopedToTheAuthenticatedTenantAndUser()
     {
         var controller = Read("Anguloso.Server/Controllers/ProfessionalPushController.cs");
