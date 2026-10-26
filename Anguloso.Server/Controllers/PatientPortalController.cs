@@ -815,11 +815,14 @@ public class PatientPortalController : ControllerBase
             return BadRequest(new { message = "La plataforma no es compatible." });
 
         await _context.Database.ExecuteSqlInterpolatedAsync($@"
-INSERT INTO patient_push_tokens (client_id, token, platform, created_at, last_seen_at)
-VALUES ({clientId.Value}, {token}, 'android', NOW(), NOW())
+INSERT INTO patient_push_tokens (client_id, token, platform, portal_token_version, created_at, last_seen_at)
+SELECT c.id, {token}, 'android', c.portal_token_version, NOW(), NOW()
+FROM clients c
+WHERE c.id = {clientId.Value} AND c.archived_at IS NULL
 ON CONFLICT (token) DO UPDATE
 SET client_id = EXCLUDED.client_id,
     platform = EXCLUDED.platform,
+    portal_token_version = EXCLUDED.portal_token_version,
     last_seen_at = NOW();");
         return NoContent();
     }
