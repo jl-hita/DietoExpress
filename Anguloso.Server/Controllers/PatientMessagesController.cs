@@ -205,7 +205,7 @@ RETURNING id;";
             try
             {
                 var push = HttpContext.RequestServices.GetService<PatientPushService>();
-                if (push != null) await push.NotifyPatientOfNewMessageAsync(clientId, HttpContext.RequestAborted);
+                if (push != null) await push.NotifyPatientOfNewMessageAsync(clientId, messageId, HttpContext.RequestAborted);
             }
             catch (Exception ex)
             {
