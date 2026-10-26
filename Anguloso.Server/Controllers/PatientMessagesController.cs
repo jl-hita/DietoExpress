@@ -198,6 +198,22 @@ RETURNING id;";
 
         if (ownedTransaction is not null) await ownedTransaction.CommitAsync();
 
+        // El push es un efecto secundario: si FCM no está configurado o falla, el mensaje
+        // ya persistido sigue siendo válido y la respuesta no se convierte en un falso error.
+        if (senderUserId.HasValue)
+        {
+            try
+            {
+                var push = HttpContext.RequestServices.GetService<PatientPushService>();
+                if (push != null) await push.NotifyPatientOfNewMessageAsync(clientId, messageId, HttpContext.RequestAborted);
+            }
+            catch (Exception ex)
+            {
+                HttpContext.RequestServices.GetRequiredService<ILogger<PatientMessagesController>>()
+                    .LogWarning(ex, "No se pudo emitir el aviso push del mensaje {MessageId}.", messageId);
+            }
+        }
+
         return Ok(new { id = messageId });
     }
 

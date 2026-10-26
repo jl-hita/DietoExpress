@@ -667,6 +667,20 @@ public class AppointmentsController : ControllerBase
                 $"{appointment.nutritionist.full_name ?? "Tu nutricionista"} ha cancelado la cita del {dateText}.",
                 "/patient?tab=appointments");
 
+            try
+            {
+                var patientPush = HttpContext.RequestServices.GetService<PatientPushService>();
+                if (patientPush != null)
+                    await patientPush.SendToClientAsync(appointment.client_id, "Cita cancelada",
+                        "Tu nutricionista ha cancelado una cita. Abre DietoExpress para consultar los detalles.", "appointments",
+                        $"appointment:{appointment.id}:cancelled", HttpContext.RequestAborted);
+            }
+            catch (Exception ex)
+            {
+                HttpContext.RequestServices.GetRequiredService<ILogger<AppointmentsController>>()
+                    .LogWarning(ex, "No se pudo enviar el aviso push de cancelación de la cita {AppointmentId}.", appointment.id);
+            }
+
             if (!string.IsNullOrWhiteSpace(appointment.client.email))
             {
                 try
@@ -705,6 +719,20 @@ public class AppointmentsController : ControllerBase
                 "Cita confirmada",
                 $"Tu nutricionista ha confirmado tu cita del {dateText}.",
                 "/patient?tab=appointments");
+
+            try
+            {
+                var patientPush = HttpContext.RequestServices.GetService<PatientPushService>();
+                if (patientPush != null)
+                    await patientPush.SendToClientAsync(appointment.client_id, "Cita confirmada",
+                        $"Tu nutricionista ha confirmado tu cita del {dateText}.", "appointments",
+                        $"appointment:{appointment.id}:confirmed", HttpContext.RequestAborted);
+            }
+            catch (Exception ex)
+            {
+                HttpContext.RequestServices.GetRequiredService<ILogger<AppointmentsController>>()
+                    .LogWarning(ex, "No se pudo enviar el aviso push de confirmación de la cita {AppointmentId}.", appointment.id);
+            }
 
             if (!string.IsNullOrWhiteSpace(appointment.client.email))
             {

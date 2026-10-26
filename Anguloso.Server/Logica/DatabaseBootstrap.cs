@@ -71,6 +71,24 @@ CREATE INDEX IF NOT EXISTS idx_integration_outbox_pending
     ON integration_outbox(status, available_at, id);
 ");
 
+        // Tokens FCM asociados a la cuenta paciente; el token es único para evitar
+        // que una reinstalación o un cambio de cuenta duplique destinatarios.
+        context.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS patient_push_tokens (
+    id BIGSERIAL PRIMARY KEY,
+    client_id INTEGER NOT NULL,
+    token VARCHAR(4096) NOT NULL UNIQUE,
+    platform VARCHAR(20) NOT NULL DEFAULT 'android',
+    portal_token_version INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+ALTER TABLE patient_push_tokens
+    ADD COLUMN IF NOT EXISTS portal_token_version INTEGER NOT NULL DEFAULT 0;
+CREATE INDEX IF NOT EXISTS idx_patient_push_tokens_client
+    ON patient_push_tokens(client_id);
+");
+
         // Solicitudes de reasignación de nutricionista iniciadas desde el portal del paciente.
         context.Database.ExecuteSqlRaw(@"
 CREATE TABLE IF NOT EXISTS patient_nutritionist_change_requests (
@@ -3319,7 +3337,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
             SELECT string_agg(required_table, ', ' ORDER BY required_table) AS "Value"
             FROM (
                 SELECT unnest(ARRAY[
-                    'tenants','users','clients','patient_notifications','patient_push_subscriptions',
+                    'tenants','users','clients','patient_notifications','patient_push_subscriptions','patient_push_tokens',
                     'professional_push_subscriptions','appointment_reminder_deliveries','patient_push_deliveries','biometrics','food_exchange_groups','food_sources','foods',
                     'diets','client_diets','diet_days','meals','meal_items','recipes','recipe_items',
                     'medical_history','digestive_health','food_preferences','lifestyle_history','config',

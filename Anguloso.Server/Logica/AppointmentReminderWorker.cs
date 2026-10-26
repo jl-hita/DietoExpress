@@ -104,6 +104,10 @@ public sealed class AppointmentReminderWorker : BackgroundService
                 await notifications.CreateForPatientAsync(item.TenantId, item.ClientId, "appointment_reminder",
                     "Tu cita es en 15 minutos", "Recuerda que tu cita comienza dentro de unos 15 minutos.",
                     "/patient?tab=appointments", true, $"appointment-reminder:{item.Id}:patient");
+                var patientPush = scope.ServiceProvider.GetRequiredService<PatientPushService>();
+                await patientPush.SendToClientAsync(item.ClientId, "Tu cita es en 15 minutos",
+                    "Recuerda que tu cita comienza dentro de unos 15 minutos.", "appointments",
+                    $"appointment-reminder:{item.Id}:patient", ct);
                 patientSent = true;
                 var professionalPush = scope.ServiceProvider.GetRequiredService<ProfessionalPushService>();
                 // Avisar al nutricionista asignado y a los administradores de la clínica que hayan activado push.
