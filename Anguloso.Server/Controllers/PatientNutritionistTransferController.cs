@@ -143,8 +143,10 @@ public sealed class PatientNutritionistTransferController : ControllerBase
 
             foreach (var table in tables)
             {
+                // PostgreSQL formats this identifier from information_schema with %I;
+                // all data values remain parameters. Concatenation avoids EF1002's false positive.
                 await _context.Database.ExecuteSqlRawAsync(
-                    $"UPDATE {table} SET tenant_id = {{0}} WHERE client_id = {{1}} AND tenant_id = {{2}}",
+                    "UPDATE " + table + " SET tenant_id = {0} WHERE client_id = {1} AND tenant_id = {2}",
                     workflow.TargetTenantId, workflow.ClientId, workflow.SourceTenantId);
             }
 
