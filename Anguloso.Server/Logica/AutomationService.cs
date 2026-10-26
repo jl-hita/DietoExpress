@@ -807,6 +807,11 @@ public sealed class AutomationService
                                 "El paciente ya está en la sala de consulta online.", null, "high", "video_consultation"),
                             DateTime.UtcNow, evt.Id, $"online:joined:patient:{payload.AppointmentId}", cancellationToken: cancellationToken);
 
+                        await ScheduleActionAsync(evt.TenantId, "push_professional",
+                            new ProfessionalPushAction(payload.NutritionistId, "Paciente en la videollamada",
+                                "El paciente ya está en la sala de consulta online.", "/appointments"),
+                            DateTime.UtcNow, evt.Id, $"online:joined:patient:{payload.AppointmentId}:push", cancellationToken: cancellationToken);
+
                         // Si el profesional aún no ha entrado, se avisa al paciente tras cinco minutos.
                         await ScheduleActionAsync(evt.TenantId, "notify_patient",
                             new NotifyPatientAction(payload.ClientId, "online_patient_waiting", "Tu nutricionista todavía no ha entrado",
