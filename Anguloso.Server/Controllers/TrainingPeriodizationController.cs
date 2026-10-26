@@ -288,6 +288,7 @@ public sealed class TrainingPeriodizationController : ControllerBase
                 await insertMicro.ExecuteNonQueryAsync(cancellationToken);
             }
         }
+        await NotifyTrainingPlanAssignedAsync(clientId, newPlanId, request.Name.Trim(), cancellationToken);
         return Ok(new { id = newPlanId, name = request.Name.Trim(), copiedSessions = template.Sessions.Count, copiedMesocycles = template.Mesocycles.Count });
     }
 
@@ -389,7 +390,9 @@ public sealed class TrainingPeriodizationController : ControllerBase
             ("startDate", request.StartDate), ("endDate", request.EndDate), ("notes", request.Notes), ("userId", userId.Value));
         var id = await command.ExecuteScalarAsync(cancellationToken);
         if (id is null) return Conflict(new { message = "Activa primero la planificación deportiva para este cliente." });
-        return CreatedAtAction(nameof(GetPlans), new { clientId }, new { id = Convert.ToInt32(id), request.Name, request.PeriodizationModel, request.StartDate, request.EndDate, status = "draft", version = 1 });
+        var planId = Convert.ToInt32(id);
+        await NotifyTrainingPlanAssignedAsync(clientId, planId, request.Name.Trim(), cancellationToken);
+        return CreatedAtAction(nameof(GetPlans), new { clientId }, new { id = planId, request.Name, request.PeriodizationModel, request.StartDate, request.EndDate, status = "draft", version = 1 });
     }
 
     [HttpGet("plans/{planId:int}/load-trend")]
@@ -1057,6 +1060,34 @@ public sealed class TrainingPeriodizationController : ControllerBase
         await _context.Database.SqlQueryRaw<int?>(
             """SELECT f.client_id AS "Value" FROM training_sessions s JOIN training_plans p ON p.id = s.plan_id JOIN training_profiles f ON f.id = p.profile_id WHERE s.id = {0}""", sessionId)
             .SingleOrDefaultAsync(cancellationToken);
+
+    private async Task NotifyTrainingPlanAssignedAsync(int clientId, int planId, string planName, CancellationToken cancellationToken)
+    {
+        var tenantId = await _context.clients.AsNoTracking()
+            .Where(c => c.id == clientId && c.archived_at == null)
+            .Select(c => c.tenant_id)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (!tenantId.HasValue) return;
+
+        try
+        {
+            var notifications = HttpContext.RequestServices.GetService<Anguloso.Server.Logica.NotificationService>();
+            if (notifications != null)
+                await notifications.CreateForPatientAsync(tenantId.Value, clientId, "training_plan_assigned",
+                    "Nuevo plan de entrenamiento", $"Tu profesional ha preparado el plan «{planName}». Ya puedes consultarlo en DietoExpress.",
+                    "/patient?tab=training", true, $"training-plan:{planId}:assigned");
+            var push = HttpContext.RequestServices.GetService<Anguloso.Server.Logica.PatientPushService>();
+            if (push != null)
+                await push.SendToClientAsync(clientId, "Nuevo plan de entrenamiento",
+                    "Tu profesional ha preparado un plan. Abre DietoExpress para consultarlo.",
+                    "training", $"training-plan:{planId}:assigned", cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            HttpContext.RequestServices.GetRequiredService<ILogger<TrainingPeriodizationController>>()
+                .LogWarning(ex, "No se pudo notificar la asignación del plan de entrenamiento {PlanId}.", planId);
+        }
+    }
 
     private NpgsqlCommand Command(string sql, params (string Name, object? Value)[] parameters) => CreateCommand(sql, null, parameters);
 

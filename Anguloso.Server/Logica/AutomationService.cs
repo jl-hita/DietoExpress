@@ -39,30 +39,30 @@ public sealed class AutomationService
         {
             var defaults = ruleKey switch
             {
-                "patient.checkin.reviewed" => new AutomationRuleConfig(true, null, "patient", ["in_app"]),
-                "appointment.completed" => new AutomationRuleConfig(true, null, "both", ["in_app"]),
+                "patient.checkin.reviewed" => new AutomationRuleConfig(true, null, "patient", ["in_app", "push"]),
+                "appointment.completed" => new AutomationRuleConfig(true, null, "both", ["in_app", "push"]),
                 "appointment.requested" => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"]),
-                "appointment.reminder.24h" => new AutomationRuleConfig(true, null, "patient", ["in_app"]),
-                "appointment.reminder.2h" => new AutomationRuleConfig(true, null, "patient", ["in_app"]),
-                "onboarding.info.reminder" => new AutomationRuleConfig(true, null, "patient", ["in_app"]),
+                "appointment.reminder.24h" => new AutomationRuleConfig(true, null, "patient", ["in_app", "push"]),
+                "appointment.reminder.2h" => new AutomationRuleConfig(true, null, "patient", ["in_app", "push"]),
+                "onboarding.info.reminder" => new AutomationRuleConfig(true, null, "patient", ["in_app", "push"]),
                 "onboarding.info.escalation" => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"]),
-                "onboarding.first_appointment.reminder" => new AutomationRuleConfig(true, null, "patient", ["in_app"]),
+                "onboarding.first_appointment.reminder" => new AutomationRuleConfig(true, null, "patient", ["in_app", "push"]),
                 "onboarding.first_appointment.escalation" => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"]),
-                "followup.checkin.reminder" => new AutomationRuleConfig(true, null, "patient", ["in_app"]),
+                "followup.checkin.reminder" => new AutomationRuleConfig(true, null, "patient", ["in_app", "push"]),
                 "followup.checkin.escalation" => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"]),
-                "diet.expiry.reminder" => new AutomationRuleConfig(true, null, "patient", ["in_app"]),
-                "diet.expired" => new AutomationRuleConfig(true, null, "both", ["in_app"]),
-                "diet.renewal" => new AutomationRuleConfig(true, null, "both", ["in_app"]),
+                "diet.expiry.reminder" => new AutomationRuleConfig(true, null, "patient", ["in_app", "push"]),
+                "diet.expired" => new AutomationRuleConfig(true, null, "both", ["in_app", "push"]),
+                "diet.renewal" => new AutomationRuleConfig(true, null, "both", ["in_app", "push"]),
                 "biometrics.review_due" => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"]),
                 "biometrics.evolution" => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"]),
-                "documents.pending.reminder" => new AutomationRuleConfig(true, null, "patient", ["in_app"]),
+                "documents.pending.reminder" => new AutomationRuleConfig(true, null, "patient", ["in_app", "push"]),
                 "documents.completed" => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"]),
                 "online_consultation.room_available.patient" => new AutomationRuleConfig(true, null, "patient", ["in_app", "push"]),
-                "online_consultation.room_available.professional" => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"]),
-                "online_consultation.patient_joined" => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"]),
+                "online_consultation.room_available.professional" => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app", "push"]),
+                "online_consultation.patient_joined" => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app", "push"]),
                 "online_consultation.professional_joined" => new AutomationRuleConfig(true, null, "patient", ["in_app", "push"]),
                 "online_consultation.patient_waiting" => new AutomationRuleConfig(true, 5, "patient", ["in_app", "push"]),
-                "online_consultation.professional_waiting" => new AutomationRuleConfig(true, 5, "assigned_professional", ["in_app"]),
+                "online_consultation.professional_waiting" => new AutomationRuleConfig(true, 5, "assigned_professional", ["in_app", "push"]),
                 _ => new AutomationRuleConfig(true, null, "assigned_professional", ["in_app"])
             };
             return defaults;
@@ -188,6 +188,13 @@ public sealed class AutomationService
                         new CreateTaskAction(clientId, recipientId, professionalTitle, professionalMessage, dueAt, priority, source),
                         scheduledAt, eventId,
                         idempotencyKey is null ? null : $"{idempotencyKey}:professional:in-app:{recipientId}", maxAttempts, cancellationToken);
+                }
+                if (channels.Contains("push"))
+                {
+                    await ScheduleRawActionAsync(tenantId, "push_professional",
+                        new ProfessionalPushAction(recipientId, professionalTitle, professionalMessage ?? professionalTitle, "/appointments"),
+                        scheduledAt, eventId,
+                        idempotencyKey is null ? null : $"{idempotencyKey}:professional:push:{recipientId}", maxAttempts, cancellationToken);
                 }
                 if (channels.Contains("email"))
                 {
@@ -799,6 +806,14 @@ public sealed class AutomationService
                             new CreateTaskAction(payload.ClientId, payload.NutritionistId, "El paciente se ha unido a la videollamada",
                                 "El paciente ya está en la sala de consulta online.", null, "high", "video_consultation"),
                             DateTime.UtcNow, evt.Id, $"online:joined:patient:{payload.AppointmentId}", cancellationToken: cancellationToken);
+
+                        if (payload.NutritionistId.HasValue)
+                        {
+                            await ScheduleActionAsync(evt.TenantId, "push_professional",
+                                new ProfessionalPushAction(payload.NutritionistId.Value, "Paciente en la videollamada",
+                                    "El paciente ya está en la sala de consulta online.", "/appointments"),
+                                DateTime.UtcNow, evt.Id, $"online:joined:patient:{payload.AppointmentId}:push", cancellationToken: cancellationToken);
+                        }
 
                         // Si el profesional aún no ha entrado, se avisa al paciente tras cinco minutos.
                         await ScheduleActionAsync(evt.TenantId, "notify_patient",

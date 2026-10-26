@@ -240,6 +240,9 @@ public sealed class AutomationWorker : BackgroundService
                 case "email_professional":
                     await ExecuteProfessionalEmailAsync(job, cancellationToken);
                     break;
+                case "push_professional":
+                    await ExecuteProfessionalPushAsync(job, cancellationToken);
+                    break;
                 default:
                     throw new InvalidOperationException($"Acción de automatización no soportada: {job.ActionType}");
             }
@@ -298,6 +301,26 @@ public sealed class AutomationWorker : BackgroundService
             action.ActionUrl,
             action.SendPush,
             $"job:{job.Id}:patient-notification");
+        if (action.SendPush)
+        {
+            var push = scope.ServiceProvider.GetRequiredService<PatientPushService>();
+            var target = action.ActionUrl?.Contains("messages", StringComparison.OrdinalIgnoreCase) == true
+                ? "messages"
+                : action.ActionUrl?.Contains("appointments", StringComparison.OrdinalIgnoreCase) == true
+                    ? "appointments"
+                    : "home";
+            await push.SendToClientAsync(action.ClientId, action.Title, action.Message, target,
+                $"job:{job.Id}:patient-notification", cancellationToken);
+        }
+    }
+
+    private async Task ExecuteProfessionalPushAsync(AutomationJob job, CancellationToken cancellationToken)
+    {
+        var action = AutomationJson.Deserialize<ProfessionalPushAction>(job.Payload)
+            ?? throw new InvalidOperationException("Payload inválido para push_professional.");
+        using var scope = _scopeFactory.CreateScope();
+        var push = scope.ServiceProvider.GetRequiredService<ProfessionalPushService>();
+        await push.SendNotificationAsync(job.TenantId, action.UserId, action.Title, action.Body, action.Url, cancellationToken);
     }
 
     private static bool MentionsPatientPortal(string subject, string htmlBody)

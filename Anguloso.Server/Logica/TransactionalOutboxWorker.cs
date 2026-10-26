@@ -207,7 +207,10 @@ public sealed class TransactionalOutboxWorker : BackgroundService
                 var email = await command.ExecuteScalarAsync(cancellationToken) as string;
                 if (string.IsNullOrWhiteSpace(email))
                 {
-                    _logger.LogWarning("No hay email profesional disponible para el mensaje de paciente {ClientId}.", clientId);
+                    var professionalPush = scope.ServiceProvider.GetRequiredService<ProfessionalPushService>();
+                    await professionalPush.SendNotificationAsync(job.TenantId, await GetAssignedProfessionalIdAsync(clientId, job.TenantId, cancellationToken),
+                        $"Nuevo mensaje de {patientName}", body.Length > 180 ? body[..180] + "…" : body, "/messages", cancellationToken);
+                    _logger.LogWarning("No hay email profesional disponible para el mensaje de paciente {ClientId}; se ha intentado el push.", clientId);
                     return;
                 }
 
@@ -219,11 +222,31 @@ public sealed class TransactionalOutboxWorker : BackgroundService
                     $"<h2>Nuevo mensaje de {safePatient}</h2><p>{safeBody}</p><p>Entra en DietoExpress para responder al paciente.</p>",
                     $"outbox:{job.Id}:professional-email");
                 if (!result.Exito) throw new InvalidOperationException(result.Mensaje);
+                var push = scope.ServiceProvider.GetRequiredService<ProfessionalPushService>();
+                await push.SendNotificationAsync(job.TenantId, await GetAssignedProfessionalIdAsync(clientId, job.TenantId, cancellationToken),
+                    $"Nuevo mensaje de {patientName}", body.Length > 180 ? body[..180] + "…" : body, "/messages", cancellationToken);
                 return;
             }
             default:
                 throw new InvalidOperationException($"Tipo de evento outbox no soportado: {job.EventType}");
         }
+    }
+
+    private async Task<int> GetAssignedProfessionalIdAsync(int clientId, int tenantId, CancellationToken ct)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(ct);
+        await using var command = new NpgsqlCommand("""
+            SELECT a.nutritionist_id
+            FROM client_nutritionist_assignments a
+            JOIN users u ON u.id=a.nutritionist_id AND u.tenant_id=@tenant
+            WHERE a.client_id=@client AND a.is_active
+            ORDER BY a.assigned_at DESC LIMIT 1;
+            """, connection);
+        command.Parameters.AddWithValue("client", clientId);
+        command.Parameters.AddWithValue("tenant", tenantId);
+        var value = await command.ExecuteScalarAsync(ct);
+        return value is null ? throw new InvalidOperationException("No hay nutricionista asignado para el mensaje.") : Convert.ToInt32(value);
     }
 
     private async Task MarkCompletedAsync(long id, CancellationToken cancellationToken)

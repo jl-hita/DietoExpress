@@ -62,7 +62,11 @@ public sealed class ProfessionalPushService
         await command.ExecuteNonQueryAsync(ct);
     }
 
-    public async Task SendAppointmentReminderAsync(int tenantId, int userId, int appointmentId, string clientName, DateTime startsAtUtc, CancellationToken ct = default)
+    public Task SendAppointmentReminderAsync(int tenantId, int userId, int appointmentId, string clientName, DateTime startsAtUtc, CancellationToken ct = default)
+        => SendNotificationAsync(tenantId, userId, "Cita en 15 minutos",
+            "Tienes una cita en 15 minutos. Consulta tu agenda.", "/appointments", ct);
+
+    public async Task SendNotificationAsync(int tenantId, int userId, string title, string body, string url, CancellationToken ct = default)
     {
         var subject = _config.GetConfigString("webPushSubject");
         var publicKey = GetVapidPublicKey();
@@ -88,7 +92,7 @@ public sealed class ProfessionalPushService
         if (subscriptions.Count == 0) return;
         var webPush = new WebPushClient();
         var vapid = new VapidDetails(subject, publicKey, privateKey);
-        var json = JsonSerializer.Serialize(new { title = "Cita en 15 minutos", body = "Tienes una cita en 15 minutos. Consulta tu agenda.", url = "/appointments" });
+        var json = JsonSerializer.Serialize(new { title, body, url });
         foreach (var item in subscriptions)
         {
             try
@@ -101,7 +105,7 @@ public sealed class ProfessionalPushService
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "No se pudo enviar recordatorio push al profesional {UserId} para la cita {AppointmentId}.", userId, appointmentId);
+                _logger.LogWarning(ex, "No se pudo enviar notificación push al profesional {UserId}.", userId);
             }
         }
     }
