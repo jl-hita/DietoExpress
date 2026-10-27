@@ -41,6 +41,7 @@ public sealed class ExerciseCatalogService
                 description_en TEXT,
                 description_de TEXT,
                 description_es TEXT,
+                metadata_enrichment_notes TEXT,
                 instructions_en JSONB NOT NULL DEFAULT '[]'::jsonb,
                 instructions_de JSONB NOT NULL DEFAULT '[]'::jsonb,
                 instructions_es JSONB NOT NULL DEFAULT '[]'::jsonb,
@@ -89,6 +90,7 @@ public sealed class ExerciseCatalogService
             ALTER TABLE exercise_catalog ADD COLUMN IF NOT EXISTS reviewed_selection_priority INTEGER NOT NULL DEFAULT 50;
             ALTER TABLE exercise_catalog ADD COLUMN IF NOT EXISTS review_status VARCHAR(20) NOT NULL DEFAULT 'pending';
             ALTER TABLE exercise_catalog ADD COLUMN IF NOT EXISTS review_notes TEXT;
+            ALTER TABLE exercise_catalog ADD COLUMN IF NOT EXISTS metadata_enrichment_notes TEXT;
             UPDATE exercise_catalog SET reviewed = FALSE, reviewed_movement_pattern = NULL, reviewed_primary_muscles = NULL, reviewed_secondary_muscles = NULL, reviewed_minimum_experience = NULL, reviewed_suitable_goals = NULL, reviewed_required_equipment = NULL, reviewed_at = NULL, reviewed_by = NULL, review_status = 'pending' WHERE reviewed_by = 'DietoExpress curated metadata v1';
             CREATE INDEX IF NOT EXISTS idx_exercise_catalog_category ON exercise_catalog(category);
             CREATE INDEX IF NOT EXISTS idx_exercise_catalog_body_part ON exercise_catalog(body_part);
@@ -135,6 +137,7 @@ public sealed class ExerciseCatalogService
             result = count == 0 ? await SyncFromSourceAsync(cancellationToken) : null;
         }
 
+        await EnsureRepDbMetadataEnrichmentAsync(cancellationToken);
         await EnsureRepDbInitialReviewAsync(cancellationToken);
         return result;
     }
@@ -176,20 +179,44 @@ public sealed class ExerciseCatalogService
                 if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(name))
                     throw new InvalidDataException("RepDB exercise is missing its stable id or English name.");
 
+                var nameEs = ReadString(exercise, "name_es");
+                var descriptionEs = ReadString(exercise, "description_es");
+                var difficulty = ReadString(exercise, "difficulty");
+                var equipment = ReadString(exercise, "equipment");
+                var bodyPart = ReadString(exercise, "body_part");
+                var primaryMusclesJson = JsonText(exercise, "primary_muscles");
+                var instructionsEsJson = JsonText(exercise, "instructions_es");
+                var tagsJson = JsonText(exercise, "tags");
+                var generatedDescription = string.IsNullOrWhiteSpace(descriptionEs);
+                var generatedDifficulty = string.IsNullOrWhiteSpace(difficulty);
+                if (generatedDescription)
+                    descriptionEs = RepDbExerciseAutoReviewer.GenerateDescriptionEs(nameEs, name, equipment, bodyPart, primaryMusclesJson);
+                if (generatedDifficulty)
+                    difficulty = RepDbExerciseAutoReviewer.InferDifficulty(null, nameEs, name, equipment,
+                        ReadString(exercise, "mechanic"), ReadString(exercise, "force_type"), bodyPart,
+                        tagsJson, instructionsEsJson);
+                var enrichmentNotes = generatedDescription || generatedDifficulty
+                    ? string.Join("; ", new[]
+                    {
+                        generatedDescription && !string.IsNullOrWhiteSpace(descriptionEs) ? "Descripción en español generada automáticamente" : null,
+                        generatedDifficulty && !string.IsNullOrWhiteSpace(difficulty) ? "Dificultad estimada automáticamente" : null
+                    }.Where(x => x is not null))
+                    : null;
+
                 var metadata = RepDbExerciseAutoReviewer.TryBuild(
-                    id, ReadString(exercise, "name_es") ?? "", name,
-                    ReadString(exercise, "description_es"),
-                    JsonText(exercise, "instructions_es"),
-                    ReadString(exercise, "difficulty"), ReadString(exercise, "equipment"),
+                    id, nameEs ?? "", name,
+                    descriptionEs,
+                    instructionsEsJson,
+                    difficulty, equipment,
                     ReadString(exercise, "force_type"), ReadString(exercise, "mechanic"),
-                    ReadString(exercise, "body_part"),
-                    JsonText(exercise, "primary_muscles"), JsonText(exercise, "secondary_muscles"),
-                    JsonText(exercise, "goals"), JsonText(exercise, "tags"), ReadBool(exercise, "is_bodyweight"));
+                    bodyPart,
+                    primaryMusclesJson, JsonText(exercise, "secondary_muscles"),
+                    JsonText(exercise, "goals"), tagsJson, ReadBool(exercise, "is_bodyweight"));
 
                 const string upsert = """
                     INSERT INTO exercise_catalog (
                         exercise_id, source, source_schema_version, source_payload,
-                        name_en, name_de, name_es, description_en, description_de, description_es,
+                        name_en, name_de, name_es, description_en, description_de, description_es, metadata_enrichment_notes,
                         instructions_en, instructions_de, instructions_es, tips_en, tips_de, tips_es,
                         category, force_type, mechanic, difficulty, equipment, body_part,
                         primary_muscles, secondary_muscles, goals, tags, met, is_unilateral, is_bodyweight, images,
@@ -199,7 +226,7 @@ public sealed class ExerciseCatalogService
                         reviewed_at, reviewed_by, source_updated_at, updated_at)
                     VALUES (
                         @id, @source, @schema_version, @payload::jsonb,
-                        @name_en, @name_de, @name_es, @description_en, @description_de, @description_es,
+                        @name_en, @name_de, @name_es, @description_en, @description_de, @description_es, @metadata_enrichment_notes,
                         @instructions_en::jsonb, @instructions_de::jsonb, @instructions_es::jsonb,
                         @tips_en::jsonb, @tips_de::jsonb, @tips_es::jsonb,
                         @category, @force_type, @mechanic, @difficulty, @equipment, @body_part,
@@ -217,6 +244,7 @@ public sealed class ExerciseCatalogService
                         name_en = EXCLUDED.name_en, name_de = EXCLUDED.name_de, name_es = EXCLUDED.name_es,
                         description_en = EXCLUDED.description_en, description_de = EXCLUDED.description_de,
                         description_es = EXCLUDED.description_es,
+                        metadata_enrichment_notes = COALESCE(EXCLUDED.metadata_enrichment_notes, exercise_catalog.metadata_enrichment_notes),
                         instructions_en = EXCLUDED.instructions_en, instructions_de = EXCLUDED.instructions_de,
                         instructions_es = EXCLUDED.instructions_es, tips_en = EXCLUDED.tips_en,
                         tips_de = EXCLUDED.tips_de, tips_es = EXCLUDED.tips_es,
@@ -238,7 +266,8 @@ public sealed class ExerciseCatalogService
                 Add(command, "name_es", ReadString(exercise, "name_es"));
                 Add(command, "description_en", ReadString(exercise, "description_en"));
                 Add(command, "description_de", ReadString(exercise, "description_de"));
-                Add(command, "description_es", ReadString(exercise, "description_es"));
+                Add(command, "description_es", descriptionEs);
+                Add(command, "metadata_enrichment_notes", enrichmentNotes);
                 AddJson(command, "instructions_en", exercise, "instructions_en");
                 AddJson(command, "instructions_de", exercise, "instructions_de");
                 AddJson(command, "instructions_es", exercise, "instructions_es");
@@ -248,8 +277,8 @@ public sealed class ExerciseCatalogService
                 Add(command, "category", ReadString(exercise, "category"));
                 Add(command, "force_type", ReadString(exercise, "force_type"));
                 Add(command, "mechanic", ReadString(exercise, "mechanic"));
-                Add(command, "difficulty", ReadString(exercise, "difficulty"));
-                Add(command, "equipment", ReadString(exercise, "equipment"));
+                Add(command, "difficulty", difficulty);
+                Add(command, "equipment", equipment);
                 Add(command, "body_part", ReadString(exercise, "body_part"));
                 AddJson(command, "primary_muscles", exercise, "primary_muscles");
                 AddJson(command, "secondary_muscles", exercise, "secondary_muscles");
@@ -293,6 +322,119 @@ public sealed class ExerciseCatalogService
         return new ExerciseCatalogSyncResult(SourceName, schemaVersion, imported, reviewedCount, DateTimeOffset.UtcNow);
     }
 
+
+
+    /// <summary>
+    /// Fills missing Spanish descriptions and difficulty estimates for every imported RepDB row.
+    /// Only blank values are changed; source-provided and manually edited values are preserved.
+    /// </summary>
+    private async Task EnsureRepDbMetadataEnrichmentAsync(CancellationToken cancellationToken)
+    {
+        const string marker = "exercise-catalog-repdb-description-difficulty-v1";
+        var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+        if (shouldClose) await connection.OpenAsync(cancellationToken);
+        try
+        {
+            await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+            await using (var check = new NpgsqlCommand("SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = @marker)", connection, transaction))
+            {
+                Add(check, "marker", marker);
+                if (Convert.ToBoolean(await check.ExecuteScalarAsync(cancellationToken)))
+                {
+                    await transaction.CommitAsync(cancellationToken);
+                    return;
+                }
+            }
+
+            await using (var hasRows = new NpgsqlCommand("SELECT EXISTS (SELECT 1 FROM exercise_catalog WHERE source = 'repdb-free')", connection, transaction))
+            {
+                if (!Convert.ToBoolean(await hasRows.ExecuteScalarAsync(cancellationToken)))
+                {
+                    // Keep the marker unconsumed until the initial RepDB import has completed.
+                    await transaction.CommitAsync(cancellationToken);
+                    return;
+                }
+            }
+
+            var rows = new List<(string Id, string? NameEs, string NameEn, string? DescriptionEs,
+                string? Difficulty, string? Equipment, string? BodyPart, string PrimaryMuscles,
+                string InstructionsEs, string? Mechanic, string? ForceType, string Tags)>();
+            const string selectSql = """
+                SELECT exercise_id, name_es, name_en, description_es, difficulty, equipment, body_part,
+                       primary_muscles::text, instructions_es::text, mechanic, force_type, tags::text
+                FROM exercise_catalog
+                WHERE source = 'repdb-free'
+                  AND (NULLIF(BTRIM(description_es), '') IS NULL OR NULLIF(BTRIM(difficulty), '') IS NULL)
+                """;
+            await using (var select = new NpgsqlCommand(selectSql, connection, transaction))
+            await using (var reader = await select.ExecuteReaderAsync(cancellationToken))
+            {
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    rows.Add((reader.GetString(0), NullableString(reader, 1), reader.GetString(2),
+                        NullableString(reader, 3), NullableString(reader, 4), NullableString(reader, 5),
+                        NullableString(reader, 6), reader.GetString(7), reader.GetString(8),
+                        NullableString(reader, 9), NullableString(reader, 10), reader.GetString(11)));
+                }
+            }
+
+            var enriched = 0;
+            foreach (var row in rows)
+            {
+                var generatedDescription = string.IsNullOrWhiteSpace(row.DescriptionEs);
+                var generatedDifficulty = string.IsNullOrWhiteSpace(row.Difficulty);
+                var description = generatedDescription
+                    ? RepDbExerciseAutoReviewer.GenerateDescriptionEs(row.NameEs, row.NameEn, row.Equipment, row.BodyPart, row.PrimaryMuscles)
+                    : null;
+                var difficulty = generatedDifficulty
+                    ? RepDbExerciseAutoReviewer.InferDifficulty(null, row.NameEs, row.NameEn, row.Equipment,
+                        row.Mechanic, row.ForceType, row.BodyPart, row.Tags, row.InstructionsEs)
+                    : null;
+                if (description is null && difficulty is null) continue;
+
+                var notes = string.Join("; ", new[]
+                {
+                    description is not null ? "Descripción en español generada automáticamente" : null,
+                    difficulty is not null ? "Dificultad estimada automáticamente" : null
+                }.Where(x => x is not null));
+                const string updateSql = """
+                    UPDATE exercise_catalog
+                    SET description_es = COALESCE(NULLIF(BTRIM(description_es), ''), @description),
+                        difficulty = COALESCE(NULLIF(BTRIM(difficulty), ''), @difficulty),
+                        metadata_enrichment_notes = CASE
+                            WHEN NULLIF(metadata_enrichment_notes, '') IS NULL THEN @notes
+                            WHEN @notes IS NULL OR metadata_enrichment_notes LIKE '%' || @notes || '%' THEN metadata_enrichment_notes
+                            ELSE metadata_enrichment_notes || '; ' || @notes
+                        END,
+                        updated_at = NOW()
+                    WHERE exercise_id = @id AND source = 'repdb-free'
+                    """;
+                await using var update = new NpgsqlCommand(updateSql, connection, transaction);
+                Add(update, "id", row.Id);
+                Add(update, "description", description);
+                Add(update, "difficulty", difficulty);
+                Add(update, "notes", string.IsNullOrWhiteSpace(notes) ? null : notes);
+                enriched += await update.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            await using (var mark = new NpgsqlCommand("INSERT INTO schema_migrations(id) VALUES (@marker) ON CONFLICT (id) DO NOTHING", connection, transaction))
+            {
+                Add(mark, "marker", marker);
+                await mark.ExecuteNonQueryAsync(cancellationToken);
+            }
+            await transaction.CommitAsync(cancellationToken);
+            _logger.LogInformation("RepDB metadata enrichment populated missing descriptions/difficulty for {Count} exercises.", enriched);
+        }
+        catch
+        {
+            throw;
+        }
+        finally
+        {
+            if (shouldClose) await connection.CloseAsync();
+        }
+    }
 
     /// <summary>
     /// Enriches the already-imported RepDB catalog once. Only untouched pending RepDB rows are eligible;
