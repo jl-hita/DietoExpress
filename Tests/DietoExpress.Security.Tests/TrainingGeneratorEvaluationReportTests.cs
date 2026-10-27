@@ -163,7 +163,7 @@ public sealed class TrainingGeneratorEvaluationReportTests
             Candidate("seated-cable-row", "Remo sentado en polea", TrainingMovementPattern.HorizontalPull, ["cable"], TrainingExperience.Beginner, 95,
                 [TrainingMuscleGroup.Lats, TrainingMuscleGroup.UpperBack], [TrainingMuscleGroup.Biceps, TrainingMuscleGroup.ErectorSpinae, TrainingMuscleGroup.Deltoids]),
             Candidate("bent-over-db-row", "Remo inclinado con mancuernas", TrainingMovementPattern.HorizontalPull, ["dumbbell"], TrainingExperience.Intermediate, 100,
-                [TrainingMuscleGroup.Lats, TrainingMuscleGroup.UpperBack], [TrainingMuscleGroup.Biceps, TrainingMuscleGroup.Deltoids, TrainingMuscleGroup.UpperBack]),
+                [TrainingMuscleGroup.Lats, TrainingMuscleGroup.UpperBack], [TrainingMuscleGroup.Biceps, TrainingMuscleGroup.Deltoids]),
             Candidate("machine-shoulder-press", "Press de hombros en máquina", TrainingMovementPattern.VerticalPush, ["shoulder_press_machine"], TrainingExperience.Beginner, 95,
                 [TrainingMuscleGroup.Deltoids], [TrainingMuscleGroup.UpperBack, TrainingMuscleGroup.Triceps]),
             Candidate("ohp", "Press militar con barra", TrainingMovementPattern.VerticalPush, ["barbell"], TrainingExperience.Intermediate, 100,
