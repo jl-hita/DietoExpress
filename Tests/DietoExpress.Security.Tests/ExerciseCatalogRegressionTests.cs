@@ -34,6 +34,9 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("ON CONFLICT (exercise_id) DO UPDATE", service);
         Assert.Contains("ApplyCuratedReviewsAsync", service);
         Assert.Contains("EnsureSeededAsync", program);
+        Assert.Contains("connection.CreateCommand()", service);
+        Assert.Contains("command.CommandText = sql", service);
+        Assert.DoesNotContain("ExecuteSqlRawAsync(sql, cancellationToken)", service);
         Assert.Contains("[Authorize(Roles = \"superadmin\")]", controller);
         Assert.DoesNotContain("source_payload FROM exercise_catalog", service);
     }
