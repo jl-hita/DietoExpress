@@ -414,8 +414,7 @@ public sealed class ExerciseCatalogService
                     END,
                     reviewed_movement_pattern = CASE
                         WHEN reviewed_by = 'RepDB automatic metadata v2'
-                         AND (category = 'cardio' OR exercise_id IN ('extended-side-angle', 'double-kettlebell-clean',
-                             'bird-dog-hold', 'dead-hang', 'sit-ups'))
+                         AND (category = 'cardio' OR exercise_id IN ('extended-side-angle', 'dead-hang', 'sit-ups'))
                         THEN NULL ELSE reviewed_movement_pattern
                     END,
                     reviewed_primary_muscles = CASE
