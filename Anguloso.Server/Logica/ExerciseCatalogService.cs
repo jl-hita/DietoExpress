@@ -336,7 +336,8 @@ public sealed class ExerciseCatalogService
     /// </summary>
     private async Task EnsureRepDbQualityCurationAsync(CancellationToken cancellationToken)
     {
-        const string marker = "exercise-catalog-repdb-quality-curation-v1";
+        // Versioned separately so previously imported catalogs receive the expanded curation rules.
+        const string marker = "exercise-catalog-repdb-quality-curation-v2";
         var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
         var shouldClose = connection.State != ConnectionState.Open;
         if (shouldClose) await connection.OpenAsync(cancellationToken);
@@ -360,10 +361,11 @@ public sealed class ExerciseCatalogService
                 await delete.ExecuteNonQueryAsync(cancellationToken);
             }
 
-            await using (var update = new NpgsqlCommand("""
+            const string updateSql = """
                 UPDATE exercise_catalog
                 SET category = CASE
                         WHEN exercise_id = 'extended-side-angle' THEN 'stretching'
+                        WHEN exercise_id = 'double-kettlebell-clean' THEN 'olympic'
                         ELSE category
                     END,
                     body_part = CASE
@@ -379,69 +381,83 @@ public sealed class ExerciseCatalogService
                         ELSE secondary_muscles
                     END,
                     goals = CASE
-                        WHEN category = 'cardio' THEN '["endurance"]'::jsonb
+                        WHEN category = 'cardio' THEN COALESCE(
+                            (SELECT jsonb_agg(to_jsonb(g.goal))
+                             FROM jsonb_array_elements_text(exercise_catalog.goals) AS g(goal)
+                             WHERE lower(g.goal) NOT IN ('hypertrophy', 'strength')),
+                            '["endurance"]'::jsonb)
                         WHEN exercise_id = 'extended-side-angle' THEN '["mobility"]'::jsonb
-                        WHEN exercise_id = 'bird-dog-hold' THEN '["core_stability"]'::jsonb
+                        WHEN exercise_id = 'bird-dog-hold' THEN '["rehabilitation", "endurance"]'::jsonb
                         ELSE goals
                     END,
                     review_status = CASE
                         WHEN reviewed_by = 'RepDB automatic metadata v2'
-                         AND (category = 'cardio' OR exercise_id IN ('bird-dog-hold', 'dead-hang', 'ring-dead-hang', 'sit-ups', 'balance-dome-crunch', 'double-kettlebell-clean'))
+                         AND (category = 'cardio' OR exercise_id IN ('extended-side-angle', 'double-kettlebell-clean',
+                             'bird-dog-hold', 'dead-hang', 'sit-ups'))
                         THEN 'pending' ELSE review_status
                     END,
                     reviewed = CASE
                         WHEN reviewed_by = 'RepDB automatic metadata v2'
-                         AND (category = 'cardio' OR exercise_id IN ('bird-dog-hold', 'dead-hang', 'ring-dead-hang', 'sit-ups', 'balance-dome-crunch', 'double-kettlebell-clean'))
+                         AND (category = 'cardio' OR exercise_id IN ('extended-side-angle', 'double-kettlebell-clean',
+                             'bird-dog-hold', 'dead-hang', 'sit-ups'))
                         THEN FALSE ELSE reviewed
                     END,
                     reviewed_movement_pattern = CASE
                         WHEN reviewed_by = 'RepDB automatic metadata v2'
-                         AND (category = 'cardio' OR exercise_id IN ('bird-dog-hold', 'dead-hang', 'ring-dead-hang', 'sit-ups', 'balance-dome-crunch', 'double-kettlebell-clean'))
+                         AND (category = 'cardio' OR exercise_id IN ('extended-side-angle', 'double-kettlebell-clean',
+                             'bird-dog-hold', 'dead-hang', 'sit-ups'))
                         THEN NULL ELSE reviewed_movement_pattern
                     END,
                     reviewed_primary_muscles = CASE
                         WHEN reviewed_by = 'RepDB automatic metadata v2'
-                         AND (category = 'cardio' OR exercise_id IN ('bird-dog-hold', 'dead-hang', 'ring-dead-hang', 'sit-ups', 'balance-dome-crunch', 'double-kettlebell-clean'))
+                         AND (category = 'cardio' OR exercise_id IN ('extended-side-angle', 'double-kettlebell-clean',
+                             'bird-dog-hold', 'dead-hang', 'sit-ups'))
                         THEN NULL ELSE reviewed_primary_muscles
                     END,
                     reviewed_secondary_muscles = CASE
                         WHEN reviewed_by = 'RepDB automatic metadata v2'
-                         AND (category = 'cardio' OR exercise_id IN ('bird-dog-hold', 'dead-hang', 'ring-dead-hang', 'sit-ups', 'balance-dome-crunch', 'double-kettlebell-clean'))
+                         AND (category = 'cardio' OR exercise_id IN ('extended-side-angle', 'double-kettlebell-clean',
+                             'bird-dog-hold', 'dead-hang', 'sit-ups'))
                         THEN NULL ELSE reviewed_secondary_muscles
                     END,
                     reviewed_minimum_experience = CASE
                         WHEN reviewed_by = 'RepDB automatic metadata v2'
-                         AND (category = 'cardio' OR exercise_id IN ('bird-dog-hold', 'dead-hang', 'ring-dead-hang', 'sit-ups', 'balance-dome-crunch', 'double-kettlebell-clean'))
+                         AND (category = 'cardio' OR exercise_id IN ('extended-side-angle', 'double-kettlebell-clean',
+                             'bird-dog-hold', 'dead-hang', 'sit-ups'))
                         THEN NULL ELSE reviewed_minimum_experience
                     END,
                     reviewed_suitable_goals = CASE
                         WHEN reviewed_by = 'RepDB automatic metadata v2'
-                         AND (category = 'cardio' OR exercise_id IN ('bird-dog-hold', 'dead-hang', 'ring-dead-hang', 'sit-ups', 'balance-dome-crunch', 'double-kettlebell-clean'))
+                         AND (category = 'cardio' OR exercise_id IN ('extended-side-angle', 'double-kettlebell-clean',
+                             'bird-dog-hold', 'dead-hang', 'sit-ups'))
                         THEN NULL ELSE reviewed_suitable_goals
                     END,
                     reviewed_required_equipment = CASE
                         WHEN reviewed_by = 'RepDB automatic metadata v2'
-                         AND (category = 'cardio' OR exercise_id IN ('bird-dog-hold', 'dead-hang', 'ring-dead-hang', 'sit-ups', 'balance-dome-crunch', 'double-kettlebell-clean'))
+                         AND (category = 'cardio' OR exercise_id IN ('extended-side-angle', 'double-kettlebell-clean',
+                             'bird-dog-hold', 'dead-hang', 'sit-ups'))
                         THEN NULL ELSE reviewed_required_equipment
                     END,
                     reviewed_at = CASE
                         WHEN reviewed_by = 'RepDB automatic metadata v2'
-                         AND (category = 'cardio' OR exercise_id IN ('bird-dog-hold', 'dead-hang', 'ring-dead-hang', 'sit-ups', 'balance-dome-crunch', 'double-kettlebell-clean'))
+                         AND (category = 'cardio' OR exercise_id IN ('extended-side-angle', 'double-kettlebell-clean',
+                             'bird-dog-hold', 'dead-hang', 'sit-ups'))
                         THEN NULL ELSE reviewed_at
                     END,
                     reviewed_by = CASE
                         WHEN reviewed_by = 'RepDB automatic metadata v2'
-                         AND (category = 'cardio' OR exercise_id IN ('bird-dog-hold', 'dead-hang', 'ring-dead-hang', 'sit-ups', 'balance-dome-crunch', 'double-kettlebell-clean'))
+                         AND (category = 'cardio' OR exercise_id IN ('extended-side-angle', 'double-kettlebell-clean',
+                             'bird-dog-hold', 'dead-hang', 'sit-ups'))
                         THEN NULL ELSE reviewed_by
                     END,
                     updated_at = NOW()
                 WHERE source = 'repdb-free'
                   AND (category = 'cardio'
-                    OR exercise_id IN ('extended-side-angle', 'double-kettlebell-clean', 'sit-ups', 'bird-dog-hold', 'dead-hang', 'ring-dead-hang', 'balance-dome-crunch'))
-                """, connection, transaction))
-            {
+                    OR exercise_id IN ('extended-side-angle', 'double-kettlebell-clean', 'sit-ups',
+                        'bird-dog-hold', 'dead-hang'))
+                """;
+            await using (var update = new NpgsqlCommand(updateSql, connection, transaction))
                 await update.ExecuteNonQueryAsync(cancellationToken);
-            }
 
             await using (var mark = new NpgsqlCommand("INSERT INTO schema_migrations(id) VALUES (@marker) ON CONFLICT (id) DO NOTHING", connection, transaction))
             {
@@ -449,7 +465,7 @@ public sealed class ExerciseCatalogService
                 await mark.ExecuteNonQueryAsync(cancellationToken);
             }
             await transaction.CommitAsync(cancellationToken);
-            _logger.LogInformation("Applied RepDB quality curation; excluded low-priority exercise IDs and normalized contradictory metadata.");
+            _logger.LogInformation("Applied RepDB quality curation v2; pruned redundant/specialist movements and corrected known metadata.");
         }
         finally
         {
