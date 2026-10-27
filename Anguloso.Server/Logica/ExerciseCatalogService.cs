@@ -79,7 +79,24 @@ public sealed class ExerciseCatalogService
             CREATE INDEX IF NOT EXISTS idx_exercise_catalog_reviewed ON exercise_catalog(reviewed, reviewed_movement_pattern);
             INSERT INTO schema_migrations(id) VALUES ('exercise-catalog-repdb-v1') ON CONFLICT (id) DO NOTHING;
             """;
-        await _db.Database.ExecuteSqlRawAsync(sql, cancellationToken);
+        // Execute DDL through the provider connection directly. EF Core's ExecuteSqlRaw
+        // treats braces in SQL as composite-format placeholders; JSONB defaults such as '{}'
+        // therefore throw FormatException before PostgreSQL sees the statement.
+        var connection = _db.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+        if (shouldClose)
+            await connection.OpenAsync(cancellationToken);
+        try
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+        finally
+        {
+            if (shouldClose)
+                await connection.CloseAsync();
+        }
     }
 
     public async Task<ExerciseCatalogSyncResult?> EnsureSeededAsync(CancellationToken cancellationToken = default)
