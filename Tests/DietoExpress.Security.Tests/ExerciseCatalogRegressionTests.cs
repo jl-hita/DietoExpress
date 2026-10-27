@@ -87,7 +87,8 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("lower(g.goal) NOT IN ('hypertrophy', 'strength')", service);
         Assert.Contains("\"clean-and-jerk\"", curation);
         Assert.Contains("\"banded-sumo-walk\"", curation);
-        Assert.Contains("double-kettlebell-clean\" => \"olympic\"", curation);
+        Assert.Contains("[\"clean\"] = []", curation);
+        Assert.Contains("string.Equals(category, \"olympic\"", curation);
         Assert.Contains("secondaryMusclesJson", service);
 
         Assert.DoesNotContain("source_payload FROM exercise_catalog", service);
