@@ -32,6 +32,11 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("reviewed_primary_muscles JSONB", service);
         Assert.Contains("reviewed_secondary_muscles JSONB", service);
         Assert.Contains("ON CONFLICT (exercise_id) DO UPDATE", service);
+        Assert.Contains("exercise-catalog-repdb-spanish-reset-v2", service);
+        Assert.Contains("DELETE FROM exercise_catalog", service);
+        Assert.Contains("replaceExisting: true, markBootstrapComplete: true", service);
+        Assert.Contains("name_es", service);
+        Assert.Contains("instructions_es", service);
         Assert.Contains("ResetLegacyAutoReviewsAsync", service);
         Assert.Contains("review_status VARCHAR(20)", service);
         Assert.Contains("author VARCHAR(120) NOT NULL DEFAULT 'superadmin'", service);
