@@ -39,7 +39,7 @@ internal static class RepDbExerciseAutoReviewer
         if (primary.Length == 0 || sourcePrimary.Length == 0)
             return null;
 
-        var pattern = InferPattern(id, name, nameEn, tagsJson, forceType, mechanic, bodyPart, sourcePrimary);
+        var pattern = InferPattern(id, nameEs, nameEn, tagsJson, forceType, mechanic, bodyPart, sourcePrimary);
         if (pattern is null)
             return null;
 
