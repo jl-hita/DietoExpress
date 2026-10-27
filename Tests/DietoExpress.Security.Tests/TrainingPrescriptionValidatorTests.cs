@@ -125,6 +125,40 @@ public sealed class TrainingPrescriptionValidatorTests
     }
 
     [Fact]
+    public void MissingOrContradictoryMuscleMetadata_IsRejected()
+    {
+        var exercise = ValidExercise() with
+        {
+            PrimaryMuscleGroups = [],
+            SecondaryMuscleGroups = [TrainingMuscleGroup.Chest, TrainingMuscleGroup.Chest]
+        };
+        var plan = ValidPlan() with
+        {
+            Sessions = [ValidSession() with { Exercises = [exercise] }]
+        };
+
+        var errors = TrainingPrescriptionValidator.Validate(plan);
+        Assert.Contains(errors, error => error.Contains("al menos un grupo muscular principal", StringComparison.Ordinal));
+        Assert.Contains(errors, error => error.Contains("repite grupos musculares secundarios", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void AGroupCannotBeBothPrimaryAndSecondary()
+    {
+        var exercise = ValidExercise() with
+        {
+            SecondaryMuscleGroups = [TrainingMuscleGroup.Chest]
+        };
+        var plan = ValidPlan() with
+        {
+            Sessions = [ValidSession() with { Exercises = [exercise] }]
+        };
+
+        Assert.Contains(TrainingPrescriptionValidator.Validate(plan),
+            error => error.Contains("principal y secundario", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void HistoricalExerciseNameSnapshotAndSelectionRationale_AreRequired()
     {
         var exercise = ValidExercise() with { ExerciseNameSnapshot = "", SelectionRationale = " " };
@@ -163,5 +197,7 @@ public sealed class TrainingPrescriptionValidatorTests
         2,
         120,
         TrainingProgressionRule.DoubleProgression,
-        "Patrón de empuje horizontal con material corporal disponible.");
+        "Patrón de empuje horizontal con material corporal disponible.",
+        [TrainingMuscleGroup.Chest],
+        [TrainingMuscleGroup.Triceps, TrainingMuscleGroup.Deltoids]);
 }
