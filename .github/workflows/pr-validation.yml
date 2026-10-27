@@ -137,5 +137,40 @@ jobs:
             exit 1
           fi
 
-      - name: Security tests
+      - name: Security tests and training generator evaluation
+        env:
+          TRAINING_GENERATOR_REPORT_PATH: ${{ github.workspace }}/artifacts/training-generator-evaluation.json
         run: dotnet test Tests/DietoExpress.Security.Tests/DietoExpress.Security.Tests.csproj -c Release --no-restore
+
+      - name: Resumen de evaluación del generador
+        if: always()
+        env:
+          REPORT_PATH: artifacts/training-generator-evaluation.json
+        run: |
+          if [ ! -f "$REPORT_PATH" ]; then
+            echo "No se generó el informe JSON de evaluación." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          node <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync(process.env.REPORT_PATH, 'utf8'));
+          const lines = [
+            '## Evaluación del generador de rutinas',
+            '',
+            `- Escenarios: **${report.scenarioCount}**`,
+            `- Generaciones correctas: **${report.successfulScenarios}**`,
+            `- Violaciones estructurales: **${report.hardViolationCount}**`,
+            '',
+            'El JSON completo incluye cada entrada, plan generado, métricas descriptivas y limitaciones.'
+          ];
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n') + '\n');
+          NODE
+
+      - name: Publicar JSON completo de evaluación
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: training-generator-evaluation
+          path: artifacts/training-generator-evaluation.json
+          if-no-files-found: error
+          retention-days: 14

@@ -29,7 +29,28 @@ public sealed record TrainingExercisePrescription(
     decimal? TargetRepetitionsInReserve,
     int RestSeconds,
     TrainingProgressionRule ProgressionRule,
-    string SelectionRationale);
+    string SelectionRationale,
+    IReadOnlyList<TrainingMuscleGroup> PrimaryMuscleGroups,
+    IReadOnlyList<TrainingMuscleGroup> SecondaryMuscleGroups);
+
+/// <summary>Controlled vocabulary for reviewed exercise muscle metadata.</summary>
+public enum TrainingMuscleGroup
+{
+    Chest,
+    Lats,
+    UpperBack,
+    Deltoids,
+    Biceps,
+    Triceps,
+    Forearms,
+    Abdominals,
+    Obliques,
+    ErectorSpinae,
+    Glutes,
+    Quadriceps,
+    Hamstrings,
+    Calves
+}
 
 public enum TrainingProgressionRule
 {
@@ -117,6 +138,27 @@ public static class TrainingPrescriptionValidator
                     errors.Add($"{exercisePrefix}: la regla de progresión no es válida.");
                 if (string.IsNullOrWhiteSpace(exercise.SelectionRationale) || exercise.SelectionRationale.Length > 500)
                     errors.Add($"{exercisePrefix}: debe documentarse el motivo de selección (máximo 500 caracteres).");
+                if (exercise.PrimaryMuscleGroups is null || exercise.PrimaryMuscleGroups.Count == 0)
+                    errors.Add($"{exercisePrefix}: debe declarar al menos un grupo muscular principal revisado.");
+                if (exercise.SecondaryMuscleGroups is null)
+                    errors.Add($"{exercisePrefix}: la lista de grupos musculares secundarios es obligatoria, aunque esté vacía.");
+                if (exercise.PrimaryMuscleGroups is not null)
+                {
+                    if (exercise.PrimaryMuscleGroups.Any(muscle => !Enum.IsDefined(muscle)))
+                        errors.Add($"{exercisePrefix}: contiene un grupo muscular principal no válido.");
+                    if (exercise.PrimaryMuscleGroups.Distinct().Count() != exercise.PrimaryMuscleGroups.Count)
+                        errors.Add($"{exercisePrefix}: repite grupos musculares principales.");
+                }
+                if (exercise.SecondaryMuscleGroups is not null)
+                {
+                    if (exercise.SecondaryMuscleGroups.Any(muscle => !Enum.IsDefined(muscle)))
+                        errors.Add($"{exercisePrefix}: contiene un grupo muscular secundario no válido.");
+                    if (exercise.SecondaryMuscleGroups.Distinct().Count() != exercise.SecondaryMuscleGroups.Count)
+                        errors.Add($"{exercisePrefix}: repite grupos musculares secundarios.");
+                    if (exercise.PrimaryMuscleGroups is not null &&
+                        exercise.PrimaryMuscleGroups.Intersect(exercise.SecondaryMuscleGroups).Any())
+                        errors.Add($"{exercisePrefix}: un grupo muscular no puede ser principal y secundario a la vez.");
+                }
             }
         }
 

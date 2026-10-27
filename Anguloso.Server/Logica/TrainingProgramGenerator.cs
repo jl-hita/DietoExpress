@@ -73,7 +73,9 @@ public static class TrainingProgramGenerator
                         rir,
                         rest,
                         progression,
-                        $"Patrón {pattern}; metadatos revisados; compatible con objetivo, experiencia, material y exclusiones." ));
+                        $"Patrón {pattern}; metadatos revisados; compatible con objetivo, experiencia, material y exclusiones.",
+                        candidate.PrimaryMuscleGroups.ToArray(),
+                        candidate.SecondaryMuscleGroups.ToArray()));
                 }
 
                 sessions.Add(new TrainingSessionPrescription(
@@ -86,7 +88,7 @@ public static class TrainingProgramGenerator
         }
 
         var plan = new TrainingProgramPrescription(
-            "0.3.0",
+            "0.4.0",
             request.Goal.ToString(),
             request.StartDate,
             request.DurationWeeks,
@@ -149,6 +151,28 @@ public static class TrainingProgramGenerator
                 errors.Add($"El ejercicio '{exercise.ExerciseId}' tiene un nivel mínimo de experiencia no válido.");
             if (exercise.SelectionPriority is < 0 or > 100)
                 errors.Add($"El ejercicio '{exercise.ExerciseId}' debe tener una prioridad de selección entre 0 y 100.");
+            if (exercise.PrimaryMuscleGroups is null || exercise.PrimaryMuscleGroups.Count == 0)
+                errors.Add($"El ejercicio '{exercise.ExerciseId}' debe declarar al menos un grupo muscular principal revisado.");
+            if (exercise.SecondaryMuscleGroups is null)
+                errors.Add($"El ejercicio '{exercise.ExerciseId}' debe declarar grupos secundarios, aunque la lista esté vacía.");
+            if (exercise.PrimaryMuscleGroups is not null)
+            {
+                if (exercise.PrimaryMuscleGroups.Any(muscle => !Enum.IsDefined(muscle)))
+                    errors.Add($"El ejercicio '{exercise.ExerciseId}' contiene un grupo muscular principal no válido.");
+                if (exercise.PrimaryMuscleGroups.Distinct().Count() != exercise.PrimaryMuscleGroups.Count)
+                    errors.Add($"El ejercicio '{exercise.ExerciseId}' repite grupos musculares principales.");
+            }
+            if (exercise.SecondaryMuscleGroups is not null)
+            {
+                if (exercise.SecondaryMuscleGroups.Any(muscle => !Enum.IsDefined(muscle)))
+                    errors.Add($"El ejercicio '{exercise.ExerciseId}' contiene un grupo muscular secundario no válido.");
+                if (exercise.SecondaryMuscleGroups.Distinct().Count() != exercise.SecondaryMuscleGroups.Count)
+                    errors.Add($"El ejercicio '{exercise.ExerciseId}' repite grupos musculares secundarios.");
+                if (exercise.PrimaryMuscleGroups is not null &&
+                    exercise.PrimaryMuscleGroups.Intersect(exercise.SecondaryMuscleGroups).Any())
+                    errors.Add($"El ejercicio '{exercise.ExerciseId}' declara un músculo como principal y secundario.");
+            }
+
             if (exercise.RequiredEquipment is null || exercise.SuitableGoals is null || exercise.SuitableGoals.Count == 0)
             {
                 errors.Add($"El ejercicio '{exercise.ExerciseId}' debe declarar material y al menos un objetivo compatible.");
@@ -238,7 +262,9 @@ public sealed record TrainingExerciseCandidate(
     IReadOnlyList<TrainingGoal> SuitableGoals,
     TrainingExperience MinimumExperience,
     int SelectionPriority,
-    bool IsReviewed);
+    bool IsReviewed,
+    IReadOnlyList<TrainingMuscleGroup> PrimaryMuscleGroups,
+    IReadOnlyList<TrainingMuscleGroup> SecondaryMuscleGroups);
 
 public sealed record TrainingProgramGenerationResult(
     TrainingProgramPrescription? Prescription,
