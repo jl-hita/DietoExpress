@@ -83,7 +83,7 @@ public sealed class ExerciseCatalogService
     public async Task<ExerciseCatalogSyncResult?> EnsureSeededAsync(CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken);
-        var count = await _db.Database.SqlQueryRaw<long>("SELECT COUNT(*) AS \\"Value\\" FROM exercise_catalog").SingleAsync(cancellationToken);
+        var count = await _db.Database.SqlQueryRaw<long>("""SELECT COUNT(*) AS "Value" FROM exercise_catalog""").SingleAsync(cancellationToken);
         return count == 0 ? await SyncFromSourceAsync(cancellationToken) : null;
     }
 
