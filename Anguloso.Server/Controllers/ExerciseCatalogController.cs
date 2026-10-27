@@ -69,7 +69,7 @@ public sealed class ExerciseCatalogController : ControllerBase
         {
             var contributor = User.Identity?.Name ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "professional";
             if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var contributorUserId)) return Unauthorized();
-            var id = await _catalog.AddProfessionalContributionAsync(contribution.Name, contribution.Description, contribution.Equipment, contribution.BodyPart, contributor, contributorUserId, cancellationToken);
+            var id = await _catalog.AddProfessionalContributionAsync(contribution.Name, contribution.Description, contribution.Equipment, contribution.BodyPart, contributor, contributorUserId, contribution, cancellationToken);
             return Created($"/api/exercise-catalog/{id}", new { id, status = "pending" });
         }
         catch (ArgumentException exception) { return BadRequest(new { error = exception.Message }); }
@@ -97,4 +97,3 @@ public sealed class ExerciseCatalogController : ControllerBase
     }
 }
 
-public sealed record ExerciseContributionRequest(string Name, string? Description, string? Equipment, string? BodyPart);

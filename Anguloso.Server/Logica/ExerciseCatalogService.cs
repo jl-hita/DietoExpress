@@ -79,6 +79,13 @@ public sealed class ExerciseCatalogService
             );
             ALTER TABLE exercise_catalog ADD COLUMN IF NOT EXISTS author VARCHAR(120) NOT NULL DEFAULT 'superadmin';
             ALTER TABLE exercise_catalog ADD COLUMN IF NOT EXISTS owner_user_id INTEGER;
+            ALTER TABLE exercise_catalog ADD COLUMN IF NOT EXISTS owner_movement_pattern VARCHAR(80);
+            ALTER TABLE exercise_catalog ADD COLUMN IF NOT EXISTS owner_primary_muscles JSONB;
+            ALTER TABLE exercise_catalog ADD COLUMN IF NOT EXISTS owner_secondary_muscles JSONB;
+            ALTER TABLE exercise_catalog ADD COLUMN IF NOT EXISTS owner_minimum_experience VARCHAR(40);
+            ALTER TABLE exercise_catalog ADD COLUMN IF NOT EXISTS owner_suitable_goals JSONB;
+            ALTER TABLE exercise_catalog ADD COLUMN IF NOT EXISTS owner_required_equipment JSONB;
+            ALTER TABLE exercise_catalog ADD COLUMN IF NOT EXISTS owner_selection_priority INTEGER NOT NULL DEFAULT 50;
             ALTER TABLE exercise_catalog ADD COLUMN IF NOT EXISTS reviewed_selection_priority INTEGER NOT NULL DEFAULT 50;
             ALTER TABLE exercise_catalog ADD COLUMN IF NOT EXISTS review_status VARCHAR(20) NOT NULL DEFAULT 'pending';
             ALTER TABLE exercise_catalog ADD COLUMN IF NOT EXISTS review_notes TEXT;
@@ -316,29 +323,124 @@ public sealed class ExerciseCatalogService
         finally { if (shouldClose) await connection.CloseAsync(); }
     }
 
-    public async Task<string> AddProfessionalContributionAsync(string name, string? description, string? equipment, string? bodyPart, string contributor, int contributorUserId, CancellationToken cancellationToken = default)
+    public async Task<string> AddProfessionalContributionAsync(string name, string? description, string? equipment, string? bodyPart, string contributor, int contributorUserId, ExerciseContributionRequest contribution, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(name) || name.Trim().Length > 200) throw new ArgumentException("El nombre es obligatorio y no puede superar 200 caracteres.");
         await EnsureSchemaAsync(cancellationToken);
         var id = "professional-" + Guid.NewGuid().ToString("N");
-        var payload = JsonSerializer.Serialize(new { name = name.Trim(), description, equipment, bodyPart, contributor });
+        ValidateContributionMetadata(contribution);
+        var payload = JsonSerializer.Serialize(new { name = name.Trim(), description, equipment, bodyPart, contributor, movementPattern = contribution.MovementPattern, primaryMuscles = contribution.PrimaryMuscles, secondaryMuscles = contribution.SecondaryMuscles, minimumExperience = contribution.MinimumExperience, suitableGoals = contribution.SuitableGoals, requiredEquipment = contribution.RequiredEquipment, selectionPriority = contribution.SelectionPriority });
         var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
         var shouldClose = connection.State != ConnectionState.Open;
         if (shouldClose) await connection.OpenAsync(cancellationToken);
         try
         {
             const string sql = """
-                INSERT INTO exercise_catalog (exercise_id, source, author, owner_user_id, source_payload, name_en, description_en, equipment, body_part, review_status)
-                VALUES (@id, 'professional-contribution', @author, @owner_user_id, @payload::jsonb, @name, @description, @equipment, @body_part, 'pending')
+                INSERT INTO exercise_catalog (exercise_id, source, author, owner_user_id, owner_movement_pattern, owner_primary_muscles, owner_secondary_muscles, owner_minimum_experience, owner_suitable_goals, owner_required_equipment, owner_selection_priority, source_payload, name_en, description_en, equipment, body_part, review_status)
+                VALUES (@id, 'professional-contribution', @author, @owner_user_id, @owner_pattern, @owner_primary::jsonb, @owner_secondary::jsonb, @owner_experience, @owner_goals::jsonb, @owner_equipment::jsonb, @owner_priority, @payload::jsonb, @name, @description, @equipment, @body_part, 'pending')
                 """;
             await using var command = new NpgsqlCommand(sql, connection);
             Add(command, "id", id); Add(command, "author", contributor); Add(command, "owner_user_id", contributorUserId);
+            Add(command, "owner_pattern", contribution.MovementPattern); Add(command, "owner_primary", JsonSerializer.Serialize(contribution.PrimaryMuscles ?? []));
+            Add(command, "owner_secondary", JsonSerializer.Serialize(contribution.SecondaryMuscles ?? [])); Add(command, "owner_experience", contribution.MinimumExperience);
+            Add(command, "owner_goals", JsonSerializer.Serialize(contribution.SuitableGoals ?? [])); Add(command, "owner_equipment", JsonSerializer.Serialize(contribution.RequiredEquipment ?? []));
+            Add(command, "owner_priority", Math.Clamp(contribution.SelectionPriority, 0, 100));
             Add(command, "payload", payload); Add(command, "name", name.Trim());
             Add(command, "description", description); Add(command, "equipment", equipment); Add(command, "body_part", bodyPart);
             await command.ExecuteNonQueryAsync(cancellationToken);
             return id;
         }
         finally { if (shouldClose) await connection.CloseAsync(); }
+    }
+
+    public async Task<IReadOnlyList<TrainingExerciseCandidate>> LoadGeneratorCandidatesAsync(int ownerUserId, CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken);
+        const string sql = """
+            SELECT exercise_id, COALESCE(name_es, name_en), review_status,
+                   COALESCE(reviewed_movement_pattern, owner_movement_pattern),
+                   COALESCE(reviewed_primary_muscles, owner_primary_muscles, '[]'::jsonb)::text,
+                   COALESCE(reviewed_secondary_muscles, owner_secondary_muscles, '[]'::jsonb)::text,
+                   COALESCE(reviewed_minimum_experience, owner_minimum_experience),
+                   COALESCE(reviewed_suitable_goals, owner_suitable_goals, '[]'::jsonb)::text,
+                   COALESCE(reviewed_required_equipment, owner_required_equipment, '[]'::jsonb)::text,
+                   COALESCE(reviewed_selection_priority, owner_selection_priority, 50),
+                   source, owner_user_id
+            FROM exercise_catalog
+            WHERE review_status = 'approved'
+               OR (review_status = 'pending' AND owner_user_id = @owner_user_id)
+            ORDER BY exercise_id
+            """;
+        var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+        if (shouldClose) await connection.OpenAsync(cancellationToken);
+        try
+        {
+            await using var command = new NpgsqlCommand(sql, connection);
+            Add(command, "owner_user_id", ownerUserId);
+            var result = new List<TrainingExerciseCandidate>();
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var pattern = NullableString(reader, 3);
+                var experience = NullableString(reader, 6);
+                if (!Enum.TryParse<TrainingMovementPattern>(pattern, true, out var parsedPattern) ||
+                    !Enum.TryParse<TrainingExperience>(experience, true, out var parsedExperience))
+                    continue;
+                var primary = ParseEnumArray<TrainingMuscleGroup>(reader.GetString(4));
+                var secondary = ParseEnumArray<TrainingMuscleGroup>(reader.GetString(5));
+                var goals = ParseEnumArray<TrainingGoal>(reader.GetString(7));
+                var equipment = ParseStringArray(reader.GetString(8));
+                if (primary.Length == 0 || goals.Length == 0) continue;
+                // Only approved records use superadmin metadata; pending records use contributor-supplied
+                // metadata and are included only for their own authenticated owner.
+                result.Add(new TrainingExerciseCandidate(
+                    reader.GetString(0), "exercise-catalog-db-v1", reader.GetString(1), parsedPattern,
+                    equipment, goals, parsedExperience, reader.GetInt32(9),
+                    reader.GetString(2) == "approved", primary, secondary));
+            }
+            return result;
+        }
+        finally { if (shouldClose) await connection.CloseAsync(); }
+    }
+
+    private static void ValidateContributionMetadata(ExerciseContributionRequest contribution)
+    {
+        if (string.IsNullOrWhiteSpace(contribution.MovementPattern) ||
+            !Enum.TryParse<TrainingMovementPattern>(contribution.MovementPattern, true, out _))
+            throw new ArgumentException("Indica un patrón de movimiento válido para poder usar el ejercicio en el generador.");
+        if (contribution.PrimaryMuscles is null || contribution.PrimaryMuscles.Length == 0 ||
+            contribution.PrimaryMuscles.Any(x => !Enum.TryParse<TrainingMuscleGroup>(x, true, out _)))
+            throw new ArgumentException("Indica al menos un grupo muscular principal válido.");
+        if (contribution.SecondaryMuscles is null ||
+            contribution.SecondaryMuscles.Any(x => !Enum.TryParse<TrainingMuscleGroup>(x, true, out _)))
+            throw new ArgumentException("Los grupos musculares secundarios deben ser válidos, aunque estén vacíos.");
+        if (string.IsNullOrWhiteSpace(contribution.MinimumExperience) ||
+            !Enum.TryParse<TrainingExperience>(contribution.MinimumExperience, true, out _))
+            throw new ArgumentException("Indica un nivel de experiencia mínimo válido.");
+        if (contribution.SuitableGoals is null || contribution.SuitableGoals.Length == 0 ||
+            contribution.SuitableGoals.Any(x => !Enum.TryParse<TrainingGoal>(x, true, out _)))
+            throw new ArgumentException("Indica al menos un objetivo compatible válido.");
+        if (contribution.RequiredEquipment is null ||
+            contribution.RequiredEquipment.Any(string.IsNullOrWhiteSpace))
+            throw new ArgumentException("El material requerido debe ser una lista válida, aunque esté vacía.");
+    }
+
+    private static T[] ParseEnumArray<T>(string json) where T : struct, Enum
+    {
+        try
+        {
+            return (JsonSerializer.Deserialize<string[]>(json) ?? [])
+                .Select(value => Enum.TryParse<T>(value, true, out var parsed) ? (T?)parsed : null)
+                .Where(value => value.HasValue).Select(value => value!.Value).Distinct().ToArray();
+        }
+        catch (JsonException) { return []; }
+    }
+
+    private static string[] ParseStringArray(string json)
+    {
+        try { return JsonSerializer.Deserialize<string[]>(json) ?? []; }
+        catch (JsonException) { return []; }
     }
 
     private static async Task ResetLegacyAutoReviewsAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, CancellationToken cancellationToken)
@@ -391,3 +493,4 @@ public sealed record ExerciseCatalogItem(
     int SelectionPriority, string? ReviewNotes, DateTime? ReviewedAt, string? ReviewedBy, string? Contributor);
 
 public sealed record ExerciseReviewRequest(string Status, string? MovementPattern, string[] PrimaryMuscles, string[] SecondaryMuscles, string MinimumExperience, string[] SuitableGoals, string[] RequiredEquipment, int SelectionPriority, string? Notes);
+public sealed record ExerciseContributionRequest(string Name, string? Description, string? Equipment, string? BodyPart, string? MovementPattern, string[]? PrimaryMuscles, string[]? SecondaryMuscles, string? MinimumExperience, string[]? SuitableGoals, string[]? RequiredEquipment, int SelectionPriority = 50);
