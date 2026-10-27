@@ -43,6 +43,18 @@ sudo visudo -cf /etc/sudoers.d/dietoexpress-restore
 
 La retención por defecto conserva catorce backups diarios normales (aproximadamente dos semanas). Los snapshots automáticos previos a una restauración incluyen el sufijo -pre-restore y tienen retención independiente de cuatro copias. Los snapshots manuales con sufijo -pre-* quedan excluidos de la rotación automática.
 
+
+## 10. Resultado de prueba de restauración — 2026-10-27
+
+El propietario del proyecto confirma que la restauración real de PostgreSQL se probó con éxito. El pendiente de ejecutar la primera restauración PostgreSQL queda cerrado.
+
+Para conservar la validez operativa:
+- Mantener el backup y su manifiesto/checksum disponibles conforme a la retención.
+- Registrar fuera de Git la fecha, el snapshot usado, el entorno destino, el resultado y cualquier incidencia de la prueba.
+- Para pruebas futuras, usar una base o instancia aislada; nunca experimentar con una restauración directa sobre la base de producción.
+- La prueba de PostgreSQL no debe interpretarse automáticamente como prueba de restauración conjunta de documentos, configuración/secrets, DNS/TLS y recuperación completa del servidor. Esos componentes solo se marcan como probados si se incluyeron en el simulacro.
+
+
 ## 4. Crear un backup desde SuperAdmin
 
 1. Entrar con una cuenta con rol superadmin.

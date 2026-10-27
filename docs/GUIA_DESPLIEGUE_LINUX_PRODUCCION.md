@@ -27,6 +27,22 @@ La aplicación actual se ejecuta como el usuario joso y el servicio es dietoexpr
 
 ---
 
+
+## Estado operativo verificado — 2026-10-27
+
+- **Restauración PostgreSQL:** el propietario del proyecto confirma que se ejecutó una restauración real de PostgreSQL y terminó correctamente. No repetirla en producción sin necesidad; conservar la evidencia/logs de la prueba conforme a la política operativa y mantener las pruebas futuras en un entorno aislado siempre que sea posible.
+- **Alertas externas de uptime:** el propietario confirma que la monitorización y sus avisos ya funcionan. La issue [#336](https://github.com/jl-hita/DietoExpress/issues/336) se considera completada para la configuración de alerta de caída/recuperación.
+- **Alcance:** estos resultados no demuestran por sí solos una recuperación completa ante pérdida del servidor. Para un simulacro integral hay que verificar también los documentos, la configuración y secretos recuperables, DNS/TLS y el restablecimiento del servicio.
+
+### Comprobación periódica de alertas
+
+1. Revisar en el panel del proveedor externo que el monitor siga habilitado y apunte al endpoint público correcto.
+2. Confirmar que el último chequeo sea reciente y que no existan incidencias abiertas o alertas de configuración.
+3. Tras un cambio de correo destinatario, URL o política de notificación, realizar una prueba controlada desde el panel del proveedor y confirmar la recepción del mensaje. No provocar una caída real del servidor como prueba.
+4. Confirmar que la recuperación cierra la incidencia y, si está habilitado, genera el aviso de recuperación.
+5. No guardar tokens, claves ni URLs privadas de gestión en este manual o en Git.
+
+
 # Aplicación Android del portal del paciente
 
 La app Android se mantiene en el repositorio independiente [jl-hita/DietoExpress.Android](https://github.com/jl-hita/DietoExpress.Android). Su configuración local, Firebase Cloud Messaging, URL de API, firma estable, secretos de GitHub Actions y checklist de distribución están documentados en [docs/ANDROID_SETUP.md](https://github.com/jl-hita/DietoExpress.Android/blob/main/docs/ANDROID_SETUP.md). La configuración de credenciales FCM del servidor está detallada en [docs/P1_PUSH_NOTIFICATIONS.md](P1_PUSH_NOTIFICATIONS.md); el JSON de cuenta de servicio debe permanecer fuera de Git, en una ruta protegida legible por `joso`.
