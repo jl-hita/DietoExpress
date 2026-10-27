@@ -479,7 +479,7 @@ public sealed class ExerciseCatalogService
     /// </summary>
     private async Task EnsureRepDbMetadataEnrichmentAsync(CancellationToken cancellationToken)
     {
-        const string marker = "exercise-catalog-repdb-description-difficulty-v1";
+        const string marker = "exercise-catalog-repdb-description-difficulty-v2";
         var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
         var shouldClose = connection.State != ConnectionState.Open;
         if (shouldClose) await connection.OpenAsync(cancellationToken);
