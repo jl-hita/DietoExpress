@@ -97,6 +97,34 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
+    public void UndefinedSuitableGoalIsRejected()
+    {
+        var catalog = Catalog().Select(exercise =>
+            exercise.MovementPattern == TrainingMovementPattern.Squat
+                ? exercise with { SuitableGoals = [(TrainingGoal)999] }
+                : exercise).ToArray();
+
+        var result = TrainingProgramGenerator.Generate(Request(), catalog);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Errors, error => error.Contains("objetivo compatible no válido", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void DuplicateSuitableGoalsAreRejected()
+    {
+        var catalog = Catalog().Select(exercise =>
+            exercise.MovementPattern == TrainingMovementPattern.Squat
+                ? exercise with { SuitableGoals = [TrainingGoal.Hypertrophy, TrainingGoal.Hypertrophy] }
+                : exercise).ToArray();
+
+        var result = TrainingProgramGenerator.Generate(Request(), catalog);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Errors, error => error.Contains("repite objetivos compatibles", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void CandidateSelectionHonorsRequiredEquipmentAndGoal()
     {
         var catalog = Catalog().Select(exercise =>
