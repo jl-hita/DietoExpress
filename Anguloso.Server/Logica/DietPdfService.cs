@@ -51,7 +51,7 @@ public class DietPdfService
             {
                 page.Size(PageSizes.A4);
                 page.Margin(40);
-                page.DefaultTextStyle(x => x.FontFamily("Arial").FontSize(10).FontColor("#2d2d2d"));
+                page.DefaultTextStyle(x => x.FontFamily("Lato").FontSize(10).FontColor("#2d2d2d"));
 
                 // ─── HEADER ───────────────────────────────────────────────────
                 page.Header().Element(c => ComposeHeader(c, nutritionist));
