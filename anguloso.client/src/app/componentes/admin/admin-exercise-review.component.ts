@@ -14,7 +14,7 @@ interface ExerciseReviewItem {
   id: string; nameEs?: string; nameEn: string; source: string; category?: string; bodyPart?: string; equipment?: string;
   reviewStatus: string; reviewed: boolean; movementPattern?: string; reviewedPrimaryMuscles?: string[];
   reviewedSecondaryMuscles?: string[]; minimumExperience?: string; suitableGoals?: string[]; requiredEquipment?: string[];
-  selectionPriority: number; reviewNotes?: string; reviewedBy?: string;
+  selectionPriority: number; reviewNotes?: string; reviewedBy?: string; contributor?: string;
 }
 @Component({
   standalone: true, selector: 'app-admin-exercise-review',
@@ -26,7 +26,7 @@ interface ExerciseReviewItem {
       <mat-form-field appearance="outline"><mat-label>Estado</mat-label><mat-select [(ngModel)]="status" (selectionChange)="load()"><mat-option value="pending">Pendientes</mat-option><mat-option value="approved">Aprobados</mat-option><mat-option value="rejected">Rechazados</mat-option></mat-select></mat-form-field><span>{{ items.length }} ejercicios</span></section>
     <p *ngIf="loading">Cargando catálogo…</p>
     <article class="exercise" *ngFor="let item of items"><div class="exercise-head"><div><h2>{{ item.nameEs || item.nameEn }}</h2><p>{{ item.nameEn }} · {{ item.source }} · {{ item.category || item.bodyPart || 'Sin categoría' }}</p></div><span class="status" [class.approved]="item.reviewStatus==='approved'" [class.rejected]="item.reviewStatus==='rejected'">{{ statusLabel(item.reviewStatus) }}</span></div>
-      <div class="facts"><span>Material original: {{ item.equipment || 'No indicado' }}</span><span>Zona: {{ item.bodyPart || 'No indicada' }}</span><span *ngIf="item.reviewedBy">Última revisión: {{ item.reviewedBy }}</span></div>
+      <div class="facts"><span>Material original: {{ item.equipment || 'No indicado' }}</span><span>Zona: {{ item.bodyPart || 'No indicada' }}</span><span *ngIf="item.contributor">Propuesto por: {{ item.contributor }}</span><span *ngIf="item.reviewedBy">Última revisión: {{ item.reviewedBy }}</span></div>
       <div class="editor"><mat-form-field appearance="outline"><mat-label>Patrón</mat-label><mat-select [(ngModel)]="drafts[item.id].pattern"><mat-option *ngFor="let p of patterns" [value]="p">{{ p }}</mat-option></mat-select></mat-form-field>
       <mat-form-field appearance="outline"><mat-label>Músculos principales (coma)</mat-label><input matInput [(ngModel)]="drafts[item.id].primary"/></mat-form-field>
       <mat-form-field appearance="outline"><mat-label>Músculos secundarios (coma)</mat-label><input matInput [(ngModel)]="drafts[item.id].secondary"/></mat-form-field>

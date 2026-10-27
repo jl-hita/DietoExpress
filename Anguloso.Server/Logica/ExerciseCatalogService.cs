@@ -230,7 +230,7 @@ public sealed class ExerciseCatalogService
             SELECT exercise_id, name_es, name_en, category, body_part, equipment,
                    primary_muscles, secondary_muscles, goals, tags, instructions_es, images, source, review_status,
                    reviewed, reviewed_movement_pattern, reviewed_primary_muscles, reviewed_secondary_muscles,
-                   reviewed_minimum_experience, reviewed_suitable_goals, reviewed_required_equipment, reviewed_selection_priority, review_notes, reviewed_at, reviewed_by
+                   reviewed_minimum_experience, reviewed_suitable_goals, reviewed_required_equipment, reviewed_selection_priority, review_notes, reviewed_at, reviewed_by, source_payload ->> 'contributor' AS contributor
             FROM exercise_catalog
             WHERE (@body_part IS NULL OR body_part = @body_part)
               AND (@equipment IS NULL OR equipment = @equipment)
@@ -263,7 +263,7 @@ public sealed class ExerciseCatalogService
                     ParseElement(reader.GetString(11)), reader.GetString(12), reader.GetString(13), reader.GetBoolean(14),
                     NullableString(reader, 15), NullableJson(reader, 16), NullableJson(reader, 17), NullableString(reader, 18),
                     NullableJson(reader, 19), NullableJson(reader, 20), reader.GetInt32(21), NullableString(reader, 22),
-                    reader.IsDBNull(23) ? null : reader.GetDateTime(23), NullableString(reader, 24)));
+                    reader.IsDBNull(23) ? null : reader.GetDateTime(23), NullableString(reader, 24), NullableString(reader, 25)));
             }
             return items;
         }
@@ -379,6 +379,6 @@ public sealed record ExerciseCatalogItem(
     JsonElement InstructionsEs, JsonElement Images, string Source, string ReviewStatus, bool Reviewed,
     string? MovementPattern, JsonElement? ReviewedPrimaryMuscles, JsonElement? ReviewedSecondaryMuscles,
     string? MinimumExperience, JsonElement? SuitableGoals, JsonElement? RequiredEquipment,
-    int SelectionPriority, string? ReviewNotes, DateTime? ReviewedAt, string? ReviewedBy);
+    int SelectionPriority, string? ReviewNotes, DateTime? ReviewedAt, string? ReviewedBy, string? Contributor);
 
 public sealed record ExerciseReviewRequest(string Status, string? MovementPattern, string[] PrimaryMuscles, string[] SecondaryMuscles, string MinimumExperience, string[] SuitableGoals, string[] RequiredEquipment, int SelectionPriority, string? Notes);
