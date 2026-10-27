@@ -50,7 +50,9 @@ public sealed class TrainingProgramGeneratorTests
                 "squat-alternative", "catalog-2026-10", "Sentadilla alternativa",
                 TrainingMovementPattern.Squat, [],
                 [TrainingGoal.GeneralFitness, TrainingGoal.Hypertrophy, TrainingGoal.Strength],
-                TrainingExperience.Beginner, 40, true)).ToArray());
+                TrainingExperience.Beginner, 40, true,
+                [TrainingMuscleGroup.Quadriceps, TrainingMuscleGroup.Glutes],
+                [TrainingMuscleGroup.ErectorSpinae])).ToArray());
 
         Assert.True(result.Succeeded, string.Join("; ", result.Errors));
         Assert.DoesNotContain(result.Prescription!.Sessions.SelectMany(x => x.Exercises),
@@ -196,16 +198,35 @@ public sealed class TrainingProgramGeneratorTests
 
     private static TrainingExerciseCandidate[] Catalog()
     {
-        var patterns = Enum.GetValues<TrainingMovementPattern>();
-        return patterns.Select(pattern => new TrainingExerciseCandidate(
-            pattern == TrainingMovementPattern.Squat ? "squat-basic" : $"exercise-{pattern.ToString().ToLowerInvariant()}",
-            "catalog-2026-10",
-            $"Ejercicio {pattern}",
-            pattern,
-            [],
-            [TrainingGoal.GeneralFitness, TrainingGoal.Hypertrophy, TrainingGoal.Strength],
-            TrainingExperience.Beginner,
-            50,
-            true)).ToArray();
+        return Enum.GetValues<TrainingMovementPattern>().Select(pattern =>
+        {
+            var (primary, secondary) = MuscleMetadata(pattern);
+            return new TrainingExerciseCandidate(
+                pattern == TrainingMovementPattern.Squat ? "squat-basic" : $"exercise-{pattern.ToString().ToLowerInvariant()}",
+                "catalog-2026-10",
+                $"Ejercicio {pattern}",
+                pattern,
+                [],
+                [TrainingGoal.GeneralFitness, TrainingGoal.Hypertrophy, TrainingGoal.Strength],
+                TrainingExperience.Beginner,
+                50,
+                true,
+                primary,
+                secondary);
+        }).ToArray();
     }
+
+    private static (IReadOnlyList<TrainingMuscleGroup> Primary, IReadOnlyList<TrainingMuscleGroup> Secondary)
+        MuscleMetadata(TrainingMovementPattern pattern) => pattern switch
+        {
+            TrainingMovementPattern.Squat => ([TrainingMuscleGroup.Quadriceps, TrainingMuscleGroup.Glutes], [TrainingMuscleGroup.Hamstrings, TrainingMuscleGroup.ErectorSpinae]),
+            TrainingMovementPattern.Hinge => ([TrainingMuscleGroup.Hamstrings, TrainingMuscleGroup.Glutes], [TrainingMuscleGroup.ErectorSpinae, TrainingMuscleGroup.Quadriceps]),
+            TrainingMovementPattern.HorizontalPush => ([TrainingMuscleGroup.Chest], [TrainingMuscleGroup.Triceps, TrainingMuscleGroup.Deltoids]),
+            TrainingMovementPattern.VerticalPush => ([TrainingMuscleGroup.Deltoids], [TrainingMuscleGroup.Triceps, TrainingMuscleGroup.Chest]),
+            TrainingMovementPattern.HorizontalPull => ([TrainingMuscleGroup.UpperBack, TrainingMuscleGroup.Lats], [TrainingMuscleGroup.Biceps, TrainingMuscleGroup.Forearms]),
+            TrainingMovementPattern.VerticalPull => ([TrainingMuscleGroup.Lats], [TrainingMuscleGroup.Biceps, TrainingMuscleGroup.UpperBack]),
+            TrainingMovementPattern.SingleLeg => ([TrainingMuscleGroup.Quadriceps, TrainingMuscleGroup.Glutes], [TrainingMuscleGroup.Hamstrings, TrainingMuscleGroup.Calves]),
+            TrainingMovementPattern.Core => ([TrainingMuscleGroup.Abdominals], [TrainingMuscleGroup.Obliques, TrainingMuscleGroup.ErectorSpinae]),
+            _ => throw new ArgumentOutOfRangeException(nameof(pattern))
+        };
 }
