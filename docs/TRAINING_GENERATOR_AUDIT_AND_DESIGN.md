@@ -140,3 +140,30 @@ La calidad del software se evalúa mediante CI, invariantes, pruebas de integrac
 ## 10. Condición de compatibilidad Android
 
 Todo PR que modifique rutas, DTO, autenticación, permisos, fechas o reglas de negocio debe declarar impacto en `jl-hita/DietoExpress.Android`, conforme a `docs/API_COMPATIBILITY.md`. No encolar feedback offline hasta que la semántica de fecha, idempotencia y conflictos esté definida y probada.
+
+
+## 11. Backlog posterior de catálogo y contenido multimedia (prioridad baja)
+
+Estos trabajos son importantes para enriquecer la biblioteca, pero **no deben retrasar** el motor de planificación, su batería de pruebas, la progresión ni el registro/adaptación del feedback del cliente.
+
+### 11.1 Catálogo de ejercicios administrable en PostgreSQL
+- Sustituir la dependencia de ejecución del catálogo JSON descargado en el navegador por un catálogo de ejercicios persistido en la base de datos y servido por la API.
+- Crear un proceso de importación inicial controlado, con identificadores estables, procedencia, atribución/licencia, versión de origen y detección de duplicados.
+- Permitir ampliar la biblioteca con ejercicios nuevos mediante una interfaz de administración para profesionales autorizados (y, si se decide, importación validada). No permitir que un usuario sin permisos altere el catálogo global.
+- Definir un flujo de revisión antes de publicar ejercicios nuevos o modificados y preservar compatibilidad con las prescripciones históricas.
+- No importar ni redistribuir datos del catálogo externo hasta verificar sus términos de uso, licencia y requisitos de atribución.
+
+### 11.2 Imágenes y otros medios
+- No almacenar por defecto imágenes o vídeos binarios como grandes blobs en PostgreSQL. Valorar almacenamiento de objetos/archivos con URL estable, metadatos en PostgreSQL y política de copias de seguridad.
+- Comparar alternativas compatibles con el despliegue actual: almacenamiento local persistente con backups y entrega por nginx, o almacenamiento de objetos compatible con S3. Decidir en función de coste, simplicidad operativa, permisos, caché y tamaño.
+- Guardar en la base de datos la referencia al medio, tipo, texto alternativo, autor/procedencia, licencia, fecha de revisión y estado de publicación. Definir qué ocurre si un recurso externo deja de estar disponible.
+- La solución elegida debe evitar rutas absolutas locales expuestas al cliente, medios huérfanos y enlaces que revelen credenciales.
+
+### 11.3 Vídeos tutoriales de técnica
+- Valorar vídeos breves que muestren ejecución correcta, recorrido, respiración, errores comunes y variantes/regresiones.
+- Priorizar vídeos propios o con licencia explícita para reutilización; no descargar ni redistribuir material ajeno sin permiso.
+- Para una primera iteración, puede bastar enlazar a un recurso fiable aprobado, guardando proveedor, URL, idioma, licencia/procedencia y fecha de verificación. La reproducción embebida debe respetar privacidad, disponibilidad y condiciones del proveedor.
+- La selección del vídeo no sustituye instrucciones escritas ni revisión profesional de los ejercicios.
+
+### Criterio de orden
+Completar primero el motor determinista y sus tests, el modelo estructurado de prescripción, el feedback del cliente y las adaptaciones futuras seguras. Abordar catálogo administrable, almacenamiento de imágenes y vídeos tutoriales después, como trabajo de prioridad inferior.
