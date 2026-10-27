@@ -216,7 +216,7 @@ public sealed class ExerciseCatalogService
                     difficulty, equipment,
                     ReadString(exercise, "force_type"), ReadString(exercise, "mechanic"),
                     bodyPart,
-                    primaryMusclesJson, JsonText(exercise, "secondary_muscles"),
+                    primaryMusclesJson, secondaryMusclesJson,
                     goalsJson, tagsJson, ReadBool(exercise, "is_bodyweight"));
 
                 const string upsert = """
