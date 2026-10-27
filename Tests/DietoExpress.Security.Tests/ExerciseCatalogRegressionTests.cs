@@ -47,7 +47,7 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("'/api/exercise-catalog?limit=100'", ui);
         Assert.DoesNotContain("https://exercise-dataset.com/exercises.json", ui);
         Assert.Contains("repdb-free-curated-v1", evaluation);
-        Assert.Contains("bulgarian-split-squat", evaluation);
+        Assert.Contains("step-ups", evaluation);
         Assert.Contains("romanian-deadlift", evaluation);
         Assert.Contains("ab-wheel-rollout", evaluation);
         Assert.Contains("Assert.Equal(27, report.ScenarioCount)", evaluation);
