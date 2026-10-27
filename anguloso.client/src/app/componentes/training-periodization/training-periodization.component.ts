@@ -88,7 +88,7 @@ interface RepDbExercise {
           <section class="exercise-library standalone-exercise-library" aria-label="Biblioteca de ejercicios para la plantilla">
             <div class="section-heading"><div><p class="eyebrow">BIBLIOTECA DE EJERCICIOS</p><h3>Construye la sesión con ejercicios del catálogo</h3><p>Busca por nombre, grupo muscular, objetivo o material y añade cada ejercicio a la prescripción.</p></div><span class="session-count">{{ filteredExercises.length }} ejercicios</span></div>
             <div class="exercise-filters">
-              <label>Buscar<input name="standaloneExerciseSearch" [(ngModel)]="exerciseSearch" placeholder="Ej. sentadilla, remo, movilidad…" /></label>
+              <label>Buscar<input name="standaloneExerciseSearch" [(ngModel)]="exerciseSearch" (ngModelChange)="loadExpandedExerciseCatalog()" placeholder="Ej. sentadilla, remo, movilidad…" /></label>
               <label>Objetivo<select name="standaloneExerciseGoal" [(ngModel)]="exerciseGoalFilter"><option value="all">Todos</option><option value="strength">Fuerza</option><option value="endurance">Resistencia</option><option value="mobility">Movilidad</option><option value="core">Core</option></select></label>
               <label>Material<select name="standaloneExerciseEquipment" [(ngModel)]="exerciseEquipmentFilter"><option value="all">Todo el material</option><option value="bodyweight">Peso corporal</option><option value="dumbbell">Mancuernas</option><option value="barbell">Barra</option><option value="machine">Máquina</option><option value="band">Bandas</option><option value="cardio">Cardio</option></select></label>
               <label>Grupo muscular<select name="standaloneExerciseMuscle" [(ngModel)]="exerciseMuscleFilter"><option value="all">Todos los grupos</option><option *ngFor="let muscle of exerciseMuscleGroups" [ngValue]="muscle">{{ muscle }}</option></select></label>
@@ -716,9 +716,12 @@ export class TrainingPeriodizationComponent implements OnInit {
     });
   }
 
-  private loadExpandedExerciseCatalog(): void {
-    // El catálogo se sirve desde PostgreSQL; la sincronización externa solo la puede iniciar superadmin.
-    this.http.get<RepDbExercise[]>('/api/exercise-catalog?limit=100')
+  loadExpandedExerciseCatalog(): void {
+    // Las búsquedas se filtran en PostgreSQL para que la interfaz pueda encontrar ejercicios de todo el catálogo.
+    const query = this.exerciseSearch.trim();
+    if (query.length === 1) return;
+    const url = '/api/exercise-catalog?limit=100' + (query ? '&q=' + encodeURIComponent(query) : '');
+    this.http.get<RepDbExercise[]>(url)
       .pipe(timeout(12000), catchError(() => of([] as RepDbExercise[])))
       .subscribe(data => {
         const imported = data.filter(item => typeof item.id === 'string' && !!item.nameEs?.trim())
