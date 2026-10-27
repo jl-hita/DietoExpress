@@ -72,13 +72,31 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("[HttpGet(\"review-queue/export\")]", controller);
         Assert.Contains("totalPending = stats.pending", controller);
         Assert.Contains("complete = items.Count == stats.pending", controller);
+        Assert.Contains("ExportReviewQueueAsync", controller);
+        Assert.Contains("description_es, description_en", service);
+        Assert.Contains("tips_es::text", service);
+        Assert.Contains("source_payload::text", service);
+        Assert.Contains("const string repairSql", service);
+        Assert.Contains("source_payload->>'name_es'", service);
+        Assert.Contains("instructions_es = CASE", service);
         Assert.Contains("EnsureRepDbQualityCurationAsync", service);
-        Assert.Contains("RepDbExerciseCuration.ShouldExclude(id)", service);
+        Assert.Contains("RepDbExerciseCuration.ShouldExclude(id, sourceCategory, equipment, variationGroup)", service);
+        Assert.Contains("jsonb_each(@preferred_variants::jsonb)", service);
+        Assert.Contains("PreferredIdsByVariationGroup", service);
         Assert.Contains("category = 'cardio'", service);
         var curation = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "RepDbExerciseCuration.cs"));
         Assert.Contains("\"air-bike\"", curation);
         Assert.Contains("\"endurance\"", curation);
         Assert.Contains("RequiresManualReview", curation);
+        Assert.Contains("exercise-catalog-repdb-quality-curation-v2", service);
+        Assert.Contains("exercise-catalog-repdb-description-difficulty-v2", service);
+        Assert.Contains("owner_user_id IS NULL", service);
+        Assert.Contains("exercise_id = ANY(@excluded_ids)", service);
+        Assert.Contains("lower(g.goal) NOT IN ('hypertrophy', 'strength')", service);
+        Assert.Contains("\"banded-sumo-walk\"", curation);
+        Assert.Contains("[\"clean\"] = []", curation);
+        Assert.Contains("string.Equals(category, \"olympic\"", curation);
+        Assert.Contains("secondaryMusclesJson", service);
 
         Assert.DoesNotContain("source_payload FROM exercise_catalog", service);
     }

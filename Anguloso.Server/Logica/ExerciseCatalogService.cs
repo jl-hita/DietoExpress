@@ -179,18 +179,21 @@ public sealed class ExerciseCatalogService
                 var name = ReadString(exercise, "name_en");
                 if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(name))
                     throw new InvalidDataException("RepDB exercise is missing its stable id or English name.");
-                if (RepDbExerciseCuration.ShouldExclude(id))
+
+                var sourceCategory = ReadString(exercise, "category");
+                var equipment = ReadString(exercise, "equipment");
+                var variationGroup = ReadString(exercise, "variation_group");
+                if (RepDbExerciseCuration.ShouldExclude(id, sourceCategory, equipment, variationGroup))
                     continue;
 
-                var category = RepDbExerciseCuration.CurateCategory(id, ReadString(exercise, "category"));
-                var bodyPart = RepDbExerciseCuration.CurateBodyPart(id, ReadString(exercise, "body_part"));
+                var category = RepDbExerciseCuration.CurateCategory(id, sourceCategory);
+                var bodyPart = ReadString(exercise, "body_part");
                 var goalsJson = RepDbExerciseCuration.CurateGoalsJson(id, category, JsonText(exercise, "goals"));
                 var primaryMusclesJson = RepDbExerciseCuration.CurateMusclesJson(id, primary: true, JsonText(exercise, "primary_muscles"));
                 var secondaryMusclesJson = RepDbExerciseCuration.CurateMusclesJson(id, primary: false, JsonText(exercise, "secondary_muscles"));
                 var nameEs = ReadString(exercise, "name_es");
                 var descriptionEs = ReadString(exercise, "description_es");
                 var difficulty = ReadString(exercise, "difficulty");
-                var equipment = ReadString(exercise, "equipment");
                 var instructionsEsJson = JsonText(exercise, "instructions_es");
                 var tagsJson = JsonText(exercise, "tags");
                 var generatedDescription = string.IsNullOrWhiteSpace(descriptionEs);
@@ -216,7 +219,7 @@ public sealed class ExerciseCatalogService
                     difficulty, equipment,
                     ReadString(exercise, "force_type"), ReadString(exercise, "mechanic"),
                     bodyPart,
-                    primaryMusclesJson, JsonText(exercise, "secondary_muscles"),
+                    primaryMusclesJson, secondaryMusclesJson,
                     goalsJson, tagsJson, ReadBool(exercise, "is_bodyweight"));
 
                 const string upsert = """
@@ -336,7 +339,8 @@ public sealed class ExerciseCatalogService
     /// </summary>
     private async Task EnsureRepDbQualityCurationAsync(CancellationToken cancellationToken)
     {
-        const string marker = "exercise-catalog-repdb-quality-curation-v1";
+        // Versioned separately so previously imported catalogs receive the expanded curation rules.
+        const string marker = "exercise-catalog-repdb-quality-curation-v2";
         var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
         var shouldClose = connection.State != ConnectionState.Open;
         if (shouldClose) await connection.OpenAsync(cancellationToken);
@@ -353,22 +357,73 @@ public sealed class ExerciseCatalogService
                 }
             }
 
-            await using (var delete = new NpgsqlCommand(
-                "DELETE FROM exercise_catalog WHERE source = 'repdb-free' AND exercise_id = ANY(@excluded_ids)", connection, transaction))
+            await using (var delete = new NpgsqlCommand("""
+                DELETE FROM exercise_catalog
+                WHERE source = 'repdb-free'
+                  AND owner_user_id IS NULL
+                  AND (
+                    exercise_id = ANY(@excluded_ids)
+                    OR source_payload->>'category' IN ('olympic', 'plyometrics')
+                    OR source_payload->>'equipment' = 'bosu_ball'
+                    OR EXISTS (
+                        SELECT 1
+                        FROM jsonb_each(@preferred_variants::jsonb) AS vg(group_name, keep_ids)
+                        WHERE source_payload->>'variation_group' = vg.group_name
+                          AND NOT (vg.keep_ids ? exercise_catalog.exercise_id)
+                    )
+                  )
+                """, connection, transaction))
             {
                 Add(delete, "excluded_ids", RepDbExerciseCuration.ExcludedIds);
+                Add(delete, "preferred_variants", JsonSerializer.Serialize(RepDbExerciseCuration.PreferredIdsByVariationGroup));
                 await delete.ExecuteNonQueryAsync(cancellationToken);
             }
 
-            await using (var update = new NpgsqlCommand("""
+            // Restore missing normalized fields from the original RepDB payload only when blank.
+            // This is deterministic source recovery, not generated metadata, and never overwrites non-empty edits.
+            const string repairSql = """
+                UPDATE exercise_catalog
+                SET name_es = COALESCE(NULLIF(BTRIM(name_es), ''), NULLIF(source_payload->>'name_es', '')),
+                    description_es = COALESCE(NULLIF(BTRIM(description_es), ''), NULLIF(source_payload->>'description_es', '')),
+                    description_en = COALESCE(NULLIF(BTRIM(description_en), ''), NULLIF(source_payload->>'description_en', '')),
+                    difficulty = COALESCE(NULLIF(BTRIM(difficulty), ''), NULLIF(source_payload->>'difficulty', '')),
+                    category = COALESCE(NULLIF(BTRIM(category), ''), NULLIF(source_payload->>'category', '')),
+                    force_type = COALESCE(NULLIF(BTRIM(force_type), ''), NULLIF(source_payload->>'force_type', '')),
+                    mechanic = COALESCE(NULLIF(BTRIM(mechanic), ''), NULLIF(source_payload->>'mechanic', '')),
+                    equipment = COALESCE(NULLIF(BTRIM(equipment), ''), NULLIF(source_payload->>'equipment', '')),
+                    body_part = COALESCE(NULLIF(BTRIM(body_part), ''), NULLIF(source_payload->>'body_part', '')),
+                    primary_muscles = CASE WHEN primary_muscles = '[]'::jsonb
+                        THEN COALESCE(source_payload->'primary_muscles', '[]'::jsonb) ELSE primary_muscles END,
+                    secondary_muscles = CASE WHEN secondary_muscles = '[]'::jsonb
+                        THEN COALESCE(source_payload->'secondary_muscles', '[]'::jsonb) ELSE secondary_muscles END,
+                    goals = CASE WHEN goals = '[]'::jsonb
+                        THEN COALESCE(source_payload->'goals', '[]'::jsonb) ELSE goals END,
+                    tags = CASE WHEN tags = '[]'::jsonb
+                        THEN COALESCE(source_payload->'tags', '[]'::jsonb) ELSE tags END,
+                    instructions_es = CASE
+                        WHEN CASE WHEN jsonb_typeof(instructions_es) = 'array'
+                            THEN jsonb_array_length(instructions_es) < 2 ELSE TRUE END
+                        THEN CASE WHEN jsonb_typeof(source_payload->'instructions_es') = 'array'
+                            THEN source_payload->'instructions_es' ELSE instructions_es END
+                        ELSE instructions_es END,
+                    tips_es = CASE WHEN tips_es = '[]'::jsonb
+                        THEN COALESCE(source_payload->'tips_es', '[]'::jsonb) ELSE tips_es END,
+                    images = CASE WHEN images = '{}'::jsonb
+                        THEN COALESCE(source_payload->'images', '{}'::jsonb) ELSE images END,
+                    met = COALESCE(met, NULLIF(source_payload->>'met', '')::double precision),
+                    is_unilateral = COALESCE(is_unilateral, NULLIF(source_payload->>'is_unilateral', '')::boolean),
+                    is_bodyweight = COALESCE(is_bodyweight, NULLIF(source_payload->>'is_bodyweight', '')::boolean),
+                    updated_at = NOW()
+                WHERE source = 'repdb-free' AND owner_user_id IS NULL
+                """;
+            await using (var repair = new NpgsqlCommand(repairSql, connection, transaction))
+                await repair.ExecuteNonQueryAsync(cancellationToken);
+
+            const string updateSql = """
                 UPDATE exercise_catalog
                 SET category = CASE
                         WHEN exercise_id = 'extended-side-angle' THEN 'stretching'
                         ELSE category
-                    END,
-                    body_part = CASE
-                        WHEN exercise_id = 'double-kettlebell-clean' THEN 'full_body'
-                        ELSE body_part
                     END,
                     primary_muscles = CASE
                         WHEN exercise_id = 'sit-ups' THEN '["rectus_abdominis"]'::jsonb
@@ -379,69 +434,78 @@ public sealed class ExerciseCatalogService
                         ELSE secondary_muscles
                     END,
                     goals = CASE
-                        WHEN category = 'cardio' THEN '["endurance"]'::jsonb
+                        WHEN category = 'cardio' THEN COALESCE(
+                            (SELECT jsonb_agg(to_jsonb(g.goal))
+                             FROM jsonb_array_elements_text(exercise_catalog.goals) AS g(goal)
+                             WHERE lower(g.goal) NOT IN ('hypertrophy', 'strength')),
+                            '["endurance"]'::jsonb)
                         WHEN exercise_id = 'extended-side-angle' THEN '["mobility"]'::jsonb
-                        WHEN exercise_id = 'bird-dog-hold' THEN '["core_stability"]'::jsonb
                         ELSE goals
                     END,
                     review_status = CASE
                         WHEN reviewed_by = 'RepDB automatic metadata v2'
-                         AND (category = 'cardio' OR exercise_id IN ('bird-dog-hold', 'dead-hang', 'ring-dead-hang', 'sit-ups', 'balance-dome-crunch', 'double-kettlebell-clean'))
+                         AND (category = 'cardio' OR exercise_id IN ('extended-side-angle', 'dead-hang', 'sit-ups'))
                         THEN 'pending' ELSE review_status
                     END,
                     reviewed = CASE
                         WHEN reviewed_by = 'RepDB automatic metadata v2'
-                         AND (category = 'cardio' OR exercise_id IN ('bird-dog-hold', 'dead-hang', 'ring-dead-hang', 'sit-ups', 'balance-dome-crunch', 'double-kettlebell-clean'))
+                         AND (category = 'cardio' OR exercise_id IN ('extended-side-angle', 'dead-hang', 'sit-ups'))
                         THEN FALSE ELSE reviewed
                     END,
                     reviewed_movement_pattern = CASE
                         WHEN reviewed_by = 'RepDB automatic metadata v2'
-                         AND (category = 'cardio' OR exercise_id IN ('bird-dog-hold', 'dead-hang', 'ring-dead-hang', 'sit-ups', 'balance-dome-crunch', 'double-kettlebell-clean'))
+                         AND (category = 'cardio' OR exercise_id IN ('extended-side-angle', 'dead-hang', 'sit-ups'))
                         THEN NULL ELSE reviewed_movement_pattern
                     END,
                     reviewed_primary_muscles = CASE
                         WHEN reviewed_by = 'RepDB automatic metadata v2'
-                         AND (category = 'cardio' OR exercise_id IN ('bird-dog-hold', 'dead-hang', 'ring-dead-hang', 'sit-ups', 'balance-dome-crunch', 'double-kettlebell-clean'))
+                         AND (category = 'cardio' OR exercise_id IN ('extended-side-angle', 'double-kettlebell-clean',
+                             'bird-dog-hold', 'dead-hang', 'sit-ups'))
                         THEN NULL ELSE reviewed_primary_muscles
                     END,
                     reviewed_secondary_muscles = CASE
                         WHEN reviewed_by = 'RepDB automatic metadata v2'
-                         AND (category = 'cardio' OR exercise_id IN ('bird-dog-hold', 'dead-hang', 'ring-dead-hang', 'sit-ups', 'balance-dome-crunch', 'double-kettlebell-clean'))
+                         AND (category = 'cardio' OR exercise_id IN ('extended-side-angle', 'double-kettlebell-clean',
+                             'bird-dog-hold', 'dead-hang', 'sit-ups'))
                         THEN NULL ELSE reviewed_secondary_muscles
                     END,
                     reviewed_minimum_experience = CASE
                         WHEN reviewed_by = 'RepDB automatic metadata v2'
-                         AND (category = 'cardio' OR exercise_id IN ('bird-dog-hold', 'dead-hang', 'ring-dead-hang', 'sit-ups', 'balance-dome-crunch', 'double-kettlebell-clean'))
+                         AND (category = 'cardio' OR exercise_id IN ('extended-side-angle', 'double-kettlebell-clean',
+                             'bird-dog-hold', 'dead-hang', 'sit-ups'))
                         THEN NULL ELSE reviewed_minimum_experience
                     END,
                     reviewed_suitable_goals = CASE
                         WHEN reviewed_by = 'RepDB automatic metadata v2'
-                         AND (category = 'cardio' OR exercise_id IN ('bird-dog-hold', 'dead-hang', 'ring-dead-hang', 'sit-ups', 'balance-dome-crunch', 'double-kettlebell-clean'))
+                         AND (category = 'cardio' OR exercise_id IN ('extended-side-angle', 'double-kettlebell-clean',
+                             'bird-dog-hold', 'dead-hang', 'sit-ups'))
                         THEN NULL ELSE reviewed_suitable_goals
                     END,
                     reviewed_required_equipment = CASE
                         WHEN reviewed_by = 'RepDB automatic metadata v2'
-                         AND (category = 'cardio' OR exercise_id IN ('bird-dog-hold', 'dead-hang', 'ring-dead-hang', 'sit-ups', 'balance-dome-crunch', 'double-kettlebell-clean'))
+                         AND (category = 'cardio' OR exercise_id IN ('extended-side-angle', 'double-kettlebell-clean',
+                             'bird-dog-hold', 'dead-hang', 'sit-ups'))
                         THEN NULL ELSE reviewed_required_equipment
                     END,
                     reviewed_at = CASE
                         WHEN reviewed_by = 'RepDB automatic metadata v2'
-                         AND (category = 'cardio' OR exercise_id IN ('bird-dog-hold', 'dead-hang', 'ring-dead-hang', 'sit-ups', 'balance-dome-crunch', 'double-kettlebell-clean'))
+                         AND (category = 'cardio' OR exercise_id IN ('extended-side-angle', 'double-kettlebell-clean',
+                             'bird-dog-hold', 'dead-hang', 'sit-ups'))
                         THEN NULL ELSE reviewed_at
                     END,
                     reviewed_by = CASE
                         WHEN reviewed_by = 'RepDB automatic metadata v2'
-                         AND (category = 'cardio' OR exercise_id IN ('bird-dog-hold', 'dead-hang', 'ring-dead-hang', 'sit-ups', 'balance-dome-crunch', 'double-kettlebell-clean'))
+                         AND (category = 'cardio' OR exercise_id IN ('extended-side-angle', 'double-kettlebell-clean',
+                             'bird-dog-hold', 'dead-hang', 'sit-ups'))
                         THEN NULL ELSE reviewed_by
                     END,
                     updated_at = NOW()
                 WHERE source = 'repdb-free'
                   AND (category = 'cardio'
-                    OR exercise_id IN ('extended-side-angle', 'double-kettlebell-clean', 'sit-ups', 'bird-dog-hold', 'dead-hang', 'ring-dead-hang', 'balance-dome-crunch'))
-                """, connection, transaction))
-            {
+                    OR exercise_id IN ('extended-side-angle', 'sit-ups', 'dead-hang'))
+                """;
+            await using (var update = new NpgsqlCommand(updateSql, connection, transaction))
                 await update.ExecuteNonQueryAsync(cancellationToken);
-            }
 
             await using (var mark = new NpgsqlCommand("INSERT INTO schema_migrations(id) VALUES (@marker) ON CONFLICT (id) DO NOTHING", connection, transaction))
             {
@@ -449,7 +513,7 @@ public sealed class ExerciseCatalogService
                 await mark.ExecuteNonQueryAsync(cancellationToken);
             }
             await transaction.CommitAsync(cancellationToken);
-            _logger.LogInformation("Applied RepDB quality curation; excluded low-priority exercise IDs and normalized contradictory metadata.");
+            _logger.LogInformation("Applied RepDB quality curation v2; pruned redundant/specialist movements and corrected known metadata.");
         }
         finally
         {
@@ -463,7 +527,7 @@ public sealed class ExerciseCatalogService
     /// </summary>
     private async Task EnsureRepDbMetadataEnrichmentAsync(CancellationToken cancellationToken)
     {
-        const string marker = "exercise-catalog-repdb-description-difficulty-v1";
+        const string marker = "exercise-catalog-repdb-description-difficulty-v2";
         var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
         var shouldClose = connection.State != ConnectionState.Open;
         if (shouldClose) await connection.OpenAsync(cancellationToken);
@@ -729,6 +793,57 @@ public sealed class ExerciseCatalogService
         }
     }
 
+    /// <summary>
+    /// Returns every pending row with the full normalized metadata and original source payload.
+    /// This is intentionally separate from the paginated UI DTO so batch audits do not lose fields.
+    /// </summary>
+    public async Task<IReadOnlyList<ExerciseCatalogExportItem>> ExportReviewQueueAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken);
+        const string sql = """
+            SELECT exercise_id, name_es, name_en, description_es, description_en, category, force_type, mechanic,
+                   difficulty, equipment, body_part, primary_muscles::text, secondary_muscles::text, goals::text,
+                   tags::text, instructions_es::text, tips_es::text, images::text, met, is_unilateral, is_bodyweight,
+                   source, review_status, reviewed, reviewed_movement_pattern, reviewed_primary_muscles::text,
+                   reviewed_secondary_muscles::text, reviewed_minimum_experience, reviewed_suitable_goals::text,
+                   reviewed_required_equipment::text, reviewed_selection_priority, review_notes, reviewed_at, reviewed_by,
+                   source_payload->>'contributor', source_payload::text
+            FROM exercise_catalog
+            WHERE review_status = 'pending'
+            ORDER BY source, name_es NULLS LAST, name_en
+            """;
+        var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+        if (shouldClose) await connection.OpenAsync(cancellationToken);
+        try
+        {
+            var items = new List<ExerciseCatalogExportItem>();
+            await using var command = new NpgsqlCommand(sql, connection);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                items.Add(new ExerciseCatalogExportItem(
+                    reader.GetString(0), NullableString(reader, 1), reader.GetString(2), NullableString(reader, 3),
+                    NullableString(reader, 4), NullableString(reader, 5), NullableString(reader, 6), NullableString(reader, 7),
+                    NullableString(reader, 8), NullableString(reader, 9), NullableString(reader, 10),
+                    ParseElement(reader.GetString(11)), ParseElement(reader.GetString(12)), ParseElement(reader.GetString(13)),
+                    ParseElement(reader.GetString(14)), ParseElement(reader.GetString(15)), ParseElement(reader.GetString(16)),
+                    ParseElement(reader.GetString(17)), reader.IsDBNull(18) ? null : reader.GetDouble(18),
+                    reader.IsDBNull(19) ? null : reader.GetBoolean(19), reader.IsDBNull(20) ? null : reader.GetBoolean(20),
+                    reader.GetString(21), reader.GetString(22), reader.GetBoolean(23), NullableString(reader, 24),
+                    NullableJson(reader, 25), NullableJson(reader, 26), NullableString(reader, 27), NullableJson(reader, 28),
+                    NullableJson(reader, 29), reader.GetInt32(30), NullableString(reader, 31),
+                    reader.IsDBNull(32) ? null : reader.GetDateTime(32), NullableString(reader, 33),
+                    NullableString(reader, 34), ParseElement(reader.GetString(35))));
+            }
+            return items;
+        }
+        finally
+        {
+            if (shouldClose) await connection.CloseAsync();
+        }
+    }
+
     public async Task<IReadOnlyList<ExerciseCatalogItem>> SearchAsync(string? query, string? bodyPart, string? equipment, int limit, CancellationToken cancellationToken = default, string? reviewStatus = null, int? ownerUserId = null, bool includeAllOwners = false, int maxLimit = 100)
     {
         await EnsureSchemaAsync(cancellationToken);
@@ -984,6 +1099,15 @@ public sealed class ExerciseCatalogService
 }
 
 public sealed record ExerciseCatalogSyncResult(string Source, string SchemaVersion, int ImportedCount, int ReviewedCount, DateTimeOffset SyncedAtUtc);
+public sealed record ExerciseCatalogExportItem(
+    string Id, string? NameEs, string NameEn, string? DescriptionEs, string? DescriptionEn,
+    string? Category, string? ForceType, string? Mechanic, string? Difficulty, string? Equipment, string? BodyPart,
+    JsonElement PrimaryMuscles, JsonElement SecondaryMuscles, JsonElement Goals, JsonElement Tags,
+    JsonElement InstructionsEs, JsonElement TipsEs, JsonElement Images, double? Met, bool? IsUnilateral, bool? IsBodyweight,
+    string Source, string ReviewStatus, bool Reviewed, string? MovementPattern,
+    JsonElement? ReviewedPrimaryMuscles, JsonElement? ReviewedSecondaryMuscles, string? MinimumExperience,
+    JsonElement? SuitableGoals, JsonElement? RequiredEquipment, int SelectionPriority, string? ReviewNotes,
+    DateTime? ReviewedAt, string? ReviewedBy, string? Contributor, JsonElement SourcePayload);
 public sealed record ExerciseCatalogItem(
     string Id, string? NameEs, string NameEn, string? Category, string? BodyPart, string? Equipment,
     JsonElement PrimaryMuscles, JsonElement SecondaryMuscles, JsonElement Goals, JsonElement Tags,
