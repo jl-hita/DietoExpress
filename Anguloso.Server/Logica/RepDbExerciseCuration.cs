@@ -8,9 +8,37 @@ namespace Anguloso.Server.Logica;
 /// </summary>
 internal static class RepDbExerciseCuration
 {
-    // Air bike is deliberately excluded from DietoExpress's general-purpose exercise library:
-    // it is a niche conditioning machine and not a useful resistance-training selection.
-    public static readonly string[] ExcludedIds = ["air-bike"];
+    // These are explicit product-curation decisions, not generic fitness claims:
+    // remove a niche conditioning machine, highly specialized skills, unstable/low-load variants,
+    // isometric duplicates and excessive near-identical isolation variations. Keep standard,
+    // scalable exercises and useful equipment alternatives.
+    public static readonly string[] ExcludedIds =
+    [
+        "air-bike",
+        "back-lever",
+        "side-lying-hip-abduction-hold",
+        "side-lying-hip-adduction-hold",
+        "banded-seated-hip-abduction",
+        "banded-standing-hip-adduction",
+        "clamshells",
+        "clamshells-hold",
+        "decline-db-fly",
+        "cocoons",
+        "balance-dome-crunch",
+        "ring-dead-hang",
+        "cheat-curl",
+        "close-grip-ez-bar-curl",
+        "close-grip-barbell-curl",
+        "double-kettlebell-bicep-curl",
+        "one-arm-kettlebell-bicep-curl",
+        "kettlebell-concentration-curl",
+        "kettlebell-curl-iso-hold",
+        "barbell-wrist-curl",
+        "ez-bar-wrist-curl",
+        "cable-wrist-curl",
+        "kettlebell-wrist-curl",
+        "wrist-curl"
+    ];
 
     private static readonly HashSet<string> Excluded = new(ExcludedIds, StringComparer.OrdinalIgnoreCase);
 
