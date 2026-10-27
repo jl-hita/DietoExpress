@@ -5,6 +5,12 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    groups:
+      frontend-patch-updates:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
     labels:
       - dependencies
       - frontend
@@ -14,6 +20,12 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    groups:
+      backend-patch-updates:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
     labels:
       - dependencies
       - backend
