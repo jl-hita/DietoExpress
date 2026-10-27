@@ -115,10 +115,11 @@ public sealed class TrainingPortalController : ControllerBase
         if (!int.TryParse(User.FindFirstValue("portalTokenVersion"), out var version)) return Unauthorized();
         var clientValid = await _context.clients.AsNoTracking().AnyAsync(c => c.id == clientId && c.archived_at == null && c.portal_token_version == version, cancellationToken);
         if (!clientValid) return Unauthorized();
+        var structuredFeedback = request.Outcome is not null;
         var missedSession = request.Outcome == "not_completed";
-        if ((!missedSession && request.ActualDurationMinutes is null) ||
+        if ((structuredFeedback && !missedSession && request.ActualDurationMinutes is null) ||
             request.ActualDurationMinutes is < 1 or > 1440 ||
-            (!missedSession && request.SessionRpe is null) ||
+            (structuredFeedback && !missedSession && request.SessionRpe is null) ||
             request.SessionRpe is < 0 or > 10)
             return BadRequest(new { message = "Para una sesión realizada, indica una duración entre 1 y 1440 minutos y un RPE entre 0 y 10." });
         if (!IsAllowed(request.Outcome, "completed", "partial", "not_completed") ||
