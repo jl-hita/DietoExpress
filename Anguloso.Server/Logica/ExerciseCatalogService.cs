@@ -304,7 +304,7 @@ public sealed class ExerciseCatalogService
         command.Parameters.AddWithValue(name, value ?? DBNull.Value);
 
     private static void AddJson(NpgsqlCommand command, string name, JsonElement parent, string property) =>
-        command.Parameters.AddWithValue(name, parent.TryGetProperty(property, out var value) ? value.GetRawText() : "[]");
+        command.Parameters.AddWithValue(name, parent.TryGetProperty(property, out var value) ? value.GetRawText() : property == "images" ? "{}" : "[]");
 
     private static string? ReadString(JsonElement parent, string property) =>
         parent.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
