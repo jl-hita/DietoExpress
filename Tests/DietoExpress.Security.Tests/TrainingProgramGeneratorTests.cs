@@ -74,6 +74,25 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
+    public void OwnerCanGenerateWithTheirOwnPendingExerciseButNotAnUnownedPendingExercise()
+    {
+        var catalog = Catalog().Select(exercise =>
+            exercise.MovementPattern == TrainingMovementPattern.Squat
+                ? exercise with { IsReviewed = false, IsOwnedByCurrentProfessional = true }
+                : exercise).ToArray();
+
+        var result = TrainingProgramGenerator.Generate(Request(), catalog);
+
+        Assert.True(result.Succeeded, string.Join("; ", result.Errors));
+        Assert.Contains(result.Prescription!.Sessions.SelectMany(x => x.Exercises), exercise => exercise.ExerciseId == "squat-basic");
+
+        var notOwned = catalog.Select(exercise => exercise with { IsOwnedByCurrentProfessional = false }).ToArray();
+        var denied = TrainingProgramGenerator.Generate(Request(), notOwned);
+        Assert.False(denied.Succeeded);
+        Assert.Contains(denied.Errors, error => error.Contains("No hay un ejercicio revisado compatible", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void ExerciseCatalogRequiresReviewedMuscleGroups()
     {
         var catalog = Catalog().Select(exercise =>

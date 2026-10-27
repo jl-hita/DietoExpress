@@ -48,7 +48,7 @@ public static class TrainingProgramGenerator
                 {
                     var pattern = requiredPatterns[patternIndex];
                     var candidate = catalog
-                        .Where(x => x.IsReviewed
+                        .Where(x => (x.IsReviewed || x.IsOwnedByCurrentProfessional)
                             && x.MovementPattern == pattern
                             && x.SuitableGoals.Contains(request.Goal)
                             && (int)x.MinimumExperience <= (int)request.Experience
@@ -73,7 +73,7 @@ public static class TrainingProgramGenerator
                         rir,
                         rest,
                         progression,
-                        $"Patrón {pattern}; metadatos revisados; compatible con objetivo, experiencia, material y exclusiones.",
+                        $"Patrón {pattern}; metadatos {(candidate.IsReviewed ? "revisados" : "aportados por el profesional propietario")}; compatible con objetivo, experiencia, material y exclusiones.",
                         candidate.PrimaryMuscleGroups.ToArray(),
                         candidate.SecondaryMuscleGroups.ToArray()));
                 }
@@ -264,7 +264,8 @@ public sealed record TrainingExerciseCandidate(
     int SelectionPriority,
     bool IsReviewed,
     IReadOnlyList<TrainingMuscleGroup> PrimaryMuscleGroups,
-    IReadOnlyList<TrainingMuscleGroup> SecondaryMuscleGroups);
+    IReadOnlyList<TrainingMuscleGroup> SecondaryMuscleGroups,
+    bool IsOwnedByCurrentProfessional = false);
 
 public sealed record TrainingProgramGenerationResult(
     TrainingProgramPrescription? Prescription,

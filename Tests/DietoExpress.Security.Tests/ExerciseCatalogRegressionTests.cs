@@ -40,6 +40,13 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("author = 'superadmin' OR review_status = 'approved'", service);
         Assert.Contains("includeAllOwners: true", controller);
         Assert.Contains("contributorUserId", controller);
+        Assert.Contains("LoadGeneratorCandidatesAsync", service);
+        Assert.Contains("IsOwnedByCurrentProfessional", File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "TrainingProgramGenerator.cs")));
+        Assert.Contains("review_status = 'approved'", service);
+        Assert.Contains("owner_user_id = @owner_user_id", service);
+        Assert.Contains("owner_movement_pattern", service);
+        Assert.Contains("GeneratePreview", File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs")));
+        Assert.Contains("MatSelectModule", File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "exercise-contributions", "exercise-contributions.component.ts")));
         Assert.Contains("WHERE reviewed_by = 'DietoExpress curated metadata v1'", service);
         Assert.DoesNotContain("ApplyCuratedReviewsAsync", service);
         Assert.Contains("EnsureSeededAsync", program);

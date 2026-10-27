@@ -22,13 +22,33 @@ public sealed class TrainingPeriodizationController : ControllerBase
 {
     private readonly angulosodbContext _context;
     private readonly EmailServ _emailServ;
+    private readonly ExerciseCatalogService _exerciseCatalog;
 
-    public TrainingPeriodizationController(angulosodbContext context, EmailServ emailServ)
+    public TrainingPeriodizationController(angulosodbContext context, EmailServ emailServ, ExerciseCatalogService exerciseCatalog)
     {
         _context = context;
         _emailServ = emailServ;
+        _exerciseCatalog = exerciseCatalog;
     }
 
+
+
+    [HttpPost("generate-preview")]
+    public async Task<IActionResult> GeneratePreview([FromBody] TrainingProgramGenerationRequest request, CancellationToken cancellationToken)
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId is null) return Unauthorized();
+        try
+        {
+            var candidates = await _exerciseCatalog.LoadGeneratorCandidatesAsync(userId.Value, cancellationToken);
+            var result = TrainingProgramGenerator.Generate(request, candidates);
+            return result.Succeeded ? Ok(result.Prescription) : UnprocessableEntity(new { errors = result.Errors });
+        }
+        catch (Exception)
+        {
+            return StatusCode(503, new { errors = new[] { "No se pudo preparar el catálogo de ejercicios para generar la rutina." } });
+        }
+    }
 
     [HttpGet("session-templates")]
     public async Task<IActionResult> GetSessionTemplates(CancellationToken cancellationToken)
