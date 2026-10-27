@@ -3,6 +3,7 @@ namespace Anguloso.Server.Logica;
 /// <summary>
 /// Deterministic, conservative decision policy for interpreting training feedback.
 /// It returns a recommendation for future sessions; it never edits a plan or diagnoses an injury.
+/// Feedback must be supplied oldest-to-newest; the latest item represents the most recent session.
 /// </summary>
 public static class TrainingAdaptationPolicy
 {
@@ -13,6 +14,11 @@ public static class TrainingAdaptationPolicy
         if (recentFeedback.Count == 0)
             return Decision(TrainingAdaptationAction.InsufficientData,
                 "Todavía no hay registros suficientes para adaptar el entrenamiento.");
+
+        // Invalid telemetry must never be interpreted as evidence for progression or adaptation.
+        if (recentFeedback.Any(HasInvalidValues))
+            return Decision(TrainingAdaptationAction.InvalidFeedback,
+                "Hay datos de entrenamiento no válidos. Corrige los registros antes de evaluar cambios.");
 
         var latest = recentFeedback[^1];
 
@@ -35,9 +41,8 @@ public static class TrainingAdaptationPolicy
             return Decision(TrainingAdaptationAction.ReorganizeFutureSessions,
                 "La sesión se omitió por falta de tiempo; reorganiza solo las sesiones futuras si el calendario y la recuperación lo permiten.");
 
-        if ((latest.Outcome is TrainingSessionOutcome.Partial &&
-             latest.NonCompletionReason is TrainingNonCompletionReason.Fatigue) ||
-            latest.NonCompletionReason is TrainingNonCompletionReason.Illness ||
+        if (latest.Outcome is TrainingSessionOutcome.Partial or TrainingSessionOutcome.NotCompleted &&
+            latest.NonCompletionReason is TrainingNonCompletionReason.Fatigue or TrainingNonCompletionReason.Illness ||
             latest.Recovery is TrainingRecoveryRating.Insufficient)
             return Decision(TrainingAdaptationAction.HoldProgressionAndReview,
                 "No aumentes automáticamente la exigencia. Revisa el contexto y confirma la recuperación antes de progresar.");
@@ -59,6 +64,13 @@ public static class TrainingAdaptationPolicy
         static TrainingAdaptationDecision Decision(TrainingAdaptationAction action, string explanation) =>
             new(action, explanation);
     }
+
+    private static bool HasInvalidValues(TrainingSessionFeedback feedback) =>
+        !Enum.IsDefined(feedback.Outcome) ||
+        !Enum.IsDefined(feedback.NonCompletionReason) ||
+        !Enum.IsDefined(feedback.Recovery) ||
+        !Enum.IsDefined(feedback.PainSignal) ||
+        feedback.SessionRpe is < 0 or > 10;
 }
 
 public enum TrainingSessionOutcome
@@ -96,6 +108,7 @@ public enum TrainingPainSignal
 public enum TrainingAdaptationAction
 {
     InsufficientData,
+    InvalidFeedback,
     NoChange,
     ReorganizeFutureSessions,
     HoldProgressionAndReview,
