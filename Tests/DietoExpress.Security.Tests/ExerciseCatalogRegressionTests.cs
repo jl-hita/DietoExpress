@@ -80,6 +80,7 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("\"endurance\"", curation);
         Assert.Contains("RequiresManualReview", curation);
         Assert.Contains("exercise-catalog-repdb-quality-curation-v2", service);
+        Assert.Contains("exercise-catalog-repdb-description-difficulty-v2", service);
         Assert.Contains("owner_user_id IS NULL AND exercise_id = ANY(@excluded_ids)", service);
         Assert.Contains("lower(g.goal) NOT IN ('hypertrophy', 'strength')", service);
         Assert.Contains("\"clean-and-jerk\"", curation);
