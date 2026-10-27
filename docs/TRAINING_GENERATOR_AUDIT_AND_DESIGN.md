@@ -137,10 +137,12 @@ La calidad del software se evalúa mediante CI, invariantes, pruebas de integrac
 7. Habilitar primero como borrador para profesionales; no autoaplicar cambios sensibles sin controles.
 8. Someter programas de referencia a revisión profesional antes de publicitarlo como generador validado.
 
-### 9.1 Primer contrato estructurado implementado
+### 9.1 Contrato estructurado, validador y primera versión del generador
 `TrainingProgramPrescription` representa el plan con versión del motor, objetivo, fecha de inicio, duración y sesiones. Cada sesión tiene semana/día y duración estimada; cada ejercicio conserva ID estable, versión del catálogo y nombre snapshot, orden, series, rango de repeticiones, RIR objetivo, descanso, regla de progresión y motivo de selección.
 
-`TrainingPrescriptionValidator` rechaza contratos incompletos o inconsistentes antes de persistirlos o mostrarlos. Sus límites son guardas estructurales de software, no una afirmación de que una dosis concreta sea apropiada para todas las personas. El siguiente paso es un generador puro que consuma un catálogo explícito de ejercicios con metadatos fiables y produzca planes reproducibles que pasen este validador.
+`TrainingPrescriptionValidator` rechaza contratos incompletos o inconsistentes antes de persistirlos o mostrarlos. `TrainingProgramGenerator` es una primera implementación pura y determinista: recibe un catálogo explícito de candidatos con metadatos revisados, objetivo compatible, patrón de movimiento, nivel mínimo, material y prioridad curada; genera semanas completas para 2–4 días semanales y devuelve errores explicables si falta un ejercicio compatible. No infiere atributos desde el nombre y no modifica la base de datos ni publica planes automáticamente.
+
+Las prescripciones iniciales (series, repeticiones, RIR y descanso) son parámetros provisionales de un borrador de software, no recomendaciones individualizadas validadas ni prueba de eficacia. Esta versión no cubre aún todos los perfiles, periodizaciones ni 5–6 días, y el tiempo estimado es una aproximación que deberá contrastarse. Las siguientes iteraciones deben añadir escenarios de cobertura y distribución de volumen, reglas por objetivo/nivel con evidencia documentada, control de fatiga y adaptación futura sin reescribir el historial. Los tests comprueban determinismo, días/semanas, exclusiones, material/objetivo, metadatos revisados y validación del plan.
 
 ## 10. Condición de compatibilidad Android
 
