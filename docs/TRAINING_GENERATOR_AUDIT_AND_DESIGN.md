@@ -1,0 +1,140 @@
+# Auditoría y diseño del generador adaptativo de entrenamiento
+
+Estado: especificación inicial; todavía no equivale a un motor implementado ni validado fisiológicamente.
+Issue de seguimiento: https://github.com/jl-hita/DietoExpress/issues/415
+
+## 1. Hallazgos del código existente
+
+### Planificación profesional
+- `TrainingPeriodizationController` administra perfiles, planes, mesociclos, microciclos, sesiones y plantillas.
+- `training_sessions.exercise_prescription` y `training_session_templates.exercise_prescription` son texto libre. Es útil para mostrar planes heredados, pero no permite validar con fiabilidad series efectivas por músculo, progresión por ejercicio ni sustituciones estructuradas.
+- La planificación actual está orientada a que el profesional gestione el calendario; no se ha encontrado aún un motor que genere y optimice un ciclo entero desde el perfil del cliente.
+- Ya existe una prueba de regresión estática en `Tests/DietoExpress.Security.Tests/TrainingPeriodizationRegressionTests.cs`, que protege parte del contrato actual.
+
+### Biblioteca de ejercicios
+- La UI de planificación declara un modelo `RepDbExercise` con nombre, material, región corporal, categoría, objetivos, músculos principales, instrucciones e imágenes.
+- La UI informa de datos/ilustraciones ampliados de RepDB y un catálogo básico de respaldo.
+- Antes de seleccionar automáticamente ejercicios, hay que seguir el flujo de carga de la biblioteca hasta su origen y confirmar si los metadatos están persistidos en PostgreSQL o se obtienen en el cliente. No se debe suponer que el servidor dispone del mismo catálogo ni crear una segunda biblioteca paralela.
+- El catálogo necesita un proceso de normalización/curación para mapear patrones de movimiento, músculos principales/secundarios, material, dificultad técnica y alternativas; no se deben inferir metadatos clínicos ausentes como si fueran hechos.
+
+### Seguimiento del paciente y Android
+- `GET /api/portal/training/sessions` ya expone sesiones al paciente autenticado.
+- `POST /api/portal/training/sessions/{sessionId}/record` guarda duración, RPE y notas, con upsert por sesión/paciente. No registra explícitamente si la sesión fue completa, parcial, omitida por tiempo, limitada por fatiga o detenida por molestias.
+- La app Android ya incluye consulta de entrenamientos y el documento `DietExpress.Android/docs/OFFLINE_ENDPOINT_AUDIT.md` trata las sesiones como datos de lectura cacheada. No se debe añadir un envío offline a una ruta nueva hasta diseñar idempotencia, conflictos, fecha de la sesión y comportamiento en cambio de cuenta.
+- Los check-ins generales del portal no sustituyen un registro específico por sesión: la adaptación necesita relacionar la señal con una sesión, ejercicios y semana concretos.
+
+## 2. Arquitectura propuesta
+
+Separar cinco responsabilidades, con contratos versionados:
+
+1. **Catálogo normalizado**: ejercicio y metadatos revisados; procedencia y nivel de confianza.
+2. **Perfil de programación**: objetivo, experiencia, días disponibles, duración máxima, equipamiento, preferencias, restricciones y disponibilidad semanal.
+3. **Generador determinista**: produce un plan completo con sesiones, ejercicios, series, repeticiones, descansos, objetivo de esfuerzo y progresión por semana.
+4. **Registro de ejecución**: preserva lo programado y guarda lo realizado y el feedback del cliente.
+5. **Adaptador**: calcula cambios únicamente en sesiones futuras y explica cada cambio. El historial completado nunca se reescribe silenciosamente.
+
+La misma versión del motor, con los mismos datos y opciones, debe producir el mismo plan. La IA generativa puede explicar decisiones o sugerir candidatos, pero no debe eludir restricciones ni inventar ejercicios/metadatos.
+
+## 3. Contrato de entrada mínimo
+
+- Objetivo primario y secundarios (p. ej., hipertrofia, fuerza general, salud).
+- Nivel de experiencia, con reglas explícitas para clasificarlo.
+- Días semanales disponibles y restricciones de calendario.
+- Duración máxima por sesión.
+- Equipamiento realmente disponible.
+- Preferencias y ejercicios excluidos por el usuario/profesional.
+- Limitaciones relevantes declaradas y estado de revisión profesional cuando sea necesario.
+- Duración del ciclo y fecha de inicio.
+- Historial de entrenamiento disponible; cuando no exista, iniciar con supuestos conservadores y declararlos.
+
+Si faltan datos esenciales, la API debe pedirlos o devolver una validación explicable; no rellenarlos silenciosamente.
+
+## 4. Representación estructurada de una prescripción
+
+Cada ejercicio programado necesita al menos:
+- ID estable del ejercicio del catálogo y versión/metadatos usados.
+- Orden dentro de la sesión.
+- Series objetivo y rango de repeticiones (o duración/distancia para modalidades apropiadas).
+- Objetivo de esfuerzo (RIR/RPE) y descansos.
+- Regla de progresión y límites de carga/repeticiones.
+- Sustituciones compatibles previamente validadas.
+- Notas e indicaciones de ejecución.
+- Razón breve de selección para auditoría.
+
+La cadena de texto heredada debe seguir mostrándose para planes existentes, pero no debe ser la fuente de verdad del nuevo motor.
+
+## 5. Feedback de la app cliente
+
+La interfaz debe ser breve y accesible, permitiendo registrar:
+
+- Resultado: completa, parcial, no realizada.
+- Motivo si no se completa: falta de tiempo, fatiga/esfuerzo excesivo, material/instalación, falta de motivación, enfermedad u otro.
+- Esfuerzo global (RPE) y, cuando tenga sentido, RIR/rendimiento por ejercicio.
+- Recuperación antes de la siguiente sesión: buena, parcial, insuficiente.
+- Fatiga muscular/general y sueño opcional.
+- Molestias/dolor y zona afectada, con opción de parar y avisar al profesional.
+- Comentario opcional.
+
+No se debe equiparar falta de tiempo a mala recuperación. Dolor nuevo, agudo o creciente activa una regla de seguridad: no recomendar continuar simplemente reduciendo la carga; detener o sustituir la actividad implicada y recomendar valoración profesional según el caso.
+
+## 6. Política de adaptación inicial
+
+- **Una sesión omitida por tiempo**: no reducir automáticamente la capacidad ni aumentar el volumen de las sesiones siguientes para “recuperarla”. Reorganizar únicamente si quedan días disponibles y los descansos siguen siendo adecuados.
+- **Sesión parcial por fatiga o esfuerzo inesperado**: registrar qué se completó; comprobar tendencia y contexto antes de cambiar el plan.
+- **Recuperación insuficiente repetida**: reducir temporalmente el estímulo pertinente (volumen/intensidad/frecuencia) de forma acotada y explicable.
+- **Rendimiento estable y objetivo de esfuerzo cumplido**: progresar según la regla prescrita, por ejemplo aumentar repeticiones dentro del rango antes de subir la carga.
+- **Estancamiento**: no inferirlo por una sola sesión; definir una ventana mínima y comprobar adherencia, técnica, descanso y cambios de ejercicio.
+- **Molestias/dolor**: aplicar la regla de seguridad, no una optimización de rendimiento.
+- **Semana de descarga**: basarla en señales y en el diseño del ciclo; no insertarla mecánicamente cada cuatro semanas para todo el mundo.
+
+Los umbrales numéricos exactos se deben declarar como reglas iniciales configurables, justificar y validar; no presentarlos como límites biológicos universales.
+
+## 7. Batería de pruebas exigida
+
+### Unitarias y propiedades
+- Validación de entrada y restricciones imposibles.
+- Reproducibilidad del generador.
+- Calendario: número de sesiones, días disponibles, duración máxima y separación entre sesiones.
+- Cobertura muscular/patrones y ausencia de duplicados no deseados.
+- Material y ejercicios excluidos.
+- Límites de series/repeticiones/RIR, descansos y progresión.
+- Ninguna progresión automática si faltan datos de rendimiento.
+- Nunca reescribir sesiones pasadas al adaptar el futuro.
+- Distinguir sesión omitida por tiempo de fatiga, baja recuperación o dolor.
+- Dolor: bloquear recomendaciones de “continuar con menos peso” como respuesta automática genérica.
+- Adaptaciones idempotentes: repetir el mismo evento no acumula reducciones ni genera versiones duplicadas.
+
+### Escenarios integrales
+- Principiante con 2 días y poco material.
+- Persona intermedia con 3 días.
+- 4 días con prioridades de tren superior/inferior.
+- 5–6 días, controlando redundancia y recuperación.
+- Sesiones incompletas, semanas perdidas y retorno tras interrupción.
+- Feedback contradictorio o incompleto.
+- Cambios de disponibilidad/equipamiento a mitad del ciclo.
+- Sin ejercicios compatibles en el catálogo.
+- Cambio de cuenta, reintento tras timeout y sincronización offline.
+
+### Revisión de resultados
+Crear una matriz reproducible de perfiles sintéticos y reportar por versión: errores de validación, planes rechazados, violaciones de invariantes, distribución de volumen, cobertura, duración estimada y decisiones de adaptación. La generación masiva sirve para detectar fallos lógicos, no para demostrar eficacia clínica.
+
+## 8. Validación científica y límites
+
+Las reglas deben enlazar a evidencia identificable, registrar la fecha de revisión, distinguir evidencia sólida de decisiones pragmáticas y describir sus límites. Las guías/revisiones científicas ayudan a fijar buenos puntos de partida, pero no establecen un único programa óptimo para todos.
+
+La calidad del software se evalúa mediante CI, invariantes, pruebas de integración y revisión de programas de referencia. La eficacia fisiológica requiere además revisión por un profesional cualificado y, con el tiempo, resultados reales. No se debe afirmar equivalencia con un entrenador experto solo porque el CI esté verde.
+
+## 9. Secuencia de implementación
+
+1. Terminar el rastreo de origen y metadatos de la biblioteca actual.
+2. Acordar el modelo de prescripción estructurada y su migración compatible.
+3. Implementar motor puro y determinista, separado de controladores y persistencia.
+4. Construir la batería de tests antes de activar generación a pacientes.
+5. Añadir persistencia de feedback y adaptaciones con auditoría e idempotencia.
+6. Revisar el contrato y el flujo Android en el mismo esfuerzo coordinado.
+7. Habilitar primero como borrador para profesionales; no autoaplicar cambios sensibles sin controles.
+8. Someter programas de referencia a revisión profesional antes de publicitarlo como generador validado.
+
+## 10. Condición de compatibilidad Android
+
+Todo PR que modifique rutas, DTO, autenticación, permisos, fechas o reglas de negocio debe declarar impacto en `jl-hita/DietoExpress.Android`, conforme a `docs/API_COMPATIBILITY.md`. No encolar feedback offline hasta que la semántica de fecha, idempotencia y conflictos esté definida y probada.
