@@ -355,7 +355,7 @@ public sealed class ExerciseCatalogService
             }
 
             await using (var delete = new NpgsqlCommand(
-                "DELETE FROM exercise_catalog WHERE source = 'repdb-free' AND exercise_id = ANY(@excluded_ids)", connection, transaction))
+                "DELETE FROM exercise_catalog WHERE source = 'repdb-free' AND owner_user_id IS NULL AND exercise_id = ANY(@excluded_ids)", connection, transaction))
             {
                 Add(delete, "excluded_ids", RepDbExerciseCuration.ExcludedIds);
                 await delete.ExecuteNonQueryAsync(cancellationToken);
