@@ -66,12 +66,14 @@ public sealed class ExerciseCatalogService
                 reviewed_minimum_experience VARCHAR(40),
                 reviewed_suitable_goals JSONB,
                 reviewed_required_equipment JSONB,
+                reviewed_selection_priority INTEGER NOT NULL DEFAULT 50,
                 reviewed_at TIMESTAMPTZ,
                 reviewed_by VARCHAR(120),
                 source_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
+            ALTER TABLE exercise_catalog ADD COLUMN IF NOT EXISTS reviewed_selection_priority INTEGER NOT NULL DEFAULT 50;
             CREATE INDEX IF NOT EXISTS idx_exercise_catalog_category ON exercise_catalog(category);
             CREATE INDEX IF NOT EXISTS idx_exercise_catalog_body_part ON exercise_catalog(body_part);
             CREATE INDEX IF NOT EXISTS idx_exercise_catalog_reviewed ON exercise_catalog(reviewed, reviewed_movement_pattern);
@@ -247,6 +249,7 @@ public sealed class ExerciseCatalogService
         {
             new ReviewedExercise("squat", "Squat", ["Quadriceps", "Glutes"], ["Hamstrings", "ErectorSpinae"], "Beginner", [], 100),
             new ReviewedExercise("barbell-back-squat", "Squat", ["Quadriceps", "Glutes"], ["Hamstrings", "ErectorSpinae"], "Intermediate", ["barbell"], 95),
+            new ReviewedExercise("glute-bridge", "Hinge", ["Glutes"], ["Hamstrings", "Abdominals"], "Beginner", [], 95),
             new ReviewedExercise("romanian-deadlift", "Hinge", ["Hamstrings", "Glutes"], ["ErectorSpinae", "Quadriceps"], "Intermediate", ["barbell"], 100),
             new ReviewedExercise("push-up", "HorizontalPush", ["Chest"], ["Triceps", "Deltoids"], "Beginner", [], 100),
             new ReviewedExercise("barbell-bench-press", "HorizontalPush", ["Chest"], ["Triceps", "Deltoids"], "Intermediate", ["barbell"], 95),
@@ -269,6 +272,7 @@ public sealed class ExerciseCatalogService
                 reviewed_minimum_experience = @experience,
                 reviewed_suitable_goals = @goals::jsonb,
                 reviewed_required_equipment = @equipment::jsonb,
+                reviewed_selection_priority = @priority,
                 reviewed_at = COALESCE(reviewed_at, NOW()),
                 reviewed_by = 'DietoExpress curated metadata v1',
                 updated_at = NOW()
@@ -284,6 +288,7 @@ public sealed class ExerciseCatalogService
             Add(command, "experience", review.MinimumExperience);
             Add(command, "goals", JsonSerializer.Serialize(new[] { "GeneralFitness", "Hypertrophy", "Strength" }));
             Add(command, "equipment", JsonSerializer.Serialize(review.Equipment));
+            Add(command, "priority", review.Priority);
             await command.ExecuteNonQueryAsync(cancellationToken);
         }
     }
