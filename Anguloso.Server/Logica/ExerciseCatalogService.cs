@@ -80,6 +80,13 @@ public sealed class ExerciseCatalogService
         await _db.Database.ExecuteSqlRawAsync(sql, cancellationToken);
     }
 
+    public async Task<ExerciseCatalogSyncResult?> EnsureSeededAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken);
+        var count = await _db.Database.SqlQueryRaw<long>("SELECT COUNT(*) AS \\"Value\\" FROM exercise_catalog").SingleAsync(cancellationToken);
+        return count == 0 ? await SyncFromSourceAsync(cancellationToken) : null;
+    }
+
     public async Task<ExerciseCatalogSyncResult> SyncFromSourceAsync(CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken);
@@ -193,7 +200,7 @@ public sealed class ExerciseCatalogService
         limit = Math.Clamp(limit, 1, 100);
         const string sql = """
             SELECT exercise_id, name_es, name_en, category, body_part, equipment,
-                   primary_muscles, secondary_muscles, goals, tags, instructions_es, images, source_payload
+                   primary_muscles, secondary_muscles, goals, tags, instructions_es, images
             FROM exercise_catalog
             WHERE (@body_part IS NULL OR body_part = @body_part)
               AND (@equipment IS NULL OR equipment = @equipment)
@@ -221,7 +228,7 @@ public sealed class ExerciseCatalogService
                     NullableString(reader, 4), NullableString(reader, 5), JsonDocument.Parse(reader.GetString(6)).RootElement.Clone(),
                     JsonDocument.Parse(reader.GetString(7)).RootElement.Clone(), JsonDocument.Parse(reader.GetString(8)).RootElement.Clone(),
                     JsonDocument.Parse(reader.GetString(9)).RootElement.Clone(), JsonDocument.Parse(reader.GetString(10)).RootElement.Clone(),
-                    JsonDocument.Parse(reader.GetString(11)).RootElement.Clone(), JsonDocument.Parse(reader.GetString(12)).RootElement.Clone()));
+                    JsonDocument.Parse(reader.GetString(11)).RootElement.Clone()));
             }
             return items;
         }
@@ -253,4 +260,4 @@ public sealed record ExerciseCatalogSyncResult(string Source, string SchemaVersi
 public sealed record ExerciseCatalogItem(
     string Id, string? NameEs, string NameEn, string? Category, string? BodyPart, string? Equipment,
     JsonElement PrimaryMuscles, JsonElement SecondaryMuscles, JsonElement Goals, JsonElement Tags,
-    JsonElement InstructionsEs, JsonElement Images, JsonElement OriginalRecord);
+    JsonElement InstructionsEs, JsonElement Images);
