@@ -88,7 +88,7 @@ public static class TrainingProgramGenerator
         }
 
         var plan = new TrainingProgramPrescription(
-            "0.3.0",
+            "0.4.0",
             request.Goal.ToString(),
             request.StartDate,
             request.DurationWeeks,
