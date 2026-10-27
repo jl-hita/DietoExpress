@@ -101,7 +101,7 @@ public sealed class TrainingGeneratorEvaluationReportTests
         var report = new EvaluationReport(
             "training-generator-evaluation-v2",
             DateTimeOffset.UtcNow,
-            "0.3.0",
+            "0.4.0",
             scenarios.Count,
             scenarios.Count(s => s.GenerationSucceeded),
             scenarios.Sum(s => s.HardViolations.Count),
