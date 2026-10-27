@@ -753,6 +753,57 @@ public sealed class ExerciseCatalogService
         }
     }
 
+    /// <summary>
+    /// Returns every pending row with the full normalized metadata and original source payload.
+    /// This is intentionally separate from the paginated UI DTO so batch audits do not lose fields.
+    /// </summary>
+    public async Task<IReadOnlyList<ExerciseCatalogExportItem>> ExportReviewQueueAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken);
+        const string sql = """
+            SELECT exercise_id, name_es, name_en, description_es, description_en, category, force_type, mechanic,
+                   difficulty, equipment, body_part, primary_muscles::text, secondary_muscles::text, goals::text,
+                   tags::text, instructions_es::text, tips_es::text, images::text, met, is_unilateral, is_bodyweight,
+                   source, review_status, reviewed, reviewed_movement_pattern, reviewed_primary_muscles::text,
+                   reviewed_secondary_muscles::text, reviewed_minimum_experience, reviewed_suitable_goals::text,
+                   reviewed_required_equipment::text, reviewed_selection_priority, review_notes, reviewed_at, reviewed_by,
+                   source_payload->>'contributor', source_payload::text
+            FROM exercise_catalog
+            WHERE review_status = 'pending'
+            ORDER BY source, name_es NULLS LAST, name_en
+            """;
+        var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+        if (shouldClose) await connection.OpenAsync(cancellationToken);
+        try
+        {
+            var items = new List<ExerciseCatalogExportItem>();
+            await using var command = new NpgsqlCommand(sql, connection);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                items.Add(new ExerciseCatalogExportItem(
+                    reader.GetString(0), NullableString(reader, 1), reader.GetString(2), NullableString(reader, 3),
+                    NullableString(reader, 4), NullableString(reader, 5), NullableString(reader, 6), NullableString(reader, 7),
+                    NullableString(reader, 8), NullableString(reader, 9), NullableString(reader, 10),
+                    ParseElement(reader.GetString(11)), ParseElement(reader.GetString(12)), ParseElement(reader.GetString(13)),
+                    ParseElement(reader.GetString(14)), ParseElement(reader.GetString(15)), ParseElement(reader.GetString(16)),
+                    ParseElement(reader.GetString(17)), reader.IsDBNull(18) ? null : reader.GetDouble(18),
+                    reader.IsDBNull(19) ? null : reader.GetBoolean(19), reader.IsDBNull(20) ? null : reader.GetBoolean(20),
+                    reader.GetString(21), reader.GetString(22), reader.GetBoolean(23), NullableString(reader, 24),
+                    NullableJson(reader, 25), NullableJson(reader, 26), NullableString(reader, 27), NullableJson(reader, 28),
+                    NullableJson(reader, 29), reader.GetInt32(30), NullableString(reader, 31),
+                    reader.IsDBNull(32) ? null : reader.GetDateTime(32), NullableString(reader, 33),
+                    NullableString(reader, 34), ParseElement(reader.GetString(35))));
+            }
+            return items;
+        }
+        finally
+        {
+            if (shouldClose) await connection.CloseAsync();
+        }
+    }
+
     public async Task<IReadOnlyList<ExerciseCatalogItem>> SearchAsync(string? query, string? bodyPart, string? equipment, int limit, CancellationToken cancellationToken = default, string? reviewStatus = null, int? ownerUserId = null, bool includeAllOwners = false, int maxLimit = 100)
     {
         await EnsureSchemaAsync(cancellationToken);
@@ -1008,6 +1059,15 @@ public sealed class ExerciseCatalogService
 }
 
 public sealed record ExerciseCatalogSyncResult(string Source, string SchemaVersion, int ImportedCount, int ReviewedCount, DateTimeOffset SyncedAtUtc);
+public sealed record ExerciseCatalogExportItem(
+    string Id, string? NameEs, string NameEn, string? DescriptionEs, string? DescriptionEn,
+    string? Category, string? ForceType, string? Mechanic, string? Difficulty, string? Equipment, string? BodyPart,
+    JsonElement PrimaryMuscles, JsonElement SecondaryMuscles, JsonElement Goals, JsonElement Tags,
+    JsonElement InstructionsEs, JsonElement TipsEs, JsonElement Images, double? Met, bool? IsUnilateral, bool? IsBodyweight,
+    string Source, string ReviewStatus, bool Reviewed, string? MovementPattern,
+    JsonElement? ReviewedPrimaryMuscles, JsonElement? ReviewedSecondaryMuscles, string? MinimumExperience,
+    JsonElement? SuitableGoals, JsonElement? RequiredEquipment, int SelectionPriority, string? ReviewNotes,
+    DateTime? ReviewedAt, string? ReviewedBy, string? Contributor, JsonElement SourcePayload);
 public sealed record ExerciseCatalogItem(
     string Id, string? NameEs, string NameEn, string? Category, string? BodyPart, string? Equipment,
     JsonElement PrimaryMuscles, JsonElement SecondaryMuscles, JsonElement Goals, JsonElement Tags,
