@@ -63,7 +63,7 @@ internal static class RepDbExerciseAutoReviewer
 
         return new ReviewMetadata(pattern, primary, secondary, exp, goals, requiredEquipment,
             pattern is "Squat" or "Hinge" or "HorizontalPush" or "HorizontalPull" ? 85 : 75,
-            "Enriquecimiento automático RepDB v1: mapeo determinista de metadatos de origen; verificar si cambian las reglas.");
+            "Enriquecimiento automático RepDB v2: mapeo determinista de metadatos de origen; verificar si cambian las reglas.");
     }
 
     private static string? InferPattern(string id, string es, string en, string tagsJson,
