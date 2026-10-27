@@ -401,7 +401,8 @@ public sealed class ExerciseCatalogService
                     tags = CASE WHEN tags = '[]'::jsonb
                         THEN COALESCE(source_payload->'tags', '[]'::jsonb) ELSE tags END,
                     instructions_es = CASE
-                        WHEN jsonb_typeof(instructions_es) <> 'array' OR jsonb_array_length(instructions_es) < 2
+                        WHEN CASE WHEN jsonb_typeof(instructions_es) = 'array'
+                            THEN jsonb_array_length(instructions_es) < 2 ELSE TRUE END
                         THEN CASE WHEN jsonb_typeof(source_payload->'instructions_es') = 'array'
                             THEN source_payload->'instructions_es' ELSE instructions_es END
                         ELSE instructions_es END,
