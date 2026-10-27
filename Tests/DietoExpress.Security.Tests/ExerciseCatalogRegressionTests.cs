@@ -34,6 +34,12 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("ON CONFLICT (exercise_id) DO UPDATE", service);
         Assert.Contains("ResetLegacyAutoReviewsAsync", service);
         Assert.Contains("review_status VARCHAR(20)", service);
+        Assert.Contains("author VARCHAR(120) NOT NULL DEFAULT 'superadmin'", service);
+        Assert.Contains("owner_user_id INTEGER", service);
+        Assert.Contains("owner_user_id = @owner_user_id AND review_status = 'pending'", service);
+        Assert.Contains("author = 'superadmin' OR review_status = 'approved'", service);
+        Assert.Contains("includeAllOwners: true", controller);
+        Assert.Contains("contributorUserId", controller);
         Assert.Contains("WHERE reviewed_by = 'DietoExpress curated metadata v1'", service);
         Assert.DoesNotContain("ApplyCuratedReviewsAsync", service);
         Assert.Contains("EnsureSeededAsync", program);

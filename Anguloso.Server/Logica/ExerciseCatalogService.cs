@@ -31,6 +31,8 @@ public sealed class ExerciseCatalogService
             CREATE TABLE IF NOT EXISTS exercise_catalog (
                 exercise_id VARCHAR(100) PRIMARY KEY,
                 source VARCHAR(40) NOT NULL,
+                author VARCHAR(120) NOT NULL DEFAULT 'superadmin',
+                owner_user_id INTEGER,
                 source_schema_version VARCHAR(40),
                 source_payload JSONB NOT NULL,
                 name_en VARCHAR(200) NOT NULL,
@@ -75,6 +77,8 @@ public sealed class ExerciseCatalogService
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
+            ALTER TABLE exercise_catalog ADD COLUMN IF NOT EXISTS author VARCHAR(120) NOT NULL DEFAULT 'superadmin';
+            ALTER TABLE exercise_catalog ADD COLUMN IF NOT EXISTS owner_user_id INTEGER;
             ALTER TABLE exercise_catalog ADD COLUMN IF NOT EXISTS reviewed_selection_priority INTEGER NOT NULL DEFAULT 50;
             ALTER TABLE exercise_catalog ADD COLUMN IF NOT EXISTS review_status VARCHAR(20) NOT NULL DEFAULT 'pending';
             ALTER TABLE exercise_catalog ADD COLUMN IF NOT EXISTS review_notes TEXT;
@@ -222,7 +226,7 @@ public sealed class ExerciseCatalogService
         return new ExerciseCatalogSyncResult(SourceName, schemaVersion, imported, reviewedCount, DateTimeOffset.UtcNow);
     }
 
-    public async Task<IReadOnlyList<ExerciseCatalogItem>> SearchAsync(string? query, string? bodyPart, string? equipment, int limit, CancellationToken cancellationToken = default, string? reviewStatus = null)
+    public async Task<IReadOnlyList<ExerciseCatalogItem>> SearchAsync(string? query, string? bodyPart, string? equipment, int limit, CancellationToken cancellationToken = default, string? reviewStatus = null, int? ownerUserId = null, bool includeAllOwners = false)
     {
         await EnsureSchemaAsync(cancellationToken);
         limit = Math.Clamp(limit, 1, 100);
@@ -235,6 +239,8 @@ public sealed class ExerciseCatalogService
             WHERE (@body_part IS NULL OR body_part = @body_part)
               AND (@equipment IS NULL OR equipment = @equipment)
               AND (@review_status IS NULL OR review_status = @review_status)
+              AND (@include_all_owners OR author = 'superadmin' OR review_status = 'approved'
+                   OR (@owner_user_id IS NOT NULL AND owner_user_id = @owner_user_id AND review_status = 'pending'))
               AND (@query IS NULL OR name_es ILIKE '%' || @query || '%' OR name_en ILIKE '%' || @query || '%'
                    OR source_payload::text ILIKE '%' || @query || '%')
             ORDER BY name_es NULLS LAST, name_en
@@ -250,6 +256,8 @@ public sealed class ExerciseCatalogService
             Add(command, "equipment", string.IsNullOrWhiteSpace(equipment) ? null : equipment);
             Add(command, "query", string.IsNullOrWhiteSpace(query) ? null : query.Trim());
             Add(command, "review_status", string.IsNullOrWhiteSpace(reviewStatus) ? null : reviewStatus);
+            Add(command, "owner_user_id", ownerUserId);
+            Add(command, "include_all_owners", includeAllOwners);
             Add(command, "limit", limit);
             var items = new List<ExerciseCatalogItem>();
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -308,7 +316,7 @@ public sealed class ExerciseCatalogService
         finally { if (shouldClose) await connection.CloseAsync(); }
     }
 
-    public async Task<string> AddProfessionalContributionAsync(string name, string? description, string? equipment, string? bodyPart, string contributor, CancellationToken cancellationToken = default)
+    public async Task<string> AddProfessionalContributionAsync(string name, string? description, string? equipment, string? bodyPart, string contributor, int contributorUserId, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(name) || name.Trim().Length > 200) throw new ArgumentException("El nombre es obligatorio y no puede superar 200 caracteres.");
         await EnsureSchemaAsync(cancellationToken);
@@ -320,11 +328,12 @@ public sealed class ExerciseCatalogService
         try
         {
             const string sql = """
-                INSERT INTO exercise_catalog (exercise_id, source, source_payload, name_en, description_en, equipment, body_part, review_status)
-                VALUES (@id, 'professional-contribution', @payload::jsonb, @name, @description, @equipment, @body_part, 'pending')
+                INSERT INTO exercise_catalog (exercise_id, source, author, owner_user_id, source_payload, name_en, description_en, equipment, body_part, review_status)
+                VALUES (@id, 'professional-contribution', @author, @owner_user_id, @payload::jsonb, @name, @description, @equipment, @body_part, 'pending')
                 """;
             await using var command = new NpgsqlCommand(sql, connection);
-            Add(command, "id", id); Add(command, "payload", payload); Add(command, "name", name.Trim());
+            Add(command, "id", id); Add(command, "author", contributor); Add(command, "owner_user_id", contributorUserId);
+            Add(command, "payload", payload); Add(command, "name", name.Trim());
             Add(command, "description", description); Add(command, "equipment", equipment); Add(command, "body_part", bodyPart);
             await command.ExecuteNonQueryAsync(cancellationToken);
             return id;
