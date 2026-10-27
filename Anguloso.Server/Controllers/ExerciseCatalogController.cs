@@ -40,6 +40,18 @@ public sealed class ExerciseCatalogController : ControllerBase
     }
 
 
+    [HttpGet("review-stats")]
+    [Authorize(Roles = "superadmin")]
+    public async Task<ActionResult<ExerciseCatalogService.ExerciseCatalogReviewStats>> ReviewStats(CancellationToken cancellationToken)
+    {
+        try { return Ok(await _catalog.GetReviewStatsAsync(cancellationToken)); }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Failed to load exercise catalog review statistics.");
+            return StatusCode(503, new { error = "No se pudieron cargar las estadísticas del catálogo." });
+        }
+    }
+
     [HttpGet("review-queue")]
     [Authorize(Roles = "superadmin")]
     public async Task<ActionResult<IReadOnlyList<ExerciseCatalogItem>>> ReviewQueue([FromQuery] string? q, [FromQuery] string status = "pending", [FromQuery] int limit = 100, CancellationToken cancellationToken = default)
