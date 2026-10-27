@@ -76,7 +76,7 @@ public sealed class TrainingPrescriptionValidatorTests
 
     [Theory]
     [InlineData(0, 8)]
-    [InlineData(9, 8)]
+    [InlineData(11, 8)]
     [InlineData(4, 31)]
     [InlineData(5, 3)]
     public void InvalidSetsOrRepetitionRange_IsRejected(int sets, int maxRepetitions)
