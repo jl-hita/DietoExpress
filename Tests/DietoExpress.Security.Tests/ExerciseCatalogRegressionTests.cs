@@ -32,7 +32,10 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("reviewed_primary_muscles JSONB", service);
         Assert.Contains("reviewed_secondary_muscles JSONB", service);
         Assert.Contains("ON CONFLICT (exercise_id) DO UPDATE", service);
-        Assert.Contains("ApplyCuratedReviewsAsync", service);
+        Assert.Contains("ResetLegacyAutoReviewsAsync", service);
+        Assert.Contains("review_status VARCHAR(20)", service);
+        Assert.Contains("WHERE reviewed_by = 'DietoExpress curated metadata v1'", service);
+        Assert.DoesNotContain("ApplyCuratedReviewsAsync", service);
         Assert.Contains("EnsureSeededAsync", program);
         Assert.Contains("connection.CreateCommand()", service);
         Assert.Contains("command.CommandText = sql", service);
