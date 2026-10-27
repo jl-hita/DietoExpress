@@ -38,7 +38,7 @@ public sealed class TrainingProgramGeneratorTests
             Assert.Contains(session.Day, new[] { DayOfWeek.Tuesday, DayOfWeek.Thursday });
             Assert.InRange(session.EstimatedDurationMinutes, 1, 35);
         });
-        Assert.Equal(4, result.Prescription.Sessions.Count);
+        Assert.Equal(8, result.Prescription.Sessions.Count);
     }
 
     [Fact]
@@ -46,7 +46,11 @@ public sealed class TrainingProgramGeneratorTests
     {
         var result = TrainingProgramGenerator.Generate(
             Request() with { ExcludedExerciseIds = ["squat-basic"] },
-            Catalog());
+            Catalog().Append(new TrainingExerciseCandidate(
+                "squat-alternative", "catalog-2026-10", "Sentadilla alternativa",
+                TrainingMovementPattern.Squat, [],
+                [TrainingGoal.GeneralFitness, TrainingGoal.Hypertrophy, TrainingGoal.Strength],
+                TrainingExperience.Beginner, 40, true)).ToArray());
 
         Assert.True(result.Succeeded, string.Join("; ", result.Errors));
         Assert.DoesNotContain(result.Prescription!.Sessions.SelectMany(x => x.Exercises),
