@@ -51,6 +51,29 @@ public sealed class TrainingPeriodizationRegressionTests
     }
 
     [Fact]
+    public void PatientTrainingFeedback_IsPersistedAndFeedsOnlyARecommendation()
+    {
+        var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
+        var portalController = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPortalController.cs"));
+        var portalUi = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "patient-portal", "patient-portal.component.html"));
+        var portalComponent = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "patient-portal", "patient-portal.component.ts"));
+
+        Assert.Contains("UpgradeTrainingPeriodizationSchemaV5(context, logger)", bootstrap);
+        Assert.Contains("training-periodization-v5-adaptation-feedback", bootstrap);
+        Assert.Contains("recovery_rating", bootstrap);
+        Assert.Contains("progression_target_achieved", bootstrap);
+        Assert.Contains("TrainingAdaptationPolicy.Evaluate(feedback)", portalController);
+        Assert.Contains("COALESCE(EXCLUDED.outcome, training_session_records.outcome)", portalController);
+        Assert.Contains("adaptationRecommendation", portalController);
+        Assert.Contains("nonCompletionReason", portalController);
+        Assert.Contains("training-outcome-", portalUi);
+        Assert.Contains("training-recovery-", portalUi);
+        Assert.Contains("training-pain-", portalUi);
+        Assert.Contains("trainingAdaptationLabel", portalComponent);
+        Assert.Contains("actualDurationMinutes: missed || input.duration == null ? null", portalComponent);
+    }
+
+    [Fact]
     public void TrainingOffer_IsPublicAndConsultationChoiceCanBeChanged()
     {
         var userModel = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Models", "users.cs"));
