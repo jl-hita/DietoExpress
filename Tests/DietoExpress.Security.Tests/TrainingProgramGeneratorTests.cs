@@ -74,6 +74,32 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
+    public void ExerciseCatalogRequiresReviewedMuscleGroups()
+    {
+        var catalog = Catalog().Select(exercise =>
+            exercise.MovementPattern == TrainingMovementPattern.Squat
+                ? exercise with { PrimaryMuscleGroups = [] }
+                : exercise).ToArray();
+
+        var result = TrainingProgramGenerator.Generate(Request(), catalog);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Errors, error => error.Contains("al menos un grupo muscular principal", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void GeneratedPlanSnapshotsPrimaryAndSecondaryMuscleGroups()
+    {
+        var result = TrainingProgramGenerator.Generate(Request(), Catalog());
+
+        Assert.True(result.Succeeded, string.Join("; ", result.Errors));
+        var push = result.Prescription!.Sessions.SelectMany(session => session.Exercises)
+            .First(exercise => exercise.ExerciseId == "exercise-horizontalpush");
+        Assert.Contains(TrainingMuscleGroup.Chest, push.PrimaryMuscleGroups);
+        Assert.Contains(TrainingMuscleGroup.Triceps, push.SecondaryMuscleGroups);
+    }
+
+    [Fact]
     public void InvalidAvailabilityIsRejectedBeforeGeneration()
     {
         var request = Request() with
