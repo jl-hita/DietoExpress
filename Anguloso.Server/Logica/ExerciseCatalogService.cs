@@ -179,10 +179,14 @@ public sealed class ExerciseCatalogService
                 var name = ReadString(exercise, "name_en");
                 if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(name))
                     throw new InvalidDataException("RepDB exercise is missing its stable id or English name.");
-                if (RepDbExerciseCuration.ShouldExclude(id))
+
+                var sourceCategory = ReadString(exercise, "category");
+                var equipment = ReadString(exercise, "equipment");
+                var variationGroup = ReadString(exercise, "variation_group");
+                if (RepDbExerciseCuration.ShouldExclude(id, sourceCategory, equipment, variationGroup))
                     continue;
 
-                var category = RepDbExerciseCuration.CurateCategory(id, ReadString(exercise, "category"));
+                var category = RepDbExerciseCuration.CurateCategory(id, sourceCategory);
                 var bodyPart = RepDbExerciseCuration.CurateBodyPart(id, ReadString(exercise, "body_part"));
                 var goalsJson = RepDbExerciseCuration.CurateGoalsJson(id, category, JsonText(exercise, "goals"));
                 var primaryMusclesJson = RepDbExerciseCuration.CurateMusclesJson(id, primary: true, JsonText(exercise, "primary_muscles"));
@@ -190,7 +194,6 @@ public sealed class ExerciseCatalogService
                 var nameEs = ReadString(exercise, "name_es");
                 var descriptionEs = ReadString(exercise, "description_es");
                 var difficulty = ReadString(exercise, "difficulty");
-                var equipment = ReadString(exercise, "equipment");
                 var instructionsEsJson = JsonText(exercise, "instructions_es");
                 var tagsJson = JsonText(exercise, "tags");
                 var generatedDescription = string.IsNullOrWhiteSpace(descriptionEs);
@@ -354,10 +357,25 @@ public sealed class ExerciseCatalogService
                 }
             }
 
-            await using (var delete = new NpgsqlCommand(
-                "DELETE FROM exercise_catalog WHERE source = 'repdb-free' AND owner_user_id IS NULL AND exercise_id = ANY(@excluded_ids)", connection, transaction))
+            await using (var delete = new NpgsqlCommand("""
+                DELETE FROM exercise_catalog
+                WHERE source = 'repdb-free'
+                  AND owner_user_id IS NULL
+                  AND (
+                    exercise_id = ANY(@excluded_ids)
+                    OR source_payload->>'category' IN ('olympic', 'plyometrics')
+                    OR source_payload->>'equipment' = 'bosu_ball'
+                    OR EXISTS (
+                        SELECT 1
+                        FROM jsonb_each(@preferred_variants::jsonb) AS vg(group_name, keep_ids)
+                        WHERE source_payload->>'variation_group' = vg.group_name
+                          AND NOT (vg.keep_ids ? exercise_catalog.exercise_id)
+                    )
+                  )
+                """, connection, transaction))
             {
                 Add(delete, "excluded_ids", RepDbExerciseCuration.ExcludedIds);
+                Add(delete, "preferred_variants", JsonSerializer.Serialize(RepDbExerciseCuration.PreferredIdsByVariationGroup));
                 await delete.ExecuteNonQueryAsync(cancellationToken);
             }
 
