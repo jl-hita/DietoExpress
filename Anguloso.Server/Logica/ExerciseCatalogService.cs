@@ -262,7 +262,7 @@ public sealed class ExerciseCatalogService
             new ReviewedExercise("seated-cable-row", "HorizontalPull", ["Lats", "UpperBack"], ["Biceps", "ErectorSpinae", "Deltoids"], "Beginner", ["cable"], 95),
             new ReviewedExercise("ohp", "VerticalPush", ["Deltoids"], ["UpperBack", "Triceps"], "Intermediate", ["barbell"], 100),
             new ReviewedExercise("machine-shoulder-press", "VerticalPush", ["Deltoids"], ["UpperBack", "Triceps"], "Beginner", ["shoulder_press_machine"], 95),
-            new ReviewedExercise("step-ups", "SingleLeg", ["Glutes", "Quadriceps"], ["Calves", "GluteusMedius", "Hamstrings"], "Beginner", [], 95),
+            new ReviewedExercise("step-ups", "SingleLeg", ["Glutes", "Quadriceps"], ["Calves", "Hamstrings"], "Beginner", [], 95),
             new ReviewedExercise("walking-lunge", "SingleLeg", ["Glutes", "Quadriceps"], ["Hamstrings", "Calves"], "Beginner", [], 90),
             new ReviewedExercise("bulgarian-split-squat", "SingleLeg", ["Quadriceps", "Glutes"], ["Hamstrings", "Calves"], "Intermediate", ["dumbbell"], 100),
             new ReviewedExercise("plank", "Core", ["Abdominals"], ["ErectorSpinae"], "Beginner", [], 90),
