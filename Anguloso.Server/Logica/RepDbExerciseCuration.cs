@@ -58,7 +58,7 @@ internal static class RepDbExerciseCuration
     // Empty lists intentionally remove specialist groups that do not fit general strength/hypertrophy plans.
     public static readonly Dictionary<string, string[]> PreferredIdsByVariationGroup = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["squat"] = ["barbell-box-squat", "bodyweight-squat", "box-squat", "bulgarian-split-squat", "front-squat", "goblet-squat", "hack-squat", "heel-elevated-squat", "smith-machine-squat", "squat", "sumo-squat", "zercher-squat"],
+        ["squat"] = ["barbell-box-squat", "bodyweight-squat", "box-squat", "bulgarian-split-squat", "db-squat", "front-squat", "goblet-squat", "hack-squat", "heel-elevated-squat", "smith-machine-squat", "squat", "sumo-squat", "zercher-squat"],
         ["bicep-curl"] = ["banded-standing-curl", "barbell-curl", "barbell-preacher-curl", "bicep-curl", "cable-curl", "cable-hammer-curl", "concentration-curl", "ez-bar-curl", "hammer-curl", "incline-db-curl", "machine-bicep-curl", "preacher-curl", "trx-bicep-curl", "reverse-curl", "zottman-curl"],
         ["row"] = ["barbell-row", "bent-over-db-row", "chest-supported-db-row", "chest-supported-kettlebell-row", "chest-supported-machine-row", "inverted-row", "one-arm-kettlebell-row", "one-arm-seated-cable-row", "seated-cable-row", "single-arm-db-row", "t-bar-row", "trx-row"],
         ["bench-press"] = ["bench-press", "cable-chest-press", "chest-press-machine", "close-grip-bench-press", "db-bench-press", "decline-bench-press", "dumbbell-floor-press", "incline-bench-press", "incline-db-press", "smith-machine-bench-press", "smith-machine-incline-bench-press", "trx-chest-press"],
