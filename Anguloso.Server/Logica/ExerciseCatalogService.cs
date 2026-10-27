@@ -60,6 +60,8 @@ public sealed class ExerciseCatalogService
                 is_bodyweight BOOLEAN,
                 images JSONB NOT NULL DEFAULT '{}'::jsonb,
                 reviewed BOOLEAN NOT NULL DEFAULT FALSE,
+                review_status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                review_notes TEXT,
                 reviewed_movement_pattern VARCHAR(80),
                 reviewed_primary_muscles JSONB,
                 reviewed_secondary_muscles JSONB,
@@ -74,6 +76,9 @@ public sealed class ExerciseCatalogService
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
             ALTER TABLE exercise_catalog ADD COLUMN IF NOT EXISTS reviewed_selection_priority INTEGER NOT NULL DEFAULT 50;
+            ALTER TABLE exercise_catalog ADD COLUMN IF NOT EXISTS review_status VARCHAR(20) NOT NULL DEFAULT 'pending';
+            ALTER TABLE exercise_catalog ADD COLUMN IF NOT EXISTS review_notes TEXT;
+            UPDATE exercise_catalog SET reviewed = FALSE, reviewed_movement_pattern = NULL, reviewed_primary_muscles = NULL, reviewed_secondary_muscles = NULL, reviewed_minimum_experience = NULL, reviewed_suitable_goals = NULL, reviewed_required_equipment = NULL, reviewed_at = NULL, reviewed_by = NULL, review_status = 'pending' WHERE reviewed_by = 'DietoExpress curated metadata v1';
             CREATE INDEX IF NOT EXISTS idx_exercise_catalog_category ON exercise_catalog(category);
             CREATE INDEX IF NOT EXISTS idx_exercise_catalog_body_part ON exercise_catalog(body_part);
             CREATE INDEX IF NOT EXISTS idx_exercise_catalog_reviewed ON exercise_catalog(reviewed, reviewed_movement_pattern);
@@ -202,7 +207,7 @@ public sealed class ExerciseCatalogService
                 await command.ExecuteNonQueryAsync(cancellationToken);
                 imported++;
             }
-            await ApplyCuratedReviewsAsync(connection, transaction, cancellationToken);
+            await ResetLegacyAutoReviewsAsync(connection, transaction, cancellationToken);
             await using var reviewedCountCommand = new NpgsqlCommand("SELECT COUNT(*) FROM exercise_catalog WHERE reviewed = TRUE", connection, transaction);
             reviewedCount = Convert.ToInt32(await reviewedCountCommand.ExecuteScalarAsync(cancellationToken));
             await transaction.CommitAsync(cancellationToken);
@@ -217,16 +222,19 @@ public sealed class ExerciseCatalogService
         return new ExerciseCatalogSyncResult(SourceName, schemaVersion, imported, reviewedCount, DateTimeOffset.UtcNow);
     }
 
-    public async Task<IReadOnlyList<ExerciseCatalogItem>> SearchAsync(string? query, string? bodyPart, string? equipment, int limit, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ExerciseCatalogItem>> SearchAsync(string? query, string? bodyPart, string? equipment, int limit, CancellationToken cancellationToken = default, string? reviewStatus = null)
     {
         await EnsureSchemaAsync(cancellationToken);
         limit = Math.Clamp(limit, 1, 100);
         const string sql = """
             SELECT exercise_id, name_es, name_en, category, body_part, equipment,
-                   primary_muscles, secondary_muscles, goals, tags, instructions_es, images
+                   primary_muscles, secondary_muscles, goals, tags, instructions_es, images, source, review_status,
+                   reviewed, reviewed_movement_pattern, reviewed_primary_muscles, reviewed_secondary_muscles,
+                   reviewed_minimum_experience, reviewed_suitable_goals, reviewed_required_equipment, reviewed_selection_priority, review_notes, reviewed_at, reviewed_by
             FROM exercise_catalog
             WHERE (@body_part IS NULL OR body_part = @body_part)
               AND (@equipment IS NULL OR equipment = @equipment)
+              AND (@review_status IS NULL OR review_status = @review_status)
               AND (@query IS NULL OR name_es ILIKE '%' || @query || '%' OR name_en ILIKE '%' || @query || '%'
                    OR source_payload::text ILIKE '%' || @query || '%')
             ORDER BY name_es NULLS LAST, name_en
@@ -241,6 +249,7 @@ public sealed class ExerciseCatalogService
             Add(command, "body_part", string.IsNullOrWhiteSpace(bodyPart) ? null : bodyPart);
             Add(command, "equipment", string.IsNullOrWhiteSpace(equipment) ? null : equipment);
             Add(command, "query", string.IsNullOrWhiteSpace(query) ? null : query.Trim());
+            Add(command, "review_status", string.IsNullOrWhiteSpace(reviewStatus) ? null : reviewStatus);
             Add(command, "limit", limit);
             var items = new List<ExerciseCatalogItem>();
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -251,7 +260,10 @@ public sealed class ExerciseCatalogService
                     NullableString(reader, 4), NullableString(reader, 5), ParseElement(reader.GetString(6)),
                     ParseElement(reader.GetString(7)), ParseElement(reader.GetString(8)),
                     ParseElement(reader.GetString(9)), ParseElement(reader.GetString(10)),
-                    ParseElement(reader.GetString(11))));
+                    ParseElement(reader.GetString(11)), reader.GetString(12), reader.GetString(13), reader.GetBoolean(14),
+                    NullableString(reader, 15), NullableJson(reader, 16), NullableJson(reader, 17), NullableString(reader, 18),
+                    NullableJson(reader, 19), NullableJson(reader, 20), reader.GetInt32(21), NullableString(reader, 22),
+                    reader.IsDBNull(23) ? null : reader.GetDateTime(23), NullableString(reader, 24)));
             }
             return items;
         }
@@ -262,60 +274,77 @@ public sealed class ExerciseCatalogService
     }
 
 
-    private static async Task ApplyCuratedReviewsAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, CancellationToken cancellationToken)
+
+
+    public async Task<bool> SaveReviewAsync(string id, ExerciseReviewRequest review, string reviewer, CancellationToken cancellationToken = default)
     {
-        // Explicitly reviewed candidates only. The source's muscle lists remain untouched in their original columns.
-        var reviews = new[]
+        if (review.Status is not ("approved" or "rejected" or "pending")) throw new ArgumentException("Estado de revisión no válido.");
+        if (review.Status == "approved" && (string.IsNullOrWhiteSpace(review.MovementPattern) || review.PrimaryMuscles.Length == 0 || string.IsNullOrWhiteSpace(review.MinimumExperience) || review.SuitableGoals.Length == 0))
+            throw new ArgumentException("Para aprobar, indica patrón, músculos principales, nivel y al menos un objetivo.");
+        var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+        if (shouldClose) await connection.OpenAsync(cancellationToken);
+        try
         {
-            new ReviewedExercise("squat", "Squat", ["Glutes", "Quadriceps"], ["ErectorSpinae", "Hamstrings"], "Intermediate", ["barbell"], 100),
-            new ReviewedExercise("goblet-squat", "Squat", ["Glutes", "Quadriceps"], ["Hamstrings"], "Beginner", ["kettlebell"], 95),
-            new ReviewedExercise("ez-bar-romanian-deadlift", "Hinge", ["Glutes", "Hamstrings"], ["ErectorSpinae", "Forearms", "UpperBack"], "Beginner", ["ez_bar"], 95),
-            new ReviewedExercise("romanian-deadlift", "Hinge", ["Glutes", "Hamstrings"], ["ErectorSpinae"], "Intermediate", ["barbell"], 100),
-            new ReviewedExercise("push-up", "HorizontalPush", ["Chest", "Triceps"], ["Deltoids"], "Beginner", [], 100),
-            new ReviewedExercise("bench-press", "HorizontalPush", ["Chest"], ["Deltoids", "Triceps"], "Intermediate", ["barbell"], 95),
-            new ReviewedExercise("pull-up", "VerticalPull", ["Lats"], ["Biceps", "Deltoids", "UpperBack"], "Intermediate", ["pull_up_bar"], 100),
-            new ReviewedExercise("lat-pulldown", "VerticalPull", ["Lats"], ["Biceps", "Deltoids", "UpperBack"], "Beginner", ["cable"], 95),
-            new ReviewedExercise("bent-over-db-row", "HorizontalPull", ["Lats", "UpperBack"], ["Biceps", "Deltoids"], "Intermediate", ["dumbbell"], 100),
-            new ReviewedExercise("seated-cable-row", "HorizontalPull", ["Lats", "UpperBack"], ["Biceps", "ErectorSpinae", "Deltoids"], "Beginner", ["cable"], 95),
-            new ReviewedExercise("ohp", "VerticalPush", ["Deltoids"], ["UpperBack", "Triceps"], "Intermediate", ["barbell"], 100),
-            new ReviewedExercise("machine-shoulder-press", "VerticalPush", ["Deltoids"], ["UpperBack", "Triceps"], "Beginner", ["shoulder_press_machine"], 95),
-            new ReviewedExercise("step-ups", "SingleLeg", ["Glutes", "Quadriceps"], ["Calves", "Hamstrings"], "Beginner", [], 95),
-            new ReviewedExercise("walking-lunge", "SingleLeg", ["Glutes", "Quadriceps"], ["Hamstrings", "Calves"], "Beginner", [], 90),
-            new ReviewedExercise("bulgarian-split-squat", "SingleLeg", ["Quadriceps", "Glutes"], ["Hamstrings", "Calves"], "Intermediate", ["dumbbell"], 100),
-            new ReviewedExercise("plank", "Core", ["Abdominals"], ["ErectorSpinae"], "Beginner", [], 90),
-            new ReviewedExercise("ab-wheel-rollout", "Core", ["Abdominals"], ["Deltoids", "Lats", "Obliques"], "Intermediate", ["ab_wheel"], 100)
-        };
-        const string update = """
-            UPDATE exercise_catalog SET
-                reviewed = TRUE,
-                reviewed_movement_pattern = @pattern,
-                reviewed_primary_muscles = @primary::jsonb,
-                reviewed_secondary_muscles = @secondary::jsonb,
-                reviewed_minimum_experience = @experience,
-                reviewed_suitable_goals = @goals::jsonb,
-                reviewed_required_equipment = @equipment::jsonb,
-                reviewed_selection_priority = @priority,
-                reviewed_at = COALESCE(reviewed_at, NOW()),
-                reviewed_by = 'DietoExpress curated metadata v1',
-                updated_at = NOW()
-            WHERE exercise_id = @id
-            """;
-        foreach (var review in reviews)
-        {
-            await using var command = new NpgsqlCommand(update, connection, transaction);
-            Add(command, "id", review.Id);
-            Add(command, "pattern", review.Pattern);
-            Add(command, "primary", JsonSerializer.Serialize(review.Primary));
-            Add(command, "secondary", JsonSerializer.Serialize(review.Secondary));
+            const string sql = """
+                UPDATE exercise_catalog SET review_status = @status, reviewed = (@status = 'approved'),
+                    reviewed_movement_pattern = @pattern, reviewed_primary_muscles = @primary::jsonb,
+                    reviewed_secondary_muscles = @secondary::jsonb, reviewed_minimum_experience = @experience,
+                    reviewed_suitable_goals = @goals::jsonb, reviewed_required_equipment = @equipment::jsonb,
+                    reviewed_selection_priority = @priority, review_notes = @notes, reviewed_at = NOW(),
+                    reviewed_by = @reviewer, updated_at = NOW() WHERE exercise_id = @id
+                """;
+            await using var command = new NpgsqlCommand(sql, connection);
+            Add(command, "id", id); Add(command, "status", review.Status); Add(command, "pattern", review.MovementPattern);
+            Add(command, "primary", JsonSerializer.Serialize(review.PrimaryMuscles ?? []));
+            Add(command, "secondary", JsonSerializer.Serialize(review.SecondaryMuscles ?? []));
             Add(command, "experience", review.MinimumExperience);
-            Add(command, "goals", JsonSerializer.Serialize(new[] { "GeneralFitness", "Hypertrophy", "Strength" }));
-            Add(command, "equipment", JsonSerializer.Serialize(review.Equipment));
-            Add(command, "priority", review.Priority);
-            await command.ExecuteNonQueryAsync(cancellationToken);
+            Add(command, "goals", JsonSerializer.Serialize(review.SuitableGoals ?? []));
+            Add(command, "equipment", JsonSerializer.Serialize(review.RequiredEquipment ?? []));
+            Add(command, "priority", Math.Clamp(review.SelectionPriority, 0, 100));
+            Add(command, "notes", review.Notes); Add(command, "reviewer", reviewer);
+            return await command.ExecuteNonQueryAsync(cancellationToken) > 0;
         }
+        finally { if (shouldClose) await connection.CloseAsync(); }
     }
 
-    private sealed record ReviewedExercise(string Id, string Pattern, string[] Primary, string[] Secondary, string MinimumExperience, string[] Equipment, int Priority);
+    public async Task<string> AddProfessionalContributionAsync(string name, string? description, string? equipment, string? bodyPart, string contributor, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(name) || name.Trim().Length > 200) throw new ArgumentException("El nombre es obligatorio y no puede superar 200 caracteres.");
+        await EnsureSchemaAsync(cancellationToken);
+        var id = "professional-" + Guid.NewGuid().ToString("N");
+        var payload = JsonSerializer.Serialize(new { name = name.Trim(), description, equipment, bodyPart, contributor });
+        var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+        if (shouldClose) await connection.OpenAsync(cancellationToken);
+        try
+        {
+            const string sql = """
+                INSERT INTO exercise_catalog (exercise_id, source, source_payload, name_en, description_en, equipment, body_part, review_status)
+                VALUES (@id, 'professional-contribution', @payload::jsonb, @name, @description, @equipment, @body_part, 'pending')
+                """;
+            await using var command = new NpgsqlCommand(sql, connection);
+            Add(command, "id", id); Add(command, "payload", payload); Add(command, "name", name.Trim());
+            Add(command, "description", description); Add(command, "equipment", equipment); Add(command, "body_part", bodyPart);
+            await command.ExecuteNonQueryAsync(cancellationToken);
+            return id;
+        }
+        finally { if (shouldClose) await connection.CloseAsync(); }
+    }
+
+    private static async Task ResetLegacyAutoReviewsAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, CancellationToken cancellationToken)
+    {
+        // These legacy flags were assigned from hard-coded metadata, not from human review.
+        const string sql = """
+            UPDATE exercise_catalog SET reviewed = FALSE, review_status = 'pending',
+                reviewed_movement_pattern = NULL, reviewed_primary_muscles = NULL, reviewed_secondary_muscles = NULL,
+                reviewed_minimum_experience = NULL, reviewed_suitable_goals = NULL, reviewed_required_equipment = NULL,
+                reviewed_selection_priority = 50, reviewed_at = NULL, reviewed_by = NULL, review_notes = NULL, updated_at = NOW()
+            WHERE reviewed_by = 'DietoExpress curated metadata v1'
+            """;
+        await using var command = new NpgsqlCommand(sql, connection, transaction);
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
 
     private static void Add(NpgsqlCommand command, string name, object? value) =>
         command.Parameters.AddWithValue(name, value ?? DBNull.Value);
@@ -338,6 +367,8 @@ public sealed class ExerciseCatalogService
         return document.RootElement.Clone();
     }
 
+    private static JsonElement? NullableJson(NpgsqlDataReader reader, int ordinal) => reader.IsDBNull(ordinal) ? null : ParseElement(reader.GetString(ordinal));
+
     private static string? NullableString(NpgsqlDataReader reader, int ordinal) => reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
 }
 
@@ -345,4 +376,9 @@ public sealed record ExerciseCatalogSyncResult(string Source, string SchemaVersi
 public sealed record ExerciseCatalogItem(
     string Id, string? NameEs, string NameEn, string? Category, string? BodyPart, string? Equipment,
     JsonElement PrimaryMuscles, JsonElement SecondaryMuscles, JsonElement Goals, JsonElement Tags,
-    JsonElement InstructionsEs, JsonElement Images);
+    JsonElement InstructionsEs, JsonElement Images, string Source, string ReviewStatus, bool Reviewed,
+    string? MovementPattern, JsonElement? ReviewedPrimaryMuscles, JsonElement? ReviewedSecondaryMuscles,
+    string? MinimumExperience, JsonElement? SuitableGoals, JsonElement? RequiredEquipment,
+    int SelectionPriority, string? ReviewNotes, DateTime? ReviewedAt, string? ReviewedBy);
+
+public sealed record ExerciseReviewRequest(string Status, string? MovementPattern, string[] PrimaryMuscles, string[] SecondaryMuscles, string MinimumExperience, string[] SuitableGoals, string[] RequiredEquipment, int SelectionPriority, string? Notes);

@@ -1,6 +1,7 @@
 using Anguloso.Server.Logica;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Anguloso.Server.Controllers;
 
@@ -37,6 +38,42 @@ public sealed class ExerciseCatalogController : ControllerBase
         }
     }
 
+
+    [HttpGet("review-queue")]
+    [Authorize(Roles = "superadmin")]
+    public async Task<ActionResult<IReadOnlyList<ExerciseCatalogItem>>> ReviewQueue([FromQuery] string? q, [FromQuery] string status = "pending", [FromQuery] int limit = 100, CancellationToken cancellationToken = default)
+    {
+        try { return Ok(await _catalog.SearchAsync(q, null, null, Math.Clamp(limit, 1, 100), cancellationToken, status)); }
+        catch (Exception exception) { _logger.LogError(exception, "Failed to load exercise review queue."); return StatusCode(503, new { error = "No se pudo cargar la cola de revisión." }); }
+    }
+
+    [HttpPut("{id}/review")]
+    [Authorize(Roles = "superadmin")]
+    public async Task<IActionResult> Review(string id, [FromBody] ExerciseReviewRequest review, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var reviewer = User.Identity?.Name ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "superadmin";
+            return await _catalog.SaveReviewAsync(id, review, reviewer, cancellationToken) ? NoContent() : NotFound();
+        }
+        catch (ArgumentException exception) { return BadRequest(new { error = exception.Message }); }
+        catch (Exception exception) { _logger.LogError(exception, "Failed to save review for exercise {ExerciseId}.", id); return StatusCode(500, new { error = "No se pudo guardar la revisión." }); }
+    }
+
+    [HttpPost("contributions")]
+    [Authorize(Roles = "nutritionist,clinic_admin")]
+    public async Task<IActionResult> Contribute([FromBody] ExerciseContributionRequest contribution, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var contributor = User.Identity?.Name ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "professional";
+            var id = await _catalog.AddProfessionalContributionAsync(contribution.Name, contribution.Description, contribution.Equipment, contribution.BodyPart, contributor, cancellationToken);
+            return Created($"/api/exercise-catalog/{id}", new { id, status = "pending" });
+        }
+        catch (ArgumentException exception) { return BadRequest(new { error = exception.Message }); }
+        catch (Exception exception) { _logger.LogError(exception, "Failed to submit exercise contribution."); return StatusCode(500, new { error = "No se pudo enviar el ejercicio a revisión." }); }
+    }
+
     [HttpPost("sync")]
     [Authorize(Roles = "superadmin")]
     public async Task<ActionResult<ExerciseCatalogSyncResult>> Synchronize(CancellationToken cancellationToken)
@@ -57,3 +94,5 @@ public sealed class ExerciseCatalogController : ControllerBase
         }
     }
 }
+
+public sealed record ExerciseContributionRequest(string Name, string? Description, string? Equipment, string? BodyPart);

@@ -101,6 +101,11 @@
       </a>
     </div>
     <div class="menu-item superadmin-item" *ngIf="isSuperAdmin">
+      <a mat-list-item routerLink="/admin/exercises" routerLinkActive="active-link" (click)="navigateAndClose()">
+        <mat-icon>fitness_center</mat-icon><span>Revisión de ejercicios</span>
+      </a>
+    </div>
+    <div class="menu-item superadmin-item" *ngIf="isSuperAdmin">
       <a mat-list-item routerLink="/admin/directory-verification/review" routerLinkActive="active-link" (click)="navigateAndClose()">
         <mat-icon>description</mat-icon><span>Revisión documental</span>
       </a>
