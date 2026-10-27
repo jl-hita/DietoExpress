@@ -76,6 +76,9 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("description_es, description_en", service);
         Assert.Contains("tips_es::text", service);
         Assert.Contains("source_payload::text", service);
+        Assert.Contains("const string repairSql", service);
+        Assert.Contains("source_payload->>'name_es'", service);
+        Assert.Contains("instructions_es = CASE", service);
         Assert.Contains("EnsureRepDbQualityCurationAsync", service);
         Assert.Contains("RepDbExerciseCuration.ShouldExclude(id, sourceCategory, equipment, variationGroup)", service);
         Assert.Contains("jsonb_each(@preferred_variants::jsonb)", service);
