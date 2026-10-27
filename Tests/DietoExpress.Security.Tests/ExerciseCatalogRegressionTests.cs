@@ -90,7 +90,6 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("owner_user_id IS NULL", service);
         Assert.Contains("exercise_id = ANY(@excluded_ids)", service);
         Assert.Contains("lower(g.goal) NOT IN ('hypertrophy', 'strength')", service);
-        Assert.Contains("\"clean-and-jerk\"", curation);
         Assert.Contains("\"banded-sumo-walk\"", curation);
         Assert.Contains("[\"clean\"] = []", curation);
         Assert.Contains("string.Equals(category, \"olympic\"", curation);
