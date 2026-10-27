@@ -60,6 +60,34 @@ public sealed class ExerciseCatalogController : ControllerBase
         catch (Exception exception) { _logger.LogError(exception, "Failed to load exercise review queue."); return StatusCode(503, new { error = "No se pudo cargar la cola de revisión." }); }
     }
 
+    /// <summary>
+    /// Exports the entire pending review queue for offline/batch curation. The total is independent
+    /// of the normal 100-item UI page limit, and the response reports whether every row was returned.
+    /// </summary>
+    [HttpGet("review-queue/export")]
+    [Authorize(Roles = "superadmin")]
+    public async Task<IActionResult> ExportReviewQueue(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var stats = await _catalog.GetReviewStatsAsync(cancellationToken);
+            var items = await _catalog.SearchAsync(null, null, null, 10000, cancellationToken,
+                reviewStatus: "pending", includeAllOwners: true, maxLimit: 10000);
+            return Ok(new
+            {
+                totalPending = stats.pending,
+                returned = items.Count,
+                complete = items.Count == stats.pending,
+                items
+            });
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Failed to export the complete exercise review queue.");
+            return StatusCode(503, new { error = "No se pudo exportar la cola completa de revisión." });
+        }
+    }
+
     [HttpPut("{id}/review")]
     [Authorize(Roles = "superadmin")]
     public async Task<IActionResult> Review(string id, [FromBody] ExerciseReviewRequest review, CancellationToken cancellationToken)
