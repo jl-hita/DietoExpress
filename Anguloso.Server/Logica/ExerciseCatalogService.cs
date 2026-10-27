@@ -258,7 +258,7 @@ public sealed class ExerciseCatalogService
             new ReviewedExercise("bench-press", "HorizontalPush", ["Chest"], ["Deltoids", "Triceps"], "Intermediate", ["barbell"], 95),
             new ReviewedExercise("pull-up", "VerticalPull", ["Lats"], ["Biceps", "Deltoids", "UpperBack"], "Intermediate", ["pull_up_bar"], 100),
             new ReviewedExercise("lat-pulldown", "VerticalPull", ["Lats"], ["Biceps", "Deltoids", "UpperBack"], "Beginner", ["cable"], 95),
-            new ReviewedExercise("bent-over-db-row", "HorizontalPull", ["Lats", "UpperBack"], ["Biceps", "Deltoids", "UpperBack"], "Intermediate", ["dumbbell"], 100),
+            new ReviewedExercise("bent-over-db-row", "HorizontalPull", ["Lats", "UpperBack"], ["Biceps", "Deltoids"], "Intermediate", ["dumbbell"], 100),
             new ReviewedExercise("seated-cable-row", "HorizontalPull", ["Lats", "UpperBack"], ["Biceps", "ErectorSpinae", "Deltoids"], "Beginner", ["cable"], 95),
             new ReviewedExercise("ohp", "VerticalPush", ["Deltoids"], ["UpperBack", "Triceps"], "Intermediate", ["barbell"], 100),
             new ReviewedExercise("machine-shoulder-press", "VerticalPush", ["Deltoids"], ["UpperBack", "Triceps"], "Beginner", ["shoulder_press_machine"], 95),
