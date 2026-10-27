@@ -103,7 +103,7 @@ public sealed class ExerciseCatalogService
 
         var schemaVersion = ReadString(root, "schema_version") ?? "unknown";
         var imported = 0;
-        await using var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
+        var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
         if (connection.State != ConnectionState.Open)
             await connection.OpenAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
@@ -193,8 +193,10 @@ public sealed class ExerciseCatalogService
             throw;
         }
 
-        _logger.LogInformation("Imported {Count} exercises from {Source}; reviewed annotations were preserved.", imported, SourceName);
-        return new ExerciseCatalogSyncResult(SourceName, schemaVersion, imported, DateTimeOffset.UtcNow);
+        await using var reviewedCountCommand = new NpgsqlCommand("SELECT COUNT(*) FROM exercise_catalog WHERE reviewed = TRUE", connection);
+        var reviewedCount = Convert.ToInt32(await reviewedCountCommand.ExecuteScalarAsync(cancellationToken));
+        _logger.LogInformation("Imported {Count} exercises from {Source}; {ReviewedCount} exercises have curated review metadata.", imported, SourceName, reviewedCount);
+        return new ExerciseCatalogSyncResult(SourceName, schemaVersion, imported, reviewedCount, DateTimeOffset.UtcNow);
     }
 
     public async Task<IReadOnlyList<ExerciseCatalogItem>> SearchAsync(string? query, string? bodyPart, string? equipment, int limit, CancellationToken cancellationToken = default)
@@ -313,7 +315,7 @@ public sealed class ExerciseCatalogService
     private static string? NullableString(NpgsqlDataReader reader, int ordinal) => reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
 }
 
-public sealed record ExerciseCatalogSyncResult(string Source, string SchemaVersion, int ImportedCount, DateTimeOffset SyncedAtUtc);
+public sealed record ExerciseCatalogSyncResult(string Source, string SchemaVersion, int ImportedCount, int ReviewedCount, DateTimeOffset SyncedAtUtc);
 public sealed record ExerciseCatalogItem(
     string Id, string? NameEs, string NameEn, string? Category, string? BodyPart, string? Equipment,
     JsonElement PrimaryMuscles, JsonElement SecondaryMuscles, JsonElement Goals, JsonElement Tags,
