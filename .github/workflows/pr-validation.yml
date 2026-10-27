@@ -139,7 +139,7 @@ jobs:
 
       - name: Security tests and training generator evaluation
         env:
-          TRAINING_GENERATOR_REPORT_PATH: artifacts/training-generator-evaluation.json
+          TRAINING_GENERATOR_REPORT_PATH: ${{ github.workspace }}/artifacts/training-generator-evaluation.json
         run: dotnet test Tests/DietoExpress.Security.Tests/DietoExpress.Security.Tests.csproj -c Release --no-restore
 
       - name: Resumen de evaluación del generador
