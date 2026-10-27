@@ -164,8 +164,8 @@ public sealed class TrainingProgramGeneratorTests
         Assert.Equal(2, firstExerciseByWeek[5].Sets); // next cycle baseline
         Assert.Equal(3, firstExerciseByWeek[6].Sets);
         Assert.Equal(1, firstExerciseByWeek[8].Sets);
-        Assert.Equal(4m, firstExerciseByWeek[4].TargetRepetitionsInReserve);
-        Assert.Equal(3m, firstExerciseByWeek[5].TargetRepetitionsInReserve);
+        Assert.Equal(4m, firstExerciseByWeek[4].TargetRepetitionsInReserve!.Value);
+        Assert.Equal(3m, firstExerciseByWeek[5].TargetRepetitionsInReserve!.Value);
         Assert.Empty(TrainingPrescriptionValidator.Validate(result.Prescription));
     }
 
