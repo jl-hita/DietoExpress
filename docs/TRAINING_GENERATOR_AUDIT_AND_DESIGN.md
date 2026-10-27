@@ -129,13 +129,18 @@ La calidad del software se evalúa mediante CI, invariantes, pruebas de integrac
 ## 9. Secuencia de implementación
 
 1. Terminar el rastreo de origen y metadatos de la biblioteca actual.
-2. Acordar el modelo de prescripción estructurada y su migración compatible.
+2. Acordar el modelo de prescripción estructurada y su migración compatible. **En curso:** existe un contrato C# tipado y un validador puro para invariantes estructurales; todavía no hay persistencia ni endpoint asociado.
 3. Implementar motor puro y determinista, separado de controladores y persistencia.
-4. Construir la batería de tests antes de activar generación a pacientes.
+4. Construir la batería de tests antes de activar generación a pacientes. **Añadidos en esta iteración:** tests del contrato estructurado, límites de dosis, identidad/versionado del catálogo y calendario.
 5. Añadir persistencia de feedback y adaptaciones con auditoría e idempotencia.
 6. Revisar el contrato y el flujo Android en el mismo esfuerzo coordinado.
 7. Habilitar primero como borrador para profesionales; no autoaplicar cambios sensibles sin controles.
 8. Someter programas de referencia a revisión profesional antes de publicitarlo como generador validado.
+
+### 9.1 Primer contrato estructurado implementado
+`TrainingProgramPrescription` representa el plan con versión del motor, objetivo, fecha de inicio, duración y sesiones. Cada sesión tiene semana/día y duración estimada; cada ejercicio conserva ID estable, versión del catálogo y nombre snapshot, orden, series, rango de repeticiones, RIR objetivo, descanso, regla de progresión y motivo de selección.
+
+`TrainingPrescriptionValidator` rechaza contratos incompletos o inconsistentes antes de persistirlos o mostrarlos. Sus límites son guardas estructurales de software, no una afirmación de que una dosis concreta sea apropiada para todas las personas. El siguiente paso es un generador puro que consuma un catálogo explícito de ejercicios con metadatos fiables y produzca planes reproducibles que pasen este validador.
 
 ## 10. Condición de compatibilidad Android
 
