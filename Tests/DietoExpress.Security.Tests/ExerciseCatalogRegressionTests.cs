@@ -72,6 +72,10 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("[HttpGet(\"review-queue/export\")]", controller);
         Assert.Contains("totalPending = stats.pending", controller);
         Assert.Contains("complete = items.Count == stats.pending", controller);
+        Assert.Contains("ExportReviewQueueAsync", controller);
+        Assert.Contains("description_es, description_en", service);
+        Assert.Contains("tips_es::text", service);
+        Assert.Contains("source_payload::text", service);
         Assert.Contains("EnsureRepDbQualityCurationAsync", service);
         Assert.Contains("RepDbExerciseCuration.ShouldExclude(id, sourceCategory, equipment, variationGroup)", service);
         Assert.Contains("jsonb_each(@preferred_variants::jsonb)", service);
