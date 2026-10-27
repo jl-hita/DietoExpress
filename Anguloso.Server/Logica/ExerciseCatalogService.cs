@@ -383,12 +383,7 @@ public sealed class ExerciseCatalogService
                 UPDATE exercise_catalog
                 SET category = CASE
                         WHEN exercise_id = 'extended-side-angle' THEN 'stretching'
-                        WHEN exercise_id = 'double-kettlebell-clean' THEN 'olympic'
                         ELSE category
-                    END,
-                    body_part = CASE
-                        WHEN exercise_id = 'double-kettlebell-clean' THEN 'full_body'
-                        ELSE body_part
                     END,
                     primary_muscles = CASE
                         WHEN exercise_id = 'sit-ups' THEN '["rectus_abdominis"]'::jsonb
@@ -405,13 +400,11 @@ public sealed class ExerciseCatalogService
                              WHERE lower(g.goal) NOT IN ('hypertrophy', 'strength')),
                             '["endurance"]'::jsonb)
                         WHEN exercise_id = 'extended-side-angle' THEN '["mobility"]'::jsonb
-                        WHEN exercise_id = 'bird-dog-hold' THEN '["rehabilitation", "endurance"]'::jsonb
                         ELSE goals
                     END,
                     review_status = CASE
                         WHEN reviewed_by = 'RepDB automatic metadata v2'
-                         AND (category = 'cardio' OR exercise_id IN ('extended-side-angle', 'double-kettlebell-clean',
-                             'bird-dog-hold', 'dead-hang', 'sit-ups'))
+                         AND (category = 'cardio' OR exercise_id IN ('extended-side-angle', 'dead-hang', 'sit-ups'))
                         THEN 'pending' ELSE review_status
                     END,
                     reviewed = CASE
@@ -471,8 +464,7 @@ public sealed class ExerciseCatalogService
                     updated_at = NOW()
                 WHERE source = 'repdb-free'
                   AND (category = 'cardio'
-                    OR exercise_id IN ('extended-side-angle', 'double-kettlebell-clean', 'sit-ups',
-                        'bird-dog-hold', 'dead-hang'))
+                    OR exercise_id IN ('extended-side-angle', 'sit-ups', 'dead-hang'))
                 """;
             await using (var update = new NpgsqlCommand(updateSql, connection, transaction))
                 await update.ExecuteNonQueryAsync(cancellationToken);
