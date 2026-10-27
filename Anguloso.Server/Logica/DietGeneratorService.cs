@@ -1246,26 +1246,7 @@ public class DietGeneratorService
     }
 
     private static (double Min, double Max) GetCulinaryBounds(string mealName, MealItemDto item)
-    {
-        var meal = NormalizeFoodTerm(mealName);
-        var food = NormalizeFoodTerm(item.FoodName ?? string.Empty);
-        var smallMeal = meal.Contains("desayuno") || meal.Contains("media") || meal.Contains("merienda");
-
-        if (smallMeal)
-        {
-            if (food.Contains("yogur")) return (100, 200);
-            if (food.Contains("leche")) return (100, 300);
-            if (food.Contains("huevo") || food.Contains("clara") || food.Contains("tortilla")) return (50, 180);
-            if (food.Contains("manzana") || food.Contains("naranja") || food.Contains("pera") || food.Contains("mandarina") || food.Contains("platano") || food.Contains("fresa") || food.Contains("kiwi") || food.Contains("melocoton") || food.Contains("melon") || food.Contains("sandia") || food.Contains("uva")) return (80, 200);
-            return (30, 180);
-        }
-
-        if (food.StartsWith("aceite ") || food == "aceite") return (5, 18);
-        if (food.Contains("tomate") || food.Contains("lechuga") || food.Contains("espinaca") || food.Contains("calabacin") || food.Contains("berenjena") || food.Contains("brocoli") || food.Contains("zanahoria") || food.Contains("pepino") || food.Contains("pimiento") || food.Contains("judia verde") || food.Contains("champinon") || food.Contains("calabaza")) return (100, 250);
-        if (food.Contains("arroz") || food.Contains("pasta") || food.Contains("patata") || food.Contains("boniato") || food.Contains("pan") || food.Contains("avena") || food.Contains("quinoa") || food.Contains("lenteja") || food.Contains("garbanzo") || food.Contains("alubia") || food.Contains("guisante") || food.Contains("cuscus") || food.Contains("tostada")) return (50, 180);
-        if (food.Contains("pollo") || food.Contains("pavo") || food.Contains("ternera") || food.Contains("cerdo") || food.Contains("conejo") || food.Contains("atun") || food.Contains("salmon") || food.Contains("merluza") || food.Contains("bacalao") || food.Contains("dorada") || food.Contains("lubina") || food.Contains("sardina") || food.Contains("caballa") || food.Contains("gamba") || food.Contains("tofu") || food.Contains("tempeh") || food.Contains("huevo") || food.Contains("clara")) return (100, 220);
-        return (20, 250);
-    }
+        => DietSemanticValidationService.GetCulinaryBounds(mealName, item.FoodName);
 
     private static double CalculateRebalanceError(
         IReadOnlyCollection<MealItemDto> items,

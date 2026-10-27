@@ -341,8 +341,10 @@ public class AuthorizationRegressionTests
         Assert.Contains("desecado", source);
         Assert.Contains("rebalanceBounds", source);
         Assert.Contains("GetCulinaryBounds", source);
-        Assert.Contains("return (100, 250)", source);
-        Assert.Contains("return (50, 180)", source);
+        var semanticValidator = ReadServerLogica("DietSemanticValidationService.cs");
+        Assert.Contains("=> DietSemanticValidationService.GetCulinaryBounds(mealName, item.FoodName);", source);
+        Assert.Contains("if (IsVegetable(food) || IsFruit(food)) return (100, 250)", semanticValidator);
+        Assert.Contains("if (IsCarb(food)) return (50, 180)", semanticValidator);
         Assert.DoesNotContain("Math.Clamp(currentGrams - stepGrams, 5, 350)", source);
     }
 
@@ -401,7 +403,7 @@ public class AuthorizationRegressionTests
         Assert.Contains("\"yogur líquido\"", source);
         Assert.Contains("SnapToServingSize", source);
         Assert.Contains("name.Contains(\"yogur\")", source);
-        Assert.Contains("return (50, 180)", source);
+        Assert.Contains("=> DietSemanticValidationService.GetCulinaryBounds(mealName, item.FoodName);", source);
         Assert.DoesNotContain("(c >= 18 && c > p)", source);
         Assert.DoesNotContain("(p >= 16 && p > c && fat < 18)", source);
     }
