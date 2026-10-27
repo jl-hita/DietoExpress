@@ -29,7 +29,8 @@ public sealed class ExerciseCatalogController : ControllerBase
     {
         try
         {
-            return Ok(await _catalog.SearchAsync(q, bodyPart, equipment, limit, cancellationToken));
+            var ownerUserId = int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsedUserId) ? parsedUserId : (int?)null;
+            return Ok(await _catalog.SearchAsync(q, bodyPart, equipment, limit, cancellationToken, ownerUserId: ownerUserId));
         }
         catch (Exception exception)
         {
@@ -43,7 +44,7 @@ public sealed class ExerciseCatalogController : ControllerBase
     [Authorize(Roles = "superadmin")]
     public async Task<ActionResult<IReadOnlyList<ExerciseCatalogItem>>> ReviewQueue([FromQuery] string? q, [FromQuery] string status = "pending", [FromQuery] int limit = 100, CancellationToken cancellationToken = default)
     {
-        try { return Ok(await _catalog.SearchAsync(q, null, null, Math.Clamp(limit, 1, 100), cancellationToken, status)); }
+        try { return Ok(await _catalog.SearchAsync(q, null, null, Math.Clamp(limit, 1, 100), cancellationToken, status, includeAllOwners: true)); }
         catch (Exception exception) { _logger.LogError(exception, "Failed to load exercise review queue."); return StatusCode(503, new { error = "No se pudo cargar la cola de revisión." }); }
     }
 
@@ -67,7 +68,8 @@ public sealed class ExerciseCatalogController : ControllerBase
         try
         {
             var contributor = User.Identity?.Name ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "professional";
-            var id = await _catalog.AddProfessionalContributionAsync(contribution.Name, contribution.Description, contribution.Equipment, contribution.BodyPart, contributor, cancellationToken);
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var contributorUserId)) return Unauthorized();
+            var id = await _catalog.AddProfessionalContributionAsync(contribution.Name, contribution.Description, contribution.Equipment, contribution.BodyPart, contributor, contributorUserId, cancellationToken);
             return Created($"/api/exercise-catalog/{id}", new { id, status = "pending" });
         }
         catch (ArgumentException exception) { return BadRequest(new { error = exception.Message }); }
