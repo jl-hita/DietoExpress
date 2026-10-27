@@ -69,6 +69,16 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("'/api/exercise-catalog/review-stats'", reviewUi);
         Assert.Contains("s.repDbPending", reviewUi);
         Assert.Contains("s.repDbAutoApprovedV2", reviewUi);
+        Assert.Contains("[HttpGet(\"review-queue/export\")]", controller);
+        Assert.Contains("totalPending = stats.pending", controller);
+        Assert.Contains("complete = items.Count == stats.pending", controller);
+        Assert.Contains("EnsureRepDbQualityCurationAsync", service);
+        Assert.Contains("RepDbExerciseCuration.ShouldExclude(id)", service);
+        Assert.Contains("category = 'cardio'", service);
+        var curation = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "RepDbExerciseCuration.cs"));
+        Assert.Contains("\"air-bike\"", curation);
+        Assert.Contains("\"endurance\"", curation);
+        Assert.Contains("RequiresManualReview", curation);
 
         Assert.DoesNotContain("source_payload FROM exercise_catalog", service);
     }
