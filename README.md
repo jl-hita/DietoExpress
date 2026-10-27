@@ -142,6 +142,8 @@ Para producción se recomienda utilizar variables de entorno y secretos fuera de
 ## Documentación operativa
 
 - [Guía de despliegue Linux de producción](docs/GUIA_DESPLIEGUE_LINUX_PRODUCCION.md): instalación, configuración, actualización y recuperación del servidor.
+- [Recuperación desde cero](docs/RECUPERACION_DESDE_CERO.md): runbook ordenado para reconstruir Fedora, recuperar secretos y restaurar PostgreSQL/documentos desde el paquete cifrado.
+- [Bootstrap Fedora](scripts/bootstrap-dietoexpress-fedora.sh): prepara dependencias y directorios de un servidor limpio sin desplegar ni restaurar datos.
 - [Manual SuperAdmin de copias de seguridad](docs/MANUAL_SUPERADMIN_BACKUPS.md): creación, verificación y restauración coordinada de PostgreSQL y documentos.
 - [Backups cifrados en Google Drive](docs/BACKUPS_GOOGLE_DRIVE.md): configuración de `rclone`, subida automática de snapshots completos y recuperación desde Drive.
 
