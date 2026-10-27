@@ -118,11 +118,25 @@ public sealed class ExerciseCatalogService
     public async Task<ExerciseCatalogSyncResult?> EnsureSeededAsync(CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken);
+
+        // One-time, explicit catalog reset requested for the RepDB Spanish-data bootstrap.
+        // The reset and complete source import share one PostgreSQL transaction, so a failed
+        // download/import cannot leave the existing catalog empty or partially replaced.
+        const string bootstrapMarker = "exercise-catalog-repdb-spanish-reset-v2";
+        var bootstrapCompleted = await _db.Database.SqlQueryRaw<bool>(
+            """SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'exercise-catalog-repdb-spanish-reset-v2') AS "Value"""")
+            .SingleAsync(cancellationToken);
+        if (!bootstrapCompleted)
+            return await SyncFromSourceAsync(cancellationToken, replaceExisting: true, markBootstrapComplete: true);
+
         var count = await _db.Database.SqlQueryRaw<long>("""SELECT COUNT(*) AS "Value" FROM exercise_catalog""").SingleAsync(cancellationToken);
         return count == 0 ? await SyncFromSourceAsync(cancellationToken) : null;
     }
 
-    public async Task<ExerciseCatalogSyncResult> SyncFromSourceAsync(CancellationToken cancellationToken = default)
+    public async Task<ExerciseCatalogSyncResult> SyncFromSourceAsync(
+        CancellationToken cancellationToken = default,
+        bool replaceExisting = false,
+        bool markBootstrapComplete = false)
     {
         await EnsureSchemaAsync(cancellationToken);
         using var response = await _httpClientFactory.CreateClient(nameof(ExerciseCatalogService))
@@ -143,6 +157,12 @@ public sealed class ExerciseCatalogService
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         try
         {
+            if (replaceExisting)
+            {
+                await using var deleteCommand = new NpgsqlCommand("DELETE FROM exercise_catalog", connection, transaction);
+                await deleteCommand.ExecuteNonQueryAsync(cancellationToken);
+            }
+
             foreach (var exercise in exercises.EnumerateArray())
             {
                 var id = ReadString(exercise, "id");
@@ -219,6 +239,13 @@ public sealed class ExerciseCatalogService
                 imported++;
             }
             await ResetLegacyAutoReviewsAsync(connection, transaction, cancellationToken);
+            if (markBootstrapComplete)
+            {
+                await using var markerCommand = new NpgsqlCommand(
+                    "INSERT INTO schema_migrations(id) VALUES ('exercise-catalog-repdb-spanish-reset-v2') ON CONFLICT (id) DO NOTHING",
+                    connection, transaction);
+                await markerCommand.ExecuteNonQueryAsync(cancellationToken);
+            }
             await using var reviewedCountCommand = new NpgsqlCommand("SELECT COUNT(*) FROM exercise_catalog WHERE reviewed = TRUE", connection, transaction);
             reviewedCount = Convert.ToInt32(await reviewedCountCommand.ExecuteScalarAsync(cancellationToken));
             await transaction.CommitAsync(cancellationToken);
