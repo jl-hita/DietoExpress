@@ -119,6 +119,7 @@ public sealed class TrainingGeneratorEvaluationReportTests
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         WriteIndented = true,
         Converters = { new JsonStringEnumConverter() }
     };
