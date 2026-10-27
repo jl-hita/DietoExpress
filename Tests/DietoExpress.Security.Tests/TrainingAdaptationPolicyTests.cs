@@ -31,6 +31,26 @@ public sealed class TrainingAdaptationPolicyTests
     }
 
     [Fact]
+    public void IllnessReasonOnCompletedSession_DoesNotTriggerNonCompletionRule()
+    {
+        var result = TrainingAdaptationPolicy.Evaluate([
+            new TrainingSessionFeedback(TrainingSessionOutcome.Completed, TrainingNonCompletionReason.Illness,
+                Recovery: TrainingRecoveryRating.Good, SessionRpe: 6)
+        ]);
+        Assert.Equal(TrainingAdaptationAction.NoChange, result.Action);
+    }
+
+    [Fact]
+    public void FatigueReasonOnCompletedSession_DoesNotTriggerNonCompletionRule()
+    {
+        var result = TrainingAdaptationPolicy.Evaluate([
+            new TrainingSessionFeedback(TrainingSessionOutcome.Completed, TrainingNonCompletionReason.Fatigue,
+                Recovery: TrainingRecoveryRating.Good, SessionRpe: 6)
+        ]);
+        Assert.Equal(TrainingAdaptationAction.NoChange, result.Action);
+    }
+
+    [Fact]
     public void RepeatedInsufficientRecovery_ReviewsTrainingStress()
     {
         var result = TrainingAdaptationPolicy.Evaluate([
@@ -88,5 +108,31 @@ public sealed class TrainingAdaptationPolicyTests
             new TrainingSessionFeedback(TrainingSessionOutcome.Completed, SessionRpe: 6, ProgressionTargetAchieved: true)
         ]);
         Assert.NotEqual(TrainingAdaptationAction.ProgressAccordingToPrescription, result.Action);
+    }
+
+    [Theory]
+    [InlineData(-0.1)]
+    [InlineData(10.1)]
+    public void OutOfRangeRpe_IsRejected(decimal rpe)
+    {
+        var result = TrainingAdaptationPolicy.Evaluate([
+            new TrainingSessionFeedback(TrainingSessionOutcome.Completed, SessionRpe: rpe)
+        ]);
+        Assert.Equal(TrainingAdaptationAction.InvalidFeedback, result.Action);
+    }
+
+    [Fact]
+    public void UndefinedEnumValue_IsRejected()
+    {
+        var result = TrainingAdaptationPolicy.Evaluate([
+            new TrainingSessionFeedback((TrainingSessionOutcome)999)
+        ]);
+        Assert.Equal(TrainingAdaptationAction.InvalidFeedback, result.Action);
+    }
+
+    [Fact]
+    public void NullHistory_ThrowsInsteadOfBeingSilentlyAccepted()
+    {
+        Assert.Throws<ArgumentNullException>(() => TrainingAdaptationPolicy.Evaluate(null!));
     }
 }
