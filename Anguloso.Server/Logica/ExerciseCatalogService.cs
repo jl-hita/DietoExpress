@@ -187,7 +187,7 @@ public sealed class ExerciseCatalogService
                     continue;
 
                 var category = RepDbExerciseCuration.CurateCategory(id, sourceCategory);
-                var bodyPart = RepDbExerciseCuration.CurateBodyPart(id, ReadString(exercise, "body_part"));
+                var bodyPart = ReadString(exercise, "body_part");
                 var goalsJson = RepDbExerciseCuration.CurateGoalsJson(id, category, JsonText(exercise, "goals"));
                 var primaryMusclesJson = RepDbExerciseCuration.CurateMusclesJson(id, primary: true, JsonText(exercise, "primary_muscles"));
                 var secondaryMusclesJson = RepDbExerciseCuration.CurateMusclesJson(id, primary: false, JsonText(exercise, "secondary_muscles"));
