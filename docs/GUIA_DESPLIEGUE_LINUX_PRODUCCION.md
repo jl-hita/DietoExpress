@@ -4,6 +4,8 @@
 
 **Regla principal:** el código desplegado puede reemplazarse; los datos persistentes nunca deben formar parte de una limpieza normal de despliegue.
 
+Para una reconstrucción tras pérdida total del servidor, empieza por el [runbook de recuperación desde cero](RECUPERACION_DESDE_CERO.md). En Fedora limpio, el bootstrap inicial es `sudo bash scripts/bootstrap-dietoexpress-fedora.sh`; revisa el alcance limitado del script antes de ejecutarlo.
+
 ## 1. Arquitectura
 
 Internet → DNS → Nginx/HTTPS → ASP.NET Core → PostgreSQL.
