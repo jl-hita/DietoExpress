@@ -113,8 +113,6 @@ internal static class RepDbExerciseCuration
     public static string? CurateCategory(string id, string? sourceCategory) =>
         id.Equals("extended-side-angle", StringComparison.OrdinalIgnoreCase) ? "stretching" : sourceCategory;
 
-    public static string? CurateBodyPart(string id, string? sourceBodyPart) => sourceBodyPart;
-
     public static string CurateGoalsJson(string id, string? category, string sourceGoalsJson)
     {
         using var document = JsonDocument.Parse(string.IsNullOrWhiteSpace(sourceGoalsJson) ? "[]" : sourceGoalsJson);
