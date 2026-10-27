@@ -59,6 +59,17 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("command.CommandText = sql", service);
         Assert.DoesNotContain("ExecuteSqlRawAsync(sql, cancellationToken)", service);
         Assert.Contains("[Authorize(Roles = \"superadmin\")]", controller);
+        Assert.Contains("[HttpGet(\"review-stats\")]", controller);
+        Assert.Contains("GetReviewStatsAsync", controller);
+        Assert.Contains("COUNT(*) FILTER (WHERE review_status = 'pending')", service);
+        Assert.Contains("repdb_auto_approved_v2", service);
+        Assert.Contains("pending_missing_description", service);
+        Assert.Contains("pending_missing_difficulty", service);
+        var reviewUi = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "admin", "admin-exercise-review.component.ts"));
+        Assert.Contains("'/api/exercise-catalog/review-stats'", reviewUi);
+        Assert.Contains("s.repDbPending", reviewUi);
+        Assert.Contains("s.repDbAutoApprovedV2", reviewUi);
+
         Assert.DoesNotContain("source_payload FROM exercise_catalog", service);
     }
 
