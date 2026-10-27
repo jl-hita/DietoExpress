@@ -61,7 +61,7 @@ public static class TrainingProgramGenerator
                     if (candidate is null)
                         return Failure($"No hay un ejercicio revisado compatible con el patrón '{pattern}', el objetivo, la experiencia, el material y las exclusiones configuradas.");
 
-                    var (sets, minReps, maxReps, rir, rest, progression) = PrescriptionFor(request.Goal, request.Experience);
+                    var (sets, minReps, maxReps, rir, rest, progression) = PrescriptionFor(request.Goal, request.Experience, week);
                     prescriptions.Add(new TrainingExercisePrescription(
                         candidate.ExerciseId,
                         candidate.CatalogVersion,
@@ -86,7 +86,7 @@ public static class TrainingProgramGenerator
         }
 
         var plan = new TrainingProgramPrescription(
-            "0.2.0",
+            "0.3.0",
             request.Goal.ToString(),
             request.StartDate,
             request.DurationWeeks,
@@ -189,16 +189,31 @@ public static class TrainingProgramGenerator
         };
     }
 
+    /// <summary>
+    /// Conservative four-week microcycle: establish, build, build, deload.
+    /// This is a provisional software heuristic, not a universally validated prescription.
+    /// </summary>
     private static (int Sets, int MinReps, int MaxReps, decimal Rir, int RestSeconds, TrainingProgressionRule Progression)
-        PrescriptionFor(TrainingGoal goal, TrainingExperience experience)
+        PrescriptionFor(TrainingGoal goal, TrainingExperience experience, int week)
     {
         var beginner = experience == TrainingExperience.Beginner;
-        return goal switch
+        var baseline = goal switch
         {
-            TrainingGoal.Strength => (beginner ? 2 : 3, 5, 8, beginner ? 3m : 2m, 180, TrainingProgressionRule.DoubleProgression),
-            TrainingGoal.Hypertrophy => (beginner ? 2 : 3, 8, 12, beginner ? 3m : 2m, 120, TrainingProgressionRule.DoubleProgression),
-            _ => (2, 8, 15, 3m, 90, TrainingProgressionRule.DoubleProgression)
+            TrainingGoal.Strength => (Sets: beginner ? 2 : 3, MinReps: 5, MaxReps: 8, Rir: beginner ? 3m : 2m, Rest: 180),
+            TrainingGoal.Hypertrophy => (Sets: beginner ? 2 : 3, MinReps: 8, MaxReps: 12, Rir: beginner ? 3m : 2m, Rest: 120),
+            _ => (Sets: 2, MinReps: 8, MaxReps: 15, Rir: 3m, Rest: 90)
         };
+
+        var weekInCycle = ((week - 1) % 4) + 1;
+        var sets = weekInCycle switch
+        {
+            2 or 3 => Math.Min(4, baseline.Sets + 1),
+            4 => Math.Max(1, baseline.Sets - 1),
+            _ => baseline.Sets
+        };
+        var rir = weekInCycle == 4 ? Math.Min(5m, baseline.Rir + 1m) : baseline.Rir;
+
+        return (sets, baseline.MinReps, baseline.MaxReps, rir, baseline.Rest, TrainingProgressionRule.DoubleProgression);
     }
 
     private sealed record SessionTemplate(string Title, IReadOnlyList<TrainingMovementPattern> Patterns);
