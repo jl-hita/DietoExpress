@@ -27,8 +27,7 @@ internal static class RepDbExerciseAutoReviewer
     {
         if (string.IsNullOrWhiteSpace(nameEs) || nameEs.Trim().Length < 3 ||
             !HasUsefulInstructions(instructionsEsJson) ||
-            string.IsNullOrWhiteSpace(descriptionEs) ||
-            string.IsNullOrWhiteSpace(equipment))
+            string.IsNullOrWhiteSpace(descriptionEs))
             return null;
 
         var sourcePrimary = ReadStrings(primaryMusclesJson);
@@ -59,7 +58,7 @@ internal static class RepDbExerciseAutoReviewer
             goals = ["GeneralFitness"];
         }
 
-        var requiredEquipment = MapEquipment(equipment, isBodyweight);
+        var requiredEquipment = MapEquipment(equipment ?? "", isBodyweight);
         if (requiredEquipment is null) return null;
 
         return new ReviewMetadata(pattern, primary, secondary, exp, goals, requiredEquipment,
@@ -132,6 +131,140 @@ internal static class RepDbExerciseAutoReviewer
         if (Has(v, "medicine ball", "balón medicinal", "balon medicinal")) return ["medicine-ball"];
         if (Has(v, "foam roller", "rodillo")) return ["foam-roller"];
         return null;
+    }
+
+
+    /// <summary>
+    /// Creates a conservative Spanish catalogue description from available source metadata.
+    /// It describes the target and safe execution intent without inventing a precise technique.
+    /// </summary>
+    public static string? GenerateDescriptionEs(
+        string? nameEs, string nameEn, string? equipment, string? bodyPart,
+        string primaryMusclesJson)
+    {
+        var name = string.IsNullOrWhiteSpace(nameEs) ? nameEn.Trim() : nameEs.Trim();
+        if (name.Length < 3) return null;
+
+        var muscles = ReadStrings(primaryMusclesJson)
+            .Select(MapMuscle)
+            .Where(x => x is not null)
+            .Cast<string>()
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(SpanishMuscleName)
+            .ToArray();
+
+        var target = muscles.Length > 0
+            ? string.Join(", ", muscles)
+            : SpanishBodyPart(bodyPart);
+        var equipmentText = SpanishEquipment(equipment);
+        var focus = string.IsNullOrWhiteSpace(target)
+            ? "la musculatura implicada en el movimiento"
+            : target;
+
+        var equipmentSentence = string.IsNullOrWhiteSpace(equipmentText)
+            ? ""
+            : $" Utiliza {equipmentText} cuando corresponda.";
+
+        return $"Ejercicio {name} orientado principalmente a trabajar {focus}. Realiza el movimiento de forma controlada, mantén una postura estable y utiliza un rango de movimiento cómodo.{equipmentSentence} Adapta la carga y la dificultad a tu nivel y detén el ejercicio si aparece dolor.";
+    }
+
+    /// <summary>
+    /// Normalizes a source difficulty when available; otherwise estimates a level from explicit
+    /// exercise-complexity cues and available mechanics. The result is an estimate, not a clinical assessment.
+    /// </summary>
+    public static string? InferDifficulty(
+        string? sourceDifficulty, string? nameEs, string nameEn, string? equipment,
+        string? mechanic, string? forceType, string? bodyPart, string tagsJson,
+        string instructionsEsJson)
+    {
+        var supplied = sourceDifficulty?.Trim().ToLowerInvariant();
+        var mapped = supplied switch
+        {
+            "beginner" or "easy" or "principiante" => "Beginner",
+            "intermediate" or "moderate" or "intermedio" => "Intermediate",
+            "advanced" or "expert" or "hard" or "avanzado" => "Advanced",
+            _ => null
+        };
+        if (mapped is not null) return mapped;
+
+        var text = Normalize(string.Join(' ', nameEs, nameEn, equipment, mechanic, forceType,
+            bodyPart, string.Join(' ', ReadStrings(tagsJson)), string.Join(' ', ReadStrings(instructionsEsJson))));
+
+        if (Has(text, "snatch", "clean and jerk", "muscle-up", "muscle up", "planche",
+            "handstand push-up", "handstand push up", "pistol squat", "dragon flag",
+            "arrancada", "dos tiempos", "muscle up", "bandera humana"))
+            return "Advanced";
+
+        if (Has(text, "deadlift", "peso muerto", "barbell squat", "sentadilla con barra",
+            "bench press", "press de banca", "overhead press", "press militar",
+            "pull-up", "pull up", "chin-up", "chin up", "lunge", "zancada",
+            "single-leg", "a una pierna", "olympic", "olimpico", "olímpico"))
+            return "Intermediate";
+
+        if (Has(text, "machine", "máquina", "maquina", "seated", "sentado",
+            "leg extension", "extension de cuadriceps", "leg curl", "curl femoral",
+            "cable curl", "bicep curl", "curl de biceps", "curl de bíceps",
+            "lateral raise", "elevacion lateral", "elevación lateral",
+            "chest fly", "pec deck", "extension de triceps", "extensión de tríceps"))
+            return "Beginner";
+
+        // If the source supplies a compound-mechanic classification, prefer a moderate estimate.
+        if (Has(Normalize(mechanic ?? ""), "compound", "multi-joint", "multi joint"))
+            return "Intermediate";
+
+        // Last-resort estimate for records without a usable source difficulty.
+        return "Beginner";
+    }
+
+    private static string SpanishMuscleName(string value) => value switch
+    {
+        "Chest" => "pectorales",
+        "Lats" => "dorsales",
+        "UpperBack" => "espalda alta",
+        "Deltoids" => "deltoides",
+        "Biceps" => "bíceps",
+        "Triceps" => "tríceps",
+        "Forearms" => "antebrazos",
+        "Abdominals" => "abdominales",
+        "Obliques" => "oblicuos",
+        "ErectorSpinae" => "erectores espinales",
+        "Glutes" => "glúteos",
+        "Quadriceps" => "cuádriceps",
+        "Hamstrings" => "isquiotibiales",
+        "Calves" => "gemelos y sóleo",
+        _ => value
+    };
+
+    private static string? SpanishBodyPart(string? value)
+    {
+        var v = Normalize(value ?? "");
+        if (Has(v, "chest", "pectoral")) return "los pectorales";
+        if (Has(v, "back", "espalda")) return "la espalda";
+        if (Has(v, "shoulder", "hombro")) return "los hombros";
+        if (Has(v, "arm", "brazo")) return "los brazos";
+        if (Has(v, "leg", "pierna")) return "las piernas";
+        if (Has(v, "abdominal", "waist", "abdomen")) return "la zona abdominal";
+        if (Has(v, "glute", "gluteo")) return "los glúteos";
+        return null;
+    }
+
+    private static string? SpanishEquipment(string? value)
+    {
+        var v = Normalize(value ?? "");
+        if (string.IsNullOrWhiteSpace(v) || Has(v, "bodyweight", "none", "no equipment", "peso corporal", "ninguno", "sin material"))
+            return null;
+        if (Has(v, "barbell")) return "una barra";
+        if (Has(v, "dumbbell")) return "mancuernas";
+        if (Has(v, "kettlebell")) return "una pesa rusa";
+        if (Has(v, "cable")) return "una polea";
+        if (Has(v, "machine")) return "una máquina";
+        if (Has(v, "band")) return "una banda elástica";
+        if (Has(v, "smith")) return "una máquina Smith";
+        if (Has(v, "bench")) return "un banco";
+        if (Has(v, "pull-up bar")) return "una barra de dominadas";
+        if (Has(v, "medicine ball")) return "un balón medicinal";
+        if (Has(v, "foam roller")) return "un rodillo de espuma";
+        return value?.Trim();
     }
 
     private static bool HasUsefulInstructions(string json)
