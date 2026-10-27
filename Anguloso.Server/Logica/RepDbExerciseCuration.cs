@@ -91,10 +91,8 @@ internal static class RepDbExerciseCuration
 
     private static readonly HashSet<string> RequireManualReviewIds = new(StringComparer.OrdinalIgnoreCase)
     {
-        "bird-dog-hold",
         "dead-hang",
-        "sit-ups",
-        "double-kettlebell-clean"
+        "sit-ups"
     };
 
     public static bool ShouldExclude(string id) => Excluded.Contains(id);
@@ -112,15 +110,10 @@ internal static class RepDbExerciseCuration
 
     public static bool RequiresManualReview(string id) => RequireManualReviewIds.Contains(id);
 
-    public static string? CurateCategory(string id, string? sourceCategory) => id switch
-    {
-        "extended-side-angle" => "stretching",
-        "double-kettlebell-clean" => "olympic",
-        _ => sourceCategory
-    };
+    public static string? CurateCategory(string id, string? sourceCategory) =>
+        id.Equals("extended-side-angle", StringComparison.OrdinalIgnoreCase) ? "stretching" : sourceCategory;
 
-    public static string? CurateBodyPart(string id, string? sourceBodyPart) =>
-        id.Equals("double-kettlebell-clean", StringComparison.OrdinalIgnoreCase) ? "full_body" : sourceBodyPart;
+    public static string? CurateBodyPart(string id, string? sourceBodyPart) => sourceBodyPart;
 
     public static string CurateGoalsJson(string id, string? category, string sourceGoalsJson)
     {
@@ -144,9 +137,6 @@ internal static class RepDbExerciseCuration
 
         if (id.Equals("extended-side-angle", StringComparison.OrdinalIgnoreCase))
             goals = ["mobility"];
-        if (id.Equals("bird-dog-hold", StringComparison.OrdinalIgnoreCase))
-            goals = ["rehabilitation", "endurance"];
-
         return JsonSerializer.Serialize(goals);
     }
 
