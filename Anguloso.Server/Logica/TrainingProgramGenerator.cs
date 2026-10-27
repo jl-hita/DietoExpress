@@ -178,7 +178,7 @@ public static class TrainingProgramGenerator
         };
     }
 
-    private static (int Sets, int MinReps, int MaxReps, decimal Rir, int Rest, TrainingProgressionRule Progression)
+    private static (int Sets, int MinReps, int MaxReps, decimal Rir, int RestSeconds, TrainingProgressionRule Progression)
         PrescriptionFor(TrainingGoal goal, TrainingExperience experience)
     {
         var beginner = experience == TrainingExperience.Beginner;
