@@ -150,7 +150,18 @@ public static class TrainingProgramGenerator
             if (exercise.SelectionPriority is < 0 or > 100)
                 errors.Add($"El ejercicio '{exercise.ExerciseId}' debe tener una prioridad de selección entre 0 y 100.");
             if (exercise.RequiredEquipment is null || exercise.SuitableGoals is null || exercise.SuitableGoals.Count == 0)
+            {
                 errors.Add($"El ejercicio '{exercise.ExerciseId}' debe declarar material y al menos un objetivo compatible.");
+            }
+            else
+            {
+                if (exercise.RequiredEquipment.Any(string.IsNullOrWhiteSpace))
+                    errors.Add($"El ejercicio '{exercise.ExerciseId}' contiene un requisito de material vacío.");
+                if (exercise.SuitableGoals.Any(goal => !Enum.IsDefined(goal)))
+                    errors.Add($"El ejercicio '{exercise.ExerciseId}' contiene un objetivo compatible no válido.");
+                if (exercise.SuitableGoals.Distinct().Count() != exercise.SuitableGoals.Count)
+                    errors.Add($"El ejercicio '{exercise.ExerciseId}' repite objetivos compatibles.");
+            }
         }
 
         return errors;
