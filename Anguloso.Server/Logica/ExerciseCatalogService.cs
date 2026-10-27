@@ -122,7 +122,6 @@ public sealed class ExerciseCatalogService
         // One-time, explicit catalog reset requested for the RepDB Spanish-data bootstrap.
         // The reset and complete source import share one PostgreSQL transaction, so a failed
         // download/import cannot leave the existing catalog empty or partially replaced.
-        const string bootstrapMarker = "exercise-catalog-repdb-spanish-reset-v2";
         var bootstrapCompleted = await _db.Database.SqlQueryRaw<bool>(
             """SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'exercise-catalog-repdb-spanish-reset-v2') AS "Value"""")
             .SingleAsync(cancellationToken);
