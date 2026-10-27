@@ -8,10 +8,9 @@ namespace Anguloso.Server.Logica;
 /// </summary>
 internal static class RepDbExerciseCuration
 {
-    // These are explicit product-curation decisions, not generic fitness claims:
-    // remove a niche conditioning machine, highly specialized skills, unstable/low-load variants,
-    // isometric duplicates and excessive near-identical isolation variations. Keep standard,
-    // scalable exercises and useful equipment alternatives.
+    // Curated against the actual RepDB records inspected for DietoExpress. These are
+    // product-scope decisions: prefer scalable, loadable movements for general strength and
+    // hypertrophy plans; avoid highly technical Olympic skills and redundant low-value variants.
     public static readonly string[] ExcludedIds =
     [
         "air-bike",
@@ -37,7 +36,19 @@ internal static class RepDbExerciseCuration
         "ez-bar-wrist-curl",
         "cable-wrist-curl",
         "kettlebell-wrist-curl",
-        "wrist-curl"
+        "wrist-curl",
+        "spider-curl",
+        "seated-dumbbell-curl",
+        "kettlebell-curl",
+        "kettlebell-reverse-wrist-curl",
+        "banded-lateral-walk",
+        "banded-sumo-walk",
+        "snatch",
+        "hang-snatch",
+        "hang-clean",
+        "clean",
+        "clean-and-jerk",
+        "dumbbell-clean-and-press"
     ];
 
     private static readonly HashSet<string> Excluded = new(ExcludedIds, StringComparer.OrdinalIgnoreCase);
@@ -56,24 +67,42 @@ internal static class RepDbExerciseCuration
 
     public static bool RequiresManualReview(string id) => RequireManualReviewIds.Contains(id);
 
-    public static string? CurateCategory(string id, string? sourceCategory) =>
-        id.Equals("extended-side-angle", StringComparison.OrdinalIgnoreCase) ? "stretching" : sourceCategory;
+    public static string? CurateCategory(string id, string? sourceCategory) => id switch
+    {
+        "extended-side-angle" => "stretching",
+        "double-kettlebell-clean" => "olympic",
+        _ => sourceCategory
+    };
 
     public static string? CurateBodyPart(string id, string? sourceBodyPart) =>
         id.Equals("double-kettlebell-clean", StringComparison.OrdinalIgnoreCase) ? "full_body" : sourceBodyPart;
 
     public static string CurateGoalsJson(string id, string? category, string sourceGoalsJson)
     {
-        if (string.Equals(category, "cardio", StringComparison.OrdinalIgnoreCase))
-            return """["endurance"]""";
-        if (id.Equals("extended-side-angle", StringComparison.OrdinalIgnoreCase))
-            return """["mobility"]""";
-        if (id.Equals("bird-dog-hold", StringComparison.OrdinalIgnoreCase))
-            return """["core_stability"]""";
-
-        // Keep the source vocabulary and order for records that do not need a known correction.
         using var document = JsonDocument.Parse(string.IsNullOrWhiteSpace(sourceGoalsJson) ? "[]" : sourceGoalsJson);
-        return document.RootElement.ValueKind == JsonValueKind.Array ? document.RootElement.GetRawText() : "[]";
+        var goals = document.RootElement.ValueKind == JsonValueKind.Array
+            ? document.RootElement.EnumerateArray()
+                .Where(x => x.ValueKind == JsonValueKind.String)
+                .Select(x => x.GetString()!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList()
+            : [];
+
+        if (string.Equals(category, "cardio", StringComparison.OrdinalIgnoreCase))
+        {
+            // Cardio is not a hypertrophy/strength exercise category. Preserve valid endurance
+            // and power conditioning goals rather than flattening every cardio activity to endurance.
+            goals.RemoveAll(x => x.Equals("hypertrophy", StringComparison.OrdinalIgnoreCase)
+                              || x.Equals("strength", StringComparison.OrdinalIgnoreCase));
+            if (goals.Count == 0) goals.Add("endurance");
+        }
+
+        if (id.Equals("extended-side-angle", StringComparison.OrdinalIgnoreCase))
+            goals = ["mobility"];
+        if (id.Equals("bird-dog-hold", StringComparison.OrdinalIgnoreCase))
+            goals = ["rehabilitation", "endurance"];
+
+        return JsonSerializer.Serialize(goals);
     }
 
     public static string CurateMusclesJson(string id, bool primary, string sourceMusclesJson)
