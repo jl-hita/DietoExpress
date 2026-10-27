@@ -45,6 +45,11 @@
         <mat-icon>fitness_center</mat-icon><span>Entrenamientos</span>
       </a>
     </div>
+    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount">
+      <a mat-list-item routerLink="/exercise-contributions" routerLinkActive="active-link" (click)="navigateAndClose()">
+        <mat-icon>playlist_add</mat-icon><span>Proponer ejercicios</span>
+      </a>
+    </div>
     <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">
       <a mat-list-item routerLink="/messages" routerLinkActive="active-link" (click)="navigateAndClose()">
         <mat-icon>chat</mat-icon><span>Mensajes</span><span class="message-unread-badge" *ngIf="unreadMessagesCount > 0" aria-label="Mensajes sin leer">{{ unreadMessagesCount > 99 ? '99+' : unreadMessagesCount }}</span>
