@@ -570,7 +570,7 @@ public sealed class ExerciseCatalogService
                 COUNT(*) FILTER (WHERE source = 'repdb-free' AND review_status = 'pending' AND NULLIF(BTRIM(description_es), '') IS NULL) AS pending_missing_description,
                 COUNT(*) FILTER (WHERE source = 'repdb-free' AND review_status = 'pending' AND NULLIF(BTRIM(difficulty), '') IS NULL) AS pending_missing_difficulty,
                 COUNT(*) FILTER (WHERE source = 'repdb-free' AND review_status = 'pending' AND
-                    (jsonb_typeof(instructions_es) IS DISTINCT FROM 'array' OR jsonb_array_length(instructions_es) < 2)) AS pending_missing_instructions,
+                    (CASE WHEN jsonb_typeof(instructions_es) = 'array' THEN jsonb_array_length(instructions_es) < 2 ELSE TRUE END)) AS pending_missing_instructions,
                 MAX(source_updated_at) FILTER (WHERE source = 'repdb-free') AS last_source_update
             FROM exercise_catalog
             """;
