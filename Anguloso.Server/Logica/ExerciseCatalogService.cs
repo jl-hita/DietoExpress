@@ -231,10 +231,10 @@ public sealed class ExerciseCatalogService
             {
                 items.Add(new ExerciseCatalogItem(
                     reader.GetString(0), NullableString(reader, 1), reader.GetString(2), NullableString(reader, 3),
-                    NullableString(reader, 4), NullableString(reader, 5), JsonDocument.Parse(reader.GetString(6)).RootElement.Clone(),
-                    JsonDocument.Parse(reader.GetString(7)).RootElement.Clone(), JsonDocument.Parse(reader.GetString(8)).RootElement.Clone(),
-                    JsonDocument.Parse(reader.GetString(9)).RootElement.Clone(), JsonDocument.Parse(reader.GetString(10)).RootElement.Clone(),
-                    JsonDocument.Parse(reader.GetString(11)).RootElement.Clone()));
+                    NullableString(reader, 4), NullableString(reader, 5), ParseElement(reader.GetString(6)),
+                    ParseElement(reader.GetString(7)), ParseElement(reader.GetString(8)),
+                    ParseElement(reader.GetString(9)), ParseElement(reader.GetString(10)),
+                    ParseElement(reader.GetString(11))));
             }
             return items;
         }
@@ -314,6 +314,12 @@ public sealed class ExerciseCatalogService
 
     private static bool? ReadBool(JsonElement parent, string property) =>
         parent.TryGetProperty(property, out var value) && value.ValueKind is JsonValueKind.True or JsonValueKind.False ? value.GetBoolean() : null;
+
+    private static JsonElement ParseElement(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        return document.RootElement.Clone();
+    }
 
     private static string? NullableString(NpgsqlDataReader reader, int ordinal) => reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
 }
