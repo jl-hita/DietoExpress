@@ -102,7 +102,8 @@ internal static class RepDbExerciseCuration
     public static bool ShouldExclude(string id, string? category, string? equipment, string? variationGroup)
     {
         if (ShouldExclude(id)) return true;
-        if (category is "olympic" or "plyometrics") return true;
+        if (string.Equals(category, "olympic", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(category, "plyometrics", StringComparison.OrdinalIgnoreCase)) return true;
         if (string.Equals(equipment, "bosu_ball", StringComparison.OrdinalIgnoreCase)) return true;
         return variationGroup is not null
             && PreferredIdsByVariationGroup.TryGetValue(variationGroup, out var preferred)
