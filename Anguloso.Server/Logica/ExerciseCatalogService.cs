@@ -250,21 +250,23 @@ public sealed class ExerciseCatalogService
         // Explicitly reviewed candidates only. The source's muscle lists remain untouched in their original columns.
         var reviews = new[]
         {
-            new ReviewedExercise("squat", "Squat", ["Quadriceps", "Glutes"], ["Hamstrings", "ErectorSpinae"], "Beginner", [], 100),
-            new ReviewedExercise("barbell-back-squat", "Squat", ["Quadriceps", "Glutes"], ["Hamstrings", "ErectorSpinae"], "Intermediate", ["barbell"], 95),
-            new ReviewedExercise("glute-bridge", "Hinge", ["Glutes"], ["Hamstrings", "Abdominals"], "Beginner", [], 95),
-            new ReviewedExercise("romanian-deadlift", "Hinge", ["Hamstrings", "Glutes"], ["ErectorSpinae", "Quadriceps"], "Intermediate", ["barbell"], 100),
-            new ReviewedExercise("push-up", "HorizontalPush", ["Chest"], ["Triceps", "Deltoids"], "Beginner", [], 100),
-            new ReviewedExercise("barbell-bench-press", "HorizontalPush", ["Chest"], ["Triceps", "Deltoids"], "Intermediate", ["barbell"], 95),
-            new ReviewedExercise("pull-up", "VerticalPull", ["Lats"], ["Biceps", "UpperBack"], "Intermediate", ["pull_up_bar"], 100),
-            new ReviewedExercise("lat-pulldown", "VerticalPull", ["Lats"], ["Biceps", "UpperBack"], "Beginner", ["lat_pulldown_machine"], 90),
-            new ReviewedExercise("bent-over-row", "HorizontalPull", ["UpperBack", "Lats"], ["Biceps", "Forearms"], "Intermediate", ["barbell"], 100),
-            new ReviewedExercise("dumbbell-row", "HorizontalPull", ["Lats", "UpperBack"], ["Biceps", "Forearms"], "Beginner", ["dumbbell"], 90),
-            new ReviewedExercise("overhead-press", "VerticalPush", ["Deltoids"], ["Triceps", "Chest"], "Intermediate", ["barbell"], 100),
+            new ReviewedExercise("squat", "Squat", ["Glutes", "Quadriceps"], ["ErectorSpinae", "Hamstrings"], "Intermediate", ["barbell"], 100),
+            new ReviewedExercise("goblet-squat", "Squat", ["Glutes", "Quadriceps"], ["Hamstrings"], "Beginner", ["kettlebell"], 95),
+            new ReviewedExercise("ez-bar-romanian-deadlift", "Hinge", ["Glutes", "Hamstrings"], ["ErectorSpinae", "Forearms"], "Beginner", ["ez_bar"], 95),
+            new ReviewedExercise("romanian-deadlift", "Hinge", ["Glutes", "Hamstrings"], ["ErectorSpinae"], "Intermediate", ["barbell"], 100),
+            new ReviewedExercise("push-up", "HorizontalPush", ["Chest", "Triceps"], ["Deltoids"], "Beginner", [], 100),
+            new ReviewedExercise("bench-press", "HorizontalPush", ["Chest"], ["Deltoids", "Triceps"], "Intermediate", ["barbell"], 95),
+            new ReviewedExercise("pull-up", "VerticalPull", ["Lats"], ["Biceps", "Deltoids", "UpperBack"], "Intermediate", ["pull_up_bar"], 100),
+            new ReviewedExercise("lat-pulldown", "VerticalPull", ["Lats"], ["Biceps", "Deltoids", "UpperBack"], "Beginner", ["cable"], 95),
+            new ReviewedExercise("bent-over-db-row", "HorizontalPull", ["Lats", "UpperBack"], ["Biceps", "Deltoids"], "Intermediate", ["dumbbell"], 100),
+            new ReviewedExercise("seated-cable-row", "HorizontalPull", ["Lats", "UpperBack"], ["Biceps", "ErectorSpinae", "Deltoids"], "Beginner", ["cable"], 95),
+            new ReviewedExercise("ohp", "VerticalPush", ["Deltoids"], ["UpperBack", "Triceps"], "Intermediate", ["barbell"], 100),
+            new ReviewedExercise("machine-shoulder-press", "VerticalPush", ["Deltoids"], ["UpperBack", "Triceps"], "Beginner", ["shoulder_press_machine"], 95),
+            new ReviewedExercise("step-ups", "SingleLeg", ["Glutes", "Quadriceps"], ["Calves", "GluteusMedius", "Hamstrings"], "Beginner", [], 95),
+            new ReviewedExercise("walking-lunge", "SingleLeg", ["Glutes", "Quadriceps"], ["Hamstrings", "Calves"], "Beginner", [], 90),
             new ReviewedExercise("bulgarian-split-squat", "SingleLeg", ["Quadriceps", "Glutes"], ["Hamstrings", "Calves"], "Intermediate", ["dumbbell"], 100),
-            new ReviewedExercise("walking-lunge", "SingleLeg", ["Quadriceps", "Glutes"], ["Hamstrings", "Calves"], "Beginner", [], 90),
-            new ReviewedExercise("ab-wheel-rollout", "Core", ["Abdominals"], ["Obliques", "ErectorSpinae"], "Intermediate", ["ab_wheel"], 100),
-            new ReviewedExercise("plank", "Core", ["Abdominals"], ["Obliques"], "Beginner", [], 90)
+            new ReviewedExercise("plank", "Core", ["Abdominals"], ["ErectorSpinae"], "Beginner", [], 90),
+            new ReviewedExercise("ab-wheel-rollout", "Core", ["Abdominals"], ["Deltoids", "Lats", "Obliques"], "Intermediate", ["ab_wheel"], 100)
         };
         const string update = """
             UPDATE exercise_catalog SET
