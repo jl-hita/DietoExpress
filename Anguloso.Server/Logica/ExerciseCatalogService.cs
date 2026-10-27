@@ -236,7 +236,7 @@ public sealed class ExerciseCatalogService
                         @review_notes, @reviewed_pattern, @reviewed_primary::jsonb, @reviewed_secondary::jsonb,
                         @reviewed_experience, @reviewed_goals::jsonb, @reviewed_equipment::jsonb,
                         @reviewed_priority, CASE WHEN @auto_reviewed THEN NOW() ELSE NULL END,
-                        CASE WHEN @auto_reviewed THEN 'RepDB automatic metadata v1' ELSE NULL END, NOW(), NOW())
+                        CASE WHEN @auto_reviewed THEN 'RepDB automatic metadata v2' ELSE NULL END, NOW(), NOW())
                     ON CONFLICT (exercise_id) DO UPDATE SET
                         source = EXCLUDED.source,
                         source_schema_version = EXCLUDED.source_schema_version,
@@ -442,7 +442,7 @@ public sealed class ExerciseCatalogService
     /// </summary>
     private async Task EnsureRepDbInitialReviewAsync(CancellationToken cancellationToken)
     {
-        const string marker = "exercise-catalog-repdb-auto-review-v1";
+        const string marker = "exercise-catalog-repdb-auto-review-v2";
         var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
         var shouldClose = connection.State != ConnectionState.Open;
         if (shouldClose) await connection.OpenAsync(cancellationToken);
@@ -504,7 +504,7 @@ public sealed class ExerciseCatalogService
                     reviewed_required_equipment = @equipment::jsonb,
                     reviewed_selection_priority = @priority,
                     review_notes = @notes, reviewed_at = NOW(),
-                    reviewed_by = 'RepDB automatic metadata v1', updated_at = NOW()
+                    reviewed_by = 'RepDB automatic metadata v2', updated_at = NOW()
                 WHERE exercise_id = @id AND source = 'repdb-free'
                   AND review_status = 'pending' AND reviewed = FALSE
                   AND reviewed_at IS NULL AND reviewed_by IS NULL
