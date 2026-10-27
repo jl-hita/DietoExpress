@@ -88,7 +88,7 @@ public sealed class TrainingGeneratorEvaluationReportTests
                 hardViolations.Distinct().ToArray(),
                 new[]
                 {
-                    "El catálogo de evaluación contiene ejercicios reales de RepDB seleccionados mediante una lista curada y revisión explícita de patrón, material y grupos musculares; no representa los 609 ejercicios completos.",
+                    "El catálogo de evaluación contiene ejercicios reales de RepDB seleccionados mediante una lista curada y revisión explícita de patrón, material y grupos musculares; no representa el catálogo completo.",
                     "Las series principales se cuentan completas; las series secundarias son exposiciones y no equivalen a series efectivas ni usan coeficientes fisiológicos.",
                     "La biblioteca completa se conserva en PostgreSQL con su payload original; solo los ejercicios incluidos en la lista curada se consideran aptos para el generador.",
                     "La duración es la estimación heurística del motor; no está contrastada con sesiones reales.",
