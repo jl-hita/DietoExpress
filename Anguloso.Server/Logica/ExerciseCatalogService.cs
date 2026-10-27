@@ -137,6 +137,7 @@ public sealed class ExerciseCatalogService
             result = count == 0 ? await SyncFromSourceAsync(cancellationToken) : null;
         }
 
+        await EnsureRepDbQualityCurationAsync(cancellationToken);
         await EnsureRepDbMetadataEnrichmentAsync(cancellationToken);
         await EnsureRepDbInitialReviewAsync(cancellationToken);
         return result;
@@ -178,13 +179,18 @@ public sealed class ExerciseCatalogService
                 var name = ReadString(exercise, "name_en");
                 if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(name))
                     throw new InvalidDataException("RepDB exercise is missing its stable id or English name.");
+                if (RepDbExerciseCuration.ShouldExclude(id))
+                    continue;
 
+                var category = RepDbExerciseCuration.CurateCategory(id, ReadString(exercise, "category"));
+                var bodyPart = RepDbExerciseCuration.CurateBodyPart(id, ReadString(exercise, "body_part"));
+                var goalsJson = RepDbExerciseCuration.CurateGoalsJson(id, category, JsonText(exercise, "goals"));
+                var primaryMusclesJson = RepDbExerciseCuration.CurateMusclesJson(id, primary: true, JsonText(exercise, "primary_muscles"));
+                var secondaryMusclesJson = RepDbExerciseCuration.CurateMusclesJson(id, primary: false, JsonText(exercise, "secondary_muscles"));
                 var nameEs = ReadString(exercise, "name_es");
                 var descriptionEs = ReadString(exercise, "description_es");
                 var difficulty = ReadString(exercise, "difficulty");
                 var equipment = ReadString(exercise, "equipment");
-                var bodyPart = ReadString(exercise, "body_part");
-                var primaryMusclesJson = JsonText(exercise, "primary_muscles");
                 var instructionsEsJson = JsonText(exercise, "instructions_es");
                 var tagsJson = JsonText(exercise, "tags");
                 var generatedDescription = string.IsNullOrWhiteSpace(descriptionEs);
@@ -211,7 +217,7 @@ public sealed class ExerciseCatalogService
                     ReadString(exercise, "force_type"), ReadString(exercise, "mechanic"),
                     bodyPart,
                     primaryMusclesJson, JsonText(exercise, "secondary_muscles"),
-                    JsonText(exercise, "goals"), tagsJson, ReadBool(exercise, "is_bodyweight"));
+                    goalsJson, tagsJson, ReadBool(exercise, "is_bodyweight"));
 
                 const string upsert = """
                     INSERT INTO exercise_catalog (
@@ -274,15 +280,15 @@ public sealed class ExerciseCatalogService
                 AddJson(command, "tips_en", exercise, "tips_en");
                 AddJson(command, "tips_de", exercise, "tips_de");
                 AddJson(command, "tips_es", exercise, "tips_es");
-                Add(command, "category", ReadString(exercise, "category"));
+                Add(command, "category", category);
                 Add(command, "force_type", ReadString(exercise, "force_type"));
                 Add(command, "mechanic", ReadString(exercise, "mechanic"));
                 Add(command, "difficulty", difficulty);
                 Add(command, "equipment", equipment);
                 Add(command, "body_part", ReadString(exercise, "body_part"));
-                AddJson(command, "primary_muscles", exercise, "primary_muscles");
-                AddJson(command, "secondary_muscles", exercise, "secondary_muscles");
-                AddJson(command, "goals", exercise, "goals");
+                Add(command, "primary_muscles", primaryMusclesJson);
+                Add(command, "secondary_muscles", secondaryMusclesJson);
+                Add(command, "goals", goalsJson);
                 AddJson(command, "tags", exercise, "tags");
                 Add(command, "met", ReadDouble(exercise, "met"));
                 Add(command, "is_unilateral", ReadBool(exercise, "is_unilateral"));
@@ -323,6 +329,83 @@ public sealed class ExerciseCatalogService
     }
 
 
+
+    /// <summary>
+    /// Applies explicit quality curation to catalogs that were imported before the curation rules existed.
+    /// The source payload remains intact for traceability; only the normalized catalog fields are curated.
+    /// </summary>
+    private async Task EnsureRepDbQualityCurationAsync(CancellationToken cancellationToken)
+    {
+        const string marker = "exercise-catalog-repdb-quality-curation-v1";
+        var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+        if (shouldClose) await connection.OpenAsync(cancellationToken);
+        try
+        {
+            await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+            await using (var check = new NpgsqlCommand("SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = @marker)", connection, transaction))
+            {
+                Add(check, "marker", marker);
+                if (Convert.ToBoolean(await check.ExecuteScalarAsync(cancellationToken)))
+                {
+                    await transaction.CommitAsync(cancellationToken);
+                    return;
+                }
+            }
+
+            await using (var delete = new NpgsqlCommand(
+                "DELETE FROM exercise_catalog WHERE source = 'repdb-free' AND exercise_id = ANY(@excluded_ids)", connection, transaction))
+            {
+                Add(delete, "excluded_ids", RepDbExerciseCuration.ExcludedIds);
+                await delete.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            await using (var update = new NpgsqlCommand("""
+                UPDATE exercise_catalog
+                SET category = CASE
+                        WHEN exercise_id = 'extended-side-angle' THEN 'stretching'
+                        ELSE category
+                    END,
+                    body_part = CASE
+                        WHEN exercise_id = 'double-kettlebell-clean' THEN 'full_body'
+                        ELSE body_part
+                    END,
+                    primary_muscles = CASE
+                        WHEN exercise_id = 'sit-ups' THEN '["rectus_abdominis"]'::jsonb
+                        ELSE primary_muscles
+                    END,
+                    secondary_muscles = CASE
+                        WHEN exercise_id = 'sit-ups' THEN '["hip_flexors"]'::jsonb
+                        ELSE secondary_muscles
+                    END,
+                    goals = CASE
+                        WHEN category = 'cardio' THEN '["endurance"]'::jsonb
+                        WHEN exercise_id = 'extended-side-angle' THEN '["mobility"]'::jsonb
+                        WHEN exercise_id = 'bird-dog-hold' THEN '["core_stability"]'::jsonb
+                        ELSE goals
+                    END,
+                    updated_at = NOW()
+                WHERE source = 'repdb-free'
+                  AND (category = 'cardio'
+                    OR exercise_id IN ('extended-side-angle', 'double-kettlebell-clean', 'sit-ups', 'bird-dog-hold'))
+                """, connection, transaction))
+            {
+                await update.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            await using (var mark = new NpgsqlCommand("INSERT INTO schema_migrations(id) VALUES (@marker) ON CONFLICT (id) DO NOTHING", connection, transaction))
+            {
+                Add(mark, "marker", marker);
+                await mark.ExecuteNonQueryAsync(cancellationToken);
+            }
+            await transaction.CommitAsync(cancellationToken);
+            _logger.LogInformation("Applied RepDB quality curation; excluded low-priority exercise IDs and normalized contradictory metadata.");
+        }
+        finally
+        {
+            if (shouldClose) await connection.CloseAsync();
+        }
+    }
 
     /// <summary>
     /// Fills missing Spanish descriptions and difficulty estimates for every imported RepDB row.
@@ -596,10 +679,10 @@ public sealed class ExerciseCatalogService
         }
     }
 
-    public async Task<IReadOnlyList<ExerciseCatalogItem>> SearchAsync(string? query, string? bodyPart, string? equipment, int limit, CancellationToken cancellationToken = default, string? reviewStatus = null, int? ownerUserId = null, bool includeAllOwners = false)
+    public async Task<IReadOnlyList<ExerciseCatalogItem>> SearchAsync(string? query, string? bodyPart, string? equipment, int limit, CancellationToken cancellationToken = default, string? reviewStatus = null, int? ownerUserId = null, bool includeAllOwners = false, int maxLimit = 100)
     {
         await EnsureSchemaAsync(cancellationToken);
-        limit = Math.Clamp(limit, 1, 100);
+        limit = Math.Clamp(limit, 1, Math.Clamp(maxLimit, 1, 10000));
         const string sql = """
             SELECT exercise_id, name_es, name_en, category, body_part, equipment,
                    primary_muscles, secondary_muscles, goals, tags, instructions_es, images, source, review_status,
