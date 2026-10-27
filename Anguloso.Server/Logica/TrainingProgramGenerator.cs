@@ -199,9 +199,9 @@ public static class TrainingProgramGenerator
         var beginner = experience == TrainingExperience.Beginner;
         var baseline = goal switch
         {
-            TrainingGoal.Strength => (Sets: beginner ? 2 : 3, MinReps: 5, MaxReps: 8, Rir: beginner ? 3m : 2m, Rest: 180),
-            TrainingGoal.Hypertrophy => (Sets: beginner ? 2 : 3, MinReps: 8, MaxReps: 12, Rir: beginner ? 3m : 2m, Rest: 120),
-            _ => (Sets: 2, MinReps: 8, MaxReps: 15, Rir: 3m, Rest: 90)
+            TrainingGoal.Strength => (Sets: beginner ? 2 : 3, MinReps: 5, MaxReps: 8, Rir: beginner ? 3m : 2m, RestSeconds: 180),
+            TrainingGoal.Hypertrophy => (Sets: beginner ? 2 : 3, MinReps: 8, MaxReps: 12, Rir: beginner ? 3m : 2m, RestSeconds: 120),
+            _ => (Sets: 2, MinReps: 8, MaxReps: 15, Rir: 3m, RestSeconds: 90)
         };
 
         var weekInCycle = ((week - 1) % 4) + 1;
@@ -213,7 +213,7 @@ public static class TrainingProgramGenerator
         };
         var rir = weekInCycle == 4 ? Math.Min(5m, baseline.Rir + 1m) : baseline.Rir;
 
-        return (sets, baseline.MinReps, baseline.MaxReps, rir, baseline.Rest, TrainingProgressionRule.DoubleProgression);
+        return (sets, baseline.MinReps, baseline.MaxReps, rir, baseline.RestSeconds, TrainingProgressionRule.DoubleProgression);
     }
 
     private sealed record SessionTemplate(string Title, IReadOnlyList<TrainingMovementPattern> Patterns);
