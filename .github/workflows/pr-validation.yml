@@ -172,5 +172,5 @@ jobs:
         with:
           name: training-generator-evaluation
           path: artifacts/training-generator-evaluation.json
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14
