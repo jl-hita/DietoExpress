@@ -35,15 +35,17 @@ interface TrainingSessionTemplate {
   instructions?: string | null; exercisePrescription?: string | null; createdAt?: string;
 }
 interface RepDbExercise {
-  id?: string;
-  name_es?: string;
+  id: string;
+  nameEs?: string;
+  nameEn: string;
   equipment?: string;
-  body_part?: string;
+  bodyPart?: string;
   category?: string;
   goals?: string[];
-  primary_muscles?: string[];
-  instructions_es?: string[];
-  description_es?: string;
+  primaryMuscles?: string[];
+  secondaryMuscles?: string[];
+  instructionsEs?: string[];
+  descriptionEs?: string;
   images?: { flat?: { start?: string; main?: string; peak?: string } };
 }
 
@@ -715,19 +717,19 @@ export class TrainingPeriodizationComponent implements OnInit {
   }
 
   private loadExpandedExerciseCatalog(): void {
-    // RepDB permite el uso comercial dentro de la aplicación con atribución visible.
-    // No se copia el catálogo completo al repositorio ni se expone como descarga masiva.
-    this.http.get<{ exercises?: RepDbExercise[] }>('https://exercise-dataset.com/exercises.json')
-      .pipe(timeout(12000), catchError(() => of({ exercises: [] })))
+    // El catálogo se sirve desde PostgreSQL; la sincronización externa solo la puede iniciar superadmin.
+    this.http.get<RepDbExercise[]>('/api/exercise-catalog?limit=100')
+      .pipe(timeout(12000), catchError(() => of([] as RepDbExercise[])))
       .subscribe(data => {
-        const imported = (data.exercises ?? []).filter((item): item is RepDbExercise & { id: string; name_es: string } =>
-          typeof item.id === 'string' && typeof item.name_es === 'string' && !!item.name_es.trim())
+        const imported = data.filter(item => typeof item.id === 'string' && !!item.nameEs?.trim())
           .map(item => {
             const equipmentRaw = String(item.equipment ?? '').toLocaleLowerCase('es');
-            const bodyPart = String(item.body_part ?? '').toLocaleLowerCase('es');
+            const bodyPart = String(item.bodyPart ?? '').toLocaleLowerCase('es');
             const category = String(item.category ?? '').toLocaleLowerCase('es');
             const goals = Array.isArray(item.goals) ? item.goals.join(' ').toLocaleLowerCase('es') : '';
-            const muscles = Array.isArray(item.primary_muscles) ? item.primary_muscles.join(', ').replace(/[-_]/g, ' ') : bodyPart.replace(/[-_]/g, ' ');
+            const primary = Array.isArray(item.primaryMuscles) ? item.primaryMuscles : [];
+            const secondary = Array.isArray(item.secondaryMuscles) ? item.secondaryMuscles : [];
+            const muscles = [...primary, ...secondary].join(', ').replace(/[-_]/g, ' ') || bodyPart.replace(/[-_]/g, ' ');
             const goal = /endurance|cardio|aerobic/.test(goals + ' ' + category) ? 'endurance'
               : /mobility|stretch|flexib/.test(goals + ' ' + category) ? 'mobility'
               : /core|abdom|oblique/.test(bodyPart + ' ' + muscles) ? 'core' : 'strength';
@@ -738,17 +740,18 @@ export class TrainingPeriodizationComponent implements OnInit {
               : /bodyweight|body-weight|none|no-equipment/.test(equipmentRaw) || !equipmentRaw ? 'bodyweight'
               : /machine|cable|smith/.test(equipmentRaw) ? 'machine' : 'machine';
             const equipmentLabel = equipmentRaw ? equipmentRaw.replace(/[-_]/g, ' ') : 'Peso corporal';
-            const instructions = Array.isArray(item.instructions_es) ? item.instructions_es.join(' ') :
-              (typeof item.description_es === 'string' ? item.description_es : 'Realiza el movimiento con control y dentro de un rango cómodo.');
+            const instructions = Array.isArray(item.instructionsEs) ? item.instructionsEs.join(' ') :
+              (typeof item.descriptionEs === 'string' ? item.descriptionEs : 'Realiza el movimiento con control y dentro de un rango cómodo.');
             const imagePath = item.images?.flat?.start ?? item.images?.flat?.main ?? item.images?.flat?.peak;
-            const prescription = goal === 'endurance' ? item.name_es + ' · 10–20 min · intensidad ajustable'
-              : goal === 'mobility' ? item.name_es + ' · 2 × 8–12 repeticiones controladas'
-              : item.name_es + ' · 3 × 8–12 · ajustar carga y descanso';
+            const name = item.nameEs ?? item.nameEn;
+            const prescription = goal === 'endurance' ? name + ' · 10–20 min · intensidad ajustable'
+              : goal === 'mobility' ? name + ' · 2 × 8–12 repeticiones controladas'
+              : name + ' · 3 × 8–12 · ajustar carga y descanso';
             return {
-              id: 'repdb-' + item.id, name: item.name_es, muscles: muscles || 'Grupo muscular según ficha',
+              id: 'repdb-' + item.id, name, muscles: muscles || 'Grupo muscular según ficha',
               goal, equipment, equipmentLabel: equipmentLabel.charAt(0).toLocaleUpperCase('es') + equipmentLabel.slice(1),
               instructions, prescription,
-              imageUrl: typeof imagePath === 'string' ? 'https://exercise-dataset.com/' + imagePath.replace(/^\//, '') : undefined,
+              imageUrl: typeof imagePath === 'string' ? 'https://exercise-dataset.com/' + imagePath.replace(/^\\//, '') : undefined,
               source: 'repdb'
             };
           });
