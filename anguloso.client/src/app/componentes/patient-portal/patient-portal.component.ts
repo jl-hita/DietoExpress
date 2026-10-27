@@ -1255,13 +1255,15 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
 
   recordTrainingSession(session: TrainingPortalSession): void {
     const input = this.trainingInputs[session.id];
-    if (!input || !Number.isFinite(Number(input.duration)) || Number(input.duration) < 1 || Number(input.duration) > 1440
-        || !Number.isFinite(Number(input.rpe)) || Number(input.rpe) < 0 || Number(input.rpe) > 10) {
-      this.trainingError = 'Indica una duración válida y un esfuerzo percibido entre 0 y 10.';
+    if (!input || !['completed', 'partial', 'not_completed'].includes(input.outcome)) {
+      this.trainingError = 'Indica si has completado la sesión, si la has hecho parcialmente o si no la has realizado.';
       return;
     }
-    if (!['completed', 'partial', 'not_completed'].includes(input.outcome)) {
-      this.trainingError = 'Indica si has completado la sesión, si la has hecho parcialmente o si no la has realizado.';
+    const missed = input.outcome === 'not_completed';
+    if ((!missed && (!Number.isFinite(Number(input.duration)) || Number(input.duration) < 1 || Number(input.duration) > 1440))
+        || (input.duration != null && input.duration !== 0 && (Number(input.duration) < 1 || Number(input.duration) > 1440))
+        || (!missed && (!Number.isFinite(Number(input.rpe)) || Number(input.rpe) < 0 || Number(input.rpe) > 10))) {
+      this.trainingError = 'Indica una duración válida y un esfuerzo percibido entre 0 y 10 para las sesiones realizadas.';
       return;
     }
     if (input.outcome !== 'completed' && !['time', 'fatigue', 'equipment', 'motivation', 'illness', 'other'].includes(input.reason)) {
@@ -1272,8 +1274,8 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
     this.trainingError = '';
     this.http.post('/api/portal/training/sessions/' + session.id + '/record', {
       completedAt: new Date().toISOString(),
-      actualDurationMinutes: Number(input.duration),
-      sessionRpe: Number(input.rpe),
+      actualDurationMinutes: missed || input.duration == null ? null : Number(input.duration),
+      sessionRpe: missed ? null : Number(input.rpe),
       notes: input.notes || null,
       outcome: input.outcome,
       nonCompletionReason: input.outcome === 'completed' ? 'none' : input.reason,
@@ -1284,6 +1286,20 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
       next: () => { this.trainingSaving = false; this.loadTrainingSessions(); },
       error: error => { this.trainingSaving = false; this.trainingError = error?.error?.message || 'No se pudo guardar el entrenamiento.'; }
     });
+  }
+
+  trainingAdaptationLabel(action: string): string {
+    const labels: Record<string, string> = {
+      insufficient_data: 'Aún faltan registros para orientar cambios',
+      invalid_feedback: 'Hay registros que necesitan revisión',
+      no_change: 'Mantén la planificación actual',
+      reorganize_future_sessions: 'Reorganiza las próximas sesiones',
+      hold_progression_and_review: 'Pausa la progresión y revisa cómo te encuentras',
+      review_and_reduce_training_stress: 'Revisa la carga de entrenamiento con tu profesional',
+      progress_according_to_prescription: 'Se cumplen los criterios de la progresión prescrita',
+      pause_affected_exercise_and_review: 'Detén el ejercicio implicado y consulta con tu profesional'
+    };
+    return labels[action] || 'Revisa la recomendación con tu profesional';
   }
 
   get hasShoppingItems(): boolean {
