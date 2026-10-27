@@ -71,8 +71,7 @@ public sealed class ExerciseCatalogController : ControllerBase
         try
         {
             var stats = await _catalog.GetReviewStatsAsync(cancellationToken);
-            var items = await _catalog.SearchAsync(null, null, null, 10000, cancellationToken,
-                reviewStatus: "pending", includeAllOwners: true, maxLimit: 10000);
+            var items = await _catalog.ExportReviewQueueAsync(cancellationToken);
             return Ok(new
             {
                 totalPending = stats.pending,
