@@ -26,7 +26,7 @@ public sealed class TrainingGeneratorEvaluationReportTests
                 4,
                 days,
                 60,
-                [],
+                ["barbell", "dumbbell", "pull_up_bar", "cable", "kettlebell", "ez_bar", "shoulder_press_machine", "ab_wheel"],
                 []);
 
             var generated = TrainingProgramGenerator.Generate(request, Catalog());
@@ -83,14 +83,14 @@ public sealed class TrainingGeneratorEvaluationReportTests
             scenarios.Add(new ScenarioReport(
                 $"goal-{goal.ToString().ToLowerInvariant()}-experience-{experience.ToString().ToLowerInvariant()}-days-{days.Count}",
                 request,
-                "catalog-evaluation-muscles-v2-synthetic",
+                "repdb-free-curated-v1",
                 generated.Succeeded,
                 hardViolations.Distinct().ToArray(),
                 new[]
                 {
-                    "El catálogo de esta evaluación es sintético: asigna grupos musculares a patrones de movimiento para probar el cálculo, no sustituye metadatos revisados de ejercicios reales.",
+                    "El catálogo de evaluación contiene ejercicios reales de RepDB seleccionados mediante una lista curada y revisión explícita de patrón, material y grupos musculares; no representa el catálogo completo.",
                     "Las series principales se cuentan completas; las series secundarias son exposiciones y no equivalen a series efectivas ni usan coeficientes fisiológicos.",
-                    "Los grupos musculares se asignan al patrón genérico del ejercicio sintético; no se importan del JSON externo de la biblioteca web.",
+                    "La biblioteca completa se conserva en PostgreSQL con su payload original; solo los ejercicios incluidos en la lista curada se consideran aptos para el generador.",
                     "La duración es la estimación heurística del motor; no está contrastada con sesiones reales.",
                     "La validación estructural no demuestra idoneidad fisiológica individual."
                 },
@@ -99,9 +99,9 @@ public sealed class TrainingGeneratorEvaluationReportTests
         }
 
         var report = new EvaluationReport(
-            "training-generator-evaluation-v2",
+            "training-generator-evaluation-v3",
             DateTimeOffset.UtcNow,
-            "0.4.0",
+            "0.5.0",
             scenarios.Count,
             scenarios.Count(s => s.GenerationSucceeded),
             scenarios.Sum(s => s.HardViolations.Count),
@@ -139,37 +139,51 @@ public sealed class TrainingGeneratorEvaluationReportTests
         [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Thursday, DayOfWeek.Saturday]
     ];
 
-    private static TrainingExerciseCandidate[] Catalog() =>
-        Enum.GetValues<TrainingMovementPattern>().Select(pattern =>
-        {
-            var (primary, secondary) = MuscleMetadata(pattern);
-            return new TrainingExerciseCandidate(
-                $"evaluation-{pattern.ToString().ToLowerInvariant()}",
-                "catalog-evaluation-muscles-v2-synthetic",
-                $"Ejercicio de evaluación {pattern}",
-                pattern,
-                [],
-                Enum.GetValues<TrainingGoal>(),
-                TrainingExperience.Beginner,
-                50,
-                true,
-                primary,
-                secondary);
-        }).ToArray();
+    private static TrainingExerciseCandidate[] Catalog()
+    {
+        var goals = Enum.GetValues<TrainingGoal>();
+        return
+        [
+            Candidate("squat", "Sentadilla trasera con barra", TrainingMovementPattern.Squat, ["barbell"], TrainingExperience.Intermediate, 100,
+                [TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Quadriceps], [TrainingMuscleGroup.ErectorSpinae, TrainingMuscleGroup.Hamstrings]),
+            Candidate("goblet-squat", "Sentadilla goblet", TrainingMovementPattern.Squat, ["kettlebell"], TrainingExperience.Beginner, 95,
+                [TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Quadriceps], [TrainingMuscleGroup.Hamstrings]),
+            Candidate("ez-bar-romanian-deadlift", "Peso muerto rumano con barra EZ", TrainingMovementPattern.Hinge, ["ez_bar"], TrainingExperience.Beginner, 95,
+                [TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Hamstrings], [TrainingMuscleGroup.ErectorSpinae, TrainingMuscleGroup.Forearms, TrainingMuscleGroup.UpperBack]),
+            Candidate("romanian-deadlift", "Peso muerto rumano", TrainingMovementPattern.Hinge, ["barbell"], TrainingExperience.Intermediate, 100,
+                [TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Hamstrings], [TrainingMuscleGroup.ErectorSpinae]),
+            Candidate("push-up", "Flexiones", TrainingMovementPattern.HorizontalPush, [], TrainingExperience.Beginner, 100,
+                [TrainingMuscleGroup.Chest, TrainingMuscleGroup.Triceps], [TrainingMuscleGroup.Deltoids]),
+            Candidate("bench-press", "Press de banca con barra", TrainingMovementPattern.HorizontalPush, ["barbell"], TrainingExperience.Intermediate, 95,
+                [TrainingMuscleGroup.Chest], [TrainingMuscleGroup.Deltoids, TrainingMuscleGroup.Triceps]),
+            Candidate("lat-pulldown", "Jalón al pecho", TrainingMovementPattern.VerticalPull, ["cable"], TrainingExperience.Beginner, 95,
+                [TrainingMuscleGroup.Lats], [TrainingMuscleGroup.Biceps, TrainingMuscleGroup.Deltoids, TrainingMuscleGroup.UpperBack]),
+            Candidate("pull-up", "Dominadas", TrainingMovementPattern.VerticalPull, ["pull_up_bar"], TrainingExperience.Intermediate, 100,
+                [TrainingMuscleGroup.Lats], [TrainingMuscleGroup.Biceps, TrainingMuscleGroup.Deltoids, TrainingMuscleGroup.UpperBack]),
+            Candidate("seated-cable-row", "Remo sentado en polea", TrainingMovementPattern.HorizontalPull, ["cable"], TrainingExperience.Beginner, 95,
+                [TrainingMuscleGroup.Lats, TrainingMuscleGroup.UpperBack], [TrainingMuscleGroup.Biceps, TrainingMuscleGroup.ErectorSpinae, TrainingMuscleGroup.Deltoids]),
+            Candidate("bent-over-db-row", "Remo inclinado con mancuernas", TrainingMovementPattern.HorizontalPull, ["dumbbell"], TrainingExperience.Intermediate, 100,
+                [TrainingMuscleGroup.Lats, TrainingMuscleGroup.UpperBack], [TrainingMuscleGroup.Biceps, TrainingMuscleGroup.Deltoids]),
+            Candidate("machine-shoulder-press", "Press de hombros en máquina", TrainingMovementPattern.VerticalPush, ["shoulder_press_machine"], TrainingExperience.Beginner, 95,
+                [TrainingMuscleGroup.Deltoids], [TrainingMuscleGroup.UpperBack, TrainingMuscleGroup.Triceps]),
+            Candidate("ohp", "Press militar con barra", TrainingMovementPattern.VerticalPush, ["barbell"], TrainingExperience.Intermediate, 100,
+                [TrainingMuscleGroup.Deltoids], [TrainingMuscleGroup.UpperBack, TrainingMuscleGroup.Triceps]),
+            Candidate("step-ups", "Subidas a cajón", TrainingMovementPattern.SingleLeg, [], TrainingExperience.Beginner, 95,
+                [TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Quadriceps], [TrainingMuscleGroup.Calves, TrainingMuscleGroup.Hamstrings]),
+            Candidate("walking-lunge", "Zancadas caminando", TrainingMovementPattern.SingleLeg, [], TrainingExperience.Intermediate, 90,
+                [TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Quadriceps], [TrainingMuscleGroup.Hamstrings, TrainingMuscleGroup.Calves]),
+            Candidate("plank", "Plancha", TrainingMovementPattern.Core, [], TrainingExperience.Beginner, 90,
+                [TrainingMuscleGroup.Abdominals], [TrainingMuscleGroup.ErectorSpinae]),
+            Candidate("ab-wheel-rollout", "Rueda abdominal", TrainingMovementPattern.Core, ["ab_wheel"], TrainingExperience.Intermediate, 100,
+                [TrainingMuscleGroup.Abdominals], [TrainingMuscleGroup.Deltoids, TrainingMuscleGroup.Lats, TrainingMuscleGroup.Obliques])
+        ];
 
-    private static (IReadOnlyList<TrainingMuscleGroup> Primary, IReadOnlyList<TrainingMuscleGroup> Secondary)
-        MuscleMetadata(TrainingMovementPattern pattern) => pattern switch
-        {
-            TrainingMovementPattern.Squat => ([TrainingMuscleGroup.Quadriceps, TrainingMuscleGroup.Glutes], [TrainingMuscleGroup.Hamstrings, TrainingMuscleGroup.ErectorSpinae]),
-            TrainingMovementPattern.Hinge => ([TrainingMuscleGroup.Hamstrings, TrainingMuscleGroup.Glutes], [TrainingMuscleGroup.ErectorSpinae, TrainingMuscleGroup.Quadriceps]),
-            TrainingMovementPattern.HorizontalPush => ([TrainingMuscleGroup.Chest], [TrainingMuscleGroup.Triceps, TrainingMuscleGroup.Deltoids]),
-            TrainingMovementPattern.VerticalPush => ([TrainingMuscleGroup.Deltoids], [TrainingMuscleGroup.Triceps, TrainingMuscleGroup.Chest]),
-            TrainingMovementPattern.HorizontalPull => ([TrainingMuscleGroup.UpperBack, TrainingMuscleGroup.Lats], [TrainingMuscleGroup.Biceps, TrainingMuscleGroup.Forearms]),
-            TrainingMovementPattern.VerticalPull => ([TrainingMuscleGroup.Lats], [TrainingMuscleGroup.Biceps, TrainingMuscleGroup.UpperBack]),
-            TrainingMovementPattern.SingleLeg => ([TrainingMuscleGroup.Quadriceps, TrainingMuscleGroup.Glutes], [TrainingMuscleGroup.Hamstrings, TrainingMuscleGroup.Calves]),
-            TrainingMovementPattern.Core => ([TrainingMuscleGroup.Abdominals], [TrainingMuscleGroup.Obliques, TrainingMuscleGroup.ErectorSpinae]),
-            _ => throw new ArgumentOutOfRangeException(nameof(pattern))
-        };
+        TrainingExerciseCandidate Candidate(
+            string id, string name, TrainingMovementPattern pattern, string[] equipment,
+            TrainingExperience minimumExperience, int priority,
+            TrainingMuscleGroup[] primary, TrainingMuscleGroup[] secondary) =>
+            new(id, "repdb-free-curated-v1", name, pattern, equipment, goals, minimumExperience, priority, true, primary, secondary);
+    }
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {

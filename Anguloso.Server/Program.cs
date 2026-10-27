@@ -47,6 +47,7 @@ public class Program
         builder.Services.AddSingleton<ProfessionalPushService>();
         builder.Services.AddSingleton<MaintenanceNoticeService>();
         builder.Services.AddScoped<RecipeNutritionService>();
+        builder.Services.AddScoped<ExerciseCatalogService>();
 builder.Services.AddScoped<SupportEnhancementService>();
         builder.Services.AddScoped<SupportService>();
         builder.Services.AddSingleton<DatabaseBackupService>();
@@ -201,6 +202,18 @@ builder.Services.AddScoped<SupportEnhancementService>();
                 var context = scope.ServiceProvider.GetRequiredService<angulosodbContext>();
                 // Todo el esquema se garantiza desde DatabaseBootstrap. Program.cs no contiene DDL ni migraciones puntuales.
                 DatabaseBootstrap.InitializeDatabaseAsync(context, logger);
+                // Importamos el catálogo en la primera ejecución. Un fallo remoto no debe impedir que la aplicación arranque.
+                try
+                {
+                    var exerciseCatalog = scope.ServiceProvider.GetRequiredService<ExerciseCatalogService>();
+                    var syncResult = await exerciseCatalog.EnsureSeededAsync();
+                    if (syncResult is not null)
+                        logger.LogInformation("RepDB exercise catalog initialized with {Count} records.", syncResult.ImportedCount);
+                }
+                catch (Exception catalogException)
+                {
+                    logger.LogWarning(catalogException, "No se pudo inicializar el catálogo de ejercicios; se reintentará mediante la operación de sincronización de superadmin.");
+                }
                 var patientTemplateSeeder = scope.ServiceProvider.GetRequiredService<PatientDocumentTemplateSeeder>();
                 await patientTemplateSeeder.SeedAllTenantsAsync();
                 // Una vez disponible el esquema, recuperamos incidencias que pudieron producirse con PostgreSQL caído.
