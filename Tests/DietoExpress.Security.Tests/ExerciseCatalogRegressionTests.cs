@@ -73,7 +73,9 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("totalPending = stats.pending", controller);
         Assert.Contains("complete = items.Count == stats.pending", controller);
         Assert.Contains("EnsureRepDbQualityCurationAsync", service);
-        Assert.Contains("RepDbExerciseCuration.ShouldExclude(id)", service);
+        Assert.Contains("RepDbExerciseCuration.ShouldExclude(id, sourceCategory, equipment, variationGroup)", service);
+        Assert.Contains("jsonb_each(@preferred_variants::jsonb)", service);
+        Assert.Contains("PreferredIdsByVariationGroup", service);
         Assert.Contains("category = 'cardio'", service);
         var curation = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "RepDbExerciseCuration.cs"));
         Assert.Contains("\"air-bike\"", curation);
