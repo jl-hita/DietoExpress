@@ -79,6 +79,13 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("\"air-bike\"", curation);
         Assert.Contains("\"endurance\"", curation);
         Assert.Contains("RequiresManualReview", curation);
+        Assert.Contains("exercise-catalog-repdb-quality-curation-v2", service);
+        Assert.Contains("owner_user_id IS NULL AND exercise_id = ANY(@excluded_ids)", service);
+        Assert.Contains("lower(g.goal) NOT IN ('hypertrophy', 'strength')", service);
+        Assert.Contains("\"clean-and-jerk\"", curation);
+        Assert.Contains("\"banded-sumo-walk\"", curation);
+        Assert.Contains("double-kettlebell-clean\" => \"olympic\"", curation);
+        Assert.Contains("secondaryMusclesJson", service);
 
         Assert.DoesNotContain("source_payload FROM exercise_catalog", service);
     }
