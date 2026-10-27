@@ -145,7 +145,7 @@ public sealed class TrainingPortalController : ControllerBase
             INSERT INTO training_session_records(
                 session_id, client_id, completed_at, actual_duration_minutes, session_rpe, notes,
                 outcome, non_completion_reason, recovery_rating, pain_signal, progression_target_achieved)
-            SELECT s.id, @clientId, CASE WHEN @outcome = 'not_completed' THEN NULL ELSE COALESCE(@completedAt, NOW()) END, @duration, @rpe, @notes,
+            SELECT s.id, @clientId, CASE WHEN CAST(@outcome AS text) = 'not_completed' THEN NULL ELSE COALESCE(@completedAt, NOW()) END, @duration, @rpe, @notes,
                    @outcome, @reason, @recovery, @pain, @progressionAchieved
             FROM training_sessions s
             JOIN training_plans p ON p.id = s.plan_id
