@@ -75,7 +75,7 @@ public sealed class TrainingPortalController : ControllerBase
             JOIN training_plans p ON p.id = s.plan_id
             JOIN training_profiles f ON f.id = p.profile_id
             WHERE f.client_id = @clientId AND f.enabled = TRUE AND r.outcome IS NOT NULL
-            ORDER BY r.completed_at DESC NULLS LAST, r.updated_at DESC
+            ORDER BY r.updated_at DESC
             LIMIT 3
             """, ("clientId", clientId)))
         await using (var feedbackReader = await feedbackCommand.ExecuteReaderAsync(cancellationToken))
@@ -115,8 +115,12 @@ public sealed class TrainingPortalController : ControllerBase
         if (!int.TryParse(User.FindFirstValue("portalTokenVersion"), out var version)) return Unauthorized();
         var clientValid = await _context.clients.AsNoTracking().AnyAsync(c => c.id == clientId && c.archived_at == null && c.portal_token_version == version, cancellationToken);
         if (!clientValid) return Unauthorized();
-        if (request.ActualDurationMinutes is < 1 or > 1440 || request.SessionRpe is < 0 or > 10)
-            return BadRequest(new { message = "La duración debe estar entre 1 y 1440 minutos y el RPE entre 0 y 10." });
+        var missedSession = request.Outcome == "not_completed";
+        if ((!missedSession && request.ActualDurationMinutes is null) ||
+            request.ActualDurationMinutes is < 1 or > 1440 ||
+            (!missedSession && request.SessionRpe is null) ||
+            request.SessionRpe is < 0 or > 10)
+            return BadRequest(new { message = "Para una sesión realizada, indica una duración entre 1 y 1440 minutos y un RPE entre 0 y 10." });
         if (!IsAllowed(request.Outcome, "completed", "partial", "not_completed") ||
             !IsAllowed(request.NonCompletionReason, "none", "time", "fatigue", "equipment", "motivation", "illness", "other") ||
             !IsAllowed(request.RecoveryRating, "unknown", "good", "partial", "insufficient") ||
@@ -140,7 +144,7 @@ public sealed class TrainingPortalController : ControllerBase
             INSERT INTO training_session_records(
                 session_id, client_id, completed_at, actual_duration_minutes, session_rpe, notes,
                 outcome, non_completion_reason, recovery_rating, pain_signal, progression_target_achieved)
-            SELECT s.id, @clientId, COALESCE(@completedAt, NOW()), @duration, @rpe, @notes,
+            SELECT s.id, @clientId, CASE WHEN @outcome = 'not_completed' THEN NULL ELSE COALESCE(@completedAt, NOW()) END, @duration, @rpe, @notes,
                    @outcome, @reason, @recovery, @pain, @progressionAchieved
             FROM training_sessions s
             JOIN training_plans p ON p.id = s.plan_id
