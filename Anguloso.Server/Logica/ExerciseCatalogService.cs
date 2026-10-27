@@ -103,6 +103,7 @@ public sealed class ExerciseCatalogService
 
         var schemaVersion = ReadString(root, "schema_version") ?? "unknown";
         var imported = 0;
+        var reviewedCount = 0;
         var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
         if (connection.State != ConnectionState.Open)
             await connection.OpenAsync(cancellationToken);
@@ -185,6 +186,8 @@ public sealed class ExerciseCatalogService
                 imported++;
             }
             await ApplyCuratedReviewsAsync(connection, transaction, cancellationToken);
+            await using var reviewedCountCommand = new NpgsqlCommand("SELECT COUNT(*) FROM exercise_catalog WHERE reviewed = TRUE", connection, transaction);
+            reviewedCount = Convert.ToInt32(await reviewedCountCommand.ExecuteScalarAsync(cancellationToken));
             await transaction.CommitAsync(cancellationToken);
         }
         catch
@@ -193,8 +196,6 @@ public sealed class ExerciseCatalogService
             throw;
         }
 
-        await using var reviewedCountCommand = new NpgsqlCommand("SELECT COUNT(*) FROM exercise_catalog WHERE reviewed = TRUE", connection);
-        var reviewedCount = Convert.ToInt32(await reviewedCountCommand.ExecuteScalarAsync(cancellationToken));
         _logger.LogInformation("Imported {Count} exercises from {Source}; {ReviewedCount} exercises have curated review metadata.", imported, SourceName, reviewedCount);
         return new ExerciseCatalogSyncResult(SourceName, schemaVersion, imported, reviewedCount, DateTimeOffset.UtcNow);
     }
