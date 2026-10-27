@@ -25,7 +25,6 @@ internal static class RepDbExerciseAutoReviewer
         string primaryMusclesJson, string secondaryMusclesJson, string goalsJson,
         string tagsJson, bool? isBodyweight)
     {
-        var name = (nameEs ?? nameEn).Trim();
         if (string.IsNullOrWhiteSpace(nameEs) || nameEs.Trim().Length < 3 ||
             !HasUsefulInstructions(instructionsEsJson) ||
             string.IsNullOrWhiteSpace(descriptionEs) ||
@@ -71,10 +70,7 @@ internal static class RepDbExerciseAutoReviewer
     private static string? InferPattern(string id, string es, string en, string tagsJson,
         string? force, string? mechanic, string? bodyPart, string[] muscles)
     {
-        var text = string.Join(' ', id, es, en, string.Join(' ', ReadStrings(tagsJson))).ToLowerInvariant();
-        var mech = mechanic?.ToLowerInvariant() ?? "";
-        var forceType = force?.ToLowerInvariant() ?? "";
-        var part = bodyPart?.ToLowerInvariant() ?? "";
+        var text = Normalize(string.Join(' ', id, es, en, string.Join(' ', ReadStrings(tagsJson))));
         // Strong name/ID cues first; ambiguous exercises stay pending.
         if (Has(text, "squat", "sentadilla", "leg press", "prensa de piernas")) return "Squat";
         if (Has(text, "deadlift", "peso muerto", "good morning", "hip thrust", "puente de gluteos", "glute bridge", "back extension", "extension lumbar")) return "Hinge";
