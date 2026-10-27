@@ -379,6 +379,45 @@ public sealed class ExerciseCatalogService
                 await delete.ExecuteNonQueryAsync(cancellationToken);
             }
 
+            // Restore missing normalized fields from the original RepDB payload only when blank.
+            // This is deterministic source recovery, not generated metadata, and never overwrites non-empty edits.
+            const string repairSql = """
+                UPDATE exercise_catalog
+                SET name_es = COALESCE(NULLIF(BTRIM(name_es), ''), NULLIF(source_payload->>'name_es', '')),
+                    description_es = COALESCE(NULLIF(BTRIM(description_es), ''), NULLIF(source_payload->>'description_es', '')),
+                    description_en = COALESCE(NULLIF(BTRIM(description_en), ''), NULLIF(source_payload->>'description_en', '')),
+                    difficulty = COALESCE(NULLIF(BTRIM(difficulty), ''), NULLIF(source_payload->>'difficulty', '')),
+                    category = COALESCE(NULLIF(BTRIM(category), ''), NULLIF(source_payload->>'category', '')),
+                    force_type = COALESCE(NULLIF(BTRIM(force_type), ''), NULLIF(source_payload->>'force_type', '')),
+                    mechanic = COALESCE(NULLIF(BTRIM(mechanic), ''), NULLIF(source_payload->>'mechanic', '')),
+                    equipment = COALESCE(NULLIF(BTRIM(equipment), ''), NULLIF(source_payload->>'equipment', '')),
+                    body_part = COALESCE(NULLIF(BTRIM(body_part), ''), NULLIF(source_payload->>'body_part', '')),
+                    primary_muscles = CASE WHEN primary_muscles = '[]'::jsonb
+                        THEN COALESCE(source_payload->'primary_muscles', '[]'::jsonb) ELSE primary_muscles END,
+                    secondary_muscles = CASE WHEN secondary_muscles = '[]'::jsonb
+                        THEN COALESCE(source_payload->'secondary_muscles', '[]'::jsonb) ELSE secondary_muscles END,
+                    goals = CASE WHEN goals = '[]'::jsonb
+                        THEN COALESCE(source_payload->'goals', '[]'::jsonb) ELSE goals END,
+                    tags = CASE WHEN tags = '[]'::jsonb
+                        THEN COALESCE(source_payload->'tags', '[]'::jsonb) ELSE tags END,
+                    instructions_es = CASE
+                        WHEN jsonb_typeof(instructions_es) <> 'array' OR jsonb_array_length(instructions_es) < 2
+                        THEN CASE WHEN jsonb_typeof(source_payload->'instructions_es') = 'array'
+                            THEN source_payload->'instructions_es' ELSE instructions_es END
+                        ELSE instructions_es END,
+                    tips_es = CASE WHEN tips_es = '[]'::jsonb
+                        THEN COALESCE(source_payload->'tips_es', '[]'::jsonb) ELSE tips_es END,
+                    images = CASE WHEN images = '{}'::jsonb
+                        THEN COALESCE(source_payload->'images', '{}'::jsonb) ELSE images END,
+                    met = COALESCE(met, NULLIF(source_payload->>'met', '')::double precision),
+                    is_unilateral = COALESCE(is_unilateral, NULLIF(source_payload->>'is_unilateral', '')::boolean),
+                    is_bodyweight = COALESCE(is_bodyweight, NULLIF(source_payload->>'is_bodyweight', '')::boolean),
+                    updated_at = NOW()
+                WHERE source = 'repdb-free' AND owner_user_id IS NULL
+                """;
+            await using (var repair = new NpgsqlCommand(repairSql, connection, transaction))
+                await repair.ExecuteNonQueryAsync(cancellationToken);
+
             const string updateSql = """
                 UPDATE exercise_catalog
                 SET category = CASE
