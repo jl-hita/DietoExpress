@@ -243,12 +243,12 @@ public sealed class ExerciseCatalogService
                    reviewed, reviewed_movement_pattern, reviewed_primary_muscles, reviewed_secondary_muscles,
                    reviewed_minimum_experience, reviewed_suitable_goals, reviewed_required_equipment, reviewed_selection_priority, review_notes, reviewed_at, reviewed_by, source_payload ->> 'contributor' AS contributor
             FROM exercise_catalog
-            WHERE (@body_part IS NULL OR body_part = @body_part)
-              AND (@equipment IS NULL OR equipment = @equipment)
-              AND (@review_status IS NULL OR review_status = @review_status)
+            WHERE (CAST(@body_part AS varchar) IS NULL OR body_part = @body_part)
+              AND (CAST(@equipment AS varchar) IS NULL OR equipment = @equipment)
+              AND (CAST(@review_status AS varchar) IS NULL OR review_status = @review_status)
               AND (@include_all_owners OR author = 'superadmin' OR review_status = 'approved'
-                   OR (@owner_user_id IS NOT NULL AND owner_user_id = @owner_user_id AND review_status = 'pending'))
-              AND (@query IS NULL OR name_es ILIKE '%' || @query || '%' OR name_en ILIKE '%' || @query || '%'
+                   OR (CAST(@owner_user_id AS integer) IS NOT NULL AND owner_user_id = @owner_user_id AND review_status = 'pending'))
+              AND (CAST(@query AS text) IS NULL OR name_es ILIKE '%' || @query || '%' OR name_en ILIKE '%' || @query || '%'
                    OR source_payload::text ILIKE '%' || @query || '%')
             ORDER BY name_es NULLS LAST, name_en
             LIMIT @limit
