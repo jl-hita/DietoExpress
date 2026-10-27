@@ -96,6 +96,14 @@ La presencia de un archivo en Drive no demuestra por sí sola que se pueda resta
 
 El servicio de subida **no borra archivos remotos**. Esto protege contra la eliminación accidental de copias fuera del servidor, pero implica que el almacenamiento de Drive crecerá con el tiempo; cualquier política de limpieza remota debe definirse y probarse por separado. Los antiguos `.dump`, `.sha256` y `.txt` subidos antes de esta actualización pueden permanecer en Drive, pero no sustituyen a los nuevos paquetes completos.
 
+
+## Estado de verificación — 2026-10-27
+
+El propietario confirma que la restauración PostgreSQL ya se ha probado con éxito y que las alertas externas de uptime funcionan. Este documento sigue describiendo el mecanismo de copia cifrada en Drive; la confirmación de una restauración PostgreSQL no sustituye la comprobación periódica de que los paquetes remotos se pueden descargar, verificar y restaurar junto con los documentos.
+
+La comprobación periódica de alertas externas se documenta en [GUIA_DESPLIEGUE_LINUX_PRODUCCION.md](GUIA_DESPLIEGUE_LINUX_PRODUCCION.md). No añadir aquí credenciales, tokens ni enlaces privados del proveedor de monitorización.
+
+
 ## Recuperar un paquete desde Drive
 
 1. Listar los paquetes disponibles sin mostrar el contenido de la configuración:
