@@ -543,6 +543,59 @@ public sealed class ExerciseCatalogService
         }
     }
 
+    public sealed record ExerciseCatalogReviewStats(
+        long total, long pending, long approved, long rejected,
+        long repDbTotal, long repDbPending, long repDbApproved, long repDbRejected,
+        long repDbAutoApprovedV2, long repDbAutoEnriched,
+        long pendingMissingSpanishName, long pendingMissingDescription,
+        long pendingMissingDifficulty, long pendingMissingInstructions,
+        DateTimeOffset? lastSourceUpdate);
+
+    /// <summary>Returns whole-catalog review counts, independent of the paginated review queue.</summary>
+    public async Task<ExerciseCatalogReviewStats> GetReviewStatsAsync(CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            SELECT
+                COUNT(*) AS total,
+                COUNT(*) FILTER (WHERE review_status = 'pending') AS pending,
+                COUNT(*) FILTER (WHERE review_status = 'approved') AS approved,
+                COUNT(*) FILTER (WHERE review_status = 'rejected') AS rejected,
+                COUNT(*) FILTER (WHERE source = 'repdb-free') AS repdb_total,
+                COUNT(*) FILTER (WHERE source = 'repdb-free' AND review_status = 'pending') AS repdb_pending,
+                COUNT(*) FILTER (WHERE source = 'repdb-free' AND review_status = 'approved') AS repdb_approved,
+                COUNT(*) FILTER (WHERE source = 'repdb-free' AND review_status = 'rejected') AS repdb_rejected,
+                COUNT(*) FILTER (WHERE source = 'repdb-free' AND reviewed_by = 'RepDB automatic metadata v2') AS repdb_auto_approved_v2,
+                COUNT(*) FILTER (WHERE source = 'repdb-free' AND metadata_enrichment_notes IS NOT NULL AND metadata_enrichment_notes <> '') AS repdb_auto_enriched,
+                COUNT(*) FILTER (WHERE source = 'repdb-free' AND review_status = 'pending' AND NULLIF(BTRIM(name_es), '') IS NULL) AS pending_missing_spanish_name,
+                COUNT(*) FILTER (WHERE source = 'repdb-free' AND review_status = 'pending' AND NULLIF(BTRIM(description_es), '') IS NULL) AS pending_missing_description,
+                COUNT(*) FILTER (WHERE source = 'repdb-free' AND review_status = 'pending' AND NULLIF(BTRIM(difficulty), '') IS NULL) AS pending_missing_difficulty,
+                COUNT(*) FILTER (WHERE source = 'repdb-free' AND review_status = 'pending' AND
+                    (jsonb_typeof(instructions_es) IS DISTINCT FROM 'array' OR jsonb_array_length(instructions_es) < 2)) AS pending_missing_instructions,
+                MAX(source_updated_at) FILTER (WHERE source = 'repdb-free') AS last_source_update
+            FROM exercise_catalog
+            """;
+        var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+        if (shouldClose) await connection.OpenAsync(cancellationToken);
+        try
+        {
+            await using var command = new NpgsqlCommand(sql, connection);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken))
+                return new ExerciseCatalogReviewStats(0,0,0,0,0,0,0,0,0,0,0,0,0,0,null);
+            return new ExerciseCatalogReviewStats(
+                reader.GetInt64(0), reader.GetInt64(1), reader.GetInt64(2), reader.GetInt64(3),
+                reader.GetInt64(4), reader.GetInt64(5), reader.GetInt64(6), reader.GetInt64(7),
+                reader.GetInt64(8), reader.GetInt64(9), reader.GetInt64(10), reader.GetInt64(11),
+                reader.GetInt64(12), reader.GetInt64(13),
+                reader.IsDBNull(14) ? null : reader.GetFieldValue<DateTimeOffset>(14));
+        }
+        finally
+        {
+            if (shouldClose) await connection.CloseAsync();
+        }
+    }
+
     public async Task<IReadOnlyList<ExerciseCatalogItem>> SearchAsync(string? query, string? bodyPart, string? equipment, int limit, CancellationToken cancellationToken = default, string? reviewStatus = null, int? ownerUserId = null, bool includeAllOwners = false)
     {
         await EnsureSchemaAsync(cancellationToken);
