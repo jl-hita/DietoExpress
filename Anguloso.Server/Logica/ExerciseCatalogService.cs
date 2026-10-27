@@ -119,17 +119,24 @@ public sealed class ExerciseCatalogService
     {
         await EnsureSchemaAsync(cancellationToken);
 
-        // One-time, explicit catalog reset requested for the RepDB Spanish-data bootstrap.
-        // The reset and complete source import share one PostgreSQL transaction, so a failed
-        // download/import cannot leave the existing catalog empty or partially replaced.
+        // The import itself preprocesses RepDB records before inserting them. Run the guarded
+        // one-time pass afterwards as a migration for catalogs imported by an older version.
         var bootstrapCompleted = await _db.Database.SqlQueryRaw<bool>(
             "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'exercise-catalog-repdb-spanish-reset-v2') AS \"Value\"")
             .SingleAsync(cancellationToken);
+        ExerciseCatalogSyncResult? result;
         if (!bootstrapCompleted)
-            return await SyncFromSourceAsync(cancellationToken, replaceExisting: true, markBootstrapComplete: true);
+        {
+            result = await SyncFromSourceAsync(cancellationToken, replaceExisting: true, markBootstrapComplete: true);
+        }
+        else
+        {
+            var count = await _db.Database.SqlQueryRaw<long>("""SELECT COUNT(*) AS "Value" FROM exercise_catalog""").SingleAsync(cancellationToken);
+            result = count == 0 ? await SyncFromSourceAsync(cancellationToken) : null;
+        }
 
-        var count = await _db.Database.SqlQueryRaw<long>("""SELECT COUNT(*) AS "Value" FROM exercise_catalog""").SingleAsync(cancellationToken);
-        return count == 0 ? await SyncFromSourceAsync(cancellationToken) : null;
+        await EnsureRepDbInitialReviewAsync(cancellationToken);
+        return result;
     }
 
     public async Task<ExerciseCatalogSyncResult> SyncFromSourceAsync(
@@ -169,6 +176,16 @@ public sealed class ExerciseCatalogService
                 if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(name))
                     throw new InvalidDataException("RepDB exercise is missing its stable id or English name.");
 
+                var metadata = RepDbExerciseAutoReviewer.TryBuild(
+                    id, ReadString(exercise, "name_es") ?? "", name,
+                    ReadString(exercise, "description_es"),
+                    JsonText(exercise, "instructions_es"),
+                    ReadString(exercise, "difficulty"), ReadString(exercise, "equipment"),
+                    ReadString(exercise, "force_type"), ReadString(exercise, "mechanic"),
+                    ReadString(exercise, "body_part"),
+                    JsonText(exercise, "primary_muscles"), JsonText(exercise, "secondary_muscles"),
+                    JsonText(exercise, "goals"), JsonText(exercise, "tags"), ReadBool(exercise, "is_bodyweight"));
+
                 const string upsert = """
                     INSERT INTO exercise_catalog (
                         exercise_id, source, source_schema_version, source_payload,
@@ -176,7 +193,10 @@ public sealed class ExerciseCatalogService
                         instructions_en, instructions_de, instructions_es, tips_en, tips_de, tips_es,
                         category, force_type, mechanic, difficulty, equipment, body_part,
                         primary_muscles, secondary_muscles, goals, tags, met, is_unilateral, is_bodyweight, images,
-                        source_updated_at, updated_at)
+                        reviewed, review_status, review_notes, reviewed_movement_pattern,
+                        reviewed_primary_muscles, reviewed_secondary_muscles, reviewed_minimum_experience,
+                        reviewed_suitable_goals, reviewed_required_equipment, reviewed_selection_priority,
+                        reviewed_at, reviewed_by, source_updated_at, updated_at)
                     VALUES (
                         @id, @source, @schema_version, @payload::jsonb,
                         @name_en, @name_de, @name_es, @description_en, @description_de, @description_es,
@@ -184,7 +204,12 @@ public sealed class ExerciseCatalogService
                         @tips_en::jsonb, @tips_de::jsonb, @tips_es::jsonb,
                         @category, @force_type, @mechanic, @difficulty, @equipment, @body_part,
                         @primary_muscles::jsonb, @secondary_muscles::jsonb, @goals::jsonb, @tags::jsonb,
-                        @met, @is_unilateral, @is_bodyweight, @images::jsonb, NOW(), NOW())
+                        @met, @is_unilateral, @is_bodyweight, @images::jsonb,
+                        @auto_reviewed, CASE WHEN @auto_reviewed THEN 'approved' ELSE 'pending' END,
+                        @review_notes, @reviewed_pattern, @reviewed_primary::jsonb, @reviewed_secondary::jsonb,
+                        @reviewed_experience, @reviewed_goals::jsonb, @reviewed_equipment::jsonb,
+                        @reviewed_priority, CASE WHEN @auto_reviewed THEN NOW() ELSE NULL END,
+                        CASE WHEN @auto_reviewed THEN 'RepDB automatic metadata v1' ELSE NULL END, NOW(), NOW())
                     ON CONFLICT (exercise_id) DO UPDATE SET
                         source = EXCLUDED.source,
                         source_schema_version = EXCLUDED.source_schema_version,
@@ -234,6 +259,15 @@ public sealed class ExerciseCatalogService
                 Add(command, "is_unilateral", ReadBool(exercise, "is_unilateral"));
                 Add(command, "is_bodyweight", ReadBool(exercise, "is_bodyweight"));
                 AddJson(command, "images", exercise, "images");
+                Add(command, "auto_reviewed", metadata is not null);
+                Add(command, "review_notes", metadata?.Notes);
+                Add(command, "reviewed_pattern", metadata?.MovementPattern);
+                Add(command, "reviewed_primary", metadata is null ? null : JsonSerializer.Serialize(metadata.PrimaryMuscles));
+                Add(command, "reviewed_secondary", metadata is null ? null : JsonSerializer.Serialize(metadata.SecondaryMuscles));
+                Add(command, "reviewed_experience", metadata?.MinimumExperience);
+                Add(command, "reviewed_goals", metadata is null ? null : JsonSerializer.Serialize(metadata.SuitableGoals));
+                Add(command, "reviewed_equipment", metadata is null ? null : JsonSerializer.Serialize(metadata.RequiredEquipment));
+                Add(command, "reviewed_priority", metadata?.SelectionPriority ?? 50);
                 await command.ExecuteNonQueryAsync(cancellationToken);
                 imported++;
             }
@@ -257,6 +291,114 @@ public sealed class ExerciseCatalogService
 
         _logger.LogInformation("Imported {Count} exercises from {Source}; {ReviewedCount} exercises have curated review metadata.", imported, SourceName, reviewedCount);
         return new ExerciseCatalogSyncResult(SourceName, schemaVersion, imported, reviewedCount, DateTimeOffset.UtcNow);
+    }
+
+
+    /// <summary>
+    /// Enriches the already-imported RepDB catalog once. Only untouched pending RepDB rows are eligible;
+    /// the marker and updates commit atomically and subsequent starts never overwrite human reviews.
+    /// </summary>
+    private async Task EnsureRepDbInitialReviewAsync(CancellationToken cancellationToken)
+    {
+        const string marker = "exercise-catalog-repdb-auto-review-v1";
+        var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+        if (shouldClose) await connection.OpenAsync(cancellationToken);
+        try
+        {
+            await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+            await using (var check = new NpgsqlCommand("SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = @marker)", connection, transaction))
+            {
+                Add(check, "marker", marker);
+                if (Convert.ToBoolean(await check.ExecuteScalarAsync(cancellationToken)))
+                {
+                    await transaction.CommitAsync(cancellationToken);
+                    return;
+                }
+            }
+
+            await using (var hasRepDb = new NpgsqlCommand("SELECT EXISTS (SELECT 1 FROM exercise_catalog WHERE source = 'repdb-free')", connection, transaction))
+            {
+                if (!Convert.ToBoolean(await hasRepDb.ExecuteScalarAsync(cancellationToken)))
+                {
+                    // On a fresh database the catalog has not been imported yet. Do not consume
+                    // the one-time review marker before EnsureSeededAsync performs the RepDB bootstrap.
+                    await transaction.CommitAsync(cancellationToken);
+                    return;
+                }
+            }
+
+            var updates = new List<(string Id, RepDbExerciseAutoReviewer.ReviewMetadata Metadata)>();
+            const string selectSql = """
+                SELECT exercise_id, name_es, name_en, description_es, instructions_es::text, difficulty,
+                       equipment, force_type, mechanic, body_part, primary_muscles::text,
+                       secondary_muscles::text, goals::text, tags::text, is_bodyweight
+                FROM exercise_catalog
+                WHERE source = 'repdb-free' AND review_status = 'pending' AND reviewed = FALSE
+                  AND reviewed_at IS NULL AND reviewed_by IS NULL
+                """;
+            await using (var select = new NpgsqlCommand(selectSql, connection, transaction))
+            await using (var reader = await select.ExecuteReaderAsync(cancellationToken))
+            {
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    var metadata = RepDbExerciseAutoReviewer.TryBuild(
+                        reader.GetString(0), NullableString(reader, 1), reader.GetString(2), NullableString(reader, 3),
+                        reader.GetString(4), NullableString(reader, 5), NullableString(reader, 6), NullableString(reader, 7),
+                        NullableString(reader, 8), NullableString(reader, 9), reader.GetString(10), reader.GetString(11),
+                        reader.GetString(12), reader.GetString(13), reader.IsDBNull(14) ? null : reader.GetBoolean(14));
+                    if (metadata is not null) updates.Add((reader.GetString(0), metadata));
+                }
+            }
+
+            const string updateSql = """
+                UPDATE exercise_catalog SET
+                    review_status = 'approved', reviewed = TRUE,
+                    reviewed_movement_pattern = @pattern,
+                    reviewed_primary_muscles = @primary::jsonb,
+                    reviewed_secondary_muscles = @secondary::jsonb,
+                    reviewed_minimum_experience = @experience,
+                    reviewed_suitable_goals = @goals::jsonb,
+                    reviewed_required_equipment = @equipment::jsonb,
+                    reviewed_selection_priority = @priority,
+                    review_notes = @notes, reviewed_at = NOW(),
+                    reviewed_by = 'RepDB automatic metadata v1', updated_at = NOW()
+                WHERE exercise_id = @id AND source = 'repdb-free'
+                  AND review_status = 'pending' AND reviewed = FALSE
+                  AND reviewed_at IS NULL AND reviewed_by IS NULL
+                """;
+            foreach (var item in updates)
+            {
+                await using var update = new NpgsqlCommand(updateSql, connection, transaction);
+                Add(update, "id", item.Id);
+                Add(update, "pattern", item.Metadata.MovementPattern);
+                Add(update, "primary", JsonSerializer.Serialize(item.Metadata.PrimaryMuscles));
+                Add(update, "secondary", JsonSerializer.Serialize(item.Metadata.SecondaryMuscles));
+                Add(update, "experience", item.Metadata.MinimumExperience);
+                Add(update, "goals", JsonSerializer.Serialize(item.Metadata.SuitableGoals));
+                Add(update, "equipment", JsonSerializer.Serialize(item.Metadata.RequiredEquipment));
+                Add(update, "priority", item.Metadata.SelectionPriority);
+                Add(update, "notes", item.Metadata.Notes);
+                await update.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            await using (var mark = new NpgsqlCommand("INSERT INTO schema_migrations(id) VALUES (@marker) ON CONFLICT (id) DO NOTHING", connection, transaction))
+            {
+                Add(mark, "marker", marker);
+                await mark.ExecuteNonQueryAsync(cancellationToken);
+            }
+            await transaction.CommitAsync(cancellationToken);
+            _logger.LogInformation("RepDB automatic review enriched and approved {ApprovedCount} high-confidence exercises; ambiguous records remain pending.", updates.Count);
+        }
+        catch
+        {
+            // If anything fails, the transaction rolls back and the pass can be safely retried.
+            throw;
+        }
+        finally
+        {
+            if (shouldClose) await connection.CloseAsync();
+        }
     }
 
     public async Task<IReadOnlyList<ExerciseCatalogItem>> SearchAsync(string? query, string? bodyPart, string? equipment, int limit, CancellationToken cancellationToken = default, string? reviewStatus = null, int? ownerUserId = null, bool includeAllOwners = false)
@@ -492,6 +634,9 @@ public sealed class ExerciseCatalogService
 
     private static string? ReadString(JsonElement parent, string property) =>
         parent.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+
+    private static string JsonText(JsonElement element, string property) =>
+        element.TryGetProperty(property, out var value) ? value.GetRawText() : "[]";
 
     private static double? ReadDouble(JsonElement parent, string property) =>
         parent.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.Number ? value.GetDouble() : null;
