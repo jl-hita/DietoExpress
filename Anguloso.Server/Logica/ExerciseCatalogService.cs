@@ -118,19 +118,25 @@ public sealed class ExerciseCatalogService
     public async Task<ExerciseCatalogSyncResult?> EnsureSeededAsync(CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken);
-        await EnsureRepDbInitialReviewAsync(cancellationToken);
 
-        // One-time, explicit catalog reset requested for the RepDB Spanish-data bootstrap.
-        // The reset and complete source import share one PostgreSQL transaction, so a failed
-        // download/import cannot leave the existing catalog empty or partially replaced.
+        // The import itself preprocesses RepDB records before inserting them. Run the guarded
+        // one-time pass afterwards as a migration for catalogs imported by an older version.
         var bootstrapCompleted = await _db.Database.SqlQueryRaw<bool>(
             "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'exercise-catalog-repdb-spanish-reset-v2') AS \"Value\"")
             .SingleAsync(cancellationToken);
+        ExerciseCatalogSyncResult? result;
         if (!bootstrapCompleted)
-            return await SyncFromSourceAsync(cancellationToken, replaceExisting: true, markBootstrapComplete: true);
+        {
+            result = await SyncFromSourceAsync(cancellationToken, replaceExisting: true, markBootstrapComplete: true);
+        }
+        else
+        {
+            var count = await _db.Database.SqlQueryRaw<long>("""SELECT COUNT(*) AS "Value" FROM exercise_catalog""").SingleAsync(cancellationToken);
+            result = count == 0 ? await SyncFromSourceAsync(cancellationToken) : null;
+        }
 
-        var count = await _db.Database.SqlQueryRaw<long>("""SELECT COUNT(*) AS "Value" FROM exercise_catalog""").SingleAsync(cancellationToken);
-        return count == 0 ? await SyncFromSourceAsync(cancellationToken) : null;
+        await EnsureRepDbInitialReviewAsync(cancellationToken);
+        return result;
     }
 
     public async Task<ExerciseCatalogSyncResult> SyncFromSourceAsync(
@@ -170,6 +176,16 @@ public sealed class ExerciseCatalogService
                 if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(name))
                     throw new InvalidDataException("RepDB exercise is missing its stable id or English name.");
 
+                var metadata = RepDbExerciseAutoReviewer.TryBuild(
+                    id, ReadString(exercise, "name_es") ?? "", name,
+                    ReadString(exercise, "description_es"),
+                    JsonText(exercise, "instructions_es"),
+                    ReadString(exercise, "difficulty"), ReadString(exercise, "equipment"),
+                    ReadString(exercise, "force_type"), ReadString(exercise, "mechanic"),
+                    ReadString(exercise, "body_part"),
+                    JsonText(exercise, "primary_muscles"), JsonText(exercise, "secondary_muscles"),
+                    JsonText(exercise, "goals"), JsonText(exercise, "tags"), ReadBool(exercise, "is_bodyweight"));
+
                 const string upsert = """
                     INSERT INTO exercise_catalog (
                         exercise_id, source, source_schema_version, source_payload,
@@ -177,7 +193,10 @@ public sealed class ExerciseCatalogService
                         instructions_en, instructions_de, instructions_es, tips_en, tips_de, tips_es,
                         category, force_type, mechanic, difficulty, equipment, body_part,
                         primary_muscles, secondary_muscles, goals, tags, met, is_unilateral, is_bodyweight, images,
-                        source_updated_at, updated_at)
+                        reviewed, review_status, review_notes, reviewed_movement_pattern,
+                        reviewed_primary_muscles, reviewed_secondary_muscles, reviewed_minimum_experience,
+                        reviewed_suitable_goals, reviewed_required_equipment, reviewed_selection_priority,
+                        reviewed_at, reviewed_by, source_updated_at, updated_at)
                     VALUES (
                         @id, @source, @schema_version, @payload::jsonb,
                         @name_en, @name_de, @name_es, @description_en, @description_de, @description_es,
@@ -185,7 +204,12 @@ public sealed class ExerciseCatalogService
                         @tips_en::jsonb, @tips_de::jsonb, @tips_es::jsonb,
                         @category, @force_type, @mechanic, @difficulty, @equipment, @body_part,
                         @primary_muscles::jsonb, @secondary_muscles::jsonb, @goals::jsonb, @tags::jsonb,
-                        @met, @is_unilateral, @is_bodyweight, @images::jsonb, NOW(), NOW())
+                        @met, @is_unilateral, @is_bodyweight, @images::jsonb,
+                        @auto_reviewed, CASE WHEN @auto_reviewed THEN 'approved' ELSE 'pending' END,
+                        @review_notes, @reviewed_pattern, @reviewed_primary::jsonb, @reviewed_secondary::jsonb,
+                        @reviewed_experience, @reviewed_goals::jsonb, @reviewed_equipment::jsonb,
+                        @reviewed_priority, CASE WHEN @auto_reviewed THEN NOW() ELSE NULL END,
+                        CASE WHEN @auto_reviewed THEN 'RepDB automatic metadata v1' ELSE NULL END, NOW(), NOW())
                     ON CONFLICT (exercise_id) DO UPDATE SET
                         source = EXCLUDED.source,
                         source_schema_version = EXCLUDED.source_schema_version,
@@ -235,6 +259,15 @@ public sealed class ExerciseCatalogService
                 Add(command, "is_unilateral", ReadBool(exercise, "is_unilateral"));
                 Add(command, "is_bodyweight", ReadBool(exercise, "is_bodyweight"));
                 AddJson(command, "images", exercise, "images");
+                Add(command, "auto_reviewed", metadata is not null);
+                Add(command, "review_notes", metadata?.Notes);
+                Add(command, "reviewed_pattern", metadata?.MovementPattern);
+                Add(command, "reviewed_primary", metadata is null ? null : JsonSerializer.Serialize(metadata.PrimaryMuscles));
+                Add(command, "reviewed_secondary", metadata is null ? null : JsonSerializer.Serialize(metadata.SecondaryMuscles));
+                Add(command, "reviewed_experience", metadata?.MinimumExperience);
+                Add(command, "reviewed_goals", metadata is null ? null : JsonSerializer.Serialize(metadata.SuitableGoals));
+                Add(command, "reviewed_equipment", metadata is null ? null : JsonSerializer.Serialize(metadata.RequiredEquipment));
+                Add(command, "reviewed_priority", metadata?.SelectionPriority ?? 50);
                 await command.ExecuteNonQueryAsync(cancellationToken);
                 imported++;
             }
@@ -601,6 +634,9 @@ public sealed class ExerciseCatalogService
 
     private static string? ReadString(JsonElement parent, string property) =>
         parent.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+
+    private static string JsonText(JsonElement element, string property) =>
+        element.TryGetProperty(property, out var value) ? value.GetRawText() : "[]";
 
     private static double? ReadDouble(JsonElement parent, string property) =>
         parent.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.Number ? value.GetDouble() : null;
