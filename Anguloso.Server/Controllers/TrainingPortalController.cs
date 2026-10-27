@@ -33,7 +33,8 @@ public sealed class TrainingPortalController : ControllerBase
 
         await using var command = Command("""
             SELECT s.id, s.plan_id, s.scheduled_date, s.title, s.session_type, s.duration_minutes, s.intensity_target, s.instructions, s.status,
-                   r.completed_at, r.actual_duration_minutes, r.session_rpe, r.notes, s.exercise_prescription
+                   r.completed_at, r.actual_duration_minutes, r.session_rpe, r.notes, s.exercise_prescription,
+                   r.outcome, r.non_completion_reason, r.recovery_rating, r.pain_signal, r.progression_target_achieved
             FROM training_sessions s
             JOIN training_plans p ON p.id = s.plan_id
             JOIN training_profiles f ON f.id = p.profile_id
@@ -56,10 +57,55 @@ public sealed class TrainingPortalController : ControllerBase
                 actualDurationMinutes = reader.IsDBNull(10) ? (int?)null : reader.GetInt32(10),
                 sessionRpe = reader.IsDBNull(11) ? (decimal?)null : reader.GetDecimal(11),
                 recordNotes = reader.IsDBNull(12) ? null : reader.GetString(12),
-                exercisePrescription = reader.IsDBNull(13) ? null : reader.GetString(13)
+                exercisePrescription = reader.IsDBNull(13) ? null : reader.GetString(13),
+                outcome = reader.IsDBNull(14) ? null : reader.GetString(14),
+                nonCompletionReason = reader.IsDBNull(15) ? null : reader.GetString(15),
+                recoveryRating = reader.IsDBNull(16) ? null : reader.GetString(16),
+                painSignal = reader.IsDBNull(17) ? null : reader.GetString(17),
+                progressionTargetAchieved = reader.IsDBNull(18) ? (bool?)null : reader.GetBoolean(18)
             });
         }
-        return Ok(new { enabled = true, sessions });
+        await reader.DisposeAsync();
+
+        var feedback = new List<Anguloso.Server.Logica.TrainingSessionFeedback>();
+        await using (var feedbackCommand = Command("""
+            SELECT r.outcome, r.non_completion_reason, r.recovery_rating, r.pain_signal, r.session_rpe, r.progression_target_achieved
+            FROM training_session_records r
+            JOIN training_sessions s ON s.id = r.session_id
+            JOIN training_plans p ON p.id = s.plan_id
+            JOIN training_profiles f ON f.id = p.profile_id
+            WHERE f.client_id = @clientId AND f.enabled = TRUE AND r.outcome IS NOT NULL
+            ORDER BY r.completed_at DESC NULLS LAST, r.updated_at DESC
+            LIMIT 3
+            """, ("clientId", clientId)))
+        await using (var feedbackReader = await feedbackCommand.ExecuteReaderAsync(cancellationToken))
+        {
+            while (await feedbackReader.ReadAsync(cancellationToken))
+            {
+                feedback.Add(new Anguloso.Server.Logica.TrainingSessionFeedback(
+                    ParseOutcome(feedbackReader.GetString(0)),
+                    feedbackReader.IsDBNull(1) ? Anguloso.Server.Logica.TrainingNonCompletionReason.None : ParseReason(feedbackReader.GetString(1)),
+                    feedbackReader.IsDBNull(2) ? Anguloso.Server.Logica.TrainingRecoveryRating.Unknown : ParseRecovery(feedbackReader.GetString(2)),
+                    feedbackReader.IsDBNull(3) ? Anguloso.Server.Logica.TrainingPainSignal.None : ParsePain(feedbackReader.GetString(3)),
+                    feedbackReader.IsDBNull(4) ? null : feedbackReader.GetDecimal(4),
+                    feedbackReader.IsDBNull(5) ? null : feedbackReader.GetBoolean(5)));
+            }
+        }
+
+        feedback.Reverse(); // Policy contract is oldest-to-newest.
+        var adaptation = feedback.Count == 0
+            ? null
+            : Anguloso.Server.Logica.TrainingAdaptationPolicy.Evaluate(feedback);
+        return Ok(new
+        {
+            enabled = true,
+            sessions,
+            adaptationRecommendation = adaptation is null ? null : new
+            {
+                action = ToApiAction(adaptation.Action),
+                explanation = adaptation.Explanation
+            }
+        });
     }
 
     [HttpPost("sessions/{sessionId:int}/record")]
@@ -71,10 +117,31 @@ public sealed class TrainingPortalController : ControllerBase
         if (!clientValid) return Unauthorized();
         if (request.ActualDurationMinutes is < 1 or > 1440 || request.SessionRpe is < 0 or > 10)
             return BadRequest(new { message = "La duración debe estar entre 1 y 1440 minutos y el RPE entre 0 y 10." });
+        if (!IsAllowed(request.Outcome, "completed", "partial", "not_completed") ||
+            !IsAllowed(request.NonCompletionReason, "none", "time", "fatigue", "equipment", "motivation", "illness", "other") ||
+            !IsAllowed(request.RecoveryRating, "unknown", "good", "partial", "insufficient") ||
+            !IsAllowed(request.PainSignal, "none", "new_or_worsening"))
+            return BadRequest(new { message = "El feedback de entrenamiento contiene un valor no válido." });
+        if (request.Outcome is not null &&
+            request.Outcome != "completed" &&
+            (request.NonCompletionReason is null or "none"))
+            return BadRequest(new { message = "Indica el motivo cuando la sesión fue parcial o no se realizó." });
+        if (request.Outcome == "completed" &&
+            request.NonCompletionReason is not (null or "none"))
+            return BadRequest(new { message = "Una sesión completada no puede tener un motivo de no finalización." });
+        if (request.Outcome is null &&
+            (request.NonCompletionReason is not null || request.RecoveryRating is not null ||
+             request.PainSignal is not null || request.ProgressionTargetAchieved is not null))
+            return BadRequest(new { message = "El feedback estructurado requiere indicar el resultado de la sesión." });
+        if (request.Notes?.Length > 4000)
+            return BadRequest(new { message = "Las notas no pueden superar los 4000 caracteres." });
 
         await using var command = Command("""
-            INSERT INTO training_session_records(session_id, client_id, completed_at, actual_duration_minutes, session_rpe, notes)
-            SELECT s.id, @clientId, COALESCE(@completedAt, NOW()), @duration, @rpe, @notes
+            INSERT INTO training_session_records(
+                session_id, client_id, completed_at, actual_duration_minutes, session_rpe, notes,
+                outcome, non_completion_reason, recovery_rating, pain_signal, progression_target_achieved)
+            SELECT s.id, @clientId, COALESCE(@completedAt, NOW()), @duration, @rpe, @notes,
+                   @outcome, @reason, @recovery, @pain, @progressionAchieved
             FROM training_sessions s
             JOIN training_plans p ON p.id = s.plan_id
             JOIN training_profiles f ON f.id = p.profile_id
@@ -84,10 +151,17 @@ public sealed class TrainingPortalController : ControllerBase
                 actual_duration_minutes = EXCLUDED.actual_duration_minutes,
                 session_rpe = EXCLUDED.session_rpe,
                 notes = EXCLUDED.notes,
+                outcome = COALESCE(EXCLUDED.outcome, training_session_records.outcome),
+                non_completion_reason = COALESCE(EXCLUDED.non_completion_reason, training_session_records.non_completion_reason),
+                recovery_rating = COALESCE(EXCLUDED.recovery_rating, training_session_records.recovery_rating),
+                pain_signal = COALESCE(EXCLUDED.pain_signal, training_session_records.pain_signal),
+                progression_target_achieved = COALESCE(EXCLUDED.progression_target_achieved, training_session_records.progression_target_achieved),
                 updated_at = NOW()
             RETURNING id
             """, ("sessionId", sessionId), ("clientId", clientId), ("completedAt", request.CompletedAt),
-            ("duration", request.ActualDurationMinutes), ("rpe", request.SessionRpe), ("notes", request.Notes));
+            ("duration", request.ActualDurationMinutes), ("rpe", request.SessionRpe), ("notes", request.Notes),
+            ("outcome", request.Outcome), ("reason", request.NonCompletionReason), ("recovery", request.RecoveryRating),
+            ("pain", request.PainSignal), ("progressionAchieved", request.ProgressionTargetAchieved));
         var id = await command.ExecuteScalarAsync(cancellationToken);
         return id is null ? NotFound() : Ok(new { id = Convert.ToInt64(id), sessionId, clientId });
     }
@@ -108,6 +182,61 @@ public sealed class TrainingPortalController : ControllerBase
         }
         return command;
     }
+
+    private static bool IsAllowed(string? value, params string[] allowed) =>
+        value is null || allowed.Contains(value, StringComparer.Ordinal);
+
+    private static Anguloso.Server.Logica.TrainingSessionOutcome ParseOutcome(string value) => value switch
+    {
+        "completed" => Anguloso.Server.Logica.TrainingSessionOutcome.Completed,
+        "partial" => Anguloso.Server.Logica.TrainingSessionOutcome.Partial,
+        _ => Anguloso.Server.Logica.TrainingSessionOutcome.NotCompleted
+    };
+
+    private static Anguloso.Server.Logica.TrainingNonCompletionReason ParseReason(string value) => value switch
+    {
+        "time" => Anguloso.Server.Logica.TrainingNonCompletionReason.Time,
+        "fatigue" => Anguloso.Server.Logica.TrainingNonCompletionReason.Fatigue,
+        "equipment" => Anguloso.Server.Logica.TrainingNonCompletionReason.Equipment,
+        "motivation" => Anguloso.Server.Logica.TrainingNonCompletionReason.Motivation,
+        "illness" => Anguloso.Server.Logica.TrainingNonCompletionReason.Illness,
+        "other" => Anguloso.Server.Logica.TrainingNonCompletionReason.Other,
+        _ => Anguloso.Server.Logica.TrainingNonCompletionReason.None
+    };
+
+    private static Anguloso.Server.Logica.TrainingRecoveryRating ParseRecovery(string value) => value switch
+    {
+        "good" => Anguloso.Server.Logica.TrainingRecoveryRating.Good,
+        "partial" => Anguloso.Server.Logica.TrainingRecoveryRating.Partial,
+        "insufficient" => Anguloso.Server.Logica.TrainingRecoveryRating.Insufficient,
+        _ => Anguloso.Server.Logica.TrainingRecoveryRating.Unknown
+    };
+
+    private static Anguloso.Server.Logica.TrainingPainSignal ParsePain(string value) =>
+        value == "new_or_worsening"
+            ? Anguloso.Server.Logica.TrainingPainSignal.NewOrWorsening
+            : Anguloso.Server.Logica.TrainingPainSignal.None;
+
+    private static string ToApiAction(Anguloso.Server.Logica.TrainingAdaptationAction action) => action switch
+    {
+        Anguloso.Server.Logica.TrainingAdaptationAction.InsufficientData => "insufficient_data",
+        Anguloso.Server.Logica.TrainingAdaptationAction.InvalidFeedback => "invalid_feedback",
+        Anguloso.Server.Logica.TrainingAdaptationAction.NoChange => "no_change",
+        Anguloso.Server.Logica.TrainingAdaptationAction.ReorganizeFutureSessions => "reorganize_future_sessions",
+        Anguloso.Server.Logica.TrainingAdaptationAction.HoldProgressionAndReview => "hold_progression_and_review",
+        Anguloso.Server.Logica.TrainingAdaptationAction.ReviewAndReduceTrainingStress => "review_and_reduce_training_stress",
+        Anguloso.Server.Logica.TrainingAdaptationAction.ProgressAccordingToPrescription => "progress_according_to_prescription",
+        _ => "pause_affected_exercise_and_review"
+    };
 }
 
-public sealed record PatientTrainingRecordRequest(DateTime? CompletedAt, int? ActualDurationMinutes, decimal? SessionRpe, string? Notes);
+public sealed record PatientTrainingRecordRequest(
+    DateTime? CompletedAt,
+    int? ActualDurationMinutes,
+    decimal? SessionRpe,
+    string? Notes,
+    string? Outcome = null,
+    string? NonCompletionReason = null,
+    string? RecoveryRating = null,
+    string? PainSignal = null,
+    bool? ProgressionTargetAchieved = null);
