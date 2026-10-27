@@ -31,7 +31,8 @@ public sealed class TrainingGeneratorEvaluationReportTests
 
             var generated = TrainingProgramGenerator.Generate(request, Catalog());
             var hardViolations = new List<string>(generated.Errors);
-            var metrics = new PlanMetrics(0, 0, 0, 0, 0, new Dictionary<int, int>(), new Dictionary<string, int>());
+            var metrics = new PlanMetrics(0, 0, 0, 0, 0, new Dictionary<int, int>(), new Dictionary<string, int>(),
+                new Dictionary<string, IReadOnlyDictionary<int, int>>(), new Dictionary<string, IReadOnlyDictionary<int, int>>());
 
             if (generated.Prescription is { } plan)
             {
@@ -48,6 +49,24 @@ public sealed class TrainingGeneratorEvaluationReportTests
                 var duplicateIdsWithinSession = plan.Sessions.Sum(session =>
                     session.Exercises.Select(x => x.ExerciseId).Count() -
                     session.Exercises.Select(x => x.ExerciseId).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+                var primaryMuscleSetsPerWeek = plan.Sessions
+                    .SelectMany(session => session.Exercises.SelectMany(exercise => exercise.PrimaryMuscleGroups
+                        .Select(muscle => new { Muscle = muscle.ToString(), session.WeekNumber, exercise.Sets })))
+                    .GroupBy(x => x.Muscle)
+                    .ToDictionary(
+                        muscle => muscle.Key,
+                        muscle => (IReadOnlyDictionary<int, int>)muscle.GroupBy(x => x.WeekNumber)
+                            .ToDictionary(week => week.Key, week => week.Sum(x => x.Sets)));
+
+                var secondaryMuscleSetExposurePerWeek = plan.Sessions
+                    .SelectMany(session => session.Exercises.SelectMany(exercise => exercise.SecondaryMuscleGroups
+                        .Select(muscle => new { Muscle = muscle.ToString(), session.WeekNumber, exercise.Sets })))
+                    .GroupBy(x => x.Muscle)
+                    .ToDictionary(
+                        muscle => muscle.Key,
+                        muscle => (IReadOnlyDictionary<int, int>)muscle.GroupBy(x => x.WeekNumber)
+                            .ToDictionary(week => week.Key, week => week.Sum(x => x.Sets)));
+
                 metrics = new PlanMetrics(
                     plan.Sessions.Count,
                     allExercises.Length,
@@ -56,18 +75,22 @@ public sealed class TrainingGeneratorEvaluationReportTests
                     duplicateIdsWithinSession,
                     plan.Sessions.GroupBy(s => s.WeekNumber).ToDictionary(g => g.Key, g => g.Count()),
                     allExercises.GroupBy(x => x.ExerciseId, StringComparer.OrdinalIgnoreCase)
-                        .ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase));
+                        .ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase),
+                    primaryMuscleSetsPerWeek,
+                    secondaryMuscleSetExposurePerWeek);
             }
 
             scenarios.Add(new ScenarioReport(
                 $"goal-{goal.ToString().ToLowerInvariant()}-experience-{experience.ToString().ToLowerInvariant()}-days-{days.Count}",
                 request,
-                "catalog-evaluation-v1",
+                "catalog-evaluation-muscles-v2-synthetic",
                 generated.Succeeded,
                 hardViolations.Distinct().ToArray(),
                 new[]
                 {
-                    "No se evalúa el volumen por músculo: el catálogo actual no declara músculos principales/secundarios.",
+                    "El catálogo de esta evaluación es sintético: asigna grupos musculares a patrones de movimiento para probar el cálculo, no sustituye metadatos revisados de ejercicios reales.",
+                    "Las series principales se cuentan completas; las series secundarias son exposiciones y no equivalen a series efectivas ni usan coeficientes fisiológicos.",
+                    "Los grupos musculares se asignan al patrón genérico del ejercicio sintético; no se importan del JSON externo de la biblioteca web.",
                     "La duración es la estimación heurística del motor; no está contrastada con sesiones reales.",
                     "La validación estructural no demuestra idoneidad fisiológica individual."
                 },
@@ -76,7 +99,7 @@ public sealed class TrainingGeneratorEvaluationReportTests
         }
 
         var report = new EvaluationReport(
-            "training-generator-evaluation-v1",
+            "training-generator-evaluation-v2",
             DateTimeOffset.UtcNow,
             "0.3.0",
             scenarios.Count,
@@ -106,16 +129,36 @@ public sealed class TrainingGeneratorEvaluationReportTests
     ];
 
     private static TrainingExerciseCandidate[] Catalog() =>
-        Enum.GetValues<TrainingMovementPattern>().Select(pattern => new TrainingExerciseCandidate(
-            $"evaluation-{pattern.ToString().ToLowerInvariant()}",
-            "catalog-evaluation-v1",
-            $"Ejercicio de evaluación {pattern}",
-            pattern,
-            [],
-            Enum.GetValues<TrainingGoal>(),
-            TrainingExperience.Beginner,
-            50,
-            true)).ToArray();
+        Enum.GetValues<TrainingMovementPattern>().Select(pattern =>
+        {
+            var (primary, secondary) = MuscleMetadata(pattern);
+            return new TrainingExerciseCandidate(
+                $"evaluation-{pattern.ToString().ToLowerInvariant()}",
+                "catalog-evaluation-muscles-v2-synthetic",
+                $"Ejercicio de evaluación {pattern}",
+                pattern,
+                [],
+                Enum.GetValues<TrainingGoal>(),
+                TrainingExperience.Beginner,
+                50,
+                true,
+                primary,
+                secondary);
+        }).ToArray();
+
+    private static (IReadOnlyList<TrainingMuscleGroup> Primary, IReadOnlyList<TrainingMuscleGroup> Secondary)
+        MuscleMetadata(TrainingMovementPattern pattern) => pattern switch
+        {
+            TrainingMovementPattern.Squat => ([TrainingMuscleGroup.Quadriceps, TrainingMuscleGroup.Glutes], [TrainingMuscleGroup.Hamstrings, TrainingMuscleGroup.ErectorSpinae]),
+            TrainingMovementPattern.Hinge => ([TrainingMuscleGroup.Hamstrings, TrainingMuscleGroup.Glutes], [TrainingMuscleGroup.ErectorSpinae, TrainingMuscleGroup.Quadriceps]),
+            TrainingMovementPattern.HorizontalPush => ([TrainingMuscleGroup.Chest], [TrainingMuscleGroup.Triceps, TrainingMuscleGroup.Deltoids]),
+            TrainingMovementPattern.VerticalPush => ([TrainingMuscleGroup.Deltoids], [TrainingMuscleGroup.Triceps, TrainingMuscleGroup.Chest]),
+            TrainingMovementPattern.HorizontalPull => ([TrainingMuscleGroup.UpperBack, TrainingMuscleGroup.Lats], [TrainingMuscleGroup.Biceps, TrainingMuscleGroup.Forearms]),
+            TrainingMovementPattern.VerticalPull => ([TrainingMuscleGroup.Lats], [TrainingMuscleGroup.Biceps, TrainingMuscleGroup.UpperBack]),
+            TrainingMovementPattern.SingleLeg => ([TrainingMuscleGroup.Quadriceps, TrainingMuscleGroup.Glutes], [TrainingMuscleGroup.Hamstrings, TrainingMuscleGroup.Calves]),
+            TrainingMovementPattern.Core => ([TrainingMuscleGroup.Abdominals], [TrainingMuscleGroup.Obliques, TrainingMuscleGroup.ErectorSpinae]),
+            _ => throw new ArgumentOutOfRangeException(nameof(pattern))
+        };
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -151,5 +194,7 @@ public sealed class TrainingGeneratorEvaluationReportTests
         int MaximumEstimatedSessionMinutes,
         int DuplicateExerciseIdsWithinSessions,
         IReadOnlyDictionary<int, int> SessionsPerWeek,
-        IReadOnlyDictionary<string, int> ExerciseSelectionCounts);
+        IReadOnlyDictionary<string, int> ExerciseSelectionCounts,
+        IReadOnlyDictionary<string, IReadOnlyDictionary<int, int>> PrimaryMuscleSetsPerWeek,
+        IReadOnlyDictionary<string, IReadOnlyDictionary<int, int>> SecondaryMuscleSetExposurePerWeek);
 }
