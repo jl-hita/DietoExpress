@@ -37,11 +37,7 @@ internal static class RepDbExerciseCuration
         "cable-wrist-curl",
         "kettlebell-wrist-curl",
         "wrist-curl",
-        "spider-curl",
-        "seated-dumbbell-curl",
-        "kettlebell-curl",
         "kettlebell-reverse-wrist-curl",
-        "banded-lateral-walk",
         "banded-sumo-walk",
         "snatch",
         "hang-snatch",
@@ -80,13 +76,13 @@ internal static class RepDbExerciseCuration
     public static string CurateGoalsJson(string id, string? category, string sourceGoalsJson)
     {
         using var document = JsonDocument.Parse(string.IsNullOrWhiteSpace(sourceGoalsJson) ? "[]" : sourceGoalsJson);
-        var goals = document.RootElement.ValueKind == JsonValueKind.Array
+        List<string> goals = document.RootElement.ValueKind == JsonValueKind.Array
             ? document.RootElement.EnumerateArray()
                 .Where(x => x.ValueKind == JsonValueKind.String)
                 .Select(x => x.GetString()!)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList()
-            : [];
+            : new List<string>();
 
         if (string.Equals(category, "cardio", StringComparison.OrdinalIgnoreCase))
         {
