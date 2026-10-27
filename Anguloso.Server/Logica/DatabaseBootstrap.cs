@@ -909,6 +909,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
             UpgradeTrainingPeriodizationSchemaV2(context, logger);
             UpgradeTrainingPeriodizationSchemaV3(context, logger);
             UpgradeTrainingPeriodizationSchemaV4(context, logger);
+            UpgradeTrainingPeriodizationSchemaV5(context, logger);
 
             VerifyCurrentSchema(context, logger);
 
@@ -3341,6 +3342,52 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
             INSERT INTO schema_migrations(id) VALUES ('training-periodization-v4-exercise-prescription') ON CONFLICT (id) DO NOTHING;
         ");
         logger.LogInformation("Prescripción detallada de ejercicios de entrenamiento inicializada.");
+    }
+
+    /// <summary>Persists explicit per-session feedback used by the deterministic adaptation policy.</summary>
+    public static void UpgradeTrainingPeriodizationSchemaV5(angulosodbContext context, ILogger logger)
+    {
+        if (context.Database.SqlQueryRaw<bool>("SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'training-periodization-v5-adaptation-feedback') AS \"Value\"").Single())
+            return;
+
+        context.Database.ExecuteSqlRaw(@"
+            ALTER TABLE training_session_records
+                ADD COLUMN IF NOT EXISTS outcome VARCHAR(20) NULL,
+                ADD COLUMN IF NOT EXISTS non_completion_reason VARCHAR(20) NULL,
+                ADD COLUMN IF NOT EXISTS recovery_rating VARCHAR(20) NULL,
+                ADD COLUMN IF NOT EXISTS pain_signal VARCHAR(30) NULL,
+                ADD COLUMN IF NOT EXISTS progression_target_achieved BOOLEAN NULL;
+
+            DO $training_feedback_constraints$
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_training_record_outcome') THEN
+                    ALTER TABLE training_session_records ADD CONSTRAINT ck_training_record_outcome
+                        CHECK (outcome IS NULL OR outcome IN ('completed','partial','not_completed'));
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_training_record_non_completion_reason') THEN
+                    ALTER TABLE training_session_records ADD CONSTRAINT ck_training_record_non_completion_reason
+                        CHECK (non_completion_reason IS NULL OR non_completion_reason IN ('none','time','fatigue','equipment','motivation','illness','other'));
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_training_record_recovery_rating') THEN
+                    ALTER TABLE training_session_records ADD CONSTRAINT ck_training_record_recovery_rating
+                        CHECK (recovery_rating IS NULL OR recovery_rating IN ('unknown','good','partial','insufficient'));
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_training_record_pain_signal') THEN
+                    ALTER TABLE training_session_records ADD CONSTRAINT ck_training_record_pain_signal
+                        CHECK (pain_signal IS NULL OR pain_signal IN ('none','new_or_worsening'));
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_training_record_feedback_consistency') THEN
+                    ALTER TABLE training_session_records ADD CONSTRAINT ck_training_record_feedback_consistency
+                        CHECK (
+                            (outcome IS NULL OR outcome = 'completed' OR non_completion_reason IS NOT NULL)
+                            AND (outcome IS DISTINCT FROM 'completed' OR non_completion_reason IS NULL OR non_completion_reason = 'none')
+                        );
+                END IF;
+            END $training_feedback_constraints$;
+
+            INSERT INTO schema_migrations(id) VALUES ('training-periodization-v5-adaptation-feedback') ON CONFLICT (id) DO NOTHING;
+        ");
+        logger.LogInformation("Feedback estructurado para adaptación de entrenamiento inicializado.");
     }
 
     private static void VerifyCurrentSchema(angulosodbContext context, ILogger logger)
