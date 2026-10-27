@@ -284,6 +284,17 @@ public sealed class ExerciseCatalogService
                 }
             }
 
+            await using (var hasRepDb = new NpgsqlCommand("SELECT EXISTS (SELECT 1 FROM exercise_catalog WHERE source = 'repdb-free')", connection, transaction))
+            {
+                if (!Convert.ToBoolean(await hasRepDb.ExecuteScalarAsync(cancellationToken)))
+                {
+                    // On a fresh database the catalog has not been imported yet. Do not consume
+                    // the one-time review marker before EnsureSeededAsync performs the RepDB bootstrap.
+                    await transaction.CommitAsync(cancellationToken);
+                    return;
+                }
+            }
+
             var updates = new List<(string Id, RepDbExerciseAutoReviewer.ReviewMetadata Metadata)>();
             const string selectSql = """
                 SELECT exercise_id, name_es, name_en, description_es, instructions_es::text, difficulty,
