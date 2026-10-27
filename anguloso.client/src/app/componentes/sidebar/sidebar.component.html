@@ -45,6 +45,11 @@
         <mat-icon>fitness_center</mat-icon><span>Entrenamientos</span>
       </a>
     </div>
+    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount">
+      <a mat-list-item routerLink="/exercise-contributions" routerLinkActive="active-link" (click)="navigateAndClose()">
+        <mat-icon>playlist_add</mat-icon><span>Proponer ejercicios</span>
+      </a>
+    </div>
     <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">
       <a mat-list-item routerLink="/messages" routerLinkActive="active-link" (click)="navigateAndClose()">
         <mat-icon>chat</mat-icon><span>Mensajes</span><span class="message-unread-badge" *ngIf="unreadMessagesCount > 0" aria-label="Mensajes sin leer">{{ unreadMessagesCount > 99 ? '99+' : unreadMessagesCount }}</span>
@@ -98,6 +103,11 @@
     <div class="menu-item superadmin-item" *ngIf="isSuperAdmin">
       <a mat-list-item routerLink="/admin/directory-verification" routerLinkActive="active-link" (click)="navigateAndClose()">
         <mat-icon>fact_check</mat-icon><span>Verificación del directorio</span><span class="message-unread-badge" *ngIf="directoryReviewCount > 0" aria-label="Revisiones del directorio pendientes">{{ directoryReviewCount > 99 ? '99+' : directoryReviewCount }}</span>
+      </a>
+    </div>
+    <div class="menu-item superadmin-item" *ngIf="isSuperAdmin">
+      <a mat-list-item routerLink="/admin/exercises" routerLinkActive="active-link" (click)="navigateAndClose()">
+        <mat-icon>fitness_center</mat-icon><span>Revisión de ejercicios</span>
       </a>
     </div>
     <div class="menu-item superadmin-item" *ngIf="isSuperAdmin">
