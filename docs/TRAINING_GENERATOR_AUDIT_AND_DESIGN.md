@@ -12,10 +12,10 @@ Issue de seguimiento: https://github.com/jl-hita/DietoExpress/issues/415
 - Ya existe una prueba de regresión estática en `Tests/DietoExpress.Security.Tests/TrainingPeriodizationRegressionTests.cs`, que protege parte del contrato actual.
 
 ### Biblioteca de ejercicios: discrepancia detectada
-- La UI de planificación declara un modelo `RepDbExercise` con nombre, material, región corporal, categoría, objetivos, músculos principales, instrucciones e imágenes.
-- La trazabilidad del código muestra que `loadExpandedExerciseCatalog()` descarga el catálogo desde `https://exercise-dataset.com/exercises.json` directamente en el navegador. Si falla, mantiene el catálogo curado básico definido en la propia UI. La atribución visible menciona RepDB.
-- **En el flujo revisado no se observa que ese catálogo ampliado se importe o persista en PostgreSQL.** Por tanto, no debemos asumir que el servidor tiene la misma biblioteca que ve la UI. Puede existir otra tabla o proceso de importación independiente, pero no aparece en el flujo examinado.
-- La clasificación actual de músculos, objetivos y material incluye heurísticas derivadas de texto; sirve para filtros de interfaz, pero no basta por sí sola como metadato de confianza para un generador de entrenamiento.
+- La UI de planificación declara un modelo `RepDbExercise` con `primary_muscles`, material, región corporal, categoría, objetivos, instrucciones e imágenes. Por tanto, **sí existen grupos musculares en el JSON externo de la biblioteca**, al menos como músculos principales.
+- `loadExpandedExerciseCatalog()` descarga `https://exercise-dataset.com/exercises.json` directamente en el navegador. El tipo actual no declara `secondary_muscles`; cuando falta `primary_muscles`, la UI usa `body_part` como alternativa. La atribución visible menciona RepDB.
+- **En el flujo revisado no se observa que ese catálogo ampliado se importe o persista en PostgreSQL.** El generador del servidor recibe un catálogo de candidatos suministrado explícitamente; no lee automáticamente el JSON que consume Angular.
+- La clasificación actual de músculos, objetivos y material incluye heurísticas derivadas de texto. Es útil para filtros de interfaz, pero no basta por sí sola como metadato de confianza para un generador de entrenamiento. No se deben convertir los patrones de movimiento en datos de ejercicios reales sin revisión.
 - Antes de la selección automática, debemos decidir si se importa/sincroniza un catálogo curado al backend o si se crea un contrato de catálogo compartido. No copiar masivamente el catálogo externo sin comprobar sus términos, atribución y condiciones de redistribución.
 - El catálogo que consuma el motor necesita identificadores estables, procedencia, versión, material normalizado, músculos principales/secundarios revisados, patrones de movimiento, dificultad técnica y alternativas compatibles. Los metadatos ausentes deben permanecer desconocidos, no inferirse como hechos.
 
@@ -55,6 +55,7 @@ Si faltan datos esenciales, la API debe pedirlos o devolver una validación expl
 
 Cada ejercicio programado necesita al menos:
 - ID estable del ejercicio del catálogo y versión/metadatos usados.
+- Grupos musculares principales y secundarios con vocabulario controlado y procedencia/revisión explícitas. No asumir que los secundarios existen en el JSON externo.
 - Orden dentro de la sesión.
 - Series objetivo y rango de repeticiones (o duración/distancia para modalidades apropiadas).
 - Objetivo de esfuerzo (RIR/RPE) y descansos.
@@ -118,7 +119,7 @@ Los umbrales numéricos exactos se deben declarar como reglas iniciales configur
 - Cambio de cuenta, reintento tras timeout y sincronización offline.
 
 ### Revisión de resultados
-Crear una matriz reproducible de perfiles sintéticos y reportar por versión: errores de validación, planes rechazados, violaciones de invariantes, distribución de volumen, cobertura, duración estimada y decisiones de adaptación. La generación masiva sirve para detectar fallos lógicos, no para demostrar eficacia clínica.
+Crear una matriz reproducible de perfiles sintéticos y reportar por versión: errores de validación, planes rechazados, violaciones de invariantes, distribución de volumen, cobertura, duración estimada y decisiones de adaptación. La generación masiva sirve para detectar fallos lógicos, no para demostrar eficacia clínica. El informe JSON de evaluación calcula series principales por músculo y por semana, además de exposiciones secundarias; estas últimas no se equiparan a series efectivas. La matriz actual usa un catálogo sintético con mapeos genéricos por patrón para probar el cálculo, no un catálogo clínico real.
 
 ## 8. Validación científica y límites
 
@@ -140,7 +141,7 @@ La calidad del software se evalúa mediante CI, invariantes, pruebas de integrac
 ### 9.1 Contrato estructurado, validador y primera versión del generador
 `TrainingProgramPrescription` representa el plan con versión del motor, objetivo, fecha de inicio, duración y sesiones. Cada sesión tiene semana/día y duración estimada; cada ejercicio conserva ID estable, versión del catálogo y nombre snapshot, orden, series, rango de repeticiones, RIR objetivo, descanso, regla de progresión y motivo de selección.
 
-`TrainingPrescriptionValidator` rechaza contratos incompletos o inconsistentes antes de persistirlos o mostrarlos. `TrainingProgramGenerator` es una primera implementación pura y determinista: recibe un catálogo explícito de candidatos con metadatos revisados, objetivo compatible, patrón de movimiento, nivel mínimo, material y prioridad curada; genera semanas completas para 2–4 días semanales y devuelve errores explicables si falta un ejercicio compatible. No infiere atributos desde el nombre y no modifica la base de datos ni publica planes automáticamente.
+`TrainingPrescriptionValidator` rechaza contratos incompletos o inconsistentes antes de persistirlos o mostrarlos. `TrainingProgramGenerator` es una primera implementación pura y determinista (motor 0.4.0): recibe un catálogo explícito de candidatos con metadatos revisados, objetivo compatible, patrón de movimiento, nivel mínimo, material, prioridad curada y grupos musculares principales/secundarios; copia estos grupos a cada prescripción para conservar una instantánea auditable. Valida que haya al menos un músculo principal y que las listas no tengan valores inválidos, duplicados ni solapamientos. Genera semanas completas para 2–4 días semanales y devuelve errores explicables si falta un ejercicio compatible. No infiere atributos desde el nombre y no modifica la base de datos ni publica planes automáticamente.
 
 Las prescripciones iniciales (series, repeticiones, RIR y descanso) son parámetros provisionales de un borrador de software, no recomendaciones individualizadas validadas ni prueba de eficacia. La primera periodización técnica repite un microciclo de cuatro semanas: semana base, dos semanas de construcción con una serie adicional (máximo cuatro), y semana de descarga con una serie menos y un RIR más; solo se aplica la descarga cuando se alcanza esa cuarta semana. Es una regla de ejemplo para demostrar cambios deterministas por semana, no una estrategia universal. Antes de activarlo para pacientes se debe hacer configurable por el profesional y contrastarlo con objetivo, experiencia, tolerancia, feedback y evidencia. Esta versión no cubre aún todos los perfiles, periodizaciones ni 5–6 días, y el tiempo estimado es una aproximación que deberá contrastarse. Las siguientes iteraciones deben añadir escenarios de cobertura y distribución de volumen, reglas por objetivo/nivel con evidencia documentada, control de fatiga y adaptación futura sin reescribir el historial. Los tests comprueban determinismo, días/semanas, exclusiones, material/objetivo, metadatos revisados, ciclo semanal y validación del plan.
 
