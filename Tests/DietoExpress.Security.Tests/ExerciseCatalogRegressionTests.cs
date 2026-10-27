@@ -41,6 +41,7 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("includeAllOwners: true", controller);
         Assert.Contains("contributorUserId", controller);
         Assert.Contains("LoadGeneratorCandidatesAsync", service);
+        Assert.Contains("IsOwnedByCurrentProfessional", File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "TrainingProgramGenerator.cs")));
         Assert.Contains("review_status = 'approved'", service);
         Assert.Contains("owner_user_id = @owner_user_id", service);
         Assert.Contains("owner_movement_pattern", service);

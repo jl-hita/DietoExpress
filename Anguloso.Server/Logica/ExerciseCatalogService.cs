@@ -358,13 +358,13 @@ public sealed class ExerciseCatalogService
         await EnsureSchemaAsync(cancellationToken);
         const string sql = """
             SELECT exercise_id, COALESCE(name_es, name_en), review_status,
-                   COALESCE(reviewed_movement_pattern, owner_movement_pattern),
-                   COALESCE(reviewed_primary_muscles, owner_primary_muscles, '[]'::jsonb)::text,
-                   COALESCE(reviewed_secondary_muscles, owner_secondary_muscles, '[]'::jsonb)::text,
-                   COALESCE(reviewed_minimum_experience, owner_minimum_experience),
-                   COALESCE(reviewed_suitable_goals, owner_suitable_goals, '[]'::jsonb)::text,
-                   COALESCE(reviewed_required_equipment, owner_required_equipment, '[]'::jsonb)::text,
-                   COALESCE(reviewed_selection_priority, owner_selection_priority, 50),
+                   CASE WHEN review_status = 'approved' THEN reviewed_movement_pattern ELSE owner_movement_pattern END,
+                   CASE WHEN review_status = 'approved' THEN COALESCE(reviewed_primary_muscles, '[]'::jsonb) ELSE COALESCE(owner_primary_muscles, '[]'::jsonb) END::text,
+                   CASE WHEN review_status = 'approved' THEN COALESCE(reviewed_secondary_muscles, '[]'::jsonb) ELSE COALESCE(owner_secondary_muscles, '[]'::jsonb) END::text,
+                   CASE WHEN review_status = 'approved' THEN reviewed_minimum_experience ELSE owner_minimum_experience END,
+                   CASE WHEN review_status = 'approved' THEN COALESCE(reviewed_suitable_goals, '[]'::jsonb) ELSE COALESCE(owner_suitable_goals, '[]'::jsonb) END::text,
+                   CASE WHEN review_status = 'approved' THEN COALESCE(reviewed_required_equipment, '[]'::jsonb) ELSE COALESCE(owner_required_equipment, '[]'::jsonb) END::text,
+                   CASE WHEN review_status = 'approved' THEN reviewed_selection_priority ELSE COALESCE(owner_selection_priority, 50) END,
                    source, owner_user_id
             FROM exercise_catalog
             WHERE review_status = 'approved'
@@ -397,7 +397,8 @@ public sealed class ExerciseCatalogService
                 result.Add(new TrainingExerciseCandidate(
                     reader.GetString(0), "exercise-catalog-db-v1", reader.GetString(1), parsedPattern,
                     equipment, goals, parsedExperience, reader.GetInt32(9),
-                    reader.GetString(2) == "approved", primary, secondary));
+                    reader.GetString(2) == "approved", primary, secondary,
+                    reader.GetString(2) == "pending" && !reader.IsDBNull(11) && reader.GetInt32(11) == ownerUserId));
             }
             return result;
         }
