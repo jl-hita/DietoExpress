@@ -119,6 +119,17 @@ public sealed class TrainingGeneratorEvaluationReportTests
         Assert.Equal(27, report.ScenarioCount);
         Assert.Equal(report.ScenarioCount, report.SuccessfulScenarios);
         Assert.Equal(0, report.HardViolationCount);
+        Assert.All(scenarios, scenario => Assert.All(
+            scenario.Plan!.Sessions.SelectMany(session => session.Exercises),
+            exercise =>
+            {
+                Assert.NotEmpty(exercise.PrimaryMuscleGroups);
+                Assert.NotNull(exercise.SecondaryMuscleGroups);
+            }));
+        Assert.Contains(scenarios[0].Metrics.PrimaryMuscleSetsPerWeek,
+            muscle => muscle.Key == nameof(TrainingMuscleGroup.Chest) && muscle.Value[1] > 0);
+        Assert.Contains(scenarios[0].Metrics.SecondaryMuscleSetExposurePerWeek,
+            muscle => muscle.Key == nameof(TrainingMuscleGroup.Triceps) && muscle.Value[1] > 0);
     }
 
     private static IReadOnlyList<DayOfWeek>[] DaySets() =>
