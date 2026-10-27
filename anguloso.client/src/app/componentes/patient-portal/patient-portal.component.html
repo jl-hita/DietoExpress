@@ -492,6 +492,12 @@
     <main class="portal-content" *ngIf="activeTab === 'training' && trainingEnabled">
       <section class="day-hero"><div class="day-title"><div class="day-title-icon"><mat-icon>fitness_center</mat-icon></div><div><span class="eyebrow">Tu planificación deportiva</span><h2>Entrenamientos</h2><span>Registra lo que has realizado para que tus profesionales puedan revisar tu evolución.</span></div></div></section>
       <div class="portal-inline-error" *ngIf="trainingError" role="alert"><mat-icon>error_outline</mat-icon><span>{{ trainingError }}</span></div>
+      <section class="summary-card" *ngIf="trainingAdaptationRecommendation" style="display:block;margin-bottom:14px;padding:18px;" aria-live="polite">
+        <span class="eyebrow">Orientación según tus registros</span>
+        <h3>{{ trainingAdaptationLabel(trainingAdaptationRecommendation.action) }}</h3>
+        <p>{{ trainingAdaptationRecommendation.explanation }}</p>
+        <p class="muted">Es una orientación informativa; no modifica por sí sola tu plan. Consulta con tu profesional antes de cambiar el entrenamiento.</p>
+      </section>
       <div class="loading-screen" *ngIf="trainingLoading"><mat-spinner diameter="36"></mat-spinner><p>Cargando entrenamientos…</p></div>
       <div class="empty-state" *ngIf="!trainingLoading && trainingSessions.length === 0"><mat-icon>event_busy</mat-icon><h3>No hay sesiones programadas</h3><p>Cuando tu profesional añada sesiones, aparecerán aquí.</p></div>
       <article class="summary-card" *ngFor="let session of trainingSessions" style="display:block;margin-bottom:14px;padding:18px;">
@@ -500,10 +506,15 @@
         <p *ngIf="session.instructions">{{ session.instructions }}</p>
         <div *ngIf="session.exercisePrescription" style="margin:12px 0;padding:12px;border-radius:10px;background:#f0fdfa;border:1px solid #ccfbf1"><strong>Ejercicios, series y descansos</strong><p style="white-space:pre-line;margin:6px 0 0">{{ session.exercisePrescription }}</p></div>
         <p *ngIf="session.completedAt" class="muted">Último registro: {{ session.actualDurationMinutes || '—' }} min · RPE {{ session.sessionRpe ?? '—' }}</p>
-        <div class="form-group"><label [for]="'training-duration-' + session.id">Duración realizada (minutos)</label><input [id]="'training-duration-' + session.id" type="number" min="1" max="1440" [(ngModel)]="trainingInputs[session.id].duration" /></div>
+        <div class="form-group"><label [for]="'training-outcome-' + session.id">¿Cómo fue la sesión?</label><select [id]="'training-outcome-' + session.id" [(ngModel)]="trainingInputs[session.id].outcome"><option value="">Selecciona una opción</option><option value="completed">Completada</option><option value="partial">Parcial</option><option value="not_completed">No realizada</option></select></div>
+        <div class="form-group" *ngIf="trainingInputs[session.id].outcome && trainingInputs[session.id].outcome !== 'completed'"><label [for]="'training-reason-' + session.id">Motivo</label><select [id]="'training-reason-' + session.id" [(ngModel)]="trainingInputs[session.id].reason"><option value="none" disabled>Selecciona un motivo</option><option value="time">Falta de tiempo</option><option value="fatigue">Fatiga o esfuerzo excesivo</option><option value="equipment">Falta de material</option><option value="motivation">Falta de motivación</option><option value="illness">Enfermedad</option><option value="other">Otro</option></select></div>
+        <div class="form-group"><label [for]="'training-recovery-' + session.id">¿Cómo te has recuperado?</label><select [id]="'training-recovery-' + session.id" [(ngModel)]="trainingInputs[session.id].recovery"><option value="unknown">No lo sé / no lo indico</option><option value="good">Bien</option><option value="partial">Parcialmente</option><option value="insufficient">Insuficientemente</option></select></div>
+        <div class="form-group"><label [for]="'training-pain-' + session.id">¿Has tenido molestias nuevas o que empeoran?</label><select [id]="'training-pain-' + session.id" [(ngModel)]="trainingInputs[session.id].pain"><option value="none">No</option><option value="new_or_worsening">Sí</option></select></div>
+        <div class="form-group"><label [for]="'training-progression-' + session.id">¿Has alcanzado el objetivo de repeticiones?</label><select [id]="'training-progression-' + session.id" [(ngModel)]="trainingInputs[session.id].progressionAchieved"><option value="">No indicado</option><option value="true">Sí</option><option value="false">No</option></select></div>
+        <div class="form-group"><label [for]="'training-duration-' + session.id">Duración realizada (minutos, si entrenaste)</label><input [id]="'training-duration-' + session.id" type="number" min="1" max="1440" [(ngModel)]="trainingInputs[session.id].duration" /></div>
         <div class="form-group"><label [for]="'training-rpe-' + session.id">Esfuerzo percibido (0–10)</label><input [id]="'training-rpe-' + session.id" type="number" min="0" max="10" step="0.5" [(ngModel)]="trainingInputs[session.id].rpe" /></div>
-        <div class="form-group"><label [for]="'training-notes-' + session.id">Notas (opcional)</label><textarea [id]="'training-notes-' + session.id" rows="2" [(ngModel)]="trainingInputs[session.id].notes"></textarea></div>
-        <button type="button" class="btn-portal-primary" (click)="recordTrainingSession(session)" [disabled]="trainingSaving">{{ trainingSaving ? 'Guardando…' : 'Guardar registro' }}</button>
+        <div class="form-group"><label [for]="'training-notes-' + session.id">Notas (opcional)</label><textarea [id]="'training-notes-' + session.id" rows="2" maxlength="4000" [(ngModel)]="trainingInputs[session.id].notes"></textarea></div>
+        <button type="button" class="btn-portal-primary" (click)="recordTrainingSession(session)" [disabled]="trainingSaving">{{ trainingSaving ? 'Guardando…' : 'Guardar check-in' }}</button>
       </article>
     </main>
 

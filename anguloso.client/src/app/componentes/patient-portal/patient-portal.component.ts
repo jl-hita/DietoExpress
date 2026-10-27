@@ -33,6 +33,16 @@ interface TrainingPortalSession {
   actualDurationMinutes?: number | null;
   sessionRpe?: number | null;
   recordNotes?: string | null;
+  outcome?: string | null;
+  nonCompletionReason?: string | null;
+  recoveryRating?: string | null;
+  painSignal?: string | null;
+  progressionTargetAchieved?: boolean | null;
+}
+
+interface TrainingAdaptationRecommendation {
+  action: string;
+  explanation: string;
 }
 
 type ActiveTab = 'today' | 'shopping' | 'appointments' | 'progress' | 'messages' | 'documents' | 'training';
@@ -54,7 +64,17 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
   trainingSaving = false;
   trainingError = '';
   trainingSessions: TrainingPortalSession[] = [];
-  trainingInputs: Record<number, { duration: number | null; rpe: number | null; notes: string }> = {};
+  trainingAdaptationRecommendation: TrainingAdaptationRecommendation | null = null;
+  trainingInputs: Record<number, {
+    duration: number | null;
+    rpe: number | null;
+    notes: string;
+    outcome: string;
+    reason: string;
+    recovery: string;
+    pain: string;
+    progressionAchieved: string;
+  }> = {};
 
   private readonly clientIdState = signal<number | undefined>(undefined);
   get clientId(): number | undefined { return this.clientIdState(); }
@@ -1210,17 +1230,23 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
   /** Consulta el módulo deportivo solo para la sesión autenticada del paciente. */
   loadTrainingSessions(): void {
     this.trainingLoading = true;
-    this.http.get<{ enabled: boolean; sessions: TrainingPortalSession[] }>('/api/portal/training/sessions').pipe(
-      catchError(() => of({ enabled: false, sessions: [] as TrainingPortalSession[] }))
+    this.http.get<{ enabled: boolean; sessions: TrainingPortalSession[]; adaptationRecommendation?: TrainingAdaptationRecommendation | null }>('/api/portal/training/sessions').pipe(
+      catchError(() => of({ enabled: false, sessions: [] as TrainingPortalSession[], adaptationRecommendation: null }))
     ).subscribe(result => {
       this.trainingEnabled = !!result.enabled;
       this.trainingSessions = result.sessions || [];
+      this.trainingAdaptationRecommendation = result.adaptationRecommendation ?? null;
       this.trainingInputs = {};
       for (const session of this.trainingSessions) {
         this.trainingInputs[session.id] = {
           duration: session.actualDurationMinutes ?? session.durationMinutes ?? null,
           rpe: session.sessionRpe ?? 5,
-          notes: session.recordNotes ?? ''
+          notes: session.recordNotes ?? '',
+          outcome: session.outcome ?? '',
+          reason: session.nonCompletionReason ?? 'none',
+          recovery: session.recoveryRating ?? 'unknown',
+          pain: session.painSignal ?? 'none',
+          progressionAchieved: session.progressionTargetAchieved == null ? '' : String(session.progressionTargetAchieved)
         };
       }
       this.trainingLoading = false;
@@ -1229,22 +1255,51 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
 
   recordTrainingSession(session: TrainingPortalSession): void {
     const input = this.trainingInputs[session.id];
-    if (!input || !Number.isFinite(Number(input.duration)) || Number(input.duration) < 1 || Number(input.duration) > 1440
-        || !Number.isFinite(Number(input.rpe)) || Number(input.rpe) < 0 || Number(input.rpe) > 10) {
-      this.trainingError = 'Indica una duración válida y un esfuerzo percibido entre 0 y 10.';
+    if (!input || !['completed', 'partial', 'not_completed'].includes(input.outcome)) {
+      this.trainingError = 'Indica si has completado la sesión, si la has hecho parcialmente o si no la has realizado.';
+      return;
+    }
+    const missed = input.outcome === 'not_completed';
+    if ((!missed && (!Number.isFinite(Number(input.duration)) || Number(input.duration) < 1 || Number(input.duration) > 1440))
+        || (input.duration != null && input.duration !== 0 && (Number(input.duration) < 1 || Number(input.duration) > 1440))
+        || (!missed && (!Number.isFinite(Number(input.rpe)) || Number(input.rpe) < 0 || Number(input.rpe) > 10))) {
+      this.trainingError = 'Indica una duración válida y un esfuerzo percibido entre 0 y 10 para las sesiones realizadas.';
+      return;
+    }
+    if (input.outcome !== 'completed' && !['time', 'fatigue', 'equipment', 'motivation', 'illness', 'other'].includes(input.reason)) {
+      this.trainingError = 'Indica el motivo por el que no has completado la sesión.';
       return;
     }
     this.trainingSaving = true;
     this.trainingError = '';
     this.http.post('/api/portal/training/sessions/' + session.id + '/record', {
       completedAt: new Date().toISOString(),
-      actualDurationMinutes: Number(input.duration),
-      sessionRpe: Number(input.rpe),
-      notes: input.notes || null
+      actualDurationMinutes: missed || input.duration == null ? null : Number(input.duration),
+      sessionRpe: missed ? null : Number(input.rpe),
+      notes: input.notes || null,
+      outcome: input.outcome,
+      nonCompletionReason: input.outcome === 'completed' ? 'none' : input.reason,
+      recoveryRating: input.recovery,
+      painSignal: input.pain,
+      progressionTargetAchieved: input.progressionAchieved === '' ? null : input.progressionAchieved === 'true'
     }).subscribe({
       next: () => { this.trainingSaving = false; this.loadTrainingSessions(); },
       error: error => { this.trainingSaving = false; this.trainingError = error?.error?.message || 'No se pudo guardar el entrenamiento.'; }
     });
+  }
+
+  trainingAdaptationLabel(action: string): string {
+    const labels: Record<string, string> = {
+      insufficient_data: 'Aún faltan registros para orientar cambios',
+      invalid_feedback: 'Hay registros que necesitan revisión',
+      no_change: 'Mantén la planificación actual',
+      reorganize_future_sessions: 'Reorganiza las próximas sesiones',
+      hold_progression_and_review: 'Pausa la progresión y revisa cómo te encuentras',
+      review_and_reduce_training_stress: 'Revisa la carga de entrenamiento con tu profesional',
+      progress_according_to_prescription: 'Se cumplen los criterios de la progresión prescrita',
+      pause_affected_exercise_and_review: 'Detén el ejercicio implicado y consulta con tu profesional'
+    };
+    return labels[action] || 'Revisa la recomendación con tu profesional';
   }
 
   get hasShoppingItems(): boolean {
