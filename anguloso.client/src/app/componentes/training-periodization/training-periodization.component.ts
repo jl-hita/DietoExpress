@@ -754,7 +754,7 @@ export class TrainingPeriodizationComponent implements OnInit {
               id: 'repdb-' + item.id, name, muscles: muscles || 'Grupo muscular según ficha',
               goal, equipment, equipmentLabel: equipmentLabel.charAt(0).toLocaleUpperCase('es') + equipmentLabel.slice(1),
               instructions, prescription,
-              imageUrl: typeof imagePath === 'string' ? 'https://exercise-dataset.com/' + imagePath.replace(/^\\//, '') : undefined,
+              imageUrl: typeof imagePath === 'string' ? 'https://exercise-dataset.com/' + imagePath.replace(/^\//, '') : undefined,
               source: 'repdb'
             };
           });
