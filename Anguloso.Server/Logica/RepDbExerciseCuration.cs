@@ -24,6 +24,10 @@ internal static class RepDbExerciseCuration
         "decline-db-fly",
         "cocoons",
         "balance-dome-crunch",
+        "cross-body-crunch",
+        "bicycle-crunch",
+        "decline-crunch",
+        "weighted-wall-crunch",
         "ring-dead-hang",
         "cheat-curl",
         "close-grip-ez-bar-curl",
@@ -53,9 +57,7 @@ internal static class RepDbExerciseCuration
     {
         "bird-dog-hold",
         "dead-hang",
-        "ring-dead-hang",
         "sit-ups",
-        "balance-dome-crunch",
         "double-kettlebell-clean"
     };
 
