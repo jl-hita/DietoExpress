@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatButtonModule } from '@angular/material/button';
@@ -43,7 +43,7 @@ interface ExerciseReviewItem {
 export class AdminExerciseReviewComponent implements OnInit {
   items: ExerciseReviewItem[] = []; drafts: Record<string, any> = {}; query = ''; status = 'pending'; loading = false; saving = '';
   patterns = ['Squat','Hinge','HorizontalPush','VerticalPush','HorizontalPull','VerticalPull','SingleLeg','Core','Carry','Rotation','Mobility','Cardio'];
-  constructor(private http: HttpClient, private snack: MatSnackBar) {}
+  constructor(private http: HttpClient, private snack: MatSnackBar, private changeDetector: ChangeDetectorRef) {}
   ngOnInit(): void { this.load(); }
   load(): void {
     this.loading = true;
@@ -52,8 +52,8 @@ export class AdminExerciseReviewComponent implements OnInit {
         pattern: item.movementPattern || '', primary: (item.reviewedPrimaryMuscles || []).join(', '), secondary: (item.reviewedSecondaryMuscles || []).join(', '),
         experience: item.minimumExperience || 'Beginner', goals: (item.suitableGoals || ['GeneralFitness','Hypertrophy','Strength']).join(', '),
         equipment: (item.requiredEquipment || []).join(', '), priority: item.selectionPriority ?? 50, notes: item.reviewNotes || ''
-      }; this.loading = false; },
-      error: () => { this.loading = false; this.snack.open('No se pudo cargar la cola de revisión.', 'Cerrar', {duration: 4000}); }
+      }; this.loading = false; this.changeDetector.detectChanges(); },
+      error: () => { this.loading = false; this.changeDetector.detectChanges(); this.snack.open('No se pudo cargar la cola de revisión.', 'Cerrar', {duration: 4000}); }
     });
   }
   statusLabel(value: string): string { return value === 'approved' ? 'Aprobado por persona' : value === 'rejected' ? 'Rechazado' : 'Pendiente de revisión'; }
