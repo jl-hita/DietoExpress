@@ -182,6 +182,7 @@ public sealed class ExerciseCatalogService
                 await command.ExecuteNonQueryAsync(cancellationToken);
                 imported++;
             }
+            await ApplyCuratedReviewsAsync(connection, transaction, cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
         catch
@@ -237,6 +238,57 @@ public sealed class ExerciseCatalogService
             if (shouldClose) await connection.CloseAsync();
         }
     }
+
+
+    private static async Task ApplyCuratedReviewsAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, CancellationToken cancellationToken)
+    {
+        // Explicitly reviewed candidates only. The source's muscle lists remain untouched in their original columns.
+        var reviews = new[]
+        {
+            new ReviewedExercise("squat", "Squat", ["Quadriceps", "Glutes"], ["Hamstrings", "ErectorSpinae"], "Beginner", [], 100),
+            new ReviewedExercise("barbell-back-squat", "Squat", ["Quadriceps", "Glutes"], ["Hamstrings", "ErectorSpinae"], "Intermediate", ["barbell"], 95),
+            new ReviewedExercise("romanian-deadlift", "Hinge", ["Hamstrings", "Glutes"], ["ErectorSpinae", "Quadriceps"], "Intermediate", ["barbell"], 100),
+            new ReviewedExercise("push-up", "HorizontalPush", ["Chest"], ["Triceps", "Deltoids"], "Beginner", [], 100),
+            new ReviewedExercise("barbell-bench-press", "HorizontalPush", ["Chest"], ["Triceps", "Deltoids"], "Intermediate", ["barbell"], 95),
+            new ReviewedExercise("pull-up", "VerticalPull", ["Lats"], ["Biceps", "UpperBack"], "Intermediate", ["pull_up_bar"], 100),
+            new ReviewedExercise("lat-pulldown", "VerticalPull", ["Lats"], ["Biceps", "UpperBack"], "Beginner", ["lat_pulldown_machine"], 90),
+            new ReviewedExercise("bent-over-row", "HorizontalPull", ["UpperBack", "Lats"], ["Biceps", "Forearms"], "Intermediate", ["barbell"], 100),
+            new ReviewedExercise("dumbbell-row", "HorizontalPull", ["Lats", "UpperBack"], ["Biceps", "Forearms"], "Beginner", ["dumbbell"], 90),
+            new ReviewedExercise("overhead-press", "VerticalPush", ["Deltoids"], ["Triceps", "Chest"], "Intermediate", ["barbell"], 100),
+            new ReviewedExercise("bulgarian-split-squat", "SingleLeg", ["Quadriceps", "Glutes"], ["Hamstrings", "Calves"], "Intermediate", ["dumbbell"], 100),
+            new ReviewedExercise("walking-lunge", "SingleLeg", ["Quadriceps", "Glutes"], ["Hamstrings", "Calves"], "Beginner", [], 90),
+            new ReviewedExercise("ab-wheel-rollout", "Core", ["Abdominals"], ["Obliques", "ErectorSpinae"], "Intermediate", ["ab_wheel"], 100),
+            new ReviewedExercise("plank", "Core", ["Abdominals"], ["Obliques"], "Beginner", [], 90)
+        };
+        const string update = """
+            UPDATE exercise_catalog SET
+                reviewed = TRUE,
+                reviewed_movement_pattern = @pattern,
+                reviewed_primary_muscles = @primary::jsonb,
+                reviewed_secondary_muscles = @secondary::jsonb,
+                reviewed_minimum_experience = @experience,
+                reviewed_suitable_goals = @goals::jsonb,
+                reviewed_required_equipment = @equipment::jsonb,
+                reviewed_at = COALESCE(reviewed_at, NOW()),
+                reviewed_by = 'DietoExpress curated metadata v1',
+                updated_at = NOW()
+            WHERE exercise_id = @id
+            """;
+        foreach (var review in reviews)
+        {
+            await using var command = new NpgsqlCommand(update, connection, transaction);
+            Add(command, "id", review.Id);
+            Add(command, "pattern", review.Pattern);
+            Add(command, "primary", JsonSerializer.Serialize(review.Primary));
+            Add(command, "secondary", JsonSerializer.Serialize(review.Secondary));
+            Add(command, "experience", review.MinimumExperience);
+            Add(command, "goals", JsonSerializer.Serialize(new[] { "GeneralFitness", "Hypertrophy", "Strength" }));
+            Add(command, "equipment", JsonSerializer.Serialize(review.Equipment));
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+    }
+
+    private sealed record ReviewedExercise(string Id, string Pattern, string[] Primary, string[] Secondary, string MinimumExperience, string[] Equipment, int Priority);
 
     private static void Add(NpgsqlCommand command, string name, object? value) =>
         command.Parameters.AddWithValue(name, value ?? DBNull.Value);
