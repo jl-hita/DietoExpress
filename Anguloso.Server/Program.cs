@@ -47,6 +47,7 @@ public class Program
         builder.Services.AddSingleton<ProfessionalPushService>();
         builder.Services.AddSingleton<MaintenanceNoticeService>();
         builder.Services.AddScoped<RecipeNutritionService>();
+        builder.Services.AddScoped<ExerciseCatalogService>();
 builder.Services.AddScoped<SupportEnhancementService>();
         builder.Services.AddScoped<SupportService>();
         builder.Services.AddSingleton<DatabaseBackupService>();
