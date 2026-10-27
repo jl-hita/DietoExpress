@@ -41,8 +41,8 @@ public static class TrainingAdaptationPolicy
             return Decision(TrainingAdaptationAction.ReorganizeFutureSessions,
                 "La sesión se omitió por falta de tiempo; reorganiza solo las sesiones futuras si el calendario y la recuperación lo permiten.");
 
-        if (latest.Outcome is TrainingSessionOutcome.Partial or TrainingSessionOutcome.NotCompleted &&
-            latest.NonCompletionReason is TrainingNonCompletionReason.Fatigue or TrainingNonCompletionReason.Illness ||
+        if ((latest.Outcome is TrainingSessionOutcome.Partial or TrainingSessionOutcome.NotCompleted) &&
+            (latest.NonCompletionReason is TrainingNonCompletionReason.Fatigue or TrainingNonCompletionReason.Illness) ||
             latest.Recovery is TrainingRecoveryRating.Insufficient)
             return Decision(TrainingAdaptationAction.HoldProgressionAndReview,
                 "No aumentes automáticamente la exigencia. Revisa el contexto y confirma la recuperación antes de progresar.");
