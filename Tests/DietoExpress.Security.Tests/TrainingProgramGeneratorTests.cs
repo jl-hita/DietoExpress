@@ -145,6 +145,40 @@ public sealed class TrainingProgramGeneratorTests
         Assert.Contains(result.Errors, error => error.Contains("No hay un ejercicio revisado compatible", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void WeeklyPeriodizationBuildsVolumeAndSchedulesDeloadEveryFourthWeek()
+    {
+        var request = Request() with { DurationWeeks = 8 };
+        var result = TrainingProgramGenerator.Generate(request, Catalog());
+
+        Assert.True(result.Succeeded, string.Join("; ", result.Errors));
+        var sessions = result.Prescription!.Sessions;
+        var firstExerciseByWeek = sessions
+            .GroupBy(session => session.WeekNumber)
+            .ToDictionary(group => group.Key, group => group.First().Exercises[0]);
+
+        Assert.Equal(2, firstExerciseByWeek[1].Sets); // baseline
+        Assert.Equal(3, firstExerciseByWeek[2].Sets); // build
+        Assert.Equal(3, firstExerciseByWeek[3].Sets); // build
+        Assert.Equal(1, firstExerciseByWeek[4].Sets); // deload
+        Assert.Equal(2, firstExerciseByWeek[5].Sets); // next cycle baseline
+        Assert.Equal(3, firstExerciseByWeek[6].Sets);
+        Assert.Equal(1, firstExerciseByWeek[8].Sets);
+        Assert.Equal(4m, firstExerciseByWeek[4].TargetRepetitionsInReserve);
+        Assert.Equal(3m, firstExerciseByWeek[5].TargetRepetitionsInReserve);
+        Assert.Empty(TrainingPrescriptionValidator.Validate(result.Prescription));
+    }
+
+    [Fact]
+    public void ShortPlanDoesNotDeloadBeforeCompletingFourWeekCycle()
+    {
+        var result = TrainingProgramGenerator.Generate(Request() with { DurationWeeks = 3 }, Catalog());
+
+        Assert.True(result.Succeeded, string.Join("; ", result.Errors));
+        Assert.All(result.Prescription!.Sessions.Where(session => session.WeekNumber == 3),
+            session => Assert.All(session.Exercises, exercise => Assert.Equal(3, exercise.Sets)));
+    }
+
     private static string SessionSignature(TrainingSessionPrescription session) =>
         $"{session.WeekNumber}|{session.Day}|{session.Title}|" +
         string.Join(",", session.Exercises.Select(exercise =>
