@@ -25,6 +25,9 @@ internal static class RepDbExerciseAutoReviewer
         string primaryMusclesJson, string secondaryMusclesJson, string goalsJson,
         string tagsJson, bool? isBodyweight)
     {
+        if (RepDbExerciseCuration.ShouldExclude(id) || RepDbExerciseCuration.RequiresManualReview(id))
+            return null;
+
         if (string.IsNullOrWhiteSpace(nameEs) || nameEs.Trim().Length < 3 ||
             !HasUsefulInstructions(instructionsEsJson) ||
             string.IsNullOrWhiteSpace(descriptionEs))
