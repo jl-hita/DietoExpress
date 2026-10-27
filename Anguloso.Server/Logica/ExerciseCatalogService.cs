@@ -123,7 +123,7 @@ public sealed class ExerciseCatalogService
         // The reset and complete source import share one PostgreSQL transaction, so a failed
         // download/import cannot leave the existing catalog empty or partially replaced.
         var bootstrapCompleted = await _db.Database.SqlQueryRaw<bool>(
-            """SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'exercise-catalog-repdb-spanish-reset-v2') AS "Value"""")
+            "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'exercise-catalog-repdb-spanish-reset-v2') AS \"Value\"")
             .SingleAsync(cancellationToken);
         if (!bootstrapCompleted)
             return await SyncFromSourceAsync(cancellationToken, replaceExisting: true, markBootstrapComplete: true);
