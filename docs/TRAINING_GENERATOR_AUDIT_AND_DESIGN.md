@@ -11,11 +11,13 @@ Issue de seguimiento: https://github.com/jl-hita/DietoExpress/issues/415
 - La planificación actual está orientada a que el profesional gestione el calendario; no se ha encontrado aún un motor que genere y optimice un ciclo entero desde el perfil del cliente.
 - Ya existe una prueba de regresión estática en `Tests/DietoExpress.Security.Tests/TrainingPeriodizationRegressionTests.cs`, que protege parte del contrato actual.
 
-### Biblioteca de ejercicios
+### Biblioteca de ejercicios: discrepancia detectada
 - La UI de planificación declara un modelo `RepDbExercise` con nombre, material, región corporal, categoría, objetivos, músculos principales, instrucciones e imágenes.
-- La UI informa de datos/ilustraciones ampliados de RepDB y un catálogo básico de respaldo.
-- Antes de seleccionar automáticamente ejercicios, hay que seguir el flujo de carga de la biblioteca hasta su origen y confirmar si los metadatos están persistidos en PostgreSQL o se obtienen en el cliente. No se debe suponer que el servidor dispone del mismo catálogo ni crear una segunda biblioteca paralela.
-- El catálogo necesita un proceso de normalización/curación para mapear patrones de movimiento, músculos principales/secundarios, material, dificultad técnica y alternativas; no se deben inferir metadatos clínicos ausentes como si fueran hechos.
+- La trazabilidad del código muestra que `loadExpandedExerciseCatalog()` descarga el catálogo desde `https://exercise-dataset.com/exercises.json` directamente en el navegador. Si falla, mantiene el catálogo curado básico definido en la propia UI. La atribución visible menciona RepDB.
+- **En el flujo revisado no se observa que ese catálogo ampliado se importe o persista en PostgreSQL.** Por tanto, no debemos asumir que el servidor tiene la misma biblioteca que ve la UI. Puede existir otra tabla o proceso de importación independiente, pero no aparece en el flujo examinado.
+- La clasificación actual de músculos, objetivos y material incluye heurísticas derivadas de texto; sirve para filtros de interfaz, pero no basta por sí sola como metadato de confianza para un generador de entrenamiento.
+- Antes de la selección automática, debemos decidir si se importa/sincroniza un catálogo curado al backend o si se crea un contrato de catálogo compartido. No copiar masivamente el catálogo externo sin comprobar sus términos, atribución y condiciones de redistribución.
+- El catálogo que consuma el motor necesita identificadores estables, procedencia, versión, material normalizado, músculos principales/secundarios revisados, patrones de movimiento, dificultad técnica y alternativas compatibles. Los metadatos ausentes deben permanecer desconocidos, no inferirse como hechos.
 
 ### Seguimiento del paciente y Android
 - `GET /api/portal/training/sessions` ya expone sesiones al paciente autenticado.
