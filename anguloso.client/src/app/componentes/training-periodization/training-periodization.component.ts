@@ -22,6 +22,11 @@ interface GeneratedSession {
 }
 interface GeneratedProgram {
   engineVersion: string; goal: string; startDate: string; durationWeeks: number; sessions: GeneratedSession[];
+  qualityReport?: {
+    methodology: string;
+    weeklyMuscleVolumes: Array<{ weekNumber: number; muscles: Array<{ muscleGroup: string; primarySets: number; secondarySets: number; primaryFrequencySessions: number; secondaryFrequencySessions: number }> }>;
+    warnings: string[];
+  } | null;
 }
 interface GenerationRequest {
   goal: number; experience: number; startDate: string; durationWeeks: number; trainingDays: number[];
@@ -213,6 +218,14 @@ interface RepDbExercise {
               <p *ngIf="generationErrors[plan.id]" class="error" role="alert">{{ generationErrors[plan.id] }}</p>
               <div *ngIf="generatedPreviews[plan.id] as generated" class="generated-preview">
                 <h5>Vista previa · {{ generated.durationWeeks }} semanas · {{ generated.sessions.length }} sesiones</h5>
+                <section *ngIf="generated.qualityReport" class="quality-report">
+                  <strong>Chequeos orientativos de volumen y cobertura</strong>
+                  <p class="muted">{{ generated.qualityReport.methodology }}</p>
+                  <ul *ngIf="generated.qualityReport.warnings.length; else noQualityWarnings">
+                    <li *ngFor="let warning of generated.qualityReport.warnings">{{ warning }}</li>
+                  </ul>
+                  <ng-template #noQualityWarnings><p>No se han detectado alertas automáticas. La revisión profesional sigue siendo obligatoria.</p></ng-template>
+                </section>
                 <article *ngFor="let session of generated.sessions" class="generated-session">
                   <strong>Semana {{ session.weekNumber }} · {{ dayName(session.day) }} · {{ session.title }}</strong>
                   <small>{{ session.estimatedDurationMinutes }} min</small>

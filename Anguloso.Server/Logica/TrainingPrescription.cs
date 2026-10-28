@@ -9,7 +9,8 @@ public sealed record TrainingProgramPrescription(
     string Goal,
     DateOnly StartDate,
     int DurationWeeks,
-    IReadOnlyList<TrainingSessionPrescription> Sessions);
+    IReadOnlyList<TrainingSessionPrescription> Sessions,
+    TrainingProgramQualityReport? QualityReport = null);
 
 public sealed record TrainingSessionPrescription(
     int WeekNumber,
