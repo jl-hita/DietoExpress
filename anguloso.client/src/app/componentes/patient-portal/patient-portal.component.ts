@@ -1325,7 +1325,7 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
       'Pecho', 'Dorsales', 'Espalda alta', 'Deltoides', 'Bíceps', 'Tríceps', 'Antebrazos',
       'Abdominales', 'Oblicuos', 'Erectores espinales', 'Glúteos', 'Cuádriceps', 'Isquiotibiales', 'Gemelos'
     ];
-    const numeric = typeof muscle === 'number' ? muscle : /^\\d+$/.test(muscle) ? Number(muscle) : -1;
+    const numeric = typeof muscle === 'number' ? muscle : /^\d+$/.test(muscle) ? Number(muscle) : -1;
     if (numeric >= 0 && numeric < numericLabels.length) return numericLabels[numeric];
     return labels[String(muscle)] || String(muscle);
   }
