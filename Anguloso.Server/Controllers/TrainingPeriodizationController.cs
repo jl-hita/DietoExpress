@@ -697,7 +697,7 @@ public sealed class TrainingPeriodizationController : ControllerBase
             UPDATE training_sessions s
             SET scheduled_date = @date, title = @title, session_type = @type, duration_minutes = @duration,
                 intensity_target = @intensity, instructions = @instructions, exercise_prescription = @exercisePrescription,
-                exercise_prescription_data = NULL, updated_at = NOW()
+                exercise_prescription_data = CASE WHEN s.exercise_prescription IS DISTINCT FROM @exercisePrescription THEN NULL ELSE s.exercise_prescription_data END, updated_at = NOW()
             FROM training_plans p JOIN training_profiles f ON f.id = p.profile_id
             WHERE s.plan_id = p.id AND s.id = @sessionId AND f.enabled = TRUE
               AND @date >= p.start_date AND (p.end_date IS NULL OR @date <= p.end_date)
