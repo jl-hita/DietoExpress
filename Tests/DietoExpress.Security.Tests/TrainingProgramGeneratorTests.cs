@@ -359,7 +359,8 @@ public sealed class TrainingProgramGeneratorTests
                     Assert.NotEmpty(exercise.PrimaryMuscleGroups);
                     Assert.InRange(exercise.Sets, 1, 4);
                     Assert.InRange(exercise.MinRepetitions, 1, exercise.MaxRepetitions);
-                    Assert.InRange(exercise.TargetRepetitionsInReserve, 0m, 5m);
+                    Assert.NotNull(exercise.TargetRepetitionsInReserve);
+                    Assert.InRange(exercise.TargetRepetitionsInReserve!.Value, 0m, 5m);
                     Assert.True(exercise.RestSeconds > 0);
                 });
             });
