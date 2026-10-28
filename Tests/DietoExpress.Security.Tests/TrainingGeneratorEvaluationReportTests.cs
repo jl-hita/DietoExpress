@@ -119,6 +119,7 @@ public sealed class TrainingGeneratorEvaluationReportTests
         Assert.Equal(27, report.ScenarioCount);
         Assert.Equal(report.ScenarioCount, report.SuccessfulScenarios);
         Assert.Equal(0, report.HardViolationCount);
+        Assert.All(scenarios, scenario => Assert.Empty(scenario.Plan!.QualityReport!.Warnings));
         Assert.All(scenarios, scenario => Assert.All(
             scenario.Plan!.Sessions.SelectMany(session => session.Exercises),
             exercise =>
@@ -151,7 +152,7 @@ public sealed class TrainingGeneratorEvaluationReportTests
             Candidate("ez-bar-romanian-deadlift", "Peso muerto rumano con barra EZ", TrainingMovementPattern.Hinge, ["ez_bar"], TrainingExperience.Beginner, 95,
                 [TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Hamstrings], [TrainingMuscleGroup.ErectorSpinae, TrainingMuscleGroup.Forearms, TrainingMuscleGroup.UpperBack]),
             Candidate("romanian-deadlift", "Peso muerto rumano", TrainingMovementPattern.Hinge, ["barbell"], TrainingExperience.Intermediate, 100,
-                [TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Hamstrings], [TrainingMuscleGroup.ErectorSpinae]),
+                [TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Hamstrings], [TrainingMuscleGroup.ErectorSpinae, TrainingMuscleGroup.Forearms]),
             Candidate("push-up", "Flexiones", TrainingMovementPattern.HorizontalPush, [], TrainingExperience.Beginner, 100,
                 [TrainingMuscleGroup.Chest, TrainingMuscleGroup.Triceps], [TrainingMuscleGroup.Deltoids]),
             Candidate("bench-press", "Press de banca con barra", TrainingMovementPattern.HorizontalPush, ["barbell"], TrainingExperience.Intermediate, 95,
@@ -173,7 +174,7 @@ public sealed class TrainingGeneratorEvaluationReportTests
             Candidate("walking-lunge", "Zancadas caminando", TrainingMovementPattern.SingleLeg, [], TrainingExperience.Intermediate, 90,
                 [TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Quadriceps], [TrainingMuscleGroup.Hamstrings, TrainingMuscleGroup.Calves]),
             Candidate("plank", "Plancha", TrainingMovementPattern.Core, [], TrainingExperience.Beginner, 90,
-                [TrainingMuscleGroup.Abdominals], [TrainingMuscleGroup.ErectorSpinae]),
+                [TrainingMuscleGroup.Abdominals], [TrainingMuscleGroup.ErectorSpinae, TrainingMuscleGroup.Obliques]),
             Candidate("ab-wheel-rollout", "Rueda abdominal", TrainingMovementPattern.Core, ["ab_wheel"], TrainingExperience.Intermediate, 100,
                 [TrainingMuscleGroup.Abdominals], [TrainingMuscleGroup.Deltoids, TrainingMuscleGroup.Lats, TrainingMuscleGroup.Obliques])
         ];
