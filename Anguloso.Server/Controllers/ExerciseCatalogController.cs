@@ -54,9 +54,9 @@ public sealed class ExerciseCatalogController : ControllerBase
 
     [HttpGet("review-queue")]
     [Authorize(Roles = "superadmin")]
-    public async Task<ActionResult<IReadOnlyList<ExerciseCatalogItem>>> ReviewQueue([FromQuery] string? q, [FromQuery] string status = "pending", [FromQuery] int limit = 100, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<IReadOnlyList<ExerciseCatalogItem>>> ReviewQueue([FromQuery] string? q, [FromQuery] string status = "pending", [FromQuery] int limit = 100, [FromQuery] int offset = 0, CancellationToken cancellationToken = default)
     {
-        try { return Ok(await _catalog.SearchAsync(q, null, null, Math.Clamp(limit, 1, 100), cancellationToken, status, includeAllOwners: true)); }
+        try { return Ok(await _catalog.SearchAsync(q, null, null, Math.Clamp(limit, 1, 100), cancellationToken, status, includeAllOwners: true, offset: Math.Max(0, offset))); }
         catch (Exception exception) { _logger.LogError(exception, "Failed to load exercise review queue."); return StatusCode(503, new { error = "No se pudo cargar la cola de revisión." }); }
     }
 
