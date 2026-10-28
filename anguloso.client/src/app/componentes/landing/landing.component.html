@@ -1,8 +1,11 @@
 <div class="landing">
   <header class="nav">
-    <a class="brand" routerLink="/" aria-label="DietoExpress"><img src="/dietoexpress-logo-light.svg" alt="DietoExpress · Tu suite profesional de nutrición" /></a>
+    <a class="brand" routerLink="/" aria-label="DietoExpress"><img src="/dietoexpress-logo-light.svg" alt="DietoExpress · Gestión profesional de nutrición y entrenamiento" /></a>
     <nav class="nav-links">
       <a href="#funciones">Funciones</a>
+      <a href="#entrenamiento">Entrenamiento</a>
+      <a href="#consulta-online">Consulta online</a>
+      <a href="#app-pacientes">App Android</a>
       <a href="#pacientes">Para pacientes</a>
       <a href="#clinicas">Clínicas</a>
       <a href="#planes">Planes</a>
@@ -18,9 +21,9 @@
   <main>
     <section class="hero">
       <div class="hero-copy">
-        <span class="eyebrow">SOFTWARE PROFESIONAL PARA NUTRICIONISTAS Y CLÍNICAS</span>
+        <span class="eyebrow">SOFTWARE PROFESIONAL PARA NUTRICIÓN, ENTRENAMIENTO Y CLÍNICAS</span>
         <h1>Tu consulta, <span>más inteligente y más visible.</span></h1>
-        <p class="lead">Genera dietas adaptadas a cada paciente, gestiona tu consulta y deja que nuevos pacientes te encuentren. DietoExpress reúne nutrición, seguimiento y captación en una sola plataforma.</p>
+        <p class="lead">Diseña planes nutricionales, crea rutinas de entrenamiento y acompaña la evolución de cada persona. Gestiona pacientes, citas y seguimiento, y facilita que nuevos clientes te encuentren: todo conectado en una sola plataforma.</p>
         <div class="hero-actions">
           <button mat-flat-button color="primary" class="primary-cta" (click)="crearCuenta()">Empezar gratis <mat-icon>arrow_forward</mat-icon></button>
           <a mat-stroked-button routerLink="/nutricionistas">Buscar nutricionista</a>
@@ -61,7 +64,7 @@
 
     <section class="proof-strip">
       <span>DE LA PRIMERA VISITA AL SEGUIMIENTO</span>
-      <div><b>Generador de dietas</b><b>Captación</b><b>Agenda</b><b>Portal</b><b>Seguimiento</b><b>Chat</b></div>
+      <div><b>Dietas adaptadas</b><b>Rutinas y mesociclos</b><b>App Android para clientes</b><b>Videoconsultas</b><b>Lista de la compra</b><b>Seguimiento</b></div>
     </section>
 
     <section class="features" id="funciones">
@@ -89,7 +92,7 @@
           <li><mat-icon>check</mat-icon><span>Agenda y disponibilidad configurables</span></li>
           <li><mat-icon>check</mat-icon><span>Portal del paciente y documentación</span></li>
           <li><mat-icon>check</mat-icon><span>Mensajería, notificaciones y automatizaciones</span></li>
-          <li><mat-icon>check</mat-icon><span>Google Calendar y consulta online preparada</span></li>
+          <li><mat-icon>check</mat-icon><span>Videollamada integrada en las citas online confirmadas</span></li>
         </ul>
         <button mat-flat-button color="primary" (click)="crearCuenta()">Crear mi cuenta</button>
       </div>
@@ -101,6 +104,75 @@
             <div class="tabs"><b>Resumen</b><span>Dieta</span><span>Citas</span><span>Mensajes</span></div>
             <div class="detail-grid"><div class="detail-box"><small>Próxima cita</small><b>Jueves 10:00</b><em>Consulta online</em></div><div class="detail-box"><small>Plan actual</small><b>2.050 kcal</b><em>Déficit moderado</em></div><div class="detail-box"><small>Seguimiento</small><b>64%</b><em>Progreso registrado</em></div></div>
             <div class="progress-box"><div><b>Última actualización</b><span>Hoy</span></div><div class="progress"><i></i></div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="features consultation-flow" id="consulta-online">
+      <div class="section-heading">
+        <span class="eyebrow">UNA CONSULTA COMPLETA, NO SOLO UNA VIDEOLLAMADA</span>
+        <h2>De la primera reserva al seguimiento, con todo conectado.</h2>
+        <p>La consulta no termina cuando acaba la llamada. DietoExpress conecta la captación, la cita, la atención online y los planes que ayudan a dar continuidad al trabajo entre sesiones.</p>
+      </div>
+      <div class="feature-grid">
+        <article class="feature-card">
+          <div class="feature-icon"><mat-icon>person_search</mat-icon></div>
+          <span class="feature-number">01</span>
+          <h3>Te descubren y reservan</h3>
+          <p>Los pacientes pueden encontrar tu perfil, consultar disponibilidad y solicitar una cita desde el directorio y la agenda pública.</p>
+        </article>
+        <article class="feature-card featured">
+          <div class="feature-icon"><mat-icon>event_available</mat-icon></div>
+          <span class="feature-number">02</span>
+          <h3>Organiza la atención</h3>
+          <p>Gestiona las solicitudes y citas desde tu agenda, con avisos para revisar nuevas peticiones y calendario conectado con Google Calendar.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon"><mat-icon>videocam</mat-icon></div>
+          <span class="feature-number">03</span>
+          <h3>Consulta online con audio y vídeo</h3>
+          <p>Abre la videollamada desde la cita en DietoExpress, controla cámara y micrófono y vuelve a conectar si la conexión se interrumpe. El acceso se habilita 15 minutos antes de la cita.</p>
+        </article>
+        <article class="feature-card featured">
+          <div class="feature-icon"><mat-icon>autorenew</mat-icon></div>
+          <span class="feature-number">04</span>
+          <h3>Da continuidad al tratamiento</h3>
+          <p>Comparte el trabajo mediante el portal del paciente, planes nutricionales y de entrenamiento, mensajería y seguimiento entre consultas.</p>
+        </article>
+      </div>
+      <div class="hero-actions" style="justify-content:center;margin-top:32px">
+        <button mat-flat-button color="primary" class="primary-cta" (click)="crearCuenta()">Gestionar mi consulta <mat-icon>arrow_forward</mat-icon></button>
+        <a mat-stroked-button routerLink="/nutricionistas">Ver directorio de profesionales</a>
+      </div>
+    </section>
+
+    <section class="showcase" id="app-pacientes">
+      <div class="showcase-copy">
+        <span class="eyebrow">EL SEGUIMIENTO TAMBIÉN VA CONTIGO</span>
+        <h2>Tus clientes tienen DietoExpress también en Android.</h2>
+        <p>No todo ocurre durante la consulta. La app móvil del paciente reúne sus planes y la comunicación con su nutricionista para que pueda consultar qué le toca hacer y mantener el contacto desde el teléfono.</p>
+        <ul>
+          <li><mat-icon>restaurant_menu</mat-icon><span>Consulta la dieta asignada y la documentación de su plan.</span></li>
+          <li><mat-icon>fitness_center</mat-icon><span>Accede a sus rutinas y registra sesiones de entrenamiento.</span></li>
+          <li><mat-icon>shopping_cart</mat-icon><span>Revisa la lista de la compra asociada a su alimentación.</span></li>
+          <li><mat-icon>videocam</mat-icon><span>Entra en las videoconsultas desde la app, sin separar la llamada de la cita.</span></li>
+          <li><mat-icon>chat</mat-icon><span>Se comunica contigo mediante mensajería y recibe avisos de citas y mensajes.</span></li>
+        </ul>
+        <p class="app-note">La app Android complementa el portal web: tu consulta se gestiona desde la plataforma profesional y tus clientes pueden acceder a su seguimiento desde el móvil.</p>
+        <button mat-flat-button color="primary" (click)="crearCuenta()">Conocer DietoExpress</button>
+      </div>
+      <div class="showcase-visual">
+        <div class="app-window detail-window">
+          <div class="window-bar"><i></i><i></i><i></i><span class="mock-brand"><img src="/favicon.svg" alt="" />DietoExpress · App del paciente</span></div>
+          <div class="detail-body">
+            <div class="profile-head"><div class="big-avatar"><mat-icon>phone_iphone</mat-icon></div><div><small>EXPERIENCIA DEL CLIENTE</small><h3>Tu plan, siempre a mano</h3><span>Nutrición · Entrenamiento · Seguimiento</span></div></div>
+            <div class="detail-grid">
+              <div class="detail-box"><small>Alimentación</small><b>Dieta asignada</b><em>Plan y documentos</em></div>
+              <div class="detail-box"><small>Entrenamiento</small><b>Rutina activa</b><em>Sesiones y registro</em></div>
+              <div class="detail-box"><small>Organización</small><b>Lista de la compra</b><em>Para el día a día</em></div>
+            </div>
+            <div class="progress-box"><div><b>Conecta con tu profesional</b><span>Mensajes y videoconsultas</span></div><div class="progress"><i></i></div></div>
           </div>
         </div>
       </div>
@@ -146,6 +218,25 @@
       </div>
     </section>
 
+
+
+    <section class="features" id="entrenamiento">
+      <div class="section-heading">
+        <span class="eyebrow">ENTRENAMIENTO CON SEGUIMIENTO REAL</span>
+        <h2>De la rutina inicial a una progresión que tiene en cuenta cómo responde cada persona.</h2>
+        <p>Herramientas para planificar, revisar y ajustar el entrenamiento sin convertir cada cambio en trabajo manual ni perder el criterio del profesional.</p>
+      </div>
+      <div class="feature-grid">
+        <article class="feature-card featured"><div class="feature-icon"><mat-icon>event_repeat</mat-icon></div><span class="feature-number">01</span><h3>Rutinas y planificación por mesociclos</h3><p>Genera propuestas estructuradas con ejercicios, series, repeticiones y objetivos, y organiza la progresión a lo largo de varias semanas.</p></article>
+        <article class="feature-card"><div class="feature-icon"><mat-icon>fitness_center</mat-icon></div><span class="feature-number">02</span><h3>Biblioteca de ejercicios</h3><p>Organiza ejercicios por grupos musculares y utiliza prescripciones claras para que cada sesión sea fácil de consultar y ejecutar.</p></article>
+        <article class="feature-card featured"><div class="feature-icon"><mat-icon>tune</mat-icon></div><span class="feature-number">03</span><h3>Adaptación basada en el rendimiento</h3><p>Registra cómo se completan las series y recoge el feedback sobre esfuerzo, molestias y series omitidas para orientar la progresión.</p></article>
+        <article class="feature-card"><div class="feature-icon"><mat-icon>fact_check</mat-icon></div><span class="feature-number">04</span><h3>El profesional conserva el control</h3><p>Las propuestas de adaptación pueden revisarse profesionalmente: los datos del entrenamiento informan las decisiones, no sustituyen tu criterio.</p></article>
+        <article class="feature-card"><div class="feature-icon"><mat-icon>phone_iphone</mat-icon></div><span class="feature-number">05</span><h3>Planes accesibles para el cliente</h3><p>El portal presenta los ejercicios y sus indicaciones de forma estructurada para consultar la rutina y registrar la sesión.</p></article>
+        <article class="feature-card"><div class="feature-icon"><mat-icon>monitor_heart</mat-icon></div><span class="feature-number">06</span><h3>Nutrición y entrenamiento conectados</h3><p>Gestiona desde el mismo entorno los planes nutricionales, el trabajo de entrenamiento y el seguimiento de tus clientes.</p></article>
+      </div>
+      <div class="hero-actions" style="justify-content:center;margin-top:32px"><button mat-flat-button color="primary" class="primary-cta" (click)="crearCuenta()">Probar DietoExpress <mat-icon>arrow_forward</mat-icon></button></div>
+    </section>
+
     <section class="pricing" id="planes">
       <div>
         <span class="eyebrow">EMPIEZA SIN COMPLICACIONES</span>
@@ -168,5 +259,5 @@
     </section>
   </main>
 
-  <footer><span>© DietoExpress</span><span>Gestión profesional de nutrición</span><a routerLink="/nutricionistas">Buscar nutricionista</a></footer>
+  <footer><span>© DietoExpress</span><span>Gestión profesional de nutrición y entrenamiento</span><a routerLink="/nutricionistas">Buscar nutricionista</a></footer>
 </div>
