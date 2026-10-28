@@ -5,6 +5,7 @@
       <a href="#funciones">Funciones</a>
       <a href="#entrenamiento">Entrenamiento</a>
       <a href="#consulta-online">Consulta online</a>
+      <a href="#app-pacientes">App Android</a>
       <a href="#pacientes">Para pacientes</a>
       <a href="#clinicas">Clínicas</a>
       <a href="#planes">Planes</a>
@@ -63,7 +64,7 @@
 
     <section class="proof-strip">
       <span>DE LA PRIMERA VISITA AL SEGUIMIENTO</span>
-      <div><b>Dietas adaptadas</b><b>Rutinas y mesociclos</b><b>Progresión adaptativa</b><b>Agenda</b><b>Portal</b><b>Seguimiento</b></div>
+      <div><b>Dietas adaptadas</b><b>Rutinas y mesociclos</b><b>App Android para clientes</b><b>Videoconsultas</b><b>Lista de la compra</b><b>Seguimiento</b></div>
     </section>
 
     <section class="features" id="funciones">
@@ -143,6 +144,37 @@
       <div class="hero-actions" style="justify-content:center;margin-top:32px">
         <button mat-flat-button color="primary" class="primary-cta" (click)="crearCuenta()">Gestionar mi consulta <mat-icon>arrow_forward</mat-icon></button>
         <a mat-stroked-button routerLink="/nutricionistas">Ver directorio de profesionales</a>
+      </div>
+    </section>
+
+    <section class="showcase" id="app-pacientes">
+      <div class="showcase-copy">
+        <span class="eyebrow">EL SEGUIMIENTO TAMBIÉN VA CONTIGO</span>
+        <h2>Tus clientes tienen DietoExpress también en Android.</h2>
+        <p>No todo ocurre durante la consulta. La app móvil del paciente reúne sus planes y la comunicación con su nutricionista para que pueda consultar qué le toca hacer y mantener el contacto desde el teléfono.</p>
+        <ul>
+          <li><mat-icon>restaurant_menu</mat-icon><span>Consulta la dieta asignada y la documentación de su plan.</span></li>
+          <li><mat-icon>fitness_center</mat-icon><span>Accede a sus rutinas y registra sesiones de entrenamiento.</span></li>
+          <li><mat-icon>shopping_cart</mat-icon><span>Revisa la lista de la compra asociada a su alimentación.</span></li>
+          <li><mat-icon>videocam</mat-icon><span>Entra en las videoconsultas desde la app, sin separar la llamada de la cita.</span></li>
+          <li><mat-icon>chat</mat-icon><span>Se comunica contigo mediante mensajería y recibe avisos de citas y mensajes.</span></li>
+        </ul>
+        <p class="app-note">La app Android complementa el portal web: tu consulta se gestiona desde la plataforma profesional y tus clientes pueden acceder a su seguimiento desde el móvil.</p>
+        <button mat-flat-button color="primary" (click)="crearCuenta()">Conocer DietoExpress</button>
+      </div>
+      <div class="showcase-visual">
+        <div class="app-window detail-window">
+          <div class="window-bar"><i></i><i></i><i></i><span class="mock-brand"><img src="/favicon.svg" alt="" />DietoExpress · App del paciente</span></div>
+          <div class="detail-body">
+            <div class="profile-head"><div class="big-avatar"><mat-icon>phone_iphone</mat-icon></div><div><small>EXPERIENCIA DEL CLIENTE</small><h3>Tu plan, siempre a mano</h3><span>Nutrición · Entrenamiento · Seguimiento</span></div></div>
+            <div class="detail-grid">
+              <div class="detail-box"><small>Alimentación</small><b>Dieta asignada</b><em>Plan y documentos</em></div>
+              <div class="detail-box"><small>Entrenamiento</small><b>Rutina activa</b><em>Sesiones y registro</em></div>
+              <div class="detail-box"><small>Organización</small><b>Lista de la compra</b><em>Para el día a día</em></div>
+            </div>
+            <div class="progress-box"><div><b>Conecta con tu profesional</b><span>Mensajes y videoconsultas</span></div><div class="progress"><i></i></div></div>
+          </div>
+        </div>
       </div>
     </section>
 
