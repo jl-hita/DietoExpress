@@ -241,6 +241,54 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
+    public void QualityReportCalculatesPrimaryVolumeAndFrequencyByWeek()
+    {
+        var result = TrainingProgramGenerator.Generate(Request() with { DurationWeeks = 4 }, Catalog());
+
+        Assert.True(result.Succeeded, string.Join("; ", result.Errors));
+        var report = result.Prescription!.QualityReport;
+        Assert.NotNull(report);
+        Assert.Equal(4, report.WeeklyMuscleVolumes.Count);
+
+        var weekOneQuads = report.WeeklyMuscleVolumes.Single(week => week.WeekNumber == 1)
+            .Muscles.Single(muscle => muscle.MuscleGroup == TrainingMuscleGroup.Quadriceps);
+        var weekTwoQuads = report.WeeklyMuscleVolumes.Single(week => week.WeekNumber == 2)
+            .Muscles.Single(muscle => muscle.MuscleGroup == TrainingMuscleGroup.Quadriceps);
+        var weekFourQuads = report.WeeklyMuscleVolumes.Single(week => week.WeekNumber == 4)
+            .Muscles.Single(muscle => muscle.MuscleGroup == TrainingMuscleGroup.Quadriceps);
+
+        Assert.Equal(4, weekOneQuads.PrimarySets);
+        Assert.Equal(2, weekOneQuads.PrimaryFrequencySessions);
+        Assert.Equal(6, weekTwoQuads.PrimarySets);
+        Assert.Equal(2, weekFourQuads.PrimarySets);
+        Assert.Contains(report.Warnings, warning => warning.Contains("no hay cobertura muscular identificada", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void QualityReportFlagsVeryHighPrimarySetVolumeWithoutRejectingThePlan()
+    {
+        var result = TrainingProgramGenerator.Generate(Request(), Catalog());
+        Assert.True(result.Succeeded, string.Join("; ", result.Errors));
+
+        var exaggeratedPlan = result.Prescription! with
+        {
+            Sessions = result.Prescription.Sessions.Select(session => session with
+            {
+                Exercises = session.Exercises.Select(exercise => exercise with
+                {
+                    Sets = 6,
+                    PrimaryMuscleGroups = [TrainingMuscleGroup.Quadriceps],
+                    SecondaryMuscleGroups = []
+                }).ToArray()
+            }).ToArray(),
+            QualityReport = null
+        };
+
+        var report = TrainingProgramQualityAnalyzer.Analyze(exaggeratedPlan);
+        Assert.Contains(report.Warnings, warning => warning.Contains("series primarias", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void ShortPlanDoesNotDeloadBeforeCompletingFourWeekCycle()
     {
         var result = TrainingProgramGenerator.Generate(Request() with { DurationWeeks = 3 }, Catalog());
