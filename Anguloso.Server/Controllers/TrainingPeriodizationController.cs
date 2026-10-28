@@ -1,7 +1,6 @@
 using System.Data;
 using System.Security.Claims;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using Anguloso.Server.Logica;
 using Anguloso.Server.Logica.Utils;
 using Anguloso.Server.Models;
@@ -1329,60 +1328,6 @@ public sealed class TrainingPeriodizationController : ControllerBase
         return Ok(items);
     }
 
-    private async Task CreateAdaptationProposalAsync(int clientId, int sessionId, long recordId, CancellationToken cancellationToken)
-    {
-        var feedback = new List<(long RecordId, TrainingSessionFeedback Feedback)>();
-        await using (var command = CreateCommand("""
-            SELECT r.id, r.outcome, r.non_completion_reason, r.recovery_rating, r.pain_signal,
-                   r.session_rpe, r.progression_target_achieved
-            FROM training_session_records r
-            JOIN training_sessions s ON s.id = r.session_id
-            JOIN training_plans p ON p.id = s.plan_id
-            JOIN training_profiles f ON f.id = p.profile_id
-            WHERE f.client_id = @clientId AND s.plan_id = (
-                SELECT plan_id FROM training_sessions WHERE id = @sessionId
-            ) AND p.status = 'active' AND r.outcome IS NOT NULL
-            ORDER BY r.updated_at DESC, r.id DESC LIMIT 3
-            """, null, ("clientId", clientId), ("sessionId", sessionId)))
-        await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
-        {
-            while (await reader.ReadAsync(cancellationToken))
-                feedback.Add((reader.GetInt64(0), new TrainingSessionFeedback(
-                    ParseTrainingOutcome(reader.GetString(1)),
-                    reader.IsDBNull(2) ? TrainingNonCompletionReason.None : ParseTrainingReason(reader.GetString(2)),
-                    reader.IsDBNull(3) ? TrainingRecoveryRating.Unknown : ParseTrainingRecovery(reader.GetString(3)),
-                    reader.IsDBNull(4) ? TrainingPainSignal.None : ParseTrainingPain(reader.GetString(4)),
-                    reader.IsDBNull(5) ? null : reader.GetDecimal(5),
-                    reader.IsDBNull(6) ? null : reader.GetBoolean(6))));
-        }
-        if (feedback.Count == 0) return;
-        feedback.Reverse();
-        var decision = TrainingAdaptationPolicy.Evaluate(feedback.Select(x => x.Feedback).ToArray());
-        var action = ToAdaptationApiAction(decision.Action);
-        if (action is null) return;
-        var latestRecordId = feedback[^1].RecordId;
-
-        await using var supersede = CreateCommand("""
-            UPDATE training_adaptation_proposals
-            SET status = 'superseded', review_notes = 'Sustituida por una nueva evaluación del feedback.'
-            WHERE source_record_id = @recordId AND status = 'pending' AND action <> @action
-            """, null, ("recordId", latestRecordId), ("action", action));
-        await supersede.ExecuteNonQueryAsync(cancellationToken);
-
-        await using var insert = CreateCommand("""
-            INSERT INTO training_adaptation_proposals(
-                client_id, plan_id, source_session_id, source_record_id, action, explanation)
-            SELECT @clientId, s.plan_id, s.id, @recordId, @action, @explanation
-            FROM training_sessions s
-            JOIN training_plans p ON p.id = s.plan_id
-            JOIN training_profiles f ON f.id = p.profile_id
-            WHERE s.id = @sessionId AND f.client_id = @clientId AND p.status = 'active'
-            ON CONFLICT(source_record_id, action) DO NOTHING
-            """, null, ("clientId", clientId), ("sessionId", sessionId), ("recordId", latestRecordId),
-            ("action", action), ("explanation", decision.Explanation));
-        await insert.ExecuteNonQueryAsync(cancellationToken);
-    }
-
     private async Task<int> ReduceFutureSessionVolumeAsync(int planId, long proposalId, NpgsqlTransaction transaction, CancellationToken cancellationToken)
     {
         var rows = new List<(int Id, string Json, string? Instructions)>();
@@ -1435,35 +1380,6 @@ public sealed class TrainingPeriodizationController : ControllerBase
             """, transaction, ("planId", planId), ("note", note));
         return await command.ExecuteNonQueryAsync(cancellationToken);
     }
-
-    private static TrainingSessionOutcome ParseTrainingOutcome(string value) => value switch
-    {
-        "completed" => TrainingSessionOutcome.Completed, "partial" => TrainingSessionOutcome.Partial,
-        _ => TrainingSessionOutcome.NotCompleted
-    };
-    private static TrainingNonCompletionReason ParseTrainingReason(string value) => value switch
-    {
-        "time" => TrainingNonCompletionReason.Time, "fatigue" => TrainingNonCompletionReason.Fatigue,
-        "equipment" => TrainingNonCompletionReason.Equipment, "motivation" => TrainingNonCompletionReason.Motivation,
-        "illness" => TrainingNonCompletionReason.Illness, "other" => TrainingNonCompletionReason.Other,
-        _ => TrainingNonCompletionReason.None
-    };
-    private static TrainingRecoveryRating ParseTrainingRecovery(string value) => value switch
-    {
-        "good" => TrainingRecoveryRating.Good, "partial" => TrainingRecoveryRating.Partial,
-        "insufficient" => TrainingRecoveryRating.Insufficient, _ => TrainingRecoveryRating.Unknown
-    };
-    private static TrainingPainSignal ParseTrainingPain(string value) =>
-        value == "new_or_worsening" ? TrainingPainSignal.NewOrWorsening : TrainingPainSignal.None;
-    private static string? ToAdaptationApiAction(TrainingAdaptationAction action) => action switch
-    {
-        TrainingAdaptationAction.ReorganizeFutureSessions => "reorganize_future_sessions",
-        TrainingAdaptationAction.HoldProgressionAndReview => "hold_progression_and_review",
-        TrainingAdaptationAction.ReviewAndReduceTrainingStress => "review_and_reduce_training_stress",
-        TrainingAdaptationAction.ProgressAccordingToPrescription => "progress_according_to_prescription",
-        TrainingAdaptationAction.PauseAffectedExerciseAndReview => "pause_affected_exercise_and_review",
-        _ => null
-    };
 
     private async Task<bool> CanAccessClient(int clientId, CancellationToken cancellationToken) =>
         await CanAccessClientInternal(clientId, manage: false, cancellationToken);
