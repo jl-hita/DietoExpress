@@ -25,6 +25,11 @@ public static class TrainingAdaptationPolicy
             return Decision(TrainingAdaptationAction.PauseAffectedExerciseAndReview,
                 "Se ha registrado dolor nuevo o que empeora. No progreses el entrenamiento y solicita valoración profesional antes de reanudar el ejercicio implicado.");
 
+        var latest = recentFeedback[^1];
+        if (latest.SetCompletionRatio is < 0.8m)
+            return Decision(TrainingAdaptationAction.HoldProgressionAndReview,
+                "Se completó menos del 80 % de las series planificadas. No aumentes la carga; revisa con tu profesional si influyeron fatiga, técnica, dolor, descansos o una planificación excesiva.");
+
         var recent = recentFeedback.TakeLast(3).ToArray();
         var insufficientRecoveryCount = recent.Count(x =>
             x.Recovery is TrainingRecoveryRating.Insufficient);
@@ -32,8 +37,6 @@ public static class TrainingAdaptationPolicy
         if (insufficientRecoveryCount >= 2)
             return Decision(TrainingAdaptationAction.ReviewAndReduceTrainingStress,
                 "La recuperación insuficiente se repite. Revisa con tu profesional el volumen, la intensidad y la separación entre sesiones futuras.");
-
-        var latest = recentFeedback[^1];
 
         if (latest.Outcome is TrainingSessionOutcome.NotCompleted &&
             latest.NonCompletionReason is TrainingNonCompletionReason.Time)
@@ -69,7 +72,8 @@ public static class TrainingAdaptationPolicy
         !Enum.IsDefined(feedback.NonCompletionReason) ||
         !Enum.IsDefined(feedback.Recovery) ||
         !Enum.IsDefined(feedback.PainSignal) ||
-        feedback.SessionRpe is < 0 or > 10;
+        feedback.SessionRpe is < 0 or > 10 ||
+        feedback.SetCompletionRatio is < 0 or > 1;
 }
 
 public enum TrainingSessionOutcome
@@ -128,7 +132,8 @@ public sealed record TrainingSessionFeedback(
     TrainingRecoveryRating Recovery = TrainingRecoveryRating.Unknown,
     TrainingPainSignal PainSignal = TrainingPainSignal.None,
     decimal? SessionRpe = null,
-    bool? ProgressionTargetAchieved = null);
+    bool? ProgressionTargetAchieved = null,
+    decimal? SetCompletionRatio = null);
 
 public sealed record TrainingAdaptationDecision(
     TrainingAdaptationAction Action,
