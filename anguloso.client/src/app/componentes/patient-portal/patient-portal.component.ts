@@ -38,6 +38,31 @@ interface TrainingPortalSession {
   recoveryRating?: string | null;
   painSignal?: string | null;
   progressionTargetAchieved?: boolean | null;
+  exercisePrescriptionData?: StructuredTrainingPrescription | null;
+}
+
+interface StructuredTrainingPrescription {
+  engineVersion?: string;
+  goal?: string;
+  weekNumber?: number;
+  day?: string;
+  estimatedDurationMinutes?: number;
+  exercises?: StructuredTrainingExercise[];
+}
+
+interface StructuredTrainingExercise {
+  exerciseId?: string;
+  catalogVersion?: string;
+  exerciseNameSnapshot?: string;
+  order?: number;
+  sets?: number;
+  minRepetitions?: number;
+  maxRepetitions?: number;
+  targetRepetitionsInReserve?: number | null;
+  restSeconds?: number;
+  progressionRule?: number | string;
+  primaryMuscleGroups?: string[];
+  secondaryMuscleGroups?: string[];
 }
 
 interface TrainingAdaptationRecommendation {
@@ -1286,6 +1311,23 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
       next: () => { this.trainingSaving = false; this.loadTrainingSessions(); },
       error: error => { this.trainingSaving = false; this.trainingError = error?.error?.message || 'No se pudo guardar el entrenamiento.'; }
     });
+  }
+
+  trainingMuscleLabel(muscle: string): string {
+    const labels: Record<string, string> = {
+      Chest: 'Pecho', Lats: 'Dorsales', UpperBack: 'Espalda alta', Deltoids: 'Deltoides',
+      Biceps: 'Bíceps', Triceps: 'Tríceps', Forearms: 'Antebrazos', Abdominals: 'Abdominales',
+      Obliques: 'Oblicuos', ErectorSpinae: 'Erectores espinales', Glutes: 'Glúteos',
+      Quadriceps: 'Cuádriceps', Hamstrings: 'Isquiotibiales', Calves: 'Gemelos'
+    };
+    return labels[muscle] || muscle;
+  }
+
+  trainingProgressionLabel(rule?: number | string): string {
+    const numeric = typeof rule === 'string' ? Number(rule) : rule;
+    if (numeric === 1 || rule === 'DoubleProgression') return 'doble progresión';
+    if (numeric === 2 || rule === 'IncreaseLoadWithinLimits') return 'aumentar carga dentro de límites';
+    return 'sin progresión automática definida';
   }
 
   trainingAdaptationLabel(action: string): string {
