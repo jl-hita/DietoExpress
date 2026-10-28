@@ -92,6 +92,29 @@ public sealed class TrainingAdaptationPolicyTests
     }
 
     [Fact]
+    public void LowSetCompletionRatio_HoldsProgressionEvenWhenSessionWasOtherwiseCompleted()
+    {
+        var result = TrainingAdaptationPolicy.Evaluate([
+            new TrainingSessionFeedback(TrainingSessionOutcome.Completed,
+                Recovery: TrainingRecoveryRating.Good, SessionRpe: 6,
+                ProgressionTargetAchieved: true, SetCompletionRatio: 0.5m)
+        ]);
+        Assert.Equal(TrainingAdaptationAction.HoldProgressionAndReview, result.Action);
+        Assert.Contains("80 %", result.Explanation);
+    }
+
+    [Fact]
+    public void CompleteSetVolumeDoesNotOverridePainSafetyBlock()
+    {
+        var result = TrainingAdaptationPolicy.Evaluate([
+            new TrainingSessionFeedback(TrainingSessionOutcome.Completed,
+                Recovery: TrainingRecoveryRating.Good, PainSignal: TrainingPainSignal.NewOrWorsening,
+                SessionRpe: 6, ProgressionTargetAchieved: true, SetCompletionRatio: 1m)
+        ]);
+        Assert.Equal(TrainingAdaptationAction.PauseAffectedExerciseAndReview, result.Action);
+    }
+
+    [Fact]
     public void VeryHighEffort_HoldsProgression()
     {
         var result = TrainingAdaptationPolicy.Evaluate([
