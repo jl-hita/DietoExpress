@@ -163,7 +163,6 @@ public sealed class TrainingPeriodizationController : ControllerBase
                     command.CommandText = """
                         INSERT INTO training_microcycles(mesocycle_id, name, sequence_number, start_date, end_date, focus, notes)
                         VALUES (@mesocycleId, @name, @sequence, @startDate, @endDate, @focus, @notes)
-                        RETURNING id
                         """;
                     command.Parameters.AddWithValue("mesocycleId", mesocycleId);
                     command.Parameters.AddWithValue("name", $"Semana {week}");
@@ -172,7 +171,7 @@ public sealed class TrainingPeriodizationController : ControllerBase
                     command.Parameters.AddWithValue("endDate", microcycleEnd < weekStart ? weekStart : microcycleEnd);
                     command.Parameters.AddWithValue("focus", $"Progresión {prescription.Goal}; motor {prescription.EngineVersion}");
                     command.Parameters.AddWithValue("notes", (object?)$"Borrador generado automáticamente. Revisión profesional requerida." ?? DBNull.Value);
-                    microcycleId = Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken));
+                    await command.ExecuteNonQueryAsync(cancellationToken);
                 }
 
                 foreach (var session in prescription.Sessions.Where(x => x.WeekNumber == week))
