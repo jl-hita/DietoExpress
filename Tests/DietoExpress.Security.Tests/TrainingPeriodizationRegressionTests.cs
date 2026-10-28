@@ -66,6 +66,11 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("requiresProfessionalReview = true", controller);
         Assert.Contains("selectedThisWeek.Add(candidate.ExerciseId);", generator);
         Assert.DoesNotContain("selectedThisWeek.Add(candidate.ExerciseId);\n\n                    selectedThisWeek.Add(candidate.ExerciseId);", generator);
+        var ui = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "training-periodization", "training-periodization.component.ts"));
+        Assert.Contains("Generar mesociclo automático", ui);
+        Assert.Contains("previewGeneratedMesocycle(plan)", ui);
+        Assert.Contains("saveGeneratedMesocycle(plan)", ui);
+        Assert.Contains("Descartar vista previa", ui);
     }
 
     [Fact]
