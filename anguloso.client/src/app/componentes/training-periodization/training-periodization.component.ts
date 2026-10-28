@@ -225,6 +225,15 @@ interface RepDbExercise {
                     <li *ngFor="let warning of generated.qualityReport.warnings">{{ warning }}</li>
                   </ul>
                   <ng-template #noQualityWarnings><p>No se han detectado alertas automáticas. La revisión profesional sigue siendo obligatoria.</p></ng-template>
+                  <details *ngFor="let week of generated.qualityReport.weeklyMuscleVolumes">
+                    <summary>Semana {{ week.weekNumber }} · ver series y frecuencia por grupo muscular</summary>
+                    <ul>
+                      <li *ngFor="let muscle of week.muscles">
+                        {{ muscle.muscleGroup }}: {{ muscle.primarySets }} series primarias / {{ muscle.secondarySets }} secundarias;
+                        frecuencia {{ muscle.primaryFrequencySessions }} sesión(es) primaria(s) / {{ muscle.secondaryFrequencySessions }} secundaria(s).
+                      </li>
+                    </ul>
+                  </details>
                 </section>
                 <article *ngFor="let session of generated.sessions" class="generated-session">
                   <strong>Semana {{ session.weekNumber }} · {{ dayName(session.day) }} · {{ session.title }}</strong>
