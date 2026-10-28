@@ -1204,7 +1204,7 @@ export class TrainingPeriodizationComponent implements OnInit {
   previewGeneratedMesocycle(plan: TrainingPlan): void {
     const days = [...new Set(this.autoTrainingDaysCsv.split(',').map(value => Number(value.trim())).filter(value => Number.isInteger(value) && value >= 0 && value <= 6))];
     if (days.length < 2 || days.length > 4) {
-      this.generationErrors[plan.id] = 'Indica entre 2 y 4 días distintos con valores 0–6 (domingo=0, lunes=1, etc.).';
+      this.generationErrors[plan.id] = 'Selecciona entre 2 y 4 días de entrenamiento.';
       return;
     }
     if (!Number.isInteger(this.autoDurationWeeks) || this.autoDurationWeeks < 1 || this.autoDurationWeeks > 52 ||
@@ -1239,7 +1239,7 @@ export class TrainingPeriodizationComponent implements OnInit {
     const generation = this.generationRequests[plan.id];
     const preview = this.generatedPreviews[plan.id];
     if (!generation || !preview) return;
-    const name = (this.autoMesoNames[plan.id] || 'Mesociclo generado').trim();
+    const name = (this.autoMesoNames[plan.id] || ('Mesociclo ' + ((this.mesocycles[plan.id]?.length || 0) + 1))).trim();
     if (!name) { this.generationErrors[plan.id] = 'Indica un nombre para el mesociclo.'; return; }
     const sequenceNumber = Math.max(0, ...(this.mesocycles[plan.id] || []).map(item => item.sequenceNumber)) + 1;
     this.saving = true;
