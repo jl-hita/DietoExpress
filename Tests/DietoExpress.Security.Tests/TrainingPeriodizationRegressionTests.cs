@@ -71,6 +71,8 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("previewGeneratedMesocycle(plan)", ui);
         Assert.Contains("saveGeneratedMesocycle(plan)", ui);
         Assert.Contains("Descartar vista previa", ui);
+        Assert.Contains("nextMesocycleStart(plan)", ui);
+        Assert.Contains("autoStartDates[plan.id] || this.nextMesocycleStart(plan)", ui);
     }
 
     [Fact]

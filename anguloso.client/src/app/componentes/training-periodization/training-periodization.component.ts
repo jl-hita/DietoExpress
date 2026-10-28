@@ -203,6 +203,7 @@ interface RepDbExercise {
                 <label>Nombre del mesociclo<input name="autoMesoName{{plan.id}}" [(ngModel)]="autoMesoNames[plan.id]" maxlength="160" required /></label>
                 <label>Objetivo<select name="autoGoal{{plan.id}}" [(ngModel)]="autoGoal"><option [ngValue]="0">Forma física general</option><option [ngValue]="1">Hipertrofia</option><option [ngValue]="2">Fuerza</option></select></label>
                 <label>Nivel<select name="autoExperience{{plan.id}}" [(ngModel)]="autoExperience"><option [ngValue]="0">Principiante</option><option [ngValue]="1">Intermedio</option><option [ngValue]="2">Avanzado</option></select></label>
+                <label>Inicio del mesociclo<input type="date" name="autoStartDate{{plan.id}}" [ngModel]="autoStartDates[plan.id] || nextMesocycleStart(plan)" (ngModelChange)="autoStartDates[plan.id] = $event" required /></label>
                 <label>Duración (semanas)<input type="number" name="autoWeeks{{plan.id}}" [(ngModel)]="autoDurationWeeks" min="1" max="52" required /></label>
                 <label>Días (números 0–6, separados por comas)<input name="autoDays{{plan.id}}" [(ngModel)]="autoTrainingDaysCsv" placeholder="1,3,5" required /></label>
                 <label>Duración máxima (min)<input type="number" name="autoMinutes{{plan.id}}" [(ngModel)]="autoMaximumMinutes" min="35" max="180" required /></label>
@@ -488,6 +489,7 @@ export class TrainingPeriodizationComponent implements OnInit {
   autoExperience = 0;
   autoDurationWeeks = 4;
   autoMaximumMinutes = 60;
+  autoStartDates: Record<number, string> = {};
   autoTrainingDaysCsv = '1,3,5';
   autoEquipmentCsv = '';
   autoMesoNames: Record<number, string> = {};
@@ -1079,6 +1081,25 @@ export class TrainingPeriodizationComponent implements OnInit {
     });
   }
 
+  nextMesocycleStart(plan: TrainingPlan): string {
+    const candidates = [plan.startDate];
+    for (const mesocycle of this.mesocycles[plan.id] || []) {
+      if (mesocycle.endDate) candidates.push(this.addUtcDays(mesocycle.endDate, 1));
+      else candidates.push(mesocycle.startDate);
+    }
+    for (const session of this.sessions[plan.id] || []) {
+      candidates.push(this.addUtcDays(session.scheduledDate, 1));
+    }
+    const sorted = candidates.filter(Boolean).sort();
+    return sorted[sorted.length - 1] || plan.startDate;
+  }
+
+  private addUtcDays(dateValue: string, days: number): string {
+    const date = new Date(`${dateValue.slice(0, 10)}T00:00:00Z`);
+    date.setUTCDate(date.getUTCDate() + days);
+    return date.toISOString().slice(0, 10);
+  }
+
   previewGeneratedMesocycle(plan: TrainingPlan): void {
     const days = [...new Set(this.autoTrainingDaysCsv.split(',').map(value => Number(value.trim())).filter(value => Number.isInteger(value) && value >= 0 && value <= 6))];
     if (days.length < 2 || days.length > 4) {
@@ -1091,7 +1112,7 @@ export class TrainingPeriodizationComponent implements OnInit {
       return;
     }
     const request: GenerationRequest = {
-      goal: this.autoGoal, experience: this.autoExperience, startDate: plan.startDate,
+      goal: this.autoGoal, experience: this.autoExperience, startDate: this.autoStartDates[plan.id] || this.nextMesocycleStart(plan),
       durationWeeks: this.autoDurationWeeks, trainingDays: days,
       maximumSessionDurationMinutes: this.autoMaximumMinutes,
       availableEquipment: [...new Set(this.autoEquipmentCsv.split(',').map(value => value.trim()).filter(Boolean))],
