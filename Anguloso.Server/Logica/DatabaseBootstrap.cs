@@ -910,6 +910,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
             UpgradeTrainingPeriodizationSchemaV3(context, logger);
             UpgradeTrainingPeriodizationSchemaV4(context, logger);
             UpgradeTrainingPeriodizationSchemaV5(context, logger);
+            UpgradeTrainingPeriodizationSchemaV6(context, logger);
 
             VerifyCurrentSchema(context, logger);
 
@@ -3388,6 +3389,20 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
             INSERT INTO schema_migrations(id) VALUES ('training-periodization-v5-adaptation-feedback') ON CONFLICT (id) DO NOTHING;
         ");
         logger.LogInformation("Feedback estructurado para adaptación de entrenamiento inicializado.");
+    }
+
+    /// <summary>Stores generated exercise prescriptions as validated JSON while preserving the legacy text field.</summary>
+    public static void UpgradeTrainingPeriodizationSchemaV6(angulosodbContext context, ILogger logger)
+    {
+        if (context.Database.SqlQueryRaw<bool>("SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'training-periodization-v6-structured-prescriptions') AS \"Value\"").Single())
+            return;
+
+        context.Database.ExecuteSqlRaw(@"
+            ALTER TABLE training_sessions
+                ADD COLUMN IF NOT EXISTS exercise_prescription_data JSONB NULL;
+            INSERT INTO schema_migrations(id) VALUES ('training-periodization-v6-structured-prescriptions') ON CONFLICT (id) DO NOTHING;
+        ");
+        logger.LogInformation("Prescripción estructurada de ejercicios inicializada, conservando el campo de texto heredado.");
     }
 
     private static void VerifyCurrentSchema(angulosodbContext context, ILogger logger)

@@ -1,5 +1,6 @@
 using System.Data;
 using System.Security.Claims;
+using System.Text.Json;
 using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -34,7 +35,8 @@ public sealed class TrainingPortalController : ControllerBase
         await using var command = Command("""
             SELECT s.id, s.plan_id, s.scheduled_date, s.title, s.session_type, s.duration_minutes, s.intensity_target, s.instructions, s.status,
                    r.completed_at, r.actual_duration_minutes, r.session_rpe, r.notes, s.exercise_prescription,
-                   r.outcome, r.non_completion_reason, r.recovery_rating, r.pain_signal, r.progression_target_achieved
+                   r.outcome, r.non_completion_reason, r.recovery_rating, r.pain_signal, r.progression_target_achieved,
+                   s.exercise_prescription_data::text
             FROM training_sessions s
             JOIN training_plans p ON p.id = s.plan_id
             JOIN training_profiles f ON f.id = p.profile_id
@@ -62,7 +64,8 @@ public sealed class TrainingPortalController : ControllerBase
                 nonCompletionReason = reader.IsDBNull(15) ? null : reader.GetString(15),
                 recoveryRating = reader.IsDBNull(16) ? null : reader.GetString(16),
                 painSignal = reader.IsDBNull(17) ? null : reader.GetString(17),
-                progressionTargetAchieved = reader.IsDBNull(18) ? (bool?)null : reader.GetBoolean(18)
+                progressionTargetAchieved = reader.IsDBNull(18) ? (bool?)null : reader.GetBoolean(18),
+                exercisePrescriptionData = reader.IsDBNull(19) ? (JsonElement?)null : JsonSerializer.Deserialize<JsonElement>(reader.GetString(19))
             });
         }
         await reader.DisposeAsync();

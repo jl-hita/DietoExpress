@@ -76,6 +76,27 @@ public sealed class TrainingPeriodizationRegressionTests
     }
 
     [Fact]
+    public void GeneratedPrescriptions_AreStoredAsStructuredJsonAndRemainBackwardCompatible()
+    {
+        var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
+        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs"));
+        var portalController = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPortalController.cs"));
+
+        Assert.Contains("UpgradeTrainingPeriodizationSchemaV6(context, logger)", bootstrap);
+        Assert.Contains("training-periodization-v6-structured-prescriptions", bootstrap);
+        Assert.Contains("ADD COLUMN IF NOT EXISTS exercise_prescription_data JSONB NULL", bootstrap);
+        Assert.Contains("exercise_prescription_data::text", controller);
+        Assert.Contains("exercise_prescription_data)", controller);
+        Assert.Contains("exercisePrescriptionData = reader.IsDBNull(19)", portalController);
+        Assert.Contains("exercise_prescription_data::text", portalController);
+        Assert.Contains("exercise_prescription_data = CASE WHEN s.exercise_prescription IS DISTINCT FROM @exercisePrescription", controller);
+        Assert.Contains("JsonElement? ExercisePrescriptionData = null", controller);
+        // The legacy text field is still written and returned for existing web and Android clients.
+        Assert.Contains("exercise_prescription, exercise_prescription_data", controller);
+        Assert.Contains("exercisePrescription = reader.IsDBNull(13)", portalController);
+    }
+
+    [Fact]
     public void PatientTrainingFeedback_IsPersistedAndFeedsOnlyARecommendation()
     {
         var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
