@@ -97,6 +97,23 @@ public sealed class TrainingPeriodizationRegressionTests
     }
 
     [Fact]
+    public void PatientPortalRendersStructuredGeneratedExerciseDetailsAndFallsBackToLegacyText()
+    {
+        var component = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "patient-portal", "patient-portal.component.ts"));
+        var template = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "patient-portal", "patient-portal.component.html"));
+        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPortalController.cs"));
+
+        Assert.Contains("exercisePrescriptionData?: StructuredTrainingPrescription | null", component);
+        Assert.Contains("session.exercisePrescriptionData?.exercises?.length; else legacyTrainingPrescription", template);
+        Assert.Contains("exercise.exerciseNameSnapshot", template);
+        Assert.Contains("exercise.targetRepetitionsInReserve", template);
+        Assert.Contains("exercise.restSeconds", template);
+        Assert.Contains("trainingProgressionLabel(exercise.progressionRule)", template);
+        Assert.Contains("ng-template #legacyTrainingPrescription", template);
+        Assert.Contains("exercisePrescriptionData = reader.IsDBNull(19)", controller);
+    }
+
+    [Fact]
     public void PlanTemplates_PreserveStructuredExercisePrescriptionWhenCopied()
     {
         var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs"));
