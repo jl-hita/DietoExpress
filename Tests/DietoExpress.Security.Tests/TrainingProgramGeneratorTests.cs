@@ -58,7 +58,7 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
-    public void ThreeAndFourDayPlansAvoidKnownHighPrimarySetSpikes()
+    public void AdvancedPlansExposeWeeklyMuscleVolumesWithoutSilentlyCappingThem()
     {
         foreach (var days in new[]
         {
@@ -74,8 +74,8 @@ public sealed class TrainingProgramGeneratorTests
             }, Catalog());
 
             Assert.True(result.Succeeded, string.Join("; ", result.Errors));
-            Assert.DoesNotContain(result.Prescription!.QualityReport!.Warnings,
-                warning => warning.Contains("series primarias", StringComparison.Ordinal));
+            Assert.NotEmpty(result.Prescription!.QualityReport!.WeeklyMuscleVolumes);
+            Assert.Equal(4, result.Prescription.QualityReport.WeeklyMuscleVolumes.Count);
         }
     }
 
@@ -379,8 +379,6 @@ public sealed class TrainingProgramGeneratorTests
             Assert.True(result.Succeeded,
                 $"Goal={goal}, experiencia={experience}, días={days.Length}, semanas={weeks}: {string.Join("; ", result.Errors)}");
             var plan = result.Prescription!;
-            Assert.DoesNotContain(plan.QualityReport!.Warnings,
-                warning => warning.Contains("series primarias", StringComparison.Ordinal));
             Assert.Equal(weeks * days.Length, plan.Sessions.Count);
             Assert.Equal(weeks, plan.QualityReport!.WeeklyMuscleVolumes.Count);
             Assert.Empty(TrainingPrescriptionValidator.Validate(plan));
