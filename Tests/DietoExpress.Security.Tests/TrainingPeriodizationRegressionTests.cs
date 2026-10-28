@@ -174,6 +174,10 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("TrainingAdaptationPolicy.Evaluate(feedback)", portalController);
         Assert.Contains("COALESCE(EXCLUDED.outcome, training_session_records.outcome)", portalController);
         Assert.Contains("adaptationRecommendation", portalController);
+        Assert.Contains("exercise_feedback JSONB", databaseBootstrap);
+        Assert.Contains("exerciseFeedback", portalController);
+        Assert.Contains("CalculateSetCompletionRatio", portalController);
+        Assert.Contains("SetCompletionRatio", policy);
         Assert.Contains("nonCompletionReason", portalController);
         Assert.Contains("training-outcome-", portalUi);
         Assert.Contains("training-recovery-", portalUi);
