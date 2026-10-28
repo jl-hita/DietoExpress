@@ -12,6 +12,21 @@ interface TrainingProfile {
 interface TrainingPlan {
   id: number; name: string; periodizationModel: string; startDate: string; endDate?: string | null; status: string; version: number; notes?: string | null;
 }
+interface GeneratedExercise {
+  exerciseId: string; catalogVersion: string; exerciseNameSnapshot: string; order: number;
+  sets: number; minRepetitions: number; maxRepetitions: number; targetRepetitionsInReserve?: number | null;
+  restSeconds: number; progressionRule: string; selectionRationale: string;
+}
+interface GeneratedSession {
+  weekNumber: number; day: number; title: string; estimatedDurationMinutes: number; exercises: GeneratedExercise[];
+}
+interface GeneratedProgram {
+  engineVersion: string; goal: string; startDate: string; durationWeeks: number; sessions: GeneratedSession[];
+}
+interface GenerationRequest {
+  goal: number; experience: number; startDate: string; durationWeeks: number; trainingDays: number[];
+  maximumSessionDurationMinutes: number; availableEquipment: string[]; excludedExerciseIds: string[];
+}
 interface TrainingSession {
   id: number; planId: number; scheduledDate: string; title: string; sessionType: string; durationMinutes?: number | null;
   intensityTarget?: string | null; instructions?: string | null; status: string; completedAt?: string | null;
@@ -181,6 +196,31 @@ interface RepDbExercise {
           <article *ngFor="let plan of plans" class="plan-card">
             <div class="section-heading"><div><h3>{{ plan.name }}</h3><p>{{ plan.startDate | date:'mediumDate' }} <span *ngIf="plan.endDate">— {{ plan.endDate | date:'mediumDate' }}</span> · {{ modelLabel(plan.periodizationModel) }}</p></div><span class="status">{{ plan.status }}</span></div>
             <p *ngIf="plan.notes">{{ plan.notes }}</p>
+            <section *ngIf="current.canManage" class="auto-generator-panel">
+              <h4>Generar mesociclo automático</h4>
+              <p class="muted">Crea una vista previa usando el catálogo revisado. Solo se guarda cuando confirmes; el resultado seguirá marcado como borrador para revisión profesional.</p>
+              <div class="form-grid">
+                <label>Nombre del mesociclo<input name="autoMesoName{{plan.id}}" [(ngModel)]="autoMesoNames[plan.id]" maxlength="160" required /></label>
+                <label>Objetivo<select name="autoGoal{{plan.id}}" [(ngModel)]="autoGoal"><option [ngValue]="0">Forma física general</option><option [ngValue]="1">Hipertrofia</option><option [ngValue]="2">Fuerza</option></select></label>
+                <label>Nivel<select name="autoExperience{{plan.id}}" [(ngModel)]="autoExperience"><option [ngValue]="0">Principiante</option><option [ngValue]="1">Intermedio</option><option [ngValue]="2">Avanzado</option></select></label>
+                <label>Duración (semanas)<input type="number" name="autoWeeks{{plan.id}}" [(ngModel)]="autoDurationWeeks" min="1" max="52" required /></label>
+                <label>Días (números 0–6, separados por comas)<input name="autoDays{{plan.id}}" [(ngModel)]="autoTrainingDaysCsv" placeholder="1,3,5" required /></label>
+                <label>Duración máxima (min)<input type="number" name="autoMinutes{{plan.id}}" [(ngModel)]="autoMaximumMinutes" min="35" max="180" required /></label>
+                <label class="full">Material disponible (valores del catálogo, separados por comas)<input name="autoEquipment{{plan.id}}" [(ngModel)]="autoEquipmentCsv" placeholder="barbell, dumbbell, bodyweight" /></label>
+                <div class="full"><button type="button" (click)="previewGeneratedMesocycle(plan)" [disabled]="saving || generatingPlan">Generar vista previa</button></div>
+              </div>
+              <p *ngIf="generationErrors[plan.id]" class="error" role="alert">{{ generationErrors[plan.id] }}</p>
+              <div *ngIf="generatedPreviews[plan.id] as generated" class="generated-preview">
+                <h5>Vista previa · {{ generated.durationWeeks }} semanas · {{ generated.sessions.length }} sesiones</h5>
+                <article *ngFor="let session of generated.sessions" class="generated-session">
+                  <strong>Semana {{ session.weekNumber }} · {{ dayName(session.day) }} · {{ session.title }}</strong>
+                  <small>{{ session.estimatedDurationMinutes }} min</small>
+                  <ul><li *ngFor="let exercise of session.exercises">{{ exercise.order }}. {{ exercise.exerciseNameSnapshot }} — {{ exercise.sets }} × {{ exercise.minRepetitions }}–{{ exercise.maxRepetitions }} · descanso {{ exercise.restSeconds }} s</li></ul>
+                </article>
+                <button type="button" (click)="saveGeneratedMesocycle(plan)" [disabled]="saving || generatingPlan">Confirmar y guardar mesociclo</button>
+                <button type="button" class="secondary" (click)="discardGeneratedPreview(plan.id)" [disabled]="saving">Descartar vista previa</button>
+              </div>
+            </section>
             <form *ngIf="current.canManage" class="template-save-row" (ngSubmit)="savePlanAsTemplate(plan)">
               <label>Guardar este plan como plantilla<input name="templateName{{plan.id}}" [(ngModel)]="templateNameDrafts[plan.id]" required maxlength="160" [placeholder]="plan.name + ' · plantilla'" /></label>
               <button type="submit" class="secondary" [disabled]="saving">Guardar como plantilla</button>
@@ -444,6 +484,17 @@ export class TrainingPeriodizationComponent implements OnInit {
   acceptedClientId: number | null = null;
   profile: TrainingProfile | null = null;
   trainingManagementMode: 'none' | 'self' | 'collaboration' = 'self';
+  autoGoal = 1;
+  autoExperience = 0;
+  autoDurationWeeks = 4;
+  autoMaximumMinutes = 60;
+  autoTrainingDaysCsv = '1,3,5';
+  autoEquipmentCsv = '';
+  autoMesoNames: Record<number, string> = {};
+  generatedPreviews: Record<number, GeneratedProgram | null> = {};
+  generationRequests: Record<number, GenerationRequest | null> = {};
+  generationErrors: Record<number, string> = {};
+  generatingPlan = false;
   plans: TrainingPlan[] = [];
   sessions: Record<number, TrainingSession[]> = {};
   loadTrends: Record<number, TrainingLoadWeek[]> = {};
@@ -1026,6 +1077,78 @@ export class TrainingPeriodizationComponent implements OnInit {
       next: p => { this.trainingManagementMode = p.managementMode ?? this.trainingManagementMode; this.profile = p; this.saving = false; this.load(); if (this.trainingManagementMode === 'collaboration') this.loadCollaborations(); },
       error: e => { this.error = e?.error?.message || 'No se pudo guardar el perfil deportivo.'; this.saving = false; }
     });
+  }
+
+  previewGeneratedMesocycle(plan: TrainingPlan): void {
+    const days = [...new Set(this.autoTrainingDaysCsv.split(',').map(value => Number(value.trim())).filter(value => Number.isInteger(value) && value >= 0 && value <= 6))];
+    if (days.length < 2 || days.length > 4) {
+      this.generationErrors[plan.id] = 'Indica entre 2 y 4 días distintos con valores 0–6 (domingo=0, lunes=1, etc.).';
+      return;
+    }
+    if (!Number.isInteger(this.autoDurationWeeks) || this.autoDurationWeeks < 1 || this.autoDurationWeeks > 52 ||
+        !Number.isInteger(this.autoMaximumMinutes) || this.autoMaximumMinutes < 35 || this.autoMaximumMinutes > 180) {
+      this.generationErrors[plan.id] = 'Revisa la duración del ciclo y el límite de minutos por sesión.';
+      return;
+    }
+    const request: GenerationRequest = {
+      goal: this.autoGoal, experience: this.autoExperience, startDate: plan.startDate,
+      durationWeeks: this.autoDurationWeeks, trainingDays: days,
+      maximumSessionDurationMinutes: this.autoMaximumMinutes,
+      availableEquipment: [...new Set(this.autoEquipmentCsv.split(',').map(value => value.trim()).filter(Boolean))],
+      excludedExerciseIds: []
+    };
+    this.generatingPlan = true;
+    this.generationErrors[plan.id] = '';
+    this.generationRequests[plan.id] = request;
+    this.http.post<GeneratedProgram>('/api/training/generate-preview', request).pipe(
+      timeout({ first: 30000 }),
+      catchError(error => {
+        this.generationErrors[plan.id] = error?.error?.errors?.join?.(' ') || error?.error?.message || 'No se pudo generar la vista previa. Comprueba que haya ejercicios revisados compatibles.';
+        return of(null);
+      })
+    ).subscribe(result => {
+      this.generatedPreviews[plan.id] = result;
+      this.generatingPlan = false;
+      this.changeDetector.detectChanges();
+    });
+  }
+
+  saveGeneratedMesocycle(plan: TrainingPlan): void {
+    const generation = this.generationRequests[plan.id];
+    const preview = this.generatedPreviews[plan.id];
+    if (!generation || !preview) return;
+    const name = (this.autoMesoNames[plan.id] || 'Mesociclo generado').trim();
+    if (!name) { this.generationErrors[plan.id] = 'Indica un nombre para el mesociclo.'; return; }
+    const sequenceNumber = Math.max(0, ...(this.mesocycles[plan.id] || []).map(item => item.sequenceNumber)) + 1;
+    this.saving = true;
+    this.generationErrors[plan.id] = '';
+    this.http.post<{ sessionsCreated: number; durationWeeks: number; requiresProfessionalReview: boolean }>(
+      `/api/training/plans/${plan.id}/generate-mesocycle`,
+      { name, sequenceNumber, generation, notes: 'Generado automáticamente; requiere revisión profesional antes de asignarlo al paciente.' }
+    ).subscribe({
+      next: result => {
+        this.notice = `Mesociclo guardado: ${result.durationWeeks} semanas y ${result.sessionsCreated} sesiones. Revisa el borrador antes de asignarlo.`;
+        this.generatedPreviews[plan.id] = null;
+        this.generationRequests[plan.id] = null;
+        this.saving = false;
+        this.load();
+      },
+      error: error => {
+        this.generationErrors[plan.id] = error?.error?.message || error?.error?.errors?.join?.(' ') || 'No se pudo guardar el mesociclo.';
+        this.saving = false;
+        this.changeDetector.detectChanges();
+      }
+    });
+  }
+
+  discardGeneratedPreview(planId: number): void {
+    this.generatedPreviews[planId] = null;
+    this.generationRequests[planId] = null;
+    this.generationErrors[planId] = '';
+  }
+
+  dayName(day: number): string {
+    return ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'][day] || 'día no válido';
   }
 
   createPlan(): void {

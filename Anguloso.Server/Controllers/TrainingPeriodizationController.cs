@@ -50,6 +50,177 @@ public sealed class TrainingPeriodizationController : ControllerBase
         }
     }
 
+    [HttpPost("plans/{planId:int}/generate-mesocycle")]
+    public async Task<IActionResult> GenerateAndSaveMesocycle(
+        int planId,
+        [FromBody] GenerateTrainingMesocycleRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId is null) return Unauthorized();
+        if (!await CanManagePlan(planId, cancellationToken)) return NotFound();
+        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Trim().Length > 160)
+            return BadRequest(new { message = "El nombre del mesociclo es obligatorio (máximo 160 caracteres)." });
+        if (request.SequenceNumber < 1)
+            return BadRequest(new { message = "El número de mesociclo debe ser positivo." });
+        if (request.Notes?.Length > 4000)
+            return BadRequest(new { message = "Las notas admiten hasta 4000 caracteres." });
+
+        var candidates = await _exerciseCatalog.LoadGeneratorCandidatesAsync(userId.Value, cancellationToken);
+        var generated = TrainingProgramGenerator.Generate(request.Generation, candidates);
+        if (!generated.Succeeded)
+            return UnprocessableEntity(new { errors = generated.Errors });
+        var prescription = generated.Prescription!;
+        var offsets = prescription.Sessions.Select(session =>
+            ((int)session.Day - (int)prescription.StartDate.DayOfWeek + 7) % 7
+                + (session.WeekNumber - 1) * 7).ToArray();
+        var mesocycleStart = prescription.StartDate;
+        var mesocycleEnd = prescription.StartDate.AddDays(offsets.Max());
+        if (mesocycleEnd < mesocycleStart)
+            return UnprocessableEntity(new { message = "El intervalo calculado para el mesociclo no es válido." });
+
+        var connection = (NpgsqlConnection)_context.Database.GetDbConnection();
+        if (connection.State != ConnectionState.Open)
+            await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await using (var planCommand = connection.CreateCommand())
+            {
+                planCommand.Transaction = transaction;
+                planCommand.CommandText = """
+                    SELECT start_date, end_date
+                    FROM training_plans
+                    WHERE id = @planId
+                    FOR UPDATE
+                    """;
+                planCommand.Parameters.AddWithValue("planId", planId);
+                await using var reader = await planCommand.ExecuteReaderAsync(cancellationToken);
+                if (!await reader.ReadAsync(cancellationToken))
+                    return NotFound();
+                var planStart = reader.GetFieldValue<DateOnly>(0);
+                DateOnly? planEnd = reader.IsDBNull(1) ? null : reader.GetFieldValue<DateOnly>(1);
+                if (mesocycleStart < planStart || (planEnd.HasValue && mesocycleEnd > planEnd.Value))
+                    return Conflict(new { message = "El mesociclo generado debe quedar dentro de las fechas del plan. Amplía el plan o ajusta la fecha y duración." });
+            }
+
+            await using (var overlapCommand = connection.CreateCommand())
+            {
+                overlapCommand.Transaction = transaction;
+                overlapCommand.CommandText = """
+                    SELECT EXISTS (
+                        SELECT 1 FROM training_mesocycles
+                        WHERE plan_id = @planId
+                          AND (sequence_number = @sequence OR
+                               (start_date <= @endDate AND COALESCE(end_date, 'infinity'::date) >= @startDate))
+                    ) OR EXISTS (
+                        SELECT 1 FROM training_sessions
+                        WHERE plan_id = @planId AND scheduled_date BETWEEN @startDate AND @endDate
+                    )
+                    """;
+                overlapCommand.Parameters.AddWithValue("planId", planId);
+                overlapCommand.Parameters.AddWithValue("sequence", request.SequenceNumber);
+                overlapCommand.Parameters.AddWithValue("startDate", mesocycleStart);
+                overlapCommand.Parameters.AddWithValue("endDate", mesocycleEnd);
+                if ((bool)(await overlapCommand.ExecuteScalarAsync(cancellationToken) ?? true))
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return Conflict(new { message = "Ya existe un mesociclo con ese número o con fechas solapadas." });
+                }
+            }
+
+            int mesocycleId;
+            await using (var command = connection.CreateCommand())
+            {
+                command.Transaction = transaction;
+                command.CommandText = """
+                    INSERT INTO training_mesocycles(plan_id, name, sequence_number, start_date, end_date, objective, notes)
+                    VALUES (@planId, @name, @sequence, @startDate, @endDate, @objective, @notes)
+                    RETURNING id
+                    """;
+                command.Parameters.AddWithValue("planId", planId);
+                command.Parameters.AddWithValue("name", request.Name.Trim());
+                command.Parameters.AddWithValue("sequence", request.SequenceNumber);
+                command.Parameters.AddWithValue("startDate", mesocycleStart);
+                command.Parameters.AddWithValue("endDate", mesocycleEnd);
+                command.Parameters.AddWithValue("objective", prescription.Goal);
+                command.Parameters.AddWithValue("notes", (object?)request.Notes?.Trim() ?? DBNull.Value);
+                mesocycleId = Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken));
+            }
+
+            for (var week = 1; week <= prescription.DurationWeeks; week++)
+            {
+                var weekStart = prescription.StartDate.AddDays((week - 1) * 7);
+                var weekEnd = prescription.StartDate.AddDays(week * 7 - 1);
+                var microcycleEnd = weekEnd > mesocycleEnd ? mesocycleEnd : weekEnd;
+                int microcycleId;
+                await using (var command = connection.CreateCommand())
+                {
+                    command.Transaction = transaction;
+                    command.CommandText = """
+                        INSERT INTO training_microcycles(mesocycle_id, name, sequence_number, start_date, end_date, focus, notes)
+                        VALUES (@mesocycleId, @name, @sequence, @startDate, @endDate, @focus, @notes)
+                        """;
+                    command.Parameters.AddWithValue("mesocycleId", mesocycleId);
+                    command.Parameters.AddWithValue("name", $"Semana {week}");
+                    command.Parameters.AddWithValue("sequence", week);
+                    command.Parameters.AddWithValue("startDate", weekStart);
+                    command.Parameters.AddWithValue("endDate", microcycleEnd < weekStart ? weekStart : microcycleEnd);
+                    command.Parameters.AddWithValue("focus", $"Progresión {prescription.Goal}; motor {prescription.EngineVersion}");
+                    command.Parameters.AddWithValue("notes", (object?)$"Borrador generado automáticamente. Revisión profesional requerida." ?? DBNull.Value);
+                    await command.ExecuteNonQueryAsync(cancellationToken);
+                }
+
+                foreach (var session in prescription.Sessions.Where(x => x.WeekNumber == week))
+                {
+                    var offset = ((int)session.Day - (int)prescription.StartDate.DayOfWeek + 7) % 7;
+                    var sessionDate = prescription.StartDate.AddDays((week - 1) * 7 + offset);
+                    var prescriptionText = string.Join(Environment.NewLine, session.Exercises.Select(exercise =>
+                        $"{exercise.Order}. {exercise.ExerciseNameSnapshot} — {exercise.Sets} × {exercise.MinRepetitions}-{exercise.MaxRepetitions} reps; RIR {(exercise.TargetRepetitionsInReserve?.ToString() ?? "—")}; descanso {exercise.RestSeconds}s; progresión {exercise.ProgressionRule}. [ID: {exercise.ExerciseId}; catálogo: {exercise.CatalogVersion}]"));
+                    await using var command = connection.CreateCommand();
+                    command.Transaction = transaction;
+                    command.CommandText = """
+                        INSERT INTO training_sessions(plan_id, scheduled_date, title, session_type, duration_minutes,
+                            intensity_target, instructions, exercise_prescription)
+                        VALUES (@planId, @date, @title, 'strength', @duration, @intensity, @instructions, @prescription)
+                        """;
+                    command.Parameters.AddWithValue("planId", planId);
+                    command.Parameters.AddWithValue("date", sessionDate);
+                    command.Parameters.AddWithValue("title", session.Title);
+                    command.Parameters.AddWithValue("duration", session.EstimatedDurationMinutes);
+                    command.Parameters.AddWithValue("intensity", $"{prescription.Goal}; RIR según prescripción");
+                    command.Parameters.AddWithValue("instructions", $"Borrador generado por el motor {prescription.EngineVersion}. Revisar antes de asignar al paciente.");
+                    command.Parameters.AddWithValue("prescription", prescriptionText);
+                    await command.ExecuteNonQueryAsync(cancellationToken);
+                }
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+            return Ok(new
+            {
+                mesocycleId,
+                name = request.Name.Trim(),
+                sequenceNumber = request.SequenceNumber,
+                startDate = mesocycleStart,
+                endDate = mesocycleEnd,
+                durationWeeks = prescription.DurationWeeks,
+                sessionsCreated = prescription.Sessions.Count,
+                engineVersion = prescription.EngineVersion,
+                requiresProfessionalReview = true
+            });
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            throw;
+        }
+        catch (Exception)
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            return StatusCode(500, new { message = "No se pudo guardar el mesociclo generado. No se han conservado cambios parciales." });
+        }
+    }
+
     [HttpGet("session-templates")]
     public async Task<IActionResult> GetSessionTemplates(CancellationToken cancellationToken)
     {
@@ -1151,6 +1322,7 @@ public sealed record InviteTrainingCollaboratorRequest(string Email, string? Acc
 public sealed record TrainingCollaborationDto(int Id, int ProfessionalUserId, string ProfessionalName, string Email, string AccessScope, string Status, DateTime CreatedAt, DateTime? AcceptedAt, DateTime? RevokedAt);
 
 public sealed record CreateTrainingMesocycleRequest(string Name, int SequenceNumber, DateOnly StartDate, DateOnly? EndDate, string? Objective, string? Notes);
+public sealed record GenerateTrainingMesocycleRequest(string Name, int SequenceNumber, TrainingProgramGenerationRequest Generation, string? Notes = null);
 public sealed record TrainingMesocycleDto(int Id, int PlanId, string Name, int SequenceNumber, DateOnly StartDate, DateOnly? EndDate, string? Objective, string? Notes);
 public sealed record CreateTrainingMicrocycleRequest(string Name, int SequenceNumber, DateOnly StartDate, DateOnly? EndDate, string? Focus, string? Notes);
 public sealed record ReorderTrainingCyclesRequest(int[] OrderedIds);

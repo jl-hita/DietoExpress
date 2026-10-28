@@ -73,9 +73,6 @@ public static class TrainingProgramGenerator
                     if (candidate is null)
                         return Failure($"No hay un ejercicio revisado compatible con el patrón '{pattern}', el objetivo, la experiencia, el material y las exclusiones configuradas.");
 
-                    currentWeekSelections.TryAdd(pattern, candidate.ExerciseId);
-                    selectedThisWeek.Add(candidate.ExerciseId);
-
                     selectedThisWeek.Add(candidate.ExerciseId);
                     currentWeekSelections.TryAdd(pattern, candidate.ExerciseId);
 
