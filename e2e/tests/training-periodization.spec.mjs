@@ -221,6 +221,26 @@ test.describe('MVP de periodización deportiva', () => {
     await finalMeso.getByRole('button', { name: 'Eliminar' }).click();
     await expect(page.locator('.plan-card > .cycle-section > .mesocycle-card').filter({ hasText: 'Mesociclo E2E B' })).toHaveCount(0);
 
+    // Exercise the new server-side mesocycle flow end-to-end after the manual cycles are removed.
+    await page.locator(`input[name="autoMesoName${plan.id}"]`).fill('Mesociclo E2E generado');
+    await page.locator(`select[name="autoGoal${plan.id}"]`).selectOption('1');
+    await page.locator(`select[name="autoExperience${plan.id}"]`).selectOption('0');
+    await page.locator(`input[name="autoWeeks${plan.id}"]`).fill('2');
+    await page.locator(`input[name="autoDays${plan.id}"]`).fill('1,4');
+    await page.locator(`input[name="autoMinutes${plan.id}"]`).fill('60');
+    await page.locator(`input[name="autoEquipment${plan.id}"]`).fill('bodyweight, dumbbell, barbell, cable, machine, kettlebell, resistance band');
+    await page.getByRole('button', { name: 'Generar vista previa' }).click();
+    await expect(page.locator('.generated-preview')).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('.quality-report')).toBeVisible();
+    await expect(page.locator('.generated-session')).toHaveCount(4);
+    await page.getByRole('button', { name: 'Confirmar y guardar mesociclo' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Mesociclo guardado' })).toBeVisible({ timeout: 20_000 });
+    const generatedSessionsResponse = await api.get(apiUrl(`/api/training/plans/${plan.id}/sessions`));
+    expect(generatedSessionsResponse.ok(), 'Debe poder consultarse el mesociclo guardado').toBeTruthy();
+    const generatedSessions = await generatedSessionsResponse.json();
+    const structuredSessions = generatedSessions.filter(session => session.exercisePrescriptionData?.exercises?.length > 0);
+    expect(structuredSessions, 'Las sesiones generadas deben persistir su prescripción estructurada').toHaveLength(4);
+
     const copiedPlanResponse = await api.post(apiUrl(`/api/training/clients/${patientId}/plans/from-template/${template.id}`), {
       data: { name: 'Plan creado desde plantilla E2E', startDate: datePlusDays(120) }
     });
