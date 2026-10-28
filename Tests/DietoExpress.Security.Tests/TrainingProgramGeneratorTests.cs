@@ -312,6 +312,61 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
+    public void GeneratorMaintainsCoreInvariantsAcrossGoalExperienceDurationAndAvailabilityMatrix()
+    {
+        var dayOptions = new[]
+        {
+            new[] { DayOfWeek.Monday, DayOfWeek.Thursday },
+            new[] { DayOfWeek.Monday, DayOfWeek.Wednesday, DayOfWeek.Friday },
+            new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Thursday, DayOfWeek.Saturday }
+        };
+        var durations = new[] { 1, 2, 3, 4, 5, 8 };
+
+        foreach (var goal in Enum.GetValues<TrainingGoal>())
+        foreach (var experience in Enum.GetValues<TrainingExperience>())
+        foreach (var days in dayOptions)
+        foreach (var weeks in durations)
+        {
+            var request = Request() with
+            {
+                Goal = goal,
+                Experience = experience,
+                DurationWeeks = weeks,
+                TrainingDays = days,
+                MaximumSessionDurationMinutes = 60
+            };
+
+            var result = TrainingProgramGenerator.Generate(request, Catalog());
+
+            Assert.True(result.Succeeded,
+                $"Goal={goal}, experiencia={experience}, días={days.Length}, semanas={weeks}: {string.Join("; ", result.Errors)}");
+            var plan = result.Prescription!;
+            Assert.Equal(weeks * days.Length, plan.Sessions.Count);
+            Assert.Equal(weeks, plan.QualityReport!.WeeklyMuscleVolumes.Count);
+            Assert.Empty(TrainingPrescriptionValidator.Validate(plan));
+            Assert.Equal(
+                plan.Sessions.Count,
+                plan.Sessions.Select(session => (session.WeekNumber, session.Day)).Distinct().Count());
+            Assert.All(plan.Sessions, session =>
+            {
+                Assert.InRange(session.WeekNumber, 1, weeks);
+                Assert.Contains(session.Day, days);
+                Assert.InRange(session.EstimatedDurationMinutes, 1, request.MaximumSessionDurationMinutes);
+                Assert.NotEmpty(session.Exercises);
+                Assert.All(session.Exercises, exercise =>
+                {
+                    Assert.Contains(exercise.ExerciseId, Catalog().Select(candidate => candidate.ExerciseId));
+                    Assert.NotEmpty(exercise.PrimaryMuscleGroups);
+                    Assert.InRange(exercise.Sets, 1, 4);
+                    Assert.InRange(exercise.MinRepetitions, 1, exercise.MaxRepetitions);
+                    Assert.InRange(exercise.TargetRepetitionsInReserve, 0m, 5m);
+                    Assert.True(exercise.RestSeconds > 0);
+                });
+            });
+        }
+    }
+
+    [Fact]
     public void ShortPlanDoesNotDeloadBeforeCompletingFourWeekCycle()
     {
         var result = TrainingProgramGenerator.Generate(Request() with { DurationWeeks = 3 }, Catalog());
