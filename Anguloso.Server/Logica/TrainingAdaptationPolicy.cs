@@ -13,53 +13,52 @@ public static class TrainingAdaptationPolicy
 
         if (recentFeedback.Count == 0)
             return Decision(TrainingAdaptationAction.InsufficientData,
-                "Todavía no hay registros suficientes para adaptar el entrenamiento.");
+                "Todavía no hay registros suficientes para orientar cambios.");
 
-        // Invalid telemetry must never be interpreted as evidence for progression or adaptation.
         if (recentFeedback.Any(HasInvalidValues))
             return Decision(TrainingAdaptationAction.InvalidFeedback,
                 "Hay datos de entrenamiento no válidos. Corrige los registros antes de evaluar cambios.");
 
-        var latest = recentFeedback[^1];
-
-        // Pain is a safety signal, not a variable to optimize by simply lowering load.
-        if (latest.PainSignal is TrainingPainSignal.NewOrWorsening)
+        // Keep a pain report as a safety blocker throughout the recent feedback window.
+        // A later record with no pain value must not silently clear it.
+        if (recentFeedback.Any(x => x.PainSignal is TrainingPainSignal.NewOrWorsening))
             return Decision(TrainingAdaptationAction.PauseAffectedExerciseAndReview,
-                "Pausa el ejercicio implicado y solicita valoración profesional antes de reanudarlo.");
+                "Se ha registrado dolor nuevo o que empeora. No progreses el entrenamiento y solicita valoración profesional antes de reanudar el ejercicio implicado.");
 
-        // Count only explicit recovery feedback; unknown values must not be treated as good recovery.
         var recent = recentFeedback.TakeLast(3).ToArray();
         var insufficientRecoveryCount = recent.Count(x =>
             x.Recovery is TrainingRecoveryRating.Insufficient);
 
         if (insufficientRecoveryCount >= 2)
             return Decision(TrainingAdaptationAction.ReviewAndReduceTrainingStress,
-                "La recuperación insuficiente se repite. Revisa el volumen, la intensidad y la separación entre sesiones futuras.");
+                "La recuperación insuficiente se repite. Revisa con tu profesional el volumen, la intensidad y la separación entre sesiones futuras.");
+
+        var latest = recentFeedback[^1];
 
         if (latest.Outcome is TrainingSessionOutcome.NotCompleted &&
             latest.NonCompletionReason is TrainingNonCompletionReason.Time)
             return Decision(TrainingAdaptationAction.ReorganizeFutureSessions,
-                "La sesión se omitió por falta de tiempo; reorganiza solo las sesiones futuras si el calendario y la recuperación lo permiten.");
+                "La sesión se omitió por falta de tiempo; tu profesional puede reorganizar solo las sesiones futuras si el calendario y la recuperación lo permiten.");
 
-        if ((latest.Outcome is TrainingSessionOutcome.Partial or TrainingSessionOutcome.NotCompleted) &&
-            (latest.NonCompletionReason is TrainingNonCompletionReason.Fatigue or TrainingNonCompletionReason.Illness) ||
+        if (((latest.Outcome is TrainingSessionOutcome.Partial or TrainingSessionOutcome.NotCompleted) &&
+             (latest.NonCompletionReason is TrainingNonCompletionReason.Fatigue or TrainingNonCompletionReason.Illness)) ||
             latest.Recovery is TrainingRecoveryRating.Insufficient)
             return Decision(TrainingAdaptationAction.HoldProgressionAndReview,
-                "No aumentes automáticamente la exigencia. Revisa el contexto y confirma la recuperación antes de progresar.");
+                "No aumentes automáticamente la exigencia. Revisa el contexto y confirma la recuperación con tu profesional antes de progresar.");
 
         if (latest.Outcome is TrainingSessionOutcome.Completed &&
             latest.ProgressionTargetAchieved == true &&
             latest.SessionRpe is <= 8 &&
             latest.Recovery is TrainingRecoveryRating.Good)
             return Decision(TrainingAdaptationAction.ProgressAccordingToPrescription,
-                "Se cumplen los criterios registrados para aplicar la progresión ya prescrita; respeta sus límites de carga y repeticiones.");
+                "Los registros cumplen los criterios de la progresión ya prescrita. Es solo una propuesta para revisión profesional; no modifica el plan.");
 
         if (latest.SessionRpe is >= 9)
             return Decision(TrainingAdaptationAction.HoldProgressionAndReview,
-                "El esfuerzo registrado fue muy alto. Mantén la progresión en pausa hasta revisar rendimiento y recuperación.");
+                "El esfuerzo registrado fue muy alto. Mantén la progresión en pausa hasta revisar rendimiento y recuperación con tu profesional.");
 
         return Decision(TrainingAdaptationAction.NoChange,
-            "Los datos no justifican un cambio automático. Mantén la planificación y sigue registrando la respuesta.");
+            "Los datos no justifican un cambio. Mantén la planificación actual y sigue registrando la respuesta.");
 
         static TrainingAdaptationDecision Decision(TrainingAdaptationAction action, string explanation) =>
             new(action, explanation);
