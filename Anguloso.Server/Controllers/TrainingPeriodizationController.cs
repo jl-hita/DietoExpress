@@ -240,7 +240,7 @@ public sealed class TrainingPeriodizationController : ControllerBase
         var clinicAdmin = User.IsInRole("clinic_admin");
         await using var command = Command("""
             SELECT id, name, session_type, duration_minutes, intensity_target, instructions,
-                   exercise_prescription, created_at
+                   exercise_prescription, exercise_prescription_data::text, created_at
             FROM training_session_templates
             WHERE (@superAdmin OR tenant_id IS NOT DISTINCT FROM (SELECT tenant_id FROM users WHERE id = @userId))
               AND (@superAdmin OR @clinicAdmin OR created_by_user_id = @userId)
@@ -255,7 +255,8 @@ public sealed class TrainingPeriodizationController : ControllerBase
                 intensityTarget = reader.IsDBNull(4) ? null : reader.GetString(4),
                 instructions = reader.IsDBNull(5) ? null : reader.GetString(5),
                 exercisePrescription = reader.IsDBNull(6) ? null : reader.GetString(6),
-                createdAt = reader.GetDateTime(7)
+                exercisePrescriptionData = reader.IsDBNull(7) ? (JsonElement?)null : JsonSerializer.Deserialize<JsonElement>(reader.GetString(7)),
+                createdAt = reader.GetDateTime(8)
             });
         return Ok(items);
     }
@@ -273,24 +274,29 @@ public sealed class TrainingPeriodizationController : ControllerBase
             return BadRequest(new { message = "La duración debe estar entre 1 y 1440 minutos." });
         if (request.IntensityTarget?.Length > 120 || request.Instructions?.Length > 4000 || request.ExercisePrescription?.Length > 6000)
             return BadRequest(new { message = "La intensidad admite 120 caracteres, las instrucciones 4000 y la prescripción 6000." });
+        if (request.ExercisePrescriptionData.HasValue &&
+            (request.ExercisePrescriptionData.Value.ValueKind != JsonValueKind.Object || request.ExercisePrescriptionData.Value.GetRawText().Length > 20000))
+            return BadRequest(new { message = "La prescripción estructurada debe ser un objeto JSON de hasta 20000 caracteres." });
 
         var superAdmin = User.IsInRole("superadmin");
         var clinicAdmin = User.IsInRole("clinic_admin");
         await using var command = Command("""
             INSERT INTO training_session_templates(tenant_id, created_by_user_id, name, session_type, duration_minutes,
-                intensity_target, instructions, exercise_prescription)
-            SELECT tenant_id, @userId, @name, @type, @duration, @intensity, @instructions, @prescription
+                intensity_target, instructions, exercise_prescription, exercise_prescription_data)
+            SELECT tenant_id, @userId, @name, @type, @duration, @intensity, @instructions, @prescription, @prescriptionData::jsonb
             FROM users WHERE id = @userId
             RETURNING id
             """, ("userId", userId.Value), ("name", request.Name.Trim()), ("type", request.SessionType),
             ("duration", request.DurationMinutes), ("intensity", request.IntensityTarget?.Trim()),
-            ("instructions", request.Instructions?.Trim()), ("prescription", request.ExercisePrescription?.Trim()));
+            ("instructions", request.Instructions?.Trim()), ("prescription", request.ExercisePrescription?.Trim()),
+            ("prescriptionData", request.ExercisePrescriptionData.HasValue ? request.ExercisePrescriptionData.Value.GetRawText() : null));
         var id = await command.ExecuteScalarAsync(cancellationToken);
         if (id is null) return NotFound();
         return Ok(new {
             id = Convert.ToInt64(id), name = request.Name.Trim(), sessionType = request.SessionType,
             durationMinutes = request.DurationMinutes, intensityTarget = request.IntensityTarget,
-            instructions = request.Instructions, exercisePrescription = request.ExercisePrescription
+            instructions = request.Instructions, exercisePrescription = request.ExercisePrescription,
+            exercisePrescriptionData = request.ExercisePrescriptionData
         });
     }
 
@@ -665,17 +671,22 @@ public sealed class TrainingPeriodizationController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Title) || request.Title.Trim().Length > 160) return BadRequest(new { message = "El nombre de la sesión es obligatorio (máximo 160 caracteres)." });
         if (request.DurationMinutes is < 1 or > 1440) return BadRequest(new { message = "La duración debe estar entre 1 y 1440 minutos." });
         if (request.ExercisePrescription?.Length > 6000) return BadRequest(new { message = "La prescripción de ejercicios admite hasta 6000 caracteres." });
+        if (request.ExercisePrescriptionData.HasValue &&
+            (request.ExercisePrescriptionData.Value.ValueKind != JsonValueKind.Object || request.ExercisePrescriptionData.Value.GetRawText().Length > 20000))
+            return BadRequest(new { message = "La prescripción estructurada debe ser un objeto JSON de hasta 20000 caracteres." });
         if (request.SessionType is not ("endurance" or "strength" or "mobility" or "recovery" or "health" or "general" or "other"))
             return BadRequest(new { message = "El tipo de sesión no es válido." });
         await using var command = Command("""
-            INSERT INTO training_sessions(plan_id, scheduled_date, title, session_type, duration_minutes, intensity_target, instructions, exercise_prescription)
-            SELECT id, @date, @title, @type, @duration, @intensity, @instructions, @exercisePrescription
+            INSERT INTO training_sessions(plan_id, scheduled_date, title, session_type, duration_minutes, intensity_target, instructions, exercise_prescription, exercise_prescription_data)
+            SELECT id, @date, @title, @type, @duration, @intensity, @instructions, @exercisePrescription, @prescriptionData::jsonb
             FROM training_plans
             WHERE id = @planId AND @date >= start_date
               AND (end_date IS NULL OR @date <= end_date)
             RETURNING id
             """, ("planId", planId), ("date", request.ScheduledDate), ("title", request.Title.Trim()), ("type", request.SessionType),
-            ("duration", request.DurationMinutes), ("intensity", request.IntensityTarget), ("instructions", request.Instructions), ("exercisePrescription", request.ExercisePrescription?.Trim()));
+            ("duration", request.DurationMinutes), ("intensity", request.IntensityTarget), ("instructions", request.Instructions),
+            ("exercisePrescription", request.ExercisePrescription?.Trim()),
+            ("prescriptionData", request.ExercisePrescriptionData.HasValue ? request.ExercisePrescriptionData.Value.GetRawText() : null));
         var id = await command.ExecuteScalarAsync(cancellationToken);
         return id is null
             ? Conflict(new { message = "La fecha de la sesión debe estar dentro del periodo del plan." })
@@ -1331,7 +1342,7 @@ public sealed record TrainingProfileDto(int Id, int ClientId, bool Enabled, stri
 public sealed record UpdateTrainingProfileRequest(bool Enabled, string PrimaryGoal, string ExperienceLevel, string? Notes, string? ManagementMode = null);
 public sealed record CreateTrainingPlanRequest(string Name, string PeriodizationModel, DateOnly StartDate, DateOnly? EndDate, string? Notes);
 public sealed record TrainingPlanDto(int Id, string Name, string PeriodizationModel, DateOnly StartDate, DateOnly? EndDate, string Status, int Version, string? Notes);
-public sealed record CreateTrainingSessionRequest(DateOnly ScheduledDate, string Title, string SessionType, int? DurationMinutes, string? IntensityTarget, string? Instructions, string? ExercisePrescription = null);
+public sealed record CreateTrainingSessionRequest(DateOnly ScheduledDate, string Title, string SessionType, int? DurationMinutes, string? IntensityTarget, string? Instructions, string? ExercisePrescription = null, JsonElement? ExercisePrescriptionData = null);
 public sealed record RecordTrainingSessionRequest(DateTime? CompletedAt, int? ActualDurationMinutes, decimal? SessionRpe, string? Notes);
 public sealed record TrainingSessionDto(int Id, int PlanId, DateOnly ScheduledDate, string Title, string SessionType, int? DurationMinutes, string? IntensityTarget, string? Instructions, string Status, DateTime? CompletedAt, int? ActualDurationMinutes, decimal? SessionRpe, string? RecordNotes, string? ExercisePrescription = null, JsonElement? ExercisePrescriptionData = null);
 public sealed record InviteTrainingCollaboratorRequest(string Email, string? AccessScope = "training");
@@ -1343,7 +1354,7 @@ public sealed record TrainingMesocycleDto(int Id, int PlanId, string Name, int S
 public sealed record CreateTrainingMicrocycleRequest(string Name, int SequenceNumber, DateOnly StartDate, DateOnly? EndDate, string? Focus, string? Notes);
 public sealed record ReorderTrainingCyclesRequest(int[] OrderedIds);
 public sealed record SaveTrainingTemplateRequest(string Name);
-public sealed record SaveTrainingSessionTemplateRequest(string Name, string SessionType, int? DurationMinutes, string? IntensityTarget, string? Instructions, string? ExercisePrescription);
+public sealed record SaveTrainingSessionTemplateRequest(string Name, string SessionType, int? DurationMinutes, string? IntensityTarget, string? Instructions, string? ExercisePrescription, JsonElement? ExercisePrescriptionData = null);
 public sealed record ApplyTrainingTemplateRequest(string Name, DateOnly StartDate);
 public sealed record TrainingTemplateSession(DateOnly ScheduledDate, string Title, string SessionType, int? DurationMinutes,
     string? IntensityTarget, string? Instructions, string? ExercisePrescription, JsonElement? ExercisePrescriptionData = null);

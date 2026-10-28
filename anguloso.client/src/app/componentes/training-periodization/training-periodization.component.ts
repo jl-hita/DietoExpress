@@ -30,7 +30,7 @@ interface GenerationRequest {
 interface TrainingSession {
   id: number; planId: number; scheduledDate: string; title: string; sessionType: string; durationMinutes?: number | null;
   intensityTarget?: string | null; instructions?: string | null; status: string; completedAt?: string | null;
-  actualDurationMinutes?: number | null; sessionRpe?: number | null; recordNotes?: string | null; exercisePrescription?: string | null;
+  actualDurationMinutes?: number | null; sessionRpe?: number | null; recordNotes?: string | null; exercisePrescription?: string | null; exercisePrescriptionData?: Record<string, unknown> | null;
 }
 interface TrainingLoadWeek { weekStart: string; completedSessions: number; plannedMinutes: number; actualMinutes: number; loadScore: number; }
 interface TrainingMesocycle { id: number; planId: number; name: string; sequenceNumber: number; startDate: string; endDate?: string | null; objective?: string | null; notes?: string | null; }
@@ -47,7 +47,7 @@ interface TrainingTemplate {
 }
 interface TrainingSessionTemplate {
   id: number; name: string; sessionType: string; durationMinutes?: number | null; intensityTarget?: string | null;
-  instructions?: string | null; exercisePrescription?: string | null; createdAt?: string;
+  instructions?: string | null; exercisePrescription?: string | null; exercisePrescriptionData?: Record<string, unknown> | null; createdAt?: string;
 }
 interface RepDbExercise {
   id: string;
@@ -396,7 +396,7 @@ interface RepDbExercise {
                   <label>Duración estimada (min)<input type="number" name="sessionDuration{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].duration" min="1" max="1440" placeholder="60" /></label>
                   <label>Intensidad / zona objetivo<input name="sessionIntensity{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].intensity" maxlength="120" placeholder="Ej. RPE 7 · Z2 · 250 W · 5:00/km" /></label>
                   <label class="session-editor-wide">Instrucciones<textarea name="sessionInstructions{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].instructions" rows="2" maxlength="4000" placeholder="Calentamiento, bloques principales, pausas y vuelta a la calma…"></textarea></label>
-                  <label class="session-editor-wide">Prescripción de ejercicios<textarea name="sessionExercises{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].exercisePrescription" rows="3" maxlength="6000" placeholder="Sentadilla · 3 × 8 · descanso 2 min · RPE 7&#10;Peso muerto rumano · 3 × 10 · descanso 90 s"></textarea><small>Indica ejercicio, series, repeticiones, descanso y observaciones. Puedes anotar ritmo o potencia en la zona objetivo.</small></label>
+                  <label class="session-editor-wide">Prescripción de ejercicios<textarea name="sessionExercises{{plan.id}}" [(ngModel)]="sessionDrafts[plan.id].exercisePrescription" (ngModelChange)="sessionDrafts[plan.id].exercisePrescriptionData = null" rows="3" maxlength="6000" placeholder="Sentadilla · 3 × 8 · descanso 2 min · RPE 7&#10;Peso muerto rumano · 3 × 10 · descanso 90 s"></textarea><small>Indica ejercicio, series, repeticiones, descanso y observaciones. Puedes anotar ritmo o potencia en la zona objetivo.</small></label>
                   <div *ngIf="muscleSetSummary(sessionDrafts[plan.id].exercisePrescription).length" class="muscle-set-summary session-editor-wide"><strong>Resumen de series por grupo muscular</strong><span *ngFor="let item of muscleSetSummary(sessionDrafts[plan.id].exercisePrescription)">{{ item.muscle }}: {{ item.sets }} series</span><small>Cuenta las series prescritas de los ejercicios reconocidos en el catálogo; un ejercicio puede contribuir a varios grupos musculares.</small></div>
                 </div>
                 <div class="editor-footer"><span>La fecha debe estar dentro del periodo del plan.</span><button type="submit" [disabled]="saving || !sessionDrafts[plan.id].title.trim()">＋ Añadir sesión</button></div>
@@ -466,7 +466,7 @@ export class TrainingPeriodizationComponent implements OnInit {
   invitations: TrainingInvitation[] = [];
   trainingTemplates: TrainingTemplate[] = [];
   sessionTemplates: TrainingSessionTemplate[] = [];
-  standaloneSessionTemplateDraft = { name: '', type: 'strength', duration: 60 as number | null, intensity: '', instructions: '', exercisePrescription: '' };
+  standaloneSessionTemplateDraft = { name: '', type: 'strength', duration: 60 as number | null, intensity: '', instructions: '', exercisePrescription: '', exercisePrescriptionData: null as Record<string, unknown> | null };
   sessionTemplateNameDrafts: Record<number, string> = {};
   selectedSessionTemplateIds: Record<number, number | null> = {};
   templateNameDrafts: Record<number, string> = {};
@@ -502,7 +502,7 @@ export class TrainingPeriodizationComponent implements OnInit {
   loadTrends: Record<number, TrainingLoadWeek[]> = {};
   sessionViews: Record<number, 'week' | 'list'> = {};
   weekOffsets: Record<number, number> = {};
-  sessionDrafts: Record<number, { date: string; title: string; type: string; duration: number | null; intensity: string; instructions: string; exercisePrescription: string }> = {};
+  sessionDrafts: Record<number, { date: string; title: string; type: string; duration: number | null; intensity: string; instructions: string; exercisePrescription: string; exercisePrescriptionData: Record<string, unknown> | null }> = {};
   exerciseSearch = '';
   exerciseGoalFilter = 'all';
   exerciseEquipmentFilter = 'all';
@@ -673,11 +673,12 @@ export class TrainingPeriodizationComponent implements OnInit {
       name, sessionType: draft.type, durationMinutes: draft.duration,
       intensityTarget: draft.intensity.trim() || null,
       instructions: draft.instructions.trim() || null,
-      exercisePrescription: draft.exercisePrescription.trim() || null
+      exercisePrescription: draft.exercisePrescription.trim() || null,
+      exercisePrescriptionData: draft.exercisePrescriptionData
     }).subscribe({
       next: () => {
         this.saving = false;
-        this.standaloneSessionTemplateDraft = { name: '', type: 'strength', duration: 60, intensity: '', instructions: '', exercisePrescription: '' };
+        this.standaloneSessionTemplateDraft = { name: '', type: 'strength', duration: 60, intensity: '', instructions: '', exercisePrescription: '', exercisePrescriptionData: null };
         this.notice = 'Plantilla de sesión guardada en tu biblioteca.';
         this.loadSessionTemplates();
       },
@@ -721,6 +722,7 @@ export class TrainingPeriodizationComponent implements OnInit {
     draft.intensity = saved.intensityTarget ?? '';
     draft.instructions = saved.instructions ?? '';
     draft.exercisePrescription = saved.exercisePrescription ?? '';
+    draft.exercisePrescriptionData = saved.exercisePrescriptionData ?? null;
     this.notice = 'Plantilla «' + saved.name + '» cargada. Ajusta el nombre y la fecha antes de añadir la sesión.';
   }
 
@@ -1011,7 +1013,8 @@ export class TrainingPeriodizationComponent implements OnInit {
                 duration: 60,
                 intensity: '',
                 instructions: '',
-                exercisePrescription: ''
+                exercisePrescription: '',
+                exercisePrescriptionData: null
               };
             }
           } catch {
@@ -1190,6 +1193,7 @@ export class TrainingPeriodizationComponent implements OnInit {
       return;
     }
     draft.exercisePrescription = [...lines, this.buildExercisePrescription(exercise, this.sessionExerciseSets, this.sessionExerciseReps, this.sessionExerciseRest)].join('\n');
+    draft.exercisePrescriptionData = null;
     this.notice = exercise.name + ' añadido a la sesión.';
   }
 
@@ -1202,12 +1206,14 @@ export class TrainingPeriodizationComponent implements OnInit {
     draft.intensity = saved.intensityTarget ?? '';
     draft.instructions = saved.instructions ?? '';
     draft.exercisePrescription = saved.exercisePrescription ?? '';
+    draft.exercisePrescriptionData = saved.exercisePrescriptionData ?? null;
     this.notice = 'Se ha copiado la estructura de «' + saved.title + '». Ajusta fecha y nombre antes de guardarla.';
   }
 
   generateSessionDraft(plan: TrainingPlan): void {
     const draft = this.sessionDrafts[plan.id];
     if (!draft) return;
+    draft.exercisePrescriptionData = null;
     const level = this.generatorLevel;
     const equipment = this.generatorEquipment;
     const available = this.exerciseCatalog.filter(item => equipment === 'mixed' || item.equipment === equipment);
@@ -1243,7 +1249,7 @@ export class TrainingPeriodizationComponent implements OnInit {
     const draft = this.sessionDrafts[plan.id];
     if (!draft?.title.trim() || !draft.date) return;
     this.saving = true; this.error = '';
-    this.http.post(`/api/training/plans/${plan.id}/sessions`, { scheduledDate: draft.date, title: draft.title.trim(), sessionType: draft.type, durationMinutes: draft.duration, intensityTarget: draft.intensity.trim() || null, instructions: draft.instructions.trim() || null, exercisePrescription: draft.exercisePrescription.trim() || null }).subscribe({
+    this.http.post(`/api/training/plans/${plan.id}/sessions`, { scheduledDate: draft.date, title: draft.title.trim(), sessionType: draft.type, durationMinutes: draft.duration, intensityTarget: draft.intensity.trim() || null, instructions: draft.instructions.trim() || null, exercisePrescription: draft.exercisePrescription.trim() || null, exercisePrescriptionData: draft.exercisePrescriptionData }).subscribe({
       next: () => { draft.title = ''; draft.intensity = ''; draft.instructions = ''; draft.exercisePrescription = ''; this.saving = false; this.refreshSessions(plan.id); },
       error: e => { this.error = e?.error?.message || 'No se pudo crear la sesión.'; this.saving = false; }
     });

@@ -109,6 +109,24 @@ public sealed class TrainingPeriodizationRegressionTests
     }
 
     [Fact]
+    public void SessionTemplates_PreserveStructuredPrescriptionsAndClearThemWhenTextChanges()
+    {
+        var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
+        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs"));
+        var ui = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "training-periodization", "training-periodization.component.ts"));
+
+        Assert.Contains("UpgradeTrainingPeriodizationSchemaV7(context, logger)", bootstrap);
+        Assert.Contains("training-periodization-v7-structured-session-templates", bootstrap);
+        Assert.Contains("ADD COLUMN IF NOT EXISTS exercise_prescription_data JSONB NULL", bootstrap);
+        Assert.Contains("exercise_prescription_data::text, created_at", controller);
+        Assert.Contains("exercisePrescriptionData = reader.IsDBNull(7)", controller);
+        Assert.Contains("request.ExercisePrescriptionData.Value.GetRawText()", controller);
+        Assert.Contains("draft.exercisePrescriptionData = saved.exercisePrescriptionData ?? null", ui);
+        Assert.Contains("exercisePrescriptionData: draft.exercisePrescriptionData", ui);
+        Assert.Contains("exercisePrescriptionData = null", ui);
+    }
+
+    [Fact]
     public void PatientTrainingFeedback_IsPersistedAndFeedsOnlyARecommendation()
     {
         var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
