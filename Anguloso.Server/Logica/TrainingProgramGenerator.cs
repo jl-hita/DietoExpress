@@ -76,6 +76,9 @@ public static class TrainingProgramGenerator
                     currentWeekSelections.TryAdd(pattern, candidate.ExerciseId);
                     selectedThisWeek.Add(candidate.ExerciseId);
 
+                    selectedThisWeek.Add(candidate.ExerciseId);
+                    currentWeekSelections.TryAdd(pattern, candidate.ExerciseId);
+
                     var (sets, minReps, maxReps, rir, rest, progression) = PrescriptionFor(request.Goal, request.Experience, week);
                     prescriptions.Add(new TrainingExercisePrescription(
                         candidate.ExerciseId,
