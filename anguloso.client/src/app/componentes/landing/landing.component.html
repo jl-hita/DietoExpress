@@ -4,6 +4,7 @@
     <nav class="nav-links">
       <a href="#funciones">Funciones</a>
       <a href="#entrenamiento">Entrenamiento</a>
+      <a href="#consulta-online">Consulta online</a>
       <a href="#pacientes">Para pacientes</a>
       <a href="#clinicas">Clínicas</a>
       <a href="#planes">Planes</a>
@@ -90,7 +91,7 @@
           <li><mat-icon>check</mat-icon><span>Agenda y disponibilidad configurables</span></li>
           <li><mat-icon>check</mat-icon><span>Portal del paciente y documentación</span></li>
           <li><mat-icon>check</mat-icon><span>Mensajería, notificaciones y automatizaciones</span></li>
-          <li><mat-icon>check</mat-icon><span>Google Calendar y consulta online preparada</span></li>
+          <li><mat-icon>check</mat-icon><span>Videollamada integrada en las citas online confirmadas</span></li>
         </ul>
         <button mat-flat-button color="primary" (click)="crearCuenta()">Crear mi cuenta</button>
       </div>
@@ -104,6 +105,44 @@
             <div class="progress-box"><div><b>Última actualización</b><span>Hoy</span></div><div class="progress"><i></i></div></div>
           </div>
         </div>
+      </div>
+    </section>
+
+    <section class="features consultation-flow" id="consulta-online">
+      <div class="section-heading">
+        <span class="eyebrow">UNA CONSULTA COMPLETA, NO SOLO UNA VIDEOLLAMADA</span>
+        <h2>De la primera reserva al seguimiento, con todo conectado.</h2>
+        <p>La consulta no termina cuando acaba la llamada. DietoExpress conecta la captación, la cita, la atención online y los planes que ayudan a dar continuidad al trabajo entre sesiones.</p>
+      </div>
+      <div class="feature-grid">
+        <article class="feature-card">
+          <div class="feature-icon"><mat-icon>person_search</mat-icon></div>
+          <span class="feature-number">01</span>
+          <h3>Te descubren y reservan</h3>
+          <p>Los pacientes pueden encontrar tu perfil, consultar disponibilidad y solicitar una cita desde el directorio y la agenda pública.</p>
+        </article>
+        <article class="feature-card featured">
+          <div class="feature-icon"><mat-icon>event_available</mat-icon></div>
+          <span class="feature-number">02</span>
+          <h3>Organiza la atención</h3>
+          <p>Gestiona las solicitudes y citas desde tu agenda, con avisos para revisar nuevas peticiones y calendario conectado con Google Calendar.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon"><mat-icon>videocam</mat-icon></div>
+          <span class="feature-number">03</span>
+          <h3>Consulta online con audio y vídeo</h3>
+          <p>Abre la videollamada desde la cita en DietoExpress, controla cámara y micrófono y vuelve a conectar si la conexión se interrumpe. El acceso se habilita 15 minutos antes de la cita.</p>
+        </article>
+        <article class="feature-card featured">
+          <div class="feature-icon"><mat-icon>autorenew</mat-icon></div>
+          <span class="feature-number">04</span>
+          <h3>Da continuidad al tratamiento</h3>
+          <p>Comparte el trabajo mediante el portal del paciente, planes nutricionales y de entrenamiento, mensajería y seguimiento entre consultas.</p>
+        </article>
+      </div>
+      <div class="hero-actions" style="justify-content:center;margin-top:32px">
+        <button mat-flat-button color="primary" class="primary-cta" (click)="crearCuenta()">Gestionar mi consulta <mat-icon>arrow_forward</mat-icon></button>
+        <a mat-stroked-button routerLink="/nutricionistas">Ver directorio de profesionales</a>
       </div>
     </section>
 
