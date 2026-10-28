@@ -164,6 +164,7 @@ public sealed class TrainingPeriodizationRegressionTests
     {
         var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
         var portalController = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPortalController.cs"));
+        var policy = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "TrainingAdaptationPolicy.cs"));
         var portalUi = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "patient-portal", "patient-portal.component.html"));
         var portalComponent = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "patient-portal", "patient-portal.component.ts"));
 
@@ -174,7 +175,7 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("TrainingAdaptationPolicy.Evaluate(feedback)", portalController);
         Assert.Contains("COALESCE(EXCLUDED.outcome, training_session_records.outcome)", portalController);
         Assert.Contains("adaptationRecommendation", portalController);
-        Assert.Contains("exercise_feedback JSONB", databaseBootstrap);
+        Assert.Contains("exercise_feedback JSONB", bootstrap);
         Assert.Contains("exerciseFeedback", portalController);
         Assert.Contains("CalculateSetCompletionRatio", portalController);
         Assert.Contains("SetCompletionRatio", policy);
