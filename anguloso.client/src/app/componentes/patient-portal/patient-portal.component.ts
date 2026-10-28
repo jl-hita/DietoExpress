@@ -61,8 +61,8 @@ interface StructuredTrainingExercise {
   targetRepetitionsInReserve?: number | null;
   restSeconds?: number;
   progressionRule?: number | string;
-  primaryMuscleGroups?: string[];
-  secondaryMuscleGroups?: string[];
+  primaryMuscleGroups?: Array<string | number>;
+  secondaryMuscleGroups?: Array<string | number>;
 }
 
 interface TrainingAdaptationRecommendation {
@@ -1313,14 +1313,21 @@ export class PatientPortalComponent implements OnInit, OnDestroy {
     });
   }
 
-  trainingMuscleLabel(muscle: string): string {
+  trainingMuscleLabel(muscle: string | number): string {
     const labels: Record<string, string> = {
       Chest: 'Pecho', Lats: 'Dorsales', UpperBack: 'Espalda alta', Deltoids: 'Deltoides',
       Biceps: 'Bíceps', Triceps: 'Tríceps', Forearms: 'Antebrazos', Abdominals: 'Abdominales',
       Obliques: 'Oblicuos', ErectorSpinae: 'Erectores espinales', Glutes: 'Glúteos',
       Quadriceps: 'Cuádriceps', Hamstrings: 'Isquiotibiales', Calves: 'Gemelos'
     };
-    return labels[muscle] || muscle;
+    // System.Text.Json serializes enum values as numbers unless a string-enum converter is configured.
+    const numericLabels = [
+      'Pecho', 'Dorsales', 'Espalda alta', 'Deltoides', 'Bíceps', 'Tríceps', 'Antebrazos',
+      'Abdominales', 'Oblicuos', 'Erectores espinales', 'Glúteos', 'Cuádriceps', 'Isquiotibiales', 'Gemelos'
+    ];
+    const numeric = typeof muscle === 'number' ? muscle : /^\\d+$/.test(muscle) ? Number(muscle) : -1;
+    if (numeric >= 0 && numeric < numericLabels.length) return numericLabels[numeric];
+    return labels[String(muscle)] || String(muscle);
   }
 
   trainingProgressionLabel(rule?: number | string): string {
