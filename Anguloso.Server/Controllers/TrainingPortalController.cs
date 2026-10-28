@@ -36,7 +36,7 @@ public sealed class TrainingPortalController : ControllerBase
             SELECT s.id, s.plan_id, s.scheduled_date, s.title, s.session_type, s.duration_minutes, s.intensity_target, s.instructions, s.status,
                    r.completed_at, r.actual_duration_minutes, r.session_rpe, r.notes, s.exercise_prescription,
                    r.outcome, r.non_completion_reason, r.recovery_rating, r.pain_signal, r.progression_target_achieved,
-                   s.exercise_prescription_data::text
+                   s.exercise_prescription_data::text, r.exercise_feedback::text
             FROM training_sessions s
             JOIN training_plans p ON p.id = s.plan_id
             JOIN training_profiles f ON f.id = p.profile_id
@@ -65,7 +65,10 @@ public sealed class TrainingPortalController : ControllerBase
                 recoveryRating = reader.IsDBNull(16) ? null : reader.GetString(16),
                 painSignal = reader.IsDBNull(17) ? null : reader.GetString(17),
                 progressionTargetAchieved = reader.IsDBNull(18) ? (bool?)null : reader.GetBoolean(18),
-                exercisePrescriptionData = reader.IsDBNull(19) ? (JsonElement?)null : JsonSerializer.Deserialize<JsonElement>(reader.GetString(19))
+                exercisePrescriptionData = reader.IsDBNull(19) ? (JsonElement?)null : JsonSerializer.Deserialize<JsonElement>(reader.GetString(19)),
+                exerciseFeedback = reader.IsDBNull(20) ? Array.Empty<PatientTrainingExerciseFeedback>() :
+                    JsonSerializer.Deserialize<PatientTrainingExerciseFeedback[]>(reader.GetString(20), new JsonSerializerOptions(JsonSerializerDefaults.Web))
+                    ?? Array.Empty<PatientTrainingExerciseFeedback>()
             });
         }
         await reader.DisposeAsync();
@@ -143,13 +146,34 @@ public sealed class TrainingPortalController : ControllerBase
             return BadRequest(new { message = "El feedback estructurado requiere indicar el resultado de la sesión." });
         if (request.Notes?.Length > 4000)
             return BadRequest(new { message = "Las notas no pueden superar los 4000 caracteres." });
+        if (request.ExerciseFeedback is { Count: > 100 })
+            return BadRequest(new { message = "No se pueden registrar más de 100 ejercicios por sesión." });
+        if (request.ExerciseFeedback is not null)
+        {
+            var invalidExerciseFeedback = request.ExerciseFeedback.Any(item =>
+                string.IsNullOrWhiteSpace(item.ExerciseName) || item.ExerciseName.Length > 200 ||
+                item.PlannedSets is < 1 or > 100 || item.CompletedSets < 0 ||
+                item.CompletedSets > item.PlannedSets ||
+                (item.CompletedSets < item.PlannedSets &&
+                    !IsAllowed(item.SkippedSetReason, "time", "fatigue", "equipment", "motivation", "illness", "pain", "other")) ||
+                (item.CompletedSets == item.PlannedSets && item.SkippedSetReason is not null));
+            if (invalidExerciseFeedback)
+                return BadRequest(new { message = "Revisa las series realizadas y el motivo de las series omitidas de cada ejercicio." });
+            var duplicateExercise = request.ExerciseFeedback
+                .Where(item => !string.IsNullOrWhiteSpace(item.ExerciseId))
+                .GroupBy(item => item.ExerciseId, StringComparer.Ordinal)
+                .Any(group => group.Count() > 1);
+            if (duplicateExercise)
+                return BadRequest(new { message = "Un ejercicio no puede aparecer repetido en el registro." });
+        }
 
         await using var command = Command("""
             INSERT INTO training_session_records(
                 session_id, client_id, completed_at, actual_duration_minutes, session_rpe, notes,
-                outcome, non_completion_reason, recovery_rating, pain_signal, progression_target_achieved)
+                outcome, non_completion_reason, recovery_rating, pain_signal, progression_target_achieved, exercise_feedback)
             SELECT s.id, @clientId, CASE WHEN CAST(@outcome AS text) = 'not_completed' THEN NULL ELSE COALESCE(@completedAt, NOW()) END, @duration, @rpe, @notes,
-                   @outcome, @reason, @recovery, @pain, @progressionAchieved
+                   @outcome, @reason, @recovery, @pain, @progressionAchieved,
+                   CASE WHEN CAST(@exerciseFeedback AS text) IS NULL THEN NULL ELSE CAST(@exerciseFeedback AS jsonb) END
             FROM training_sessions s
             JOIN training_plans p ON p.id = s.plan_id
             JOIN training_profiles f ON f.id = p.profile_id
@@ -164,12 +188,16 @@ public sealed class TrainingPortalController : ControllerBase
                 recovery_rating = COALESCE(EXCLUDED.recovery_rating, training_session_records.recovery_rating),
                 pain_signal = COALESCE(EXCLUDED.pain_signal, training_session_records.pain_signal),
                 progression_target_achieved = COALESCE(EXCLUDED.progression_target_achieved, training_session_records.progression_target_achieved),
+                exercise_feedback = COALESCE(EXCLUDED.exercise_feedback, training_session_records.exercise_feedback),
                 updated_at = NOW()
             RETURNING id
             """, ("sessionId", sessionId), ("clientId", clientId), ("completedAt", request.CompletedAt),
             ("duration", request.ActualDurationMinutes), ("rpe", request.SessionRpe), ("notes", request.Notes),
             ("outcome", request.Outcome), ("reason", request.NonCompletionReason), ("recovery", request.RecoveryRating),
-            ("pain", request.PainSignal), ("progressionAchieved", request.ProgressionTargetAchieved));
+            ("pain", request.PainSignal), ("progressionAchieved", request.ProgressionTargetAchieved),
+            ("exerciseFeedback", request.ExerciseFeedback is { Count: > 0 }
+                ? JsonSerializer.Serialize(request.ExerciseFeedback, new JsonSerializerOptions(JsonSerializerDefaults.Web))
+                : null));
         var id = await command.ExecuteScalarAsync(cancellationToken);
         if (id is null) return NotFound();
         if (structuredFeedback)
@@ -295,6 +323,13 @@ public sealed class TrainingPortalController : ControllerBase
     };
 }
 
+public sealed record PatientTrainingExerciseFeedback(
+    string? ExerciseId,
+    string ExerciseName,
+    int PlannedSets,
+    int CompletedSets,
+    string? SkippedSetReason = null);
+
 public sealed record PatientTrainingRecordRequest(
     DateTime? CompletedAt,
     int? ActualDurationMinutes,
@@ -304,4 +339,5 @@ public sealed record PatientTrainingRecordRequest(
     string? NonCompletionReason = null,
     string? RecoveryRating = null,
     string? PainSignal = null,
-    bool? ProgressionTargetAchieved = null);
+    bool? ProgressionTargetAchieved = null,
+    List<PatientTrainingExerciseFeedback>? ExerciseFeedback = null);
