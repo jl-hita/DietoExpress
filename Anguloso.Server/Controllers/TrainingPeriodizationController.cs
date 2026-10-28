@@ -97,17 +97,11 @@ public sealed class TrainingPeriodizationController : ControllerBase
                 planCommand.Parameters.AddWithValue("planId", planId);
                 await using var reader = await planCommand.ExecuteReaderAsync(cancellationToken);
                 if (!await reader.ReadAsync(cancellationToken))
-                {
-                    await transaction.RollbackAsync(cancellationToken);
                     return NotFound();
-                }
                 var planStart = reader.GetFieldValue<DateOnly>(0);
                 DateOnly? planEnd = reader.IsDBNull(1) ? null : reader.GetFieldValue<DateOnly>(1);
                 if (mesocycleStart < planStart || (planEnd.HasValue && mesocycleEnd > planEnd.Value))
-                {
-                    await transaction.RollbackAsync(cancellationToken);
                     return Conflict(new { message = "El mesociclo generado debe quedar dentro de las fechas del plan. Amplía el plan o ajusta la fecha y duración." });
-                }
             }
 
             await using (var overlapCommand = connection.CreateCommand())
@@ -119,6 +113,9 @@ public sealed class TrainingPeriodizationController : ControllerBase
                         WHERE plan_id = @planId
                           AND (sequence_number = @sequence OR
                                (start_date <= @endDate AND COALESCE(end_date, 'infinity'::date) >= @startDate))
+                    ) OR EXISTS (
+                        SELECT 1 FROM training_sessions
+                        WHERE plan_id = @planId AND scheduled_date BETWEEN @startDate AND @endDate
                     )
                     """;
                 overlapCommand.Parameters.AddWithValue("planId", planId);
