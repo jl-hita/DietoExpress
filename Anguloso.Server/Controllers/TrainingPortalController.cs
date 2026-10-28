@@ -171,8 +171,106 @@ public sealed class TrainingPortalController : ControllerBase
             ("outcome", request.Outcome), ("reason", request.NonCompletionReason), ("recovery", request.RecoveryRating),
             ("pain", request.PainSignal), ("progressionAchieved", request.ProgressionTargetAchieved));
         var id = await command.ExecuteScalarAsync(cancellationToken);
-        return id is null ? NotFound() : Ok(new { id = Convert.ToInt64(id), sessionId, clientId });
+        if (id is null) return NotFound();
+        if (structuredFeedback)
+            await CreateAdaptationProposalAsync(clientId, sessionId, Convert.ToInt64(id), cancellationToken);
+        return Ok(new { id = Convert.ToInt64(id), sessionId, clientId });
     }
+
+    private async Task CreateAdaptationProposalAsync(int clientId, int sessionId, long recordId, CancellationToken cancellationToken)
+    {
+        var feedback = new List<(long RecordId, Anguloso.Server.Logica.TrainingSessionFeedback Feedback)>();
+        await using (var command = Command("""
+            SELECT r.id, r.outcome, r.non_completion_reason, r.recovery_rating, r.pain_signal,
+                   r.session_rpe, r.progression_target_achieved
+            FROM training_session_records r
+            JOIN training_sessions s ON s.id = r.session_id
+            JOIN training_plans p ON p.id = s.plan_id
+            JOIN training_profiles f ON f.id = p.profile_id
+            WHERE f.client_id = @clientId AND s.plan_id = (
+                SELECT plan_id FROM training_sessions WHERE id = @sessionId
+            ) AND p.status = 'active' AND r.outcome IS NOT NULL
+            ORDER BY CASE WHEN r.id = @recordId THEN 0 ELSE 1 END, r.updated_at DESC, r.id DESC
+            LIMIT 3
+            """, ("clientId", clientId), ("sessionId", sessionId), ("recordId", recordId)))
+        await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+                feedback.Add((reader.GetInt64(0), new Anguloso.Server.Logica.TrainingSessionFeedback(
+                    ParseOutcome(reader.GetString(1)),
+                    reader.IsDBNull(2) ? Anguloso.Server.Logica.TrainingNonCompletionReason.None : ParseReason(reader.GetString(2)),
+                    reader.IsDBNull(3) ? Anguloso.Server.Logica.TrainingRecoveryRating.Unknown : ParseRecovery(reader.GetString(3)),
+                    reader.IsDBNull(4) ? Anguloso.Server.Logica.TrainingPainSignal.None : ParsePain(reader.GetString(4)),
+                    reader.IsDBNull(5) ? null : reader.GetDecimal(5),
+                    reader.IsDBNull(6) ? null : reader.GetBoolean(6))));
+        }
+        if (feedback.Count == 0 || feedback.All(x => x.RecordId != recordId)) return;
+        feedback.Reverse();
+        var decision = Anguloso.Server.Logica.TrainingAdaptationPolicy.Evaluate(feedback.Select(x => x.Feedback).ToArray());
+        var action = ToApiAction(decision.Action);
+        if (action is null) return;
+
+        await using var supersede = Command("""
+            UPDATE training_adaptation_proposals
+            SET status = 'superseded', review_notes = 'Sustituida por una nueva evaluación del feedback.'
+            WHERE source_record_id = @recordId AND status = 'pending' AND action <> @action
+            """, ("recordId", recordId), ("action", action));
+        await supersede.ExecuteNonQueryAsync(cancellationToken);
+
+        await using var insert = Command("""
+            INSERT INTO training_adaptation_proposals(
+                client_id, plan_id, source_session_id, source_record_id, action, explanation)
+            SELECT @clientId, s.plan_id, s.id, @recordId, @action, @explanation
+            FROM training_sessions s
+            JOIN training_plans p ON p.id = s.plan_id
+            JOIN training_profiles f ON f.id = p.profile_id
+            WHERE s.id = @sessionId AND f.client_id = @clientId AND p.status = 'active'
+            ON CONFLICT(source_record_id, action) DO NOTHING
+            """, ("clientId", clientId), ("sessionId", sessionId), ("recordId", recordId),
+            ("action", action), ("explanation", decision.Explanation));
+        await insert.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static Anguloso.Server.Logica.TrainingSessionOutcome ParseOutcome(string value) => value switch
+    {
+        "completed" => Anguloso.Server.Logica.TrainingSessionOutcome.Completed,
+        "partial" => Anguloso.Server.Logica.TrainingSessionOutcome.Partial,
+        _ => Anguloso.Server.Logica.TrainingSessionOutcome.NotCompleted
+    };
+
+    private static Anguloso.Server.Logica.TrainingNonCompletionReason ParseReason(string value) => value switch
+    {
+        "time" => Anguloso.Server.Logica.TrainingNonCompletionReason.Time,
+        "fatigue" => Anguloso.Server.Logica.TrainingNonCompletionReason.Fatigue,
+        "equipment" => Anguloso.Server.Logica.TrainingNonCompletionReason.Equipment,
+        "motivation" => Anguloso.Server.Logica.TrainingNonCompletionReason.Motivation,
+        "illness" => Anguloso.Server.Logica.TrainingNonCompletionReason.Illness,
+        "other" => Anguloso.Server.Logica.TrainingNonCompletionReason.Other,
+        _ => Anguloso.Server.Logica.TrainingNonCompletionReason.None
+    };
+
+    private static Anguloso.Server.Logica.TrainingRecoveryRating ParseRecovery(string value) => value switch
+    {
+        "good" => Anguloso.Server.Logica.TrainingRecoveryRating.Good,
+        "partial" => Anguloso.Server.Logica.TrainingRecoveryRating.Partial,
+        "insufficient" => Anguloso.Server.Logica.TrainingRecoveryRating.Insufficient,
+        _ => Anguloso.Server.Logica.TrainingRecoveryRating.Unknown
+    };
+
+    private static Anguloso.Server.Logica.TrainingPainSignal ParsePain(string value) =>
+        value == "new_or_worsening"
+            ? Anguloso.Server.Logica.TrainingPainSignal.NewOrWorsening
+            : Anguloso.Server.Logica.TrainingPainSignal.None;
+
+    private static string? ToApiAction(Anguloso.Server.Logica.TrainingAdaptationAction action) => action switch
+    {
+        Anguloso.Server.Logica.TrainingAdaptationAction.ReorganizeFutureSessions => "reorganize_future_sessions",
+        Anguloso.Server.Logica.TrainingAdaptationAction.HoldProgressionAndReview => "hold_progression_and_review",
+        Anguloso.Server.Logica.TrainingAdaptationAction.ReviewAndReduceTrainingStress => "review_and_reduce_training_stress",
+        Anguloso.Server.Logica.TrainingAdaptationAction.ProgressAccordingToPrescription => "progress_according_to_prescription",
+        Anguloso.Server.Logica.TrainingAdaptationAction.PauseAffectedExerciseAndReview => "pause_affected_exercise_and_review",
+        _ => null
+    };
 
     private NpgsqlCommand Command(string sql, params (string Name, object? Value)[] parameters)
     {
