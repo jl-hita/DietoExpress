@@ -43,3 +43,5 @@
   .nav-actions .nav-login{padding:0 5px}
   .nav-actions .nav-signup{padding:0 8px}
 }
+
+@media(max-width:620px){.nav-actions button:first-child{display:inline-flex}}
