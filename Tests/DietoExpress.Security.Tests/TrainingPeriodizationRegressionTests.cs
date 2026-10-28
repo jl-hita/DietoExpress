@@ -109,6 +109,9 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("exercise.targetRepetitionsInReserve", template);
         Assert.Contains("exercise.restSeconds", template);
         Assert.Contains("trainingProgressionLabel(exercise.progressionRule)", template);
+        Assert.Contains("Array<string | number>", component);
+        Assert.Contains("const numericLabels = [", component);
+        Assert.Contains("'Cuádriceps'", component);
         Assert.Contains("ng-template #legacyTrainingPrescription", template);
         Assert.Contains("exercisePrescriptionData = reader.IsDBNull(19)", controller);
     }
