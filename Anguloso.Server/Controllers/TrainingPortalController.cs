@@ -92,7 +92,9 @@ public sealed class TrainingPortalController : ControllerBase
                     ParseOutcome(feedbackReader.GetString(0)),
                     feedbackReader.IsDBNull(1) ? Anguloso.Server.Logica.TrainingNonCompletionReason.None : ParseReason(feedbackReader.GetString(1)),
                     feedbackReader.IsDBNull(2) ? Anguloso.Server.Logica.TrainingRecoveryRating.Unknown : ParseRecovery(feedbackReader.GetString(2)),
-                    feedbackReader.IsDBNull(3) ? Anguloso.Server.Logica.TrainingPainSignal.None : ParsePain(feedbackReader.GetString(3)),
+                    HasPainSkippedSet(feedbackReader.IsDBNull(6) ? null : feedbackReader.GetString(6))
+                        ? Anguloso.Server.Logica.TrainingPainSignal.NewOrWorsening
+                        : feedbackReader.IsDBNull(3) ? Anguloso.Server.Logica.TrainingPainSignal.None : ParsePain(feedbackReader.GetString(3)),
                     feedbackReader.IsDBNull(4) ? null : feedbackReader.GetDecimal(4),
                     feedbackReader.IsDBNull(5) ? null : feedbackReader.GetBoolean(5),
                     CalculateSetCompletionRatio(feedbackReader.IsDBNull(6) ? null : feedbackReader.GetString(6))));
@@ -230,7 +232,9 @@ public sealed class TrainingPortalController : ControllerBase
                     ParseOutcome(reader.GetString(1)),
                     reader.IsDBNull(2) ? Anguloso.Server.Logica.TrainingNonCompletionReason.None : ParseReason(reader.GetString(2)),
                     reader.IsDBNull(3) ? Anguloso.Server.Logica.TrainingRecoveryRating.Unknown : ParseRecovery(reader.GetString(3)),
-                    reader.IsDBNull(4) ? Anguloso.Server.Logica.TrainingPainSignal.None : ParsePain(reader.GetString(4)),
+                    HasPainSkippedSet(reader.IsDBNull(7) ? null : reader.GetString(7))
+                        ? Anguloso.Server.Logica.TrainingPainSignal.NewOrWorsening
+                        : reader.IsDBNull(4) ? Anguloso.Server.Logica.TrainingPainSignal.None : ParsePain(reader.GetString(4)),
                     reader.IsDBNull(5) ? null : reader.GetDecimal(5),
                     reader.IsDBNull(6) ? null : reader.GetBoolean(6),
                     CalculateSetCompletionRatio(reader.IsDBNull(7) ? null : reader.GetString(7)))));
@@ -260,6 +264,24 @@ public sealed class TrainingPortalController : ControllerBase
             """, ("clientId", clientId), ("sessionId", sessionId), ("recordId", recordId),
             ("action", action), ("explanation", decision.Explanation));
         await insert.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static bool HasPainSkippedSet(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return false;
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            return document.RootElement.ValueKind == JsonValueKind.Array &&
+                document.RootElement.EnumerateArray().Any(item =>
+                    item.TryGetProperty("skippedSetReason", out var reason) &&
+                    reason.ValueKind == JsonValueKind.String &&
+                    string.Equals(reason.GetString(), "pain", StringComparison.Ordinal));
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 
     private static decimal? CalculateSetCompletionRatio(string? json)
