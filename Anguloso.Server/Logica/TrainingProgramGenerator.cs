@@ -32,9 +32,11 @@ public static class TrainingProgramGenerator
         var excluded = new HashSet<string>(request.ExcludedExerciseIds, StringComparer.OrdinalIgnoreCase);
         var equipment = new HashSet<string>(request.AvailableEquipment, StringComparer.OrdinalIgnoreCase);
         var sessions = new List<TrainingSessionPrescription>();
-
+        var previousWeekSelections = new Dictionary<TrainingMovementPattern, string>();
         for (var week = 1; week <= request.DurationWeeks; week++)
         {
+            var currentWeekSelections = new Dictionary<TrainingMovementPattern, string>();
+            var selectedThisWeek = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             for (var dayIndex = 0; dayIndex < days.Length; dayIndex++)
             {
                 var sessionTemplate = split[dayIndex];
@@ -47,7 +49,7 @@ public static class TrainingProgramGenerator
                 for (var patternIndex = 0; patternIndex < requiredPatterns.Count; patternIndex++)
                 {
                     var pattern = requiredPatterns[patternIndex];
-                    var candidate = catalog
+                    var compatibleCandidates = catalog
                         .Where(x => (x.IsReviewed || x.IsOwnedByCurrentProfessional)
                             && x.MovementPattern == pattern
                             && x.SuitableGoals.Contains(request.Goal)
@@ -56,10 +58,26 @@ public static class TrainingProgramGenerator
                             && !excluded.Contains(x.ExerciseId))
                         .OrderByDescending(x => x.SelectionPriority)
                         .ThenBy(x => x.ExerciseId, StringComparer.Ordinal)
-                        .FirstOrDefault();
+                        .ToArray();
+
+                    // Prefer variety across weeks and within the current week's plan, but never
+                    // sacrifice compatibility: a sole valid exercise may be reused.
+                    var candidate = compatibleCandidates
+                        .FirstOrDefault(x =>
+                            !selectedThisWeek.Contains(x.ExerciseId)
+                            && (!previousWeekSelections.TryGetValue(pattern, out var previousId)
+                                || !string.Equals(x.ExerciseId, previousId, StringComparison.OrdinalIgnoreCase)))
+                        ?? compatibleCandidates.FirstOrDefault();
+                    candidate ??= null;
 
                     if (candidate is null)
                         return Failure($"No hay un ejercicio revisado compatible con el patrón '{pattern}', el objetivo, la experiencia, el material y las exclusiones configuradas.");
+
+                    currentWeekSelections.TryAdd(pattern, candidate.ExerciseId);
+                    selectedThisWeek.Add(candidate.ExerciseId);
+
+                    selectedThisWeek.Add(candidate.ExerciseId);
+                    currentWeekSelections.TryAdd(pattern, candidate.ExerciseId);
 
                     var (sets, minReps, maxReps, rir, rest, progression) = PrescriptionFor(request.Goal, request.Experience, week);
                     prescriptions.Add(new TrainingExercisePrescription(
@@ -85,6 +103,7 @@ public static class TrainingProgramGenerator
                     estimatedDuration,
                     prescriptions));
             }
+            previousWeekSelections = currentWeekSelections;
         }
 
         var plan = new TrainingProgramPrescription(

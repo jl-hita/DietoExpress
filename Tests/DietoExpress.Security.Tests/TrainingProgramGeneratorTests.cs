@@ -42,6 +42,30 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
+    public void GeneratorRotatesCompatibleExercisesBetweenWeeksWhenAlternativesExist()
+    {
+        var alternative = new TrainingExerciseCandidate(
+            "squat-alternative", "catalog-2026-10", "Sentadilla alternativa",
+            TrainingMovementPattern.Squat, [],
+            [TrainingGoal.GeneralFitness, TrainingGoal.Hypertrophy, TrainingGoal.Strength],
+            TrainingExperience.Beginner, 40, true,
+            [TrainingMuscleGroup.Quadriceps, TrainingMuscleGroup.Glutes],
+            [TrainingMuscleGroup.Hamstrings]);
+        var result = TrainingProgramGenerator.Generate(
+            Request() with { DurationWeeks = 2 },
+            Catalog().Append(alternative).ToArray());
+
+        Assert.True(result.Succeeded, string.Join("; ", result.Errors));
+        var squatByWeek = result.Prescription!.Sessions
+            .SelectMany(session => session.Exercises.Select(exercise => new { session.WeekNumber, Exercise = exercise }))
+            .Where(item => item.Exercise.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Quadriceps))
+            .GroupBy(item => item.WeekNumber)
+            .ToDictionary(group => group.Key, group => group.First().Exercise.ExerciseId);
+
+        Assert.NotEqual(squatByWeek[1], squatByWeek[2]);
+    }
+
+    [Fact]
     public void ExcludedExerciseIsNeverSelected()
     {
         var result = TrainingProgramGenerator.Generate(
