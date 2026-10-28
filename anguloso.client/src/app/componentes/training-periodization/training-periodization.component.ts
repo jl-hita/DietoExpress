@@ -1090,7 +1090,8 @@ export class TrainingPeriodizationComponent implements OnInit {
     for (const session of this.sessions[plan.id] || []) {
       candidates.push(this.addUtcDays(session.scheduledDate, 1));
     }
-    return candidates.filter(Boolean).sort().at(-1) || plan.startDate;
+    const sorted = candidates.filter(Boolean).sort();
+    return sorted[sorted.length - 1] || plan.startDate;
   }
 
   private addUtcDays(dateValue: string, days: number): string {
