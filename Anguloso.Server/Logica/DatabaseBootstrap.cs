@@ -3424,6 +3424,8 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
     /// <summary>Stores professional review decisions for feedback-driven future-session adaptations.</summary>
     public static void UpgradeTrainingPeriodizationSchemaV8(angulosodbContext context, ILogger logger)
     {
+        // Keep additive feedback storage self-healing even on installations where V8 was already recorded.
+        context.Database.ExecuteSqlRaw("ALTER TABLE training_session_records ADD COLUMN IF NOT EXISTS exercise_feedback JSONB NULL;");
         if (context.Database.SqlQueryRaw<bool>("SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'training-periodization-v8-adaptation-review') AS \"Value\"").Single())
             return;
 
