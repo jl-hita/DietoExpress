@@ -51,6 +51,24 @@ public sealed class TrainingPeriodizationRegressionTests
     }
 
     [Fact]
+    public void GeneratedMesocycle_IsPersistedAtomicallyAndRequiresProfessionalReview()
+    {
+        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs"));
+        var generator = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "TrainingProgramGenerator.cs"));
+
+        Assert.Contains("[HttpPost(\"plans/{planId:int}/generate-mesocycle\")]", controller);
+        Assert.Contains("TrainingProgramGenerator.Generate(request.Generation, candidates)", controller);
+        Assert.Contains("BeginTransactionAsync(cancellationToken)", controller);
+        Assert.Contains("INSERT INTO training_mesocycles", controller);
+        Assert.Contains("INSERT INTO training_microcycles", controller);
+        Assert.Contains("INSERT INTO training_sessions", controller);
+        Assert.Contains("No se han conservado cambios parciales", controller);
+        Assert.Contains("requiresProfessionalReview = true", controller);
+        Assert.Contains("selectedThisWeek.Add(candidate.ExerciseId);", generator);
+        Assert.DoesNotContain("selectedThisWeek.Add(candidate.ExerciseId);\n\n                    selectedThisWeek.Add(candidate.ExerciseId);", generator);
+    }
+
+    [Fact]
     public void PatientTrainingFeedback_IsPersistedAndFeedsOnlyARecommendation()
     {
         var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
