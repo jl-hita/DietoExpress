@@ -7,7 +7,7 @@ Issue de seguimiento: https://github.com/jl-hita/DietoExpress/issues/415
 
 ### Planificación profesional
 - `TrainingPeriodizationController` administra perfiles, planes, mesociclos, microciclos, sesiones y plantillas.
-- `training_sessions.exercise_prescription` y `training_session_templates.exercise_prescription` son texto libre. Es útil para mostrar planes heredados, pero no permite validar con fiabilidad series efectivas por músculo, progresión por ejercicio ni sustituciones estructuradas.
+- `training_sessions.exercise_prescription` y `training_session_templates.exercise_prescription` conservan el texto libre por compatibilidad. Desde la migración `training-periodization-v6-structured-prescriptions`, las sesiones generadas también guardan `training_sessions.exercise_prescription_data` como JSONB: versión del motor, objetivo, semana/día, duración y ejercicios con ID/versión del catálogo, series, rango de repeticiones, RIR, descanso, progresión y grupos musculares. Las ediciones manuales que cambian el texto invalidan el JSON estructurado para evitar datos obsoletos; los cambios de fecha/título conservan la prescripción estructurada. Las plantillas aún no copian el JSON estructurado.
 - La planificación actual está orientada a que el profesional gestione el calendario; no se ha encontrado aún un motor que genere y optimice un ciclo entero desde el perfil del cliente.
 - Ya existe una prueba de regresión estática en `Tests/DietoExpress.Security.Tests/TrainingPeriodizationRegressionTests.cs`, que protege parte del contrato actual.
 
