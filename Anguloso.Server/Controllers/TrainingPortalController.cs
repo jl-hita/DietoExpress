@@ -36,7 +36,7 @@ public sealed class TrainingPortalController : ControllerBase
             SELECT s.id, s.plan_id, s.scheduled_date, s.title, s.session_type, s.duration_minutes, s.intensity_target, s.instructions, s.status,
                    r.completed_at, r.actual_duration_minutes, r.session_rpe, r.notes, s.exercise_prescription,
                    r.outcome, r.non_completion_reason, r.recovery_rating, r.pain_signal, r.progression_target_achieved,
-                   s.exercise_prescription_data::text
+                   s.exercise_prescription_data::text, r.exercise_feedback::text
             FROM training_sessions s
             JOIN training_plans p ON p.id = s.plan_id
             JOIN training_profiles f ON f.id = p.profile_id
@@ -65,14 +65,17 @@ public sealed class TrainingPortalController : ControllerBase
                 recoveryRating = reader.IsDBNull(16) ? null : reader.GetString(16),
                 painSignal = reader.IsDBNull(17) ? null : reader.GetString(17),
                 progressionTargetAchieved = reader.IsDBNull(18) ? (bool?)null : reader.GetBoolean(18),
-                exercisePrescriptionData = reader.IsDBNull(19) ? (JsonElement?)null : JsonSerializer.Deserialize<JsonElement>(reader.GetString(19))
+                exercisePrescriptionData = reader.IsDBNull(19) ? (JsonElement?)null : JsonSerializer.Deserialize<JsonElement>(reader.GetString(19)),
+                exerciseFeedback = reader.IsDBNull(20) ? Array.Empty<PatientTrainingExerciseFeedback>() :
+                    JsonSerializer.Deserialize<PatientTrainingExerciseFeedback[]>(reader.GetString(20), new JsonSerializerOptions(JsonSerializerDefaults.Web))
+                    ?? Array.Empty<PatientTrainingExerciseFeedback>()
             });
         }
         await reader.DisposeAsync();
 
         var feedback = new List<Anguloso.Server.Logica.TrainingSessionFeedback>();
         await using (var feedbackCommand = Command("""
-            SELECT r.outcome, r.non_completion_reason, r.recovery_rating, r.pain_signal, r.session_rpe, r.progression_target_achieved
+            SELECT r.outcome, r.non_completion_reason, r.recovery_rating, r.pain_signal, r.session_rpe, r.progression_target_achieved, r.exercise_feedback::text
             FROM training_session_records r
             JOIN training_sessions s ON s.id = r.session_id
             JOIN training_plans p ON p.id = s.plan_id
@@ -89,9 +92,12 @@ public sealed class TrainingPortalController : ControllerBase
                     ParseOutcome(feedbackReader.GetString(0)),
                     feedbackReader.IsDBNull(1) ? Anguloso.Server.Logica.TrainingNonCompletionReason.None : ParseReason(feedbackReader.GetString(1)),
                     feedbackReader.IsDBNull(2) ? Anguloso.Server.Logica.TrainingRecoveryRating.Unknown : ParseRecovery(feedbackReader.GetString(2)),
-                    feedbackReader.IsDBNull(3) ? Anguloso.Server.Logica.TrainingPainSignal.None : ParsePain(feedbackReader.GetString(3)),
+                    HasPainSkippedSet(feedbackReader.IsDBNull(6) ? null : feedbackReader.GetString(6))
+                        ? Anguloso.Server.Logica.TrainingPainSignal.NewOrWorsening
+                        : feedbackReader.IsDBNull(3) ? Anguloso.Server.Logica.TrainingPainSignal.None : ParsePain(feedbackReader.GetString(3)),
                     feedbackReader.IsDBNull(4) ? null : feedbackReader.GetDecimal(4),
-                    feedbackReader.IsDBNull(5) ? null : feedbackReader.GetBoolean(5)));
+                    feedbackReader.IsDBNull(5) ? null : feedbackReader.GetBoolean(5),
+                    CalculateSetCompletionRatio(feedbackReader.IsDBNull(6) ? null : feedbackReader.GetString(6))));
             }
         }
 
@@ -139,17 +145,40 @@ public sealed class TrainingPortalController : ControllerBase
             return BadRequest(new { message = "Una sesión completada no puede tener un motivo de no finalización." });
         if (request.Outcome is null &&
             (request.NonCompletionReason is not null || request.RecoveryRating is not null ||
-             request.PainSignal is not null || request.ProgressionTargetAchieved is not null))
+             request.PainSignal is not null || request.ProgressionTargetAchieved is not null ||
+             request.ExerciseFeedback is { Count: > 0 }))
             return BadRequest(new { message = "El feedback estructurado requiere indicar el resultado de la sesión." });
         if (request.Notes?.Length > 4000)
             return BadRequest(new { message = "Las notas no pueden superar los 4000 caracteres." });
+        if (request.ExerciseFeedback is { Count: > 100 })
+            return BadRequest(new { message = "No se pueden registrar más de 100 ejercicios por sesión." });
+        if (request.ExerciseFeedback is not null)
+        {
+            var invalidExerciseFeedback = request.ExerciseFeedback.Any(item =>
+                string.IsNullOrWhiteSpace(item.ExerciseName) || item.ExerciseName.Length > 200 ||
+                item.PlannedSets is < 1 or > 100 || item.CompletedSets < 0 ||
+                item.CompletedSets > item.PlannedSets ||
+                (item.CompletedSets < item.PlannedSets &&
+                    (item.SkippedSetReason is null ||
+                     !IsAllowed(item.SkippedSetReason, "time", "fatigue", "equipment", "motivation", "illness", "pain", "other"))) ||
+                (item.CompletedSets == item.PlannedSets && item.SkippedSetReason is not null));
+            if (invalidExerciseFeedback)
+                return BadRequest(new { message = "Revisa las series realizadas y el motivo de las series omitidas de cada ejercicio." });
+            var duplicateExercise = request.ExerciseFeedback
+                .Where(item => !string.IsNullOrWhiteSpace(item.ExerciseId))
+                .GroupBy(item => item.ExerciseId, StringComparer.Ordinal)
+                .Any(group => group.Count() > 1);
+            if (duplicateExercise)
+                return BadRequest(new { message = "Un ejercicio no puede aparecer repetido en el registro." });
+        }
 
         await using var command = Command("""
             INSERT INTO training_session_records(
                 session_id, client_id, completed_at, actual_duration_minutes, session_rpe, notes,
-                outcome, non_completion_reason, recovery_rating, pain_signal, progression_target_achieved)
+                outcome, non_completion_reason, recovery_rating, pain_signal, progression_target_achieved, exercise_feedback)
             SELECT s.id, @clientId, CASE WHEN CAST(@outcome AS text) = 'not_completed' THEN NULL ELSE COALESCE(@completedAt, NOW()) END, @duration, @rpe, @notes,
-                   @outcome, @reason, @recovery, @pain, @progressionAchieved
+                   @outcome, @reason, @recovery, @pain, @progressionAchieved,
+                   CASE WHEN CAST(@exerciseFeedback AS text) IS NULL THEN NULL ELSE CAST(@exerciseFeedback AS jsonb) END
             FROM training_sessions s
             JOIN training_plans p ON p.id = s.plan_id
             JOIN training_profiles f ON f.id = p.profile_id
@@ -164,12 +193,16 @@ public sealed class TrainingPortalController : ControllerBase
                 recovery_rating = COALESCE(EXCLUDED.recovery_rating, training_session_records.recovery_rating),
                 pain_signal = COALESCE(EXCLUDED.pain_signal, training_session_records.pain_signal),
                 progression_target_achieved = COALESCE(EXCLUDED.progression_target_achieved, training_session_records.progression_target_achieved),
+                exercise_feedback = COALESCE(EXCLUDED.exercise_feedback, training_session_records.exercise_feedback),
                 updated_at = NOW()
             RETURNING id
             """, ("sessionId", sessionId), ("clientId", clientId), ("completedAt", request.CompletedAt),
             ("duration", request.ActualDurationMinutes), ("rpe", request.SessionRpe), ("notes", request.Notes),
             ("outcome", request.Outcome), ("reason", request.NonCompletionReason), ("recovery", request.RecoveryRating),
-            ("pain", request.PainSignal), ("progressionAchieved", request.ProgressionTargetAchieved));
+            ("pain", request.PainSignal), ("progressionAchieved", request.ProgressionTargetAchieved),
+            ("exerciseFeedback", request.ExerciseFeedback is { Count: > 0 }
+                ? JsonSerializer.Serialize(request.ExerciseFeedback, new JsonSerializerOptions(JsonSerializerDefaults.Web))
+                : null));
         var id = await command.ExecuteScalarAsync(cancellationToken);
         if (id is null) return NotFound();
         if (structuredFeedback)
@@ -182,7 +215,7 @@ public sealed class TrainingPortalController : ControllerBase
         var feedback = new List<(long RecordId, Anguloso.Server.Logica.TrainingSessionFeedback Feedback)>();
         await using (var command = Command("""
             SELECT r.id, r.outcome, r.non_completion_reason, r.recovery_rating, r.pain_signal,
-                   r.session_rpe, r.progression_target_achieved
+                   r.session_rpe, r.progression_target_achieved, r.exercise_feedback::text
             FROM training_session_records r
             JOIN training_sessions s ON s.id = r.session_id
             JOIN training_plans p ON p.id = s.plan_id
@@ -200,9 +233,12 @@ public sealed class TrainingPortalController : ControllerBase
                     ParseOutcome(reader.GetString(1)),
                     reader.IsDBNull(2) ? Anguloso.Server.Logica.TrainingNonCompletionReason.None : ParseReason(reader.GetString(2)),
                     reader.IsDBNull(3) ? Anguloso.Server.Logica.TrainingRecoveryRating.Unknown : ParseRecovery(reader.GetString(3)),
-                    reader.IsDBNull(4) ? Anguloso.Server.Logica.TrainingPainSignal.None : ParsePain(reader.GetString(4)),
+                    HasPainSkippedSet(reader.IsDBNull(7) ? null : reader.GetString(7))
+                        ? Anguloso.Server.Logica.TrainingPainSignal.NewOrWorsening
+                        : reader.IsDBNull(4) ? Anguloso.Server.Logica.TrainingPainSignal.None : ParsePain(reader.GetString(4)),
                     reader.IsDBNull(5) ? null : reader.GetDecimal(5),
-                    reader.IsDBNull(6) ? null : reader.GetBoolean(6))));
+                    reader.IsDBNull(6) ? null : reader.GetBoolean(6),
+                    CalculateSetCompletionRatio(reader.IsDBNull(7) ? null : reader.GetString(7)))));
         }
         if (feedback.Count == 0 || feedback.All(x => x.RecordId != recordId)) return;
         feedback.Reverse();
@@ -229,6 +265,52 @@ public sealed class TrainingPortalController : ControllerBase
             """, ("clientId", clientId), ("sessionId", sessionId), ("recordId", recordId),
             ("action", action), ("explanation", decision.Explanation));
         await insert.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static bool HasPainSkippedSet(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return false;
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            return document.RootElement.ValueKind == JsonValueKind.Array &&
+                document.RootElement.EnumerateArray().Any(item =>
+                    item.TryGetProperty("skippedSetReason", out var reason) &&
+                    reason.ValueKind == JsonValueKind.String &&
+                    string.Equals(reason.GetString(), "pain", StringComparison.Ordinal));
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private static decimal? CalculateSetCompletionRatio(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            if (document.RootElement.ValueKind != JsonValueKind.Array) return null;
+            decimal planned = 0;
+            decimal completed = 0;
+            foreach (var item in document.RootElement.EnumerateArray())
+            {
+                if (!item.TryGetProperty("plannedSets", out var plannedElement) ||
+                    !item.TryGetProperty("completedSets", out var completedElement) ||
+                    !plannedElement.TryGetDecimal(out var plannedSets) ||
+                    !completedElement.TryGetDecimal(out var completedSets) ||
+                    plannedSets <= 0 || completedSets < 0 || completedSets > plannedSets)
+                    return null;
+                planned += plannedSets;
+                completed += completedSets;
+            }
+            return planned > 0 ? completed / planned : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     private NpgsqlCommand Command(string sql, params (string Name, object? Value)[] parameters)
@@ -295,6 +377,13 @@ public sealed class TrainingPortalController : ControllerBase
     };
 }
 
+public sealed record PatientTrainingExerciseFeedback(
+    string? ExerciseId,
+    string ExerciseName,
+    int PlannedSets,
+    int CompletedSets,
+    string? SkippedSetReason = null);
+
 public sealed record PatientTrainingRecordRequest(
     DateTime? CompletedAt,
     int? ActualDurationMinutes,
@@ -304,4 +393,5 @@ public sealed record PatientTrainingRecordRequest(
     string? NonCompletionReason = null,
     string? RecoveryRating = null,
     string? PainSignal = null,
-    bool? ProgressionTargetAchieved = null);
+    bool? ProgressionTargetAchieved = null,
+    List<PatientTrainingExerciseFeedback>? ExerciseFeedback = null);
