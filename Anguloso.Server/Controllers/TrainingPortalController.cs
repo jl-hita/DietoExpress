@@ -231,47 +231,6 @@ public sealed class TrainingPortalController : ControllerBase
         await insert.ExecuteNonQueryAsync(cancellationToken);
     }
 
-    private static Anguloso.Server.Logica.TrainingSessionOutcome ParseOutcome(string value) => value switch
-    {
-        "completed" => Anguloso.Server.Logica.TrainingSessionOutcome.Completed,
-        "partial" => Anguloso.Server.Logica.TrainingSessionOutcome.Partial,
-        _ => Anguloso.Server.Logica.TrainingSessionOutcome.NotCompleted
-    };
-
-    private static Anguloso.Server.Logica.TrainingNonCompletionReason ParseReason(string value) => value switch
-    {
-        "time" => Anguloso.Server.Logica.TrainingNonCompletionReason.Time,
-        "fatigue" => Anguloso.Server.Logica.TrainingNonCompletionReason.Fatigue,
-        "equipment" => Anguloso.Server.Logica.TrainingNonCompletionReason.Equipment,
-        "motivation" => Anguloso.Server.Logica.TrainingNonCompletionReason.Motivation,
-        "illness" => Anguloso.Server.Logica.TrainingNonCompletionReason.Illness,
-        "other" => Anguloso.Server.Logica.TrainingNonCompletionReason.Other,
-        _ => Anguloso.Server.Logica.TrainingNonCompletionReason.None
-    };
-
-    private static Anguloso.Server.Logica.TrainingRecoveryRating ParseRecovery(string value) => value switch
-    {
-        "good" => Anguloso.Server.Logica.TrainingRecoveryRating.Good,
-        "partial" => Anguloso.Server.Logica.TrainingRecoveryRating.Partial,
-        "insufficient" => Anguloso.Server.Logica.TrainingRecoveryRating.Insufficient,
-        _ => Anguloso.Server.Logica.TrainingRecoveryRating.Unknown
-    };
-
-    private static Anguloso.Server.Logica.TrainingPainSignal ParsePain(string value) =>
-        value == "new_or_worsening"
-            ? Anguloso.Server.Logica.TrainingPainSignal.NewOrWorsening
-            : Anguloso.Server.Logica.TrainingPainSignal.None;
-
-    private static string? ToApiAction(Anguloso.Server.Logica.TrainingAdaptationAction action) => action switch
-    {
-        Anguloso.Server.Logica.TrainingAdaptationAction.ReorganizeFutureSessions => "reorganize_future_sessions",
-        Anguloso.Server.Logica.TrainingAdaptationAction.HoldProgressionAndReview => "hold_progression_and_review",
-        Anguloso.Server.Logica.TrainingAdaptationAction.ReviewAndReduceTrainingStress => "review_and_reduce_training_stress",
-        Anguloso.Server.Logica.TrainingAdaptationAction.ProgressAccordingToPrescription => "progress_according_to_prescription",
-        Anguloso.Server.Logica.TrainingAdaptationAction.PauseAffectedExerciseAndReview => "pause_affected_exercise_and_review",
-        _ => null
-    };
-
     private NpgsqlCommand Command(string sql, params (string Name, object? Value)[] parameters)
     {
         var connection = (NpgsqlConnection)_context.Database.GetDbConnection();
