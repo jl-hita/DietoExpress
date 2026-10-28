@@ -362,7 +362,8 @@ public sealed class TrainingPeriodizationController : ControllerBase
 
         var sessions = new List<TrainingTemplateSession>();
         await using (var sessionsCommand = Command("""
-            SELECT scheduled_date, title, session_type, duration_minutes, intensity_target, instructions, exercise_prescription
+            SELECT scheduled_date, title, session_type, duration_minutes, intensity_target, instructions, exercise_prescription,
+                   exercise_prescription_data::text
             FROM training_sessions WHERE plan_id = @planId ORDER BY scheduled_date, id
             """, ("planId", planId)))
         await using (var reader = await sessionsCommand.ExecuteReaderAsync(cancellationToken))
@@ -370,7 +371,8 @@ public sealed class TrainingPeriodizationController : ControllerBase
             while (await reader.ReadAsync(cancellationToken))
                 sessions.Add(new TrainingTemplateSession(reader.GetFieldValue<DateOnly>(0), reader.GetString(1), reader.GetString(2),
                     reader.IsDBNull(3) ? null : reader.GetInt32(3), reader.IsDBNull(4) ? null : reader.GetString(4),
-                    reader.IsDBNull(5) ? null : reader.GetString(5), reader.IsDBNull(6) ? null : reader.GetString(6)));
+                    reader.IsDBNull(5) ? null : reader.GetString(5), reader.IsDBNull(6) ? null : reader.GetString(6),
+                    reader.IsDBNull(7) ? (JsonElement?)null : JsonSerializer.Deserialize<JsonElement>(reader.GetString(7))));
         }
 
         var mesocycles = new List<TrainingTemplateMesocycle>();
@@ -459,11 +461,12 @@ public sealed class TrainingPeriodizationController : ControllerBase
         {
             var scheduledDate = request.StartDate.AddDays(session.ScheduledDate.DayNumber - template.StartDate.DayNumber);
             await using var insertSession = Command("""
-                INSERT INTO training_sessions(plan_id, scheduled_date, title, session_type, duration_minutes, intensity_target, instructions, exercise_prescription)
-                VALUES (@planId, @date, @title, @type, @duration, @intensity, @instructions, @prescription)
+                INSERT INTO training_sessions(plan_id, scheduled_date, title, session_type, duration_minutes, intensity_target, instructions, exercise_prescription, exercise_prescription_data)
+                VALUES (@planId, @date, @title, @type, @duration, @intensity, @instructions, @prescription, @prescriptionData::jsonb)
                 """, ("planId", newPlanId), ("date", scheduledDate), ("title", session.Title), ("type", session.SessionType),
                 ("duration", session.DurationMinutes), ("intensity", session.IntensityTarget), ("instructions", session.Instructions),
-                ("prescription", session.ExercisePrescription));
+                ("prescription", session.ExercisePrescription),
+                ("prescriptionData", session.ExercisePrescriptionData.HasValue ? session.ExercisePrescriptionData.Value.GetRawText() : null));
             await insertSession.ExecuteNonQueryAsync(cancellationToken);
         }
         foreach (var meso in template.Mesocycles)
@@ -1343,7 +1346,7 @@ public sealed record SaveTrainingTemplateRequest(string Name);
 public sealed record SaveTrainingSessionTemplateRequest(string Name, string SessionType, int? DurationMinutes, string? IntensityTarget, string? Instructions, string? ExercisePrescription);
 public sealed record ApplyTrainingTemplateRequest(string Name, DateOnly StartDate);
 public sealed record TrainingTemplateSession(DateOnly ScheduledDate, string Title, string SessionType, int? DurationMinutes,
-    string? IntensityTarget, string? Instructions, string? ExercisePrescription);
+    string? IntensityTarget, string? Instructions, string? ExercisePrescription, JsonElement? ExercisePrescriptionData = null);
 public sealed record TrainingTemplatePayload(string Name, string PeriodizationModel, DateOnly StartDate, DateOnly? EndDate,
     string? Notes, List<TrainingTemplateSession> Sessions, List<TrainingTemplateMesocycle> Mesocycles);
 public sealed record TrainingTemplateMesocycle(int Id, string Name, int SequenceNumber, DateOnly StartDate, DateOnly? EndDate,
