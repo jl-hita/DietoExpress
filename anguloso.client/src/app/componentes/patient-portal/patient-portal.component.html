@@ -512,8 +512,8 @@
               <strong>{{ exercise.exerciseNameSnapshot || 'Ejercicio' }}</strong>
               <div>{{ exercise.sets || '—' }} series × {{ exercise.minRepetitions || '—' }}–{{ exercise.maxRepetitions || '—' }} repeticiones</div>
               <div>RIR {{ exercise.targetRepetitionsInReserve ?? '—' }} · Descanso {{ exercise.restSeconds ?? '—' }} s</div>
-              <div *ngIf="exercise.primaryMuscleGroups?.length" class="muted">Principal: {{ exercise.primaryMuscleGroups?.map(trainingMuscleLabel).join(', ') }}</div>
-              <div *ngIf="exercise.secondaryMuscleGroups?.length" class="muted">Secundario: {{ exercise.secondaryMuscleGroups?.map(trainingMuscleLabel).join(', ') }}</div>
+              <div *ngIf="exercise.primaryMuscleGroups?.length" class="muted">Principal: <span *ngFor="let muscle of exercise.primaryMuscleGroups; let last = last">{{ trainingMuscleLabel(muscle) }}<span *ngIf="!last">, </span></span></div>
+              <div *ngIf="exercise.secondaryMuscleGroups?.length" class="muted">Secundario: <span *ngFor="let muscle of exercise.secondaryMuscleGroups; let last = last">{{ trainingMuscleLabel(muscle) }}<span *ngIf="!last">, </span></span></div>
               <div class="muted">Progresión: {{ trainingProgressionLabel(exercise.progressionRule) }}</div>
             </li>
           </ol>
