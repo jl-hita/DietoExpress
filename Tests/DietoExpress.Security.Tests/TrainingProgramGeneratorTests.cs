@@ -42,6 +42,44 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
+    public void SessionDurationEstimateAccountsForGoalRestAndWorkInsteadOfFixedPatternCount()
+    {
+        var general = TrainingProgramGenerator.Generate(
+            Request() with { Goal = TrainingGoal.GeneralFitness, Experience = TrainingExperience.Advanced }, Catalog());
+        var strength = TrainingProgramGenerator.Generate(
+            Request() with { Goal = TrainingGoal.Strength, Experience = TrainingExperience.Advanced }, Catalog());
+
+        Assert.True(general.Succeeded, string.Join("; ", general.Errors));
+        Assert.True(strength.Succeeded, string.Join("; ", strength.Errors));
+        Assert.True(
+            strength.Prescription!.Sessions.Max(x => x.EstimatedDurationMinutes) >
+            general.Prescription!.Sessions.Max(x => x.EstimatedDurationMinutes));
+        Assert.All(strength.Prescription.Sessions, session => Assert.InRange(session.EstimatedDurationMinutes, 1, 60));
+    }
+
+    [Fact]
+    public void ThreeAndFourDayPlansAvoidKnownHighPrimarySetSpikes()
+    {
+        foreach (var days in new[]
+        {
+            new[] { DayOfWeek.Monday, DayOfWeek.Wednesday, DayOfWeek.Friday },
+            new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Thursday, DayOfWeek.Saturday }
+        })
+        {
+            var result = TrainingProgramGenerator.Generate(Request() with
+            {
+                Goal = TrainingGoal.Hypertrophy,
+                Experience = TrainingExperience.Advanced,
+                TrainingDays = days
+            }, Catalog());
+
+            Assert.True(result.Succeeded, string.Join("; ", result.Errors));
+            Assert.DoesNotContain(result.Prescription!.QualityReport!.Warnings,
+                warning => warning.Contains("series primarias", StringComparison.Ordinal));
+        }
+    }
+
+    [Fact]
     public void GeneratorRotatesCompatibleExercisesBetweenWeeksWhenAlternativesExist()
     {
         var alternative = new TrainingExerciseCandidate(
@@ -341,6 +379,8 @@ public sealed class TrainingProgramGeneratorTests
             Assert.True(result.Succeeded,
                 $"Goal={goal}, experiencia={experience}, días={days.Length}, semanas={weeks}: {string.Join("; ", result.Errors)}");
             var plan = result.Prescription!;
+            Assert.DoesNotContain(plan.QualityReport!.Warnings,
+                warning => warning.Contains("series primarias", StringComparison.Ordinal));
             Assert.Equal(weeks * days.Length, plan.Sessions.Count);
             Assert.Equal(weeks, plan.QualityReport!.WeeklyMuscleVolumes.Count);
             Assert.Empty(TrainingPrescriptionValidator.Validate(plan));

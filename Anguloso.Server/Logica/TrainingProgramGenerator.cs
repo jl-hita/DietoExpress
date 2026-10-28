@@ -6,7 +6,8 @@ namespace Anguloso.Server.Logica;
 /// </summary>
 public static class TrainingProgramGenerator
 {
-    private const int MinutesPerExerciseEstimate = 6;
+    private const decimal SecondsPerRepEstimate = 2.5m;
+    private const int TransitionSecondsPerExercise = 45;
     private const int WarmupAndTransitionsMinutes = 5;
 
     public static TrainingProgramGenerationResult Generate(
@@ -41,7 +42,7 @@ public static class TrainingProgramGenerator
             {
                 var sessionTemplate = split[dayIndex];
                 var requiredPatterns = sessionTemplate.Patterns;
-                var estimatedDuration = WarmupAndTransitionsMinutes + requiredPatterns.Count * MinutesPerExerciseEstimate;
+                var estimatedDuration = EstimateSessionDuration(request, week, days.Length, requiredPatterns);
                 if (estimatedDuration > request.MaximumSessionDurationMinutes)
                     return Failure($"La sesión '{sessionTemplate.Title}' requiere aproximadamente {estimatedDuration} minutos y supera el límite solicitado.");
 
@@ -76,7 +77,7 @@ public static class TrainingProgramGenerator
                     selectedThisWeek.Add(candidate.ExerciseId);
                     currentWeekSelections.TryAdd(pattern, candidate.ExerciseId);
 
-                    var (sets, minReps, maxReps, rir, rest, progression) = PrescriptionFor(request.Goal, request.Experience, week);
+                    var (sets, minReps, maxReps, rir, rest, progression) = PrescriptionFor(request.Goal, request.Experience, week, days.Length, pattern);
                     prescriptions.Add(new TrainingExercisePrescription(
                         candidate.ExerciseId,
                         candidate.CatalogVersion,
@@ -234,8 +235,24 @@ public static class TrainingProgramGenerator
     /// Conservative four-week microcycle: establish, build, build, deload.
     /// This is a provisional software heuristic, not a universally validated prescription.
     /// </summary>
+    private static int EstimateSessionDuration(
+        TrainingProgramGenerationRequest request, int week, int daysPerWeek,
+        IReadOnlyList<TrainingMovementPattern> patterns)
+    {
+        var totalSeconds = WarmupAndTransitionsMinutes * 60m;
+        foreach (var pattern in patterns)
+        {
+            var prescription = PrescriptionFor(request.Goal, request.Experience, week, daysPerWeek, pattern);
+            var averageRepetitions = (prescription.MinReps + prescription.MaxReps) / 2m;
+            var workingSeconds = prescription.Sets * averageRepetitions * SecondsPerRepEstimate;
+            var restSeconds = Math.Max(0, prescription.Sets - 1) * prescription.RestSeconds;
+            totalSeconds += workingSeconds + restSeconds + TransitionSecondsPerExercise;
+        }
+        return (int)Math.Ceiling(totalSeconds / 60m);
+    }
+
     private static (int Sets, int MinReps, int MaxReps, decimal Rir, int RestSeconds, TrainingProgressionRule Progression)
-        PrescriptionFor(TrainingGoal goal, TrainingExperience experience, int week)
+        PrescriptionFor(TrainingGoal goal, TrainingExperience experience, int week, int daysPerWeek, TrainingMovementPattern pattern)
     {
         var beginner = experience == TrainingExperience.Beginner;
         var baseline = goal switch
@@ -252,6 +269,14 @@ public static class TrainingProgramGenerator
             4 => Math.Max(1, baseline.Sets - 1),
             _ => baseline.Sets
         };
+
+        // Three or four training days already expose lower-body muscles to several compound
+        // patterns. Cap build weeks at three sets per lower-body pattern to avoid the 24-set
+        // glute spikes found in the evaluation corpus; two-day plans retain the higher option.
+        if (daysPerWeek >= 3 &&
+            pattern is TrainingMovementPattern.Squat or TrainingMovementPattern.Hinge or TrainingMovementPattern.SingleLeg)
+            sets = Math.Min(sets, 3);
+
         var rir = weekInCycle == 4 ? Math.Min(5m, baseline.Rir + 1m) : baseline.Rir;
 
         return (sets, baseline.MinReps, baseline.MaxReps, rir, baseline.RestSeconds, TrainingProgressionRule.DoubleProgression);
