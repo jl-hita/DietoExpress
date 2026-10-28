@@ -261,7 +261,30 @@ public sealed class TrainingProgramGeneratorTests
         Assert.Equal(2, weekOneQuads.PrimaryFrequencySessions);
         Assert.Equal(6, weekTwoQuads.PrimarySets);
         Assert.Equal(2, weekFourQuads.PrimarySets);
-        Assert.Contains(report.Warnings, warning => warning.Contains("no hay cobertura muscular identificada", StringComparison.Ordinal));
+        Assert.Empty(report.Warnings);
+    }
+
+    [Fact]
+    public void QualityReportFlagsMusclesWithoutAnyCatalogCoverage()
+    {
+        var result = TrainingProgramGenerator.Generate(Request(), Catalog());
+        Assert.True(result.Succeeded, string.Join("; ", result.Errors));
+
+        var planWithoutCalfCoverage = result.Prescription! with
+        {
+            Sessions = result.Prescription.Sessions.Select(session => session with
+            {
+                Exercises = session.Exercises.Select(exercise => exercise with
+                {
+                    PrimaryMuscleGroups = exercise.PrimaryMuscleGroups.Where(muscle => muscle != TrainingMuscleGroup.Calves).ToArray(),
+                    SecondaryMuscleGroups = exercise.SecondaryMuscleGroups.Where(muscle => muscle != TrainingMuscleGroup.Calves).ToArray()
+                }).ToArray()
+            }).ToArray(),
+            QualityReport = null
+        };
+
+        var report = TrainingProgramQualityAnalyzer.Analyze(planWithoutCalfCoverage);
+        Assert.Contains(report.Warnings, warning => warning.Contains("Calves", StringComparison.Ordinal));
     }
 
     [Fact]
