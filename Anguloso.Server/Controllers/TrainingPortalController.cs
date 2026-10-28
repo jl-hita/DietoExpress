@@ -145,7 +145,8 @@ public sealed class TrainingPortalController : ControllerBase
             return BadRequest(new { message = "Una sesión completada no puede tener un motivo de no finalización." });
         if (request.Outcome is null &&
             (request.NonCompletionReason is not null || request.RecoveryRating is not null ||
-             request.PainSignal is not null || request.ProgressionTargetAchieved is not null))
+             request.PainSignal is not null || request.ProgressionTargetAchieved is not null ||
+             request.ExerciseFeedback is { Count: > 0 }))
             return BadRequest(new { message = "El feedback estructurado requiere indicar el resultado de la sesión." });
         if (request.Notes?.Length > 4000)
             return BadRequest(new { message = "Las notas no pueden superar los 4000 caracteres." });
