@@ -119,7 +119,19 @@ public sealed class TrainingGeneratorEvaluationReportTests
         Assert.Equal(27, report.ScenarioCount);
         Assert.Equal(report.ScenarioCount, report.SuccessfulScenarios);
         Assert.Equal(0, report.HardViolationCount);
-        Assert.All(scenarios, scenario => Assert.Empty(scenario.Plan!.QualityReport!.Warnings));
+        Assert.All(scenarios, scenario =>
+        {
+            Assert.NotNull(scenario.Plan!.QualityReport);
+            Assert.Equal(4, scenario.Plan.QualityReport!.WeeklyMuscleVolumes.Count);
+            // Quality warnings are advisory; they must not be counted as structural violations.
+            Assert.Empty(scenario.HardViolations);
+        });
+        Assert.Contains(scenarios, scenario =>
+            scenario.Request.Goal == TrainingGoal.Hypertrophy &&
+            scenario.Request.Experience == TrainingExperience.Advanced &&
+            scenario.Request.TrainingDays.Count >= 3 &&
+            scenario.Plan!.QualityReport!.Warnings.Any(warning =>
+                warning.Contains("series primarias", StringComparison.Ordinal)));
         Assert.All(scenarios, scenario => Assert.All(
             scenario.Plan!.Sessions.SelectMany(session => session.Exercises),
             exercise =>
