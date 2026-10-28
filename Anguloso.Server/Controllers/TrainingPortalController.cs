@@ -75,7 +75,7 @@ public sealed class TrainingPortalController : ControllerBase
 
         var feedback = new List<Anguloso.Server.Logica.TrainingSessionFeedback>();
         await using (var feedbackCommand = Command("""
-            SELECT r.outcome, r.non_completion_reason, r.recovery_rating, r.pain_signal, r.session_rpe, r.progression_target_achieved
+            SELECT r.outcome, r.non_completion_reason, r.recovery_rating, r.pain_signal, r.session_rpe, r.progression_target_achieved, r.exercise_feedback::text
             FROM training_session_records r
             JOIN training_sessions s ON s.id = r.session_id
             JOIN training_plans p ON p.id = s.plan_id
@@ -94,7 +94,8 @@ public sealed class TrainingPortalController : ControllerBase
                     feedbackReader.IsDBNull(2) ? Anguloso.Server.Logica.TrainingRecoveryRating.Unknown : ParseRecovery(feedbackReader.GetString(2)),
                     feedbackReader.IsDBNull(3) ? Anguloso.Server.Logica.TrainingPainSignal.None : ParsePain(feedbackReader.GetString(3)),
                     feedbackReader.IsDBNull(4) ? null : feedbackReader.GetDecimal(4),
-                    feedbackReader.IsDBNull(5) ? null : feedbackReader.GetBoolean(5)));
+                    feedbackReader.IsDBNull(5) ? null : feedbackReader.GetBoolean(5),
+                    CalculateSetCompletionRatio(feedbackReader.IsDBNull(6) ? null : feedbackReader.GetString(6))));
             }
         }
 
@@ -210,7 +211,7 @@ public sealed class TrainingPortalController : ControllerBase
         var feedback = new List<(long RecordId, Anguloso.Server.Logica.TrainingSessionFeedback Feedback)>();
         await using (var command = Command("""
             SELECT r.id, r.outcome, r.non_completion_reason, r.recovery_rating, r.pain_signal,
-                   r.session_rpe, r.progression_target_achieved
+                   r.session_rpe, r.progression_target_achieved, r.exercise_feedback::text
             FROM training_session_records r
             JOIN training_sessions s ON s.id = r.session_id
             JOIN training_plans p ON p.id = s.plan_id
@@ -230,7 +231,8 @@ public sealed class TrainingPortalController : ControllerBase
                     reader.IsDBNull(3) ? Anguloso.Server.Logica.TrainingRecoveryRating.Unknown : ParseRecovery(reader.GetString(3)),
                     reader.IsDBNull(4) ? Anguloso.Server.Logica.TrainingPainSignal.None : ParsePain(reader.GetString(4)),
                     reader.IsDBNull(5) ? null : reader.GetDecimal(5),
-                    reader.IsDBNull(6) ? null : reader.GetBoolean(6))));
+                    reader.IsDBNull(6) ? null : reader.GetBoolean(6),
+                    CalculateSetCompletionRatio(reader.IsDBNull(7) ? null : reader.GetString(7)))));
         }
         if (feedback.Count == 0 || feedback.All(x => x.RecordId != recordId)) return;
         feedback.Reverse();
@@ -257,6 +259,34 @@ public sealed class TrainingPortalController : ControllerBase
             """, ("clientId", clientId), ("sessionId", sessionId), ("recordId", recordId),
             ("action", action), ("explanation", decision.Explanation));
         await insert.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static decimal? CalculateSetCompletionRatio(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            if (document.RootElement.ValueKind != JsonValueKind.Array) return null;
+            decimal planned = 0;
+            decimal completed = 0;
+            foreach (var item in document.RootElement.EnumerateArray())
+            {
+                if (!item.TryGetProperty("plannedSets", out var plannedElement) ||
+                    !item.TryGetProperty("completedSets", out var completedElement) ||
+                    !plannedElement.TryGetDecimal(out var plannedSets) ||
+                    !completedElement.TryGetDecimal(out var completedSets) ||
+                    plannedSets <= 0 || completedSets < 0 || completedSets > plannedSets)
+                    return null;
+                planned += plannedSets;
+                completed += completedSets;
+            }
+            return planned > 0 ? completed / planned : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     private NpgsqlCommand Command(string sql, params (string Name, object? Value)[] parameters)
