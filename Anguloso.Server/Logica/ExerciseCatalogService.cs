@@ -844,7 +844,7 @@ public sealed class ExerciseCatalogService
         }
     }
 
-    public async Task<IReadOnlyList<ExerciseCatalogItem>> SearchAsync(string? query, string? bodyPart, string? equipment, int limit, CancellationToken cancellationToken = default, string? reviewStatus = null, int? ownerUserId = null, bool includeAllOwners = false, int maxLimit = 100)
+    public async Task<IReadOnlyList<ExerciseCatalogItem>> SearchAsync(string? query, string? bodyPart, string? equipment, int limit, CancellationToken cancellationToken = default, string? reviewStatus = null, int? ownerUserId = null, bool includeAllOwners = false, int maxLimit = 100, int offset = 0)
     {
         await EnsureSchemaAsync(cancellationToken);
         limit = Math.Clamp(limit, 1, Math.Clamp(maxLimit, 1, 10000));
@@ -852,7 +852,8 @@ public sealed class ExerciseCatalogService
             SELECT exercise_id, name_es, name_en, category, body_part, equipment,
                    primary_muscles, secondary_muscles, goals, tags, instructions_es, images, source, review_status,
                    reviewed, reviewed_movement_pattern, reviewed_primary_muscles, reviewed_secondary_muscles,
-                   reviewed_minimum_experience, reviewed_suitable_goals, reviewed_required_equipment, reviewed_selection_priority, review_notes, reviewed_at, reviewed_by, source_payload ->> 'contributor' AS contributor
+                   reviewed_minimum_experience, reviewed_suitable_goals, reviewed_required_equipment, reviewed_selection_priority, review_notes, reviewed_at, reviewed_by, source_payload ->> 'contributor' AS contributor,
+                   description_es, difficulty, force_type, mechanic, met, is_unilateral, is_bodyweight, tips_es
             FROM exercise_catalog
             WHERE (CAST(@body_part AS varchar) IS NULL OR body_part = @body_part)
               AND (CAST(@equipment AS varchar) IS NULL OR equipment = @equipment)
@@ -862,7 +863,7 @@ public sealed class ExerciseCatalogService
               AND (CAST(@query AS text) IS NULL OR name_es ILIKE '%' || @query || '%' OR name_en ILIKE '%' || @query || '%'
                    OR source_payload::text ILIKE '%' || @query || '%')
             ORDER BY name_es NULLS LAST, name_en
-            LIMIT @limit
+            LIMIT @limit OFFSET @offset
             """;
         var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
         var shouldClose = connection.State != ConnectionState.Open;
@@ -877,6 +878,7 @@ public sealed class ExerciseCatalogService
             Add(command, "owner_user_id", ownerUserId);
             Add(command, "include_all_owners", includeAllOwners);
             Add(command, "limit", limit);
+            Add(command, "offset", Math.Max(0, offset));
             var items = new List<ExerciseCatalogItem>();
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
@@ -889,7 +891,11 @@ public sealed class ExerciseCatalogService
                     ParseElement(reader.GetString(11)), reader.GetString(12), reader.GetString(13), reader.GetBoolean(14),
                     NullableString(reader, 15), NullableJson(reader, 16), NullableJson(reader, 17), NullableString(reader, 18),
                     NullableJson(reader, 19), NullableJson(reader, 20), reader.GetInt32(21), NullableString(reader, 22),
-                    reader.IsDBNull(23) ? null : reader.GetDateTime(23), NullableString(reader, 24), NullableString(reader, 25)));
+                    reader.IsDBNull(23) ? null : reader.GetDateTime(23), NullableString(reader, 24), NullableString(reader, 25),
+                    NullableString(reader, 26), NullableString(reader, 27), NullableString(reader, 28), NullableString(reader, 29),
+                    reader.IsDBNull(30) ? null : reader.GetDouble(30),
+                    reader.IsDBNull(31) ? null : reader.GetBoolean(31),
+                    reader.IsDBNull(32) ? null : reader.GetBoolean(32), ParseElement(reader.GetString(33))));
             }
             return items;
         }
@@ -1114,7 +1120,9 @@ public sealed record ExerciseCatalogItem(
     JsonElement InstructionsEs, JsonElement Images, string Source, string ReviewStatus, bool Reviewed,
     string? MovementPattern, JsonElement? ReviewedPrimaryMuscles, JsonElement? ReviewedSecondaryMuscles,
     string? MinimumExperience, JsonElement? SuitableGoals, JsonElement? RequiredEquipment,
-    int SelectionPriority, string? ReviewNotes, DateTime? ReviewedAt, string? ReviewedBy, string? Contributor);
+    int SelectionPriority, string? ReviewNotes, DateTime? ReviewedAt, string? ReviewedBy, string? Contributor,
+    string? DescriptionEs, string? Difficulty, string? ForceType, string? Mechanic, double? Met,
+    bool? IsUnilateral, bool? IsBodyweight, JsonElement TipsEs);
 
 public sealed record ExerciseReviewRequest(string Status, string? MovementPattern, string[] PrimaryMuscles, string[] SecondaryMuscles, string MinimumExperience, string[] SuitableGoals, string[] RequiredEquipment, int SelectionPriority, string? Notes);
 public sealed record ExerciseContributionRequest(string Name, string? Description, string? Equipment, string? BodyPart, string? MovementPattern, string[]? PrimaryMuscles, string[]? SecondaryMuscles, string? MinimumExperience, string[]? SuitableGoals, string[]? RequiredEquipment, int SelectionPriority = 50);
