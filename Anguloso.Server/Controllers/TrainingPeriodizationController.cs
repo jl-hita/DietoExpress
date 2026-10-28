@@ -671,17 +671,22 @@ public sealed class TrainingPeriodizationController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Title) || request.Title.Trim().Length > 160) return BadRequest(new { message = "El nombre de la sesión es obligatorio (máximo 160 caracteres)." });
         if (request.DurationMinutes is < 1 or > 1440) return BadRequest(new { message = "La duración debe estar entre 1 y 1440 minutos." });
         if (request.ExercisePrescription?.Length > 6000) return BadRequest(new { message = "La prescripción de ejercicios admite hasta 6000 caracteres." });
+        if (request.ExercisePrescriptionData.HasValue &&
+            (request.ExercisePrescriptionData.Value.ValueKind != JsonValueKind.Object || request.ExercisePrescriptionData.Value.GetRawText().Length > 20000))
+            return BadRequest(new { message = "La prescripción estructurada debe ser un objeto JSON de hasta 20000 caracteres." });
         if (request.SessionType is not ("endurance" or "strength" or "mobility" or "recovery" or "health" or "general" or "other"))
             return BadRequest(new { message = "El tipo de sesión no es válido." });
         await using var command = Command("""
-            INSERT INTO training_sessions(plan_id, scheduled_date, title, session_type, duration_minutes, intensity_target, instructions, exercise_prescription)
-            SELECT id, @date, @title, @type, @duration, @intensity, @instructions, @exercisePrescription
+            INSERT INTO training_sessions(plan_id, scheduled_date, title, session_type, duration_minutes, intensity_target, instructions, exercise_prescription, exercise_prescription_data)
+            SELECT id, @date, @title, @type, @duration, @intensity, @instructions, @exercisePrescription, @prescriptionData::jsonb
             FROM training_plans
             WHERE id = @planId AND @date >= start_date
               AND (end_date IS NULL OR @date <= end_date)
             RETURNING id
             """, ("planId", planId), ("date", request.ScheduledDate), ("title", request.Title.Trim()), ("type", request.SessionType),
-            ("duration", request.DurationMinutes), ("intensity", request.IntensityTarget), ("instructions", request.Instructions), ("exercisePrescription", request.ExercisePrescription?.Trim()));
+            ("duration", request.DurationMinutes), ("intensity", request.IntensityTarget), ("instructions", request.Instructions),
+            ("exercisePrescription", request.ExercisePrescription?.Trim()),
+            ("prescriptionData", request.ExercisePrescriptionData.HasValue ? request.ExercisePrescriptionData.Value.GetRawText() : null));
         var id = await command.ExecuteScalarAsync(cancellationToken);
         return id is null
             ? Conflict(new { message = "La fecha de la sesión debe estar dentro del periodo del plan." })
@@ -1337,7 +1342,7 @@ public sealed record TrainingProfileDto(int Id, int ClientId, bool Enabled, stri
 public sealed record UpdateTrainingProfileRequest(bool Enabled, string PrimaryGoal, string ExperienceLevel, string? Notes, string? ManagementMode = null);
 public sealed record CreateTrainingPlanRequest(string Name, string PeriodizationModel, DateOnly StartDate, DateOnly? EndDate, string? Notes);
 public sealed record TrainingPlanDto(int Id, string Name, string PeriodizationModel, DateOnly StartDate, DateOnly? EndDate, string Status, int Version, string? Notes);
-public sealed record CreateTrainingSessionRequest(DateOnly ScheduledDate, string Title, string SessionType, int? DurationMinutes, string? IntensityTarget, string? Instructions, string? ExercisePrescription = null);
+public sealed record CreateTrainingSessionRequest(DateOnly ScheduledDate, string Title, string SessionType, int? DurationMinutes, string? IntensityTarget, string? Instructions, string? ExercisePrescription = null, JsonElement? ExercisePrescriptionData = null);
 public sealed record RecordTrainingSessionRequest(DateTime? CompletedAt, int? ActualDurationMinutes, decimal? SessionRpe, string? Notes);
 public sealed record TrainingSessionDto(int Id, int PlanId, DateOnly ScheduledDate, string Title, string SessionType, int? DurationMinutes, string? IntensityTarget, string? Instructions, string Status, DateTime? CompletedAt, int? ActualDurationMinutes, decimal? SessionRpe, string? RecordNotes, string? ExercisePrescription = null, JsonElement? ExercisePrescriptionData = null);
 public sealed record InviteTrainingCollaboratorRequest(string Email, string? AccessScope = "training");
