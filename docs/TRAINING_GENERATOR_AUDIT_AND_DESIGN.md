@@ -1,6 +1,6 @@
 # Auditoría y diseño del generador adaptativo de entrenamiento
 
-Estado: especificación inicial; todavía no equivale a un motor implementado ni validado fisiológicamente.
+Estado: motor determinista inicial integrado en la planificación; las prescripciones y alertas requieren revisión profesional y no constituyen validación fisiológica.
 Issue de seguimiento: https://github.com/jl-hita/DietoExpress/issues/415
 
 ## 1. Hallazgos del código existente
@@ -8,7 +8,8 @@ Issue de seguimiento: https://github.com/jl-hita/DietoExpress/issues/415
 ### Planificación profesional
 - `TrainingPeriodizationController` administra perfiles, planes, mesociclos, microciclos, sesiones y plantillas.
 - `training_sessions.exercise_prescription` y `training_session_templates.exercise_prescription` conservan el texto libre por compatibilidad. Desde la migración `training-periodization-v6-structured-prescriptions`, las sesiones generadas también guardan `training_sessions.exercise_prescription_data` como JSONB: versión del motor, objetivo, semana/día, duración y ejercicios con ID/versión del catálogo, series, rango de repeticiones, RIR, descanso, progresión y grupos musculares. Las ediciones manuales que cambian el texto invalidan el JSON estructurado para evitar datos obsoletos; los cambios de fecha/título conservan la prescripción estructurada. Las plantillas de plan y las plantillas individuales de sesión conservan el JSON estructurado al guardarse/aplicarse; si el profesional edita el texto de la prescripción, el borrador descarta la estructura para evitar inconsistencias.
-- La planificación actual está orientada a que el profesional gestione el calendario; no se ha encontrado aún un motor que genere y optimice un ciclo entero desde el perfil del cliente.
+- `TrainingProgramQualityAnalyzer` calcula por semana series y frecuencia por grupo muscular, separa trabajo primario/secundario y alerta de cobertura no identificada o más de 20 series primarias semanales. Estas alertas son informativas y no bloquean el guardado; el umbral es heurístico, no una regla clínica universal.
+- La generación integral del mesociclo ya está integrada: la vista previa muestra sesiones y chequeos de volumen/cobertura, y el guardado crea los microciclos y sesiones de forma transaccional. Sigue sin ser una optimización fisiológica personalizada completa.
 - Ya existe una prueba de regresión estática en `Tests/DietoExpress.Security.Tests/TrainingPeriodizationRegressionTests.cs`, que protege parte del contrato actual.
 
 ### Biblioteca de ejercicios: discrepancia detectada
