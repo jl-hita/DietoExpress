@@ -605,6 +605,112 @@ public sealed class TrainingPeriodizationController : ControllerBase
         return CreatedAtAction(nameof(GetPlans), new { clientId }, new { id = planId, request.Name, request.PeriodizationModel, request.StartDate, request.EndDate, status = "draft", version = 1 });
     }
 
+    [HttpGet("clients/{clientId:int}/adaptation-proposals")]
+    public async Task<IActionResult> GetAdaptationProposals(int clientId, CancellationToken cancellationToken)
+    {
+        if (!await CanManageClient(clientId, cancellationToken)) return NotFound();
+        await using var command = CreateCommand("""
+            SELECT p.id, p.client_id, p.plan_id, p.source_session_id, p.source_record_id,
+                   p.action, p.explanation, p.status, p.created_at, p.review_notes, p.applied_future_sessions,
+                   s.scheduled_date, s.title
+            FROM training_adaptation_proposals p
+            JOIN training_sessions s ON s.id = p.source_session_id
+            WHERE p.client_id = @clientId AND p.status = 'pending'
+            ORDER BY p.created_at DESC, p.id DESC
+            LIMIT 100
+            """, null, ("clientId", clientId));
+        var items = new List<object>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+            items.Add(new
+            {
+                id = reader.GetInt64(0), clientId = reader.GetInt32(1), planId = reader.GetInt32(2),
+                sourceSessionId = reader.GetInt32(3), sourceRecordId = reader.GetInt64(4),
+                action = reader.GetString(5), explanation = reader.GetString(6), status = reader.GetString(7),
+                createdAt = reader.GetDateTime(8), reviewNotes = reader.IsDBNull(9) ? null : reader.GetString(9),
+                appliedFutureSessions = reader.GetInt32(10), sessionDate = reader.GetFieldValue<DateOnly>(11),
+                sessionTitle = reader.GetString(12)
+            });
+        return Ok(items);
+    }
+
+    [HttpPost("adaptation-proposals/{proposalId:long}/review")]
+    public async Task<IActionResult> ReviewAdaptationProposal(
+        long proposalId, [FromBody] ReviewTrainingAdaptationProposalRequest request, CancellationToken cancellationToken)
+    {
+        if (request.Decision is not ("approved" or "rejected"))
+            return BadRequest(new { message = "La decisión debe ser approved o rejected." });
+        if (request.Notes?.Length > 2000)
+            return BadRequest(new { message = "Las notas de revisión no pueden superar los 2000 caracteres." });
+
+        var clientId = await _context.Database.SqlQueryRaw<int?>(
+            """SELECT client_id AS "Value" FROM training_adaptation_proposals WHERE id = {0}""", proposalId)
+            .SingleOrDefaultAsync(cancellationToken);
+        if (!clientId.HasValue || !await CanManageClient(clientId.Value, cancellationToken)) return NotFound();
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId is null) return Unauthorized();
+
+        var connection = (NpgsqlConnection)_context.Database.GetDbConnection();
+        if (connection.State != ConnectionState.Open) await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            int planId;
+            string action;
+            string status;
+            await using (var proposalCommand = CreateCommand("""
+                SELECT plan_id, action, status FROM training_adaptation_proposals
+                WHERE id = @proposalId AND client_id = @clientId FOR UPDATE
+                """, transaction, ("proposalId", proposalId), ("clientId", clientId.Value)))
+            await using (var reader = await proposalCommand.ExecuteReaderAsync(cancellationToken))
+            {
+                if (!await reader.ReadAsync(cancellationToken))
+                {
+                    await transaction.RollbackAsync(CancellationToken.None);
+                    return NotFound();
+                }
+                planId = reader.GetInt32(0);
+                action = reader.GetString(1);
+                status = reader.GetString(2);
+            }
+            if (status != "pending")
+            {
+                await transaction.RollbackAsync(CancellationToken.None);
+                return Conflict(new { message = "Esta propuesta ya ha sido revisada o sustituida." });
+            }
+
+            var applied = 0;
+            if (request.Decision == "approved" && action == "review_and_reduce_training_stress")
+                applied = await ReduceFutureSessionVolumeAsync(planId, proposalId, transaction, cancellationToken);
+            else if (request.Decision == "approved" && action == "hold_progression_and_review")
+                applied = await HoldFutureSessionProgressionAsync(planId, proposalId, transaction, cancellationToken);
+
+            await using (var update = CreateCommand("""
+                UPDATE training_adaptation_proposals
+                SET status = @status, reviewed_by_user_id = @userId, reviewed_at = NOW(),
+                    review_notes = @notes, applied_future_sessions = @applied
+                WHERE id = @proposalId AND status = 'pending'
+                """, transaction, ("status", request.Decision), ("userId", userId.Value),
+                ("notes", request.Notes?.Trim()), ("applied", applied), ("proposalId", proposalId)))
+                await update.ExecuteNonQueryAsync(cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+            var message = request.Decision == "rejected"
+                ? "Propuesta rechazada. No se ha cambiado ninguna sesión."
+                : applied > 0
+                    ? $"Propuesta aprobada. Se han adaptado {applied} sesiones futuras; el historial permanece intacto."
+                    : action == "pause_affected_exercise_and_review"
+                        ? "Revisión registrada. Por seguridad no se ha reanudado ni modificado automáticamente el ejercicio asociado al dolor; ajusta manualmente la planificación antes de reanudarlo."
+                        : "Propuesta aprobada y registrada. No se ha aplicado ningún cambio automático; revisa manualmente la planificación futura si procede.";
+            return Ok(new { status = request.Decision, appliedFutureSessions = applied, message });
+        }
+        catch
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            throw;
+        }
+    }
+
     [HttpGet("plans/{planId:int}/load-trend")]
     public async Task<IActionResult> GetLoadTrend(int planId, CancellationToken cancellationToken)
     {
@@ -1222,6 +1328,59 @@ public sealed class TrainingPeriodizationController : ControllerBase
         return Ok(items);
     }
 
+    private async Task<int> ReduceFutureSessionVolumeAsync(int planId, long proposalId, NpgsqlTransaction transaction, CancellationToken cancellationToken)
+    {
+        var rows = new List<(int Id, string Json, string? Instructions)>();
+        await using (var select = CreateCommand("""
+            SELECT s.id, s.exercise_prescription_data::text, s.instructions
+            FROM training_sessions s
+            WHERE s.plan_id = @planId AND s.scheduled_date > CURRENT_DATE AND s.status = 'planned'
+              AND NOT EXISTS (SELECT 1 FROM training_session_records r WHERE r.session_id = s.id)
+              AND s.exercise_prescription_data IS NOT NULL
+            ORDER BY s.scheduled_date, s.id FOR UPDATE
+            """, transaction, ("planId", planId)))
+        await using (var reader = await select.ExecuteReaderAsync(cancellationToken))
+            while (await reader.ReadAsync(cancellationToken))
+                rows.Add((reader.GetInt32(0), reader.GetString(1), reader.IsDBNull(2) ? null : reader.GetString(2)));
+
+        var changed = 0;
+        foreach (var row in rows)
+        {
+            if (!TrainingAdaptationPrescriptionAdjuster.TryReduceSets(row.Json, out var updatedJson, out var updatedText))
+                continue;
+            var note = $"Adaptación aprobada por profesional (propuesta #{proposalId}): reducción de volumen por feedback del paciente.";
+            var instructions = string.IsNullOrWhiteSpace(row.Instructions) ? note : $"{row.Instructions.Trim()}\n{note}";
+            await using var update = CreateCommand("""
+                UPDATE training_sessions
+                SET exercise_prescription_data = @json::jsonb, exercise_prescription = @prescription,
+                    instructions = @instructions, updated_at = NOW()
+                WHERE id = @sessionId AND scheduled_date > CURRENT_DATE AND status = 'planned'
+                  AND NOT EXISTS (SELECT 1 FROM training_session_records r WHERE r.session_id = training_sessions.id)
+                """, transaction, ("json", updatedJson), ("prescription", updatedText),
+                ("instructions", instructions), ("sessionId", row.Id));
+            changed += await update.ExecuteNonQueryAsync(cancellationToken);
+        }
+        return changed;
+    }
+
+    private async Task<int> HoldFutureSessionProgressionAsync(int planId, long proposalId, NpgsqlTransaction transaction, CancellationToken cancellationToken)
+    {
+        var note = $"Adaptación aprobada por profesional (propuesta #{proposalId}): mantener la exigencia actual, sin progresión hasta nueva revisión.";
+        await using var command = CreateCommand("""
+            UPDATE training_sessions s
+            SET intensity_target = 'Mantener la exigencia actual; sin progresión hasta nueva revisión profesional',
+                instructions = CASE
+                    WHEN COALESCE(s.instructions, '') LIKE '%' || @note || '%' THEN s.instructions
+                    WHEN COALESCE(s.instructions, '') = '' THEN @note
+                    ELSE s.instructions || E'\n' || @note
+                END,
+                updated_at = NOW()
+            WHERE s.plan_id = @planId AND s.scheduled_date > CURRENT_DATE AND s.status = 'planned'
+              AND NOT EXISTS (SELECT 1 FROM training_session_records r WHERE r.session_id = s.id)
+            """, transaction, ("planId", planId), ("note", note));
+        return await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
     private async Task<bool> CanAccessClient(int clientId, CancellationToken cancellationToken) =>
         await CanAccessClientInternal(clientId, manage: false, cancellationToken);
 
@@ -1338,6 +1497,7 @@ public sealed class TrainingPeriodizationController : ControllerBase
     }
 }
 
+public sealed record ReviewTrainingAdaptationProposalRequest(string Decision, string? Notes = null);
 public sealed record TrainingProfileDto(int Id, int ClientId, bool Enabled, string PrimaryGoal, string ExperienceLevel, string ManagementMode, string? Notes, DateTime CreatedAt, DateTime UpdatedAt, bool CanManage = true);
 public sealed record UpdateTrainingProfileRequest(bool Enabled, string PrimaryGoal, string ExperienceLevel, string? Notes, string? ManagementMode = null);
 public sealed record CreateTrainingPlanRequest(string Name, string PeriodizationModel, DateOnly StartDate, DateOnly? EndDate, string? Notes);

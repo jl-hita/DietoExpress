@@ -912,6 +912,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
             UpgradeTrainingPeriodizationSchemaV5(context, logger);
             UpgradeTrainingPeriodizationSchemaV6(context, logger);
             UpgradeTrainingPeriodizationSchemaV7(context, logger);
+            UpgradeTrainingPeriodizationSchemaV8(context, logger);
 
             VerifyCurrentSchema(context, logger);
 
@@ -3420,6 +3421,42 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
         logger.LogInformation("Prescripción estructurada en plantillas de sesión inicializada.");
     }
 
+    /// <summary>Stores professional review decisions for feedback-driven future-session adaptations.</summary>
+    public static void UpgradeTrainingPeriodizationSchemaV8(angulosodbContext context, ILogger logger)
+    {
+        if (context.Database.SqlQueryRaw<bool>("SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'training-periodization-v8-adaptation-review') AS \"Value\"").Single())
+            return;
+
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS training_adaptation_proposals (
+                id BIGSERIAL PRIMARY KEY,
+                client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                plan_id INTEGER NOT NULL REFERENCES training_plans(id) ON DELETE CASCADE,
+                source_session_id INTEGER NOT NULL REFERENCES training_sessions(id) ON DELETE CASCADE,
+                source_record_id BIGINT NOT NULL REFERENCES training_session_records(id) ON DELETE CASCADE,
+                action VARCHAR(60) NOT NULL,
+                explanation TEXT NOT NULL,
+                status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                reviewed_by_user_id INTEGER NULL REFERENCES users(id),
+                reviewed_at TIMESTAMPTZ NULL,
+                review_notes VARCHAR(2000) NULL,
+                applied_future_sessions INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT ck_training_adaptation_action CHECK (action IN (
+                    'reorganize_future_sessions','hold_progression_and_review',
+                    'review_and_reduce_training_stress','progress_according_to_prescription',
+                    'pause_affected_exercise_and_review')),
+                CONSTRAINT ck_training_adaptation_status CHECK (status IN ('pending','approved','rejected','superseded')),
+                CONSTRAINT ck_training_adaptation_applied_count CHECK (applied_future_sessions >= 0),
+                CONSTRAINT uq_training_adaptation_source_action UNIQUE(source_record_id, action)
+            );
+            CREATE INDEX IF NOT EXISTS idx_training_adaptation_client_status
+                ON training_adaptation_proposals(client_id, status, created_at DESC);
+            INSERT INTO schema_migrations(id) VALUES ('training-periodization-v8-adaptation-review') ON CONFLICT (id) DO NOTHING;
+        ");
+        logger.LogInformation("Flujo de revisión profesional de adaptaciones de entrenamiento inicializado.");
+    }
+
     private static void VerifyCurrentSchema(angulosodbContext context, ILogger logger)
     {
         // Contrato mínimo de tablas: si alguna falta después de todas las reconciliaciones,
@@ -3453,7 +3490,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
                     'subscription_payments','payment_events','invoices','invoice_lines','fiscal_records',
                     'billing_coupon_campaigns','billing_coupons','billing_coupon_redemptions',
                     'patient_commercial_communication_preferences',
-                    'patient_commercial_communication_consent_history','food_favorites','training_profiles','training_plans','training_sessions','training_session_records','training_collaborations'
+                    'patient_commercial_communication_consent_history','food_favorites','training_profiles','training_plans','training_sessions','training_session_records','training_collaborations','training_adaptation_proposals'
                 ]) AS required_table
             ) required
             WHERE NOT EXISTS (
