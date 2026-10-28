@@ -58,7 +58,7 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
-    public void ThreeAndFourDayPlansAvoidKnownHighPrimarySetSpikes()
+    public void AdvancedHypertrophyRetainsBuildWeekPrescriptionWithoutArbitraryVolumeCap()
     {
         foreach (var days in new[]
         {
@@ -74,7 +74,13 @@ public sealed class TrainingProgramGeneratorTests
             }, Catalog());
 
             Assert.True(result.Succeeded, string.Join("; ", result.Errors));
-            Assert.DoesNotContain(result.Prescription!.QualityReport!.Warnings,
+            var buildWeekLowerBody = result.Prescription!.Sessions
+                .Where(session => session.WeekNumber is 2 or 3)
+                .SelectMany(session => session.Exercises)
+                .Where(exercise => exercise.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Glutes))
+                .ToArray();
+            Assert.Contains(buildWeekLowerBody, exercise => exercise.Sets == 4);
+            Assert.DoesNotContain(result.Prescription.QualityReport!.Warnings,
                 warning => warning.Contains("series primarias", StringComparison.Ordinal));
         }
     }

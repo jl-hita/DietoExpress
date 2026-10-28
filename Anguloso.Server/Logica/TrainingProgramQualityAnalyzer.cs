@@ -6,8 +6,6 @@ namespace Anguloso.Server.Logica;
 /// </summary>
 public static class TrainingProgramQualityAnalyzer
 {
-    private const int HighPrimarySetWarningThreshold = 20;
-
     public static TrainingProgramQualityReport Analyze(TrainingProgramPrescription plan)
     {
         ArgumentNullException.ThrowIfNull(plan);
@@ -50,8 +48,6 @@ public static class TrainingProgramQualityAnalyzer
                 }
 
                 muscles.Add(new TrainingMuscleVolume(muscle, primarySets, secondarySets, primaryFrequency, secondaryFrequency));
-                if (primarySets > HighPrimarySetWarningThreshold)
-                    warnings.Add($"Semana {week}: {muscle} acumula {primarySets} series primarias; revisa el volumen y la recuperación.");
             }
 
             var uncovered = muscles.Where(muscle => muscle.PrimarySets == 0 && muscle.SecondarySets == 0)
