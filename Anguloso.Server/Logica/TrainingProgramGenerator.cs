@@ -109,6 +109,7 @@ public static class TrainingProgramGenerator
             request.StartDate,
             request.DurationWeeks,
             sessions);
+        plan = plan with { QualityReport = TrainingProgramQualityAnalyzer.Analyze(plan) };
         var validationErrors = TrainingPrescriptionValidator.Validate(plan);
         return validationErrors.Count == 0
             ? new(plan, Array.Empty<string>())
