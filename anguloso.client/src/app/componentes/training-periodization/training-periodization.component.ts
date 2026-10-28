@@ -32,6 +32,11 @@ interface GenerationRequest {
   goal: number; experience: number; startDate: string; durationWeeks: number; trainingDays: number[];
   maximumSessionDurationMinutes: number; availableEquipment: string[]; excludedExerciseIds: string[];
 }
+interface TrainingAdaptationProposal {
+  id: number; clientId: number; planId: number; sourceSessionId: number; sourceRecordId: number;
+  action: string; explanation: string; status: string; createdAt: string; reviewNotes?: string | null;
+  appliedFutureSessions: number; sessionDate: string; sessionTitle: string;
+}
 interface TrainingSession {
   id: number; planId: number; scheduledDate: string; title: string; sessionType: string; durationMinutes?: number | null;
   intensityTarget?: string | null; instructions?: string | null; status: string; completedAt?: string | null;
@@ -79,7 +84,26 @@ interface RepDbExercise {
       <header><div><p class="eyebrow">MÓDULO OPCIONAL</p><h1>{{ clientId > 0 ? 'Planificación deportiva' : 'Entrenamientos y colaboraciones' }}</h1><p *ngIf="clientId > 0">Actívala solo para clientes que quieran trabajar objetivos de actividad física o entrenamiento.</p><p *ngIf="clientId === 0">Gestiona las invitaciones de colaboración. Para crear o consultar un plan, entra en la ficha del cliente y abre su sección de planificación deportiva.</p></div></header>
       <p *ngIf="loading" role="status">{{ clientId > 0 ? 'Cargando planificación…' : 'Cargando invitaciones…' }}</p>
       <p *ngIf="error" class="error" role="alert">{{ error }}</p>
-      <p *ngIf="notice" class="success" role="status">{{ notice }}</p>
+            <p *ngIf="notice" class="success" role="status">{{ notice }}</p>
+      <section class="panel adaptation-review-panel" *ngIf="clientId > 0 && profile?.enabled && profile.canManage && !loading">
+        <div class="section-heading"><div><h2>Revisión de adaptación por feedback</h2><p>Las recomendaciones del paciente no cambian el plan hasta que las revises. Las sesiones pasadas nunca se modifican.</p></div><span class="status">{{ adaptationProposals.length }} pendientes</span></div>
+        <p *ngIf="!adaptationProposals.length" class="muted">No hay propuestas pendientes. Cuando el paciente registre feedback relevante, aparecerá aquí para su revisión.</p>
+        <article *ngFor="let proposal of adaptationProposals" class="template-row adaptation-proposal-row">
+          <div class="adaptation-proposal-content">
+            <strong>{{ adaptationActionLabel(proposal.action) }}</strong>
+            <p>{{ proposal.sessionTitle }} · {{ proposal.sessionDate | date:'dd/MM/yyyy' }} · {{ proposal.createdAt | date:'dd/MM/yyyy HH:mm' }}</p>
+            <p>{{ proposal.explanation }}</p>
+            <small *ngIf="proposal.action === 'review_and_reduce_training_stress'">Al aprobar: reduce una serie por ejercicio en sesiones futuras sin feedback registrado.</small>
+            <small *ngIf="proposal.action === 'hold_progression_and_review'">Al aprobar: pausa la progresión en sesiones futuras no realizadas.</small>
+            <small *ngIf="proposal.action === 'pause_affected_exercise_and_review'">Por seguridad no se reanuda automáticamente el ejercicio asociado al dolor; requiere ajuste profesional explícito.</small>
+            <label>Nota de revisión (opcional)<textarea [name]="'adaptationReviewNotes' + proposal.id" [(ngModel)]="adaptationReviewNotes[proposal.id]" rows="2" maxlength="2000" placeholder="Motivo de la decisión o ajustes manuales pendientes"></textarea></label>
+          </div>
+          <div class="cycle-actions">
+            <button type="button" (click)="reviewAdaptationProposal(proposal, 'approved')" [disabled]="saving">Revisar y aprobar</button>
+            <button type="button" class="secondary" (click)="reviewAdaptationProposal(proposal, 'rejected')" [disabled]="saving">Rechazar</button>
+          </div>
+        </article>
+      </section>
       <p *ngIf="acceptedClientId" role="status">Colaboración aceptada. <a [routerLink]="['/clients', acceptedClientId, 'training']">Abrir el entrenamiento</a></p>
       <section class="panel template-library" *ngIf="!loading">
         <div class="section-heading"><div><h2>Plantillas de entrenamiento</h2><p>Guarda planes como modelos reutilizables y aplícalos a otros clientes sin alterar el original.</p></div><span class="status">{{ trainingTemplates.length }} plantillas</span></div>
@@ -484,6 +508,8 @@ export class TrainingPeriodizationComponent implements OnInit {
   editingSessionId: number | null = null;
   sessionEditDraft: { date: string; title: string; type: string; duration: number | null; intensity: string; instructions: string; exercisePrescription: string } | null = null;
   recordDrafts: Record<number, { duration: number | null; rpe: number | null; notes: string }> = {};
+  adaptationProposals: TrainingAdaptationProposal[] = [];
+  adaptationReviewNotes: Record<number, string> = {};
   collaborations: TrainingCollaboration[] = [];
   invitations: TrainingInvitation[] = [];
   trainingTemplates: TrainingTemplate[] = [];
@@ -1001,6 +1027,8 @@ export class TrainingPeriodizationComponent implements OnInit {
         }
 
         this.trainingManagementMode = profile.managementMode ?? (profile.enabled ? 'self' : 'none');
+        if (profile.enabled && profile.canManage) this.loadAdaptationProposals();
+        else this.adaptationProposals = [];
         if (profile.enabled && this.trainingManagementMode === 'collaboration') this.loadCollaborations();
         else this.collaborations = [];
 
@@ -1063,6 +1091,48 @@ export class TrainingPeriodizationComponent implements OnInit {
         this.error = 'No se pudo cargar la planificación deportiva. Recarga la página y vuelve a intentarlo.';
         this.loading = false;
         this.changeDetector.detectChanges();
+      }
+    });
+  }
+
+  loadAdaptationProposals(): void {
+    this.http.get<TrainingAdaptationProposal[]>('/api/training/clients/' + this.clientId + '/adaptation-proposals')
+      .pipe(catchError(() => of([] as TrainingAdaptationProposal[])))
+      .subscribe(items => {
+        this.adaptationProposals = items;
+        for (const item of items) this.adaptationReviewNotes[item.id] = this.adaptationReviewNotes[item.id] ?? '';
+        this.changeDetector.markForCheck();
+      });
+  }
+
+  adaptationActionLabel(action: string): string {
+    const labels: Record<string, string> = {
+      reorganize_future_sessions: 'Reorganizar sesiones futuras',
+      hold_progression_and_review: 'Pausar progresión y revisar recuperación',
+      review_and_reduce_training_stress: 'Revisar y reducir carga de entrenamiento',
+      progress_according_to_prescription: 'Revisar progresión prescrita',
+      pause_affected_exercise_and_review: 'Dolor registrado: revisión prioritaria'
+    };
+    return labels[action] ?? 'Revisión de adaptación';
+  }
+
+  reviewAdaptationProposal(proposal: TrainingAdaptationProposal, decision: 'approved' | 'rejected'): void {
+    const verb = decision === 'approved' ? 'aprobar' : 'rechazar';
+    if (!confirm('¿Quieres ' + verb + ' esta propuesta? Solo se podrán ajustar sesiones futuras que aún no tengan feedback.')) return;
+    this.saving = true;
+    this.error = '';
+    this.http.post<{ message?: string; appliedFutureSessions?: number }>('/api/training/adaptation-proposals/' + proposal.id + '/review', {
+      decision, notes: this.adaptationReviewNotes[proposal.id] ?? ''
+    }).subscribe({
+      next: result => {
+        this.notice = result.message ?? 'Revisión guardada.';
+        this.saving = false;
+        this.loadAdaptationProposals();
+        this.load();
+      },
+      error: e => {
+        this.error = e?.error?.message || 'No se pudo guardar la revisión de la adaptación.';
+        this.saving = false;
       }
     });
   }
