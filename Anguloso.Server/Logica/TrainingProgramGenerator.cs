@@ -270,13 +270,8 @@ public static class TrainingProgramGenerator
             _ => baseline.Sets
         };
 
-        // Three or four training days already expose lower-body muscles to several compound
-        // patterns. Cap build weeks at three sets per lower-body pattern to avoid the 24-set
-        // glute spikes found in the evaluation corpus; two-day plans retain the higher option.
-        if (daysPerWeek >= 3 &&
-            pattern is TrainingMovementPattern.Squat or TrainingMovementPattern.Hinge or TrainingMovementPattern.SingleLeg)
-            sets = Math.Min(sets, 3);
-
+        // Preserve the prescription for the selected goal and experience. The quality report
+        // surfaces high weekly volume for professional review instead of silently capping sets.
         var rir = weekInCycle == 4 ? Math.Min(5m, baseline.Rir + 1m) : baseline.Rir;
 
         return (sets, baseline.MinReps, baseline.MaxReps, rir, baseline.RestSeconds, TrainingProgressionRule.DoubleProgression);
