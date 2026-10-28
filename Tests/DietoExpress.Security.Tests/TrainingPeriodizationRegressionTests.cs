@@ -97,6 +97,18 @@ public sealed class TrainingPeriodizationRegressionTests
     }
 
     [Fact]
+    public void PlanTemplates_PreserveStructuredExercisePrescriptionWhenCopied()
+    {
+        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs"));
+
+        Assert.Contains("exercise_prescription_data::text", controller);
+        Assert.Contains("JsonElement? ExercisePrescriptionData = null", controller);
+        Assert.Contains("session.ExercisePrescriptionData.Value.GetRawText()", controller);
+        Assert.Contains("exercise_prescription_data)", controller);
+        Assert.Contains("ExercisePrescriptionData = null", controller);
+    }
+
+    [Fact]
     public void PatientTrainingFeedback_IsPersistedAndFeedsOnlyARecommendation()
     {
         var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
