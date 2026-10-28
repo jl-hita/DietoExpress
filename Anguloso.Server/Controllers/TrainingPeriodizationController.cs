@@ -181,8 +181,8 @@ public sealed class TrainingPeriodizationController : ControllerBase
                     command.Transaction = transaction;
                     command.CommandText = """
                         INSERT INTO training_sessions(plan_id, scheduled_date, title, session_type, duration_minutes,
-                            intensity_target, instructions, exercise_prescription)
-                        VALUES (@planId, @date, @title, 'strength', @duration, @intensity, @instructions, @prescription)
+                            intensity_target, instructions, exercise_prescription, exercise_prescription_data)
+                        VALUES (@planId, @date, @title, 'strength', @duration, @intensity, @instructions, @prescription, @prescriptionData::jsonb)
                         """;
                     command.Parameters.AddWithValue("planId", planId);
                     command.Parameters.AddWithValue("date", sessionDate);
@@ -191,6 +191,16 @@ public sealed class TrainingPeriodizationController : ControllerBase
                     command.Parameters.AddWithValue("intensity", $"{prescription.Goal}; RIR según prescripción");
                     command.Parameters.AddWithValue("instructions", $"Borrador generado por el motor {prescription.EngineVersion}. Revisar antes de asignar al paciente.");
                     command.Parameters.AddWithValue("prescription", prescriptionText);
+                    var structuredPrescription = JsonSerializer.Serialize(new
+                    {
+                        engineVersion = prescription.EngineVersion,
+                        goal = prescription.Goal,
+                        weekNumber = session.WeekNumber,
+                        day = session.Day.ToString(),
+                        estimatedDurationMinutes = session.EstimatedDurationMinutes,
+                        exercises = session.Exercises
+                    }, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+                    command.Parameters.AddWithValue("prescriptionData", structuredPrescription);
                     await command.ExecuteNonQueryAsync(cancellationToken);
                 }
             }
@@ -625,7 +635,8 @@ public sealed class TrainingPeriodizationController : ControllerBase
         if (!await CanAccessPlan(planId, cancellationToken)) return NotFound();
         await using var command = Command("""
             SELECT s.id, s.plan_id, s.scheduled_date, s.title, s.session_type, s.duration_minutes, s.intensity_target, s.instructions, s.status,
-                   r.completed_at, r.actual_duration_minutes, r.session_rpe, r.notes, s.exercise_prescription
+                   r.completed_at, r.actual_duration_minutes, r.session_rpe, r.notes, s.exercise_prescription,
+                   s.exercise_prescription_data::text
             FROM training_sessions s JOIN training_plans p ON p.id = s.plan_id
             JOIN training_profiles f ON f.id = p.profile_id
             LEFT JOIN training_session_records r ON r.session_id = s.id AND r.client_id = f.client_id
@@ -639,7 +650,8 @@ public sealed class TrainingPeriodizationController : ControllerBase
                 reader.IsDBNull(5) ? null : reader.GetInt32(5), reader.IsDBNull(6) ? null : reader.GetString(6), reader.IsDBNull(7) ? null : reader.GetString(7),
                 reader.GetString(8), reader.IsDBNull(9) ? null : reader.GetDateTime(9), reader.IsDBNull(10) ? null : reader.GetInt32(10),
                 reader.IsDBNull(11) ? null : reader.GetDecimal(11), reader.IsDBNull(12) ? null : reader.GetString(12),
-                reader.IsDBNull(13) ? null : reader.GetString(13)));
+                reader.IsDBNull(13) ? null : reader.GetString(13),
+                reader.IsDBNull(14) ? (JsonElement?)null : JsonSerializer.Deserialize<JsonElement>(reader.GetString(14))));
         return Ok(items);
     }
 
@@ -684,7 +696,8 @@ public sealed class TrainingPeriodizationController : ControllerBase
         await using var command = Command("""
             UPDATE training_sessions s
             SET scheduled_date = @date, title = @title, session_type = @type, duration_minutes = @duration,
-                intensity_target = @intensity, instructions = @instructions, exercise_prescription = @exercisePrescription, updated_at = NOW()
+                intensity_target = @intensity, instructions = @instructions, exercise_prescription = @exercisePrescription,
+                exercise_prescription_data = NULL, updated_at = NOW()
             FROM training_plans p JOIN training_profiles f ON f.id = p.profile_id
             WHERE s.plan_id = p.id AND s.id = @sessionId AND f.enabled = TRUE
               AND @date >= p.start_date AND (p.end_date IS NULL OR @date <= p.end_date)
@@ -1317,7 +1330,7 @@ public sealed record CreateTrainingPlanRequest(string Name, string Periodization
 public sealed record TrainingPlanDto(int Id, string Name, string PeriodizationModel, DateOnly StartDate, DateOnly? EndDate, string Status, int Version, string? Notes);
 public sealed record CreateTrainingSessionRequest(DateOnly ScheduledDate, string Title, string SessionType, int? DurationMinutes, string? IntensityTarget, string? Instructions, string? ExercisePrescription = null);
 public sealed record RecordTrainingSessionRequest(DateTime? CompletedAt, int? ActualDurationMinutes, decimal? SessionRpe, string? Notes);
-public sealed record TrainingSessionDto(int Id, int PlanId, DateOnly ScheduledDate, string Title, string SessionType, int? DurationMinutes, string? IntensityTarget, string? Instructions, string Status, DateTime? CompletedAt, int? ActualDurationMinutes, decimal? SessionRpe, string? RecordNotes, string? ExercisePrescription = null);
+public sealed record TrainingSessionDto(int Id, int PlanId, DateOnly ScheduledDate, string Title, string SessionType, int? DurationMinutes, string? IntensityTarget, string? Instructions, string Status, DateTime? CompletedAt, int? ActualDurationMinutes, decimal? SessionRpe, string? RecordNotes, string? ExercisePrescription = null, JsonElement? ExercisePrescriptionData = null);
 public sealed record InviteTrainingCollaboratorRequest(string Email, string? AccessScope = "training");
 public sealed record TrainingCollaborationDto(int Id, int ProfessionalUserId, string ProfessionalName, string Email, string AccessScope, string Status, DateTime CreatedAt, DateTime? AcceptedAt, DateTime? RevokedAt);
 
