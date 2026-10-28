@@ -127,6 +127,19 @@ public sealed class TrainingPeriodizationRegressionTests
     }
 
     [Fact]
+    public void GeneratedMesocyclePreviewShowsWeeklyMuscleVolumeDetails()
+    {
+        var ui = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "training-periodization", "training-periodization.component.ts"));
+        var analyzer = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "TrainingProgramQualityAnalyzer.cs"));
+
+        Assert.Contains("generated.qualityReport.weeklyMuscleVolumes", ui);
+        Assert.Contains("muscle.primarySets", ui);
+        Assert.Contains("muscle.secondarySets", ui);
+        Assert.Contains("muscle.primaryFrequencySessions", ui);
+        Assert.Contains("HighPrimarySetWarningThreshold = 20", analyzer);
+    }
+
+    [Fact]
     public void PatientTrainingFeedback_IsPersistedAndFeedsOnlyARecommendation()
     {
         var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
