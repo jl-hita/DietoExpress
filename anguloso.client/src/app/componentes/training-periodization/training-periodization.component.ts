@@ -358,7 +358,7 @@ interface RepDbExercise {
                   </ng-container>
                   <ng-template #editMicrocycleForm>
                     <form *ngIf="microcycleEditDraft as edit" class="cycle-form" (ngSubmit)="saveMicrocycle(micro)">
-                      <label>Nombre<input name="editMicroName{{micro.id}}" [ngModel]="viewName(edit, 'cycleEditDraft.name')" (ngModelChange)="updateName(edit, $event, 'cycleEditDraft.name')" required maxlength="160" /></label>
+                      <label>Nombre<input name="editMicroName{{micro.id}}" [(ngModel)]="edit.name" required maxlength="160" /></label>
                       <label>N.º<input type="number" name="editMicroSeq{{micro.id}}" [(ngModel)]="edit.sequence" min="1" required /></label>
                       <label>Inicio<input type="text" appDateInput name="editMicroStart{{micro.id}}" [(ngModel)]="edit.startDate" required /></label>
                       <label>Fin<input type="text" appDateInput name="editMicroEnd{{micro.id}}" [(ngModel)]="edit.endDate" /></label>
