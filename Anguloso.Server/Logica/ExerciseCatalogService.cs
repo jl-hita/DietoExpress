@@ -619,7 +619,7 @@ public sealed class ExerciseCatalogService
                   )
                   AND (
                     lower(COALESCE(category, '')) IN
-                        ('stretching', 'yoga', 'mobility', 'warmup', 'warm-up', 'warm up', 'rehabilitation', 'rehab', 'prehab', 'cardio', 'olympic', 'plyometrics')
+                        ('stretching', 'yoga', 'mobility', 'pilates', 'balance', 'warmup', 'warm_up', 'warm-up', 'warm up', 'rehabilitation', 'rehab', 'prehab', 'cardio', 'olympic', 'plyometrics')
                     OR equipment = 'bosu_ball'
                     OR exercise_id = ANY(@excluded_ids)
                   )
