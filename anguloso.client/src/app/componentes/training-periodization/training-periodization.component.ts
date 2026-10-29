@@ -252,7 +252,7 @@ interface RepDbExercise {
               <ng-container *ngFor="let phase of mesocycles[plan.id]">
                 <section class="macro-phase-detail" *ngIf="isMacroPhaseSelected(plan.id, phase)" [ngClass]="'phase-detail-' + macroPhaseKind(phase)">
                   <div class="macro-detail-heading"><div><span class="macro-kicker">FASE {{ phase.sequenceNumber | number:'2.0' }} · DETALLE DE CARGA</span><h5>{{ viewName(phase, 'macroProposals.detail') }}</h5><p>{{ phase.objective || 'Objetivo pendiente de definir' }}</p></div><span class="macro-detail-dates">{{ phase.startDate | date:'dd/MM/yyyy' }} — {{ (phase.endDate || phase.startDate) | date:'dd/MM/yyyy' }}</span></div>
-                  <div class="macro-load-legend"><span><i class="load-dot volume-dot"></i>Volumen: series prescritas</span><span><i class="load-dot frequency-dot"></i>Frecuencia: sesiones</span><span><i class="load-dot intensity-dot"></i>Intensidad: RPE/RIR si está disponible</span></div>
+                  <div class="macro-load-legend"><span><i class="load-dot volume-dot"></i>Volumen: series prescritas</span><span><i class="load-dot frequency-dot"></i>Frecuencia: sesiones</span><span><i class="load-dot intensity-dot"></i>Intensidad: RPE si está disponible</span></div>
                   <div class="macro-microcycle-grid">
                     <article class="macro-microcycle" *ngFor="let week of macroPhaseWeeks(plan, phase)" [class.week-deload]="week.isDeload">
                       <div class="macro-microcycle-top"><strong>Microciclo {{ week.weekNumber }}</strong><span>{{ week.sessions }} sesiones</span></div>
@@ -1814,7 +1814,14 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       this.error = 'Revisa el nombre y las fechas de cada fase antes de guardar.';
       return;
     }
-    for (const phase of phases) {
+    for (let index = 0; index < phases.length; index++) {
+      const phase = phases[index];
+      const overlapsAnotherProposal = phases.some((other, otherIndex) => otherIndex !== index &&
+        phase.startDate <= other.endDate && phase.endDate >= other.startDate);
+      if (overlapsAnotherProposal) {
+        this.error = 'Las fases de la propuesta se solapan entre sí. Corrige las fechas antes de guardar.';
+        return;
+      }
       if (phase.startDate < plan.startDate.slice(0, 10) || (plan.endDate && phase.endDate > plan.endDate.slice(0, 10))) {
         this.error = 'La fase «' + phase.name + '» queda fuera de las fechas del plan. Ajusta el periodo o amplía el plan antes de guardar.';
         return;
