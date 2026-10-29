@@ -41,7 +41,7 @@ export class ApplicationErrorHandler implements ErrorHandler {
 
     const errorName = this.safeText(candidate.name, 100) || 'UnknownError';
     const errorMessage = this.safeText(candidate.message, 500) || 'No exception message';
-    const stackTrace = this.safeText(candidate.stack, 6000)
+    const stackTrace = this.safeText(candidate.stack, 6000, true)
       .split('\n')
       .slice(0, 20)
       .join('\n');
@@ -61,10 +61,12 @@ export class ApplicationErrorHandler implements ErrorHandler {
     return path.replace(/\/(?:\d+|[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})(?=\/|$)/gi, '/:id');
   }
 
-  private safeText(value: unknown, maxLength: number): string {
+  private safeText(value: unknown, maxLength: number, preserveNewlines = false): string {
     if (typeof value !== 'string') return '';
-    return value
-      .replace(/[\r\n\t]+/g, ' ')
+    const normalized = preserveNewlines
+      ? value.replace(/\r/g, '').replace(/\t/g, ' ')
+      : value.replace(/[\r\n\t]+/g, ' ');
+    return normalized
       .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[email]')
       .replace(/\b\d{7,}\b/g, '[number]')
       .replace(/(token|password|authorization|cookie)\s*[:=]\s*\S+/gi, '$1=[redacted]')
