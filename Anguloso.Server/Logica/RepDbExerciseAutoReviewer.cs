@@ -82,18 +82,19 @@ internal static class RepDbExerciseAutoReviewer
     {
         var text = Normalize(string.Join(' ', id, es, en, string.Join(' ', ReadStrings(tagsJson))));
         // Strong name/ID cues first; ambiguous exercises stay pending.
-        if (Has(text, "squat", "sentadilla", "leg press", "prensa de piernas")) return "Squat";
+        if (Has(text, "squat", "sentadilla", "leg press", "prensa de piernas", "reverse nordic")) return "Squat";
         if (Has(text, "deadlift", "peso muerto", "good morning", "hip thrust", "puente de gluteos", "glute bridge", "back extension", "extension lumbar",
-            "kettlebell swing", "dumbbell swing", "one-arm swing", "swing con mancuerna", "reverse nordic")) return "Hinge";
+            "kettlebell swing", "dumbbell swing", "one-arm swing", "swing con mancuerna", "pull-through", "pull through")) return "Hinge";
         if (Has(text, "bench press", "press de banca", "push-up", "push up", "flexion", "chest press", "floor press",
-            "landmine press", "svend press", "push press", "tricep kickback", "patada de triceps")) return "HorizontalPush";
+            "landmine press", "svend press", "push press", "tricep kickback", "patada de triceps",
+            "dip machine", "dips", "fondos")) return "HorizontalPush";
         if (Has(text, "overhead press", "shoulder press", "military press", "press militar", "arnold press",
             "landmine press", "push press")) return "VerticalPush";
         if (Has(text, "row", "remo", "seated cable row", "bent-over row")) return "HorizontalPull";
         if (Has(text, "pull-up", "pull up", "chin-up", "chin up", "lat pulldown", "jalon al pecho")) return "VerticalPull";
         if (Has(text, "lunge", "zancada", "split squat", "step-up", "step up", "pistol squat", "single-leg")) return "SingleLeg";
         if (Has(text, "crunch", "sit-up", "sit up", "plank", "plancha", "dead bug", "hollow hold", "russian twist", "abdominal",
-            "leg raise", "knee raise", "flutter kick", "scissor kick", "windshield wiper", "pallof press", "farmers walk",
+            "leg raise", "knee raise", "knee tuck", "ball pike", "pike con pelota", "flutter kick", "scissor kick", "windshield wiper", "pallof press", "farmers walk",
             "farmer's walk", "suitcase carry", "overhead carry", "bench leg pull-in", "bench leg pull in",
             "ab rollout", "ab wheel", "rueda abdominal", "v-up", "v up", "tuck hold")) return "Core";
 
