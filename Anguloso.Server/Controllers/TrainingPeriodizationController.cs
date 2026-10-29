@@ -75,7 +75,7 @@ public sealed class TrainingPeriodizationController : ControllerBase
             ((int)session.Day - (int)prescription.StartDate.DayOfWeek + 7) % 7
                 + (session.WeekNumber - 1) * 7).ToArray();
         var mesocycleStart = prescription.StartDate;
-        var mesocycleEnd = prescription.StartDate.AddDays(offsets.Max());
+        var mesocycleEnd = prescription.StartDate.AddDays(prescription.DurationWeeks * 7 - 1);
         if (mesocycleEnd < mesocycleStart)
             return UnprocessableEntity(new { message = "El intervalo calculado para el mesociclo no es válido." });
 
@@ -104,34 +104,59 @@ public sealed class TrainingPeriodizationController : ControllerBase
                     return Conflict(new { message = "El mesociclo generado debe quedar dentro de las fechas del plan. Amplía el plan o ajusta la fecha y duración." });
             }
 
-            await using (var overlapCommand = connection.CreateCommand())
+            int mesocycleId;
+            if (request.ExistingMesocycleId.HasValue)
             {
-                overlapCommand.Transaction = transaction;
-                overlapCommand.CommandText = """
-                    SELECT EXISTS (
-                        SELECT 1 FROM training_mesocycles
-                        WHERE plan_id = @planId
-                          AND (sequence_number = @sequence OR
-                               (start_date <= @endDate AND COALESCE(end_date, 'infinity'::date) >= @startDate))
-                    ) OR EXISTS (
-                        SELECT 1 FROM training_sessions
-                        WHERE plan_id = @planId AND scheduled_date BETWEEN @startDate AND @endDate
-                    )
+                await using var targetCommand = connection.CreateCommand();
+                targetCommand.Transaction = transaction;
+                targetCommand.CommandText = """
+                    SELECT m.id
+                    FROM training_mesocycles m
+                    WHERE m.id = @mesocycleId AND m.plan_id = @planId
+                      AND m.start_date <= @startDate AND COALESCE(m.end_date, 'infinity'::date) >= @endDate
+                      AND NOT EXISTS (SELECT 1 FROM training_microcycles mc WHERE mc.mesocycle_id = m.id)
+                      AND NOT EXISTS (SELECT 1 FROM training_sessions s WHERE s.plan_id = m.plan_id AND s.scheduled_date BETWEEN @startDate AND @endDate)
+                    FOR UPDATE OF m
                     """;
-                overlapCommand.Parameters.AddWithValue("planId", planId);
-                overlapCommand.Parameters.AddWithValue("sequence", request.SequenceNumber);
-                overlapCommand.Parameters.AddWithValue("startDate", mesocycleStart);
-                overlapCommand.Parameters.AddWithValue("endDate", mesocycleEnd);
-                if ((bool)(await overlapCommand.ExecuteScalarAsync(cancellationToken) ?? true))
+                targetCommand.Parameters.AddWithValue("mesocycleId", request.ExistingMesocycleId.Value);
+                targetCommand.Parameters.AddWithValue("planId", planId);
+                targetCommand.Parameters.AddWithValue("startDate", mesocycleStart);
+                targetCommand.Parameters.AddWithValue("endDate", mesocycleEnd);
+                var target = await targetCommand.ExecuteScalarAsync(cancellationToken);
+                if (target is null)
                 {
                     await transaction.RollbackAsync(cancellationToken);
-                    return Conflict(new { message = "Ya existe un mesociclo con ese número o con fechas solapadas." });
+                    return Conflict(new { message = "El mesociclo seleccionado debe cubrir todas las semanas generadas y no contener microciclos ni sesiones. Elige un bloque vacío o crea uno nuevo." });
                 }
+                mesocycleId = Convert.ToInt32(target);
             }
-
-            int mesocycleId;
-            await using (var command = connection.CreateCommand())
+            else
             {
+                await using (var overlapCommand = connection.CreateCommand())
+                {
+                    overlapCommand.Transaction = transaction;
+                    overlapCommand.CommandText = """
+                        SELECT EXISTS (
+                            SELECT 1 FROM training_mesocycles
+                            WHERE plan_id = @planId
+                              AND (sequence_number = @sequence OR
+                                   (start_date <= @endDate AND COALESCE(end_date, 'infinity'::date) >= @startDate))
+                        ) OR EXISTS (
+                            SELECT 1 FROM training_sessions
+                            WHERE plan_id = @planId AND scheduled_date BETWEEN @startDate AND @endDate
+                        )
+                        """;
+                    overlapCommand.Parameters.AddWithValue("planId", planId);
+                    overlapCommand.Parameters.AddWithValue("sequence", request.SequenceNumber);
+                    overlapCommand.Parameters.AddWithValue("startDate", mesocycleStart);
+                    overlapCommand.Parameters.AddWithValue("endDate", mesocycleEnd);
+                    if ((bool)(await overlapCommand.ExecuteScalarAsync(cancellationToken) ?? true))
+                    {
+                        await transaction.RollbackAsync(cancellationToken);
+                        return Conflict(new { message = "Ya existe un mesociclo con ese número o con fechas solapadas." });
+                    }
+                }
+                await using var command = connection.CreateCommand();
                 command.Transaction = transaction;
                 command.CommandText = """
                     INSERT INTO training_mesocycles(plan_id, name, sequence_number, start_date, end_date, objective, notes)
@@ -216,7 +241,8 @@ public sealed class TrainingPeriodizationController : ControllerBase
                 durationWeeks = prescription.DurationWeeks,
                 sessionsCreated = prescription.Sessions.Count,
                 engineVersion = prescription.EngineVersion,
-                requiresProfessionalReview = true
+                requiresProfessionalReview = true,
+                addedToExistingMesocycle = request.ExistingMesocycleId.HasValue
             });
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -1656,7 +1682,7 @@ public sealed record SaveTrainingMacrocycleRequest(string Name, string Periodiza
 public sealed record SaveTrainingMacrocyclePhaseRequest(string Name, int SequenceNumber, DateOnly StartDate, DateOnly EndDate, string? Objective, string PhaseType);
 
 public sealed record CreateTrainingMesocycleRequest(string Name, int SequenceNumber, DateOnly StartDate, DateOnly? EndDate, string? Objective, string? Notes);
-public sealed record GenerateTrainingMesocycleRequest(string Name, int SequenceNumber, TrainingProgramGenerationRequest Generation, string? Notes = null);
+public sealed record GenerateTrainingMesocycleRequest(string Name, int SequenceNumber, TrainingProgramGenerationRequest Generation, string? Notes = null, int? ExistingMesocycleId = null);
 public sealed record TrainingMesocycleDto(int Id, int PlanId, string Name, int SequenceNumber, DateOnly StartDate, DateOnly? EndDate, string? Objective, string? Notes);
 public sealed record CreateTrainingMicrocycleRequest(string Name, int SequenceNumber, DateOnly StartDate, DateOnly? EndDate, string? Focus, string? Notes);
 public sealed record ReorderTrainingCyclesRequest(int[] OrderedIds);
