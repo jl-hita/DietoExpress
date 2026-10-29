@@ -1442,9 +1442,18 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       item.startDate.slice(0, 10) === phase.startDate.slice(0, 10) &&
       (item.endDate || item.startDate).slice(0, 10) === phase.endDate.slice(0, 10));
     if (existing) {
+      const hasMicrocycles = (this.microcycles[existing.id] || []).length > 0;
+      const hasSessions = (this.sessions[plan.id] || []).some(session =>
+        session.scheduledDate.slice(0, 10) >= phase.startDate.slice(0, 10) &&
+        session.scheduledDate.slice(0, 10) <= phase.endDate.slice(0, 10));
+      if (hasMicrocycles || hasSessions) {
+        this.notice = 'Ya existe un bloque para esta fase y contiene planificación o sesiones. Se conserva intacto; no se generarán rutinas encima de ese trabajo.';
+        this.error = '';
+        return;
+      }
       this.autoTargetMesocycleIds[plan.id] = existing.id;
       this.selectRoutineTarget(plan, existing.id);
-      this.notice = 'Ya existe un mesociclo para esta fase. Está seleccionado como destino de las rutinas; si contiene semanas o sesiones, no se sobrescribirán.';
+      this.notice = 'Ya existe un mesociclo vacío para esta fase. Está seleccionado como destino de las rutinas.';
       this.error = '';
       return;
     }
