@@ -26,8 +26,7 @@ internal static class RepDbExerciseAutoReviewer
         string tagsJson, bool? isBodyweight)
     {
         if (RepDbExerciseCuration.ShouldExclude(id)
-            || RepDbExerciseCuration.RequiresManualReview(id)
-            || !RepDbExerciseCuration.IsAutoApprovalCandidate(id))
+            || RepDbExerciseCuration.RequiresManualReview(id))
             return null;
 
         if (string.IsNullOrWhiteSpace(nameEs) || nameEs.Trim().Length < 3 ||
@@ -173,18 +172,45 @@ internal static class RepDbExerciseAutoReviewer
         var v = Normalize(value);
         if (bodyweight == true || Has(v, "bodyweight", "none", "no equipment", "peso corporal", "ninguno", "sin material"))
             return [];
+        if (Has(v, "trap bar", "trap_bar")) return ["trap-bar"];
         if (Has(v, "barbell", "barra")) return ["barbell"];
         if (Has(v, "dumbbell", "mancuerna")) return ["dumbbell"];
         if (Has(v, "kettlebell", "pesa rusa")) return ["kettlebell"];
         if (Has(v, "cable", "polea")) return ["cable"];
+        if (Has(v, "flat bench", "bench", "banco")) return ["bench"];
+        if (Has(v, "pull-up bar", "pull up bar", "pull_up_bar", "barra de dominadas")) return ["pull-up-bar"];
+        if (Has(v, "suspension trainer", "suspension_trainer", "trx")) return ["suspension-trainer"];
+        if (Has(v, "loop band", "loop_band", "resistance band", "resistance_band", "band")) return ["resistance-band"];
+        if (Has(v, "rings", "gymnastic rings")) return ["rings"];
+        if (Has(v, "dip station", "dip_station")) return ["dip-station"];
+        if (Has(v, "leg press", "leg_press")) return ["leg-press-machine"];
+        if (Has(v, "hack squat", "hack_squat")) return ["hack-squat-machine"];
+        if (Has(v, "leg curl", "leg_curl")) return ["leg-curl-machine"];
+        if (Has(v, "leg extension", "leg_extension")) return ["leg-extension-machine"];
+        if (Has(v, "hip abduction machine", "hip_abduction_machine", "hip adduction machine", "hip_adduction_machine")) return ["machine"];
+        if (Has(v, "back extension machine", "back_extension_machine", "bicep curl machine", "bicep_curl_machine",
+            "chest fly machine", "chest_fly_machine", "preacher curl machine", "preacher_curl_machine",
+            "reverse fly machine", "reverse_fly_machine", "ab crunch machine", "ab_crunch_machine",
+            "shoulder press machine", "shoulder_press_machine", "tricep extension machine", "tricep_extension_machine",
+            "standing calf raise machine", "standing_calf_raise_machine", "seated calf raise machine", "seated_calf_raise_machine",
+            "plate loaded lateral raise machine", "plate_loaded_lateral_raise_machine", "hip thrust machine", "hip_thrust_machine",
+            "plate loaded dip machine", "plate_loaded_dip_machine", "shrug machine", "shrug_machine",
+            "chest press machine", "chest_press_machine", "leg press", "leg_press", "hack squat", "hack_squat",
+            "leg curl", "leg_curl", "leg extension", "leg_extension", "pec deck", "pec_deck", "smith")) return ["machine"];
         if (Has(v, "machine", "máquina", "maquina")) return ["machine"];
         if (Has(v, "resistance band", "band", "banda elástica", "banda elastica")) return ["resistance-band"];
         if (Has(v, "smith")) return ["smith-machine"];
-        if (Has(v, "ez-bar", "curl bar")) return ["ez-bar"];
-        if (Has(v, "bench", "banco")) return ["bench"];
-        if (Has(v, "pull-up bar", "barra de dominadas")) return ["pull-up-bar"];
-        if (Has(v, "medicine ball", "balón medicinal", "balon medicinal")) return ["medicine-ball"];
-        if (Has(v, "foam roller", "rodillo")) return ["foam-roller"];
+        if (Has(v, "ez-bar", "ez_bar", "curl bar")) return ["ez-bar"];
+        if (Has(v, "medicine ball", "medicine_ball", "balón medicinal", "balon medicinal")) return ["medicine-ball"];
+        if (Has(v, "stability ball", "stability_ball")) return ["stability-ball"];
+        if (Has(v, "ab wheel", "ab_wheel")) return ["ab-wheel"];
+        if (Has(v, "plates", "plate")) return ["weight-plate"];
+        if (Has(v, "sled")) return ["sled"];
+        if (Has(v, "sandbag", "sand_bag")) return ["sandbag"];
+        if (Has(v, "wrist roller", "wrist_roller")) return ["wrist-roller"];
+        if (Has(v, "glute ham developer", "glute_ham_developer")) return ["glute-ham-developer"];
+        if (Has(v, "battle rope", "battle_rope")) return ["battle-rope"];
+        if (Has(v, "treadmill", "elliptical", "ski erg", "ski_erg", "stair climber", "stair_climber", "bicycle", "stationary bike", "stationary_bike", "jump rope", "jump_rope")) return null;
         return null;
     }
 
