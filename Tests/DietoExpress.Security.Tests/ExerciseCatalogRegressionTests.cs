@@ -127,7 +127,7 @@ public sealed class ExerciseCatalogRegressionTests
 
         // Every anatomical identifier present in the reviewed RepDB exports must have an exact mapping.
         // In particular, substring matching "lat" must never turn lateral deltoid into latissimus.
-        Assert.Contains("\"lateral_deltoid\" => \"Deltoids\"", autoReviewer);
+        Assert.Contains("\"anterior_deltoid\" or \"lateral_deltoid\" or \"posterior_deltoid\" or \"deltoids\" => \"Deltoids\"", autoReviewer);
         Assert.Contains("\"latissimus_dorsi\" or \"lats\" => \"Lats\"", autoReviewer);
         Assert.Contains("\"quadratus_lumborum\" => \"ErectorSpinae\"", autoReviewer);
         Assert.Contains("\"adductors\" or \"adductor_longus\"", autoReviewer);
