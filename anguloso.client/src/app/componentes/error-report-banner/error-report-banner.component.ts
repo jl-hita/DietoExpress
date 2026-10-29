@@ -41,7 +41,7 @@ export class ErrorReportBannerComponent {
   private readonly support = inject(SupportService);
   readonly sending = signal(false);
   readonly failure = signal('');
-
+  
   createTicket(error: ReportableApplicationError): void {
     if (!this.auth.isLoggedIn() || this.auth.isSuperAdmin() || this.sending()) return;
     this.sending.set(true);
@@ -49,16 +49,21 @@ export class ErrorReportBannerComponent {
     const body = [
       'Se ha detectado un error desde la aplicación y el usuario ha solicitado ayuda.',
       '',
-      'Identificador: ' + error.id,
+      'Identificador del ticket de error: ' + error.id,
       'Código: ' + error.code,
       'Fecha UTC: ' + error.occurredAt,
       'Fecha local (con zona horaria): ' + error.occurredAtLocal,
       'Zona horaria IANA: ' + error.timeZoneId,
       'Módulo/ruta: ' + error.path,
       'Estado: ' + (error.status ? 'HTTP ' + error.status : 'error del cliente'),
-      error.correlationId ? 'Identificador de correlación: ' + error.correlationId : 'Identificador de correlación: no disponible',
+      error.requestMethod ? 'Método HTTP: ' + error.requestMethod : 'Método HTTP: no disponible',
+      error.correlationId ? 'Identificador de correlación del servidor: ' + error.correlationId : 'Identificador de correlación del servidor: no disponible',
+      error.diagnosticEventId ? 'Identificador de diagnóstico de cliente: ' + error.diagnosticEventId : 'Identificador de diagnóstico de cliente: no disponible',
       '',
-      'No se han adjuntado cuerpos de petición/respuesta ni datos de formularios.'
+      'Diagnóstico técnico depurado:',
+      error.technicalDetails || 'No se dispone de detalles técnicos adicionales.',
+      '',
+      'Privacidad: no se adjuntan cuerpos de petición/respuesta, datos de formularios ni parámetros de consulta.'
     ].join('\n');
     this.support.createTicket({
       subject: 'Error de aplicación ' + error.id,

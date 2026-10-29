@@ -65,7 +65,7 @@ export const zoneChangeDetectionInterceptor: HttpInterceptorFn = (request, next)
         });
       },
       error: error => {
-        errorReporting.captureHttpError(error, request.url);
+        errorReporting.captureHttpError(error, request.url, request.method);
         diagnosticLog(diagnosticsEnabled(), 'error', `${label} HTTP stream error`, {
           elapsedMs: Date.now() - startedAt,
           inAngularZone: NgZone.isInAngularZone(),
