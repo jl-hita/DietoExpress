@@ -311,6 +311,7 @@ public class ConsultationPdfService
                                         var min = Get("minRepetitions"); if (min == "—") min = Get("MinRepetitions");
                                         var max = Get("maxRepetitions"); if (max == "—") max = Get("MaxRepetitions");
                                         var rest = Get("restSeconds"); if (rest == "—") rest = Get("RestSeconds");
+                                        var progression = Get("progressionRule"); if (progression == "—") progression = Get("ProgressionRule");
                                         item.Cell().Padding(3).Text(name);
                                         item.Cell().Padding(3).Text(sets);
                                         item.Cell().Padding(3).Text(min == max ? min : $"{min}–{max}");
