@@ -123,7 +123,7 @@ interface RepDbExercise {
       <section *ngIf="clientId === 0 && !loading" class="panel standalone-session-template-panel">
         <div class="section-heading"><div><h2>Crear plantilla de sesión</h2><p>Diseña aquí una sesión de gimnasio reutilizable, sin tener que abrir antes el expediente de un cliente ni crear una sesión en su calendario.</p></div><span class="status">{{ sessionTemplates.length }} plantillas</span></div>
         <form class="standalone-session-template-form" (ngSubmit)="saveStandaloneSessionTemplate()">
-          <label>Nombre de la plantilla<input name="standaloneSessionTemplateName" [ngModel]="viewName(standaloneSessionTemplateDraft, 'standaloneSessionTemplateDraft.name')" (ngModelChange)="updateName(standaloneSessionTemplateDraft, $event, 'standaloneSessionTemplateDraft.name')" required maxlength="160" placeholder="Ej. Torso A · hipertrofia" /></label>
+          <label>Nombre de la plantilla<input name="standaloneSessionTemplateName" [(ngModel)]="standaloneSessionTemplateDraft.name" required maxlength="160" placeholder="Ej. Torso A · hipertrofia" /></label>
           <div class="standalone-session-template-fields">
             <label>Tipo de sesión<select name="standaloneSessionTemplateType" [(ngModel)]="standaloneSessionTemplateDraft.type"><option value="strength">Fuerza / gimnasio</option><option value="endurance">Resistencia</option><option value="mobility">Movilidad</option><option value="recovery">Recuperación</option><option value="health">Salud</option><option value="general">Entrenamiento general</option><option value="other">Otro</option></select></label>
             <label>Duración (minutos)<input name="standaloneSessionTemplateDuration" type="number" [(ngModel)]="standaloneSessionTemplateDraft.duration" required min="1" max="1440" /></label>
@@ -157,7 +157,7 @@ interface RepDbExercise {
           <label>Ejercicios y prescripción<textarea name="standaloneSessionTemplateExercises" [(ngModel)]="standaloneSessionTemplateDraft.exercisePrescription" rows="7" maxlength="12000" placeholder="Añade ejercicios desde la biblioteca o escribe aquí series, repeticiones, cargas y descansos…"></textarea></label>
           <div *ngIf="muscleSetSummary(standaloneSessionTemplateDraft.exercisePrescription).length" class="muscle-set-summary"><strong>Resumen de series por grupo muscular</strong><span *ngFor="let item of muscleSetSummary(standaloneSessionTemplateDraft.exercisePrescription)">{{ item.muscle }}: {{ item.sets }} series</span><small>Cuenta las series prescritas de los ejercicios reconocidos en el catálogo; un ejercicio puede contribuir a varios grupos musculares.</small></div>
           <label>Instrucciones y notas<textarea name="standaloneSessionTemplateInstructions" [(ngModel)]="standaloneSessionTemplateDraft.instructions" rows="3" maxlength="6000" placeholder="Calentamiento, técnica, progresión, adaptaciones…"></textarea></label>
-          <div class="standalone-session-template-actions"><p class="muted">La plantilla se guardará en tu biblioteca y podrás aplicarla al programar sesiones en cualquier plan que gestiones.</p><button type="submit" [disabled]="saving || !viewName(standaloneSessionTemplateDraft, 'standaloneSessionTemplateDraft.submit').trim() || (!standaloneSessionTemplateDraft.exercisePrescription.trim() && !standaloneSessionTemplateDraft.instructions.trim())">Guardar plantilla de sesión</button></div>
+          <div class="standalone-session-template-actions"><p class="muted">La plantilla se guardará en tu biblioteca y podrás aplicarla al programar sesiones en cualquier plan que gestiones.</p><button type="submit" [disabled]="saving || !standaloneSessionTemplateDraft.name.trim() || (!standaloneSessionTemplateDraft.exercisePrescription.trim() && !standaloneSessionTemplateDraft.instructions.trim())">Guardar plantilla de sesión</button></div>
         </form>
         <div class="standalone-session-template-library">
           <h3>Mi biblioteca de plantillas de sesión</h3>
@@ -307,8 +307,8 @@ interface RepDbExercise {
             </form>
             <section class="cycle-section">
               <h4>Mesociclos</h4>
-              <form *ngIf="current.canManage" class="cycle-form" (ngSubmit)="createMesocycle(plan)">
-                <label>Nombre<input name="mesoName{{plan.id}}" [ngModel]="viewName(mesocycleDrafts[plan.id], 'mesocycleDrafts.name')" (ngModelChange)="updateName(mesocycleDrafts[plan.id], $event, 'mesocycleDrafts.name')" required maxlength="160" /></label>
+              <form *ngIf="current.canManage && mesocycleDrafts[plan.id]" class="cycle-form" (ngSubmit)="createMesocycle(plan)">
+                <label>Nombre<input name="mesoName{{plan.id}}" [(ngModel)]="mesocycleDrafts[plan.id].name" required maxlength="160" /></label>
                 <label>N.º<input type="number" name="mesoSeq{{plan.id}}" [(ngModel)]="mesocycleDrafts[plan.id].sequence" required min="1" /></label>
                 <label>Inicio<input type="text" appDateInput name="mesoStart{{plan.id}}" [(ngModel)]="mesocycleDrafts[plan.id].startDate" required /></label>
                 <label>Fin<input type="text" appDateInput name="mesoEnd{{plan.id}}" [(ngModel)]="mesocycleDrafts[plan.id].endDate" /></label>
@@ -329,7 +329,7 @@ interface RepDbExercise {
                 </ng-container>
                 <ng-template #editMesocycleForm>
                   <form *ngIf="mesocycleEditDraft as edit" class="cycle-form" (ngSubmit)="saveMesocycle(meso)">
-                    <label>Nombre<input name="editMesoName{{meso.id}}" [ngModel]="viewName(edit, 'cycleEditDraft.name')" (ngModelChange)="updateName(edit, $event, 'cycleEditDraft.name')" required maxlength="160" /></label>
+                    <label>Nombre<input name="editMesoName{{meso.id}}" [(ngModel)]="edit.name" required maxlength="160" /></label>
                     <label>N.º<input type="number" name="editMesoSeq{{meso.id}}" [(ngModel)]="edit.sequence" min="1" required /></label>
                     <label>Inicio<input type="text" appDateInput name="editMesoStart{{meso.id}}" [(ngModel)]="edit.startDate" required /></label>
                     <label>Fin<input type="text" appDateInput name="editMesoEnd{{meso.id}}" [(ngModel)]="edit.endDate" /></label>
@@ -338,8 +338,8 @@ interface RepDbExercise {
                     <button type="submit" [disabled]="saving">Guardar cambios</button><button type="button" class="secondary" (click)="editingMesocycleId = null; mesocycleEditDraft = null">Cancelar</button>
                   </form>
                 </ng-template>
-                <form *ngIf="current.canManage" class="cycle-form" (ngSubmit)="createMicrocycle(meso)">
-                  <label>Nombre<input name="microName{{meso.id}}" [ngModel]="viewName(microcycleDrafts[meso.id], 'microcycleDrafts.name')" (ngModelChange)="updateName(microcycleDrafts[meso.id], $event, 'microcycleDrafts.name')" required maxlength="160" /></label>
+                <form *ngIf="current.canManage && microcycleDrafts[meso.id]" class="cycle-form" (ngSubmit)="createMicrocycle(meso)">
+                  <label>Nombre<input name="microName{{meso.id}}" [(ngModel)]="microcycleDrafts[meso.id].name" required maxlength="160" /></label>
                   <label>N.º<input type="number" name="microSeq{{meso.id}}" [(ngModel)]="microcycleDrafts[meso.id].sequence" required min="1" /></label>
                   <label>Inicio<input type="text" appDateInput name="microStart{{meso.id}}" [(ngModel)]="microcycleDrafts[meso.id].startDate" required /></label>
                   <label>Fin<input type="text" appDateInput name="microEnd{{meso.id}}" [(ngModel)]="microcycleDrafts[meso.id].endDate" /></label>
@@ -358,7 +358,7 @@ interface RepDbExercise {
                   </ng-container>
                   <ng-template #editMicrocycleForm>
                     <form *ngIf="microcycleEditDraft as edit" class="cycle-form" (ngSubmit)="saveMicrocycle(micro)">
-                      <label>Nombre<input name="editMicroName{{micro.id}}" [ngModel]="viewName(edit, 'cycleEditDraft.name')" (ngModelChange)="updateName(edit, $event, 'cycleEditDraft.name')" required maxlength="160" /></label>
+                      <label>Nombre<input name="editMicroName{{micro.id}}" [(ngModel)]="edit.name" required maxlength="160" /></label>
                       <label>N.º<input type="number" name="editMicroSeq{{micro.id}}" [(ngModel)]="edit.sequence" min="1" required /></label>
                       <label>Inicio<input type="text" appDateInput name="editMicroStart{{micro.id}}" [(ngModel)]="edit.startDate" required /></label>
                       <label>Fin<input type="text" appDateInput name="editMicroEnd{{micro.id}}" [(ngModel)]="edit.endDate" /></label>
@@ -1142,6 +1142,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
             this.plans = safePlans;
             this.sessionDrafts = {};
             for (const plan of safePlans) {
+              // Initialize every field used by plan forms before loading=false lets Angular render them.
+              this.mesocycleDrafts[plan.id] = this.mesocycleDrafts[plan.id] ?? { name: '', sequence: 1, startDate: plan.startDate, endDate: plan.endDate ?? '', objective: '' };
               this.sessionDrafts[plan.id] = {
                 date: this.defaultSessionDate(plan),
                 title: '',
