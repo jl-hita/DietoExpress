@@ -83,7 +83,7 @@ internal static class RepDbExerciseAutoReviewer
         var text = Normalize(string.Join(' ', id, es, en, string.Join(' ', ReadStrings(tagsJson))));
         // Strong name/ID cues first; ambiguous exercises stay pending.
         if (Has(text, "squat", "sentadilla", "leg press", "prensa de piernas", "reverse nordic")) return "Squat";
-        if (Has(text, "deadlift", "peso muerto", "good morning", "hip thrust", "puente de gluteos", "glute bridge", "back extension", "extension lumbar",
+        if (Has(text, "deadlift", "peso muerto", "good morning", "hip thrust", "puente de gluteos", "glute bridge", "hip bridge", "puente de cadera", "back extension", "extension lumbar",
             "kettlebell swing", "dumbbell swing", "one-arm swing", "swing con mancuerna", "pull-through", "pull through")) return "Hinge";
         if (Has(text, "bench press", "press de banca", "push-up", "push up", "flexion", "chest press", "floor press",
             "landmine press", "svend press", "push press", "tricep kickback", "patada de triceps",
@@ -107,6 +107,7 @@ internal static class RepDbExerciseAutoReviewer
         if (Has(text, "face pull", "reverse fly", "rear delt fly", "curl de biceps", "bicep curl",
             "preacher curl", "concentration curl", "forearm curl", "wrist curl", "curl de antebrazo",
             "pullover", "shrug", "encogimiento de hombros", "sled row", "remo con trineo",
+            "straight-arm pulldown", "straight arm pulldown", "jalon con brazos rectos",
             "plate pinch", "pinza de discos", "wrist roller", "curl")) return "HorizontalPull";
         if (Has(text, "tricep extension", "triceps extension", "tricep pushdown", "skull crusher",
             "extension de triceps", "jalon de triceps")) return "HorizontalPush";
@@ -131,7 +132,8 @@ internal static class RepDbExerciseAutoReviewer
             "quadriceps extension", "extension de cuadriceps", "single-leg-extension", "leg curl", "hamstring curl",
             "curl femoral", "nordic hamstring", "calf raise", "calf press", "elevacion de talones",
             "hip abduction", "hip adduction", "abduccion de cadera", "aduccion de cadera", "glute kickback",
-            "cable kickback", "pullover", "shrug", "encogimiento de hombros", "wrist roller", "plate pinch",
+            "cable kickback", "pullover", "hip bridge", "puente de cadera", "shrug", "encogimiento de hombros", "wrist roller", "plate pinch",
+            "straight-arm pulldown", "straight arm pulldown", "jalon con brazos rectos",
             "pinza de discos", "kettlebell swing", "dumbbell swing", "farmers walk", "farmer's walk",
             "suitcase carry", "overhead carry", "sandbag carry", "ab rollout", "ab wheel", "rueda abdominal",
             "pallof press", "v-up", "v up", "flutter kick", "scissor kick");
