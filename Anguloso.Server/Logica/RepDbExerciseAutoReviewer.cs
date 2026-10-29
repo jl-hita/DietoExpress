@@ -83,15 +83,19 @@ internal static class RepDbExerciseAutoReviewer
         var text = Normalize(string.Join(' ', id, es, en, string.Join(' ', ReadStrings(tagsJson))));
         // Strong name/ID cues first; ambiguous exercises stay pending.
         if (Has(text, "squat", "sentadilla", "leg press", "prensa de piernas")) return "Squat";
-        if (Has(text, "deadlift", "peso muerto", "good morning", "hip thrust", "puente de gluteos", "glute bridge", "back extension", "extension lumbar")) return "Hinge";
-        if (Has(text, "bench press", "press de banca", "push-up", "push up", "flexion", "chest press", "floor press")) return "HorizontalPush";
-        if (Has(text, "overhead press", "shoulder press", "military press", "press militar", "arnold press")) return "VerticalPush";
+        if (Has(text, "deadlift", "peso muerto", "good morning", "hip thrust", "puente de gluteos", "glute bridge", "back extension", "extension lumbar",
+            "kettlebell swing", "dumbbell swing", "one-arm swing", "swing con mancuerna", "reverse nordic")) return "Hinge";
+        if (Has(text, "bench press", "press de banca", "push-up", "push up", "flexion", "chest press", "floor press",
+            "landmine press", "svend press", "push press", "tricep kickback", "patada de triceps")) return "HorizontalPush";
+        if (Has(text, "overhead press", "shoulder press", "military press", "press militar", "arnold press",
+            "landmine press", "push press")) return "VerticalPush";
         if (Has(text, "row", "remo", "seated cable row", "bent-over row")) return "HorizontalPull";
         if (Has(text, "pull-up", "pull up", "chin-up", "chin up", "lat pulldown", "jalon al pecho")) return "VerticalPull";
         if (Has(text, "lunge", "zancada", "split squat", "step-up", "step up", "pistol squat", "single-leg")) return "SingleLeg";
         if (Has(text, "crunch", "sit-up", "sit up", "plank", "plancha", "dead bug", "hollow hold", "russian twist", "abdominal",
-            "leg raise", "knee raise", "flutter kick", "windshield wiper", "pallof press", "farmers walk",
-            "farmer's walk", "suitcase carry", "overhead carry", "bench leg pull-in", "bench leg pull in")) return "Core";
+            "leg raise", "knee raise", "flutter kick", "scissor kick", "windshield wiper", "pallof press", "farmers walk",
+            "farmer's walk", "suitcase carry", "overhead carry", "bench leg pull-in", "bench leg pull in",
+            "ab rollout", "ab wheel", "rueda abdominal", "v-up", "v up", "tuck hold")) return "Core";
 
         // Useful isolation exercises are approved too. Map them to the nearest supported pattern
         // so they remain compatible with the current generator contract; their lower priority keeps
@@ -101,7 +105,8 @@ internal static class RepDbExerciseAutoReviewer
         if (Has(text, "chest fly", "pec deck", "cable fly", "dumbbell fly", "aperturas de pecho")) return "HorizontalPush";
         if (Has(text, "face pull", "reverse fly", "rear delt fly", "curl de biceps", "bicep curl",
             "preacher curl", "concentration curl", "forearm curl", "wrist curl", "curl de antebrazo",
-            "pullover", "shrug", "encogimiento de hombros", "sled row", "remo con trineo")) return "HorizontalPull";
+            "pullover", "shrug", "encogimiento de hombros", "sled row", "remo con trineo",
+            "plate pinch", "pinza de discos", "wrist roller", "curl")) return "HorizontalPull";
         if (Has(text, "tricep extension", "triceps extension", "tricep pushdown", "skull crusher",
             "extension de triceps", "jalon de triceps")) return "HorizontalPush";
         if (Has(text, "leg extension", "quadriceps extension", "extension de cuadriceps")) return "Squat";
@@ -121,10 +126,14 @@ internal static class RepDbExerciseAutoReviewer
             "shoulder fly", "chest fly", "pec deck", "cable fly", "dumbbell fly", "aperturas de pecho",
             "face pull", "reverse fly", "rear delt fly", "bicep curl", "curl de biceps", "preacher curl",
             "concentration curl", "forearm curl", "wrist curl", "tricep extension", "triceps extension",
-            "tricep pushdown", "skull crusher", "extension de triceps", "leg extension",
-            "quadriceps extension", "extension de cuadriceps", "leg curl", "hamstring curl",
+            "tricep pushdown", "tricep kickback", "skull crusher", "extension de triceps", "leg extension",
+            "quadriceps extension", "extension de cuadriceps", "single-leg-extension", "leg curl", "hamstring curl",
             "curl femoral", "nordic hamstring", "calf raise", "calf press", "elevacion de talones",
-            "hip abduction", "hip adduction", "abduccion de cadera", "aduccion de cadera");
+            "hip abduction", "hip adduction", "abduccion de cadera", "aduccion de cadera", "glute kickback",
+            "cable kickback", "pullover", "shrug", "encogimiento de hombros", "wrist roller", "plate pinch",
+            "pinza de discos", "kettlebell swing", "dumbbell swing", "farmers walk", "farmer's walk",
+            "suitcase carry", "overhead carry", "sandbag carry", "ab rollout", "ab wheel", "rueda abdominal",
+            "pallof press", "v-up", "v up", "flutter kick", "scissor kick");
     }
 
     private static string? MapMuscle(string value)
