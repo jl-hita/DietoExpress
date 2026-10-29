@@ -12,6 +12,9 @@ export interface ReportableApplicationError {
   status: number;
   path: string;
   correlationId?: string;
+  diagnosticEventId?: string;
+  technicalDetails?: string;
+  requestMethod?: string;
 }
 
 interface ApiProblemMetadata {
@@ -29,11 +32,7 @@ export class ErrorReportingService {
   private lastCapturedAt = 0;
   private sequence = 0;
 
-  /**
-   * Captura errores de servidor y errores 4xx marcados explícitamente como reportables
-   * por la API. No conserva cuerpos, parámetros de consulta, tokens ni datos del usuario.
-   */
-  captureHttpError(error: unknown, requestUrl: string): void {
+  captureHttpError(error: unknown, requestUrl: string, requestMethod?: string): void {
     if (!(error instanceof HttpErrorResponse)) return;
     if (!requestUrl.startsWith('/api/') || requestUrl.startsWith('/api/support/')
       || requestUrl.startsWith('/api/client-diagnostics/')) return;
@@ -73,16 +72,25 @@ export class ErrorReportingService {
       timeZoneId: this.timeZones.timeZoneId(),
       status: error.status,
       path,
-      ...(correlationId ? { correlationId } : {})
+      ...(correlationId ? { correlationId } : {}),
+      ...(requestMethod && /^[A-Z]{3,10}$/.test(requestMethod) ? { requestMethod } : {}),
+      technicalDetails: [
+        'Diagnóstico HTTP depurado',
+        'Método: ' + (requestMethod && /^[A-Z]{3,10}$/.test(requestMethod) ? requestMethod : 'no disponible'),
+        'Estado HTTP: ' + error.status,
+        'Código API: ' + code,
+        'Ruta: ' + path,
+        correlationId ? 'Correlación: ' + correlationId : 'Correlación: no disponible'
+      ].join('\n')
     });
   }
 
-  /**
-   * Captura errores JavaScript no controlados sin conservar el mensaje de excepción,
-   * que puede contener datos internos o del usuario. El diagnóstico técnico se envía
-   * por separado al endpoint autenticado; los errores HTTP se procesan en el interceptor.
-   */
-  captureClientError(error: unknown, currentPath: string): void {
+  captureClientError(
+    error: unknown,
+    currentPath: string,
+    diagnosticEventId?: string,
+    technicalDetails?: string
+  ): void {
     if (error instanceof HttpErrorResponse) return;
 
     const path = this.sanitizePath(currentPath);
@@ -101,7 +109,9 @@ export class ErrorReportingService {
       occurredAtLocal: this.timeZones.formatLocalTimestamp(new Date(now)),
       timeZoneId: this.timeZones.timeZoneId(),
       status: 0,
-      path
+      path,
+      ...(diagnosticEventId && /^[A-Za-z0-9._:-]{1,100}$/.test(diagnosticEventId) ? { diagnosticEventId } : {}),
+      ...(technicalDetails ? { technicalDetails: technicalDetails.slice(0, 6500) } : {})
     });
   }
 
@@ -111,7 +121,7 @@ export class ErrorReportingService {
 
   private sanitizePath(value: string): string {
     const path = value.split('?')[0].split('#')[0] || '/';
-    return path.replace(/\/(?:\d+|[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})(?=\/|$)/gi, '/:id');
+    return path.replace(/\/(?:\d+|[0-9a-f]{8}-[0-9a-f]{3}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})(?=\/|$)/gi, '/:id');
   }
 
   private getSafeCorrelationId(value: unknown): string | undefined {
