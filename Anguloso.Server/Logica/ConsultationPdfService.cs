@@ -313,11 +313,11 @@ public class ConsultationPdfService
                                         var max = Get("maxRepetitions"); if (max == "—") max = Get("MaxRepetitions");
                                         var rest = Get("restSeconds"); if (rest == "—") rest = Get("RestSeconds");
                                         var progression = Get("progressionRule"); if (progression == "—") progression = Get("ProgressionRule");
-                                        item.Cell().Padding(3).Text(name);
-                                        item.Cell().Padding(3).Text(sets);
-                                        item.Cell().Padding(3).Text(min == max ? min : $"{min}–{max}");
-                                        item.Cell().Padding(3).Text(rest == "—" ? rest : $"{rest}s");
-                                        item.Cell().Padding(3).Text(progression).FontSize(7);
+                                        table.Cell().Padding(3).Text(name);
+                                        table.Cell().Padding(3).Text(sets);
+                                        table.Cell().Padding(3).Text(min == max ? min : $"{min}–{max}");
+                                        table.Cell().Padding(3).Text(rest == "—" ? rest : $"{rest}s");
+                                        table.Cell().Padding(3).Text(progression).FontSize(7);
                                     }
                                 });
                             }
