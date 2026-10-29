@@ -279,7 +279,7 @@ interface RepDbExercise {
                   <small>{{ session.estimatedDurationMinutes }} min</small>
                   <ul><li *ngFor="let exercise of session.exercises">{{ exercise.order }}. {{ exercise.exerciseNameSnapshot }} — {{ exercise.sets }} × {{ exercise.minRepetitions }}–{{ exercise.maxRepetitions }} · descanso {{ exercise.restSeconds }} s</li></ul>
                 </article>
-                <div class="generated-preview-actions"><button type="button" (click)="saveGeneratedMesocycle(plan)" [disabled]="saving || generatingPlan">Guardar mesociclo y sus sesiones</button><button type="button" class="secondary" (click)="discardGeneratedPreview(plan.id)" [disabled]="saving">Descartar propuesta</button></div><p class="muted">Se guardará como borrador para que puedas ajustar las semanas y las rutinas.</p>
+                <div class="generated-preview-actions"><button type="button" (click)="saveGeneratedMesocycle(plan)" [disabled]="saving || generatingPlan">Guardar mesociclo y sus sesiones</button><button type="button" class="secondary" aria-label="Descartar vista previa" (click)="discardGeneratedPreview(plan.id)" [disabled]="saving">Descartar propuesta</button></div><p class="muted">Se guardará como borrador para que puedas ajustar las semanas y las rutinas.</p>
               </div>
             </section>
             <form *ngIf="current.canManage" class="template-save-row" (ngSubmit)="savePlanAsTemplate(plan)">
