@@ -1640,7 +1640,8 @@ export class TrainingPeriodizationComponent implements OnInit {
         next: () => saveNext(index + 1),
         error: e => {
           this.saving = false;
-          this.error = 'Se guardaron ' + index + ' de ' + phases.length + ' fases. Falló "' + phase.name + '": ' + (e?.error?.message || 'error del servidor') + '. Revisa los bloques guardados antes de volver a intentarlo.';
+          this.macroProposals[plan.id] = phases.slice(index);
+          this.error = 'Se guardaron ' + index + ' de ' + phases.length + ' fases. Falló "' + phase.name + '": ' + (e?.error?.message || 'error del servidor') + '. Las fases pendientes se conservan en la propuesta; no se volverán a enviar las que ya se guardaron.';
           this.load();
         }
       });
