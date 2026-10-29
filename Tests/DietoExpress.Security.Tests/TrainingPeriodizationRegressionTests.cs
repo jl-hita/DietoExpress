@@ -287,6 +287,11 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("this.http.put<MacrocyclePlan>", ui);
         Assert.Contains("macrocyclePlans[plan.id]", ui);
         Assert.Contains("La planificación de fases está separada de mesociclos, microciclos y sesiones.", ui);
+        Assert.Contains("int? ExistingMesocycleId = null", controller);
+        Assert.Contains("addedToExistingMesocycle = request.ExistingMesocycleId.HasValue", controller);
+        Assert.Contains("selectRoutineTarget(plan, $event)", ui);
+        Assert.Contains("existingMesocycleId, notes:", ui);
+        Assert.Contains("NOT EXISTS (SELECT 1 FROM training_microcycles mc WHERE mc.mesocycle_id = m.id)", controller);
     }
 
 }
