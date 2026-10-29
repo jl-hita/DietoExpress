@@ -246,11 +246,11 @@ interface RepDbExercise {
             </section>
             <section class="macro-overview" *ngIf="mesocycles[plan.id]?.length">
               <div class="macro-overview-heading"><div><span class="macro-kicker">VISTA GLOBAL</span><h4>Tu macrociclo</h4><p>Bloques, objetivos y progresión temporal de un vistazo.</p></div><span class="macro-total">{{ mesocycles[plan.id].length }} bloques</span></div>
-              <div class="macro-timeline" role="list" aria-label="Fases del macrociclo"><button type="button" class="macro-phase macro-phase-select" role="listitem" *ngFor="let phase of mesocycles[plan.id]" [class.is-selected]="selectedMacroPhaseId[plan.id] === phase.id || (!selectedMacroPhaseId[plan.id] && phase.id === mesocycles[plan.id][0]?.id)" [ngClass]="'phase-' + macroPhaseKind(phase)" (click)="selectMacroPhase(plan.id, phase.id)" [attr.aria-pressed]="selectedMacroPhaseId[plan.id] === phase.id || (!selectedMacroPhaseId[plan.id] && phase.id === mesocycles[plan.id][0]?.id)">
+              <div class="macro-timeline" role="list" aria-label="Fases del macrociclo"><button type="button" class="macro-phase macro-phase-select" role="listitem" *ngFor="let phase of mesocycles[plan.id]" [class.is-selected]="isMacroPhaseSelected(plan.id, phase)" [ngClass]="'phase-' + macroPhaseKind(phase)" (click)="selectMacroPhase(plan.id, phase.id)" [attr.aria-pressed]="isMacroPhaseSelected(plan.id, phase)">
                 <span class="macro-phase-number">{{ phase.sequenceNumber | number:'2.0' }}</span><div class="macro-phase-content"><strong>{{ viewName(phase, 'macroProposals.timeline') }}</strong><p>{{ phase.objective || 'Objetivo por definir' }}</p><small>{{ phase.startDate | date:'dd/MM/yyyy' }} <span *ngIf="phase.endDate">— {{ phase.endDate | date:'dd/MM/yyyy' }}</span></small><span class="macro-phase-duration">{{ macroPhaseDurationWeeks(phase) }} semanas</span></div>
               </button></div>
               <ng-container *ngFor="let phase of mesocycles[plan.id]">
-                <section class="macro-phase-detail" *ngIf="selectedMacroPhaseId[plan.id] === phase.id || (!selectedMacroPhaseId[plan.id] && phase.id === mesocycles[plan.id][0]?.id)" [ngClass]="'phase-detail-' + macroPhaseKind(phase)">
+                <section class="macro-phase-detail" *ngIf="isMacroPhaseSelected(plan.id, phase)" [ngClass]="'phase-detail-' + macroPhaseKind(phase)">
                   <div class="macro-detail-heading"><div><span class="macro-kicker">FASE {{ phase.sequenceNumber | number:'2.0' }} · DETALLE DE CARGA</span><h5>{{ viewName(phase, 'macroProposals.detail') }}</h5><p>{{ phase.objective || 'Objetivo pendiente de definir' }}</p></div><span class="macro-detail-dates">{{ phase.startDate | date:'dd/MM/yyyy' }} — {{ (phase.endDate || phase.startDate) | date:'dd/MM/yyyy' }}</span></div>
                   <div class="macro-load-legend"><span><i class="load-dot volume-dot"></i>Volumen: series prescritas</span><span><i class="load-dot frequency-dot"></i>Frecuencia: sesiones</span><span><i class="load-dot intensity-dot"></i>Intensidad: RPE/RIR si está disponible</span></div>
                   <div class="macro-microcycle-grid">
@@ -1299,6 +1299,13 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     this.selectedMacroPhaseId[planId] = phaseId;
   }
 
+  isMacroPhaseSelected(planId: number, phase: TrainingMesocycle): boolean {
+    const phases = this.mesocycles[planId] || [];
+    const selectedId = this.selectedMacroPhaseId[planId];
+    if (selectedId && phases.some(item => item.id === selectedId)) return selectedId === phase.id;
+    return phases[0]?.id === phase.id;
+  }
+
   macroPhaseKind(phase: TrainingMesocycle): 'accumulation' | 'intensification' | 'deload' | 'realization' | 'general' {
     const label = (phase.name + ' ' + (phase.objective || '')).toLocaleLowerCase('es');
     if (/descarga|recuperaci[oó]n|deload|descanso/.test(label)) return 'deload';
@@ -1745,11 +1752,23 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   }
 
   generateMacrocycleProposal(plan: TrainingPlan): void {
-    const weeks = Math.max(3, Math.min(52, Math.round(this.macroProposalWeeks[plan.id] || 12)));
-    this.macroProposalWeeks[plan.id] = weeks;
+    const requestedWeeks = Math.max(3, Math.min(52, Math.round(this.macroProposalWeeks[plan.id] || 12)));
     const existing = this.mesocycles[plan.id] || [];
-    const lastEnd = existing.map(item => item.endDate).filter((date): date is string => !!date).sort().at(-1);
-    const start = lastEnd ? this.addDays(lastEnd, 1) : plan.startDate;
+    const lastEnd = existing.map(item => item.endDate || item.startDate).filter(Boolean).sort().at(-1);
+    const start = lastEnd ? this.addDays(lastEnd, 1) : plan.startDate.slice(0, 10);
+    let weeks = requestedWeeks;
+    if (plan.endDate) {
+      const availableDays = Math.floor((Date.parse(plan.endDate.slice(0, 10) + 'T00:00:00Z') - Date.parse(start + 'T00:00:00Z')) / 86400000) + 1;
+      const availableWeeks = Math.floor(availableDays / 7);
+      if (availableWeeks < 3) {
+        this.macroProposals[plan.id] = [];
+        this.notice = 'Los bloques actuales ya ocupan las fechas del plan. Edita una fase existente o amplía primero la fecha final del plan; no se añadirá una fase fuera de plazo.';
+        this.error = '';
+        return;
+      }
+      weeks = Math.min(requestedWeeks, availableWeeks);
+    }
+    this.macroProposalWeeks[plan.id] = weeks;
     const phaseDefinitions = [
       { name: 'Acumulación y base', objective: 'Construir tolerancia al volumen y consolidar la técnica.' },
       { name: 'Intensificación y progresión', objective: 'Progresar en el estímulo manteniendo una ejecución sólida.' },
@@ -1794,6 +1813,19 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     if (!phases.length || phases.some(phase => !phase.name.trim() || !phase.startDate || !phase.endDate || phase.endDate < phase.startDate)) {
       this.error = 'Revisa el nombre y las fechas de cada fase antes de guardar.';
       return;
+    }
+    for (const phase of phases) {
+      if (phase.startDate < plan.startDate.slice(0, 10) || (plan.endDate && phase.endDate > plan.endDate.slice(0, 10))) {
+        this.error = 'La fase «' + phase.name + '» queda fuera de las fechas del plan. Ajusta el periodo o amplía el plan antes de guardar.';
+        return;
+      }
+      const overlaps = (this.mesocycles[plan.id] || []).some(existing =>
+        phase.startDate <= (existing.endDate || existing.startDate).slice(0, 10) &&
+        phase.endDate >= existing.startDate.slice(0, 10));
+      if (overlaps) {
+        this.error = 'La fase «' + phase.name + '» se solapa con un bloque existente. Ajusta las fechas para evitar duplicar la planificación.';
+        return;
+      }
     }
     this.saving = true;
     this.error = '';
