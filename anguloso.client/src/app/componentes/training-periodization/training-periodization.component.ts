@@ -1,9 +1,9 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { catchError, forkJoin, of, timeout } from 'rxjs';
+import { catchError, forkJoin, of, Subscription, timeout } from 'rxjs';
 import { DateInputDirective } from '../../directives/date-input.directive';
 
 interface TrainingProfile {
@@ -534,7 +534,7 @@ interface RepDbExercise {
 
   `]
 })
-export class TrainingPeriodizationComponent implements OnInit {
+export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   clientId = 0;
   loading = true;
   loadFailed = false;
@@ -594,6 +594,11 @@ export class TrainingPeriodizationComponent implements OnInit {
   weekOffsets: Record<number, number> = {};
   sessionDrafts: Record<number, { date: string; title: string; type: string; duration: number | null; intensity: string; instructions: string; exercisePrescription: string; exercisePrescriptionData: Record<string, unknown> | null }> = {};
   exerciseSearch = '';
+  private exerciseCatalogSearchTimer: ReturnType<typeof setTimeout> | null = null;
+  private exerciseCatalogRequest: Subscription | null = null;
+  private filteredExercisesCacheKey = '';
+  private filteredExercisesCache: Array<{ id: string; name: string; muscles: string; goal: string; equipment: string; equipmentLabel: string; instructions: string; prescription: string; imageUrl?: string; source?: string }> = [];
+  private filteredExercisesCacheCatalog: object | null = null;
   exerciseGoalFilter = 'all';
   exerciseEquipmentFilter = 'all';
   exerciseMuscleFilter = 'all';
@@ -646,11 +651,17 @@ export class TrainingPeriodizationComponent implements OnInit {
   get filteredExercises() {
     const query = this.exerciseSearch.trim().toLocaleLowerCase('es');
     const selectedMuscle = this.exerciseMuscleFilter.toLocaleLowerCase('es');
-    return this.exerciseCatalog.filter(exercise =>
+    const cacheKey = [query, this.exerciseGoalFilter, this.exerciseEquipmentFilter, selectedMuscle].join('|');
+    if (cacheKey === this.filteredExercisesCacheKey && this.filteredExercisesCacheCatalog === this.exerciseCatalog) return this.filteredExercisesCache;
+    this.filteredExercisesCacheKey = cacheKey;
+    this.filteredExercisesCacheCatalog = this.exerciseCatalog;
+    this.filteredExercisesCache = this.exerciseCatalog.filter(exercise =>
+      !!exercise && typeof exercise.name === 'string' &&
       (!query || (exercise.name + ' ' + exercise.muscles + ' ' + exercise.instructions).toLocaleLowerCase('es').includes(query)) &&
       (this.exerciseGoalFilter === 'all' || exercise.goal === this.exerciseGoalFilter) &&
       (this.exerciseEquipmentFilter === 'all' || exercise.equipment === this.exerciseEquipmentFilter) &&
       (selectedMuscle === 'all' || this.exerciseMuscleLabels(exercise.muscles).some(muscle => muscle.toLocaleLowerCase('es') === selectedMuscle)));
+    return this.filteredExercisesCache;
   }
 
   planName = '';
@@ -862,14 +873,19 @@ export class TrainingPeriodizationComponent implements OnInit {
   }
 
   loadExpandedExerciseCatalog(): void {
-    // Las búsquedas se filtran en PostgreSQL para que la interfaz pueda encontrar ejercicios de todo el catálogo.
+    // Evita una petición por tecla y cancela búsquedas obsoletas; el catálogo anterior permanece visible mientras se busca.
+    if (this.exerciseCatalogSearchTimer !== null) clearTimeout(this.exerciseCatalogSearchTimer);
+    this.exerciseCatalogRequest?.unsubscribe();
     const query = this.exerciseSearch.trim();
     if (query.length === 1) return;
-    const url = '/api/exercise-catalog?limit=100' + (query ? '&q=' + encodeURIComponent(query) : '');
-    this.http.get<RepDbExercise[]>(url)
+    this.exerciseCatalogSearchTimer = setTimeout(() => {
+      this.exerciseCatalogSearchTimer = null;
+      const url = '/api/exercise-catalog?limit=100' + (query ? '&q=' + encodeURIComponent(query) : '');
+      this.exerciseCatalogRequest = this.http.get<RepDbExercise[]>(url)
       .pipe(timeout(12000), catchError(() => of([] as RepDbExercise[])))
       .subscribe(data => {
-        const imported = data.filter(item => typeof item.id === 'string' && !!item.nameEs?.trim())
+        const safeData = Array.isArray(data) ? data : [];
+        const imported = safeData.filter((item): item is RepDbExercise => !!item && typeof item === 'object' && typeof item.id === 'string' && typeof item.nameEs === 'string' && !!item.nameEs.trim())
           .map(item => {
             const equipmentRaw = String(item.equipment ?? '').toLocaleLowerCase('es');
             const bodyPart = String(item.bodyPart ?? '').toLocaleLowerCase('es');
@@ -891,7 +907,8 @@ export class TrainingPeriodizationComponent implements OnInit {
             const instructions = Array.isArray(item.instructionsEs) ? item.instructionsEs.join(' ') :
               (typeof item.descriptionEs === 'string' ? item.descriptionEs : 'Realiza el movimiento con control y dentro de un rango cómodo.');
             const imagePath = item.images?.flat?.start ?? item.images?.flat?.main ?? item.images?.flat?.peak;
-            const name = item.nameEs ?? item.nameEn;
+            const name = (item.nameEs || item.nameEn || '').trim();
+            if (!name) return null;
             const prescription = goal === 'endurance' ? name + ' · 10–20 min · intensidad ajustable'
               : goal === 'mobility' ? name + ' · 2 × 8–12 repeticiones controladas'
               : name + ' · 3 × 8–12 · ajustar carga y descanso';
@@ -902,14 +919,21 @@ export class TrainingPeriodizationComponent implements OnInit {
               imageUrl: typeof imagePath === 'string' ? 'https://exercise-dataset.com/' + imagePath.replace(/^\//, '') : undefined,
               source: 'repdb'
             };
-          });
+          }).filter((item): item is NonNullable<typeof item> => !!item && typeof item.name === 'string' && !!item.name.trim());
         if (imported.length) {
           const curated = this.exerciseCatalog.filter(item => !item.id.startsWith('repdb-'));
           const seen = new Set(imported.map(item => item.name.toLocaleLowerCase('es')));
           this.exerciseCatalog = [...imported, ...curated.filter(item => !seen.has(item.name.toLocaleLowerCase('es')))];
+          this.filteredExercisesCacheKey = '';
           this.changeDetector.markForCheck();
         }
       });
+    }, query ? 300 : 0);
+  }
+
+  ngOnDestroy(): void {
+    if (this.exerciseCatalogSearchTimer !== null) clearTimeout(this.exerciseCatalogSearchTimer);
+    this.exerciseCatalogRequest?.unsubscribe();
   }
 
   loadInvitations(): void {
@@ -1095,9 +1119,12 @@ export class TrainingPeriodizationComponent implements OnInit {
           }
 
           try {
-            this.plans = plans;
+            const safePlans = Array.isArray(plans) ? plans
+              .filter((plan): plan is TrainingPlan => !!plan && typeof plan === 'object' && Number.isInteger(plan.id))
+              .map(plan => ({ ...plan, name: typeof plan.name === 'string' && plan.name.trim() ? plan.name : 'Plan sin nombre' })) : [];
+            this.plans = safePlans;
             this.sessionDrafts = {};
-            for (const plan of plans) {
+            for (const plan of safePlans) {
               this.sessionDrafts[plan.id] = {
                 date: this.defaultSessionDate(plan),
                 title: '',
@@ -1121,7 +1148,7 @@ export class TrainingPeriodizationComponent implements OnInit {
           }
 
           try {
-            this.loadSessions(plans);
+            this.loadSessions(this.plans);
           } catch {
             this.error = this.error || 'La planificación se ha cargado, pero algunos detalles de las sesiones no están disponibles.';
           }
