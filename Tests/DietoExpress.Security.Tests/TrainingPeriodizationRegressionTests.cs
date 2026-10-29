@@ -267,4 +267,26 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("recordSessionFromCalendar(session)", trainingUi);
         Assert.Contains("this.setSessionView(session.planId, 'list')", trainingUi);
     }
+    [Fact]
+    public void MacrocyclePlanning_IsPersistedSeparatelyFromRoutineMesocycles()
+    {
+        var schema = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "TrainingMacrocycleSchema.cs"));
+        var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
+        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs"));
+        var ui = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "training-periodization", "training-periodization.component.ts"));
+
+        Assert.Contains("CREATE TABLE IF NOT EXISTS training_macrocycles", schema);
+        Assert.Contains("CREATE TABLE IF NOT EXISTS training_macrocycle_phases", schema);
+        Assert.Contains("ON CONFLICT (plan_id) DO NOTHING", schema);
+        Assert.True(bootstrap.IndexOf("UpgradeTrainingPeriodizationSchemaV8(context, logger)", StringComparison.Ordinal)
+            < bootstrap.IndexOf("TrainingMacrocycleSchema.Initialize(context)", StringComparison.Ordinal));
+        Assert.Contains("[HttpGet(\"plans/{planId:int}/macrocycle\")]", controller);
+        Assert.Contains("[HttpPut(\"plans/{planId:int}/macrocycle\")]", controller);
+        Assert.Contains("BeginTransactionAsync(cancellationToken)", controller);
+        Assert.Contains("training_macrocycle_phases", controller);
+        Assert.Contains("this.http.put<MacrocyclePlan>", ui);
+        Assert.Contains("macrocyclePlans[plan.id]", ui);
+        Assert.Contains("La planificación de fases está separada de mesociclos, microciclos y sesiones.", ui);
+    }
+
 }
