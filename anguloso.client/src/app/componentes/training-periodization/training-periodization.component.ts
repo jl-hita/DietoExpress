@@ -632,6 +632,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     { id:'leg-press', name:'Prensa de piernas', muscles:'Cuádriceps y glúteos', goal:'strength', equipment:'machine', equipmentLabel:'Máquina', instructions:'No bloquees las rodillas y usa un recorrido que controles.', prescription:'Prensa de piernas · 3 × 10–12 · descanso 90 s' }
   ];
   private exerciseMuscleLabels(muscles: string): string[] {
+    if (typeof muscles !== 'string' || !muscles.trim()) return [];
     return muscles.split(/,|\s+y\s+|\s+and\s+|\s*\/\s*/i)
       .map(muscle => muscle.trim())
       .filter(muscle => muscle && !/^grupo muscular según ficha$/i.test(muscle));
@@ -640,6 +641,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   get exerciseMuscleGroups(): string[] {
     const labels = new Map<string, string>();
     for (const exercise of this.exerciseCatalog) {
+      if (!exercise || typeof exercise !== 'object') continue;
       for (const muscle of this.exerciseMuscleLabels(exercise.muscles)) {
         const key = muscle.toLocaleLowerCase('es');
         if (!labels.has(key)) labels.set(key, muscle);
@@ -710,14 +712,25 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
 
   loadTrainingTemplates(): void {
     this.http.get<TrainingTemplate[]>('/api/training/templates').pipe(catchError(() => of([] as TrainingTemplate[])))
-      .subscribe(items => { this.trainingTemplates = items; this.changeDetector.markForCheck(); });
+      .subscribe(items => {
+        // Treat API payloads as untrusted runtime data: a single null row must not crash Angular rendering.
+        this.trainingTemplates = Array.isArray(items) ? items
+          .filter((item): item is TrainingTemplate => !!item && typeof item === 'object' && Number.isInteger(item.id))
+          .map(item => ({ ...item, name: typeof item.name === 'string' && item.name.trim() ? item.name : 'Plantilla sin nombre' })) : [];
+        this.changeDetector.markForCheck();
+      });
   }
 
 
   loadSessionTemplates(): void {
     this.http.get<TrainingSessionTemplate[]>('/api/training/session-templates')
       .pipe(catchError(() => of([] as TrainingSessionTemplate[])))
-      .subscribe(items => { this.sessionTemplates = items; this.changeDetector.markForCheck(); });
+      .subscribe(items => {
+        this.sessionTemplates = Array.isArray(items) ? items
+          .filter((item): item is TrainingSessionTemplate => !!item && typeof item === 'object' && Number.isInteger(item.id))
+          .map(item => ({ ...item, name: typeof item.name === 'string' && item.name.trim() ? item.name : 'Plantilla sin nombre' })) : [];
+        this.changeDetector.markForCheck();
+      });
   }
 
   addExerciseToStandaloneDraft(exercise: typeof this.exerciseCatalog[number]): void {
@@ -938,13 +951,17 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
 
   loadInvitations(): void {
     this.http.get<TrainingInvitation[]>('/api/training/collaborations/invitations').pipe(catchError(() => of([] as TrainingInvitation[])))
-      .subscribe(items => this.invitations = items);
+      .subscribe(items => this.invitations = Array.isArray(items) ? items
+        .filter((item): item is TrainingInvitation => !!item && typeof item === 'object' && Number.isInteger(item.id))
+        .map(item => ({ ...item, clientName: typeof item.clientName === 'string' ? item.clientName : 'Cliente', invitedBy: typeof item.invitedBy === 'string' ? item.invitedBy : 'Profesional' })) : []);
   }
 
   loadCollaborations(): void {
     this.http.get<TrainingCollaboration[]>(`/api/training/clients/${this.clientId}/collaborations`)
       .pipe(catchError(() => of([] as TrainingCollaboration[])))
-      .subscribe(items => this.collaborations = items);
+      .subscribe(items => this.collaborations = Array.isArray(items) ? items
+        .filter((item): item is TrainingCollaboration => !!item && typeof item === 'object' && Number.isInteger(item.id))
+        .map(item => ({ ...item, professionalName: typeof item.professionalName === 'string' ? item.professionalName : 'Profesional', email: typeof item.email === 'string' ? item.email : '' })) : []);
   }
 
 
@@ -1168,8 +1185,10 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     this.http.get<TrainingAdaptationProposal[]>('/api/training/clients/' + this.clientId + '/adaptation-proposals')
       .pipe(catchError(() => of([] as TrainingAdaptationProposal[])))
       .subscribe(items => {
-        this.adaptationProposals = items;
-        for (const item of items) this.adaptationReviewNotes[item.id] = this.adaptationReviewNotes[item.id] ?? '';
+        this.adaptationProposals = Array.isArray(items) ? items
+          .filter((item): item is TrainingAdaptationProposal => !!item && typeof item === 'object' && Number.isInteger(item.id))
+          .map(item => ({ ...item, action: typeof item.action === 'string' ? item.action : '', sessionTitle: typeof item.sessionTitle === 'string' ? item.sessionTitle : 'Sesión sin título', explanation: typeof item.explanation === 'string' ? item.explanation : '' })) : [];
+        for (const item of this.adaptationProposals) this.adaptationReviewNotes[item.id] = this.adaptationReviewNotes[item.id] ?? '';
         this.changeDetector.markForCheck();
       });
   }
@@ -1211,19 +1230,29 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     for (const plan of plans) {
       this.mesocycleDrafts[plan.id] = this.mesocycleDrafts[plan.id] ?? { name: '', sequence: 1, startDate: plan.startDate, endDate: plan.endDate ?? '', objective: '' };
       this.http.get<TrainingMesocycle[]>(`/api/training/plans/${plan.id}/mesocycles`).pipe(catchError(() => of([] as TrainingMesocycle[]))).subscribe(items => {
-        this.mesocycles[plan.id] = items;
-        for (const meso of items) {
+        const safeMesocycles = Array.isArray(items) ? items
+          .filter((item): item is TrainingMesocycle => !!item && typeof item === 'object' && Number.isInteger(item.id))
+          .map(item => ({ ...item, name: typeof item.name === 'string' && item.name.trim() ? item.name : 'Bloque sin nombre', startDate: typeof item.startDate === 'string' ? item.startDate : plan.startDate })) : [];
+        this.mesocycles[plan.id] = safeMesocycles;
+        for (const meso of safeMesocycles) {
           this.microcycleDrafts[meso.id] = this.microcycleDrafts[meso.id] ?? { name: '', sequence: 1, startDate: meso.startDate, endDate: meso.endDate ?? '', focus: '' };
-          this.http.get<TrainingMicrocycle[]>(`/api/training/mesocycles/${meso.id}/microcycles`).pipe(catchError(() => of([] as TrainingMicrocycle[]))).subscribe(rows => this.microcycles[meso.id] = rows);
+          this.http.get<TrainingMicrocycle[]>(`/api/training/mesocycles/${meso.id}/microcycles`).pipe(catchError(() => of([] as TrainingMicrocycle[]))).subscribe(rows => {
+            this.microcycles[meso.id] = Array.isArray(rows) ? rows
+              .filter((item): item is TrainingMicrocycle => !!item && typeof item === 'object' && Number.isInteger(item.id))
+              .map(item => ({ ...item, name: typeof item.name === 'string' && item.name.trim() ? item.name : 'Semana sin nombre', startDate: typeof item.startDate === 'string' ? item.startDate : meso.startDate })) : [];
+          });
         }
       });
     }
     forkJoin(plans.map(p => this.http.get<TrainingSession[]>(`/api/training/plans/${p.id}/sessions`).pipe(catchError(() => of([] as TrainingSession[]))))).subscribe(items => {
-      plans.forEach((p, i) => this.sessions[p.id] = items[i]);
+      plans.forEach((p, i) => this.sessions[p.id] = Array.isArray(items[i]) ? items[i]
+        .filter((item): item is TrainingSession => !!item && typeof item === 'object' && Number.isInteger(item.id))
+        .map(item => ({ ...item, title: typeof item.title === 'string' && item.title.trim() ? item.title : 'Sesión sin título' })) : []);
       for (const plan of plans) {
         this.http.get<TrainingLoadWeek[]>(`/api/training/plans/${plan.id}/load-trend`)
           .pipe(catchError(() => of([] as TrainingLoadWeek[])))
-          .subscribe(weeks => this.loadTrends[plan.id] = weeks);
+          .subscribe(weeks => this.loadTrends[plan.id] = Array.isArray(weeks) ? weeks
+            .filter((item): item is TrainingLoadWeek => !!item && typeof item === 'object') : []);
       }
     });
   }
