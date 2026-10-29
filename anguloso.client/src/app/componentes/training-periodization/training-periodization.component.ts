@@ -1571,6 +1571,89 @@ export class TrainingPeriodizationComponent implements OnInit {
     });
   }
 
+  generateMacrocycleProposal(plan: TrainingPlan): void {
+    const weeks = Math.max(3, Math.min(52, Math.round(this.macroProposalWeeks[plan.id] || 12)));
+    this.macroProposalWeeks[plan.id] = weeks;
+    const existing = this.mesocycles[plan.id] || [];
+    const lastEnd = existing.map(item => item.endDate).filter((date): date is string => !!date).sort().at(-1);
+    const start = lastEnd ? this.addDays(lastEnd, 1) : plan.startDate;
+    const phaseDefinitions = [
+      { name: 'Acumulación y base', objective: 'Construir tolerancia al volumen y consolidar la técnica.' },
+      { name: 'Intensificación y progresión', objective: 'Progresar en el estímulo manteniendo una ejecución sólida.' },
+      { name: 'Descarga y evaluación', objective: 'Reducir fatiga, revisar resultados y preparar el siguiente bloque.' }
+    ];
+    const first = Math.floor(weeks / 3);
+    const second = Math.floor(weeks / 3);
+    const durations = [first, second, weeks - first - second];
+    let cursor = start;
+    const firstSequence = Math.max(0, ...existing.map(item => item.sequenceNumber)) + 1;
+    this.macroProposals[plan.id] = phaseDefinitions.map((phase, index) => {
+      const phaseStart = cursor;
+      const phaseEnd = this.addDays(phaseStart, durations[index] * 7 - 1);
+      cursor = this.addDays(phaseEnd, 1);
+      return { ...phase, sequence: firstSequence + index, startDate: phaseStart, endDate: phaseEnd };
+    });
+    this.notice = 'Propuesta creada. Ajusta objetivos y fechas antes de guardarla.';
+    this.error = '';
+  }
+
+  addMacroPhase(plan: TrainingPlan): void {
+    const phases = [...(this.macroProposals[plan.id] || [])];
+    if (phases.length >= 12) return;
+    const last = phases[phases.length - 1];
+    const existing = this.mesocycles[plan.id] || [];
+    const lastExistingEnd = existing.map(item => item.endDate).filter((date): date is string => !!date).sort().at(-1);
+    const start = last ? this.addDays(last.endDate, 1) : lastExistingEnd ? this.addDays(lastExistingEnd, 1) : plan.startDate;
+    const sequence = Math.max(0, ...existing.map(item => item.sequenceNumber)) + phases.length + 1;
+    phases.push({ name: 'Nueva fase', objective: '', sequence, startDate: start, endDate: this.addDays(start, 27) });
+    this.macroProposals[plan.id] = phases;
+  }
+
+  removeMacroPhase(planId: number, index: number): void {
+    const phases = [...(this.macroProposals[planId] || [])];
+    phases.splice(index, 1);
+    const firstSequence = Math.max(0, ...(this.mesocycles[planId] || []).map(item => item.sequenceNumber)) + 1;
+    this.macroProposals[planId] = phases.map((phase, phaseIndex) => ({ ...phase, sequence: firstSequence + phaseIndex }));
+  }
+
+  saveMacrocycleProposal(plan: TrainingPlan): void {
+    const phases = [...(this.macroProposals[plan.id] || [])];
+    if (!phases.length || phases.some(phase => !phase.name.trim() || !phase.startDate || !phase.endDate || phase.endDate < phase.startDate)) {
+      this.error = 'Revisa el nombre y las fechas de cada fase antes de guardar.';
+      return;
+    }
+    this.saving = true;
+    this.error = '';
+    const saveNext = (index: number): void => {
+      if (index >= phases.length) {
+        this.saving = false;
+        this.macroProposals[plan.id] = [];
+        this.notice = 'Macrociclo guardado. Las fases se han añadido como mesociclos editables.';
+        this.load();
+        return;
+      }
+      const phase = phases[index];
+      this.http.post('/api/training/plans/' + plan.id + '/mesocycles', {
+        name: phase.name.trim(), sequenceNumber: phase.sequence, startDate: phase.startDate, endDate: phase.endDate,
+        objective: phase.objective.trim() || null, notes: null
+      }).subscribe({
+        next: () => saveNext(index + 1),
+        error: e => {
+          this.saving = false;
+          this.error = 'Se guardaron ' + index + ' de ' + phases.length + ' fases. Falló "' + phase.name + '": ' + (e?.error?.message || 'error del servidor') + '. Revisa los bloques guardados antes de volver a intentarlo.';
+          this.load();
+        }
+      });
+    };
+    saveNext(0);
+  }
+
+  private addDays(value: string, days: number): string {
+    const date = new Date(value + 'T12:00:00Z');
+    date.setUTCDate(date.getUTCDate() + days);
+    return date.toISOString().slice(0, 10);
+  }
+
   generatedLoadWeeks(program: GeneratedProgram): Array<{ weekNumber: number; sessions: number; sets: number; averageRir: number | null; volumePct: number; frequencyPct: number; intensityPct: number; loadIndex: number }> {
     const weeks = Array.from({ length: Math.max(1, program.durationWeeks) }, (_, index) => {
       const weekNumber = index + 1;
