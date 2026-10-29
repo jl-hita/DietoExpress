@@ -252,13 +252,13 @@ public class ConsultationPdfService
         container.Column(col =>
         {
             col.Spacing(10);
-            col.Item().Text("PLANIFICACIÓN DEPORTIVA").Bold().FontSize(16).FontColor("#0d9488");
+            col.Item().Background("#0d9488").Padding(10).Text("PLANIFICACIÓN DEPORTIVA").Bold().FontSize(16).FontColor("#ffffff");
             col.Item().Text(plan.Name).Bold().FontSize(13);
             col.Item().Text($"Modelo: {plan.Model} · Estado: {plan.Status}").FontColor("#555555");
             col.Item().Text($"Periodo: {plan.StartDate:dd/MM/yyyy} — {(plan.EndDate?.ToString("dd/MM/yyyy") ?? "Sin fecha final")}").FontColor("#555555");
             if (!string.IsNullOrWhiteSpace(plan.Notes))
                 col.Item().Text($"Notas del plan: {plan.Notes}");
-            col.Item().PaddingTop(4).Text("MACROCICLO · FASES Y OBJETIVOS").Bold().FontSize(11).FontColor("#0d9488");
+            col.Item().PaddingTop(4).Background("#e6fffb").Padding(7).Text("MACROCICLO · FASES Y OBJETIVOS").Bold().FontSize(11).FontColor("#0f766e");
             if (plan.Mesocycles.Count == 0)
                 col.Item().Text("No hay mesociclos definidos todavía.").Italic().FontColor("#777777");
             foreach (var meso in plan.Mesocycles)
@@ -271,7 +271,7 @@ public class ConsultationPdfService
                     if (!string.IsNullOrWhiteSpace(meso.Notes)) phase.Item().Text($"Notas: {meso.Notes}").FontSize(8).FontColor("#555555");
                 });
             }
-            col.Item().PaddingTop(5).Text("RUTINAS Y SESIONES").Bold().FontSize(11).FontColor("#0d9488");
+            col.Item().PaddingTop(5).Background("#e6fffb").Padding(7).Text("RUTINAS Y SESIONES").Bold().FontSize(11).FontColor("#0f766e");
             if (plan.Sessions.Count == 0)
                 col.Item().Text("No hay sesiones de entrenamiento registradas en este plan.").Italic().FontColor("#777777");
             foreach (var session in plan.Sessions)
@@ -381,7 +381,7 @@ public class ConsultationPdfService
     {
         container.Border(1).BorderColor("#d9dce3").Padding(10).Column(col =>
         {
-            col.Item().Text("DATOS DE LA CONSULTA").Bold().FontSize(11).FontColor("#0d9488");
+            col.Item().Background("#0d9488").Padding(7).Text("RESUMEN DEL PACIENTE").Bold().FontSize(11).FontColor("#ffffff");
             col.Item().Table(table =>
             {
                 table.ColumnsDefinition(columns =>
@@ -402,7 +402,7 @@ public class ConsultationPdfService
     {
         container.Column(col =>
         {
-            col.Item().Text("MEDICIONES DEL DÍA").Bold().FontSize(11).FontColor("#0d9488");
+            col.Item().Background("#0d9488").Padding(7).Text("MEDICIONES DEL DÍA").Bold().FontSize(11).FontColor("#ffffff");
 
             if (measurements.Count == 0)
             {
@@ -450,7 +450,7 @@ public class ConsultationPdfService
     {
         container.Column(col =>
         {
-            col.Item().Text("EVOLUCIÓN HISTÓRICA").Bold().FontSize(11).FontColor("#0d9488");
+            col.Item().Background("#0d9488").Padding(7).Text("EVOLUCIÓN Y PROGRESO").Bold().FontSize(11).FontColor("#ffffff");
 
             if (evolution.Count == 0)
             {
