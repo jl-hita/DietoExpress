@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Anguloso.Server.Controllers;
 
@@ -12,6 +13,8 @@ namespace Anguloso.Server.Controllers;
 public sealed class ClientDiagnosticsController(ILogger<ClientDiagnosticsController> logger) : ControllerBase
 {
     [HttpPost("runtime-error")]
+    [AllowAnonymous]
+    [EnableRateLimiting("client-diagnostics")]
     public IActionResult RuntimeError([FromBody] ClientRuntimeDiagnosticRequest request)
     {
         var eventId = SafeValue(request.EventId, 80);
