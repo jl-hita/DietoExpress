@@ -137,7 +137,13 @@ public sealed class ExerciseCatalogService
             result = count == 0 ? await SyncFromSourceAsync(cancellationToken) : null;
         }
 
+        // One-time additive refresh restores effective exercises that an older curation version
+        // removed from the local catalog. The source upsert deliberately preserves existing review decisions.
+        if (result is null)
+            await EnsureRepDbCatalogRefreshAsync(cancellationToken);
+
         await EnsureRepDbQualityCurationAsync(cancellationToken);
+        await EnsureRepDbGeneratorScopeCurationAsync(cancellationToken);
         await EnsureRepDbMetadataEnrichmentAsync(cancellationToken);
         await EnsureRepDbInitialReviewAsync(cancellationToken);
         return result;
@@ -522,6 +528,129 @@ public sealed class ExerciseCatalogService
     }
 
     /// <summary>
+    /// Performs one additive source refresh after the generator curation policy changes.
+    /// Existing human review decisions are preserved by the source upsert; missing useful
+    /// exercises removed by older curation versions are reintroduced.
+    /// </summary>
+    private async Task EnsureRepDbCatalogRefreshAsync(CancellationToken cancellationToken)
+    {
+        const string marker = "exercise-catalog-repdb-curation-refresh-v3";
+        var completed = await _db.Database.SqlQueryRaw<bool>(
+            "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'exercise-catalog-repdb-curation-refresh-v3') AS \"Value\"")
+            .SingleAsync(cancellationToken);
+        if (completed) return;
+
+        try
+        {
+            var result = await SyncFromSourceAsync(cancellationToken);
+            var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
+            var shouldClose = connection.State != ConnectionState.Open;
+            if (shouldClose) await connection.OpenAsync(cancellationToken);
+            try
+            {
+                await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+                await using var mark = new NpgsqlCommand(
+                    "INSERT INTO schema_migrations(id) VALUES (@marker) ON CONFLICT (id) DO NOTHING",
+                    connection, transaction);
+                Add(mark, "marker", marker);
+                await mark.ExecuteNonQueryAsync(cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+            }
+            finally
+            {
+                if (shouldClose) await connection.CloseAsync();
+            }
+
+            _logger.LogInformation(
+                "RepDB curation refresh completed: imported or refreshed {ImportedCount} eligible exercises; existing review decisions were preserved.",
+                result.ImportedCount);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Catalog refresh must not take the whole application offline if the external source is unavailable.
+            // Leave the marker unset so a later startup can retry safely.
+            _logger.LogWarning(ex, "RepDB curation refresh failed; startup will continue and the refresh will retry on a later restart.");
+        }
+    }
+
+    /// <summary>
+    /// Marks out-of-scope exercises as rejected in the automatic generator catalog without deleting
+    /// their source records. Human decisions are never overwritten by this migration.
+    /// </summary>
+    private async Task EnsureRepDbGeneratorScopeCurationAsync(CancellationToken cancellationToken)
+    {
+        const string marker = "exercise-catalog-repdb-generator-scope-v3";
+        var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+        if (shouldClose) await connection.OpenAsync(cancellationToken);
+        try
+        {
+            await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+            await using (var check = new NpgsqlCommand(
+                "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = @marker)", connection, transaction))
+            {
+                Add(check, "marker", marker);
+                if (Convert.ToBoolean(await check.ExecuteScalarAsync(cancellationToken)))
+                {
+                    await transaction.CommitAsync(cancellationToken);
+                    return;
+                }
+            }
+
+            const string sql = """
+                UPDATE exercise_catalog
+                SET review_status = 'rejected',
+                    reviewed = FALSE,
+                    reviewed_movement_pattern = NULL,
+                    reviewed_primary_muscles = NULL,
+                    reviewed_secondary_muscles = NULL,
+                    reviewed_minimum_experience = NULL,
+                    reviewed_suitable_goals = NULL,
+                    reviewed_required_equipment = NULL,
+                    review_notes = 'Excluido del generador automático: movilidad, rehabilitación, acondicionamiento o variante de baja utilidad.',
+                    reviewed_at = NOW(),
+                    reviewed_by = 'DietoExpress generator curation v3',
+                    updated_at = NOW()
+                WHERE source = 'repdb-free'
+                  AND owner_user_id IS NULL
+                  AND (
+                    (review_status = 'pending' AND reviewed_at IS NULL AND reviewed_by IS NULL)
+                    OR reviewed_by = 'RepDB automatic metadata v2'
+                  )
+                  AND (
+                    lower(COALESCE(category, '')) IN
+                        ('stretching', 'yoga', 'mobility', 'warmup', 'warm-up', 'warm up', 'rehabilitation', 'rehab', 'prehab', 'cardio', 'olympic', 'plyometrics')
+                    OR equipment = 'bosu_ball'
+                    OR exercise_id = ANY(@excluded_ids)
+                  )
+                """;
+            await using (var update = new NpgsqlCommand(sql, connection, transaction))
+            {
+                Add(update, "excluded_ids", RepDbExerciseCuration.ExcludedIds);
+                var changed = await update.ExecuteNonQueryAsync(cancellationToken);
+                _logger.LogInformation("RepDB generator scope curation v3 excluded {ExcludedCount} out-of-scope exercises without deleting source records.", changed);
+            }
+
+            await using (var mark = new NpgsqlCommand(
+                "INSERT INTO schema_migrations(id) VALUES (@marker) ON CONFLICT (id) DO NOTHING",
+                connection, transaction))
+            {
+                Add(mark, "marker", marker);
+                await mark.ExecuteNonQueryAsync(cancellationToken);
+            }
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            throw;
+        }
+        finally
+        {
+            if (shouldClose) await connection.CloseAsync();
+        }
+    }
+
+    /// <summary>
     /// Fills missing Spanish descriptions and difficulty estimates for every imported RepDB row.
     /// Only blank values are changed; source-provided and manually edited values are preserved.
     /// </summary>
@@ -646,16 +775,9 @@ public sealed class ExerciseCatalogService
         try
         {
             await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
-            await using (var check = new NpgsqlCommand("SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = @marker)", connection, transaction))
-            {
-                Add(check, "marker", marker);
-                if (Convert.ToBoolean(await check.ExecuteScalarAsync(cancellationToken)))
-                {
-                    await transaction.CommitAsync(cancellationToken);
-                    return;
-                }
-            }
-
+            // Unlike a one-time migration, this pass intentionally runs on every startup so
+            // newly imported eligible exercises are approved automatically. Its WHERE clause
+            // protects every existing human decision and makes repeated runs idempotent.
             await using (var hasRepDb = new NpgsqlCommand("SELECT EXISTS (SELECT 1 FROM exercise_catalog WHERE source = 'repdb-free')", connection, transaction))
             {
                 if (!Convert.ToBoolean(await hasRepDb.ExecuteScalarAsync(cancellationToken)))
@@ -727,7 +849,7 @@ public sealed class ExerciseCatalogService
                 await mark.ExecuteNonQueryAsync(cancellationToken);
             }
             await transaction.CommitAsync(cancellationToken);
-            _logger.LogInformation("RepDB automatic review enriched and approved {ApprovedCount} high-confidence exercises; ambiguous records remain pending.", updates.Count);
+            _logger.LogInformation("RepDB startup auto-review approved {ApprovedCount} newly eligible exercises; ambiguous records remain pending.", updates.Count);
         }
         catch
         {
