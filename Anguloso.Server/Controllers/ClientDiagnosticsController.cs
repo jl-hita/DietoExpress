@@ -18,11 +18,15 @@ public sealed class ClientDiagnosticsController(ILogger<ClientDiagnosticsControl
         var path = SafePath(request.Path);
         var errorName = SafeValue(request.ErrorName, 100);
         var errorMessage = SafeDiagnosticText(request.ErrorMessage, 500);
-        var stackTrace = SafeDiagnosticText(request.StackTrace, 6000);
+        var stackTrace = string.Join(" | ", (request.StackTrace ?? string.Empty)
+            .Split('\n')
+            .Take(20)
+            .Select(line => SafeDiagnosticText(line, 300)));
 
         logger.LogError(
-            "Client runtime diagnostic {ClientEventId} at {ClientPath}: {ClientErrorName}: {ClientErrorMessage}. Stack: {ClientStackTrace}",
+            "Client runtime diagnostic {ClientEventId} occurred at {ClientOccurredAtUtc} on {ClientPath}: {ClientErrorName}: {ClientErrorMessage}. Stack: {ClientStackTrace}",
             eventId,
+            SafeValue(request.OccurredAtUtc, 40),
             path,
             errorName,
             errorMessage,
@@ -48,8 +52,9 @@ public sealed class ClientDiagnosticsController(ILogger<ClientDiagnosticsControl
 
     private static string SafeDiagnosticText(string? value, int maxLength)
     {
-        var cleaned = SafeValue(value, maxLength)
+        var cleaned = (value ?? string.Empty)
             .Replace("Bearer ", "Bearer [redacted]", StringComparison.OrdinalIgnoreCase);
+        cleaned = Regex.Replace(cleaned, @"[\r\t]+", " ");
         cleaned = Regex.Replace(cleaned, @"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", "[email]", RegexOptions.IgnoreCase);
         cleaned = Regex.Replace(cleaned, @"\b\d{7,}\b", "[number]");
         cleaned = Regex.Replace(cleaned, @"(?i)(token|password|authorization|cookie)\s*[:=]\s*\S+", "$1=[redacted]");
