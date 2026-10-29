@@ -273,7 +273,8 @@ interface RepDbExercise {
             <section *ngIf="current.canManage" class="auto-generator-panel">
               <div class="auto-generator-heading"><span class="auto-generator-icon">✦</span><div><h4>Atajo: crear mesociclo y rutinas</h4><p>Este flujo genera el bloque, sus semanas y las sesiones de entrenamiento en una sola operación, con una vista previa antes de guardar.</p><small>¿Quieres planificar primero sin crear rutinas? Usa los formularios de mesociclos y microciclos de abajo; después podrás trabajar las sesiones por separado.</small></div></div>
               <div class="form-grid">
-                <label>Nombre del bloque (opcional)<input name="autoMesoName{{plan.id}}" [(ngModel)]="autoMesoNames[plan.id]" maxlength="160" placeholder="Ej. Hipertrofia · bloque 1" /><small>Si lo dejas vacío, se asignará un nombre automáticamente.</small></label>
+                <label>Destino de las rutinas<select name="autoRoutineTarget{{plan.id}}" [ngModel]="autoTargetMesocycleIds[plan.id] ?? null" (ngModelChange)="selectRoutineTarget(plan, $event)"><option [ngValue]="null">Crear un mesociclo nuevo</option><option *ngFor="let target of mesocycles[plan.id]" [ngValue]="target.id">{{ target.sequenceNumber }}. {{ viewName(target, 'mesocycles.routineTarget') }} · {{ target.startDate | date:'dd/MM/yyyy' }} — {{ (target.endDate || target.startDate) | date:'dd/MM/yyyy' }}</option></select><small>Elige un bloque vacío para generar sus microciclos y sesiones sin crear otro mesociclo.</small></label>
+                <label>Nombre del bloque (opcional)<input name="autoMesoName{{plan.id}}" [(ngModel)]="autoMesoNames[plan.id]" maxlength="160" placeholder="Ej. Hipertrofia · bloque 1" [disabled]="autoTargetMesocycleIds[plan.id] != null" /><small *ngIf="autoTargetMesocycleIds[plan.id] == null">Si lo dejas vacío, se asignará un nombre automáticamente.</small><small *ngIf="autoTargetMesocycleIds[plan.id] != null">Se conservará el nombre del mesociclo seleccionado.</small></label>
                 <label>Objetivo<select name="autoGoal{{plan.id}}" [(ngModel)]="autoGoal"><option [ngValue]="0">Forma física general</option><option [ngValue]="1">Hipertrofia</option><option [ngValue]="2">Fuerza</option></select></label>
                 <label>Nivel<select name="autoExperience{{plan.id}}" [(ngModel)]="autoExperience"><option [ngValue]="0">Principiante</option><option [ngValue]="1">Intermedio</option><option [ngValue]="2">Avanzado</option></select></label>
                 <label>Inicio del mesociclo<input type="date" name="autoStartDate{{plan.id}}" [ngModel]="autoStartDates[plan.id] || nextMesocycleStart(plan)" (ngModelChange)="autoStartDates[plan.id] = $event" required /></label>
@@ -605,6 +606,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   autoTrainingDaysCsv = '1,3,5';
   autoEquipmentCsv = '';
   autoMesoNames: Record<number, string> = {};
+  autoTargetMesocycleIds: Record<number, number | null> = {};
   generatedPreviews: Record<number, GeneratedProgram | null> = {};
   generationRequests: Record<number, GenerationRequest | null> = {};
   generationErrors: Record<number, string> = {};
@@ -1434,6 +1436,19 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       .join(',');
   }
 
+  selectRoutineTarget(plan: TrainingPlan, mesocycleId: number | null): void {
+    this.autoTargetMesocycleIds[plan.id] = mesocycleId;
+    if (mesocycleId === null) {
+      delete this.autoStartDates[plan.id];
+      return;
+    }
+    const target = (this.mesocycles[plan.id] || []).find(item => item.id === mesocycleId);
+    if (!target) return;
+    this.autoMesoNames[plan.id] = target.name;
+    this.autoStartDates[plan.id] = target.startDate.slice(0, 10);
+    this.autoDurationWeeks = this.macroPhaseDurationWeeks(target);
+  }
+
   previewGeneratedMesocycle(plan: TrainingPlan): void {
     const days = [...new Set(this.autoTrainingDaysCsv.split(',').map(value => Number(value.trim())).filter(value => Number.isInteger(value) && value >= 0 && value <= 6))];
     if (days.length < 2 || days.length > 4) {
@@ -1446,8 +1461,14 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       return;
     }
     const requestedStart = (this.autoStartDates[plan.id] || this.nextMesocycleStart(plan)).slice(0, 10);
+    const targetMesocycleId = this.autoTargetMesocycleIds[plan.id] ?? null;
+    const targetMesocycle = targetMesocycleId === null ? null : (this.mesocycles[plan.id] || []).find(item => item.id === targetMesocycleId) || null;
+    const requestedEnd = this.addDays(requestedStart, this.autoDurationWeeks * 7 - 1);
+    if (targetMesocycle && (requestedStart < targetMesocycle.startDate.slice(0, 10) || requestedEnd > (targetMesocycle.endDate || targetMesocycle.startDate).slice(0, 10))) {
+      this.generationErrors[plan.id] = 'Las semanas solicitadas no caben en el mesociclo seleccionado (' + targetMesocycle.startDate.slice(0, 10) + ' a ' + (targetMesocycle.endDate || targetMesocycle.startDate).slice(0, 10) + '). Ajusta la duración o las fechas del bloque.';
+      return;
+    }
     if (plan.endDate) {
-      const requestedEnd = this.addDays(requestedStart, this.autoDurationWeeks * 7 - 1);
       if (requestedStart < plan.startDate.slice(0, 10) || requestedEnd > plan.endDate.slice(0, 10)) {
         this.generationErrors[plan.id] = 'El bloque solicitado (' + requestedStart + ' a ' + requestedEnd + ') queda fuera de las fechas del plan (' + plan.startDate.slice(0, 10) + ' a ' + plan.endDate.slice(0, 10) + '). Ajusta el inicio o la duración, o amplía primero las fechas del plan.';
         return;
@@ -1485,12 +1506,15 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     const sequenceNumber = Math.max(0, ...(this.mesocycles[plan.id] || []).map(item => item.sequenceNumber)) + 1;
     this.saving = true;
     this.generationErrors[plan.id] = '';
-    this.http.post<{ sessionsCreated: number; durationWeeks: number; requiresProfessionalReview: boolean }>(
+    const existingMesocycleId = this.autoTargetMesocycleIds[plan.id] ?? null;
+    this.http.post<{ sessionsCreated: number; durationWeeks: number; requiresProfessionalReview: boolean; addedToExistingMesocycle?: boolean }>(
       `/api/training/plans/${plan.id}/generate-mesocycle`,
-      { name, sequenceNumber, generation, notes: 'Generado automáticamente; requiere revisión profesional antes de asignarlo al paciente.' }
+      { name, sequenceNumber, generation, existingMesocycleId, notes: 'Generado automáticamente; requiere revisión profesional antes de asignarlo al paciente.' }
     ).subscribe({
       next: result => {
-        this.notice = `Mesociclo guardado: ${result.durationWeeks} semanas y ${result.sessionsCreated} sesiones. Revisa el borrador antes de asignarlo.`;
+        this.notice = result.addedToExistingMesocycle
+          ? `Rutinas añadidas al mesociclo existente: ${result.durationWeeks} semanas y ${result.sessionsCreated} sesiones. Revisa el borrador antes de asignarlo.`
+          : `Mesociclo y rutinas creados: ${result.durationWeeks} semanas y ${result.sessionsCreated} sesiones. Revisa el borrador antes de asignarlo.`;
         this.generatedPreviews[plan.id] = null;
         this.generationRequests[plan.id] = null;
         this.saving = false;
@@ -1852,7 +1876,6 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     }
     this.saving = true;
     this.error = '';
-    const startDate = phases.reduce((value, phase) => phase.startDate < value ? phase.startDate : value, phases[0].startDate);
     const endDate = phases.reduce((value, phase) => phase.endDate > value ? phase.endDate : value, phases[0].endDate);
     this.http.put<MacrocyclePlan>(`/api/training/plans/${plan.id}/macrocycle`, {
       name: this.macrocyclePlans[plan.id]?.name || 'Macrociclo principal',
