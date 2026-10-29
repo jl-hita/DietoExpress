@@ -35,7 +35,8 @@ export class ErrorReportingService {
    */
   captureHttpError(error: unknown, requestUrl: string): void {
     if (!(error instanceof HttpErrorResponse)) return;
-    if (!requestUrl.startsWith('/api/') || requestUrl.startsWith('/api/support/')) return;
+    if (!requestUrl.startsWith('/api/') || requestUrl.startsWith('/api/support/')
+      || requestUrl.startsWith('/api/client-diagnostics/')) return;
 
     const problem = this.getProblemMetadata(error.error);
     const isServerError = error.status >= 500;
@@ -78,7 +79,8 @@ export class ErrorReportingService {
 
   /**
    * Captura errores JavaScript no controlados sin conservar el mensaje de excepción,
-   * que puede contener datos internos o del usuario. Los errores HTTP se procesan en el interceptor.
+   * que puede contener datos internos o del usuario. El diagnóstico técnico se envía
+   * por separado al endpoint autenticado; los errores HTTP se procesan en el interceptor.
    */
   captureClientError(error: unknown, currentPath: string): void {
     if (error instanceof HttpErrorResponse) return;
@@ -109,7 +111,7 @@ export class ErrorReportingService {
 
   private sanitizePath(value: string): string {
     const path = value.split('?')[0].split('#')[0] || '/';
-    return path.replace(/\/(?:\d+|[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})(?=\/|$)/gi, '/:id');
+    return path.replace(/\\/(?:\\d+|[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})(?=\\/|$)/gi, '/:id');
   }
 
 
