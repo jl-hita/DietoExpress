@@ -105,7 +105,7 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("newly eligible exercises", service);
         Assert.Contains("review_status = 'rejected'", service);
         Assert.Contains("lower(COALESCE(category, ''))", service);
-        Assert.Contains("Every startup", service);
+        Assert.Contains("every startup", service);
         Assert.Contains("\"hammer-curl\"", curation);
         Assert.Contains("\"band-assisted-pull-ups\"", curation);
         Assert.DoesNotContain("\"decline-db-fly\"", curation);
