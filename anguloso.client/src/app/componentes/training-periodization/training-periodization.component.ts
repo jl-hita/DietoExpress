@@ -269,7 +269,7 @@ interface RepDbExercise {
               <p class="macro-footnote">Selecciona una fase para revisar sus microciclos. Planificación de fases, planificación semanal y generación de rutinas son tareas distintas; generar sesiones no debe sustituir la revisión profesional.</p>
             </section>
             <section *ngIf="current.canManage" class="auto-generator-panel">
-              <div class="auto-generator-heading"><span class="auto-generator-icon">✦</span><div><h4>Crear un mesociclo automáticamente</h4><p>Define el objetivo y cuándo entrenará. DietoExpress preparará las semanas y las sesiones para que las revises antes de guardar.</p><small>Primero se genera una vista previa: no se modifica el plan hasta que confirmes.</small></div></div>
+              <div class="auto-generator-heading"><span class="auto-generator-icon">✦</span><div><h4>Atajo: crear mesociclo y rutinas</h4><p>Este flujo genera el bloque, sus semanas y las sesiones de entrenamiento en una sola operación, con una vista previa antes de guardar.</p><small>¿Quieres planificar primero sin crear rutinas? Usa los formularios de mesociclos y microciclos de abajo; después podrás trabajar las sesiones por separado.</small></div></div>
               <div class="form-grid">
                 <label>Nombre del bloque (opcional)<input name="autoMesoName{{plan.id}}" [(ngModel)]="autoMesoNames[plan.id]" maxlength="160" placeholder="Ej. Hipertrofia · bloque 1" /><small>Si lo dejas vacío, se asignará un nombre automáticamente.</small></label>
                 <label>Objetivo<select name="autoGoal{{plan.id}}" [(ngModel)]="autoGoal"><option [ngValue]="0">Forma física general</option><option [ngValue]="1">Hipertrofia</option><option [ngValue]="2">Fuerza</option></select></label>
