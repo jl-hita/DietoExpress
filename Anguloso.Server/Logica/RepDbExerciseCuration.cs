@@ -58,6 +58,41 @@ internal static class RepDbExerciseCuration
         "pilates-leg-pull-front",
         "pilates-roll-over",
         "banded-sumo-walk",
+        // Advanced calisthenics skills, balance work and low-transfer conditioning drills.
+        "handstand-hold",
+        "muscle-ups",
+        "front-lever",
+        "human-flag",
+        "l-sit",
+        "ring-l-sit",
+        "hanging-l-sit",
+        "hanging-pike",
+        "flexed-arm-hang",
+        "ring-support-hold",
+        "rope-climb",
+        "downward-dog-to-upward-dog",
+        "warrior-two",
+        "warrior-three",
+        "three-legged-dog",
+        "supported-shoulderstand",
+        "inchworm",
+        "fire-hydrant",
+        "bird-dog",
+        "chin-tuck-hold",
+        "glute-kickback-hold",
+        "six-inch-hold",
+        "jefferson-curl",
+        "bear-crawl",
+        "sled-push",
+        "wall-ball",
+        "medicine-ball-slam",
+        "medicine-ball-side-throw",
+        "jackknife-sit-up",
+        "band-pull-apart",
+        "v-sit",
+        "thoracic-bridge",
+        "superman",
+        "double-kettlebell-clean",
         // Highly technical Olympic lifts.
         "snatch",
         "hang-snatch",
@@ -73,6 +108,40 @@ internal static class RepDbExerciseCuration
         "stretching", "yoga", "mobility", "pilates", "balance", "warmup", "warm_up", "warm-up", "warm up",
         "rehabilitation", "rehab", "prehab", "cardio"
     };
+
+    // Explicit allowlist curated from the 360 pending RepDB records reviewed for this change.
+    // Entries still need valid Spanish text, instructions, difficulty and mappable metadata in TryBuild.
+    // Anything not listed remains pending for human review; new source records are not auto-approved by default.
+    public static readonly string[] AutoApprovalCandidateIds =
+    [
+        "ab-wheel-rollout", "ball-pike", "barbell-ab-rollout", "barbell-pullover", "bench-leg-pull-in", "bodyweight-calf-raise", "cable-curl", "cable-fly",
+        "cable-front-raise", "cable-kickback", "cable-lateral-raise", "cable-overhead-tricep-extension", "cable-pallof-press", "cable-pull-through", "cable-tricep-kickback", "captains-chair-knee-raise",
+        "captains-chair-leg-raise", "chest-supported-db-row", "chest-supported-dumbbell-shrug", "close-stance-leg-press", "concentration-curl", "db-bench-press", "db-fly", "db-overhead-carry",
+        "db-pullover", "db-reverse-wrist-curl", "db-shrug", "dead-bug", "decline-bench-press", "dips", "donkey-calf-raise", "drag-curl",
+        "dumbbell-calf-raise", "dumbbell-floor-press", "dumbbell-wrist-curl", "ez-bar-curl", "ez-bar-lying-tricep-extension", "ez-bar-overhead-extension", "face-pull", "flutter-kicks",
+        "front-squat", "glute-kickback", "goblet-squat", "good-morning", "hack-squat", "hack-squat-calf-raise", "hanging-knee-raise", "hanging-leg-raise",
+        "high-plank", "hip-abduction", "hip-adduction", "hip-thrust", "hollow-body-hold", "horizontal-leg-press", "incline-bench-press", "incline-db-curl",
+        "incline-db-press", "incline-dumbbell-fly", "incline-plank-hold", "incline-push-ups", "kettlebell-svend-press", "kettlebell-swing", "landmine-press", "lat-pulldown",
+        "lateral-raise", "leg-curl", "leg-extension", "leg-press", "machine-back-extension", "machine-bicep-curl", "machine-calf-raise", "machine-chest-fly",
+        "machine-preacher-curl", "machine-reverse-fly", "machine-seated-crunch", "machine-shoulder-press", "machine-triceps-extension", "negative-pull-ups", "neutral-grip-pull-ups", "nordic-hamstring-curl",
+        "ohp", "plank", "plank-knee-tuck", "plate-loaded-glute-drive", "plate-loaded-lateral-raise", "plate-loaded-seated-dip-machine", "plate-loaded-shrug", "plate-pinch",
+        "push-up", "reverse-crunches", "ring-dips", "ring-push-up", "sandbag-carry", "seated-calf-raise", "seated-db-press", "seated-dip-machine",
+        "seated-dumbbell-tricep-extension", "seated-leg-curl", "single-arm-tricep-pushdown", "single-db-svend-press", "skull-crusher", "stability-ball-hip-bridge", "stability-ball-knee-tuck", "standing-calf-raise",
+        "straight-arm-pulldown", "straight-bar-dips", "sumo-deadlift", "tricep-kickback", "tricep-pushdown", "trx-bicep-curl", "trx-chest-press", "trx-face-pull",
+        "trx-hamstring-curl", "trx-plank", "trx-row", "trx-side-plank", "trx-tricep-extension", "v-ups", "weighted-dips", "weighted-pull-up",
+        "wrist-roller", "assisted-dips", "back-extension", "ball-leg-curl", "banded-standing-curl", "banded-standing-hip-abduction", "barbell-calf-raise", "barbell-curl",
+        "barbell-glute-bridge", "barbell-preacher-curl", "bench-hollow-hold", "bicep-curl", "bodyweight-lateral-raise", "cable-crunch", "chest-press-machine", "chin-ups",
+        "close-grip-bench-press", "close-grip-pull-ups", "db-lunge", "db-skull-crusher", "db-svend-press", "deadlift", "decline-push-up", "double-db-overhead-carry",
+        "double-kettlebell-overhead-carry", "dumbbell-farmers-walk", "dumbbell-push-press", "dumbbell-reverse-fly", "dumbbell-tricep-extension", "glute-bridge", "hanging-tuck-hold", "hex-bar-deadlift",
+        "kettlebell-farmers-walk", "kettlebell-overhead-carry", "kettlebell-pullover", "lying-leg-raise", "one-arm-dumbbell-swing", "one-arm-kettlebell-swing", "one-arm-landmine-press", "overhead-tricep-extension",
+        "pec-deck", "preacher-curl", "pull-up", "rear-delt-fly", "reverse-curl", "reverse-nordic-curl", "romanian-deadlift", "russian-twist",
+        "scapular-pull-ups", "scissor-kicks", "seated-dumbbell-lateral-raise", "shrug", "side-lying-hip-abduction", "side-lying-hip-adduction", "side-lying-lateral-raise", "single-arm-dumbbell-overhead-tricep-extension",
+        "single-arm-plate-loaded-lateral-raise", "single-leg-extension", "single-leg-lying-leg-curl", "single-leg-press", "sled-row", "smith-machine-shrug", "squat", "standing-hip-abduction",
+        "suitcase-carry", "svend-press", "v-bar-tricep-pushdown", "wide-grip-pull-ups", "zottman-curl"
+    ];
+    private static readonly HashSet<string> AutoApprovalCandidates = new(AutoApprovalCandidateIds, StringComparer.OrdinalIgnoreCase);
+
+    public static bool IsAutoApprovalCandidate(string id) => AutoApprovalCandidates.Contains(id);
 
     // For very large source variation groups, retain useful, scalable options across common
     // equipment/access levels and prune near-identical variants. Unlisted groups are not filtered.
