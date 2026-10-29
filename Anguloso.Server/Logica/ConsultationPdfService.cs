@@ -293,7 +293,7 @@ public class ConsultationPdfService
                                 {
                                     table.ColumnsDefinition(columns =>
                                     {
-                                        columns.RelativeColumn(4); columns.RelativeColumn(2); columns.RelativeColumn(2); columns.RelativeColumn(2);
+                                        columns.RelativeColumn(4); columns.RelativeColumn(1.5f); columns.RelativeColumn(2); columns.RelativeColumn(1.5f); columns.RelativeColumn(3);
                                     });
                                     table.Header(header =>
                                     {
@@ -301,6 +301,7 @@ public class ConsultationPdfService
                                         header.Cell().Background("#f0fdfa").Padding(3).Text("Series").Bold();
                                         header.Cell().Background("#f0fdfa").Padding(3).Text("Repeticiones").Bold();
                                         header.Cell().Background("#f0fdfa").Padding(3).Text("Descanso").Bold();
+                                        header.Cell().Background("#f0fdfa").Padding(3).Text("Progresión").Bold();
                                     });
                                     foreach (var exercise in exercises.EnumerateArray())
                                     {
@@ -316,6 +317,7 @@ public class ConsultationPdfService
                                         item.Cell().Padding(3).Text(sets);
                                         item.Cell().Padding(3).Text(min == max ? min : $"{min}–{max}");
                                         item.Cell().Padding(3).Text(rest == "—" ? rest : $"{rest}s");
+                                        item.Cell().Padding(3).Text(progression).FontSize(7);
                                     }
                                 });
                             }
