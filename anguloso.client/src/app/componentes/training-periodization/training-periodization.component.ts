@@ -44,6 +44,8 @@ interface TrainingSession {
 }
 interface TrainingLoadWeek { weekStart: string; completedSessions: number; plannedMinutes: number; actualMinutes: number; loadScore: number; }
 interface TrainingMesocycle { id: number; planId: number; name: string; sequenceNumber: number; startDate: string; endDate?: string | null; objective?: string | null; notes?: string | null; }
+interface MacrocyclePhase { id: number; name: string; sequenceNumber: number; startDate: string; endDate: string; objective?: string | null; phaseType: 'accumulation' | 'intensification' | 'deload' | 'realization' | 'general'; }
+interface MacrocyclePlan { id: number; planId: number; name: string; periodizationModel: string; startDate: string; endDate?: string | null; notes?: string | null; phases: MacrocyclePhase[]; }
 interface TrainingMicrocycle { id: number; mesocycleId: number; name: string; sequenceNumber: number; startDate: string; endDate?: string | null; focus?: string | null; notes?: string | null; }
 interface TrainingCollaboration {
   id: number; professionalUserId?: number; professionalName?: string; email?: string; accessScope: string;
@@ -226,34 +228,54 @@ interface RepDbExercise {
             <div class="section-heading"><div><h3>{{ viewName(plan, 'plans.card') }}</h3><p>{{ plan.startDate | date:'mediumDate' }} <span *ngIf="plan.endDate">— {{ plan.endDate | date:'mediumDate' }}</span> · {{ modelLabel(plan.periodizationModel) }}</p></div><span class="status">{{ plan.status }}</span></div>
             <p *ngIf="plan.notes">{{ plan.notes }}</p>
             <section class="macro-generator" *ngIf="current.canManage">
-              <div class="macro-generator-heading"><div><span class="macro-kicker">PLANIFICACIÓN GLOBAL</span><h4>Diseña tu macrociclo</h4><p>Genera una estructura inicial de fases, edítala y guárdala sin modificar los bloques que ya existen.</p></div><span class="macro-generator-icon">✦</span></div>
-              <div class="macro-generator-controls"><label>Duración total (semanas)<input type="number" min="3" max="52" [name]="'macroWeeks' + plan.id" [ngModel]="macroProposalWeeks[plan.id] || 12" (ngModelChange)="macroProposalWeeks[plan.id] = $event" /></label><button type="button" (click)="generateMacrocycleProposal(plan)" [disabled]="saving">✦ Generar macrociclo editable</button></div>
+              <div class="macro-generator-heading"><div><span class="macro-kicker">PLANIFICACIÓN GLOBAL</span><h4>Diseña tu macrociclo</h4><p>La estructura y las fechas se guardan de forma independiente de los mesociclos, microciclos y sesiones.</p></div><span class="macro-generator-icon">✦</span></div>
+              <div class="macro-generator-controls"><label>Duración total (semanas)<input type="number" min="3" max="52" [name]="'macroWeeks' + plan.id" [ngModel]="macroProposalWeeks[plan.id] || 12" (ngModelChange)="macroProposalWeeks[plan.id] = $event" /></label><button type="button" (click)="generateMacrocycleProposal(plan)" [disabled]="saving">✦ Generar propuesta de macrociclo</button><button *ngIf="macrocyclePlans[plan.id]?.phases?.length" type="button" class="secondary" (click)="editMacrocycle(plan)" [disabled]="saving">Editar macrociclo guardado</button></div>
               <div *ngIf="macroProposals[plan.id] as proposal" class="macro-proposal-editor">
-                <div class="macro-proposal-top"><strong>Propuesta editable · {{ proposal.length }} fases</strong><span>No se ha guardado</span></div>
+                <div class="macro-proposal-top"><strong>Propuesta editable · {{ proposal.length }} fases</strong><span>Independiente de las rutinas</span></div>
                 <article class="macro-proposal-phase" *ngFor="let phase of proposal; let phaseIndex = index">
                   <span class="macro-phase-number">{{ phase.sequence | number:'2.0' }}</span>
                   <div class="macro-proposal-fields">
                     <label>Nombre de la fase<input [name]="'macroPhaseName' + plan.id + phaseIndex" [ngModel]="viewName(phase, 'macroProposals.phaseEditor')" (ngModelChange)="updateName(phase, $event, 'macroProposals.phaseEditor')" maxlength="160" required /></label>
                     <label>Objetivo<input [name]="'macroPhaseObjective' + plan.id + phaseIndex" [(ngModel)]="phase.objective" maxlength="500" /></label>
+                    <label>Tipo de fase<select [name]="'macroPhaseType' + plan.id + phaseIndex" [(ngModel)]="phase.phaseType"><option value="accumulation">Acumulación</option><option value="intensification">Intensificación</option><option value="deload">Descarga / recuperación</option><option value="realization">Realización / puesta a punto</option><option value="general">General / personalizada</option></select></label>
                     <label>Inicio<input type="date" [name]="'macroPhaseStart' + plan.id + phaseIndex" [(ngModel)]="phase.startDate" required /></label>
                     <label>Fin<input type="date" [name]="'macroPhaseEnd' + plan.id + phaseIndex" [(ngModel)]="phase.endDate" required /></label>
                   </div>
                   <button type="button" class="secondary macro-remove-phase" (click)="removeMacroPhase(plan.id, phaseIndex)" [disabled]="proposal.length <= 1 || saving" aria-label="Eliminar fase">×</button>
                 </article>
-                <div class="macro-proposal-actions"><button type="button" class="secondary" (click)="addMacroPhase(plan)" [disabled]="saving || proposal.length >= 12">＋ Añadir fase</button><button type="button" (click)="saveMacrocycleProposal(plan)" [disabled]="saving || !proposal.length">Guardar macrociclo</button><button type="button" class="secondary" (click)="macroProposals[plan.id] = []" [disabled]="saving">Descartar</button></div>
-                <p class="macro-footnote">Guardar añadirá las fases como nuevos mesociclos. No sobrescribe bloques existentes.</p>
+                <div class="macro-proposal-actions"><button type="button" class="secondary" (click)="addMacroPhase(plan)" [disabled]="saving || proposal.length >= 24">＋ Añadir fase</button><button type="button" (click)="saveMacrocycleProposal(plan)" [disabled]="saving || !proposal.length">Guardar macrociclo</button><button type="button" class="secondary" (click)="macroProposals[plan.id] = []" [disabled]="saving">Descartar</button></div>
+                <p class="macro-footnote">Guardar aquí no crea rutinas ni modifica mesociclos existentes. Los bloques de trabajo se planifican en su sección y las sesiones se generan después.</p>
               </div>
             </section>
-            <section class="macro-overview" *ngIf="mesocycles[plan.id]?.length">
-              <div class="macro-overview-heading"><div><span class="macro-kicker">VISTA GLOBAL</span><h4>Tu macrociclo</h4><p>Bloques, objetivos y progresión temporal de un vistazo.</p></div><span class="macro-total">{{ mesocycles[plan.id].length }} bloques</span></div>
-              <div class="macro-timeline"><article class="macro-phase" *ngFor="let phase of mesocycles[plan.id]">
-                <span class="macro-phase-number">{{ phase.sequenceNumber | number:'2.0' }}</span><div class="macro-phase-content"><strong>{{ viewName(phase, 'macroProposals.timeline') }}</strong><p>{{ phase.objective || 'Objetivo por definir' }}</p><small>{{ phase.startDate | date:'dd/MM/yyyy' }} <span *ngIf="phase.endDate">— {{ phase.endDate | date:'dd/MM/yyyy' }}</span></small></div><span class="macro-phase-mark" aria-hidden="true">↗</span>
-              </article></div><p class="macro-footnote">Los bloques son editables. Cada mesociclo mantiene su propia revisión profesional.</p>
+            <section class="macro-overview" *ngIf="macrocyclePhases(plan).length">
+              <div class="macro-overview-heading"><div><span class="macro-kicker">VISTA GLOBAL</span><h4>{{ macrocyclePlans[plan.id]?.name || 'Tu macrociclo' }}</h4><p>Fases de periodización independientes de los bloques de sesiones.</p></div><span class="macro-total">{{ macrocyclePhases(plan).length }} fases</span></div>
+              <div class="macro-timeline" role="list" aria-label="Fases del macrociclo"><button type="button" class="macro-phase macro-phase-select" role="listitem" *ngFor="let phase of macrocyclePhases(plan)" [class.is-selected]="isMacroPhaseSelected(plan.id, phase)" [ngClass]="'phase-' + macroPhaseKind(phase)" (click)="selectMacroPhase(plan.id, phase.id)" [attr.aria-pressed]="isMacroPhaseSelected(plan.id, phase)">
+                <span class="macro-phase-number">{{ phase.sequenceNumber | number:'2.0' }}</span><div class="macro-phase-content"><strong>{{ viewName(phase, 'macroProposals.timeline') }}</strong><p>{{ phase.objective || 'Objetivo por definir' }}</p><small>{{ phase.startDate | date:'dd/MM/yyyy' }} — {{ phase.endDate | date:'dd/MM/yyyy' }}</small><span class="macro-phase-duration">{{ macroPhaseDurationWeeks(phase) }} semanas</span></div>
+              </button></div>
+              <ng-container *ngFor="let phase of macrocyclePhases(plan)">
+                <section class="macro-phase-detail" *ngIf="isMacroPhaseSelected(plan.id, phase)" [ngClass]="'phase-detail-' + macroPhaseKind(phase)">
+                  <div class="macro-detail-heading"><div><span class="macro-kicker">FASE {{ phase.sequenceNumber | number:'2.0' }} · DETALLE DE CARGA</span><h5>{{ viewName(phase, 'macroProposals.detail') }}</h5><p>{{ phase.objective || 'Objetivo pendiente de definir' }}</p></div><span class="macro-detail-dates">{{ phase.startDate | date:'dd/MM/yyyy' }} — {{ phase.endDate | date:'dd/MM/yyyy' }}</span></div>
+                  <div class="macro-load-legend"><span><i class="load-dot volume-dot"></i>Volumen: series prescritas</span><span><i class="load-dot frequency-dot"></i>Frecuencia: sesiones</span><span><i class="load-dot intensity-dot"></i>Intensidad: RPE si está disponible</span></div>
+                  <div class="macro-phase-actions" *ngIf="current.canManage"><button type="button" class="secondary" (click)="preparePhaseRoutineBlock(plan, phase)" [disabled]="saving">Preparar bloque de rutinas para esta fase</button><small>Se crea solo el mesociclo vacío si hace falta; las rutinas se generan después.</small></div>
+                  <div class="macro-microcycle-grid">
+                    <article class="macro-microcycle" *ngFor="let week of macroPhaseWeeks(plan, phase)" [class.week-deload]="week.isDeload">
+                      <div class="macro-microcycle-top"><strong>Microciclo {{ week.weekNumber }}</strong><span>{{ week.sessions }} sesiones</span></div>
+                      <small>{{ week.startDate | date:'dd/MM' }} — {{ week.endDate | date:'dd/MM' }}</small>
+                      <div class="macro-load-row"><span>Volumen</span><strong>{{ week.sets === null ? 'N/D' : week.sets + ' series' }}</strong></div><div class="macro-load-track"><span class="macro-load-bar volume-bar" [style.width.%]="week.volumePct"></span></div>
+                      <div class="macro-load-row"><span>Frecuencia</span><strong>{{ week.sessions }} sesiones</strong></div><div class="macro-load-track"><span class="macro-load-bar frequency-bar" [style.width.%]="week.frequencyPct"></span></div>
+                      <div class="macro-load-row"><span>Intensidad</span><strong>{{ week.intensityLabel }}</strong></div><div class="macro-load-track"><span class="macro-load-bar intensity-bar" [style.width.%]="week.intensityPct"></span></div>
+                      <p class="macro-microcycle-note">{{ week.completedSessions }} realizadas · {{ week.plannedMinutes }} min planificados</p>
+                    </article>
+                  </div>
+                  <p class="macro-footnote">La carga se calcula con las sesiones programadas dentro de las fechas de cada microciclo. «N/D» indica que la prescripción no contiene datos suficientes; no se inventan valores. Las barras se normalizan dentro de la fase.</p>
+                </section>
+              </ng-container>
             </section>
             <section *ngIf="current.canManage" class="auto-generator-panel">
-              <div class="auto-generator-heading"><span class="auto-generator-icon">✦</span><div><h4>Crear un mesociclo automáticamente</h4><p>Define el objetivo y cuándo entrenará. DietoExpress preparará las semanas y las sesiones para que las revises antes de guardar.</p><small>Primero se genera una vista previa: no se modifica el plan hasta que confirmes.</small></div></div>
+              <div class="auto-generator-heading"><span class="auto-generator-icon">✦</span><div><h4>Atajo: crear mesociclo y rutinas</h4><p>Este flujo genera el bloque, sus semanas y las sesiones de entrenamiento en una sola operación, con una vista previa antes de guardar.</p><small>¿Quieres planificar primero sin crear rutinas? Usa los formularios de mesociclos y microciclos de abajo; después podrás trabajar las sesiones por separado.</small></div></div>
               <div class="form-grid">
-                <label>Nombre del bloque (opcional)<input name="autoMesoName{{plan.id}}" [(ngModel)]="autoMesoNames[plan.id]" maxlength="160" placeholder="Ej. Hipertrofia · bloque 1" /><small>Si lo dejas vacío, se asignará un nombre automáticamente.</small></label>
+                <label>Destino de las rutinas<select name="autoRoutineTarget{{plan.id}}" [ngModel]="autoTargetMesocycleIds[plan.id] ?? null" (ngModelChange)="selectRoutineTarget(plan, $event)"><option [ngValue]="null">Crear un mesociclo nuevo</option><option *ngFor="let target of mesocycles[plan.id]" [ngValue]="target.id" [disabled]="(microcycles[target.id]?.length || 0) > 0">{{ target.sequenceNumber }}. {{ viewName(target, 'mesocycles.routineTarget') }} · {{ target.startDate | date:'dd/MM/yyyy' }} — {{ (target.endDate || target.startDate) | date:'dd/MM/yyyy' }}</option></select><small>Elige un bloque vacío para generar sus microciclos y sesiones sin crear otro mesociclo.</small></label>
+                <label>Nombre del bloque (opcional)<input name="autoMesoName{{plan.id}}" [(ngModel)]="autoMesoNames[plan.id]" maxlength="160" placeholder="Ej. Hipertrofia · bloque 1" [disabled]="autoTargetMesocycleIds[plan.id] != null" /><small *ngIf="autoTargetMesocycleIds[plan.id] == null">Si lo dejas vacío, se asignará un nombre automáticamente.</small><small *ngIf="autoTargetMesocycleIds[plan.id] != null">Se conservará el nombre del mesociclo seleccionado.</small></label>
                 <label>Objetivo<select name="autoGoal{{plan.id}}" [(ngModel)]="autoGoal"><option [ngValue]="0">Forma física general</option><option [ngValue]="1">Hipertrofia</option><option [ngValue]="2">Fuerza</option></select></label>
                 <label>Nivel<select name="autoExperience{{plan.id}}" [(ngModel)]="autoExperience"><option [ngValue]="0">Principiante</option><option [ngValue]="1">Intermedio</option><option [ngValue]="2">Avanzado</option></select></label>
                 <label>Inicio del mesociclo<input type="date" name="autoStartDate{{plan.id}}" [ngModel]="autoStartDates[plan.id] || nextMesocycleStart(plan)" (ngModelChange)="autoStartDates[plan.id] = $event" required /></label>
@@ -528,7 +550,7 @@ interface RepDbExercise {
     .saved-session-templates{margin:12px 0 16px;padding:14px;border:1px solid var(--border-color,#d8dee8);border-radius:12px;background:var(--surface-color,#fff)}.standalone-session-template-panel{display:grid;gap:16px}.standalone-session-template-form{display:grid;gap:13px}.standalone-session-template-form label{display:grid;gap:6px;min-width:0;font-size:.9rem;font-weight:650}.standalone-session-template-form input,.standalone-session-template-form select,.standalone-session-template-form textarea{box-sizing:border-box;width:100%;min-width:0;border:1px solid #b9bec7;border-radius:9px;padding:10px;font:inherit;background:var(--surface-color,#fff);color:inherit}.standalone-session-template-fields{display:grid;grid-template-columns:2fr 1fr 2fr;gap:12px}.standalone-session-template-actions{display:flex;align-items:center;justify-content:space-between;gap:14px}.standalone-session-template-actions .muted{margin:0}.standalone-session-template-library{display:grid;gap:8px}.standalone-exercise-library{margin:0;padding:12px}.standalone-exercise-library .exercise-results{max-height:440px;overflow:auto}.standalone-exercise-library .exercise-result{grid-template-columns:auto minmax(0,1fr) auto}.standalone-exercise-library .exercise-thumb{width:58px;height:58px;object-fit:contain;border-radius:8px}.standalone-exercise-library .exercise-result small{display:block}.standalone-exercise-library .exercise-attribution{font-size:.78rem;color:var(--secondary-text-color,#666)}@media(max-width:560px){.standalone-exercise-library .exercise-result{grid-template-columns:1fr}.standalone-exercise-library .exercise-thumb{width:72px;height:72px}}.standalone-session-template-library h3{margin:0}.standalone-session-template-library .template-row{align-items:flex-start}.standalone-session-template-library .template-row small{display:block;white-space:pre-wrap;overflow-wrap:anywhere;margin-top:5px}@media(max-width:650px){.standalone-session-template-fields{grid-template-columns:1fr}.standalone-session-template-actions{align-items:stretch;flex-direction:column}.standalone-session-template-actions button{width:100%}}.saved-session-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.saved-session-heading strong{font-size:.98rem}.saved-session-heading p{margin:4px 0;color:var(--secondary-text-color,#666);font-size:.84rem}.saved-session-controls{display:grid;grid-template-columns:minmax(0,2fr) auto minmax(0,2fr) auto;gap:9px;align-items:end;margin-top:12px}.saved-session-controls label{display:grid;gap:5px;min-width:0;font-size:.84rem;font-weight:650}.saved-session-controls input,.saved-session-controls select{width:100%;min-width:0;box-sizing:border-box;border:1px solid #b9bec7;border-radius:8px;padding:9px;font:inherit;background:var(--surface-color,#fff);color:inherit}.saved-session-list{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}.saved-session-chip{display:inline-flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--border-color,#d8dee8);border-radius:9px;background:var(--surface-container,#f7f8fc);max-width:100%}.saved-session-chip strong{font-size:.78rem;overflow-wrap:anywhere}.saved-session-chip small{color:var(--secondary-text-color,#666);font-size:.72rem;white-space:nowrap}.saved-session-chip button{padding:2px 7px;line-height:1.2}@media(max-width:850px){.saved-session-controls{grid-template-columns:minmax(0,1fr) auto}.saved-session-controls label:nth-of-type(3){grid-column:1/-1}.saved-session-controls button:nth-of-type(2){grid-column:2}}@media(max-width:560px){.saved-session-controls{grid-template-columns:1fr}.saved-session-controls label:nth-of-type(3),.saved-session-controls button:nth-of-type(2){grid-column:auto}.saved-session-controls button{width:100%}.saved-session-chip{flex-wrap:wrap}}
     .prescription-quick-settings{display:grid;grid-template-columns:minmax(70px,.7fr) minmax(110px,1fr) minmax(90px,1fr);gap:10px;align-items:end;margin:10px 0;padding:12px;border:1px solid var(--border-color,#d8dee8);border-radius:10px;background:var(--surface-container,#f8f9fc)}.prescription-quick-settings label{display:grid;gap:5px;font-size:.82rem;font-weight:650}.prescription-quick-settings input{width:100%;min-width:0;box-sizing:border-box;border:1px solid #b9bec7;border-radius:8px;padding:8px;font:inherit;background:var(--surface-color,#fff);color:inherit}.prescription-quick-settings p{grid-column:1/-1;margin:0;color:var(--secondary-text-color,#687385);font-size:.78rem}.muscle-set-summary{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0;padding:10px 12px;border:1px solid var(--border-color,#d8dee8);border-radius:9px}.muscle-set-summary strong{width:100%;font-size:.88rem}.muscle-set-summary span{padding:4px 8px;border-radius:999px;background:var(--surface-container,#f0f3f8);font-size:.8rem}.muscle-set-summary small{width:100%;color:var(--secondary-text-color,#687385);font-size:.75rem}@media(max-width:560px){.prescription-quick-settings{grid-template-columns:1fr 1fr}.prescription-quick-settings label:last-of-type{grid-column:1/-1}}    .exercise-library{margin:14px 0;padding:16px;border:1px solid var(--border-color,#d8dee8);border-radius:12px;background:var(--surface-color,#fff)}.exercise-library h5{font-size:1.05rem;margin:0}.exercise-filters{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin:12px 0}.exercise-filters label,.session-tools label{display:grid;gap:5px;font-size:.85rem;font-weight:600}.exercise-filters input,.exercise-filters select,.session-tools select{min-width:0;width:100%;box-sizing:border-box;border:1px solid #b9bec7;border-radius:8px;padding:9px;font:inherit;background:var(--surface-color,#fff);color:inherit}.exercise-thumb{width:76px;height:76px;object-fit:contain;border-radius:10px;background:#f4f6f8;flex:0 0 76px}.exercise-source{display:block;color:var(--secondary-text-color,#666);font-size:.75rem;margin-top:4px}.exercise-attribution{font-size:.78rem;color:var(--secondary-text-color,#666);margin:8px 0 0}.exercise-attribution a{color:var(--primary-color,#3657a6)}.exercise-results{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;max-height:310px;overflow:auto}.exercise-result{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px;border:1px solid var(--border-color,#e1e5eb);border-radius:9px}.exercise-result strong{font-size:.9rem}.exercise-result p,.exercise-result small{display:block;margin:3px 0;color:var(--secondary-text-color,#64748b);font-size:.78rem}.exercise-result button{white-space:nowrap}.session-tools{display:grid;grid-template-columns:minmax(0,2fr) auto minmax(0,1.5fr) minmax(0,1fr) minmax(0,1.5fr) auto;align-items:end;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border-color,#e1e5eb)}@media(max-width:850px){.exercise-filters{grid-template-columns:1fr 1fr}.exercise-filters label:first-child{grid-column:1/-1}.exercise-results{grid-template-columns:1fr}.session-tools{grid-template-columns:1fr 1fr}}@media(max-width:560px){.exercise-filters,.session-tools{grid-template-columns:1fr}.session-tools label:first-child{grid-column:auto}.exercise-result{align-items:flex-start}.exercise-library{padding:12px}}
     :host{display:block;color:var(--text-color,#202124)}.cycle-actions{display:flex;gap:6px;flex-wrap:wrap}.cycle-actions button{padding:5px 9px}.training-page{max-width:1100px;margin:0 auto;padding:24px;display:grid;gap:18px}.back-link{color:var(--primary-color,#3657a6);text-decoration:none}header h1{margin:.2rem 0 .4rem;font-size:clamp(1.6rem,3vw,2.2rem)}header p{margin:.3rem 0}.eyebrow{font-size:.75rem;font-weight:700;letter-spacing:.08em;color:var(--primary-color,#3657a6)}.panel,.plan-card{border:1px solid var(--border-color,#ddd);border-radius:14px;padding:20px;background:var(--surface-color,#fff)}.panel h2,.plan-card h3{margin-top:0}.section-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.section-heading p,.plan-card p{color:var(--secondary-text-color,#666);margin:.4rem 0}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:16px 0}.form-grid label,.session-form label{display:grid;gap:6px;font-weight:600;font-size:.9rem}.form-grid .full{grid-column:1/-1}.form-grid input,.form-grid select,.form-grid textarea,.session-form input,.session-form select{width:100%;box-sizing:border-box;border:1px solid #b9bec7;border-radius:8px;padding:10px;font:inherit;background:transparent;color:inherit}.cycle-section{margin:16px 0;padding:14px;border:1px solid var(--border-color,#ddd);border-radius:10px}.cycle-section h4{margin:.2rem 0 .8rem}.cycle-form{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-items:end;margin:12px 0}.cycle-form label{display:grid;gap:6px;font-size:.86rem;font-weight:600}.cycle-form input{box-sizing:border-box;width:100%;border:1px solid #b9bec7;border-radius:8px;padding:9px;font:inherit;background:transparent;color:inherit}.cycle-wide{grid-column:span 2}.mesocycle-card{padding:12px 0;border-top:1px solid var(--border-color,#ddd)}.invite-form{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin:14px 0}.invite-form label{display:grid;gap:6px;flex:1 1 240px;font-size:.9rem;font-weight:600}.invite-form input{box-sizing:border-box;width:100%;border:1px solid #b9bec7;border-radius:8px;padding:10px;font:inherit;background:transparent;color:inherit}.collaboration-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--border-color,#ddd)}.collaboration-row p{margin:.35rem 0;color:var(--secondary-text-color,#666)}.calendar-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:14px 0}.view-switch{display:flex;gap:3px;padding:4px;border:1px solid var(--border-color,#ddd);border-radius:11px;background:var(--surface-container,#f3f4f8)}.view-switch button{border:0;background:transparent;color:inherit;border-radius:8px;padding:8px 12px;font-weight:700;cursor:pointer}.view-switch button.active{background:var(--surface-color,#fff);color:var(--primary-color,#3657a6);box-shadow:0 1px 4px #00000012}.week-navigation{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.week-navigation strong{font-size:.9rem;min-width:150px;text-align:center}.week-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0}.week-summary>div{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--border-color,#e0e3e9);border-radius:11px;background:var(--surface-color,#fff)}.week-summary>div>span:last-child{display:grid;gap:3px}.week-summary strong{font-size:1.05rem}.week-summary small{font-size:.76rem;color:var(--secondary-text-color,#666)}.summary-dot{width:10px;height:10px;border-radius:50%;flex:0 0 10px}.planned-dot{background:#6b7ed1}.minutes-dot{background:#d29b3c}.completed-dot{background:#36876a}.week-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px;align-items:stretch;margin:14px 0}.week-day{min-width:0;min-height:125px;padding:8px;border:1px solid var(--border-color,#e0e3e9);border-radius:11px;background:var(--surface-color,#fff)}.week-day.today{border:2px solid var(--primary-color,#3657a6);padding:7px;background:color-mix(in srgb,var(--primary-color,#3657a6) 4%,var(--surface-color,#fff))}.week-day-heading{display:flex;align-items:center;justify-content:space-between;gap:4px;padding-bottom:8px;border-bottom:1px solid var(--border-color,#e7e8ed)}.week-day-heading span{text-transform:uppercase;font-size:.68rem;letter-spacing:.04em;color:var(--secondary-text-color,#666);font-weight:800}.week-day-heading strong{display:grid;place-items:center;width:27px;height:27px;border-radius:50%;font-size:.9rem}.week-day.today .week-day-heading strong{background:var(--primary-color,#3657a6);color:white}.week-day-empty{display:grid;place-items:center;min-height:65px;color:var(--secondary-text-color,#a3a6ad)}.week-session{display:grid;gap:5px;margin-top:8px;padding:8px 7px;border-radius:8px;background:#f0f1ff;border-left:3px solid #6b7ed1;color:#262c45;font-size:.75rem;overflow-wrap:anywhere}.week-strength{background:#f0eaff;border-left-color:#8c67c2}.week-endurance{background:#e5f5ed;border-left-color:#3d9a70}.week-mobility{background:#e3f4f8;border-left-color:#3d91a6}.week-recovery{background:#eeedfa;border-left-color:#8075bb}.week-health{background:#ffedf1;border-left-color:#d26b85}.week-session-done{opacity:.78;border-left-color:#36876a}.week-session-type{font-size:1rem;font-weight:800}.week-session>strong{font-size:.78rem;line-height:1.25}.week-session-meta,.week-session-status{font-size:.68rem;line-height:1.3}.week-session-status{font-weight:750}.week-session-actions{display:grid;grid-template-columns:1fr;gap:4px;margin-top:3px}.week-session-actions button{border:1px solid #c7cbd7;border-radius:6px;background:#ffffffb8;padding:5px 3px;color:#333;font-size:.68rem;font-weight:750;cursor:pointer}.session-workspace{margin-top:24px;padding-top:20px;border-top:1px solid var(--border-color,#ddd)}.session-workspace-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}.session-workspace-heading h4{font-size:1.25rem;margin:.15rem 0}.session-workspace-heading p:not(.eyebrow){margin:.35rem 0;color:var(--secondary-text-color,#666)}.session-count{white-space:nowrap;border:1px solid var(--border-color,#ddd);border-radius:99px;padding:6px 11px;font-size:.8rem;font-weight:700}.session-editor{padding:18px;border:1px solid var(--border-color,#d6dce8);border-radius:14px;background:linear-gradient(135deg,var(--surface-container,#f7f8fc),var(--surface-color,#fff));margin:14px 0 18px}.editor-title{display:flex;align-items:center;gap:12px;margin-bottom:16px}.editor-title strong{font-size:1rem}.editor-title p{margin:3px 0 0;color:var(--secondary-text-color,#666);font-size:.88rem}.editor-icon{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:var(--primary-color,#3657a6);color:#fff;font-size:1.5rem}.session-editor-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.session-editor-grid label{display:grid;gap:6px;font-size:.87rem;font-weight:650}.session-editor-grid input,.session-editor-grid select,.session-editor-grid textarea{box-sizing:border-box;width:100%;border:1px solid #b9bec7;border-radius:9px;padding:10px 11px;font:inherit;background:var(--surface-color,#fff);color:inherit;min-width:0}.session-editor-grid input:focus,.session-editor-grid select:focus,.session-editor-grid textarea:focus{outline:2px solid color-mix(in srgb,var(--primary-color,#3657a6) 30%,transparent);outline-offset:1px}.session-editor-wide{grid-column:1/-1}.editor-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:15px}.editor-footer>span{font-size:.78rem;color:var(--secondary-text-color,#666)}.session-empty{padding:20px;border:1px dashed var(--border-color,#c9ced8);border-radius:12px;color:var(--secondary-text-color,#666);text-align:center}.session-list{display:grid;gap:10px;margin-top:14px}.session-card{display:grid;grid-template-columns:58px minmax(0,1fr);gap:14px;padding:16px;border:1px solid var(--border-color,#dfe2e8);border-radius:14px;background:var(--surface-color,#fff);transition:border-color .15s,box-shadow .15s}.session-card:hover{border-color:color-mix(in srgb,var(--primary-color,#3657a6) 45%,var(--border-color,#ddd));box-shadow:0 4px 18px #0000000a}.session-completed{border-left:4px solid #36876a}.session-date-rail{display:flex;flex-direction:column;align-items:center;justify-content:center;align-self:start;min-height:58px;border-radius:11px;background:var(--surface-container,#f2f4f8);color:var(--primary-color,#3657a6)}.session-date-rail strong{font-size:1.35rem;line-height:1.2}.session-date-rail span{text-transform:uppercase;font-size:.7rem;font-weight:800;letter-spacing:.06em}.session-card-main{min-width:0}.session-card-top{display:flex;align-items:center;gap:11px}.session-type-icon{flex:0 0 38px;width:38px;height:38px;display:grid;place-items:center;border-radius:11px;background:#e9edff;color:#334b9b;font-size:1.25rem;font-weight:800}.type-endurance{background:#e2f3ec;color:#176b4b}.type-strength{background:#eee8ff;color:#6841a5}.type-mobility{background:#e1f3f8;color:#17677b}.type-recovery{background:#e9e8f8;color:#514b94}.type-health{background:#ffe8ee;color:#a23c5a}.session-title-block{flex:1;min-width:0}.session-title-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.session-title-line h5{margin:0;font-size:1rem;line-height:1.35}.session-title-block p{margin:5px 0 0;font-size:.83rem;color:var(--secondary-text-color,#666)}.session-status{font-size:.72rem;font-weight:750;border-radius:99px;padding:4px 8px;background:#edf0f5;color:#555}.session-status.done{background:#dff3e9;color:#176b4b}.session-edit-button{flex:0 0 auto}.session-instructions{white-space:pre-line;margin:12px 0 0;padding:11px 13px;border-radius:9px;background:var(--surface-container,#f5f6f9);font-size:.88rem;line-height:1.5}.completion-summary{display:flex;align-items:center;gap:9px;margin-top:12px;padding:10px 12px;border-radius:10px;background:#edf8f2}.completion-check{display:grid;place-items:center;width:27px;height:27px;border-radius:50%;background:#36876a;color:white;font-weight:800}.completion-summary>span:nth-child(2){display:grid;gap:2px;flex:1}.completion-summary strong{font-size:.82rem;color:#205e46}.completion-summary small{font-size:.78rem;color:#39715b}.duration-delta{font-size:.78rem;font-weight:750;color:#39715b}.session-card-actions{display:flex;justify-content:flex-end;margin-top:10px}.session-edit-form{margin-top:14px;padding:14px;border-radius:11px;border:1px solid var(--border-color,#d8dce5);background:var(--surface-container,#f6f7fa)}.session-edit-form .editor-footer{align-items:center}.session-editor-grid textarea{resize:vertical}.record-form{grid-template-columns:repeat(2,minmax(0,1fr))}.record-form .record-notes{grid-column:1/-1}.record-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px;padding:14px;border-radius:10px;background:var(--surface-container,#f6f7f9)}.record-form label{display:grid;gap:6px;font-size:.88rem;font-weight:600}.record-form label:nth-child(3){grid-column:1/-1}.record-form input,.record-form textarea{box-sizing:border-box;width:100%;border:1px solid #b9bec7;border-radius:8px;padding:9px;font:inherit;background:var(--surface-color,#fff);color:inherit}.record-form button{justify-self:start}.session-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start;padding:12px 0;border-top:1px solid var(--border-color,#ddd)}.session-form button{flex:0 0 auto}button{border:0;border-radius:8px;padding:10px 14px;background:var(--primary-color,#3657a6);color:white;font:inherit;font-weight:600;cursor:pointer}button:disabled{opacity:.55;cursor:wait}button.secondary{background:transparent;border:1px solid #9aa0a6;color:inherit}.plan-card{margin-top:14px}.status{font-size:.8rem;border-radius:20px;background:#eef2ff;padding:5px 10px}.session-list{border-top:1px solid #ddd;margin-top:14px}.session-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start;padding:12px 0;border-bottom:1px solid #eee}.record-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px;padding:14px;border-radius:10px;background:var(--surface-container,#f6f7f9)}.record-form label{display:grid;gap:6px;font-size:.88rem;font-weight:600}.record-form label:nth-child(3){grid-column:1/-1}.record-form input,.record-form textarea{box-sizing:border-box;width:100%;border:1px solid #b9bec7;border-radius:8px;padding:9px;font:inherit;background:var(--surface-color,#fff);color:inherit}.record-form button{justify-self:start}.session-row p{margin:.3rem 0}.muted{color:#777}.error{color:#a21d24}@media(max-width:650px){.training-page{padding:14px}.collaboration-row{align-items:stretch;flex-direction:column}.cycle-form{grid-template-columns:repeat(2,minmax(0,1fr))}.cycle-wide{grid-column:1/-1}.cycle-form button{grid-column:1/-1}.invite-form button{width:100%}.form-grid{grid-template-columns:1fr}.form-grid .full{grid-column:auto}.section-heading{flex-direction:column;align-items:stretch}.week-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.week-summary{grid-template-columns:1fr}.week-summary>div{padding:10px}.week-day{min-height:100px}.week-navigation{width:100%;justify-content:space-between}.week-navigation strong{min-width:0;flex:1}.session-editor-grid{grid-template-columns:1fr}.session-editor-wide{grid-column:auto}.editor-footer{align-items:stretch;flex-direction:column}.editor-footer button{width:100%}.session-workspace-heading{align-items:flex-start}.session-card{grid-template-columns:42px minmax(0,1fr);gap:10px;padding:11px}.session-date-rail{min-height:48px}.session-date-rail strong{font-size:1.1rem}.session-type-icon{width:32px;height:32px;flex-basis:32px}.session-card-top{align-items:flex-start;flex-wrap:wrap}.session-edit-button{margin-left:auto}.session-title-block{flex-basis:calc(100% - 48px)}.session-card-actions{justify-content:stretch}.session-card-actions button{width:100%}.record-form{grid-template-columns:1fr}.record-form .record-notes{grid-column:auto}.record-form button{width:100%}.session-edit-form .editor-footer>div{display:grid;gap:8px}.session-edit-form .editor-footer button{width:100%}.cycle-actions{width:100%}}
-    .macro-overview{margin:18px 0 24px;padding:22px;border:1px solid #dce9e2;border-radius:22px;background:linear-gradient(135deg,#f3faf6 0%,#fff 72%);box-shadow:0 10px 30px rgba(23,107,82,.06)}.macro-overview-heading,.load-dashboard-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}.macro-kicker{display:block;color:#187456;font-size:.7rem;font-weight:800;letter-spacing:.13em;margin-bottom:5px}.macro-overview h4,.load-dashboard h5{margin:0;font-size:1.2rem;letter-spacing:-.02em}.macro-overview-heading p,.load-dashboard-heading p{margin:6px 0 0;color:#697970;font-size:.88rem}.macro-total{white-space:nowrap;border-radius:999px;padding:7px 11px;background:#e2f3e9;color:#176b52;font-size:.78rem;font-weight:750}.macro-timeline{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:12px;margin-top:20px}.macro-phase{position:relative;display:flex;align-items:flex-start;gap:11px;min-width:0;padding:15px;border:1px solid #e0ebe4;border-radius:15px;background:rgba(255,255,255,.88)}.macro-phase-number{display:grid;place-items:center;flex:0 0 32px;height:32px;border-radius:10px;background:#176b52;color:#fff;font-size:.76rem;font-weight:800}.macro-phase-content{min-width:0}.macro-phase-content strong{display:block;overflow-wrap:anywhere}.macro-phase-content p{margin:5px 0;color:#687970;font-size:.82rem}.macro-phase-content small{color:#718078;font-size:.75rem}.macro-phase-mark{margin-left:auto;color:#26906b;font-size:1.1rem}.macro-footnote{margin:14px 0 0;color:#718078;font-size:.78rem}.load-dashboard{margin:18px 0 22px;padding:22px;border:1px solid #dfe9e4;border-radius:22px;background:#f8fbf9}.load-dashboard-heading{margin-bottom:18px}.load-legend-dot{flex:0 0 10px;height:10px;margin:7px 4px 0 0;border-radius:50%;background:#176b52;box-shadow:0 0 0 5px #e1f2e8}.load-week-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.load-week-card{padding:15px;border:1px solid #e2ebe6;border-radius:16px;background:#fff;min-width:0}.load-week-top{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:16px}.load-week-top strong{font-size:.9rem}.load-week-top span{font-size:.72rem;color:#6e7d75;background:#f0f5f2;padding:5px 7px;border-radius:999px}.load-metric{margin:12px 0}.load-metric-label{display:flex;justify-content:space-between;gap:8px;margin-bottom:6px;font-size:.77rem;color:#687970}.load-metric-label strong{color:#23382e;font-size:.77rem}.load-track{height:7px;background:#edf2ef;border-radius:999px;overflow:hidden}.load-fill{display:block;height:100%;border-radius:999px;transition:width .25s ease}.load-volume{background:#176b52}.load-frequency{background:#438fca}.load-intensity{background:#df9d43}.load-index{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid #edf1ee;padding-top:12px;margin-top:15px;font-size:.72rem;color:#687970}.load-index strong{font-size:1.15rem;color:#176b52}.load-disclaimer{margin:14px 0 0;font-size:.75rem;line-height:1.5;color:#728078}@media(max-width:560px){.macro-overview,.load-dashboard{padding:16px;border-radius:17px}.macro-overview-heading,.load-dashboard-heading{gap:8px}.macro-timeline,.load-week-grid{grid-template-columns:1fr}.macro-phase{padding:12px}.load-week-card{padding:13px}}
+    .macro-overview{margin:18px 0 24px;padding:22px;border:1px solid #dce9e2;border-radius:22px;background:linear-gradient(135deg,#f3faf6 0%,#fff 72%);box-shadow:0 10px 30px rgba(23,107,82,.06)}.macro-overview-heading,.load-dashboard-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}.macro-kicker{display:block;color:#187456;font-size:.7rem;font-weight:800;letter-spacing:.13em;margin-bottom:5px}.macro-overview h4,.load-dashboard h5{margin:0;font-size:1.2rem;letter-spacing:-.02em}.macro-overview-heading p,.load-dashboard-heading p{margin:6px 0 0;color:#697970;font-size:.88rem}.macro-total{white-space:nowrap;border-radius:999px;padding:7px 11px;background:#e2f3e9;color:#176b52;font-size:.78rem;font-weight:750}.macro-timeline{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:12px;margin-top:20px}.macro-phase-select{width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}.macro-phase-select:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(25,55,45,.08)}.macro-phase-select.is-selected{border-color:var(--phase-color,#176b52);box-shadow:0 0 0 2px color-mix(in srgb,var(--phase-color,#176b52) 18%,transparent)}.macro-phase-select.phase-accumulation{--phase-color:#16845b;border-top:4px solid #16845b}.macro-phase-select.phase-intensification{--phase-color:#c17b17;border-top:4px solid #c17b17}.macro-phase-select.phase-deload{--phase-color:#2474c6;border-top:4px solid #2474c6}.macro-phase-select.phase-realization{--phase-color:#8055b5;border-top:4px solid #8055b5}.macro-phase-select.phase-general{--phase-color:#64748b;border-top:4px solid #64748b}.macro-phase-duration{display:inline-flex;margin-top:8px;padding:3px 8px;border-radius:999px;background:#edf3ef;color:#315648;font-size:.72rem;font-weight:750}.macro-phase-detail{margin-top:14px;padding:16px;border:1px solid var(--border-color,#d8dee8);border-radius:15px;background:var(--surface-color,#fff)}.macro-detail-heading{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:12px}.macro-detail-heading h5{font-size:1.08rem;margin:5px 0}.macro-detail-heading p{margin:0;color:var(--secondary-text-color,#596579)}.macro-detail-dates{font-size:.8rem;white-space:nowrap;color:var(--secondary-text-color,#596579)}.macro-load-legend{display:flex;gap:14px;flex-wrap:wrap;margin:12px 0;color:var(--secondary-text-color,#596579);font-size:.75rem}.macro-load-legend span{display:flex;align-items:center;gap:5px}.load-dot{width:8px;height:8px;border-radius:50%;display:inline-block}.volume-dot{background:#16845b}.frequency-dot{background:#2474c6}.intensity-dot{background:#c17b17}.macro-microcycle-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px}.macro-microcycle{min-width:0;padding:12px;border:1px solid var(--border-color,#e0e5ec);border-radius:12px;background:var(--surface-container,#f8f9fc)}.macro-microcycle.week-deload{border-top:3px solid #2474c6}.macro-microcycle-top,.macro-load-row{display:flex;justify-content:space-between;gap:8px;align-items:center}.macro-microcycle-top strong{font-size:.82rem}.macro-microcycle-top span,.macro-microcycle>small{font-size:.7rem;color:var(--secondary-text-color,#596579)}.macro-microcycle>small{display:block;margin:5px 0 12px}.macro-load-row{font-size:.72rem;margin-top:8px}.macro-load-row span{color:var(--secondary-text-color,#596579)}.macro-load-track{height:6px;border-radius:999px;background:#e7ebef;overflow:hidden;margin-top:4px}.macro-load-bar{height:100%;display:block;border-radius:999px;min-width:0}.volume-bar{background:#16845b}.frequency-bar{background:#2474c6}.intensity-bar{background:#c17b17}.macro-microcycle-note{font-size:.7rem;color:var(--secondary-text-color,#596579);margin:10px 0 0}.phase-detail-deload{border-top:4px solid #2474c6}.phase-detail-intensification{border-top:4px solid #c17b17}.phase-detail-accumulation{border-top:4px solid #16845b}.phase-detail-realization{border-top:4px solid #8055b5}.phase-detail-general{border-top:4px solid #64748b}@media(max-width:700px){.macro-detail-heading{display:block}.macro-detail-dates{display:block;margin-top:8px;white-space:normal}.macro-microcycle-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:420px){.macro-microcycle-grid{grid-template-columns:1fr}}.macro-phase{position:relative;display:flex;align-items:flex-start;gap:11px;min-width:0;padding:15px;border:1px solid #e0ebe4;border-radius:15px;background:rgba(255,255,255,.88)}.macro-phase-number{display:grid;place-items:center;flex:0 0 32px;height:32px;border-radius:10px;background:#176b52;color:#fff;font-size:.76rem;font-weight:800}.macro-phase-content{min-width:0}.macro-phase-content strong{display:block;overflow-wrap:anywhere}.macro-phase-content p{margin:5px 0;color:#687970;font-size:.82rem}.macro-phase-content small{color:#718078;font-size:.75rem}.macro-phase-mark{margin-left:auto;color:#26906b;font-size:1.1rem}.macro-footnote{margin:14px 0 0;color:#718078;font-size:.78rem}.load-dashboard{margin:18px 0 22px;padding:22px;border:1px solid #dfe9e4;border-radius:22px;background:#f8fbf9}.load-dashboard-heading{margin-bottom:18px}.load-legend-dot{flex:0 0 10px;height:10px;margin:7px 4px 0 0;border-radius:50%;background:#176b52;box-shadow:0 0 0 5px #e1f2e8}.load-week-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.load-week-card{padding:15px;border:1px solid #e2ebe6;border-radius:16px;background:#fff;min-width:0}.load-week-top{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:16px}.load-week-top strong{font-size:.9rem}.load-week-top span{font-size:.72rem;color:#6e7d75;background:#f0f5f2;padding:5px 7px;border-radius:999px}.load-metric{margin:12px 0}.load-metric-label{display:flex;justify-content:space-between;gap:8px;margin-bottom:6px;font-size:.77rem;color:#687970}.load-metric-label strong{color:#23382e;font-size:.77rem}.load-track{height:7px;background:#edf2ef;border-radius:999px;overflow:hidden}.load-fill{display:block;height:100%;border-radius:999px;transition:width .25s ease}.load-volume{background:#176b52}.load-frequency{background:#438fca}.load-intensity{background:#df9d43}.load-index{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid #edf1ee;padding-top:12px;margin-top:15px;font-size:.72rem;color:#687970}.load-index strong{font-size:1.15rem;color:#176b52}.load-disclaimer{margin:14px 0 0;font-size:.75rem;line-height:1.5;color:#728078}@media(max-width:560px){.macro-overview,.load-dashboard{padding:16px;border-radius:17px}.macro-overview-heading,.load-dashboard-heading{gap:8px}.macro-timeline,.load-week-grid{grid-template-columns:1fr}.macro-phase{padding:12px}.load-week-card{padding:13px}}
 
     .macro-generator{margin:20px 0;padding:22px;border:1px solid #dce9e2;border-radius:22px;background:linear-gradient(125deg,#edf8f1,#fff 72%)}.macro-generator-heading{display:flex;justify-content:space-between;gap:14px}.macro-generator-heading h4{margin:0;font-size:1.18rem}.macro-generator-heading p{margin:6px 0;color:#687970;font-size:.86rem}.macro-generator-icon{display:grid;place-items:center;flex:0 0 42px;height:42px;border-radius:14px;background:#d9f0e2;color:#176b52;font-size:1.4rem}.macro-generator-controls{display:flex;align-items:end;gap:12px;flex-wrap:wrap;margin-top:18px}.macro-generator-controls label,.macro-proposal-fields label{display:grid;gap:6px;font-size:.82rem;font-weight:700;min-width:0}.macro-generator-controls input,.macro-proposal-fields input{width:100%;min-width:0;padding:10px;border:1px solid #d6e2db;border-radius:10px;background:#fff}.macro-generator-controls label{width:min(220px,100%)}.macro-proposal-editor{margin-top:18px}.macro-proposal-top{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:12px}.macro-proposal-top span{font-size:.73rem;font-weight:700;color:#94651b;background:#fff0d4;padding:6px 9px;border-radius:999px}.macro-proposal-phase{display:flex;align-items:flex-start;gap:12px;padding:14px;margin:10px 0;border:1px solid #e0ebe4;border-radius:15px;background:#fff}.macro-proposal-fields{flex:1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.macro-remove-phase{flex:0 0 auto;min-width:35px!important;padding:6px!important;font-size:1.2rem!important}.macro-proposal-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px}.macro-proposal-actions button{min-width:130px}@media(max-width:600px){.macro-generator{padding:16px;border-radius:17px}.macro-generator-controls{align-items:stretch;flex-direction:column}.macro-generator-controls label{width:100%}.macro-proposal-phase{flex-wrap:wrap;padding:11px}.macro-proposal-fields{grid-template-columns:1fr;flex-basis:calc(100% - 45px)}.macro-remove-phase{margin-left:auto}.macro-proposal-actions{display:grid;grid-template-columns:1fr}.macro-proposal-actions button{width:100%}}
 
@@ -559,7 +581,9 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   templatePlanName = '';
   templateStartDate = new Date().toISOString().slice(0, 10);
   mesocycles: Record<number, TrainingMesocycle[]> = {};
-  macroProposals: Record<number, Array<{ name: string; sequence: number; startDate: string; endDate: string; objective: string }>> = {};
+  macrocyclePlans: Record<number, MacrocyclePlan | null> = {};
+  selectedMacroPhaseId: Record<number, number> = {};
+  macroProposals: Record<number, Array<{ name: string; sequence: number; startDate: string; endDate: string; objective: string; phaseType: MacrocyclePhase['phaseType'] }>> = {};
   macroProposalWeeks: Record<number, number> = {};
 
   microcycles: Record<number, TrainingMicrocycle[]> = {};
@@ -583,6 +607,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   autoTrainingDaysCsv = '1,3,5';
   autoEquipmentCsv = '';
   autoMesoNames: Record<number, string> = {};
+  autoTargetMesocycleIds: Record<number, number | null> = {};
   generatedPreviews: Record<number, GeneratedProgram | null> = {};
   generationRequests: Record<number, GenerationRequest | null> = {};
   generationErrors: Record<number, string> = {};
@@ -1231,6 +1256,11 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     if (!plans.length) return;
     for (const plan of plans) {
       this.mesocycleDrafts[plan.id] = this.mesocycleDrafts[plan.id] ?? { name: '', sequence: 1, startDate: plan.startDate, endDate: plan.endDate ?? '', objective: '' };
+      this.http.get<MacrocyclePlan | null>(`/api/training/plans/${plan.id}/macrocycle`).pipe(catchError(() => of(null as MacrocyclePlan | null))).subscribe(macrocycle => {
+        this.macrocyclePlans[plan.id] = macrocycle && Array.isArray(macrocycle.phases)
+          ? { ...macrocycle, phases: macrocycle.phases.filter(phase => !!phase && Number.isInteger(phase.id)).map(phase => ({ ...phase, phaseType: phase.phaseType || 'general' })) }
+          : null;
+      });
       this.http.get<TrainingMesocycle[]>(`/api/training/plans/${plan.id}/mesocycles`).pipe(catchError(() => of([] as TrainingMesocycle[]))).subscribe(items => {
         const safeMesocycles = Array.isArray(items) ? items
           .filter((item): item is TrainingMesocycle => !!item && typeof item === 'object' && Number.isInteger(item.id))
@@ -1276,6 +1306,111 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     });
   }
 
+  selectMacroPhase(planId: number, phaseId: number): void {
+    this.selectedMacroPhaseId[planId] = phaseId;
+  }
+
+  macrocyclePhases(plan: TrainingPlan): MacrocyclePhase[] {
+    const stored = this.macrocyclePlans[plan.id]?.phases;
+    if (stored?.length) return [...stored].sort((a, b) => a.sequenceNumber - b.sequenceNumber || a.startDate.localeCompare(b.startDate));
+    return (this.mesocycles[plan.id] || []).map(phase => ({
+      id: phase.id, name: phase.name, sequenceNumber: phase.sequenceNumber, startDate: phase.startDate,
+      endDate: phase.endDate || phase.startDate, objective: phase.objective, phaseType: this.macroPhaseKind(phase)
+    }));
+  }
+
+  isMacroPhaseSelected(planId: number, phase: MacrocyclePhase): boolean {
+    const phases = this.macrocyclePhases(this.plans.find(item => item.id === planId) || ({ id: planId } as TrainingPlan));
+    const selectedId = this.selectedMacroPhaseId[planId];
+    if (selectedId && phases.some(item => item.id === selectedId)) return selectedId === phase.id;
+    return phases[0]?.id === phase.id;
+  }
+
+  macroPhaseKind(phase: TrainingMesocycle | MacrocyclePhase): MacrocyclePhase['phaseType'] {
+    if ('phaseType' in phase && phase.phaseType) return phase.phaseType;
+    const label = (phase.name + ' ' + (phase.objective || '')).toLocaleLowerCase('es');
+    if (/descarga|recuperaci[oó]n|deload|descanso/.test(label)) return 'deload';
+    if (/realizaci[oó]n|puesta a punto|competici[oó]n|peaking|pico/.test(label)) return 'realization';
+    if (/intensificaci[oó]n|fuerza m[aá]xima|intensidad/.test(label)) return 'intensification';
+    if (/acumulaci[oó]n|base|volumen|hipertrofia/.test(label)) return 'accumulation';
+    return 'general';
+  }
+
+  macroPhaseDurationWeeks(phase: TrainingMesocycle | MacrocyclePhase): number {
+    if (!phase.startDate || !phase.endDate) return 1;
+    const start = Date.parse(phase.startDate.slice(0, 10) + 'T00:00:00Z');
+    const end = Date.parse(phase.endDate.slice(0, 10) + 'T00:00:00Z');
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return 1;
+    return Math.max(1, Math.ceil((end - start + 86400000) / (7 * 86400000)));
+  }
+
+  macroPhaseWeeks(plan: TrainingPlan, phase: TrainingMesocycle | MacrocyclePhase): Array<{
+    weekNumber: number; startDate: string; endDate: string; sessions: number; completedSessions: number;
+    plannedMinutes: number; sets: number | null; intensityLabel: string; intensityPct: number;
+    volumePct: number; frequencyPct: number; isDeload: boolean;
+  }> {
+    const weeks = this.macroPhaseDurationWeeks(phase);
+    const phaseStart = phase.startDate.slice(0, 10);
+    const phaseEnd = (phase.endDate || phase.startDate).slice(0, 10);
+    const allSessions = (this.sessions[plan.id] || []).filter(session => {
+      const date = (session.scheduledDate || '').slice(0, 10);
+      return date >= phaseStart && date <= phaseEnd;
+    });
+    const rows = Array.from({ length: weeks }, (_, index) => {
+      const startDate = this.addDays(phaseStart, index * 7);
+      const calculatedEnd = this.addDays(startDate, 6);
+      const endDate = calculatedEnd > phaseEnd ? phaseEnd : calculatedEnd;
+      const sessions = allSessions.filter(session => {
+        const date = (session.scheduledDate || '').slice(0, 10);
+        return date >= startDate && date <= endDate;
+      });
+      const plannedMinutes = sessions.reduce((sum, session) => sum + Math.max(0, session.durationMinutes || 0), 0);
+      let sets = 0;
+      let hasPrescription = false;
+      const rpes: number[] = [];
+      for (const session of sessions) {
+        const prescription = session.exercisePrescription || '';
+        const data = session.exercisePrescriptionData;
+        let structuredSets: number | null = null;
+        if (data && typeof data === 'object') {
+          const raw = JSON.stringify(data);
+          const dataMatches = [...raw.matchAll(/"sets"\s*:\s*(\d+)/g)];
+          if (dataMatches.length) structuredSets = dataMatches.reduce((total, match) => total + Number(match[1] || 0), 0);
+        }
+        if (structuredSets !== null) {
+          sets += structuredSets;
+          hasPrescription = true;
+        } else if (prescription.trim()) {
+          const matches = [...prescription.matchAll(/(?:^|[·\n])\s*(\d{1,2})\s*[x×]\s*\d/gim)];
+          if (matches.length) {
+            sets += matches.reduce((total, match) => total + Number(match[1] || 0), 0);
+            hasPrescription = true;
+          }
+        }
+        const rpeMatch = (session.intensityTarget || '').match(/(?:RPE|esfuerzo)\s*[:=]?\s*(\d+(?:[.,]\d+)?)/i);
+        if (rpeMatch) {
+          const rpe = Number(rpeMatch[1].replace(',', '.'));
+          if (rpe >= 0 && rpe <= 10) rpes.push(rpe);
+        }
+      }
+      return { weekNumber: index + 1, startDate, endDate, sessions: sessions.length,
+        completedSessions: sessions.filter(session => !!session.completedAt || /completed|completed|realizada/i.test(session.status || '')).length,
+        plannedMinutes, sets: hasPrescription ? sets : null,
+        intensity: rpes.length ? rpes.reduce((sum, value) => sum + value, 0) / rpes.length : null,
+        isDeload: this.macroPhaseKind(phase) === 'deload' };
+    });
+    const maxSets = Math.max(1, ...rows.map(row => row.sets ?? 0));
+    const maxSessions = Math.max(1, ...rows.map(row => row.sessions));
+    return rows.map(row => ({
+      weekNumber: row.weekNumber, startDate: row.startDate, endDate: row.endDate, sessions: row.sessions,
+      completedSessions: row.completedSessions, plannedMinutes: row.plannedMinutes, sets: row.sets,
+      intensityLabel: row.intensity === null ? 'N/D' : 'RPE ' + (Math.round(row.intensity * 10) / 10).toLocaleString('es-ES'),
+      intensityPct: row.intensity === null ? 0 : Math.round(row.intensity / 10 * 100),
+      volumePct: row.sets === null ? 0 : Math.round(row.sets / maxSets * 100),
+      frequencyPct: Math.round(row.sessions / maxSessions * 100), isDeload: row.isDeload
+    }));
+  }
+
   nextMesocycleStart(plan: TrainingPlan): string {
     const candidates = [plan.startDate];
     for (const mesocycle of this.mesocycles[plan.id] || []) {
@@ -1302,6 +1437,72 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       .join(',');
   }
 
+  preparePhaseRoutineBlock(plan: TrainingPlan, phase: MacrocyclePhase): void {
+    const existing = (this.mesocycles[plan.id] || []).find(item =>
+      item.startDate.slice(0, 10) === phase.startDate.slice(0, 10) &&
+      (item.endDate || item.startDate).slice(0, 10) === phase.endDate.slice(0, 10));
+    if (existing) {
+      const hasMicrocycles = (this.microcycles[existing.id] || []).length > 0;
+      const hasSessions = (this.sessions[plan.id] || []).some(session =>
+        session.scheduledDate.slice(0, 10) >= phase.startDate.slice(0, 10) &&
+        session.scheduledDate.slice(0, 10) <= phase.endDate.slice(0, 10));
+      if (hasMicrocycles || hasSessions) {
+        this.notice = 'Ya existe un bloque para esta fase y contiene planificación o sesiones. Se conserva intacto; no se generarán rutinas encima de ese trabajo.';
+        this.error = '';
+        return;
+      }
+      this.autoTargetMesocycleIds[plan.id] = existing.id;
+      this.selectRoutineTarget(plan, existing.id);
+      this.notice = 'Ya existe un mesociclo vacío para esta fase. Está seleccionado como destino de las rutinas.';
+      this.error = '';
+      return;
+    }
+    const overlap = (this.mesocycles[plan.id] || []).find(item =>
+      phase.startDate <= (item.endDate || item.startDate).slice(0, 10) &&
+      phase.endDate >= item.startDate.slice(0, 10));
+    if (overlap) {
+      this.error = 'La fase se solapa con el mesociclo «' + overlap.name + '». Ajusta las fechas del bloque existente antes de preparar rutinas para esta fase.';
+      return;
+    }
+    const sequenceNumber = Math.max(0, ...(this.mesocycles[plan.id] || []).map(item => item.sequenceNumber)) + 1;
+    this.saving = true;
+    this.error = '';
+    this.http.post<{ id: number }>(`/api/training/plans/${plan.id}/mesocycles`, {
+      name: phase.name, sequenceNumber, startDate: phase.startDate, endDate: phase.endDate,
+      objective: phase.objective || null, notes: 'Bloque creado desde la planificación del macrociclo. Las rutinas se generan por separado.'
+    }).subscribe({
+      next: result => {
+        this.autoTargetMesocycleIds[plan.id] = result.id;
+        this.autoMesoNames[plan.id] = phase.name;
+        this.autoStartDates[plan.id] = phase.startDate;
+        const days = Math.floor((Date.parse(phase.endDate + 'T00:00:00Z') - Date.parse(phase.startDate + 'T00:00:00Z')) / 86400000) + 1;
+        this.autoDurationWeeks = Math.max(1, Math.min(52, Math.floor(days / 7)));
+        this.saving = false;
+        this.notice = 'Bloque de rutinas preparado para «' + phase.name + '». Ya puedes generar la rutina en ese mesociclo sin crear otro bloque.';
+        this.load();
+      },
+      error: e => {
+        this.error = e?.error?.message || 'No se pudo preparar el bloque de rutinas para esta fase.';
+        this.saving = false;
+      }
+    });
+  }
+
+  selectRoutineTarget(plan: TrainingPlan, mesocycleId: number | null): void {
+    this.autoTargetMesocycleIds[plan.id] = mesocycleId;
+    if (mesocycleId === null) {
+      delete this.autoStartDates[plan.id];
+      return;
+    }
+    const target = (this.mesocycles[plan.id] || []).find(item => item.id === mesocycleId);
+    if (!target) return;
+    this.autoMesoNames[plan.id] = target.name;
+    this.autoStartDates[plan.id] = target.startDate.slice(0, 10);
+    const targetEnd = (target.endDate || target.startDate).slice(0, 10);
+    const availableDays = Math.floor((Date.parse(targetEnd + 'T00:00:00Z') - Date.parse(target.startDate.slice(0, 10) + 'T00:00:00Z')) / 86400000) + 1;
+    this.autoDurationWeeks = Math.max(1, Math.min(52, Math.floor(availableDays / 7)));
+  }
+
   previewGeneratedMesocycle(plan: TrainingPlan): void {
     const days = [...new Set(this.autoTrainingDaysCsv.split(',').map(value => Number(value.trim())).filter(value => Number.isInteger(value) && value >= 0 && value <= 6))];
     if (days.length < 2 || days.length > 4) {
@@ -1313,8 +1514,22 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       this.generationErrors[plan.id] = 'Revisa la duración del ciclo y el límite de minutos por sesión.';
       return;
     }
+    const requestedStart = (this.autoStartDates[plan.id] || this.nextMesocycleStart(plan)).slice(0, 10);
+    const targetMesocycleId = this.autoTargetMesocycleIds[plan.id] ?? null;
+    const targetMesocycle = targetMesocycleId === null ? null : (this.mesocycles[plan.id] || []).find(item => item.id === targetMesocycleId) || null;
+    const requestedEnd = this.addDays(requestedStart, this.autoDurationWeeks * 7 - 1);
+    if (targetMesocycle && (requestedStart < targetMesocycle.startDate.slice(0, 10) || requestedEnd > (targetMesocycle.endDate || targetMesocycle.startDate).slice(0, 10))) {
+      this.generationErrors[plan.id] = 'Las semanas solicitadas no caben en el mesociclo seleccionado (' + targetMesocycle.startDate.slice(0, 10) + ' a ' + (targetMesocycle.endDate || targetMesocycle.startDate).slice(0, 10) + '). Ajusta la duración o las fechas del bloque.';
+      return;
+    }
+    if (plan.endDate) {
+      if (requestedStart < plan.startDate.slice(0, 10) || requestedEnd > plan.endDate.slice(0, 10)) {
+        this.generationErrors[plan.id] = 'El bloque solicitado (' + requestedStart + ' a ' + requestedEnd + ') queda fuera de las fechas del plan (' + plan.startDate.slice(0, 10) + ' a ' + plan.endDate.slice(0, 10) + '). Ajusta el inicio o la duración, o amplía primero las fechas del plan.';
+        return;
+      }
+    }
     const request: GenerationRequest = {
-      goal: this.autoGoal, experience: this.autoExperience, startDate: this.autoStartDates[plan.id] || this.nextMesocycleStart(plan),
+      goal: this.autoGoal, experience: this.autoExperience, startDate: requestedStart,
       durationWeeks: this.autoDurationWeeks, trainingDays: days,
       maximumSessionDurationMinutes: this.autoMaximumMinutes,
       availableEquipment: [...new Set(this.autoEquipmentCsv.split(',').map(value => value.trim()).filter(Boolean))],
@@ -1345,12 +1560,15 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     const sequenceNumber = Math.max(0, ...(this.mesocycles[plan.id] || []).map(item => item.sequenceNumber)) + 1;
     this.saving = true;
     this.generationErrors[plan.id] = '';
-    this.http.post<{ sessionsCreated: number; durationWeeks: number; requiresProfessionalReview: boolean }>(
+    const existingMesocycleId = this.autoTargetMesocycleIds[plan.id] ?? null;
+    this.http.post<{ sessionsCreated: number; durationWeeks: number; requiresProfessionalReview: boolean; addedToExistingMesocycle?: boolean }>(
       `/api/training/plans/${plan.id}/generate-mesocycle`,
-      { name, sequenceNumber, generation, notes: 'Generado automáticamente; requiere revisión profesional antes de asignarlo al paciente.' }
+      { name, sequenceNumber, generation, existingMesocycleId, notes: 'Generado automáticamente; requiere revisión profesional antes de asignarlo al paciente.' }
     ).subscribe({
       next: result => {
-        this.notice = `Mesociclo guardado: ${result.durationWeeks} semanas y ${result.sessionsCreated} sesiones. Revisa el borrador antes de asignarlo.`;
+        this.notice = result.addedToExistingMesocycle
+          ? `Rutinas añadidas al mesociclo existente: ${result.durationWeeks} semanas y ${result.sessionsCreated} sesiones. Revisa el borrador antes de asignarlo.`
+          : `Mesociclo y rutinas creados: ${result.durationWeeks} semanas y ${result.sessionsCreated} sesiones. Revisa el borrador antes de asignarlo.`;
         this.generatedPreviews[plan.id] = null;
         this.generationRequests[plan.id] = null;
         this.saving = false;
@@ -1630,28 +1848,37 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   }
 
   generateMacrocycleProposal(plan: TrainingPlan): void {
-    const weeks = Math.max(3, Math.min(52, Math.round(this.macroProposalWeeks[plan.id] || 12)));
+    const requestedWeeks = Math.max(3, Math.min(52, Math.round(this.macroProposalWeeks[plan.id] || 12)));
+    const start = plan.startDate.slice(0, 10);
+    let weeks = requestedWeeks;
+    if (plan.endDate) {
+      const availableDays = Math.floor((Date.parse(plan.endDate.slice(0, 10) + 'T00:00:00Z') - Date.parse(start + 'T00:00:00Z')) / 86400000) + 1;
+      const availableWeeks = Math.floor(availableDays / 7);
+      if (availableWeeks < 3) {
+        this.macroProposals[plan.id] = [];
+        this.notice = 'El periodo del plan es inferior a tres semanas. Amplía sus fechas antes de generar el macrociclo.';
+        this.error = '';
+        return;
+      }
+      weeks = Math.min(requestedWeeks, availableWeeks);
+    }
     this.macroProposalWeeks[plan.id] = weeks;
-    const existing = this.mesocycles[plan.id] || [];
-    const lastEnd = existing.map(item => item.endDate).filter((date): date is string => !!date).sort().at(-1);
-    const start = lastEnd ? this.addDays(lastEnd, 1) : plan.startDate;
-    const phaseDefinitions = [
-      { name: 'Acumulación y base', objective: 'Construir tolerancia al volumen y consolidar la técnica.' },
-      { name: 'Intensificación y progresión', objective: 'Progresar en el estímulo manteniendo una ejecución sólida.' },
-      { name: 'Descarga y evaluación', objective: 'Reducir fatiga, revisar resultados y preparar el siguiente bloque.' }
+    const phaseDefinitions: Array<{ name: string; objective: string; phaseType: MacrocyclePhase['phaseType'] }> = [
+      { name: 'Acumulación y base', objective: 'Construir tolerancia al volumen y consolidar la técnica.', phaseType: 'accumulation' },
+      { name: 'Intensificación y progresión', objective: 'Progresar en el estímulo manteniendo una ejecución sólida.', phaseType: 'intensification' },
+      { name: 'Descarga y evaluación', objective: 'Reducir fatiga, revisar resultados y preparar el siguiente bloque.', phaseType: 'deload' }
     ];
     const first = Math.floor(weeks / 3);
     const second = Math.floor(weeks / 3);
     const durations = [first, second, weeks - first - second];
     let cursor = start;
-    const firstSequence = Math.max(0, ...existing.map(item => item.sequenceNumber)) + 1;
     this.macroProposals[plan.id] = phaseDefinitions.map((phase, index) => {
       const phaseStart = cursor;
       const phaseEnd = this.addDays(phaseStart, durations[index] * 7 - 1);
       cursor = this.addDays(phaseEnd, 1);
-      return { ...phase, sequence: firstSequence + index, startDate: phaseStart, endDate: phaseEnd };
+      return { ...phase, sequence: index + 1, startDate: phaseStart, endDate: phaseEnd };
     });
-    this.notice = 'Propuesta creada. Ajusta objetivos y fechas antes de guardarla.';
+    this.notice = 'Propuesta creada sin modificar mesociclos ni sesiones. Revisa fases y fechas antes de guardar.';
     this.error = '';
   }
 
@@ -1659,19 +1886,28 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     const phases = [...(this.macroProposals[plan.id] || [])];
     if (phases.length >= 12) return;
     const last = phases[phases.length - 1];
-    const existing = this.mesocycles[plan.id] || [];
-    const lastExistingEnd = existing.map(item => item.endDate).filter((date): date is string => !!date).sort().at(-1);
-    const start = last ? this.addDays(last.endDate, 1) : lastExistingEnd ? this.addDays(lastExistingEnd, 1) : plan.startDate;
-    const sequence = Math.max(0, ...existing.map(item => item.sequenceNumber)) + phases.length + 1;
-    phases.push({ name: 'Nueva fase', objective: '', sequence, startDate: start, endDate: this.addDays(start, 27) });
+    const start = last ? this.addDays(last.endDate, 1) : plan.startDate.slice(0, 10);
+    const sequence = phases.length + 1;
+    phases.push({ name: 'Nueva fase', objective: '', phaseType: 'general', sequence, startDate: start, endDate: this.addDays(start, 27) });
     this.macroProposals[plan.id] = phases;
   }
 
   removeMacroPhase(planId: number, index: number): void {
     const phases = [...(this.macroProposals[planId] || [])];
     phases.splice(index, 1);
-    const firstSequence = Math.max(0, ...(this.mesocycles[planId] || []).map(item => item.sequenceNumber)) + 1;
-    this.macroProposals[planId] = phases.map((phase, phaseIndex) => ({ ...phase, sequence: firstSequence + phaseIndex }));
+    this.macroProposals[planId] = phases.map((phase, phaseIndex) => ({ ...phase, sequence: phaseIndex + 1 }));
+  }
+
+  editMacrocycle(plan: TrainingPlan): void {
+    const macrocycle = this.macrocyclePlans[plan.id];
+    if (!macrocycle?.phases?.length) return;
+    this.macroProposals[plan.id] = macrocycle.phases.map(phase => ({
+      name: phase.name, sequence: phase.sequenceNumber, startDate: phase.startDate, endDate: phase.endDate,
+      objective: phase.objective || '', phaseType: phase.phaseType || 'general'
+    }));
+    this.macroProposalWeeks[plan.id] = macrocycle.phases.reduce((total, phase) => total + this.macroPhaseDurationWeeks(phase), 0);
+    this.notice = 'Editando la planificación guardada. Los cambios no se aplicarán hasta guardar.';
+    this.error = '';
   }
 
   saveMacrocycleProposal(plan: TrainingPlan): void {
@@ -1680,31 +1916,45 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       this.error = 'Revisa el nombre y las fechas de cada fase antes de guardar.';
       return;
     }
-    this.saving = true;
-    this.error = '';
-    const saveNext = (index: number): void => {
-      if (index >= phases.length) {
-        this.saving = false;
-        this.macroProposals[plan.id] = [];
-        this.notice = 'Macrociclo guardado. Las fases se han añadido como mesociclos editables.';
-        this.load();
+    const ordered = [...phases].sort((a, b) => a.startDate.localeCompare(b.startDate));
+    for (let index = 0; index < ordered.length; index++) {
+      const phase = ordered[index];
+      if (phase.startDate < plan.startDate.slice(0, 10) || (plan.endDate && phase.endDate > plan.endDate.slice(0, 10))) {
+        this.error = 'La fase «' + phase.name + '» queda fuera de las fechas del plan. Ajusta el periodo o amplía el plan antes de guardar.';
         return;
       }
-      const phase = phases[index];
-      this.http.post('/api/training/plans/' + plan.id + '/mesocycles', {
+      if (index > 0 && phase.startDate <= ordered[index - 1].endDate) {
+        this.error = 'Las fases del macrociclo se solapan. Corrige las fechas antes de guardar.';
+        return;
+      }
+    }
+    this.saving = true;
+    this.error = '';
+    const endDate = phases.reduce((value, phase) => phase.endDate > value ? phase.endDate : value, phases[0].endDate);
+    this.http.put<MacrocyclePlan>(`/api/training/plans/${plan.id}/macrocycle`, {
+      name: this.macrocyclePlans[plan.id]?.name || 'Macrociclo principal',
+      periodizationModel: plan.periodizationModel || 'custom',
+      startDate: plan.startDate.slice(0, 10),
+      endDate: plan.endDate || endDate,
+      notes: this.macrocyclePlans[plan.id]?.notes || null,
+      phases: phases.map(phase => ({
         name: phase.name.trim(), sequenceNumber: phase.sequence, startDate: phase.startDate, endDate: phase.endDate,
-        objective: phase.objective.trim() || null, notes: null
-      }).subscribe({
-        next: () => saveNext(index + 1),
-        error: e => {
-          this.saving = false;
-          this.macroProposals[plan.id] = phases.slice(index);
-          this.error = 'Se guardaron ' + index + ' de ' + phases.length + ' fases. Falló "' + phase.name + '": ' + (e?.error?.message || 'error del servidor') + '. Las fases pendientes se conservan en la propuesta; no se volverán a enviar las que ya se guardaron.';
-          this.load();
-        }
-      });
-    };
-    saveNext(0);
+        objective: phase.objective.trim() || null, phaseType: phase.phaseType || 'general'
+      }))
+    }).subscribe({
+      next: macrocycle => {
+        this.macrocyclePlans[plan.id] = macrocycle;
+        this.selectedMacroPhaseId[plan.id] = macrocycle.phases[0]?.id || 0;
+        this.macroProposals[plan.id] = [];
+        this.saving = false;
+        this.notice = 'Macrociclo guardado. La planificación de fases está separada de mesociclos, microciclos y sesiones.';
+        this.error = '';
+      },
+      error: e => {
+        this.error = e?.error?.message || 'No se pudo guardar el macrociclo. La propuesta se conserva para que no pierdas los cambios.';
+        this.saving = false;
+      }
+    });
   }
 
   private addDays(value: string, days: number): string {

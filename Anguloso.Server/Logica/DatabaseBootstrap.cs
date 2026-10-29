@@ -913,6 +913,7 @@ CREATE INDEX IF NOT EXISTS idx_public_directory_reviews_nutritionist
             UpgradeTrainingPeriodizationSchemaV6(context, logger);
             UpgradeTrainingPeriodizationSchemaV7(context, logger);
             UpgradeTrainingPeriodizationSchemaV8(context, logger);
+            TrainingMacrocycleSchema.Initialize(context);
 
             VerifyCurrentSchema(context, logger);
 

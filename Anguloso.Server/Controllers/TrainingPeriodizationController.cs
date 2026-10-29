@@ -71,11 +71,8 @@ public sealed class TrainingPeriodizationController : ControllerBase
         if (!generated.Succeeded)
             return UnprocessableEntity(new { errors = generated.Errors });
         var prescription = generated.Prescription!;
-        var offsets = prescription.Sessions.Select(session =>
-            ((int)session.Day - (int)prescription.StartDate.DayOfWeek + 7) % 7
-                + (session.WeekNumber - 1) * 7).ToArray();
         var mesocycleStart = prescription.StartDate;
-        var mesocycleEnd = prescription.StartDate.AddDays(offsets.Max());
+        var mesocycleEnd = prescription.StartDate.AddDays(prescription.DurationWeeks * 7 - 1);
         if (mesocycleEnd < mesocycleStart)
             return UnprocessableEntity(new { message = "El intervalo calculado para el mesociclo no es válido." });
 
@@ -104,34 +101,59 @@ public sealed class TrainingPeriodizationController : ControllerBase
                     return Conflict(new { message = "El mesociclo generado debe quedar dentro de las fechas del plan. Amplía el plan o ajusta la fecha y duración." });
             }
 
-            await using (var overlapCommand = connection.CreateCommand())
+            int mesocycleId;
+            if (request.ExistingMesocycleId.HasValue)
             {
-                overlapCommand.Transaction = transaction;
-                overlapCommand.CommandText = """
-                    SELECT EXISTS (
-                        SELECT 1 FROM training_mesocycles
-                        WHERE plan_id = @planId
-                          AND (sequence_number = @sequence OR
-                               (start_date <= @endDate AND COALESCE(end_date, 'infinity'::date) >= @startDate))
-                    ) OR EXISTS (
-                        SELECT 1 FROM training_sessions
-                        WHERE plan_id = @planId AND scheduled_date BETWEEN @startDate AND @endDate
-                    )
+                await using var targetCommand = connection.CreateCommand();
+                targetCommand.Transaction = transaction;
+                targetCommand.CommandText = """
+                    SELECT m.id
+                    FROM training_mesocycles m
+                    WHERE m.id = @mesocycleId AND m.plan_id = @planId
+                      AND m.start_date <= @startDate AND COALESCE(m.end_date, 'infinity'::date) >= @endDate
+                      AND NOT EXISTS (SELECT 1 FROM training_microcycles mc WHERE mc.mesocycle_id = m.id)
+                      AND NOT EXISTS (SELECT 1 FROM training_sessions s WHERE s.plan_id = m.plan_id AND s.scheduled_date BETWEEN @startDate AND @endDate)
+                    FOR UPDATE OF m
                     """;
-                overlapCommand.Parameters.AddWithValue("planId", planId);
-                overlapCommand.Parameters.AddWithValue("sequence", request.SequenceNumber);
-                overlapCommand.Parameters.AddWithValue("startDate", mesocycleStart);
-                overlapCommand.Parameters.AddWithValue("endDate", mesocycleEnd);
-                if ((bool)(await overlapCommand.ExecuteScalarAsync(cancellationToken) ?? true))
+                targetCommand.Parameters.AddWithValue("mesocycleId", request.ExistingMesocycleId.Value);
+                targetCommand.Parameters.AddWithValue("planId", planId);
+                targetCommand.Parameters.AddWithValue("startDate", mesocycleStart);
+                targetCommand.Parameters.AddWithValue("endDate", mesocycleEnd);
+                var target = await targetCommand.ExecuteScalarAsync(cancellationToken);
+                if (target is null)
                 {
                     await transaction.RollbackAsync(cancellationToken);
-                    return Conflict(new { message = "Ya existe un mesociclo con ese número o con fechas solapadas." });
+                    return Conflict(new { message = "El mesociclo seleccionado debe cubrir todas las semanas generadas y no contener microciclos ni sesiones. Elige un bloque vacío o crea uno nuevo." });
                 }
+                mesocycleId = Convert.ToInt32(target);
             }
-
-            int mesocycleId;
-            await using (var command = connection.CreateCommand())
+            else
             {
+                await using (var overlapCommand = connection.CreateCommand())
+                {
+                    overlapCommand.Transaction = transaction;
+                    overlapCommand.CommandText = """
+                        SELECT EXISTS (
+                            SELECT 1 FROM training_mesocycles
+                            WHERE plan_id = @planId
+                              AND (sequence_number = @sequence OR
+                                   (start_date <= @endDate AND COALESCE(end_date, 'infinity'::date) >= @startDate))
+                        ) OR EXISTS (
+                            SELECT 1 FROM training_sessions
+                            WHERE plan_id = @planId AND scheduled_date BETWEEN @startDate AND @endDate
+                        )
+                        """;
+                    overlapCommand.Parameters.AddWithValue("planId", planId);
+                    overlapCommand.Parameters.AddWithValue("sequence", request.SequenceNumber);
+                    overlapCommand.Parameters.AddWithValue("startDate", mesocycleStart);
+                    overlapCommand.Parameters.AddWithValue("endDate", mesocycleEnd);
+                    if ((bool)(await overlapCommand.ExecuteScalarAsync(cancellationToken) ?? true))
+                    {
+                        await transaction.RollbackAsync(cancellationToken);
+                        return Conflict(new { message = "Ya existe un mesociclo con ese número o con fechas solapadas." });
+                    }
+                }
+                await using var command = connection.CreateCommand();
                 command.Transaction = transaction;
                 command.CommandText = """
                     INSERT INTO training_mesocycles(plan_id, name, sequence_number, start_date, end_date, objective, notes)
@@ -216,7 +238,8 @@ public sealed class TrainingPeriodizationController : ControllerBase
                 durationWeeks = prescription.DurationWeeks,
                 sessionsCreated = prescription.Sessions.Count,
                 engineVersion = prescription.EngineVersion,
-                requiresProfessionalReview = true
+                requiresProfessionalReview = true,
+                addedToExistingMesocycle = request.ExistingMesocycleId.HasValue
             });
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -857,6 +880,148 @@ public sealed class TrainingPeriodizationController : ControllerBase
     }
 
 
+
+    [HttpGet("plans/{planId:int}/macrocycle")]
+    public async Task<IActionResult> GetMacrocycle(int planId, CancellationToken cancellationToken)
+    {
+        if (!await CanAccessPlan(planId, cancellationToken)) return NotFound();
+        await using var command = Command("""
+            SELECT id, plan_id, name, periodization_model, start_date, end_date, notes
+            FROM training_macrocycles WHERE plan_id = @planId
+            """, ("planId", planId));
+        MacrocycleDto? macrocycle;
+        await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
+        {
+            if (!await reader.ReadAsync(cancellationToken)) return Ok(null);
+            macrocycle = new MacrocycleDto(reader.GetInt64(0), reader.GetInt32(1), reader.GetString(2),
+                reader.GetString(3), reader.GetFieldValue<DateOnly>(4),
+                reader.IsDBNull(5) ? null : reader.GetFieldValue<DateOnly>(5),
+                reader.IsDBNull(6) ? null : reader.GetString(6), []);
+        }
+
+        await using var phasesCommand = Command("""
+            SELECT id, name, sequence_number, start_date, end_date, objective, phase_type
+            FROM training_macrocycle_phases WHERE macrocycle_id = @macrocycleId
+            ORDER BY sequence_number, start_date, id
+            """, ("macrocycleId", macrocycle.Id));
+        var phases = new List<MacrocyclePhaseDto>();
+        await using (var reader = await phasesCommand.ExecuteReaderAsync(cancellationToken))
+            while (await reader.ReadAsync(cancellationToken))
+                phases.Add(new MacrocyclePhaseDto(reader.GetInt64(0), reader.GetString(1), reader.GetInt32(2),
+                    reader.GetFieldValue<DateOnly>(3), reader.GetFieldValue<DateOnly>(4),
+                    reader.IsDBNull(5) ? null : reader.GetString(5), reader.GetString(6)));
+        return Ok(macrocycle with { Phases = phases });
+    }
+
+    [HttpPut("plans/{planId:int}/macrocycle")]
+    public async Task<IActionResult> SaveMacrocycle(int planId, [FromBody] SaveTrainingMacrocycleRequest request, CancellationToken cancellationToken)
+    {
+        if (!await CanManagePlan(planId, cancellationToken)) return NotFound();
+        if (request.Phases is null)
+            return BadRequest(new { message = "Añade al menos una fase al macrociclo." });
+        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Trim().Length > 160)
+            return BadRequest(new { message = "El nombre del macrociclo es obligatorio (máximo 160 caracteres)." });
+        if (string.IsNullOrWhiteSpace(request.PeriodizationModel) || request.PeriodizationModel.Length > 40)
+            return BadRequest(new { message = "Selecciona un modelo de periodización válido." });
+        if (request.EndDate.HasValue && request.EndDate.Value < request.StartDate)
+            return BadRequest(new { message = "La fecha final del macrociclo no puede ser anterior a la inicial." });
+        if (request.Notes?.Length > 2000 || request.Phases.Count > 24)
+            return BadRequest(new { message = "Las notas admiten 2000 caracteres y un macrociclo puede contener hasta 24 fases." });
+        if (request.Phases.Any(phase => string.IsNullOrWhiteSpace(phase.Name) || phase.Name.Trim().Length > 160 ||
+            phase.Objective?.Length > 500 || phase.SequenceNumber < 1 || phase.EndDate < phase.StartDate ||
+            phase.PhaseType is not ("accumulation" or "intensification" or "deload" or "realization" or "general")))
+            return BadRequest(new { message = "Revisa el nombre, tipo, objetivo y fechas de las fases." });
+        if (request.Phases.Select(phase => phase.SequenceNumber).Distinct().Count() != request.Phases.Count)
+            return BadRequest(new { message = "Cada fase debe tener un número de orden distinto." });
+        var orderedPhases = request.Phases.OrderBy(phase => phase.StartDate).ThenBy(phase => phase.SequenceNumber).ToArray();
+        for (var index = 0; index < orderedPhases.Length; index++)
+        {
+            var phase = orderedPhases[index];
+            if (phase.StartDate < request.StartDate || (request.EndDate.HasValue && phase.EndDate > request.EndDate.Value))
+                return BadRequest(new { message = $"La fase «{phase.Name}» queda fuera de las fechas del macrociclo." });
+            if (index > 0 && phase.StartDate <= orderedPhases[index - 1].EndDate)
+                return Conflict(new { message = "Las fases del macrociclo no pueden solaparse." });
+        }
+
+        var connection = (NpgsqlConnection)_context.Database.GetDbConnection();
+        if (connection.State != ConnectionState.Open) await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await using (var planCommand = connection.CreateCommand())
+            {
+                planCommand.Transaction = transaction;
+                planCommand.CommandText = """
+                    SELECT start_date, end_date FROM training_plans WHERE id = @planId
+                    """;
+                planCommand.Parameters.AddWithValue("planId", planId);
+                await using var reader = await planCommand.ExecuteReaderAsync(cancellationToken);
+                if (!await reader.ReadAsync(cancellationToken)) return NotFound();
+                var planStart = reader.GetFieldValue<DateOnly>(0);
+                var planEnd = reader.IsDBNull(1) ? (DateOnly?)null : reader.GetFieldValue<DateOnly>(1);
+                if (request.StartDate < planStart || (planEnd.HasValue && (!request.EndDate.HasValue || request.EndDate.Value > planEnd.Value)))
+                    return BadRequest(new { message = "Las fechas del macrociclo deben quedar dentro de las fechas del plan de entrenamiento." });
+            }
+
+            long macrocycleId;
+            await using (var upsert = connection.CreateCommand())
+            {
+                upsert.Transaction = transaction;
+                upsert.CommandText = """
+                    INSERT INTO training_macrocycles(plan_id, name, periodization_model, start_date, end_date, notes, updated_at)
+                    VALUES (@planId, @name, @model, @startDate, @endDate, @notes, NOW())
+                    ON CONFLICT (plan_id) DO UPDATE SET name = EXCLUDED.name,
+                        periodization_model = EXCLUDED.periodization_model, start_date = EXCLUDED.start_date,
+                        end_date = EXCLUDED.end_date, notes = EXCLUDED.notes, updated_at = NOW()
+                    RETURNING id
+                    """;
+                upsert.Parameters.AddWithValue("planId", planId);
+                upsert.Parameters.AddWithValue("name", request.Name.Trim());
+                upsert.Parameters.AddWithValue("model", request.PeriodizationModel.Trim());
+                upsert.Parameters.AddWithValue("startDate", request.StartDate);
+                upsert.Parameters.AddWithValue("endDate", (object?)request.EndDate ?? DBNull.Value);
+                upsert.Parameters.AddWithValue("notes", (object?)request.Notes?.Trim() ?? DBNull.Value);
+                macrocycleId = Convert.ToInt64(await upsert.ExecuteScalarAsync(cancellationToken));
+            }
+            await using (var delete = connection.CreateCommand())
+            {
+                delete.Transaction = transaction;
+                delete.CommandText = "DELETE FROM training_macrocycle_phases WHERE macrocycle_id = @macrocycleId";
+                delete.Parameters.AddWithValue("macrocycleId", macrocycleId);
+                await delete.ExecuteNonQueryAsync(cancellationToken);
+            }
+            foreach (var phase in request.Phases.OrderBy(phase => phase.SequenceNumber))
+            {
+                await using var insert = connection.CreateCommand();
+                insert.Transaction = transaction;
+                insert.CommandText = """
+                    INSERT INTO training_macrocycle_phases(macrocycle_id, name, sequence_number, start_date, end_date, objective, phase_type)
+                    VALUES (@macrocycleId, @name, @sequence, @startDate, @endDate, @objective, @phaseType)
+                    """;
+                insert.Parameters.AddWithValue("macrocycleId", macrocycleId);
+                insert.Parameters.AddWithValue("name", phase.Name.Trim());
+                insert.Parameters.AddWithValue("sequence", phase.SequenceNumber);
+                insert.Parameters.AddWithValue("startDate", phase.StartDate);
+                insert.Parameters.AddWithValue("endDate", phase.EndDate);
+                insert.Parameters.AddWithValue("objective", (object?)phase.Objective?.Trim() ?? DBNull.Value);
+                insert.Parameters.AddWithValue("phaseType", phase.PhaseType);
+                await insert.ExecuteNonQueryAsync(cancellationToken);
+            }
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            throw;
+        }
+        catch
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            throw;
+        }
+        await transaction.DisposeAsync();
+        return await GetMacrocycle(planId, cancellationToken);
+    }
 
     [HttpGet("plans/{planId:int}/mesocycles")]
     public async Task<IActionResult> GetMesocycles(int planId, CancellationToken cancellationToken)
@@ -1508,8 +1673,13 @@ public sealed record TrainingSessionDto(int Id, int PlanId, DateOnly ScheduledDa
 public sealed record InviteTrainingCollaboratorRequest(string Email, string? AccessScope = "training");
 public sealed record TrainingCollaborationDto(int Id, int ProfessionalUserId, string ProfessionalName, string Email, string AccessScope, string Status, DateTime CreatedAt, DateTime? AcceptedAt, DateTime? RevokedAt);
 
+public sealed record MacrocyclePhaseDto(long Id, string Name, int SequenceNumber, DateOnly StartDate, DateOnly EndDate, string? Objective, string PhaseType);
+public sealed record MacrocycleDto(long Id, int PlanId, string Name, string PeriodizationModel, DateOnly StartDate, DateOnly? EndDate, string? Notes, IReadOnlyList<MacrocyclePhaseDto> Phases);
+public sealed record SaveTrainingMacrocycleRequest(string Name, string PeriodizationModel, DateOnly StartDate, DateOnly? EndDate, string? Notes, List<SaveTrainingMacrocyclePhaseRequest> Phases);
+public sealed record SaveTrainingMacrocyclePhaseRequest(string Name, int SequenceNumber, DateOnly StartDate, DateOnly EndDate, string? Objective, string PhaseType);
+
 public sealed record CreateTrainingMesocycleRequest(string Name, int SequenceNumber, DateOnly StartDate, DateOnly? EndDate, string? Objective, string? Notes);
-public sealed record GenerateTrainingMesocycleRequest(string Name, int SequenceNumber, TrainingProgramGenerationRequest Generation, string? Notes = null);
+public sealed record GenerateTrainingMesocycleRequest(string Name, int SequenceNumber, TrainingProgramGenerationRequest Generation, string? Notes = null, int? ExistingMesocycleId = null);
 public sealed record TrainingMesocycleDto(int Id, int PlanId, string Name, int SequenceNumber, DateOnly StartDate, DateOnly? EndDate, string? Objective, string? Notes);
 public sealed record CreateTrainingMicrocycleRequest(string Name, int SequenceNumber, DateOnly StartDate, DateOnly? EndDate, string? Focus, string? Notes);
 public sealed record ReorderTrainingCyclesRequest(int[] OrderedIds);
