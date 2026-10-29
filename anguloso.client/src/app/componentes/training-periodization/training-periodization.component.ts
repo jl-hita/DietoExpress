@@ -1730,8 +1730,9 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       intensityPct: week.intensity === null ? 0 : Math.round(week.intensity / 10 * 100), loadIndex: Math.round(week.load / maxLoad * 100) }));
   }
 
-  private readonly viewDiagnosticLastSent = new Map<string, number>();
-  private readonly viewDiagnosticSendTimes: number[] = [];
+  // Static state survives component recreation, preventing a render/recreate loop from resetting the report budget.
+  private static readonly viewDiagnosticLastSent = new Map<string, number>();
+  private static readonly viewDiagnosticSendTimes: number[] = [];
 
   /** Template-safe name access that records the exact binding when malformed state reaches the view. */
   viewName(value: unknown, binding: string): string {
@@ -1754,12 +1755,12 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
 
   private reportMissingViewName(binding: string, value: unknown): void {
     const now = Date.now();
-    const previous = this.viewDiagnosticLastSent.get(binding);
+    const previous = TrainingPeriodizationComponent.viewDiagnosticLastSent.get(binding);
     if (previous !== undefined && now - previous < 30_000) return;
-    while (this.viewDiagnosticSendTimes.length && now - this.viewDiagnosticSendTimes[0] >= 60_000) this.viewDiagnosticSendTimes.shift();
-    if (this.viewDiagnosticSendTimes.length >= 5) return;
-    this.viewDiagnosticLastSent.set(binding, now);
-    this.viewDiagnosticSendTimes.push(now);
+    while (TrainingPeriodizationComponent.viewDiagnosticSendTimes.length && now - TrainingPeriodizationComponent.viewDiagnosticSendTimes[0] >= 60_000) TrainingPeriodizationComponent.viewDiagnosticSendTimes.shift();
+    if (TrainingPeriodizationComponent.viewDiagnosticSendTimes.length >= 5) return;
+    TrainingPeriodizationComponent.viewDiagnosticLastSent.set(binding, now);
+    TrainingPeriodizationComponent.viewDiagnosticSendTimes.push(now);
 
     const shape = value === null ? 'null' : typeof value;
     const context = [
