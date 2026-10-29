@@ -918,7 +918,7 @@ public sealed class TrainingPeriodizationController : ControllerBase
                 return Conflict(new { message = "Las fases del macrociclo no pueden solaparse." });
         }
 
-        await using var connection = (NpgsqlConnection)_context.Database.GetDbConnection();
+        var connection = (NpgsqlConnection)_context.Database.GetDbConnection();
         if (connection.State != ConnectionState.Open) await connection.OpenAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         try
@@ -983,6 +983,7 @@ public sealed class TrainingPeriodizationController : ControllerBase
                 await insert.ExecuteNonQueryAsync(cancellationToken);
             }
             await transaction.CommitAsync(cancellationToken);
+            await transaction.DisposeAsync();
             return await GetMacrocycle(planId, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
