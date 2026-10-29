@@ -140,22 +140,35 @@ internal static class RepDbExerciseAutoReviewer
 
     private static string? MapMuscle(string value)
     {
-        var v = Normalize(value);
-        if (Has(v, "chest", "pector", "pectoral")) return "Chest";
-        if (Has(v, "lat", "dorsal ancho")) return "Lats";
-        if (Has(v, "upper back", "middle back", "trap", "rhomboid", "espalda alta", "romboide", "trapecio")) return "UpperBack";
-        if (Has(v, "shoulder", "deltoid", "hombro", "deltoides")) return "Deltoids";
-        if (Has(v, "bicep", "bíceps", "brachialis", "brachioradialis")) return "Biceps";
-        if (Has(v, "tricep", "tríceps")) return "Triceps";
-        if (Has(v, "forearm", "antebrazo", "wrist flexor", "wrist extensor")) return "Forearms";
-        if (Has(v, "abdominal", "abs", "rectus abdominis", "core", "abdomen", "hip flexor", "iliopsoas")) return "Abdominals";
-        if (Has(v, "oblique", "oblicuo")) return "Obliques";
-        if (Has(v, "erector spinae", "lower back", "lumbar", "erectores espinales", "multifidus")) return "ErectorSpinae";
-        if (Has(v, "glute", "gluteo", "glúteo", "piriformis")) return "Glutes";
-        if (Has(v, "quadricep", "quad", "cuádriceps", "cuadriceps")) return "Quadriceps";
-        if (Has(v, "hamstring", "isquiotibial", "biceps femoris", "semitendinosus", "semimembranosus")) return "Hamstrings";
-        if (Has(v, "calf", "calves", "soleus", "gastrocnemius", "gemelo", "sóleo")) return "Calves";
-        return null;
+        // Source identifiers are anatomical names, not free text. Use exact mappings:
+        // substring matching "lat" used to classify lateral deltoid as lats, and "quad"
+        // could misclassify quadratus lumborum as quadriceps.
+        var v = Normalize(value).Replace('-', '_').Replace(' ', '_');
+        return v switch
+        {
+            "pectoralis_major" or "pectoralis_minor" or "chest" or "pectorals" => "Chest",
+            "latissimus_dorsi" or "lats" => "Lats",
+            "rhomboids" or "trapezius" or "middle_trapezius" or "lower_trapezius"
+                or "upper_trapezius" or "upper_back" or "middle_back" => "UpperBack",
+            "anterior_deltoid" or "lateral_deltoid" or "posterior_deltoid" or "deltoids" => "Deltoids",
+            "biceps_brachii" or "brachialis" or "brachioradialis" or "biceps" => "Biceps",
+            "triceps_brachii" or "triceps" => "Triceps",
+            "forearm_flexors" or "forearm_extensors" or "wrist_flexors" or "wrist_extensors" or "forearms" => "Forearms",
+            "rectus_abdominis" or "transverse_abdominis" or "abdominals" or "core" => "Abdominals",
+            "internal_obliques" or "external_obliques" or "obliques" => "Obliques",
+            "erector_spinae" or "multifidus" or "lower_back" or "quadratus_lumborum" => "ErectorSpinae",
+            "gluteus_maximus" or "gluteus_medius" or "gluteus_minimus" or "glutes" => "Glutes",
+            "quadriceps" or "rectus_femoris" or "vastus_lateralis" or "vastus_medialis" or "vastus_intermedius" => "Quadriceps",
+            "hamstrings" or "biceps_femoris" or "semitendinosus" or "semimembranosus" => "Hamstrings",
+            "gastrocnemius" or "soleus" or "calves" => "Calves",
+            "adductors" or "adductor_longus" or "adductor_magnus" or "adductor_brevis" or "gracilis" => "Adductors",
+            "abductors" or "tensor_fasciae_latae" => "Abductors",
+            "hip_flexors" or "iliopsoas" or "psoas_major" or "iliacus" => "HipFlexors",
+            "serratus_anterior" => "Serratus",
+            "tibialis_anterior" => "TibialisAnterior",
+            "supraspinatus" or "infraspinatus" or "teres_minor" or "subscapularis" => "RotatorCuff",
+            _ => null
+        };
     }
 
     private static string? MapGoal(string value)
