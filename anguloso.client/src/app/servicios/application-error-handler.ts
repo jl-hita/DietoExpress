@@ -22,10 +22,17 @@ export class ApplicationErrorHandler implements ErrorHandler {
 
   handleError(error: unknown): void {
     const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/';
-    this.reporting.captureClientError(error, currentPath);
+    const diagnostic = this.toDiagnostic(error, currentPath);
+    const technicalDetails = [
+      'Tipo: ' + diagnostic.errorName,
+      'Mensaje depurado: ' + diagnostic.errorMessage,
+      'Stack trace (depurado):',
+      diagnostic.stackTrace || 'No disponible'
+    ].join('\n');
+
+    this.reporting.captureClientError(error, currentPath, diagnostic.eventId, technicalDetails);
     console.error('[DietoExpress client runtime error]', error);
 
-    const diagnostic = this.toDiagnostic(error, currentPath);
     this.http.post('/api/client-diagnostics/runtime-error', diagnostic).subscribe({
       // Diagnostic reporting must never trigger a second visible error or recursive reporting.
       error: () => undefined
