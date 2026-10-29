@@ -125,6 +125,27 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("var selectionPriority = IsAccessoryExercise", autoReviewer);
         Assert.Contains("selectionPriority", autoReviewer);
 
+        // Every anatomical identifier present in the reviewed RepDB exports must have an exact mapping.
+        // In particular, substring matching "lat" must never turn lateral deltoid into latissimus.
+        Assert.Contains("\"lateral_deltoid\" => \"Deltoids\"", autoReviewer);
+        Assert.Contains("\"latissimus_dorsi\" or \"lats\" => \"Lats\"", autoReviewer);
+        Assert.Contains("\"quadratus_lumborum\" => \"ErectorSpinae\"", autoReviewer);
+        Assert.Contains("\"adductors\" or \"adductor_longus\"", autoReviewer);
+        Assert.Contains("\"abductors\" or \"tensor_fasciae_latae\"", autoReviewer);
+        Assert.Contains("\"hip_flexors\" or \"iliopsoas\"", autoReviewer);
+        Assert.Contains("\"serratus_anterior\" => \"Serratus\"", autoReviewer);
+        Assert.Contains("\"tibialis_anterior\" => \"TibialisAnterior\"", autoReviewer);
+        Assert.Contains("\"supraspinatus\" or \"infraspinatus\"", autoReviewer);
+        Assert.DoesNotContain("Has(v, \"lat\"", autoReviewer);
+
+        var muscleTaxonomy = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "TrainingPrescription.cs"));
+        Assert.Contains("Adductors", muscleTaxonomy);
+        Assert.Contains("Abductors", muscleTaxonomy);
+        Assert.Contains("HipFlexors", muscleTaxonomy);
+        Assert.Contains("Serratus", muscleTaxonomy);
+        Assert.Contains("TibialisAnterior", muscleTaxonomy);
+        Assert.Contains("RotatorCuff", muscleTaxonomy);
+
         Assert.DoesNotContain("source_payload FROM exercise_catalog", service);
     }
 
