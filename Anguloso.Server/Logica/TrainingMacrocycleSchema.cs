@@ -1,3 +1,4 @@
+using System.Linq;
 using Microsoft.EntityFrameworkCore;
 
 namespace Anguloso.Server.Logica;
@@ -41,25 +42,36 @@ public static class TrainingMacrocycleSchema
             CREATE INDEX IF NOT EXISTS idx_training_macrocycle_phases_dates
                 ON training_macrocycle_phases(macrocycle_id, start_date, end_date);
 
-            INSERT INTO training_macrocycles(plan_id, name, periodization_model, start_date, end_date)
-            SELECT p.id, 'Macrociclo principal', p.periodization_model, p.start_date, p.end_date
-            FROM training_plans p
-            WHERE EXISTS (SELECT 1 FROM training_mesocycles m WHERE m.plan_id = p.id)
-            ON CONFLICT (plan_id) DO NOTHING;
-
-            INSERT INTO training_macrocycle_phases(macrocycle_id, name, sequence_number, start_date, end_date, objective, phase_type)
-            SELECT mc.id, m.name, m.sequence_number, m.start_date,
-                   COALESCE(m.end_date, m.start_date), m.objective,
-                   CASE
-                     WHEN LOWER(m.name || ' ' || COALESCE(m.objective, '')) ~ 'descarga|recuperaci[oó]n|deload|descanso' THEN 'deload'
-                     WHEN LOWER(m.name || ' ' || COALESCE(m.objective, '')) ~ 'realizaci[oó]n|puesta a punto|competici[oó]n|peaking|pico' THEN 'realization'
-                     WHEN LOWER(m.name || ' ' || COALESCE(m.objective, '')) ~ 'intensificaci[oó]n|fuerza m[aá]xima|intensidad' THEN 'intensification'
-                     WHEN LOWER(m.name || ' ' || COALESCE(m.objective, '')) ~ 'acumulaci[oó]n|base|volumen|hipertrofia' THEN 'accumulation'
-                     ELSE 'general'
-                   END
-            FROM training_mesocycles m
-            JOIN training_macrocycles mc ON mc.plan_id = m.plan_id
-            ON CONFLICT (macrocycle_id, sequence_number) DO NOTHING;
             """);
+
+        var legacyBackfillApplied = context.Database.SqlQueryRaw<int>(
+            "SELECT COUNT(*)::int AS \"Value\" FROM schema_migrations WHERE id = 'training-macrocycle-v1-independent-plan'")
+            .Single() > 0;
+        if (!legacyBackfillApplied)
+        {
+            context.Database.ExecuteSqlRaw("""
+                INSERT INTO training_macrocycles(plan_id, name, periodization_model, start_date, end_date)
+                SELECT p.id, 'Macrociclo principal', p.periodization_model, p.start_date, p.end_date
+                FROM training_plans p
+                WHERE EXISTS (SELECT 1 FROM training_mesocycles m WHERE m.plan_id = p.id)
+                ON CONFLICT (plan_id) DO NOTHING;
+
+                INSERT INTO training_macrocycle_phases(macrocycle_id, name, sequence_number, start_date, end_date, objective, phase_type)
+                SELECT mc.id, m.name, m.sequence_number, m.start_date,
+                       COALESCE(m.end_date, m.start_date), m.objective,
+                       CASE
+                         WHEN LOWER(m.name || ' ' || COALESCE(m.objective, '')) ~ 'descarga|recuperaci[oó]n|deload|descanso' THEN 'deload'
+                         WHEN LOWER(m.name || ' ' || COALESCE(m.objective, '')) ~ 'realizaci[oó]n|puesta a punto|competici[oó]n|peaking|pico' THEN 'realization'
+                         WHEN LOWER(m.name || ' ' || COALESCE(m.objective, '')) ~ 'intensificaci[oó]n|fuerza m[aá]xima|intensidad' THEN 'intensification'
+                         WHEN LOWER(m.name || ' ' || COALESCE(m.objective, '')) ~ 'acumulaci[oó]n|base|volumen|hipertrofia' THEN 'accumulation'
+                         ELSE 'general'
+                       END
+                FROM training_mesocycles m
+                JOIN training_macrocycles mc ON mc.plan_id = m.plan_id
+                ON CONFLICT (macrocycle_id, sequence_number) DO NOTHING;
+                INSERT INTO schema_migrations(id) VALUES ('training-macrocycle-v1-independent-plan')
+                ON CONFLICT (id) DO NOTHING;
+                """);
+        }
     }
 }
