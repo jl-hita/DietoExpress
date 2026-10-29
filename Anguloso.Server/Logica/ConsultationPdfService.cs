@@ -182,19 +182,21 @@ public class ConsultationPdfService
             tenantParam.ParameterName = "tenantId"; tenantParam.Value = client.tenant_id.HasValue ? client.tenant_id.Value : DBNull.Value; command.Parameters.Add(tenantParam);
             var dateParam = command.CreateParameter();
             dateParam.ParameterName = "date"; dateParam.Value = date.ToDateTime(TimeOnly.MinValue); command.Parameters.Add(dateParam);
-            using var reader = command.ExecuteReader();
-            while (reader.Read())
+            using (var reader = command.ExecuteReader())
             {
-                plans.Add(new TrainingPlanPdf
+                while (reader.Read())
                 {
-                    Id = Convert.ToInt32(reader.GetValue(0)),
-                    Name = reader.GetString(1),
-                    Model = reader.IsDBNull(2) ? "—" : reader.GetString(2),
-                    StartDate = DateOnly.FromDateTime(reader.GetDateTime(3)),
-                    EndDate = reader.IsDBNull(4) ? null : DateOnly.FromDateTime(reader.GetDateTime(4)),
-                    Status = reader.IsDBNull(5) ? "—" : reader.GetString(5),
-                    Notes = reader.IsDBNull(6) ? null : reader.GetString(6)
-                });
+                    plans.Add(new TrainingPlanPdf
+                    {
+                        Id = Convert.ToInt32(reader.GetValue(0)),
+                        Name = reader.GetString(1),
+                        Model = reader.IsDBNull(2) ? "—" : reader.GetString(2),
+                        StartDate = reader.GetFieldValue<DateOnly>(3),
+                        EndDate = reader.IsDBNull(4) ? null : reader.GetFieldValue<DateOnly>(4),
+                        Status = reader.IsDBNull(5) ? "—" : reader.GetString(5),
+                        Notes = reader.IsDBNull(6) ? null : reader.GetString(6)
+                    });
+                }
             }
             foreach (var plan in plans)
             {
@@ -207,8 +209,8 @@ public class ConsultationPdfService
                 using var mesoReader = mesoCommand.ExecuteReader();
                 while (mesoReader.Read())
                     plan.Mesocycles.Add(new TrainingMesoPdf(
-                        mesoReader.GetString(0), mesoReader.GetInt32(1), DateOnly.FromDateTime(mesoReader.GetDateTime(2)),
-                        mesoReader.IsDBNull(3) ? null : DateOnly.FromDateTime(mesoReader.GetDateTime(3)),
+                        mesoReader.GetString(0), mesoReader.GetInt32(1), mesoReader.GetFieldValue<DateOnly>(2),
+                        mesoReader.IsDBNull(3) ? null : mesoReader.GetFieldValue<DateOnly>(3),
                         mesoReader.IsDBNull(4) ? null : mesoReader.GetString(4),
                         mesoReader.IsDBNull(5) ? null : mesoReader.GetString(5)));
             }
@@ -224,7 +226,7 @@ public class ConsultationPdfService
                 using var sessionReader = sessionsCommand.ExecuteReader();
                 while (sessionReader.Read())
                     plan.Sessions.Add(new TrainingSessionPdf(
-                        DateOnly.FromDateTime(sessionReader.GetDateTime(0)), sessionReader.GetString(1),
+                        sessionReader.GetFieldValue<DateOnly>(0), sessionReader.GetString(1),
                         sessionReader.IsDBNull(2) ? "general" : sessionReader.GetString(2),
                         sessionReader.IsDBNull(3) ? null : sessionReader.GetInt32(3),
                         sessionReader.IsDBNull(4) ? null : sessionReader.GetString(4),
