@@ -85,7 +85,7 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("PreferredIdsByVariationGroup", service);
         Assert.Contains("category = 'cardio'", service);
         var curation = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "RepDbExerciseCuration.cs"));
-        Assert.Contains("\"air-bike\"", curation);
+        Assert.Contains("\"cardio\"", curation);
         Assert.Contains("\"endurance\"", curation);
         Assert.Contains("RequiresManualReview", curation);
         Assert.Contains("exercise-catalog-repdb-quality-curation-v2", service);
@@ -97,6 +97,54 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("[\"clean\"] = []", curation);
         Assert.Contains("string.Equals(category, \"olympic\"", curation);
         Assert.Contains("secondaryMusclesJson", service);
+        Assert.Contains("EnsureRepDbCatalogRefreshAsync", service);
+        Assert.Contains("exercise-catalog-repdb-curation-refresh-v3", service);
+        Assert.Contains("EnsureRepDbGeneratorScopeCurationAsync", service);
+        Assert.Contains("exercise-catalog-repdb-generator-scope-v3", service);
+        Assert.Contains("DietoExpress generator curation v3", service);
+        Assert.Contains("newly eligible exercises", service);
+        Assert.Contains("review_status = 'rejected'", service);
+        Assert.Contains("lower(COALESCE(category, ''))", service);
+        Assert.Contains("every startup", service);
+        Assert.Contains("\"hammer-curl\"", curation);
+        Assert.Contains("\"band-assisted-pull-ups\"", curation);
+        Assert.DoesNotContain("\"decline-db-fly\"", curation);
+        var excludedIds = curation.Split("public static readonly string[] ExcludedIds =")[1].Split("];")[0];
+        Assert.DoesNotContain("\"leg-extension\"", excludedIds);
+        Assert.DoesNotContain("\"lateral-raise\"", excludedIds);
+        Assert.Contains("Rules are intentionally auditable", curation);
+        Assert.Contains("IsAutoApprovalCandidate", curation);
+        var autoReviewer = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "RepDbExerciseAutoReviewer.cs"));
+        Assert.Contains("IsAccessoryExercise", autoReviewer);
+        Assert.DoesNotContain("IsAutoApprovalCandidate(id)", autoReviewer);
+        Assert.Contains("HasUsefulInstructions", autoReviewer);
+        Assert.Contains("MapEquipment", autoReviewer);
+        Assert.Contains("leg extension", autoReviewer);
+        Assert.Contains("lateral raise", autoReviewer);
+        Assert.Contains("curl femoral", autoReviewer);
+        Assert.Contains("var selectionPriority = IsAccessoryExercise", autoReviewer);
+        Assert.Contains("selectionPriority", autoReviewer);
+
+        // Every anatomical identifier present in the reviewed RepDB exports must have an exact mapping.
+        // In particular, substring matching "lat" must never turn lateral deltoid into latissimus.
+        Assert.Contains("\"anterior_deltoid\" or \"lateral_deltoid\" or \"posterior_deltoid\" or \"deltoids\" => \"Deltoids\"", autoReviewer);
+        Assert.Contains("\"latissimus_dorsi\" or \"lats\" => \"Lats\"", autoReviewer);
+        Assert.Contains("\"quadratus_lumborum\" => \"ErectorSpinae\"", autoReviewer);
+        Assert.Contains("\"adductors\" or \"adductor_longus\"", autoReviewer);
+        Assert.Contains("\"abductors\" or \"tensor_fasciae_latae\"", autoReviewer);
+        Assert.Contains("\"hip_flexors\" or \"iliopsoas\"", autoReviewer);
+        Assert.Contains("\"serratus_anterior\" => \"Serratus\"", autoReviewer);
+        Assert.Contains("\"tibialis_anterior\" => \"TibialisAnterior\"", autoReviewer);
+        Assert.Contains("\"supraspinatus\" or \"infraspinatus\"", autoReviewer);
+        Assert.DoesNotContain("Has(v, \"lat\"", autoReviewer);
+
+        var muscleTaxonomy = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "TrainingPrescription.cs"));
+        Assert.Contains("Adductors", muscleTaxonomy);
+        Assert.Contains("Abductors", muscleTaxonomy);
+        Assert.Contains("HipFlexors", muscleTaxonomy);
+        Assert.Contains("Serratus", muscleTaxonomy);
+        Assert.Contains("TibialisAnterior", muscleTaxonomy);
+        Assert.Contains("RotatorCuff", muscleTaxonomy);
 
         Assert.DoesNotContain("source_payload FROM exercise_catalog", service);
     }

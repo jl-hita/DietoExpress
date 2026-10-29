@@ -308,7 +308,11 @@ public sealed class TrainingProgramGeneratorTests
         Assert.Equal(2, weekOneQuads.PrimaryFrequencySessions);
         Assert.Equal(6, weekTwoQuads.PrimarySets);
         Assert.Equal(2, weekFourQuads.PrimarySets);
-        Assert.Empty(report.Warnings);
+        // The expanded anatomical taxonomy intentionally reports muscles not represented by
+        // this compact synthetic fixture. Volume calculations themselves must remain warning-free.
+        Assert.DoesNotContain(report.Warnings, warning => warning.Contains("series primarias", StringComparison.Ordinal));
+        Assert.Contains(report.Warnings, warning => warning.Contains("Adductors", StringComparison.Ordinal));
+        Assert.Contains(report.Warnings, warning => warning.Contains("RotatorCuff", StringComparison.Ordinal));
     }
 
     [Fact]

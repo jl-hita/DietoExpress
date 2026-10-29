@@ -50,7 +50,13 @@ public enum TrainingMuscleGroup
     Glutes,
     Quadriceps,
     Hamstrings,
-    Calves
+    Calves,
+    Adductors,
+    Abductors,
+    HipFlexors,
+    Serratus,
+    TibialisAnterior,
+    RotatorCuff
 }
 
 public enum TrainingProgressionRule

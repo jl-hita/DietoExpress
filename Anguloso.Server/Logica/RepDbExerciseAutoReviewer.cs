@@ -25,7 +25,8 @@ internal static class RepDbExerciseAutoReviewer
         string primaryMusclesJson, string secondaryMusclesJson, string goalsJson,
         string tagsJson, bool? isBodyweight)
     {
-        if (RepDbExerciseCuration.ShouldExclude(id) || RepDbExerciseCuration.RequiresManualReview(id))
+        if (RepDbExerciseCuration.ShouldExclude(id)
+            || RepDbExerciseCuration.RequiresManualReview(id))
             return null;
 
         if (string.IsNullOrWhiteSpace(nameEs) || nameEs.Trim().Length < 3 ||
@@ -64,9 +65,15 @@ internal static class RepDbExerciseAutoReviewer
         var requiredEquipment = MapEquipment(equipment ?? "", isBodyweight);
         if (requiredEquipment is null) return null;
 
+        // Isolation/accessory work is valuable, but should rank below the main movement options
+        // when the generator chooses one exercise for a movement-pattern slot.
+        var selectionPriority = IsAccessoryExercise(id, nameEs, nameEn)
+            ? 55
+            : pattern is "Squat" or "Hinge" or "HorizontalPush" or "HorizontalPull" ? 85 : 75;
+
         return new ReviewMetadata(pattern, primary, secondary, exp, goals, requiredEquipment,
-            pattern is "Squat" or "Hinge" or "HorizontalPush" or "HorizontalPull" ? 85 : 75,
-            "Enriquecimiento automático RepDB v2: mapeo determinista de metadatos de origen; verificar si cambian las reglas.");
+            selectionPriority,
+            "Enriquecimiento automático RepDB v3: mapeo determinista de metadatos de origen; verificar si cambian las reglas.");
     }
 
     private static string? InferPattern(string id, string es, string en, string tagsJson,
@@ -74,37 +81,94 @@ internal static class RepDbExerciseAutoReviewer
     {
         var text = Normalize(string.Join(' ', id, es, en, string.Join(' ', ReadStrings(tagsJson))));
         // Strong name/ID cues first; ambiguous exercises stay pending.
-        if (Has(text, "squat", "sentadilla", "leg press", "prensa de piernas")) return "Squat";
-        if (Has(text, "deadlift", "peso muerto", "good morning", "hip thrust", "puente de gluteos", "glute bridge", "back extension", "extension lumbar")) return "Hinge";
-        if (Has(text, "bench press", "press de banca", "push-up", "push up", "flexion", "chest press", "floor press")) return "HorizontalPush";
-        if (Has(text, "overhead press", "shoulder press", "military press", "press militar", "arnold press")) return "VerticalPush";
+        if (Has(text, "squat", "sentadilla", "leg press", "prensa de piernas", "reverse nordic")) return "Squat";
+        if (Has(text, "deadlift", "peso muerto", "good morning", "hip thrust", "puente de gluteos", "glute bridge", "hip bridge", "puente de cadera", "back extension", "extension lumbar",
+            "kettlebell swing", "dumbbell swing", "one-arm swing", "swing con mancuerna", "pull-through", "pull through")) return "Hinge";
+        if (Has(text, "bench press", "press de banca", "push-up", "push up", "flexion", "chest press", "floor press",
+            "landmine press", "svend press", "push press", "tricep kickback", "patada de triceps",
+            "dip machine", "dips", "fondos")) return "HorizontalPush";
+        if (Has(text, "overhead press", "shoulder press", "military press", "press militar", "arnold press",
+            "landmine press", "push press")) return "VerticalPush";
         if (Has(text, "row", "remo", "seated cable row", "bent-over row")) return "HorizontalPull";
         if (Has(text, "pull-up", "pull up", "chin-up", "chin up", "lat pulldown", "jalon al pecho")) return "VerticalPull";
         if (Has(text, "lunge", "zancada", "split squat", "step-up", "step up", "pistol squat", "single-leg")) return "SingleLeg";
-        if (Has(text, "crunch", "sit-up", "sit up", "plank", "plancha", "dead bug", "hollow hold", "russian twist", "abdominal")) return "Core";
+        if (Has(text, "crunch", "sit-up", "sit up", "plank", "plancha", "dead bug", "hollow hold", "russian twist", "abdominal",
+            "leg raise", "knee raise", "knee tuck", "ball pike", "pike con pelota", "flutter kick", "scissor kick", "windshield wiper", "pallof press", "farmers walk",
+            "farmer's walk", "suitcase carry", "overhead carry", "bench leg pull-in", "bench leg pull in",
+            "ab rollout", "ab wheel", "rueda abdominal", "v-up", "v up", "tuck hold")) return "Core";
+
+        // Useful isolation exercises are approved too. Map them to the nearest supported pattern
+        // so they remain compatible with the current generator contract; their lower priority keeps
+        // them behind compound movements when both are available.
+        if (Has(text, "lateral raise", "elevacion lateral", "front raise", "elevacion frontal",
+            "shoulder fly", "elevacion de hombro")) return "VerticalPush";
+        if (Has(text, "chest fly", "pec deck", "cable fly", "dumbbell fly", "aperturas de pecho")) return "HorizontalPush";
+        if (Has(text, "face pull", "reverse fly", "rear delt fly", "curl de biceps", "bicep curl",
+            "preacher curl", "concentration curl", "forearm curl", "wrist curl", "curl de antebrazo",
+            "pullover", "shrug", "encogimiento de hombros", "sled row", "remo con trineo",
+            "straight-arm pulldown", "straight arm pulldown", "jalon con brazos rectos",
+            "plate pinch", "pinza de discos", "wrist roller", "curl")) return "HorizontalPull";
+        if (Has(text, "tricep extension", "triceps extension", "tricep pushdown", "skull crusher",
+            "extension de triceps", "jalon de triceps")) return "HorizontalPush";
+        if (Has(text, "leg extension", "quadriceps extension", "extension de cuadriceps")) return "Squat";
+        if (Has(text, "leg curl", "hamstring curl", "curl femoral", "nordic hamstring")) return "Hinge";
+        if (Has(text, "calf raise", "calf press", "elevacion de talones", "gemelos")) return "SingleLeg";
+        if (Has(text, "hip abduction", "hip adduction", "abduccion de cadera", "aduccion de cadera",
+            "glute kickback", "patada de gluteos", "cable kickback")) return "SingleLeg";
 
         // Do not infer a movement pattern from muscle group alone: several patterns share muscles.
         return null;
     }
 
+    private static bool IsAccessoryExercise(string id, string? nameEs, string nameEn)
+    {
+        var text = Normalize(string.Join(' ', id, nameEs, nameEn));
+        return Has(text, "lateral raise", "elevacion lateral", "front raise", "elevacion frontal",
+            "shoulder fly", "chest fly", "pec deck", "cable fly", "dumbbell fly", "aperturas de pecho",
+            "face pull", "reverse fly", "rear delt fly", "bicep curl", "curl de biceps", "preacher curl",
+            "concentration curl", "forearm curl", "wrist curl", "tricep extension", "triceps extension",
+            "tricep pushdown", "tricep kickback", "skull crusher", "extension de triceps", "leg extension",
+            "quadriceps extension", "extension de cuadriceps", "single-leg-extension", "leg curl", "hamstring curl",
+            "curl femoral", "nordic hamstring", "calf raise", "calf press", "elevacion de talones",
+            "hip abduction", "hip adduction", "abduccion de cadera", "aduccion de cadera", "glute kickback",
+            "cable kickback", "pullover", "hip bridge", "puente de cadera", "shrug", "encogimiento de hombros", "wrist roller", "plate pinch",
+            "straight-arm pulldown", "straight arm pulldown", "jalon con brazos rectos",
+            "pinza de discos", "kettlebell swing", "dumbbell swing", "farmers walk", "farmer's walk",
+            "suitcase carry", "overhead carry", "sandbag carry", "ab rollout", "ab wheel", "rueda abdominal",
+            "pallof press", "v-up", "v up", "flutter kick", "scissor kick");
+    }
+
     private static string? MapMuscle(string value)
     {
-        var v = Normalize(value);
-        if (Has(v, "chest", "pector", "pectoral")) return "Chest";
-        if (Has(v, "lat", "dorsal ancho")) return "Lats";
-        if (Has(v, "upper back", "middle back", "trap", "rhomboid", "espalda alta", "romboide", "trapecio")) return "UpperBack";
-        if (Has(v, "shoulder", "deltoid", "hombro", "deltoides")) return "Deltoids";
-        if (Has(v, "bicep", "bíceps")) return "Biceps";
-        if (Has(v, "tricep", "tríceps")) return "Triceps";
-        if (Has(v, "forearm", "antebrazo")) return "Forearms";
-        if (Has(v, "abdominal", "abs", "rectus abdominis", "core", "abdomen")) return "Abdominals";
-        if (Has(v, "oblique", "oblicuo")) return "Obliques";
-        if (Has(v, "erector spinae", "lower back", "lumbar", "erectores espinales")) return "ErectorSpinae";
-        if (Has(v, "glute", "gluteo", "glúteo")) return "Glutes";
-        if (Has(v, "quadricep", "quad", "cuádriceps", "cuadriceps")) return "Quadriceps";
-        if (Has(v, "hamstring", "isquiotibial")) return "Hamstrings";
-        if (Has(v, "calf", "calves", "soleus", "gastrocnemius", "gemelo", "sóleo")) return "Calves";
-        return null;
+        // Source identifiers are anatomical names, not free text. Use exact mappings:
+        // substring matching "lat" used to classify lateral deltoid as lats, and "quad"
+        // could misclassify quadratus lumborum as quadriceps.
+        var v = Normalize(value).Replace('-', '_').Replace(' ', '_');
+        return v switch
+        {
+            "pectoralis_major" or "pectoralis_minor" or "chest" or "pectorals" => "Chest",
+            "latissimus_dorsi" or "lats" => "Lats",
+            "rhomboids" or "trapezius" or "middle_trapezius" or "lower_trapezius"
+                or "upper_trapezius" or "upper_back" or "middle_back" => "UpperBack",
+            "anterior_deltoid" or "lateral_deltoid" or "posterior_deltoid" or "deltoids" => "Deltoids",
+            "biceps_brachii" or "brachialis" or "brachioradialis" or "biceps" => "Biceps",
+            "triceps_brachii" or "triceps" => "Triceps",
+            "forearm_flexors" or "forearm_extensors" or "wrist_flexors" or "wrist_extensors" or "forearms" => "Forearms",
+            "rectus_abdominis" or "transverse_abdominis" or "abdominals" or "core" => "Abdominals",
+            "internal_obliques" or "external_obliques" or "obliques" => "Obliques",
+            "erector_spinae" or "multifidus" or "lower_back" or "quadratus_lumborum" => "ErectorSpinae",
+            "gluteus_maximus" or "gluteus_medius" or "gluteus_minimus" or "glutes" => "Glutes",
+            "quadriceps" or "rectus_femoris" or "vastus_lateralis" or "vastus_medialis" or "vastus_intermedius" => "Quadriceps",
+            "hamstrings" or "biceps_femoris" or "semitendinosus" or "semimembranosus" => "Hamstrings",
+            "gastrocnemius" or "soleus" or "calves" => "Calves",
+            "adductors" or "adductor_longus" or "adductor_magnus" or "adductor_brevis" or "gracilis" => "Adductors",
+            "abductors" or "tensor_fasciae_latae" => "Abductors",
+            "hip_flexors" or "iliopsoas" or "psoas_major" or "iliacus" => "HipFlexors",
+            "serratus_anterior" => "Serratus",
+            "tibialis_anterior" => "TibialisAnterior",
+            "supraspinatus" or "infraspinatus" or "teres_minor" or "subscapularis" => "RotatorCuff",
+            _ => null
+        };
     }
 
     private static string? MapGoal(string value)
@@ -121,18 +185,45 @@ internal static class RepDbExerciseAutoReviewer
         var v = Normalize(value);
         if (bodyweight == true || Has(v, "bodyweight", "none", "no equipment", "peso corporal", "ninguno", "sin material"))
             return [];
+        if (Has(v, "trap bar", "trap_bar")) return ["trap-bar"];
         if (Has(v, "barbell", "barra")) return ["barbell"];
         if (Has(v, "dumbbell", "mancuerna")) return ["dumbbell"];
         if (Has(v, "kettlebell", "pesa rusa")) return ["kettlebell"];
         if (Has(v, "cable", "polea")) return ["cable"];
+        if (Has(v, "flat bench", "bench", "banco")) return ["bench"];
+        if (Has(v, "pull-up bar", "pull up bar", "pull_up_bar", "barra de dominadas")) return ["pull-up-bar"];
+        if (Has(v, "suspension trainer", "suspension_trainer", "trx")) return ["suspension-trainer"];
+        if (Has(v, "loop band", "loop_band", "resistance band", "resistance_band", "band")) return ["resistance-band"];
+        if (Has(v, "rings", "gymnastic rings")) return ["rings"];
+        if (Has(v, "dip station", "dip_station")) return ["dip-station"];
+        if (Has(v, "leg press", "leg_press")) return ["leg-press-machine"];
+        if (Has(v, "hack squat", "hack_squat")) return ["hack-squat-machine"];
+        if (Has(v, "leg curl", "leg_curl")) return ["leg-curl-machine"];
+        if (Has(v, "leg extension", "leg_extension")) return ["leg-extension-machine"];
+        if (Has(v, "hip abduction machine", "hip_abduction_machine", "hip adduction machine", "hip_adduction_machine")) return ["machine"];
+        if (Has(v, "back extension machine", "back_extension_machine", "bicep curl machine", "bicep_curl_machine",
+            "chest fly machine", "chest_fly_machine", "preacher curl machine", "preacher_curl_machine",
+            "reverse fly machine", "reverse_fly_machine", "ab crunch machine", "ab_crunch_machine",
+            "shoulder press machine", "shoulder_press_machine", "tricep extension machine", "tricep_extension_machine",
+            "standing calf raise machine", "standing_calf_raise_machine", "seated calf raise machine", "seated_calf_raise_machine",
+            "plate loaded lateral raise machine", "plate_loaded_lateral_raise_machine", "hip thrust machine", "hip_thrust_machine",
+            "plate loaded dip machine", "plate_loaded_dip_machine", "shrug machine", "shrug_machine",
+            "chest press machine", "chest_press_machine", "leg press", "leg_press", "hack squat", "hack_squat",
+            "leg curl", "leg_curl", "leg extension", "leg_extension", "pec deck", "pec_deck", "smith")) return ["machine"];
         if (Has(v, "machine", "máquina", "maquina")) return ["machine"];
         if (Has(v, "resistance band", "band", "banda elástica", "banda elastica")) return ["resistance-band"];
         if (Has(v, "smith")) return ["smith-machine"];
-        if (Has(v, "ez-bar", "curl bar")) return ["ez-bar"];
-        if (Has(v, "bench", "banco")) return ["bench"];
-        if (Has(v, "pull-up bar", "barra de dominadas")) return ["pull-up-bar"];
-        if (Has(v, "medicine ball", "balón medicinal", "balon medicinal")) return ["medicine-ball"];
-        if (Has(v, "foam roller", "rodillo")) return ["foam-roller"];
+        if (Has(v, "ez-bar", "ez_bar", "curl bar")) return ["ez-bar"];
+        if (Has(v, "medicine ball", "medicine_ball", "balón medicinal", "balon medicinal")) return ["medicine-ball"];
+        if (Has(v, "stability ball", "stability_ball")) return ["stability-ball"];
+        if (Has(v, "ab wheel", "ab_wheel")) return ["ab-wheel"];
+        if (Has(v, "plates", "plate")) return ["weight-plate"];
+        if (Has(v, "sled")) return ["sled"];
+        if (Has(v, "sandbag", "sand_bag")) return ["sandbag"];
+        if (Has(v, "wrist roller", "wrist_roller")) return ["wrist-roller"];
+        if (Has(v, "glute ham developer", "glute_ham_developer")) return ["glute-ham-developer"];
+        if (Has(v, "battle rope", "battle_rope")) return ["battle-rope"];
+        if (Has(v, "treadmill", "elliptical", "ski erg", "ski_erg", "stair climber", "stair_climber", "bicycle", "stationary bike", "stationary_bike", "jump rope", "jump_rope")) return null;
         return null;
     }
 

@@ -13,36 +13,87 @@ internal static class RepDbExerciseCuration
     // hypertrophy plans; avoid highly technical Olympic skills and redundant low-value variants.
     public static readonly string[] ExcludedIds =
     [
-        "air-bike",
+        // Specialist skills with little transfer to general strength/hypertrophy plans.
         "back-lever",
+        "ring-dead-hang",
+        // Explicit low-value/redundant variants; this is not a blanket exclusion of isolation work.
+        "cheat-curl",
+        "hammer-curl",
+        "cable-hammer-curl",
+        "band-assisted-pull-ups",
+        "crunches",
+        "balance-dome-crunch",
+        "cross-body-crunch",
+        "bicycle-crunch",
+        "decline-crunch",
+        "weighted-wall-crunch",
+        "cocoons",
+        // Rehab/activation drills that do not belong in the general automatic routine generator.
         "side-lying-hip-abduction-hold",
         "side-lying-hip-adduction-hold",
         "banded-seated-hip-abduction",
         "banded-standing-hip-adduction",
         "clamshells",
         "clamshells-hold",
-        "decline-db-fly",
-        "cocoons",
-        "balance-dome-crunch",
-        "cross-body-crunch",
-        "bicycle-crunch",
-        "decline-crunch",
-        "weighted-wall-crunch",
-        "ring-dead-hang",
-        "cheat-curl",
-        "close-grip-ez-bar-curl",
-        "close-grip-barbell-curl",
-        "double-kettlebell-bicep-curl",
-        "one-arm-kettlebell-bicep-curl",
-        "kettlebell-concentration-curl",
-        "kettlebell-curl-iso-hold",
-        "barbell-wrist-curl",
-        "ez-bar-wrist-curl",
-        "cable-wrist-curl",
-        "kettlebell-wrist-curl",
-        "wrist-curl",
-        "kettlebell-reverse-wrist-curl",
+        "banded-clamshell",
+        "banded-fire-hydrant",
+        "banded-lateral-walk",
+        "banded-terminal-knee-extension",
+        "tandem-stance",
+        "heel-to-toe-walk",
+        "cable-external-rotation",
+        // Yoga/Pilates-style positions and balance skills are outside the strength routine generator.
+        "boat-pose",
+        "chair-pose",
+        "dolphin-pose",
+        "eagle-pose",
+        "half-moon-pose",
+        "locust-pose",
+        "tree-pose",
+        "bow-pose",
+        "dancer-pose",
+        "revolved-chair-pose",
+        "pilates-kneeling-side-kick",
+        "pilates-leg-pull-back",
+        "pilates-leg-pull-front",
+        "pilates-roll-over",
         "banded-sumo-walk",
+        // Advanced calisthenics skills, balance work and low-transfer conditioning drills.
+        "handstand-hold",
+        "muscle-ups",
+        "front-lever",
+        "human-flag",
+        "l-sit",
+        "ring-l-sit",
+        "hanging-l-sit",
+        "hanging-pike",
+        "flexed-arm-hang",
+        "ring-support-hold",
+        "rope-climb",
+        "downward-dog-to-upward-dog",
+        "warrior-two",
+        "warrior-three",
+        "three-legged-dog",
+        "supported-shoulderstand",
+        "inchworm",
+        "fire-hydrant",
+        "bird-dog",
+        "chin-tuck-hold",
+        "glute-kickback-hold",
+        "six-inch-hold",
+        "jefferson-curl",
+        "bear-crawl",
+        "sled-push",
+        "wall-ball",
+        "medicine-ball-slam",
+        "medicine-ball-side-throw",
+        "jackknife-sit-up",
+        "band-pull-apart",
+        "v-sit",
+        "thoracic-bridge",
+        "superman",
+        "double-kettlebell-clean",
+        // Highly technical Olympic lifts.
         "snatch",
         "hang-snatch",
         "hang-clean",
@@ -52,6 +103,15 @@ internal static class RepDbExerciseCuration
     ];
 
     private static readonly HashSet<string> Excluded = new(ExcludedIds, StringComparer.OrdinalIgnoreCase);
+    private static readonly HashSet<string> ExcludedCategories = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "stretching", "yoga", "mobility", "pilates", "balance", "warmup", "warm_up", "warm-up", "warm up",
+        "rehabilitation", "rehab", "prehab", "cardio"
+    };
+
+    // Approval is based on complete, interpretable source metadata and supported generator mappings,
+    // not a hard-coded ID allowlist. This lets future high-quality RepDB exercises be enriched safely.
+    public static bool IsAutoApprovalCandidate(string id) => !ShouldExclude(id) && !RequiresManualReview(id);
 
     // For very large source variation groups, retain useful, scalable options across common
     // equipment/access levels and prune near-identical variants. Unlisted groups are not filtered.
@@ -100,9 +160,15 @@ internal static class RepDbExerciseCuration
     public static bool ShouldExclude(string id, string? category, string? equipment, string? variationGroup)
     {
         if (ShouldExclude(id)) return true;
+
+        // The automatic generator builds progressive strength/hypertrophy routines, not warm-ups,
+        // mobility sessions, yoga flows, rehabilitation plans, or conditioning-only sessions.
+        if (category is not null && ExcludedCategories.Contains(category.Trim())) return true;
         if (string.Equals(category, "olympic", StringComparison.OrdinalIgnoreCase)
             || string.Equals(category, "plyometrics", StringComparison.OrdinalIgnoreCase)) return true;
         if (string.Equals(equipment, "bosu_ball", StringComparison.OrdinalIgnoreCase)) return true;
+
+        // Keep the curation of near-identical variants local to known variation groups only.
         return variationGroup is not null
             && PreferredIdsByVariationGroup.TryGetValue(variationGroup, out var preferred)
             && !preferred.Contains(id, StringComparer.OrdinalIgnoreCase);
