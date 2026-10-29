@@ -109,10 +109,16 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("\"hammer-curl\"", curation);
         Assert.Contains("\"band-assisted-pull-ups\"", curation);
         Assert.DoesNotContain("\"decline-db-fly\"", curation);
-        Assert.DoesNotContain("\"leg-extension\"", curation);
-        Assert.DoesNotContain("\"lateral-raise\"", curation);
+        var excludedIds = curation.Split("public static readonly string[] ExcludedIds =")[1].Split("];")[0];
+        var autoApprovalIds = curation.Split("AutoApprovalCandidateIds =")[1].Split("];")[0];
+        Assert.DoesNotContain("\"leg-extension\"", excludedIds);
+        Assert.DoesNotContain("\"lateral-raise\"", excludedIds);
+        Assert.Contains("\"leg-extension\"", autoApprovalIds);
+        Assert.Contains("\"lateral-raise\"", autoApprovalIds);
+        Assert.Contains("AutoApprovalCandidateIds", curation);
         var autoReviewer = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "RepDbExerciseAutoReviewer.cs"));
         Assert.Contains("IsAccessoryExercise", autoReviewer);
+        Assert.Contains("IsAutoApprovalCandidate(id)", autoReviewer);
         Assert.Contains("leg extension", autoReviewer);
         Assert.Contains("lateral raise", autoReviewer);
         Assert.Contains("curl femoral", autoReviewer);
