@@ -894,6 +894,8 @@ public sealed class TrainingPeriodizationController : ControllerBase
     public async Task<IActionResult> SaveMacrocycle(int planId, [FromBody] SaveTrainingMacrocycleRequest request, CancellationToken cancellationToken)
     {
         if (!await CanManagePlan(planId, cancellationToken)) return NotFound();
+        if (request.Phases is null)
+            return BadRequest(new { message = "Añade al menos una fase al macrociclo." });
         if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Trim().Length > 160)
             return BadRequest(new { message = "El nombre del macrociclo es obligatorio (máximo 160 caracteres)." });
         if (string.IsNullOrWhiteSpace(request.PeriodizationModel) || request.PeriodizationModel.Length > 40)
