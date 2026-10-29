@@ -97,6 +97,20 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("[\"clean\"] = []", curation);
         Assert.Contains("string.Equals(category, \"olympic\"", curation);
         Assert.Contains("secondaryMusclesJson", service);
+        Assert.Contains("EnsureRepDbCatalogRefreshAsync", service);
+        Assert.Contains("exercise-catalog-repdb-curation-refresh-v3", service);
+        Assert.Contains("EnsureRepDbGeneratorScopeCurationAsync", service);
+        Assert.Contains("exercise-catalog-repdb-generator-scope-v3", service);
+        Assert.Contains("DietoExpress generator curation v3", service);
+        Assert.Contains("newly eligible exercises", service);
+        Assert.Contains("review_status = 'rejected'", service);
+        Assert.Contains("lower(COALESCE(category, ''))", service);
+        Assert.Contains("Every startup", service);
+        Assert.Contains("\"hammer-curl\"", curation);
+        Assert.Contains("\"band-assisted-pull-ups\"", curation);
+        Assert.DoesNotContain("\"decline-db-fly\"", curation);
+        Assert.DoesNotContain("\"leg-extension\"", curation);
+        Assert.DoesNotContain("\"lateral-raise\"", curation);
 
         Assert.DoesNotContain("source_payload FROM exercise_catalog", service);
     }
