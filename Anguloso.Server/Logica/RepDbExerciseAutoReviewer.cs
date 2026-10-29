@@ -64,9 +64,15 @@ internal static class RepDbExerciseAutoReviewer
         var requiredEquipment = MapEquipment(equipment ?? "", isBodyweight);
         if (requiredEquipment is null) return null;
 
+        // Isolation/accessory work is valuable, but should rank below the main movement options
+        // when the generator chooses one exercise for a movement-pattern slot.
+        var selectionPriority = IsAccessoryExercise(id, nameEs, nameEn)
+            ? 55
+            : pattern is "Squat" or "Hinge" or "HorizontalPush" or "HorizontalPull" ? 85 : 75;
+
         return new ReviewMetadata(pattern, primary, secondary, exp, goals, requiredEquipment,
-            pattern is "Squat" or "Hinge" or "HorizontalPush" or "HorizontalPull" ? 85 : 75,
-            "Enriquecimiento automático RepDB v2: mapeo determinista de metadatos de origen; verificar si cambian las reglas.");
+            selectionPriority,
+            "Enriquecimiento automático RepDB v3: mapeo determinista de metadatos de origen; verificar si cambian las reglas.");
     }
 
     private static string? InferPattern(string id, string es, string en, string tagsJson,
@@ -83,8 +89,36 @@ internal static class RepDbExerciseAutoReviewer
         if (Has(text, "lunge", "zancada", "split squat", "step-up", "step up", "pistol squat", "single-leg")) return "SingleLeg";
         if (Has(text, "crunch", "sit-up", "sit up", "plank", "plancha", "dead bug", "hollow hold", "russian twist", "abdominal")) return "Core";
 
+        // Useful isolation exercises are approved too. Map them to the nearest supported pattern
+        // so they remain compatible with the current generator contract; their lower priority keeps
+        // them behind compound movements when both are available.
+        if (Has(text, "lateral raise", "elevacion lateral", "front raise", "elevacion frontal",
+            "shoulder fly", "elevacion de hombro")) return "VerticalPush";
+        if (Has(text, "chest fly", "pec deck", "cable fly", "dumbbell fly", "aperturas de pecho")) return "HorizontalPush";
+        if (Has(text, "face pull", "reverse fly", "rear delt fly", "curl de biceps", "bicep curl",
+            "preacher curl", "concentration curl", "forearm curl", "wrist curl", "curl de antebrazo")) return "HorizontalPull";
+        if (Has(text, "tricep extension", "triceps extension", "tricep pushdown", "skull crusher",
+            "extension de triceps", "jalon de triceps")) return "HorizontalPush";
+        if (Has(text, "leg extension", "quadriceps extension", "extension de cuadriceps")) return "Squat";
+        if (Has(text, "leg curl", "hamstring curl", "curl femoral", "nordic hamstring")) return "Hinge";
+        if (Has(text, "calf raise", "calf press", "elevacion de talones", "gemelos")) return "SingleLeg";
+        if (Has(text, "hip abduction", "hip adduction", "abduccion de cadera", "aduccion de cadera")) return "SingleLeg";
+
         // Do not infer a movement pattern from muscle group alone: several patterns share muscles.
         return null;
+    }
+
+    private static bool IsAccessoryExercise(string id, string? nameEs, string nameEn)
+    {
+        var text = Normalize(string.Join(' ', id, nameEs, nameEn));
+        return Has(text, "lateral raise", "elevacion lateral", "front raise", "elevacion frontal",
+            "shoulder fly", "chest fly", "pec deck", "cable fly", "dumbbell fly", "aperturas de pecho",
+            "face pull", "reverse fly", "rear delt fly", "bicep curl", "curl de biceps", "preacher curl",
+            "concentration curl", "forearm curl", "wrist curl", "tricep extension", "triceps extension",
+            "tricep pushdown", "skull crusher", "extension de triceps", "leg extension",
+            "quadriceps extension", "extension de cuadriceps", "leg curl", "hamstring curl",
+            "curl femoral", "nordic hamstring", "calf raise", "calf press", "elevacion de talones",
+            "hip abduction", "hip adduction", "abduccion de cadera", "aduccion de cadera");
     }
 
     private static string? MapMuscle(string value)
