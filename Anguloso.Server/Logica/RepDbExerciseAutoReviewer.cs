@@ -25,7 +25,9 @@ internal static class RepDbExerciseAutoReviewer
         string primaryMusclesJson, string secondaryMusclesJson, string goalsJson,
         string tagsJson, bool? isBodyweight)
     {
-        if (RepDbExerciseCuration.ShouldExclude(id) || RepDbExerciseCuration.RequiresManualReview(id))
+        if (RepDbExerciseCuration.ShouldExclude(id)
+            || RepDbExerciseCuration.RequiresManualReview(id)
+            || !RepDbExerciseCuration.IsAutoApprovalCandidate(id))
             return null;
 
         if (string.IsNullOrWhiteSpace(nameEs) || nameEs.Trim().Length < 3 ||
@@ -87,7 +89,9 @@ internal static class RepDbExerciseAutoReviewer
         if (Has(text, "row", "remo", "seated cable row", "bent-over row")) return "HorizontalPull";
         if (Has(text, "pull-up", "pull up", "chin-up", "chin up", "lat pulldown", "jalon al pecho")) return "VerticalPull";
         if (Has(text, "lunge", "zancada", "split squat", "step-up", "step up", "pistol squat", "single-leg")) return "SingleLeg";
-        if (Has(text, "crunch", "sit-up", "sit up", "plank", "plancha", "dead bug", "hollow hold", "russian twist", "abdominal")) return "Core";
+        if (Has(text, "crunch", "sit-up", "sit up", "plank", "plancha", "dead bug", "hollow hold", "russian twist", "abdominal",
+            "leg raise", "knee raise", "flutter kick", "windshield wiper", "pallof press", "farmers walk",
+            "farmer's walk", "suitcase carry", "overhead carry", "bench leg pull-in", "bench leg pull in")) return "Core";
 
         // Useful isolation exercises are approved too. Map them to the nearest supported pattern
         // so they remain compatible with the current generator contract; their lower priority keeps
@@ -96,13 +100,15 @@ internal static class RepDbExerciseAutoReviewer
             "shoulder fly", "elevacion de hombro")) return "VerticalPush";
         if (Has(text, "chest fly", "pec deck", "cable fly", "dumbbell fly", "aperturas de pecho")) return "HorizontalPush";
         if (Has(text, "face pull", "reverse fly", "rear delt fly", "curl de biceps", "bicep curl",
-            "preacher curl", "concentration curl", "forearm curl", "wrist curl", "curl de antebrazo")) return "HorizontalPull";
+            "preacher curl", "concentration curl", "forearm curl", "wrist curl", "curl de antebrazo",
+            "pullover", "shrug", "encogimiento de hombros", "sled row", "remo con trineo")) return "HorizontalPull";
         if (Has(text, "tricep extension", "triceps extension", "tricep pushdown", "skull crusher",
             "extension de triceps", "jalon de triceps")) return "HorizontalPush";
         if (Has(text, "leg extension", "quadriceps extension", "extension de cuadriceps")) return "Squat";
         if (Has(text, "leg curl", "hamstring curl", "curl femoral", "nordic hamstring")) return "Hinge";
         if (Has(text, "calf raise", "calf press", "elevacion de talones", "gemelos")) return "SingleLeg";
-        if (Has(text, "hip abduction", "hip adduction", "abduccion de cadera", "aduccion de cadera")) return "SingleLeg";
+        if (Has(text, "hip abduction", "hip adduction", "abduccion de cadera", "aduccion de cadera",
+            "glute kickback", "patada de gluteos", "cable kickback")) return "SingleLeg";
 
         // Do not infer a movement pattern from muscle group alone: several patterns share muscles.
         return null;
