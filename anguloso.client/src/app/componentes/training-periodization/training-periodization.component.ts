@@ -256,6 +256,7 @@ interface RepDbExercise {
                 <section class="macro-phase-detail" *ngIf="isMacroPhaseSelected(plan.id, phase)" [ngClass]="'phase-detail-' + macroPhaseKind(phase)">
                   <div class="macro-detail-heading"><div><span class="macro-kicker">FASE {{ phase.sequenceNumber | number:'2.0' }} · DETALLE DE CARGA</span><h5>{{ viewName(phase, 'macroProposals.detail') }}</h5><p>{{ phase.objective || 'Objetivo pendiente de definir' }}</p></div><span class="macro-detail-dates">{{ phase.startDate | date:'dd/MM/yyyy' }} — {{ phase.endDate | date:'dd/MM/yyyy' }}</span></div>
                   <div class="macro-load-legend"><span><i class="load-dot volume-dot"></i>Volumen: series prescritas</span><span><i class="load-dot frequency-dot"></i>Frecuencia: sesiones</span><span><i class="load-dot intensity-dot"></i>Intensidad: RPE si está disponible</span></div>
+                  <div class="macro-phase-actions" *ngIf="current.canManage"><button type="button" class="secondary" (click)="preparePhaseRoutineBlock(plan, phase)" [disabled]="saving">Preparar bloque de rutinas para esta fase</button><small>Se crea solo el mesociclo vacío si hace falta; las rutinas se generan después.</small></div>
                   <div class="macro-microcycle-grid">
                     <article class="macro-microcycle" *ngFor="let week of macroPhaseWeeks(plan, phase)" [class.week-deload]="week.isDeload">
                       <div class="macro-microcycle-top"><strong>Microciclo {{ week.weekNumber }}</strong><span>{{ week.sessions }} sesiones</span></div>
@@ -1434,6 +1435,48 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       .filter(day => this.autoTrainingDaySelection[day.value])
       .map(day => day.value)
       .join(',');
+  }
+
+  preparePhaseRoutineBlock(plan: TrainingPlan, phase: MacrocyclePhase): void {
+    const existing = (this.mesocycles[plan.id] || []).find(item =>
+      item.startDate.slice(0, 10) === phase.startDate.slice(0, 10) &&
+      (item.endDate || item.startDate).slice(0, 10) === phase.endDate.slice(0, 10));
+    if (existing) {
+      this.autoTargetMesocycleIds[plan.id] = existing.id;
+      this.selectRoutineTarget(plan, existing.id);
+      this.notice = 'Ya existe un mesociclo para esta fase. Está seleccionado como destino de las rutinas; si contiene semanas o sesiones, no se sobrescribirán.';
+      this.error = '';
+      return;
+    }
+    const overlap = (this.mesocycles[plan.id] || []).find(item =>
+      phase.startDate <= (item.endDate || item.startDate).slice(0, 10) &&
+      phase.endDate >= item.startDate.slice(0, 10));
+    if (overlap) {
+      this.error = 'La fase se solapa con el mesociclo «' + overlap.name + '». Ajusta las fechas del bloque existente antes de preparar rutinas para esta fase.';
+      return;
+    }
+    const sequenceNumber = Math.max(0, ...(this.mesocycles[plan.id] || []).map(item => item.sequenceNumber)) + 1;
+    this.saving = true;
+    this.error = '';
+    this.http.post<{ id: number }>(`/api/training/plans/${plan.id}/mesocycles`, {
+      name: phase.name, sequenceNumber, startDate: phase.startDate, endDate: phase.endDate,
+      objective: phase.objective || null, notes: 'Bloque creado desde la planificación del macrociclo. Las rutinas se generan por separado.'
+    }).subscribe({
+      next: result => {
+        this.autoTargetMesocycleIds[plan.id] = result.id;
+        this.autoMesoNames[plan.id] = phase.name;
+        this.autoStartDates[plan.id] = phase.startDate;
+        const days = Math.floor((Date.parse(phase.endDate + 'T00:00:00Z') - Date.parse(phase.startDate + 'T00:00:00Z')) / 86400000) + 1;
+        this.autoDurationWeeks = Math.max(1, Math.min(52, Math.floor(days / 7)));
+        this.saving = false;
+        this.notice = 'Bloque de rutinas preparado para «' + phase.name + '». Ya puedes generar la rutina en ese mesociclo sin crear otro bloque.';
+        this.load();
+      },
+      error: e => {
+        this.error = e?.error?.message || 'No se pudo preparar el bloque de rutinas para esta fase.';
+        this.saving = false;
+      }
+    });
   }
 
   selectRoutineTarget(plan: TrainingPlan, mesocycleId: number | null): void {
