@@ -46,6 +46,11 @@ internal static class RepDbExerciseCuration
     ];
 
     private static readonly HashSet<string> Excluded = new(ExcludedIds, StringComparer.OrdinalIgnoreCase);
+    private static readonly HashSet<string> ExcludedCategories = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "stretching", "yoga", "mobility", "warmup", "warm-up", "warm up",
+        "rehabilitation", "rehab", "prehab", "cardio"
+    };
 
     // For very large source variation groups, retain useful, scalable options across common
     // equipment/access levels and prune near-identical variants. Unlisted groups are not filtered.
@@ -97,12 +102,7 @@ internal static class RepDbExerciseCuration
 
         // The automatic generator builds progressive strength/hypertrophy routines, not warm-ups,
         // mobility sessions, yoga flows, rehabilitation plans, or conditioning-only sessions.
-        var excludedCategories = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "stretching", "yoga", "mobility", "warmup", "warm-up", "warm up",
-            "rehabilitation", "rehab", "prehab", "cardio"
-        };
-        if (category is not null && excludedCategories.Contains(category.Trim())) return true;
+        if (category is not null && ExcludedCategories.Contains(category.Trim())) return true;
         if (string.Equals(category, "olympic", StringComparison.OrdinalIgnoreCase)
             || string.Equals(category, "plyometrics", StringComparison.OrdinalIgnoreCase)) return true;
         if (string.Equals(equipment, "bosu_ball", StringComparison.OrdinalIgnoreCase)) return true;
