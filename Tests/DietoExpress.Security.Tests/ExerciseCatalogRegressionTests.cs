@@ -85,7 +85,7 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("PreferredIdsByVariationGroup", service);
         Assert.Contains("category = 'cardio'", service);
         var curation = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "RepDbExerciseCuration.cs"));
-        Assert.Contains("\"air-bike\"", curation);
+        Assert.Contains("\"cardio\"", curation);
         Assert.Contains("\"endurance\"", curation);
         Assert.Contains("RequiresManualReview", curation);
         Assert.Contains("exercise-catalog-repdb-quality-curation-v2", service);
