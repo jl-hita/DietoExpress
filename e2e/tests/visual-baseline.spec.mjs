@@ -83,6 +83,12 @@ test('contrato de marca documental: PDFs y emails conservan UTF-8, acentos y tea
 
   expect(dietPdf).toContain('#0d9488');
   expect(consultationPdf).toContain('#0d9488');
+  expect(consultationPdf).toContain('PLANIFICACIÓN DEPORTIVA');
+  expect(consultationPdf).toContain('MACROCICLO · FASES Y OBJETIVOS');
+  expect(consultationPdf).toContain('RUTINAS Y SESIONES');
+  expect(consultationPdf).toContain('container.Page(page =>');
+  expect(consultationPdf).toContain('training_mesocycles');
+  expect(consultationPdf).toContain('training_sessions');
   expect(dietPdf).toContain('Miércoles');
   expect(dietPdf).toContain('Sábado');
   expect(dietPdf).not.toMatch(/MiÃ©rcoles|SÃ¡bado|calorÃ/);
