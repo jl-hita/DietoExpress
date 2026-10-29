@@ -112,7 +112,7 @@ public sealed class ExerciseCatalogRegressionTests
         var excludedIds = curation.Split("public static readonly string[] ExcludedIds =")[1].Split("];")[0];
         Assert.DoesNotContain("\"leg-extension\"", excludedIds);
         Assert.DoesNotContain("\"lateral-raise\"", excludedIds);
-        Assert.Contains("metadata-driven quality approval", curation);
+        Assert.Contains("Rules are intentionally auditable", curation);
         Assert.Contains("IsAutoApprovalCandidate", curation);
         var autoReviewer = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "RepDbExerciseAutoReviewer.cs"));
         Assert.Contains("IsAccessoryExercise", autoReviewer);
