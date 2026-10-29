@@ -1771,39 +1771,36 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
 
   generateMacrocycleProposal(plan: TrainingPlan): void {
     const requestedWeeks = Math.max(3, Math.min(52, Math.round(this.macroProposalWeeks[plan.id] || 12)));
-    const existing = this.mesocycles[plan.id] || [];
-    const lastEnd = existing.map(item => item.endDate || item.startDate).filter(Boolean).sort().at(-1);
-    const start = lastEnd ? this.addDays(lastEnd, 1) : plan.startDate.slice(0, 10);
+    const start = plan.startDate.slice(0, 10);
     let weeks = requestedWeeks;
     if (plan.endDate) {
       const availableDays = Math.floor((Date.parse(plan.endDate.slice(0, 10) + 'T00:00:00Z') - Date.parse(start + 'T00:00:00Z')) / 86400000) + 1;
       const availableWeeks = Math.floor(availableDays / 7);
       if (availableWeeks < 3) {
         this.macroProposals[plan.id] = [];
-        this.notice = 'Los bloques actuales ya ocupan las fechas del plan. Edita una fase existente o amplía primero la fecha final del plan; no se añadirá una fase fuera de plazo.';
+        this.notice = 'El periodo del plan es inferior a tres semanas. Amplía sus fechas antes de generar el macrociclo.';
         this.error = '';
         return;
       }
       weeks = Math.min(requestedWeeks, availableWeeks);
     }
     this.macroProposalWeeks[plan.id] = weeks;
-    const phaseDefinitions = [
-      { name: 'Acumulación y base', objective: 'Construir tolerancia al volumen y consolidar la técnica.' },
-      { name: 'Intensificación y progresión', objective: 'Progresar en el estímulo manteniendo una ejecución sólida.' },
-      { name: 'Descarga y evaluación', objective: 'Reducir fatiga, revisar resultados y preparar el siguiente bloque.' }
+    const phaseDefinitions: Array<{ name: string; objective: string; phaseType: MacrocyclePhase['phaseType'] }> = [
+      { name: 'Acumulación y base', objective: 'Construir tolerancia al volumen y consolidar la técnica.', phaseType: 'accumulation' },
+      { name: 'Intensificación y progresión', objective: 'Progresar en el estímulo manteniendo una ejecución sólida.', phaseType: 'intensification' },
+      { name: 'Descarga y evaluación', objective: 'Reducir fatiga, revisar resultados y preparar el siguiente bloque.', phaseType: 'deload' }
     ];
     const first = Math.floor(weeks / 3);
     const second = Math.floor(weeks / 3);
     const durations = [first, second, weeks - first - second];
     let cursor = start;
-    const firstSequence = Math.max(0, ...existing.map(item => item.sequenceNumber)) + 1;
     this.macroProposals[plan.id] = phaseDefinitions.map((phase, index) => {
       const phaseStart = cursor;
       const phaseEnd = this.addDays(phaseStart, durations[index] * 7 - 1);
       cursor = this.addDays(phaseEnd, 1);
-      return { ...phase, sequence: firstSequence + index, startDate: phaseStart, endDate: phaseEnd };
+      return { ...phase, sequence: index + 1, startDate: phaseStart, endDate: phaseEnd };
     });
-    this.notice = 'Propuesta creada. Ajusta objetivos y fechas antes de guardarla.';
+    this.notice = 'Propuesta creada sin modificar mesociclos ni sesiones. Revisa fases y fechas antes de guardar.';
     this.error = '';
   }
 
@@ -1811,19 +1808,28 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     const phases = [...(this.macroProposals[plan.id] || [])];
     if (phases.length >= 12) return;
     const last = phases[phases.length - 1];
-    const existing = this.mesocycles[plan.id] || [];
-    const lastExistingEnd = existing.map(item => item.endDate).filter((date): date is string => !!date).sort().at(-1);
-    const start = last ? this.addDays(last.endDate, 1) : lastExistingEnd ? this.addDays(lastExistingEnd, 1) : plan.startDate;
-    const sequence = Math.max(0, ...existing.map(item => item.sequenceNumber)) + phases.length + 1;
-    phases.push({ name: 'Nueva fase', objective: '', sequence, startDate: start, endDate: this.addDays(start, 27) });
+    const start = last ? this.addDays(last.endDate, 1) : plan.startDate.slice(0, 10);
+    const sequence = phases.length + 1;
+    phases.push({ name: 'Nueva fase', objective: '', phaseType: 'general', sequence, startDate: start, endDate: this.addDays(start, 27) });
     this.macroProposals[plan.id] = phases;
   }
 
   removeMacroPhase(planId: number, index: number): void {
     const phases = [...(this.macroProposals[planId] || [])];
     phases.splice(index, 1);
-    const firstSequence = Math.max(0, ...(this.mesocycles[planId] || []).map(item => item.sequenceNumber)) + 1;
-    this.macroProposals[planId] = phases.map((phase, phaseIndex) => ({ ...phase, sequence: firstSequence + phaseIndex }));
+    this.macroProposals[planId] = phases.map((phase, phaseIndex) => ({ ...phase, sequence: phaseIndex + 1 }));
+  }
+
+  editMacrocycle(plan: TrainingPlan): void {
+    const macrocycle = this.macrocyclePlans[plan.id];
+    if (!macrocycle?.phases?.length) return;
+    this.macroProposals[plan.id] = macrocycle.phases.map(phase => ({
+      name: phase.name, sequence: phase.sequenceNumber, startDate: phase.startDate, endDate: phase.endDate,
+      objective: phase.objective || '', phaseType: phase.phaseType || 'general'
+    }));
+    this.macroProposalWeeks[plan.id] = macrocycle.phases.reduce((total, phase) => total + this.macroPhaseDurationWeeks(phase), 0);
+    this.notice = 'Editando la planificación guardada. Los cambios no se aplicarán hasta guardar.';
+    this.error = '';
   }
 
   saveMacrocycleProposal(plan: TrainingPlan): void {
@@ -1832,51 +1838,46 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       this.error = 'Revisa el nombre y las fechas de cada fase antes de guardar.';
       return;
     }
-    for (let index = 0; index < phases.length; index++) {
-      const phase = phases[index];
-      const overlapsAnotherProposal = phases.some((other, otherIndex) => otherIndex !== index &&
-        phase.startDate <= other.endDate && phase.endDate >= other.startDate);
-      if (overlapsAnotherProposal) {
-        this.error = 'Las fases de la propuesta se solapan entre sí. Corrige las fechas antes de guardar.';
-        return;
-      }
+    const ordered = [...phases].sort((a, b) => a.startDate.localeCompare(b.startDate));
+    for (let index = 0; index < ordered.length; index++) {
+      const phase = ordered[index];
       if (phase.startDate < plan.startDate.slice(0, 10) || (plan.endDate && phase.endDate > plan.endDate.slice(0, 10))) {
         this.error = 'La fase «' + phase.name + '» queda fuera de las fechas del plan. Ajusta el periodo o amplía el plan antes de guardar.';
         return;
       }
-      const overlaps = (this.mesocycles[plan.id] || []).some(existing =>
-        phase.startDate <= (existing.endDate || existing.startDate).slice(0, 10) &&
-        phase.endDate >= existing.startDate.slice(0, 10));
-      if (overlaps) {
-        this.error = 'La fase «' + phase.name + '» se solapa con un bloque existente. Ajusta las fechas para evitar duplicar la planificación.';
+      if (index > 0 && phase.startDate <= ordered[index - 1].endDate) {
+        this.error = 'Las fases del macrociclo se solapan. Corrige las fechas antes de guardar.';
         return;
       }
     }
     this.saving = true;
     this.error = '';
-    const saveNext = (index: number): void => {
-      if (index >= phases.length) {
-        this.saving = false;
-        this.macroProposals[plan.id] = [];
-        this.notice = 'Macrociclo guardado. Las fases se han añadido como mesociclos editables.';
-        this.load();
-        return;
-      }
-      const phase = phases[index];
-      this.http.post('/api/training/plans/' + plan.id + '/mesocycles', {
+    const startDate = phases.reduce((value, phase) => phase.startDate < value ? phase.startDate : value, phases[0].startDate);
+    const endDate = phases.reduce((value, phase) => phase.endDate > value ? phase.endDate : value, phases[0].endDate);
+    this.http.put<MacrocyclePlan>(`/api/training/plans/${plan.id}/macrocycle`, {
+      name: this.macrocyclePlans[plan.id]?.name || 'Macrociclo principal',
+      periodizationModel: plan.periodizationModel || 'custom',
+      startDate: plan.startDate.slice(0, 10),
+      endDate: plan.endDate || endDate,
+      notes: this.macrocyclePlans[plan.id]?.notes || null,
+      phases: phases.map(phase => ({
         name: phase.name.trim(), sequenceNumber: phase.sequence, startDate: phase.startDate, endDate: phase.endDate,
-        objective: phase.objective.trim() || null, notes: null
-      }).subscribe({
-        next: () => saveNext(index + 1),
-        error: e => {
-          this.saving = false;
-          this.macroProposals[plan.id] = phases.slice(index);
-          this.error = 'Se guardaron ' + index + ' de ' + phases.length + ' fases. Falló "' + phase.name + '": ' + (e?.error?.message || 'error del servidor') + '. Las fases pendientes se conservan en la propuesta; no se volverán a enviar las que ya se guardaron.';
-          this.load();
-        }
-      });
-    };
-    saveNext(0);
+        objective: phase.objective.trim() || null, phaseType: phase.phaseType || 'general'
+      }))
+    }).subscribe({
+      next: macrocycle => {
+        this.macrocyclePlans[plan.id] = macrocycle;
+        this.selectedMacroPhaseId[plan.id] = macrocycle.phases[0]?.id || 0;
+        this.macroProposals[plan.id] = [];
+        this.saving = false;
+        this.notice = 'Macrociclo guardado. La planificación de fases está separada de mesociclos, microciclos y sesiones.';
+        this.error = '';
+      },
+      error: e => {
+        this.error = e?.error?.message || 'No se pudo guardar el macrociclo. La propuesta se conserva para que no pierdas los cambios.';
+        this.saving = false;
+      }
+    });
   }
 
   private addDays(value: string, days: number): string {
