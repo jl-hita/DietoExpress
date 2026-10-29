@@ -1008,8 +1008,6 @@ public sealed class TrainingPeriodizationController : ControllerBase
                 await insert.ExecuteNonQueryAsync(cancellationToken);
             }
             await transaction.CommitAsync(cancellationToken);
-            await transaction.DisposeAsync();
-            return await GetMacrocycle(planId, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -1021,6 +1019,8 @@ public sealed class TrainingPeriodizationController : ControllerBase
             await transaction.RollbackAsync(CancellationToken.None);
             throw;
         }
+        await transaction.DisposeAsync();
+        return await GetMacrocycle(planId, cancellationToken);
     }
 
     [HttpGet("plans/{planId:int}/mesocycles")]
