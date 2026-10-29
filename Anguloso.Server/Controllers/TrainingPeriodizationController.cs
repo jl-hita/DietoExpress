@@ -71,9 +71,6 @@ public sealed class TrainingPeriodizationController : ControllerBase
         if (!generated.Succeeded)
             return UnprocessableEntity(new { errors = generated.Errors });
         var prescription = generated.Prescription!;
-        var offsets = prescription.Sessions.Select(session =>
-            ((int)session.Day - (int)prescription.StartDate.DayOfWeek + 7) % 7
-                + (session.WeekNumber - 1) * 7).ToArray();
         var mesocycleStart = prescription.StartDate;
         var mesocycleEnd = prescription.StartDate.AddDays(prescription.DurationWeeks * 7 - 1);
         if (mesocycleEnd < mesocycleStart)
