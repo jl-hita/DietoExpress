@@ -1343,18 +1343,19 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       for (const session of sessions) {
         const prescription = session.exercisePrescription || '';
         const data = session.exercisePrescriptionData;
-        if (prescription.trim()) {
-          const matches = [...prescription.matchAll(/(?:^|[·\n])\s*(\d{1,2})\s*[x×]\s*\d/gim)];
-          if (matches.length) {
-            sets += matches.reduce((total, match) => total + Number(match[1] || 0), 0);
-            hasPrescription = true;
-          }
-        }
+        let structuredSets: number | null = null;
         if (data && typeof data === 'object') {
           const raw = JSON.stringify(data);
           const dataMatches = [...raw.matchAll(/"sets"\s*:\s*(\d+)/g)];
-          if (dataMatches.length) {
-            sets += dataMatches.reduce((total, match) => total + Number(match[1] || 0), 0);
+          if (dataMatches.length) structuredSets = dataMatches.reduce((total, match) => total + Number(match[1] || 0), 0);
+        }
+        if (structuredSets !== null) {
+          sets += structuredSets;
+          hasPrescription = true;
+        } else if (prescription.trim()) {
+          const matches = [...prescription.matchAll(/(?:^|[·\n])\s*(\d{1,2})\s*[x×]\s*\d/gim)];
+          if (matches.length) {
+            sets += matches.reduce((total, match) => total + Number(match[1] || 0), 0);
             hasPrescription = true;
           }
         }
