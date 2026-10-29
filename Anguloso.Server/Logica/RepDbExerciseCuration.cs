@@ -70,7 +70,7 @@ internal static class RepDbExerciseCuration
     private static readonly HashSet<string> Excluded = new(ExcludedIds, StringComparer.OrdinalIgnoreCase);
     private static readonly HashSet<string> ExcludedCategories = new(StringComparer.OrdinalIgnoreCase)
     {
-        "stretching", "yoga", "mobility", "warmup", "warm-up", "warm up",
+        "stretching", "yoga", "mobility", "pilates", "balance", "warmup", "warm_up", "warm-up", "warm up",
         "rehabilitation", "rehab", "prehab", "cardio"
     };
 
