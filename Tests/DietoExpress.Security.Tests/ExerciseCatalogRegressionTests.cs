@@ -173,6 +173,11 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.DoesNotContain("await EnsureSchemaAsync(cancellationToken);", searchMethod.Split("public async Task<bool> SaveReviewAsync")[0]);
         Assert.Contains("timeout(30000)", manager);
         Assert.Contains("TimeoutError", manager);
+        Assert.Contains("ChangeDetectorRef", manager);
+        Assert.Contains("this.changeDetector.detectChanges()", manager);
+        Assert.Contains("this.rows = Array.isArray(rows) ? [...rows] : []", manager);
+        Assert.Contains("const requestId = ++this.searchRequestId", manager);
+        Assert.Contains("if (requestId !== this.searchRequestId) return;", manager);
     }
 
     [Fact]
