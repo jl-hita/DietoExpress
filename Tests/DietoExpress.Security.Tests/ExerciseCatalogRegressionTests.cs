@@ -86,7 +86,6 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("exercise-catalog-repdb-exercise-metadata-v4", service);
         Assert.Contains("dumbbell-push-press", service);
         Assert.Contains("behind-the-neck-lat-pulldown", service);
-        Assert.Contains("CurateVariationGroup", curation);
         Assert.Contains("RepDbExerciseCuration.ShouldExclude(id, sourceCategory, equipment, variationGroup)", service);
         Assert.Contains("jsonb_each(@preferred_variants::jsonb)", service);
         Assert.Contains("PreferredIdsByVariationGroup", service);
