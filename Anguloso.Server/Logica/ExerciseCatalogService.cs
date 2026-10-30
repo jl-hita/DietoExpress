@@ -672,9 +672,9 @@ public sealed class ExerciseCatalogService
                         WHEN exercise_id = 'behind-the-neck-lat-pulldown'
                          AND reviewed_by LIKE 'RepDB automatic metadata%' THEN NULL
                         WHEN exercise_id IN ('dumbbell-push-press', 'pike-push-ups', 'weighted-dips', 'assisted-dips',
-                            'seated-dip-machine', 'plate-loaded-seated-dip-machine', 'straight-bar-dips')
+                            'seated-dip-machine', 'plate-loaded-seated-dip-machine', 'straight-bar-dips', 'landmine-press', 'one-arm-landmine-press')
                          AND reviewed_by LIKE 'RepDB automatic metadata%' THEN 'VerticalPush'
-                        WHEN exercise_id IN ('bulgarian-split-squat', 'split-squat', 'single-leg-press')
+                        WHEN exercise_id IN ('bulgarian-split-squat', 'split-squat', 'single-leg-press', 'cossack-squat')
                          AND reviewed_by LIKE 'RepDB automatic metadata%' THEN 'SingleLeg'
                         WHEN exercise_id = 'banded-standing-curl'
                          AND reviewed_by LIKE 'RepDB automatic metadata%' THEN 'Hinge'
