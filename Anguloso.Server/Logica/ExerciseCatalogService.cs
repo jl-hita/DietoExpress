@@ -1111,19 +1111,31 @@ public sealed class ExerciseCatalogService
         await EnsureSchemaAsync(cancellationToken);
         const string sql = """
             UPDATE exercise_catalog
-            SET name_en = @name, description_en = @description, equipment = @equipment, body_part = @body_part,
-                owner_movement_pattern = @pattern, owner_primary_muscles = @primary::jsonb,
-                owner_secondary_muscles = @secondary::jsonb, owner_minimum_experience = @experience,
-                owner_suitable_goals = @goals::jsonb, owner_required_equipment = @required::jsonb,
-                owner_selection_priority = @priority,
+            SET name_en = @name, name_es = CASE WHEN @is_superadmin THEN @name ELSE name_es END,
+                description_en = @description, description_es = CASE WHEN @is_superadmin THEN @description ELSE description_es END,
+                equipment = @equipment, body_part = @body_part,
+                owner_movement_pattern = CASE WHEN @is_superadmin THEN owner_movement_pattern ELSE @pattern END,
+                owner_primary_muscles = CASE WHEN @is_superadmin THEN owner_primary_muscles ELSE @primary::jsonb END,
+                owner_secondary_muscles = CASE WHEN @is_superadmin THEN owner_secondary_muscles ELSE @secondary::jsonb END,
+                owner_minimum_experience = CASE WHEN @is_superadmin THEN owner_minimum_experience ELSE @experience END,
+                owner_suitable_goals = CASE WHEN @is_superadmin THEN owner_suitable_goals ELSE @goals::jsonb END,
+                owner_required_equipment = CASE WHEN @is_superadmin THEN owner_required_equipment ELSE @required::jsonb END,
+                owner_selection_priority = CASE WHEN @is_superadmin THEN owner_selection_priority ELSE @priority END,
+                reviewed_movement_pattern = CASE WHEN @is_superadmin THEN @pattern ELSE reviewed_movement_pattern END,
+                reviewed_primary_muscles = CASE WHEN @is_superadmin THEN @primary::jsonb ELSE reviewed_primary_muscles END,
+                reviewed_secondary_muscles = CASE WHEN @is_superadmin THEN @secondary::jsonb ELSE reviewed_secondary_muscles END,
+                reviewed_minimum_experience = CASE WHEN @is_superadmin THEN @experience ELSE reviewed_minimum_experience END,
+                reviewed_suitable_goals = CASE WHEN @is_superadmin THEN @goals::jsonb ELSE reviewed_suitable_goals END,
+                reviewed_required_equipment = CASE WHEN @is_superadmin THEN @required::jsonb ELSE reviewed_required_equipment END,
+                reviewed_selection_priority = CASE WHEN @is_superadmin THEN @priority ELSE reviewed_selection_priority END,
                 source_payload = source_payload || @payload::jsonb,
                 review_status = CASE WHEN @is_superadmin THEN review_status ELSE 'pending' END,
                 reviewed = CASE WHEN @is_superadmin THEN reviewed ELSE FALSE END,
                 reviewed_at = CASE WHEN @is_superadmin THEN reviewed_at ELSE NULL END,
                 reviewed_by = CASE WHEN @is_superadmin THEN reviewed_by ELSE NULL END,
                 updated_at = NOW()
-            WHERE exercise_id = @id AND source = 'professional-contribution'
-              AND (@is_superadmin OR owner_user_id = @actor_user_id)
+            WHERE exercise_id = @id
+              AND (@is_superadmin OR (source = 'professional-contribution' AND owner_user_id = @actor_user_id))
             """;
         var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
         var shouldClose = connection.State != ConnectionState.Open;
