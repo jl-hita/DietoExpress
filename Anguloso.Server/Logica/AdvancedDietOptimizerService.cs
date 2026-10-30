@@ -58,6 +58,30 @@ public sealed class AdvancedDietOptimizerService
         if (candidates.Count == 0)
             return;
 
+        // Pre-calcular el conjunto de familias disponibles una sola vez para FrequencyPenalty
+        var availableFamilies = candidates
+            .Select(GetFamily)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        // Pre-clasificar candidatos por rol y tipo de comida para acelerar drásticamente la búsqueda local
+        var candidatesByRoleMeal = new Dictionary<(string Role, string MealType), List<foods>>();
+        List<foods> GetRoleCandidates(string role, string mealName)
+        {
+            var mealType = mealName.Contains("desayuno", StringComparison.OrdinalIgnoreCase) ? "desayuno"
+                : (mealName.Contains("media", StringComparison.OrdinalIgnoreCase) || mealName.Contains("merienda", StringComparison.OrdinalIgnoreCase)) ? "snack"
+                : "principal";
+            var key = (role, mealType);
+            if (!candidatesByRoleMeal.TryGetValue(key, out var list))
+            {
+                list = candidates
+                    .Where(f => SameRole(role, mealName, f))
+                    .Where(f => IsProfessionalReplacement(role, f))
+                    .ToList();
+                candidatesByRoleMeal[key] = list;
+            }
+            return list;
+        }
+
         // Búsqueda local global: cada iteración evalúa cambios en cualquier día/comida y
         // conserva solo movimientos que mejoran la función objetivo completa.
         var currentScore = CalculateGlobalScore(
@@ -82,10 +106,8 @@ public sealed class AdvancedDietOptimizerService
                         var role = InferRole(meal.Name, source);
                         var mealTarget = targetKcal * MealShare(meal.Name, request.MealsPerDay);
 
-                        var alternatives = candidates
+                        var alternatives = GetRoleCandidates(role, meal.Name)
                             .Where(f => f.id != source.id)
-                            .Where(f => SameRole(role, meal.Name, f))
-                            .Where(f => IsProfessionalReplacement(role, f))
                             .Where(f => meal.Items?.Any(i => i.FoodId == f.id) != true)
                             .OrderBy(f => CalculateFoodQualityPenalty(f, role))
                             .ThenBy(f => NutrientDistance(f, source))

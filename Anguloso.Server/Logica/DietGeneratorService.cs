@@ -695,7 +695,7 @@ public class DietGeneratorService
 
     #region Filtro de Alimentos Comunes y Culinarios
 
-    private static readonly HashSet<string> RareKeywords = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly string[] RareKeywords = new[]
     {
         "grasa", "sebo", "manteca", "harina de soja", "harina de trigo sarraceno", "concentrado", "aislado",
         "suplemento", "espesante", "edulcorante", "almidón", "fécula", "salsa de soja", "pastilla de caldo",
@@ -719,23 +719,27 @@ public class DietGeneratorService
         var cat = (f.category ?? "").ToLowerInvariant();
 
         // Evitar alimentos extremadamente procesados o ingredientes no culinarios
-        if (RareKeywords.Any(k => name.Contains(k) || cat.Contains(k)))
-            return false;
+        for (var i = 0; i < RareKeywords.Length; i++)
+        {
+            var k = RareKeywords[i];
+            if (name.Contains(k, StringComparison.Ordinal) || cat.Contains(k, StringComparison.Ordinal))
+                return false;
+        }
 
         // Evitar nombres con códigos o rarezas industriales.
         // El generador no debe convertir especias, condimentos o productos preparados en
         // componentes principales solo porque su composición nutricional parezca encajar.
-        if (name.Length > 80 || name.Contains("deshidratado") || name.Contains("desecado") || name.Contains("liofilizado") || name.Contains("polvo"))
+        if (name.Length > 80 || name.Contains("deshidratado", StringComparison.Ordinal) || name.Contains("desecado", StringComparison.Ordinal) || name.Contains("liofilizado", StringComparison.Ordinal) || name.Contains("polvo", StringComparison.Ordinal))
             return false;
 
         // Productos líquidos o preparados de yogur se reservan para selección manual/recetas:
         // una ración profesional de yogur se expresa como envase/porción estándar.
-        if (name.Contains("yogur líquido") || name.Contains("yogur liquido") || name.Contains("mousse") || name.Contains("postre lácteo") || name.Contains("postre lacteo"))
+        if (name.Contains("yogur líquido", StringComparison.Ordinal) || name.Contains("yogur liquido", StringComparison.Ordinal) || name.Contains("mousse", StringComparison.Ordinal) || name.Contains("postre lácteo", StringComparison.Ordinal) || name.Contains("postre lacteo", StringComparison.Ordinal))
             return false;
 
         // Las legumbres secas/crudas son materia prima, no una ración lista para comer.
-        if ((name.Contains("lenteja") || name.Contains("garbanzo") || name.Contains("alubia")) &&
-            (name.Contains("seca") || name.Contains("seco") || name.Contains("cruda") || name.Contains("crudo")))
+        if ((name.Contains("lenteja", StringComparison.Ordinal) || name.Contains("garbanzo", StringComparison.Ordinal) || name.Contains("alubia", StringComparison.Ordinal)) &&
+            (name.Contains("seca", StringComparison.Ordinal) || name.Contains("seco", StringComparison.Ordinal) || name.Contains("cruda", StringComparison.Ordinal) || name.Contains("crudo", StringComparison.Ordinal)))
             return false;
 
         return true;
