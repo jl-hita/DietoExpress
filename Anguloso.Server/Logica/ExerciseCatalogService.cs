@@ -712,7 +712,7 @@ public sealed class ExerciseCatalogService
                     END,
                     reviewed_selection_priority = CASE
                         WHEN exercise_id = 'behind-the-neck-lat-pulldown'
-                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN NULL
+                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN 50
                         WHEN exercise_id = 'banded-standing-curl'
                          AND reviewed_by LIKE 'RepDB automatic metadata%' THEN 55
                         ELSE reviewed_selection_priority
