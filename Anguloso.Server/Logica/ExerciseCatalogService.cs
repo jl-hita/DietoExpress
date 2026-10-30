@@ -968,7 +968,8 @@ public sealed class ExerciseCatalogService
 
     public async Task<IReadOnlyList<ExerciseCatalogItem>> SearchAsync(string? query, string? bodyPart, string? equipment, int limit, CancellationToken cancellationToken = default, string? reviewStatus = null, int? ownerUserId = null, bool includeAllOwners = false, int maxLimit = 100, int offset = 0, string? movementPattern = null, string? primaryMuscle = null, string? secondaryMuscle = null)
     {
-        await EnsureSchemaAsync(cancellationToken);
+        // Schema and catalog migrations run once during application startup. A read request must
+        // never execute DDL/UPDATE statements, which can acquire locks and stall interactive filters.
         limit = Math.Clamp(limit, 1, Math.Clamp(maxLimit, 1, 10000));
         const string sql = """
             SELECT exercise_id, name_es, name_en, category, body_part, equipment,

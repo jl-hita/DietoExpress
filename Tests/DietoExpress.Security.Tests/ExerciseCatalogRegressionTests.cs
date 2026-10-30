@@ -169,6 +169,10 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("exercise-manager", routes);
         Assert.Contains("item.canEdit", manager);
         Assert.Contains("newExercise()", manager);
+        var searchMethod = service.Substring(service.IndexOf("SearchAsync("));
+        Assert.DoesNotContain("await EnsureSchemaAsync(cancellationToken);", searchMethod.Split("public async Task<bool> SaveReviewAsync")[0]);
+        Assert.Contains("timeout(30000)", manager);
+        Assert.Contains("TimeoutError", manager);
     }
 
     [Fact]
