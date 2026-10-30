@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { MatButtonModule } from '@angular/material/button';
@@ -93,10 +93,11 @@ interface ExerciseRow {
 })
 export class ExerciseManagerComponent implements OnInit {
   rows: ExerciseRow[] = []; loading = false; saving = false; error = ''; draft: any = null;
+  private searchRequestId = 0;
   filters = { q: '', movementPattern: '', primaryMuscle: '', secondaryMuscle: '', equipment: '', bodyPart: '', status: '' };
   patterns = ['Squat','Hinge','HorizontalPush','VerticalPush','HorizontalPull','VerticalPull','SingleLeg','Core'];
   muscles = ['Chest','Lats','UpperBack','Deltoids','Biceps','Triceps','Forearms','Abdominals','Obliques','ErectorSpinae','Glutes','Quadriceps','Hamstrings','Calves'];
-  constructor(private http: HttpClient, private snack: MatSnackBar) {}
+  constructor(private http: HttpClient, private snack: MatSnackBar, private changeDetector: ChangeDetectorRef) {}
   ngOnInit(): void { this.search(); }
   trackById(_: number, item: ExerciseRow): string { return item.id; }
   label(value?: string): string { return value ? value.replace(/([a-z])([A-Z])/g, '$1 $2') : 'Sin clasificar'; }
@@ -104,16 +105,25 @@ export class ExerciseManagerComponent implements OnInit {
   patternOf(item: ExerciseRow): string | undefined { return item.movementPattern || item.ownerMovementPattern; }
   primaryOf(item: ExerciseRow): string[] { return item.reviewedPrimaryMuscles || item.ownerPrimaryMuscles || item.primaryMuscles || []; }
   search(): void {
-    this.loading = true; this.error = '';
+    const requestId = ++this.searchRequestId;
+    this.loading = true;
+    this.error = '';
     let params = new HttpParams().set('limit', '10000').set('all', 'true');
     Object.entries(this.filters).forEach(([key, value]) => { if (value.trim()) params = params.set(key === 'status' ? 'reviewStatus' : key, value.trim()); });
     this.http.get<ExerciseRow[]>('/api/exercise-catalog', { params }).pipe(timeout(30000)).subscribe({
-      next: rows => { this.rows = rows || []; this.loading = false; },
+      next: rows => {
+        if (requestId !== this.searchRequestId) return;
+        this.rows = Array.isArray(rows) ? [...rows] : [];
+        this.loading = false;
+        this.changeDetector.detectChanges();
+      },
       error: e => {
+        if (requestId !== this.searchRequestId) return;
         this.loading = false;
         this.error = e?.name === 'TimeoutError'
           ? 'La consulta del catálogo ha tardado demasiado. Comprueba la conexión e inténtalo de nuevo.'
           : e?.error?.error || 'No se pudo cargar el catálogo de ejercicios.';
+        this.changeDetector.detectChanges();
       }
     });
   }
