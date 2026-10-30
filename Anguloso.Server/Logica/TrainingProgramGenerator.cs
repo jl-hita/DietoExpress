@@ -55,7 +55,7 @@ public static class TrainingProgramGenerator
                             && x.MovementPattern == pattern
                             && x.SuitableGoals.Contains(request.Goal)
                             && (int)x.MinimumExperience <= (int)request.Experience
-                            && x.RequiredEquipment.All(equipment.Contains)
+                            && (equipment.Count == 0 || x.RequiredEquipment.All(equipment.Contains))
                             && !excluded.Contains(x.ExerciseId))
                         .OrderByDescending(x => x.SelectionPriority)
                         .ThenBy(x => x.ExerciseId, StringComparer.Ordinal)
@@ -125,7 +125,7 @@ public static class TrainingProgramGenerator
         var matchingPattern = reviewed.Where(x => x.MovementPattern == pattern).ToArray();
         var matchingGoal = matchingPattern.Where(x => x.SuitableGoals.Contains(request.Goal)).ToArray();
         var matchingExperience = matchingGoal.Where(x => (int)x.MinimumExperience <= (int)request.Experience).ToArray();
-        var matchingEquipment = matchingExperience.Where(x => x.RequiredEquipment.All(equipment.Contains)).ToArray();
+        var matchingEquipment = matchingExperience.Where(x => equipment.Count == 0 || x.RequiredEquipment.All(equipment.Contains)).ToArray();
         var matchingExclusions = matchingEquipment.Where(x => !excluded.Contains(x.ExerciseId)).ToArray();
 
         return $"No hay ejercicios compatibles para el patrón '{pattern}'. " +
