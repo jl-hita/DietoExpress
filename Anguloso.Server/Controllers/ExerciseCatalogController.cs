@@ -28,6 +28,7 @@ public sealed class ExerciseCatalogController : ControllerBase
         [FromQuery] string? movementPattern = null,
         [FromQuery] string? primaryMuscle = null,
         [FromQuery] string? secondaryMuscle = null,
+        [FromQuery] string? reviewStatus = null,
         [FromQuery] bool all = false,
         CancellationToken cancellationToken = default)
     {
@@ -36,7 +37,7 @@ public sealed class ExerciseCatalogController : ControllerBase
             var ownerUserId = int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsedUserId) ? parsedUserId : (int?)null;
             var isSuperAdmin = User.IsInRole("superadmin");
             return Ok(await _catalog.SearchAsync(q, bodyPart, equipment, limit, cancellationToken,
-                ownerUserId: ownerUserId, includeAllOwners: all && isSuperAdmin, maxLimit: 10000,
+                reviewStatus: reviewStatus, ownerUserId: ownerUserId, includeAllOwners: all && isSuperAdmin, maxLimit: 10000,
                 movementPattern: movementPattern, primaryMuscle: primaryMuscle, secondaryMuscle: secondaryMuscle));
         }
         catch (Exception exception)
@@ -127,7 +128,7 @@ public sealed class ExerciseCatalogController : ControllerBase
     }
 
     [HttpPost("contributions")]
-    [Authorize(Roles = "nutritionist,clinic_admin")]
+    [Authorize(Roles = "nutritionist,clinic_admin,superadmin")]
     public async Task<IActionResult> Contribute([FromBody] ExerciseContributionRequest contribution, CancellationToken cancellationToken)
     {
         try
