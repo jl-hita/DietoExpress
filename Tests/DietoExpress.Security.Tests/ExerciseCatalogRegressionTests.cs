@@ -158,7 +158,13 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("\"supraspinatus\" or \"infraspinatus\"", autoReviewer);
         Assert.DoesNotContain("Has(v, \"lat\"", autoReviewer);
         Assert.Contains("\"push press\"", autoReviewer);
+        Assert.Contains("\"pike push ups\"", autoReviewer);
+        Assert.Contains("\"dips\"", autoReviewer);
+        Assert.Contains("\"bulgarian split squat\"", autoReviewer);
+        Assert.Contains("\"split squat\"", autoReviewer);
         Assert.Contains("\"curl de pierna de pie\"", autoReviewer);
+        Assert.Contains("pike-push-ups", service);
+        Assert.Contains("single-leg-press", service);
         Assert.Contains("\"banded-standing-curl\"", autoReviewer);
 
         var muscleTaxonomy = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "TrainingPrescription.cs"));
