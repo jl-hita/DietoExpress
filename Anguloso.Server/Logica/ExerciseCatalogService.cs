@@ -1113,8 +1113,9 @@ public sealed class ExerciseCatalogService
         await EnsureSchemaAsync(cancellationToken);
         const string sql = """
             UPDATE exercise_catalog
-            SET name_en = @name, name_es = CASE WHEN @is_superadmin THEN @name ELSE name_es END,
-                description_en = @description, description_es = CASE WHEN @is_superadmin THEN @description ELSE description_es END,
+            SET name_en = CASE WHEN @is_superadmin THEN name_en ELSE @name END, name_es = CASE WHEN @is_superadmin THEN @name ELSE name_es END,
+                description_en = CASE WHEN @is_superadmin THEN description_en ELSE @description END,
+                description_es = CASE WHEN @is_superadmin THEN @description ELSE description_es END,
                 equipment = @equipment, body_part = @body_part,
                 owner_movement_pattern = CASE WHEN @is_superadmin THEN owner_movement_pattern ELSE @pattern END,
                 owner_primary_muscles = CASE WHEN @is_superadmin THEN owner_primary_muscles ELSE @primary::jsonb END,
@@ -1133,8 +1134,8 @@ public sealed class ExerciseCatalogService
                 source_payload = source_payload || @payload::jsonb,
                 review_status = CASE WHEN @is_superadmin THEN review_status ELSE 'pending' END,
                 reviewed = CASE WHEN @is_superadmin THEN reviewed ELSE FALSE END,
-                reviewed_at = CASE WHEN @is_superadmin THEN reviewed_at ELSE NULL END,
-                reviewed_by = CASE WHEN @is_superadmin THEN reviewed_by ELSE NULL END,
+                reviewed_at = CASE WHEN @is_superadmin THEN NOW() ELSE NULL END,
+                reviewed_by = CASE WHEN @is_superadmin THEN @actor_name ELSE NULL END,
                 updated_at = NOW()
             WHERE exercise_id = @id
               AND (@is_superadmin OR (source = 'professional-contribution' AND owner_user_id = @actor_user_id))
@@ -1145,7 +1146,7 @@ public sealed class ExerciseCatalogService
         try
         {
             await using var command = new NpgsqlCommand(sql, connection);
-            Add(command, "id", id); Add(command, "actor_user_id", actorUserId); Add(command, "is_superadmin", isSuperAdmin);
+            Add(command, "id", id); Add(command, "actor_user_id", actorUserId); Add(command, "is_superadmin", isSuperAdmin); Add(command, "actor_name", actorName);
             Add(command, "name", contribution.Name.Trim()); Add(command, "description", contribution.Description);
             Add(command, "equipment", contribution.Equipment); Add(command, "body_part", contribution.BodyPart);
             Add(command, "pattern", contribution.MovementPattern);
