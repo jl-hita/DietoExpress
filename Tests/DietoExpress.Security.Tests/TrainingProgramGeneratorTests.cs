@@ -135,7 +135,7 @@ public sealed class TrainingProgramGeneratorTests
         var weeklyPulls = result.Prescription!.Sessions
             .Where(session => session.WeekNumber == 1)
             .SelectMany(session => session.Exercises)
-            .Where(exercise => exercise.MovementPattern == TrainingMovementPattern.HorizontalPull)
+            .Where(exercise => exercise.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.UpperBack))
             .Select(exercise => exercise.ExerciseId)
             .ToArray();
 
