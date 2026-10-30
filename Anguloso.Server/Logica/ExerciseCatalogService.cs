@@ -654,13 +654,13 @@ public sealed class ExerciseCatalogService
             const string sql = """
                 UPDATE exercise_catalog
                 SET primary_muscles = CASE
-                        WHEN exercise_id = 'cossack-squat' THEN '[\"gluteus_maximus\", \"quadriceps\", \"adductors\"]'::jsonb
-                        WHEN exercise_id = 'hex-bar-deadlift' THEN '[\"gluteus_maximus\", \"quadriceps\", \"hamstrings\"]'::jsonb
+                        WHEN exercise_id = 'cossack-squat' THEN '["gluteus_maximus", "quadriceps", "adductors"]'::jsonb
+                        WHEN exercise_id = 'hex-bar-deadlift' THEN '["gluteus_maximus", "quadriceps", "hamstrings"]'::jsonb
                         ELSE primary_muscles
                     END,
                     secondary_muscles = CASE
-                        WHEN exercise_id = 'cossack-squat' THEN '[\"hamstrings\"]'::jsonb
-                        WHEN exercise_id = 'hex-bar-deadlift' THEN '[\"erector_spinae\", \"forearm_flexors\", \"trapezius\"]'::jsonb
+                        WHEN exercise_id = 'cossack-squat' THEN '["hamstrings"]'::jsonb
+                        WHEN exercise_id = 'hex-bar-deadlift' THEN '["erector_spinae", "forearm_flexors", "trapezius"]'::jsonb
                         ELSE secondary_muscles
                     END,
                     tags = CASE
@@ -681,18 +681,18 @@ public sealed class ExerciseCatalogService
                         WHEN exercise_id = 'behind-the-neck-lat-pulldown'
                          AND reviewed_by LIKE 'RepDB automatic metadata%' THEN NULL
                         WHEN exercise_id = 'cossack-squat'
-                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN '[\"Glutes\", \"Quadriceps\", \"Adductors\"]'::jsonb
+                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN '["Glutes", "Quadriceps", "Adductors"]'::jsonb
                         WHEN exercise_id = 'hex-bar-deadlift'
-                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN '[\"Glutes\", \"Quadriceps\", \"Hamstrings\"]'::jsonb
+                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN '["Glutes", "Quadriceps", "Hamstrings"]'::jsonb
                         ELSE reviewed_primary_muscles
                     END,
                     reviewed_secondary_muscles = CASE
                         WHEN exercise_id = 'behind-the-neck-lat-pulldown'
                          AND reviewed_by LIKE 'RepDB automatic metadata%' THEN NULL
                         WHEN exercise_id = 'cossack-squat'
-                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN '[\"Hamstrings\"]'::jsonb
+                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN '["Hamstrings"]'::jsonb
                         WHEN exercise_id = 'hex-bar-deadlift'
-                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN '[\"ErectorSpinae\", \"Forearms\", \"UpperBack\"]'::jsonb
+                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN '["ErectorSpinae", "Forearms", "UpperBack"]'::jsonb
                         ELSE reviewed_secondary_muscles
                     END,
                     reviewed_selection_priority = CASE
