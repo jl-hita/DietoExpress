@@ -8,7 +8,6 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { AuthService } from '../../servicios/auth.service';
 
 interface ExerciseRow {
   id: string; nameEs?: string; nameEn: string; category?: string; bodyPart?: string; equipment?: string;
@@ -93,11 +92,10 @@ interface ExerciseRow {
 })
 export class ExerciseManagerComponent implements OnInit {
   rows: ExerciseRow[] = []; loading = false; saving = false; error = ''; draft: any = null;
-  get isSuperAdmin(): boolean { return this.authService.isSuperAdmin(); }
   filters = { q: '', movementPattern: '', primaryMuscle: '', secondaryMuscle: '', equipment: '', bodyPart: '', status: '' };
   patterns = ['Squat','Hinge','HorizontalPush','VerticalPush','HorizontalPull','VerticalPull','SingleLeg','Core'];
   muscles = ['Chest','Lats','UpperBack','Deltoids','Biceps','Triceps','Forearms','Abdominals','Obliques','ErectorSpinae','Glutes','Quadriceps','Hamstrings','Calves'];
-  constructor(private http: HttpClient, private snack: MatSnackBar, private authService: AuthService) {}
+  constructor(private http: HttpClient, private snack: MatSnackBar) {}
   ngOnInit(): void { this.search(); }
   trackById(_: number, item: ExerciseRow): string { return item.id; }
   label(value?: string): string { return value ? value.replace(/([a-z])([A-Z])/g, '$1 $2') : 'Sin clasificar'; }
