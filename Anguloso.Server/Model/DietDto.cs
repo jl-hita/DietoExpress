@@ -140,6 +140,9 @@ public class MealItemDto
     public int? ExchangeGroupId { get; set; }
     public string? ExchangeGroupName { get; set; }
     public decimal? ExchangeCount { get; set; }
+
+    // Rol y plato culinario estructurado al estilo DietoWin (ej. "Primer plato", "Segundo plato", "Guarnición", "Postre")
+    public string? CourseRole { get; set; }
 }
 
 public class ValidateDietRequestDto

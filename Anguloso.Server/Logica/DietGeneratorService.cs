@@ -838,7 +838,8 @@ public class DietGeneratorService
                 Fat = (decimal)Math.Round((f.fat ?? 0) * ratio, 1),
                 ExchangeGroupId = f.exchange_group_id,
                 ExchangeGroupName = f.exchange_group?.name,
-                ExchangeCount = exchangeCount
+                ExchangeCount = exchangeCount,
+                CourseRole = chosenFoods[i].slot.CourseRole
             });
         }
 
@@ -1357,6 +1358,7 @@ public class DietGeneratorService
     private class SlotConfig
     {
         public string Role { get; set; } = string.Empty;
+        public string CourseRole { get; set; } = string.Empty;
         public double MinGrams { get; set; }
         public double MaxGrams { get; set; }
         public double DefaultGrams { get; set; }
@@ -1376,9 +1378,9 @@ public class DietGeneratorService
             return new List<SlotConfig>
             {
                 // Desayuno habitual: cereal/pan + lácteo/huevo + fruta.
-                new() { Role = "BreakfastCarb", MinGrams = 35, MaxGrams = 90, DefaultGrams = 55 },
-                new() { Role = "DairyOrEgg", MinGrams = 100, MaxGrams = 200, DefaultGrams = 150 },
-                new() { Role = "Fruit", MinGrams = 80, MaxGrams = 180, DefaultGrams = 120 }
+                new() { Role = "BreakfastCarb", CourseRole = "Base desayuno", MinGrams = 35, MaxGrams = 90, DefaultGrams = 55 },
+                new() { Role = "DairyOrEgg", CourseRole = "Acompañamiento proteico", MinGrams = 100, MaxGrams = 200, DefaultGrams = 150 },
+                new() { Role = "Fruit", CourseRole = "Fruta fresca", MinGrams = 80, MaxGrams = 180, DefaultGrams = 120 }
             };
         }
 
@@ -1387,8 +1389,8 @@ public class DietGeneratorService
             return new List<SlotConfig>
             {
                 // Media mañana habitual: fruta + lácteo/proteína.
-                new() { Role = "Fruit", MinGrams = 100, MaxGrams = 200, DefaultGrams = 150 },
-                new() { Role = "SnackProtein", MinGrams = 80, MaxGrams = 180, DefaultGrams = 125 }
+                new() { Role = "Fruit", CourseRole = "Fruta fresca", MinGrams = 100, MaxGrams = 200, DefaultGrams = 150 },
+                new() { Role = "SnackProtein", CourseRole = "Colación proteica", MinGrams = 80, MaxGrams = 180, DefaultGrams = 125 }
             };
         }
 
@@ -1397,21 +1399,23 @@ public class DietGeneratorService
             return new List<SlotConfig>
             {
                 // Merienda habitual: pan/avena + proteína, con fruta como tercer componente.
-                new() { Role = "BreakfastCarb", MinGrams = 30, MaxGrams = 80, DefaultGrams = 50 },
-                new() { Role = "SnackProtein", MinGrams = 60, MaxGrams = 160, DefaultGrams = 100 },
-                new() { Role = "Fruit", MinGrams = 80, MaxGrams = 180, DefaultGrams = 120 }
+                new() { Role = "BreakfastCarb", CourseRole = "Base merienda", MinGrams = 30, MaxGrams = 80, DefaultGrams = 50 },
+                new() { Role = "SnackProtein", CourseRole = "Acompañamiento proteico", MinGrams = 60, MaxGrams = 160, DefaultGrams = 100 },
+                new() { Role = "Fruit", CourseRole = "Fruta fresca", MinGrams = 80, MaxGrams = 180, DefaultGrams = 120 }
             };
         }
 
-        // Comida y cena son comidas principales: hidrato + proteína + verdura/hortaliza
-        // + grasa culinaria. La fuente de hidratos puede quedar vacía únicamente cuando
-        // el tipo de dieta no la permite (por ejemplo, una cetogénica).
+        // Comida y cena siguen el estándar clínico de DietoWin en 4 platos gastronómicos:
+        // 1º Plato: Base hidrocarbonada / legumbre / verdura cocida
+        // 2º Plato: Fuente proteica principal (carne, pescado, huevo, tofu)
+        // Guarnición: Ensalada u hortalizas frescas/salteadas
+        // Grasa culinaria: Aceite de oliva virgen para aliño/cocinado
         return new List<SlotConfig>
         {
-            new() { Role = "Carbs", MinGrams = 50, MaxGrams = 180, DefaultGrams = 100 },
-            new() { Role = "Protein", MinGrams = 100, MaxGrams = 220, DefaultGrams = 140 },
-            new() { Role = "Vegetable", MinGrams = 100, MaxGrams = 250, DefaultGrams = 150 },
-            new() { Role = "Oil", MinGrams = 5, MaxGrams = 18, DefaultGrams = 10 }
+            new() { Role = "Carbs", CourseRole = "Primer plato", MinGrams = 50, MaxGrams = 180, DefaultGrams = 100 },
+            new() { Role = "Protein", CourseRole = "Segundo plato", MinGrams = 100, MaxGrams = 220, DefaultGrams = 140 },
+            new() { Role = "Vegetable", CourseRole = "Guarnición", MinGrams = 100, MaxGrams = 250, DefaultGrams = 150 },
+            new() { Role = "Oil", CourseRole = "Aliño / Cocinado", MinGrams = 5, MaxGrams = 18, DefaultGrams = 10 }
         };
     }
 

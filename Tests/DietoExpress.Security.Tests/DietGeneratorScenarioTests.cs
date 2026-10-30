@@ -88,6 +88,20 @@ public sealed class DietGeneratorScenarioTests
             Assert.InRange(Math.Abs(carbs - 250) / 250, 0, 0.20);
             Assert.InRange(Math.Abs(fat - 67) / 67, 0, 0.20);
         }
+
+        // Paso 1 DietoWin: Comprobar que las comidas principales asignan roles culinarios estructurados
+        foreach (var day in diet.Days)
+        {
+            var lunch = day.Meals.FirstOrDefault(m => m.Name.Contains("comida", StringComparison.OrdinalIgnoreCase));
+            if (lunch != null)
+            {
+                var roles = lunch.Items.Select(i => i.CourseRole).Where(r => !string.IsNullOrEmpty(r)).ToList();
+                Assert.Contains("Primer plato", roles);
+                Assert.Contains("Segundo plato", roles);
+                Assert.Contains("Guarnición", roles);
+                Assert.Contains("Aliño / Cocinado", roles);
+            }
+        }
     }
 
 

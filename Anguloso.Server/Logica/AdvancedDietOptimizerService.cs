@@ -739,12 +739,12 @@ public sealed class AdvancedDietOptimizerService
 
     private static MealItemDto CloneItem(MealItemDto source) => new()
     {
-        Id = source.Id, FoodId = source.FoodId, Grams = source.Grams, Kcal = source.Kcal, Protein = source.Protein, Carbs = source.Carbs, Fat = source.Fat, FoodName = source.FoodName, ExchangeGroupId = source.ExchangeGroupId, ExchangeGroupName = source.ExchangeGroupName, ExchangeCount = source.ExchangeCount
+        Id = source.Id, FoodId = source.FoodId, Grams = source.Grams, Kcal = source.Kcal, Protein = source.Protein, Carbs = source.Carbs, Fat = source.Fat, FoodName = source.FoodName, ExchangeGroupId = source.ExchangeGroupId, ExchangeGroupName = source.ExchangeGroupName, ExchangeCount = source.ExchangeCount, CourseRole = source.CourseRole
     };
 
     private static void RestoreItem(MealItemDto target, MealItemDto source)
     {
-        target.FoodId = source.FoodId; target.Grams = source.Grams; target.Kcal = source.Kcal; target.Protein = source.Protein; target.Carbs = source.Carbs; target.Fat = source.Fat; target.FoodName = source.FoodName; target.ExchangeGroupId = source.ExchangeGroupId; target.ExchangeGroupName = source.ExchangeGroupName; target.ExchangeCount = source.ExchangeCount;
+        target.FoodId = source.FoodId; target.Grams = source.Grams; target.Kcal = source.Kcal; target.Protein = source.Protein; target.Carbs = source.Carbs; target.Fat = source.Fat; target.FoodName = source.FoodName; target.ExchangeGroupId = source.ExchangeGroupId; target.ExchangeGroupName = source.ExchangeGroupName; target.ExchangeCount = source.ExchangeCount; target.CourseRole = source.CourseRole;
     }
 
     private static string CreateSignature(MealDto meal) => string.Join("|", meal.Items.Select(i => i.FoodId ?? 0).OrderBy(id => id));

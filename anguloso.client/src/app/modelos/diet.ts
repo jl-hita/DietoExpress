@@ -133,4 +133,7 @@ export interface MealItem {
   exchangeGroupId?: number;
   exchangeGroupName?: string;
   exchangeCount?: number;
+
+  // Rol culinario estructurado al estilo DietoWin (Primer plato, Segundo plato, Guarnición, Postre)
+  courseRole?: string;
 }
