@@ -17,7 +17,7 @@ interface ExerciseRow {
   ownerUserId?: number; ownerMovementPattern?: string; ownerPrimaryMuscles?: string[]; ownerSecondaryMuscles?: string[];
   ownerMinimumExperience?: string; ownerSuitableGoals?: string[]; ownerRequiredEquipment?: string[];
   minimumExperience?: string; suitableGoals?: string[]; requiredEquipment?: string[];
-  forceType?: string; mechanic?: string; difficulty?: string; descriptionEs?: string;
+  forceType?: string; mechanic?: string; difficulty?: string; descriptionEs?: string; canEdit: boolean;
 }
 
 @Component({
@@ -55,7 +55,7 @@ interface ExerciseRow {
           <span *ngIf="item.equipment">{{ item.equipment }}</span><span *ngIf="item.bodyPart">{{ item.bodyPart }}</span>
         </div>
         <div class="exercise-foot"><small>{{ item.source === 'professional-contribution' ? 'Ejercicio profesional' : 'Catálogo general' }}<ng-container *ngIf="item.ownerUserId"> · ID profesional {{ item.ownerUserId }}</ng-container></small>
-          <button mat-stroked-button type="button" *ngIf="item.source === 'professional-contribution' || isSuperAdmin" (click)="edit(item)">Editar</button>
+          <button mat-stroked-button type="button" *ngIf="item.canEdit" (click)="edit(item)">Editar</button>
         </div>
       </article>
       <p class="empty" *ngIf="!loading && rows.length === 0">No hay ejercicios que coincidan con estos filtros.</p>
