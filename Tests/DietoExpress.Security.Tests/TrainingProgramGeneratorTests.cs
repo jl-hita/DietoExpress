@@ -292,7 +292,24 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
-    public void CandidateSelectionHonorsRequiredEquipmentAndGoal()
+    public void EmptyEquipmentSelectionMeansNoEquipmentRestriction()
+    {
+        var catalog = Catalog().Select(exercise =>
+            exercise.MovementPattern == TrainingMovementPattern.HorizontalPull
+                ? exercise with { RequiredEquipment = ["cable-machine"] }
+                : exercise).ToArray();
+
+        var result = TrainingProgramGenerator.Generate(
+            Request() with { AvailableEquipment = [] },
+            catalog);
+
+        Assert.True(result.Succeeded, string.Join("; ", result.Errors));
+        Assert.Contains(result.Prescription!.Sessions.SelectMany(session => session.Exercises),
+            exercise => exercise.ExerciseId == "exercise-horizontalpull");
+    }
+
+    [Fact]
+    public void CandidateSelectionHonorsExplicitEquipmentRestrictionsAndGoal()
     {
         var catalog = Catalog().Select(exercise =>
             exercise.MovementPattern == TrainingMovementPattern.Squat
@@ -305,7 +322,7 @@ public sealed class TrainingProgramGeneratorTests
                 : exercise).ToArray();
 
         var result = TrainingProgramGenerator.Generate(
-            Request() with { Goal = TrainingGoal.Hypertrophy, AvailableEquipment = [] },
+            Request() with { Goal = TrainingGoal.Hypertrophy, AvailableEquipment = ["dumbbell"] },
             catalog);
 
         Assert.False(result.Succeeded);
