@@ -966,7 +966,7 @@ public sealed class ExerciseCatalogService
         }
     }
 
-    public async Task<IReadOnlyList<ExerciseCatalogItem>> SearchAsync(string? query, string? bodyPart, string? equipment, int limit, CancellationToken cancellationToken = default, string? reviewStatus = null, int? ownerUserId = null, bool includeAllOwners = false, int maxLimit = 100, int offset = 0)
+    public async Task<IReadOnlyList<ExerciseCatalogItem>> SearchAsync(string? query, string? bodyPart, string? equipment, int limit, CancellationToken cancellationToken = default, string? reviewStatus = null, int? ownerUserId = null, bool includeAllOwners = false, int maxLimit = 100, int offset = 0, string? movementPattern = null, string? primaryMuscle = null, string? secondaryMuscle = null)
     {
         await EnsureSchemaAsync(cancellationToken);
         limit = Math.Clamp(limit, 1, Math.Clamp(maxLimit, 1, 10000));
@@ -975,10 +975,15 @@ public sealed class ExerciseCatalogService
                    primary_muscles, secondary_muscles, goals, tags, instructions_es, images, source, review_status,
                    reviewed, reviewed_movement_pattern, reviewed_primary_muscles, reviewed_secondary_muscles,
                    reviewed_minimum_experience, reviewed_suitable_goals, reviewed_required_equipment, reviewed_selection_priority, review_notes, reviewed_at, reviewed_by, source_payload ->> 'contributor' AS contributor,
-                   description_es, difficulty, force_type, mechanic, met, is_unilateral, is_bodyweight, tips_es
+                   description_es, difficulty, force_type, mechanic, met, is_unilateral, is_bodyweight, tips_es,
+                   owner_user_id, owner_movement_pattern, owner_primary_muscles, owner_secondary_muscles,
+                   owner_minimum_experience, owner_suitable_goals, owner_required_equipment
             FROM exercise_catalog
             WHERE (CAST(@body_part AS varchar) IS NULL OR body_part = @body_part)
               AND (CAST(@equipment AS varchar) IS NULL OR equipment = @equipment)
+              AND (CAST(@movement_pattern AS varchar) IS NULL OR COALESCE(reviewed_movement_pattern, owner_movement_pattern) = @movement_pattern)
+              AND (CAST(@primary_muscle AS varchar) IS NULL OR COALESCE(reviewed_primary_muscles, owner_primary_muscles, primary_muscles) @> jsonb_build_array(@primary_muscle))
+              AND (CAST(@secondary_muscle AS varchar) IS NULL OR COALESCE(reviewed_secondary_muscles, owner_secondary_muscles, secondary_muscles) @> jsonb_build_array(@secondary_muscle))
               AND (CAST(@review_status AS varchar) IS NULL OR review_status = @review_status)
               AND (@include_all_owners OR author = 'superadmin' OR review_status = 'approved'
                    OR (CAST(@owner_user_id AS integer) IS NOT NULL AND owner_user_id = @owner_user_id AND review_status = 'pending'))
@@ -995,6 +1000,9 @@ public sealed class ExerciseCatalogService
             await using var command = new NpgsqlCommand(sql, connection);
             Add(command, "body_part", string.IsNullOrWhiteSpace(bodyPart) ? null : bodyPart);
             Add(command, "equipment", string.IsNullOrWhiteSpace(equipment) ? null : equipment);
+            Add(command, "movement_pattern", string.IsNullOrWhiteSpace(movementPattern) ? null : movementPattern);
+            Add(command, "primary_muscle", string.IsNullOrWhiteSpace(primaryMuscle) ? null : primaryMuscle);
+            Add(command, "secondary_muscle", string.IsNullOrWhiteSpace(secondaryMuscle) ? null : secondaryMuscle);
             Add(command, "query", string.IsNullOrWhiteSpace(query) ? null : query.Trim());
             Add(command, "review_status", string.IsNullOrWhiteSpace(reviewStatus) ? null : reviewStatus);
             Add(command, "owner_user_id", ownerUserId);
@@ -1017,7 +1025,10 @@ public sealed class ExerciseCatalogService
                     NullableString(reader, 26), NullableString(reader, 27), NullableString(reader, 28), NullableString(reader, 29),
                     reader.IsDBNull(30) ? null : reader.GetDouble(30),
                     reader.IsDBNull(31) ? null : reader.GetBoolean(31),
-                    reader.IsDBNull(32) ? null : reader.GetBoolean(32), ParseElement(reader.GetString(33))));
+                    reader.IsDBNull(32) ? null : reader.GetBoolean(32), ParseElement(reader.GetString(33)),
+                    reader.IsDBNull(34) ? null : reader.GetInt32(34), NullableString(reader, 35),
+                    NullableJson(reader, 36), NullableJson(reader, 37), NullableString(reader, 38),
+                    NullableJson(reader, 39), NullableJson(reader, 40)));
             }
             return items;
         }
@@ -1088,6 +1099,55 @@ public sealed class ExerciseCatalogService
             Add(command, "description", description); Add(command, "equipment", equipment); Add(command, "body_part", bodyPart);
             await command.ExecuteNonQueryAsync(cancellationToken);
             return id;
+        }
+        finally { if (shouldClose) await connection.CloseAsync(); }
+    }
+
+    public async Task<bool> UpdateProfessionalContributionAsync(string id, ExerciseContributionRequest contribution, int actorUserId, bool isSuperAdmin, string actorName, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(contribution.Name) || contribution.Name.Trim().Length > 200)
+            throw new ArgumentException("El nombre es obligatorio y no puede superar 200 caracteres.");
+        ValidateContributionMetadata(contribution);
+        await EnsureSchemaAsync(cancellationToken);
+        const string sql = """
+            UPDATE exercise_catalog
+            SET name_en = @name, description_en = @description, equipment = @equipment, body_part = @body_part,
+                owner_movement_pattern = @pattern, owner_primary_muscles = @primary::jsonb,
+                owner_secondary_muscles = @secondary::jsonb, owner_minimum_experience = @experience,
+                owner_suitable_goals = @goals::jsonb, owner_required_equipment = @required::jsonb,
+                owner_selection_priority = @priority,
+                source_payload = source_payload || @payload::jsonb,
+                review_status = CASE WHEN @is_superadmin THEN review_status ELSE 'pending' END,
+                reviewed = CASE WHEN @is_superadmin THEN reviewed ELSE FALSE END,
+                reviewed_at = CASE WHEN @is_superadmin THEN reviewed_at ELSE NULL END,
+                reviewed_by = CASE WHEN @is_superadmin THEN reviewed_by ELSE NULL END,
+                updated_at = NOW()
+            WHERE exercise_id = @id AND source = 'professional-contribution'
+              AND (@is_superadmin OR owner_user_id = @actor_user_id)
+            """;
+        var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+        if (shouldClose) await connection.OpenAsync(cancellationToken);
+        try
+        {
+            await using var command = new NpgsqlCommand(sql, connection);
+            Add(command, "id", id); Add(command, "actor_user_id", actorUserId); Add(command, "is_superadmin", isSuperAdmin);
+            Add(command, "name", contribution.Name.Trim()); Add(command, "description", contribution.Description);
+            Add(command, "equipment", contribution.Equipment); Add(command, "body_part", contribution.BodyPart);
+            Add(command, "pattern", contribution.MovementPattern);
+            Add(command, "primary", JsonSerializer.Serialize(contribution.PrimaryMuscles ?? []));
+            Add(command, "secondary", JsonSerializer.Serialize(contribution.SecondaryMuscles ?? []));
+            Add(command, "experience", contribution.MinimumExperience);
+            Add(command, "goals", JsonSerializer.Serialize(contribution.SuitableGoals ?? []));
+            Add(command, "required", JsonSerializer.Serialize(contribution.RequiredEquipment ?? []));
+            Add(command, "priority", Math.Clamp(contribution.SelectionPriority, 0, 100));
+            Add(command, "payload", JsonSerializer.Serialize(new { name = contribution.Name.Trim(), description = contribution.Description,
+                equipment = contribution.Equipment, bodyPart = contribution.BodyPart, contributor = actorName,
+                movementPattern = contribution.MovementPattern, primaryMuscles = contribution.PrimaryMuscles,
+                secondaryMuscles = contribution.SecondaryMuscles, minimumExperience = contribution.MinimumExperience,
+                suitableGoals = contribution.SuitableGoals, requiredEquipment = contribution.RequiredEquipment,
+                selectionPriority = contribution.SelectionPriority }));
+            return await command.ExecuteNonQueryAsync(cancellationToken) > 0;
         }
         finally { if (shouldClose) await connection.CloseAsync(); }
     }
@@ -1244,7 +1304,10 @@ public sealed record ExerciseCatalogItem(
     string? MinimumExperience, JsonElement? SuitableGoals, JsonElement? RequiredEquipment,
     int SelectionPriority, string? ReviewNotes, DateTime? ReviewedAt, string? ReviewedBy, string? Contributor,
     string? DescriptionEs, string? Difficulty, string? ForceType, string? Mechanic, double? Met,
-    bool? IsUnilateral, bool? IsBodyweight, JsonElement TipsEs);
+    bool? IsUnilateral, bool? IsBodyweight, JsonElement TipsEs,
+    int? OwnerUserId = null, string? OwnerMovementPattern = null, JsonElement? OwnerPrimaryMuscles = null,
+    JsonElement? OwnerSecondaryMuscles = null, string? OwnerMinimumExperience = null,
+    JsonElement? OwnerSuitableGoals = null, JsonElement? OwnerRequiredEquipment = null);
 
 public sealed record ExerciseReviewRequest(string Status, string? MovementPattern, string[] PrimaryMuscles, string[] SecondaryMuscles, string MinimumExperience, string[] SuitableGoals, string[] RequiredEquipment, int SelectionPriority, string? Notes);
 public sealed record ExerciseContributionRequest(string Name, string? Description, string? Equipment, string? BodyPart, string? MovementPattern, string[]? PrimaryMuscles, string[]? SecondaryMuscles, string? MinimumExperience, string[]? SuitableGoals, string[]? RequiredEquipment, int SelectionPriority = 50);
