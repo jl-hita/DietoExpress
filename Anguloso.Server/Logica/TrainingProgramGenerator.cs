@@ -33,10 +33,10 @@ public static class TrainingProgramGenerator
         var excluded = new HashSet<string>(request.ExcludedExerciseIds, StringComparer.OrdinalIgnoreCase);
         var equipment = new HashSet<string>(request.AvailableEquipment, StringComparer.OrdinalIgnoreCase);
         var sessions = new List<TrainingSessionPrescription>();
-        var previousWeekSelections = new Dictionary<TrainingMovementPattern, string>();
         for (var week = 1; week <= request.DurationWeeks; week++)
         {
-            var currentWeekSelections = new Dictionary<TrainingMovementPattern, string>();
+            // Keep exercise selection stable across weeks to support measurable progression.
+            // Variety is managed within each week's sessions, not across the mesocycle.
             var selectedThisWeek = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             for (var dayIndex = 0; dayIndex < days.Length; dayIndex++)
             {
@@ -61,21 +61,17 @@ public static class TrainingProgramGenerator
                         .ThenBy(x => x.ExerciseId, StringComparer.Ordinal)
                         .ToArray();
 
-                    // Prefer variety across weeks and within the current week's plan, but never
-                    // sacrifice compatibility: a sole valid exercise may be reused.
+                    // Prefer a different exercise elsewhere in this week's plan when possible.
+                    // Never penalize an exercise for being selected in previous weeks: continuity
+                    // across a mesocycle supports progression and performance tracking.
                     var candidate = compatibleCandidates
-                        .FirstOrDefault(x =>
-                            !selectedThisWeek.Contains(x.ExerciseId)
-                            && (!previousWeekSelections.TryGetValue(pattern, out var previousId)
-                                || !string.Equals(x.ExerciseId, previousId, StringComparison.OrdinalIgnoreCase)))
+                        .FirstOrDefault(x => !selectedThisWeek.Contains(x.ExerciseId))
                         ?? compatibleCandidates.FirstOrDefault();
-                    candidate ??= null;
 
                     if (candidate is null)
-                        return Failure($"No hay un ejercicio revisado compatible con el patrón '{pattern}', el objetivo, la experiencia, el material y las exclusiones configuradas.");
+                        return Failure(BuildCandidateDiagnostic(pattern, request, catalog, equipment, excluded));
 
                     selectedThisWeek.Add(candidate.ExerciseId);
-                    currentWeekSelections.TryAdd(pattern, candidate.ExerciseId);
 
                     var (sets, minReps, maxReps, rir, rest, progression) = PrescriptionFor(request.Goal, request.Experience, week, days.Length, pattern);
                     prescriptions.Add(new TrainingExercisePrescription(
@@ -101,7 +97,6 @@ public static class TrainingProgramGenerator
                     estimatedDuration,
                     prescriptions));
             }
-            previousWeekSelections = currentWeekSelections;
         }
 
         var plan = new TrainingProgramPrescription(
@@ -117,6 +112,27 @@ public static class TrainingProgramGenerator
             : new(null, validationErrors);
 
         TrainingProgramGenerationResult Failure(string error) => new(null, [error]);
+    }
+
+    private static string BuildCandidateDiagnostic(
+        TrainingMovementPattern pattern,
+        TrainingProgramGenerationRequest request,
+        IReadOnlyCollection<TrainingExerciseCandidate> catalog,
+        IReadOnlySet<string> equipment,
+        IReadOnlySet<string> excluded)
+    {
+        var reviewed = catalog.Where(x => x.IsReviewed || x.IsOwnedByCurrentProfessional).ToArray();
+        var matchingPattern = reviewed.Where(x => x.MovementPattern == pattern).ToArray();
+        var matchingGoal = matchingPattern.Where(x => x.SuitableGoals.Contains(request.Goal)).ToArray();
+        var matchingExperience = matchingGoal.Where(x => (int)x.MinimumExperience <= (int)request.Experience).ToArray();
+        var matchingEquipment = matchingExperience.Where(x => x.RequiredEquipment.All(equipment.Contains)).ToArray();
+        var matchingExclusions = matchingEquipment.Where(x => !excluded.Contains(x.ExerciseId)).ToArray();
+
+        return $"No hay ejercicios compatibles para el patrón '{pattern}'. " +
+            $"Candidatos: catálogo={catalog.Count}, revisados/propios={reviewed.Length}, patrón={matchingPattern.Length}, " +
+            $"objetivo={matchingGoal.Length}, experiencia={matchingExperience.Length}, material={matchingEquipment.Length}, " +
+            $"tras exclusiones={matchingExclusions.Length}. " +
+            "Comprueba aprobación, patrón, objetivo, nivel mínimo, material disponible y ejercicios excluidos.";
     }
 
     private static IReadOnlyList<string> ValidateRequest(TrainingProgramGenerationRequest request)
