@@ -25,12 +25,20 @@ public sealed class ExerciseCatalogController : ControllerBase
         [FromQuery] string? bodyPart,
         [FromQuery] string? equipment,
         [FromQuery] int limit = 80,
+        [FromQuery] string? movementPattern = null,
+        [FromQuery] string? primaryMuscle = null,
+        [FromQuery] string? secondaryMuscle = null,
+        [FromQuery] string? reviewStatus = null,
+        [FromQuery] bool all = false,
         CancellationToken cancellationToken = default)
     {
         try
         {
             var ownerUserId = int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsedUserId) ? parsedUserId : (int?)null;
-            return Ok(await _catalog.SearchAsync(q, bodyPart, equipment, limit, cancellationToken, ownerUserId: ownerUserId));
+            var isSuperAdmin = User.IsInRole("superadmin");
+            return Ok(await _catalog.SearchAsync(q, bodyPart, equipment, limit, cancellationToken,
+                reviewStatus: reviewStatus, ownerUserId: ownerUserId, includeAllOwners: all && isSuperAdmin, maxLimit: 10000,
+                movementPattern: movementPattern, primaryMuscle: primaryMuscle, secondaryMuscle: secondaryMuscle));
         }
         catch (Exception exception)
         {
@@ -100,8 +108,27 @@ public sealed class ExerciseCatalogController : ControllerBase
         catch (Exception exception) { _logger.LogError(exception, "Failed to save review for exercise {ExerciseId}.", id); return StatusCode(500, new { error = "No se pudo guardar la revisión." }); }
     }
 
+    [HttpPut("{id}/manage")]
+    public async Task<IActionResult> UpdateContribution(string id, [FromBody] ExerciseContributionRequest contribution, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var actorUserId)) return Unauthorized();
+            var isSuperAdmin = User.IsInRole("superadmin");
+            var actorName = User.Identity?.Name ?? actorUserId.ToString();
+            return await _catalog.UpdateProfessionalContributionAsync(id, contribution, actorUserId, isSuperAdmin, actorName, cancellationToken)
+                ? NoContent() : NotFound();
+        }
+        catch (ArgumentException exception) { return BadRequest(new { error = exception.Message }); }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Failed to update professional exercise {ExerciseId}.", id);
+            return StatusCode(500, new { error = "No se pudo actualizar el ejercicio." });
+        }
+    }
+
     [HttpPost("contributions")]
-    [Authorize(Roles = "nutritionist,clinic_admin")]
+    [Authorize(Roles = "nutritionist,clinic_admin,superadmin")]
     public async Task<IActionResult> Contribute([FromBody] ExerciseContributionRequest contribution, CancellationToken cancellationToken)
     {
         try

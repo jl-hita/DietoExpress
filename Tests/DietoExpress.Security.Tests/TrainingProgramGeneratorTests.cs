@@ -89,7 +89,7 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
-    public void GeneratorRotatesCompatibleExercisesBetweenWeeksWhenAlternativesExist()
+    public void GeneratorKeepsExerciseSelectionAcrossMesocycleWeeksWhenCompatible()
     {
         var alternative = new TrainingExerciseCandidate(
             "squat-alternative", "catalog-2026-10", "Sentadilla alternativa",
@@ -99,7 +99,7 @@ public sealed class TrainingProgramGeneratorTests
             [TrainingMuscleGroup.Quadriceps, TrainingMuscleGroup.Glutes],
             [TrainingMuscleGroup.Hamstrings]);
         var result = TrainingProgramGenerator.Generate(
-            Request() with { DurationWeeks = 2 },
+            Request() with { DurationWeeks = 4 },
             Catalog().Append(alternative).ToArray());
 
         Assert.True(result.Succeeded, string.Join("; ", result.Errors));
@@ -109,7 +109,56 @@ public sealed class TrainingProgramGeneratorTests
             .GroupBy(item => item.WeekNumber)
             .ToDictionary(group => group.Key, group => group.First().Exercise.ExerciseId);
 
-        Assert.NotEqual(squatByWeek[1], squatByWeek[2]);
+        Assert.Equal("squat-basic", squatByWeek[1]);
+        Assert.All(squatByWeek.Values, exerciseId => Assert.Equal(squatByWeek[1], exerciseId));
+    }
+
+    [Fact]
+    public void GeneratorUsesDifferentHorizontalPullExercisesWithinWeekWhenAlternativesExist()
+    {
+        var alternative = new TrainingExerciseCandidate(
+            "horizontal-pull-alternative", "catalog-2026-10", "Remo alternativo",
+            TrainingMovementPattern.HorizontalPull, [],
+            [TrainingGoal.GeneralFitness, TrainingGoal.Hypertrophy, TrainingGoal.Strength],
+            TrainingExperience.Beginner, 40, true,
+            [TrainingMuscleGroup.UpperBack, TrainingMuscleGroup.Lats],
+            [TrainingMuscleGroup.Biceps]);
+        var result = TrainingProgramGenerator.Generate(
+            Request() with
+            {
+                DurationWeeks = 4,
+                TrainingDays = [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Thursday, DayOfWeek.Saturday]
+            },
+            Catalog().Append(alternative).ToArray());
+
+        Assert.True(result.Succeeded, string.Join("; ", result.Errors));
+        var weeklyPulls = result.Prescription!.Sessions
+            .Where(session => session.WeekNumber == 1)
+            .SelectMany(session => session.Exercises)
+            .Where(exercise => exercise.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.UpperBack))
+            .Select(exercise => exercise.ExerciseId)
+            .ToArray();
+
+        Assert.Equal(2, weeklyPulls.Length);
+        Assert.Equal(2, weeklyPulls.Distinct(StringComparer.OrdinalIgnoreCase).Count());
+    }
+
+    [Fact]
+    public void MissingPatternErrorReportsCandidateFilteringStages()
+    {
+        var catalog = Catalog().Select(exercise =>
+            exercise.MovementPattern == TrainingMovementPattern.HorizontalPull
+                ? exercise with { IsReviewed = false }
+                : exercise).ToArray();
+
+        var result = TrainingProgramGenerator.Generate(Request(), catalog);
+
+        Assert.False(result.Succeeded);
+        var error = Assert.Single(result.Errors);
+        Assert.Contains("patrón 'HorizontalPull'", error);
+        Assert.Contains("revisados/propios=", error);
+        Assert.Contains("objetivo=", error);
+        Assert.Contains("tras exclusiones=", error);
     }
 
     [Fact]
@@ -141,7 +190,7 @@ public sealed class TrainingProgramGeneratorTests
         var result = TrainingProgramGenerator.Generate(Request(), catalog);
 
         Assert.False(result.Succeeded);
-        Assert.Contains(result.Errors, error => error.Contains("No hay un ejercicio revisado compatible", StringComparison.Ordinal));
+        Assert.Contains(result.Errors, error => error.Contains("No hay ejercicios compatibles para el patrón", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -160,7 +209,7 @@ public sealed class TrainingProgramGeneratorTests
         var notOwned = catalog.Select(exercise => exercise with { IsOwnedByCurrentProfessional = false }).ToArray();
         var denied = TrainingProgramGenerator.Generate(Request(), notOwned);
         Assert.False(denied.Succeeded);
-        Assert.Contains(denied.Errors, error => error.Contains("No hay un ejercicio revisado compatible", StringComparison.Ordinal));
+        Assert.Contains(denied.Errors, error => error.Contains("No hay ejercicios compatibles para el patrón", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -260,7 +309,7 @@ public sealed class TrainingProgramGeneratorTests
             catalog);
 
         Assert.False(result.Succeeded);
-        Assert.Contains(result.Errors, error => error.Contains("No hay un ejercicio revisado compatible", StringComparison.Ordinal));
+        Assert.Contains(result.Errors, error => error.Contains("No hay ejercicios compatibles para el patrón", StringComparison.Ordinal));
     }
 
     [Fact]

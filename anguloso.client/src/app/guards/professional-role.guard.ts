@@ -17,7 +17,7 @@ export class ProfessionalRoleGuard implements CanActivate {
     if (role === 'nutritionist' || role === 'clinic_admin') return true;
 
     // SuperAdmin puede entrar solo en vistas con un modo explícito de plataforma; nunca en detalles/edición que exigen un tenant.
-    const platformViews = new Set(['clients', 'diets', 'messages', 'appointments', 'automations', 'documents']);
+    const platformViews = new Set(['clients', 'diets', 'messages', 'appointments', 'automations', 'documents', 'exercise-manager']);
     if (role === 'superadmin' && platformViews.has(route.routeConfig?.path ?? '')) return true;
 
     this.router.navigate(['/admin']);

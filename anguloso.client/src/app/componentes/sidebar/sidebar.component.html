@@ -51,6 +51,11 @@
       </a>
     </div>
     <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">
+      <a mat-list-item routerLink="/exercise-manager" routerLinkActive="active-link" (click)="navigateAndClose()">
+        <mat-icon>fitness_center</mat-icon><span>Gestor de ejercicios</span>
+      </a>
+    </div>
+    <div class="menu-item" *ngIf="isProfessionalAccount || isFreeAccount || isSuperAdmin">
       <a mat-list-item routerLink="/messages" routerLinkActive="active-link" (click)="navigateAndClose()">
         <mat-icon>chat</mat-icon><span>Mensajes</span><span class="message-unread-badge" *ngIf="unreadMessagesCount > 0" aria-label="Mensajes sin leer">{{ unreadMessagesCount > 99 ? '99+' : unreadMessagesCount }}</span>
       </a>
