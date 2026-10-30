@@ -81,7 +81,10 @@ internal static class RepDbExerciseAutoReviewer
     {
         var text = Normalize(string.Join(' ', id, es, en, string.Join(' ', ReadStrings(tagsJson))));
         // Strong name/ID cues first; ambiguous exercises stay pending.
-        if (Has(text, "overhead press", "shoulder press", "military press", "press militar", "arnold press", "push press")) return "VerticalPush";
+        if (Has(text, "overhead press", "shoulder press", "military press", "press militar", "arnold press", "push press",
+            "pike push ups", "pike push-up", "flexiones en pica", "dips", "fondos")) return "VerticalPush";
+        if (Has(text, "bulgarian split squat", "split squat", "pistol squat", "sentadilla bulgara", "sentadilla en tijera",
+            "lunge", "zancada", "step-up", "step up", "single-leg-press")) return "SingleLeg";
         if (Has(text, "squat", "sentadilla", "leg press", "prensa de piernas", "reverse nordic")) return "Squat";
         if (Has(text, "deadlift", "peso muerto", "good morning", "hip thrust", "puente de gluteos", "glute bridge", "hip bridge", "puente de cadera", "back extension", "extension lumbar",
             "kettlebell swing", "dumbbell swing", "one-arm swing", "swing con mancuerna", "pull-through", "pull through",
