@@ -140,10 +140,14 @@ public sealed class ExerciseCatalogService
         // One-time additive refresh restores effective exercises that an older curation version
         // removed from the local catalog. The source upsert deliberately preserves existing review decisions.
         if (result is null)
+        {
             await EnsureRepDbCatalogRefreshAsync(cancellationToken);
+            await EnsureRepDbCatalogRefreshV4Async(cancellationToken);
+        }
 
         await EnsureRepDbQualityCurationAsync(cancellationToken);
         await EnsureRepDbGeneratorScopeCurationAsync(cancellationToken);
+        await EnsureRepDbExerciseMetadataCurationV4Async(cancellationToken);
         await EnsureRepDbMetadataEnrichmentAsync(cancellationToken);
         await EnsureRepDbInitialReviewAsync(cancellationToken);
         return result;
@@ -374,7 +378,12 @@ public sealed class ExerciseCatalogService
                     OR EXISTS (
                         SELECT 1
                         FROM jsonb_each(@preferred_variants::jsonb) AS vg(group_name, keep_ids)
-                        WHERE source_payload->>'variation_group' = vg.group_name
+                        WHERE CASE exercise_catalog.exercise_id
+                            WHEN 'banded-standing-curl' THEN 'leg-curl'
+                            WHEN 'dumbbell-farmers-walk' THEN 'farmer-carry'
+                            WHEN 'kettlebell-farmers-walk' THEN 'farmer-carry'
+                            ELSE source_payload->>'variation_group'
+                          END = vg.group_name
                           AND NOT (vg.keep_ids ? exercise_catalog.exercise_id)
                     )
                   )
@@ -570,6 +579,197 @@ public sealed class ExerciseCatalogService
             // Catalog refresh must not take the whole application offline if the external source is unavailable.
             // Leave the marker unset so a later startup can retry safely.
             _logger.LogWarning(ex, "RepDB curation refresh failed; startup will continue and the refresh will retry on a later restart.");
+        }
+    }
+
+    /// <summary>
+    /// Reimports the curated core lifts added to the approved catalog after the initial RepDB bootstrap.
+    /// The source upsert preserves all existing review decisions; newly eligible records are reviewed
+    /// by the normal conservative startup reviewer below.
+    /// </summary>
+    private async Task EnsureRepDbCatalogRefreshV4Async(CancellationToken cancellationToken)
+    {
+        const string marker = "exercise-catalog-repdb-curation-refresh-v4";
+        var completed = await _db.Database.SqlQueryRaw<bool>(
+            "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'exercise-catalog-repdb-curation-refresh-v4') AS \"Value\"")
+            .SingleAsync(cancellationToken);
+        if (completed) return;
+
+        try
+        {
+            var result = await SyncFromSourceAsync(cancellationToken);
+            var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
+            var shouldClose = connection.State != ConnectionState.Open;
+            if (shouldClose) await connection.OpenAsync(cancellationToken);
+            try
+            {
+                await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+                await using var mark = new NpgsqlCommand(
+                    "INSERT INTO schema_migrations(id) VALUES (@marker) ON CONFLICT (id) DO NOTHING",
+                    connection, transaction);
+                Add(mark, "marker", marker);
+                await mark.ExecuteNonQueryAsync(cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+            }
+            finally
+            {
+                if (shouldClose) await connection.CloseAsync();
+            }
+
+            _logger.LogInformation(
+                "RepDB core-exercise refresh v4 imported or refreshed {ImportedCount} eligible records; existing reviews were preserved.",
+                result.ImportedCount);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Keep the marker unset so a later startup can retry without blocking application startup.
+            _logger.LogWarning(ex, "RepDB core-exercise refresh v4 failed; it will retry on a later startup.");
+        }
+    }
+
+    /// <summary>
+    /// Corrects confirmed muscle/pattern metadata errors and reopens the behind-the-neck pulldown
+    /// for manual review. Human-authored review decisions are preserved.
+    /// </summary>
+    private async Task EnsureRepDbExerciseMetadataCurationV4Async(CancellationToken cancellationToken)
+    {
+        const string marker = "exercise-catalog-repdb-exercise-metadata-v4";
+        var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+        if (shouldClose) await connection.OpenAsync(cancellationToken);
+        try
+        {
+            await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+            await using (var check = new NpgsqlCommand(
+                "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = @marker)", connection, transaction))
+            {
+                Add(check, "marker", marker);
+                if (Convert.ToBoolean(await check.ExecuteScalarAsync(cancellationToken)))
+                {
+                    await transaction.CommitAsync(cancellationToken);
+                    return;
+                }
+            }
+
+            const string sql = """
+                UPDATE exercise_catalog
+                SET primary_muscles = CASE
+                        WHEN exercise_id = 'cossack-squat' THEN '["gluteus_maximus", "quadriceps", "adductors"]'::jsonb
+                        WHEN exercise_id = 'hex-bar-deadlift' THEN '["gluteus_maximus", "quadriceps", "hamstrings"]'::jsonb
+                        ELSE primary_muscles
+                    END,
+                    secondary_muscles = CASE
+                        WHEN exercise_id = 'cossack-squat' THEN '["hamstrings"]'::jsonb
+                        WHEN exercise_id = 'hex-bar-deadlift' THEN '["erector_spinae", "forearm_flexors", "trapezius"]'::jsonb
+                        ELSE secondary_muscles
+                    END,
+                    tags = CASE
+                        WHEN exercise_id IN ('barbell-lunge', 'barbell-reverse-lunge') THEN tags - 'knee_safe'
+                        WHEN exercise_id = 'bench-press' THEN tags - 'shoulder_safe' - 'lower_back_safe'
+                        ELSE tags
+                    END,
+                    reviewed_movement_pattern = CASE
+                        WHEN exercise_id = 'behind-the-neck-lat-pulldown'
+                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN NULL
+                        WHEN exercise_id IN ('dumbbell-push-press', 'pike-push-ups', 'weighted-dips', 'assisted-dips',
+                            'seated-dip-machine', 'plate-loaded-seated-dip-machine', 'straight-bar-dips', 'landmine-press', 'one-arm-landmine-press')
+                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN 'VerticalPush'
+                        WHEN exercise_id IN ('bulgarian-split-squat', 'split-squat', 'single-leg-press', 'cossack-squat')
+                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN 'SingleLeg'
+                        WHEN exercise_id = 'banded-standing-curl'
+                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN 'Hinge'
+                        ELSE reviewed_movement_pattern
+                    END,
+                    reviewed_primary_muscles = CASE
+                        WHEN exercise_id = 'behind-the-neck-lat-pulldown'
+                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN NULL
+                        WHEN exercise_id = 'cossack-squat'
+                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN '["Glutes", "Quadriceps", "Adductors"]'::jsonb
+                        WHEN exercise_id = 'hex-bar-deadlift'
+                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN '["Glutes", "Quadriceps", "Hamstrings"]'::jsonb
+                        ELSE reviewed_primary_muscles
+                    END,
+                    reviewed_secondary_muscles = CASE
+                        WHEN exercise_id = 'behind-the-neck-lat-pulldown'
+                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN NULL
+                        WHEN exercise_id = 'cossack-squat'
+                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN '["Hamstrings"]'::jsonb
+                        WHEN exercise_id = 'hex-bar-deadlift'
+                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN '["ErectorSpinae", "Forearms", "UpperBack"]'::jsonb
+                        ELSE reviewed_secondary_muscles
+                    END,
+                    reviewed_minimum_experience = CASE
+                        WHEN exercise_id = 'behind-the-neck-lat-pulldown'
+                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN NULL
+                        ELSE reviewed_minimum_experience
+                    END,
+                    reviewed_suitable_goals = CASE
+                        WHEN exercise_id = 'behind-the-neck-lat-pulldown'
+                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN NULL
+                        ELSE reviewed_suitable_goals
+                    END,
+                    reviewed_required_equipment = CASE
+                        WHEN exercise_id = 'behind-the-neck-lat-pulldown'
+                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN NULL
+                        ELSE reviewed_required_equipment
+                    END,
+                    reviewed_selection_priority = CASE
+                        WHEN exercise_id = 'behind-the-neck-lat-pulldown'
+                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN 50
+                        WHEN exercise_id = 'banded-standing-curl'
+                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN 55
+                        ELSE reviewed_selection_priority
+                    END,
+                    review_status = CASE
+                        WHEN exercise_id = 'behind-the-neck-lat-pulldown'
+                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN 'pending'
+                        ELSE review_status
+                    END,
+                    reviewed = CASE
+                        WHEN exercise_id = 'behind-the-neck-lat-pulldown'
+                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN FALSE
+                        ELSE reviewed
+                    END,
+                    review_notes = CASE
+                        WHEN exercise_id = 'behind-the-neck-lat-pulldown'
+                         AND reviewed_by LIKE 'RepDB automatic metadata%'
+                        THEN 'Pendiente de revisión manual: el jalón tras nuca exige movilidad de hombro elevada y tiene alternativas más adecuadas como el jalón al pecho.'
+                        ELSE review_notes
+                    END,
+                    reviewed_at = CASE
+                        WHEN exercise_id = 'behind-the-neck-lat-pulldown'
+                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN NULL
+                        ELSE reviewed_at
+                    END,
+                    reviewed_by = CASE
+                        WHEN exercise_id = 'behind-the-neck-lat-pulldown'
+                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN NULL
+                        ELSE reviewed_by
+                    END,
+                    updated_at = NOW()
+                WHERE source = 'repdb-free'
+                  AND owner_user_id IS NULL
+                  AND exercise_id = ANY(ARRAY[
+                    'cossack-squat', 'hex-bar-deadlift', 'dumbbell-push-press',
+                    'banded-standing-curl', 'behind-the-neck-lat-pulldown',
+                    'barbell-lunge', 'barbell-reverse-lunge', 'bench-press'
+                  ]::varchar[])
+                """;
+            await using (var update = new NpgsqlCommand(sql, connection, transaction))
+                await update.ExecuteNonQueryAsync(cancellationToken);
+
+            await using (var mark = new NpgsqlCommand(
+                "INSERT INTO schema_migrations(id) VALUES (@marker) ON CONFLICT (id) DO NOTHING", connection, transaction))
+            {
+                Add(mark, "marker", marker);
+                await mark.ExecuteNonQueryAsync(cancellationToken);
+            }
+            await transaction.CommitAsync(cancellationToken);
+            _logger.LogInformation("Applied RepDB exercise metadata curation v4; corrected muscle/pattern metadata and reopened one risky variant.");
+        }
+        finally
+        {
+            if (shouldClose) await connection.CloseAsync();
         }
     }
 
