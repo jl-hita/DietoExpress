@@ -820,7 +820,7 @@ public sealed class ExerciseCatalogService
                     reviewed_secondary_muscles = @secondary::jsonb,
                     reviewed_minimum_experience = @experience,
                     reviewed_suitable_goals = @goals::jsonb,
-                    reviewed_required_equipment = @equipment::jsonb,
+                    reviewed_required_equipment ILIKE '%' || @equipment || '%'::jsonb,
                     reviewed_selection_priority = @priority,
                     review_notes = @notes, reviewed_at = NOW(),
                     reviewed_by = 'RepDB automatic metadata v2', updated_at = NOW()
@@ -979,7 +979,7 @@ public sealed class ExerciseCatalogService
                    owner_user_id, owner_movement_pattern, owner_primary_muscles, owner_secondary_muscles,
                    owner_minimum_experience, owner_suitable_goals, owner_required_equipment
             FROM exercise_catalog
-            WHERE (CAST(@body_part AS varchar) IS NULL OR body_part = @body_part)
+            WHERE (CAST(@body_part AS varchar) IS NULL OR body_part ILIKE '%' || @body_part || '%')
               AND (CAST(@equipment AS varchar) IS NULL OR equipment = @equipment)
               AND (CAST(@movement_pattern AS varchar) IS NULL OR COALESCE(reviewed_movement_pattern, owner_movement_pattern) = @movement_pattern)
               AND (CAST(@primary_muscle AS varchar) IS NULL OR COALESCE(reviewed_primary_muscles, owner_primary_muscles, primary_muscles) @> jsonb_build_array(@primary_muscle))
