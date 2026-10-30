@@ -119,7 +119,7 @@ internal static class RepDbExerciseCuration
     public static readonly Dictionary<string, string[]> PreferredIdsByVariationGroup = new(StringComparer.OrdinalIgnoreCase)
     {
         ["squat"] = ["barbell-box-squat", "bodyweight-squat", "box-squat", "bulgarian-split-squat", "db-squat", "front-squat", "goblet-squat", "hack-squat", "heel-elevated-squat", "smith-machine-squat", "squat", "sumo-squat", "zercher-squat"],
-        ["bicep-curl"] = ["banded-standing-curl", "barbell-curl", "barbell-preacher-curl", "bicep-curl", "cable-curl", "cable-hammer-curl", "concentration-curl", "ez-bar-curl", "hammer-curl", "incline-db-curl", "machine-bicep-curl", "preacher-curl", "trx-bicep-curl", "reverse-curl", "zottman-curl"],
+        ["bicep-curl"] = ["barbell-curl", "barbell-preacher-curl", "bicep-curl", "cable-curl", "cable-hammer-curl", "concentration-curl", "ez-bar-curl", "hammer-curl", "incline-db-curl", "machine-bicep-curl", "preacher-curl", "trx-bicep-curl", "reverse-curl", "zottman-curl"],
         ["row"] = ["barbell-row", "bent-over-db-row", "chest-supported-db-row", "chest-supported-kettlebell-row", "chest-supported-machine-row", "inverted-row", "one-arm-kettlebell-row", "one-arm-seated-cable-row", "seated-cable-row", "single-arm-db-row", "t-bar-row", "trx-row"],
         ["bench-press"] = ["bench-press", "cable-chest-press", "chest-press-machine", "close-grip-bench-press", "db-bench-press", "decline-bench-press", "dumbbell-floor-press", "incline-bench-press", "incline-db-press", "smith-machine-bench-press", "smith-machine-incline-bench-press", "trx-chest-press"],
         ["deadlift"] = ["banded-romanian-deadlift", "bodyweight-good-morning", "cable-pull-through", "deadlift", "dumbbell-deadlift", "dumbbell-romanian-deadlift", "good-morning", "hex-bar-deadlift", "kettlebell-deadlift", "romanian-deadlift", "single-leg-romanian-deadlift", "sumo-deadlift"],
@@ -138,7 +138,9 @@ internal static class RepDbExerciseCuration
         ["reverse-fly"] = ["cable-reverse-fly", "dumbbell-reverse-fly", "face-pull", "machine-reverse-fly", "rear-delt-fly", "trx-face-pull"],
         ["shrug"] = ["chest-supported-dumbbell-shrug", "db-shrug", "plate-loaded-shrug", "shrug", "smith-machine-shrug"],
         ["back-extension"] = ["back-extension", "bird-dog", "machine-back-extension", "superman"],
-        ["leg-curl"] = ["ball-leg-curl", "leg-curl", "nordic-hamstring-curl", "seated-leg-curl", "single-leg-lying-leg-curl", "trx-hamstring-curl"],
+        ["leg-curl"] = ["ball-leg-curl", "banded-standing-curl", "leg-curl", "nordic-hamstring-curl", "seated-leg-curl", "single-leg-lying-leg-curl", "trx-hamstring-curl"],
+        ["leg-extension"] = ["leg-extension", "reverse-nordic-curl", "single-leg-extension"],
+        ["farmer-carry"] = ["dumbbell-farmers-walk", "kettlebell-farmers-walk"],
         ["chest-fly"] = ["cable-fly", "db-fly", "incline-dumbbell-fly", "machine-chest-fly", "pec-deck"],
         ["leg-press"] = ["close-stance-leg-press", "horizontal-leg-press", "leg-press", "single-leg-press"],
         ["step-up"] = ["step-ups"],
@@ -151,11 +153,19 @@ internal static class RepDbExerciseCuration
 
     private static readonly HashSet<string> RequireManualReviewIds = new(StringComparer.OrdinalIgnoreCase)
     {
+        "behind-the-neck-lat-pulldown",
         "dead-hang",
         "sit-ups"
     };
 
     public static bool ShouldExclude(string id) => Excluded.Contains(id);
+
+    public static string? CurateVariationGroup(string id, string? sourceVariationGroup) => id switch
+    {
+        "banded-standing-curl" => "leg-curl",
+        "dumbbell-farmers-walk" or "kettlebell-farmers-walk" => "farmer-carry",
+        _ => sourceVariationGroup
+    };
 
     public static bool ShouldExclude(string id, string? category, string? equipment, string? variationGroup)
     {
@@ -169,8 +179,9 @@ internal static class RepDbExerciseCuration
         if (string.Equals(equipment, "bosu_ball", StringComparison.OrdinalIgnoreCase)) return true;
 
         // Keep the curation of near-identical variants local to known variation groups only.
-        return variationGroup is not null
-            && PreferredIdsByVariationGroup.TryGetValue(variationGroup, out var preferred)
+        var curatedVariationGroup = CurateVariationGroup(id, variationGroup);
+        return curatedVariationGroup is not null
+            && PreferredIdsByVariationGroup.TryGetValue(curatedVariationGroup, out var preferred)
             && !preferred.Contains(id, StringComparer.OrdinalIgnoreCase);
     }
 

@@ -81,14 +81,14 @@ internal static class RepDbExerciseAutoReviewer
     {
         var text = Normalize(string.Join(' ', id, es, en, string.Join(' ', ReadStrings(tagsJson))));
         // Strong name/ID cues first; ambiguous exercises stay pending.
+        if (Has(text, "overhead press", "shoulder press", "military press", "press militar", "arnold press", "push press")) return "VerticalPush";
         if (Has(text, "squat", "sentadilla", "leg press", "prensa de piernas", "reverse nordic")) return "Squat";
         if (Has(text, "deadlift", "peso muerto", "good morning", "hip thrust", "puente de gluteos", "glute bridge", "hip bridge", "puente de cadera", "back extension", "extension lumbar",
-            "kettlebell swing", "dumbbell swing", "one-arm swing", "swing con mancuerna", "pull-through", "pull through")) return "Hinge";
+            "kettlebell swing", "dumbbell swing", "one-arm swing", "swing con mancuerna", "pull-through", "pull through",
+            "leg curl", "hamstring curl", "curl femoral", "nordic hamstring", "standing leg curl", "curl de pierna de pie")) return "Hinge";
         if (Has(text, "bench press", "press de banca", "push-up", "push up", "flexion", "chest press", "floor press",
-            "landmine press", "svend press", "push press", "tricep kickback", "patada de triceps",
+            "landmine press", "svend press", "tricep kickback", "patada de triceps",
             "dip machine", "dips", "fondos")) return "HorizontalPush";
-        if (Has(text, "overhead press", "shoulder press", "military press", "press militar", "arnold press",
-            "landmine press", "push press")) return "VerticalPush";
         if (Has(text, "row", "remo", "seated cable row", "bent-over row")) return "HorizontalPull";
         if (Has(text, "pull-up", "pull up", "chin-up", "chin up", "lat pulldown", "jalon al pecho")) return "VerticalPull";
         if (Has(text, "lunge", "zancada", "split squat", "step-up", "step up", "pistol squat", "single-leg")) return "SingleLeg";
@@ -129,7 +129,8 @@ internal static class RepDbExerciseAutoReviewer
             "concentration curl", "forearm curl", "wrist curl", "tricep extension", "triceps extension",
             "tricep pushdown", "tricep kickback", "skull crusher", "extension de triceps", "leg extension",
             "quadriceps extension", "extension de cuadriceps", "single-leg-extension", "leg curl", "hamstring curl",
-            "curl femoral", "nordic hamstring", "calf raise", "calf press", "elevacion de talones",
+            "curl femoral", "nordic hamstring", "standing leg curl", "curl de pierna de pie", "banded-standing-curl",
+            "calf raise", "calf press", "elevacion de talones",
             "hip abduction", "hip adduction", "abduccion de cadera", "aduccion de cadera", "glute kickback",
             "cable kickback", "pullover", "hip bridge", "puente de cadera", "shrug", "encogimiento de hombros", "wrist roller", "plate pinch",
             "straight-arm pulldown", "straight arm pulldown", "jalon con brazos rectos",

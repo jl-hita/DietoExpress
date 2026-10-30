@@ -80,6 +80,13 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("source_payload->>'name_es'", service);
         Assert.Contains("instructions_es = CASE", service);
         Assert.Contains("EnsureRepDbQualityCurationAsync", service);
+        Assert.Contains("EnsureRepDbCatalogRefreshV4Async", service);
+        Assert.Contains("exercise-catalog-repdb-curation-refresh-v4", service);
+        Assert.Contains("EnsureRepDbExerciseMetadataCurationV4Async", service);
+        Assert.Contains("exercise-catalog-repdb-exercise-metadata-v4", service);
+        Assert.Contains("dumbbell-push-press", service);
+        Assert.Contains("behind-the-neck-lat-pulldown", service);
+        Assert.Contains("CurateVariationGroup", curation);
         Assert.Contains("RepDbExerciseCuration.ShouldExclude(id, sourceCategory, equipment, variationGroup)", service);
         Assert.Contains("jsonb_each(@preferred_variants::jsonb)", service);
         Assert.Contains("PreferredIdsByVariationGroup", service);
@@ -113,6 +120,20 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.DoesNotContain("\"leg-extension\"", excludedIds);
         Assert.DoesNotContain("\"lateral-raise\"", excludedIds);
         Assert.Contains("Rules are intentionally auditable", curation);
+        Assert.Contains("CurateVariationGroup", curation);
+        Assert.Contains("[\"farmer-carry\"]", curation);
+        Assert.Contains("[\"leg-extension\"]", curation);
+        Assert.Contains("\"banded-standing-curl\"", curation);
+        Assert.Contains("\"squat\"", curation);
+        Assert.Contains("\"front-squat\"", curation);
+        Assert.Contains("\"deadlift\"", curation);
+        Assert.Contains("\"romanian-deadlift\"", curation);
+        Assert.Contains("\"db-bench-press\"", curation);
+        Assert.Contains("\"incline-db-press\"", curation);
+        Assert.Contains("\"leg-press\"", curation);
+        Assert.Contains("\"ohp\"", curation);
+        Assert.Contains("\"lat-pulldown\"", curation);
+        Assert.Contains("behind-the-neck-lat-pulldown", curation);
         Assert.Contains("IsAutoApprovalCandidate", curation);
         var autoReviewer = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "RepDbExerciseAutoReviewer.cs"));
         Assert.Contains("IsAccessoryExercise", autoReviewer);
@@ -137,6 +158,9 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("\"tibialis_anterior\" => \"TibialisAnterior\"", autoReviewer);
         Assert.Contains("\"supraspinatus\" or \"infraspinatus\"", autoReviewer);
         Assert.DoesNotContain("Has(v, \"lat\"", autoReviewer);
+        Assert.Contains("\"push press\"", autoReviewer);
+        Assert.Contains("\"curl de pierna de pie\"", autoReviewer);
+        Assert.Contains("\"banded-standing-curl\"", autoReviewer);
 
         var muscleTaxonomy = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "TrainingPrescription.cs"));
         Assert.Contains("Adductors", muscleTaxonomy);
