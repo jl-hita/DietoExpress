@@ -695,7 +695,24 @@ public sealed class ExerciseCatalogService
                          AND reviewed_by LIKE 'RepDB automatic metadata%' THEN '["ErectorSpinae", "Forearms", "UpperBack"]'::jsonb
                         ELSE reviewed_secondary_muscles
                     END,
+                    reviewed_minimum_experience = CASE
+                        WHEN exercise_id = 'behind-the-neck-lat-pulldown'
+                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN NULL
+                        ELSE reviewed_minimum_experience
+                    END,
+                    reviewed_suitable_goals = CASE
+                        WHEN exercise_id = 'behind-the-neck-lat-pulldown'
+                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN NULL
+                        ELSE reviewed_suitable_goals
+                    END,
+                    reviewed_required_equipment = CASE
+                        WHEN exercise_id = 'behind-the-neck-lat-pulldown'
+                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN NULL
+                        ELSE reviewed_required_equipment
+                    END,
                     reviewed_selection_priority = CASE
+                        WHEN exercise_id = 'behind-the-neck-lat-pulldown'
+                         AND reviewed_by LIKE 'RepDB automatic metadata%' THEN NULL
                         WHEN exercise_id = 'banded-standing-curl'
                          AND reviewed_by LIKE 'RepDB automatic metadata%' THEN 55
                         ELSE reviewed_selection_priority
