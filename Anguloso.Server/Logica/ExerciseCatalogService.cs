@@ -1028,7 +1028,9 @@ public sealed class ExerciseCatalogService
                     reader.IsDBNull(32) ? null : reader.GetBoolean(32), ParseElement(reader.GetString(33)),
                     reader.IsDBNull(34) ? null : reader.GetInt32(34), NullableString(reader, 35),
                     NullableJson(reader, 36), NullableJson(reader, 37), NullableString(reader, 38),
-                    NullableJson(reader, 39), NullableJson(reader, 40)));
+                    NullableJson(reader, 39), NullableJson(reader, 40),
+                    includeAllOwners || (reader.GetString(12) == "professional-contribution" && ownerUserId.HasValue
+                        && !reader.IsDBNull(34) && reader.GetInt32(34) == ownerUserId.Value)));
             }
             return items;
         }
@@ -1319,7 +1321,7 @@ public sealed record ExerciseCatalogItem(
     bool? IsUnilateral, bool? IsBodyweight, JsonElement TipsEs,
     int? OwnerUserId = null, string? OwnerMovementPattern = null, JsonElement? OwnerPrimaryMuscles = null,
     JsonElement? OwnerSecondaryMuscles = null, string? OwnerMinimumExperience = null,
-    JsonElement? OwnerSuitableGoals = null, JsonElement? OwnerRequiredEquipment = null);
+    JsonElement? OwnerSuitableGoals = null, JsonElement? OwnerRequiredEquipment = null, bool CanEdit = false);
 
 public sealed record ExerciseReviewRequest(string Status, string? MovementPattern, string[] PrimaryMuscles, string[] SecondaryMuscles, string MinimumExperience, string[] SuitableGoals, string[] RequiredEquipment, int SelectionPriority, string? Notes);
 public sealed record ExerciseContributionRequest(string Name, string? Description, string? Equipment, string? BodyPart, string? MovementPattern, string[]? PrimaryMuscles, string[]? SecondaryMuscles, string? MinimumExperience, string[]? SuitableGoals, string[]? RequiredEquipment, int SelectionPriority = 50);
