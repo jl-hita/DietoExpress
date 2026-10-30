@@ -68,7 +68,7 @@ interface ExerciseRow {
         <div class="filter-grid">
           <mat-form-field appearance="outline"><mat-label>Material descriptivo</mat-label><input matInput name="equipment" [(ngModel)]="draft.equipment"></mat-form-field>
           <mat-form-field appearance="outline"><mat-label>Zona corporal</mat-label><input matInput name="bodyPart" [(ngModel)]="draft.bodyPart"></mat-form-field>
-          <mat-form-field appearance="outline"><mat-label>Patrón *</mat-label><mat-select name="movementPattern" [(ngModel)]="draft.movementPattern" required><mat-option *ngFor="let p of patterns" [value]="p">{{ label(p) }}</mat-option></mat-select></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Patrón *</mat-label><mat-select name="movementPattern" [(ngModel)]="draft.movementPattern" required><mat-option value="">Selecciona un patrón…</mat-option><mat-option *ngFor="let p of patterns" [value]="p">{{ label(p) }}</mat-option></mat-select></mat-form-field>
           <mat-form-field appearance="outline"><mat-label>Experiencia mínima *</mat-label><mat-select name="experience" [(ngModel)]="draft.minimumExperience"><mat-option value="Beginner">Principiante</mat-option><mat-option value="Intermediate">Intermedio</mat-option><mat-option value="Advanced">Avanzado</mat-option></mat-select></mat-form-field>
           <mat-form-field appearance="outline"><mat-label>Músculos principales *</mat-label><input matInput name="primaryMuscles" [(ngModel)]="draft.primaryMuscles"></mat-form-field>
           <mat-form-field appearance="outline"><mat-label>Sinergistas</mat-label><input matInput name="secondaryMuscles" [(ngModel)]="draft.secondaryMuscles"></mat-form-field>
@@ -115,17 +115,17 @@ export class ExerciseManagerComponent implements OnInit {
   }
   reset(): void { this.filters = { q: '', movementPattern: '', primaryMuscle: '', secondaryMuscle: '', equipment: '', bodyPart: '', status: '' }; this.search(); }
   newExercise(): void {
-    this.draft = { id: '', name: '', description: '', equipment: '', bodyPart: '', movementPattern: 'HorizontalPull',
-      minimumExperience: 'Beginner', primaryMuscles: '', secondaryMuscles: '', suitableGoals: ['GeneralFitness','Hypertrophy','Strength'], requiredEquipment: '' };
+    this.draft = { id: '', name: '', description: '', equipment: '', bodyPart: '', movementPattern: '',
+      minimumExperience: '', primaryMuscles: '', secondaryMuscles: '', suitableGoals: ['GeneralFitness','Hypertrophy','Strength'], requiredEquipment: '' };
   }
   edit(item: ExerciseRow): void {
     const primary = this.primaryOf(item);
     const secondary = item.reviewedSecondaryMuscles || item.ownerSecondaryMuscles || item.secondaryMuscles || [];
     this.draft = { id: item.id, name: item.nameEs || item.nameEn, description: item.descriptionEs || '', equipment: item.equipment || '',
-      bodyPart: item.bodyPart || '', movementPattern: this.patternOf(item) || 'HorizontalPull',
-      minimumExperience: item.ownerMinimumExperience || item.minimumExperience || 'Beginner',
+      bodyPart: item.bodyPart || '', movementPattern: this.patternOf(item) || '',
+      minimumExperience: item.ownerMinimumExperience || item.minimumExperience || '',
       primaryMuscles: primary.join(', '), secondaryMuscles: secondary.join(', '),
-      suitableGoals: item.ownerSuitableGoals || item.suitableGoals || ['GeneralFitness','Hypertrophy','Strength'],
+      suitableGoals: item.ownerSuitableGoals || item.suitableGoals || [],
       requiredEquipment: (item.ownerRequiredEquipment || item.requiredEquipment || []).join(', ') };
   }
   save(): void {
