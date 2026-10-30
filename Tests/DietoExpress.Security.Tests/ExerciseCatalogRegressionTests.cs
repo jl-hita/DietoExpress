@@ -162,6 +162,8 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("\"dips\"", autoReviewer);
         Assert.Contains("\"bulgarian split squat\"", autoReviewer);
         Assert.Contains("\"split squat\"", autoReviewer);
+        Assert.Contains("\"landmine press\"", autoReviewer);
+        Assert.Contains("\"sentadilla cosaca\"", autoReviewer);
         Assert.Contains("\"curl de pierna de pie\"", autoReviewer);
         Assert.Contains("pike-push-ups", service);
         Assert.Contains("single-leg-press", service);
