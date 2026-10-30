@@ -190,7 +190,7 @@ public sealed class TrainingProgramGeneratorTests
         var result = TrainingProgramGenerator.Generate(Request(), catalog);
 
         Assert.False(result.Succeeded);
-        Assert.Contains(result.Errors, error => error.Contains("No hay un ejercicio revisado compatible", StringComparison.Ordinal));
+        Assert.Contains(result.Errors, error => error.Contains("No hay ejercicios compatibles para el patrón", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -209,7 +209,7 @@ public sealed class TrainingProgramGeneratorTests
         var notOwned = catalog.Select(exercise => exercise with { IsOwnedByCurrentProfessional = false }).ToArray();
         var denied = TrainingProgramGenerator.Generate(Request(), notOwned);
         Assert.False(denied.Succeeded);
-        Assert.Contains(denied.Errors, error => error.Contains("No hay un ejercicio revisado compatible", StringComparison.Ordinal));
+        Assert.Contains(denied.Errors, error => error.Contains("No hay ejercicios compatibles para el patrón", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -309,7 +309,7 @@ public sealed class TrainingProgramGeneratorTests
             catalog);
 
         Assert.False(result.Succeeded);
-        Assert.Contains(result.Errors, error => error.Contains("No hay un ejercicio revisado compatible", StringComparison.Ordinal));
+        Assert.Contains(result.Errors, error => error.Contains("No hay ejercicios compatibles para el patrón", StringComparison.Ordinal));
     }
 
     [Fact]
