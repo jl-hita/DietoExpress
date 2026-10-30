@@ -41,7 +41,7 @@ interface ExerciseRow {
         <mat-form-field appearance="outline"><mat-label>Zona corporal</mat-label><input matInput name="bodyPart" [(ngModel)]="filters.bodyPart" placeholder="Espalda, piernas…"></mat-form-field>
         <mat-form-field appearance="outline"><mat-label>Estado</mat-label><mat-select name="status" [(ngModel)]="filters.status"><mat-option value="">Todos</mat-option><mat-option value="approved">Aprobados</mat-option><mat-option value="pending">Pendientes</mat-option><mat-option value="rejected">Rechazados</mat-option></mat-select></mat-form-field>
       </div>
-      <div class="actions"><button mat-flat-button color="primary" type="button" (click)="search()" [disabled]="loading">Buscar</button><button mat-stroked-button type="button" (click)="reset()">Limpiar filtros</button><span *ngIf="loading">Consultando catálogo…</span></div>
+      <div class="actions"><button mat-flat-button color="primary" type="button" (click)="search()" [disabled]="loading">Buscar</button><button mat-stroked-button type="button" (click)="reset()">Limpiar filtros</button><button mat-stroked-button type="button" (click)="newExercise()">Añadir ejercicio</button><span *ngIf="loading">Consultando catálogo…</span></div>
     </mat-card>
     <p class="error" *ngIf="error" role="alert">{{ error }}</p>
     <section class="results">
@@ -107,13 +107,17 @@ export class ExerciseManagerComponent implements OnInit {
   search(): void {
     this.loading = true; this.error = '';
     let params = new HttpParams().set('limit', '10000').set('all', 'true');
-    Object.entries(this.filters).forEach(([key, value]) => { if (value.trim()) params = params.set(key, value.trim()); });
+    Object.entries(this.filters).forEach(([key, value]) => { if (value.trim()) params = params.set(key === 'status' ? 'reviewStatus' : key, value.trim()); });
     this.http.get<ExerciseRow[]>('/api/exercise-catalog', { params }).subscribe({
       next: rows => { this.rows = rows || []; this.loading = false; },
       error: e => { this.loading = false; this.error = e?.error?.error || 'No se pudo cargar el catálogo de ejercicios.'; }
     });
   }
   reset(): void { this.filters = { q: '', movementPattern: '', primaryMuscle: '', secondaryMuscle: '', equipment: '', bodyPart: '', status: '' }; this.search(); }
+  newExercise(): void {
+    this.draft = { id: '', name: '', description: '', equipment: '', bodyPart: '', movementPattern: 'HorizontalPull',
+      minimumExperience: 'Beginner', primaryMuscles: '', secondaryMuscles: '', suitableGoals: ['GeneralFitness','Hypertrophy','Strength'], requiredEquipment: '' };
+  }
   edit(item: ExerciseRow): void {
     const primary = this.primaryOf(item);
     const secondary = item.reviewedSecondaryMuscles || item.ownerSecondaryMuscles || item.secondaryMuscles || [];
