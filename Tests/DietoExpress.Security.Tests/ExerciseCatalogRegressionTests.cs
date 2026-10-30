@@ -150,6 +150,28 @@ public sealed class ExerciseCatalogRegressionTests
     }
 
     [Fact]
+    public void ExerciseManagerFiltersCatalogAndEnforcesOwnerOrSuperadminPermissions()
+    {
+        var service = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "ExerciseCatalogService.cs"));
+        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "ExerciseCatalogController.cs"));
+        var routes = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "app.routes.ts"));
+        var manager = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "exercise-manager", "exercise-manager.component.ts"));
+
+        Assert.Contains("movementPattern", service);
+        Assert.Contains("primaryMuscle", service);
+        Assert.Contains("secondaryMuscle", service);
+        Assert.Contains("reviewStatus", service);
+        Assert.Contains("includeAllOwners ||", service);
+        Assert.Contains("owner_user_id = @actor_user_id", service);
+        Assert.Contains("UpdateProfessionalContributionAsync", controller);
+        Assert.Contains("all && isSuperAdmin", controller);
+        Assert.Contains("[HttpPut(\"{id}/manage\")]", controller);
+        Assert.Contains("exercise-manager", routes);
+        Assert.Contains("item.canEdit", manager);
+        Assert.Contains("newExercise()", manager);
+    }
+
+    [Fact]
     public void ExerciseLibrary_LoadsFromPostgresAndEvaluationUsesCuratedRealExercises()
     {
         var ui = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "training-periodization", "training-periodization.component.ts"));
