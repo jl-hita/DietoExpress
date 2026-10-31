@@ -134,11 +134,16 @@ public sealed class GoogleCalendarService
         var existing = await GetEventAsync(accessToken, connection.calendar_id, eventId, cancellationToken);
         if (existing == null) return;
 
+        // events.update usa PUT y requiere conservar el recurso existente; modificar solo
+        // el estado en un cuerpo parcial podría ser rechazado por Google Calendar.
+        var payload = JsonSerializer.Deserialize<Dictionary<string, object?>>(
+            existing.Value.GetRawText(), JsonOptions) ?? new Dictionary<string, object?>();
+        payload["status"] = "cancelled";
         await SendEventAsync(
             accessToken,
             connection.calendar_id,
             eventId,
-            new Dictionary<string, object?> { ["status"] = "cancelled" },
+            payload,
             "PUT",
             cancellationToken);
     }
