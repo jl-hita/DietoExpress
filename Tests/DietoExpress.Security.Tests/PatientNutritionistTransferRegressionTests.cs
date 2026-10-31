@@ -50,9 +50,9 @@ public sealed class PatientNutritionistTransferRegressionTests
         Assert.True(commit >= 0 && externalCancellation > commit);
         Assert.Contains("workflow.SourceNutritionistId", controller[externalCancellation..]);
         Assert.Contains("workflow.SourceTenantId", controller[externalCancellation..]);
-        Assert.Contains('payload["status"] = "cancelled";', calendar);
+        Assert.Contains("payload[\\"status\\"] = \\"cancelled\\";", calendar);
         Assert.Contains("JsonSerializer.Deserialize<Dictionary<string, object?>>", calendar);
-        Assert.Contains('"PUT"', calendar);
+        Assert.Contains("\\"PUT\\"", calendar);
         Assert.Contains("var eventId = \"dieto\" + appointmentId;", calendar);
         Assert.Contains("if (existing == null) return;", calendar);
     }
