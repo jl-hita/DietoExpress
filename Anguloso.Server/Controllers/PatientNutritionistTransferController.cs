@@ -152,6 +152,23 @@ public sealed class PatientNutritionistTransferController : ControllerBase
 #pragma warning restore EF1003
             }
 
+            // Cancelar todas las citas futuras del profesional anterior, tanto solicitadas
+            // como confirmadas. Las citas pasadas y las del nuevo profesional se conservan.
+            // Se hace después de trasladar tenant_id y dentro de la transacción de transferencia.
+            await _context.Database.ExecuteSqlInterpolatedAsync($@"
+                UPDATE patient_appointments
+                SET status = 'cancelled',
+                    updated_at = NOW(),
+                    video_room_name = NULL,
+                    video_room_url = NULL,
+                    video_provider = NULL,
+                    video_expires_at = NULL
+                WHERE client_id = {workflow.ClientId}
+                  AND tenant_id = {workflow.TargetTenantId}
+                  AND nutritionist_id = {workflow.SourceNutritionistId}
+                  AND starts_at > NOW()
+                  AND status IN ('requested', 'confirmed')");
+
             var clientUpdated = await _context.Database.ExecuteSqlInterpolatedAsync($@"
                 UPDATE clients
                 SET tenant_id = {workflow.TargetTenantId}, user_id = {workflow.TargetNutritionistId}
