@@ -119,6 +119,35 @@ public sealed class GoogleCalendarService
         }
     }
 
+    /// <summary>
+    /// Marks the stable DietoExpress event as cancelled in the previous professional's calendar.
+    /// This is a best-effort external side effect and is intentionally called after the database transaction.
+    /// </summary>
+    public async Task CancelAppointmentEventAsync(int nutritionistId, int tenantId, int appointmentId, CancellationToken cancellationToken = default)
+    {
+        var connection = await _db.google_calendar_connections.SingleOrDefaultAsync(
+            x => x.user_id == nutritionistId && x.tenant_id == tenantId, cancellationToken);
+        if (connection == null || connection.reauthorization_required) return;
+
+        var accessToken = await GetValidAccessTokenAsync(connection, cancellationToken);
+        var eventId = "dieto" + appointmentId;
+        var existing = await GetEventAsync(accessToken, connection.calendar_id, eventId, cancellationToken);
+        if (existing == null) return;
+
+        // events.update usa PUT y requiere conservar el recurso existente; modificar solo
+        // el estado en un cuerpo parcial podría ser rechazado por Google Calendar.
+        var payload = JsonSerializer.Deserialize<Dictionary<string, object?>>(
+            existing.Value.GetRawText(), JsonOptions) ?? new Dictionary<string, object?>();
+        payload["status"] = "cancelled";
+        await SendEventAsync(
+            accessToken,
+            connection.calendar_id,
+            eventId,
+            payload,
+            "PUT",
+            cancellationToken);
+    }
+
     public async Task DisconnectAsync(int userId, int tenantId, CancellationToken cancellationToken = default)
     {
         var connection = await _db.google_calendar_connections.SingleOrDefaultAsync(x => x.user_id == userId && x.tenant_id == tenantId, cancellationToken);

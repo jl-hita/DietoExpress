@@ -14,15 +14,18 @@ public sealed class PatientNutritionistTransferController : ControllerBase
 {
     private readonly angulosodbContext _context;
     private readonly EmailServ _email;
+    private readonly GoogleCalendarService _googleCalendar;
     private readonly ILogger<PatientNutritionistTransferController> _logger;
 
     public PatientNutritionistTransferController(
         angulosodbContext context,
         EmailServ email,
+        GoogleCalendarService googleCalendar,
         ILogger<PatientNutritionistTransferController> logger)
     {
         _context = context;
         _email = email;
+        _googleCalendar = googleCalendar;
         _logger = logger;
     }
 
@@ -126,6 +129,7 @@ public sealed class PatientNutritionistTransferController : ControllerBase
             .Where(u => u.id == workflow.SourceNutritionistId && u.tenant_id == workflow.SourceTenantId)
             .Select(u => new { u.full_name, u.email }).SingleOrDefaultAsync();
 
+        var cancelledAppointmentIds = new List<int>();
         try
         {
             // Trasladar los registros que se relacionan por client_id y tenant_id dentro
@@ -151,6 +155,34 @@ public sealed class PatientNutritionistTransferController : ControllerBase
                     workflow.TargetTenantId, workflow.ClientId, workflow.SourceTenantId);
 #pragma warning restore EF1003
             }
+
+            // Capturar los identificadores antes de cancelar para poder reflejar el cambio
+            // también en el calendario externo del profesional anterior después del commit.
+            cancelledAppointmentIds = await _context.patient_appointments.AsNoTracking()
+                .Where(a => a.client_id == workflow.ClientId
+                    && a.tenant_id == workflow.TargetTenantId
+                    && a.nutritionist_id == workflow.SourceNutritionistId
+                    && a.starts_at > DateTime.UtcNow
+                    && (a.status == "requested" || a.status == "confirmed"))
+                .Select(a => a.id)
+                .ToListAsync();
+
+            // Cancelar todas las citas futuras del profesional anterior, tanto solicitadas
+            // como confirmadas. Las citas pasadas y las del nuevo profesional se conservan.
+            // Se hace después de trasladar tenant_id y dentro de la transacción de transferencia.
+            await _context.Database.ExecuteSqlInterpolatedAsync($@"
+                UPDATE patient_appointments
+                SET status = 'cancelled',
+                    updated_at = NOW(),
+                    video_room_name = NULL,
+                    video_room_url = NULL,
+                    video_provider = NULL,
+                    video_expires_at = NULL
+                WHERE client_id = {workflow.ClientId}
+                  AND tenant_id = {workflow.TargetTenantId}
+                  AND nutritionist_id = {workflow.SourceNutritionistId}
+                  AND starts_at > NOW()
+                  AND status IN ('requested', 'confirmed')");
 
             var clientUpdated = await _context.Database.ExecuteSqlInterpolatedAsync($@"
                 UPDATE clients
@@ -189,6 +221,25 @@ public sealed class PatientNutritionistTransferController : ControllerBase
             return Conflict(new { message = "No se ha podido transferir todo el historial de forma segura. Tu relación y tus datos originales se mantienen intactos; contacta con soporte." });
         }
 
+        // Google Calendar es un sistema externo: sus eventos se cancelan tras confirmar
+        // la transacción local. Un fallo externo no revierte el cambio de nutricionista.
+        foreach (var appointmentId in cancelledAppointmentIds)
+        {
+            try
+            {
+                await _googleCalendar.CancelAppointmentEventAsync(
+                    workflow.SourceNutritionistId,
+                    workflow.SourceTenantId,
+                    appointmentId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "La cita {AppointmentId} se canceló en DietoExpress, pero no se pudo cancelar su evento en Google Calendar.",
+                    appointmentId);
+            }
+        }
+
         if (!string.IsNullOrWhiteSpace(oldProfessional?.email))
         {
             try
@@ -196,7 +247,7 @@ public sealed class PatientNutritionistTransferController : ControllerBase
                 var emailResult = await _email.SendEmailAsync(
                     oldProfessional.email,
                     "Cambio de nutricionista confirmado",
-                    $"<p>El paciente ha confirmado el cambio a otro profesional y ha consentido la transferencia de su historial.</p><p>El historial se ha transferido a la nueva clínica. No es necesaria ninguna acción por tu parte.</p>");
+                    $"<p>El paciente ha confirmado el cambio a otro profesional y ha consentido la transferencia de su historial.</p><p>Las citas futuras que tenía contigo han quedado canceladas en DietoExpress. Las citas anteriores se conservan en el historial.</p><p>El historial se ha transferido a la nueva clínica. No es necesaria ninguna acción por tu parte.</p>");
                 if (!emailResult.Exito)
                     _logger.LogWarning("La transferencia del paciente {ClientId} se completó, pero el proveedor rechazó el aviso al nutricionista anterior.", workflow.ClientId);
             }
