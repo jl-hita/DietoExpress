@@ -14,15 +14,18 @@ public sealed class PatientNutritionistTransferController : ControllerBase
 {
     private readonly angulosodbContext _context;
     private readonly EmailServ _email;
+    private readonly GoogleCalendarService _googleCalendar;
     private readonly ILogger<PatientNutritionistTransferController> _logger;
 
     public PatientNutritionistTransferController(
         angulosodbContext context,
         EmailServ email,
+        GoogleCalendarService googleCalendar,
         ILogger<PatientNutritionistTransferController> logger)
     {
         _context = context;
         _email = email;
+        _googleCalendar = googleCalendar;
         _logger = logger;
     }
 
