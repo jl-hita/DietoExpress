@@ -17,6 +17,9 @@
     </div>
     
     <div class="header-actions">
+      <button type="button" class="btn btn-outline" *ngIf="isEdit && dietId" (click)="downloadDietPdf()" [disabled]="form.dirty || pdfDownloading" [matTooltip]="form.dirty ? 'Guarda los cambios antes de generar el PDF' : 'Descargar PDF de la dieta'" style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; border: 1px solid #cbd5e1; background: white; border-radius: 6px; cursor: pointer; color: #475569; font-weight: 500;">
+        <mat-icon style="color: #0d9488;">picture_as_pdf</mat-icon> {{ pdfDownloading ? 'Generando PDF…' : 'PDF de la dieta' }}
+      </button>
       <button type="button" class="btn btn-outline" *ngIf="isEdit && dietId" (click)="openShoppingList()" matTooltip="Ver Lista de la Compra consolidada de esta semana" style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; border: 1px solid #cbd5e1; background: white; border-radius: 6px; cursor: pointer; color: #475569; font-weight: 500;">
         <mat-icon style="color: #6366f1;">shopping_cart</mat-icon> Lista de la Compra
       </button>
