@@ -20,6 +20,7 @@ public class DietController : ControllerBase
     private readonly LogServ _logServ;
     private readonly ILicenseService _licenseService;
     private readonly DietRegenerationService _regenerationService;
+    private readonly DietPdfService _pdfService;
 
     public DietController(
         angulosodbContext context, 
@@ -27,7 +28,8 @@ public class DietController : ControllerBase
         DietValidationService validationService,
         LogServ logServ,
         ILicenseService licenseService,
-        DietRegenerationService regenerationService)
+        DietRegenerationService regenerationService,
+        DietPdfService pdfService)
     {
         _context = context;
         _generatorService = generatorService;
@@ -35,6 +37,7 @@ public class DietController : ControllerBase
         _logServ = logServ;
         _licenseService = licenseService;
         _regenerationService = regenerationService;
+        _pdfService = pdfService;
     }
 
 
@@ -767,6 +770,84 @@ public class DietController : ControllerBase
             userId.Value,
             User.IsInRole("clinic_admin") || User.IsInRole("superadmin"));
         return Ok(warnings);
+    }
+
+    // GET: api/dietas/{id}/pdf
+    // Exporta una definición de dieta sin exigir que ya esté asignada a un paciente.
+    [HttpGet("{id:int}/pdf")]
+    [EnableRateLimiting("expensive")]
+    public async Task<IActionResult> GetDietPdf(int id)
+    {
+        if (!User.IsInRole("superadmin") &&
+            !await _licenseService.CanUseFeatureAsync(AuthHelpers.GetTenantId(User), "PDF_EXPORT"))
+            return Forbid();
+
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId == null) return Unauthorized();
+
+        var tenantId = AuthHelpers.GetTenantId(User);
+        var sharedAllowed = await _licenseService.CanUseFeatureAsync(tenantId, "SHARED_DIETS");
+        var diet = await _context.diets
+            .Include(d => d.diet_days)
+                .ThenInclude(day => day.meals)
+                    .ThenInclude(meal => meal.meal_items)
+                        .ThenInclude(item => item.food)
+            .Include(d => d.diet_days)
+                .ThenInclude(day => day.meals)
+                    .ThenInclude(meal => meal.meal_items)
+                        .ThenInclude(item => item.exchange_group)
+            .FirstOrDefaultAsync(d => d.id == id && d.archived_at == null &&
+                tenantId.HasValue && d.tenant_id == tenantId.Value &&
+                (d.user_id == userId.Value || (sharedAllowed && d.is_shared)));
+
+        if (diet == null) return NotFound("Dieta no encontrada.");
+
+        // No incluir en el PDF nombres de alimentos locales que el profesional no puede consultar.
+        var mealItems = diet.diet_days.SelectMany(day => day.meals)
+            .SelectMany(meal => meal.meal_items).ToList();
+        var foodIds = mealItems.Where(item => item.food_id.HasValue)
+            .Select(item => item.food_id!.Value).Distinct().ToList();
+        var accessibleFoodIds = foodIds.Count == 0
+            ? new HashSet<int>()
+            : (await _context.foods
+                .Where(food => foodIds.Contains(food.id) &&
+                    ((food.source == null || food.source.ToLower() != "local") ||
+                     (tenantId.HasValue && food.tenant_id == tenantId.Value &&
+                      (food.created_by_user_id == userId.Value ||
+                       (User.IsInRole("clinic_admin") || User.IsInRole("superadmin"))))))
+                .Select(food => food.id)
+                .ToListAsync()).ToHashSet();
+        foreach (var item in mealItems)
+            if (item.food_id.HasValue && !accessibleFoodIds.Contains(item.food_id.Value))
+                item.food = null;
+
+        try
+        {
+            // El PDF conserva la identidad visual del documento de paciente, pero identifica claramente que es una plantilla aún no asignada.
+            var pdfClient = new clients
+            {
+                full_name = "Plan sin asignar",
+                user_id = diet.user_id,
+                tenant_id = diet.tenant_id
+            };
+            var pdfAssignment = new client_diets
+            {
+                start_date = DateOnly.FromDateTime(DateTime.Today),
+                notes = string.Empty
+            };
+            var bytes = _pdfService.GenerateDietPdf(
+                pdfClient, diet, pdfAssignment, _context, userId.Value,
+                User.IsInRole("clinic_admin") || User.IsInRole("superadmin"));
+            var fileName = $"Dieta_{string.Join("_", (diet.name ?? "Plan").Split(System.IO.Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries))}.pdf";
+            return File(bytes, "application/pdf", fileName);
+        }
+        catch (Exception ex)
+        {
+            _logServ.LogError($"Error generando PDF de la dieta {id}: {ex}");
+            return Problem(title: "Error al generar el PDF",
+                detail: "No se ha podido generar el PDF de la dieta.",
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
     }
 
     // GET: api/dietas/{id}/shopping-list  y  GET: api/diets/{id}/shopping-list

@@ -38,6 +38,7 @@ export class DietCreateComponent implements OnInit {
   get loading(): boolean { return this.loadingState(); }
   set loading(value: boolean) { this.loadingState.set(value); }
   private readonly savingState = signal(false);
+  pdfDownloading = false;
   get saving(): boolean { return this.savingState(); }
   set saving(value: boolean) { this.savingState.set(value); }
   private readonly exchangeGroupsState = signal<FoodExchangeGroup[]>([]);
@@ -822,6 +823,26 @@ export class DietCreateComponent implements OnInit {
 
         this.snackBar.open(`¡Receta "${recipe.name}" insertada!`, 'Cerrar', { duration: 3000 });
       }
+    });
+  }
+
+  downloadDietPdf(): void {
+    if (!this.dietId || this.form.dirty || this.pdfDownloading) return;
+    this.pdfDownloading = true;
+    this.dietService.downloadDietPdf(this.dietId).pipe(
+      finalize(() => this.pdfDownloading = false)
+    ).subscribe({
+      next: blob => {
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const safeName = (this.form.get('name')?.value || 'Dieta')
+          .toString().replace(/[^a-zA-Z0-9_-]+/g, '_');
+        link.href = url;
+        link.download = `Dieta_${safeName}.pdf`;
+        link.click();
+        window.URL.revokeObjectURL(url);
+      },
+      error: () => this.snackBar.open('No se pudo generar el PDF de la dieta.', 'Cerrar', { duration: 4000 })
     });
   }
 
