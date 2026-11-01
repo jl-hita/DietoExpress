@@ -186,6 +186,19 @@ public class DietPdfService
 
     private void ComposePatientInfo(IContainer container, clients client, diets diet, client_diets assignment)
     {
+        if (string.Equals(client.full_name, "Plan sin asignar", StringComparison.Ordinal))
+        {
+            container.Background("#f5f7ff").Padding(12).Column(col =>
+            {
+                col.Spacing(4);
+                col.Item().Text("DATOS DEL PLAN").Bold().FontSize(10).FontColor("#0d9488");
+                col.Item().Text($"Nombre: {diet.name}").SemiBold();
+                if (!string.IsNullOrWhiteSpace(diet.notes))
+                    col.Item().Text($"Observaciones: {diet.notes}");
+            });
+            return;
+        }
+
         container.Background("#f5f7ff").Padding(12).Column(col =>
         {
             col.Spacing(4);
