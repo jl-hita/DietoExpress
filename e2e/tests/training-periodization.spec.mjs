@@ -328,7 +328,7 @@ test.describe('MVP de periodización deportiva', () => {
     const volumeChart = refreshedPlanCard.locator('.macro-volume-chart');
     await expect(volumeChart).toBeVisible();
     await expect(volumeChart).toContainText('Series por semana y fase');
-    await expect(volumeChart.locator('[title*="Fase E2E"]')).toHaveCountGreaterThan(0);
+    await expect(volumeChart.locator('[title*="Fase E2E"]').first()).toBeVisible();
 
     page.once('dialog', dialog => dialog.accept());
     await refreshedPlanCard.locator('.plan-card-actions').getByRole('button', { name: 'Eliminar', exact: true }).click();
