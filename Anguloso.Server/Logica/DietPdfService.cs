@@ -91,7 +91,7 @@ public class DietPdfService
 
                         // Lista de la compra consolidada (nueva página)
                         col.Item().PageBreak();
-                        col.Item().Element(c => ComposeShoppingList(c, diet));
+                        col.Item().Element(c => ComposeShoppingList(c, diet, context, userId, canUseTenantLocalFoods));
                     });
                 });
 
@@ -474,75 +474,89 @@ public class DietPdfService
         });
     }
 
-    private void ComposeShoppingList(IContainer container, diets diet)
+    private void ComposeShoppingList(IContainer container, diets diet, angulosodbContext context, int userId, bool canUseTenantLocalFoods)
     {
-        // La lista de compra se consolida recorriendo todas las comidas: alimentos iguales suman gramos y los intercambios se acumulan por grupo.
-        var shoppingItems = new List<ShoppingListItem>();
+        // Consolida alimentos directos e ingredientes de recetas para que la lista sea realmente útil para hacer la compra.
+        var mealItems = diet.diet_days?.Where(day => day.meals != null)
+            .SelectMany(day => day.meals).Where(meal => meal.meal_items != null)
+            .SelectMany(meal => meal.meal_items).ToList() ?? new List<meal_items>();
 
-        if (diet.diet_days != null)
+        var recipeIds = mealItems.Where(item => item.recipe_id.HasValue)
+            .Select(item => item.recipe_id!.Value).Distinct().ToList();
+        var recipeIngredients = recipeIds.Count == 0
+            ? new List<recipe_items>()
+            : context.recipe_items.AsNoTracking().Include(ingredient => ingredient.recipe)
+                .Where(ingredient => recipeIds.Contains(ingredient.recipe_id) &&
+                    ingredient.recipe != null && ingredient.recipe.tenant_id == diet.tenant_id)
+                .ToList();
+
+        var foodIds = mealItems.Where(item => item.food_id.HasValue).Select(item => item.food_id!.Value)
+            .Concat(recipeIngredients.Select(ingredient => ingredient.food_id)).Distinct().ToList();
+        var accessibleFoods = foodIds.Count == 0
+            ? new Dictionary<int, foods>()
+            : context.foods.AsNoTracking()
+                .Where(food => foodIds.Contains(food.id) &&
+                    ((food.source == null || food.source.ToLower() != "local") ||
+                     (diet.tenant_id.HasValue && food.tenant_id == diet.tenant_id.Value &&
+                      (canUseTenantLocalFoods || food.created_by_user_id == userId))))
+                .ToDictionary(food => food.id);
+
+        var foodAmounts = new List<(foods Food, double Grams)>();
+        foreach (var item in mealItems)
         {
-            foreach (var day in diet.diet_days)
-            {
-                if (day.meals != null)
+            if (item.food_id.HasValue && item.grams.GetValueOrDefault() > 0 &&
+                accessibleFoods.TryGetValue(item.food_id.Value, out var directFood))
+                foodAmounts.Add((directFood, (double)item.grams!.Value));
+
+            if (!item.recipe_id.HasValue) continue;
+            var ingredients = recipeIngredients.Where(ingredient => ingredient.recipe_id == item.recipe_id.Value).ToList();
+            if (ingredients.Count == 0) continue;
+            var servings = ingredients.FirstOrDefault()?.recipe?.servings ?? 1m;
+            if (servings <= 0) servings = 1m;
+            var servingsToUse = item.recipe_servings.GetValueOrDefault(1m);
+            if (servingsToUse <= 0) servingsToUse = 1m;
+            foreach (var ingredient in ingredients)
+                if (ingredient.grams > 0 && accessibleFoods.TryGetValue(ingredient.food_id, out var ingredientFood))
+                    foodAmounts.Add((ingredientFood, (double)(ingredient.grams / servings * servingsToUse)));
+        }
+
+        var shoppingItems = new List<ShoppingListItem>();
+        foreach (var amount in foodAmounts)
+        {
+            var existing = shoppingItems.FirstOrDefault(item => !item.IsExchange && item.FoodId == amount.Food.id);
+            if (existing != null)
+                existing.Grams += amount.Grams;
+            else
+                shoppingItems.Add(new ShoppingListItem
                 {
-                    foreach (var meal in day.meals)
-                    {
-                        if (meal.meal_items != null)
-                        {
-                            foreach (var item in meal.meal_items)
-                            {
-                                if (item.food != null)
-                                {
-                                    var existing = shoppingItems.FirstOrDefault(si => si.FoodId == item.food.id && !si.IsExchange);
-                                    if (existing != null)
-                                    {
-                                        existing.Grams += (double)(item.grams ?? 0);
-                                    }
-                                    else
-                                    {
-                                        shoppingItems.Add(new ShoppingListItem
-                                        {
-                                            FoodId = item.food.id,
-                                            Name = item.food.name,
-                                            Category = !string.IsNullOrWhiteSpace(item.food.category) ? item.food.category : "Otros",
-                                            Grams = (double)(item.grams ?? 0),
-                                            IsExchange = false
-                                        });
-                                    }
-                                }
-                                else if (item.exchange_group != null)
-                                {
-                                    var groupKey = $"eg-{item.exchange_group.id}";
-                                    var existing = shoppingItems.FirstOrDefault(si => si.Key == groupKey && si.IsExchange);
-                                    if (existing != null)
-                                    {
-                                        existing.ExchangeCount += (double)(item.exchange_count ?? 0);
-                                    }
-                                    else
-                                    {
-                                        shoppingItems.Add(new ShoppingListItem
-                                        {
-                                            Key = groupKey,
-                                            Name = item.exchange_group.name,
-                                            Category = "Intercambios (Opciones equivalentes)",
-                                            ExchangeCount = (double)(item.exchange_count ?? 0),
-                                            IsExchange = true
-                                        });
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+                    FoodId = amount.Food.id,
+                    Name = amount.Food.name,
+                    Category = !string.IsNullOrWhiteSpace(amount.Food.category) ? amount.Food.category : "Otros",
+                    Grams = amount.Grams,
+                    IsExchange = false
+                });
+        }
+
+        foreach (var group in mealItems.Where(item => !item.food_id.HasValue && !item.recipe_id.HasValue &&
+                     item.exchange_group != null && item.exchange_count.GetValueOrDefault() > 0)
+                 .GroupBy(item => new { item.exchange_group!.id, item.exchange_group.name }))
+        {
+            shoppingItems.Add(new ShoppingListItem
+            {
+                Key = $"eg-{group.Key.id}",
+                Name = group.Key.name,
+                Category = "Intercambios (Opciones equivalentes)",
+                ExchangeCount = (double)group.Sum(item => item.exchange_count!.Value),
+                IsExchange = true
+            });
         }
 
         container.Column(col =>
         {
             col.Spacing(12);
-
-            col.Item().Text("LISTA DE LA COMPRA SEMANAL").Bold().FontSize(14).FontColor("#0d9488");
-            col.Item().Text("A continuación se muestra un resumen consolidado de todos los alimentos e intercambios planificados para la semana, agrupados por categorías.").FontSize(9).Italic().FontColor("#555555");
+            col.Item().Text("LISTA DE LA COMPRA").Bold().FontSize(14).FontColor("#0d9488");
+            col.Item().Text("Resumen consolidado de los alimentos de todos los días, incluidos los ingredientes de las recetas, agrupados por categorías. Marca cada producto al comprarlo.")
+                .FontSize(9).Italic().FontColor("#555555");
 
             if (!shoppingItems.Any())
             {
@@ -550,35 +564,28 @@ public class DietPdfService
                 return;
             }
 
-            var grouped = shoppingItems
-                .GroupBy(i => i.Category)
-                .OrderBy(g => g.Key == "Otros" ? 1 : 0)
-                .ThenBy(g => g.Key)
-                .ToList();
+            var grouped = shoppingItems.GroupBy(item => item.Category)
+                .OrderBy(group => group.Key == "Otros" ? 1 : 0).ThenBy(group => group.Key).ToList();
 
             foreach (var group in grouped)
             {
-                col.Item().Column(catCol =>
+                col.Item().Column(categoryColumn =>
                 {
-                    catCol.Spacing(4);
-                    catCol.Item().Background("#f5f7ff").Padding(4).BorderBottom(1).BorderColor("#0d9488")
+                    categoryColumn.Spacing(4);
+                    categoryColumn.Item().Background("#f5f7ff").Padding(4).BorderBottom(1).BorderColor("#0d9488")
                         .Text(group.Key.ToUpper()).Bold().FontSize(9).FontColor("#0d9488");
 
-                    foreach (var item in group.OrderBy(i => i.Name))
+                    foreach (var item in group.OrderBy(item => item.Name))
                     {
-                        catCol.Item().Row(row =>
+                        categoryColumn.Item().Row(row =>
                         {
                             row.Spacing(8);
-                            // Fake checkbox box in PDF
                             row.ConstantItem(10).Height(10).Border(1).BorderColor("#999999").Background(Colors.White);
-
                             row.RelativeItem().Text(item.Name).FontSize(9);
-
-                            string qtyText = item.IsExchange 
-                                ? $"{item.ExchangeCount:F1} raciones" 
+                            var quantity = item.IsExchange
+                                ? $"{item.ExchangeCount:F1} intercambios"
                                 : (item.Grams > 0 ? $"{item.Grams:F0} g" : "-");
-
-                            row.ConstantItem(100).AlignRight().Text(qtyText).FontSize(9).FontColor("#555555");
+                            row.ConstantItem(100).AlignRight().Text(quantity).FontSize(9).FontColor("#555555");
                         });
                     }
                 });
