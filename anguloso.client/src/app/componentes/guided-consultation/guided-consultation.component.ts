@@ -324,7 +324,7 @@ interface GuidedConsultationResponse {
                 <label>Intensidad objetivo<input name="consultationRoutineIntensity" [(ngModel)]="trainingRoutineIntensity" maxlength="120" placeholder="Ej. Moderada · RPE 6–7" /></label>
                 <label class="full">Ejercicios y prescripción<textarea name="consultationRoutineExercises" [(ngModel)]="trainingRoutineExercises" rows="4" maxlength="6000" placeholder="Sentadilla · 3 × 8–12 · 90 s&#10;Press de banca · 3 × 8–10 · 2 min"></textarea></label>
                 <label class="full">Indicaciones<textarea name="consultationRoutineInstructions" [(ngModel)]="trainingRoutineInstructions" rows="3" maxlength="4000" placeholder="Calentamiento, técnica, descansos o adaptaciones…"></textarea></label>
-                <div class="full training-routine-actions"><button mat-flat-button color="primary" type="submit" [disabled]="trainingRoutineSaving || !trainingRoutineName.trim() || !trainingRoutineDate || trainingRoutineDuration < 1">{{ trainingRoutineSaving ? 'Creando rutina…' : 'Crear y asignar rutina' }}</button><button mat-stroked-button type="button" (click)="openAdvancedTraining()" [disabled]="trainingRoutineSaving">Abrir planificación avanzada</button></div>
+                <div class="full training-routine-actions"><button mat-flat-button color="primary" type="submit" [disabled]="trainingRoutineSaving || trainingModeSaving || trainingModeSaveState === 'error' || !trainingRoutineName.trim() || !trainingRoutineDate || trainingRoutineDuration < 1">{{ trainingRoutineSaving ? 'Creando rutina…' : 'Crear y asignar rutina' }}</button><button mat-stroked-button type="button" (click)="openAdvancedTraining()" [disabled]="trainingRoutineSaving">Abrir planificación avanzada</button></div>
               </form>
               <p class="helper" *ngIf="trainingRoutineError" role="alert">{{ trainingRoutineError }}</p>
             </div>
@@ -826,7 +826,7 @@ export class GuidedConsultationComponent implements OnInit {
 
   createConsultationRoutine(): void {
     const clientId = this.data?.appointment.clientId;
-    if (!clientId || this.trainingManagementMode !== 'self' || this.trainingRoutineSaving ||
+    if (!clientId || this.trainingManagementMode !== 'self' || this.trainingModeSaving || this.trainingModeSaveState === 'error' || this.trainingRoutineSaving ||
         !this.trainingRoutineName.trim() || !this.trainingRoutineDate || this.trainingRoutineDuration < 1) return;
     this.trainingRoutineSaving = true;
     this.trainingRoutineError = '';
