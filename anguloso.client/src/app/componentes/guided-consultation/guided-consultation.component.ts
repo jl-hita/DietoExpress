@@ -525,6 +525,7 @@ export class GuidedConsultationComponent implements OnInit {
   expectationsText = '';
   clinicalProfile: ClientDetail | null = null;
   trainingManagementMode: 'none' | 'self' | 'collaboration' = 'none';
+  private savedTrainingManagementMode: 'none' | 'self' | 'collaboration' = 'none';
   trainingRoutineName = 'Rutina inicial';
   trainingRoutineDate = '';
   trainingRoutineType = 'strength';
@@ -812,9 +813,10 @@ export class GuidedConsultationComponent implements OnInit {
         this.trainingPrimaryGoal = profile?.primaryGoal ?? 'general_fitness';
         this.trainingExperienceLevel = profile?.experienceLevel ?? 'unknown';
         this.trainingManagementMode = profile?.managementMode ?? (profile?.enabled ? 'self' : 'none');
+        this.savedTrainingManagementMode = this.trainingManagementMode;
         if (!this.trainingRoutineDate) this.trainingRoutineDate = this.localDateInputValue();
       },
-      error: () => { this.trainingManagementMode = 'none'; this.trainingPrimaryGoal = 'general_fitness'; this.trainingExperienceLevel = 'unknown'; this.trainingRoutineDate ||= this.localDateInputValue(); }
+      error: () => { this.trainingManagementMode = 'none'; this.savedTrainingManagementMode = 'none'; this.trainingPrimaryGoal = 'general_fitness'; this.trainingExperienceLevel = 'unknown'; this.trainingRoutineDate ||= this.localDateInputValue(); }
     });
   }
 
@@ -859,6 +861,8 @@ export class GuidedConsultationComponent implements OnInit {
   saveTrainingManagementMode(): void {
     const clientId = this.data?.appointment.clientId;
     if (!clientId || this.trainingModeSaving) return;
+    const previousMode = this.savedTrainingManagementMode;
+    const requestedMode = this.trainingManagementMode;
     this.trainingModeSaving = true;
     this.trainingModeSaveState = 'idle';
     this.http.put<any>(`/api/training/clients/${clientId}/profile`, {
@@ -870,10 +874,12 @@ export class GuidedConsultationComponent implements OnInit {
       next: profile => {
         this.trainingPrimaryGoal = profile?.primaryGoal ?? this.trainingPrimaryGoal;
         this.trainingExperienceLevel = profile?.experienceLevel ?? this.trainingExperienceLevel;
+        this.savedTrainingManagementMode = profile?.managementMode ?? requestedMode;
         this.trainingModeSaving = false;
         this.trainingModeSaveState = 'saved';
       },
       error: () => {
+        this.trainingManagementMode = previousMode;
         this.trainingModeSaving = false;
         this.trainingModeSaveState = 'error';
         this.snack.open('No se ha podido guardar la decisión sobre entrenamiento.', 'Cerrar', { duration: 4000 });
