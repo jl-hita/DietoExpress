@@ -328,6 +328,5 @@ test.describe('MVP de periodización deportiva', () => {
     await refreshedPlanCard.locator('.plan-card-actions').getByRole('button', { name: 'Eliminar', exact: true }).click();
     await expect(page.locator('.plan-card').filter({ hasText: 'Plan E2E ciclos editado' })).toHaveCount(0);
 
-    await expect(page.locator('.plan-card').filter({ hasText: 'Plan E2E ciclos editado' })).toHaveCount(0);
   });
 });
