@@ -314,6 +314,25 @@ interface RepDbExercise {
                   </article>
                 </div>
                 <p *ngIf="!macrocycleLoadWeeks(plan).length" class="muted">Todavía no hay semanas suficientes para calcular la carga.</p>
+                <section *ngIf="macrocycleVolumeChart(plan) as volumeChart" class="macro-volume-chart" style="margin-top:22px;padding:16px;border:1px solid var(--border-color,#dfe9e4);border-radius:14px;background:var(--surface-color,#fff)">
+                  <div class="macro-overview-heading"><div><span class="macro-kicker">VOLUMEN SEMANAL</span><h5 style="margin:4px 0">Series por semana y fase</h5><p>Una barra por semana, agrupada por fase. El volumen corresponde a las series de las rutinas generadas y guardadas.</p></div><strong>{{ volumeChart.hasVolume ? volumeChart.totalSets + ' series' : 'Sin datos' }}</strong></div>
+                  <div *ngIf="volumeChart.hasVolume" role="img" aria-label="Gráfica de barras verticales del volumen semanal, agrupado por fase" style="display:flex;align-items:stretch;gap:14px;overflow-x:auto;padding:16px 4px 4px">
+                    <section *ngFor="let phase of volumeChart.phases" style="flex:0 0 auto;min-width:0;padding:0 10px;border-left:1px solid var(--border-color,#dfe9e4)">
+                      <strong style="display:block;font-size:.82rem;margin-bottom:12px">{{ phase.name }}</strong>
+                      <div style="display:flex;align-items:stretch;gap:8px;height:190px">
+                        <div *ngFor="let week of phase.weeks" style="width:48px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end">
+                          <strong style="font-size:.72rem;margin-bottom:5px">{{ week.sets === null ? 'N/D' : week.sets }}</strong>
+                          <div style="height:140px;width:26px;display:flex;align-items:flex-end;background:var(--surface-container,#edf2ef);border-radius:6px 6px 0 0;overflow:hidden">
+                            <span [style.height.%]="week.sets === null ? 0 : (week.sets / volumeChart.maxSets * 100)" style="display:block;width:100%;min-height:0;background:#16845b;border-radius:5px 5px 0 0" [title]="phase.name + ' · Semana ' + week.weekNumber + ': ' + (week.sets === null ? 'sin datos' : week.sets + ' series')"></span>
+                          </div>
+                          <small style="font-size:.68rem;margin-top:7px">S{{ week.weekNumber }}</small>
+                          <small style="font-size:.62rem;color:var(--secondary-text-color,#687385)">{{ week.startDate | date:'dd/MM' }}</small>
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                  <p *ngIf="!volumeChart.hasVolume" class="muted">La gráfica aparecerá cuando las rutinas generadas incluyan prescripciones de series.</p>
+                </section>
                 <h5 style="margin:18px 0 10px">Resumen por mesociclo</h5>
                 <div *ngIf="mesocycleLoadSummary(plan).length" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px">
                   <article *ngFor="let meso of mesocycleLoadSummary(plan)" style="padding:13px;border:1px solid var(--border-color,#e2ebe6);border-radius:12px;background:var(--surface-color,#fff)">
@@ -2216,6 +2235,26 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       id: 0, name: 'Macrociclo completo', sequenceNumber: 0, startDate, endDate,
       phaseType: 'general'
     }).map((week, index) => ({ ...week, weekNumber: index + 1 }));
+  }
+
+  macrocycleVolumeChart(plan: TrainingPlan): {
+    phases: Array<{ id: number; name: string; weeks: Array<{ weekNumber: number; startDate: string; endDate: string; sets: number | null }> }>;
+    maxSets: number; totalSets: number; hasVolume: boolean;
+  } {
+    const phases = this.macrocyclePhases(plan).slice().sort((a, b) => a.sequenceNumber - b.sequenceNumber).map(phase => ({
+      id: phase.id,
+      name: 'Fase ' + phase.sequenceNumber + ' · ' + phase.name,
+      weeks: this.macroPhaseWeeks(plan, phase).map(week => ({
+        weekNumber: week.weekNumber, startDate: week.startDate, endDate: week.endDate, sets: week.sets
+      }))
+    }));
+    const values = phases.flatMap(phase => phase.weeks.map(week => week.sets).filter((sets): sets is number => sets !== null));
+    return {
+      phases,
+      maxSets: Math.max(1, ...values),
+      totalSets: values.reduce((total, sets) => total + sets, 0),
+      hasVolume: values.length > 0 && values.some(sets => sets > 0)
+    };
   }
 
   mesocycleLoadSummary(plan: TrainingPlan): Array<{
