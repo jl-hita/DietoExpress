@@ -1180,7 +1180,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     if (!d?.name.trim() || !d.startDate || !Number.isInteger(d.sequence) || d.sequence < 1) return;
     this.saving = true; this.error = '';
     this.http.post(`/api/training/plans/${plan.id}/mesocycles`, { name: d.name.trim(), sequenceNumber: d.sequence, startDate: d.startDate, endDate: d.endDate || null, objective: d.objective.trim() || null, notes: null }).subscribe({
-      next: () => { d.name = ''; d.objective = ''; d.sequence += 1; this.saving = false; this.load(); },
+      next: () => { d.name = ''; d.objective = ''; d.sequence += 1; this.saving = false; this.changeDetector.detectChanges(); this.load(); },
       error: e => { this.error = e?.error?.message || 'No se pudo crear el mesociclo.'; this.saving = false; }
     });
   }
@@ -1190,7 +1190,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     if (!d?.name.trim() || !d.startDate || !Number.isInteger(d.sequence) || d.sequence < 1) return;
     this.saving = true; this.error = '';
     this.http.post(`/api/training/mesocycles/${meso.id}/microcycles`, { name: d.name.trim(), sequenceNumber: d.sequence, startDate: d.startDate, endDate: d.endDate || null, focus: d.focus.trim() || null, notes: null }).subscribe({
-      next: () => { d.name = ''; d.focus = ''; d.sequence += 1; this.saving = false; this.http.get<TrainingMicrocycle[]>(`/api/training/mesocycles/${meso.id}/microcycles`).subscribe({ next: rows => this.microcycles[meso.id] = rows, error: () => this.error = 'El microciclo se guardó, pero no se pudo actualizar la lista.' }); },
+      next: () => { d.name = ''; d.focus = ''; d.sequence += 1; this.saving = false; this.changeDetector.detectChanges(); this.http.get<TrainingMicrocycle[]>(`/api/training/mesocycles/${meso.id}/microcycles`).subscribe({ next: rows => { this.microcycles[meso.id] = rows; this.changeDetector.detectChanges(); }, error: () => { this.error = 'El microciclo se guardó, pero no se pudo actualizar la lista.'; this.changeDetector.detectChanges(); } }); },
       error: e => { this.error = e?.error?.message || 'No se pudo crear el microciclo.'; this.saving = false; }
     });
   }
@@ -1769,6 +1769,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         this.planEditDraft = null;
         this.saving = false;
         this.notice = 'Plan de entrenamiento actualizado.';
+        this.changeDetector.detectChanges();
       },
       error: e => {
         this.error = e?.error?.message || 'No se pudo actualizar el plan.';
@@ -1796,6 +1797,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         this.planEditDraft = null;
         this.saving = false;
         this.notice = 'Planificación eliminada.';
+        this.changeDetector.detectChanges();
       },
       error: e => {
         this.error = e?.error?.message || 'No se pudo eliminar el plan.';
@@ -1826,6 +1828,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         this.quickRoutineInstructions = '';
         this.saving = false;
         this.notice = 'Rutina creada y asignada al cliente.';
+        this.changeDetector.detectChanges();
         this.load();
       },
       error: e => {
@@ -2198,6 +2201,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         this.saving = false;
         this.notice = 'Macrociclo guardado. La planificación de fases está separada de mesociclos, microciclos y sesiones.';
         this.error = '';
+        this.changeDetector.detectChanges();
       },
       error: e => {
         this.error = e?.error?.message || 'No se pudo guardar el macrociclo. La propuesta se conserva para que no pierdas los cambios.';
@@ -2320,6 +2324,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     const hasSessions = (this.sessions[plan.id] || []).some(session =>
       session.scheduledDate.slice(0, 10) >= startDate && session.scheduledDate.slice(0, 10) <= generatedEnd);
     if (existing && ((this.microcycles[existing.id] || []).length > 0 || hasSessions)) return 'skipped';
+    if (hasSessions && !existing)
+      throw new Error('La fase «' + phase.name + '» ya contiene sesiones fuera de un mesociclo vacío. Se conservan y no se generarán sesiones duplicadas.');
     if (overlapping.length && !existing)
       throw new Error('La fase «' + phase.name + '» se solapa con un mesociclo existente. Ajusta sus fechas antes de continuar.');
     const generation: GenerationRequest = {
