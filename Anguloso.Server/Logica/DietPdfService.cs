@@ -74,7 +74,7 @@ public class DietPdfService
                         if (diet.diet_days != null)
                         {
                             var orderedDays = diet.diet_days.OrderBy(d => d.day_index).ToList();
-                            foreach (var (day, index) in orderedDays.Select((day, index) => (day, index)))
+                            foreach (var day in orderedDays)
                             {
                                 // Cada día comienza en una página independiente.
                                 col.Item().PageBreak();
@@ -548,8 +548,7 @@ public class DietPdfService
                 {
                     FoodId = amount.Food.id,
                     Name = amount.Food.name,
-                    Grams = amount.Grams,
-                    IsExchange = false
+                    Grams = amount.Grams
                 });
         }
 
@@ -582,11 +581,8 @@ public class DietPdfService
 
     private class ShoppingListItem
     {
-        public string Key { get; set; } = string.Empty;
         public int FoodId { get; set; }
         public string Name { get; set; } = string.Empty;
         public double Grams { get; set; }
-        public double ExchangeCount { get; set; }
-        public bool IsExchange { get; set; }
     }
 }
