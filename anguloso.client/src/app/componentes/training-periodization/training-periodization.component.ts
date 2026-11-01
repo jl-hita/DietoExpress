@@ -1710,7 +1710,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   deletePlan(plan: TrainingPlan): void {
     const sessionCount = this.sessions[plan.id]?.length || 0;
     const mesocycleCount = this.mesocycles[plan.id]?.length || 0;
-    const warning = `¿Eliminar «${plan.name}»? Se eliminarán también ${sessionCount} sesiones y ${mesocycleCount} mesociclos, incluidos los registros de realización asociados. Esta operación no se puede deshacer.`;
+    const warning = `¿Eliminar «${plan.name}»? Se eliminarán también ${sessionCount} sesiones, sus registros de realización, ${mesocycleCount} mesociclos y todos los microciclos, macrociclo y fases asociados. Esta operación no se puede deshacer.`;
     if (!confirm(warning) || this.saving) return;
     this.saving = true;
     this.error = '';
