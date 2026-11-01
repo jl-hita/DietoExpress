@@ -641,18 +641,20 @@ public sealed class TrainingPeriodizationController : ControllerBase
 
         await using (var children = Command("""
             SELECT EXISTS (
-                SELECT 1 FROM training_sessions
-                WHERE plan_id = @planId AND (scheduled_date < @startDate OR (@endDate IS NOT NULL AND scheduled_date > @endDate))
-                UNION ALL
-                SELECT 1 FROM training_mesocycles
-                WHERE plan_id = @planId AND (start_date < @startDate OR (@endDate IS NOT NULL AND COALESCE(end_date, start_date) > @endDate))
-                UNION ALL
-                SELECT 1 FROM training_macrocycles
-                WHERE plan_id = @planId AND (start_date < @startDate OR (@endDate IS NOT NULL AND COALESCE(end_date, start_date) > @endDate))
-                UNION ALL
-                SELECT 1 FROM training_macrocycle_phases phase
-                JOIN training_macrocycles macro ON macro.id = phase.macrocycle_id
-                WHERE macro.plan_id = @planId AND (phase.start_date < @startDate OR (@endDate IS NOT NULL AND phase.end_date > @endDate))
+                SELECT 1 FROM training_plans current
+                WHERE current.id = @planId
+                  AND (current.start_date <> @startDate OR current.end_date IS DISTINCT FROM @endDate)
+                  AND (
+                    EXISTS (SELECT 1 FROM training_sessions
+                            WHERE plan_id = @planId AND (scheduled_date < @startDate OR (@endDate IS NOT NULL AND scheduled_date > @endDate)))
+                    OR EXISTS (SELECT 1 FROM training_mesocycles
+                               WHERE plan_id = @planId AND (start_date < @startDate OR (@endDate IS NOT NULL AND COALESCE(end_date, start_date) > @endDate)))
+                    OR EXISTS (SELECT 1 FROM training_macrocycles
+                               WHERE plan_id = @planId AND (start_date < @startDate OR (@endDate IS NOT NULL AND COALESCE(end_date, start_date) > @endDate)))
+                    OR EXISTS (SELECT 1 FROM training_macrocycle_phases phase
+                               JOIN training_macrocycles macro ON macro.id = phase.macrocycle_id
+                               WHERE macro.plan_id = @planId AND (phase.start_date < @startDate OR (@endDate IS NOT NULL AND phase.end_date > @endDate)))
+                  )
             )
             """, ("planId", planId), ("startDate", request.StartDate), ("endDate", request.EndDate)))
         {
