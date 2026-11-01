@@ -628,6 +628,70 @@ public sealed class TrainingPeriodizationController : ControllerBase
         return CreatedAtAction(nameof(GetPlans), new { clientId }, new { id = planId, request.Name, request.PeriodizationModel, request.StartDate, request.EndDate, status = "draft", version = 1 });
     }
 
+    [HttpPut("plans/{planId:int}")]
+    public async Task<IActionResult> UpdatePlan(int planId, [FromBody] UpdateTrainingPlanRequest request, CancellationToken cancellationToken)
+    {
+        if (!await CanManagePlan(planId, cancellationToken)) return NotFound();
+        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Trim().Length > 160)
+            return BadRequest(new { message = "El nombre debe tener entre 1 y 160 caracteres." });
+        if (request.EndDate.HasValue && request.EndDate.Value < request.StartDate)
+            return BadRequest(new { message = "La fecha final no puede ser anterior a la inicial." });
+        if (request.PeriodizationModel is not ("linear" or "undulating" or "block" or "reverse" or "continuous_competition" or "autoregulatory" or "custom"))
+            return BadRequest(new { message = "El modelo de periodización no es válido." });
+
+        await using (var children = Command("""
+            SELECT EXISTS (
+                SELECT 1 FROM training_sessions
+                WHERE plan_id = @planId AND (scheduled_date < @startDate OR (@endDate IS NOT NULL AND scheduled_date > @endDate))
+                UNION ALL
+                SELECT 1 FROM training_mesocycles
+                WHERE plan_id = @planId AND (start_date < @startDate OR (@endDate IS NOT NULL AND COALESCE(end_date, start_date) > @endDate))
+                UNION ALL
+                SELECT 1 FROM training_macrocycles
+                WHERE plan_id = @planId AND (start_date < @startDate OR (@endDate IS NOT NULL AND COALESCE(end_date, start_date) > @endDate))
+                UNION ALL
+                SELECT 1 FROM training_macrocycle_phases phase
+                JOIN training_macrocycles macro ON macro.id = phase.macrocycle_id
+                WHERE macro.plan_id = @planId AND (phase.start_date < @startDate OR (@endDate IS NOT NULL AND phase.end_date > @endDate))
+            )
+            """, ("planId", planId), ("startDate", request.StartDate), ("endDate", request.EndDate)))
+        {
+            if (Convert.ToBoolean(await children.ExecuteScalarAsync(cancellationToken)))
+                return Conflict(new { message = "Las fechas no pueden excluir sesiones o bloques que ya forman parte de esta planificación." });
+        }
+
+        await using var command = Command("""
+            UPDATE training_plans p
+            SET name = @name, periodization_model = @model, start_date = @startDate, end_date = @endDate,
+                notes = @notes, version = version + 1, updated_at = NOW()
+            FROM training_profiles f
+            WHERE p.id = @planId AND p.profile_id = f.id AND f.enabled = TRUE AND p.version = @version
+            RETURNING p.id, p.name, p.periodization_model, p.start_date, p.end_date, p.status, p.version, p.notes
+            """, ("planId", planId), ("name", request.Name.Trim()), ("model", request.PeriodizationModel),
+            ("startDate", request.StartDate), ("endDate", request.EndDate), ("notes", request.Notes),
+            ("version", request.Version));
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
+            return Conflict(new { message = "La planificación ha cambiado desde que la abriste. Recarga la página antes de volver a editarla." });
+        return Ok(new TrainingPlanDto(reader.GetInt32(0), reader.GetString(1), reader.GetString(2), reader.GetFieldValue<DateOnly>(3),
+            reader.IsDBNull(4) ? null : reader.GetFieldValue<DateOnly>(4), reader.GetString(5), reader.GetInt32(6),
+            reader.IsDBNull(7) ? null : reader.GetString(7)));
+    }
+
+    [HttpDelete("plans/{planId:int}")]
+    public async Task<IActionResult> DeletePlan(int planId, CancellationToken cancellationToken)
+    {
+        if (!await CanManagePlan(planId, cancellationToken)) return NotFound();
+        await using var command = Command("""
+            DELETE FROM training_plans p
+            USING training_profiles f
+            WHERE p.id = @planId AND p.profile_id = f.id AND f.enabled = TRUE
+            RETURNING p.id
+            """, ("planId", planId));
+        var deleted = await command.ExecuteScalarAsync(cancellationToken);
+        return deleted is null ? NotFound() : NoContent();
+    }
+
     [HttpPost("clients/{clientId:int}/quick-routine")]
     public async Task<IActionResult> CreateQuickRoutine(int clientId, [FromBody] CreateQuickTrainingRoutineRequest request, CancellationToken cancellationToken)
     {
@@ -1732,6 +1796,7 @@ public sealed record ReviewTrainingAdaptationProposalRequest(string Decision, st
 public sealed record TrainingProfileDto(int Id, int ClientId, bool Enabled, string PrimaryGoal, string ExperienceLevel, string ManagementMode, string? Notes, DateTime CreatedAt, DateTime UpdatedAt, bool CanManage = true);
 public sealed record UpdateTrainingProfileRequest(bool Enabled, string PrimaryGoal, string ExperienceLevel, string? Notes, string? ManagementMode = null);
 public sealed record CreateTrainingPlanRequest(string Name, string PeriodizationModel, DateOnly StartDate, DateOnly? EndDate, string? Notes);
+public sealed record UpdateTrainingPlanRequest(string Name, string PeriodizationModel, DateOnly StartDate, DateOnly? EndDate, string? Notes, int Version);
 public sealed record CreateQuickTrainingRoutineRequest(string Name, DateOnly ScheduledDate, string SessionType, int DurationMinutes, string? IntensityTarget, string? Instructions, string? ExercisePrescription);
 public sealed record TrainingPlanDto(int Id, string Name, string PeriodizationModel, DateOnly StartDate, DateOnly? EndDate, string Status, int Version, string? Notes);
 public sealed record CreateTrainingSessionRequest(DateOnly ScheduledDate, string Title, string SessionType, int? DurationMinutes, string? IntensityTarget, string? Instructions, string? ExercisePrescription = null, JsonElement? ExercisePrescriptionData = null);
