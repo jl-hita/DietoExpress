@@ -21,7 +21,7 @@ function apiUrl(path) {
 }
 
 test.describe('MVP de periodización deportiva', () => {
-  test.setTimeout(120_000);
+  test.setTimeout(240_000);
 
   test.beforeEach(async ({ page }) => {
     test.skip(!username || !password, 'Configura E2E_USERNAME y E2E_PASSWORD para probar la periodización.');
@@ -285,8 +285,54 @@ test.describe('MVP de periodización deportiva', () => {
     await quickRoutineCard.locator('.plan-card-actions').getByRole('button', { name: 'Eliminar', exact: true }).click();
     await expect(page.locator('.plan-card').filter({ hasText: 'Rutina sencilla desde gestor E2E' })).toHaveCount(0);
 
+    // The macrocycle is step one; step two generates every phase as a mesocycle with its routines.
+    const macrocycleStart = datePlusDays(30);
+    const macrocycleEnd = datePlusDays(57);
+    const macrocycleResponse = await api.put(apiUrl(`/api/training/plans/${plan.id}/macrocycle`), {
+      data: {
+        name: 'Macrociclo E2E automático',
+        periodizationModel: 'linear',
+        startDate: start,
+        endDate: end,
+        notes: 'Prueba de generación global',
+        phases: [
+          { name: 'Fase E2E base', sequenceNumber: 1, startDate: macrocycleStart, endDate: datePlusDays(43), objective: 'Base', phaseType: 'accumulation' },
+          { name: 'Fase E2E intensificación', sequenceNumber: 2, startDate: datePlusDays(44), endDate: macrocycleEnd, objective: 'Progresión', phaseType: 'intensification' }
+        ]
+      }
+    });
+    expect(macrocycleResponse.ok(), 'Debe guardarse el macrociclo antes de generar los mesociclos').toBeTruthy();
+
+    await page.reload();
+    const refreshedPlanCard = page.locator('.plan-card').filter({ hasText: 'Plan E2E ciclos editado' });
+    await expect(refreshedPlanCard).toBeVisible();
+    await refreshedPlanCard.getByRole('button', { name: /Macrociclo/ }).click();
+    await expect(refreshedPlanCard.locator('.macro-load-dashboard')).toBeVisible();
+    await expect(refreshedPlanCard.locator('.macro-load-dashboard')).toContainText('Distribución semanal y por mesociclo');
+    await refreshedPlanCard.locator(`select[name="macroAutoGoal${plan.id}"]`).selectOption('1');
+    await refreshedPlanCard.locator(`select[name="macroAutoExperience${plan.id}"]`).selectOption('0');
+    await refreshedPlanCard.locator(`input[name="macroAutoMinutes${plan.id}"]`).fill('60');
+    await refreshedPlanCard.locator(`input[name="macroAutoEquipment${plan.id}"]`).fill('bodyweight, dumbbell, barbell, cable, machine, kettlebell, resistance band');
+    await refreshedPlanCard.getByRole('button', { name: 'Generar todos los mesociclos y rutinas' }).click();
+    await expect(page.getByRole('status').filter({ hasText: /Generación completada/ })).toBeVisible({ timeout: 90_000 });
+    const bulkMesoResponse = await api.get(apiUrl(`/api/training/plans/${plan.id}/mesocycles`));
+    expect(bulkMesoResponse.ok()).toBeTruthy();
+    const bulkMesocycles = await bulkMesoResponse.json();
+    expect(bulkMesocycles.filter(item => item.name.startsWith('Fase E2E'))).toHaveLength(2);
+    const bulkSessionsResponse = await api.get(apiUrl(`/api/training/plans/${plan.id}/sessions`));
+    expect(bulkSessionsResponse.ok()).toBeTruthy();
+    const bulkSessions = await bulkSessionsResponse.json();
+    expect(bulkSessions.some(item => item.scheduledDate >= macrocycleStart && item.scheduledDate <= macrocycleEnd)).toBe(true);
+
+    // The overview must render the generated weekly set volume grouped by macrocycle phase.
+    const volumeChart = refreshedPlanCard.locator('.macro-volume-chart');
+    await expect(volumeChart).toBeVisible();
+    await expect(volumeChart).toContainText('Series por semana y fase');
+    await expect(volumeChart.locator('[title*="Fase E2E"]').first()).toBeVisible();
+
     page.once('dialog', dialog => dialog.accept());
-    await editedPlanCard.locator('.plan-card-actions').getByRole('button', { name: 'Eliminar', exact: true }).click();
+    await refreshedPlanCard.locator('.plan-card-actions').getByRole('button', { name: 'Eliminar', exact: true }).click();
     await expect(page.locator('.plan-card').filter({ hasText: 'Plan E2E ciclos editado' })).toHaveCount(0);
+
   });
 });
