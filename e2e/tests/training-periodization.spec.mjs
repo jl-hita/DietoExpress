@@ -132,6 +132,11 @@ test.describe('MVP de periodización deportiva', () => {
 
     await page.goto(`/clients/${patientId}/training`);
     await expect(page.getByRole('heading', { name: 'Planes de entrenamiento' })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByLabel('Nombre del plan')).toBeHidden();
+    await page.getByRole('button', { name: /Nueva planificación/ }).click();
+    await expect(page.getByLabel('Nombre del plan')).toBeVisible();
+    await page.getByRole('button', { name: 'Cancelar' }).click();
+    await expect(page.getByLabel('Nombre del plan')).toBeHidden();
     await expect(page.getByRole('navigation', { name: 'Secciones de planificación' })).toBeVisible();
     await expect(page.locator('.training-assignment-overview')).toContainText('Planificación asignada');
     await page.getByRole('button', { name: /Mesociclos/ }).click();
