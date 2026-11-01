@@ -759,7 +759,10 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   endDate = '';
   planNotes = '';
 
-  constructor(private route: ActivatedRoute, private http: HttpClient, private changeDetector: ChangeDetectorRef) {}
+  constructor(private route: ActivatedRoute, private http: HttpClient, private changeDetector: ChangeDetectorRef) {
+    this.quickRoutineDate = this.localDateInputValue();
+    this.startDate = this.localDateInputValue();
+  }
 
   ngOnInit(): void {
     this.loadExpandedExerciseCatalog();
@@ -1654,11 +1657,125 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     return ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'][day] || 'día no válido';
   }
 
+  private localDateInputValue(): string {
+    const date = new Date();
+    const pad = (value: number) => String(value).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  }
+
+  viewPlan(plan: TrainingPlan): void {
+    this.activePlanWorkspace[plan.id] = 'overview';
+    this.editingPlanId = null;
+    this.planEditDraft = null;
+  }
+
+  beginEditPlan(plan: TrainingPlan): void {
+    this.editingPlanId = plan.id;
+    this.planEditDraft = {
+      name: plan.name,
+      periodizationModel: plan.periodizationModel,
+      startDate: String(plan.startDate).slice(0, 10),
+      endDate: plan.endDate ? String(plan.endDate).slice(0, 10) : '',
+      notes: plan.notes ?? ''
+    };
+  }
+
+  savePlan(plan: TrainingPlan): void {
+    const draft = this.planEditDraft;
+    if (!draft || this.editingPlanId !== plan.id || !draft.name.trim() || !draft.startDate) return;
+    this.saving = true;
+    this.error = '';
+    this.http.put<TrainingPlan>(`/api/training/plans/${plan.id}`, {
+      name: draft.name.trim(),
+      periodizationModel: draft.periodizationModel,
+      startDate: draft.startDate,
+      endDate: draft.endDate || null,
+      notes: draft.notes.trim() || null,
+      version: plan.version
+    }).subscribe({
+      next: updated => {
+        this.plans = this.plans.map(item => item.id === plan.id ? updated : item);
+        this.editingPlanId = null;
+        this.planEditDraft = null;
+        this.saving = false;
+        this.notice = 'Plan de entrenamiento actualizado.';
+      },
+      error: e => {
+        this.error = e?.error?.message || 'No se pudo actualizar el plan.';
+        this.saving = false;
+      }
+    });
+  }
+
+  deletePlan(plan: TrainingPlan): void {
+    const sessionCount = this.sessions[plan.id]?.length || 0;
+    const mesocycleCount = this.mesocycles[plan.id]?.length || 0;
+    const warning = `¿Eliminar «${plan.name}»? Se eliminarán también ${sessionCount} sesiones y ${mesocycleCount} mesociclos, incluidos los registros de realización asociados. Esta operación no se puede deshacer.`;
+    if (!confirm(warning) || this.saving) return;
+    this.saving = true;
+    this.error = '';
+    this.http.delete(`/api/training/plans/${plan.id}`).subscribe({
+      next: () => {
+        this.plans = this.plans.filter(item => item.id !== plan.id);
+        delete this.sessions[plan.id];
+        delete this.mesocycles[plan.id];
+        delete this.microcycles[plan.id];
+        delete this.macrocyclePlans[plan.id];
+        delete this.activePlanWorkspace[plan.id];
+        this.editingPlanId = null;
+        this.planEditDraft = null;
+        this.saving = false;
+        this.notice = 'Planificación eliminada.';
+      },
+      error: e => {
+        this.error = e?.error?.message || 'No se pudo eliminar el plan.';
+        this.saving = false;
+      }
+    });
+  }
+
+  createQuickRoutineFromTrainingPage(): void {
+    if (!this.clientId || this.trainingManagementMode !== 'self' || !this.quickRoutineName.trim() ||
+        !this.quickRoutineDate || this.quickRoutineDuration < 1 || this.saving) return;
+    this.saving = true;
+    this.error = '';
+    this.http.post<{ planId: number }>(`/api/training/clients/${this.clientId}/quick-routine`, {
+      name: this.quickRoutineName.trim(),
+      scheduledDate: this.quickRoutineDate,
+      sessionType: this.quickRoutineType,
+      durationMinutes: this.quickRoutineDuration,
+      intensityTarget: this.quickRoutineIntensity.trim() || null,
+      instructions: this.quickRoutineInstructions.trim() || null,
+      exercisePrescription: this.quickRoutineExercises.trim() || null
+    }).subscribe({
+      next: result => {
+        this.showQuickRoutineForm = false;
+        this.activePlanWorkspace[result.planId] = 'routines';
+        this.quickRoutineName = 'Rutina sencilla';
+        this.quickRoutineExercises = '';
+        this.quickRoutineInstructions = '';
+        this.saving = false;
+        this.notice = 'Rutina creada y asignada al cliente.';
+        this.load();
+      },
+      error: e => {
+        this.error = e?.error?.message || 'No se pudo crear la rutina sencilla.';
+        this.saving = false;
+      }
+    });
+  }
+
   createPlan(): void {
     if (!this.planName.trim() || !this.startDate) return;
     this.saving = true; this.error = '';
     this.http.post<TrainingPlan>(`/api/training/clients/${this.clientId}/plans`, { name: this.planName, periodizationModel: this.periodizationModel, startDate: this.startDate, endDate: this.endDate || null, notes: this.planNotes }).subscribe({
-      next: () => { this.showCreatePlanForm = false; this.planName = ''; this.endDate = ''; this.planNotes = ''; this.saving = false; this.load(); },
+      next: created => {
+        this.showCreatePlanForm = false;
+        this.planName = ''; this.endDate = ''; this.planNotes = '';
+        this.activePlanWorkspace[created.id] = this.newPlanTarget;
+        this.saving = false;
+        this.load();
+      },
       error: e => { this.error = e?.error?.message || 'No se pudo crear el plan.'; this.saving = false; }
     });
   }
