@@ -324,6 +324,12 @@ test.describe('MVP de periodización deportiva', () => {
     const bulkSessions = await bulkSessionsResponse.json();
     expect(bulkSessions.some(item => item.scheduledDate >= macrocycleStart && item.scheduledDate <= macrocycleEnd)).toBe(true);
 
+    // The overview must render the generated weekly set volume grouped by macrocycle phase.
+    const volumeChart = refreshedPlanCard.locator('.macro-volume-chart');
+    await expect(volumeChart).toBeVisible();
+    await expect(volumeChart).toContainText('Series por semana y fase');
+    await expect(volumeChart.locator('[title*="Fase E2E"]')).toHaveCountGreaterThan(0);
+
     page.once('dialog', dialog => dialog.accept());
     await refreshedPlanCard.locator('.plan-card-actions').getByRole('button', { name: 'Eliminar', exact: true }).click();
     await expect(page.locator('.plan-card').filter({ hasText: 'Plan E2E ciclos editado' })).toHaveCount(0);
