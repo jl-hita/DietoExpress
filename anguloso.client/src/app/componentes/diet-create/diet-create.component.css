@@ -1331,3 +1331,20 @@
     max-width: none;
   }
 }
+
+
+/* Recuento del catálogo en el buscador lateral de alimentos. */
+.food-count,
+.food-count-error {
+  margin: 6px 0 12px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.food-count {
+  color: #64748b;
+}
+
+.food-count-error {
+  color: #b45309;
+}

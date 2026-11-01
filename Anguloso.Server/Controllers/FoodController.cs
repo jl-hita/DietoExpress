@@ -58,22 +58,43 @@ public class FoodController : ControllerBase
     [HttpGet("count")]
     public async Task<IActionResult> GetFoodCount(CancellationToken cancellationToken)
     {
-        var userId = AuthHelpers.GetUserId(User);
-        var tenantId = AuthHelpers.GetTenantId(User);
+        // Reutiliza exactamente las reglas de visibilidad de OpenFoodFactsService.SearchAsync.
+        // Se consulta el usuario por su nombre, igual que hace el buscador, y no se
+        // introducen llamadas a User.IsInRole dentro de la expresión LINQ de EF.
+        var userName = User.Identity?.Name;
+        users? user = null;
 
-        // El contador refleja el mismo catálogo que el usuario puede consultar:
-        // alimentos globales y alimentos locales autorizados para su clínica.
-        var count = await _dbContext.foods
-            .AsNoTracking()
-            .CountAsync(f =>
-                (f.source == null || f.source.ToLower() != "local") ||
-                User.IsInRole("superadmin") ||
-                (userId.HasValue && tenantId.HasValue &&
-                 f.tenant_id == tenantId.Value && f.created_by_user_id == userId.Value) ||
-                (User.IsInRole("clinic_admin") && tenantId.HasValue &&
-                 f.tenant_id == tenantId.Value),
-                cancellationToken);
+        if (!string.IsNullOrWhiteSpace(userName))
+        {
+            user = await _dbContext.users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.username == userName, cancellationToken);
+        }
 
+        IQueryable<foods> visibleFoods = _dbContext.foods.AsNoTracking();
+
+        if (user == null)
+        {
+            // Sin usuario asociado solo se cuentan alimentos globales, nunca locales.
+            visibleFoods = visibleFoods.Where(f =>
+                f.tenant_id == null && (f.source == null || f.source.ToLower() != "local"));
+        }
+        else if (user.role != "superadmin")
+        {
+            if (user.tenant_id.HasValue)
+            {
+                visibleFoods = visibleFoods.Where(f =>
+                    f.tenant_id == user.tenant_id.Value ||
+                    (f.tenant_id == null && (f.source == null || f.source.ToLower() != "local")));
+            }
+            else
+            {
+                visibleFoods = visibleFoods.Where(f =>
+                    f.tenant_id == null && (f.source == null || f.source.ToLower() != "local"));
+            }
+        }
+
+        var count = await visibleFoods.CountAsync(cancellationToken);
         return Ok(new { count });
     }
 
