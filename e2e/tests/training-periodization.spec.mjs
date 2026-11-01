@@ -313,8 +313,6 @@ test.describe('MVP de periodización deportiva', () => {
     await refreshedPlanCard.locator(`select[name="macroAutoExperience${plan.id}"]`).selectOption('0');
     await refreshedPlanCard.locator(`input[name="macroAutoMinutes${plan.id}"]`).fill('60');
     await refreshedPlanCard.locator(`input[name="macroAutoEquipment${plan.id}"]`).fill('bodyweight, dumbbell, barbell, cable, machine, kettlebell, resistance band');
-    const bulkGenerationResponse = page.waitForResponse(response =>
-      response.request().method() === 'POST' && new URL(response.url()).pathname.endsWith('/generate-mesocycle'));
     await refreshedPlanCard.getByRole('button', { name: 'Generar todos los mesociclos y rutinas' }).click();
     await expect(page.getByRole('status').filter({ hasText: /Generación completada/ })).toBeVisible({ timeout: 90_000 });
     const bulkMesoResponse = await api.get(apiUrl(`/api/training/plans/${plan.id}/mesocycles`));
