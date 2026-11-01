@@ -73,8 +73,11 @@ public class DietPdfService
                         // Días de la dieta
                         if (diet.diet_days != null)
                         {
-                            foreach (var day in diet.diet_days.OrderBy(d => d.day_index))
+                            var orderedDays = diet.diet_days.OrderBy(d => d.day_index).ToList();
+                            foreach (var (day, index) in orderedDays.Select((day, index) => (day, index)))
                             {
+                                // Cada día comienza en una página independiente.
+                                col.Item().PageBreak();
                                 col.Item().Element(c => ComposeDay(c, day));
                             }
                         }
@@ -248,7 +251,8 @@ public class DietPdfService
             {
                 foreach (var meal in day.meals.OrderBy(m => m.meal_index))
                 {
-                    col.Item().Element(c => ComposeMeal(c, meal));
+                    // Evita que el título, los alimentos y los totales de una comida queden partidos entre páginas.
+                    col.Item().PreventPageBreak().Element(c => ComposeMeal(c, meal));
                 }
 
                 // Resumen diario de % CDR de Micronutrientes
@@ -306,19 +310,19 @@ public class DietPdfService
                     for (int i = 0; i < 6; i++) cols.RelativeColumn(1);
                 });
 
-                table.Cell().Text($"Calcio: {ca:F0}mg ({Math.Round(ca/rdaCa*100):0}% CDR)").FontSize(7);
-                table.Cell().Text($"Hierro: {fe:F1}mg ({Math.Round(fe/rdaFe*100):0}% CDR)").FontSize(7);
-                table.Cell().Text($"Magnesio: {mg:F0}mg ({Math.Round(mg/rdaMg*100):0}% CDR)").FontSize(7);
-                table.Cell().Text($"Potasio: {k:F0}mg ({Math.Round(k/rdaK*100):0}% CDR)").FontSize(7);
-                table.Cell().Text($"Zinc: {zn:F1}mg ({Math.Round(zn/rdaZn*100):0}% CDR)").FontSize(7);
-                table.Cell().Text($"Fibra: {fiber:F1}g ({Math.Round(fiber/rdaFiber*100):0}% CDR)").FontSize(7);
+                table.Cell().Text($"Calcio: {ca:F0}mg ({Math.Round(ca/rdaCa*100):0}% CDR)").FontSize(6);
+                table.Cell().Text($"Hierro: {fe:F1}mg ({Math.Round(fe/rdaFe*100):0}% CDR)").FontSize(6);
+                table.Cell().Text($"Magnesio: {mg:F0}mg ({Math.Round(mg/rdaMg*100):0}% CDR)").FontSize(6);
+                table.Cell().Text($"Potasio: {k:F0}mg ({Math.Round(k/rdaK*100):0}% CDR)").FontSize(6);
+                table.Cell().Text($"Zinc: {zn:F1}mg ({Math.Round(zn/rdaZn*100):0}% CDR)").FontSize(6);
+                table.Cell().Text($"Fibra: {fiber:F1}g ({Math.Round(fiber/rdaFiber*100):0}% CDR)").FontSize(6);
 
-                table.Cell().Text($"Vit A: {vitA:F0}µg ({Math.Round(vitA/rdaVitA*100):0}% CDR)").FontSize(7);
-                table.Cell().Text($"Vit C: {vitC:F0}mg ({Math.Round(vitC/rdaVitC*100):0}% CDR)").FontSize(7);
-                table.Cell().Text($"Vit D: {vitD:F1}µg ({Math.Round(vitD/rdaVitD*100):0}% CDR)").FontSize(7);
-                table.Cell().Text($"Vit E: {vitE:F1}mg ({Math.Round(vitE/rdaVitE*100):0}% CDR)").FontSize(7);
-                table.Cell().Text($"Vit B12: {vitB12:F1}µg ({Math.Round(vitB12/rdaVitB12*100):0}% CDR)").FontSize(7);
-                table.Cell().Text($"Folatos: {folate:F0}µg ({Math.Round(folate/rdaFolate*100):0}% CDR)").FontSize(7);
+                table.Cell().Text($"Vit A: {vitA:F0}µg ({Math.Round(vitA/rdaVitA*100):0}% CDR)").FontSize(6);
+                table.Cell().Text($"Vit C: {vitC:F0}mg ({Math.Round(vitC/rdaVitC*100):0}% CDR)").FontSize(6);
+                table.Cell().Text($"Vit D: {vitD:F1}µg ({Math.Round(vitD/rdaVitD*100):0}% CDR)").FontSize(6);
+                table.Cell().Text($"Vit E: {vitE:F1}mg ({Math.Round(vitE/rdaVitE*100):0}% CDR)").FontSize(6);
+                table.Cell().Text($"Vit B12: {vitB12:F1}µg ({Math.Round(vitB12/rdaVitB12*100):0}% CDR)").FontSize(6);
+                table.Cell().Text($"Folatos: {folate:F0}µg ({Math.Round(folate/rdaFolate*100):0}% CDR)").FontSize(6);
             });
         });
     }
@@ -544,31 +548,16 @@ public class DietPdfService
                 {
                     FoodId = amount.Food.id,
                     Name = amount.Food.name,
-                    Category = !string.IsNullOrWhiteSpace(amount.Food.category) ? amount.Food.category : "Otros",
                     Grams = amount.Grams,
                     IsExchange = false
                 });
         }
 
-        foreach (var group in mealItems.Where(item => !item.food_id.HasValue && !item.recipe_id.HasValue &&
-                     item.exchange_group != null && item.exchange_count.GetValueOrDefault() > 0)
-                 .GroupBy(item => new { item.exchange_group!.id, item.exchange_group.name }))
-        {
-            shoppingItems.Add(new ShoppingListItem
-            {
-                Key = $"eg-{group.Key.id}",
-                Name = group.Key.name,
-                Category = "Intercambios (Opciones equivalentes)",
-                ExchangeCount = (double)group.Sum(item => item.exchange_count!.Value),
-                IsExchange = true
-            });
-        }
-
         container.Column(col =>
         {
-            col.Spacing(12);
+            col.Spacing(6);
             col.Item().Text("LISTA DE LA COMPRA").Bold().FontSize(14).FontColor("#0d9488");
-            col.Item().Text("Resumen consolidado de los alimentos de todos los días, incluidos los ingredientes de las recetas, agrupados por categorías. Marca cada producto al comprarlo.")
+            col.Item().Text("Alimentos necesarios para todos los días, incluidos los ingredientes de las recetas. Las cantidades están consolidadas.")
                 .FontSize(9).Italic().FontColor("#555555");
 
             if (!shoppingItems.Any())
@@ -577,30 +566,15 @@ public class DietPdfService
                 return;
             }
 
-            var grouped = shoppingItems.GroupBy(item => item.Category)
-                .OrderBy(group => group.Key == "Otros" ? 1 : 0).ThenBy(group => group.Key).ToList();
-
-            foreach (var group in grouped)
+            foreach (var item in shoppingItems.OrderBy(item => item.Name))
             {
-                col.Item().Column(categoryColumn =>
+                col.Item().Row(row =>
                 {
-                    categoryColumn.Spacing(4);
-                    categoryColumn.Item().Background("#f5f7ff").Padding(4).BorderBottom(1).BorderColor("#0d9488")
-                        .Text(group.Key.ToUpper()).Bold().FontSize(9).FontColor("#0d9488");
-
-                    foreach (var item in group.OrderBy(item => item.Name))
-                    {
-                        categoryColumn.Item().Row(row =>
-                        {
-                            row.Spacing(8);
-                            row.ConstantItem(10).Height(10).Border(1).BorderColor("#999999").Background(Colors.White);
-                            row.RelativeItem().Text(item.Name).FontSize(9);
-                            var quantity = item.IsExchange
-                                ? $"{item.ExchangeCount:F1} intercambios"
-                                : (item.Grams > 0 ? $"{item.Grams:F0} g" : "-");
-                            row.ConstantItem(100).AlignRight().Text(quantity).FontSize(9).FontColor("#555555");
-                        });
-                    }
+                    row.Spacing(8);
+                    row.ConstantItem(10).Height(10).Border(1).BorderColor("#999999").Background(Colors.White);
+                    row.RelativeItem().Text(item.Name).FontSize(9);
+                    var quantity = item.Grams > 0 ? $"{item.Grams:F0} g" : "-";
+                    row.ConstantItem(100).AlignRight().Text(quantity).FontSize(9).FontColor("#555555");
                 });
             }
         });
@@ -611,7 +585,6 @@ public class DietPdfService
         public string Key { get; set; } = string.Empty;
         public int FoodId { get; set; }
         public string Name { get; set; } = string.Empty;
-        public string Category { get; set; } = "Otros";
         public double Grams { get; set; }
         public double ExchangeCount { get; set; }
         public bool IsExchange { get; set; }
