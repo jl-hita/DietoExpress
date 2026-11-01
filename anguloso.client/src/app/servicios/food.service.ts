@@ -23,6 +23,10 @@ export class FoodService {
     return this.http.get<FoodProduct[]>(`${this.baseUrl}/food/search/${term}`);
   }
 
+  getFoodCount(): Observable<{ count: number }> {
+    return this.http.get<{ count: number }>(`${this.baseUrl}/food/count`);
+  }
+
   getExchangeGroups(): Observable<FoodExchangeGroup[]> {
     return this.http.get<FoodExchangeGroup[]>(`${this.baseUrl}/food-exchange-groups`);
   }

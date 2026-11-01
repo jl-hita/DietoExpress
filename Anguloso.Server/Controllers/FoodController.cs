@@ -55,6 +55,28 @@ public class FoodController : ControllerBase
         }
     }
 
+    [HttpGet("count")]
+    public async Task<IActionResult> GetFoodCount(CancellationToken cancellationToken)
+    {
+        var userId = AuthHelpers.GetUserId(User);
+        var tenantId = AuthHelpers.GetTenantId(User);
+
+        // El contador refleja el mismo catálogo que el usuario puede consultar:
+        // alimentos globales y alimentos locales autorizados para su clínica.
+        var count = await _dbContext.foods
+            .AsNoTracking()
+            .CountAsync(f =>
+                (f.source == null || f.source.ToLower() != "local") ||
+                User.IsInRole("superadmin") ||
+                (userId.HasValue && tenantId.HasValue &&
+                 f.tenant_id == tenantId.Value && f.created_by_user_id == userId.Value) ||
+                (User.IsInRole("clinic_admin") && tenantId.HasValue &&
+                 f.tenant_id == tenantId.Value),
+                cancellationToken);
+
+        return Ok(new { count });
+    }
+
     [HttpGet("search/{query}")]
     [EnableRateLimiting("expensive")]
     public async Task<IActionResult> Search(string query)

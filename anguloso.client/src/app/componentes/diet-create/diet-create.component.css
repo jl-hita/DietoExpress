@@ -1287,3 +1287,47 @@
 @media (prefers-reduced-motion: reduce) {
   .editor-container *, .editor-container *::before, .editor-container *::after { scroll-behavior: auto !important; transition: none !important; }
 }
+
+
+/* Explicación de validaciones que bloquean el guardado. */
+.save-validation-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex: 1 1 100%;
+  max-width: 520px;
+  padding: 9px 12px;
+  border: 1px solid #f1c98a;
+  border-radius: 8px;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.save-validation-hint > mat-icon {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+}
+
+.save-validation-hint strong {
+  display: block;
+  margin-bottom: 3px;
+}
+
+.save-validation-hint ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.save-validation-hint li + li {
+  margin-top: 2px;
+}
+
+@media (max-width: 700px) {
+  .save-validation-hint {
+    max-width: none;
+  }
+}

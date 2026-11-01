@@ -1404,6 +1404,13 @@ export class ClientDetailComponent implements OnInit, OnDestroy {
     this.router.navigate(['/diets/nuevo'], { queryParams: { clientId: this.clientId } });
   }
 
+  editDiet(dietId: number): void {
+    if (!dietId) return;
+    this.router.navigate(['/diets', dietId], {
+      queryParams: this.clientId ? { clientId: this.clientId } : undefined
+    });
+  }
+
   openAssignDietDialog() {
     if (!this.clientId) return;
     const dialogRef = this.dialog.open(DietSelectDialogComponent, {
