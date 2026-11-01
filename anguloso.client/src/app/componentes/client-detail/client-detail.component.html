@@ -880,6 +880,9 @@
                 <button mat-icon-button color="primary" (click)="downloadPdf(d.id)" title="Descargar PDF">
                   <mat-icon>picture_as_pdf</mat-icon>
                 </button>
+                <button mat-icon-button color="primary" (click)="editDiet(d.dietId)" title="Editar dieta">
+                  <mat-icon>edit</mat-icon>
+                </button>
                 <button mat-icon-button color="accent" *ngIf="d.isActive" (click)="deactivateDiet(d.id)" title="Desactivar Dieta">
                   <mat-icon>block</mat-icon>
                 </button>
