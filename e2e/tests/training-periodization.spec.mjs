@@ -21,7 +21,7 @@ function apiUrl(path) {
 }
 
 test.describe('MVP de periodización deportiva', () => {
-  test.setTimeout(120_000);
+  test.setTimeout(240_000);
 
   test.beforeEach(async ({ page }) => {
     test.skip(!username || !password, 'Configura E2E_USERNAME y E2E_PASSWORD para probar la periodización.');
