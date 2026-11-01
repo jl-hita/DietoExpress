@@ -260,5 +260,33 @@ test.describe('MVP de periodización deportiva', () => {
     const copiedSessionsResponse = await api.get(apiUrl(`/api/training/plans/${copiedPlan.id}/sessions`));
     expect(copiedSessionsResponse.ok()).toBeTruthy();
     expect(await copiedSessionsResponse.json()).toHaveLength(1);
+
+    await page.goto(`/clients/${patientId}/training`);
+    const originalPlanCard = page.locator('.plan-card').filter({ hasText: 'Plan E2E ciclos' });
+    await expect(originalPlanCard).toBeVisible();
+    await originalPlanCard.locator('.plan-card-actions').getByRole('button', { name: 'Editar', exact: true }).click();
+    await page.locator(`input[name="editPlanName${plan.id}"]`).fill('Plan E2E ciclos editado');
+    await originalPlanCard.getByRole('button', { name: 'Guardar cambios' }).click();
+    const editedPlanCard = page.locator('.plan-card').filter({ hasText: 'Plan E2E ciclos editado' });
+    await expect(editedPlanCard).toBeVisible();
+
+    await page.getByRole('button', { name: 'Rutina sencilla' }).click();
+    await page.getByLabel('Nombre de la rutina').fill('Rutina sencilla desde gestor E2E');
+    await page.getByLabel('Ejercicios').fill('Sentadilla · 3 × 10 · descanso 90 s');
+    const quickRoutinePromise = page.waitForResponse(response =>
+      response.request().method() === 'POST' && new URL(response.url()).pathname.endsWith('/quick-routine'));
+    await page.getByRole('button', { name: 'Crear y asignar rutina' }).click();
+    const quickRoutineResponse = await quickRoutinePromise;
+    expect(quickRoutineResponse.status()).toBe(201);
+    const quickRoutineCard = page.locator('.plan-card').filter({ hasText: 'Rutina sencilla desde gestor E2E' });
+    await expect(quickRoutineCard).toBeVisible();
+
+    page.once('dialog', dialog => dialog.accept());
+    await quickRoutineCard.locator('.plan-card-actions').getByRole('button', { name: 'Eliminar', exact: true }).click();
+    await expect(page.locator('.plan-card').filter({ hasText: 'Rutina sencilla desde gestor E2E' })).toHaveCount(0);
+
+    page.once('dialog', dialog => dialog.accept());
+    await editedPlanCard.locator('.plan-card-actions').getByRole('button', { name: 'Eliminar', exact: true }).click();
+    await expect(page.locator('.plan-card').filter({ hasText: 'Plan E2E ciclos editado' })).toHaveCount(0);
   });
 });

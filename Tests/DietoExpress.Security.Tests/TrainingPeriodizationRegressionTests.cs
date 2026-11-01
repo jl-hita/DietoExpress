@@ -74,6 +74,28 @@ public sealed class TrainingPeriodizationRegressionTests
     }
 
     [Fact]
+    public void TrainingPlans_CanBeEditedDeletedAndCreatedAsSimpleRoutines()
+    {
+        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs"));
+        var ui = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "training-periodization", "training-periodization.component.ts"));
+
+        Assert.Contains("[HttpPut(\"plans/{planId:int}\")]", controller);
+        Assert.Contains("[HttpDelete(\"plans/{planId:int}\")]", controller);
+        Assert.Contains("p.version = @version", controller);
+        Assert.Contains("training_macrocycle_phases", controller);
+        Assert.Contains("Las fechas no pueden excluir sesiones o bloques", controller);
+        Assert.Contains("DELETE FROM training_plans p", controller);
+        Assert.Contains("ON DELETE CASCADE", File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs")));
+        Assert.Contains("plan-card-actions", ui);
+        Assert.Contains("beginEditPlan(plan)", ui);
+        Assert.Contains("savePlan(plan)", ui);
+        Assert.Contains("deletePlan(plan)", ui);
+        Assert.Contains("createQuickRoutineFromTrainingPage()", ui);
+        Assert.Contains("Nueva planificación", ui);
+        Assert.Contains("Rutina sencilla", ui);
+    }
+
+    [Fact]
     public void GeneratedMesocycle_IsPersistedAtomicallyAndRequiresProfessionalReview()
     {
         var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs"));
