@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { catchError, forkJoin, of, Subscription, timeout } from 'rxjs';
+import { catchError, firstValueFrom, forkJoin, of, Subscription, timeout } from 'rxjs';
 import { DateInputDirective } from '../../directives/date-input.directive';
 
 interface TrainingProfile {
@@ -262,10 +262,10 @@ interface RepDbExercise {
               <div class="full"><button type="submit" [disabled]="saving">Guardar cambios</button><button type="button" class="secondary" (click)="editingPlanId = null; planEditDraft = null" [disabled]="saving">Cancelar</button></div>
             </form>
             <nav class="training-workspace-nav" aria-label="Secciones de planificación">
-              <button type="button" [class.is-active]="!activePlanWorkspace[plan.id] || activePlanWorkspace[plan.id] === 'overview'" (click)="activePlanWorkspace[plan.id] = 'overview'">Resumen</button>
-              <button type="button" [class.is-active]="activePlanWorkspace[plan.id] === 'macrocycle'" (click)="activePlanWorkspace[plan.id] = 'macrocycle'">Macrociclo <span>{{ macrocyclePhases(plan).length }}</span></button>
-              <button type="button" [class.is-active]="activePlanWorkspace[plan.id] === 'mesocycles'" (click)="activePlanWorkspace[plan.id] = 'mesocycles'">Mesociclos <span>{{ mesocycles[plan.id]?.length || 0 }}</span></button>
-              <button type="button" [class.is-active]="activePlanWorkspace[plan.id] === 'routines'" (click)="activePlanWorkspace[plan.id] = 'routines'">Rutinas <span>{{ sessions[plan.id]?.length || 0 }}</span></button>
+              <button type="button" [class.is-active]="!activePlanWorkspace[plan.id] || activePlanWorkspace[plan.id] === 'overview'" (click)="setPlanWorkspace(plan.id, 'overview')">Resumen</button>
+              <button type="button" [class.is-active]="activePlanWorkspace[plan.id] === 'macrocycle'" (click)="setPlanWorkspace(plan.id, 'macrocycle')">Macrociclo <span>{{ macrocyclePhases(plan).length }}</span></button>
+              <button type="button" [class.is-active]="activePlanWorkspace[plan.id] === 'mesocycles'" (click)="setPlanWorkspace(plan.id, 'mesocycles')">Mesociclos <span>{{ mesocycles[plan.id]?.length || 0 }}</span></button>
+              <button type="button" [class.is-active]="activePlanWorkspace[plan.id] === 'routines'" (click)="setPlanWorkspace(plan.id, 'routines')">Rutinas <span>{{ sessions[plan.id]?.length || 0 }}</span></button>
             </nav>
             <section *ngIf="!activePlanWorkspace[plan.id] || activePlanWorkspace[plan.id] === 'overview'" class="training-assignment-overview">
               <div><strong>Planificación asignada</strong><p>{{ macrocyclePhases(plan).length ? 'Macrociclo con ' + macrocyclePhases(plan).length + ' fases' : 'Sin macrociclo definido' }}</p></div>
@@ -298,11 +298,55 @@ interface RepDbExercise {
               <div class="macro-timeline" role="list" aria-label="Fases del macrociclo"><button type="button" class="macro-phase macro-phase-select" role="listitem" *ngFor="let phase of macrocyclePhases(plan)" [class.is-selected]="isMacroPhaseSelected(plan.id, phase)" [ngClass]="'phase-' + macroPhaseKind(phase)" (click)="selectMacroPhase(plan.id, phase.id)" [attr.aria-pressed]="isMacroPhaseSelected(plan.id, phase)">
                 <span class="macro-phase-number">{{ phase.sequenceNumber | number:'2.0' }}</span><div class="macro-phase-content"><strong>{{ viewName(phase, 'macroProposals.timeline') }}</strong><p>{{ phase.objective || 'Objetivo por definir' }}</p><small>{{ phase.startDate | date:'dd/MM/yyyy' }} — {{ phase.endDate | date:'dd/MM/yyyy' }}</small><span class="macro-phase-duration">{{ macroPhaseDurationWeeks(phase) }} semanas</span></div>
               </button></div>
+              <section class="macro-load-dashboard" style="margin-top:18px;padding:18px;border:1px solid var(--border-color,#dfe9e4);border-radius:16px;background:var(--surface-container,#f8fbf9)">
+                <div class="macro-overview-heading"><div><span class="macro-kicker">CARGA DEL MACROCICLO</span><h4>Distribución semanal y por mesociclo</h4><p>Datos calculados a partir de las sesiones y prescripciones guardadas. Los datos ausentes se muestran como N/D.</p></div></div>
+                <div *ngIf="macrocycleLoadWeeks(plan).length" style="display:flex;gap:10px;overflow-x:auto;padding:10px 0">
+                  <article *ngFor="let week of macrocycleLoadWeeks(plan)" style="flex:1 0 112px;min-width:112px;padding:12px;border:1px solid var(--border-color,#e2ebe6);border-radius:12px;background:var(--surface-color,#fff)">
+                    <strong style="font-size:.82rem">Semana {{ week.weekNumber }}</strong>
+                    <small style="display:block;color:var(--secondary-text-color,#687385)">{{ week.startDate | date:'dd/MM' }} – {{ week.endDate | date:'dd/MM' }}</small>
+                    <div style="margin-top:10px;font-size:.75rem">Volumen <strong style="float:right">{{ week.sets === null ? 'N/D' : week.sets + ' series' }}</strong></div>
+                    <div style="height:7px;background:var(--surface-container,#edf2ef);border-radius:8px;overflow:hidden"><span style="display:block;height:100%;background:#16845b" [style.width.%]="week.volumePct"></span></div>
+                    <div style="margin-top:8px;font-size:.75rem">Frecuencia <strong style="float:right">{{ week.sessions }}</strong></div>
+                    <div style="height:7px;background:var(--surface-container,#edf2ef);border-radius:8px;overflow:hidden"><span style="display:block;height:100%;background:#438fca" [style.width.%]="week.frequencyPct"></span></div>
+                    <div style="margin-top:8px;font-size:.75rem">Intensidad <strong style="float:right">{{ week.intensityLabel }}</strong></div>
+                    <div style="height:7px;background:var(--surface-container,#edf2ef);border-radius:8px;overflow:hidden"><span style="display:block;height:100%;background:#df9d43" [style.width.%]="week.intensityPct"></span></div>
+                  </article>
+                </div>
+                <p *ngIf="!macrocycleLoadWeeks(plan).length" class="muted">Todavía no hay semanas suficientes para calcular la carga.</p>
+                <h5 style="margin:18px 0 10px">Resumen por mesociclo</h5>
+                <div *ngIf="mesocycleLoadSummary(plan).length" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px">
+                  <article *ngFor="let meso of mesocycleLoadSummary(plan)" style="padding:13px;border:1px solid var(--border-color,#e2ebe6);border-radius:12px;background:var(--surface-color,#fff)">
+                    <strong>{{ meso.name }}</strong><small style="display:block;color:var(--secondary-text-color,#687385)">{{ meso.startDate | date:'dd/MM/yyyy' }} – {{ meso.endDate | date:'dd/MM/yyyy' }}</small>
+                    <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:.78rem"><span>Volumen</span><strong>{{ meso.sets === null ? 'N/D' : meso.sets + ' series' }}</strong></div>
+                    <div style="height:8px;background:var(--surface-container,#edf2ef);border-radius:8px;overflow:hidden"><span style="display:block;height:100%;background:#16845b" [style.width.%]="meso.volumePct"></span></div>
+                    <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:.78rem"><span>Sesiones</span><strong>{{ meso.sessions }}</strong></div>
+                    <div style="height:8px;background:var(--surface-container,#edf2ef);border-radius:8px;overflow:hidden"><span style="display:block;height:100%;background:#438fca" [style.width.%]="meso.frequencyPct"></span></div>
+                    <small style="display:block;margin-top:8px;color:var(--secondary-text-color,#687385)">{{ meso.completedSessions }} realizadas · {{ meso.plannedMinutes }} min planificados</small>
+                  </article>
+                </div>
+                <p *ngIf="!mesocycleLoadSummary(plan).length" class="muted">Los mesociclos aparecerán aquí cuando se hayan creado.</p>
+              </section>
+              <section *ngIf="current.canManage" style="margin-top:16px;padding:16px;border:1px solid var(--border-color,#dfe9e4);border-radius:14px">
+                <div class="macro-overview-heading"><div><span class="macro-kicker">PASO 2</span><h4>Generar mesociclos y rutinas</h4><p>Usa las fases guardadas como bloques. Puedes generar todo el macrociclo de una vez o trabajar fase por fase.</p></div></div>
+                <div class="form-grid">
+                  <label>Objetivo<select name="macroAutoGoal{{plan.id}}" [(ngModel)]="autoGoal"><option [ngValue]="0">Forma física general</option><option [ngValue]="1">Hipertrofia</option><option [ngValue]="2">Fuerza</option></select></label>
+                  <label>Nivel<select name="macroAutoExperience{{plan.id}}" [(ngModel)]="autoExperience"><option [ngValue]="0">Principiante</option><option [ngValue]="1">Intermedio</option><option [ngValue]="2">Avanzado</option></select></label>
+                  <label>Duración máxima por sesión<input type="number" name="macroAutoMinutes{{plan.id}}" [(ngModel)]="autoMaximumMinutes" min="35" max="180" /></label>
+                  <label>Material disponible (opcional)<input name="macroAutoEquipment{{plan.id}}" [(ngModel)]="autoEquipmentCsv" placeholder="barbell, dumbbell, bodyweight" /></label>
+                  <fieldset class="auto-day-picker full"><legend>Días de entrenamiento</legend><div class="auto-day-options"><label *ngFor="let day of autoTrainingDayOptions"><input type="checkbox" [name]="'macroAutoDay' + plan.id + day.value" [(ngModel)]="autoTrainingDaySelection[day.value]" (ngModelChange)="syncAutoTrainingDays()" /><span>{{ day.label }}</span></label></div></fieldset>
+                </div>
+                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                  <button type="button" (click)="generateAllMacrocycleMesocycles(plan)" [disabled]="saving || generatingPlan || !!bulkGenerationProgress[plan.id]">Generar todos los mesociclos y rutinas</button>
+                  <span *ngIf="bulkGenerationProgress[plan.id]" role="status">Generando {{ bulkGenerationProgress[plan.id].completed }}/{{ bulkGenerationProgress[plan.id].total }} · {{ bulkGenerationProgress[plan.id].phaseName }}</span>
+                </div>
+                <p *ngIf="generationErrors[plan.id]" class="error" role="alert">{{ generationErrors[plan.id] }}</p>
+                <p class="macro-footnote">Cada mesociclo se guarda con sus microciclos y sesiones en una operación transaccional. Si uno falla, se conserva lo ya generado y podrás reanudar sin duplicarlo.</p>
+              </section>
               <ng-container *ngFor="let phase of macrocyclePhases(plan)">
                 <section class="macro-phase-detail" *ngIf="isMacroPhaseSelected(plan.id, phase)" [ngClass]="'phase-detail-' + macroPhaseKind(phase)">
                   <div class="macro-detail-heading"><div><span class="macro-kicker">FASE {{ phase.sequenceNumber | number:'2.0' }} · DETALLE DE CARGA</span><h5>{{ viewName(phase, 'macroProposals.detail') }}</h5><p>{{ phase.objective || 'Objetivo pendiente de definir' }}</p></div><span class="macro-detail-dates">{{ phase.startDate | date:'dd/MM/yyyy' }} — {{ phase.endDate | date:'dd/MM/yyyy' }}</span></div>
                   <div class="macro-load-legend"><span><i class="load-dot volume-dot"></i>Volumen: series prescritas</span><span><i class="load-dot frequency-dot"></i>Frecuencia: sesiones</span><span><i class="load-dot intensity-dot"></i>Intensidad: RPE si está disponible</span></div>
-                  <div class="macro-phase-actions" *ngIf="current.canManage"><button type="button" class="secondary" (click)="preparePhaseRoutineBlock(plan, phase)" [disabled]="saving">Preparar bloque de rutinas para esta fase</button><small>Se crea solo el mesociclo vacío si hace falta; las rutinas se generan después.</small></div>
+                  <div class="macro-phase-actions" *ngIf="current.canManage"><button type="button" (click)="generateMacrocyclePhaseMesocycle(plan, phase)" [disabled]="saving || generatingPlan || !!bulkGenerationProgress[plan.id]">Generar este mesociclo y sus rutinas</button><button type="button" class="secondary" (click)="preparePhaseRoutineBlock(plan, phase)" [disabled]="saving">Preparar bloque vacío</button></div>
                   <div class="macro-microcycle-grid">
                     <article class="macro-microcycle" *ngFor="let week of macroPhaseWeeks(plan, phase)" [class.week-deload]="week.isDeload">
                       <div class="macro-microcycle-top"><strong>Microciclo {{ week.weekNumber }}</strong><span>{{ week.sessions }} sesiones</span></div>
@@ -610,6 +654,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   loading = true;
   loadFailed = false;
   saving = false;
+  private loadVersion = 0;
+  bulkGenerationProgress: Record<number, { completed: number; total: number; phaseName: string }> = {};
   error = '';
   notice = '';
   recordingSessionId: number | null = null;
@@ -1177,6 +1223,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   }
 
   load(): void {
+    const loadVersion = ++this.loadVersion;
     this.loading = true;
     this.loadFailed = false;
     this.error = '';
@@ -1191,6 +1238,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       })
     ).subscribe({
       next: profile => {
+        if (loadVersion !== this.loadVersion) return;
         this.profile = profile;
         this.changeDetector.detectChanges();
         if (!profile) {
@@ -1219,6 +1267,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
             return of(null);
           })
         ).subscribe(plans => {
+          if (loadVersion !== this.loadVersion) return;
           if (plans === null) {
             this.loading = false;
             this.changeDetector.detectChanges();
@@ -1257,7 +1306,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
           }
 
           try {
-            this.loadSessions(this.plans);
+            this.loadSessions(this.plans, loadVersion);
           } catch {
             this.error = this.error || 'La planificación se ha cargado, pero algunos detalles de las sesiones no están disponibles.';
           }
@@ -1317,39 +1366,54 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     });
   }
 
-  private loadSessions(plans: TrainingPlan[]): void {
-    if (!plans.length) return;
+  private loadSessions(plans: TrainingPlan[], loadVersion: number): void {
+    if (loadVersion !== this.loadVersion) return;
+    if (!plans.length) { this.changeDetector.detectChanges(); return; }
     for (const plan of plans) {
       this.mesocycleDrafts[plan.id] = this.mesocycleDrafts[plan.id] ?? { name: '', sequence: 1, startDate: plan.startDate, endDate: plan.endDate ?? '', objective: '' };
       this.http.get<MacrocyclePlan | null>(`/api/training/plans/${plan.id}/macrocycle`).pipe(catchError(() => of(null as MacrocyclePlan | null))).subscribe(macrocycle => {
+        if (loadVersion !== this.loadVersion) return;
         this.macrocyclePlans[plan.id] = macrocycle && Array.isArray(macrocycle.phases)
           ? { ...macrocycle, phases: macrocycle.phases.filter(phase => !!phase && Number.isInteger(phase.id)).map(phase => ({ ...phase, phaseType: phase.phaseType || 'general' })) }
           : null;
+        if (!this.selectedMacroPhaseId[plan.id] || !this.macrocyclePhases(plan).some(phase => phase.id === this.selectedMacroPhaseId[plan.id]))
+          this.selectedMacroPhaseId[plan.id] = this.macrocyclePhases(plan)[0]?.id || 0;
+        this.changeDetector.detectChanges();
       });
       this.http.get<TrainingMesocycle[]>(`/api/training/plans/${plan.id}/mesocycles`).pipe(catchError(() => of([] as TrainingMesocycle[]))).subscribe(items => {
+        if (loadVersion !== this.loadVersion) return;
         const safeMesocycles = Array.isArray(items) ? items
           .filter((item): item is TrainingMesocycle => !!item && typeof item === 'object' && Number.isInteger(item.id))
           .map(item => ({ ...item, name: typeof item.name === 'string' && item.name.trim() ? item.name : 'Bloque sin nombre', startDate: typeof item.startDate === 'string' ? item.startDate : plan.startDate })) : [];
         this.mesocycles[plan.id] = safeMesocycles;
+        this.changeDetector.detectChanges();
         for (const meso of safeMesocycles) {
           this.microcycleDrafts[meso.id] = this.microcycleDrafts[meso.id] ?? { name: '', sequence: 1, startDate: meso.startDate, endDate: meso.endDate ?? '', focus: '' };
           this.http.get<TrainingMicrocycle[]>(`/api/training/mesocycles/${meso.id}/microcycles`).pipe(catchError(() => of([] as TrainingMicrocycle[]))).subscribe(rows => {
+            if (loadVersion !== this.loadVersion) return;
             this.microcycles[meso.id] = Array.isArray(rows) ? rows
               .filter((item): item is TrainingMicrocycle => !!item && typeof item === 'object' && Number.isInteger(item.id))
               .map(item => ({ ...item, name: typeof item.name === 'string' && item.name.trim() ? item.name : 'Semana sin nombre', startDate: typeof item.startDate === 'string' ? item.startDate : meso.startDate })) : [];
+            this.changeDetector.detectChanges();
           });
         }
       });
     }
     forkJoin(plans.map(p => this.http.get<TrainingSession[]>(`/api/training/plans/${p.id}/sessions`).pipe(catchError(() => of([] as TrainingSession[]))))).subscribe(items => {
+      if (loadVersion !== this.loadVersion) return;
       plans.forEach((p, i) => this.sessions[p.id] = Array.isArray(items[i]) ? items[i]
         .filter((item): item is TrainingSession => !!item && typeof item === 'object' && Number.isInteger(item.id))
         .map(item => ({ ...item, title: typeof item.title === 'string' && item.title.trim() ? item.title : 'Sesión sin título' })) : []);
+      this.changeDetector.detectChanges();
       for (const plan of plans) {
         this.http.get<TrainingLoadWeek[]>(`/api/training/plans/${plan.id}/load-trend`)
           .pipe(catchError(() => of([] as TrainingLoadWeek[])))
-          .subscribe(weeks => this.loadTrends[plan.id] = Array.isArray(weeks) ? weeks
-            .filter((item): item is TrainingLoadWeek => !!item && typeof item === 'object') : []);
+          .subscribe(weeks => {
+            if (loadVersion !== this.loadVersion) return;
+            this.loadTrends[plan.id] = Array.isArray(weeks) ? weeks
+              .filter((item): item is TrainingLoadWeek => !!item && typeof item === 'object') : [];
+            this.changeDetector.detectChanges();
+          });
       }
     });
   }
@@ -1373,6 +1437,12 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
 
   selectMacroPhase(planId: number, phaseId: number): void {
     this.selectedMacroPhaseId[planId] = phaseId;
+    this.changeDetector.detectChanges();
+  }
+
+  setPlanWorkspace(planId: number, workspace: 'overview' | 'macrocycle' | 'mesocycles' | 'routines'): void {
+    this.activePlanWorkspace[planId] = workspace;
+    this.changeDetector.detectChanges();
   }
 
   macrocyclePhases(plan: TrainingPlan): MacrocyclePhase[] {
@@ -1664,9 +1734,9 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   }
 
   viewPlan(plan: TrainingPlan): void {
-    this.activePlanWorkspace[plan.id] = 'overview';
     this.editingPlanId = null;
     this.planEditDraft = null;
+    this.setPlanWorkspace(plan.id, 'overview');
   }
 
   beginEditPlan(plan: TrainingPlan): void {
@@ -1972,8 +2042,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
 
   private refreshSessions(planId: number): void {
     this.http.get<TrainingSession[]>(`/api/training/plans/${planId}/sessions`).subscribe({
-      next: rows => this.sessions[planId] = rows,
-      error: () => this.error = 'La operación se guardó, pero no se pudo actualizar la lista. Recarga la página.'
+      next: rows => { this.sessions[planId] = rows; this.changeDetector.detectChanges(); },
+      error: () => { this.error = 'La operación se guardó, pero no se pudo actualizar la lista. Recarga la página.'; this.changeDetector.detectChanges(); }
     });
   }
 
@@ -2134,6 +2204,148 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
         this.saving = false;
       }
     });
+  }
+
+  macrocycleLoadWeeks(plan: TrainingPlan): ReturnType<TrainingPeriodizationComponent['macroPhaseWeeks']> {
+    const phases = this.macrocyclePhases(plan);
+    if (!phases.length) return [];
+    const startDate = phases.reduce((value, phase) => phase.startDate < value ? phase.startDate : value, phases[0].startDate);
+    const endDate = phases.reduce((value, phase) => phase.endDate > value ? phase.endDate : value, phases[0].endDate);
+    return this.macroPhaseWeeks(plan, {
+      id: 0, name: 'Macrociclo completo', sequenceNumber: 0, startDate, endDate,
+      phaseType: 'general'
+    }).map((week, index) => ({ ...week, weekNumber: index + 1 }));
+  }
+
+  mesocycleLoadSummary(plan: TrainingPlan): Array<{
+    id: number; name: string; startDate: string; endDate: string; sessions: number;
+    completedSessions: number; plannedMinutes: number; sets: number | null;
+    volumePct: number; frequencyPct: number;
+  }> {
+    const rows = (this.mesocycles[plan.id] || []).map(meso => {
+      const weeks = this.macroPhaseWeeks(plan, meso);
+      const hasSets = weeks.some(week => week.sets !== null);
+      return {
+        id: meso.id, name: meso.name, startDate: meso.startDate, endDate: meso.endDate || meso.startDate,
+        sessions: weeks.reduce((total, week) => total + week.sessions, 0),
+        completedSessions: weeks.reduce((total, week) => total + week.completedSessions, 0),
+        plannedMinutes: weeks.reduce((total, week) => total + week.plannedMinutes, 0),
+        sets: hasSets ? weeks.reduce((total, week) => total + (week.sets ?? 0), 0) : null,
+        volumePct: 0, frequencyPct: 0
+      };
+    });
+    const maxSets = Math.max(1, ...rows.map(row => row.sets ?? 0));
+    const maxSessions = Math.max(1, ...rows.map(row => row.sessions));
+    return rows.map(row => ({
+      ...row,
+      volumePct: row.sets === null ? 0 : Math.round(row.sets / maxSets * 100),
+      frequencyPct: Math.round(row.sessions / maxSessions * 100)
+    }));
+  }
+
+  async generateAllMacrocycleMesocycles(plan: TrainingPlan): Promise<void> {
+    const phases = this.macrocyclePhases(plan).slice().sort((a, b) => a.sequenceNumber - b.sequenceNumber);
+    if (!phases.length || this.saving || this.generatingPlan || this.bulkGenerationProgress[plan.id]) return;
+    const days = [...new Set(this.autoTrainingDaysCsv.split(',').map(value => Number(value.trim())).filter(value => Number.isInteger(value) && value >= 0 && value <= 6))];
+    if (days.length < 2 || days.length > 4 || this.autoMaximumMinutes < 35 || this.autoMaximumMinutes > 180) {
+      this.generationErrors[plan.id] = 'Selecciona entre 2 y 4 días de entrenamiento y una duración máxima de 35 a 180 minutos.';
+      return;
+    }
+    if (!confirm('Se generarán mesociclos, microciclos y sesiones para todas las fases del macrociclo que todavía no tengan planificación. Los bloques existentes con contenido se conservarán. ¿Continuar?')) return;
+    this.generationErrors[plan.id] = '';
+    this.generatingPlan = true;
+    this.bulkGenerationProgress[plan.id] = { completed: 0, total: phases.length, phaseName: 'Preparando…' };
+    this.changeDetector.detectChanges();
+    try {
+      let created = 0;
+      let skipped = 0;
+      for (const phase of phases) {
+        this.bulkGenerationProgress[plan.id] = { completed: created + skipped, total: phases.length, phaseName: phase.name };
+        this.changeDetector.detectChanges();
+        const result = await this.generateMacrocyclePhase(plan, phase, days);
+        if (result === 'created') created++;
+        else skipped++;
+        this.bulkGenerationProgress[plan.id] = { completed: created + skipped, total: phases.length, phaseName: phase.name };
+        this.changeDetector.detectChanges();
+      }
+      this.notice = `Generación completada: ${created} mesociclos creados y ${skipped} fases conservadas porque ya tenían planificación.`;
+      this.error = '';
+      this.load();
+    } catch (error: any) {
+      this.generationErrors[plan.id] = error?.message || 'La generación se detuvo. Los mesociclos ya guardados se conservan; puedes reanudar sin duplicarlos.';
+      this.error = '';
+      this.load();
+    } finally {
+      delete this.bulkGenerationProgress[plan.id];
+      this.generatingPlan = false;
+      this.changeDetector.detectChanges();
+    }
+  }
+
+  async generateMacrocyclePhaseMesocycle(plan: TrainingPlan, phase: MacrocyclePhase): Promise<void> {
+    if (this.saving || this.generatingPlan || this.bulkGenerationProgress[plan.id]) return;
+    const days = [...new Set(this.autoTrainingDaysCsv.split(',').map(value => Number(value.trim())).filter(value => Number.isInteger(value) && value >= 0 && value <= 6))];
+    if (days.length < 2 || days.length > 4 || this.autoMaximumMinutes < 35 || this.autoMaximumMinutes > 180) {
+      this.generationErrors[plan.id] = 'Selecciona entre 2 y 4 días de entrenamiento y una duración máxima de 35 a 180 minutos.';
+      return;
+    }
+    this.generatingPlan = true;
+    this.generationErrors[plan.id] = '';
+    this.changeDetector.detectChanges();
+    try {
+      const result = await this.generateMacrocyclePhase(plan, phase, days);
+      this.notice = result === 'created' ? 'Mesociclo y rutinas generados para «' + phase.name + '».' : 'La fase «' + phase.name + '» ya tenía planificación y se ha conservado.';
+      this.load();
+    } catch (error: any) {
+      this.generationErrors[plan.id] = error?.message || 'No se pudo generar el mesociclo.';
+    } finally {
+      this.generatingPlan = false;
+      this.changeDetector.detectChanges();
+    }
+  }
+
+  private async generateMacrocyclePhase(plan: TrainingPlan, phase: MacrocyclePhase, days: number[]): Promise<'created' | 'skipped'> {
+    const totalDays = Math.floor((Date.parse(phase.endDate.slice(0, 10) + 'T00:00:00Z') - Date.parse(phase.startDate.slice(0, 10) + 'T00:00:00Z')) / 86400000) + 1;
+    const durationWeeks = Math.floor(totalDays / 7);
+    if (durationWeeks < 1) throw new Error('La fase «' + phase.name + '» dura menos de siete días y no admite un mesociclo automático.');
+    const startDate = phase.startDate.slice(0, 10);
+    const generatedEnd = this.addDays(startDate, durationWeeks * 7 - 1);
+    if (startDate < plan.startDate.slice(0, 10) || (plan.endDate && generatedEnd > plan.endDate.slice(0, 10)))
+      throw new Error('La fase «' + phase.name + '» queda fuera de las fechas del plan.');
+    const overlapping = (this.mesocycles[plan.id] || []).filter(meso =>
+      startDate <= (meso.endDate || meso.startDate).slice(0, 10) && generatedEnd >= meso.startDate.slice(0, 10));
+    const existing = overlapping.find(meso =>
+      meso.startDate.slice(0, 10) <= startDate &&
+      (meso.endDate || meso.startDate).slice(0, 10) >= generatedEnd);
+    const hasSessions = (this.sessions[plan.id] || []).some(session =>
+      session.scheduledDate.slice(0, 10) >= startDate && session.scheduledDate.slice(0, 10) <= generatedEnd);
+    if (existing && ((this.microcycles[existing.id] || []).length > 0 || hasSessions)) return 'skipped';
+    if (overlapping.length && !existing)
+      throw new Error('La fase «' + phase.name + '» se solapa con un mesociclo existente. Ajusta sus fechas antes de continuar.');
+    const generation: GenerationRequest = {
+      goal: this.autoGoal, experience: this.autoExperience, startDate, durationWeeks, trainingDays: days,
+      maximumSessionDurationMinutes: this.autoMaximumMinutes,
+      availableEquipment: [...new Set(this.autoEquipmentCsv.split(',').map(value => value.trim()).filter(Boolean))],
+      excludedExerciseIds: []
+    };
+    const sequenceNumber = existing?.sequenceNumber ??
+      Math.max(0, ...(this.mesocycles[plan.id] || []).map(meso => meso.sequenceNumber)) + 1;
+    const response = await firstValueFrom(this.http.post<{ mesocycleId: number; sessionsCreated: number }>(
+      `/api/training/plans/${plan.id}/generate-mesocycle`,
+      {
+        name: existing?.name || phase.name,
+        sequenceNumber,
+        generation,
+        existingMesocycleId: existing?.id ?? null,
+        notes: 'Generado automáticamente desde el macrociclo. Requiere revisión profesional antes de asignarlo al paciente.'
+      }
+    ).pipe(timeout({ first: 60000 })));
+    const createdMeso: TrainingMesocycle = {
+      id: response.mesocycleId, planId: plan.id, name: existing?.name || phase.name, sequenceNumber,
+      startDate, endDate: generatedEnd, objective: phase.objective, notes: 'Generado automáticamente.'
+    };
+    this.mesocycles[plan.id] = [...(this.mesocycles[plan.id] || []).filter(meso => meso.id !== createdMeso.id), createdMeso];
+    return 'created';
   }
 
   private addDays(value: string, days: number): string {
