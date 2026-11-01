@@ -335,7 +335,7 @@ interface GuidedConsultationResponse {
               <button mat-stroked-button type="button" (click)="openAdvancedTraining()">Consultar planificación deportiva</button>
             </div>
             <div class="training-quick-actions">
-              <button mat-button type="button" (click)="nextStep()" [disabled]="savingProgress || navigationPending || trainingRoutineSaving">Omitir entrenamiento por ahora</button>
+              <button mat-button type="button" (click)="nextStep()" [disabled]="savingProgress || navigationPending || trainingRoutineSaving">{{ trainingRoutineCreated ? 'Continuar' : 'Omitir entrenamiento por ahora' }}</button>
             </div>
           </section>
           <section class="card" *ngIf="currentStep === 'diet'">
@@ -475,7 +475,7 @@ interface GuidedConsultationResponse {
           <footer class="navigation">
             <button mat-stroked-button type="button" (click)="previousStep()" [disabled]="stepIndex === 0 || navigationPending || savingProgress"><mat-icon>arrow_back</mat-icon> Anterior</button>
             <button mat-flat-button color="primary" type="button" (click)="nextStep()" *ngIf="stepIndex < visibleSteps.length - 1" [disabled]="savingProgress || navigationPending">
-              {{ currentStep === 'training' ? 'Continuar sin configurar' : (isCompleted(currentStep) ? 'Siguiente' : 'Marcar paso y continuar') }} <mat-icon>arrow_forward</mat-icon>
+              {{ currentStep === 'training' ? (trainingRoutineCreated ? 'Continuar' : 'Continuar sin configurar') : (isCompleted(currentStep) ? 'Siguiente' : 'Marcar paso y continuar') }} <mat-icon>arrow_forward</mat-icon>
             </button>
             <button mat-stroked-button type="button" *ngIf="stepIndex === visibleSteps.length - 1" (click)="goToStep(visibleSteps[0].key)"><mat-icon>replay</mat-icon> Volver al inicio</button>
           </footer>
@@ -843,7 +843,6 @@ export class GuidedConsultationComponent implements OnInit {
         this.trainingRoutineSaving = false;
         this.trainingRoutineCreated = true;
         this.snack.open('Rutina creada y asignada al cliente.', 'Cerrar', { duration: 3500 });
-        this.nextStep();
       },
       error: err => {
         this.trainingRoutineSaving = false;
