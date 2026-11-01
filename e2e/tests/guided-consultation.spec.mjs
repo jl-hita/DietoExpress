@@ -113,7 +113,7 @@ test.describe('P0 — recorrido completo de consulta guiada', () => {
       const routineResponse = await routineResponsePromise;
       expect(routineResponse.status(), 'La rutina rápida debe crearse de forma transaccional').toBe(201);
       await expect(page.getByText('Rutina creada y asignada', { exact: false })).toBeVisible({ timeout: 10_000 });
-      await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+      await page.locator('.training-quick-actions').getByRole('button', { name: 'Continuar', exact: true }).click();
       await expect(page.getByRole('heading', { name: 'Plan nutricional inicial' })).toBeVisible();
     };
 
