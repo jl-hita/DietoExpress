@@ -676,7 +676,9 @@ export class GuidedConsultationComponent implements OnInit {
     private clientService: ClientService,
     private http: HttpClient,
     private snack: MatSnackBar
-  ) {}
+  ) {
+    this.trainingRoutineDate = this.localDateInputValue();
+  }
 
   ngOnInit(): void {
     const appointmentId = Number(this.route.snapshot.paramMap.get('appointmentId'));
