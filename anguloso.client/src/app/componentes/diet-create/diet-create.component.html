@@ -444,6 +444,12 @@
               [disabled]="!targetMealForAdd" />
             <mat-spinner *ngIf="searchLoading" diameter="20" class="search-spinner"></mat-spinner>
           </div>
+          <p class="food-count" *ngIf="foodCount !== null" role="status">
+            {{ foodCount | number }} alimentos disponibles en la base de datos
+          </p>
+          <p class="food-count-error" *ngIf="foodCountError" role="alert">
+            No se ha podido cargar el número de alimentos. Puedes seguir buscando con normalidad.
+          </p>
 
           <!-- Estado inicial / Resultados vacíos -->
           <div *ngIf="searchResults.length === 0 && !selectedFoodForAdd && !searchLoading" class="search-fallback">
