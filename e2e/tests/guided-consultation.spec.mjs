@@ -197,7 +197,7 @@ test.describe('P0 — recorrido completo de consulta guiada', () => {
     await expect(page.getByRole('heading', { name: 'Entrenamiento', exact: true })).toBeVisible();
     await expect(page.getByLabel('Gestión del entrenamiento')).toHaveValue('none');
     await page.getByRole('button', { name: 'Omitir entrenamiento por ahora' }).click();
-    await expect(page.getByRole('heading', { name: 'Dieta y ajustes' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Plan nutricional inicial' })).toBeVisible();
 
     await page.getByRole('button', { name: /Objetivos/ }).first().click();
     await expect(page.getByRole('heading', { name: 'Objetivos y cambios acordados' })).toBeVisible();
