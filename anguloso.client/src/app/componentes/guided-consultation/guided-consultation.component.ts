@@ -811,11 +811,6 @@ export class GuidedConsultationComponent implements OnInit {
         this.trainingExperienceLevel = profile?.experienceLevel ?? 'unknown';
         this.trainingManagementMode = profile?.managementMode ?? (profile?.enabled ? 'self' : 'none');
         if (!this.trainingRoutineDate) this.trainingRoutineDate = this.localDateInputValue();
-        if (this.currentStep === 'training' && this.trainingManagementMode === 'none') {
-          this.currentStep = this.isFirstConsultation ? 'goals' : 'goals';
-          this.stepIndex = Math.max(0, this.visibleSteps.findIndex(step => step.key === this.currentStep));
-          this.saveProgress();
-        }
       },
       error: () => { this.trainingManagementMode = 'none'; this.trainingPrimaryGoal = 'general_fitness'; this.trainingExperienceLevel = 'unknown'; this.trainingRoutineDate ||= this.localDateInputValue(); }
     });
