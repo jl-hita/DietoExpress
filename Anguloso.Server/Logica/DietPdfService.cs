@@ -76,9 +76,11 @@ public class DietPdfService
                             var orderedDays = diet.diet_days.OrderBy(d => d.day_index).ToList();
                             foreach (var day in orderedDays)
                             {
-                                // Cada día comienza en una página independiente.
+                                // Mantiene cada dieta diaria completa en una misma página cuando cabe; si no cabe, QuestPDF puede continuarla en la siguiente.
+                                col.Item().PreventPageBreak().Element(c => ComposeDay(c, day));
+
+                                // El salto se coloca al terminar el día, no antes: el primero aprovecha el espacio disponible y los siguientes empiezan en página nueva.
                                 col.Item().PageBreak();
-                                col.Item().Element(c => ComposeDay(c, day));
                             }
                         }
 
