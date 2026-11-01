@@ -550,6 +550,42 @@ export class DietCreateComponent implements OnInit {
   get targetCarbs(): number { return this.form.get('targetCarbs')?.value || 0; }
   get targetFat(): number { return this.form.get('targetFat')?.value || 0; }
 
+  /** Explica en lenguaje claro qué validaciones mantienen deshabilitado el guardado. */
+  get saveValidationMessages(): string[] {
+    const messages: string[] = [];
+    const nameControl = this.form.get('name');
+
+    if (nameControl?.invalid) {
+      messages.push('Introduce un nombre para la dieta.');
+    }
+
+    this.days.controls.forEach((day, dayIndex) => {
+      const meals = day.get('meals') as FormArray | null;
+      meals?.controls.forEach((meal, mealIndex) => {
+        if (meal.get('name')?.invalid) {
+          messages.push(`Día ${dayIndex + 1}: indica un nombre para la comida ${mealIndex + 1}.`);
+        }
+
+        const items = meal.get('items') as FormArray | null;
+        items?.controls.forEach((item, itemIndex) => {
+          const grams = item.get('grams');
+          const foodName = item.get('foodName')?.value || item.get('exchangeGroupName')?.value || `alimento ${itemIndex + 1}`;
+          if (grams?.hasError('required')) {
+            messages.push(`Día ${dayIndex + 1}, ${meal.get('name')?.value || `comida ${mealIndex + 1}`}: indica la cantidad de «${foodName}».`);
+          } else if (grams?.hasError('min')) {
+            messages.push(`Día ${dayIndex + 1}, ${meal.get('name')?.value || `comida ${mealIndex + 1}`}: la cantidad de «${foodName}» debe ser como mínimo 1 g.`);
+          }
+        });
+      });
+    });
+
+    // Evita que un validador nuevo deje el botón bloqueado sin explicación.
+    if (this.form.invalid && messages.length === 0) {
+      messages.push('Revisa los campos obligatorios o sus valores: hay datos que no son válidos.');
+    }
+
+    return messages;
+  }
   submit(): void {
     if (this.form.invalid || this.saving) return;
     this.saving = true;
