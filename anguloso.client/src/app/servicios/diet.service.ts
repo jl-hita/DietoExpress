@@ -59,6 +59,10 @@ export class DietService {
     return this.http.post<any[]>(`${this.base}/validate`, { clientId, diet });
   }
 
+  downloadDietPdf(dietId: number): Observable<Blob> {
+    return this.http.get(`${this.base}/${dietId}/pdf`, { responseType: 'blob' });
+  }
+
   getDietShoppingList(dietId: number): Observable<ShoppingListCategory[]> {
     return this.http.get<ShoppingListCategory[]>(`${this.base}/${dietId}/shopping-list`);
   }
