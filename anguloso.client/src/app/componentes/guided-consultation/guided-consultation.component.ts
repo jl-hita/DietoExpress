@@ -291,6 +291,39 @@ interface GuidedConsultationResponse {
             </div>
           </section>
 
+          <section class="card training-consultation-step" *ngIf="currentStep === 'training'">
+            <div class="card-title"><mat-icon>fitness_center</mat-icon><div><h2>Entrenamiento</h2><p>Este paso es opcional. Puedes dejar una rutina sencilla preparada ahora o continuar sin configurar entrenamiento.</p></div></div>
+            <div class="mode-banner" *ngIf="trainingManagementMode === 'self'">
+              <mat-icon>check_circle</mat-icon><div><strong>Gestionas tú el entrenamiento</strong><span>La rutina se asignará al expediente del cliente y estará disponible en su sección de entrenamiento.</span></div>
+            </div>
+            <div class="mode-banner" *ngIf="trainingManagementMode === 'collaboration'">
+              <mat-icon>groups</mat-icon><div><strong>Entrenamiento en colaboración</strong><span>La planificación corresponde al profesional colaborador. Puedes continuar la consulta sin crear una rutina duplicada.</span></div>
+            </div>
+            <div *ngIf="trainingManagementMode === 'self' && !trainingRoutineCreated" class="training-quick-routine">
+              <h3>Crear una rutina sencilla</h3>
+              <p>Una sesión basta para empezar. Podrás ampliar y periodizar el entrenamiento después desde el expediente del cliente.</p>
+              <form class="form-grid" (ngSubmit)="createConsultationRoutine()">
+                <label class="full">Nombre de la rutina<input name="consultationRoutineName" [(ngModel)]="trainingRoutineName" maxlength="160" required placeholder="Ej. Fuerza general · 2 días" /></label>
+                <label>Fecha de la sesión<input type="date" name="consultationRoutineDate" [(ngModel)]="trainingRoutineDate" required /></label>
+                <label>Tipo de entrenamiento<select name="consultationRoutineType" [(ngModel)]="trainingRoutineType"><option value="strength">Fuerza / gimnasio</option><option value="endurance">Resistencia</option><option value="mobility">Movilidad</option><option value="recovery">Recuperación</option><option value="health">Salud general</option><option value="general">General</option></select></label>
+                <label>Duración (minutos)<input type="number" name="consultationRoutineDuration" [(ngModel)]="trainingRoutineDuration" min="1" max="1440" required /></label>
+                <label>Intensidad objetivo<input name="consultationRoutineIntensity" [(ngModel)]="trainingRoutineIntensity" maxlength="120" placeholder="Ej. Moderada · RPE 6–7" /></label>
+                <label class="full">Ejercicios y prescripción<textarea name="consultationRoutineExercises" [(ngModel)]="trainingRoutineExercises" rows="4" maxlength="6000" placeholder="Sentadilla · 3 × 8–12 · 90 s&#10;Press de banca · 3 × 8–10 · 2 min"></textarea></label>
+                <label class="full">Indicaciones<textarea name="consultationRoutineInstructions" [(ngModel)]="trainingRoutineInstructions" rows="3" maxlength="4000" placeholder="Calentamiento, técnica, descansos o adaptaciones…"></textarea></label>
+                <div class="full training-routine-actions"><button mat-flat-button color="primary" type="submit" [disabled]="trainingRoutineSaving || !trainingRoutineName.trim() || !trainingRoutineDate || trainingRoutineDuration < 1">{{ trainingRoutineSaving ? 'Creando rutina…' : 'Crear y asignar rutina' }}</button><button mat-stroked-button type="button" (click)="openAdvancedTraining()" [disabled]="trainingRoutineSaving">Abrir planificación avanzada</button></div>
+              </form>
+              <p class="helper" *ngIf="trainingRoutineError" role="alert">{{ trainingRoutineError }}</p>
+            </div>
+            <div class="mode-banner" *ngIf="trainingRoutineCreated">
+              <mat-icon>task_alt</mat-icon><div><strong>Rutina creada y asignada</strong><span>La rutina ya está guardada en el expediente del cliente. Puedes continuar con la consulta.</span></div>
+            </div>
+            <div class="training-quick-actions" *ngIf="trainingManagementMode === 'collaboration'">
+              <button mat-stroked-button type="button" (click)="openAdvancedTraining()">Consultar planificación deportiva</button>
+            </div>
+            <div class="training-quick-actions">
+              <button mat-button type="button" (click)="nextStep()" [disabled]="savingProgress || navigationPending || trainingRoutineSaving">Omitir entrenamiento por ahora</button>
+            </div>
+          </section>
           <section class="card" *ngIf="currentStep === 'diet'">
             <div class="card-title"><mat-icon>restaurant</mat-icon><div><h2>{{ isFirstConsultation ? 'Plan nutricional inicial' : 'Dieta y ajustes' }}</h2><p>{{ isFirstConsultation ? 'Configura el plan de partida o deja preparada la dieta para el paciente.' : 'Revisa el plan activo y decide si necesita ajustes.' }}</p></div></div>
             <div *ngIf="activeDiet" class="summary-grid">
@@ -428,7 +461,7 @@ interface GuidedConsultationResponse {
           <footer class="navigation">
             <button mat-stroked-button type="button" (click)="previousStep()" [disabled]="stepIndex === 0 || navigationPending || savingProgress"><mat-icon>arrow_back</mat-icon> Anterior</button>
             <button mat-flat-button color="primary" type="button" (click)="nextStep()" *ngIf="stepIndex < visibleSteps.length - 1" [disabled]="savingProgress || navigationPending">
-              {{ isCompleted(currentStep) ? 'Siguiente' : 'Marcar paso y continuar' }} <mat-icon>arrow_forward</mat-icon>
+              {{ currentStep === 'training' ? 'Continuar sin configurar' : (isCompleted(currentStep) ? 'Siguiente' : 'Marcar paso y continuar') }} <mat-icon>arrow_forward</mat-icon>
             </button>
             <button mat-stroked-button type="button" *ngIf="stepIndex === visibleSteps.length - 1" (click)="goToStep(visibleSteps[0].key)"><mat-icon>replay</mat-icon> Volver al inicio</button>
           </footer>
@@ -447,7 +480,7 @@ interface GuidedConsultationResponse {
     <div class="loading" *ngIf="loading"><mat-spinner diameter="40"></mat-spinner><span>Preparando consulta…</span></div>
   `,
   styles: [`
-    .consultation-page{width:100%;padding:28px 24px 44px;box-sizing:border-box}.consultation-workspace{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(320px,1fr);gap:18px;align-items:start}.online-consultation-badge{display:inline-flex;align-items:center;gap:6px;padding:8px 11px;border:1px solid #99f6e4;border-radius:999px;background:#ecfeff;color:#0f766e;font-size:12px;font-weight:700}.online-consultation-badge mat-icon{font-size:18px;width:18px;height:18px}.consultation-header{display:flex;justify-content:space-between;gap:20px;align-items:flex-end;margin-bottom:22px}.eyebrow{font-size:11px;font-weight:800;letter-spacing:1.2px;color:#0f766e}.consultation-header h1{margin:5px 0 4px;font-size:30px;color:#0f172a}.consultation-header p{margin:0;color:#64748b}.header-actions{display:flex;align-items:center;gap:12px}.status{padding:7px 11px;border-radius:999px;background:#fef3c7;color:#92400e;font-size:12px;font-weight:700}.status.completed{background:#dcfce7;color:#166534}.flow-layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:14px;align-items:start}.stepper{position:sticky;top:18px;display:grid;gap:6px}.stepper button{border:1px solid transparent;background:#f8fafc;border-radius:11px;padding:10px;text-align:left;display:flex;gap:10px;align-items:center;cursor:pointer}.stepper button.active{background:#ecfeff;border-color:#99f6e4}.stepper button.done{background:#f0fdf4}.step-number{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#e2e8f0;color:#475569;font-size:12px;font-weight:700;flex:none}.stepper button.active .step-number{background:#0f766e;color:#fff}.stepper button.done .step-number{background:#16a34a;color:#fff}.stepper strong{display:block;font-size:12px;color:#0f172a}.stepper small{display:block;color:#64748b;font-size:10px;margin-top:2px}.step-content{min-width:0}.card{background:#fff;border:1px solid #e2e8f0;border-radius:15px;padding:22px;min-height:270px;box-sizing:border-box}.card-title{display:flex;gap:12px;align-items:flex-start;margin-bottom:20px}.card-title>mat-icon{color:#0f766e}.card-title h2{margin:0 0 4px;font-size:20px;color:#0f172a}.card-title p{margin:0;color:#64748b;font-size:12px}.summary-grid,.metric-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.history-table{border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin:14px 0}.history-row{display:grid;grid-template-columns:1.2fr repeat(4,1fr);gap:8px;padding:10px 12px;border-top:1px solid #e2e8f0;font-size:12px;color:#334155}.history-head{border-top:0;background:#f8fafc;font-weight:700;color:#64748b}.task-list{display:grid;gap:8px;margin-bottom:16px}.pre-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}.summary-card{padding:14px;border:1px solid #e2e8f0;border-radius:11px;background:#fff;display:grid;gap:5px}.summary-card span{font-size:11px;color:#64748b}.summary-card strong{font-size:16px;color:#0f172a}.summary-card small{font-size:11px;color:#64748b}.mode-banner{display:flex;gap:10px;align-items:flex-start;padding:14px;border:1px solid #cbd5e1;border-radius:11px;background:#f8fafc;margin-bottom:16px}.mode-banner>mat-icon{color:#0f766e}.mode-banner strong{display:block;font-size:13px;color:#0f172a}.mode-banner span{display:block;margin-top:3px;font-size:12px;color:#64748b;line-height:1.45}.mode-banner.followup{background:#eff6ff;border-color:#bfdbfe}.mode-banner.followup>mat-icon{color:#2563eb}.signal-panel{margin-bottom:18px;padding:15px;border:1px solid #fed7aa;border-radius:11px;background:#fff7ed}.signal-panel h3{margin:0 0 10px;font-size:14px}.signal-list{display:flex;flex-wrap:wrap;gap:8px}.signal-list span{padding:7px 10px;border-radius:999px;background:#ffedd5;font-size:12px;color:#9a3412}.signal-list b{margin-left:4px}.recommendations{margin-top:14px;padding-top:12px;border-top:1px solid #fed7aa}.recommendations h4{margin:0 0 8px;font-size:12px;color:#7c2d12}.recommendations ul{margin:0 0 12px;padding-left:20px;color:#7c2d12;font-size:12px;line-height:1.6}.quick-form{margin-top:18px;padding:15px;border:1px solid #e2e8f0;border-radius:11px;background:#f8fafc}.quick-form h3{margin:0 0 12px;font-size:14px;color:#0f172a}.inline-fields{display:flex;gap:12px;flex-wrap:wrap}.inline-fields label{flex:1;min-width:130px;display:grid;gap:6px;font-size:11px;font-weight:700;color:#334155}.inline-fields input,.inline-fields select{box-sizing:border-box;width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:9px;background:#fff;font:inherit}.slot-status{align-self:end;padding:10px;color:#64748b;font-size:12px}.slot-list{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.slot-list button{border:1px solid #cbd5e1;background:#fff;border-radius:9px;padding:9px 11px;cursor:pointer;color:#334155}.slot-list button.selected{border-color:#0f766e;background:#ecfeff;color:#0f766e;font-weight:700}.task-item{display:flex;justify-content:space-between;gap:12px;padding:12px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc}.task-item strong{display:block;font-size:13px;color:#0f172a}.task-item small{display:block;margin-top:3px;color:#64748b;font-size:11px}.task-item>span{font-size:10px;font-weight:800;text-transform:uppercase;color:#0f766e}.form-grid{display:grid;gap:16px}.form-grid label{display:grid;gap:7px;font-size:12px;font-weight:700;color:#334155}.clinical-section{display:grid;gap:12px;padding:16px;border:1px solid #e2e8f0;border-radius:12px;background:#fbfdff}.clinical-section h3{display:flex;align-items:center;gap:8px;margin:0;color:#0f172a;font-size:14px}.clinical-section h3 mat-icon{color:#b45309}.clinical-section textarea,.clinical-section input:not([type=checkbox]){width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:10px;font:inherit;font-weight:400}.clinical-section small{color:#92400e;line-height:1.5}.clinical-section.allergy-section{border-color:#fca5a5;background:#fff7f7}.clinical-section.allergy-section h3{color:#991b1b}.check-field{display:flex!important;align-items:center;gap:8px!important;min-width:150px}.form-grid textarea{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:10px;padding:12px;font:inherit;font-weight:400;resize:vertical;min-height:90px}.save-state{display:block;margin-top:8px;color:#64748b}.save-state.saved{color:#15803d}.change-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.change-grid span{padding:7px 10px;border-radius:999px;background:#ecfeff;color:#0f766e;font-size:11px;font-weight:700}.summary-grid>div,.metric-grid>div{padding:14px;border-radius:10px;background:#f8fafc}.summary-grid span,.metric-grid span{display:block;color:#64748b;font-size:11px}.summary-grid strong,.metric-grid strong{display:block;margin-top:4px;color:#0f172a;font-size:14px}.helper{padding:14px;border-radius:10px;background:#f8fafc;color:#64748b;font-size:13px;line-height:1.5;margin-bottom:15px}.placeholder{min-height:130px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#94a3b8;text-align:center}.placeholder mat-icon{font-size:38px;width:38px;height:38px}.actions{display:flex;align-items:center;gap:12px;margin-top:18px}.reviewed{display:flex;align-items:center;gap:6px;color:#15803d;font-size:12px}.navigation{display:flex;justify-content:space-between;gap:10px;margin-top:16px}.empty{min-height:120px;display:flex;align-items:center;justify-content:center;gap:8px;color:#94a3b8}.loading{min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#64748b}@media(max-width:1200px){.consultation-workspace{grid-template-columns:minmax(0,1fr)}.consultation-workspace app-video-consultation{order:-1}.flow-layout{grid-template-columns:220px minmax(0,1fr)}}@media(max-width:850px){.consultation-page{padding:20px 14px 36px}.consultation-header{align-items:stretch;flex-direction:column}.header-actions{justify-content:space-between}.flow-layout{grid-template-columns:1fr}.stepper{position:static;display:flex;overflow:auto;padding-bottom:3px}.stepper button{min-width:190px}.summary-grid,.metric-grid{grid-template-columns:1fr}.history-row{grid-template-columns:1fr 1fr}.history-head{display:none}}
+    .training-quick-routine{margin-top:18px;padding:18px;border:1px solid var(--border-color,#d8dee8);border-radius:12px;background:var(--surface-container,#f8f9fc)}.training-quick-routine h3{margin:0 0 6px}.training-quick-routine>p{color:var(--secondary-text-color,#687385);font-size:.9rem}.training-routine-actions{display:flex;gap:10px;flex-wrap:wrap}.training-quick-actions{display:flex;justify-content:flex-end;margin-top:14px}.training-quick-routine .form-grid{margin-bottom:0}@media(max-width:650px){.training-routine-actions{display:grid}.training-routine-actions button{width:100%}}.consultation-page{width:100%;padding:28px 24px 44px;box-sizing:border-box}.consultation-workspace{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(320px,1fr);gap:18px;align-items:start}.online-consultation-badge{display:inline-flex;align-items:center;gap:6px;padding:8px 11px;border:1px solid #99f6e4;border-radius:999px;background:#ecfeff;color:#0f766e;font-size:12px;font-weight:700}.online-consultation-badge mat-icon{font-size:18px;width:18px;height:18px}.consultation-header{display:flex;justify-content:space-between;gap:20px;align-items:flex-end;margin-bottom:22px}.eyebrow{font-size:11px;font-weight:800;letter-spacing:1.2px;color:#0f766e}.consultation-header h1{margin:5px 0 4px;font-size:30px;color:#0f172a}.consultation-header p{margin:0;color:#64748b}.header-actions{display:flex;align-items:center;gap:12px}.status{padding:7px 11px;border-radius:999px;background:#fef3c7;color:#92400e;font-size:12px;font-weight:700}.status.completed{background:#dcfce7;color:#166534}.flow-layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:14px;align-items:start}.stepper{position:sticky;top:18px;display:grid;gap:6px}.stepper button{border:1px solid transparent;background:#f8fafc;border-radius:11px;padding:10px;text-align:left;display:flex;gap:10px;align-items:center;cursor:pointer}.stepper button.active{background:#ecfeff;border-color:#99f6e4}.stepper button.done{background:#f0fdf4}.step-number{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#e2e8f0;color:#475569;font-size:12px;font-weight:700;flex:none}.stepper button.active .step-number{background:#0f766e;color:#fff}.stepper button.done .step-number{background:#16a34a;color:#fff}.stepper strong{display:block;font-size:12px;color:#0f172a}.stepper small{display:block;color:#64748b;font-size:10px;margin-top:2px}.step-content{min-width:0}.card{background:#fff;border:1px solid #e2e8f0;border-radius:15px;padding:22px;min-height:270px;box-sizing:border-box}.card-title{display:flex;gap:12px;align-items:flex-start;margin-bottom:20px}.card-title>mat-icon{color:#0f766e}.card-title h2{margin:0 0 4px;font-size:20px;color:#0f172a}.card-title p{margin:0;color:#64748b;font-size:12px}.summary-grid,.metric-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.history-table{border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin:14px 0}.history-row{display:grid;grid-template-columns:1.2fr repeat(4,1fr);gap:8px;padding:10px 12px;border-top:1px solid #e2e8f0;font-size:12px;color:#334155}.history-head{border-top:0;background:#f8fafc;font-weight:700;color:#64748b}.task-list{display:grid;gap:8px;margin-bottom:16px}.pre-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}.summary-card{padding:14px;border:1px solid #e2e8f0;border-radius:11px;background:#fff;display:grid;gap:5px}.summary-card span{font-size:11px;color:#64748b}.summary-card strong{font-size:16px;color:#0f172a}.summary-card small{font-size:11px;color:#64748b}.mode-banner{display:flex;gap:10px;align-items:flex-start;padding:14px;border:1px solid #cbd5e1;border-radius:11px;background:#f8fafc;margin-bottom:16px}.mode-banner>mat-icon{color:#0f766e}.mode-banner strong{display:block;font-size:13px;color:#0f172a}.mode-banner span{display:block;margin-top:3px;font-size:12px;color:#64748b;line-height:1.45}.mode-banner.followup{background:#eff6ff;border-color:#bfdbfe}.mode-banner.followup>mat-icon{color:#2563eb}.signal-panel{margin-bottom:18px;padding:15px;border:1px solid #fed7aa;border-radius:11px;background:#fff7ed}.signal-panel h3{margin:0 0 10px;font-size:14px}.signal-list{display:flex;flex-wrap:wrap;gap:8px}.signal-list span{padding:7px 10px;border-radius:999px;background:#ffedd5;font-size:12px;color:#9a3412}.signal-list b{margin-left:4px}.recommendations{margin-top:14px;padding-top:12px;border-top:1px solid #fed7aa}.recommendations h4{margin:0 0 8px;font-size:12px;color:#7c2d12}.recommendations ul{margin:0 0 12px;padding-left:20px;color:#7c2d12;font-size:12px;line-height:1.6}.quick-form{margin-top:18px;padding:15px;border:1px solid #e2e8f0;border-radius:11px;background:#f8fafc}.quick-form h3{margin:0 0 12px;font-size:14px;color:#0f172a}.inline-fields{display:flex;gap:12px;flex-wrap:wrap}.inline-fields label{flex:1;min-width:130px;display:grid;gap:6px;font-size:11px;font-weight:700;color:#334155}.inline-fields input,.inline-fields select{box-sizing:border-box;width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:9px;background:#fff;font:inherit}.slot-status{align-self:end;padding:10px;color:#64748b;font-size:12px}.slot-list{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.slot-list button{border:1px solid #cbd5e1;background:#fff;border-radius:9px;padding:9px 11px;cursor:pointer;color:#334155}.slot-list button.selected{border-color:#0f766e;background:#ecfeff;color:#0f766e;font-weight:700}.task-item{display:flex;justify-content:space-between;gap:12px;padding:12px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc}.task-item strong{display:block;font-size:13px;color:#0f172a}.task-item small{display:block;margin-top:3px;color:#64748b;font-size:11px}.task-item>span{font-size:10px;font-weight:800;text-transform:uppercase;color:#0f766e}.form-grid{display:grid;gap:16px}.form-grid label{display:grid;gap:7px;font-size:12px;font-weight:700;color:#334155}.clinical-section{display:grid;gap:12px;padding:16px;border:1px solid #e2e8f0;border-radius:12px;background:#fbfdff}.clinical-section h3{display:flex;align-items:center;gap:8px;margin:0;color:#0f172a;font-size:14px}.clinical-section h3 mat-icon{color:#b45309}.clinical-section textarea,.clinical-section input:not([type=checkbox]){width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:10px;font:inherit;font-weight:400}.clinical-section small{color:#92400e;line-height:1.5}.clinical-section.allergy-section{border-color:#fca5a5;background:#fff7f7}.clinical-section.allergy-section h3{color:#991b1b}.check-field{display:flex!important;align-items:center;gap:8px!important;min-width:150px}.form-grid textarea{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:10px;padding:12px;font:inherit;font-weight:400;resize:vertical;min-height:90px}.save-state{display:block;margin-top:8px;color:#64748b}.save-state.saved{color:#15803d}.change-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.change-grid span{padding:7px 10px;border-radius:999px;background:#ecfeff;color:#0f766e;font-size:11px;font-weight:700}.summary-grid>div,.metric-grid>div{padding:14px;border-radius:10px;background:#f8fafc}.summary-grid span,.metric-grid span{display:block;color:#64748b;font-size:11px}.summary-grid strong,.metric-grid strong{display:block;margin-top:4px;color:#0f172a;font-size:14px}.helper{padding:14px;border-radius:10px;background:#f8fafc;color:#64748b;font-size:13px;line-height:1.5;margin-bottom:15px}.placeholder{min-height:130px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#94a3b8;text-align:center}.placeholder mat-icon{font-size:38px;width:38px;height:38px}.actions{display:flex;align-items:center;gap:12px;margin-top:18px}.reviewed{display:flex;align-items:center;gap:6px;color:#15803d;font-size:12px}.navigation{display:flex;justify-content:space-between;gap:10px;margin-top:16px}.empty{min-height:120px;display:flex;align-items:center;justify-content:center;gap:8px;color:#94a3b8}.loading{min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#64748b}@media(max-width:1200px){.consultation-workspace{grid-template-columns:minmax(0,1fr)}.consultation-workspace app-video-consultation{order:-1}.flow-layout{grid-template-columns:220px minmax(0,1fr)}}@media(max-width:850px){.consultation-page{padding:20px 14px 36px}.consultation-header{align-items:stretch;flex-direction:column}.header-actions{justify-content:space-between}.flow-layout{grid-template-columns:1fr}.stepper{position:static;display:flex;overflow:auto;padding-bottom:3px}.stepper button{min-width:190px}.summary-grid,.metric-grid{grid-template-columns:1fr}.history-row{grid-template-columns:1fr 1fr}.history-head{display:none}}
   `]
 })
 export class GuidedConsultationComponent implements OnInit {
@@ -478,6 +511,16 @@ export class GuidedConsultationComponent implements OnInit {
   expectationsText = '';
   clinicalProfile: ClientDetail | null = null;
   trainingManagementMode: 'none' | 'self' | 'collaboration' = 'none';
+  trainingRoutineName = 'Rutina inicial';
+  trainingRoutineDate = '';
+  trainingRoutineType = 'strength';
+  trainingRoutineDuration = 45;
+  trainingRoutineIntensity = 'Moderada';
+  trainingRoutineInstructions = '';
+  trainingRoutineExercises = '';
+  trainingRoutineSaving = false;
+  trainingRoutineCreated = false;
+  trainingRoutineError = '';
   trainingModeSaving = false;
   trainingModeSaveState: 'idle' | 'saved' | 'error' = 'idle';
   private trainingPrimaryGoal = 'general_fitness';
@@ -535,10 +578,11 @@ export class GuidedConsultationComponent implements OnInit {
   slotDuration = 30;
   quickMode = false;
   get visibleSteps(): ConsultationStep[] {
-    const firstConsultationOrder = ['anamnesis', 'evolution', 'checkin', 'goals', 'diet', 'education', 'tasks', 'next_appointment', 'close'];
-    const followUpOrder = ['summary', 'evolution', 'checkin', 'goals', 'diet', 'education', 'tasks', 'next_appointment', 'close'];
-    const quickFirstOrder = ['anamnesis', 'goals', 'diet', 'tasks', 'close'];
-    const quickFollowUpOrder = ['summary', 'goals', 'diet', 'tasks', 'close'];
+    const includeTraining = this.trainingManagementMode !== 'none' || this.consultation?.currentStep === 'training';
+    const firstConsultationOrder = ['anamnesis', 'evolution', 'checkin', 'goals', ...(includeTraining ? ['training'] : []), 'diet', 'education', 'tasks', 'next_appointment', 'close'];
+    const followUpOrder = ['summary', 'evolution', 'checkin', 'goals', ...(includeTraining ? ['training'] : []), 'diet', 'education', 'tasks', 'next_appointment', 'close'];
+    const quickFirstOrder = ['anamnesis', 'goals', ...(includeTraining ? ['training'] : []), 'diet', 'tasks', 'close'];
+    const quickFollowUpOrder = ['summary', 'goals', ...(includeTraining ? ['training'] : []), 'diet', 'tasks', 'close'];
     const order = this.quickMode
       ? (this.isFirstConsultation ? quickFirstOrder : quickFollowUpOrder)
       : (this.isFirstConsultation ? firstConsultationOrder : followUpOrder);
@@ -603,6 +647,7 @@ export class GuidedConsultationComponent implements OnInit {
     { key:'evolution', label:'Evolución', icon:'show_chart', description:'Cambios recientes' },
     { key:'checkin', label:'Check-in', icon:'fact_check', description:'Adherencia y señales' },
     { key:'goals', label:'Objetivos', icon:'flag', description:'Cambios y objetivos' },
+    { key:'training', label:'Entrenamiento', icon:'fitness_center', description:'Rutina opcional del cliente' },
     { key:'diet', label:'Dieta', icon:'restaurant', description:'Plan actual' },
     { key:'education', label:'Educación', icon:'school', description:'Recomendaciones' },
     { key:'tasks', label:'Tareas', icon:'task_alt', description:'Acciones posteriores' },
@@ -685,6 +730,7 @@ export class GuidedConsultationComponent implements OnInit {
     this.decisionSummary = typeof progress.decisionSummary === 'string' ? progress.decisionSummary : (this.consultation?.decisionSummary || '');
     this.actionsSummary = typeof progress.actionsSummary === 'string' ? progress.actionsSummary : (this.consultation?.actionsSummary || '');
     this.nextConsultationPlan = typeof progress.nextConsultationPlan === 'string' ? progress.nextConsultationPlan : (this.consultation?.nextConsultationPlan || '');
+    this.trainingRoutineCreated = progress.trainingRoutineCreated === true;
   }
 
   loadFollowupHistory(): void {
@@ -738,7 +784,8 @@ export class GuidedConsultationComponent implements OnInit {
       clinicalNotes: this.clinicalNotes.trim(),
       decisionSummary: this.decisionSummary.trim(),
       actionsSummary: this.actionsSummary.trim(),
-      nextConsultationPlan: this.nextConsultationPlan.trim()
+      nextConsultationPlan: this.nextConsultationPlan.trim(),
+      trainingRoutineCreated: this.trainingRoutineCreated
     };
   }
 
@@ -750,9 +797,54 @@ export class GuidedConsultationComponent implements OnInit {
         this.trainingPrimaryGoal = profile?.primaryGoal ?? 'general_fitness';
         this.trainingExperienceLevel = profile?.experienceLevel ?? 'unknown';
         this.trainingManagementMode = profile?.managementMode ?? (profile?.enabled ? 'self' : 'none');
+        if (!this.trainingRoutineDate) this.trainingRoutineDate = this.localDateInputValue();
+        if (this.currentStep === 'training' && this.trainingManagementMode === 'none') {
+          this.currentStep = this.isFirstConsultation ? 'goals' : 'goals';
+          this.stepIndex = Math.max(0, this.visibleSteps.findIndex(step => step.key === this.currentStep));
+          this.saveProgress();
+        }
       },
       error: () => { this.trainingManagementMode = 'none'; this.trainingPrimaryGoal = 'general_fitness'; this.trainingExperienceLevel = 'unknown'; }
     });
+  }
+
+  private localDateInputValue(): string {
+    const date = new Date();
+    const pad = (value: number) => String(value).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  }
+
+  createConsultationRoutine(): void {
+    const clientId = this.data?.appointment.clientId;
+    if (!clientId || this.trainingManagementMode !== 'self' || this.trainingRoutineSaving ||
+        !this.trainingRoutineName.trim() || !this.trainingRoutineDate || this.trainingRoutineDuration < 1) return;
+    this.trainingRoutineSaving = true;
+    this.trainingRoutineError = '';
+    this.http.post<any>(`/api/training/clients/${clientId}/quick-routine`, {
+      name: this.trainingRoutineName.trim(),
+      scheduledDate: this.trainingRoutineDate,
+      sessionType: this.trainingRoutineType,
+      durationMinutes: this.trainingRoutineDuration,
+      intensityTarget: this.trainingRoutineIntensity.trim() || null,
+      instructions: this.trainingRoutineInstructions.trim() || null,
+      exercisePrescription: this.trainingRoutineExercises.trim() || null
+    }).subscribe({
+      next: () => {
+        this.trainingRoutineSaving = false;
+        this.trainingRoutineCreated = true;
+        this.snack.open('Rutina creada y asignada al cliente.', 'Cerrar', { duration: 3500 });
+        this.nextStep();
+      },
+      error: err => {
+        this.trainingRoutineSaving = false;
+        this.trainingRoutineError = err?.error?.message || 'No se ha podido crear la rutina. Puedes reintentarlo o continuar sin configurar entrenamiento.';
+      }
+    });
+  }
+
+  openAdvancedTraining(): void {
+    const clientId = this.data?.appointment.clientId;
+    if (clientId) this.router.navigate(['/clients', clientId, 'training']);
   }
 
   saveTrainingManagementMode(): void {
