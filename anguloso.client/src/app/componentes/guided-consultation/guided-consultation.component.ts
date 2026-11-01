@@ -293,6 +293,20 @@ interface GuidedConsultationResponse {
 
           <section class="card training-consultation-step" *ngIf="currentStep === 'training'">
             <div class="card-title"><mat-icon>fitness_center</mat-icon><div><h2>Entrenamiento</h2><p>Este paso es opcional. Puedes dejar una rutina sencilla preparada ahora o continuar sin configurar entrenamiento.</p></div></div>
+            <div class="clinical-section training-intake" *ngIf="trainingManagementMode === 'none'">
+              <h3>¿Quieres incorporar entrenamiento?</h3>
+              <p>Es totalmente opcional. Puedes activar la gestión deportiva para preparar una rutina ahora o dejar la consulta centrada en nutrición.</p>
+              <label>Gestión del entrenamiento
+                <select [(ngModel)]="trainingManagementMode" name="consultationTrainingManagementMode" (ngModelChange)="saveTrainingManagementMode()" [disabled]="trainingModeSaving">
+                  <option value="none">No, continuar solo con nutrición</option>
+                  <option value="self">Sí, prepararé yo el entrenamiento</option>
+                  <option value="collaboration">Sí, lo gestionará otro profesional</option>
+                </select>
+              </label>
+              <small *ngIf="trainingModeSaving">Guardando decisión…</small>
+              <small class="save-state saved" *ngIf="trainingModeSaveState === 'saved'">Decisión guardada.</small>
+              <small class="save-state" *ngIf="trainingModeSaveState === 'error'">No se ha podido guardar la decisión.</small>
+            </div>
             <div class="mode-banner" *ngIf="trainingManagementMode === 'self'">
               <mat-icon>check_circle</mat-icon><div><strong>Gestionas tú el entrenamiento</strong><span>La rutina se asignará al expediente del cliente y estará disponible en su sección de entrenamiento.</span></div>
             </div>
@@ -578,11 +592,10 @@ export class GuidedConsultationComponent implements OnInit {
   slotDuration = 30;
   quickMode = false;
   get visibleSteps(): ConsultationStep[] {
-    const includeTraining = this.trainingManagementMode !== 'none' || this.consultation?.currentStep === 'training';
-    const firstConsultationOrder = ['anamnesis', 'evolution', 'checkin', 'goals', ...(includeTraining ? ['training'] : []), 'diet', 'education', 'tasks', 'next_appointment', 'close'];
-    const followUpOrder = ['summary', 'evolution', 'checkin', 'goals', ...(includeTraining ? ['training'] : []), 'diet', 'education', 'tasks', 'next_appointment', 'close'];
-    const quickFirstOrder = ['anamnesis', 'goals', ...(includeTraining ? ['training'] : []), 'diet', 'tasks', 'close'];
-    const quickFollowUpOrder = ['summary', 'goals', ...(includeTraining ? ['training'] : []), 'diet', 'tasks', 'close'];
+    const firstConsultationOrder = ['anamnesis', 'evolution', 'checkin', 'goals', 'training', 'diet', 'education', 'tasks', 'next_appointment', 'close'];
+    const followUpOrder = ['summary', 'evolution', 'checkin', 'goals', 'training', 'diet', 'education', 'tasks', 'next_appointment', 'close'];
+    const quickFirstOrder = ['anamnesis', 'goals', 'training', 'diet', 'tasks', 'close'];
+    const quickFollowUpOrder = ['summary', 'goals', 'training', 'diet', 'tasks', 'close'];
     const order = this.quickMode
       ? (this.isFirstConsultation ? quickFirstOrder : quickFollowUpOrder)
       : (this.isFirstConsultation ? firstConsultationOrder : followUpOrder);
@@ -804,7 +817,7 @@ export class GuidedConsultationComponent implements OnInit {
           this.saveProgress();
         }
       },
-      error: () => { this.trainingManagementMode = 'none'; this.trainingPrimaryGoal = 'general_fitness'; this.trainingExperienceLevel = 'unknown'; }
+      error: () => { this.trainingManagementMode = 'none'; this.trainingPrimaryGoal = 'general_fitness'; this.trainingExperienceLevel = 'unknown'; this.trainingRoutineDate ||= this.localDateInputValue(); }
     });
   }
 
