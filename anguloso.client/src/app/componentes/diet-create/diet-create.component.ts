@@ -58,6 +58,8 @@ export class DietCreateComponent implements OnInit {
   // Visual Editor Properties
   activeDayIndex = 0;
   searchCtrl: FormControl;
+  foodCount: number | null = null;
+  foodCountError = false;
   private readonly searchResultsState = signal<any[]>([]);
   get searchResults(): any[] { return this.searchResultsState(); }
   set searchResults(value: any[]) { this.searchResultsState.set(value); }
@@ -106,6 +108,20 @@ export class DietCreateComponent implements OnInit {
 
   // La pantalla combina búsqueda reactiva, edición jerárquica mediante FormArray y validación clínica del borrador.
   ngOnInit(): void {
+    // Obtener el total de alimentos disponibles para contextualizar el buscador.
+    this.foodService.getFoodCount().pipe(
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe({
+      next: result => {
+        this.foodCount = result?.count ?? 0;
+        this.foodCountError = false;
+      },
+      error: () => {
+        this.foodCount = null;
+        this.foodCountError = true;
+      }
+    });
+
     // Cargar grupos de intercambio
     this.foodService.getExchangeGroups().subscribe({
       next: (groups) => this.exchangeGroups = groups,
