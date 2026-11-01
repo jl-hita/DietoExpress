@@ -84,7 +84,8 @@
               <span class="text-muted" *ngIf="d.targetFat == null">—</span>
             </td>
             <td class="text-muted">{{ d.createdAt ? (d.createdAt | date:'dd/MM/yyyy') : '—' }}</td>
-            <td class="actions-cell text-right">\n              <ng-container *ngIf="!isSuperAdmin">
+            <td class="actions-cell text-right">
+              <ng-container *ngIf="!isSuperAdmin">
               <button mat-icon-button class="icon-btn cart-btn" (click)="viewShoppingList(d)" matTooltip="Lista de la Compra">
                 <mat-icon>shopping_cart</mat-icon>
               </button>
