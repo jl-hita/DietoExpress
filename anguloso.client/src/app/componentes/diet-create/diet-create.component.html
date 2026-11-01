@@ -27,6 +27,15 @@
       <button type="button" class="btn btn-primary" (click)="submit()" [disabled]="form.invalid || saving" [attr.aria-busy]="saving">
         <mat-icon>{{ saving ? 'hourglass_top' : 'save' }}</mat-icon> {{ saving ? 'Guardando…' : (isEdit ? 'Guardar Cambios' : 'Crear Dieta') }}
       </button>
+      <div *ngIf="!saving && saveValidationMessages.length > 0" class="save-validation-hint" role="status" aria-live="polite">
+        <mat-icon aria-hidden="true">info</mat-icon>
+        <div>
+          <strong>No se puede guardar todavía:</strong>
+          <ul>
+            <li *ngFor="let message of saveValidationMessages">{{ message }}</li>
+          </ul>
+        </div>
+      </div>
     </div>
   </header>
 
