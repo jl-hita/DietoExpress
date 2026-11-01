@@ -83,7 +83,7 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("[HttpDelete(\"plans/{planId:int}\")]", controller);
         Assert.Contains("p.version = @version", controller);
         Assert.Contains("training_macrocycle_phases", controller);
-        Assert.Contains("No se puede excluir sesiones o bloques", controller);
+        Assert.Contains("Las fechas no pueden excluir sesiones o bloques", controller);
         Assert.Contains("DELETE FROM training_plans p", controller);
         Assert.Contains("ON DELETE CASCADE", File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs")));
         Assert.Contains("plan-card-actions", ui);
