@@ -21,6 +21,9 @@ import { FoodProduct } from '../../modelos/food-product';
         <mat-label>Buscar alimento...</mat-label>
         <input matInput [formControl]="searchCtrl" placeholder="Pollo, arroz...">
       </mat-form-field>
+      <p class="food-count" *ngIf="foodCount !== null">
+        {{ foodCount | number }} alimentos disponibles en la base de datos
+      </p>
       
       <div *ngIf="loading" class="loading-box">
         <mat-progress-spinner mode="indeterminate" diameter="30"></mat-progress-spinner>
@@ -51,6 +54,7 @@ import { FoodProduct } from '../../modelos/food-product';
   `,
   styles: [`
     .full-width { width: 100%; margin-top: 10px; }
+    .food-count { margin: -4px 0 12px; color: #64748b; font-size: 12px; }
     .loading-box { display: flex; justify-content: center; margin: 10px 0; }
     .food-item { cursor: pointer; border-bottom: 1px solid #eee; }
     .food-item:hover { background: #f9f9f9; }
@@ -74,6 +78,7 @@ export class FoodSearchDialogComponent {
   get selectedFood(): any | null { return this.selectedFoodState(); }
   set selectedFood(value: any | null) { this.selectedFoodState.set(value); }
   grams: number = 100;
+  foodCount: number | null = null;
 
   constructor(
     private dialogRef: MatDialogRef<FoodSearchDialogComponent>,
@@ -81,6 +86,10 @@ export class FoodSearchDialogComponent {
     private foodSvc: FoodService
   ) {
     this.searchCtrl = this.fb.control<string>('');
+    this.foodSvc.getFoodCount().subscribe({
+      next: result => this.foodCount = result?.count ?? 0,
+      error: () => this.foodCount = null
+    });
 
     // Debounce + distinctUntilChanged limitan las consultas mientras se escribe y switchMap descarta resultados de búsquedas anteriores.
     this.searchCtrl.valueChanges.pipe(
