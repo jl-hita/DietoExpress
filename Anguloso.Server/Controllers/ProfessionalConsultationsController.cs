@@ -16,7 +16,7 @@ public sealed class ProfessionalConsultationsController : ControllerBase
 {
     private static readonly HashSet<string> AllowedSteps = new(StringComparer.OrdinalIgnoreCase)
     {
-        "anamnesis", "summary", "evolution", "checkin", "goals", "diet", "education", "tasks", "next_appointment", "close"
+        "anamnesis", "summary", "evolution", "checkin", "goals", "training", "diet", "education", "tasks", "next_appointment", "close"
     };
 
     private static readonly HashSet<string> AllowedTypes = new(StringComparer.OrdinalIgnoreCase)
@@ -348,7 +348,7 @@ public sealed class ProfessionalConsultationsController : ControllerBase
         await using var command = new NpgsqlCommand("""
             UPDATE professional_consultations
             SET status='completed', current_step='close',
-                completed_steps='["anamnesis","summary","evolution","checkin","goals","diet","education","tasks","next_appointment","close"]'::jsonb,
+                completed_steps='["anamnesis","summary","evolution","checkin","goals","training","diet","education","tasks","next_appointment","close"]'::jsonb,
                 completed_at=NOW(), updated_at=NOW()
             WHERE tenant_id=@tenant AND appointment_id=@appointment AND status='in_progress';
             """, connection, transaction);

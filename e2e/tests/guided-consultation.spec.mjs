@@ -103,6 +103,18 @@ test.describe('P0 — recorrido completo de consulta guiada', () => {
       await expect(page.getByLabel('¿Cómo se gestionará el entrenamiento?')).toBeVisible();
       await page.getByLabel('¿Cómo se gestionará el entrenamiento?').selectOption('self');
       await expect(page.getByText('Decisión guardada; podrás modificarla más adelante.', { exact: true })).toBeVisible({ timeout: 10_000 });
+      await page.locator('.stepper button').filter({ hasText: 'Entrenamiento' }).click();
+      await expect(page.getByRole('heading', { name: 'Entrenamiento', exact: true })).toBeVisible();
+      await page.getByLabel('Nombre de la rutina').fill('Rutina inicial E2E');
+      await page.getByLabel('Ejercicios y prescripción').fill('Sentadilla · 3 × 8–12 · descanso 90 s');
+      const routineResponsePromise = page.waitForResponse(response =>
+        response.request().method() === 'POST' && new URL(response.url()).pathname.endsWith('/quick-routine'));
+      await page.getByRole('button', { name: 'Crear y asignar rutina' }).click();
+      const routineResponse = await routineResponsePromise;
+      expect(routineResponse.status(), 'La rutina rápida debe crearse de forma transaccional').toBe(201);
+      await expect(page.getByText('Rutina creada y asignada', { exact: false })).toBeVisible({ timeout: 10_000 });
+      await page.locator('.training-quick-actions').getByRole('button', { name: 'Continuar', exact: true }).click();
+      await expect(page.getByRole('heading', { name: 'Plan nutricional inicial' })).toBeVisible();
     };
 
     await scheduleManually(8);
@@ -182,6 +194,12 @@ test.describe('P0 — recorrido completo de consulta guiada', () => {
     await expect(page.getByText('Videollamada integrada')).toBeVisible();
     await expect(page.getByText('Acceso aún no disponible')).toBeVisible();
     const consultationUrl = page.url();
+
+    await page.locator('.stepper button').filter({ hasText: 'Entrenamiento' }).click();
+    await expect(page.getByRole('heading', { name: 'Entrenamiento', exact: true })).toBeVisible();
+    await expect(page.getByLabel('Gestión del entrenamiento')).toHaveValue('none');
+    await page.getByRole('button', { name: 'Omitir entrenamiento por ahora' }).click();
+    await expect(page.getByRole('heading', { name: 'Plan nutricional inicial' })).toBeVisible();
 
     await page.getByRole('button', { name: /Objetivos/ }).first().click();
     await expect(page.getByRole('heading', { name: 'Objetivos y cambios acordados' })).toBeVisible();

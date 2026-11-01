@@ -628,6 +628,72 @@ public sealed class TrainingPeriodizationController : ControllerBase
         return CreatedAtAction(nameof(GetPlans), new { clientId }, new { id = planId, request.Name, request.PeriodizationModel, request.StartDate, request.EndDate, status = "draft", version = 1 });
     }
 
+    [HttpPost("clients/{clientId:int}/quick-routine")]
+    public async Task<IActionResult> CreateQuickRoutine(int clientId, [FromBody] CreateQuickTrainingRoutineRequest request, CancellationToken cancellationToken)
+    {
+        if (!await CanManageClient(clientId, cancellationToken)) return NotFound();
+        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Trim().Length > 160)
+            return BadRequest(new { message = "El nombre de la rutina es obligatorio (máximo 160 caracteres)." });
+        if (request.DurationMinutes is < 1 or > 1440)
+            return BadRequest(new { message = "La duración debe estar entre 1 y 1440 minutos." });
+        if (request.SessionType is not ("endurance" or "strength" or "mobility" or "recovery" or "health" or "general" or "other"))
+            return BadRequest(new { message = "El tipo de sesión no es válido." });
+        if (request.IntensityTarget?.Length > 120 || request.Instructions?.Length > 4000 || request.ExercisePrescription?.Length > 6000)
+            return BadRequest(new { message = "La intensidad admite 120 caracteres, las instrucciones 4000 y los ejercicios 6000." });
+
+        await using (var profile = Command("""
+            SELECT management_mode FROM training_profiles
+            WHERE client_id = @clientId AND enabled = TRUE
+            """, ("clientId", clientId)))
+        {
+            var mode = await profile.ExecuteScalarAsync(cancellationToken) as string;
+            if (mode != "self")
+                return Conflict(new { message = "Activa la gestión propia del entrenamiento antes de crear una rutina desde la consulta." });
+        }
+
+        var userId = AuthHelpers.GetUserId(User);
+        if (userId is null) return Unauthorized();
+        var connection = (NpgsqlConnection)_context.Database.GetDbConnection();
+        if (connection.State != ConnectionState.Open) await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await using var planCommand = CreateCommand("""
+                INSERT INTO training_plans(profile_id, name, periodization_model, start_date, end_date, status, notes, created_by_user_id)
+                SELECT f.id, @name, 'custom', @date, NULL, 'draft', 'Rutina creada desde la consulta guiada', @userId
+                FROM training_profiles f
+                WHERE f.client_id = @clientId AND f.enabled = TRUE AND f.management_mode = 'self'
+                RETURNING id
+                """, transaction, ("clientId", clientId), ("name", request.Name.Trim()),
+                ("date", request.ScheduledDate), ("userId", userId.Value));
+            var planValue = await planCommand.ExecuteScalarAsync(cancellationToken);
+            if (planValue is null)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return Conflict(new { message = "No se pudo crear la rutina. Comprueba que la gestión del entrenamiento está activada." });
+            }
+
+            var planId = Convert.ToInt32(planValue);
+            await using var sessionCommand = CreateCommand("""
+                INSERT INTO training_sessions(plan_id, scheduled_date, title, session_type, duration_minutes, intensity_target, instructions, exercise_prescription)
+                VALUES (@planId, @date, @title, @type, @duration, @intensity, @instructions, @prescription)
+                RETURNING id
+                """, transaction, ("planId", planId), ("date", request.ScheduledDate), ("title", request.Name.Trim()),
+                ("type", request.SessionType), ("duration", request.DurationMinutes), ("intensity", request.IntensityTarget?.Trim()),
+                ("instructions", request.Instructions?.Trim()), ("prescription", request.ExercisePrescription?.Trim()));
+            var sessionId = Convert.ToInt32(await sessionCommand.ExecuteScalarAsync(cancellationToken));
+            await transaction.CommitAsync(cancellationToken);
+            await NotifyTrainingPlanAssignedAsync(clientId, planId, request.Name.Trim(), cancellationToken);
+            return CreatedAtAction(nameof(GetPlans), new { clientId },
+                new { planId, sessionId, name = request.Name.Trim(), scheduledDate = request.ScheduledDate, message = "Rutina creada y asignada al cliente." });
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
     [HttpGet("clients/{clientId:int}/adaptation-proposals")]
     public async Task<IActionResult> GetAdaptationProposals(int clientId, CancellationToken cancellationToken)
     {
@@ -1666,6 +1732,7 @@ public sealed record ReviewTrainingAdaptationProposalRequest(string Decision, st
 public sealed record TrainingProfileDto(int Id, int ClientId, bool Enabled, string PrimaryGoal, string ExperienceLevel, string ManagementMode, string? Notes, DateTime CreatedAt, DateTime UpdatedAt, bool CanManage = true);
 public sealed record UpdateTrainingProfileRequest(bool Enabled, string PrimaryGoal, string ExperienceLevel, string? Notes, string? ManagementMode = null);
 public sealed record CreateTrainingPlanRequest(string Name, string PeriodizationModel, DateOnly StartDate, DateOnly? EndDate, string? Notes);
+public sealed record CreateQuickTrainingRoutineRequest(string Name, DateOnly ScheduledDate, string SessionType, int DurationMinutes, string? IntensityTarget, string? Instructions, string? ExercisePrescription);
 public sealed record TrainingPlanDto(int Id, string Name, string PeriodizationModel, DateOnly StartDate, DateOnly? EndDate, string Status, int Version, string? Notes);
 public sealed record CreateTrainingSessionRequest(DateOnly ScheduledDate, string Title, string SessionType, int? DurationMinutes, string? IntensityTarget, string? Instructions, string? ExercisePrescription = null, JsonElement? ExercisePrescriptionData = null);
 public sealed record RecordTrainingSessionRequest(DateTime? CompletedAt, int? ActualDurationMinutes, decimal? SessionRpe, string? Notes);

@@ -51,6 +51,29 @@ public sealed class TrainingPeriodizationRegressionTests
     }
 
     [Fact]
+    public void ConsultationQuickRoutine_IsAtomicAndRequiresSelfManagedTraining()
+    {
+        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs"));
+        var consultation = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "ProfessionalConsultationsController.cs"));
+        var ui = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "guided-consultation", "guided-consultation.component.ts"));
+
+        Assert.Contains("[HttpPost(\"clients/{clientId:int}/quick-routine\")]", controller);
+        Assert.Contains("CanManageClient(clientId, cancellationToken)", controller);
+        Assert.Contains("management_mode = 'self'", controller);
+        Assert.Contains("BeginTransactionAsync(cancellationToken)", controller);
+        Assert.Contains("INSERT INTO training_plans", controller);
+        Assert.Contains("INSERT INTO training_sessions", controller);
+        Assert.Contains("await transaction.CommitAsync(cancellationToken)", controller);
+        Assert.Contains("await transaction.RollbackAsync(cancellationToken)", controller);
+        Assert.Contains("CreateQuickTrainingRoutineRequest", controller);
+        Assert.Contains("\"training\"", consultation);
+        Assert.Contains("currentStep === 'training'", ui);
+        Assert.Contains("Omitir entrenamiento por ahora", ui);
+        Assert.Contains("createConsultationRoutine()", ui);
+        Assert.Contains("/quick-routine", ui);
+    }
+
+    [Fact]
     public void GeneratedMesocycle_IsPersistedAtomicallyAndRequiresProfessionalReview()
     {
         var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs"));
