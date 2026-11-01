@@ -193,6 +193,12 @@ test.describe('P0 — recorrido completo de consulta guiada', () => {
     await expect(page.getByText('Acceso aún no disponible')).toBeVisible();
     const consultationUrl = page.url();
 
+    await page.locator('.stepper button').filter({ hasText: 'Entrenamiento' }).click();
+    await expect(page.getByRole('heading', { name: 'Entrenamiento', exact: true })).toBeVisible();
+    await expect(page.getByLabel('Gestión del entrenamiento')).toHaveValue('none');
+    await page.getByRole('button', { name: 'Omitir entrenamiento por ahora' }).click();
+    await expect(page.getByRole('heading', { name: 'Dieta y ajustes' })).toBeVisible();
+
     await page.getByRole('button', { name: /Objetivos/ }).first().click();
     await expect(page.getByRole('heading', { name: 'Objetivos y cambios acordados' })).toBeVisible();
     await expect(page.locator('app-video-consultation')).toBeVisible();
