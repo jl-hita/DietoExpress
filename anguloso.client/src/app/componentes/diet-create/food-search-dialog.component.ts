@@ -21,8 +21,11 @@ import { FoodProduct } from '../../modelos/food-product';
         <mat-label>Buscar alimento...</mat-label>
         <input matInput [formControl]="searchCtrl" placeholder="Pollo, arroz...">
       </mat-form-field>
-      <p class="food-count" *ngIf="foodCount !== null">
+      <p class="food-count" *ngIf="foodCount !== null" role="status">
         {{ foodCount | number }} alimentos disponibles en la base de datos
+      </p>
+      <p class="food-count-error" *ngIf="foodCountError" role="alert">
+        No se ha podido cargar el número de alimentos. Puedes seguir buscando con normalidad.
       </p>
       
       <div *ngIf="loading" class="loading-box">
@@ -55,6 +58,7 @@ import { FoodProduct } from '../../modelos/food-product';
   styles: [`
     .full-width { width: 100%; margin-top: 10px; }
     .food-count { margin: -4px 0 12px; color: #64748b; font-size: 12px; }
+    .food-count-error { margin: -4px 0 12px; color: #b45309; font-size: 12px; }
     .loading-box { display: flex; justify-content: center; margin: 10px 0; }
     .food-item { cursor: pointer; border-bottom: 1px solid #eee; }
     .food-item:hover { background: #f9f9f9; }
@@ -79,6 +83,7 @@ export class FoodSearchDialogComponent {
   set selectedFood(value: any | null) { this.selectedFoodState.set(value); }
   grams: number = 100;
   foodCount: number | null = null;
+  foodCountError = false;
 
   constructor(
     private dialogRef: MatDialogRef<FoodSearchDialogComponent>,
@@ -87,8 +92,14 @@ export class FoodSearchDialogComponent {
   ) {
     this.searchCtrl = this.fb.control<string>('');
     this.foodSvc.getFoodCount().subscribe({
-      next: result => this.foodCount = result?.count ?? 0,
-      error: () => this.foodCount = null
+      next: result => {
+        this.foodCount = result?.count ?? 0;
+        this.foodCountError = false;
+      },
+      error: () => {
+        this.foodCount = null;
+        this.foodCountError = true;
+      }
     });
 
     // Debounce + distinctUntilChanged limitan las consultas mientras se escribe y switchMap descarta resultados de búsquedas anteriores.
