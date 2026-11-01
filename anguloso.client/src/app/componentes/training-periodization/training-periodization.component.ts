@@ -45,6 +45,7 @@ interface TrainingSession {
 interface TrainingLoadWeek { weekStart: string; completedSessions: number; plannedMinutes: number; actualMinutes: number; loadScore: number; }
 interface TrainingMesocycle { id: number; planId: number; name: string; sequenceNumber: number; startDate: string; endDate?: string | null; objective?: string | null; notes?: string | null; }
 interface MacrocyclePhase { id: number; name: string; sequenceNumber: number; startDate: string; endDate: string; objective?: string | null; phaseType: 'accumulation' | 'intensification' | 'deload' | 'realization' | 'general'; }
+interface MacroPhaseLoadWeek { weekNumber: number; startDate: string; endDate: string; sessions: number; completedSessions: number; plannedMinutes: number; sets: number | null; intensityLabel: string; intensityPct: number; volumePct: number; frequencyPct: number; isDeload: boolean; }
 interface MacrocyclePlan { id: number; planId: number; name: string; periodizationModel: string; startDate: string; endDate?: string | null; notes?: string | null; phases: MacrocyclePhase[]; }
 interface TrainingMicrocycle { id: number; mesocycleId: number; name: string; sequenceNumber: number; startDate: string; endDate?: string | null; focus?: string | null; notes?: string | null; }
 interface TrainingCollaboration {
@@ -1479,11 +1480,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     return Math.max(1, Math.ceil((end - start + 86400000) / (7 * 86400000)));
   }
 
-  macroPhaseWeeks(plan: TrainingPlan, phase: TrainingMesocycle | MacrocyclePhase): Array<{
-    weekNumber: number; startDate: string; endDate: string; sessions: number; completedSessions: number;
-    plannedMinutes: number; sets: number | null; intensityLabel: string; intensityPct: number;
-    volumePct: number; frequencyPct: number; isDeload: boolean;
-  }> {
+  macroPhaseWeeks(plan: TrainingPlan, phase: TrainingMesocycle | MacrocyclePhase): MacroPhaseLoadWeek[] {
     const weeks = this.macroPhaseDurationWeeks(phase);
     const phaseStart = phase.startDate.slice(0, 10);
     const phaseEnd = (phase.endDate || phase.startDate).slice(0, 10);
@@ -2210,7 +2207,7 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     });
   }
 
-  macrocycleLoadWeeks(plan: TrainingPlan): ReturnType<TrainingPeriodizationComponent['macroPhaseWeeks']> {
+  macrocycleLoadWeeks(plan: TrainingPlan): MacroPhaseLoadWeek[] {
     const phases = this.macrocyclePhases(plan);
     if (!phases.length) return [];
     const startDate = phases.reduce((value, phase) => phase.startDate < value ? phase.startDate : value, phases[0].startDate);
