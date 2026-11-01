@@ -98,7 +98,7 @@ public class DietPdfService
                     });
                 });
 
-                // â”€â”€â”€ FOOTER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // ─── FOOTER ───────────────────────────────────────────────────
                 page.Footer().AlignCenter().Text(text =>
                 {
                     text.Span("Documento generado el ").FontColor("#888888").FontSize(8);
@@ -120,66 +120,66 @@ public class DietPdfService
         {
             header.Item().Row(row =>
             {
-            // Left part: Logo + Clinic Details
-            row.RelativeItem().Row(leftRow =>
-            {
-                leftRow.Spacing(10);
-                
-                // 1. Logo
-                if (nutritionist != null && !string.IsNullOrWhiteSpace(nutritionist.clinic_logo))
+                // Left part: Logo + Clinic Details
+                row.RelativeItem().Row(leftRow =>
                 {
-                    try
-                    {
-                        var logoBase64 = nutritionist.clinic_logo;
-                        if (logoBase64.Contains(","))
-                        {
-                            logoBase64 = logoBase64.Split(',')[1];
-                        }
-                        byte[] logoBytes = System.Convert.FromBase64String(logoBase64);
-                        leftRow.ConstantItem(50).Height(50).Image(logoBytes);
-                    }
-                    catch
-                    {
-                        // Ignore logo parsing errors
-                    }
-                }
-                
-                // 2. Clinic Details
-                leftRow.RelativeItem().Column(col =>
-                {
-                    string clinicName = !string.IsNullOrWhiteSpace(nutritionist?.clinic_name) 
-                        ? nutritionist.clinic_name 
-                        : "DietoExpress";
-                        
-                    string clinicSub = !string.IsNullOrWhiteSpace(nutritionist?.full_name) 
-                        ? $"Consulta de {nutritionist.full_name}" 
-                        : "Consulta de Nutrición Profesional";
-                        
-                    col.Item().Text(clinicName).Bold().FontSize(18).FontColor("#0d9488");
-                    col.Item().Text(clinicSub).FontSize(10).FontColor("#666666");
-                    
-                    if (nutritionist != null)
-                    {
-                        var details = new System.Collections.Generic.List<string>();
-                        if (!string.IsNullOrWhiteSpace(nutritionist.clinic_address))
-                            details.Add(nutritionist.clinic_address);
-                        if (!string.IsNullOrWhiteSpace(nutritionist.clinic_phone))
-                            details.Add($"Tlf: {nutritionist.clinic_phone}");
-                            
-                        if (details.Count > 0)
-                        {
-                            col.Item().Text(string.Join(" | ", details)).FontSize(8).FontColor("#888888");
-                        }
-                    }
-                });
-            });
+                    leftRow.Spacing(10);
 
-            // Right part: PLAN NUTRICIONAL badge
-            row.ConstantItem(140).AlignRight().Column(col =>
-            {
-                col.Item().Background("#0d9488").Padding(8).AlignCenter().Text("PLAN NUTRICIONAL")
-                    .Bold().FontSize(12).FontColor(Colors.White);
-            });
+                    // 1. Logo
+                    if (nutritionist != null && !string.IsNullOrWhiteSpace(nutritionist.clinic_logo))
+                    {
+                        try
+                        {
+                            var logoBase64 = nutritionist.clinic_logo;
+                            if (logoBase64.Contains(","))
+                            {
+                                logoBase64 = logoBase64.Split(',')[1];
+                            }
+                            byte[] logoBytes = System.Convert.FromBase64String(logoBase64);
+                            leftRow.ConstantItem(50).Height(50).Image(logoBytes);
+                        }
+                        catch
+                        {
+                            // Ignore logo parsing errors
+                        }
+                    }
+
+                    // 2. Clinic Details
+                    leftRow.RelativeItem().Column(col =>
+                    {
+                        string clinicName = !string.IsNullOrWhiteSpace(nutritionist?.clinic_name)
+                            ? nutritionist.clinic_name
+                            : "DietoExpress";
+
+                        string clinicSub = !string.IsNullOrWhiteSpace(nutritionist?.full_name)
+                            ? $"Consulta de {nutritionist.full_name}"
+                            : "Consulta de Nutrición Profesional";
+
+                        col.Item().Text(clinicName).Bold().FontSize(18).FontColor("#0d9488");
+                        col.Item().Text(clinicSub).FontSize(10).FontColor("#666666");
+
+                        if (nutritionist != null)
+                        {
+                            var details = new System.Collections.Generic.List<string>();
+                            if (!string.IsNullOrWhiteSpace(nutritionist.clinic_address))
+                                details.Add(nutritionist.clinic_address);
+                            if (!string.IsNullOrWhiteSpace(nutritionist.clinic_phone))
+                                details.Add($"Tlf: {nutritionist.clinic_phone}");
+
+                            if (details.Count > 0)
+                            {
+                                col.Item().Text(string.Join(" | ", details)).FontSize(8).FontColor("#888888");
+                            }
+                        }
+                    });
+                });
+
+                // Right part: PLAN NUTRICIONAL badge
+                row.ConstantItem(140).AlignRight().Column(col =>
+                {
+                    col.Item().Background("#0d9488").Padding(8).AlignCenter().Text("PLAN NUTRICIONAL")
+                        .Bold().FontSize(12).FontColor(Colors.White);
+                });
             });
 
             // Línea divisoria
@@ -214,8 +214,6 @@ public class DietPdfService
                     c.Item().Text($"Nombre: {client.full_name}").SemiBold();
                     if (client.birth_date.HasValue)
                         c.Item().Text($"Fecha de nacimiento: {client.birth_date.Value:dd/MM/yyyy}");
-                    //if (!string.IsNullOrWhiteSpace(client.gender))
-                    //    c.Item().Text($"Sexo: {client.gender}");
                 });
 
                 row.RelativeItem().Column(c =>
@@ -374,10 +372,10 @@ public class DietPdfService
                     {
                         var foodName = item.food?.name ?? (item.exchange_group != null ? $"[Intercambio] {item.exchange_group.name}" : $"Alimento #{item.food_id}");
                         table.Cell().Padding(3).Text(foodName).FontSize(8);
-                        
+
                         var gramsText = item.grams.HasValue ? $"{item.grams.Value:F0} g" : (item.exchange_count.HasValue ? $"{item.exchange_count.Value:F1} int." : "-");
                         table.Cell().Padding(3).AlignRight().Text(gramsText).FontSize(8);
-                        
+
                         table.Cell().Padding(3).AlignRight().Text(item.kcal.HasValue ? $"{item.kcal:F0}" : "-").FontSize(8);
                         table.Cell().Padding(3).AlignRight().Text(item.protein.HasValue ? $"{item.protein:F1}" : "-").FontSize(8);
                         table.Cell().Padding(3).AlignRight().Text(item.carbs.HasValue ? $"{item.carbs:F1}" : "-").FontSize(8);
@@ -453,7 +451,7 @@ public class DietPdfService
 
             // Agrupar por grupo permite imprimir una sola referencia nutricional del intercambio y después listar sus alimentos equivalentes.
             var groupedFoods = exchangeFoods.GroupBy(f => f.exchange_group).ToList();
-            
+
             col.Item().Table(table =>
             {
                 table.ColumnsDefinition(cols =>
@@ -476,7 +474,7 @@ public class DietPdfService
                 {
                     if (group.Key == null) continue;
                     var groupMacros = $"{group.Key.carbs:F0}g HC / {group.Key.protein:F0}g P / {group.Key.fat:F0}g G ({group.Key.kcal:F0} kcal)";
-                    
+
                     bool isFirst = true;
                     foreach (var food in group)
                     {
@@ -540,7 +538,8 @@ public class DietPdfService
         var shoppingItems = new List<ShoppingListItem>();
         foreach (var amount in foodAmounts)
         {
-            var existing = shoppingItems.FirstOrDefault(item => !item.IsExchange && item.FoodId == amount.Food.id);
+            // La lista solo contiene alimentos reales; no hay elementos de intercambio que filtrar.
+            var existing = shoppingItems.FirstOrDefault(item => item.FoodId == amount.Food.id);
             if (existing != null)
                 existing.Grams += amount.Grams;
             else
