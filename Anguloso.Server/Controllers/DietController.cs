@@ -814,7 +814,7 @@ public class DietController : ControllerBase
                     ((food.source == null || food.source.ToLower() != "local") ||
                      (tenantId.HasValue && food.tenant_id == tenantId.Value &&
                       (food.created_by_user_id == userId.Value ||
-                       (User.IsInRole("clinic_admin") || User.IsInRole("superadmin")))))
+                       (User.IsInRole("clinic_admin") || User.IsInRole("superadmin"))))))
                 .Select(food => food.id)
                 .ToListAsync()).ToHashSet();
         foreach (var item in mealItems)
