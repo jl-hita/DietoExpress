@@ -24,7 +24,7 @@
     "chart.js": "^4.6.1",
     "livekit-client": "^2.23.0",
     "rxjs": "~7.8.0",
-    "tslib": "^2.3.0",
+    "tslib": "^2.9.1",
     "zone.js": "~0.16.3"
   },
   "devDependencies": {
