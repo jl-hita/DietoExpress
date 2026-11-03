@@ -288,12 +288,19 @@ button, a, input, select, textarea { touch-action: manipulation; }
   }
 }
 
-/* Angular Material progress indicators use a square SVG whose height is
-   explicitly tied to the spinner host. The global responsive SVG rule above
-   must not replace that height with auto, or the animated rings can render
-   off-centre / with inconsistent geometry. */
-.mat-mdc-progress-spinner svg,
-.mat-progress-spinner svg {
+/* Keep Angular Material's circular progress indicators geometrically
+   square. The global responsive SVG rule above must not cap their internal
+   SVG or replace its host-relative height with auto. The host must also not
+   shrink when used inside compact flex buttons. */
+mat-spinner,
+mat-progress-spinner,
+.mat-mdc-progress-spinner {
+  flex: 0 0 auto;
+}
+
+.mat-mdc-progress-spinner > svg,
+mat-spinner > svg,
+mat-progress-spinner > svg {
   display: block;
   width: 100%;
   height: 100%;
