@@ -288,3 +288,21 @@ button, a, input, select, textarea { touch-action: manipulation; }
   }
 }
 
+/* Keep Angular Material's circular progress indicators geometrically
+   square. The global responsive SVG rule above must not cap their internal
+   SVG or replace its host-relative height with auto. The host must also not
+   shrink when used inside compact flex buttons. */
+mat-spinner,
+mat-progress-spinner,
+.mat-mdc-progress-spinner {
+  flex: 0 0 auto;
+}
+
+.mat-mdc-progress-spinner > svg,
+mat-spinner > svg,
+mat-progress-spinner > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+}
