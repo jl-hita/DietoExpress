@@ -58,6 +58,21 @@ export class DietCreateComponent implements OnInit {
 
   // Visual Editor Properties
   activeDayIndex = 0;
+  showWeeklySummary = false;
+  readonly weeklyMicronutrientColumns = [
+    { label: 'Calcio', key: 'calciumPctRda' },
+    { label: 'Hierro', key: 'ironPctRda' },
+    { label: 'Magnesio', key: 'magnesiumPctRda' },
+    { label: 'Potasio', key: 'potassiumPctRda' },
+    { label: 'Zinc', key: 'zincPctRda' },
+    { label: 'Vit. A', key: 'vitaminAPctRda' },
+    { label: 'Vit. C', key: 'vitaminCPctRda' },
+    { label: 'Vit. D', key: 'vitaminDPctRda' },
+    { label: 'Vit. E', key: 'vitaminEPctRda' },
+    { label: 'Vit. B12', key: 'vitaminB12PctRda' },
+    { label: 'Folato', key: 'folatePctRda' },
+    { label: 'Fibra', key: 'fiberPctRda' }
+  ];
   searchCtrl: FormControl;
   foodCount: number | null = null;
   foodCountError = false;
@@ -177,7 +192,7 @@ export class DietCreateComponent implements OnInit {
           // Reconstruir árbol temporal en FormArray
           if (d.days) {
             d.days.forEach(day => {
-              const dayGroup = this.createDayGroup(day.dayIndex);
+              const dayGroup = this.createDayGroup(day.dayIndex, day.micronutrients);
               const mealsArray = dayGroup.get('meals') as FormArray;
               day.meals.forEach(meal => {
                 const mealGroup = this.createMealGroup(meal.name, meal.mealIndex);
@@ -560,6 +575,34 @@ export class DietCreateComponent implements OnInit {
 
   getDayMicronutrients(dIndex: number): any {
     return this.days.at(dIndex)?.get('micronutrients')?.value || null;
+  }
+
+  getWeeklyAverage(prop: 'kcal' | 'protein' | 'carbs' | 'fat'): number {
+    if (!this.days.length) return 0;
+    return this.days.controls.reduce((total, _day, index) => total + this.getDaySum(index, prop), 0) / this.days.length;
+  }
+
+  getWeeklyEnergyBalance(): number | null {
+    const target = Number(this.form.get('targetKcal')?.value);
+    if (!Number.isFinite(target) || target <= 0 || !this.days.length) return null;
+    const actual = this.days.controls.reduce((total, _day, index) => total + this.getDayKcal(index), 0);
+    return actual - target * this.days.length;
+  }
+
+  getWeeklyAverageMicro(key: string): number | null {
+    const values = this.days.controls
+      .map((_, index) => this.getDayMicronutrients(index)?.[key])
+      .filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+    return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+  }
+
+  getMicroPct(dIndex: number, key: string): number | null {
+    const value = this.getDayMicronutrients(dIndex)?.[key];
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
+  }
+
+  formatMicroPct(value: number | null): string {
+    return value === null ? '—' : `${Math.round(value)}%`;
   }
 
   get targetKcal(): number { return this.form.get('targetKcal')?.value || 0; }
