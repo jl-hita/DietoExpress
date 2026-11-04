@@ -669,7 +669,7 @@ export class DietCreateComponent implements OnInit {
     const values = this.days.controls
       .map((_, index) => this.getDayNutrientValue(index, key, completenessKey))
       .filter((value): value is number => value !== null && Number.isFinite(value));
-    return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+    return values.length ? values.reduce((sum, value) => sum + value, 0) / this.days.length : null;
   }
 
   getNutrientCoverage(completenessKey: string): number {
