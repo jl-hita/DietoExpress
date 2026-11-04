@@ -24,7 +24,7 @@ jobs:
       - name: Verify production .NET runtime before deployment
         run: |
           set -euo pipefail
-          if ! /usr/bin/dotnet --list-runtimes | grep -E '^Microsoft\.AspNetCore\.App 10\.'; then
+          if ! /usr/bin/dotnet --list-runtimes | grep -E '^Microsoft\\.AspNetCore\\.App 10\\.'; then
             echo "ERROR: /usr/bin/dotnet no tiene instalado Microsoft.AspNetCore.App 10.x. Instala el runtime de ASP.NET Core 10 en weirdfish antes de fusionar/desplegar esta migración. No se ha modificado producción."
             exit 1
           fi
@@ -86,7 +86,11 @@ jobs:
       - name: Publicar .NET
         run: |
           rm -rf /tmp/dietoexpress-publish
-          dotnet publish Anguloso.Server/Anguloso.Server.csproj             -c Release             --no-restore             --no-build             -o /tmp/dietoexpress-publish
+          dotnet publish Anguloso.Server/Anguloso.Server.csproj \
+            -c Release \
+            --no-restore \
+            --no-build \
+            -o /tmp/dietoexpress-publish
 
       - name: Preparar versión de backend
         run: |
@@ -98,7 +102,10 @@ jobs:
         run: |
           rm -rf /tmp/dietoexpress-frontend
           mkdir -p /tmp/dietoexpress-frontend
-          cp -a anguloso.client/dist/anguloso.client/. /tmp/dietoexpress-frontend/
+          # @angular/build:application writes browser assets under the browser/ subdirectory.
+          test -f anguloso.client/dist/anguloso.client/browser/index.html
+          cp -a anguloso.client/dist/anguloso.client/browser/. /tmp/dietoexpress-frontend/
+          test -f /tmp/dietoexpress-frontend/index.html
 
       - name: Desplegar versión atómica y comprobar servicio
         env:

@@ -34,4 +34,14 @@ public sealed class ProductionSmokeWorkflowRegressionTests
         Assert.Contains("PREVIOUS_WEB", deployScript);
         Assert.Contains("[[ \"$attempt\" -lt 12 ]]", deployScript);
     }
+
+    [Fact]
+    public void ProductionDeploymentWorkflow_StagesAngularBrowserOutputAtFrontendRoot()
+    {
+        var workflow = File.ReadAllText(Path.Combine(RepoRoot, ".github", "workflows", "deploy.yml"));
+
+        Assert.Contains("test -f anguloso.client/dist/anguloso.client/browser/index.html", workflow);
+        Assert.Contains("cp -a anguloso.client/dist/anguloso.client/browser/. /tmp/dietoexpress-frontend/", workflow);
+        Assert.Contains("test -f /tmp/dietoexpress-frontend/index.html", workflow);
+    }
 }
