@@ -347,8 +347,11 @@ public class DietController : ControllerBase
                 vitamin_b12_ug = PerExchange(f => f.vitamin_b12_ug),
                 folate_ug = PerExchange(f => f.folate_ug),
                 fiber = PerExchange(f => f.fiber),
-                sugar = PerExchange(f => f.sugar),
-                salt = PerExchange(f => f.salt)
+                sugar = members.All(f => f.sugar.HasValue) ? PerExchange(f => f.sugar) : null,
+                salt = PerExchange(f => f.salt),
+                saturated_fat = members.All(f => f.saturated_fat.HasValue) ? PerExchange(f => f.saturated_fat) : null,
+                monounsaturated_fat = members.All(f => f.monounsaturated_fat.HasValue) ? PerExchange(f => f.monounsaturated_fat) : null,
+                polyunsaturated_fat = members.All(f => f.polyunsaturated_fat.HasValue) ? PerExchange(f => f.polyunsaturated_fat) : null
             };
             exchangeProfiles[group.Key] = profile;
             foodsForCalculation.Add(profile);

@@ -194,11 +194,59 @@
               <span *ngIf="weeklySummaryError" class="weekly-summary-status weekly-summary-error">No se pudo actualizar el cálculo. Vuelve a abrir el resumen para reintentarlo.</span>
             </p>
 
+            <section class="weekly-quality-section" aria-label="Calidad nutricional">
+              <div class="weekly-quality-heading">
+                <div><span class="weekly-eyebrow">CALIDAD NUTRICIONAL</span><h3>Azúcares y perfil de grasas</h3></div>
+                <span class="weekly-period-label">Media diaria · {{ days.length }} días</span>
+              </div>
+              <div class="weekly-quality-grid">
+                <article class="weekly-quality-card sugar-card">
+                  <div class="weekly-quality-icon"><mat-icon>icecream</mat-icon></div>
+                  <div class="weekly-quality-copy">
+                    <span>Azúcares totales</span>
+                    <strong>{{ getWeeklyAverageNutrient('sugarG', 'sugarDataComplete') === null ? '—' : (getWeeklyAverageNutrient('sugarG', 'sugarDataComplete') | number:'1.1-1') + ' g' }}</strong>
+                    <small *ngIf="getWeeklyAverageNutrient('sugarG', 'sugarDataComplete') !== null">{{ getAverageSugarEnergyPct() | number:'1.0-1' }}% de la energía · {{ getNutrientCoverage('sugarDataComplete') }}% de días completos</small>
+                    <small *ngIf="getWeeklyAverageNutrient('sugarG', 'sugarDataComplete') === null">Datos insuficientes en los alimentos</small>
+                  </div>
+                  <span *ngIf="getWeeklyNutrientAlert('sugar')" class="weekly-alert-pill"><mat-icon>warning</mat-icon> Alto</span>
+                  <div class="weekly-quality-track"><span [style.width.%]="getVisualPercent(getAverageSugarEnergyPct())"></span></div>
+                </article>
+                <article class="weekly-quality-card saturated-card">
+                  <div class="weekly-quality-icon"><mat-icon>water_drop</mat-icon></div>
+                  <div class="weekly-quality-copy">
+                    <span>Grasas saturadas</span>
+                    <strong>{{ getWeeklyAverageNutrient('saturatedFatG', 'saturatedFatDataComplete') === null ? '—' : (getWeeklyAverageNutrient('saturatedFatG', 'saturatedFatDataComplete') | number:'1.1-1') + ' g' }}</strong>
+                    <small *ngIf="getWeeklyAverageNutrient('saturatedFatG', 'saturatedFatDataComplete') !== null">{{ getAverageSaturatedFatEnergyPct() | number:'1.0-1' }}% de la energía · {{ getNutrientCoverage('saturatedFatDataComplete') }}% de días completos</small>
+                    <small *ngIf="getWeeklyAverageNutrient('saturatedFatG', 'saturatedFatDataComplete') === null">Datos insuficientes en los alimentos</small>
+                  </div>
+                  <span *ngIf="getWeeklyNutrientAlert('saturated')" class="weekly-alert-pill"><mat-icon>warning</mat-icon> Alto</span>
+                  <div class="weekly-quality-track"><span [style.width.%]="getVisualPercent(getAverageSaturatedFatEnergyPct())"></span></div>
+                </article>
+                <article class="weekly-quality-card unsaturated-card">
+                  <div class="weekly-quality-icon"><mat-icon>spa</mat-icon></div>
+                  <div class="weekly-quality-copy">
+                    <span>Monoinsaturadas</span>
+                    <strong>{{ getWeeklyAverageNutrient('monounsaturatedFatG', 'monounsaturatedFatDataComplete') === null ? '—' : (getWeeklyAverageNutrient('monounsaturatedFatG', 'monounsaturatedFatDataComplete') | number:'1.1-1') + ' g' }}</strong>
+                    <small>{{ getNutrientCoverage('monounsaturatedFatDataComplete') }}% de días completos</small>
+                  </div>
+                </article>
+                <article class="weekly-quality-card polyunsaturated-card">
+                  <div class="weekly-quality-icon"><mat-icon>grain</mat-icon></div>
+                  <div class="weekly-quality-copy">
+                    <span>Poliinsaturadas</span>
+                    <strong>{{ getWeeklyAverageNutrient('polyunsaturatedFatG', 'polyunsaturatedFatDataComplete') === null ? '—' : (getWeeklyAverageNutrient('polyunsaturatedFatG', 'polyunsaturatedFatDataComplete') | number:'1.1-1') + ' g' }}</strong>
+                    <small>{{ getNutrientCoverage('polyunsaturatedFatDataComplete') }}% de días completos</small>
+                  </div>
+                </article>
+              </div>
+              <p class="weekly-quality-footnote">Referencia orientativa: 10% de la energía. Los azúcares son totales, no necesariamente libres o añadidos. Las grasas insaturadas solo se muestran cuando todos los alimentos del día tienen datos.</p>
+            </section>
+
             <div class="weekly-summary-table-wrap">
               <table class="weekly-summary-table">
                 <thead>
                   <tr>
-                    <th>Día</th><th>kcal</th><th>Proteínas</th><th>Hidratos</th><th>Grasas</th>
+                    <th>Día</th><th>kcal</th><th>Proteínas</th><th>Hidratos</th><th>Grasas</th><th>Azúcares</th><th>Sat.</th><th>Mono.</th><th>Poli.</th>
                     <th *ngFor="let column of weeklyMicronutrientColumns">{{ column.label }} (% CDR)</th>
                   </tr>
                 </thead>
@@ -209,6 +257,10 @@
                     <td>{{ getDayProtein(dIndex) | number:'1.0-1' }} g</td>
                     <td>{{ getDayCarbs(dIndex) | number:'1.0-1' }} g</td>
                     <td>{{ getDayFat(dIndex) | number:'1.0-1' }} g</td>
+                    <td>{{ getDayMicronutrients(dIndex)?.sugarDataComplete ? (getDayMicronutrients(dIndex)?.sugarG | number:'1.0-1') + ' g' : '—' }}</td>
+                    <td>{{ getDayMicronutrients(dIndex)?.saturatedFatDataComplete ? (getDayMicronutrients(dIndex)?.saturatedFatG | number:'1.0-1') + ' g' : '—' }}</td>
+                    <td>{{ getDayMicronutrients(dIndex)?.monounsaturatedFatDataComplete ? (getDayMicronutrients(dIndex)?.monounsaturatedFatG | number:'1.0-1') + ' g' : '—' }}</td>
+                    <td>{{ getDayMicronutrients(dIndex)?.polyunsaturatedFatDataComplete ? (getDayMicronutrients(dIndex)?.polyunsaturatedFatG | number:'1.0-1') + ' g' : '—' }}</td>
                     <td *ngFor="let column of weeklyMicronutrientColumns">{{ formatMicroPct(getMicroPct(dIndex, column.key)) }}</td>
                   </tr>
                   <tr class="weekly-average-row">
@@ -217,6 +269,10 @@
                     <td>{{ getWeeklyAverage('protein') | number:'1.0-1' }} g</td>
                     <td>{{ getWeeklyAverage('carbs') | number:'1.0-1' }} g</td>
                     <td>{{ getWeeklyAverage('fat') | number:'1.0-1' }} g</td>
+                    <td>{{ getWeeklyAverageNutrient('sugarG', 'sugarDataComplete') === null ? '—' : (getWeeklyAverageNutrient('sugarG', 'sugarDataComplete') | number:'1.0-1') + ' g' }}</td>
+                    <td>{{ getWeeklyAverageNutrient('saturatedFatG', 'saturatedFatDataComplete') === null ? '—' : (getWeeklyAverageNutrient('saturatedFatG', 'saturatedFatDataComplete') | number:'1.0-1') + ' g' }}</td>
+                    <td>{{ getWeeklyAverageNutrient('monounsaturatedFatG', 'monounsaturatedFatDataComplete') === null ? '—' : (getWeeklyAverageNutrient('monounsaturatedFatG', 'monounsaturatedFatDataComplete') | number:'1.0-1') + ' g' }}</td>
+                    <td>{{ getWeeklyAverageNutrient('polyunsaturatedFatG', 'polyunsaturatedFatDataComplete') === null ? '—' : (getWeeklyAverageNutrient('polyunsaturatedFatG', 'polyunsaturatedFatDataComplete') | number:'1.0-1') + ' g' }}</td>
                     <td *ngFor="let column of weeklyMicronutrientColumns">{{ formatMicroPct(getWeeklyAverageMicro(column.key)) }}</td>
                   </tr>
                 </tbody>

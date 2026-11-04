@@ -394,6 +394,8 @@ CREATE INDEX IF NOT EXISTS idx_patient_push_deliveries_status
                     carbs DOUBLE PRECISION,
                     fat DOUBLE PRECISION,
                     saturated_fat DOUBLE PRECISION,
+                    monounsaturated_fat DOUBLE PRECISION,
+                    polyunsaturated_fat DOUBLE PRECISION,
                     fiber DOUBLE PRECISION,
                     sugar DOUBLE PRECISION,
                     salt DOUBLE PRECISION,
@@ -419,6 +421,8 @@ CREATE INDEX IF NOT EXISTS idx_patient_push_deliveries_status
                     exchange_group_id INTEGER REFERENCES food_exchange_groups(id) ON DELETE SET NULL,
                     grams_per_exchange NUMERIC(6, 2)
                 );
+                ALTER TABLE foods ADD COLUMN IF NOT EXISTS monounsaturated_fat DOUBLE PRECISION;
+                ALTER TABLE foods ADD COLUMN IF NOT EXISTS polyunsaturated_fat DOUBLE PRECISION;
 
                 -- 8. Diets (Planes dietéticos y plantillas)
                 CREATE TABLE IF NOT EXISTS diets (

@@ -643,6 +643,42 @@ export class DietCreateComponent implements OnInit {
     return actual - target * this.days.length;
   }
 
+  getWeeklyAverageMicro(key: string): number | null {  getWeeklyAverageNutrient(key: string, completenessKey: string): number | null {
+    const values = this.days.controls
+      .map((_, index) => this.getDayMicronutrients(index))
+      .filter(summary => summary && summary[completenessKey] === true)
+      .map(summary => Number(summary[key]))
+      .filter(value => Number.isFinite(value));
+    return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+  }
+
+  getNutrientCoverage(completenessKey: string): number {
+    if (!this.days.length) return 0;
+    return Math.round(this.days.controls.filter((_, index) =>
+      this.getDayMicronutrients(index)?.[completenessKey] === true).length / this.days.length * 100);
+  }
+
+  getAverageSugarEnergyPct(): number | null {
+    const sugar = this.getWeeklyAverageNutrient('sugarG', 'sugarDataComplete');
+    const kcal = this.getWeeklyAverage('kcal');
+    return sugar === null || kcal <= 0 ? null : sugar * 4 / kcal * 100;
+  }
+
+  getAverageSaturatedFatEnergyPct(): number | null {
+    const fat = this.getWeeklyAverageNutrient('saturatedFatG', 'saturatedFatDataComplete');
+    const kcal = this.getWeeklyAverage('kcal');
+    return fat === null || kcal <= 0 ? null : fat * 9 / kcal * 100;
+  }
+
+  getWeeklyNutrientAlert(type: 'sugar' | 'saturated'): boolean {
+    const pct = type === 'sugar' ? this.getAverageSugarEnergyPct() : this.getAverageSaturatedFatEnergyPct();
+    return pct !== null && pct > 10;
+  }
+
+  getVisualPercent(value: number | null): number {
+    return value === null || !Number.isFinite(value) ? 0 : Math.max(0, Math.min(100, value));
+  }
+
   getWeeklyAverageMicro(key: string): number | null {
     const values = this.days.controls
       .map((_, index) => this.getDayMicronutrients(index)?.[key])

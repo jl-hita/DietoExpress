@@ -484,6 +484,9 @@ public class DietGeneratorService
             double ca = 0, fe = 0, mg = 0, k = 0, zn = 0;
             double vitA = 0, vitC = 0, vitD = 0, vitE = 0, vitB12 = 0, folate = 0;
             double fiber = 0, sugar = 0, salt = 0;
+            double saturatedFat = 0, monounsaturatedFat = 0, polyunsaturatedFat = 0;
+            bool sugarDataComplete = true, saturatedFatDataComplete = true;
+            bool monounsaturatedFatDataComplete = true, polyunsaturatedFatDataComplete = true;
 
             foreach (var meal in day.Meals)
             {
@@ -509,6 +512,10 @@ public class DietGeneratorService
                     fiber += (food.fiber ?? 0) * ratio;
                     sugar += (food.sugar ?? 0) * ratio;
                     salt += (food.salt ?? 0) * ratio;
+                    if (!food.sugar.HasValue) sugarDataComplete = false;
+                    if (food.saturated_fat.HasValue) saturatedFat += food.saturated_fat.Value * ratio; else saturatedFatDataComplete = false;
+                    if (food.monounsaturated_fat.HasValue) monounsaturatedFat += food.monounsaturated_fat.Value * ratio; else monounsaturatedFatDataComplete = false;
+                    if (food.polyunsaturated_fat.HasValue) polyunsaturatedFat += food.polyunsaturated_fat.Value * ratio; else polyunsaturatedFatDataComplete = false;
                 }
             }
 
@@ -553,6 +560,13 @@ public class DietGeneratorService
             summary.FiberG = (decimal)Math.Round(fiber, 1);
             summary.FiberPctRda = (decimal)Math.Round((fiber / rdaFiber) * 100.0, 0);
             summary.SugarG = (decimal)Math.Round(sugar, 1);
+            summary.SugarDataComplete = sugarDataComplete;
+            summary.SaturatedFatG = (decimal)Math.Round(saturatedFat, 1);
+            summary.SaturatedFatDataComplete = saturatedFatDataComplete;
+            summary.MonounsaturatedFatG = (decimal)Math.Round(monounsaturatedFat, 1);
+            summary.MonounsaturatedFatDataComplete = monounsaturatedFatDataComplete;
+            summary.PolyunsaturatedFatG = (decimal)Math.Round(polyunsaturatedFat, 1);
+            summary.PolyunsaturatedFatDataComplete = polyunsaturatedFatDataComplete;
             summary.SaltG = (decimal)Math.Round(salt, 2);
 
             day.Micronutrients = summary;
