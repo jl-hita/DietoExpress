@@ -1348,3 +1348,101 @@
 .food-count-error {
   color: #b45309;
 }
+
+
+/* Resumen nutricional semanal */
+.btn-weekly-summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 8px 13px;
+  border: 1px solid #1a819c;
+  border-radius: 8px;
+  background: #fff;
+  color: #176b80;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-weekly-summary:hover:not(:disabled) { background: #eff9fb; }
+.btn-weekly-summary:disabled { opacity: .5; cursor: not-allowed; }
+.btn-weekly-summary mat-icon { width: 18px; height: 18px; font-size: 18px; }
+.weekly-summary-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, .62);
+}
+.weekly-summary-dialog {
+  width: min(1500px, 100%);
+  max-height: min(90vh, 900px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(0,0,0,.28);
+}
+.weekly-summary-header, .weekly-summary-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px;
+}
+.weekly-summary-header { border-bottom: 1px solid #e2e8f0; }
+.weekly-summary-header h2 { margin: 0; color: #172033; font-size: 19px; }
+.weekly-summary-header p { margin: 4px 0 0; color: #64748b; font-size: 12px; }
+.weekly-summary-close {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border: 0; border-radius: 8px;
+  background: #f1f5f9; color: #475569; cursor: pointer;
+}
+.weekly-energy-cards {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px; padding: 16px 22px 8px;
+}
+.weekly-energy-card {
+  display: flex; flex-direction: column; gap: 5px;
+  padding: 12px 14px; border: 1px solid #dbe4ee; border-radius: 10px;
+  background: #f8fafc;
+}
+.weekly-energy-card span, .weekly-energy-card small { color: #64748b; font-size: 12px; }
+.weekly-energy-card strong { color: #172033; font-size: 21px; }
+.weekly-energy-card.weekly-deficit strong { color: #0f766e; }
+.weekly-energy-card.weekly-surplus strong { color: #b45309; }
+.weekly-summary-note { margin: 4px 22px 12px; color: #64748b; font-size: 11px; line-height: 1.45; }
+.weekly-summary-table-wrap { overflow: auto; margin: 0 22px; border: 1px solid #e2e8f0; border-radius: 8px; }
+.weekly-summary-table { width: max-content; min-width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+.weekly-summary-table th, .weekly-summary-table td {
+  padding: 9px 11px; text-align: right; white-space: nowrap;
+  border-bottom: 1px solid #edf1f5;
+}
+.weekly-summary-table thead th { position: sticky; top: 0; z-index: 1; background: #f1f5f9; color: #475569; font-size: 10px; }
+.weekly-summary-table th:first-child, .weekly-summary-table td:first-child { position: sticky; left: 0; text-align: left; }
+.weekly-summary-table tbody th { background: #fff; color: #334155; }
+.weekly-summary-table tbody td { color: #475569; }
+.weekly-summary-table .weekly-average-row th, .weekly-summary-table .weekly-average-row td {
+  background: #eaf3f5; color: #173f4a; font-weight: 750; border-bottom: 0;
+}
+.weekly-summary-footer { border-top: 1px solid #e2e8f0; color: #64748b; font-size: 11px; }
+.weekly-summary-footer .btn { flex: 0 0 auto; }
+@media (max-width: 700px) {
+  .days-nav-wrapper { flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .btn-weekly-summary { order: 3; width: 100%; }
+  .weekly-summary-backdrop { padding: 8px; }
+  .weekly-summary-dialog { max-height: 94vh; border-radius: 10px; }
+  .weekly-summary-header, .weekly-summary-footer { padding: 13px; }
+  .weekly-energy-cards { grid-template-columns: 1fr; padding: 12px 13px 6px; }
+  .weekly-summary-note { margin: 6px 13px 10px; }
+  .weekly-summary-table-wrap { margin: 0 13px; }
+  .weekly-summary-footer { align-items: flex-start; flex-direction: column; }
+  .weekly-summary-footer .btn { width: 100%; }
+}
