@@ -16,9 +16,9 @@ Rutas de producción actuales:
 
 | Ruta | Uso | Persistente |
 |---|---|---:|
-| /opt/dietoexpress | Backend publicado | No |
+| /opt/dietoexpress/releases | Versiones publicadas del backend | No |\n| /opt/dietoexpress/current | Enlace a la versión activa del backend | No |\n| /opt/dietoexpress/scripts | Enlace estable a los scripts operativos de la versión activa | No |
 | /opt/dietoexpress/wwwroot | Frontend dentro del backend | No |
-| /var/www/dietoexpress | Frontend servido por Nginx | No |
+| /var/www/dietoexpress-releases | Versiones publicadas del frontend | No |\n| /var/www/dietoexpress | Enlace a la versión activa; Nginx conserva esta raíz | No |
 | /var/lib/dietoexpress/Logs | Logs de aplicación | Sí |
 | /var/lib/dietoexpress/AlertSpool | Cola persistente de alertas | Sí |
 | /var/lib/dietoexpress/documents | Documentos y PDF persistentes (pacientes, profesionales y administración) | Sí |
@@ -850,6 +850,34 @@ sudo journalctl -u dietoexpress.service -n 100 --no-pager
 ~~~
 
 La aplicación no debe ejecutarse como root.
+
+## Despliegues versionados y rollback
+
+El workflow de GitHub Actions publica cada commit en un directorio independiente:
+
+- Backend: `/opt/dietoexpress/releases/<commit>`.
+- Frontend: `/var/www/dietoexpress-releases/<commit>`.
+- Backend activo: enlace `/opt/dietoexpress/current`.
+- Frontend activo: enlace `/var/www/dietoexpress` (la raíz de Nginx no cambia).
+- Los scripts operativos mantienen la ruta estable `/opt/dietoexpress/scripts`, enlazada a la versión activa.
+
+El script `scripts/dietoexpress-deploy-atomic.sh` prepara ambos artefactos antes de cambiar los enlaces. Usa `flock` para impedir despliegues simultáneos y sustituye cada enlace mediante rename atómico. Después actualiza el drop-in de systemd, reinicia el backend y comprueba la portada HTTPS y el endpoint público del directorio. Si falla el reinicio o cualquiera de las comprobaciones, restaura los dos enlaces anteriores y vuelve a probar la versión previa. Si no existe una versión previa completa, detiene el servicio.
+
+Se conservan cinco releases recientes además de la versión activa; no se eliminan datos persistentes. Logs, AlertSpool, documentos, configuración y PostgreSQL siguen fuera de los releases. El rollback revierte código, no migraciones de base de datos: los cambios de esquema deben seguir siendo compatibles con la versión anterior durante el despliegue.
+
+La primera ejecución migra el contenido actual de Nginx a un release `legacy` y convierte `/var/www/dietoexpress` en enlace. En backend se conserva el directorio raíz y se crea `current`; los scripts existentes se apartan como `scripts-legacy-<fecha>` y la ruta estable `scripts` pasa a apuntar al release activo.
+
+Comprobaciones manuales:
+
+~~~bash
+readlink -f /opt/dietoexpress/current
+readlink -f /var/www/dietoexpress
+systemctl cat dietoexpress.service
+systemctl status dietoexpress.service --no-pager
+~~~
+
+Para volver manualmente a una versión anterior, sustituye ambos enlaces por los directorios del mismo release y reinicia el servicio. No cambies solo uno de los dos enlaces.
+
 
 ---
 
