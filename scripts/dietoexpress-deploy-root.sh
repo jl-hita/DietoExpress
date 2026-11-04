@@ -106,7 +106,8 @@ install -d -o root -g root -m 0755 "$BACKEND_TARGET" "$WEB_TARGET"
 # Se construyen las dos versiones completas antes de cambiar ningún enlace.
 rsync -a --delete "$BACKEND_STAGE/" "$BACKEND_TARGET/"
 rsync -a --delete "$FRONTEND_STAGE/" "$BACKEND_TARGET/wwwroot/"
-rsync -a --delete "$FRONTEND_STAGE/" "$WEB_TARGET/"
+install -d -o root -g root -m 0755 "$WEB_TARGET/browser"
+rsync -a --delete "$FRONTEND_STAGE/" "$WEB_TARGET/browser/"
 
 # Los releases son inmutables para joso y para Nginx: el servicio solo necesita
 # leer el backend y Nginx solo necesita leer los estáticos.
@@ -125,7 +126,8 @@ getent passwd nginx >/dev/null || fail "no existe el usuario de servicio nginx."
 runuser -u nginx -- test -x /var/www || fail "nginx no puede atravesar /var/www."
 runuser -u nginx -- test -x "$WEB_RELEASES" || fail "nginx no puede atravesar el directorio de releases web."
 runuser -u nginx -- test -x "$WEB_TARGET" || fail "nginx no puede atravesar el release web."
-runuser -u nginx -- test -r "$WEB_TARGET/index.html" || fail "nginx no puede leer el index.html publicado."
+runuser -u nginx -- test -x "$WEB_TARGET/browser" || fail "nginx no puede atravesar el directorio browser publicado."
+runuser -u nginx -- test -r "$WEB_TARGET/browser/index.html" || fail "nginx no puede leer browser/index.html publicado."
 
 restorecon -RF "$WEB_TARGET" "$BACKEND_TARGET"
 

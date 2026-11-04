@@ -92,10 +92,10 @@ La restauración real de PostgreSQL ya fue probada anteriormente, pero en una re
 Usa la guía de despliegue para configurar, con los valores de este host:
 
 - `/etc/systemd/system/dietoexpress.service`, usuario `joso`, working directory `/opt/dietoexpress/current` y variables de entorno protegidas.
-- Directorios de releases y enlaces activos: `/opt/dietoexpress/releases`, `/opt/dietoexpress/current`, `/var/www/dietoexpress-releases` y `/var/www/dietoexpress`. El workflow migra automáticamente la primera instalación desde los directorios planos y mantiene la raíz configurada en Nginx.
+- Directorios de releases y enlaces activos: `/opt/dietoexpress/releases`, `/opt/dietoexpress/current`, `/var/www/dietoexpress-releases` y `/var/www/dietoexpress`. El workflow migra automáticamente la primera instalación desde los directorios planos y mantiene la raíz configurada en Nginx (`/var/www/dietoexpress/browser`); el release web conserva el subdirectorio `browser` y `wwwroot` del backend queda plano.
 - Configuración de Nginx para el dominio y proxy a Kestrel.
 - Certificado TLS mediante Certbot.
-- Permisos y contexto SELinux de las rutas de aplicación y persistencia. Los releases backend/web deben pertenecer a `joso:joso`; directorios `0755`, scripts operativos `0750` y estáticos web `0644`. Nginx (`nginx`) debe poder atravesar `/var/www` y leer `index.html`, sin permisos de escritura. Tras restaurar o copiar releases, aplicar `restorecon` y verificar con `sudo -u nginx test -r /var/www/dietoexpress/index.html`.
+- Permisos y contexto SELinux de las rutas de aplicación y persistencia. Los releases backend/web se publican como `root:root`; directorios `0755`, scripts operativos `0750` y estáticos web `0644`. Nginx (`nginx`) debe poder atravesar `/var/www` y leer `/var/www/dietoexpress/browser/index.html`, sin permisos de escritura. Tras restaurar o copiar releases, aplicar `restorecon` y verificar con `sudo -u nginx test -r /var/www/dietoexpress/browser/index.html`.
 - Firewall con acceso solo a SSH y HTTP/HTTPS; PostgreSQL y Kestrel deben seguir siendo internos.
 - Acceso SSH/secretos de GitHub Actions necesarios para el despliegue.
 

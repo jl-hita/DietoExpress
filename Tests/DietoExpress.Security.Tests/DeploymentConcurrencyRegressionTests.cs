@@ -75,6 +75,19 @@ public sealed class DeploymentConcurrencyRegressionTests
     }
 
     [Fact]
+    public void AtomicDeployment_MustPreserveAngularBrowserDirectoryForNginx()
+    {
+        var script = File.ReadAllText(Path.Combine(RepoRoot, "scripts", "dietoexpress-deploy-root.sh"));
+
+        Assert.Contains("rsync -a --delete \"$FRONTEND_STAGE/\" \"$BACKEND_TARGET/wwwroot/\"", script);
+        Assert.Contains("install -d -o root -g root -m 0755 \"$WEB_TARGET/browser\"", script);
+        Assert.Contains("rsync -a --delete \"$FRONTEND_STAGE/\" \"$WEB_TARGET/browser/\"", script);
+        Assert.Contains("runuser -u nginx -- test -x \"$WEB_TARGET/browser\"", script);
+        Assert.Contains("runuser -u nginx -- test -r \"$WEB_TARGET/browser/index.html\"", script);
+        Assert.DoesNotContain("\"$WEB_TARGET/index.html\"", script);
+    }
+
+    [Fact]
     public void AtomicDeployment_MustNormalizeReleasePermissionsAndVerifyNginxReadAccess()
     {
         var script = File.ReadAllText(Path.Combine(RepoRoot, "scripts", "dietoexpress-deploy-root.sh"));
