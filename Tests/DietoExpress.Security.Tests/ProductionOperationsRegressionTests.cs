@@ -22,7 +22,8 @@ public sealed class ProductionOperationsRegressionTests
     {
         var root = RepoRoot;
         var operations = File.ReadAllText(Path.Combine(root, "docs", "OPERACION_1_0.md"));
-        var deployment = File.ReadAllText(Path.Combine(root, ".github", "workflows", "deploy.yml"));
+        var deploymentManual = File.ReadAllText(Path.Combine(root, "docs", "GUIA_DESPLIEGUE_LINUX_PRODUCCION.md"));
+        var deployScript = File.ReadAllText(Path.Combine(root, "scripts", "dietoexpress-deploy-atomic.sh"));
 
         Assert.Contains("Backup", operations);
         Assert.Contains("Restauración", operations);
@@ -31,9 +32,10 @@ public sealed class ProductionOperationsRegressionTests
         Assert.Contains("Soporte de primera línea", operations);
         Assert.Contains("Alertas externas operativas y verificadas", operations);
         Assert.Contains("Restauración de un backup probada en infraestructura independiente", operations);
-        Assert.Contains("Smoke test producción", deployment);
-        Assert.Contains("test -d /var/lib/dietoexpress/Logs", deployment);
-        Assert.Contains("test -d /var/lib/dietoexpress/AlertSpool", deployment);
+        Assert.Contains("/var/lib/dietoexpress/Logs", deploymentManual);
+        Assert.Contains("/var/lib/dietoexpress/AlertSpool", deploymentManual);
+        Assert.Contains("smoke_test()", deployScript);
+        Assert.Contains("systemctl is-active --quiet dietoexpress.service", deployScript);
     }
 
     [Fact]
@@ -41,14 +43,13 @@ public sealed class ProductionOperationsRegressionTests
     {
         var root = RepoRoot;
         var project = File.ReadAllText(Path.Combine(root, "Anguloso.Server", "Anguloso.Server.csproj"));
-        var deploy = File.ReadAllText(Path.Combine(root, ".github", "workflows", "deploy.yml"));
+        var deployScript = File.ReadAllText(Path.Combine(root, "scripts", "dietoexpress-deploy-atomic.sh"));
 
-        // El deploy limpia /opt/dietoexpress; los helpers deben incluirse en dotnet publish
-        // y recibir permisos ejecutables, igual que el resto de scripts operativos.
+        // Los helpers viajan dentro del publish del backend y se conservan en cada release.
         Assert.Contains("dietoexpress-pg-backup-root.sh", project);
         Assert.Contains("dietoexpress-restore-post.sh", project);
-        Assert.Contains("dietoexpress-pg-backup-root.sh", deploy);
-        Assert.Contains("dietoexpress-restore-post.sh", deploy);
+        Assert.Contains("rsync -a --delete \"$BACKEND_STAGE/\" \"$BACKEND_TARGET/\"", deployScript);
+        Assert.Contains("find \"$BACKEND_TARGET/scripts\" -type f -name '*.sh' -exec chmod 0750", deployScript);
     }
 
     [Fact]
@@ -105,7 +106,6 @@ public sealed class ProductionOperationsRegressionTests
         var pgBackupHelper = File.ReadAllText(Path.Combine(root, "scripts", "dietoexpress-pg-backup-root.sh"));
         var pgBackupCommands = string.Join(Environment.NewLine, pgBackupHelper.Split('\n').Where(line => !line.TrimStart().StartsWith("#", StringComparison.Ordinal)));
         var pgRestoreCommands = string.Join(Environment.NewLine, pgRestoreHelper.Split('\n').Where(line => !line.TrimStart().StartsWith("#", StringComparison.Ordinal)));
-        var deploy = File.ReadAllText(Path.Combine(root, ".github", "workflows", "deploy.yml"));
         var controller = File.ReadAllText(Path.Combine(root, "Anguloso.Server", "Controllers", "AdminDatabaseBackupController.cs"));
         var databaseBackupService = File.ReadAllText(Path.Combine(root, "Anguloso.Server", "Logica", "DatabaseBackupService.cs"));
         var adminDashboard = File.ReadAllText(Path.Combine(root, "anguloso.client", "src", "app", "componentes", "admin", "admin-dashboard.component.ts"));
@@ -168,8 +168,8 @@ public sealed class ProductionOperationsRegressionTests
         Assert.Contains("flock 9", pgRestoreHelper);
         Assert.DoesNotContain("--no-owner", pgBackupCommands);
         Assert.DoesNotContain("--no-owner", pgRestoreCommands);
-        Assert.DoesNotContain("install-dietoexpress-backup-automation.sh", deploy);
-        Assert.DoesNotContain("sudo bash /opt/dietoexpress/scripts/", deploy);
+        Assert.DoesNotContain("install-dietoexpress-backup-automation.sh", provisioning);
+        Assert.DoesNotContain("sudo bash /opt/dietoexpress/scripts/", provisioning);
         Assert.Contains("[HttpPost(\"{fileName}/verify\")]", controller);
         Assert.Contains("[HttpPost(\"{fileName}/restore\")]", controller);
         Assert.Contains("/usr/local/sbin/dietoexpress-restore-web", databaseBackupService);
