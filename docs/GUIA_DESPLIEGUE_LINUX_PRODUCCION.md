@@ -21,7 +21,7 @@ Rutas de producción actuales:
 | /opt/dietoexpress/scripts | Enlace estable a los scripts operativos de la versión activa | No |
 | /opt/dietoexpress/current/wwwroot | Frontend publicado junto al backend activo | No |
 | /var/www/dietoexpress-releases | Versiones publicadas del frontend | No |
-| /var/www/dietoexpress | Enlace a la versión activa; Nginx conserva esta raíz | No |
+| /var/www/dietoexpress | Enlace a la versión activa; Nginx conserva esta raíz | No |\n| /var/www/dietoexpress/browser | Angular browser output servido por Nginx (`index.html` y assets) | No |
 | /var/lib/dietoexpress/Logs | Logs de aplicación | Sí |
 | /var/lib/dietoexpress/AlertSpool | Cola persistente de alertas | Sí |
 | /var/lib/dietoexpress/documents | Documentos y PDF persistentes (pacientes, profesionales y administración) | Sí |
@@ -708,7 +708,7 @@ Nginx debe:
 1. atender HTTP;
 2. redirigir a HTTPS;
 3. atender HTTPS;
-4. servir /var/www/dietoexpress;
+4. servir `/var/www/dietoexpress/browser` (manteniendo `/var/www/dietoexpress` como raíz pública y el subdirectorio `browser` del build Angular);
 5. reenviar /api/ al backend;
 6. pasar Host, X-Real-IP, X-Forwarded-For y X-Forwarded-Proto;
 7. no exponer el puerto interno de ASP.NET Core.
@@ -729,7 +729,7 @@ server {
     listen 443 ssl http2;
     server_name <DOMINIO>;
 
-    root /var/www/dietoexpress;
+    root /var/www/dietoexpress/browser;
 
     location /api/ {
         proxy_pass http://127.0.0.1:<PORT>;
@@ -859,14 +859,14 @@ La aplicación no debe ejecutarse como root.
 El workflow de GitHub Actions publica cada commit en un directorio independiente:
 
 - Backend: `/opt/dietoexpress/releases/<commit>`.
-- Frontend: `/var/www/dietoexpress-releases/<commit>`.
+- Frontend: `/var/www/dietoexpress-releases/<commit>/browser` (el staging Angular se copia conservando el subdirectorio `browser`).
 - Backend activo: enlace `/opt/dietoexpress/current`.
 - Frontend activo: enlace `/var/www/dietoexpress` (la raíz de Nginx no cambia).
 - Los scripts operativos mantienen la ruta estable `/opt/dietoexpress/scripts`, enlazada a la versión activa.
 
 El runner ejecuta `scripts/dietoexpress-deploy-atomic.sh` como `joso`; este solo invoca `sudo -n /usr/local/sbin/dietoexpress-deploy <SHA>`. El helper privilegiado se instala mediante `scripts/provision-dietoexpress-deploy.sh` y queda como `root:root 0750`. La regla `/etc/sudoers.d/dietoexpress-deploy` permite únicamente ese ejecutable y un identificador de versión validado; no se conceden permisos sudo genéricos para `bash`, `rsync`, `tee` ni `systemctl`.
 
-El helper usa rutas fijas, valida los directorios de staging y sus propietarios, rechaza enlaces simbólicos en los artefactos y comprueba que los directorios persistentes sigan siendo escribibles por `joso`. Protege `/opt/dietoexpress` y los directorios de releases como `root:root 0755`; el backend y el frontend publicados también quedan bajo `root:root`, legibles por el servicio `joso` y por Nginx, pero no modificables por el runner. Los datos persistentes mantienen sus permisos actuales. El helper usa `flock` para impedir despliegues simultáneos y sustituye los enlaces mediante rename atómico. Antes de activar el release comprueba expresamente que Nginx puede atravesar `/var/www` y el directorio de releases y leer `index.html`. Después aplica los contextos SELinux con `restorecon`, actualiza el drop-in de systemd, reinicia el backend y comprueba la portada HTTPS y el endpoint público del directorio. Si falla el reinicio o cualquiera de las comprobaciones, restaura los dos enlaces anteriores y vuelve a probar la versión previa. Si no existe una versión previa completa, detiene el servicio.
+El helper usa rutas fijas, valida los directorios de staging y sus propietarios, rechaza enlaces simbólicos en los artefactos y comprueba que los directorios persistentes sigan siendo escribibles por `joso`. Protege `/opt/dietoexpress` y los directorios de releases como `root:root 0755`; el backend y el frontend publicados también quedan bajo `root:root`, legibles por el servicio `joso` y por Nginx, pero no modificables por el runner. Los datos persistentes mantienen sus permisos actuales. El helper usa `flock` para impedir despliegues simultáneos y sustituye los enlaces mediante rename atómico. Antes de activar el release comprueba expresamente que Nginx puede atravesar `/var/www` y el directorio de releases y leer `browser/index.html` bajo el release web. El frontend del backend se conserva plano en `wwwroot`, mientras que el release servido por Nginx conserva `browser/`. Después aplica los contextos SELinux con `restorecon`, actualiza el drop-in de systemd, reinicia el backend y comprueba la portada HTTPS y el endpoint público del directorio. Si falla el reinicio o cualquiera de las comprobaciones, restaura los dos enlaces anteriores y vuelve a probar la versión previa. Si no existe una versión previa completa, detiene el servicio.
 
 **Instalación inicial del helper (una sola vez, o después de modificarlo):**
 
