@@ -122,7 +122,7 @@ public class OpenFoodFactsService
             if (localResults.Count > 5)
             {
                 await RefreshIncompleteMicrosAsync(localResults);
-                return ListaProductos(localResults);
+                return await BuildSearchResultsAsync(dbContext, localResults);
             }
 
             // 3. Buscar fuera si no hay resultados
@@ -130,7 +130,7 @@ public class OpenFoodFactsService
 
             //Si queremos devolver la consulta más los pocos guardados debemos usar estas lineas
             localResults = await localQuery.ToListAsync();
-            return ListaProductos(localResults);
+            return await BuildSearchResultsAsync(dbContext, localResults);
 
             //Si solo queremos devolver la consulta debemos usar esta línea
             //return offResults;
@@ -153,6 +153,65 @@ public class OpenFoodFactsService
             return new List<OffProduct>();
         }
     }
+
+    // Enriquecemos únicamente los resultados de la búsqueda actual (máximo 50 alimentos).
+    // Las agregaciones se ejecutan en SQL; no recorren todo el catálogo ni todas las dietas en memoria.
+    private static async Task<List<OffProduct>> BuildSearchResultsAsync(angulosodbContext dbContext, List<foods> foodsList)
+    {
+        if (foodsList.Count == 0) return new List<OffProduct>();
+
+        var foodIds = foodsList.Select(food => food.id).Distinct().ToArray();
+
+        var directUsage = await dbContext.meal_items.AsNoTracking()
+            .Where(item => item.food_id.HasValue && foodIds.Contains(item.food_id.Value))
+            .GroupBy(item => item.food_id!.Value)
+            .Select(group => new { FoodId = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(item => item.FoodId, item => item.Count);
+
+        var recipeUsage = await (
+            from mealItem in dbContext.meal_items.AsNoTracking()
+            where mealItem.recipe_id.HasValue
+            join ingredient in dbContext.recipe_items.AsNoTracking()
+                on mealItem.recipe_id!.Value equals ingredient.recipe_id
+            where foodIds.Contains(ingredient.food_id)
+            group ingredient by ingredient.food_id into grouped
+            select new { FoodId = grouped.Key, Count = grouped.Count() }
+        ).ToDictionaryAsync(item => item.FoodId, item => item.Count);
+
+        return foodsList
+            .Select(food => new OffProduct(food)
+            {
+                UsageCount = directUsage.GetValueOrDefault(food.id) + recipeUsage.GetValueOrDefault(food.id),
+                NutritionalDataComplete = HasCompleteNutritionalData(food)
+            })
+            .OrderByDescending(product => product.UsageCount)
+            .ThenBy(product => product.Product_name)
+            .ThenBy(product => product.Id)
+            .ToList();
+    }
+
+    private static bool HasCompleteNutritionalData(foods food) =>
+        food.kcal.HasValue &&
+        food.protein.HasValue &&
+        food.carbs.HasValue &&
+        food.fat.HasValue &&
+        food.sugar.HasValue &&
+        food.saturated_fat.HasValue &&
+        food.monounsaturated_fat.HasValue &&
+        food.polyunsaturated_fat.HasValue &&
+        food.fiber.HasValue &&
+        food.salt.HasValue &&
+        food.vitamin_a_ug.HasValue &&
+        food.vitamin_c_mg.HasValue &&
+        food.vitamin_d_ug.HasValue &&
+        food.vitamin_e_mg.HasValue &&
+        food.vitamin_b12_ug.HasValue &&
+        food.folate_ug.HasValue &&
+        food.calcium_mg.HasValue &&
+        food.iron_mg.HasValue &&
+        food.magnesium_mg.HasValue &&
+        food.potassium_mg.HasValue &&
+        food.zinc_mg.HasValue;
 
     /*
      * Busca productos en OpenFoodFacts
