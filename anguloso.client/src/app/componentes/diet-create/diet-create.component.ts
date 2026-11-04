@@ -658,6 +658,12 @@ export class DietCreateComponent implements OnInit {
       this.getDayMicronutrients(index)?.[completenessKey] === true).length / this.days.length * 100);
   }
 
+  getAverageSugarCarbsPct(): number | null {
+    const sugar = this.getWeeklyAverageNutrient('sugarG', 'sugarDataComplete');
+    const carbs = this.getWeeklyAverage('carbs');
+    return sugar === null || carbs <= 0 ? null : sugar / carbs * 100;
+  }
+
   getAverageSugarEnergyPct(): number | null {
     const sugar = this.getWeeklyAverageNutrient('sugarG', 'sugarDataComplete');
     const kcal = this.getWeeklyAverage('kcal');

@@ -205,7 +205,7 @@
                   <div class="weekly-quality-copy">
                     <span>Azúcares totales</span>
                     <strong>{{ getWeeklyAverageNutrient('sugarG', 'sugarDataComplete') === null ? '—' : (getWeeklyAverageNutrient('sugarG', 'sugarDataComplete') | number:'1.1-1') + ' g' }}</strong>
-                    <small *ngIf="getWeeklyAverageNutrient('sugarG', 'sugarDataComplete') !== null">{{ getAverageSugarEnergyPct() | number:'1.0-1' }}% de la energía · {{ getNutrientCoverage('sugarDataComplete') }}% de días completos</small>
+                    <small *ngIf="getWeeklyAverageNutrient('sugarG', 'sugarDataComplete') !== null">{{ getAverageSugarCarbsPct() | number:'1.0-1' }}% de hidratos · {{ getAverageSugarEnergyPct() | number:'1.0-1' }}% de energía · {{ getNutrientCoverage('sugarDataComplete') }}% de días completos</small>
                     <small *ngIf="getWeeklyAverageNutrient('sugarG', 'sugarDataComplete') === null">Datos insuficientes en los alimentos</small>
                   </div>
                   <span *ngIf="getWeeklyNutrientAlert('sugar')" class="weekly-alert-pill"><mat-icon>warning</mat-icon> Alto</span>

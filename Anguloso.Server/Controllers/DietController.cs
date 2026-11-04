@@ -357,6 +357,20 @@ public class DietController : ControllerBase
             foodsForCalculation.Add(profile);
         }
 
+        foreach (var missingExchangeId in exchangeIds.Where(id => !exchangeProfiles.ContainsKey(id)))
+        {
+            var missingProfile = new foods
+            {
+                id = -missingExchangeId,
+                sugar = null,
+                saturated_fat = null,
+                monounsaturated_fat = null,
+                polyunsaturated_fat = null
+            };
+            exchangeProfiles[missingExchangeId] = missingProfile;
+            foodsForCalculation.Add(missingProfile);
+        }
+
         var recipesById = recipes.ToDictionary(r => r.id);
         var calculationDiet = new DietDetailDto
         {
