@@ -28,5 +28,10 @@ public sealed class ProductionSmokeWorkflowRegressionTests
         Assert.Contains("https://$DOMAIN/api/directory/professionals", deployScript);
         Assert.Contains("python3 -c 'import json;", deployScript);
         Assert.Contains("grep -Fq \"DietoExpress\"", deployScript);
+        Assert.Contains("rollback \\"falló el smoke test de frontend o API\\"", deployScript);
+        Assert.Contains("rollback \\"no se pudo reiniciar systemd\\"", deployScript);
+        Assert.Contains("PREVIOUS_BACKEND", deployScript);
+        Assert.Contains("PREVIOUS_WEB", deployScript);
+        Assert.Contains("[[ \\"$attempt\\" -lt 12 ]]", deployScript);
     }
 }
