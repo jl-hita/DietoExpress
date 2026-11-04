@@ -73,4 +73,18 @@ public sealed class DeploymentConcurrencyRegressionTests
         Assert.Contains("rollback", manual, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("PostgreSQL", manual);
     }
+    [Fact]
+    public void AtomicDeployment_MustNormalizeReleasePermissionsAndVerifyNginxReadAccess()
+    {
+        var script = File.ReadAllText(Path.Combine(RepoRoot, "scripts", "dietoexpress-deploy-atomic.sh"));
+
+        Assert.Contains("chown -R joso:joso", script);
+        Assert.Contains("chmod 0755", script);
+        Assert.Contains("chmod 0644", script);
+        Assert.Contains("chmod 0750", script);
+        Assert.Contains("sudo -u nginx test -x", script);
+        Assert.Contains("sudo -u nginx test -r", script);
+        Assert.Contains("restorecon -RF", script);
+    }
+
 }
