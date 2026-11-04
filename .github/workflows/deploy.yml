@@ -25,7 +25,7 @@ jobs:
         run: |
           set -euo pipefail
           runtimes="$(/usr/bin/dotnet --list-runtimes)"
-          printf '%s\\n' "$runtimes"
+          printf '%s\n' "$runtimes"
           if ! grep -Fq 'Microsoft.AspNetCore.App 10.' <<< "$runtimes"; then
             echo "ERROR: /usr/bin/dotnet no tiene instalado Microsoft.AspNetCore.App 10.x. Instala el runtime de ASP.NET Core 10 en weirdfish antes de desplegar. No se ha modificado producción."
             exit 1
