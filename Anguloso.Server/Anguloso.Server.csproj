@@ -55,6 +55,12 @@
              Link="scripts\provision-dietoexpress-backup-automation.sh"
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\\scripts\\dietoexpress-deploy-root.sh"
+             Link="scripts\\dietoexpress-deploy-root.sh"
+             CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\\scripts\\provision-dietoexpress-deploy.sh"
+             Link="scripts\\provision-dietoexpress-deploy.sh"
+             CopyToPublishDirectory="PreserveNewest" />
     <Content Include="..\scripts\dietoexpress-backup-google-drive-restore.sh"
              Link="scripts\dietoexpress-backup-google-drive-restore.sh"
              CopyToOutputDirectory="PreserveNewest"
