@@ -874,10 +874,9 @@ El helper usa rutas fijas, valida los directorios de staging y sus propietarios,
 # Desde el checkout revisado del repositorio:
 sudo bash scripts/provision-dietoexpress-deploy.sh "$PWD/scripts/dietoexpress-deploy-root.sh"
 sudo -l -U joso
-sudo -n -u joso /usr/local/sbin/dietoexpress-deploy --help
 ~~~
 
-El último comando debe fallar por argumentos no válidos, no pedir contraseña. Para una actualización posterior, repite el provisioning desde el checkout revisado.
+La salida de `sudo -l` debe mostrar la regla limitada a `/usr/local/sbin/dietoexpress-deploy` con un único argumento de versión. No ejecutes el helper manualmente: el workflow lo invoca después de preparar y validar los artefactos. Para una actualización posterior, repite el provisioning desde el checkout revisado.
 
 Se conservan cinco releases recientes además de la versión activa; no se eliminan datos persistentes. Logs, AlertSpool, documentos, configuración y PostgreSQL siguen fuera de los releases. El rollback revierte código, no migraciones de base de datos: los cambios de esquema deben seguir siendo compatibles con la versión anterior durante el despliegue.
 
