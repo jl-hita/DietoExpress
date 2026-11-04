@@ -16,9 +16,12 @@ Rutas de producción actuales:
 
 | Ruta | Uso | Persistente |
 |---|---|---:|
-| /opt/dietoexpress/releases | Versiones publicadas del backend | No |\n| /opt/dietoexpress/current | Enlace a la versión activa del backend | No |\n| /opt/dietoexpress/scripts | Enlace estable a los scripts operativos de la versión activa | No |
+| /opt/dietoexpress/releases | Versiones publicadas del backend | No |
+| /opt/dietoexpress/current | Enlace a la versión activa del backend | No |
+| /opt/dietoexpress/scripts | Enlace estable a los scripts operativos de la versión activa | No |
 | /opt/dietoexpress/current/wwwroot | Frontend publicado junto al backend activo | No |
-| /var/www/dietoexpress-releases | Versiones publicadas del frontend | No |\n| /var/www/dietoexpress | Enlace a la versión activa; Nginx conserva esta raíz | No |
+| /var/www/dietoexpress-releases | Versiones publicadas del frontend | No |
+| /var/www/dietoexpress | Enlace a la versión activa; Nginx conserva esta raíz | No |
 | /var/lib/dietoexpress/Logs | Logs de aplicación | Sí |
 | /var/lib/dietoexpress/AlertSpool | Cola persistente de alertas | Sí |
 | /var/lib/dietoexpress/documents | Documentos y PDF persistentes (pacientes, profesionales y administración) | Sí |
