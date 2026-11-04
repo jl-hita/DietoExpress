@@ -643,7 +643,7 @@ export class DietCreateComponent implements OnInit {
     return actual - target * this.days.length;
   }
 
-  getWeeklyAverageMicro(key: string): number | null {  getWeeklyAverageNutrient(key: string, completenessKey: string): number | null {
+  getWeeklyAverageNutrient(key: string, completenessKey: string): number | null {
     const values = this.days.controls
       .map((_, index) => this.getDayMicronutrients(index))
       .filter(summary => summary && summary[completenessKey] === true)

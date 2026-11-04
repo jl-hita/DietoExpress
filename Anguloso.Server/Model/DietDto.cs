@@ -106,8 +106,6 @@ public class MicronutrientDailySummaryDto
     public decimal FiberG { get; set; }
     public decimal FiberPctRda { get; set; }
     public decimal SugarG { get; set; }
-    public decimal SaltG { get; set; }
-    public decimal SugarG { get; set; }
     public bool SugarDataComplete { get; set; }
     public decimal SaturatedFatG { get; set; }
     public bool SaturatedFatDataComplete { get; set; }

@@ -550,7 +550,6 @@ public class OpenFoodFactsService
                         else if (name.Contains("carbohydrate")) nutr.Carbohydrates100g ??= value;
                         else if (name.Contains("sugar")) nutr.Sugars100g ??= value;
                         else if (name.Contains("fiber")) nutr.Fiber100g ??= value;
-                        else if (name.Contains("saturated")) nutr.SaturatedFat100g ??= value;
                         else if (name.Contains("monounsaturated")) nutr.MonounsaturatedFat100g ??= value;
                         else if (name.Contains("polyunsaturated")) nutr.PolyunsaturatedFat100g ??= value;
                         else if (name.Contains("saturated")) nutr.SaturatedFat100g ??= value;
