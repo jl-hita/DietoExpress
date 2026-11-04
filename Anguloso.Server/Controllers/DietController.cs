@@ -279,6 +279,8 @@ public class DietController : ControllerBase
 
         var requestedFoodIds = items.Where(i => i.FoodId.HasValue).Select(i => i.FoodId!.Value).Distinct().ToList();
         var requestedRecipeIds = items.Where(i => i.RecipeId.HasValue).Select(i => i.RecipeId!.Value).Distinct().ToList();
+        if (requestedRecipeIds.Count > 0 && !await _licenseService.CanUseFeatureAsync(tenantId, "RECIPES"))
+            return Forbid();
         var exchangeIds = items.Where(i => i.ExchangeGroupId.HasValue).Select(i => i.ExchangeGroupId!.Value).Distinct().ToList();
 
         // Las recetas siguen exactamente el ámbito de RecipesController: propias y del tenant actual.

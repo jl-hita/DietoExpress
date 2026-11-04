@@ -591,6 +591,7 @@ export class DietCreateComponent implements OnInit {
     const requestId = ++this.weeklySummaryRequestId;
     this.weeklySummaryLoading = true;
     this.weeklySummaryError = false;
+    this.days.controls.forEach(day => day.get('micronutrients')?.setValue(null, { emitEvent: false }));
 
     const draft = {
       days: this.days.controls.map((day, dayIndex) => ({
