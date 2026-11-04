@@ -192,7 +192,8 @@ rollback() {
     if smoke_test; then
       echo "Rollback completado; vuelve a estar activa la versión anterior."
     else
-      echo "CRITICAL: rollback aplicado pero la versión anterior tampoco supera el smoke test." >&2
+      echo "CRITICAL: rollback aplicado pero la versión anterior tampoco supera el smoke test; se detiene el servicio." >&2
+      systemctl stop dietoexpress.service || true
     fi
   else
     echo "CRITICAL: no hay una versión anterior completa a la que volver. Se detiene el servicio." >&2
