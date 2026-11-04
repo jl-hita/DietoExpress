@@ -73,6 +73,7 @@ public sealed class DeploymentConcurrencyRegressionTests
         Assert.Contains("rollback", manual, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("PostgreSQL", manual);
     }
+
     [Fact]
     public void AtomicDeployment_MustNormalizeReleasePermissionsAndVerifyNginxReadAccess()
     {
@@ -86,7 +87,6 @@ public sealed class DeploymentConcurrencyRegressionTests
         Assert.Contains("sudo -u nginx test -r", script);
         Assert.Contains("restorecon -RF", script);
         Assert.Contains("systemctl show -p User --value dietoexpress.service", script);
-        Assert.Contains("[[ \\"$service_user\\" == \\"joso\\" ]]", script);
+        Assert.Contains("[[ \"$service_user\" == \"joso\" ]]", script);
     }
-
 }
