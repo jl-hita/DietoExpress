@@ -46,6 +46,7 @@ sudo install -d -o joso -g joso -m 0755 "$WEB_TARGET"
 rsync -a --delete "$BACKEND_STAGE/" "$BACKEND_TARGET/"
 rsync -a --delete "$FRONTEND_STAGE/" "$BACKEND_TARGET/wwwroot/"
 sudo rsync -a --delete "$FRONTEND_STAGE/" "$WEB_TARGET/"
+sudo restorecon -RF "$WEB_TARGET" "$BACKEND_TARGET"
 chmod 750 "$BACKEND_TARGET"/scripts/*.sh 2>/dev/null || true
 
 # Primera migración del backend: guardar una copia ejecutable de la versión
@@ -171,7 +172,7 @@ prune_releases() {
   done
 }
 prune_releases "$BACKEND_RELEASES" "$BACKEND_TARGET"
-sudo bash -c "$(declare -f prune_releases); prune_releases '$WEB_RELEASES' '$WEB_TARGET'"
+sudo env KEEP_RELEASES="$KEEP_RELEASES" bash -c "$(declare -f prune_releases); prune_releases '$WEB_RELEASES' '$WEB_TARGET'"
 
 echo "Despliegue correcto: $VERSION"
 echo "Backend activo: $(readlink -f "$BACKEND_CURRENT")"
