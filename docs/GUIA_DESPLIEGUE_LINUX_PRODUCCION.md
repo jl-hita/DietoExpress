@@ -878,7 +878,7 @@ sudo -l -U joso
 
 La salida de `sudo -l` debe mostrar la regla limitada a `/usr/local/sbin/dietoexpress-deploy` con un único argumento de versión. No ejecutes el helper manualmente: el workflow lo invoca después de preparar y validar los artefactos. Para una actualización posterior, repite el provisioning desde el checkout revisado.
 
-Se conservan cinco releases recientes además de la versión activa; no se eliminan datos persistentes. Logs, AlertSpool, documentos, configuración y PostgreSQL siguen fuera de los releases. El rollback revierte código, no migraciones de base de datos: los cambios de esquema deben seguir siendo compatibles con la versión anterior durante el despliegue.
+Se conservan hasta cinco releases en total (la activa y hasta cuatro anteriores); no se eliminan datos persistentes. Logs, AlertSpool, documentos, configuración y PostgreSQL siguen fuera de los releases. El rollback revierte código, no migraciones de base de datos: los cambios de esquema deben seguir siendo compatibles con la versión anterior durante el despliegue.
 
 La primera ejecución migra el contenido actual de Nginx a un release `legacy` y convierte `/var/www/dietoexpress` en enlace. En backend se conserva el directorio raíz y se crea `current`; los scripts existentes se apartan como `scripts-legacy-<fecha>` y la ruta estable `scripts` pasa a apuntar al release activo.
 
