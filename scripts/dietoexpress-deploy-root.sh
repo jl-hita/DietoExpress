@@ -59,6 +59,7 @@ WEB_TARGET="$WEB_RELEASES/$VERSION"
 ACTIVATION_STARTED=0
 SCRIPTS_ARCHIVE=""
 WEB_LEGACY=""
+SMOKE_DIR=""
 cleanup_failed_deploy() {
   local status=$?
   if (( status != 0 && ACTIVATION_STARTED == 0 )); then
@@ -71,9 +72,13 @@ cleanup_failed_deploy() {
       mv "$SCRIPTS_ARCHIVE" "$APP_ROOT/scripts" 2>/dev/null || true
     fi
   fi
+  if [[ -n "$SMOKE_DIR" && -d "$SMOKE_DIR" ]]; then
+    rm -rf -- "$SMOKE_DIR" 2>/dev/null || true
+  fi
   return "$status"
 }
 trap cleanup_failed_deploy EXIT
+SMOKE_DIR="$(mktemp -d /run/dietoexpress-deploy-smoke.XXXXXX)"
 PREVIOUS_BACKEND=""
 PREVIOUS_WEB=""
 if [[ -L "$BACKEND_CURRENT" ]]; then
@@ -128,7 +133,7 @@ restorecon -RF "$WEB_TARGET" "$BACKEND_TARGET"
 # plana actual antes de activar el nuevo layout. Así también hay rollback en el
 # primer despliegue con este mecanismo.
 if [[ ! -L "$BACKEND_CURRENT" && -f "$APP_ROOT/Anguloso.Server.dll" ]]; then
-  legacy_backend="$BACKEND_RELEASES/legacy-$(date -u +%Y%m%d%H%M%S)"
+  legacy_backend="$BACKEND_RELEASES/legacy-$(date -u +%Y%m%d%H%M%S)-$VERSION"
   install -d -m 0755 "$legacy_backend"
   rsync -a --exclude="/releases/" --exclude="/current" --exclude="/scripts" --exclude="/scripts-legacy-*" "$APP_ROOT/" "$legacy_backend/"
   if [[ -d "$APP_ROOT/scripts" && ! -L "$APP_ROOT/scripts" ]]; then
@@ -145,7 +150,7 @@ fi
 # Primera migración: conservar la web actual como release legacy y convertir
 # su ruta pública en un enlace. Nginx mantiene exactamente el mismo root.
 if [[ -d "$WEB_ROOT" && ! -L "$WEB_ROOT" ]]; then
-  WEB_LEGACY="$WEB_RELEASES/legacy-$(date -u +%Y%m%d%H%M%S)"
+  WEB_LEGACY="$WEB_RELEASES/legacy-$(date -u +%Y%m%d%H%M%S)-$VERSION"
   mv "$WEB_ROOT" "$WEB_LEGACY"
   chown -R root:root "$WEB_LEGACY"
   find "$WEB_LEGACY" -type d -exec chmod 0755 {} +
@@ -211,8 +216,8 @@ smoke_test() {
     if systemctl is-active --quiet dietoexpress.service &&
       curl --fail --silent --show-error --max-time 5 \
         --resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/" \
-        -o /tmp/dietoexpress-smoke-home.html 2>/dev/null &&
-      grep -Fq "DietoExpress" /tmp/dietoexpress-smoke-home.html; then
+        -o "$SMOKE_DIR/home.html" 2>/dev/null &&
+      grep -Fq "DietoExpress" "$SMOKE_DIR/home.html"; then
       break
     fi
     [[ "$attempt" -lt 12 ]] || return 1
@@ -223,8 +228,8 @@ smoke_test() {
       --resolve "$DOMAIN:443:127.0.0.1" \
       -H 'Accept: application/json' \
       "https://$DOMAIN/api/directory/professionals" \
-      -o /tmp/dietoexpress-smoke-directory.json 2>/dev/null &&
-      python3 -c 'import json; data=json.load(open("/tmp/dietoexpress-smoke-directory.json")); assert isinstance(data,list)' 2>/dev/null; then
+      -o "$SMOKE_DIR/directory.json" 2>/dev/null &&
+      python3 -c 'import json,sys; data=json.load(open(sys.argv[1])); assert isinstance(data,list)' "$SMOKE_DIR/directory.json" 2>/dev/null; then
       return 0
     fi
     [[ "$attempt" -lt 12 ]] || return 1
