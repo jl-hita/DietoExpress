@@ -46,8 +46,28 @@ sudo install -d -o joso -g joso -m 0755 "$WEB_TARGET"
 rsync -a --delete "$BACKEND_STAGE/" "$BACKEND_TARGET/"
 rsync -a --delete "$FRONTEND_STAGE/" "$BACKEND_TARGET/wwwroot/"
 sudo rsync -a --delete "$FRONTEND_STAGE/" "$WEB_TARGET/"
+
+# Normalizar propietarios y permisos sin depender de los modos del runner.
+# El backend y sus scripts operativos pertenecen a joso; Nginx solo necesita
+# atravesar directorios y leer los estáticos (no escribir en los releases).
+chown -R joso:joso "$BACKEND_TARGET"
+find "$BACKEND_TARGET" -type d -exec chmod 0755 {} +
+if [[ -d "$BACKEND_TARGET/scripts" ]]; then
+  find "$BACKEND_TARGET/scripts" -type f -name '*.sh' -exec chmod 0750 {} +
+fi
+sudo chown -R joso:joso "$WEB_TARGET"
+sudo find "$WEB_TARGET" -type d -exec chmod 0755 {} +
+sudo find "$WEB_TARGET" -type f -exec chmod 0644 {} +
+
+# Fallar antes de activar la versión si Nginx no puede atravesar las rutas
+# ni leer el index. No se concede escritura al usuario nginx.
+getent passwd nginx >/dev/null || fail "no existe el usuario de servicio nginx."
+sudo -u nginx test -x /var/www || fail "nginx no puede atravesar /var/www."
+sudo -u nginx test -x "$WEB_RELEASES" || fail "nginx no puede atravesar el directorio de releases web."
+sudo -u nginx test -x "$WEB_TARGET" || fail "nginx no puede atravesar el release web."
+sudo -u nginx test -r "$WEB_TARGET/index.html" || fail "nginx no puede leer el index.html publicado."
+
 sudo restorecon -RF "$WEB_TARGET" "$BACKEND_TARGET"
-chmod 750 "$BACKEND_TARGET"/scripts/*.sh 2>/dev/null || true
 
 # Primera migración del backend: guardar una copia ejecutable de la versión
 # plana actual antes de activar el nuevo layout. Así también hay rollback en el
