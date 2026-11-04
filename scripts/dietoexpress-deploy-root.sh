@@ -42,7 +42,7 @@ for persistent_dir in \
   /var/lib/dietoexpress/Logs \
   /var/lib/dietoexpress/AlertSpool \
   /var/lib/dietoexpress/documents; do
-  [[ -d "$persistent_dir" && -w "$persistent_dir" ]] ||
+  [[ -d "$persistent_dir" ]] && runuser -u joso -- test -w "$persistent_dir" ||
     fail "falta el directorio persistente o no es escribible por joso: $persistent_dir"
 done
 
@@ -58,8 +58,14 @@ BACKEND_TARGET="$BACKEND_RELEASES/$VERSION"
 WEB_TARGET="$WEB_RELEASES/$VERSION"
 PREVIOUS_BACKEND=""
 PREVIOUS_WEB=""
-if [[ -L "$BACKEND_CURRENT" ]]; then PREVIOUS_BACKEND="$(readlink -f "$BACKEND_CURRENT")"; fi
-if [[ -L "$WEB_ROOT" ]]; then PREVIOUS_WEB="$(readlink -f "$WEB_ROOT")"; fi
+if [[ -L "$BACKEND_CURRENT" ]]; then
+  PREVIOUS_BACKEND="$(readlink -f "$BACKEND_CURRENT")"
+  [[ "$PREVIOUS_BACKEND" == "$BACKEND_RELEASES/"* && -d "$PREVIOUS_BACKEND" ]] || fail "el enlace current apunta fuera de releases."
+fi
+if [[ -L "$WEB_ROOT" ]]; then
+  PREVIOUS_WEB="$(readlink -f "$WEB_ROOT")"
+  [[ "$PREVIOUS_WEB" == "$WEB_RELEASES/"* && -d "$PREVIOUS_WEB" ]] || fail "el enlace web apunta fuera de releases."
+fi
 
 [[ ! -e "$BACKEND_TARGET" && ! -e "$WEB_TARGET" ]] || fail "la versión $VERSION ya existe; no se sobrescriben releases."
 # Proteger las raíces y los directorios de releases frente al usuario del runner.
@@ -70,6 +76,8 @@ if [[ -L "$WEB_ROOT" ]]; then PREVIOUS_WEB="$(readlink -f "$WEB_ROOT")"; fi
 chown root:root "$APP_ROOT"
 chmod 0755 "$APP_ROOT"
 install -d -o root -g root -m 0755 "$BACKEND_RELEASES" "$WEB_RELEASES"
+chown root:root "$BACKEND_RELEASES" "$WEB_RELEASES"
+chmod 0755 "$BACKEND_RELEASES" "$WEB_RELEASES"
 install -d -o root -g root -m 0755 "$BACKEND_TARGET" "$WEB_TARGET"
 
 # Se construyen las dos versiones completas antes de cambiar ningún enlace.
@@ -77,9 +85,8 @@ rsync -a --delete "$BACKEND_STAGE/" "$BACKEND_TARGET/"
 rsync -a --delete "$FRONTEND_STAGE/" "$BACKEND_TARGET/wwwroot/"
 rsync -a --delete "$FRONTEND_STAGE/" "$WEB_TARGET/"
 
-# Normalizar propietarios y permisos sin depender de los modos del runner.
-# El backend y sus scripts operativos pertenecen a joso; Nginx solo necesita
-# atravesar directorios y leer los estáticos (no escribir en los releases).
+# Los releases son inmutables para joso y para Nginx: el servicio solo necesita
+# leer el backend y Nginx solo necesita leer los estáticos.
 chown -R root:root "$BACKEND_TARGET"
 find "$BACKEND_TARGET" -type d -exec chmod 0755 {} +
 if [[ -d "$BACKEND_TARGET/scripts" ]]; then
@@ -109,6 +116,11 @@ if [[ ! -L "$BACKEND_CURRENT" && -f "$APP_ROOT/Anguloso.Server.dll" ]]; then
   if [[ -d "$APP_ROOT/scripts" && ! -L "$APP_ROOT/scripts" ]]; then
     mv "$APP_ROOT/scripts" "$legacy_backend/scripts"
   fi
+  chown -R root:root "$legacy_backend"
+  find "$legacy_backend" -type d -exec chmod 0755 {} +
+  if [[ -d "$legacy_backend/scripts" ]]; then
+    find "$legacy_backend/scripts" -type f -name '*.sh' -exec chmod 0755 {} +
+  fi
   ln -s "$legacy_backend" "$BACKEND_CURRENT"
   PREVIOUS_BACKEND="$legacy_backend"
 fi
@@ -117,6 +129,9 @@ fi
 if [[ -d "$WEB_ROOT" && ! -L "$WEB_ROOT" ]]; then
   legacy="$WEB_RELEASES/legacy-$(date -u +%Y%m%d%H%M%S)"
   mv "$WEB_ROOT" "$legacy"
+  chown -R root:root "$legacy"
+  find "$legacy" -type d -exec chmod 0755 {} +
+  find "$legacy" -type f -exec chmod 0644 {} +
   ln -s "$legacy" "$WEB_ROOT"
   PREVIOUS_WEB="$legacy"
 elif [[ ! -e "$WEB_ROOT" && ! -L "$WEB_ROOT" ]]; then
