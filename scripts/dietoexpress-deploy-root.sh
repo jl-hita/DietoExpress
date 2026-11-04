@@ -56,6 +56,20 @@ BACKEND_NEXT="$APP_ROOT/.current-$VERSION"
 WEB_NEXT="/var/www/.dietoexpress-$VERSION"
 BACKEND_TARGET="$BACKEND_RELEASES/$VERSION"
 WEB_TARGET="$WEB_RELEASES/$VERSION"
+ACTIVATION_STARTED=0
+SCRIPTS_ARCHIVE=""
+cleanup_failed_deploy() {
+  local status=$?
+  if (( status != 0 && ACTIVATION_STARTED == 0 )); then
+    rm -rf -- "$BACKEND_TARGET" "$WEB_TARGET" 2>/dev/null || true
+    rm -f -- "$BACKEND_NEXT" "$WEB_NEXT" 2>/dev/null || true
+    if [[ -n "$SCRIPTS_ARCHIVE" && -d "$SCRIPTS_ARCHIVE" && ! -e "$APP_ROOT/scripts" && ! -L "$APP_ROOT/scripts" ]]; then
+      mv "$SCRIPTS_ARCHIVE" "$APP_ROOT/scripts" 2>/dev/null || true
+    fi
+  fi
+  return "$status"
+}
+trap cleanup_failed_deploy EXIT
 PREVIOUS_BACKEND=""
 PREVIOUS_WEB=""
 if [[ -L "$BACKEND_CURRENT" ]]; then
@@ -67,7 +81,7 @@ if [[ -L "$WEB_ROOT" ]]; then
   [[ "$PREVIOUS_WEB" == "$WEB_RELEASES/"* && -d "$PREVIOUS_WEB" ]] || fail "el enlace web apunta fuera de releases."
 fi
 
-[[ ! -e "$BACKEND_TARGET" && ! -e "$WEB_TARGET" ]] || fail "la versión $VERSION ya existe; no se sobrescriben releases."
+[[ ! -e "$BACKEND_TARGET" && ! -L "$BACKEND_TARGET" && ! -e "$WEB_TARGET" && ! -L "$WEB_TARGET" ]] || fail "la versión $VERSION ya existe; no se sobrescriben releases."
 # Proteger las raíces y los directorios de releases frente al usuario del runner.
 [[ -d "$APP_ROOT" && ! -L "$APP_ROOT" ]] || fail "la raíz backend no existe o es un enlace simbólico."
 [[ -d "$WEB_ROOT" || -L "$WEB_ROOT" ]] || fail "la raíz web no existe."
@@ -114,7 +128,7 @@ if [[ ! -L "$BACKEND_CURRENT" && -f "$APP_ROOT/Anguloso.Server.dll" ]]; then
   install -d -m 0755 "$legacy_backend"
   rsync -a --exclude="/releases/" --exclude="/current" --exclude="/scripts" --exclude="/scripts-legacy-*" "$APP_ROOT/" "$legacy_backend/"
   if [[ -d "$APP_ROOT/scripts" && ! -L "$APP_ROOT/scripts" ]]; then
-    mv "$APP_ROOT/scripts" "$legacy_backend/scripts"
+    rsync -a "$APP_ROOT/scripts/" "$legacy_backend/scripts/"
   fi
   chown -R root:root "$legacy_backend"
   find "$legacy_backend" -type d -exec chmod 0755 {} +
@@ -140,7 +154,8 @@ fi
 
 # Los scripts operativos tienen una ruta estable para timers y provisioning.
 if [[ -d "$APP_ROOT/scripts" && ! -L "$APP_ROOT/scripts" ]]; then
-  mv "$APP_ROOT/scripts" "$APP_ROOT/scripts-legacy-$(date -u +%Y%m%d%H%M%S)"
+  SCRIPTS_ARCHIVE="$APP_ROOT/scripts-legacy-$(date -u +%Y%m%d%H%M%S)"
+  mv "$APP_ROOT/scripts" "$SCRIPTS_ARCHIVE"
 fi
 if [[ ! -e "$APP_ROOT/scripts" && ! -L "$APP_ROOT/scripts" ]]; then
   ln -s "$BACKEND_CURRENT/scripts" "$APP_ROOT/scripts"
@@ -159,21 +174,20 @@ systemctl daemon-reload
 service_user="$(systemctl show -p User --value dietoexpress.service)"
 [[ "$service_user" == "joso" ]] || fail "dietoexpress.service debe ejecutarse como joso (actual: ${service_user:-root})."
 
-# Preparar enlaces temporales en el mismo filesystem y sustituirlos mediante
-# rename(2), evitando estados intermedios o mezclas de archivos.
-ln -s "$BACKEND_TARGET" "$BACKEND_NEXT"
-ln -s "$WEB_TARGET" "$WEB_NEXT"
-mv -Tf "$BACKEND_NEXT" "$BACKEND_CURRENT"
-mv -Tf "$WEB_NEXT" "$WEB_ROOT"
-
+# Las funciones de rollback/smoke test se definen antes de tocar los enlaces.
 rollback() {
   local reason="$1"
   echo "ERROR: $reason. Iniciando rollback de código." >&2
   if [[ -n "$PREVIOUS_BACKEND" && -d "$PREVIOUS_BACKEND" && -n "$PREVIOUS_WEB" && -d "$PREVIOUS_WEB" ]]; then
-    ln -s "$PREVIOUS_BACKEND" "$BACKEND_NEXT"
-    ln -s "$PREVIOUS_WEB" "$WEB_NEXT"
-    mv -Tf "$BACKEND_NEXT" "$BACKEND_CURRENT"
-    mv -Tf "$WEB_NEXT" "$WEB_ROOT"
+    rm -f -- "$BACKEND_NEXT" "$WEB_NEXT"
+    if ! ln -s "$PREVIOUS_BACKEND" "$BACKEND_NEXT" ||
+       ! ln -s "$PREVIOUS_WEB" "$WEB_NEXT" ||
+       ! mv -Tf "$BACKEND_NEXT" "$BACKEND_CURRENT" ||
+       ! mv -Tf "$WEB_NEXT" "$WEB_ROOT"; then
+      echo "CRITICAL: no se pudieron restaurar ambos enlaces; se detiene el servicio." >&2
+      systemctl stop dietoexpress.service || true
+      exit 1
+    fi
     systemctl restart dietoexpress.service || true
     if smoke_test; then
       echo "Rollback completado; vuelve a estar activa la versión anterior."
@@ -213,6 +227,19 @@ smoke_test() {
   done
   return 1
 }
+
+# Preparar enlaces temporales en el mismo filesystem y sustituirlos mediante
+# rename(2). Si cualquiera de los dos cambios falla, restaurar ambos destinos.
+rm -f -- "$BACKEND_NEXT" "$WEB_NEXT"
+ln -s "$BACKEND_TARGET" "$BACKEND_NEXT"
+ln -s "$WEB_TARGET" "$WEB_NEXT"
+ACTIVATION_STARTED=1
+if ! mv -Tf "$BACKEND_NEXT" "$BACKEND_CURRENT"; then
+  rollback "no se pudo activar el enlace del backend"
+fi
+if ! mv -Tf "$WEB_NEXT" "$WEB_ROOT"; then
+  rollback "no se pudo activar el enlace del frontend"
+fi
 
 if ! systemctl enable dietoexpress.service || ! systemctl restart dietoexpress.service; then
   rollback "no se pudo reiniciar systemd"
