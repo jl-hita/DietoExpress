@@ -9,6 +9,10 @@
 
 export interface FoodProduct {
   id: number;
+  /** Todos los nutrientes contemplados en el catálogo están informados. */
+  nutritionalDataComplete?: boolean;
+  /** Apariciones en dietas, tanto directas como a través de recetas. */
+  usageCount?: number;
 
   name: string;
   brands?: string;
