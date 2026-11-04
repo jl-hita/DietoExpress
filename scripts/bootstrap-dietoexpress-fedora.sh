@@ -59,7 +59,9 @@ if ! id "$APP_USER" >/dev/null 2>&1; then
 fi
 install -d -o "$APP_USER" -g "$APP_USER" -m 0750 "$APP_HOME"
 install -d -o "$APP_USER" -g "$APP_USER" -m 0755 "$APP_DIR"
+install -d -o "$APP_USER" -g "$APP_USER" -m 0755 "$APP_DIR/releases"
 install -d -o "$APP_USER" -g "$APP_USER" -m 0755 "$WEB_DIR"
+install -d -o "$APP_USER" -g "$APP_USER" -m 0755 "$(dirname "$WEB_DIR")/dietoexpress-releases"
 install -d -o "$APP_USER" -g "$APP_USER" -m 0750 "$STATE_DIR/Logs"
 install -d -o "$APP_USER" -g "$APP_USER" -m 0750 "$STATE_DIR/AlertSpool"
 install -d -o "$APP_USER" -g "$APP_USER" -m 0750 "$STATE_DIR/documents"
