@@ -823,8 +823,8 @@ After=network-online.target postgresql.service
 Wants=network-online.target
 
 [Service]
-WorkingDirectory=/opt/dietoexpress
-ExecStart=/usr/bin/dotnet /opt/dietoexpress/Anguloso.Server.dll
+WorkingDirectory=/opt/dietoexpress/current
+ExecStart=/usr/bin/dotnet /opt/dietoexpress/current/Anguloso.Server.dll
 Restart=always
 RestartSec=5
 User=joso
@@ -966,7 +966,7 @@ El workflow lo copia a:
 
 y también a:
 
-/opt/dietoexpress/wwwroot/
+/opt/dietoexpress/current/wwwroot/
 
 Comprobar:
 
@@ -1403,8 +1403,8 @@ La documentación de infraestructura debe evolucionar junto con el código.
 - HTTPS: Let's Encrypt.
 - Ejecución: systemd.
 - CI/CD: GitHub Actions.
-- Backend publicado: /opt/dietoexpress.
-- Frontend Nginx: /var/www/dietoexpress.
+- Backend publicado: /opt/dietoexpress/releases; versión activa en /opt/dietoexpress/current.
+- Frontend Nginx: /var/www/dietoexpress-releases; versión activa en /var/www/dietoexpress.
 - Logs persistentes: /var/lib/dietoexpress/Logs.
 - AlertSpool persistente: /var/lib/dietoexpress/AlertSpool.
 - Configuración de servicio: /etc/dietoexpress/dietoexpress.env.
