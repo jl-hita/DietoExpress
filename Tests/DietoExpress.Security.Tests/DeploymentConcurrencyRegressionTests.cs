@@ -38,7 +38,7 @@ public sealed class DeploymentConcurrencyRegressionTests
     [Fact]
     public void AtomicDeployment_MustUseVersionedDirectoriesAndAtomicLinks()
     {
-        var script = File.ReadAllText(Path.Combine(RepoRoot, "scripts", "dietoexpress-deploy-atomic.sh"));
+        var script = File.ReadAllText(Path.Combine(RepoRoot, "scripts", "dietoexpress-deploy-root.sh"));
 
         Assert.Contains("releases", script);
         Assert.Contains("flock -n 9", script);
@@ -46,7 +46,7 @@ public sealed class DeploymentConcurrencyRegressionTests
         Assert.Contains("PREVIOUS_BACKEND", script);
         Assert.Contains("PREVIOUS_WEB", script);
         Assert.Contains("rollback", script);
-        Assert.Contains("dietoexpress-smoke-directory.json", script);
+        Assert.Contains("directory.json", script);
         Assert.DoesNotContain("rm -rf /opt/dietoexpress/*", script);
         Assert.DoesNotContain("rm -rf /var/www/dietoexpress/*", script);
     }
@@ -77,14 +77,14 @@ public sealed class DeploymentConcurrencyRegressionTests
     [Fact]
     public void AtomicDeployment_MustNormalizeReleasePermissionsAndVerifyNginxReadAccess()
     {
-        var script = File.ReadAllText(Path.Combine(RepoRoot, "scripts", "dietoexpress-deploy-atomic.sh"));
+        var script = File.ReadAllText(Path.Combine(RepoRoot, "scripts", "dietoexpress-deploy-root.sh"));
 
-        Assert.Contains("chown -R joso:joso", script);
+        Assert.Contains("chown -R root:root", script);
         Assert.Contains("chmod 0755", script);
         Assert.Contains("chmod 0644", script);
-        Assert.Contains("chmod 0750", script);
-        Assert.Contains("sudo -u nginx test -x", script);
-        Assert.Contains("sudo -u nginx test -r", script);
+        Assert.Contains("chmod 0755", script);
+        Assert.Contains("runuser -u nginx -- test -x", script);
+        Assert.Contains("runuser -u nginx -- test -r", script);
         Assert.Contains("restorecon -RF", script);
         Assert.Contains("systemctl show -p User --value dietoexpress.service", script);
         Assert.Contains("[[ \"$service_user\" == \"joso\" ]]", script);
