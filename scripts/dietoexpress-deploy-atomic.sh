@@ -22,6 +22,16 @@ command -v flock >/dev/null
 command -v curl >/dev/null
 command -v rsync >/dev/null
 
+# Los datos persistentes se provisionan fuera del despliegue. Fallar antes de
+# crear releases o tocar enlaces si falta alguno o joso no puede escribir.
+for persistent_dir in \
+  /var/lib/dietoexpress/Logs \
+  /var/lib/dietoexpress/AlertSpool \
+  /var/lib/dietoexpress/documents; do
+  [[ -d "$persistent_dir" && -w "$persistent_dir" ]] ||
+    fail "falta el directorio persistente o no es escribible por joso: $persistent_dir"
+done
+
 exec 9>"$LOCK_FILE"
 flock -n 9 || fail "ya hay otro despliegue activo."
 
