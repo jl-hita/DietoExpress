@@ -111,6 +111,8 @@ ExecStart=
 ExecStart=/usr/bin/dotnet $BACKEND_CURRENT/Anguloso.Server.dll
 EOF
 sudo systemctl daemon-reload
+service_user="$(sudo systemctl show -p User --value dietoexpress.service)"
+[[ "$service_user" == "joso" ]] || fail "dietoexpress.service debe ejecutarse como joso (actual: ${service_user:-root})."
 
 # Preparar enlaces temporales en el mismo filesystem y sustituirlos mediante
 # rename(2), evitando estados intermedios o mezclas de archivos.
