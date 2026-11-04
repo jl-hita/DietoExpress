@@ -593,6 +593,16 @@ public class DietPdfService
 
         double totalKcal = orderedDays.Sum(day => DayMacro(day, item => item.kcal));
         double avgKcal = totalKcal / dayCount;
+        var sugarCount = summaries.Sum(summary => summary.SugarFoodCount);
+        var saturatedCount = summaries.Sum(summary => summary.SaturatedFatFoodCount);
+        var monoCount = summaries.Sum(summary => summary.MonounsaturatedFatFoodCount);
+        var polyCount = summaries.Sum(summary => summary.PolyunsaturatedFatFoodCount);
+        var sugarAverage = summaries.Sum(summary => summary.SugarG) / dayCount;
+        var saturatedAverage = summaries.Sum(summary => summary.SaturatedFatG) / dayCount;
+        var monoAverage = summaries.Sum(summary => summary.MonounsaturatedFatG) / dayCount;
+        var polyAverage = summaries.Sum(summary => summary.PolyunsaturatedFatG) / dayCount;
+        var sugarEnergy = avgKcal > 0 ? (double)sugarAverage * 4 / avgKcal * 100 : 0;
+        var saturatedEnergy = avgKcal > 0 ? (double)saturatedAverage * 9 / avgKcal * 100 : 0;
 
         decimal AverageNutrient(Func<MicronutrientDailySummaryDto, decimal> selector) =>
             summaries.Sum(selector) / dayCount;
@@ -628,16 +638,6 @@ public class DietPdfService
                     });
                 }
 
-                var sugarCount = summaries.Sum(summary => summary.SugarFoodCount);
-                var saturatedCount = summaries.Sum(summary => summary.SaturatedFatFoodCount);
-                var monoCount = summaries.Sum(summary => summary.MonounsaturatedFatFoodCount);
-                var polyCount = summaries.Sum(summary => summary.PolyunsaturatedFatFoodCount);
-                var sugarAverage = AverageNutrient(summary => summary.SugarG);
-                var saturatedAverage = AverageNutrient(summary => summary.SaturatedFatG);
-                var monoAverage = AverageNutrient(summary => summary.MonounsaturatedFatG);
-                var polyAverage = AverageNutrient(summary => summary.PolyunsaturatedFatG);
-                var sugarEnergy = avgKcal > 0 ? (double)sugarAverage * 4 / avgKcal * 100 : 0;
-                var saturatedEnergy = avgKcal > 0 ? (double)saturatedAverage * 9 / avgKcal * 100 : 0;
                 Card("Azúcares totales", sugarAverage, Coverage(summary => summary.SugarFoodCount),
                     sugarCount > 0 && avgKcal > 0 ? $"{sugarEnergy:0.0}% de energía" : "");
                 Card("Grasas saturadas", saturatedAverage, Coverage(summary => summary.SaturatedFatFoodCount),
