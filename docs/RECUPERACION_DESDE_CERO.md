@@ -91,7 +91,7 @@ La restauración real de PostgreSQL ya fue probada anteriormente, pero en una re
 
 Usa la guía de despliegue para configurar, con los valores de este host:
 
-- `/etc/systemd/system/dietoexpress.service`, usuario `joso`, working directory `/opt/dietoexpress` y variables de entorno protegidas.
+- `/etc/systemd/system/dietoexpress.service`, usuario `joso`, working directory `/opt/dietoexpress/current` y variables de entorno protegidas.\n- Directorios de releases y enlaces activos: `/opt/dietoexpress/releases`, `/opt/dietoexpress/current`, `/var/www/dietoexpress-releases` y `/var/www/dietoexpress`. El workflow migra automáticamente la primera instalación desde los directorios planos y mantiene la raíz configurada en Nginx.
 - Configuración de Nginx para el dominio y proxy a Kestrel.
 - Certificado TLS mediante Certbot.
 - Permisos y contexto SELinux de las rutas de aplicación y persistencia.
