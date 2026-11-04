@@ -15,6 +15,8 @@ public class OffProductResponse
 public class OffProduct
 {
     public int Id { get; set; }
+    public bool NutritionalDataComplete { get; set; }
+    public int UsageCount { get; set; }
     public string Code { get; set; } = "";
     public string Product_name { get; set; } = "";
     public string Brands { get; set; } = "";
