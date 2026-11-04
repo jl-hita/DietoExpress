@@ -21,12 +21,12 @@ public sealed class ProductionSmokeWorkflowRegressionTests
     public void ProductionDeploymentWorkflow_PerformsPostRestartSmokeTest()
     {
         // El workflow delega la activación y los smoke tests al script versionado.
-        var deployScript = File.ReadAllText(Path.Combine(RepoRoot, "scripts", "dietoexpress-deploy-atomic.sh"));
+        var deployScript = File.ReadAllText(Path.Combine(RepoRoot, "scripts", "dietoexpress-deploy-root.sh"));
 
-        Assert.Contains("sudo systemctl is-active --quiet dietoexpress.service", deployScript);
+        Assert.Contains("systemctl is-active --quiet dietoexpress.service", deployScript);
         Assert.Contains("https://$DOMAIN/", deployScript);
         Assert.Contains("https://$DOMAIN/api/directory/professionals", deployScript);
-        Assert.Contains("python3 -c 'import json;", deployScript);
+        Assert.Contains("python3 -c 'import json,sys;", deployScript);
         Assert.Contains("grep -Fq \"DietoExpress\"", deployScript);
         Assert.Contains("rollback \"falló el smoke test de frontend o API\"", deployScript);
         Assert.Contains("rollback \"no se pudo reiniciar systemd\"", deployScript);

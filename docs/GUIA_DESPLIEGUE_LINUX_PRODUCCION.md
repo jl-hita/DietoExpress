@@ -864,9 +864,21 @@ El workflow de GitHub Actions publica cada commit en un directorio independiente
 - Frontend activo: enlace `/var/www/dietoexpress` (la raíz de Nginx no cambia).
 - Los scripts operativos mantienen la ruta estable `/opt/dietoexpress/scripts`, enlazada a la versión activa.
 
-El script `scripts/dietoexpress-deploy-atomic.sh` prepara ambos artefactos antes de cambiar los enlaces. Usa `flock` para impedir despliegues simultáneos y sustituye cada enlace mediante rename atómico. Normaliza los releases del backend a propietario `joso:joso`, mantiene los directorios en `0755` y los scripts operativos en `0750`; para el frontend aplica `joso:joso`, directorios `0755` y archivos estáticos `0644`. El usuario `nginx` solo recibe lectura y acceso de recorrido, nunca escritura. Antes de activar el release comprueba expresamente que Nginx puede atravesar `/var/www` y el directorio de releases y leer `index.html`. Después aplica los contextos SELinux con `restorecon`. Si falta el usuario `nginx` o falla cualquiera de estas comprobaciones, el despliegue se aborta antes del cambio de enlaces. Después actualiza el drop-in de systemd, reinicia el backend y comprueba la portada HTTPS y el endpoint público del directorio. Si falla el reinicio o cualquiera de las comprobaciones, restaura los dos enlaces anteriores y vuelve a probar la versión previa. Si no existe una versión previa completa, detiene el servicio.
+El runner ejecuta `scripts/dietoexpress-deploy-atomic.sh` como `joso`; este solo invoca `sudo -n /usr/local/sbin/dietoexpress-deploy <SHA>`. El helper privilegiado se instala mediante `scripts/provision-dietoexpress-deploy.sh` y queda como `root:root 0750`. La regla `/etc/sudoers.d/dietoexpress-deploy` permite únicamente ese ejecutable y un identificador de versión validado; no se conceden permisos sudo genéricos para `bash`, `rsync`, `tee` ni `systemctl`.
 
-Se conservan cinco releases recientes además de la versión activa; no se eliminan datos persistentes. Logs, AlertSpool, documentos, configuración y PostgreSQL siguen fuera de los releases. El rollback revierte código, no migraciones de base de datos: los cambios de esquema deben seguir siendo compatibles con la versión anterior durante el despliegue.
+El helper usa rutas fijas, valida los directorios de staging y sus propietarios, rechaza enlaces simbólicos en los artefactos y comprueba que los directorios persistentes sigan siendo escribibles por `joso`. Protege `/opt/dietoexpress` y los directorios de releases como `root:root 0755`; el backend y el frontend publicados también quedan bajo `root:root`, legibles por el servicio `joso` y por Nginx, pero no modificables por el runner. Los datos persistentes mantienen sus permisos actuales. El helper usa `flock` para impedir despliegues simultáneos y sustituye los enlaces mediante rename atómico. Antes de activar el release comprueba expresamente que Nginx puede atravesar `/var/www` y el directorio de releases y leer `index.html`. Después aplica los contextos SELinux con `restorecon`, actualiza el drop-in de systemd, reinicia el backend y comprueba la portada HTTPS y el endpoint público del directorio. Si falla el reinicio o cualquiera de las comprobaciones, restaura los dos enlaces anteriores y vuelve a probar la versión previa. Si no existe una versión previa completa, detiene el servicio.
+
+**Instalación inicial del helper (una sola vez, o después de modificarlo):**
+
+~~~bash
+# Desde el checkout revisado del repositorio:
+sudo bash scripts/provision-dietoexpress-deploy.sh "$PWD/scripts/dietoexpress-deploy-root.sh"
+sudo -l -U joso
+~~~
+
+La salida de `sudo -l` debe mostrar la regla limitada a `/usr/local/sbin/dietoexpress-deploy` con un único argumento de versión. No ejecutes el helper manualmente: el workflow lo invoca después de preparar y validar los artefactos. Para una actualización posterior, repite el provisioning desde el checkout revisado.
+
+Se conservan hasta cinco releases en total (la activa y hasta cuatro anteriores); no se eliminan datos persistentes. Logs, AlertSpool, documentos, configuración y PostgreSQL siguen fuera de los releases. El rollback revierte código, no migraciones de base de datos: los cambios de esquema deben seguir siendo compatibles con la versión anterior durante el despliegue.
 
 La primera ejecución migra el contenido actual de Nginx a un release `legacy` y convierte `/var/www/dietoexpress` en enlace. En backend se conserva el directorio raíz y se crea `current`; los scripts existentes se apartan como `scripts-legacy-<fecha>` y la ruta estable `scripts` pasa a apuntar al release activo.
 
