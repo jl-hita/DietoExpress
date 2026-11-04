@@ -27,11 +27,21 @@ public sealed class ProductionSmokeWorkflowRegressionTests
         Assert.Contains("https://$DOMAIN/", deployScript);
         Assert.Contains("https://$DOMAIN/api/directory/professionals", deployScript);
         Assert.Contains("python3 -c 'import json;", deployScript);
-        Assert.Contains("grep -Fq \"DietoExpress\"", deployScript);
-        Assert.Contains("rollback \"falló el smoke test de frontend o API\"", deployScript);
-        Assert.Contains("rollback \"no se pudo reiniciar systemd\"", deployScript);
+        Assert.Contains("grep -Fq \\"DietoExpress\\"", deployScript);
+        Assert.Contains("rollback \\"falló el smoke test de frontend o API\\"", deployScript);
+        Assert.Contains("rollback \\"no se pudo reiniciar systemd\\"", deployScript);
         Assert.Contains("PREVIOUS_BACKEND", deployScript);
         Assert.Contains("PREVIOUS_WEB", deployScript);
-        Assert.Contains("[[ \"$attempt\" -lt 12 ]]", deployScript);
+        Assert.Contains("[[ \\"$attempt\\" -lt 12 ]]", deployScript);
+    }
+
+    [Fact]
+    public void ProductionDeploymentWorkflow_StagesAngularBrowserOutputAtFrontendRoot()
+    {
+        var workflow = File.ReadAllText(Path.Combine(RepoRoot, ".github", "workflows", "deploy.yml"));
+
+        Assert.Contains("test -f anguloso.client/dist/anguloso.client/browser/index.html", workflow);
+        Assert.Contains("cp -a anguloso.client/dist/anguloso.client/browser/. /tmp/dietoexpress-frontend/", workflow);
+        Assert.Contains("test -f /tmp/dietoexpress-frontend/index.html", workflow);
     }
 }
