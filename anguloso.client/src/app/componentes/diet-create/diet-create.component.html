@@ -161,8 +161,7 @@
           </div>
         </section>
 
-        <div class="weekly-summary-backdrop" *ngIf="showWeeklySummary" (click)="showWeeklySummary = false">
-          <section class="weekly-summary-dialog" role="dialog" aria-modal="true" aria-labelledby="weekly-summary-title" (click)="$event.stopPropagation()">
+        <section class="weekly-summary-page" *ngIf="showWeeklySummary" aria-labelledby="weekly-summary-title">
             <header class="weekly-summary-header">
               <div>
                 <h2 id="weekly-summary-title">Resumen nutricional de la dieta</h2>
@@ -205,8 +204,8 @@
                   <div class="weekly-quality-copy">
                     <span>Azúcares totales</span>
                     <strong>{{ getWeeklyAverageNutrient('sugarG', 'sugarDataComplete') === null ? '—' : (getWeeklyAverageNutrient('sugarG', 'sugarDataComplete') | number:'1.1-1') + ' g' }}</strong>
-                    <small *ngIf="getWeeklyAverageNutrient('sugarG', 'sugarDataComplete') !== null">{{ getAverageSugarCarbsPct() | number:'1.0-1' }}% de hidratos · {{ getAverageSugarEnergyPct() | number:'1.0-1' }}% de energía · {{ getNutrientCoverage('sugarDataComplete') }}% de días completos</small>
-                    <small *ngIf="getWeeklyAverageNutrient('sugarG', 'sugarDataComplete') === null">Datos insuficientes en los alimentos</small>
+                    <small *ngIf="getWeeklyAverageNutrient('sugarG', 'sugarDataComplete') !== null">{{ getAverageSugarCarbsPct() | number:'1.0-1' }}% de hidratos · {{ getAverageSugarEnergyPct() | number:'1.0-1' }}% de energía · {{ getNutrientCoverage('sugarDataComplete') }}% de alimentos con dato</small>
+                    <small *ngIf="getWeeklyAverageNutrient('sugarG', 'sugarDataComplete') === null">No hay alimentos con este dato disponible</small>
                   </div>
                   <span *ngIf="getWeeklyNutrientAlert('sugar')" class="weekly-alert-pill"><mat-icon>warning</mat-icon> Alto</span>
                   <div class="weekly-quality-track"><span [style.width.%]="getVisualPercent(getAverageSugarEnergyPct())"></span></div>
@@ -239,7 +238,7 @@
                   </div>
                 </article>
               </div>
-              <p class="weekly-quality-footnote">Referencia orientativa: 10% de la energía. Los azúcares son totales, no necesariamente libres o añadidos. Las grasas insaturadas solo se muestran cuando todos los alimentos del día tienen datos.</p>
+              <p class="weekly-quality-footnote">Referencia orientativa: 10% de la energía. Los azúcares son totales, no necesariamente libres o añadidos. Los valores parciales suman únicamente los alimentos con información disponible; el porcentaje indica la cobertura por número de alimentos.</p>
             </section>
 
             <div class="weekly-summary-table-wrap">
@@ -257,10 +256,10 @@
                     <td>{{ getDayProtein(dIndex) | number:'1.0-1' }} g</td>
                     <td>{{ getDayCarbs(dIndex) | number:'1.0-1' }} g</td>
                     <td>{{ getDayFat(dIndex) | number:'1.0-1' }} g</td>
-                    <td>{{ getDayMicronutrients(dIndex)?.sugarDataComplete ? (getDayMicronutrients(dIndex)?.sugarG | number:'1.0-1') + ' g' : '—' }}</td>
-                    <td>{{ getDayMicronutrients(dIndex)?.saturatedFatDataComplete ? (getDayMicronutrients(dIndex)?.saturatedFatG | number:'1.0-1') + ' g' : '—' }}</td>
-                    <td>{{ getDayMicronutrients(dIndex)?.monounsaturatedFatDataComplete ? (getDayMicronutrients(dIndex)?.monounsaturatedFatG | number:'1.0-1') + ' g' : '—' }}</td>
-                    <td>{{ getDayMicronutrients(dIndex)?.polyunsaturatedFatDataComplete ? (getDayMicronutrients(dIndex)?.polyunsaturatedFatG | number:'1.0-1') + ' g' : '—' }}</td>
+                    <td>{{ getDayNutrientValue(dIndex, 'sugarG', 'sugarDataComplete') === null ? '—' : (getDayNutrientValue(dIndex, 'sugarG', 'sugarDataComplete') | number:'1.0-1') + ' g' }}<small *ngIf="getDayNutrientValue(dIndex, 'sugarG', 'sugarDataComplete') !== null">{{ getDayNutrientCoverage(dIndex, 'sugarDataComplete') }}%</small></td>
+                    <td>{{ getDayNutrientValue(dIndex, 'saturatedFatG', 'saturatedFatDataComplete') === null ? '—' : (getDayNutrientValue(dIndex, 'saturatedFatG', 'saturatedFatDataComplete') | number:'1.0-1') + ' g' }}<small *ngIf="getDayNutrientValue(dIndex, 'saturatedFatG', 'saturatedFatDataComplete') !== null">{{ getDayNutrientCoverage(dIndex, 'saturatedFatDataComplete') }}%</small></td>
+                    <td>{{ getDayNutrientValue(dIndex, 'monounsaturatedFatG', 'monounsaturatedFatDataComplete') === null ? '—' : (getDayNutrientValue(dIndex, 'monounsaturatedFatG', 'monounsaturatedFatDataComplete') | number:'1.0-1') + ' g' }}<small *ngIf="getDayNutrientValue(dIndex, 'monounsaturatedFatG', 'monounsaturatedFatDataComplete') !== null">{{ getDayNutrientCoverage(dIndex, 'monounsaturatedFatDataComplete') }}%</small></td>
+                    <td>{{ getDayNutrientValue(dIndex, 'polyunsaturatedFatG', 'polyunsaturatedFatDataComplete') === null ? '—' : (getDayNutrientValue(dIndex, 'polyunsaturatedFatG', 'polyunsaturatedFatDataComplete') | number:'1.0-1') + ' g' }}<small *ngIf="getDayNutrientValue(dIndex, 'polyunsaturatedFatG', 'polyunsaturatedFatDataComplete') !== null">{{ getDayNutrientCoverage(dIndex, 'polyunsaturatedFatDataComplete') }}%</small></td>
                     <td *ngFor="let column of weeklyMicronutrientColumns">{{ formatMicroPct(getMicroPct(dIndex, column.key)) }}</td>
                   </tr>
                   <tr class="weekly-average-row">
@@ -279,14 +278,13 @@
               </table>
             </div>
             <footer class="weekly-summary-footer">
-              <span>Las medias de micronutrientes se calculan solo con los días que tienen datos.</span>
+              <span>Los porcentajes bajo azúcares y grasas indican qué proporción de alimentos del periodo dispone de ese dato.</span>
               <button type="button" class="btn btn-primary" (click)="showWeeklySummary = false">Cerrar</button>
             </footer>
-          </section>
-        </div>
+        </section>
 
         <!-- EDITOR DEL DÍA ACTIVO -->
-        <div formArrayName="days" *ngIf="days.controls.length > 0">
+        <div formArrayName="days" *ngIf="days.controls.length > 0 && !showWeeklySummary">
           <div 
             *ngFor="let dayCtrl of days.controls; let dIndex = index" 
             [formGroupName]="dIndex"
