@@ -2,6 +2,7 @@ using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using Anguloso.Server.Models;
+using Anguloso.Server.Model;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
 using System.Collections.Generic;
@@ -97,6 +98,10 @@ public class DietPdfService
                         // Lista de la compra consolidada (nueva página)
                         col.Item().PageBreak();
                         col.Item().Element(c => ComposeShoppingList(c, diet, context, userId, canUseTenantLocalFoods));
+
+                        // El resumen nutricional completo queda al final del PDF, después de la lista de la compra.
+                        col.Item().PageBreak();
+                        col.Item().Element(c => ComposeWeeklyNutritionSummary(c, diet, context, userId, canUseTenantLocalFoods, exchangeFoods));
                     });
                 });
 
@@ -442,6 +447,266 @@ public class DietPdfService
             col.Item().AlignCenter().Text(label).Bold().FontSize(9).FontColor(Colors.White);
             col.Item().AlignCenter().Text(value).Bold().FontSize(20).FontColor(Colors.White);
             col.Item().AlignCenter().Text(unit).FontSize(9).FontColor(Colors.White);
+        });
+    }
+
+    private void ComposeWeeklyNutritionSummary(
+        IContainer container,
+        diets diet,
+        angulosodbContext context,
+        int userId,
+        bool canUseTenantLocalFoods,
+        List<foods> exchangeFoods)
+    {
+        var orderedDays = diet.diet_days?.OrderBy(day => day.day_index).ToList() ?? new List<diet_days>();
+        if (orderedDays.Count == 0) return;
+
+        var mealItems = orderedDays
+            .Where(day => day.meals != null)
+            .SelectMany(day => day.meals)
+            .Where(meal => meal.meal_items != null)
+            .SelectMany(meal => meal.meal_items)
+            .ToList();
+
+        // Las recetas se resuelven con el mismo ámbito de tenant y propietario de la dieta.
+        var recipeIds = mealItems.Where(item => item.recipe_id.HasValue)
+            .Select(item => item.recipe_id!.Value).Distinct().ToList();
+        var recipeIngredients = recipeIds.Count == 0
+            ? new List<recipe_items>()
+            : context.recipe_items.AsNoTracking()
+                .Include(ingredient => ingredient.recipe)
+                .Where(ingredient => recipeIds.Contains(ingredient.recipe_id) &&
+                    ingredient.recipe != null &&
+                    ingredient.recipe.tenant_id == diet.tenant_id &&
+                    ingredient.recipe.user_id == diet.user_id)
+                .ToList();
+
+        var foodIds = mealItems.Where(item => item.food_id.HasValue).Select(item => item.food_id!.Value)
+            .Concat(recipeIngredients.Select(ingredient => ingredient.food_id))
+            .Distinct().ToList();
+        var foodsById = foodIds.Count == 0
+            ? new Dictionary<int, foods>()
+            : context.foods.AsNoTracking()
+                .Where(food => foodIds.Contains(food.id) &&
+                    ((food.source == null || food.source.ToLower() != "local") ||
+                     (diet.tenant_id.HasValue && food.tenant_id == diet.tenant_id.Value &&
+                      (canUseTenantLocalFoods || food.created_by_user_id == userId))))
+                .ToDictionary(food => food.id);
+
+        var exchangeProfiles = new Dictionary<int, foods>();
+        foreach (var group in exchangeFoods
+            .Where(food => food.exchange_group_id.HasValue && food.grams_per_exchange.GetValueOrDefault() > 0)
+            .GroupBy(food => food.exchange_group_id!.Value))
+        {
+            var members = group.ToList();
+            double PerExchange(Func<foods, double?> selector) =>
+                members.Average(food => (selector(food) ?? 0) * (double)food.grams_per_exchange!.Value);
+
+            exchangeProfiles[group.Key] = new foods
+            {
+                id = -group.Key,
+                calcium_mg = PerExchange(food => food.calcium_mg),
+                iron_mg = PerExchange(food => food.iron_mg),
+                magnesium_mg = PerExchange(food => food.magnesium_mg),
+                potassium_mg = PerExchange(food => food.potassium_mg),
+                zinc_mg = PerExchange(food => food.zinc_mg),
+                vitamin_a_ug = PerExchange(food => food.vitamin_a_ug),
+                vitamin_c_mg = PerExchange(food => food.vitamin_c_mg),
+                vitamin_d_ug = PerExchange(food => food.vitamin_d_ug),
+                vitamin_e_mg = PerExchange(food => food.vitamin_e_mg),
+                vitamin_b12_ug = PerExchange(food => food.vitamin_b12_ug),
+                folate_ug = PerExchange(food => food.folate_ug),
+                fiber = PerExchange(food => food.fiber),
+                sugar = members.All(food => food.sugar.HasValue) ? PerExchange(food => food.sugar) : null,
+                salt = PerExchange(food => food.salt),
+                saturated_fat = members.All(food => food.saturated_fat.HasValue) ? PerExchange(food => food.saturated_fat) : null,
+                monounsaturated_fat = members.All(food => food.monounsaturated_fat.HasValue) ? PerExchange(food => food.monounsaturated_fat) : null,
+                polyunsaturated_fat = members.All(food => food.polyunsaturated_fat.HasValue) ? PerExchange(food => food.polyunsaturated_fat) : null
+            };
+        }
+
+        var foodsForCalculation = foodsById.Values.ToList();
+        foodsForCalculation.AddRange(exchangeProfiles.Values);
+        var recipesById = recipeIngredients
+            .Where(ingredient => ingredient.recipe != null)
+            .GroupBy(ingredient => ingredient.recipe_id)
+            .ToDictionary(group => group.Key, group => group.ToList());
+
+        var calculationDiet = new DietDetailDto
+        {
+            Days = orderedDays.Select(day => new DietDayDto
+            {
+                DayIndex = day.day_index,
+                Meals = (day.meals ?? new List<meals>()).OrderBy(meal => meal.meal_index).Select(meal => new MealDto
+                {
+                    Name = meal.name ?? "Comida",
+                    MealIndex = meal.meal_index,
+                    Items = (meal.meal_items ?? new List<meal_items>()).SelectMany(item =>
+                    {
+                        if (item.food_id.HasValue && item.grams.GetValueOrDefault() > 0 &&
+                            foodsById.ContainsKey(item.food_id.Value))
+                            return new[] { new MealItemDto { FoodId = item.food_id, Grams = item.grams } };
+
+                        if (item.recipe_id.HasValue && recipesById.TryGetValue(item.recipe_id.Value, out var ingredients))
+                        {
+                            var recipeServings = ingredients.FirstOrDefault()?.recipe?.servings ?? 1m;
+                            if (recipeServings <= 0) recipeServings = 1m;
+                            var servingsToUse = item.recipe_servings.GetValueOrDefault(1m);
+                            if (servingsToUse <= 0) servingsToUse = 1m;
+                            var factor = servingsToUse / recipeServings;
+                            return ingredients
+                                .Where(ingredient => foodsById.ContainsKey(ingredient.food_id) && ingredient.grams > 0)
+                                .Select(ingredient => new MealItemDto
+                                {
+                                    FoodId = ingredient.food_id,
+                                    Grams = ingredient.grams * factor
+                                });
+                        }
+
+                        if (item.exchange_group_id.HasValue &&
+                            exchangeProfiles.ContainsKey(item.exchange_group_id.Value) &&
+                            item.exchange_count.GetValueOrDefault() > 0)
+                            return new[]
+                            {
+                                new MealItemDto
+                                {
+                                    FoodId = -item.exchange_group_id.Value,
+                                    Grams = item.exchange_count!.Value * 100m
+                                }
+                            };
+
+                        return Array.Empty<MealItemDto>();
+                    }).ToList()
+                }).ToList()
+            }).ToList()
+        };
+
+        DietGeneratorService.PopulateDailyMicronutrients(calculationDiet, foodsForCalculation);
+        var summaries = calculationDiet.Days.Select(day => day.Micronutrients ?? new MicronutrientDailySummaryDto()).ToList();
+        var dayCount = orderedDays.Count;
+
+        double DayMacro(diet_days day, Func<meal_items, decimal?> selector) =>
+            (day.meals ?? new List<meals>()).SelectMany(meal => meal.meal_items ?? new List<meal_items>())
+                .Sum(item => (double)selector(item).GetValueOrDefault());
+        double AverageMacro(Func<diet_days, Func<meal_items, decimal?>, double> selector, Func<meal_items, decimal?> macro) =>
+            orderedDays.Sum(day => selector(day, macro)) / dayCount;
+
+        double totalKcal = orderedDays.Sum(day => DayMacro(day, item => item.kcal));
+        double avgKcal = totalKcal / dayCount;
+
+        decimal AverageNutrient(Func<MicronutrientDailySummaryDto, decimal> selector) =>
+            summaries.Sum(selector) / dayCount;
+        int TotalFoods = summaries.Sum(summary => summary.TotalFoodCount);
+        int Coverage(Func<MicronutrientDailySummaryDto, int> selector) =>
+            TotalFoods > 0 ? (int)Math.Round(summaries.Sum(selector) * 100m / TotalFoods, MidpointRounding.AwayFromZero) : 0;
+        string PartialValue(decimal value, int available, int total) =>
+            available <= 0 ? "—" : $"{value:0.0} g ({(total > 0 ? (int)Math.Round(available * 100m / total) : 0)}%)";
+        string AveragePartialValue(decimal value, int available) =>
+            available <= 0 ? "—" : $"{value:0.0} g ({Coverage(_ => available)}%)";
+
+        container.Column(col =>
+        {
+            col.Spacing(8);
+            col.Item().BorderBottom(1).BorderColor("#0d9488").PaddingBottom(4)
+                .Text("RESUMEN NUTRICIONAL DE LA DIETA").Bold().FontSize(14).FontColor("#0d9488");
+            col.Item().Text($"{dayCount} días · valores diarios y media del periodo. Los micronutrientes se expresan como porcentaje de la CDR.")
+                .FontSize(8).FontColor("#64748b");
+
+            col.Item().Table(cards =>
+            {
+                cards.ColumnsDefinition(columns =>
+                {
+                    for (var i = 0; i < 4; i++) columns.RelativeColumn();
+                });
+                void Card(string label, decimal value, int coverage, string extra = "")
+                {
+                    cards.Cell().Background("#f0fdfa").Border(0.5f).BorderColor("#ccfbf1").Padding(6).Column(card =>
+                    {
+                        card.Item().Text(label).FontSize(7).FontColor("#475569").SemiBold();
+                        card.Item().Text($"{value:0.0} g/día").FontSize(11).Bold().FontColor("#0f766e");
+                        card.Item().Text($"{coverage}% de alimentos con dato").FontSize(6.5f).FontColor("#64748b");
+                        if (!string.IsNullOrWhiteSpace(extra))
+                            card.Item().Text(extra).FontSize(6.5f).FontColor("#64748b");
+                    });
+                }
+
+                var sugarCount = summaries.Sum(summary => summary.SugarFoodCount);
+                var saturatedCount = summaries.Sum(summary => summary.SaturatedFatFoodCount);
+                var monoCount = summaries.Sum(summary => summary.MonounsaturatedFatFoodCount);
+                var polyCount = summaries.Sum(summary => summary.PolyunsaturatedFatFoodCount);
+                var sugarAverage = AverageNutrient(summary => summary.SugarG);
+                var saturatedAverage = AverageNutrient(summary => summary.SaturatedFatG);
+                var monoAverage = AverageNutrient(summary => summary.MonounsaturatedFatG);
+                var polyAverage = AverageNutrient(summary => summary.PolyunsaturatedFatG);
+                var sugarEnergy = avgKcal > 0 ? (double)sugarAverage * 4 / avgKcal * 100 : 0;
+                var saturatedEnergy = avgKcal > 0 ? (double)saturatedAverage * 9 / avgKcal * 100 : 0;
+                Card("Azúcares totales", sugarAverage, Coverage(summary => summary.SugarFoodCount),
+                    sugarCount > 0 && avgKcal > 0 ? $"{sugarEnergy:0.0}% de energía" : "");
+                Card("Grasas saturadas", saturatedAverage, Coverage(summary => summary.SaturatedFatFoodCount),
+                    saturatedCount > 0 && avgKcal > 0 ? $"{saturatedEnergy:0.0}% de energía" : "");
+                Card("Grasas monoinsaturadas", monoAverage, Coverage(summary => summary.MonounsaturatedFatFoodCount));
+                Card("Grasas poliinsaturadas", polyAverage, Coverage(summary => summary.PolyunsaturatedFatFoodCount));
+            });
+
+            col.Item().Text("TABLA DIARIA Y MEDIA").Bold().FontSize(10).FontColor("#334155");
+            // Se divide en bloques de siete días para conservar una tabla legible incluso en planes largos.
+            for (var start = 0; start < dayCount; start += 7)
+            {
+                var chunk = Enumerable.Range(start, Math.Min(7, dayCount - start)).ToList();
+                col.Item().Table(table =>
+                {
+                    table.ColumnsDefinition(columns =>
+                    {
+                        columns.RelativeColumn(2.2f);
+                        foreach (var _ in chunk) columns.RelativeColumn();
+                        columns.RelativeColumn();
+                    });
+                    table.Header(header =>
+                    {
+                        header.Cell().Background("#0f766e").Padding(3).Text("Nutriente").Bold().FontSize(7).FontColor(Colors.White);
+                        foreach (var index in chunk)
+                            header.Cell().Background("#0f766e").Padding(3).AlignCenter().Text($"Día {index + 1}").Bold().FontSize(7).FontColor(Colors.White);
+                        header.Cell().Background("#0f766e").Padding(3).AlignCenter().Text("Media").Bold().FontSize(7).FontColor(Colors.White);
+                    });
+
+                    void AddRow(string label, Func<int, string> dayValue, string average)
+                    {
+                        table.Cell().Background("#f8fafc").Padding(3).Text(label).FontSize(7).SemiBold();
+                        foreach (var index in chunk)
+                            table.Cell().Padding(3).AlignCenter().Text(dayValue(index)).FontSize(6.5f);
+                        table.Cell().Background("#f0fdfa").Padding(3).AlignCenter().Text(average).FontSize(6.5f).SemiBold();
+                    }
+
+                    AddRow("Energía (kcal)", index => $"{DayMacro(orderedDays[index], item => item.kcal):0}", $"{avgKcal:0}");
+                    AddRow("Proteínas (g)", index => $"{DayMacro(orderedDays[index], item => item.protein):0.0}", $"{AverageMacro(DayMacro, item => item.protein):0.0}");
+                    AddRow("Hidratos (g)", index => $"{DayMacro(orderedDays[index], item => item.carbs):0.0}", $"{AverageMacro(DayMacro, item => item.carbs):0.0}");
+                    AddRow("Grasas (g)", index => $"{DayMacro(orderedDays[index], item => item.fat):0.0}", $"{AverageMacro(DayMacro, item => item.fat):0.0}");
+                    AddRow("Azúcares (g)", index => PartialValue(summaries[index].SugarG, summaries[index].SugarFoodCount, summaries[index].TotalFoodCount),
+                        sugarCount > 0 ? $"{sugarAverage:0.0} g ({Coverage(summary => summary.SugarFoodCount)}%)" : "—");
+                    AddRow("Saturadas (g)", index => PartialValue(summaries[index].SaturatedFatG, summaries[index].SaturatedFatFoodCount, summaries[index].TotalFoodCount),
+                        saturatedCount > 0 ? $"{saturatedAverage:0.0} g ({Coverage(summary => summary.SaturatedFatFoodCount)}%)" : "—");
+                    AddRow("Monoinsat. (g)", index => PartialValue(summaries[index].MonounsaturatedFatG, summaries[index].MonounsaturatedFatFoodCount, summaries[index].TotalFoodCount),
+                        monoCount > 0 ? $"{monoAverage:0.0} g ({Coverage(summary => summary.MonounsaturatedFatFoodCount)}%)" : "—");
+                    AddRow("Poliinsat. (g)", index => PartialValue(summaries[index].PolyunsaturatedFatG, summaries[index].PolyunsaturatedFatFoodCount, summaries[index].TotalFoodCount),
+                        polyCount > 0 ? $"{polyAverage:0.0} g ({Coverage(summary => summary.PolyunsaturatedFatFoodCount)}%)" : "—");
+
+                    AddRow("Calcio (% CDR)", index => $"{summaries[index].CalciumPctRda:0}%", $"{AverageNutrient(summary => summary.CalciumPctRda):0}%");
+                    AddRow("Hierro (% CDR)", index => $"{summaries[index].IronPctRda:0}%", $"{AverageNutrient(summary => summary.IronPctRda):0}%");
+                    AddRow("Magnesio (% CDR)", index => $"{summaries[index].MagnesiumPctRda:0}%", $"{AverageNutrient(summary => summary.MagnesiumPctRda):0}%");
+                    AddRow("Potasio (% CDR)", index => $"{summaries[index].PotassiumPctRda:0}%", $"{AverageNutrient(summary => summary.PotassiumPctRda):0}%");
+                    AddRow("Zinc (% CDR)", index => $"{summaries[index].ZincPctRda:0}%", $"{AverageNutrient(summary => summary.ZincPctRda):0}%");
+                    AddRow("Vitamina A (% CDR)", index => $"{summaries[index].VitaminAPctRda:0}%", $"{AverageNutrient(summary => summary.VitaminAPctRda):0}%");
+                    AddRow("Vitamina C (% CDR)", index => $"{summaries[index].VitaminCPctRda:0}%", $"{AverageNutrient(summary => summary.VitaminCPctRda):0}%");
+                    AddRow("Vitamina D (% CDR)", index => $"{summaries[index].VitaminDPctRda:0}%", $"{AverageNutrient(summary => summary.VitaminDPctRda):0}%");
+                    AddRow("Vitamina E (% CDR)", index => $"{summaries[index].VitaminEPctRda:0}%", $"{AverageNutrient(summary => summary.VitaminEPctRda):0}%");
+                    AddRow("Vitamina B12 (% CDR)", index => $"{summaries[index].VitaminB12PctRda:0}%", $"{AverageNutrient(summary => summary.VitaminB12PctRda):0}%");
+                    AddRow("Folato (% CDR)", index => $"{summaries[index].FolatePctRda:0}%", $"{AverageNutrient(summary => summary.FolatePctRda):0}%");
+                    AddRow("Fibra (% CDR)", index => $"{summaries[index].FiberPctRda:0}%", $"{AverageNutrient(summary => summary.FiberPctRda):0}%");
+                });
+            }
+
+            col.Item().Text("Los valores de azúcares y grasas son parciales cuando la cobertura es inferior al 100%; el porcentaje entre paréntesis indica la proporción de alimentos con dato disponible. Los azúcares son totales, no necesariamente libres o añadidos. Las alertas de exceso solo se interpretan con cobertura completa. Los porcentajes de micronutrientes son referencias orientativas de ingesta diaria recomendada.")
+                .FontSize(7).Italic().FontColor("#64748b");
         });
     }
 
