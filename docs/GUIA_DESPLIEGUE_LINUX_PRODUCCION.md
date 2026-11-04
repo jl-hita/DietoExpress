@@ -16,9 +16,12 @@ Rutas de producción actuales:
 
 | Ruta | Uso | Persistente |
 |---|---|---:|
-| /opt/dietoexpress | Backend publicado | No |
-| /opt/dietoexpress/wwwroot | Frontend dentro del backend | No |
-| /var/www/dietoexpress | Frontend servido por Nginx | No |
+| /opt/dietoexpress/releases | Versiones publicadas del backend | No |
+| /opt/dietoexpress/current | Enlace a la versión activa del backend | No |
+| /opt/dietoexpress/scripts | Enlace estable a los scripts operativos de la versión activa | No |
+| /opt/dietoexpress/current/wwwroot | Frontend publicado junto al backend activo | No |
+| /var/www/dietoexpress-releases | Versiones publicadas del frontend | No |
+| /var/www/dietoexpress | Enlace a la versión activa; Nginx conserva esta raíz | No |
 | /var/lib/dietoexpress/Logs | Logs de aplicación | Sí |
 | /var/lib/dietoexpress/AlertSpool | Cola persistente de alertas | Sí |
 | /var/lib/dietoexpress/documents | Documentos y PDF persistentes (pacientes, profesionales y administración) | Sí |
@@ -823,8 +826,8 @@ After=network-online.target postgresql.service
 Wants=network-online.target
 
 [Service]
-WorkingDirectory=/opt/dietoexpress
-ExecStart=/usr/bin/dotnet /opt/dietoexpress/Anguloso.Server.dll
+WorkingDirectory=/opt/dietoexpress/current
+ExecStart=/usr/bin/dotnet /opt/dietoexpress/current/Anguloso.Server.dll
 Restart=always
 RestartSec=5
 User=joso
@@ -850,6 +853,34 @@ sudo journalctl -u dietoexpress.service -n 100 --no-pager
 ~~~
 
 La aplicación no debe ejecutarse como root.
+
+## Despliegues versionados y rollback
+
+El workflow de GitHub Actions publica cada commit en un directorio independiente:
+
+- Backend: `/opt/dietoexpress/releases/<commit>`.
+- Frontend: `/var/www/dietoexpress-releases/<commit>`.
+- Backend activo: enlace `/opt/dietoexpress/current`.
+- Frontend activo: enlace `/var/www/dietoexpress` (la raíz de Nginx no cambia).
+- Los scripts operativos mantienen la ruta estable `/opt/dietoexpress/scripts`, enlazada a la versión activa.
+
+El script `scripts/dietoexpress-deploy-atomic.sh` prepara ambos artefactos antes de cambiar los enlaces. Usa `flock` para impedir despliegues simultáneos y sustituye cada enlace mediante rename atómico. Normaliza los releases del backend a propietario `joso:joso`, mantiene los directorios en `0755` y los scripts operativos en `0750`; para el frontend aplica `joso:joso`, directorios `0755` y archivos estáticos `0644`. El usuario `nginx` solo recibe lectura y acceso de recorrido, nunca escritura. Antes de activar el release comprueba expresamente que Nginx puede atravesar `/var/www` y el directorio de releases y leer `index.html`. Después aplica los contextos SELinux con `restorecon`. Si falta el usuario `nginx` o falla cualquiera de estas comprobaciones, el despliegue se aborta antes del cambio de enlaces. Después actualiza el drop-in de systemd, reinicia el backend y comprueba la portada HTTPS y el endpoint público del directorio. Si falla el reinicio o cualquiera de las comprobaciones, restaura los dos enlaces anteriores y vuelve a probar la versión previa. Si no existe una versión previa completa, detiene el servicio.
+
+Se conservan cinco releases recientes además de la versión activa; no se eliminan datos persistentes. Logs, AlertSpool, documentos, configuración y PostgreSQL siguen fuera de los releases. El rollback revierte código, no migraciones de base de datos: los cambios de esquema deben seguir siendo compatibles con la versión anterior durante el despliegue.
+
+La primera ejecución migra el contenido actual de Nginx a un release `legacy` y convierte `/var/www/dietoexpress` en enlace. En backend se conserva el directorio raíz y se crea `current`; los scripts existentes se apartan como `scripts-legacy-<fecha>` y la ruta estable `scripts` pasa a apuntar al release activo.
+
+Comprobaciones manuales:
+
+~~~bash
+readlink -f /opt/dietoexpress/current
+readlink -f /var/www/dietoexpress
+systemctl cat dietoexpress.service
+systemctl status dietoexpress.service --no-pager
+~~~
+
+Para volver manualmente a una versión anterior, sustituye ambos enlaces por los directorios del mismo release y reinicia el servicio. No cambies solo uno de los dos enlaces.
+
 
 ---
 
@@ -938,7 +969,7 @@ El workflow lo copia a:
 
 y también a:
 
-/opt/dietoexpress/wwwroot/
+/opt/dietoexpress/current/wwwroot/
 
 Comprobar:
 
@@ -1375,8 +1406,8 @@ La documentación de infraestructura debe evolucionar junto con el código.
 - HTTPS: Let's Encrypt.
 - Ejecución: systemd.
 - CI/CD: GitHub Actions.
-- Backend publicado: /opt/dietoexpress.
-- Frontend Nginx: /var/www/dietoexpress.
+- Backend publicado: /opt/dietoexpress/releases; versión activa en /opt/dietoexpress/current.
+- Frontend Nginx: /var/www/dietoexpress-releases; versión activa en /var/www/dietoexpress.
 - Logs persistentes: /var/lib/dietoexpress/Logs.
 - AlertSpool persistente: /var/lib/dietoexpress/AlertSpool.
 - Configuración de servicio: /etc/dietoexpress/dietoexpress.env.

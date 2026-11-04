@@ -18,16 +18,17 @@ APP_USER="${DIETOEXPRESS_APP_USER:-joso}"
 APP_HOME="${DIETOEXPRESS_APP_HOME:-/home/joso}"
 APP_DIR="${DIETOEXPRESS_APP_DIR:-/opt/dietoexpress}"
 WEB_DIR="${DIETOEXPRESS_WEB_DIR:-/var/www/dietoexpress}"
+WEB_RELEASES="${DIETOEXPRESS_WEB_RELEASES:-/var/www/dietoexpress-releases}"
 STATE_DIR="${DIETOEXPRESS_STATE_DIR:-/var/lib/dietoexpress}"
 BACKUP_DIR="${DIETOEXPRESS_BACKUP_DIR:-/var/lib/dietoexpress-backups}"
 
-case "$APP_DIR:$WEB_DIR:$STATE_DIR:$BACKUP_DIR" in
+case "$APP_DIR:$WEB_DIR:$WEB_RELEASES:$STATE_DIR:$BACKUP_DIR" in
   *"/../"*|*"/.."|*"//"*)
     echo "ERROR: se detectó una ruta no normalizada." >&2
     exit 1
     ;;
 esac
-for path in "$APP_HOME" "$APP_DIR" "$WEB_DIR" "$STATE_DIR" "$BACKUP_DIR"; do
+for path in "$APP_HOME" "$APP_DIR" "$WEB_DIR" "$WEB_RELEASES" "$STATE_DIR" "$BACKUP_DIR"; do
   [[ "$path" == /* && "$path" != "/" ]] || {
     echo "ERROR: ruta absoluta no válida: $path" >&2
     exit 1
@@ -59,7 +60,9 @@ if ! id "$APP_USER" >/dev/null 2>&1; then
 fi
 install -d -o "$APP_USER" -g "$APP_USER" -m 0750 "$APP_HOME"
 install -d -o "$APP_USER" -g "$APP_USER" -m 0755 "$APP_DIR"
+install -d -o "$APP_USER" -g "$APP_USER" -m 0755 "$APP_DIR/releases"
 install -d -o "$APP_USER" -g "$APP_USER" -m 0755 "$WEB_DIR"
+install -d -o "$APP_USER" -g "$APP_USER" -m 0755 "$WEB_RELEASES"
 install -d -o "$APP_USER" -g "$APP_USER" -m 0750 "$STATE_DIR/Logs"
 install -d -o "$APP_USER" -g "$APP_USER" -m 0750 "$STATE_DIR/AlertSpool"
 install -d -o "$APP_USER" -g "$APP_USER" -m 0750 "$STATE_DIR/documents"

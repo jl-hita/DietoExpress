@@ -20,12 +20,18 @@ public sealed class ProductionSmokeWorkflowRegressionTests
     [Fact]
     public void ProductionDeploymentWorkflow_PerformsPostRestartSmokeTest()
     {
-        var workflow = File.ReadAllText(Path.Combine(RepoRoot, ".github", "workflows", "deploy.yml"));
+        // El workflow delega la activación y los smoke tests al script versionado.
+        var deployScript = File.ReadAllText(Path.Combine(RepoRoot, "scripts", "dietoexpress-deploy-atomic.sh"));
 
-        Assert.Contains("systemctl is-active --quiet dietoexpress.service", workflow);
-        Assert.Contains("https://jlhitap.duckdns.org/", workflow);
-        Assert.Contains("https://jlhitap.duckdns.org/api/directory/professionals", workflow);
-        Assert.Contains("python3 -c 'import json;", workflow);
-        Assert.Contains("grep -Fq \"DietoExpress\"", workflow);
+        Assert.Contains("sudo systemctl is-active --quiet dietoexpress.service", deployScript);
+        Assert.Contains("https://$DOMAIN/", deployScript);
+        Assert.Contains("https://$DOMAIN/api/directory/professionals", deployScript);
+        Assert.Contains("python3 -c 'import json;", deployScript);
+        Assert.Contains("grep -Fq \"DietoExpress\"", deployScript);
+        Assert.Contains("rollback \"falló el smoke test de frontend o API\"", deployScript);
+        Assert.Contains("rollback \"no se pudo reiniciar systemd\"", deployScript);
+        Assert.Contains("PREVIOUS_BACKEND", deployScript);
+        Assert.Contains("PREVIOUS_WEB", deployScript);
+        Assert.Contains("[[ \"$attempt\" -lt 12 ]]", deployScript);
     }
 }
