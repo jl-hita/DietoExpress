@@ -20,6 +20,7 @@ public sealed class ProductionSmokeWorkflowRegressionTests
     [Fact]
     public void ProductionDeploymentWorkflow_PerformsPostRestartSmokeTest()
     {
+        // El workflow delega la activación y los smoke tests al script versionado.
         var deployScript = File.ReadAllText(Path.Combine(RepoRoot, "scripts", "dietoexpress-deploy-atomic.sh"));
 
         Assert.Contains("sudo systemctl is-active --quiet dietoexpress.service", deployScript);
