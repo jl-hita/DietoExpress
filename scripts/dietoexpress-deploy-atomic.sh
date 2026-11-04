@@ -48,6 +48,19 @@ rsync -a --delete "$FRONTEND_STAGE/" "$BACKEND_TARGET/wwwroot/"
 sudo rsync -a --delete "$FRONTEND_STAGE/" "$WEB_TARGET/"
 chmod 750 "$BACKEND_TARGET"/scripts/*.sh 2>/dev/null || true
 
+# Primera migración del backend: guardar una copia ejecutable de la versión
+# plana actual antes de activar el nuevo layout. Así también hay rollback en el
+# primer despliegue con este mecanismo.
+if [[ ! -L "$BACKEND_CURRENT" && -f "$APP_ROOT/Anguloso.Server.dll" ]]; then
+  legacy_backend="$BACKEND_RELEASES/legacy-$(date -u +%Y%m%d%H%M%S)"
+  install -d -m 0755 "$legacy_backend"
+  rsync -a --exclude="/releases/" --exclude="/current" --exclude="/scripts" --exclude="/scripts-legacy-*" "$APP_ROOT/" "$legacy_backend/"
+  if [[ -d "$APP_ROOT/scripts" && ! -L "$APP_ROOT/scripts" ]]; then
+    mv "$APP_ROOT/scripts" "$legacy_backend/scripts"
+  fi
+  ln -s "$legacy_backend" "$BACKEND_CURRENT"
+  PREVIOUS_BACKEND="$legacy_backend"
+fi
 # Primera migración: conservar la web actual como release legacy y convertir
 # su ruta pública en un enlace. Nginx mantiene exactamente el mismo root.
 if [[ -d "$WEB_ROOT" && ! -L "$WEB_ROOT" ]]; then
@@ -145,7 +158,7 @@ fi
 # La versión anterior se conserva siempre, incluso con KEEP_RELEASES=1.
 prune_releases() {
   local directory="$1" current="$2"
-  mapfile -t releases < <(find "$directory" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort -r)
+  mapfile -t releases < <(find "$directory" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %f\n' | sort -nr | cut -d' ' -f2-)
   local kept=0 name path
   for name in "${releases[@]}"; do
     path="$directory/$name"
