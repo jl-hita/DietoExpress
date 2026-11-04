@@ -28,6 +28,139 @@ public class FoodController : ControllerBase
         _foodSubstitutionService = foodSubstitutionService;
     }
 
+    private bool IsSuperAdmin() => User.IsInRole("superadmin");
+
+    [HttpGet("admin/data-quality")]
+    public async Task<IActionResult> GetFoodDataQuality(
+        [FromQuery] string? search = null,
+        [FromQuery] int limit = 100,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsSuperAdmin()) return Forbid();
+
+        limit = Math.Clamp(limit, 1, 250);
+        var foodsQuery = _dbContext.foods.AsNoTracking()
+            .Where(f => f.data_quality_ignored_until == null || f.data_quality_ignored_until <= DateTime.UtcNow);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            if (term.Length > 100) return BadRequest("La búsqueda no puede superar 100 caracteres.");
+            foodsQuery = foodsQuery.Where(f => f.name.Contains(term) || (f.brands != null && f.brands.Contains(term)));
+        }
+
+        var directUsage = await _dbContext.meal_items.AsNoTracking()
+            .Where(item => item.food_id.HasValue)
+            .GroupBy(item => item.food_id!.Value)
+            .Select(group => new { FoodId = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(item => item.FoodId, item => item.Count, cancellationToken);
+
+        var recipeUsage = await (
+            from mealItem in _dbContext.meal_items.AsNoTracking()
+            where mealItem.recipe_id.HasValue
+            join ingredient in _dbContext.recipe_items.AsNoTracking()
+                on mealItem.recipe_id!.Value equals ingredient.recipe_id
+            group ingredient by ingredient.food_id into grouped
+            select new { FoodId = grouped.Key, Count = grouped.Count() }
+        ).ToDictionaryAsync(item => item.FoodId, item => item.Count, cancellationToken);
+
+        var candidates = await foodsQuery.ToListAsync(cancellationToken);
+        var result = candidates.Select(food =>
+        {
+            var usage = directUsage.GetValueOrDefault(food.id) + recipeUsage.GetValueOrDefault(food.id);
+            var missing = new List<string>();
+            if (!food.kcal.HasValue) missing.Add("kcal");
+            if (!food.protein.HasValue) missing.Add("protein");
+            if (!food.carbs.HasValue) missing.Add("carbs");
+            if (!food.fat.HasValue) missing.Add("fat");
+            if (!food.sugar.HasValue) missing.Add("sugar");
+            if (!food.saturated_fat.HasValue) missing.Add("saturated_fat");
+            if (!food.monounsaturated_fat.HasValue) missing.Add("monounsaturated_fat");
+            if (!food.polyunsaturated_fat.HasValue) missing.Add("polyunsaturated_fat");
+            if (!food.fiber.HasValue) missing.Add("fiber");
+            if (!food.salt.HasValue) missing.Add("salt");
+            if (!food.vitamin_a_ug.HasValue) missing.Add("vitamin_a_ug");
+            if (!food.vitamin_c_mg.HasValue) missing.Add("vitamin_c_mg");
+            if (!food.vitamin_d_ug.HasValue) missing.Add("vitamin_d_ug");
+            if (!food.vitamin_e_mg.HasValue) missing.Add("vitamin_e_mg");
+            if (!food.vitamin_b12_ug.HasValue) missing.Add("vitamin_b12_ug");
+            if (!food.folate_ug.HasValue) missing.Add("folate_ug");
+            if (!food.calcium_mg.HasValue) missing.Add("calcium_mg");
+            if (!food.iron_mg.HasValue) missing.Add("iron_mg");
+            if (!food.magnesium_mg.HasValue) missing.Add("magnesium_mg");
+            if (!food.potassium_mg.HasValue) missing.Add("potassium_mg");
+            if (!food.zinc_mg.HasValue) missing.Add("zinc_mg");
+
+            return new
+            {
+                food.id, food.name, food.brands, food.source, food.category, usageCount = usage,
+                missingFields = missing,
+                food.kcal, food.protein, food.carbs, food.fat, food.sugar, food.saturated_fat,
+                food.monounsaturated_fat, food.polyunsaturated_fat, food.fiber, food.salt,
+                food.vitamin_a_ug, food.vitamin_c_mg, food.vitamin_d_ug, food.vitamin_e_mg,
+                food.vitamin_b12_ug, food.folate_ug, food.calcium_mg, food.iron_mg,
+                food.magnesium_mg, food.potassium_mg, food.zinc_mg
+            };
+        })
+        .Where(item => item.usageCount > 0 && item.missingFields.Count > 0)
+        .OrderByDescending(item => item.usageCount)
+        .ThenBy(item => item.name)
+        .Take(limit)
+        .ToList();
+
+        return Ok(result);
+    }
+
+    [HttpPut("admin/data-quality/{id:int}")]
+    public async Task<IActionResult> UpdateFoodDataQuality(
+        int id, [FromBody] FoodDataQualityUpdateDto dto, CancellationToken cancellationToken)
+    {
+        if (!IsSuperAdmin()) return Forbid();
+        if (dto == null) return BadRequest("No se han recibido datos.");
+
+        var food = await _dbContext.foods.FirstOrDefaultAsync(f => f.id == id, cancellationToken);
+        if (food == null) return NotFound();
+
+        if (dto.Kcal.HasValue) food.kcal = dto.Kcal;
+        if (dto.Protein.HasValue) food.protein = dto.Protein;
+        if (dto.Carbs.HasValue) food.carbs = dto.Carbs;
+        if (dto.Fat.HasValue) food.fat = dto.Fat;
+        if (dto.Sugar.HasValue) food.sugar = dto.Sugar;
+        if (dto.SaturatedFat.HasValue) food.saturated_fat = dto.SaturatedFat;
+        if (dto.MonounsaturatedFat.HasValue) food.monounsaturated_fat = dto.MonounsaturatedFat;
+        if (dto.PolyunsaturatedFat.HasValue) food.polyunsaturated_fat = dto.PolyunsaturatedFat;
+        if (dto.Fiber.HasValue) food.fiber = dto.Fiber;
+        if (dto.Salt.HasValue) food.salt = dto.Salt;
+        if (dto.VitaminAUg.HasValue) food.vitamin_a_ug = dto.VitaminAUg;
+        if (dto.VitaminCMg.HasValue) food.vitamin_c_mg = dto.VitaminCMg;
+        if (dto.VitaminDUg.HasValue) food.vitamin_d_ug = dto.VitaminDUg;
+        if (dto.VitaminEMg.HasValue) food.vitamin_e_mg = dto.VitaminEMg;
+        if (dto.VitaminB12Ug.HasValue) food.vitamin_b12_ug = dto.VitaminB12Ug;
+        if (dto.FolateUg.HasValue) food.folate_ug = dto.FolateUg;
+        if (dto.CalciumMg.HasValue) food.calcium_mg = dto.CalciumMg;
+        if (dto.IronMg.HasValue) food.iron_mg = dto.IronMg;
+        if (dto.MagnesiumMg.HasValue) food.magnesium_mg = dto.MagnesiumMg;
+        if (dto.PotassiumMg.HasValue) food.potassium_mg = dto.PotassiumMg;
+        if (dto.ZincMg.HasValue) food.zinc_mg = dto.ZincMg;
+
+        food.data_quality_ignored_until = null;
+        food.data_quality_ignored_by_user_id = null;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPost("admin/data-quality/{id:int}/ignore")]
+    public async Task<IActionResult> IgnoreFoodDataQuality(int id, CancellationToken cancellationToken)
+    {
+        if (!IsSuperAdmin()) return Forbid();
+        var food = await _dbContext.foods.FirstOrDefaultAsync(f => f.id == id, cancellationToken);
+        if (food == null) return NotFound();
+        food.data_quality_ignored_until = DateTime.UtcNow.AddDays(30);
+        food.data_quality_ignored_by_user_id = AuthHelpers.GetUserId(User);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return NoContent();
+    }
+
     [HttpGet("barcode/{code}")]
     [EnableRateLimiting("expensive")]
     public async Task<IActionResult> GetByBarcode(string code)
