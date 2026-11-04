@@ -142,7 +142,7 @@
             <span class="days-count">({{ days.controls.length }} en total)</span>
           </div>
           <div class="days-nav-wrapper">
-            <button type="button" class="btn-weekly-summary" (click)="showWeeklySummary = true" [disabled]="days.controls.length === 0">
+            <button type="button" class="btn-weekly-summary" (click)="openWeeklySummary()" [disabled]="days.controls.length === 0">
               <mat-icon>analytics</mat-icon> Resumen semanal
             </button>
             <div class="days-pills">
@@ -188,8 +188,10 @@
             </div>
 
             <p class="weekly-summary-note">
-              Los macros se calculan con las cantidades actuales del editor. Los micronutrientes y sus % CDR proceden del último cálculo nutricional disponible para cada día; los días sin datos aparecen como «—».
+              Los micronutrientes se recalculan en el servidor con los alimentos, recetas y cantidades actuales del borrador. Los grupos de intercambio usan un perfil medio estimado de los alimentos disponibles en cada grupo.
               El balance es frente al objetivo de la dieta, no una estimación del gasto energético real del paciente.
+              <span *ngIf="weeklySummaryLoading" class="weekly-summary-status">Actualizando cálculo nutricional…</span>
+              <span *ngIf="weeklySummaryError" class="weekly-summary-status weekly-summary-error">No se pudo actualizar el cálculo. Vuelve a abrir el resumen para reintentarlo.</span>
             </p>
 
             <div class="weekly-summary-table-wrap">

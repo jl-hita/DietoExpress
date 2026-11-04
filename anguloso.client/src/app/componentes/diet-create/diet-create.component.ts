@@ -59,6 +59,9 @@ export class DietCreateComponent implements OnInit {
   // Visual Editor Properties
   activeDayIndex = 0;
   showWeeklySummary = false;
+  weeklySummaryLoading = false;
+  weeklySummaryError = false;
+  private weeklySummaryRequestId = 0;
   readonly weeklyMicronutrientColumns = [
     { label: 'Calcio', key: 'calciumPctRda' },
     { label: 'Hierro', key: 'ironPctRda' },
@@ -239,6 +242,7 @@ export class DietCreateComponent implements OnInit {
       takeUntilDestroyed(this.destroyRef)
     ).subscribe(() => {
       this.validateDraftDiet();
+      if (this.showWeeklySummary) this.refreshWeeklySummary();
     });
   }
 
@@ -575,6 +579,55 @@ export class DietCreateComponent implements OnInit {
 
   getDayMicronutrients(dIndex: number): any {
     return this.days.at(dIndex)?.get('micronutrients')?.value || null;
+  }
+
+  openWeeklySummary(): void {
+    this.showWeeklySummary = true;
+    this.refreshWeeklySummary();
+  }
+
+  private refreshWeeklySummary(): void {
+    if (!this.days.length) return;
+    const requestId = ++this.weeklySummaryRequestId;
+    this.weeklySummaryLoading = true;
+    this.weeklySummaryError = false;
+
+    const draft = {
+      days: this.days.controls.map((day, dayIndex) => ({
+        dayIndex: Number(day.get('dayIndex')?.value ?? dayIndex),
+        meals: this.getMeals(dayIndex).controls.map((meal, mealIndex) => ({
+          name: meal.get('name')?.value ?? 'Comida',
+          mealIndex: Number(meal.get('mealIndex')?.value ?? mealIndex),
+          items: (meal.get('items') as FormArray).controls.map(item => ({
+            foodId: item.get('foodId')?.value ?? null,
+            grams: item.get('grams')?.value ?? null,
+            recipeId: item.get('recipeId')?.value ?? null,
+            recipeServings: item.get('recipeServings')?.value ?? null,
+            exchangeGroupId: item.get('exchangeGroupId')?.value ?? null,
+            exchangeCount: item.get('exchangeCount')?.value ?? null
+          }))
+        }))
+      }))
+    };
+
+    this.dietService.calculateNutritionSummary(draft)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: summaries => {
+          if (requestId !== this.weeklySummaryRequestId) return;
+          summaries.forEach(summary => {
+            const day = this.days.controls.find(control =>
+              Number(control.get('dayIndex')?.value) === Number(summary.dayIndex));
+            day?.get('micronutrients')?.setValue(summary.micronutrients ?? null, { emitEvent: false });
+          });
+          this.weeklySummaryLoading = false;
+        },
+        error: () => {
+          if (requestId !== this.weeklySummaryRequestId) return;
+          this.weeklySummaryLoading = false;
+          this.weeklySummaryError = true;
+        }
+      });
   }
 
   getWeeklyAverage(prop: 'kcal' | 'protein' | 'carbs' | 'fat'): number {
