@@ -399,9 +399,8 @@ public class DietController : ControllerBase
         };
 
         DietGeneratorService.PopulateDailyMicronutrients(calculationDiet, foodsForCalculation);
-        var summaries = calculationDiet.Days.ToDictionary(d => d.DayIndex, d => d.Micronutrients);
-        foreach (var day in draft.Days)
-            day.Micronutrients = summaries.GetValueOrDefault(day.DayIndex);
+        for (var dayIndex = 0; dayIndex < draft.Days.Count; dayIndex++)
+            draft.Days.ElementAt(dayIndex).Micronutrients = calculationDiet.Days.ElementAt(dayIndex).Micronutrients;
 
         return Ok(draft.Days);
     }
