@@ -257,6 +257,173 @@ public class DietController : ControllerBase
         return null;
     }
 
+    [HttpPost("nutrition-summary")]
+    [EnableRateLimiting("expensive")]
+    // Calcula el resumen del borrador sin persistirlo y usando exclusivamente alimentos y recetas accesibles al profesional.
+    public async Task<ActionResult<ICollection<DietDayDto>>> CalculateNutritionSummary(
+        [FromBody] DietDetailDto draft,
+        CancellationToken cancellationToken)
+    {
+        if (draft?.Days == null || draft.Days.Count == 0 || draft.Days.Count > 31)
+            return BadRequest("La dieta debe contener entre 1 y 31 días.");
+
+        var items = draft.Days.SelectMany(d => d.Meals ?? new List<MealDto>())
+            .SelectMany(m => m.Items ?? new List<MealItemDto>()).ToList();
+        if (items.Count > 2000)
+            return BadRequest("La dieta no puede contener más de 2000 alimentos o intercambios.");
+
+        var userId = AuthHelpers.GetUserId(User);
+        if (!userId.HasValue) return Unauthorized();
+        var tenantId = AuthHelpers.GetTenantId(User);
+        var isSuperAdmin = User.IsInRole("superadmin");
+
+        var requestedFoodIds = items.Where(i => i.FoodId.HasValue).Select(i => i.FoodId!.Value).Distinct().ToList();
+        var requestedRecipeIds = items.Where(i => i.RecipeId.HasValue).Select(i => i.RecipeId!.Value).Distinct().ToList();
+        if (requestedRecipeIds.Count > 0 && !await _licenseService.CanUseFeatureAsync(tenantId, "RECIPES"))
+            return Forbid();
+        var exchangeIds = items.Where(i => i.ExchangeGroupId.HasValue).Select(i => i.ExchangeGroupId!.Value).Distinct().ToList();
+
+        // Las recetas siguen exactamente el ámbito de RecipesController: propias y del tenant actual.
+        var recipes = requestedRecipeIds.Count == 0
+            ? new List<recipes>()
+            : await _context.recipes
+                .AsNoTracking()
+                .Include(r => r.recipe_items)
+                .Where(r => requestedRecipeIds.Contains(r.id) &&
+                    tenantId.HasValue && r.tenant_id == tenantId.Value && r.user_id == userId.Value)
+                .ToListAsync(cancellationToken);
+
+        if (recipes.Count != requestedRecipeIds.Count)
+            return BadRequest("Una o más recetas ya no están disponibles para esta cuenta.");
+
+        var allFoodIds = requestedFoodIds
+            .Concat(recipes.SelectMany(r => r.recipe_items).Select(ri => ri.food_id))
+            .Distinct().ToList();
+
+        IQueryable<foods> accessibleFoodQuery = _context.foods.AsNoTracking()
+            .Where(f => allFoodIds.Contains(f.id) &&
+                ((f.source == null || f.source.ToLower() != "local") ||
+                 isSuperAdmin ||
+                 (tenantId.HasValue && f.tenant_id == tenantId.Value && f.created_by_user_id == userId.Value) ||
+                 (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value)));
+
+        var accessibleFoods = await accessibleFoodQuery.ToListAsync(cancellationToken);
+        if (accessibleFoods.Count != allFoodIds.Count)
+            return BadRequest("Uno o más alimentos ya no están disponibles para esta cuenta.");
+
+        // Los grupos de intercambio no almacenan micronutrientes. Se estima un perfil medio por intercambio
+        // a partir de los alimentos del grupo que el usuario puede consultar.
+        var exchangeFoods = exchangeIds.Count == 0
+            ? new List<foods>()
+            : await _context.foods.AsNoTracking()
+                .Where(f => f.exchange_group_id.HasValue && exchangeIds.Contains(f.exchange_group_id.Value) &&
+                    f.grams_per_exchange.HasValue && f.grams_per_exchange > 0 &&
+                    ((f.source == null || f.source.ToLower() != "local") ||
+                     isSuperAdmin ||
+                     (tenantId.HasValue && f.tenant_id == tenantId.Value && f.created_by_user_id == userId.Value) ||
+                     (User.IsInRole("clinic_admin") && tenantId.HasValue && f.tenant_id == tenantId.Value)))
+                .ToListAsync(cancellationToken);
+
+        var foodsForCalculation = accessibleFoods.ToList();
+        var exchangeProfiles = new Dictionary<int, foods>();
+        foreach (var group in exchangeFoods.GroupBy(f => f.exchange_group_id!.Value))
+        {
+            var members = group.ToList();
+            double PerExchange(Func<foods, double?> selector) =>
+                members.Average(f => (selector(f) ?? 0) * (double)f.grams_per_exchange!.Value / 100.0);
+
+            var profile = new foods
+            {
+                id = -group.Key,
+                calcium_mg = PerExchange(f => f.calcium_mg),
+                iron_mg = PerExchange(f => f.iron_mg),
+                magnesium_mg = PerExchange(f => f.magnesium_mg),
+                potassium_mg = PerExchange(f => f.potassium_mg),
+                zinc_mg = PerExchange(f => f.zinc_mg),
+                vitamin_a_ug = PerExchange(f => f.vitamin_a_ug),
+                vitamin_c_mg = PerExchange(f => f.vitamin_c_mg),
+                vitamin_d_ug = PerExchange(f => f.vitamin_d_ug),
+                vitamin_e_mg = PerExchange(f => f.vitamin_e_mg),
+                vitamin_b12_ug = PerExchange(f => f.vitamin_b12_ug),
+                folate_ug = PerExchange(f => f.folate_ug),
+                fiber = PerExchange(f => f.fiber),
+                sugar = members.All(f => f.sugar.HasValue) ? PerExchange(f => f.sugar) : null,
+                salt = PerExchange(f => f.salt),
+                saturated_fat = members.All(f => f.saturated_fat.HasValue) ? PerExchange(f => f.saturated_fat) : null,
+                monounsaturated_fat = members.All(f => f.monounsaturated_fat.HasValue) ? PerExchange(f => f.monounsaturated_fat) : null,
+                polyunsaturated_fat = members.All(f => f.polyunsaturated_fat.HasValue) ? PerExchange(f => f.polyunsaturated_fat) : null
+            };
+            exchangeProfiles[group.Key] = profile;
+            foodsForCalculation.Add(profile);
+        }
+
+        foreach (var missingExchangeId in exchangeIds.Where(id => !exchangeProfiles.ContainsKey(id)))
+        {
+            var missingProfile = new foods
+            {
+                id = -missingExchangeId,
+                sugar = null,
+                saturated_fat = null,
+                monounsaturated_fat = null,
+                polyunsaturated_fat = null
+            };
+            exchangeProfiles[missingExchangeId] = missingProfile;
+            foodsForCalculation.Add(missingProfile);
+        }
+
+        var recipesById = recipes.ToDictionary(r => r.id);
+        var calculationDiet = new DietDetailDto
+        {
+            Days = draft.Days.Select(day => new DietDayDto
+            {
+                DayIndex = day.DayIndex,
+                Meals = day.Meals.Select(meal => new MealDto
+                {
+                    Name = meal.Name,
+                    MealIndex = meal.MealIndex,
+                    Items = meal.Items.SelectMany(item =>
+                    {
+                        if (item.FoodId.HasValue)
+                            return new[] { new MealItemDto { FoodId = item.FoodId, Grams = item.Grams } };
+
+                        if (item.RecipeId.HasValue && recipesById.TryGetValue(item.RecipeId.Value, out var recipe))
+                        {
+                            var servings = item.RecipeServings.GetValueOrDefault(1);
+                            var factor = recipe.servings > 0 ? servings / recipe.servings : servings;
+                            return recipe.recipe_items.Select(ingredient => new MealItemDto
+                            {
+                                FoodId = ingredient.food_id,
+                                Grams = ingredient.grams * factor
+                            });
+                        }
+
+                        if (item.ExchangeGroupId.HasValue &&
+                            exchangeProfiles.ContainsKey(item.ExchangeGroupId.Value) &&
+                            (item.ExchangeCount ?? 0) > 0)
+                        {
+                            return new[]
+                            {
+                                new MealItemDto
+                                {
+                                    FoodId = -item.ExchangeGroupId.Value,
+                                    Grams = item.ExchangeCount!.Value * 100m
+                                }
+                            };
+                        }
+
+                        return Array.Empty<MealItemDto>();
+                    }).ToList()
+                }).ToList()
+            }).ToList()
+        };
+
+        DietGeneratorService.PopulateDailyMicronutrients(calculationDiet, foodsForCalculation);
+        for (var dayIndex = 0; dayIndex < draft.Days.Count; dayIndex++)
+            draft.Days.ElementAt(dayIndex).Micronutrients = calculationDiet.Days.ElementAt(dayIndex).Micronutrients;
+
+        return Ok(draft.Days);
+    }
+
     [HttpPost]
     // La dieta y su posible asignación al paciente se guardan en una única transacción.
     public async Task<ActionResult<DietListDto>> CreateDiet([FromBody] CreateDietDto dto)

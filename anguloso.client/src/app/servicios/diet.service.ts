@@ -51,6 +51,10 @@ export class DietService {
     return this.http.get<any>(`${environment.apiUrl}/clients/${clientId}/diets/active`);
   }
 
+  calculateNutritionSummary(draft: any): Observable<any[]> {
+    return this.http.post<any[]>(`${this.base}/nutrition-summary`, draft);
+  }
+
   generateDiet(request: any): Observable<DietDetail> {
     return this.http.post<DietDetail>(`${this.base}/generate`, request);
   }

@@ -475,6 +475,8 @@ public class OpenFoodFactsService
             {2000, v => nutr.Sugars100g ??= v},
             {1079, v => nutr.Fiber100g ??= v},
             {1258, v => nutr.SaturatedFat100g ??= v},
+            {1292, v => nutr.MonounsaturatedFat100g ??= v},
+            {1293, v => nutr.PolyunsaturatedFat100g ??= v},
             {1093, v => nutr.Salt100g ??= v * 0.00254}
         };
 
@@ -548,6 +550,8 @@ public class OpenFoodFactsService
                         else if (name.Contains("carbohydrate")) nutr.Carbohydrates100g ??= value;
                         else if (name.Contains("sugar")) nutr.Sugars100g ??= value;
                         else if (name.Contains("fiber")) nutr.Fiber100g ??= value;
+                        else if (name.Contains("monounsaturated")) nutr.MonounsaturatedFat100g ??= value;
+                        else if (name.Contains("polyunsaturated")) nutr.PolyunsaturatedFat100g ??= value;
                         else if (name.Contains("saturated")) nutr.SaturatedFat100g ??= value;
                         else if (name.Contains("sodium")) nutr.Salt100g ??= value * 0.00254;
 
@@ -583,6 +587,8 @@ public class OpenFoodFactsService
             n.EnergyKcal100g = TryGetDouble(nutrEl, "energy-kcal_100g") ?? TryGetDouble(nutrEl, "energy_100g") ?? TryGetDouble(nutrEl, "energy-kcal") ?? null;
             n.Fat100g = TryGetDouble(nutrEl, "fat_100g") ?? TryGetDouble(nutrEl, "fat") ?? null;
             n.SaturatedFat100g = TryGetDouble(nutrEl, "saturated-fat_100g") ?? TryGetDouble(nutrEl, "saturated-fat") ?? TryGetDouble(nutrEl, "saturated_fat_100g");
+            n.MonounsaturatedFat100g = TryGetDouble(nutrEl, "monounsaturated-fat_100g") ?? TryGetDouble(nutrEl, "monounsaturated_fat_100g");
+            n.PolyunsaturatedFat100g = TryGetDouble(nutrEl, "polyunsaturated-fat_100g") ?? TryGetDouble(nutrEl, "polyunsaturated_fat_100g");
             n.Carbohydrates100g = TryGetDouble(nutrEl, "carbohydrates_100g") ?? TryGetDouble(nutrEl, "carbohydrates") ?? TryGetDouble(nutrEl, "carbohydrate_100g");
             n.Sugars100g = TryGetDouble(nutrEl, "sugars_100g") ?? TryGetDouble(nutrEl, "sugars");
             n.Fiber100g = TryGetDouble(nutrEl, "fiber_100g") ?? TryGetDouble(nutrEl, "fiber");
@@ -866,6 +872,8 @@ public class OpenFoodFactsService
                 food.fiber = n.Fiber100g ?? food.fiber;
                 food.sugar = n.Sugars100g ?? food.sugar;
                 food.saturated_fat = n.SaturatedFat100g ?? food.saturated_fat;
+                food.monounsaturated_fat = n.MonounsaturatedFat100g ?? food.monounsaturated_fat;
+                food.polyunsaturated_fat = n.PolyunsaturatedFat100g ?? food.polyunsaturated_fat;
                 food.salt = n.Salt100g ?? food.salt;
             }
 

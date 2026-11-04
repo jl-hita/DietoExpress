@@ -54,6 +54,8 @@ public class OffProduct
         Nutriments.Fiber100g = food.fiber;
         Nutriments.Sugars100g = food.sugar;
         Nutriments.SaturatedFat100g = food.saturated_fat;
+        Nutriments.MonounsaturatedFat100g = food.monounsaturated_fat;
+        Nutriments.PolyunsaturatedFat100g = food.polyunsaturated_fat;
         Nutriments.Proteins100g = food.protein;
         Nutriments.Carbohydrates100g = food.carbs;
         Nutriments.EnergyKcal100g = food.kcal;
@@ -84,6 +86,8 @@ public class OffNutriments
     public double? EnergyKcal100g { get; set; }
     public double? Fat100g { get; set; }
     public double? SaturatedFat100g { get; set; }
+    public double? MonounsaturatedFat100g { get; set; }
+    public double? PolyunsaturatedFat100g { get; set; }
     public double? Carbohydrates100g { get; set; }
     public double? Sugars100g { get; set; }
     public double? Fiber100g { get; set; }

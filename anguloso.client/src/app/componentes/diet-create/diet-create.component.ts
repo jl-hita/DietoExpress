@@ -59,6 +59,9 @@ export class DietCreateComponent implements OnInit {
   // Visual Editor Properties
   activeDayIndex = 0;
   showWeeklySummary = false;
+  weeklySummaryLoading = false;
+  weeklySummaryError = false;
+  private weeklySummaryRequestId = 0;
   readonly weeklyMicronutrientColumns = [
     { label: 'Calcio', key: 'calciumPctRda' },
     { label: 'Hierro', key: 'ironPctRda' },
@@ -239,6 +242,7 @@ export class DietCreateComponent implements OnInit {
       takeUntilDestroyed(this.destroyRef)
     ).subscribe(() => {
       this.validateDraftDiet();
+      if (this.showWeeklySummary) this.refreshWeeklySummary();
     });
   }
 
@@ -577,6 +581,56 @@ export class DietCreateComponent implements OnInit {
     return this.days.at(dIndex)?.get('micronutrients')?.value || null;
   }
 
+  openWeeklySummary(): void {
+    this.showWeeklySummary = true;
+    this.refreshWeeklySummary();
+  }
+
+  private refreshWeeklySummary(): void {
+    if (!this.days.length) return;
+    const requestId = ++this.weeklySummaryRequestId;
+    this.weeklySummaryLoading = true;
+    this.weeklySummaryError = false;
+    this.days.controls.forEach(day => day.get('micronutrients')?.setValue(null, { emitEvent: false }));
+
+    const draft = {
+      days: this.days.controls.map((day, dayIndex) => ({
+        dayIndex: Number(day.get('dayIndex')?.value ?? dayIndex),
+        meals: this.getMeals(dayIndex).controls.map((meal, mealIndex) => ({
+          name: meal.get('name')?.value ?? 'Comida',
+          mealIndex: Number(meal.get('mealIndex')?.value ?? mealIndex),
+          items: (meal.get('items') as FormArray).controls.map(item => ({
+            foodId: item.get('foodId')?.value ?? null,
+            grams: item.get('grams')?.value ?? null,
+            recipeId: item.get('recipeId')?.value ?? null,
+            recipeServings: item.get('recipeServings')?.value ?? null,
+            exchangeGroupId: item.get('exchangeGroupId')?.value ?? null,
+            exchangeCount: item.get('exchangeCount')?.value ?? null
+          }))
+        }))
+      }))
+    };
+
+    this.dietService.calculateNutritionSummary(draft)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: summaries => {
+          if (requestId !== this.weeklySummaryRequestId) return;
+          summaries.forEach(summary => {
+            const day = this.days.controls.find(control =>
+              Number(control.get('dayIndex')?.value) === Number(summary.dayIndex));
+            day?.get('micronutrients')?.setValue(summary.micronutrients ?? null, { emitEvent: false });
+          });
+          this.weeklySummaryLoading = false;
+        },
+        error: () => {
+          if (requestId !== this.weeklySummaryRequestId) return;
+          this.weeklySummaryLoading = false;
+          this.weeklySummaryError = true;
+        }
+      });
+  }
+
   getWeeklyAverage(prop: 'kcal' | 'protein' | 'carbs' | 'fat'): number {
     if (!this.days.length) return 0;
     return this.days.controls.reduce((total, _day, index) => total + this.getDaySum(index, prop), 0) / this.days.length;
@@ -587,6 +641,48 @@ export class DietCreateComponent implements OnInit {
     if (!Number.isFinite(target) || target <= 0 || !this.days.length) return null;
     const actual = this.days.controls.reduce((total, _day, index) => total + this.getDayKcal(index), 0);
     return actual - target * this.days.length;
+  }
+
+  getWeeklyAverageNutrient(key: string, completenessKey: string): number | null {
+    const values = this.days.controls
+      .map((_, index) => this.getDayMicronutrients(index))
+      .filter(summary => summary && summary[completenessKey] === true)
+      .map(summary => Number(summary[key]))
+      .filter(value => Number.isFinite(value));
+    return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+  }
+
+  getNutrientCoverage(completenessKey: string): number {
+    if (!this.days.length) return 0;
+    return Math.round(this.days.controls.filter((_, index) =>
+      this.getDayMicronutrients(index)?.[completenessKey] === true).length / this.days.length * 100);
+  }
+
+  getAverageSugarCarbsPct(): number | null {
+    const sugar = this.getWeeklyAverageNutrient('sugarG', 'sugarDataComplete');
+    const carbs = this.getWeeklyAverage('carbs');
+    return sugar === null || carbs <= 0 ? null : sugar / carbs * 100;
+  }
+
+  getAverageSugarEnergyPct(): number | null {
+    const sugar = this.getWeeklyAverageNutrient('sugarG', 'sugarDataComplete');
+    const kcal = this.getWeeklyAverage('kcal');
+    return sugar === null || kcal <= 0 ? null : sugar * 4 / kcal * 100;
+  }
+
+  getAverageSaturatedFatEnergyPct(): number | null {
+    const fat = this.getWeeklyAverageNutrient('saturatedFatG', 'saturatedFatDataComplete');
+    const kcal = this.getWeeklyAverage('kcal');
+    return fat === null || kcal <= 0 ? null : fat * 9 / kcal * 100;
+  }
+
+  getWeeklyNutrientAlert(type: 'sugar' | 'saturated'): boolean {
+    const pct = type === 'sugar' ? this.getAverageSugarEnergyPct() : this.getAverageSaturatedFatEnergyPct();
+    return pct !== null && pct > 10;
+  }
+
+  getVisualPercent(value: number | null): number {
+    return value === null || !Number.isFinite(value) ? 0 : Math.max(0, Math.min(100, value));
   }
 
   getWeeklyAverageMicro(key: string): number | null {

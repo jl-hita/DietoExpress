@@ -28,6 +28,13 @@ public partial class foods
     public double? fat { get; set; }
 
     public double? saturated_fat { get; set; }
+    public double? monounsaturated_fat { get; set; }
+
+    public double? polyunsaturated_fat { get; set; }
+
+    public DateTime? data_quality_ignored_until { get; set; }
+
+    public int? data_quality_ignored_by_user_id { get; set; }
 
     public double? fiber { get; set; }
 
