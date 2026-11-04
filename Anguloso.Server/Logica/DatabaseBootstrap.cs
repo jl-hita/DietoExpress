@@ -423,6 +423,8 @@ CREATE INDEX IF NOT EXISTS idx_patient_push_deliveries_status
                 );
                 ALTER TABLE foods ADD COLUMN IF NOT EXISTS monounsaturated_fat DOUBLE PRECISION;
                 ALTER TABLE foods ADD COLUMN IF NOT EXISTS polyunsaturated_fat DOUBLE PRECISION;
+                ALTER TABLE foods ADD COLUMN IF NOT EXISTS data_quality_ignored_until TIMESTAMPTZ;
+                ALTER TABLE foods ADD COLUMN IF NOT EXISTS data_quality_ignored_by_user_id INTEGER;
 
                 -- 8. Diets (Planes dietéticos y plantillas)
                 CREATE TABLE IF NOT EXISTS diets (
