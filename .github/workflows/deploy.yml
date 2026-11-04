@@ -24,8 +24,10 @@ jobs:
       - name: Verify production .NET runtime before deployment
         run: |
           set -euo pipefail
-          if ! /usr/bin/dotnet --list-runtimes | grep -E '^Microsoft\\.AspNetCore\\.App 10\\.'; then
-            echo "ERROR: /usr/bin/dotnet no tiene instalado Microsoft.AspNetCore.App 10.x. Instala el runtime de ASP.NET Core 10 en weirdfish antes de fusionar/desplegar esta migración. No se ha modificado producción."
+          runtimes="$(/usr/bin/dotnet --list-runtimes)"
+          printf '%s\n' "$runtimes"
+          if ! grep -Fq 'Microsoft.AspNetCore.App 10.' <<< "$runtimes"; then
+            echo "ERROR: /usr/bin/dotnet no tiene instalado Microsoft.AspNetCore.App 10.x. Instala el runtime de ASP.NET Core 10 en weirdfish antes de desplegar. No se ha modificado producción."
             exit 1
           fi
 
