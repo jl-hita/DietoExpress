@@ -309,6 +309,8 @@ export class DietCreateComponent implements OnInit {
 
   // Visual Selection Helpers
   selectDay(index: number): void {
+    // Al elegir un día desde la navegación, volver siempre al editor.
+    this.showWeeklySummary = false;
     this.activeDayIndex = index;
     // Set default target meal to the first meal of the selected day
     const meals = this.getMeals(index);
