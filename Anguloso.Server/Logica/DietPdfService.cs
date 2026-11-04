@@ -500,7 +500,7 @@ public class DietPdfService
         {
             var members = group.ToList();
             double PerExchange(Func<foods, double?> selector) =>
-                members.Average(food => (selector(food) ?? 0) * (double)food.grams_per_exchange!.Value);
+                members.Average(food => (selector(food) ?? 0) * (double)food.grams_per_exchange!.Value / 100.0);
 
             exchangeProfiles[group.Key] = new foods
             {
@@ -588,8 +588,8 @@ public class DietPdfService
         double DayMacro(diet_days day, Func<meal_items, decimal?> selector) =>
             (day.meals ?? new List<meals>()).SelectMany(meal => meal.meal_items ?? new List<meal_items>())
                 .Sum(item => (double)selector(item).GetValueOrDefault());
-        double AverageMacro(Func<diet_days, Func<meal_items, decimal?>, double> selector, Func<meal_items, decimal?> macro) =>
-            orderedDays.Sum(day => selector(day, macro)) / dayCount;
+        double AverageMacro(Func<meal_items, decimal?> macro) =>
+            orderedDays.Sum(day => DayMacro(day, macro)) / dayCount;
 
         double totalKcal = orderedDays.Sum(day => DayMacro(day, item => item.kcal));
         double avgKcal = totalKcal / dayCount;
@@ -601,8 +601,6 @@ public class DietPdfService
             TotalFoods > 0 ? (int)Math.Round(summaries.Sum(selector) * 100m / TotalFoods, MidpointRounding.AwayFromZero) : 0;
         string PartialValue(decimal value, int available, int total) =>
             available <= 0 ? "—" : $"{value:0.0} g ({(total > 0 ? (int)Math.Round(available * 100m / total) : 0)}%)";
-        string AveragePartialValue(decimal value, int available) =>
-            available <= 0 ? "—" : $"{value:0.0} g ({Coverage(_ => available)}%)";
 
         container.Column(col =>
         {
@@ -678,9 +676,9 @@ public class DietPdfService
                     }
 
                     AddRow("Energía (kcal)", index => $"{DayMacro(orderedDays[index], item => item.kcal):0}", $"{avgKcal:0}");
-                    AddRow("Proteínas (g)", index => $"{DayMacro(orderedDays[index], item => item.protein):0.0}", $"{AverageMacro(DayMacro, item => item.protein):0.0}");
-                    AddRow("Hidratos (g)", index => $"{DayMacro(orderedDays[index], item => item.carbs):0.0}", $"{AverageMacro(DayMacro, item => item.carbs):0.0}");
-                    AddRow("Grasas (g)", index => $"{DayMacro(orderedDays[index], item => item.fat):0.0}", $"{AverageMacro(DayMacro, item => item.fat):0.0}");
+                    AddRow("Proteínas (g)", index => $"{DayMacro(orderedDays[index], item => item.protein):0.0}", $"{AverageMacro(item => item.protein):0.0}");
+                    AddRow("Hidratos (g)", index => $"{DayMacro(orderedDays[index], item => item.carbs):0.0}", $"{AverageMacro(item => item.carbs):0.0}");
+                    AddRow("Grasas (g)", index => $"{DayMacro(orderedDays[index], item => item.fat):0.0}", $"{AverageMacro(item => item.fat):0.0}");
                     AddRow("Azúcares (g)", index => PartialValue(summaries[index].SugarG, summaries[index].SugarFoodCount, summaries[index].TotalFoodCount),
                         sugarCount > 0 ? $"{sugarAverage:0.0} g ({Coverage(summary => summary.SugarFoodCount)}%)" : "—");
                     AddRow("Saturadas (g)", index => PartialValue(summaries[index].SaturatedFatG, summaries[index].SaturatedFatFoodCount, summaries[index].TotalFoodCount),
