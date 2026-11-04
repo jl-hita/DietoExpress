@@ -593,7 +593,11 @@
               class="result-item-card"
               (click)="selectFoodForAdd(f)">
               <div class="item-main">
-                <span class="food-name-label">{{ getFoodName(f) }}</span>
+                <span class="food-name-label">
+                  <mat-icon *ngIf="f.nutritionalDataComplete" class="food-complete-star"
+                            aria-label="Información nutricional completa" title="Información nutricional completa">star</mat-icon>
+                  {{ getFoodName(f) }}
+                </span>
                 <span class="food-brand-label" *ngIf="f.brands">{{ f.brands }}</span>
               </div>
               <div class="item-nutrients">
