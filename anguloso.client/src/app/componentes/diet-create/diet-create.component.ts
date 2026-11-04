@@ -605,6 +605,12 @@ export class DietCreateComponent implements OnInit {
     return value === null ? '—' : `${Math.round(value)}%`;
   }
 
+  getWeeklyEnergyBalanceLabel(): string {
+    const balance = this.getWeeklyEnergyBalance();
+    if (balance === null) return '—';
+    return `${balance > 0 ? '+' : ''}${Math.round(balance).toLocaleString('es-ES')} kcal`;
+  }
+
   get targetKcal(): number { return this.form.get('targetKcal')?.value || 0; }
   get targetProtein(): number { return this.form.get('targetProtein')?.value || 0; }
   get targetCarbs(): number { return this.form.get('targetCarbs')?.value || 0; }
