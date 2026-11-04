@@ -58,11 +58,15 @@ BACKEND_TARGET="$BACKEND_RELEASES/$VERSION"
 WEB_TARGET="$WEB_RELEASES/$VERSION"
 ACTIVATION_STARTED=0
 SCRIPTS_ARCHIVE=""
+WEB_LEGACY=""
 cleanup_failed_deploy() {
   local status=$?
   if (( status != 0 && ACTIVATION_STARTED == 0 )); then
     rm -rf -- "$BACKEND_TARGET" "$WEB_TARGET" 2>/dev/null || true
     rm -f -- "$BACKEND_NEXT" "$WEB_NEXT" 2>/dev/null || true
+    if [[ -n "$WEB_LEGACY" && -d "$WEB_LEGACY" && ! -e "$WEB_ROOT" && ! -L "$WEB_ROOT" ]]; then
+      mv "$WEB_LEGACY" "$WEB_ROOT" 2>/dev/null || true
+    fi
     if [[ -n "$SCRIPTS_ARCHIVE" && -d "$SCRIPTS_ARCHIVE" && ! -e "$APP_ROOT/scripts" && ! -L "$APP_ROOT/scripts" ]]; then
       mv "$SCRIPTS_ARCHIVE" "$APP_ROOT/scripts" 2>/dev/null || true
     fi
@@ -141,13 +145,13 @@ fi
 # Primera migración: conservar la web actual como release legacy y convertir
 # su ruta pública en un enlace. Nginx mantiene exactamente el mismo root.
 if [[ -d "$WEB_ROOT" && ! -L "$WEB_ROOT" ]]; then
-  legacy="$WEB_RELEASES/legacy-$(date -u +%Y%m%d%H%M%S)"
-  mv "$WEB_ROOT" "$legacy"
-  chown -R root:root "$legacy"
-  find "$legacy" -type d -exec chmod 0755 {} +
-  find "$legacy" -type f -exec chmod 0644 {} +
-  ln -s "$legacy" "$WEB_ROOT"
-  PREVIOUS_WEB="$legacy"
+  WEB_LEGACY="$WEB_RELEASES/legacy-$(date -u +%Y%m%d%H%M%S)"
+  mv "$WEB_ROOT" "$WEB_LEGACY"
+  chown -R root:root "$WEB_LEGACY"
+  find "$WEB_LEGACY" -type d -exec chmod 0755 {} +
+  find "$WEB_LEGACY" -type f -exec chmod 0644 {} +
+  ln -s "$WEB_LEGACY" "$WEB_ROOT"
+  PREVIOUS_WEB="$WEB_LEGACY"
 elif [[ ! -e "$WEB_ROOT" && ! -L "$WEB_ROOT" ]]; then
   ln -s "$WEB_TARGET" "$WEB_ROOT"
 fi
