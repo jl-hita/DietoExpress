@@ -111,26 +111,44 @@ public class OpenFoodFactsService
             }
 
             localQuery = localQuery
-                .Where(f => EF.Functions.ILike(f.name, $"%{term}%"))
-                .OrderBy(f => f.name)
-                .ThenBy(f => f.id)
-                .Take(50);
-            var localResults = await localQuery.ToListAsync();
+                .Where(f => EF.Functions.ILike(f.name, $"%{term}%"));
+
+            // El ranking se calcula en SQL antes del límite de 50, para que los alimentos
+            // más utilizados no queden fuera por un orden alfabético previo.
+            var rankedLocalQuery = localQuery.Select(food => new
+            {
+                Food = food,
+                UsageCount = dbContext.meal_items.AsNoTracking().Count(item => item.food_id == food.id) +
+                    (from mealItem in dbContext.meal_items.AsNoTracking()
+                     where mealItem.recipe_id.HasValue
+                     join ingredient in dbContext.recipe_items.AsNoTracking()
+                         on mealItem.recipe_id!.Value equals ingredient.recipe_id
+                     where ingredient.food_id == food.id
+                     select ingredient.id).Count()
+            })
+            .OrderByDescending(item => item.UsageCount)
+            .ThenBy(item => item.Food.name)
+            .ThenBy(item => item.Food.id)
+            .Take(50);
+
+            var rankedLocalResults = await rankedLocalQuery.ToListAsync();
+            var localResults = rankedLocalResults.Select(item => item.Food).ToList();
 
             // 2. Si hay más de 5 resultados, devuelve la lista
             //if (localResults.Any())
             if (localResults.Count > 5)
             {
                 await RefreshIncompleteMicrosAsync(localResults);
-                return ListaProductos(localResults);
+                return BuildSearchResults(localResults, rankedLocalResults.ToDictionary(item => item.Food.id, item => item.UsageCount));
             }
 
             // 3. Buscar fuera si no hay resultados
             var offResults = await SearchProductsAsync(term, pais, lang);
 
-            //Si queremos devolver la consulta más los pocos guardados debemos usar estas lineas
-            localResults = await localQuery.ToListAsync();
-            return ListaProductos(localResults);
+            // Repetimos la búsqueda local tras la posible importación desde proveedores externos.
+            rankedLocalResults = await rankedLocalQuery.ToListAsync();
+            localResults = rankedLocalResults.Select(item => item.Food).ToList();
+            return BuildSearchResults(localResults, rankedLocalResults.ToDictionary(item => item.Food.id, item => item.UsageCount));
 
             //Si solo queremos devolver la consulta debemos usar esta línea
             //return offResults;
@@ -153,6 +171,42 @@ public class OpenFoodFactsService
             return new List<OffProduct>();
         }
     }
+
+    // Los resultados ya llegan ordenados por uso desde SQL y limitados a 50.
+    // Solo añadimos los metadatos que necesita la interfaz.
+    private static List<OffProduct> BuildSearchResults(List<foods> foodsList, IReadOnlyDictionary<int, int> usageByFoodId)
+    {
+        return foodsList
+            .Select(food => new OffProduct(food)
+            {
+                UsageCount = usageByFoodId.GetValueOrDefault(food.id),
+                NutritionalDataComplete = HasCompleteNutritionalData(food)
+            })
+            .ToList();
+    }
+
+    private static bool HasCompleteNutritionalData(foods food) =>
+        food.kcal.HasValue &&
+        food.protein.HasValue &&
+        food.carbs.HasValue &&
+        food.fat.HasValue &&
+        food.sugar.HasValue &&
+        food.saturated_fat.HasValue &&
+        food.monounsaturated_fat.HasValue &&
+        food.polyunsaturated_fat.HasValue &&
+        food.fiber.HasValue &&
+        food.salt.HasValue &&
+        food.vitamin_a_ug.HasValue &&
+        food.vitamin_c_mg.HasValue &&
+        food.vitamin_d_ug.HasValue &&
+        food.vitamin_e_mg.HasValue &&
+        food.vitamin_b12_ug.HasValue &&
+        food.folate_ug.HasValue &&
+        food.calcium_mg.HasValue &&
+        food.iron_mg.HasValue &&
+        food.magnesium_mg.HasValue &&
+        food.potassium_mg.HasValue &&
+        food.zinc_mg.HasValue;
 
     /*
      * Busca productos en OpenFoodFacts

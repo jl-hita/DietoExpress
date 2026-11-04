@@ -555,8 +555,10 @@ public class AuthorizationRegressionTests
     public void LocalFoodSearch_IsBoundedBeforeMaterializingResults()
     {
         var source = ReadServerLogica("OpenFoodFactsService.cs");
+        Assert.Contains(".OrderByDescending(item => item.UsageCount)", source);
+        Assert.Contains(".ThenBy(item => item.Food.name)", source);
         Assert.Contains(".Take(50)", source);
-        Assert.Contains(".OrderBy(f => f.name)", source);
+        Assert.Contains("await rankedLocalQuery.ToListAsync()", source);
     }
 
     [Fact]

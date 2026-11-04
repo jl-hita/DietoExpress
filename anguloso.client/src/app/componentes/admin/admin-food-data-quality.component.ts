@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { MatButtonModule } from '@angular/material/button';
@@ -156,7 +156,11 @@ export class AdminFoodDataQualityComponent implements OnInit {
   error = '';
   savingIds = new Set<number>();
 
-  constructor(private http: HttpClient, private snackBar: MatSnackBar) {}
+  constructor(
+    private http: HttpClient,
+    private snackBar: MatSnackBar,
+    private changeDetector: ChangeDetectorRef
+  ) {}
 
   ngOnInit(): void { this.load(); }
 
@@ -166,10 +170,17 @@ export class AdminFoodDataQualityComponent implements OnInit {
     let params = new HttpParams().set('limit', '150');
     if (this.search.trim()) params = params.set('search', this.search.trim());
     this.http.get<FoodDataQualityItem[]>('/api/foods/admin/data-quality', { params }).subscribe({
-      next: items => { this.items = items || []; this.loading = false; },
+      next: items => {
+        this.items = items || [];
+        this.loading = false;
+        // Force this view to refresh when the HTTP callback is delivered outside
+        // the normal Angular change-detection turn (e.g. after lazy navigation).
+        this.changeDetector.detectChanges();
+      },
       error: err => {
         this.loading = false;
         this.error = err?.error?.detail || err?.error || 'No se pudo cargar la revisión de alimentos.';
+        this.changeDetector.detectChanges();
       }
     });
   }
@@ -196,11 +207,13 @@ export class AdminFoodDataQualityComponent implements OnInit {
     this.http.put<void>(`/api/foods/admin/data-quality/${item.id}`, payload).subscribe({
       next: () => {
         this.savingIds.delete(item.id);
+        this.changeDetector.detectChanges();
         this.snackBar.open('Datos nutricionales guardados.', 'Cerrar', { duration: 2500 });
         this.load();
       },
       error: () => {
         this.savingIds.delete(item.id);
+        this.changeDetector.detectChanges();
         this.snackBar.open('No se pudieron guardar los datos del alimento.', 'Cerrar', { duration: 3500 });
       }
     });
@@ -212,10 +225,12 @@ export class AdminFoodDataQualityComponent implements OnInit {
       next: () => {
         this.savingIds.delete(item.id);
         this.items = this.items.filter(food => food.id !== item.id);
+        this.changeDetector.detectChanges();
         this.snackBar.open('Alimento oculto durante 30 días.', 'Cerrar', { duration: 2500 });
       },
       error: () => {
         this.savingIds.delete(item.id);
+        this.changeDetector.detectChanges();
         this.snackBar.open('No se pudo ignorar el alimento.', 'Cerrar', { duration: 3500 });
       }
     });

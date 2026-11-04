@@ -487,6 +487,8 @@ public class DietGeneratorService
             double saturatedFat = 0, monounsaturatedFat = 0, polyunsaturatedFat = 0;
             bool sugarDataComplete = true, saturatedFatDataComplete = true;
             bool monounsaturatedFatDataComplete = true, polyunsaturatedFatDataComplete = true;
+            int totalFoodCount = 0, sugarFoodCount = 0, saturatedFatFoodCount = 0;
+            int monounsaturatedFatFoodCount = 0, polyunsaturatedFatFoodCount = 0;
 
             foreach (var meal in day.Meals)
             {
@@ -496,6 +498,7 @@ public class DietGeneratorService
                         continue;
 
                     var ratio = (double)item.Grams!.Value / 100.0;
+                    totalFoodCount++;
                     ca += (food.calcium_mg ?? 0) * ratio;
                     fe += (food.iron_mg ?? 0) * ratio;
                     mg += (food.magnesium_mg ?? 0) * ratio;
@@ -510,12 +513,12 @@ public class DietGeneratorService
                     folate += (food.folate_ug ?? 0) * ratio;
 
                     fiber += (food.fiber ?? 0) * ratio;
-                    sugar += (food.sugar ?? 0) * ratio;
+                    if (food.sugar.HasValue) sugar += food.sugar.Value * ratio;
                     salt += (food.salt ?? 0) * ratio;
-                    if (!food.sugar.HasValue) sugarDataComplete = false;
-                    if (food.saturated_fat.HasValue) saturatedFat += food.saturated_fat.Value * ratio; else saturatedFatDataComplete = false;
-                    if (food.monounsaturated_fat.HasValue) monounsaturatedFat += food.monounsaturated_fat.Value * ratio; else monounsaturatedFatDataComplete = false;
-                    if (food.polyunsaturated_fat.HasValue) polyunsaturatedFat += food.polyunsaturated_fat.Value * ratio; else polyunsaturatedFatDataComplete = false;
+                    if (food.sugar.HasValue) sugarFoodCount++; else sugarDataComplete = false;
+                    if (food.saturated_fat.HasValue) { saturatedFat += food.saturated_fat.Value * ratio; saturatedFatFoodCount++; } else saturatedFatDataComplete = false;
+                    if (food.monounsaturated_fat.HasValue) { monounsaturatedFat += food.monounsaturated_fat.Value * ratio; monounsaturatedFatFoodCount++; } else monounsaturatedFatDataComplete = false;
+                    if (food.polyunsaturated_fat.HasValue) { polyunsaturatedFat += food.polyunsaturated_fat.Value * ratio; polyunsaturatedFatFoodCount++; } else polyunsaturatedFatDataComplete = false;
                 }
             }
 
@@ -561,12 +564,17 @@ public class DietGeneratorService
             summary.FiberPctRda = (decimal)Math.Round((fiber / rdaFiber) * 100.0, 0);
             summary.SugarG = (decimal)Math.Round(sugar, 1);
             summary.SugarDataComplete = sugarDataComplete;
+            summary.TotalFoodCount = totalFoodCount;
+            summary.SugarFoodCount = sugarFoodCount;
             summary.SaturatedFatG = (decimal)Math.Round(saturatedFat, 1);
             summary.SaturatedFatDataComplete = saturatedFatDataComplete;
+            summary.SaturatedFatFoodCount = saturatedFatFoodCount;
             summary.MonounsaturatedFatG = (decimal)Math.Round(monounsaturatedFat, 1);
             summary.MonounsaturatedFatDataComplete = monounsaturatedFatDataComplete;
+            summary.MonounsaturatedFatFoodCount = monounsaturatedFatFoodCount;
             summary.PolyunsaturatedFatG = (decimal)Math.Round(polyunsaturatedFat, 1);
             summary.PolyunsaturatedFatDataComplete = polyunsaturatedFatDataComplete;
+            summary.PolyunsaturatedFatFoodCount = polyunsaturatedFatFoodCount;
             summary.SaltG = (decimal)Math.Round(salt, 2);
 
             day.Micronutrients = summary;

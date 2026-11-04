@@ -819,10 +819,21 @@
 }
 
 .food-name-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 13px;
   font-weight: 700;
   color: #1e293b;
   line-height: 1.3;
+}
+
+.food-complete-star {
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  font-size: 15px;
+  color: #d69e24;
 }
 
 .food-brand-label {
@@ -1370,22 +1381,19 @@
 .btn-weekly-summary:hover:not(:disabled) { background: #eff9fb; }
 .btn-weekly-summary:disabled { opacity: .5; cursor: not-allowed; }
 .btn-weekly-summary mat-icon { width: 18px; height: 18px; font-size: 18px; }
-.weekly-summary-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  background: rgba(15, 23, 42, .62);
+.weekly-summary-page {
+  width: 100%;
+  min-height: 65vh;
+  margin: 0 0 20px;
+  padding-bottom: 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #fff;
 }
-.weekly-summary-dialog {
-  width: min(1500px, 100%);
-  max-height: min(90vh, 900px);
+.weekly-summary-page {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
   border-radius: 14px;
   background: #fff;
   box-shadow: 0 24px 70px rgba(0,0,0,.28);
@@ -1437,8 +1445,7 @@
 @media (max-width: 700px) {
   .days-nav-wrapper { flex-direction: row; flex-wrap: wrap; align-items: center; }
   .btn-weekly-summary { order: 3; width: 100%; }
-  .weekly-summary-backdrop { padding: 8px; }
-  .weekly-summary-dialog { max-height: 94vh; border-radius: 10px; }
+  .weekly-summary-page { border-radius: 10px; }
   .weekly-summary-header, .weekly-summary-footer { padding: 13px; }
   .weekly-energy-cards { grid-template-columns: 1fr; padding: 12px 13px 6px; }
   .weekly-summary-note { margin: 6px 13px 10px; }
@@ -1447,7 +1454,7 @@
   .weekly-summary-footer .btn { width: 100%; }
 }
 
-.weekly-summary-dialog { width: min(1380px, 100%); border: 1px solid rgba(255,255,255,.45); }
+.weekly-summary-page { width: 100%; border: 1px solid #e2e8f0; }
 .weekly-summary-header { padding: 20px 26px; background: linear-gradient(115deg, #f0fdfa 0%, #f8fafc 55%, #eff6ff 100%); }
 .weekly-summary-header h2 { font-size: 21px; letter-spacing: -.025em; }
 .weekly-energy-cards { padding: 18px 26px 8px; }
@@ -1490,3 +1497,5 @@
   .weekly-summary-note { margin:6px 13px 10px; }
   .weekly-summary-table-wrap { margin:0 13px; }
 }
+
+.weekly-summary-table td small { display:block; margin-top:2px; color:#94a3b8; font-size:9px; line-height:1; }
