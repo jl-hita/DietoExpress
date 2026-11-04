@@ -20,12 +20,12 @@ public sealed class ProductionSmokeWorkflowRegressionTests
     [Fact]
     public void ProductionDeploymentWorkflow_PerformsPostRestartSmokeTest()
     {
-        var workflow = File.ReadAllText(Path.Combine(RepoRoot, ".github", "workflows", "deploy.yml"));
+        var deployScript = File.ReadAllText(Path.Combine(RepoRoot, "scripts", "dietoexpress-deploy-atomic.sh"));
 
-        Assert.Contains("systemctl is-active --quiet dietoexpress.service", workflow);
-        Assert.Contains("https://jlhitap.duckdns.org/", workflow);
-        Assert.Contains("https://jlhitap.duckdns.org/api/directory/professionals", workflow);
-        Assert.Contains("python3 -c 'import json;", workflow);
-        Assert.Contains("grep -Fq \"DietoExpress\"", workflow);
+        Assert.Contains("sudo systemctl is-active --quiet dietoexpress.service", deployScript);
+        Assert.Contains("https://$DOMAIN/", deployScript);
+        Assert.Contains("https://$DOMAIN/api/directory/professionals", deployScript);
+        Assert.Contains("python3 -c 'import json;", deployScript);
+        Assert.Contains("grep -Fq \"DietoExpress\"", deployScript);
     }
 }
