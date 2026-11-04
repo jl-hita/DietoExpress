@@ -181,8 +181,7 @@
               </div>
               <div class="weekly-energy-card" [class.weekly-deficit]="getWeeklyEnergyBalance() !== null && getWeeklyEnergyBalance()! < 0" [class.weekly-surplus]="getWeeklyEnergyBalance() !== null && getWeeklyEnergyBalance()! > 0">
                 <span>Balance energético del periodo</span>
-                <strong *ngIf="getWeeklyEnergyBalance() as balance">{{ balance > 0 ? '+' : '' }}{{ balance | number:'1.0-0' }} kcal</strong>
-                <strong *ngIf="getWeeklyEnergyBalance() === null">—</strong>
+                <strong>{{ getWeeklyEnergyBalanceLabel() }}</strong>
                 <small *ngIf="getWeeklyEnergyBalance() !== null">Respecto al objetivo configurado × {{ days.length }} días</small>
                 <small *ngIf="getWeeklyEnergyBalance() === null">Configura un objetivo diario de kcal</small>
               </div>
