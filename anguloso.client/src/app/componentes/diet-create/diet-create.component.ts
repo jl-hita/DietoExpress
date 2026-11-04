@@ -643,19 +643,40 @@ export class DietCreateComponent implements OnInit {
     return actual - target * this.days.length;
   }
 
+  private getNutrientFoodCountKey(completenessKey: string): string {
+    return ({
+      sugarDataComplete: 'sugarFoodCount',
+      saturatedFatDataComplete: 'saturatedFatFoodCount',
+      monounsaturatedFatDataComplete: 'monounsaturatedFatFoodCount',
+      polyunsaturatedFatDataComplete: 'polyunsaturatedFatFoodCount'
+    } as Record<string, string>)[completenessKey] ?? '';
+  }
+
+  getDayNutrientValue(dayIndex: number, key: string, completenessKey: string): number | null {
+    const summary = this.getDayMicronutrients(dayIndex);
+    const available = Number(summary?.[this.getNutrientFoodCountKey(completenessKey)] ?? 0);
+    return summary && available > 0 ? Number(summary[key]) : null;
+  }
+
+  getDayNutrientCoverage(dayIndex: number, completenessKey: string): number {
+    const summary = this.getDayMicronutrients(dayIndex);
+    const total = Number(summary?.totalFoodCount ?? 0);
+    const available = Number(summary?.[this.getNutrientFoodCountKey(completenessKey)] ?? 0);
+    return total > 0 ? Math.round(available / total * 100) : 0;
+  }
+
   getWeeklyAverageNutrient(key: string, completenessKey: string): number | null {
     const values = this.days.controls
-      .map((_, index) => this.getDayMicronutrients(index))
-      .filter(summary => summary && summary[completenessKey] === true)
-      .map(summary => Number(summary[key]))
-      .filter(value => Number.isFinite(value));
+      .map((_, index) => this.getDayNutrientValue(index, key, completenessKey))
+      .filter((value): value is number => value !== null && Number.isFinite(value));
     return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
   }
 
   getNutrientCoverage(completenessKey: string): number {
-    if (!this.days.length) return 0;
-    return Math.round(this.days.controls.filter((_, index) =>
-      this.getDayMicronutrients(index)?.[completenessKey] === true).length / this.days.length * 100);
+    const countKey = this.getNutrientFoodCountKey(completenessKey);
+    const total = this.days.controls.reduce((sum, _, index) => sum + Number(this.getDayMicronutrients(index)?.totalFoodCount ?? 0), 0);
+    const available = this.days.controls.reduce((sum, _, index) => sum + Number(this.getDayMicronutrients(index)?.[countKey] ?? 0), 0);
+    return total > 0 ? Math.round(available / total * 100) : 0;
   }
 
   getAverageSugarCarbsPct(): number | null {
@@ -678,7 +699,8 @@ export class DietCreateComponent implements OnInit {
 
   getWeeklyNutrientAlert(type: 'sugar' | 'saturated'): boolean {
     const pct = type === 'sugar' ? this.getAverageSugarEnergyPct() : this.getAverageSaturatedFatEnergyPct();
-    return pct !== null && pct > 10;
+    const completenessKey = type === 'sugar' ? 'sugarDataComplete' : 'saturatedFatDataComplete';
+    return pct !== null && pct > 10 && this.getNutrientCoverage(completenessKey) === 100;
   }
 
   getVisualPercent(value: number | null): number {
