@@ -111,26 +111,44 @@ public class OpenFoodFactsService
             }
 
             localQuery = localQuery
-                .Where(f => EF.Functions.ILike(f.name, $"%{term}%"))
-                .OrderBy(f => f.name)
-                .ThenBy(f => f.id)
-                .Take(50);
-            var localResults = await localQuery.ToListAsync();
+                .Where(f => EF.Functions.ILike(f.name, $"%{term}%"));
+
+            // El ranking se calcula en SQL antes del límite de 50, para que los alimentos
+            // más utilizados no queden fuera por un orden alfabético previo.
+            var rankedLocalQuery = localQuery.Select(food => new
+            {
+                Food = food,
+                UsageCount = dbContext.meal_items.AsNoTracking().Count(item => item.food_id == food.id) +
+                    (from mealItem in dbContext.meal_items.AsNoTracking()
+                     where mealItem.recipe_id.HasValue
+                     join ingredient in dbContext.recipe_items.AsNoTracking()
+                         on mealItem.recipe_id!.Value equals ingredient.recipe_id
+                     where ingredient.food_id == food.id
+                     select ingredient.id).Count()
+            })
+            .OrderByDescending(item => item.UsageCount)
+            .ThenBy(item => item.Food.name)
+            .ThenBy(item => item.Food.id)
+            .Take(50);
+
+            var rankedLocalResults = await rankedLocalQuery.ToListAsync();
+            var localResults = rankedLocalResults.Select(item => item.Food).ToList();
 
             // 2. Si hay más de 5 resultados, devuelve la lista
             //if (localResults.Any())
             if (localResults.Count > 5)
             {
                 await RefreshIncompleteMicrosAsync(localResults);
-                return await BuildSearchResultsAsync(dbContext, localResults);
+                return BuildSearchResults(localResults, rankedLocalResults.ToDictionary(item => item.Food.id, item => item.UsageCount));
             }
 
             // 3. Buscar fuera si no hay resultados
             var offResults = await SearchProductsAsync(term, pais, lang);
 
-            //Si queremos devolver la consulta más los pocos guardados debemos usar estas lineas
-            localResults = await localQuery.ToListAsync();
-            return await BuildSearchResultsAsync(dbContext, localResults);
+            // Repetimos la búsqueda local tras la posible importación desde proveedores externos.
+            rankedLocalResults = await rankedLocalQuery.ToListAsync();
+            localResults = rankedLocalResults.Select(item => item.Food).ToList();
+            return BuildSearchResults(localResults, rankedLocalResults.ToDictionary(item => item.Food.id, item => item.UsageCount));
 
             //Si solo queremos devolver la consulta debemos usar esta línea
             //return offResults;
@@ -154,39 +172,16 @@ public class OpenFoodFactsService
         }
     }
 
-    // Enriquecemos únicamente los resultados de la búsqueda actual (máximo 50 alimentos).
-    // Las agregaciones se ejecutan en SQL; no recorren todo el catálogo ni todas las dietas en memoria.
-    private static async Task<List<OffProduct>> BuildSearchResultsAsync(angulosodbContext dbContext, List<foods> foodsList)
+    // Los resultados ya llegan ordenados por uso desde SQL y limitados a 50.
+    // Solo añadimos los metadatos que necesita la interfaz.
+    private static List<OffProduct> BuildSearchResults(List<foods> foodsList, IReadOnlyDictionary<int, int> usageByFoodId)
     {
-        if (foodsList.Count == 0) return new List<OffProduct>();
-
-        var foodIds = foodsList.Select(food => food.id).Distinct().ToArray();
-
-        var directUsage = await dbContext.meal_items.AsNoTracking()
-            .Where(item => item.food_id.HasValue && foodIds.Contains(item.food_id.Value))
-            .GroupBy(item => item.food_id!.Value)
-            .Select(group => new { FoodId = group.Key, Count = group.Count() })
-            .ToDictionaryAsync(item => item.FoodId, item => item.Count);
-
-        var recipeUsage = await (
-            from mealItem in dbContext.meal_items.AsNoTracking()
-            where mealItem.recipe_id.HasValue
-            join ingredient in dbContext.recipe_items.AsNoTracking()
-                on mealItem.recipe_id!.Value equals ingredient.recipe_id
-            where foodIds.Contains(ingredient.food_id)
-            group ingredient by ingredient.food_id into grouped
-            select new { FoodId = grouped.Key, Count = grouped.Count() }
-        ).ToDictionaryAsync(item => item.FoodId, item => item.Count);
-
         return foodsList
             .Select(food => new OffProduct(food)
             {
-                UsageCount = directUsage.GetValueOrDefault(food.id) + recipeUsage.GetValueOrDefault(food.id),
+                UsageCount = usageByFoodId.GetValueOrDefault(food.id),
                 NutritionalDataComplete = HasCompleteNutritionalData(food)
             })
-            .OrderByDescending(product => product.UsageCount)
-            .ThenBy(product => product.Product_name)
-            .ThenBy(product => product.Id)
             .ToList();
     }
 
