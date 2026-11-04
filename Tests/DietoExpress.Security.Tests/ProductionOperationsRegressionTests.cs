@@ -34,6 +34,10 @@ public sealed class ProductionOperationsRegressionTests
         Assert.Contains("Restauración de un backup probada en infraestructura independiente", operations);
         Assert.Contains("/var/lib/dietoexpress/Logs", deploymentManual);
         Assert.Contains("/var/lib/dietoexpress/AlertSpool", deploymentManual);
+        Assert.Contains("/var/lib/dietoexpress/Logs", deployScript);
+        Assert.Contains("/var/lib/dietoexpress/AlertSpool", deployScript);
+        Assert.Contains("/var/lib/dietoexpress/documents", deployScript);
+        Assert.Contains("no es escribible por joso", deployScript);
         Assert.Contains("smoke_test()", deployScript);
         Assert.Contains("systemctl is-active --quiet dietoexpress.service", deployScript);
     }
