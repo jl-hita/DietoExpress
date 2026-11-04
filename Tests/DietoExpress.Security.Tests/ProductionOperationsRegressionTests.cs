@@ -23,7 +23,7 @@ public sealed class ProductionOperationsRegressionTests
         var root = RepoRoot;
         var operations = File.ReadAllText(Path.Combine(root, "docs", "OPERACION_1_0.md"));
         var deploymentManual = File.ReadAllText(Path.Combine(root, "docs", "GUIA_DESPLIEGUE_LINUX_PRODUCCION.md"));
-        var deployScript = File.ReadAllText(Path.Combine(root, "scripts", "dietoexpress-deploy-atomic.sh"));
+        var deployScript = File.ReadAllText(Path.Combine(root, "scripts", "dietoexpress-deploy-root.sh"));
 
         Assert.Contains("Backup", operations);
         Assert.Contains("Restauración", operations);
@@ -37,7 +37,7 @@ public sealed class ProductionOperationsRegressionTests
         Assert.Contains("/var/lib/dietoexpress/Logs", deployScript);
         Assert.Contains("/var/lib/dietoexpress/AlertSpool", deployScript);
         Assert.Contains("/var/lib/dietoexpress/documents", deployScript);
-        Assert.Contains("no es escribible por joso", deployScript);
+        Assert.Contains("runuser -u joso -- test -w", deployScript);
         Assert.Contains("smoke_test()", deployScript);
         Assert.Contains("systemctl is-active --quiet dietoexpress.service", deployScript);
     }
@@ -47,13 +47,13 @@ public sealed class ProductionOperationsRegressionTests
     {
         var root = RepoRoot;
         var project = File.ReadAllText(Path.Combine(root, "Anguloso.Server", "Anguloso.Server.csproj"));
-        var deployScript = File.ReadAllText(Path.Combine(root, "scripts", "dietoexpress-deploy-atomic.sh"));
+        var deployScript = File.ReadAllText(Path.Combine(root, "scripts", "dietoexpress-deploy-root.sh"));
 
         // Los helpers viajan dentro del publish del backend y se conservan en cada release.
         Assert.Contains("dietoexpress-pg-backup-root.sh", project);
         Assert.Contains("dietoexpress-restore-post.sh", project);
         Assert.Contains("rsync -a --delete \"$BACKEND_STAGE/\" \"$BACKEND_TARGET/\"", deployScript);
-        Assert.Contains("find \"$BACKEND_TARGET/scripts\" -type f -name '*.sh' -exec chmod 0750", deployScript);
+        Assert.Contains("find \"$BACKEND_TARGET/scripts\" -type f -name '*.sh' -exec chmod 0755", deployScript);
     }
 
     [Fact]
