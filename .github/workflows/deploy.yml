@@ -112,8 +112,4 @@ jobs:
       - name: Desplegar versión atómica y comprobar servicio
         env:
           DIETOEXPRESS_VERSION: ${{ github.sha }}
-          DIETOEXPRESS_BACKEND_STAGE: /tmp/dietoexpress-backend
-          DIETOEXPRESS_FRONTEND_STAGE: /tmp/dietoexpress-frontend
-          DIETOEXPRESS_DOMAIN: jlhitap.duckdns.org
-          DIETOEXPRESS_KEEP_RELEASES: 5
         run: bash scripts/dietoexpress-deploy-atomic.sh
