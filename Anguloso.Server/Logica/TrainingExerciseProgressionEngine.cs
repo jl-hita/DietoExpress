@@ -59,6 +59,10 @@ public static class TrainingExerciseProgressionEngine
             return Recommendation(TrainingExerciseProgressionAction.HoldAndReview,
                 "El esfuerzo superó el objetivo de RIR. Mantén la carga; no aumentes peso ni repeticiones hasta recuperar el margen prescrito.");
 
+        if (HasStagnated(prescription, exposures))
+            return Recommendation(TrainingExerciseProgressionAction.StagnationReview,
+                "El rendimiento no mejora en tres exposiciones consecutivas. Antes de cambiar la carga, revisa adherencia, técnica, descansos, recuperación y si el rango/RIR siguen siendo adecuados con tu profesional.");
+
         if (!latest.AtTopOfRange)
         {
             var nextRepetitions = latest.Sets
@@ -113,6 +117,39 @@ public static class TrainingExerciseProgressionEngine
             increment,
             Enumerable.Repeat(prescription.MinRepetitions, prescription.PlannedWorkingSets).ToArray(),
             maximumIncreasePercent);
+    }
+
+    private static bool HasStagnated(
+        TrainingExerciseProgressionPrescription prescription,
+        IReadOnlyList<TrainingExerciseExposure> exposures)
+    {
+        if (exposures.Count < 3) return false;
+        var recent = exposures.TakeLast(3).ToArray();
+        if (recent.Any(x => !x.SessionCompleted || x.RecoveryInsufficient || x.PainReported))
+            return false;
+
+        var analyses = recent.Select(x => AnalyzeExposure(prescription, x)).ToArray();
+        if (analyses.Any(x => !x.IsUsable || x.BelowMinimumRepetitions || x.BelowTargetRir))
+            return false;
+        if (analyses.Select(x => x.LoadKg).Distinct().Count() != 1)
+            return false;
+
+        var totalRepetitions = analyses
+            .Select(x => x.Sets.Sum(set => set.Repetitions!.Value))
+            .ToArray();
+        var noRepetitionProgress = totalRepetitions[1] <= totalRepetitions[0] &&
+                                   totalRepetitions[2] <= totalRepetitions[1];
+
+        // RIR estimates are noisy. A change greater than half an RIR is treated as a
+        // possible effort improvement; smaller differences do not hide a three-session plateau.
+        var allRirRecorded = analyses.All(x => x.Sets.All(set => set.Rir is not null));
+        var noRirImprovement = !allRirRecorded || analyses
+            .Select(x => x.Sets.Average(set => set.Rir!.Value))
+            .Zip(analyses.Skip(1).Select(x => x.Sets.Average(set => set.Rir!.Value)),
+                (previous, next) => next <= previous + 0.5m)
+            .All(noMeaningfulImprovement => noMeaningfulImprovement);
+
+        return noRepetitionProgress && noRirImprovement;
     }
 
     private static ExposureAnalysis AnalyzeExposure(
@@ -204,7 +241,8 @@ public enum TrainingExerciseProgressionAction
     HoldAndReview,
     AddRepetitions,
     ConfirmTopOfRange,
-    IncreaseLoad
+    IncreaseLoad,
+    StagnationReview
 }
 
 public sealed record TrainingExerciseProgressionRecommendation(
