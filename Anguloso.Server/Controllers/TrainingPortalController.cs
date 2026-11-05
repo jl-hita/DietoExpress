@@ -5,6 +5,8 @@ using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
+using Anguloso.Server.Middleware;
 using Npgsql;
 using NpgsqlTypes;
 
@@ -118,6 +120,7 @@ public sealed class TrainingPortalController : ControllerBase
     }
 
     [HttpPost("sessions/{sessionId:int}/record")]
+    [Idempotent]
     public async Task<IActionResult> RecordSession(int sessionId, [FromBody] PatientTrainingRecordRequest request, CancellationToken cancellationToken)
     {
         if (!int.TryParse(User.FindFirstValue("clientId"), out var clientId)) return Unauthorized();
@@ -164,6 +167,24 @@ public sealed class TrainingPortalController : ControllerBase
                 (item.CompletedSets == item.PlannedSets && item.SkippedSetReason is not null));
             if (invalidExerciseFeedback)
                 return BadRequest(new { message = "Revisa las series realizadas y el motivo de las series omitidas de cada ejercicio." });
+
+            foreach (var exercise in request.ExerciseFeedback.Where(item => item.Sets is { Count: > 0 }))
+            {
+                var sets = exercise.Sets!;
+                var invalidSet = sets.Count > 50 || sets.Any(set =>
+                    set.SetNumber is < 0 or > 50 ||
+                    !IsAllowed(set.Kind, "warmup", "working") ||
+                    set.WeightKg is < 0 or > 1000 ||
+                    set.Repetitions is < 0 or > 1000 ||
+                    set.Rir is < 0 or > 10 ||
+                    (set.Completed && (set.Repetitions is null or < 1)) ||
+                    (set.Kind == "warmup" && set.Completed && set.Repetitions is null));
+                var duplicateSet = sets.GroupBy(set => (set.Kind, set.SetNumber)).Any(group => group.Count() > 1);
+                var completedWorkingSets = sets.Count(set => set.Kind == "working" && set.Completed);
+                if (invalidSet || duplicateSet || completedWorkingSets != exercise.CompletedSets)
+                    return BadRequest(new { message = "Revisa la carga, repeticiones, RIR y estado de cada serie registrada." });
+            }
+
             var duplicateExercise = request.ExerciseFeedback
                 .Where(item => !string.IsNullOrWhiteSpace(item.ExerciseId))
                 .GroupBy(item => item.ExerciseId, StringComparer.Ordinal)
@@ -318,6 +339,7 @@ public sealed class TrainingPortalController : ControllerBase
         var connection = (NpgsqlConnection)_context.Database.GetDbConnection();
         if (connection.State != ConnectionState.Open) connection.Open();
         var command = connection.CreateCommand();
+        command.Transaction = _context.Database.CurrentTransaction?.GetDbTransaction() as NpgsqlTransaction;
         command.CommandText = sql;
         foreach (var (name, value) in parameters)
         {
@@ -377,12 +399,21 @@ public sealed class TrainingPortalController : ControllerBase
     };
 }
 
+public sealed record PatientTrainingSetFeedback(
+    int SetNumber,
+    string Kind = "working",
+    decimal? WeightKg = null,
+    int? Repetitions = null,
+    decimal? Rir = null,
+    bool Completed = false);
+
 public sealed record PatientTrainingExerciseFeedback(
     string? ExerciseId,
     string ExerciseName,
     int PlannedSets,
     int CompletedSets,
-    string? SkippedSetReason = null);
+    string? SkippedSetReason = null,
+    List<PatientTrainingSetFeedback>? Sets = null);
 
 public sealed record PatientTrainingRecordRequest(
     DateTime? CompletedAt,
