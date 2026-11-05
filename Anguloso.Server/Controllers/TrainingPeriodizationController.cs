@@ -791,7 +791,7 @@ public sealed class TrainingPeriodizationController : ControllerBase
         var response = new List<object>();
         foreach (var item in items)
         {
-            var exerciseRecommendations = item.Action == "review_and_reduce_training_stress"
+            IReadOnlyList<object> exerciseRecommendations = item.Action == "review_and_reduce_training_stress"
                 ? await GetExerciseVolumeRecommendationsAsync(item.PlanId, cancellationToken)
                 : Array.Empty<object>();
             response.Add(new
