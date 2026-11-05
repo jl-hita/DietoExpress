@@ -199,6 +199,55 @@ public sealed class TrainingPortalController : ControllerBase
                 .Any(group => group.Count() > 1);
             if (duplicateExercise)
                 return BadRequest(new { message = "Un ejercicio no puede aparecer repetido en el registro." });
+
+            var identifiedFeedback = request.ExerciseFeedback
+                .Where(item => !string.IsNullOrWhiteSpace(item.ExerciseId))
+                .ToArray();
+            if (identifiedFeedback.Length > 0)
+            {
+                var prescriptionValue = await Command("""
+                    SELECT s.exercise_prescription_data::text
+                    FROM training_sessions s
+                    JOIN training_plans p ON p.id = s.plan_id
+                    JOIN training_profiles f ON f.id = p.profile_id
+                    WHERE s.id = @sessionId AND f.client_id = @clientId AND f.enabled = TRUE
+                    """, ("sessionId", sessionId), ("clientId", clientId))
+                    .ExecuteScalarAsync(cancellationToken);
+                if (prescriptionValue is not string prescriptionJson)
+                    return BadRequest(new { message = "No se puede validar el ID del ejercicio porque esta sesión no tiene una prescripción estructurada." });
+
+                try
+                {
+                    using var prescriptionDocument = JsonDocument.Parse(prescriptionJson);
+                    if (prescriptionDocument.RootElement.ValueKind != JsonValueKind.Object ||
+                        !prescriptionDocument.RootElement.TryGetProperty("exercises", out var prescribedExercises) ||
+                        prescribedExercises.ValueKind != JsonValueKind.Array)
+                        return BadRequest(new { message = "La prescripción estructurada de esta sesión no es válida." });
+
+                    var prescribedSetsById = new Dictionary<string, int>(StringComparer.Ordinal);
+                    foreach (var exercise in prescribedExercises.EnumerateArray())
+                    {
+                        if (exercise.ValueKind != JsonValueKind.Object ||
+                            !exercise.TryGetProperty("exerciseId", out var idElement) ||
+                            idElement.ValueKind != JsonValueKind.String ||
+                            string.IsNullOrWhiteSpace(idElement.GetString()) ||
+                            !exercise.TryGetProperty("sets", out var setsElement) ||
+                            !setsElement.TryGetInt32(out var prescribedSets) ||
+                            prescribedSets < 1 ||
+                            !prescribedSetsById.TryAdd(idElement.GetString()!, prescribedSets))
+                            return BadRequest(new { message = "La prescripción contiene ejercicios o series no válidos." });
+                    }
+
+                    if (identifiedFeedback.Any(item =>
+                        !prescribedSetsById.TryGetValue(item.ExerciseId!, out var prescribedSets) ||
+                        prescribedSets != item.PlannedSets))
+                        return BadRequest(new { message = "El ID y el número de series de cada ejercicio deben coincidir con la prescripción de esta sesión." });
+                }
+                catch (JsonException)
+                {
+                    return BadRequest(new { message = "No se pudo validar la prescripción estructurada de esta sesión." });
+                }
+            }
         }
 
         await using var command = Command("""
