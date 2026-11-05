@@ -39,12 +39,18 @@ Estos valores son puntos de partida conservadores que deben quedar editables/rev
 
 ## Adaptación de volumen futuro
 
-El feedback global de recuperación no identifica qué músculo necesita menos trabajo. Por ello, la aprobación de una propuesta de reducción ya no recorta todas las sesiones/ejercicios. El profesional debe seleccionar los grupos afectados. Solo se reduce una serie en un ejercicio cuando todos los grupos primarios y secundarios declarados para ese ejercicio están incluidos en la selección; los ejercicios compuestos con grupos no seleccionados se conservan. Sin selección, metadatos completos o series por encima de una, no se modifica nada.
+La adaptación usa los registros estructurados por ejercicio/serie (exercise_feedback) y la prescripción de esa sesión para recuperar el ID estable, series planificadas/realizadas, motivo de series omitidas y RIR objetivo/real. Se inspeccionan hasta las 12 sesiones registradas más recientes del plan y se agrupan las tres exposiciones más recientes de cada ejercicio.
 
-Solo se consideran sesiones futuras con estado planificado y sin registro asociado. La actualización de prescripción estructurada y texto legado ocurre dentro de la transacción de revisión. El historial completado no se reescribe.
+El motor TrainingExerciseVolumeAdapter propone revisar una reducción de una serie únicamente cuando:
+- En al menos dos de las tres exposiciones recientes hay series omitidas por fatiga o el RIR medio real queda al menos una repetición por debajo del objetivo.
+- La exposición más reciente todavía muestra esa señal; no mantiene recortes cuando el problema parece haberse resuelto.
+- El ejercicio tiene más de una serie prescrita.
 
-Este mecanismo es una salvaguarda de revisión profesional, no todavía una autorregulación automática plenamente individualizada: para automatizar recomendaciones por músculo hacen falta registros longitudinales de recuperación/rendimiento específicos por músculo o ejercicio. No se infiere esa granularidad a partir de RPE global.
+El motor no interpreta falta de tiempo, material, enfermedad o motivación como evidencia de que el ejercicio tenga demasiado volumen. El dolor produce PauseAndReview, nunca una reducción ordinaria: debe revisarse el ejercicio y la seguridad antes de reanudarlo. Una exposición incompleta no cuenta como sesión completada para esta evaluación.
 
+La propuesta se muestra al profesional con el motivo y los ejercicios candidatos. La aprobación requiere seleccionar explícitamente los IDs de ejercicio que se van a adaptar. El ajustador cambia una serie solo en esos IDs estables, en sesiones futuras planificadas sin registro asociado; no modifica ejercicios parecidos por nombre, sesiones ya registradas ni el historial completado. Sin evidencia suficiente o sin selección no se aplica ningún recorte.
+
+Los dos de tres registros, la diferencia de 1 RIR y la reducción máxima de una serie son heurísticas operativas conservadoras, no umbrales clínicos ni prescripciones de ACSM. La decisión sigue requiriendo revisión profesional.
 ## Pruebas
 
 `TrainingProgramVolumeAllocatorTests` cubre crédito secundario, objetivos/prioridades, determinismo, límites de series, duración y preferencias inválidas. `TrainingProgramGeneratorTests` cubre estabilidad de dosis entre semanas, cobertura y matriz de objetivo/experiencia/días/duración. `TrainingAdaptationReviewWorkflowTests` comprueba que no se aplican recortes globales y que los ejercicios compuestos no se alteran si alguno de sus grupos no está seleccionado.
