@@ -109,8 +109,6 @@ public sealed class TrainingPortalController : ControllerBase
             : Anguloso.Server.Logica.TrainingAdaptationPolicy.Evaluate(feedback);
         // Session-level adaptation handles recovery/context; exercise progression is
         // evaluated independently from actual working-set data and the exercise prescription.
-        var exerciseProgressionRecommendations =
-            await BuildExerciseProgressionRecommendationsAsync(clientId, cancellationToken);
         return Ok(new
         {
             enabled = true,
