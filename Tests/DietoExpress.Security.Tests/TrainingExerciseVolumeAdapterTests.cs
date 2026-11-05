@@ -105,6 +105,19 @@ public sealed class TrainingExerciseVolumeAdapterTests
     }
 
     [Fact]
+    public void MapperIgnoresValidJsonWithUnexpectedExerciseShape()
+    {
+        var records = new[]
+        {
+            new TrainingExerciseVolumeFeedbackRecord("completed", """["legacy-string"]""", """[]""")
+        };
+
+        var exposures = TrainingExerciseVolumeFeedbackMapper.Map(records);
+
+        Assert.Empty(exposures);
+    }
+
+    [Fact]
     public void PartialSessionDoesNotCountAsCompletedExerciseFatigueEvidence()
     {
         const string feedback = """[{"exerciseId":"bench","plannedSets":3,"completedSets":2,"skippedSetReason":"fatigue","sets":[{"kind":"working","completed":true,"rir":1},{"kind":"working","completed":true,"rir":1},{"kind":"working","completed":false,"rir":null}]}]""";
