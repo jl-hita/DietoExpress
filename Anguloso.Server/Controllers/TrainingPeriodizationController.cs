@@ -858,8 +858,20 @@ public sealed class TrainingPeriodizationController : ControllerBase
 
             var applied = 0;
             if (request.Decision == "approved" && action == "review_and_reduce_training_stress")
+            {
+                var allowedExerciseIds = (await GetExerciseVolumeRecommendationsAsync(planId, cancellationToken, transaction))
+                    .Where(item => item.Action == TrainingExerciseVolumeAction.ProposeReduceOneSet)
+                    .Select(item => item.ExerciseId)
+                    .ToHashSet(StringComparer.Ordinal);
+                var requestedExerciseIds = request.TargetExerciseIds ?? Array.Empty<string>();
+                if (requestedExerciseIds.Any(id => !allowedExerciseIds.Contains(id)))
+                {
+                    await transaction.RollbackAsync(CancellationToken.None);
+                    return BadRequest(new { message = "Solo se pueden adaptar ejercicios con una recomendación vigente de reducción basada en sus registros recientes." });
+                }
                 applied = await ReduceFutureSessionVolumeAsync(planId, proposalId,
-                    request.TargetExerciseIds ?? Array.Empty<string>(), transaction, cancellationToken);
+                    requestedExerciseIds, transaction, cancellationToken);
+            }
             else if (request.Decision == "approved" && action == "hold_progression_and_review")
                 applied = await HoldFutureSessionProgressionAsync(planId, proposalId, transaction, cancellationToken);
 
@@ -1650,8 +1662,8 @@ public sealed class TrainingPeriodizationController : ControllerBase
         return Ok(items);
     }
 
-    private async Task<IReadOnlyList<object>> GetExerciseVolumeRecommendationsAsync(
-        int planId, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<TrainingExerciseVolumeRecommendation>> GetExerciseVolumeRecommendationsAsync(
+        int planId, CancellationToken cancellationToken, NpgsqlTransaction? transaction = null)
     {
         var records = new List<TrainingExerciseVolumeFeedbackRecord>();
         await using (var command = CreateCommand("""
@@ -1662,7 +1674,7 @@ public sealed class TrainingPeriodizationController : ControllerBase
               AND r.exercise_feedback IS NOT NULL
             ORDER BY s.scheduled_date DESC, r.id DESC
             LIMIT 12
-            """, null, ("planId", planId)))
+            """, transaction, ("planId", planId)))
         await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
         {
             while (await reader.ReadAsync(cancellationToken))
@@ -1673,16 +1685,7 @@ public sealed class TrainingPeriodizationController : ControllerBase
         }
 
         var exposures = TrainingExerciseVolumeFeedbackMapper.Map(records);
-        return TrainingExerciseVolumeAdapter.Evaluate(exposures)
-            .Select(item => (object)new
-            {
-                exerciseId = item.ExerciseId,
-                action = item.Action.ToString(),
-                explanation = item.Explanation,
-                suggestedWorkingSets = item.SuggestedWorkingSets,
-                exposuresAnalyzed = item.ExposuresAnalyzed
-            })
-            .ToArray();
+        return TrainingExerciseVolumeAdapter.Evaluate(exposures);
     }
 
     private async Task<int> ReduceFutureSessionVolumeAsync(
