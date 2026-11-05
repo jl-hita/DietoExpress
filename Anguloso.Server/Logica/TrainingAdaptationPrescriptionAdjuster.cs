@@ -4,8 +4,8 @@ using System.Text.Json.Nodes;
 namespace Anguloso.Server.Logica;
 
 /// <summary>
-/// Applies an explicitly reviewed, muscle-targeted volume reduction to future-session JSON.
-/// It never changes completed history and refuses broad reductions when muscle metadata is absent.
+/// Applies an explicitly reviewed, exercise-ID-targeted volume reduction to future-session JSON.
+/// It never changes completed history or infers targets from names or unrelated exercise metadata.
 /// </summary>
 public static class TrainingAdaptationPrescriptionAdjuster
 {
