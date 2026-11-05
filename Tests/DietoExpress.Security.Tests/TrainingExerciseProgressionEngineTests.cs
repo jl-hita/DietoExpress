@@ -188,6 +188,25 @@ public sealed class TrainingExerciseProgressionEngineTests
     }
 
     [Fact]
+    public void ThreeExposuresWithoutRepetitionOrEffortImprovement_FlagStagnation()
+    {
+        var result = TrainingExerciseProgressionEngine.Evaluate(Prescription(),
+            [Exposure(10), Exposure(10), Exposure(10)]);
+
+        Assert.Equal(TrainingExerciseProgressionAction.StagnationReview, result.Action);
+        Assert.Contains("tres exposiciones", result.Explanation);
+    }
+
+    [Fact]
+    public void ImprovedRirPreventsFalseStagnation()
+    {
+        var result = TrainingExerciseProgressionEngine.Evaluate(Prescription(),
+            [Exposure(10, rir: 2m), Exposure(10, rir: 2.5m), Exposure(10, rir: 3m)]);
+
+        Assert.Equal(TrainingExerciseProgressionAction.AddRepetitions, result.Action);
+    }
+
+    [Fact]
     public void NoProgressionRule_ReturnsNotApplicable()
     {
         var p = Prescription() with { ProgressionRule = TrainingProgressionRule.None };
