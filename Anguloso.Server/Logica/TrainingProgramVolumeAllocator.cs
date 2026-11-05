@@ -131,6 +131,13 @@ public static class TrainingProgramVolumeAllocator
         IReadOnlyDictionary<TrainingMuscleGroup, decimal> volume,
         IReadOnlyDictionary<TrainingMuscleGroup, decimal> targets)
     {
+        // Do not add another compound set when any of its primary muscles has already
+        // reached its target. Prefer an explicit alternative/isolation exercise; if none
+        // exists, report the remaining deficit instead of silently overshooting a muscle.
+        if (exercise.PrimaryMuscleGroups.Distinct().Any(muscle =>
+                targets.ContainsKey(muscle) && volume.GetValueOrDefault(muscle) >= targets[muscle]))
+            return 0m;
+
         var contributions = exercise.PrimaryMuscleGroups.Select(muscle => (Muscle: muscle, Credit: 1m))
             .Concat(exercise.SecondaryMuscleGroups.Select(muscle => (Muscle: muscle, Credit: SecondarySetCredit)))
             .Where(item => targets.ContainsKey(item.Muscle))
