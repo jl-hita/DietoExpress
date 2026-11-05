@@ -69,6 +69,27 @@ public sealed class TrainingExerciseProgressionEngineTests
     }
 
     [Fact]
+    public void ExerciseSpecificIncreaseCeilingOverridesDefault()
+    {
+        var prescription = Prescription(null) with { MaximumLoadIncreasePercent = 2m };
+        var result = TrainingExerciseProgressionEngine.Evaluate(prescription,
+            [Exposure(12), Exposure(12)]);
+
+        Assert.Equal(TrainingExerciseProgressionAction.IncreaseLoad, result.Action);
+        Assert.Equal(2m, result.MaximumLoadIncreasePercent);
+        Assert.Equal(new[] { 8, 8, 8 }, result.SuggestedRepetitionsBySet);
+    }
+
+    [Fact]
+    public void InvalidIncreaseCeilingRejectsPrescription()
+    {
+        var prescription = Prescription() with { MaximumLoadIncreasePercent = 11m };
+        var result = TrainingExerciseProgressionEngine.Evaluate(prescription, [Exposure(12)]);
+
+        Assert.Equal(TrainingExerciseProgressionAction.InvalidPrescription, result.Action);
+    }
+
+    [Fact]
     public void RirBelowTarget_HoldsProgressionEvenWhenRepsAreAtMaximum()
     {
         var result = TrainingExerciseProgressionEngine.Evaluate(Prescription(),
