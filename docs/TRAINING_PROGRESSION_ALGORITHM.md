@@ -4,7 +4,7 @@
 
 La progresión se calcula por **ID estable de ejercicio**, dentro del mismo plan y a partir de series efectivamente ejecutadas. La salida es una recomendación para la siguiente exposición; nunca modifica una prescripción ni reescribe sesiones completadas.
 
-La progresión doble (primero repeticiones dentro de un rango y después carga) se aplica solo cuando la prescripción declara una regla compatible. Las sesiones antiguas sin RIR o sin series estructuradas no se reinterpretan como éxitos.
+La progresión doble (primero repeticiones dentro de un rango y después carga) se aplica solo cuando la prescripción declara `DoubleProgression`. La regla heredada `IncreaseLoadWithinLimits` no se interpreta por aproximación: hasta definir y validar su semántica, el motor no genera recomendaciones automáticas para ella. Las sesiones antiguas sin RIR o sin series estructuradas no se reinterpretan como éxitos.
 
 ## Evidencia y límites
 
