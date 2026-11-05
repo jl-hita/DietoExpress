@@ -490,13 +490,20 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
-    public void ShortPlanDoesNotDeloadBeforeCompletingFourWeekCycle()
+    public void ShortPlanDoesNotReceiveAnUnconditionalCalendarDeload()
     {
         var result = TrainingProgramGenerator.Generate(Request() with { DurationWeeks = 3 }, Catalog());
 
         Assert.True(result.Succeeded, string.Join("; ", result.Errors));
-        Assert.All(result.Prescription!.Sessions.Where(session => session.WeekNumber == 3),
-            session => Assert.All(session.Exercises, exercise => Assert.Equal(3, exercise.Sets)));
+        var signatures = result.Prescription!.Sessions
+            .GroupBy(session => session.WeekNumber)
+            .ToDictionary(group => group.Key, group => group
+                .SelectMany(session => session.Exercises)
+                .OrderBy(exercise => exercise.ExerciseId, StringComparer.Ordinal)
+                .Select(exercise => (exercise.ExerciseId, exercise.Sets))
+                .ToArray());
+
+        Assert.Equal(signatures[1], signatures[3]);
     }
 
     private static string SessionSignature(TrainingSessionPrescription session) =>
