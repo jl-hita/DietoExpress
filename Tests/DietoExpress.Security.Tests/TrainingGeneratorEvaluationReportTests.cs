@@ -89,7 +89,7 @@ public sealed class TrainingGeneratorEvaluationReportTests
                 new[]
                 {
                     "El catálogo de evaluación contiene ejercicios reales de RepDB seleccionados mediante una lista curada y revisión explícita de patrón, material y grupos musculares; no representa el catálogo completo.",
-                    "Las series principales se cuentan completas; las series secundarias son exposiciones y no equivalen a series efectivas ni usan coeficientes fisiológicos.",
+                    "El informe conserva series primarias y exposiciones secundarias por separado; el QualityReport añade una estimación secundaria al 0,5 como heurística explícita de software, no como equivalencia fisiológica validada.",
                     "La biblioteca completa se conserva en PostgreSQL con su payload original; solo los ejercicios incluidos en la lista curada se consideran aptos para el generador.",
                     "La duración es la estimación heurística del motor; no está contrastada con sesiones reales.",
                     "La validación estructural no demuestra idoneidad fisiológica individual."
@@ -101,7 +101,7 @@ public sealed class TrainingGeneratorEvaluationReportTests
         var report = new EvaluationReport(
             "training-generator-evaluation-v3",
             DateTimeOffset.UtcNow,
-            "0.5.0",
+            "0.6.0",
             scenarios.Count,
             scenarios.Count(s => s.GenerationSucceeded),
             scenarios.Sum(s => s.HardViolations.Count),
