@@ -116,7 +116,6 @@ public sealed class TrainingExerciseProgressionService
                         }
                     }
                 }
-                }
                 catch (JsonException)
                 {
                     // Corrupt legacy prescriptions cannot identify exercises safely.
