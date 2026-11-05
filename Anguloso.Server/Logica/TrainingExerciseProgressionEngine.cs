@@ -154,6 +154,20 @@ public static class TrainingExerciseProgressionEngine
     private static TrainingExerciseProgressionRecommendation Recommendation(
         TrainingExerciseProgressionAction action, string explanation) =>
         new(action, explanation, null, null, null, null);
+
+    private sealed record ExposureAnalysis(
+        bool IsUsable,
+        bool Invalid,
+        string? Explanation,
+        decimal LoadKg,
+        IReadOnlyList<TrainingExecutedSet> Sets,
+        bool BelowMinimumRepetitions,
+        bool BelowTargetRir,
+        bool AtTopOfRange)
+    {
+        public static ExposureAnalysis Failure(string explanation) =>
+            new(false, false, explanation, 0m, Array.Empty<TrainingExecutedSet>(), false, false, false);
+    }
 }
 
 public sealed record TrainingExerciseProgressionPrescription(
