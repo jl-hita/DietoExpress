@@ -184,6 +184,7 @@ public static class TrainingExerciseProgressionEngine
         if (string.IsNullOrWhiteSpace(p.ExerciseId) || p.PlannedWorkingSets is < 1 or > 20 ||
             p.MinRepetitions is < 1 or > 100 || p.MaxRepetitions < p.MinRepetitions ||
             p.MaxRepetitions > 100 || p.TargetRir is < 0 or > 10 ||
+            !Enum.IsDefined(p.ProgressionRule) ||
             p.SmallestLoadIncrementKg is <= 0 ||
             p.MaximumLoadIncreasePercent is <= 0 or > 10)
             return "La prescripción del ejercicio contiene valores incompletos o fuera de rango.";
