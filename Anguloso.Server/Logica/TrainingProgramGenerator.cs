@@ -258,12 +258,9 @@ public static class TrainingProgramGenerator
     }
 
     /// <summary>
-    /// Conservative four-week microcycle: establish, build, build, deload.
-    /// This is a provisional software heuristic, not a universally validated prescription.
-    /// </summary>
-    /// <summary>
     /// Keep rep ranges and effort targets stable through the mesocycle. Weekly set distribution
-    /// is handled by TrainingProgramVolumeAllocator; no calendar-only deload is imposed.
+    /// is handled by TrainingProgramVolumeAllocator. Deload planning is a separate, explicit
+    /// mesocycle decision; this prescription method never imposes a fixed calendar deload.
     /// </summary>
     private static (int Sets, int MinReps, int MaxReps, decimal Rir, int RestSeconds, TrainingProgressionRule Progression)
         PrescriptionFor(TrainingGoal goal, TrainingExperience experience, int week, int daysPerWeek, TrainingMovementPattern pattern)
