@@ -126,12 +126,11 @@ public sealed class TrainingGeneratorEvaluationReportTests
             // Quality warnings are advisory; they must not be counted as structural violations.
             Assert.Empty(scenario.HardViolations);
         });
-        Assert.Contains(scenarios, scenario =>
-            scenario.Request.Goal == TrainingGoal.Hypertrophy &&
-            scenario.Request.Experience == TrainingExperience.Advanced &&
-            scenario.Request.TrainingDays.Count >= 3 &&
-            scenario.Plan!.QualityReport!.Warnings.Any(warning =>
-                warning.Contains("series primarias", StringComparison.Ordinal)));
+        // The allocator targets direct primary sets and must not create extreme volume
+        // simply to satisfy another muscle through a compound exercise.
+        Assert.All(scenarios, scenario => Assert.All(
+            scenario.Metrics.PrimaryMuscleSetsPerWeek.Values,
+            weekly => Assert.All(weekly.Values, sets => Assert.InRange(sets, 0, 20))));
         Assert.All(scenarios, scenario => Assert.All(
             scenario.Plan!.Sessions.SelectMany(session => session.Exercises),
             exercise =>
