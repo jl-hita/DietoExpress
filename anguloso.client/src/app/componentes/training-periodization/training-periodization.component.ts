@@ -773,7 +773,13 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     { muscleGroup: 'Abdominals', label: 'Abdominales', enabled: false, priority: 0, targetWeeklyPrimarySets: null },
     { muscleGroup: 'Adductors', label: 'Aductores', enabled: false, priority: 0, targetWeeklyPrimarySets: null },
     { muscleGroup: 'Abductors', label: 'Abductores', enabled: false, priority: 0, targetWeeklyPrimarySets: null },
-    { muscleGroup: 'Forearms', label: 'Antebrazos', enabled: false, priority: 0, targetWeeklyPrimarySets: null }
+    { muscleGroup: 'Forearms', label: 'Antebrazos', enabled: false, priority: 0, targetWeeklyPrimarySets: null },
+    { muscleGroup: 'Obliques', label: 'Oblicuos', enabled: false, priority: 0, targetWeeklyPrimarySets: null },
+    { muscleGroup: 'ErectorSpinae', label: 'Erectores espinales', enabled: false, priority: 0, targetWeeklyPrimarySets: null },
+    { muscleGroup: 'HipFlexors', label: 'Flexores de cadera', enabled: false, priority: 0, targetWeeklyPrimarySets: null },
+    { muscleGroup: 'Serratus', label: 'Serrato', enabled: false, priority: 0, targetWeeklyPrimarySets: null },
+    { muscleGroup: 'TibialisAnterior', label: 'Tibial anterior', enabled: false, priority: 0, targetWeeklyPrimarySets: null },
+    { muscleGroup: 'RotatorCuff', label: 'Manguito rotador', enabled: false, priority: 0, targetWeeklyPrimarySets: null }
   ];
   autoMesoNames: Record<number, string> = {};
   autoTargetMesocycleIds: Record<number, number | null> = {};
