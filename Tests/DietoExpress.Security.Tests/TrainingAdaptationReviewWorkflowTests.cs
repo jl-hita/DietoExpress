@@ -68,6 +68,11 @@ public sealed class TrainingAdaptationReviewWorkflowTests
         Assert.Contains("s.scheduled_date > CURRENT_DATE AND s.status = 'planned'", controller);
         Assert.Contains("NOT EXISTS (SELECT 1 FROM training_session_records r WHERE r.session_id = s.id)", controller);
         Assert.Contains("TrainingAdaptationPrescriptionAdjuster.TryReduceSets", controller);
+        Assert.Contains("GetExerciseVolumeRecommendationsAsync", controller);
+        Assert.Contains("TrainingExerciseVolumeAdapter.Evaluate", controller);
+        Assert.Contains("request.TargetExerciseIds", controller);
+        Assert.Contains("exerciseVolumeRecommendations", component);
+        Assert.Contains("toggleAdaptationExercise", component);
         Assert.Contains("training-periodization-v8-adaptation-review", bootstrap);
         Assert.Contains("Revisión de adaptación por feedback", component);
         Assert.Contains("reviewAdaptationProposal(proposal, 'approved')", component);
