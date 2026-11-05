@@ -97,6 +97,7 @@ public sealed class TrainingExerciseVolumeAdapterTests
     {
         var recommendation = Assert.Single(TrainingExerciseVolumeAdapter.Evaluate([
             Exposure("plank", planned: 1, skippedReason: "fatigue"),
+            Exposure("plank", planned: 1, skippedReason: "fatigue"),
             Exposure("plank", planned: 1, skippedReason: "fatigue")
         ]));
 
