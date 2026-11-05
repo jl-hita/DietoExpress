@@ -1653,64 +1653,26 @@ public sealed class TrainingPeriodizationController : ControllerBase
     private async Task<IReadOnlyList<object>> GetExerciseVolumeRecommendationsAsync(
         int planId, CancellationToken cancellationToken)
     {
-        var records = new List<(string Outcome, string? PainSignal, string? ExerciseFeedback, string? Prescription)>();
+        var records = new List<TrainingExerciseVolumeFeedbackRecord>();
         await using (var command = CreateCommand("""
-            SELECT r.outcome, r.pain_signal, r.exercise_feedback::text, s.exercise_prescription_data::text
+            SELECT r.outcome, r.exercise_feedback::text, s.exercise_prescription_data::text
             FROM training_session_records r
             JOIN training_sessions s ON s.id = r.session_id
             WHERE s.plan_id = @planId AND r.outcome IS NOT NULL
               AND r.exercise_feedback IS NOT NULL
-            ORDER BY r.updated_at DESC, r.id DESC
+            ORDER BY s.scheduled_date DESC, r.id DESC
             LIMIT 12
             """, null, ("planId", planId)))
         await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
         {
             while (await reader.ReadAsync(cancellationToken))
-                records.Add((reader.GetString(0), reader.IsDBNull(1) ? null : reader.GetString(1),
-                    reader.IsDBNull(2) ? null : reader.GetString(2),
-                    reader.IsDBNull(3) ? null : reader.GetString(3)));
+                records.Add(new TrainingExerciseVolumeFeedbackRecord(
+                    reader.GetString(0),
+                    reader.IsDBNull(1) ? null : reader.GetString(1),
+                    reader.IsDBNull(2) ? null : reader.GetString(2)));
         }
 
-        var exposures = new List<TrainingExerciseVolumeExposure>();
-        var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
-        foreach (var record in records.AsEnumerable().Reverse())
-        {
-            if (string.IsNullOrWhiteSpace(record.ExerciseFeedback))
-                continue;
-            PatientTrainingExerciseFeedback[] feedbackItems;
-            try
-            {
-                feedbackItems = JsonSerializer.Deserialize<PatientTrainingExerciseFeedback[]>(
-                    record.ExerciseFeedback, jsonOptions) ?? Array.Empty<PatientTrainingExerciseFeedback>();
-            }
-            catch (JsonException)
-            {
-                continue;
-            }
-
-            var targetRirByExercise = ReadTargetRirByExercise(record.Prescription);
-            foreach (var exercise in feedbackItems)
-            {
-                if (string.IsNullOrWhiteSpace(exercise.ExerciseId))
-                    continue;
-                var actualRirValues = exercise.Sets?
-                    .Where(set => set.Kind == "working" && set.Completed && set.Rir.HasValue)
-                    .Select(set => set.Rir!.Value)
-                    .ToArray() ?? Array.Empty<decimal>();
-                var averageRir = actualRirValues.Length == 0 ? (decimal?)null : actualRirValues.Average();
-                exposures.Add(new TrainingExerciseVolumeExposure(
-                    exercise.ExerciseId,
-                    exercise.PlannedSets,
-                    exercise.CompletedSets,
-                    exercise.SkippedSetReason,
-                    SessionCompleted: record.Outcome != "not_completed",
-                    PainReported: record.PainSignal == "new_or_worsening" ||
-                        exercise.SkippedSetReason == "pain",
-                    TargetRir: targetRirByExercise.GetValueOrDefault(exercise.ExerciseId),
-                    ActualAverageRir: averageRir));
-            }
-        }
-
+        var exposures = TrainingExerciseVolumeFeedbackMapper.Map(records);
         return TrainingExerciseVolumeAdapter.Evaluate(exposures)
             .Select(item => (object)new
             {
@@ -1721,39 +1683,6 @@ public sealed class TrainingPeriodizationController : ControllerBase
                 exposuresAnalyzed = item.ExposuresAnalyzed
             })
             .ToArray();
-    }
-
-    private static IReadOnlyDictionary<string, decimal?> ReadTargetRirByExercise(string? prescriptionJson)
-    {
-        var result = new Dictionary<string, decimal?>(StringComparer.Ordinal);
-        if (string.IsNullOrWhiteSpace(prescriptionJson))
-            return result;
-        try
-        {
-            using var document = JsonDocument.Parse(prescriptionJson);
-            if (!document.RootElement.TryGetProperty("exercises", out var exercises) ||
-                exercises.ValueKind != JsonValueKind.Array)
-                return result;
-            foreach (var exercise in exercises.EnumerateArray())
-            {
-                if (!exercise.TryGetProperty("exerciseId", out var idElement) ||
-                    idElement.ValueKind != JsonValueKind.String)
-                    continue;
-                var id = idElement.GetString();
-                if (string.IsNullOrWhiteSpace(id))
-                    continue;
-                decimal? rir = null;
-                if (exercise.TryGetProperty("targetRepetitionsInReserve", out var rirElement) &&
-                    rirElement.ValueKind == JsonValueKind.Number && rirElement.TryGetDecimal(out var value))
-                    rir = value;
-                result[id] = rir;
-            }
-        }
-        catch (JsonException)
-        {
-            // Malformed/legacy prescription data is not grounds for inventing an RIR target.
-        }
-        return result;
     }
 
     private async Task<int> ReduceFutureSessionVolumeAsync(
