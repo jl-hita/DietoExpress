@@ -327,34 +327,36 @@ public sealed class TrainingPortalController : ControllerBase
                     {
                         using var document = JsonDocument.Parse(reader.GetString(2));
                         if (document.RootElement.ValueKind == JsonValueKind.Array)
-                        foreach (var exercise in document.RootElement.EnumerateArray())
-                    {
-                        var exerciseId = JsonString(exercise, "exerciseId");
-                        if (string.IsNullOrWhiteSpace(exerciseId)) continue;
-                        recordedExerciseIds.Add(exerciseId);
-                        var sets = new List<Anguloso.Server.Logica.TrainingExecutedSet>();
-                        if (exercise.TryGetProperty("sets", out var setArray) &&
-                            setArray.ValueKind == JsonValueKind.Array)
                         {
-                            foreach (var set in setArray.EnumerateArray())
+                            foreach (var exercise in document.RootElement.EnumerateArray())
                             {
-                                // Warm-up sets are intentionally excluded from the progression signal:
-                                // they prepare the lifter but are not part of the prescribed work-set target.
-                                if (JsonString(set, "kind") != "working") continue;
-                                sets.Add(new(
-                                    "working",
-                                    JsonDecimal(set, "weightKg"),
-                                    JsonInt(set, "repetitions"),
-                                    JsonDecimal(set, "rir"),
-                                    JsonBool(set, "completed")));
-                            }
-                        }
+                                var exerciseId = JsonString(exercise, "exerciseId");
+                                if (string.IsNullOrWhiteSpace(exerciseId)) continue;
+                                recordedExerciseIds.Add(exerciseId);
+                                var sets = new List<Anguloso.Server.Logica.TrainingExecutedSet>();
+                                if (exercise.TryGetProperty("sets", out var setArray) &&
+                                    setArray.ValueKind == JsonValueKind.Array)
+                                {
+                                    foreach (var set in setArray.EnumerateArray())
+                                    {
+                                        // Warm-up sets are intentionally excluded from the progression signal:
+                                        // they prepare the lifter but are not part of the prescribed work-set target.
+                                        if (JsonString(set, "kind") != "working") continue;
+                                        sets.Add(new(
+                                            "working",
+                                            JsonDecimal(set, "weightKg"),
+                                            JsonInt(set, "repetitions"),
+                                            JsonDecimal(set, "rir"),
+                                            JsonBool(set, "completed")));
+                                    }
+                                }
 
-                        var pain = sessionPain || JsonString(exercise, "skippedSetReason") == "pain";
-                        var key = (planId, exerciseId);
-                        if (!history.TryGetValue(key, out var exposures))
-                            history[key] = exposures = [];
-                        exposures.Add(new(sets, completed, recoveryInsufficient, pain));
+                                var pain = sessionPain || JsonString(exercise, "skippedSetReason") == "pain";
+                                var key = (planId, exerciseId);
+                                if (!history.TryGetValue(key, out var exposures))
+                                    history[key] = exposures = [];
+                                exposures.Add(new(sets, completed, recoveryInsufficient, pain));
+                            }
                         }
                     }
 
