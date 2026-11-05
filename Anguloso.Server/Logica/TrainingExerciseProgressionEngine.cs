@@ -70,7 +70,7 @@ public static class TrainingExerciseProgressionEngine
                 latest.LoadKg,
                 null,
                 nextRepetitions,
-                0);
+                null);
         }
 
         // A single good session is not enough to justify a load jump. Requiring two
@@ -90,8 +90,9 @@ public static class TrainingExerciseProgressionEngine
             return Recommendation(TrainingExerciseProgressionAction.ConfirmTopOfRange,
                 "Has alcanzado el máximo del rango. Repite la carga y confirma el resultado en otra sesión antes de subir peso.");
 
+        var maximumIncreasePercent = prescription.MaximumLoadIncreasePercent ?? DefaultMaximumLoadIncreasePercent;
         var maximumIncrease = decimal.Round(
-            latest.LoadKg * DefaultMaximumLoadIncreasePercent / 100m, 2, MidpointRounding.AwayFromZero);
+            latest.LoadKg * maximumIncreasePercent / 100m, 2, MidpointRounding.AwayFromZero);
         if (prescription.SmallestLoadIncrementKg is not > 0)
             return new(
                 TrainingExerciseProgressionAction.IncreaseLoad,
@@ -111,7 +112,7 @@ public static class TrainingExerciseProgressionEngine
             suggestedLoad,
             increment,
             Enumerable.Repeat(prescription.MinRepetitions, prescription.PlannedWorkingSets).ToArray(),
-            DefaultMaximumLoadIncreasePercent);
+            maximumIncreasePercent);
     }
 
     private static ExposureAnalysis AnalyzeExposure(
@@ -146,7 +147,8 @@ public static class TrainingExerciseProgressionEngine
         if (string.IsNullOrWhiteSpace(p.ExerciseId) || p.PlannedWorkingSets is < 1 or > 20 ||
             p.MinRepetitions is < 1 or > 100 || p.MaxRepetitions < p.MinRepetitions ||
             p.MaxRepetitions > 100 || p.TargetRir is < 0 or > 10 ||
-            p.SmallestLoadIncrementKg is <= 0)
+            p.SmallestLoadIncrementKg is <= 0 ||
+            p.MaximumLoadIncreasePercent is <= 0 or > 10)
             return "La prescripción del ejercicio contiene valores incompletos o fuera de rango.";
         return null;
     }
@@ -177,7 +179,8 @@ public sealed record TrainingExerciseProgressionPrescription(
     int MaxRepetitions,
     decimal? TargetRir,
     TrainingProgressionRule ProgressionRule,
-    decimal? SmallestLoadIncrementKg = null);
+    decimal? SmallestLoadIncrementKg = null,
+    decimal? MaximumLoadIncreasePercent = null);
 
 public sealed record TrainingExerciseExposure(
     IReadOnlyList<TrainingExecutedSet> WorkingSets,
