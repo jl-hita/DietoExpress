@@ -32,6 +32,23 @@ public sealed class TrainingExecutionContractTests
     }
 
     [Fact]
+    public void TrainingPortal_ExposesPerExerciseProgressionFromSamePlanAndExerciseHistory()
+    {
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root != null && !File.Exists(Path.Combine(root.FullName, "Anguloso.Server", "Program.cs")))
+            root = root.Parent;
+        Assert.NotNull(root);
+
+        var controller = File.ReadAllText(Path.Combine(root!.FullName, "Anguloso.Server", "Controllers", "TrainingPortalController.cs"));
+        Assert.Contains("BuildExerciseProgressionRecommendationsAsync", controller);
+        Assert.Contains("TrainingExerciseProgressionEngine.Evaluate", controller);
+        Assert.Contains("exerciseProgressionRecommendations", controller);
+        Assert.Contains("stable exercise ID", controller);
+        Assert.Contains("smallestLoadIncrementKg", controller);
+        Assert.Contains("existing.outcome IS NOT NULL", controller);
+    }
+
+    [Fact]
     public void TrainingPortal_ValidatesSetMetadataBeforePersistingJsonbFeedback()
     {
         var root = new DirectoryInfo(AppContext.BaseDirectory);
