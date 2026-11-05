@@ -60,6 +60,7 @@ public sealed class TrainingAdaptationReviewWorkflowTests
     public void ReviewWorkflowRequiresExplicitProfessionalDecisionAndOnlyTargetsFutureUnrecordedSessions()
     {
         var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPeriodizationController.cs"));
+        var portalController = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "TrainingPortalController.cs"));
         var bootstrap = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "DatabaseBootstrap.cs"));
         var component = File.ReadAllText(Path.Combine(RepoRoot, "anguloso.client", "src", "app", "componentes", "training-periodization", "training-periodization.component.ts"));
 
@@ -73,6 +74,8 @@ public sealed class TrainingAdaptationReviewWorkflowTests
         Assert.Contains("request.TargetExerciseIds", controller);
         Assert.Contains("exerciseVolumeRecommendations", component);
         Assert.Contains("toggleAdaptationExercise", component);
+        Assert.Contains("TrainingExerciseVolumeFeedbackMapper.Map", portalController);
+        Assert.Contains("fatigueCandidates.Length > 0", portalController);
         Assert.Contains("training-periodization-v8-adaptation-review", bootstrap);
         Assert.Contains("Revisión de adaptación por feedback", component);
         Assert.Contains("reviewAdaptationProposal(proposal, 'approved')", component);
