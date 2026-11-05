@@ -59,7 +59,7 @@ public static class TrainingExerciseProgressionEngine
             return Recommendation(TrainingExerciseProgressionAction.HoldAndReview,
                 "El esfuerzo superó el objetivo de RIR. Mantén la carga; no aumentes peso ni repeticiones hasta recuperar el margen prescrito.");
 
-        if (HasStagnated(prescription, exposures))
+        if (!latest.AtTopOfRange && HasStagnated(prescription, exposures))
             return Recommendation(TrainingExerciseProgressionAction.StagnationReview,
                 "El rendimiento no mejora en tres exposiciones consecutivas. Antes de cambiar la carga, revisa adherencia, técnica, descansos, recuperación y si el rango/RIR siguen siendo adecuados con tu profesional.");
 
