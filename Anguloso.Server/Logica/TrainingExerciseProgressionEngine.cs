@@ -176,7 +176,7 @@ public static class TrainingExerciseProgressionEngine
         var belowRir = prescription.TargetRir is not null &&
                        sets.Any(x => x.Rir is null || x.Rir.Value < prescription.TargetRir.Value);
         var atTop = sets.All(x => x.Repetitions!.Value >= prescription.MaxRepetitions);
-        return new(true, false, null, load, sets, belowMinimum, belowRir, atTop);
+        return new(true, false, string.Empty, load, sets, belowMinimum, belowRir, atTop);
     }
 
     private static string? ValidatePrescription(TrainingExerciseProgressionPrescription p)
@@ -197,7 +197,7 @@ public static class TrainingExerciseProgressionEngine
     private sealed record ExposureAnalysis(
         bool IsUsable,
         bool Invalid,
-        string? Explanation,
+        string Explanation,
         decimal LoadKg,
         IReadOnlyList<TrainingExecutedSet> Sets,
         bool BelowMinimumRepetitions,
