@@ -39,13 +39,19 @@ public static class TrainingProgramVolumeAllocator
         {
             var weekKeys = output.Keys.Where(key => key.WeekNumber == week).OrderBy(key => key.Day).ToArray();
             var weekSessions = weekKeys.Select(key => output[key]).ToArray();
-            var coveredMuscles = weekSessions.SelectMany(x => x.Exercises)
-                .SelectMany(x => x.PrimaryMuscleGroups.Concat(x.SecondaryMuscleGroups))
+            var primaryCoveredMuscles = weekSessions.SelectMany(x => x.Exercises)
+                .SelectMany(x => x.PrimaryMuscleGroups)
                 .Distinct()
                 .ToArray();
-            var applicableTargets = targets.Where(target => coveredMuscles.Contains(target.Key))
+            var applicableTargets = targets.Where(target => primaryCoveredMuscles.Contains(target.Key))
                 .ToDictionary(pair => pair.Key, pair => pair.Value);
-            var volume = CalculateEffectiveVolume(weekSessions);
+            var primaryVolume = CalculatePrimaryVolume(weekSessions);
+
+            foreach (var preference in preferences ?? Array.Empty<TrainingMuscleVolumeTarget>())
+            {
+                if (!primaryCoveredMuscles.Contains(preference.MuscleGroup))
+                    warnings.Add($"Semana {week}: no hay ningún ejercicio aprobado que trabaje {preference.MuscleGroup} como músculo primario; no se inventa una cobertura indirecta para cumplir su prioridad.");
+            }
 
             // Greedy allocation chooses the exercise that best addresses the largest remaining
             // normalized muscle deficit, while respecting per-exercise and per-session limits.
@@ -67,7 +73,7 @@ public static class TrainingProgramVolumeAllocator
                         if (duration + addedDuration > maximumSessionDurationMinutes * 60m)
                             continue;
 
-                        var score = DeficitScore(exercise, volume, applicableTargets);
+                        var score = DeficitScore(exercise, primaryVolume, applicableTargets);
                         if (score <= 0m)
                             continue;
                         var candidate = new AllocationCandidate(sessionIndex, exerciseIndex, score);
@@ -87,14 +93,14 @@ public static class TrainingProgramVolumeAllocator
                     SelectionRationale = AppendAllocationRationale(exercises[best.ExerciseIndex].SelectionRationale)
                 };
                 weekSessions[best.SessionIndex] = selectedSession with { Exercises = exercises };
-                volume = CalculateEffectiveVolume(weekSessions);
+                primaryVolume = CalculatePrimaryVolume(weekSessions);
             }
 
             foreach (var (muscle, target) in applicableTargets.OrderBy(x => x.Key))
             {
-                var achieved = volume.GetValueOrDefault(muscle);
+                var achieved = primaryVolume.GetValueOrDefault(muscle);
                 if (achieved + 0.001m < target)
-                    warnings.Add($"Semana {week}: {muscle} alcanza {achieved:0.##} series efectivas estimadas frente al objetivo orientativo {target:0.##}; no se fuerza más volumen porque se alcanzó el límite de series o duración disponible.");
+                    warnings.Add($"Semana {week}: {muscle} alcanza {achieved:0.##} series primarias frente al objetivo orientativo de {target:0.##}; no se fuerza más volumen porque se alcanzó el límite de series o duración disponible.");
             }
 
             for (var index = 0; index < weekKeys.Length; index++)
@@ -126,29 +132,36 @@ public static class TrainingProgramVolumeAllocator
         return volume;
     }
 
+    public static IReadOnlyDictionary<TrainingMuscleGroup, decimal> CalculatePrimaryVolume(
+        IEnumerable<TrainingSessionPrescription> sessions)
+    {
+        var volume = new Dictionary<TrainingMuscleGroup, decimal>();
+        foreach (var exercise in sessions.SelectMany(x => x.Exercises))
+        foreach (var muscle in exercise.PrimaryMuscleGroups.Distinct())
+            volume[muscle] = volume.GetValueOrDefault(muscle) + exercise.Sets;
+        return volume;
+    }
+
     private static decimal DeficitScore(
         TrainingExercisePrescription exercise,
-        IReadOnlyDictionary<TrainingMuscleGroup, decimal> volume,
+        IReadOnlyDictionary<TrainingMuscleGroup, decimal> primaryVolume,
         IReadOnlyDictionary<TrainingMuscleGroup, decimal> targets)
     {
-        // Do not add another compound set when any of its primary muscles has already
-        // reached its target. Prefer an explicit alternative/isolation exercise; if none
-        // exists, report the remaining deficit instead of silently overshooting a muscle.
-        if (exercise.PrimaryMuscleGroups.Distinct().Any(muscle =>
-                targets.ContainsKey(muscle) && volume.GetValueOrDefault(muscle) >= targets[muscle]))
+        // Targets refer to direct primary sets. Do not add another compound set when one
+        // of its primary muscles has already reached its target; prefer an alternative
+        // exercise, or report the remaining deficit if no balanced option exists.
+        var primaryMuscles = exercise.PrimaryMuscleGroups.Distinct()
+            .Where(targets.ContainsKey)
+            .ToArray();
+        if (primaryMuscles.Length == 0 ||
+            primaryMuscles.Any(muscle => primaryVolume.GetValueOrDefault(muscle) >= targets[muscle]))
             return 0m;
 
-        var contributions = exercise.PrimaryMuscleGroups.Select(muscle => (Muscle: muscle, Credit: 1m))
-            .Concat(exercise.SecondaryMuscleGroups.Select(muscle => (Muscle: muscle, Credit: SecondarySetCredit)))
-            .Where(item => targets.ContainsKey(item.Muscle))
-            .ToArray();
-        if (contributions.Length == 0) return 0m;
-
-        return contributions.Sum(item =>
+        return primaryMuscles.Average(muscle =>
         {
-            var deficit = Math.Max(0m, targets[item.Muscle] - volume.GetValueOrDefault(item.Muscle));
-            return deficit / targets[item.Muscle] * item.Credit;
-        }) / contributions.Sum(item => item.Credit);
+            var deficit = Math.Max(0m, targets[muscle] - primaryVolume.GetValueOrDefault(muscle));
+            return deficit / targets[muscle];
+        });
     }
 
     private static Dictionary<TrainingMuscleGroup, decimal> BuildTargets(
@@ -171,7 +184,7 @@ public static class TrainingProgramVolumeAllocator
         var targets = Enum.GetValues<TrainingMuscleGroup>()
             .ToDictionary(muscle => muscle, _ => baseline);
         foreach (var preference in preferences ?? Array.Empty<TrainingMuscleVolumeTarget>())
-            targets[preference.MuscleGroup] = preference.TargetWeeklyEffectiveSets ?? baseline + preference.Priority * 2m;
+            targets[preference.MuscleGroup] = preference.TargetWeeklyPrimarySets ?? baseline + preference.Priority * 2m;
         return targets;
     }
 
@@ -189,7 +202,7 @@ public static class TrainingProgramVolumeAllocator
             if (preference.Priority is < 0 or > 3)
                 errors.Add($"La prioridad de {preference.MuscleGroup} debe estar entre 0 y 3.");
             if (preference.TargetWeeklyEffectiveSets is < 1 or > 20)
-                errors.Add($"El objetivo semanal de {preference.MuscleGroup} debe estar entre 1 y 20 series efectivas estimadas.");
+                errors.Add($"El objetivo semanal de {preference.MuscleGroup} debe estar entre 1 y 20 series primarias.");
         }
         return errors;
     }
