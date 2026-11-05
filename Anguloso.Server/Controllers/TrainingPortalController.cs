@@ -5,6 +5,8 @@ using Anguloso.Server.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
+using Anguloso.Server.Middleware;
 using Npgsql;
 using NpgsqlTypes;
 
@@ -118,6 +120,7 @@ public sealed class TrainingPortalController : ControllerBase
     }
 
     [HttpPost("sessions/{sessionId:int}/record")]
+    [Idempotent]
     public async Task<IActionResult> RecordSession(int sessionId, [FromBody] PatientTrainingRecordRequest request, CancellationToken cancellationToken)
     {
         if (!int.TryParse(User.FindFirstValue("clientId"), out var clientId)) return Unauthorized();
@@ -336,6 +339,7 @@ public sealed class TrainingPortalController : ControllerBase
         var connection = (NpgsqlConnection)_context.Database.GetDbConnection();
         if (connection.State != ConnectionState.Open) connection.Open();
         var command = connection.CreateCommand();
+        command.Transaction = _context.Database.CurrentTransaction?.GetDbTransaction() as NpgsqlTransaction;
         command.CommandText = sql;
         foreach (var (name, value) in parameters)
         {
