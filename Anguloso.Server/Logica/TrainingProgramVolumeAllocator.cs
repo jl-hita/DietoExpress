@@ -237,7 +237,7 @@ public static class TrainingProgramVolumeAllocator
 public sealed record TrainingMuscleVolumeTarget(
     TrainingMuscleGroup MuscleGroup,
     int Priority = 0,
-    decimal? TargetWeeklyEffectiveSets = null);
+    decimal? TargetWeeklyPrimarySets = null);
 
 public sealed record TrainingVolumeAllocationResult(
     IReadOnlyList<TrainingSessionPrescription> Sessions,
