@@ -56,6 +56,10 @@ public static class TrainingExerciseVolumeFeedbackMapper
             {
                 // Legacy or malformed feedback is ignored; missing data never becomes a fatigue signal.
             }
+            catch (InvalidOperationException)
+            {
+                // A syntactically valid JSON value can still have an unexpected shape.
+            }
         }
 
         return exposures;
