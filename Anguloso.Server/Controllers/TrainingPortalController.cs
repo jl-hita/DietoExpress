@@ -107,6 +107,11 @@ public sealed class TrainingPortalController : ControllerBase
         var adaptation = feedback.Count == 0
             ? null
             : Anguloso.Server.Logica.TrainingAdaptationPolicy.Evaluate(feedback);
+
+        // Query only after closing the session reader; the progression service reads the same EF connection.
+        var exerciseProgressionRecommendations =
+            await new Anguloso.Server.Logica.TrainingExerciseProgressionService(_context)
+                .GetRecommendationsAsync(clientId, cancellationToken);
         // Session-level adaptation handles recovery/context; exercise progression is
         // evaluated independently from actual working-set data and the exercise prescription.
         return Ok(new
@@ -291,9 +296,6 @@ public sealed class TrainingPortalController : ControllerBase
         await insert.ExecuteNonQueryAsync(cancellationToken);
     }
 
-        var exerciseProgressionRecommendations =
-            await new Anguloso.Server.Logica.TrainingExerciseProgressionService(_context)
-                .GetRecommendationsAsync(clientId, cancellationToken);
 
     private static bool HasPainSkippedSet(string? json)
     {
