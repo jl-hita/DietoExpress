@@ -92,6 +92,10 @@ public static class TrainingExerciseVolumeFeedbackMapper
         {
             // Malformed/legacy prescription data is not grounds for inventing an RIR target.
         }
+        catch (InvalidOperationException)
+        {
+            // A syntactically valid JSON value may not have the expected prescription object shape.
+        }
         return result;
     }
 
