@@ -49,7 +49,11 @@ public static class TrainingProgramQualityAnalyzer
                     if (secondaryInSession) secondaryFrequency++;
                 }
 
-                muscles.Add(new TrainingMuscleVolume(muscle, primarySets, secondarySets, primaryFrequency, secondaryFrequency));
+                // Secondary-set credit is a transparent 0.5 bookkeeping heuristic, not an
+                // evidence-established equivalence. Keep raw primary/secondary counts as well.
+                var estimatedEffectiveSets = primarySets + secondarySets * TrainingProgramVolumeAllocator.SecondarySetCredit;
+                muscles.Add(new TrainingMuscleVolume(muscle, primarySets, secondarySets,
+                    primaryFrequency, secondaryFrequency, estimatedEffectiveSets));
                 if (primarySets > HighPrimarySetWarningThreshold)
                     warnings.Add($"Semana {week}: {muscle} acumula {primarySets} series primarias; revisa el volumen y la recuperación.");
             }
@@ -64,7 +68,7 @@ public static class TrainingProgramQualityAnalyzer
         }
 
         return new TrainingProgramQualityReport(
-            "Estimación basada en series prescritas y metadatos revisados. Las series secundarias se muestran por separado y no se equiparan a series primarias.",
+            "Estimación basada en series prescritas y metadatos revisados. Las series primarias cuentan 1 y las secundarias 0,5 para una estimación orientativa; ese crédito secundario es una heurística de software, no una equivalencia fisiológica validada.",
             weeklyVolumes,
             warnings.Distinct(StringComparer.Ordinal).ToArray());
     }
@@ -84,4 +88,5 @@ public sealed record TrainingMuscleVolume(
     int PrimarySets,
     int SecondarySets,
     int PrimaryFrequencySessions,
-    int SecondaryFrequencySessions);
+    int SecondaryFrequencySessions,
+    decimal EstimatedEffectiveSets = 0m);
