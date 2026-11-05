@@ -20,9 +20,9 @@ public static class TrainingExerciseProgressionEngine
         if (validation is not null)
             return Recommendation(TrainingExerciseProgressionAction.InvalidPrescription, validation);
 
-        if (prescription.ProgressionRule == TrainingProgressionRule.None)
+        if (prescription.ProgressionRule != TrainingProgressionRule.DoubleProgression)
             return Recommendation(TrainingExerciseProgressionAction.NotApplicable,
-                "La prescripción no permite progresión automática para este ejercicio.");
+                "Esta regla de progresión no tiene todavía una semántica validada para recomendaciones automáticas. Mantén la prescripción y solicita revisión profesional.");
 
         // A pain report is exercise/session safety context, not a performance score.
         // Never let a later pain-free record erase a recent unresolved pain signal.
