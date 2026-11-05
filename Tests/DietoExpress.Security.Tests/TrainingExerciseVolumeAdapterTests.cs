@@ -21,6 +21,18 @@ public sealed class TrainingExerciseVolumeAdapterTests
     }
 
     [Fact]
+    public void TwoFatigueExposuresAreInsufficientWithoutAThirdExposure()
+    {
+        var recommendation = Assert.Single(TrainingExerciseVolumeAdapter.Evaluate([
+            Exposure("bench", skippedReason: "fatigue"),
+            Exposure("bench", skippedReason: "fatigue")
+        ]));
+
+        Assert.Equal(TrainingExerciseVolumeAction.NoChange, recommendation.Action);
+        Assert.Equal(2, recommendation.ExposuresAnalyzed);
+    }
+
+    [Fact]
     public void OneDifficultExposureDoesNotTriggerVolumeReduction()
     {
         var recommendation = Assert.Single(TrainingExerciseVolumeAdapter.Evaluate([
