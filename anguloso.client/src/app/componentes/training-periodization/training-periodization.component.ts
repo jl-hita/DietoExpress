@@ -2456,6 +2456,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     const totalDays = Math.floor((Date.parse(phase.endDate.slice(0, 10) + 'T00:00:00Z') - Date.parse(phase.startDate.slice(0, 10) + 'T00:00:00Z')) / 86400000) + 1;
     const durationWeeks = Math.floor(totalDays / 7);
     if (durationWeeks < 1) throw new Error('La fase «' + phase.name + '» dura menos de siete días y no admite un mesociclo automático.');
+    if (phase.phaseType === 'deload' && durationWeeks !== 1)
+      throw new Error('La fase «' + phase.name + '» está marcada como descarga y debe durar exactamente una semana. Divide la fase antes de generar.');
     const startDate = phase.startDate.slice(0, 10);
     const generatedEnd = this.addDays(startDate, durationWeeks * 7 - 1);
     if (startDate < plan.startDate.slice(0, 10) || (plan.endDate && generatedEnd > plan.endDate.slice(0, 10)))
