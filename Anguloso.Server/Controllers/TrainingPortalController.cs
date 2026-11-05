@@ -494,6 +494,7 @@ public sealed class TrainingPortalController : ControllerBase
         Anguloso.Server.Logica.TrainingExerciseProgressionAction.HoldAndReview => "hold_and_review",
         Anguloso.Server.Logica.TrainingExerciseProgressionAction.AddRepetitions => "add_repetitions",
         Anguloso.Server.Logica.TrainingExerciseProgressionAction.ConfirmTopOfRange => "confirm_top_of_range",
+        Anguloso.Server.Logica.TrainingExerciseProgressionAction.StagnationReview => "stagnation_review",
         _ => "increase_load"
     };
 
