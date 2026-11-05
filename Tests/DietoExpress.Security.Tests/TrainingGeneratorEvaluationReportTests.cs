@@ -101,7 +101,7 @@ public sealed class TrainingGeneratorEvaluationReportTests
         var report = new EvaluationReport(
             "training-generator-evaluation-v3",
             DateTimeOffset.UtcNow,
-            "0.6.0",
+            scenarios.Select(scenario => scenario.Plan?.EngineVersion).FirstOrDefault(version => !string.IsNullOrWhiteSpace(version)) ?? "unknown",
             scenarios.Count,
             scenarios.Count(s => s.GenerationSucceeded),
             scenarios.Sum(s => s.HardViolations.Count),
@@ -116,6 +116,7 @@ public sealed class TrainingGeneratorEvaluationReportTests
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
         File.WriteAllText(fullPath, JsonSerializer.Serialize(report, JsonOptions));
 
+        Assert.Equal("0.7.0", report.EngineVersion);
         Assert.Equal(27, report.ScenarioCount);
         Assert.Equal(report.ScenarioCount, report.SuccessfulScenarios);
         Assert.Equal(0, report.HardViolationCount);
