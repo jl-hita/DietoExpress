@@ -171,6 +171,8 @@ public static class TrainingProgramGenerator
         if (!Enum.IsDefined(request.Goal)) errors.Add("El objetivo de entrenamiento no es válido.");
         if (!Enum.IsDefined(request.Experience)) errors.Add("El nivel de experiencia no es válido.");
         if (request.DurationWeeks is < 1 or > 52) errors.Add("La duración debe estar entre 1 y 52 semanas.");
+        if (request.IsDeload && request.DurationWeeks != 1)
+            errors.Add("Una descarga activa debe durar exactamente una semana; divide la fase antes de generar.");
         if (request.TrainingDays is null || request.TrainingDays.Count is < 2 or > 4)
             errors.Add("Esta primera versión admite de 2 a 4 días de entrenamiento por semana.");
         else
