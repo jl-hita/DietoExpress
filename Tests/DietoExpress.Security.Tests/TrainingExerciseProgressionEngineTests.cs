@@ -216,6 +216,15 @@ public sealed class TrainingExerciseProgressionEngineTests
     }
 
     [Fact]
+    public void UnsupportedProgressionRule_IsNotInterpretedAsDoubleProgression()
+    {
+        var p = Prescription() with { ProgressionRule = TrainingProgressionRule.IncreaseLoadWithinLimits };
+        var result = TrainingExerciseProgressionEngine.Evaluate(p, [Exposure(12), Exposure(12)]);
+
+        Assert.Equal(TrainingExerciseProgressionAction.NotApplicable, result.Action);
+    }
+
+    [Fact]
     public void InsufficientHistory_DoesNotInventProgression()
     {
         var result = TrainingExerciseProgressionEngine.Evaluate(Prescription(), []);
