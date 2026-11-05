@@ -30,14 +30,17 @@ public static class TrainingExerciseProgressionEngine
             return Recommendation(TrainingExerciseProgressionAction.HoldAndReview,
                 "Hay una señal reciente de dolor. No progreses este ejercicio hasta revisar el problema y confirmar que es seguro retomarlo.");
 
-        var exposures = history
-            .Where(x => x.SessionCompleted)
-            .TakeLast(3)
-            .ToArray();
+        var exposures = history.TakeLast(3).ToArray();
 
         if (exposures.Length == 0)
             return Recommendation(TrainingExerciseProgressionAction.InsufficientData,
-                "Todavía no hay una sesión completada con series registradas para este ejercicio.");
+                "Todavía no hay una sesión con series registradas para este ejercicio.");
+
+        // An incomplete latest exposure is meaningful negative context. Do not skip it
+        // and accidentally progress from an older, better session.
+        if (!exposures[^1].SessionCompleted)
+            return Recommendation(TrainingExerciseProgressionAction.HoldAndReview,
+                "La última exposición no se completó. Mantén la carga y revisa el motivo antes de progresar.");
 
         var latest = AnalyzeExposure(prescription, exposures[^1]);
         if (!latest.IsUsable)
@@ -76,7 +79,7 @@ public static class TrainingExerciseProgressionEngine
         for (var index = exposures.Length - 2; index >= 0; index--)
         {
             var previous = AnalyzeExposure(prescription, exposures[index]);
-            if (!previous.IsUsable || previous.BelowTargetRir || previous.BelowMinimumRepetitions ||
+            if (!exposures[index].SessionCompleted || !previous.IsUsable || previous.BelowTargetRir || previous.BelowMinimumRepetitions ||
                 !previous.AtTopOfRange || previous.LoadKg != latest.LoadKg ||
                 exposures[index].RecoveryInsufficient || exposures[index].PainReported)
                 break;
@@ -93,7 +96,8 @@ public static class TrainingExerciseProgressionEngine
             return new(
                 TrainingExerciseProgressionAction.IncreaseLoad,
                 "Dos exposiciones consecutivas cumplen el rango y el RIR. Sube solo el menor incremento disponible del material, sin superar el 5 % de la carga actual; registra el nuevo peso para calibrar futuras recomendaciones.",
-                null, null, null, DefaultMaximumLoadIncreasePercent);
+                null, null, Enumerable.Repeat(prescription.MinRepetitions, prescription.PlannedWorkingSets).ToArray(),
+                DefaultMaximumLoadIncreasePercent);
 
         var increment = prescription.SmallestLoadIncrementKg.Value;
         if (increment > maximumIncrease)
