@@ -127,6 +127,25 @@ public sealed class TrainingExerciseVolumeAdapterTests
     }
 
     [Fact]
+    public void MissingRirOnAnyCompletedWorkingSetDoesNotCreateAnAverage()
+    {
+        const string feedback = """[{"exerciseId":"bench","plannedSets":2,"completedSets":2,"sets":[{"kind":"working","completed":true,"rir":0},{"kind":"working","completed":true,"rir":null}]}]""";
+        const string prescription = """{"exercises":[{"exerciseId":"bench","targetRepetitionsInReserve":2}]}""";
+        var records = new[]
+        {
+            new TrainingExerciseVolumeFeedbackRecord("completed", feedback, prescription),
+            new TrainingExerciseVolumeFeedbackRecord("completed", feedback, prescription),
+            new TrainingExerciseVolumeFeedbackRecord("completed", feedback, prescription)
+        };
+
+        var exposures = TrainingExerciseVolumeFeedbackMapper.Map(records);
+
+        Assert.All(exposures, exposure => Assert.Null(exposure.ActualAverageRir));
+        var recommendation = Assert.Single(TrainingExerciseVolumeAdapter.Evaluate(exposures));
+        Assert.Equal(TrainingExerciseVolumeAction.NoChange, recommendation.Action);
+    }
+
+    [Fact]
     public void FeedbackMapperReadsStableExerciseIdAndRirButDoesNotSpreadGlobalPain()
     {
         const string feedback = """[{"exerciseId":"bench","plannedSets":3,"completedSets":2,"skippedSetReason":"fatigue","sets":[{"kind":"working","completed":true,"rir":1},{"kind":"working","completed":true,"rir":1},{"kind":"working","completed":false,"rir":null}]}]""";
