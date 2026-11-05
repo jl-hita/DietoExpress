@@ -201,8 +201,9 @@ public static class TrainingProgramVolumeAllocator
                 errors.Add($"La preferencia repite el grupo muscular {preference.MuscleGroup}.");
             if (preference.Priority is < 0 or > 3)
                 errors.Add($"La prioridad de {preference.MuscleGroup} debe estar entre 0 y 3.");
-            if (preference.TargetWeeklyPrimarySets is < 1 or > 20)
-                errors.Add($"El objetivo semanal de {preference.MuscleGroup} debe estar entre 1 y 20 series primarias.");
+            if (preference.TargetWeeklyPrimarySets is { } target &&
+                (target is < 1 or > 20 || target != decimal.Truncate(target)))
+                errors.Add($"El objetivo semanal de {preference.MuscleGroup} debe ser un entero entre 1 y 20 series primarias.");
         }
         return errors;
     }
