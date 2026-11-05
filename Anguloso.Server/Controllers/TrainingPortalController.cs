@@ -32,7 +32,7 @@ public sealed class TrainingPortalController : ControllerBase
         await using var profileCommand = Command("SELECT enabled FROM training_profiles WHERE client_id = @clientId", ("clientId", clientId));
         var profileValue = await profileCommand.ExecuteScalarAsync(cancellationToken);
         if (profileValue is null || profileValue is DBNull || !Convert.ToBoolean(profileValue))
-            return Ok(new { enabled = false, sessions = Array.Empty<object>() });
+            return Ok(new { enabled = false, sessions = Array.Empty<object>(), exerciseProgressionRecommendations = Array.Empty<object>() });
 
         await using var command = Command("""
             SELECT s.id, s.plan_id, s.scheduled_date, s.title, s.session_type, s.duration_minutes, s.intensity_target, s.instructions, s.status,
@@ -107,6 +107,10 @@ public sealed class TrainingPortalController : ControllerBase
         var adaptation = feedback.Count == 0
             ? null
             : Anguloso.Server.Logica.TrainingAdaptationPolicy.Evaluate(feedback);
+        // Session-level adaptation handles recovery/context; exercise progression is
+        // evaluated independently from actual working-set data and the exercise prescription.
+        var exerciseProgressionRecommendations =
+            await BuildExerciseProgressionRecommendationsAsync(clientId, cancellationToken);
         return Ok(new
         {
             enabled = true,
@@ -115,7 +119,8 @@ public sealed class TrainingPortalController : ControllerBase
             {
                 action = ToApiAction(adaptation.Action),
                 explanation = adaptation.Explanation
-            }
+            },
+            exerciseProgressionRecommendations
         });
     }
 
@@ -287,6 +292,176 @@ public sealed class TrainingPortalController : ControllerBase
             ("action", action), ("explanation", decision.Explanation));
         await insert.ExecuteNonQueryAsync(cancellationToken);
     }
+
+    private async Task<IReadOnlyList<object>> BuildExerciseProgressionRecommendationsAsync(
+        int clientId, CancellationToken cancellationToken)
+    {
+        var history = new Dictionary<(int PlanId, string ExerciseId), List<Anguloso.Server.Logica.TrainingExerciseExposure>>();
+
+        // Keep the latest 60 records per patient across active plans. We group by plan and
+        // stable exercise ID so feedback from another plan or a similarly named movement
+        // can never influence this exercise's recommendation.
+        await using (var historyCommand = Command("""
+            SELECT s.plan_id, r.exercise_feedback::text, r.outcome, r.recovery_rating, r.pain_signal
+            FROM training_session_records r
+            JOIN training_sessions s ON s.id = r.session_id
+            JOIN training_plans p ON p.id = s.plan_id
+            JOIN training_profiles f ON f.id = p.profile_id
+            WHERE f.client_id = @clientId AND f.enabled = TRUE AND p.status = 'active'
+              AND r.outcome IS NOT NULL AND r.exercise_feedback IS NOT NULL
+            ORDER BY s.scheduled_date DESC, s.id DESC
+            LIMIT 60
+            """, ("clientId", clientId)))
+        await using (var reader = await historyCommand.ExecuteReaderAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                if (reader.IsDBNull(1)) continue;
+                var planId = reader.GetInt32(0);
+                var completed = reader.GetString(2) == "completed";
+                var recoveryInsufficient = !reader.IsDBNull(3) && reader.GetString(3) == "insufficient";
+                var sessionPain = !reader.IsDBNull(4) && reader.GetString(4) == "new_or_worsening";
+                try
+                {
+                    using var document = JsonDocument.Parse(reader.GetString(1));
+                    if (document.RootElement.ValueKind != JsonValueKind.Array) continue;
+                    foreach (var exercise in document.RootElement.EnumerateArray())
+                    {
+                        var exerciseId = JsonString(exercise, "exerciseId");
+                        if (string.IsNullOrWhiteSpace(exerciseId)) continue;
+                        var sets = new List<Anguloso.Server.Logica.TrainingExecutedSet>();
+                        if (exercise.TryGetProperty("sets", out var setArray) &&
+                            setArray.ValueKind == JsonValueKind.Array)
+                        {
+                            foreach (var set in setArray.EnumerateArray())
+                            {
+                                sets.Add(new(
+                                    JsonString(set, "kind") ?? "working",
+                                    JsonDecimal(set, "weightKg"),
+                                    JsonInt(set, "repetitions"),
+                                    JsonDecimal(set, "rir"),
+                                    JsonBool(set, "completed")));
+                            }
+                        }
+
+                        var pain = sessionPain || JsonString(exercise, "skippedSetReason") == "pain";
+                        var key = (planId, exerciseId);
+                        if (!history.TryGetValue(key, out var exposures))
+                            history[key] = exposures = [];
+                        exposures.Add(new(sets, completed, recoveryInsufficient, pain));
+                    }
+                }
+                catch (JsonException)
+                {
+                    // Corrupt legacy feedback is ignored, never interpreted as a successful set.
+                }
+            }
+        }
+
+        // The history query is newest-first; the pure engine requires chronological order.
+        foreach (var exposures in history.Values)
+            exposures.Reverse();
+
+        var recommendations = new List<object>();
+        await using var upcomingCommand = Command("""
+            SELECT s.id, s.plan_id, s.exercise_prescription_data::text
+            FROM training_sessions s
+            JOIN training_plans p ON p.id = s.plan_id
+            JOIN training_profiles f ON f.id = p.profile_id
+            WHERE f.client_id = @clientId AND f.enabled = TRUE AND p.status = 'active'
+              AND s.scheduled_date >= CURRENT_DATE AND s.exercise_prescription_data IS NOT NULL
+            ORDER BY s.scheduled_date, s.id
+            LIMIT 100
+            """, ("clientId", clientId));
+        await using var upcomingReader = await upcomingCommand.ExecuteReaderAsync(cancellationToken);
+        while (await upcomingReader.ReadAsync(cancellationToken))
+        {
+            var sessionId = upcomingReader.GetInt32(0);
+            var planId = upcomingReader.GetInt32(1);
+            try
+            {
+                using var document = JsonDocument.Parse(upcomingReader.GetString(2));
+                if (!document.RootElement.TryGetProperty("exercises", out var exercises) ||
+                    exercises.ValueKind != JsonValueKind.Array) continue;
+
+                foreach (var exercise in exercises.EnumerateArray())
+                {
+                    var exerciseId = JsonString(exercise, "exerciseId");
+                    if (string.IsNullOrWhiteSpace(exerciseId)) continue;
+                    var rule = ParseProgressionRule(exercise);
+                    var prescription = new Anguloso.Server.Logica.TrainingExerciseProgressionPrescription(
+                        exerciseId,
+                        JsonInt(exercise, "sets") ?? 0,
+                        JsonInt(exercise, "minRepetitions") ?? 0,
+                        JsonInt(exercise, "maxRepetitions") ?? 0,
+                        JsonDecimal(exercise, "targetRepetitionsInReserve"),
+                        rule,
+                        JsonDecimal(exercise, "smallestLoadIncrementKg"));
+                    history.TryGetValue((planId, exerciseId), out var exposures);
+                    var result = Anguloso.Server.Logica.TrainingExerciseProgressionEngine.Evaluate(
+                        prescription, exposures ?? Array.Empty<Anguloso.Server.Logica.TrainingExerciseExposure>());
+                    recommendations.Add(new
+                    {
+                        sessionId,
+                        exerciseId,
+                        exerciseName = JsonString(exercise, "exerciseNameSnapshot"),
+                        action = ToApiProgressionAction(result.Action),
+                        explanation = result.Explanation,
+                        suggestedLoadKg = result.SuggestedLoadKg,
+                        loadIncreaseKg = result.LoadIncreaseKg,
+                        suggestedRepetitionsBySet = result.SuggestedRepetitionsBySet,
+                        maximumLoadIncreasePercent = result.MaximumLoadIncreasePercent
+                    });
+                }
+            }
+            catch (JsonException)
+            {
+                // An invalid or legacy prescription must not produce an invented recommendation.
+            }
+        }
+
+        return recommendations;
+    }
+
+    private static string? JsonString(JsonElement element, string property) =>
+        element.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString() : null;
+
+    private static int? JsonInt(JsonElement element, string property) =>
+        element.TryGetProperty(property, out var value) && value.TryGetInt32(out var number)
+            ? number : null;
+
+    private static decimal? JsonDecimal(JsonElement element, string property) =>
+        element.TryGetProperty(property, out var value) && value.TryGetDecimal(out var number)
+            ? number : null;
+
+    private static bool JsonBool(JsonElement element, string property) =>
+        element.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.True;
+
+    private static Anguloso.Server.Logica.TrainingProgressionRule ParseProgressionRule(JsonElement exercise)
+    {
+        if (!exercise.TryGetProperty("progressionRule", out var value))
+            return Anguloso.Server.Logica.TrainingProgressionRule.None;
+        if (value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var numeric) &&
+            Enum.IsDefined(typeof(Anguloso.Server.Logica.TrainingProgressionRule), numeric))
+            return (Anguloso.Server.Logica.TrainingProgressionRule)numeric;
+        if (value.ValueKind == JsonValueKind.String &&
+            Enum.TryParse<Anguloso.Server.Logica.TrainingProgressionRule>(value.GetString(), true, out var parsed))
+            return parsed;
+        return Anguloso.Server.Logica.TrainingProgressionRule.None;
+    }
+
+    private static string ToApiProgressionAction(Anguloso.Server.Logica.TrainingExerciseProgressionAction action) => action switch
+    {
+        Anguloso.Server.Logica.TrainingExerciseProgressionAction.InvalidPrescription => "invalid_prescription",
+        Anguloso.Server.Logica.TrainingExerciseProgressionAction.InvalidData => "invalid_data",
+        Anguloso.Server.Logica.TrainingExerciseProgressionAction.InsufficientData => "insufficient_data",
+        Anguloso.Server.Logica.TrainingExerciseProgressionAction.NotApplicable => "not_applicable",
+        Anguloso.Server.Logica.TrainingExerciseProgressionAction.HoldAndReview => "hold_and_review",
+        Anguloso.Server.Logica.TrainingExerciseProgressionAction.AddRepetitions => "add_repetitions",
+        Anguloso.Server.Logica.TrainingExerciseProgressionAction.ConfirmTopOfRange => "confirm_top_of_range",
+        _ => "increase_load"
+    };
 
     private static bool HasPainSkippedSet(string? json)
     {
