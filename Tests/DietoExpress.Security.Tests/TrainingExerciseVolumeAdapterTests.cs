@@ -104,6 +104,33 @@ public sealed class TrainingExerciseVolumeAdapterTests
         Assert.Equal(TrainingExerciseVolumeAction.NoChange, recommendation.Action);
     }
 
+    [Fact]
+    public void FeedbackMapperReadsStableExerciseIdAndRirButDoesNotSpreadGlobalPain()
+    {
+        const string feedback = """[{"exerciseId":"bench","plannedSets":3,"completedSets":2,"skippedSetReason":"fatigue","sets":[{"kind":"working","completed":true,"rir":1},{"kind":"working","completed":true,"rir":1},{"kind":"working","completed":false,"rir":null}]}]""";
+        const string prescription = """{"exercises":[{"exerciseId":"bench","targetRepetitionsInReserve":2}]}""";
+        var records = new[]
+        {
+            new TrainingExerciseVolumeFeedbackRecord("completed", feedback, prescription),
+            new TrainingExerciseVolumeFeedbackRecord("completed", feedback, prescription),
+            new TrainingExerciseVolumeFeedbackRecord("completed", feedback, prescription)
+        };
+
+        var exposures = TrainingExerciseVolumeFeedbackMapper.Map(records);
+
+        Assert.Equal(3, exposures.Count);
+        Assert.All(exposures, exposure =>
+        {
+            Assert.Equal("bench", exposure.ExerciseId);
+            Assert.Equal(2m, exposure.TargetRir);
+            Assert.Equal(1m, exposure.ActualAverageRir);
+            Assert.Equal("fatigue", exposure.SkippedSetReason);
+            Assert.False(exposure.PainReported);
+        });
+        var recommendation = Assert.Single(TrainingExerciseVolumeAdapter.Evaluate(exposures));
+        Assert.Equal(TrainingExerciseVolumeAction.ProposeReduceOneSet, recommendation.Action);
+    }
+
     private static TrainingExerciseVolumeExposure Exposure(
         string id,
         int planned = 3,
