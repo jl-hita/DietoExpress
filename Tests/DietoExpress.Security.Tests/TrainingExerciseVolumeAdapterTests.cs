@@ -105,6 +105,28 @@ public sealed class TrainingExerciseVolumeAdapterTests
     }
 
     [Fact]
+    public void PartialSessionDoesNotCountAsCompletedExerciseFatigueEvidence()
+    {
+        const string feedback = """[{"exerciseId":"bench","plannedSets":3,"completedSets":2,"skippedSetReason":"fatigue","sets":[{"kind":"working","completed":true,"rir":1},{"kind":"working","completed":true,"rir":1},{"kind":"working","completed":false,"rir":null}]}]""";
+        const string prescription = """{"exercises":[{"exerciseId":"bench","targetRepetitionsInReserve":2}]}""";
+        var records = new[]
+        {
+            new TrainingExerciseVolumeFeedbackRecord("completed", feedback, prescription),
+            new TrainingExerciseVolumeFeedbackRecord("partial", feedback, prescription),
+            new TrainingExerciseVolumeFeedbackRecord("partial", feedback, prescription)
+        };
+
+        var exposures = TrainingExerciseVolumeFeedbackMapper.Map(records);
+
+        Assert.Equal(3, exposures.Count);
+        Assert.True(exposures[0].SessionCompleted);
+        Assert.False(exposures[1].SessionCompleted);
+        Assert.False(exposures[2].SessionCompleted);
+        var recommendation = Assert.Single(TrainingExerciseVolumeAdapter.Evaluate(exposures));
+        Assert.Equal(TrainingExerciseVolumeAction.NoChange, recommendation.Action);
+    }
+
+    [Fact]
     public void FeedbackMapperReadsStableExerciseIdAndRirButDoesNotSpreadGlobalPain()
     {
         const string feedback = """[{"exerciseId":"bench","plannedSets":3,"completedSets":2,"skippedSetReason":"fatigue","sets":[{"kind":"working","completed":true,"rir":1},{"kind":"working","completed":true,"rir":1},{"kind":"working","completed":false,"rir":null}]}]""";
