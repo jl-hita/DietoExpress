@@ -797,10 +797,10 @@ public sealed class TrainingPeriodizationController : ControllerBase
             return BadRequest(new { message = "La decisión debe ser approved o rejected." });
         if (request.Notes?.Length > 2000)
             return BadRequest(new { message = "Las notas de revisión no pueden superar los 2000 caracteres." });
-        if (request.TargetMuscleGroups?.Count > 20 ||
-            (request.TargetMuscleGroups?.Any(group => !Enum.TryParse<TrainingMuscleGroup>(group, true, out var parsed) ||
-                !Enum.IsDefined(parsed)) ?? false))
-            return BadRequest(new { message = "Los grupos musculares seleccionados no son válidos." });
+        if (request.TargetExerciseIds?.Count > 40 ||
+            (request.TargetExerciseIds?.Any(id => string.IsNullOrWhiteSpace(id) || id.Length > 100) ?? false) ||
+            (request.TargetExerciseIds?.Distinct(StringComparer.Ordinal).Count() != request.TargetExerciseIds?.Count))
+            return BadRequest(new { message = "Los ejercicios seleccionados no son válidos." });
 
         var clientId = await _context.Database.SqlQueryRaw<int?>(
             """SELECT client_id AS "Value" FROM training_adaptation_proposals WHERE id = {0}""", proposalId)
@@ -841,7 +841,7 @@ public sealed class TrainingPeriodizationController : ControllerBase
             var applied = 0;
             if (request.Decision == "approved" && action == "review_and_reduce_training_stress")
                 applied = await ReduceFutureSessionVolumeAsync(planId, proposalId,
-                    request.TargetMuscleGroups ?? Array.Empty<string>(), transaction, cancellationToken);
+                    request.TargetExerciseIds ?? Array.Empty<string>(), transaction, cancellationToken);
             else if (request.Decision == "approved" && action == "hold_progression_and_review")
                 applied = await HoldFutureSessionProgressionAsync(planId, proposalId, transaction, cancellationToken);
 
@@ -861,8 +861,8 @@ public sealed class TrainingPeriodizationController : ControllerBase
                     ? $"Propuesta aprobada. Se han adaptado {applied} sesiones futuras; el historial permanece intacto."
                     : action == "pause_affected_exercise_and_review"
                         ? "Revisión registrada. Por seguridad no se ha reanudado ni modificado automáticamente el ejercicio asociado al dolor; ajusta manualmente la planificación antes de reanudarlo."
-                        : action == "review_and_reduce_training_stress" && (request.TargetMuscleGroups is null || request.TargetMuscleGroups.Count == 0)
-                            ? "Propuesta aprobada y registrada, pero no se ha reducido volumen: selecciona explícitamente los grupos musculares afectados para evitar recortar todas las series indiscriminadamente."
+                        : action == "review_and_reduce_training_stress" && (request.TargetExerciseIds is null || request.TargetExerciseIds.Count == 0)
+                            ? "Propuesta aprobada y registrada, pero no se ha reducido volumen: selecciona explícitamente los ejercicios con señales repetidas de fatiga para evitar recortar todas las series indiscriminadamente."
                             : "Propuesta aprobada y registrada. No se ha aplicado ningún cambio automático; revisa manualmente la planificación futura si procede.";
             return Ok(new { status = request.Decision, appliedFutureSessions = applied, message });
         }
@@ -1633,15 +1633,13 @@ public sealed class TrainingPeriodizationController : ControllerBase
     }
 
     private async Task<int> ReduceFutureSessionVolumeAsync(
-        int planId, long proposalId, IReadOnlyList<string> targetMuscleNames,
+        int planId, long proposalId, IReadOnlyList<string> targetExerciseIds,
         NpgsqlTransaction transaction, CancellationToken cancellationToken)
     {
-        // Global recovery feedback cannot identify which muscles need less volume. Require the
-        // professional to select affected groups; an empty selection must never reduce the plan.
-        var targetMuscles = targetMuscleNames
-            .Select(name => Enum.Parse<TrainingMuscleGroup>(name, true))
-            .ToHashSet();
-        if (targetMuscles.Count == 0)
+        // Session-wide recovery cannot identify a target exercise. Require explicit IDs from
+        // exercise-level evidence; an empty selection must never reduce the whole plan.
+        var selectedExerciseIds = targetExerciseIds.ToHashSet(StringComparer.Ordinal);
+        if (selectedExerciseIds.Count == 0)
             return 0;
 
         var rows = new List<(int Id, string Json, string? Instructions)>();
@@ -1661,9 +1659,9 @@ public sealed class TrainingPeriodizationController : ControllerBase
         foreach (var row in rows)
         {
             if (!TrainingAdaptationPrescriptionAdjuster.TryReduceSets(
-                    row.Json, targetMuscles, out var updatedJson, out var updatedText))
+                    row.Json, selectedExerciseIds, out var updatedJson, out var updatedText))
                 continue;
-            var note = $"Adaptación aprobada por profesional (propuesta #{proposalId}): reducción de una serie solo en ejercicios cuyos grupos primarios y secundarios están entre los grupos seleccionados ({string.Join(", ", targetMuscles)}).";
+            var note = $"Adaptación aprobada por profesional (propuesta #{proposalId}): reducción de una serie en los ejercicios seleccionados por ID estable ({string.Join(", ", selectedExerciseIds)}).";
             var instructions = string.IsNullOrWhiteSpace(row.Instructions) ? note : $"{row.Instructions.Trim()}\n{note}";
             await using var update = CreateCommand("""
                 UPDATE training_sessions
@@ -1815,7 +1813,7 @@ public sealed class TrainingPeriodizationController : ControllerBase
 public sealed record ReviewTrainingAdaptationProposalRequest(
     string Decision,
     string? Notes = null,
-    IReadOnlyList<string>? TargetMuscleGroups = null);
+    IReadOnlyList<string>? TargetExerciseIds = null);
 public sealed record TrainingProfileDto(int Id, int ClientId, bool Enabled, string PrimaryGoal, string ExperienceLevel, string ManagementMode, string? Notes, DateTime CreatedAt, DateTime UpdatedAt, bool CanManage = true);
 public sealed record UpdateTrainingProfileRequest(bool Enabled, string PrimaryGoal, string ExperienceLevel, string? Notes, string? ManagementMode = null);
 public sealed record CreateTrainingPlanRequest(string Name, string PeriodizationModel, DateOnly StartDate, DateOnly? EndDate, string? Notes);
