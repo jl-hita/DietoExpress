@@ -132,7 +132,7 @@ public static class TrainingExerciseProgressionEngine
         // The current contract prescribes one working load per exercise. Mixed-load
         // back-off/drop sets are not silently averaged; they need an explicit future model.
         if (sets.Any(x => x.WeightKg != load))
-            return ExposureAnalysis.Failure("Las series usan cargas distintas. No se calcula una progresión única hasta que la prescripción modele esas cargas.");
+            return ExposureAnalysis.Failure("Las series usan cargas distintas. No se calcula una progresión única hasta que la prescripción modele esas cargas.", invalid: true);
 
         var belowMinimum = sets.Any(x => x.Repetitions < prescription.MinRepetitions);
         var belowRir = prescription.TargetRir is not null &&
@@ -165,8 +165,8 @@ public static class TrainingExerciseProgressionEngine
         bool BelowTargetRir,
         bool AtTopOfRange)
     {
-        public static ExposureAnalysis Failure(string explanation) =>
-            new(false, false, explanation, 0m, Array.Empty<TrainingExecutedSet>(), false, false, false);
+        public static ExposureAnalysis Failure(string explanation, bool invalid = false) =>
+            new(false, invalid, explanation, 0m, Array.Empty<TrainingExecutedSet>(), false, false, false);
     }
 }
 
