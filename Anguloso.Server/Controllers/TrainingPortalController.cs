@@ -308,7 +308,7 @@ public sealed class TrainingPortalController : ControllerBase
             JOIN training_plans p ON p.id = s.plan_id
             JOIN training_profiles f ON f.id = p.profile_id
             WHERE f.client_id = @clientId AND f.enabled = TRUE AND p.status = 'active'
-              AND r.outcome IS NOT NULL AND r.exercise_feedback IS NOT NULL
+              AND r.outcome IS NOT NULL AND s.exercise_prescription_data IS NOT NULL
             ORDER BY s.scheduled_date DESC, s.id DESC
             LIMIT 60
             """, ("clientId", clientId)))
