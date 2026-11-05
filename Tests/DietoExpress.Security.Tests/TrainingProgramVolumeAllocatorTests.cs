@@ -100,6 +100,20 @@ public sealed class TrainingProgramVolumeAllocatorTests
     }
 
     [Fact]
+    public void FractionalWeeklySetTargetsAreRejected()
+    {
+        var session = Session(new TrainingExercisePrescription("bench", "v1", "Press banca", 1, 1, 8, 12, 2m, 120,
+            TrainingProgressionRule.DoubleProgression, "test", [TrainingMuscleGroup.Chest], []));
+
+        var result = TrainingProgramVolumeAllocator.Allocate([session], TrainingGoal.Hypertrophy,
+            TrainingExperience.Beginner,
+            [new TrainingMuscleVolumeTarget(TrainingMuscleGroup.Chest, TargetWeeklyPrimarySets: 4.5m)], 60);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Errors, error => error.Contains("entero", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void DuplicateOrOutOfRangeMusclePreferencesAreRejected()
     {
         var session = Session(new TrainingExercisePrescription("bench", "v1", "Press banca", 1, 1, 8, 12, 2m, 120,
