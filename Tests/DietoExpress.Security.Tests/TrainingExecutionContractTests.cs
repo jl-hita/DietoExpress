@@ -40,7 +40,7 @@ public sealed class TrainingExecutionContractTests
         Assert.NotNull(root);
 
         var controller = File.ReadAllText(Path.Combine(root!.FullName, "Anguloso.Server", "Controllers", "TrainingPortalController.cs"));
-        var progressionService = File.ReadAllText(Path.Combine(root.FullName, "Anguloso.Server", "Logica", "TrainingExerciseProgressionService.cs"));
+        var progressionService = File.ReadAllText(Path.Combine(root!.FullName, "Anguloso.Server", "Logica", "TrainingExerciseProgressionService.cs"));
         Assert.Contains("GetRecommendationsAsync", controller);
         Assert.Contains("exerciseProgressionRecommendations", controller);
         Assert.Contains("TrainingExerciseProgressionEngine.Evaluate", progressionService);
