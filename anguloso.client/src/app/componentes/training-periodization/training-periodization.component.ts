@@ -1732,6 +1732,11 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       this.generationErrors[plan.id] = 'Revisa la duración del ciclo y el límite de minutos por sesión.';
       return;
     }
+    const preferenceError = this.validateMuscleVolumePreferences();
+    if (preferenceError) {
+      this.generationErrors[plan.id] = preferenceError;
+      return;
+    }
     const requestedStart = (this.autoStartDates[plan.id] || this.nextMesocycleStart(plan)).slice(0, 10);
     const targetMesocycleId = this.autoTargetMesocycleIds[plan.id] ?? null;
     const targetMesocycle = targetMesocycleId === null ? null : (this.mesocycles[plan.id] || []).find(item => item.id === targetMesocycleId) || null;
@@ -1768,6 +1773,17 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       this.generatingPlan = false;
       this.changeDetector.detectChanges();
     });
+  }
+
+  private validateMuscleVolumePreferences(): string {
+    for (const item of this.autoMusclePreferences.filter(preference => preference.enabled)) {
+      if (!Number.isInteger(item.priority) || item.priority < 0 || item.priority > 3)
+        return 'La prioridad de ' + item.label + ' debe estar entre 0 y 3.';
+      if (item.targetWeeklyPrimarySets !== null &&
+          (!Number.isInteger(item.targetWeeklyPrimarySets) || item.targetWeeklyPrimarySets < 1 || item.targetWeeklyPrimarySets > 20))
+        return 'El objetivo directo de ' + item.label + ' debe ser un número entero entre 1 y 20.';
+    }
+    return '';
   }
 
   private buildMuscleVolumeTargets(): Array<{ muscleGroup: string; priority: number; targetWeeklyPrimarySets?: number | null }> {
@@ -2446,7 +2462,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       goal: this.autoGoal, experience: this.autoExperience, startDate, durationWeeks, trainingDays: days,
       maximumSessionDurationMinutes: this.autoMaximumMinutes,
       availableEquipment: [...new Set(this.autoEquipmentCsv.split(',').map(value => value.trim()).filter(Boolean))],
-      excludedExerciseIds: []
+      excludedExerciseIds: [],
+      muscleVolumeTargets: this.buildMuscleVolumeTargets()
     };
     const sequenceNumber = existing?.sequenceNumber ??
       Math.max(0, ...(this.mesocycles[plan.id] || []).map(meso => meso.sequenceNumber)) + 1;
