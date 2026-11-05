@@ -432,8 +432,10 @@ public sealed class TrainingPortalController : ControllerBase
                         JsonDecimal(exercise, "smallestLoadIncrementKg"),
                         JsonDecimal(exercise, "maximumLoadIncreasePercent"));
                     history.TryGetValue((planId, exerciseId), out var exposures);
+                    IReadOnlyList<Anguloso.Server.Logica.TrainingExerciseExposure> exerciseHistory =
+                        exposures is null ? Array.Empty<Anguloso.Server.Logica.TrainingExerciseExposure>() : exposures;
                     var result = Anguloso.Server.Logica.TrainingExerciseProgressionEngine.Evaluate(
-                        prescription, exposures ?? Array.Empty<Anguloso.Server.Logica.TrainingExerciseExposure>());
+                        prescription, exerciseHistory);
                     recommendations.Add(new
                     {
                         sessionId,
