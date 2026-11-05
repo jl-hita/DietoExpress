@@ -28,7 +28,12 @@ public sealed class TrainingProgramVolumeAllocatorTests
             Session(new TrainingExercisePrescription("bench", "v1", "Press banca", 1, 1, 8, 12, 2m, 120,
                 TrainingProgressionRule.DoubleProgression, "test", [TrainingMuscleGroup.Chest], [TrainingMuscleGroup.Triceps])),
             Session(new TrainingExercisePrescription("row", "v1", "Remo", 2, 1, 8, 12, 2m, 120,
-                TrainingProgressionRule.DoubleProgression, "test", [TrainingMuscleGroup.UpperBack], [TrainingMuscleGroup.Biceps]))
+                TrainingProgressionRule.DoubleProgression, "test", [TrainingMuscleGroup.UpperBack], [TrainingMuscleGroup.Biceps])),
+            new TrainingSessionPrescription(1, DayOfWeek.Wednesday, "Sesión B", 5,
+            [
+                new TrainingExercisePrescription("incline", "v1", "Press inclinado", 1, 1, 8, 12, 2m, 120,
+                    TrainingProgressionRule.DoubleProgression, "test", [TrainingMuscleGroup.Chest], [TrainingMuscleGroup.Triceps])
+            ])
         };
 
         var defaultAllocation = TrainingProgramVolumeAllocator.Allocate(
