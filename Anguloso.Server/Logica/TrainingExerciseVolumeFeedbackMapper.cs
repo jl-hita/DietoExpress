@@ -33,7 +33,9 @@ public static class TrainingExerciseVolumeFeedbackMapper
                         continue;
                     var plannedSets = ReadInt(exercise, "plannedSets");
                     var completedSets = ReadInt(exercise, "completedSets");
-                    if (plannedSets is < 1 or > 100 || completedSets < 0 || completedSets > plannedSets)
+                    if (plannedSets is < 1 or > 100 || completedSets < 0 || completedSets > plannedSets ||
+                        !targetRir.TryGetValue(exerciseId, out var prescription) ||
+                        prescription.PlannedSets != plannedSets)
                         continue;
 
                     var skippedReason = ReadString(exercise, "skippedSetReason");
@@ -48,7 +50,7 @@ public static class TrainingExerciseVolumeFeedbackMapper
                         // The session-level pain signal is intentionally not copied to every exercise.
                         // Only an exercise's own skipped-set reason identifies the affected exercise.
                         PainReported: string.Equals(skippedReason, "pain", StringComparison.OrdinalIgnoreCase),
-                        TargetRir: targetRir.GetValueOrDefault(exerciseId),
+                        TargetRir: prescription.TargetRir,
                         ActualAverageRir: averageRir));
                 }
             }
@@ -65,9 +67,9 @@ public static class TrainingExerciseVolumeFeedbackMapper
         return exposures;
     }
 
-    private static IReadOnlyDictionary<string, decimal?> ReadTargetRir(string? prescriptionJson)
+    private static IReadOnlyDictionary<string, (int PlannedSets, decimal? TargetRir)> ReadTargetRir(string? prescriptionJson)
     {
-        var result = new Dictionary<string, decimal?>(StringComparer.Ordinal);
+        var result = new Dictionary<string, (int PlannedSets, decimal? TargetRir)>(StringComparer.Ordinal);
         if (string.IsNullOrWhiteSpace(prescriptionJson))
             return result;
         try
@@ -81,11 +83,15 @@ public static class TrainingExerciseVolumeFeedbackMapper
                 var id = ReadString(exercise, "exerciseId");
                 if (string.IsNullOrWhiteSpace(id))
                     continue;
+                if (!exercise.TryGetProperty("sets", out var setsElement) ||
+                    setsElement.ValueKind != JsonValueKind.Number || !setsElement.TryGetInt32(out var plannedSets) ||
+                    plannedSets is < 1 or > 100)
+                    continue;
                 decimal? rir = null;
                 if (exercise.TryGetProperty("targetRepetitionsInReserve", out var rirElement) &&
                     rirElement.ValueKind == JsonValueKind.Number && rirElement.TryGetDecimal(out var value))
                     rir = value;
-                result[id] = rir;
+                result[id] = (plannedSets, rir);
             }
         }
         catch (JsonException)
