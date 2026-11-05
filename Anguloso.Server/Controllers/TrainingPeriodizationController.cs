@@ -1710,6 +1710,7 @@ public sealed class TrainingPeriodizationController : ControllerBase
         await using (var select = CreateCommand("""
             SELECT s.id, s.exercise_prescription_data::text, s.instructions
             FROM training_sessions s
+            JOIN training_plans p ON p.id = s.plan_id AND p.status = 'active'
             WHERE s.plan_id = @planId AND s.scheduled_date > CURRENT_DATE AND s.status = 'planned'
               AND NOT EXISTS (SELECT 1 FROM training_session_records r WHERE r.session_id = s.id)
               AND s.exercise_prescription_data IS NOT NULL
@@ -1732,6 +1733,7 @@ public sealed class TrainingPeriodizationController : ControllerBase
                 SET exercise_prescription_data = @json::jsonb, exercise_prescription = @prescription,
                     instructions = @instructions, updated_at = NOW()
                 WHERE id = @sessionId AND scheduled_date > CURRENT_DATE AND status = 'planned'
+                  AND EXISTS (SELECT 1 FROM training_plans p WHERE p.id = training_sessions.plan_id AND p.status = 'active')
                   AND NOT EXISTS (SELECT 1 FROM training_session_records r WHERE r.session_id = training_sessions.id)
                 """, transaction, ("json", updatedJson), ("prescription", updatedText),
                 ("instructions", instructions), ("sessionId", row.Id));
