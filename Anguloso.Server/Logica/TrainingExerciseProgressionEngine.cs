@@ -100,9 +100,9 @@ public static class TrainingExerciseProgressionEngine
         if (prescription.SmallestLoadIncrementKg is not > 0)
             return new(
                 TrainingExerciseProgressionAction.IncreaseLoad,
-                "Dos exposiciones consecutivas cumplen el rango y el RIR. Sube solo el menor incremento disponible del material, sin superar el 5 % de la carga actual; registra el nuevo peso para calibrar futuras recomendaciones.",
+                $"Dos exposiciones consecutivas cumplen el rango y el RIR. Sube solo el menor incremento disponible del material, sin superar el {maximumIncreasePercent:0.##} % de la carga actual; registra el nuevo peso para calibrar futuras recomendaciones.",
                 null, null, Enumerable.Repeat(prescription.MinRepetitions, prescription.PlannedWorkingSets).ToArray(),
-                DefaultMaximumLoadIncreasePercent);
+                maximumIncreasePercent);
 
         var increment = prescription.SmallestLoadIncrementKg.Value;
         if (increment > maximumIncrease)
@@ -143,11 +143,9 @@ public static class TrainingExerciseProgressionEngine
         // RIR estimates are noisy. A change greater than half an RIR is treated as a
         // possible effort improvement; smaller differences do not hide a three-session plateau.
         var allRirRecorded = analyses.All(x => x.Sets.All(set => set.Rir is not null));
-        var noRirImprovement = !allRirRecorded || analyses
-            .Select(x => x.Sets.Average(set => set.Rir!.Value))
-            .Zip(analyses.Skip(1).Select(x => x.Sets.Average(set => set.Rir!.Value)),
-                (previous, next) => next <= previous + 0.5m)
-            .All(noMeaningfulImprovement => noMeaningfulImprovement);
+        var noRirImprovement = !allRirRecorded ||
+            analyses[^1].Sets.Average(set => set.Rir!.Value) <=
+            analyses[0].Sets.Average(set => set.Rir!.Value) + 0.5m;
 
         return noRepetitionProgress && noRirImprovement;
     }
