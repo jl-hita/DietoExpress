@@ -87,7 +87,11 @@ public sealed class TrainingProgramGeneratorTests
                 .SelectMany(week => week.Muscles)
                 .Where(muscle => muscle.MuscleGroup == TrainingMuscleGroup.Glutes)
                 .ToArray();
-            Assert.All(gluteVolume, muscle => Assert.InRange(muscle.EstimatedEffectiveSets, 8m, 12m));
+            Assert.All(gluteVolume, muscle =>
+            {
+                Assert.InRange(muscle.PrimarySets, 8, 10);
+                Assert.True(muscle.EstimatedEffectiveSets >= muscle.PrimarySets);
+            });
             Assert.NotEmpty(plan.QualityReport.WeeklyMuscleVolumes);
         }
     }
