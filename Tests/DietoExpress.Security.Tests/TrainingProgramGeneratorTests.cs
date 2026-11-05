@@ -512,6 +512,32 @@ public sealed class TrainingProgramGeneratorTests
         Assert.Equal(signatures[1], signatures[3]);
     }
 
+    [Fact]
+    public void ExplicitDeloadReducesWeeklySetsAndIncreasesReserveWithoutChangingExerciseSelection()
+    {
+        var normal = TrainingProgramGenerator.Generate(Request() with { DurationWeeks = 1 }, Catalog());
+        var deload = TrainingProgramGenerator.Generate(Request() with { DurationWeeks = 1, IsDeload = true }, Catalog());
+
+        Assert.True(normal.Succeeded, string.Join("; ", normal.Errors));
+        Assert.True(deload.Succeeded, string.Join("; ", deload.Errors));
+
+        var normalExercises = normal.Prescription!.Sessions.SelectMany(session => session.Exercises)
+            .OrderBy(exercise => exercise.ExerciseId, StringComparer.Ordinal).ToArray();
+        var deloadExercises = deload.Prescription!.Sessions.SelectMany(session => session.Exercises)
+            .OrderBy(exercise => exercise.ExerciseId, StringComparer.Ordinal).ToArray();
+
+        Assert.Equal(normalExercises.Select(exercise => exercise.ExerciseId), deloadExercises.Select(exercise => exercise.ExerciseId));
+        Assert.True(deloadExercises.Sum(exercise => exercise.Sets) < normalExercises.Sum(exercise => exercise.Sets));
+        Assert.Contains(deloadExercises, exercise => exercise.Sets < normalExercises.Single(normalExercise => normalExercise.ExerciseId == exercise.ExerciseId).Sets);
+        Assert.All(deloadExercises, exercise =>
+        {
+            var original = normalExercises.Single(item => item.ExerciseId == exercise.ExerciseId);
+            Assert.Equal(Math.Max(1, (int)Math.Ceiling(original.Sets * 0.5m)), exercise.Sets);
+            Assert.Equal(Math.Min(5m, original.TargetRepetitionsInReserve!.Value + 2m), exercise.TargetRepetitionsInReserve);
+        });
+        Assert.Contains(deload.Prescription.QualityReport!.Warnings, warning => warning.Contains("descarga activa", StringComparison.OrdinalIgnoreCase));
+    }
+
     private static string SessionSignature(TrainingSessionPrescription session) =>
         $"{session.WeekNumber}|{session.Day}|{session.Title}|" +
         string.Join(",", session.Exercises.Select(exercise =>
