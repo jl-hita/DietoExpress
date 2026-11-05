@@ -6,11 +6,11 @@
 
 ## Cómo distribuye las series
 
-1. Cada ejercicio empieza con una serie efectiva prescrita. El motor añade series una a una hasta aproximarse a los objetivos semanales, o hasta alcanzar el límite de series por ejercicio (5) o la duración máxima de la sesión.
-2. Una serie de un músculo primario suma 1 al cómputo estimado. Una participación secundaria suma 0,5. Se conservan también los contadores brutos de series y frecuencia primaria/secundaria.
+1. Cada ejercicio empieza con una serie efectiva prescrita. El motor añade series una a una hasta aproximarse a los objetivos semanales de series primarias, o hasta alcanzar el límite de series por ejercicio (5) o la duración máxima de la sesión.
+2. Los objetivos de asignación se expresan en series primarias directas. Una serie de un músculo primario suma 1 al cómputo estimado; una participación secundaria suma 0,5 solo para el informe de volumen efectivo estimado y nunca sustituye una serie primaria para alcanzar el objetivo. Se conservan también los contadores brutos de series y frecuencia primaria/secundaria.
 3. Cada nueva serie se asigna al ejercicio que más reduce el déficit relativo de los músculos que declara en sus metadatos revisados. El desempate es estable por orden de sesión y ejercicio.
-4. Las preferencias profesionales pueden establecer prioridad (0–3; añade 2 series efectivas estimadas por nivel) o un objetivo explícito (1–20). Se rechazan preferencias duplicadas o fuera de rango.
-5. La asignación se recalcula por semana y respeta la duración máxima de cada sesión. Si no puede alcanzar un objetivo sin superar los límites, informa de la dosis estimada y de la razón; no añade volumen ilimitado.
+4. Las preferencias profesionales pueden establecer prioridad (0–3; añade 2 series primarias al objetivo por nivel) o un objetivo explícito de series primarias (1–20). Se rechazan preferencias duplicadas o fuera de rango.
+5. La asignación se recalcula por semana y respeta la duración máxima de cada sesión. Si no puede alcanzar un objetivo sin superar los límites, informa de la dosis primaria y de la razón; no añade volumen ilimitado. Si no existe un ejercicio aprobado con ese músculo como primario, informa de la falta de cobertura en vez de contabilizar trabajo secundario como si fuera directo.
 6. Las semanas mantienen la distribución salvo que cambien los parámetros. No hay una descarga obligatoria por calendario: una descarga debe justificarse con evolución, fatiga, recuperación y decisión profesional, no con el mero número de semana.
 
 ## Qué es evidencia y qué es una heurística
@@ -21,7 +21,7 @@ ACSM 2026 sintetiza 137 revisiones sistemáticas y más de 30.000 participantes.
 
 Por tanto, las siguientes decisiones son **heurísticas de ingeniería iniciales**, no prescripciones fisiológicas demostradas ni reglas atribuidas a ACSM:
 
-- Objetivo efectivo orientativo de partida: hipertrofia 6/8/10 según experiencia principiante/intermedia/avanzada; fuerza 6/8; condición general 4/6.
+- Objetivo orientativo de series primarias directas: hipertrofia 6/8/10 según experiencia principiante/intermedia/avanzada; fuerza 6/8; condición general 4/6.
 - Crédito secundario de 0,5. La literatura no establece una equivalencia universal entre una serie primaria y una secundaria; el factor sirve para no ignorar solapamientos y debe calibrarse.
 - Prioridad muscular: +2 series efectivas estimadas por nivel.
 - Máximo de 5 series por ejercicio dentro de este asignador y presupuesto de duración como límites operativos.
