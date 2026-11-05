@@ -49,13 +49,9 @@ public static class TrainingAdaptationPolicy
             return Decision(TrainingAdaptationAction.HoldProgressionAndReview,
                 "No aumentes automáticamente la exigencia. Revisa el contexto y confirma la recuperación con tu profesional antes de progresar.");
 
-        if (latest.Outcome is TrainingSessionOutcome.Completed &&
-            latest.ProgressionTargetAchieved == true &&
-            latest.SessionRpe is <= 8 &&
-            latest.Recovery is TrainingRecoveryRating.Good)
-            return Decision(TrainingAdaptationAction.ProgressAccordingToPrescription,
-                "Los registros cumplen los criterios de la progresión ya prescrita. Es solo una propuesta para revisión profesional; no modifica el plan.");
-
+        // Progression is deliberately not inferred from session-level RPE or a client-supplied
+        // boolean. Exercise progression requires per-set load/reps/RIR and is evaluated by
+        // TrainingExerciseProgressionEngine against that exercise's prescription and history.
         if (latest.SessionRpe is >= 9)
             return Decision(TrainingAdaptationAction.HoldProgressionAndReview,
                 "El esfuerzo registrado fue muy alto. Mantén la progresión en pausa hasta revisar rendimiento y recuperación con tu profesional.");
@@ -116,6 +112,8 @@ public enum TrainingAdaptationAction
     ReorganizeFutureSessions,
     HoldProgressionAndReview,
     ReviewAndReduceTrainingStress,
+    // Retained for compatibility with previously persisted proposals; new decisions use
+    // TrainingExerciseProgressionEngine and never emit this session-level action.
     ProgressAccordingToPrescription,
     PauseAffectedExerciseAndReview
 }
