@@ -133,7 +133,7 @@ public sealed class TrainingExerciseVolumeAdapterTests
     public void PartialSessionDoesNotCountAsCompletedExerciseFatigueEvidence()
     {
         const string feedback = """[{"exerciseId":"bench","plannedSets":3,"completedSets":2,"skippedSetReason":"fatigue","sets":[{"kind":"working","completed":true,"rir":1},{"kind":"working","completed":true,"rir":1},{"kind":"working","completed":false,"rir":null}]}]""";
-        const string prescription = """{"exercises":[{"exerciseId":"bench","targetRepetitionsInReserve":2}]}""";
+        const string prescription = """{"exercises":[{"exerciseId":"bench","sets":3,"targetRepetitionsInReserve":2}]}""";
         var records = new[]
         {
             new TrainingExerciseVolumeFeedbackRecord("completed", feedback, prescription),
@@ -155,7 +155,7 @@ public sealed class TrainingExerciseVolumeAdapterTests
     public void MissingRirOnAnyCompletedWorkingSetDoesNotCreateAnAverage()
     {
         const string feedback = """[{"exerciseId":"bench","plannedSets":2,"completedSets":2,"sets":[{"kind":"working","completed":true,"rir":0},{"kind":"working","completed":true,"rir":null}]}]""";
-        const string prescription = """{"exercises":[{"exerciseId":"bench","targetRepetitionsInReserve":2}]}""";
+        const string prescription = """{"exercises":[{"exerciseId":"bench","sets":2,"targetRepetitionsInReserve":2}]}""";
         var records = new[]
         {
             new TrainingExerciseVolumeFeedbackRecord("completed", feedback, prescription),
@@ -174,7 +174,7 @@ public sealed class TrainingExerciseVolumeAdapterTests
     public void FeedbackMapperReadsStableExerciseIdAndRirButDoesNotSpreadGlobalPain()
     {
         const string feedback = """[{"exerciseId":"bench","plannedSets":3,"completedSets":2,"skippedSetReason":"fatigue","sets":[{"kind":"working","completed":true,"rir":1},{"kind":"working","completed":true,"rir":1},{"kind":"working","completed":false,"rir":null}]}]""";
-        const string prescription = """{"exercises":[{"exerciseId":"bench","targetRepetitionsInReserve":2}]}""";
+        const string prescription = """{"exercises":[{"exerciseId":"bench","sets":3,"targetRepetitionsInReserve":2}]}""";
         var records = new[]
         {
             new TrainingExerciseVolumeFeedbackRecord("completed", feedback, prescription),
