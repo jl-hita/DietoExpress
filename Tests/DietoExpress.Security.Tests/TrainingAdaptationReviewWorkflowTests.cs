@@ -28,7 +28,7 @@ public sealed class TrainingAdaptationReviewWorkflowTests
     }
 
     [Fact]
-    public void EmptyMuscleSelectionNeverAppliesGlobalVolumeReduction()
+    public void EmptyExerciseSelectionNeverAppliesGlobalVolumeReduction()
     {
         const string json = """{"exercises":[{"exerciseId":"bench","sets":3,"primaryMuscleGroups":[0],"secondaryMuscleGroups":[]}]}""";
         Assert.False(TrainingAdaptationPrescriptionAdjuster.TryReduceSets(json,
@@ -52,7 +52,7 @@ public sealed class TrainingAdaptationReviewWorkflowTests
     public void InvalidOrUnsupportedPrescriptionIsNeverChanged(string json)
     {
         Assert.False(TrainingAdaptationPrescriptionAdjuster.TryReduceSets(json,
-            new HashSet<TrainingMuscleGroup> { TrainingMuscleGroup.Chest }, out var updated, out _));
+            new HashSet<string> { "bench" }, out var updated, out _));
         Assert.Equal(json, updated);
     }
 
