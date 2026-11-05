@@ -32,7 +32,7 @@ public sealed class TrainingProgramVolumeAllocatorTests
             new TrainingSessionPrescription(1, DayOfWeek.Wednesday, "Sesión B", 5,
             [
                 new TrainingExercisePrescription("incline", "v1", "Press inclinado", 1, 1, 8, 12, 2m, 120,
-                    TrainingProgressionRule.DoubleProgression, "test", [TrainingMuscleGroup.Chest], []
+                    TrainingProgressionRule.DoubleProgression, "test", [TrainingMuscleGroup.Chest], [])
             ])
         };
 
