@@ -46,7 +46,7 @@ El motor TrainingExerciseVolumeAdapter propone revisar una reducción de una ser
 - La exposición más reciente todavía muestra esa señal; no mantiene recortes cuando el problema parece haberse resuelto.
 - El ejercicio tiene más de una serie prescrita.
 
-El motor no interpreta falta de tiempo, material, enfermedad o motivación como evidencia de que el ejercicio tenga demasiado volumen. El dolor produce PauseAndReview, nunca una reducción ordinaria: debe revisarse el ejercicio y la seguridad antes de reanudarlo. Una exposición incompleta no cuenta como sesión completada para esta evaluación.
+El motor no interpreta falta de tiempo, material, enfermedad o motivación como evidencia de que el ejercicio tenga demasiado volumen. El dolor produce PauseAndReview, nunca una reducción ordinaria: debe revisarse el ejercicio y la seguridad antes de reanudarlo. Una exposición incompleta no cuenta como sesión completada para esta evaluación. Las sesiones con resultado `partial` o `not_completed` no cuentan como exposición completada. Para usar el RIR medio deben estar registrados los valores RIR de todas las series de trabajo completadas; un dato parcial o ausente se trata como desconocido, nunca se extrapola.
 
 La propuesta se muestra al profesional con el motivo y los ejercicios candidatos. La aprobación requiere seleccionar explícitamente los IDs de ejercicio que se van a adaptar. El ajustador cambia una serie solo en esos IDs estables, en sesiones futuras planificadas sin registro asociado; no modifica ejercicios parecidos por nombre, sesiones ya registradas ni el historial completado. Sin evidencia suficiente o sin selección no se aplica ningún recorte.
 
