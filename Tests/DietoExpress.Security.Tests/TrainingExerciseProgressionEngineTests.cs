@@ -133,6 +133,17 @@ public sealed class TrainingExerciseProgressionEngineTests
     }
 
     [Fact]
+    public void IncompleteLatestExposureCannotBeSkippedToProgressFromOlderHistory()
+    {
+        var incomplete = Exposure(12) with { SessionCompleted = false };
+        var result = TrainingExerciseProgressionEngine.Evaluate(Prescription(),
+            [Exposure(12), Exposure(12), incomplete]);
+
+        Assert.Equal(TrainingExerciseProgressionAction.HoldAndReview, result.Action);
+        Assert.Null(result.SuggestedLoadKg);
+    }
+
+    [Fact]
     public void DifferentLoadsAcrossWorkingSets_AreNotAveraged()
     {
         var exposure = new TrainingExerciseExposure([
