@@ -69,6 +69,16 @@ public sealed class TrainingExerciseProgressionEngineTests
     }
 
     [Fact]
+    public void ThreeTopOfRangeExposuresStillProgressLoadInsteadOfBeingFlaggedAsStagnant()
+    {
+        var result = TrainingExerciseProgressionEngine.Evaluate(Prescription(1.25m),
+            [Exposure(12), Exposure(12), Exposure(12)]);
+
+        Assert.Equal(TrainingExerciseProgressionAction.IncreaseLoad, result.Action);
+        Assert.Equal(61.25m, result.SuggestedLoadKg);
+    }
+
+    [Fact]
     public void ExerciseSpecificIncreaseCeilingOverridesDefault()
     {
         var prescription = Prescription(null) with { MaximumLoadIncreasePercent = 2m };
