@@ -64,7 +64,7 @@ public static class TrainingProgramVolumeAllocator
                         if (exercise.Sets >= MaximumSetsPerExercise)
                             continue;
                         var addedDuration = AdditionalSetSeconds(exercise);
-                        if (duration + addedDuration / 60m > maximumSessionDurationMinutes)
+                        if (duration + addedDuration > maximumSessionDurationMinutes * 60m)
                             continue;
 
                         var score = DeficitScore(exercise, volume, applicableTargets);
