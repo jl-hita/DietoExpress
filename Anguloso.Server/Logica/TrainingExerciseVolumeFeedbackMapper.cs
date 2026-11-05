@@ -44,7 +44,7 @@ public static class TrainingExerciseVolumeFeedbackMapper
                         plannedSets,
                         completedSets,
                         skippedReason,
-                        SessionCompleted: !string.Equals(record.Outcome, "not_completed", StringComparison.OrdinalIgnoreCase),
+                        SessionCompleted: string.Equals(record.Outcome, "completed", StringComparison.OrdinalIgnoreCase),
                         // The session-level pain signal is intentionally not copied to every exercise.
                         // Only an exercise's own skipped-set reason identifies the affected exercise.
                         PainReported: string.Equals(skippedReason, "pain", StringComparison.OrdinalIgnoreCase),
