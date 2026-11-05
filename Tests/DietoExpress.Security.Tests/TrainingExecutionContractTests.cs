@@ -40,6 +40,8 @@ public sealed class TrainingExecutionContractTests
         Assert.NotNull(root);
 
         var controller = File.ReadAllText(Path.Combine(root!.FullName, "Anguloso.Server", "Controllers", "TrainingPortalController.cs"));
+        Assert.Contains("[Idempotent]", controller);
+        Assert.Contains("CurrentTransaction?.GetDbTransaction()", controller);
         Assert.Contains("PatientTrainingSetFeedback", controller);
         Assert.Contains("set.WeightKg is < 0 or > 1000", controller);
         Assert.Contains("set.Repetitions is < 0 or > 1000", controller);
