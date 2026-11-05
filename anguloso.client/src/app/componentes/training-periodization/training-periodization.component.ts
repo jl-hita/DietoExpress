@@ -96,7 +96,16 @@ interface RepDbExercise {
             <strong>{{ adaptationActionLabel(proposal.action) }}</strong>
             <p>{{ proposal.sessionTitle }} · {{ proposal.sessionDate | date:'dd/MM/yyyy' }} · {{ proposal.createdAt | date:'dd/MM/yyyy HH:mm' }}</p>
             <p>{{ proposal.explanation }}</p>
-            <small *ngIf="proposal.action === 'review_and_reduce_training_stress'">Al aprobar: reduce una serie por ejercicio en sesiones futuras sin feedback registrado.</small>
+            <small *ngIf="proposal.action === 'review_and_reduce_training_stress'">La recuperación global no identifica por sí sola qué músculo necesita menos volumen. Selecciona todos los grupos afectados; solo se ajustarán ejercicios cuyos músculos primarios y secundarios estén incluidos.</small>
+            <details *ngIf="proposal.action === 'review_and_reduce_training_stress'" class="adaptation-muscle-picker">
+              <summary>Seleccionar grupos musculares afectados (obligatorio para reducir)</summary>
+              <div class="adaptation-muscle-options">
+                <label *ngFor="let muscle of adaptationMuscleOptions">
+                  <input type="checkbox" [checked]="isAdaptationMuscleSelected(proposal.id, muscle.value)" (change)="toggleAdaptationMuscle(proposal.id, muscle.value, $any($event.target).checked)" />
+                  {{ muscle.label }}
+                </label>
+              </div>
+            </details>
             <small *ngIf="proposal.action === 'hold_progression_and_review'">Al aprobar: pausa la progresión en sesiones futuras no realizadas.</small>
             <small *ngIf="proposal.action === 'pause_affected_exercise_and_review'">Por seguridad no se reanuda automáticamente el ejercicio asociado al dolor; requiere ajuste profesional explícito.</small>
             <label>Nota de revisión (opcional)<textarea [name]="'adaptationReviewNotes' + proposal.id" [(ngModel)]="adaptationReviewNotes[proposal.id]" rows="2" maxlength="2000" placeholder="Motivo de la decisión o ajustes manuales pendientes"></textarea></label>
@@ -684,6 +693,19 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
   recordDrafts: Record<number, { duration: number | null; rpe: number | null; notes: string }> = {};
   adaptationProposals: TrainingAdaptationProposal[] = [];
   adaptationReviewNotes: Record<number, string> = {};
+  adaptationTargetMuscles: Record<number, string[]> = {};
+  adaptationMuscleOptions = [
+    { value: 'Chest', label: 'Pecho' }, { value: 'Lats', label: 'Dorsales' },
+    { value: 'UpperBack', label: 'Espalda alta' }, { value: 'Deltoids', label: 'Deltoides' },
+    { value: 'Biceps', label: 'Bíceps' }, { value: 'Triceps', label: 'Tríceps' },
+    { value: 'Forearms', label: 'Antebrazos' }, { value: 'Abdominals', label: 'Abdominales' },
+    { value: 'Obliques', label: 'Oblicuos' }, { value: 'ErectorSpinae', label: 'Erectores espinales' },
+    { value: 'Glutes', label: 'Glúteos' }, { value: 'Quadriceps', label: 'Cuádriceps' },
+    { value: 'Hamstrings', label: 'Isquiosurales' }, { value: 'Calves', label: 'Gemelos' },
+    { value: 'Adductors', label: 'Aductores' }, { value: 'Abductors', label: 'Abductores' },
+    { value: 'HipFlexors', label: 'Flexores de cadera' }, { value: 'Serratus', label: 'Serrato' },
+    { value: 'TibialisAnterior', label: 'Tibial anterior' }, { value: 'RotatorCuff', label: 'Manguito rotador' }
+  ];
   collaborations: TrainingCollaboration[] = [];
   invitations: TrainingInvitation[] = [];
   trainingTemplates: TrainingTemplate[] = [];
@@ -1365,13 +1387,29 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
     return labels[action] ?? 'Revisión de adaptación';
   }
 
+  isAdaptationMuscleSelected(proposalId: number, muscle: string): boolean {
+    return (this.adaptationTargetMuscles[proposalId] ?? []).includes(muscle);
+  }
+
+  toggleAdaptationMuscle(proposalId: number, muscle: string, checked: boolean): void {
+    const selected = new Set(this.adaptationTargetMuscles[proposalId] ?? []);
+    if (checked) selected.add(muscle); else selected.delete(muscle);
+    this.adaptationTargetMuscles[proposalId] = [...selected];
+  }
+
   reviewAdaptationProposal(proposal: TrainingAdaptationProposal, decision: 'approved' | 'rejected'): void {
     const verb = decision === 'approved' ? 'aprobar' : 'rechazar';
-    if (!confirm('¿Quieres ' + verb + ' esta propuesta? Solo se podrán ajustar sesiones futuras que aún no tengan feedback.')) return;
+    const selectedMuscles = this.adaptationTargetMuscles[proposal.id] ?? [];
+    const warning = proposal.action === 'review_and_reduce_training_stress'
+      ? (selectedMuscles.length
+          ? ' Solo se reducirá una serie en ejercicios cuyos músculos primarios y secundarios estén todos seleccionados.'
+          : ' No se reducirá volumen hasta que selecciones explícitamente los grupos musculares afectados.')
+      : ' Solo se podrán ajustar sesiones futuras que aún no tengan feedback.';
+    if (!confirm('¿Quieres ' + verb + ' esta propuesta?' + warning)) return;
     this.saving = true;
     this.error = '';
     this.http.post<{ message?: string; appliedFutureSessions?: number }>('/api/training/adaptation-proposals/' + proposal.id + '/review', {
-      decision, notes: this.adaptationReviewNotes[proposal.id] ?? ''
+      decision, notes: this.adaptationReviewNotes[proposal.id] ?? '', targetMuscleGroups: selectedMuscles
     }).subscribe({
       next: result => {
         this.notice = result.message ?? 'Revisión guardada.';
