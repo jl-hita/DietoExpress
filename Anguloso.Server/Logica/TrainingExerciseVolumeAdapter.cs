@@ -39,14 +39,17 @@ public static class TrainingExerciseVolumeAdapter
             // the exercise itself needs less volume. Only repeated fatigue-coded signals count.
             // Count at most one signal per exposure even when both skipped sets and RIR
             // indicate fatigue; otherwise one difficult session could masquerade as repetition.
-            var repeatedFatigueSignals = recent.Count(item =>
+            bool HasFatigueSignal(TrainingExerciseVolumeExposure item) =>
                 item.SessionCompleted &&
                 ((string.Equals(item.SkippedSetReason, "fatigue", StringComparison.OrdinalIgnoreCase) &&
                   item.CompletedWorkingSets < item.PlannedWorkingSets) ||
                  (item.TargetRir.HasValue && item.ActualAverageRir.HasValue &&
-                  item.ActualAverageRir.Value <= item.TargetRir.Value - MeaningfulRirShortfall)));
+                  item.ActualAverageRir.Value <= item.TargetRir.Value - MeaningfulRirShortfall));
 
-            if (repeatedFatigueSignals >= RequiredFatigueSignals)
+            var repeatedFatigueSignals = recent.Count(HasFatigueSignal);
+            // Require the latest exposure to still show the problem; old fatigue that has
+            // resolved should not keep reducing the next mesocycle's volume.
+            if (repeatedFatigueSignals >= RequiredFatigueSignals && HasFatigueSignal(recent[^1]))
             {
                 var latest = recent[^1];
                 if (latest.PlannedWorkingSets <= 1)
