@@ -44,7 +44,7 @@ public sealed class TrainingProgramVolumeAllocatorTests
             [new TrainingMuscleVolumeTarget(TrainingMuscleGroup.Chest, Priority: 2)], 60);
         var explicitAllocation = TrainingProgramVolumeAllocator.Allocate(
             sessions, TrainingGoal.Hypertrophy, TrainingExperience.Beginner,
-            [new TrainingMuscleVolumeTarget(TrainingMuscleGroup.Chest, TargetWeeklyEffectiveSets: 4m)], 60);
+            [new TrainingMuscleVolumeTarget(TrainingMuscleGroup.Chest, TargetWeeklyPrimarySets: 4m)], 60);
 
         Assert.True(defaultAllocation.Succeeded, string.Join("; ", defaultAllocation.Errors));
         Assert.True(priorityAllocation.Succeeded, string.Join("; ", priorityAllocation.Errors));
