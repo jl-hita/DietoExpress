@@ -10,8 +10,10 @@ public sealed class TrainingAdaptationReviewWorkflowTests
     [Fact]
     public void ApprovedVolumeReductionChangesStructuredAndLegacyPrescriptionTogether()
     {
-        const string json = """{"engineVersion":"0.5.0","exercises":[{"order":1,"exerciseId":"squat","catalogVersion":"v1","exerciseNameSnapshot":"Sentadilla","sets":3,"minRepetitions":8,"maxRepetitions":12,"targetRepetitionsInReserve":2,"restSeconds":120,"progressionRule":1}]}""";
-        Assert.True(TrainingAdaptationPrescriptionAdjuster.TryReduceSets(json, out var updatedJson, out var legacy));
+        const string json = """{"engineVersion":"0.6.0","exercises":[{"order":1,"exerciseId":"squat","catalogVersion":"v1","exerciseNameSnapshot":"Sentadilla","sets":3,"minRepetitions":8,"maxRepetitions":12,"targetRepetitionsInReserve":2,"restSeconds":120,"progressionRule":1,"primaryMuscleGroups":[11,10],"secondaryMuscleGroups":[12]}]}""";
+        Assert.True(TrainingAdaptationPrescriptionAdjuster.TryReduceSets(json,
+            new HashSet<TrainingMuscleGroup> { TrainingMuscleGroup.Quadriceps, TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Hamstrings },
+            out var updatedJson, out var legacy));
         Assert.Equal(2, JsonNode.Parse(updatedJson)!["exercises"]![0]!["sets"]!.GetValue<int>());
         Assert.Contains("2 × 8-12 reps", legacy);
         Assert.Contains("Sentadilla", legacy);
@@ -20,8 +22,27 @@ public sealed class TrainingAdaptationReviewWorkflowTests
     [Fact]
     public void VolumeReductionNeverDropsAnExerciseBelowOneSet()
     {
-        const string json = """{"exercises":[{"order":1,"exerciseId":"plank","exerciseNameSnapshot":"Plancha","sets":1,"minRepetitions":8,"maxRepetitions":12,"restSeconds":60}]}""";
-        Assert.False(TrainingAdaptationPrescriptionAdjuster.TryReduceSets(json, out _, out _));
+        const string json = """{"exercises":[{"order":1,"exerciseId":"plank","exerciseNameSnapshot":"Plancha","sets":1,"minRepetitions":8,"maxRepetitions":12,"restSeconds":60,"primaryMuscleGroups":[7],"secondaryMuscleGroups":[]}]}""";
+        Assert.False(TrainingAdaptationPrescriptionAdjuster.TryReduceSets(json,
+            new HashSet<TrainingMuscleGroup> { TrainingMuscleGroup.Abdominals }, out _, out _));
+    }
+
+    [Fact]
+    public void EmptyMuscleSelectionNeverAppliesGlobalVolumeReduction()
+    {
+        const string json = """{"exercises":[{"exerciseId":"bench","sets":3,"primaryMuscleGroups":[0],"secondaryMuscleGroups":[]}]}""";
+        Assert.False(TrainingAdaptationPrescriptionAdjuster.TryReduceSets(json,
+            new HashSet<TrainingMuscleGroup>(), out var updated, out _));
+        Assert.Equal(json, updated);
+    }
+
+    [Fact]
+    public void CompoundExerciseIsNotReducedWhenAnyAffectedMuscleWasNotSelected()
+    {
+        const string json = """{"exercises":[{"order":1,"exerciseId":"bench","exerciseNameSnapshot":"Press banca","sets":3,"minRepetitions":8,"maxRepetitions":12,"restSeconds":120,"primaryMuscleGroups":[0],"secondaryMuscleGroups":[5]}]}""";
+        Assert.False(TrainingAdaptationPrescriptionAdjuster.TryReduceSets(json,
+            new HashSet<TrainingMuscleGroup> { TrainingMuscleGroup.Chest }, out var updated, out _));
+        Assert.Equal(json, updated);
     }
 
     [Theory]
@@ -30,7 +51,8 @@ public sealed class TrainingAdaptationReviewWorkflowTests
     [InlineData("not-json")]
     public void InvalidOrUnsupportedPrescriptionIsNeverChanged(string json)
     {
-        Assert.False(TrainingAdaptationPrescriptionAdjuster.TryReduceSets(json, out var updated, out _));
+        Assert.False(TrainingAdaptationPrescriptionAdjuster.TryReduceSets(json,
+            new HashSet<TrainingMuscleGroup> { TrainingMuscleGroup.Chest }, out var updated, out _));
         Assert.Equal(json, updated);
     }
 
