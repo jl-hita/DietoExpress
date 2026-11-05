@@ -521,19 +521,22 @@ public sealed class TrainingProgramGeneratorTests
         Assert.True(normal.Succeeded, string.Join("; ", normal.Errors));
         Assert.True(deload.Succeeded, string.Join("; ", deload.Errors));
 
-        var normalExercises = normal.Prescription!.Sessions.SelectMany(session => session.Exercises)
-            .OrderBy(exercise => exercise.ExerciseId, StringComparer.Ordinal).ToArray();
-        var deloadExercises = deload.Prescription!.Sessions.SelectMany(session => session.Exercises)
-            .OrderBy(exercise => exercise.ExerciseId, StringComparer.Ordinal).ToArray();
+        var normalExercises = normal.Prescription!.Sessions
+            .OrderBy(session => session.Day)
+            .SelectMany(session => session.Exercises.OrderBy(exercise => exercise.Order))
+            .ToArray();
+        var deloadExercises = deload.Prescription!.Sessions
+            .OrderBy(session => session.Day)
+            .SelectMany(session => session.Exercises.OrderBy(exercise => exercise.Order))
+            .ToArray();
 
         Assert.Equal(normalExercises.Select(exercise => exercise.ExerciseId), deloadExercises.Select(exercise => exercise.ExerciseId));
         Assert.True(deloadExercises.Sum(exercise => exercise.Sets) < normalExercises.Sum(exercise => exercise.Sets));
-        Assert.Contains(deloadExercises, exercise => exercise.Sets < normalExercises.Single(normalExercise => normalExercise.ExerciseId == exercise.ExerciseId).Sets);
-        Assert.All(deloadExercises, exercise =>
+        Assert.Contains(deloadExercises.Zip(normalExercises), pair => pair.First.Sets < pair.Second.Sets);
+        Assert.All(deloadExercises.Zip(normalExercises), pair =>
         {
-            var original = normalExercises.Single(item => item.ExerciseId == exercise.ExerciseId);
-            Assert.Equal(Math.Max(1, (int)Math.Ceiling(original.Sets * 0.5m)), exercise.Sets);
-            Assert.Equal(Math.Min(5m, original.TargetRepetitionsInReserve!.Value + 2m), exercise.TargetRepetitionsInReserve);
+            Assert.Equal(Math.Max(1, (int)Math.Ceiling(pair.Second.Sets * 0.5m)), pair.First.Sets);
+            Assert.Equal(Math.Min(5m, pair.Second.TargetRepetitionsInReserve!.Value + 2m), pair.First.TargetRepetitionsInReserve);
         });
         Assert.Contains(deload.Prescription.QualityReport!.Warnings, warning => warning.Contains("descarga activa", StringComparison.OrdinalIgnoreCase));
     }
