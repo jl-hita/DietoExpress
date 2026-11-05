@@ -1661,7 +1661,7 @@ public sealed class TrainingPeriodizationController : ControllerBase
             WHERE s.plan_id = @planId AND r.outcome IS NOT NULL
               AND r.exercise_feedback IS NOT NULL
             ORDER BY r.updated_at DESC, r.id DESC
-            LIMIT 3
+            LIMIT 12
             """, null, ("planId", planId)))
         await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
         {
