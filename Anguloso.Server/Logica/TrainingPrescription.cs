@@ -32,7 +32,9 @@ public sealed record TrainingExercisePrescription(
     TrainingProgressionRule ProgressionRule,
     string SelectionRationale,
     IReadOnlyList<TrainingMuscleGroup> PrimaryMuscleGroups,
-    IReadOnlyList<TrainingMuscleGroup> SecondaryMuscleGroups);
+    IReadOnlyList<TrainingMuscleGroup> SecondaryMuscleGroups,
+    decimal? SmallestLoadIncrementKg = null,
+    decimal? MaximumLoadIncreasePercent = null);
 
 /// <summary>Controlled vocabulary for reviewed exercise muscle metadata.</summary>
 public enum TrainingMuscleGroup
