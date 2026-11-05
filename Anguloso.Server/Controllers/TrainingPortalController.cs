@@ -171,7 +171,7 @@ public sealed class TrainingPortalController : ControllerBase
             foreach (var exercise in request.ExerciseFeedback.Where(item => item.Sets is { Count: > 0 }))
             {
                 var sets = exercise.Sets!;
-                var invalidSet = sets.Count > 50 || sets.Any(set =>
+                var invalidSet = sets.Count > 100 || sets.Any(set =>
                     set.SetNumber is < 0 or > 50 ||
                     !IsAllowed(set.Kind, "warmup", "working") ||
                     set.WeightKg is < 0 or > 1000 ||
