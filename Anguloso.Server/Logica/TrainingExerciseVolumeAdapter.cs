@@ -35,6 +35,14 @@ public static class TrainingExerciseVolumeAdapter
                 continue;
             }
 
+            if (recent.Length < AnalysisWindow)
+            {
+                recommendations.Add(new(group.Key, TrainingExerciseVolumeAction.NoChange,
+                    "Hay menos de tres exposiciones válidas recientes; no se propone reducir volumen con una muestra insuficiente.",
+                    null, recent.Length));
+                continue;
+            }
+
             // A missed set due to time, equipment, illness or motivation is not evidence that
             // the exercise itself needs less volume. Only repeated fatigue-coded signals count.
             // Count at most one signal per exposure even when both skipped sets and RIR
