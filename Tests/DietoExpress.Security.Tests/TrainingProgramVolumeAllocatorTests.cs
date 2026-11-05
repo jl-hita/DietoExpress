@@ -26,7 +26,7 @@ public sealed class TrainingProgramVolumeAllocatorTests
         var sessions = new[]
         {
             Session(new TrainingExercisePrescription("bench", "v1", "Press banca", 1, 1, 8, 12, 2m, 120,
-                TrainingProgressionRule.DoubleProgression, "test", [TrainingMuscleGroup.Chest], [TrainingMuscleGroup.Triceps])),
+                TrainingProgressionRule.DoubleProgression, "test", [TrainingMuscleGroup.Chest], [])),
             Session(new TrainingExercisePrescription("row", "v1", "Remo", 2, 1, 8, 12, 2m, 120,
                 TrainingProgressionRule.DoubleProgression, "test", [TrainingMuscleGroup.UpperBack], [TrainingMuscleGroup.Biceps])),
             new TrainingSessionPrescription(1, DayOfWeek.Wednesday, "Sesión B", 5,
