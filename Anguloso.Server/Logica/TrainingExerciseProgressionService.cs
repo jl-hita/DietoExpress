@@ -47,43 +47,43 @@ public sealed class TrainingExerciseProgressionService
                 var recordedExerciseIds = new HashSet<string>(StringComparer.Ordinal);
                 try
                 {
-                        if (!reader.IsDBNull(2))
+                    if (!reader.IsDBNull(2))
+                    {
+                        using var document = JsonDocument.Parse(reader.GetString(2));
+                        if (document.RootElement.ValueKind == JsonValueKind.Array)
                         {
-                            using var document = JsonDocument.Parse(reader.GetString(2));
-                            if (document.RootElement.ValueKind == JsonValueKind.Array)
+                            foreach (var exercise in document.RootElement.EnumerateArray())
                             {
-                                foreach (var exercise in document.RootElement.EnumerateArray())
+                                if (exercise.ValueKind != JsonValueKind.Object) continue;
+                                var exerciseId = JsonString(exercise, "exerciseId");
+                                if (string.IsNullOrWhiteSpace(exerciseId)) continue;
+                                recordedExerciseIds.Add(exerciseId);
+                                var sets = new List<Anguloso.Server.Logica.TrainingExecutedSet>();
+                                if (exercise.TryGetProperty("sets", out var setArray) &&
+                                    setArray.ValueKind == JsonValueKind.Array)
                                 {
-                                    if (exercise.ValueKind != JsonValueKind.Object) continue;
-                                    var exerciseId = JsonString(exercise, "exerciseId");
-                                    if (string.IsNullOrWhiteSpace(exerciseId)) continue;
-                                    recordedExerciseIds.Add(exerciseId);
-                                    var sets = new List<Anguloso.Server.Logica.TrainingExecutedSet>();
-                                    if (exercise.TryGetProperty("sets", out var setArray) &&
-                                        setArray.ValueKind == JsonValueKind.Array)
+                                    foreach (var set in setArray.EnumerateArray())
                                     {
-                                        foreach (var set in setArray.EnumerateArray())
-                                        {
-                                            // Warm-up sets are intentionally excluded from the progression signal:
-                                            // they prepare the lifter but are not part of the prescribed work-set target.
-                                            if (JsonString(set, "kind") != "working") continue;
-                                            sets.Add(new(
-                                                "working",
-                                                JsonDecimal(set, "weightKg"),
-                                                JsonInt(set, "repetitions"),
-                                                JsonDecimal(set, "rir"),
-                                                JsonBool(set, "completed")));
-                                        }
+                                        // Warm-up sets are intentionally excluded from the progression signal:
+                                        // they prepare the lifter but are not part of the prescribed work-set target.
+                                        if (JsonString(set, "kind") != "working") continue;
+                                        sets.Add(new(
+                                            "working",
+                                            JsonDecimal(set, "weightKg"),
+                                            JsonInt(set, "repetitions"),
+                                            JsonDecimal(set, "rir"),
+                                            JsonBool(set, "completed")));
                                     }
-    
-                                    var pain = sessionPain || JsonString(exercise, "skippedSetReason") == "pain";
-                                    var key = (planId, exerciseId);
-                                    if (!history.TryGetValue(key, out var exposures))
-                                        history[key] = exposures = [];
-                                    exposures.Add(new(sets, completed, recoveryInsufficient, pain));
                                 }
+
+                                var pain = sessionPain || JsonString(exercise, "skippedSetReason") == "pain";
+                                var key = (planId, exerciseId);
+                                if (!history.TryGetValue(key, out var exposures))
+                                    history[key] = exposures = [];
+                                exposures.Add(new(sets, completed, recoveryInsufficient, pain));
                             }
                         }
+                    }
                 }
                 catch (JsonException)
                 {
@@ -93,32 +93,29 @@ public sealed class TrainingExerciseProgressionService
 
                 try
                 {
-                        // A prescribed exercise absent from the execution payload is not a successful
-                        // exposure. Represent it as missing data so the engine cannot skip it and progress.
-                        if (!reader.IsDBNull(1))
+                    // A prescribed exercise absent from the execution payload is not a successful
+                    // exposure. Represent it as missing data so the engine cannot skip it and progress.
+                    if (!reader.IsDBNull(1))
+                    {
+                        using var prescriptionDocument = JsonDocument.Parse(reader.GetString(1));
+                        if (prescriptionDocument.RootElement.ValueKind == JsonValueKind.Object &&
+                            prescriptionDocument.RootElement.TryGetProperty("exercises", out var prescribed) &&
+                            prescribed.ValueKind == JsonValueKind.Array)
                         {
-                            using var prescriptionDocument = JsonDocument.Parse(reader.GetString(1));
-                            if (prescriptionDocument.RootElement.ValueKind == JsonValueKind.Object &&
-                                prescriptionDocument.RootElement.TryGetProperty("exercises", out var prescribed) &&
-                                prescribed.ValueKind == JsonValueKind.Array)
+                            foreach (var item in prescribed.EnumerateArray())
                             {
-                                foreach (var item in prescribed.EnumerateArray())
-                                {
-                                    if (item.ValueKind != JsonValueKind.Object) continue;
-                                    var exerciseId = JsonString(item, "exerciseId");
-                                    if (string.IsNullOrWhiteSpace(exerciseId) || recordedExerciseIds.Contains(exerciseId)) continue;
-                                    var key = (planId, exerciseId);
-                                    if (!history.TryGetValue(key, out var exposures))
-                                        history[key] = exposures = [];
-                                    exposures.Add(new(Array.Empty<Anguloso.Server.Logica.TrainingExecutedSet>(),
-                                        completed, recoveryInsufficient, sessionPain));
-                                }
+                                if (item.ValueKind != JsonValueKind.Object) continue;
+                                var exerciseId = JsonString(item, "exerciseId");
+                                if (string.IsNullOrWhiteSpace(exerciseId) || recordedExerciseIds.Contains(exerciseId)) continue;
+                                var key = (planId, exerciseId);
+                                if (!history.TryGetValue(key, out var exposures))
+                                    history[key] = exposures = [];
+                                exposures.Add(new(Array.Empty<Anguloso.Server.Logica.TrainingExecutedSet>(),
+                                    completed, recoveryInsufficient, sessionPain));
                             }
                         }
                     }
-                    catch (JsonException)
-                    {
-                        // Corrupt legacy feedback is ignored, never interpreted as a successful set.
+                }
                 }
                 catch (JsonException)
                 {
