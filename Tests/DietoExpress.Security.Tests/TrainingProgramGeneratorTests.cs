@@ -81,9 +81,13 @@ public sealed class TrainingProgramGeneratorTests
                 .Where(exercise => exercise.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Glutes))
                 .ToArray();
 
-            Assert.Contains(buildWeekLowerBody, exercise => exercise.Sets == 4);
-            Assert.Contains(plan.QualityReport!.Warnings,
-                warning => warning.Contains("series primarias", StringComparison.Ordinal));
+            Assert.NotEmpty(buildWeekLowerBody);
+            var gluteVolume = plan.QualityReport!.WeeklyMuscleVolumes
+                .Where(week => week.WeekNumber is 2 or 3)
+                .SelectMany(week => week.Muscles)
+                .Where(muscle => muscle.MuscleGroup == TrainingMuscleGroup.Glutes)
+                .ToArray();
+            Assert.All(gluteVolume, muscle => Assert.InRange(muscle.EstimatedEffectiveSets, 8m, 12m));
             Assert.NotEmpty(plan.QualityReport.WeeklyMuscleVolumes);
         }
     }
@@ -330,26 +334,25 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
-    public void WeeklyPeriodizationBuildsVolumeAndSchedulesDeloadEveryFourthWeek()
+    public void WeeklyVolumeAllocationDoesNotImposeAnUnconditionalCalendarDeload()
     {
         var request = Request() with { DurationWeeks = 8 };
         var result = TrainingProgramGenerator.Generate(request, Catalog());
 
         Assert.True(result.Succeeded, string.Join("; ", result.Errors));
         var sessions = result.Prescription!.Sessions;
-        var firstExerciseByWeek = sessions
+        var signatureByWeek = sessions
             .GroupBy(session => session.WeekNumber)
-            .ToDictionary(group => group.Key, group => group.First().Exercises[0]);
+            .ToDictionary(group => group.Key, group => group
+                .SelectMany(session => session.Exercises)
+                .OrderBy(exercise => exercise.ExerciseId, StringComparer.Ordinal)
+                .Select(exercise => (exercise.ExerciseId, exercise.Sets))
+                .ToArray());
 
-        Assert.Equal(2, firstExerciseByWeek[1].Sets); // baseline
-        Assert.Equal(3, firstExerciseByWeek[2].Sets); // build
-        Assert.Equal(3, firstExerciseByWeek[3].Sets); // build
-        Assert.Equal(1, firstExerciseByWeek[4].Sets); // deload
-        Assert.Equal(2, firstExerciseByWeek[5].Sets); // next cycle baseline
-        Assert.Equal(3, firstExerciseByWeek[6].Sets);
-        Assert.Equal(1, firstExerciseByWeek[8].Sets);
-        Assert.Equal(4m, firstExerciseByWeek[4].TargetRepetitionsInReserve!.Value);
-        Assert.Equal(3m, firstExerciseByWeek[5].TargetRepetitionsInReserve!.Value);
+        Assert.Equal(signatureByWeek[1], signatureByWeek[4]);
+        Assert.Equal(signatureByWeek[1], signatureByWeek[8]);
+        Assert.All(sessions.SelectMany(session => session.Exercises), exercise =>
+            Assert.InRange(exercise.TargetRepetitionsInReserve!.Value, 0m, 5m));
         Assert.Empty(TrainingPrescriptionValidator.Validate(result.Prescription));
     }
 
@@ -370,10 +373,10 @@ public sealed class TrainingProgramGeneratorTests
         var weekFourQuads = report.WeeklyMuscleVolumes.Single(week => week.WeekNumber == 4)
             .Muscles.Single(muscle => muscle.MuscleGroup == TrainingMuscleGroup.Quadriceps);
 
-        Assert.Equal(4, weekOneQuads.PrimarySets);
+        Assert.Equal(6, weekOneQuads.PrimarySets);
         Assert.Equal(2, weekOneQuads.PrimaryFrequencySessions);
         Assert.Equal(6, weekTwoQuads.PrimarySets);
-        Assert.Equal(2, weekFourQuads.PrimarySets);
+        Assert.Equal(6, weekFourQuads.PrimarySets);
         // The expanded anatomical taxonomy intentionally reports muscles not represented by
         // this compact synthetic fixture. Volume calculations themselves must remain warning-free.
         Assert.DoesNotContain(report.Warnings, warning => warning.Contains("series primarias", StringComparison.Ordinal));
@@ -476,7 +479,7 @@ public sealed class TrainingProgramGeneratorTests
                 {
                     Assert.Contains(exercise.ExerciseId, Catalog().Select(candidate => candidate.ExerciseId));
                     Assert.NotEmpty(exercise.PrimaryMuscleGroups);
-                    Assert.InRange(exercise.Sets, 1, 4);
+                    Assert.InRange(exercise.Sets, 1, 5);
                     Assert.InRange(exercise.MinRepetitions, 1, exercise.MaxRepetitions);
                     Assert.NotNull(exercise.TargetRepetitionsInReserve);
                     Assert.InRange(exercise.TargetRepetitionsInReserve!.Value, 0m, 5m);
