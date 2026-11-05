@@ -792,7 +792,15 @@ public sealed class TrainingPeriodizationController : ControllerBase
         foreach (var item in items)
         {
             IReadOnlyList<object> exerciseRecommendations = item.Action == "review_and_reduce_training_stress"
-                ? await GetExerciseVolumeRecommendationsAsync(item.PlanId, cancellationToken)
+                ? (await GetExerciseVolumeRecommendationsAsync(item.PlanId, cancellationToken))
+                    .Select(recommendation => (object)new
+                    {
+                        exerciseId = recommendation.ExerciseId,
+                        action = recommendation.Action.ToString(),
+                        explanation = recommendation.Explanation,
+                        suggestedWorkingSets = recommendation.SuggestedWorkingSets,
+                        exposuresAnalyzed = recommendation.ExposuresAnalyzed
+                    }).ToArray()
                 : Array.Empty<object>();
             response.Add(new
             {
