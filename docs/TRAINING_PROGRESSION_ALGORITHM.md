@@ -23,7 +23,8 @@ Referencia principal:
 5. **Confirmación:** alcanzar el máximo del rango una sola vez no dispara una subida. Se requieren dos exposiciones consecutivas completadas en el máximo del rango, con el RIR objetivo, misma carga, recuperación no marcada como insuficiente y sin señal de dolor.
 6. **Carga:** la prescripción admite un incremento mínimo de material (`SmallestLoadIncrementKg`) y un techo por ejercicio (`MaximumLoadIncreasePercent`, opcional, máximo configurable del 10 %). Si no se configura un techo, se aplica un 5 % operativo conservador. Solo se recomienda el incremento mínimo si no supera el techo de ese ejercicio. Si se desconoce el incremento del material, no se inventa un peso exacto: se indica usar el menor salto disponible que no supere el techo. El 5 % por defecto es una salvaguarda de ingeniería, no un umbral clínico ni una recomendación de ACSM.
 7. **Seguridad/contexto:** dolor reciente, recuperación insuficiente, sesión no completada, series incompletas o rendimiento bajo bloquean la progresión automática. No se reduce carga automáticamente: se mantiene y se recomienda revisar técnica, descanso, fatiga y contexto con el profesional.
-8. **Cargas distintas:** no se promedian series con cargas distintas. Back-off sets, dropsets y prescripciones con carga variable requieren un modelo explícito posterior; de momento se devuelve dato no válido para una progresión única.
+8. **Estancamiento:** si durante tres exposiciones consecutivas con la misma carga no aumentan las repeticiones totales ni mejora el RIR medio en más de 0,5, se propone revisar el ejercicio. No se prescribe una descarga ni un cambio automático; se revisan adherencia, técnica, descansos, recuperación y adecuación de la prescripción.
+9. **Cargas distintas:** no se promedian series con cargas distintas. Back-off sets, dropsets y prescripciones con carga variable requieren un modelo explícito posterior; de momento se devuelve dato no válido para una progresión única.
 
 ## Por qué se requieren dos exposiciones en el máximo
 
@@ -34,6 +35,7 @@ La evidencia no determina un número universal de sesiones para confirmar una su
 - Incremento mínimo de carga específico de la máquina/barra/mancuerna disponible en cada ejercicio. El contrato admite `smallestLoadIncrementKg` y `maximumLoadIncreasePercent`, pero los generadores/editores aún no solicitan esos valores; mientras no estén disponibles, el motor no inventa un peso y usa el techo predeterminado del 5 %.
 - Historial de molestias vinculado al ejercicio concreto, no solo al contexto de sesión.
 - Variantes de prescripción con cargas distintas por serie, top sets/back-off y progresiones por RIR o velocidad.
+- Ventana temporal explícita para reiniciar la evaluación tras pausas largas; por ahora el motor limita el análisis a las tres exposiciones más recientes del mismo plan y ejercicio.
 - Mejor calibración individual del RIR y del incremento tolerable. No se debe inferir un 1RM exacto a partir de una sola serie.
 
 ## Versionado y trazabilidad
