@@ -335,8 +335,11 @@ public sealed class TrainingPortalController : ControllerBase
                         {
                             foreach (var set in setArray.EnumerateArray())
                             {
+                                // Warm-up sets are intentionally excluded from the progression signal:
+                                // they prepare the lifter but are not part of the prescribed work-set target.
+                                if (JsonString(set, "kind") != "working") continue;
                                 sets.Add(new(
-                                    JsonString(set, "kind") ?? "working",
+                                    "working",
                                     JsonDecimal(set, "weightKg"),
                                     JsonInt(set, "repetitions"),
                                     JsonDecimal(set, "rir"),
