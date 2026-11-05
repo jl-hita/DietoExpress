@@ -513,6 +513,16 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
+    public void ExplicitDeloadMustBeExactlyOneWeek()
+    {
+        var result = TrainingProgramGenerator.Generate(
+            Request() with { DurationWeeks = 2, IsDeload = true }, Catalog());
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Errors, error => error.Contains("exactamente una semana", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void ExplicitDeloadReducesWeeklySetsAndIncreasesReserveWithoutChangingExerciseSelection()
     {
         var normal = TrainingProgramGenerator.Generate(Request() with { DurationWeeks = 1 }, Catalog());
