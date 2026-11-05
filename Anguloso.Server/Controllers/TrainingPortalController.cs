@@ -205,14 +205,14 @@ public sealed class TrainingPortalController : ControllerBase
                 .ToArray();
             if (identifiedFeedback.Length > 0)
             {
-                var prescriptionValue = await Command("""
+                await using var prescriptionCommand = Command("""
                     SELECT s.exercise_prescription_data::text
                     FROM training_sessions s
                     JOIN training_plans p ON p.id = s.plan_id
                     JOIN training_profiles f ON f.id = p.profile_id
                     WHERE s.id = @sessionId AND f.client_id = @clientId AND f.enabled = TRUE
-                    """, ("sessionId", sessionId), ("clientId", clientId))
-                    .ExecuteScalarAsync(cancellationToken);
+                    """, ("sessionId", sessionId), ("clientId", clientId));
+                var prescriptionValue = await prescriptionCommand.ExecuteScalarAsync(cancellationToken);
                 if (prescriptionValue is not string prescriptionJson)
                     return BadRequest(new { message = "No se puede validar el ID del ejercicio porque esta sesión no tiene una prescripción estructurada." });
 
