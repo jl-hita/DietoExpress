@@ -10,9 +10,9 @@ public sealed class TrainingExerciseVolumeAdapterTests
     {
         var history = new[]
         {
+            Exposure("bench"),
             Exposure("bench", skippedReason: "fatigue"),
-            Exposure("bench", skippedReason: "fatigue"),
-            Exposure("bench")
+            Exposure("bench", skippedReason: "fatigue")
         };
 
         var recommendation = Assert.Single(TrainingExerciseVolumeAdapter.Evaluate(history));
@@ -73,9 +73,9 @@ public sealed class TrainingExerciseVolumeAdapterTests
         Assert.Equal(TrainingExerciseVolumeAction.NoChange, oneExposure.Action);
 
         var repeated = Assert.Single(TrainingExerciseVolumeAdapter.Evaluate([
+            Exposure("bench"),
             Exposure("bench", actualRir: 0m),
-            Exposure("bench", actualRir: 0m),
-            Exposure("bench")
+            Exposure("bench", actualRir: 0m)
         ]));
         Assert.Equal(TrainingExerciseVolumeAction.ProposeReduceOneSet, repeated.Action);
     }
