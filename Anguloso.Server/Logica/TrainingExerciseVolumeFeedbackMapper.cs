@@ -38,7 +38,7 @@ public static class TrainingExerciseVolumeFeedbackMapper
 
                     var skippedReason = ReadString(exercise, "skippedSetReason");
                     var rirValues = ReadCompletedWorkingSetRir(exercise);
-                    var averageRir = rirValues.Count == 0 ? (decimal?)null : rirValues.Average();
+                    var averageRir = completedSets > 0 && rirValues.Count == completedSets ? rirValues.Average() : (decimal?)null;
                     exposures.Add(new TrainingExerciseVolumeExposure(
                         exerciseId,
                         plannedSets,
