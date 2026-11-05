@@ -48,8 +48,9 @@ public class PatientPortalController : ControllerBase
     private readonly EmailServ _emailServ;
     private readonly AutomationService _automationService;
     private readonly PatientPortalAccessService _portalAccessService;
+    private readonly DietPdfService _dietPdfService;
 
-    public PatientPortalController(angulosodbContext context, IConfiguration config, ILicenseService licenseService, EmailServ emailServ, AutomationService automationService, PatientPortalAccessService portalAccessService)
+    public PatientPortalController(angulosodbContext context, IConfiguration config, ILicenseService licenseService, EmailServ emailServ, AutomationService automationService, PatientPortalAccessService portalAccessService, DietPdfService dietPdfService)
     {
         _context = context;
         _config = config;
@@ -57,6 +58,7 @@ public class PatientPortalController : ControllerBase
         _emailServ = emailServ;
         _automationService = automationService;
         _portalAccessService = portalAccessService;
+        _dietPdfService = dietPdfService;
     }
 
     /// <summary>
@@ -457,6 +459,73 @@ public class PatientPortalController : ControllerBase
                 }).ToList()
             }).ToList()
         });
+    }
+
+    [HttpGet("diet/pdf")]
+    [Authorize]
+    public async Task<IActionResult> DownloadMyActiveDietPdf()
+    {
+        var clientId = ResolveAuthorizedClientId();
+        if (clientId == null) return Unauthorized();
+        if (!await PortalFeatureAllowedAsync(clientId.Value)) return Forbid();
+
+        var tenantId = await _context.clients.AsNoTracking()
+            .Where(client => client.id == clientId.Value && client.archived_at == null)
+            .Select(client => client.tenant_id ?? client.user!.tenant_id)
+            .FirstOrDefaultAsync();
+        if (!await _licenseService.CanUseFeatureAsync(tenantId, "PDF_EXPORT")) return Forbid();
+
+        var assignment = await _context.client_diets
+            .Include(cd => cd.client)
+            .Include(cd => cd.diet)
+                .ThenInclude(diet => diet.diet_days)
+                    .ThenInclude(day => day.meals)
+                        .ThenInclude(meal => meal.meal_items)
+                            .ThenInclude(item => item.food)
+            .Include(cd => cd.diet)
+                .ThenInclude(diet => diet.diet_days)
+                    .ThenInclude(day => day.meals)
+                        .ThenInclude(meal => meal.meal_items)
+                            .ThenInclude(item => item.exchange_group)
+            .FirstOrDefaultAsync(cd => cd.client_id == clientId.Value && cd.is_active == true &&
+                cd.diet != null && cd.diet.tenant_id == tenantId);
+
+        if (assignment?.diet == null || assignment.client == null)
+            return NotFound("No tienes ningún plan nutricional activo asignado.");
+
+        var foodIds = assignment.diet.diet_days.SelectMany(day => day.meals)
+            .SelectMany(meal => meal.meal_items)
+            .Where(item => item.food_id.HasValue)
+            .Select(item => item.food_id!.Value)
+            .Distinct()
+            .ToList();
+        if (foodIds.Count > 0)
+        {
+            var accessibleFoodIds = await _context.foods.AsNoTracking()
+                .Where(food => foodIds.Contains(food.id) &&
+                    ((food.source == null || food.source.ToLower() != "local") ||
+                     (tenantId.HasValue && food.tenant_id == tenantId.Value)))
+                .Select(food => food.id)
+                .ToListAsync();
+            var allowed = accessibleFoodIds.ToHashSet();
+            foreach (var item in assignment.diet.diet_days.SelectMany(day => day.meals).SelectMany(meal => meal.meal_items))
+            {
+                if (item.food_id.HasValue && !allowed.Contains(item.food_id.Value))
+                    item.food = null;
+            }
+        }
+
+        try
+        {
+            var pdfBytes = _dietPdfService.GenerateDietPdf(
+                assignment.client, assignment.diet, assignment, _context, clientId.Value, canUseTenantLocalFoods: true);
+            return File(pdfBytes, "application/pdf", "Dieta_Activa_DietoExpress.pdf");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error generando PDF de dieta activa para paciente {clientId.Value}: {ex.GetType().Name}");
+            return Problem(title: "Error al generar el PDF", detail: "No se ha podido generar el PDF de tu dieta.", statusCode: StatusCodes.Status500InternalServerError);
+        }
     }
 
     [HttpGet("shopping-list")]
