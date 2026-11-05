@@ -302,7 +302,7 @@ public sealed class TrainingPortalController : ControllerBase
         // stable exercise ID so feedback from another plan or a similarly named movement
         // can never influence this exercise's recommendation.
         await using (var historyCommand = Command("""
-            SELECT s.plan_id, r.exercise_feedback::text, r.outcome, r.recovery_rating, r.pain_signal
+            SELECT s.plan_id, s.exercise_prescription_data::text, r.exercise_feedback::text, r.outcome, r.recovery_rating, r.pain_signal
             FROM training_session_records r
             JOIN training_sessions s ON s.id = r.session_id
             JOIN training_plans p ON p.id = s.plan_id
@@ -316,19 +316,22 @@ public sealed class TrainingPortalController : ControllerBase
         {
             while (await reader.ReadAsync(cancellationToken))
             {
-                if (reader.IsDBNull(1)) continue;
                 var planId = reader.GetInt32(0);
-                var completed = reader.GetString(2) == "completed";
-                var recoveryInsufficient = !reader.IsDBNull(3) && reader.GetString(3) == "insufficient";
-                var sessionPain = !reader.IsDBNull(4) && reader.GetString(4) == "new_or_worsening";
+                var completed = reader.GetString(3) == "completed";
+                var recoveryInsufficient = !reader.IsDBNull(4) && reader.GetString(4) == "insufficient";
+                var sessionPain = !reader.IsDBNull(5) && reader.GetString(5) == "new_or_worsening";
+                var recordedExerciseIds = new HashSet<string>(StringComparer.Ordinal);
                 try
                 {
-                    using var document = JsonDocument.Parse(reader.GetString(1));
-                    if (document.RootElement.ValueKind != JsonValueKind.Array) continue;
-                    foreach (var exercise in document.RootElement.EnumerateArray())
+                    if (!reader.IsDBNull(2))
+                    {
+                        using var document = JsonDocument.Parse(reader.GetString(2));
+                        if (document.RootElement.ValueKind == JsonValueKind.Array)
+                        foreach (var exercise in document.RootElement.EnumerateArray())
                     {
                         var exerciseId = JsonString(exercise, "exerciseId");
                         if (string.IsNullOrWhiteSpace(exerciseId)) continue;
+                        recordedExerciseIds.Add(exerciseId);
                         var sets = new List<Anguloso.Server.Logica.TrainingExecutedSet>();
                         if (exercise.TryGetProperty("sets", out var setArray) &&
                             setArray.ValueKind == JsonValueKind.Array)
@@ -352,6 +355,28 @@ public sealed class TrainingPortalController : ControllerBase
                         if (!history.TryGetValue(key, out var exposures))
                             history[key] = exposures = [];
                         exposures.Add(new(sets, completed, recoveryInsufficient, pain));
+                        }
+                    }
+
+                    // A prescribed exercise absent from the execution payload is not a successful
+                    // exposure. Represent it as missing data so the engine cannot skip it and progress.
+                    if (!reader.IsDBNull(1))
+                    {
+                        using var prescriptionDocument = JsonDocument.Parse(reader.GetString(1));
+                        if (prescriptionDocument.RootElement.TryGetProperty("exercises", out var prescribed) &&
+                            prescribed.ValueKind == JsonValueKind.Array)
+                        {
+                            foreach (var item in prescribed.EnumerateArray())
+                            {
+                                var exerciseId = JsonString(item, "exerciseId");
+                                if (string.IsNullOrWhiteSpace(exerciseId) || recordedExerciseIds.Contains(exerciseId)) continue;
+                                var key = (planId, exerciseId);
+                                if (!history.TryGetValue(key, out var exposures))
+                                    history[key] = exposures = [];
+                                exposures.Add(new(Array.Empty<Anguloso.Server.Logica.TrainingExecutedSet>(),
+                                    completed, recoveryInsufficient, sessionPain));
+                            }
+                        }
                     }
                 }
                 catch (JsonException)
@@ -373,6 +398,11 @@ public sealed class TrainingPortalController : ControllerBase
             JOIN training_profiles f ON f.id = p.profile_id
             WHERE f.client_id = @clientId AND f.enabled = TRUE AND p.status = 'active'
               AND s.scheduled_date >= CURRENT_DATE AND s.exercise_prescription_data IS NOT NULL
+              AND NOT EXISTS (
+                  SELECT 1 FROM training_session_records existing
+                  WHERE existing.session_id = s.id AND existing.client_id = @clientId
+                    AND existing.outcome IS NOT NULL
+              )
             ORDER BY s.scheduled_date, s.id
             LIMIT 100
             """, ("clientId", clientId));
