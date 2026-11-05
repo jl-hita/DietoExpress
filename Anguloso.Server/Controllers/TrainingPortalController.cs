@@ -330,6 +330,7 @@ public sealed class TrainingPortalController : ControllerBase
                         {
                             foreach (var exercise in document.RootElement.EnumerateArray())
                             {
+                                if (exercise.ValueKind != JsonValueKind.Object) continue;
                                 var exerciseId = JsonString(exercise, "exerciseId");
                                 if (string.IsNullOrWhiteSpace(exerciseId)) continue;
                                 recordedExerciseIds.Add(exerciseId);
@@ -365,11 +366,13 @@ public sealed class TrainingPortalController : ControllerBase
                     if (!reader.IsDBNull(1))
                     {
                         using var prescriptionDocument = JsonDocument.Parse(reader.GetString(1));
-                        if (prescriptionDocument.RootElement.TryGetProperty("exercises", out var prescribed) &&
+                        if (prescriptionDocument.RootElement.ValueKind == JsonValueKind.Object &&
+                            prescriptionDocument.RootElement.TryGetProperty("exercises", out var prescribed) &&
                             prescribed.ValueKind == JsonValueKind.Array)
                         {
                             foreach (var item in prescribed.EnumerateArray())
                             {
+                                if (item.ValueKind != JsonValueKind.Object) continue;
                                 var exerciseId = JsonString(item, "exerciseId");
                                 if (string.IsNullOrWhiteSpace(exerciseId) || recordedExerciseIds.Contains(exerciseId)) continue;
                                 var key = (planId, exerciseId);
@@ -416,11 +419,13 @@ public sealed class TrainingPortalController : ControllerBase
             try
             {
                 using var document = JsonDocument.Parse(upcomingReader.GetString(2));
-                if (!document.RootElement.TryGetProperty("exercises", out var exercises) ||
+                if (document.RootElement.ValueKind != JsonValueKind.Object ||
+                    !document.RootElement.TryGetProperty("exercises", out var exercises) ||
                     exercises.ValueKind != JsonValueKind.Array) continue;
 
                 foreach (var exercise in exercises.EnumerateArray())
                 {
+                    if (exercise.ValueKind != JsonValueKind.Object) continue;
                     var exerciseId = JsonString(exercise, "exerciseId");
                     if (string.IsNullOrWhiteSpace(exerciseId)) continue;
                     var rule = ParseProgressionRule(exercise);
@@ -462,23 +467,28 @@ public sealed class TrainingPortalController : ControllerBase
     }
 
     private static string? JsonString(JsonElement element, string property) =>
+        element.ValueKind == JsonValueKind.Object &&
         element.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String
             ? value.GetString() : null;
 
     private static int? JsonInt(JsonElement element, string property) =>
+        element.ValueKind == JsonValueKind.Object &&
         element.TryGetProperty(property, out var value) && value.TryGetInt32(out var number)
             ? number : null;
 
     private static decimal? JsonDecimal(JsonElement element, string property) =>
+        element.ValueKind == JsonValueKind.Object &&
         element.TryGetProperty(property, out var value) && value.TryGetDecimal(out var number)
             ? number : null;
 
     private static bool JsonBool(JsonElement element, string property) =>
+        element.ValueKind == JsonValueKind.Object &&
         element.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.True;
 
     private static Anguloso.Server.Logica.TrainingProgressionRule ParseProgressionRule(JsonElement exercise)
     {
-        if (!exercise.TryGetProperty("progressionRule", out var value))
+        if (exercise.ValueKind != JsonValueKind.Object ||
+            !exercise.TryGetProperty("progressionRule", out var value))
             return Anguloso.Server.Logica.TrainingProgressionRule.None;
         if (value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var numeric) &&
             Enum.IsDefined(typeof(Anguloso.Server.Logica.TrainingProgressionRule), numeric))
