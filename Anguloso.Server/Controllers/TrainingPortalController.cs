@@ -272,7 +272,25 @@ public sealed class TrainingPortalController : ControllerBase
         if (feedback.Count == 0 || feedback.All(x => x.RecordId != recordId)) return;
         feedback.Reverse();
         var decision = Anguloso.Server.Logica.TrainingAdaptationPolicy.Evaluate(feedback.Select(x => x.Feedback).ToArray());
-        var action = ToApiAction(decision.Action);
+        var exerciseRecommendations = await GetExerciseVolumeRecommendationsAsync(clientId, sessionId, cancellationToken);
+        var fatigueCandidates = exerciseRecommendations
+            .Where(item => item.Action == Anguloso.Server.Logica.TrainingExerciseVolumeAction.ProposeReduceOneSet)
+            .ToArray();
+        var hasExercisePain = exerciseRecommendations.Any(item =>
+            item.Action == Anguloso.Server.Logica.TrainingExerciseVolumeAction.PauseAndReview);
+
+        // A localized pain signal has precedence. Otherwise, repeated exercise-specific fatigue
+        // can create a review proposal even when global session recovery looks acceptable.
+        var action = decision.Action == Anguloso.Server.Logica.TrainingAdaptationAction.PauseAffectedExerciseAndReview || hasExercisePain
+            ? "pause_affected_exercise_and_review"
+            : fatigueCandidates.Length > 0
+                ? "review_and_reduce_training_stress"
+                : ToApiAction(decision.Action);
+        var explanation = decision.Explanation;
+        if (fatigueCandidates.Length > 0 && action == "review_and_reduce_training_stress")
+            explanation += " Señales repetidas por ejercicio: " +
+                string.Join(", ", fatigueCandidates.Select(item => item.ExerciseId)) +
+                ". Revisa cada candidato; no se aplicará ningún cambio sin aprobación profesional.";
         if (action is null) return;
 
         await using var supersede = Command("""
@@ -292,10 +310,40 @@ public sealed class TrainingPortalController : ControllerBase
             WHERE s.id = @sessionId AND f.client_id = @clientId AND p.status = 'active'
             ON CONFLICT(source_record_id, action) DO NOTHING
             """, ("clientId", clientId), ("sessionId", sessionId), ("recordId", recordId),
-            ("action", action), ("explanation", decision.Explanation));
+            ("action", action), ("explanation", explanation));
         await insert.ExecuteNonQueryAsync(cancellationToken);
     }
 
+
+    private async Task<IReadOnlyList<Anguloso.Server.Logica.TrainingExerciseVolumeRecommendation>>
+        GetExerciseVolumeRecommendationsAsync(int clientId, int sessionId, CancellationToken cancellationToken)
+    {
+        var records = new List<Anguloso.Server.Logica.TrainingExerciseVolumeFeedbackRecord>();
+        await using (var command = Command("""
+            SELECT r.outcome, r.exercise_feedback::text, s.exercise_prescription_data::text
+            FROM training_session_records r
+            JOIN training_sessions s ON s.id = r.session_id
+            JOIN training_plans p ON p.id = s.plan_id
+            JOIN training_profiles f ON f.id = p.profile_id
+            WHERE f.client_id = @clientId AND s.plan_id = (
+                SELECT plan_id FROM training_sessions WHERE id = @sessionId
+            ) AND p.status = 'active' AND r.outcome IS NOT NULL
+              AND r.exercise_feedback IS NOT NULL
+            ORDER BY s.scheduled_date DESC, r.id DESC
+            LIMIT 12
+            """, ("clientId", clientId), ("sessionId", sessionId)))
+        await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+                records.Add(new Anguloso.Server.Logica.TrainingExerciseVolumeFeedbackRecord(
+                    reader.GetString(0),
+                    reader.IsDBNull(1) ? null : reader.GetString(1),
+                    reader.IsDBNull(2) ? null : reader.GetString(2)));
+        }
+
+        var exposures = Anguloso.Server.Logica.TrainingExerciseVolumeFeedbackMapper.Map(records);
+        return Anguloso.Server.Logica.TrainingExerciseVolumeAdapter.Evaluate(exposures);
+    }
 
     private static bool HasPainSkippedSet(string? json)
     {
