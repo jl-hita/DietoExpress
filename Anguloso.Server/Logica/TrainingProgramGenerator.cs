@@ -42,10 +42,6 @@ public static class TrainingProgramGenerator
             {
                 var sessionTemplate = split[dayIndex];
                 var requiredPatterns = sessionTemplate.Patterns;
-                var estimatedDuration = EstimateSessionDuration(request, week, days.Length, requiredPatterns);
-                if (estimatedDuration > request.MaximumSessionDurationMinutes)
-                    return Failure($"La sesión '{sessionTemplate.Title}' requiere aproximadamente {estimatedDuration} minutos y supera el límite solicitado.");
-
                 var prescriptions = new List<TrainingExercisePrescription>();
                 for (var patternIndex = 0; patternIndex < requiredPatterns.Count; patternIndex++)
                 {
@@ -90,22 +86,36 @@ public static class TrainingProgramGenerator
                         candidate.SecondaryMuscleGroups.ToArray()));
                 }
 
+                // Final duration is calculated after weekly sets have been allocated.
                 sessions.Add(new TrainingSessionPrescription(
                     week,
                     days[dayIndex],
                     sessionTemplate.Title,
-                    estimatedDuration,
+                    WarmupAndTransitionsMinutes,
                     prescriptions));
             }
         }
 
+        var allocation = TrainingProgramVolumeAllocator.Allocate(
+            sessions, request.Goal, request.Experience, request.MuscleVolumeTargets,
+            request.MaximumSessionDurationMinutes);
+        if (!allocation.Succeeded)
+            return new(null, allocation.Errors);
+
         var plan = new TrainingProgramPrescription(
-            "0.5.0",
+            "0.6.0",
             request.Goal.ToString(),
             request.StartDate,
             request.DurationWeeks,
-            sessions);
-        plan = plan with { QualityReport = TrainingProgramQualityAnalyzer.Analyze(plan) };
+            allocation.Sessions);
+        var qualityReport = TrainingProgramQualityAnalyzer.Analyze(plan);
+        plan = plan with
+        {
+            QualityReport = qualityReport with
+            {
+                Warnings = qualityReport.Warnings.Concat(allocation.Warnings).Distinct(StringComparer.Ordinal).ToArray()
+            }
+        };
         var validationErrors = TrainingPrescriptionValidator.Validate(plan);
         return validationErrors.Count == 0
             ? new(plan, Array.Empty<string>())
@@ -251,46 +261,22 @@ public static class TrainingProgramGenerator
     /// Conservative four-week microcycle: establish, build, build, deload.
     /// This is a provisional software heuristic, not a universally validated prescription.
     /// </summary>
-    private static int EstimateSessionDuration(
-        TrainingProgramGenerationRequest request, int week, int daysPerWeek,
-        IReadOnlyList<TrainingMovementPattern> patterns)
-    {
-        var totalSeconds = WarmupAndTransitionsMinutes * 60m;
-        foreach (var pattern in patterns)
-        {
-            var prescription = PrescriptionFor(request.Goal, request.Experience, week, daysPerWeek, pattern);
-            var averageRepetitions = (prescription.MinReps + prescription.MaxReps) / 2m;
-            var workingSeconds = prescription.Sets * averageRepetitions * SecondsPerRepEstimate;
-            var restSeconds = Math.Max(0, prescription.Sets - 1) * prescription.RestSeconds;
-            totalSeconds += workingSeconds + restSeconds + TransitionSecondsPerExercise;
-        }
-        return (int)Math.Ceiling(totalSeconds / 60m);
-    }
-
+    /// <summary>
+    /// Keep rep ranges and effort targets stable through the mesocycle. Weekly set distribution
+    /// is handled by TrainingProgramVolumeAllocator; no calendar-only deload is imposed.
+    /// </summary>
     private static (int Sets, int MinReps, int MaxReps, decimal Rir, int RestSeconds, TrainingProgressionRule Progression)
         PrescriptionFor(TrainingGoal goal, TrainingExperience experience, int week, int daysPerWeek, TrainingMovementPattern pattern)
     {
         var beginner = experience == TrainingExperience.Beginner;
         var baseline = goal switch
         {
-            TrainingGoal.Strength => (Sets: beginner ? 2 : 3, MinReps: 5, MaxReps: 8, Rir: beginner ? 3m : 2m, RestSeconds: 180),
-            TrainingGoal.Hypertrophy => (Sets: beginner ? 2 : 3, MinReps: 8, MaxReps: 12, Rir: beginner ? 3m : 2m, RestSeconds: 120),
-            _ => (Sets: 2, MinReps: 8, MaxReps: 15, Rir: 3m, RestSeconds: 90)
+            TrainingGoal.Strength => (Sets: 1, MinReps: 5, MaxReps: 8, Rir: beginner ? 3m : 2m, RestSeconds: 180),
+            TrainingGoal.Hypertrophy => (Sets: 1, MinReps: 8, MaxReps: 12, Rir: beginner ? 3m : 2m, RestSeconds: 120),
+            _ => (Sets: 1, MinReps: 8, MaxReps: 15, Rir: 3m, RestSeconds: 90)
         };
-
-        var weekInCycle = ((week - 1) % 4) + 1;
-        var sets = weekInCycle switch
-        {
-            2 or 3 => Math.Min(4, baseline.Sets + 1),
-            4 => Math.Max(1, baseline.Sets - 1),
-            _ => baseline.Sets
-        };
-
-        // Preserve the prescription for the selected goal and experience. The quality report
-        // surfaces high weekly volume for professional review instead of silently capping sets.
-        var rir = weekInCycle == 4 ? Math.Min(5m, baseline.Rir + 1m) : baseline.Rir;
-
-        return (sets, baseline.MinReps, baseline.MaxReps, rir, baseline.RestSeconds, TrainingProgressionRule.DoubleProgression);
+        return (baseline.Sets, baseline.MinReps, baseline.MaxReps, baseline.Rir,
+            baseline.RestSeconds, TrainingProgressionRule.DoubleProgression);
     }
 
     private sealed record SessionTemplate(string Title, IReadOnlyList<TrainingMovementPattern> Patterns);
@@ -304,7 +290,8 @@ public sealed record TrainingProgramGenerationRequest(
     IReadOnlyList<DayOfWeek> TrainingDays,
     int MaximumSessionDurationMinutes,
     IReadOnlyList<string> AvailableEquipment,
-    IReadOnlyList<string> ExcludedExerciseIds);
+    IReadOnlyList<string> ExcludedExerciseIds,
+    IReadOnlyList<TrainingMuscleVolumeTarget>? MuscleVolumeTargets = null);
 
 public sealed record TrainingExerciseCandidate(
     string ExerciseId,
