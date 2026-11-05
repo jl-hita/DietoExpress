@@ -102,18 +102,24 @@ public static class TrainingProgramGenerator
         if (!allocation.Succeeded)
             return new(null, allocation.Errors);
 
+        var prescribedSessions = request.IsDeload
+            ? ApplyConservativeDeload(allocation.Sessions)
+            : allocation.Sessions;
         var plan = new TrainingProgramPrescription(
-            "0.6.0",
+            "0.7.0",
             request.Goal.ToString(),
             request.StartDate,
             request.DurationWeeks,
-            allocation.Sessions);
+            prescribedSessions);
         var qualityReport = TrainingProgramQualityAnalyzer.Analyze(plan);
+        var deloadWarnings = request.IsDeload
+            ? new[] { "Semana/fase de descarga activa: se reducen las series aproximadamente un 40–50 % (mínimo una por ejercicio) y se aleja el objetivo de esfuerzo dos RIR. Es una heurística conservadora revisable, no una pauta establecida por ACSM." }
+            : Array.Empty<string>();
         plan = plan with
         {
             QualityReport = qualityReport with
             {
-                Warnings = qualityReport.Warnings.Concat(allocation.Warnings).Distinct(StringComparer.Ordinal).ToArray()
+                Warnings = qualityReport.Warnings.Concat(allocation.Warnings).Concat(deloadWarnings).Distinct(StringComparer.Ordinal).ToArray()
             }
         };
         var validationErrors = TrainingPrescriptionValidator.Validate(plan);
@@ -123,6 +129,20 @@ public static class TrainingProgramGenerator
 
         TrainingProgramGenerationResult Failure(string error) => new(null, [error]);
     }
+
+    private static IReadOnlyList<TrainingSessionPrescription> ApplyConservativeDeload(
+        IReadOnlyList<TrainingSessionPrescription> sessions) =>
+        sessions.Select(session => session with
+        {
+            Exercises = session.Exercises.Select(exercise => exercise with
+            {
+                Sets = Math.Max(1, (int)Math.Ceiling(exercise.Sets * 0.5m)),
+                TargetRepetitionsInReserve = exercise.TargetRepetitionsInReserve is null
+                    ? null
+                    : Math.Min(5m, exercise.TargetRepetitionsInReserve.Value + 2m),
+                SelectionRationale = exercise.SelectionRationale + " Descarga activa: reducción conservadora de series y mayor reserva respecto al fallo."
+            }).ToArray()
+        }).ToArray();
 
     private static string BuildCandidateDiagnostic(
         TrainingMovementPattern pattern,
@@ -288,7 +308,8 @@ public sealed record TrainingProgramGenerationRequest(
     int MaximumSessionDurationMinutes,
     IReadOnlyList<string> AvailableEquipment,
     IReadOnlyList<string> ExcludedExerciseIds,
-    IReadOnlyList<TrainingMuscleVolumeTarget>? MuscleVolumeTargets = null);
+    IReadOnlyList<TrainingMuscleVolumeTarget>? MuscleVolumeTargets = null,
+    bool IsDeload = false);
 
 public sealed record TrainingExerciseCandidate(
     string ExerciseId,
