@@ -1120,7 +1120,7 @@ public sealed class ExerciseCatalogService
                         reader.GetString(4), NullableString(reader, 5), NullableString(reader, 6), NullableString(reader, 7),
                         NullableString(reader, 8), NullableString(reader, 9), reader.GetString(10), reader.GetString(11),
                         reader.GetString(12), reader.GetString(13), reader.IsDBNull(14) ? null : reader.GetBoolean(14));
-                    if (metadata?.MovementPattern == "Accessory")
+                    if (metadata is { MovementPattern: "Accessory" })
                         rows.Add((reader.GetString(0), metadata));
                 }
             }
