@@ -150,6 +150,7 @@ public sealed class ExerciseCatalogService
         await EnsureRepDbExerciseMetadataCurationV4Async(cancellationToken);
         await EnsureRepDbMetadataEnrichmentAsync(cancellationToken);
         await EnsureRepDbInitialReviewAsync(cancellationToken);
+        await EnsureRepDbAccessoryPatternCurationV1Async(cancellationToken);
         return result;
     }
 
@@ -1055,6 +1056,103 @@ public sealed class ExerciseCatalogService
         {
             // If anything fails, the transaction rolls back and the pass can be safely retried.
             throw;
+        }
+        finally
+        {
+            if (shouldClose) await connection.CloseAsync();
+        }
+    }
+
+    /// <summary>
+    /// Moves previously auto-reviewed isolation exercises into the dedicated accessory pattern.
+    /// Only untouched RepDB automatic metadata is eligible; professional decisions are preserved.
+    /// </summary>
+    private async Task EnsureRepDbAccessoryPatternCurationV1Async(CancellationToken cancellationToken)
+    {
+        const string marker = "exercise-catalog-repdb-accessory-pattern-v1";
+        var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+        if (shouldClose) await connection.OpenAsync(cancellationToken);
+        try
+        {
+            await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+            await using (var check = new NpgsqlCommand(
+                "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = @marker)", connection, transaction))
+            {
+                Add(check, "marker", marker);
+                if (Convert.ToBoolean(await check.ExecuteScalarAsync(cancellationToken)))
+                {
+                    await transaction.CommitAsync(cancellationToken);
+                    return;
+                }
+            }
+
+            await using (var hasRows = new NpgsqlCommand(
+                "SELECT EXISTS (SELECT 1 FROM exercise_catalog WHERE source = 'repdb-free')", connection, transaction))
+            {
+                if (!Convert.ToBoolean(await hasRows.ExecuteScalarAsync(cancellationToken)))
+                {
+                    await transaction.CommitAsync(cancellationToken);
+                    return;
+                }
+            }
+
+            var rows = new List<(string Id, RepDbExerciseAutoReviewer.ReviewMetadata Metadata)>();
+            const string selectSql = """
+                SELECT exercise_id, name_es, name_en, description_es, instructions_es::text, difficulty,
+                       equipment, force_type, mechanic, body_part, primary_muscles::text,
+                       secondary_muscles::text, goals::text, tags::text, is_bodyweight
+                FROM exercise_catalog
+                WHERE source = 'repdb-free' AND owner_user_id IS NULL
+                  AND review_status = 'approved' AND reviewed = TRUE
+                  AND reviewed_by LIKE 'RepDB automatic metadata%'
+                  AND reviewed_selection_priority = 55
+                  AND COALESCE(reviewed_movement_pattern, '') <> 'Accessory'
+                """;
+            await using (var select = new NpgsqlCommand(selectSql, connection, transaction))
+            await using (var reader = await select.ExecuteReaderAsync(cancellationToken))
+            {
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    var metadata = RepDbExerciseAutoReviewer.TryBuild(
+                        reader.GetString(0), NullableString(reader, 1), reader.GetString(2), NullableString(reader, 3),
+                        reader.GetString(4), NullableString(reader, 5), NullableString(reader, 6), NullableString(reader, 7),
+                        NullableString(reader, 8), NullableString(reader, 9), reader.GetString(10), reader.GetString(11),
+                        reader.GetString(12), reader.GetString(13), reader.IsDBNull(14) ? null : reader.GetBoolean(14));
+                    if (metadata?.MovementPattern == "Accessory")
+                        rows.Add((reader.GetString(0), metadata));
+                }
+            }
+
+            const string updateSql = """
+                UPDATE exercise_catalog
+                SET reviewed_movement_pattern = 'Accessory',
+                    reviewed_selection_priority = @priority,
+                    review_notes = @notes,
+                    updated_at = NOW()
+                WHERE exercise_id = @id AND source = 'repdb-free' AND owner_user_id IS NULL
+                  AND review_status = 'approved' AND reviewed = TRUE
+                  AND reviewed_by LIKE 'RepDB automatic metadata%'
+                  AND reviewed_selection_priority = 55
+                  AND COALESCE(reviewed_movement_pattern, '') <> 'Accessory'
+                """;
+            foreach (var item in rows)
+            {
+                await using var update = new NpgsqlCommand(updateSql, connection, transaction);
+                Add(update, "id", item.Id);
+                Add(update, "priority", item.Metadata.SelectionPriority);
+                Add(update, "notes", item.Metadata.Notes);
+                await update.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            await using (var mark = new NpgsqlCommand(
+                "INSERT INTO schema_migrations(id) VALUES (@marker) ON CONFLICT (id) DO NOTHING", connection, transaction))
+            {
+                Add(mark, "marker", marker);
+                await mark.ExecuteNonQueryAsync(cancellationToken);
+            }
+            await transaction.CommitAsync(cancellationToken);
+            _logger.LogInformation("RepDB accessory-pattern curation updated {UpdatedCount} untouched automatic reviews.", rows.Count);
         }
         finally
         {
