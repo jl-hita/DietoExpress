@@ -86,11 +86,11 @@ De los 92 seleccionados, 90 tienen las dos imágenes `start` y `peak`; `dumbbell
 
 1. Integrar y validar conjuntamente las correcciones de metadatos de PR #503 y el catálogo curado de PR #504.
 2. Verificar en el informe de evaluación que los 92 ejercicios seleccionados son candidatos reales y que las imágenes/instrucciones se conservan tras importar.
-3. Añadir un ejercicio propio de tibial anterior con anatomía, progresión, instrucciones e imagen correctas.
+3. Validar la incorporación de `kettlebell-tibialis-raise` desde el upstream, incluidos su patrón accesorio y el requisito de banco + kettlebell.
 4. Comprobar la disponibilidad real de las imágenes y su visualización en portal y Android.
 5. Revisar los avisos de volumen y los escenarios con restricciones de equipamiento en la siguiente fase del checklist.
 
-**Conclusión:** la exportación de 466 registros está inventariada y la selección inicial se ha ampliado a 91 ejercicios con criterios explícitos. Esto no cierra el P1: quedan las correcciones de metadatos integradas, la carencia de tibial anterior, la verificación real de medios y, sobre todo, la auditoría del generador/adaptador y sus escenarios.
+**Conclusión:** la exportación de 466 registros está inventariada y la selección inicial se ha ampliado a 92 ejercicios con criterios explícitos. Esto no cierra el P1: quedan las correcciones de metadatos integradas, la validación del ejercicio de tibial anterior, la verificación real de medios y, sobre todo, la auditoría del generador/adaptador y sus escenarios.
 
 
 ### Disposición individual de los 40 pendientes no seleccionados
