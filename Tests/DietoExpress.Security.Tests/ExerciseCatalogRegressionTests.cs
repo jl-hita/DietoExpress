@@ -527,7 +527,7 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.NotNull(shouldExclude);
         bool Excluded(string id, string category, string equipment, string? variationGroup) =>
             (bool)shouldExclude!.Invoke(null, new object?[] { id, category, equipment, variationGroup })!;
-        // This RepDB export does not contain a tibialis raise record; do not pretend the whitelist imported one.
+        // The 466-row local export omitted it, but the official 701-exercise upstream contains it and the whitelist now includes it.
         Assert.False(Excluded("kettlebell-tibialis-raise", "strength", "kettlebell", "calf-raise"));
         Assert.False(Excluded("cable-external-rotation", "strength", "cable", null));
         Assert.False(Excluded("side-lying-hip-adduction", "strength", "", "hip-adduction"));
