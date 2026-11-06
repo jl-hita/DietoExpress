@@ -345,7 +345,9 @@ public sealed class ExerciseCatalogRegressionTests
             (Id: "machine-shoulder-press", Equipment: "shoulder_press_machine", Muscles: """["anterior_deltoid"]"""),
             (Id: "cable-crunch", Equipment: "cable", Muscles: """["rectus_abdominis"]"""),
             (Id: "cable-pallof-press", Equipment: "cable", Muscles: """["obliques"]"""),
-            (Id: "side-plank", Equipment: "bodyweight", Muscles: """["obliques"]""")
+            (Id: "side-plank", Equipment: "bodyweight", Muscles: """["obliques"]"""),
+            (Id: "reverse-lunge", Equipment: "dumbbell", Muscles: """["quadriceps"]"""),
+            (Id: "step-ups", Equipment: "dumbbell", Muscles: """["quadriceps"]""")
         };
 
         foreach (var item in cases)
