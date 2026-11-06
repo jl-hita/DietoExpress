@@ -85,7 +85,8 @@ internal static class RepDbExerciseAutoReviewer
         // ambiguous substrings (for example "row" inside "crow") from deciding biomechanics.
         var explicitPattern = id.ToLowerInvariant() switch
         {
-            "ohp" => "VerticalPush",
+            "ohp" or "dumbbell-shoulder-press" or "machine-shoulder-press" => "VerticalPush",
+            "cable-crunch" or "ab-wheel-rollout" or "cable-pallof-press" or "side-plank" or "dumbbell-farmers-walk" => "Core",
             "lat-pulldown" or "v-bar-lat-pulldown" or "pull-up" or "chin-ups" or "assisted-pull-ups" => "VerticalPull",
             "bench-press" or "db-bench-press" or "incline-bench-press" or "incline-db-press"
                 or "smith-machine-bench-press" or "smith-machine-incline-bench-press"
