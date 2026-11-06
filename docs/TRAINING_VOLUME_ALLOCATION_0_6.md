@@ -1,4 +1,4 @@
-# Asignación semanal de volumen — motor 0.6.0
+# Asignación semanal de volumen y accesorios — motor 0.8.0
 
 ## Alcance
 
@@ -51,6 +51,18 @@ El motor no interpreta falta de tiempo, material, enfermedad o motivación como 
 La propuesta se muestra al profesional con el motivo y los ejercicios candidatos. La aprobación requiere seleccionar explícitamente los IDs de ejercicio que se van a adaptar. El ajustador cambia una serie solo en esos IDs estables, en sesiones futuras planificadas sin registro asociado; no modifica ejercicios parecidos por nombre, sesiones ya registradas ni el historial completado. Sin evidencia suficiente o sin selección no se aplica ningún recorte.
 
 Los dos de tres registros, la diferencia de 1 RIR y la reducción máxima de una serie son heurísticas operativas conservadoras, no umbrales clínicos ni prescripciones de ACSM. La decisión sigue requiriendo revisión profesional.
+## Accesorios opcionales — motor 0.8.0
+
+Los patrones básicos se seleccionan primero. Después, el generador puede añadir accesorios opcionales con patrón `Accessory` para cubrir déficits de grupos musculares primarios que los ejercicios base no cubren suficientemente. No son obligatorios: si el catálogo no ofrece un accesorio aprobado/propio compatible, el plan sigue generándose y comunica la cobertura insuficiente.
+
+- Selección posterior a los patrones básicos; no sustituye sentadilla, bisagra, empujes ni tracciones.
+- La selección considera el déficit de series primarias, el grupo corporal de la sesión (superior/inferior), el material, objetivo, experiencia y exclusiones. La prioridad del catálogo solo desempata opciones compatibles; no es una puntuación de calidad.
+- Se reservan hasta tres huecos de accesorio por sesión en planes de dos días y hasta dos en planes de tres o cuatro días. Se omiten si no caben dentro del límite temporal.
+- Prescripción inicial de 10–15 repeticiones (8–15 en fuerza), RIR 3 en principiantes y 2 en los demás, con 90 s de descanso. Son valores operativos iniciales, no rangos óptimos establecidos por ACSM.
+- El patrón se puede asignar desde la gestión/revisión del catálogo. El enriquecimiento RepDB puede proponerlo de forma determinista para elevaciones laterales, extensiones de cuádriceps, curls, aperturas y aislamientos similares; sigue siendo metadato pendiente de revisión humana cuando corresponde.
+
+La evaluación automática incluye ahora extensiones de cuádriceps, curl femoral, elevaciones laterales, curl de bíceps, extensión de tríceps, gemelos, aperturas y abducción de cadera. Los resultados deben analizarse por grupo muscular y duración, no solo por éxito estructural.
+
 ## Pruebas
 
 `TrainingProgramVolumeAllocatorTests` cubre crédito secundario, objetivos/prioridades, determinismo, límites de series, duración y preferencias inválidas. `TrainingProgramGeneratorTests` cubre estabilidad de dosis entre semanas, cobertura y matriz de objetivo/experiencia/días/duración. `TrainingAdaptationReviewWorkflowTests` comprueba que no se aplican recortes globales y que los ejercicios compuestos no se alteran si alguno de sus grupos no está seleccionado.
