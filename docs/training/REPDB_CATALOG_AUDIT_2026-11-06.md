@@ -53,7 +53,8 @@ Composición de los 92 IDs frente al estado que tenían en la exportación local
 | approved | 48 |
 | pending | 41 |
 | rejected, con excepción y corrección explícita | 2 |
-| incorporado desde el upstream oficial (no estaba en la exportación local) | 1 |\n| **Total** | **92** |
+| incorporado desde el upstream oficial (no estaba en la exportación local) | 1 |
+| **Total** | **92** |
 
 Los dos ejercicios rechazados que se mantienen mediante decisión explícita son:
 
