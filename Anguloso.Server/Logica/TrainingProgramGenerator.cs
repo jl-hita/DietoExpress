@@ -296,7 +296,7 @@ public static class TrainingProgramGenerator
             foreach (var exercise in previousSessions.Where(session => session.WeekNumber == week)
                          .SelectMany(session => session.Exercises).Concat(currentExercises))
             foreach (var muscle in exercise.PrimaryMuscleGroups.Distinct())
-                currentPrimaryVolume[muscle] = currentPrimaryVolume.GetValueOrDefault(muscle) + 1m;
+                currentPrimaryVolume[muscle] = currentPrimaryVolume.GetValueOrDefault(muscle) + exercise.Sets;
 
             var candidates = catalog
                 .Where(candidate => candidate.MovementPattern == TrainingMovementPattern.Accessory
