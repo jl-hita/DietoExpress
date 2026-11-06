@@ -59,21 +59,50 @@ public sealed class TrainingProgramVolumeAllocatorTests
     }
 
     [Fact]
-    public void DefaultTargetsPrioritizeQuadricepsGlutesAndCalvesWhileKeepingHamstringsSecondary()
+    public void DefaultAllocationPrioritizesQuadricepsGlutesAndCalvesOverHamstrings()
     {
-        var defaults = TrainingProgramVolumeAllocator.GetWeeklyTargets(
-            TrainingGoal.Hypertrophy, TrainingExperience.Beginner, null,
-            sessionsPerWeek: 3, maximumSessionDurationMinutes: 60);
-        var explicitHamstrings = TrainingProgramVolumeAllocator.GetWeeklyTargets(
-            TrainingGoal.Hypertrophy, TrainingExperience.Beginner,
-            [new TrainingMuscleVolumeTarget(TrainingMuscleGroup.Hamstrings, TargetWeeklyPrimarySets: 8m)],
-            sessionsPerWeek: 3, maximumSessionDurationMinutes: 60);
+        TrainingExercisePrescription Exercise(string id, TrainingMuscleGroup muscle) =>
+            new(id, "v1", id, 1, 1, 8, 12, 2m, 90,
+                TrainingProgressionRule.DoubleProgression, "test", [muscle], []);
 
-        Assert.Equal(6m, defaults[TrainingMuscleGroup.Quadriceps]);
-        Assert.Equal(6m, defaults[TrainingMuscleGroup.Glutes]);
-        Assert.Equal(6m, defaults[TrainingMuscleGroup.Calves]);
-        Assert.Equal(3m, defaults[TrainingMuscleGroup.Hamstrings]);
-        Assert.Equal(8m, explicitHamstrings[TrainingMuscleGroup.Hamstrings]);
+        var sessions = new[]
+        {
+            Session(
+                Exercise("quad-1", TrainingMuscleGroup.Quadriceps),
+                Exercise("glute-1", TrainingMuscleGroup.Glutes),
+                Exercise("calf-1", TrainingMuscleGroup.Calves),
+                Exercise("hamstring-1", TrainingMuscleGroup.Hamstrings)),
+            new TrainingSessionPrescription(1, DayOfWeek.Wednesday, "Sesión B", 5,
+            [
+                Exercise("quad-2", TrainingMuscleGroup.Quadriceps),
+                Exercise("glute-2", TrainingMuscleGroup.Glutes),
+                Exercise("calf-2", TrainingMuscleGroup.Calves),
+                Exercise("hamstring-2", TrainingMuscleGroup.Hamstrings)
+            ]),
+            new TrainingSessionPrescription(1, DayOfWeek.Friday, "Sesión C", 5,
+            [
+                Exercise("quad-3", TrainingMuscleGroup.Quadriceps),
+                Exercise("glute-3", TrainingMuscleGroup.Glutes),
+                Exercise("calf-3", TrainingMuscleGroup.Calves),
+                Exercise("hamstring-3", TrainingMuscleGroup.Hamstrings)
+            ])
+        };
+
+        var defaults = TrainingProgramVolumeAllocator.Allocate(
+            sessions, TrainingGoal.Hypertrophy, TrainingExperience.Beginner, null, 60);
+        var explicitHamstrings = TrainingProgramVolumeAllocator.Allocate(
+            sessions, TrainingGoal.Hypertrophy, TrainingExperience.Beginner,
+            [new TrainingMuscleVolumeTarget(TrainingMuscleGroup.Hamstrings, TargetWeeklyPrimarySets: 8m)], 60);
+
+        Assert.True(defaults.Succeeded, string.Join("; ", defaults.Errors));
+        Assert.True(explicitHamstrings.Succeeded, string.Join("; ", explicitHamstrings.Errors));
+        var defaultVolume = TrainingProgramVolumeAllocator.CalculatePrimaryVolume(defaults.Sessions);
+        var explicitVolume = TrainingProgramVolumeAllocator.CalculatePrimaryVolume(explicitHamstrings.Sessions);
+        Assert.Equal(6m, defaultVolume[TrainingMuscleGroup.Quadriceps]);
+        Assert.Equal(6m, defaultVolume[TrainingMuscleGroup.Glutes]);
+        Assert.Equal(6m, defaultVolume[TrainingMuscleGroup.Calves]);
+        Assert.Equal(3m, defaultVolume[TrainingMuscleGroup.Hamstrings]);
+        Assert.Equal(8m, explicitVolume[TrainingMuscleGroup.Hamstrings]);
     }
 
     [Fact]
