@@ -172,11 +172,10 @@ public static class TrainingProgramVolumeAllocator
         if (normalizedDeficit <= 0m)
             return 0m;
 
-        // Prefer a single-muscle alternative when available, and progressively discourage
-        // compounds that would add more work to already over-target primary muscles.
-        var normalizedOvershoot = primaryMuscles.Average(muscle =>
-            Math.Max(0m, primaryVolume.GetValueOrDefault(muscle) - targets[muscle]) / targets[muscle]);
-        return Math.Max(0m, normalizedDeficit - normalizedOvershoot * 0.5m);
+        // Averaging across all primary muscles naturally ranks a focused isolation above
+        // a compound when both address the same deficit, while still allowing the compound
+        // to contribute if no more selective candidate can close the remaining gap.
+        return normalizedDeficit;
     }
 
     internal static IReadOnlyDictionary<TrainingMuscleGroup, decimal> GetWeeklyTargets(
