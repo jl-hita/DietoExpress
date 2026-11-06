@@ -126,13 +126,14 @@ public sealed class TrainingProgramVolumeAllocatorTests
             sessions, TrainingGoal.Hypertrophy, TrainingExperience.Beginner,
             [
                 new TrainingMuscleVolumeTarget(TrainingMuscleGroup.Quadriceps, TargetWeeklyPrimarySets: 4m),
-                new TrainingMuscleVolumeTarget(TrainingMuscleGroup.Glutes, TargetWeeklyPrimarySets: 1m)
+                new TrainingMuscleVolumeTarget(TrainingMuscleGroup.Glutes, TargetWeeklyPrimarySets: 2m)
             ], 60);
 
         Assert.True(result.Succeeded, string.Join("; ", result.Errors));
         var volume = TrainingProgramVolumeAllocator.CalculatePrimaryVolume(result.Sessions);
-        Assert.Equal(4m, volume[TrainingMuscleGroup.Quadriceps]);
-        Assert.True(volume[TrainingMuscleGroup.Glutes] > 1m);
+        Assert.Equal(2m, volume[TrainingMuscleGroup.Quadriceps]);
+        Assert.Equal(3m, volume[TrainingMuscleGroup.Glutes]);
+        Assert.Contains(result.Warnings, warning => warning.Contains("Quadriceps alcanza", StringComparison.Ordinal));
     }
 
     [Fact]
