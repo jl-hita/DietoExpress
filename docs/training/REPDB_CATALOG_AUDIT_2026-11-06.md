@@ -3,9 +3,17 @@
 ## Fuente y alcance
 
 - Fuente: exportación completa de `/api/exercise-catalog/audit-export`, generada el 06/11/2026 a las 11:17:56 UTC.
-- La exportación declara `totalRecords = returned = 466` y `complete = true`.
+- La exportación local declara `totalRecords = returned = 466` y `complete = true`. Es una fotografía de la base de datos local, no el total del catálogo oficial.
 - Se reconstruyó y validó el JSON completo de las 466 entradas del PDF; los 466 IDs son únicos y cada `sourcePayload.id` coincide con el ID exterior.
 - Esta es una auditoría del catálogo de origen y de su idoneidad para el generador general de fuerza/hipertrofia. No equivale a una validación clínica ni a una revisión presencial de técnica por un profesional.
+
+## Resultado del inventario local (466) y contraste con la fuente oficial (701)
+
+Se contrastó la exportación local con el repositorio oficial [RepDB/exercise-dataset](https://github.com/RepDB/exercise-dataset), snapshot `66c4298af8d99b9dc397dad6699e508fb871d249`. El JSON oficial contiene 701 ejercicios. Los 466 IDs locales existen en esa versión oficial; no hay IDs locales obsoletos ni desaparecidos. Sin embargo, la base local no contenía 235 ejercicios de la fuente oficial: 214 de fuerza, 16 olímpicos, 4 pliométricos y 1 de cardio.
+
+Los 214 ejercicios de fuerza ausentes incluyen muchas variantes de patrones ya cubiertos y movimientos avanzados o especializados. Se compararon músculos primarios, material, dificultad, objetivos y grupos de variación. La carencia funcional más clara que no estaba cubierta por los 91 seleccionados era el tibial anterior: el origen oficial sí contiene `kettlebell-tibialis-raise`, con instrucciones en español y dos imágenes. Se incorpora a la selección.
+
+La licencia de RepDB permite uso comercial dentro de aplicaciones con atribución visible, pero no redistribuir el dataset como producto independiente. Se mantiene la atribución visible en el editor de entrenamiento y se añadirá también a la documentación pública del proyecto. No se utilizarán los recursos de `premium-samples/`, que son solo de evaluación.
 
 ## Resultado del inventario completo
 
@@ -36,16 +44,16 @@ Los 221 registros aprobados en esta exportación no deben interpretarse como 221
 
 ## Catálogo seleccionado para el generador
 
-La selección explícita pasa de 84 a **91 ejercicios**. No se intenta importar indiscriminadamente los 466 registros: el generador recibe una biblioteca deliberadamente curada, progresable y con alternativas de equipamiento.
+La selección explícita pasa de 84 a **92 ejercicios**. No se intenta importar indiscriminadamente los 466 registros: el generador recibe una biblioteca deliberadamente curada, progresable y con alternativas de equipamiento.
 
-Composición de los 91 IDs frente al estado que tenían en la exportación:
+Composición de los 92 IDs frente al estado que tenían en la exportación local:
 
 | Estado en la exportación | Seleccionados |
 |---|---:|
 | approved | 48 |
 | pending | 41 |
 | rejected, con excepción y corrección explícita | 2 |
-| **Total** | **91** |
+| incorporado desde el upstream oficial (no estaba en la exportación local) | 1 |\n| **Total** | **92** |
 
 Los dos ejercicios rechazados que se mantienen mediante decisión explícita son:
 
@@ -63,11 +71,11 @@ Se incorporan además seis ejercicios pendientes que aportan alternativas reales
 
 Los 40 pendientes restantes no se incorporan al generador inicial: son variantes redundantes de ejercicios ya representados, habilidades/posiciones específicas o movimientos accesorios menos prioritarios para el alcance de esta primera biblioteca. Se mantienen fuera de la lista permitida; no se convierten automáticamente en ejercicios aprobados ni se presentan como clínicamente incorrectos. La lista permitida es la frontera efectiva de lo que puede seleccionar el generador.
 
-De los 91 seleccionados, 89 tienen las dos imágenes `start` y `peak`; `dumbbell-farmers-walk` y `side-plank` solo tienen `main`. La presencia de una referencia en el JSON no demuestra todavía que el archivo remoto cargue correctamente ni que Android lo represente; esas comprobaciones siguen pendientes en sus fases específicas.
+De los 92 seleccionados, 90 tienen las dos imágenes `start` y `peak`; `dumbbell-farmers-walk` y `side-plank` solo tienen `main`. El nuevo `kettlebell-tibialis-raise` tiene dos imágenes `start`/`peak` en el repositorio oficial. La presencia de una referencia en el JSON no demuestra todavía que el archivo remoto cargue correctamente ni que Android lo represente; esas comprobaciones siguen pendientes en sus fases específicas.
 
 ## Hallazgos anatómicos y de metadatos
 
-- No existe ningún ejercicio con `tibialis_anterior` como músculo primario en los 466 registros. Solo aparece en dos asignaciones secundarias. El catálogo necesita un ejercicio propio de dorsiflexión/tibial anterior, con metadatos e imagen verificados; no se debe inventar un ID de RepDB.
+- En la exportación local de 466 registros no había ningún ejercicio con `tibialis_anterior` como músculo primario; solo aparecía en dos asignaciones secundarias. El contraste con los 701 registros oficiales encontró `kettlebell-tibialis-raise`, que sí lo tiene como músculo primario. Se añade con sus instrucciones e imágenes oficiales y con doble requisito de equipamiento (`bench` + `kettlebell`), derivado de la etiqueta `requires_bench`.
 - El catálogo de origen contiene 16 registros con romboides como músculo primario y 16 con trapecio como primario. La selección añade `shrug` y conserva remos con romboides/espalda alta, pero el volumen efectivo de espalda alta debe validarse en el generador, no inferirse por el número de ejercicios.
 - Isquiotibiales aparecen como primarios en 44 registros; cuádriceps en 69. La biblioteca seleccionada incluye curls femorales, Nordic, bisagras, sentadillas, prensa y extensiones. Las advertencias de volumen del informe de generación no se resolverán simplemente acumulando variantes: habrá que revisar el asignador y las restricciones por escenario.
 - Se detectaron tres diferencias entre la musculatura exterior curada y el payload original: `sit-ups`, `hex-bar-deadlift` y `cossack-squat`. Deben conservarse como correcciones explícitas trazables, no sobrescribirse silenciosamente con los datos externos.
@@ -77,7 +85,7 @@ De los 91 seleccionados, 89 tienen las dos imágenes `start` y `peak`; `dumbbell
 ## Criterios que siguen abiertos
 
 1. Integrar y validar conjuntamente las correcciones de metadatos de PR #503 y el catálogo curado de PR #504.
-2. Verificar en el informe de evaluación que los 91 ejercicios seleccionados son candidatos reales y que las imágenes/instrucciones se conservan tras importar.
+2. Verificar en el informe de evaluación que los 92 ejercicios seleccionados son candidatos reales y que las imágenes/instrucciones se conservan tras importar.
 3. Añadir un ejercicio propio de tibial anterior con anatomía, progresión, instrucciones e imagen correctas.
 4. Comprobar la disponibilidad real de las imágenes y su visualización en portal y Android.
 5. Revisar los avisos de volumen y los escenarios con restricciones de equipamiento en la siguiente fase del checklist.
@@ -136,4 +144,4 @@ Estos registros no entran en la biblioteca inicial porque su función ya está c
 
 De los 58 registros rechazados de categoría fuerza, dos se incorporan con una decisión explícita y corrección (`cable-external-rotation` y `hammer-curl`). Los otros 56 quedan fuera de la biblioteca inicial por ser ejercicios de rehabilitación/activación, variantes redundantes de menor prioridad, habilidades avanzadas de calistenia, posiciones de yoga/Pilates o trabajo de potencia/condicionamiento. Esto incluye, entre otros, `banded-clamshell`, `bird-dog`, `sled-push`, `front-lever`, `human-flag`, `muscle-ups`, `handstand-hold`, `jefferson-curl`, `medicine-ball-slam`, `wall-ball` y `band-pull-apart`. El resto de rechazados son 89 ejercicios de estiramiento y 17 de cardio, ajenos al alcance de este generador.
 
-La selección de 91 no pretende ser el catálogo universal de todo ejercicio útil. Define el conjunto inicial que el motor puede prescribir con reglas, progresión y equipamiento conocidos. Las alternativas fuera de alcance podrán incorporarse después de una revisión específica.
+La selección de 92 no pretende ser el catálogo universal de todo ejercicio útil. Define el conjunto inicial que el motor puede prescribir con reglas, progresión y equipamiento conocidos. Las alternativas fuera de alcance podrán incorporarse después de una revisión específica.
