@@ -967,10 +967,6 @@ public sealed class ExerciseCatalogService
     }
 
     /// <summary>
-    /// Enriches the already-imported RepDB catalog once. Only untouched pending RepDB rows are eligible;
-    /// the marker and updates commit atomically and subsequent starts never overwrite human reviews.
-    /// </summary>
-    /// <summary>
     /// Re-evaluates only untouched automatic RepDB approvals with the current, regression-tested
     /// mapping rules. Human/professional decisions are never rewritten. Ambiguous records return
     /// to the pending queue instead of retaining stale or invalid automatic metadata.
@@ -1100,6 +1096,10 @@ public sealed class ExerciseCatalogService
         }
     }
 
+    /// <summary>
+    /// Enriches the already-imported RepDB catalog once. Only untouched pending RepDB rows are eligible;
+    /// the marker and updates commit atomically and subsequent starts never overwrite human reviews.
+    /// </summary>
     private async Task EnsureRepDbInitialReviewAsync(CancellationToken cancellationToken)
     {
         const string marker = "exercise-catalog-repdb-auto-review-v2";
