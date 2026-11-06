@@ -384,6 +384,11 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("overhead-tricep-extension", ids);
         Assert.Contains("incline-push-ups", ids);
         Assert.Contains("kettlebell-tibialis-raise", ids);
+        var curateVariationGroup = curationType.GetMethod(
+            "CurateVariationGroup", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public);
+        Assert.NotNull(curateVariationGroup);
+        Assert.Equal("tibialis-raise", curateVariationGroup!.Invoke(
+            null, new object?[] { "kettlebell-tibialis-raise", "calf-raise" }));
         Assert.DoesNotContain("crow-pose", ids);
         Assert.DoesNotContain("dumbbell-side-bend", ids);
 
