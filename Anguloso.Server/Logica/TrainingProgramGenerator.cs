@@ -160,6 +160,20 @@ public static class TrainingProgramGenerator
             }).ToArray()
         }).ToArray();
 
+    private static bool IsAccessoryGoalCompatible(
+        TrainingExerciseCandidate candidate,
+        TrainingGoal requestedGoal)
+    {
+        if (candidate.SuitableGoals.Contains(requestedGoal)) return true;
+
+        // Hypertrophy-oriented isolation work is also a valid accessory in strength plans.
+        // Keep this exception limited to accessories; primary compound patterns still require
+        // an explicit goal match.
+        return requestedGoal == TrainingGoal.Strength
+            && candidate.MovementPattern == TrainingMovementPattern.Accessory
+            && candidate.SuitableGoals.Contains(TrainingGoal.Hypertrophy);
+    }
+
     private static string NormalizeEquipmentToken(string value)
     {
         if (string.IsNullOrWhiteSpace(value)) return string.Empty;
@@ -324,7 +338,7 @@ public static class TrainingProgramGenerator
         // scale with the available duration instead of being appended in the same quantity
         // to a 35-minute session and a 90-minute session.
         var slots = request.MaximumSessionDurationMinutes <= 40
-            ? (isFullBody ? 1 : 0)
+            ? 1
             : request.MaximumSessionDurationMinutes <= 65
                 ? (isFullBody ? 2 : 1)
                 : (isFullBody ? 3 : 2);
@@ -345,7 +359,7 @@ public static class TrainingProgramGenerator
             var candidates = catalog
                 .Where(candidate => candidate.MovementPattern == TrainingMovementPattern.Accessory
                     && (candidate.IsReviewed || candidate.IsOwnedByCurrentProfessional)
-                    && candidate.SuitableGoals.Contains(request.Goal)
+                    && IsAccessoryGoalCompatible(candidate, request.Goal)
                     && (int)candidate.MinimumExperience <= (int)request.Experience
                     && (equipment.Count == 0 || HasRequiredEquipment(candidate.RequiredEquipment, equipment))
                     && !excluded.Contains(candidate.ExerciseId)
