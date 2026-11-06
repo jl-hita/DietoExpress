@@ -212,3 +212,46 @@ La descarga explícita de una semana conserva los ejercicios y reduce aproximada
 
 - La señal reciente de dolor conserva precedencia incluso con `ProgressionRule.None`: el motor devuelve revisión de seguridad (`hold_and_review`) antes de indicar que la progresión no aplica. La descarga pausa la carga, pero no silencia señales de dolor.
 - Las exposiciones históricas de una descarga se identifican por su regla `None`, no cuentan para la racha de dos sesiones en el máximo del rango y rompen esa racha. Al volver a un bloque normal, se requieren de nuevo dos exposiciones normales consecutivas antes de subir carga.
+
+
+## Auditoría de estímulo muscular por ejercicio — revisión 06/11/2026
+
+Se elimina el crédito universal de 0,5 para toda musculatura secundaria. El campo primario/secundario del proveedor se conserva para trazabilidad anatómica, pero la dosis semanal se calcula con una lista explícita de músculos que reciben estímulo hipertrófico relevante en cada ejercicio. Una serie cuenta como una serie completa para cada uno de esos músculos. La lista primaria siempre cuenta; una etiqueta secundaria solo cuenta si el movimiento carga dinámicamente ese músculo de forma sustancial.
+
+### Contribuciones secundarias aceptadas
+
+- **Presses horizontales y verticales** (bench-press, db-bench-press, incline-bench-press, incline-db-press, variantes Smith, chest-press-machine, flexiones y presses de hombro): se cuenta tríceps cuando aparece como secundario, por la extensión dinámica del codo bajo carga.
+- **Remos y tracciones verticales** (barbell-row, remos con mancuerna/cable/máquina/T-bar, jalones, dominadas y chin-ups): se cuenta bíceps cuando aparece como secundario, por la flexión dinámica del codo.
+- **Sentadillas, prensa y variantes unilaterales** (squat, front-squat, goblet-squat, db-squat, leg-press, horizontal-leg-press, hack-squat, búlgara, zancada inversa y step-ups): se cuentan cuádriceps y glúteos si figuran entre los músculos del ejercicio, porque ambos pueden recibir carga dinámica relevante según la variante, profundidad y ejecución.
+- **Bisagras de cadera** (deadlift, hex-bar-deadlift, romanian-deadlift, dumbbell-romanian-deadlift): se cuentan glúteos e isquiotibiales cuando figuran en los metadatos, por su participación dinámica en la extensión de cadera.
+- **Reverse fly y face pull** (dumbbell-reverse-fly, machine-reverse-fly, face-pull): se cuenta espalda alta cuando aparece como secundaria, además del trabajo principal de deltoides posterior.
+- **Extensión lumbar en máquina** (machine-back-extension): se cuentan glúteos e isquiotibiales cuando aparecen como secundarios y el ejercicio se ejecuta mediante extensión de cadera.
+- **Elevaciones de rodillas** (hanging-knee-raise, captains-chair-knee-raise): se cuentan flexores de cadera si aparecen como secundarios y realizan la flexión dinámica de cadera.
+
+### Contribuciones secundarias excluidas
+
+- Estabilización del tronco/hombro y co-contracción sin recorrido dinámico relevante (por ejemplo, abdominales, serrato o dorsales como estabilizadores en el ab-wheel).
+- Isquiotibiales en sentadillas y prensa cuando solo aparecen como co-contracción/estabilización; no se equiparan a curls femorales ni bisagras.
+- Deltoides en presses de pecho cuando su contribución es accesoria y dependiente de la técnica; no se suman automáticamente como una serie completa.
+- Antebrazo por agarre estático en farmer carries; puede ser útil como trabajo de agarre, pero no se contabiliza automáticamente como volumen hipertrófico efectivo.
+- Participación secundaria de deltoides posterior, trapecio o manguito rotador en movimientos donde no existe un recorrido de carga específico y suficiente para ese grupo.
+- Trabajo isométrico de estabilización en Pallof press, planchas y ejercicios de core: se mantiene el grupo objetivo principal, sin atribuir series completas a músculos accesorios por el mero hecho de estabilizar.
+
+Los ejercicios de aislamiento (aperturas, elevaciones laterales, curls, extensiones de tríceps, extensiones/curls de rodilla, elevaciones de gemelos, abducción/aducción, rotación externa y crunches) contabilizan su grupo principal; no se añade crédito a otros músculos por etiquetas accesorias sin estímulo suficiente.
+
+### Alcance y salvaguardas
+
+El mapeo se aplica por ID estable y solo incorpora una contribución secundaria si ese músculo también aparece en la lista secundaria revisada del ejercicio. Los ejercicios propios de profesionales y los nuevos IDs sin una regla específica cuentan por defecto únicamente sus músculos primarios hasta que se audite su contribución secundaria. No se infiere estímulo por el nombre del ejercicio.
+
+La evaluación conserva las series primarias/secundarias brutas y las frecuencias para que el profesional pueda revisar la clasificación, pero el campo de series efectivas y el asignador usan la misma función TrainingExerciseStimulus. Así se evita que el informe y la asignación de volumen utilicen reglas distintas.
+
+### Política inicial de hipertrofia
+
+- Principiante: 8–12 series efectivas por grupo y semana (objetivo central 10).
+- Intermedio: 10–16 (objetivo central 13).
+- Avanzado: 12–20 (objetivo central 16).
+- Preferencia explícita del profesional: objetivo ±2; por ejemplo, 20 equivale a 18–22.
+- La prioridad muscular desplaza el objetivo central en incrementos de dos series por nivel de prioridad.
+- El generador no reduce silenciosamente estos objetivos por falta de tiempo. Si no cabe el volumen dentro de la duración, informa de la dosis conseguida y del déficit respecto al rango.
+- Estos rangos son política inicial del producto inspirada en ACSM 2026, no rangos oficiales del ACSM ni mínimos universales. El Position Stand respalda volúmenes de al menos 10 series y describe rendimientos decrecientes alrededor de 18–20 series semanales.
+
