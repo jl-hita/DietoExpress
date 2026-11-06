@@ -205,6 +205,41 @@ public sealed class ExerciseCatalogRegressionTests
     }
 
     [Fact]
+    public void RepDbAutoReviewer_ClassifiesIsolationAndSideBendExercisesAsAccessories()
+    {
+        var reviewerType = typeof(TrainingProgramGenerator).Assembly
+            .GetType("Anguloso.Server.Logica.RepDbExerciseAutoReviewer");
+        Assert.NotNull(reviewerType);
+        var method = reviewerType!.GetMethod(
+            "InferPattern",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        string? Pattern(string id, string es, string en, string[] muscles) =>
+            (string?)method!.Invoke(null, new object?[]
+            {
+                id, es, en, "[]", "pull", "isolation", "upper_arms", muscles
+            });
+
+        Assert.Equal("Accessory", Pattern("drag-curl", "Curl de arrastre", "Drag Curl", ["biceps_brachii"]));
+        Assert.Equal("Accessory", Pattern("zottman-curl", "Curl Zottman", "Zottman Curl", ["biceps_brachii"]));
+        Assert.Equal("Accessory", Pattern("cable-reverse-fly", "Apertura inversa en polea", "Cable Reverse Fly", ["posterior_deltoid"]));
+        Assert.Equal("Accessory", Pattern("single-leg-calf-raise", "Elevación de gemelo a una pierna", "Single-Leg Calf Raise", ["gastrocnemius"]));
+        Assert.Equal("Accessory", Pattern("dumbbell-side-bend", "Flexión lateral con mancuerna", "Dumbbell Side Bend", ["obliques"]));
+    }
+
+    [Fact]
+    public void RepDbAutomaticMetadataRefresh_IsVersionedAndNeverTouchesHumanReviews()
+    {
+        var service = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "ExerciseCatalogService.cs"));
+        Assert.Contains("EnsureRepDbAutomaticMetadataRefreshV1Async", service);
+        Assert.Contains("exercise-catalog-repdb-automatic-metadata-refresh-v1", service);
+        Assert.Contains("reviewed_by LIKE 'RepDB automatic metadata%'", service);
+        Assert.Contains("review_status = 'pending', reviewed = FALSE", service);
+        Assert.Contains("RepDB automatic metadata v5", service);
+    }
+
+    [Fact]
     public void RepDbSelectionPriority_PrefersScalableBasicsAndLoadedAccessories()
     {
         var reviewerType = typeof(TrainingProgramGenerator).Assembly
