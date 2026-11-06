@@ -116,8 +116,16 @@ public static class TrainingProgramGenerator
             request.DurationWeeks,
             prescribedSessions);
         var qualityReport = TrainingProgramQualityAnalyzer.Analyze(plan);
+        var oneSetExposures = allocation.Sessions.SelectMany(session => session.Exercises)
+            .Count(exercise => exercise.Sets <= 1);
         var deloadWarnings = request.IsDeload
-            ? new[] { "Semana/fase de descarga activa: se reducen las series aproximadamente un 40–50 % (mínimo una por ejercicio) y se aleja el objetivo de esfuerzo dos RIR. Es una heurística conservadora revisable, no una pauta establecida por ACSM." }
+            ? new[]
+            {
+                "Semana/fase de descarga activa: las series se reducen aproximadamente entre un tercio y la mitad (redondeo hacia arriba, mínimo una por ejercicio) y el objetivo de esfuerzo se aleja dos RIR. Es una heurística conservadora revisable, no una pauta establecida por ACSM.",
+                oneSetExposures > 0
+                    ? $"{oneSetExposures} exposiciones ya estaban prescritas a una serie y mantienen esa serie; en ellas la descarga actúa mediante el mayor margen de RIR, no mediante un recorte adicional de series."
+                    : null
+            }.Where(warning => warning is not null).Select(warning => warning!).ToArray()
             : Array.Empty<string>();
         plan = plan with
         {
