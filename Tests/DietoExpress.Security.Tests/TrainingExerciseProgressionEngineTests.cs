@@ -228,6 +228,25 @@ public sealed class TrainingExerciseProgressionEngineTests
     }
 
     [Fact]
+    public void LatestDeloadExposureRequiresAProgressionEligibleSessionBeforeLoadIncrease()
+    {
+        var deload = Exposure(12) with { ProgressionEligible = false };
+        var result = TrainingExerciseProgressionEngine.Evaluate(Prescription(), [Exposure(12), deload]);
+
+        Assert.Equal(TrainingExerciseProgressionAction.HoldAndReview, result.Action);
+    }
+
+    [Fact]
+    public void DeloadExposureBreaksTheConsecutiveTopRangeStreak()
+    {
+        var deload = Exposure(12) with { ProgressionEligible = false };
+        var result = TrainingExerciseProgressionEngine.Evaluate(
+            Prescription(), [Exposure(12), deload, Exposure(12)]);
+
+        Assert.Equal(TrainingExerciseProgressionAction.ConfirmTopOfRange, result.Action);
+    }
+
+    [Fact]
     public void NoProgressionRule_ReturnsNotApplicable()
     {
         var p = Prescription() with { ProgressionRule = TrainingProgressionRule.None };
