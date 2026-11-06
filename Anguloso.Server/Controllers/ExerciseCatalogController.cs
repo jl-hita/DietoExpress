@@ -95,6 +95,36 @@ public sealed class ExerciseCatalogController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Exports the complete exercise catalog for a controlled, superadmin-only audit.
+    /// Includes approved, pending and rejected rows, preserving source and reviewed metadata.
+    /// </summary>
+    [HttpGet("export")]
+    [Authorize(Roles = "superadmin")]
+    public async Task<IActionResult> ExportCatalog(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var items = await _catalog.ExportCatalogAsync(cancellationToken);
+            var countsByStatus = items
+                .GroupBy(item => item.ReviewStatus)
+                .ToDictionary(group => group.Key, group => group.Count());
+            return Ok(new
+            {
+                totalRecords = items.Count,
+                returned = items.Count,
+                complete = true,
+                countsByStatus,
+                items
+            });
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Failed to export the complete exercise catalog.");
+            return StatusCode(503, new { error = "No se pudo exportar el catálogo completo de ejercicios." });
+        }
+    }
+
     [HttpPut("{id}/review")]
     [Authorize(Roles = "superadmin")]
     public async Task<IActionResult> Review(string id, [FromBody] ExerciseReviewRequest review, CancellationToken cancellationToken)
