@@ -493,6 +493,51 @@ internal static class RepDbExerciseAutoReviewer
             "dumbbell-farmers-walk" =>
                 ["Sujeta una carga en cada mano y adopta una postura erguida con los hombros relajados.",
                  "Camina con pasos cortos y controlados, manteniendo el tronco estable y evitando balancear las cargas."],
+            "machine-seated-crunch" =>
+                ["Ajusta el asiento y coloca el apoyo de forma cómoda, manteniendo la pelvis estable.",
+                 "Flexiona el tronco acercando las costillas a la pelvis y regresa lentamente sin tirar con los brazos."],
+            "dead-bug" =>
+                ["Túmbate boca arriba con caderas y rodillas flexionadas y la zona lumbar estable.",
+                 "Extiende lentamente el brazo y la pierna contrarios sin arquear la espalda y vuelve al centro antes de alternar."],
+            "machine-reverse-fly" =>
+                ["Ajusta el asiento para que los brazos queden a la altura de los hombros y sujeta los agarres con control.",
+                 "Abre los brazos llevando los codos hacia atrás y vuelve lentamente sin encoger los hombros."],
+            "machine-chest-fly" =>
+                ["Ajusta el respaldo y los brazos de la máquina para comenzar con un estiramiento cómodo del pecho.",
+                 "Junta los brazos delante del torso sin golpear los soportes y vuelve lentamente a la posición inicial."],
+            "machine-bicep-curl" =>
+                ["Ajusta el asiento para alinear los codos con el eje de giro y apoya los brazos en el soporte.",
+                 "Flexiona los codos para elevar el agarre y baja la carga lentamente sin despegar los brazos."],
+            "single-arm-plate-loaded-lateral-raise" =>
+                ["Colócate de lado respecto al apoyo y ajusta el brazo de la máquina a una posición cómoda.",
+                 "Eleva el brazo lateralmente sin inclinar el tronco y desciende lentamente manteniendo el control."],
+            "machine-calf-raise" =>
+                ["Apoya el antepié en la plataforma y coloca los hombros bajo los soportes acolchados.",
+                 "Eleva los talones de forma controlada y baja lentamente hasta un estiramiento cómodo."],
+            "bodyweight-calf-raise" =>
+                ["Colócate de pie con apoyo estable y deja que los talones puedan descender libremente.",
+                 "Eleva los talones todo lo posible y baja lentamente sin rebotar."],
+            "side-lying-hip-abduction" =>
+                ["Túmbate de lado con la pierna inferior flexionada y la superior extendida, manteniendo la pelvis estable.",
+                 "Eleva la pierna superior sin girar la cadera y bájala lentamente."],
+            "side-lying-hip-adduction" =>
+                ["Túmbate de lado y cruza la pierna superior por delante para dejar libre la pierna inferior.",
+                 "Eleva la pierna inferior hacia la superior sin rotar la pelvis y desciende lentamente."],
+            "machine-back-extension" =>
+                ["Ajusta la máquina para que el eje de giro quede alineado con la cadera y mantén el tronco estable.",
+                 "Extiende la cadera hasta alinear el tronco con las piernas sin hiperextender la zona lumbar y vuelve controladamente."],
+            "glute-bridge" =>
+                ["Túmbate boca arriba con las rodillas flexionadas y los pies apoyados a una distancia cómoda.",
+                 "Eleva la pelvis contrayendo los glúteos sin arquear la zona lumbar y desciende lentamente."],
+            "db-squat" or "horizontal-leg-press" =>
+                ["Coloca los pies en una posición estable y ajusta la carga para mantener el recorrido con control.",
+                 "Flexiona caderas y rodillas siguiendo la dirección de los pies y empuja para volver al inicio."],
+            "chest-supported-kettlebell-row" or "kneeling-cable-row" or "one-arm-seated-cable-row" =>
+                ["Adopta una posición estable y mantén el tronco y la columna neutros durante el movimiento.",
+                 "Lleva el codo hacia atrás acercando la carga al torso y regresa lentamente sin girar el tronco."],
+            "hanging-knee-raise" or "captains-chair-knee-raise" =>
+                ["Estabiliza el tronco y sujeta los apoyos con los hombros controlados, evitando balancearte.",
+                 "Eleva las rodillas hacia el pecho mediante la flexión de cadera y vuelve lentamente al inicio."],
             _ => null
         };
 
