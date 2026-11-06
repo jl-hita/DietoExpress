@@ -164,6 +164,10 @@ public static class TrainingProgramVolumeAllocator
         return volume;
     }
 
+    /// <summary>
+    /// Returns only the raw primary-label series count for diagnostics and backward-compatible tests.
+    /// Allocation and quality decisions must use CalculateEffectiveVolume instead.
+    /// </summary>
     public static IReadOnlyDictionary<TrainingMuscleGroup, decimal> CalculatePrimaryVolume(
         IEnumerable<TrainingSessionPrescription> sessions)
     {
@@ -349,6 +353,10 @@ public static class TrainingProgramVolumeAllocator
         int SessionIndex, int ExerciseIndex, decimal Score, decimal LocalPrimaryVolume);
 }
 
+/// <summary>
+/// A target value is the central weekly effective-set objective. The historical property name
+/// TargetWeeklyPrimarySets is retained to preserve existing API request compatibility.
+— </summary>
 public sealed record TrainingMuscleVolumeTarget(
     TrainingMuscleGroup MuscleGroup,
     int Priority = 0,
