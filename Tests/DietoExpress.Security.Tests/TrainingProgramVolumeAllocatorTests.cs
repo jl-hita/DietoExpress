@@ -59,6 +59,23 @@ public sealed class TrainingProgramVolumeAllocatorTests
     }
 
     [Fact]
+    public void MissingDirectCalfWorkIsReportedInsteadOfDroppingItsDefaultTarget()
+    {
+        var session = Session(new TrainingExercisePrescription(
+            "bench", "v1", "Press banca", 1, 1, 8, 12, 2m, 120,
+            TrainingProgressionRule.DoubleProgression, "test",
+            [TrainingMuscleGroup.Chest], []));
+
+        var result = TrainingProgramVolumeAllocator.Allocate(
+            [session], TrainingGoal.Hypertrophy, TrainingExperience.Beginner, null, 60);
+
+        Assert.True(result.Succeeded, string.Join("; ", result.Errors));
+        Assert.Contains(result.Warnings, warning =>
+            warning.Contains("Calves", StringComparison.Ordinal) &&
+            warning.Contains("no hay ningún ejercicio aprobado", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void DefaultAllocationPrioritizesQuadricepsGlutesAndCalvesOverHamstrings()
     {
         TrainingExercisePrescription Exercise(string id, TrainingMuscleGroup muscle) =>
