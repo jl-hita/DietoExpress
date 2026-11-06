@@ -641,17 +641,18 @@ public sealed class TrainingProgramGeneratorTests
             .Where(exercise => exercise.MovementPattern != TrainingMovementPattern.Accessory)
             .Append(new TrainingExerciseCandidate(
                 "biceps-curl", "test", "Curl de bíceps", TrainingMovementPattern.Accessory,
-                [], Enum.GetValues<TrainingGoal>(), TrainingExperience.Beginner, 55, true,
+                [], [TrainingGoal.Hypertrophy], TrainingExperience.Beginner, 55, true,
                 [TrainingMuscleGroup.Biceps], []))
             .Append(new TrainingExerciseCandidate(
                 "leg-extension", "test", "Extensión de cuádriceps", TrainingMovementPattern.Accessory,
-                [], Enum.GetValues<TrainingGoal>(), TrainingExperience.Beginner, 55, true,
+                [], [TrainingGoal.Hypertrophy], TrainingExperience.Beginner, 55, true,
                 [TrainingMuscleGroup.Quadriceps], []))
             .ToArray();
         var request = Request() with
         {
+            Goal = TrainingGoal.Strength,
             TrainingDays = [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Thursday, DayOfWeek.Saturday],
-            MaximumSessionDurationMinutes = 60
+            MaximumSessionDurationMinutes = 35
         };
 
         var generated = TrainingProgramGenerator.Generate(request, catalog);
@@ -669,6 +670,21 @@ public sealed class TrainingProgramGeneratorTests
             exercise => exercise.ExerciseId == "biceps-curl");
         Assert.Contains(lowerSessions.SelectMany(session => session.Exercises),
             exercise => exercise.ExerciseId == "leg-extension");
+    }
+
+    [Fact]
+    public void StrengthPlansDoNotBorrowHypertrophyOnlyPrimaryPatternExercises()
+    {
+        var catalog = Catalog().Select(exercise =>
+            exercise.MovementPattern == TrainingMovementPattern.Squat
+                ? exercise with { SuitableGoals = [TrainingGoal.Hypertrophy] }
+                : exercise).ToArray();
+
+        var generated = TrainingProgramGenerator.Generate(
+            Request() with { Goal = TrainingGoal.Strength },
+            catalog);
+
+        Assert.False(generated.Succeeded);
     }
 
     [Fact]
