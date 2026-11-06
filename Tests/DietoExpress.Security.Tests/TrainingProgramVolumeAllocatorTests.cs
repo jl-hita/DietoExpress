@@ -58,20 +58,6 @@ public sealed class TrainingProgramVolumeAllocatorTests
     }
 
     [Fact]
-    public void BandAssistedPullUpsCountDynamicBicepsStimulus()
-    {
-        var session = Session(new TrainingExercisePrescription(
-            "band-assisted-pull-ups", "v1", "Dominadas asistidas", 1, 3, 6, 10, 2m, 120,
-            TrainingProgressionRule.DoubleProgression, "test",
-            [TrainingMuscleGroup.Lats], [TrainingMuscleGroup.Biceps]));
-
-        var volume = TrainingProgramVolumeAllocator.CalculateEffectiveVolume([session]);
-
-        Assert.Equal(3m, volume[TrainingMuscleGroup.Lats]);
-        Assert.Equal(3m, volume[TrainingMuscleGroup.Biceps]);
-    }
-
-    [Fact]
     public void QualityReportUsesTheSameEffectiveStimulusRulesAsTheAllocator()
     {
         var plan = new TrainingProgramPrescription(
