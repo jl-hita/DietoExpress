@@ -173,6 +173,9 @@ internal static class RepDbExerciseCuration
         "leg-curl",
         "seated-leg-curl",
         "nordic-hamstring-curl",
+        "ball-leg-curl",
+        "banded-standing-curl",
+        "trx-hamstring-curl",
         "standing-calf-raise",
         "seated-calf-raise",
         "kettlebell-tibialis-raise",
@@ -267,7 +270,7 @@ internal static class RepDbExerciseCuration
     {
         // RepDB groups tibialis raises with calf raises; keep the distinct ankle-dorsiflexor target.
         "kettlebell-tibialis-raise" => "tibialis-raise",
-        "banded-standing-curl" => "leg-curl",
+        "banded-standing-curl" or "ball-leg-curl" or "trx-hamstring-curl" => "leg-curl",
         "dumbbell-farmers-walk" or "kettlebell-farmers-walk" => "farmer-carry",
         _ => sourceVariationGroup
     };
