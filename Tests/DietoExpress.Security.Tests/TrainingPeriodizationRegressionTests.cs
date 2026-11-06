@@ -204,6 +204,7 @@ public sealed class TrainingPeriodizationRegressionTests
         Assert.Contains("Personaliza la dosis semanal de series efectivas estimadas", ui);
         Assert.Contains("max=\"30\"", ui);
         Assert.Contains("objetivos explícitos admiten 1–30 series", ui);
+        Assert.Contains("isquiotibiales tienen una dosis predeterminada secundaria", ui);
         Assert.DoesNotContain("series primarias semanales", ui);
         Assert.Contains("muscle.primaryFrequencySessions", ui);
         Assert.Contains("HighEffectiveSetReviewThreshold = 22", analyzer);
