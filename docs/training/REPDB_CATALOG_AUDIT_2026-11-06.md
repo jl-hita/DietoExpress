@@ -177,12 +177,12 @@ Por tanto, los avisos de isquiotibiales se clasifican como **limitaciones acepta
 La jerarquía anterior está implementada en el asignador de volumen, no es solo una nota de auditoría:
 
 - Cuádriceps, glúteos y gemelos/tríceps sural (`Calves`) comparten el objetivo predeterminado principal.
-- El objetivo predeterminado de isquiotibiales se reduce al 50 % del objetivo principal, con un mínimo de dos series primarias semanales. Las bisagras y los curls femorales compatibles siguen siendo opciones válidas.
+- Los isquiotibiales mantienen el rango general de hipertrofia, pero reciben una ponderación de asignación 0,5 cuando compiten por tiempo con cuádriceps, glúteos y gemelos. Las bisagras y los curls femorales compatibles siguen siendo opciones válidas.
 - Los accesorios de isquiotibiales ya no reservan automáticamente una plaza antes que los demás accesorios. Compiten con una ponderación menor; los profesionales pueden elevar o fijar su objetivo mediante preferencias explícitas.
 - Las preferencias profesionales explícitas siguen prevaleciendo sobre los valores predeterminados, incluidos los isquiotibiales.
 - Se añade una prueba que verifica los objetivos de cuádriceps, glúteos, gemelos e isquiotibiales y que el objetivo explícito del profesional no se altera.
 
-Esta política evita que el motor trate por igual todos los músculos ni que sacrifique trabajo prioritario para perseguir un objetivo nominal de isquiotibiales. El nuevo informe de evaluación debe confirmar que el cambio no introduce déficits relevantes de gemelos ni aumenta los de cuádriceps.
+Esta ponderación evita que el motor sacrifique trabajo prioritario para perseguir un objetivo nominal de isquiotibiales cuando el tiempo es limitado; no reduce el rango de hipertrofia que puede fijar el profesional. El nuevo informe de evaluación debe confirmar que el cambio no introduce déficits relevantes de gemelos ni aumenta los de cuádriceps.
 
 - Si el plan no contiene ningún ejercicio directo de gemelos, el asignador emite ahora un aviso explícito de ausencia de cobertura; ya no elimina silenciosamente ese músculo de la evaluación por no estar presente en la rutina inicial.
 
