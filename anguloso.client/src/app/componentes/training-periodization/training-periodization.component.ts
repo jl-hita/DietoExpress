@@ -419,15 +419,15 @@ interface RepDbExercise {
                 <details class="auto-advanced-settings full"><summary>Opciones avanzadas de la sesión</summary><div class="auto-advanced-grid"><label>Duración máxima por sesión<input type="number" name="autoMinutes{{plan.id}}" [(ngModel)]="autoMaximumMinutes" min="35" max="180" required /><small>Entre 35 y 180 minutos.</small></label><label>Material disponible (opcional)<input name="autoEquipment{{plan.id}}" [(ngModel)]="autoEquipmentCsv" placeholder="barbell, dumbbell, machine, cable, kettlebell, pull-up-bar" /><small>Guiones y guiones bajos son equivalentes. «machine» incluye máquinas específicas; puedes usar «leg-press-machine» o «smith-machine» para restringir. Vacío = todo el material.</small></label></div></details>
                 <section class="muscle-preference-editor full">
                   <h5>Prioridades musculares (opcional)</h5>
-                  <p>Personaliza la dosis de series primarias semanales. Si indicas un objetivo explícito, este prevalece sobre la prioridad.</p>
+                  <p>Personaliza la dosis semanal de series efectivas estimadas. Se cuentan las contribuciones musculares relevantes de cada ejercicio, no solo la etiqueta primaria del catálogo. El objetivo explícito prevalece sobre la prioridad.</p>
                   <div class="muscle-preference-list">
                     <div *ngFor="let muscle of autoMusclePreferences" class="muscle-preference-row">
                       <label class="muscle-preference-enable"><input type="checkbox" [name]="'muscleEnabled' + plan.id + muscle.muscleGroup" [(ngModel)]="muscle.enabled" />{{ muscle.label }}</label>
                       <label>Prioridad<select [name]="'musclePriority' + plan.id + muscle.muscleGroup" [(ngModel)]="muscle.priority" [disabled]="!muscle.enabled"><option [ngValue]="0">Normal</option><option [ngValue]="1">+1</option><option [ngValue]="2">+2</option><option [ngValue]="3">+3</option></select></label>
-                      <label>Objetivo directo<input type="number" [name]="'muscleTarget' + plan.id + muscle.muscleGroup" [(ngModel)]="muscle.targetWeeklyPrimarySets" [disabled]="!muscle.enabled" min="1" max="20" placeholder="Automático" /></label>
+                      <label>Objetivo semanal<input type="number" [name]="'muscleTarget' + plan.id + muscle.muscleGroup" [(ngModel)]="muscle.targetWeeklyPrimarySets" [disabled]="!muscle.enabled" min="1" max="30" placeholder="Automático" /></label>
                     </div>
                   </div>
-                  <small>La prioridad añade dos series primarias al objetivo base por nivel. Los objetivos explícitos admiten 1–20 series; el motor puede informar de déficits si el catálogo o el tiempo no permiten alcanzarlos.</small>
+                  <small>La prioridad añade dos series al objetivo central por nivel (máximo predeterminado 20). Para hipertrofia: principiante 8–12, intermedio 10–16 y avanzado 12–20; los objetivos priorizados o explícitos usan ±2. Los objetivos explícitos admiten 1–30 series. Si el tiempo o el catálogo no permiten alcanzar el rango, el motor informa del déficit.</small>
                 </section>
                 <div class="full auto-generate-action"><button type="button" aria-label="Generar mesociclo automático" (click)="previewGeneratedMesocycle(plan)" [disabled]="saving || generatingPlan">{{ generatingPlan ? 'Preparando propuesta…' : '✦ Generar propuesta de entrenamiento' }}</button><small>Se crearán {{ autoDurationWeeks }} semanas. Podrás revisar las sesiones y la cobertura muscular antes de guardar.</small></div>
               </div>
@@ -1785,8 +1785,8 @@ export class TrainingPeriodizationComponent implements OnInit, OnDestroy {
       if (!Number.isInteger(item.priority) || item.priority < 0 || item.priority > 3)
         return 'La prioridad de ' + item.label + ' debe estar entre 0 y 3.';
       if (item.targetWeeklyPrimarySets !== null &&
-          (!Number.isInteger(item.targetWeeklyPrimarySets) || item.targetWeeklyPrimarySets < 1 || item.targetWeeklyPrimarySets > 20))
-        return 'El objetivo directo de ' + item.label + ' debe ser un número entero entre 1 y 20.';
+          (!Number.isInteger(item.targetWeeklyPrimarySets) || item.targetWeeklyPrimarySets < 1 || item.targetWeeklyPrimarySets > 30))
+        return 'El objetivo semanal de ' + item.label + ' debe ser un número entero entre 1 y 30.';
     }
     return '';
   }
