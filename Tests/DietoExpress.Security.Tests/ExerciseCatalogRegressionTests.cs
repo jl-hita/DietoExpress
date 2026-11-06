@@ -593,4 +593,40 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("external rotation", autoReviewer);
     }
 
+
+    [Fact]
+    public void RepDbAutoReviewer_ClassifiesKneeFlexionHamstringCurlsAsAccessories()
+    {
+        var reviewerType = typeof(TrainingProgramGenerator).Assembly
+            .GetType("Anguloso.Server.Logica.RepDbExerciseAutoReviewer");
+        Assert.NotNull(reviewerType);
+        var method = reviewerType!.GetMethod(
+            "InferPattern",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        string? Pattern(string id, string es, string en) =>
+            (string?)method!.Invoke(null, new object?[]
+            {
+                id, es, en, "[]", "pull", "isolation", "lower_legs", ["hamstrings"]
+            });
+
+        Assert.Equal("Accessory", Pattern("leg-curl", "Curl femoral", "Leg Curl"));
+        Assert.Equal("Accessory", Pattern("seated-leg-curl", "Curl femoral sentado", "Seated Leg Curl"));
+        Assert.Equal("Accessory", Pattern("nordic-hamstring-curl", "Curl nórdico", "Nordic Hamstring Curl"));
+        Assert.Equal("Hinge", Pattern("romanian-deadlift", "Peso muerto rumano", "Romanian Deadlift"));
+        Assert.Equal("Hinge", Pattern("dumbbell-romanian-deadlift", "Peso muerto rumano con mancuernas", "Dumbbell Romanian Deadlift"));
+    }
+
+    [Fact]
+    public void RepDbLegCurlPatternMigration_OnlyTouchesAutomaticRepDbApprovals()
+    {
+        var service = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "ExerciseCatalogService.cs"));
+        Assert.Contains("EnsureRepDbLegCurlPatternCurationV1Async", service);
+        Assert.Contains("exercise-catalog-repdb-leg-curl-accessory-pattern-v1", service);
+        Assert.Contains("reviewed_by LIKE 'RepDB automatic metadata%'", service);
+        Assert.Contains("owner_user_id IS NULL", service);
+        Assert.Contains("nordic-hamstring-curl", service);
+    }
+
 }
