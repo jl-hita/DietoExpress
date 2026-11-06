@@ -120,7 +120,8 @@ internal static class RepDbExerciseAutoReviewer
             "bulgarian-split-squat" or "reverse-lunge" or "step-ups" => "SingleLeg",
             // Knee-flexion hamstring work is isolation, not a hip hinge. Keep these exercises
             // available to the accessory selector instead of letting deadlift variants displace them.
-            "leg-curl" or "seated-leg-curl" or "nordic-hamstring-curl" => "Accessory",
+            "leg-curl" or "seated-leg-curl" or "nordic-hamstring-curl"
+                or "ball-leg-curl" or "banded-standing-curl" or "trx-hamstring-curl" => "Accessory",
             _ => (string?)null
         };
         if (explicitPattern is not null) return explicitPattern;
