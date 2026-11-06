@@ -358,6 +358,17 @@ public sealed class ExerciseCatalogRegressionTests
     }
 
     [Fact]
+    public void RepDbAutomaticMetadataRefresh_IsVersionedAndNeverTouchesHumanReviews()
+    {
+        var service = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "ExerciseCatalogService.cs"));
+        Assert.Contains("EnsureRepDbAutomaticMetadataRefreshV1Async", service);
+        Assert.Contains("exercise-catalog-repdb-automatic-metadata-refresh-v1", service);
+        Assert.Contains("reviewed_by LIKE 'RepDB automatic metadata%'", service);
+        Assert.Contains("review_status = 'pending', reviewed = FALSE", service);
+        Assert.Contains("RepDB automatic metadata v5", service);
+    }
+
+    [Fact]
     public void RepDbSelectionPriority_PrefersScalableBasicsAndLoadedAccessories()
     {
         var reviewerType = typeof(TrainingProgramGenerator).Assembly
