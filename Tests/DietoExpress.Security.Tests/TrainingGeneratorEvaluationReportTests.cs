@@ -122,9 +122,10 @@ public sealed class TrainingGeneratorEvaluationReportTests
         Assert.Equal(0, report.HardViolationCount);
         var selectedExerciseIds = scenarios.SelectMany(scenario => scenario.Metrics.ExerciseSelectionCounts.Keys)
             .ToHashSet(StringComparer.Ordinal);
-        Assert.Contains("leg-extension", selectedExerciseIds);
         Assert.Contains("leg-curl", selectedExerciseIds);
         Assert.Contains("lateral-raise", selectedExerciseIds);
+        Assert.Contains(scenarios.SelectMany(scenario => scenario.Plan!.QualityReport!.Warnings),
+            warning => warning.Contains("estimación de volumen efectivo", StringComparison.OrdinalIgnoreCase));
         Assert.All(scenarios, scenario =>
         {
             Assert.NotNull(scenario.Plan!.QualityReport);
