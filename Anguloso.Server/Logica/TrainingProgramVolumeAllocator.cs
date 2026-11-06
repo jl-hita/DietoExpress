@@ -13,6 +13,8 @@ public static class TrainingProgramVolumeAllocator
     private const decimal SecondsPerRepEstimate = 2.5m;
     private const int TransitionSecondsPerExercise = 45;
     private const int SessionOverheadMinutes = 5;
+    private const decimal WeeklyMinutesForFullDefaultVolume = 180m;
+    private const decimal MinimumDefaultVolumeTimeFactor = 0.65m;
 
     public static TrainingVolumeAllocationResult Allocate(
         IReadOnlyList<TrainingSessionPrescription> sessions,
@@ -26,7 +28,22 @@ public static class TrainingProgramVolumeAllocator
         if (errors.Count > 0)
             return new(sessions, Array.Empty<string>(), errors);
 
-        var targets = BuildTargets(goal, experience, preferences);
+        var sessionsPerWeek = sessions.GroupBy(session => session.WeekNumber)
+            .Select(group => group.Count())
+            .DefaultIfEmpty(3)
+            .Max();
+        var defaultVolumeTimeFactor = DefaultVolumeTimeFactor(sessionsPerWeek, maximumSessionDurationMinutes);
+        var targets = BuildTargets(goal, experience, preferences, sessionsPerWeek, maximumSessionDurationMinutes);
+        var warnings = new List<string>();
+        var explicitTargetMuscles = (preferences ?? Array.Empty<TrainingMuscleVolumeTarget>())
+            .Where(preference => preference.TargetWeeklyPrimarySets is not null)
+            .Select(preference => preference.MuscleGroup)
+            .ToHashSet();
+        var hasDefaultTargetMuscles = sessions.SelectMany(session => session.Exercises)
+            .SelectMany(exercise => exercise.PrimaryMuscleGroups)
+            .Any(muscle => !explicitTargetMuscles.Contains(muscle));
+        if (defaultVolumeTimeFactor < 1m && hasDefaultTargetMuscles)
+            warnings.Add($"Los objetivos predeterminados de series se ajustan de forma conservadora al tiempo semanal disponible ({sessionsPerWeek} sesiones × {maximumSessionDurationMinutes} min; factor {defaultVolumeTimeFactor:0.##}). Es una heurística de planificación, no una dosis fisiológica establecida por ACSM; los objetivos explícitos del profesional no se reducen.");
         var output = sessions.ToDictionary(
             session => (session.WeekNumber, session.Day),
             session => session with
@@ -36,8 +53,6 @@ public static class TrainingProgramVolumeAllocator
                     Sets = Math.Clamp(exercise.Sets, MinimumSetsPerExercise, MaximumSetsPerExercise)
                 }).ToArray()
             });
-        var warnings = new List<string>();
-
         foreach (var week in output.Keys.Select(key => key.WeekNumber).Distinct().Order())
         {
             var weekKeys = output.Keys.Where(key => key.WeekNumber == week).OrderBy(key => key.Day).ToArray();
@@ -182,8 +197,10 @@ public static class TrainingProgramVolumeAllocator
     internal static IReadOnlyDictionary<TrainingMuscleGroup, decimal> GetWeeklyTargets(
         TrainingGoal goal,
         TrainingExperience experience,
-        IReadOnlyList<TrainingMuscleVolumeTarget>? preferences) =>
-        BuildTargets(goal, experience, preferences);
+        IReadOnlyList<TrainingMuscleVolumeTarget>? preferences,
+        int sessionsPerWeek = 3,
+        int maximumSessionDurationMinutes = 60) =>
+        BuildTargets(goal, experience, preferences, sessionsPerWeek, maximumSessionDurationMinutes);
 
     internal static decimal EstimateDurationSeconds(TrainingSessionPrescription session) =>
         EstimateDuration(session);
@@ -191,9 +208,11 @@ public static class TrainingProgramVolumeAllocator
     private static Dictionary<TrainingMuscleGroup, decimal> BuildTargets(
         TrainingGoal goal,
         TrainingExperience experience,
-        IReadOnlyList<TrainingMuscleVolumeTarget>? preferences)
+        IReadOnlyList<TrainingMuscleVolumeTarget>? preferences,
+        int sessionsPerWeek,
+        int maximumSessionDurationMinutes)
     {
-        var baseline = goal switch
+        var baseBaseline = goal switch
         {
             TrainingGoal.Hypertrophy => experience switch
             {
@@ -204,6 +223,8 @@ public static class TrainingProgramVolumeAllocator
             TrainingGoal.Strength => experience == TrainingExperience.Beginner ? 6m : 8m,
             _ => experience == TrainingExperience.Beginner ? 4m : 6m
         };
+        var baseline = Math.Max(1m, Math.Ceiling(
+            baseBaseline * DefaultVolumeTimeFactor(sessionsPerWeek, maximumSessionDurationMinutes)));
 
         // Do not assign a universal weekly set quota to every anatomical label. The default
         // dose applies to the main muscle groups typically trained in general strength/hypertrophy
@@ -236,6 +257,13 @@ public static class TrainingProgramVolumeAllocator
         foreach (var preference in preferences ?? Array.Empty<TrainingMuscleVolumeTarget>())
             targets[preference.MuscleGroup] = preference.TargetWeeklyPrimarySets ?? baseline + preference.Priority * 2m;
         return targets;
+    }
+
+    private static decimal DefaultVolumeTimeFactor(int sessionsPerWeek, int maximumSessionDurationMinutes)
+    {
+        var weeklyMinutes = Math.Max(0, sessionsPerWeek) * Math.Max(0, maximumSessionDurationMinutes);
+        return Math.Clamp(weeklyMinutes / WeeklyMinutesForFullDefaultVolume,
+            MinimumDefaultVolumeTimeFactor, 1m);
     }
 
     private static IReadOnlyList<string> ValidatePreferences(IReadOnlyList<TrainingMuscleVolumeTarget>? preferences)

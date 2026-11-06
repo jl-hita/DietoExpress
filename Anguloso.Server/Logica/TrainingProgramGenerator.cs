@@ -357,7 +357,8 @@ public static class TrainingProgramGenerator
         int daysPerWeek)
     {
         var targets = TrainingProgramVolumeAllocator.GetWeeklyTargets(
-            request.Goal, request.Experience, request.MuscleVolumeTargets);
+            request.Goal, request.Experience, request.MuscleVolumeTargets,
+            daysPerWeek, request.MaximumSessionDurationMinutes);
         var catalogCandidates = catalog.ToArray();
         var isFullBody = title.Contains("completo", StringComparison.OrdinalIgnoreCase);
         // Short sessions must protect time for the core movement patterns. Accessory slots

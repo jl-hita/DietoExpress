@@ -194,6 +194,38 @@ public sealed class TrainingProgramVolumeAllocatorTests
     }
 
     [Fact]
+    public void DefaultWeeklyVolumeTargetsScaleWithTimeBudgetButExplicitProfessionalTargetsDoNot()
+    {
+        var shortSchedule = new[]
+        {
+            Session(new TrainingExercisePrescription("bench", "v1", "Press banca", 1, 1, 8, 12, 2m, 120,
+                TrainingProgressionRule.DoubleProgression, "test", [TrainingMuscleGroup.Chest], [])),
+            new TrainingSessionPrescription(1, DayOfWeek.Thursday, "Sesión B", 5,
+            [
+                new TrainingExercisePrescription("bench", "v1", "Press banca", 1, 1, 8, 12, 2m, 120,
+                    TrainingProgressionRule.DoubleProgression, "test", [TrainingMuscleGroup.Chest], [])
+            ])
+        };
+
+        var shortBudget = TrainingProgramVolumeAllocator.Allocate(
+            shortSchedule, TrainingGoal.Hypertrophy, TrainingExperience.Intermediate, null, 35);
+        var fullBudget = TrainingProgramVolumeAllocator.Allocate(
+            shortSchedule, TrainingGoal.Hypertrophy, TrainingExperience.Intermediate, null, 90);
+        var explicitTarget = TrainingProgramVolumeAllocator.Allocate(
+            shortSchedule, TrainingGoal.Hypertrophy, TrainingExperience.Intermediate,
+            [new TrainingMuscleVolumeTarget(TrainingMuscleGroup.Chest, TargetWeeklyPrimarySets: 8m)], 35);
+
+        Assert.True(shortBudget.Succeeded, string.Join("; ", shortBudget.Errors));
+        Assert.True(fullBudget.Succeeded, string.Join("; ", fullBudget.Errors));
+        Assert.True(explicitTarget.Succeeded, string.Join("; ", explicitTarget.Errors));
+        Assert.Equal(6, shortBudget.Sessions.Sum(session => session.Exercises.Single().Sets));
+        Assert.Equal(8, fullBudget.Sessions.Sum(session => session.Exercises.Single().Sets));
+        Assert.Equal(8, explicitTarget.Sessions.Sum(session => session.Exercises.Single().Sets));
+        Assert.Contains(shortBudget.Warnings, warning => warning.Contains("tiempo semanal disponible", StringComparison.Ordinal));
+        Assert.DoesNotContain(fullBudget.Warnings, warning => warning.Contains("tiempo semanal disponible", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void DuplicateOrOutOfRangeMusclePreferencesAreRejected()
     {
         var session = Session(new TrainingExercisePrescription("bench", "v1", "Press banca", 1, 1, 8, 12, 2m, 120,
