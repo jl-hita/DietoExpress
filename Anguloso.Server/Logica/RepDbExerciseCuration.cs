@@ -175,6 +175,7 @@ internal static class RepDbExerciseCuration
         "nordic-hamstring-curl",
         "standing-calf-raise",
         "seated-calf-raise",
+        "kettlebell-tibialis-raise",
         "cable-external-rotation",
         "hip-adduction",
         "standing-hip-abduction",
