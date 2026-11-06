@@ -86,6 +86,10 @@ public static class TrainingProgramGenerator
                         candidate.SecondaryMuscleGroups.ToArray()));
                 }
 
+                AddOptionalAccessoryExercises(
+                    request, catalog, equipment, excluded, selectedThisWeek, sessions,
+                    prescriptions, week, days[dayIndex], sessionTemplate.Title, days.Length);
+
                 // Final duration is calculated after weekly sets have been allocated.
                 sessions.Add(new TrainingSessionPrescription(
                     week,
@@ -106,7 +110,7 @@ public static class TrainingProgramGenerator
             ? ApplyConservativeDeload(allocation.Sessions)
             : allocation.Sessions;
         var plan = new TrainingProgramPrescription(
-            "0.7.0",
+            "0.8.0",
             request.Goal.ToString(),
             request.StartDate,
             request.DurationWeeks,
@@ -257,6 +261,106 @@ public static class TrainingProgramGenerator
         return errors;
     }
 
+    private static void AddOptionalAccessoryExercises(
+        TrainingProgramGenerationRequest request,
+        IReadOnlyList<TrainingExerciseCandidate> catalog,
+        HashSet<string> equipment,
+        HashSet<string> excluded,
+        HashSet<string> selectedThisWeek,
+        IReadOnlyList<TrainingSessionPrescription> previousSessions,
+        List<TrainingExercisePrescription> currentExercises,
+        int week,
+        DayOfWeek day,
+        string title,
+        int daysPerWeek)
+    {
+        var targets = TrainingProgramVolumeAllocator.GetWeeklyTargets(
+            request.Goal, request.Experience, request.MuscleVolumeTargets);
+        var slots = daysPerWeek <= 3 ? 2 : 1;
+
+        for (var slot = 0; slot < slots; slot++)
+        {
+            var currentPrimaryVolume = new Dictionary<TrainingMuscleGroup, decimal>();
+            foreach (var exercise in previousSessions.Where(session => session.WeekNumber == week)
+                         .SelectMany(session => session.Exercises).Concat(currentExercises))
+            foreach (var muscle in exercise.PrimaryMuscleGroups.Distinct())
+                currentPrimaryVolume[muscle] = currentPrimaryVolume.GetValueOrDefault(muscle) + 1m;
+
+            var candidates = catalog
+                .Where(candidate => candidate.MovementPattern == TrainingMovementPattern.Accessory
+                    && (candidate.IsReviewed || candidate.IsOwnedByCurrentProfessional)
+                    && candidate.SuitableGoals.Contains(request.Goal)
+                    && (int)candidate.MinimumExperience <= (int)request.Experience
+                    && (equipment.Count == 0 || candidate.RequiredEquipment.All(equipment.Contains))
+                    && !excluded.Contains(candidate.ExerciseId)
+                    && !selectedThisWeek.Contains(candidate.ExerciseId))
+                .Select(candidate => new
+                {
+                    Candidate = candidate,
+                    Score = AccessoryDeficitScore(candidate, currentPrimaryVolume, targets)
+                })
+                .Where(item => item.Score > 0m)
+                .OrderByDescending(item => item.Score)
+                .ThenByDescending(item => item.Candidate.SelectionPriority)
+                .ThenBy(item => item.Candidate.ExerciseId, StringComparer.Ordinal)
+                .ToArray();
+
+            var selected = false;
+            foreach (var item in candidates)
+            {
+                var candidate = item.Candidate;
+                var (sets, minReps, maxReps, rir, rest, progression) = PrescriptionFor(
+                    request.Goal, request.Experience, week, daysPerWeek, TrainingMovementPattern.Accessory);
+                var underTargetMuscles = candidate.PrimaryMuscleGroups.Distinct()
+                    .Where(muscle => currentPrimaryVolume.GetValueOrDefault(muscle) < targets.GetValueOrDefault(muscle))
+                    .ToArray();
+                var prescription = new TrainingExercisePrescription(
+                    candidate.ExerciseId,
+                    candidate.CatalogVersion,
+                    candidate.Name,
+                    currentExercises.Count + 1,
+                    sets,
+                    minReps,
+                    maxReps,
+                    rir,
+                    rest,
+                    progression,
+                    $"Accesorio seleccionado para atender el déficit primario de {string.Join(", ", underTargetMuscles)} sin sustituir los patrones básicos; metadatos {(candidate.IsReviewed ? "revisados" : "aportados por el profesional propietario")}.",
+                    candidate.PrimaryMuscleGroups.ToArray(),
+                    candidate.SecondaryMuscleGroups.ToArray());
+
+                var durationSession = new TrainingSessionPrescription(
+                    week,
+                    day,
+                    title,
+                    WarmupAndTransitionsMinutes,
+                    currentExercises.Append(prescription).Select(exercise => exercise with { Sets = 1 }).ToArray());
+                if (TrainingProgramVolumeAllocator.EstimateDurationSeconds(durationSession) >
+                    request.MaximumSessionDurationMinutes * 60m)
+                    continue;
+
+                currentExercises.Add(prescription);
+                selectedThisWeek.Add(candidate.ExerciseId);
+                selected = true;
+                break;
+            }
+
+            if (!selected)
+                break;
+        }
+    }
+
+    private static decimal AccessoryDeficitScore(
+        TrainingExerciseCandidate candidate,
+        IReadOnlyDictionary<TrainingMuscleGroup, decimal> currentPrimaryVolume,
+        IReadOnlyDictionary<TrainingMuscleGroup, decimal> targets)
+    {
+        var muscles = candidate.PrimaryMuscleGroups.Distinct().Where(targets.ContainsKey).ToArray();
+        if (muscles.Length == 0) return 0m;
+        return muscles.Average(muscle =>
+            Math.Max(0m, targets[muscle] - currentPrimaryVolume.GetValueOrDefault(muscle)));
+    }
+
     private static IReadOnlyList<SessionTemplate> BuildSplit(int daysPerWeek)
     {
         var fullBodyA = new SessionTemplate("Cuerpo completo A",
@@ -288,6 +392,9 @@ public static class TrainingProgramGenerator
         PrescriptionFor(TrainingGoal goal, TrainingExperience experience, int week, int daysPerWeek, TrainingMovementPattern pattern)
     {
         var beginner = experience == TrainingExperience.Beginner;
+        if (pattern == TrainingMovementPattern.Accessory)
+            return (1, goal == TrainingGoal.Strength ? 8 : 10, 15,
+                beginner ? 3m : 2m, 90, TrainingProgressionRule.DoubleProgression);
         var baseline = goal switch
         {
             TrainingGoal.Strength => (Sets: 1, MinReps: 5, MaxReps: 8, Rir: beginner ? 3m : 2m, RestSeconds: 180),
@@ -357,5 +464,6 @@ public enum TrainingMovementPattern
     HorizontalPull,
     VerticalPull,
     SingleLeg,
-    Core
+    Core,
+    Accessory
 }
