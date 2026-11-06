@@ -76,8 +76,15 @@ public static class TrainingProgramVolumeAllocator
                         var score = DeficitScore(exercise, primaryVolume, applicableTargets);
                         if (score <= 0m)
                             continue;
-                        var candidate = new AllocationCandidate(sessionIndex, exerciseIndex, score);
-                        if (best is null || candidate.Score > best.Score)
+                        var localPrimaryVolume = exercise.PrimaryMuscleGroups.Distinct()
+                            .Select(muscle => session.Exercises
+                                .Where(item => item.PrimaryMuscleGroups.Contains(muscle))
+                                .Sum(item => item.Sets))
+                            .DefaultIfEmpty(0)
+                            .Average();
+                        var candidate = new AllocationCandidate(sessionIndex, exerciseIndex, score, localPrimaryVolume);
+                        if (best is null || candidate.Score > best.Score ||
+                            (candidate.Score == best.Score && candidate.LocalPrimaryVolume < best.LocalPrimaryVolume))
                             best = candidate;
                     }
                 }
@@ -241,7 +248,8 @@ public static class TrainingProgramVolumeAllocator
             : $"{rationale} Ajuste de series por {marker} (motor 0.8.0).";
     }
 
-    private sealed record AllocationCandidate(int SessionIndex, int ExerciseIndex, decimal Score);
+    private sealed record AllocationCandidate(
+        int SessionIndex, int ExerciseIndex, decimal Score, decimal LocalPrimaryVolume);
 }
 
 public sealed record TrainingMuscleVolumeTarget(
