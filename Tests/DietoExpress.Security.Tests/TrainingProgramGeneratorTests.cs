@@ -363,6 +363,26 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
+    public void MainBilateralPatternsKeepAtLeastTwoBaseSetsWhileAccessoriesStayCompact()
+    {
+        var catalog = Catalog();
+        var patterns = catalog.ToDictionary(candidate => candidate.ExerciseId, candidate => candidate.MovementPattern,
+            StringComparer.Ordinal);
+        var result = TrainingProgramGenerator.Generate(
+            Request() with { MaximumSessionDurationMinutes = 90 }, catalog);
+
+        Assert.True(result.Succeeded, string.Join("; ", result.Errors));
+        foreach (var exercise in result.Prescription!.Sessions.SelectMany(session => session.Exercises))
+        {
+            var pattern = patterns[exercise.ExerciseId];
+            if (pattern is TrainingMovementPattern.Squat or TrainingMovementPattern.Hinge
+                or TrainingMovementPattern.HorizontalPush or TrainingMovementPattern.VerticalPush
+                or TrainingMovementPattern.HorizontalPull or TrainingMovementPattern.VerticalPull)
+                Assert.True(exercise.Sets >= 2, $"{exercise.ExerciseNameSnapshot} should retain its two-set base.");
+        }
+    }
+
+    [Fact]
     public void AccessorySlotsScaleDownForShortSessionsToProtectCoreMovementPatterns()
     {
         var catalog = Catalog();
