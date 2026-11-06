@@ -220,7 +220,6 @@ internal static class TrainingExerciseStimulus
             ["lat-pulldown"] = [TrainingMuscleGroup.Biceps],
             ["v-bar-lat-pulldown"] = [TrainingMuscleGroup.Biceps],
             ["assisted-pull-ups"] = [TrainingMuscleGroup.Biceps, TrainingMuscleGroup.Lats],
-            ["band-assisted-pull-ups"] = [TrainingMuscleGroup.Biceps, TrainingMuscleGroup.Lats],
             ["pull-up"] = [TrainingMuscleGroup.Biceps],
             ["chin-ups"] = [TrainingMuscleGroup.Biceps],
 
