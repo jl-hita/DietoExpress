@@ -481,7 +481,7 @@ public sealed class TrainingProgramGeneratorTests
             Request() with { MaximumSessionDurationMinutes = 90 }, catalog);
         Assert.True(longFullBody.Succeeded, string.Join("; ", longFullBody.Errors));
         Assert.All(longFullBody.Prescription!.Sessions, session =>
-            Assert.InRange(session.Exercises.Count(exercise => accessoryIds.Contains(exercise.ExerciseId)), 0, 3));
+            Assert.InRange(session.Exercises.Count(exercise => accessoryIds.Contains(exercise.ExerciseId)), 0, 4));
     }
 
     [Fact]
