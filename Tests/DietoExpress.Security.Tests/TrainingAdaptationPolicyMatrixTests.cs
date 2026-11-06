@@ -23,6 +23,7 @@ public sealed class TrainingAdaptationPolicyMatrixTests
         [new[] { new TrainingSessionFeedback(TrainingSessionOutcome.Partial, TrainingNonCompletionReason.Fatigue, TrainingRecoveryRating.Partial) }, TrainingAdaptationAction.HoldProgressionAndReview],
         [new[] { new TrainingSessionFeedback(TrainingSessionOutcome.Partial, TrainingNonCompletionReason.Illness, TrainingRecoveryRating.Partial) }, TrainingAdaptationAction.HoldProgressionAndReview],
         [new[] { new TrainingSessionFeedback(TrainingSessionOutcome.Partial, TrainingNonCompletionReason.Time) }, TrainingAdaptationAction.ReorganizeFutureSessions],
+        [new[] { new TrainingSessionFeedback(TrainingSessionOutcome.Partial, TrainingNonCompletionReason.Time, TrainingRecoveryRating.Insufficient) }, TrainingAdaptationAction.HoldProgressionAndReview],
         [new[] { new TrainingSessionFeedback(TrainingSessionOutcome.Partial, TrainingNonCompletionReason.Equipment) }, TrainingAdaptationAction.NoChange],
         [new[] { new TrainingSessionFeedback(TrainingSessionOutcome.NotCompleted, TrainingNonCompletionReason.Time) }, TrainingAdaptationAction.ReorganizeFutureSessions],
         [new[] { new TrainingSessionFeedback(TrainingSessionOutcome.NotCompleted, TrainingNonCompletionReason.Fatigue) }, TrainingAdaptationAction.HoldProgressionAndReview],

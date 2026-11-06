@@ -42,6 +42,16 @@ public sealed class TrainingAdaptationPolicyTests
     }
 
     [Fact]
+    public void PartialSessionForTimeWithInsufficientRecovery_HoldsBeforeReorganization()
+    {
+        var result = TrainingAdaptationPolicy.Evaluate([
+            new TrainingSessionFeedback(TrainingSessionOutcome.Partial, TrainingNonCompletionReason.Time,
+                Recovery: TrainingRecoveryRating.Insufficient, SetCompletionRatio: 0.9m)
+        ]);
+        Assert.Equal(TrainingAdaptationAction.HoldProgressionAndReview, result.Action);
+    }
+
+    [Fact]
     public void FatigueRelatedPartialSession_HoldsProgression()
     {
         var result = TrainingAdaptationPolicy.Evaluate([
