@@ -209,3 +209,5 @@ La matriz demuestra consistencia estructural, no validación clínica individual
 ### Descarga y progresión automática
 
 La descarga explícita de una semana conserva los ejercicios y reduce aproximadamente a la mitad las series, aumenta el RIR objetivo en dos puntos y, además, cambia la regla de progresión a `None` durante esa fase. Así el endpoint de progresión devuelve `not_applicable` y no recomienda aumentar carga durante una semana de recuperación. Al generar el siguiente bloque normal vuelve a aplicarse la doble progresión. La descarga sigue siendo una fase explícita de una semana, no un calendario automático fijo: la evidencia no justifica imponerla indiscriminadamente cada dos o tres semanas a todos los usuarios.
+
+- La señal reciente de dolor conserva precedencia incluso con `ProgressionRule.None`: el motor devuelve revisión de seguridad (`hold_and_review`) antes de indicar que la progresión no aplica. La descarga pausa la carga, pero no silencia señales de dolor.
