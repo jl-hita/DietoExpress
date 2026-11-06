@@ -261,6 +261,12 @@ public static class TrainingProgramVolumeAllocator
 
     private static decimal DefaultVolumeTimeFactor(int sessionsPerWeek, int maximumSessionDurationMinutes)
     {
+        // The generator requires at least two weekly sessions. A single-session allocation is
+        // also used for isolated allocator tests/drafts, so it cannot reliably represent a
+        // complete weekly time budget and must retain the unscaled baseline.
+        if (sessionsPerWeek < 2)
+            return 1m;
+
         var weeklyMinutes = Math.Max(0, sessionsPerWeek) * Math.Max(0, maximumSessionDurationMinutes);
         return Math.Clamp(weeklyMinutes / WeeklyMinutesForFullDefaultVolume,
             MinimumDefaultVolumeTimeFactor, 1m);
