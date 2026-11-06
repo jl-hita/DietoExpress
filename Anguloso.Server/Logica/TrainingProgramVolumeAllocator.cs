@@ -207,21 +207,29 @@ public static class TrainingProgramVolumeAllocator
         // programs. Smaller/accessory groups (e.g. hip flexors, obliques, adductors, abductors,
         // serratus, tibialis anterior and rotator cuff) receive direct volume when the professional
         // explicitly prioritizes them, rather than creating automatic deficits in every plan.
-        var defaultTargetMuscles = new[]
+        var primaryTargetMuscles = new[]
         {
             TrainingMuscleGroup.Chest,
             TrainingMuscleGroup.Lats,
             TrainingMuscleGroup.UpperBack,
             TrainingMuscleGroup.Deltoids,
-            TrainingMuscleGroup.Biceps,
-            TrainingMuscleGroup.Triceps,
             TrainingMuscleGroup.Glutes,
             TrainingMuscleGroup.Quadriceps,
-            TrainingMuscleGroup.Hamstrings,
+            TrainingMuscleGroup.Hamstrings
+        };
+        // Direct work for smaller muscles is supplemental to compound pressing/pulling and
+        // receives a lower default dose. Professionals can raise it explicitly with priorities.
+        var supplementalTargetMuscles = new[]
+        {
+            TrainingMuscleGroup.Biceps,
+            TrainingMuscleGroup.Triceps,
             TrainingMuscleGroup.Calves,
             TrainingMuscleGroup.Abdominals
         };
-        var targets = defaultTargetMuscles.ToDictionary(muscle => muscle, _ => baseline);
+        var targets = primaryTargetMuscles.ToDictionary(muscle => muscle, _ => baseline);
+        var supplementalBaseline = Math.Max(1m, Math.Ceiling(baseline / 2m));
+        foreach (var muscle in supplementalTargetMuscles)
+            targets[muscle] = supplementalBaseline;
         foreach (var preference in preferences ?? Array.Empty<TrainingMuscleVolumeTarget>())
             targets[preference.MuscleGroup] = preference.TargetWeeklyPrimarySets ?? baseline + preference.Priority * 2m;
         return targets;
