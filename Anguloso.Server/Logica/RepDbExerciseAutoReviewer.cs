@@ -258,6 +258,7 @@ internal static class RepDbExerciseAutoReviewer
         if (Has(v, "hack squat", "hack_squat")) return ["hack-squat-machine"];
         if (Has(v, "leg curl", "leg_curl")) return ["leg-curl-machine"];
         if (Has(v, "leg extension", "leg_extension")) return ["leg-extension-machine"];
+        if (Has(v, "smith")) return ["smith-machine"];
         if (Has(v, "hip abduction machine", "hip_abduction_machine", "hip adduction machine", "hip_adduction_machine")) return ["machine"];
         if (Has(v, "back extension machine", "back_extension_machine", "bicep curl machine", "bicep_curl_machine",
             "chest fly machine", "chest_fly_machine", "preacher curl machine", "preacher_curl_machine",
@@ -267,10 +268,9 @@ internal static class RepDbExerciseAutoReviewer
             "plate loaded lateral raise machine", "plate_loaded_lateral_raise_machine", "hip thrust machine", "hip_thrust_machine",
             "plate loaded dip machine", "plate_loaded_dip_machine", "shrug machine", "shrug_machine",
             "chest press machine", "chest_press_machine", "leg press", "leg_press", "hack squat", "hack_squat",
-            "leg curl", "leg_curl", "leg extension", "leg_extension", "pec deck", "pec_deck", "smith")) return ["machine"];
+            "leg curl", "leg_curl", "leg extension", "leg_extension", "pec deck", "pec_deck")) return ["machine"];
         if (Has(v, "machine", "máquina", "maquina")) return ["machine"];
         if (Has(v, "resistance band", "band", "banda elástica", "banda elastica")) return ["resistance-band"];
-        if (Has(v, "smith")) return ["smith-machine"];
         if (Has(v, "ez-bar", "ez_bar", "curl bar")) return ["ez-bar"];
         if (Has(v, "medicine ball", "medicine_ball", "balón medicinal", "balon medicinal")) return ["medicine-ball"];
         if (Has(v, "stability ball", "stability_ball")) return ["stability-ball"];
