@@ -20,6 +20,26 @@ public sealed class TrainingProgramVolumeAllocatorTests
     }
 
     [Fact]
+    public void QualityReportUsesTheSameEffectiveStimulusRulesAsTheAllocator()
+    {
+        var plan = new TrainingProgramPrescription(
+            "test", "Hypertrophy", new DateOnly(2026, 11, 6), 1,
+            [Session(new TrainingExercisePrescription(
+                "bench-press", "v1", "Press banca", 1, 2, 8, 12, 2m, 120,
+                TrainingProgressionRule.DoubleProgression, "test",
+                [TrainingMuscleGroup.Chest], [TrainingMuscleGroup.Triceps]))]);
+
+        var report = TrainingProgramQualityAnalyzer.Analyze(plan);
+        var triceps = report.WeeklyMuscleVolumes.Single().Muscles
+            .Single(muscle => muscle.MuscleGroup == TrainingMuscleGroup.Triceps);
+
+        Assert.Equal(0, triceps.PrimarySets);
+        Assert.Equal(2, triceps.SecondarySets);
+        Assert.Equal(2m, triceps.EstimatedEffectiveSets);
+        Assert.DoesNotContain("0,5", report.Methodology, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void IncidentalHamstringCoContractionInSquatsDoesNotCountAsHypertrophyVolume()
     {
         var session = Session(new TrainingExercisePrescription(
@@ -115,7 +135,7 @@ public sealed class TrainingProgramVolumeAllocatorTests
         Assert.True(result.Succeeded, string.Join("; ", result.Errors));
         Assert.Contains(result.Warnings, warning =>
             warning.Contains("Calves", StringComparison.Ordinal) &&
-            warning.Contains("no hay ningún ejercicio aprobado", StringComparison.Ordinal));
+            warning.Contains("no hay ningún ejercicio disponible", StringComparison.Ordinal));
     }
 
     [Fact]
