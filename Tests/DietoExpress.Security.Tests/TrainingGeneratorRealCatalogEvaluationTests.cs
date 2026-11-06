@@ -109,6 +109,10 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                 var candidate = candidates.Single(item => item.ExerciseId == exerciseId);
                 Assert.Equal(TrainingMovementPattern.Accessory, candidate.MovementPattern);
             }
+            var reverseNordic = candidates.Single(candidate => candidate.ExerciseId == "reverse-nordic-curl");
+            Assert.Equal(TrainingMovementPattern.Accessory, reverseNordic.MovementPattern);
+            Assert.Contains(TrainingMuscleGroup.Quadriceps, reverseNordic.PrimaryMuscleGroups);
+            Assert.Empty(reverseNordic.RequiredEquipment);
             await using (var reviewAudit = new NpgsqlCommand("""
                 SELECT exercise_id, review_status,
                        COALESCE(review_notes, ''),
@@ -322,6 +326,9 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         var intermediateHomeScenario = scenarioResults.Single(result =>
             result.ScenarioId == "profile-homegymwithbandsandball-goal-hypertrophy-experience-intermediate-days-2-minutes-90");
         Assert.Contains("ball-leg-curl", intermediateHomeScenario.SelectedExerciseIds);
+        var noMachineQuadScenario = scenarioResults.Single(result =>
+            result.ScenarioId == "profile-nocableormachines-goal-hypertrophy-experience-intermediate-days-2-minutes-90");
+        Assert.Contains("reverse-nordic-curl", noMachineQuadScenario.SelectedExerciseIds);
         Assert.All(scenarioResults, result =>
         {
             Assert.NotNull(result.MaximumEstimatedMinutes);
