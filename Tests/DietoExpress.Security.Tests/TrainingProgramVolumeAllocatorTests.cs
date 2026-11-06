@@ -6,18 +6,59 @@ namespace DietoExpress.Security.Tests;
 public sealed class TrainingProgramVolumeAllocatorTests
 {
     [Fact]
-    public void SecondaryContributionIsReportedAtHalfCreditWithoutReplacingRawCounts()
+    public void BenchPressCountsMeaningfulTricepsStimulusAsAFullSet()
     {
         var session = Session(new TrainingExercisePrescription(
-            "bench", "v1", "Press banca", 1, 2, 8, 12, 2m, 120,
+            "bench-press", "v1", "Press banca", 1, 2, 8, 12, 2m, 120,
             TrainingProgressionRule.DoubleProgression, "test",
             [TrainingMuscleGroup.Chest], [TrainingMuscleGroup.Triceps]));
 
         var volume = TrainingProgramVolumeAllocator.CalculateEffectiveVolume([session]);
 
         Assert.Equal(2m, volume[TrainingMuscleGroup.Chest]);
-        Assert.Equal(1m, volume[TrainingMuscleGroup.Triceps]);
-        Assert.Equal(0.5m, TrainingProgramVolumeAllocator.SecondarySetCredit);
+        Assert.Equal(2m, volume[TrainingMuscleGroup.Triceps]);
+    }
+
+    [Fact]
+    public void IncidentalHamstringCoContractionInSquatsDoesNotCountAsHypertrophyVolume()
+    {
+        var session = Session(new TrainingExercisePrescription(
+            "squat", "v1", "Sentadilla", 1, 3, 8, 12, 2m, 120,
+            TrainingProgressionRule.DoubleProgression, "test",
+            [TrainingMuscleGroup.Quadriceps], [TrainingMuscleGroup.Hamstrings]));
+
+        var volume = TrainingProgramVolumeAllocator.CalculateEffectiveVolume([session]);
+
+        Assert.Equal(3m, volume[TrainingMuscleGroup.Quadriceps]);
+        Assert.DoesNotContain(TrainingMuscleGroup.Hamstrings, volume.Keys);
+    }
+
+    [Theory]
+    [InlineData(TrainingExperience.Beginner, 8, 12, 10)]
+    [InlineData(TrainingExperience.Intermediate, 10, 16, 13)]
+    [InlineData(TrainingExperience.Advanced, 12, 20, 16)]
+    public void HypertrophyDefaultsUseAgreedExperienceRanges(
+        TrainingExperience experience, decimal minimum, decimal maximum, decimal target)
+    {
+        var targets = TrainingProgramVolumeAllocator.GetWeeklyTargets(
+            TrainingGoal.Hypertrophy, experience, null, sessionsPerWeek: 3, maximumSessionDurationMinutes: 60);
+
+        Assert.Equal(target, targets[TrainingMuscleGroup.Chest]);
+        Assert.Equal(target, targets[TrainingMuscleGroup.Biceps]);
+        Assert.Equal(target, targets[TrainingMuscleGroup.Triceps]);
+        Assert.Equal(target, targets[TrainingMuscleGroup.Hamstrings]);
+        Assert.Equal(minimum, target - (experience == TrainingExperience.Beginner ? 2m : experience == TrainingExperience.Intermediate ? 3m : 4m));
+        Assert.Equal(maximum, target + (experience == TrainingExperience.Beginner ? 2m : experience == TrainingExperience.Intermediate ? 3m : 4m));
+    }
+
+    [Fact]
+    public void ExplicitTwentySeriesHypertrophyTargetUsesEighteenToTwentyTwoRange()
+    {
+        var target = new TrainingMuscleVolumeTarget(TrainingMuscleGroup.Chest, TargetWeeklyPrimarySets: 20m);
+        var targets = TrainingProgramVolumeAllocator.GetWeeklyTargets(
+            TrainingGoal.Hypertrophy, TrainingExperience.Advanced, [target], sessionsPerWeek: 3, maximumSessionDurationMinutes: 60);
+
+        Assert.Equal(20m, targets[TrainingMuscleGroup.Chest]);
     }
 
     [Fact]
