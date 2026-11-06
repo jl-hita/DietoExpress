@@ -1021,7 +1021,7 @@ public sealed class ExerciseCatalogService
                     reviewed_secondary_muscles = @secondary::jsonb,
                     reviewed_minimum_experience = @experience,
                     reviewed_suitable_goals = @goals::jsonb,
-                    reviewed_required_equipment ILIKE '%' || @equipment || '%'::jsonb,
+                    reviewed_required_equipment = @equipment::jsonb,
                     reviewed_selection_priority = @priority,
                     review_notes = @notes, reviewed_at = NOW(),
                     reviewed_by = 'RepDB automatic metadata v2', updated_at = NOW()
