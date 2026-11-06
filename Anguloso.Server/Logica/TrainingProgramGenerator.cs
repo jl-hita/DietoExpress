@@ -439,14 +439,17 @@ public static class TrainingProgramGenerator
         PrescriptionFor(TrainingGoal goal, TrainingExperience experience, int week, int daysPerWeek, TrainingMovementPattern pattern)
     {
         var beginner = experience == TrainingExperience.Beginner;
-        if (pattern == TrainingMovementPattern.Accessory)
+        if (pattern is TrainingMovementPattern.Accessory or TrainingMovementPattern.Core or TrainingMovementPattern.SingleLeg)
             return (1, goal == TrainingGoal.Strength ? 8 : 10, 15,
-                beginner ? 3m : 2m, 90, TrainingProgressionRule.DoubleProgression);
+                beginner ? 3m : 2m, pattern == TrainingMovementPattern.Core ? 60 : 90,
+                TrainingProgressionRule.DoubleProgression);
+        // Give the main bilateral compound patterns a two-set starting dose. The allocator
+        // preserves this baseline and adds volume only where the weekly targets and time allow.
         var baseline = goal switch
         {
-            TrainingGoal.Strength => (Sets: 1, MinReps: 5, MaxReps: 8, Rir: beginner ? 3m : 2m, RestSeconds: 180),
-            TrainingGoal.Hypertrophy => (Sets: 1, MinReps: 8, MaxReps: 12, Rir: beginner ? 3m : 2m, RestSeconds: 120),
-            _ => (Sets: 1, MinReps: 8, MaxReps: 15, Rir: 3m, RestSeconds: 90)
+            TrainingGoal.Strength => (Sets: 2, MinReps: 5, MaxReps: 8, Rir: beginner ? 3m : 2m, RestSeconds: 180),
+            TrainingGoal.Hypertrophy => (Sets: 2, MinReps: 8, MaxReps: 12, Rir: beginner ? 3m : 2m, RestSeconds: 120),
+            _ => (Sets: 2, MinReps: 8, MaxReps: 15, Rir: 3m, RestSeconds: 90)
         };
         return (baseline.Sets, baseline.MinReps, baseline.MaxReps, baseline.Rir,
             baseline.RestSeconds, TrainingProgressionRule.DoubleProgression);
