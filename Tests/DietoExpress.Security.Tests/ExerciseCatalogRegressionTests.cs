@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text.Json;
 using Anguloso.Server.Logica;
 using Xunit;
 
@@ -15,6 +16,40 @@ public sealed class ExerciseCatalogRegressionTests
                 directory = directory.Parent;
             return directory?.FullName ?? throw new InvalidOperationException("No se encontró la raíz del repositorio.");
         }
+    }
+
+    [Theory]
+    [InlineData("barbell-curl", "Curl con Barra", "Barbell Curl", "barbell", "Beginner")]
+    [InlineData("cable-curl", "Curl con Cable", "Cable Curl", "cable", "Beginner")]
+    [InlineData("incline-db-curl", "Curl con mancuernas en banco inclinado", "Incline Dumbbell Curl", "dumbbell", "Intermediate")]
+    public void RepDbAutoReviewer_ApprovesCuratedBicepsCurlVariants(
+        string id, string nameEs, string nameEn, string equipment, string difficulty)
+    {
+        var metadata = RepDbExerciseAutoReviewer.TryBuild(
+            id,
+            nameEs,
+            nameEn,
+            "Ejercicio de aislamiento para trabajar los flexores del codo.",
+            JsonSerializer.Serialize(new[]
+            {
+                "Flexiona el codo manteniendo el brazo y el tronco estables.",
+                "Desciende la carga lentamente hasta la extensión controlada."
+            }),
+            difficulty,
+            equipment,
+            "pull",
+            "isolation",
+            "upper_arms",
+            JsonSerializer.Serialize(new[] { "biceps_brachii" }),
+            JsonSerializer.Serialize(new[] { "brachialis" }),
+            JsonSerializer.Serialize(new[] { "hypertrophy" }),
+            "[]",
+            false);
+
+        Assert.NotNull(metadata);
+        Assert.Equal("Accessory", metadata.MovementPattern);
+        Assert.Equal(["Biceps"], metadata.PrimaryMuscles);
+        Assert.Contains(equipment, metadata.RequiredEquipment);
     }
 
     [Fact]
