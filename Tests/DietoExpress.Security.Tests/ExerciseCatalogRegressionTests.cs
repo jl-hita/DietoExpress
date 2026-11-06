@@ -445,7 +445,7 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.NotNull(curationType);
         var ids = (string[])curationType!.GetField(
             "CuratedCatalogIds", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.GetValue(null)!;
-        Assert.Equal(96, ids.Length);
+        Assert.Equal(97, ids.Length);
         Assert.Equal(ids.Length, ids.Distinct(StringComparer.OrdinalIgnoreCase).Count());
         Assert.Contains("bench-press", ids);
         Assert.Contains("lat-pulldown", ids);
@@ -463,6 +463,7 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("straight-arm-pulldown", ids);
         Assert.Contains("overhead-tricep-extension", ids);
         Assert.Contains("incline-push-ups", ids);
+        Assert.Contains("db-fly", ids);
         Assert.Contains("kettlebell-tibialis-raise", ids);
         var curateVariationGroup = curationType.GetMethod(
             "CurateVariationGroup", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public);
