@@ -132,6 +132,37 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                     .OrderBy(id => id, StringComparer.Ordinal)
                     .ToArray();
 
+                var primaryMuscleSetsPerWeek = sessions
+                    .SelectMany(session => session.Exercises.SelectMany(exercise => exercise.PrimaryMuscleGroups
+                        .Select(muscle => new { Muscle = muscle.ToString(), session.WeekNumber, exercise.Sets })))
+                    .GroupBy(item => item.Muscle)
+                    .ToDictionary(
+                        group => group.Key,
+                        group => (IReadOnlyDictionary<int, int>)group.GroupBy(item => item.WeekNumber)
+                            .ToDictionary(week => week.Key, week => week.Sum(item => item.Sets)));
+                var secondaryMuscleSetExposurePerWeek = sessions
+                    .SelectMany(session => session.Exercises.SelectMany(exercise => exercise.SecondaryMuscleGroups
+                        .Select(muscle => new { Muscle = muscle.ToString(), session.WeekNumber, exercise.Sets })))
+                    .GroupBy(item => item.Muscle)
+                    .ToDictionary(
+                        group => group.Key,
+                        group => (IReadOnlyDictionary<int, int>)group.GroupBy(item => item.WeekNumber)
+                            .ToDictionary(week => week.Key, week => week.Sum(item => item.Sets)));
+                var sessionDetails = sessions.Select(session => new RealCatalogSessionResult(
+                    session.WeekNumber,
+                    session.Day.ToString(),
+                    session.Title,
+                    session.EstimatedDurationMinutes,
+                    session.Exercises.Select(exercise => new RealCatalogExerciseResult(
+                        exercise.ExerciseId,
+                        exercise.ExerciseNameSnapshot,
+                        exercise.Sets,
+                        exercise.MinRepetitions,
+                        exercise.MaxRepetitions,
+                        exercise.PrimaryMuscleGroups.Select(muscle => muscle.ToString()).ToArray(),
+                        exercise.SecondaryMuscleGroups.Select(muscle => muscle.ToString()).ToArray())).ToArray()))
+                    .ToArray();
+
                 scenarioResults.Add(new RealCatalogScenarioResult(
                     $"goal-{goal.ToString().ToLowerInvariant()}-experience-{experience.ToString().ToLowerInvariant()}-days-{days.Count}-minutes-{durationMinutes}",
                     goal.ToString(),
@@ -142,7 +173,10 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                     generated.Errors.ToArray(),
                     maximumEstimatedMinutes,
                     warnings.ToArray(),
-                    selectedExerciseIds));
+                    selectedExerciseIds,
+                    primaryMuscleSetsPerWeek,
+                    secondaryMuscleSetExposurePerWeek,
+                    sessionDetails));
             }
         }
         finally
@@ -224,7 +258,26 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         IReadOnlyList<string> Errors,
         int? MaximumEstimatedMinutes,
         IReadOnlyList<string> Warnings,
-        IReadOnlyList<string> SelectedExerciseIds);
+        IReadOnlyList<string> SelectedExerciseIds,
+        IReadOnlyDictionary<string, IReadOnlyDictionary<int, int>> PrimaryMuscleSetsPerWeek,
+        IReadOnlyDictionary<string, IReadOnlyDictionary<int, int>> SecondaryMuscleSetExposurePerWeek,
+        IReadOnlyList<RealCatalogSessionResult> Sessions);
+
+    private sealed record RealCatalogSessionResult(
+        int WeekNumber,
+        string Day,
+        string Title,
+        int EstimatedDurationMinutes,
+        IReadOnlyList<RealCatalogExerciseResult> Exercises);
+
+    private sealed record RealCatalogExerciseResult(
+        string ExerciseId,
+        string ExerciseName,
+        int Sets,
+        int MinRepetitions,
+        int MaxRepetitions,
+        IReadOnlyList<string> PrimaryMuscles,
+        IReadOnlyList<string> SecondaryMuscles);
 
     private sealed record RealCatalogEvaluationReport(
         string SchemaVersion,
