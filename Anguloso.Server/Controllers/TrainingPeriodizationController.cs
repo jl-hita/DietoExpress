@@ -1679,7 +1679,6 @@ public sealed class TrainingPeriodizationController : ControllerBase
             FROM training_session_records r
             JOIN training_sessions s ON s.id = r.session_id
             WHERE s.plan_id = @planId AND r.outcome IS NOT NULL
-              AND r.exercise_feedback IS NOT NULL
             ORDER BY s.scheduled_date DESC, r.id DESC
             LIMIT 12
             """, transaction, ("planId", planId)))
