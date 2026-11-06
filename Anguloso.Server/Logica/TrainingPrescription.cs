@@ -244,7 +244,12 @@ internal static class TrainingExerciseStimulus
             // Rear-delt fly/face-pull variations dynamically load the upper back as well.
             ["dumbbell-reverse-fly"] = [TrainingMuscleGroup.UpperBack],
             ["machine-reverse-fly"] = [TrainingMuscleGroup.UpperBack],
-            ["face-pull"] = [TrainingMuscleGroup.UpperBack]
+            ["face-pull"] = [TrainingMuscleGroup.UpperBack],
+
+            // Hip-extension back extensions and loaded knee raises also train these muscles dynamically.
+            ["machine-back-extension"] = [TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Hamstrings],
+            ["hanging-knee-raise"] = [TrainingMuscleGroup.HipFlexors],
+            ["captains-chair-knee-raise"] = [TrainingMuscleGroup.HipFlexors]
         };
 
     public static IReadOnlySet<TrainingMuscleGroup> GetEffectiveMuscles(
