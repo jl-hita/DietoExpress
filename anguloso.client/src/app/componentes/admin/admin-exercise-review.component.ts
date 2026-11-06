@@ -70,7 +70,7 @@ interface ExerciseReviewItem {
         <p *ngIf="item.tipsEs?.length"><strong>Consejos:</strong> {{ item.tipsEs.join(' · ') }}</p>
         <p *ngIf="item.tags?.length"><strong>Etiquetas:</strong> {{ item.tags.join(', ') }}</p>
       </section>
-      <div class="editor"><mat-form-field appearance="outline"><mat-label>Patrón</mat-label><mat-select [(ngModel)]="drafts[item.id].pattern"><mat-option *ngFor="let p of patterns" [value]="p">{{ p }}</mat-option></mat-select></mat-form-field>
+      <div class="editor"><mat-form-field appearance="outline"><mat-label>Patrón</mat-label><mat-select [(ngModel)]="drafts[item.id].pattern"><mat-option *ngFor="let p of patterns" [value]="p">{{ p === 'Accessory' ? 'Accesorio' : p }}</mat-option></mat-select></mat-form-field>
       <mat-form-field appearance="outline"><mat-label>Músculos principales (coma)</mat-label><input matInput [(ngModel)]="drafts[item.id].primary"/></mat-form-field>
       <mat-form-field appearance="outline"><mat-label>Músculos secundarios (coma)</mat-label><input matInput [(ngModel)]="drafts[item.id].secondary"/></mat-form-field>
       <mat-form-field appearance="outline"><mat-label>Nivel mínimo</mat-label><mat-select [(ngModel)]="drafts[item.id].experience"><mat-option value="Beginner">Principiante</mat-option><mat-option value="Intermediate">Intermedio</mat-option><mat-option value="Advanced">Avanzado</mat-option></mat-select></mat-form-field>
