@@ -121,7 +121,8 @@ internal static class RepDbExerciseAutoReviewer
             // Knee-flexion hamstring work is isolation, not a hip hinge. Keep these exercises
             // available to the accessory selector instead of letting deadlift variants displace them.
             "leg-curl" or "seated-leg-curl" or "nordic-hamstring-curl"
-                or "ball-leg-curl" or "banded-standing-curl" or "trx-hamstring-curl" => "Accessory",
+                or "ball-leg-curl" or "banded-standing-curl" or "trx-hamstring-curl"
+                or "reverse-nordic-curl" => "Accessory",
             _ => (string?)null
         };
         if (explicitPattern is not null) return explicitPattern;
@@ -479,6 +480,12 @@ internal static class RepDbExerciseAutoReviewer
             "leg-extension" =>
                 ["Ajusta el respaldo y el rodillo para que la rodilla quede alineada con el eje de la máquina.",
                  "Extiende las rodillas de forma controlada y baja la carga lentamente sin dejarla caer."],
+            "reverse-nordic-curl" =>
+                ["Arrodíllate sobre una almohadilla con las rodillas a la anchura de las caderas y el torso erguido.",
+                 "Mantén la cadera extendida y el abdomen activo durante todo el movimiento.",
+                 "Inclina el torso hacia atrás lentamente manteniendo hombros, caderas y rodillas alineados.",
+                 "Desciende solo hasta donde puedas controlar la tensión de los cuádriceps.",
+                 "Vuelve a la posición inicial sin doblar la cadera ni impulsarte."],
             "leg-curl" or "seated-leg-curl" or "nordic-hamstring-curl" =>
                 ["Ajusta la máquina o la posición para mantener la cadera estable durante todo el recorrido.",
                  "Flexiona las rodillas acercando los talones y regresa lentamente, controlando especialmente la fase de bajada."],
