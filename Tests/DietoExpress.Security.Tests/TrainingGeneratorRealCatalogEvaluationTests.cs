@@ -21,7 +21,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
     public TrainingGeneratorRealCatalogEvaluationTests(ITestOutputHelper output) => _output = output;
 
     [Fact]
-    public async Task AutoCuratedRepDbCatalogGeneratesAcrossThe324ScenarioMatrix()
+    public async Task AutoCuratedRepDbCatalogGeneratesAcrossThe405ScenarioMatrix()
     {
         var baseConnectionString = Environment.GetEnvironmentVariable("DIETOEXPRESS_IDEMPOTENCY_TEST_CONNECTION");
         if (string.IsNullOrWhiteSpace(baseConnectionString))
@@ -104,7 +104,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
 
             // Knee-flexion hamstring curls must be available as isolation accessories, not
             // misclassified as hip hinges where they lose to deadlift/RDL pattern selection.
-            foreach (var exerciseId in new[] { "leg-curl", "seated-leg-curl", "nordic-hamstring-curl" })
+            foreach (var exerciseId in new[] { "leg-curl", "seated-leg-curl", "nordic-hamstring-curl", "ball-leg-curl", "banded-standing-curl", "trx-hamstring-curl" })
             {
                 var candidate = candidates.Single(item => item.ExerciseId == exerciseId);
                 Assert.Equal(TrainingMovementPattern.Accessory, candidate.MovementPattern);
@@ -250,7 +250,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         }
 
         var report = new RealCatalogEvaluationReport(
-            "training-generator-real-catalog-evaluation-v6",
+            "training-generator-real-catalog-evaluation-v7",
             DateTimeOffset.UtcNow,
             ExerciseCatalogService.SourceUrl,
             reviewStats?.repDbTotal ?? 0,
@@ -308,7 +308,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         }));
 
         Assert.Equal("training-generator-real-catalog-evaluation-v6", report.SchemaVersion);
-        Assert.Equal(324, report.ScenarioCount);
+        Assert.Equal(405, report.ScenarioCount);
         Assert.Equal(report.ScenarioCount, report.SuccessfulScenarios);
         Assert.Equal(0, report.GenerationErrorCount);
         Assert.Equal(report.CatalogTotal, report.CatalogApproved);
@@ -316,6 +316,12 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         Assert.Equal(0, report.CatalogRejected);
         Assert.Equal(report.CatalogTotal, report.GeneratorCandidateCount);
         Assert.Empty(report.CatalogImageMissingIds);
+        var beginnerHomeScenario = scenarioResults.Single(result =>
+            result.ScenarioId == "profile-homegymwithbandsandball-goal-hypertrophy-experience-beginner-days-2-minutes-90");
+        Assert.Contains("banded-standing-curl", beginnerHomeScenario.SelectedExerciseIds);
+        var intermediateHomeScenario = scenarioResults.Single(result =>
+            result.ScenarioId == "profile-homegymwithbandsandball-goal-hypertrophy-experience-intermediate-days-2-minutes-90");
+        Assert.Contains("ball-leg-curl", intermediateHomeScenario.SelectedExerciseIds);
         Assert.All(scenarioResults, result =>
         {
             Assert.NotNull(result.MaximumEstimatedMinutes);
@@ -342,6 +348,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         [
             new("FullGym", ["barbell", "dumbbell", "bench", "pull_up_bar", "cable", "kettlebell", "ez_bar", "shoulder_press_machine", "ab_wheel", "machine"], []),
             new("NoCableOrMachines", ["barbell", "dumbbell", "bench", "pull_up_bar", "kettlebell", "ez_bar", "bodyweight"], []),
+            new("HomeGymWithBandsAndBall", ["barbell", "dumbbell", "bench", "pull_up_bar", "kettlebell", "ez_bar", "bodyweight", "resistance-band", "stability-ball", "suspension-trainer"], []),
             new("DumbbellsBenchPullup", ["dumbbell", "bench", "pull_up_bar", "bodyweight"], []),
             new("RestrictedWithExclusions", ["barbell", "dumbbell", "bench", "pull_up_bar", "kettlebell", "bodyweight"], excludedFallbacks)
         ];
