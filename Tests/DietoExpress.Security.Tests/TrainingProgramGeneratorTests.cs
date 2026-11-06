@@ -386,6 +386,8 @@ public sealed class TrainingProgramGeneratorTests
         Assert.Equal(weekOneQuads.PrimarySets, weekFourQuads.PrimarySets);
         Assert.Contains(report.Warnings, warning =>
             warning.Contains("Quadriceps alcanza", StringComparison.Ordinal));
+        Assert.DoesNotContain(report.Warnings, warning =>
+            warning.Contains("volumen efectivo", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(report.Warnings, warning => warning.Contains("Adductors", StringComparison.Ordinal));
         Assert.DoesNotContain(report.Warnings, warning => warning.Contains("RotatorCuff", StringComparison.Ordinal));
     }
