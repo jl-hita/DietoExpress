@@ -178,3 +178,88 @@ public static class TrainingPrescriptionValidator
         return errors;
     }
 }
+
+
+/// <summary>
+/// Exercise-specific stimulus audit for weekly hypertrophy volume. Primary muscles always count.
+/// A secondary muscle counts only when the exercise loads it dynamically through a meaningful
+/// range of motion; stabilizers, grip-only work and incidental co-contraction do not count.
+/// This is a conservative, explicit curation of the 97-exercise RepDB generator catalog, not
+/// a universal biomechanical classifier.
+/// </summary>
+internal static class TrainingExerciseStimulus
+{
+    private static readonly IReadOnlyDictionary<string, TrainingMuscleGroup[]> MeaningfulSecondary =
+        new Dictionary<string, TrainingMuscleGroup[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            // Horizontal/vertical pressing: elbow extension is a meaningful loaded action.
+            ["bench-press"] = [TrainingMuscleGroup.Triceps],
+            ["db-bench-press"] = [TrainingMuscleGroup.Triceps],
+            ["incline-bench-press"] = [TrainingMuscleGroup.Triceps],
+            ["incline-db-press"] = [TrainingMuscleGroup.Triceps],
+            ["smith-machine-bench-press"] = [TrainingMuscleGroup.Triceps],
+            ["smith-machine-incline-bench-press"] = [TrainingMuscleGroup.Triceps],
+            ["chest-press-machine"] = [TrainingMuscleGroup.Triceps],
+            ["push-up"] = [TrainingMuscleGroup.Triceps],
+            ["knee-push-ups"] = [TrainingMuscleGroup.Triceps],
+            ["incline-push-ups"] = [TrainingMuscleGroup.Triceps],
+            ["ohp"] = [TrainingMuscleGroup.Triceps],
+            ["dumbbell-shoulder-press"] = [TrainingMuscleGroup.Triceps],
+            ["machine-shoulder-press"] = [TrainingMuscleGroup.Triceps],
+
+            // Rows and vertical pulls: elbow flexors contribute dynamically under load.
+            ["barbell-row"] = [TrainingMuscleGroup.Biceps],
+            ["single-arm-db-row"] = [TrainingMuscleGroup.Biceps],
+            ["chest-supported-db-row"] = [TrainingMuscleGroup.Biceps],
+            ["seated-cable-row"] = [TrainingMuscleGroup.Biceps],
+            ["chest-supported-machine-row"] = [TrainingMuscleGroup.Biceps],
+            ["t-bar-row"] = [TrainingMuscleGroup.Biceps],
+            ["chest-supported-kettlebell-row"] = [TrainingMuscleGroup.Biceps],
+            ["kneeling-cable-row"] = [TrainingMuscleGroup.Biceps],
+            ["one-arm-seated-cable-row"] = [TrainingMuscleGroup.Biceps],
+            ["lat-pulldown"] = [TrainingMuscleGroup.Biceps],
+            ["v-bar-lat-pulldown"] = [TrainingMuscleGroup.Biceps],
+            ["assisted-pull-ups"] = [TrainingMuscleGroup.Biceps],
+            ["pull-up"] = [TrainingMuscleGroup.Biceps],
+            ["chin-ups"] = [TrainingMuscleGroup.Biceps],
+
+            // Knee-dominant compounds: both quads and glutes can receive meaningful dynamic work.
+            ["squat"] = [TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Quadriceps],
+            ["front-squat"] = [TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Quadriceps],
+            ["goblet-squat"] = [TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Quadriceps],
+            ["db-squat"] = [TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Quadriceps],
+            ["leg-press"] = [TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Quadriceps],
+            ["horizontal-leg-press"] = [TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Quadriceps],
+            ["hack-squat"] = [TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Quadriceps],
+            ["bulgarian-split-squat"] = [TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Quadriceps],
+            ["reverse-lunge"] = [TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Quadriceps],
+            ["step-ups"] = [TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Quadriceps],
+
+            // Hip hinges: hamstrings and glutes are loaded through hip extension.
+            ["deadlift"] = [TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Hamstrings],
+            ["hex-bar-deadlift"] = [TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Hamstrings],
+            ["romanian-deadlift"] = [TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Hamstrings],
+            ["dumbbell-romanian-deadlift"] = [TrainingMuscleGroup.Glutes, TrainingMuscleGroup.Hamstrings],
+
+            // Rear-delt fly/face-pull variations dynamically load the upper back as well.
+            ["dumbbell-reverse-fly"] = [TrainingMuscleGroup.UpperBack],
+            ["machine-reverse-fly"] = [TrainingMuscleGroup.UpperBack],
+            ["face-pull"] = [TrainingMuscleGroup.UpperBack]
+        };
+
+    public static IReadOnlySet<TrainingMuscleGroup> GetEffectiveMuscles(
+        string exerciseId,
+        IReadOnlyList<TrainingMuscleGroup> primary,
+        IReadOnlyList<TrainingMuscleGroup> secondary)
+    {
+        var result = primary.ToHashSet();
+        if (!MeaningfulSecondary.TryGetValue(exerciseId, out var meaningful))
+            return result;
+
+        foreach (var muscle in secondary)
+            if (meaningful.Contains(muscle))
+                result.Add(muscle);
+
+        return result;
+    }
+}
