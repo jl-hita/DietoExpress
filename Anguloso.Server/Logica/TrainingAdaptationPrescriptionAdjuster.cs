@@ -13,10 +13,20 @@ public static class TrainingAdaptationPrescriptionAdjuster
         string json,
         IReadOnlySet<string> targetExerciseIds,
         out string updatedJson,
-        out string legacyPrescription)
+        out string legacyPrescription) =>
+        TryReduceSets(json, targetExerciseIds, out updatedJson, out legacyPrescription, out _);
+
+    public static bool TryReduceSets(
+        string json,
+        IReadOnlySet<string> targetExerciseIds,
+        out string updatedJson,
+        out string legacyPrescription,
+        out IReadOnlySet<string> reducedExerciseIds)
     {
         updatedJson = json;
         legacyPrescription = string.Empty;
+        var reduced = new HashSet<string>(StringComparer.Ordinal);
+        reducedExerciseIds = reduced;
         if (targetExerciseIds is null || targetExerciseIds.Count == 0)
             return false;
 
@@ -39,6 +49,7 @@ public static class TrainingAdaptationPrescriptionAdjuster
                     continue;
 
                 exercise["sets"] = sets - 1;
+                reduced.Add(exerciseId);
                 changed = true;
             }
 
