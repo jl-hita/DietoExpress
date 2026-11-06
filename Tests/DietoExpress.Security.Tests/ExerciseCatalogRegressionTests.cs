@@ -1,4 +1,5 @@
 using System.IO;
+using System.Reflection;
 using System.Text.Json;
 using Anguloso.Server.Logica;
 using Xunit;
@@ -25,7 +26,13 @@ public sealed class ExerciseCatalogRegressionTests
     public void RepDbAutoReviewer_ApprovesCuratedBicepsCurlVariants(
         string id, string nameEs, string nameEn, string equipment, string difficulty)
     {
-        var metadata = RepDbExerciseAutoReviewer.TryBuild(
+        var reviewerType = typeof(TrainingProgramGenerator).Assembly.GetType(
+            "Anguloso.Server.Logica.RepDbExerciseAutoReviewer", throwOnError: true)!;
+        var tryBuild = reviewerType.GetMethod(
+            "TryBuild", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("No se encontró el auto-revisor RepDB.");
+        var metadata = tryBuild.Invoke(null, new object?[]
+        {
             id,
             nameEs,
             nameEn,
@@ -44,12 +51,15 @@ public sealed class ExerciseCatalogRegressionTests
             JsonSerializer.Serialize(new[] { "brachialis" }),
             JsonSerializer.Serialize(new[] { "hypertrophy" }),
             "[]",
-            false);
+            false
+        }) ?? throw new InvalidOperationException($"El auto-revisor no aprobó {id}.");
 
-        Assert.NotNull(metadata);
-        Assert.Equal("Accessory", metadata.MovementPattern);
-        Assert.Equal(new[] { "Biceps" }, metadata.PrimaryMuscles);
-        Assert.Contains(equipment, metadata.RequiredEquipment);
+        var metadataType = metadata.GetType();
+        Assert.Equal("Accessory", metadataType.GetProperty("MovementPattern")!.GetValue(metadata));
+        Assert.Equal(new[] { "Biceps" },
+            metadataType.GetProperty("PrimaryMuscles")!.GetValue(metadata));
+        Assert.Contains(equipment,
+            (string[])metadataType.GetProperty("RequiredEquipment")!.GetValue(metadata)!);
     }
 
     [Fact]
