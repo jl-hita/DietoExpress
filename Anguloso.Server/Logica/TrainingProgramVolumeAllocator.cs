@@ -79,8 +79,8 @@ public static class TrainingProgramVolumeAllocator
                         var localPrimaryVolume = exercise.PrimaryMuscleGroups.Distinct()
                             .Select(muscle => session.Exercises
                                 .Where(item => item.PrimaryMuscleGroups.Contains(muscle))
-                                .Sum(item => item.Sets))
-                            .DefaultIfEmpty(0)
+                                .Sum(item => (decimal)item.Sets))
+                            .DefaultIfEmpty(0m)
                             .Average();
                         var candidate = new AllocationCandidate(sessionIndex, exerciseIndex, score, localPrimaryVolume);
                         if (best is null || candidate.Score > best.Score ||
