@@ -394,6 +394,93 @@ internal static class RepDbExerciseAutoReviewer
         return value?.Trim();
     }
 
+    public static string GenerateInstructionsEs(string id, string? nameEs, string nameEn)
+    {
+        var key = id.ToLowerInvariant();
+        string[]? instructions = key switch
+        {
+            "push-up" or "knee-push-ups" =>
+                ["Coloca las manos algo más abiertas que los hombros y mantén el cuerpo alineado desde la cabeza hasta las rodillas o los pies.",
+                 "Flexiona los codos para acercar el pecho al suelo y empuja después hasta recuperar la posición inicial, sin perder la alineación."],
+            "bench-press" or "db-bench-press" or "incline-bench-press" or "incline-db-press"
+                or "smith-machine-bench-press" or "smith-machine-incline-bench-press"
+                or "chest-press-machine" =>
+                ["Apoya firmemente los pies y la espalda en el banco o respaldo; coloca las manos a una anchura cómoda y controla la posición de los hombros.",
+                 "Desciende la carga hacia el pecho de forma controlada y empuja hasta extender los brazos sin bloquear bruscamente los codos."],
+            "barbell-row" or "single-arm-db-row" or "chest-supported-db-row"
+                or "seated-cable-row" or "chest-supported-machine-row" or "t-bar-row" =>
+                ["Adopta una posición estable, mantén la columna neutra y deja que los brazos se extiendan sin perder el control del tronco.",
+                 "Lleva los codos hacia atrás acercando la carga al torso y vuelve lentamente a la posición inicial."],
+            "ohp" or "dumbbell-shoulder-press" or "machine-shoulder-press" =>
+                ["Coloca la carga a la altura de los hombros, con el tronco firme y las muñecas alineadas con los antebrazos.",
+                 "Empuja verticalmente hasta extender los brazos de forma controlada y baja de nuevo hasta la posición inicial."],
+            "lat-pulldown" or "v-bar-lat-pulldown" or "assisted-pull-ups" or "pull-up" or "chin-ups" =>
+                ["Sujeta la barra con el agarre indicado y estabiliza el tronco, evitando impulsarte o balancearte.",
+                 "Lleva los codos hacia abajo hasta acercar la barra o el cuerpo al punto previsto y regresa lentamente con control."],
+            "squat" or "front-squat" or "goblet-squat" or "leg-press" or "hack-squat" =>
+                ["Coloca los pies en una posición estable y ajusta la carga para poder mantener el recorrido con control.",
+                 "Flexiona caderas y rodillas siguiendo la dirección de los pies; empuja el suelo para volver a la posición inicial."],
+            "bulgarian-split-squat" or "reverse-lunge" or "step-ups" =>
+                ["Adopta una posición unilateral estable y reparte el apoyo sin perder el equilibrio ni la alineación de la rodilla.",
+                 "Desciende o sube de forma controlada, impulsándote con la pierna de trabajo y evitando rebotes."],
+            "deadlift" or "hex-bar-deadlift" or "romanian-deadlift" or "dumbbell-romanian-deadlift"
+                or "hip-thrust" or "barbell-glute-bridge" =>
+                ["Coloca los pies y la carga de forma estable; mantén el abdomen activo y la columna en posición neutra.",
+                 "Extiende la cadera de forma controlada sin hiperextender la zona lumbar y vuelve lentamente al inicio."],
+            "cable-fly" or "pec-deck" =>
+                ["Ajusta la polea o máquina a una posición cómoda y mantén una ligera flexión de los codos.",
+                 "Acerca los brazos delante del pecho sin encoger los hombros y regresa lentamente hasta notar un estiramiento cómodo."],
+            "lateral-raise" or "cable-lateral-raise" or "seated-dumbbell-lateral-raise" =>
+                ["Mantén el tronco estable y los codos ligeramente flexionados, con la carga a los lados del cuerpo.",
+                 "Eleva los brazos hacia los lados hasta una altura cómoda y desciende lentamente sin balancear el cuerpo."],
+            "dumbbell-reverse-fly" or "face-pull" =>
+                ["Adopta una posición estable y dirige el movimiento con los codos, manteniendo el cuello relajado.",
+                 "Separa las manos llevando los codos hacia atrás y vuelve lentamente sin utilizar impulso."],
+            "barbell-curl" or "incline-db-curl" or "preacher-curl" or "cable-curl" =>
+                ["Mantén los codos cerca del cuerpo o apoyados según la variante, evitando balancear el tronco.",
+                 "Flexiona los codos para elevar la carga y bájala lentamente hasta casi extender los brazos."],
+            "tricep-pushdown" or "cable-overhead-tricep-extension" or "skull-crusher" =>
+                ["Estabiliza los hombros y mantén los codos en una posición fija durante el movimiento.",
+                 "Extiende los codos para mover la carga y regresa lentamente sin abrirlos ni utilizar impulso."],
+            "leg-extension" =>
+                ["Ajusta el respaldo y el rodillo para que la rodilla quede alineada con el eje de la máquina.",
+                 "Extiende las rodillas de forma controlada y baja la carga lentamente sin dejarla caer."],
+            "leg-curl" or "seated-leg-curl" or "nordic-hamstring-curl" =>
+                ["Ajusta la máquina o la posición para mantener la cadera estable durante todo el recorrido.",
+                 "Flexiona las rodillas acercando los talones y regresa lentamente, controlando especialmente la fase de bajada."],
+            "standing-calf-raise" or "seated-calf-raise" =>
+                ["Apoya el antepié sobre la plataforma y comienza desde una posición estable, sin rebotes.",
+                 "Eleva los talones todo lo posible de forma controlada y baja lentamente hasta un estiramiento cómodo."],
+            "cable-external-rotation" =>
+                ["Coloca el codo junto al costado y mantenlo flexionado aproximadamente a 90 grados.",
+                 "Gira el antebrazo hacia fuera sin separar el codo del cuerpo y vuelve lentamente al inicio."],
+            "hip-adduction" =>
+                ["Ajusta la máquina para que las almohadillas contacten con la cara interna de los muslos.",
+                 "Acerca las piernas de forma controlada y vuelve lentamente sin dejar que la carga golpee."],
+            "standing-hip-abduction" =>
+                ["Mantén el tronco erguido y sujétate para estabilizar la pelvis.",
+                 "Separa una pierna lateralmente sin inclinar el tronco y regresa lentamente a la posición inicial."],
+            "cable-crunch" =>
+                ["Arrodíllate frente a la polea y sujeta la cuerda junto a la cabeza, manteniendo la cadera estable.",
+                 "Flexiona el tronco acercando las costillas a la pelvis y vuelve lentamente sin tirar con los brazos."],
+            "ab-wheel-rollout" =>
+                ["Comienza de rodillas con la rueda bajo los hombros y el abdomen activo para evitar arquear la zona lumbar.",
+                 "Desplaza la rueda hacia delante hasta donde puedas mantener el tronco estable y regresa controladamente."],
+            "cable-pallof-press" =>
+                ["Colócate de lado respecto a la polea y sujeta el agarre delante del pecho con los pies firmes.",
+                 "Extiende los brazos sin permitir que el tronco rote y vuelve lentamente al pecho."],
+            "side-plank" =>
+                ["Apoya el antebrazo bajo el hombro y eleva la pelvis hasta alinear hombros, cadera y tobillos.",
+                 "Mantén la posición respirando con normalidad y evita que la pelvis descienda o rote."],
+            "dumbbell-farmers-walk" =>
+                ["Sujeta una carga en cada mano y adopta una postura erguida con los hombros relajados.",
+                 "Camina con pasos cortos y controlados, manteniendo el tronco estable y evitando balancear las cargas."],
+            _ => null
+        };
+
+        return instructions is null ? "[]" : JsonSerializer.Serialize(instructions);
+    }
+
     private static bool HasUsefulInstructions(string json)
     {
         var instructions = ReadStrings(json);
