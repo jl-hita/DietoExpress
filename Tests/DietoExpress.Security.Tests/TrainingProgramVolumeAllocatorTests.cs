@@ -59,7 +59,7 @@ public sealed class TrainingProgramVolumeAllocatorTests
         Assert.Equal(0, triceps.PrimarySets);
         Assert.Equal(2, triceps.SecondarySets);
         Assert.Equal(2m, triceps.EstimatedEffectiveSets);
-        Assert.DoesNotContain("0,5", report.Methodology, StringComparison.Ordinal);
+        Assert.DoesNotContain("0,5", report.Methodology);
     }
 
     [Fact]
