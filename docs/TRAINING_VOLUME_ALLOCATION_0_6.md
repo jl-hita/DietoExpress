@@ -63,7 +63,7 @@ La evaluación automática incluye ahora extensiones de cuádriceps, curl femora
 
 ## Pruebas
 
-`TrainingProgramVolumeAllocatorTests` cubre crédito secundario, objetivos/prioridades, determinismo, límites de series, duración y preferencias inválidas. `TrainingProgramGeneratorTests` cubre estabilidad de dosis entre semanas, cobertura y matriz de objetivo/experiencia/días/duración. `TrainingAdaptationReviewWorkflowTests` comprueba que no se aplican recortes globales y que los ejercicios compuestos no se alteran si alguno de sus grupos no está seleccionado.
+`TrainingProgramVolumeAllocatorTests` cubre el estímulo efectivo auditado por ejercicio, exclusión de co-contracción incidental, rangos de hipertrofia, objetivos/prioridades, determinismo, límites de series, duración y preferencias inválidas. `TrainingProgramGeneratorTests` cubre estabilidad de dosis entre semanas, cobertura y matriz de objetivo/experiencia/días/duración. `TrainingAdaptationReviewWorkflowTests` comprueba que no se aplican recortes globales y que los ejercicios compuestos no se alteran si alguno de sus grupos no está seleccionado.
 
 
 ## Auditoría con catálogo RepDB real — ejecución 06/11/2026 (artefacto detallado v2)
@@ -108,7 +108,7 @@ Esto no demuestra que todas las variantes deban tener exactamente la misma lista
 Criterio de auditoría pendiente:
 1. Revisar individualmente los 214 candidatos aprobados que puede utilizar el generador; empezar por los 55 IDs observados en las evaluaciones y continuar con el resto.
 2. Asignar prioridad de selección por utilidad para fuerza/hipertrofia general, capacidad de sobrecarga y progresión, estabilidad, facilidad de aprendizaje y redundancia; no por popularidad ni por coincidencia de palabras.
-3. Revisar músculos principales/secundarios por ejecución concreta. Un secundario solo debe incluirse si recibe una contribución dinámica/isométrica relevante; no añadir estabilizadores menores por defecto ni tratar el crédito secundario como una serie completa.
+3. Revisar músculos principales/secundarios por ejecución concreta. Un secundario solo debe incluirse si recibe una contribución dinámica relevante y suficiente; si la recibe, cuenta como serie completa. No añadir estabilizadores menores por defecto.
 4. Separar metadatos anatómicos del rol del ejercicio (básico, variante, aislamiento, accesorio, regresión/técnica). No excluir automáticamente aislamientos útiles ni variantes con peso corporal cuando tengan una función clara.
 5. Añadir correcciones explícitas y versionadas por ID, con pruebas de regresión que impidan que una actualización de RepDB sobrescriba la curación local.
 6. Repetir la evaluación de los 81 escenarios y comparar selección, cobertura y volumen antes/después.
