@@ -93,7 +93,7 @@ internal static class RepDbExerciseAutoReviewer
         if (Has(text, "deadlift", "peso muerto", "good morning", "hip thrust", "puente de gluteos", "glute bridge", "hip bridge", "puente de cadera", "back extension", "extension lumbar",
             "kettlebell swing", "dumbbell swing", "one-arm swing", "swing con mancuerna", "pull-through", "pull through",
             "leg curl", "hamstring curl", "curl femoral", "nordic hamstring", "standing leg curl", "curl de pierna de pie")) return "Hinge";
-        if (Has(text, "bench press", "press de banca", "push-up", "push up", "flexion", "chest press", "floor press",
+        if (Has(text, "bench press", "press de banca", "push-up", "push up", "flexiones", "flexion de brazos", "chest press", "press de pecho", "floor press",
             "svend press", "tricep kickback", "patada de triceps",
             "dip machine", "dips", "fondos")) return "HorizontalPush";
         if (Has(text, "row", "remo", "seated cable row", "bent-over row")) return "HorizontalPull";
@@ -145,7 +145,9 @@ internal static class RepDbExerciseAutoReviewer
             "tricep pushdown", "tricep kickback", "skull crusher", "extension de triceps", "leg extension",
             "quadriceps extension", "extension de cuadriceps", "single-leg-extension", "leg curl", "hamstring curl",
             "curl femoral", "nordic hamstring", "standing leg curl", "curl de pierna de pie", "banded-standing-curl",
-            "calf raise", "calf press", "elevacion de talones",
+            "calf raise", "calf press", "elevacion de talones", "reverse nordic", "nordico inverso",
+            "barbell curl", "ez-bar curl", "reverse curl", "drag curl", "zottman curl", "close-grip curl",
+            "side bend", "flexion lateral", "flexión lateral",
             "hip abduction", "hip adduction", "abduccion de cadera", "aduccion de cadera", "glute kickback",
             "cable kickback", "pullover", "hip bridge", "puente de cadera", "shrug", "encogimiento de hombros", "wrist roller", "plate pinch",
             "straight-arm pulldown", "straight arm pulldown", "jalon con brazos rectos",
