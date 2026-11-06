@@ -151,6 +151,7 @@ public sealed class ExerciseCatalogService
         await EnsureRepDbMetadataEnrichmentAsync(cancellationToken);
         await EnsureRepDbInitialReviewAsync(cancellationToken);
         await EnsureRepDbAutomaticMetadataRefreshV1Async(cancellationToken);
+        await EnsureRepDbLegCurlPatternCurationV1Async(cancellationToken);
         await EnsureRepDbGeneralFitnessGoalCurationV1Async(cancellationToken);
         await EnsureRepDbAccessoryPatternCurationV1Async(cancellationToken);
         await EnsureRepDbSelectionPriorityCurationV1Async(cancellationToken);
@@ -1063,6 +1064,67 @@ public sealed class ExerciseCatalogService
         catch
         {
             throw;
+        }
+        finally
+        {
+            if (shouldClose) await connection.CloseAsync();
+        }
+    }
+
+    /// <summary>
+    /// Corrects the historical misclassification of knee-flexion hamstring curls. This migration
+    /// is restricted to untouched automatic RepDB approvals and never rewrites a professional's decision.
+    /// </summary>
+    private async Task EnsureRepDbLegCurlPatternCurationV1Async(CancellationToken cancellationToken)
+    {
+        const string marker = "exercise-catalog-repdb-leg-curl-accessory-pattern-v1";
+        var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+        if (shouldClose) await connection.OpenAsync(cancellationToken);
+        try
+        {
+            await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+            await using (var check = new NpgsqlCommand(
+                "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = @marker)", connection, transaction))
+            {
+                Add(check, "marker", marker);
+                if (Convert.ToBoolean(await check.ExecuteScalarAsync(cancellationToken)))
+                {
+                    await transaction.CommitAsync(cancellationToken);
+                    return;
+                }
+            }
+
+            await using (var update = new NpgsqlCommand("""
+                UPDATE exercise_catalog
+                SET reviewed_movement_pattern = 'Accessory',
+                    review_notes = CONCAT(COALESCE(review_notes, ''),
+                        ' Corrección anatómica v1: el curl femoral es flexión de rodilla y aislamiento de isquiotibiales, no bisagra de cadera.'),
+                    reviewed_at = NOW(),
+                    reviewed_by = 'RepDB automatic metadata v6',
+                    updated_at = NOW()
+                WHERE exercise_id = ANY(@exercise_ids)
+                  AND source = 'repdb-free' AND owner_user_id IS NULL
+                  AND review_status = 'approved' AND reviewed = TRUE
+                  AND reviewed_by LIKE 'RepDB automatic metadata%'
+                """, connection, transaction))
+            {
+                update.Parameters.AddWithValue("exercise_ids",
+                    new[] { "leg-curl", "seated-leg-curl", "nordic-hamstring-curl" });
+                var corrected = await update.ExecuteNonQueryAsync(cancellationToken);
+                _logger.LogInformation(
+                    "RepDB knee-flexion accessory curation corrected {Count} automatic approvals.", corrected);
+            }
+
+            await using (var mark = new NpgsqlCommand(
+                "INSERT INTO schema_migrations(id) VALUES (@marker) ON CONFLICT (id) DO NOTHING",
+                connection, transaction))
+            {
+                Add(mark, "marker", marker);
+                await mark.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            await transaction.CommitAsync(cancellationToken);
         }
         finally
         {
