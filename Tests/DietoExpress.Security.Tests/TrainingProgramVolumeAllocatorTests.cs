@@ -43,6 +43,21 @@ public sealed class TrainingProgramVolumeAllocatorTests
     }
 
     [Fact]
+    public void RowCountsMeaningfulBicepsAndLatStimulusAsFullSets()
+    {
+        var session = Session(new TrainingExercisePrescription(
+            "barbell-row", "v1", "Remo con barra", 1, 3, 8, 12, 2m, 120,
+            TrainingProgressionRule.DoubleProgression, "test",
+            [TrainingMuscleGroup.UpperBack], [TrainingMuscleGroup.Biceps, TrainingMuscleGroup.Lats]));
+
+        var volume = TrainingProgramVolumeAllocator.CalculateEffectiveVolume([session]);
+
+        Assert.Equal(3m, volume[TrainingMuscleGroup.UpperBack]);
+        Assert.Equal(3m, volume[TrainingMuscleGroup.Biceps]);
+        Assert.Equal(3m, volume[TrainingMuscleGroup.Lats]);
+    }
+
+    [Fact]
     public void QualityReportUsesTheSameEffectiveStimulusRulesAsTheAllocator()
     {
         var plan = new TrainingProgramPrescription(
