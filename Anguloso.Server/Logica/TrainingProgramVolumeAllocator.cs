@@ -164,6 +164,15 @@ public static class TrainingProgramVolumeAllocator
         });
     }
 
+    internal static IReadOnlyDictionary<TrainingMuscleGroup, decimal> GetWeeklyTargets(
+        TrainingGoal goal,
+        TrainingExperience experience,
+        IReadOnlyList<TrainingMuscleVolumeTarget>? preferences) =>
+        BuildTargets(goal, experience, preferences);
+
+    internal static decimal EstimateDurationSeconds(TrainingSessionPrescription session) =>
+        EstimateDuration(session);
+
     private static Dictionary<TrainingMuscleGroup, decimal> BuildTargets(
         TrainingGoal goal,
         TrainingExperience experience,
@@ -229,7 +238,7 @@ public static class TrainingProgramVolumeAllocator
         const string marker = "volumen semanal individualizado";
         return rationale.Contains(marker, StringComparison.OrdinalIgnoreCase)
             ? rationale
-            : $"{rationale} Ajuste de series por {marker} (motor 0.6.0).";
+            : $"{rationale} Ajuste de series por {marker} (motor 0.8.0).";
     }
 
     private sealed record AllocationCandidate(int SessionIndex, int ExerciseIndex, decimal Score);
