@@ -104,7 +104,7 @@ De los 97 seleccionados, 95 tienen las dos imágenes `start` y `peak`; `dumbbell
 **Conclusión:** la exportación local de 466 registros y el upstream oficial de 701 están contrastados, y la selección inicial se ha ampliado a 97 ejercicios con criterios explícitos. El tibial anterior queda como accesorio opcional, no como requisito de cobertura. Esto no cierra el P1: quedan las correcciones de metadatos integradas, la verificación real de medios y, sobre todo, la auditoría del generador/adaptador y sus escenarios.
 
 
-### Disposición individual de los 40 pendientes no seleccionados
+### Disposición individual de los 39 pendientes no seleccionados
 
 Estos registros no entran en la biblioteca inicial porque su función ya está cubierta por una opción más progresable, son variantes secundarias o pertenecen a otro tipo de entrenamiento. No se marcan como inseguros:
 

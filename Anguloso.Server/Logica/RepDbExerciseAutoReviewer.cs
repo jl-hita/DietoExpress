@@ -462,6 +462,10 @@ internal static class RepDbExerciseAutoReviewer
                 or "hip-thrust" or "barbell-glute-bridge" =>
                 ["Coloca los pies y la carga de forma estable; mantén el abdomen activo y la columna en posición neutra.",
                  "Extiende la cadera de forma controlada sin hiperextender la zona lumbar y vuelve lentamente al inicio."],
+            "db-fly" =>
+                ["Túmbate en un banco plano con una mancuerna en cada mano, sobre el pecho y con las palmas enfrentadas.",
+                 "Mantén una ligera flexión de los codos y abre los brazos hacia los lados de forma controlada, sin bajar más allá de un estiramiento cómodo.",
+                 "Acerca de nuevo las mancuernas sobre el pecho contrayendo los pectorales, sin chocar las cargas."],
             "cable-fly" or "pec-deck" =>
                 ["Ajusta la polea o máquina a una posición cómoda y mantén una ligera flexión de los codos.",
                  "Acerca los brazos delante del pecho sin encoger los hombros y regresa lentamente hasta notar un estiramiento cómodo."],

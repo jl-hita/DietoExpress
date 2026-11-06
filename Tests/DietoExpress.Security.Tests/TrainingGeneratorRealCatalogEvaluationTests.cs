@@ -333,6 +333,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
             result.ScenarioId == "profile-dumbbellsbenchpullup-goal-hypertrophy-experience-intermediate-days-2-minutes-90");
         Assert.Contains("db-fly", dumbbellOnlyChestScenario.SelectedExerciseIds);
         Assert.Contains(TrainingMuscleGroup.Chest, candidates.Single(candidate => candidate.ExerciseId == "db-fly").PrimaryMuscleGroups);
+        Assert.DoesNotContain("db-fly", catalogSingleImageOnlyIds);
 
         Assert.All(scenarioResults, result =>
         {
