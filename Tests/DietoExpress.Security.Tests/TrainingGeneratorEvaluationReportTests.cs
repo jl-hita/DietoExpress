@@ -26,7 +26,7 @@ public sealed class TrainingGeneratorEvaluationReportTests
                 4,
                 days,
                 60,
-                ["barbell", "dumbbell", "pull_up_bar", "cable", "kettlebell", "ez_bar", "shoulder_press_machine", "ab_wheel"],
+                ["barbell", "dumbbell", "pull_up_bar", "cable", "kettlebell", "ez_bar", "shoulder_press_machine", "ab_wheel", "machine"],
                 []);
 
             var generated = TrainingProgramGenerator.Generate(request, Catalog());
@@ -188,7 +188,23 @@ public sealed class TrainingGeneratorEvaluationReportTests
             Candidate("plank", "Plancha", TrainingMovementPattern.Core, [], TrainingExperience.Beginner, 90,
                 [TrainingMuscleGroup.Abdominals], [TrainingMuscleGroup.ErectorSpinae, TrainingMuscleGroup.Obliques]),
             Candidate("ab-wheel-rollout", "Rueda abdominal", TrainingMovementPattern.Core, ["ab_wheel"], TrainingExperience.Intermediate, 100,
-                [TrainingMuscleGroup.Abdominals], [TrainingMuscleGroup.Deltoids, TrainingMuscleGroup.Lats, TrainingMuscleGroup.Obliques])
+                [TrainingMuscleGroup.Abdominals], [TrainingMuscleGroup.Deltoids, TrainingMuscleGroup.Lats, TrainingMuscleGroup.Obliques]),
+            Candidate("leg-extension", "Extensión de cuádriceps en máquina", TrainingMovementPattern.Accessory, ["machine"], TrainingExperience.Beginner, 55,
+                [TrainingMuscleGroup.Quadriceps], [TrainingMuscleGroup.Glutes]),
+            Candidate("leg-curl", "Curl femoral sentado", TrainingMovementPattern.Accessory, ["machine"], TrainingExperience.Beginner, 55,
+                [TrainingMuscleGroup.Hamstrings], [TrainingMuscleGroup.Gastrocnemius]),
+            Candidate("lateral-raise", "Elevación lateral con mancuernas", TrainingMovementPattern.Accessory, ["dumbbell"], TrainingExperience.Beginner, 55,
+                [TrainingMuscleGroup.Deltoids], [TrainingMuscleGroup.Supraspinatus]),
+            Candidate("biceps-curl", "Curl de bíceps con mancuernas", TrainingMovementPattern.Accessory, ["dumbbell"], TrainingExperience.Beginner, 55,
+                [TrainingMuscleGroup.Biceps], [TrainingMuscleGroup.Forearms]),
+            Candidate("triceps-pushdown", "Extensión de tríceps en polea", TrainingMovementPattern.Accessory, ["cable"], TrainingExperience.Beginner, 55,
+                [TrainingMuscleGroup.Triceps], [TrainingMuscleGroup.Anconeus]),
+            Candidate("calf-raise", "Elevación de gemelos en máquina", TrainingMovementPattern.Accessory, ["machine"], TrainingExperience.Beginner, 55,
+                [TrainingMuscleGroup.Calves], [TrainingMuscleGroup.Soleus]),
+            Candidate("chest-fly", "Aperturas de pecho en polea", TrainingMovementPattern.Accessory, ["cable"], TrainingExperience.Beginner, 55,
+                [TrainingMuscleGroup.Chest], [TrainingMuscleGroup.Deltoids]),
+            Candidate("hip-abduction", "Abducción de cadera en máquina", TrainingMovementPattern.Accessory, ["machine"], TrainingExperience.Beginner, 55,
+                [TrainingMuscleGroup.Abductors], [TrainingMuscleGroup.Glutes])
         ];
 
         TrainingExerciseCandidate Candidate(
