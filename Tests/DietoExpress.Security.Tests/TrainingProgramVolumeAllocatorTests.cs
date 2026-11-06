@@ -90,7 +90,7 @@ public sealed class TrainingProgramVolumeAllocatorTests
         {
             Session(new TrainingExercisePrescription("biceps-curl", "v1", "Curl de bíceps", 1, 1, 10, 15, 2m, 90,
                 TrainingProgressionRule.DoubleProgression, "test", [TrainingMuscleGroup.Biceps], [])),
-            new TrainingSessionPrescription(1, DayOfWeek.Thursday, "Sesión B",
+            new TrainingSessionPrescription(1, DayOfWeek.Thursday, "Sesión B", 5,
             [
                 new TrainingExercisePrescription("biceps-curl", "v1", "Curl de bíceps", 1, 1, 10, 15, 2m, 90,
                     TrainingProgressionRule.DoubleProgression, "test", [TrainingMuscleGroup.Biceps], [])
