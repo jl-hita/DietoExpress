@@ -327,8 +327,8 @@ public sealed class TrainingProgramVolumeAllocatorTests
 
         Assert.True(result.Succeeded, string.Join("; ", result.Errors));
         var volume = TrainingProgramVolumeAllocator.CalculatePrimaryVolume(result.Sessions);
-        Assert.Equal(2m, volume[TrainingMuscleGroup.Quadriceps]);
-        Assert.Equal(3m, volume[TrainingMuscleGroup.Glutes]);
+        Assert.Equal(3m, volume[TrainingMuscleGroup.Quadriceps]);
+        Assert.Equal(4m, volume[TrainingMuscleGroup.Glutes]);
         Assert.DoesNotContain(result.Warnings, warning => warning.Contains("Quadriceps alcanza", StringComparison.Ordinal));
     }
 
@@ -402,7 +402,7 @@ public sealed class TrainingProgramVolumeAllocatorTests
         };
 
         var shortBudget = TrainingProgramVolumeAllocator.Allocate(
-            shortSchedule, TrainingGoal.Hypertrophy, TrainingExperience.Intermediate, null, 35);
+            shortSchedule, TrainingGoal.Hypertrophy, TrainingExperience.Intermediate, null, 10);
         var fullBudget = TrainingProgramVolumeAllocator.Allocate(
             shortSchedule, TrainingGoal.Hypertrophy, TrainingExperience.Intermediate, null, 90);
         var explicitTarget = TrainingProgramVolumeAllocator.Allocate(
@@ -412,11 +412,11 @@ public sealed class TrainingProgramVolumeAllocatorTests
         Assert.True(shortBudget.Succeeded, string.Join("; ", shortBudget.Errors));
         Assert.True(fullBudget.Succeeded, string.Join("; ", fullBudget.Errors));
         Assert.True(explicitTarget.Succeeded, string.Join("; ", explicitTarget.Errors));
-        Assert.Equal(10, shortBudget.Sessions.Sum(session => session.Exercises.Single().Sets));
+        Assert.Equal(4, shortBudget.Sessions.Sum(session => session.Exercises.Single().Sets));
         Assert.Equal(10, fullBudget.Sessions.Sum(session => session.Exercises.Single().Sets));
         Assert.Equal(8, explicitTarget.Sessions.Sum(session => session.Exercises.Single().Sets));
         Assert.Contains(shortBudget.Warnings, warning => warning.Contains("rango orientativo", StringComparison.Ordinal));
-        Assert.Contains(fullBudget.Warnings, warning => warning.Contains("rango orientativo", StringComparison.Ordinal));
+        Assert.DoesNotContain(fullBudget.Warnings, warning => warning.Contains("rango orientativo", StringComparison.Ordinal));
     }
 
     [Fact]
