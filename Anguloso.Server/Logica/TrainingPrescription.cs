@@ -252,6 +252,27 @@ internal static class TrainingExerciseStimulus
             ["captains-chair-knee-raise"] = [TrainingMuscleGroup.HipFlexors]
         };
 
+    // Explicitly audited catalog isolates/accessories whose secondary tags do not represent
+    // enough dynamic stimulus to add a full hypertrophy set to another muscle.
+    private static readonly HashSet<string> ReviewedWithoutMeaningfulSecondary =
+    [
+        "straight-arm-pulldown", "hip-thrust", "plate-loaded-glute-drive", "barbell-glute-bridge",
+        "cable-fly", "db-fly", "pec-deck", "lateral-raise", "cable-lateral-raise", "shrug",
+        "barbell-curl", "hammer-curl", "incline-db-curl", "preacher-curl", "cable-curl",
+        "tricep-pushdown", "cable-overhead-tricep-extension", "overhead-tricep-extension", "skull-crusher",
+        "leg-extension", "reverse-nordic-curl", "leg-curl", "seated-leg-curl", "nordic-hamstring-curl",
+        "ball-leg-curl", "banded-standing-curl", "trx-hamstring-curl", "standing-calf-raise",
+        "seated-calf-raise", "kettlebell-tibialis-raise", "cable-external-rotation", "hip-adduction",
+        "standing-hip-abduction", "hip-abduction", "cable-crunch", "ab-wheel-rollout",
+        "cable-pallof-press", "side-plank", "dumbbell-farmers-walk", "seated-dumbbell-lateral-raise",
+        "machine-seated-crunch", "dead-bug", "machine-chest-fly", "machine-bicep-curl",
+        "single-arm-plate-loaded-lateral-raise", "machine-calf-raise", "side-lying-hip-abduction",
+        "side-lying-hip-adduction", "glute-bridge", "bodyweight-calf-raise"
+    ];
+
+    public static bool IsReviewed(string exerciseId) =>
+        MeaningfulSecondary.ContainsKey(exerciseId) || ReviewedWithoutMeaningfulSecondary.Contains(exerciseId);
+
     public static IReadOnlySet<TrainingMuscleGroup> GetEffectiveMuscles(
         string exerciseId,
         IReadOnlyList<TrainingMuscleGroup> primary,
