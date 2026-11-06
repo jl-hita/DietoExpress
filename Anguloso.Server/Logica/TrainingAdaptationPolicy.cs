@@ -124,6 +124,7 @@ public enum TrainingAdaptationAction
 /// <param name="PainSignal">A safety signal, not a diagnosis.</param>
 /// <param name="SessionRpe">Optional whole-session effort rating from 0 to 10.</param>
 /// <param name="ProgressionTargetAchieved">True only when the existing prescription's progression criteria were met.</param>
+/// <param name="SetCompletionRatio">Ratio of completed working sets to prescribed working sets, when known.</param>
 public sealed record TrainingSessionFeedback(
     TrainingSessionOutcome Outcome,
     TrainingNonCompletionReason NonCompletionReason = TrainingNonCompletionReason.None,
