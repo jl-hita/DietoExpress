@@ -386,12 +386,12 @@ public sealed class TrainingProgramGeneratorTests
         Assert.Equal(weekOneQuads.PrimarySets, weekFourQuads.PrimarySets);
         Assert.Contains(report.Warnings, warning =>
             warning.Contains("Quadriceps alcanza", StringComparison.Ordinal));
-        Assert.Contains(report.Warnings, warning => warning.Contains("Adductors", StringComparison.Ordinal));
-        Assert.Contains(report.Warnings, warning => warning.Contains("RotatorCuff", StringComparison.Ordinal));
+        Assert.DoesNotContain(report.Warnings, warning => warning.Contains("Adductors", StringComparison.Ordinal));
+        Assert.DoesNotContain(report.Warnings, warning => warning.Contains("RotatorCuff", StringComparison.Ordinal));
     }
 
     [Fact]
-    public void QualityReportFlagsMusclesWithoutAnyCatalogCoverage()
+    public void QualityReportKeepsUncoveredAccessoryMusclesVisibleWithoutCallingThemAutomaticDefects()
     {
         var result = TrainingProgramGenerator.Generate(Request(), Catalog());
         Assert.True(result.Succeeded, string.Join("; ", result.Errors));
@@ -410,7 +410,10 @@ public sealed class TrainingProgramGeneratorTests
         };
 
         var report = TrainingProgramQualityAnalyzer.Analyze(planWithoutCalfCoverage);
-        Assert.Contains(report.Warnings, warning => warning.Contains("Calves", StringComparison.Ordinal));
+        var calves = report.WeeklyMuscleVolumes[0].Muscles.Single(muscle => muscle.MuscleGroup == TrainingMuscleGroup.Calves);
+        Assert.Equal(0, calves.PrimarySets);
+        Assert.Equal(0, calves.SecondarySets);
+        Assert.DoesNotContain(report.Warnings, warning => warning.Contains("Calves", StringComparison.Ordinal));
     }
 
     [Fact]
