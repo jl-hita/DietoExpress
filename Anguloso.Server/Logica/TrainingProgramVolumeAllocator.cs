@@ -284,7 +284,8 @@ public static class TrainingProgramVolumeAllocator
         if (goal != TrainingGoal.Hypertrophy)
             return 0m;
 
-        // Explicit professional targets use a narrow +/-2 range (e.g. 20 means 18–22).
+        // Explicit professional targets use a narrow +/-2 range (e.g. 20 means 18–22),
+        // regardless of experience; defaults use the broader experience-specific ranges.
         if ((preferences ?? Array.Empty<TrainingMuscleVolumeTarget>())
             .Any(preference => preference.MuscleGroup == muscle && preference.TargetWeeklyPrimarySets is not null))
             return ExplicitHypertrophyTargetToleranceSets;
