@@ -178,7 +178,27 @@ internal static class RepDbExerciseCuration
         "cable-pallof-press",
         "side-plank",
         "dumbbell-farmers-walk",
-        "seated-dumbbell-lateral-raise"
+        "seated-dumbbell-lateral-raise",
+        // Additional source-verified options to improve equipment access and muscle coverage.
+        "machine-seated-crunch",
+        "dead-bug",
+        "machine-reverse-fly",
+        "machine-chest-fly",
+        "machine-bicep-curl",
+        "single-arm-plate-loaded-lateral-raise",
+        "machine-calf-raise",
+        "side-lying-hip-abduction",
+        "side-lying-hip-adduction",
+        "machine-back-extension",
+        "glute-bridge",
+        "db-squat",
+        "horizontal-leg-press",
+        "chest-supported-kettlebell-row",
+        "kneeling-cable-row",
+        "one-arm-seated-cable-row",
+        "hanging-knee-raise",
+        "captains-chair-knee-raise",
+        "bodyweight-calf-raise"
     ];
     private static readonly HashSet<string> CuratedCatalog = new(CuratedCatalogIds, StringComparer.OrdinalIgnoreCase);
 
