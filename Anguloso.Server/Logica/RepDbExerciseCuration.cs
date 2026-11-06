@@ -315,6 +315,11 @@ internal static class RepDbExerciseCuration
 
     public static string CurateMusclesJson(string id, bool primary, string sourceMusclesJson)
     {
+        // RepDB describes the external rotators as secondary support but incorrectly lists
+        // posterior deltoid as the sole primary target. Correct the anatomy for this movement.
+        if (id.Equals("cable-external-rotation", StringComparison.OrdinalIgnoreCase))
+            return primary ? """["infraspinatus","teres_minor"]""" : """["posterior_deltoid"]""";
+
         if (id.Equals("sit-ups", StringComparison.OrdinalIgnoreCase))
             return primary ? """["rectus_abdominis"]""" : """["hip_flexors"]""";
 
