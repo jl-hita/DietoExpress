@@ -44,17 +44,17 @@ Los 221 registros aprobados en esta exportación no deben interpretarse como 221
 
 ## Catálogo seleccionado para el generador
 
-La selección explícita pasa de 84 a **95 ejercicios**. No se intenta importar indiscriminadamente los 701 registros: el generador recibe una biblioteca deliberadamente curada, progresable y con alternativas de equipamiento.
+La selección explícita pasa de 84 a **96 ejercicios**. No se intenta importar indiscriminadamente los 701 registros: el generador recibe una biblioteca deliberadamente curada, progresable y con alternativas de equipamiento.
 
-Composición de los 95 IDs frente al estado que tenían en la exportación local:
+Composición de los 96 IDs frente al estado que tenían en la exportación local:
 
 | Estado en la exportación | Seleccionados |
 |---|---:|
-| approved | 51 |
+| approved | 52 |
 | pending | 41 |
 | rejected, con excepción y corrección explícita | 2 |
 | incorporado desde el upstream oficial (no estaba en la exportación local) | 1 |
-| **Total** | **95** |
+| **Total** | **96** |
 
 Los dos ejercicios rechazados que se mantienen mediante decisión explícita son:
 
@@ -76,17 +76,17 @@ Se recuperan además tres registros que ya estaban aprobados en la exportación 
 - `ball-leg-curl`: curl femoral con pelota de estabilidad; intermedio, con flexión de rodilla y una progresión bilateral a unilateral.
 - `trx-hamstring-curl`: curl femoral en entrenador de suspensión; intermedio, con trabajo de flexión de rodilla.
 
-Los tres tienen instrucciones en español e imágenes `start`/`peak` en el snapshot auditado. Se clasifican explícitamente como accesorios y se normaliza `banded-standing-curl` al grupo `leg-curl`, corrigiendo su grupo de variación de origen. Su prioridad queda por debajo de las opciones de máquina/cable cuando estas están disponibles; no desplazan los básicos ni se ofrecen si falta el material requerido.
+Los tres tienen instrucciones en español e imágenes `start`/`peak` en el snapshot auditado. Además, se incorpora `reverse-nordic-curl`, ya aprobado en la exportación local: es una extensión de rodilla de peso corporal, intermedia y con imágenes/instrucciones, clasificada explícitamente como accesorio (no como sentadilla). Su prioridad es inferior a la extensión de cuádriceps de máquina y solo cubre el hueco cuando no hay una opción cargable compatible. Se clasifican explícitamente como accesorios y se normaliza `banded-standing-curl` al grupo `leg-curl`, corrigiendo su grupo de variación de origen. Su prioridad queda por debajo de las opciones de máquina/cable cuando estas están disponibles; no desplazan los básicos ni se ofrecen si falta el material requerido.
 
 Los 40 pendientes restantes no se incorporan al generador inicial: son variantes redundantes de ejercicios ya representados, habilidades/posiciones específicas o movimientos accesorios menos prioritarios para el alcance de esta primera biblioteca. Se mantienen fuera de la lista permitida; no se convierten automáticamente en ejercicios aprobados ni se presentan como clínicamente incorrectos. La lista permitida es la frontera efectiva de lo que puede seleccionar el generador.
 
-De los 95 seleccionados, 93 tienen las dos imágenes `start` y `peak`; `dumbbell-farmers-walk` y `side-plank` solo tienen `main`. El nuevo `kettlebell-tibialis-raise` tiene dos imágenes `start`/`peak` en el repositorio oficial. Las 188 rutas de imagen requeridas por los 95 seleccionados existen en el árbol del repositorio oficial. La presencia del archivo no demuestra todavía que el CDN remoto responda ni que Android lo represente; esas comprobaciones siguen pendientes en sus fases específicas.
+De los 96 seleccionados, 94 tienen las dos imágenes `start` y `peak`; `dumbbell-farmers-walk` y `side-plank` solo tienen `main`. El nuevo `kettlebell-tibialis-raise` tiene dos imágenes `start`/`peak` en el repositorio oficial. Las 190 rutas de imagen requeridas por los 96 seleccionados existen en el árbol del repositorio oficial. La presencia del archivo no demuestra todavía que el CDN remoto responda ni que Android lo represente; esas comprobaciones siguen pendientes en sus fases específicas.
 
 ## Hallazgos anatómicos y de metadatos
 
 - En la exportación local de 466 registros no había ningún ejercicio con `tibialis_anterior` como músculo primario; solo aparecía en dos asignaciones secundarias. El contraste con los 701 registros oficiales encontró `kettlebell-tibialis-raise`. Se conserva como opción especializada, con sus instrucciones e imágenes oficiales y doble requisito de equipamiento (`bench` + `kettlebell`), pero no se usa como indicador de cobertura general del tren inferior.
 - El catálogo de origen contiene 16 registros con romboides como músculo primario y 16 con trapecio como primario. La selección añade `shrug` y conserva remos con romboides/espalda alta, pero el volumen efectivo de espalda alta debe validarse en el generador, no inferirse por el número de ejercicios.
-- Isquiotibiales aparecen como primarios en 44 registros; cuádriceps en 69. La biblioteca seleccionada incluye curls femorales en máquina, Nordic y alternativas con banda, pelota de estabilidad y suspensión, además de bisagras, sentadillas, prensa y extensiones. Las advertencias de volumen del informe de generación no se resolverán simplemente acumulando variantes: habrá que revisar el asignador y las restricciones por escenario.
+- Isquiotibiales aparecen como primarios en 44 registros; cuádriceps en 69. La biblioteca seleccionada incluye curls femorales en máquina, Nordic y alternativas con banda, pelota de estabilidad y suspensión; también incluye Nordic inverso como accesorio de cuádriceps sin material para perfiles domésticos. Se mantienen bisagras, sentadillas, prensa y extensiones como base. Las advertencias de volumen del informe de generación no se resolverán simplemente acumulando variantes: habrá que revisar el asignador y las restricciones por escenario.
 - Se detectaron tres diferencias entre la musculatura exterior curada y el payload original: `sit-ups`, `hex-bar-deadlift` y `cossack-squat`. Se conservan como correcciones explícitas en `RepDbExerciseCuration.CurateMusclesJson` y quedan cubiertas por una prueba de regresión; no se sobrescriben silenciosamente con los datos externos.
 - La exportación local antigua contiene falsos positivos de patrón: `cable-reverse-fly`, `close-grip-barbell-curl`, `drag-curl` y `zottman-curl` aparecen como tracción horizontal; `single-leg-calf-raise` aparece como ejercicio unilateral; `crow-pose` se confunde con una tracción; y varias flexiones laterales se confunden con empujes. Las reglas actuales deben clasificarlas como accesorios o excluirlas cuando no sean ejercicios progresables adecuados.
 - También hay inconsistencias de normalización entre variantes de remo (por ejemplo, músculos anatómicos sin normalizar frente a los grupos controlados `Lats`/`UpperBack`). La migración de refresco de metadatos automáticos de PR #503 debe integrarse con el bootstrap de PR #504 y comprobarse con tests; no se deben sobrescribir revisiones humanas.
@@ -94,12 +94,12 @@ De los 95 seleccionados, 93 tienen las dos imágenes `start` y `peak`; `dumbbell
 ## Criterios que siguen abiertos
 
 1. Integrar y validar conjuntamente las correcciones de metadatos de PR #503 y el catálogo curado de PR #504.
-2. Verificar en el informe de evaluación que los 95 ejercicios seleccionados son candidatos reales y que las imágenes/instrucciones se conservan tras importar.
+2. Verificar en el informe de evaluación que los 96 ejercicios seleccionados son candidatos reales y que las imágenes/instrucciones se conservan tras importar.
 3. Validar que `kettlebell-tibialis-raise` permanece como accesorio especializado opcional y que no desplaza ejercicios prioritarios ni condiciona la generación de rutinas generales.
 4. Comprobar la disponibilidad real de las imágenes y su visualización en portal y Android.
 5. Revisar los avisos de volumen y los escenarios con restricciones de equipamiento en la siguiente fase del checklist.
 
-**Conclusión:** la exportación local de 466 registros y el upstream oficial de 701 están contrastados, y la selección inicial se ha ampliado a 95 ejercicios con criterios explícitos. El tibial anterior queda como accesorio opcional, no como requisito de cobertura. Esto no cierra el P1: quedan las correcciones de metadatos integradas, la verificación real de medios y, sobre todo, la auditoría del generador/adaptador y sus escenarios.
+**Conclusión:** la exportación local de 466 registros y el upstream oficial de 701 están contrastados, y la selección inicial se ha ampliado a 96 ejercicios con criterios explícitos. El tibial anterior queda como accesorio opcional, no como requisito de cobertura. Esto no cierra el P1: quedan las correcciones de metadatos integradas, la verificación real de medios y, sobre todo, la auditoría del generador/adaptador y sus escenarios.
 
 
 ### Disposición individual de los 40 pendientes no seleccionados
@@ -153,4 +153,4 @@ Estos registros no entran en la biblioteca inicial porque su función ya está c
 
 De los 58 registros rechazados de categoría fuerza, dos se incorporan con una decisión explícita y corrección (`cable-external-rotation` y `hammer-curl`). Los otros 56 quedan fuera de la biblioteca inicial por ser ejercicios de rehabilitación/activación, variantes redundantes de menor prioridad, habilidades avanzadas de calistenia, posiciones de yoga/Pilates o trabajo de potencia/condicionamiento. Esto incluye, entre otros, `banded-clamshell`, `bird-dog`, `sled-push`, `front-lever`, `human-flag`, `muscle-ups`, `handstand-hold`, `jefferson-curl`, `medicine-ball-slam`, `wall-ball` y `band-pull-apart`. El resto de rechazados son 89 ejercicios de estiramiento y 17 de cardio, ajenos al alcance de este generador.
 
-La selección de 95 no pretende ser el catálogo universal de todo ejercicio útil. Define el conjunto inicial que el motor puede prescribir con reglas, progresión y equipamiento conocidos. Las alternativas fuera de alcance podrán incorporarse después de una revisión específica.
+La selección de 96 no pretende ser el catálogo universal de todo ejercicio útil. Define el conjunto inicial que el motor puede prescribir con reglas, progresión y equipamiento conocidos. Las alternativas fuera de alcance podrán incorporarse después de una revisión específica.
