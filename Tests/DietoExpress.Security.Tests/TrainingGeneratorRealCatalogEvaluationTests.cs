@@ -21,7 +21,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
     public TrainingGeneratorRealCatalogEvaluationTests(ITestOutputHelper output) => _output = output;
 
     [Fact]
-    public async Task AutoCuratedRepDbCatalogGeneratesAcrossThe81ScenarioMatrix()
+    public async Task AutoCuratedRepDbCatalogGeneratesAcrossThe324ScenarioMatrix()
     {
         var baseConnectionString = Environment.GetEnvironmentVariable("DIETOEXPRESS_IDEMPOTENCY_TEST_CONNECTION");
         if (string.IsNullOrWhiteSpace(baseConnectionString))
