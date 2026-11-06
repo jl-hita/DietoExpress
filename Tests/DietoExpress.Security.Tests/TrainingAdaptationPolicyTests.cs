@@ -22,6 +22,26 @@ public sealed class TrainingAdaptationPolicyTests
     }
 
     [Fact]
+    public void PartialSessionForTime_ReorganizesFutureSessionsWhenCompletionIsAdequate()
+    {
+        var result = TrainingAdaptationPolicy.Evaluate([
+            new TrainingSessionFeedback(TrainingSessionOutcome.Partial, TrainingNonCompletionReason.Time,
+                Recovery: TrainingRecoveryRating.Good, SetCompletionRatio: 0.9m)
+        ]);
+        Assert.Equal(TrainingAdaptationAction.ReorganizeFutureSessions, result.Action);
+    }
+
+    [Fact]
+    public void PartialSessionForTimeWithLowSetCompletion_HoldsProgressionFirst()
+    {
+        var result = TrainingAdaptationPolicy.Evaluate([
+            new TrainingSessionFeedback(TrainingSessionOutcome.Partial, TrainingNonCompletionReason.Time,
+                Recovery: TrainingRecoveryRating.Good, SetCompletionRatio: 0.5m)
+        ]);
+        Assert.Equal(TrainingAdaptationAction.HoldProgressionAndReview, result.Action);
+    }
+
+    [Fact]
     public void FatigueRelatedPartialSession_HoldsProgression()
     {
         var result = TrainingAdaptationPolicy.Evaluate([

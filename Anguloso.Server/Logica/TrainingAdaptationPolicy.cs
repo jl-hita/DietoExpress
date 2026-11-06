@@ -38,10 +38,10 @@ public static class TrainingAdaptationPolicy
             return Decision(TrainingAdaptationAction.ReviewAndReduceTrainingStress,
                 "La recuperación insuficiente se repite. Revisa con tu profesional el volumen, la intensidad y la separación entre sesiones futuras.");
 
-        if (latest.Outcome is TrainingSessionOutcome.NotCompleted &&
+        if (latest.Outcome is TrainingSessionOutcome.Partial or TrainingSessionOutcome.NotCompleted &&
             latest.NonCompletionReason is TrainingNonCompletionReason.Time)
             return Decision(TrainingAdaptationAction.ReorganizeFutureSessions,
-                "La sesión se omitió por falta de tiempo; tu profesional puede reorganizar solo las sesiones futuras si el calendario y la recuperación lo permiten.");
+                "La sesión se completó solo parcialmente o se omitió por falta de tiempo; tu profesional puede reorganizar solo las sesiones futuras si el calendario y la recuperación lo permiten.");
 
         if (((latest.Outcome is TrainingSessionOutcome.Partial or TrainingSessionOutcome.NotCompleted) &&
              (latest.NonCompletionReason is TrainingNonCompletionReason.Fatigue or TrainingNonCompletionReason.Illness)) ||
