@@ -521,6 +521,11 @@ internal static class RepDbExerciseAutoReviewer
             "machine-calf-raise" =>
                 ["Apoya el antepié en la plataforma y coloca los hombros bajo los soportes acolchados.",
                  "Eleva los talones de forma controlada y baja lentamente hasta un estiramiento cómodo."],
+            "kettlebell-tibialis-raise" =>
+                ["Siéntate en el extremo de un banco con una pierna extendida y el talón apoyado en el suelo.",
+                 "Cuelga una pesa rusa por el asa del antepié, sobre los dedos, manteniendo la pierna estable.",
+                 "Eleva los dedos hacia la espinilla sin mover la rodilla ni el muslo.",
+                 "Baja lentamente el pie y cambia de pierna al completar las repeticiones."],
             "bodyweight-calf-raise" =>
                 ["Colócate de pie con apoyo estable y deja que los talones puedan descender libremente.",
                  "Eleva los talones todo lo posible y baja lentamente sin rebotar."],
