@@ -59,6 +59,24 @@ public sealed class TrainingProgramVolumeAllocatorTests
     }
 
     [Fact]
+    public void DefaultTargetsPrioritizeQuadricepsGlutesAndCalvesWhileKeepingHamstringsSecondary()
+    {
+        var defaults = TrainingProgramVolumeAllocator.GetWeeklyTargets(
+            TrainingGoal.Hypertrophy, TrainingExperience.Beginner, null,
+            sessionsPerWeek: 3, maximumSessionDurationMinutes: 60);
+        var explicitHamstrings = TrainingProgramVolumeAllocator.GetWeeklyTargets(
+            TrainingGoal.Hypertrophy, TrainingExperience.Beginner,
+            [new TrainingMuscleVolumeTarget(TrainingMuscleGroup.Hamstrings, TargetWeeklyPrimarySets: 8m)],
+            sessionsPerWeek: 3, maximumSessionDurationMinutes: 60);
+
+        Assert.Equal(6m, defaults[TrainingMuscleGroup.Quadriceps]);
+        Assert.Equal(6m, defaults[TrainingMuscleGroup.Glutes]);
+        Assert.Equal(6m, defaults[TrainingMuscleGroup.Calves]);
+        Assert.Equal(3m, defaults[TrainingMuscleGroup.Hamstrings]);
+        Assert.Equal(8m, explicitHamstrings[TrainingMuscleGroup.Hamstrings]);
+    }
+
+    [Fact]
     public void DefaultWeeklyTargetsFocusOnMainGroupsAndOnlyAddAccessoryGroupsWhenPrioritized()
     {
         var sessions = new[]
