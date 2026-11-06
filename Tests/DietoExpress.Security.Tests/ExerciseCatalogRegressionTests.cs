@@ -396,6 +396,7 @@ public sealed class ExerciseCatalogRegressionTests
         var autoReviewer = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "RepDbExerciseAutoReviewer.cs"));
         Assert.Contains("[\"tibialis-raise\"] = [\"kettlebell-tibialis-raise\"]", curation);
         Assert.Contains("\"kettlebell-tibialis-raise\" => \"tibialis-raise\"", curation);
+        Assert.Contains("[\\"infraspinatus\\",\\"teres_minor\\"]", curation);
         Assert.Contains("tibialis raise", autoReviewer);
         Assert.Contains("external rotation", autoReviewer);
     }
