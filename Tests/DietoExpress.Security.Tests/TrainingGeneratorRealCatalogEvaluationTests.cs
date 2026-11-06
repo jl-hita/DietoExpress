@@ -328,7 +328,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         var intermediateHomeScenario = scenarioResults.Single(result =>
             result.ScenarioId == "profile-homegymwithbandsandball-goal-hypertrophy-experience-intermediate-days-2-minutes-90");
         // Intermediate home plans retain a loaded hinge; direct knee-flexion accessories
-        // remain optional when the higher-priority muscle groups still need slots. 
+        // remain optional when the higher-priority muscle groups still need slots.
         Assert.Contains("deadlift", intermediateHomeScenario.SelectedExerciseIds);
         var noMachineQuadScenario = scenarioResults.Single(result =>
             result.ScenarioId == "profile-nocableormachines-goal-hypertrophy-experience-intermediate-days-2-minutes-90");
