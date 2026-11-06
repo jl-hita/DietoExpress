@@ -635,6 +635,56 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
+    public void GeneratorAddsOneDirectHamstringAccessoryWhenWeeklyCoverageIsMissingAndTimeAllows()
+    {
+        var catalog = Catalog().Append(new TrainingExerciseCandidate(
+            "seated-leg-curl", "test", "Curl femoral sentado", TrainingMovementPattern.Accessory,
+            ["leg-curl-machine"], [TrainingGoal.Hypertrophy, TrainingGoal.GeneralFitness],
+            TrainingExperience.Beginner, 10, true,
+            [TrainingMuscleGroup.Hamstrings], [TrainingMuscleGroup.Calves])).ToArray();
+
+        var generated = TrainingProgramGenerator.Generate(
+            Request() with { MaximumSessionDurationMinutes = 90 }, catalog);
+
+        Assert.True(generated.Succeeded, string.Join("; ", generated.Errors));
+        var weekOneHamstringAccessories = generated.Prescription!.Sessions
+            .Where(session => session.WeekNumber == 1)
+            .SelectMany(session => session.Exercises)
+            .Where(exercise => exercise.ExerciseId == "seated-leg-curl")
+            .ToArray();
+        Assert.Single(weekOneHamstringAccessories);
+        Assert.All(generated.Prescription.Sessions, session =>
+            Assert.InRange(session.EstimatedDurationMinutes, 1, 90));
+    }
+
+    [Fact]
+    public void GeneratorDoesNotForceHamstringAccessoryWhenTargetIsAlreadyMetOrEquipmentIsUnavailable()
+    {
+        var catalog = Catalog().Append(new TrainingExerciseCandidate(
+            "seated-leg-curl", "test", "Curl femoral sentado", TrainingMovementPattern.Accessory,
+            ["leg-curl-machine"], [TrainingGoal.Hypertrophy, TrainingGoal.GeneralFitness],
+            TrainingExperience.Beginner, 10, true,
+            [TrainingMuscleGroup.Hamstrings], [TrainingMuscleGroup.Calves])).ToArray();
+
+        var targetAlreadyMet = TrainingProgramGenerator.Generate(
+            Request() with
+            {
+                MuscleVolumeTargets = [new TrainingMuscleVolumeTarget(TrainingMuscleGroup.Hamstrings, TargetWeeklyPrimarySets: 1)]
+            },
+            catalog);
+        Assert.True(targetAlreadyMet.Succeeded, string.Join("; ", targetAlreadyMet.Errors));
+        Assert.DoesNotContain(targetAlreadyMet.Prescription!.Sessions.SelectMany(session => session.Exercises),
+            exercise => exercise.ExerciseId == "seated-leg-curl");
+
+        var noCompatibleMachine = TrainingProgramGenerator.Generate(
+            Request() with { AvailableEquipment = ["barbell"] },
+            catalog);
+        Assert.True(noCompatibleMachine.Succeeded, string.Join("; ", noCompatibleMachine.Errors));
+        Assert.DoesNotContain(noCompatibleMachine.Prescription!.Sessions.SelectMany(session => session.Exercises),
+            exercise => exercise.ExerciseId == "seated-leg-curl");
+    }
+
+    [Fact]
     public void GeneratorDistributesAccessoriesAcrossSplitDaysWithoutRepeatingCoveredWeeklyVolume()
     {
         var catalog = Catalog()
