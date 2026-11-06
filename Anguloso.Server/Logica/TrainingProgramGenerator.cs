@@ -182,7 +182,10 @@ public static class TrainingProgramGenerator
                 TargetRepetitionsInReserve = exercise.TargetRepetitionsInReserve is null
                     ? null
                     : Math.Min(5m, exercise.TargetRepetitionsInReserve.Value + 2m),
-                SelectionRationale = exercise.SelectionRationale + " Descarga activa: reducción conservadora de series y mayor reserva respecto al fallo."
+                // A deload is a recovery phase, not another opportunity to progress load.
+                // The progression service must return NotApplicable until normal training resumes.
+                ProgressionRule = TrainingProgressionRule.None,
+                SelectionRationale = exercise.SelectionRationale + " Descarga activa: reducción conservadora de series, mayor reserva respecto al fallo y progresión de carga pausada."
             }).ToArray()
         }).ToArray();
 
