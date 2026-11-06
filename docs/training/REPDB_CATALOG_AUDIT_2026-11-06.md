@@ -204,3 +204,8 @@ Validación CI del commit `0afa568f6c9a12817708af3f93f57ab59db9142d` (06/11/2026
 - Persisten avisos de otros grupos (especialmente espalda alta, bíceps y deltoides). Son advertencias de dosis primaria, no errores de generación; deben interpretarse junto con las exposiciones secundarias y el tiempo disponible, no ocultarse ni convertirse automáticamente en fallos estructurales.
 
 La matriz demuestra consistencia estructural, no validación clínica individual ni prueba de que una estimación de duración coincida con el tiempo real. P1 permanece abierto hasta completar la revisión final del adaptador/progresión y de los escenarios con material y tiempo restringidos.
+
+
+### Descarga y progresión automática
+
+La descarga explícita de una semana conserva los ejercicios y reduce aproximadamente a la mitad las series, aumenta el RIR objetivo en dos puntos y, además, cambia la regla de progresión a `None` durante esa fase. Así el endpoint de progresión devuelve `not_applicable` y no recomienda aumentar carga durante una semana de recuperación. Al generar el siguiente bloque normal vuelve a aplicarse la doble progresión. La descarga sigue siendo una fase explícita de una semana, no un calendario automático fijo: la evidencia no justifica imponerla indiscriminadamente cada dos o tres semanas a todos los usuarios.
