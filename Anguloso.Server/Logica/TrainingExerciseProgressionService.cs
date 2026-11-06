@@ -121,7 +121,7 @@ public sealed class TrainingExerciseProgressionService
                                     history[key] = exposures = [];
                                 exposures.Add(new(
                                     sets, completed, recoveryInsufficient, pain,
-                                    progressionEligibility.GetValueOrDefault(exerciseId)));
+                                    ProgressionEligible: progressionEligibility.GetValueOrDefault(exerciseId)));
                             }
                         }
                     }
@@ -141,7 +141,7 @@ public sealed class TrainingExerciseProgressionService
                     if (!history.TryGetValue(key, out var exposures))
                         history[key] = exposures = [];
                     exposures.Add(new(Array.Empty<Anguloso.Server.Logica.TrainingExecutedSet>(),
-                        completed, recoveryInsufficient, sessionPain, progressionEligible));
+                        completed, recoveryInsufficient, sessionPain, ProgressionEligible: progressionEligible));
                 }
             }
         }
