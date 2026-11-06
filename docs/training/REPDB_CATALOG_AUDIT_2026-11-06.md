@@ -44,17 +44,17 @@ Los 221 registros aprobados en esta exportación no deben interpretarse como 221
 
 ## Catálogo seleccionado para el generador
 
-La selección explícita pasa de 84 a **96 ejercicios**. No se intenta importar indiscriminadamente los 701 registros: el generador recibe una biblioteca deliberadamente curada, progresable y con alternativas de equipamiento.
+La selección explícita pasa de 84 a **97 ejercicios**. No se intenta importar indiscriminadamente los 701 registros: el generador recibe una biblioteca deliberadamente curada, progresable y con alternativas de equipamiento.
 
-Composición de los 96 IDs frente al estado que tenían en la exportación local:
+Composición de los 97 IDs frente al estado que tenían en la exportación local:
 
 | Estado en la exportación | Seleccionados |
 |---|---:|
 | approved | 52 |
-| pending | 41 |
+| pending | 42 |
 | rejected, con excepción y corrección explícita | 2 |
 | incorporado desde el upstream oficial (no estaba en la exportación local) | 1 |
-| **Total** | **96** |
+| **Total** | **97** |
 
 Los dos ejercicios rechazados que se mantienen mediante decisión explícita son:
 
@@ -70,6 +70,8 @@ Se incorporan además seis ejercicios pendientes que aportan alternativas reales
 - `overhead-tricep-extension`: alternativa con mancuerna para tríceps y usuarios sin polea.
 - `incline-push-ups`: variante escalable de empuje para principiantes.
 
+Se incorpora también `db-fly` (aperturas con mancuernas), que figuraba entre los pendientes no seleccionados en la primera revisión. La evaluación real detectó que los perfiles con mancuernas, banco y barra de dominadas no disponían de aislamiento de pecho compatible: las aperturas de cable y máquina no podían seleccionarse. RepDB documenta `db-fly` como aislamiento de pectoral, de nivel principiante, con mancuerna, instrucciones en español e imágenes start/peak. Es una alternativa complementaria, no un sustituto del press de banca.
+
 Se recuperan además tres registros que ya estaban aprobados en la exportación local, pero que no habían entrado en la lista permitida pese a estar incluidos en el grupo de variación de curl femoral:
 
 - `banded-standing-curl`: curl femoral de pie con banda; principiante, útil como opción doméstica de baja carga y con prioridad inferior a las variantes más progresables.
@@ -78,9 +80,9 @@ Se recuperan además tres registros que ya estaban aprobados en la exportación 
 
 Los tres tienen instrucciones en español e imágenes `start`/`peak` en el snapshot auditado. Además, se incorpora `reverse-nordic-curl`, ya aprobado en la exportación local: es una extensión de rodilla de peso corporal, intermedia y con imágenes/instrucciones, clasificada explícitamente como accesorio (no como sentadilla). Su prioridad es inferior a la extensión de cuádriceps de máquina y solo cubre el hueco cuando no hay una opción cargable compatible. Se clasifican explícitamente como accesorios y se normaliza `banded-standing-curl` al grupo `leg-curl`, corrigiendo su grupo de variación de origen. Su prioridad queda por debajo de las opciones de máquina/cable cuando estas están disponibles; no desplazan los básicos ni se ofrecen si falta el material requerido.
 
-Los 40 pendientes restantes no se incorporan al generador inicial: son variantes redundantes de ejercicios ya representados, habilidades/posiciones específicas o movimientos accesorios menos prioritarios para el alcance de esta primera biblioteca. Se mantienen fuera de la lista permitida; no se convierten automáticamente en ejercicios aprobados ni se presentan como clínicamente incorrectos. La lista permitida es la frontera efectiva de lo que puede seleccionar el generador.
+Los 39 pendientes restantes no se incorporan al generador inicial: son variantes redundantes de ejercicios ya representados, habilidades/posiciones específicas o movimientos accesorios menos prioritarios para el alcance de esta primera biblioteca. Se mantienen fuera de la lista permitida; no se convierten automáticamente en ejercicios aprobados ni se presentan como clínicamente incorrectos. La lista permitida es la frontera efectiva de lo que puede seleccionar el generador.
 
-De los 96 seleccionados, 94 tienen las dos imágenes `start` y `peak`; `dumbbell-farmers-walk` y `side-plank` solo tienen `main`. El nuevo `kettlebell-tibialis-raise` tiene dos imágenes `start`/`peak` en el repositorio oficial. Las 190 rutas de imagen requeridas por los 96 seleccionados existen en el árbol del repositorio oficial. La presencia del archivo no demuestra todavía que el CDN remoto responda ni que Android lo represente; esas comprobaciones siguen pendientes en sus fases específicas.
+De los 97 seleccionados, 94 tienen las dos imágenes `start` y `peak`; `dumbbell-farmers-walk` y `side-plank` solo tienen `main`. El nuevo `kettlebell-tibialis-raise` tiene dos imágenes `start`/`peak` en el repositorio oficial. Las 192 rutas de imagen requeridas por los 97 seleccionados existen en el árbol del repositorio oficial. La presencia del archivo no demuestra todavía que el CDN remoto responda ni que Android lo represente; esas comprobaciones siguen pendientes en sus fases específicas.
 
 ## Hallazgos anatómicos y de metadatos
 
@@ -94,12 +96,12 @@ De los 96 seleccionados, 94 tienen las dos imágenes `start` y `peak`; `dumbbell
 ## Criterios que siguen abiertos
 
 1. Integrar y validar conjuntamente las correcciones de metadatos de PR #503 y el catálogo curado de PR #504.
-2. Verificar en el informe de evaluación que los 96 ejercicios seleccionados son candidatos reales y que las imágenes/instrucciones se conservan tras importar.
+2. Verificar en el informe de evaluación que los 97 ejercicios seleccionados son candidatos reales y que las imágenes/instrucciones se conservan tras importar.
 3. Validar que `kettlebell-tibialis-raise` permanece como accesorio especializado opcional y que no desplaza ejercicios prioritarios ni condiciona la generación de rutinas generales.
 4. Comprobar la disponibilidad real de las imágenes y su visualización en portal y Android.
 5. Revisar los avisos de volumen y los escenarios con restricciones de equipamiento en la siguiente fase del checklist.
 
-**Conclusión:** la exportación local de 466 registros y el upstream oficial de 701 están contrastados, y la selección inicial se ha ampliado a 96 ejercicios con criterios explícitos. El tibial anterior queda como accesorio opcional, no como requisito de cobertura. Esto no cierra el P1: quedan las correcciones de metadatos integradas, la verificación real de medios y, sobre todo, la auditoría del generador/adaptador y sus escenarios.
+**Conclusión:** la exportación local de 466 registros y el upstream oficial de 701 están contrastados, y la selección inicial se ha ampliado a 97 ejercicios con criterios explícitos. El tibial anterior queda como accesorio opcional, no como requisito de cobertura. Esto no cierra el P1: quedan las correcciones de metadatos integradas, la verificación real de medios y, sobre todo, la auditoría del generador/adaptador y sus escenarios.
 
 
 ### Disposición individual de los 40 pendientes no seleccionados
@@ -110,7 +112,7 @@ Estos registros no entran en la biblioteca inicial porque su función ya está c
 |---|---|
 | `sit-ups` | Cubierto por crunch en máquina/cable. |
 | `rear-delt-fly` | Cubierto por reverse fly con mancuerna y máquina. |
-| `db-fly` | Cubierto por aperturas en polea y pec-deck. |
+| `db-fly` | Incorporado después de la evaluación de perfiles sin polea ni máquinas: aporta aislamiento de pecho con mancuernas. |
 | `good-morning` | Bisagra más técnica; se priorizan peso muerto y RDL. |
 | `sandbag-carry` | Transporte/condicionamiento, no prioridad de hipertrofia. |
 | `dead-hang` | Isométrico pasivo de agarre, no una opción principal de progresión muscular. |
