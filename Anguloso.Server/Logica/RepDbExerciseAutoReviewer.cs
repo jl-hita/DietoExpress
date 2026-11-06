@@ -109,12 +109,12 @@ internal static class RepDbExerciseAutoReviewer
             "lat-pulldown" or "v-bar-lat-pulldown" or "pull-up" or "chin-ups" or "assisted-pull-ups" => "VerticalPull",
             "bench-press" or "db-bench-press" or "incline-bench-press" or "incline-db-press"
                 or "smith-machine-bench-press" or "smith-machine-incline-bench-press"
-                or "chest-press-machine" or "push-up" or "knee-push-ups" => "HorizontalPush",
+                or "chest-press-machine" or "push-up" or "knee-push-ups" or "incline-push-ups" => "HorizontalPush",
             "barbell-row" or "single-arm-db-row" or "chest-supported-db-row"
                 or "seated-cable-row" or "chest-supported-machine-row" or "t-bar-row" => "HorizontalPull",
             "squat" or "front-squat" or "goblet-squat" or "leg-press" or "hack-squat" => "Squat",
             "deadlift" or "hex-bar-deadlift" or "romanian-deadlift"
-                or "dumbbell-romanian-deadlift" or "hip-thrust" => "Hinge",
+                or "dumbbell-romanian-deadlift" or "hip-thrust" or "plate-loaded-glute-drive" => "Hinge",
             "bulgarian-split-squat" or "reverse-lunge" or "step-ups" => "SingleLeg",
             _ => (string?)null
         };
@@ -427,6 +427,9 @@ internal static class RepDbExerciseAutoReviewer
             "push-up" or "knee-push-ups" =>
                 ["Coloca las manos algo más abiertas que los hombros y mantén el cuerpo alineado desde la cabeza hasta las rodillas o los pies.",
                  "Flexiona los codos para acercar el pecho al suelo y empuja después hasta recuperar la posición inicial, sin perder la alineación."],
+            "incline-push-ups" =>
+                ["Apoya las manos sobre un banco o superficie firme y elevada, a la anchura de los hombros.",
+                 "Mantén el cuerpo alineado, baja el pecho hacia el apoyo y empuja hasta extender los brazos sin bloquear los codos."],
             "bench-press" or "db-bench-press" or "incline-bench-press" or "incline-db-press"
                 or "smith-machine-bench-press" or "smith-machine-incline-bench-press"
                 or "chest-press-machine" =>
@@ -461,10 +464,10 @@ internal static class RepDbExerciseAutoReviewer
             "dumbbell-reverse-fly" or "face-pull" =>
                 ["Adopta una posición estable y dirige el movimiento con los codos, manteniendo el cuello relajado.",
                  "Separa las manos llevando los codos hacia atrás y vuelve lentamente sin utilizar impulso."],
-            "barbell-curl" or "incline-db-curl" or "preacher-curl" or "cable-curl" =>
+            "barbell-curl" or "hammer-curl" or "incline-db-curl" or "preacher-curl" or "cable-curl" =>
                 ["Mantén los codos cerca del cuerpo o apoyados según la variante, evitando balancear el tronco.",
                  "Flexiona los codos para elevar la carga y bájala lentamente hasta casi extender los brazos."],
-            "tricep-pushdown" or "cable-overhead-tricep-extension" or "skull-crusher" =>
+            "tricep-pushdown" or "cable-overhead-tricep-extension" or "overhead-tricep-extension" or "skull-crusher" =>
                 ["Estabiliza los hombros y mantén los codos en una posición fija durante el movimiento.",
                  "Extiende los codos para mover la carga y regresa lentamente sin abrirlos ni utilizar impulso."],
             "leg-extension" =>
@@ -485,6 +488,21 @@ internal static class RepDbExerciseAutoReviewer
             "standing-hip-abduction" =>
                 ["Mantén el tronco erguido y sujétate para estabilizar la pelvis.",
                  "Separa una pierna lateralmente sin inclinar el tronco y regresa lentamente a la posición inicial."],
+            "hip-abduction" =>
+                ["Siéntate en la máquina con los apoyos contra la parte externa de los muslos y la espalda apoyada.",
+                 "Separa las piernas contra la resistencia, mantén un instante y vuelve lentamente a la posición inicial."],
+            "plate-loaded-glute-drive" =>
+                ["Siéntate en la máquina con la parte alta de la espalda apoyada y los pies firmes en la plataforma.",
+                 "Coloca la almohadilla sobre el pliegue de la cadera y ajusta la posición antes de iniciar.",
+                 "Empuja las caderas hacia arriba contrayendo los glúteos y baja lentamente sin perder el control."],
+            "shrug" =>
+                ["De pie, sujeta la barra con los brazos extendidos y el tronco estable.",
+                 "Eleva los hombros hacia las orejas sin flexionar los codos y mantén brevemente.",
+                 "Desciende los hombros de forma controlada sin dejar caer la carga."],
+            "straight-arm-pulldown" =>
+                ["Colócate frente a la polea alta y sujeta la barra con los brazos casi extendidos.",
+                 "Lleva la barra hacia los muslos mediante los hombros, manteniendo el tronco estable.",
+                 "Regresa lentamente a la posición inicial sin balancearte."],
             "cable-crunch" =>
                 ["Arrodíllate frente a la polea y sujeta la cuerda junto a la cabeza, manteniendo la cadera estable.",
                  "Flexiona el tronco acercando las costillas a la pelvis y vuelve lentamente sin tirar con los brazos."],
@@ -559,7 +577,9 @@ internal static class RepDbExerciseAutoReviewer
     public static bool HasUsefulInstructions(string json)
     {
         var instructions = ReadStrings(json);
-        return instructions.Length >= 2 && instructions.All(x => x.Trim().Length >= 8);
+        // RepDB commonly ends a valid sequence with the short instruction "Repite.".
+        // Require at least two substantive steps instead of rejecting the whole sequence.
+        return instructions.Length >= 2 && instructions.Count(x => x.Trim().Length >= 8) >= 2;
     }
 
     private static string[] ReadStrings(string json)
