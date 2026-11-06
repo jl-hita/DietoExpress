@@ -65,8 +65,8 @@ internal static class RepDbExerciseAutoReviewer
         var requiredEquipment = MapEquipment(equipment ?? "", isBodyweight);
         if (requiredEquipment is null) return null;
 
-        // Isolation/accessory work is valuable, but should rank below the main movement options
-        // when the generator chooses one exercise for a movement-pattern slot.
+        // Accessory work is selected only after the main patterns and only when it addresses
+        // an unmet muscle target; priority breaks ties between compatible accessories.
         var selectionPriority = IsAccessoryExercise(id, nameEs, nameEn)
             ? 55
             : pattern is "Squat" or "Hinge" or "HorizontalPush" or "HorizontalPull" ? 85 : 75;
