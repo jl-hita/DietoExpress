@@ -1108,6 +1108,7 @@ public sealed class ExerciseCatalogService
                   AND reviewed_by LIKE 'RepDB automatic metadata%'
                   AND reviewed_selection_priority = 55
                   AND COALESCE(reviewed_movement_pattern, '') <> 'Accessory'
+                FOR UPDATE
                 """;
             await using (var select = new NpgsqlCommand(selectSql, connection, transaction))
             await using (var reader = await select.ExecuteReaderAsync(cancellationToken))
@@ -1136,13 +1137,14 @@ public sealed class ExerciseCatalogService
                   AND reviewed_selection_priority = 55
                   AND COALESCE(reviewed_movement_pattern, '') <> 'Accessory'
                 """;
+            var updatedCount = 0;
             foreach (var item in rows)
             {
                 await using var update = new NpgsqlCommand(updateSql, connection, transaction);
                 Add(update, "id", item.Id);
                 Add(update, "priority", item.Metadata.SelectionPriority);
                 Add(update, "notes", item.Metadata.Notes);
-                await update.ExecuteNonQueryAsync(cancellationToken);
+                updatedCount += await update.ExecuteNonQueryAsync(cancellationToken);
             }
 
             await using (var mark = new NpgsqlCommand(
@@ -1152,7 +1154,7 @@ public sealed class ExerciseCatalogService
                 await mark.ExecuteNonQueryAsync(cancellationToken);
             }
             await transaction.CommitAsync(cancellationToken);
-            _logger.LogInformation("RepDB accessory-pattern curation updated {UpdatedCount} untouched automatic reviews.", rows.Count);
+            _logger.LogInformation("RepDB accessory-pattern curation updated {UpdatedCount} untouched automatic reviews.", updatedCount);
         }
         finally
         {
