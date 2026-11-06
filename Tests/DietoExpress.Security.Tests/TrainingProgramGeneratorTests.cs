@@ -517,14 +517,14 @@ public sealed class TrainingProgramGeneratorTests
         var weekFourQuads = report.WeeklyMuscleVolumes.Single(week => week.WeekNumber == 4)
             .Muscles.Single(muscle => muscle.MuscleGroup == TrainingMuscleGroup.Quadriceps);
 
-        // The fixture has no quadriceps-isolation candidate. When the available compounds
-        // would exceed the glute target, preserve the remaining quadriceps deficit rather
-        // than forcing volume into the already-saturated primary muscle.
-        Assert.InRange(weekOneQuads.PrimarySets, 1, 6);
+        // The two-day full-body split now includes a squat exposure on both days.
+        // The fixture has no quad isolation candidate, but the compound distribution
+        // reaches the conservative short-session target without overfeeding glutes.
+        Assert.Equal(5, weekOneQuads.PrimarySets);
         Assert.Equal(2, weekOneQuads.PrimaryFrequencySessions);
         Assert.Equal(weekOneQuads.PrimarySets, weekTwoQuads.PrimarySets);
         Assert.Equal(weekOneQuads.PrimarySets, weekFourQuads.PrimarySets);
-        Assert.Contains(report.Warnings, warning =>
+        Assert.DoesNotContain(report.Warnings, warning =>
             warning.Contains("Quadriceps alcanza", StringComparison.Ordinal));
         Assert.DoesNotContain(report.Warnings, warning =>
             warning.Contains("volumen efectivo", StringComparison.OrdinalIgnoreCase));
@@ -730,16 +730,11 @@ public sealed class TrainingProgramGeneratorTests
             .Where(session => session.WeekNumber == 1)
             .ToArray();
         Assert.Equal(2, weekOneSessions.Length);
-        Assert.All(weekOneSessions, session =>
-        {
-            var reverseNordics = session.Exercises
-                .Where(exercise => exercise.ExerciseId == "reverse-nordic-curl")
-                .ToArray();
-            Assert.Single(reverseNordics);
-            Assert.Contains(TrainingMuscleGroup.Quadriceps, reverseNordics[0].PrimaryMuscleGroups);
-        });
-        Assert.Equal(2, weekOneSessions.SelectMany(session => session.Exercises)
-            .Count(exercise => exercise.ExerciseId == "reverse-nordic-curl"));
+        var reverseNordics = weekOneSessions.SelectMany(session => session.Exercises)
+            .Where(exercise => exercise.ExerciseId == "reverse-nordic-curl")
+            .ToArray();
+        Assert.Single(reverseNordics);
+        Assert.Contains(TrainingMuscleGroup.Quadriceps, reverseNordics[0].PrimaryMuscleGroups);
         Assert.Contains(generated.Prescription.Sessions.SelectMany(session => session.Exercises),
             exercise => exercise.ExerciseId == "squat-basic");
     }
@@ -770,16 +765,11 @@ public sealed class TrainingProgramGeneratorTests
             .Where(session => session.WeekNumber == 1)
             .ToArray();
         Assert.Equal(2, weekOneSessions.Length);
-        Assert.All(weekOneSessions, session =>
-        {
-            var directQuadAccessories = session.Exercises
-                .Where(exercise => exercise.ExerciseId == "leg-extension")
-                .ToArray();
-            Assert.Single(directQuadAccessories);
-            Assert.Equal(new[] { TrainingMuscleGroup.Quadriceps }, directQuadAccessories[0].PrimaryMuscleGroups);
-        });
-        Assert.Equal(2, weekOneSessions.SelectMany(session => session.Exercises)
-            .Count(exercise => exercise.ExerciseId == "leg-extension"));
+        var directQuadAccessories = weekOneSessions.SelectMany(session => session.Exercises)
+            .Where(exercise => exercise.ExerciseId == "leg-extension")
+            .ToArray();
+        Assert.Single(directQuadAccessories);
+        Assert.Equal(new[] { TrainingMuscleGroup.Quadriceps }, directQuadAccessories[0].PrimaryMuscleGroups);
     }
 
     [Fact]
