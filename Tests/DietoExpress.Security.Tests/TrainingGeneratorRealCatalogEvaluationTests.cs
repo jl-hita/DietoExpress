@@ -42,6 +42,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         var scenarioResults = new List<RealCatalogScenarioResult>();
         ExerciseCatalogService.ExerciseCatalogReviewStats? reviewStats = null;
         var candidateCount = 0;
+        var generalFitnessCandidateCount = 0;
         try
         {
             var scopedConnectionString = new NpgsqlConnectionStringBuilder(baseConnectionString)
@@ -75,6 +76,10 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
             reviewStats = await catalogService.GetReviewStatsAsync();
             var candidates = await catalogService.LoadGeneratorCandidatesAsync(ownerUserId: 0);
             candidateCount = candidates.Count;
+            generalFitnessCandidateCount = candidates.Count(candidate =>
+                candidate.SuitableGoals.Contains(TrainingGoal.GeneralFitness));
+            Assert.True(generalFitnessCandidateCount >= 100,
+                $"Only {generalFitnessCandidateCount} approved RepDB candidates are suitable for general fitness.");
             Assert.True(candidateCount >= 100,
                 $"The RepDB curation pipeline returned only {candidateCount} approved generator candidates.");
 
@@ -134,6 +139,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
             reviewStats?.repDbTotal ?? 0,
             reviewStats?.repDbApproved ?? 0,
             candidateCount,
+            generalFitnessCandidateCount,
             scenarioResults.Count,
             scenarioResults.Count(result => result.Succeeded),
             scenarioResults.Sum(result => result.Errors.Count),
@@ -153,6 +159,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
             report.CatalogTotal,
             report.CatalogApproved,
             report.GeneratorCandidateCount,
+            report.GeneralFitnessCandidateCount,
             report.ScenarioCount,
             report.SuccessfulScenarios,
             report.GenerationErrorCount,
@@ -205,6 +212,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         long CatalogTotal,
         long CatalogApproved,
         int GeneratorCandidateCount,
+        int GeneralFitnessCandidateCount,
         int ScenarioCount,
         int SuccessfulScenarios,
         int GenerationErrorCount,
