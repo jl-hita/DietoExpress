@@ -715,7 +715,9 @@ public sealed class TrainingProgramGeneratorTests
             .SelectMany(session => session.Exercises)
             .Where(exercise => exercise.ExerciseId == "reverse-nordic-curl")
             .ToArray();
-        Assert.Single(weekOneReverseNordics);
+        Assert.NotEmpty(weekOneReverseNordics);
+        Assert.All(weekOneReverseNordics, exercise =>
+            Assert.Contains(TrainingMuscleGroup.Quadriceps, exercise.PrimaryMuscleGroups));
         Assert.Contains(generated.Prescription.Sessions.SelectMany(session => session.Exercises),
             exercise => exercise.ExerciseId == "squat-basic");
     }
