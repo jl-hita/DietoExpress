@@ -281,7 +281,7 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.NotNull(curationType);
         var ids = (string[])curationType!.GetField(
             "CuratedCatalogIds", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.GetValue(null)!;
-        Assert.Equal(65, ids.Length);
+        Assert.Equal(84, ids.Length);
         Assert.Contains("bench-press", ids);
         Assert.Contains("lat-pulldown", ids);
         Assert.Contains("squat", ids);
@@ -305,6 +305,12 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Equal("Squat", Pattern("front-squat", "Sentadilla frontal", "Front Squat"));
         Assert.Equal("HorizontalPush", Pattern("db-bench-press", "Press de banca con mancuernas", "Dumbbell Bench Press"));
         Assert.Equal("SingleLeg", Pattern("bulgarian-split-squat", "Sentadilla búlgara", "Bulgarian Split Squat"));
+        Assert.Equal("VerticalPush", Pattern("machine-shoulder-press", "Press de hombros en máquina", "Machine Shoulder Press"));
+        Assert.Equal("Core", Pattern("machine-seated-crunch", "Crunch en máquina", "Machine Seated Crunch"));
+        Assert.Equal("Core", Pattern("dead-bug", "Dead Bug", "Dead Bug"));
+        Assert.Equal("Hinge", Pattern("machine-back-extension", "Extensión lumbar en máquina", "Machine Back Extension"));
+        Assert.Equal("Squat", Pattern("horizontal-leg-press", "Prensa horizontal", "Horizontal Leg Press"));
+        Assert.Equal("HorizontalPull", Pattern("kneeling-cable-row", "Remo arrodillado en polea", "Kneeling Cable Row"));
         Assert.Equal("VerticalPush", Pattern("machine-shoulder-press", "Press de hombros en máquina", "Machine Shoulder Press"));
         Assert.Equal("Core", Pattern("cable-crunch", "Crunch con cable", "Cable Crunch"));
         Assert.Equal("Core", Pattern("cable-pallof-press", "Press Pallof", "Cable Pallof Press"));
