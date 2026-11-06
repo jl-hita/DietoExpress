@@ -363,6 +363,27 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
+    public void AccessorySlotsScaleDownForShortSessionsToProtectCoreMovementPatterns()
+    {
+        var catalog = Catalog();
+        var accessoryIds = catalog.Where(candidate => candidate.MovementPattern == TrainingMovementPattern.Accessory)
+            .Select(candidate => candidate.ExerciseId)
+            .ToHashSet(StringComparer.Ordinal);
+
+        var shortFullBody = TrainingProgramGenerator.Generate(
+            Request() with { MaximumSessionDurationMinutes = 35 }, catalog);
+        Assert.True(shortFullBody.Succeeded, string.Join("; ", shortFullBody.Errors));
+        Assert.All(shortFullBody.Prescription!.Sessions, session =>
+            Assert.InRange(session.Exercises.Count(exercise => accessoryIds.Contains(exercise.ExerciseId)), 0, 1));
+
+        var longFullBody = TrainingProgramGenerator.Generate(
+            Request() with { MaximumSessionDurationMinutes = 90 }, catalog);
+        Assert.True(longFullBody.Succeeded, string.Join("; ", longFullBody.Errors));
+        Assert.All(longFullBody.Prescription!.Sessions, session =>
+            Assert.InRange(session.Exercises.Count(exercise => accessoryIds.Contains(exercise.ExerciseId)), 0, 3));
+    }
+
+    [Fact]
     public void QualityReportCalculatesPrimaryVolumeAndFrequencyByWeek()
     {
         var result = TrainingProgramGenerator.Generate(Request() with { DurationWeeks = 4 }, Catalog());
