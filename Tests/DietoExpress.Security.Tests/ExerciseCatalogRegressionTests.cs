@@ -345,7 +345,8 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.NotNull(shouldExclude);
         bool Excluded(string id, string category, string equipment, string? variationGroup) =>
             (bool)shouldExclude!.Invoke(null, new object?[] { id, category, equipment, variationGroup })!;
-        Assert.False(Excluded("kettlebell-tibialis-raise", "strength", "kettlebell", "calf-raise"));
+        // This RepDB export does not contain a tibialis raise record; do not pretend the whitelist imported one.
+        Assert.True(Excluded("kettlebell-tibialis-raise", "strength", "kettlebell", "calf-raise"));
         Assert.False(Excluded("cable-external-rotation", "strength", "cable", null));
 
         var curation = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "RepDbExerciseCuration.cs"));
