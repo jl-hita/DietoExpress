@@ -156,6 +156,11 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains(".Append(\"GeneralFitness\")", autoReviewer);
         Assert.Contains("EnsureRepDbGeneralFitnessGoalCurationV1Async", service);
         Assert.Contains("selectionPriority", autoReviewer);
+        Assert.Contains("GetSelectionPriority", autoReviewer);
+        Assert.Contains("machine shoulder press", autoReviewer);
+        Assert.Contains("exercise-catalog-repdb-selection-priority-v1", service);
+        Assert.Contains("EnsureRepDbSelectionPriorityCurationV1Async", service);
+        Assert.Contains("reviewed_by LIKE 'RepDB automatic metadata%'", service);
 
         // Every anatomical identifier present in the reviewed RepDB exports must have an exact mapping.
         // In particular, substring matching "lat" must never turn lateral deltoid into latissimus.
