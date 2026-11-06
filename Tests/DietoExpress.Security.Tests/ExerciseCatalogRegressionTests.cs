@@ -275,10 +275,17 @@ public sealed class ExerciseCatalogRegressionTests
     [Fact]
     public void RepDbCuration_KeepsUsefulTibialisAndRotatorCuffAccessoriesEligible()
     {
-        Assert.False(RepDbExerciseCuration.ShouldExclude(
-            "kettlebell-tibialis-raise", "strength", "kettlebell", "calf-raise"));
-        Assert.False(RepDbExerciseCuration.ShouldExclude(
-            "cable-external-rotation", "strength", "cable", null));
+        var curationType = typeof(TrainingProgramGenerator).Assembly
+            .GetType("Anguloso.Server.Logica.RepDbExerciseCuration");
+        Assert.NotNull(curationType);
+        var shouldExclude = curationType!.GetMethod(
+            "ShouldExclude", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public,
+            binder: null, types: new[] { typeof(string), typeof(string), typeof(string), typeof(string) }, modifiers: null);
+        Assert.NotNull(shouldExclude);
+        bool Excluded(string id, string category, string equipment, string? variationGroup) =>
+            (bool)shouldExclude!.Invoke(null, new object?[] { id, category, equipment, variationGroup })!;
+        Assert.False(Excluded("kettlebell-tibialis-raise", "strength", "kettlebell", "calf-raise"));
+        Assert.False(Excluded("cable-external-rotation", "strength", "cable", null));
 
         var curation = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "RepDbExerciseCuration.cs"));
         var autoReviewer = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "RepDbExerciseAutoReviewer.cs"));
