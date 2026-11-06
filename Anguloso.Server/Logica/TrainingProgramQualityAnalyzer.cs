@@ -61,11 +61,11 @@ public static class TrainingProgramQualityAnalyzer
                     warnings.Add($"Semana {week}: {muscle} alcanza una estimación de volumen efectivo de {estimatedEffectiveSets:0.#} series (primarias {primarySets}, secundarias {secondarySets}); revisa la carga total. El crédito secundario es una heurística, no una equivalencia fisiológica.");
             }
 
-            var uncovered = muscles.Where(muscle => muscle.PrimarySets == 0 && muscle.SecondarySets == 0)
-                .Select(muscle => muscle.MuscleGroup.ToString())
-                .ToArray();
-            if (uncovered.Length > 0)
-                warnings.Add($"Semana {week}: no hay cobertura muscular identificada en los metadatos para: {string.Join(", ", uncovered)}.");
+            // Zero exposure for an accessory or stabilizing muscle is not automatically a
+            // programming defect. Whether adductors, tibialis anterior, serratus, rotator cuff,
+            // etc. need direct work depends on the goal, exercise selection, user priorities and
+            // available time. Keep all raw zero values in the report, but do not turn every
+            // untrained anatomical group into a quality warning.
 
             weeklyVolumes.Add(new TrainingWeeklyMuscleVolume(week, muscles));
         }
