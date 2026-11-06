@@ -24,8 +24,8 @@ public sealed class TrainingExerciseProgressionService
 
         // Bound history independently for each active plan. A single global LIMIT could
         // let a busy/older plan crowd out every record from another active plan, even though
-        // progression is deliberately isolated by (plan, exercise). Keep enough recent sessions
-        // per plan for the engine's three-exposure rules and for future extensions.
+        // progression is deliberately isolated by plan and stable exercise ID. Keep enough
+        // recent sessions per plan for the engine's three-exposure rules and future extensions.
         await using (var historyCommand = Command("""
             WITH ranked_history AS (
                 SELECT s.plan_id, s.exercise_prescription_data::text AS prescription_json,
