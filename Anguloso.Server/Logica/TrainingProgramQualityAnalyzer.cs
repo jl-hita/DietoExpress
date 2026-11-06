@@ -7,7 +7,6 @@ namespace Anguloso.Server.Logica;
 public static class TrainingProgramQualityAnalyzer
 {
     private const int HighPrimarySetWarningThreshold = 20;
-    private const decimal HighEstimatedEffectiveSetWarningThreshold = 20m;
 
     public static TrainingProgramQualityReport Analyze(TrainingProgramPrescription plan)
     {
@@ -57,8 +56,9 @@ public static class TrainingProgramQualityAnalyzer
                     primaryFrequency, secondaryFrequency, estimatedEffectiveSets));
                 if (primarySets > HighPrimarySetWarningThreshold)
                     warnings.Add($"Semana {week}: {muscle} acumula {primarySets} series primarias; revisa el volumen y la recuperación.");
-                if (estimatedEffectiveSets > HighEstimatedEffectiveSetWarningThreshold)
-                    warnings.Add($"Semana {week}: {muscle} alcanza una estimación de volumen efectivo de {estimatedEffectiveSets:0.#} series (primarias {primarySets}, secundarias {secondarySets}); revisa la carga total. El crédito secundario es una heurística, no una equivalencia fisiológica.");
+                // The 0.5 secondary-set credit is retained as a transparent display estimate,
+                // but is not used as a threshold for quality warnings: it is not a validated
+                // physiological equivalence and can overstate exposure to muscles in pressing.
             }
 
             // Zero exposure for an accessory or stabilizing muscle is not automatically a
