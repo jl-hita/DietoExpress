@@ -212,6 +212,46 @@ public sealed class TrainingExerciseVolumeAdapterTests
         Assert.Equal(TrainingExerciseVolumeAction.ProposeReduceOneSet, recommendation.Action);
     }
 
+
+    [Fact]
+    public void MissingExerciseFeedbackCreatesNeutralExposureAndPreventsStaleFatigueReduction()
+    {
+        const string prescription = """{"exercises":[{"exerciseId":"bench","sets":3,"targetRepetitionsInReserve":2}]}""";
+        const string fatigue = """[{"exerciseId":"bench","plannedSets":3,"completedSets":2,"skippedSetReason":"fatigue","sets":[{"kind":"working","completed":true,"rir":1},{"kind":"working","completed":true,"rir":1}]}]""";
+        var records = new[]
+        {
+            new TrainingExerciseVolumeFeedbackRecord("completed", null, prescription),
+            new TrainingExerciseVolumeFeedbackRecord("completed", fatigue, prescription),
+            new TrainingExerciseVolumeFeedbackRecord("completed", fatigue, prescription)
+        };
+
+        var exposures = TrainingExerciseVolumeFeedbackMapper.Map(records);
+
+        Assert.Equal(3, exposures.Count);
+        Assert.Equal(0, exposures[0].CompletedWorkingSets);
+        Assert.Null(exposures[0].SkippedSetReason);
+        var recommendation = Assert.Single(TrainingExerciseVolumeAdapter.Evaluate(exposures));
+        Assert.Equal(TrainingExerciseVolumeAction.NoChange, recommendation.Action);
+    }
+
+    [Fact]
+    public void MapperCreatesNeutralExposureForPrescribedExerciseOmittedFromFeedback()
+    {
+        const string feedback = """[{"exerciseId":"bench","plannedSets":3,"completedSets":3,"sets":[{"kind":"working","completed":true,"rir":2},{"kind":"working","completed":true,"rir":2},{"kind":"working","completed":true,"rir":2}]}]""";
+        const string prescription = """{"exercises":[{"exerciseId":"bench","sets":3,"targetRepetitionsInReserve":2},{"exerciseId":"row","sets":2,"targetRepetitionsInReserve":2}]}""";
+
+        var exposures = TrainingExerciseVolumeFeedbackMapper.Map([
+            new TrainingExerciseVolumeFeedbackRecord("completed", feedback, prescription)
+        ]);
+
+        Assert.Equal(2, exposures.Count);
+        var row = exposures.Single(exposure => exposure.ExerciseId == "row");
+        Assert.Equal(2, row.PlannedWorkingSets);
+        Assert.Equal(0, row.CompletedWorkingSets);
+        Assert.Null(row.SkippedSetReason);
+        Assert.Null(row.ActualAverageRir);
+    }
+
     private static TrainingExerciseVolumeExposure Exposure(
         string id,
         int planned = 3,
