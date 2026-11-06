@@ -50,6 +50,20 @@ public sealed class TrainingExecutionContractTests
     }
 
     [Fact]
+    public void UnknownProgressionActionsNeverMapToAnIncreaseLoadRecommendation()
+    {
+        var mapper = typeof(Anguloso.Server.Logica.TrainingExerciseProgressionService)
+            .GetMethod("ToApiProgressionAction", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        Assert.NotNull(mapper);
+
+        var increaseLoad = mapper!.Invoke(null, [Anguloso.Server.Logica.TrainingExerciseProgressionAction.IncreaseLoad]);
+        var unknown = mapper.Invoke(null, [(Anguloso.Server.Logica.TrainingExerciseProgressionAction)999]);
+
+        Assert.Equal("increase_load", increaseLoad);
+        Assert.Equal("invalid_data", unknown);
+    }
+
+    [Fact]
     public void TrainingPortal_ValidatesSetMetadataBeforePersistingJsonbFeedback()
     {
         var root = new DirectoryInfo(AppContext.BaseDirectory);

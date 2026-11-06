@@ -254,7 +254,9 @@ public sealed class TrainingExerciseProgressionService
         Anguloso.Server.Logica.TrainingExerciseProgressionAction.AddRepetitions => "add_repetitions",
         Anguloso.Server.Logica.TrainingExerciseProgressionAction.ConfirmTopOfRange => "confirm_top_of_range",
         Anguloso.Server.Logica.TrainingExerciseProgressionAction.StagnationReview => "stagnation_review",
-        _ => "increase_load"
+        Anguloso.Server.Logica.TrainingExerciseProgressionAction.IncreaseLoad => "increase_load",
+        // Unknown enum values must never become a positive load-progression recommendation.
+        _ => "invalid_data"
     };
 
 
