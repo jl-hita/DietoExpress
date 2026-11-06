@@ -92,11 +92,10 @@ internal static class RepDbExerciseAutoReviewer
                 or "chest-press-machine" or "push-up" or "knee-push-ups" => "HorizontalPush",
             "barbell-row" or "single-arm-db-row" or "chest-supported-db-row"
                 or "seated-cable-row" or "chest-supported-machine-row" or "t-bar-row" => "HorizontalPull",
-            "squat" or "front-squat" or "goblet-squat" or "leg-press" or "hack-squat"
-                or "bulgarian-split-squat" => "Squat",
+            "squat" or "front-squat" or "goblet-squat" or "leg-press" or "hack-squat" => "Squat",
             "deadlift" or "hex-bar-deadlift" or "romanian-deadlift"
                 or "dumbbell-romanian-deadlift" or "hip-thrust" => "Hinge",
-            "reverse-lunge" or "step-ups" => "SingleLeg",
+            "bulgarian-split-squat" or "reverse-lunge" or "step-ups" => "SingleLeg",
             _ => (string?)null
         };
         if (explicitPattern is not null) return explicitPattern;
