@@ -393,22 +393,32 @@ public static class TrainingProgramGenerator
                 candidate.MovementPattern == TrainingMovementPattern.Accessory &&
                 candidate.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Hamstrings) &&
                 selectedThisWeek.Contains(candidate.ExerciseId));
+            var hasDirectCalfAccessory = catalogCandidates.Any(candidate =>
+                candidate.MovementPattern == TrainingMovementPattern.Accessory &&
+                candidate.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Calves) &&
+                selectedThisWeek.Contains(candidate.ExerciseId));
 
-            // Squat-pattern compounds commonly train both glutes and quadriceps. If glute
-            // volume is already at/above its target while quadriceps remain materially under
-            // target, another compound set would overfeed glutes. Prefer a reviewed direct
-            // quadriceps accessory (e.g. leg extension) in an available accessory slot instead.
+            // Squat-pattern compounds commonly train both glutes and quadriceps. When glutes
+            // are at target or within one set of it while quadriceps remain under target,
+            // prefer a direct quad accessory before adding more glute-dominant work.
             var hasDirectQuadricepsAccessory = catalogCandidates.Any(candidate =>
                 candidate.MovementPattern == TrainingMovementPattern.Accessory &&
                 candidate.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Quadriceps) &&
                 selectedThisWeek.Contains(candidate.ExerciseId));
             var prioritizeQuadricepsAccessory =
                 !hasDirectQuadricepsAccessory &&
-                currentPrimaryVolume.GetValueOrDefault(TrainingMuscleGroup.Glutes) >=
+                currentPrimaryVolume.GetValueOrDefault(TrainingMuscleGroup.Glutes) + 1m >=
                     targets.GetValueOrDefault(TrainingMuscleGroup.Glutes) &&
                 currentPrimaryVolume.GetValueOrDefault(TrainingMuscleGroup.Quadriceps) <
                     targets.GetValueOrDefault(TrainingMuscleGroup.Quadriceps) &&
                 (allowedMuscles is null || allowedMuscles.Contains(TrainingMuscleGroup.Quadriceps));
+            // Calves are a product-priority group. Ensure at least one compatible direct
+            // exposure before spending every short-session accessory slot on smaller muscles.
+            var prioritizeCalfAccessory =
+                !hasDirectCalfAccessory &&
+                currentPrimaryVolume.GetValueOrDefault(TrainingMuscleGroup.Calves) <
+                    targets.GetValueOrDefault(TrainingMuscleGroup.Calves) &&
+                (allowedMuscles is null || allowedMuscles.Contains(TrainingMuscleGroup.Calves));
 
             var candidates = catalogCandidates
                 .Where(candidate => candidate.MovementPattern == TrainingMovementPattern.Accessory
@@ -437,6 +447,9 @@ public static class TrainingProgramGenerator
                 .OrderByDescending(item =>
                     prioritizeQuadricepsAccessory &&
                     item.Candidate.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Quadriceps))
+                .ThenByDescending(item =>
+                    prioritizeCalfAccessory &&
+                    item.Candidate.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Calves))
                 .ThenByDescending(item => item.Score)
                 .ThenByDescending(item => item.Candidate.SelectionPriority)
                 .ThenBy(item => item.Candidate.ExerciseId, StringComparer.Ordinal)
