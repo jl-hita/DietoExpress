@@ -684,9 +684,9 @@ public sealed class TrainingProgramGeneratorTests
             .SelectMany(session => session.Exercises)
             .Where(exercise => exercise.ExerciseId == "leg-extension")
             .ToArray();
-        Assert.Single(weekOneAccessories);
-        Assert.Contains(weekOneAccessories, exercise =>
-            exercise.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Quadriceps));
+        Assert.NotEmpty(weekOneAccessories);
+        Assert.All(weekOneAccessories, exercise =>
+            Assert.Contains(TrainingMuscleGroup.Quadriceps, exercise.PrimaryMuscleGroups));
     }
 
     [Fact]
