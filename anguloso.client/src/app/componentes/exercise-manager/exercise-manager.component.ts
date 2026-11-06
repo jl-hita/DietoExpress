@@ -100,7 +100,7 @@ export class ExerciseManagerComponent implements OnInit {
   constructor(private http: HttpClient, private snack: MatSnackBar, private changeDetector: ChangeDetectorRef) {}
   ngOnInit(): void { this.search(); }
   trackById(_: number, item: ExerciseRow): string { return item.id; }
-  label(value?: string): string { return value ? value.replace(/([a-z])([A-Z])/g, '$1 $2') : 'Sin clasificar'; }
+  label(value?: string): string { return value === 'Accessory' ? 'Accesorio' : value ? value.replace(/([a-z])([A-Z])/g, '$1 $2') : 'Sin clasificar'; }
   statusLabel(value: string): string { return value === 'approved' ? 'Aprobado' : value === 'rejected' ? 'Rechazado' : 'Pendiente'; }
   patternOf(item: ExerciseRow): string | undefined { return item.movementPattern || item.ownerMovementPattern; }
   primaryOf(item: ExerciseRow): string[] { return item.reviewedPrimaryMuscles || item.ownerPrimaryMuscles || item.primaryMuscles || []; }
