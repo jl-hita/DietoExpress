@@ -153,13 +153,16 @@ public sealed class ExerciseCatalogService
         await EnsureRepDbGeneralFitnessGoalCurationV1Async(cancellationToken);
         await EnsureRepDbAccessoryPatternCurationV1Async(cancellationToken);
         await EnsureRepDbSelectionPriorityCurationV1Async(cancellationToken);
+        await EnsureRepDbIdealCatalogV1Async(cancellationToken);
         return result;
     }
 
     public async Task<ExerciseCatalogSyncResult> SyncFromSourceAsync(
         CancellationToken cancellationToken = default,
         bool replaceExisting = false,
-        bool markBootstrapComplete = false)
+        bool markBootstrapComplete = false,
+        bool replaceRepDbOnly = false,
+        bool markIdealCatalogComplete = false)
     {
         await EnsureSchemaAsync(cancellationToken);
         using var response = await _httpClientFactory.CreateClient(nameof(ExerciseCatalogService))
@@ -183,6 +186,15 @@ public sealed class ExerciseCatalogService
             if (replaceExisting)
             {
                 await using var deleteCommand = new NpgsqlCommand("DELETE FROM exercise_catalog", connection, transaction);
+                await deleteCommand.ExecuteNonQueryAsync(cancellationToken);
+            }
+            else if (replaceRepDbOnly)
+            {
+                // Replace only the imported public-source catalog. Professional contributions
+                // and their ownership/review metadata are not part of this bootstrap reset.
+                await using var deleteCommand = new NpgsqlCommand(
+                    "DELETE FROM exercise_catalog WHERE source = 'repdb-free' AND owner_user_id IS NULL",
+                    connection, transaction);
                 await deleteCommand.ExecuteNonQueryAsync(cancellationToken);
             }
 
@@ -275,7 +287,56 @@ public sealed class ExerciseCatalogService
                         primary_muscles = EXCLUDED.primary_muscles, secondary_muscles = EXCLUDED.secondary_muscles,
                         goals = EXCLUDED.goals, tags = EXCLUDED.tags, met = EXCLUDED.met,
                         is_unilateral = EXCLUDED.is_unilateral, is_bodyweight = EXCLUDED.is_bodyweight,
-                        images = EXCLUDED.images, source_updated_at = NOW(), updated_at = NOW()
+                                                images = EXCLUDED.images,
+                        reviewed = CASE
+                            WHEN EXCLUDED.reviewed_by LIKE 'RepDB automatic metadata%'
+                             AND (exercise_catalog.reviewed_by IS NULL OR exercise_catalog.reviewed_by LIKE 'RepDB automatic metadata%')
+                            THEN EXCLUDED.reviewed ELSE exercise_catalog.reviewed END,
+                        review_status = CASE
+                            WHEN EXCLUDED.reviewed_by LIKE 'RepDB automatic metadata%'
+                             AND (exercise_catalog.reviewed_by IS NULL OR exercise_catalog.reviewed_by LIKE 'RepDB automatic metadata%')
+                            THEN EXCLUDED.review_status ELSE exercise_catalog.review_status END,
+                        review_notes = CASE
+                            WHEN EXCLUDED.reviewed_by LIKE 'RepDB automatic metadata%'
+                             AND (exercise_catalog.reviewed_by IS NULL OR exercise_catalog.reviewed_by LIKE 'RepDB automatic metadata%')
+                            THEN EXCLUDED.review_notes ELSE exercise_catalog.review_notes END,
+                        reviewed_movement_pattern = CASE
+                            WHEN EXCLUDED.reviewed_by LIKE 'RepDB automatic metadata%'
+                             AND (exercise_catalog.reviewed_by IS NULL OR exercise_catalog.reviewed_by LIKE 'RepDB automatic metadata%')
+                            THEN EXCLUDED.reviewed_movement_pattern ELSE exercise_catalog.reviewed_movement_pattern END,
+                        reviewed_primary_muscles = CASE
+                            WHEN EXCLUDED.reviewed_by LIKE 'RepDB automatic metadata%'
+                             AND (exercise_catalog.reviewed_by IS NULL OR exercise_catalog.reviewed_by LIKE 'RepDB automatic metadata%')
+                            THEN EXCLUDED.reviewed_primary_muscles ELSE exercise_catalog.reviewed_primary_muscles END,
+                        reviewed_secondary_muscles = CASE
+                            WHEN EXCLUDED.reviewed_by LIKE 'RepDB automatic metadata%'
+                             AND (exercise_catalog.reviewed_by IS NULL OR exercise_catalog.reviewed_by LIKE 'RepDB automatic metadata%')
+                            THEN EXCLUDED.reviewed_secondary_muscles ELSE exercise_catalog.reviewed_secondary_muscles END,
+                        reviewed_minimum_experience = CASE
+                            WHEN EXCLUDED.reviewed_by LIKE 'RepDB automatic metadata%'
+                             AND (exercise_catalog.reviewed_by IS NULL OR exercise_catalog.reviewed_by LIKE 'RepDB automatic metadata%')
+                            THEN EXCLUDED.reviewed_minimum_experience ELSE exercise_catalog.reviewed_minimum_experience END,
+                        reviewed_suitable_goals = CASE
+                            WHEN EXCLUDED.reviewed_by LIKE 'RepDB automatic metadata%'
+                             AND (exercise_catalog.reviewed_by IS NULL OR exercise_catalog.reviewed_by LIKE 'RepDB automatic metadata%')
+                            THEN EXCLUDED.reviewed_suitable_goals ELSE exercise_catalog.reviewed_suitable_goals END,
+                        reviewed_required_equipment = CASE
+                            WHEN EXCLUDED.reviewed_by LIKE 'RepDB automatic metadata%'
+                             AND (exercise_catalog.reviewed_by IS NULL OR exercise_catalog.reviewed_by LIKE 'RepDB automatic metadata%')
+                            THEN EXCLUDED.reviewed_required_equipment ELSE exercise_catalog.reviewed_required_equipment END,
+                        reviewed_selection_priority = CASE
+                            WHEN EXCLUDED.reviewed_by LIKE 'RepDB automatic metadata%'
+                             AND (exercise_catalog.reviewed_by IS NULL OR exercise_catalog.reviewed_by LIKE 'RepDB automatic metadata%')
+                            THEN EXCLUDED.reviewed_selection_priority ELSE exercise_catalog.reviewed_selection_priority END,
+                        reviewed_at = CASE
+                            WHEN EXCLUDED.reviewed_by LIKE 'RepDB automatic metadata%'
+                             AND (exercise_catalog.reviewed_by IS NULL OR exercise_catalog.reviewed_by LIKE 'RepDB automatic metadata%')
+                            THEN EXCLUDED.reviewed_at ELSE exercise_catalog.reviewed_at END,
+                        reviewed_by = CASE
+                            WHEN EXCLUDED.reviewed_by LIKE 'RepDB automatic metadata%'
+                             AND (exercise_catalog.reviewed_by IS NULL OR exercise_catalog.reviewed_by LIKE 'RepDB automatic metadata%')
+                            THEN EXCLUDED.reviewed_by ELSE exercise_catalog.reviewed_by END,
+                        source_updated_at = NOW(), updated_at = NOW()
                     """;
 
                 await using var command = new NpgsqlCommand(upsert, connection, transaction);
@@ -330,6 +391,13 @@ public sealed class ExerciseCatalogService
                     connection, transaction);
                 await markerCommand.ExecuteNonQueryAsync(cancellationToken);
             }
+            if (markIdealCatalogComplete)
+            {
+                await using var markerCommand = new NpgsqlCommand(
+                    "INSERT INTO schema_migrations(id) VALUES ('exercise-catalog-ideal-strength-hypertrophy-v1') ON CONFLICT (id) DO NOTHING",
+                    connection, transaction);
+                await markerCommand.ExecuteNonQueryAsync(cancellationToken);
+            }
             await using var reviewedCountCommand = new NpgsqlCommand("SELECT COUNT(*) FROM exercise_catalog WHERE reviewed = TRUE", connection, transaction);
             reviewedCount = Convert.ToInt32(await reviewedCountCommand.ExecuteScalarAsync(cancellationToken));
             await transaction.CommitAsync(cancellationToken);
@@ -345,6 +413,36 @@ public sealed class ExerciseCatalogService
     }
 
 
+
+    /// <summary>
+    /// Replaces the RepDB import with the explicitly curated general strength/hypertrophy catalog.
+    /// The source rows are deleted and reimported in one transaction; professional contributions
+    /// are preserved. Training plans keep their historical exercise-name/ID snapshots and need
+    /// not be deleted because they do not own catalog rows.
+    /// </summary>
+    private async Task EnsureRepDbIdealCatalogV1Async(CancellationToken cancellationToken)
+    {
+        const string marker = "exercise-catalog-ideal-strength-hypertrophy-v1";
+        var completed = await _db.Database.SqlQueryRaw<bool>(
+            "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = 'exercise-catalog-ideal-strength-hypertrophy-v1') AS \"Value\"")
+            .SingleAsync(cancellationToken);
+        if (completed) return;
+
+        try
+        {
+            var result = await SyncFromSourceAsync(
+                cancellationToken, replaceRepDbOnly: true, markIdealCatalogComplete: true);
+            _logger.LogInformation(
+                "Ideal RepDB exercise catalog v1 bootstrapped: {Count} selected exercises imported; non-curated RepDB rows removed.",
+                result.ImportedCount);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // A transient upstream outage must not prevent application startup. The transaction
+            // rolls back, the migration marker stays absent and the next startup retries it.
+            _logger.LogWarning(ex, "Ideal RepDB catalog bootstrap failed; the migration will retry on the next startup.");
+        }
+    }
 
     /// <summary>
     /// Applies explicit quality curation to catalogs that were imported before the curation rules existed.
