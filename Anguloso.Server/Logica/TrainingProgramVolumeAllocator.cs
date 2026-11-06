@@ -1,13 +1,12 @@
 namespace Anguloso.Server.Logica;
 
 /// <summary>
-/// Allocates weekly working sets across the selected exercise schedule. Primary muscles receive
-/// full credit and secondary muscles half credit; the latter is an explicit bookkeeping heuristic,
-/// not a physiological equivalence or an ACSM prescription.
+/// Allocates weekly working sets using an exercise-specific audit of meaningful muscle stimulus.
+/// A set counts fully for each muscle that receives a relevant hypertrophic stimulus; incidental
+/// stabilizers and insufficient secondary contributions are excluded.
 /// </summary>
 public static class TrainingProgramVolumeAllocator
 {
-    public const decimal SecondarySetCredit = 0.5m;
     private const int MinimumSetsPerExercise = 1;
     private const int MaximumSetsPerExercise = 5;
     private const decimal SecondsPerRepEstimate = 2.5m;
@@ -15,7 +14,7 @@ public static class TrainingProgramVolumeAllocator
     private const int SessionOverheadMinutes = 5;
     private const decimal WeeklyMinutesForFullDefaultVolume = 180m;
     private const decimal MinimumDefaultVolumeTimeFactor = 0.65m;
-    private const decimal HypertrophyTargetToleranceSets = 2m;
+    private const decimal ExplicitHypertrophyTargetToleranceSets = 2m;
 
     public static TrainingVolumeAllocationResult Allocate(
         IReadOnlyList<TrainingSessionPrescription> sessions,
@@ -33,7 +32,9 @@ public static class TrainingProgramVolumeAllocator
             .Select(group => group.Count())
             .DefaultIfEmpty(3)
             .Max();
-        var defaultVolumeTimeFactor = DefaultVolumeTimeFactor(sessionsPerWeek, maximumSessionDurationMinutes);
+        var defaultVolumeTimeFactor = goal == TrainingGoal.Hypertrophy
+            ? 1m
+            : DefaultVolumeTimeFactor(sessionsPerWeek, maximumSessionDurationMinutes);
         var targets = BuildTargets(goal, experience, preferences, sessionsPerWeek, maximumSessionDurationMinutes);
         var warnings = new List<string>();
         var explicitTargetMuscles = (preferences ?? Array.Empty<TrainingMuscleVolumeTarget>())
@@ -71,13 +72,13 @@ public static class TrainingProgramVolumeAllocator
             var primaryVolume = CalculateEffectiveVolume(weekSessions);
 
             foreach (var muscle in applicableTargets.Keys.Where(muscle => !primaryCoveredMuscles.Contains(muscle)))
-                warnings.Add($"Semana {week}: no hay ningún ejercicio aprobado que trabaje {muscle} como músculo primario; no se inventa una cobertura indirecta para cumplir su prioridad.");
+                warnings.Add($"Semana {week}: no hay ningún ejercicio aprobado con estímulo suficiente para {muscle}; no se inventa cobertura a partir de una participación incidental.");
 
             foreach (var preference in preferences ?? Array.Empty<TrainingMuscleVolumeTarget>())
             {
                 if (!applicableTargets.ContainsKey(preference.MuscleGroup) &&
                     !primaryCoveredMuscles.Contains(preference.MuscleGroup))
-                    warnings.Add($"Semana {week}: no hay ningún ejercicio aprobado que trabaje {preference.MuscleGroup} como músculo primario; no se inventa una cobertura indirecta para cumplir su prioridad.");
+                    warnings.Add($"Semana {week}: no hay ningún ejercicio aprobado con estímulo suficiente para {preference.MuscleGroup}; no se inventa cobertura a partir de una participación incidental.");
             }
 
             // Greedy allocation chooses the exercise that best addresses the largest remaining
@@ -136,9 +137,10 @@ public static class TrainingProgramVolumeAllocator
                     continue;
 
                 var achieved = primaryVolume.GetValueOrDefault(muscle);
-                var minimum = Math.Max(0m, target - HypertrophyTargetToleranceSets);
+                var tolerance = GetTargetTolerance(goal, experience, preferences, muscle);
+                var minimum = Math.Max(0m, target - tolerance);
                 if (achieved + 0.001m < minimum)
-                    warnings.Add($"Semana {week}: {muscle} alcanza {achieved:0.##} series con estímulo efectivo frente al rango orientativo {minimum:0.##}–{target + HypertrophyTargetToleranceSets:0.##}; no se fuerza más volumen porque no queda una opción compatible de ejercicio, material y tiempo que permita añadir series sin superar los límites de equilibrio muscular, series por ejercicio o duración.");
+                    warnings.Add($"Semana {week}: {muscle} alcanza {achieved:0.##} series con estímulo efectivo frente al rango orientativo {minimum:0.##}–{target + tolerance:0.##}; no se fuerza más volumen porque no queda una opción compatible de ejercicio, material y tiempo que permita añadir series sin superar los límites de equilibrio muscular, series por ejercicio o duración.");
             }
 
             for (var index = 0; index < weekKeys.Length; index++)
@@ -184,9 +186,8 @@ public static class TrainingProgramVolumeAllocator
         IReadOnlyDictionary<TrainingMuscleGroup, decimal> primaryVolume,
         IReadOnlyDictionary<TrainingMuscleGroup, decimal> targets)
     {
-        // Targets refer to direct primary sets. Do not add another compound set when one
-        // of its primary muscles has already reached its target; prefer an alternative
-        // exercise, or report the remaining deficit if no balanced option exists.
+        // Targets refer to effective sets. Do not add another compound set when one
+        // of its meaningfully stimulated muscles has already exceeded its target.
         var primaryMuscles = TrainingExerciseStimulus.GetEffectiveMuscles(
                 exercise.ExerciseId, exercise.PrimaryMuscleGroups, exercise.SecondaryMuscleGroups)
             .Where(targets.ContainsKey)
@@ -270,6 +271,29 @@ public static class TrainingProgramVolumeAllocator
         foreach (var preference in preferences ?? Array.Empty<TrainingMuscleVolumeTarget>())
             targets[preference.MuscleGroup] = preference.TargetWeeklyPrimarySets ?? baseline + preference.Priority * 2m;
         return targets;
+    }
+
+    private static decimal GetTargetTolerance(
+        TrainingGoal goal,
+        TrainingExperience experience,
+        IReadOnlyList<TrainingMuscleVolumeTarget>? preferences,
+        TrainingMuscleGroup muscle)
+    {
+        if (goal != TrainingGoal.Hypertrophy)
+            return 0m;
+
+        // Explicit professional targets use a narrow +/-2 range (e.g. 20 means 18–22).
+        if ((preferences ?? Array.Empty<TrainingMuscleVolumeTarget>())
+            .Any(preference => preference.MuscleGroup == muscle && preference.TargetWeeklyPrimarySets is not null))
+            return ExplicitHypertrophyTargetToleranceSets;
+
+        // Agreed default planning ranges: beginner 8–12, intermediate 10–16, advanced 12–20.
+        return experience switch
+        {
+            TrainingExperience.Beginner => 2m,
+            TrainingExperience.Intermediate => 3m,
+            _ => 4m
+        };
     }
 
     private static decimal DefaultVolumeTimeFactor(int sessionsPerWeek, int maximumSessionDurationMinutes)
