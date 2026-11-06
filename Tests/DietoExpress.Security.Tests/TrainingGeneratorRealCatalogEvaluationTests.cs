@@ -73,6 +73,27 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                 NullLogger<ExerciseCatalogService>.Instance);
 
             await catalogService.EnsureSeededAsync();
+
+            // Simulate a database that already contains v2 automatic approvals without the
+            // GeneralFitness goal, then verify the additive migration updates those rows safely.
+            await using (var removeGoal = new NpgsqlCommand("""
+                UPDATE exercise_catalog
+                SET reviewed_suitable_goals = COALESCE(reviewed_suitable_goals, '[]'::jsonb) - 'GeneralFitness'
+                WHERE source = 'repdb-free' AND owner_user_id IS NULL
+                  AND review_status = 'approved' AND reviewed = TRUE
+                  AND reviewed_by LIKE 'RepDB automatic metadata%'
+                """, connection))
+            {
+                var changed = await removeGoal.ExecuteNonQueryAsync();
+                Assert.True(changed >= 100, $"Expected at least 100 automatic RepDB approvals to migrate, found {changed}.");
+            }
+            await using (var removeMarker = new NpgsqlCommand(
+                "DELETE FROM schema_migrations WHERE id = 'exercise-catalog-repdb-general-fitness-goal-v1'", connection))
+            {
+                await removeMarker.ExecuteNonQueryAsync();
+            }
+
+            await catalogService.EnsureSeededAsync();
             reviewStats = await catalogService.GetReviewStatsAsync();
             var candidates = await catalogService.LoadGeneratorCandidatesAsync(ownerUserId: 0);
             candidateCount = candidates.Count;
