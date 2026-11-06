@@ -42,6 +42,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         var scenarioResults = new List<RealCatalogScenarioResult>();
         var catalogReviewExceptions = new List<RealCatalogReviewException>();
         ExerciseCatalogService.ExerciseCatalogReviewStats? reviewStats = null;
+        IReadOnlyList<TrainingExerciseCandidate> candidates = Array.Empty<TrainingExerciseCandidate>();
         var candidateCount = 0;
         var generalFitnessCandidateCount = 0;
         try
@@ -96,7 +97,7 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
 
             await catalogService.EnsureSeededAsync();
             reviewStats = await catalogService.GetReviewStatsAsync();
-            var candidates = await catalogService.LoadGeneratorCandidatesAsync(ownerUserId: 0);
+            candidates = await catalogService.LoadGeneratorCandidatesAsync(ownerUserId: 0);
             candidateCount = candidates.Count;
             await using (var reviewAudit = new NpgsqlCommand("""
                 SELECT exercise_id, review_status,
