@@ -13,7 +13,7 @@ Se contrastó la exportación local con el repositorio oficial [RepDB/exercise-d
 
 Los 214 ejercicios de fuerza ausentes incluyen muchas variantes de patrones ya cubiertos y movimientos avanzados o especializados. Se compararon músculos primarios, material, dificultad, objetivos y grupos de variación. La carencia funcional más clara que no estaba cubierta por los 91 seleccionados era el tibial anterior: el origen oficial sí contiene `kettlebell-tibialis-raise`, con instrucciones en español y dos imágenes. Se incorpora a la selección.
 
-La licencia de RepDB permite uso comercial dentro de aplicaciones con atribución visible, pero no redistribuir el dataset como producto independiente. Se mantiene la atribución visible en el editor de entrenamiento y se añadirá también a la documentación pública del proyecto. No se utilizarán los recursos de `premium-samples/`, que son solo de evaluación.
+La licencia de RepDB permite uso comercial dentro de aplicaciones con atribución visible, pero no redistribuir el dataset como producto independiente. Se mantiene la atribución visible en el editor de entrenamiento y también en el README público del proyecto. No se utilizarán los recursos de `premium-samples/`, que son solo de evaluación.
 
 ## Resultado del inventario completo
 
@@ -44,7 +44,7 @@ Los 221 registros aprobados en esta exportación no deben interpretarse como 221
 
 ## Catálogo seleccionado para el generador
 
-La selección explícita pasa de 84 a **92 ejercicios**. No se intenta importar indiscriminadamente los 466 registros: el generador recibe una biblioteca deliberadamente curada, progresable y con alternativas de equipamiento.
+La selección explícita pasa de 84 a **92 ejercicios**. No se intenta importar indiscriminadamente los 701 registros: el generador recibe una biblioteca deliberadamente curada, progresable y con alternativas de equipamiento.
 
 Composición de los 92 IDs frente al estado que tenían en la exportación local:
 
@@ -71,7 +71,7 @@ Se incorporan además seis ejercicios pendientes que aportan alternativas reales
 
 Los 40 pendientes restantes no se incorporan al generador inicial: son variantes redundantes de ejercicios ya representados, habilidades/posiciones específicas o movimientos accesorios menos prioritarios para el alcance de esta primera biblioteca. Se mantienen fuera de la lista permitida; no se convierten automáticamente en ejercicios aprobados ni se presentan como clínicamente incorrectos. La lista permitida es la frontera efectiva de lo que puede seleccionar el generador.
 
-De los 92 seleccionados, 90 tienen las dos imágenes `start` y `peak`; `dumbbell-farmers-walk` y `side-plank` solo tienen `main`. El nuevo `kettlebell-tibialis-raise` tiene dos imágenes `start`/`peak` en el repositorio oficial. La presencia de una referencia en el JSON no demuestra todavía que el archivo remoto cargue correctamente ni que Android lo represente; esas comprobaciones siguen pendientes en sus fases específicas.
+De los 92 seleccionados, 90 tienen las dos imágenes `start` y `peak`; `dumbbell-farmers-walk` y `side-plank` solo tienen `main`. El nuevo `kettlebell-tibialis-raise` tiene dos imágenes `start`/`peak` en el repositorio oficial. Las 182 rutas de imagen requeridas por los 92 seleccionados existen en el árbol del repositorio oficial. La presencia del archivo no demuestra todavía que el CDN remoto responda ni que Android lo represente; esas comprobaciones siguen pendientes en sus fases específicas.
 
 ## Hallazgos anatómicos y de metadatos
 
@@ -90,7 +90,7 @@ De los 92 seleccionados, 90 tienen las dos imágenes `start` y `peak`; `dumbbell
 4. Comprobar la disponibilidad real de las imágenes y su visualización en portal y Android.
 5. Revisar los avisos de volumen y los escenarios con restricciones de equipamiento en la siguiente fase del checklist.
 
-**Conclusión:** la exportación de 466 registros está inventariada y la selección inicial se ha ampliado a 92 ejercicios con criterios explícitos. Esto no cierra el P1: quedan las correcciones de metadatos integradas, la validación del ejercicio de tibial anterior, la verificación real de medios y, sobre todo, la auditoría del generador/adaptador y sus escenarios.
+**Conclusión:** la exportación local de 466 registros y el upstream oficial de 701 están contrastados, y la selección inicial se ha ampliado a 92 ejercicios con criterios explícitos. Esto no cierra el P1: quedan las correcciones de metadatos integradas, la validación del ejercicio de tibial anterior, la verificación real de medios y, sobre todo, la auditoría del generador/adaptador y sus escenarios.
 
 
 ### Disposición individual de los 40 pendientes no seleccionados
