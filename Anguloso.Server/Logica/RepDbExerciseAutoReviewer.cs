@@ -149,7 +149,7 @@ internal static class RepDbExerciseAutoReviewer
             "hip abduction", "hip adduction", "abduccion de cadera", "aduccion de cadera", "glute kickback",
             "cable kickback", "pullover", "hip bridge", "puente de cadera", "shrug", "encogimiento de hombros", "wrist roller", "plate pinch",
             "straight-arm pulldown", "straight arm pulldown", "jalon con brazos rectos",
-            "pinza de discos");
+            "pinza de discos", "tibialis raise", "elevacion de tibial", "external rotation", "rotacion externa");
     }
 
     private static string? MapMuscle(string value)
