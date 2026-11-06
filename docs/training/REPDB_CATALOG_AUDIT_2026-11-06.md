@@ -221,7 +221,7 @@ Se elimina el crédito universal de 0,5 para toda musculatura secundaria. El cam
 ### Contribuciones secundarias aceptadas
 
 - **Presses horizontales y verticales** (bench-press, db-bench-press, incline-bench-press, incline-db-press, variantes Smith, chest-press-machine, flexiones y presses de hombro): se cuenta tríceps cuando aparece como secundario, por la extensión dinámica del codo bajo carga.
-- **Remos y tracciones verticales** (barbell-row, remos con mancuerna/cable/máquina/T-bar, jalones, dominadas y chin-ups): se cuenta bíceps cuando aparece como secundario, por la flexión dinámica del codo.
+- **Remos y tracciones verticales** (barbell-row, remos con mancuerna/cable/máquina/T-bar, jalones, dominadas y chin-ups): se cuentan bíceps y dorsales cuando aparecen como secundarios y reciben carga dinámica relevante (flexión de codo y extensión/aducción de hombro, respectivamente).
 - **Sentadillas, prensa y variantes unilaterales** (squat, front-squat, goblet-squat, db-squat, leg-press, horizontal-leg-press, hack-squat, búlgara, zancada inversa y step-ups): se cuentan cuádriceps y glúteos si figuran entre los músculos del ejercicio, porque ambos pueden recibir carga dinámica relevante según la variante, profundidad y ejecución.
 - **Bisagras de cadera** (deadlift, hex-bar-deadlift, romanian-deadlift, dumbbell-romanian-deadlift): se cuentan glúteos e isquiotibiales cuando figuran en los metadatos, por su participación dinámica en la extensión de cadera.
 - **Reverse fly y face pull** (dumbbell-reverse-fly, machine-reverse-fly, face-pull): se cuenta espalda alta cuando aparece como secundaria, además del trabajo principal de deltoides posterior.
@@ -251,7 +251,7 @@ La evaluación conserva las series primarias/secundarias brutas y las frecuencia
 - Intermedio: 10–16 (objetivo central 13).
 - Avanzado: 12–20 (objetivo central 16).
 - Preferencia explícita del profesional: objetivo ±2; por ejemplo, 20 equivale a 18–22.
-- La prioridad muscular desplaza el objetivo central en incrementos de dos series por nivel de prioridad.
+- La prioridad muscular desplaza el objetivo central en incrementos de dos series por nivel de prioridad. Los isquiotibiales conservan el rango objetivo, pero reciben menor prioridad de asignación (peso 0,5) cuando compiten por tiempo con cuádriceps, glúteos y gemelos.
 - El generador no reduce silenciosamente estos objetivos por falta de tiempo. Si no cabe el volumen dentro de la duración, informa de la dosis conseguida y del déficit respecto al rango.
 - Estos rangos son política inicial del producto inspirada en ACSM 2026, no rangos oficiales del ACSM ni mínimos universales. El Position Stand respalda volúmenes de al menos 10 series y describe rendimientos decrecientes alrededor de 18–20 series semanales.
 
