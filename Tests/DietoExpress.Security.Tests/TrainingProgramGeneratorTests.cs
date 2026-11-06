@@ -496,6 +496,28 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
+    public void GeneratorAddsOptionalAccessoryForAnUncoveredPrimaryMuscle()
+    {
+        var generated = TrainingProgramGenerator.Generate(Request(), Catalog());
+
+        Assert.True(generated.Succeeded, string.Join("; ", generated.Errors));
+        Assert.Contains(generated.Prescription!.Sessions.SelectMany(session => session.Exercises),
+            exercise => exercise.ExerciseId == "accessory");
+    }
+
+    [Fact]
+    public void GeneratorStillWorksWhenNoAccessoryIsAvailable()
+    {
+        var catalog = Catalog().Where(exercise => exercise.MovementPattern != TrainingMovementPattern.Accessory).ToArray();
+
+        var generated = TrainingProgramGenerator.Generate(Request(), catalog);
+
+        Assert.True(generated.Succeeded, string.Join("; ", generated.Errors));
+        Assert.DoesNotContain(generated.Prescription!.Sessions.SelectMany(session => session.Exercises),
+            exercise => exercise.ExerciseId == "accessory");
+    }
+
+    [Fact]
     public void ShortPlanDoesNotReceiveAnUnconditionalCalendarDeload()
     {
         var result = TrainingProgramGenerator.Generate(Request() with { DurationWeeks = 3 }, Catalog());
@@ -597,6 +619,7 @@ public sealed class TrainingProgramGeneratorTests
             TrainingMovementPattern.VerticalPull => ([TrainingMuscleGroup.Lats], [TrainingMuscleGroup.Biceps, TrainingMuscleGroup.UpperBack]),
             TrainingMovementPattern.SingleLeg => ([TrainingMuscleGroup.Quadriceps, TrainingMuscleGroup.Glutes], [TrainingMuscleGroup.Hamstrings, TrainingMuscleGroup.Calves]),
             TrainingMovementPattern.Core => ([TrainingMuscleGroup.Abdominals], [TrainingMuscleGroup.Obliques, TrainingMuscleGroup.ErectorSpinae]),
+            TrainingMovementPattern.Accessory => ([TrainingMuscleGroup.Deltoids], [TrainingMuscleGroup.Triceps]),
             _ => throw new ArgumentOutOfRangeException(nameof(pattern))
         };
 }
