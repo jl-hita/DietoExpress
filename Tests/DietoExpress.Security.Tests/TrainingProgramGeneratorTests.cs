@@ -710,14 +710,20 @@ public sealed class TrainingProgramGeneratorTests
             catalog);
 
         Assert.True(generated.Succeeded, string.Join("; ", generated.Errors));
-        var weekOneReverseNordics = generated.Prescription!.Sessions
+        var weekOneSessions = generated.Prescription!.Sessions
             .Where(session => session.WeekNumber == 1)
-            .SelectMany(session => session.Exercises)
-            .Where(exercise => exercise.ExerciseId == "reverse-nordic-curl")
             .ToArray();
-        Assert.NotEmpty(weekOneReverseNordics);
-        Assert.All(weekOneReverseNordics, exercise =>
-            Assert.Contains(TrainingMuscleGroup.Quadriceps, exercise.PrimaryMuscleGroups));
+        Assert.Equal(2, weekOneSessions.Length);
+        Assert.All(weekOneSessions, session =>
+        {
+            var reverseNordics = session.Exercises
+                .Where(exercise => exercise.ExerciseId == "reverse-nordic-curl")
+                .ToArray();
+            Assert.Single(reverseNordics);
+            Assert.Contains(TrainingMuscleGroup.Quadriceps, reverseNordics[0].PrimaryMuscleGroups);
+        });
+        Assert.Equal(2, weekOneSessions.SelectMany(session => session.Exercises)
+            .Count(exercise => exercise.ExerciseId == "reverse-nordic-curl"));
         Assert.Contains(generated.Prescription.Sessions.SelectMany(session => session.Exercises),
             exercise => exercise.ExerciseId == "squat-basic");
     }
@@ -744,14 +750,20 @@ public sealed class TrainingProgramGeneratorTests
             catalog);
 
         Assert.True(generated.Succeeded, string.Join("; ", generated.Errors));
-        var weekOneAccessories = generated.Prescription!.Sessions
+        var weekOneSessions = generated.Prescription!.Sessions
             .Where(session => session.WeekNumber == 1)
-            .SelectMany(session => session.Exercises)
-            .Where(exercise => exercise.ExerciseId == "leg-extension")
             .ToArray();
-        Assert.NotEmpty(weekOneAccessories);
-        Assert.All(weekOneAccessories, exercise =>
-            Assert.Contains(TrainingMuscleGroup.Quadriceps, exercise.PrimaryMuscleGroups));
+        Assert.Equal(2, weekOneSessions.Length);
+        Assert.All(weekOneSessions, session =>
+        {
+            var directQuadAccessories = session.Exercises
+                .Where(exercise => exercise.ExerciseId == "leg-extension")
+                .ToArray();
+            Assert.Single(directQuadAccessories);
+            Assert.Equal(new[] { TrainingMuscleGroup.Quadriceps }, directQuadAccessories[0].PrimaryMuscleGroups);
+        });
+        Assert.Equal(2, weekOneSessions.SelectMany(session => session.Exercises)
+            .Count(exercise => exercise.ExerciseId == "leg-extension"));
     }
 
     [Fact]
