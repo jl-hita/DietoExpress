@@ -281,7 +281,7 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.NotNull(curationType);
         var ids = (string[])curationType!.GetField(
             "CuratedCatalogIds", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.GetValue(null)!;
-        Assert.InRange(ids.Length, 60, 75);
+        Assert.Equal(65, ids.Length);
         Assert.Contains("bench-press", ids);
         Assert.Contains("lat-pulldown", ids);
         Assert.Contains("squat", ids);
