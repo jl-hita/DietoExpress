@@ -177,7 +177,7 @@ Por tanto, los avisos de isquiotibiales se clasifican como **limitaciones acepta
 La jerarquía anterior está implementada en el asignador de volumen, no es solo una nota de auditoría:
 
 - Cuádriceps, glúteos y gemelos/tríceps sural (`Calves`) comparten el objetivo predeterminado principal.
-- Los isquiotibiales mantienen el rango general de hipertrofia, pero reciben una ponderación de asignación 0,5 cuando compiten por tiempo con cuádriceps, glúteos y gemelos. Las bisagras y los curls femorales compatibles siguen siendo opciones válidas.
+- Los isquiotibiales conservan una dosis predeterminada secundaria (la mitad del objetivo base, mínimo dos series, con tolerancia por experiencia) y una ponderación de asignación 0,5 al competir por tiempo con cuádriceps, glúteos y gemelos. Las bisagras y los curls femorales compatibles siguen siendo opciones válidas.
 - Los accesorios de isquiotibiales ya no reservan automáticamente una plaza antes que los demás accesorios. Compiten con una ponderación menor; los profesionales pueden elevar o fijar su objetivo mediante preferencias explícitas.
 - Las preferencias profesionales explícitas siguen prevaleciendo sobre los valores predeterminados, incluidos los isquiotibiales.
 - Se añade una prueba que verifica los objetivos de cuádriceps, glúteos, gemelos e isquiotibiales y que el objetivo explícito del profesional no se altera.
@@ -251,7 +251,7 @@ La evaluación conserva las series primarias/secundarias brutas y las frecuencia
 - Intermedio: 10–16 (objetivo central 13).
 - Avanzado: 12–20 (objetivo central 16).
 - Preferencia explícita del profesional: objetivo ±2; por ejemplo, 20 equivale a 18–22.
-- La prioridad muscular desplaza el objetivo central en incrementos de dos series por nivel, con un máximo predeterminado de 20; los objetivos priorizados usan tolerancia ±2. Los isquiotibiales conservan el rango objetivo, pero reciben menor prioridad de asignación (peso 0,5) cuando compiten por tiempo con cuádriceps, glúteos y gemelos.
+- La prioridad muscular desplaza el objetivo central en incrementos de dos series por nivel, con un máximo predeterminado de 20; los objetivos priorizados usan tolerancia ±2. Los isquiotibiales conservan una dosis predeterminada secundaria (la mitad del objetivo base, mínimo dos series, con tolerancia por experiencia) y reciben peso de asignación 0,5 cuando compiten por tiempo con cuádriceps, glúteos y gemelos. El profesional puede elevarlos mediante un objetivo explícito.
 - El generador no reduce silenciosamente estos objetivos por falta de tiempo. Si no cabe el volumen dentro de la duración, informa de la dosis conseguida y del déficit respecto al rango.
 - Los objetivos conservadores de fuerza y condición general no cambian: bíceps/tríceps/abdominales mantienen la mitad del objetivo base e isquiotibiales la mitad (mínimo dos series).
 - El selector reserva accesorios directos de cuádriceps cuando el volumen de glúteos está a seis series del objetivo o menos y el volumen efectivo de cuádriceps sigue por debajo del centro; este margen anticipa las series adicionales que el asignador puede añadir después a los compuestos.
