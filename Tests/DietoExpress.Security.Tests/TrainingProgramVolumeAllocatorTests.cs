@@ -59,6 +59,26 @@ public sealed class TrainingProgramVolumeAllocatorTests
     }
 
     [Fact]
+    public void DefaultWeeklyTargetsFocusOnMainGroupsAndOnlyAddAccessoryGroupsWhenPrioritized()
+    {
+        var defaults = TrainingProgramVolumeAllocator.GetWeeklyTargets(
+            TrainingGoal.Hypertrophy, TrainingExperience.Beginner, null);
+
+        Assert.Contains(TrainingMuscleGroup.Chest, defaults.Keys);
+        Assert.Contains(TrainingMuscleGroup.Quadriceps, defaults.Keys);
+        Assert.Contains(TrainingMuscleGroup.Hamstrings, defaults.Keys);
+        Assert.DoesNotContain(TrainingMuscleGroup.HipFlexors, defaults.Keys);
+        Assert.DoesNotContain(TrainingMuscleGroup.Obliques, defaults.Keys);
+        Assert.DoesNotContain(TrainingMuscleGroup.RotatorCuff, defaults.Keys);
+
+        var prioritized = TrainingProgramVolumeAllocator.GetWeeklyTargets(
+            TrainingGoal.Hypertrophy, TrainingExperience.Beginner,
+            [new TrainingMuscleVolumeTarget(TrainingMuscleGroup.RotatorCuff, Priority: 1)]);
+
+        Assert.Equal(8m, prioritized[TrainingMuscleGroup.RotatorCuff]);
+    }
+
+    [Fact]
     public void AllocationIsDeterministicAndRespectsPerExerciseSetCeiling()
     {
         var sessions = new[]
