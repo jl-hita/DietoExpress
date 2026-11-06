@@ -177,7 +177,7 @@ internal static class RepDbExerciseAutoReviewer
         var text = Normalize(string.Join(' ', id, nameEs, nameEn));
         return Has(text, "lateral raise", "elevacion lateral", "front raise", "elevacion frontal",
             "shoulder fly", "chest fly", "pec deck", "cable fly", "dumbbell fly", "aperturas de pecho",
-            "face pull", "reverse fly", "rear delt fly", "bicep curl", "curl de biceps", "preacher curl",
+            "face pull", "reverse fly", "rear delt fly", "bicep curl", "curl de biceps", "hammer curl", "curl de martillo", "preacher curl",
             "barbell curl", "cable curl", "dumbbell curl", "incline db curl",
             "curl con barra", "curl con cable", "curl con mancuernas",
             "concentration curl", "forearm curl", "wrist curl", "tricep extension", "triceps extension",
