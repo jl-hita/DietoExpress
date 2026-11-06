@@ -22,19 +22,30 @@ public sealed class TrainingExerciseProgressionService
     {
         var history = new Dictionary<(int PlanId, string ExerciseId), List<Anguloso.Server.Logica.TrainingExerciseExposure>>();
 
-        // Keep the latest 60 records per patient across active plans. We group by plan and
-        // stable exercise ID so feedback from another plan or a similarly named movement
-        // can never influence this exercise's recommendation.
+        // Bound history independently for each active plan. A single global LIMIT could
+        // let a busy/older plan crowd out every record from another active plan, even though
+        // progression is deliberately isolated by (plan, exercise). Keep enough recent sessions
+        // per plan for the engine's three-exposure rules and for future extensions.
         await using (var historyCommand = Command("""
-            SELECT s.plan_id, s.exercise_prescription_data::text, r.exercise_feedback::text, r.outcome, r.recovery_rating, r.pain_signal
-            FROM training_session_records r
-            JOIN training_sessions s ON s.id = r.session_id
-            JOIN training_plans p ON p.id = s.plan_id
-            JOIN training_profiles f ON f.id = p.profile_id
-            WHERE f.client_id = @clientId AND f.enabled = TRUE AND p.status = 'active'
-              AND r.outcome IS NOT NULL AND s.exercise_prescription_data IS NOT NULL
-            ORDER BY s.scheduled_date DESC, s.id DESC
-            LIMIT 60
+            WITH ranked_history AS (
+                SELECT s.plan_id, s.exercise_prescription_data::text AS prescription_json,
+                       r.exercise_feedback::text AS feedback_json, r.outcome,
+                       r.recovery_rating, r.pain_signal, s.scheduled_date, s.id,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY s.plan_id
+                           ORDER BY s.scheduled_date DESC, s.id DESC
+                       ) AS plan_record_rank
+                FROM training_session_records r
+                JOIN training_sessions s ON s.id = r.session_id
+                JOIN training_plans p ON p.id = s.plan_id
+                JOIN training_profiles f ON f.id = p.profile_id
+                WHERE f.client_id = @clientId AND f.enabled = TRUE AND p.status = 'active'
+                  AND r.outcome IS NOT NULL AND s.exercise_prescription_data IS NOT NULL
+            )
+            SELECT plan_id, prescription_json, feedback_json, outcome, recovery_rating, pain_signal
+            FROM ranked_history
+            WHERE plan_record_rank <= 60
+            ORDER BY scheduled_date DESC, id DESC
             """, ("clientId", clientId)))
         await using (var reader = await historyCommand.ExecuteReaderAsync(cancellationToken))
         {
