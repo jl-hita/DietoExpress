@@ -49,8 +49,8 @@ public static class TrainingProgramQualityAnalyzer
                     if (secondaryInSession) secondaryFrequency++;
                 }
 
-                // Secondary-set credit is a transparent 0.5 bookkeeping heuristic, not an
-                // evidence-established equivalence. Keep raw primary/secondary counts as well.
+                // Preserve raw primary/secondary counts for traceability; effective volume
+                // is calculated separately from the exercise-specific stimulus audit.
                 var estimatedEffectiveSets = sessions.SelectMany(session => session.Exercises)
                     .Where(exercise => TrainingExerciseStimulus.GetEffectiveMuscles(
                         exercise.ExerciseId, exercise.PrimaryMuscleGroups, exercise.SecondaryMuscleGroups).Contains(muscle))
