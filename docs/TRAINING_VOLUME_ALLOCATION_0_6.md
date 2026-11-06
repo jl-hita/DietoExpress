@@ -72,17 +72,20 @@ La evaluación automática incluye ahora extensiones de cuádriceps, curl femora
 `TrainingProgramVolumeAllocatorTests` cubre crédito secundario, objetivos/prioridades, determinismo, límites de series, duración y preferencias inválidas. `TrainingProgramGeneratorTests` cubre estabilidad de dosis entre semanas, cobertura y matriz de objetivo/experiencia/días/duración. `TrainingAdaptationReviewWorkflowTests` comprueba que no se aplican recortes globales y que los ejercicios compuestos no se alteran si alguno de sus grupos no está seleccionado.
 
 
-## Auditoría con catálogo RepDB real — ejecución 06/11/2026
+## Auditoría con catálogo RepDB real — ejecución 06/11/2026 (artefacto detallado v2)
 
-La ejecución CI asociada al commit `13cc1239e55fa1cb32ad27bffc415a664711e6b1` evaluó el catálogo aislado tras importar y ejecutar la autocuración real:
+La ejecución CI #42187931616, asociada exactamente al commit `6944a4b6620c099809cb429f2cab455f20fd4c8c`, evaluó el catálogo aislado tras importar y ejecutar la autocuración real. El artefacto `training-generator-evaluation` contiene el informe matricial y el informe de catálogo real con el detalle de sesiones, ejercicios y series por músculo.
 
-- 301 ejercicios RepDB importados; 214 aprobados y disponibles como candidatos del generador.
-- 81/81 escenarios generados sin errores estructurales.
-- 2.304 advertencias de calidad acumuladas en las cuatro semanas de los escenarios. No son fallos de generación, pero sí requieren revisión.
-- Duración máxima observada por presupuesto: 35 min solicitados → 35 min; 60 min → 60 min; 90 min → 76 min.
-- Persisten déficits de series primarias en distintos músculos y frecuencias. La ausencia de cobertura de abductores, tibial anterior y manguito rotador aparece repetidamente; no debe ocultarse convirtiendo trabajo secundario en cobertura directa.
-- El informe anterior solo guardaba IDs y advertencias, lo que no permitía revisar los ejercicios concretos ni sus series por músculo. La siguiente versión del artefacto incorpora métricas primarias/secundarias por semana y detalle de cada sesión/ejercicio.
+- 301 ejercicios RepDB importados; 214 aprobados y disponibles como candidatos.
+- 81/81 escenarios generados sin errores estructurales (27 combinaciones por objetivo, experiencia, días y presupuesto).
+- 2.244 advertencias acumuladas: 1.892 déficits frente a objetivos orientativos de series primarias, 324 avisos de ausencia de cobertura en metadatos y 28 avisos de volumen efectivo estimado alto. Las advertencias se repiten por semana; no equivalen a 2.244 defectos independientes.
+- Presupuesto de duración: para 35 min, máximo estimado 35; para 60 min, máximo 60; para 90 min, máximo 88. Todos los escenarios respetaron el límite. Algunos planes de 90 min terminan bastante antes porque el presupuesto es un máximo y el motor no debe rellenarlo artificialmente.
+- La cobertura primaria de aductores, abductores, tibial anterior y manguito rotador falta en los 81 escenarios. Es una carencia persistente del catálogo/selección actual, no una obligación de añadir aislamiento de esos grupos a todas las rutinas. Debe mantenerse visible y resolverse solo cuando haya ejercicios aprobados, apropiados y útiles.
+- Los déficits de series más frecuentes aparecen en espalda alta, erectores espinales, flexores de cadera, cuádriceps, tríceps, pecho y femorales. Son objetivos orientativos del motor, no mínimos universales de ACSM; deben revisarse junto a la dosis real, frecuencia, ejercicios y tiempo.
+- El informe v2 permite auditar series primarias y exposiciones secundarias por semana, además de cada sesión con nombre/ID de ejercicio, series, repeticiones y músculos. Se identificaron 55 ejercicios distintos en el conjunto de escenarios, con básicos cargables como press banca/Smith, jalones, remos, prensa, bisagras y aislamientos de máquina/cable cuando son compatibles.
 
+La evaluación confirma que 81/81 estructural no basta. La revisión debe considerar calidad de la selección, déficits persistentes, distribución entre sesiones, dosis y duración; no se debe optimizar para eliminar advertencias a costa de añadir volumen o ejercicios sin justificación.
+ 
 ### Corrección de selección por prioridad
 
 Se ha detectado que muchos ejercicios empataban en prioridad y el desempate alfabético por ID podía seleccionar variantes asistidas, bandas o peso corporal antes que alternativas más progresables. La nueva curation de prioridad es una heurística de producto explícita:
