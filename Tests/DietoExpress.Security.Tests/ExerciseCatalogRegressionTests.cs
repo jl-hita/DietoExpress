@@ -60,6 +60,14 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("command.CommandText = sql", service);
         Assert.DoesNotContain("ExecuteSqlRawAsync(sql, cancellationToken)", service);
         Assert.Contains("[Authorize(Roles = \"superadmin\")]", controller);
+        Assert.Contains("[HttpGet(\"export\")]", controller);
+        Assert.Contains("ExportCatalog", controller);
+        Assert.Contains("complete = export.Length == stats.total", controller);
+        Assert.Contains("item.ReviewedPrimaryMuscles", controller);
+        Assert.Contains("item.ReviewedSecondaryMuscles", controller);
+        Assert.Contains("item.SelectionPriority", controller);
+        Assert.DoesNotContain("item.Contributor", controller);
+        Assert.DoesNotContain("item.OwnerUserId", controller);
         Assert.Contains("[HttpGet(\"review-stats\")]", controller);
         Assert.Contains("GetReviewStatsAsync", controller);
         Assert.Contains("COUNT(*) FILTER (WHERE review_status = 'pending')", service);
