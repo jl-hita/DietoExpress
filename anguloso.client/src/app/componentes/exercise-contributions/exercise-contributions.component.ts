@@ -33,7 +33,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 })
 export class ExerciseContributionsComponent {
   name=''; description=''; equipment=''; bodyPart=''; movementPattern='Squat'; minimumExperience='Beginner'; primaryMusclesText=''; secondaryMusclesText=''; suitableGoals:string[]=['GeneralFitness','Hypertrophy','Strength']; requiredEquipmentText=''; saving=false; submittedId='';
-  movementPatterns=['Squat','Hinge','HorizontalPush','VerticalPush','HorizontalPull','VerticalPull','SingleLeg','Core'];
+  movementPatterns=['Squat','Hinge','HorizontalPush','VerticalPush','HorizontalPull','VerticalPull','SingleLeg','Core','Accessory'];
   constructor(private http: HttpClient, private snack: MatSnackBar) {}
   submit(): void {
     if (!this.name.trim() || this.saving) return;
