@@ -121,4 +121,13 @@ Criterio de auditoría pendiente:
 
 La prioridad actual de `GetSelectionPriority` es una heurística de texto/patrón, no una valoración manual completa por ID. Por tanto, **la auditoría del catálogo es bloqueante para dar P1 por terminado**.
 
-Restricción de distribución: la licencia RepDB permite el uso dentro de la aplicación con atribución, pero prohíbe redistribuir el dataset o derivados como descarga/API masiva. La revisión debe hacerse dentro del flujo administrativo de DietoExpress y persistir las correcciones allí; no se añadirá un endpoint de exportación completa.
+Acceso de auditoría: el propietario ha confirmado que dispone de permiso para exportar el catálogo. Se habilita `GET /api/exercise-catalog/export`, restringido a `superadmin`, que devuelve todos los registros (aprobados, pendientes, rechazados y contribuciones profesionales), los campos normalizados/revisados y el `source_payload` original. La exportación incluye contadores por estado y total devuelto. No debe publicarse sin autenticación ni utilizarse como API pública; el permiso de exportación confirmado se limita a esta auditoría controlada.
+
+
+### Exportación completa para la auditoría anatómica
+
+- Endpoint: `GET /api/exercise-catalog/export`.
+- Autorización: rol `superadmin` obligatorio; la ruta no está disponible para profesionales ordinarios.
+- Incluye todos los estados y los metadatos originales y curados para poder comparar el dato de origen con la corrección local.
+- La descarga debe realizarse desde un entorno autorizado y conservarse como material de trabajo de auditoría, no publicarse ni redistribuirse.
+- La auditoría debe abarcar los 214 candidatos aprobados y registrar por separado el resto de registros del catálogo; no se debe confundir “todo el catálogo exportado” con “todo el catálogo apto para el generador”.
