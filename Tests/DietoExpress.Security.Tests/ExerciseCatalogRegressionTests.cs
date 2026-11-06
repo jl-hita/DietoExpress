@@ -328,6 +328,9 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Contains("DELETE FROM exercise_catalog WHERE source = 'repdb-free' AND owner_user_id IS NULL", service);
         Assert.Contains("markIdealCatalogComplete: true", service);
         Assert.Contains("Training plans keep their historical exercise-name/ID snapshots", service);
+        var controller = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Controllers", "ExerciseCatalogController.cs"));
+        Assert.DoesNotContain("[HttpGet(\"audit-export\")]", controller);
+        Assert.DoesNotContain("ExportRepDbAuditCatalog", controller);
     }
 
     [Fact]
