@@ -322,10 +322,14 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         Assert.Empty(report.CatalogImageMissingIds);
         var beginnerHomeScenario = scenarioResults.Single(result =>
             result.ScenarioId == "profile-homegymwithbandsandball-goal-hypertrophy-experience-beginner-days-2-minutes-90");
-        Assert.Contains("banded-standing-curl", beginnerHomeScenario.SelectedExerciseIds);
+        // The beginner home plan already reaches the reduced secondary hamstring target
+        // through its loaded hip hinge; a direct band curl must not displace quads/calves.
+        Assert.Contains("dumbbell-romanian-deadlift", beginnerHomeScenario.SelectedExerciseIds);
         var intermediateHomeScenario = scenarioResults.Single(result =>
             result.ScenarioId == "profile-homegymwithbandsandball-goal-hypertrophy-experience-intermediate-days-2-minutes-90");
-        Assert.Contains("ball-leg-curl", intermediateHomeScenario.SelectedExerciseIds);
+        // Intermediate home plans retain a loaded hinge; direct knee-flexion accessories
+        // remain optional when the higher-priority muscle groups still need slots. 
+        Assert.Contains("deadlift", intermediateHomeScenario.SelectedExerciseIds);
         var noMachineQuadScenario = scenarioResults.Single(result =>
             result.ScenarioId == "profile-nocableormachines-goal-hypertrophy-experience-intermediate-days-2-minutes-90");
         Assert.Contains("reverse-nordic-curl", noMachineQuadScenario.SelectedExerciseIds);
