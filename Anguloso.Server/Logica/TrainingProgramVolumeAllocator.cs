@@ -239,7 +239,8 @@ public static class TrainingProgramVolumeAllocator
             TrainingMuscleGroup.Deltoids,
             TrainingMuscleGroup.Glutes,
             TrainingMuscleGroup.Quadriceps,
-            TrainingMuscleGroup.Hamstrings
+            TrainingMuscleGroup.Hamstrings,
+            TrainingMuscleGroup.Calves
         };
         // Direct work for smaller muscles is supplemental to compound pressing/pulling and
         // receives a lower default dose. Professionals can raise it explicitly with priorities.
@@ -247,10 +248,13 @@ public static class TrainingProgramVolumeAllocator
         {
             TrainingMuscleGroup.Biceps,
             TrainingMuscleGroup.Triceps,
-            TrainingMuscleGroup.Calves,
             TrainingMuscleGroup.Abdominals
         };
         var targets = primaryTargetMuscles.ToDictionary(muscle => muscle, _ => baseline);
+        // Hamstrings remain trained through hinges and knee-flexion options when available,
+        // but are a secondary default priority: do not let their nominal target displace
+        // quadriceps, glutes or calves in constrained plans. Professionals can override it.
+        targets[TrainingMuscleGroup.Hamstrings] = Math.Max(2m, Math.Ceiling(baseline * 0.5m));
         var supplementalBaseline = Math.Max(1m, Math.Ceiling(baseline / 2m));
         foreach (var muscle in supplementalTargetMuscles)
             targets[muscle] = supplementalBaseline;
