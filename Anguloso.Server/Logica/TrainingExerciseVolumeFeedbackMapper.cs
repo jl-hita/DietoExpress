@@ -84,18 +84,22 @@ public static class TrainingExerciseVolumeFeedbackMapper
                 return result;
             foreach (var exercise in exercises.EnumerateArray())
             {
+                if (exercise.ValueKind != JsonValueKind.Object)
+                    return new Dictionary<string, (int PlannedSets, decimal? TargetRir)>(StringComparer.Ordinal);
                 var id = ReadString(exercise, "exerciseId");
                 if (string.IsNullOrWhiteSpace(id) ||
                     !exercise.TryGetProperty("sets", out var setsElement) ||
+                    setsElement.ValueKind != JsonValueKind.Number ||
                     !setsElement.TryGetInt32(out var plannedSets) ||
                     plannedSets is < 1 or > 100)
-                    continue;
+                    return new Dictionary<string, (int PlannedSets, decimal? TargetRir)>(StringComparer.Ordinal);
                 decimal? rir = null;
                 if (exercise.TryGetProperty("targetRepetitionsInReserve", out var rirElement) &&
                     rirElement.ValueKind == JsonValueKind.Number && rirElement.TryGetDecimal(out var value) &&
                     value is >= 0 and <= 10)
                     rir = value;
-                result.TryAdd(id, (plannedSets, rir));
+                if (!result.TryAdd(id, (plannedSets, rir)))
+                    return new Dictionary<string, (int PlannedSets, decimal? TargetRir)>(StringComparer.Ordinal);
             }
         }
         catch (JsonException)
