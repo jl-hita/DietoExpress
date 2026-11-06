@@ -198,6 +198,28 @@ public sealed class ExerciseCatalogRegressionTests
     }
 
     [Fact]
+    public void RepDbSelectionPriority_PrefersScalableBasicsAndLoadedAccessories()
+    {
+        var reviewerType = typeof(TrainingProgramGenerator).Assembly
+            .GetType("Anguloso.Server.Logica.RepDbExerciseAutoReviewer");
+        Assert.NotNull(reviewerType);
+        var method = reviewerType!.GetMethod(
+            "GetSelectionPriority",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        int Priority(string id, string name, string pattern) =>
+            (int)method!.Invoke(null, new object?[] { id, name, name, pattern })!;
+
+        Assert.True(
+            Priority("lat-pulldown", "Jalón en polea", "VerticalPull") >
+            Priority("assisted-pull-ups", "Dominadas asistidas", "VerticalPull"));
+        Assert.True(
+            Priority("machine-leg-extension", "Extensión de cuádriceps en máquina", "Accessory") >
+            Priority("bodyweight-lateral-raise", "Elevación lateral sin carga", "Accessory"));
+    }
+
+    [Fact]
     public void ExerciseManagerFiltersCatalogAndEnforcesOwnerOrSuperadminPermissions()
     {
         var service = File.ReadAllText(Path.Combine(RepoRoot, "Anguloso.Server", "Logica", "ExerciseCatalogService.cs"));
