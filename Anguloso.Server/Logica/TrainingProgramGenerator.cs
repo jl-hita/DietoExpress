@@ -263,7 +263,7 @@ public static class TrainingProgramGenerator
 
     private static void AddOptionalAccessoryExercises(
         TrainingProgramGenerationRequest request,
-        IReadOnlyList<TrainingExerciseCandidate> catalog,
+        IEnumerable<TrainingExerciseCandidate> catalog,
         HashSet<string> equipment,
         HashSet<string> excluded,
         HashSet<string> selectedThisWeek,
