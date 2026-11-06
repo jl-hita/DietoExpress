@@ -340,6 +340,87 @@ public sealed class TrainingProgramGeneratorTests
     }
 
     [Fact]
+    public void EquipmentAliasesWithUnderscoresMatchCanonicalRequirements()
+    {
+        var catalog = Catalog().Select(exercise =>
+            exercise.MovementPattern == TrainingMovementPattern.HorizontalPull
+                ? exercise with { RequiredEquipment = ["pull-up-bar"] }
+                : exercise).ToArray();
+
+        var result = TrainingProgramGenerator.Generate(
+            Request() with { AvailableEquipment = ["pull_up_bar"] },
+            catalog);
+
+        Assert.True(result.Succeeded, string.Join("; ", result.Errors));
+        Assert.Contains(result.Prescription!.Sessions.SelectMany(session => session.Exercises),
+            exercise => exercise.ExerciseId == "exercise-horizontalpull");
+    }
+
+    [Fact]
+    public void GenericMachineEquipmentMatchesSpecializedMachineRequirements()
+    {
+        var catalog = Catalog().Select(exercise =>
+            exercise.MovementPattern == TrainingMovementPattern.Squat
+                ? exercise with { RequiredEquipment = ["leg-press-machine"] }
+                : exercise).ToArray();
+
+        var result = TrainingProgramGenerator.Generate(
+            Request() with { AvailableEquipment = ["machine"] },
+            catalog);
+
+        Assert.True(result.Succeeded, string.Join("; ", result.Errors));
+        Assert.Contains(result.Prescription!.Sessions.SelectMany(session => session.Exercises),
+            exercise => exercise.ExerciseId == "exercise-squat");
+    }
+
+    [Fact]
+    public void OneSpecificMachineDoesNotSatisfyAnotherSpecificMachineRequirement()
+    {
+        var catalog = Catalog().Select(exercise =>
+            exercise.MovementPattern == TrainingMovementPattern.Squat
+                ? exercise with { RequiredEquipment = ["leg-press-machine"] }
+                : exercise).ToArray();
+
+        var result = TrainingProgramGenerator.Generate(
+            Request() with { AvailableEquipment = ["hack-squat-machine"] },
+            catalog);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Errors, error => error.Contains("No hay ejercicios compatibles para el patrón", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void GenericMachineDoesNotSatisfyBenchOrOtherNonMachineRequirements()
+    {
+        var catalog = Catalog().Select(exercise =>
+            exercise.MovementPattern == TrainingMovementPattern.Squat
+                ? exercise with { RequiredEquipment = ["bench", "kettlebell"] }
+                : exercise).ToArray();
+
+        var result = TrainingProgramGenerator.Generate(
+            Request() with { AvailableEquipment = ["machine", "kettlebell"] },
+            catalog);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Errors, error => error.Contains("No hay ejercicios compatibles para el patrón", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void SpecificMachineEquipmentSatisfiesGenericMachineRequirements()
+    {
+        var catalog = Catalog().Select(exercise =>
+            exercise.MovementPattern == TrainingMovementPattern.Squat
+                ? exercise with { RequiredEquipment = ["machine"] }
+                : exercise).ToArray();
+
+        var result = TrainingProgramGenerator.Generate(
+            Request() with { AvailableEquipment = ["leg-press-machine"] },
+            catalog);
+
+        Assert.True(result.Succeeded, string.Join("; ", result.Errors));
+    }
+
+    [Fact]
     public void WeeklyVolumeAllocationDoesNotImposeAnUnconditionalCalendarDeload()
     {
         var request = Request() with { DurationWeeks = 8 };
