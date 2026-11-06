@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Anguloso.Server.Logica;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -48,72 +47,6 @@ public sealed class ExerciseCatalogController : ControllerBase
         }
     }
 
-
-    /// <summary>
-    /// Exports the complete catalog for an offline quality audit. Contributor identity and
-    /// owner-specific fields are deliberately omitted; only exercise metadata and curation
-    /// decisions needed to review the generator are included.
-    /// </summary>
-    [HttpGet("export")]
-    [Authorize(Roles = "superadmin")]
-    public async Task<IActionResult> ExportCatalog(CancellationToken cancellationToken)
-    {
-        try
-        {
-            var stats = await _catalog.GetReviewStatsAsync(cancellationToken);
-            var items = await _catalog.SearchAsync(
-                query: null, bodyPart: null, equipment: null, limit: 10000,
-                cancellationToken: cancellationToken, includeAllOwners: true, maxLimit: 10000);
-            var export = items.Select(item => new
-            {
-                item.Id,
-                item.NameEs,
-                item.NameEn,
-                item.DescriptionEs,
-                item.Category,
-                item.ForceType,
-                item.Mechanic,
-                item.Difficulty,
-                item.Equipment,
-                item.BodyPart,
-                item.PrimaryMuscles,
-                item.SecondaryMuscles,
-                item.Goals,
-                item.Tags,
-                item.InstructionsEs,
-                item.TipsEs,
-                item.IsUnilateral,
-                item.IsBodyweight,
-                item.Source,
-                item.ReviewStatus,
-                item.Reviewed,
-                item.MovementPattern,
-                item.ReviewedPrimaryMuscles,
-                item.ReviewedSecondaryMuscles,
-                item.MinimumExperience,
-                item.SuitableGoals,
-                item.RequiredEquipment,
-                item.SelectionPriority,
-                item.ReviewNotes
-            }).ToArray();
-
-            var payload = JsonSerializer.SerializeToUtf8Bytes(new
-            {
-                total = stats.total,
-                returned = export.Length,
-                complete = export.Length == stats.total,
-                counts = new { stats.pending, stats.approved, stats.rejected },
-                items = export
-            });
-            return File(payload, "application/json; charset=utf-8",
-                $"exercise-catalog-audit-{DateTime.UtcNow:yyyyMMdd}.json");
-        }
-        catch (Exception exception)
-        {
-            _logger.LogError(exception, "Failed to export the complete exercise catalog.");
-            return StatusCode(503, new { error = "No se pudo exportar el catálogo completo de ejercicios." });
-        }
-    }
 
     [HttpGet("review-stats")]
     [Authorize(Roles = "superadmin")]
