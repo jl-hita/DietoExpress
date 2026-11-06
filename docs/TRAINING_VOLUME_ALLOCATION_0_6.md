@@ -131,3 +131,15 @@ Acceso de auditoría: el propietario ha confirmado que dispone de permiso para e
 - Incluye todos los estados y los metadatos originales y curados para poder comparar el dato de origen con la corrección local.
 - La descarga debe realizarse desde un entorno autorizado y conservarse como material de trabajo de auditoría, no publicarse ni redistribuirse.
 - La auditoría debe abarcar los 214 candidatos aprobados y registrar por separado el resto de registros del catálogo; no se debe confundir “todo el catálogo exportado” con “todo el catálogo apto para el generador”.
+
+
+## Accesorios específicos recuperados de RepDB (06/11/2026)
+
+La revisión del manifiesto público de RepDB (701 ejercicios) detectó dos movimientos de fuerza útiles que la curación anterior podía dejar fuera del conjunto automático:
+
+- `kettlebell-tibialis-raise`: RepDB lo agrupaba en `calf-raise`; el filtro de variantes podía excluirlo por no estar en la lista de elevaciones de gemelos. Se reasigna localmente a `tibialis-raise` y se reconoce como accesorio para dar cobertura específica al tibial anterior.
+- `cable-external-rotation`: estaba excluido expresamente pese a ser un aislamiento cargable y específico de rotadores externos del hombro (infraespinoso y redondo menor). Se recupera como accesorio opcional; no sustituye empujes/tracciones ni se prescribe indiscriminadamente.
+
+La máquina de aducción de cadera (`hip-adduction`) también queda identificada como opción de aislamiento útil para aductores. La abducción de cadera ya estaba contemplada. Estos accesorios solo pueden entrar después de los patrones básicos, si el déficit muscular, el material y el tiempo lo justifican.
+
+La corrección no afirma que estos ejercicios falten físicamente en la fuente RepDB: estaban en su manifiesto. Corrige su elegibilidad y clasificación dentro del generador DietoExpress. La comprobación de que existan ya como filas aprobadas en la PostgreSQL desplegada sigue requiriendo ejecutar la exportación administrativa completa.
