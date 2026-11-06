@@ -252,6 +252,22 @@ public sealed class TrainingExerciseVolumeAdapterTests
         Assert.Null(row.ActualAverageRir);
     }
 
+
+    [Fact]
+    public void UnstructuredRecentSessionBlocksVolumeRecommendationsFromStaleHistory()
+    {
+        const string prescription = """{"exercises":[{"exerciseId":"bench","sets":3,"targetRepetitionsInReserve":2}]}""";
+        const string fatigue = """[{"exerciseId":"bench","plannedSets":3,"completedSets":2,"skippedSetReason":"fatigue","sets":[{"kind":"working","completed":true,"rir":1},{"kind":"working","completed":true,"rir":1}]}]""";
+        var records = new[]
+        {
+            new TrainingExerciseVolumeFeedbackRecord("completed", null, null),
+            new TrainingExerciseVolumeFeedbackRecord("completed", fatigue, prescription),
+            new TrainingExerciseVolumeFeedbackRecord("completed", fatigue, prescription)
+        };
+
+        Assert.Empty(TrainingExerciseVolumeFeedbackMapper.Map(records));
+    }
+
     private static TrainingExerciseVolumeExposure Exposure(
         string id,
         int planned = 3,
