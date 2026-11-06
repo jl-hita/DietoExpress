@@ -115,7 +115,7 @@ internal static class RepDbExerciseAutoReviewer
         if (Has(text, "bench press", "press de banca", "push-up", "push up", "flexion de brazos", "flexiones de brazos", "chest press", "floor press",
             "svend press", "tricep kickback", "patada de triceps",
             "dip machine", "dips", "fondos")) return "HorizontalPush";
-        if (Has(text, "row", "remo", "seated cable row", "bent-over row")) return "HorizontalPull";
+        if (HasWholeWord(text, "row") || Has(text, "remo", "seated cable row", "bent-over row")) return "HorizontalPull";
         if (Has(text, "pull-up", "pull up", "chin-up", "chin up", "lat pulldown", "jalon al pecho")) return "VerticalPull";
         if (Has(text, "lunge", "zancada", "split squat", "step-up", "step up", "pistol squat", "single-leg")) return "SingleLeg";
         if (Has(text, "crunch", "sit-up", "sit up", "plank", "plancha", "dead bug", "hollow hold", "russian twist", "abdominal",
@@ -420,4 +420,10 @@ internal static class RepDbExerciseAutoReviewer
 
     private static bool Has(string text, params string[] terms) =>
         terms.Any(term => text.Contains(Normalize(term), StringComparison.OrdinalIgnoreCase));
+
+    private static bool HasWholeWord(string text, string term)
+    {
+        var normalized = " " + Normalize(text).Replace('-', ' ').Replace('_', ' ') + " ";
+        return normalized.Contains(" " + Normalize(term) + " ", StringComparison.OrdinalIgnoreCase);
+    }
 }
