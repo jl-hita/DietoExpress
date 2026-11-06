@@ -61,13 +61,20 @@ public static class TrainingProgramVolumeAllocator
                 .SelectMany(x => x.PrimaryMuscleGroups)
                 .Distinct()
                 .ToArray();
-            var applicableTargets = targets.Where(target => primaryCoveredMuscles.Contains(target.Key))
+            // Calves are a priority group even when the current draft omitted direct work:
+            // absence must be reported rather than silently removing the target from evaluation.
+            var applicableTargets = targets.Where(target =>
+                    primaryCoveredMuscles.Contains(target.Key) || target.Key == TrainingMuscleGroup.Calves)
                 .ToDictionary(pair => pair.Key, pair => pair.Value);
             var primaryVolume = CalculatePrimaryVolume(weekSessions);
 
+            foreach (var muscle in applicableTargets.Keys.Where(muscle => !primaryCoveredMuscles.Contains(muscle)))
+                warnings.Add($"Semana {week}: no hay ningún ejercicio aprobado que trabaje {muscle} como músculo primario; no se inventa una cobertura indirecta para cumplir su prioridad.");
+
             foreach (var preference in preferences ?? Array.Empty<TrainingMuscleVolumeTarget>())
             {
-                if (!primaryCoveredMuscles.Contains(preference.MuscleGroup))
+                if (!applicableTargets.ContainsKey(preference.MuscleGroup) &&
+                    !primaryCoveredMuscles.Contains(preference.MuscleGroup))
                     warnings.Add($"Semana {week}: no hay ningún ejercicio aprobado que trabaje {preference.MuscleGroup} como músculo primario; no se inventa una cobertura indirecta para cumplir su prioridad.");
             }
 
@@ -123,6 +130,9 @@ public static class TrainingProgramVolumeAllocator
 
             foreach (var (muscle, target) in applicableTargets.OrderBy(x => x.Key))
             {
+                if (!primaryCoveredMuscles.Contains(muscle))
+                    continue;
+
                 var achieved = primaryVolume.GetValueOrDefault(muscle);
                 if (achieved + 0.001m < target)
                     warnings.Add($"Semana {week}: {muscle} alcanza {achieved:0.##} series primarias frente al objetivo orientativo de {target:0.##}; no se fuerza más volumen porque no queda una opción compatible de ejercicio, material y tiempo que permita añadir series sin superar los límites de equilibrio muscular, series por ejercicio o duración.");
