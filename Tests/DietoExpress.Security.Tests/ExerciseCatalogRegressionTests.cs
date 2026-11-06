@@ -48,7 +48,7 @@ public sealed class ExerciseCatalogRegressionTests
 
         Assert.NotNull(metadata);
         Assert.Equal("Accessory", metadata.MovementPattern);
-        Assert.Equal(["Biceps"], metadata.PrimaryMuscles);
+        Assert.Equal(new[] { "Biceps" }, metadata.PrimaryMuscles);
         Assert.Contains(equipment, metadata.RequiredEquipment);
     }
 
