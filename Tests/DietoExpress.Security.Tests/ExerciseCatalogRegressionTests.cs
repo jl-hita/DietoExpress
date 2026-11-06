@@ -445,13 +445,16 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.NotNull(curationType);
         var ids = (string[])curationType!.GetField(
             "CuratedCatalogIds", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.GetValue(null)!;
-        Assert.Equal(92, ids.Length);
+        Assert.Equal(95, ids.Length);
         Assert.Equal(ids.Length, ids.Distinct(StringComparer.OrdinalIgnoreCase).Count());
         Assert.Contains("bench-press", ids);
         Assert.Contains("lat-pulldown", ids);
         Assert.Contains("squat", ids);
         Assert.Contains("romanian-deadlift", ids);
         Assert.Contains("leg-extension", ids);
+        Assert.Contains("ball-leg-curl", ids);
+        Assert.Contains("banded-standing-curl", ids);
+        Assert.Contains("trx-hamstring-curl", ids);
         Assert.Contains("hammer-curl", ids);
         Assert.Contains("hip-abduction", ids);
         Assert.Contains("plate-loaded-glute-drive", ids);
@@ -465,6 +468,9 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.NotNull(curateVariationGroup);
         Assert.Equal("tibialis-raise", curateVariationGroup!.Invoke(
             null, new object?[] { "kettlebell-tibialis-raise", "calf-raise" }));
+        Assert.Equal("leg-curl", curateVariationGroup.Invoke(null, new object?[] { "ball-leg-curl", "leg-curl" }));
+        Assert.Equal("leg-curl", curateVariationGroup.Invoke(null, new object?[] { "banded-standing-curl", "bicep-curl" }));
+        Assert.Equal("leg-curl", curateVariationGroup.Invoke(null, new object?[] { "trx-hamstring-curl", "leg-curl" }));
         Assert.DoesNotContain("crow-pose", ids);
         Assert.DoesNotContain("dumbbell-side-bend", ids);
 
@@ -614,6 +620,9 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Equal("Accessory", Pattern("leg-curl", "Curl femoral", "Leg Curl"));
         Assert.Equal("Accessory", Pattern("seated-leg-curl", "Curl femoral sentado", "Seated Leg Curl"));
         Assert.Equal("Accessory", Pattern("nordic-hamstring-curl", "Curl nórdico", "Nordic Hamstring Curl"));
+        Assert.Equal("Accessory", Pattern("ball-leg-curl", "Curl de Piernas con Pelota de Estabilidad", "Stability Ball Leg Curl"));
+        Assert.Equal("Accessory", Pattern("banded-standing-curl", "Curl de Pierna de Pie con Banda", "Banded Standing Leg Curl"));
+        Assert.Equal("Accessory", Pattern("trx-hamstring-curl", "Curl de Isquiotibiales con TRX", "TRX Hamstring Curl"));
         Assert.Equal("Hinge", Pattern("romanian-deadlift", "Peso muerto rumano", "Romanian Deadlift"));
         Assert.Equal("Hinge", Pattern("dumbbell-romanian-deadlift", "Peso muerto rumano con mancuernas", "Dumbbell Romanian Deadlift"));
     }
