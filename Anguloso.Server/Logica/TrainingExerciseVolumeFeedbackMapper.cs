@@ -19,7 +19,11 @@ public static class TrainingExerciseVolumeFeedbackMapper
         {
             var prescription = ReadPrescription(record.PrescriptionJson);
             if (prescription.Count == 0)
-                continue;
+            {
+                // A recent session without a parseable structured prescription cannot be
+                // matched safely to exercise IDs. Fail closed rather than reusing stale history.
+                return Array.Empty<TrainingExerciseVolumeExposure>();
+            }
 
             var feedbackById = ReadFeedback(record.ExerciseFeedbackJson);
             foreach (var (exerciseId, target) in prescription)
