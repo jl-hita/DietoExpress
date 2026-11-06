@@ -340,8 +340,8 @@ public static class TrainingProgramGenerator
         var slots = request.MaximumSessionDurationMinutes <= 40
             ? 1
             : request.MaximumSessionDurationMinutes <= 65
-                ? (isFullBody ? 2 : 1)
-                : (isFullBody ? 3 : 2);
+                ? 2
+                : (isFullBody ? 4 : 3);
         var allowedMuscles = title.Contains("superior", StringComparison.OrdinalIgnoreCase)
             ? UpperBodyAccessoryMuscles
             : title.Contains("inferior", StringComparison.OrdinalIgnoreCase)
