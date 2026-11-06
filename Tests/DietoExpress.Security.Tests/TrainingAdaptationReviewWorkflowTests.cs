@@ -13,10 +13,25 @@ public sealed class TrainingAdaptationReviewWorkflowTests
         const string json = """{"engineVersion":"0.6.0","exercises":[{"order":1,"exerciseId":"squat","catalogVersion":"v1","exerciseNameSnapshot":"Sentadilla","sets":3,"minRepetitions":8,"maxRepetitions":12,"targetRepetitionsInReserve":2,"restSeconds":120,"progressionRule":1,"primaryMuscleGroups":[11,10],"secondaryMuscleGroups":[12]}]}""";
         Assert.True(TrainingAdaptationPrescriptionAdjuster.TryReduceSets(json,
             new HashSet<string> { "squat" },
-            out var updatedJson, out var legacy));
+            out var updatedJson, out var legacy, out var reducedExerciseIds));
+        Assert.Equal(new[] { "squat" }, reducedExerciseIds);
         Assert.Equal(2, JsonNode.Parse(updatedJson)!["exercises"]![0]!["sets"]!.GetValue<int>());
         Assert.Contains("2 × 8-12 reps", legacy);
         Assert.Contains("Sentadilla", legacy);
+    }
+
+    [Fact]
+    public void AdjusterReportsOnlySelectedExercisesWhoseSetsWereActuallyReduced()
+    {
+        const string json = """{"exercises":[{"exerciseId":"bench","sets":3,"minRepetitions":8,"maxRepetitions":12},{"exerciseId":"plank","sets":1,"minRepetitions":8,"maxRepetitions":12}]}""";
+
+        Assert.True(TrainingAdaptationPrescriptionAdjuster.TryReduceSets(json,
+            new HashSet<string> { "bench", "plank" },
+            out var updatedJson, out _, out var reducedExerciseIds));
+
+        Assert.Equal(new[] { "bench" }, reducedExerciseIds);
+        Assert.Equal(2, JsonNode.Parse(updatedJson)!["exercises"]![0]!["sets"]!.GetValue<int>());
+        Assert.Equal(1, JsonNode.Parse(updatedJson)!["exercises"]![1]!["sets"]!.GetValue<int>());
     }
 
     [Fact]
@@ -69,6 +84,8 @@ public sealed class TrainingAdaptationReviewWorkflowTests
         Assert.Contains("s.scheduled_date > CURRENT_DATE AND s.status = 'planned'", controller);
         Assert.Contains("NOT EXISTS (SELECT 1 FROM training_session_records r WHERE r.session_id = s.id)", controller);
         Assert.Contains("TrainingAdaptationPrescriptionAdjuster.TryReduceSets", controller);
+        Assert.Contains("maximumFutureExposureReductionsPerExercise = 3", controller);
+        Assert.Contains("remainingReductions[exerciseId] - 1", controller);
         Assert.Contains("GetExerciseVolumeRecommendationsAsync", controller);
         Assert.Contains("TrainingExerciseVolumeAdapter.Evaluate", controller);
         Assert.Contains("request.TargetExerciseIds", controller);
