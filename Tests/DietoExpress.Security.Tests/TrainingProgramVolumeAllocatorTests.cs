@@ -83,8 +83,7 @@ public sealed class TrainingProgramVolumeAllocatorTests
     public void HypertrophyDefaultsUseAgreedExperienceRanges(
         TrainingExperience experience, decimal minimum, decimal maximum, decimal target)
     {
-        var targets = TrainingProgramVolumeAllocator.GetWeeklyTargets(
-            TrainingGoal.Hypertrophy, experience, null, sessionsPerWeek: 3, maximumSessionDurationMinutes: 60);
+        var targets = GetWeeklyTargets(TrainingGoal.Hypertrophy, experience, null);
 
         Assert.Equal(target, targets[TrainingMuscleGroup.Chest]);
         Assert.Equal(target, targets[TrainingMuscleGroup.Biceps]);
@@ -98,8 +97,7 @@ public sealed class TrainingProgramVolumeAllocatorTests
     public void ExplicitTwentySeriesHypertrophyTargetUsesEighteenToTwentyTwoRange()
     {
         var target = new TrainingMuscleVolumeTarget(TrainingMuscleGroup.Chest, TargetWeeklyPrimarySets: 20m);
-        var targets = TrainingProgramVolumeAllocator.GetWeeklyTargets(
-            TrainingGoal.Hypertrophy, TrainingExperience.Advanced, [target], sessionsPerWeek: 3, maximumSessionDurationMinutes: 60);
+        var targets = GetWeeklyTargets(TrainingGoal.Hypertrophy, TrainingExperience.Advanced, [target]);
 
         Assert.Equal(20m, targets[TrainingMuscleGroup.Chest]);
     }
@@ -391,6 +389,18 @@ public sealed class TrainingProgramVolumeAllocatorTests
 
         Assert.False(result.Succeeded);
         Assert.Contains(result.Errors, error => error.Contains("repite", StringComparison.Ordinal));
+    }
+
+    private static IReadOnlyDictionary<TrainingMuscleGroup, decimal> GetWeeklyTargets(
+        TrainingGoal goal,
+        TrainingExperience experience,
+        IReadOnlyList<TrainingMuscleVolumeTarget>? preferences)
+    {
+        var method = typeof(TrainingProgramVolumeAllocator).GetMethod(
+            "GetWeeklyTargets",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+        return (IReadOnlyDictionary<TrainingMuscleGroup, decimal>)method.Invoke(
+            null, [goal, experience, preferences, 3, 60])!;
     }
 
     private static TrainingSessionPrescription Session(params TrainingExercisePrescription[] exercises) =>
