@@ -152,6 +152,7 @@ public sealed class ExerciseCatalogService
         await EnsureRepDbInitialReviewAsync(cancellationToken);
         await EnsureRepDbGeneralFitnessGoalCurationV1Async(cancellationToken);
         await EnsureRepDbAccessoryPatternCurationV1Async(cancellationToken);
+        await EnsureRepDbSelectionPriorityCurationV1Async(cancellationToken);
         return result;
     }
 
@@ -1124,6 +1125,87 @@ public sealed class ExerciseCatalogService
             }
 
             await transaction.CommitAsync(cancellationToken);
+        }
+        finally
+        {
+            if (shouldClose) await connection.CloseAsync();
+        }
+    }
+
+    /// <summary>
+    /// Re-ranks untouched automatic RepDB approvals so scalable, loadable basics and
+    /// machine/cable/dumbbell isolation work win ties over assisted, banded or bodyweight variants.
+    /// Professional review decisions are never changed.
+    /// </summary>
+    private async Task EnsureRepDbSelectionPriorityCurationV1Async(CancellationToken cancellationToken)
+    {
+        const string marker = "exercise-catalog-repdb-selection-priority-v1";
+        var connection = (NpgsqlConnection)_db.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+        if (shouldClose) await connection.OpenAsync(cancellationToken);
+        try
+        {
+            await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+            await using (var check = new NpgsqlCommand(
+                "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE id = @marker)", connection, transaction))
+            {
+                Add(check, "marker", marker);
+                if (Convert.ToBoolean(await check.ExecuteScalarAsync(cancellationToken)))
+                {
+                    await transaction.CommitAsync(cancellationToken);
+                    return;
+                }
+            }
+
+            var rows = new List<(string Id, int CurrentPriority, int NewPriority)>();
+            const string selectSql = """
+                SELECT exercise_id, COALESCE(name_es, ''), COALESCE(name_en, ''),
+                       COALESCE(reviewed_movement_pattern, ''), reviewed_selection_priority
+                FROM exercise_catalog
+                WHERE source = 'repdb-free' AND owner_user_id IS NULL
+                  AND review_status = 'approved' AND reviewed = TRUE
+                  AND reviewed_by LIKE 'RepDB automatic metadata%'
+                FOR UPDATE
+                """;
+            await using (var select = new NpgsqlCommand(selectSql, connection, transaction))
+            await using (var reader = await select.ExecuteReaderAsync(cancellationToken))
+            {
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    var id = reader.GetString(0);
+                    var priority = RepDbExerciseAutoReviewer.GetSelectionPriority(
+                        id, reader.GetString(1), reader.GetString(2), reader.GetString(3));
+                    var current = reader.GetInt32(4);
+                    if (priority != current) rows.Add((id, current, priority));
+                }
+            }
+
+            const string updateSql = """
+                UPDATE exercise_catalog
+                SET reviewed_selection_priority = @priority,
+                    review_notes = CONCAT(COALESCE(review_notes, ''),
+                        ' Selection priority curation v1: preference for scalable, loadable exercise variants.'),
+                    updated_at = NOW()
+                WHERE exercise_id = @id AND source = 'repdb-free' AND owner_user_id IS NULL
+                  AND review_status = 'approved' AND reviewed = TRUE
+                  AND reviewed_by LIKE 'RepDB automatic metadata%'
+                """;
+            foreach (var row in rows)
+            {
+                await using var update = new NpgsqlCommand(updateSql, connection, transaction);
+                Add(update, "id", row.Id);
+                Add(update, "priority", row.NewPriority);
+                await update.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            await using (var mark = new NpgsqlCommand(
+                "INSERT INTO schema_migrations(id) VALUES (@marker) ON CONFLICT (id) DO NOTHING", connection, transaction))
+            {
+                Add(mark, "marker", marker);
+                await mark.ExecuteNonQueryAsync(cancellationToken);
+            }
+            await transaction.CommitAsync(cancellationToken);
+            _logger.LogInformation("RepDB selection-priority curation updated {UpdatedCount} automatic approvals.", rows.Count);
         }
         finally
         {
