@@ -305,6 +305,10 @@ public sealed class ExerciseCatalogRegressionTests
         Assert.Equal("Squat", Pattern("front-squat", "Sentadilla frontal", "Front Squat"));
         Assert.Equal("HorizontalPush", Pattern("db-bench-press", "Press de banca con mancuernas", "Dumbbell Bench Press"));
         Assert.Equal("SingleLeg", Pattern("bulgarian-split-squat", "Sentadilla búlgara", "Bulgarian Split Squat"));
+        Assert.Equal("VerticalPush", Pattern("machine-shoulder-press", "Press de hombros en máquina", "Machine Shoulder Press"));
+        Assert.Equal("Core", Pattern("cable-crunch", "Crunch con cable", "Cable Crunch"));
+        Assert.Equal("Core", Pattern("cable-pallof-press", "Press Pallof", "Cable Pallof Press"));
+        Assert.Equal("Core", Pattern("dumbbell-farmers-walk", "Caminata del granjero", "Dumbbell Farmer's Walk"));
 
         var generateInstructions = autoReviewer.GetMethod(
             "GenerateInstructionsEs", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public);
