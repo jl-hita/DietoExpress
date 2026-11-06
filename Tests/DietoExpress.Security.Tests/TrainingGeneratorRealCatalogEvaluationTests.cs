@@ -78,7 +78,6 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
             Assert.True(candidateCount >= 100,
                 $"The RepDB curation pipeline returned only {candidateCount} approved generator candidates.");
 
-            var generator = new TrainingProgramGenerator();
             foreach (var goal in Enum.GetValues<TrainingGoal>())
             foreach (var experience in Enum.GetValues<TrainingExperience>())
             foreach (var days in DaySets())
@@ -91,11 +90,11 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
                     4,
                     days,
                     durationMinutes,
+                    [],
+                    [],
                     null,
-                    [],
-                    [],
                     false);
-                var generated = generator.Generate(request, candidates);
+                var generated = TrainingProgramGenerator.Generate(request, candidates);
                 var sessions = generated.Prescription?.Sessions ?? [];
                 var maximumEstimatedMinutes = sessions.Count == 0
                     ? (int?)null
