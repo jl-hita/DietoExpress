@@ -370,7 +370,7 @@ public sealed class TrainingProgramGeneratorTests
 
         Assert.True(result.Succeeded, string.Join("; ", result.Errors));
         Assert.Contains(result.Prescription!.Sessions.SelectMany(session => session.Exercises),
-            exercise => exercise.ExerciseId == "exercise-squat");
+            exercise => exercise.ExerciseId == "squat-basic");
     }
 
     [Fact]
