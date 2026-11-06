@@ -9,6 +9,7 @@ public static class TrainingProgramGenerator
     private const decimal SecondsPerRepEstimate = 2.5m;
     private const int TransitionSecondsPerExercise = 45;
     private const int WarmupAndTransitionsMinutes = 5;
+    private const decimal QuadAccessoryGluteTargetBufferSets = 3m;
 
     public static TrainingProgramGenerationResult Generate(
         TrainingProgramGenerationRequest request,
@@ -398,16 +399,17 @@ public static class TrainingProgramGenerator
                 candidate.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Calves) &&
                 selectedThisWeek.Contains(candidate.ExerciseId));
 
-            // Squat-pattern compounds commonly train both glutes and quadriceps. When glutes
-            // are at target or within one set of it while quadriceps remain under target,
-            // prefer a direct quad accessory before adding more glute-dominant work.
+            // Squat-pattern compounds commonly train both glutes and quadriceps. The volume
+            // allocator may add several sets to those compounds later in the generation pass;
+            // reserve a direct quad accessory when glutes are within a small three-set buffer
+            // of target, so the later allocator cannot leave quads behind to avoid glute overshoot.
             var hasDirectQuadricepsAccessory = catalogCandidates.Any(candidate =>
                 candidate.MovementPattern == TrainingMovementPattern.Accessory &&
                 candidate.PrimaryMuscleGroups.Contains(TrainingMuscleGroup.Quadriceps) &&
                 selectedThisWeek.Contains(candidate.ExerciseId));
             var prioritizeQuadricepsAccessory =
                 !hasDirectQuadricepsAccessory &&
-                currentPrimaryVolume.GetValueOrDefault(TrainingMuscleGroup.Glutes) + 1m >=
+                currentPrimaryVolume.GetValueOrDefault(TrainingMuscleGroup.Glutes) + QuadAccessoryGluteTargetBufferSets >=
                     targets.GetValueOrDefault(TrainingMuscleGroup.Glutes) &&
                 currentPrimaryVolume.GetValueOrDefault(TrainingMuscleGroup.Quadriceps) <
                     targets.GetValueOrDefault(TrainingMuscleGroup.Quadriceps) &&
