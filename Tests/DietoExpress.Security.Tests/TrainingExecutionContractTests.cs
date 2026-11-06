@@ -47,6 +47,9 @@ public sealed class TrainingExecutionContractTests
         Assert.Contains("stable exercise ID", progressionService);
         Assert.Contains("smallestLoadIncrementKg", progressionService);
         Assert.Contains("existing.outcome IS NOT NULL", progressionService);
+        Assert.Contains("progressionEligibility", progressionService);
+        Assert.Contains("ProgressionEligible", progressionService);
+        Assert.Contains("ParseProgressionRule(item) == TrainingProgressionRule.DoubleProgression", progressionService);
     }
 
     [Fact]
