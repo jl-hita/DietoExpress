@@ -70,13 +70,7 @@ public static class TrainingProgramVolumeAllocator
             var primaryVolume = CalculateEffectiveVolume(weekSessions);
 
             foreach (var muscle in applicableTargets.Keys.Where(muscle => !stimulatedMuscles.Contains(muscle)))
-                warnings.Add($"Semana {week}: no hay ningún ejercicio aprobado con estímulo suficiente para {muscle}; no se inventa cobertura a partir de una participación incidental.");
-
-            foreach (var preference in preferences ?? Array.Empty<TrainingMuscleVolumeTarget>())
-            {
-                if (!stimulatedMuscles.Contains(preference.MuscleGroup))
-                    warnings.Add($"Semana {week}: no hay ningún ejercicio aprobado con estímulo suficiente para {preference.MuscleGroup}; no se inventa cobertura a partir de una participación incidental.");
-            }
+                warnings.Add($"Semana {week}: no hay ningún ejercicio disponible con estímulo suficiente para {muscle}; no se inventa cobertura a partir de una participación incidental.");
 
             // Greedy allocation chooses the exercise that best addresses the largest remaining
             // normalized muscle deficit, while respecting per-exercise and per-session limits.
