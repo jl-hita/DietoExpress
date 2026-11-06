@@ -219,7 +219,8 @@ internal static class TrainingExerciseStimulus
             ["one-arm-seated-cable-row"] = [TrainingMuscleGroup.Biceps, TrainingMuscleGroup.Lats],
             ["lat-pulldown"] = [TrainingMuscleGroup.Biceps],
             ["v-bar-lat-pulldown"] = [TrainingMuscleGroup.Biceps],
-            ["assisted-pull-ups"] = [TrainingMuscleGroup.Biceps],
+            ["assisted-pull-ups"] = [TrainingMuscleGroup.Biceps, TrainingMuscleGroup.Lats],
+            ["band-assisted-pull-ups"] = [TrainingMuscleGroup.Biceps, TrainingMuscleGroup.Lats],
             ["pull-up"] = [TrainingMuscleGroup.Biceps],
             ["chin-ups"] = [TrainingMuscleGroup.Biceps],
 
