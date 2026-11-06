@@ -290,6 +290,10 @@ public sealed class TrainingGeneratorRealCatalogEvaluationTests
         Assert.Equal(81, report.ScenarioCount);
         Assert.Equal(report.ScenarioCount, report.SuccessfulScenarios);
         Assert.Equal(0, report.GenerationErrorCount);
+        Assert.Equal(report.CatalogTotal, report.CatalogApproved);
+        Assert.Equal(0, report.CatalogPending);
+        Assert.Equal(0, report.CatalogRejected);
+        Assert.Equal(report.CatalogTotal, report.GeneratorCandidateCount);
         Assert.Empty(report.CatalogImageMissingIds);
         Assert.All(scenarioResults, result =>
         {
