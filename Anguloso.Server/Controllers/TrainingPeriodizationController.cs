@@ -1720,13 +1720,24 @@ public sealed class TrainingPeriodizationController : ControllerBase
             while (await reader.ReadAsync(cancellationToken))
                 rows.Add((reader.GetInt32(0), reader.GetString(1), reader.IsDBNull(2) ? null : reader.GetString(2)));
 
+        const int maximumFutureExposureReductionsPerExercise = 3;
+        var remainingReductions = selectedExerciseIds.ToDictionary(
+            exerciseId => exerciseId, _ => maximumFutureExposureReductionsPerExercise, StringComparer.Ordinal);
         var changed = 0;
         foreach (var row in rows)
         {
+            var eligibleExerciseIds = remainingReductions
+                .Where(item => item.Value > 0)
+                .Select(item => item.Key)
+                .ToHashSet(StringComparer.Ordinal);
+            if (eligibleExerciseIds.Count == 0)
+                break;
+
             if (!TrainingAdaptationPrescriptionAdjuster.TryReduceSets(
-                    row.Json, selectedExerciseIds, out var updatedJson, out var updatedText))
+                    row.Json, eligibleExerciseIds, out var updatedJson, out var updatedText, out var reducedExerciseIds))
                 continue;
-            var note = $"Adaptación aprobada por profesional (propuesta #{proposalId}): reducción de una serie en los ejercicios seleccionados por ID estable ({string.Join(", ", selectedExerciseIds)}).";
+
+            var note = $"Adaptación aprobada por profesional (propuesta #{proposalId}): reducción de una serie durante un máximo de tres exposiciones futuras por ejercicio ({string.Join(", ", reducedExerciseIds)}).";
             var instructions = string.IsNullOrWhiteSpace(row.Instructions) ? note : $"{row.Instructions.Trim()}\n{note}";
             await using var update = CreateCommand("""
                 UPDATE training_sessions
@@ -1737,7 +1748,13 @@ public sealed class TrainingPeriodizationController : ControllerBase
                   AND NOT EXISTS (SELECT 1 FROM training_session_records r WHERE r.session_id = training_sessions.id)
                 """, transaction, ("json", updatedJson), ("prescription", updatedText),
                 ("instructions", instructions), ("sessionId", row.Id));
-            changed += await update.ExecuteNonQueryAsync(cancellationToken);
+            var affected = await update.ExecuteNonQueryAsync(cancellationToken);
+            changed += affected;
+            if (affected > 0)
+            {
+                foreach (var exerciseId in reducedExerciseIds)
+                    remainingReductions[exerciseId] = Math.Max(0, remainingReductions[exerciseId] - 1);
+            }
         }
         return changed;
     }
